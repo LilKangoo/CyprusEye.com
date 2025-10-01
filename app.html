@@ -115,17 +115,6 @@
       >
         ✅ Zadania do wykonania
       </button>
-      <button
-        type="button"
-        class="header-tab"
-        id="headerCommunityTab"
-        role="tab"
-        aria-selected="false"
-        aria-controls="communityView"
-        tabindex="-1"
-      >
-        🤝 Strefa społeczności
-      </button>
     </nav>
   </header>
 
@@ -380,41 +369,6 @@
         <li>Kontakt z nami prosto z aplikacji – kliknij przycisk poniżej.</li>
       </ul>
       <a class="primary" href="https://wakacjecypr.com" target="_blank" rel="noopener">Poznaj nasze usługi</a>
-    </section>
-
-    <section
-      id="communityView"
-      class="community-view app-view"
-      role="tabpanel"
-      aria-labelledby="headerCommunityTab"
-      hidden
-    >
-      <div class="community-hero">
-        <div>
-          <h2>Strefa społeczności</h2>
-          <p>Zobacz, co odkryli inni podróżnicy i dodaj własne wskazówki do cypryjskiego dziennika.</p>
-        </div>
-        <div class="community-hero-actions">
-          <button type="button" class="secondary" id="openAdventureFromCommunity">Wróć do mapy</button>
-          <button type="button" class="primary" id="openJournalFormFromCommunity">Dodaj swój wpis</button>
-        </div>
-      </div>
-      <section class="community-notifications surface-card" id="notificationsFeedSection" aria-live="polite">
-        <div class="community-notifications-header">
-          <h3>Powiadomienia</h3>
-          <button type="button" class="ghost" id="notificationsFeedMarkAll">Oznacz wszystko jako przeczytane</button>
-        </div>
-        <p id="notificationsFeedEmpty" class="notifications-empty">
-          Zaloguj się, aby otrzymywać powiadomienia o polubieniach i komentarzach społeczności.
-        </p>
-        <ul id="notificationsFeedList" class="notifications-list" role="list"></ul>
-      </section>
-      <div class="community-feed" aria-live="polite" id="communityFeed">
-        <p id="communityJournalEmptyMessage" class="journal-empty-message">
-          Społeczność jeszcze nie podzieliła się wskazówkami. Bądź pierwszą osobą i dodaj inspirujący wpis!
-        </p>
-        <ul id="communityJournalList" class="journal-entries community-journal-list" aria-live="polite"></ul>
-      </div>
     </section>
 
     <section
