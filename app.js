@@ -1132,6 +1132,8 @@ const APP_BASE_PATH = resolveAppBasePath();
 const API_BASE_URL = `${APP_BASE_PATH || ''}/api`;
 const COMMUNITY_JOURNAL_API_URL = `${API_BASE_URL}/community/journal`;
 const COMMUNITY_JOURNAL_STREAM_URL = `${COMMUNITY_JOURNAL_API_URL}/stream`;
+const REVIEWS_API_URL = `${API_BASE_URL}/reviews`;
+const REVIEWS_STREAM_URL = `${REVIEWS_API_URL}/stream`;
 const ADVENTURE_VIEW_ID = 'adventureView';
 const COMMUNITY_VIEW_ID = 'communityView';
 const PACKING_VIEW_ID = 'packingView';
@@ -1147,6 +1149,7 @@ const TRIP_PLANNER_TRAVEL_SPEED_KMH = 45;
 const TRIP_PLANNER_STOP_DURATION_HOURS = 1.5;
 const TRIP_PLANNER_MULTIPLIER_STEP = 0.25;
 const TRIP_PLANNER_MAX_MULTIPLIER = 2;
+const REALTIME_REFRESH_INTERVAL_MS = 2 * 60 * 1000;
 
 function resolveAppBasePath() {
   try {
@@ -1211,6 +1214,10 @@ let journalEntries = [];
 let editingJournalEntryId = null;
 let journalEventSource = null;
 let journalStreamReconnectTimeout = null;
+let reviewsEventSource = null;
+let reviewsStreamReconnectTimeout = null;
+let realtimeRefreshIntervalId = null;
+let realtimeResyncInitialized = false;
 let notificationsByUser = {};
 let notificationsPanelOpen = false;
 
@@ -1526,6 +1533,76 @@ function persistAccounts() {
   }
 }
 
+function sanitizeReviewItem(raw, { placeId } = {}) {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const resolvedPlaceId =
+    typeof raw.placeId === 'string' && raw.placeId.trim() ? raw.placeId.trim() : placeId;
+  if (!resolvedPlaceId) {
+    return null;
+  }
+
+  const userKey = typeof raw.userKey === 'string' ? raw.userKey.trim() : '';
+  if (!userKey) {
+    return null;
+  }
+
+  const ratingValue = Number(raw.rating);
+  if (!Number.isFinite(ratingValue)) {
+    return null;
+  }
+  const rating = Math.max(1, Math.min(5, Math.round(ratingValue)));
+
+  const username =
+    typeof raw.username === 'string' && raw.username.trim()
+      ? raw.username.trim().slice(0, 120)
+      : 'Gracz';
+
+  const comment =
+    typeof raw.comment === 'string' && raw.comment.trim()
+      ? raw.comment.trim().slice(0, REVIEW_COMMENT_MAX_LENGTH)
+      : '';
+
+  let photoDataUrl = null;
+  if (typeof raw.photoDataUrl === 'string') {
+    const trimmedPhoto = raw.photoDataUrl.trim();
+    if (trimmedPhoto.startsWith('data:image/')) {
+      photoDataUrl = trimmedPhoto;
+    }
+  }
+
+  const createdAtRaw = typeof raw.createdAt === 'string' ? raw.createdAt : '';
+  const createdTimestamp = Date.parse(createdAtRaw);
+  const createdAt = Number.isFinite(createdTimestamp)
+    ? new Date(createdTimestamp).toISOString()
+    : new Date().toISOString();
+
+  const updatedAtRaw = typeof raw.updatedAt === 'string' ? raw.updatedAt : '';
+  const updatedTimestamp = Date.parse(updatedAtRaw);
+  const updatedAt = Number.isFinite(updatedTimestamp)
+    ? new Date(updatedTimestamp).toISOString()
+    : createdAt;
+
+  const id =
+    typeof raw.id === 'string' && raw.id.trim()
+      ? raw.id.trim()
+      : `${resolvedPlaceId}-${userKey}-${Math.random().toString(36).slice(2, 10)}`;
+
+  return {
+    id,
+    placeId: resolvedPlaceId,
+    userKey,
+    username,
+    rating,
+    comment,
+    photoDataUrl,
+    createdAt,
+    updatedAt,
+  };
+}
+
 function loadReviewsFromStorage() {
   try {
     const raw = localStorage.getItem(REVIEWS_STORAGE_KEY);
@@ -1547,35 +1624,7 @@ function loadReviewsFromStorage() {
       }
 
       const normalized = items
-        .map((item) => {
-          if (!item || typeof item !== 'object') return null;
-
-          const userKey = typeof item.userKey === 'string' ? item.userKey : null;
-          const ratingValue = Number(item.rating);
-          if (!userKey || !Number.isFinite(ratingValue)) return null;
-
-          const rating = Math.max(1, Math.min(5, Math.round(ratingValue)));
-          const createdAt =
-            typeof item.createdAt === 'string' && item.createdAt
-              ? item.createdAt
-              : new Date().toISOString();
-          const updatedAt = typeof item.updatedAt === 'string' ? item.updatedAt : undefined;
-
-          return {
-            id:
-              typeof item.id === 'string'
-                ? item.id
-                : `${placeId}-${userKey}-${Math.random().toString(36).slice(2)}`,
-            placeId,
-            userKey,
-            username: typeof item.username === 'string' ? item.username : 'Gracz',
-            rating,
-            comment: typeof item.comment === 'string' ? item.comment : '',
-            photoDataUrl: typeof item.photoDataUrl === 'string' ? item.photoDataUrl : null,
-            createdAt,
-            updatedAt,
-          };
-        })
+        .map((item) => sanitizeReviewItem(item, { placeId }))
         .filter(Boolean)
         .sort((a, b) => {
           const aDate = new Date(a.updatedAt || a.createdAt || 0).getTime();
@@ -2229,11 +2278,24 @@ function connectJournalRealtimeUpdates() {
     }
   });
 
+  journalEventSource.addEventListener('journal-entry-updated', (event) => {
+    try {
+      const payload = JSON.parse(event.data);
+      if (payload?.entry) {
+        mergeJournalEntries([payload.entry]);
+      }
+    } catch (error) {
+      console.error('Nie udało się przetworzyć aktualizacji wpisu społeczności:', error);
+    }
+  });
+
   journalEventSource.addEventListener('open', () => {
     if (journalStreamReconnectTimeout !== null) {
       window.clearTimeout(journalStreamReconnectTimeout);
       journalStreamReconnectTimeout = null;
     }
+
+    void refreshJournalEntriesFromServer();
   });
 
   journalEventSource.addEventListener('error', () => {
@@ -2285,44 +2347,151 @@ async function createCommunityJournalEntry(payload) {
   return data.entry;
 }
 
+async function submitReview(placeId, payload) {
+  const response = await fetch(REVIEWS_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Accept: 'application/json',
+    },
+    credentials: 'same-origin',
+    body: JSON.stringify({ ...payload, placeId }),
+  });
+
+  if (!response.ok) {
+    let errorMessage = `Serwer zwrócił kod ${response.status}.`;
+    try {
+      const errorBody = await response.json();
+      if (errorBody && typeof errorBody.error === 'string') {
+        errorMessage = errorBody.error;
+      }
+    } catch (parseError) {
+      // pomijamy – odpowiedź nie jest JSON-em
+    }
+    throw new Error(errorMessage);
+  }
+
+  const data = await response.json();
+  if (!data || typeof data !== 'object' || !data.review) {
+    throw new Error('Brak danych opinii w odpowiedzi serwera.');
+  }
+
+  return data.review;
+}
+
+async function submitJournalComment(entryId, payload) {
+  const response = await fetch(
+    `${COMMUNITY_JOURNAL_API_URL}/${encodeURIComponent(entryId)}/comments`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!response.ok) {
+    let errorMessage = `Serwer zwrócił kod ${response.status}.`;
+    try {
+      const errorBody = await response.json();
+      if (errorBody && typeof errorBody.error === 'string') {
+        errorMessage = errorBody.error;
+      }
+    } catch (parseError) {
+      // pomijamy – odpowiedź nie jest JSON-em
+    }
+    throw new Error(errorMessage);
+  }
+
+  const data = await response.json();
+  if (!data || typeof data !== 'object' || !data.entry) {
+    throw new Error('Brak danych wpisu w odpowiedzi serwera.');
+  }
+
+  return data;
+}
+
+async function updateJournalEntryLikeOnServer(entryId, payload) {
+  const response = await fetch(
+    `${COMMUNITY_JOURNAL_API_URL}/${encodeURIComponent(entryId)}/likes`,
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      credentials: 'same-origin',
+      body: JSON.stringify(payload),
+    },
+  );
+
+  if (!response.ok) {
+    let errorMessage = `Serwer zwrócił kod ${response.status}.`;
+    try {
+      const errorBody = await response.json();
+      if (errorBody && typeof errorBody.error === 'string') {
+        errorMessage = errorBody.error;
+      }
+    } catch (parseError) {
+      // pomijamy – odpowiedź nie jest JSON-em
+    }
+    throw new Error(errorMessage);
+  }
+
+  const data = await response.json();
+  if (!data || typeof data !== 'object' || !data.entry) {
+    throw new Error('Brak danych wpisu w odpowiedzi serwera.');
+  }
+
+  return data;
+}
+
 function getReviewsForPlace(placeId) {
   if (!placeId) return [];
   const list = reviews?.[placeId];
   return Array.isArray(list) ? list : [];
 }
 
-function upsertReview(placeId, payload) {
-  if (!placeId || !payload || typeof payload !== 'object') return;
+function upsertReview(placeId, payload, options = {}) {
+  if (!placeId || !payload || typeof payload !== 'object') {
+    return false;
+  }
+
+  const { persist = true, render = true } = options;
+  const review = sanitizeReviewItem(payload, { placeId });
+  if (!review) {
+    return false;
+  }
 
   const existing = Array.isArray(reviews[placeId]) ? [...reviews[placeId]] : [];
-  const index = existing.findIndex((item) => item.userKey === payload.userKey);
-  const timestamp = new Date().toISOString();
+  const index = existing.findIndex(
+    (item) => item.id === review.id || item.userKey === review.userKey,
+  );
+  let changed = false;
 
   if (index >= 0) {
-    const previous = existing[index];
-    existing[index] = {
-      ...previous,
-      ...payload,
-      id: previous.id,
-      placeId,
-      createdAt: previous.createdAt || timestamp,
-      updatedAt: timestamp,
-    };
+    const current = existing[index];
+    const currentTimestamp = Date.parse(current?.updatedAt || current?.createdAt || 0);
+    const incomingTimestamp = Date.parse(review.updatedAt || review.createdAt || 0);
+    if (
+      !Number.isFinite(currentTimestamp) ||
+      !Number.isFinite(incomingTimestamp) ||
+      incomingTimestamp >= currentTimestamp ||
+      JSON.stringify(current) !== JSON.stringify(review)
+    ) {
+      existing[index] = review;
+      changed = true;
+    }
   } else {
-    existing.push({
-      id:
-        typeof payload.id === 'string'
-          ? payload.id
-          : `${placeId}-${payload.userKey}-${Date.now()}`,
-      placeId,
-      userKey: payload.userKey,
-      username: payload.username || 'Gracz',
-      rating: payload.rating,
-      comment: payload.comment || '',
-      photoDataUrl: payload.photoDataUrl || null,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    });
+    existing.push(review);
+    changed = true;
+  }
+
+  if (!changed) {
+    return false;
   }
 
   existing.sort((a, b) => {
@@ -2332,7 +2501,170 @@ function upsertReview(placeId, payload) {
   });
 
   reviews[placeId] = existing;
-  persistReviews();
+
+  if (persist) {
+    persistReviews();
+  }
+
+  if (render && state.selected?.id === placeId) {
+    const place = getPlaceById(placeId);
+    if (place) {
+      renderReviewsSection(place);
+    }
+  }
+
+  return true;
+}
+
+function mergeReviewsData(data) {
+  if (!data || typeof data !== 'object') {
+    return false;
+  }
+
+  let changed = false;
+
+  Object.entries(data).forEach(([placeId, items]) => {
+    if (!Array.isArray(items)) {
+      return;
+    }
+
+    items.forEach((item) => {
+      if (upsertReview(placeId, item, { persist: false, render: false })) {
+        changed = true;
+      }
+    });
+  });
+
+  if (changed) {
+    persistReviews();
+    if (state.selected) {
+      const place = getPlaceById(state.selected.id);
+      if (place) {
+        renderReviewsSection(place);
+      }
+    }
+  }
+
+  return changed;
+}
+
+async function refreshReviewsFromServer() {
+  try {
+    const response = await fetch(REVIEWS_API_URL, {
+      headers: {
+        Accept: 'application/json',
+      },
+      credentials: 'same-origin',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Żądanie nie powiodło się z kodem ${response.status}.`);
+    }
+
+    const data = await response.json();
+    if (data && typeof data === 'object' && data.reviews) {
+      mergeReviewsData(data.reviews);
+    }
+  } catch (error) {
+    console.error('Nie udało się zsynchronizować opinii:', error);
+  }
+}
+
+function connectReviewsRealtimeUpdates() {
+  if (typeof EventSource === 'undefined') {
+    return;
+  }
+
+  if (reviewsEventSource) {
+    return;
+  }
+
+  try {
+    reviewsEventSource = new EventSource(REVIEWS_STREAM_URL);
+  } catch (error) {
+    console.error('Nie udało się nawiązać połączenia z kanałem opinii:', error);
+    reviewsEventSource = null;
+    return;
+  }
+
+  reviewsEventSource.addEventListener('review-upserted', (event) => {
+    try {
+      const payload = JSON.parse(event.data);
+      if (payload?.review) {
+        upsertReview(payload.review.placeId, payload.review);
+      }
+    } catch (error) {
+      console.error('Nie udało się przetworzyć aktualizacji opinii:', error);
+    }
+  });
+
+  reviewsEventSource.addEventListener('open', () => {
+    if (reviewsStreamReconnectTimeout !== null) {
+      window.clearTimeout(reviewsStreamReconnectTimeout);
+      reviewsStreamReconnectTimeout = null;
+    }
+
+    void refreshReviewsFromServer();
+  });
+
+  reviewsEventSource.addEventListener('error', () => {
+    if (reviewsEventSource) {
+      reviewsEventSource.close();
+      reviewsEventSource = null;
+    }
+
+    if (reviewsStreamReconnectTimeout !== null) {
+      return;
+    }
+
+    reviewsStreamReconnectTimeout = window.setTimeout(() => {
+      reviewsStreamReconnectTimeout = null;
+      connectReviewsRealtimeUpdates();
+    }, 5000);
+  });
+}
+
+function triggerRealtimeRefresh() {
+  void refreshJournalEntriesFromServer();
+  void refreshReviewsFromServer();
+  connectJournalRealtimeUpdates();
+  connectReviewsRealtimeUpdates();
+}
+
+function initializeRealtimeResyncTriggers() {
+  if (realtimeResyncInitialized) {
+    return;
+  }
+
+  realtimeResyncInitialized = true;
+
+  if (typeof document !== 'undefined') {
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') {
+        triggerRealtimeRefresh();
+      }
+    });
+  }
+
+  if (typeof window !== 'undefined') {
+    window.addEventListener('online', () => {
+      triggerRealtimeRefresh();
+    });
+  }
+}
+
+function startRealtimeRefreshLoop() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (realtimeRefreshIntervalId !== null) {
+    return;
+  }
+
+  realtimeRefreshIntervalId = window.setInterval(() => {
+    triggerRealtimeRefresh();
+  }, REALTIME_REFRESH_INTERVAL_MS);
 }
 
 function getAccount(key) {
@@ -4045,25 +4377,49 @@ async function handleReviewFormSubmit(event) {
   const account = getAccount(currentUserKey);
   const username = account?.username || 'Gracz';
 
-  upsertReview(placeId, {
-    userKey: currentUserKey,
-    username,
-    rating: clampedRating,
-    comment,
-    photoDataUrl,
-  });
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const originalSubmitText =
+    submitBtn instanceof HTMLButtonElement ? submitBtn.textContent || '' : '';
 
-  form.dataset.removePhoto = 'false';
-  form.dataset.hasExistingPhoto = photoDataUrl ? 'true' : 'false';
-
-  const place = places.find((item) => item.id === placeId);
-  if (place) {
-    renderReviewsSection(place);
+  if (submitBtn instanceof HTMLButtonElement) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = existing ? 'Aktualizuję opinię…' : 'Publikuję opinię…';
   }
 
+  setReviewFormMessage(existing ? 'Aktualizuję Twoją opinię…' : 'Publikuję Twoją opinię…', 'info');
+
+  let savedReview;
+  try {
+    savedReview = await submitReview(placeId, {
+      userKey: currentUserKey,
+      username,
+      rating: clampedRating,
+      comment,
+      photoDataUrl,
+    });
+  } catch (error) {
+    console.error('Nie udało się zapisać opinii:', error);
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : 'Nie udało się zapisać opinii. Spróbuj ponownie.';
+    setReviewFormMessage(message, 'error');
+
+    if (submitBtn instanceof HTMLButtonElement) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalSubmitText || 'Dodaj opinię';
+    }
+    return;
+  }
+
+  upsertReview(placeId, savedReview);
+
+  form.dataset.removePhoto = 'false';
+  form.dataset.hasExistingPhoto = savedReview.photoDataUrl ? 'true' : 'false';
+
   const reviewXp = applyReviewRewardProgress(placeId, {
-    hasComment,
-    hasPhoto: Boolean(photoDataUrl),
+    hasComment: Boolean(savedReview.comment),
+    hasPhoto: Boolean(savedReview.photoDataUrl),
   });
 
   if (reviewXp > 0) {
@@ -4074,6 +4430,11 @@ async function handleReviewFormSubmit(event) {
 
   if (photoInput instanceof HTMLInputElement) {
     photoInput.value = '';
+  }
+
+  if (submitBtn instanceof HTMLButtonElement) {
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Zaktualizuj opinię';
   }
 
   if (reviewXp > 0) {
@@ -5342,7 +5703,7 @@ function handleJournalEntryDelete(entryId) {
   setLevelStatus('Wpis został usunięty z dziennika.', 6000);
 }
 
-function toggleJournalEntryLike(entryId) {
+async function toggleJournalEntryLike(entryId) {
   if (!entryId) return;
 
   if (!currentUserKey) {
@@ -5360,37 +5721,55 @@ function toggleJournalEntryLike(entryId) {
     return;
   }
 
-  const likedBy = Array.isArray(entry.likedBy) ? [...entry.likedBy] : [];
-  const existingIndex = likedBy.indexOf(currentUserKey);
-  let message = '';
+  const likedBy = Array.isArray(entry.likedBy) ? entry.likedBy : [];
+  const hasLiked = likedBy.includes(currentUserKey);
+  const desiredState = !hasLiked;
 
-  if (existingIndex >= 0) {
-    likedBy.splice(existingIndex, 1);
-    message = 'Cofnięto polubienie wpisu.';
-  } else {
-    likedBy.push(currentUserKey);
-    message = 'Polubiłeś ten wpis społeczności!';
-    if (entry.userKey && entry.userKey !== currentUserKey) {
-      addNotificationForUser(entry.userKey, {
-        type: 'like',
-        entryId,
-        actorKey: currentUserKey,
-        actorName: getCurrentDisplayName(),
-        message: `${getCurrentDisplayName()} polubił Twój wpis „${getEntryNotificationTitle(entry)}”.`,
-      });
-    }
+  let response;
+  try {
+    response = await updateJournalEntryLikeOnServer(entryId, {
+      userKey: currentUserKey,
+      like: desiredState,
+    });
+  } catch (error) {
+    console.error('Nie udało się zaktualizować polubienia wpisu:', error);
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : 'Nie udało się zapisać polubienia. Spróbuj ponownie.';
+    setLevelStatus(message, 5000);
+    return;
   }
 
-  journalEntries[index] = { ...entry, likedBy };
-  persistJournalEntries();
-  renderJournalEntries();
+  if (response?.entry) {
+    mergeJournalEntries([response.entry]);
+  }
+
+  const updatedEntry = journalEntries.find((item) => item.id === entryId);
+  if (!updatedEntry) {
+    return;
+  }
+
+  const liked = typeof response?.liked === 'boolean' ? response.liked : desiredState;
+  let message = liked ? 'Polubiłeś ten wpis społeczności!' : 'Cofnięto polubienie wpisu.';
+
+  if (liked && updatedEntry.userKey && updatedEntry.userKey !== currentUserKey) {
+    const actorName = getCurrentDisplayName();
+    addNotificationForUser(updatedEntry.userKey, {
+      type: 'like',
+      entryId,
+      actorKey: currentUserKey,
+      actorName,
+      message: `${actorName} polubił Twój wpis „${getEntryNotificationTitle(updatedEntry)}”.`,
+    });
+  }
 
   if (message) {
     setLevelStatus(message, 4000);
   }
 }
 
-function handleJournalCommentSubmit(event, entryId, parentCommentId = null) {
+async function handleJournalCommentSubmit(event, entryId, parentCommentId = null) {
   event.preventDefault();
 
   if (!entryId) {
@@ -5436,44 +5815,40 @@ function handleJournalCommentSubmit(event, entryId, parentCommentId = null) {
     return;
   }
 
-  const timestamp = new Date().toISOString();
-  const comment = {
-    id: `comment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    text,
-    createdAt: timestamp,
-    userKey: currentUserKey,
-    username: getCurrentDisplayName(),
-    updatedAt: timestamp,
-    replies: [],
-  };
+  const submitBtn = form.querySelector('button[type="submit"]');
+  const originalText = submitBtn instanceof HTMLButtonElement ? submitBtn.textContent || '' : '';
 
-  const existingComments = Array.isArray(entry.comments) ? entry.comments : [];
-  let updatedComments;
-  let parentComment = null;
-
-  if (parentCommentId) {
-    const parentExists = findCommentInTree(existingComments, parentCommentId);
-    if (!parentExists) {
-      setLevelStatus('Nie udało się odnaleźć komentarza do odpowiedzi.', 4000);
-      return;
-    }
-
-    const result = appendReplyToComment(existingComments, parentCommentId, comment);
-    if (!result.updated) {
-      setLevelStatus('Nie udało się dodać odpowiedzi. Odśwież stronę i spróbuj ponownie.', 5000);
-      return;
-    }
-    updatedComments = result.comments;
-    parentComment = result.updated;
-  } else {
-    updatedComments = [...existingComments, comment];
+  if (submitBtn instanceof HTMLButtonElement) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = parentCommentId ? 'Dodaję odpowiedź…' : 'Dodaję komentarz…';
   }
 
-  const updatedEntry = { ...entry, comments: updatedComments, updatedAt: timestamp };
+  let response;
+  try {
+    response = await submitJournalComment(entryId, {
+      text,
+      parentCommentId,
+      userKey: currentUserKey,
+      username: getCurrentDisplayName(),
+    });
+  } catch (error) {
+    console.error('Nie udało się dodać komentarza społeczności:', error);
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : 'Nie udało się dodać komentarza. Spróbuj ponownie.';
+    setLevelStatus(message, 5000);
 
-  journalEntries[index] = updatedEntry;
-  persistJournalEntries();
-  renderJournalEntries();
+    if (submitBtn instanceof HTMLButtonElement) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = originalText || (parentCommentId ? 'Dodaj odpowiedź' : 'Dodaj komentarz');
+    }
+    return;
+  }
+
+  if (response?.entry) {
+    mergeJournalEntries([response.entry]);
+  }
 
   if (textarea) {
     textarea.value = '';
@@ -5483,14 +5858,18 @@ function handleJournalCommentSubmit(event, entryId, parentCommentId = null) {
     form.hidden = true;
   }
 
+  const updatedEntry = journalEntries.find((item) => item.id === entryId);
   const message = parentCommentId
     ? 'Twoja odpowiedź została opublikowana!'
     : 'Twój komentarz został dodany do rozmowy!';
   setLevelStatus(message, 5000);
 
   const actorName = getCurrentDisplayName();
-  const entryOwner = entry.userKey;
-  const entryTitle = getEntryNotificationTitle(entry);
+  const entryOwner = updatedEntry?.userKey;
+  const entryTitle = getEntryNotificationTitle(updatedEntry);
+  const parentComment = parentCommentId
+    ? findCommentInTree(updatedEntry?.comments, parentCommentId)
+    : null;
 
   if (parentCommentId) {
     const parentOwner = parentComment?.userKey;
@@ -5521,6 +5900,11 @@ function handleJournalCommentSubmit(event, entryId, parentCommentId = null) {
       actorName,
       message: `${actorName} skomentował Twój wpis „${entryTitle}”.`,
     });
+  }
+
+  if (submitBtn instanceof HTMLButtonElement) {
+    submitBtn.disabled = false;
+    submitBtn.textContent = parentCommentId ? 'Dodaj odpowiedź' : 'Dodaj komentarz';
   }
 }
 
@@ -6727,7 +7111,11 @@ function bootstrap() {
   initializeNotifications();
   reviews = loadReviewsFromStorage();
   initializeReviewUI();
+  refreshReviewsFromServer();
+  connectReviewsRealtimeUpdates();
   initializeJournalUI();
+  initializeRealtimeResyncTriggers();
+  startRealtimeRefreshLoop();
   loadProgress();
   restoreSelectedPlaceFromStorage();
   initializeTripPlannerUI();

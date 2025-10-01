@@ -10,9 +10,13 @@ const DATA_DIR_PATH = path.join(__dirname, 'data');
 const DATA_FILE_PATH = path.join(DATA_DIR_PATH, 'users.json');
 const SPREADSHEET_FILE_PATH = path.join(DATA_DIR_PATH, 'users.csv');
 const COMMUNITY_JOURNAL_FILE_PATH = path.join(DATA_DIR_PATH, 'community-journal.json');
+const REVIEWS_FILE_PATH = path.join(DATA_DIR_PATH, 'reviews.json');
 const PASSWORD_RESET_URL = process.env.PASSWORD_RESET_URL || 'http://localhost:3000/reset-password';
 const PASSWORD_RESET_TOKEN_TTL_MS = Number(process.env.PASSWORD_RESET_TOKEN_TTL_MS || 1000 * 60 * 60);
 const BASE_PATH = normalizeBasePath(process.env.BASE_PATH || '/');
+const JOURNAL_COMMENT_MAX_LENGTH = 400;
+const REVIEW_COMMENT_MAX_LENGTH = 2000;
+const REVIEW_MAX_DATA_URL_LENGTH = 6_000_000; // ok. ~4.5 MB danych zdjęcia w base64
 
 function jsonResponse(res, statusCode, data) {
   const body = JSON.stringify(data);
@@ -78,6 +82,16 @@ async function ensureCommunityJournalFile() {
   }
 }
 
+async function ensureReviewsFile() {
+  await fs.mkdir(DATA_DIR_PATH, { recursive: true });
+  try {
+    await fs.access(REVIEWS_FILE_PATH);
+  } catch (error) {
+    const initialData = { reviews: {} };
+    await fs.writeFile(REVIEWS_FILE_PATH, JSON.stringify(initialData, null, 2), 'utf-8');
+  }
+}
+
 async function readData() {
   await ensureDataFile();
   const file = await fs.readFile(DATA_FILE_PATH, 'utf-8');
@@ -108,6 +122,28 @@ async function writeCommunityJournal(data) {
     entries: Array.isArray(data?.entries) ? data.entries : [],
   };
   await fs.writeFile(COMMUNITY_JOURNAL_FILE_PATH, JSON.stringify(payload, null, 2), 'utf-8');
+}
+
+async function readReviews() {
+  await ensureReviewsFile();
+  try {
+    const file = await fs.readFile(REVIEWS_FILE_PATH, 'utf-8');
+    const parsed = JSON.parse(file);
+    if (!parsed || typeof parsed !== 'object' || typeof parsed.reviews !== 'object' || parsed.reviews === null) {
+      return { reviews: {} };
+    }
+    return { reviews: parsed.reviews };
+  } catch (error) {
+    console.error('Nie udało się wczytać opinii o miejscach:', error);
+    return { reviews: {} };
+  }
+}
+
+async function writeReviews(data) {
+  const payload = {
+    reviews: typeof data?.reviews === 'object' && data.reviews !== null ? data.reviews : {},
+  };
+  await fs.writeFile(REVIEWS_FILE_PATH, JSON.stringify(payload, null, 2), 'utf-8');
 }
 
 async function parseRequestBody(req) {
@@ -333,9 +369,13 @@ const routes = {
   'GET /api/community/journal': handleListCommunityJournal,
   'POST /api/community/journal': handleCreateCommunityJournal,
   'GET /api/community/journal/stream': handleCommunityJournalStream,
+  'GET /api/reviews': handleListReviews,
+  'POST /api/reviews': handleUpsertReview,
+  'GET /api/reviews/stream': handleReviewsStream,
 };
 
 const journalStreamClients = new Set();
+const reviewStreamClients = new Set();
 
 function broadcastJournalEvent(event, data) {
   if (!journalStreamClients.size) {
@@ -351,6 +391,24 @@ function broadcastJournalEvent(event, data) {
     } catch (error) {
       clearInterval(heartbeat);
       journalStreamClients.delete(client);
+    }
+  }
+}
+
+function broadcastReviewEvent(event, data) {
+  if (!reviewStreamClients.size) {
+    return;
+  }
+
+  const payload = `event: ${event}\ndata: ${JSON.stringify(data)}\n\n`;
+
+  for (const client of reviewStreamClients) {
+    const { res, heartbeat } = client;
+    try {
+      res.write(payload);
+    } catch (error) {
+      clearInterval(heartbeat);
+      reviewStreamClients.delete(client);
     }
   }
 }
@@ -419,6 +477,373 @@ async function handleCreateCommunityJournal(req, res) {
   }
 }
 
+function cloneJournalComments(comments) {
+  if (!Array.isArray(comments)) {
+    return [];
+  }
+  return comments
+    .map((comment) => {
+      if (!comment || typeof comment !== 'object') {
+        return null;
+      }
+      return {
+        ...comment,
+        replies: cloneJournalComments(comment.replies),
+      };
+    })
+    .filter(Boolean);
+}
+
+function findJournalComment(comments, commentId) {
+  if (!Array.isArray(comments)) {
+    return null;
+  }
+
+  for (const comment of comments) {
+    if (!comment || typeof comment !== 'object') {
+      continue;
+    }
+    if (comment.id === commentId) {
+      return comment;
+    }
+    const replies = Array.isArray(comment.replies) ? comment.replies : [];
+    const found = findJournalComment(replies, commentId);
+    if (found) {
+      return found;
+    }
+  }
+
+  return null;
+}
+
+function sanitizeUsername(value, { fallback = 'Podróżnik', maxLength = 120 } = {}) {
+  if (typeof value !== 'string') {
+    return fallback;
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return fallback;
+  }
+  if (maxLength && trimmed.length > maxLength) {
+    return trimmed.slice(0, maxLength);
+  }
+  return trimmed;
+}
+
+function sanitizeUserKey(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+  return trimmed.slice(0, 160);
+}
+
+function sanitizeReviewComment(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+  if (trimmed.length > REVIEW_COMMENT_MAX_LENGTH) {
+    return trimmed.slice(0, REVIEW_COMMENT_MAX_LENGTH);
+  }
+  return trimmed;
+}
+
+function sanitizeReviewPhoto(dataUrl) {
+  if (typeof dataUrl !== 'string') {
+    return null;
+  }
+  const trimmed = dataUrl.trim();
+  if (!trimmed) {
+    return null;
+  }
+  if (!trimmed.startsWith('data:image/')) {
+    return null;
+  }
+  if (trimmed.length > REVIEW_MAX_DATA_URL_LENGTH) {
+    return null;
+  }
+  return trimmed;
+}
+
+async function handleCreateCommunityJournalComment(req, res, params) {
+  try {
+    const entryId = params?.entryId;
+    if (!entryId) {
+      return jsonResponse(res, 400, { error: 'Identyfikator wpisu jest wymagany.' });
+    }
+
+    const body = await parseRequestBody(req);
+    const text = sanitizeJournalString(body?.text, { maxLength: JOURNAL_COMMENT_MAX_LENGTH });
+    if (!text) {
+      return jsonResponse(res, 400, { error: 'Treść komentarza jest wymagana.' });
+    }
+
+    const userKey = sanitizeUserKey(body?.userKey);
+    if (!userKey) {
+      return jsonResponse(res, 400, { error: 'Identyfikator użytkownika jest wymagany.' });
+    }
+
+    const username = sanitizeUsername(body?.username, { fallback: 'Podróżnik' });
+    const parentCommentId =
+      typeof body?.parentCommentId === 'string' && body.parentCommentId.trim()
+        ? body.parentCommentId.trim()
+        : null;
+
+    const data = await readCommunityJournal();
+    const entries = Array.isArray(data.entries) ? [...data.entries] : [];
+    const index = entries.findIndex((entry) => entry.id === entryId);
+    if (index === -1) {
+      return jsonResponse(res, 404, { error: 'Nie znaleziono wskazanego wpisu społeczności.' });
+    }
+
+    const now = new Date().toISOString();
+    const originalEntry = entries[index];
+    const entry = {
+      ...originalEntry,
+      comments: cloneJournalComments(originalEntry.comments),
+      likedBy: Array.isArray(originalEntry.likedBy) ? [...originalEntry.likedBy] : [],
+    };
+
+    const comment = {
+      id: `comment-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
+      text,
+      createdAt: now,
+      updatedAt: now,
+      userKey,
+      username,
+      replies: [],
+    };
+
+    if (parentCommentId) {
+      const parent = findJournalComment(entry.comments, parentCommentId);
+      if (!parent) {
+        return jsonResponse(res, 404, { error: 'Nie znaleziono komentarza nadrzędnego.' });
+      }
+      parent.replies = Array.isArray(parent.replies) ? [...parent.replies, comment] : [comment];
+    } else {
+      entry.comments = Array.isArray(entry.comments) ? [...entry.comments, comment] : [comment];
+    }
+
+    entry.updatedAt = now;
+    entries[index] = entry;
+    await writeCommunityJournal({ entries });
+    broadcastJournalEvent('journal-entry-updated', { entry });
+
+    return jsonResponse(res, 201, { entry, comment });
+  } catch (error) {
+    if (error.message === 'INVALID_JSON') {
+      return jsonResponse(res, 400, { error: 'Niepoprawny format JSON.' });
+    }
+    console.error('Błąd podczas dodawania komentarza społeczności:', error);
+    return jsonResponse(res, 500, { error: 'Nie udało się zapisać komentarza.' });
+  }
+}
+
+async function handleToggleCommunityJournalLike(req, res, params) {
+  try {
+    const entryId = params?.entryId;
+    if (!entryId) {
+      return jsonResponse(res, 400, { error: 'Identyfikator wpisu jest wymagany.' });
+    }
+
+    const body = await parseRequestBody(req);
+    const userKey = sanitizeUserKey(body?.userKey);
+    if (!userKey) {
+      return jsonResponse(res, 400, { error: 'Identyfikator użytkownika jest wymagany.' });
+    }
+
+    const desiredLike = typeof body?.like === 'boolean' ? body.like : null;
+
+    const data = await readCommunityJournal();
+    const entries = Array.isArray(data.entries) ? [...data.entries] : [];
+    const index = entries.findIndex((entry) => entry.id === entryId);
+    if (index === -1) {
+      return jsonResponse(res, 404, { error: 'Nie znaleziono wskazanego wpisu społeczności.' });
+    }
+
+    const now = new Date().toISOString();
+    const originalEntry = entries[index];
+    if (originalEntry.userKey && originalEntry.userKey === userKey) {
+      return jsonResponse(res, 403, { error: 'Nie możesz polubić własnego wpisu.' });
+    }
+
+    const likedBy = new Set(Array.isArray(originalEntry.likedBy) ? originalEntry.likedBy : []);
+    const currentlyLiked = likedBy.has(userKey);
+    let liked = currentlyLiked;
+
+    if (desiredLike === true) {
+      likedBy.add(userKey);
+      liked = true;
+    } else if (desiredLike === false) {
+      likedBy.delete(userKey);
+      liked = false;
+    } else if (currentlyLiked) {
+      likedBy.delete(userKey);
+      liked = false;
+    } else {
+      likedBy.add(userKey);
+      liked = true;
+    }
+
+    const entry = {
+      ...originalEntry,
+      likedBy: Array.from(likedBy),
+      comments: cloneJournalComments(originalEntry.comments),
+      updatedAt: now,
+    };
+
+    entries[index] = entry;
+    await writeCommunityJournal({ entries });
+    broadcastJournalEvent('journal-entry-updated', { entry });
+
+    return jsonResponse(res, 200, { entry, liked });
+  } catch (error) {
+    if (error.message === 'INVALID_JSON') {
+      return jsonResponse(res, 400, { error: 'Niepoprawny format JSON.' });
+    }
+    console.error('Błąd podczas aktualizowania polubienia wpisu społeczności:', error);
+    return jsonResponse(res, 500, { error: 'Nie udało się zaktualizować polubienia.' });
+  }
+}
+
+function normalizeRating(value) {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric)) {
+    return null;
+  }
+  const rounded = Math.round(numeric);
+  if (rounded < 1 || rounded > 5) {
+    return null;
+  }
+  return rounded;
+}
+
+function sanitizeReview(raw) {
+  if (!raw || typeof raw !== 'object') {
+    return null;
+  }
+
+  const placeId = typeof raw.placeId === 'string' ? raw.placeId.trim() : '';
+  if (!placeId) {
+    return null;
+  }
+
+  const userKey = sanitizeUserKey(raw.userKey);
+  if (!userKey) {
+    return null;
+  }
+
+  const rating = normalizeRating(raw.rating);
+  if (!rating) {
+    return null;
+  }
+
+  const username = sanitizeUsername(raw.username, { fallback: 'Gracz', maxLength: 120 });
+  const comment = sanitizeReviewComment(raw.comment);
+  const photoDataUrl = sanitizeReviewPhoto(raw.photoDataUrl);
+
+  const createdAtRaw = typeof raw.createdAt === 'string' ? raw.createdAt : '';
+  const updatedAtRaw = typeof raw.updatedAt === 'string' ? raw.updatedAt : '';
+  const createdTimestamp = Date.parse(createdAtRaw);
+  const updatedTimestamp = Date.parse(updatedAtRaw);
+  const createdAt = Number.isFinite(createdTimestamp)
+    ? new Date(createdTimestamp).toISOString()
+    : new Date().toISOString();
+  const updatedAt = Number.isFinite(updatedTimestamp)
+    ? new Date(updatedTimestamp).toISOString()
+    : createdAt;
+
+  return {
+    id:
+      typeof raw.id === 'string'
+        ? raw.id
+        : `review-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
+    placeId,
+    userKey,
+    username,
+    rating,
+    comment,
+    photoDataUrl,
+    createdAt,
+    updatedAt,
+  };
+}
+
+async function handleListReviews(req, res) {
+  try {
+    const data = await readReviews();
+    return jsonResponse(res, 200, { reviews: data.reviews });
+  } catch (error) {
+    console.error('Błąd podczas pobierania opinii:', error);
+    return jsonResponse(res, 500, { error: 'Nie udało się pobrać opinii.' });
+  }
+}
+
+async function handleUpsertReview(req, res) {
+  try {
+    const body = await parseRequestBody(req);
+    const sanitized = sanitizeReview(body);
+    if (!sanitized) {
+      return jsonResponse(res, 400, { error: 'Przekazano nieprawidłowe dane opinii.' });
+    }
+
+    const { placeId, userKey } = sanitized;
+    const now = new Date().toISOString();
+
+    const data = await readReviews();
+    const reviewsMap = typeof data.reviews === 'object' && data.reviews !== null ? { ...data.reviews } : {};
+    const existingList = Array.isArray(reviewsMap[placeId]) ? [...reviewsMap[placeId]] : [];
+
+    const existingIndex = existingList.findIndex(
+      (review) => review && (review.id === sanitized.id || review.userKey === userKey),
+    );
+
+    const review = {
+      ...sanitized,
+      id:
+        existingIndex >= 0 && existingList[existingIndex]?.id
+          ? existingList[existingIndex].id
+          : sanitized.id,
+      createdAt:
+        existingIndex >= 0 && existingList[existingIndex]?.createdAt
+          ? existingList[existingIndex].createdAt
+          : sanitized.createdAt,
+      updatedAt: now,
+    };
+
+    if (existingIndex >= 0) {
+      existingList[existingIndex] = review;
+    } else {
+      existingList.push(review);
+    }
+
+    existingList.sort((a, b) => {
+      const aDate = Date.parse(a?.updatedAt || a?.createdAt || 0);
+      const bDate = Date.parse(b?.updatedAt || b?.createdAt || 0);
+      return bDate - aDate;
+    });
+
+    reviewsMap[placeId] = existingList;
+    await writeReviews({ reviews: reviewsMap });
+    broadcastReviewEvent('review-upserted', { review });
+
+    return jsonResponse(res, 201, { review });
+  } catch (error) {
+    if (error.message === 'INVALID_JSON') {
+      return jsonResponse(res, 400, { error: 'Niepoprawny format JSON.' });
+    }
+    console.error('Błąd podczas zapisywania opinii:', error);
+    return jsonResponse(res, 500, { error: 'Nie udało się zapisać opinii.' });
+  }
+}
+
 function handleCommunityJournalStream(req, res) {
   if (req.httpVersionMajor < 2) {
     res.writeHead(200, {
@@ -453,6 +878,53 @@ function handleCommunityJournalStream(req, res) {
   });
 }
 
+function handleReviewsStream(req, res) {
+  if (req.httpVersionMajor < 2) {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+      Connection: 'keep-alive',
+    });
+  } else {
+    res.writeHead(200, {
+      'Content-Type': 'text/event-stream; charset=utf-8',
+      'Cache-Control': 'no-cache, no-transform',
+    });
+  }
+
+  res.write('retry: 5000\n\n');
+
+  const heartbeat = setInterval(() => {
+    try {
+      res.write(`event: heartbeat\ndata: ${Date.now()}\n\n`);
+    } catch (error) {
+      clearInterval(heartbeat);
+      res.end();
+    }
+  }, 30000);
+
+  const client = { res, heartbeat };
+  reviewStreamClients.add(client);
+
+  req.on('close', () => {
+    clearInterval(heartbeat);
+    reviewStreamClients.delete(client);
+  });
+}
+
+const dynamicRoutes = [
+  {
+    method: 'POST',
+    pattern: /^\/api\/community\/journal\/([^/]+)\/comments$/,
+    handler: (req, res, [entryId]) => handleCreateCommunityJournalComment(req, res, { entryId }),
+  },
+  {
+    method: 'POST',
+    pattern: /^\/api\/community\/journal\/([^/]+)\/likes$/,
+    handler: (req, res, [entryId]) => handleToggleCommunityJournalLike(req, res, { entryId }),
+  },
+];
+
 function resolveRoute(method, pathname) {
   const normalizedMethod = method.toUpperCase();
   const directKey = `${normalizedMethod} ${pathname}`;
@@ -464,6 +936,31 @@ function resolveRoute(method, pathname) {
     const alternativeKey = `${normalizedMethod} ${pathname.slice(BASE_PATH.length)}`;
     if (routes[alternativeKey]) {
       return routes[alternativeKey];
+    }
+  }
+
+  return null;
+}
+
+function resolveDynamicRoute(method, pathname) {
+  const normalizedMethod = method.toUpperCase();
+
+  for (const route of dynamicRoutes) {
+    if (route.method !== normalizedMethod) {
+      continue;
+    }
+
+    const match = pathname.match(route.pattern);
+    if (match) {
+      return { handler: route.handler, params: match.slice(1) };
+    }
+
+    if (BASE_PATH !== '/' && pathname.startsWith(`${BASE_PATH}/`)) {
+      const relative = pathname.slice(BASE_PATH.length);
+      const relativeMatch = relative.match(route.pattern);
+      if (relativeMatch) {
+        return { handler: route.handler, params: relativeMatch.slice(1) };
+      }
     }
   }
 
@@ -501,6 +998,11 @@ function createServer() {
       return handler(req, res);
     }
 
+    const dynamicMatch = resolveDynamicRoute(req.method, url.pathname);
+    if (dynamicMatch) {
+      return dynamicMatch.handler(req, res, dynamicMatch.params);
+    }
+
     if (req.method === 'GET' || req.method === 'HEAD') {
       const served = await tryServeStaticFile(req, url.pathname, res);
       if (served) {
@@ -516,6 +1018,7 @@ export async function start() {
   await ensureSpreadsheetFile();
   await ensureDataFile();
   await ensureCommunityJournalFile();
+  await ensureReviewsFile();
   const port = process.env.PORT !== undefined ? Number(process.env.PORT) : 3001;
   const server = createServer();
   return new Promise((resolve) => {
