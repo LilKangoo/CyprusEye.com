@@ -65,3 +65,99 @@ datepicker:!1})}))})}document.querySelectorAll('input[type="range"]').forEach(fu
 else document.querySelectorAll(".pie_progress").length&&("undefined"!==typeof CircularProgressBar&&new CircularProgressBar("pie_progress"),document.querySelectorAll(".pie_progress").forEach(function(a){D(a)}));if(n&&u)f(document).on("add.cards",function(a){f(a.target).hasClass("testimonials-slider")&&y(a.target)}).on("changeParameter.cards",function(a,b,d){"testimonialsSlides"===b&&0==f(a.target).find(".carousel-item.active").length&&B(a.target)});else"undefined"===typeof window.initTestimonialsPlugin&&
 (window.initTestimonialsPlugin=!0,document.querySelectorAll(".testimonials-slider").forEach(function(a){y(a)}));l(function(){n||Array.from(document.body.children).filter(function(a){return!a.matches("style, script")}).forEach(function(a){if(window.Event&&"function"===typeof window.Event)var b=new Event("add.cards");else b=document.createEvent("CustomEvent"),b.initEvent("add.cards",!0,!0);a.dispatchEvent(b)})});l(function(){window.addEventListener("scroll",function(){var a=document.querySelector(".navbar-dropdown"),
 b=document.querySelector(".navbar-collapse");if(a&&!a.classList.contains("opacityScrollOff")){var d=1<document.documentElement.scrollTop;a.classList.toggle("opacityScroll",!d);b.classList.toggle("opacityScroll",!d)}})});if(n)f(document).on("add.cards",E);else window.addEventListener("DOMContentLoaded",E);if(n)f(document).on("add.cards",F);else window.addEventListener("DOMContentLoaded",F)})();
+
+/* CyprusEye modern enhancements */
+(function () {
+  if (document.documentElement.classList.contains('is-builder')) {
+    return;
+  }
+
+  const root = document.documentElement;
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const nav = document.querySelector('section.menu nav.navbar');
+  const sections = Array.from(document.querySelectorAll('section'))
+    .filter((section) => !section.classList.contains('menu') && !section.hasAttribute('data-ce-disable-animation'));
+
+  const updateNavbarHeight = () => {
+    if (!nav) {
+      return;
+    }
+    const navHeight = Math.round(nav.getBoundingClientRect().height);
+    root.style.setProperty('--ce-navbar-height', `${navHeight}px`);
+  };
+
+  const toggleNavbarState = () => {
+    if (!nav) {
+      return;
+    }
+    const isScrolled = window.scrollY > 24;
+    nav.classList.toggle('is-scrolled', isScrolled);
+  };
+
+  const revealSections = () => {
+    if (prefersReducedMotion.matches || !('IntersectionObserver' in window)) {
+      sections.forEach((section) => section.classList.add('ce-is-visible'));
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('ce-is-visible');
+            observer.unobserve(entry.target);
+          }
+        });
+      },
+      {
+        threshold: 0.18,
+        rootMargin: '0px 0px -10% 0px',
+      }
+    );
+
+    sections.forEach((section) => {
+      section.classList.add('ce-animate');
+      observer.observe(section);
+    });
+  };
+
+  const enhanceButtons = () => {
+    const buttons = document.querySelectorAll('.btn, .mbr-section-btn .btn');
+    buttons.forEach((button) => {
+      button.addEventListener('mousemove', (event) => {
+        const rect = button.getBoundingClientRect();
+        const x = event.clientX - rect.left;
+        const y = event.clientY - rect.top;
+        button.style.setProperty('--ce-btn-x', `${x}px`);
+        button.style.setProperty('--ce-btn-y', `${y}px`);
+      });
+
+      button.addEventListener('mouseleave', () => {
+        button.style.removeProperty('--ce-btn-x');
+        button.style.removeProperty('--ce-btn-y');
+      });
+    });
+  };
+
+  const enhanceCards = () => {
+    const cards = document.querySelectorAll('.card, .cardcolor, .card .item-wrapper, .card-wrapper');
+    cards.forEach((card) => {
+      card.addEventListener('mouseenter', () => {
+        card.classList.add('ce-card-hover');
+      });
+      card.addEventListener('mouseleave', () => {
+        card.classList.remove('ce-card-hover');
+      });
+    });
+  };
+
+  updateNavbarHeight();
+  toggleNavbarState();
+  revealSections();
+  enhanceButtons();
+  enhanceCards();
+
+  window.addEventListener('scroll', toggleNavbarState, { passive: true });
+  window.addEventListener('resize', updateNavbarHeight);
+  window.addEventListener('orientationchange', updateNavbarHeight);
+})();
