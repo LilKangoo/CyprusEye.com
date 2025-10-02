@@ -6246,6 +6246,11 @@ function handleJournalRemovePhoto(event) {
 }
 
 function initializeJournalUI() {
+  const journalPanel = document.getElementById('journalPanel');
+  if (!journalPanel) {
+    return;
+  }
+
   journalEntries = loadJournalEntriesFromStorage();
   renderJournalEntries();
 
