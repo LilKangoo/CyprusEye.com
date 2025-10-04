@@ -1231,6 +1231,32 @@ let journalStreamReconnectTimeout = null;
 let notificationsByUser = {};
 let notificationsPanelOpen = false;
 
+const MAP_TILE_PROVIDERS = [
+  {
+    name: 'OpenStreetMap',
+    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+    attribution: 'Dane map © <a href="https://www.openstreetmap.org/">OpenStreetMap</a> współtwórcy',
+    maxZoom: 19,
+    subdomains: 'abc',
+  },
+  {
+    name: 'Carto Voyager',
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
+    attribution:
+      'Mapy © <a href="https://carto.com/attribution">Carto</a> • Dane © <a href="https://www.openstreetmap.org/">OpenStreetMap</a> współtwórcy',
+    maxZoom: 19,
+    subdomains: 'abcd',
+  },
+  {
+    name: 'OpenStreetMap Humanitarian',
+    url: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
+    attribution:
+      'Mapy © <a href="https://www.openstreetmap.fr/">OpenStreetMap France</a> • Dane © <a href="https://www.openstreetmap.org/">OpenStreetMap</a> współtwórcy',
+    maxZoom: 20,
+    subdomains: 'abc',
+  },
+];
+
 let map;
 let markers = new Map();
 let playerMarker;
@@ -6834,6 +6860,96 @@ function initializeAuth() {
   updateAuthUI();
 }
 
+function initializeMapBaseLayer() {
+  if (!map || !window.L) {
+    return;
+  }
+
+  let fallbackNotified = false;
+
+  const useProvider = (index) => {
+    const provider = MAP_TILE_PROVIDERS[index];
+    if (!provider) {
+      showMapInitializationError(
+        'Nie udało się załadować interaktywnej mapy. Sprawdź połączenie z internetem i spróbuj ponownie.'
+      );
+      return;
+    }
+
+    const tileOptions = {
+      maxZoom: provider.maxZoom ?? 18,
+      attribution: provider.attribution,
+    };
+
+    if (provider.minZoom !== undefined) {
+      tileOptions.minZoom = provider.minZoom;
+    }
+    if (provider.tileSize !== undefined) {
+      tileOptions.tileSize = provider.tileSize;
+    }
+    if (provider.zoomOffset !== undefined) {
+      tileOptions.zoomOffset = provider.zoomOffset;
+    }
+    if (provider.detectRetina !== undefined) {
+      tileOptions.detectRetina = provider.detectRetina;
+    }
+    if (provider.subdomains !== undefined) {
+      tileOptions.subdomains = provider.subdomains;
+    }
+    if (provider.crossOrigin !== undefined) {
+      tileOptions.crossOrigin = provider.crossOrigin;
+    }
+
+    const layer = window.L.tileLayer(provider.url, tileOptions);
+    let hasLoadedTile = false;
+
+    const handleTileLoad = () => {
+      hasLoadedTile = true;
+    };
+
+    const handleTileError = () => {
+      if (hasLoadedTile) {
+        return;
+      }
+
+      layer.off('tileload', handleTileLoad);
+      layer.off('tileerror', handleTileError);
+
+      if (map.hasLayer(layer)) {
+        map.removeLayer(layer);
+      }
+
+      const nextIndex = index + 1;
+      const fallbackProvider = MAP_TILE_PROVIDERS[nextIndex];
+
+      if (!fallbackProvider) {
+        console.error('Wszyscy dostawcy map są obecnie niedostępni.');
+        showMapInitializationError(
+          'Nie udało się załadować interaktywnej mapy. Sprawdź połączenie z internetem i spróbuj ponownie.'
+        );
+        return;
+      }
+
+      console.warn(
+        `Dostawca map "${provider.name}" jest niedostępny – przełączanie na "${fallbackProvider.name}".`
+      );
+
+      if (!fallbackNotified) {
+        setLevelStatus('Przełączono na zapasową warstwę mapy. Główny dostawca jest chwilowo niedostępny.', 6000);
+        fallbackNotified = true;
+      }
+
+      useProvider(nextIndex);
+    };
+
+    layer.on('tileload', handleTileLoad);
+    layer.on('tileerror', handleTileError);
+    layer.addTo(map);
+  };
+
+  useProvider(0);
+}
+
 function initMap() {
   const mapElement = document.getElementById('map');
   if (!mapElement) {
@@ -6885,14 +7001,9 @@ function initMap() {
     .zoom({ position: 'bottomright' })
     .addTo(map);
 
-  window.L.control
-    .attribution({ position: 'bottomleft', prefix: '' })
-    .addTo(map)
-    .addAttribution('Dane map © <a href="https://www.openstreetmap.org/">OpenStreetMap</a> współtwórcy');
+  window.L.control.attribution({ position: 'bottomleft', prefix: '' }).addTo(map);
 
-  window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 18,
-  }).addTo(map);
+  initializeMapBaseLayer();
 
   syncMarkers();
   startPlayerLocationTracking();
