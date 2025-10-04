@@ -3,11 +3,20 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2563eb" />
   <title>WakacjeCypr Quest</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap"
+    rel="stylesheet"
+  />
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    integrity="sha512-mwY6H86g2V8B6hN3kLBXjg5eQof8I4eAbOeXtfLOcOfeUeawuO/HEdBDEuDfSUdifYEsa1S3XmnsV3gYyu2bvw=="
+    crossorigin=""
+  />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -198,56 +207,58 @@
           </div>
         </section>
 
-        <section class="engagement-hub" aria-label="Twoje dzisiejsze cele">
-          <article class="surface-card daily-streak-card" id="dailyStreakCard" aria-live="polite">
-            <header class="daily-streak-header">
-              <h2>🔥 Seria przygód</h2>
-              <p>Codzienny check-in utrzyma tempo zdobywania XP.</p>
-            </header>
-            <p class="daily-streak-numbers">
-              <span class="daily-streak-current">
-                <strong id="dailyStreakCurrent">0</strong>
-                dni z rzędu
-              </span>
-              <span class="daily-streak-best">
-                Rekord: <strong id="dailyStreakBest">0</strong> dni
-              </span>
-            </p>
-            <p class="daily-streak-message" id="dailyStreakMessage"></p>
-          </article>
+        <aside class="sidebar-column">
+          <section class="engagement-hub" aria-label="Twoje dzisiejsze cele">
+            <article class="surface-card daily-streak-card" id="dailyStreakCard" aria-live="polite">
+              <header class="daily-streak-header">
+                <h2>🔥 Seria przygód</h2>
+                <p>Codzienny check-in utrzyma tempo zdobywania XP.</p>
+              </header>
+              <p class="daily-streak-numbers">
+                <span class="daily-streak-current">
+                  <strong id="dailyStreakCurrent">0</strong>
+                  dni z rzędu
+                </span>
+                <span class="daily-streak-best">
+                  Rekord: <strong id="dailyStreakBest">0</strong> dni
+                </span>
+              </p>
+              <p class="daily-streak-message" id="dailyStreakMessage"></p>
+            </article>
 
-          <article class="surface-card daily-challenge-card" id="dailyChallengeCard" aria-live="polite">
-            <header class="daily-challenge-header">
-              <div>
-                <h2>🎯 Dzisiejsze wyzwanie</h2>
-                <p>Wykonaj je, aby zgarnąć dodatkowe XP.</p>
+            <article class="surface-card daily-challenge-card" id="dailyChallengeCard" aria-live="polite">
+              <header class="daily-challenge-header">
+                <div>
+                  <h2>🎯 Dzisiejsze wyzwanie</h2>
+                  <p>Wykonaj je, aby zgarnąć dodatkowe XP.</p>
+                </div>
+                <span class="daily-challenge-bonus">+<span id="dailyChallengeBonus">0</span> XP</span>
+              </header>
+              <div class="daily-challenge-body">
+                <h3 id="dailyChallengeTitle">Wylosuj atrakcję</h3>
+                <p id="dailyChallengeDescription"></p>
               </div>
-              <span class="daily-challenge-bonus">+<span id="dailyChallengeBonus">0</span> XP</span>
-            </header>
-            <div class="daily-challenge-body">
-              <h3 id="dailyChallengeTitle">Wylosuj atrakcję</h3>
-              <p id="dailyChallengeDescription"></p>
-            </div>
-            <div class="daily-challenge-actions">
-              <button type="button" class="secondary" id="dailyChallengeFocus">Pokaż na mapie</button>
-              <button type="button" class="ghost" id="dailyChallengeShuffle">Wylosuj inne</button>
-            </div>
-            <p class="daily-challenge-status" id="dailyChallengeStatus"></p>
-          </article>
-        </section>
+              <div class="daily-challenge-actions">
+                <button type="button" class="secondary" id="dailyChallengeFocus">Pokaż na mapie</button>
+                <button type="button" class="ghost" id="dailyChallengeShuffle">Wylosuj inne</button>
+              </div>
+              <p class="daily-challenge-status" id="dailyChallengeStatus"></p>
+            </article>
+          </section>
 
-        <section class="adventure-shortcuts" aria-label="Szybkie przejścia">
-          <article class="adventure-shortcut-card surface-card">
-            <h2>🎒 Planowanie pakowania</h2>
-            <p>Zaplanuj walizkę w dedykowanej karcie z listami rzeczy na różne sezony podróży.</p>
-            <button type="button" class="secondary" id="openPackingFromAdventure">Przejdź do planera</button>
-          </article>
-          <article class="adventure-shortcut-card surface-card">
-            <h2>✅ Lista zadań</h2>
-            <p>Przejrzyj wyzwania przed wyjazdem i zapisuj swój postęp w osobnej zakładce.</p>
-            <button type="button" class="secondary" id="openTasksFromAdventure">Otwórz zadania</button>
-          </article>
-        </section>
+          <section class="adventure-shortcuts" aria-label="Szybkie przejścia">
+            <article class="adventure-shortcut-card surface-card">
+              <h2>🎒 Planowanie pakowania</h2>
+              <p>Zaplanuj walizkę w dedykowanej karcie z listami rzeczy na różne sezony podróży.</p>
+              <button type="button" class="secondary" id="openPackingFromAdventure">Przejdź do planera</button>
+            </article>
+            <article class="adventure-shortcut-card surface-card">
+              <h2>✅ Lista zadań</h2>
+              <p>Przejrzyj wyzwania przed wyjazdem i zapisuj swój postęp w osobnej zakładce.</p>
+              <button type="button" class="secondary" id="openTasksFromAdventure">Otwórz zadania</button>
+            </article>
+          </section>
+        </aside>
 
         <section class="discovery-grid" aria-label="Atrakcje do odkrycia">
           <section class="locations-panel surface-card">
@@ -342,13 +353,53 @@
     </section>
   </main>
 
+  <nav class="mobile-tabbar" aria-label="Dolna nawigacja">
+    <button
+      type="button"
+      class="mobile-tabbar-btn is-active"
+      id="mobileAdventureTab"
+      aria-controls="adventureView"
+      data-target="adventureView"
+      aria-pressed="true"
+    >
+      <span class="mobile-tabbar-icon" aria-hidden="true">🎯</span>
+      <span class="mobile-tabbar-label">Przygoda</span>
+    </button>
+    <button
+      type="button"
+      class="mobile-tabbar-btn"
+      id="mobilePackingTab"
+      aria-controls="packingView"
+      data-target="packingView"
+      aria-pressed="false"
+    >
+      <span class="mobile-tabbar-icon" aria-hidden="true">🎒</span>
+      <span class="mobile-tabbar-label">Pakowanie</span>
+    </button>
+    <button
+      type="button"
+      class="mobile-tabbar-btn"
+      id="mobileTasksTab"
+      aria-controls="tasksView"
+      data-target="tasksView"
+      aria-pressed="false"
+    >
+      <span class="mobile-tabbar-icon" aria-hidden="true">✅</span>
+      <span class="mobile-tabbar-label">Misje</span>
+    </button>
+  </nav>
+
   <footer class="app-footer">
     <p>© <span id="year"></span> WakacjeCypr.com • Graj, zwiedzaj i planuj wakacje jednocześnie.</p>
   </footer>
 
   <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script
+    src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    integrity="sha512-Vl9H1Jzi10BGSAdoo6gWQBaIj++ImQxGc1dQc5sKXc5teLoI0lp4rWuHwoMvV7lidh+NangNh4pWvC2d7XY0xQ=="
+    crossorigin=""
+  ></script>
   <script src="app.js"></script>
 
   <div class="explorer-modal" id="explorerModal" hidden role="dialog" aria-modal="true" aria-labelledby="explorerTitle">

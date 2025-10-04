@@ -697,6 +697,24 @@ const places = [
   },
 ];
 
+const CITY_AREA_CONFIG = [
+  { slug: 'paphos', name: 'Pafos', lat: 34.775, lng: 32.424, radiusKm: 28 },
+  { slug: 'peyia', name: 'Peyia i Coral Bay', lat: 34.853, lng: 32.367, radiusKm: 18 },
+  { slug: 'limassol', name: 'Limassol', lat: 34.707, lng: 33.022, radiusKm: 26 },
+  { slug: 'larnaca', name: 'Larnaka', lat: 34.918, lng: 33.634, radiusKm: 22 },
+  { slug: 'ayia-napa', name: 'Ayia Napa', lat: 34.989, lng: 33.999, radiusKm: 16 },
+  { slug: 'protaras', name: 'Protaras', lat: 35.016, lng: 34.061, radiusKm: 16 },
+  { slug: 'nicosia', name: 'Nikozja', lat: 35.173, lng: 33.364, radiusKm: 22 },
+  { slug: 'troodos', name: 'Troodos', lat: 34.936, lng: 32.864, radiusKm: 26 },
+  { slug: 'kyrenia', name: 'Kyrenia', lat: 35.341, lng: 33.318, radiusKm: 22 },
+  { slug: 'famagusta', name: 'Famagusta', lat: 35.125, lng: 33.94, radiusKm: 26 },
+  { slug: 'karpaz', name: 'Półwysep Karpaz', lat: 35.585, lng: 34.54, radiusKm: 38 },
+  { slug: 'polis', name: 'Polis i Latchi', lat: 35.038, lng: 32.43, radiusKm: 20 },
+];
+
+const FALLBACK_CITY_SLUG = 'other';
+let cityRoutesCache = null;
+
 const tasks = [
   {
     id: 'sunrise-challenge',
@@ -1132,10 +1150,7 @@ const APP_BASE_PATH = resolveAppBasePath();
 const API_BASE_URL = `${APP_BASE_PATH || ''}/api`;
 const COMMUNITY_JOURNAL_API_URL = `${API_BASE_URL}/community/journal`;
 const COMMUNITY_JOURNAL_STREAM_URL = `${COMMUNITY_JOURNAL_API_URL}/stream`;
-const REVIEWS_API_URL = `${API_BASE_URL}/reviews`;
-const REVIEWS_STREAM_URL = `${REVIEWS_API_URL}/stream`;
 const ADVENTURE_VIEW_ID = 'adventureView';
-const COMMUNITY_VIEW_ID = 'communityView';
 const PACKING_VIEW_ID = 'packingView';
 const TASKS_VIEW_ID = 'tasksView';
 const REVIEW_RATING_XP = 20;
@@ -1149,7 +1164,6 @@ const TRIP_PLANNER_TRAVEL_SPEED_KMH = 45;
 const TRIP_PLANNER_STOP_DURATION_HOURS = 1.5;
 const TRIP_PLANNER_MULTIPLIER_STEP = 0.25;
 const TRIP_PLANNER_MAX_MULTIPLIER = 2;
-const REALTIME_REFRESH_INTERVAL_MS = 2 * 60 * 1000;
 
 function resolveAppBasePath() {
   try {
@@ -1214,10 +1228,6 @@ let journalEntries = [];
 let editingJournalEntryId = null;
 let journalEventSource = null;
 let journalStreamReconnectTimeout = null;
-let reviewsEventSource = null;
-let reviewsStreamReconnectTimeout = null;
-let realtimeRefreshIntervalId = null;
-let realtimeResyncInitialized = false;
 let notificationsByUser = {};
 let notificationsPanelOpen = false;
 
@@ -1225,6 +1235,7 @@ let map;
 let markers = new Map();
 let playerMarker;
 let playerAccuracyCircle;
+let playerLocationIcon = null;
 let locationWatchId = null;
 let hasCenteredOnPlayer = false;
 let levelStatusTimeout;
@@ -1533,76 +1544,6 @@ function persistAccounts() {
   }
 }
 
-function sanitizeReviewItem(raw, { placeId } = {}) {
-  if (!raw || typeof raw !== 'object') {
-    return null;
-  }
-
-  const resolvedPlaceId =
-    typeof raw.placeId === 'string' && raw.placeId.trim() ? raw.placeId.trim() : placeId;
-  if (!resolvedPlaceId) {
-    return null;
-  }
-
-  const userKey = typeof raw.userKey === 'string' ? raw.userKey.trim() : '';
-  if (!userKey) {
-    return null;
-  }
-
-  const ratingValue = Number(raw.rating);
-  if (!Number.isFinite(ratingValue)) {
-    return null;
-  }
-  const rating = Math.max(1, Math.min(5, Math.round(ratingValue)));
-
-  const username =
-    typeof raw.username === 'string' && raw.username.trim()
-      ? raw.username.trim().slice(0, 120)
-      : 'Gracz';
-
-  const comment =
-    typeof raw.comment === 'string' && raw.comment.trim()
-      ? raw.comment.trim().slice(0, REVIEW_COMMENT_MAX_LENGTH)
-      : '';
-
-  let photoDataUrl = null;
-  if (typeof raw.photoDataUrl === 'string') {
-    const trimmedPhoto = raw.photoDataUrl.trim();
-    if (trimmedPhoto.startsWith('data:image/')) {
-      photoDataUrl = trimmedPhoto;
-    }
-  }
-
-  const createdAtRaw = typeof raw.createdAt === 'string' ? raw.createdAt : '';
-  const createdTimestamp = Date.parse(createdAtRaw);
-  const createdAt = Number.isFinite(createdTimestamp)
-    ? new Date(createdTimestamp).toISOString()
-    : new Date().toISOString();
-
-  const updatedAtRaw = typeof raw.updatedAt === 'string' ? raw.updatedAt : '';
-  const updatedTimestamp = Date.parse(updatedAtRaw);
-  const updatedAt = Number.isFinite(updatedTimestamp)
-    ? new Date(updatedTimestamp).toISOString()
-    : createdAt;
-
-  const id =
-    typeof raw.id === 'string' && raw.id.trim()
-      ? raw.id.trim()
-      : `${resolvedPlaceId}-${userKey}-${Math.random().toString(36).slice(2, 10)}`;
-
-  return {
-    id,
-    placeId: resolvedPlaceId,
-    userKey,
-    username,
-    rating,
-    comment,
-    photoDataUrl,
-    createdAt,
-    updatedAt,
-  };
-}
-
 function loadReviewsFromStorage() {
   try {
     const raw = localStorage.getItem(REVIEWS_STORAGE_KEY);
@@ -1624,7 +1565,35 @@ function loadReviewsFromStorage() {
       }
 
       const normalized = items
-        .map((item) => sanitizeReviewItem(item, { placeId }))
+        .map((item) => {
+          if (!item || typeof item !== 'object') return null;
+
+          const userKey = typeof item.userKey === 'string' ? item.userKey : null;
+          const ratingValue = Number(item.rating);
+          if (!userKey || !Number.isFinite(ratingValue)) return null;
+
+          const rating = Math.max(1, Math.min(5, Math.round(ratingValue)));
+          const createdAt =
+            typeof item.createdAt === 'string' && item.createdAt
+              ? item.createdAt
+              : new Date().toISOString();
+          const updatedAt = typeof item.updatedAt === 'string' ? item.updatedAt : undefined;
+
+          return {
+            id:
+              typeof item.id === 'string'
+                ? item.id
+                : `${placeId}-${userKey}-${Math.random().toString(36).slice(2)}`,
+            placeId,
+            userKey,
+            username: typeof item.username === 'string' ? item.username : 'Gracz',
+            rating,
+            comment: typeof item.comment === 'string' ? item.comment : '',
+            photoDataUrl: typeof item.photoDataUrl === 'string' ? item.photoDataUrl : null,
+            createdAt,
+            updatedAt,
+          };
+        })
         .filter(Boolean)
         .sort((a, b) => {
           const aDate = new Date(a.updatedAt || a.createdAt || 0).getTime();
@@ -1940,31 +1909,6 @@ function formatNotificationDate(value) {
   });
 }
 
-function openCommunityViewForEntry(entryId) {
-  switchAppView(COMMUNITY_VIEW_ID);
-
-  const communityTab = document.getElementById('headerCommunityTab');
-  if (communityTab instanceof HTMLButtonElement) {
-    communityTab.focus();
-  }
-
-  if (!entryId) {
-    return;
-  }
-
-  requestAnimationFrame(() => {
-    const list = document.getElementById('communityJournalList');
-    const target = list?.querySelector(`[data-entry-id="${entryId}"]`);
-    if (target instanceof HTMLElement) {
-      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      target.classList.add('is-highlighted');
-      setTimeout(() => {
-        target.classList.remove('is-highlighted');
-      }, 2000);
-    }
-  });
-}
-
 function createNotificationListItem(notification, options = {}) {
   const { context = 'panel' } = options;
   const item = document.createElement('li');
@@ -2001,18 +1945,6 @@ function createNotificationListItem(notification, options = {}) {
       markNotificationAsRead(notification.id);
     });
     actions.appendChild(markBtn);
-  }
-
-  if (notification.entryId) {
-    const viewBtn = document.createElement('button');
-    viewBtn.type = 'button';
-    viewBtn.className = 'link-button';
-    viewBtn.textContent = context === 'panel' ? 'Pokaż wpis' : 'Przejdź do wpisu';
-    viewBtn.addEventListener('click', () => {
-      markNotificationAsRead(notification.id);
-      openCommunityViewForEntry(notification.entryId);
-    });
-    actions.appendChild(viewBtn);
   }
 
   if (actions.childElementCount > 0) {
@@ -2083,9 +2015,9 @@ function renderNotificationsUI() {
 
   if (feedEmpty) {
     if (!currentUserKey) {
-      feedEmpty.textContent = 'Zaloguj się, aby otrzymywać powiadomienia o polubieniach i komentarzach społeczności.';
+      feedEmpty.textContent = 'Zaloguj się, aby otrzymywać powiadomienia.';
     } else if (!notifications.length) {
-      feedEmpty.textContent = 'Brak powiadomień – dołącz do rozmowy, aby zacząć je otrzymywać.';
+      feedEmpty.textContent = 'Brak powiadomień – jeszcze nic Cię nie ominęło.';
     } else {
       feedEmpty.textContent = '';
     }
@@ -2278,24 +2210,11 @@ function connectJournalRealtimeUpdates() {
     }
   });
 
-  journalEventSource.addEventListener('journal-entry-updated', (event) => {
-    try {
-      const payload = JSON.parse(event.data);
-      if (payload?.entry) {
-        mergeJournalEntries([payload.entry]);
-      }
-    } catch (error) {
-      console.error('Nie udało się przetworzyć aktualizacji wpisu społeczności:', error);
-    }
-  });
-
   journalEventSource.addEventListener('open', () => {
     if (journalStreamReconnectTimeout !== null) {
       window.clearTimeout(journalStreamReconnectTimeout);
       journalStreamReconnectTimeout = null;
     }
-
-    void refreshJournalEntriesFromServer();
   });
 
   journalEventSource.addEventListener('error', () => {
@@ -2347,151 +2266,44 @@ async function createCommunityJournalEntry(payload) {
   return data.entry;
 }
 
-async function submitReview(placeId, payload) {
-  const response = await fetch(REVIEWS_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Accept: 'application/json',
-    },
-    credentials: 'same-origin',
-    body: JSON.stringify({ ...payload, placeId }),
-  });
-
-  if (!response.ok) {
-    let errorMessage = `Serwer zwrócił kod ${response.status}.`;
-    try {
-      const errorBody = await response.json();
-      if (errorBody && typeof errorBody.error === 'string') {
-        errorMessage = errorBody.error;
-      }
-    } catch (parseError) {
-      // pomijamy – odpowiedź nie jest JSON-em
-    }
-    throw new Error(errorMessage);
-  }
-
-  const data = await response.json();
-  if (!data || typeof data !== 'object' || !data.review) {
-    throw new Error('Brak danych opinii w odpowiedzi serwera.');
-  }
-
-  return data.review;
-}
-
-async function submitJournalComment(entryId, payload) {
-  const response = await fetch(
-    `${COMMUNITY_JOURNAL_API_URL}/${encodeURIComponent(entryId)}/comments`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      credentials: 'same-origin',
-      body: JSON.stringify(payload),
-    },
-  );
-
-  if (!response.ok) {
-    let errorMessage = `Serwer zwrócił kod ${response.status}.`;
-    try {
-      const errorBody = await response.json();
-      if (errorBody && typeof errorBody.error === 'string') {
-        errorMessage = errorBody.error;
-      }
-    } catch (parseError) {
-      // pomijamy – odpowiedź nie jest JSON-em
-    }
-    throw new Error(errorMessage);
-  }
-
-  const data = await response.json();
-  if (!data || typeof data !== 'object' || !data.entry) {
-    throw new Error('Brak danych wpisu w odpowiedzi serwera.');
-  }
-
-  return data;
-}
-
-async function updateJournalEntryLikeOnServer(entryId, payload) {
-  const response = await fetch(
-    `${COMMUNITY_JOURNAL_API_URL}/${encodeURIComponent(entryId)}/likes`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-      },
-      credentials: 'same-origin',
-      body: JSON.stringify(payload),
-    },
-  );
-
-  if (!response.ok) {
-    let errorMessage = `Serwer zwrócił kod ${response.status}.`;
-    try {
-      const errorBody = await response.json();
-      if (errorBody && typeof errorBody.error === 'string') {
-        errorMessage = errorBody.error;
-      }
-    } catch (parseError) {
-      // pomijamy – odpowiedź nie jest JSON-em
-    }
-    throw new Error(errorMessage);
-  }
-
-  const data = await response.json();
-  if (!data || typeof data !== 'object' || !data.entry) {
-    throw new Error('Brak danych wpisu w odpowiedzi serwera.');
-  }
-
-  return data;
-}
-
 function getReviewsForPlace(placeId) {
   if (!placeId) return [];
   const list = reviews?.[placeId];
   return Array.isArray(list) ? list : [];
 }
 
-function upsertReview(placeId, payload, options = {}) {
-  if (!placeId || !payload || typeof payload !== 'object') {
-    return false;
-  }
-
-  const { persist = true, render = true } = options;
-  const review = sanitizeReviewItem(payload, { placeId });
-  if (!review) {
-    return false;
-  }
+function upsertReview(placeId, payload) {
+  if (!placeId || !payload || typeof payload !== 'object') return;
 
   const existing = Array.isArray(reviews[placeId]) ? [...reviews[placeId]] : [];
-  const index = existing.findIndex(
-    (item) => item.id === review.id || item.userKey === review.userKey,
-  );
-  let changed = false;
+  const index = existing.findIndex((item) => item.userKey === payload.userKey);
+  const timestamp = new Date().toISOString();
 
   if (index >= 0) {
-    const current = existing[index];
-    const currentTimestamp = Date.parse(current?.updatedAt || current?.createdAt || 0);
-    const incomingTimestamp = Date.parse(review.updatedAt || review.createdAt || 0);
-    if (
-      !Number.isFinite(currentTimestamp) ||
-      !Number.isFinite(incomingTimestamp) ||
-      incomingTimestamp >= currentTimestamp ||
-      JSON.stringify(current) !== JSON.stringify(review)
-    ) {
-      existing[index] = review;
-      changed = true;
-    }
+    const previous = existing[index];
+    existing[index] = {
+      ...previous,
+      ...payload,
+      id: previous.id,
+      placeId,
+      createdAt: previous.createdAt || timestamp,
+      updatedAt: timestamp,
+    };
   } else {
-    existing.push(review);
-    changed = true;
-  }
-
-  if (!changed) {
-    return false;
+    existing.push({
+      id:
+        typeof payload.id === 'string'
+          ? payload.id
+          : `${placeId}-${payload.userKey}-${Date.now()}`,
+      placeId,
+      userKey: payload.userKey,
+      username: payload.username || 'Gracz',
+      rating: payload.rating,
+      comment: payload.comment || '',
+      photoDataUrl: payload.photoDataUrl || null,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
   }
 
   existing.sort((a, b) => {
@@ -2501,170 +2313,7 @@ function upsertReview(placeId, payload, options = {}) {
   });
 
   reviews[placeId] = existing;
-
-  if (persist) {
-    persistReviews();
-  }
-
-  if (render && state.selected?.id === placeId) {
-    const place = getPlaceById(placeId);
-    if (place) {
-      renderReviewsSection(place);
-    }
-  }
-
-  return true;
-}
-
-function mergeReviewsData(data) {
-  if (!data || typeof data !== 'object') {
-    return false;
-  }
-
-  let changed = false;
-
-  Object.entries(data).forEach(([placeId, items]) => {
-    if (!Array.isArray(items)) {
-      return;
-    }
-
-    items.forEach((item) => {
-      if (upsertReview(placeId, item, { persist: false, render: false })) {
-        changed = true;
-      }
-    });
-  });
-
-  if (changed) {
-    persistReviews();
-    if (state.selected) {
-      const place = getPlaceById(state.selected.id);
-      if (place) {
-        renderReviewsSection(place);
-      }
-    }
-  }
-
-  return changed;
-}
-
-async function refreshReviewsFromServer() {
-  try {
-    const response = await fetch(REVIEWS_API_URL, {
-      headers: {
-        Accept: 'application/json',
-      },
-      credentials: 'same-origin',
-    });
-
-    if (!response.ok) {
-      throw new Error(`Żądanie nie powiodło się z kodem ${response.status}.`);
-    }
-
-    const data = await response.json();
-    if (data && typeof data === 'object' && data.reviews) {
-      mergeReviewsData(data.reviews);
-    }
-  } catch (error) {
-    console.error('Nie udało się zsynchronizować opinii:', error);
-  }
-}
-
-function connectReviewsRealtimeUpdates() {
-  if (typeof EventSource === 'undefined') {
-    return;
-  }
-
-  if (reviewsEventSource) {
-    return;
-  }
-
-  try {
-    reviewsEventSource = new EventSource(REVIEWS_STREAM_URL);
-  } catch (error) {
-    console.error('Nie udało się nawiązać połączenia z kanałem opinii:', error);
-    reviewsEventSource = null;
-    return;
-  }
-
-  reviewsEventSource.addEventListener('review-upserted', (event) => {
-    try {
-      const payload = JSON.parse(event.data);
-      if (payload?.review) {
-        upsertReview(payload.review.placeId, payload.review);
-      }
-    } catch (error) {
-      console.error('Nie udało się przetworzyć aktualizacji opinii:', error);
-    }
-  });
-
-  reviewsEventSource.addEventListener('open', () => {
-    if (reviewsStreamReconnectTimeout !== null) {
-      window.clearTimeout(reviewsStreamReconnectTimeout);
-      reviewsStreamReconnectTimeout = null;
-    }
-
-    void refreshReviewsFromServer();
-  });
-
-  reviewsEventSource.addEventListener('error', () => {
-    if (reviewsEventSource) {
-      reviewsEventSource.close();
-      reviewsEventSource = null;
-    }
-
-    if (reviewsStreamReconnectTimeout !== null) {
-      return;
-    }
-
-    reviewsStreamReconnectTimeout = window.setTimeout(() => {
-      reviewsStreamReconnectTimeout = null;
-      connectReviewsRealtimeUpdates();
-    }, 5000);
-  });
-}
-
-function triggerRealtimeRefresh() {
-  void refreshJournalEntriesFromServer();
-  void refreshReviewsFromServer();
-  connectJournalRealtimeUpdates();
-  connectReviewsRealtimeUpdates();
-}
-
-function initializeRealtimeResyncTriggers() {
-  if (realtimeResyncInitialized) {
-    return;
-  }
-
-  realtimeResyncInitialized = true;
-
-  if (typeof document !== 'undefined') {
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'visible') {
-        triggerRealtimeRefresh();
-      }
-    });
-  }
-
-  if (typeof window !== 'undefined') {
-    window.addEventListener('online', () => {
-      triggerRealtimeRefresh();
-    });
-  }
-}
-
-function startRealtimeRefreshLoop() {
-  if (typeof window === 'undefined') {
-    return;
-  }
-
-  if (realtimeRefreshIntervalId !== null) {
-    return;
-  }
-
-  realtimeRefreshIntervalId = window.setInterval(() => {
-    triggerRealtimeRefresh();
-  }, REALTIME_REFRESH_INTERVAL_MS);
+  persistReviews();
 }
 
 function getAccount(key) {
@@ -3905,70 +3554,121 @@ function createPackingChecklist(items, idPrefix) {
   return list;
 }
 
+function ensurePlayerLocationIcon() {
+  if (!window.L) {
+    return null;
+  }
+
+  if (!playerLocationIcon) {
+    playerLocationIcon = window.L.divIcon({
+      className: 'player-location-marker',
+      iconSize: [26, 26],
+      iconAnchor: [13, 13],
+    });
+  }
+
+  return playerLocationIcon;
+}
+
+function getMarkerPopupContent(place) {
+  return `<strong>${place.name}</strong><br/>${place.badge} • ${place.xp} XP`;
+}
+
 function syncMarkers() {
-  if (!map) return;
+  if (!map || !window.L) return;
 
   places.forEach((place) => {
-    const hasMarker = markers.has(place.id);
+    const existingMarker = markers.get(place.id);
+    const position = window.L.latLng(place.lat, place.lng);
+    const popupContent = getMarkerPopupContent(place);
 
-    if (!hasMarker) {
-      const marker = L.marker([place.lat, place.lng]).addTo(map);
-      marker.bindPopup(`<strong>${place.name}</strong><br/>${place.badge} • ${place.xp} XP`);
-      marker.on('click', () => focusPlace(place.id));
+    if (!existingMarker) {
+      const marker = window.L.marker(position, {
+        title: place.name,
+        riseOnHover: true,
+      });
+
+      marker.bindPopup(popupContent);
+      marker.on('click', () => {
+        focusPlace(place.id);
+      });
+
+      marker.addTo(map);
       markers.set(place.id, marker);
     } else {
-      const marker = markers.get(place.id);
-      marker.setPopupContent(`<strong>${place.name}</strong><br/>${place.badge} • ${place.xp} XP`);
+      existingMarker.setLatLng(position);
+      if (!map.hasLayer(existingMarker)) {
+        existingMarker.addTo(map);
+      }
+
+      const popup = existingMarker.getPopup();
+      if (popup) {
+        popup.setContent(popupContent);
+      } else {
+        existingMarker.bindPopup(popupContent);
+      }
     }
   });
 }
 
+function showMapInitializationError(message) {
+  const mapElement = document.getElementById('map');
+  if (!mapElement) return;
+
+  mapElement.innerHTML = '';
+  const messageEl = document.createElement('div');
+  messageEl.className = 'map-error-message';
+  messageEl.textContent = message;
+  mapElement.appendChild(messageEl);
+}
+
 function updatePlayerLocation(position) {
-  if (!map) return;
+  if (!map || !window.L) return;
 
   const { latitude, longitude, accuracy } = position.coords;
-  const latlng = [latitude, longitude];
+  const latLng = window.L.latLng(latitude, longitude);
 
   if (!playerMarker) {
-    playerMarker = L.circleMarker(latlng, {
-      radius: 8,
-      color: '#f97316',
-      weight: 2,
-      fillColor: '#fb923c',
-      fillOpacity: 0.85,
-    })
-      .addTo(map)
-      .bindTooltip('Twoje położenie', { direction: 'top', offset: [0, -8] });
+    const icon = ensurePlayerLocationIcon();
+    playerMarker = window.L.marker(latLng, {
+      icon: icon ?? undefined,
+      interactive: false,
+      keyboard: false,
+      zIndexOffset: 1000,
+      title: 'Twoje położenie',
+    }).addTo(map);
   } else {
-    playerMarker.setLatLng(latlng);
-  }
-
-  if (playerMarker) {
-    playerMarker.bringToFront();
+    playerMarker.setLatLng(latLng);
+    if (!map.hasLayer(playerMarker)) {
+      playerMarker.addTo(map);
+    }
   }
 
   const numericAccuracy = Number.isFinite(accuracy) ? accuracy : 0;
   if (numericAccuracy > 0) {
     if (!playerAccuracyCircle) {
-      playerAccuracyCircle = L.circle(latlng, {
+      playerAccuracyCircle = window.L.circle(latLng, {
         radius: numericAccuracy,
         color: '#f97316',
         weight: 1,
+        opacity: 0.9,
         fillColor: '#fb923c',
         fillOpacity: 0.15,
         interactive: false,
       }).addTo(map);
     } else {
-      playerAccuracyCircle.setLatLng(latlng);
+      playerAccuracyCircle.setLatLng(latLng);
       playerAccuracyCircle.setRadius(numericAccuracy);
+      if (!map.hasLayer(playerAccuracyCircle)) {
+        playerAccuracyCircle.addTo(map);
+      }
     }
-
-    playerAccuracyCircle.bringToBack();
   }
 
   if (!hasCenteredOnPlayer) {
-    const targetZoom = Math.max(map.getZoom(), 12);
-    map.setView(latlng, targetZoom, { animate: true });
+    const currentZoom = map.getZoom();
+    const targetZoom = typeof currentZoom === 'number' && currentZoom < 12 ? 12 : currentZoom;
+    map.setView(latLng, targetZoom, { animate: true });
     hasCenteredOnPlayer = true;
   }
 }
@@ -3984,6 +3684,10 @@ function startPlayerLocationTracking() {
   if (!('geolocation' in navigator)) {
     setLevelStatus('Twoja przeglądarka nie obsługuje geolokalizacji – pozycja gracza nie będzie widoczna.', 6000);
     return;
+  }
+
+  if (locationWatchId !== null) {
+    navigator.geolocation.clearWatch(locationWatchId);
   }
 
   locationWatchId = navigator.geolocation.watchPosition(updatePlayerLocation, handleLocationTrackingError, {
@@ -4021,10 +3725,20 @@ function focusPlace(id) {
 
   state.selected = place;
 
-  if (map) {
-    map.setView([place.lat, place.lng], 12, { animate: true });
+  if (map && window.L) {
+    const target = window.L.latLng(place.lat, place.lng);
+    const currentZoom = map.getZoom();
+    const targetZoom = typeof currentZoom === 'number' && currentZoom < 12 ? 12 : currentZoom;
+    map.setView(target, targetZoom, { animate: true });
+
     const marker = markers.get(place.id);
     if (marker) {
+      const popup = marker.getPopup();
+      if (popup) {
+        popup.setContent(getMarkerPopupContent(place));
+      } else {
+        marker.bindPopup(getMarkerPopupContent(place));
+      }
       marker.openPopup();
     }
   }
@@ -4377,49 +4091,25 @@ async function handleReviewFormSubmit(event) {
   const account = getAccount(currentUserKey);
   const username = account?.username || 'Gracz';
 
-  const submitBtn = form.querySelector('button[type="submit"]');
-  const originalSubmitText =
-    submitBtn instanceof HTMLButtonElement ? submitBtn.textContent || '' : '';
-
-  if (submitBtn instanceof HTMLButtonElement) {
-    submitBtn.disabled = true;
-    submitBtn.textContent = existing ? 'Aktualizuję opinię…' : 'Publikuję opinię…';
-  }
-
-  setReviewFormMessage(existing ? 'Aktualizuję Twoją opinię…' : 'Publikuję Twoją opinię…', 'info');
-
-  let savedReview;
-  try {
-    savedReview = await submitReview(placeId, {
-      userKey: currentUserKey,
-      username,
-      rating: clampedRating,
-      comment,
-      photoDataUrl,
-    });
-  } catch (error) {
-    console.error('Nie udało się zapisać opinii:', error);
-    const message =
-      error instanceof Error && error.message
-        ? error.message
-        : 'Nie udało się zapisać opinii. Spróbuj ponownie.';
-    setReviewFormMessage(message, 'error');
-
-    if (submitBtn instanceof HTMLButtonElement) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = originalSubmitText || 'Dodaj opinię';
-    }
-    return;
-  }
-
-  upsertReview(placeId, savedReview);
+  upsertReview(placeId, {
+    userKey: currentUserKey,
+    username,
+    rating: clampedRating,
+    comment,
+    photoDataUrl,
+  });
 
   form.dataset.removePhoto = 'false';
-  form.dataset.hasExistingPhoto = savedReview.photoDataUrl ? 'true' : 'false';
+  form.dataset.hasExistingPhoto = photoDataUrl ? 'true' : 'false';
+
+  const place = places.find((item) => item.id === placeId);
+  if (place) {
+    renderReviewsSection(place);
+  }
 
   const reviewXp = applyReviewRewardProgress(placeId, {
-    hasComment: Boolean(savedReview.comment),
-    hasPhoto: Boolean(savedReview.photoDataUrl),
+    hasComment,
+    hasPhoto: Boolean(photoDataUrl),
   });
 
   if (reviewXp > 0) {
@@ -4430,11 +4120,6 @@ async function handleReviewFormSubmit(event) {
 
   if (photoInput instanceof HTMLInputElement) {
     photoInput.value = '';
-  }
-
-  if (submitBtn instanceof HTMLButtonElement) {
-    submitBtn.disabled = false;
-    submitBtn.textContent = 'Zaktualizuj opinię';
   }
 
   if (reviewXp > 0) {
@@ -4484,6 +4169,88 @@ function calculateTripDistance(startPlace, stops) {
 
   totalDistance += calculateDistanceKm(previous, startPlace);
   return totalDistance;
+}
+
+function inferCitySlug(place) {
+  if (!place) {
+    return FALLBACK_CITY_SLUG;
+  }
+
+  let bestSlug = FALLBACK_CITY_SLUG;
+  let shortestDistance = Number.POSITIVE_INFINITY;
+
+  CITY_AREA_CONFIG.forEach((city) => {
+    const distance = calculateDistanceKm(place, city);
+    if (distance < shortestDistance) {
+      shortestDistance = distance;
+      bestSlug = city.slug;
+    }
+  });
+
+  const matchedCity = CITY_AREA_CONFIG.find((city) => city.slug === bestSlug);
+  if (!matchedCity) {
+    return FALLBACK_CITY_SLUG;
+  }
+
+  return shortestDistance <= matchedCity.radiusKm ? matchedCity.slug : FALLBACK_CITY_SLUG;
+}
+
+function orderPlacesForCity(list) {
+  if (!Array.isArray(list) || list.length <= 1) {
+    return Array.isArray(list) ? [...list] : [];
+  }
+
+  const remaining = [...list];
+  remaining.sort((a, b) => a.name.localeCompare(b.name, 'pl', { sensitivity: 'base' }));
+  const ordered = [remaining.shift()];
+
+  while (remaining.length) {
+    const last = ordered[ordered.length - 1];
+    let bestIndex = 0;
+    let bestDistance = Number.POSITIVE_INFINITY;
+
+    remaining.forEach((candidate, index) => {
+      const distance = calculateDistanceKm(last, candidate);
+      if (distance < bestDistance) {
+        bestDistance = distance;
+        bestIndex = index;
+      }
+    });
+
+    ordered.push(remaining.splice(bestIndex, 1)[0]);
+  }
+
+  return ordered;
+}
+
+function buildCityRoutes() {
+  const groups = new Map();
+
+  places.forEach((place) => {
+    const slug = inferCitySlug(place);
+    if (!groups.has(slug)) {
+      groups.set(slug, []);
+    }
+    groups.get(slug).push(place);
+  });
+
+  const routes = new Map();
+  groups.forEach((list, slug) => {
+    const ordered = orderPlacesForCity(list);
+    routes.set(
+      slug,
+      ordered.map((item) => item.id),
+    );
+  });
+
+  return routes;
+}
+
+function getCityRoutes() {
+  if (!cityRoutesCache) {
+    cityRoutesCache = buildCityRoutes();
+  }
+  return cityRoutesCache;
 }
 
 function calculateTripXpMultiplier(stopsCount) {
@@ -4971,6 +4738,7 @@ function switchAppView(viewId) {
 
   const views = document.querySelectorAll('.app-view');
   const tabs = document.querySelectorAll('.header-tab');
+  const mobileTabs = document.querySelectorAll('.mobile-tabbar-btn');
 
   views.forEach((view) => {
     if (!(view instanceof HTMLElement)) return;
@@ -4985,12 +4753,15 @@ function switchAppView(viewId) {
     tab.setAttribute('tabindex', isActive ? '0' : '-1');
   });
 
+  mobileTabs.forEach((tab) => {
+    const controls = tab.getAttribute('data-target') || tab.getAttribute('aria-controls');
+    const isActive = controls === viewId;
+    tab.classList.toggle('is-active', isActive);
+    tab.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+  });
+
   const activeView = document.getElementById(viewId);
   activeView?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-function openCommunityView() {
-  switchAppView(COMMUNITY_VIEW_ID);
 }
 
 function openPackingPlannerView() {
@@ -5013,29 +4784,8 @@ function openTasksView() {
   }
 }
 
-function openAdventureView(options = {}) {
+function openAdventureView() {
   switchAppView(ADVENTURE_VIEW_ID);
-
-  const { showJournalForm = false } = options;
-  if (showJournalForm) {
-    if (!currentUserKey) {
-      setLevelStatus('Zaloguj się, aby dodać wpis w strefie społeczności.', 5000);
-      openAuthModal();
-      switchJournalTab('journalEntriesPanel', { force: true });
-      return;
-    }
-
-    switchJournalTab('journalFormPanel', { force: true });
-    const form = document.getElementById('journalForm');
-    if (form instanceof HTMLFormElement) {
-      const titleInput = form.querySelector('#journalTitle');
-      const notesField = form.querySelector('#journalNotes');
-      const focusTarget = titleInput || notesField;
-      if (focusTarget instanceof HTMLElement) {
-        focusTarget.focus();
-      }
-    }
-  }
 }
 
 function formatJournalLikes(count) {
@@ -5703,7 +5453,7 @@ function handleJournalEntryDelete(entryId) {
   setLevelStatus('Wpis został usunięty z dziennika.', 6000);
 }
 
-async function toggleJournalEntryLike(entryId) {
+function toggleJournalEntryLike(entryId) {
   if (!entryId) return;
 
   if (!currentUserKey) {
@@ -5721,55 +5471,37 @@ async function toggleJournalEntryLike(entryId) {
     return;
   }
 
-  const likedBy = Array.isArray(entry.likedBy) ? entry.likedBy : [];
-  const hasLiked = likedBy.includes(currentUserKey);
-  const desiredState = !hasLiked;
+  const likedBy = Array.isArray(entry.likedBy) ? [...entry.likedBy] : [];
+  const existingIndex = likedBy.indexOf(currentUserKey);
+  let message = '';
 
-  let response;
-  try {
-    response = await updateJournalEntryLikeOnServer(entryId, {
-      userKey: currentUserKey,
-      like: desiredState,
-    });
-  } catch (error) {
-    console.error('Nie udało się zaktualizować polubienia wpisu:', error);
-    const message =
-      error instanceof Error && error.message
-        ? error.message
-        : 'Nie udało się zapisać polubienia. Spróbuj ponownie.';
-    setLevelStatus(message, 5000);
-    return;
+  if (existingIndex >= 0) {
+    likedBy.splice(existingIndex, 1);
+    message = 'Cofnięto polubienie wpisu.';
+  } else {
+    likedBy.push(currentUserKey);
+    message = 'Polubiłeś ten wpis społeczności!';
+    if (entry.userKey && entry.userKey !== currentUserKey) {
+      addNotificationForUser(entry.userKey, {
+        type: 'like',
+        entryId,
+        actorKey: currentUserKey,
+        actorName: getCurrentDisplayName(),
+        message: `${getCurrentDisplayName()} polubił Twój wpis „${getEntryNotificationTitle(entry)}”.`,
+      });
+    }
   }
 
-  if (response?.entry) {
-    mergeJournalEntries([response.entry]);
-  }
-
-  const updatedEntry = journalEntries.find((item) => item.id === entryId);
-  if (!updatedEntry) {
-    return;
-  }
-
-  const liked = typeof response?.liked === 'boolean' ? response.liked : desiredState;
-  let message = liked ? 'Polubiłeś ten wpis społeczności!' : 'Cofnięto polubienie wpisu.';
-
-  if (liked && updatedEntry.userKey && updatedEntry.userKey !== currentUserKey) {
-    const actorName = getCurrentDisplayName();
-    addNotificationForUser(updatedEntry.userKey, {
-      type: 'like',
-      entryId,
-      actorKey: currentUserKey,
-      actorName,
-      message: `${actorName} polubił Twój wpis „${getEntryNotificationTitle(updatedEntry)}”.`,
-    });
-  }
+  journalEntries[index] = { ...entry, likedBy };
+  persistJournalEntries();
+  renderJournalEntries();
 
   if (message) {
     setLevelStatus(message, 4000);
   }
 }
 
-async function handleJournalCommentSubmit(event, entryId, parentCommentId = null) {
+function handleJournalCommentSubmit(event, entryId, parentCommentId = null) {
   event.preventDefault();
 
   if (!entryId) {
@@ -5815,40 +5547,44 @@ async function handleJournalCommentSubmit(event, entryId, parentCommentId = null
     return;
   }
 
-  const submitBtn = form.querySelector('button[type="submit"]');
-  const originalText = submitBtn instanceof HTMLButtonElement ? submitBtn.textContent || '' : '';
+  const timestamp = new Date().toISOString();
+  const comment = {
+    id: `comment-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    text,
+    createdAt: timestamp,
+    userKey: currentUserKey,
+    username: getCurrentDisplayName(),
+    updatedAt: timestamp,
+    replies: [],
+  };
 
-  if (submitBtn instanceof HTMLButtonElement) {
-    submitBtn.disabled = true;
-    submitBtn.textContent = parentCommentId ? 'Dodaję odpowiedź…' : 'Dodaję komentarz…';
-  }
+  const existingComments = Array.isArray(entry.comments) ? entry.comments : [];
+  let updatedComments;
+  let parentComment = null;
 
-  let response;
-  try {
-    response = await submitJournalComment(entryId, {
-      text,
-      parentCommentId,
-      userKey: currentUserKey,
-      username: getCurrentDisplayName(),
-    });
-  } catch (error) {
-    console.error('Nie udało się dodać komentarza społeczności:', error);
-    const message =
-      error instanceof Error && error.message
-        ? error.message
-        : 'Nie udało się dodać komentarza. Spróbuj ponownie.';
-    setLevelStatus(message, 5000);
-
-    if (submitBtn instanceof HTMLButtonElement) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = originalText || (parentCommentId ? 'Dodaj odpowiedź' : 'Dodaj komentarz');
+  if (parentCommentId) {
+    const parentExists = findCommentInTree(existingComments, parentCommentId);
+    if (!parentExists) {
+      setLevelStatus('Nie udało się odnaleźć komentarza do odpowiedzi.', 4000);
+      return;
     }
-    return;
+
+    const result = appendReplyToComment(existingComments, parentCommentId, comment);
+    if (!result.updated) {
+      setLevelStatus('Nie udało się dodać odpowiedzi. Odśwież stronę i spróbuj ponownie.', 5000);
+      return;
+    }
+    updatedComments = result.comments;
+    parentComment = result.updated;
+  } else {
+    updatedComments = [...existingComments, comment];
   }
 
-  if (response?.entry) {
-    mergeJournalEntries([response.entry]);
-  }
+  const updatedEntry = { ...entry, comments: updatedComments, updatedAt: timestamp };
+
+  journalEntries[index] = updatedEntry;
+  persistJournalEntries();
+  renderJournalEntries();
 
   if (textarea) {
     textarea.value = '';
@@ -5858,18 +5594,14 @@ async function handleJournalCommentSubmit(event, entryId, parentCommentId = null
     form.hidden = true;
   }
 
-  const updatedEntry = journalEntries.find((item) => item.id === entryId);
   const message = parentCommentId
     ? 'Twoja odpowiedź została opublikowana!'
     : 'Twój komentarz został dodany do rozmowy!';
   setLevelStatus(message, 5000);
 
   const actorName = getCurrentDisplayName();
-  const entryOwner = updatedEntry?.userKey;
-  const entryTitle = getEntryNotificationTitle(updatedEntry);
-  const parentComment = parentCommentId
-    ? findCommentInTree(updatedEntry?.comments, parentCommentId)
-    : null;
+  const entryOwner = entry.userKey;
+  const entryTitle = getEntryNotificationTitle(entry);
 
   if (parentCommentId) {
     const parentOwner = parentComment?.userKey;
@@ -5900,11 +5632,6 @@ async function handleJournalCommentSubmit(event, entryId, parentCommentId = null
       actorName,
       message: `${actorName} skomentował Twój wpis „${entryTitle}”.`,
     });
-  }
-
-  if (submitBtn instanceof HTMLButtonElement) {
-    submitBtn.disabled = false;
-    submitBtn.textContent = parentCommentId ? 'Dodaj odpowiedź' : 'Dodaj komentarz';
   }
 }
 
@@ -6246,11 +5973,6 @@ function handleJournalRemovePhoto(event) {
 }
 
 function initializeJournalUI() {
-  const journalPanel = document.getElementById('journalPanel');
-  if (!journalPanel) {
-    return;
-  }
-
   journalEntries = loadJournalEntriesFromStorage();
   renderJournalEntries();
 
@@ -6368,15 +6090,25 @@ function showObjective(place) {
 
 function getAdjacentPlace(place, direction) {
   if (!place) return null;
-  const index = places.findIndex((item) => item.id === place.id);
-  if (index === -1) return null;
-
-  const targetIndex = index + direction;
-  if (targetIndex < 0 || targetIndex >= places.length) {
+  const routes = getCityRoutes();
+  const citySlug = inferCitySlug(place);
+  const route = routes.get(citySlug) || routes.get(FALLBACK_CITY_SLUG);
+  if (!route || route.length <= 1) {
     return null;
   }
 
-  return places[targetIndex];
+  const index = route.indexOf(place.id);
+  if (index === -1) {
+    return null;
+  }
+
+  const targetIndex = index + direction;
+  if (targetIndex < 0 || targetIndex >= route.length) {
+    return null;
+  }
+
+  const targetId = route[targetIndex];
+  return getPlaceById(targetId);
 }
 
 function focusAdjacentPlace(direction) {
@@ -6550,8 +6282,15 @@ function revertTask(task) {
 
 function animateMarker(id) {
   const marker = markers.get(id);
-  if (!marker) return;
-  marker.setBouncingOptions({ bounceHeight: 15, bounceSpeed: 54 }).bounce(3);
+  if (!marker || !window.L) return;
+
+  const element = marker.getElement();
+  if (!element) return;
+
+  element.classList.add('marker-bounce');
+  window.setTimeout(() => {
+    element.classList.remove('marker-bounce');
+  }, 900);
 }
 
 function ensureSelectedObjective() {
@@ -7101,14 +6840,66 @@ function initMap() {
     return;
   }
 
-  map = L.map(mapElement).setView([35.095, 33.203], 9);
+  if (!window.L) {
+    showMapInitializationError(
+      'Nie udało się załadować interaktywnej mapy. Sprawdź połączenie z internetem i odśwież stronę.'
+    );
+    return;
+  }
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> współtwórcy',
+  try {
+    if (map && typeof map.remove === 'function') {
+      map.remove();
+    }
+  } catch (error) {
+    console.warn('Nie udało się zresetować poprzedniej instancji mapy.', error);
+  }
+
+  markers.forEach((marker) => {
+    if (marker && typeof marker.remove === 'function') {
+      marker.remove();
+    }
+  });
+  markers = new Map();
+
+  if (playerMarker && typeof playerMarker.remove === 'function') {
+    playerMarker.remove();
+  }
+  playerMarker = null;
+
+  if (playerAccuracyCircle && typeof playerAccuracyCircle.remove === 'function') {
+    playerAccuracyCircle.remove();
+  }
+  playerAccuracyCircle = null;
+
+  hasCenteredOnPlayer = false;
+
+  mapElement.innerHTML = '';
+
+  map = window.L.map(mapElement, {
+    zoomControl: false,
+    attributionControl: false,
+  }).setView([35.095, 33.203], 9);
+
+  window.L.control
+    .zoom({ position: 'bottomright' })
+    .addTo(map);
+
+  window.L.control
+    .attribution({ position: 'bottomleft', prefix: '' })
+    .addTo(map)
+    .addAttribution('Dane map © <a href="https://www.openstreetmap.org/">OpenStreetMap</a> współtwórcy');
+
+  window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
   }).addTo(map);
 
   syncMarkers();
   startPlayerLocationTracking();
+
+  if (state.selected) {
+    focusPlace(state.selected.id);
+  }
 }
 
 function bootstrap() {
@@ -7116,19 +6907,15 @@ function bootstrap() {
   initializeNotifications();
   reviews = loadReviewsFromStorage();
   initializeReviewUI();
-  refreshReviewsFromServer();
-  connectReviewsRealtimeUpdates();
-  initializeJournalUI();
-  initializeRealtimeResyncTriggers();
-  startRealtimeRefreshLoop();
   loadProgress();
   restoreSelectedPlaceFromStorage();
   initializeTripPlannerUI();
   renderAllForCurrentState();
   initializePackingPlanner();
   initMap();
+
   if (state.selected) {
-    focusPlace(state.selected.id);
+    showObjective(state.selected);
   } else {
     ensureSelectedObjective();
   }
@@ -7324,14 +7111,13 @@ function bootstrap() {
   }
 
   const adventureTab = document.getElementById('headerAdventureTab');
-  const communityTab = document.getElementById('headerCommunityTab');
   const packingTab = document.getElementById('headerPackingTab');
   const tasksTab = document.getElementById('headerTasksTab');
+  const mobileAdventureTab = document.getElementById('mobileAdventureTab');
+  const mobilePackingTab = document.getElementById('mobilePackingTab');
+  const mobileTasksTab = document.getElementById('mobileTasksTab');
   adventureTab?.addEventListener('click', () => {
     openAdventureView();
-  });
-  communityTab?.addEventListener('click', () => {
-    openCommunityView();
   });
   packingTab?.addEventListener('click', () => {
     openPackingPlannerView();
@@ -7339,15 +7125,18 @@ function bootstrap() {
   tasksTab?.addEventListener('click', () => {
     openTasksView();
   });
+  mobileAdventureTab?.addEventListener('click', () => {
+    openAdventureView();
+  });
+  mobilePackingTab?.addEventListener('click', () => {
+    openPackingPlannerView();
+  });
+  mobileTasksTab?.addEventListener('click', () => {
+    openTasksView();
+  });
   adventureTab?.addEventListener('keydown', handleHeaderTabKeydown);
-  communityTab?.addEventListener('keydown', handleHeaderTabKeydown);
   packingTab?.addEventListener('keydown', handleHeaderTabKeydown);
   tasksTab?.addEventListener('keydown', handleHeaderTabKeydown);
-
-  const openCommunityFromPlace = document.getElementById('openCommunityFromPlace');
-  openCommunityFromPlace?.addEventListener('click', () => {
-    openCommunityView();
-  });
 
   const openPackingFromAdventure = document.getElementById('openPackingFromAdventure');
   openPackingFromAdventure?.addEventListener('click', () => {
@@ -7357,11 +7146,6 @@ function bootstrap() {
   const openTasksFromAdventure = document.getElementById('openTasksFromAdventure');
   openTasksFromAdventure?.addEventListener('click', () => {
     openTasksView();
-  });
-
-  const openAdventureFromCommunity = document.getElementById('openAdventureFromCommunity');
-  openAdventureFromCommunity?.addEventListener('click', () => {
-    openAdventureView();
   });
 
   const openAdventureFromPacking = document.getElementById('openAdventureFromPacking');
@@ -7374,46 +7158,7 @@ function bootstrap() {
     openAdventureView();
   });
 
-  const openJournalFormFromCommunity = document.getElementById('openJournalFormFromCommunity');
-  openJournalFormFromCommunity?.addEventListener('click', () => {
-    openAdventureView({ showJournalForm: true });
-  });
-
 }
-
-// Polyfill prostego podskakiwania markera (Leaflet nie ma wbudowanego)
-L.Marker.addInitHook(function () {
-  this.options.bouncingOptions = this.options.bouncingOptions || {
-    bounceHeight: 16,
-    bounceSpeed: 48,
-  };
-});
-
-L.Marker.include({
-  setBouncingOptions(options) {
-    this.options.bouncingOptions = { ...this.options.bouncingOptions, ...options };
-    return this;
-  },
-  bounce(times = 1) {
-    const marker = this;
-    const original = marker.getLatLng();
-    const { bounceHeight, bounceSpeed } = marker.options.bouncingOptions;
-    let count = 0;
-
-    function step() {
-      count += 1;
-      marker.setLatLng([original.lat + 0.0001, original.lng]);
-      setTimeout(() => marker.setLatLng(original), bounceSpeed);
-      if (count < times) {
-        setTimeout(step, bounceSpeed * 2);
-      }
-    }
-
-    step();
-    return marker;
-  },
-});
-
 window.addEventListener('beforeunload', () => {
   if (locationWatchId !== null && 'geolocation' in navigator) {
     navigator.geolocation.clearWatch(locationWatchId);
