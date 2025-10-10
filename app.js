@@ -1163,7 +1163,7 @@ function resolveAppBasePath() {
   }
 
   const { pathname } = window.location;
-  const knownFiles = ['app.html', 'achievements.html', 'attractions.html'];
+  const knownFiles = ['index.html', 'achievements.html', 'attractions.html'];
 
   for (const file of knownFiles) {
     if (pathname === `/${file}`) {
@@ -3049,7 +3049,7 @@ function goToAdventureWithPlace(placeId) {
   if (!place) return;
 
   storeSelectedPlaceForRedirect(place.id);
-  window.location.href = 'app.html#map';
+  window.location.href = 'index.html#map';
 }
 
 function formatAttractionDistanceLabel(place) {

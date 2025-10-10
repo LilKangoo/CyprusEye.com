@@ -612,7 +612,7 @@ async function tryServeStaticFile(req, pathname, res) {
     return false;
   }
 
-  const targetPath = relativePath ? relativePath : 'app.html';
+  const targetPath = relativePath ? relativePath : 'index.html';
 
   if (targetPath.startsWith('data/')) {
     return false;

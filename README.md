@@ -2,6 +2,17 @@
 
 Kompletny szkielet aplikacji Expo (TypeScript) z MapLibre, monitorowaniem geostref oraz listą punktów POI dla Cypru. Projekt jest gotowy do użycia z EAS (prebuild/dev client) i nie korzysta z płatnych SDK.
 
+## Wersja web (CyprusEye.com)
+
+Repozytorium zawiera również gotową wersję strony internetowej, dzięki której doświadczenie z aplikacji mobilnej można uruchomić pod domeną `CyprusEye.com` lub dowolnym innym hostem statycznym.
+
+- Wejściem strony jest plik `index.html` (wcześniej `app.html`). Wraz z nim należy wdrożyć `app.js`, `styles.css`, katalog `assets/`, podstronę `car-rental.html` z towarzyszącym skryptem `car-rental.js` oraz katalog `Pull/` z dodatkowymi landing page'ami.
+- Na potrzeby dynamicznych funkcji (rejestracja, dziennik społeczności) można uruchomić prosty backend z `server.js`. Dostępny jest skrypt `npm run serve:web`, który startuje serwer na porcie `3001` (można go zmienić przez zmienną `PORT`).
+- Jeżeli strona ma być serwowana spod subścieżki, ustaw `BASE_PATH` (np. `/app`). Linki i serwowanie statycznych plików zostaną automatycznie dopasowane.
+- Do obsługi resetu hasła ustaw `PASSWORD_RESET_URL` z pełnym adresem formularza, który otrzyma użytkownik w e-mailu.
+
+> W większości przypadków wdrożenie na hosting statyczny wymaga jedynie skopiowania wskazanych plików oraz opcjonalnego uruchomienia `server.js` (np. na małym VPS lub w usłudze typu serverless container).
+
 ## Funkcje
 - ✅ Interaktywna mapa MapLibre z kafelkami OSM/MapTiler i markerem bieżącej pozycji.
 - ✅ Lokalne geostrefy (ENTER/EXIT) obsługiwane w tle z `expo-task-manager` oraz powiadomieniami lokalnymi.
