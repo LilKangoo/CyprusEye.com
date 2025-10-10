@@ -1,5 +1,18 @@
 (function () {
-  const carFleet = [
+  function isNonEmptyString(value) {
+    return typeof value === 'string' && value.trim().length > 0;
+  }
+
+  function isFiniteNumber(value) {
+    return typeof value === 'number' && Number.isFinite(value);
+  }
+
+  function toNumberOrZero(value) {
+    const numeric = Number(value);
+    return Number.isFinite(numeric) ? numeric : 0;
+  }
+
+  const DEFAULT_CAR_FLEET = [
     {
       id: 'toyota-passo-2020',
       name: 'Toyota Passo',
@@ -242,7 +255,7 @@
     },
   ];
 
-  const rentalLocations = [
+  const DEFAULT_RENTAL_LOCATIONS = [
     { id: 'larnaca', label: 'Larnaka (bez opłaty)', shortLabel: 'Larnaka', fee: 0 },
     { id: 'nicosia', label: 'Nikozja (+15€)', shortLabel: 'Nikozja', fee: 15 },
     { id: 'ayia-napa', label: 'Ayia Napa (+15€)', shortLabel: 'Ayia Napa', fee: 15 },
@@ -251,13 +264,7 @@
     { id: 'paphos', label: 'Pafos (+40€)', shortLabel: 'Pafos', fee: 40 },
   ];
 
-  const EURO_FORMATTER = new Intl.NumberFormat('pl-PL', {
-    style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: 0,
-  });
-
-  const PRICE_CATEGORIES = [
+  const DEFAULT_PRICE_CATEGORIES = [
     {
       id: 'economy',
       label: 'Ekonomiczne i miejskie',
@@ -284,7 +291,7 @@
     },
   ];
 
-  const RENTAL_INCLUDED_FEATURES = [
+  const DEFAULT_RENTAL_INCLUDED_FEATURES = [
     {
       short: 'brak kaucji',
       description: 'Brak kaucji i blokad na karcie.',
@@ -299,10 +306,75 @@
     },
   ];
 
-  const CAR_RENTAL_INCLUDED_MESSAGE = `W cenie: ${RENTAL_INCLUDED_FEATURES.map((feature) => feature.short).join(', ')}.`;
-  const RENTAL_MINIMUM_DAYS = 3;
-  const FULL_INSURANCE_DAILY = 17;
-  const YOUNG_DRIVER_DAILY = 10;
+  const DEFAULT_RENTAL_MINIMUM_DAYS = 3;
+  const DEFAULT_FULL_INSURANCE_DAILY = 17;
+  const DEFAULT_YOUNG_DRIVER_DAILY = 10;
+
+  const config = typeof window !== 'undefined' && window.CAR_RENTAL_CONFIG ? window.CAR_RENTAL_CONFIG : {};
+  if (typeof window !== 'undefined' && window.CAR_RENTAL_CONFIG) {
+    delete window.CAR_RENTAL_CONFIG;
+  }
+
+  const carFleet = (Array.isArray(config.fleet) && config.fleet.length ? config.fleet : DEFAULT_CAR_FLEET).map((car) => ({
+    ...car,
+    pricePerDay: isFiniteNumber(car.pricePerDay) ? car.pricePerDay : toNumberOrZero(car.pricePerDay),
+  }));
+
+  const rentalLocations = (Array.isArray(config.locations) && config.locations.length
+    ? config.locations
+    : DEFAULT_RENTAL_LOCATIONS
+  ).map((location) => ({
+    ...location,
+    shortLabel: isNonEmptyString(location.shortLabel)
+      ? location.shortLabel.trim()
+      : isNonEmptyString(location.label)
+      ? location.label.trim()
+      : '',
+    fee: isFiniteNumber(location.fee) ? location.fee : toNumberOrZero(location.fee),
+  }));
+
+  const PRICE_CATEGORIES = (Array.isArray(config.priceCategories) && config.priceCategories.length
+    ? config.priceCategories
+    : DEFAULT_PRICE_CATEGORIES
+  ).map((category) => ({ ...category }));
+
+  const RENTAL_INCLUDED_FEATURES = (Array.isArray(config.includedFeatures) && config.includedFeatures.length
+    ? config.includedFeatures
+    : DEFAULT_RENTAL_INCLUDED_FEATURES
+  ).map((feature) => ({
+    short: isNonEmptyString(feature.short) ? feature.short.trim() : '',
+    description: isNonEmptyString(feature.description)
+      ? feature.description.trim()
+      : isNonEmptyString(feature.short)
+      ? feature.short.trim()
+      : '',
+  }));
+
+  const RENTAL_MINIMUM_DAYS = isFiniteNumber(config.minimumDays)
+    ? config.minimumDays
+    : DEFAULT_RENTAL_MINIMUM_DAYS;
+  const FULL_INSURANCE_DAILY = isFiniteNumber(config.fullInsuranceDaily)
+    ? config.fullInsuranceDaily
+    : DEFAULT_FULL_INSURANCE_DAILY;
+  const YOUNG_DRIVER_DAILY = isFiniteNumber(config.youngDriverDaily)
+    ? config.youngDriverDaily
+    : DEFAULT_YOUNG_DRIVER_DAILY;
+
+  const includedShortList = RENTAL_INCLUDED_FEATURES.filter((feature) => isNonEmptyString(feature.short)).map((feature) =>
+    feature.short,
+  );
+  const defaultIncludedMessage = includedShortList.length
+    ? `W cenie: ${includedShortList.join(', ')}.`
+    : '';
+  const CAR_RENTAL_INCLUDED_MESSAGE = isNonEmptyString(config.includedMessage)
+    ? config.includedMessage.trim()
+    : defaultIncludedMessage;
+
+  const EURO_FORMATTER = new Intl.NumberFormat('pl-PL', {
+    style: 'currency',
+    currency: 'EUR',
+    maximumFractionDigits: 0,
+  });
 
   function populateIncludedFeatures() {
     const lists = document.querySelectorAll('[data-included-list]');

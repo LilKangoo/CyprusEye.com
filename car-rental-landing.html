@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#2563eb" />
+    <title>Wybierz miasto – Wynajem aut | WakacjeCypr</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="standalone-body">
+    <div class="standalone-page">
+      <header class="surface-card standalone-header">
+        <div class="standalone-brand">
+          <img src="assets/cyprus_logo-1000x1054.png" alt="WakacjeCypr.com – logo żółwia z flagą Polski" />
+          <div>
+            <p class="standalone-brand-overline">WakacjeCypr Quest</p>
+            <p class="standalone-brand-title">Wynajem samochodów</p>
+          </div>
+        </div>
+        <nav class="standalone-nav">
+          <a class="ghost link" href="index.html">← Wróć do aplikacji</a>
+        </nav>
+      </header>
+
+      <main class="standalone-main">
+        <section class="surface-card standalone-hero" aria-labelledby="citySelectTitle">
+          <div class="standalone-hero-content">
+            <p class="standalone-hero-badge">Krok 1</p>
+            <h1 id="citySelectTitle">Wybierz lokalizację odbioru auta</h1>
+            <p>
+              Przygotowaliśmy dwie oferty dopasowane do Twoich planów podróży. Wybierz region, w którym potrzebujesz samochodu,
+              aby zobaczyć flotę, kalkulator kosztów oraz formularz rezerwacji.
+            </p>
+            <p class="standalone-hero-note">Możesz w każdej chwili przełączyć się między ofertami – link znajdziesz na górze strony.</p>
+          </div>
+          <ul class="standalone-hero-stats city-select-info" aria-label="Szybkie informacje">
+            <li>
+              <strong>Bez kaucji</strong>
+              <span>W obu lokalizacjach nie pobieramy kaucji i zapewniamy polską obsługę.</span>
+            </li>
+            <li>
+              <strong>Dowóz auta</strong>
+              <span>Odbierz samochód na lotnisku, w hotelu lub w umówionym miejscu.</span>
+            </li>
+            <li>
+              <strong>24/7</strong>
+              <span>Wsparcie całodobowe niezależnie od wybranej oferty.</span>
+            </li>
+          </ul>
+        </section>
+
+        <section class="surface-card city-select" aria-labelledby="citySelectOptions">
+          <header class="city-select-header">
+            <h2 id="citySelectOptions">Dwie oferty, jeden standard obsługi</h2>
+            <p>Wybierz, w którym mieście zaczyna się Twoja przygoda, a my pokażemy dostępne samochody i ceny.</p>
+          </header>
+          <div class="city-select-grid" role="list">
+            <article class="city-select-card" role="listitem">
+              <div class="city-select-card-content">
+                <p class="city-select-card-tag">Cały Cypr</p>
+                <h3>Odbiór w Larnace lub dowóz na wyspie</h3>
+                <p>
+                  Idealna opcja, jeśli lądujesz w Larnace i planujesz zwiedzić różne regiony wyspy. Możliwy odbiór na lotnisku
+                  lub dowóz do wybranych kurortów.
+                </p>
+                <ul class="city-select-card-list">
+                  <li>Dowóz do Ayia Napy, Protaras, Limassol i Nikozji</li>
+                  <li>Pełne ubezpieczenie oraz dodatki rodzinne w cenie</li>
+                  <li>Kalkulator kosztów i formularz rezerwacji online</li>
+                </ul>
+              </div>
+              <a class="primary city-select-cta" href="car-rental.html" aria-label="Przejdź do oferty wynajmu na całym Cyprze"
+                >Zobacz ofertę ogólnocypryjską</a
+              >
+            </article>
+
+            <article class="city-select-card" role="listitem">
+              <div class="city-select-card-content">
+                <p class="city-select-card-tag">Pafos</p>
+                <h3>Odbiór na lotnisku PFO lub pod hotelem bez dopłat</h3>
+                <p>
+                  Wybierz ofertę dedykowaną Pafos, jeśli szukasz wygodnego odbioru bez dodatkowych kosztów oraz opcji dowozu do
+                  pobliskich kurortów.
+                </p>
+                <ul class="city-select-card-list">
+                  <li>Lotnisko w Pafos oraz centrum miasta bez dopłat</li>
+                  <li>Dowóz do Coral Bay i Polis za niewielką opłatą</li>
+                  <li>Polska obsługa 24/7 i przejrzysty kalkulator wynajmu</li>
+                </ul>
+              </div>
+              <a class="secondary city-select-cta" href="autopfo.html" aria-label="Przejdź do oferty wynajmu aut w Pafos"
+                >Zobacz ofertę Pafos</a
+              >
+            </article>
+          </div>
+        </section>
+      </main>
+
+      <footer class="standalone-footer">
+        <p>Masz pytania? Skontaktuj się z nami w aplikacji lub telefonicznie – pomożemy dobrać najlepszy samochód.</p>
+      </footer>
+    </div>
+  </body>
+</html>

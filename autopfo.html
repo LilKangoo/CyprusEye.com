@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#2563eb" />
+    <title>Wynajem aut w Pafos – bez dopłat | WakacjeCypr</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="standalone-body">
+    <div class="standalone-page">
+      <header class="surface-card standalone-header">
+        <div class="standalone-brand">
+          <img src="assets/cyprus_logo-1000x1054.png" alt="WakacjeCypr.com – logo żółwia z flagą Polski" />
+          <div>
+            <p class="standalone-brand-overline">WakacjeCypr Quest</p>
+            <p class="standalone-brand-title">Wynajem samochodów</p>
+          </div>
+        </div>
+        <nav class="standalone-nav">
+          <a class="ghost link" href="index.html">← Wróć do aplikacji</a>
+          <a class="ghost" href="car-rental-landing.html">Wybierz inne miasto</a>
+          <a class="ghost" href="car-rental.html">Oferta całego Cypru</a>
+          <a class="secondary" href="#carReservationForm">Złóż rezerwację</a>
+        </nav>
+      </header>
+
+      <main class="standalone-main">
+        <section class="surface-card standalone-hero" aria-labelledby="standaloneHeroTitle">
+          <div class="standalone-hero-content">
+            <p class="standalone-hero-badge">Pafos • Bez kaucji • Polska obsługa 24/7</p>
+            <h1 id="standaloneHeroTitle">Wynajem aut w Pafos bez dopłat</h1>
+            <p>
+              Poznaj flotę samochodów dostępnych w Pafos, odbierz auto na lotnisku PFO lub pod swoim hotelem bez dodatkowych
+              opłat i policz koszt dzięki przejrzystemu kalkulatorowi.
+            </p>
+            <div class="standalone-hero-actions">
+              <a class="primary" href="#carRentalSection">Zobacz flotę</a>
+              <a class="ghost" href="#carRentalCalculatorBlock">Oblicz koszt wynajmu</a>
+            </div>
+            <p class="standalone-hero-note" data-included-message></p>
+            <p class="standalone-hero-note">
+              Planujesz podróż po całej wyspie? Skorzystaj z przycisku „Oferta całego Cypru” u góry strony lub
+              <a href="car-rental.html">sprawdź flotę dostępną na całym Cyprze</a>.
+            </p>
+          </div>
+          <ul class="standalone-hero-stats">
+            <li>
+              <strong data-car-count>0</strong>
+              <span>aut w naszej flocie</span>
+            </li>
+            <li>
+              <strong data-lowest-price>0&nbsp;€</strong>
+              <span>cena już od</span>
+            </li>
+            <li>
+              <strong data-minimum-days>3</strong>
+              <span>minimalna liczba dni</span>
+            </li>
+          </ul>
+        </section>
+
+        <section class="surface-card auto-rental" id="carRentalSection" aria-labelledby="carRentalTitle">
+          <header class="auto-rental-header">
+            <span class="auto-rental-badge">Bez kaucji</span>
+            <h2 id="carRentalTitle">Wynajmij auto w Pafos i okolicach</h2>
+            <p>
+              Samochód podstawimy na lotnisko w Pafos lub pod Twój hotel całkowicie bez dopłat. W cenie otrzymujesz kompleksowe
+              ubezpieczenie, dodatkowego kierowcę i foteliki dla dzieci, a dzięki lokalnej obsłudze 24/7 możesz liczyć na pomoc
+              o każdej porze.
+            </p>
+          </header>
+
+          <section class="auto-rental-benefits" aria-label="Najważniejsze korzyści">
+            <article class="auto-benefit">
+              <h3>Pakiet w cenie</h3>
+              <p>
+                Standard obejmuje brak kaucji, pełną obsługę po polsku oraz dodatki opisane w sekcji „Standard w cenie” –
+                odbierasz auto w Pafos bez żadnych ukrytych kosztów.
+              </p>
+            </article>
+            <article class="auto-benefit">
+              <h3>Elastyczny odbiór i zwrot</h3>
+              <p>
+                Lotnisko Pafos, centrum miasta lub hotel – wszystkie lokalizacje w Pafos obsługujemy bez dopłat. Na życzenie
+                dowozimy samochód również do Coral Bay czy Polis.
+              </p>
+            </article>
+            <article class="auto-benefit">
+              <h3>Wspieramy naturę</h3>
+              <p>Za każdy dzień wynajmu przekazujemy 1&nbsp;€ na konserwację cypryjskich żółwi morskich.</p>
+            </article>
+          </section>
+
+          <section class="auto-rental-details" aria-label="Warunki, dodatki i wymagania">
+            <article id="includedPackage">
+              <h3>Standard w cenie</h3>
+              <p>Każda rezerwacja zawiera:</p>
+              <ul data-included-list></ul>
+            </article>
+            <article>
+              <h3>Dostępne dodatki</h3>
+              <ul>
+                <li>Pełne ubezpieczenie AC bez wkładu własnego – 17&nbsp;€/dzień.</li>
+                <li>Podstawienie do Coral Bay / Pegeia +10&nbsp;€, Polis / Latchi +15&nbsp;€.</li>
+                <li>Rezerwacja poniżej 7 dni z odbiorem na lotnisku PFO – jednorazowa opłata 10&nbsp;€.</li>
+              </ul>
+            </article>
+            <article>
+              <h3>Wymagania kierowcy</h3>
+              <ul>
+                <li>Prawo jazdy od minimum 3 lat <strong>lub</strong> ukończone 25 lat.</li>
+                <li>Młodszy kierowca lub staż poniżej 3 lat: +10&nbsp;€/dzień.</li>
+              </ul>
+            </article>
+          </section>
+
+          <section class="auto-rental-groups" id="carRentalGrid" aria-label="Pełna flota" aria-live="polite"></section>
+
+          <section class="auto-rental-tools" aria-label="Kalkulator i rezerwacja">
+            <article class="auto-rental-block" id="carRentalCalculatorBlock">
+              <h3>Kalkulator wynajmu</h3>
+              <p>Sprawdź dokładny koszt wynajmu wraz z dodatkami i opłatami za podstawienie auta.</p>
+              <form id="carRentalCalculator" class="auto-calculator" novalidate>
+                <div class="auto-calculator-grid">
+                  <label class="auto-field">
+                    <span>Wybierz auto</span>
+                    <select id="rentalCarSelect" name="car" required aria-required="true"></select>
+                  </label>
+                  <label class="auto-field">
+                    <span>Data odbioru</span>
+                    <input type="date" id="pickupDate" name="pickupDate" required aria-required="true" />
+                  </label>
+                  <label class="auto-field">
+                    <span>Godzina odbioru</span>
+                    <input type="time" id="pickupTime" name="pickupTime" value="10:00" />
+                  </label>
+                  <label class="auto-field">
+                    <span>Data zwrotu</span>
+                    <input type="date" id="returnDate" name="returnDate" required aria-required="true" />
+                  </label>
+                  <label class="auto-field">
+                    <span>Godzina zwrotu</span>
+                    <input type="time" id="returnTime" name="returnTime" value="10:00" />
+                  </label>
+                  <label class="auto-field">
+                    <span>Miejsce odbioru</span>
+                    <select id="pickupLocation" name="pickupLocation" required aria-required="true"></select>
+                  </label>
+                  <label class="auto-field">
+                    <span>Miejsce zwrotu</span>
+                    <select id="returnLocation" name="returnLocation" required aria-required="true"></select>
+                  </label>
+                  <label class="auto-checkbox">
+                    <input type="checkbox" id="fullInsurance" name="fullInsurance" />
+                    <span>Pełne ubezpieczenie AC (+17&nbsp;€/dzień)</span>
+                  </label>
+                  <label class="auto-checkbox">
+                    <input type="checkbox" id="youngDriver" name="youngDriver" />
+                    <span>Młody kierowca / staż &lt; 3 lata (+10&nbsp;€/dzień)</span>
+                  </label>
+                </div>
+                <button type="submit" class="primary auto-calculate-btn">Oblicz cenę</button>
+              </form>
+              <div class="auto-calculator-result" aria-live="polite">
+                <p id="carRentalResult" class="auto-calculator-total"></p>
+                <div id="carRentalBreakdown" class="auto-calculator-breakdown"></div>
+                <p id="carRentalMessage" class="auto-calculator-message" role="status"></p>
+              </div>
+            </article>
+
+            <article class="auto-rental-block" id="carReservationForm">
+              <h3>Złóż rezerwację</h3>
+              <p>
+                Wypełnij formularz online, aby potwierdzić dostępność i otrzymać umowę. Możesz też napisać do nas na
+                WhatsApp – odpowiadamy najszybciej jak to możliwe.
+              </p>
+              <div class="auto-reservation-actions">
+                <a
+                  class="secondary"
+                  href="https://docs.google.com/forms/d/e/1FAIpQLSfaID2ropSqvD4T50zhy0O0fO6zm-rNojO7EDy969Z6lBVe1w/viewform"
+                  target="_blank"
+                  rel="noopener"
+                >Otwórz formularz w nowym oknie</a>
+                <a class="ghost" href="https://wa.me/48534073861" target="_blank" rel="noopener">Napisz na WhatsApp</a>
+              </div>
+              <div class="auto-reservation-frame">
+                <iframe
+                  src="https://docs.google.com/forms/d/e/1FAIpQLSfaID2ropSqvD4T50zhy0O0fO6zm-rNojO7EDy969Z6lBVe1w/viewform?embedded=true"
+                  title="Formularz rezerwacji auta w Pafos"
+                  loading="lazy"
+                  allow="fullscreen"
+                ></iframe>
+              </div>
+            </article>
+          </section>
+        </section>
+      </main>
+
+      <footer class="standalone-footer">
+        <p>© <span data-current-year></span> WakacjeCypr.com • Wynajem aut z polską obsługą na Cyprze.</p>
+      </footer>
+    </div>
+
+    <script>
+      window.CAR_RENTAL_CONFIG = {
+        fleet: [
+          {
+            id: 'mitsubishi-mirage-paphos',
+            name: 'Mitsubishi Mirage',
+            year: 2021,
+            pricePerDay: 30,
+            seats: 4,
+            transmission: 'Automat',
+            category: 'Hatchback miejski',
+            fuel: 'Benzyna',
+            features: ['Bez kaucji', 'Klimatyzacja', 'Asysta 24/7'],
+            note: 'Zwinny i ekonomiczny wybór idealny do jazdy po wąskich uliczkach Pafos.',
+          },
+          {
+            id: 'toyota-vitz-paphos',
+            name: 'Toyota Vitz',
+            year: 2020,
+            pricePerDay: 32,
+            seats: 5,
+            transmission: 'Automat',
+            category: 'Hatchback',
+            fuel: 'Benzyna',
+            features: ['Bez kaucji', 'Klimatyzacja', 'Drugi kierowca gratis'],
+            note: 'Komfortowy hatchback z przestronnym wnętrzem na rodzinne wypady.',
+          },
+          {
+            id: 'toyota-aygo-paphos',
+            name: 'Toyota Aygo',
+            year: 2021,
+            pricePerDay: 32,
+            seats: 4,
+            transmission: 'Automat',
+            category: 'Miejski kompakt',
+            fuel: 'Benzyna',
+            features: ['Niskie spalanie', 'Bez kaucji', 'Assistance 24/7'],
+            note: 'Idealna na krótkie dojazdy do plaż i parkowanie w centrum.',
+          },
+          {
+            id: 'honda-fit-paphos',
+            name: 'Honda Fit',
+            year: 2020,
+            pricePerDay: 34,
+            seats: 5,
+            transmission: 'Automat',
+            category: 'Kompakt rodzinny',
+            fuel: 'Benzyna',
+            features: ['Bez kaucji', 'Magic Seats', 'Foteliki w cenie'],
+            note: 'Regulowane siedzenia pozwalają łatwo zmieścić wózek lub sprzęt plażowy.',
+          },
+          {
+            id: 'mazda-premacy-paphos',
+            name: 'Mazda Premacy',
+            year: 2018,
+            pricePerDay: 45,
+            seats: 7,
+            transmission: 'Automat',
+            category: 'Minivan 7-osobowy',
+            fuel: 'Benzyna',
+            features: ['Przesuwne drzwi', 'Klimatyzacja', 'Drugi kierowca gratis'],
+            note: 'Praktyczny minivan dla większych rodzin podróżujących po zachodnim Cyprze.',
+          },
+          {
+            id: 'mazda-cx5-paphos',
+            name: 'Mazda CX-5',
+            year: 2019,
+            pricePerDay: 55,
+            seats: 5,
+            transmission: 'Automat',
+            category: 'SUV',
+            fuel: 'Benzyna',
+            features: ['System i-ACTIVSENSE', 'Bez kaucji', 'Asysta 24/7'],
+            note: 'Wyższy prześwit i komfortowe wnętrze sprawdzą się podczas wycieczek po Akamas.',
+          },
+          {
+            id: 'mitsubishi-outlander-paphos',
+            name: 'Mitsubishi Outlander',
+            year: 2019,
+            pricePerDay: 55,
+            seats: 7,
+            transmission: 'Automat',
+            category: 'SUV 7-osobowy',
+            fuel: 'Benzyna',
+            features: ['7 miejsc', 'Dwustrefowa klimatyzacja', 'Bez kaucji'],
+            note: 'Doskonały wybór dla grup planujących całodniowe wycieczki po Pafos i okolicach.',
+          },
+          {
+            id: 'nissan-serena-paphos',
+            name: 'Nissan Serena',
+            year: 2017,
+            pricePerDay: 60,
+            seats: 8,
+            transmission: 'Automat',
+            category: 'Minivan 8-osobowy',
+            fuel: 'Benzyna',
+            features: ['Duża przestrzeń', 'Asysta 24/7', 'Foteliki w cenie'],
+            note: 'Najlepsza opcja dla większych grup lub gdy potrzebujesz dodatkowej przestrzeni na bagaż.',
+          },
+        ],
+        locations: [
+          { id: 'paphos-airport', label: 'Lotnisko Pafos (bez opłaty)', shortLabel: 'Lotnisko Pafos', fee: 0 },
+          { id: 'paphos-city', label: 'Pafos – hotele i centrum (bez opłaty)', shortLabel: 'Pafos', fee: 0 },
+          { id: 'coral-bay', label: 'Coral Bay / Pegeia (+10€)', shortLabel: 'Coral Bay', fee: 10 },
+          { id: 'polis', label: 'Polis / Latchi (+15€)', shortLabel: 'Polis', fee: 15 },
+        ],
+        includedFeatures: [
+          { short: 'brak kaucji', description: 'Brak kaucji i blokad na karcie.' },
+          { short: 'odbiór w Pafos 0€', description: 'Odbiór i zwrot w Pafos lub na lotnisku PFO bez dopłat.' },
+          { short: 'drugi kierowca i foteliki', description: 'Drugi kierowca oraz foteliki dziecięce gratis.' },
+        ],
+        includedMessage:
+          'W cenie: brak kaucji, odbiór w Pafos 0€, dodatkowy kierowca i foteliki w cenie.',
+      };
+    </script>
+    <script src="car-rental.js"></script>
+    <script>
+      document.addEventListener('DOMContentLoaded', () => {
+        const rental = window.CarRental;
+        if (!rental) {
+          return;
+        }
+
+        rental.initializeSection();
+
+        const fleet = rental.getFleet?.() ?? [];
+        const carCountEl = document.querySelector('[data-car-count]');
+        const lowestPriceEl = document.querySelector('[data-lowest-price]');
+        const minimumDaysEl = document.querySelector('[data-minimum-days]');
+        const includedMessageEl = document.querySelector('[data-included-message]');
+        const yearEl = document.querySelector('[data-current-year]');
+
+        if (carCountEl) {
+          carCountEl.textContent = fleet.length.toString();
+        }
+
+        if (lowestPriceEl && fleet.length) {
+          const lowestPrice = fleet.reduce((min, car) => Math.min(min, car.pricePerDay), Infinity);
+          if (Number.isFinite(lowestPrice)) {
+            lowestPriceEl.innerHTML = rental.formatPrice(lowestPrice);
+          }
+        }
+
+        if (minimumDaysEl) {
+          minimumDaysEl.textContent = rental.minimumDays.toString();
+        }
+
+        if (includedMessageEl) {
+          includedMessageEl.textContent = rental.getIncludedMessage();
+        }
+
+        if (yearEl) {
+          yearEl.textContent = new Date().getFullYear();
+        }
+      });
+    </script>
+  </body>
+</html>
