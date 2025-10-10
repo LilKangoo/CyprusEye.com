@@ -1,0 +1,23 @@
+[
+  {
+    "id": "kykko-monastery",
+    "name": "Klasztor Kykkos",
+    "lat": 34.9953,
+    "lon": 32.7416,
+    "radius": 150
+  },
+  {
+    "id": "nissi-beach",
+    "name": "Plaża Nissi",
+    "lat": 34.9876,
+    "lon": 33.9813,
+    "radius": 200
+  },
+  {
+    "id": "ancient-kourion",
+    "name": "Starożytne Kourion",
+    "lat": 34.6647,
+    "lon": 32.8872,
+    "radius": 180
+  }
+]
