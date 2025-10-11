@@ -1201,6 +1201,65 @@ const TRIP_PLANNER_STOP_DURATION_HOURS = 1.5;
 const TRIP_PLANNER_MULTIPLIER_STEP = 0.25;
 const TRIP_PLANNER_MAX_MULTIPLIER = 2;
 
+function translate(key, fallback = '', replacements = {}) {
+  const i18n = typeof window !== 'undefined' ? window.appI18n : null;
+  let result = null;
+
+  if (i18n && i18n.translations) {
+    const lang = i18n.language || 'pl';
+    const entry = i18n.translations[lang] && i18n.translations[lang][key];
+    if (typeof entry === 'string') {
+      result = entry;
+    } else if (entry && typeof entry === 'object') {
+      if (typeof entry.text === 'string') {
+        result = entry.text;
+      } else if (typeof entry.html === 'string') {
+        result = entry.html;
+      }
+    }
+  }
+
+  if (typeof result !== 'string' || !result) {
+    result = fallback;
+  }
+
+  if (typeof result !== 'string') {
+    return '';
+  }
+
+  return result.replace(/\{\{(\w+)\}\}/g, (match, param) =>
+    Object.prototype.hasOwnProperty.call(replacements, param)
+      ? String(replacements[param])
+      : match
+  );
+}
+
+function normalizeSearchText(value) {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '');
+}
+
+function getPlaceTranslationKey(place, field) {
+  if (!place || !place.id) {
+    return '';
+  }
+  return `places.${place.id}.${field}`;
+}
+
+function getPlaceName(place) {
+  return translate(getPlaceTranslationKey(place, 'name'), place?.name ?? '');
+}
+
+function getPlaceDescription(place) {
+  return translate(getPlaceTranslationKey(place, 'description'), place?.description ?? '');
+}
+
+function getPlaceBadge(place) {
+  return translate(getPlaceTranslationKey(place, 'badge'), place?.badge ?? '');
+}
+
 function resolveAppBasePath() {
   try {
     const currentScript = document.currentScript || document.querySelector('script[src$="app.js"]');
@@ -2533,8 +2592,14 @@ function renderLevelStatus() {
   if (headerLevelStatusEl) {
     const defaultHeaderStatus =
       state.level > 1
-        ? 'Kontynuuj odkrywanie, aby zdobywać kolejne nagrody.'
-        : 'Zdobądź pierwsze check-iny, aby awansować!';
+        ? translate(
+            'metrics.level.defaultStatus.progress',
+            'Kontynuuj odkrywanie, aby zdobywać kolejne nagrody.'
+          )
+        : translate(
+            'metrics.level.defaultStatus.initial',
+            'Zdobądź pierwsze check-iny, aby awansować!'
+          );
     headerLevelStatusEl.textContent = state.levelStatusMessage || defaultHeaderStatus;
   }
 }
@@ -2628,7 +2693,10 @@ function renderDailyChallenge() {
   if (!challenge?.placeId) {
     card.hidden = true;
     if (statusEl) {
-      statusEl.textContent = 'Brak dostępnych wyzwań. Odblokuj więcej atrakcji, aby otrzymywać misje dnia.';
+      statusEl.textContent = translate(
+        'dailyChallenge.noneAvailable',
+        'Brak dostępnych wyzwań. Odblokuj więcej atrakcji, aby otrzymywać misje dnia.',
+      );
       statusEl.dataset.state = 'locked';
     }
     if (shuffleBtn instanceof HTMLButtonElement) {
@@ -2644,10 +2712,17 @@ function renderDailyChallenge() {
 
   const place = getDailyChallengePlace();
   if (titleEl) {
-    titleEl.textContent = place?.name || 'Odkryj nowe miejsce';
+    titleEl.textContent = place
+      ? getPlaceName(place)
+      : translate('dailyChallenge.placeholderTitle', 'Odkryj nowe miejsce');
   }
   if (descriptionEl) {
-    descriptionEl.textContent = place?.description || 'Zamelduj się w dowolnej atrakcji, aby rozpocząć misję dnia.';
+    descriptionEl.textContent = place
+      ? getPlaceDescription(place)
+      : translate(
+          'dailyChallenge.placeholderDescription',
+          'Zamelduj się w dowolnej atrakcji, aby rozpocząć misję dnia.',
+        );
   }
 
   if (focusBtn instanceof HTMLButtonElement) {
@@ -2661,25 +2736,36 @@ function renderDailyChallenge() {
   const isVisited = place ? state.visited.has(place.id) : false;
 
   if (isCompleted) {
-    statusMessage = `Ukończono! Bonus +${DAILY_CHALLENGE_BONUS_XP} XP został doliczony.`;
+    statusMessage = translate('dailyChallenge.status.completed', `Ukończono! Bonus +${DAILY_CHALLENGE_BONUS_XP} XP został doliczony.`, {
+      bonus: DAILY_CHALLENGE_BONUS_XP,
+    });
     statusState = 'completed';
     if (shuffleBtn instanceof HTMLButtonElement) {
       shuffleBtn.disabled = true;
     }
   } else if (!isUnlocked) {
-    statusMessage = 'Zdobądź wyższy poziom, aby odblokować to wyzwanie albo wylosuj inne.';
+    statusMessage = translate(
+      'dailyChallenge.status.locked',
+      'Zdobądź wyższy poziom, aby odblokować to wyzwanie albo wylosuj inne.',
+    );
     statusState = 'locked';
     if (shuffleBtn instanceof HTMLButtonElement) {
       shuffleBtn.disabled = false;
     }
   } else if (isVisited) {
-    statusMessage = 'Masz już odznakę z tego miejsca. Wylosuj nowe wyzwanie lub wróć jutro po kolejne.';
+    statusMessage = translate(
+      'dailyChallenge.status.visited',
+      'Masz już odznakę z tego miejsca. Wylosuj nowe wyzwanie lub wróć jutro po kolejne.',
+    );
     statusState = 'active';
     if (shuffleBtn instanceof HTMLButtonElement) {
       shuffleBtn.disabled = false;
     }
   } else {
-    statusMessage = 'Zamelduj się dziś w tej atrakcji, aby zgarnąć dodatkowe punkty doświadczenia!';
+    statusMessage = translate(
+      'dailyChallenge.status.active',
+      'Zamelduj się dziś w tej atrakcji, aby zgarnąć dodatkowe punkty doświadczenia!',
+    );
     if (shuffleBtn instanceof HTMLButtonElement) {
       shuffleBtn.disabled = false;
     }
@@ -2712,16 +2798,32 @@ function renderDailyStreak() {
   const today = getTodayDateString();
   const lastCompleted = streak.lastCompletedDate;
   const daysSince = lastCompleted ? calculateDayDifference(today, lastCompleted) : null;
-  let message = 'Zamelduj się w dowolnej atrakcji, aby rozpocząć serię przygód.';
+  let message = translate(
+    'dailyStreak.message.start',
+    'Zamelduj się w dowolnej atrakcji, aby rozpocząć serię przygód.',
+  );
 
   if (daysSince === 0) {
-    message = 'Świetnie! Dzisiejszy check-in już podtrzymał serię. Wróć jutro po kolejny dzień.';
+    message = translate(
+      'dailyStreak.message.today',
+      'Świetnie! Dzisiejszy check-in już podtrzymał serię. Wróć jutro po kolejny dzień.',
+    );
   } else if (daysSince === 1) {
-    message = 'Masz jeszcze dziś czas, aby utrzymać serię – odwiedź dowolne miejsce i zdobądź XP.';
+    message = translate(
+      'dailyStreak.message.warning',
+      'Masz jeszcze dziś czas, aby utrzymać serię – odwiedź dowolne miejsce i zdobądź XP.',
+    );
   } else if (typeof daysSince === 'number' && daysSince > 1 && streak.best > 0) {
-    message = `Rozpocznij nową serię i pobij swój rekord ${streak.best} dni.`;
+    message = translate(
+      'dailyStreak.message.reset',
+      `Rozpocznij nową serię i pobij swój rekord ${streak.best} dni.`,
+      { best: streak.best },
+    );
   } else if (!lastCompleted && streak.current > 0) {
-    message = 'Kontynuuj przygody, aby wydłużyć swoją serię check-inów.';
+    message = translate(
+      'dailyStreak.message.keepGoing',
+      'Kontynuuj przygody, aby wydłużyć swoją serię check-inów.',
+    );
   }
 
   if (messageEl) {
@@ -2781,12 +2883,24 @@ function skipDailyChallenge() {
   saveProgress();
 
   if (newPlace) {
-    showToast(`Nowe wyzwanie: ${newPlace.name}.`, {
-      icon: '🎯',
-      duration: 5500,
-    });
+    const localizedName = getPlaceName(newPlace);
+    showToast(
+      translate('dailyChallenge.toast.new', `Nowe wyzwanie: ${localizedName}.`, {
+        name: localizedName,
+      }),
+      {
+        icon: '🎯',
+        duration: 5500,
+      },
+    );
   } else {
-    setLevelStatus('Brak innych wyzwań do wylosowania. Odblokuj kolejne atrakcje, aby zyskać nowe misje.', 6000);
+    setLevelStatus(
+      translate(
+        'dailyChallenge.noneToShuffle',
+        'Brak innych wyzwań do wylosowania. Odblokuj kolejne atrakcje, aby zyskać nowe misje.',
+      ),
+      6000,
+    );
   }
 }
 
@@ -2940,12 +3054,22 @@ function renderProgress() {
 
   const progressMessage = (() => {
     if (state.level === MAX_LEVEL) {
-      return 'Osiągnąłeś maksymalny poziom – gratulacje!';
+      return translate(
+        'metrics.xp.maxLevel',
+        'Osiągnąłeś maksymalny poziom – gratulacje!'
+      );
     }
     if (state.xpForNextLevel) {
-      return `${state.xpIntoLevel} / ${state.xpForNextLevel} XP do kolejnego poziomu`;
+      return translate(
+        'metrics.xp.progressTemplate',
+        `${state.xpIntoLevel} / ${state.xpForNextLevel} XP do kolejnego poziomu`,
+        { current: state.xpIntoLevel, total: state.xpForNextLevel }
+      );
     }
-    return 'Zdobywaj doświadczenie, aby awansować.';
+    return translate(
+      'metrics.xp.keepEarning',
+      'Zdobywaj doświadczenie, aby awansować.'
+    );
   })();
 
   if (xpProgressTextEl) {
@@ -2959,7 +3083,10 @@ function renderProgress() {
     badgesListEl.innerHTML = '';
     if (!state.badges.length) {
       const empty = document.createElement('li');
-      empty.textContent = 'Jeszcze brak odznak – czas na pierwszą przygodę!';
+      empty.textContent = translate(
+        'achievements.emptyBadges',
+        'Jeszcze brak odznak – czas na pierwszą przygodę!'
+      );
       badgesListEl.appendChild(empty);
     } else {
       state.badges.forEach((badge) => {
@@ -3007,8 +3134,8 @@ function renderAchievements() {
   visitedPlaces.forEach((place) => {
     const li = document.createElement('li');
     li.innerHTML = `
-      <strong>${place.name}</strong>
-      <p class="achievements-visited-meta">${place.badge} • ${place.xp} XP</p>
+      <strong>${getPlaceName(place)}</strong>
+      <p class="achievements-visited-meta">${getPlaceBadge(place)} • ${place.xp} XP</p>
     `;
     visitedListEl.appendChild(li);
   });
@@ -3028,8 +3155,8 @@ function renderLocations() {
     const li = document.createElement('li');
     li.dataset.id = place.id;
     li.innerHTML = `
-      <strong>${place.name}</strong>
-      <span class="location-meta">${place.badge} • ${place.xp} XP</span>
+      <strong>${getPlaceName(place)}</strong>
+      <span class="location-meta">${getPlaceBadge(place)} • ${place.xp} XP</span>
     `;
 
     if (state.visited.has(place.id)) {
@@ -3047,10 +3174,19 @@ function renderLocations() {
   carRentalLink.href = 'car-rental.html';
   carRentalLink.className = 'locations-highlight-link';
   carRentalLink.innerHTML = `
-    <strong><span aria-hidden="true">🚗</span> Wynajem auta na Cyprze</strong>
-    <span class="location-meta">Odbierz samochód z lotniska lub spod hotelu</span>
+    <strong><span aria-hidden="true">🚗</span> ${translate(
+      'locations.highlight.title',
+      'Wynajem auta na Cyprze',
+    )}</strong>
+    <span class="location-meta">${translate(
+      'locations.highlight.subtitle',
+      'Odbierz samochód z lotniska lub spod hotelu',
+    )}</span>
   `;
-  carRentalLink.setAttribute('aria-label', 'Przejdź do sekcji wynajmu auta na Cyprze');
+  carRentalLink.setAttribute(
+    'aria-label',
+    translate('locations.highlight.aria', 'Przejdź do sekcji wynajmu auta na Cyprze'),
+  );
 
   carRentalItem.appendChild(carRentalLink);
   listEl.appendChild(carRentalItem);
@@ -3065,14 +3201,22 @@ function renderLocations() {
     } else {
       toggleBtn.hidden = false;
       toggleBtn.textContent = shouldShowAll
-        ? 'Ukryj część listy'
-        : `Pokaż wszystkie ${places.length} atrakcji`;
+        ? translate('locations.toggle.hide', 'Ukryj część listy')
+        : translate('locations.toggle.showAll', `Pokaż wszystkie ${places.length} atrakcji`, {
+            total: places.length,
+          });
       toggleBtn.setAttribute('aria-expanded', shouldShowAll ? 'true' : 'false');
     }
   }
 }
 
 function formatAttractionCount(count) {
+  const lang = typeof window !== 'undefined' && window.appI18n ? window.appI18n.language : 'pl';
+  if (lang === 'en') {
+    const absolute = Math.abs(count);
+    return `${count} ${absolute === 1 ? 'attraction' : 'attractions'}`;
+  }
+
   const absolute = Math.abs(count);
   const remainder100 = absolute % 100;
   const remainder10 = absolute % 10;
@@ -3124,10 +3268,10 @@ function formatAttractionDistanceLabel(place) {
   }
 
   if (!('geolocation' in navigator)) {
-    return '📍 Lokalizacja niedostępna';
+    return translate('places.distance.unavailable', '📍 Lokalizacja niedostępna');
   }
 
-  return '📍 Ustalanie pozycji…';
+  return translate('places.distance.pending', '📍 Ustalanie pozycji…');
 }
 
 function updateAttractionDistance(placeId) {
@@ -3197,15 +3341,23 @@ function renderAttractionsCatalog(filterValue = '') {
 
   const emptyEl = document.getElementById('attractionsEmptyState');
   const resultsEl = document.getElementById('attractionsResultsCount');
-  const query = filterValue.trim().toLowerCase();
+  const normalizedQuery = normalizeSearchText(filterValue.trim());
+  const hasQuery = normalizedQuery.length > 0;
 
-  const filtered = query
+  const filtered = hasQuery
     ? places.filter((place) => {
-        return (
-          place.name.toLowerCase().includes(query) ||
-          place.description.toLowerCase().includes(query) ||
-          place.badge.toLowerCase().includes(query)
-        );
+        const name = getPlaceName(place);
+        const description = getPlaceDescription(place);
+        const badge = getPlaceBadge(place);
+        const searchTargets = [
+          normalizeSearchText(name),
+          normalizeSearchText(description),
+          normalizeSearchText(badge),
+          normalizeSearchText(place.name),
+          normalizeSearchText(place.description),
+          normalizeSearchText(place.badge),
+        ];
+        return searchTargets.some((target) => target.includes(normalizedQuery));
       })
     : [...places];
 
@@ -3233,19 +3385,20 @@ function renderAttractionsCatalog(filterValue = '') {
       li.classList.add('visited');
     }
 
+    const localizedName = getPlaceName(place);
     const title = document.createElement('h3');
-    title.textContent = place.name;
+    title.textContent = localizedName;
     li.appendChild(title);
 
     const description = document.createElement('p');
-    description.textContent = place.description;
+    description.textContent = getPlaceDescription(place);
     li.appendChild(description);
 
     const meta = document.createElement('div');
     meta.className = 'attractions-meta';
 
     const badgeSpan = document.createElement('span');
-    badgeSpan.textContent = `🏅 ${place.badge}`;
+    badgeSpan.textContent = `🏅 ${getPlaceBadge(place)}`;
     meta.appendChild(badgeSpan);
 
     const xpSpan = document.createElement('span');
@@ -3266,7 +3419,7 @@ function renderAttractionsCatalog(filterValue = '') {
     const focusBtn = document.createElement('button');
     focusBtn.type = 'button';
     focusBtn.className = 'secondary';
-    focusBtn.textContent = 'Zobacz na mapie';
+    focusBtn.textContent = translate('places.viewOnMap', 'Zobacz na mapie');
     focusBtn.addEventListener('click', (event) => {
       event.preventDefault();
       event.stopPropagation();
@@ -3279,7 +3432,7 @@ function renderAttractionsCatalog(filterValue = '') {
     mapsLink.href = place.googleMapsUrl;
     mapsLink.target = '_blank';
     mapsLink.rel = 'noopener';
-    mapsLink.textContent = 'Google Maps';
+    mapsLink.textContent = translate('places.googleMaps', 'Google Maps');
     actions.appendChild(mapsLink);
 
     li.appendChild(actions);
@@ -3307,9 +3460,14 @@ function renderAttractionsCatalog(filterValue = '') {
   if (resultsEl) {
     const foundLabel = formatAttractionCount(filtered.length);
     const totalLabel = formatAttractionCount(places.length);
-    resultsEl.textContent = query
-      ? `Znaleziono ${foundLabel} (z ${totalLabel})`
-      : `${totalLabel} w katalogu`;
+    resultsEl.textContent = hasQuery
+      ? translate('places.search.results', `Znaleziono ${foundLabel} (z ${totalLabel})`, {
+          found: foundLabel,
+          total: totalLabel,
+        })
+      : translate('places.search.total', `${totalLabel} w katalogu`, {
+          total: totalLabel,
+        });
   }
 
   startAttractionsLocationTracking();
@@ -3339,7 +3497,10 @@ function renderExplorer(filterValue) {
   if (!filtered.length) {
     const emptyState = document.createElement('p');
     emptyState.className = 'explorer-empty';
-    emptyState.textContent = 'Brak atrakcji do wyświetlenia dla wybranego filtra.';
+    emptyState.textContent = translate(
+      'explorer.empty',
+      'Brak atrakcji do wyświetlenia dla wybranego filtra.',
+    );
     grid.appendChild(emptyState);
     return;
   }
@@ -3348,7 +3509,13 @@ function renderExplorer(filterValue) {
     const visited = state.visited.has(place.id);
     const isActive = state.selected && state.selected.id === place.id;
     const statusClass = visited ? 'status-visited' : 'status-unlocked';
-    const statusLabel = visited ? 'Zdobyta odznaka' : 'Do odwiedzenia';
+    const statusLabel = visited
+      ? translate('explorer.status.visited', 'Zdobyta odznaka')
+      : translate('explorer.status.available', 'Do odwiedzenia');
+
+    const localizedName = getPlaceName(place);
+    const localizedDescription = getPlaceDescription(place);
+    const localizedBadge = getPlaceBadge(place);
 
     const card = document.createElement('article');
     card.className = 'explorer-card';
@@ -3361,19 +3528,28 @@ function renderExplorer(filterValue) {
         <span class="explorer-status ${statusClass}">${statusLabel}</span>
         ${
           isActive
-            ? '<span class="explorer-status status-active">Wybrana lokalizacja</span>'
+            ? `<span class="explorer-status status-active">${translate(
+                'explorer.status.active',
+                'Wybrana lokalizacja',
+              )}</span>`
             : ''
         }
       </div>
-      <h3>${place.name}</h3>
-      <p>${place.description}</p>
+      <h3>${localizedName}</h3>
+      <p>${localizedDescription}</p>
       <div class="explorer-meta">
-        <span>🏅 ${place.badge}</span>
+        <span>🏅 ${localizedBadge}</span>
         <span>✨ ${place.xp} XP</span>
       </div>
       <div class="explorer-actions">
-        <button type="button" class="secondary">Zobacz na mapie</button>
-        <a class="ghost-link" href="${place.googleMapsUrl}" target="_blank" rel="noopener">Google Maps</a>
+        <button type="button" class="secondary">${translate(
+          'places.viewOnMap',
+          'Zobacz na mapie',
+        )}</button>
+        <a class="ghost-link" href="${place.googleMapsUrl}" target="_blank" rel="noopener">${translate(
+          'places.googleMaps',
+          'Google Maps',
+        )}</a>
       </div>
     `;
 
@@ -3840,12 +4016,16 @@ function syncMarkers() {
 
     if (!hasMarker) {
       const marker = L.marker([place.lat, place.lng]).addTo(map);
-      marker.bindPopup(`<strong>${place.name}</strong><br/>${place.badge} • ${place.xp} XP`);
+      marker.bindPopup(
+        `<strong>${getPlaceName(place)}</strong><br/>${getPlaceBadge(place)} • ${place.xp} XP`,
+      );
       marker.on('click', () => focusPlace(place.id));
       markers.set(place.id, marker);
     } else {
       const marker = markers.get(place.id);
-      marker.setPopupContent(`<strong>${place.name}</strong><br/>${place.badge} • ${place.xp} XP`);
+      marker.setPopupContent(
+        `<strong>${getPlaceName(place)}</strong><br/>${getPlaceBadge(place)} • ${place.xp} XP`,
+      );
     }
   });
 }
@@ -3865,7 +4045,7 @@ function updatePlayerLocation(position) {
       fillOpacity: 0.85,
     })
       .addTo(map)
-      .bindTooltip('Twoje położenie', { direction: 'top', offset: [0, -8] });
+      .bindTooltip(translate('map.playerLocation', 'Twoje położenie'), { direction: 'top', offset: [0, -8] });
   } else {
     playerMarker.setLatLng(latlng);
   }
@@ -3903,13 +4083,25 @@ function updatePlayerLocation(position) {
 function handleLocationTrackingError(error) {
   console.warn('Błąd śledzenia lokalizacji', error);
   if (error?.code === error.PERMISSION_DENIED) {
-    setLevelStatus('Włącz udostępnianie lokalizacji, aby zobaczyć swoją pozycję na mapie.', 6000);
+    setLevelStatus(
+      translate(
+        'map.geolocation.enableSharing',
+        'Włącz udostępnianie lokalizacji, aby zobaczyć swoją pozycję na mapie.',
+      ),
+      6000,
+    );
   }
 }
 
 function startPlayerLocationTracking() {
   if (!('geolocation' in navigator)) {
-    setLevelStatus('Twoja przeglądarka nie obsługuje geolokalizacji – pozycja gracza nie będzie widoczna.', 6000);
+    setLevelStatus(
+      translate(
+        'map.geolocation.noSupport',
+        'Twoja przeglądarka nie obsługuje geolokalizacji – pozycja gracza nie będzie widoczna.',
+      ),
+      6000,
+    );
     return;
   }
 
@@ -4475,7 +4667,7 @@ function renderTripPlanner(place) {
   places.forEach((candidate) => {
     const option = document.createElement('option');
     option.value = candidate.id;
-    option.textContent = candidate.name;
+    option.textContent = getPlaceName(candidate);
     startSelect.appendChild(option);
   });
 
@@ -4505,7 +4697,7 @@ function renderTripPlanner(place) {
 
     const title = document.createElement('span');
     title.className = 'trip-planner-option-title';
-    title.textContent = candidate.name;
+    title.textContent = getPlaceName(candidate);
     details.appendChild(title);
 
     const meta = document.createElement('span');
@@ -4516,7 +4708,7 @@ function renderTripPlanner(place) {
     if (candidate.id === tripPlannerState.startId) {
       const badge = document.createElement('span');
       badge.className = 'trip-planner-start-badge';
-      badge.textContent = 'Start';
+      badge.textContent = translate('tripPlanner.startBadge', 'Start');
       details.appendChild(badge);
     }
 
@@ -4538,7 +4730,10 @@ function updateTripPlannerSummary() {
 
   if (!startPlace) {
     summary.innerHTML = defaultMessage ||
-      '<p>Wybierz punkt startowy, aby przygotować plan dzienny.</p>';
+      `<p>${translate(
+        'tripPlanner.selectStart',
+        'Wybierz punkt startowy, aby przygotować plan dzienny.',
+      )}</p>`;
     summary.classList.remove('has-results');
     return;
   }
@@ -4550,7 +4745,10 @@ function updateTripPlannerSummary() {
   if (!stops.length) {
     summary.innerHTML =
       defaultMessage ||
-      '<p>Wybierz co najmniej jedną atrakcję, aby zobaczyć bonus XP i czas potrzebny na wycieczkę.</p>';
+      `<p>${translate(
+        'tripPlanner.selectStops',
+        'Wybierz co najmniej jedną atrakcję, aby zobaczyć bonus XP i czas potrzebny na wycieczkę.',
+      )}</p>`;
     summary.classList.remove('has-results');
     return;
   }
@@ -4565,7 +4763,11 @@ function updateTripPlannerSummary() {
   const formattedDuration = formatTripDuration(durationHours);
   const formattedDistance = formatTripDistance(distanceKm);
 
-  const routeParts = [startPlace.name, ...stops.map((stop) => stop.name), startPlace.name];
+  const routeParts = [
+    getPlaceName(startPlace),
+    ...stops.map((stop) => getPlaceName(stop)),
+    getPlaceName(startPlace),
+  ];
   const routeText = routeParts.join(' → ');
 
   summary.innerHTML = '';
@@ -6208,41 +6410,71 @@ function showObjective(place) {
 
   const visited = state.visited.has(place.id);
 
-  titleEl.textContent = place.name;
-  descriptionEl.textContent = place.description;
+  const localizedName = getPlaceName(place);
+  const localizedDescription = getPlaceDescription(place);
+  const localizedBadge = getPlaceBadge(place);
+
+  titleEl.textContent = localizedName;
+  descriptionEl.textContent = localizedDescription;
   linkEl.href = place.googleMapsUrl;
 
   buttonEl.disabled = visited;
   buttonEl.classList.remove('locked');
-  buttonEl.textContent = visited ? 'Odznaka zdobyta' : 'Zamelduj się i zdobądź XP';
+  buttonEl.textContent = visited
+    ? translate('places.objective.completed', 'Odznaka zdobyta')
+    : translate('places.objective.checkIn', 'Zamelduj się i zdobądź XP');
 
   const previousPlace = getAdjacentPlace(place, -1);
   if (previousBtn instanceof HTMLButtonElement) {
     previousBtn.disabled = !previousPlace;
-    previousBtn.title = previousPlace ? `Przejdź do ${previousPlace.name}` : 'Brak poprzedniego miejsca';
+    const previousName = previousPlace ? getPlaceName(previousPlace) : '';
+    previousBtn.title = previousPlace
+      ? translate('places.objective.previousTitle', `Przejdź do ${previousName}`, {
+          name: previousName,
+        })
+      : translate('places.objective.previousNone', 'Brak poprzedniego miejsca');
     previousBtn.setAttribute(
       'aria-label',
-      previousPlace ? `Przejdź do poprzedniego miejsca: ${previousPlace.name}` : 'Brak poprzedniego miejsca',
+      previousPlace
+        ? translate('places.objective.previousAria', `Przejdź do poprzedniego miejsca: ${previousName}`, {
+            name: previousName,
+          })
+        : translate('places.objective.previousNone', 'Brak poprzedniego miejsca'),
     );
   }
 
   const nextPlace = getAdjacentPlace(place, 1);
   if (nextBtn instanceof HTMLButtonElement) {
     nextBtn.disabled = !nextPlace;
-    nextBtn.title = nextPlace ? `Przejdź do ${nextPlace.name}` : 'Brak kolejnego miejsca';
+    const nextName = nextPlace ? getPlaceName(nextPlace) : '';
+    nextBtn.title = nextPlace
+      ? translate('places.objective.nextTitle', `Przejdź do ${nextName}`, {
+          name: nextName,
+        })
+      : translate('places.objective.nextNone', 'Brak kolejnego miejsca');
     nextBtn.setAttribute(
       'aria-label',
-      nextPlace ? `Przejdź do następnego miejsca: ${nextPlace.name}` : 'Brak kolejnego miejsca',
+      nextPlace
+        ? translate('places.objective.nextAria', `Przejdź do następnego miejsca: ${nextName}`, {
+            name: nextName,
+          })
+        : translate('places.objective.nextNone', 'Brak kolejnego miejsca'),
     );
   }
 
   if (visited) {
-    statusEl.textContent = 'Już zdobyłeś tę odznakę – sprawdź kolejne miejsce!';
+    statusEl.textContent = translate(
+      'places.objective.visited',
+      'Już zdobyłeś tę odznakę – sprawdź kolejne miejsce!',
+    );
   } else {
-    statusEl.textContent = 'Gdy dotrzesz na miejsce, kliknij „Zamelduj się”, aby zdobyć odznakę.';
+    statusEl.textContent = translate(
+      'places.objective.hint',
+      'Gdy dotrzesz na miejsce, kliknij „Zamelduj się”, aby zdobyć odznakę.',
+    );
   }
 
-  renderReviewsSection(place);
+  renderReviewsSection({ ...place, name: localizedName, badge: localizedBadge, description: localizedDescription });
   renderTripPlanner(place);
   panel.hidden = false;
 }
@@ -6289,10 +6521,10 @@ function showManualConfirm(place) {
   wrapper.className = 'manual-confirm-wrapper';
   const button = document.createElement('button');
   button.className = 'primary manual-confirm';
-  button.textContent = 'Potwierdzam, jestem na miejscu';
+  button.textContent = translate('checkIn.manualConfirm.action', 'Potwierdzam, jestem na miejscu');
   button.addEventListener('click', () => {
     completeCheckIn(place, true);
-    statusEl.textContent = 'Odznaka przyznana!';
+    statusEl.textContent = translate('checkIn.manualConfirm.success', 'Odznaka przyznana!');
     wrapper.remove();
   });
   wrapper.appendChild(button);
@@ -6303,11 +6535,13 @@ async function tryCheckIn(place) {
   const statusEl = document.getElementById('checkInStatus');
   if (!statusEl) return;
 
-  statusEl.textContent = 'Sprawdzam Twoją lokalizację…';
+  statusEl.textContent = translate('checkIn.status.checking', 'Sprawdzam Twoją lokalizację…');
 
   if (!('geolocation' in navigator)) {
-    statusEl.innerHTML =
-      'Twoja przeglądarka nie wspiera geolokalizacji. Możesz ręcznie potwierdzić wizytę klikając poniżej.';
+    statusEl.textContent = translate(
+      'checkIn.status.unsupported',
+      'Twoja przeglądarka nie wspiera geolokalizacji. Możesz ręcznie potwierdzić wizytę klikając poniżej.',
+    );
     showManualConfirm(place);
     return;
   }
@@ -6320,8 +6554,10 @@ async function tryCheckIn(place) {
     });
   }).catch((error) => {
     console.warn('Błąd geolokalizacji', error);
-    statusEl.innerHTML =
-      'Nie udało się uzyskać lokalizacji. Upewnij się, że wyraziłeś zgodę lub użyj ręcznego potwierdzenia.';
+    statusEl.textContent = translate(
+      'checkIn.status.error',
+      'Nie udało się uzyskać lokalizacji. Upewnij się, że wyraziłeś zgodę lub użyj ręcznego potwierdzenia.',
+    );
     showManualConfirm(place);
     throw error;
   });
@@ -6333,10 +6569,17 @@ async function tryCheckIn(place) {
 
   if (distance <= radius) {
     completeCheckIn(place);
-    statusEl.textContent = 'Gratulacje! Zameldujesz się dokładnie na miejscu.';
+    statusEl.textContent = translate(
+      'checkIn.status.success',
+      'Gratulacje! Zameldujesz się dokładnie na miejscu.',
+    );
   } else {
-    statusEl.innerHTML =
-      `Jesteś około ${(distance / 1000).toFixed(2)} km od celu. Sprawdź wskazówki w Mapach Google, a jeśli naprawdę jesteś na miejscu, użyj ręcznego potwierdzenia.`;
+    const distanceKm = (distance / 1000).toFixed(2);
+    statusEl.textContent = translate(
+      'checkIn.status.distance',
+      `Jesteś około ${distanceKm} km od celu. Sprawdź wskazówki w Mapach Google, a jeśli naprawdę jesteś na miejscu, użyj ręcznego potwierdzenia.`,
+      { distance: distanceKm },
+    );
     showManualConfirm(place);
   }
 }
@@ -6361,12 +6604,18 @@ function completeCheckIn(place, manual = false) {
   if (state.visited.has(place.id)) return;
 
   state.visited.add(place.id);
+  const localizedName = getPlaceName(place);
+  const localizedBadge = getPlaceBadge(place);
   state.badges.push({
     id: place.id,
-    name: place.badge,
+    name: localizedBadge,
     description: manual
-      ? `${place.name} • Odznaka przyznana ręcznie.`
-      : `${place.name} • Potwierdzono geolokalizacją.`,
+      ? translate('places.badge.manual', `${localizedName} • Odznaka przyznana ręcznie.`, {
+          name: localizedName,
+        })
+      : translate('places.badge.geo', `${localizedName} • Potwierdzono geolokalizacją.`, {
+          name: localizedName,
+        }),
   });
 
   const streakResult = recordDailyCheckIn();
@@ -6382,24 +6631,47 @@ function completeCheckIn(place, manual = false) {
   animateMarker(place.id);
 
   if (challengeCompleted) {
-    showToast(`Ukończyłeś dzisiejsze wyzwanie w ${place.name}! +${DAILY_CHALLENGE_BONUS_XP} XP`, {
-      variant: 'success',
-      icon: '🎯',
-      duration: 7000,
-    });
+    showToast(
+      translate('places.toast.dailyChallenge', `Ukończyłeś dzisiejsze wyzwanie w ${localizedName}! +${DAILY_CHALLENGE_BONUS_XP} XP`, {
+        name: localizedName,
+        xp: DAILY_CHALLENGE_BONUS_XP,
+      }),
+      {
+        variant: 'success',
+        icon: '🎯',
+        duration: 7000,
+      },
+    );
   }
 
   if (!leveledUp) {
-    let message = `Zdobyłeś odznakę „${place.badge}”!`;
+    let message = translate('places.toast.badge', `Zdobyłeś odznakę „${localizedBadge}”!`, {
+      badge: localizedBadge,
+    });
 
     if (challengeCompleted) {
-      message = `🎯 Wyzwanie dnia ukończone! Bonus +${DAILY_CHALLENGE_BONUS_XP} XP już na Twoim koncie.`;
+      message = translate(
+        'places.toast.dailyBonus',
+        `🎯 Wyzwanie dnia ukończone! Bonus +${DAILY_CHALLENGE_BONUS_XP} XP już na Twoim koncie.`,
+        { xp: DAILY_CHALLENGE_BONUS_XP },
+      );
     } else if (streakResult.status === 'continued') {
-      message = `🔥 Seria trwa już ${state.dailyStreak.current} dni. Tak trzymaj!`;
+      message = translate(
+        'places.toast.streakContinue',
+        `🔥 Seria trwa już ${state.dailyStreak.current} dni. Tak trzymaj!`,
+        { days: state.dailyStreak.current },
+      );
     } else if (streakResult.status === 'started') {
-      message = 'Rozpocząłeś serię codziennych przygód – wróć jutro po kolejny dzień!';
+      message = translate(
+        'places.toast.streakStart',
+        'Rozpocząłeś serię codziennych przygód – wróć jutro po kolejny dzień!',
+      );
     } else if (streakResult.status === 'reset') {
-      message = `Nowa seria rozpoczęta. Cel: pobić rekord ${state.dailyStreak.best} dni!`;
+      message = translate(
+        'places.toast.streakReset',
+        `Nowa seria rozpoczęta. Cel: pobić rekord ${state.dailyStreak.best} dni!`,
+        { days: state.dailyStreak.best },
+      );
     }
 
     setLevelStatus(message, 7000);
@@ -7058,7 +7330,10 @@ function bootstrap() {
     }
     openAdventureView();
     focusPlace(place.id);
-    showToast(`Cel ustawiony na ${place.name}.`, {
+    const localizedName = getPlaceName(place);
+    showToast(translate('dailyChallenge.focusSet', `Cel ustawiony na ${localizedName}.`, {
+      name: localizedName,
+    }), {
       icon: '📍',
       duration: 4800,
     });
@@ -7307,3 +7582,11 @@ window.addEventListener('beforeunload', () => {
 });
 
 document.addEventListener('DOMContentLoaded', bootstrap);
+
+document.addEventListener('wakacjecypr:languagechange', () => {
+  renderAllForCurrentState();
+  syncMarkers();
+  if (playerMarker?.getTooltip?.()) {
+    playerMarker.getTooltip().setContent(translate('map.playerLocation', 'Twoje położenie'));
+  }
+});
