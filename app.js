@@ -881,13 +881,13 @@ const mediaTrips = [
     description:
       'Indywidualne sesje foto z dedykowanym fotografem i transportem – idealne dla rodzin, par i grup znajomych.',
     pricingOptions: [
-      { label: 'Cały dzień (do 10h)', price: 600, extraPerson: 150 },
-      { label: '3/4 dnia (do 8h)', price: 500, extraPerson: 125 },
-      { label: 'Pół dnia (do 5h)', price: 400, extraPerson: 100 },
+      { key: 'fullDay', label: 'Cały dzień (do 10h)', price: 600, extraPerson: 150 },
+      { key: 'threeQuarterDay', label: '3/4 dnia (do 8h)', price: 500, extraPerson: 125 },
+      { key: 'halfDay', label: 'Pół dnia (do 5h)', price: 400, extraPerson: 100 },
     ],
     highlights: [
-      'Transport premium z kierowcą oraz plan plenerów dopasowany do złotej godziny.',
-      'Asysta stylistki lub makijażystki dostępna na życzenie.',
+      { key: 'transport', text: 'Transport premium z kierowcą oraz plan plenerów dopasowany do złotej godziny.' },
+      { key: 'stylist', text: 'Asysta stylistki lub makijażystki dostępna na życzenie.' },
     ],
     detailsLink: {
       label: 'Pełna oferta VIP',
@@ -906,13 +906,13 @@ const mediaTrips = [
     description:
       'Profesjonalny operator, pilot drona i montaż video, aby zatrzymać Twój wyjazd w jakości premium.',
     pricingOptions: [
-      { label: 'Cały dzień (do 10h)', price: 1000, extraPerson: 250 },
-      { label: '3/4 dnia (do 8h)', price: 900, extraPerson: 225 },
-      { label: 'Pół dnia (do 5h)', price: 800, extraPerson: 200 },
+      { key: 'fullDay', label: 'Cały dzień (do 10h)', price: 1000, extraPerson: 250 },
+      { key: 'threeQuarterDay', label: '3/4 dnia (do 8h)', price: 900, extraPerson: 225 },
+      { key: 'halfDay', label: 'Pół dnia (do 5h)', price: 800, extraPerson: 200 },
     ],
     highlights: [
-      'Ekipa video łącznie z pilotem drona, realizacją dźwięku i montażem social media.',
-      'Możliwość realizacji materiałów reklamowych i backstage z wydarzeń.',
+      { key: 'crew', text: 'Ekipa video łącznie z pilotem drona, realizacją dźwięku i montażem social media.' },
+      { key: 'promo', text: 'Możliwość realizacji materiałów reklamowych i backstage z wydarzeń.' },
     ],
     detailsLink: {
       label: 'Sprawdź pakiety video',
@@ -927,46 +927,58 @@ let showAllLocationsPreview = false;
 const packingGuide = {
   universal: [
     {
+      key: 'documents',
       label: 'Dowód osobisty lub paszport',
       hint: 'Paszport przyda się, jeśli planujesz wjazd na Północny Cypr.',
     },
     {
+      key: 'bookings',
       label: 'Bilety, vouchery i kopie rezerwacji',
       hint: 'Zachowaj je w wersji cyfrowej i papierowej na wszelki wypadek.',
     },
     {
+      key: 'insurance',
       label: 'Polisa podróżna oraz karta EKUZ',
       hint: 'EKUZ obowiązuje na południu wyspy; na północy potrzebna będzie prywatna opieka.',
     },
     {
+      key: 'money',
       label: 'Karty płatnicze i gotówka w euro',
       hint: 'Nie wszędzie zapłacisz kartą, więc miej zapas banknotów i monet.',
     },
     {
+      key: 'driving',
       label: 'Prawo jazdy i dodatkowe ubezpieczenie auta',
       hint: 'Przy wynajmie samochodu sprawdź zasady wjazdu na północ wyspy.',
     },
     {
+      key: 'electronics',
       label: 'Smartfon z mapami offline, ładowarka i powerbank',
       hint: 'Zapisz ważne numery kontaktowe i miej energię na całodzienne zwiedzanie.',
     },
     {
+      key: 'adapter',
       label: 'Adapter do gniazdek typu G',
       hint: 'Na Cyprze obowiązuje brytyjski standard 240 V z trzema prostokątnymi bolcami.',
     },
     {
+      key: 'firstAid',
       label: 'Podstawowa apteczka i środki higieny',
-      hint: 'Leki na receptę, środki przeciwbólowe, na biegunkę, chorobę lokomocyjną oraz spray na komary.',
+      hint:
+        'Leki na receptę, środki przeciwbólowe, na biegunkę, chorobę lokomocyjną oraz spray na komary.',
     },
     {
+      key: 'sunProtection',
       label: 'Ochrona przeciwsłoneczna',
       hint: 'Krem SPF 30–50, okulary z filtrem UV i nakrycie głowy są potrzebne przez cały rok.',
     },
     {
+      key: 'daypack',
       label: 'Plecak dzienny, butelka na wodę i kłódka do bagażu',
       hint: 'Zadbaj o nawodnienie i bezpieczeństwo rzeczy podczas wycieczek.',
     },
     {
+      key: 'comfort',
       label: 'Akcesoria ułatwiające podróż',
       hint: 'Zatyczki do uszu, opaska na oczy i poduszka sprawią, że lot lub nocny przejazd będą wygodniejsze.',
     },
@@ -975,45 +987,54 @@ const packingGuide = {
     {
       id: 'spring',
       label: 'Wiosna',
-      emoji: '🌸',
-      months: [3, 4, 5],
       summary:
         'Łagodne dni (17–28°C) i rześkie wieczory. Przygotuj warstwy i lekką ochronę przed przelotnymi opadami.',
+      emoji: '🌸',
+      months: [3, 4, 5],
       items: [
         {
+          key: 'layers',
           label: 'Warstwowe koszulki i lekka kurtka',
           hint: 'Dni są przyjemnie ciepłe, ale poranki oraz wieczory bywają chłodniejsze.',
         },
         {
+          key: 'longSleeves',
           label: 'Długie spodnie i bluza z długim rękawem',
           hint: 'Przydadzą się zwłaszcza na początku marca oraz podczas wycieczek w góry.',
         },
         {
+          key: 'shoes',
           label: 'Wygodne buty sportowe lub trekkingowe',
           hint: 'Idealne na zielone szlaki Troodos i zwiedzanie stanowisk archeologicznych.',
         },
         {
+          key: 'sunAccessories',
           label: 'Okulary przeciwsłoneczne i kapelusz',
           hint: 'Wiosenne słońce potrafi świecić intensywnie podczas zwiedzania.',
         },
         {
+          key: 'sunscreen',
           label: 'Krem przeciwsłoneczny SPF 30+',
           hint: 'Chroń skórę nawet przy umiarkowanych temperaturach.',
         },
         {
+          key: 'scarf',
           label: 'Lekki szal lub chusta',
           hint: 'Osłoni kark przed słońcem i ogrzeje podczas chłodniejszych wieczorów.',
         },
         {
+          key: 'swimwear',
           label: 'Strój kąpielowy i szybkoschnący ręcznik',
           hint: 'W maju woda ma już około 20°C, a hotele często oferują podgrzewane baseny.',
           optional: true,
         },
         {
+          key: 'rainProtection',
           label: 'Składany parasol lub cienka kurtka przeciwdeszczowa',
           hint: 'Na początku wiosny zdarzają się przelotne opady.',
         },
         {
+          key: 'camera',
           label: 'Aparat lub smartfon z wolnym miejscem na zdjęcia',
           hint: 'Kwitnące krajobrazy Cypru aż proszą się o uwiecznienie.',
         },
@@ -1022,48 +1043,58 @@ const packingGuide = {
     {
       id: 'summer',
       label: 'Lato',
-      emoji: '☀️',
-      months: [6, 7, 8],
       summary:
         'Upały powyżej 30°C, nagrzane morze (26–27°C) i brak deszczu. Liczy się lekka odzież i intensywna ochrona przed słońcem.',
+      emoji: '☀️',
+      months: [6, 7, 8],
       items: [
         {
+          key: 'swimwear',
           label: 'Co najmniej dwa stroje kąpielowe',
           hint: 'Ułatwi to codzienne plażowanie bez czekania aż kostium wyschnie.',
         },
         {
+          key: 'towel',
           label: 'Szybkoschnący ręcznik plażowy lub pareo',
           hint: 'Sprawdzi się nad morzem i przy hotelowym basenie.',
         },
         {
+          key: 'clothing',
           label: 'Lekkie ubrania z naturalnych tkanin',
           hint: 'Bawełna i len pomogą przetrwać ponad 30-stopniowe temperatury.',
         },
         {
+          key: 'footwear',
           label: 'Klapki, sandały i przewiewne obuwie',
           hint: 'Dodaj wygodne buty sportowe na dłuższe wycieczki.',
         },
         {
+          key: 'sunscreen',
           label: 'Krem przeciwsłoneczny SPF 30–50',
           hint: 'Nakładaj obficie i ponownie po każdej kąpieli.',
         },
         {
+          key: 'hat',
           label: 'Kapelusz z szerokim rondem i okulary UV',
           hint: 'Chroń głowę i oczy przed udarem słonecznym.',
         },
         {
+          key: 'afterSun',
           label: 'Balsam po opalaniu lub żel z aloesem',
           hint: 'Pomoże ukoić skórę po całym dniu na słońcu.',
         },
         {
+          key: 'bottle',
           label: 'Butelka termiczna na wodę',
           hint: 'Utrzyma napój w chłodzie i przypomni o regularnym nawadnianiu.',
         },
         {
+          key: 'waterproofCase',
           label: 'Wodoodporne etui na telefon i elektronikę',
           hint: 'Zabezpieczy sprzęt przed piaskiem i wodą podczas sportów wodnych.',
         },
         {
+          key: 'coverUp',
           label: 'Cienka narzutka lub koszula na wieczór',
           hint: 'Przyda się przy bryzie lub w klimatyzowanych pomieszczeniach.',
           optional: true,
@@ -1073,44 +1104,53 @@ const packingGuide = {
     {
       id: 'autumn',
       label: 'Jesień',
-      emoji: '🍁',
-      months: [9, 10, 11],
       summary:
         'Wrzesień wciąż gorący, październik i listopad to przyjemne 21–30°C. Morze długo pozostaje ciepłe, a deszcze pojawiają się dopiero pod koniec sezonu.',
+      emoji: '🍁',
+      months: [9, 10, 11],
       items: [
         {
+          key: 'summerClothes',
           label: 'Letnie ubrania na ciepłe dni',
           hint: 'We wrześniu temperatury przekraczają 30°C.',
         },
         {
+          key: 'eveningLayer',
           label: 'Lekka kurtka lub sweter na wieczór',
           hint: 'Październik i listopad przynoszą chłodniejsze noce, szczególnie nad morzem.',
         },
         {
+          key: 'trekkingShoes',
           label: 'Wygodne buty trekkingowe lub sportowe',
           hint: 'Jesień sprzyja wycieczkom po Akamas i górach Troodos.',
         },
         {
+          key: 'sandals',
           label: 'Klapki lub sandały na plażę',
           hint: 'Morze pozostaje przyjemnie ciepłe nawet w listopadzie.',
         },
         {
+          key: 'sunAccessories',
           label: 'Okulary przeciwsłoneczne i nakrycie głowy',
           hint: 'Jesienne słońce nadal mocno operuje.',
         },
         {
+          key: 'sunscreen',
           label: 'Krem przeciwsłoneczny SPF 30',
           hint: 'Promieniowanie UV pozostaje wysokie mimo spadku temperatur.',
         },
         {
+          key: 'swimwear',
           label: 'Strój kąpielowy i ręcznik plażowy',
           hint: 'Plaże są mniej zatłoczone, a woda nadal zachęca do kąpieli.',
         },
         {
+          key: 'camera',
           label: 'Aparat na jesienne krajobrazy',
           hint: 'Winnice i góry Troodos nabierają złotych barw.',
         },
         {
+          key: 'rainProtection',
           label: 'Parasolka lub lekka peleryna przeciwdeszczowa',
           hint: 'Pod koniec października mogą pojawić się pierwsze deszcze.',
         },
@@ -1119,46 +1159,55 @@ const packingGuide = {
     {
       id: 'winter',
       label: 'Zima',
-      emoji: '❄️',
-      months: [12, 1, 2],
       summary:
         'Nadmorskie 15–18°C w dzień, chłodne noce i możliwy śnieg w górach Troodos. To pora deszczowa – postaw na warstwy i wodoodporne okrycia.',
+      emoji: '❄️',
+      months: [12, 1, 2],
       items: [
         {
+          key: 'coat',
           label: 'Ciepła kurtka lub płaszcz',
           hint: 'Lżejsza sprawdzi się nad morzem, ale w górach potrzebna jest zimowa odzież.',
         },
         {
+          key: 'layers',
           label: 'Warstwowe swetry, bluzy i długie spodnie',
           hint: 'Pozwolą dostosować strój do zmiennej pogody.',
         },
         {
+          key: 'boots',
           label: 'Buty za kostkę z antypoślizgową podeszwą',
           hint: 'Zabezpieczą przed deszczem i śliskimi nawierzchniami.',
         },
         {
+          key: 'rainProtection',
           label: 'Wodoodporna kurtka lub parasol',
           hint: 'Zima to najbardziej deszczowy okres na wyspie.',
         },
         {
+          key: 'accessories',
           label: 'Czapka, szalik i rękawiczki',
           hint: 'Niezbędne podczas wizyt w górach oraz w wietrzne dni.',
           optional: true,
         },
         {
+          key: 'sunglasses',
           label: 'Okulary przeciwsłoneczne',
           hint: 'Zimowe słońce bywa oślepiające, zwłaszcza po deszczu i na śniegu.',
         },
         {
+          key: 'thermal',
           label: 'Bielizna termiczna na górskie wycieczki',
           hint: 'Przydaje się, gdy temperatury spadają w okolice 0°C.',
           optional: true,
         },
         {
+          key: 'thermos',
           label: 'Termos na ciepły napój',
           hint: 'Docenisz go podczas zwiedzania zimowych atrakcji.',
         },
         {
+          key: 'equipmentPlan',
           label: 'Plan na wypożyczenie sprzętu zimowego',
           hint: 'Jeżeli jedziesz na narty na Olimpie, cięższy sprzęt wypożyczysz na miejscu.',
           optional: true,
@@ -1232,6 +1281,25 @@ function translate(key, fallback = '', replacements = {}) {
       ? String(replacements[param])
       : match
   );
+}
+
+function getTaskTranslationKey(task, field) {
+  if (!task || !task.id) {
+    return '';
+  }
+  return `tasks.items.${task.id}.${field}`;
+}
+
+function getTaskTitle(task) {
+  return translate(getTaskTranslationKey(task, 'title'), task?.title ?? '');
+}
+
+function getTaskDescription(task) {
+  return translate(getTaskTranslationKey(task, 'description'), task?.description ?? '');
+}
+
+function getGuestStatusMessage() {
+  return translate('auth.guest.status', GUEST_STATUS_MESSAGE);
 }
 
 function normalizeSearchText(value) {
@@ -3591,7 +3659,9 @@ function renderTasks() {
 
     const info = document.createElement('div');
     info.className = 'task-info';
-    info.innerHTML = `<strong>${task.title}</strong><br/><small>${task.description}</small>`;
+    const title = getTaskTitle(task);
+    const description = getTaskDescription(task);
+    info.innerHTML = `<strong>${title}</strong><br/><small>${description}</small>`;
 
     const meta = document.createElement('div');
     meta.className = 'task-meta';
@@ -3607,14 +3677,16 @@ function renderTasks() {
     button.setAttribute('aria-pressed', completed ? 'true' : 'false');
 
     if (completed) {
-      button.textContent = 'Cofnij';
+      button.textContent = translate('tasks.action.undo', 'Cofnij');
       button.classList.add('is-completed');
       button.addEventListener('click', () => revertTask(task));
     } else if (!unlocked) {
-      button.textContent = `Poziom ${task.requiredLevel}`;
+      button.textContent = translate('tasks.action.locked', 'Poziom {{level}}', {
+        level: task.requiredLevel,
+      });
       button.disabled = true;
     } else {
-      button.textContent = 'Wykonaj';
+      button.textContent = translate('tasks.action.complete', 'Wykonaj');
       button.addEventListener('click', () => completeTask(task));
     }
 
@@ -3628,7 +3700,10 @@ function renderTasks() {
 function formatCurrencyEUR(value) {
   const normalized = Number.isFinite(value) ? value : 0;
   const fraction = Number.isFinite(normalized) && Math.abs(normalized % 1) > 0 ? 2 : 0;
-  return new Intl.NumberFormat('pl-PL', {
+  const i18n = typeof window !== 'undefined' ? window.appI18n : null;
+  const language = (i18n && i18n.language) || 'pl';
+  const locale = language === 'en' ? 'en-GB' : 'pl-PL';
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: 'EUR',
     minimumFractionDigits: fraction,
@@ -3641,17 +3716,44 @@ function createMediaTripCard(trip) {
   card.className = 'media-trip-card surface-card';
   card.setAttribute('role', 'listitem');
 
+  const titleText = translate(`mediaTrips.items.${trip.id}.title`, trip?.title ?? '');
+  const descriptionText = translate(`mediaTrips.items.${trip.id}.description`, trip?.description ?? '');
+  const mediaTypeText = translate(`mediaTrips.items.${trip.id}.mediaType`, trip?.mediaType ?? '');
+  const durationText = translate(`mediaTrips.items.${trip.id}.duration`, trip?.duration ?? '');
+  const metaText = [mediaTypeText, durationText].filter(Boolean).join(' • ');
+
   const highlightsList = (trip.highlights ?? [])
-    .map((item) => `<li>${item}</li>`)
+    .map((item, index) => {
+      const key = typeof item === 'object' && item !== null ? item.key ?? index : index;
+      const fallback = typeof item === 'object' && item !== null ? item.text ?? '' : String(item ?? '');
+      const text = translate(`mediaTrips.items.${trip.id}.highlights.${key}`, fallback);
+      return `<li>${text}</li>`;
+    })
     .join('');
 
   const variantOptions = (trip.pricingOptions ?? [])
     .map((option, index) => {
-      const priceLabel = formatCurrencyEUR(option.price);
-      const extraLabel = Number.isFinite(option.extraPerson) && option.extraPerson > 0
-        ? ` (+${formatCurrencyEUR(option.extraPerson)} / dodatkowa os.)`
+      const optionKey = option?.key ?? index;
+      const optionLabel = translate(`mediaTrips.items.${trip.id}.pricing.${optionKey}`, option?.label ?? '');
+      const priceLabel = formatCurrencyEUR(option?.price);
+      const extraValue = Number.isFinite(option?.extraPerson)
+        ? option.extraPerson
+        : trip.additionalPersonPrice ?? 0;
+      const extraLabel = extraValue > 0
+        ? translate('mediaTrips.card.extraPersonSuffix', ' (+{{price}} / dodatkowa os.)', {
+            price: formatCurrencyEUR(extraValue),
+          })
         : '';
-      return `<option value="${index}" data-price="${option.price}" data-extra="${option.extraPerson ?? trip.additionalPersonPrice ?? 0}">${option.label} — ${priceLabel}${extraLabel}</option>`;
+      const combinedLabel = translate(
+        'mediaTrips.card.variantOption',
+        '{{label}} — {{price}}{{extra}}',
+        {
+          label: optionLabel,
+          price: priceLabel,
+          extra: extraLabel,
+        },
+      );
+      return `<option value="${index}" data-price="${option?.price}" data-extra="${option?.extraPerson ?? trip.additionalPersonPrice ?? 0}">${combinedLabel}</option>`;
     })
     .join('');
 
@@ -3666,19 +3768,32 @@ function createMediaTripCard(trip) {
   }
   const outputForAttribute = outputControlIds.join(' ');
 
-  const detailsLink = trip.detailsLink?.href
-    ? `<p class="media-trip-cta"><a href="${trip.detailsLink.href}" target="_blank" rel="noopener">${trip.detailsLink.label}<span aria-hidden="true">→</span></a></p>`
+  const detailsLabel = translate(
+    `mediaTrips.items.${trip.id}.detailsLink`,
+    trip.detailsLink?.label ?? '',
+  );
+  const detailsLink = trip.detailsLink?.href && detailsLabel
+    ? `<p class="media-trip-cta"><a href="${trip.detailsLink.href}" target="_blank" rel="noopener">${detailsLabel}<span aria-hidden="true">→</span></a></p>`
     : '';
 
   const basePriceLabel = formatCurrencyEUR(trip.basePrice);
   const includedLabel = trip.includedParticipants
-    ? ` (do ${trip.includedParticipants} osób)`
+    ? translate('mediaTrips.card.includedParticipants', ' (do {{count}} osób)', {
+        count: trip.includedParticipants,
+      })
     : '';
+  const priceText = translate('mediaTrips.card.priceFrom', 'Ceny od{{included}}: <strong>{{price}}</strong>', {
+    included: includedLabel,
+    price: basePriceLabel,
+  });
 
   const highlightsSection = highlightsList
     ? `
           <section class="media-trip-section" aria-labelledby="${highlightsTitleId}">
-            <h4 class="media-trip-section-title" id="${highlightsTitleId}">W pakiecie</h4>
+            <h4 class="media-trip-section-title" id="${highlightsTitleId}">${translate(
+              'mediaTrips.card.highlightsTitle',
+              'W pakiecie',
+            )}</h4>
             <ul class="media-trip-highlights">
               ${highlightsList}
             </ul>
@@ -3689,29 +3804,41 @@ function createMediaTripCard(trip) {
   card.innerHTML = `
     <div class="media-trip-primary" aria-labelledby="${titleId}">
       <header class="media-trip-card-header">
-        <p class="media-trip-meta">${trip.mediaType} • ${trip.duration}</p>
-        <h3 id="${titleId}">${trip.title}</h3>
-        <p class="media-trip-description">${trip.description}</p>
-        <p class="media-trip-price">Ceny od${includedLabel}: <strong>${basePriceLabel}</strong></p>
+        <p class="media-trip-meta">${metaText}</p>
+        <h3 id="${titleId}">${titleText}</h3>
+        <p class="media-trip-description">${descriptionText}</p>
+        <p class="media-trip-price">${priceText}</p>
       </header>
       ${highlightsSection}
       ${detailsLink}
     </div>
     <form class="media-trip-form" aria-labelledby="${calculatorHeadingId}">
-      <h4 class="media-trip-section-title" id="${calculatorHeadingId}">Kalkulator pakietu</h4>
+      <h4 class="media-trip-section-title" id="${calculatorHeadingId}">${translate(
+        'mediaTrips.card.calculatorTitle',
+        'Kalkulator pakietu',
+      )}</h4>
       ${variantOptions
         ? `
             <div class="media-trip-field">
-              <label for="${trip.id}-variant">Wariant pakietu</label>
+              <label for="${trip.id}-variant">${translate(
+                'mediaTrips.card.variantLabel',
+                'Wariant pakietu',
+              )}</label>
               <select id="${trip.id}-variant" name="variant" aria-describedby="${variantHelperId}">
                 ${variantOptions}
               </select>
-              <p class="media-trip-helper" id="${variantHelperId}">Kalkulator automatycznie przelicza cenę i dopłatę za dodatkowe osoby.</p>
+              <p class="media-trip-helper" id="${variantHelperId}">${translate(
+                'mediaTrips.card.variantHelper',
+                'Kalkulator automatycznie przelicza cenę i dopłatę za dodatkowe osoby.',
+              )}</p>
             </div>
           `
         : ''}
       <div class="media-trip-field">
-        <label for="${trip.id}-participants">Liczba uczestników</label>
+        <label for="${trip.id}-participants">${translate(
+          'mediaTrips.card.participantsLabel',
+          'Liczba uczestników',
+        )}</label>
         <input
           id="${trip.id}-participants"
           name="participants"
@@ -3724,13 +3851,13 @@ function createMediaTripCard(trip) {
       </div>
       <dl class="media-trip-result" role="status" aria-live="polite">
         <div class="media-trip-result-row">
-          <dt>Łączny koszt pakietu</dt>
+          <dt>${translate('mediaTrips.card.totalLabel', 'Łączny koszt pakietu')}</dt>
           <dd>
             <output class="media-trip-output" name="total" for="${outputForAttribute}"></output>
           </dd>
         </div>
         <div class="media-trip-result-row">
-          <dt>Koszt na osobę</dt>
+          <dt>${translate('mediaTrips.card.perPersonLabel', 'Koszt na osobę')}</dt>
           <dd>
             <output class="media-trip-output" name="perPerson" for="${outputForAttribute}"></output>
           </dd>
@@ -3822,6 +3949,41 @@ function determineDefaultPackingSeason() {
   return match ? match.id : packingGuide.seasons[0]?.id;
 }
 
+function getPackingSeasonLabel(season) {
+  if (!season) {
+    return '';
+  }
+  return translate(`packing.season.${season.id}.label`, season.label ?? '');
+}
+
+function getPackingSeasonSummary(season) {
+  if (!season) {
+    return '';
+  }
+  return translate(`packing.season.${season.id}.summary`, season.summary ?? '');
+}
+
+function renderSeasonButtonLabel(button, season) {
+  if (!button || !season) {
+    return;
+  }
+  const label = getPackingSeasonLabel(season);
+  button.innerHTML = `<span class="packing-season-icon">${season.emoji}</span>${label}`;
+  button.setAttribute('aria-label', `${label}`.trim());
+}
+
+function getPackingItemText(baseKey, item, field) {
+  if (!item) {
+    return '';
+  }
+  const fallback = item[field] ?? '';
+  if (!item.key) {
+    return fallback;
+  }
+  const key = `${baseKey}.${item.key}.${field}`;
+  return translate(key, fallback);
+}
+
 function initializePackingPlanner() {
   const toggle = document.getElementById('packingSeasonToggle');
   const panel = document.getElementById('packingChecklist');
@@ -3830,6 +3992,7 @@ function initializePackingPlanner() {
   }
 
   toggle.innerHTML = '';
+  toggle.setAttribute('aria-label', translate('packing.season.toggleLabel', 'Wybierz sezon podróży'));
 
   packingGuide.seasons.forEach((season) => {
     const button = document.createElement('button');
@@ -3840,7 +4003,7 @@ function initializePackingPlanner() {
     button.setAttribute('aria-controls', 'packingChecklist');
     button.tabIndex = -1;
     button.className = 'packing-season-button';
-    button.innerHTML = `<span class="packing-season-icon">${season.emoji}</span>${season.label}`;
+    renderSeasonButtonLabel(button, season);
 
     button.addEventListener('click', () => {
       setPackingSeason(season.id);
@@ -3922,7 +4085,11 @@ function renderPackingChecklist() {
 
   const header = document.createElement('div');
   header.className = 'packing-season-header';
-  header.innerHTML = `<h3>${season.emoji} ${season.label}</h3><p>${season.summary}</p>`;
+  const heading = document.createElement('h3');
+  heading.textContent = `${season.emoji} ${getPackingSeasonLabel(season)}`;
+  const summary = document.createElement('p');
+  summary.textContent = getPackingSeasonSummary(season);
+  header.append(heading, summary);
   panel.appendChild(header);
 
   const listsWrapper = document.createElement('div');
@@ -3931,17 +4098,21 @@ function renderPackingChecklist() {
   const universalSection = document.createElement('section');
   universalSection.className = 'packing-list-section';
   const universalTitle = document.createElement('h4');
-  universalTitle.textContent = 'Uniwersalne niezbędniki';
+  universalTitle.textContent = translate('packing.guide.universal.title', 'Uniwersalne niezbędniki');
   universalSection.appendChild(universalTitle);
-  universalSection.appendChild(createPackingChecklist(packingGuide.universal, `packing-universal-${season.id}`));
+  universalSection.appendChild(
+    createPackingChecklist(packingGuide.universal, `packing-universal-${season.id}`, 'packing.guide.universal')
+  );
   listsWrapper.appendChild(universalSection);
 
   const seasonalSection = document.createElement('section');
   seasonalSection.className = 'packing-list-section';
   const seasonalTitle = document.createElement('h4');
-  seasonalTitle.textContent = 'Dodatki sezonowe';
+  seasonalTitle.textContent = translate('packing.guide.seasonal.title', 'Dodatki sezonowe');
   seasonalSection.appendChild(seasonalTitle);
-  seasonalSection.appendChild(createPackingChecklist(season.items, `packing-season-${season.id}`));
+  seasonalSection.appendChild(
+    createPackingChecklist(season.items, `packing-season-${season.id}`, `packing.guide.seasons.${season.id}`)
+  );
   listsWrapper.appendChild(seasonalSection);
 
   panel.appendChild(listsWrapper);
@@ -3963,7 +4134,7 @@ function renderPackingChecklist() {
   }
 }
 
-function createPackingChecklist(items, idPrefix) {
+function createPackingChecklist(items, idPrefix, baseKey) {
   const list = document.createElement('ul');
   list.className = 'packing-checklist';
 
@@ -3982,13 +4153,14 @@ function createPackingChecklist(items, idPrefix) {
     const mainLine = document.createElement('div');
     mainLine.className = 'packing-check-main';
     const text = document.createElement('span');
-    text.textContent = item.label;
+    const labelText = baseKey ? getPackingItemText(baseKey, item, 'label') : item.label;
+    text.textContent = labelText;
     mainLine.appendChild(text);
 
     if (item.optional) {
       const optional = document.createElement('span');
       optional.className = 'packing-optional';
-      optional.textContent = 'opcjonalnie';
+      optional.textContent = translate('packing.guide.optional', 'opcjonalnie');
       mainLine.appendChild(optional);
     }
 
@@ -3996,7 +4168,8 @@ function createPackingChecklist(items, idPrefix) {
 
     if (item.hint) {
       const hint = document.createElement('small');
-      hint.textContent = item.hint;
+      const hintText = baseKey ? getPackingItemText(baseKey, item, 'hint') : item.hint;
+      hint.textContent = hintText;
       label.appendChild(hint);
     }
 
@@ -4006,6 +4179,29 @@ function createPackingChecklist(items, idPrefix) {
   });
 
   return list;
+}
+
+function updatePackingPlannerLanguage() {
+  const toggle = document.getElementById('packingSeasonToggle');
+  if (!toggle) {
+    return;
+  }
+
+  toggle.setAttribute('aria-label', translate('packing.season.toggleLabel', 'Wybierz sezon podróży'));
+
+  const buttons = toggle.querySelectorAll('button[data-season]');
+  buttons.forEach((button) => {
+    if (!(button instanceof HTMLButtonElement)) {
+      return;
+    }
+    const seasonId = button.dataset.season;
+    const season = packingGuide.seasons.find((item) => item.id === seasonId);
+    if (season) {
+      renderSeasonButtonLabel(button, season);
+    }
+  });
+
+  renderPackingChecklist();
 }
 
 function syncMarkers() {
@@ -6686,7 +6882,12 @@ function completeTask(task) {
   updateAfterStateChange(leveledUp);
 
   if (!leveledUp) {
-    setLevelStatus(`Ukończyłeś zadanie „${task.title}” (+${task.xp} XP)`, 6000);
+    const title = getTaskTitle(task);
+    const message = translate('tasks.status.completed', 'Ukończyłeś zadanie „{{title}}” (+{{xp}} XP)', {
+      title,
+      xp: task.xp,
+    });
+    setLevelStatus(message, 6000);
   }
 }
 
@@ -6697,8 +6898,20 @@ function revertTask(task) {
   const leveledDown = removeXp(task.xp);
   updateAfterStateChange(false);
 
-  const levelNote = leveledDown ? ` Powróciłeś na poziom ${state.level}.` : '';
-  setLevelStatus(`Cofnięto oznaczenie zadania „${task.title}” (−${task.xp} XP).${levelNote}`, 6000);
+  const title = getTaskTitle(task);
+  const levelNote = leveledDown
+    ? translate('tasks.status.levelReverted', ' Powróciłeś na poziom {{level}}.', { level: state.level })
+    : '';
+  const message = translate(
+    'tasks.status.reverted',
+    'Cofnięto oznaczenie zadania „{{title}}” (−{{xp}} XP).{{note}}',
+    {
+      title,
+      xp: task.xp,
+      note: levelNote,
+    },
+  );
+  setLevelStatus(message.trim(), 6000);
 }
 
 function animateMarker(id) {
@@ -6754,6 +6967,18 @@ function setAccountMessage(message = '', tone = 'info') {
   messageEl.dataset.tone = tone;
 }
 
+function showAuthError(key, fallback, replacements = {}) {
+  setAuthMessage(translate(key, fallback, replacements), 'error');
+}
+
+function showAccountError(key, fallback, replacements = {}) {
+  setAccountMessage(translate(key, fallback, replacements), 'error');
+}
+
+function showAccountSuccess(key, fallback, replacements = {}) {
+  setAccountMessage(translate(key, fallback, replacements), 'success');
+}
+
 function clearAuthForms() {
   const loginForm = document.getElementById('loginForm');
   if (loginForm instanceof HTMLFormElement) {
@@ -6768,7 +6993,7 @@ function clearAuthForms() {
 
 function openAccountModal() {
   if (!currentUserKey) {
-    setAccountMessage('Zaloguj się, aby edytować dane konta.', 'error');
+    showAccountError('account.error.loginRequired', 'Zaloguj się, aby edytować dane konta.');
     return;
   }
 
@@ -6842,7 +7067,7 @@ function handleAccountUsernameSubmit(event) {
   event.preventDefault();
 
   if (!currentUserKey) {
-    setAccountMessage('Zaloguj się, aby zmienić nazwę użytkownika.', 'error');
+    showAccountError('account.error.username.loginRequired', 'Zaloguj się, aby zmienić nazwę użytkownika.');
     return;
   }
 
@@ -6858,19 +7083,19 @@ function handleAccountUsernameSubmit(event) {
 
   const newUsername = usernameInput.value.trim();
   if (!newUsername) {
-    setAccountMessage('Podaj nową nazwę użytkownika.', 'error');
+    showAccountError('account.error.username.missing', 'Podaj nową nazwę użytkownika.');
     return;
   }
 
   const normalizedNew = normalizeUsername(newUsername);
   const currentAccount = getAccount(currentUserKey);
   if (!currentAccount) {
-    setAccountMessage('Nie udało się odnaleźć bieżącego konta.', 'error');
+    showAccountError('account.error.currentMissing', 'Nie udało się odnaleźć bieżącego konta.');
     return;
   }
 
   if (normalizedNew !== currentUserKey && getAccount(normalizedNew)) {
-    setAccountMessage('Wybrana nazwa użytkownika jest już zajęta.', 'error');
+    showAccountError('account.error.username.taken', 'Wybrana nazwa użytkownika jest już zajęta.');
     return;
   }
 
@@ -6890,7 +7115,7 @@ function handleAccountUsernameSubmit(event) {
 
   persistAccounts();
   updateAuthUI();
-  setAccountMessage('Nazwa użytkownika została zaktualizowana.', 'success');
+  showAccountSuccess('account.success.usernameUpdated', 'Nazwa użytkownika została zaktualizowana.');
   usernameInput.value = newUsername;
 }
 
@@ -6898,7 +7123,7 @@ async function handleAccountPasswordSubmit(event) {
   event.preventDefault();
 
   if (!currentUserKey) {
-    setAccountMessage('Zaloguj się, aby zmienić hasło.', 'error');
+    showAccountError('account.error.password.loginRequired', 'Zaloguj się, aby zmienić hasło.');
     return;
   }
 
@@ -6924,30 +7149,30 @@ async function handleAccountPasswordSubmit(event) {
   const confirmPassword = confirmInput.value;
 
   if (!currentPassword || !newPassword) {
-    setAccountMessage('Uzupełnij wszystkie pola hasła.', 'error');
+    showAccountError('account.error.password.missingFields', 'Uzupełnij wszystkie pola hasła.');
     return;
   }
 
   if (newPassword.length < 8) {
-    setAccountMessage('Hasło powinno mieć co najmniej 8 znaków.', 'error');
+    showAccountError('account.error.password.tooShort', 'Hasło powinno mieć co najmniej 8 znaków.');
     return;
   }
 
   if (newPassword !== confirmPassword) {
-    setAccountMessage('Nowe hasła nie są identyczne.', 'error');
+    showAccountError('account.error.password.mismatch', 'Nowe hasła nie są identyczne.');
     return;
   }
 
   const account = getAccount(currentUserKey);
   if (!account) {
-    setAccountMessage('Nie udało się odnaleźć bieżącego konta.', 'error');
+    showAccountError('account.error.currentMissing', 'Nie udało się odnaleźć bieżącego konta.');
     return;
   }
 
   if (account.passwordHash) {
     const currentHash = await hashPassword(currentPassword);
     if (account.passwordHash !== currentHash) {
-      setAccountMessage('Obecne hasło jest nieprawidłowe.', 'error');
+      showAccountError('account.error.password.invalidCurrent', 'Obecne hasło jest nieprawidłowe.');
       return;
     }
   }
@@ -6956,17 +7181,20 @@ async function handleAccountPasswordSubmit(event) {
   account.passwordHash = newHash;
   persistAccounts();
   form.reset();
-  setAccountMessage('Hasło zostało pomyślnie zaktualizowane.', 'success');
+  showAccountSuccess('account.success.passwordUpdated', 'Hasło zostało pomyślnie zaktualizowane.');
 }
 
 function handleAccountResetProgress() {
   if (!currentUserKey) {
-    setAccountMessage('Zaloguj się, aby zresetować postęp.', 'error');
+    showAccountError('account.error.reset.loginRequired', 'Zaloguj się, aby zresetować postęp.');
     return;
   }
 
   const confirmed = window.confirm(
-    'Czy na pewno chcesz zresetować postęp? Tej operacji nie można cofnąć.',
+    translate(
+      'account.confirm.reset',
+      'Czy na pewno chcesz zresetować postęp? Tej operacji nie można cofnąć.',
+    ),
   );
 
   if (!confirmed) {
@@ -6975,7 +7203,7 @@ function handleAccountResetProgress() {
 
   const account = getAccount(currentUserKey);
   if (!account) {
-    setAccountMessage('Nie udało się odnaleźć bieżącego konta.', 'error');
+    showAccountError('account.error.currentMissing', 'Nie udało się odnaleźć bieżącego konta.');
     return;
   }
 
@@ -6983,18 +7211,33 @@ function handleAccountResetProgress() {
   persistAccounts();
   loadProgress();
   renderAllForCurrentState();
-  setAccountMessage('Postęp został zresetowany. Powodzenia w nowej przygodzie!', 'success');
-  setLevelStatus('Rozpoczynasz grę od nowa – powodzenia!', 6000);
+  showAccountSuccess(
+    'account.success.progressReset',
+    'Postęp został zresetowany. Powodzenia w nowej przygodzie!',
+  );
+  setLevelStatus(
+    translate('account.status.progressRestart', 'Rozpoczynasz grę od nowa – powodzenia!'),
+    6000,
+  );
 }
 
 function handleGuestResetProgress() {
   if (currentUserKey) {
-    setLevelStatus('Zalogowano na konto – skorzystaj z ustawień konta, aby zresetować postęp.', 6000);
+    setLevelStatus(
+      translate(
+        'account.status.resetNotAvailable',
+        'Zalogowano na konto – skorzystaj z ustawień konta, aby zresetować postęp.',
+      ),
+      6000,
+    );
     return;
   }
 
   const confirmed = window.confirm(
-    'Czy na pewno chcesz wyzerować postęp gościa? Tej operacji nie można cofnąć.',
+    translate(
+      'account.confirm.guestReset',
+      'Czy na pewno chcesz wyzerować postęp gościa? Tej operacji nie można cofnąć.',
+    ),
   );
 
   if (!confirmed) {
@@ -7005,7 +7248,10 @@ function handleGuestResetProgress() {
   loadProgress();
   renderAllForCurrentState();
   updateAuthUI();
-  setLevelStatus('Wyzerowano statystyki gościa. Zaczynasz od poziomu 1!', 6000);
+  setLevelStatus(
+    translate('account.status.guestProgressReset', 'Wyzerowano statystyki gościa. Zaczynasz od poziomu 1!'),
+    6000,
+  );
 }
 
 function updateAuthUI() {
@@ -7034,7 +7280,11 @@ function updateAuthUI() {
   if (greeting) {
     if (currentUserKey) {
       const account = getAccount(currentUserKey);
-      greeting.textContent = account ? `Zalogowano jako ${account.username}` : '';
+      greeting.textContent = account
+        ? translate('auth.status.loggedInAs', 'Zalogowano jako {{username}}', {
+            username: account.username,
+          })
+        : '';
     } else {
       greeting.textContent = '';
     }
@@ -7058,20 +7308,20 @@ async function handleLoginSubmit(event) {
   const password = passwordInput.value;
 
   if (!username || !password) {
-    setAuthMessage('Uzupełnij login i hasło, aby się zalogować.', 'error');
+    showAuthError('auth.error.missingCredentials', 'Uzupełnij login i hasło, aby się zalogować.');
     return;
   }
 
   const key = normalizeUsername(username);
   const account = getAccount(key);
   if (!account || !account.passwordHash) {
-    setAuthMessage('Nie znaleziono konta o podanym loginie.', 'error');
+    showAuthError('auth.error.accountNotFound', 'Nie znaleziono konta o podanym loginie.');
     return;
   }
 
   const passwordHash = await hashPassword(password);
   if (account.passwordHash !== passwordHash) {
-    setAuthMessage('Nieprawidłowe hasło – spróbuj ponownie.', 'error');
+    showAuthError('auth.error.invalidPassword', 'Nieprawidłowe hasło – spróbuj ponownie.');
     return;
   }
 
@@ -7081,7 +7331,12 @@ async function handleLoginSubmit(event) {
   renderAllForCurrentState();
   updateAuthUI();
   closeAuthModal();
-  setLevelStatus(`Witaj ponownie, ${account.username}!`, 6000);
+  setLevelStatus(
+    translate('auth.status.welcomeBack', 'Witaj ponownie, {{username}}!', {
+      username: account.username,
+    }),
+    6000,
+  );
 }
 
 async function handleRegisterSubmit(event) {
@@ -7106,23 +7361,23 @@ async function handleRegisterSubmit(event) {
   const confirmPassword = confirmInput.value;
 
   if (!username || !password) {
-    setAuthMessage('Podaj login i hasło, aby utworzyć konto.', 'error');
+    showAuthError('auth.error.registration.missingCredentials', 'Podaj login i hasło, aby utworzyć konto.');
     return;
   }
 
   if (password.length < 8) {
-    setAuthMessage('Hasło powinno mieć co najmniej 8 znaków.', 'error');
+    showAuthError('auth.error.password.tooShort', 'Hasło powinno mieć co najmniej 8 znaków.');
     return;
   }
 
   if (password !== confirmPassword) {
-    setAuthMessage('Hasła nie są identyczne.', 'error');
+    showAuthError('auth.error.password.mismatch', 'Hasła nie są identyczne.');
     return;
   }
 
   const key = normalizeUsername(username);
   if (getAccount(key)) {
-    setAuthMessage('Takie konto już istnieje. Spróbuj się zalogować.', 'error');
+    showAuthError('auth.error.accountExists', 'Takie konto już istnieje. Spróbuj się zalogować.');
     return;
   }
 
@@ -7142,7 +7397,10 @@ async function handleRegisterSubmit(event) {
   renderAllForCurrentState();
   updateAuthUI();
   closeAuthModal();
-  setLevelStatus(`Witaj w grze, ${username}!`, 6000);
+  setLevelStatus(
+    translate('auth.status.welcome', 'Witaj w grze, {{username}}!', { username }),
+    6000,
+  );
 }
 
 function startGuestSession(options = {}) {
@@ -7159,8 +7417,8 @@ function startGuestSession(options = {}) {
   let finalMessage = message;
   if (finalMessage === undefined) {
     finalMessage = previousUser
-      ? 'Wylogowano – grasz teraz jako gość.'
-      : GUEST_STATUS_MESSAGE;
+      ? translate('auth.guest.switch', 'Wylogowano – grasz teraz jako gość.')
+      : getGuestStatusMessage();
   }
 
   if (finalMessage) {
@@ -7169,7 +7427,9 @@ function startGuestSession(options = {}) {
 }
 
 function handleLogout() {
-  startGuestSession({ message: 'Wylogowano – grasz teraz jako gość.' });
+  startGuestSession({
+    message: translate('auth.guest.switch', 'Wylogowano – grasz teraz jako gość.'),
+  });
 }
 
 function initializeAuth() {
@@ -7210,7 +7470,7 @@ function initializeAuth() {
   });
 
   guestAccessBtn?.addEventListener('click', () => {
-    closeAuthModal({ activateGuest: true, guestMessage: GUEST_STATUS_MESSAGE });
+    closeAuthModal({ activateGuest: true, guestMessage: getGuestStatusMessage() });
   });
 
   if (authModal) {
@@ -7581,6 +7841,7 @@ window.addEventListener('beforeunload', () => {
   }
 });
 
+document.addEventListener('wakacjecypr:languagechange', updatePackingPlannerLanguage);
 document.addEventListener('DOMContentLoaded', bootstrap);
 
 document.addEventListener('wakacjecypr:languagechange', () => {
