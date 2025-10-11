@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#2563eb" />
-    <title>Wybierz miasto – Wynajem aut | WakacjeCypr</title>
+    <title data-i18n="carRental.meta.title">Wybierz miasto – Wynajem aut | WakacjeCypr</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -19,82 +19,92 @@
         <div class="standalone-brand">
           <img src="assets/cyprus_logo-1000x1054.png" alt="WakacjeCypr.com – logo żółwia z flagą Polski" />
           <div>
-            <p class="standalone-brand-overline">WakacjeCypr Quest</p>
-            <p class="standalone-brand-title">Wynajem samochodów</p>
+            <p class="standalone-brand-overline" data-i18n="carRental.brand.overline">WakacjeCypr Quest</p>
+            <p class="standalone-brand-title" data-i18n="carRental.brand.title">Wynajem samochodów</p>
           </div>
         </div>
-        <nav class="standalone-nav">
-          <a class="ghost link" href="index.html">← Wróć do aplikacji</a>
+        <nav class="standalone-nav" data-i18n-attrs="aria-label:carRental.nav.aria" aria-label="Nawigacja powrotu">
+          <a class="ghost link" href="index.html" data-i18n="carRental.back">← Wróć do aplikacji</a>
         </nav>
       </header>
 
       <main class="standalone-main">
         <section class="surface-card standalone-hero" aria-labelledby="citySelectTitle">
           <div class="standalone-hero-content">
-            <p class="standalone-hero-badge">Krok 1</p>
-            <h1 id="citySelectTitle">Wybierz lokalizację odbioru auta</h1>
-            <p>
+            <p class="standalone-hero-badge" data-i18n="carRental.hero.step">Krok 1</p>
+            <h1 id="citySelectTitle" data-i18n="carRental.hero.title">Wybierz lokalizację odbioru auta</h1>
+            <p data-i18n="carRental.hero.description">
               Przygotowaliśmy dwie oferty dopasowane do Twoich planów podróży. Wybierz region, w którym potrzebujesz samochodu,
               aby zobaczyć flotę, kalkulator kosztów oraz formularz rezerwacji.
             </p>
-            <p class="standalone-hero-note">Możesz w każdej chwili przełączyć się między ofertami – link znajdziesz na górze strony.</p>
+            <p class="standalone-hero-note" data-i18n="carRental.hero.note">Możesz w każdej chwili przełączyć się między ofertami – link znajdziesz na górze strony.</p>
           </div>
-          <ul class="standalone-hero-stats city-select-info" aria-label="Szybkie informacje">
+          <ul class="standalone-hero-stats city-select-info" aria-label="Szybkie informacje" data-i18n-attrs="aria-label:carRental.hero.infoLabel">
             <li>
-              <strong>Bez kaucji</strong>
-              <span>W obu lokalizacjach nie pobieramy kaucji i zapewniamy polską obsługę.</span>
+              <strong data-i18n="carRental.hero.info.deposit">Bez kaucji</strong>
+              <span data-i18n="carRental.hero.info.depositDetails">W obu lokalizacjach nie pobieramy kaucji i zapewniamy polską obsługę.</span>
             </li>
             <li>
-              <strong>Dowóz auta</strong>
-              <span>Odbierz samochód na lotnisku, w hotelu lub w umówionym miejscu.</span>
+              <strong data-i18n="carRental.hero.info.delivery">Dowóz auta</strong>
+              <span data-i18n="carRental.hero.info.deliveryDetails">Odbierz samochód na lotnisku, w hotelu lub w umówionym miejscu.</span>
             </li>
             <li>
-              <strong>24/7</strong>
-              <span>Wsparcie całodobowe niezależnie od wybranej oferty.</span>
+              <strong data-i18n="carRental.hero.info.support">24/7</strong>
+              <span data-i18n="carRental.hero.info.supportDetails">Wsparcie całodobowe niezależnie od wybranej oferty.</span>
             </li>
           </ul>
         </section>
 
         <section class="surface-card city-select" aria-labelledby="citySelectOptions">
           <header class="city-select-header">
-            <h2 id="citySelectOptions">Dwie oferty, jeden standard obsługi</h2>
-            <p>Wybierz, w którym mieście zaczyna się Twoja przygoda, a my pokażemy dostępne samochody i ceny.</p>
+            <h2 id="citySelectOptions" data-i18n="carRental.offers.title">Dwie oferty, jeden standard obsługi</h2>
+            <p data-i18n="carRental.offers.subtitle">Wybierz, w którym mieście zaczyna się Twoja przygoda, a my pokażemy dostępne samochody i ceny.</p>
           </header>
           <div class="city-select-grid" role="list">
             <article class="city-select-card" role="listitem">
               <div class="city-select-card-content">
-                <p class="city-select-card-tag">Cały Cypr</p>
-                <h3>Odbiór w Larnace lub dowóz na wyspie</h3>
-                <p>
+                <p class="city-select-card-tag" data-i18n="carRental.offers.larnaca.tag">Cały Cypr</p>
+                <h3 data-i18n="carRental.offers.larnaca.title">Odbiór w Larnace lub dowóz na wyspie</h3>
+                <p data-i18n="carRental.offers.larnaca.description">
                   Idealna opcja, jeśli lądujesz w Larnace i planujesz zwiedzić różne regiony wyspy. Możliwy odbiór na lotnisku
                   lub dowóz do wybranych kurortów.
                 </p>
                 <ul class="city-select-card-list">
-                  <li>Dowóz do Ayia Napy, Protaras, Limassol i Nikozji</li>
-                  <li>Pełne ubezpieczenie oraz dodatki rodzinne w cenie</li>
-                  <li>Kalkulator kosztów i formularz rezerwacji online</li>
+                  <li data-i18n="carRental.offers.larnaca.itemOne">Dowóz do Ayia Napy, Protaras, Limassol i Nikozji</li>
+                  <li data-i18n="carRental.offers.larnaca.itemTwo">Pełne ubezpieczenie oraz dodatki rodzinne w cenie</li>
+                  <li data-i18n="carRental.offers.larnaca.itemThree">Kalkulator kosztów i formularz rezerwacji online</li>
                 </ul>
               </div>
-              <a class="primary city-select-cta" href="car-rental.html" aria-label="Przejdź do oferty wynajmu na całym Cyprze"
+              <a
+                class="primary city-select-cta"
+                href="car-rental.html"
+                aria-label="Przejdź do oferty wynajmu na całym Cyprze"
+                data-i18n="carRental.offers.larnaca.cta"
+                data-i18n-attrs="aria-label:carRental.offers.larnaca.ctaAria"
                 >Zobacz ofertę ogólnocypryjską</a
               >
             </article>
 
             <article class="city-select-card" role="listitem">
               <div class="city-select-card-content">
-                <p class="city-select-card-tag">Pafos</p>
-                <h3>Odbiór na lotnisku PFO lub pod hotelem bez dopłat</h3>
-                <p>
+                <p class="city-select-card-tag" data-i18n="carRental.offers.paphos.tag">Pafos</p>
+                <h3 data-i18n="carRental.offers.paphos.title">Odbiór na lotnisku PFO lub pod hotelem bez dopłat</h3>
+                <p data-i18n="carRental.offers.paphos.description">
                   Wybierz ofertę dedykowaną Pafos, jeśli szukasz wygodnego odbioru bez dodatkowych kosztów oraz opcji dowozu do
                   pobliskich kurortów.
                 </p>
                 <ul class="city-select-card-list">
-                  <li>Lotnisko w Pafos oraz centrum miasta bez dopłat</li>
-                  <li>Dowóz do Coral Bay i Polis za niewielką opłatą</li>
-                  <li>Polska obsługa 24/7 i przejrzysty kalkulator wynajmu</li>
+                  <li data-i18n="carRental.offers.paphos.itemOne">Lotnisko w Pafos oraz centrum miasta bez dopłat</li>
+                  <li data-i18n="carRental.offers.paphos.itemTwo">Dowóz do Coral Bay i Polis za niewielką opłatą</li>
+                  <li data-i18n="carRental.offers.paphos.itemThree">Polska obsługa 24/7 i przejrzysty kalkulator wynajmu</li>
                 </ul>
               </div>
-              <a class="secondary city-select-cta" href="autopfo.html" aria-label="Przejdź do oferty wynajmu aut w Pafos"
+              <a
+                class="secondary city-select-cta"
+                href="autopfo.html"
+                aria-label="Przejdź do oferty wynajmu aut w Pafos"
+                data-i18n="carRental.offers.paphos.cta"
+                data-i18n-attrs="aria-label:carRental.offers.paphos.ctaAria"
                 >Zobacz ofertę Pafos</a
               >
             </article>
@@ -103,8 +113,9 @@
       </main>
 
       <footer class="standalone-footer">
-        <p>Masz pytania? Skontaktuj się z nami w aplikacji lub telefonicznie – pomożemy dobrać najlepszy samochód.</p>
+        <p data-i18n="carRental.footer">Masz pytania? Skontaktuj się z nami w aplikacji lub telefonicznie – pomożemy dobrać najlepszy samochód.</p>
       </footer>
     </div>
+    <script src="js/i18n.js"></script>
   </body>
 </html>
