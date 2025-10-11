@@ -11,7 +11,7 @@
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body data-navigation="multi-page" data-initial-view="adventureView">
+<body data-navigation="multi-page" data-initial-view="mediaTripsView">
   <header class="app-header">
     <div class="auth-bar" aria-label="Panel konta">
       <div class="auth-controls">
@@ -86,12 +86,13 @@
     <nav class="header-tabs" role="tablist" aria-label="Nawigacja główna">
       <button
         type="button"
-        class="header-tab is-active"
+        class="header-tab"
         id="headerAdventureTab"
         role="tab"
-        aria-selected="true"
+        aria-selected="false"
         aria-controls="adventureView"
-        tabindex="0"
+        tabindex="-1"
+        data-page-url="index.html"
       >
         🎯 Twoja przygoda
       </button>
@@ -121,13 +122,12 @@
       </button>
       <button
         type="button"
-        class="header-tab"
+        class="header-tab is-active"
         id="headerMediaTripsTab"
         role="tab"
-        aria-selected="false"
+        aria-selected="true"
         aria-controls="mediaTripsView"
-        tabindex="-1"
-        data-page-url="media-trips.html"
+        tabindex="0"
       >
         ✨ VIP wyjazdy indywidualne
       </button>
@@ -149,7 +149,13 @@
   </div>
 
   <main>
-    <div class="layout app-view" id="adventureView" role="tabpanel" aria-labelledby="headerAdventureTab">
+    <div
+      class="layout app-view"
+      id="adventureView"
+      role="tabpanel"
+      aria-labelledby="headerAdventureTab"
+      hidden
+    >
       <div class="primary-column">
         <section class="map-panel surface-card">
           <div id="map" aria-label="Interaktywna mapa atrakcji"></div>
@@ -303,7 +309,6 @@
       class="utility-view app-view"
       role="tabpanel"
       aria-labelledby="headerMediaTripsTab"
-      hidden
     >
       <header class="utility-view-header">
         <div>
@@ -348,11 +353,12 @@
   <nav class="mobile-tabbar" aria-label="Dolna nawigacja">
     <button
       type="button"
-      class="mobile-tabbar-btn is-active"
+      class="mobile-tabbar-btn"
       id="mobileAdventureTab"
       aria-controls="adventureView"
       data-target="adventureView"
-      aria-pressed="true"
+      aria-pressed="false"
+      data-page-url="index.html"
     >
       <span class="mobile-tabbar-icon" aria-hidden="true">🎯</span>
       <span class="mobile-tabbar-label">Przygoda</span>
@@ -383,12 +389,11 @@
     </button>
     <button
       type="button"
-      class="mobile-tabbar-btn"
+      class="mobile-tabbar-btn is-active"
       id="mobileMediaTripsTab"
       aria-controls="mediaTripsView"
       data-target="mediaTripsView"
-      aria-pressed="false"
-      data-page-url="media-trips.html"
+      aria-pressed="true"
     >
       <span class="mobile-tabbar-icon" aria-hidden="true">📸</span>
       <span class="mobile-tabbar-label">VIP</span>

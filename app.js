@@ -7206,6 +7206,29 @@ function bootstrap() {
     renderAttractionsCatalog(initialQuery);
   }
 
+  const navigationMode = document.body?.dataset?.navigation || 'single-page';
+
+  function setupNavigationButton(element, openFn, options = {}) {
+    const { enableKeydown = false } = options;
+    if (!element) {
+      return;
+    }
+
+    element.addEventListener('click', () => {
+      const targetPage = element.dataset?.pageUrl;
+      if (typeof targetPage === 'string' && targetPage.trim()) {
+        window.location.href = targetPage.trim();
+        return;
+      }
+
+      openFn?.();
+    });
+
+    if (enableKeydown && navigationMode !== 'multi-page') {
+      element.addEventListener('keydown', handleHeaderTabKeydown);
+    }
+  }
+
   const adventureTab = document.getElementById('headerAdventureTab');
   const packingTab = document.getElementById('headerPackingTab');
   const tasksTab = document.getElementById('headerTasksTab');
@@ -7214,59 +7237,37 @@ function bootstrap() {
   const mobilePackingTab = document.getElementById('mobilePackingTab');
   const mobileTasksTab = document.getElementById('mobileTasksTab');
   const mobileMediaTripsTab = document.getElementById('mobileMediaTripsTab');
-  adventureTab?.addEventListener('click', () => {
-    openAdventureView();
-  });
-  packingTab?.addEventListener('click', () => {
-    openPackingPlannerView();
-  });
-  tasksTab?.addEventListener('click', () => {
-    openTasksView();
-  });
-  mediaTripsTab?.addEventListener('click', () => {
-    openMediaTripsView();
-  });
-  mobileAdventureTab?.addEventListener('click', () => {
-    openAdventureView();
-  });
-  mobilePackingTab?.addEventListener('click', () => {
-    openPackingPlannerView();
-  });
-  mobileTasksTab?.addEventListener('click', () => {
-    openTasksView();
-  });
-  mobileMediaTripsTab?.addEventListener('click', () => {
-    openMediaTripsView();
-  });
-  adventureTab?.addEventListener('keydown', handleHeaderTabKeydown);
-  packingTab?.addEventListener('keydown', handleHeaderTabKeydown);
-  tasksTab?.addEventListener('keydown', handleHeaderTabKeydown);
-  mediaTripsTab?.addEventListener('keydown', handleHeaderTabKeydown);
+
+  setupNavigationButton(adventureTab, openAdventureView, { enableKeydown: true });
+  setupNavigationButton(packingTab, openPackingPlannerView, { enableKeydown: true });
+  setupNavigationButton(tasksTab, openTasksView, { enableKeydown: true });
+  setupNavigationButton(mediaTripsTab, openMediaTripsView, { enableKeydown: true });
+  setupNavigationButton(mobileAdventureTab, openAdventureView);
+  setupNavigationButton(mobilePackingTab, openPackingPlannerView);
+  setupNavigationButton(mobileTasksTab, openTasksView);
+  setupNavigationButton(mobileMediaTripsTab, openMediaTripsView);
 
   const openPackingFromAdventure = document.getElementById('openPackingFromAdventure');
-  openPackingFromAdventure?.addEventListener('click', () => {
-    openPackingPlannerView();
-  });
+  setupNavigationButton(openPackingFromAdventure, openPackingPlannerView);
 
   const openTasksFromAdventure = document.getElementById('openTasksFromAdventure');
-  openTasksFromAdventure?.addEventListener('click', () => {
-    openTasksView();
-  });
+  setupNavigationButton(openTasksFromAdventure, openTasksView);
 
   const openAdventureFromPacking = document.getElementById('openAdventureFromPacking');
-  openAdventureFromPacking?.addEventListener('click', () => {
-    openAdventureView();
-  });
+  setupNavigationButton(openAdventureFromPacking, openAdventureView);
 
   const openAdventureFromTasks = document.getElementById('openAdventureFromTasks');
-  openAdventureFromTasks?.addEventListener('click', () => {
-    openAdventureView();
-  });
+  setupNavigationButton(openAdventureFromTasks, openAdventureView);
 
   const openAdventureFromMediaTrips = document.getElementById('openAdventureFromMediaTrips');
-  openAdventureFromMediaTrips?.addEventListener('click', () => {
-    openAdventureView();
-  });
+  setupNavigationButton(openAdventureFromMediaTrips, openAdventureView);
+
+  const initialView = document.body?.dataset?.initialView;
+  if (initialView) {
+    switchAppView(initialView);
+  } else {
+    switchAppView(ADVENTURE_VIEW_ID);
+  }
 
 }
 
