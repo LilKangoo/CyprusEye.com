@@ -7637,11 +7637,29 @@ function bootstrap() {
   const currentObjectiveSection = document.getElementById('current-objective');
   const currentObjectiveHeading = document.getElementById('currentObjectiveHeading');
   const authModal = document.getElementById('authModal');
-  const sosToggle = document.getElementById('sosToggle');
   const sosModal = document.getElementById('sosModal');
+  const sosDialog = sosModal?.querySelector('.sos-dialog');
   const sosClose = document.getElementById('sosClose');
+  const sosToggleButtons = document.querySelectorAll('[aria-controls="sosModal"]');
   const dailyChallengeFocus = document.getElementById('dailyChallengeFocus');
   const dailyChallengeShuffle = document.getElementById('dailyChallengeShuffle');
+
+  const focusableSelectors = [
+    'a[href]',
+    'button:not([disabled])',
+    'input:not([disabled])',
+    'select:not([disabled])',
+    'textarea:not([disabled])',
+    '[tabindex]:not([tabindex="-1"])',
+    '[contenteditable="true"]',
+  ].join(', ');
+  let sosPreviouslyFocusedElement = null;
+  let previousBodyOverflow = '';
+  let previousBodyPosition = '';
+  let previousBodyTop = '';
+  let previousBodyWidth = '';
+  let scrollPositionBeforeLock = 0;
+  let wasBodyScrollLockedBySos = false;
 
   dailyChallengeFocus?.addEventListener('click', () => {
     const place = getDailyChallengePlace();
@@ -7688,26 +7706,159 @@ function bootstrap() {
     }, 320);
   }
 
-  function openSosModal() {
+  function getSosFocusableElements() {
+    if (!sosModal) return [];
+    const container = sosDialog ?? sosModal;
+    return Array.from(container.querySelectorAll(focusableSelectors)).filter((element) => {
+      if (!(element instanceof HTMLElement)) {
+        return false;
+      }
+      if (element.hasAttribute('disabled') || element.getAttribute('aria-hidden') === 'true') {
+        return false;
+      }
+      const style = window.getComputedStyle(element);
+      if (style.visibility === 'hidden' || style.display === 'none') {
+        return false;
+      }
+      return element.offsetParent !== null || style.position === 'fixed';
+    });
+  }
+
+  function focusFirstElementInSos() {
     if (!sosModal) return;
+    const focusableElements = getSosFocusableElements();
+    if (focusableElements.length > 0) {
+      focusableElements[0].focus({ preventScroll: true });
+      return;
+    }
+    if (sosDialog instanceof HTMLElement) {
+      sosDialog.focus({ preventScroll: true });
+    }
+  }
+
+  function lockBodyScroll() {
+    if (wasBodyScrollLockedBySos) return;
+    wasBodyScrollLockedBySos = true;
+    scrollPositionBeforeLock = window.scrollY || window.pageYOffset || 0;
+    previousBodyOverflow = document.body.style.overflow;
+    previousBodyPosition = document.body.style.position;
+    previousBodyTop = document.body.style.top;
+    previousBodyWidth = document.body.style.width;
+
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollPositionBeforeLock}px`;
+    document.body.style.width = '100%';
+  }
+
+  function unlockBodyScroll() {
+    if (!wasBodyScrollLockedBySos) return;
+    wasBodyScrollLockedBySos = false;
+
+    document.body.style.overflow = previousBodyOverflow;
+    document.body.style.position = previousBodyPosition;
+    document.body.style.top = previousBodyTop;
+    document.body.style.width = previousBodyWidth;
+
+    previousBodyOverflow = '';
+    previousBodyPosition = '';
+    previousBodyTop = '';
+    previousBodyWidth = '';
+
+    window.scrollTo(0, scrollPositionBeforeLock);
+    scrollPositionBeforeLock = 0;
+  }
+
+  function handleSosKeydown(event) {
+    if (!sosModal || sosModal.hidden || !sosModal.classList.contains('visible')) {
+      return;
+    }
+
+    if (event.key !== 'Tab') {
+      return;
+    }
+
+    const focusableElements = getSosFocusableElements();
+    if (focusableElements.length === 0) {
+      event.preventDefault();
+      if (sosDialog instanceof HTMLElement) {
+        sosDialog.focus({ preventScroll: true });
+      }
+      return;
+    }
+
+    const firstElement = focusableElements[0];
+    const lastElement = focusableElements[focusableElements.length - 1];
+    const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    if (event.shiftKey) {
+      if (activeElement === firstElement || !activeElement || !sosModal.contains(activeElement)) {
+        event.preventDefault();
+        lastElement.focus({ preventScroll: true });
+      }
+      return;
+    }
+
+    if (activeElement === lastElement) {
+      event.preventDefault();
+      firstElement.focus({ preventScroll: true });
+    }
+  }
+
+  function finalizeSosClose() {
+    if (!sosModal) return;
+    sosModal.hidden = true;
+    unlockBodyScroll();
+    if (sosPreviouslyFocusedElement instanceof HTMLElement) {
+      sosPreviouslyFocusedElement.focus({ preventScroll: true });
+    }
+    sosPreviouslyFocusedElement = null;
+  }
+
+  function openSosModal(triggerElement) {
+    if (!sosModal) return;
+    if (!sosModal.hidden && sosModal.classList.contains('visible')) {
+      return;
+    }
+
+    if (triggerElement instanceof HTMLElement) {
+      sosPreviouslyFocusedElement = triggerElement;
+    } else if (document.activeElement instanceof HTMLElement) {
+      sosPreviouslyFocusedElement = document.activeElement;
+    } else {
+      sosPreviouslyFocusedElement = null;
+    }
+
+    lockBodyScroll();
     sosModal.hidden = false;
     requestAnimationFrame(() => {
       sosModal.classList.add('visible');
+      focusFirstElementInSos();
     });
   }
 
   function closeSosModal() {
     if (!sosModal) return;
+    const wasVisible = sosModal.classList.contains('visible');
     sosModal.classList.remove('visible');
+
+    if (!wasVisible) {
+      finalizeSosClose();
+      return;
+    }
+
     const handleTransitionEnd = (event) => {
       if (event.target !== sosModal) return;
-      sosModal.hidden = true;
       sosModal.removeEventListener('transitionend', handleTransitionEnd);
+      finalizeSosClose();
     };
+
     sosModal.addEventListener('transitionend', handleTransitionEnd);
+
     setTimeout(() => {
       if (sosModal && !sosModal.classList.contains('visible')) {
-        sosModal.hidden = true;
+        sosModal.removeEventListener('transitionend', handleTransitionEnd);
+        finalizeSosClose();
       }
     }, 320);
   }
@@ -7726,8 +7877,15 @@ function bootstrap() {
     }
   });
 
-  sosToggle?.addEventListener('click', () => {
-    openSosModal();
+  sosToggleButtons.forEach((button) => {
+    button.addEventListener('click', (event) => {
+      const trigger = event.currentTarget;
+      if (trigger instanceof HTMLElement) {
+        openSosModal(trigger);
+        return;
+      }
+      openSosModal();
+    });
   });
 
   sosClose?.addEventListener('click', () => {
@@ -7739,6 +7897,8 @@ function bootstrap() {
       closeSosModal();
     }
   });
+
+  sosModal?.addEventListener('keydown', handleSosKeydown);
 
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
