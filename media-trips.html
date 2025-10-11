@@ -4,14 +4,29 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#2563eb" />
-  <title>WakacjeCypr Quest</title>
+  <title data-i18n="seo.mediaTrips.title">WakacjeCypr Quest – VIP wyjazdy indywidualne</title>
+  <meta
+    name="description"
+    content="Zaprojektuj prywatny rejs, degustację wina lub ekskluzywny plan podróży z concierge WakacjeCypr Quest."
+  />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="WakacjeCypr Quest – VIP wyjazdy indywidualne" />
+  <meta
+    property="og:description"
+    content="Korzystaj z opieki concierge 24/7 oraz profesjonalnych reportaży foto i video z Twojej wyprawy na Cypr."
+  />
+  <meta property="og:url" content="" />
+  <meta property="og:image" content="assets/cyprus_logo-1000x1054.png" />
+  <meta property="og:locale" content="pl_PL" />
+  <link rel="alternate" hreflang="pl" href="?lang=pl" />
+  <link rel="alternate" hreflang="en" href="?lang=en" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body data-navigation="multi-page" data-initial-view="mediaTripsView">
+<body data-navigation="multi-page" data-initial-view="mediaTripsView" data-seo-page="mediaTrips">
   <header class="app-header">
     <div class="auth-bar" aria-label="Panel konta">
       <div class="auth-controls">
@@ -676,7 +691,8 @@
   <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="i18n.js"></script>
+  <script src="js/i18n.js"></script>
+  <script src="js/seo.js"></script>
   <script src="car-rental.js"></script>
   <script src="app.js"></script>
 

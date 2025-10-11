@@ -3,7 +3,22 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>CyprusEye – Twoje wakacje szyte na miarę</title>
+    <title data-i18n="seo.services.title">CyprusEye – wakacje szyte na miarę na Cyprze</title>
+    <meta
+      name="description"
+      content="Połącz transport, wynajem aut, wycieczki, media i noclegi w jednym pakiecie przygotowanym przez CyprusEye."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="CyprusEye – wakacje szyte na miarę na Cyprze" />
+    <meta
+      property="og:description"
+      content="Zaprojektuj kompletny urlop na Cyprze z zaufanymi partnerami i polskojęzycznym wsparciem."
+    />
+    <meta property="og:url" content="" />
+    <meta property="og:image" content="assets/cyprus_logo-1000x1054.png" />
+    <meta property="og:locale" content="pl_PL" />
+    <link rel="alternate" hreflang="pl" href="?lang=pl" />
+    <link rel="alternate" hreflang="en" href="?lang=en" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -12,7 +27,7 @@
     />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body class="standalone-body">
+<body class="standalone-body" data-seo-page="services">
     <div class="service-shell">
       <div class="standalone-page service-template">
         <header class="standalone-header service-header">
@@ -315,6 +330,8 @@
         </footer>
       </div>
     </div>
+    <script src="js/i18n.js"></script>
+    <script src="js/seo.js"></script>
     <script>
       const yearElement = document.getElementById('currentYear');
       if (yearElement) {
