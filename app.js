@@ -871,51 +871,55 @@ const tasks = [
 const mediaTrips = [
   {
     id: 'vip-photo-trip',
-    title: 'VIP wyjazdy fotograficzne',
-    mediaType: 'Sesje foto premium',
-    duration: 'Opcje 10/8/5 godzin',
+    title: 'VIP Photo Trip – prywatna sesja zdjęciowa',
+    mediaType: 'Sesje fotograficzne premium',
+    duration: 'Pakiety 5/8/10 godzin',
     basePrice: 600,
     additionalPersonPrice: 150,
     includedParticipants: 4,
     defaultParticipants: 4,
     description:
-      'Indywidualne sesje foto z dedykowanym fotografem i transportem – idealne dla rodzin, par i grup znajomych.',
+      'Prywatne zwiedzanie połączone z ekskluzywną sesją zdjęciową LilKangooMedia. Odbierzemy Cię z hotelu, dobierzemy lokalizacje i przygotujemy gotową galerię ujęć.',
     pricingOptions: [
       { key: 'fullDay', label: 'Cały dzień (do 10h)', price: 600, extraPerson: 150 },
       { key: 'threeQuarterDay', label: '3/4 dnia (do 8h)', price: 500, extraPerson: 125 },
       { key: 'halfDay', label: 'Pół dnia (do 5h)', price: 400, extraPerson: 100 },
     ],
     highlights: [
-      { key: 'transport', text: 'Transport premium z kierowcą oraz plan plenerów dopasowany do złotej godziny.' },
-      { key: 'stylist', text: 'Asysta stylistki lub makijażystki dostępna na życzenie.' },
+      { key: 'pickup', text: 'Odbiór z hotelu i komfortowy transport tylko dla Twojej ekipy.' },
+      { key: 'planning', text: 'Plan miejsc dobrany do złotej godziny oraz stylu zdjęć.' },
+      { key: 'gallery', text: 'Pakiety obejmują 30/50/60 obrobionych fotografii (w zależności od wariantu).' },
+      { key: 'stylist', text: 'Na życzenie stylistka, makijaż i rekomendacje stylizacji.' },
     ],
     detailsLink: {
-      label: 'Pełna oferta VIP',
+      label: 'Poznaj pełną ofertę VIP',
       href: 'https://wakacjecypr.com/vip',
     },
   },
   {
     id: 'vip-video-trip',
-    title: 'VIP wyjazdy video',
-    mediaType: 'Produkcje filmowe',
-    duration: 'Opcje 10/8/5 godzin',
+    title: 'VIP Video Trip – prywatna ekipa filmowa',
+    mediaType: 'Produkcje filmowe premium',
+    duration: 'Pakiety 5/8/10 godzin',
     basePrice: 1000,
     additionalPersonPrice: 250,
     includedParticipants: 4,
     defaultParticipants: 4,
     description:
-      'Profesjonalny operator, pilot drona i montaż video, aby zatrzymać Twój wyjazd w jakości premium.',
+      'Dedykowany operator, pilot drona i realizator dźwięku utrwalą Twoją wyprawę w filmowym wydaniu. Zapewniamy transport i indywidualny scenariusz wyjazdu.',
     pricingOptions: [
       { key: 'fullDay', label: 'Cały dzień (do 10h)', price: 1000, extraPerson: 250 },
       { key: 'threeQuarterDay', label: '3/4 dnia (do 8h)', price: 900, extraPerson: 225 },
       { key: 'halfDay', label: 'Pół dnia (do 5h)', price: 800, extraPerson: 200 },
     ],
     highlights: [
-      { key: 'crew', text: 'Ekipa video łącznie z pilotem drona, realizacją dźwięku i montażem social media.' },
-      { key: 'promo', text: 'Możliwość realizacji materiałów reklamowych i backstage z wydarzeń.' },
+      { key: 'crew', text: 'Operator kamery, pilot drona i reżyser ujęć tylko dla Twojej grupy.' },
+      { key: 'deliverables', text: 'Filmy 3/4/5 minut + reels w pakiecie całodniowym.' },
+      { key: 'transport', text: 'Prywatny transport z hotelu i indywidualna trasa zwiedzania.' },
+      { key: 'backstage', text: 'Możliwość nagrań reklamowych oraz backstage wydarzeń.' },
     ],
     detailsLink: {
-      label: 'Sprawdź pakiety video',
+      label: 'Zobacz pakiety video VIP',
       href: 'https://wakacjecypr.com/vip',
     },
   },
@@ -3773,7 +3777,7 @@ function createMediaTripCard(trip) {
     trip.detailsLink?.label ?? '',
   );
   const detailsLink = trip.detailsLink?.href && detailsLabel
-    ? `<p class="media-trip-cta"><a href="${trip.detailsLink.href}" target="_blank" rel="noopener">${detailsLabel}<span aria-hidden="true">→</span></a></p>`
+    ? `<a class="media-trip-link" href="${trip.detailsLink.href}" target="_blank" rel="noopener">${detailsLabel}<span aria-hidden="true">→</span></a>`
     : '';
 
   const basePriceLabel = formatCurrencyEUR(trip.basePrice);
@@ -3807,8 +3811,8 @@ function createMediaTripCard(trip) {
         <p class="media-trip-meta">${metaText}</p>
         <h3 id="${titleId}">${titleText}</h3>
         <p class="media-trip-description">${descriptionText}</p>
-        <p class="media-trip-price">${priceText}</p>
       </header>
+      <p class="media-trip-price">${priceText}</p>
       ${highlightsSection}
       ${detailsLink}
     </div>
