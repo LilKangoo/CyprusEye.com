@@ -1525,6 +1525,314 @@ main::before {
   grid-template-columns: minmax(0, 1fr);
 }
 
+.media-trips-content {
+  display: grid;
+  gap: clamp(1.5rem, 3vw, 2.8rem);
+}
+
+.media-trips-hero-card {
+  position: relative;
+  overflow: hidden;
+  color: #fff;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.9), rgba(124, 58, 237, 0.88));
+  display: grid;
+  gap: clamp(1rem, 2vw, 1.6rem);
+  padding: clamp(1.8rem, 3vw, 2.8rem);
+}
+
+.media-trips-hero-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at 18% 12%, rgba(255, 255, 255, 0.25), transparent 62%),
+    radial-gradient(circle at 82% 22%, rgba(14, 165, 233, 0.28), transparent 60%);
+  opacity: 0.9;
+  pointer-events: none;
+}
+
+.media-trips-hero-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.media-trips-hero-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  padding: 0.4rem 0.9rem;
+  font-weight: 600;
+}
+
+.media-trips-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.media-trips-overview {
+  display: grid;
+  gap: clamp(1.2rem, 2.4vw, 2rem);
+}
+
+.media-trips-overview header {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.media-trips-feature-grid {
+  display: grid;
+  gap: clamp(1rem, 2vw, 1.5rem);
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.media-trips-feature {
+  background: rgba(255, 255, 255, 0.82);
+  border-radius: 20px;
+  padding: 1.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.media-trips-feature-number {
+  display: inline-flex;
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 0.75rem;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  background: rgba(37, 99, 235, 0.12);
+  color: var(--primary);
+}
+
+.media-trips-note {
+  background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(99, 102, 241, 0.15));
+  border-radius: 22px;
+  padding: clamp(1.1rem, 2vw, 1.5rem);
+  display: grid;
+  gap: 0.4rem;
+}
+
+.media-trips-note h4 {
+  margin: 0;
+}
+
+.media-trips-gallery {
+  display: grid;
+  gap: clamp(1.2rem, 2.4vw, 2rem);
+}
+
+.media-trips-gallery header {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.media-trips-gallery-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.media-trips-gallery-item {
+  position: relative;
+  border-radius: 18px;
+  overflow: hidden;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
+}
+
+.media-trips-gallery-item img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.media-trips-gallery-item figcaption {
+  position: absolute;
+  inset-inline: 0;
+  bottom: 0;
+  padding: 0.75rem 1rem;
+  color: #fff;
+  font-weight: 600;
+  font-size: 0.95rem;
+  background: linear-gradient(180deg, transparent, rgba(15, 23, 42, 0.8));
+}
+
+.media-trips-packages {
+  display: grid;
+  gap: clamp(1.2rem, 2.4vw, 2rem);
+}
+
+.media-trips-packages header {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.media-trips-video {
+  display: grid;
+  gap: clamp(1.2rem, 2.4vw, 2rem);
+}
+
+.media-trips-video header {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.media-trips-video-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.media-trips-video-grid iframe {
+  width: 100%;
+  min-height: 220px;
+  border: none;
+  border-radius: 20px;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.18);
+}
+
+.media-trips-itineraries {
+  display: grid;
+  gap: clamp(1.2rem, 2.4vw, 2rem);
+}
+
+.media-trips-itineraries header {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.media-trips-itineraries-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.media-trips-itinerary {
+  background: rgba(255, 255, 255, 0.86);
+  border-radius: 20px;
+  padding: 1.2rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  display: grid;
+  gap: 0.6rem;
+}
+
+.media-trips-itinerary ul {
+  margin: 0;
+  padding-left: 1.2rem;
+  display: grid;
+  gap: 0.35rem;
+}
+
+.media-trips-itinerary-time {
+  margin: 0;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.media-trips-cta-inner {
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(124, 58, 237, 0.18));
+  border-radius: 22px;
+  padding: clamp(1.4rem, 2.6vw, 2.2rem);
+  display: grid;
+  gap: 0.8rem;
+}
+
+.media-trips-cta-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.media-trips-contact {
+  display: grid;
+  gap: clamp(1.2rem, 2.4vw, 2rem);
+}
+
+.media-trips-contact header {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.media-trips-contact-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.media-trips-contact-card {
+  border-radius: 20px;
+  padding: 1.2rem;
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background: rgba(255, 255, 255, 0.86);
+  display: grid;
+  gap: 0.5rem;
+}
+
+.media-trips-contact-card a {
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.media-trips-contact-icon {
+  font-size: 1.6rem;
+}
+
+.media-trips-contact-meta {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.media-trips-contact-meta h4 {
+  margin-top: 0;
+}
+
+.media-trips-extra {
+  display: grid;
+  gap: clamp(1.2rem, 2.4vw, 2rem);
+}
+
+.media-trips-extra header {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.media-trips-extra-grid {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.media-trips-extra-card {
+  border-radius: 20px;
+  padding: 1.1rem;
+  background: rgba(255, 255, 255, 0.86);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  display: grid;
+  gap: 0.4rem;
+}
+
+.media-trips-extra-card a {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .media-trips-hero-card {
+    text-align: left;
+  }
+
+  .media-trips-contact-meta {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 
 .media-trip-card {
   position: relative;
@@ -1674,6 +1982,11 @@ main::before {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
+}
+
+.media-trip-field strong {
+  font-size: 1.05rem;
+  color: rgba(15, 23, 42, 0.82);
 }
 
 .media-trip-field label {
@@ -5242,6 +5555,11 @@ a:focus-visible {
     radial-gradient(circle at 80% 30%, rgba(14, 165, 233, 0.6), transparent 58%),
     linear-gradient(140deg, rgba(14, 165, 233, 0.65), rgba(14, 116, 144, 0.55));
   box-shadow: var(--shadow-strong);
+}
+
+.media-trips-visual {
+  background: linear-gradient(160deg, rgba(15, 23, 42, 0.38), rgba(14, 165, 233, 0.22)),
+    url('https://images.unsplash.com/photo-1530789253388-582c481c54b0?auto=format&fit=crop&w=1600&q=80') center/cover;
 }
 
 .service-main {
