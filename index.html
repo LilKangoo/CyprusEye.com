@@ -117,6 +117,17 @@
       >
         ✅ Zadania do wykonania
       </button>
+      <button
+        type="button"
+        class="header-tab"
+        id="headerMediaTripsTab"
+        role="tab"
+        aria-selected="false"
+        aria-controls="mediaTripsView"
+        tabindex="-1"
+      >
+        ✨ VIP wyjazdy indywidualne
+      </button>
     </nav>
   </header>
 
@@ -256,6 +267,31 @@
         <ul id="tasksList" class="tasks-list"></ul>
       </section>
     </section>
+    <section
+      id="mediaTripsView"
+      class="utility-view app-view"
+      role="tabpanel"
+      aria-labelledby="headerMediaTripsTab"
+      hidden
+    >
+      <header class="utility-view-header">
+        <div>
+          <h2 id="mediaTripsTitle">VIP wyjazdy foto i video</h2>
+          <p>
+            Zarezerwuj indywidualne pakiety foto lub video z dedykowaną ekipą WakacjeCypr.com i od razu
+            poznaj koszt na osobę dla swojej grupy.
+          </p>
+        </div>
+        <button type="button" class="ghost" id="openAdventureFromMediaTrips">← Wróć do przygody</button>
+      </header>
+      <section class="media-trips-panel" aria-labelledby="mediaTripsTitle">
+        <p class="media-trips-intro">
+          Wybierz wariant foto lub video, wpisz liczbę uczestników i zobacz łączny koszt oraz cenę na osobę.
+          Do 4 osób obowiązuje cena bazowa, kolejne dodaj według kalkulatora poniżej.
+        </p>
+        <div id="mediaTripsList" class="media-trips-list" role="list"></div>
+      </section>
+    </section>
     <section class="services-panel surface-card services-panel-footer" aria-label="Planowanie podróży i inspiracje">
       <h2>Odkryj z nami Cypr</h2>
       <p>
@@ -304,6 +340,17 @@
     >
       <span class="mobile-tabbar-icon" aria-hidden="true">✅</span>
       <span class="mobile-tabbar-label">Misje</span>
+    </button>
+    <button
+      type="button"
+      class="mobile-tabbar-btn"
+      id="mobileMediaTripsTab"
+      aria-controls="mediaTripsView"
+      data-target="mediaTripsView"
+      aria-pressed="false"
+    >
+      <span class="mobile-tabbar-icon" aria-hidden="true">📸</span>
+      <span class="mobile-tabbar-label">VIP</span>
     </button>
   </nav>
 

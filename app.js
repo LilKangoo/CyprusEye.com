@@ -868,6 +868,59 @@ const tasks = [
   },
 ];
 
+const mediaTrips = [
+  {
+    id: 'vip-photo-trip',
+    title: 'VIP wyjazdy fotograficzne',
+    mediaType: 'Sesje foto premium',
+    duration: 'Opcje 10/8/5 godzin',
+    basePrice: 600,
+    additionalPersonPrice: 150,
+    includedParticipants: 4,
+    defaultParticipants: 4,
+    description:
+      'Indywidualne sesje foto z dedykowanym fotografem i transportem – idealne dla rodzin, par i grup znajomych.',
+    pricingOptions: [
+      { label: 'Cały dzień (do 10h)', price: 600, extraPerson: 150 },
+      { label: '3/4 dnia (do 8h)', price: 500, extraPerson: 125 },
+      { label: 'Pół dnia (do 5h)', price: 400, extraPerson: 100 },
+    ],
+    highlights: [
+      'Transport premium z kierowcą oraz plan plenerów dopasowany do złotej godziny.',
+      'Asysta stylistki lub makijażystki dostępna na życzenie.',
+    ],
+    detailsLink: {
+      label: 'Pełna oferta VIP',
+      href: 'https://wakacjecypr.com/vip',
+    },
+  },
+  {
+    id: 'vip-video-trip',
+    title: 'VIP wyjazdy video',
+    mediaType: 'Produkcje filmowe',
+    duration: 'Opcje 10/8/5 godzin',
+    basePrice: 1000,
+    additionalPersonPrice: 250,
+    includedParticipants: 4,
+    defaultParticipants: 4,
+    description:
+      'Profesjonalny operator, pilot drona i montaż video, aby zatrzymać Twój wyjazd w jakości premium.',
+    pricingOptions: [
+      { label: 'Cały dzień (do 10h)', price: 1000, extraPerson: 250 },
+      { label: '3/4 dnia (do 8h)', price: 900, extraPerson: 225 },
+      { label: 'Pół dnia (do 5h)', price: 800, extraPerson: 200 },
+    ],
+    highlights: [
+      'Ekipa video łącznie z pilotem drona, realizacją dźwięku i montażem social media.',
+      'Możliwość realizacji materiałów reklamowych i backstage z wydarzeń.',
+    ],
+    detailsLink: {
+      label: 'Sprawdź pakiety video',
+      href: 'https://wakacjecypr.com/vip',
+    },
+  },
+];
+
 const LOCATIONS_PREVIEW_LIMIT = 6;
 let showAllLocationsPreview = false;
 
@@ -1134,6 +1187,7 @@ const COMMUNITY_JOURNAL_API_URL = `${API_BASE_URL}/community/journal`;
 const COMMUNITY_JOURNAL_STREAM_URL = `${COMMUNITY_JOURNAL_API_URL}/stream`;
 const ADVENTURE_VIEW_ID = 'adventureView';
 const PACKING_VIEW_ID = 'packingView';
+const MEDIA_TRIPS_VIEW_ID = 'mediaTripsView';
 const TASKS_VIEW_ID = 'tasksView';
 const REVIEW_RATING_XP = 20;
 const REVIEW_COMMENT_BONUS_XP = 15;
@@ -3395,6 +3449,181 @@ function renderTasks() {
   });
 }
 
+function formatCurrencyEUR(value) {
+  const normalized = Number.isFinite(value) ? value : 0;
+  const fraction = Number.isFinite(normalized) && Math.abs(normalized % 1) > 0 ? 2 : 0;
+  return new Intl.NumberFormat('pl-PL', {
+    style: 'currency',
+    currency: 'EUR',
+    minimumFractionDigits: fraction,
+    maximumFractionDigits: 2,
+  }).format(normalized);
+}
+
+function createMediaTripCard(trip) {
+  const card = document.createElement('article');
+  card.className = 'media-trip-card surface-card';
+  card.setAttribute('role', 'listitem');
+
+  const highlightsList = (trip.highlights ?? [])
+    .map((item) => `<li>${item}</li>`)
+    .join('');
+
+  const variantOptions = (trip.pricingOptions ?? [])
+    .map((option, index) => {
+      const priceLabel = formatCurrencyEUR(option.price);
+      const extraLabel = Number.isFinite(option.extraPerson) && option.extraPerson > 0
+        ? ` (+${formatCurrencyEUR(option.extraPerson)} / dodatkowa os.)`
+        : '';
+      return `<option value="${index}" data-price="${option.price}" data-extra="${option.extraPerson ?? trip.additionalPersonPrice ?? 0}">${option.label} — ${priceLabel}${extraLabel}</option>`;
+    })
+    .join('');
+
+  const variantHelperId = `${trip.id}-variant-helper`;
+
+  const outputControlIds = [`${trip.id}-participants`];
+  if ((trip.pricingOptions ?? []).length > 0) {
+    outputControlIds.push(`${trip.id}-variant`);
+  }
+  const outputForAttribute = outputControlIds.join(' ');
+
+  const detailsLink = trip.detailsLink?.href
+    ? `<p class="media-trip-link"><a href="${trip.detailsLink.href}" target="_blank" rel="noopener">${trip.detailsLink.label}</a></p>`
+    : '';
+
+  const basePriceLabel = formatCurrencyEUR(trip.basePrice);
+  const includedLabel = trip.includedParticipants
+    ? ` (do ${trip.includedParticipants} osób)`
+    : '';
+
+  card.innerHTML = `
+    <header class="media-trip-card-header">
+      <p class="media-trip-meta">${trip.mediaType} • ${trip.duration}</p>
+      <h3>${trip.title}</h3>
+      <p class="media-trip-description">${trip.description}</p>
+      <p class="media-trip-price">Ceny od${includedLabel}: <strong>${basePriceLabel}</strong></p>
+    </header>
+    ${highlightsList
+      ? `
+          <section class="media-trip-section" aria-label="Najważniejsze korzyści">
+            <h4 class="media-trip-section-title">W pakiecie</h4>
+            <ul class="media-trip-highlights">
+              ${highlightsList}
+            </ul>
+          </section>
+        `
+      : ''}
+    ${detailsLink}
+    <form class="media-trip-form" aria-label="Kalkulator kosztów dla pakietu ${trip.title}">
+      ${variantOptions
+        ? `
+            <div class="media-trip-field">
+              <label for="${trip.id}-variant">Wariant pakietu</label>
+              <select id="${trip.id}-variant" name="variant" aria-describedby="${variantHelperId}">
+                ${variantOptions}
+              </select>
+              <p class="media-trip-helper" id="${variantHelperId}">Kalkulator automatycznie przelicza cenę i dopłatę za dodatkowe osoby.</p>
+            </div>
+          `
+        : ''}
+      <div class="media-trip-field">
+        <label for="${trip.id}-participants">Liczba uczestników</label>
+        <input
+          id="${trip.id}-participants"
+          name="participants"
+          type="number"
+          inputmode="numeric"
+          min="1"
+          step="1"
+          value="${trip.defaultParticipants}"
+        />
+      </div>
+      <p class="media-trip-result" role="status" aria-live="polite">
+        Łączny koszt pakietu:
+        <output class="media-trip-output" name="total" for="${outputForAttribute}"></output><br />
+        Koszt na osobę:
+        <output class="media-trip-output" name="perPerson" for="${outputForAttribute}"></output>
+      </p>
+    </form>
+  `;
+
+  const form = card.querySelector('.media-trip-form');
+  const variantSelect = form?.querySelector('select[name="variant"]');
+  const participantsInput = form?.querySelector('input[name="participants"]');
+  const totalOutput = form?.querySelector('output[name="total"]');
+  const perPersonOutput = form?.querySelector('output[name="perPerson"]');
+
+  if (form instanceof HTMLFormElement) {
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+    });
+  }
+
+  function updateCalculation() {
+    if (!(participantsInput instanceof HTMLInputElement)) {
+      return;
+    }
+
+    const participantsValue = Number.parseInt(participantsInput.value, 10);
+    const participants = Number.isFinite(participantsValue) && participantsValue > 0 ? participantsValue : 1;
+    const includedParticipants = Math.max(trip.includedParticipants ?? 4, 1);
+
+    let variantBasePrice = trip.basePrice;
+    let variantExtraPrice = trip.additionalPersonPrice ?? 0;
+
+    if (variantSelect instanceof HTMLSelectElement) {
+      const selectedOption = variantSelect.selectedOptions[0];
+      if (selectedOption) {
+        const optionPrice = Number.parseFloat(selectedOption.dataset.price ?? '');
+        const optionExtra = Number.parseFloat(selectedOption.dataset.extra ?? '');
+
+        if (Number.isFinite(optionPrice)) {
+          variantBasePrice = optionPrice;
+        }
+
+        if (Number.isFinite(optionExtra)) {
+          variantExtraPrice = optionExtra;
+        }
+      }
+    }
+
+    const extraParticipants = Math.max(participants - includedParticipants, 0);
+    const extraCost = extraParticipants * variantExtraPrice;
+    const total = variantBasePrice + extraCost;
+    const perPerson = participants > 0 ? total / participants : total;
+
+    if (participantsInput.value !== String(participants)) {
+      participantsInput.value = String(participants);
+    }
+
+    if (totalOutput instanceof HTMLOutputElement) {
+      totalOutput.value = formatCurrencyEUR(total);
+    }
+
+    if (perPersonOutput instanceof HTMLOutputElement) {
+      perPersonOutput.value = formatCurrencyEUR(perPerson);
+    }
+  }
+
+  participantsInput?.addEventListener('input', updateCalculation);
+  variantSelect?.addEventListener('change', updateCalculation);
+
+  updateCalculation();
+
+  return card;
+}
+
+function renderMediaTrips() {
+  const list = document.getElementById('mediaTripsList');
+  if (!list) return;
+
+  list.innerHTML = '';
+  mediaTrips.forEach((trip) => {
+    const card = createMediaTripCard(trip);
+    list.appendChild(card);
+  });
+}
+
 function determineDefaultPackingSeason() {
   const currentMonth = new Date().getMonth() + 1;
   const match = packingGuide.seasons.find((season) => season.months.includes(currentMonth));
@@ -4667,6 +4896,14 @@ function openTasksView() {
   const firstTaskAction = document.querySelector('#tasksList .task-action');
   if (firstTaskAction instanceof HTMLButtonElement) {
     firstTaskAction.focus();
+  }
+}
+
+function openMediaTripsView() {
+  switchAppView(MEDIA_TRIPS_VIEW_ID);
+  const firstInput = document.querySelector('#mediaTripsList input');
+  if (firstInput instanceof HTMLElement) {
+    firstInput.focus();
   }
 }
 
@@ -6210,6 +6447,7 @@ function renderAllForCurrentState() {
   renderLocations();
   renderAttractionsCatalog();
   renderTasks();
+  renderMediaTrips();
   renderExplorer();
   ensureSelectedObjective();
 }
@@ -6951,9 +7189,11 @@ function bootstrap() {
   const adventureTab = document.getElementById('headerAdventureTab');
   const packingTab = document.getElementById('headerPackingTab');
   const tasksTab = document.getElementById('headerTasksTab');
+  const mediaTripsTab = document.getElementById('headerMediaTripsTab');
   const mobileAdventureTab = document.getElementById('mobileAdventureTab');
   const mobilePackingTab = document.getElementById('mobilePackingTab');
   const mobileTasksTab = document.getElementById('mobileTasksTab');
+  const mobileMediaTripsTab = document.getElementById('mobileMediaTripsTab');
   adventureTab?.addEventListener('click', () => {
     openAdventureView();
   });
@@ -6962,6 +7202,9 @@ function bootstrap() {
   });
   tasksTab?.addEventListener('click', () => {
     openTasksView();
+  });
+  mediaTripsTab?.addEventListener('click', () => {
+    openMediaTripsView();
   });
   mobileAdventureTab?.addEventListener('click', () => {
     openAdventureView();
@@ -6972,9 +7215,13 @@ function bootstrap() {
   mobileTasksTab?.addEventListener('click', () => {
     openTasksView();
   });
+  mobileMediaTripsTab?.addEventListener('click', () => {
+    openMediaTripsView();
+  });
   adventureTab?.addEventListener('keydown', handleHeaderTabKeydown);
   packingTab?.addEventListener('keydown', handleHeaderTabKeydown);
   tasksTab?.addEventListener('keydown', handleHeaderTabKeydown);
+  mediaTripsTab?.addEventListener('keydown', handleHeaderTabKeydown);
 
   const openPackingFromAdventure = document.getElementById('openPackingFromAdventure');
   openPackingFromAdventure?.addEventListener('click', () => {
@@ -6993,6 +7240,11 @@ function bootstrap() {
 
   const openAdventureFromTasks = document.getElementById('openAdventureFromTasks');
   openAdventureFromTasks?.addEventListener('click', () => {
+    openAdventureView();
+  });
+
+  const openAdventureFromMediaTrips = document.getElementById('openAdventureFromMediaTrips');
+  openAdventureFromMediaTrips?.addEventListener('click', () => {
     openAdventureView();
   });
 
