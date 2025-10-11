@@ -765,5 +765,8 @@
   "vip.contact.list.email": "✉️ Email: kontakt@wakacjecypr.com",
   "vip.footer": "© <span id=\"year\"></span> HolidayCyprus.com – Your private journey across Cyprus.",
   "map.skipLink": "Skip interactive map",
-  "map.skipTarget": "Map skipped. Continue to the location details."
+  "map.skipTarget": "Map skipped. Continue to the location details.",
+  "achievements.brand.logoAlt": "HolidayCyprus Quest logo",
+  "level.toast.levelUp.message": "Level up! You reached level {{level}}. Awesome work—keep exploring Cyprus to unlock more rewards!",
+  "level.toast.levelUp.title": "Congratulations!"
 }

@@ -698,174 +698,28 @@ const places = [
 ];
 
 const tasks = [
-  {
-    id: 'sunrise-challenge',
-    title: 'Poranny spacer po plaży',
-    description: 'Wstań przed wschodem słońca i wybierz się na krótką przechadzkę po jednej z cypryjskich plaż.',
-    xp: 80,
-    requiredLevel: 1,
-  },
-  {
-    id: 'taste-halloumi',
-    title: 'Skosztuj lokalnego halloumi',
-    description: 'Odwiedź tawernę i spróbuj świeżo grillowanego halloumi – wpisz miejsce w swoim dzienniku podróży.',
-    xp: 95,
-    requiredLevel: 2,
-  },
-  {
-    id: 'nicosia-day-trip',
-    title: 'Wycieczka do Nikozji',
-    description: 'Zaplanuj półdniową wizytę w stolicy Cypru i odwiedź co najmniej jedno muzeum lub galerię.',
-    xp: 130,
-    requiredLevel: 4,
-  },
-  {
-    id: 'troodos-wine-route',
-    title: 'Degustacja wina w górach',
-    description:
-      'Skorzystaj z naszej oferty Troodos Wine Route i zarezerwuj degustację z kierowcą przez WakacjeCypr.com.',
-    xp: 180,
-    requiredLevel: 6,
-  },
-  {
-    id: 'sea-adventure',
-    title: 'Morska przygoda w Cape Greco',
-    description:
-      'Wybierz jedną z morskich atrakcji z naszej oferty (kajak, snorkeling, rejs) i zarezerwuj ją w Cape Greco.',
-    xp: 220,
-    requiredLevel: 9,
-  },
-  {
-    id: 'nicosia-green-line-walk',
-    title: 'Spacer Zieloną Linią',
-    description: 'Poznaj historię podziału Nikozji podczas spaceru z lokalnym przewodnikiem.',
-    xp: 140,
-    requiredLevel: 3,
-  },
-  {
-    id: 'loukoumi-workshop',
-    title: 'Warsztaty loukoumi w Geroskipou',
-    description: 'Weź udział w przygotowaniu tradycyjnych słodyczy i zabierz pamiątkowy zestaw.',
-    xp: 150,
-    requiredLevel: 4,
-  },
-  {
-    id: 'akamas-jeep-safari',
-    title: 'Safari 4x4 po Akamas',
-    description:
-      'Skorzystaj z naszego safari 4x4 i odwiedź wąwóz Avakas oraz plażę Lara z przewodnikiem WakacjeCypr.com.',
-    xp: 210,
-    requiredLevel: 6,
-  },
-  {
-    id: 'zenobia-dive-challenge',
-    title: 'Nurkowanie na wraku Zenobia',
-    description:
-      'Dołącz do organizowanego przez nas nurkowania na wraku Zenobia z licencjonowanym instruktorem i sprzętem w cenie.',
-    xp: 260,
-    requiredLevel: 8,
-  },
-  {
-    id: 'troodos-stargazing',
-    title: 'Nocne obserwacje w Troodos',
-    description:
-      'Zarezerwuj naszą sesję astronomiczną w Troodos i policz konstelacje nad górą Olympos z ekspertem.',
-    xp: 180,
-    requiredLevel: 7,
-  },
-  {
-    id: 'limassol-bike-promenade',
-    title: 'Rowerem po promenadzie Molos',
-    description: 'Wypożycz rower i przejedź co najmniej 8 km wzdłuż wybrzeża Limassol.',
-    xp: 160,
-    requiredLevel: 3,
-  },
-  {
-    id: 'larnaca-art-walk',
-    title: 'Szlak sztuki Larnaki',
-    description: 'Odwiedź trzy galerie lub murale i opisz ulubione dzieło w dzienniku podróży.',
-    xp: 175,
-    requiredLevel: 5,
-  },
-  {
-    id: 'karpaz-donkey-care',
-    title: 'Pomoc w sanktuarium osłów',
-    description:
-      'Wykup nasz wolontariat w sanktuarium na Karpazie i spędź poranek na karmieniu oraz pielęgnacji osłów.',
-    xp: 190,
-    requiredLevel: 6,
-  },
-  {
-    id: 'halloumi-farm-visit',
-    title: 'Wizyta na farmie halloumi',
-    description:
-      'Zarezerwuj wizytę na farmie halloumi przez WakacjeCypr.com i poznaj proces produkcji od wypasu po degustację.',
-    xp: 200,
-    requiredLevel: 5,
-  },
-  {
-    id: 'sunset-yoga-nissi',
-    title: 'Zachodnia joga na Nissi Beach',
-    description: 'Zapisz się na zajęcia jogi o zachodzie słońca i nagraj krótką relację audio.',
-    xp: 150,
-    requiredLevel: 4,
-  },
-  {
-    id: 'premium-car-rental',
-    title: 'Wynajem auta z odbiorem na lotnisku',
-    description:
-      'Skorzystaj z naszego wynajmu samochodów z pełnym ubezpieczeniem i odbierz auto na lotnisku w Pafos lub Larnace.',
-    xp: 210,
-    requiredLevel: 5,
-  },
-  {
-    id: 'private-blue-lagoon-charter',
-    title: 'Prywatny rejs do Blue Lagoon',
-    description:
-      'Zarezerwuj ekskluzywny rejs lub jacht z oferty WakacjeCypr.com i odkryj Blue Lagoon z własną załogą.',
-    xp: 240,
-    requiredLevel: 8,
-  },
-  {
-    id: 'troodos-private-tour',
-    title: 'Prywatna wycieczka po Troodos',
-    description:
-      'Zorganizuj z nami całodniową wycieczkę po górach Troodos z przewodnikiem i wygodnym transportem.',
-    xp: 220,
-    requiredLevel: 6,
-  },
-  {
-    id: 'nicosia-famagusta-combo',
-    title: 'Zwiedzanie Nikozji i Famagusty',
-    description:
-      'Wybierz pakiet łączony z przewodnikiem WakacjeCypr.com i odkryj oba oblicza wyspy w jeden dzień.',
-    xp: 230,
-    requiredLevel: 7,
-  },
-  {
-    id: 'family-waterpark-day',
-    title: 'Rodzinny dzień w aquaparku',
-    description:
-      'Kup rodzinny pakiet do jednego z naszych polecanych parków wodnych z transferem hotelowym.',
-    xp: 185,
-    requiredLevel: 4,
-  },
-  {
-    id: 'ayia-napa-sunset-cruise',
-    title: 'Rejs o zachodzie słońca w Ayia Napa',
-    description:
-      'Zarezerwuj romantyczny rejs z kolacją i muzyką na żywo przez WakacjeCypr.com.',
-    xp: 215,
-    requiredLevel: 5,
-  },
-  {
-    id: 'wedding-photoshoot-cyprus',
-    title: 'Sesja ślubna na Cyprze',
-    description:
-      'Skorzystaj z usługi wedding & photo i zorganizuj sesję plenerową z naszym fotografem i stylistką.',
-    xp: 250,
-    requiredLevel: 9,
-  },
+  { id: 'sunrise-challenge', xp: 80, requiredLevel: 1 },
+  { id: 'taste-halloumi', xp: 95, requiredLevel: 2 },
+  { id: 'nicosia-day-trip', xp: 130, requiredLevel: 4 },
+  { id: 'troodos-wine-route', xp: 180, requiredLevel: 6 },
+  { id: 'sea-adventure', xp: 220, requiredLevel: 9 },
+  { id: 'nicosia-green-line-walk', xp: 140, requiredLevel: 3 },
+  { id: 'loukoumi-workshop', xp: 150, requiredLevel: 4 },
+  { id: 'akamas-jeep-safari', xp: 210, requiredLevel: 6 },
+  { id: 'zenobia-dive-challenge', xp: 260, requiredLevel: 8 },
+  { id: 'troodos-stargazing', xp: 180, requiredLevel: 7 },
+  { id: 'limassol-bike-promenade', xp: 160, requiredLevel: 3 },
+  { id: 'larnaca-art-walk', xp: 175, requiredLevel: 5 },
+  { id: 'karpaz-donkey-care', xp: 190, requiredLevel: 6 },
+  { id: 'halloumi-farm-visit', xp: 200, requiredLevel: 5 },
+  { id: 'sunset-yoga-nissi', xp: 150, requiredLevel: 4 },
+  { id: 'premium-car-rental', xp: 210, requiredLevel: 5 },
+  { id: 'private-blue-lagoon-charter', xp: 240, requiredLevel: 8 },
+  { id: 'troodos-private-tour', xp: 220, requiredLevel: 6 },
+  { id: 'nicosia-famagusta-combo', xp: 230, requiredLevel: 7 },
+  { id: 'family-waterpark-day', xp: 185, requiredLevel: 4 },
+  { id: 'ayia-napa-sunset-cruise', xp: 215, requiredLevel: 5 },
+  { id: 'wedding-photoshoot-cyprus', xp: 250, requiredLevel: 9 },
 ];
 
 const mediaTrips = [
@@ -3116,10 +2970,14 @@ function showToast(message, options = {}) {
 }
 
 function showLevelUpMessage(level) {
-  const message = `Awans! Osiągnąłeś poziom ${level}. Gratulacje – świetnie Ci idzie! Kontynuuj odkrywanie Cypru, a zdobędziesz kolejne nagrody!`;
+  const message = translate(
+    'level.toast.levelUp.message',
+    `Awans! Osiągnąłeś poziom ${level}. Gratulacje – świetnie Ci idzie! Kontynuuj odkrywanie Cypru, a zdobędziesz kolejne nagrody!`,
+    { level },
+  );
   setLevelStatus(message, 6000);
   showToast(message, {
-    title: 'Gratulacje!',
+    title: translate('level.toast.levelUp.title', 'Gratulacje!'),
     icon: '🏆',
     variant: 'success',
     duration: 6500,
