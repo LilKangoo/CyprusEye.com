@@ -7049,6 +7049,52 @@ function clearAuthForms() {
   }
 }
 
+let previousBodyOverflow = '';
+let previousBodyPosition = '';
+let previousBodyTop = '';
+let previousBodyWidth = '';
+let scrollPositionBeforeLock = 0;
+let bodyScrollLockCount = 0;
+
+function lockBodyScroll() {
+  if (bodyScrollLockCount === 0) {
+    scrollPositionBeforeLock = window.scrollY || window.pageYOffset || 0;
+    previousBodyOverflow = document.body.style.overflow;
+    previousBodyPosition = document.body.style.position;
+    previousBodyTop = document.body.style.top;
+    previousBodyWidth = document.body.style.width;
+
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollPositionBeforeLock}px`;
+    document.body.style.width = '100%';
+  }
+
+  bodyScrollLockCount += 1;
+}
+
+function unlockBodyScroll() {
+  if (bodyScrollLockCount === 0) return;
+
+  bodyScrollLockCount -= 1;
+  if (bodyScrollLockCount > 0) {
+    return;
+  }
+
+  document.body.style.overflow = previousBodyOverflow;
+  document.body.style.position = previousBodyPosition;
+  document.body.style.top = previousBodyTop;
+  document.body.style.width = previousBodyWidth;
+
+  previousBodyOverflow = '';
+  previousBodyPosition = '';
+  previousBodyTop = '';
+  previousBodyWidth = '';
+
+  window.scrollTo(0, scrollPositionBeforeLock);
+  scrollPositionBeforeLock = 0;
+}
+
 function openAccountModal() {
   if (!currentUserKey) {
     showAccountError('account.error.loginRequired', 'Zaloguj się, aby edytować dane konta.');
@@ -7057,6 +7103,10 @@ function openAccountModal() {
 
   const modal = document.getElementById('accountModal');
   if (!modal) {
+    return;
+  }
+
+  if (!modal.hidden && modal.classList.contains('visible')) {
     return;
   }
 
@@ -7074,6 +7124,7 @@ function openAccountModal() {
   }
 
   setAccountMessage('');
+  lockBodyScroll();
   modal.hidden = false;
   requestAnimationFrame(() => {
     modal.classList.add('visible');
@@ -7089,6 +7140,7 @@ function closeAccountModal() {
   modal.classList.remove('visible');
   modal.hidden = true;
   setAccountMessage('');
+  unlockBodyScroll();
 
   const passwordForm = document.getElementById('accountPasswordForm');
   if (passwordForm instanceof HTMLFormElement) {
@@ -7101,6 +7153,10 @@ function closeAccountModal() {
 function openAuthModal() {
   const modal = document.getElementById('authModal');
   if (!modal) return;
+  if (!modal.hidden && modal.classList.contains('visible')) {
+    return;
+  }
+  lockBodyScroll();
   modal.hidden = false;
   setAuthMessage('');
   requestAnimationFrame(() => {
@@ -7115,6 +7171,7 @@ function closeAuthModal(options = {}) {
   modal.classList.remove('visible');
   modal.hidden = true;
   setAuthMessage('');
+  unlockBodyScroll();
   if (activateGuest) {
     startGuestSession({ message: guestMessage });
   }
@@ -7654,13 +7711,6 @@ function bootstrap() {
     '[contenteditable="true"]',
   ].join(', ');
   let sosPreviouslyFocusedElement = null;
-  let previousBodyOverflow = '';
-  let previousBodyPosition = '';
-  let previousBodyTop = '';
-  let previousBodyWidth = '';
-  let scrollPositionBeforeLock = 0;
-  let wasBodyScrollLockedBySos = false;
-
   dailyChallengeFocus?.addEventListener('click', () => {
     const place = getDailyChallengePlace();
     if (!place) {
@@ -7683,7 +7733,11 @@ function bootstrap() {
 
   function openExplorer() {
     if (!explorerModal) return;
+    if (!explorerModal.hidden && explorerModal.classList.contains('visible')) {
+      return;
+    }
     renderExplorer();
+    lockBodyScroll();
     explorerModal.hidden = false;
     requestAnimationFrame(() => {
       explorerModal.classList.add('visible');
@@ -7692,16 +7746,32 @@ function bootstrap() {
 
   function closeExplorer() {
     if (!explorerModal) return;
+    const wasVisible = explorerModal.classList.contains('visible');
     explorerModal.classList.remove('visible');
-    const handleTransitionEnd = (event) => {
-      if (event.target !== explorerModal) return;
+
+    let isFinalized = false;
+    function finalizeExplorerClose() {
+      if (isFinalized) return;
+      isFinalized = true;
       explorerModal.hidden = true;
       explorerModal.removeEventListener('transitionend', handleTransitionEnd);
-    };
+      unlockBodyScroll();
+    }
+
+    function handleTransitionEnd(event) {
+      if (event.target !== explorerModal) return;
+      finalizeExplorerClose();
+    }
+
+    if (!wasVisible) {
+      finalizeExplorerClose();
+      return;
+    }
+
     explorerModal.addEventListener('transitionend', handleTransitionEnd);
     setTimeout(() => {
       if (explorerModal && !explorerModal.classList.contains('visible')) {
-        explorerModal.hidden = true;
+        finalizeExplorerClose();
       }
     }, 320);
   }
@@ -7736,41 +7806,26 @@ function bootstrap() {
     }
   }
 
-  function lockBodyScroll() {
-    if (wasBodyScrollLockedBySos) return;
-    wasBodyScrollLockedBySos = true;
-    scrollPositionBeforeLock = window.scrollY || window.pageYOffset || 0;
-    previousBodyOverflow = document.body.style.overflow;
-    previousBodyPosition = document.body.style.position;
-    previousBodyTop = document.body.style.top;
-    previousBodyWidth = document.body.style.width;
-
-    document.body.style.overflow = 'hidden';
-    document.body.style.position = 'fixed';
-    document.body.style.top = `-${scrollPositionBeforeLock}px`;
-    document.body.style.width = '100%';
-  }
-
-  function unlockBodyScroll() {
-    if (!wasBodyScrollLockedBySos) return;
-    wasBodyScrollLockedBySos = false;
-
-    document.body.style.overflow = previousBodyOverflow;
-    document.body.style.position = previousBodyPosition;
-    document.body.style.top = previousBodyTop;
-    document.body.style.width = previousBodyWidth;
-
-    previousBodyOverflow = '';
-    previousBodyPosition = '';
-    previousBodyTop = '';
-    previousBodyWidth = '';
-
-    window.scrollTo(0, scrollPositionBeforeLock);
-    scrollPositionBeforeLock = 0;
-  }
-
   function handleSosKeydown(event) {
     if (!sosModal || sosModal.hidden || !sosModal.classList.contains('visible')) {
+      return;
+    }
+
+    if (event.key === 'PageDown' || event.key === 'PageUp') {
+      if (!(sosDialog instanceof HTMLElement)) {
+        return;
+      }
+
+      if (sosDialog.scrollHeight <= sosDialog.clientHeight) {
+        return;
+      }
+
+      event.preventDefault();
+      const direction = event.key === 'PageDown' ? 1 : -1;
+      sosDialog.scrollBy({
+        top: direction * sosDialog.clientHeight,
+        behavior: 'auto',
+      });
       return;
     }
 

@@ -4940,6 +4940,9 @@ a:focus-visible {
   gap: 1.5rem;
   transform: translateY(12px);
   transition: transform 0.25s ease;
+  max-height: 90vh;
+  overflow: auto;
+  overscroll-behavior: contain;
 }
 
 .sos-modal.visible .sos-dialog {
