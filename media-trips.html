@@ -696,12 +696,20 @@
   <script src="car-rental.js"></script>
   <script src="app.js"></script>
 
-  <div class="explorer-modal" id="explorerModal" hidden role="dialog" aria-modal="true" aria-labelledby="explorerTitle">
+  <div
+    class="explorer-modal"
+    id="explorerModal"
+    hidden
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="explorerTitle"
+    aria-describedby="explorerDescription"
+  >
     <div class="explorer-dialog">
       <header class="explorer-header">
         <div>
           <h2 id="explorerTitle" data-i18n-key="explorer.title">Interaktywny przewodnik po Cyprze</h2>
-          <p data-i18n-key="explorer.subtitle">
+          <p id="explorerDescription" data-i18n-key="explorer.subtitle">
             Przeglądaj wszystkie nasze lokalizacje i wybieraj, które chcesz odwiedzić jako następne.
           </p>
         </div>
@@ -727,12 +735,22 @@
     </div>
   </div>
 
-  <div class="auth-modal" id="authModal" hidden role="dialog" aria-modal="true" aria-labelledby="authTitle">
+  <div
+    class="auth-modal"
+    id="authModal"
+    hidden
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="authTitle"
+    aria-describedby="authDescription"
+  >
     <div class="auth-dialog">
       <header class="auth-header">
         <div>
           <h2 id="authTitle" data-i18n-key="auth.title">Zaloguj się lub załóż konto</h2>
-          <p data-i18n-key="auth.subtitle">Zapisuj swoje statystyki i kontynuuj przygody na dowolnym urządzeniu.</p>
+          <p id="authDescription" data-i18n-key="auth.subtitle">
+            Zapisuj swoje statystyki i kontynuuj przygody na dowolnym urządzeniu.
+          </p>
         </div>
         <button
           type="button"
@@ -798,7 +816,15 @@
     </div>
   </div>
 
-  <div class="sos-modal" id="sosModal" hidden role="dialog" aria-modal="true" aria-labelledby="sosTitle">
+  <div
+    class="sos-modal"
+    id="sosModal"
+    hidden
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="sosTitle"
+    aria-describedby="sosDescription"
+  >
     <div class="sos-dialog" role="document" tabindex="-1">
       <header class="sos-header">
         <div>
