@@ -76,5 +76,7 @@
   "vip.contact.list.phone": "📞 Zadzwoń: +48 123 456 789",
   "vip.contact.list.whatsapp": "💬 WhatsApp: +48 987 654 321",
   "vip.contact.list.email": "✉️ E-mail: kontakt@wakacjecypr.com",
-  "vip.footer": "© <span id=\"year\"></span> WakacjeCypr.com – Twoja prywatna podróż po Cyprze."
+  "vip.footer": "© <span id=\"year\"></span> WakacjeCypr.com – Twoja prywatna podróż po Cyprze.",
+  "map.skipLink": "Pomiń interaktywną mapę",
+  "map.skipTarget": "Pominięto mapę. Przejdź do kolejnych informacji o lokalizacji."
 }

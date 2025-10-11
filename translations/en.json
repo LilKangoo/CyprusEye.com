@@ -763,5 +763,7 @@
   "vip.contact.list.phone": "📞 Call: +48 123 456 789",
   "vip.contact.list.whatsapp": "💬 WhatsApp: +48 987 654 321",
   "vip.contact.list.email": "✉️ Email: kontakt@wakacjecypr.com",
-  "vip.footer": "© <span id=\"year\"></span> HolidayCyprus.com – Your private journey across Cyprus."
+  "vip.footer": "© <span id=\"year\"></span> HolidayCyprus.com – Your private journey across Cyprus.",
+  "map.skipLink": "Skip interactive map",
+  "map.skipTarget": "Map skipped. Continue to the location details."
 }

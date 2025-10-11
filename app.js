@@ -1458,6 +1458,12 @@ let playerMarker;
 let playerAccuracyCircle;
 let locationWatchId = null;
 let hasCenteredOnPlayer = false;
+const LEAFLET_STYLESHEET_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+const LEAFLET_SCRIPT_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+let leafletStylesheetPromise = null;
+let leafletScriptPromise = null;
+let mapLazyLoadStarted = false;
+let leafletEnhancementsApplied = false;
 let levelStatusTimeout;
 let explorerFilterValue = 'all';
 const tripPlannerState = {
@@ -6653,6 +6659,7 @@ function showObjective(place) {
   const titleEl = document.getElementById('objectiveTitle');
   const descriptionEl = document.getElementById('objectiveDescription');
   const linkEl = document.getElementById('objectiveLink');
+  const mapGoogleLink = document.getElementById('mapGoogleLink');
   const buttonEl = document.getElementById('checkInBtn');
   const statusEl = document.getElementById('checkInStatus');
   const previousBtn = document.getElementById('previousPlaceBtn');
@@ -6671,6 +6678,9 @@ function showObjective(place) {
   titleEl.textContent = localizedName;
   descriptionEl.textContent = localizedDescription;
   linkEl.href = place.googleMapsUrl;
+  if (mapGoogleLink instanceof HTMLAnchorElement) {
+    mapGoogleLink.href = place.googleMapsUrl;
+  }
 
   buttonEl.disabled = visited;
   buttonEl.classList.remove('locked');
@@ -7624,9 +7634,105 @@ function initializeAuth() {
   updateAuthUI();
 }
 
+function loadLeafletStylesheet() {
+  if (document.querySelector('link[data-leaflet-stylesheet-loaded]')) {
+    return Promise.resolve();
+  }
+
+  if (!leafletStylesheetPromise) {
+    leafletStylesheetPromise = new Promise((resolve, reject) => {
+      const link = document.createElement('link');
+      link.rel = 'stylesheet';
+      link.href = LEAFLET_STYLESHEET_URL;
+      link.crossOrigin = '';
+      link.dataset.leafletStylesheetLoaded = 'true';
+      link.addEventListener('load', () => resolve());
+      link.addEventListener('error', () => reject(new Error('Leaflet stylesheet failed to load.')));
+      document.head.append(link);
+    });
+  }
+
+  return leafletStylesheetPromise;
+}
+
+function loadLeafletScript() {
+  if (typeof window.L !== 'undefined') {
+    return Promise.resolve();
+  }
+
+  if (!leafletScriptPromise) {
+    leafletScriptPromise = new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = LEAFLET_SCRIPT_URL;
+      script.async = true;
+      script.crossOrigin = '';
+      script.dataset.leafletScript = 'true';
+      script.addEventListener('load', () => {
+        script.dataset.leafletScriptLoaded = 'true';
+        resolve();
+      });
+      script.addEventListener('error', () => {
+        reject(new Error('Leaflet script failed to load.'));
+      });
+      document.head.append(script);
+    });
+  }
+
+  return leafletScriptPromise;
+}
+
+function applyLeafletEnhancements() {
+  if (leafletEnhancementsApplied || typeof window.L === 'undefined' || !window.L?.Marker) {
+    return;
+  }
+
+  const { L } = window;
+
+  L.Marker.addInitHook(function initBouncingOptions() {
+    this.options.bouncingOptions = this.options.bouncingOptions || {
+      bounceHeight: 16,
+      bounceSpeed: 48,
+    };
+  });
+
+  L.Marker.include({
+    setBouncingOptions(options) {
+      this.options.bouncingOptions = { ...this.options.bouncingOptions, ...options };
+      return this;
+    },
+    bounce(times = 1) {
+      const marker = this;
+      const original = marker.getLatLng();
+      const { bounceHeight, bounceSpeed } = marker.options.bouncingOptions;
+      const latOffset = bounceHeight ? bounceHeight / 100000 : 0.0001;
+      let count = 0;
+
+      function step() {
+        count += 1;
+        marker.setLatLng([original.lat + latOffset, original.lng]);
+        setTimeout(() => marker.setLatLng(original), bounceSpeed);
+        if (count < times) {
+          setTimeout(step, bounceSpeed * 2);
+        }
+      }
+
+      step();
+      return marker;
+    },
+  });
+
+  leafletEnhancementsApplied = true;
+}
+
+function loadLeafletResources() {
+  return Promise.all([loadLeafletStylesheet(), loadLeafletScript()]).then(() => {
+    applyLeafletEnhancements();
+  });
+}
+
 function initMap() {
   const mapElement = document.getElementById('map');
-  if (!mapElement) {
+  if (map || !mapElement) {
     return;
   }
 
@@ -7640,6 +7746,46 @@ function initMap() {
   startPlayerLocationTracking();
 }
 
+function setupMapLazyLoading() {
+  const mapElement = document.getElementById('map');
+  if (!mapElement || mapLazyLoadStarted) {
+    return;
+  }
+
+  mapLazyLoadStarted = true;
+
+  const loadAndInitMap = () => {
+    loadLeafletResources()
+      .then(() => {
+        initMap();
+        if (state.selected) {
+          focusPlace(state.selected.id);
+        }
+      })
+      .catch((error) => {
+        console.error('Nie udało się wczytać mapy Leaflet.', error);
+      });
+  };
+
+  if ('IntersectionObserver' in window) {
+    const observer = new IntersectionObserver(
+      (entries, observerInstance) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            observerInstance.disconnect();
+            loadAndInitMap();
+          }
+        });
+      },
+      { rootMargin: '200px 0px' },
+    );
+
+    observer.observe(mapElement);
+  } else {
+    loadAndInitMap();
+  }
+}
+
 function bootstrap() {
   initializeAuth();
   initializeNotifications();
@@ -7649,10 +7795,10 @@ function bootstrap() {
   loadProgress();
   restoreSelectedPlaceFromStorage();
   initializeTripPlannerUI();
+  setupMapLazyLoading();
   renderAllForCurrentState();
   initializePackingPlanner();
   window.CarRental?.initializeSection?.();
-  initMap();
   if (state.selected) {
     focusPlace(state.selected.id);
   } else {
@@ -8086,39 +8232,6 @@ function bootstrap() {
   }
 
 }
-
-// Polyfill prostego podskakiwania markera (Leaflet nie ma wbudowanego)
-L.Marker.addInitHook(function () {
-  this.options.bouncingOptions = this.options.bouncingOptions || {
-    bounceHeight: 16,
-    bounceSpeed: 48,
-  };
-});
-
-L.Marker.include({
-  setBouncingOptions(options) {
-    this.options.bouncingOptions = { ...this.options.bouncingOptions, ...options };
-    return this;
-  },
-  bounce(times = 1) {
-    const marker = this;
-    const original = marker.getLatLng();
-    const { bounceHeight, bounceSpeed } = marker.options.bouncingOptions;
-    let count = 0;
-
-    function step() {
-      count += 1;
-      marker.setLatLng([original.lat + 0.0001, original.lng]);
-      setTimeout(() => marker.setLatLng(original), bounceSpeed);
-      if (count < times) {
-        setTimeout(step, bounceSpeed * 2);
-      }
-    }
-
-    step();
-    return marker;
-  },
-});
 
 window.addEventListener('beforeunload', () => {
   if (locationWatchId !== null && 'geolocation' in navigator) {

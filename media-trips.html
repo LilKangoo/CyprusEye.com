@@ -23,7 +23,20 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link
+    rel="preload"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+    as="style"
+    crossorigin
+    data-leaflet-resource="style"
+  />
+  <link
+    rel="preload"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+    as="script"
+    crossorigin
+    data-leaflet-resource="script"
+  />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body data-navigation="multi-page" data-initial-view="mediaTripsView" data-seo-page="mediaTrips">
@@ -211,7 +224,30 @@
     <div class="layout app-view" id="adventureView" role="tabpanel" aria-labelledby="headerAdventureTab">
       <div class="primary-column">
         <section class="map-panel surface-card">
+          <div class="map-accessibility-actions">
+            <a class="map-skip-link" href="#mapSkipTarget" data-i18n="map.skipLink">
+              Pomiń interaktywną mapę
+            </a>
+            <a
+              id="mapGoogleLink"
+              class="map-google-link"
+              href="https://maps.google.com"
+              target="_blank"
+              rel="noopener"
+              data-i18n="objective.mapLink"
+            >
+              Zobacz na Mapach Google
+            </a>
+          </div>
           <div id="map" aria-label="Interaktywna mapa atrakcji"></div>
+          <p
+            id="mapSkipTarget"
+            class="sr-only map-skip-target"
+            tabindex="-1"
+            data-i18n="map.skipTarget"
+          >
+            Pominięto mapę. Przejdź do kolejnych informacji o lokalizacji.
+          </p>
           <div class="current-objective" id="currentObjective" hidden>
             <h2 data-i18n-key="objective.title">Aktualna lokalizacja</h2>
             <p id="objectiveTitle"></p>
@@ -690,7 +726,6 @@
 
   <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="js/i18n.js"></script>
   <script src="js/seo.js"></script>
   <script src="car-rental.js"></script>

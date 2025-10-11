@@ -983,6 +983,49 @@ main::before {
   padding: clamp(1rem, 2vw, 1.75rem);
 }
 
+.map-accessibility-actions {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.map-accessibility-actions a {
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.map-google-link {
+  text-decoration: underline;
+}
+
+.map-skip-link {
+  position: absolute;
+  left: -9999px;
+  top: auto;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+.map-skip-link:focus {
+  position: static;
+  width: auto;
+  height: auto;
+  padding: 0.5rem 0.85rem;
+  background: var(--surface-strong);
+  color: var(--text);
+  border-radius: 999px;
+  box-shadow: var(--focus-ring);
+  outline: none;
+  z-index: 2;
+}
+
+.map-skip-target {
+  margin: 0;
+}
+
 #map {
   width: 100%;
   height: clamp(320px, 52vh, 480px);
