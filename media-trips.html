@@ -2,819 +2,557 @@
 <html lang="pl">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="theme-color" content="#0ea5e9" />
-  <title>Wyjazdy Media &amp; VIP | WakacjeCypr.com</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2563eb" />
+  <title>WakacjeCypr Quest</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Jost:wght@400;500;600;700&family=Montserrat:wght@400;600;700&display=swap"
-    rel="stylesheet"
-  />
-  <style>
-    :root {
-      --primary: #0ea5e9;
-      --primary-dark: #0369a1;
-      --secondary: #fbbf24;
-      --neutral-900: #0f172a;
-      --neutral-700: #1f2937;
-      --neutral-500: #64748b;
-      --neutral-100: #f8fafc;
-      --white: #ffffff;
-      --max-width: 1200px;
-      --shadow-soft: 0 20px 45px rgba(15, 23, 42, 0.1);
-      --radius-lg: 24px;
-      --radius-md: 16px;
-      --radius-sm: 12px;
-      --transition: all 0.3s ease;
-    }
-
-    *,
-    *::before,
-    *::after {
-      box-sizing: border-box;
-    }
-
-    body {
-      margin: 0;
-      font-family: "Jost", "Montserrat", system-ui, -apple-system, BlinkMacSystemFont,
-        "Segoe UI", sans-serif;
-      background: var(--neutral-100);
-      color: var(--neutral-900);
-      line-height: 1.7;
-    }
-
-    img {
-      max-width: 100%;
-      display: block;
-      border-radius: var(--radius-sm);
-    }
-
-    a {
-      color: inherit;
-      text-decoration: none;
-    }
-
-    .page-wrap {
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-
-    header {
-      background: rgba(15, 23, 42, 0.9);
-      backdrop-filter: blur(12px);
-      position: sticky;
-      top: 0;
-      z-index: 10;
-    }
-
-    .container {
-      width: min(100% - 32px, var(--max-width));
-      margin: 0 auto;
-    }
-
-    .nav {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 16px 0;
-      gap: 16px;
-    }
-
-    .nav-brand {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-      color: var(--white);
-      font-weight: 600;
-      font-size: 1.125rem;
-    }
-
-    .nav-brand img {
-      width: 48px;
-      height: 48px;
-    }
-
-    .nav-links {
-      display: flex;
-      gap: 16px;
-      flex-wrap: wrap;
-      justify-content: flex-end;
-    }
-
-    .nav-links a {
-      color: var(--white);
-      font-size: 0.95rem;
-      font-weight: 500;
-      padding: 8px 16px;
-      border-radius: 999px;
-      transition: var(--transition);
-    }
-
-    .nav-links a:hover,
-    .nav-links a:focus-visible {
-      background: rgba(255, 255, 255, 0.12);
-    }
-
-    main {
-      flex: 1;
-    }
-
-    .hero {
-      position: relative;
-      isolation: isolate;
-      overflow: hidden;
-      background: linear-gradient(rgba(14, 165, 233, 0.85), rgba(14, 165, 233, 0.85)),
-        url("https://images.unsplash.com/photo-1530789253388-582c481c54b0?auto=format&fit=crop&w=1600&q=80")
-          center/cover;
-      color: var(--white);
-    }
-
-    .hero::after {
-      content: "";
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.3), transparent 55%),
-        radial-gradient(circle at 80% 10%, rgba(14, 165, 233, 0.6), transparent 60%);
-      z-index: 0;
-    }
-
-    .hero-content {
-      position: relative;
-      z-index: 1;
-      padding: clamp(96px, 12vw, 160px) 0 120px;
-      display: grid;
-      gap: 32px;
-      text-align: left;
-    }
-
-    .hero-subtitle {
-      font-size: 1rem;
-      font-weight: 600;
-      letter-spacing: 0.15em;
-      text-transform: uppercase;
-    }
-
-    .hero h1 {
-      font-size: clamp(2.5rem, 6vw, 3.75rem);
-      margin: 0;
-      font-weight: 700;
-      line-height: 1.1;
-    }
-
-    .hero p {
-      max-width: 620px;
-      font-size: clamp(1.05rem, 2.3vw, 1.25rem);
-      color: rgba(255, 255, 255, 0.92);
-    }
-
-    .hero-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 16px;
-    }
-
-    .btn {
-      border: none;
-      border-radius: 999px;
-      padding: 14px 28px;
-      font-size: 1rem;
-      font-weight: 600;
-      cursor: pointer;
-      transition: var(--transition);
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    .btn-primary {
-      background: var(--secondary);
-      color: var(--neutral-900);
-      box-shadow: 0 20px 30px rgba(15, 23, 42, 0.15);
-    }
-
-    .btn-primary:hover,
-    .btn-primary:focus-visible {
-      background: #f59e0b;
-      transform: translateY(-2px);
-    }
-
-    .btn-outline {
-      background: transparent;
-      color: var(--white);
-      border: 1px solid rgba(255, 255, 255, 0.5);
-    }
-
-    .btn-outline:hover,
-    .btn-outline:focus-visible {
-      border-color: var(--white);
-      transform: translateY(-2px);
-    }
-
-    .section {
-      padding: clamp(64px, 9vw, 104px) 0;
-    }
-
-    .section-header {
-      text-align: center;
-      max-width: 720px;
-      margin: 0 auto 48px;
-    }
-
-    .section-eyebrow {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      padding: 6px 18px;
-      background: rgba(14, 165, 233, 0.12);
-      color: var(--primary-dark);
-      border-radius: 999px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.12em;
-      font-size: 0.85rem;
-    }
-
-    .section h2 {
-      font-size: clamp(2rem, 4vw, 2.75rem);
-      margin: 16px 0 12px;
-    }
-
-    .section p {
-      color: var(--neutral-500);
-      margin: 0;
-    }
-
-    .features-grid {
-      display: grid;
-      gap: 24px;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-    }
-
-    .feature-card {
-      background: var(--white);
-      border-radius: var(--radius-lg);
-      padding: 32px;
-      box-shadow: var(--shadow-soft);
-      display: grid;
-      gap: 18px;
-      transition: var(--transition);
-    }
-
-    .feature-card:hover,
-    .feature-card:focus-within {
-      transform: translateY(-6px);
-      box-shadow: 0 28px 55px rgba(15, 23, 42, 0.14);
-    }
-
-    .feature-icon {
-      width: 54px;
-      height: 54px;
-      display: grid;
-      place-items: center;
-      border-radius: 16px;
-      background: rgba(14, 165, 233, 0.15);
-      color: var(--primary-dark);
-      font-size: 1.5rem;
-      font-weight: 600;
-    }
-
-    .feature-card h3 {
-      margin: 0;
-      font-size: 1.35rem;
-      color: var(--neutral-900);
-    }
-
-    .feature-card p {
-      margin: 0;
-      color: var(--neutral-500);
-    }
-
-    .highlight {
-      background: linear-gradient(135deg, rgba(14, 165, 233, 0.1), rgba(2, 132, 199, 0.15));
-      border-radius: var(--radius-lg);
-      padding: clamp(32px, 6vw, 48px);
-      margin-top: 48px;
-      display: grid;
-      gap: 18px;
-      text-align: center;
-    }
-
-    .gallery-grid {
-      display: grid;
-      gap: 18px;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    }
-
-    .gallery-item {
-      position: relative;
-      overflow: hidden;
-      border-radius: var(--radius-md);
-      box-shadow: var(--shadow-soft);
-    }
-
-    .gallery-item img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      aspect-ratio: 4 / 3;
-      transition: transform 0.6s ease;
-    }
-
-    .gallery-item span {
-      position: absolute;
-      inset: auto 0 0 0;
-      background: linear-gradient(180deg, transparent, rgba(15, 23, 42, 0.85));
-      color: var(--white);
-      padding: 18px 20px;
-      font-weight: 600;
-      font-size: 0.95rem;
-    }
-
-    .gallery-item:hover img,
-    .gallery-item:focus-within img {
-      transform: scale(1.06);
-    }
-
-    .pricing-grid {
-      display: grid;
-      gap: 24px;
-      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    }
-
-    .price-card {
-      background: var(--white);
-      border-radius: var(--radius-lg);
-      padding: 32px;
-      box-shadow: var(--shadow-soft);
-      display: grid;
-      gap: 18px;
-      position: relative;
-    }
-
-    .price-card.highlighted {
-      border: 2px solid rgba(14, 165, 233, 0.4);
-    }
-
-    .price-badge {
-      position: absolute;
-      top: 16px;
-      right: 16px;
-      background: var(--primary);
-      color: var(--white);
-      padding: 6px 14px;
-      border-radius: 999px;
-      font-weight: 600;
-      font-size: 0.85rem;
-    }
-
-    .price-value {
-      display: flex;
-      align-items: flex-end;
-      gap: 4px;
-      font-size: 3rem;
-      font-weight: 700;
-      line-height: 1;
-      color: var(--neutral-900);
-    }
-
-    .price-value span {
-      font-size: 1.25rem;
-      font-weight: 500;
-      color: var(--neutral-500);
-    }
-
-    .price-details {
-      display: grid;
-      gap: 8px;
-      color: var(--neutral-500);
-      font-weight: 500;
-    }
-
-    .video-grid {
-      display: grid;
-      gap: 24px;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    }
-
-    .video-grid iframe {
-      width: 100%;
-      border: none;
-      border-radius: var(--radius-md);
-      aspect-ratio: 16 / 9;
-      box-shadow: var(--shadow-soft);
-    }
-
-    .tabs {
-      background: var(--white);
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-soft);
-      overflow: hidden;
-      display: grid;
-      grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
-    }
-
-    .tab-buttons {
-      background: rgba(14, 165, 233, 0.08);
-      display: flex;
-      flex-direction: column;
-    }
-
-    .tab-buttons button {
-      border: none;
-      background: transparent;
-      padding: 22px 28px;
-      text-align: left;
-      font-size: 1.05rem;
-      font-weight: 600;
-      color: var(--neutral-700);
-      display: flex;
-      gap: 14px;
-      align-items: center;
-      cursor: pointer;
-      transition: var(--transition);
-    }
-
-    .tab-buttons button span {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 34px;
-      height: 34px;
-      background: var(--white);
-      border-radius: 12px;
-      color: var(--primary-dark);
-      font-weight: 700;
-    }
-
-    .tab-buttons button.is-active {
-      background: var(--white);
-      color: var(--primary-dark);
-    }
-
-    .tab-panel {
-      padding: clamp(32px, 5vw, 48px);
-      display: none;
-    }
-
-    .tab-panel.is-active {
-      display: grid;
-      gap: 18px;
-    }
-
-    .tab-panel ul {
-      margin: 0;
-      padding-left: 20px;
-      display: grid;
-      gap: 10px;
-    }
-
-    .tab-panel strong {
-      color: var(--neutral-700);
-    }
-
-    .contact-grid {
-      display: grid;
-      gap: 24px;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    }
-
-    .contact-card {
-      background: var(--white);
-      border-radius: var(--radius-lg);
-      padding: 28px;
-      box-shadow: var(--shadow-soft);
-      display: grid;
-      gap: 16px;
-      text-align: center;
-    }
-
-    .contact-icon {
-      width: 56px;
-      height: 56px;
-      margin: 0 auto;
-      border-radius: 18px;
-      display: grid;
-      place-items: center;
-      background: rgba(14, 165, 233, 0.12);
-      color: var(--primary-dark);
-      font-size: 1.6rem;
-    }
-
-    .services-grid {
-      display: grid;
-      gap: 18px;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    }
-
-    .service-card {
-      background: rgba(14, 165, 233, 0.08);
-      border-radius: var(--radius-md);
-      padding: 24px;
-      display: grid;
-      gap: 10px;
-      transition: var(--transition);
-    }
-
-    .service-card:hover,
-    .service-card:focus-within {
-      transform: translateY(-4px);
-      background: rgba(14, 165, 233, 0.12);
-    }
-
-    footer {
-      background: var(--neutral-900);
-      color: rgba(248, 250, 252, 0.75);
-      padding: 48px 0;
-    }
-
-    footer .footer-grid {
-      display: grid;
-      gap: 24px;
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-      align-items: start;
-    }
-
-    footer h3 {
-      margin: 0 0 14px;
-      color: var(--white);
-      font-size: 1.1rem;
-    }
-
-    footer p {
-      margin: 0;
-      color: rgba(248, 250, 252, 0.75);
-    }
-
-    footer a {
-      color: var(--white);
-      font-weight: 600;
-    }
-
-    .footer-meta {
-      margin-top: 36px;
-      text-align: center;
-      font-size: 0.9rem;
-      color: rgba(248, 250, 252, 0.55);
-    }
-
-    @media (max-width: 980px) {
-      .tabs {
-        grid-template-columns: 1fr;
-      }
-
-      .tab-buttons {
-        flex-direction: row;
-        overflow-x: auto;
-      }
-
-      .tab-buttons button {
-        flex: 1;
-        white-space: nowrap;
-        justify-content: center;
-        border-bottom: 1px solid rgba(14, 165, 233, 0.15);
-      }
-
-      .tab-buttons button span {
-        display: none;
-      }
-
-      .tab-panel {
-        border-top: 1px solid rgba(14, 165, 233, 0.1);
-      }
-    }
-
-    @media (max-width: 720px) {
-      .nav {
-        flex-direction: column;
-      }
-
-      .hero-content {
-        text-align: center;
-        place-items: center;
-      }
-
-      .hero-actions {
-        justify-content: center;
-      }
-
-      .tab-panel ul {
-        padding-left: 18px;
-      }
-    }
-  </style>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
-  <div class="page-wrap">
-    <header>
-      <div class="container">
-        <nav class="nav" aria-label="Główna nawigacja">
-          <a class="nav-brand" href="index.html">
-            <img src="assets/cyprus_logo-1000x1054.png" alt="Logo WakacjeCypr.com" loading="lazy" />
-            <span>WakacjeCypr.com</span>
-          </a>
-          <div class="nav-links">
-            <a href="#oferta">Oferta</a>
-            <a href="#pakiety">Pakiety</a>
-            <a href="#plan">Plan dnia</a>
-            <a href="#rezerwacja">Rezerwacja</a>
-          </div>
-        </nav>
-      </div>
-    </header>
-
-    <main>
-      <section class="hero" id="oferta">
-        <div class="container">
-          <div class="hero-content">
-            <span class="hero-subtitle">Media Trips • Foto &amp; Video • VIP</span>
-            <h1>Indywidualne wyjazdy po całym Cyprze skrojone pod Twoją historię</h1>
-            <p>
-              Odbierzemy Cię z hotelu, przygotujemy plan pełen zachwytów i uwiecznimy najpiękniejsze chwile z
-              profesjonalnym fotografem oraz filmowcem. Pakiety od 300€ dla nawet czterech osób.
-            </p>
-            <div class="hero-actions">
-              <a class="btn btn-primary" href="#pakiety">Sprawdź pakiety</a>
-              <a class="btn btn-outline" href="#rezerwacja">Rezerwuj termin</a>
-            </div>
+<body data-navigation="multi-page" data-initial-view="mediaTripsView">
+  <header class="app-header">
+    <div class="auth-bar" aria-label="Panel konta">
+      <div class="auth-controls">
+        <button
+          id="notificationsToggle"
+          class="ghost notifications-toggle"
+          data-i18n-key="header.notifications"
+          type="button"
+          aria-haspopup="true"
+          aria-expanded="false"
+          aria-controls="notificationsPanel"
+        >
+          🔔 Powiadomienia
+          <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
+        </button>
+        <button
+          id="openAuthModal"
+          class="ghost"
+          type="button"
+          aria-haspopup="dialog"
+          aria-controls="authModal"
+          data-i18n-key="header.login"
+        >
+          🔐 Zaloguj się
+        </button>
+        <div class="user-menu" id="userMenu" hidden>
+          <span id="userGreeting" aria-live="polite"></span>
+          <div class="user-menu-actions">
+            <button type="button" class="ghost" id="accountSettingsBtn" data-i18n-key="header.accountSettings">
+              ⚙️ Ustawienia konta
+            </button>
+            <button type="button" class="ghost" id="logoutBtn" data-i18n-key="header.logout">Wyloguj</button>
           </div>
         </div>
+      </div>
+    </div>
+    <div class="header-top">
+      <div class="brand">
+        <img src="assets/cyprus_logo-1000x1054.png" alt="WakacjeCypr.com – logo żółwia z flagą Polski" />
+        <div class="brand-title" data-i18n-key="header.brand">
+          <h1>WakacjeCypr <span>Quest</span></h1>
+          <p class="tagline">Zwiedzaj Cypr w interaktywny sposób – zdobywaj odznaki, doświadczenie i odkrywaj nasze najlepsze oferty.</p>
+        </div>
+      </div>
+      <div class="header-top-actions">
+        <div class="header-actions" aria-label="Szybkie działania">
+          <div class="header-actions-primary">
+            <button class="primary" type="button" id="jumpToObjective" data-i18n-key="header.jumpToObjective">
+              Skocz do aktualnego celu
+            </button>
+            <a class="ghost header-link" href="car-rental-landing.html" data-i18n-key="header.carRentalLink">🚗 Wynajem auta</a>
+            <button
+              id="explorerToggle"
+              class="ghost"
+              type="button"
+              aria-haspopup="dialog"
+              aria-controls="explorerModal"
+              data-i18n-key="header.explorerToggle"
+            >
+              🌍 Przeglądaj atrakcje
+            </button>
+            <button
+              id="sosToggle"
+              class="danger"
+              type="button"
+              aria-haspopup="dialog"
+              aria-controls="sosModal"
+              data-i18n-key="header.sosToggle"
+            >
+              🚨 SOS
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="header-metrics" role="list" aria-live="polite">
+      <a class="metric-card metric-card-link" role="listitem" href="achievements.html">
+        <p class="metric-label" data-i18n-key="metrics.level.label">Poziom</p>
+        <p class="metric-value" id="headerLevelNumber">1</p>
+        <p class="metric-subtext" id="headerLevelStatus" data-i18n-key="metrics.level.subtext">
+          Zdobądź pierwsze check-iny, aby awansować!
+        </p>
+      </a>
+      <a class="metric-card metric-card-link" role="listitem" href="achievements.html">
+        <p class="metric-label" data-i18n-key="metrics.xp.label">Doświadczenie</p>
+        <p class="metric-value"><span id="headerXpPoints">0</span> XP</p>
+        <div class="metric-progress" role="img" aria-label="Postęp doświadczenia">
+          <div class="metric-progress-track">
+            <div class="metric-progress-fill" id="headerXpFill" style="width: 0%"></div>
+          </div>
+          <p class="metric-progress-text" id="headerXpProgressText" data-i18n-key="metrics.xp.progress">
+            0 / 150 XP do kolejnego poziomu
+          </p>
+        </div>
+      </a>
+      <a class="metric-card metric-card-link" role="listitem" href="achievements.html">
+        <p class="metric-label" data-i18n-key="metrics.badges.label">Odznaki</p>
+        <p class="metric-value" id="headerBadgesCount">0</p>
+        <p class="metric-subtext" data-i18n-key="metrics.badges.subtext">Odkrywaj atrakcje i kolekcjonuj pamiątki.</p>
+      </a>
+    </div>
+    <nav class="header-tabs" role="tablist" aria-label="Nawigacja główna">
+      <button
+        type="button"
+        class="header-tab is-active"
+        id="headerAdventureTab"
+        role="tab"
+        aria-selected="true"
+        aria-controls="adventureView"
+        tabindex="0"
+        data-i18n-key="nav.adventure"
+      >
+        🎯 Twoja przygoda
+      </button>
+      <button
+        type="button"
+        class="header-tab"
+        id="headerPackingTab"
+        role="tab"
+        aria-selected="false"
+        aria-controls="packingView"
+        tabindex="-1"
+        data-page-url="packing.html"
+        data-i18n-key="nav.packing"
+      >
+        🎒 Planer pakowania
+      </button>
+      <button
+        type="button"
+        class="header-tab"
+        id="headerTasksTab"
+        role="tab"
+        aria-selected="false"
+        aria-controls="tasksView"
+        tabindex="-1"
+        data-page-url="tasks.html"
+        data-i18n-key="nav.tasks"
+      >
+        ✅ Zadania do wykonania
+      </button>
+      <button
+        type="button"
+        class="header-tab"
+        id="headerMediaTripsTab"
+        role="tab"
+        aria-selected="false"
+        aria-controls="mediaTripsView"
+        tabindex="-1"
+        data-page-url="media-trips.html"
+        data-i18n-key="nav.mediaTrips"
+      >
+        ✨ VIP wyjazdy indywidualne
+      </button>
+    </nav>
+  </header>
+
+  <div id="notificationsPanel" class="notifications-panel" hidden aria-live="polite">
+    <div class="notifications-panel-header">
+      <h3 data-i18n-key="notifications.title">Powiadomienia</h3>
+      <div class="notifications-panel-actions">
+        <button type="button" class="ghost" id="notificationsMarkAll" data-i18n-key="notifications.markAll">
+          Oznacz wszystkie jako przeczytane
+        </button>
+        <button
+          type="button"
+          class="ghost notifications-close"
+          id="notificationsClose"
+          aria-label="Zamknij powiadomienia"
+          data-i18n-key="notifications.close"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+    <p id="notificationsPanelEmpty" class="notifications-empty" data-i18n-key="notifications.empty">
+      Zaloguj się, aby zobaczyć swoje powiadomienia.
+    </p>
+    <ul id="notificationsPanelList" class="notifications-list" role="list"></ul>
+  </div>
+
+  <main>
+    <div class="layout app-view" id="adventureView" role="tabpanel" aria-labelledby="headerAdventureTab">
+      <div class="primary-column">
+        <section class="map-panel surface-card">
+          <div id="map" aria-label="Interaktywna mapa atrakcji"></div>
+          <div class="current-objective" id="currentObjective" hidden>
+            <h2 data-i18n-key="objective.title">Aktualna lokalizacja</h2>
+            <p id="objectiveTitle"></p>
+            <p id="objectiveDescription"></p>
+            <p>
+              <a id="objectiveLink" href="#" target="_blank" rel="noopener" data-i18n-key="objective.mapLink">
+                Zobacz na Mapach Google
+              </a>
+            </p>
+            <div class="objective-navigation">
+              <button
+                type="button"
+                class="secondary"
+                id="previousPlaceBtn"
+                aria-label="Przejdź do poprzedniego miejsca"
+                data-i18n-key="objective.previous"
+              >
+                ← Poprzednie miejsce
+              </button>
+              <button
+                type="button"
+                class="secondary"
+                id="nextPlaceBtn"
+                aria-label="Przejdź do następnego miejsca"
+                data-i18n-key="objective.next"
+              >
+                Następne miejsce →
+              </button>
+            </div>
+            <button id="checkInBtn" class="primary" data-i18n-key="objective.checkIn">Zamelduj się i zdobądź XP</button>
+            <p class="hint" data-i18n-key="objective.hint">
+              Wskazówka: pozwól aplikacji użyć Twojej lokalizacji, aby potwierdzić, że jesteś na miejscu.
+            </p>
+            <p class="status" id="checkInStatus"></p>
+          </div>
+        </section>
+      </div>
+
+      <aside class="sidebar-column">
+        <section class="adventure-shortcuts" aria-label="Szybkie przejścia">
+          <article class="adventure-shortcut-card surface-card">
+            <h2 data-i18n-key="shortcuts.packing.title">🎒 Planowanie pakowania</h2>
+            <p data-i18n-key="shortcuts.packing.description">
+              Zaplanuj walizkę w dedykowanej karcie z listami rzeczy na różne sezony podróży.
+            </p>
+            <button
+              type="button"
+              class="secondary"
+              id="openPackingFromAdventure"
+              data-page-url="packing.html"
+              data-i18n-key="shortcuts.packing.action"
+            >
+              Przejdź do planera
+            </button>
+          </article>
+          <article class="adventure-shortcut-card surface-card">
+            <h2 data-i18n-key="shortcuts.tasks.title">✅ Lista zadań</h2>
+            <p data-i18n-key="shortcuts.tasks.description">
+              Przejrzyj wyzwania przed wyjazdem i zapisuj swój postęp w osobnej zakładce.
+            </p>
+            <button
+              type="button"
+              class="secondary"
+              id="openTasksFromAdventure"
+              data-page-url="tasks.html"
+              data-i18n-key="shortcuts.tasks.action"
+            >
+              Otwórz zadania
+            </button>
+          </article>
+          <article class="adventure-shortcut-card surface-card">
+            <h2 data-i18n-key="shortcuts.car.title">🚗 Wynajem auta na Cyprze</h2>
+            <p data-i18n-key="shortcuts.car.description">
+              Poznaj całą flotę, porównaj ceny i zarezerwuj samochód na dedykowanej stronie.
+            </p>
+            <a class="secondary adventure-link" href="car-rental.html" data-i18n-key="shortcuts.car.action">
+              Przejdź do wynajmu
+            </a>
+          </article>
+        </section>
+      </aside>
+
+      <section class="discovery-grid" aria-label="Atrakcje i postępy">
+        <section class="locations-panel surface-card">
+          <div class="discovery-header">
+            <div>
+              <h2 data-i18n-key="discovery.title">Atrakcje do odkrycia</h2>
+              <p class="discovery-subtitle" data-i18n-key="discovery.subtitle">
+                Przeglądaj miejsca z gry i planuj kolejne check-iny z mapy.
+              </p>
+            </div>
+            <div class="discovery-actions">
+              <button type="button" class="ghost" id="locationsToggle" data-i18n-key="discovery.toggle">
+                Pokaż więcej atrakcji
+              </button>
+              <a class="secondary" href="attractions.html" data-i18n-key="discovery.catalog">📚 Katalog atrakcji</a>
+            </div>
+          </div>
+          <ul id="locationsList" class="locations-list locations-list-preview" aria-live="polite"></ul>
+        </section>
       </section>
 
-      <section class="section" aria-labelledby="co-robimy">
-        <div class="container">
-          <div class="section-header">
-            <span class="section-eyebrow">Co robimy?</span>
-            <h2 id="co-robimy">Wyjazdy szyte na miarę – tylko Ty, nasi przewodnicy i Cypr.</h2>
+      </div>
+
+    <section
+      id="packingView"
+      class="utility-view app-view"
+      role="tabpanel"
+      aria-labelledby="headerPackingTab"
+      hidden
+    >
+      <header class="utility-view-header">
+        <div>
+          <h2 data-i18n-key="packing.header.title">Planer pakowania</h2>
+          <p data-i18n-key="packing.header.subtitle">
+            Zabierz ze sobą wszystko, co przyda się na Cyprze – wybierz sezon i odhaczaj kolejne pozycje.
+          </p>
+        </div>
+        <button
+          type="button"
+          class="ghost"
+          id="openAdventureFromPacking"
+          data-page-url="index.html"
+          data-i18n-key="packing.header.back"
+        >
+          ← Wróć do przygody
+        </button>
+      </header>
+      <section class="packing-panel" aria-labelledby="packingPlannerTitle">
+        <div class="packing-panel-header">
+          <h2 id="packingPlannerTitle" data-i18n-key="packing.panel.title">Planer pakowania</h2>
+          <p class="packing-panel-subtitle" data-i18n-key="packing.panel.subtitle">
+            Wybierz sezon podróży i odhaczaj rzeczy, które przydadzą się na cypryjskich wakacjach.
+          </p>
+        </div>
+        <div
+          class="packing-season-toggle"
+          id="packingSeasonToggle"
+          role="tablist"
+          aria-label="Wybierz sezon podróży"
+        ></div>
+        <div
+          class="packing-panel-content"
+          id="packingChecklist"
+          role="tabpanel"
+          aria-live="polite"
+          aria-labelledby="packingPlannerTitle"
+        ></div>
+        <p class="packing-note" data-i18n-key="packing.note">
+          Zaznaczaj pozycje w trakcie pakowania – pola możesz odświeżyć dla kolejnej podróży.
+        </p>
+      </section>
+    </section>
+
+    <section
+      id="tasksView"
+      class="utility-view app-view"
+      role="tabpanel"
+      aria-labelledby="headerTasksTab"
+      hidden
+    >
+      <header class="utility-view-header">
+        <div>
+          <h2 id="tasksViewTitle" data-i18n-key="tasks.header.title">Zadania do wykonania</h2>
+          <p data-i18n-key="tasks.header.subtitle">
+            Przygotuj się do wyjazdu dzięki misjom, które dodadzą Ci XP i uporządkują przygotowania.
+          </p>
+        </div>
+        <button
+          type="button"
+          class="ghost"
+          id="openAdventureFromTasks"
+          data-page-url="index.html"
+          data-i18n-key="tasks.header.back"
+        >
+          ← Wróć do przygody
+        </button>
+      </header>
+      <section class="tasks-panel" aria-labelledby="tasksViewTitle">
+        <p class="tasks-hint" data-i18n-key="tasks.hint">
+          Wypełniaj zadania, aby zdobywać dodatkowe XP i planować swoje cypryjskie przygody.
+        </p>
+        <ul id="tasksList" class="tasks-list"></ul>
+      </section>
+    </section>
+    <section
+      id="mediaTripsView"
+      class="utility-view app-view"
+      role="tabpanel"
+      aria-labelledby="headerMediaTripsTab"
+      hidden
+    >
+      <header class="utility-view-header">
+        <div>
+          <h2 id="mediaTripsTitle">Media Trips i VIP wyjazdy</h2>
+          <p>
+            Indywidualne sesje foto i video z LilKangooMedia, prywatny przewodnik WakacjeCypr.com oraz wygodny
+            transport po całym Cyprze.
+          </p>
+        </div>
+        <button type="button" class="ghost" id="openAdventureFromMediaTrips" data-page-url="index.html">
+          ← Wróć do przygody
+        </button>
+      </header>
+
+      <div class="media-trips-content">
+        <section
+          class="media-trips-hero-card surface-card"
+          id="mediaTripsOverview"
+          aria-labelledby="mediaTripsHeroTitle"
+        >
+          <p class="media-trips-hero-badge">Media Trips • Foto &amp; Video • VIP</p>
+          <h3 id="mediaTripsHeroTitle">Indywidualne wyjazdy po całym Cyprze skrojone pod Twoją historię</h3>
+          <p>
+            Odbierzemy Cię z hotelu, przygotujemy plan pełen zachwytów i uwiecznimy najpiękniejsze chwile z
+            profesjonalnym fotografem oraz filmowcem. Pakiety od 300€ obejmują maksymalnie cztery osoby.
+          </p>
+          <div class="media-trips-hero-actions">
+            <a class="primary" href="#mediaTripsPackages">Sprawdź pakiety</a>
+            <a class="ghost" href="#mediaTripsContact">Rezerwuj termin</a>
+          </div>
+        </section>
+
+        <section class="media-trips-overview surface-card" aria-labelledby="mediaTripsWhyTitle">
+          <header>
+            <p class="section-eyebrow">Co robimy?</p>
+            <h3 id="mediaTripsWhyTitle">Wyjazdy szyte na miarę – tylko Ty, nasi przewodnicy i Cypr.</h3>
             <p>
               Każdy wyjazd planujemy indywidualnie. Zabieramy maksymalnie cztery osoby, dbamy o wygodny transport i
               dopasowujemy tempo zwiedzania do Twoich marzeń.
             </p>
-          </div>
-
-          <div class="features-grid">
-            <article class="feature-card">
-              <div class="feature-icon">01</div>
-              <h3>Indywidualny plan podróży</h3>
+          </header>
+          <div class="media-trips-feature-grid">
+            <article class="media-trips-feature">
+              <span class="media-trips-feature-number">01</span>
+              <h4>Indywidualny plan podróży</h4>
               <p>
-                Wspólnie wybieramy punkty programu tak, by zobaczyć to, co naprawdę Cię interesuje – od zatok Ayia Napa
-                po góry Troodos.
+                Wspólnie wybieramy punkty programu tak, by zobaczyć to, co naprawdę Cię interesuje – od zatok Ayia
+                Napa po góry Troodos.
               </p>
             </article>
-            <article class="feature-card">
-              <div class="feature-icon">02</div>
-              <h3>Komfortowy transport</h3>
+            <article class="media-trips-feature">
+              <span class="media-trips-feature-number">02</span>
+              <h4>Komfortowy transport</h4>
               <p>
-                Odbierzemy Cię z hotelu, zadbamy o klimatyzowany przejazd i odwiezienie w wybrane miejsce po zakończeniu
-                dnia.
+                Odbierzemy Cię z hotelu, zadbamy o klimatyzowany przejazd i odwiezienie w wybrane miejsce po
+                zakończeniu dnia.
               </p>
             </article>
-            <article class="feature-card">
-              <div class="feature-icon">03</div>
-              <h3>Profesjonalne zdjęcia i filmy</h3>
+            <article class="media-trips-feature">
+              <span class="media-trips-feature-number">03</span>
+              <h4>Profesjonalne zdjęcia i filmy</h4>
               <p>
                 Fotograf i filmowiec z LilKangooMedia uwiecznią emocje, abyś do wspomnień mógł wracać o każdej porze
                 roku.
               </p>
             </article>
-            <article class="feature-card">
-              <div class="feature-icon">04</div>
-              <h3>Elastyczność i wsparcie</h3>
+            <article class="media-trips-feature">
+              <span class="media-trips-feature-number">04</span>
+              <h4>Elastyczność i wsparcie</h4>
               <p>
                 Plan możemy zmienić w trakcie dnia, a lokalni przewodnicy podpowiedzą najlepsze restauracje i ukryte
                 miejsca.
               </p>
             </article>
           </div>
-
-          <div class="highlight">
-            <h3>...a poniżej znajdziesz przykładowe pakiety, atrakcje i pamiątki!</h3>
-            <p>
-              Każda wycieczka jest wyjątkowa – potraktuj ceny jako punkt wyjścia. Pomożemy Ci dobrać najlepszą opcję.
-            </p>
+          <div class="media-trips-note">
+            <h4>...a poniżej znajdziesz przykładowe pakiety, atrakcje i pamiątki!</h4>
+            <p>Każda wycieczka jest wyjątkowa – potraktuj ceny jako punkt wyjścia. Pomożemy Ci dobrać najlepszą opcję.</p>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="section" aria-labelledby="galeria">
-        <div class="container">
-          <div class="section-header">
-            <span class="section-eyebrow">Foto wyjazdy</span>
-            <h2 id="galeria">Krajobrazy Cypru uchwycone w obiektywie</h2>
+        <section class="media-trips-gallery surface-card" aria-labelledby="mediaTripsGalleryTitle">
+          <header>
+            <p class="section-eyebrow">Foto wyjazdy</p>
+            <h3 id="mediaTripsGalleryTitle">Krajobrazy Cypru uchwycone w obiektywie</h3>
             <p>Oto kilka ulubionych miejsc naszych gości – od jaskiń morskich po zachody słońca nad Pafos.</p>
-          </div>
-          <div class="gallery-grid" role="list">
-            <figure class="gallery-item" role="listitem">
+          </header>
+          <div class="media-trips-gallery-grid" role="list">
+            <figure class="media-trips-gallery-item" role="listitem">
               <img
                 src="https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1200&q=80"
                 alt="Aphrodite's Rock w Pafos"
                 loading="lazy"
               />
-              <span>Aphrodite's Rock • Pafos</span>
+              <figcaption>Aphrodite's Rock • Pafos</figcaption>
             </figure>
-            <figure class="gallery-item" role="listitem">
+            <figure class="media-trips-gallery-item" role="listitem">
               <img
                 src="https://images.unsplash.com/photo-1582719478250-0847f04054a5?auto=format&fit=crop&w=1200&q=80"
                 alt="Sea Caves w Ayia Napa"
                 loading="lazy"
               />
-              <span>Sea Caves • Ayia Napa</span>
+              <figcaption>Sea Caves • Ayia Napa</figcaption>
             </figure>
-            <figure class="gallery-item" role="listitem">
+            <figure class="media-trips-gallery-item" role="listitem">
               <img
                 src="https://images.unsplash.com/photo-1563298723-dcfebaa392e3?auto=format&fit=crop&w=1200&q=80"
                 alt="Cyklop Caves w Protaras"
                 loading="lazy"
               />
-              <span>Cyklop Caves • Protaras</span>
+              <figcaption>Cyklop Caves • Protaras</figcaption>
             </figure>
-            <figure class="gallery-item" role="listitem">
+            <figure class="media-trips-gallery-item" role="listitem">
               <img
                 src="https://images.unsplash.com/photo-1548199973-03cce0bbc87b?auto=format&fit=crop&w=1200&q=80"
                 alt="Wrak statku Edro III na Cyprze"
                 loading="lazy"
               />
-              <span>Wrak Edro III • Pafos</span>
+              <figcaption>Wrak Edro III • Pafos</figcaption>
             </figure>
-            <figure class="gallery-item" role="listitem">
+            <figure class="media-trips-gallery-item" role="listitem">
               <img
                 src="https://images.unsplash.com/photo-1529335764857-3f1164d1cb24?auto=format&fit=crop&w=1200&q=80"
                 alt="Zapallo Bay w Limassol"
                 loading="lazy"
               />
-              <span>Zapallo Bay • Limassol</span>
+              <figcaption>Zapallo Bay • Limassol</figcaption>
             </figure>
-            <figure class="gallery-item" role="listitem">
+            <figure class="media-trips-gallery-item" role="listitem">
               <img
                 src="https://images.unsplash.com/photo-1505761671935-60b3a7427bad?auto=format&fit=crop&w=1200&q=80"
                 alt="Love Bridge w Ayia Napa"
                 loading="lazy"
               />
-              <span>Love Bridge • Ayia Napa</span>
+              <figcaption>Love Bridge • Ayia Napa</figcaption>
             </figure>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="section" id="pakiety" aria-labelledby="pakiety-title">
-        <div class="container">
-          <div class="section-header">
-            <span class="section-eyebrow">Pakiety fotograficzne</span>
-            <h2 id="pakiety-title">Foto wyjazdy – zaplanuj idealny dzień pełen kadrów</h2>
+        <section
+          class="media-trips-packages surface-card"
+          id="mediaTripsPackages"
+          aria-labelledby="mediaTripsPackagesTitle"
+        >
+          <header>
+            <p class="section-eyebrow">Pakiety</p>
+            <h3 id="mediaTripsPackagesTitle">Wybierz format wyjazdu, a my zajmiemy się resztą</h3>
             <p>Wszystkie pakiety obejmują transport i indywidualny plan zwiedzania dla maksymalnie czterech osób.</p>
+          </header>
+          <div class="media-trips-panel">
+            <p class="media-trips-intro">
+              Do 4 osób obowiązuje cena bazowa. Wybierz wariant foto, video lub VIP i użyj kalkulatora, aby poznać łączny
+              koszt oraz cenę na osobę.
+            </p>
+            <div id="mediaTripsList" class="media-trips-list" role="list"></div>
           </div>
-          <div class="pricing-grid">
-            <article class="price-card">
-              <h3>Foto Wyjazd</h3>
-              <div class="price-value">400<span>€/do 5h</span></div>
-              <div class="price-details">
-                <span>• Do 30 zdjęć</span>
-                <span>• Do 4 osób w cenie</span>
-                <span>• Kolejna osoba +100€</span>
-              </div>
-            </article>
-            <article class="price-card highlighted">
-              <div class="price-badge">Najczęściej wybierany</div>
-              <h3>Foto Wyjazd</h3>
-              <div class="price-value">500<span>€/do 8h</span></div>
-              <div class="price-details">
-                <span>• Do 50 zdjęć</span>
-                <span>• Do 4 osób w cenie</span>
-                <span>• Kolejna osoba +125€</span>
-              </div>
-            </article>
-            <article class="price-card">
-              <h3>Foto Wyjazd</h3>
-              <div class="price-value">600<span>€/do 10h</span></div>
-              <div class="price-details">
-                <span>• Do 60 zdjęć</span>
-                <span>• Do 4 osób w cenie</span>
-                <span>• Kolejna osoba +150€</span>
-              </div>
-            </article>
-            <article class="price-card">
-              <h3>Foto Wyjazd 2 dni</h3>
-              <div class="price-value">1100<span>€/do 20h</span></div>
-              <div class="price-details">
-                <span>• Do 120 zdjęć</span>
-                <span>• Do 4 osób w cenie</span>
-                <span>• Kolejna osoba +275€</span>
-              </div>
-            </article>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="section" aria-labelledby="video-title">
-        <div class="container">
-          <div class="section-header">
-            <span class="section-eyebrow">Video wyjazdy</span>
-            <h2 id="video-title">Filmy, które opowiadają Twoją historię</h2>
+        <section class="media-trips-video surface-card" aria-labelledby="mediaTripsVideoTitle">
+          <header>
+            <p class="section-eyebrow">Video wyjazdy</p>
+            <h3 id="mediaTripsVideoTitle">Filmy, które opowiadają Twoją historię</h3>
             <p>Zanurz się w ruchomych kadrach – od dynamicznych rolek po filmowe ujęcia znad klifów.</p>
-          </div>
-          <div class="video-grid">
+          </header>
+          <div class="media-trips-video-grid">
             <iframe
               src="https://www.youtube.com/embed/ewWv6zV0YRY"
               title="Video wyjazd – przykład 1"
@@ -830,297 +568,546 @@
               loading="lazy"
             ></iframe>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="section" aria-labelledby="video-pakiety">
-        <div class="container">
-          <div class="section-header">
-            <span class="section-eyebrow">Pakiety video</span>
-            <h2 id="video-pakiety">Wybierz plan filmowy dopasowany do intensywności przygody</h2>
-            <p>Każdy wariant obejmuje montaż, korekcję kolorów oraz rolki na media społecznościowe.</p>
+        <section class="media-trips-itineraries surface-card" id="mediaTripsPlan" aria-labelledby="mediaTripsPlanTitle">
+          <header>
+            <p class="section-eyebrow">Przykładowe plany dnia</p>
+            <h3 id="mediaTripsPlanTitle">Wybierz region startowy i odkryj propozycję atrakcji</h3>
+            <p>
+              Godziny i atrakcje dopasowujemy do Twoich preferencji – poniżej znajdziesz inspiracje dla pół- i
+              całodniowych wypraw.
+            </p>
+          </header>
+          <div class="media-trips-itineraries-grid">
+            <article class="media-trips-itinerary">
+              <h4>1. Pół dnia z Ayia Napa</h4>
+              <p class="media-trips-itinerary-time">Godziny: 10:00 – 15:00</p>
+              <ul>
+                <li>Ayia Napa – Most Miłości</li>
+                <li>Ayia Napa – Cape Greco</li>
+                <li>Lefkara – tradycyjna wioska + degustacja w winnicy</li>
+                <li>Larnaca – słone jezioro Salt Lake</li>
+              </ul>
+              <p>
+                Zapewniamy komfortowy odbiór i powrót do hotelu. Bez dodatkowych uczestników w grupie możemy poświęcić
+                czas na miejsca, które najbardziej Cię interesują.
+              </p>
+            </article>
+            <article class="media-trips-itinerary">
+              <h4>2. Pół dnia z Pafos</h4>
+              <p class="media-trips-itinerary-time">Godziny: 10:00 – 15:00</p>
+              <ul>
+                <li>Pafos – Skała Afrodyty</li>
+                <li>Pafos – wrak Edro III</li>
+                <li>Pafos – białe skały</li>
+                <li>Zapallo Bay – spektakularny klif</li>
+              </ul>
+              <p>
+                Wyjazd dopasowujemy do Twojego tempa. Możemy zatrzymać się na sesję zdjęciową, obiad czy dodatkowe
+                przystanki na lokalne produkty.
+              </p>
+            </article>
+            <article class="media-trips-itinerary">
+              <h4>3. Cały dzień z Ayia Napa</h4>
+              <p class="media-trips-itinerary-time">Godziny: 10:00 – 20:00</p>
+              <ul>
+                <li>Lefkara – wioska i degustacja wina</li>
+                <li>Zapallo Bay – najlepszy widok na wyspie</li>
+                <li>Limassol – promenada i marina</li>
+                <li>Larnaca – Salt Lake i akwedukt</li>
+                <li>Ayia Napa – Most Miłości, Cape Greco i marina</li>
+              </ul>
+              <p>
+                Długi dzień pozwala połączyć klimat gór, morza i miejskich deptaków. Polecamy najlepsze miejsca na lunch i
+                lokalne lody.
+              </p>
+            </article>
+            <article class="media-trips-itinerary">
+              <h4>4. Cały dzień z Pafos</h4>
+              <p class="media-trips-itinerary-time">Godziny: 10:00 – 20:00</p>
+              <ul>
+                <li>Pafos – Skała Afrodyty i wrak Edro III</li>
+                <li>Pafos – białe skały</li>
+                <li>Zapallo Bay – klifowe panoramy</li>
+                <li>Limassol – promenada i marina</li>
+                <li>Lefkara – tradycyjne koronki i degustacja</li>
+                <li>Larnaca – Salt Lake i akwedukt</li>
+              </ul>
+              <p>
+                To propozycja dla miłośników różnorodności. W jeden dzień zobaczymy zachód nad Pafos i złote światło w
+                Lefkarze, a na koniec odpoczniemy nad słonym jeziorem w Larnace.
+              </p>
+            </article>
           </div>
-          <div class="pricing-grid">
-            <article class="price-card">
-              <h3>Video Wyjazd</h3>
-              <div class="price-value">800<span>€/do 5h</span></div>
-              <div class="price-details">
-                <span>• Film do 3 minut</span>
-                <span>• Do 4 osób w cenie</span>
-                <span>• Kolejna osoba +200€</span>
-              </div>
-            </article>
-            <article class="price-card highlighted">
-              <div class="price-badge">Popularny</div>
-              <h3>Video Wyjazd</h3>
-              <div class="price-value">900<span>€/do 8h</span></div>
-              <div class="price-details">
-                <span>• Film do 4 minut</span>
-                <span>• Do 4 osób w cenie</span>
-                <span>• Kolejna osoba +225€</span>
-              </div>
-            </article>
-            <article class="price-card">
-              <h3>Video Wyjazd</h3>
-              <div class="price-value">1000<span>€/do 10h</span></div>
-              <div class="price-details">
-                <span>• Film do 5 minut + 2 rolki</span>
-                <span>• Do 4 osób w cenie</span>
-                <span>• Kolejna osoba +250€</span>
-              </div>
-            </article>
-            <article class="price-card">
-              <h3>Video Wyjazd 2 dni</h3>
-              <div class="price-value">1800<span>€/do 20h</span></div>
-              <div class="price-details">
-                <span>• Film do 10 minut</span>
-                <span>• 5 rolek na FB / IG</span>
-                <span>• Kolejna osoba +450€</span>
-              </div>
-            </article>
-          </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="section" aria-labelledby="vip-pakiety">
-        <div class="container">
-          <div class="section-header">
-            <span class="section-eyebrow">VIP wyjazdy</span>
-            <h2 id="vip-pakiety">Zwiedzanie z przewodnikiem bez kamery – idealne dla rodzin i par</h2>
-            <p>Pakiety VIP obejmują prywatnego przewodnika, transport oraz personalizację atrakcji.</p>
-          </div>
-          <div class="pricing-grid">
-            <article class="price-card">
-              <h3>VIP Wyjazd</h3>
-              <div class="price-value">300<span>€/do 5h</span></div>
-              <div class="price-details">
-                <span>• Do 4 osób w cenie</span>
-                <span>• Kolejna osoba +55€</span>
-              </div>
-            </article>
-            <article class="price-card highlighted">
-              <div class="price-badge">Najpopularniejszy</div>
-              <h3>VIP Wyjazd</h3>
-              <div class="price-value">400<span>€/do 8h</span></div>
-              <div class="price-details">
-                <span>• Do 4 osób w cenie</span>
-                <span>• Kolejna osoba +70€</span>
-              </div>
-            </article>
-            <article class="price-card">
-              <h3>VIP Wyjazd</h3>
-              <div class="price-value">500<span>€/do 10h</span></div>
-              <div class="price-details">
-                <span>• Do 4 osób w cenie</span>
-                <span>• Kolejna osoba +85€</span>
-              </div>
-            </article>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" id="plan" aria-labelledby="plan-tytul">
-        <div class="container">
-          <div class="section-header">
-            <span class="section-eyebrow">Przykładowe plany dnia</span>
-            <h2 id="plan-tytul">Wybierz region startowy i odkryj propozycję atrakcji</h2>
-            <p>Godziny i atrakcje dopasowujemy do Twoich preferencji – poniżej znajdziesz inspiracje dla pół- i całodniowych wypraw.</p>
-          </div>
-          <div class="tabs" role="tablist">
-            <div class="tab-buttons">
-              <button type="button" class="is-active" data-tab="tab-1" role="tab" aria-controls="tab-1" aria-selected="true">
-                <span>1</span>Pół dnia z Ayia Napa
-              </button>
-              <button type="button" data-tab="tab-2" role="tab" aria-controls="tab-2" aria-selected="false">
-                <span>2</span>Pół dnia z Pafos
-              </button>
-              <button type="button" data-tab="tab-3" role="tab" aria-controls="tab-3" aria-selected="false">
-                <span>3</span>Cały dzień z Ayia Napa
-              </button>
-              <button type="button" data-tab="tab-4" role="tab" aria-controls="tab-4" aria-selected="false">
-                <span>4</span>Cały dzień z Pafos
-              </button>
-            </div>
-            <div>
-              <div id="tab-1" class="tab-panel is-active" role="tabpanel">
-                <strong>Godziny: 10:00 – 15:00</strong>
-                <ul>
-                  <li>Ayia Napa – Most Miłości</li>
-                  <li>Ayia Napa – Cape Greco</li>
-                  <li>Lefkara – tradycyjna wioska + degustacja w winnicy</li>
-                  <li>Larnaca – słone jezioro Salt Lake</li>
-                </ul>
-                <p>
-                  Zapewniamy komfortowy odbiór i powrót do hotelu. Bez dodatkowych uczestników w grupie możemy poświęcić czas na miejsca, które najbardziej Cię interesują. Szczegóły dopracujemy w prywatnej wiadomości.
-                </p>
-              </div>
-              <div id="tab-2" class="tab-panel" role="tabpanel">
-                <strong>Godziny: 10:00 – 15:00</strong>
-                <ul>
-                  <li>Pafos – Skała Afrodyty</li>
-                  <li>Pafos – wrak Edro III</li>
-                  <li>Pafos – białe skały</li>
-                  <li>Zapallo Bay – spektakularny klif</li>
-                </ul>
-                <p>
-                  Wyjazd dopasowujemy do Twojego tempa. Możemy zatrzymać się na sesję zdjęciową, obiad czy dodatkowe przystanki na zakupy lokalnych produktów.
-                </p>
-              </div>
-              <div id="tab-3" class="tab-panel" role="tabpanel">
-                <strong>Godziny: 10:00 – 20:00</strong>
-                <ul>
-                  <li>Lefkara – wioska i degustacja wina</li>
-                  <li>Zapallo Bay – najlepszy widok na wyspie</li>
-                  <li>Limassol – promenada i marina</li>
-                  <li>Larnaca – Salt Lake i akwedukt</li>
-                  <li>Ayia Napa – Most Miłości, Cape Greco i nowa marina</li>
-                </ul>
-                <p>
-                  Długi dzień pełen atrakcji pozwala połączyć klimat gór, morza i miejskich deptaków. Po drodze polecamy najlepsze miejsca na lunch i lokalne lody.
-                </p>
-              </div>
-              <div id="tab-4" class="tab-panel" role="tabpanel">
-                <strong>Godziny: 10:00 – 20:00</strong>
-                <ul>
-                  <li>Pafos – Skała Afrodyty i wrak Edro III</li>
-                  <li>Pafos – białe skały</li>
-                  <li>Zapallo Bay – klifowe panoramy</li>
-                  <li>Limassol – promenada i marina</li>
-                  <li>Lefkara – tradycyjne koronki i degustacja</li>
-                  <li>Larnaca – Salt Lake i akwedukt</li>
-                </ul>
-                <p>
-                  To propozycja dla miłośników różnorodności. W jeden dzień zobaczymy zachód nad Pafos i złote światło w Lefkarze, a na koniec odpoczniemy nad słonym jeziorem w Larnace.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <section class="section" aria-labelledby="cta">
-        <div class="container">
-          <div class="highlight">
-            <span class="section-eyebrow">Zrób pierwszy krok</span>
-            <h2 id="cta">Wybierz pakiet i sprawdź dostępne terminy już teraz</h2>
+        <section class="media-trips-cta surface-card" aria-labelledby="mediaTripsCtaTitle">
+          <div class="media-trips-cta-inner">
+            <p class="section-eyebrow">Zrób pierwszy krok</p>
+            <h3 id="mediaTripsCtaTitle">Wybierz pakiet i sprawdź dostępne terminy już teraz</h3>
             <p>Do każdego wyjazdu podchodzimy indywidualnie – napisz do nas, a przygotujemy plan dopasowany do Twojej ekipy.</p>
-            <div>
-              <a class="btn btn-primary" href="#rezerwacja">Skontaktuj się z nami</a>
+            <div class="media-trips-cta-actions">
+              <a class="primary" href="#mediaTripsContact">Skontaktuj się z nami</a>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      <section class="section" id="rezerwacja" aria-labelledby="rezerwacja-tytul">
-        <div class="container">
-          <div class="section-header">
-            <span class="section-eyebrow">Rezerwacja</span>
-            <h2 id="rezerwacja-tytul">Wybierz wygodny sposób kontaktu</h2>
+        <section class="media-trips-contact surface-card" id="mediaTripsContact" aria-labelledby="mediaTripsContactTitle">
+          <header>
+            <p class="section-eyebrow">Rezerwacja</p>
+            <h3 id="mediaTripsContactTitle">Wybierz wygodny sposób kontaktu</h3>
             <p>Zbierz informacje o terminie, liczbie osób i rodzaju pakietu – resztą zajmiemy się my.</p>
-          </div>
-          <div class="contact-grid">
-            <article class="contact-card">
-              <div class="contact-icon">💬</div>
-              <h3>Facebook</h3>
+          </header>
+          <div class="media-trips-contact-grid">
+            <article class="media-trips-contact-card">
+              <div class="media-trips-contact-icon" aria-hidden="true">💬</div>
+              <h4>Facebook</h4>
               <p>Najszybszy kontakt z naszym zespołem.</p>
-              <a href="https://www.facebook.com/profile.php?id=61566609982587" target="_blank" rel="noopener">Napisz wiadomość</a>
+              <a href="https://www.facebook.com/profile.php?id=61566609982587" target="_blank" rel="noopener">
+                Napisz wiadomość
+              </a>
             </article>
-            <article class="contact-card">
-              <div class="contact-icon">📞</div>
-              <h3>Telefon</h3>
+            <article class="media-trips-contact-card">
+              <div class="media-trips-contact-icon" aria-hidden="true">📞</div>
+              <h4>Telefon</h4>
               <p>Bezpośredni kontakt z koordynatorem wyjazdu.</p>
               <a href="tel:+48534073861">Zadzwoń: +48 534 073 861</a>
             </article>
-            <article class="contact-card">
-              <div class="contact-icon">📱</div>
-              <h3>WhatsApp</h3>
+            <article class="media-trips-contact-card">
+              <div class="media-trips-contact-icon" aria-hidden="true">📱</div>
+              <h4>WhatsApp</h4>
               <p>Wygodne wiadomości głosowe i udostępnianie lokalizacji.</p>
               <a href="https://wa.me/48534073861" target="_blank" rel="noopener">Rozpocznij rozmowę</a>
             </article>
-            <article class="contact-card">
-              <div class="contact-icon">⭐</div>
-              <h3>Media społecznościowe</h3>
+            <article class="media-trips-contact-card">
+              <div class="media-trips-contact-icon" aria-hidden="true">⭐</div>
+              <h4>Media społecznościowe</h4>
               <p>Obserwuj LilKangooMedia i sprawdzaj nowe realizacje.</p>
               <a href="https://www.instagram.com/lilkangoomedia" target="_blank" rel="noopener">Zajrzyj na Instagram</a>
             </article>
           </div>
-        </div>
-      </section>
-
-      <section class="section" aria-labelledby="uslugi-dodatkowe">
-        <div class="container">
-          <div class="section-header">
-            <span class="section-eyebrow">Dodatkowe usługi</span>
-            <h2 id="uslugi-dodatkowe">Uzupełnij swój pobyt na Cyprze</h2>
-            <p>Potrzebujesz auta, transportu lub wyjątkowej willi? Sprawdź nasze zaufane propozycje.</p>
+          <div class="media-trips-contact-meta">
+            <div>
+              <h4>Masz pytania?</h4>
+              <p>Dzwoń codziennie 10:00–23:00 (pn–pt) i 10:00–18:00 (weekend).</p>
+              <p>
+                <strong>Michał</strong><br />
+                <a href="tel:+35799005924">+357 990 059 24</a><br />
+                <a href="https://wa.me/48534073861" target="_blank" rel="noopener">WhatsApp +48</a>
+              </p>
+            </div>
+            <div>
+              <h4>Dołącz do społeczności</h4>
+              <p>Wpadnij na Facebooka i Instagram, aby zobaczyć najnowsze relacje z wyjazdów.</p>
+              <p>
+                <a href="https://www.facebook.com/groups/wakacjecy" target="_blank" rel="noopener">Grupa na Facebooku</a><br />
+                <a href="https://www.instagram.com/wakacjecypr/" target="_blank" rel="noopener">Instagram</a>
+              </p>
+            </div>
+            <div>
+              <h4>Dokumenty</h4>
+              <p>
+                <a href="termsofservice.html">Regulamin</a><br />
+                <a href="termsofservice.html#content4-6h">Polityka prywatności</a>
+              </p>
+            </div>
           </div>
-          <div class="services-grid">
-            <article class="service-card">
-              <h3><a href="transport.html">Transport</a></h3>
+        </section>
+
+        <section class="media-trips-extra surface-card" aria-labelledby="mediaTripsExtraTitle">
+          <header>
+            <p class="section-eyebrow">Dodatkowe usługi</p>
+            <h3 id="mediaTripsExtraTitle">Uzupełnij swój pobyt na Cyprze</h3>
+            <p>Potrzebujesz auta, transportu lub wyjątkowej willi? Sprawdź nasze zaufane propozycje.</p>
+          </header>
+          <div class="media-trips-extra-grid">
+            <article class="media-trips-extra-card">
+              <h4><a href="transport.html">Transport</a></h4>
               <p>Wygodne przejazdy z i do lotniska oraz po całej wyspie.</p>
             </article>
-            <article class="service-card">
-              <h3><a href="auto.html">Wynajem auta</a></h3>
+            <article class="media-trips-extra-card">
+              <h4><a href="auto.html">Wynajem auta</a></h4>
               <p>Samochody bez kaucji w okolicach Pafos i Larnaki.</p>
             </article>
-            <article class="service-card">
-              <h3><a href="villa.html">Wynajem willi</a></h3>
+            <article class="media-trips-extra-card">
+              <h4><a href="villa.html">Wynajem willi</a></h4>
               <p>Designerskie wille w Ayia Napa od 125€ za dobę.</p>
             </article>
           </div>
-        </div>
-      </section>
-    </main>
-
-    <footer>
-      <div class="container">
-        <div class="footer-grid">
-          <div>
-            <h3>Masz pytania?</h3>
-            <p>Dzwoń codziennie 10:00–23:00 (pn–pt) i 10:00–18:00 (weekend).</p>
-            <p><strong>Michał</strong><br /><a href="tel:+35799005924">+357 990 059 24</a><br /><a href="https://wa.me/48534073861" target="_blank" rel="noopener">WhatsApp +48</a></p>
-          </div>
-          <div>
-            <h3>Dołącz do społeczności</h3>
-            <p>
-              Wpadnij na Facebooka i Instagram, aby zobaczyć najnowsze relacje z wyjazdów.
-            </p>
-            <p>
-              <a href="https://www.facebook.com/groups/wakacjecy" target="_blank" rel="noopener">Grupa na Facebooku</a><br />
-              <a href="https://www.instagram.com/wakacjecypr/" target="_blank" rel="noopener">Instagram</a>
-            </p>
-          </div>
-          <div>
-            <h3>Dokumenty</h3>
-            <p>
-              <a href="termsofservice.html">Regulamin</a><br />
-              <a href="termsofservice.html#content4-6h">Polityka prywatności</a>
-            </p>
-          </div>
-        </div>
-        <p class="footer-meta">© 2024 WakacjeCypr.com – Wszystkie prawa zastrzeżone.</p>
+        </section>
       </div>
-    </footer>
+    </section>
+    <section class="services-panel surface-card services-panel-footer" aria-label="Planowanie podróży i inspiracje">
+      <h2 data-i18n-key="services.title">Odkryj z nami Cypr</h2>
+      <p data-i18n-key="services.description">
+        WakacjeCypr.com to lokalni eksperci gotowi zorganizować dla Ciebie
+        niezapomniane wakacje, prywatne wycieczki, degustacje wina i rejsy.
+      </p>
+      <ul>
+        <li data-i18n-key="services.itemOne">Indywidualne plany podróży dopasowane do Twoich check-inów.</li>
+        <li data-i18n-key="services.itemTwo">Wycieczki z przewodnikiem w miejscach, które już odblokowałeś.</li>
+        <li data-i18n-key="services.itemThree">Kontakt z nami prosto z aplikacji – kliknij przycisk poniżej.</li>
+      </ul>
+      <a class="primary" href="https://wakacjecypr.com" target="_blank" rel="noopener" data-i18n-key="services.cta"
+        >Poznaj nasze usługi</a
+      >
+    </section>
+  </main>
+
+  <nav class="mobile-tabbar" aria-label="Dolna nawigacja">
+    <button
+      type="button"
+      class="mobile-tabbar-btn is-active"
+      id="mobileAdventureTab"
+      aria-controls="adventureView"
+      data-target="adventureView"
+      aria-pressed="true"
+    >
+      <span class="mobile-tabbar-icon" aria-hidden="true">🎯</span>
+      <span class="mobile-tabbar-label" data-i18n-key="mobile.nav.adventure">Przygoda</span>
+    </button>
+    <button
+      type="button"
+      class="mobile-tabbar-btn"
+      id="mobilePackingTab"
+      aria-controls="packingView"
+      data-target="packingView"
+      aria-pressed="false"
+      data-page-url="packing.html"
+    >
+      <span class="mobile-tabbar-icon" aria-hidden="true">🎒</span>
+      <span class="mobile-tabbar-label" data-i18n-key="mobile.nav.packing">Pakowanie</span>
+    </button>
+    <button
+      type="button"
+      class="mobile-tabbar-btn"
+      id="mobileTasksTab"
+      aria-controls="tasksView"
+      data-target="tasksView"
+      aria-pressed="false"
+      data-page-url="tasks.html"
+    >
+      <span class="mobile-tabbar-icon" aria-hidden="true">✅</span>
+      <span class="mobile-tabbar-label" data-i18n-key="mobile.nav.tasks">Misje</span>
+    </button>
+    <button
+      type="button"
+      class="mobile-tabbar-btn"
+      id="mobileMediaTripsTab"
+      aria-controls="mediaTripsView"
+      data-target="mediaTripsView"
+      aria-pressed="false"
+      data-page-url="media-trips.html"
+    >
+      <span class="mobile-tabbar-icon" aria-hidden="true">📸</span>
+      <span class="mobile-tabbar-label" data-i18n-key="mobile.nav.mediaTrips">VIP</span>
+    </button>
+  </nav>
+
+  <footer class="app-footer">
+    <p data-i18n-key="footer.app">© <span id="year"></span> WakacjeCypr.com • Graj, zwiedzaj i planuj wakacje jednocześnie.</p>
+  </footer>
+
+  <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="i18n.js"></script>
+  <script src="car-rental.js"></script>
+  <script src="app.js"></script>
+
+  <div class="explorer-modal" id="explorerModal" hidden role="dialog" aria-modal="true" aria-labelledby="explorerTitle">
+    <div class="explorer-dialog">
+      <header class="explorer-header">
+        <div>
+          <h2 id="explorerTitle" data-i18n-key="explorer.title">Interaktywny przewodnik po Cyprze</h2>
+          <p data-i18n-key="explorer.subtitle">
+            Przeglądaj wszystkie nasze lokalizacje i wybieraj, które chcesz odwiedzić jako następne.
+          </p>
+        </div>
+        <div class="explorer-controls">
+          <label class="sr-only" for="explorerFilter" data-i18n-key="explorer.filterLabel">Filtruj atrakcje</label>
+          <select id="explorerFilter">
+            <option value="all" data-i18n-key="explorer.filter.all">Wszystkie miejsca</option>
+            <option value="available" data-i18n-key="explorer.filter.available">Do odwiedzenia</option>
+            <option value="visited" data-i18n-key="explorer.filter.visited">Zdobyte odznaki</option>
+          </select>
+          <button
+            type="button"
+            class="icon-button"
+            id="explorerClose"
+            aria-label="Zamknij okno"
+            data-i18n-key="explorer.close"
+          >
+            ✕
+          </button>
+        </div>
+      </header>
+      <div class="explorer-grid" id="explorerGrid" role="list"></div>
+    </div>
   </div>
 
-  <script>
-    const tabButtons = document.querySelectorAll('.tab-buttons button');
-    const tabPanels = document.querySelectorAll('.tab-panel');
+  <div class="auth-modal" id="authModal" hidden role="dialog" aria-modal="true" aria-labelledby="authTitle">
+    <div class="auth-dialog">
+      <header class="auth-header">
+        <div>
+          <h2 id="authTitle" data-i18n-key="auth.title">Zaloguj się lub załóż konto</h2>
+          <p data-i18n-key="auth.subtitle">Zapisuj swoje statystyki i kontynuuj przygody na dowolnym urządzeniu.</p>
+        </div>
+        <button
+          type="button"
+          class="icon-button"
+          id="authClose"
+          aria-label="Zamknij okno logowania"
+          data-i18n-key="auth.close"
+        >
+          ✕
+        </button>
+      </header>
 
-    tabButtons.forEach((button) => {
-      button.addEventListener('click', () => {
-        const targetId = button.dataset.tab;
+      <div class="auth-content">
+        <form id="loginForm" class="auth-form">
+          <h3 data-i18n-key="auth.login.title">Logowanie</h3>
+          <label for="loginUsername" data-i18n-key="auth.login.username">Adres e-mail lub login</label>
+          <input id="loginUsername" name="loginUsername" type="text" autocomplete="username" required />
+          <label for="loginPassword" data-i18n-key="auth.login.password">Hasło</label>
+          <input id="loginPassword" name="loginPassword" type="password" autocomplete="current-password" required />
+          <button type="submit" class="primary" data-i18n-key="auth.login.submit">Zaloguj się</button>
+        </form>
 
-        tabButtons.forEach((btn) => {
-          btn.classList.toggle('is-active', btn === button);
-          btn.setAttribute('aria-selected', btn === button ? 'true' : 'false');
-        });
+        <div class="auth-divider" role="separator" aria-hidden="true">
+          <span data-i18n-key="auth.divider">LUB</span>
+        </div>
 
-        tabPanels.forEach((panel) => {
-          panel.classList.toggle('is-active', panel.id === targetId);
-        });
-      });
-    });
-  </script>
+        <form id="registerForm" class="auth-form">
+          <h3 data-i18n-key="auth.register.title">Rejestracja</h3>
+          <label for="registerUsername" data-i18n-key="auth.register.username">Adres e-mail lub login</label>
+          <input id="registerUsername" name="registerUsername" type="text" autocomplete="email" required />
+          <label for="registerPassword" data-i18n-key="auth.register.password">Hasło</label>
+          <input id="registerPassword" name="registerPassword" type="password" autocomplete="new-password" required minlength="8" />
+          <label for="registerPasswordConfirm" data-i18n-key="auth.register.confirm">Powtórz hasło</label>
+          <input
+            id="registerPasswordConfirm"
+            name="registerPasswordConfirm"
+            type="password"
+            autocomplete="new-password"
+            required
+            minlength="8"
+          />
+          <p class="form-hint" data-i18n-key="auth.register.hint">Twoje obecne postępy zostaną zapisane na nowym koncie.</p>
+          <button type="submit" class="secondary" data-i18n-key="auth.register.submit">Załóż konto</button>
+        </form>
+      </div>
+
+      <div class="auth-footer">
+        <div class="auth-guest">
+          <button
+            type="button"
+            class="secondary guest-button"
+            id="guestAccessBtn"
+            data-i18n-key="auth.guest.button"
+          >
+            🎮 Graj jako gość
+          </button>
+          <p data-i18n-key="auth.guest.description">
+            Możesz korzystać z aplikacji bez konta – postępy zapiszą się na tym urządzeniu.
+          </p>
+        </div>
+        <p id="authMessage" class="auth-message" role="status" aria-live="polite"></p>
+      </div>
+    </div>
+  </div>
+
+  <div class="sos-modal" id="sosModal" hidden role="dialog" aria-modal="true" aria-labelledby="sosTitle">
+    <div class="sos-dialog" role="document">
+      <header class="sos-header">
+        <div>
+          <h2 id="sosTitle" data-i18n-key="sos.title">SOS</h2>
+          <p id="sosDescription" data-i18n-key="sos.description">
+            Szybki dostęp do numerów alarmowych, kontaktu z ambasadą oraz wskazówek medycznych.
+          </p>
+        </div>
+        <button
+          type="button"
+          class="icon-button"
+          id="sosClose"
+          aria-label="Zamknij okno SOS"
+          data-i18n-key="sos.close"
+        >
+          ✕
+        </button>
+      </header>
+
+      <div class="sos-grid" aria-describedby="sosDescription">
+        <section class="sos-card">
+          <h3 data-i18n-key="sos.emergency.title">🚑 Numery alarmowe na Cyprze</h3>
+          <ul>
+            <li>
+              <strong>112</strong>
+              <p data-i18n-key="sos.emergency.eu">
+                Uniwersalny numer alarmowy UE (policja, pogotowie, straż pożarna). <a href="tel:112">Zadzwoń teraz</a>
+              </p>
+            </li>
+            <li>
+              <strong>199</strong>
+              <p data-i18n-key="sos.emergency.cyprus">
+                Cypryjski numer alarmowy – działa równolegle z 112. <a href="tel:199">Połącz</a>
+              </p>
+            </li>
+            <li>
+              <strong>+357 22 802 020</strong>
+              <p data-i18n-key="sos.emergency.police">
+                Całodobowa linia policji (spoza Cypru wybierz pełny numer kierunkowy). <a href="tel:+35722802020">Zadzwoń</a>
+              </p>
+            </li>
+          </ul>
+        </section>
+
+        <section class="sos-card">
+          <h3 data-i18n-key="sos.embassy.title">🛡️ Ambasada RP w Nikozji</h3>
+          <ul>
+            <li>
+              <strong>Telefon alarmowy</strong>
+              <p data-i18n-key="sos.embassy.hotline">
+                <a href="tel:+35799660451">+357 99 660 451</a> (wsparcie w nagłych wypadkach obywateli RP).
+              </p>
+            </li>
+            <li>
+              <strong>Recepcja</strong>
+              <p data-i18n-key="sos.embassy.reception">
+                <a href="tel:+35722751777">+357 22 751 777</a> (pon.–pt. w godz. pracy placówki).
+              </p>
+            </li>
+            <li>
+              <strong>Adres</strong>
+              <p data-i18n-key="sos.embassy.address">
+                14, Ifigenias Street, 2007 Nikozja • <a href="https://maps.google.com/?q=Embassy+of+Poland+in+Cyprus" target="_blank" rel="noopener">Wyznacz trasę</a>
+              </p>
+            </li>
+            <li>
+              <strong>E-mail</strong>
+              <p data-i18n-key="sos.embassy.email"><a href="mailto:nicosia.info@msz.gov.pl">nicosia.info@msz.gov.pl</a></p>
+            </li>
+          </ul>
+        </section>
+
+        <section class="sos-card">
+          <h3 data-i18n-key="sos.healthcare.title">🏥 Najbliższa pomoc medyczna</h3>
+          <ul>
+            <li>
+              <strong>Paphos General Hospital</strong>
+              <p data-i18n-key="sos.healthcare.hospital">
+                Całodobowa izba przyjęć, Anavargos, Pafos. <a href="tel:+35726803000">+357 26 803 000</a> •
+                <a href="https://maps.google.com/?q=Paphos+General+Hospital" target="_blank" rel="noopener">Mapa dojazdu</a>
+              </p>
+            </li>
+            <li>
+              <strong>Wyszukaj szpital w pobliżu</strong>
+              <p data-i18n-key="sos.healthcare.search">
+                <a href="https://www.google.com/maps/search/hospital+near+me/" target="_blank" rel="noopener">Otwórz listę szpitali na Mapach Google</a>
+                i udostępnij lokalizację, aby zobaczyć najbliższe opcje.
+              </p>
+            </li>
+            <li>
+              <strong>Dyżurna apteka</strong>
+              <p data-i18n-key="sos.healthcare.pharmacy">
+                Sprawdź aktualne dyżury na <a href="https://pharmacy.dl.moh.gov.cy/" target="_blank" rel="noopener">stronie Ministerstwa Zdrowia</a>
+                lub wyszukaj <a href="https://www.google.com/maps/search/pharmacy+near+me/" target="_blank" rel="noopener">aptekę w pobliżu</a>.
+              </p>
+            </li>
+          </ul>
+          <p class="sos-note" data-i18n-key="sos.healthcare.note">
+            W sytuacji zagrożenia życia zawsze dzwoń pod 112 i dokładnie podaj lokalizację. W aplikacji włącz udostępnianie
+            lokalizacji, aby szybciej odnaleźć pomoc na mapie.
+          </p>
+        </section>
+      </div>
+    </div>
+  </div>
+
+  <div
+    class="account-modal"
+    id="accountModal"
+    hidden
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="accountTitle"
+  >
+    <div class="account-dialog">
+      <header class="account-header">
+        <div>
+          <h2 id="accountTitle" data-i18n-key="account.title">Ustawienia konta</h2>
+          <p data-i18n-key="account.subtitle">Zaktualizuj swoje dane logowania lub rozpocznij przygodę od nowa.</p>
+        </div>
+        <button
+          type="button"
+          class="icon-button"
+          id="accountClose"
+          aria-label="Zamknij ustawienia konta"
+          data-i18n-key="account.close"
+        >
+          ✕
+        </button>
+      </header>
+
+      <div class="account-content">
+        <form id="accountUsernameForm" class="account-form">
+          <h3 data-i18n-key="account.username.title">Zmień nazwę użytkownika</h3>
+          <label for="accountUsername" data-i18n-key="account.username.label">Nowa nazwa użytkownika</label>
+          <input id="accountUsername" name="accountUsername" type="text" autocomplete="username" required />
+          <p class="form-hint" data-i18n-key="account.username.hint">
+            Zmiana zapisze się od razu i będzie widoczna w przywitaniu.
+          </p>
+          <button type="submit" class="secondary" data-i18n-key="account.username.submit">Zapisz nazwę</button>
+        </form>
+
+        <form id="accountPasswordForm" class="account-form">
+          <h3 data-i18n-key="account.password.title">Zaktualizuj hasło</h3>
+          <label for="accountCurrentPassword" data-i18n-key="account.password.current">Obecne hasło</label>
+          <input
+            id="accountCurrentPassword"
+            name="accountCurrentPassword"
+            type="password"
+            autocomplete="current-password"
+            required
+          />
+          <label for="accountNewPassword" data-i18n-key="account.password.new">Nowe hasło</label>
+          <input
+            id="accountNewPassword"
+            name="accountNewPassword"
+            type="password"
+            autocomplete="new-password"
+            required
+            minlength="8"
+          />
+          <label for="accountConfirmPassword" data-i18n-key="account.password.confirm">Powtórz nowe hasło</label>
+          <input
+            id="accountConfirmPassword"
+            name="accountConfirmPassword"
+            type="password"
+            autocomplete="new-password"
+            required
+            minlength="8"
+          />
+          <p class="form-hint" data-i18n-key="account.password.hint">Hasło powinno mieć co najmniej 8 znaków.</p>
+          <button type="submit" class="secondary" data-i18n-key="account.password.submit">Zmień hasło</button>
+        </form>
+
+        <section class="account-reset">
+          <h3 data-i18n-key="account.reset.title">Restart gry</h3>
+          <p data-i18n-key="account.reset.description">
+            Wyzeruj zdobyte odznaki oraz doświadczenie i rozpocznij eksplorację od poziomu pierwszego.
+          </p>
+          <button type="button" class="danger" id="accountResetProgress" data-i18n-key="account.reset.action">
+            🔄 Zresetuj postęp
+          </button>
+        </section>
+      </div>
+
+      <footer class="account-footer">
+        <p id="accountMessage" class="account-message" role="status" aria-live="polite"></p>
+      </footer>
+    </div>
+  </div>
 </body>
 </html>
