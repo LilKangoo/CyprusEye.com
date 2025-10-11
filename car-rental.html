@@ -4,7 +4,22 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#2563eb" />
-    <title>Wynajem aut na Cyprze – WakacjeCypr</title>
+    <title data-i18n="seo.carRental.title">WakacjeCypr – wynajem aut na całym Cyprze</title>
+    <meta
+      name="description"
+      content="Wypożycz auto na całym Cyprze bez kaucji, z odbiorem na lotnisku lub pod hotelem oraz przejrzystymi cenami."
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="WakacjeCypr – wynajem aut na całym Cyprze" />
+    <meta
+      property="og:description"
+      content="Podróżuj po Cyprze bez ograniczeń dzięki flocie obejmującej całą wyspę, pełnemu ubezpieczeniu i polskiej obsłudze 24/7."
+    />
+    <meta property="og:url" content="" />
+    <meta property="og:image" content="assets/cyprus_logo-1000x1054.png" />
+    <meta property="og:locale" content="pl_PL" />
+    <link rel="alternate" hreflang="pl" href="?lang=pl" />
+    <link rel="alternate" hreflang="en" href="?lang=en" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -13,7 +28,7 @@
     />
     <link rel="stylesheet" href="styles.css" />
   </head>
-  <body class="standalone-body">
+  <body class="standalone-body" data-seo-page="carRental">
     <div class="standalone-page">
       <header class="surface-card standalone-header">
         <div class="standalone-brand">
@@ -202,6 +217,8 @@
       </footer>
     </div>
 
+    <script src="js/i18n.js"></script>
+    <script src="js/seo.js"></script>
     <script src="car-rental.js"></script>
     <script>
       document.addEventListener('DOMContentLoaded', () => {
