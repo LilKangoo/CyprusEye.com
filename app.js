@@ -7634,6 +7634,8 @@ function bootstrap() {
   const explorerClose = document.getElementById('explorerClose');
   const explorerFilter = document.getElementById('explorerFilter');
   const jumpToObjectiveBtn = document.getElementById('jumpToObjective');
+  const currentObjectiveSection = document.getElementById('current-objective');
+  const currentObjectiveHeading = document.getElementById('currentObjectiveHeading');
   const authModal = document.getElementById('authModal');
   const sosToggle = document.getElementById('sosToggle');
   const sosModal = document.getElementById('sosModal');
@@ -7763,6 +7765,16 @@ function bootstrap() {
   });
 
   jumpToObjectiveBtn?.addEventListener('click', () => {
+    if (currentObjectiveSection instanceof HTMLElement) {
+      currentObjectiveSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    if (currentObjectiveHeading instanceof HTMLElement) {
+      requestAnimationFrame(() => {
+        currentObjectiveHeading.focus({ preventScroll: true });
+      });
+    }
+
     if (state.selected) {
       focusPlace(state.selected.id);
       return;

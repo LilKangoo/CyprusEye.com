@@ -197,7 +197,10 @@
   <main>
     <div class="layout app-view" id="adventureView" role="tabpanel" aria-labelledby="headerAdventureTab">
       <div class="primary-column">
-        <section class="map-panel surface-card">
+        <section id="current-objective" class="map-panel surface-card">
+          <h2 id="currentObjectiveHeading" class="sr-only" tabindex="-1" data-i18n="objective.title">
+            Aktualna lokalizacja
+          </h2>
           <div id="map" aria-label="Interaktywna mapa atrakcji"></div>
           <div class="current-objective" id="currentObjective" hidden>
             <h2 data-i18n="objective.title">Aktualna lokalizacja</h2>
