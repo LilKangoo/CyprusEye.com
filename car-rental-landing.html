@@ -61,7 +61,14 @@
             <p data-i18n="carRental.offers.subtitle">Wybierz, w którym mieście zaczyna się Twoja przygoda, a my pokażemy dostępne samochody i ceny.</p>
           </header>
           <div class="city-select-grid" role="list">
-            <article class="city-select-card" role="listitem">
+            <a
+              class="city-select-card"
+              role="listitem"
+              href="/car-rental/cyprus.html"
+              aria-label="Przejdź do oferty wynajmu na całym Cyprze"
+              data-i18n-attrs="aria-label:carRental.offers.larnaca.ctaAria"
+              onkeydown="if (event.key === ' ' || event.key === 'Spacebar') { event.preventDefault(); this.click(); }"
+            >
               <div class="city-select-card-content">
                 <p class="city-select-card-tag" data-i18n="carRental.offers.larnaca.tag">Cały Cypr</p>
                 <h3 data-i18n="carRental.offers.larnaca.title">Odbiór w Larnace lub dowóz na wyspie</h3>
@@ -74,18 +81,20 @@
                   <li data-i18n="carRental.offers.larnaca.itemTwo">Pełne ubezpieczenie oraz dodatki rodzinne w cenie</li>
                   <li data-i18n="carRental.offers.larnaca.itemThree">Kalkulator kosztów i formularz rezerwacji online</li>
                 </ul>
+                <span class="primary city-select-cta" data-i18n="carRental.offers.larnaca.cta"
+                  >Zobacz ofertę ogólnocypryjską</span
+                >
               </div>
-              <a
-                class="primary city-select-cta"
-                href="car-rental.html"
-                aria-label="Przejdź do oferty wynajmu na całym Cyprze"
-                data-i18n="carRental.offers.larnaca.cta"
-                data-i18n-attrs="aria-label:carRental.offers.larnaca.ctaAria"
-                >Zobacz ofertę ogólnocypryjską</a
-              >
-            </article>
+            </a>
 
-            <article class="city-select-card" role="listitem">
+            <a
+              class="city-select-card"
+              role="listitem"
+              href="/car-rental/paphos.html"
+              aria-label="Przejdź do oferty wynajmu aut w Pafos"
+              data-i18n-attrs="aria-label:carRental.offers.paphos.ctaAria"
+              onkeydown="if (event.key === ' ' || event.key === 'Spacebar') { event.preventDefault(); this.click(); }"
+            >
               <div class="city-select-card-content">
                 <p class="city-select-card-tag" data-i18n="carRental.offers.paphos.tag">Pafos</p>
                 <h3 data-i18n="carRental.offers.paphos.title">Odbiór na lotnisku PFO lub pod hotelem bez dopłat</h3>
@@ -98,16 +107,11 @@
                   <li data-i18n="carRental.offers.paphos.itemTwo">Dowóz do Coral Bay i Polis za niewielką opłatą</li>
                   <li data-i18n="carRental.offers.paphos.itemThree">Polska obsługa 24/7 i przejrzysty kalkulator wynajmu</li>
                 </ul>
+                <span class="secondary city-select-cta" data-i18n="carRental.offers.paphos.cta"
+                  >Zobacz ofertę Pafos</span
+                >
               </div>
-              <a
-                class="secondary city-select-cta"
-                href="autopfo.html"
-                aria-label="Przejdź do oferty wynajmu aut w Pafos"
-                data-i18n="carRental.offers.paphos.cta"
-                data-i18n-attrs="aria-label:carRental.offers.paphos.ctaAria"
-                >Zobacz ofertę Pafos</a
-              >
-            </article>
+            </a>
           </div>
         </section>
       </main>
