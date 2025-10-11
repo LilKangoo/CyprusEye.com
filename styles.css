@@ -1483,13 +1483,16 @@ main::before {
 
 .media-trip-card {
   position: relative;
-  display: block;
-  padding: 0;
+  z-index: 1;
+  display: grid;
+  gap: clamp(1.6rem, 2.4vw, 2.4rem);
+  padding: clamp(1.75rem, 3vw, 2.6rem);
   overflow: hidden;
   border-radius: 24px;
   border: 1px solid rgba(148, 163, 184, 0.2);
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 22px 40px rgba(15, 23, 42, 0.12);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .media-trip-card::before {
@@ -1507,27 +1510,9 @@ main::before {
   z-index: -2;
 }
 
-.media-trip-layout {
-  position: relative;
-  z-index: 1;
-  display: grid;
-  gap: clamp(1.6rem, 2.4vw, 2.4rem);
-  padding: clamp(1.75rem, 3vw, 2.6rem);
-  grid-template-columns: minmax(0, 1fr);
-}
-
-.media-trip-overview,
-.media-trip-calculator {
+.media-trip-primary {
   display: grid;
   gap: clamp(0.9rem, 2vw, 1.35rem);
-}
-
-.media-trip-calculator {
-  background: rgba(248, 250, 252, 0.92);
-  border-radius: 20px;
-  border: 1px solid rgba(148, 163, 184, 0.32);
-  padding: clamp(1.25rem, 2.2vw, 1.8rem);
-  box-shadow: none;
 }
 
 .media-trip-card-header {
@@ -1626,6 +1611,10 @@ main::before {
 .media-trip-form {
   display: grid;
   gap: clamp(0.75rem, 1.8vw, 1.1rem);
+  background: rgba(248, 250, 252, 0.92);
+  border-radius: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.32);
+  padding: clamp(1.25rem, 2.2vw, 1.8rem);
 }
 
 .media-trip-field {
@@ -1687,29 +1676,19 @@ main::before {
   color: var(--secondary);
 }
 
-@media (max-width: 960px) {
-  .media-trip-layout {
-    grid-template-columns: 1fr;
-  }
-
-  .media-trip-calculator {
-    box-shadow: none;
-  }
-}
-
 @media (min-width: 960px) {
-  .media-trip-layout {
+  .media-trip-card {
     grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
     align-items: stretch;
   }
 
-  .media-trip-calculator {
+  .media-trip-form {
     align-self: stretch;
   }
 }
 
 @media (min-width: 1280px) {
-  .media-trip-layout {
+  .media-trip-card {
     padding: clamp(2.25rem, 3vw, 3rem);
   }
 }

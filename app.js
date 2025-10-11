@@ -3511,60 +3511,56 @@ function createMediaTripCard(trip) {
     : '';
 
   card.innerHTML = `
-    <div class="media-trip-layout">
-      <section class="media-trip-overview" aria-labelledby="${titleId}">
-        <header class="media-trip-card-header">
-          <p class="media-trip-meta">${trip.mediaType} • ${trip.duration}</p>
-          <h3 id="${titleId}">${trip.title}</h3>
-          <p class="media-trip-description">${trip.description}</p>
-          <p class="media-trip-price">Ceny od${includedLabel}: <strong>${basePriceLabel}</strong></p>
-        </header>
-        ${highlightsSection}
-        ${detailsLink}
-      </section>
-      <section class="media-trip-calculator" aria-labelledby="${calculatorHeadingId}">
-        <h4 class="media-trip-section-title" id="${calculatorHeadingId}">Kalkulator pakietu</h4>
-        <form class="media-trip-form" aria-labelledby="${calculatorHeadingId}">
-          ${variantOptions
-            ? `
-                <div class="media-trip-field">
-                  <label for="${trip.id}-variant">Wariant pakietu</label>
-                  <select id="${trip.id}-variant" name="variant" aria-describedby="${variantHelperId}">
-                    ${variantOptions}
-                  </select>
-                  <p class="media-trip-helper" id="${variantHelperId}">Kalkulator automatycznie przelicza cenę i dopłatę za dodatkowe osoby.</p>
-                </div>
-              `
-            : ''}
-          <div class="media-trip-field">
-            <label for="${trip.id}-participants">Liczba uczestników</label>
-            <input
-              id="${trip.id}-participants"
-              name="participants"
-              type="number"
-              inputmode="numeric"
-              min="1"
-              step="1"
-              value="${trip.defaultParticipants}"
-            />
-          </div>
-          <dl class="media-trip-result" role="status" aria-live="polite">
-            <div class="media-trip-result-row">
-              <dt>Łączny koszt pakietu</dt>
-              <dd>
-                <output class="media-trip-output" name="total" for="${outputForAttribute}"></output>
-              </dd>
-            </div>
-            <div class="media-trip-result-row">
-              <dt>Koszt na osobę</dt>
-              <dd>
-                <output class="media-trip-output" name="perPerson" for="${outputForAttribute}"></output>
-              </dd>
-            </div>
-          </dl>
-        </form>
-      </section>
+    <div class="media-trip-primary" aria-labelledby="${titleId}">
+      <header class="media-trip-card-header">
+        <p class="media-trip-meta">${trip.mediaType} • ${trip.duration}</p>
+        <h3 id="${titleId}">${trip.title}</h3>
+        <p class="media-trip-description">${trip.description}</p>
+        <p class="media-trip-price">Ceny od${includedLabel}: <strong>${basePriceLabel}</strong></p>
+      </header>
+      ${highlightsSection}
+      ${detailsLink}
     </div>
+    <form class="media-trip-form" aria-labelledby="${calculatorHeadingId}">
+      <h4 class="media-trip-section-title" id="${calculatorHeadingId}">Kalkulator pakietu</h4>
+      ${variantOptions
+        ? `
+            <div class="media-trip-field">
+              <label for="${trip.id}-variant">Wariant pakietu</label>
+              <select id="${trip.id}-variant" name="variant" aria-describedby="${variantHelperId}">
+                ${variantOptions}
+              </select>
+              <p class="media-trip-helper" id="${variantHelperId}">Kalkulator automatycznie przelicza cenę i dopłatę za dodatkowe osoby.</p>
+            </div>
+          `
+        : ''}
+      <div class="media-trip-field">
+        <label for="${trip.id}-participants">Liczba uczestników</label>
+        <input
+          id="${trip.id}-participants"
+          name="participants"
+          type="number"
+          inputmode="numeric"
+          min="1"
+          step="1"
+          value="${trip.defaultParticipants}"
+        />
+      </div>
+      <dl class="media-trip-result" role="status" aria-live="polite">
+        <div class="media-trip-result-row">
+          <dt>Łączny koszt pakietu</dt>
+          <dd>
+            <output class="media-trip-output" name="total" for="${outputForAttribute}"></output>
+          </dd>
+        </div>
+        <div class="media-trip-result-row">
+          <dt>Koszt na osobę</dt>
+          <dd>
+            <output class="media-trip-output" name="perPerson" for="${outputForAttribute}"></output>
+          </dd>
+        </div>
+      </dl>
+    </form>
   `;
 
   const form = card.querySelector('.media-trip-form');
