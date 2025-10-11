@@ -3278,12 +3278,54 @@ function updateAllAttractionDistances() {
   });
 }
 
+function isGeolocationPermissionDenied(error) {
+  if (!error) {
+    return false;
+  }
+
+  if (typeof error.code === 'number') {
+    if (typeof error.PERMISSION_DENIED === 'number' && error.code === error.PERMISSION_DENIED) {
+      return true;
+    }
+    if (error.code === 1) {
+      return true;
+    }
+  }
+
+  const message = typeof error.message === 'string' ? error.message.toLowerCase() : '';
+  return message.includes('permission denied');
+}
+
+function isGeolocationSecureContextError(error) {
+  if (!error) {
+    return false;
+  }
+
+  if (error.name === 'SecurityError') {
+    return true;
+  }
+
+  const message = typeof error.message === 'string' ? error.message.toLowerCase() : '';
+  return message.includes('only secure origins allowed') || message.includes('secure origin');
+}
+
 function handleAttractionsLocationError(error) {
   console.warn('Błąd geolokalizacji katalogu atrakcji', error);
-  if (error?.code === error.PERMISSION_DENIED) {
-    attractionsLocationMessage = 'Włącz udostępnianie lokalizacji';
+  if (isGeolocationSecureContextError(error)) {
+    attractionsLocationMessage = translate(
+      'places.distance.secureContext',
+      'Użyj bezpiecznego połączenia (HTTPS), aby udostępnić lokalizację.',
+    );
+  } else if (isGeolocationPermissionDenied(error)) {
+    attractionsLocationMessage = translate(
+      'places.distance.permissionDenied',
+      'Włącz udostępnianie lokalizacji',
+    );
   } else {
-    attractionsLocationMessage = 'Brak danych o lokalizacji';
+    attractionsLocationMessage = translate(
+      'places.distance.noData',
+      'Brak danych o lokalizacji',
+    );
   }
   attractionsUserCoords = null;
   updateAllAttractionDistances();
@@ -3305,24 +3347,29 @@ function startAttractionsLocationTracking() {
     return;
   }
 
-  attractionsLocationWatchId = navigator.geolocation.watchPosition(
-    (position) => {
-      attractionsUserCoords = {
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      };
-      attractionsLocationMessage = '';
-      updateAllAttractionDistances();
-    },
-    (error) => {
-      handleAttractionsLocationError(error);
-    },
-    {
-      enableHighAccuracy: true,
-      maximumAge: 10000,
-      timeout: 20000,
-    },
-  );
+  try {
+    attractionsLocationWatchId = navigator.geolocation.watchPosition(
+      (position) => {
+        attractionsUserCoords = {
+          latitude: position.coords.latitude,
+          longitude: position.coords.longitude,
+        };
+        attractionsLocationMessage = '';
+        updateAllAttractionDistances();
+      },
+      (error) => {
+        handleAttractionsLocationError(error);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 10000,
+        timeout: 20000,
+      },
+    );
+  } catch (error) {
+    handleAttractionsLocationError(error);
+    attractionsLocationWatchId = null;
+  }
 }
 
 function renderAttractionsCatalog(filterValue = '') {
@@ -4200,7 +4247,15 @@ function updatePlayerLocation(position) {
 
 function handleLocationTrackingError(error) {
   console.warn('Błąd śledzenia lokalizacji', error);
-  if (error?.code === error.PERMISSION_DENIED) {
+  if (isGeolocationSecureContextError(error)) {
+    setLevelStatus(
+      translate(
+        'map.geolocation.secureContextRequired',
+        'Użyj zabezpieczonego połączenia (HTTPS), aby udostępnić swoją lokalizację.',
+      ),
+      6000,
+    );
+  } else if (isGeolocationPermissionDenied(error)) {
     setLevelStatus(
       translate(
         'map.geolocation.enableSharing',
@@ -4223,11 +4278,16 @@ function startPlayerLocationTracking() {
     return;
   }
 
-  locationWatchId = navigator.geolocation.watchPosition(updatePlayerLocation, handleLocationTrackingError, {
-    enableHighAccuracy: true,
-    maximumAge: 10000,
-    timeout: 20000,
-  });
+  try {
+    locationWatchId = navigator.geolocation.watchPosition(updatePlayerLocation, handleLocationTrackingError, {
+      enableHighAccuracy: true,
+      maximumAge: 10000,
+      timeout: 20000,
+    });
+  } catch (error) {
+    handleLocationTrackingError(error);
+    locationWatchId = null;
+  }
 }
 
 function updateSelectedObjective() {
