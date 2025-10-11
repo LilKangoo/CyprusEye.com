@@ -766,6 +766,12 @@
   "vip.footer": "© <span id=\"year\"></span> HolidayCyprus.com – Your private journey across Cyprus.",
   "map.skipLink": "Skip interactive map",
   "map.skipTarget": "Map skipped. Continue to the location details.",
+  "map.geolocation.enableSharing": "Enable location sharing to see your position on the map.",
+  "map.geolocation.noSupport": "Your browser does not support geolocation—the player position will not be visible.",
+  "map.geolocation.secureContextRequired": "Use a secure HTTPS connection to share your location.",
+  "places.distance.permissionDenied": "Enable location sharing",
+  "places.distance.secureContext": "Use a secure HTTPS connection to share your location.",
+  "places.distance.noData": "No location data",
   "achievements.brand.logoAlt": "HolidayCyprus Quest logo",
   "level.toast.levelUp.message": "Level up! You reached level {{level}}. Awesome work—keep exploring Cyprus to unlock more rewards!",
   "level.toast.levelUp.title": "Congratulations!"
