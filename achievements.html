@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WakacjeCypr Quest – Twoje osiągnięcia</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="standalone-body">
+    <div class="standalone-page achievements-page">
+      <header class="standalone-header achievements-header">
+        <div class="standalone-brand">
+          <img src="assets/cyprus_logo-1000x1054.png" alt="Logo WakacjeCypr Quest" />
+          <div>
+            <p class="standalone-brand-overline">Twoja gra podróżnicza po Cyprze</p>
+            <p class="standalone-brand-title">WakacjeCypr Quest</p>
+          </div>
+        </div>
+        <nav class="standalone-nav achievements-tabs" aria-label="Nawigacja skrótów">
+          <a class="header-tab" href="index.html">🎯 Twoja przygoda</a>
+          <span class="header-tab is-active" aria-current="page">🏅 Osiągnięcia</span>
+          <a class="header-tab" href="attractions.html">📚 Katalog atrakcji</a>
+        </nav>
+      </header>
+
+      <section class="surface-card achievements-hero" aria-labelledby="achievementsTitle">
+        <div class="achievements-hero-content">
+          <a class="ghost achievements-back" href="index.html">← Wróć do aplikacji</a>
+          <h1 id="achievementsTitle">Twoje odznaki i poziomy</h1>
+          <p>
+            Monitoruj swoje postępy, sprawdzaj zdobyte odznaki i zaplanuj następne przygody. Wszystkie dane
+            synchronizują się automatycznie z główną aplikacją WakacjeCypr Quest.
+          </p>
+        </div>
+        <ul class="standalone-hero-stats" aria-label="Aktualne statystyki">
+          <li>
+            <strong id="achievementsBadgesCount">0</strong>
+            <span>Zebrane odznaki</span>
+          </li>
+          <li>
+            <strong id="achievementsVisitedCount">0</strong>
+            <span>Odwiedzone miejsca</span>
+          </li>
+          <li>
+            <strong><span id="levelNumber">1</span> poziom</strong>
+            <span>Aktualny poziom podróżnika</span>
+          </li>
+        </ul>
+      </section>
+
+      <main class="standalone-main achievements-main">
+        <section class="surface-card achievements-progress" aria-labelledby="achievementsProgressTitle">
+          <div class="achievements-progress-header">
+            <h2 id="achievementsProgressTitle">Postęp doświadczenia</h2>
+            <p class="achievements-subtitle">
+              Zdobywaj XP, by odblokowywać nowe misje, wyzwania i lokalizacje – każdy check-in to krok dalej.
+            </p>
+            <p class="achievements-next" id="achievementsNextMilestone">Rozpocznij eksplorację Cypru, aby zdobyć pierwsze doświadczenie!</p>
+          </div>
+          <div class="achievements-progress-body">
+            <div class="progress" role="img" aria-label="Pasek postępu doświadczenia">
+              <div class="progress-track">
+                <div class="progress-fill" id="xpFill" style="width: 0%"></div>
+              </div>
+            </div>
+            <div class="achievements-stats">
+              <div>
+                <strong><span id="xpPoints">0</span> XP łącznie</strong>
+                <p>Sumaryczna liczba punktów doświadczenia zdobyta we wszystkich aktywnościach.</p>
+              </div>
+              <div>
+                <strong><span id="xpProgressText">0 / 150 XP do kolejnego poziomu</span></strong>
+                <p>Śledź ile brakuje Ci do kolejnego awansu – ukończ misje lub odwiedź nowe miejsce.</p>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="surface-card achievements-history" aria-labelledby="achievementsHistoryTitle">
+          <header>
+            <h2 id="achievementsHistoryTitle">Odwiedzone miejsca i zdobyte odznaki</h2>
+            <p class="achievements-section-intro">
+              Lista aktualizuje się po każdym check-inie. Kliknij dowolną pozycję w aplikacji głównej, aby zobaczyć
+              ją na mapie lub zaplanować kolejną wizytę.
+            </p>
+          </header>
+          <p id="achievementsVisitedEmpty" class="achievements-empty">Jeszcze brak odznak – czas na pierwszą przygodę!</p>
+          <ul id="achievementsVisitedList" class="achievements-visited-list" aria-live="polite"></ul>
+        </section>
+      </main>
+    </div>
+
+    <footer class="standalone-footer">
+      © <span id="year"></span> WakacjeCypr.com – Graj, zwiedzaj i inspiruj innych podróżników.
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>

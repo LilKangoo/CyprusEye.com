@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>WakacjeCypr Quest – Katalog atrakcji</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="standalone-body">
+    <div class="standalone-page attractions-page">
+      <header class="standalone-header">
+        <div class="standalone-brand">
+          <img src="assets/cyprus_logo-1000x1054.png" alt="Logo WakacjeCypr Quest" />
+          <div>
+            <p class="standalone-brand-overline">Eksploruj wyspę miejsce po miejscu</p>
+            <p class="standalone-brand-title">WakacjeCypr Quest</p>
+          </div>
+        </div>
+        <nav class="standalone-nav attractions-tabs" aria-label="Szybkie skróty">
+          <a class="header-tab" href="index.html">🎯 Twoja przygoda</a>
+          <a class="header-tab" href="achievements.html">🏅 Osiągnięcia</a>
+          <span class="header-tab is-active" aria-current="page">📚 Katalog atrakcji</span>
+        </nav>
+      </header>
+
+      <main class="standalone-main attractions-main">
+        <section class="surface-card attractions-intro" aria-labelledby="attractionsTitle">
+          <div class="attractions-intro-header">
+            <a class="ghost" href="index.html">← Wróć do aplikacji</a>
+            <h1 id="attractionsTitle">Poznaj wszystkie lokalizacje WakacjeCypr Quest</h1>
+            <p class="attractions-subtitle">
+              Przefiltruj miejsca według własnych planów podróży, sprawdzaj odległości oraz status odblokowania. Kliknięcie
+              dowolnej karty otworzy mapę z zaznaczonym punktem w aplikacji głównej.
+            </p>
+          </div>
+          <p id="attractionsResultsCount" class="attractions-results">Wczytywanie katalogu…</p>
+          <div class="attractions-toolbar">
+            <label class="sr-only" for="attractionsSearch">Wyszukaj atrakcje</label>
+            <input
+              type="search"
+              id="attractionsSearch"
+              name="attractionsSearch"
+              placeholder="Szukaj po nazwie, odznace lub opisie"
+              autocomplete="off"
+            />
+            <a class="ghost" href="achievements.html">Zobacz swoje osiągnięcia</a>
+          </div>
+        </section>
+
+        <section class="surface-card" aria-labelledby="attractionsCatalogTitle">
+          <header>
+            <h2 id="attractionsCatalogTitle">Lista atrakcji do odwiedzenia</h2>
+            <p class="achievements-section-intro">
+              Od plaż i parków narodowych, po stanowiska archeologiczne i punkty widokowe – katalog obejmuje wszystkie miejsca
+              dostępne w grze. Zezwól przeglądarce na udostępnienie lokalizacji, aby zobaczyć szacowaną odległość.
+            </p>
+          </header>
+          <p id="attractionsEmptyState" class="attractions-empty" hidden>
+            Brak atrakcji spełniających podane kryteria wyszukiwania. Spróbuj innej frazy lub wyczyść filtr.
+          </p>
+          <ul id="attractionsCatalog" class="attractions-catalog" aria-live="polite"></ul>
+        </section>
+      </main>
+    </div>
+
+    <footer class="standalone-footer">
+      © <span id="year"></span> WakacjeCypr.com – Znajdź swoją kolejną przygodę na Cyprze.
+    </footer>
+
+    <script src="app.js"></script>
+  </body>
+</html>
