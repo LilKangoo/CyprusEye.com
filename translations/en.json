@@ -319,9 +319,9 @@
   "sos.title": "SOS",
   "sos.description": "Quick access to emergency numbers, embassy contacts, and medical guidance.",
   "sos.close": {
-    "text": "✕",
+    "text": "X",
     "attributes": {
-      "aria-label": "Close SOS window"
+      "aria-label": "Close SOS"
     }
   },
   "sos.emergency.title": "🚑 Emergency numbers in Cyprus",
