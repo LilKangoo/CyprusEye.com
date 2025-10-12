@@ -1,4 +1,6 @@
 (function () {
+  const FALLBACK_LANGUAGE = 'pl';
+
   function isNonEmptyString(value) {
     return typeof value === 'string' && value.trim().length > 0;
   }
@@ -10,6 +12,115 @@
   function toNumberOrZero(value) {
     const numeric = Number(value);
     return Number.isFinite(numeric) ? numeric : 0;
+  }
+
+  function getI18n() {
+    return typeof window !== 'undefined' ? window.appI18n || null : null;
+  }
+
+  function getCurrentLanguage() {
+    const i18n = getI18n();
+    return (i18n && i18n.language) || FALLBACK_LANGUAGE;
+  }
+
+  function getTranslations(language) {
+    const i18n = getI18n();
+    if (!i18n || !i18n.translations) {
+      return {};
+    }
+    return i18n.translations[language] || {};
+  }
+
+  function translateText(key, fallback = '') {
+    if (!isNonEmptyString(key)) {
+      return isNonEmptyString(fallback) ? fallback : '';
+    }
+
+    const language = getCurrentLanguage();
+    const translations = getTranslations(language);
+    const entry = translations[key];
+
+    let result = null;
+
+    if (typeof entry === 'string') {
+      result = entry;
+    } else if (entry && typeof entry === 'object') {
+      if (typeof entry.text === 'string') {
+        result = entry.text;
+      } else if (typeof entry.html === 'string') {
+        result = entry.html;
+      }
+    }
+
+    if (!isNonEmptyString(result)) {
+      result = fallback;
+    }
+
+    return isNonEmptyString(result) ? result : '';
+  }
+
+  function normalizeTextEntry(value) {
+    if (!value) {
+      return { key: '', fallback: '' };
+    }
+
+    if (typeof value === 'string') {
+      return { key: '', fallback: value.trim() };
+    }
+
+    if (typeof value === 'object') {
+      const key = isNonEmptyString(value.key)
+        ? value.key.trim()
+        : isNonEmptyString(value.i18nKey)
+        ? value.i18nKey.trim()
+        : '';
+      const fallback = isNonEmptyString(value.fallback)
+        ? value.fallback.trim()
+        : isNonEmptyString(value.text)
+        ? value.text.trim()
+        : isNonEmptyString(value.default)
+        ? value.default.trim()
+        : '';
+
+      return { key, fallback };
+    }
+
+    return { key: '', fallback: '' };
+  }
+
+  function resolveText(entry, fallback = '') {
+    if (!entry || typeof entry !== 'object') {
+      return translateText('', fallback);
+    }
+
+    const key = isNonEmptyString(entry.key) ? entry.key : '';
+    const defaultValue = isNonEmptyString(entry.fallback) ? entry.fallback : fallback;
+    return translateText(key, defaultValue);
+  }
+
+  function wrapText(value, key) {
+    const entry = normalizeTextEntry(value);
+    if (!isNonEmptyString(entry.key) && isNonEmptyString(key)) {
+      entry.key = key;
+    }
+    return entry;
+  }
+
+  function translateWithReplacements(key, fallback, replacements = {}) {
+    const template = translateText(key, fallback);
+    return template.replace(/\{\{(\w+)\}\}/g, (match, param) =>
+      Object.prototype.hasOwnProperty.call(replacements, param) ? String(replacements[param]) : match,
+    );
+  }
+
+  function getLocalizedFormatter() {
+    const language = getCurrentLanguage();
+    const locale = language === 'en' ? 'en-GB' : 'pl-PL';
+    return new Intl.NumberFormat(locale, {
+      style: 'currency',
+      currency: 'EUR',
+      maximumFractionDigits: 0,
+    });
   }
 
   const DEFAULT_CAR_FLEET = [
@@ -315,39 +426,78 @@
     delete window.CAR_RENTAL_CONFIG;
   }
 
-  const carFleet = (Array.isArray(config.fleet) && config.fleet.length ? config.fleet : DEFAULT_CAR_FLEET).map((car) => ({
-    ...car,
-    pricePerDay: isFiniteNumber(car.pricePerDay) ? car.pricePerDay : toNumberOrZero(car.pricePerDay),
-  }));
+  const carFleet = (Array.isArray(config.fleet) && config.fleet.length ? config.fleet : DEFAULT_CAR_FLEET).map((car) => {
+    const id = isNonEmptyString(car.id) ? car.id.trim() : '';
+    const transmissionKey = id ? `carRental.fleet.${id}.transmission` : '';
+    const categoryKey = id ? `carRental.fleet.${id}.category` : '';
+    const fuelKey = id ? `carRental.fleet.${id}.fuel` : '';
+
+    const features = Array.isArray(car.features)
+      ? car.features.map((feature, index) => wrapText(feature, id ? `carRental.fleet.${id}.feature${index + 1}` : ''))
+      : [];
+
+    return {
+      ...car,
+      id,
+      transmission: wrapText(car.transmission, transmissionKey),
+      category: wrapText(car.category, categoryKey),
+      fuel: wrapText(car.fuel, fuelKey),
+      features,
+      note: wrapText(car.note, id ? `carRental.fleet.${id}.note` : ''),
+      pricePerDay: isFiniteNumber(car.pricePerDay) ? car.pricePerDay : toNumberOrZero(car.pricePerDay),
+    };
+  });
 
   const rentalLocations = (Array.isArray(config.locations) && config.locations.length
     ? config.locations
     : DEFAULT_RENTAL_LOCATIONS
-  ).map((location) => ({
-    ...location,
-    shortLabel: isNonEmptyString(location.shortLabel)
-      ? location.shortLabel.trim()
-      : isNonEmptyString(location.label)
-      ? location.label.trim()
-      : '',
-    fee: isFiniteNumber(location.fee) ? location.fee : toNumberOrZero(location.fee),
-  }));
+  ).map((location) => {
+    const id = isNonEmptyString(location.id) ? location.id.trim() : '';
+    const labelEntry = wrapText(location.label, id ? `carRental.locations.${id}.label` : '');
+    const shortEntry = wrapText(
+      location.shortLabel,
+      id ? `carRental.locations.${id}.short` : ''
+    );
+
+    const shortFallback = isNonEmptyString(shortEntry.fallback)
+      ? shortEntry.fallback
+      : isNonEmptyString(labelEntry.fallback)
+      ? labelEntry.fallback
+      : '';
+
+    if (!isNonEmptyString(shortEntry.fallback) && shortFallback) {
+      shortEntry.fallback = shortFallback;
+    }
+
+    return {
+      ...location,
+      id,
+      label: labelEntry,
+      shortLabel: shortEntry,
+      fee: isFiniteNumber(location.fee) ? location.fee : toNumberOrZero(location.fee),
+    };
+  });
 
   const PRICE_CATEGORIES = (Array.isArray(config.priceCategories) && config.priceCategories.length
     ? config.priceCategories
     : DEFAULT_PRICE_CATEGORIES
-  ).map((category) => ({ ...category }));
+  ).map((category) => {
+    const id = isNonEmptyString(category.id) ? category.id.trim() : '';
+    return {
+      ...category,
+      id,
+      label: wrapText(category.label, id ? `carRental.categories.${id}.label` : ''),
+      badge: wrapText(category.badge, id ? `carRental.categories.${id}.badge` : ''),
+      description: wrapText(category.description, id ? `carRental.categories.${id}.description` : ''),
+    };
+  });
 
   const RENTAL_INCLUDED_FEATURES = (Array.isArray(config.includedFeatures) && config.includedFeatures.length
     ? config.includedFeatures
     : DEFAULT_RENTAL_INCLUDED_FEATURES
-  ).map((feature) => ({
-    short: isNonEmptyString(feature.short) ? feature.short.trim() : '',
-    description: isNonEmptyString(feature.description)
-      ? feature.description.trim()
-      : isNonEmptyString(feature.short)
-      ? feature.short.trim()
-      : '',
+  ).map((feature, index) => ({
+    short: wrapText(feature.short, `carRental.included.feature${index + 1}.short`),
+    description: wrapText(feature.description, `carRental.included.feature${index + 1}.description`),
   }));
 
   const RENTAL_MINIMUM_DAYS = isFiniteNumber(config.minimumDays)
@@ -360,21 +510,56 @@
     ? config.youngDriverDaily
     : DEFAULT_YOUNG_DRIVER_DAILY;
 
-  const includedShortList = RENTAL_INCLUDED_FEATURES.filter((feature) => isNonEmptyString(feature.short)).map((feature) =>
-    feature.short,
+  const includedMessageEntry = wrapText(
+    isNonEmptyString(config.includedMessage) || isNonEmptyString(config.includedMessageKey)
+      ? {
+          key: isNonEmptyString(config.includedMessageKey) ? config.includedMessageKey.trim() : '',
+          fallback: isNonEmptyString(config.includedMessage) ? config.includedMessage.trim() : '',
+        }
+      : null,
+    ''
   );
-  const defaultIncludedMessage = includedShortList.length
-    ? `W cenie: ${includedShortList.join(', ')}.`
-    : '';
-  const CAR_RENTAL_INCLUDED_MESSAGE = isNonEmptyString(config.includedMessage)
-    ? config.includedMessage.trim()
-    : defaultIncludedMessage;
 
-  const EURO_FORMATTER = new Intl.NumberFormat('pl-PL', {
-    style: 'currency',
-    currency: 'EUR',
-    maximumFractionDigits: 0,
-  });
+  let EURO_FORMATTER = getLocalizedFormatter();
+  let rentalContext = null;
+
+  function refreshFormatter() {
+    EURO_FORMATTER = getLocalizedFormatter();
+  }
+
+  function formatPrice(value) {
+    return EURO_FORMATTER.format(value);
+  }
+
+  function formatPricePerDay(value) {
+    const price = formatPrice(value);
+    return translateWithReplacements('carRental.common.pricePerDay', `${price} / dzień`, { price });
+  }
+
+  function formatSeats(count) {
+    return translateWithReplacements('carRental.common.seats', `${count} miejsc`, { count });
+  }
+
+  function getDaysLabel() {
+    return translateText('carRental.common.daysLabel', 'dni');
+  }
+
+  function getIncludedMessage() {
+    if (isNonEmptyString(includedMessageEntry.key) || isNonEmptyString(includedMessageEntry.fallback)) {
+      return resolveText(includedMessageEntry);
+    }
+
+    const items = RENTAL_INCLUDED_FEATURES.map((feature) => resolveText(feature.short)).filter((text) => isNonEmptyString(text));
+    if (!items.length) {
+      return '';
+    }
+
+    return translateWithReplacements(
+      'carRental.common.includedMessage.template',
+      `W cenie: ${items.join(', ')}.`,
+      { items: items.join(', ') },
+    );
+  }
 
   function populateIncludedFeatures() {
     const lists = document.querySelectorAll('[data-included-list]');
@@ -382,7 +567,7 @@
       list.innerHTML = '';
       RENTAL_INCLUDED_FEATURES.forEach((feature) => {
         const item = document.createElement('li');
-        item.textContent = feature.description;
+        item.textContent = resolveText(feature.description);
         list.appendChild(item);
       });
     });
@@ -402,7 +587,7 @@
     return rentalLocations.find((location) => location.id === locationId) || null;
   }
 
-  function populateCarSelect(select) {
+  function populateCarSelect(select, selectedValue) {
     if (!select) {
       return;
     }
@@ -411,24 +596,39 @@
     carFleet.forEach((car) => {
       const option = document.createElement('option');
       option.value = car.id;
-      option.textContent = `${car.name} (${car.year}) — ${EURO_FORMATTER.format(car.pricePerDay)} / dzień`;
+      const pricePerDay = formatPricePerDay(car.pricePerDay);
+      option.textContent = `${car.name} (${car.year}) — ${pricePerDay}`;
       select.appendChild(option);
     });
+
+    const desiredValue = selectedValue && carFleet.some((car) => car.id === selectedValue) ? selectedValue : null;
+    if (desiredValue) {
+      select.value = desiredValue;
+    } else if (carFleet.length) {
+      select.value = carFleet[0].id;
+    }
   }
 
-  function populateLocationSelects(selects) {
+  function populateLocationSelects(selects, selectedValues = []) {
     selects
       .filter(Boolean)
-      .forEach((select) => {
+      .forEach((select, index) => {
         select.innerHTML = '';
         rentalLocations.forEach((location) => {
           const option = document.createElement('option');
           option.value = location.id;
-          option.textContent = location.label;
+          option.textContent = resolveText(location.label);
           select.appendChild(option);
         });
 
-        if (rentalLocations.length) {
+        const preferredValue =
+          Array.isArray(selectedValues) && selectedValues[index] && rentalLocations.some((loc) => loc.id === selectedValues[index])
+            ? selectedValues[index]
+            : null;
+
+        if (preferredValue) {
+          select.value = preferredValue;
+        } else if (rentalLocations.length) {
           select.value = rentalLocations[0].id;
         }
       });
@@ -501,11 +701,11 @@
 
     const car = getCarById(carSelect.value);
     if (!car) {
-      return setRentalError('Wybierz model auta z listy.');
+      return setRentalError(translateText('carRental.calculator.errors.selectCar', 'Wybierz model auta z listy.'));
     }
 
     if (!pickupDateInput.value || !returnDateInput.value) {
-      return setRentalError('Uzupełnij daty odbioru i zwrotu.');
+      return setRentalError(translateText('carRental.calculator.errors.fillDates', 'Uzupełnij daty odbioru i zwrotu.'));
     }
 
     const pickupTime = pickupTimeInput.value || '00:00';
@@ -514,25 +714,43 @@
     const returnDate = new Date(`${returnDateInput.value}T${returnTime}`);
 
     if (Number.isNaN(pickupDate.getTime()) || Number.isNaN(returnDate.getTime())) {
-      return setRentalError('Proszę wybrać poprawne daty i godziny.');
+      return setRentalError(
+        translateText('carRental.calculator.errors.invalidDates', 'Proszę wybrać poprawne daty i godziny.'),
+      );
     }
 
     if (returnDate <= pickupDate) {
-      return setRentalError('Data zwrotu musi być późniejsza niż data odbioru.');
+      return setRentalError(
+        translateText(
+          'carRental.calculator.errors.returnAfterPickup',
+          'Data zwrotu musi być późniejsza niż data odbioru.',
+        ),
+      );
     }
 
     const diffHours = (returnDate.getTime() - pickupDate.getTime()) / (1000 * 60 * 60);
     const rentalDays = Math.ceil(diffHours / 24);
 
     if (rentalDays < RENTAL_MINIMUM_DAYS) {
-      return setRentalError(`Minimalny czas wynajmu to ${RENTAL_MINIMUM_DAYS} dni.`);
+      return setRentalError(
+        translateWithReplacements(
+          'carRental.calculator.errors.minimumDays',
+          'Minimalny czas wynajmu to {{days}} {{daysLabel}}.',
+          {
+            days: RENTAL_MINIMUM_DAYS,
+            daysLabel: getDaysLabel(),
+          },
+        ),
+      );
     }
 
     const pickupLocation = getRentalLocationById(pickupSelect.value);
     const returnLocation = getRentalLocationById(returnSelect.value);
 
     if (!pickupLocation || !returnLocation) {
-      return setRentalError('Wybierz miejsca odbioru i zwrotu pojazdu.');
+      return setRentalError(
+        translateText('carRental.calculator.errors.selectLocations', 'Wybierz miejsca odbioru i zwrotu pojazdu.'),
+      );
     }
 
     const basePrice = car.pricePerDay * rentalDays;
@@ -542,33 +760,92 @@
     const youngDriverCost = youngDriverCheckbox?.checked ? YOUNG_DRIVER_DAILY * rentalDays : 0;
     const totalPrice = basePrice + pickupFee + returnFee + insuranceCost + youngDriverCost;
 
+    const daysLabel = getDaysLabel();
+    const pickupLocationLabel = resolveText(pickupLocation.shortLabel);
+    const returnLocationLabel = resolveText(returnLocation.shortLabel);
+    const perDayFormatted = formatPrice(car.pricePerDay);
+
     const breakdownItems = [
-      `${EURO_FORMATTER.format(car.pricePerDay)} × ${rentalDays} dni = ${EURO_FORMATTER.format(basePrice)}`,
+      translateWithReplacements(
+        'carRental.calculator.breakdown.base',
+        `${perDayFormatted} × ${rentalDays} ${daysLabel} = ${formatPrice(basePrice)}`,
+        {
+          pricePerDay: perDayFormatted,
+          days: rentalDays,
+          daysLabel,
+          total: formatPrice(basePrice),
+        },
+      ),
       pickupFee > 0
-        ? `Odbiór: ${pickupLocation.shortLabel} +${EURO_FORMATTER.format(pickupFee)}`
-        : `Odbiór: ${pickupLocation.shortLabel} – w cenie`,
+        ? translateWithReplacements(
+            'carRental.calculator.breakdown.pickupWithFee',
+            `Odbiór: ${pickupLocationLabel} +${formatPrice(pickupFee)}`,
+            {
+              location: pickupLocationLabel,
+              price: formatPrice(pickupFee),
+            },
+          )
+        : translateWithReplacements(
+            'carRental.calculator.breakdown.pickupIncluded',
+            `Odbiór: ${pickupLocationLabel} – w cenie`,
+            { location: pickupLocationLabel },
+          ),
       returnFee > 0
-        ? `Zwrot: ${returnLocation.shortLabel} +${EURO_FORMATTER.format(returnFee)}`
-        : `Zwrot: ${returnLocation.shortLabel} – w cenie`,
+        ? translateWithReplacements(
+            'carRental.calculator.breakdown.returnWithFee',
+            `Zwrot: ${returnLocationLabel} +${formatPrice(returnFee)}`,
+            {
+              location: returnLocationLabel,
+              price: formatPrice(returnFee),
+            },
+          )
+        : translateWithReplacements(
+            'carRental.calculator.breakdown.returnIncluded',
+            `Zwrot: ${returnLocationLabel} – w cenie`,
+            { location: returnLocationLabel },
+          ),
     ];
 
     if (insuranceCost > 0) {
       breakdownItems.push(
-        `Pełne AC: ${EURO_FORMATTER.format(FULL_INSURANCE_DAILY)} × ${rentalDays} dni = ${EURO_FORMATTER.format(insuranceCost)}`,
+        translateWithReplacements(
+          'carRental.calculator.breakdown.fullInsurance',
+          `Pełne AC: ${formatPrice(FULL_INSURANCE_DAILY)} × ${rentalDays} ${daysLabel} = ${formatPrice(insuranceCost)}`,
+          {
+            pricePerDay: formatPrice(FULL_INSURANCE_DAILY),
+            days: rentalDays,
+            daysLabel,
+            total: formatPrice(insuranceCost),
+          },
+        ),
       );
     }
 
     if (youngDriverCost > 0) {
       breakdownItems.push(
-        `Młody kierowca: ${EURO_FORMATTER.format(YOUNG_DRIVER_DAILY)} × ${rentalDays} dni = ${EURO_FORMATTER.format(youngDriverCost)}`,
+        translateWithReplacements(
+          'carRental.calculator.breakdown.youngDriver',
+          `Młody kierowca: ${formatPrice(YOUNG_DRIVER_DAILY)} × ${rentalDays} ${daysLabel} = ${formatPrice(youngDriverCost)}`,
+          {
+            pricePerDay: formatPrice(YOUNG_DRIVER_DAILY),
+            days: rentalDays,
+            daysLabel,
+            total: formatPrice(youngDriverCost),
+          },
+        ),
       );
     }
 
-    resultEl.textContent = `Całkowita cena wynajmu: ${EURO_FORMATTER.format(totalPrice)}`;
-    breakdownEl.innerHTML = `<p>Wycena obejmuje:</p><ul>${breakdownItems
+    resultEl.textContent = translateWithReplacements(
+      'carRental.calculator.total',
+      `Całkowita cena wynajmu: ${formatPrice(totalPrice)}`,
+      { price: formatPrice(totalPrice) },
+    );
+    const breakdownTitle = translateText('carRental.calculator.breakdown.title', 'Wycena obejmuje:');
+    breakdownEl.innerHTML = `<p>${breakdownTitle}</p><ul>${breakdownItems
       .map((item) => `<li>${item}</li>`)
       .join('')}</ul>`;
-    messageEl.textContent = CAR_RENTAL_INCLUDED_MESSAGE;
+    messageEl.textContent = getIncludedMessage();
     messageEl.classList.remove('is-error');
 
     return true;
@@ -591,7 +868,7 @@
 
     const price = document.createElement('span');
     price.className = 'auto-card-price';
-    price.textContent = `${EURO_FORMATTER.format(car.pricePerDay)} / dzień`;
+    price.textContent = formatPricePerDay(car.pricePerDay);
 
     const titleWrapper = document.createElement('div');
     titleWrapper.className = 'auto-card-title';
@@ -599,7 +876,8 @@
     const title = document.createElement('h3');
     title.textContent = car.name;
     const subtitle = document.createElement('span');
-    subtitle.textContent = `${car.year} • ${car.category}`;
+    const categoryText = resolveText(car.category);
+    subtitle.textContent = `${car.year} • ${categoryText}`;
     title.appendChild(subtitle);
 
     titleWrapper.appendChild(title);
@@ -611,11 +889,7 @@
 
     const specs = document.createElement('ul');
     specs.className = 'auto-card-specs';
-    [
-      `${car.seats} miejsc`,
-      car.transmission,
-      car.fuel,
-    ].forEach((value) => {
+    [formatSeats(car.seats), resolveText(car.transmission), resolveText(car.fuel)].forEach((value) => {
       const item = document.createElement('li');
       item.textContent = value;
       specs.appendChild(item);
@@ -627,7 +901,7 @@
       featuresList.className = 'auto-card-tags';
       car.features.forEach((feature) => {
         const li = document.createElement('li');
-        li.textContent = feature;
+        li.textContent = resolveText(feature);
         featuresList.appendChild(li);
       });
       card.appendChild(featuresList);
@@ -636,14 +910,14 @@
     if (car.note) {
       const note = document.createElement('p');
       note.className = 'auto-card-note';
-      note.textContent = car.note;
+      note.textContent = resolveText(car.note);
       card.appendChild(note);
     }
 
     const button = document.createElement('button');
     button.type = 'button';
     button.className = 'secondary';
-    button.textContent = 'Zarezerwuj to auto';
+    button.textContent = translateText('carRental.common.reserveCar', 'Zarezerwuj to auto');
     button.addEventListener('click', () => {
       if (context.carSelect) {
         context.carSelect.value = car.id;
@@ -670,16 +944,23 @@
 
     grid.innerHTML = '';
 
+    const language = getCurrentLanguage();
     const sortedFleet = carFleet
       .slice()
       .sort((a, b) => {
         if (a.pricePerDay === b.pricePerDay) {
-          return a.name.localeCompare(b.name, 'pl');
+          return a.name.localeCompare(b.name, language);
         }
         return a.pricePerDay - b.pricePerDay;
       });
 
-    const groups = PRICE_CATEGORIES.map((category) => ({ ...category, cars: [] }));
+    const groups = PRICE_CATEGORIES.map((category) => ({
+      ...category,
+      labelText: resolveText(category.label),
+      descriptionText: resolveText(category.description),
+      badgeText: resolveText(category.badge),
+      cars: [],
+    }));
 
     sortedFleet.forEach((car) => {
       const category =
@@ -700,15 +981,15 @@
         const title = document.createElement('div');
         title.className = 'auto-category-title';
         const heading = document.createElement('h3');
-        heading.textContent = group.label;
+        heading.textContent = group.labelText;
         const description = document.createElement('p');
-        description.textContent = group.description;
+        description.textContent = group.descriptionText;
         title.appendChild(heading);
         title.appendChild(description);
 
         const badge = document.createElement('span');
         badge.className = 'auto-category-badge';
-        badge.textContent = group.badge;
+        badge.textContent = group.badgeText;
 
         groupHeader.appendChild(title);
         groupHeader.appendChild(badge);
@@ -775,7 +1056,10 @@
       resultEl,
       breakdownEl,
       messageEl,
+      grid,
     };
+
+    rentalContext = context;
 
     populateCarSelect(carSelect);
     populateLocationSelects([pickupSelect, returnSelect]);
@@ -800,16 +1084,52 @@
     });
   }
 
+  function refreshDynamicContent() {
+    refreshFormatter();
+    populateIncludedFeatures();
+
+    if (!rentalContext) {
+      return;
+    }
+
+    const {
+      carSelect,
+      pickupSelect,
+      returnSelect,
+      grid,
+    } = rentalContext;
+
+    const selectedCar = carSelect?.value;
+    const selectedPickup = pickupSelect?.value;
+    const selectedReturn = returnSelect?.value;
+
+    populateCarSelect(carSelect, selectedCar);
+    populateLocationSelects([pickupSelect, returnSelect], [selectedPickup, selectedReturn]);
+    renderCarFleet(grid, rentalContext);
+    updateRentalQuote(rentalContext);
+  }
+
+  document.addEventListener('wakacjecypr:languagechange', refreshDynamicContent);
+
   window.CarRental = {
     initializeSection: initializeCarRentalSection,
-    getFleet: () => carFleet.map((car) => ({ ...car })),
-    getRentalLocations: () => rentalLocations.map((location) => ({ ...location })),
-    formatPrice(value) {
-      return EURO_FORMATTER.format(value);
-    },
-    getIncludedMessage() {
-      return CAR_RENTAL_INCLUDED_MESSAGE;
-    },
+    getFleet: () =>
+      carFleet.map((car) => ({
+        ...car,
+        transmission: resolveText(car.transmission),
+        category: resolveText(car.category),
+        fuel: resolveText(car.fuel),
+        features: Array.isArray(car.features) ? car.features.map((feature) => resolveText(feature)) : [],
+        note: resolveText(car.note),
+      })),
+    getRentalLocations: () =>
+      rentalLocations.map((location) => ({
+        ...location,
+        label: resolveText(location.label),
+        shortLabel: resolveText(location.shortLabel),
+      })),
+    formatPrice,
+    getIncludedMessage,
     minimumDays: RENTAL_MINIMUM_DAYS,
   };
 })();
