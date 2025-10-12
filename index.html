@@ -41,6 +41,7 @@
     data-leaflet-resource="script"
   />
   <link rel="stylesheet" href="styles.css" />
+  <link rel="stylesheet" href="css/tutorial.css" />
 </head>
 <body data-navigation="multi-page" data-initial-view="adventureView" data-seo-page="home">
   <header class="app-header">
@@ -89,7 +90,7 @@
       </div>
       <div class="header-top-actions">
         <div class="header-actions" aria-label="Szybkie działania">
-          <div class="header-actions-primary">
+          <div class="header-actions-primary" data-tour-target="quick-actions">
             <button class="primary" type="button" id="jumpToObjective" data-i18n="header.jumpToObjective">
               Skocz do aktualnego celu
             </button>
@@ -144,7 +145,7 @@
         <p class="metric-subtext" data-i18n="metrics.badges.subtext">Odkrywaj atrakcje i kolekcjonuj pamiątki.</p>
       </a>
     </div>
-    <nav class="header-tabs" role="tablist" aria-label="Nawigacja główna">
+    <nav class="header-tabs" role="tablist" aria-label="Nawigacja główna" data-tour-target="tabs-navigation">
       <button
         type="button"
         class="header-tab is-active"
@@ -228,7 +229,7 @@
   <main>
     <div class="layout app-view" id="adventureView" role="tabpanel" aria-labelledby="headerAdventureTab">
       <div class="primary-column">
-        <section id="current-objective" class="map-panel surface-card">
+        <section id="current-objective" class="map-panel surface-card" data-tour-target="map-section">
           <h2 id="currentObjectiveHeading" class="sr-only" tabindex="-1" data-i18n="objective.title">
             Aktualna lokalizacja
           </h2>
@@ -295,8 +296,8 @@
       </div>
 
       <aside class="sidebar-column">
-        <section class="adventure-shortcuts" aria-label="Szybkie przejścia">
-          <article class="adventure-shortcut-card surface-card">
+        <section class="adventure-shortcuts" aria-label="Szybkie przejścia" data-tour-target="shortcut-cards">
+          <article class="adventure-shortcut-card surface-card" id="packingCard" data-tour-target="packing-card">
             <h2 data-i18n="shortcuts.packing.title">🎒 Planowanie pakowania</h2>
             <p data-i18n="shortcuts.packing.description">
               Zaplanuj walizkę w dedykowanej karcie z listami rzeczy na różne sezony podróży.
@@ -311,7 +312,7 @@
               Przejdź do planera
             </button>
           </article>
-          <article class="adventure-shortcut-card surface-card">
+          <article class="adventure-shortcut-card surface-card" id="tasksCard" data-tour-target="tasks-card">
             <h2 data-i18n="shortcuts.tasks.title">✅ Lista zadań</h2>
             <p data-i18n="shortcuts.tasks.description">
               Przejrzyj wyzwania przed wyjazdem i zapisuj swój postęp w osobnej zakładce.
@@ -326,7 +327,7 @@
               Otwórz zadania
             </button>
           </article>
-          <article class="adventure-shortcut-card surface-card">
+          <article class="adventure-shortcut-card surface-card" id="carRentalCard" data-tour-target="car-card">
             <h2 data-i18n="shortcuts.car.title">🚗 Wynajem auta na Cyprze</h2>
             <p data-i18n="shortcuts.car.description">
               Poznaj całą flotę, porównaj ceny i zarezerwuj samochód na dedykowanej stronie.
@@ -545,11 +546,22 @@
 
   <footer class="app-footer">
     <p data-i18n="footer.app">© <span id="year"></span> WakacjeCypr.com • Graj, zwiedzaj i planuj wakacje jednocześnie.</p>
+    <button
+      type="button"
+      class="ghost tutorial-help-button"
+      id="tutorialHelpButton"
+      data-tour-target="help-button"
+      data-i18n="tutorial.showAgain"
+      aria-haspopup="dialog"
+    >
+      🔁 Pokaż instrukcję
+    </button>
   </footer>
 
   <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
 
   <script src="js/i18n.js"></script>
+  <script src="js/tutorial.js"></script>
   <script src="js/seo.js"></script>
   <script src="car-rental.js"></script>
   <script src="app.js"></script>

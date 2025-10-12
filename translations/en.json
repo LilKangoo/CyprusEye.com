@@ -774,5 +774,20 @@
   "places.distance.noData": "No location data",
   "achievements.brand.logoAlt": "HolidayCyprus Quest logo",
   "level.toast.levelUp.message": "Level up! You reached level {{level}}. Awesome work—keep exploring Cyprus to unlock more rewards!",
-  "level.toast.levelUp.title": "Congratulations!"
+  "level.toast.levelUp.title": "Congratulations!",
+  "tutorial.step1.title": "Discover quick actions",
+  "tutorial.step1.description": "Use the header shortcuts to jump to your current objective, open car rental, browse attractions, or reach the SOS panel instantly.",
+  "tutorial.step2.title": "Map and check-in",
+  "tutorial.step2.description": "This section hosts the interactive map with the \"Check in\" button and an accessibility link to skip the map when you prefer the details view.",
+  "tutorial.step3.title": "Right-hand shortcut cards",
+  "tutorial.step3.description": "Follow these cards to open the packing planner, task list, and our dedicated car rental guide without leaving the page.",
+  "tutorial.step4.title": "Tab navigation explained",
+  "tutorial.step4.description": "Switch between adventure, packing, tasks, and VIP tabs here while tracking your level, XP progress, and unlocked badges.",
+  "tutorial.step5.title": "Need a refresher?",
+  "tutorial.step5.description": "Use the \"Show instructions\" button in the footer to relaunch this tutorial whenever you want a guided tour again.",
+  "tutorial.next": "Next",
+  "tutorial.prev": "Back",
+  "tutorial.skip": "Skip",
+  "tutorial.finish": "Finish",
+  "tutorial.showAgain": "🔁 Show instructions"
 }

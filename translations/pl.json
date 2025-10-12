@@ -165,5 +165,20 @@
   "tasks.items.wedding-photoshoot-cyprus.title": "Sesja ślubna na Cyprze",
   "tasks.items.wedding-photoshoot-cyprus.description": "Skorzystaj z usługi wedding & photo i zorganizuj sesję plenerową z naszym fotografem i stylistką.",
   "level.toast.levelUp.message": "Awans! Osiągnąłeś poziom {{level}}. Gratulacje – świetnie Ci idzie! Kontynuuj odkrywanie Cypru, a zdobędziesz kolejne nagrody!",
-  "level.toast.levelUp.title": "Gratulacje!"
+  "level.toast.levelUp.title": "Gratulacje!",
+  "tutorial.step1.title": "Poznaj szybkie akcje",
+  "tutorial.step1.description": "Przyciski w nagłówku pomagają natychmiast przeskoczyć do celu, otworzyć wynajem aut, katalog atrakcji lub panel SOS.",
+  "tutorial.step2.title": "Mapa i meldowanie",
+  "tutorial.step2.description": "Ta sekcja pokazuje interaktywną mapę z przyciskiem \"Zamelduj się\" i linkiem do pominięcia mapy, aby przejść od razu do treści.",
+  "tutorial.step3.title": "Karty skrótów po prawej",
+  "tutorial.step3.description": "Z kart bocznych przejdziesz do planera pakowania, listy zadań oraz przewodnika wynajmu aut w serwisie WakacjeCypr.",
+  "tutorial.step4.title": "Nawigacja po zakładkach",
+  "tutorial.step4.description": "Zakładki u góry zmieniają widoki: przygoda, pakowanie, zadania i VIP. Obok śledzisz poziom, punkty XP i odznaki.",
+  "tutorial.step5.title": "Potrzebujesz instrukcji ponownie?",
+  "tutorial.step5.description": "Kliknij \"Pokaż instrukcję\" w stopce, aby uruchomić samouczek jeszcze raz i przypomnieć sobie najważniejsze funkcje.",
+  "tutorial.next": "Dalej",
+  "tutorial.prev": "Wstecz",
+  "tutorial.skip": "Pomiń",
+  "tutorial.finish": "Zakończ",
+  "tutorial.showAgain": "🔁 Pokaż instrukcję"
 }
