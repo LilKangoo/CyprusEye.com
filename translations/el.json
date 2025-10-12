@@ -12,14 +12,22 @@
   "coupon.nav_tile": "💸 Κουπόνι",
   "coupon.title": "Ειδικό Κουπόνι — γρήγορη κράτηση",
   "coupon.subtitle": "Ο πιο απλός τρόπος να επωφεληθείτε — χωρίς γραφειοκρατία.",
+  "coupon.summary.price_label": "Τιμή κουπονιού",
+  "coupon.summary.price_current": "7,99€",
+  "coupon.summary.price_original": "12€",
+  "coupon.summary.price_note": "Εφάπαξ πληρωμή για όλο το πακέτο εκπτώσεων",
+  "coupon.summary.instant": "Άμεση ενεργοποίηση του κουπονιού",
+  "coupon.summary.secure": "Ασφαλής πληρωμή μέσω Stripe",
+  "coupon.summary.support": "Υποστήριξη από την ομάδα μας μετά την αγορά",
+  "coupon.summary.secure_note": "Με το κλικ μεταφέρεστε στο κρυπτογραφημένο checkout της Stripe.",
   "coupon.points": [
     "Χωρίς εγγύηση / καθαροί όροι",
     "Υποστήριξη 24/7",
     "Παραλαβή σε μεγάλες πόλεις",
     "Διαφανής τιμολόγηση & κανόνες"
   ],
-  "coupon.smallprint": "Κάνοντας κλικ στο κουμπί μεταβαίνετε στην ασφαλή πληρωμή Stripe.",
-  "coupon.aria_go_to_stripe": "Μετάβαση στην πληρωμή Stripe",
+  "coupon.smallprint": "Θα λάβετε το κουπόνι μέσα σε λίγα λεπτά στο email που δηλώσατε στην πληρωμή.",
+  "coupon.cta_aria": "Αγορά κουπονιού — μετάβαση στην ασφαλή πληρωμή Stripe",
   "coupon.cta": "Αγορά κουπονιού",
   "coupon.image_alt": "Λογότυπο κουπονιού HolidayCyprus"
 }
