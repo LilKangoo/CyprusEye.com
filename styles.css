@@ -2239,6 +2239,9 @@ main::before {
   flex-direction: column;
   gap: 0.75rem;
   padding: clamp(1rem, 2vw, 1.6rem);
+  text-decoration: none;
+  color: inherit;
+  cursor: pointer;
 }
 
 .adventure-shortcut-card h2 {
@@ -2254,6 +2257,18 @@ main::before {
 
 .adventure-shortcut-card .secondary {
   align-self: flex-start;
+}
+
+.adventure-shortcut-card:focus-visible {
+  outline: 3px solid var(--primary);
+  outline-offset: 4px;
+}
+
+.adventure-shortcut-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.35rem;
 }
 
 .discovery-grid {

@@ -297,45 +297,56 @@
 
       <aside class="sidebar-column">
         <section class="adventure-shortcuts" aria-label="Szybkie przejścia" data-tour-target="shortcut-cards">
-          <article class="adventure-shortcut-card surface-card" id="packingCard" data-tour-target="packing-card">
+          <a
+            class="adventure-shortcut-card surface-card"
+            id="openPackingFromAdventure"
+            data-tour-target="packing-card"
+            href="packing.html"
+            role="button"
+            tabindex="0"
+            data-page-url="packing.html"
+          >
             <h2 data-i18n="shortcuts.packing.title">🎒 Planowanie pakowania</h2>
             <p data-i18n="shortcuts.packing.description">
               Zaplanuj walizkę w dedykowanej karcie z listami rzeczy na różne sezony podróży.
             </p>
-            <button
-              type="button"
-              class="secondary"
-              id="openPackingFromAdventure"
-              data-page-url="packing.html"
-              data-i18n="shortcuts.packing.action"
-            >
+            <span class="adventure-shortcut-cta secondary" data-i18n="shortcuts.packing.action">
               Przejdź do planera
-            </button>
-          </article>
-          <article class="adventure-shortcut-card surface-card" id="tasksCard" data-tour-target="tasks-card">
+            </span>
+          </a>
+          <a
+            class="adventure-shortcut-card surface-card"
+            id="openTasksFromAdventure"
+            data-tour-target="tasks-card"
+            href="tasks.html"
+            role="button"
+            tabindex="0"
+            data-page-url="tasks.html"
+          >
             <h2 data-i18n="shortcuts.tasks.title">✅ Lista zadań</h2>
             <p data-i18n="shortcuts.tasks.description">
               Przejrzyj wyzwania przed wyjazdem i zapisuj swój postęp w osobnej zakładce.
             </p>
-            <button
-              type="button"
-              class="secondary"
-              id="openTasksFromAdventure"
-              data-page-url="tasks.html"
-              data-i18n="shortcuts.tasks.action"
-            >
+            <span class="adventure-shortcut-cta secondary" data-i18n="shortcuts.tasks.action">
               Otwórz zadania
-            </button>
-          </article>
-          <article class="adventure-shortcut-card surface-card" id="carRentalCard" data-tour-target="car-card">
+            </span>
+          </a>
+          <a
+            class="adventure-shortcut-card surface-card"
+            id="openCarRentalFromAdventure"
+            data-tour-target="car-card"
+            href="car-rental.html"
+            role="button"
+            tabindex="0"
+          >
             <h2 data-i18n="shortcuts.car.title">🚗 Wynajem auta na Cyprze</h2>
             <p data-i18n="shortcuts.car.description">
               Poznaj całą flotę, porównaj ceny i zarezerwuj samochód na dedykowanej stronie.
             </p>
-            <a class="secondary adventure-link" href="car-rental.html" data-i18n="shortcuts.car.action">
+            <span class="adventure-shortcut-cta secondary" data-i18n="shortcuts.car.action">
               Przejdź do wynajmu
-            </a>
-          </article>
+            </span>
+          </a>
         </section>
       </aside>
 
@@ -375,15 +386,15 @@
             Zabierz ze sobą wszystko, co przyda się na Cyprze – wybierz sezon i odhaczaj kolejne pozycje.
           </p>
         </div>
-        <button
-          type="button"
+        <a
           class="ghost"
           id="openAdventureFromPacking"
-          data-page-url="index.html"
+          data-back-home-link="true"
           data-i18n="packing.header.back"
+          href="/index.html"
         >
           ← Wróć do przygody
-        </button>
+        </a>
       </header>
       <section class="packing-panel" aria-labelledby="packingPlannerTitle">
         <div class="packing-panel-header">
@@ -425,15 +436,15 @@
             Przygotuj się do wyjazdu dzięki misjom, które dodadzą Ci XP i uporządkują przygotowania.
           </p>
         </div>
-        <button
-          type="button"
+        <a
           class="ghost"
           id="openAdventureFromTasks"
-          data-page-url="index.html"
+          data-back-home-link="true"
           data-i18n="tasks.header.back"
+          href="/index.html"
         >
           ← Wróć do przygody
-        </button>
+        </a>
       </header>
       <section class="tasks-panel" aria-labelledby="tasksViewTitle">
         <p class="tasks-hint" data-i18n="tasks.hint">
@@ -457,15 +468,15 @@
             poznaj koszt na osobę dla swojej grupy.
           </p>
         </div>
-        <button
-          type="button"
+        <a
           class="ghost"
           id="openAdventureFromMediaTrips"
-          data-page-url="index.html"
+          data-back-home-link="true"
           data-i18n="mediaTrips.header.back"
+          href="/index.html"
         >
           ← Wróć do przygody
-        </button>
+        </a>
       </header>
       <section class="media-trips-panel" aria-labelledby="mediaTripsTitle">
         <p class="media-trips-intro" data-i18n="mediaTrips.intro">

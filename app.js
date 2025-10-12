@@ -3223,6 +3223,37 @@ function formatAttractionCount(count) {
   return `${count} atrakcji`;
 }
 
+function getCurrentLanguageCode() {
+  if (typeof window !== 'undefined' && window.appI18n && window.appI18n.language) {
+    return window.appI18n.language;
+  }
+
+  if (typeof document !== 'undefined') {
+    const documentLang = document.documentElement?.lang;
+    if (documentLang) {
+      return documentLang;
+    }
+  }
+
+  return 'pl';
+}
+
+function updateBackLinksHref() {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  const currentLang = getCurrentLanguageCode() || 'pl';
+  const targetUrl = `/index.html?lang=${encodeURIComponent(currentLang)}`;
+  const backLinks = document.querySelectorAll('[data-back-home-link]');
+  backLinks.forEach((link) => {
+    if (link instanceof HTMLAnchorElement) {
+      link.href = targetUrl;
+      link.dataset.pageUrl = targetUrl;
+    }
+  });
+}
+
 function storeSelectedPlaceForRedirect(placeId) {
   if (!placeId) return;
   try {
@@ -8088,21 +8119,64 @@ function bootstrap() {
 
   const navigationMode = document.body?.dataset?.navigation || 'single-page';
 
+  updateBackLinksHref();
+
   function setupNavigationButton(element, openFn, options = {}) {
     const { enableKeydown = false } = options;
     if (!element) {
       return;
     }
 
-    element.addEventListener('click', () => {
-      const targetPage = element.dataset?.pageUrl;
-      if (typeof targetPage === 'string' && targetPage.trim()) {
-        window.location.href = targetPage.trim();
+    const isAnchor = element instanceof HTMLAnchorElement;
+    const isButton = element instanceof HTMLButtonElement;
+
+    element.addEventListener('click', (event) => {
+      const targetPage = element.dataset?.pageUrl?.trim();
+      if (navigationMode === 'multi-page') {
+        if (targetPage) {
+          event.preventDefault();
+          window.location.href = targetPage;
+          return;
+        }
+
+        if (isAnchor && element.hasAttribute('href')) {
+          return;
+        }
+      }
+
+      if (isAnchor) {
+        event.preventDefault();
+      }
+
+      if (typeof openFn === 'function') {
+        openFn();
         return;
       }
 
-      openFn?.();
+      if (targetPage) {
+        window.location.href = targetPage;
+      }
     });
+
+    if (!isButton) {
+      element.addEventListener('keydown', (event) => {
+        const isEnter = event.key === 'Enter';
+        const isSpace = event.key === ' ';
+        if (!isEnter && !isSpace) {
+          return;
+        }
+
+        if (isSpace) {
+          event.preventDefault();
+        }
+
+        if (isEnter && isAnchor && navigationMode === 'multi-page') {
+          return;
+        }
+
+        element.click();
+      });
+    }
 
     if (enableKeydown && navigationMode !== 'multi-page') {
       element.addEventListener('keydown', handleHeaderTabKeydown);
@@ -8167,6 +8241,7 @@ document.addEventListener('DOMContentLoaded', bootstrap);
 document.addEventListener('wakacjecypr:languagechange', () => {
   renderAllForCurrentState();
   syncMarkers();
+  updateBackLinksHref();
   if (playerMarker?.getTooltip?.()) {
     playerMarker.getTooltip().setContent(translate('map.playerLocation', 'Twoje położenie'));
   }
