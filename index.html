@@ -18,12 +18,35 @@
     property="og:description"
     content="Dołącz do WakacjeCypr Quest, odkrywaj mapę atrakcji, śledź postępy wyprawy i odblokowuj nowe nagrody."
   />
-  <meta property="og:url" content="" />
-  <meta property="og:image" content="assets/cyprus_logo-1000x1054.png" />
+  <meta property="og:url" content="https://www.cypruseye.com/index.html" />
+  <meta property="og:image" content="https://www.cypruseye.com/assets/cyprus_logo-1000x1054.png" />
   <meta property="og:locale" content="pl_PL" />
-  <link rel="alternate" hreflang="pl" href="?lang=pl" />
-  <link rel="alternate" hreflang="en" href="?lang=en" />
-  <link rel="alternate" hreflang="el" href="?lang=el" />
+  <meta property="og:locale:alternate" content="en_GB" />
+  <meta property="og:locale:alternate" content="el_GR" />
+  <meta
+    name="description"
+    content="Zaplanuj atrakcje na Cyprze, zarządzaj pakowaniem i zadaniami oraz zdobywaj odznaki w aplikacji WakacjeCypr Quest."
+    lang="pl"
+  />
+  <meta
+    name="description"
+    content="Plan Cyprus attractions, manage packing lists and tasks, and earn badges with the HolidayCyprus Quest companion app."
+    lang="en"
+  />
+  <meta
+    name="description"
+    content="Οργανώστε αξιοθέατα στην Κύπρο, λίστες αποσκευών και αποστολές και κερδίστε κονκάρδες με την εφαρμογή HolidayCyprus Quest."
+    lang="el"
+  />
+  <meta property="og:title" content="HolidayCyprus Quest – Interactive Cyprus travel app" lang="en" />
+  <meta property="og:title" content="HolidayCyprus Quest – Διαδραστική ταξιδιωτική εφαρμογή για την Κύπρο" lang="el" />
+  <meta property="og:description" content="Join HolidayCyprus Quest to explore Cyprus attractions, track your adventure progress, and unlock new rewards." lang="en" />
+  <meta property="og:description" content="Εξερευνήστε την Κύπρο με το HolidayCyprus Quest, παρακολουθήστε την πρόοδό σας και ξεκλειδώστε νέες ανταμοιβές." lang="el" />
+  <link rel="canonical" href="https://www.cypruseye.com/index.html" />
+  <link rel="alternate" hreflang="pl" href="https://www.cypruseye.com/index.html?lang=pl" />
+  <link rel="alternate" hreflang="en" href="https://www.cypruseye.com/index.html?lang=en" />
+  <link rel="alternate" hreflang="el" href="https://www.cypruseye.com/index.html?lang=el" />
+  <link rel="alternate" hreflang="x-default" href="https://www.cypruseye.com/index.html" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap" rel="stylesheet" />
@@ -90,7 +113,13 @@
         </div>
       </div>
       <div class="header-top-actions">
-        <form class="header-search" role="search" action="kupon.html" method="get">
+        <form
+          class="header-search"
+          role="search"
+          action="/api/forms/coupon-search"
+          method="post"
+          data-enhanced-form
+        >
           <label class="visually-hidden" for="globalCouponSearch">Szukaj kuponów</label>
           <input
             type="search"
@@ -602,11 +631,12 @@
 
   <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
 
-  <script src="js/i18n.js"></script>
-  <script src="js/tutorial.js"></script>
-  <script src="js/seo.js"></script>
-  <script src="car-rental.js"></script>
-  <script src="app.js"></script>
+  <script src="js/i18n.js" defer></script>
+  <script src="js/forms.js" defer></script>
+  <script src="js/tutorial.js" defer></script>
+  <script src="js/seo.js" defer></script>
+  <script src="car-rental.js" defer></script>
+  <script src="app.js" defer></script>
 
   <div
     class="explorer-modal"

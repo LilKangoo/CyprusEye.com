@@ -3,6 +3,7 @@
 
   const SUPPORTED_LANGUAGES = ['pl', 'en', 'el'];
   const DEFAULT_IMAGE = 'assets/cyprus_logo-1000x1054.png';
+  const CANONICAL_ORIGIN = 'https://www.cypruseye.com';
   const LOCALE_FALLBACK = {
     pl: 'pl_PL',
     en: 'en_GB',
@@ -22,6 +23,28 @@
     return element;
   }
 
+  function ensureLocalizedMeta(attribute, value, language) {
+    const selector = `meta[${attribute}="${value}"][lang="${language}"]`;
+    let element = head.querySelector(selector);
+    if (!element) {
+      element = document.createElement('meta');
+      element.setAttribute(attribute, value);
+      element.setAttribute('lang', language);
+      head.appendChild(element);
+    }
+    return element;
+  }
+
+  function ensureLink(rel) {
+    let link = head.querySelector(`link[rel="${rel}"]`);
+    if (!link) {
+      link = document.createElement('link');
+      link.setAttribute('rel', rel);
+      head.appendChild(link);
+    }
+    return link;
+  }
+
   function ensureAlternate(hreflang) {
     let link = head.querySelector(`link[rel="alternate"][hreflang="${hreflang}"]`);
     if (!link) {
@@ -38,7 +61,7 @@
       return '';
     }
     try {
-      return new URL(value, window.location.origin).toString();
+      return new URL(value, CANONICAL_ORIGIN).toString();
     } catch (error) {
       return value;
     }
@@ -52,6 +75,8 @@
     ogImage: ensureMeta('property', 'og:image'),
     ogLocale: ensureMeta('property', 'og:locale'),
   };
+
+  const canonicalLink = ensureLink('canonical');
 
   const fallback = {
     title: document.title,
@@ -89,18 +114,44 @@
     return null;
   }
 
-  function updateAlternateLinks(language) {
+  function buildCanonicalUrl() {
+    const url = new URL(window.location.pathname, CANONICAL_ORIGIN);
+    return url.toString();
+  }
+
+  function buildLanguageUrl(language) {
+    const url = new URL(window.location.pathname, CANONICAL_ORIGIN);
+    const params = new URLSearchParams(window.location.search);
+    if (language) {
+      params.set('lang', language);
+    }
+    params.forEach((value, key) => {
+      if (value) {
+        url.searchParams.set(key, value);
+      }
+    });
+    if (language) {
+      url.searchParams.set('lang', language);
+    } else {
+      url.searchParams.delete('lang');
+    }
+    return url.toString();
+  }
+
+  function updateAlternateLinks(activeLanguage) {
     SUPPORTED_LANGUAGES.forEach((code) => {
-      const url = new URL(window.location.href);
-      url.searchParams.set('lang', code);
       const link = ensureAlternate(code);
-      link.setAttribute('href', url.toString());
+      link.setAttribute('href', buildLanguageUrl(code));
     });
 
     const defaultLink = ensureAlternate('x-default');
-    const canonical = new URL(window.location.href);
-    canonical.searchParams.delete('lang');
-    defaultLink.setAttribute('href', canonical.toString());
+    defaultLink.setAttribute('href', buildCanonicalUrl());
+
+    canonicalLink.setAttribute('href', buildCanonicalUrl());
+
+    if (meta.ogUrl) {
+      meta.ogUrl.setAttribute('content', buildLanguageUrl(activeLanguage));
+    }
   }
 
   function updateSeo(language) {
@@ -130,10 +181,6 @@
       meta.ogDescription.setAttribute('content', ogDescription);
     }
 
-    if (meta.ogUrl) {
-      meta.ogUrl.setAttribute('content', window.location.href);
-    }
-
     const ogImageValue =
       getTranslationString(translations, `${baseKey}.ogImage`) ||
       getTranslationString(translations, 'seo.ogImage') ||
@@ -152,6 +199,46 @@
     if (localeValue && meta.ogLocale) {
       meta.ogLocale.setAttribute('content', localeValue);
     }
+
+    const titleElement = head.querySelector('title');
+    if (titleElement) {
+      titleElement.setAttribute('lang', language);
+    }
+
+    SUPPORTED_LANGUAGES.forEach((code) => {
+      const localizedTranslations = getTranslations(code);
+      const localizedBaseKey = `seo.${pageKey}`;
+      const localizedTitle =
+        getTranslationString(localizedTranslations, `${localizedBaseKey}.title`) || fallback.title;
+      const localizedDescription =
+        getTranslationString(localizedTranslations, `${localizedBaseKey}.description`) || fallback.description;
+      const localizedOgTitle =
+        getTranslationString(localizedTranslations, `${localizedBaseKey}.ogTitle`) || localizedTitle;
+      const localizedOgDescription =
+        getTranslationString(localizedTranslations, `${localizedBaseKey}.ogDescription`) ||
+        localizedDescription;
+
+      const titleMeta = ensureLocalizedMeta('name', 'title', code);
+      titleMeta.setAttribute('content', localizedTitle);
+
+      const descriptionMeta = ensureLocalizedMeta('name', 'description', code);
+      descriptionMeta.setAttribute('content', localizedDescription);
+
+      const ogTitleMeta = ensureLocalizedMeta('property', 'og:title', code);
+      ogTitleMeta.setAttribute('content', localizedOgTitle);
+
+      const ogDescriptionMeta = ensureLocalizedMeta('property', 'og:description', code);
+      ogDescriptionMeta.setAttribute('content', localizedOgDescription);
+    });
+
+    head
+      .querySelectorAll('meta[property="og:locale:alternate"]')
+      .forEach((node) => node.parentNode?.removeChild(node));
+    SUPPORTED_LANGUAGES.filter((code) => code !== language).forEach((code) => {
+      const locale = LOCALE_FALLBACK[code] || code;
+      const alternate = ensureLocalizedMeta('property', 'og:locale:alternate', code);
+      alternate.setAttribute('content', locale);
+    });
 
     updateAlternateLinks(language);
   }

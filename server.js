@@ -10,12 +10,28 @@ const DATA_DIR_PATH = path.join(__dirname, 'data');
 const DATA_FILE_PATH = path.join(DATA_DIR_PATH, 'users.json');
 const SPREADSHEET_FILE_PATH = path.join(DATA_DIR_PATH, 'users.csv');
 const COMMUNITY_JOURNAL_FILE_PATH = path.join(DATA_DIR_PATH, 'community-journal.json');
+const FORM_SUBMISSIONS_FILE_PATH = path.join(DATA_DIR_PATH, 'form-submissions.json');
+const NOT_FOUND_PAGE_PATH = path.join(__dirname, '404.html');
 const PASSWORD_RESET_URL = process.env.PASSWORD_RESET_URL || 'http://localhost:3000/reset-password';
 const PASSWORD_RESET_TOKEN_TTL_MS = Number(process.env.PASSWORD_RESET_TOKEN_TTL_MS || 1000 * 60 * 60);
 const BASE_PATH = normalizeBasePath(process.env.BASE_PATH || '/');
 
+let cachedNotFoundPage = null;
+
+function applySecurityHeaders(res) {
+  res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
+  );
+  res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+}
+
 function jsonResponse(res, statusCode, data) {
   const body = JSON.stringify(data);
+  applySecurityHeaders(res);
   res.writeHead(statusCode, {
     'Content-Type': 'application/json; charset=utf-8',
     'Content-Length': Buffer.byteLength(body),
@@ -78,6 +94,15 @@ async function ensureCommunityJournalFile() {
   }
 }
 
+async function ensureFormSubmissionsFile() {
+  await fs.mkdir(DATA_DIR_PATH, { recursive: true });
+  try {
+    await fs.access(FORM_SUBMISSIONS_FILE_PATH);
+  } catch (error) {
+    await fs.writeFile(FORM_SUBMISSIONS_FILE_PATH, JSON.stringify([], null, 2), 'utf-8');
+  }
+}
+
 async function readData() {
   await ensureDataFile();
   const file = await fs.readFile(DATA_FILE_PATH, 'utf-8');
@@ -110,6 +135,20 @@ async function writeCommunityJournal(data) {
   await fs.writeFile(COMMUNITY_JOURNAL_FILE_PATH, JSON.stringify(payload, null, 2), 'utf-8');
 }
 
+async function appendFormSubmission(entry) {
+  await ensureFormSubmissionsFile();
+  try {
+    const raw = await fs.readFile(FORM_SUBMISSIONS_FILE_PATH, 'utf-8');
+    const parsed = JSON.parse(raw);
+    const submissions = Array.isArray(parsed) ? parsed : [];
+    submissions.unshift(entry);
+    const limited = submissions.slice(0, 500);
+    await fs.writeFile(FORM_SUBMISSIONS_FILE_PATH, JSON.stringify(limited, null, 2), 'utf-8');
+  } catch (error) {
+    console.error('Nie udało się zapisać zgłoszenia formularza:', error);
+  }
+}
+
 async function parseRequestBody(req) {
   const chunks = [];
   for await (const chunk of req) {
@@ -122,11 +161,26 @@ async function parseRequestBody(req) {
   if (!raw) {
     return {};
   }
-  try {
-    return JSON.parse(raw);
-  } catch (error) {
-    throw new Error('INVALID_JSON');
+  const contentType = typeof req.headers['content-type'] === 'string' ? req.headers['content-type'] : '';
+
+  if (contentType.includes('application/x-www-form-urlencoded')) {
+    const params = new URLSearchParams(raw);
+    return Object.fromEntries(params.entries());
   }
+
+  if (!contentType || contentType.includes('application/json')) {
+    try {
+      return JSON.parse(raw);
+    } catch (error) {
+      throw new Error('INVALID_JSON');
+    }
+  }
+
+  if (contentType.includes('text/plain')) {
+    return { text: raw };
+  }
+
+  throw new Error('INVALID_JSON');
 }
 
 function normalizeEmail(email) {
@@ -333,6 +387,8 @@ const routes = {
   'GET /api/community/journal': handleListCommunityJournal,
   'POST /api/community/journal': handleCreateCommunityJournal,
   'GET /api/community/journal/stream': handleCommunityJournalStream,
+  'POST /api/forms/coupon-search': handleCouponSearchForm,
+  'POST /api/forms/contact': handleContactForm,
 };
 
 const journalStreamClients = new Set();
@@ -419,7 +475,156 @@ async function handleCreateCommunityJournal(req, res) {
   }
 }
 
+function buildRedirectTarget(targetPath) {
+  if (!targetPath) {
+    return '/';
+  }
+  try {
+    const url = new URL(targetPath, 'http://localhost');
+    return `${url.pathname}${url.search}`;
+  } catch (error) {
+    return targetPath;
+  }
+}
+
+async function handleCouponSearchForm(req, res) {
+  try {
+    const body = await parseRequestBody(req);
+    const couponQuery = typeof body?.coupon === 'string' ? body.coupon.trim() : '';
+    const language = typeof body?.lang === 'string' ? body.lang.trim() : null;
+    const now = new Date().toISOString();
+
+    await appendFormSubmission({
+      id: `coupon-search-${Date.now()}`,
+      type: 'coupon-search',
+      coupon: couponQuery,
+      language,
+      userAgent: req.headers['user-agent'] || null,
+      referer: req.headers.referer || null,
+      createdAt: now,
+    });
+
+    const redirectUrl = couponQuery
+      ? `/kupon.html?coupon=${encodeURIComponent(couponQuery)}`
+      : '/kupon.html';
+
+    if ((req.headers.accept || '').includes('application/json')) {
+      return jsonResponse(res, 200, { redirectUrl });
+    }
+
+    applySecurityHeaders(res);
+    res.writeHead(303, {
+      Location: redirectUrl,
+      'Cache-Control': 'no-cache',
+    });
+    res.end();
+  } catch (error) {
+    if (error.message === 'INVALID_JSON') {
+      return jsonResponse(res, 400, { error: 'Niepoprawny format danych formularza.' });
+    }
+    console.error('Błąd podczas obsługi wyszukiwarki kuponów:', error);
+    return jsonResponse(res, 500, { error: 'Nie udało się przekierować wyszukiwarki kuponów.' });
+  }
+}
+
+function sanitizeContactField(value, { maxLength }) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return '';
+  }
+  if (maxLength && trimmed.length > maxLength) {
+    return trimmed.slice(0, maxLength);
+  }
+  return trimmed;
+}
+
+async function handleContactForm(req, res) {
+  try {
+    const body = await parseRequestBody(req);
+    const name = sanitizeContactField(body?.name, { maxLength: 120 });
+    const email = normalizeEmail(body?.email || '');
+    const message = sanitizeContactField(body?.message, { maxLength: 2000 });
+    const service = sanitizeContactField(body?.service, { maxLength: 120 });
+    const language = sanitizeContactField(body?.lang, { maxLength: 10 });
+
+    if (!name || !email || !message) {
+      const acceptHeader = req.headers.accept || '';
+      if (acceptHeader.includes('application/json')) {
+        return jsonResponse(res, 422, { error: 'Wypełnij imię, e-mail oraz wiadomość.' });
+      }
+      const referer = req.headers.referer ? buildRedirectTarget(req.headers.referer) : null;
+      const target = referer ? `${referer}${referer.includes('?') ? '&' : '?'}error=1` : '/index.html?error=1';
+      applySecurityHeaders(res);
+      res.writeHead(303, {
+        Location: target,
+        'Cache-Control': 'no-cache',
+      });
+      res.end();
+      return;
+    }
+
+    const entry = {
+      id: `contact-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
+      type: 'contact',
+      name,
+      email,
+      message,
+      service: service || null,
+      language: language || null,
+      userAgent: req.headers['user-agent'] || null,
+      referer: req.headers.referer || null,
+      createdAt: new Date().toISOString(),
+    };
+
+    await appendFormSubmission(entry);
+
+    const acceptHeader = req.headers.accept || '';
+    if (acceptHeader.includes('application/json')) {
+      return jsonResponse(res, 200, { message: 'Dziękujemy za zgłoszenie. Skontaktujemy się wkrótce.' });
+    }
+
+    const referer = req.headers.referer ? buildRedirectTarget(req.headers.referer) : null;
+    const target = referer ? `${referer}${referer.includes('?') ? '&' : '?'}success=1` : '/index.html?success=1';
+    applySecurityHeaders(res);
+    res.writeHead(303, {
+      Location: target,
+      'Cache-Control': 'no-cache',
+    });
+    res.end();
+  } catch (error) {
+    if (error.message === 'INVALID_JSON') {
+      const acceptHeader = req.headers.accept || '';
+      if (acceptHeader.includes('application/json')) {
+        return jsonResponse(res, 400, { error: 'Niepoprawny format danych formularza.' });
+      }
+      const referer = req.headers.referer ? buildRedirectTarget(req.headers.referer) : null;
+      const target = referer ? `${referer}${referer.includes('?') ? '&' : '?'}error=1` : '/index.html?error=1';
+      applySecurityHeaders(res);
+      res.writeHead(303, {
+        Location: target,
+        'Cache-Control': 'no-cache',
+      });
+      res.end();
+      return;
+    }
+    console.error('Błąd podczas wysyłania formularza kontaktowego:', error);
+    if ((req.headers.accept || '').includes('application/json')) {
+      return jsonResponse(res, 500, { error: 'Nie udało się wysłać formularza kontaktowego.' });
+    }
+    applySecurityHeaders(res);
+    res.writeHead(303, {
+      Location: '/index.html?error=1',
+      'Cache-Control': 'no-cache',
+    });
+    res.end();
+  }
+}
+
 function handleCommunityJournalStream(req, res) {
+  applySecurityHeaders(res);
   if (req.httpVersionMajor < 2) {
     res.writeHead(200, {
       'Content-Type': 'text/event-stream; charset=utf-8',
@@ -484,6 +689,7 @@ function createServer() {
     if ((req.method === 'GET' || req.method === 'HEAD') && isHealthRequest) {
       if (req.method === 'HEAD') {
         const body = JSON.stringify({ status: 'ok' });
+        applySecurityHeaders(res);
         res.writeHead(200, {
           'Content-Type': 'application/json; charset=utf-8',
           'Content-Length': Buffer.byteLength(body),
@@ -506,6 +712,8 @@ function createServer() {
       if (served) {
         return;
       }
+      await serveNotFoundPage(req, res);
+      return;
     }
 
     return jsonResponse(res, 404, { error: 'Endpoint nie istnieje.' });
@@ -516,6 +724,7 @@ export async function start() {
   await ensureSpreadsheetFile();
   await ensureDataFile();
   await ensureCommunityJournalFile();
+  await ensureFormSubmissionsFile();
   const port = process.env.PORT !== undefined ? Number(process.env.PORT) : 3001;
   const server = createServer();
   return new Promise((resolve) => {
@@ -635,6 +844,13 @@ async function tryServeStaticFile(req, pathname, res) {
       'Content-Length': stats.size,
     };
 
+    if (!mimeType.startsWith('text/html')) {
+      headers['Cache-Control'] = 'public, max-age=31536000, immutable';
+    } else {
+      headers['Cache-Control'] = 'no-cache';
+    }
+
+    applySecurityHeaders(res);
     res.writeHead(200, headers);
     if (req.method === 'HEAD') {
       res.end();
@@ -660,8 +876,12 @@ async function tryServeStaticFile(req, pathname, res) {
           const headers = {
             'Content-Type': mimeType,
             'Content-Length': stats.size,
+            'Cache-Control': mimeType.startsWith('text/html')
+              ? 'no-cache'
+              : 'public, max-age=31536000, immutable',
           };
 
+          applySecurityHeaders(res);
           res.writeHead(200, headers);
           if (req.method === 'HEAD') {
             res.end();
@@ -684,4 +904,34 @@ async function tryServeStaticFile(req, pathname, res) {
   }
 
   return false;
+}
+
+async function serveNotFoundPage(req, res) {
+  try {
+    if (!cachedNotFoundPage) {
+      cachedNotFoundPage = await fs.readFile(NOT_FOUND_PAGE_PATH, 'utf-8');
+    }
+    const body = cachedNotFoundPage;
+    applySecurityHeaders(res);
+    const headers = {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Content-Length': Buffer.byteLength(body, 'utf-8'),
+      'Cache-Control': 'no-cache',
+    };
+    res.writeHead(404, headers);
+    if (req.method === 'HEAD') {
+      res.end();
+    } else {
+      res.end(body);
+    }
+  } catch (error) {
+    const fallback = '404 Not Found';
+    applySecurityHeaders(res);
+    res.writeHead(404, {
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Content-Length': Buffer.byteLength(fallback, 'utf-8'),
+      'Cache-Control': 'no-cache',
+    });
+    res.end(req.method === 'HEAD' ? undefined : fallback);
+  }
 }

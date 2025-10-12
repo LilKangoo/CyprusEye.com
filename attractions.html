@@ -37,7 +37,13 @@
             <p class="standalone-brand-title" data-i18n="attractions.brand.title">WakacjeCypr Quest</p>
           </div>
         </div>
-        <form class="header-search header-search--light" role="search" action="kupon.html" method="get">
+        <form
+          class="header-search header-search--light"
+          role="search"
+          action="/api/forms/coupon-search"
+          method="post"
+          data-enhanced-form
+        >
           <label class="visually-hidden" for="standaloneCouponSearchAttractions">Szukaj kuponów</label>
           <input
             type="search"
@@ -117,8 +123,9 @@
       <span data-i18n="attractions.footer">© <span id="year"></span> WakacjeCypr.com – Znajdź swoją kolejną przygodę na Cyprze.</span>
     </footer>
 
-    <script src="js/i18n.js"></script>
-    <script src="js/seo.js"></script>
-    <script src="app.js"></script>
+    <script src="js/i18n.js" defer></script>
+    <script src="js/forms.js" defer></script>
+    <script src="js/seo.js" defer></script>
+    <script src="app.js" defer></script>
   </body>
 </html>
