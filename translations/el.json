@@ -1,0 +1,23 @@
+{
+  "language.switcher.label": "Γλώσσα",
+  "language.option.pl": "🇵🇱 Πολωνικά",
+  "language.option.en": "🇬🇧 Αγγλικά",
+  "language.option.el": "🇬🇷 Ελληνικά",
+  "seo.locale": "el_GR",
+  "seo.ogImage": "assets/cyprus_logo-1000x1054.png",
+  "seo.coupon.title": "Κουπόνι HolidayCyprus – άμεση πληρωμή Stripe",
+  "seo.coupon.description": "Αποκτήστε το ειδικό κουπόνι HolidayCyprus και μεταβείτε αμέσως στην ασφαλή πληρωμή Stripe.",
+  "seo.coupon.ogTitle": "Κουπόνι HolidayCyprus – άμεση πληρωμή Stripe",
+  "seo.coupon.ogDescription": "Κλείστε την προσφορά μας σε δευτερόλεπτα με το κουπόνι και την ασφαλή πληρωμή Stripe.",
+  "coupon.nav_tile": "💸 Κουπόνι",
+  "coupon.title": "Ειδικό Κουπόνι — γρήγορη κράτηση",
+  "coupon.subtitle": "Ο πιο απλός τρόπος να επωφεληθείτε — χωρίς γραφειοκρατία.",
+  "coupon.points": [
+    "Χωρίς εγγύηση / καθαροί όροι",
+    "Υποστήριξη 24/7",
+    "Παραλαβή σε μεγάλες πόλεις",
+    "Διαφανής τιμολόγηση & κανόνες"
+  ],
+  "coupon.smallprint": "Κάνοντας κλικ μεταβαίνετε σε ασφαλή πληρωμή Stripe.",
+  "coupon.aria_go_to_stripe": "Μετάβαση στην πληρωμή Stripe"
+}

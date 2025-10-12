@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="pl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title data-i18n="seo.coupon.title">Kupon WakacjeCypr – szybka płatność Stripe</title>
+    <meta
+      name="description"
+      content="Kup specjalny kupon WakacjeCypr i natychmiast przejdź do bezpiecznej płatności Stripe."
+      data-i18n-attrs="content:seo.coupon.description"
+    />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Kupon WakacjeCypr – szybka płatność Stripe" data-i18n-attrs="content:seo.coupon.ogTitle" />
+    <meta
+      property="og:description"
+      content="Zarezerwuj naszą ofertę w kilka sekund dzięki kuponowi i bezpiecznej płatności Stripe."
+      data-i18n-attrs="content:seo.coupon.ogDescription"
+    />
+    <meta property="og:url" content="" />
+    <meta property="og:image" content="assets/cyprus_logo-1000x1054.png" data-i18n-attrs="content:seo.ogImage" />
+    <meta property="og:locale" content="pl_PL" data-i18n-attrs="content:seo.locale" />
+    <link rel="alternate" hreflang="pl" href="?lang=pl" />
+    <link rel="alternate" hreflang="en" href="?lang=en" />
+    <link rel="alternate" hreflang="el" href="?lang=el" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="standalone-body coupon-body" data-seo-page="coupon">
+    <main class="coupon-main" aria-labelledby="couponTitle">
+      <section
+        class="surface-card coupon-card"
+        role="button"
+        tabindex="0"
+        aria-describedby="couponSubtitle"
+        data-i18n-attrs="aria-label:coupon.aria_go_to_stripe"
+        aria-label="Przejdź do płatności Stripe"
+        data-coupon-card
+      >
+        <div class="coupon-card-content">
+          <p class="coupon-badge" data-i18n="coupon.nav_tile">💸 Kupon</p>
+          <h1 id="couponTitle" data-i18n="coupon.title">Kupon specjalny — szybka rezerwacja</h1>
+          <p id="couponSubtitle" class="coupon-subtitle" data-i18n="coupon.subtitle">
+            Najprostszy sposób, by skorzystać z naszej oferty — bez formalności.
+          </p>
+          <ul id="couponPointsList" class="coupon-points" aria-live="polite"></ul>
+        </div>
+      </section>
+      <p class="coupon-smallprint" data-i18n="coupon.smallprint">
+        Klikając w kafelek przejdziesz do bezpiecznej płatności Stripe.
+      </p>
+    </main>
+    <script src="js/i18n.js"></script>
+    <script src="js/seo.js"></script>
+    <script src="js/coupon.js"></script>
+  </body>
+</html>

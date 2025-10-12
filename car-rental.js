@@ -125,246 +125,153 @@
 
   const DEFAULT_CAR_FLEET = [
     {
-      id: 'toyota-passo-2020',
-      name: 'Toyota Passo',
-      year: 2020,
-      pricePerDay: 30,
-      seats: 4,
-      transmission: 'Automat',
-      category: 'Kompakt miejski',
-      fuel: 'Benzyna',
-      features: ['Bez kaucji', 'Klimatyzacja', 'Asysta 24/7'],
-      note: 'Niezwykle zwrotny model idealny do parkowania w zatłoczonych kurortach.',
-    },
-    {
       id: 'toyota-yaris-2023',
       name: 'Toyota Yaris',
       year: 2023,
+      pricingKey: 'Toyota Yaris 2023',
       pricePerDay: 35,
       seats: 4,
       transmission: 'Automat',
       category: 'Hatchback miejski',
       fuel: 'Benzyna',
-      features: ['Nowa generacja', 'Bez kaucji', 'Ekonomiczne spalanie'],
-      note: 'Sprawdza się podczas zwiedzania miast i krótkich wypadów poza kurort.',
+      specs: ['Automat', '4 os.', 'AC', 'Ekonomiczny'],
+      features: ['Bez kaucji', 'Dodatkowy kierowca 0 €', '1 € dziennie na ochronę żółwi'],
+      note: 'Nowa generacja hatchbacka idealna do zwiedzania całego Cypru.',
+      image: { dataSrc: 'assets/fleet/toyota-yaris-2023.jpg' },
     },
     {
       id: 'nissan-note-2020',
       name: 'Nissan Note',
       year: 2020,
+      pricingKey: 'Nissan Note 2020',
       pricePerDay: 35,
       seats: 4,
       transmission: 'Automat',
       category: 'Hatchback miejski',
       fuel: 'Benzyna',
-      features: ['Wysoka pozycja siedzeń', 'Asysta 24/7', 'Dodatkowy kierowca gratis'],
-      note: 'Zwiększona przestrzeń nad głową zapewnia komfort przy dłuższych przejazdach.',
+      specs: ['Automat', '4 os.', 'AC', 'Przestronny'],
+      features: ['Bez kaucji', 'Polska obsługa 24/7', 'Foteliki w cenie'],
+      note: 'Wysoki dach zwiększa komfort podróży przy zachowaniu kompaktowych wymiarów.',
+      image: { dataSrc: 'assets/fleet/nissan-note-2020.jpg' },
     },
     {
       id: 'kia-rio-2019',
       name: 'Kia Rio',
       year: 2019,
+      pricingKey: 'Kia Rio 2019',
       pricePerDay: 35,
       seats: 4,
       transmission: 'Automat',
-      category: 'Hatchback',
+      category: 'Hatchback miejski',
       fuel: 'Benzyna',
-      features: ['Łatwe manewrowanie', 'Klimatyzacja', 'Foteliki w cenie'],
-      note: 'Stabilne prowadzenie sprawdzi się przy zwiedzaniu całej wyspy.',
+      specs: ['Automat', '4 os.', 'AC', 'Ekonomiczny'],
+      features: ['Bez kaucji', 'Dodatkowy kierowca 0 €', 'Wsparcie 24/7'],
+      note: 'Zwrotna Kia idealna na miejskie uliczki i jednodniowe wycieczki.',
+      image: { dataSrc: 'assets/fleet/kia-rio-2019.jpg' },
     },
     {
       id: 'toyota-yaris-hybrid-2023',
       name: 'Toyota Yaris Hybrid',
       year: 2023,
+      pricingKey: 'Toyota Yaris Hybrid 2023',
       pricePerDay: 40,
       seats: 4,
       transmission: 'Automat',
       category: 'Hybryda miejska',
       fuel: 'Hybryda',
-      features: ['Napęd hybrydowy', 'Bez kaucji', 'Tryb EV w mieście'],
-      note: 'Idealna dla osób chcących ograniczyć spalanie podczas częstych przejazdów.',
-    },
-    {
-      id: 'toyota-aqua-hybrid-2022',
-      name: 'Toyota Aqua Hybrid',
-      year: 2022,
-      pricePerDay: 40,
-      seats: 5,
-      transmission: 'Automat',
-      category: 'Hybryda',
-      fuel: 'Hybryda',
-      features: ['Niskie spalanie', 'System Start/Stop', 'Assistance 24/7'],
-      note: 'Napęd hybrydowy i przestronny bagażnik ułatwiają rodzinne wycieczki.',
+      specs: ['Automat', '4 os.', 'AC', 'Hybryda'],
+      features: ['Tryb EV w mieście', 'Dodatkowy kierowca 0 €', '1 € na żółwie dziennie'],
+      note: 'Napęd hybrydowy zapewnia niskie spalanie podczas podróży po wyspie.',
+      image: { dataSrc: 'assets/fleet/toyota-yaris-hybrid-2023.jpg' },
     },
     {
       id: 'honda-fit-2022',
       name: 'Honda Fit',
       year: 2022,
+      pricingKey: 'Honda Fit 2022',
       pricePerDay: 40,
-      seats: 5,
+      seats: 4,
       transmission: 'Automat',
       category: 'Kompakt rodzinny',
       fuel: 'Benzyna',
-      features: ['Magic Seats', 'Klimatyzacja', 'Dodatkowy kierowca gratis'],
-      note: 'Regulowane siedzenia pozwalają łatwo przewozić sprzęt plażowy lub wózek dziecięcy.',
+      specs: ['Automat', '4 os.', 'AC', 'Przestronny'],
+      features: ['Magic Seats', 'Bez kaucji', 'Foteliki w cenie'],
+      note: 'Wszechstronne wnętrze pozwala łatwo przewozić bagaże i sprzęt plażowy.',
+      image: { dataSrc: 'assets/fleet/honda-fit-2022.jpg' },
+    },
+    {
+      id: 'toyota-aqua-hybrid-2022',
+      name: 'Toyota Aqua Hybrid',
+      year: 2022,
+      pricingKey: 'Toyota Aqua Hybrid 2022',
+      pricePerDay: 40,
+      seats: 5,
+      transmission: 'Automat',
+      category: 'Hybryda',
+      fuel: 'Hybryda',
+      specs: ['Automat', '5 os.', 'AC', 'Hybryda'],
+      features: ['Bez kaucji', 'Niskie spalanie', 'Pomoc drogowa 24/7'],
+      note: 'Pięć miejsc i hybrydowy napęd sprawdzą się przy rodzinnych podróżach.',
+      image: { dataSrc: 'assets/fleet/toyota-aqua-hybrid-2022.jpg' },
     },
     {
       id: 'honda-fit-hybrid-2019',
       name: 'Honda Fit Hybrid',
       year: 2019,
+      pricingKey: 'Honda Fit Hybrid 2019',
       pricePerDay: 40,
       seats: 4,
       transmission: 'Automat',
-      category: 'Hybryda',
+      category: 'Hybryda miejska',
       fuel: 'Hybryda',
-      features: ['Oszczędna jazda', 'Tryby jazdy ECO', 'Bez kaucji'],
-      note: 'Świetny kompromis między kompaktowymi wymiarami a przestronną kabiną.',
+      specs: ['Automat', '4 os.', 'AC', 'Hybryda'],
+      features: ['Bez kaucji', 'Dodatkowy kierowca 0 €', 'Ekonomiczny napęd'],
+      note: 'Sprawdzona hybryda z kompaktowym nadwoziem i pełnym pakietem w cenie.',
+      image: { dataSrc: 'assets/fleet/honda-fit-hybrid-2019.jpg' },
     },
     {
       id: 'honda-fit-hybrid-2022',
       name: 'Honda Fit Hybrid',
       year: 2022,
+      pricingKey: 'Honda Fit Hybrid 2022',
       pricePerDay: 40,
-      seats: 5,
+      seats: 4,
       transmission: 'Automat',
       category: 'Hybryda miejska',
       fuel: 'Hybryda',
-      features: ['Nowoczesne multimedia', 'Napęd hybrydowy', 'Foteliki gratis'],
-      note: 'Oferuje cichą jazdę i wszechstronne wnętrze dla aktywnych rodzin.',
+      specs: ['Automat', '4 os.', 'AC', 'Hybryda'],
+      features: ['Najwyższy poziom bezpieczeństwa', 'Foteliki gratis', '1 € dziennie na żółwie'],
+      note: 'Najmłodsza generacja Fit Hybrid łączy oszczędność z nowoczesnymi systemami.',
+      image: { dataSrc: 'assets/fleet/honda-fit-hybrid-2022.jpg' },
     },
     {
       id: 'nissan-note-hybrid-2023',
       name: 'Nissan Note Hybrid',
       year: 2023,
+      pricingKey: 'Nissan Note Hybrid 2023',
       pricePerDay: 40,
       seats: 4,
       transmission: 'Automat',
-      category: 'Hybryda',
+      category: 'Hybryda miejska',
       fuel: 'Hybryda',
-      features: ['System e-Power', 'Asysta 24/7', 'Nowoczesne systemy bezpieczeństwa'],
-      note: 'Dynamiczny napęd hybrydowy e-Power zapewnia płynne przyspieszenie.',
-    },
-    {
-      id: 'mazda-2-2023',
-      name: 'Mazda 2',
-      year: 2023,
-      pricePerDay: 40,
-      seats: 4,
-      transmission: 'Automat',
-      category: 'Hatchback',
-      fuel: 'Benzyna',
-      features: ['Kokpit Skyactiv', 'Łączność Apple CarPlay/Android Auto', 'Bez kaucji'],
-      note: 'Stylowa i żwawa, świetnie sprawdzi się w miejskim ruchu.',
-    },
-    {
-      id: 'toyota-corolla-2021',
-      name: 'Toyota Corolla',
-      year: 2021,
-      pricePerDay: 55,
-      seats: 5,
-      transmission: 'Automat',
-      category: 'Sedan',
-      fuel: 'Benzyna',
-      features: ['Przestronny bagażnik', 'System Toyota Safety Sense', 'Asysta 24/7'],
-      note: 'Komfortowy sedan na dłuższe trasy i rodzinne zwiedzanie wyspy.',
-    },
-    {
-      id: 'mazda-atenza-2019',
-      name: 'Mazda Atenza',
-      year: 2019,
-      pricePerDay: 65,
-      seats: 5,
-      transmission: 'Automat',
-      category: 'Sedan klasy średniej',
-      fuel: 'Benzyna',
-      features: ['Skórzane wykończenie', 'Adaptacyjne światła', 'Dodatkowy kierowca gratis'],
-      note: 'Elegancki sedan klasy premium z dynamicznym prowadzeniem.',
-    },
-    {
-      id: 'mazda-premacy-2018',
-      name: 'Mazda Premacy',
-      year: 2018,
-      pricePerDay: 65,
-      seats: 7,
-      transmission: 'Automat',
-      category: 'Minivan 7-osobowy',
-      fuel: 'Benzyna',
-      features: ['Przesuwne drzwi', 'Elastyczne siedzenia', 'Foteliki w cenie'],
-      note: 'Idealna dla większych grup z możliwością konfiguracji siedzeń i bagażu.',
-    },
-    {
-      id: 'toyota-sienta-2022',
-      name: 'Toyota Sienta',
-      year: 2022,
-      pricePerDay: 70,
-      seats: 7,
-      transmission: 'Automat',
-      category: 'Minivan 7-osobowy',
-      fuel: 'Hybryda',
-      features: ['Napęd hybrydowy', 'Przesuwne drzwi', 'Pakiet rodzinny'],
-      note: 'Lekki i ekonomiczny minivan na całodniowe wycieczki z dziećmi.',
-    },
-    {
-      id: 'nissan-serena-hybrid-2016',
-      name: 'Nissan Serena Hybrid',
-      year: 2016,
-      pricePerDay: 70,
-      seats: 8,
-      transmission: 'Automat',
-      category: 'Minivan 8-osobowy',
-      fuel: 'Hybryda',
-      features: ['Duża przestrzeń', 'Dwustrefowa klimatyzacja', 'Assistance 24/7'],
-      note: 'Świetny wybór dla grup z dodatkowym bagażem lub sprzętem sportowym.',
-    },
-    {
-      id: 'mazda-axela-2022',
-      name: 'Mazda Axela',
-      year: 2022,
-      pricePerDay: 80,
-      seats: 5,
-      transmission: 'Automat',
-      category: 'Hatchback premium',
-      fuel: 'Benzyna',
-      features: ['Head-up display', 'System Bose Audio', 'Bez kaucji'],
-      note: 'Dynamiczny styl z segmentu premium dla wymagających kierowców.',
-    },
-    {
-      id: 'nissan-serena-hybrid-2022',
-      name: 'Nissan Serena Hybrid',
-      year: 2022,
-      pricePerDay: 95,
-      seats: 8,
-      transmission: 'Automat',
-      category: 'Minivan premium',
-      fuel: 'Hybryda',
-      features: ['Nowa generacja e-Power', 'Pakiet bezpieczeństwa ProPILOT', 'Foteliki w cenie'],
-      note: 'Najnowsza odsłona popularnego minivana z bogatym wyposażeniem.',
-    },
-    {
-      id: 'mercedes-s-class-2017',
-      name: 'Mercedes S-class',
-      year: 2017,
-      pricePerDay: 150,
-      seats: 5,
-      transmission: 'Automat',
-      category: 'Limuzyna premium',
-      fuel: 'Benzyna',
-      features: ['Pakiet VIP', 'Skórzane wykończenie', 'Zawieszenie pneumatyczne'],
-      note: 'Luksusowy transport na wyjątkowe okazje, z kierowcą dodatkowo na życzenie.',
-    },
-    {
-      id: 'mercedes-c-class-2020',
-      name: 'Mercedes C-class',
-      year: 2020,
-      pricePerDay: 180,
-      seats: 4,
-      transmission: 'Automat',
-      category: 'Coupe premium',
-      fuel: 'Benzyna',
-      features: ['Panoramiczny dach', 'Pakiet AMG', 'Asysta 24/7'],
-      note: 'Sportowa elegancja dla osób, które chcą zwiedzać Cypr w najwyższym komforcie.',
+      specs: ['Automat', '4 os.', 'AC', 'Hybryda'],
+      features: ['System e-Power', 'Bez kaucji', 'Polska obsługa 24/7'],
+      note: 'Dynamiczny napęd e-Power i kompaktowe nadwozie idealne na cypryjskie drogi.',
+      image: { dataSrc: 'assets/fleet/nissan-note-hybrid-2023.jpg' },
     },
   ];
+
+  const DEFAULT_FLEET_PRICING = {
+    'Toyota Yaris 2023': [150, 40, 37, 35],
+    'Nissan Note 2020': [150, 40, 37, 35],
+    'Kia Rio 2019': [150, 40, 37, 35],
+    'Toyota Yaris Hybrid 2023': [165, 45, 42, 40],
+    'Honda Fit 2022': [165, 45, 42, 40],
+    'Toyota Aqua Hybrid 2022': [165, 45, 42, 40],
+    'Honda Fit Hybrid 2019': [165, 45, 42, 40],
+    'Honda Fit Hybrid 2022': [165, 45, 42, 40],
+    'Nissan Note Hybrid 2023': [165, 45, 42, 40],
+  };
 
   const DEFAULT_RENTAL_LOCATIONS = [
     { id: 'larnaca', label: 'Larnaka (bez opłaty)', shortLabel: 'Larnaka', fee: 0 },
@@ -378,42 +285,42 @@
   const DEFAULT_PRICE_CATEGORIES = [
     {
       id: 'economy',
-      label: 'Ekonomiczne i miejskie',
-      badge: 'do 40 € / dzień',
-      description: 'Zwrotne auta idealne do zwiedzania kurortów i codziennej jazdy.',
+      label: 'Ekonomiczne automaty',
+      badge: 'od 35 €/dzień',
+      description: 'Kompaktowe auta miejskie bez kaucji – idealne na start przygody na Cyprze.',
       min: 0,
-      max: 40,
+      max: 35,
     },
     {
-      id: 'comfort',
-      label: 'Rodzinne i komfortowe',
-      badge: '41 – 75 € / dzień',
-      description: 'Więcej przestrzeni na bagaż, wygoda na dalszych trasach i minivany 7–8 os.',
-      min: 41,
-      max: 75,
-    },
-    {
-      id: 'premium',
-      label: 'Premium i wyjątkowe',
-      badge: 'powyżej 75 € / dzień',
-      description: 'Najbogatsze wersje wyposażenia i luksusowe limuzyny na specjalne okazje.',
-      min: 76,
-      max: Infinity,
+      id: 'hybrid',
+      label: 'Hybrydy i komfort',
+      badge: 'od 40 €/dzień',
+      description: 'Oszczędne napędy hybrydowe z klimatyzacją i pakietem rodzinnych dodatków.',
+      min: 36,
+      max: 45,
     },
   ];
 
   const DEFAULT_RENTAL_INCLUDED_FEATURES = [
     {
-      short: 'brak kaucji',
-      description: 'Brak kaucji i blokad na karcie.',
+      short: 'Brak kaucji',
+      description: 'Brak kaucji i blokad na karcie przy każdym wynajmie.',
     },
     {
-      short: 'OC + Assistance 24/7',
-      description: 'Ubezpieczenie OC + Assistance 24/7 z udziałem własnym do 500 €.',
+      short: 'OC + pomoc 24/7',
+      description: 'Ubezpieczenie OC z udziałem własnym do 500 € oraz całodobowa pomoc drogowa.',
     },
     {
-      short: 'gratisowy drugi kierowca i foteliki',
-      description: 'Drugi kierowca oraz foteliki dziecięce gratis.',
+      short: 'Dodatkowy kierowca',
+      description: 'Drugi kierowca wpisany do umowy w cenie – bez dopłat.',
+    },
+    {
+      short: 'Foteliki gratis',
+      description: 'Foteliki i podkładki dla dzieci udostępniamy za 0 €.',
+    },
+    {
+      short: '1 € na ochronę żółwi',
+      description: 'Każdego dnia przeznaczamy 1 € na ochronę cypryjskich żółwi morskich.',
     },
   ];
 
@@ -426,6 +333,11 @@
     delete window.CAR_RENTAL_CONFIG;
   }
 
+  const PRICING_TABLE =
+    config.pricing && typeof config.pricing === 'object' && !Array.isArray(config.pricing)
+      ? config.pricing
+      : DEFAULT_FLEET_PRICING;
+
   const carFleet = (Array.isArray(config.fleet) && config.fleet.length ? config.fleet : DEFAULT_CAR_FLEET).map((car) => {
     const id = isNonEmptyString(car.id) ? car.id.trim() : '';
     const transmissionKey = id ? `carRental.fleet.${id}.transmission` : '';
@@ -436,6 +348,18 @@
       ? car.features.map((feature, index) => wrapText(feature, id ? `carRental.fleet.${id}.feature${index + 1}` : ''))
       : [];
 
+    const specs = Array.isArray(car.specs)
+      ? car.specs.map((spec, index) => wrapText(spec, id ? `carRental.fleet.${id}.spec${index + 1}` : ''))
+      : [];
+
+    const pricingKey = isNonEmptyString(car.pricingKey)
+      ? car.pricingKey.trim()
+      : [car.name, car.year].filter((value) => isNonEmptyString(value)).join(' ').trim();
+
+    const displayName = isNonEmptyString(car.displayName)
+      ? car.displayName.trim()
+      : pricingKey || [car.name, car.year].filter((value) => isNonEmptyString(value)).join(' ').trim();
+
     return {
       ...car,
       id,
@@ -443,8 +367,11 @@
       category: wrapText(car.category, categoryKey),
       fuel: wrapText(car.fuel, fuelKey),
       features,
+      specs,
       note: wrapText(car.note, id ? `carRental.fleet.${id}.note` : ''),
       pricePerDay: isFiniteNumber(car.pricePerDay) ? car.pricePerDay : toNumberOrZero(car.pricePerDay),
+      pricingKey,
+      displayName,
     };
   });
 
@@ -532,12 +459,12 @@
   }
 
   function formatPricePerDay(value) {
-    const price = formatPrice(value);
-    return translateWithReplacements('carRental.common.pricePerDay', `${price} / dzień`, { price });
+    const price = formatPrice(value).replace(/\u00a0/g, ' ');
+    return translateWithReplacements('carRental.common.pricePerDayFrom', `od ${price}/dzień`, { price });
   }
 
   function formatSeats(count) {
-    return translateWithReplacements('carRental.common.seats', `${count} miejsc`, { count });
+    return translateWithReplacements('carRental.common.seats', `${count} os.`, { count });
   }
 
   function getDaysLabel() {
@@ -597,7 +524,17 @@
       const option = document.createElement('option');
       option.value = car.id;
       const pricePerDay = formatPricePerDay(car.pricePerDay);
-      option.textContent = `${car.name} (${car.year}) — ${pricePerDay}`;
+      const nameParts = [];
+      if (isNonEmptyString(car.displayName)) {
+        nameParts.push(car.displayName);
+      } else {
+        nameParts.push(car.name);
+        if (car.year) {
+          nameParts.push(car.year);
+        }
+      }
+      option.dataset.pricingKey = car.pricingKey;
+      option.textContent = `${nameParts.filter(Boolean).join(' ')} — ${pricePerDay}`;
       select.appendChild(option);
     });
 
@@ -753,7 +690,31 @@
       );
     }
 
-    const basePrice = car.pricePerDay * rentalDays;
+    const pricingRow = PRICING_TABLE[car.pricingKey] || PRICING_TABLE[car.displayName] || PRICING_TABLE[car.name];
+    if (!pricingRow) {
+      return setRentalError(
+        translateText(
+          'carRental.calculator.errors.missingPricing',
+          'Brak cennika dla wybranego modelu – skontaktuj się z obsługą.',
+        ),
+      );
+    }
+
+    let basePrice = 0;
+    let dailyRate = 0;
+    if (rentalDays === 3) {
+      basePrice = pricingRow[0];
+    } else if (rentalDays >= 4 && rentalDays <= 6) {
+      dailyRate = pricingRow[1];
+      basePrice = dailyRate * rentalDays;
+    } else if (rentalDays >= 7 && rentalDays <= 10) {
+      dailyRate = pricingRow[2];
+      basePrice = dailyRate * rentalDays;
+    } else {
+      dailyRate = pricingRow[3];
+      basePrice = dailyRate * rentalDays;
+    }
+
     const pickupFee = pickupLocation.fee;
     const returnFee = returnLocation.fee;
     const insuranceCost = fullInsuranceCheckbox?.checked ? FULL_INSURANCE_DAILY * rentalDays : 0;
@@ -763,19 +724,33 @@
     const daysLabel = getDaysLabel();
     const pickupLocationLabel = resolveText(pickupLocation.shortLabel);
     const returnLocationLabel = resolveText(returnLocation.shortLabel);
-    const perDayFormatted = formatPrice(car.pricePerDay);
 
-    const breakdownItems = [
-      translateWithReplacements(
-        'carRental.calculator.breakdown.base',
-        `${perDayFormatted} × ${rentalDays} ${daysLabel} = ${formatPrice(basePrice)}`,
-        {
-          pricePerDay: perDayFormatted,
-          days: rentalDays,
-          daysLabel,
-          total: formatPrice(basePrice),
-        },
-      ),
+    const breakdownItems = [];
+    if (rentalDays === 3) {
+      breakdownItems.push(
+        translateWithReplacements(
+          'carRental.calculator.breakdown.package3',
+          `Pakiet 3 dni: ${formatPrice(basePrice)}`,
+          { total: formatPrice(basePrice) },
+        ),
+      );
+    } else {
+      const rateFormatted = formatPrice(dailyRate);
+      breakdownItems.push(
+        translateWithReplacements(
+          'carRental.calculator.breakdown.tiered',
+          `${rateFormatted} × ${rentalDays} ${daysLabel} = ${formatPrice(basePrice)}`,
+          {
+            pricePerDay: rateFormatted,
+            days: rentalDays,
+            daysLabel,
+            total: formatPrice(basePrice),
+          },
+        ),
+      );
+    }
+
+    breakdownItems.push(
       pickupFee > 0
         ? translateWithReplacements(
             'carRental.calculator.breakdown.pickupWithFee',
@@ -790,6 +765,9 @@
             `Odbiór: ${pickupLocationLabel} – w cenie`,
             { location: pickupLocationLabel },
           ),
+    );
+
+    breakdownItems.push(
       returnFee > 0
         ? translateWithReplacements(
             'carRental.calculator.breakdown.returnWithFee',
@@ -804,7 +782,7 @@
             `Zwrot: ${returnLocationLabel} – w cenie`,
             { location: returnLocationLabel },
           ),
-    ];
+    );
 
     if (insuranceCost > 0) {
       breakdownItems.push(
@@ -863,6 +841,30 @@
     const card = document.createElement('article');
     card.className = 'auto-card';
 
+    const imageWrapper = document.createElement('div');
+    imageWrapper.className = 'auto-card-media';
+    const image = document.createElement('img');
+    image.loading = 'lazy';
+    const placeholderSvg =
+      'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 3" preserveAspectRatio="xMidYMid slice"%3E%3Crect width="4" height="3" fill="%23e2e8f0"/%3E%3C/svg%3E';
+    image.src = placeholderSvg;
+    if (car.image && typeof car.image === 'object') {
+      if (isNonEmptyString(car.image.src)) {
+        image.src = car.image.src;
+      }
+      if (isNonEmptyString(car.image.dataSrc)) {
+        image.dataset.src = car.image.dataSrc;
+      }
+      if (isNonEmptyString(car.image.alt)) {
+        image.alt = car.image.alt;
+      }
+    }
+    if (!image.alt) {
+      image.alt = `${car.displayName || car.name}`;
+    }
+    imageWrapper.appendChild(image);
+    card.appendChild(imageWrapper);
+
     const header = document.createElement('header');
     header.className = 'auto-card-header';
 
@@ -874,10 +876,17 @@
     titleWrapper.className = 'auto-card-title';
 
     const title = document.createElement('h3');
-    title.textContent = car.name;
+    title.textContent = car.displayName || car.name;
     const subtitle = document.createElement('span');
     const categoryText = resolveText(car.category);
-    subtitle.textContent = `${car.year} • ${categoryText}`;
+    const details = [];
+    if (car.year && !String(title.textContent).includes(String(car.year))) {
+      details.push(car.year);
+    }
+    if (categoryText) {
+      details.push(categoryText);
+    }
+    subtitle.textContent = details.join(' • ');
     title.appendChild(subtitle);
 
     titleWrapper.appendChild(title);
@@ -889,7 +898,10 @@
 
     const specs = document.createElement('ul');
     specs.className = 'auto-card-specs';
-    [formatSeats(car.seats), resolveText(car.transmission), resolveText(car.fuel)].forEach((value) => {
+    const specEntries = car.specs?.length
+      ? car.specs.map((spec) => resolveText(spec))
+      : [formatSeats(car.seats), resolveText(car.transmission), resolveText(car.fuel)].filter((value) => isNonEmptyString(value));
+    specEntries.forEach((value) => {
       const item = document.createElement('li');
       item.textContent = value;
       specs.appendChild(item);
@@ -949,7 +961,9 @@
       .slice()
       .sort((a, b) => {
         if (a.pricePerDay === b.pricePerDay) {
-          return a.name.localeCompare(b.name, language);
+          const nameA = (a.displayName || a.name || '').toString();
+          const nameB = (b.displayName || b.name || '').toString();
+          return nameA.localeCompare(nameB, language);
         }
         return a.pricePerDay - b.pricePerDay;
       });
@@ -1119,6 +1133,7 @@
         transmission: resolveText(car.transmission),
         category: resolveText(car.category),
         fuel: resolveText(car.fuel),
+        specs: Array.isArray(car.specs) ? car.specs.map((spec) => resolveText(spec)) : [],
         features: Array.isArray(car.features) ? car.features.map((feature) => resolveText(feature)) : [],
         note: resolveText(car.note),
       })),
