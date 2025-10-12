@@ -56,18 +56,27 @@
           <a class="ghost link" href="/index.html" data-back-home-link="true" data-i18n="carRental.back">← Wróć do aplikacji</a>
           <a class="ghost" href="car-rental-landing.html" data-i18n="carRental.page.nav.switchCity">Wybierz inne miasto</a>
           <a class="ghost" href="autopfo.html" data-i18n="carRental.page.nav.paphos">Oferta Pafos</a>
-          <a class="secondary" href="#carReservationForm" data-i18n="carRental.page.nav.book">Złóż rezerwację</a>
+          <a
+            class="secondary"
+            href="https://forms.gle/352LiNPSqS92Qa3k7"
+            target="_blank"
+            rel="noopener"
+            data-i18n="carRental.page.nav.book"
+            >Złóż rezerwację</a
+          >
         </nav>
       </header>
 
       <main class="standalone-main">
         <section class="surface-card standalone-hero" aria-labelledby="standaloneHeroTitle">
           <div class="standalone-hero-content">
-            <p class="standalone-hero-badge" data-i18n="carRental.page.hero.badge">Bez kaucji • Polska obsługa 24/7</p>
+            <p class="standalone-hero-badge" data-i18n="carRental.page.hero.badge">
+              Bez kaucji • OC do 500&nbsp;€ + pomoc 24/7
+            </p>
             <h1 id="standaloneHeroTitle" data-i18n="carRental.page.hero.title">Wynajem aut na całym Cyprze</h1>
             <p data-i18n="carRental.page.hero.description">
               Poznaj flotę WakacjeCypr.com, zamów auto z odbiorem na lotnisku lub pod hotelem i policz koszt dzięki
-              przejrzystemu kalkulatorowi.
+              przejrzystemu kalkulatorowi – bez kaucji, z dodatkowym kierowcą i fotelikami gratis oraz wsparciem natury.
             </p>
             <div class="standalone-hero-actions">
               <a class="primary" href="#carRentalSection" data-i18n="carRental.page.hero.ctaFleet">Zobacz flotę</a>
@@ -86,11 +95,11 @@
           </div>
           <ul class="standalone-hero-stats">
             <li>
-              <strong data-car-count>0</strong>
+              <strong data-car-count>9</strong>
               <span data-i18n="carRental.page.stats.cars">aut w naszej flocie</span>
             </li>
             <li>
-              <strong data-lowest-price>0&nbsp;€</strong>
+              <strong data-lowest-price>35&nbsp;€</strong>
               <span data-i18n="carRental.page.stats.price">cena już od</span>
             </li>
             <li>
@@ -109,9 +118,10 @@
             <span class="auto-rental-badge" data-i18n="carRental.page.fleet.badge">Bez kaucji</span>
             <h2 id="carRentalTitle" data-i18n="carRental.page.fleet.title">Wynajmij auto na całym Cyprze</h2>
             <p data-i18n="carRental.page.fleet.description">
-              Odbierz samochód tam, gdzie zaczyna się Twoja przygoda – na lotnisku, w hotelu lub dowolnym mieście na
-              wyspie. Wszystkie pojazdy obejmuje kompleksowe ubezpieczenie, darmowy dodatkowy kierowca i foteliki dla
-              dzieci.
+              Odbierz samochód tam, gdzie zaczyna się Twoja przygoda – w Larnace bez dopłat lub w innych miastach za
+              stałą opłatą: Nikozja i Ayia Napa +15&nbsp;€, Protaras i Limassol +20&nbsp;€, Pafos +40&nbsp;€. Wszystkie
+              pojazdy obejmuje kompleksowe OC z udziałem własnym do 500&nbsp;€ i pomoc 24/7, dodatkowy kierowca i
+              foteliki dziecięce są gratis, a z każdego dnia przekazujemy 1&nbsp;€ na ochronę żółwi.
             </p>
           </header>
 
@@ -123,15 +133,15 @@
             <article class="auto-benefit">
               <h3 data-i18n="carRental.page.benefits.package.title">Pakiet w cenie</h3>
               <p data-i18n="carRental.page.benefits.package.body">
-                Standardowy pakiet obejmuje brak kaucji, kompleksowe ubezpieczenie oraz rodzinne dodatki opisane w
-                sekcji „Standard w cenie” – wszystko bez dopłat.
+                Brak kaucji, OC z udziałem własnym do 500&nbsp;€ i całodobowa pomoc drogowa, dodatkowy kierowca oraz
+                foteliki dla dzieci – wszystko wliczone w cenę wynajmu.
               </p>
             </article>
             <article class="auto-benefit">
               <h3 data-i18n="carRental.page.benefits.flexible.title">Elastyczny odbiór i zwrot</h3>
               <p data-i18n="carRental.page.benefits.flexible.body">
-                Podstawimy samochód w Larnace bez dopłaty lub za niewielką opłatą w Ayia Napie, Protaras, Limassol,
-                Nikozji i Pafos – dokładnie tak, jak w naszej ofercie na WakacjeCypr.com.
+                Podstawimy samochód w Larnace bez dopłaty lub dostarczymy w Nikozji, Ayia Napie, Protaras, Limassol i
+                Pafos za stałą opłatą zgodną z cennikiem – wszystko policzysz w kalkulatorze.
               </p>
             </article>
             <article class="auto-benefit">
@@ -172,6 +182,7 @@
                 <li data-i18n="carRental.page.requirements.youngDriver">
                   Młodszy kierowca lub staż poniżej 3 lat: +10&nbsp;€/dzień.
                 </li>
+                <li>Minimalny czas wynajmu: 3 doby.</li>
               </ul>
             </article>
           </section>
@@ -192,7 +203,8 @@
             <article class="auto-rental-block" id="carRentalCalculatorBlock">
               <h3 data-i18n="carRental.page.calculator.title">Kalkulator wynajmu</h3>
               <p data-i18n="carRental.page.calculator.description">
-                Sprawdź dokładny koszt wynajmu wraz z dodatkami i opłatami za podstawienie auta.
+                Sprawdź dokładny koszt wynajmu wraz z pakietem 3-dniowym, stawkami dziennymi dla dłuższych wynajmów,
+                dodatkami i opłatami za podstawienie auta.
               </p>
               <form id="carRentalCalculator" class="auto-calculator" novalidate>
                 <div class="auto-calculator-grid">

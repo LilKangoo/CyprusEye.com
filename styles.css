@@ -2719,6 +2719,21 @@ main::before {
   transition: transform var(--transition), box-shadow var(--transition);
 }
 
+.auto-card-media {
+  position: relative;
+  overflow: hidden;
+  border-radius: 16px;
+  background: rgba(148, 163, 184, 0.16);
+  aspect-ratio: 4 / 3;
+}
+
+.auto-card-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .auto-card::after {
   content: '';
   position: absolute;
