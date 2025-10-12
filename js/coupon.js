@@ -98,23 +98,14 @@
     window.location.href = STRIPE_CHECKOUT_URL;
   }
 
-  function handleTileKeyDown(event) {
-    if (event.key === 'Enter' || event.key === ' ' || event.key === 'Space' || event.key === 'Spacebar') {
-      event.preventDefault();
-      goToStripe();
-    }
-  }
-
   function init() {
-    const tile = document.querySelector('[data-coupon-card]');
-    if (!tile) {
-      return;
+    const button = document.querySelector('[data-coupon-cta]');
+    if (button) {
+      button.addEventListener('click', function (event) {
+        event.preventDefault();
+        goToStripe();
+      });
     }
-
-    tile.addEventListener('click', goToStripe);
-    tile.addEventListener('keydown', handleTileKeyDown);
-    tile.setAttribute('role', 'button');
-    tile.setAttribute('tabindex', '0');
 
     renderPoints();
   }
