@@ -39,6 +39,27 @@
           <p class="standalone-brand-title">Centrum kuponu</p>
         </div>
       </div>
+      <form
+        class="header-search header-search--light"
+        role="search"
+        action="kupon.html"
+        method="get"
+        data-coupon-search-form
+      >
+        <label class="visually-hidden" for="standaloneCouponSearch">Szukaj kuponów</label>
+        <input
+          type="search"
+          id="standaloneCouponSearch"
+          name="coupon"
+          placeholder="Partner, miasto lub usługa"
+          aria-label="Wyszukaj kupony"
+          autocomplete="off"
+          data-coupon-search-input
+        />
+        <button type="submit" class="header-search-button">
+          🔍 <span>Znajdź kupon</span>
+        </button>
+      </form>
       <nav class="standalone-nav coupon-nav" aria-label="Główne sekcje aplikacji">
         <a class="coupon-nav-link" href="index.html">🏠 Strona główna</a>
         <a class="coupon-nav-link" href="car-rental-landing.html">🚗 Wynajem auta</a>
@@ -49,45 +70,23 @@
     </header>
     <main class="coupon-main" aria-labelledby="couponTitle">
       <section class="surface-card coupon-card" aria-describedby="couponSubtitle">
-        <div class="coupon-card-grid">
-          <div class="coupon-card-primary">
-            <figure class="coupon-card-media">
-              <img
-                src="assets/kupon%20logo.jpeg"
-                alt="Logo kuponu WakacjeCypr"
-                data-i18n-attrs="alt:coupon.image_alt"
-              />
-            </figure>
-            <div class="coupon-card-content">
-              <p class="coupon-badge" data-i18n="coupon.nav_tile">💸 Kupon</p>
-              <h1 id="couponTitle" data-i18n="coupon.title">Kupon specjalny — szybka rezerwacja</h1>
-              <p id="couponSubtitle" class="coupon-subtitle" data-i18n="coupon.subtitle">
-                Najprostszy sposób, by skorzystać z naszej oferty — bez formalności.
-              </p>
-              <ul id="couponPointsList" class="coupon-points" aria-live="polite"></ul>
-            </div>
+        <div class="coupon-hero-panel" aria-label="Najważniejsze informacje o kuponie">
+          <div class="coupon-hero-copy">
+            <p class="coupon-hero-kicker" data-i18n="coupon.hero_kicker">Limitowana oferta</p>
+            <h1 id="couponTitle" class="coupon-hero-title" data-i18n="coupon.title">Kupon specjalny — szybka rezerwacja</h1>
+            <p id="couponSubtitle" class="coupon-hero-text" data-i18n="coupon.subtitle">
+              Najprostszy sposób, by skorzystać z naszej oferty — bez formalności.
+            </p>
           </div>
-          <aside class="coupon-card-summary" aria-labelledby="couponSummaryHeading">
-            <div class="coupon-card-summary-header">
-              <p id="couponSummaryHeading" class="coupon-price-label" data-i18n="coupon.summary.price_label">
-                Cena kuponu
-              </p>
-              <div class="coupon-price" aria-describedby="couponPriceNote">
-                <span class="coupon-price-current" data-i18n="coupon.summary.price_current">7,99€</span>
-                <span class="coupon-price-original" data-i18n="coupon.summary.price_original">12€</span>
-              </div>
-              <p id="couponPriceNote" class="coupon-price-note" data-i18n="coupon.summary.price_note">
-                Jednorazowa opłata za cały pakiet zniżek
-              </p>
+          <div class="coupon-hero-cta" aria-label="Sekcja zakupu kuponu">
+            <div class="coupon-hero-price" aria-describedby="couponHeroNote">
+              <span class="coupon-hero-price-current">7,99€</span>
+              <span class="coupon-hero-price-original">12€</span>
             </div>
-            <ul class="coupon-summary-list">
-              <li data-i18n="coupon.summary.instant">Natychmiastowa aktywacja kuponu</li>
-              <li data-i18n="coupon.summary.secure">Bezpieczna płatność Stripe</li>
-              <li data-i18n="coupon.summary.support">Wsparcie zespołu po zakupie</li>
-            </ul>
+            <p id="couponHeroNote" class="coupon-hero-note">Oszczędzasz 4,01€ na starcie</p>
             <button
               type="button"
-              class="coupon-cta"
+              class="coupon-cta coupon-hero-button"
               data-coupon-cta
               data-i18n="coupon.cta"
               data-i18n-attrs="aria-label:coupon.cta_aria"
@@ -95,10 +94,16 @@
             >
               Kup kupon
             </button>
-            <p class="coupon-summary-footnote" data-i18n="coupon.summary.secure_note">
-              Po kliknięciu przeniesiemy Cię do szyfrowanej płatności Stripe.
-            </p>
-          </aside>
+          </div>
+        </div>
+        <div class="coupon-card-grid" aria-hidden="true">
+          <figure class="coupon-card-media coupon-card-media--hero">
+            <img
+              src="assets/kupon%20logo.jpeg"
+              alt="Wizualizacja kuponu WakacjeCypr"
+              data-i18n-attrs="alt:coupon.image_alt"
+            />
+          </figure>
         </div>
       </section>
       <section class="surface-card coupon-info" aria-labelledby="couponInfoTitle">
@@ -136,48 +141,58 @@
             odbierz rabat na miejscu lub przy rezerwacji online.
           </p>
         </div>
+        <div class="coupon-search-meta" data-coupon-search-meta hidden>
+          <p class="coupon-search-summary">
+            Wyniki dla „<span data-coupon-query></span>” — <strong><span data-coupon-results></span></strong>
+            partnerów.
+          </p>
+          <a class="coupon-search-reset" href="kupon.html">Wyczyść filtr</a>
+        </div>
+        <p class="coupon-offers-empty" data-coupon-empty hidden>
+          Nie znaleziono partnera dla wpisanej frazy. Spróbuj innego słowa kluczowego.
+        </p>
         <div class="coupon-offers-grid" role="list">
-          <article class="coupon-offer" role="listitem">
+          <article class="coupon-offer" role="listitem" data-coupon-offer data-partner="Auto Bez Kaucji">
             <p class="coupon-offer-category">Auto Bez Kaucji</p>
             <h3>Cały Cypr</h3>
             <p class="coupon-offer-benefit">-10€ na wynajem</p>
           </article>
-          <article class="coupon-offer" role="listitem">
+          <article class="coupon-offer" role="listitem" data-coupon-offer data-partner="Auto Bez Kaucji Paphos">
             <p class="coupon-offer-category">Auto Bez Kaucji</p>
             <h3>Paphos</h3>
             <p class="coupon-offer-benefit">-10€ na wynajem</p>
           </article>
-          <article class="coupon-offer" role="listitem">
+          <article class="coupon-offer" role="listitem" data-coupon-offer data-partner="Rejs Indywidualny Ayia Napa">
             <p class="coupon-offer-category">Rejs Indywidualny Ayia Napa</p>
             <h3>Rejs indywidualny</h3>
             <p class="coupon-offer-benefit">-20€ na rejs</p>
           </article>
-          <article class="coupon-offer" role="listitem">
+          <article class="coupon-offer" role="listitem" data-coupon-offer data-partner="Transport na Cyprze">
             <p class="coupon-offer-category">Transport na Cyprze</p>
             <h3>Przesyłki i przejazdy</h3>
             <p class="coupon-offer-benefit">-5€ za wysyłkę</p>
           </article>
-          <article class="coupon-offer" role="listitem">
+          <article class="coupon-offer" role="listitem" data-coupon-offer data-partner="Zakwaterowanie Lefkara 7 Kamares">
             <p class="coupon-offer-category">Zakwaterowanie w Lefkara 7 Kamares</p>
             <h3>Pobyty do 2 nocy</h3>
             <p class="coupon-offer-benefit">-15% do 2 nocy</p>
           </article>
-          <article class="coupon-offer" role="listitem">
+          <article class="coupon-offer" role="listitem" data-coupon-offer data-partner="Zakwaterowanie Lefkara 7 Kamares">
             <p class="coupon-offer-category">Zakwaterowanie w Lefkara 7 Kamares</p>
             <h3>Pobyty od 3 nocy</h3>
             <p class="coupon-offer-benefit">-20% od 3 nocy</p>
           </article>
-          <article class="coupon-offer" role="listitem">
+          <article class="coupon-offer" role="listitem" data-coupon-offer data-partner="Restauracja Da Vinci's Garden">
             <p class="coupon-offer-category">Restauracja Da Vinci's Garden</p>
             <h3>Kuchnia cypryjska</h3>
             <p class="coupon-offer-benefit">-10% powyżej 50€</p>
           </article>
-          <article class="coupon-offer" role="listitem">
+          <article class="coupon-offer" role="listitem" data-coupon-offer data-partner="Srebro w Lefkara">
             <p class="coupon-offer-category">Srebro w Lefkara</p>
             <h3>Biżuteria i pamiątki</h3>
             <p class="coupon-offer-benefit">-20% na zakupy</p>
           </article>
-          <article class="coupon-offer" role="listitem">
+          <article class="coupon-offer" role="listitem" data-coupon-offer data-partner="Sesje zdjęciowe Lefkara">
             <p class="coupon-offer-category">Sesje zdjęciowe Lefkara</p>
             <h3>Sesje fotograficzne</h3>
             <p class="coupon-offer-benefit">od -5% do -20% na sesję</p>
