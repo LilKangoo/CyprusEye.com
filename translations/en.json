@@ -89,8 +89,10 @@
     "Pick-up in major cities",
     "Transparent pricing & rules"
   ],
-  "coupon.smallprint": "Click the tile to proceed to secure Stripe payment.",
+  "coupon.smallprint": "Click the button to proceed to secure Stripe payment.",
   "coupon.aria_go_to_stripe": "Go to Stripe payment",
+  "coupon.cta": "Buy coupon",
+  "coupon.image_alt": "HolidayCyprus coupon logo",
   "objective.title": "Current location",
   "objective.mapLink": "View on Google Maps",
   "objective.previous": "← Previous place",

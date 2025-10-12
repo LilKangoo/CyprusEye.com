@@ -64,8 +64,10 @@
     "Odbiór w głównych miastach",
     "Transparentna cena i zasady"
   ],
-  "coupon.smallprint": "Klikając w kafelek przejdziesz do bezpiecznej płatności Stripe.",
+  "coupon.smallprint": "Klikając przycisk przejdziesz do bezpiecznej płatności Stripe.",
   "coupon.aria_go_to_stripe": "Przejdź do płatności Stripe",
+  "coupon.cta": "Kup kupon",
+  "coupon.image_alt": "Logo kuponu WakacjeCypr",
   "vip.brand.overline": "Twój concierge na Cyprze",
   "vip.brand.title": "WakacjeCypr Quest",
   "vip.back": "← Wróć do aplikacji",

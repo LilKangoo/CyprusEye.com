@@ -18,6 +18,8 @@
     "Παραλαβή σε μεγάλες πόλεις",
     "Διαφανής τιμολόγηση & κανόνες"
   ],
-  "coupon.smallprint": "Κάνοντας κλικ μεταβαίνετε σε ασφαλή πληρωμή Stripe.",
-  "coupon.aria_go_to_stripe": "Μετάβαση στην πληρωμή Stripe"
+  "coupon.smallprint": "Κάνοντας κλικ στο κουμπί μεταβαίνετε στην ασφαλή πληρωμή Stripe.",
+  "coupon.aria_go_to_stripe": "Μετάβαση στην πληρωμή Stripe",
+  "coupon.cta": "Αγορά κουπονιού",
+  "coupon.image_alt": "Λογότυπο κουπονιού HolidayCyprus"
 }
