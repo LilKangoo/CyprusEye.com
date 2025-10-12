@@ -10,6 +10,7 @@
   "seo.coupon.ogTitle": "Κουπόνι HolidayCyprus – άμεση πληρωμή Stripe",
   "seo.coupon.ogDescription": "Κλείστε την προσφορά μας σε δευτερόλεπτα με το κουπόνι και την ασφαλή πληρωμή Stripe.",
   "coupon.nav_tile": "💸 Κουπόνι",
+  "coupon.hero_kicker": "Προσφορά περιορισμένου χρόνου",
   "coupon.title": "Ειδικό Κουπόνι — γρήγορη κράτηση",
   "coupon.subtitle": "Ο πιο απλός τρόπος να επωφεληθείτε — χωρίς γραφειοκρατία.",
   "coupon.summary.price_label": "Τιμή κουπονιού",
@@ -29,5 +30,5 @@
   "coupon.smallprint": "Θα λάβετε το κουπόνι μέσα σε λίγα λεπτά στο email που δηλώσατε στην πληρωμή.",
   "coupon.cta_aria": "Αγορά κουπονιού — μετάβαση στην ασφαλή πληρωμή Stripe",
   "coupon.cta": "Αγορά κουπονιού",
-  "coupon.image_alt": "Λογότυπο κουπονιού HolidayCyprus"
+  "coupon.image_alt": "Εικαστικό του κουπονιού HolidayCyprus"
 }

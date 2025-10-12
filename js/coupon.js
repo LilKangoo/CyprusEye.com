@@ -69,6 +69,125 @@
     });
   }
 
+  function normalizeText(value) {
+    if (!value) {
+      return '';
+    }
+    return value
+      .toLocaleLowerCase('pl-PL')
+      .normalize('NFD')
+      .replace(/\p{Diacritic}/gu, '');
+  }
+
+  function getCouponQuery() {
+    const params = new URLSearchParams(window.location.search);
+    const query = params.get('coupon') || params.get('q') || '';
+    return query.trim();
+  }
+
+  function syncCouponSearchInputs(query) {
+    const inputs = document.querySelectorAll('[data-coupon-search-input]');
+    inputs.forEach((input) => {
+      if (input && input.value !== query) {
+        input.value = query;
+      }
+    });
+  }
+
+  function updateCouponSearchMeta(query, results) {
+    const meta = document.querySelector('[data-coupon-search-meta]');
+    const queryLabel = document.querySelector('[data-coupon-query]');
+    const resultsLabel = document.querySelector('[data-coupon-results]');
+    const emptyState = document.querySelector('[data-coupon-empty]');
+
+    if (meta) {
+      meta.hidden = !query;
+    }
+
+    if (queryLabel) {
+      queryLabel.textContent = query;
+    }
+
+    if (resultsLabel) {
+      resultsLabel.textContent = results.toString();
+    }
+
+    if (emptyState) {
+      emptyState.hidden = !(query && results === 0);
+    }
+  }
+
+  function applyOfferSearchFilter() {
+    const cards = document.querySelectorAll('[data-coupon-offer]');
+    if (!cards.length) {
+      return;
+    }
+
+    const query = getCouponQuery();
+    const normalizedQuery = normalizeText(query);
+
+    syncCouponSearchInputs(query);
+
+    let matches = 0;
+
+    cards.forEach((card) => {
+      card.classList.remove('coupon-offer--highlight');
+      card.hidden = false;
+
+      if (!normalizedQuery) {
+        return;
+      }
+
+      const datasetSource = card.getAttribute('data-partner') || '';
+      const haystack = normalizeText(`${datasetSource} ${card.textContent}`);
+      const isMatch = haystack.includes(normalizedQuery);
+
+      card.hidden = !isMatch;
+
+      if (isMatch) {
+        matches += 1;
+        card.classList.add('coupon-offer--highlight');
+      }
+    });
+
+    if (!normalizedQuery) {
+      updateCouponSearchMeta('', cards.length);
+      return;
+    }
+
+    updateCouponSearchMeta(query, matches);
+  }
+
+  function setCouponQueryInUrl(query) {
+    const params = new URLSearchParams(window.location.search);
+    if (query) {
+      params.set('coupon', query);
+    } else {
+      params.delete('coupon');
+    }
+
+    const nextQuery = params.toString();
+    const newUrl = nextQuery ? `${window.location.pathname}?${nextQuery}` : window.location.pathname;
+    window.history.replaceState({}, '', newUrl);
+  }
+
+  function enhanceCouponSearchForm() {
+    const forms = document.querySelectorAll('[data-coupon-search-form]');
+    if (!forms.length) {
+      return;
+    }
+
+    forms.forEach((form) => {
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        const input = form.querySelector('[data-coupon-search-input]');
+        const value = input ? input.value.trim() : '';
+        setCouponQueryInUrl(value);
+        applyOfferSearchFilter();
+      });
+    });
+  }
+
   function safeTrack(language) {
     const tracker = window.track;
     if (typeof tracker !== 'function') {
@@ -108,9 +227,13 @@
     }
 
     renderPoints();
+    enhanceCouponSearchForm();
+    applyOfferSearchFilter();
   }
 
   document.addEventListener('wakacjecypr:languagechange', renderPoints);
+
+  window.addEventListener('popstate', applyOfferSearchFilter);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init, { once: true });

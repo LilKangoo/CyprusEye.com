@@ -51,6 +51,19 @@
             <p class="standalone-brand-title" data-i18n="achievements.brand.title">WakacjeCypr Quest</p>
           </div>
         </div>
+        <form class="header-search header-search--light" role="search" action="kupon.html" method="get">
+          <label class="visually-hidden" for="standaloneCouponSearchAchievements">Szukaj kuponów</label>
+          <input
+            type="search"
+            id="standaloneCouponSearchAchievements"
+            name="coupon"
+            placeholder="Partner, miasto lub usługa"
+            aria-label="Wyszukaj kupony"
+            autocomplete="off"
+            data-coupon-search-input
+          />
+          <button type="submit" class="header-search-button">🔍 <span>Znajdź kupon</span></button>
+        </form>
         <nav class="standalone-nav achievements-tabs" aria-label="Nawigacja skrótów" data-i18n-attrs="aria-label:achievements.nav.aria">
           <a
             class="header-tab"

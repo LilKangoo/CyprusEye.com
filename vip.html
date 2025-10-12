@@ -38,6 +38,19 @@
             <p class="standalone-brand-title" data-i18n="vip.brand.title">WakacjeCypr Quest</p>
           </div>
         </div>
+        <form class="header-search header-search--light" role="search" action="kupon.html" method="get">
+          <label class="visually-hidden" for="standaloneCouponSearchVip">Szukaj kuponów</label>
+          <input
+            type="search"
+            id="standaloneCouponSearchVip"
+            name="coupon"
+            placeholder="Partner, miasto lub usługa"
+            aria-label="Wyszukaj kupony"
+            autocomplete="off"
+            data-coupon-search-input
+          />
+          <button type="submit" class="header-search-button">🔍 <span>Znajdź kupon</span></button>
+        </form>
         <a
           class="ghost"
           href="/index.html"
