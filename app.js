@@ -8149,6 +8149,10 @@ function bootstrap() {
     switchAppView(ADVENTURE_VIEW_ID);
   }
 
+  if (window.appTutorial && typeof window.appTutorial.init === 'function') {
+    window.appTutorial.init();
+  }
+
 }
 
 window.addEventListener('beforeunload', () => {
