@@ -6,6 +6,7 @@
   const SUPPORTED_LANGUAGES = {
     en: { label: '🇬🇧 English', dir: 'ltr' },
     pl: { label: '🇵🇱 Polski', dir: 'ltr' },
+    el: { label: '🇬🇷 Ελληνικά', dir: 'ltr' },
   };
 
   const translationCache = new Map();
