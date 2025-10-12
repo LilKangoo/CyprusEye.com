@@ -49,39 +49,62 @@
     </header>
     <main class="coupon-main" aria-labelledby="couponTitle">
       <section class="surface-card coupon-card" aria-describedby="couponSubtitle">
-        <figure class="coupon-card-media">
-          <img
-            src="assets/kupon%20logo.jpeg"
-            alt="Logo kuponu WakacjeCypr"
-            data-i18n-attrs="alt:coupon.image_alt"
-          />
-        </figure>
-        <div class="coupon-card-content">
-          <p class="coupon-badge" data-i18n="coupon.nav_tile">💸 Kupon</p>
-          <h1 id="couponTitle" data-i18n="coupon.title">Kupon specjalny — szybka rezerwacja</h1>
-          <p id="couponSubtitle" class="coupon-subtitle" data-i18n="coupon.subtitle">
-            Najprostszy sposób, by skorzystać z naszej oferty — bez formalności.
-          </p>
-          <ul id="couponPointsList" class="coupon-points" aria-live="polite"></ul>
-        </div>
-        <div class="coupon-card-actions">
-          <button
-            type="button"
-            class="coupon-cta"
-            data-coupon-cta
-            data-i18n="coupon.cta"
-            data-i18n-attrs="aria-label:coupon.aria_go_to_stripe"
-            aria-label="Przejdź do płatności Stripe"
-          >
-            Kup kupon
-          </button>
+        <div class="coupon-card-grid">
+          <div class="coupon-card-primary">
+            <figure class="coupon-card-media">
+              <img
+                src="assets/kupon%20logo.jpeg"
+                alt="Logo kuponu WakacjeCypr"
+                data-i18n-attrs="alt:coupon.image_alt"
+              />
+            </figure>
+            <div class="coupon-card-content">
+              <p class="coupon-badge" data-i18n="coupon.nav_tile">💸 Kupon</p>
+              <h1 id="couponTitle" data-i18n="coupon.title">Kupon specjalny — szybka rezerwacja</h1>
+              <p id="couponSubtitle" class="coupon-subtitle" data-i18n="coupon.subtitle">
+                Najprostszy sposób, by skorzystać z naszej oferty — bez formalności.
+              </p>
+              <ul id="couponPointsList" class="coupon-points" aria-live="polite"></ul>
+            </div>
+          </div>
+          <aside class="coupon-card-summary" aria-labelledby="couponSummaryHeading">
+            <div class="coupon-card-summary-header">
+              <p id="couponSummaryHeading" class="coupon-price-label" data-i18n="coupon.summary.price_label">
+                Cena kuponu
+              </p>
+              <div class="coupon-price" aria-describedby="couponPriceNote">
+                <span class="coupon-price-current" data-i18n="coupon.summary.price_current">7,99€</span>
+                <span class="coupon-price-original" data-i18n="coupon.summary.price_original">12€</span>
+              </div>
+              <p id="couponPriceNote" class="coupon-price-note" data-i18n="coupon.summary.price_note">
+                Jednorazowa opłata za cały pakiet zniżek
+              </p>
+            </div>
+            <ul class="coupon-summary-list">
+              <li data-i18n="coupon.summary.instant">Natychmiastowa aktywacja kuponu</li>
+              <li data-i18n="coupon.summary.secure">Bezpieczna płatność Stripe</li>
+              <li data-i18n="coupon.summary.support">Wsparcie zespołu po zakupie</li>
+            </ul>
+            <button
+              type="button"
+              class="coupon-cta"
+              data-coupon-cta
+              data-i18n="coupon.cta"
+              data-i18n-attrs="aria-label:coupon.cta_aria"
+              aria-label="Kup kupon — przejdź do bezpiecznej płatności Stripe"
+            >
+              Kup kupon
+            </button>
+            <p class="coupon-summary-footnote" data-i18n="coupon.summary.secure_note">
+              Po kliknięciu przeniesiemy Cię do szyfrowanej płatności Stripe.
+            </p>
+          </aside>
         </div>
       </section>
       <section class="surface-card coupon-info" aria-labelledby="couponInfoTitle">
         <div class="coupon-info-header">
           <h2 id="couponInfoTitle">Kupon</h2>
           <p class="coupon-info-lede">Zamów swój kupon już dziś i korzystaj z tańszych wakacji na całym Cyprze 🇨🇾</p>
-          <p class="coupon-info-price">Teraz 7,99€ <span aria-hidden="true">•</span> kiedyś 12€</p>
         </div>
         <div class="coupon-conditions">
           <h3>🏝️ Warunki korzystania z kuponu rabatowego WakacjeCypr</h3>
@@ -218,7 +241,7 @@
         </ol>
       </section>
       <p class="coupon-smallprint" data-i18n="coupon.smallprint">
-        Klikając przycisk przejdziesz do bezpiecznej płatności Stripe.
+        Kupon otrzymasz w ciągu kilku minut na adres e-mail podany przy płatności.
       </p>
     </main>
     <script src="js/i18n.js"></script>
