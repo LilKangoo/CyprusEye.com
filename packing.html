@@ -85,7 +85,13 @@
         </div>
       </div>
       <div class="header-top-actions">
-        <form class="header-search" role="search" action="kupon.html" method="get">
+        <form
+          class="header-search"
+          role="search"
+          action="/api/forms/coupon-search"
+          method="post"
+          data-enhanced-form
+        >
           <label class="visually-hidden" for="globalCouponSearchPacking">Szukaj kuponów</label>
           <input
             type="search"
@@ -559,10 +565,11 @@
 
   <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
 
-  <script src="js/i18n.js"></script>
-  <script src="js/seo.js"></script>
-  <script src="car-rental.js"></script>
-  <script src="app.js"></script>
+  <script src="js/i18n.js" defer></script>
+  <script src="js/forms.js" defer></script>
+  <script src="js/seo.js" defer></script>
+  <script src="car-rental.js" defer></script>
+  <script src="app.js" defer></script>
 
   <div
     class="explorer-modal"

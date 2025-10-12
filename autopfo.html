@@ -48,7 +48,13 @@
             <p class="standalone-brand-title" data-i18n="carRentalPfo.page.brand.title">Wynajem samochodów</p>
           </div>
         </div>
-        <form class="header-search header-search--light" role="search" action="kupon.html" method="get">
+        <form
+          class="header-search header-search--light"
+          role="search"
+          action="/api/forms/coupon-search"
+          method="post"
+          data-enhanced-form
+        >
           <label class="visually-hidden" for="standaloneCouponSearchCarPfo">Szukaj kuponów</label>
           <input
             type="search"
@@ -447,8 +453,9 @@
       </footer>
     </div>
 
-    <script src="js/i18n.js"></script>
-    <script src="js/seo.js"></script>
+    <script src="js/i18n.js" defer></script>
+    <script src="js/forms.js" defer></script>
+    <script src="js/seo.js" defer></script>
     <script>
       function calculatePrice() {
         const car = document.getElementById("car").value;

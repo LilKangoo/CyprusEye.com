@@ -42,9 +42,10 @@
       <form
         class="header-search header-search--light"
         role="search"
-        action="kupon.html"
-        method="get"
+        action="/api/forms/coupon-search"
+        method="post"
         data-coupon-search-form
+        data-enhanced-form
       >
         <label class="visually-hidden" for="standaloneCouponSearch">Szukaj kuponów</label>
         <input
@@ -259,8 +260,9 @@
         Kupon otrzymasz w ciągu kilku minut na adres e-mail podany przy płatności.
       </p>
     </main>
-    <script src="js/i18n.js"></script>
-    <script src="js/seo.js"></script>
-    <script src="js/coupon.js"></script>
+    <script src="js/i18n.js" defer></script>
+    <script src="js/forms.js" defer></script>
+    <script src="js/seo.js" defer></script>
+    <script src="js/coupon.js" defer></script>
   </body>
 </html>

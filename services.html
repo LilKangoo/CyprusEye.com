@@ -38,7 +38,13 @@
               <p class="standalone-brand-title">CyprusEye.com</p>
             </div>
           </div>
-          <form class="header-search header-search--light" role="search" action="kupon.html" method="get">
+          <form
+            class="header-search header-search--light"
+            role="search"
+            action="/api/forms/coupon-search"
+            method="post"
+            data-enhanced-form
+          >
             <label class="visually-hidden" for="standaloneCouponSearchServices">Szukaj kuponów</label>
             <input
               type="search"
@@ -343,8 +349,9 @@
         </footer>
       </div>
     </div>
-    <script src="js/i18n.js"></script>
-    <script src="js/seo.js"></script>
+    <script src="js/i18n.js" defer></script>
+    <script src="js/forms.js" defer></script>
+    <script src="js/seo.js" defer></script>
     <script>
       const yearElement = document.getElementById('currentYear');
       if (yearElement) {

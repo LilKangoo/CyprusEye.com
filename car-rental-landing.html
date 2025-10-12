@@ -38,7 +38,13 @@
             <p class="standalone-brand-title" data-i18n="carRental.brand.title">Wynajem samochodów</p>
           </div>
         </div>
-        <form class="header-search header-search--light" role="search" action="kupon.html" method="get">
+        <form
+          class="header-search header-search--light"
+          role="search"
+          action="/api/forms/coupon-search"
+          method="post"
+          data-enhanced-form
+        >
           <label class="visually-hidden" for="standaloneCouponSearchCarLanding">Szukaj kuponów</label>
           <input
             type="search"
@@ -99,7 +105,7 @@
             <a
               class="city-select-card"
               role="listitem"
-              href="/car-rental?lang=pl"
+              href="car-rental.html?lang=pl"
               aria-label="Przejdź do oferty wynajmu na całym Cyprze"
               data-i18n-attrs="aria-label:carRental.offers.larnaca.ctaAria"
               onkeydown="if (event.key === ' ' || event.key === 'Spacebar') { event.preventDefault(); this.click(); }"
@@ -125,7 +131,7 @@
             <a
               class="city-select-card"
               role="listitem"
-              href="/autopfo?lang=pl"
+              href="autopfo.html?lang=pl"
               aria-label="Przejdź do oferty wynajmu aut w Pafos"
               data-i18n-attrs="aria-label:carRental.offers.paphos.ctaAria"
               onkeydown="if (event.key === ' ' || event.key === 'Spacebar') { event.preventDefault(); this.click(); }"
@@ -155,7 +161,8 @@
         <p data-i18n="carRental.footer">Masz pytania? Skontaktuj się z nami w aplikacji lub telefonicznie – pomożemy dobrać najlepszy samochód.</p>
       </footer>
     </div>
-    <script src="js/i18n.js"></script>
-    <script src="js/seo.js"></script>
+    <script src="js/i18n.js" defer></script>
+    <script src="js/forms.js" defer></script>
+    <script src="js/seo.js" defer></script>
   </body>
 </html>
