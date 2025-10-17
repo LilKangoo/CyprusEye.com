@@ -5903,6 +5903,11 @@ a:focus-visible {
     background: linear-gradient(180deg, #f8fafc 0%, #e0f2fe 45%, #ede9fe 100%);
   }
 
+  .standalone-body {
+    padding: clamp(0.75rem, 3vw, 1.1rem);
+    padding-bottom: calc(6.5rem + env(safe-area-inset-bottom));
+  }
+
   main {
     padding: clamp(1rem, 3vw, 1.3rem);
     border-radius: 26px;
@@ -6142,6 +6147,11 @@ a:focus-visible {
 @media (max-width: 540px) {
   body {
     gap: 1rem;
+    padding: clamp(0.65rem, 4vw, 0.95rem);
+    padding-bottom: calc(6.75rem + env(safe-area-inset-bottom));
+  }
+
+  .standalone-body {
     padding: clamp(0.65rem, 4vw, 0.95rem);
     padding-bottom: calc(6.75rem + env(safe-area-inset-bottom));
   }

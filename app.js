@@ -7735,7 +7735,136 @@ function setupMapLazyLoading() {
   }
 }
 
+function determineActiveMobileTabId() {
+  const seoPage = document.body?.dataset?.seoPage;
+  const pageToTab = {
+    home: 'mobileAdventureTab',
+    packing: 'mobilePackingTab',
+    tasks: 'mobileTasksTab',
+    mediatrips: 'mobileMediaTripsTab',
+    vip: 'mobileMediaTripsTab',
+  };
+
+  if (seoPage) {
+    const normalized = seoPage.toLowerCase();
+    if (Object.prototype.hasOwnProperty.call(pageToTab, normalized)) {
+      return pageToTab[normalized];
+    }
+  }
+
+  const path = window.location?.pathname?.toLowerCase() ?? '';
+  if (path.includes('packing')) {
+    return 'mobilePackingTab';
+  }
+  if (path.includes('tasks')) {
+    return 'mobileTasksTab';
+  }
+  if (path.includes('media-trips') || path.includes('vip')) {
+    return 'mobileMediaTripsTab';
+  }
+
+  return 'mobileAdventureTab';
+}
+
+function ensureMobileTabbar() {
+  if (!document.body) {
+    return;
+  }
+
+  let mobileTabbar = document.querySelector('.mobile-tabbar');
+
+  if (!mobileTabbar) {
+    mobileTabbar = document.createElement('nav');
+    mobileTabbar.className = 'mobile-tabbar';
+    mobileTabbar.setAttribute('aria-label', 'Dolna nawigacja');
+    mobileTabbar.innerHTML = `
+      <button
+        type="button"
+        class="mobile-tabbar-btn"
+        id="mobileAdventureTab"
+        aria-controls="adventureView"
+        data-target="adventureView"
+        aria-pressed="false"
+        data-page-url="index.html"
+      >
+        <span class="mobile-tabbar-icon" aria-hidden="true">🎯</span>
+        <span class="mobile-tabbar-label" data-i18n="mobile.nav.adventure">Przygoda</span>
+      </button>
+      <button
+        type="button"
+        class="mobile-tabbar-btn"
+        id="mobilePackingTab"
+        aria-controls="packingView"
+        data-target="packingView"
+        aria-pressed="false"
+        data-page-url="packing.html"
+      >
+        <span class="mobile-tabbar-icon" aria-hidden="true">🎒</span>
+        <span class="mobile-tabbar-label" data-i18n="mobile.nav.packing">Pakowanie</span>
+      </button>
+      <button
+        type="button"
+        class="mobile-tabbar-btn"
+        id="mobileTasksTab"
+        aria-controls="tasksView"
+        data-target="tasksView"
+        aria-pressed="false"
+        data-page-url="tasks.html"
+      >
+        <span class="mobile-tabbar-icon" aria-hidden="true">✅</span>
+        <span class="mobile-tabbar-label" data-i18n="mobile.nav.tasks">Misje</span>
+      </button>
+      <button
+        type="button"
+        class="mobile-tabbar-btn"
+        id="mobileMediaTripsTab"
+        aria-controls="mediaTripsView"
+        data-target="mediaTripsView"
+        aria-pressed="false"
+        data-page-url="vip.html"
+        aria-label="Otwórz stronę VIP wyjazdów indywidualnych"
+        data-i18n-attrs="aria-label:nav.mediaTrips.ariaLabel"
+      >
+        <span class="mobile-tabbar-icon" aria-hidden="true">📸</span>
+        <span class="mobile-tabbar-label" data-i18n="mobile.nav.mediaTrips">VIP</span>
+      </button>
+    `;
+
+    const footer = document.querySelector('.app-footer');
+    if (footer?.parentNode) {
+      footer.parentNode.insertBefore(mobileTabbar, footer);
+    } else {
+      const firstScript = document.body.querySelector('script');
+      if (firstScript?.parentNode) {
+        firstScript.parentNode.insertBefore(mobileTabbar, firstScript);
+      } else {
+        document.body.appendChild(mobileTabbar);
+      }
+    }
+  }
+
+  if (!mobileTabbar) {
+    return;
+  }
+
+  if (!document.querySelector('.app-view')) {
+    const activeTabId = determineActiveMobileTabId();
+    const buttons = mobileTabbar.querySelectorAll('.mobile-tabbar-btn');
+    buttons.forEach((button) => {
+      button.classList.remove('is-active');
+      button.setAttribute('aria-pressed', 'false');
+    });
+
+    const activeButton = mobileTabbar.querySelector(`#${activeTabId}`);
+    if (activeButton instanceof HTMLElement) {
+      activeButton.classList.add('is-active');
+      activeButton.setAttribute('aria-pressed', 'true');
+    }
+  }
+}
+
 function bootstrap() {
+  ensureMobileTabbar();
   initializeAuth();
   initializeNotifications();
   reviews = loadReviewsFromStorage();
@@ -8142,6 +8271,12 @@ function bootstrap() {
         if (isAnchor && element.hasAttribute('href')) {
           return;
         }
+      }
+
+      if (!document.querySelector('.app-view') && targetPage) {
+        event.preventDefault();
+        window.location.href = targetPage;
+        return;
       }
 
       if (isAnchor) {
