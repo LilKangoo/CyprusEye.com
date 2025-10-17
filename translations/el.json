@@ -127,5 +127,7 @@
   "cruise.form.email": "Ηλεκτρονική διεύθυνση*",
   "cruise.form.message": "Μήνυμα",
   "cruise.form.submit": "Προσθήκη στη λίστα",
-  "cruise.footer": "Προσφέρουμε κρουαζιέρες στο ηλιοβασίλεμα, snorkeling στη Blue Lagoon, οικογενειακές εξορμήσεις και exclusive events στη θάλασσα. Θα επικοινωνήσουμε μόλις ανοίξει το ημερολόγιο."
+  "cruise.footer": "Προσφέρουμε κρουαζιέρες στο ηλιοβασίλεμα, snorkeling στη Blue Lagoon, οικογενειακές εξορμήσεις και exclusive events στη θάλασσα. Θα επικοινωνήσουμε μόλις ανοίξει το ημερολόγιο.",
+  "mobile.nav.carRental": "Ενοικίαση αυτοκινήτου",
+  "mobile.nav.coupons": "Κουπόνια"
 }

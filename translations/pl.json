@@ -623,5 +623,7 @@
   "cruise.form.email": "Adres e-mail*",
   "cruise.form.message": "Wiadomość",
   "cruise.form.submit": "Dodaj mnie do listy",
-  "cruise.footer": "Oferujemy rejsy o zachodzie słońca, snorkeling w Blue Lagoon, wyprawy rodzinne i ekskluzywne eventy na morzu. Skontaktujemy się z Tobą, gdy tylko otworzymy kalendarz."
+  "cruise.footer": "Oferujemy rejsy o zachodzie słońca, snorkeling w Blue Lagoon, wyprawy rodzinne i ekskluzywne eventy na morzu. Skontaktujemy się z Tobą, gdy tylko otworzymy kalendarz.",
+  "mobile.nav.carRental": "Wynajem aut",
+  "mobile.nav.coupons": "Kupony"
 }

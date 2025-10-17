@@ -7743,6 +7743,10 @@ function determineActiveMobileTabId() {
     tasks: 'mobileTasksTab',
     mediatrips: 'mobileMediaTripsTab',
     vip: 'mobileMediaTripsTab',
+    carrental: 'mobileCarRentalTab',
+    carrentallanding: 'mobileCarRentalTab',
+    carrentalpfo: 'mobileCarRentalTab',
+    coupon: 'mobileCouponsTab',
   };
 
   if (seoPage) {
@@ -7761,6 +7765,12 @@ function determineActiveMobileTabId() {
   }
   if (path.includes('media-trips') || path.includes('vip')) {
     return 'mobileMediaTripsTab';
+  }
+  if (path.includes('car-rental') || path.includes('autopfo')) {
+    return 'mobileCarRentalTab';
+  }
+  if (path.includes('kupon') || path.includes('coupon')) {
+    return 'mobileCouponsTab';
   }
 
   return 'mobileAdventureTab';
@@ -7827,6 +7837,26 @@ function ensureMobileTabbar() {
       >
         <span class="mobile-tabbar-icon" aria-hidden="true">📸</span>
         <span class="mobile-tabbar-label" data-i18n="mobile.nav.mediaTrips">VIP</span>
+      </button>
+      <button
+        type="button"
+        class="mobile-tabbar-btn"
+        id="mobileCarRentalTab"
+        aria-pressed="false"
+        data-page-url="car-rental-landing.html"
+      >
+        <span class="mobile-tabbar-icon" aria-hidden="true">🚗</span>
+        <span class="mobile-tabbar-label" data-i18n="mobile.nav.carRental">Wynajem aut</span>
+      </button>
+      <button
+        type="button"
+        class="mobile-tabbar-btn"
+        id="mobileCouponsTab"
+        aria-pressed="false"
+        data-page-url="kupon.html"
+      >
+        <span class="mobile-tabbar-icon" aria-hidden="true">🎟️</span>
+        <span class="mobile-tabbar-label" data-i18n="mobile.nav.coupons">Kupony</span>
       </button>
     `;
 
@@ -8326,6 +8356,8 @@ function bootstrap() {
   const mobilePackingTab = document.getElementById('mobilePackingTab');
   const mobileTasksTab = document.getElementById('mobileTasksTab');
   const mobileMediaTripsTab = document.getElementById('mobileMediaTripsTab');
+  const mobileCarRentalTab = document.getElementById('mobileCarRentalTab');
+  const mobileCouponsTab = document.getElementById('mobileCouponsTab');
 
   setupNavigationButton(adventureTab, openAdventureView, { enableKeydown: true });
   setupNavigationButton(packingTab, openPackingPlannerView, { enableKeydown: true });
@@ -8335,6 +8367,8 @@ function bootstrap() {
   setupNavigationButton(mobilePackingTab, openPackingPlannerView);
   setupNavigationButton(mobileTasksTab, openTasksView);
   setupNavigationButton(mobileMediaTripsTab, openMediaTripsView);
+  setupNavigationButton(mobileCarRentalTab);
+  setupNavigationButton(mobileCouponsTab);
 
   const openPackingFromAdventure = document.getElementById('openPackingFromAdventure');
   setupNavigationButton(openPackingFromAdventure, openPackingPlannerView);
