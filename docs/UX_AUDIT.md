@@ -12,11 +12,10 @@
 - Przyciski w pasku metryk (Poziom, XP, Odznaki) są linkami, ale nie mają `aria-current`, przez co użytkownik nie wie, że przeniosą na inną stronę. Dodanie informacji kontekstowej ułatwi orientację.【F:index.html†L90-L115】
 
 ### 1.3 Spójność językowa i lokalizacja
-- HTML określa `lang="pl"`, lecz część treści i danych (np. w `services.html`) zawiera anglicyzmy i zapis wartości w euro bez spacji lub w formacie mieszanym, co utrudnia odbiór. Przygotuj strategię lokalizacyjną (np. pl/en) i stosuj jednolite formatowanie walut z odstępem nierozdzielającym.【F:services.html†L37-L178】
-- Wiele elementów ma atrybut `data-i18n-key`, ale na podstronach standalone (np. `services.html`) nie jest ładowany skrypt i18n. Jeśli planowana jest wielojęzyczność, należy zapewnić spójne tłumaczenia lub usunąć zbędne atrybuty.【F:services.html†L37-L178】
+- HTML określa `lang="pl"`, lecz część treści i danych (np. w `media-trips.html`) zawiera anglicyzmy i zapis wartości w euro bez spacji lub w formacie mieszanym, co utrudnia odbiór. Przygotuj strategię lokalizacyjną (np. pl/en) i stosuj jednolite formatowanie walut z odstępem nierozdzielającym.【F:media-trips.html†L490-L503】
 
 ### 1.4 Wydajność
-- Wszystkie strony ładują te same fonty Google (dwa krój) oraz pełny arkusz `styles.css` (~ szeroki, z licznymi komponentami) nawet jeśli wykorzystują jedynie część komponentów. Rozważ kriowanie krytycznych stylów (critical CSS) dla głównej strony i modularnych arkuszy dla podstron, a także lokalne hostowanie fontów dla lepszego LCP.【F:index.html†L8-L13】【F:services.html†L7-L13】
+- Wszystkie strony ładują te same fonty Google (dwa krój) oraz pełny arkusz `styles.css` (~ szeroki, z licznymi komponentami) nawet jeśli wykorzystują jedynie część komponentów. Rozważ kriowanie krytycznych stylów (critical CSS) dla głównej strony i modularnych arkuszy dla podstron, a także lokalne hostowanie fontów dla lepszego LCP.【F:index.html†L50-L54】【F:car-rental-landing.html†L23-L27】
 - W widokach aplikacji (`index.html`, `packing.html`, `tasks.html`, `media-trips.html`) wczytywany jest Leaflet CSS niezależnie od tego, czy użytkownik faktycznie korzysta z mapy na danej zakładce. Wprowadzenie lazy loadingu skryptów/arkuszy (np. przez dynamiczne importy) skróci czas pierwszego renderu.【F:index.html†L8-L13】【F:packing.html†L8-L13】【F:tasks.html†L8-L13】【F:media-trips.html†L8-L13】
 
 ### 1.5 Komponenty formularzy
@@ -55,11 +54,9 @@
 - Pole wyszukiwania nie zawiera etykiety wizualnej; opiera się na placeholderze. Dodaj widoczny `<label>` lub `aria-labelledby`, by zwiększyć dostępność.【F:attractions.html†L43-L52】
 - Rozważ wprowadzenie filtrów (checkboxy dla kategorii plaże/miasta/natura) oraz sortowania po odległości/popularności dla lepszego UX.【F:attractions.html†L56-L68】
 
-## 6. VIP wyjazdy i media (`media-trips.html`, `services.html`)
+## 6. VIP wyjazdy i media (`media-trips.html`)
 
 - `media-trips.html` korzysta z layoutu aplikacji, ale nie posiada unikalnego nagłówka z informacją o ofercie VIP. Wstaw stały tytuł i opis w HTML, aby użytkownicy wiedzieli, w jakiej sekcji są po przeładowaniu strony bez JS.【F:media-trips.html†L14-L200】
-- Podstrona `services.html` jest bogata w treść, jednak brakuje kotwic typu „wstecz do góry” oraz sticky nawigacji, co utrudnia powrót do menu po przewinięciu. Dodanie mini-menu w bocznym pasku zwiększy wygodę na desktopie.【F:services.html†L16-L200】
-- W sekcji „Media” przyciski CTA prowadzą do maila, ale brakuje informacji o czasie odpowiedzi i cenniku. Rozważ wprowadzenie tabeli pakietów i formularza zapytań bezpośrednio na stronie.【F:services.html†L158-L199】
 
 ## 7. Wynajem aut (`car-rental-landing.html`, `car-rental.html`, `autopfo.html`)
 
@@ -71,14 +68,14 @@
 ## 8. Elementy prawne i zaufanie
 
 - Brak linków do polityki prywatności, regulaminu i cookies w całym serwisie. Dodaj dedykowaną sekcję w stopce i modale potwierdzające zgodę na przetwarzanie danych przed wysłaniem formularzy, szczególnie że strona operuje na danych osobowych (rezerwacje, kontakt).【F:index.html†L476-L487】【F:car-rental.html†L183-L195】
-- Sekcje z ofertą (np. `services.html`, `car-rental.html`) powinny zawierać opinie klientów lub referencje (np. cytaty, rating). Brak elementów społecznego dowodu utrudnia budowanie zaufania nowych użytkowników.【F:services.html†L59-L199】【F:car-rental.html†L69-L195】
+- Sekcje z ofertą (np. `media-trips.html`, `car-rental.html`) powinny zawierać opinie klientów lub referencje (np. cytaty, rating). Brak elementów społecznego dowodu utrudnia budowanie zaufania nowych użytkowników.【F:media-trips.html†L490-L503】【F:car-rental.html†L69-L195】
 
 ## 9. Rekomendacje techniczne
 
 1. **Refaktoryzacja layoutu nagłówka** – rozbij sekcję na moduły, dodaj „skip link” i upraszczaj układ mobilny poprzez hamburger menu dla działań dodatkowych.【F:index.html†L15-L188】
 2. **Wprowadzenie tematu ciemnego** – zastosuj `prefers-color-scheme` i przygotuj wariant kolorystyczny w `styles.css`, co poprawi komfort nocnego czytania i dostępność (wykorzystać już zdefiniowane zmienne CSS).【F:styles.css†L1-L77】
 3. **Optymalizacja zasobów** – wdrożenie `rel="preload"` dla głównych fontów, bundling JS (`app.js`, `car-rental.js`, `i18n.js`) i lazy loading modułów mapowych dopiero po wejściu w sekcję mapy.【F:index.html†L8-L13】【F:index.html†L491-L494】
-4. **Dane strukturalne** – dodaj `JSON-LD` dla usług turystycznych (LocalBusiness/TravelAgency) na stronach ofertowych, co poprawi widoczność w wyszukiwarkach.【F:car-rental.html†L34-L200】【F:services.html†L37-L199】
+4. **Dane strukturalne** – dodaj `JSON-LD` dla usług turystycznych (LocalBusiness/TravelAgency) na stronach ofertowych, co poprawi widoczność w wyszukiwarkach.【F:car-rental.html†L34-L200】【F:media-trips.html†L490-L541】
 5. **Testy użyteczności** – zalecane prototypowanie wariantów CTA i kolejności sekcji (np. w `car-rental-landing.html`) przy pomocy narzędzi jak Hotjar / GA4 (obecnie brak integracji analitycznej w kodzie). Rozważ wdrożenie `dataLayer` i zgód cookies.【F:car-rental-landing.html†L31-L102】
 
 ---
