@@ -3,6 +3,7 @@ import { fileURLToPath } from 'url';
 import path from 'path';
 import fs from 'fs/promises';
 import crypto from 'crypto';
+import nodemailer from 'nodemailer';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -15,6 +16,11 @@ const NOT_FOUND_PAGE_PATH = path.join(__dirname, '404.html');
 const PASSWORD_RESET_URL = process.env.PASSWORD_RESET_URL || 'http://localhost:3000/reset-password';
 const PASSWORD_RESET_TOKEN_TTL_MS = Number(process.env.PASSWORD_RESET_TOKEN_TTL_MS || 1000 * 60 * 60);
 const BASE_PATH = normalizeBasePath(process.env.BASE_PATH || '/');
+const CONTACT_EMAIL = process.env.CONTACT_EMAIL || 'kontakt@wakacjecypr.com';
+const SMTP_FROM = process.env.SMTP_FROM || 'WakacjeCypr Quest <no-reply@wakacjecypr.com>';
+
+let mailTransport = null;
+let mailTransportInitialized = false;
 
 let cachedNotFoundPage = null;
 
@@ -37,6 +43,128 @@ function jsonResponse(res, statusCode, data) {
     'Content-Length': Buffer.byteLength(body),
   });
   res.end(body);
+}
+
+function getMailTransport() {
+  if (mailTransportInitialized) {
+    return mailTransport;
+  }
+  mailTransportInitialized = true;
+
+  const host = process.env.SMTP_HOST;
+  if (!host) {
+    console.warn('SMTP_HOST nie został ustawiony – powiadomienia e-mail będą logowane w konsoli.');
+    mailTransport = null;
+    return mailTransport;
+  }
+
+  const port = Number.parseInt(process.env.SMTP_PORT || '', 10);
+  const secureEnv = process.env.SMTP_SECURE;
+  const secure = secureEnv ? secureEnv === 'true' : port === 465;
+
+  const transportConfig = {
+    host,
+    secure,
+  };
+
+  if (Number.isFinite(port)) {
+    transportConfig.port = port;
+  }
+
+  const user = process.env.SMTP_USER;
+  const pass = process.env.SMTP_PASS;
+  if (user && pass) {
+    transportConfig.auth = { user, pass };
+  }
+
+  mailTransport = nodemailer.createTransport(transportConfig);
+  return mailTransport;
+}
+
+function escapeHtml(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.replace(/[&<>"']/g, (character) => {
+    switch (character) {
+      case '&':
+        return '&amp;';
+      case '<':
+        return '&lt;';
+      case '>':
+        return '&gt;';
+      case '"':
+        return '&quot;';
+      case "'":
+        return '&#39;';
+      default:
+        return character;
+    }
+  });
+}
+
+async function sendContactNotification(entry) {
+  const textLines = [
+    'Otrzymaliśmy nowe zgłoszenie z formularza wycieczek WakacjeCypr.',
+    `Imię i nazwisko: ${entry.name}`,
+    `Adres e-mail: ${entry.email}`,
+    `Preferowana usługa: ${entry.service || 'nie podano'}`,
+    `Język interfejsu: ${entry.language || 'nie podano'}`,
+    '',
+    'Wiadomość:',
+    entry.message,
+    '',
+    `ID zgłoszenia: ${entry.id}`,
+    `Data zgłoszenia: ${entry.createdAt}`,
+  ];
+
+  if (entry.referer) {
+    textLines.push(`Strona źródłowa: ${entry.referer}`);
+  }
+  if (entry.userAgent) {
+    textLines.push(`Przeglądarka: ${entry.userAgent}`);
+  }
+
+  const text = textLines.join('\n');
+  const htmlParts = [
+    '<p>Otrzymaliśmy nowe zgłoszenie z formularza wycieczek WakacjeCypr.</p>',
+    '<ul>',
+    `<li><strong>Imię i nazwisko:</strong> ${escapeHtml(entry.name)}</li>`,
+    `<li><strong>Adres e-mail:</strong> ${escapeHtml(entry.email)}</li>`,
+    `<li><strong>Preferowana usługa:</strong> ${escapeHtml(entry.service || 'nie podano')}</li>`,
+    `<li><strong>Język interfejsu:</strong> ${escapeHtml(entry.language || 'nie podano')}</li>`,
+    `<li><strong>ID zgłoszenia:</strong> ${escapeHtml(entry.id)}</li>`,
+    `<li><strong>Data zgłoszenia:</strong> ${escapeHtml(entry.createdAt)}</li>`,
+    '</ul>',
+    '<p><strong>Wiadomość:</strong></p>',
+    `<p>${escapeHtml(entry.message).replace(/\n/g, '<br />')}</p>`,
+  ];
+
+  if (entry.referer) {
+    htmlParts.push(`<p><strong>Strona źródłowa:</strong> ${escapeHtml(entry.referer)}</p>`);
+  }
+  if (entry.userAgent) {
+    htmlParts.push(`<p><strong>Przeglądarka:</strong> ${escapeHtml(entry.userAgent)}</p>`);
+  }
+
+  const html = htmlParts.join('');
+  const subject = 'Nowe zgłoszenie z formularza wycieczek';
+
+  const transport = getMailTransport();
+  if (!transport) {
+    console.warn('Powiadomienie e-mail nie zostało wysłane – brak konfiguracji SMTP.');
+    console.log(`\n===== Symulowana wiadomość e-mail =====\nDo: ${CONTACT_EMAIL}\nTemat: ${subject}\n\n${text}\n===== Koniec wiadomości =====\n`);
+    return;
+  }
+
+  await transport.sendMail({
+    from: SMTP_FROM,
+    to: CONTACT_EMAIL,
+    subject,
+    text,
+    html,
+    replyTo: entry.email,
+  });
 }
 
 async function ensureSpreadsheetFile() {
@@ -580,6 +708,7 @@ async function handleContactForm(req, res) {
     };
 
     await appendFormSubmission(entry);
+    await sendContactNotification(entry);
 
     const acceptHeader = req.headers.accept || '';
     if (acceptHeader.includes('application/json')) {
