@@ -6102,8 +6102,8 @@ a:focus-visible {
 
   .mobile-tabbar {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    column-gap: 0.35rem;
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    column-gap: 0.3rem;
     padding-bottom: calc(0.35rem + env(safe-area-inset-bottom));
   }
 
