@@ -85,25 +85,7 @@
         </div>
       </div>
       <div class="header-top-actions">
-        <form
-          class="header-search"
-          role="search"
-          action="/api/forms/coupon-search"
-          method="post"
-          data-enhanced-form
-        >
-          <label class="visually-hidden" for="globalCouponSearchMedia">Szukaj kuponów</label>
-          <input
-            type="search"
-            id="globalCouponSearchMedia"
-            name="coupon"
-            placeholder="Partner, miasto lub usługa"
-            aria-label="Wyszukaj kupony"
-            autocomplete="off"
-            data-coupon-search-input
-          />
-          <button type="submit" class="header-search-button">🔍 <span>Znajdź kupon</span></button>
-        </form>
+        <a class="header-coupon-button" href="kupon.html">Kupon</a>
         <div class="header-actions" aria-label="Szybkie działania">
           <div class="header-actions-primary">
             <button class="primary" type="button" id="jumpToObjective" data-i18n-key="header.jumpToObjective">

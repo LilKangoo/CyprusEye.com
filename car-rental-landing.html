@@ -38,25 +38,7 @@
             <p class="standalone-brand-title" data-i18n="carRental.brand.title">Wynajem samochodów</p>
           </div>
         </div>
-        <form
-          class="header-search header-search--light"
-          role="search"
-          action="/api/forms/coupon-search"
-          method="post"
-          data-enhanced-form
-        >
-          <label class="visually-hidden" for="standaloneCouponSearchCarLanding">Szukaj kuponów</label>
-          <input
-            type="search"
-            id="standaloneCouponSearchCarLanding"
-            name="coupon"
-            placeholder="Partner, miasto lub usługa"
-            aria-label="Wyszukaj kupony"
-            autocomplete="off"
-            data-coupon-search-input
-          />
-          <button type="submit" class="header-search-button">🔍 <span>Znajdź kupon</span></button>
-        </form>
+        <a class="header-coupon-button header-coupon-button--light" href="kupon.html">Kupon</a>
         <nav class="standalone-nav" data-i18n-attrs="aria-label:carRental.nav.aria" aria-label="Nawigacja powrotu">
           <a
             class="ghost link"
