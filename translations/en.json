@@ -53,10 +53,6 @@
   "seo.coupon.description": "Purchase the HolidayCyprus special coupon and jump straight to secure Stripe payment.",
   "seo.coupon.ogTitle": "HolidayCyprus Coupon – quick Stripe checkout",
   "seo.coupon.ogDescription": "Reserve our offer in seconds with the coupon and secure Stripe payment.",
-  "seo.services.title": "CyprusEye – Tailor-made Cyprus holidays",
-  "seo.services.description": "Combine transport, car rental, excursions, media coverage, and villa stays with the CyprusEye concierge team.",
-  "seo.services.ogTitle": "CyprusEye – Tailor-made Cyprus holidays",
-  "seo.services.ogDescription": "Design a seamless Cyprus vacation package with trusted local partners and Polish-speaking support.",
   "header.brand": {
     "html": "<h1>HolidayCyprus <span>Quest</span></h1><p class=\"tagline\">Explore Cyprus in an interactive way – earn badges, experience, and discover our best offers.</p>"
   },
