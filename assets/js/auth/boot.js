@@ -28,7 +28,6 @@ window.CE_AUTH = { enabled:true, supabase, session, requireAuthOrRedirect };
 
 function initAuth() {
   bindAuthLinks();
-  // po załadowaniu drzewa DOM przechwytuj kliknięcie przycisku logowania
   const loginBtn = document.getElementById('openAuthModal');
   if (loginBtn) {
     loginBtn.addEventListener('click', (e) => {
@@ -37,7 +36,6 @@ function initAuth() {
     });
   }
 }
-// uruchom initAuth po zakończeniu ładowania DOM lub natychmiast, jeśli DOM jest gotowy
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initAuth);
 } else {
