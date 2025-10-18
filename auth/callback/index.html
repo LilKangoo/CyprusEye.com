@@ -6,15 +6,21 @@
 <meta name="ce-auth" content="on">
 <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co">
 <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bWNpemd2cnEiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc2MDc2OTA0OSwiZXhwIjoyMDc2MzQ1MDQ5fQ.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM">
+<meta name="supabase-publishable" content="sb_publishable_QdxNGCb6LYD-6ywFrjCrjg_Oa7yDGTk">
 </head>
 <body>
 <script type="module">
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-const url = document.querySelector('meta[name="supabase-url"]')?.content || 'https://daoohnbnnowmmcizgvrq.supabase.co';
-const key = document.querySelector('meta[name="supabase-anon"]')?.content || 'REPLACED_BY_HEAD';
-const s = createClient(url, key);
-const { data: { user } } = await s.auth.getUser();
-window.location.href = user ? '/account' : '/auth';
+  import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+  const url = document.querySelector('meta[name="supabase-url"]').content.trim();
+  const anon = document.querySelector('meta[name="supabase-anon"]').content.trim();
+  const supabase = createClient(url, anon);
+  const { data: sessionData, error } = await supabase.auth.getSession();
+  if (error) console.error('Supabase session error', error);
+  const { data: userData } = await supabase.auth.getUser();
+  if (!sessionData.session && !userData?.user) {
+    console.warn('Supabase: brak sesji po callbacku.');
+  }
+  window.location.href = userData?.user ? '/account/' : '/auth/';
 </script>
 </body>
 </html>
