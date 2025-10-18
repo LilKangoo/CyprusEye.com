@@ -5366,6 +5366,104 @@ a:focus-visible {
   animation: modalIn 0.25s ease;
 }
 
+.auth-intro {
+  margin: 0 0 var(--space-3);
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.auth-modal__tabs {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+
+.auth-modal__tab {
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
+  padding: 0.65rem 0.75rem;
+  background: rgba(241, 245, 249, 0.75);
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: background var(--transition), color var(--transition), border var(--transition);
+}
+
+.auth-modal__tab.is-active {
+  background: rgba(37, 99, 235, 0.12);
+  border-color: rgba(37, 99, 235, 0.4);
+  color: var(--primary-dark);
+}
+
+.auth-modal__tab:focus-visible {
+  outline: 3px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
+.auth-modal__panels {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.auth-modal__panel {
+  display: none;
+}
+
+.auth-modal__panel.is-active {
+  display: block;
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.auth-form label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.auth-form input {
+  padding: 0.7rem 0.85rem;
+  border-radius: 14px;
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  transition: border var(--transition), box-shadow var(--transition);
+}
+
+.auth-form input:focus-visible {
+  border-color: var(--primary);
+  outline: 3px solid var(--focus-ring-color);
+  outline-offset: 2px;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+}
+
+.auth-guest {
+  background: rgba(226, 232, 240, 0.45);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 20px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.auth-message {
+  min-height: 1.2rem;
+  margin-top: var(--space-3);
+  font-weight: 600;
+  color: var(--primary-dark);
+}
+
+.auth-message[data-tone='error'] {
+  color: #dc2626;
+}
+
+.auth-message[data-tone='success'] {
+  color: #15803d;
+}
+
 @keyframes modalIn {
   from {
     transform: translateY(20px);
@@ -5491,10 +5589,107 @@ body.u-lock-scroll {
   color: var(--muted);
 }
 
-.account-content {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+.account-body {
+  display: flex;
+  flex-direction: column;
   gap: 1.5rem;
+}
+
+.account-tabs {
+  display: flex;
+  gap: 0.85rem;
+  flex-wrap: wrap;
+}
+
+.account-tab {
+  flex: 1 1 0;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 16px;
+  padding: 0.75rem 1rem;
+  background: rgba(241, 245, 249, 0.6);
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  text-align: center;
+  transition: background var(--transition), border var(--transition), color var(--transition);
+}
+
+.account-tab.is-active {
+  background: rgba(14, 165, 233, 0.12);
+  border-color: rgba(14, 165, 233, 0.45);
+  color: var(--primary-dark);
+}
+
+.account-tab:focus-visible {
+  outline: 3px solid var(--focus-ring-color);
+  outline-offset: 2px;
+}
+
+.account-panel {
+  display: none;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.account-panel.is-active {
+  display: flex;
+}
+
+.account-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 1.1rem;
+}
+
+.account-stat-card {
+  background: rgba(255, 255, 255, 0.85);
+  border-radius: 20px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  box-shadow: 0 18px 36px rgba(14, 165, 233, 0.1);
+  padding: 1.2rem 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.account-stat-card h3 {
+  margin: 0;
+  font-size: 0.95rem;
+  color: rgba(30, 41, 59, 0.7);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.account-stat-value {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--primary-dark);
+}
+
+.account-stat-label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.account-reset-card {
+  background: rgba(239, 68, 68, 0.08);
+  border-radius: 20px;
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  padding: 1.35rem 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+}
+
+.account-reset-card h3 {
+  margin: 0;
+}
+
+.account-reset-card p {
+  margin: 0;
+  color: var(--muted);
 }
 
 .account-form {
@@ -5506,6 +5701,15 @@ body.u-lock-scroll {
   border-radius: 20px;
   border: 1px solid rgba(14, 165, 233, 0.2);
   box-shadow: 0 18px 36px rgba(14, 165, 233, 0.12);
+}
+
+.account-form.is-disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.account-form--vertical {
+  background: rgba(255, 255, 255, 0.9);
 }
 
 .account-form h3 {
@@ -5553,6 +5757,16 @@ body.u-lock-scroll {
 
 .account-reset .danger {
   align-self: flex-start;
+}
+
+.account-guest-note {
+  margin: -0.5rem 0 0;
+  padding: 0.85rem 1rem;
+  border-radius: 14px;
+  background: rgba(254, 226, 226, 0.6);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #b91c1c;
+  font-weight: 500;
 }
 
 .danger {

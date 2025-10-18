@@ -6,8 +6,15 @@
   if (!dialog) return;
 
   const closeTrigger = modal.querySelector('[data-close]');
-  const actionButtons = modal.querySelectorAll('[data-auth]');
   const openers = document.querySelectorAll('[data-open-auth]');
+  const tabButtons = Array.from(modal.querySelectorAll('[data-auth-tab]'));
+  const panels = new Map(
+    tabButtons.map((button) => {
+      const tabId = button.dataset.authTab;
+      const panel = modal.querySelector(`[data-auth-panel="${tabId}"]`);
+      return [tabId, panel || null];
+    }),
+  );
 
   const focusableSelector = [
     'a[href]',
@@ -24,26 +31,29 @@
   let firstFocusable = null;
   let lastFocusable = null;
   let previousBodyOverflow = '';
+  let currentTab = tabButtons[0]?.dataset.authTab || 'login';
 
   const isOpen = () => modal.classList.contains('is-open');
 
   const updateFocusableElements = () => {
-    focusableElements = Array.from(dialog.querySelectorAll(focusableSelector)).filter(
-      (element) =>
-        element instanceof HTMLElement &&
-        element.offsetParent !== null &&
-        !element.hasAttribute('disabled') &&
-        element.getAttribute('aria-hidden') !== 'true'
-    );
+    focusableElements = Array.from(dialog.querySelectorAll(focusableSelector)).filter((element) => {
+      if (!(element instanceof HTMLElement)) {
+        return false;
+      }
+      if (element.hasAttribute('disabled')) {
+        return false;
+      }
+      if (element.getAttribute('aria-hidden') === 'true') {
+        return false;
+      }
+      if (element.closest('[hidden]')) {
+        return false;
+      }
+      return element.offsetParent !== null;
+    });
 
     firstFocusable = focusableElements[0] || null;
     lastFocusable = focusableElements[focusableElements.length - 1] || null;
-  };
-
-  const focusInitialElement = () => {
-    updateFocusableElements();
-    const target = firstFocusable || dialog;
-    target.focus({ preventScroll: true });
   };
 
   const lockScroll = () => {
@@ -70,26 +80,45 @@
     }
   };
 
-  const closeInternally = ({ reason, restoreFocus = true } = {}) => {
-    if (!isOpen()) return false;
+  const focusInitialElement = () => {
+    updateFocusableElements();
+    const activePanel = panels.get(currentTab);
+    const panelFocusable = activePanel
+      ? focusableElements.filter((element) => activePanel.contains(element))
+      : [];
+    const target = panelFocusable[0] || firstFocusable || dialog;
+    target.focus({ preventScroll: true });
+  };
 
-    modal.classList.remove('is-open');
-    modal.setAttribute('aria-hidden', 'true');
-    document.removeEventListener('keydown', handleKeydown);
-    unlockScroll();
+  const setActiveTab = (tabId, { focus = false } = {}) => {
+    if (!panels.has(tabId)) {
+      tabId = tabButtons[0]?.dataset.authTab || currentTab || 'login';
+    }
+    currentTab = tabId;
 
-    if (restoreFocus && lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+    tabButtons.forEach((button) => {
+      const isActive = button.dataset.authTab === tabId;
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      button.setAttribute('tabindex', isActive ? '0' : '-1');
+    });
+
+    panels.forEach((panel, id) => {
+      if (!panel) return;
+      const isActive = id === tabId;
+      panel.classList.toggle('is-active', isActive);
+      if (isActive) {
+        panel.removeAttribute('hidden');
+      } else {
+        panel.setAttribute('hidden', '');
+      }
+    });
+
+    if (focus && isOpen()) {
       requestAnimationFrame(() => {
-        try {
-          lastFocusedElement.focus();
-        } catch (error) {
-          // ignore focus errors
-        }
+        focusInitialElement();
       });
     }
-
-    modal.dispatchEvent(new CustomEvent('auth:closed', { detail: { reason } }));
-    return true;
   };
 
   const focusTrap = (event) => {
@@ -124,7 +153,7 @@
 
     if (event.key === 'Escape') {
       event.preventDefault();
-      closeWithReason('escape', { activateGuest: true });
+      closeInternally({ restoreFocus: true });
       return;
     }
 
@@ -133,8 +162,12 @@
     }
   };
 
-  const openInternally = () => {
+  const openInternally = ({ tab } = {}) => {
     if (isOpen()) return false;
+
+    if (tab) {
+      setActiveTab(tab, { focus: false });
+    }
 
     lastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     modal.classList.add('is-open');
@@ -146,42 +179,46 @@
     });
 
     document.addEventListener('keydown', handleKeydown);
-    modal.dispatchEvent(new CustomEvent('auth:opened'));
+    modal.dispatchEvent(new CustomEvent('auth:opened', { detail: { tab: currentTab } }));
     return true;
   };
 
-  const closeWithReason = (reason, options = {}) => {
-    const { activateGuest = false, guestMessage, restoreFocus } = options;
-    const payload = {
-      activateGuest,
-      guestMessage,
-      reason,
-    };
+  const closeInternally = ({ restoreFocus = true } = {}) => {
+    if (!isOpen()) return false;
 
-    if (typeof window.closeAuthModal === 'function') {
-      const closed = window.closeAuthModal(payload);
-      if (closed) {
-        return;
-      }
+    modal.classList.remove('is-open');
+    modal.setAttribute('aria-hidden', 'true');
+    document.removeEventListener('keydown', handleKeydown);
+    unlockScroll();
+
+    if (restoreFocus && lastFocusedElement && typeof lastFocusedElement.focus === 'function') {
+      requestAnimationFrame(() => {
+        try {
+          lastFocusedElement.focus();
+        } catch (error) {
+          // ignore focus errors
+        }
+      });
     }
 
-    const fallbackMessage =
-      guestMessage !== undefined
-        ? guestMessage
-        : activateGuest && typeof window.getGuestStatusMessage === 'function'
-        ? window.getGuestStatusMessage()
-        : undefined;
-
-    const closedInternally = closeInternally({ reason, restoreFocus });
-    if (closedInternally && activateGuest && typeof window.startGuestSession === 'function') {
-      window.startGuestSession({ message: fallbackMessage });
-    }
+    modal.dispatchEvent(new CustomEvent('auth:closed'));
+    return true;
   };
 
   const controller = {
-    open: () => openInternally(),
-    close: (options = {}) => closeInternally(options),
+    open(tabId) {
+      return openInternally({ tab: tabId });
+    },
+    close(options = {}) {
+      return closeInternally(options);
+    },
     isOpen,
+    setActiveTab(tabId, options = {}) {
+      setActiveTab(tabId, { focus: options.focus ?? isOpen() });
+    },
+    getActiveTab() {
+      return currentTab;
+    },
   };
 
   window.__authModalController = controller;
@@ -189,37 +226,28 @@
   openers.forEach((opener) => {
     opener.addEventListener('click', (event) => {
       event.preventDefault();
-      if (typeof window.openAuthModal === 'function') {
-        window.openAuthModal();
-      } else {
-        openInternally();
-      }
+      const targetTab = opener.getAttribute('data-auth-target') || 'login';
+      controller.setActiveTab(targetTab, { focus: false });
+      controller.open(targetTab);
     });
   });
 
   closeTrigger?.addEventListener('click', () => {
-    closeWithReason('close-button', { activateGuest: true });
+    controller.close();
   });
 
   modal.addEventListener('click', (event) => {
     if (event.target === modal) {
-      closeWithReason('backdrop', { activateGuest: true });
+      controller.close();
     }
   });
 
-  actionButtons.forEach((button) => {
+  tabButtons.forEach((button) => {
     button.addEventListener('click', () => {
-      const action = button.getAttribute('data-auth');
-      if (!action) return;
-
-      modal.dispatchEvent(new CustomEvent('auth:action', { detail: { action } }));
-
-      const isGuest = action === 'guest';
-      const guestMessage = isGuest && typeof window.getGuestStatusMessage === 'function'
-        ? window.getGuestStatusMessage()
-        : undefined;
-
-      closeWithReason(action, { activateGuest: isGuest, guestMessage });
+      const tabId = button.dataset.authTab;
+      controller.setActiveTab(tabId, { focus: true });
     });
   });
+
+  setActiveTab(currentTab);
 })();

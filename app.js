@@ -1298,6 +1298,9 @@ const state = {
 
 let accounts = {};
 let currentUserKey = null;
+let currentSupabaseUser = null;
+let supabaseClient = null;
+let supabaseSignOutInProgress = false;
 let reviews = {};
 let journalEntries = [];
 let editingJournalEntryId = null;
@@ -2445,31 +2448,132 @@ function getCurrentDisplayName() {
       return account.username;
     }
   }
+  if (currentSupabaseUser?.email) {
+    return currentSupabaseUser.email;
+  }
   return 'Gość';
 }
 
-async function hashPassword(password) {
-  if (!password) return '';
+function getSupabaseClient() {
+  if (supabaseClient) {
+    return supabaseClient;
+  }
+  const authApi = window.CE_AUTH || {};
+  if (authApi.supabase) {
+    supabaseClient = authApi.supabase;
+  }
+  return supabaseClient;
+}
+
+function getSupabaseDisplayName(user) {
+  if (!user) return '';
+  const metadata = user.user_metadata || {};
+  return (
+    (typeof metadata.display_name === 'string' && metadata.display_name.trim()) ||
+    (typeof metadata.full_name === 'string' && metadata.full_name.trim()) ||
+    (typeof metadata.name === 'string' && metadata.name.trim()) ||
+    (typeof user.email === 'string' && user.email.trim()) ||
+    ''
+  );
+}
+
+function ensureSupabaseAccount(user, preferredName = '') {
+  if (!user || !user.id) {
+    return null;
+  }
+
+  const key = `supabase:${user.id}`;
+  const existing = accounts[key];
+  const displayName = preferredName || getSupabaseDisplayName(user) || existing?.username || 'Gracz';
+
+  if (!existing) {
+    accounts[key] = {
+      username: displayName,
+      progress: getDefaultProgress(),
+    };
+    persistAccounts();
+    return accounts[key];
+  }
+
+  if (displayName && existing.username !== displayName) {
+    existing.username = displayName;
+    persistAccounts();
+  }
+
+  if (!existing.progress || typeof existing.progress !== 'object') {
+    existing.progress = getDefaultProgress();
+    persistAccounts();
+  }
+
+  return existing;
+}
+
+async function syncSupabaseProfile(user) {
+  const client = getSupabaseClient();
+  if (!client || !user?.id) {
+    return null;
+  }
 
   try {
-    if (window.crypto?.subtle) {
-      const encoder = new TextEncoder();
-      const data = encoder.encode(password);
-      const digest = await window.crypto.subtle.digest('SHA-256', data);
-      return Array.from(new Uint8Array(digest))
-        .map((byte) => byte.toString(16).padStart(2, '0'))
-        .join('');
+    const { data, error } = await client
+      .from('profiles')
+      .select('display_name')
+      .eq('id', user.id)
+      .maybeSingle();
+    if (error) {
+      throw error;
+    }
+    const displayName = typeof data?.display_name === 'string' ? data.display_name.trim() : '';
+    if (displayName) {
+      const account = ensureSupabaseAccount(user, displayName);
+      if (account && account.username !== displayName) {
+        account.username = displayName;
+        persistAccounts();
+      }
+      return displayName;
     }
   } catch (error) {
-    console.warn('Nie udało się użyć Web Crypto do hashowania hasła:', error);
+    console.warn('Nie udało się zsynchronizować profilu Supabase:', error);
+  }
+  return null;
+}
+
+async function applySupabaseUser(user, { reason = 'change' } = {}) {
+  if (user && user.id) {
+    const sameUser = currentSupabaseUser?.id === user.id;
+    currentSupabaseUser = user;
+    currentUserKey = `supabase:${user.id}`;
+    const syncedName = await syncSupabaseProfile(user);
+    ensureSupabaseAccount(user, syncedName || getSupabaseDisplayName(user));
+    localStorage.setItem(SESSION_STORAGE_KEY, currentUserKey);
+    loadProgress();
+    renderAllForCurrentState();
+    updateAuthUI();
+    clearAuthForms();
+    setAuthMessage('');
+    closeAuthModal();
+
+    if (reason === 'sign-in' && !sameUser) {
+      setLevelStatus(
+        translate('auth.status.welcomeBack', 'Witaj ponownie, {{username}}!', {
+          username: getCurrentDisplayName(),
+        }),
+        6000,
+      );
+    }
+    return;
   }
 
-  try {
-    return btoa(unescape(encodeURIComponent(password)));
-  } catch (error) {
-    console.warn('Fallback kodowania hasła nie powiódł się:', error);
-    return password;
-  }
+  currentSupabaseUser = null;
+  currentUserKey = null;
+  localStorage.removeItem(SESSION_STORAGE_KEY);
+  const shouldShowMessage = supabaseSignOutInProgress || reason === 'sign-out';
+  supabaseSignOutInProgress = false;
+  const message = shouldShowMessage
+    ? translate('auth.guest.switch', 'Wylogowano – grasz teraz jako gość.')
+    : '';
+  startGuestSession({ message, skipMessage: !shouldShowMessage });
+  closeAuthModal();
 }
 
 function xpRequiredForLevel(level) {
@@ -2984,6 +3088,56 @@ function showLevelUpMessage(level) {
   });
 }
 
+function renderAccountStats() {
+  const levelEl = document.getElementById('accountStatLevel');
+  if (levelEl) {
+    levelEl.textContent = state.level;
+  }
+
+  const xpEl = document.getElementById('accountStatXp');
+  if (xpEl) {
+    xpEl.textContent = `${state.xp} XP`;
+  }
+
+  const badgesEl = document.getElementById('accountStatBadges');
+  if (badgesEl) {
+    badgesEl.textContent = state.badges.length;
+  }
+
+  const visitedEl = document.getElementById('accountStatVisited');
+  if (visitedEl) {
+    visitedEl.textContent = state.visited.size;
+  }
+
+  const tasksEl = document.getElementById('accountStatTasks');
+  if (tasksEl) {
+    tasksEl.textContent = state.tasksCompleted.size;
+  }
+
+  const streakEl = document.getElementById('accountStatStreak');
+  if (streakEl) {
+    streakEl.textContent = state.dailyStreak.current || 0;
+  }
+
+  const bestStreakEl = document.getElementById('accountStatBestStreak');
+  if (bestStreakEl) {
+    bestStreakEl.textContent = state.dailyStreak.best || 0;
+  }
+
+  const resetDescription = document.getElementById('accountResetDescription');
+  if (resetDescription) {
+    resetDescription.textContent = currentSupabaseUser
+      ? translate(
+          'account.reset.description.auth',
+          'Wyzeruj statystyki przypisane do tego konta i zacznij przygodę od nowa.',
+        )
+      : translate(
+          'account.reset.description.guest',
+          'Wyzeruj statystyki zapisane lokalnie na tym urządzeniu.',
+        );
+  }
+}
+
 function renderProgress() {
   const xpPointsEl = document.getElementById('xpPoints');
   const badgesCountEl = document.getElementById('badgesCount');
@@ -3089,6 +3243,7 @@ function renderProgress() {
   }
 
   renderLevelStatus();
+  renderAccountStats();
 }
 
 function renderAchievements() {
@@ -6974,14 +7129,22 @@ function setAuthMessage(message = '', tone = 'info') {
   const messageEl = document.getElementById('authMessage');
   if (!messageEl) return;
   messageEl.textContent = message;
-  messageEl.dataset.tone = tone;
+  if (message) {
+    messageEl.dataset.tone = tone;
+  } else {
+    messageEl.removeAttribute('data-tone');
+  }
 }
 
 function setAccountMessage(message = '', tone = 'info') {
   const messageEl = document.getElementById('accountMessage');
   if (!messageEl) return;
   messageEl.textContent = message;
-  messageEl.dataset.tone = tone;
+  if (message) {
+    messageEl.dataset.tone = tone;
+  } else {
+    messageEl.removeAttribute('data-tone');
+  }
 }
 
 function showAuthError(key, fallback, replacements = {}) {
@@ -7054,12 +7217,33 @@ function unlockBodyScroll() {
   scrollPositionBeforeLock = 0;
 }
 
-function openAccountModal() {
-  if (!currentUserKey) {
-    showAccountError('account.error.loginRequired', 'Zaloguj się, aby edytować dane konta.');
-    return;
-  }
+function setActiveAccountTab(tabId = 'stats') {
+  const tabs = document.querySelectorAll('[data-account-tab]');
+  const panels = document.querySelectorAll('[data-account-panel]');
+  const availableTabs = Array.from(tabs).map((tab) => tab.dataset.accountTab);
+  const targetTab = availableTabs.includes(tabId) ? tabId : availableTabs[0];
 
+  tabs.forEach((tab) => {
+    const id = tab.dataset.accountTab;
+    const isActive = id === targetTab;
+    tab.classList.toggle('is-active', isActive);
+    tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    tab.setAttribute('tabindex', isActive ? '0' : '-1');
+  });
+
+  panels.forEach((panel) => {
+    const id = panel.dataset.accountPanel;
+    const isActive = id === targetTab;
+    panel.classList.toggle('is-active', isActive);
+    if (isActive) {
+      panel.removeAttribute('hidden');
+    } else {
+      panel.setAttribute('hidden', '');
+    }
+  });
+}
+
+function openAccountModal(initialTab = 'stats') {
   const modal = document.getElementById('accountModal');
   if (!modal) {
     return;
@@ -7069,20 +7253,13 @@ function openAccountModal() {
     return;
   }
 
-  const account = getAccount(currentUserKey);
-  const usernameInput = document.getElementById('accountUsername');
-  if (usernameInput instanceof HTMLInputElement) {
-    usernameInput.value = account?.username || '';
-    usernameInput.focus();
-    usernameInput.select();
-  }
-
   const passwordForm = document.getElementById('accountPasswordForm');
   if (passwordForm instanceof HTMLFormElement) {
     passwordForm.reset();
   }
 
   setAccountMessage('');
+  setActiveAccountTab(initialTab);
   lockBodyScroll();
   modal.hidden = false;
   requestAnimationFrame(() => {
@@ -7109,15 +7286,18 @@ function closeAccountModal() {
   return true;
 }
 
-function openAuthModal() {
+function openAuthModal(tabId = 'login') {
   const controller = window.__authModalController;
   if (!controller) return;
+  controller.setActiveTab?.(tabId, { focus: controller.isOpen() });
   if (controller.isOpen()) {
     return;
   }
   setAuthMessage('');
-  controller.open();
+  controller.open(tabId);
 }
+
+window.openAuthModal = openAuthModal;
 
 function closeAuthModal(options = {}) {
   const { activateGuest = false, guestMessage, reason = 'programmatic' } = options;
@@ -7148,66 +7328,12 @@ function closeAuthModal(options = {}) {
   return true;
 }
 
-function handleAccountUsernameSubmit(event) {
-  event.preventDefault();
-
-  if (!currentUserKey) {
-    showAccountError('account.error.username.loginRequired', 'Zaloguj się, aby zmienić nazwę użytkownika.');
-    return;
-  }
-
-  const form = event.currentTarget;
-  if (!(form instanceof HTMLFormElement)) {
-    return;
-  }
-
-  const usernameInput = form.querySelector('#accountUsername');
-  if (!(usernameInput instanceof HTMLInputElement)) {
-    return;
-  }
-
-  const newUsername = usernameInput.value.trim();
-  if (!newUsername) {
-    showAccountError('account.error.username.missing', 'Podaj nową nazwę użytkownika.');
-    return;
-  }
-
-  const normalizedNew = normalizeUsername(newUsername);
-  const currentAccount = getAccount(currentUserKey);
-  if (!currentAccount) {
-    showAccountError('account.error.currentMissing', 'Nie udało się odnaleźć bieżącego konta.');
-    return;
-  }
-
-  if (normalizedNew !== currentUserKey && getAccount(normalizedNew)) {
-    showAccountError('account.error.username.taken', 'Wybrana nazwa użytkownika jest już zajęta.');
-    return;
-  }
-
-  const updatedAccount = {
-    ...currentAccount,
-    username: newUsername,
-  };
-
-  if (normalizedNew !== currentUserKey) {
-    delete accounts[currentUserKey];
-    accounts[normalizedNew] = updatedAccount;
-    currentUserKey = normalizedNew;
-    localStorage.setItem(SESSION_STORAGE_KEY, currentUserKey);
-  } else {
-    accounts[currentUserKey] = updatedAccount;
-  }
-
-  persistAccounts();
-  updateAuthUI();
-  showAccountSuccess('account.success.usernameUpdated', 'Nazwa użytkownika została zaktualizowana.');
-  usernameInput.value = newUsername;
-}
+window.closeAuthModal = closeAuthModal;
 
 async function handleAccountPasswordSubmit(event) {
   event.preventDefault();
 
-  if (!currentUserKey) {
+  if (!currentSupabaseUser) {
     showAccountError('account.error.password.loginRequired', 'Zaloguj się, aby zmienić hasło.');
     return;
   }
@@ -7248,33 +7374,39 @@ async function handleAccountPasswordSubmit(event) {
     return;
   }
 
-  const account = getAccount(currentUserKey);
-  if (!account) {
-    showAccountError('account.error.currentMissing', 'Nie udało się odnaleźć bieżącego konta.');
+  const client = getSupabaseClient();
+  if (!client) {
+    showAccountError('account.error.password.loginRequired', 'Połączenie z logowaniem jest chwilowo niedostępne.');
     return;
   }
 
-  if (account.passwordHash) {
-    const currentHash = await hashPassword(currentPassword);
-    if (account.passwordHash !== currentHash) {
-      showAccountError('account.error.password.invalidCurrent', 'Obecne hasło jest nieprawidłowe.');
-      return;
-    }
+  const userEmail = currentSupabaseUser.email;
+  if (!userEmail) {
+    showAccountError('account.error.currentMissing', 'Nie udało się pobrać informacji o koncie.');
+    return;
   }
 
-  const newHash = await hashPassword(newPassword);
-  account.passwordHash = newHash;
-  persistAccounts();
+  const { error: reauthError } = await client.auth.signInWithPassword({
+    email: userEmail,
+    password: currentPassword,
+  });
+
+  if (reauthError) {
+    showAccountError('account.error.password.invalidCurrent', 'Obecne hasło jest nieprawidłowe.');
+    return;
+  }
+
+  const { error: updateError } = await client.auth.updateUser({ password: newPassword });
+  if (updateError) {
+    showAccountError('account.error.password.updateFailed', updateError.message || 'Nie udało się zmienić hasła. Spróbuj ponownie.');
+    return;
+  }
+
   form.reset();
   showAccountSuccess('account.success.passwordUpdated', 'Hasło zostało pomyślnie zaktualizowane.');
 }
 
 function handleAccountResetProgress() {
-  if (!currentUserKey) {
-    showAccountError('account.error.reset.loginRequired', 'Zaloguj się, aby zresetować postęp.');
-    return;
-  }
-
   const confirmed = window.confirm(
     translate(
       'account.confirm.reset',
@@ -7286,16 +7418,22 @@ function handleAccountResetProgress() {
     return;
   }
 
-  const account = getAccount(currentUserKey);
-  if (!account) {
-    showAccountError('account.error.currentMissing', 'Nie udało się odnaleźć bieżącego konta.');
-    return;
+  if (currentUserKey) {
+    const account = getAccount(currentUserKey);
+    if (!account) {
+      showAccountError('account.error.currentMissing', 'Nie udało się odnaleźć bieżącego konta.');
+      return;
+    }
+
+    account.progress = getDefaultProgress();
+    persistAccounts();
+  } else {
+    localStorage.removeItem(STORAGE_KEY);
   }
 
-  account.progress = getDefaultProgress();
-  persistAccounts();
   loadProgress();
   renderAllForCurrentState();
+  updateAuthUI();
   showAccountSuccess(
     'account.success.progressReset',
     'Postęp został zresetowany. Powodzenia w nowej przygodzie!',
@@ -7306,76 +7444,54 @@ function handleAccountResetProgress() {
   );
 }
 
-function handleGuestResetProgress() {
-  if (currentUserKey) {
-    setLevelStatus(
-      translate(
-        'account.status.resetNotAvailable',
-        'Zalogowano na konto – skorzystaj z ustawień konta, aby zresetować postęp.',
-      ),
-      6000,
-    );
-    return;
-  }
-
-  const confirmed = window.confirm(
-    translate(
-      'account.confirm.guestReset',
-      'Czy na pewno chcesz wyzerować postęp gościa? Tej operacji nie można cofnąć.',
-    ),
-  );
-
-  if (!confirmed) {
-    return;
-  }
-
-  localStorage.removeItem(STORAGE_KEY);
-  loadProgress();
-  renderAllForCurrentState();
-  updateAuthUI();
-  setLevelStatus(
-    translate('account.status.guestProgressReset', 'Wyzerowano statystyki gościa. Zaczynasz od poziomu 1!'),
-    6000,
-  );
-}
-
 function updateAuthUI() {
   const loginButton = document.getElementById('openAuthModal');
   const userMenu = document.getElementById('userMenu');
   const greeting = document.getElementById('userGreeting');
   const accountSettingsBtn = document.getElementById('accountSettingsBtn');
-  const guestResetContainer = document.getElementById('guestResetContainer');
+  const logoutBtn = document.getElementById('logoutBtn');
+  const passwordForm = document.getElementById('accountPasswordForm');
+  const guestPasswordNote = document.getElementById('accountGuestPasswordNote');
+  const isLoggedIn = Boolean(currentSupabaseUser);
+  const displayName = getCurrentDisplayName();
 
   if (loginButton) {
-    loginButton.hidden = Boolean(currentUserKey);
+    loginButton.hidden = isLoggedIn;
+  }
+
+  if (logoutBtn) {
+    logoutBtn.hidden = !isLoggedIn;
   }
 
   if (userMenu) {
-    userMenu.hidden = !currentUserKey;
+    userMenu.hidden = false;
   }
 
   if (accountSettingsBtn) {
-    accountSettingsBtn.hidden = !currentUserKey;
-  }
-
-  if (guestResetContainer) {
-    guestResetContainer.hidden = Boolean(currentUserKey);
+    accountSettingsBtn.hidden = false;
   }
 
   if (greeting) {
-    if (currentUserKey) {
-      const account = getAccount(currentUserKey);
-      greeting.textContent = account
-        ? translate('auth.status.loggedInAs', 'Zalogowano jako {{username}}', {
-            username: account.username,
-          })
-        : '';
-    } else {
-      greeting.textContent = '';
-    }
+    greeting.textContent = isLoggedIn
+      ? translate('auth.status.loggedInAs', 'Zalogowano jako {{username}}', { username: displayName })
+      : translate('auth.guest.banner', 'Grasz jako gość');
+  }
+
+  if (passwordForm instanceof HTMLFormElement) {
+    passwordForm.classList.toggle('is-disabled', !isLoggedIn);
+    passwordForm.querySelectorAll('input, button').forEach((element) => {
+      if (element instanceof HTMLInputElement || element instanceof HTMLButtonElement) {
+        element.disabled = !isLoggedIn;
+      }
+    });
+  }
+
+  if (guestPasswordNote) {
+    guestPasswordNote.hidden = isLoggedIn;
   }
 
   renderNotificationsUI();
+  renderAccountStats();
 }
 
 async function handleLoginSubmit(event) {
@@ -7383,45 +7499,34 @@ async function handleLoginSubmit(event) {
   const form = event.currentTarget;
   if (!(form instanceof HTMLFormElement)) return;
 
-  const usernameInput = form.querySelector('#loginUsername');
+  const emailInput = form.querySelector('#loginEmail');
   const passwordInput = form.querySelector('#loginPassword');
-  if (!(usernameInput instanceof HTMLInputElement) || !(passwordInput instanceof HTMLInputElement)) {
+  if (!(emailInput instanceof HTMLInputElement) || !(passwordInput instanceof HTMLInputElement)) {
     return;
   }
 
-  const username = usernameInput.value.trim();
+  const email = emailInput.value.trim();
   const password = passwordInput.value;
 
-  if (!username || !password) {
-    showAuthError('auth.error.missingCredentials', 'Uzupełnij login i hasło, aby się zalogować.');
+  if (!email || !password) {
+    showAuthError('auth.error.missingCredentials', 'Podaj adres e-mail i hasło, aby się zalogować.');
     return;
   }
 
-  const key = normalizeUsername(username);
-  const account = getAccount(key);
-  if (!account || !account.passwordHash) {
-    showAuthError('auth.error.accountNotFound', 'Nie znaleziono konta o podanym loginie.');
+  const client = getSupabaseClient();
+  if (!client) {
+    showAuthError('auth.error.unavailable', 'Logowanie jest chwilowo niedostępne. Spróbuj ponownie później.');
     return;
   }
 
-  const passwordHash = await hashPassword(password);
-  if (account.passwordHash !== passwordHash) {
-    showAuthError('auth.error.invalidPassword', 'Nieprawidłowe hasło – spróbuj ponownie.');
+  const { error } = await client.auth.signInWithPassword({ email, password });
+  if (error) {
+    showAuthError('auth.error.invalidPassword', error.message || 'Nie udało się zalogować. Spróbuj ponownie.');
     return;
   }
 
-  currentUserKey = key;
-  localStorage.setItem(SESSION_STORAGE_KEY, currentUserKey);
-  loadProgress();
-  renderAllForCurrentState();
-  updateAuthUI();
-  closeAuthModal();
-  setLevelStatus(
-    translate('auth.status.welcomeBack', 'Witaj ponownie, {{username}}!', {
-      username: account.username,
-    }),
-    6000,
-  );
+  clearAuthForms();
+  setAuthMessage(translate('auth.status.welcomeBack', 'Witaj ponownie!'), 'success');
 }
 
 async function handleRegisterSubmit(event) {
@@ -7429,24 +7534,24 @@ async function handleRegisterSubmit(event) {
   const form = event.currentTarget;
   if (!(form instanceof HTMLFormElement)) return;
 
-  const usernameInput = form.querySelector('#registerUsername');
+  const emailInput = form.querySelector('#registerEmail');
   const passwordInput = form.querySelector('#registerPassword');
   const confirmInput = form.querySelector('#registerPasswordConfirm');
 
   if (
-    !(usernameInput instanceof HTMLInputElement) ||
+    !(emailInput instanceof HTMLInputElement) ||
     !(passwordInput instanceof HTMLInputElement) ||
     !(confirmInput instanceof HTMLInputElement)
   ) {
     return;
   }
 
-  const username = usernameInput.value.trim();
+  const email = emailInput.value.trim();
   const password = passwordInput.value;
   const confirmPassword = confirmInput.value;
 
-  if (!username || !password) {
-    showAuthError('auth.error.registration.missingCredentials', 'Podaj login i hasło, aby utworzyć konto.');
+  if (!email || !password) {
+    showAuthError('auth.error.registration.missingCredentials', 'Podaj adres e-mail i hasło, aby utworzyć konto.');
     return;
   }
 
@@ -7460,37 +7565,32 @@ async function handleRegisterSubmit(event) {
     return;
   }
 
-  const key = normalizeUsername(username);
-  if (getAccount(key)) {
-    showAuthError('auth.error.accountExists', 'Takie konto już istnieje. Spróbuj się zalogować.');
+  const client = getSupabaseClient();
+  if (!client) {
+    showAuthError('auth.error.unavailable', 'Rejestracja jest chwilowo niedostępna. Spróbuj ponownie później.');
     return;
   }
 
-  const passwordHash = await hashPassword(password);
-  const payload = extractProgressFromState();
+  const origin = window.location.origin;
+  const { error } = await client.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: `${origin}/auth/callback/` },
+  });
 
-  accounts[key] = {
-    username,
-    passwordHash,
-    progress: payload,
-  };
-  persistAccounts();
+  if (error) {
+    showAuthError('auth.error.registration.failed', error.message || 'Nie udało się utworzyć konta.');
+    return;
+  }
 
-  currentUserKey = key;
-  localStorage.setItem(SESSION_STORAGE_KEY, currentUserKey);
-  loadProgress();
-  renderAllForCurrentState();
-  updateAuthUI();
-  closeAuthModal();
-  setLevelStatus(
-    translate('auth.status.welcome', 'Witaj w grze, {{username}}!', { username }),
-    6000,
-  );
+  clearAuthForms();
+  setAuthMessage('Konto utworzone! Sprawdź skrzynkę e-mail, aby potwierdzić adres.', 'success');
 }
 
 function startGuestSession(options = {}) {
-  const { message } = options;
+  const { message, skipMessage = false } = options;
   const previousUser = currentUserKey;
+  currentSupabaseUser = null;
   currentUserKey = null;
   localStorage.removeItem(SESSION_STORAGE_KEY);
   closeAccountModal();
@@ -7498,9 +7598,10 @@ function startGuestSession(options = {}) {
   loadProgress();
   renderAllForCurrentState();
   updateAuthUI();
+  setAuthMessage('');
 
   let finalMessage = message;
-  if (finalMessage === undefined) {
+  if (finalMessage === undefined && !skipMessage) {
     finalMessage = previousUser
       ? translate('auth.guest.switch', 'Wylogowano – grasz teraz jako gość.')
       : getGuestStatusMessage();
@@ -7511,7 +7612,22 @@ function startGuestSession(options = {}) {
   }
 }
 
-function handleLogout() {
+async function handleLogout() {
+  const client = getSupabaseClient();
+  if (client && currentSupabaseUser) {
+    try {
+      supabaseSignOutInProgress = true;
+      const { error } = await client.auth.signOut();
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      supabaseSignOutInProgress = false;
+      showAccountError('auth.error.logoutFailed', error.message || 'Nie udało się wylogować. Spróbuj ponownie.');
+    }
+    return;
+  }
+
   startGuestSession({
     message: translate('auth.guest.switch', 'Wylogowano – grasz teraz jako gość.'),
   });
@@ -7519,13 +7635,6 @@ function handleLogout() {
 
 function initializeAuth() {
   accounts = loadAccountsFromStorage();
-
-  const savedSession = localStorage.getItem(SESSION_STORAGE_KEY);
-  if (savedSession && getAccount(savedSession)) {
-    currentUserKey = savedSession;
-  } else {
-    currentUserKey = null;
-  }
 
   const loginForm = document.getElementById('loginForm');
   const registerForm = document.getElementById('registerForm');
@@ -7535,10 +7644,9 @@ function initializeAuth() {
   const accountSettingsBtn = document.getElementById('accountSettingsBtn');
   const accountModal = document.getElementById('accountModal');
   const accountCloseBtn = document.getElementById('accountClose');
-  const accountUsernameForm = document.getElementById('accountUsernameForm');
   const accountPasswordForm = document.getElementById('accountPasswordForm');
   const accountResetBtn = document.getElementById('accountResetProgress');
-  const guestResetBtn = document.getElementById('guestResetProgress');
+  const guestPlayButton = document.getElementById('guestPlayButton');
 
   loginForm?.addEventListener('submit', handleLoginSubmit);
   registerForm?.addEventListener('submit', handleRegisterSubmit);
@@ -7548,11 +7656,11 @@ function initializeAuth() {
   });
 
   logoutBtn?.addEventListener('click', () => {
-    handleLogout();
+    void handleLogout();
   });
 
   accountSettingsBtn?.addEventListener('click', () => {
-    openAccountModal();
+    openAccountModal('stats');
   });
 
   accountCloseBtn?.addEventListener('click', () => {
@@ -7567,12 +7675,69 @@ function initializeAuth() {
     });
   }
 
-  accountUsernameForm?.addEventListener('submit', handleAccountUsernameSubmit);
   accountPasswordForm?.addEventListener('submit', handleAccountPasswordSubmit);
   accountResetBtn?.addEventListener('click', handleAccountResetProgress);
-  guestResetBtn?.addEventListener('click', handleGuestResetProgress);
-
+  document.querySelectorAll('[data-account-tab]').forEach((tab) => {
+    tab.addEventListener('click', () => {
+      const target = tab.dataset.accountTab || 'stats';
+      setActiveAccountTab(target);
+      if (target === 'security' && !currentSupabaseUser) {
+        setAccountMessage(
+          translate('account.error.password.loginRequired', 'Zaloguj się, aby zmienić hasło.'),
+          'info',
+        );
+      } else {
+        setAccountMessage('');
+      }
+    });
+  });
+  guestPlayButton?.addEventListener('click', () => {
+    startGuestSession({});
+    closeAuthModal({ reason: 'guest' });
+  });
+  setActiveAccountTab('stats');
   updateAuthUI();
+
+  const client = getSupabaseClient();
+  if (client) {
+    const authApi = window.CE_AUTH || {};
+    let initialAuthResolved = false;
+    if (typeof authApi.onAuthStateChange === 'function') {
+      authApi.onAuthStateChange((user) => {
+        if (!initialAuthResolved) {
+          return;
+        }
+        if (user) {
+          applySupabaseUser(user, { reason: 'sign-in' });
+        } else {
+          applySupabaseUser(null, { reason: 'sign-out' });
+        }
+      });
+    }
+
+    client.auth
+      .getUser()
+      .then(({ data }) => {
+        if (data?.user) {
+          applySupabaseUser(data.user, { reason: 'init' });
+        } else {
+          startGuestSession({ skipMessage: true });
+        }
+        initialAuthResolved = true;
+      })
+      .catch(() => {
+        startGuestSession({ skipMessage: true });
+        initialAuthResolved = true;
+      });
+  } else {
+    const savedSession = localStorage.getItem(SESSION_STORAGE_KEY);
+    if (savedSession && getAccount(savedSession)) {
+      currentUserKey = savedSession;
+    } else {
+      currentUserKey = null;
+    }
+    startGuestSession({ skipMessage: true });
+  }
 }
 
 function loadLeafletStylesheet() {
@@ -8050,7 +8215,7 @@ function bootstrap() {
 
     const controller = window.__authModalController;
     if (controller?.isOpen()) {
-      if (closeAuthModal({ activateGuest: true, reason: 'escape' })) return;
+      if (closeAuthModal({ reason: 'escape' })) return;
     }
 
     if (explorerModal && !explorerModal.hidden) {
