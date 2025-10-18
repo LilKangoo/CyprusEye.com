@@ -25,4 +25,21 @@ function bindAuthLinks() {
 supabase.auth.onAuthStateChange((_e,_s)=>{ /* miejsce na przyszłe aktualizacje UI */ });
 
 window.CE_AUTH = { enabled:true, supabase, session, requireAuthOrRedirect };
-bindAuthLinks();
+
+function initAuth() {
+  bindAuthLinks();
+  // po załadowaniu drzewa DOM przechwytuj kliknięcie przycisku logowania
+  const loginBtn = document.getElementById('openAuthModal');
+  if (loginBtn) {
+    loginBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.location.href = '/auth';
+    });
+  }
+}
+// uruchom initAuth po zakończeniu ładowania DOM lub natychmiast, jeśli DOM jest gotowy
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initAuth);
+} else {
+  initAuth();
+}

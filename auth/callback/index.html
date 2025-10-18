@@ -1,9 +1,20 @@
-<!doctype html><meta charset="utf-8"><meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co"><meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bWNpemd2cnEiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc2MDc2OTA0OSwiZXhwIjoyMDc2MzQ1MDQ5fQ.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM">
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Auth callback — CyprusEye</title>
+<meta name="ce-auth" content="on">
+<meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co">
+<meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bWNpemd2cnEiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc2MDc2OTA0OSwiZXhwIjoyMDc2MzQ1MDQ5fQ.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM">
+</head>
+<body>
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-const u = 'https://daoohnbnnowmmcizgvrq.supabase.co';
-const k = document.querySelector('meta[name="supabase-anon"]')?.content || 'REPLACED_BY_HEAD';
-const s = createClient(u, k);
+const url = document.querySelector('meta[name="supabase-url"]')?.content || 'https://daoohnbnnowmmcizgvrq.supabase.co';
+const key = document.querySelector('meta[name="supabase-anon"]')?.content || 'REPLACED_BY_HEAD';
+const s = createClient(url, key);
 const { data: { user } } = await s.auth.getUser();
 window.location.href = user ? '/account' : '/auth';
 </script>
+</body>
+</html>
