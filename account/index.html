@@ -6,30 +6,52 @@
 <meta name="ce-auth" content="on">
 <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co">
 <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bWNpemd2cnEiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc2MDc2OTA0OSwiZXhwIjoyMDc2MzQ1MDQ5fQ.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM">
+<meta name="supabase-publishable" content="sb_publishable_QdxNGCb6LYD-6ywFrjCrjg_Oa7yDGTk">
 </head>
 <body>
 <div id="me">Loading…</div>
 <button id="logout">Sign out</button>
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-const url = document.querySelector('meta[name="supabase-url"]')?.content || 'https://daoohnbnnowmmcizgvrq.supabase.co';
-const key = document.querySelector('meta[name="supabase-anon"]')?.content || 'REPLACED_BY_HEAD';
-const s = createClient(url, key);
 
-// redirect if not logged
-const { data: { session } } = await s.auth.getSession();
-if (!session) window.location.href = '/auth';
+function getMeta(name){
+  const m = document.querySelector(`meta[name="${name}"]`);
+  return m ? m.content.trim() : "";
+}
 
-// fetch profile if table exists, else fallback to email
+const SUPABASE_URL  = getMeta("supabase-url");
+const SUPABASE_ANON = getMeta("supabase-anon");
+const SUPABASE_PUB  = getMeta("supabase-publishable");
+
+if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(SUPABASE_URL)) {
+  throw new Error("Konfiguracja Supabase: nieprawidłowy URL");
+}
+if (!SUPABASE_ANON || SUPABASE_ANON.split(".").length !== 3) {
+  throw new Error("Konfiguracja Supabase: brak lub zły anon key");
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+  global: { headers: SUPABASE_PUB ? { "x-application-name": "CyprusEye", "x-publishable-key": SUPABASE_PUB } : { "x-application-name": "CyprusEye" } }
+});
+
+const { data: sessionData, error } = await supabase.auth.getSession();
+if (error) console.error('Supabase session error', error);
+const session = sessionData.session;
+if (!session) {
+  window.location.href = '/auth/';
+  throw new Error('No active session');
+}
+
 let name = session.user.email;
 try {
-  const { data } = await s.from('profiles').select('display_name').eq('id', session.user.id).single();
+  const { data } = await supabase.from('profiles').select('display_name').eq('id', session.user.id).single();
   if (data?.display_name) name = data.display_name;
 } catch (_) {}
 document.getElementById('me').textContent = `Hello, ${name}`;
 
 document.getElementById('logout').onclick = async ()=>{
-  await s.auth.signOut();
+  await supabase.auth.signOut();
   window.location.href = '/';
 };
 </script>

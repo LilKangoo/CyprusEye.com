@@ -4,6 +4,7 @@
 <meta name="ce-auth" content="on">
 <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co">
 <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bWNpemd2cnEiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc2MDc2OTA0OSwiZXhwIjoyMDc2MzQ1MDQ5fQ.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM">
+<meta name="supabase-publishable" content="sb_publishable_QdxNGCb6LYD-6ywFrjCrjg_Oa7yDGTk">
 <link rel="preload" href="https://esm.sh/@supabase/supabase-js@2" as="script">
 </head><body>
 <h1>Account</h1>
@@ -32,43 +33,72 @@
 
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-const URL = document.querySelector('meta[name="supabase-url"]')?.content || 'https://daoohnbnnowmmcizgvrq.supabase.co';
-const KEY = document.querySelector('meta[name="supabase-anon"]')?.content || 'REPLACED_BY_HEAD';
-const s = createClient(URL, KEY);
 
+function getMeta(name){
+  const m = document.querySelector(`meta[name="${name}"]`);
+  return m ? m.content.trim() : "";
+}
+
+const SUPABASE_URL  = getMeta("supabase-url");
+const SUPABASE_ANON = getMeta("supabase-anon");
+const SUPABASE_PUB  = getMeta("supabase-publishable");
+
+if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(SUPABASE_URL)) {
+  throw new Error("Konfiguracja Supabase: nieprawidłowy URL");
+}
+if (!SUPABASE_ANON || SUPABASE_ANON.split(".").length !== 3) {
+  throw new Error("Konfiguracja Supabase: brak lub zły anon key");
+}
+
+const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+  global: { headers: SUPABASE_PUB ? { "x-application-name": "CyprusEye", "x-publishable-key": SUPABASE_PUB } : { "x-application-name": "CyprusEye" } }
+});
+
+const origin = location.origin;
 
 document.getElementById('signup')?.addEventListener('submit', async (e)=>{
   e.preventDefault();
   const email = e.target.email.value.trim();
   const password = e.target.password.value;
-  const { error } = await s.auth.signUp({
-    email, password,
-    options: { emailRedirectTo: 'https://cypruseye.com/auth/callback' }
+  const { error } = await supabase.auth.signUp({
+    email,
+    password,
+    options: { emailRedirectTo: origin + '/auth/callback/' }
   });
   alert(error ? error.message : 'Check your email to confirm.');
 });
-
 
 document.getElementById('login')?.addEventListener('submit', async (e)=>{
   e.preventDefault();
   const email = e.target.email.value.trim();
   const password = e.target.password.value;
-  const { error } = await s.auth.signInWithPassword({ email, password });
-  if (error) alert(error.message); else window.location.href = '/account';
+  const { error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) alert(error.message); else window.location.href = '/account/';
 });
-
 
 document.getElementById('reset')?.addEventListener('submit', async (e)=>{
   e.preventDefault();
   const email = e.target.email.value.trim();
-  const { error } = await s.auth.resetPasswordForEmail(email, { redirectTo: 'https://cypruseye.com/reset' });
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: origin + '/reset/'
+  });
   alert(error ? error.message : 'Reset link sent.');
 });
 
+const authStateEl = document.getElementById('auth-state');
+function uiAuthState(isLoggedIn, userEmail = '') {
+  if (!authStateEl) return;
+  authStateEl.textContent = isLoggedIn ? `Logged in as ${userEmail}` : 'Logged out';
+}
 
-s.auth.onAuthStateChange(async (_evt, session)=>{
-  const el = document.getElementById('auth-state');
-  if (el) el.textContent = session ? `Logged in as ${session.user.email}` : 'Logged out';
+supabase.auth.onAuthStateChange((_event, session) => {
+  const user = session?.user || null;
+  uiAuthState(!!user, user?.email ?? '');
 });
+
+const { data } = await supabase.auth.getUser();
+const existingUser = data.user;
+uiAuthState(!!existingUser, existingUser?.email ?? '');
 </script>
 </body></html>
