@@ -69,6 +69,9 @@
         >
           🔐 Zaloguj się
         </button>
+        <span id="authStatusBadge" class="auth-status-badge" aria-live="polite">
+          Łączenie z usługą…
+        </span>
         <div class="user-menu" id="userMenu" hidden>
           <span id="userGreeting" aria-live="polite"></span>
           <div class="user-menu-actions">
@@ -697,7 +700,12 @@
               required
               autocomplete="current-password"
             />
-            <button type="submit" class="btn btn--primary">Zaloguj się</button>
+            <div class="auth-form__actions">
+              <button type="submit" class="btn btn--primary">Zaloguj się</button>
+              <button type="button" class="auth-form__link" id="loginForgotPassword">
+                🔑 Resetuj hasło
+              </button>
+            </div>
           </form>
         </section>
         <section

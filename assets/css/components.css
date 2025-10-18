@@ -918,6 +918,10 @@ textarea:focus-visible {
     width: max-content;
   }
 
+  .auth-status-badge {
+    align-self: flex-end;
+  }
+
   .user-menu {
     align-items: flex-end;
     text-align: right;
@@ -1242,6 +1246,60 @@ textarea:focus-visible {
 
 .auth-controls > button {
   width: 100%;
+}
+
+.auth-status-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  align-self: flex-start;
+  padding: 0.35rem 0.85rem;
+  border-radius: 999px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(148, 163, 184, 0.15);
+  color: var(--primary-dark);
+  font-weight: 600;
+  font-size: 0.85rem;
+  transition: background var(--transition), color var(--transition),
+    border-color var(--transition), box-shadow var(--transition);
+}
+
+.auth-status-badge::before {
+  content: '';
+  display: inline-flex;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.6);
+}
+
+.auth-status-badge[data-state='guest'] {
+  background: rgba(59, 130, 246, 0.12);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #1d4ed8;
+}
+
+.auth-status-badge[data-state='authenticated'] {
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.32);
+  color: #166534;
+  box-shadow: 0 8px 20px rgba(34, 197, 94, 0.16);
+}
+
+.auth-status-badge[data-state='loading'] {
+  background: rgba(148, 163, 184, 0.22);
+  border-color: rgba(148, 163, 184, 0.32);
+  color: #475569;
+}
+
+.auth-status-badge[data-state='loading']::before {
+  background: transparent;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  box-shadow: none;
+  animation: authSpinner 0.8s linear infinite;
 }
 
 .notifications-toggle {
@@ -5439,6 +5497,56 @@ a:focus-visible {
   box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
 }
 
+.auth-form__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.auth-form__link {
+  border: none;
+  background: transparent;
+  color: var(--primary-dark);
+  font-weight: 600;
+  font-size: 0.9rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.35rem 0.5rem;
+  transition: color var(--transition), transform var(--transition);
+}
+
+.auth-form__link:hover,
+.auth-form__link:focus-visible {
+  color: var(--primary);
+  transform: translateY(-1px);
+}
+
+.auth-form__link:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.auth-form button[data-loading='true'] {
+  pointer-events: none;
+}
+
+.auth-form button[data-loading='true']::after {
+  content: '';
+  width: 1rem;
+  height: 1rem;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  border-top-color: transparent;
+  margin-left: 0.5rem;
+  animation: authSpinner 0.75s linear infinite;
+}
+
 .auth-guest {
   background: rgba(226, 232, 240, 0.45);
   border: 1px solid rgba(148, 163, 184, 0.35);
@@ -5462,6 +5570,15 @@ a:focus-visible {
 
 .auth-message[data-tone='success'] {
   color: #15803d;
+}
+
+@keyframes authSpinner {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes modalIn {
