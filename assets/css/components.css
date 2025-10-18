@@ -1073,9 +1073,10 @@ textarea:focus-visible {
   color: rgba(255, 255, 255, 0.75);
 }
 
+/* FIX: a11y – focus ring dla search */
 .header-search input[type='search']:focus-visible {
-  outline: none;
-  box-shadow: none;
+  outline: 2px solid transparent;
+  box-shadow: var(--focus-ring);
 }
 
 .header-search-button {
@@ -1632,6 +1633,7 @@ main::before {
   overflow: hidden;
 }
 
+/* FIX: a11y – skip link focus */
 .map-skip-link:focus {
   position: static;
   width: auto;
@@ -1641,7 +1643,7 @@ main::before {
   color: var(--text);
   border-radius: 999px;
   box-shadow: var(--focus-ring);
-  outline: none;
+  outline: 2px solid transparent;
   z-index: 2;
 }
 
