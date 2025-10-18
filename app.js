@@ -7545,6 +7545,28 @@ function updateAuthUI() {
     logoutBtn.hidden = !isLoggedIn;
   }
 
+  document.querySelectorAll('[data-auth-visible]').forEach((element) => {
+    if (!(element instanceof HTMLElement)) {
+      return;
+    }
+    const mode = element.dataset.authVisible || '';
+    if (mode === 'signed-in' || mode === 'authenticated') {
+      element.hidden = !isLoggedIn;
+      if (isLoggedIn) {
+        element.removeAttribute('aria-hidden');
+      } else {
+        element.setAttribute('aria-hidden', 'true');
+      }
+    } else if (mode === 'guest' || mode === 'signed-out') {
+      element.hidden = isLoggedIn;
+      if (isLoggedIn) {
+        element.setAttribute('aria-hidden', 'true');
+      } else {
+        element.removeAttribute('aria-hidden');
+      }
+    }
+  });
+
   if (authStatusBadge) {
     let statusMessage = '';
     if (authState === 'loading') {
