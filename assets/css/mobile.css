@@ -1,13 +1,137 @@
-@media (max-width: 768px) {
-  body {
-    padding: clamp(0.75rem, 4vw, 1.5rem);
+/* Mobile-first layout tuned for handheld widths (360–430px) */
+.section {
+  padding: var(--space-8) var(--space-4);
+  max-width: 100%;
+}
+
+.grid {
+  display: grid;
+  gap: var(--space-4);
+  max-width: 100%;
+}
+
+.hide-on-mobile {
+  display: none;
+}
+
+.app-header,
+.header-top,
+.header-top-actions,
+.header-actions,
+.header-actions-primary,
+.header-metrics,
+.header-tabs,
+.surface-card,
+.standalone-page,
+.standalone-main,
+.standalone-header {
+  max-width: 100%;
+}
+
+.header-actions-primary > *,
+.header-actions .header-link,
+.header-actions button,
+.header-coupon-button,
+.metric-card,
+.header-tab {
+  min-width: 0;
+  word-break: break-word;
+}
+
+@media (max-width: 430px) {
+  body,
+  html {
+    max-width: 100%;
   }
 
-  .standalone-page,
-  .coupon-main,
-  .app-header,
-  main,
-  .app-footer {
-    padding-inline: 0;
+  .app-header {
+    padding: var(--space-8) var(--space-4);
+    gap: var(--space-6);
+    border-radius: 28px;
+  }
+
+  .auth-bar {
+    margin-bottom: var(--space-4);
+  }
+
+  .auth-controls {
+    width: 100%;
+  }
+
+  .brand {
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: var(--space-4);
+  }
+
+  .brand-title {
+    align-items: center;
+    text-align: center;
+  }
+
+  .header-top {
+    gap: var(--space-6);
+  }
+
+  .header-top-actions,
+  .header-actions {
+    gap: var(--space-4);
+  }
+
+  .header-coupon-button {
+    align-self: stretch;
+    white-space: normal;
+    text-align: center;
+    width: 100%;
+  }
+
+  .header-actions-primary {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+
+  .header-actions-primary a,
+  .header-actions-primary button {
+    width: 100%;
+  }
+
+  .header-actions .header-link,
+  .header-actions button {
+    width: 100%;
+  }
+
+  .header-tabs {
+    width: 100%;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.4rem 0.5rem;
+  }
+
+  .header-tab {
+    flex: 1 1 calc(50% - 0.5rem);
+    text-align: center;
+    padding: 0.5rem 1rem;
+  }
+}
+
+@media (min-width: var(--bp-sm)) {
+  .section {
+    padding: var(--space-10) var(--space-6);
+  }
+
+  .grid--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: var(--bp-md)) {
+  .section {
+    padding: var(--space-12) var(--space-8);
+  }
+
+  .grid--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
