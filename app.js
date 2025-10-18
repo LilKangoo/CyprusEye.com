@@ -1161,6 +1161,8 @@ const TRIP_PLANNER_TRAVEL_SPEED_KMH = 45;
 const TRIP_PLANNER_STOP_DURATION_HOURS = 1.5;
 const TRIP_PLANNER_MULTIPLIER_STEP = 0.25;
 const TRIP_PLANNER_MAX_MULTIPLIER = 2;
+const AUTH_STATE_VALUES = new Set(['loading', 'guest', 'authenticated']);
+const AUTH_RESET_REDIRECT_PATH = '/reset/';
 
 function translate(key, fallback = '', replacements = {}) {
   const i18n = typeof window !== 'undefined' ? window.appI18n : null;
@@ -2545,6 +2547,7 @@ async function applySupabaseUser(user, { reason = 'change' } = {}) {
     const sameUser = currentSupabaseUser?.id === user.id;
     currentSupabaseUser = user;
     currentUserKey = `supabase:${user.id}`;
+    setDocumentAuthState('authenticated');
     const syncedName = await syncSupabaseProfile(user);
     ensureSupabaseAccount(user, syncedName || getSupabaseDisplayName(user));
     localStorage.setItem(SESSION_STORAGE_KEY, currentUserKey);
@@ -7127,6 +7130,28 @@ function renderAllForCurrentState() {
   ensureSelectedObjective();
 }
 
+function setDocumentAuthState(state) {
+  const root = document.documentElement;
+  if (!root) {
+    return;
+  }
+
+  const nextState = AUTH_STATE_VALUES.has(state) ? state : 'guest';
+  if (root.dataset.authState !== nextState) {
+    root.dataset.authState = nextState;
+  }
+}
+
+function getDocumentAuthState() {
+  const root = document.documentElement;
+  if (!root) {
+    return 'guest';
+  }
+
+  const state = root.dataset.authState;
+  return AUTH_STATE_VALUES.has(state) ? state : 'guest';
+}
+
 function setAuthMessage(message = '', tone = 'info') {
   const messageEl = document.getElementById('authMessage');
   if (!messageEl) return;
@@ -7454,8 +7479,10 @@ function updateAuthUI() {
   const logoutBtn = document.getElementById('logoutBtn');
   const passwordForm = document.getElementById('accountPasswordForm');
   const guestPasswordNote = document.getElementById('accountGuestPasswordNote');
+  const authStatusBadge = document.getElementById('authStatusBadge');
   const isLoggedIn = Boolean(currentSupabaseUser);
   const displayName = getCurrentDisplayName();
+  const authState = getDocumentAuthState();
 
   if (loginButton) {
     loginButton.hidden = isLoggedIn;
@@ -7463,6 +7490,29 @@ function updateAuthUI() {
 
   if (logoutBtn) {
     logoutBtn.hidden = !isLoggedIn;
+  }
+
+  if (authStatusBadge) {
+    let statusMessage = '';
+    if (authState === 'loading') {
+      statusMessage = translate(
+        'auth.status.badge.loading',
+        'Łączenie z zapisem chmurowym…',
+      );
+    } else if (authState === 'authenticated') {
+      statusMessage = translate(
+        'auth.status.badge.authenticated',
+        'Zapis w chmurze aktywny',
+      );
+    } else {
+      statusMessage = translate(
+        'auth.status.badge.guest',
+        'Tryb gościa – postęp tylko lokalny',
+      );
+    }
+
+    authStatusBadge.textContent = statusMessage;
+    authStatusBadge.dataset.state = authState;
   }
 
   if (userMenu) {
@@ -7507,6 +7557,9 @@ async function handleLoginSubmit(event) {
     return;
   }
 
+  const submitButton = form.querySelector('button[type="submit"]');
+  const resetButton = document.getElementById('loginForgotPassword');
+
   const email = emailInput.value.trim();
   const password = passwordInput.value;
 
@@ -7521,14 +7574,118 @@ async function handleLoginSubmit(event) {
     return;
   }
 
-  const { error } = await client.auth.signInWithPassword({ email, password });
-  if (error) {
-    showAuthError('auth.error.invalidPassword', error.message || 'Nie udało się zalogować. Spróbuj ponownie.');
+  if (submitButton instanceof HTMLButtonElement) {
+    submitButton.disabled = true;
+    submitButton.dataset.loading = 'true';
+    submitButton.setAttribute('aria-busy', 'true');
+  }
+
+  if (resetButton instanceof HTMLButtonElement) {
+    resetButton.disabled = true;
+  }
+
+  let loginSucceeded = false;
+  setDocumentAuthState('loading');
+  updateAuthUI();
+  setAuthMessage(translate('auth.status.loggingIn', 'Łączenie z kontem…'), 'info');
+
+  try {
+    const { error } = await client.auth.signInWithPassword({ email, password });
+    if (error) {
+      throw error;
+    }
+
+    clearAuthForms();
+    setAuthMessage(translate('auth.status.welcomeBack', 'Witaj ponownie!'), 'success');
+    loginSucceeded = true;
+  } catch (error) {
+    const errorMessage = error && typeof error.message === 'string' ? error.message : '';
+    showAuthError(
+      'auth.error.invalidPassword',
+      errorMessage || 'Nie udało się zalogować. Spróbuj ponownie.',
+    );
+  } finally {
+    if (submitButton instanceof HTMLButtonElement) {
+      submitButton.disabled = false;
+      submitButton.removeAttribute('data-loading');
+      submitButton.removeAttribute('aria-busy');
+    }
+
+    if (resetButton instanceof HTMLButtonElement) {
+      resetButton.disabled = false;
+    }
+
+    if (!loginSucceeded && !currentSupabaseUser) {
+      setDocumentAuthState('guest');
+      updateAuthUI();
+    }
+  }
+}
+
+async function handlePasswordResetRequest(event) {
+  event.preventDefault();
+
+  const button = event.currentTarget instanceof HTMLButtonElement ? event.currentTarget : null;
+  const form = document.getElementById('loginForm');
+  const emailInput = form?.querySelector('#loginEmail');
+
+  if (!(emailInput instanceof HTMLInputElement)) {
     return;
   }
 
-  clearAuthForms();
-  setAuthMessage(translate('auth.status.welcomeBack', 'Witaj ponownie!'), 'success');
+  const email = emailInput.value.trim();
+  if (!email) {
+    showAuthError(
+      'auth.error.resetMissingEmail',
+      'Podaj adres e-mail, aby wysłać link do resetu hasła.',
+    );
+    emailInput.focus();
+    return;
+  }
+
+  const client = getSupabaseClient();
+  if (!client) {
+    showAuthError(
+      'auth.error.unavailable',
+      'Reset hasła jest chwilowo niedostępny. Spróbuj ponownie później.',
+    );
+    return;
+  }
+
+  if (button) {
+    button.disabled = true;
+    button.dataset.loading = 'true';
+    button.setAttribute('aria-busy', 'true');
+  }
+
+  setAuthMessage(translate('auth.status.resetting', 'Wysyłamy e-mail resetujący…'), 'info');
+
+  try {
+    const { error } = await client.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}${AUTH_RESET_REDIRECT_PATH}`,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    setAuthMessage(
+      translate('auth.reset.emailSent', 'Sprawdź skrzynkę – wysłaliśmy link do resetu hasła.'),
+      'success',
+    );
+  } catch (error) {
+    const errorMessage = error && typeof error.message === 'string' ? error.message : '';
+    showAuthError(
+      'auth.error.resetFailed',
+      errorMessage || 'Nie udało się wysłać wiadomości resetującej. Spróbuj ponownie.',
+    );
+  } finally {
+    if (button) {
+      button.disabled = false;
+      button.removeAttribute('data-loading');
+      button.removeAttribute('aria-busy');
+    }
+  }
 }
 
 async function handleRegisterSubmit(event) {
@@ -7592,6 +7749,7 @@ async function handleRegisterSubmit(event) {
 function startGuestSession(options = {}) {
   const { message, skipMessage = false } = options;
   const previousUser = currentUserKey;
+  setDocumentAuthState('guest');
   currentSupabaseUser = null;
   currentUserKey = null;
   localStorage.removeItem(SESSION_STORAGE_KEY);
@@ -7679,12 +7837,16 @@ async function handleLogout() {
   if (client && currentSupabaseUser) {
     try {
       supabaseSignOutInProgress = true;
+      setDocumentAuthState('loading');
+      updateAuthUI();
       const { error } = await client.auth.signOut();
       if (error) {
         throw error;
       }
     } catch (error) {
       supabaseSignOutInProgress = false;
+      setDocumentAuthState('authenticated');
+      updateAuthUI();
       showAccountError('auth.error.logoutFailed', error.message || 'Nie udało się wylogować. Spróbuj ponownie.');
     }
     return;
@@ -7700,6 +7862,7 @@ function initializeAuth() {
 
   const loginForm = document.getElementById('loginForm');
   const registerForm = document.getElementById('registerForm');
+  const loginForgotPasswordBtn = document.getElementById('loginForgotPassword');
   const authOpenBtn = document.getElementById('openAuthModal');
   const logoutBtn = document.getElementById('logoutBtn');
   const authModal = document.getElementById('auth-modal');
@@ -7710,8 +7873,11 @@ function initializeAuth() {
   const accountResetBtn = document.getElementById('accountResetProgress');
   const guestPlayButton = document.getElementById('guestPlayButton');
 
+  setDocumentAuthState('loading');
+
   loginForm?.addEventListener('submit', handleLoginSubmit);
   registerForm?.addEventListener('submit', handleRegisterSubmit);
+  loginForgotPasswordBtn?.addEventListener('click', handlePasswordResetRequest);
 
   authOpenBtn?.addEventListener('click', () => {
     clearAuthForms();

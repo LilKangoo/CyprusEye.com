@@ -627,6 +627,14 @@
   "cruise.form.message": "Wiadomość",
   "cruise.form.submit": "Dodaj mnie do listy",
   "cruise.footer": "Oferujemy rejsy o zachodzie słońca, snorkeling w Blue Lagoon, wyprawy rodzinne i ekskluzywne eventy na morzu. Skontaktujemy się z Tobą, gdy tylko otworzymy kalendarz.",
+  "auth.status.loggingIn": "Łączenie z kontem…",
+  "auth.status.resetting": "Wysyłamy e-mail resetujący…",
+  "auth.status.badge.loading": "Łączenie z zapisem chmurowym…",
+  "auth.status.badge.guest": "Tryb gościa – postęp tylko lokalny",
+  "auth.status.badge.authenticated": "Zapis w chmurze aktywny",
+  "auth.reset.emailSent": "Sprawdź skrzynkę – wysłaliśmy link do resetu hasła.",
+  "auth.error.resetMissingEmail": "Podaj adres e-mail, aby wysłać link do resetu hasła.",
+  "auth.error.resetFailed": "Nie udało się wysłać wiadomości resetującej. Spróbuj ponownie.",
   "mobile.nav.carRental": "Wynajem aut",
   "mobile.nav.coupons": "Kupony"
 }
