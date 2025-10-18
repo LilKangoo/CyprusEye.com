@@ -33,19 +33,32 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css" />
-  </head>
+    <link rel="stylesheet" href="assets/css/tokens.css" />
+    <link rel="stylesheet" href="assets/css/base.css" />
+    <link rel="stylesheet" href="assets/css/components.css" />
+    <link rel="stylesheet" href="assets/css/mobile.css" />
+  
+  <meta name="ce-auth" content="on" />
+  <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co" />
+  <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM" />
+  <script src="https://esm.sh/@supabase/supabase-js@2" defer></script>
+  <script type="module" src="/assets/js/auth/boot.js" defer></script>
+</head>
   <body class="standalone-body" data-seo-page="carRental">
     <div class="standalone-page">
-      <header class="surface-card standalone-header">
+      <header class="card surface-card standalone-header">
         <div class="standalone-brand">
           <img
             src="assets/cyprus_logo-1000x1054.png"
             alt="WakacjeCypr.com – logo żółwia z flagą Polski"
             data-i18n-attrs="alt:carRental.page.brand.logoAlt"
+            width="1000"
+            height="1054"
+            loading="eager"
+            fetchpriority="high"
           />
           <div>
             <p class="standalone-brand-overline" data-i18n="carRental.page.brand.overline">WakacjeCypr Quest</p>
@@ -62,7 +75,7 @@
           <a class="ghost" href="car-rental-landing.html" data-i18n="carRental.page.nav.switchCity">Wybierz inne miasto</a>
           <a class="ghost" href="autopfo.html" data-i18n="carRental.page.nav.paphos">Oferta Pafos</a>
           <a
-            class="secondary"
+            class="btn btn-secondary secondary"
             href="https://forms.gle/352LiNPSqS92Qa3k7"
             target="_blank"
             rel="noopener"
@@ -73,7 +86,7 @@
       </header>
 
       <main class="standalone-main">
-        <section class="surface-card standalone-hero" aria-labelledby="standaloneHeroTitle">
+        <section class="card surface-card standalone-hero" aria-labelledby="standaloneHeroTitle">
           <div class="standalone-hero-content">
             <p class="standalone-hero-badge" data-i18n="carRental.page.hero.badge">
               Bez kaucji • OC do 500&nbsp;€ + pomoc 24/7
@@ -84,7 +97,7 @@
               przejrzystemu kalkulatorowi – bez kaucji, z dodatkowym kierowcą i fotelikami gratis oraz wsparciem natury.
             </p>
             <div class="standalone-hero-actions">
-              <a class="primary" href="#carRentalSection" data-i18n="carRental.page.hero.ctaFleet">Zobacz flotę</a>
+              <a class="btn btn-primary primary" href="#carRentalSection" data-i18n="carRental.page.hero.ctaFleet">Zobacz flotę</a>
               <a class="ghost" href="#carRentalCalculatorBlock" data-i18n="carRental.page.hero.ctaCalculator"
                 >Oblicz koszt wynajmu</a
               >
@@ -115,7 +128,7 @@
         </section>
 
         <section
-          class="surface-card auto-rental"
+          class="card surface-card auto-rental"
           id="carRentalSection"
           aria-labelledby="carRentalTitle"
         >
@@ -212,47 +225,49 @@
                 dodatkami i opłatami za podstawienie auta.
               </p>
               <form id="carRentalCalculator" class="auto-calculator" novalidate>
-                <div class="auto-calculator-grid">
-                  <label class="auto-field">
-                    <span data-i18n="carRental.calculator.form.car">Wybierz auto</span>
+                <div class="grid auto-calculator-grid">
+                  <div class="auto-field">
+                    <label for="rentalCarSelect" data-i18n="carRental.calculator.form.car">Wybierz auto</label>
                     <select id="rentalCarSelect" name="car" required aria-required="true"></select>
-                  </label>
-                  <label class="auto-field">
-                    <span data-i18n="carRental.calculator.form.pickupDate">Data odbioru</span>
+                  </div>
+                  <div class="auto-field">
+                    <label for="pickupDate" data-i18n="carRental.calculator.form.pickupDate">Data odbioru</label>
                     <input type="date" id="pickupDate" name="pickupDate" required aria-required="true" />
-                  </label>
-                  <label class="auto-field">
-                    <span data-i18n="carRental.calculator.form.pickupTime">Godzina odbioru</span>
+                  </div>
+                  <div class="auto-field">
+                    <label for="pickupTime" data-i18n="carRental.calculator.form.pickupTime">Godzina odbioru</label>
                     <input type="time" id="pickupTime" name="pickupTime" value="10:00" />
-                  </label>
-                  <label class="auto-field">
-                    <span data-i18n="carRental.calculator.form.returnDate">Data zwrotu</span>
+                  </div>
+                  <div class="auto-field">
+                    <label for="returnDate" data-i18n="carRental.calculator.form.returnDate">Data zwrotu</label>
                     <input type="date" id="returnDate" name="returnDate" required aria-required="true" />
-                  </label>
-                  <label class="auto-field">
-                    <span data-i18n="carRental.calculator.form.returnTime">Godzina zwrotu</span>
+                  </div>
+                  <div class="auto-field">
+                    <label for="returnTime" data-i18n="carRental.calculator.form.returnTime">Godzina zwrotu</label>
                     <input type="time" id="returnTime" name="returnTime" value="10:00" />
-                  </label>
-                  <label class="auto-field">
-                    <span data-i18n="carRental.calculator.form.pickupLocation">Miejsce odbioru</span>
+                  </div>
+                  <div class="auto-field">
+                    <label for="pickupLocation" data-i18n="carRental.calculator.form.pickupLocation">Miejsce odbioru</label>
                     <select id="pickupLocation" name="pickupLocation" required aria-required="true"></select>
-                  </label>
-                  <label class="auto-field">
-                    <span data-i18n="carRental.calculator.form.returnLocation">Miejsce zwrotu</span>
+                  </div>
+                  <div class="auto-field">
+                    <label for="returnLocation" data-i18n="carRental.calculator.form.returnLocation">Miejsce zwrotu</label>
                     <select id="returnLocation" name="returnLocation" required aria-required="true"></select>
-                  </label>
-                  <label class="auto-checkbox">
+                  </div>
+                  <div class="auto-checkbox">
                     <input type="checkbox" id="fullInsurance" name="fullInsurance" />
-                    <span data-i18n="carRental.calculator.form.fullInsurance">Pełne ubezpieczenie AC (+17&nbsp;€/dzień)</span>
-                  </label>
-                  <label class="auto-checkbox">
+                    <label for="fullInsurance" data-i18n="carRental.calculator.form.fullInsurance">
+                      Pełne ubezpieczenie AC (+17&nbsp;€/dzień)
+                    </label>
+                  </div>
+                  <div class="auto-checkbox">
                     <input type="checkbox" id="youngDriver" name="youngDriver" />
-                    <span data-i18n="carRental.calculator.form.youngDriver"
-                      >Młody kierowca / staż &lt; 3 lata (+10&nbsp;€/dzień)</span
-                    >
-                  </label>
+                    <label for="youngDriver" data-i18n="carRental.calculator.form.youngDriver">
+                      Młody kierowca / staż &lt; 3 lata (+10&nbsp;€/dzień)
+                    </label>
+                  </div>
                 </div>
-                <button type="submit" class="primary auto-calculate-btn" data-i18n="carRental.calculator.form.submit">
+                <button type="submit" class="btn btn-primary primary auto-calculate-btn" data-i18n="carRental.calculator.form.submit">
                   Oblicz cenę
                 </button>
               </form>
@@ -271,7 +286,7 @@
               </p>
               <div class="auto-reservation-actions">
                 <a
-                  class="secondary"
+                  class="btn btn-secondary secondary"
                   href="https://forms.gle/352LiNPSqS92Qa3k7"
                   target="_blank"
                   rel="noopener"
@@ -294,6 +309,8 @@
                   data-i18n-attrs="title:carRental.page.reservation.formTitle"
                   loading="lazy"
                   allow="fullscreen"
+                  width="700"
+                  height="520"
                 ></iframe>
               </div>
             </article>

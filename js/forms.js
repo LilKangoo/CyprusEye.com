@@ -45,15 +45,92 @@
     });
   }
 
+  function enhanceValidation() {
+    const containersSelector = '.form-field, .auto-field, .auto-checkbox, .vip-field, .standalone-form';
+
+    document.querySelectorAll('form').forEach((form) => {
+      const trackedFields = Array.from(form.querySelectorAll('input, select, textarea')).map((field, index) => {
+        if (!field.id) {
+          const baseId = form.id || field.name || field.type || 'field';
+          field.id = `${baseId}-${index}`;
+        }
+
+        const wrapper = field.closest(containersSelector) || field.parentElement;
+        let errorEl = wrapper ? wrapper.querySelector('.form-error') : null;
+
+        if (wrapper && !errorEl) {
+          errorEl = document.createElement('p');
+          errorEl.className = 'form-error';
+          errorEl.id = `${field.id}Error`;
+          errorEl.setAttribute('role', 'alert');
+          errorEl.hidden = true;
+          wrapper.appendChild(errorEl);
+        } else if (errorEl && !errorEl.id) {
+          errorEl.id = `${field.id}Error`;
+        }
+
+        if (errorEl) {
+          const describedBy = field.getAttribute('aria-describedby');
+          const tokens = new Set((describedBy || '').split(' ').filter(Boolean));
+          tokens.add(errorEl.id);
+          field.setAttribute('aria-describedby', Array.from(tokens).join(' '));
+        }
+
+        const updateValidity = () => {
+          if (!field.checkValidity()) {
+            field.setAttribute('aria-invalid', 'true');
+            if (errorEl) {
+              errorEl.textContent = field.validationMessage;
+              errorEl.hidden = false;
+            }
+          } else {
+            field.removeAttribute('aria-invalid');
+            if (errorEl) {
+              errorEl.textContent = '';
+              errorEl.hidden = true;
+            }
+          }
+        };
+
+        field.addEventListener('input', updateValidity);
+        field.addEventListener('change', updateValidity);
+        field.addEventListener('blur', updateValidity);
+
+        return { field, updateValidity };
+      });
+
+      form.addEventListener('submit', (event) => {
+        let hasInvalid = false;
+
+        trackedFields.forEach(({ field, updateValidity }) => {
+          updateValidity();
+          if (!field.checkValidity()) {
+            hasInvalid = true;
+          }
+        });
+
+        if (hasInvalid) {
+          event.preventDefault();
+          const firstInvalid = trackedFields.find(({ field }) => !field.checkValidity());
+          if (firstInvalid) {
+            firstInvalid.field.focus({ preventScroll: false });
+          }
+        }
+      });
+    });
+  }
+
   document.addEventListener('wakacjecypr:languagechange', syncFormLanguages);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       syncFormLanguages();
       showFormFeedback();
+      enhanceValidation();
     });
   } else {
     syncFormLanguages();
     showFormFeedback();
+    enhanceValidation();
   }
 })();

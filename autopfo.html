@@ -33,19 +33,32 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css" />
-  </head>
+    <link rel="stylesheet" href="assets/css/tokens.css" />
+    <link rel="stylesheet" href="assets/css/base.css" />
+    <link rel="stylesheet" href="assets/css/components.css" />
+    <link rel="stylesheet" href="assets/css/mobile.css" />
+  
+  <meta name="ce-auth" content="on" />
+  <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co" />
+  <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM" />
+  <script src="https://esm.sh/@supabase/supabase-js@2" defer></script>
+  <script type="module" src="/assets/js/auth/boot.js" defer></script>
+</head>
   <body class="standalone-body" data-seo-page="carRentalPfo">
     <div class="standalone-page">
-      <header class="surface-card standalone-header">
+      <header class="card surface-card standalone-header">
         <div class="standalone-brand">
           <img
             src="assets/cyprus_logo-1000x1054.png"
             alt="WakacjeCypr.com – logo żółwia z flagą Polski"
             data-i18n-attrs="alt:carRentalPfo.page.brand.logoAlt"
+            width="1000"
+            height="1054"
+            loading="eager"
+            fetchpriority="high"
           />
           <div>
             <p class="standalone-brand-overline" data-i18n="carRentalPfo.page.brand.overline">WakacjeCypr Quest</p>
@@ -61,12 +74,12 @@
           <a class="ghost link" href="/index.html" data-back-home-link="true" data-i18n="carRental.back">← Wróć do aplikacji</a>
           <a class="ghost" href="car-rental-landing.html" data-i18n="carRentalPfo.page.nav.switchCity">Wybierz inne miasto</a>
           <a class="ghost" href="car-rental.html" data-i18n="carRentalPfo.page.nav.island">Oferta całego Cypru</a>
-          <a class="secondary" href="#carReservationForm" data-i18n="carRentalPfo.page.nav.book">Złóż rezerwację</a>
+          <a class="btn btn-secondary secondary" href="#carReservationForm" data-i18n="carRentalPfo.page.nav.book">Złóż rezerwację</a>
         </nav>
       </header>
 
       <main class="standalone-main">
-        <section class="surface-card standalone-hero" aria-labelledby="standaloneHeroTitle">
+        <section class="card surface-card standalone-hero" aria-labelledby="standaloneHeroTitle">
           <div class="standalone-hero-content">
             <p class="standalone-hero-badge" data-i18n="carRentalPfo.page.hero.badge">Pafos • Bez kaucji • Polska obsługa 24/7</p>
             <h1 id="standaloneHeroTitle" data-i18n="carRentalPfo.page.hero.title">Wynajem aut w Pafos bez dopłat</h1>
@@ -76,7 +89,7 @@
               dodatkami.
             </p>
             <div class="standalone-hero-actions">
-              <a class="primary" href="#carRentalSection" data-i18n="carRentalPfo.page.hero.ctaFleet">Zobacz flotę</a>
+              <a class="btn btn-primary primary" href="#carRentalSection" data-i18n="carRentalPfo.page.hero.ctaFleet">Zobacz flotę</a>
               <a class="ghost" href="#carRentalCalculatorBlock" data-i18n="carRentalPfo.page.hero.ctaCalculator"
                 >Oblicz koszt wynajmu</a
               >
@@ -107,7 +120,7 @@
         </section>
 
         <section
-          class="surface-card auto-rental"
+          class="card surface-card auto-rental"
           id="carRentalSection"
           aria-labelledby="carRentalTitle"
         >
@@ -190,7 +203,7 @@
                 <span class="auto-category-badge">Od 30€/dzień</span>
               </header>
               <div class="auto-category-grid">
-                <article class="auto-card">
+                <article class="card auto-card">
                   <header class="auto-card-header">
                     <span class="auto-card-price">Od 30€/dzień</span>
                     <div class="auto-card-title">
@@ -204,10 +217,10 @@
                     <li>Paliwo 95</li>
                   </ul>
                   <p class="auto-card-note">Zwrotne auto na wąskie uliczki Pafos.</p>
-                  <button type="button" class="secondary" data-select-car="Mitsubishi Mirage">Zarezerwuj to auto</button>
+                  <button type="button" class="btn btn-secondary secondary" data-select-car="Mitsubishi Mirage">Zarezerwuj to auto</button>
                 </article>
 
-                <article class="auto-card">
+                <article class="card auto-card">
                   <header class="auto-card-header">
                     <span class="auto-card-price">Od 32€/dzień</span>
                     <div class="auto-card-title">
@@ -221,10 +234,10 @@
                     <li>Paliwo 95</li>
                   </ul>
                   <p class="auto-card-note">Komfortowy hatchback z przestrzenią na bagaże.</p>
-                  <button type="button" class="secondary" data-select-car="Toyota Vitz">Zarezerwuj to auto</button>
+                  <button type="button" class="btn btn-secondary secondary" data-select-car="Toyota Vitz">Zarezerwuj to auto</button>
                 </article>
 
-                <article class="auto-card">
+                <article class="card auto-card">
                   <header class="auto-card-header">
                     <span class="auto-card-price">Od 32€/dzień</span>
                     <div class="auto-card-title">
@@ -238,10 +251,10 @@
                     <li>Paliwo 95</li>
                   </ul>
                   <p class="auto-card-note">Ekonomiczny miejski model z niskim spalaniem.</p>
-                  <button type="button" class="secondary" data-select-car="Toyota Aygo">Zarezerwuj to auto</button>
+                  <button type="button" class="btn btn-secondary secondary" data-select-car="Toyota Aygo">Zarezerwuj to auto</button>
                 </article>
 
-                <article class="auto-card">
+                <article class="card auto-card">
                   <header class="auto-card-header">
                     <span class="auto-card-price">Od 34€/dzień</span>
                     <div class="auto-card-title">
@@ -255,10 +268,10 @@
                     <li>Paliwo 95</li>
                   </ul>
                   <p class="auto-card-note">Składane Magic Seats ułatwiają przewóz bagażu.</p>
-                  <button type="button" class="secondary" data-select-car="Honda Fit">Zarezerwuj to auto</button>
+                  <button type="button" class="btn btn-secondary secondary" data-select-car="Honda Fit">Zarezerwuj to auto</button>
                 </article>
 
-                <article class="auto-card">
+                <article class="card auto-card">
                   <header class="auto-card-header">
                     <span class="auto-card-price">Od 55€/dzień</span>
                     <div class="auto-card-title">
@@ -272,10 +285,10 @@
                     <li>Paliwo 95</li>
                   </ul>
                   <p class="auto-card-note">Wyższy prześwit idealny na wycieczki po Akamas.</p>
-                  <button type="button" class="secondary" data-select-car="Mazda CX5">Zarezerwuj to auto</button>
+                  <button type="button" class="btn btn-secondary secondary" data-select-car="Mazda CX5">Zarezerwuj to auto</button>
                 </article>
 
-                <article class="auto-card">
+                <article class="card auto-card">
                   <header class="auto-card-header">
                     <span class="auto-card-price">Od 55€/dzień</span>
                     <div class="auto-card-title">
@@ -289,10 +302,10 @@
                     <li>Paliwo 95</li>
                   </ul>
                   <p class="auto-card-note">7 miejsc i duży bagażnik dla rodzinnych wypraw.</p>
-                  <button type="button" class="secondary" data-select-car="Mitsubishi Outlander">Zarezerwuj to auto</button>
+                  <button type="button" class="btn btn-secondary secondary" data-select-car="Mitsubishi Outlander">Zarezerwuj to auto</button>
                 </article>
 
-                <article class="auto-card">
+                <article class="card auto-card">
                   <header class="auto-card-header">
                     <span class="auto-card-price">Od 60€/dzień</span>
                     <div class="auto-card-title">
@@ -306,10 +319,10 @@
                     <li>Paliwo 95</li>
                   </ul>
                   <p class="auto-card-note">Najwięcej miejsca dla grup i ekip sportowych.</p>
-                  <button type="button" class="secondary" data-select-car="Nissan Serena">Zarezerwuj to auto</button>
+                  <button type="button" class="btn btn-secondary secondary" data-select-car="Nissan Serena">Zarezerwuj to auto</button>
                 </article>
 
-                <article class="auto-card">
+                <article class="card auto-card">
                   <header class="auto-card-header">
                     <span class="auto-card-price">Od 55€/dzień</span>
                     <div class="auto-card-title">
@@ -323,7 +336,7 @@
                     <li>Paliwo 95</li>
                   </ul>
                   <p class="auto-card-note">Praktyczny minivan z przesuwanymi drzwiami.</p>
-                  <button type="button" class="secondary" data-select-car="Mazda Premacy">Zarezerwuj to auto</button>
+                  <button type="button" class="btn btn-secondary secondary" data-select-car="Mazda Premacy">Zarezerwuj to auto</button>
                 </article>
               </div>
             </article>
@@ -340,9 +353,9 @@
                 Sprawdź dokładny koszt wynajmu wraz z dodatkami i opłatami za podstawienie auta.
               </p>
               <form id="carRentalCalculator" class="auto-calculator" novalidate>
-                <div class="auto-calculator-grid">
-                  <label class="auto-field">
-                    <span>Wybierz auto</span>
+                <div class="grid auto-calculator-grid">
+                  <div class="auto-field">
+                    <label for="car">Wybierz auto</label>
                     <select id="car" name="car" required aria-required="true">
                       <option value="Mitsubishi Mirage">Mitsubishi Mirage — Automat • 4 os.</option>
                       <option value="Toyota Vitz">Toyota Vitz — Automat • 5 os.</option>
@@ -353,37 +366,37 @@
                       <option value="Nissan Serena">Nissan Serena — Automat • 8 os.</option>
                       <option value="Mazda Premacy">Mazda Premacy — Automat • 7 os.</option>
                     </select>
-                  </label>
-                  <label class="auto-field">
-                    <span>Data odbioru</span>
+                  </div>
+                  <div class="auto-field">
+                    <label for="pickup_date">Data odbioru</label>
                     <input type="date" id="pickup_date" name="pickup_date" required aria-required="true" />
-                  </label>
-                  <label class="auto-field">
-                    <span>Godzina odbioru</span>
+                  </div>
+                  <div class="auto-field">
+                    <label for="pickup_time">Godzina odbioru</label>
                     <input type="time" id="pickup_time" name="pickup_time" value="10:00" />
-                  </label>
-                  <label class="auto-field">
-                    <span>Data zwrotu</span>
+                  </div>
+                  <div class="auto-field">
+                    <label for="return_date">Data zwrotu</label>
                     <input type="date" id="return_date" name="return_date" required aria-required="true" />
-                  </label>
-                  <label class="auto-field">
-                    <span>Godzina zwrotu</span>
+                  </div>
+                  <div class="auto-field">
+                    <label for="return_time">Godzina zwrotu</label>
                     <input type="time" id="return_time" name="return_time" value="10:00" />
-                  </label>
-                  <label class="auto-checkbox">
+                  </div>
+                  <div class="auto-checkbox">
                     <input type="checkbox" id="airport_pickup" name="airport_pickup" />
-                    <span>Odbiór na lotnisku PFO</span>
-                  </label>
-                  <label class="auto-checkbox">
+                    <label for="airport_pickup">Odbiór na lotnisku PFO</label>
+                  </div>
+                  <div class="auto-checkbox">
                     <input type="checkbox" id="airport_return" name="airport_return" />
-                    <span>Zwrot na lotnisku PFO</span>
-                  </label>
-                  <label class="auto-checkbox">
+                    <label for="airport_return">Zwrot na lotnisku PFO</label>
+                  </div>
+                  <div class="auto-checkbox">
                     <input type="checkbox" id="full_insurance" name="full_insurance" />
-                    <span>Pełne ubezpieczenie AC (+17&nbsp;€/dzień)</span>
-                  </label>
+                    <label for="full_insurance">Pełne ubezpieczenie AC (+17&nbsp;€/dzień)</label>
+                  </div>
                 </div>
-                <button type="submit" class="primary auto-calculate-btn">Oblicz cenę</button>
+                <button type="submit" class="btn btn-primary primary auto-calculate-btn">Oblicz cenę</button>
               </form>
               <div class="auto-calculator-result" aria-live="polite">
                 <p id="total_price" class="auto-calculator-total"></p>
@@ -400,7 +413,7 @@
               </p>
               <div class="auto-reservation-actions">
                 <a
-                  class="secondary"
+                  class="btn btn-secondary secondary"
                   href="https://docs.google.com/forms/d/e/1FAIpQLSfaID2ropSqvD4T50zhy0O0fO6zm-rNojO7EDy969Z6lBVe1w/viewform"
                   target="_blank"
                   rel="noopener"
@@ -422,6 +435,8 @@
                   data-i18n-attrs="title:carRentalPfo.page.reservation.formTitle"
                   loading="lazy"
                   allow="fullscreen"
+                  width="700"
+                  height="520"
                 ></iframe>
               </div>
             </article>

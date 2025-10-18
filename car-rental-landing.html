@@ -27,16 +27,32 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css" />
-  </head>
+    <link rel="stylesheet" href="assets/css/tokens.css" />
+    <link rel="stylesheet" href="assets/css/base.css" />
+    <link rel="stylesheet" href="assets/css/components.css" />
+    <link rel="stylesheet" href="assets/css/mobile.css" />
+  
+  <meta name="ce-auth" content="on" />
+  <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co" />
+  <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM" />
+  <script src="https://esm.sh/@supabase/supabase-js@2" defer></script>
+  <script type="module" src="/assets/js/auth/boot.js" defer></script>
+</head>
   <body class="standalone-body" data-seo-page="carRentalLanding">
     <div class="standalone-page">
-      <header class="surface-card standalone-header">
+      <header class="card surface-card standalone-header">
         <div class="standalone-brand">
-          <img src="assets/cyprus_logo-1000x1054.png" alt="WakacjeCypr.com – logo żółwia z flagą Polski" />
+          <img
+            src="assets/cyprus_logo-1000x1054.png"
+            alt="WakacjeCypr.com – logo żółwia z flagą Polski"
+            width="1000"
+            height="1054"
+            loading="eager"
+            fetchpriority="high"
+          />
           <div>
             <p class="standalone-brand-overline" data-i18n="carRental.brand.overline">WakacjeCypr Quest</p>
             <p class="standalone-brand-title" data-i18n="carRental.brand.title">Wynajem samochodów</p>
@@ -56,7 +72,7 @@
       </header>
 
       <main class="standalone-main">
-        <section class="surface-card standalone-hero" aria-labelledby="citySelectTitle">
+        <section class="card surface-card standalone-hero" aria-labelledby="citySelectTitle">
           <div class="standalone-hero-content">
             <p class="standalone-hero-badge" data-i18n="carRental.hero.step">Krok 1</p>
             <h1 id="citySelectTitle" data-i18n="carRental.hero.title">Wybierz lokalizację odbioru auta</h1>
@@ -82,14 +98,14 @@
           </ul>
         </section>
 
-        <section class="surface-card city-select" aria-labelledby="citySelectOptions">
+        <section class="card surface-card city-select" aria-labelledby="citySelectOptions">
           <header class="city-select-header">
             <h2 id="citySelectOptions" data-i18n="carRental.offers.title">Dwie oferty, jeden standard obsługi</h2>
             <p data-i18n="carRental.offers.subtitle">Wybierz, w którym mieście zaczyna się Twoja przygoda, a my pokażemy dostępne samochody i ceny.</p>
           </header>
-          <div class="city-select-grid" role="list">
+          <div class="grid city-select-grid" role="list">
             <a
-              class="city-select-card"
+              class="card city-select-card"
               role="listitem"
               href="car-rental.html?lang=pl"
               aria-label="Przejdź do oferty wynajmu na całym Cyprze"
@@ -108,14 +124,14 @@
                   <li data-i18n="carRental.offers.larnaca.itemTwo">Pełne ubezpieczenie oraz dodatki rodzinne w cenie</li>
                   <li data-i18n="carRental.offers.larnaca.itemThree">Kalkulator kosztów i formularz rezerwacji online</li>
                 </ul>
-                <span class="primary city-select-cta" data-i18n="carRental.offers.larnaca.cta"
+                <span class="btn btn-primary primary city-select-cta" data-i18n="carRental.offers.larnaca.cta"
                   >Zobacz ofertę ogólnocypryjską</span
                 >
               </div>
             </a>
 
             <a
-              class="city-select-card"
+              class="card city-select-card"
               role="listitem"
               href="autopfo.html?lang=pl"
               aria-label="Przejdź do oferty wynajmu aut w Pafos"
@@ -134,7 +150,7 @@
                   <li data-i18n="carRental.offers.paphos.itemTwo">Dowóz do Coral Bay i Polis za niewielką opłatą</li>
                   <li data-i18n="carRental.offers.paphos.itemThree">Polska obsługa 24/7 i przejrzysty kalkulator wynajmu</li>
                 </ul>
-                <span class="secondary city-select-cta" data-i18n="carRental.offers.paphos.cta"
+                <span class="btn btn-secondary secondary city-select-cta" data-i18n="carRental.offers.paphos.cta"
                   >Zobacz ofertę Pafos</span
                 >
               </div>

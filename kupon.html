@@ -29,15 +29,30 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css" />
-  </head>
+    <link rel="stylesheet" href="assets/css/tokens.css" />
+    <link rel="stylesheet" href="assets/css/base.css" />
+    <link rel="stylesheet" href="assets/css/components.css" />
+    <link rel="stylesheet" href="assets/css/mobile.css" />
+  
+  <meta name="ce-auth" content="on" />
+  <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co" />
+  <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM" />
+  <script src="https://esm.sh/@supabase/supabase-js@2" defer></script>
+  <script type="module" src="/assets/js/auth/boot.js" defer></script>
+</head>
   <body class="standalone-body coupon-body" data-seo-page="coupon">
     <header class="standalone-header coupon-header" aria-label="Nawigacja kuponu">
       <div class="standalone-brand">
-        <img src="assets/cyprus_logo-1000x1054.png" alt="Logo WakacjeCypr" />
+        <img
+          src="assets/cyprus_logo-1000x1054.png"
+          alt="Logo WakacjeCypr"
+          width="1000"
+          height="1054"
+          loading="eager"
+        />
         <div>
           <p class="standalone-brand-overline">WakacjeCypr Quest</p>
           <p class="standalone-brand-title">Centrum kuponu</p>
@@ -53,7 +68,7 @@
       </nav>
     </header>
     <main class="coupon-main" aria-labelledby="couponTitle">
-      <section class="surface-card coupon-card" aria-describedby="couponSubtitle">
+      <section class="card surface-card coupon-card" aria-describedby="couponSubtitle">
         <div class="coupon-hero-panel" aria-label="Najważniejsze informacje o kuponie">
           <div class="coupon-hero-copy">
             <p class="coupon-hero-kicker" data-i18n="coupon.hero_kicker">Limitowana oferta</p>
@@ -80,17 +95,20 @@
             </button>
           </div>
         </div>
-        <div class="coupon-card-grid" aria-hidden="true">
+        <div class="grid coupon-card-grid" aria-hidden="true">
           <figure class="coupon-card-media coupon-card-media--hero">
             <img
               src="assets/kupon%20logo.jpeg"
               alt="Wizualizacja kuponu WakacjeCypr"
               data-i18n-attrs="alt:coupon.image_alt"
+              width="1200"
+              height="800"
+              loading="eager"
             />
           </figure>
         </div>
       </section>
-      <section class="surface-card coupon-info" aria-labelledby="couponInfoTitle">
+      <section class="card surface-card coupon-info" aria-labelledby="couponInfoTitle">
         <div class="coupon-info-header">
           <h2 id="couponInfoTitle">Kupon</h2>
           <p class="coupon-info-lede">Zamów swój kupon już dziś i korzystaj z tańszych wakacji na całym Cyprze 🇨🇾</p>
@@ -117,7 +135,7 @@
           </ul>
         </div>
       </section>
-      <section class="surface-card coupon-offers" aria-labelledby="couponOffersTitle">
+      <section class="card surface-card coupon-offers" aria-labelledby="couponOffersTitle">
         <div class="coupon-section-heading">
           <h2 id="couponOffersTitle">Z kim zrealizujesz zniżkę?</h2>
           <p>
@@ -188,7 +206,7 @@
           </article>
         </div>
       </section>
-      <section class="surface-card coupon-how" aria-labelledby="couponHowTitle">
+      <section class="card surface-card coupon-how" aria-labelledby="couponHowTitle">
         <div class="coupon-section-heading">
           <h2 id="couponHowTitle">Jak kupić kupon?</h2>
           <p>

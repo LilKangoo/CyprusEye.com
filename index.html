@@ -31,7 +31,14 @@
   <link rel="alternate" hreflang="x-default" href="https://www.cypruseye.com/index.html" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="assets/css/tokens.css" />
+  <link rel="stylesheet" href="assets/css/base.css" />
+  <link rel="stylesheet" href="assets/css/components.css" />
+  <link rel="stylesheet" href="assets/css/mobile.css" />
   <link
     rel="preload"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -46,8 +53,13 @@
     crossorigin
     data-leaflet-resource="script"
   />
-  <link rel="stylesheet" href="styles.css" />
-  <link rel="stylesheet" href="css/tutorial.css" />
+  
+
+  <meta name="ce-auth" content="on" />
+  <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co" />
+  <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM" />
+  <script src="https://esm.sh/@supabase/supabase-js@2" defer></script>
+  <script type="module" src="/assets/js/auth/boot.js" defer></script>
 </head>
 <body data-navigation="multi-page" data-initial-view="adventureView" data-seo-page="home">
   <header class="app-header">
@@ -56,6 +68,7 @@
         <button
           id="notificationsToggle"
           class="ghost notifications-toggle"
+          data-require-auth
           data-i18n="header.notifications"
           type="button"
           aria-haspopup="true"
@@ -70,7 +83,8 @@
           class="ghost"
           type="button"
           aria-haspopup="dialog"
-          aria-controls="authModal"
+          aria-controls="auth-modal"
+          data-open-auth
           data-i18n="header.login"
         >
           🔐 Zaloguj się
@@ -78,7 +92,7 @@
         <div class="user-menu" id="userMenu" hidden>
           <span id="userGreeting" aria-live="polite"></span>
           <div class="user-menu-actions">
-            <button type="button" class="ghost" id="accountSettingsBtn" data-i18n="header.accountSettings">
+            <button type="button" class="ghost" id="accountSettingsBtn" data-require-auth data-i18n="header.accountSettings">
               ⚙️ Ustawienia konta
             </button>
             <button type="button" class="ghost" id="logoutBtn" data-i18n="header.logout">Wyloguj</button>
@@ -88,7 +102,14 @@
     </div>
     <div class="header-top">
       <div class="brand">
-        <img src="assets/cyprus_logo-1000x1054.png" alt="WakacjeCypr.com – logo żółwia z flagą Polski" />
+        <img
+          src="assets/cyprus_logo-1000x1054.png"
+          alt="WakacjeCypr.com – logo żółwia z flagą Polski"
+          width="1000"
+          height="1054"
+          loading="eager"
+          fetchpriority="high"
+        />
         <div class="brand-title" data-i18n="header.brand">
           <p class="brand-name">WakacjeCypr <span>Quest</span></p>
           <p class="tagline">Zwiedzaj Cypr w interaktywny sposób – zdobywaj odznaki, doświadczenie i odkrywaj nasze najlepsze oferty.</p>
@@ -98,7 +119,7 @@
         <a class="header-coupon-button" href="kupon.html">Kupon</a>
         <div class="header-actions" aria-label="Szybkie działania">
           <div class="header-actions-primary" data-tour-target="quick-actions">
-            <button class="primary" type="button" id="jumpToObjective" data-i18n="header.jumpToObjective">
+            <button class="btn btn-primary primary" type="button" id="jumpToObjective" data-i18n="header.jumpToObjective">
               Skocz do aktualnego celu
             </button>
             <a class="ghost header-link" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
@@ -114,7 +135,7 @@
             </button>
             <button
               id="sosToggle"
-              class="danger"
+              class="btn btn-danger danger"
               type="button"
               aria-haspopup="dialog"
               aria-controls="sosModal"
@@ -127,26 +148,26 @@
       </div>
     </div>
     <div class="header-metrics" role="list" aria-live="polite">
-      <a class="metric-card metric-card-link" role="listitem" href="achievements.html">
+      <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
         <p class="metric-label" data-i18n="metrics.level.label">Poziom</p>
         <p class="metric-value" id="headerLevelNumber">1</p>
         <p class="metric-subtext" id="headerLevelStatus" data-i18n="metrics.level.subtext">
           Zdobądź pierwsze check-iny, aby awansować!
         </p>
       </a>
-      <a class="metric-card metric-card-link" role="listitem" href="achievements.html">
+      <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
         <p class="metric-label" data-i18n="metrics.xp.label">Doświadczenie</p>
         <p class="metric-value"><span id="headerXpPoints">0</span> XP</p>
         <div class="metric-progress" role="img" aria-label="Postęp doświadczenia">
           <div class="metric-progress-track">
-            <div class="metric-progress-fill" id="headerXpFill" style="width: 0%"></div>
+            <div class="metric-progress-fill is-width-zero" id="headerXpFill"></div><!-- migrated from inline -->
           </div>
           <p class="metric-progress-text" id="headerXpProgressText" data-i18n="metrics.xp.progress">
             0 / 150 XP do kolejnego poziomu
           </p>
         </div>
       </a>
-      <a class="metric-card metric-card-link" role="listitem" href="achievements.html">
+      <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
         <p class="metric-label" data-i18n="metrics.badges.label">Odznaki</p>
         <p class="metric-value" id="headerBadgesCount">0</p>
         <p class="metric-subtext" data-i18n="metrics.badges.subtext">Odkrywaj atrakcje i kolekcjonuj pamiątki.</p>
@@ -237,7 +258,7 @@
     <h1 class="sr-only" data-i18n="home.pageTitle">CyprusEye Quest – interaktywny przewodnik po Cyprze</h1>
     <div class="layout app-view" id="adventureView" role="tabpanel" aria-labelledby="headerAdventureTab">
       <div class="primary-column">
-        <section id="current-objective" class="map-panel surface-card" data-tour-target="map-section">
+        <section id="current-objective" class="map-panel card surface-card" data-tour-target="map-section">
           <h2 id="currentObjectiveHeading" class="sr-only" tabindex="-1" data-i18n="objective.title">
             Aktualna lokalizacja
           </h2>
@@ -277,7 +298,7 @@
             <div class="objective-navigation">
               <button
                 type="button"
-                class="secondary"
+                class="btn btn-secondary secondary"
                 id="previousPlaceBtn"
                 aria-label="Przejdź do poprzedniego miejsca"
                 data-i18n="objective.previous"
@@ -286,7 +307,7 @@
               </button>
               <button
                 type="button"
-                class="secondary"
+                class="btn btn-secondary secondary"
                 id="nextPlaceBtn"
                 aria-label="Przejdź do następnego miejsca"
                 data-i18n="objective.next"
@@ -294,7 +315,7 @@
                 Następne miejsce →
               </button>
             </div>
-            <button id="checkInBtn" class="primary" data-i18n="objective.checkIn">Zamelduj się i zdobądź XP</button>
+            <button id="checkInBtn" class="btn btn-primary primary" data-i18n="objective.checkIn">Zamelduj się i zdobądź XP</button>
             <p class="hint" data-i18n="objective.hint">
               Wskazówka: pozwól aplikacji użyć Twojej lokalizacji, aby potwierdzić, że jesteś na miejscu.
             </p>
@@ -304,9 +325,9 @@
       </div>
 
       <aside class="sidebar-column">
-        <section class="adventure-shortcuts" aria-label="Szybkie przejścia" data-tour-target="shortcut-cards">
+        <section class="grid adventure-shortcuts" aria-label="Szybkie przejścia" data-tour-target="shortcut-cards">
           <a
-            class="adventure-shortcut-card surface-card"
+            class="adventure-shortcut-card card surface-card"
             id="openPackingFromAdventure"
             data-tour-target="packing-card"
             href="packing.html"
@@ -318,12 +339,12 @@
             <p data-i18n="shortcuts.packing.description">
               Zaplanuj walizkę w dedykowanej karcie z listami rzeczy na różne sezony podróży.
             </p>
-            <span class="adventure-shortcut-cta secondary" data-i18n="shortcuts.packing.action">
+            <span class="adventure-shortcut-cta btn btn-secondary secondary" data-i18n="shortcuts.packing.action">
               Przejdź do planera
             </span>
           </a>
           <a
-            class="adventure-shortcut-card surface-card"
+            class="adventure-shortcut-card card surface-card"
             id="openTasksFromAdventure"
             data-tour-target="tasks-card"
             href="tasks.html"
@@ -335,12 +356,12 @@
             <p data-i18n="shortcuts.tasks.description">
               Przejrzyj wyzwania przed wyjazdem i zapisuj swój postęp w osobnej zakładce.
             </p>
-            <span class="adventure-shortcut-cta secondary" data-i18n="shortcuts.tasks.action">
+            <span class="adventure-shortcut-cta btn btn-secondary secondary" data-i18n="shortcuts.tasks.action">
               Otwórz zadania
             </span>
           </a>
           <a
-            class="adventure-shortcut-card surface-card"
+            class="adventure-shortcut-card card surface-card"
             href="/kupon"
             role="button"
             tabindex="0"
@@ -352,12 +373,12 @@
             <p data-i18n="coupon.subtitle">
               Najprostszy sposób, by skorzystać z naszej oferty — bez formalności.
             </p>
-            <span class="adventure-shortcut-cta secondary" data-i18n="coupon.cta">
+            <span class="adventure-shortcut-cta btn btn-secondary secondary" data-i18n="coupon.cta">
               Kup kupon
             </span>
           </a>
           <a
-            class="adventure-shortcut-card surface-card"
+            class="adventure-shortcut-card card surface-card"
             id="openCarRentalFromAdventure"
             data-tour-target="car-card"
             href="car-rental.html"
@@ -368,15 +389,15 @@
             <p data-i18n="shortcuts.car.description">
               Poznaj całą flotę, porównaj ceny i zarezerwuj samochód na dedykowanej stronie.
             </p>
-            <span class="adventure-shortcut-cta secondary" data-i18n="shortcuts.car.action">
+            <span class="adventure-shortcut-cta btn btn-secondary secondary" data-i18n="shortcuts.car.action">
               Przejdź do wynajmu
             </span>
           </a>
         </section>
       </aside>
 
-      <section class="discovery-grid" aria-label="Atrakcje i postępy">
-        <section class="locations-panel surface-card">
+      <section class="grid discovery-grid" aria-label="Atrakcje i postępy">
+        <section class="locations-panel card surface-card">
           <div class="discovery-header">
             <div>
               <h2 data-i18n="discovery.title">Atrakcje do odkrycia</h2>
@@ -388,7 +409,7 @@
               <button type="button" class="ghost" id="locationsToggle" data-i18n="discovery.toggle">
                 Pokaż więcej atrakcji
               </button>
-              <a class="secondary" href="attractions.html" data-i18n="discovery.catalog">📚 Katalog atrakcji</a>
+              <a class="btn btn-secondary secondary" href="attractions.html" data-i18n="discovery.catalog">📚 Katalog atrakcji</a>
             </div>
           </div>
           <ul id="locationsList" class="locations-list locations-list-preview" aria-live="polite"></ul>
@@ -513,7 +534,7 @@
     </section>
     <section
       id="services"
-      class="services-panel surface-card services-panel-footer"
+      class="services-panel card surface-card services-panel-footer"
       aria-label="Planowanie podróży i inspiracje"
     >
       <h2 data-i18n="services.title">Odkryj z nami Cypr</h2>
@@ -526,7 +547,7 @@
         <li data-i18n="services.itemTwo">Wycieczki z przewodnikiem w miejscach, które już odblokowałeś.</li>
         <li data-i18n="services.itemThree">Kontakt z nami prosto z aplikacji – kliknij przycisk poniżej.</li>
       </ul>
-      <a class="primary" href="https://wakacjecypr.com" target="_blank" rel="noopener" data-i18n="services.cta"
+      <a class="btn btn-primary primary" href="https://wakacjecypr.com" target="_blank" rel="noopener" data-i18n="services.cta"
         >Poznaj nasze usługi</a
       >
     </section>
@@ -626,6 +647,7 @@
   <script src="js/seo.js" defer></script>
   <script src="car-rental.js" defer></script>
   <script src="app.js" defer></script>
+  <script src="assets/js/modal-auth.js" defer></script>
 
   <div
     class="explorer-modal"
@@ -667,82 +689,19 @@
   </div>
 
   <div
-    class="auth-modal"
-    id="authModal"
-    hidden
+    id="auth-modal"
+    class="modal"
     role="dialog"
     aria-modal="true"
-    aria-labelledby="authTitle"
-    aria-describedby="authDescription"
+    aria-labelledby="auth-title"
+    aria-hidden="true"
   >
-    <div class="auth-dialog">
-      <header class="auth-header">
-        <div>
-          <h2 id="authTitle" data-i18n="auth.title">Zaloguj się lub załóż konto</h2>
-          <p id="authDescription" data-i18n="auth.subtitle">
-            Zapisuj swoje statystyki i kontynuuj przygody na dowolnym urządzeniu.
-          </p>
-        </div>
-        <button
-          type="button"
-          class="icon-button"
-          id="authClose"
-          aria-label="Zamknij okno logowania"
-          data-i18n="auth.close"
-        >
-          ✕
-        </button>
-      </header>
-
-      <div class="auth-content">
-        <form id="loginForm" class="auth-form">
-          <h3 data-i18n="auth.login.title">Logowanie</h3>
-          <label for="loginUsername" data-i18n="auth.login.username">Adres e-mail lub login</label>
-          <input id="loginUsername" name="loginUsername" type="text" autocomplete="username" required />
-          <label for="loginPassword" data-i18n="auth.login.password">Hasło</label>
-          <input id="loginPassword" name="loginPassword" type="password" autocomplete="current-password" required />
-          <button type="submit" class="primary" data-i18n="auth.login.submit">Zaloguj się</button>
-        </form>
-
-        <div class="auth-divider" role="separator" aria-hidden="true">
-          <span data-i18n="auth.divider">LUB</span>
-        </div>
-
-        <form id="registerForm" class="auth-form">
-          <h3 data-i18n="auth.register.title">Rejestracja</h3>
-          <label for="registerUsername" data-i18n="auth.register.username">Adres e-mail lub login</label>
-          <input id="registerUsername" name="registerUsername" type="text" autocomplete="email" required />
-          <label for="registerPassword" data-i18n="auth.register.password">Hasło</label>
-          <input id="registerPassword" name="registerPassword" type="password" autocomplete="new-password" required minlength="8" />
-          <label for="registerPasswordConfirm" data-i18n="auth.register.confirm">Powtórz hasło</label>
-          <input
-            id="registerPasswordConfirm"
-            name="registerPasswordConfirm"
-            type="password"
-            autocomplete="new-password"
-            required
-            minlength="8"
-          />
-          <p class="form-hint" data-i18n="auth.register.hint">Twoje obecne postępy zostaną zapisane na nowym koncie.</p>
-          <button type="submit" class="secondary" data-i18n="auth.register.submit">Załóż konto</button>
-        </form>
-      </div>
-
-      <div class="auth-footer">
-        <div class="auth-guest">
-          <button
-            type="button"
-            class="secondary guest-button"
-            id="guestAccessBtn"
-            data-i18n="auth.guest.button"
-          >
-            🎮 Graj jako gość
-          </button>
-          <p data-i18n="auth.guest.description">
-            Możesz korzystać z aplikacji bez konta – postępy zapiszą się na tym urządzeniu.
-          </p>
-        </div>
-        <p id="authMessage" class="auth-message" role="status" aria-live="polite"></p>
+    <div class="modal__dialog" tabindex="-1" role="document">
+      <button class="modal__close" type="button" aria-label="Zamknij" data-close>×</button>
+      <h2 id="auth-title">Zaloguj się</h2>
+      <div class="modal__actions">
+        <button class="btn btn--primary" data-auth="signin">Zaloguj</button>
+        <button class="btn btn--secondary" data-auth="guest">Graj jako gość</button>
       </div>
     </div>
   </div>
@@ -895,7 +854,7 @@
           <p class="form-hint" data-i18n="account.username.hint">
             Zmiana zapisze się od razu i będzie widoczna w przywitaniu.
           </p>
-          <button type="submit" class="secondary" data-i18n="account.username.submit">Zapisz nazwę</button>
+          <button type="submit" class="btn btn-secondary secondary" data-i18n="account.username.submit">Zapisz nazwę</button>
         </form>
 
         <form id="accountPasswordForm" class="account-form">
@@ -927,7 +886,7 @@
             minlength="8"
           />
           <p class="form-hint" data-i18n="account.password.hint">Hasło powinno mieć co najmniej 8 znaków.</p>
-          <button type="submit" class="secondary" data-i18n="account.password.submit">Zmień hasło</button>
+          <button type="submit" class="btn btn-secondary secondary" data-i18n="account.password.submit">Zmień hasło</button>
         </form>
 
         <section class="account-reset">
@@ -935,7 +894,7 @@
           <p data-i18n="account.reset.description">
             Wyzeruj zdobyte odznaki oraz doświadczenie i rozpocznij eksplorację od poziomu pierwszego.
           </p>
-          <button type="button" class="danger" id="accountResetProgress" data-i18n="account.reset.action">
+          <button type="button" class="btn btn-danger danger" id="accountResetProgress" data-i18n="account.reset.action">
             🔄 Zresetuj postęp
           </button>
         </section>

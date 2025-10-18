@@ -28,20 +28,31 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&family=Nunito:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css" />
-  </head>
+    <link rel="stylesheet" href="assets/css/tokens.css" />
+    <link rel="stylesheet" href="assets/css/base.css" />
+    <link rel="stylesheet" href="assets/css/components.css" />
+    <link rel="stylesheet" href="assets/css/mobile.css" />
+  
+  <meta name="ce-auth" content="on" />
+  <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co" />
+  <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM" />
+  <script src="https://esm.sh/@supabase/supabase-js@2" defer></script>
+  <script type="module" src="/assets/js/auth/boot.js" defer></script>
+</head>
   <body class="standalone-body" data-seo-page="cruise">
     <div class="standalone-page">
-      <header class="surface-card standalone-header">
+      <header class="card surface-card standalone-header">
         <div class="standalone-brand">
           <img
             src="assets/cyprus_logo-1000x1054.png"
             alt="Logo CyprusEye"
             width="96"
             height="101"
+            loading="eager"
+            fetchpriority="high"
           />
           <div>
             <p class="standalone-brand-overline" data-i18n="cruise.overline">CyprusEye</p>
@@ -52,7 +63,7 @@
       </header>
 
       <main class="standalone-main">
-        <section class="surface-card standalone-hero" aria-labelledby="cruiseHeroTitle">
+        <section class="card surface-card standalone-hero" aria-labelledby="cruiseHeroTitle">
           <div class="standalone-hero-content">
             <p class="standalone-hero-badge" data-i18n="cruise.hero.badge">Oferta w przygotowaniu</p>
             <h1 id="cruiseHeroTitle" data-i18n="cruise.hero.title">Pracujemy nad nową ofertą rejsów</h1>
@@ -76,7 +87,7 @@
           </div>
         </section>
 
-        <section class="surface-card" aria-labelledby="cruiseFormTitle">
+        <section class="card surface-card" aria-labelledby="cruiseFormTitle">
           <header class="standalone-section-header">
             <h2 id="cruiseFormTitle" data-i18n="cruise.form.title">Powiadom mnie o starcie oferty</h2>
             <p data-i18n="cruise.form.subtitle">
@@ -97,7 +108,7 @@
               <label for="cruiseMessage" data-i18n="cruise.form.message">Wiadomość</label>
               <textarea id="cruiseMessage" name="message" rows="4" placeholder="Preferowany port, termin lub dodatkowe życzenia"></textarea>
             </div>
-            <button type="submit" class="primary" data-i18n="cruise.form.submit">Dodaj mnie do listy</button>
+            <button type="submit" class="btn btn-primary primary" data-i18n="cruise.form.submit">Dodaj mnie do listy</button>
           </form>
         </section>
       </main>

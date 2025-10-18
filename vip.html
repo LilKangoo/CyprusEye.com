@@ -27,16 +27,31 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css" />
-  </head>
+    <link rel="stylesheet" href="assets/css/tokens.css" />
+    <link rel="stylesheet" href="assets/css/base.css" />
+    <link rel="stylesheet" href="assets/css/components.css" />
+    <link rel="stylesheet" href="assets/css/mobile.css" />
+  
+  <meta name="ce-auth" content="on" />
+  <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co" />
+  <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM" />
+  <script src="https://esm.sh/@supabase/supabase-js@2" defer></script>
+  <script type="module" src="/assets/js/auth/boot.js" defer></script>
+</head>
   <body class="standalone-body" data-seo-page="vip">
     <div class="standalone-page vip-page">
       <header class="standalone-header vip-header">
         <div class="standalone-brand">
-          <img src="assets/cyprus_logo-1000x1054.png" alt="WakacjeCypr.com – logo żółwia z flagą Polski" />
+          <img
+            src="assets/cyprus_logo-1000x1054.png"
+            alt="WakacjeCypr.com – logo żółwia z flagą Polski"
+            width="1000"
+            height="1054"
+            loading="eager"
+          />
           <div>
             <p class="standalone-brand-overline" data-i18n="vip.brand.overline">Twój concierge na Cyprze</p>
             <p class="standalone-brand-title" data-i18n="vip.brand.title">WakacjeCypr Quest</p>
@@ -184,7 +199,7 @@
               ></textarea>
             </div>
             <p class="vip-price-output" id="vipReservationPrice" aria-live="polite">Szacowana cena pojawi się po wyborze pakietu.</p>
-            <button type="submit" class="primary">Wyślij zapytanie</button>
+            <button type="submit" class="btn btn-primary primary">Wyślij zapytanie</button>
           </form>
         </section>
 

@@ -15,7 +15,7 @@
 - HTML określa `lang="pl"`, lecz część treści i danych (np. w `media-trips.html`) zawiera anglicyzmy i zapis wartości w euro bez spacji lub w formacie mieszanym, co utrudnia odbiór. Przygotuj strategię lokalizacyjną (np. pl/en) i stosuj jednolite formatowanie walut z odstępem nierozdzielającym.【F:media-trips.html†L490-L503】
 
 ### 1.4 Wydajność
-- Wszystkie strony ładują te same fonty Google (dwa krój) oraz pełny arkusz `styles.css` (~ szeroki, z licznymi komponentami) nawet jeśli wykorzystują jedynie część komponentów. Rozważ kriowanie krytycznych stylów (critical CSS) dla głównej strony i modularnych arkuszy dla podstron, a także lokalne hostowanie fontów dla lepszego LCP.【F:index.html†L50-L54】【F:car-rental-landing.html†L23-L27】
+- Wszystkie strony ładują te same fonty Google (dwa krój) oraz pełny arkusz `assets/css/components.css` (~ szeroki, z licznymi komponentami) nawet jeśli wykorzystują jedynie część komponentów. Rozważ kriowanie krytycznych stylów (critical CSS) dla głównej strony i modularnych arkuszy dla podstron, a także lokalne hostowanie fontów dla lepszego LCP.【F:index.html†L32-L42】【F:car-rental-landing.html†L23-L31】
 - W widokach aplikacji (`index.html`, `packing.html`, `tasks.html`, `media-trips.html`) wczytywany jest Leaflet CSS niezależnie od tego, czy użytkownik faktycznie korzysta z mapy na danej zakładce. Wprowadzenie lazy loadingu skryptów/arkuszy (np. przez dynamiczne importy) skróci czas pierwszego renderu.【F:index.html†L8-L13】【F:packing.html†L8-L13】【F:tasks.html†L8-L13】【F:media-trips.html†L8-L13】
 
 ### 1.5 Komponenty formularzy
@@ -73,7 +73,7 @@
 ## 9. Rekomendacje techniczne
 
 1. **Refaktoryzacja layoutu nagłówka** – rozbij sekcję na moduły, dodaj „skip link” i upraszczaj układ mobilny poprzez hamburger menu dla działań dodatkowych.【F:index.html†L15-L188】
-2. **Wprowadzenie tematu ciemnego** – zastosuj `prefers-color-scheme` i przygotuj wariant kolorystyczny w `styles.css`, co poprawi komfort nocnego czytania i dostępność (wykorzystać już zdefiniowane zmienne CSS).【F:styles.css†L1-L77】
+2. **Wprowadzenie tematu ciemnego** – zastosuj `prefers-color-scheme` i przygotuj wariant kolorystyczny w `assets/css/components.css`, co poprawi komfort nocnego czytania i dostępność (wykorzystać już zdefiniowane zmienne CSS).【F:assets/css/components.css†L1-L80】
 3. **Optymalizacja zasobów** – wdrożenie `rel="preload"` dla głównych fontów, bundling JS (`app.js`, `car-rental.js`, `i18n.js`) i lazy loading modułów mapowych dopiero po wejściu w sekcję mapy.【F:index.html†L8-L13】【F:index.html†L491-L494】
 4. **Dane strukturalne** – dodaj `JSON-LD` dla usług turystycznych (LocalBusiness/TravelAgency) na stronach ofertowych, co poprawi widoczność w wyszukiwarkach.【F:car-rental.html†L34-L200】【F:media-trips.html†L490-L541】
 5. **Testy użyteczności** – zalecane prototypowanie wariantów CTA i kolejności sekcji (np. w `car-rental-landing.html`) przy pomocy narzędzi jak Hotjar / GA4 (obecnie brak integracji analitycznej w kodzie). Rozważ wdrożenie `dataLayer` i zgód cookies.【F:car-rental-landing.html†L31-L102】

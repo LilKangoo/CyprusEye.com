@@ -36,11 +36,20 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css" />
-  </head>
+    <link rel="stylesheet" href="assets/css/tokens.css" />
+    <link rel="stylesheet" href="assets/css/base.css" />
+    <link rel="stylesheet" href="assets/css/components.css" />
+    <link rel="stylesheet" href="assets/css/mobile.css" />
+  
+  <meta name="ce-auth" content="on" />
+  <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co" />
+  <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM" />
+  <script src="https://esm.sh/@supabase/supabase-js@2" defer></script>
+  <script type="module" src="/assets/js/auth/boot.js" defer></script>
+</head>
   <body class="standalone-body" data-seo-page="achievements">
     <div class="standalone-page achievements-page">
       <header class="standalone-header achievements-header">
@@ -49,6 +58,10 @@
             src="assets/cyprus_logo-1000x1054.png"
             alt="Logo WakacjeCypr Quest"
             data-i18n-attrs="alt:achievements.brand.logoAlt"
+            width="1000"
+            height="1054"
+            loading="eager"
+            fetchpriority="high"
           />
           <div>
             <p class="standalone-brand-overline" data-i18n="achievements.brand.overline">Twoja gra podróżnicza po Cyprze</p>
@@ -65,12 +78,19 @@
           >
             🎯 Twoja przygoda
           </a>
-          <span class="header-tab is-active" aria-current="page" data-i18n="achievements.nav.current">🏅 Osiągnięcia</span>
+          <a
+            class="header-tab is-active"
+            href="achievements.html"
+            aria-current="page"
+            data-i18n="achievements.nav.current"
+          >
+            🏅 Osiągnięcia
+          </a>
           <a class="header-tab" href="attractions.html" data-i18n="attractions.nav.catalog">📚 Katalog atrakcji</a>
         </nav>
       </header>
 
-      <section class="surface-card achievements-hero" aria-labelledby="achievementsTitle">
+      <section class="card surface-card achievements-hero" aria-labelledby="achievementsTitle">
         <div class="achievements-hero-content">
           <a
             class="ghost achievements-back"
@@ -103,7 +123,7 @@
       </section>
 
       <main class="standalone-main achievements-main">
-        <section class="surface-card achievements-progress" aria-labelledby="achievementsProgressTitle">
+        <section class="card surface-card achievements-progress" aria-labelledby="achievementsProgressTitle">
           <div class="achievements-progress-header">
             <h2 id="achievementsProgressTitle" data-i18n="achievements.progress.title">Postęp doświadczenia</h2>
             <p class="achievements-subtitle" data-i18n="achievements.progress.subtitle">
@@ -114,7 +134,7 @@
           <div class="achievements-progress-body">
             <div class="progress" role="img" aria-label="Pasek postępu doświadczenia" data-i18n-attrs="aria-label:achievements.progress.chartLabel">
               <div class="progress-track">
-                <div class="progress-fill" id="xpFill" style="width: 0%"></div>
+                <div class="progress-fill is-width-zero" id="xpFill"></div><!-- migrated from inline -->
               </div>
             </div>
             <div class="achievements-stats">
@@ -130,7 +150,7 @@
           </div>
         </section>
 
-        <section class="surface-card achievements-history" aria-labelledby="achievementsHistoryTitle">
+        <section class="card surface-card achievements-history" aria-labelledby="achievementsHistoryTitle">
           <header>
             <h2 id="achievementsHistoryTitle" data-i18n="achievements.history.title">Odwiedzone miejsca i zdobyte odznaki</h2>
             <p class="achievements-section-intro" data-i18n="achievements.history.subtitle">
