@@ -98,7 +98,16 @@
             <button type="button" class="ghost" id="accountSettingsBtn" data-i18n="header.accountSettings">
               📊 Statystyki i ustawienia
             </button>
-            <button type="button" class="ghost" id="logoutBtn" data-i18n="header.logout" hidden>Wyloguj</button>
+            <button
+              type="button"
+              class="ghost"
+              id="logoutBtn"
+              data-i18n="header.logout"
+              data-auth-visible="signed-in"
+              hidden
+            >
+              Wyloguj
+            </button>
           </div>
         </div>
       </div>

@@ -7,6 +7,32 @@ function getMeta(name) {
   return meta ? meta.content.trim() : "";
 }
 
+function applyAuthVisibility(user) {
+  const isLoggedIn = Boolean(user);
+  document.querySelectorAll('[data-auth-visible]').forEach((element) => {
+    if (!(element instanceof HTMLElement)) {
+      return;
+    }
+
+    const mode = element.dataset.authVisible || '';
+    if (mode === 'signed-in' || mode === 'authenticated') {
+      element.hidden = !isLoggedIn;
+      if (isLoggedIn) {
+        element.removeAttribute('aria-hidden');
+      } else {
+        element.setAttribute('aria-hidden', 'true');
+      }
+    } else if (mode === 'guest' || mode === 'signed-out') {
+      element.hidden = isLoggedIn;
+      if (isLoggedIn) {
+        element.setAttribute('aria-hidden', 'true');
+      } else {
+        element.removeAttribute('aria-hidden');
+      }
+    }
+  });
+}
+
 function exposeAuthApi(api) {
   window.CE_AUTH = api;
   document.dispatchEvent(new CustomEvent('ce-auth-ready', { detail: api }));
@@ -15,6 +41,7 @@ function exposeAuthApi(api) {
 let supabaseClient = null;
 
 if (!enabled) {
+  applyAuthVisibility(null);
   exposeAuthApi({ enabled: false });
 } else {
   const SUPABASE_URL = getMeta("supabase-url");
@@ -23,9 +50,11 @@ if (!enabled) {
 
   if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(SUPABASE_URL)) {
     console.error("Konfiguracja Supabase: nieprawidłowy URL");
+    applyAuthVisibility(null);
     exposeAuthApi({ enabled: false });
   } else if (!SUPABASE_ANON || SUPABASE_ANON.split(".").length !== 3) {
     console.error("Konfiguracja Supabase: brak lub zły anon key");
+    applyAuthVisibility(null);
     exposeAuthApi({ enabled: false });
   } else {
     supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON, {
@@ -79,6 +108,7 @@ if (!enabled) {
     const listeners = new Set();
 
     function notifyAuthListeners(user) {
+      applyAuthVisibility(user);
       listeners.forEach((listener) => {
         try {
           listener(user);
