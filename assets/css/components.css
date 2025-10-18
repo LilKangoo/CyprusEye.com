@@ -7003,3 +7003,26 @@ body.tutorial-open {
   font-weight: 700;
 }
 
+/* FIX: hub grid */
+.home-hub .hub-grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: 1fr 1fr;
+}
+
+@media (max-width: 640px) {
+  .home-hub .hub-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.hub-card {
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elev-2);
+}
+
+.hub-card h3 {
+  margin: 0 0 var(--space-2);
+}
+
