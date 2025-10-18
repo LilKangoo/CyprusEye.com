@@ -5805,7 +5805,9 @@ a:focus-visible {
   border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 26px;
   box-shadow: 0 22px 48px rgba(15, 23, 42, 0.18);
-  display: none;
+  display: flex;
+  align-items: stretch;
+  justify-content: space-between;
   padding: clamp(0.35rem, 2vw, 0.55rem) clamp(0.45rem, 4vw, 0.75rem);
   padding-bottom: calc(clamp(0.35rem, 2vw, 0.55rem) + env(safe-area-inset-bottom) * 0.6);
   z-index: 40;
@@ -5813,6 +5815,10 @@ a:focus-visible {
   overflow: hidden;
   isolation: isolate;
   gap: clamp(0.3rem, 1.5vw, 0.6rem);
+}
+
+body[data-navigation='multi-page'] {
+  padding-bottom: calc(clamp(1rem, 2.5vw, 2.5rem) + 6.5rem);
 }
 
 .mobile-tabbar::after {
@@ -6108,9 +6114,6 @@ a:focus-visible {
   }
 
   .mobile-tabbar {
-    display: flex;
-    align-items: stretch;
-    justify-content: space-between;
     gap: clamp(0.35rem, 1.6vw, 0.6rem);
     padding-bottom: calc(clamp(0.35rem, 2vw, 0.55rem) + env(safe-area-inset-bottom) * 0.6);
   }
