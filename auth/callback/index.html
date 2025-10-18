@@ -1,0 +1,9 @@
+<!doctype html><meta charset="utf-8">
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+const u = 'https://daoohnbnnowmmcizgvrq.supabase.co';
+const k = document.querySelector('meta[name="supabase-anon"]')?.content || 'REPLACED_BY_HEAD';
+const s = createClient(u, k);
+const { data: { user } } = await s.auth.getUser();
+window.location.href = user ? '/account' : '/auth';
+</script>
