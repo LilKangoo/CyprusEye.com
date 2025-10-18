@@ -1,4 +1,25 @@
 /* Mobile-first layout tuned for handheld widths (360–430px) */
+/* FIX: overflow-x na mobile */
+html,
+body {
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+img,
+iframe,
+video {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+.section,
+.container,
+.standalone-page {
+  max-width: 100%;
+}
+
 .section {
   padding: var(--space-8) var(--space-4);
   max-width: 100%;
