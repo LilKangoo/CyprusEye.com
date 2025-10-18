@@ -261,6 +261,7 @@ export const SettingsProvider = ({ children }: PropsWithChildren) => {
       distanceInterval,
       timeInterval,
       toggleMapStyle,
+      styleIndex,
     ],
   );
 
