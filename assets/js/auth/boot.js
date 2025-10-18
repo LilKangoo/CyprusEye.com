@@ -3,10 +3,30 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 const enabled = (document.querySelector('meta[name="ce-auth"]')?.content || 'on') === 'on';
 if (!enabled) { window.CE_AUTH = { enabled:false }; export {}; }
 
-const URL = document.querySelector('meta[name="supabase-url"]').content;
-const KEY = document.querySelector('meta[name="supabase-anon"]').content;
+function getMeta(name) {
+  const meta = document.querySelector(`meta[name="${name}"]`);
+  return meta ? meta.content.trim() : "";
+}
 
-const supabase = createClient(URL, KEY, { auth: { persistSession: true, autoRefreshToken: true } });
+const SUPABASE_URL  = getMeta("supabase-url");
+const SUPABASE_ANON = getMeta("supabase-anon");
+const SUPABASE_PUB  = getMeta("supabase-publishable");
+
+if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(SUPABASE_URL)) {
+  throw new Error("Konfiguracja Supabase: nieprawidłowy URL");
+}
+if (!SUPABASE_ANON || SUPABASE_ANON.split(".").length !== 3) {
+  throw new Error("Konfiguracja Supabase: brak lub zły anon key");
+}
+
+export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
+  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+  global: {
+    headers: SUPABASE_PUB
+      ? { "x-application-name": "CyprusEye", "x-publishable-key": SUPABASE_PUB }
+      : { "x-application-name": "CyprusEye" }
+  }
+});
 
 async function session() { return (await supabase.auth.getSession()).data.session; }
 async function requireAuthOrRedirect(target = '/account') {
@@ -22,7 +42,19 @@ function bindAuthLinks() {
     }, { passive:false });
   });
 }
-supabase.auth.onAuthStateChange((_e,_s)=>{ /* miejsce na przyszłe aktualizacje UI */ });
+function uiAuthState(isLoggedIn) {
+  const loginBtn = document.getElementById('openAuthModal');
+  const logoutBtn = document.getElementById('logoutBtn');
+  if (loginBtn) loginBtn.hidden = !!isLoggedIn;
+  if (logoutBtn) logoutBtn.hidden = !isLoggedIn;
+}
+
+supabase.auth.onAuthStateChange((_event, session) => {
+  const user = session?.user || null;
+  uiAuthState(!!user);
+});
+
+(await supabase.auth.getUser()).data.user ? uiAuthState(true) : uiAuthState(false);
 
 window.CE_AUTH = { enabled:true, supabase, session, requireAuthOrRedirect };
 

@@ -6,6 +6,7 @@
 <meta name="ce-auth" content="on">
 <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co">
 <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bWNpemd2cnEiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc2MDc2OTA0OSwiZXhwIjoyMDc2MzQ1MDQ5fQ.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM">
+<meta name="supabase-publishable" content="sb_publishable_QdxNGCb6LYD-6ywFrjCrjg_Oa7yDGTk">
 </head>
 <body>
 <form id="setpw"><label>New password
@@ -13,14 +14,18 @@
 </label><button type="submit">Set new password</button></form>
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-const url = document.querySelector('meta[name="supabase-url"]')?.content || 'https://daoohnbnnowmmcizgvrq.supabase.co';
-const key = document.querySelector('meta[name="supabase-anon"]')?.content || 'REPLACED_BY_HEAD';
-const s = createClient(url, key);
-document.getElementById('setpw').addEventListener('submit', async (e)=>{
+const url = document.querySelector('meta[name="supabase-url"]').content.trim();
+const anon = document.querySelector('meta[name="supabase-anon"]').content.trim();
+const supabase = createClient(url, anon);
+const { data: sessionData, error } = await supabase.auth.getSession();
+if (error) console.error('Supabase session error', error);
+if (!sessionData.session) console.warn('Supabase: brak aktywnej sesji resetu.');
+const form = document.getElementById('setpw');
+form?.addEventListener('submit', async (e)=>{
   e.preventDefault();
   const pw = e.target.password.value;
-  const { error } = await s.auth.updateUser({ password: pw });
-  if (error) alert(error.message); else window.location.href = '/account';
+  const { error: updateError } = await supabase.auth.updateUser({ password: pw });
+  if (updateError) alert(updateError.message); else window.location.href = '/account/';
 });
 </script>
 </body>
