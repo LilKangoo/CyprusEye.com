@@ -1301,6 +1301,8 @@ let currentUserKey = null;
 let currentSupabaseUser = null;
 let supabaseClient = null;
 let supabaseSignOutInProgress = false;
+let supabaseAuthInitialized = false;
+let supabaseReadyListenerAttached = false;
 let reviews = {};
 let journalEntries = [];
 let editingJournalEntryId = null;
@@ -7612,6 +7614,66 @@ function startGuestSession(options = {}) {
   }
 }
 
+function setupSupabaseAuth(client) {
+  if (!client) {
+    return false;
+  }
+
+  if (supabaseAuthInitialized) {
+    return true;
+  }
+
+  supabaseAuthInitialized = true;
+
+  const authApi = window.CE_AUTH || {};
+  let initialAuthResolved = false;
+
+  if (typeof authApi.onAuthStateChange === 'function') {
+    authApi.onAuthStateChange((user) => {
+      if (!initialAuthResolved) {
+        return;
+      }
+
+      if (user) {
+        applySupabaseUser(user, { reason: 'sign-in' });
+      } else {
+        applySupabaseUser(null, { reason: 'sign-out' });
+      }
+    });
+  }
+
+  client.auth
+    .getUser()
+    .then(({ data }) => {
+      if (data?.user) {
+        applySupabaseUser(data.user, { reason: 'init' });
+      } else {
+        startGuestSession({ skipMessage: true });
+      }
+      initialAuthResolved = true;
+    })
+    .catch(() => {
+      startGuestSession({ skipMessage: true });
+      initialAuthResolved = true;
+    });
+
+  return true;
+}
+
+function handleSupabaseReady(event) {
+  const detail = event?.detail;
+  if (detail && detail.enabled === false) {
+    document.removeEventListener('ce-auth-ready', handleSupabaseReady);
+    supabaseReadyListenerAttached = false;
+    return;
+  }
+
+  if (setupSupabaseAuth(getSupabaseClient())) {
+    document.removeEventListener('ce-auth-ready', handleSupabaseReady);
+    supabaseReadyListenerAttached = false;
+  }
+}
+
 async function handleLogout() {
   const client = getSupabaseClient();
   if (client && currentSupabaseUser) {
@@ -7698,44 +7760,20 @@ function initializeAuth() {
   setActiveAccountTab('stats');
   updateAuthUI();
 
-  const client = getSupabaseClient();
-  if (client) {
-    const authApi = window.CE_AUTH || {};
-    let initialAuthResolved = false;
-    if (typeof authApi.onAuthStateChange === 'function') {
-      authApi.onAuthStateChange((user) => {
-        if (!initialAuthResolved) {
-          return;
-        }
-        if (user) {
-          applySupabaseUser(user, { reason: 'sign-in' });
-        } else {
-          applySupabaseUser(null, { reason: 'sign-out' });
-        }
-      });
+  const supabaseAvailable = setupSupabaseAuth(getSupabaseClient());
+  if (!supabaseAvailable) {
+    if (!supabaseReadyListenerAttached) {
+      supabaseReadyListenerAttached = true;
+      document.addEventListener('ce-auth-ready', handleSupabaseReady);
     }
 
-    client.auth
-      .getUser()
-      .then(({ data }) => {
-        if (data?.user) {
-          applySupabaseUser(data.user, { reason: 'init' });
-        } else {
-          startGuestSession({ skipMessage: true });
-        }
-        initialAuthResolved = true;
-      })
-      .catch(() => {
-        startGuestSession({ skipMessage: true });
-        initialAuthResolved = true;
-      });
-  } else {
     const savedSession = localStorage.getItem(SESSION_STORAGE_KEY);
     if (savedSession && getAccount(savedSession)) {
       currentUserKey = savedSession;
     } else {
       currentUserKey = null;
     }
+
     startGuestSession({ skipMessage: true });
   }
 }
