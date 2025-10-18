@@ -7110,27 +7110,38 @@ function closeAccountModal() {
 }
 
 function openAuthModal() {
-  const modal = document.getElementById('authModal');
-  if (!modal) return;
-  if (!modal.hidden && modal.classList.contains('visible')) {
+  const controller = window.__authModalController;
+  if (!controller) return;
+  if (controller.isOpen()) {
     return;
   }
-  lockBodyScroll();
-  modal.hidden = false;
   setAuthMessage('');
-  requestAnimationFrame(() => {
-    modal.classList.add('visible');
-  });
+  controller.open();
 }
 
 function closeAuthModal(options = {}) {
-  const { activateGuest = false, guestMessage } = options;
-  const modal = document.getElementById('authModal');
-  if (!modal || modal.hidden) return false;
-  modal.classList.remove('visible');
-  modal.hidden = true;
+  const { activateGuest = false, guestMessage, reason = 'programmatic' } = options;
+  const controller = window.__authModalController;
+  if (!controller) {
+    if (activateGuest) {
+      startGuestSession({ message: guestMessage });
+    }
+    return false;
+  }
+
+  if (!controller.isOpen()) {
+    if (activateGuest) {
+      startGuestSession({ message: guestMessage });
+    }
+    return false;
+  }
+
+  const closed = controller.close({ reason });
+  if (!closed) {
+    return false;
+  }
+
   setAuthMessage('');
-  unlockBodyScroll();
   if (activateGuest) {
     startGuestSession({ message: guestMessage });
   }
@@ -7519,10 +7530,8 @@ function initializeAuth() {
   const loginForm = document.getElementById('loginForm');
   const registerForm = document.getElementById('registerForm');
   const authOpenBtn = document.getElementById('openAuthModal');
-  const authCloseBtn = document.getElementById('authClose');
-  const guestAccessBtn = document.getElementById('guestAccessBtn');
   const logoutBtn = document.getElementById('logoutBtn');
-  const authModal = document.getElementById('authModal');
+  const authModal = document.getElementById('auth-modal');
   const accountSettingsBtn = document.getElementById('accountSettingsBtn');
   const accountModal = document.getElementById('accountModal');
   const accountCloseBtn = document.getElementById('accountClose');
@@ -7536,24 +7545,7 @@ function initializeAuth() {
 
   authOpenBtn?.addEventListener('click', () => {
     clearAuthForms();
-    openAuthModal();
   });
-
-  authCloseBtn?.addEventListener('click', () => {
-    closeAuthModal({ activateGuest: true });
-  });
-
-  guestAccessBtn?.addEventListener('click', () => {
-    closeAuthModal({ activateGuest: true, guestMessage: getGuestStatusMessage() });
-  });
-
-  if (authModal) {
-    authModal.addEventListener('click', (event) => {
-      if (event.target === authModal) {
-        closeAuthModal({ activateGuest: true });
-      }
-    });
-  }
 
   logoutBtn?.addEventListener('click', () => {
     handleLogout();
@@ -7791,7 +7783,7 @@ function bootstrap() {
   const jumpToObjectiveBtn = document.getElementById('jumpToObjective');
   const currentObjectiveSection = document.getElementById('current-objective');
   const currentObjectiveHeading = document.getElementById('currentObjectiveHeading');
-  const authModal = document.getElementById('authModal');
+  const authModal = document.getElementById('auth-modal');
   const sosModal = document.getElementById('sosModal');
   const sosDialog = sosModal?.querySelector('.sos-dialog');
   const sosClose = document.getElementById('sosClose');
@@ -8056,8 +8048,9 @@ function bootstrap() {
   document.addEventListener('keydown', (event) => {
     if (event.key !== 'Escape') return;
 
-    if (authModal && !authModal.hidden) {
-      if (closeAuthModal({ activateGuest: true })) return;
+    const controller = window.__authModalController;
+    if (controller?.isOpen()) {
+      if (closeAuthModal({ activateGuest: true, reason: 'escape' })) return;
     }
 
     if (explorerModal && !explorerModal.hidden) {
