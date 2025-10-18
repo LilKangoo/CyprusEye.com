@@ -3448,7 +3448,7 @@ function renderAttractionsCatalog(filterValue = '') {
 
   filtered.forEach((place) => {
     const li = document.createElement('li');
-    li.className = 'attractions-card';
+    li.className = 'card attractions-card';
     if (state.visited.has(place.id)) {
       li.classList.add('visited');
     }

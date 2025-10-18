@@ -110,7 +110,7 @@
         <a class="header-coupon-button" href="kupon.html">Kupon</a>
         <div class="header-actions" aria-label="Szybkie działania">
           <div class="header-actions-primary" data-tour-target="quick-actions">
-            <button class="primary" type="button" id="jumpToObjective" data-i18n="header.jumpToObjective">
+            <button class="btn btn-primary primary" type="button" id="jumpToObjective" data-i18n="header.jumpToObjective">
               Skocz do aktualnego celu
             </button>
             <a class="ghost header-link" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
@@ -126,7 +126,7 @@
             </button>
             <button
               id="sosToggle"
-              class="danger"
+              class="btn btn-danger danger"
               type="button"
               aria-haspopup="dialog"
               aria-controls="sosModal"
@@ -139,14 +139,14 @@
       </div>
     </div>
     <div class="header-metrics" role="list" aria-live="polite">
-      <a class="metric-card metric-card-link" role="listitem" href="achievements.html">
+      <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
         <p class="metric-label" data-i18n="metrics.level.label">Poziom</p>
         <p class="metric-value" id="headerLevelNumber">1</p>
         <p class="metric-subtext" id="headerLevelStatus" data-i18n="metrics.level.subtext">
           Zdobądź pierwsze check-iny, aby awansować!
         </p>
       </a>
-      <a class="metric-card metric-card-link" role="listitem" href="achievements.html">
+      <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
         <p class="metric-label" data-i18n="metrics.xp.label">Doświadczenie</p>
         <p class="metric-value"><span id="headerXpPoints">0</span> XP</p>
         <div class="metric-progress" role="img" aria-label="Postęp doświadczenia">
@@ -158,7 +158,7 @@
           </p>
         </div>
       </a>
-      <a class="metric-card metric-card-link" role="listitem" href="achievements.html">
+      <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
         <p class="metric-label" data-i18n="metrics.badges.label">Odznaki</p>
         <p class="metric-value" id="headerBadgesCount">0</p>
         <p class="metric-subtext" data-i18n="metrics.badges.subtext">Odkrywaj atrakcje i kolekcjonuj pamiątki.</p>
@@ -249,7 +249,7 @@
     <h1 class="sr-only" data-i18n="home.pageTitle">CyprusEye Quest – interaktywny przewodnik po Cyprze</h1>
     <div class="layout app-view" id="adventureView" role="tabpanel" aria-labelledby="headerAdventureTab">
       <div class="primary-column">
-        <section id="current-objective" class="map-panel surface-card" data-tour-target="map-section">
+        <section id="current-objective" class="map-panel card surface-card" data-tour-target="map-section">
           <h2 id="currentObjectiveHeading" class="sr-only" tabindex="-1" data-i18n="objective.title">
             Aktualna lokalizacja
           </h2>
@@ -289,7 +289,7 @@
             <div class="objective-navigation">
               <button
                 type="button"
-                class="secondary"
+                class="btn btn-secondary secondary"
                 id="previousPlaceBtn"
                 aria-label="Przejdź do poprzedniego miejsca"
                 data-i18n="objective.previous"
@@ -298,7 +298,7 @@
               </button>
               <button
                 type="button"
-                class="secondary"
+                class="btn btn-secondary secondary"
                 id="nextPlaceBtn"
                 aria-label="Przejdź do następnego miejsca"
                 data-i18n="objective.next"
@@ -306,7 +306,7 @@
                 Następne miejsce →
               </button>
             </div>
-            <button id="checkInBtn" class="primary" data-i18n="objective.checkIn">Zamelduj się i zdobądź XP</button>
+            <button id="checkInBtn" class="btn btn-primary primary" data-i18n="objective.checkIn">Zamelduj się i zdobądź XP</button>
             <p class="hint" data-i18n="objective.hint">
               Wskazówka: pozwól aplikacji użyć Twojej lokalizacji, aby potwierdzić, że jesteś na miejscu.
             </p>
@@ -316,9 +316,9 @@
       </div>
 
       <aside class="sidebar-column">
-        <section class="adventure-shortcuts" aria-label="Szybkie przejścia" data-tour-target="shortcut-cards">
+        <section class="grid adventure-shortcuts" aria-label="Szybkie przejścia" data-tour-target="shortcut-cards">
           <a
-            class="adventure-shortcut-card surface-card"
+            class="adventure-shortcut-card card surface-card"
             id="openPackingFromAdventure"
             data-tour-target="packing-card"
             href="packing.html"
@@ -330,12 +330,12 @@
             <p data-i18n="shortcuts.packing.description">
               Zaplanuj walizkę w dedykowanej karcie z listami rzeczy na różne sezony podróży.
             </p>
-            <span class="adventure-shortcut-cta secondary" data-i18n="shortcuts.packing.action">
+            <span class="adventure-shortcut-cta btn btn-secondary secondary" data-i18n="shortcuts.packing.action">
               Przejdź do planera
             </span>
           </a>
           <a
-            class="adventure-shortcut-card surface-card"
+            class="adventure-shortcut-card card surface-card"
             id="openTasksFromAdventure"
             data-tour-target="tasks-card"
             href="tasks.html"
@@ -347,12 +347,12 @@
             <p data-i18n="shortcuts.tasks.description">
               Przejrzyj wyzwania przed wyjazdem i zapisuj swój postęp w osobnej zakładce.
             </p>
-            <span class="adventure-shortcut-cta secondary" data-i18n="shortcuts.tasks.action">
+            <span class="adventure-shortcut-cta btn btn-secondary secondary" data-i18n="shortcuts.tasks.action">
               Otwórz zadania
             </span>
           </a>
           <a
-            class="adventure-shortcut-card surface-card"
+            class="adventure-shortcut-card card surface-card"
             href="/kupon"
             role="button"
             tabindex="0"
@@ -364,12 +364,12 @@
             <p data-i18n="coupon.subtitle">
               Najprostszy sposób, by skorzystać z naszej oferty — bez formalności.
             </p>
-            <span class="adventure-shortcut-cta secondary" data-i18n="coupon.cta">
+            <span class="adventure-shortcut-cta btn btn-secondary secondary" data-i18n="coupon.cta">
               Kup kupon
             </span>
           </a>
           <a
-            class="adventure-shortcut-card surface-card"
+            class="adventure-shortcut-card card surface-card"
             id="openCarRentalFromAdventure"
             data-tour-target="car-card"
             href="car-rental.html"
@@ -380,15 +380,15 @@
             <p data-i18n="shortcuts.car.description">
               Poznaj całą flotę, porównaj ceny i zarezerwuj samochód na dedykowanej stronie.
             </p>
-            <span class="adventure-shortcut-cta secondary" data-i18n="shortcuts.car.action">
+            <span class="adventure-shortcut-cta btn btn-secondary secondary" data-i18n="shortcuts.car.action">
               Przejdź do wynajmu
             </span>
           </a>
         </section>
       </aside>
 
-      <section class="discovery-grid" aria-label="Atrakcje i postępy">
-        <section class="locations-panel surface-card">
+      <section class="grid discovery-grid" aria-label="Atrakcje i postępy">
+        <section class="locations-panel card surface-card">
           <div class="discovery-header">
             <div>
               <h2 data-i18n="discovery.title">Atrakcje do odkrycia</h2>
@@ -400,7 +400,7 @@
               <button type="button" class="ghost" id="locationsToggle" data-i18n="discovery.toggle">
                 Pokaż więcej atrakcji
               </button>
-              <a class="secondary" href="attractions.html" data-i18n="discovery.catalog">📚 Katalog atrakcji</a>
+              <a class="btn btn-secondary secondary" href="attractions.html" data-i18n="discovery.catalog">📚 Katalog atrakcji</a>
             </div>
           </div>
           <ul id="locationsList" class="locations-list locations-list-preview" aria-live="polite"></ul>
@@ -525,7 +525,7 @@
     </section>
     <section
       id="services"
-      class="services-panel surface-card services-panel-footer"
+      class="services-panel card surface-card services-panel-footer"
       aria-label="Planowanie podróży i inspiracje"
     >
       <h2 data-i18n="services.title">Odkryj z nami Cypr</h2>
@@ -538,7 +538,7 @@
         <li data-i18n="services.itemTwo">Wycieczki z przewodnikiem w miejscach, które już odblokowałeś.</li>
         <li data-i18n="services.itemThree">Kontakt z nami prosto z aplikacji – kliknij przycisk poniżej.</li>
       </ul>
-      <a class="primary" href="https://wakacjecypr.com" target="_blank" rel="noopener" data-i18n="services.cta"
+      <a class="btn btn-primary primary" href="https://wakacjecypr.com" target="_blank" rel="noopener" data-i18n="services.cta"
         >Poznaj nasze usługi</a
       >
     </section>
@@ -713,7 +713,7 @@
           <input id="loginUsername" name="loginUsername" type="text" autocomplete="username" required />
           <label for="loginPassword" data-i18n="auth.login.password">Hasło</label>
           <input id="loginPassword" name="loginPassword" type="password" autocomplete="current-password" required />
-          <button type="submit" class="primary" data-i18n="auth.login.submit">Zaloguj się</button>
+          <button type="submit" class="btn btn-primary primary" data-i18n="auth.login.submit">Zaloguj się</button>
         </form>
 
         <div class="auth-divider" role="separator" aria-hidden="true">
@@ -736,7 +736,7 @@
             minlength="8"
           />
           <p class="form-hint" data-i18n="auth.register.hint">Twoje obecne postępy zostaną zapisane na nowym koncie.</p>
-          <button type="submit" class="secondary" data-i18n="auth.register.submit">Załóż konto</button>
+          <button type="submit" class="btn btn-secondary secondary" data-i18n="auth.register.submit">Załóż konto</button>
         </form>
       </div>
 
@@ -744,7 +744,7 @@
         <div class="auth-guest">
           <button
             type="button"
-            class="secondary guest-button"
+            class="btn btn-secondary secondary guest-button"
             id="guestAccessBtn"
             data-i18n="auth.guest.button"
           >
@@ -907,7 +907,7 @@
           <p class="form-hint" data-i18n="account.username.hint">
             Zmiana zapisze się od razu i będzie widoczna w przywitaniu.
           </p>
-          <button type="submit" class="secondary" data-i18n="account.username.submit">Zapisz nazwę</button>
+          <button type="submit" class="btn btn-secondary secondary" data-i18n="account.username.submit">Zapisz nazwę</button>
         </form>
 
         <form id="accountPasswordForm" class="account-form">
@@ -939,7 +939,7 @@
             minlength="8"
           />
           <p class="form-hint" data-i18n="account.password.hint">Hasło powinno mieć co najmniej 8 znaków.</p>
-          <button type="submit" class="secondary" data-i18n="account.password.submit">Zmień hasło</button>
+          <button type="submit" class="btn btn-secondary secondary" data-i18n="account.password.submit">Zmień hasło</button>
         </form>
 
         <section class="account-reset">
@@ -947,7 +947,7 @@
           <p data-i18n="account.reset.description">
             Wyzeruj zdobyte odznaki oraz doświadczenie i rozpocznij eksplorację od poziomu pierwszego.
           </p>
-          <button type="button" class="danger" id="accountResetProgress" data-i18n="account.reset.action">
+          <button type="button" class="btn btn-danger danger" id="accountResetProgress" data-i18n="account.reset.action">
             🔄 Zresetuj postęp
           </button>
         </section>
