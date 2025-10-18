@@ -58,6 +58,7 @@
   <meta name="ce-auth" content="on" />
   <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co" />
   <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM" />
+  <meta name="supabase-publishable" content="sb_publishable_QdxNGCb6LYD-6ywFrjCrjg_Oa7yDGTk" />
   <script src="https://esm.sh/@supabase/supabase-js@2" defer></script>
   <script type="module" src="/assets/js/auth/boot.js" defer></script>
 </head>
@@ -92,10 +93,10 @@
         <div class="user-menu" id="userMenu" hidden>
           <span id="userGreeting" aria-live="polite"></span>
           <div class="user-menu-actions">
-            <button type="button" class="ghost" id="accountSettingsBtn" data-require-auth data-i18n="header.accountSettings">
-              ⚙️ Ustawienia konta
+            <button type="button" class="ghost" id="accountSettingsBtn" data-i18n="header.accountSettings">
+              📊 Statystyki i ustawienia
             </button>
-            <button type="button" class="ghost" id="logoutBtn" data-i18n="header.logout">Wyloguj</button>
+            <button type="button" class="ghost" id="logoutBtn" data-i18n="header.logout" hidden>Wyloguj</button>
           </div>
         </div>
       </div>
@@ -698,11 +699,115 @@
   >
     <div class="modal__dialog" tabindex="-1" role="document">
       <button class="modal__close" type="button" aria-label="Zamknij" data-close>×</button>
-      <h2 id="auth-title">Zaloguj się</h2>
-      <div class="modal__actions">
-        <button class="btn btn--primary" data-auth="signin">Zaloguj</button>
-        <button class="btn btn--secondary" data-auth="guest">Graj jako gość</button>
+      <h2 id="auth-title">Dołącz do przygody</h2>
+      <p class="auth-intro">Zaloguj się, utwórz konto lub graj jako gość.</p>
+      <div class="auth-modal__tabs" role="tablist">
+        <button
+          type="button"
+          class="auth-modal__tab is-active"
+          role="tab"
+          id="authTabLogin"
+          aria-selected="true"
+          aria-controls="authPanelLogin"
+          data-auth-tab="login"
+        >
+          Logowanie
+        </button>
+        <button
+          type="button"
+          class="auth-modal__tab"
+          role="tab"
+          id="authTabRegister"
+          aria-selected="false"
+          aria-controls="authPanelRegister"
+          data-auth-tab="register"
+          tabindex="-1"
+        >
+          Rejestracja
+        </button>
+        <button
+          type="button"
+          class="auth-modal__tab"
+          role="tab"
+          id="authTabGuest"
+          aria-selected="false"
+          aria-controls="authPanelGuest"
+          data-auth-tab="guest"
+          tabindex="-1"
+        >
+          Gość
+        </button>
       </div>
+      <div class="auth-modal__panels">
+        <section
+          id="authPanelLogin"
+          class="auth-modal__panel is-active"
+          role="tabpanel"
+          aria-labelledby="authTabLogin"
+          data-auth-panel="login"
+        >
+          <form id="loginForm" class="auth-form" novalidate>
+            <label for="loginEmail">Adres e-mail</label>
+            <input id="loginEmail" name="email" type="email" required autocomplete="email" />
+            <label for="loginPassword">Hasło</label>
+            <input
+              id="loginPassword"
+              name="password"
+              type="password"
+              required
+              autocomplete="current-password"
+            />
+            <button type="submit" class="btn btn--primary">Zaloguj się</button>
+          </form>
+        </section>
+        <section
+          id="authPanelRegister"
+          class="auth-modal__panel"
+          role="tabpanel"
+          aria-labelledby="authTabRegister"
+          data-auth-panel="register"
+          hidden
+        >
+          <form id="registerForm" class="auth-form" novalidate>
+            <label for="registerEmail">Adres e-mail</label>
+            <input id="registerEmail" name="email" type="email" required autocomplete="email" />
+            <label for="registerPassword">Hasło</label>
+            <input
+              id="registerPassword"
+              name="password"
+              type="password"
+              required
+              minlength="8"
+              autocomplete="new-password"
+            />
+            <label for="registerPasswordConfirm">Powtórz hasło</label>
+            <input
+              id="registerPasswordConfirm"
+              name="passwordConfirm"
+              type="password"
+              required
+              minlength="8"
+              autocomplete="new-password"
+            />
+            <p class="form-hint">Po rejestracji sprawdź skrzynkę e-mail, aby potwierdzić konto.</p>
+            <button type="submit" class="btn btn--primary">Utwórz konto</button>
+          </form>
+        </section>
+        <section
+          id="authPanelGuest"
+          class="auth-modal__panel"
+          role="tabpanel"
+          aria-labelledby="authTabGuest"
+          data-auth-panel="guest"
+          hidden
+        >
+          <div class="auth-guest">
+            <p>Możesz grać jako gość – postęp zapisze się tylko na tym urządzeniu.</p>
+            <button type="button" class="btn btn--secondary" id="guestPlayButton">Graj jako gość</button>
+          </div>
+        </section>
+      </div>
+      <p id="authMessage" class="auth-message" role="status" aria-live="polite"></p>
     </div>
   </div>
 
@@ -832,71 +937,139 @@
     <div class="account-dialog">
       <header class="account-header">
         <div>
-          <h2 id="accountTitle" data-i18n="account.title">Ustawienia konta</h2>
-          <p data-i18n="account.subtitle">Zaktualizuj swoje dane logowania lub rozpocznij przygodę od nowa.</p>
+          <h2 id="accountTitle">Panel statystyk</h2>
+          <p id="accountSubtitle">Przeglądaj swoje postępy, zmieniaj hasło i kontroluj przygodę.</p>
         </div>
         <button
           type="button"
           class="icon-button"
           id="accountClose"
           aria-label="Zamknij ustawienia konta"
-          data-i18n="account.close"
         >
           ✕
         </button>
       </header>
 
-      <div class="account-content">
-        <form id="accountUsernameForm" class="account-form">
-          <h3 data-i18n="account.username.title">Zmień nazwę użytkownika</h3>
-          <label for="accountUsername" data-i18n="account.username.label">Nowa nazwa użytkownika</label>
-          <input id="accountUsername" name="accountUsername" type="text" autocomplete="username" required />
-          <p class="form-hint" data-i18n="account.username.hint">
-            Zmiana zapisze się od razu i będzie widoczna w przywitaniu.
-          </p>
-          <button type="submit" class="btn btn-secondary secondary" data-i18n="account.username.submit">Zapisz nazwę</button>
-        </form>
-
-        <form id="accountPasswordForm" class="account-form">
-          <h3 data-i18n="account.password.title">Zaktualizuj hasło</h3>
-          <label for="accountCurrentPassword" data-i18n="account.password.current">Obecne hasło</label>
-          <input
-            id="accountCurrentPassword"
-            name="accountCurrentPassword"
-            type="password"
-            autocomplete="current-password"
-            required
-          />
-          <label for="accountNewPassword" data-i18n="account.password.new">Nowe hasło</label>
-          <input
-            id="accountNewPassword"
-            name="accountNewPassword"
-            type="password"
-            autocomplete="new-password"
-            required
-            minlength="8"
-          />
-          <label for="accountConfirmPassword" data-i18n="account.password.confirm">Powtórz nowe hasło</label>
-          <input
-            id="accountConfirmPassword"
-            name="accountConfirmPassword"
-            type="password"
-            autocomplete="new-password"
-            required
-            minlength="8"
-          />
-          <p class="form-hint" data-i18n="account.password.hint">Hasło powinno mieć co najmniej 8 znaków.</p>
-          <button type="submit" class="btn btn-secondary secondary" data-i18n="account.password.submit">Zmień hasło</button>
-        </form>
-
-        <section class="account-reset">
-          <h3 data-i18n="account.reset.title">Restart gry</h3>
-          <p data-i18n="account.reset.description">
-            Wyzeruj zdobyte odznaki oraz doświadczenie i rozpocznij eksplorację od poziomu pierwszego.
-          </p>
-          <button type="button" class="btn btn-danger danger" id="accountResetProgress" data-i18n="account.reset.action">
-            🔄 Zresetuj postęp
+      <div class="account-body">
+        <div class="account-tabs" role="tablist">
+          <button
+            type="button"
+            class="account-tab is-active"
+            role="tab"
+            aria-selected="true"
+            aria-controls="accountPanelStats"
+            data-account-tab="stats"
+            id="accountTabStats"
+          >
+            📈 Statystyki
           </button>
+          <button
+            type="button"
+            class="account-tab"
+            role="tab"
+            aria-selected="false"
+            aria-controls="accountPanelSecurity"
+            data-account-tab="security"
+            id="accountTabSecurity"
+            tabindex="-1"
+          >
+            🔐 Bezpieczeństwo
+          </button>
+        </div>
+
+        <section
+          class="account-panel is-active"
+          id="accountPanelStats"
+          role="tabpanel"
+          aria-labelledby="accountTabStats"
+          data-account-panel="stats"
+        >
+          <div class="account-stats-grid">
+            <article class="account-stat-card">
+              <h3>Poziom</h3>
+              <p class="account-stat-value" id="accountStatLevel">1</p>
+              <p class="account-stat-label">Aktualny poziom przygody</p>
+            </article>
+            <article class="account-stat-card">
+              <h3>Doświadczenie</h3>
+              <p class="account-stat-value" id="accountStatXp">0 XP</p>
+              <p class="account-stat-label">Łącznie zdobytych punktów</p>
+            </article>
+            <article class="account-stat-card">
+              <h3>Odznaki</h3>
+              <p class="account-stat-value" id="accountStatBadges">0</p>
+              <p class="account-stat-label">Zebrane unikalne odznaki</p>
+            </article>
+            <article class="account-stat-card">
+              <h3>Odwiedzone miejsca</h3>
+              <p class="account-stat-value" id="accountStatVisited">0</p>
+              <p class="account-stat-label">Liczba odkrytych atrakcji</p>
+            </article>
+            <article class="account-stat-card">
+              <h3>Ukończone zadania</h3>
+              <p class="account-stat-value" id="accountStatTasks">0</p>
+              <p class="account-stat-label">Wykonane misje i checklisty</p>
+            </article>
+            <article class="account-stat-card">
+              <h3>Passa dnia</h3>
+              <p class="account-stat-value" id="accountStatStreak">0</p>
+              <p class="account-stat-label">Aktualna / najlepsza: <span id="accountStatBestStreak">0</span></p>
+            </article>
+          </div>
+
+          <div class="account-reset-card">
+            <h3>Wyzeruj statystyki</h3>
+            <p id="accountResetDescription">
+              Rozpocznij przygodę od nowa – reset obejmie doświadczenie, odznaki, odwiedzone miejsca i zadania.
+            </p>
+            <button type="button" class="btn btn-danger danger" id="accountResetProgress">
+              🔄 Zresetuj postęp
+            </button>
+          </div>
+        </section>
+
+        <section
+          class="account-panel"
+          id="accountPanelSecurity"
+          role="tabpanel"
+          aria-labelledby="accountTabSecurity"
+          data-account-panel="security"
+          hidden
+        >
+          <form id="accountPasswordForm" class="account-form account-form--vertical">
+            <h3>Zmień hasło</h3>
+            <p class="form-hint">Aby zaktualizować hasło, potwierdź obecne i podaj nowe (minimum 8 znaków).</p>
+            <label for="accountCurrentPassword">Obecne hasło</label>
+            <input
+              id="accountCurrentPassword"
+              name="accountCurrentPassword"
+              type="password"
+              autocomplete="current-password"
+              required
+            />
+            <label for="accountNewPassword">Nowe hasło</label>
+            <input
+              id="accountNewPassword"
+              name="accountNewPassword"
+              type="password"
+              autocomplete="new-password"
+              required
+              minlength="8"
+            />
+            <label for="accountConfirmPassword">Powtórz nowe hasło</label>
+            <input
+              id="accountConfirmPassword"
+              name="accountConfirmPassword"
+              type="password"
+              autocomplete="new-password"
+              required
+              minlength="8"
+            />
+            <button type="submit" class="btn btn-secondary secondary">Zmień hasło</button>
+          </form>
+          <p class="account-guest-note" id="accountGuestPasswordNote" hidden>
+            Goście nie posiadają haseł – zaloguj się, aby zmienić dane konta.
+          </p>
         </section>
       </div>
 
