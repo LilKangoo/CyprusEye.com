@@ -169,25 +169,25 @@
     <nav class="header-tabs" role="tablist" aria-label="Nawigacja główna">
       <button
         type="button"
-        class="header-tab is-active"
+        class="header-tab"
         id="headerAdventureTab"
         role="tab"
-        aria-selected="true"
+        aria-selected="false"
         aria-controls="adventureView"
-        tabindex="0"
+        tabindex="-1"
+        data-page-url="/index.html"
         data-i18n="nav.adventure"
       >
         🎯 Twoja przygoda
       </button>
       <button
         type="button"
-        class="header-tab"
+        class="header-tab is-active"
         id="headerPackingTab"
         role="tab"
-        aria-selected="false"
+        aria-selected="true"
         aria-controls="packingView"
-        tabindex="-1"
-        data-page-url="packing.html"
+        tabindex="0"
         data-i18n="nav.packing"
       >
         🎒 Planer pakowania
@@ -247,144 +247,7 @@
 
   <main>
     <h1 class="sr-only" data-i18n="packing.pageTitle">Planer pakowania na wakacje na Cyprze</h1>
-    <div class="layout app-view" id="adventureView" role="tabpanel" aria-labelledby="headerAdventureTab">
-      <div class="primary-column">
-        <section class="map-panel card surface-card">
-          <div class="map-accessibility-actions">
-            <a class="map-skip-link" href="#mapSkipTarget" data-i18n="map.skipLink">
-              Pomiń interaktywną mapę
-            </a>
-            <a
-              id="mapGoogleLink"
-              class="map-google-link"
-              href="https://maps.google.com"
-              target="_blank"
-              rel="noopener"
-              data-i18n="objective.mapLink"
-            >
-              Zobacz na Mapach Google
-            </a>
-          </div>
-          <div id="map" aria-label="Interaktywna mapa atrakcji"></div>
-          <p
-            id="mapSkipTarget"
-            class="sr-only map-skip-target"
-            tabindex="-1"
-            data-i18n="map.skipTarget"
-          >
-            Pominięto mapę. Przejdź do kolejnych informacji o lokalizacji.
-          </p>
-          <div class="current-objective" id="currentObjective" hidden>
-            <h2 data-i18n="objective.title">Aktualna lokalizacja</h2>
-            <p id="objectiveTitle"></p>
-            <p id="objectiveDescription"></p>
-            <p>
-              <a id="objectiveLink" href="#" target="_blank" rel="noopener" data-i18n="objective.mapLink">
-                Zobacz na Mapach Google
-              </a>
-            </p>
-            <div class="objective-navigation">
-              <button
-                type="button"
-                class="btn btn-secondary secondary"
-                id="previousPlaceBtn"
-                aria-label="Przejdź do poprzedniego miejsca"
-                data-i18n="objective.previous"
-              >
-                ← Poprzednie miejsce
-              </button>
-              <button
-                type="button"
-                class="btn btn-secondary secondary"
-                id="nextPlaceBtn"
-                aria-label="Przejdź do następnego miejsca"
-                data-i18n="objective.next"
-              >
-                Następne miejsce →
-              </button>
-            </div>
-            <button id="checkInBtn" class="btn btn-primary primary" data-i18n="objective.checkIn">Zamelduj się i zdobądź XP</button>
-            <p class="hint" data-i18n="objective.hint">
-              Wskazówka: pozwól aplikacji użyć Twojej lokalizacji, aby potwierdzić, że jesteś na miejscu.
-            </p>
-            <p class="status" id="checkInStatus"></p>
-          </div>
-        </section>
-      </div>
-
-      <aside class="sidebar-column">
-        <section class="grid adventure-shortcuts" aria-label="Szybkie przejścia">
-          <a
-            class="adventure-shortcut-card card surface-card"
-            id="openPackingFromAdventure"
-            href="packing.html"
-            role="button"
-            tabindex="0"
-            data-page-url="packing.html"
-          >
-            <h2 data-i18n="shortcuts.packing.title">🎒 Planowanie pakowania</h2>
-            <p data-i18n="shortcuts.packing.description">
-              Zaplanuj walizkę w dedykowanej karcie z listami rzeczy na różne sezony podróży.
-            </p>
-            <span class="adventure-shortcut-cta btn btn-secondary secondary" data-i18n="shortcuts.packing.action">
-              Przejdź do planera
-            </span>
-          </a>
-          <a
-            class="adventure-shortcut-card card surface-card"
-            id="openTasksFromAdventure"
-            href="tasks.html"
-            role="button"
-            tabindex="0"
-            data-page-url="tasks.html"
-          >
-            <h2 data-i18n="shortcuts.tasks.title">✅ Lista zadań</h2>
-            <p data-i18n="shortcuts.tasks.description">
-              Przejrzyj wyzwania przed wyjazdem i zapisuj swój postęp w osobnej zakładce.
-            </p>
-            <span class="adventure-shortcut-cta btn btn-secondary secondary" data-i18n="shortcuts.tasks.action">
-              Otwórz zadania
-            </span>
-          </a>
-          <a
-            class="adventure-shortcut-card card surface-card"
-            href="car-rental.html"
-            role="button"
-            tabindex="0"
-          >
-            <h2 data-i18n="shortcuts.car.title">🚗 Wynajem auta na Cyprze</h2>
-            <p data-i18n="shortcuts.car.description">
-              Poznaj całą flotę, porównaj ceny i zarezerwuj samochód na dedykowanej stronie.
-            </p>
-            <span class="adventure-shortcut-cta btn btn-secondary secondary" data-i18n="shortcuts.car.action">
-              Przejdź do wynajmu
-            </span>
-          </a>
-        </section>
-      </aside>
-
-      <section class="grid discovery-grid" aria-label="Atrakcje i postępy">
-        <section class="locations-panel card surface-card">
-          <div class="discovery-header">
-            <div>
-              <h2 data-i18n="discovery.title">Atrakcje do odkrycia</h2>
-              <p class="discovery-subtitle" data-i18n="discovery.subtitle">
-                Przeglądaj miejsca z gry i planuj kolejne check-iny z mapy.
-              </p>
-            </div>
-            <div class="discovery-actions">
-              <button type="button" class="ghost" id="locationsToggle" data-i18n="discovery.toggle">
-                Pokaż więcej atrakcji
-              </button>
-              <a class="btn btn-secondary secondary" href="attractions.html" data-i18n="discovery.catalog">📚 Katalog atrakcji</a>
-            </div>
-          </div>
-          <ul id="locationsList" class="locations-list locations-list-preview" aria-live="polite"></ul>
-        </section>
-      </section>
-
-      </div>
-
+    
     <section
       id="packingView"
       class="utility-view app-view"
@@ -436,70 +299,6 @@
     </section>
 
     <section
-      id="tasksView"
-      class="utility-view app-view"
-      role="tabpanel"
-      aria-labelledby="headerTasksTab"
-      hidden
-    >
-      <header class="utility-view-header">
-        <div>
-          <h2 id="tasksViewTitle" data-i18n="tasks.header.title">Zadania do wykonania</h2>
-          <p data-i18n="tasks.header.subtitle">
-            Przygotuj się do wyjazdu dzięki misjom, które dodadzą Ci XP i uporządkują przygotowania.
-          </p>
-        </div>
-        <a
-          class="ghost"
-          id="openAdventureFromTasks"
-          data-back-home-link="true"
-          data-i18n="tasks.header.back"
-          href="/index.html"
-        >
-          ← Wróć do przygody
-        </a>
-      </header>
-      <section class="tasks-panel" aria-labelledby="tasksViewTitle">
-        <p class="tasks-hint" data-i18n="tasks.hint">
-          Wypełniaj zadania, aby zdobywać dodatkowe XP i planować swoje cypryjskie przygody.
-        </p>
-        <ul id="tasksList" class="tasks-list"></ul>
-      </section>
-    </section>
-    <section
-      id="mediaTripsView"
-      class="utility-view app-view"
-      role="tabpanel"
-      aria-labelledby="headerMediaTripsTab"
-      hidden
-    >
-      <header class="utility-view-header">
-        <div>
-          <h2 id="mediaTripsTitle" data-i18n="mediaTrips.header.title">VIP wyjazdy foto i video</h2>
-          <p data-i18n="mediaTrips.header.subtitle">
-            Zarezerwuj indywidualne pakiety foto lub video z dedykowaną ekipą WakacjeCypr.com i od razu
-            poznaj koszt na osobę dla swojej grupy.
-          </p>
-        </div>
-        <a
-          class="ghost"
-          id="openAdventureFromMediaTrips"
-          data-back-home-link="true"
-          data-i18n="mediaTrips.header.back"
-          href="/index.html"
-        >
-          ← Wróć do przygody
-        </a>
-      </header>
-      <section class="media-trips-panel" aria-labelledby="mediaTripsTitle">
-        <p class="media-trips-intro" data-i18n="mediaTrips.intro">
-          Wybierz wariant foto lub video, wpisz liczbę uczestników i zobacz łączny koszt oraz cenę na osobę.
-          Do 4 osób obowiązuje cena bazowa, kolejne dodaj według kalkulatora poniżej.
-        </p>
-        <div id="mediaTripsList" class="media-trips-list" role="list"></div>
-      </section>
-    </section>
-    <section
       id="services"
       class="services-panel card surface-card services-panel-footer"
       aria-label="Planowanie podróży i inspiracje"
@@ -523,23 +322,23 @@
   <nav class="mobile-tabbar" aria-label="Dolna nawigacja">
     <button
       type="button"
-      class="mobile-tabbar-btn is-active"
+      class="mobile-tabbar-btn"
       id="mobileAdventureTab"
       aria-controls="adventureView"
       data-target="adventureView"
-      aria-pressed="true"
+      aria-pressed="false"
+      data-page-url="/index.html"
     >
       <span class="mobile-tabbar-icon" aria-hidden="true">🎯</span>
       <span class="mobile-tabbar-label" data-i18n="mobile.nav.adventure">Przygoda</span>
     </button>
     <button
       type="button"
-      class="mobile-tabbar-btn"
+      class="mobile-tabbar-btn is-active"
       id="mobilePackingTab"
       aria-controls="packingView"
       data-target="packingView"
-      aria-pressed="false"
-      data-page-url="packing.html"
+      aria-pressed="true"
     >
       <span class="mobile-tabbar-icon" aria-hidden="true">🎒</span>
       <span class="mobile-tabbar-label" data-i18n="mobile.nav.packing">Pakowanie</span>
