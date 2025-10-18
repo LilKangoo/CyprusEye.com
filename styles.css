@@ -1183,14 +1183,14 @@ textarea:focus-visible {
   }
 }
 
-.brand-title h1 {
+.brand-title .brand-name {
   margin: 0;
   font-size: clamp(2.15rem, 5vw, 3.65rem);
   font-weight: 700;
   letter-spacing: -0.02em;
 }
 
-.brand-title h1 span {
+.brand-title .brand-name span {
   color: #fef3c7;
 }
 
@@ -5976,7 +5976,7 @@ a:focus-visible {
     width: 58px;
   }
 
-  .brand-title h1 {
+  .brand-title .brand-name {
     font-size: 1.55rem;
   }
 
@@ -6179,7 +6179,7 @@ a:focus-visible {
     width: 52px;
   }
 
-  .brand-title h1 {
+  .brand-title .brand-name {
     font-size: 1.4rem;
   }
 
