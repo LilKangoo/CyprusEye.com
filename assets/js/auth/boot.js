@@ -7,10 +7,15 @@ function getMeta(name) {
   return meta ? meta.content.trim() : "";
 }
 
+function exposeAuthApi(api) {
+  window.CE_AUTH = api;
+  document.dispatchEvent(new CustomEvent('ce-auth-ready', { detail: api }));
+}
+
 let supabaseClient = null;
 
 if (!enabled) {
-  window.CE_AUTH = { enabled: false };
+  exposeAuthApi({ enabled: false });
 } else {
   const SUPABASE_URL = getMeta("supabase-url");
   const SUPABASE_ANON = getMeta("supabase-anon");
@@ -18,10 +23,10 @@ if (!enabled) {
 
   if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(SUPABASE_URL)) {
     console.error("Konfiguracja Supabase: nieprawidłowy URL");
-    window.CE_AUTH = { enabled: false };
+    exposeAuthApi({ enabled: false });
   } else if (!SUPABASE_ANON || SUPABASE_ANON.split(".").length !== 3) {
     console.error("Konfiguracja Supabase: brak lub zły anon key");
-    window.CE_AUTH = { enabled: false };
+    exposeAuthApi({ enabled: false });
   } else {
     supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON, {
       auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
@@ -101,7 +106,7 @@ if (!enabled) {
     }
     notifyAuthListeners(initialUser);
 
-    window.CE_AUTH = {
+    exposeAuthApi({
       enabled: true,
       supabase: supabaseClient,
       session,
@@ -113,7 +118,7 @@ if (!enabled) {
         listeners.add(callback);
         return () => listeners.delete(callback);
       },
-    };
+    });
 
     function initAuth() {
       bindAuthLinks();
