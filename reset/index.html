@@ -1,0 +1,16 @@
+<!doctype html><meta charset="utf-8"><title>Set new password</title>
+<form id="setpw"><label>New password
+  <input type="password" name="password" required minlength="6" autocomplete="new-password">
+</label><button type="submit">Set new password</button></form>
+<script type="module">
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+const u = 'https://daoohnbnnowmmcizgvrq.supabase.co';
+const k = document.querySelector('meta[name="supabase-anon"]')?.content || 'REPLACED_BY_HEAD';
+const s = createClient(u, k);
+document.getElementById('setpw').addEventListener('submit', async (e)=>{
+  e.preventDefault();
+  const pw = e.target.password.value;
+  const { error } = await s.auth.updateUser({ password: pw });
+  if (error) alert(error.message); else window.location.href = '/account';
+});
+</script>
