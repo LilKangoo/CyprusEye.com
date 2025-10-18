@@ -76,7 +76,8 @@
           class="ghost"
           type="button"
           aria-haspopup="dialog"
-          aria-controls="authModal"
+          aria-controls="auth-modal"
+          data-open-auth
           data-i18n="header.login"
         >
           🔐 Zaloguj się
@@ -638,6 +639,7 @@
   <script src="js/seo.js" defer></script>
   <script src="car-rental.js" defer></script>
   <script src="app.js" defer></script>
+  <script src="assets/js/modal-auth.js" defer></script>
 
   <div
     class="explorer-modal"
@@ -679,82 +681,19 @@
   </div>
 
   <div
-    class="auth-modal"
-    id="authModal"
-    hidden
+    id="auth-modal"
+    class="modal"
     role="dialog"
     aria-modal="true"
-    aria-labelledby="authTitle"
-    aria-describedby="authDescription"
+    aria-labelledby="auth-title"
+    aria-hidden="true"
   >
-    <div class="auth-dialog">
-      <header class="auth-header">
-        <div>
-          <h2 id="authTitle" data-i18n="auth.title">Zaloguj się lub załóż konto</h2>
-          <p id="authDescription" data-i18n="auth.subtitle">
-            Zapisuj swoje statystyki i kontynuuj przygody na dowolnym urządzeniu.
-          </p>
-        </div>
-        <button
-          type="button"
-          class="icon-button"
-          id="authClose"
-          aria-label="Zamknij okno logowania"
-          data-i18n="auth.close"
-        >
-          ✕
-        </button>
-      </header>
-
-      <div class="auth-content">
-        <form id="loginForm" class="auth-form">
-          <h3 data-i18n="auth.login.title">Logowanie</h3>
-          <label for="loginUsername" data-i18n="auth.login.username">Adres e-mail lub login</label>
-          <input id="loginUsername" name="loginUsername" type="text" autocomplete="username" required />
-          <label for="loginPassword" data-i18n="auth.login.password">Hasło</label>
-          <input id="loginPassword" name="loginPassword" type="password" autocomplete="current-password" required />
-          <button type="submit" class="btn btn-primary primary" data-i18n="auth.login.submit">Zaloguj się</button>
-        </form>
-
-        <div class="auth-divider" role="separator" aria-hidden="true">
-          <span data-i18n="auth.divider">LUB</span>
-        </div>
-
-        <form id="registerForm" class="auth-form">
-          <h3 data-i18n="auth.register.title">Rejestracja</h3>
-          <label for="registerUsername" data-i18n="auth.register.username">Adres e-mail lub login</label>
-          <input id="registerUsername" name="registerUsername" type="text" autocomplete="email" required />
-          <label for="registerPassword" data-i18n="auth.register.password">Hasło</label>
-          <input id="registerPassword" name="registerPassword" type="password" autocomplete="new-password" required minlength="8" />
-          <label for="registerPasswordConfirm" data-i18n="auth.register.confirm">Powtórz hasło</label>
-          <input
-            id="registerPasswordConfirm"
-            name="registerPasswordConfirm"
-            type="password"
-            autocomplete="new-password"
-            required
-            minlength="8"
-          />
-          <p class="form-hint" data-i18n="auth.register.hint">Twoje obecne postępy zostaną zapisane na nowym koncie.</p>
-          <button type="submit" class="btn btn-secondary secondary" data-i18n="auth.register.submit">Załóż konto</button>
-        </form>
-      </div>
-
-      <div class="auth-footer">
-        <div class="auth-guest">
-          <button
-            type="button"
-            class="btn btn-secondary secondary guest-button"
-            id="guestAccessBtn"
-            data-i18n="auth.guest.button"
-          >
-            🎮 Graj jako gość
-          </button>
-          <p data-i18n="auth.guest.description">
-            Możesz korzystać z aplikacji bez konta – postępy zapiszą się na tym urządzeniu.
-          </p>
-        </div>
-        <p id="authMessage" class="auth-message" role="status" aria-live="polite"></p>
+    <div class="modal__dialog" tabindex="-1" role="document">
+      <button class="modal__close" type="button" aria-label="Zamknij" data-close>×</button>
+      <h2 id="auth-title">Zaloguj się</h2>
+      <div class="modal__actions">
+        <button class="btn btn--primary" data-auth="signin">Zaloguj</button>
+        <button class="btn btn--secondary" data-auth="guest">Graj jako gość</button>
       </div>
     </div>
   </div>
