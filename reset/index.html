@@ -1,12 +1,21 @@
-<!doctype html><meta charset="utf-8"><meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co"><meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bWNpemd2cnEiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc2MDc2OTA0OSwiZXhwIjoyMDc2MzQ1MDQ5fQ.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM"><title>Set new password</title>
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Set new password</title>
+<meta name="ce-auth" content="on">
+<meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co">
+<meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bWNpemd2cnEiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc2MDc2OTA0OSwiZXhwIjoyMDc2MzQ1MDQ5fQ.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM">
+</head>
+<body>
 <form id="setpw"><label>New password
   <input type="password" name="password" required minlength="6" autocomplete="new-password">
 </label><button type="submit">Set new password</button></form>
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-const u = 'https://daoohnbnnowmmcizgvrq.supabase.co';
-const k = document.querySelector('meta[name="supabase-anon"]')?.content || 'REPLACED_BY_HEAD';
-const s = createClient(u, k);
+const url = document.querySelector('meta[name="supabase-url"]')?.content || 'https://daoohnbnnowmmcizgvrq.supabase.co';
+const key = document.querySelector('meta[name="supabase-anon"]')?.content || 'REPLACED_BY_HEAD';
+const s = createClient(url, key);
 document.getElementById('setpw').addEventListener('submit', async (e)=>{
   e.preventDefault();
   const pw = e.target.password.value;
@@ -14,3 +23,5 @@ document.getElementById('setpw').addEventListener('submit', async (e)=>{
   if (error) alert(error.message); else window.location.href = '/account';
 });
 </script>
+</body>
+</html>
