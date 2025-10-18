@@ -1308,6 +1308,7 @@ let supabaseReadyListenerAttached = false;
 let reviews = {};
 let journalEntries = [];
 let editingJournalEntryId = null;
+let lastRenderedAccountStats = null;
 let journalEventSource = null;
 let journalStreamReconnectTimeout = null;
 let notificationsByUser = {};
@@ -2656,6 +2657,7 @@ function loadProgress() {
       applyProgressToState(savedProgress);
     }
     recalculateLevel();
+    renderAccountStats('load');
   } catch (error) {
     console.error('Nie udało się wczytać progresu:', error);
   }
@@ -3093,41 +3095,51 @@ function showLevelUpMessage(level) {
   });
 }
 
-function renderAccountStats() {
-  const levelEl = document.getElementById('accountStatLevel');
-  if (levelEl) {
-    levelEl.textContent = state.level;
+function getAccountStatsSnapshot() {
+  return {
+    level: state.level,
+    xp: state.xp,
+    badges: state.badges.length,
+    visited: state.visited.size,
+    tasks: state.tasksCompleted.size,
+    streakCurrent: state.dailyStreak.current || 0,
+    streakBest: state.dailyStreak.best || 0,
+    source: currentUserKey ? 'account' : 'guest',
+  };
+}
+
+function accountStatsSnapshotsEqual(a, b) {
+  if (!a || !b) {
+    return false;
   }
 
-  const xpEl = document.getElementById('accountStatXp');
-  if (xpEl) {
-    xpEl.textContent = `${state.xp} XP`;
-  }
+  return (
+    a.level === b.level &&
+    a.xp === b.xp &&
+    a.badges === b.badges &&
+    a.visited === b.visited &&
+    a.tasks === b.tasks &&
+    a.streakCurrent === b.streakCurrent &&
+    a.streakBest === b.streakBest &&
+    a.source === b.source
+  );
+}
 
-  const badgesEl = document.getElementById('accountStatBadges');
-  if (badgesEl) {
-    badgesEl.textContent = state.badges.length;
+function setAccountStatTextContent(id, value) {
+  const element = document.getElementById(id);
+  if (element) {
+    element.textContent = value;
   }
+}
 
-  const visitedEl = document.getElementById('accountStatVisited');
-  if (visitedEl) {
-    visitedEl.textContent = state.visited.size;
-  }
-
-  const tasksEl = document.getElementById('accountStatTasks');
-  if (tasksEl) {
-    tasksEl.textContent = state.tasksCompleted.size;
-  }
-
-  const streakEl = document.getElementById('accountStatStreak');
-  if (streakEl) {
-    streakEl.textContent = state.dailyStreak.current || 0;
-  }
-
-  const bestStreakEl = document.getElementById('accountStatBestStreak');
-  if (bestStreakEl) {
-    bestStreakEl.textContent = state.dailyStreak.best || 0;
-  }
+function applyAccountStatsSnapshot(snapshot) {
+  setAccountStatTextContent('accountStatLevel', String(snapshot.level));
+  setAccountStatTextContent('accountStatXp', `${snapshot.xp} XP`);
+  setAccountStatTextContent('accountStatBadges', String(snapshot.badges));
+  setAccountStatTextContent('accountStatVisited', String(snapshot.visited));
+  setAccountStatTextContent('accountStatTasks', String(snapshot.tasks));
+  setAccountStatTextContent('accountStatStreak', String(snapshot.streakCurrent));
+  setAccountStatTextContent('accountStatBestStreak', String(snapshot.streakBest));
 
   const resetDescription = document.getElementById('accountResetDescription');
   if (resetDescription) {
@@ -3141,6 +3153,47 @@ function renderAccountStats() {
           'Wyzeruj statystyki zapisane lokalnie na tym urządzeniu.',
         );
   }
+
+  const root = document.documentElement;
+  if (root) {
+    root.dataset.accountStatsSource = snapshot.source;
+    root.dataset.accountLevel = String(snapshot.level);
+  }
+}
+
+function dispatchAccountStatsChanged(reason, snapshot) {
+  if (typeof document === 'undefined') {
+    return;
+  }
+
+  const detail = { reason, stats: snapshot };
+
+  try {
+    if (typeof window !== 'undefined' && typeof window.CustomEvent === 'function') {
+      document.dispatchEvent(new CustomEvent('ce-account-stats-changed', { detail }));
+      return;
+    }
+
+    if (typeof document.createEvent === 'function') {
+      const event = document.createEvent('CustomEvent');
+      event.initCustomEvent('ce-account-stats-changed', false, false, detail);
+      document.dispatchEvent(event);
+    }
+  } catch (error) {
+    console.warn('Nie udało się wysłać zdarzenia o zmianie statystyk konta.', error);
+  }
+}
+
+function renderAccountStats(reason = 'render') {
+  const snapshot = getAccountStatsSnapshot();
+
+  if (accountStatsSnapshotsEqual(lastRenderedAccountStats, snapshot)) {
+    return;
+  }
+
+  applyAccountStatsSnapshot(snapshot);
+  dispatchAccountStatsChanged(reason, snapshot);
+  lastRenderedAccountStats = { ...snapshot };
 }
 
 function renderProgress() {
@@ -3248,7 +3301,7 @@ function renderProgress() {
   }
 
   renderLevelStatus();
-  renderAccountStats();
+  renderAccountStats('progress');
 }
 
 function renderAchievements() {
@@ -7543,7 +7596,7 @@ function updateAuthUI() {
   }
 
   renderNotificationsUI();
-  renderAccountStats();
+  renderAccountStats('auth-ui');
 }
 
 async function handleLoginSubmit(event) {
