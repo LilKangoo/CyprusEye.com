@@ -192,7 +192,6 @@
         id="headerPackingTab"
         role="tab"
         aria-selected="false"
-        aria-controls="packingView"
         tabindex="-1"
         data-page-url="packing.html"
         data-i18n="nav.packing"
@@ -205,7 +204,6 @@
         id="headerTasksTab"
         role="tab"
         aria-selected="false"
-        aria-controls="tasksView"
         tabindex="-1"
         data-page-url="tasks.html"
         data-i18n="nav.tasks"
@@ -218,7 +216,6 @@
         id="headerMediaTripsTab"
         role="tab"
         aria-selected="false"
-        aria-controls="mediaTripsView"
         tabindex="-1"
         data-page-url="/vip.html"
         data-i18n="nav.mediaTrips"
@@ -418,120 +415,8 @@
 
       </div>
 
-    <section
-      id="packingView"
-      class="utility-view app-view"
-      role="tabpanel"
-      aria-labelledby="headerPackingTab"
-      hidden
-    >
-      <header class="utility-view-header">
-        <div>
-          <h2 data-i18n="packing.header.title">Planer pakowania</h2>
-          <p data-i18n="packing.header.subtitle">
-            Zabierz ze sobą wszystko, co przyda się na Cyprze – wybierz sezon i odhaczaj kolejne pozycje.
-          </p>
-        </div>
-        <a
-          class="ghost"
-          id="openAdventureFromPacking"
-          data-back-home-link="true"
-          data-i18n="packing.header.back"
-          href="/index.html"
-        >
-          ← Wróć do przygody
-        </a>
-      </header>
-      <section class="packing-panel" aria-labelledby="packingPlannerTitle">
-        <div class="packing-panel-header">
-          <h2 id="packingPlannerTitle" data-i18n="packing.panel.title">Planer pakowania</h2>
-          <p class="packing-panel-subtitle" data-i18n="packing.panel.subtitle">
-            Wybierz sezon podróży i odhaczaj rzeczy, które przydadzą się na cypryjskich wakacjach.
-          </p>
-        </div>
-        <div
-          class="packing-season-toggle"
-          id="packingSeasonToggle"
-          role="tablist"
-          aria-label="Wybierz sezon podróży"
-        ></div>
-        <div
-          class="packing-panel-content"
-          id="packingChecklist"
-          role="tabpanel"
-          aria-live="polite"
-          aria-labelledby="packingPlannerTitle"
-        ></div>
-        <p class="packing-note" data-i18n="packing.note">
-          Zaznaczaj pozycje w trakcie pakowania – pola możesz odświeżyć dla kolejnej podróży.
-        </p>
-      </section>
-    </section>
-
-    <section
-      id="tasksView"
-      class="utility-view app-view"
-      role="tabpanel"
-      aria-labelledby="headerTasksTab"
-      hidden
-    >
-      <header class="utility-view-header">
-        <div>
-          <h2 id="tasksViewTitle" data-i18n="tasks.header.title">Zadania do wykonania</h2>
-          <p data-i18n="tasks.header.subtitle">
-            Przygotuj się do wyjazdu dzięki misjom, które dodadzą Ci XP i uporządkują przygotowania.
-          </p>
-        </div>
-        <a
-          class="ghost"
-          id="openAdventureFromTasks"
-          data-back-home-link="true"
-          data-i18n="tasks.header.back"
-          href="/index.html"
-        >
-          ← Wróć do przygody
-        </a>
-      </header>
-      <section class="tasks-panel" aria-labelledby="tasksViewTitle">
-        <p class="tasks-hint" data-i18n="tasks.hint">
-          Wypełniaj zadania, aby zdobywać dodatkowe XP i planować swoje cypryjskie przygody.
-        </p>
-        <ul id="tasksList" class="tasks-list"></ul>
-      </section>
-    </section>
-    <section
-      id="mediaTripsView"
-      class="utility-view app-view"
-      role="tabpanel"
-      aria-labelledby="headerMediaTripsTab"
-      hidden
-    >
-      <header class="utility-view-header">
-        <div>
-          <h2 id="mediaTripsTitle" data-i18n="mediaTrips.header.title">VIP wyjazdy foto i video</h2>
-          <p data-i18n="mediaTrips.header.subtitle">
-            Zarezerwuj indywidualne pakiety foto lub video z dedykowaną ekipą WakacjeCypr.com i od razu
-            poznaj koszt na osobę dla swojej grupy.
-          </p>
-        </div>
-        <a
-          class="ghost"
-          id="openAdventureFromMediaTrips"
-          data-back-home-link="true"
-          data-i18n="mediaTrips.header.back"
-          href="/index.html"
-        >
-          ← Wróć do przygody
-        </a>
-      </header>
-      <section class="media-trips-panel" aria-labelledby="mediaTripsTitle">
-        <p class="media-trips-intro" data-i18n="mediaTrips.intro">
-          Wybierz wariant foto lub video, wpisz liczbę uczestników i zobacz łączny koszt oraz cenę na osobę.
-          Do 4 osób obowiązuje cena bazowa, kolejne dodaj według kalkulatora poniżej.
-        </p>
-        <div id="mediaTripsList" class="media-trips-list" role="list"></div>
-      </section>
-    </section>
+    <!-- Dodatkowe widoki (planer, zadania, VIP) zostały przeniesione na osobne strony;
+         na stronie głównej pozostawiamy jedynie skróty i mapę. -->
     <section
       id="services"
       class="services-panel card surface-card services-panel-footer"
@@ -569,8 +454,6 @@
       type="button"
       class="mobile-tabbar-btn"
       id="mobilePackingTab"
-      aria-controls="packingView"
-      data-target="packingView"
       aria-pressed="false"
       data-page-url="packing.html"
     >
@@ -581,8 +464,6 @@
       type="button"
       class="mobile-tabbar-btn"
       id="mobileTasksTab"
-      aria-controls="tasksView"
-      data-target="tasksView"
       aria-pressed="false"
       data-page-url="tasks.html"
     >
@@ -593,8 +474,6 @@
       type="button"
       class="mobile-tabbar-btn"
       id="mobileMediaTripsTab"
-      aria-controls="mediaTripsView"
-      data-target="mediaTripsView"
       aria-pressed="false"
       data-page-url="/vip.html"
       aria-label="Otwórz stronę VIP wyjazdów indywidualnych"
