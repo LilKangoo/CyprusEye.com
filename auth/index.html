@@ -1,104 +1,175 @@
-<!doctype html><html lang="en"><head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Account — CyprusEye</title>
-<meta name="ce-auth" content="on">
-<meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co">
-<meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bWNpemd2cnEiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc2MDc2OTA0OSwiZXhwIjoyMDc2MzQ1MDQ5fQ.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM">
-<meta name="supabase-publishable" content="sb_publishable_QdxNGCb6LYD-6ywFrjCrjg_Oa7yDGTk">
-<link rel="preload" href="https://esm.sh/@supabase/supabase-js@2" as="script">
-</head><body>
-<h1>Account</h1>
-
-<section aria-labelledby="signup-h"><h2 id="signup-h">Create account</h2>
-<form id="signup" novalidate>
-  <label>Email <input type="email" name="email" required autocomplete="email"></label>
-  <label>Password <input type="password" name="password" required minlength="6" autocomplete="new-password"></label>
-  <button type="submit">Create account</button>
-</form></section>
-
-<section aria-labelledby="login-h"><h2 id="login-h">Log in</h2>
-<form id="login" novalidate>
-  <label>Email <input type="email" name="email" required autocomplete="email"></label>
-  <label>Password <input type="password" name="password" required autocomplete="current-password"></label>
-  <button type="submit">Log in</button>
-</form></section>
-
-<section aria-labelledby="reset-h"><h2 id="reset-h">Reset password</h2>
-<form id="reset" novalidate>
-  <label>Email <input type="email" name="email" required></label>
-  <button type="submit">Send reset link</button>
-</form></section>
-
-<p id="auth-state" aria-live="polite"></p>
-
-<script type="module">
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-function getMeta(name){
-  const m = document.querySelector(`meta[name="${name}"]`);
-  return m ? m.content.trim() : "";
-}
-
-const SUPABASE_URL  = getMeta("supabase-url");
-const SUPABASE_ANON = getMeta("supabase-anon");
-const SUPABASE_PUB  = getMeta("supabase-publishable");
-
-if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(SUPABASE_URL)) {
-  throw new Error("Konfiguracja Supabase: nieprawidłowy URL");
-}
-if (!SUPABASE_ANON || SUPABASE_ANON.split(".").length !== 3) {
-  throw new Error("Konfiguracja Supabase: brak lub zły anon key");
-}
-
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
-  global: { headers: SUPABASE_PUB ? { "x-application-name": "CyprusEye", "x-publishable-key": SUPABASE_PUB } : { "x-application-name": "CyprusEye" } }
-});
-
-const origin = location.origin;
-
-document.getElementById('signup')?.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const email = e.target.email.value.trim();
-  const password = e.target.password.value;
-  const { error } = await supabase.auth.signUp({
-    email,
-    password,
-    options: { emailRedirectTo: origin + '/auth/callback/' }
-  });
-  alert(error ? error.message : 'Check your email to confirm.');
-});
-
-document.getElementById('login')?.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const email = e.target.email.value.trim();
-  const password = e.target.password.value;
-  const { error } = await supabase.auth.signInWithPassword({ email, password });
-  if (error) alert(error.message); else window.location.href = '/account/';
-});
-
-document.getElementById('reset')?.addEventListener('submit', async (e)=>{
-  e.preventDefault();
-  const email = e.target.email.value.trim();
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: origin + '/reset/'
-  });
-  alert(error ? error.message : 'Reset link sent.');
-});
-
-const authStateEl = document.getElementById('auth-state');
-function uiAuthState(isLoggedIn, userEmail = '') {
-  if (!authStateEl) return;
-  authStateEl.textContent = isLoggedIn ? `Logged in as ${userEmail}` : 'Logged out';
-}
-
-supabase.auth.onAuthStateChange((_event, session) => {
-  const user = session?.user || null;
-  uiAuthState(!!user, user?.email ?? '');
-});
-
-const { data } = await supabase.auth.getUser();
-const existingUser = data.user;
-uiAuthState(!!existingUser, existingUser?.email ?? '');
-</script>
-</body></html>
+<!DOCTYPE html>
+<html lang="pl" data-auth-state="guest">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WakacjeCypr Quest – logowanie</title>
+    <meta
+      name="description"
+      content="Zaloguj się do WakacjeCypr Quest, aby synchronizować postępy, odblokowywać nagrody i kontynuować przygodę na każdym urządzeniu."
+    />
+    <meta name="ce-auth" content="on" />
+    <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co" />
+    <meta
+      name="supabase-anon"
+      content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bWNpemd2cnEiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc2MDc2OTA0OSwiZXhwIjoyMDc2MzQ1MDQ5fQ.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM"
+    />
+    <meta name="supabase-publishable" content="sb_publishable_QdxNGCb6LYD-6ywFrjCrjg_Oa7yDGTk" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/assets/css/tokens.css" />
+    <link rel="stylesheet" href="/assets/css/base.css" />
+    <link rel="stylesheet" href="/assets/css/components.css" />
+    <link rel="stylesheet" href="/assets/css/mobile.css" />
+    <script type="module" src="/assets/js/auth/boot.js"></script>
+    <script type="module" src="/assets/js/auth/page.js"></script>
+  </head>
+  <body class="auth-page">
+    <div class="auth-page__container">
+      <a class="auth-page__return" href="/">
+        <span aria-hidden="true">⬅️</span>
+        <span>Wróć do strony głównej</span>
+      </a>
+      <header class="auth-page__header">
+        <img
+          src="/assets/cyprus_logo-1000x1054.png"
+          alt="WakacjeCypr Quest – logo"
+          width="1000"
+          height="1054"
+          class="auth-page__logo"
+        />
+        <h1 class="auth-page__title">Dołącz do przygody</h1>
+        <p class="auth-page__subtitle">
+          Zaloguj się, utwórz konto lub graj jako gość – wszystkie opcje w jednym miejscu.
+        </p>
+        <span id="authStatusBadge" class="auth-status-badge auth-page__status" data-state="loading"
+          >Łączenie z logowaniem…</span
+        >
+        <p id="authAccountCta" class="auth-page__cta" hidden>
+          🎉 Jesteś zalogowany jako <span id="authAccountName"></span>.
+          <a href="/account/">Przejdź do panelu gracza</a>
+        </p>
+      </header>
+      <main class="auth-page__content" aria-labelledby="authTitle">
+        <div role="presentation">
+          <div class="auth-modal__tabs" role="tablist">
+            <button
+              type="button"
+              class="auth-modal__tab is-active"
+              role="tab"
+              id="authTabLogin"
+              aria-selected="true"
+              aria-controls="authPanelLogin"
+              data-auth-tab="login"
+            >
+              Logowanie
+            </button>
+            <button
+              type="button"
+              class="auth-modal__tab"
+              role="tab"
+              id="authTabRegister"
+              aria-selected="false"
+              aria-controls="authPanelRegister"
+              data-auth-tab="register"
+              tabindex="-1"
+            >
+              Rejestracja
+            </button>
+            <button
+              type="button"
+              class="auth-modal__tab"
+              role="tab"
+              id="authTabGuest"
+              aria-selected="false"
+              aria-controls="authPanelGuest"
+              data-auth-tab="guest"
+              tabindex="-1"
+            >
+              Gość
+            </button>
+          </div>
+          <div class="auth-modal__panels">
+            <section
+              id="authPanelLogin"
+              class="auth-modal__panel is-active"
+              role="tabpanel"
+              aria-labelledby="authTabLogin"
+              data-auth-panel="login"
+            >
+              <form id="loginForm" class="auth-form" novalidate>
+                <label for="loginEmail">Adres e-mail</label>
+                <input id="loginEmail" name="email" type="email" required autocomplete="email" />
+                <label for="loginPassword">Hasło</label>
+                <input
+                  id="loginPassword"
+                  name="password"
+                  type="password"
+                  required
+                  autocomplete="current-password"
+                />
+                <div class="auth-form__actions">
+                  <button type="submit" class="btn btn--primary">Zaloguj się</button>
+                  <button type="button" class="auth-form__link" id="loginForgotPassword">
+                    🔑 Resetuj hasło
+                  </button>
+                </div>
+              </form>
+            </section>
+            <section
+              id="authPanelRegister"
+              class="auth-modal__panel"
+              role="tabpanel"
+              aria-labelledby="authTabRegister"
+              data-auth-panel="register"
+              hidden
+            >
+              <form id="registerForm" class="auth-form" novalidate>
+                <label for="registerEmail">Adres e-mail</label>
+                <input id="registerEmail" name="email" type="email" required autocomplete="email" />
+                <label for="registerPassword">Hasło</label>
+                <input
+                  id="registerPassword"
+                  name="password"
+                  type="password"
+                  required
+                  minlength="8"
+                  autocomplete="new-password"
+                />
+                <label for="registerPasswordConfirm">Powtórz hasło</label>
+                <input
+                  id="registerPasswordConfirm"
+                  name="passwordConfirm"
+                  type="password"
+                  required
+                  minlength="8"
+                  autocomplete="new-password"
+                />
+                <p class="form-hint">Po rejestracji sprawdź skrzynkę e-mail, aby potwierdzić konto.</p>
+                <button type="submit" class="btn btn--primary">Utwórz konto</button>
+              </form>
+            </section>
+            <section
+              id="authPanelGuest"
+              class="auth-modal__panel"
+              role="tabpanel"
+              aria-labelledby="authTabGuest"
+              data-auth-panel="guest"
+              hidden
+            >
+              <div class="auth-guest">
+                <p>Możesz grać jako gość – postęp zapisze się tylko na tym urządzeniu.</p>
+                <button type="button" class="btn btn--secondary" id="guestPlayButton">Graj jako gość</button>
+              </div>
+            </section>
+          </div>
+        </div>
+        <p id="authMessage" class="auth-message" role="status" aria-live="polite"></p>
+      </main>
+    </div>
+  </body>
+</html>
