@@ -24,24 +24,16 @@
   <link rel="canonical" href="https://www.cypruseye.com/tasks.html" />
   <link rel="alternate" hreflang="pl" href="?lang=pl" />
   <link rel="alternate" hreflang="en" href="?lang=en" />
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap" rel="stylesheet" />
-  <link
-    rel="preload"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-    as="style"
-    crossorigin
-    data-leaflet-resource="style"
-  />
-  <link
-    rel="preload"
-    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-    as="script"
-    crossorigin
-    data-leaflet-resource="script"
-  />
-  <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="assets/css/tokens.css" />
+    <link rel="stylesheet" href="assets/css/base.css" />
+    <link rel="stylesheet" href="assets/css/components.css" />
+    <link rel="stylesheet" href="assets/css/mobile.css" />
 </head>
 <body data-navigation="multi-page" data-initial-view="tasksView" data-seo-page="tasks">
   <header class="app-header">
@@ -133,7 +125,7 @@
         <p class="metric-value"><span id="headerXpPoints">0</span> XP</p>
         <div class="metric-progress" role="img" aria-label="Postęp doświadczenia">
           <div class="metric-progress-track">
-            <div class="metric-progress-fill" id="headerXpFill" style="width: 0%"></div>
+            <div class="metric-progress-fill is-width-zero" id="headerXpFill"></div><!-- migrated from inline -->
           </div>
           <p class="metric-progress-text" id="headerXpProgressText" data-i18n-key="metrics.xp.progress">
             0 / 150 XP do kolejnego poziomu

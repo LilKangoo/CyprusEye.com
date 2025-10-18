@@ -1,0 +1,13 @@
+@media (max-width: 768px) {
+  body {
+    padding: clamp(0.75rem, 4vw, 1.5rem);
+  }
+
+  .standalone-page,
+  .coupon-main,
+  .app-header,
+  main,
+  .app-footer {
+    padding-inline: 0;
+  }
+}

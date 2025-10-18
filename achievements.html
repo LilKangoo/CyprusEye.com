@@ -36,10 +36,13 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Nunito:wght@400;600&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
-    <link rel="stylesheet" href="styles.css" />
+    <link rel="stylesheet" href="assets/css/tokens.css" />
+    <link rel="stylesheet" href="assets/css/base.css" />
+    <link rel="stylesheet" href="assets/css/components.css" />
+    <link rel="stylesheet" href="assets/css/mobile.css" />
   </head>
   <body class="standalone-body" data-seo-page="achievements">
     <div class="standalone-page achievements-page">
@@ -114,7 +117,7 @@
           <div class="achievements-progress-body">
             <div class="progress" role="img" aria-label="Pasek postępu doświadczenia" data-i18n-attrs="aria-label:achievements.progress.chartLabel">
               <div class="progress-track">
-                <div class="progress-fill" id="xpFill" style="width: 0%"></div>
+                <div class="progress-fill is-width-zero" id="xpFill"></div><!-- migrated from inline -->
               </div>
             </div>
             <div class="achievements-stats">
