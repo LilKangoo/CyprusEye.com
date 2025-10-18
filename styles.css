@@ -5796,19 +5796,23 @@ a:focus-visible {
 
 .mobile-tabbar {
   position: fixed;
-  left: clamp(0.75rem, 4vw, 1.5rem);
-  right: clamp(0.75rem, 4vw, 1.5rem);
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(100% - clamp(1.5rem, 8vw, 2.75rem), 680px);
+  max-width: 680px;
   bottom: clamp(0.75rem, 4vw, 1.5rem);
   background: rgba(255, 255, 255, 0.96);
   border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 26px;
   box-shadow: 0 22px 48px rgba(15, 23, 42, 0.18);
   display: none;
-  padding: 0.4rem;
+  padding: clamp(0.35rem, 2vw, 0.55rem) clamp(0.45rem, 4vw, 0.75rem);
+  padding-bottom: calc(clamp(0.35rem, 2vw, 0.55rem) + env(safe-area-inset-bottom) * 0.6);
   z-index: 40;
   backdrop-filter: blur(18px);
   overflow: hidden;
   isolation: isolate;
+  gap: clamp(0.3rem, 1.5vw, 0.6rem);
 }
 
 .mobile-tabbar::after {
@@ -5840,6 +5844,8 @@ a:focus-visible {
   transition: background var(--transition), color var(--transition), transform var(--transition);
   position: relative;
   isolation: isolate;
+  min-width: 0;
+  flex: 1 1 0;
 }
 
 .mobile-tabbar-btn .mobile-tabbar-icon {
@@ -5850,6 +5856,7 @@ a:focus-visible {
 .mobile-tabbar-btn .mobile-tabbar-label {
   font-size: 0.72rem;
   line-height: 1.1;
+  text-align: center;
 }
 
 .mobile-tabbar-btn.is-active {
@@ -6101,10 +6108,11 @@ a:focus-visible {
   }
 
   .mobile-tabbar {
-    display: grid;
-    grid-template-columns: repeat(6, minmax(0, 1fr));
-    column-gap: 0.3rem;
-    padding-bottom: calc(0.35rem + env(safe-area-inset-bottom));
+    display: flex;
+    align-items: stretch;
+    justify-content: space-between;
+    gap: clamp(0.35rem, 1.6vw, 0.6rem);
+    padding-bottom: calc(clamp(0.35rem, 2vw, 0.55rem) + env(safe-area-inset-bottom) * 0.6);
   }
 
   .mobile-tabbar-btn {
@@ -6204,15 +6212,15 @@ a:focus-visible {
   }
 
   .mobile-tabbar {
-    left: clamp(0.5rem, 6vw, 0.75rem);
-    right: clamp(0.5rem, 6vw, 0.75rem);
-    bottom: clamp(0.5rem, 6vw, 0.75rem);
+    width: min(100% - clamp(1rem, 8vw, 1.6rem), 560px);
+    bottom: clamp(0.5rem, 6vw, 0.85rem);
     border-radius: 24px;
-    padding: 0.35rem;
+    padding: clamp(0.3rem, 2vw, 0.45rem) clamp(0.35rem, 4vw, 0.6rem);
+    gap: clamp(0.25rem, 1.2vw, 0.45rem);
   }
 
   .mobile-tabbar-btn {
-    padding: 0.5rem 0.3rem;
+    padding: 0.5rem 0.25rem;
     font-size: 0.72rem;
   }
 
