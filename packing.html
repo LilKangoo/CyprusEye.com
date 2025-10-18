@@ -48,6 +48,7 @@
         <button
           id="notificationsToggle"
           class="ghost notifications-toggle"
+          data-require-auth
           data-i18n="header.notifications"
           type="button"
           aria-haspopup="true"
@@ -71,7 +72,7 @@
         <div class="user-menu" id="userMenu" hidden>
           <span id="userGreeting" aria-live="polite"></span>
           <div class="user-menu-actions">
-            <button type="button" class="ghost" id="accountSettingsBtn" data-i18n="header.accountSettings">
+            <button type="button" class="ghost" id="accountSettingsBtn" data-require-auth data-i18n="header.accountSettings">
               ⚙️ Ustawienia konta
             </button>
             <button type="button" class="ghost" id="logoutBtn" data-i18n="header.logout">Wyloguj</button>
