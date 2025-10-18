@@ -1241,7 +1241,7 @@ textarea:focus-visible {
   flex-direction: column;
   gap: 0.5rem;
   align-items: stretch;
-  width: min(100%, 360px);
+  width: 100%;
 }
 
 .auth-controls > button {
@@ -5414,8 +5414,8 @@ a:focus-visible {
 
 .modal__dialog {
   position: relative;
-  width: min(500px, 90vw);
-  max-height: 90vh;
+  width: min(400px, 90vw);
+  max-height: calc(100vh - 2rem);
   overflow-y: auto;
   background: var(--color-white);
   border-radius: var(--radius-md);
