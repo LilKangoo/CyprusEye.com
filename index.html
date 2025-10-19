@@ -89,16 +89,14 @@
           <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
         </button>
         <button
-          id="openAuthModal"
+          id="loginBtn"
           class="ghost"
           type="button"
-          aria-haspopup="dialog"
-          aria-controls="auth-modal"
-          data-open-auth
-          data-auth-visible="signed-out"
-          data-i18n="header.login"
+          data-login-button
+          data-login-label-signed-in="Wyloguj"
+          data-login-label-signed-out="Zaloguj"
         >
-          🔐 Zaloguj się
+          Zaloguj
         </button>
         <span id="authStatusBadge" class="auth-status-badge" aria-live="polite" data-i18n="auth.status.badge.loading">
           Łączenie z usługą…

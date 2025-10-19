@@ -64,40 +64,50 @@
   <body class="standalone-body" data-seo-page="vip">
     <div class="standalone-page vip-page">
       <header class="standalone-header vip-header">
-        <div class="standalone-brand">
-          <img
-            src="assets/cyprus_logo-1000x1054.png"
-            alt="WakacjeCypr.com – logo żółwia z flagą Polski"
-            data-i18n-attrs="alt:vip.brand.logoAlt"
+      <div class="standalone-brand">
+        <img
+          src="assets/cyprus_logo-1000x1054.png"
+          alt="WakacjeCypr.com – logo żółwia z flagą Polski"
+          data-i18n-attrs="alt:vip.brand.logoAlt"
             width="1000"
             height="1054"
             loading="eager"
           />
-          <div>
-            <p class="standalone-brand-overline" data-i18n="vip.brand.overline">Twój concierge na Cyprze</p>
-            <p class="standalone-brand-title" data-i18n="vip.brand.title">WakacjeCypr Quest</p>
-          </div>
+        <div>
+          <p class="standalone-brand-overline" data-i18n="vip.brand.overline">Twój concierge na Cyprze</p>
+          <p class="standalone-brand-title" data-i18n="vip.brand.title">WakacjeCypr Quest</p>
         </div>
-        <a
-        class="header-coupon-button header-coupon-button--light"
-        href="kupon.html"
-        data-i18n="header.coupon"
-        data-i18n-attrs="aria-label:header.couponAria"
-        aria-label="Kupon"
+      </div>
+      <a
+      class="header-coupon-button header-coupon-button--light"
+      href="kupon.html"
+      data-i18n="header.coupon"
+      data-i18n-attrs="aria-label:header.couponAria"
+      aria-label="Kupon"
+    >
+      Kupon
+    </a>
+      <a
+        class="ghost"
+        href="/index.html"
+        data-back-home-link="true"
+        data-i18n="vip.back"
+        aria-label="Wróć do aplikacji WakacjeCypr Quest"
+        data-i18n-attrs="aria-label:vip.backAria"
       >
-        Kupon
+        ← Wróć do aplikacji
       </a>
-        <a
-          class="ghost"
-          href="/index.html"
-          data-back-home-link="true"
-          data-i18n="vip.back"
-          aria-label="Wróć do aplikacji WakacjeCypr Quest"
-          data-i18n-attrs="aria-label:vip.backAria"
-        >
-          ← Wróć do aplikacji
-        </a>
-      </header>
+      <button
+        id="loginBtn"
+        class="ghost"
+        type="button"
+        data-login-button
+        data-login-label-signed-in="Wyloguj"
+        data-login-label-signed-out="Zaloguj"
+      >
+        Zaloguj
+      </button>
+    </header>
 
       <main class="standalone-main vip-main">
         <section class="vip-section" id="vip-offers">

@@ -7525,7 +7525,6 @@ function handleAccountResetProgress() {
 }
 
 function updateAuthUI() {
-  const loginButton = document.getElementById('openAuthModal');
   const userMenu = document.getElementById('userMenu');
   const greeting = document.getElementById('userGreeting');
   const accountSettingsBtn = document.getElementById('accountSettingsBtn');
@@ -7536,10 +7535,6 @@ function updateAuthUI() {
   const isLoggedIn = Boolean(currentSupabaseUser);
   const displayName = getCurrentDisplayName();
   const authState = getDocumentAuthState();
-
-  if (loginButton) {
-    loginButton.hidden = isLoggedIn;
-  }
 
   if (logoutBtn) {
     logoutBtn.hidden = !isLoggedIn;
