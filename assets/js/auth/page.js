@@ -191,6 +191,9 @@ ready(() => {
 
   setActiveTab(currentTab);
 
+  const supabaseMetaUrl = document.querySelector('meta[name="supabase-url"]')?.content?.trim();
+  const supabaseMetaAnon = document.querySelector('meta[name="supabase-anon"]')?.content?.trim();
+
   function setAuthMessage(message = '', tone = 'info') {
     if (!authMessageEl) return;
     authMessageEl.textContent = message;
@@ -332,6 +335,23 @@ ready(() => {
       updateAuthState(AUTH_STATE.GUEST, TEXT.status.guest);
       updateAccountCta(null);
     }
+  }
+
+  function handleMissingSupabaseConfig() {
+    document.documentElement.dataset.authError = 'config-missing';
+    console.error('Brak konfiguracji Supabase: wymagane meta supabase-url lub supabase-anon.');
+    updateAuthState(AUTH_STATE.GUEST, TEXT.status.invalidConfig);
+    setAuthMessage(TEXT.errors.loginInvalidConfig, 'error');
+    disableFormControls(loginForm, true);
+    disableFormControls(registerForm, true);
+    if (loginForgotPassword instanceof HTMLButtonElement) {
+      loginForgotPassword.disabled = true;
+    }
+  }
+
+  if (!supabaseMetaUrl || !supabaseMetaAnon) {
+    handleMissingSupabaseConfig();
+    return;
   }
 
   updateAuthState(AUTH_STATE.LOADING, TEXT.status.loading);
