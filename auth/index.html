@@ -169,6 +169,27 @@
               hidden
             >
               <form id="registerForm" class="auth-form" novalidate>
+                <label for="registerFirstName">Imię</label>
+                <input
+                  id="registerFirstName"
+                  name="firstName"
+                  type="text"
+                  required
+                  autocomplete="given-name"
+                  maxlength="60"
+                  aria-label="Imię"
+                />
+                <label for="registerUsername">Nazwa użytkownika</label>
+                <input
+                  id="registerUsername"
+                  name="username"
+                  type="text"
+                  required
+                  autocomplete="nickname"
+                  maxlength="32"
+                  aria-label="Nazwa użytkownika"
+                  inputmode="text"
+                />
                 <label for="registerEmail" data-i18n="auth.email">Adres e-mail</label>
                 <input
                   id="registerEmail"
@@ -216,6 +237,9 @@
                 >
                   Utwórz konto
                 </button>
+                <p class="form-hint">
+                  Twoja nazwa użytkownika będzie widoczna publicznie. Możesz ją później zmienić w ustawieniach konta.
+                </p>
               </form>
             </section>
             <section
