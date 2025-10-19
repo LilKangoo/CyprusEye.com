@@ -17,53 +17,106 @@
 <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co">
 <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bWNpemd2cnEiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc2MDc2OTA0OSwiZXhwIjoyMDc2MzQ1MDQ5fQ.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM">
 <meta name="supabase-publishable" content="sb_publishable_QdxNGCb6LYD-6ywFrjCrjg_Oa7yDGTk">
+<script type="module" src="/assets/js/auth/boot.js" defer></script>
 </head>
 <body>
-<div id="me">Loading…</div>
-<button id="logout">Sign out</button>
-<script type="module">
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-
-function getMeta(name){
-  const m = document.querySelector(`meta[name="${name}"]`);
-  return m ? m.content.trim() : "";
+  <header>
+    <button
+      id="loginBtn"
+      type="button"
+      data-login-button
+      data-login-label-signed-in="Wyloguj"
+      data-login-label-signed-out="Zaloguj"
+    >
+      Zaloguj
+    </button>
+  </header>
+    <div id="me">Loading…</div>
+    <button id="logout">Sign out</button>
+    <script type="module">
+function waitForAuth() {
+  return new Promise((resolve) => {
+    if (window.CE_AUTH) {
+      resolve(window.CE_AUTH);
+      return;
+    }
+    document.addEventListener(
+      'ce-auth-ready',
+      (event) => {
+        resolve(event.detail);
+      },
+      { once: true },
+    );
+  });
 }
 
-const SUPABASE_URL  = getMeta("supabase-url");
-const SUPABASE_ANON = getMeta("supabase-anon");
-const SUPABASE_PUB  = getMeta("supabase-publishable");
-
-if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(SUPABASE_URL)) {
-  throw new Error("Konfiguracja Supabase: nieprawidłowy URL");
-}
-if (!SUPABASE_ANON || SUPABASE_ANON.split(".").length !== 3) {
-  throw new Error("Konfiguracja Supabase: brak lub zły anon key");
+function redirectToAuth() {
+  window.location.href = '/auth.html';
 }
 
-const supabase = createClient(SUPABASE_URL, SUPABASE_ANON, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
-  global: { headers: SUPABASE_PUB ? { "x-application-name": "CyprusEye", "x-publishable-key": SUPABASE_PUB } : { "x-application-name": "CyprusEye" } }
+const auth = await waitForAuth();
+if (!auth.enabled) {
+  redirectToAuth();
+  throw new Error('Auth disabled');
+}
+
+const supabase = auth.supabase;
+const me = document.getElementById('me');
+const logoutButton = document.getElementById('logout');
+
+async function loadProfile() {
+  const session = await auth.session();
+  if (!session) {
+    redirectToAuth();
+    return;
+  }
+
+  let name = session.user.email;
+  try {
+    const { data } = await supabase
+      .from('profiles')
+      .select('display_name')
+      .eq('id', session.user.id)
+      .single();
+    if (data?.display_name) {
+      name = data.display_name;
+    }
+  } catch (error) {
+    console.warn('Nie udało się pobrać nazwy profilu', error);
+  }
+
+  if (me) {
+    me.textContent = `Hello, ${name}`;
+  }
+}
+
+logoutButton?.addEventListener('click', async () => {
+  if (logoutButton instanceof HTMLButtonElement) {
+    logoutButton.disabled = true;
+  }
+  try {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      throw error;
+    }
+    window.location.href = '/';
+  } catch (error) {
+    console.error('Nie udało się wylogować użytkownika', error);
+    if (logoutButton instanceof HTMLButtonElement) {
+      logoutButton.disabled = false;
+    }
+  }
 });
 
-const { data: sessionData, error } = await supabase.auth.getSession();
-if (error) console.error('Supabase session error', error);
-const session = sessionData.session;
-if (!session) {
-  window.location.href = '/auth/';
-  throw new Error('No active session');
-}
+await loadProfile();
 
-let name = session.user.email;
-try {
-  const { data } = await supabase.from('profiles').select('display_name').eq('id', session.user.id).single();
-  if (data?.display_name) name = data.display_name;
-} catch (_) {}
-document.getElementById('me').textContent = `Hello, ${name}`;
-
-document.getElementById('logout').onclick = async ()=>{
-  await supabase.auth.signOut();
-  window.location.href = '/';
-};
-</script>
-</body>
-</html>
+auth.onAuthStateChange((user) => {
+  if (!user) {
+    redirectToAuth();
+    return;
+  }
+  loadProfile();
+});
+    </script>
+  </body>
+  </html>

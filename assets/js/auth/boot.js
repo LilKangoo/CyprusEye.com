@@ -2,9 +2,134 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const enabled = (document.querySelector('meta[name="ce-auth"]')?.content || 'on') === 'on';
 
+const loginButtonSelectors = ['#loginBtn', '[data-login-button]'];
+let loginButtonUpdater = () => {};
+let lastKnownUser = null;
+
 function getMeta(name) {
   const meta = document.querySelector(`meta[name="${name}"]`);
   return meta ? meta.content.trim() : "";
+}
+
+function determineDefaultLabels() {
+  const lang = (document.documentElement?.lang || 'pl').toLowerCase();
+  if (lang.startsWith('en')) {
+    return { signedOut: 'Log in', signedIn: 'Log out' };
+  }
+  return { signedOut: 'Zaloguj', signedIn: 'Wyloguj' };
+}
+
+function setupLoginButtons(supabase) {
+  const defaults = determineDefaultLabels();
+
+  function findButtons() {
+    const buttons = [];
+    loginButtonSelectors.forEach((selector) => {
+      document.querySelectorAll(selector).forEach((element) => {
+        if (!(element instanceof HTMLElement)) {
+          return;
+        }
+        if (!buttons.includes(element)) {
+          buttons.push(element);
+        }
+      });
+    });
+    return buttons;
+  }
+
+  function setDisabled(button, disabled) {
+    if (button instanceof HTMLButtonElement) {
+      button.disabled = disabled;
+    }
+    if (disabled) {
+      button.setAttribute('aria-disabled', 'true');
+    } else {
+      button.removeAttribute('aria-disabled');
+    }
+  }
+
+  function getLabel(button, state) {
+    if (state === 'signed-in') {
+      return button.dataset.loginLabelSignedIn || defaults.signedIn;
+    }
+    return button.dataset.loginLabelSignedOut || defaults.signedOut;
+  }
+
+  function applyLoggedOut(button) {
+    const label = getLabel(button, 'signed-out');
+    button.textContent = label;
+    button.dataset.loginState = 'signed-out';
+    button.dataset.loginProcessing = 'false';
+    setDisabled(button, false);
+
+    if (button instanceof HTMLAnchorElement) {
+      button.setAttribute('href', '/auth.html');
+      button.onclick = null;
+    } else {
+      button.setAttribute('type', 'button');
+      button.onclick = (event) => {
+        event.preventDefault();
+        window.location.href = '/auth.html';
+      };
+    }
+  }
+
+  function applyLoggedIn(button) {
+    const label = getLabel(button, 'signed-in');
+    button.textContent = label;
+    button.dataset.loginState = 'signed-in';
+    button.dataset.loginProcessing = 'false';
+    setDisabled(button, false);
+
+    if (button instanceof HTMLAnchorElement) {
+      button.removeAttribute('href');
+    }
+
+    button.onclick = async (event) => {
+      event.preventDefault();
+      if (!supabase) {
+        window.location.reload();
+        return;
+      }
+      if (button.dataset.loginProcessing === 'true') {
+        return;
+      }
+      button.dataset.loginProcessing = 'true';
+      setDisabled(button, true);
+      try {
+        const { error } = await supabase.auth.signOut();
+        if (error) {
+          throw error;
+        }
+        window.location.reload();
+      } catch (error) {
+        console.error('Błąd podczas wylogowywania użytkownika Supabase', error);
+        button.dataset.loginProcessing = 'false';
+        setDisabled(button, false);
+      }
+    };
+  }
+
+  loginButtonUpdater = (user) => {
+    const buttons = findButtons();
+    if (!buttons.length) {
+      return;
+    }
+    buttons.forEach((button) => {
+      if (user) {
+        applyLoggedIn(button);
+      } else {
+        applyLoggedOut(button);
+      }
+    });
+  };
+
+  const refresh = () => loginButtonUpdater(lastKnownUser);
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', refresh, { once: true });
+  } else {
+    refresh();
+  }
 }
 
 function applyAuthVisibility(user) {
@@ -41,7 +166,10 @@ function exposeAuthApi(api) {
 let supabaseClient = null;
 
 if (!enabled) {
+  setupLoginButtons(null);
+  lastKnownUser = null;
   applyAuthVisibility(null);
+  loginButtonUpdater(null);
   exposeAuthApi({ enabled: false });
 } else {
   const SUPABASE_URL = getMeta("supabase-url");
@@ -50,11 +178,17 @@ if (!enabled) {
 
   if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(SUPABASE_URL)) {
     console.error("Konfiguracja Supabase: nieprawidłowy URL");
+    setupLoginButtons(null);
+    lastKnownUser = null;
     applyAuthVisibility(null);
+    loginButtonUpdater(null);
     exposeAuthApi({ enabled: false });
   } else if (!SUPABASE_ANON || SUPABASE_ANON.split(".").length !== 3) {
     console.error("Konfiguracja Supabase: brak lub zły anon key");
+    setupLoginButtons(null);
+    lastKnownUser = null;
     applyAuthVisibility(null);
+    loginButtonUpdater(null);
     exposeAuthApi({ enabled: false });
   } else {
     supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON, {
@@ -65,6 +199,8 @@ if (!enabled) {
           : { "x-application-name": "CyprusEye" },
       },
     });
+
+    setupLoginButtons(supabaseClient);
 
     async function session() {
       return (await supabaseClient.auth.getSession()).data.session;
@@ -108,7 +244,9 @@ if (!enabled) {
     const listeners = new Set();
 
     function notifyAuthListeners(user) {
+      lastKnownUser = user;
       applyAuthVisibility(user);
+      loginButtonUpdater(user);
       listeners.forEach((listener) => {
         try {
           listener(user);
