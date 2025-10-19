@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="pl">
 <head>
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
@@ -12,12 +12,140 @@
 </script>
 
 <meta charset="utf-8">
-<title>My account</title>
+<title>Moje konto</title>
 <meta name="ce-auth" content="on">
 <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co">
 <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bWNpemd2cnEiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc2MDc2OTA0OSwiZXhwIjoyMDc2MzQ1MDQ5fQ.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM">
 <meta name="supabase-publishable" content="sb_publishable_QdxNGCb6LYD-6ywFrjCrjg_Oa7yDGTk">
+<link rel="stylesheet" href="/assets/css/tokens.css">
+<link rel="stylesheet" href="/assets/css/base.css">
+<link rel="stylesheet" href="/assets/css/components.css">
 <script type="module" src="/assets/js/auth/boot.js" defer></script>
+<style>
+  body {
+    font-family: 'Jost', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    margin: 0;
+    padding: 0;
+    background: var(--ce-color-surface, #f7f7f7);
+    color: var(--ce-color-text, #1a1a1a);
+  }
+
+  header {
+    display: flex;
+    justify-content: flex-end;
+    padding: 1rem;
+    background: var(--ce-color-surface-raised, #ffffff);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+
+  main {
+    max-width: 640px;
+    margin: 2rem auto;
+    padding: 0 1.5rem 3rem;
+  }
+
+  h1 {
+    font-size: clamp(1.75rem, 4vw, 2.4rem);
+    margin-bottom: 0.5rem;
+  }
+
+  h2 {
+    font-size: clamp(1.2rem, 3vw, 1.5rem);
+  }
+
+  .account-message {
+    margin: 1rem 0;
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    background: var(--ce-color-surface-raised, #ffffff);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  }
+
+  .account-message[hidden] {
+    display: none;
+  }
+
+  .account-message[data-tone="success"] {
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    background: rgba(236, 253, 245, 0.8);
+  }
+
+  .account-message[data-tone="error"] {
+    border: 1px solid rgba(239, 68, 68, 0.4);
+    background: rgba(254, 226, 226, 0.85);
+  }
+
+  .account-section {
+    margin-top: 2rem;
+    padding: 1.5rem;
+    background: var(--ce-color-surface-raised, #ffffff);
+    border-radius: 1rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+
+  .account-form {
+    display: grid;
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+
+  label {
+    font-weight: 600;
+  }
+
+  input[type="text"],
+  input[type="email"],
+  input[type="password"] {
+    padding: 0.75rem 1rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    font-size: 1rem;
+    background: #fff;
+  }
+
+  input:disabled {
+    opacity: 0.6;
+  }
+
+  button {
+    padding: 0.75rem 1.25rem;
+    border-radius: 0.75rem;
+    border: none;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    background: var(--ce-color-primary, #0044ff);
+    color: #fff;
+    transition: background 150ms ease-in-out;
+  }
+
+  button[disabled] {
+    cursor: not-allowed;
+    opacity: 0.7;
+  }
+
+  #logout {
+    margin-top: 2.5rem;
+    width: 100%;
+    background: var(--ce-color-danger, #ef4444);
+  }
+
+  .form-hint {
+    font-size: 0.9rem;
+    color: rgba(26, 26, 26, 0.7);
+  }
+
+  @media (max-width: 600px) {
+    main {
+      margin: 1.5rem auto 2.5rem;
+      padding: 0 1rem 2.5rem;
+    }
+
+    header {
+      padding: 0.75rem 1rem;
+    }
+  }
+</style>
 </head>
 <body>
   <header>
@@ -31,9 +159,51 @@
       Zaloguj
     </button>
   </header>
-    <div id="me">Loading…</div>
-    <button id="logout">Sign out</button>
-    <script type="module">
+  <main>
+    <h1>Twoje konto</h1>
+    <p id="me">Ładowanie…</p>
+    <div id="accountMessage" class="account-message" role="status" aria-live="polite" hidden></div>
+    <section class="account-section">
+      <h2>Imię</h2>
+      <p class="form-hint">Imię pomoże nam dopasować powiadomienia i powitania.</p>
+      <form id="accountNameForm" class="account-form" novalidate>
+        <label for="profileFirstName">Imię</label>
+        <input
+          id="profileFirstName"
+          name="firstName"
+          type="text"
+          required
+          maxlength="60"
+          autocomplete="given-name"
+          aria-label="Imię"
+        />
+        <button type="submit">Zapisz imię</button>
+      </form>
+    </section>
+    <section class="account-section">
+      <h2>Nazwa użytkownika</h2>
+      <p class="form-hint">Nazwa będzie widoczna publicznie w rankingach i dzienniku podróży.</p>
+      <form id="accountUsernameForm" class="account-form" novalidate>
+        <label for="profileUsername">Nazwa użytkownika</label>
+        <input
+          id="profileUsername"
+          name="username"
+          type="text"
+          required
+          maxlength="32"
+          autocomplete="nickname"
+          aria-label="Nazwa użytkownika"
+          pattern="[A-Za-z0-9][A-Za-z0-9._-]{1,28}[A-Za-z0-9]"
+          title="3-30 znaków: litery, cyfry, kropki, myślniki i podkreślenia."
+        />
+        <button type="submit">Zapisz nazwę użytkownika</button>
+      </form>
+    </section>
+    <button id="logout" type="button">Wyloguj</button>
+  </main>
+  <script type="module">
+const USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])?$/i;
+
 function waitForAuth() {
   return new Promise((resolve) => {
     if (window.CE_AUTH) {
@@ -55,7 +225,7 @@ function redirectToAuth() {
 }
 
 const auth = await waitForAuth();
-if (!auth.enabled) {
+if (!auth || !auth.enabled) {
   redirectToAuth();
   throw new Error('Auth disabled');
 }
@@ -63,37 +233,283 @@ if (!auth.enabled) {
 const supabase = auth.supabase;
 const me = document.getElementById('me');
 const logoutButton = document.getElementById('logout');
+const accountMessage = document.getElementById('accountMessage');
+const nameForm = document.getElementById('accountNameForm');
+const usernameForm = document.getElementById('accountUsernameForm');
+const firstNameInput = document.getElementById('profileFirstName');
+const usernameInput = document.getElementById('profileUsername');
 
-async function loadProfile() {
-  const session = await auth.session();
-  if (!session) {
-    redirectToAuth();
+let currentSession = null;
+
+function setAccountMessage(message = '', tone = 'info') {
+  if (!accountMessage) return;
+  if (!message) {
+    accountMessage.textContent = '';
+    accountMessage.removeAttribute('data-tone');
+    accountMessage.hidden = true;
     return;
   }
+  accountMessage.textContent = message;
+  accountMessage.dataset.tone = tone;
+  accountMessage.hidden = false;
+}
 
-  let name = session.user.email;
+function describeDisplayName(sessionUser, profile) {
+  const metadata = sessionUser?.user_metadata || {};
+  const displayName =
+    (profile?.display_name || '').trim() ||
+    (profile?.first_name || '').trim() ||
+    (metadata.display_name || '').trim() ||
+    (metadata.first_name || '').trim() ||
+    (metadata.name || '').trim() ||
+    (sessionUser?.email || '');
+  return displayName;
+}
+
+async function fetchSession() {
   try {
-    const { data } = await supabase
-      .from('profiles')
-      .select('display_name')
-      .eq('id', session.user.id)
-      .single();
-    if (data?.display_name) {
-      name = data.display_name;
+    const session = await auth.session();
+    if (!session) {
+      redirectToAuth();
+      return null;
     }
+    return session;
   } catch (error) {
-    console.warn('Nie udało się pobrać nazwy profilu', error);
-  }
-
-  if (me) {
-    me.textContent = `Hello, ${name}`;
+    console.error('Nie udało się pobrać sesji logowania', error);
+    setAccountMessage('Nie udało się odczytać sesji. Odśwież stronę i spróbuj ponownie.', 'error');
+    return null;
   }
 }
 
-logoutButton?.addEventListener('click', async () => {
-  if (logoutButton instanceof HTMLButtonElement) {
-    logoutButton.disabled = true;
+async function loadProfile(sessionOverride = null) {
+  const session = sessionOverride || (await fetchSession());
+  if (!session) {
+    return;
   }
+  currentSession = session;
+
+  let profile = null;
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('display_name, first_name, username')
+      .eq('id', session.user.id)
+      .maybeSingle();
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+    profile = data || null;
+  } catch (error) {
+    console.warn('Nie udało się pobrać profilu użytkownika', error);
+    setAccountMessage('Nie udało się pobrać danych profilu. Spróbuj ponownie później.', 'error');
+  }
+
+  const displayName = describeDisplayName(session.user, profile) || 'Graczu';
+  if (me) {
+    me.textContent = `Cześć, ${displayName}!`;
+  }
+
+  if (firstNameInput instanceof HTMLInputElement) {
+    const nameValue =
+      (profile?.first_name || '').trim() ||
+      (profile?.display_name || '').trim() ||
+      (session.user.user_metadata?.first_name || '').trim() ||
+      (session.user.user_metadata?.display_name || '').trim();
+    firstNameInput.value = nameValue || '';
+  }
+
+  if (usernameInput instanceof HTMLInputElement) {
+    const usernameValue =
+      (profile?.username || '').trim() ||
+      (session.user.user_metadata?.username || '').trim();
+    usernameInput.value = usernameValue || '';
+  }
+}
+
+async function isUsernameTaken(username, { excludeUserId = null } = {}) {
+  if (!USERNAME_PATTERN.test(username)) {
+    return true;
+  }
+
+  const normalized = username.trim().toLowerCase();
+
+  try {
+    let query = supabase.from('profiles').select('id').ilike('username', normalized).limit(1);
+    if (excludeUserId) {
+      query = query.neq('id', excludeUserId);
+    }
+    const { data, error } = await query.maybeSingle();
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+    return Boolean(data?.id);
+  } catch (error) {
+    console.warn('Nie udało się zweryfikować dostępności nazwy użytkownika', error);
+    throw new Error('Nie udało się potwierdzić dostępności nazwy użytkownika. Spróbuj ponownie.');
+  }
+}
+
+nameForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!(firstNameInput instanceof HTMLInputElement)) {
+    return;
+  }
+  if (!currentSession?.user?.id) {
+    setAccountMessage('Zaloguj się, aby zmienić imię.', 'error');
+    return;
+  }
+
+  const submitButton = nameForm.querySelector('button[type="submit"]');
+  const firstName = firstNameInput.value.trim();
+
+  if (!firstName) {
+    setAccountMessage('Podaj imię.', 'error');
+    firstNameInput.focus();
+    return;
+  }
+
+  if (firstName.length < 2) {
+    setAccountMessage('Imię powinno mieć co najmniej 2 znaki.', 'error');
+    firstNameInput.focus();
+    return;
+  }
+
+  if (submitButton instanceof HTMLButtonElement) {
+    submitButton.disabled = true;
+    submitButton.dataset.loading = 'true';
+    submitButton.setAttribute('aria-busy', 'true');
+  }
+
+  setAccountMessage('Zapisywanie imienia…', 'info');
+
+  try {
+    const { error } = await supabase
+      .from('profiles')
+      .upsert(
+        {
+          id: currentSession.user.id,
+          display_name: firstName,
+          first_name: firstName,
+        },
+        { onConflict: 'id' },
+      );
+    if (error) {
+      throw error;
+    }
+
+    const { error: metaError } = await supabase.auth.updateUser({
+      data: { display_name: firstName, first_name: firstName },
+    });
+    if (metaError) {
+      throw metaError;
+    }
+
+    setAccountMessage('Imię zaktualizowane.', 'success');
+    await loadProfile();
+  } catch (error) {
+    const message = error && typeof error.message === 'string' && error.message
+      ? error.message
+      : 'Nie udało się zapisać imienia. Spróbuj ponownie.';
+    setAccountMessage(message, 'error');
+  } finally {
+    if (submitButton instanceof HTMLButtonElement) {
+      submitButton.disabled = false;
+      submitButton.removeAttribute('data-loading');
+      submitButton.removeAttribute('aria-busy');
+    }
+  }
+});
+
+usernameForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+  if (!(usernameInput instanceof HTMLInputElement)) {
+    return;
+  }
+  if (!currentSession?.user?.id) {
+    setAccountMessage('Zaloguj się, aby zmienić nazwę użytkownika.', 'error');
+    return;
+  }
+
+  const submitButton = usernameForm.querySelector('button[type="submit"]');
+  const username = usernameInput.value.trim();
+
+  if (!username) {
+    setAccountMessage('Wprowadź nazwę użytkownika.', 'error');
+    usernameInput.focus();
+    return;
+  }
+
+  if (!USERNAME_PATTERN.test(username)) {
+    setAccountMessage('Nazwa użytkownika może zawierać litery, cyfry, kropki, myślniki i podkreślenia (3-30 znaków).', 'error');
+    usernameInput.focus();
+    return;
+  }
+
+  if (submitButton instanceof HTMLButtonElement) {
+    submitButton.disabled = true;
+    submitButton.dataset.loading = 'true';
+    submitButton.setAttribute('aria-busy', 'true');
+  }
+
+  try {
+    setAccountMessage('Sprawdzamy nazwę użytkownika…', 'info');
+    const taken = await isUsernameTaken(username, { excludeUserId: currentSession.user.id });
+    if (taken) {
+      setAccountMessage('Wybrana nazwa użytkownika jest już zajęta. Wybierz inną.', 'error');
+      usernameInput.focus();
+      return;
+    }
+
+    setAccountMessage('Zapisywanie nazwy użytkownika…', 'info');
+
+    const { error } = await supabase
+      .from('profiles')
+      .upsert(
+        {
+          id: currentSession.user.id,
+          username,
+        },
+        { onConflict: 'id' },
+      );
+    if (error) {
+      if (error.code === '23505' || /duplicate key/i.test(error.message || '')) {
+        setAccountMessage('Wybrana nazwa użytkownika jest już zajęta. Wybierz inną.', 'error');
+        usernameInput.focus();
+        return;
+      }
+      throw error;
+    }
+
+    const { error: metaError } = await supabase.auth.updateUser({
+      data: { username },
+    });
+    if (metaError) {
+      throw metaError;
+    }
+
+    setAccountMessage('Nazwa użytkownika zaktualizowana.', 'success');
+    await loadProfile();
+  } catch (error) {
+    const message = error && typeof error.message === 'string' && error.message
+      ? error.message
+      : 'Nie udało się zapisać nazwy użytkownika. Spróbuj ponownie.';
+    setAccountMessage(message, 'error');
+  } finally {
+    if (submitButton instanceof HTMLButtonElement) {
+      submitButton.disabled = false;
+      submitButton.removeAttribute('data-loading');
+      submitButton.removeAttribute('aria-busy');
+    }
+  }
+});
+
+logoutButton?.addEventListener('click', async () => {
+  if (!(logoutButton instanceof HTMLButtonElement)) {
+    return;
+  }
+  logoutButton.disabled = true;
+  logoutButton.setAttribute('aria-busy', 'true');
+  setAccountMessage('Wylogowywanie…', 'info');
   try {
     const { error } = await supabase.auth.signOut();
     if (error) {
@@ -102,21 +518,26 @@ logoutButton?.addEventListener('click', async () => {
     window.location.href = '/';
   } catch (error) {
     console.error('Nie udało się wylogować użytkownika', error);
-    if (logoutButton instanceof HTMLButtonElement) {
-      logoutButton.disabled = false;
-    }
+    setAccountMessage('Nie udało się wylogować. Spróbuj ponownie.', 'error');
+    logoutButton.disabled = false;
+    logoutButton.removeAttribute('aria-busy');
   }
 });
 
 await loadProfile();
 
-auth.onAuthStateChange((user) => {
-  if (!user) {
-    redirectToAuth();
-    return;
-  }
-  loadProfile();
-});
-    </script>
-  </body>
-  </html>
+if (typeof auth.onAuthStateChange === 'function') {
+  auth.onAuthStateChange(async (user) => {
+    if (!user) {
+      redirectToAuth();
+      return;
+    }
+    const session = await fetchSession();
+    if (session) {
+      await loadProfile(session);
+    }
+  });
+}
+  </script>
+</body>
+</html>
