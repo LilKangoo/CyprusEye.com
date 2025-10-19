@@ -2474,7 +2474,9 @@ function getSupabaseDisplayName(user) {
   if (!user) return '';
   const metadata = user.user_metadata || {};
   return (
+    (typeof metadata.username === 'string' && metadata.username.trim()) ||
     (typeof metadata.display_name === 'string' && metadata.display_name.trim()) ||
+    (typeof metadata.first_name === 'string' && metadata.first_name.trim()) ||
     (typeof metadata.full_name === 'string' && metadata.full_name.trim()) ||
     (typeof metadata.name === 'string' && metadata.name.trim()) ||
     (typeof user.email === 'string' && user.email.trim()) ||
@@ -2522,21 +2524,90 @@ async function syncSupabaseProfile(user) {
   try {
     const { data, error } = await client
       .from('profiles')
-      .select('display_name')
+      .select('display_name, first_name, username')
       .eq('id', user.id)
       .maybeSingle();
-    if (error) {
+    if (error && error.code !== 'PGRST116') {
       throw error;
     }
-    const displayName = typeof data?.display_name === 'string' ? data.display_name.trim() : '';
-    if (displayName) {
-      const account = ensureSupabaseAccount(user, displayName);
-      if (account && account.username !== displayName) {
-        account.username = displayName;
-        persistAccounts();
-      }
-      return displayName;
+    const metadata = user.user_metadata || {};
+    let profile = data ? { ...data } : null;
+
+    const profileDisplayName =
+      typeof profile?.display_name === 'string' ? profile.display_name.trim() : '';
+    const profileFirstName =
+      typeof profile?.first_name === 'string' ? profile.first_name.trim() : '';
+    const profileUsername =
+      typeof profile?.username === 'string' ? profile.username.trim() : '';
+
+    const metadataDisplayName =
+      typeof metadata.display_name === 'string' ? metadata.display_name.trim() : '';
+    const metadataFirstName =
+      typeof metadata.first_name === 'string' ? metadata.first_name.trim() : '';
+    const metadataUsername =
+      typeof metadata.username === 'string' ? metadata.username.trim() : '';
+
+    const updates = { id: user.id };
+    let needsUpdate = false;
+
+    if (!profileDisplayName && metadataDisplayName) {
+      updates.display_name = metadataDisplayName;
+      needsUpdate = true;
     }
+    if (!profileFirstName && metadataFirstName) {
+      updates.first_name = metadataFirstName;
+      needsUpdate = true;
+    }
+    if (!profileUsername && metadataUsername) {
+      updates.username = metadataUsername;
+      needsUpdate = true;
+    }
+
+    if (!profile && !needsUpdate) {
+      const fallback = getSupabaseDisplayName(user);
+      if (fallback) {
+        updates.display_name = fallback;
+        if (!updates.first_name) {
+          updates.first_name = fallback;
+        }
+        needsUpdate = true;
+      }
+    }
+
+    if (needsUpdate) {
+      try {
+        await client.from('profiles').upsert(updates, { onConflict: 'id' });
+        profile = { ...(profile || {}), ...updates };
+      } catch (profileError) {
+        console.warn('Nie udało się uzupełnić profilu Supabase:', profileError);
+      }
+    }
+
+    const finalUsername =
+      (typeof profile?.username === 'string' && profile.username && profile.username.trim()) ||
+      profileUsername ||
+      metadataUsername ||
+      '';
+    const finalDisplayName =
+      (typeof profile?.display_name === 'string' && profile.display_name && profile.display_name.trim()) ||
+      profileDisplayName ||
+      metadataDisplayName ||
+      '';
+    const finalFirstName =
+      (typeof profile?.first_name === 'string' && profile.first_name && profile.first_name.trim()) ||
+      profileFirstName ||
+      metadataFirstName ||
+      '';
+
+    const resolvedName =
+      finalUsername ||
+      finalDisplayName ||
+      finalFirstName ||
+      getSupabaseDisplayName(user) ||
+      'Gracz';
+
+    ensureSupabaseAccount(user, resolvedName);
+    return resolvedName;
   } catch (error) {
     console.warn('Nie udało się zsynchronizować profilu Supabase:', error);
   }
