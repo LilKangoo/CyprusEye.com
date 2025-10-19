@@ -1,8 +1,8 @@
 (function () {
   'use strict';
 
-  const DEFAULT_LANGUAGE = 'en';
-  const STORAGE_KEY = 'wakacjecypr-language';
+  const DEFAULT_LANGUAGE = 'pl';
+  const STORAGE_KEY = 'ce_lang';
   const SUPPORTED_LANGUAGES = {
     en: { label: '🇬🇧 English', dir: 'ltr' },
     pl: { label: '🇵🇱 Polski', dir: 'ltr' },
@@ -60,6 +60,10 @@
   }
 
   function fetchTranslations(language) {
+    if (!language || !Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, language)) {
+      return Promise.resolve({});
+    }
+
     if (translationCache.has(language)) {
       return translationCache.get(language);
     }
@@ -273,10 +277,7 @@
       return;
     }
 
-    persistLanguage(nextLanguage);
-    const url = new URL(window.location.href);
-    url.searchParams.set('lang', nextLanguage);
-    window.location.href = url.toString();
+    setLanguage(nextLanguage);
   }
 
   function updateSwitcherValue(language) {
@@ -324,17 +325,24 @@
     updateSwitcherValue(language);
   }
 
-  function init() {
-    const language = detectLanguage();
-    appI18n.language = language;
-    persistLanguage(language);
-    syncUrl(language);
+  function setLanguage(language, { persist = true, updateUrl = true } = {}) {
+    let target = language;
+    if (!Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, target)) {
+      target = DEFAULT_LANGUAGE;
+    }
 
-    const apply = (translations) => {
-      appI18n.translations[language] = translations || {};
+    if (persist) {
+      persistLanguage(target);
+    }
+    if (updateUrl) {
+      syncUrl(target);
+    }
+
+    const apply = (translations = {}) => {
       const run = () => {
-        ensureLanguageSwitcher(language);
-        applyTranslations(language, translations);
+        ensureLanguageSwitcher(target);
+        applyTranslations(target, translations);
+        updateSwitcherValue(target);
       };
 
       if (document.readyState === 'loading') {
@@ -344,8 +352,28 @@
       }
     };
 
-    fetchTranslations(language).then(apply);
+    const cached = translationCache.get(target);
+    if (cached) {
+      cached.then(apply);
+      return;
+    }
+
+    fetchTranslations(target).then((translations) => {
+      translationCache.set(target, Promise.resolve(translations || {}));
+      apply(translations);
+    });
   }
+
+  function init() {
+    const detected = detectLanguage();
+    const language = Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, detected)
+      ? detected
+      : DEFAULT_LANGUAGE;
+
+    setLanguage(language, { persist: true, updateUrl: true });
+  }
+
+  appI18n.setLanguage = setLanguage;
 
   init();
 })();

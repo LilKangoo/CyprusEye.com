@@ -100,7 +100,7 @@
         >
           🔐 Zaloguj się
         </button>
-        <span id="authStatusBadge" class="auth-status-badge" aria-live="polite">
+        <span id="authStatusBadge" class="auth-status-badge" aria-live="polite" data-i18n="auth.status.badge.loading">
           Łączenie z usługą…
         </span>
         <div class="user-menu" id="userMenu" hidden>
@@ -128,6 +128,7 @@
         <img
           src="assets/cyprus_logo-1000x1054.png"
           alt="WakacjeCypr.com – logo żółwia z flagą Polski"
+          data-i18n-attrs="alt:header.logoAlt"
           width="1000"
           height="1054"
           loading="eager"
@@ -139,8 +140,16 @@
         </div>
       </div>
       <div class="header-top-actions">
-        <a class="header-coupon-button" href="kupon.html">Kupon</a>
-        <div class="header-actions" aria-label="Szybkie działania">
+        <a
+          class="header-coupon-button"
+          href="kupon.html"
+          data-i18n="header.coupon"
+          data-i18n-attrs="aria-label:header.couponAria"
+          aria-label="Kupon"
+        >
+          Kupon
+        </a>
+        <div class="header-actions" aria-label="Szybkie działania" data-i18n-attrs="aria-label:header.quickActions.aria">
           <div class="header-actions-primary" data-tour-target="quick-actions">
             <button class="btn btn-primary primary" type="button" id="jumpToObjective" data-i18n="header.jumpToObjective">
               Skocz do aktualnego celu
@@ -181,7 +190,12 @@
       <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
         <p class="metric-label" data-i18n="metrics.xp.label">Doświadczenie</p>
         <p class="metric-value"><span id="headerXpPoints">0</span> XP</p>
-        <div class="metric-progress" role="img" aria-label="Postęp doświadczenia">
+        <div
+          class="metric-progress"
+          role="img"
+          aria-label="Postęp doświadczenia"
+          data-i18n-attrs="aria-label:metrics.xp.aria"
+        >
           <div class="metric-progress-track">
             <div class="metric-progress-fill is-width-zero" id="headerXpFill"></div><!-- migrated from inline -->
           </div>
@@ -918,14 +932,15 @@
     <div class="account-dialog">
       <header class="account-header">
         <div>
-          <h2 id="accountTitle">Panel statystyk</h2>
-          <p id="accountSubtitle">Przeglądaj swoje postępy, zmieniaj hasło i kontroluj przygodę.</p>
+          <h2 id="accountTitle" data-i18n="account.title">Panel statystyk</h2>
+          <p id="accountSubtitle" data-i18n="account.subtitle">Przeglądaj swoje postępy, zmieniaj hasło i kontroluj przygodę.</p>
         </div>
         <button
           type="button"
           class="icon-button"
           id="accountClose"
           aria-label="Zamknij ustawienia konta"
+          data-i18n="account.close"
         >
           ✕
         </button>
@@ -941,6 +956,7 @@
             aria-controls="accountPanelStats"
             data-account-tab="stats"
             id="accountTabStats"
+            data-i18n="account.tabs.stats"
           >
             📈 Statystyki
           </button>
@@ -953,6 +969,7 @@
             data-account-tab="security"
             id="accountTabSecurity"
             tabindex="-1"
+            data-i18n="account.tabs.security"
           >
             🔐 Bezpieczeństwo
           </button>
@@ -967,43 +984,48 @@
         >
           <div class="account-stats-grid">
             <article class="account-stat-card">
-              <h3>Poziom</h3>
+              <h3 data-i18n="account.stats.level.title">Poziom</h3>
               <p class="account-stat-value" id="accountStatLevel">1</p>
-              <p class="account-stat-label">Aktualny poziom przygody</p>
+              <p class="account-stat-label" data-i18n="account.stats.level.description">Aktualny poziom przygody</p>
             </article>
             <article class="account-stat-card">
-              <h3>Doświadczenie</h3>
+              <h3 data-i18n="account.stats.xp.title">Doświadczenie</h3>
               <p class="account-stat-value" id="accountStatXp">0 XP</p>
-              <p class="account-stat-label">Łącznie zdobytych punktów</p>
+              <p class="account-stat-label" data-i18n="account.stats.xp.description">Łącznie zdobytych punktów</p>
             </article>
             <article class="account-stat-card">
-              <h3>Odznaki</h3>
+              <h3 data-i18n="account.stats.badges.title">Odznaki</h3>
               <p class="account-stat-value" id="accountStatBadges">0</p>
-              <p class="account-stat-label">Zebrane unikalne odznaki</p>
+              <p class="account-stat-label" data-i18n="account.stats.badges.description">Zebrane unikalne odznaki</p>
             </article>
             <article class="account-stat-card">
-              <h3>Odwiedzone miejsca</h3>
+              <h3 data-i18n="account.stats.visited.title">Odwiedzone miejsca</h3>
               <p class="account-stat-value" id="accountStatVisited">0</p>
-              <p class="account-stat-label">Liczba odkrytych atrakcji</p>
+              <p class="account-stat-label" data-i18n="account.stats.visited.description">Liczba odkrytych atrakcji</p>
             </article>
             <article class="account-stat-card">
-              <h3>Ukończone zadania</h3>
+              <h3 data-i18n="account.stats.tasks.title">Ukończone zadania</h3>
               <p class="account-stat-value" id="accountStatTasks">0</p>
-              <p class="account-stat-label">Wykonane misje i checklisty</p>
+              <p class="account-stat-label" data-i18n="account.stats.tasks.description">Wykonane misje i checklisty</p>
             </article>
             <article class="account-stat-card">
-              <h3>Passa dnia</h3>
+              <h3 data-i18n="account.stats.streak.title">Passa dnia</h3>
               <p class="account-stat-value" id="accountStatStreak">0</p>
-              <p class="account-stat-label">Aktualna / najlepsza: <span id="accountStatBestStreak">0</span></p>
+              <p class="account-stat-label" data-i18n="account.stats.streak.description">Aktualna / najlepsza: <span id="accountStatBestStreak">0</span></p>
             </article>
           </div>
 
           <div class="account-reset-card">
-            <h3>Wyzeruj statystyki</h3>
-            <p id="accountResetDescription">
+            <h3 data-i18n="account.reset.title">Wyzeruj statystyki</h3>
+            <p id="accountResetDescription" data-i18n="account.reset.description">
               Rozpocznij przygodę od nowa – reset obejmie doświadczenie, odznaki, odwiedzone miejsca i zadania.
             </p>
-            <button type="button" class="btn btn-danger danger" id="accountResetProgress">
+            <button
+              type="button"
+              class="btn btn-danger danger"
+              id="accountResetProgress"
+              data-i18n="account.reset.action"
+            >
               🔄 Zresetuj postęp
             </button>
           </div>
@@ -1018,9 +1040,9 @@
           hidden
         >
           <form id="accountPasswordForm" class="account-form account-form--vertical">
-            <h3>Zmień hasło</h3>
-            <p class="form-hint">Aby zaktualizować hasło, potwierdź obecne i podaj nowe (minimum 8 znaków).</p>
-            <label for="accountCurrentPassword">Obecne hasło</label>
+            <h3 data-i18n="account.password.title">Zmień hasło</h3>
+            <p class="form-hint" data-i18n="account.password.hint">Aby zaktualizować hasło, potwierdź obecne i podaj nowe (minimum 8 znaków).</p>
+            <label for="accountCurrentPassword" data-i18n="account.password.current">Obecne hasło</label>
             <input
               id="accountCurrentPassword"
               name="accountCurrentPassword"
@@ -1028,7 +1050,7 @@
               autocomplete="current-password"
               required
             />
-            <label for="accountNewPassword">Nowe hasło</label>
+            <label for="accountNewPassword" data-i18n="account.password.new">Nowe hasło</label>
             <input
               id="accountNewPassword"
               name="accountNewPassword"
@@ -1037,7 +1059,7 @@
               required
               minlength="8"
             />
-            <label for="accountConfirmPassword">Powtórz nowe hasło</label>
+            <label for="accountConfirmPassword" data-i18n="account.password.confirm">Powtórz nowe hasło</label>
             <input
               id="accountConfirmPassword"
               name="accountConfirmPassword"
@@ -1046,9 +1068,9 @@
               required
               minlength="8"
             />
-            <button type="submit" class="btn btn-secondary secondary">Zmień hasło</button>
+            <button type="submit" class="btn btn-secondary secondary" data-i18n="account.password.submit">Zmień hasło</button>
           </form>
-          <p class="account-guest-note" id="accountGuestPasswordNote" hidden>
+          <p class="account-guest-note" id="accountGuestPasswordNote" hidden data-i18n="account.password.guestNote">
             Goście nie posiadają haseł – zaloguj się, aby zmienić dane konta.
           </p>
         </section>
