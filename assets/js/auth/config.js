@@ -50,14 +50,47 @@ function upsertMeta(doc, name, value) {
   meta.setAttribute('content', value);
 }
 
+function readGlobalConfig() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+  const candidate = window.__SUPABASE_CONFIG;
+  if (!candidate || typeof candidate !== 'object') {
+    return null;
+  }
+  const normalized = {};
+  META_DESCRIPTORS.forEach(({ name, validate, fallbackKey }) => {
+    const value = candidate[fallbackKey] || candidate[name];
+    if (validate(value)) {
+      normalized[fallbackKey] = value;
+    }
+  });
+  if (!normalized.url || !normalized.anon) {
+    return null;
+  }
+  return normalized;
+}
+
 function getSupabaseConfig(node, { logWarnings = false } = {}) {
   const doc = getDocument(node);
   const config = { ...SUPABASE_DEFAULTS };
+  let source = 'defaults';
+
+  const globalConfig = readGlobalConfig();
+  if (globalConfig) {
+    Object.assign(config, globalConfig);
+    source = 'global';
+    return { ...config, source, usingDefaults: false };
+  }
+
+  let usingDefaults = true;
 
   META_DESCRIPTORS.forEach(({ name, validate, fallbackKey }) => {
     const value = readMeta(doc, name);
     if (validate(value)) {
       config[fallbackKey] = value;
+      source = 'meta';
+      usingDefaults = false;
     } else {
       if (logWarnings && value) {
         console.warn(`Konfiguracja Supabase: nieprawidłowa wartość meta ${name}, używam domyślnej.`);
@@ -66,7 +99,7 @@ function getSupabaseConfig(node, { logWarnings = false } = {}) {
     }
   });
 
-  return config;
+  return { ...config, source, usingDefaults };
 }
 
 function ensureSupabaseMeta(node) {
