@@ -16,6 +16,7 @@ function createAuthCopy() {
         disabled: 'Tryb gościa — logowanie chwilowo niedostępne',
         invalidConfig: 'Logowanie wyłączone – konfiguracja wymaga uwagi',
         network: 'Logowanie niedostępne – sprawdź połączenie',
+        unavailableShort: 'Logowanie niedostępne',
       },
       info: {
         loginConnecting: 'Łączenie z kontem…',
@@ -50,6 +51,7 @@ function createAuthCopy() {
         resetMissingEmail: 'Podaj adres e-mail, aby wysłać link do resetu.',
         resetUnknown: 'Nie udało się wysłać linku resetującego. Spróbuj ponownie później.',
         unavailable: 'Logowanie jest obecnie wyłączone. Spróbuj ponownie później.',
+        unavailableShort: 'Logowanie niedostępne',
       },
     },
     en: {
@@ -60,6 +62,7 @@ function createAuthCopy() {
         disabled: 'Guest mode — sign-in is temporarily unavailable',
         invalidConfig: 'Sign-in disabled – configuration requires attention',
         network: 'Sign-in unavailable – check your connection',
+        unavailableShort: 'Sign-in unavailable',
       },
       info: {
         loginConnecting: 'Signing you in…',
@@ -94,6 +97,7 @@ function createAuthCopy() {
         resetMissingEmail: 'Enter your email address to send a reset link.',
         resetUnknown: 'We could not send the reset link. Please try again later.',
         unavailable: 'Sign-in is currently disabled. Please try again later.',
+        unavailableShort: 'Sign-in unavailable',
       },
     },
   };
@@ -261,8 +265,11 @@ ready(() => {
     };
     const fallback = fallbackByContext[context] || TEXT.errors.loginUnknown;
     const globalAuthError = window.CE_AUTH?.authError || document.documentElement.dataset.authError || '';
-    if (globalAuthError === 'config-missing' || globalAuthError === 'invalid-api-key') {
+    if (globalAuthError === 'config-missing') {
       return TEXT.errors.loginInvalidConfig;
+    }
+    if (globalAuthError === 'invalid-api-key') {
+      return TEXT.errors.unavailableShort;
     }
     if (!error) {
       return fallback;
@@ -327,6 +334,56 @@ ready(() => {
     document.documentElement.dataset.authState = state;
   }
 
+  function setFormsDisabledState(disabled) {
+    disableFormControls(loginForm, disabled);
+    disableFormControls(registerForm, disabled);
+    if (loginForgotPassword instanceof HTMLButtonElement) {
+      loginForgotPassword.disabled = disabled;
+    }
+  }
+
+  const AUTH_ERROR_UI = {
+    'invalid-api-key': {
+      message: TEXT.errors.unavailableShort,
+      status: TEXT.status.unavailableShort,
+    },
+    'config-missing': { message: TEXT.errors.loginInvalidConfig, status: TEXT.status.invalidConfig },
+    network: { message: TEXT.errors.loginNetwork, status: TEXT.status.network },
+    disabled: { message: TEXT.errors.unavailable, status: TEXT.status.disabled },
+    'init-failed': { message: TEXT.errors.unavailable, status: TEXT.status.disabled },
+    default: { message: TEXT.errors.unavailable, status: TEXT.status.disabled },
+  };
+
+  let globalAuthErrorActive = false;
+
+  function applyGlobalAuthErrorState(code = '') {
+    const normalized = typeof code === 'string' && code ? code.trim().toLowerCase() : '';
+    if (normalized) {
+      document.documentElement.dataset.authError = normalized;
+    }
+    const datasetCode = (document.documentElement.dataset.authError || '').trim().toLowerCase();
+    const display = AUTH_ERROR_UI[datasetCode] || AUTH_ERROR_UI.default;
+    globalAuthErrorActive = true;
+    setFormsDisabledState(true);
+    setAuthMessage(display.message, 'error');
+    updateAuthState(AUTH_STATE.GUEST, display.status);
+  }
+
+  function clearGlobalAuthErrorState() {
+    const hasDatasetError = Boolean(document.documentElement.dataset.authError);
+    if (!globalAuthErrorActive && !hasDatasetError) {
+      setFormsDisabledState(false);
+      return;
+    }
+    globalAuthErrorActive = false;
+    delete document.documentElement.dataset.authError;
+    setFormsDisabledState(false);
+    if (authMessageEl?.dataset.tone === 'error') {
+      setAuthMessage('');
+    }
+    updateAuthState(AUTH_STATE.LOADING, TEXT.status.loading);
+  }
+
   function handleAuthUser(user) {
     if (user) {
       updateAuthState(AUTH_STATE.AUTHENTICATED, TEXT.status.authenticated(describeUser(user)));
@@ -338,48 +395,53 @@ ready(() => {
   }
 
   function handleMissingSupabaseConfig() {
-    document.documentElement.dataset.authError = 'config-missing';
     console.error('Brak konfiguracji Supabase: wymagane meta supabase-url lub supabase-anon.');
-    updateAuthState(AUTH_STATE.GUEST, TEXT.status.invalidConfig);
-    setAuthMessage(TEXT.errors.loginInvalidConfig, 'error');
-    disableFormControls(loginForm, true);
-    disableFormControls(registerForm, true);
-    if (loginForgotPassword instanceof HTMLButtonElement) {
-      loginForgotPassword.disabled = true;
-    }
+    applyGlobalAuthErrorState('config-missing');
   }
+
+  const initialAuthError = (document.documentElement.dataset.authError || '').trim();
+  if (initialAuthError) {
+    applyGlobalAuthErrorState(initialAuthError);
+  } else {
+    setFormsDisabledState(false);
+  }
+
+  document.addEventListener('ce-auth:status', (event) => {
+    const detail = event?.detail;
+    const status = typeof detail === 'string' ? detail : detail?.status || '';
+    const code =
+      typeof detail === 'object' && detail
+        ? detail.code || detail.error || detail.reason || ''
+        : '';
+    if (status === 'online') {
+      clearGlobalAuthErrorState();
+    } else if (status === 'error') {
+      applyGlobalAuthErrorState(code);
+    }
+  });
 
   if (!supabaseMetaUrl || !supabaseMetaAnon) {
     handleMissingSupabaseConfig();
     return;
   }
 
-  updateAuthState(AUTH_STATE.LOADING, TEXT.status.loading);
+  if (!globalAuthErrorActive) {
+    updateAuthState(AUTH_STATE.LOADING, TEXT.status.loading);
+  }
 
   waitForAuthApi().then(async (authApi) => {
     if (!authApi || authApi.enabled === false || !authApi.supabase) {
       const authError = authApi?.authError || document.documentElement.dataset.authError || '';
       const issues = Array.isArray(authApi?.diagnostics?.issues) ? authApi.diagnostics.issues : [];
       const lastIssue = issues.length ? issues[issues.length - 1] : null;
-      let message = TEXT.errors.unavailable;
-      let statusMessage = TEXT.status.disabled;
-      if (authError === 'config-missing' || authApi?.reason === 'config-missing') {
-        message = TEXT.errors.loginInvalidConfig;
-        statusMessage = TEXT.status.invalidConfig;
-      } else if (authError === 'invalid-api-key') {
-        message = TEXT.errors.loginInvalidConfig;
-        statusMessage = TEXT.status.invalidConfig;
-      } else if (lastIssue?.code === 'session-fetch-failed') {
-        message = TEXT.errors.loginNetwork;
-        statusMessage = TEXT.status.network;
+      let errorCode = authError || '';
+      if (!errorCode && typeof authApi?.reason === 'string') {
+        errorCode = authApi.reason;
       }
-      updateAuthState(AUTH_STATE.GUEST, statusMessage);
-      setAuthMessage(message, 'error');
-      disableFormControls(loginForm, true);
-      disableFormControls(registerForm, true);
-      if (loginForgotPassword instanceof HTMLButtonElement) {
-        loginForgotPassword.disabled = true;
+      if (!errorCode && lastIssue?.code === 'session-fetch-failed') {
+        errorCode = 'network';
       }
+      applyGlobalAuthErrorState(errorCode);
       return;
     }
 
