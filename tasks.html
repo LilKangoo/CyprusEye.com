@@ -50,6 +50,7 @@
   <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM" />
   <meta name="supabase-publishable" content="sb_publishable_QdxNGCb6LYD-6ywFrjCrjg_Oa7yDGTk" />
   <script type="module" src="/assets/js/auth/boot.js" defer></script>
+  <script type="module" src="/assets/js/auth/render.js" defer></script>
 </head>
 <body data-navigation="multi-page" data-initial-view="tasksView" data-seo-page="tasks">
   <header class="app-header">
@@ -68,16 +69,16 @@
           🔔 Powiadomienia
           <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
         </button>
-        <button
+        <a
           id="loginBtn"
           class="ghost"
-          type="button"
+          href="/auth/"
           data-login-button
           data-login-label-signed-in="Wyloguj"
           data-login-label-signed-out="Zaloguj"
         >
           Zaloguj
-        </button>
+        </a>
         <span id="authStatusBadge" class="auth-status-badge" aria-live="polite" data-i18n="auth.status.badge.loading">
           Łączenie z usługą…
         </span>
@@ -465,184 +466,7 @@
         </button>
         <h2 id="auth-title" data-i18n="auth.title">Dołącz do przygody</h2>
         <p class="auth-intro" data-i18n="auth.intro">Zaloguj się, utwórz konto lub graj jako gość.</p>
-        <div class="auth-modal__tabs" role="tablist">
-          <button
-            type="button"
-            class="auth-modal__tab is-active"
-            role="tab"
-            id="authTabLogin"
-            aria-selected="true"
-            aria-controls="authPanelLogin"
-            data-auth-tab="login"
-            data-i18n="auth.tab.login"
-          >
-            Logowanie
-          </button>
-          <button
-            type="button"
-            class="auth-modal__tab"
-            role="tab"
-            id="authTabRegister"
-            aria-selected="false"
-            aria-controls="authPanelRegister"
-            data-auth-tab="register"
-            tabindex="-1"
-            data-i18n="auth.tab.register"
-          >
-            Rejestracja
-          </button>
-          <button
-            type="button"
-            class="auth-modal__tab"
-            role="tab"
-            id="authTabGuest"
-            aria-selected="false"
-            aria-controls="authPanelGuest"
-            data-auth-tab="guest"
-            tabindex="-1"
-            data-i18n="auth.tab.guest"
-          >
-            Gość
-          </button>
-        </div>
-        <div class="auth-modal__panels">
-          <section
-            id="authPanelLogin"
-            class="auth-modal__panel is-active"
-            role="tabpanel"
-          aria-labelledby="authTabLogin"
-          data-auth-panel="login"
-        >
-          <form id="loginForm" class="auth-form" novalidate>
-            <label for="loginEmail" data-i18n="auth.email">Adres e-mail</label>
-            <input
-              id="loginEmail"
-              name="email"
-              type="email"
-              required
-              autocomplete="email"
-              aria-label="Adres e-mail"
-              data-i18n=""
-              data-i18n-attrs="aria-label:auth.email"
-            />
-            <label for="loginPassword" data-i18n="auth.password">Hasło</label>
-            <input
-              id="loginPassword"
-              name="password"
-              type="password"
-              required
-              autocomplete="current-password"
-              aria-label="Hasło"
-              data-i18n=""
-              data-i18n-attrs="aria-label:auth.password"
-            />
-            <div class="auth-form__actions">
-              <button
-                type="submit"
-                class="btn btn--primary"
-                data-i18n="auth.login.button"
-                data-i18n-attrs="aria-label:auth.login.button"
-                aria-label="Zaloguj się"
-              >
-                Zaloguj się
-              </button>
-              <button
-                type="button"
-                class="auth-form__link"
-                id="loginForgotPassword"
-                data-i18n="auth.reset.button"
-                data-i18n-attrs="aria-label:auth.reset.button"
-                aria-label="🔑 Resetuj hasło"
-              >
-                🔑 Resetuj hasło
-              </button>
-            </div>
-          </form>
-        </section>
-          <section
-            id="authPanelRegister"
-            class="auth-modal__panel"
-            role="tabpanel"
-            aria-labelledby="authTabRegister"
-          data-auth-panel="register"
-          hidden
-        >
-          <form id="registerForm" class="auth-form" novalidate>
-            <label for="registerEmail" data-i18n="auth.email">Adres e-mail</label>
-            <input
-              id="registerEmail"
-              name="email"
-              type="email"
-              required
-              autocomplete="email"
-              aria-label="Adres e-mail"
-              data-i18n=""
-              data-i18n-attrs="aria-label:auth.email"
-            />
-            <label for="registerPassword" data-i18n="auth.password">Hasło</label>
-            <input
-              id="registerPassword"
-              name="password"
-              type="password"
-              required
-              minlength="8"
-              autocomplete="new-password"
-              aria-label="Hasło"
-              data-i18n=""
-              data-i18n-attrs="aria-label:auth.password"
-            />
-            <label for="registerPasswordConfirm" data-i18n="auth.confirmPassword">Powtórz hasło</label>
-            <input
-              id="registerPasswordConfirm"
-              name="passwordConfirm"
-              type="password"
-              required
-              minlength="8"
-              autocomplete="new-password"
-              aria-label="Powtórz hasło"
-              data-i18n=""
-              data-i18n-attrs="aria-label:auth.confirmPassword"
-            />
-            <p class="form-hint" data-i18n="auth.register.hint">
-              Po rejestracji sprawdź skrzynkę e-mail, aby potwierdzić konto.
-            </p>
-            <button
-              type="submit"
-              class="btn btn--primary"
-              data-i18n="auth.register.button"
-              data-i18n-attrs="aria-label:auth.register.button"
-              aria-label="Utwórz konto"
-            >
-              Utwórz konto
-            </button>
-          </form>
-        </section>
-          <section
-            id="authPanelGuest"
-            class="auth-modal__panel"
-            role="tabpanel"
-            aria-labelledby="authTabGuest"
-            data-auth-panel="guest"
-            hidden
-        >
-          <div class="auth-guest">
-            <p data-i18n="auth.guest.description">
-              Możesz grać jako gość – postęp zapisze się tylko na tym urządzeniu.
-            </p>
-            <button
-              type="button"
-              class="btn btn--secondary"
-              id="guestPlayButton"
-              data-i18n="auth.guest.button"
-              data-i18n-attrs="aria-label:auth.guest.button"
-              aria-label="Graj jako gość"
-            >
-              Graj jako gość
-            </button>
-          </div>
-        </section>
-        </div>
-        <p id="authMessage" class="auth-message" role="status" aria-live="polite"></p>
+      <div class="auth-modal__content" data-auth-view-root></div>
       </div>
     </div>
 

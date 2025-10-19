@@ -4,6 +4,104 @@ const AUTH_STATE = {
   AUTHENTICATED: 'authenticated',
 };
 
+function createAuthCopy() {
+  const lang = (document.documentElement?.lang || 'pl').toLowerCase();
+  const key = lang.startsWith('en') ? 'en' : 'pl';
+  const copies = {
+    pl: {
+      status: {
+        loading: 'Łączenie z logowaniem…',
+        guest: 'Grasz jako gość',
+        authenticated: (name) => `Zalogowano jako ${name}`,
+        disabled: 'Tryb gościa — logowanie chwilowo niedostępne',
+        invalidConfig: 'Logowanie wyłączone – konfiguracja wymaga uwagi',
+        network: 'Logowanie niedostępne – sprawdź połączenie',
+      },
+      info: {
+        loginConnecting: 'Łączenie z kontem…',
+        registerCheckingUsername: 'Sprawdzamy nazwę użytkownika…',
+        registerCreating: 'Tworzenie konta…',
+        resetSending: 'Wysyłamy link resetujący…',
+      },
+      success: {
+        loginRedirect: 'Witaj ponownie! Przekierowujemy do panelu.',
+        registerCheckEmail: 'Konto utworzone! Sprawdź e-mail, aby potwierdzić adres.',
+        resetEmailSent: 'Sprawdź skrzynkę e-mail — wysłaliśmy link do resetu hasła.',
+        guestMode: 'Grasz teraz jako gość. Możesz wrócić i utworzyć konto w dowolnym momencie.',
+      },
+      errors: {
+        loginMissingCredentials: 'Podaj adres e-mail i hasło, aby się zalogować.',
+        loginInvalidCredentials: 'Nieprawidłowy e-mail lub hasło. Spróbuj ponownie.',
+        loginInvalidConfig: 'Logowanie jest chwilowo niedostępne – skontaktuj się z administratorem serwisu.',
+        loginNetwork: 'Nie udało się połączyć z serwerem logowania. Sprawdź internet i spróbuj ponownie.',
+        loginUnknown: 'Nie udało się zalogować. Spróbuj ponownie później.',
+        registerMissingFirstName: 'Podaj imię, aby utworzyć konto.',
+        registerFirstNameShort: 'Imię powinno mieć co najmniej 2 znaki.',
+        registerMissingUsername: 'Wybierz nazwę użytkownika.',
+        registerUsernameInvalid:
+          'Nazwa użytkownika może zawierać litery, cyfry, kropki, myślniki i podkreślenia (3-30 znaków).',
+        registerUsernameTaken: 'Wybrana nazwa użytkownika jest już zajęta. Wybierz inną.',
+        registerUsernameUnknown: 'Nie udało się potwierdzić dostępności nazwy użytkownika. Spróbuj ponownie.',
+        registerMissingCredentials: 'Podaj adres e-mail i hasło, aby utworzyć konto.',
+        registerPasswordShort: 'Hasło powinno mieć co najmniej 8 znaków.',
+        registerPasswordMismatch: 'Hasła nie są identyczne. Spróbuj ponownie.',
+        registerUnknown: 'Nie udało się utworzyć konta. Spróbuj ponownie.',
+        registerUnavailable: 'Rejestracja jest chwilowo niedostępna. Spróbuj ponownie później.',
+        resetMissingEmail: 'Podaj adres e-mail, aby wysłać link do resetu.',
+        resetUnknown: 'Nie udało się wysłać linku resetującego. Spróbuj ponownie później.',
+        unavailable: 'Logowanie jest obecnie wyłączone. Spróbuj ponownie później.',
+      },
+    },
+    en: {
+      status: {
+        loading: 'Connecting to sign-in…',
+        guest: 'You are playing as a guest',
+        authenticated: (name) => `Signed in as ${name}`,
+        disabled: 'Guest mode — sign-in is temporarily unavailable',
+        invalidConfig: 'Sign-in disabled – configuration requires attention',
+        network: 'Sign-in unavailable – check your connection',
+      },
+      info: {
+        loginConnecting: 'Signing you in…',
+        registerCheckingUsername: 'Checking username availability…',
+        registerCreating: 'Creating your account…',
+        resetSending: 'Sending reset link…',
+      },
+      success: {
+        loginRedirect: 'Welcome back! Redirecting to the player hub.',
+        registerCheckEmail: 'Account created! Check your inbox to confirm your email.',
+        resetEmailSent: 'Check your inbox — we sent a password reset link.',
+        guestMode: 'You are now playing as a guest. You can create an account any time.',
+      },
+      errors: {
+        loginMissingCredentials: 'Enter your email address and password to sign in.',
+        loginInvalidCredentials: 'Incorrect email or password. Try again.',
+        loginInvalidConfig: 'Sign-in is temporarily unavailable — please contact the administrator.',
+        loginNetwork: 'Unable to reach the sign-in service. Check your connection and try again.',
+        loginUnknown: 'Sign-in failed. Please try again later.',
+        registerMissingFirstName: 'Enter your first name to create an account.',
+        registerFirstNameShort: 'Your first name should have at least 2 characters.',
+        registerMissingUsername: 'Choose a username.',
+        registerUsernameInvalid:
+          'The username can include letters, digits, dots, dashes and underscores (3-30 characters).',
+        registerUsernameTaken: 'This username is already taken. Pick another one.',
+        registerUsernameUnknown: 'We could not verify the username availability. Try again.',
+        registerMissingCredentials: 'Enter your email address and password to create an account.',
+        registerPasswordShort: 'The password must have at least 8 characters.',
+        registerPasswordMismatch: 'The passwords do not match. Try again.',
+        registerUnknown: 'We could not create your account. Please try again.',
+        registerUnavailable: 'Sign-up is temporarily unavailable. Please try again later.',
+        resetMissingEmail: 'Enter your email address to send a reset link.',
+        resetUnknown: 'We could not send the reset link. Please try again later.',
+        unavailable: 'Sign-in is currently disabled. Please try again later.',
+      },
+    },
+  };
+  return copies[key];
+}
+
+const TEXT = createAuthCopy();
+
 function ready(callback) {
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', callback, { once: true });
@@ -146,7 +244,64 @@ ready(() => {
     if (typeof user.email === 'string' && user.email.trim()) {
       return user.email.trim();
     }
-    return 'Twoje konto';
+    const fallbackLanguageName = (document.documentElement?.lang || '').toLowerCase().startsWith('en')
+      ? 'Your account'
+      : 'Twoje konto';
+    return fallbackLanguageName;
+  }
+
+  function resolveSupabaseError(error, context = 'login') {
+    const fallbackByContext = {
+      login: TEXT.errors.loginUnknown,
+      register: TEXT.errors.registerUnknown,
+      reset: TEXT.errors.resetUnknown,
+    };
+    const fallback = fallbackByContext[context] || TEXT.errors.loginUnknown;
+    const globalAuthError = window.CE_AUTH?.authError || document.documentElement.dataset.authError || '';
+    if (globalAuthError === 'config-missing' || globalAuthError === 'invalid-api-key') {
+      return TEXT.errors.loginInvalidConfig;
+    }
+    if (!error) {
+      return fallback;
+    }
+    const message = typeof error.message === 'string' ? error.message.trim() : '';
+    const lowered = message.toLowerCase();
+    const status = typeof error.status === 'number' ? error.status : Number(error.status) || null;
+    const code = typeof error.code === 'string' ? error.code : '';
+
+    if (lowered.includes('invalid api key') || code === 'invalid_api_key') {
+      return TEXT.errors.loginInvalidConfig;
+    }
+
+    if (
+      context === 'login' &&
+      (lowered.includes('invalid login credentials') ||
+        lowered.includes('invalid email or password') ||
+        code === 'invalid_grant' ||
+        status === 400 ||
+        status === 401)
+    ) {
+      return TEXT.errors.loginInvalidCredentials;
+    }
+
+    if (
+      error instanceof TypeError ||
+      lowered.includes('network error') ||
+      lowered.includes('failed to fetch') ||
+      lowered.includes('network request failed')
+    ) {
+      return TEXT.errors.loginNetwork;
+    }
+
+    if (status === 0) {
+      return TEXT.errors.loginNetwork;
+    }
+
+    if (message) {
+      return message;
+    }
+
+    return fallback;
   }
 
   function updateAccountCta(user) {
@@ -171,20 +326,35 @@ ready(() => {
 
   function handleAuthUser(user) {
     if (user) {
-      updateAuthState(AUTH_STATE.AUTHENTICATED, `Zalogowano jako ${describeUser(user)}`);
+      updateAuthState(AUTH_STATE.AUTHENTICATED, TEXT.status.authenticated(describeUser(user)));
       updateAccountCta(user);
     } else {
-      updateAuthState(AUTH_STATE.GUEST, 'Grasz jako gość');
+      updateAuthState(AUTH_STATE.GUEST, TEXT.status.guest);
       updateAccountCta(null);
     }
   }
 
-  updateAuthState(AUTH_STATE.LOADING, 'Łączenie z logowaniem…');
+  updateAuthState(AUTH_STATE.LOADING, TEXT.status.loading);
 
   waitForAuthApi().then(async (authApi) => {
     if (!authApi || authApi.enabled === false || !authApi.supabase) {
-      updateAuthState(AUTH_STATE.GUEST, 'Tryb gościa — logowanie chwilowo niedostępne');
-      setAuthMessage('Logowanie jest obecnie wyłączone. Spróbuj ponownie później.', 'error');
+      const authError = authApi?.authError || document.documentElement.dataset.authError || '';
+      const issues = Array.isArray(authApi?.diagnostics?.issues) ? authApi.diagnostics.issues : [];
+      const lastIssue = issues.length ? issues[issues.length - 1] : null;
+      let message = TEXT.errors.unavailable;
+      let statusMessage = TEXT.status.disabled;
+      if (authError === 'config-missing' || authApi?.reason === 'config-missing') {
+        message = TEXT.errors.loginInvalidConfig;
+        statusMessage = TEXT.status.invalidConfig;
+      } else if (authError === 'invalid-api-key') {
+        message = TEXT.errors.loginInvalidConfig;
+        statusMessage = TEXT.status.invalidConfig;
+      } else if (lastIssue?.code === 'session-fetch-failed') {
+        message = TEXT.errors.loginNetwork;
+        statusMessage = TEXT.status.network;
+      }
+      updateAuthState(AUTH_STATE.GUEST, statusMessage);
+      setAuthMessage(message, 'error');
       disableFormControls(loginForm, true);
       disableFormControls(registerForm, true);
       if (loginForgotPassword instanceof HTMLButtonElement) {
@@ -244,7 +414,7 @@ ready(() => {
       const password = passwordInput.value;
 
       if (!email || !password) {
-        setAuthMessage('Podaj adres e-mail i hasło, aby się zalogować.', 'error');
+        setAuthMessage(TEXT.errors.loginMissingCredentials, 'error');
         emailInput.focus();
         return;
       }
@@ -259,23 +429,21 @@ ready(() => {
         loginForgotPassword.disabled = true;
       }
 
-      setAuthMessage('Łączenie z kontem…', 'info');
-      updateAuthState(AUTH_STATE.LOADING, 'Logowanie…');
+      setAuthMessage(TEXT.info.loginConnecting, 'info');
+      updateAuthState(AUTH_STATE.LOADING, TEXT.status.loading);
 
       try {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) {
           throw error;
         }
-        setAuthMessage('Witaj ponownie! Przekierowujemy do panelu.', 'success');
+        setAuthMessage(TEXT.success.loginRedirect, 'success');
         loginForm.reset();
         setTimeout(() => {
           window.location.href = '/account/';
         }, 1200);
       } catch (error) {
-        const message = error && typeof error.message === 'string' && error.message
-          ? error.message
-          : 'Nie udało się zalogować. Spróbuj ponownie.';
+        const message = resolveSupabaseError(error, 'login');
         setAuthMessage(message, 'error');
         handleAuthUser(null);
       } finally {
@@ -307,26 +475,26 @@ ready(() => {
 
       const firstName = firstNameInput.value.trim();
       if (!firstName) {
-        setAuthMessage('Podaj imię, aby utworzyć konto.', 'error');
+        setAuthMessage(TEXT.errors.registerMissingFirstName, 'error');
         firstNameInput.focus();
         return;
       }
 
       if (firstName.length < 2) {
-        setAuthMessage('Imię powinno mieć co najmniej 2 znaki.', 'error');
+        setAuthMessage(TEXT.errors.registerFirstNameShort, 'error');
         firstNameInput.focus();
         return;
       }
 
       const username = usernameInput.value.trim();
       if (!username) {
-        setAuthMessage('Wybierz nazwę użytkownika.', 'error');
+        setAuthMessage(TEXT.errors.registerMissingUsername, 'error');
         usernameInput.focus();
         return;
       }
 
       if (!usernamePattern.test(username)) {
-        setAuthMessage('Nazwa użytkownika może zawierać litery, cyfry, kropki, myślniki i podkreślenia (3-30 znaków).', 'error');
+        setAuthMessage(TEXT.errors.registerUsernameInvalid, 'error');
         usernameInput.focus();
         return;
       }
@@ -336,19 +504,19 @@ ready(() => {
       const confirm = confirmInput.value;
 
       if (!email || !password) {
-        setAuthMessage('Podaj adres e-mail i hasło, aby utworzyć konto.', 'error');
+        setAuthMessage(TEXT.errors.registerMissingCredentials, 'error');
         emailInput.focus();
         return;
       }
 
       if (password.length < 8) {
-        setAuthMessage('Hasło powinno mieć co najmniej 8 znaków.', 'error');
+        setAuthMessage(TEXT.errors.registerPasswordShort, 'error');
         passwordInput.focus();
         return;
       }
 
       if (password !== confirm) {
-        setAuthMessage('Hasła nie są identyczne. Spróbuj ponownie.', 'error');
+        setAuthMessage(TEXT.errors.registerPasswordMismatch, 'error');
         confirmInput.focus();
         return;
       }
@@ -361,22 +529,22 @@ ready(() => {
       }
 
       try {
-        setAuthMessage('Sprawdzamy nazwę użytkownika…', 'info');
+        setAuthMessage(TEXT.info.registerCheckingUsername, 'info');
         const taken = await isUsernameTaken(username);
         if (taken) {
-          setAuthMessage('Wybrana nazwa użytkownika jest już zajęta. Wybierz inną.', 'error');
+          setAuthMessage(TEXT.errors.registerUsernameTaken, 'error');
           usernameInput.focus();
           return;
         }
       } catch (error) {
         const message = error && typeof error.message === 'string' && error.message
           ? error.message
-          : 'Nie udało się potwierdzić dostępności nazwy użytkownika. Spróbuj ponownie.';
+          : TEXT.errors.registerUsernameUnknown;
         setAuthMessage(message, 'error');
         return;
       }
 
-      setAuthMessage('Tworzenie konta…', 'info');
+      setAuthMessage(TEXT.info.registerCreating, 'info');
 
       try {
         const redirectTo = `${window.location.origin}/auth/callback/`;
@@ -414,12 +582,10 @@ ready(() => {
           }
         }
         registerForm.reset();
-        setAuthMessage('Konto utworzone! Sprawdź e-mail, aby potwierdzić adres.', 'success');
+        setAuthMessage(TEXT.success.registerCheckEmail, 'success');
         setActiveTab('login', { focus: true });
       } catch (error) {
-        const message = error && typeof error.message === 'string' && error.message
-          ? error.message
-          : 'Nie udało się utworzyć konta. Spróbuj ponownie.';
+        const message = resolveSupabaseError(error, 'register');
         setAuthMessage(message, 'error');
       } finally {
         if (submitButton instanceof HTMLButtonElement) {
@@ -437,19 +603,19 @@ ready(() => {
 
         const emailInput = getField(loginForm, '#loginEmail');
         if (!emailInput) {
-          setAuthMessage('Podaj adres e-mail, aby wysłać link do resetu.', 'error');
+          setAuthMessage(TEXT.errors.resetMissingEmail, 'error');
           return;
         }
 
         const email = emailInput.value.trim();
         if (!email) {
-          setAuthMessage('Podaj adres e-mail, aby wysłać link do resetu.', 'error');
+          setAuthMessage(TEXT.errors.resetMissingEmail, 'error');
           emailInput.focus();
           return;
         }
 
         loginForgotPassword.disabled = true;
-        setAuthMessage('Wysyłamy link resetujący…', 'info');
+        setAuthMessage(TEXT.info.resetSending, 'info');
 
         try {
           const redirectTo = `${window.location.origin}/reset/`;
@@ -457,11 +623,9 @@ ready(() => {
           if (error) {
             throw error;
           }
-          setAuthMessage('Sprawdź skrzynkę e-mail — wysłaliśmy link do resetu hasła.', 'success');
+          setAuthMessage(TEXT.success.resetEmailSent, 'success');
         } catch (error) {
-          const message = error && typeof error.message === 'string' && error.message
-            ? error.message
-            : 'Nie udało się wysłać linku resetującego. Spróbuj ponownie później.';
+          const message = resolveSupabaseError(error, 'reset');
           setAuthMessage(message, 'error');
         } finally {
           loginForgotPassword.disabled = false;
@@ -476,7 +640,7 @@ ready(() => {
         console.warn('Wylogowanie przed trybem gościa nie powiodło się:', error);
       }
       localStorage.removeItem('wakacjecypr-session');
-      setAuthMessage('Grasz teraz jako gość. Możesz wrócić i utworzyć konto w dowolnym momencie.', 'success');
+      setAuthMessage(TEXT.success.guestMode, 'success');
       setTimeout(() => {
         window.location.href = '/';
       }, 900);
