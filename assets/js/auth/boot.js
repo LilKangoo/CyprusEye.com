@@ -2,6 +2,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 const enabled = (document.querySelector('meta[name="ce-auth"]')?.content || 'on') === 'on';
 
+const AUTH_PAGE_PATH = '/auth/';
 const loginButtonSelectors = ['#loginBtn', '[data-login-button]'];
 let loginButtonUpdater = () => {};
 let lastKnownUser = null;
@@ -63,13 +64,13 @@ function setupLoginButtons(supabase) {
     setDisabled(button, false);
 
     if (button instanceof HTMLAnchorElement) {
-      button.setAttribute('href', '/auth.html');
+      button.setAttribute('href', AUTH_PAGE_PATH);
       button.onclick = null;
     } else {
       button.setAttribute('type', 'button');
       button.onclick = (event) => {
         event.preventDefault();
-        window.location.href = '/auth.html';
+        window.location.href = AUTH_PAGE_PATH;
       };
     }
   }

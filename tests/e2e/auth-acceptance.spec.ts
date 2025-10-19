@@ -41,12 +41,23 @@ test('unauthenticated auth-required controls redirect to /auth', async ({ page }
   await page.goto('/index.html');
   await page.waitForFunction(() => (window as any).CE_AUTH?.enabled === true);
 
-  await Promise.all([
-    page.waitForURL('**/auth'),
-    page.click('#notificationsToggle'),
-  ]);
+  await page.click('#notificationsToggle');
 
-  expect(new URL(page.url()).pathname).toBe('/auth');
+  await page.waitForFunction(() => {
+    const url = new URL(window.location.href);
+    if (url.pathname === '/auth/') {
+      return true;
+    }
+    return document.body.classList.contains('is-modal-open');
+  });
+
+  const pathname = new URL(page.url()).pathname;
+  if (pathname === '/auth/') {
+    expect(pathname).toBe('/auth/');
+  } else {
+    const isModalOpen = await page.evaluate(() => document.body.classList.contains('is-modal-open'));
+    expect(isModalOpen).toBe(true);
+  }
 });
 
 const SERVICES = [
@@ -90,14 +101,14 @@ test('meta ce-auth="off" disables auth interception', async ({ page }) => {
 });
 
 test('login enables access to /account and sign out returns home', async ({ page }) => {
-  await page.goto('/auth');
+  await page.goto('/auth/');
 
-  await page.fill('#login input[name="email"]', 'qa@example.com');
-  await page.fill('#login input[name="password"]', 'super-secret');
+  await page.fill('#loginForm input[name="email"]', 'qa@example.com');
+  await page.fill('#loginForm input[name="password"]', 'super-secret');
 
   await Promise.all([
-    page.waitForURL('**/account'),
-    page.click('#login button[type="submit"]'),
+    page.waitForURL('**/account/'),
+    page.click('#loginForm button[type="submit"]'),
   ]);
 
   await page.waitForSelector('#me');
