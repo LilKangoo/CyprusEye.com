@@ -1,7 +1,7 @@
 const SUPABASE_DEFAULTS = Object.freeze({
-  url: 'https://daoohnbnnowmmcizgvrq.supabase.co',
+  url: 'https://xkzqolhjvrpjsnzwssml.supabase.co',
   anon:
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bWNpemd2cnEiLCJyb2xlIjoiYW5vbiIsImlhdCI6MTc2MDc2OTA0OSwiZXhwIjoyMDc2MzQ1MDQ5fQ.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrenFvbGhqdnJwanNuenZzc21sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5MjUwMDAsImV4cCI6MjA3NjQ5NzAwMH0.KXnVbWcv16O3MHuvb6jVWeItPxX2VINeodIZ6wO6PYo',
   publishable: 'sb_publishable_QdxNGCb6LYD-6ywFrjCrjg_Oa7yDGTk',
 });
 
