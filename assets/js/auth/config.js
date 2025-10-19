@@ -1,9 +1,27 @@
+const SUPABASE_URL = 'https://xkzqolhjvrpjsnzwssml.supabase.co';
+const SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrenFvbGhqdnJwanNuenZzc21sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5MjUwMDAsImV4cCI6MjA3NjQ5NzAwMH0.KXnVbWcv16O3MHuvb6jVWeItPxX2VINeodIZ6wO6PYo';
+const SUPABASE_PUBLISHABLE_KEY = 'sb_publishable_QdxNGCb6LYD-6ywFrjCrjg_Oa7yDGTk';
+
 const SUPABASE_DEFAULTS = Object.freeze({
-  url: 'https://xkzqolhjvrpjsnzwssml.supabase.co',
-  anon:
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InhrenFvbGhqdnJwanNuenZzc21sIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA5MjUwMDAsImV4cCI6MjA3NjQ5NzAwMH0.KXnVbWcv16O3MHuvb6jVWeItPxX2VINeodIZ6wO6PYo',
-  publishable: 'sb_publishable_QdxNGCb6LYD-6ywFrjCrjg_Oa7yDGTk',
+  url: SUPABASE_URL,
+  anon: SUPABASE_ANON_KEY,
+  publishable: SUPABASE_PUBLISHABLE_KEY,
 });
+
+export function readSupabaseConfig(
+  doc = typeof document !== 'undefined' ? document : undefined,
+  win = typeof window !== 'undefined' ? window : undefined,
+) {
+  const meta = (name) => doc?.querySelector(`meta[name="${name}"]`)?.content;
+  const w = win?.__SUPABASE_CONFIG;
+  const url = w?.url || meta('supabase-url') || SUPABASE_URL;
+  const anon = w?.anon || meta('supabase-anon') || SUPABASE_ANON_KEY;
+  const publishable =
+    w?.publishable || meta('supabase-publishable') || SUPABASE_PUBLISHABLE_KEY;
+  const source = w ? 'window' : meta('supabase-url') ? 'meta' : 'defaults';
+  return { url, anon, publishable, source };
+}
 
 const META_DESCRIPTORS = [
   {
@@ -50,40 +68,17 @@ function upsertMeta(doc, name, value) {
   meta.setAttribute('content', value);
 }
 
-function readGlobalConfig() {
-  if (typeof window === 'undefined') {
-    return null;
-  }
-  const candidate = window.__SUPABASE_CONFIG;
-  if (!candidate || typeof candidate !== 'object') {
-    return null;
-  }
-  const normalized = {};
-  META_DESCRIPTORS.forEach(({ name, validate, fallbackKey }) => {
-    const value = candidate[fallbackKey] || candidate[name];
-    if (validate(value)) {
-      normalized[fallbackKey] = value;
-    }
-  });
-  if (!normalized.url || !normalized.anon) {
-    return null;
-  }
-  return normalized;
-}
-
 function getSupabaseConfig(node, { logWarnings = false } = {}) {
   const doc = getDocument(node);
-  const config = { ...SUPABASE_DEFAULTS };
-  let source = 'defaults';
+  const win = typeof window !== 'undefined' ? window : undefined;
+  const base = readSupabaseConfig(doc ?? undefined, win);
+  const config = { url: base.url, anon: base.anon, publishable: base.publishable };
+  let { source } = base;
+  let usingDefaults = source === 'defaults';
 
-  const globalConfig = readGlobalConfig();
-  if (globalConfig) {
-    Object.assign(config, globalConfig);
-    source = 'global';
-    return { ...config, source, usingDefaults: false };
+  if (source === 'window') {
+    return { ...config, source, usingDefaults };
   }
-
-  let usingDefaults = true;
 
   META_DESCRIPTORS.forEach(({ name, validate, fallbackKey }) => {
     const value = readMeta(doc, name);
@@ -91,13 +86,23 @@ function getSupabaseConfig(node, { logWarnings = false } = {}) {
       config[fallbackKey] = value;
       source = 'meta';
       usingDefaults = false;
-    } else {
-      if (logWarnings && value) {
+    } else if (value) {
+      if (logWarnings) {
         console.warn(`Konfiguracja Supabase: nieprawidłowa wartość meta ${name}, używam domyślnej.`);
       }
       config[fallbackKey] = SUPABASE_DEFAULTS[fallbackKey];
+      if (source === 'meta') {
+        usingDefaults = usingDefaults || config[fallbackKey] === SUPABASE_DEFAULTS[fallbackKey];
+      }
     }
   });
+
+  if (source === 'defaults' && (!config.url || !config.anon)) {
+    config.url = SUPABASE_DEFAULTS.url;
+    config.anon = SUPABASE_DEFAULTS.anon;
+    config.publishable = SUPABASE_DEFAULTS.publishable;
+    usingDefaults = true;
+  }
 
   return { ...config, source, usingDefaults };
 }
@@ -118,4 +123,12 @@ function ensureSupabaseMeta(node) {
   return getSupabaseConfig(doc);
 }
 
-export { SUPABASE_DEFAULTS, getSupabaseConfig, ensureSupabaseMeta };
+export {
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY,
+  SUPABASE_PUBLISHABLE_KEY,
+  SUPABASE_DEFAULTS,
+  getSupabaseConfig,
+  ensureSupabaseMeta,
+  readSupabaseConfig,
+};
