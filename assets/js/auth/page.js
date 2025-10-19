@@ -126,9 +126,14 @@ ready(() => {
     return field instanceof HTMLInputElement ? field : null;
   }
 
+  const usernamePattern = /^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])$/i;
+
   function describeUser(user) {
     if (!user) return '';
     const metadata = user.user_metadata || {};
+    if (typeof metadata.username === 'string' && metadata.username.trim()) {
+      return metadata.username.trim();
+    }
     if (typeof metadata.display_name === 'string' && metadata.display_name.trim()) {
       return metadata.display_name.trim();
     }
@@ -189,6 +194,29 @@ ready(() => {
     }
 
     const supabase = authApi.supabase;
+
+    async function isUsernameTaken(username, { excludeUserId = null } = {}) {
+      if (!usernamePattern.test(username)) {
+        return true;
+      }
+
+      const normalized = username.trim().toLowerCase();
+
+      try {
+        let query = supabase.from('profiles').select('id').ilike('username', normalized).limit(1);
+        if (excludeUserId) {
+          query = query.neq('id', excludeUserId);
+        }
+        const { data, error } = await query.maybeSingle();
+        if (error && error.code !== 'PGRST116') {
+          throw error;
+        }
+        return Boolean(data?.id);
+      } catch (error) {
+        console.warn('Nie udało się zweryfikować dostępności nazwy użytkownika', error);
+        throw new Error('Nie udało się potwierdzić dostępności nazwy użytkownika. Spróbuj ponownie.');
+      }
+    }
 
     if (typeof authApi.onAuthStateChange === 'function') {
       authApi.onAuthStateChange((user) => {
@@ -269,8 +297,37 @@ ready(() => {
       const emailInput = getField(registerForm, '#registerEmail');
       const passwordInput = getField(registerForm, '#registerPassword');
       const confirmInput = registerPasswordConfirm instanceof HTMLInputElement ? registerPasswordConfirm : null;
+      const firstNameInput = getField(registerForm, '#registerFirstName');
+      const usernameInput = getField(registerForm, '#registerUsername');
 
-      if (!emailInput || !passwordInput || !confirmInput) {
+      if (!emailInput || !passwordInput || !confirmInput || !firstNameInput || !usernameInput) {
+        setAuthMessage('Formularz rejestracji jest niepełny. Odśwież stronę i spróbuj ponownie.', 'error');
+        return;
+      }
+
+      const firstName = firstNameInput.value.trim();
+      if (!firstName) {
+        setAuthMessage('Podaj imię, aby utworzyć konto.', 'error');
+        firstNameInput.focus();
+        return;
+      }
+
+      if (firstName.length < 2) {
+        setAuthMessage('Imię powinno mieć co najmniej 2 znaki.', 'error');
+        firstNameInput.focus();
+        return;
+      }
+
+      const username = usernameInput.value.trim();
+      if (!username) {
+        setAuthMessage('Wybierz nazwę użytkownika.', 'error');
+        usernameInput.focus();
+        return;
+      }
+
+      if (!usernamePattern.test(username)) {
+        setAuthMessage('Nazwa użytkownika może zawierać litery, cyfry, kropki, myślniki i podkreślenia (3-30 znaków).', 'error');
+        usernameInput.focus();
         return;
       }
 
@@ -303,17 +360,58 @@ ready(() => {
         submitButton.setAttribute('aria-busy', 'true');
       }
 
+      try {
+        setAuthMessage('Sprawdzamy nazwę użytkownika…', 'info');
+        const taken = await isUsernameTaken(username);
+        if (taken) {
+          setAuthMessage('Wybrana nazwa użytkownika jest już zajęta. Wybierz inną.', 'error');
+          usernameInput.focus();
+          return;
+        }
+      } catch (error) {
+        const message = error && typeof error.message === 'string' && error.message
+          ? error.message
+          : 'Nie udało się potwierdzić dostępności nazwy użytkownika. Spróbuj ponownie.';
+        setAuthMessage(message, 'error');
+        return;
+      }
+
       setAuthMessage('Tworzenie konta…', 'info');
 
       try {
         const redirectTo = `${window.location.origin}/auth/callback/`;
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
-          options: { emailRedirectTo: redirectTo },
+          options: {
+            emailRedirectTo: redirectTo,
+            data: {
+              display_name: firstName,
+              first_name: firstName,
+              username,
+              username_normalized: username.toLowerCase(),
+            },
+          },
         });
         if (error) {
           throw error;
+        }
+        if (data?.user?.id) {
+          try {
+            await supabase
+              .from('profiles')
+              .upsert(
+                {
+                  id: data.user.id,
+                  display_name: firstName,
+                  first_name: firstName,
+                  username,
+                },
+                { onConflict: 'id' },
+              );
+          } catch (profileError) {
+            console.warn('Nie udało się zapisać profilu użytkownika podczas rejestracji', profileError);
+          }
         }
         registerForm.reset();
         setAuthMessage('Konto utworzone! Sprawdź e-mail, aby potwierdzić adres.', 'success');
