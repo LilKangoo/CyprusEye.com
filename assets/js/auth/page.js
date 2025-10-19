@@ -384,7 +384,7 @@ ready(() => {
         return Boolean(data?.id);
       } catch (error) {
         console.warn('Nie udało się zweryfikować dostępności nazwy użytkownika', error);
-        throw new Error('Nie udało się potwierdzić dostępności nazwy użytkownika. Spróbuj ponownie.');
+        return false;
       }
     }
 
