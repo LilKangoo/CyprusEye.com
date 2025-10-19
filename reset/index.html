@@ -24,9 +24,10 @@
 </label><button type="submit">Set new password</button></form>
 <script type="module">
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-const url = document.querySelector('meta[name="supabase-url"]').content.trim();
-const anon = document.querySelector('meta[name="supabase-anon"]').content.trim();
-const pub = document.querySelector('meta[name="supabase-publishable"]')?.content.trim() || '';
+import { ensureSupabaseMeta } from "/assets/js/auth/config.js";
+
+const { url, anon, publishable: pub } = ensureSupabaseMeta();
+
 const supabase = createClient(url, anon, {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
   global: {

@@ -1,4 +1,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { ensureSupabaseMeta, getSupabaseConfig } from "./config.js";
+
+ensureSupabaseMeta();
 
 const enabled = (document.querySelector('meta[name="ce-auth"]')?.content || 'on') === 'on';
 
@@ -6,11 +9,6 @@ const AUTH_PAGE_PATH = '/auth/';
 const loginButtonSelectors = ['#loginBtn', '[data-login-button]'];
 let loginButtonUpdater = () => {};
 let lastKnownUser = null;
-
-function getMeta(name) {
-  const meta = document.querySelector(`meta[name="${name}"]`);
-  return meta ? meta.content.trim() : "";
-}
 
 function determineDefaultLabels() {
   const lang = (document.documentElement?.lang || 'pl').toLowerCase();
@@ -173,19 +171,12 @@ if (!enabled) {
   loginButtonUpdater(null);
   exposeAuthApi({ enabled: false });
 } else {
-  const SUPABASE_URL = getMeta("supabase-url");
-  const SUPABASE_ANON = getMeta("supabase-anon");
-  const SUPABASE_PUB = getMeta("supabase-publishable");
+  const { url: SUPABASE_URL, anon: SUPABASE_ANON, publishable: SUPABASE_PUB } = getSupabaseConfig(document, {
+    logWarnings: true,
+  });
 
-  if (!/^https:\/\/[a-z0-9-]+\.supabase\.co$/.test(SUPABASE_URL)) {
-    console.error("Konfiguracja Supabase: nieprawidłowy URL");
-    setupLoginButtons(null);
-    lastKnownUser = null;
-    applyAuthVisibility(null);
-    loginButtonUpdater(null);
-    exposeAuthApi({ enabled: false });
-  } else if (!SUPABASE_ANON || SUPABASE_ANON.split(".").length !== 3) {
-    console.error("Konfiguracja Supabase: brak lub zły anon key");
+  if (!SUPABASE_URL || !SUPABASE_ANON) {
+    console.error('Konfiguracja Supabase: brak wymaganych danych po zastosowaniu domyślnych wartości');
     setupLoginButtons(null);
     lastKnownUser = null;
     applyAuthVisibility(null);
