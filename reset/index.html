@@ -23,19 +23,12 @@
   <input type="password" name="password" required minlength="6" autocomplete="new-password">
 </label><button type="submit">Set new password</button></form>
 <script type="module">
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import { ensureSupabaseMeta } from "/assets/js/auth/config.js";
+import { sb } from "/js/supabaseClient.js";
 
-const { url, anon, publishable: pub } = ensureSupabaseMeta();
+ensureSupabaseMeta();
 
-const supabase = createClient(url, anon, {
-  auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
-  global: {
-    headers: pub
-      ? { 'x-application-name': 'CyprusEye', 'x-publishable-key': pub }
-      : { 'x-application-name': 'CyprusEye' },
-  },
-});
+const supabase = sb;
 const { data: sessionData, error } = await supabase.auth.getSession();
 if (error) console.error('Supabase session error', error);
 if (!sessionData.session) console.warn('Supabase: brak aktywnej sesji resetu.');

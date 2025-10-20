@@ -1,5 +1,6 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import { ensureSupabaseMeta, getSupabaseConfig, readSupabaseConfig } from "./config.js";
+import { sb } from "/js/supabaseClient.js";
+import { bootAuth } from "/js/authUi.js";
+import { ensureSupabaseMeta, getSupabaseConfig } from "./config.js";
 
 ensureSupabaseMeta();
 
@@ -404,87 +405,46 @@ if (!enabled) {
     }
 
     async function bootstrapSupabase(config) {
-      let activeConfig = config;
-      let lastError = null;
+      diagnostics.setSource(config.source);
+      const client = sb;
+      diagnostics.log('info', 'client-attached', 'Użyto współdzielonego klienta Supabase.', {
+        source: config.source,
+        usingDefaults: Boolean(config.usingDefaults),
+      });
 
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        diagnostics.setSource(activeConfig.source);
-        const client = createClient(activeConfig.url, activeConfig.anon, {
-          auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
-          global: {
-            headers: activeConfig.publishable
-              ? { "x-application-name": "CyprusEye", "x-publishable-key": activeConfig.publishable }
-              : { "x-application-name": "CyprusEye" },
-          },
-        });
-        diagnostics.log('info', 'client-created', 'Zainicjowano klienta Supabase.', {
-          attempt: attempt + 1,
-          source: activeConfig.source,
-          usingDefaults: Boolean(activeConfig.usingDefaults),
-        });
-
-        try {
-          const { data, error } = await client.auth.getUser();
-          if (error) {
-            throw error;
-          }
-          delete document.documentElement.dataset.authError;
-          diagnostics.setSource(activeConfig.source);
-          diagnostics.setLastError(null);
-          emitAuthStatus("online", { source: activeConfig.source });
-          diagnostics.log('info', 'initial-user-success', 'Pomyślnie pobrano dane użytkownika podczas inicjalizacji.');
-          return { client, user: data?.user || null, config: activeConfig, invalidApiKey: false };
-        } catch (error) {
-          lastError = error;
-          diagnostics.setLastError({
-            code: error?.code,
-            message: error?.message,
-            status: error?.status,
-          });
-          diagnostics.log('error', 'initial-user-failed', 'Nie udało się pobrać danych użytkownika podczas inicjalizacji.', {
-            message: error?.message,
-            status: error?.status,
-          });
-          const message = String(error?.message || '').toLowerCase();
-          const isInvalidKey = message.includes('invalid api key');
-          if (isInvalidKey && attempt === 0) {
-            diagnostics.log('error', 'invalid-api-key', 'Supabase zwrócił błąd "Invalid API key" podczas startu.');
-            const rawConfig = readSupabaseConfig(document, window);
-            const refreshedConfig = getSupabaseConfig(document, { logWarnings: true });
-            const changed =
-              refreshedConfig.url !== activeConfig.url ||
-              refreshedConfig.anon !== activeConfig.anon ||
-              refreshedConfig.publishable !== activeConfig.publishable;
-            diagnostics.log('info', 'config-refresh', 'Ponowne wczytanie konfiguracji Supabase po błędzie invalid-api-key.', {
-              previous: {
-                url: activeConfig.url,
-                anon: Boolean(activeConfig.anon),
-                publishable: Boolean(activeConfig.publishable),
-              },
-              next: {
-                url: refreshedConfig.url,
-                anon: Boolean(refreshedConfig.anon),
-                publishable: Boolean(refreshedConfig.publishable),
-              },
-              source: rawConfig.source,
-              changed,
-            });
-            diagnostics.setSource(refreshedConfig.source);
-            activeConfig = refreshedConfig;
-            continue;
-          }
-          return {
-            client: null,
-            user: null,
-            config: activeConfig,
-            error,
-            invalidApiKey: isInvalidKey,
-          };
+      try {
+        const { data, error } = await client.auth.getUser();
+        if (error) {
+          throw error;
         }
+        delete document.documentElement.dataset.authError;
+        diagnostics.setLastError(null);
+        emitAuthStatus('online', { source: config.source });
+        diagnostics.log(
+          'info',
+          'initial-user-success',
+          'Pomyślnie pobrano dane użytkownika podczas inicjalizacji.',
+        );
+        return { client, user: data?.user || null, config, invalidApiKey: false };
+      } catch (error) {
+        diagnostics.setLastError({
+          code: error?.code,
+          message: error?.message,
+          status: error?.status,
+        });
+        diagnostics.log(
+          'error',
+          'initial-user-failed',
+          'Nie udało się pobrać danych użytkownika podczas inicjalizacji.',
+          {
+            message: error?.message,
+            status: error?.status,
+          },
+        );
+        const message = String(error?.message || '').toLowerCase();
+        const invalidApiKey = message.includes('invalid api key');
+        return { client: null, user: null, config, error, invalidApiKey };
       }
-
-      const invalidApiKey = String(lastError?.message || '').toLowerCase().includes('invalid api key');
-      return { client: null, user: null, config: activeConfig, error: lastError, invalidApiKey };
     }
 
     const { client, user: initialUser, invalidApiKey } = await bootstrapSupabase(initialConfig);
@@ -728,3 +688,16 @@ if (!enabled) {
 }
 
 export { supabaseClient as supabase };
+
+const authUiBoot = bootAuth();
+
+if (typeof window !== "undefined") {
+  window.CE_AUTH = window.CE_AUTH || {};
+  if (!window.CE_AUTH.bootPromise) {
+    window.CE_AUTH.bootPromise = authUiBoot;
+  }
+}
+
+authUiBoot.catch((error) => {
+  console.error('Nie udało się zainicjować warstwy interfejsu logowania.', error);
+});
