@@ -11,9 +11,9 @@ describe('auth meta configuration', () => {
     expect(html.includes('meta name="supabase-publishable"')).toBe(true);
   });
 
-  it('declares Supabase meta tags before boot script', () => {
+  it('declares Supabase meta tags before client script', () => {
     const metaIndex = html.indexOf('<meta name="supabase-url"');
-    const scriptIndex = html.indexOf('<script type="module" src="/assets/js/auth/boot.js"');
+    const scriptIndex = html.indexOf('<script type="module" src="/js/supabaseClient.js"');
     expect(metaIndex).toBeGreaterThan(-1);
     expect(scriptIndex).toBeGreaterThan(-1);
     expect(metaIndex).toBeLessThan(scriptIndex);
