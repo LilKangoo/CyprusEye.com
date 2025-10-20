@@ -106,19 +106,32 @@
           </a>
           <a class="header-tab" href="attractions.html" data-i18n="attractions.nav.catalog">📚 Katalog atrakcji</a>
         </nav>
-        <a
+        <span id="auth-state" class="auth-status-badge" aria-live="polite">Niezalogowany</span>
+        <button
           id="loginBtn"
           class="ghost"
-          href="/auth/"
+          type="button"
+          data-auth="login"
           data-login-button
           data-login-label-signed-in="Wyloguj"
           data-login-label-signed-out="Zaloguj"
+          onclick="location.href='/auth/'"
         >
           Zaloguj
-        </a>
+        </button>
+        <p class="auth-guest-note" data-auth-guest-note hidden>
+          Grasz jako gość — postęp zapisany lokalnie na tym urządzeniu.
+        </p>
+        <button id="logoutBtn" class="ghost" type="button" data-auth="logout" hidden>
+          Wyloguj
+        </button>
       </header>
 
-      <section class="card surface-card achievements-hero" aria-labelledby="achievementsTitle">
+      <section
+        class="card surface-card achievements-hero"
+        aria-labelledby="achievementsTitle"
+        data-gated="true"
+      >
         <div class="achievements-hero-content">
           <a
             class="ghost achievements-back"
@@ -150,7 +163,7 @@
         </ul>
       </section>
 
-      <main class="standalone-main achievements-main">
+      <main class="standalone-main achievements-main" data-gated="true">
         <section class="card surface-card achievements-progress" aria-labelledby="achievementsProgressTitle">
           <div class="achievements-progress-header">
             <h2 id="achievementsProgressTitle" data-i18n="achievements.progress.title">Postęp doświadczenia</h2>
@@ -200,5 +213,9 @@
     <script src="js/forms.js" defer></script>
     <script src="js/seo.js" defer></script>
     <script src="app.js" defer></script>
+    <script type="module">
+      import { bootAuth } from '/js/authUi.js';
+      bootAuth();
+    </script>
   </body>
 </html>

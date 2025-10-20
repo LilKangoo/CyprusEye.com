@@ -48,13 +48,10 @@ const AUTH_TEMPLATE = `
       data-auth-panel="login"
     >
       <form
-        id="loginForm"
+        id="form-login"
         class="auth-form"
-        method="post"
         novalidate
-        data-login-endpoint="/api/login"
-        data-login-mode="hybrid"
-        data-login-fallback="supabase"
+        data-ce-auth-handler="supabase"
       >
         <label for="loginEmail" data-i18n="auth.email">Adres e-mail</label>
         <input
@@ -99,6 +96,12 @@ const AUTH_TEMPLATE = `
             🔑 Resetuj hasło
           </button>
         </div>
+        <p class="auth-form__meta" id="authResendVerification" hidden>
+          Nie otrzymałeś wiadomości z potwierdzeniem?
+          <button type="button" class="auth-form__link" id="btn-resend-verification">
+            Wyślij ponownie link weryfikacyjny
+          </button>
+        </p>
       </form>
     </section>
     <section
@@ -109,7 +112,7 @@ const AUTH_TEMPLATE = `
       data-auth-panel="register"
       hidden
     >
-      <form id="registerForm" class="auth-form" novalidate>
+      <form id="form-register" class="auth-form" novalidate data-ce-auth-handler="supabase">
         <label for="registerFirstName" data-i18n="auth.firstName">Imię</label>
         <input
           id="registerFirstName"
@@ -186,7 +189,8 @@ const AUTH_TEMPLATE = `
         <button
           type="button"
           class="btn btn--secondary"
-          id="guestPlayButton"
+          id="btn-guest"
+          data-ce-auth-handler="supabase"
           data-i18n="auth.guest.button"
           data-i18n-attrs="aria-label:auth.guest.button"
           aria-label="Graj jako gość"
@@ -197,6 +201,23 @@ const AUTH_TEMPLATE = `
     </section>
   </div>
   <p id="authMessage" class="auth-message" role="status" aria-live="polite"></p>
+  <dialog id="resetPasswordDialog" class="auth-reset-dialog">
+    <form id="form-reset-password" class="auth-form" novalidate>
+      <header class="auth-reset-dialog__header">
+        <h2>Resetuj hasło</h2>
+        <button type="button" class="auth-form__link" id="btn-reset-close" aria-label="Zamknij">
+          ✖
+        </button>
+      </header>
+      <p>Podaj adres e-mail powiązany z kontem, a wyślemy link do zmiany hasła.</p>
+      <label for="resetEmail">Adres e-mail</label>
+      <input id="resetEmail" name="email" type="email" required autocomplete="email" />
+      <div class="auth-form__actions">
+        <button type="submit" class="btn btn--primary">Wyślij link resetujący</button>
+        <button type="button" class="auth-form__link" id="btn-reset-cancel">Anuluj</button>
+      </div>
+    </form>
+  </dialog>
 `;
 
 function renderAuthView(root) {

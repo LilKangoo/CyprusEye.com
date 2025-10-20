@@ -25,7 +25,7 @@ function createAuthCopy() {
         resetSending: 'Wysyłamy link resetujący…',
       },
       success: {
-        loginRedirect: 'Witaj ponownie! Przekierowujemy do panelu.',
+        loginRedirect: 'Witaj ponownie! Otwieramy panel gracza.',
         registerCheckEmail: 'Konto utworzone! Sprawdź e-mail, aby potwierdzić adres.',
         resetEmailSent: 'Sprawdź skrzynkę e-mail — wysłaliśmy link do resetu hasła.',
         guestMode: 'Grasz teraz jako gość. Możesz wrócić i utworzyć konto w dowolnym momencie.',
@@ -146,11 +146,17 @@ ready(() => {
   const accountCta = document.getElementById('authAccountCta');
   const accountName = document.getElementById('authAccountName');
 
-  const loginForm = document.getElementById('loginForm');
-  const registerForm = document.getElementById('registerForm');
+  const loginForm = document.getElementById('form-login');
+  const registerForm = document.getElementById('form-register');
   const registerPasswordConfirm = document.getElementById('registerPasswordConfirm');
   const loginForgotPassword = document.getElementById('loginForgotPassword');
-  const guestPlayButton = document.getElementById('guestPlayButton');
+  const guestPlayButton = document.getElementById('btn-guest');
+  const loginHandledExternally =
+    loginForm instanceof HTMLFormElement && loginForm.dataset.ceAuthHandler === 'supabase';
+  const registerHandledExternally =
+    registerForm instanceof HTMLFormElement && registerForm.dataset.ceAuthHandler === 'supabase';
+  const guestHandledExternally =
+    guestPlayButton instanceof HTMLButtonElement && guestPlayButton.dataset.ceAuthHandler === 'supabase';
 
   function setActiveTab(tabId, { focus = false } = {}) {
     if (!panels.has(tabId)) {
@@ -335,8 +341,12 @@ ready(() => {
   }
 
   function setFormsDisabledState(disabled) {
-    disableFormControls(loginForm, disabled);
-    disableFormControls(registerForm, disabled);
+    if (!loginHandledExternally) {
+      disableFormControls(loginForm, disabled);
+    }
+    if (!registerHandledExternally) {
+      disableFormControls(registerForm, disabled);
+    }
     if (loginForgotPassword instanceof HTMLButtonElement) {
       loginForgotPassword.disabled = disabled;
     }
@@ -484,6 +494,9 @@ ready(() => {
       handleAuthUser(null);
     }
 
+    if (loginHandledExternally) {
+      return;
+    }
     loginForm?.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!(loginForm instanceof HTMLFormElement)) return;
@@ -540,6 +553,9 @@ ready(() => {
       }
     });
 
+    if (registerHandledExternally) {
+      return;
+    }
     registerForm?.addEventListener('submit', async (event) => {
       event.preventDefault();
       if (!(registerForm instanceof HTMLFormElement)) return;
@@ -679,42 +695,47 @@ ready(() => {
     });
 
     if (loginForgotPassword instanceof HTMLButtonElement) {
-      loginForgotPassword.addEventListener('click', async (event) => {
-        event.preventDefault();
-        if (!(loginForm instanceof HTMLFormElement)) return;
+      if (!document.getElementById('resetPasswordDialog')) {
+        loginForgotPassword.addEventListener('click', async (event) => {
+          event.preventDefault();
+          if (!(loginForm instanceof HTMLFormElement)) return;
 
-        const emailInput = getField(loginForm, '#loginEmail');
-        if (!emailInput) {
-          setAuthMessage(TEXT.errors.resetMissingEmail, 'error');
-          return;
-        }
-
-        const email = emailInput.value.trim();
-        if (!email) {
-          setAuthMessage(TEXT.errors.resetMissingEmail, 'error');
-          emailInput.focus();
-          return;
-        }
-
-        loginForgotPassword.disabled = true;
-        setAuthMessage(TEXT.info.resetSending, 'info');
-
-        try {
-          const redirectTo = `${window.location.origin}/reset/`;
-          const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-          if (error) {
-            throw error;
+          const emailInput = getField(loginForm, '#loginEmail');
+          if (!emailInput) {
+            setAuthMessage(TEXT.errors.resetMissingEmail, 'error');
+            return;
           }
-          setAuthMessage(TEXT.success.resetEmailSent, 'success');
-        } catch (error) {
-          const message = resolveSupabaseError(error, 'reset');
-          setAuthMessage(message, 'error');
-        } finally {
-          loginForgotPassword.disabled = false;
-        }
-      });
+
+          const email = emailInput.value.trim();
+          if (!email) {
+            setAuthMessage(TEXT.errors.resetMissingEmail, 'error');
+            emailInput.focus();
+            return;
+          }
+
+          loginForgotPassword.disabled = true;
+          setAuthMessage(TEXT.info.resetSending, 'info');
+
+          try {
+            const redirectTo = `${window.location.origin}/reset/`;
+            const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+            if (error) {
+              throw error;
+            }
+            setAuthMessage(TEXT.success.resetEmailSent, 'success');
+          } catch (error) {
+            const message = resolveSupabaseError(error, 'reset');
+            setAuthMessage(message, 'error');
+          } finally {
+            loginForgotPassword.disabled = false;
+          }
+        });
+      }
     }
 
+    if (guestHandledExternally) {
+      return;
+    }
     guestPlayButton?.addEventListener('click', async () => {
       try {
         await supabase.auth.signOut();

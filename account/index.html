@@ -1,1131 +1,296 @@
 <!doctype html>
 <html lang="pl">
-<head>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Panel gracza</title>
+    <meta name="description" content="Zarządzaj swoim profilem, XP i ustawieniami konta CyprusEye." />
+    <meta name="ce-auth" content="on" />
+    <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co" />
+    <meta
+      name="supabase-anon"
+      content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM"
+    />
+    <meta name="supabase-publishable" content="sb_publishable_QdxNGCb6LYD-6ywFrjCrjg_Oa7yDGTk" />
+    <link rel="stylesheet" href="/assets/css/tokens.css" />
+    <link rel="stylesheet" href="/assets/css/base.css" />
+    <link rel="stylesheet" href="/assets/css/components.css" />
+    <link rel="stylesheet" href="/assets/css/pages.css" />
+    <script type="module" src="/assets/js/auth/boot.js" defer></script>
+    <script type="module" src="/assets/js/auth/render.js" defer></script>
+    <script type="module" src="/js/account.js" defer></script>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: var(--font-family-base, 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI');
+        background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 55%, #f5f3ff 100%);
+        color: var(--color-neutral-900, #0f172a);
+        display: flex;
+        justify-content: center;
+      }
 
-  gtag('config', 'G-FCSE0876CR');
-</script>
+      .account-shell {
+        width: min(960px, 100%);
+        padding: clamp(1.5rem, 4vw, 3rem) clamp(1.25rem, 4vw, 3rem) 4rem;
+        display: flex;
+        flex-direction: column;
+        gap: clamp(1.5rem, 3vw, 2.5rem);
+      }
 
-<meta charset="utf-8">
-<title>Moje konto</title>
-<meta name="ce-auth" content="on">
-<meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co">
-<meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM">
-<meta name="supabase-publishable" content="sb_publishable_QdxNGCb6LYD-6ywFrjCrjg_Oa7yDGTk">
-<link rel="stylesheet" href="/assets/css/tokens.css">
-<link rel="stylesheet" href="/assets/css/base.css">
-<link rel="stylesheet" href="/assets/css/components.css">
-<script type="module" src="/assets/js/auth/boot.js" defer></script>
-<style>
-  body {
-    margin: 0;
-    min-height: 100vh;
-    font-family: var(--font-family-base);
-    background: var(--bg-gradient, linear-gradient(180deg, #f9fafb 0%, #eef2ff 42%, #f5f3ff 100%));
-    color: var(--color-neutral-900);
-  }
+      .account-header {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+      }
 
-  .account-page {
-    min-height: 100vh;
-    display: flex;
-    flex-direction: column;
-  }
+      .account-header h1 {
+        margin: 0;
+        font-size: clamp(1.75rem, 3vw, 2.25rem);
+        color: var(--color-brand-600, #1d4ed8);
+      }
 
-  .account-topbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--space-3);
-    padding: var(--space-4) clamp(var(--space-4), 4vw, var(--space-8));
-    background: rgba(255, 255, 255, 0.82);
-    backdrop-filter: blur(14px);
-    border-bottom: 1px solid var(--border, rgba(148, 163, 184, 0.24));
-    position: sticky;
-    top: 0;
-    z-index: 10;
-  }
+      .account-header a {
+        color: inherit;
+        text-decoration: none;
+        font-weight: 500;
+      }
 
-  .account-brand {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    font-weight: 600;
-    font-size: 1rem;
-    color: var(--color-brand-700);
-    text-decoration: none;
-  }
+      .account-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.75rem;
+      }
 
-  .account-brand svg {
-    width: 26px;
-    height: 26px;
-    color: var(--color-accent-600);
-  }
+      .account-actions button {
+        padding: 0.55rem 1.1rem;
+        border-radius: var(--radius-md, 12px);
+        border: 1px solid rgba(59, 130, 246, 0.25);
+        background: rgba(255, 255, 255, 0.92);
+        font-weight: 600;
+        cursor: pointer;
+      }
 
-  .account-auth-link {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: 0.55rem 1rem;
-    font-weight: 600;
-    color: var(--color-accent-600);
-    border-radius: var(--radius-md);
-    border: 1px solid rgba(37, 99, 235, 0.18);
-    background: rgba(255, 255, 255, 0.9);
-    transition: transform var(--transition, 0.2s ease), box-shadow var(--transition, 0.2s ease);
-  }
+      .account-actions button:hover,
+      .account-actions button:focus-visible {
+        background: rgba(59, 130, 246, 0.08);
+      }
 
-  .account-auth-link:hover,
-  .account-auth-link:focus-visible {
-    text-decoration: none;
-    transform: translateY(-1px);
-    box-shadow: var(--elev-1, 0 1px 2px rgba(15, 23, 42, 0.1));
-  }
+      #auth-state {
+        font-weight: 600;
+        color: var(--color-neutral-600, #475569);
+      }
 
-  .account-main {
-    width: min(960px, 100% - clamp(32px, 6vw, 120px));
-    margin: clamp(32px, 6vw, 72px) auto clamp(48px, 7vw, 120px);
-    display: flex;
-    flex-direction: column;
-    gap: clamp(28px, 6vw, 48px);
-  }
+      [data-account-message] {
+        border-radius: var(--radius-md, 12px);
+        padding: 0.85rem 1.1rem;
+        font-weight: 500;
+        border: 1px solid transparent;
+      }
 
-  .account-hero {
-    padding: clamp(24px, 5vw, 40px);
-    border-radius: var(--radius-lg);
-    background: var(--surface-strong, rgba(255, 255, 255, 0.95));
-    box-shadow: var(--shadow-soft, 0 22px 45px rgba(14, 116, 144, 0.16));
-    position: relative;
-    overflow: hidden;
-    display: grid;
-    gap: clamp(16px, 4vw, 24px);
-  }
+      [data-account-message][data-tone='info'] {
+        background: rgba(59, 130, 246, 0.08);
+        border-color: rgba(59, 130, 246, 0.18);
+      }
 
-  .account-hero::after {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background: radial-gradient(circle at 100% 0%, rgba(37, 99, 235, 0.18), transparent 45%);
-    pointer-events: none;
-    mix-blend-mode: lighten;
-    z-index: 0;
-  }
+      [data-account-message][data-tone='success'] {
+        background: rgba(34, 197, 94, 0.12);
+        border-color: rgba(34, 197, 94, 0.25);
+      }
 
-  .account-hero > * {
-    position: relative;
-    z-index: 1;
-  }
+      [data-account-message][data-tone='error'] {
+        background: rgba(239, 68, 68, 0.12);
+        border-color: rgba(239, 68, 68, 0.25);
+      }
 
-  .account-hero h1 {
-    margin: 0;
-  }
+      .account-card {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: var(--radius-lg, 16px);
+        box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
+        padding: clamp(1.5rem, 3vw, 2.25rem);
+        display: flex;
+        flex-direction: column;
+        gap: clamp(1rem, 2vw, 1.5rem);
+      }
 
-  .account-hero p {
-    margin: 0;
-    max-width: 42ch;
-    color: var(--color-neutral-600);
-  }
+      .profile-grid {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
 
-  #me {
-    font-weight: 600;
-    color: var(--color-brand-500);
-  }
+      .profile-grid dt {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        color: var(--color-neutral-500, #64748b);
+        margin-bottom: 0.4rem;
+      }
 
-  .account-message {
-    margin-top: var(--space-4);
-    padding: var(--space-3) var(--space-4);
-    border-radius: var(--radius-md);
-    border: 1px solid rgba(99, 102, 241, 0.16);
-    background: rgba(255, 255, 255, 0.9);
-    box-shadow: var(--elev-1, 0 1px 2px rgba(15, 23, 42, 0.08));
-    display: flex;
-    gap: var(--space-3);
-    align-items: center;
-    font-weight: 500;
-  }
+      .profile-grid dd {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+      }
 
-  .account-message::before {
-    content: "";
-    width: 10px;
-    height: 10px;
-    border-radius: 50%;
-    background: var(--color-accent-600);
-    flex-shrink: 0;
-  }
+      .account-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+      }
 
-  .account-message[hidden] {
-    display: none;
-  }
+      .account-form label {
+        flex: 1 1 240px;
+        display: flex;
+        flex-direction: column;
+        font-weight: 600;
+        color: var(--color-neutral-600, #475569);
+        gap: 0.35rem;
+      }
 
-  .account-message[data-tone="success"] {
-    border-color: rgba(34, 197, 94, 0.32);
-    background: rgba(236, 253, 245, 0.94);
-  }
+      .account-form input {
+        border-radius: var(--radius-md, 12px);
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        padding: 0.65rem 0.9rem;
+        font-size: 1rem;
+      }
 
-  .account-message[data-tone="success"]::before {
-    background: var(--color-success-600);
-  }
+      .account-form button {
+        padding: 0.65rem 1.4rem;
+        border-radius: var(--radius-md, 12px);
+        border: none;
+        background: var(--color-brand-600, #2563eb);
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+      }
 
-  .account-message[data-tone="error"] {
-    border-color: rgba(239, 68, 68, 0.32);
-    background: rgba(254, 226, 226, 0.94);
-  }
+      .account-form button[disabled] {
+        opacity: 0.65;
+        cursor: progress;
+      }
 
-  .account-message[data-tone="error"]::before {
-    background: var(--color-error-600);
-  }
+      .xp-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
 
-  .account-discovery {
-    display: flex;
-    align-items: center;
-    gap: clamp(12px, 3vw, 20px);
-    padding: clamp(12px, 3vw, 18px);
-    border-radius: var(--radius-md);
-    background: rgba(37, 99, 235, 0.08);
-    border: 1px solid rgba(37, 99, 235, 0.16);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
-  }
+      .xp-item {
+        display: grid;
+        gap: 0.45rem;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        align-items: baseline;
+        padding: 0.75rem 1rem;
+        border-radius: var(--radius-md, 12px);
+        background: rgba(248, 250, 252, 0.75);
+        border: 1px solid rgba(148, 163, 184, 0.28);
+      }
 
-  .account-discovery-title {
-    font-size: 0.95rem;
-    font-weight: 600;
-    color: var(--color-brand-700);
-    white-space: nowrap;
-  }
+      .xp-item__reason {
+        font-weight: 600;
+        color: var(--color-neutral-700, #334155);
+      }
 
-  .account-discovery-links {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--space-2);
-  }
+      .xp-item__delta {
+        font-family: var(--font-family-mono, 'Roboto Mono', monospace);
+        color: var(--color-brand-600, #2563eb);
+      }
 
-  .account-discovery-links a {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    padding: 0.55rem 0.95rem;
-    border-radius: 999px;
-    background: var(--color-white);
-    color: var(--color-accent-600);
-    border: 1px solid rgba(37, 99, 235, 0.22);
-    font-weight: 600;
-    font-size: 0.95rem;
-    text-decoration: none;
-    box-shadow: var(--elev-1, 0 1px 2px rgba(15, 23, 42, 0.08));
-    transition: transform 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
-    white-space: nowrap;
-  }
+      .xp-item__date {
+        font-size: 0.85rem;
+        color: var(--color-neutral-500, #64748b);
+      }
 
-  .account-discovery-links a:hover,
-  .account-discovery-links a:focus-visible {
-    color: var(--color-brand-700);
-    transform: translateY(-1px);
-    box-shadow: var(--elev-2, 0 10px 30px rgba(37, 99, 235, 0.22));
-  }
+      [data-account-loading] {
+        font-weight: 600;
+        color: var(--color-neutral-600, #475569);
+      }
 
-  .account-layout {
-    display: grid;
-    gap: clamp(24px, 4vw, 32px);
-    grid-template-columns: minmax(0, 1fr);
-  }
+      @media (max-width: 600px) {
+        .account-form {
+          flex-direction: column;
+          align-items: stretch;
+        }
 
-  .account-forms {
-    display: grid;
-    gap: clamp(20px, 3.5vw, 28px);
-  }
+        .account-form button {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="account-shell">
+      <header class="account-header">
+        <div>
+          <a href="/">← Wróć do strony głównej</a>
+          <h1>Panel gracza</h1>
+        </div>
+        <div class="account-actions">
+          <span id="auth-state" aria-live="polite">Niezalogowany</span>
+          <button type="button" data-auth="logout">Wyloguj</button>
+        </div>
+      </header>
 
-  .account-section {
-    padding: clamp(24px, 4vw, 32px);
-    border-radius: var(--radius-lg);
-    background: var(--surface, rgba(255, 255, 255, 0.82));
-    border: 1px solid rgba(148, 163, 184, 0.18);
-    box-shadow: var(--elev-1, 0 1px 2px rgba(15, 23, 42, 0.08));
-    backdrop-filter: blur(12px);
-  }
+      <div data-account-message hidden role="status" aria-live="polite"></div>
+      <div data-account-loading>Trwa wczytywanie danych konta…</div>
 
-  .account-section header {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-    margin-bottom: var(--space-4);
-  }
-
-  .account-section h2 {
-    margin: 0;
-  }
-
-  .account-section .form-hint {
-    margin: 0;
-    color: var(--color-neutral-600);
-  }
-
-  .account-form {
-    display: grid;
-    gap: var(--space-4);
-  }
-
-  .form-field {
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-2);
-  }
-
-  label {
-    font-weight: 600;
-    color: var(--color-neutral-700);
-  }
-
-  input[type="text"],
-  input[type="email"],
-  input[type="password"] {
-    padding: 0.85rem 1rem;
-    border-radius: var(--radius-md);
-    border: 1px solid rgba(148, 163, 184, 0.38);
-    background: rgba(255, 255, 255, 0.92);
-    transition: border-color 0.2s ease, box-shadow 0.2s ease;
-    font-size: 1rem;
-  }
-
-  input[type="text"]:focus,
-  input[type="email"]:focus,
-  input[type="password"]:focus {
-    border-color: rgba(37, 99, 235, 0.45);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
-    outline: none;
-  }
-
-  input:disabled {
-    opacity: 0.7;
-    cursor: not-allowed;
-  }
-
-  button {
-    padding: 0.85rem 1.25rem;
-    border-radius: var(--radius-md);
-    border: none;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    background: linear-gradient(135deg, var(--color-accent-600), #6366f1);
-    color: var(--color-white);
-    transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
-  }
-
-  button:hover,
-  button:focus-visible {
-    transform: translateY(-1px);
-    box-shadow: var(--elev-2, 0 10px 30px rgba(79, 70, 229, 0.35));
-  }
-
-  button[disabled] {
-    cursor: not-allowed;
-    opacity: 0.75;
-    transform: none;
-    box-shadow: none;
-  }
-
-  #logout {
-    width: 100%;
-    margin-top: clamp(16px, 3vw, 24px);
-    background: linear-gradient(135deg, #ef4444, #f97316);
-  }
-
-  .account-stats {
-    display: grid;
-    gap: clamp(16px, 3vw, 24px);
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-    margin: 0;
-    padding: 0;
-    list-style: none;
-  }
-
-  .account-stats div {
-    padding: var(--space-5);
-    border-radius: var(--radius-lg);
-    background: linear-gradient(135deg, rgba(79, 70, 229, 0.12), rgba(14, 165, 233, 0.1));
-    border: 1px solid rgba(99, 102, 241, 0.18);
-    display: grid;
-    gap: var(--space-2);
-  }
-
-  .account-stats dt {
-    margin: 0;
-    font-size: 0.85rem;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--color-neutral-600);
-  }
-
-  .account-stats dd {
-    margin: 0;
-    font-size: clamp(1.4rem, 3vw, 1.8rem);
-    font-weight: 700;
-    color: var(--color-brand-700);
-  }
-
-  .account-meta {
-    display: grid;
-    gap: var(--space-2);
-    color: var(--color-neutral-600);
-  }
-
-  .account-meta span {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--space-2);
-    font-size: 0.95rem;
-  }
-
-  .account-meta svg {
-    width: 18px;
-    height: 18px;
-    color: var(--color-accent-600);
-  }
-
-  .account-footer-note {
-    margin-top: var(--space-4);
-    font-size: 0.95rem;
-    color: var(--color-neutral-600);
-    text-align: center;
-  }
-
-  @media (min-width: 960px) {
-    .account-layout {
-      grid-template-columns: 2fr 1fr;
-      align-items: start;
-    }
-
-    .account-layout .account-section:last-of-type {
-      position: sticky;
-      top: 96px;
-    }
-  }
-
-  @media (max-width: 640px) {
-    .account-topbar {
-      padding: var(--space-3) var(--space-4);
-      flex-direction: column;
-      align-items: flex-start;
-      gap: var(--space-2);
-    }
-
-    .account-auth-link {
-      padding: 0.5rem 0.85rem;
-      width: 100%;
-      justify-content: center;
-    }
-
-    .account-main {
-      width: min(100% - 24px, 100%);
-      margin: var(--space-6) auto var(--space-8);
-    }
-
-    .account-hero {
-      padding: var(--space-5);
-    }
-
-    .account-discovery {
-      flex-direction: column;
-      align-items: stretch;
-      gap: var(--space-3);
-    }
-
-    .account-discovery-links {
-      flex-wrap: nowrap;
-      overflow-x: auto;
-      gap: var(--space-2);
-      padding-bottom: 4px;
-      margin: 0 calc(var(--space-2) * -1);
-      padding-inline: var(--space-2);
-      scroll-snap-type: x mandatory;
-    }
-
-    .account-discovery-links::-webkit-scrollbar {
-      display: none;
-    }
-
-    .account-discovery-links a {
-      scroll-snap-align: start;
-      flex: 0 0 auto;
-    }
-
-    .account-section {
-      padding: var(--space-4);
-    }
-
-    .account-section header {
-      margin-bottom: var(--space-3);
-    }
-  }
-</style>
-</head>
-<body>
-  <div class="account-page">
-    <header class="account-topbar">
-      <a class="account-brand" href="/">
-        <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
-          <path
-            fill="currentColor"
-            d="M12 4.5c3.866 0 7 3.134 7 7s-3.134 7-7 7a6.96 6.96 0 0 1-4.95-2.05l-3.02.9a1 1 0 0 1-1.23-1.23l.9-3.02A6.96 6.96 0 0 1 5 11.5c0-3.866 3.134-7 7-7Zm0 2a5 5 0 1 0 3.535 8.535 1 1 0 0 1 1.414 1.414A6.999 6.999 0 0 1 12 20.5a6.96 6.96 0 0 1-4.95-2.05l-3.02.9a1 1 0 0 1-1.23-1.23l.9-3.02A6.96 6.96 0 0 1 5 11.5c0-3.866 3.134-7 7-7Zm0 3a3 3 0 0 1 2.121 5.121l-1.415-1.415a1 1 0 0 0-1.414-1.414l-1.415-1.415A2.988 2.988 0 0 1 12 9.5Zm0 1.5-.707.707a1 1 0 0 0 1.414 1.414L14 12.5A2.978 2.978 0 0 1 12 13.5a3 3 0 1 1 0-6Z"
-          />
-        </svg>
-        <span>Cyprus Eye</span>
-      </a>
-      <a
-        id="loginBtn"
-        class="account-auth-link"
-        href="/auth/"
-        data-login-button
-        data-login-label-signed-in="Wyloguj"
-        data-login-label-signed-out="Zaloguj"
-      >
-        <span>Zaloguj</span>
-      </a>
-    </header>
-    <main class="account-main">
-      <section class="account-hero">
-        <h1>Twoje konto</h1>
-        <p>Zarządzaj profilem, nazwą użytkownika i bezpieczeństwem konta w jednym miejscu.</p>
-        <nav class="account-discovery" aria-label="Skróty na stronę główną">
-          <span class="account-discovery-title">Odkrywaj dalej:</span>
-          <div class="account-discovery-links">
-            <a href="/attractions.html">Atrakcje</a>
-            <a href="/cruise.html">Rejsy</a>
-            <a href="/car-rental.html">Wynajem auta</a>
-            <a href="/vip.html">Doświadczenia VIP</a>
-            <a href="/tasks.html">Promocje i zadania</a>
+      <main data-account-content hidden>
+        <section class="account-card" aria-labelledby="profile-heading">
+          <div>
+            <h2 id="profile-heading">Twój profil</h2>
+            <p>Zarządzaj podstawowymi informacjami o koncie i postępami XP.</p>
           </div>
-        </nav>
-        <div class="account-meta">
-          <span>
-            <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
-              <path
-                fill="currentColor"
-                d="M12 2a7 7 0 0 1 7 7c0 3.054-1.482 5.8-3.762 8.112C13.95 19.382 12.3 20.5 12 20.5s-1.95-1.118-3.238-3.388C6.482 14.8 5 12.054 5 9a7 7 0 0 1 7-7Zm0 3.5A3.5 3.5 0 1 0 15.5 9 3.5 3.5 0 0 0 12 5.5Z"
-              />
-            </svg>
-            <span id="me">Ładowanie…</span>
-          </span>
-        </div>
-        <div id="accountMessage" class="account-message" role="status" aria-live="polite" hidden></div>
-      </section>
-      <div class="account-layout">
-        <div class="account-forms">
-          <section class="account-section" aria-labelledby="accountNameTitle">
-            <header>
-              <h2 id="accountNameTitle">Imię</h2>
-              <p class="form-hint">Imię pomoże nam dopasować powiadomienia i powitania.</p>
-            </header>
-            <form id="accountNameForm" class="account-form" novalidate>
-              <div class="form-field">
-                <label for="profileFirstName">Imię</label>
-                <input
-                  id="profileFirstName"
-                  name="firstName"
-                  type="text"
-                  required
-                  maxlength="60"
-                  autocomplete="given-name"
-                  aria-label="Imię"
-                />
-              </div>
-              <button type="submit">Zapisz imię</button>
-            </form>
-          </section>
-          <section class="account-section" aria-labelledby="accountUsernameTitle">
-            <header>
-              <h2 id="accountUsernameTitle">Nazwa użytkownika</h2>
-              <p class="form-hint">
-                Nazwa użytkownika jest widoczna publicznie. Może zawierać litery, cyfry, kropki, myślniki
-                i podkreślenia (3-30 znaków).
-              </p>
-            </header>
-            <form id="accountUsernameForm" class="account-form" novalidate>
-              <div class="form-field">
-                <label for="profileUsername">Nazwa użytkownika</label>
-                <input
-                  id="profileUsername"
-                  name="username"
-                  type="text"
-                  required
-                  minlength="3"
-                  maxlength="30"
-                  autocomplete="username"
-                  aria-label="Nazwa użytkownika"
-                />
-              </div>
-              <button type="submit">Zapisz nazwę użytkownika</button>
-            </form>
-          </section>
-          <section class="account-section" aria-labelledby="accountPasswordTitle">
-            <header>
-              <h2 id="accountPasswordTitle">Hasło</h2>
-              <p class="form-hint">Ustaw nowe hasło, aby zabezpieczyć swoje konto.</p>
-            </header>
-            <form id="accountPasswordForm" class="account-form" novalidate>
-              <div class="form-field">
-                <label for="profileNewPassword">Nowe hasło</label>
-                <input
-                  id="profileNewPassword"
-                  name="newPassword"
-                  type="password"
-                  required
-                  minlength="8"
-                  autocomplete="new-password"
-                  aria-label="Nowe hasło"
-                />
-              </div>
-              <div class="form-field">
-                <label for="profileConfirmPassword">Powtórz nowe hasło</label>
-                <input
-                  id="profileConfirmPassword"
-                  name="confirmPassword"
-                  type="password"
-                  required
-                  minlength="8"
-                  autocomplete="new-password"
-                  aria-label="Powtórz nowe hasło"
-                />
-              </div>
-              <button type="submit">Zaktualizuj hasło</button>
-            </form>
-          </section>
-          <button id="logout" type="button">Wyloguj</button>
-        </div>
-        <section class="account-section" aria-labelledby="accountStatsTitle">
-          <header>
-            <h2 id="accountStatsTitle">Statystyki konta</h2>
-            <p class="form-hint">Postęp i poziom są obliczane automatycznie na podstawie zdarzeń XP.</p>
-          </header>
-          <dl class="account-stats" aria-live="polite">
+          <dl class="profile-grid">
             <div>
-              <dt>Poziom</dt>
-              <dd id="profileLevel">—</dd>
+              <dt>E-mail</dt>
+              <dd data-account-email>—</dd>
             </div>
             <div>
-              <dt>Łącznie XP</dt>
-              <dd id="profileXp">—</dd>
+              <dt>XP</dt>
+              <dd data-account-xp>0</dd>
+            </div>
+            <div>
+              <dt>Poziom</dt>
+              <dd data-account-level>0</dd>
             </div>
             <div>
               <dt>Ostatnia aktualizacja</dt>
-              <dd id="profileUpdatedAt">—</dd>
+              <dd data-account-updated>—</dd>
             </div>
           </dl>
+          <form id="form-account-name" class="account-form">
+            <label for="profile-name">
+              Imię wyświetlane
+              <input
+                id="profile-name"
+                name="name"
+                type="text"
+                autocomplete="given-name"
+                placeholder="Twoje imię"
+                minlength="2"
+                maxlength="60"
+                required
+              />
+            </label>
+            <button type="submit">Zapisz imię</button>
+          </form>
         </section>
-      </div>
-      <p class="account-footer-note">Masz pytania? Skontaktuj się z nami, aby otrzymać pomoc w kilka minut.</p>
-    </main>
-  </div>
-  <script type="module">
-function waitForAuth() {
-  return new Promise((resolve) => {
-    if (window.CE_AUTH) {
-      resolve(window.CE_AUTH);
-      return;
-    }
-    document.addEventListener(
-      'ce-auth-ready',
-      (event) => {
-        resolve(event.detail);
-      },
-      { once: true },
-    );
-  });
-}
 
-function redirectToAuth() {
-  window.location.href = '/auth/';
-}
-
-function safeTrim(value) {
-  return typeof value === 'string' ? value.trim() : '';
-}
-
-function resolveDisplayName(sessionUser, profile) {
-  const metadata = sessionUser?.user_metadata || {};
-  return (
-    safeTrim(profile?.name) ||
-    safeTrim(metadata.name) ||
-    safeTrim(metadata.full_name) ||
-    safeTrim(metadata.display_name) ||
-    safeTrim(metadata.first_name) ||
-    safeTrim(sessionUser?.email) ||
-    ''
-  );
-}
-
-const language = (document.documentElement?.lang || 'pl').toLowerCase();
-const localeTag = language.startsWith('en') ? 'en-US' : 'pl-PL';
-const numberFormatter = new Intl.NumberFormat(localeTag);
-let dateFormatter;
-try {
-  dateFormatter = new Intl.DateTimeFormat(localeTag, { dateStyle: 'medium', timeStyle: 'short' });
-} catch (error) {
-  dateFormatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' });
-}
-
-function formatNumber(value) {
-  return Number.isFinite(value) ? numberFormatter.format(value) : null;
-}
-
-function formatUpdatedAt(value) {
-  if (!value) return null;
-  const date = typeof value === 'string' ? new Date(value) : value;
-  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
-    return null;
-  }
-  return dateFormatter.format(date);
-}
-
-const auth = await waitForAuth();
-if (!auth || !auth.enabled) {
-  redirectToAuth();
-  throw new Error('Auth disabled');
-}
-
-const supabase = auth.supabase;
-const me = document.getElementById('me');
-const logoutButton = document.getElementById('logout');
-const accountMessage = document.getElementById('accountMessage');
-const nameForm = document.getElementById('accountNameForm');
-const usernameForm = document.getElementById('accountUsernameForm');
-const passwordForm = document.getElementById('accountPasswordForm');
-const firstNameInput = document.getElementById('profileFirstName');
-const usernameInput = document.getElementById('profileUsername');
-const newPasswordInput = document.getElementById('profileNewPassword');
-const confirmPasswordInput = document.getElementById('profileConfirmPassword');
-const levelValue = document.getElementById('profileLevel');
-const xpValue = document.getElementById('profileXp');
-const updatedValue = document.getElementById('profileUpdatedAt');
-
-let currentSession = null;
-let currentProfile = null;
-
-const USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])$/i;
-
-function normalizeUsername(value) {
-  return typeof value === 'string' ? value.trim().toLowerCase() : '';
-}
-
-function setAccountMessage(message = '', tone = 'info') {
-  if (!accountMessage) return;
-  if (!message) {
-    accountMessage.textContent = '';
-    accountMessage.removeAttribute('data-tone');
-    accountMessage.hidden = true;
-    return;
-  }
-  accountMessage.textContent = message;
-  accountMessage.dataset.tone = tone;
-  accountMessage.hidden = false;
-}
-
-function updateStats(profile) {
-  const xp = Number(profile?.xp);
-  const level = Number(profile?.level);
-  const updatedAt = profile?.updated_at || profile?.updatedAt || null;
-
-  if (levelValue) {
-    const formattedLevel = formatNumber(level);
-    levelValue.textContent = formattedLevel ?? '—';
-  }
-
-  if (xpValue) {
-    const formattedXp = formatNumber(xp);
-    xpValue.textContent = formattedXp !== null ? `${formattedXp} XP` : '—';
-  }
-
-  if (updatedValue) {
-    const formattedDate = formatUpdatedAt(updatedAt);
-    updatedValue.textContent = formattedDate ?? '—';
-  }
-}
-
-async function fetchSession() {
-  try {
-    const session = await auth.session();
-    if (!session) {
-      redirectToAuth();
-      return null;
-    }
-    return session;
-  } catch (error) {
-    console.error('Nie udało się pobrać sesji logowania', error);
-    setAccountMessage('Nie udało się odczytać sesji. Odśwież stronę i spróbuj ponownie.', 'error');
-    return null;
-  }
-}
-
-async function loadProfile(sessionOverride = null) {
-  const session = sessionOverride || (await fetchSession());
-  if (!session) {
-    updateStats(null);
-    return null;
-  }
-  currentSession = session;
-
-  let profile = null;
-  try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('name, email, username, username_normalized, xp, level, updated_at')
-      .eq('id', session.user.id)
-      .maybeSingle();
-    if (error && error.code !== 'PGRST116') {
-      throw error;
-    }
-    profile = data || null;
-  } catch (error) {
-    console.warn('Nie udało się pobrać profilu użytkownika', error);
-    setAccountMessage('Nie udało się pobrać danych profilu. Spróbuj ponownie później.', 'error');
-  }
-
-  const displayName = resolveDisplayName(session.user, profile) || 'Graczu';
-  if (me) {
-    me.textContent = `Cześć, ${displayName}!`;
-  }
-
-  if (firstNameInput instanceof HTMLInputElement) {
-    const metadata = session.user.user_metadata || {};
-    const nameValue =
-      safeTrim(profile?.name) ||
-      safeTrim(metadata.name) ||
-      safeTrim(metadata.display_name) ||
-      safeTrim(metadata.first_name);
-    firstNameInput.value = nameValue || '';
-  }
-
-  if (usernameInput instanceof HTMLInputElement) {
-    const metadata = session.user.user_metadata || {};
-    const usernameValue = safeTrim(profile?.username) || safeTrim(metadata.username);
-    usernameInput.value = usernameValue || '';
-  }
-
-  updateStats(profile);
-
-  const userEmail = safeTrim(session.user.email);
-  const profileEmail = safeTrim(profile?.email);
-  if (profile && userEmail && profileEmail !== userEmail) {
-    try {
-      await supabase
-        .from('profiles')
-        .update({ email: userEmail })
-        .eq('id', session.user.id);
-      profile.email = userEmail;
-    } catch (error) {
-      console.warn('Nie udało się zaktualizować adresu e-mail profilu', error);
-    }
-  }
-
-  currentProfile = profile;
-
-  return profile;
-}
-
-nameForm?.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  if (!(firstNameInput instanceof HTMLInputElement)) {
-    return;
-  }
-  if (!currentSession?.user?.id) {
-    setAccountMessage('Zaloguj się, aby zmienić imię.', 'error');
-    return;
-  }
-
-  const submitButton = nameForm.querySelector('button[type="submit"]');
-  const firstName = firstNameInput.value.trim();
-
-  if (!firstName) {
-    setAccountMessage('Wprowadź imię.', 'error');
-    firstNameInput.focus();
-    return;
-  }
-
-  if (firstName.length < 2) {
-    setAccountMessage('Imię powinno mieć co najmniej 2 znaki.', 'error');
-    firstNameInput.focus();
-    return;
-  }
-
-  if (submitButton instanceof HTMLButtonElement) {
-    submitButton.disabled = true;
-    submitButton.dataset.loading = 'true';
-    submitButton.setAttribute('aria-busy', 'true');
-  }
-
-  setAccountMessage('Zapisywanie imienia…', 'info');
-
-  try {
-    const email = safeTrim(currentSession.user.email);
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        name: firstName,
-        email: email || null,
-      })
-      .eq('id', currentSession.user.id);
-    if (error) {
-      throw error;
-    }
-
-    const { error: metaError } = await supabase.auth.updateUser({
-      data: {
-        name: firstName,
-        full_name: firstName,
-        display_name: firstName,
-        first_name: firstName,
-      },
-    });
-    if (metaError) {
-      throw metaError;
-    }
-
-    setAccountMessage('Imię zaktualizowane.', 'success');
-    await loadProfile();
-  } catch (error) {
-    const message = error && typeof error.message === 'string' && error.message
-      ? error.message
-      : 'Nie udało się zapisać imienia. Spróbuj ponownie.';
-    setAccountMessage(message, 'error');
-  } finally {
-    if (submitButton instanceof HTMLButtonElement) {
-      submitButton.disabled = false;
-      submitButton.removeAttribute('data-loading');
-      submitButton.removeAttribute('aria-busy');
-    }
-  }
-});
-
-usernameForm?.addEventListener('submit', async (event) => {
-  event.preventDefault();
-
-  if (!(usernameInput instanceof HTMLInputElement)) {
-    return;
-  }
-
-  if (!currentSession?.user?.id) {
-    setAccountMessage('Zaloguj się, aby zmienić nazwę użytkownika.', 'error');
-    return;
-  }
-
-  const submitButton = usernameForm.querySelector('button[type="submit"]');
-  const requestedUsername = usernameInput.value.trim();
-
-  if (!requestedUsername) {
-    setAccountMessage('Wprowadź nazwę użytkownika.', 'error');
-    usernameInput.focus();
-    return;
-  }
-
-  if (!USERNAME_PATTERN.test(requestedUsername)) {
-    setAccountMessage(
-      'Nazwa użytkownika może zawierać litery, cyfry, kropki, myślniki i podkreślenia (3-30 znaków).',
-      'error',
-    );
-    usernameInput.focus();
-    return;
-  }
-
-  const normalized = normalizeUsername(requestedUsername);
-  const currentNormalized = normalizeUsername(
-    currentProfile?.username_normalized ||
-      currentProfile?.username ||
-      currentSession?.user?.user_metadata?.username,
-  );
-  if (normalized === currentNormalized && currentNormalized) {
-    setAccountMessage('Ta nazwa użytkownika jest już ustawiona.', 'info');
-    return;
-  }
-
-  if (submitButton instanceof HTMLButtonElement) {
-    submitButton.disabled = true;
-    submitButton.dataset.loading = 'true';
-    submitButton.setAttribute('aria-busy', 'true');
-  }
-
-  setAccountMessage('Sprawdzanie nazwy użytkownika…', 'info');
-
-  let usernameTaken = null;
-  try {
-    let query = supabase
-      .from('profiles')
-      .select('id')
-      .eq('username_normalized', normalized)
-      .limit(1);
-    if (currentSession.user.id) {
-      query = query.neq('id', currentSession.user.id);
-    }
-    const { data, error } = await query;
-    if (error && error.code !== 'PGRST116') {
-      throw error;
-    }
-    usernameTaken = Array.isArray(data) && data.length > 0;
-  } catch (error) {
-    console.warn('Nie udało się sprawdzić dostępności nazwy użytkownika', error);
-    setAccountMessage('Nie udało się zweryfikować nazwy użytkownika. Spróbuj ponownie.', 'error');
-    usernameTaken = null;
-  }
-
-  if (usernameTaken === null) {
-    if (submitButton instanceof HTMLButtonElement) {
-      submitButton.disabled = false;
-      submitButton.removeAttribute('data-loading');
-      submitButton.removeAttribute('aria-busy');
-    }
-    return;
-  }
-
-  if (usernameTaken) {
-    setAccountMessage('Ta nazwa użytkownika jest już zajęta. Wybierz inną.', 'error');
-    usernameInput.focus();
-    if (submitButton instanceof HTMLButtonElement) {
-      submitButton.disabled = false;
-      submitButton.removeAttribute('data-loading');
-      submitButton.removeAttribute('aria-busy');
-    }
-    return;
-  }
-
-  setAccountMessage('Zapisywanie nazwy użytkownika…', 'info');
-
-  try {
-    const updates = {
-      username: requestedUsername,
-      username_normalized: normalized,
-    };
-    const { error } = await supabase
-      .from('profiles')
-      .update(updates)
-      .eq('id', currentSession.user.id);
-    if (error) {
-      throw error;
-    }
-
-    const { error: metaError } = await supabase.auth.updateUser({
-      data: {
-        username: requestedUsername,
-      },
-    });
-    if (metaError) {
-      throw metaError;
-    }
-
-    setAccountMessage('Nazwa użytkownika zaktualizowana.', 'success');
-    await loadProfile();
-  } catch (error) {
-    const message = error && typeof error.message === 'string' && error.message
-      ? error.message
-      : 'Nie udało się zapisać nazwy użytkownika. Spróbuj ponownie.';
-    setAccountMessage(message, 'error');
-  } finally {
-    if (submitButton instanceof HTMLButtonElement) {
-      submitButton.disabled = false;
-      submitButton.removeAttribute('data-loading');
-      submitButton.removeAttribute('aria-busy');
-    }
-  }
-});
-
-passwordForm?.addEventListener('submit', async (event) => {
-  event.preventDefault();
-
-  if (!(newPasswordInput instanceof HTMLInputElement) || !(confirmPasswordInput instanceof HTMLInputElement)) {
-    return;
-  }
-
-  if (!currentSession?.user?.id) {
-    setAccountMessage('Zaloguj się, aby zmienić hasło.', 'error');
-    return;
-  }
-
-  const submitButton = passwordForm.querySelector('button[type="submit"]');
-  const newPassword = newPasswordInput.value;
-  const confirmPassword = confirmPasswordInput.value;
-
-  if (!newPassword || newPassword.length < 8) {
-    setAccountMessage('Hasło powinno mieć co najmniej 8 znaków.', 'error');
-    newPasswordInput.focus();
-    return;
-  }
-
-  if (newPassword !== confirmPassword) {
-    setAccountMessage('Hasła nie są takie same.', 'error');
-    confirmPasswordInput.focus();
-    return;
-  }
-
-  if (submitButton instanceof HTMLButtonElement) {
-    submitButton.disabled = true;
-    submitButton.dataset.loading = 'true';
-    submitButton.setAttribute('aria-busy', 'true');
-  }
-
-  setAccountMessage('Aktualizowanie hasła…', 'info');
-
-  try {
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) {
-      throw error;
-    }
-
-    newPasswordInput.value = '';
-    confirmPasswordInput.value = '';
-    setAccountMessage('Hasło zaktualizowane. Zaloguj się ponownie, jeśli system o to poprosi.', 'success');
-  } catch (error) {
-    const message = error && typeof error.message === 'string' && error.message
-      ? error.message
-      : 'Nie udało się zaktualizować hasła. Spróbuj ponownie.';
-    setAccountMessage(message, 'error');
-  } finally {
-    if (submitButton instanceof HTMLButtonElement) {
-      submitButton.disabled = false;
-      submitButton.removeAttribute('data-loading');
-      submitButton.removeAttribute('aria-busy');
-    }
-  }
-});
-
-logoutButton?.addEventListener('click', async () => {
-  if (!(logoutButton instanceof HTMLButtonElement)) {
-    return;
-  }
-  logoutButton.disabled = true;
-  logoutButton.setAttribute('aria-busy', 'true');
-  setAccountMessage('Wylogowywanie…', 'info');
-  try {
-    const { error } = await supabase.auth.signOut();
-    if (error) {
-      throw error;
-    }
-    window.location.href = '/';
-  } catch (error) {
-    console.error('Nie udało się wylogować użytkownika', error);
-    setAccountMessage('Nie udało się wylogować. Spróbuj ponownie.', 'error');
-    logoutButton.disabled = false;
-    logoutButton.removeAttribute('aria-busy');
-  }
-});
-
-await loadProfile();
-
-if (typeof auth.onAuthStateChange === 'function') {
-  auth.onAuthStateChange(async (user) => {
-    if (!user) {
-      redirectToAuth();
-      return;
-    }
-    const session = await fetchSession();
-    if (session) {
-      await loadProfile(session);
-    }
-  });
-}
-  </script>
-
-</body>
+        <section class="account-card" aria-labelledby="xp-heading">
+          <div>
+            <h2 id="xp-heading">Ostatnie zdarzenia XP</h2>
+            <p>Monitoruj, jak zdobywasz doświadczenie w CyprusEye.</p>
+          </div>
+          <p id="xp-empty" hidden>Brak zarejestrowanych zdarzeń XP.</p>
+          <ul id="xp-events" class="xp-list" aria-live="polite"></ul>
+        </section>
+      </main>
+    </div>
+  </body>
 </html>
