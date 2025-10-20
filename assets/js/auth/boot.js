@@ -48,6 +48,19 @@ const diagnostics = {
   },
 };
 
+const AUTH_STATE_VALUES = new Set(["loading", "guest", "authenticated"]);
+
+function setDocumentAuthState(state) {
+  const root = document.documentElement;
+  if (!root) {
+    return;
+  }
+  const nextState = AUTH_STATE_VALUES.has(state) ? state : "guest";
+  if (root.dataset.authState !== nextState) {
+    root.dataset.authState = nextState;
+  }
+}
+
 Object.defineProperties(diagnostics, {
   issues: { enumerable: false },
   log: { enumerable: false },
@@ -70,11 +83,113 @@ const enabled =
 
 diagnostics.log('info', 'boot-start', 'Inicjalizacja modułu logowania CE_AUTH');
 
+setDocumentAuthState('loading');
+
 const AUTH_PAGE_PATH = '/auth/';
 const loginButtonSelectors = ['#loginBtn', '[data-login-button]'];
 let loginButtonUpdater = () => {};
 let lastKnownUser = null;
 let previousUserId = null;
+
+const LOCAL_SESSION_STORAGE_KEY = 'wakacjecypr-session';
+let storageWarningLogged = false;
+
+function getSafeLocalStorage() {
+  try {
+    return window.localStorage;
+  } catch (error) {
+    if (!storageWarningLogged) {
+      diagnostics.log(
+        'warn',
+        'storage-unavailable',
+        'Brak dostępu do localStorage w przeglądarce.',
+        {
+          message: error?.message,
+        },
+      );
+      storageWarningLogged = true;
+    }
+    return null;
+  }
+}
+
+function readStoredManualSession() {
+  const storage = getSafeLocalStorage();
+  if (!storage) {
+    return null;
+  }
+  try {
+    const raw = storage.getItem(LOCAL_SESSION_STORAGE_KEY);
+    if (!raw) {
+      return null;
+    }
+    return JSON.parse(raw);
+  } catch (error) {
+    diagnostics.log(
+      'warn',
+      'session-parse-failed',
+      'Nie udało się odczytać zapisanej sesji logowania API.',
+      { message: error?.message },
+    );
+    return null;
+  }
+}
+
+function persistStoredManualSession(session) {
+  const storage = getSafeLocalStorage();
+  if (!storage) {
+    return;
+  }
+  try {
+    if (!session) {
+      storage.removeItem(LOCAL_SESSION_STORAGE_KEY);
+    } else {
+      storage.setItem(LOCAL_SESSION_STORAGE_KEY, JSON.stringify(session));
+    }
+  } catch (error) {
+    diagnostics.log(
+      'warn',
+      'session-store-failed',
+      'Nie udało się zapisać sesji logowania API do localStorage.',
+      { message: error?.message },
+    );
+  }
+}
+
+function sanitizeManualSession(session) {
+  if (!session || typeof session !== 'object') {
+    return null;
+  }
+  const user = session.user && typeof session.user === 'object' ? session.user : null;
+  const token = typeof session.token === 'string' && session.token ? session.token : null;
+  const refreshToken =
+    typeof session.refreshToken === 'string' && session.refreshToken
+      ? session.refreshToken
+      : null;
+  let expiresAt = null;
+  if (typeof session.expiresAt === 'number' && Number.isFinite(session.expiresAt)) {
+    expiresAt = session.expiresAt;
+  } else if (typeof session.expiresAt === 'string' && session.expiresAt) {
+    expiresAt = session.expiresAt;
+  } else if (typeof session.expires_at === 'number' && Number.isFinite(session.expires_at)) {
+    expiresAt = session.expires_at;
+  }
+
+  if (!user && !token && !refreshToken) {
+    return null;
+  }
+
+  return {
+    user,
+    token,
+    refreshToken,
+    expiresAt,
+    source: typeof session.source === 'string' ? session.source : 'api',
+    createdAt: Number.isFinite(Number(session.createdAt)) ? Number(session.createdAt) : Date.now(),
+  };
+}
+
+let manualSessionState = sanitizeManualSession(readStoredManualSession());
 
 function determineDefaultLabels() {
   const lang = (document.documentElement?.lang || 'pl').toLowerCase();
@@ -84,8 +199,22 @@ function determineDefaultLabels() {
   return { signedOut: 'Zaloguj', signedIn: 'Wyloguj' };
 }
 
-function setupLoginButtons(supabase) {
+function setupLoginButtons(supabase, options = {}) {
   const defaults = determineDefaultLabels();
+  const handleSignOut =
+    typeof options.signOut === 'function'
+      ? options.signOut
+      : async ({ supabase: client }) => {
+          if (!client) {
+            window.location.reload();
+            return;
+          }
+          const { error } = await client.auth.signOut();
+          if (error) {
+            throw error;
+          }
+          window.location.reload();
+        };
 
   function findButtons() {
     const buttons = [];
@@ -152,23 +281,16 @@ function setupLoginButtons(supabase) {
 
     button.onclick = async (event) => {
       event.preventDefault();
-      if (!supabase) {
-        window.location.reload();
-        return;
-      }
       if (button.dataset.loginProcessing === 'true') {
         return;
       }
       button.dataset.loginProcessing = 'true';
       setDisabled(button, true);
       try {
-        const { error } = await supabase.auth.signOut();
-        if (error) {
-          throw error;
-        }
-        window.location.reload();
+        await handleSignOut({ supabase, button, event });
       } catch (error) {
-        console.error('Błąd podczas wylogowywania użytkownika Supabase', error);
+        console.error('Błąd podczas wylogowywania użytkownika', error);
+      } finally {
         button.dataset.loginProcessing = 'false';
         setDisabled(button, false);
       }
@@ -245,6 +367,7 @@ if (!enabled) {
   lastKnownUser = null;
   applyAuthVisibility(null);
   loginButtonUpdater(null);
+  setDocumentAuthState('guest');
   exposeAuthApi({ enabled: false, reason: 'disabled' });
 } else {
   const initialConfig = getSupabaseConfig(document, {
@@ -265,6 +388,7 @@ if (!enabled) {
     lastKnownUser = null;
     applyAuthVisibility(null);
     loginButtonUpdater(null);
+    setDocumentAuthState('guest');
     exposeAuthApi({ enabled: false, reason: 'config-missing' });
   } else {
     diagnostics.log('info', 'config-loaded', 'Załadowano konfigurację Supabase.', {
@@ -381,6 +505,7 @@ if (!enabled) {
       lastKnownUser = null;
       applyAuthVisibility(null);
       loginButtonUpdater(null);
+      setDocumentAuthState('guest');
       exposeAuthApi({
         enabled: false,
         reason: invalidApiKey ? 'invalid-api-key' : 'init-failed',
@@ -394,9 +519,112 @@ if (!enabled) {
     } else {
       supabaseClient = client;
 
-      setupLoginButtons(supabaseClient);
+      const listeners = new Set();
+      let supabaseUser = initialUser || null;
+
+      function getManualSessionSnapshot() {
+        if (!manualSessionState || !manualSessionState.user) {
+          return null;
+        }
+        return {
+          user: manualSessionState.user,
+          access_token: manualSessionState.token || null,
+          refresh_token: manualSessionState.refreshToken || null,
+          expires_at: manualSessionState.expiresAt || null,
+          source: manualSessionState.source || 'api',
+          createdAt: manualSessionState.createdAt,
+        };
+      }
+
+      function getEffectiveUser() {
+        return manualSessionState?.user || supabaseUser || null;
+      }
+
+      function notifyAuthListeners({ source = manualSessionState ? 'manual' : 'supabase' } = {}) {
+        const user = getEffectiveUser();
+        lastKnownUser = user;
+        const userId = user?.id || null;
+        setDocumentAuthState(user ? 'authenticated' : 'guest');
+        if (userId !== previousUserId) {
+          previousUserId = userId;
+          diagnostics.log(
+            'info',
+            userId ? 'user-authenticated' : 'user-signed-out',
+            userId
+              ? `Potwierdzono zalogowanego użytkownika (${source}).`
+              : `Brak aktywnej sesji (${source}).`,
+            userId ? { id: userId, source } : { source },
+          );
+        }
+        if (userId) {
+          delete document.documentElement.dataset.authError;
+        }
+        applyAuthVisibility(user);
+        loginButtonUpdater(user);
+        listeners.forEach((listener) => {
+          try {
+            listener(user);
+          } catch (error) {
+            console.error('Auth listener error', error);
+          }
+        });
+        document.dispatchEvent(
+          new CustomEvent('ce-auth-state-change', {
+            detail: { user, source, manual: Boolean(manualSessionState) },
+          }),
+        );
+      }
+
+      function setManualSession(session, { silent = false } = {}) {
+        const normalized = sanitizeManualSession(session);
+        manualSessionState = normalized;
+        if (normalized) {
+          persistStoredManualSession(normalized);
+          diagnostics.log('info', 'manual-session-set', 'Zapisano sesję logowania API.', {
+            hasToken: Boolean(normalized.token),
+          });
+        } else {
+          persistStoredManualSession(null);
+        }
+        setDocumentAuthState(getEffectiveUser() ? 'authenticated' : 'guest');
+        if (!silent) {
+          notifyAuthListeners({ source: normalized ? 'manual' : 'manual-clear' });
+        }
+        return manualSessionState;
+      }
+
+      function clearManualSession({ silent = false, source = 'manual-clear' } = {}) {
+        const hadSession = Boolean(manualSessionState);
+        manualSessionState = null;
+        persistStoredManualSession(null);
+        if (hadSession) {
+          diagnostics.log('info', 'manual-session-cleared', 'Usunięto zapisaną sesję logowania API.');
+        }
+        setDocumentAuthState(getEffectiveUser() ? 'authenticated' : 'guest');
+        if (!silent) {
+          notifyAuthListeners({ source });
+        }
+      }
+
+      async function combinedSignOut() {
+        clearManualSession({ silent: false, source: 'sign-out' });
+        if (supabaseClient) {
+          const { error } = await supabaseClient.auth.signOut();
+          if (error) {
+            throw error;
+          }
+        } else {
+          notifyAuthListeners({ source: 'sign-out' });
+        }
+      }
+
+      setupLoginButtons(supabaseClient, { signOut: combinedSignOut });
 
       async function session() {
+        const manual = getManualSessionSnapshot();
+        if (manual) {
+          return manual;
+        }
         try {
           const { data, error } = await supabaseClient.auth.getSession();
           if (error) {
@@ -456,41 +684,12 @@ if (!enabled) {
         });
       }
 
-      const listeners = new Set();
-
-      function notifyAuthListeners(user) {
-        lastKnownUser = user;
-        const userId = user?.id || null;
-        if (userId !== previousUserId) {
-          previousUserId = userId;
-          diagnostics.log(
-            'info',
-            userId ? 'user-authenticated' : 'user-signed-out',
-            userId ? 'Supabase potwierdził zalogowanego użytkownika.' : 'Brak aktywnej sesji Supabase.',
-            userId ? { id: userId } : undefined,
-          );
-        }
-        if (userId) {
-          delete document.documentElement.dataset.authError;
-        }
-        applyAuthVisibility(user);
-        loginButtonUpdater(user);
-        listeners.forEach((listener) => {
-          try {
-            listener(user);
-          } catch (error) {
-            console.error('Auth listener error', error);
-          }
-        });
-        document.dispatchEvent(new CustomEvent('ce-auth-state-change', { detail: { user } }));
-      }
-
       supabaseClient.auth.onAuthStateChange((_event, authSession) => {
-        const user = authSession?.user || null;
-        notifyAuthListeners(user);
+        supabaseUser = authSession?.user || null;
+        notifyAuthListeners({ source: 'supabase' });
       });
 
-      notifyAuthListeners(initialUser);
+      notifyAuthListeners({ source: manualSessionState ? 'manual' : 'supabase' });
 
       diagnostics.setLastError(null);
       exposeAuthApi({
@@ -505,6 +704,14 @@ if (!enabled) {
           listeners.add(callback);
           return () => listeners.delete(callback);
         },
+        setManualSession(data) {
+          return setManualSession(data);
+        },
+        clearManualSession(options = {}) {
+          clearManualSession({ silent: Boolean(options?.silent) });
+          return manualSessionState;
+        },
+        manualSession: () => manualSessionState,
       });
 
       function initAuth() {
