@@ -940,6 +940,34 @@ function getMimeType(filePath) {
   }
 }
 
+async function serveStaticAsset(req, res, filePath, stats = null) {
+  const fileStats = stats ?? (await fs.stat(filePath));
+  if (fileStats.isDirectory()) {
+    return false;
+  }
+
+  const mimeType = getMimeType(filePath);
+  const headers = {
+    'Content-Type': mimeType,
+    'Content-Length': fileStats.size,
+    'Cache-Control': mimeType.startsWith('text/html')
+      ? 'no-cache'
+      : 'public, max-age=31536000, immutable',
+  };
+
+  applySecurityHeaders(res);
+  res.writeHead(200, headers);
+
+  if (req.method === 'HEAD') {
+    res.end();
+    return true;
+  }
+
+  const file = await fs.readFile(filePath);
+  res.end(file);
+  return true;
+}
+
 async function tryServeStaticFile(req, pathname, res) {
   if (!isWithinBasePath(pathname)) {
     return false;
@@ -964,31 +992,24 @@ async function tryServeStaticFile(req, pathname, res) {
   try {
     const stats = await fs.stat(absolutePath);
     if (stats.isDirectory()) {
+      const indexPath = path.join(absolutePath, 'index.html');
+      try {
+        const servedIndex = await serveStaticAsset(req, res, indexPath);
+        if (servedIndex) {
+          return true;
+        }
+      } catch (indexError) {
+        if (indexError.code !== 'ENOENT') {
+          console.error('Nie udało się odczytać pliku indeksu katalogu:', indexError);
+        }
+      }
       return false;
     }
 
-    const mimeType = getMimeType(absolutePath);
-    const headers = {
-      'Content-Type': mimeType,
-      'Content-Length': stats.size,
-    };
-
-    if (!mimeType.startsWith('text/html')) {
-      headers['Cache-Control'] = 'public, max-age=31536000, immutable';
-    } else {
-      headers['Cache-Control'] = 'no-cache';
+    const served = await serveStaticAsset(req, res, absolutePath, stats);
+    if (served) {
+      return true;
     }
-
-    applySecurityHeaders(res);
-    res.writeHead(200, headers);
-    if (req.method === 'HEAD') {
-      res.end();
-    } else {
-      const file = await fs.readFile(absolutePath);
-      res.end(file);
-    }
-
-    return true;
   } catch (error) {
     if (error.code === 'ENOENT' && !targetPath.endsWith('.html')) {
       // Retry HTML fallback for paths like /app/achievements
@@ -996,39 +1017,18 @@ async function tryServeStaticFile(req, pathname, res) {
       const htmlPath = path.resolve(__dirname, htmlCandidate);
       if (htmlPath.startsWith(__dirname)) {
         try {
-          const stats = await fs.stat(htmlPath);
-          if (stats.isDirectory()) {
-            return false;
+          const servedHtml = await serveStaticAsset(req, res, htmlPath);
+          if (servedHtml) {
+            return true;
           }
-
-          const mimeType = getMimeType(htmlPath);
-          const headers = {
-            'Content-Type': mimeType,
-            'Content-Length': stats.size,
-            'Cache-Control': mimeType.startsWith('text/html')
-              ? 'no-cache'
-              : 'public, max-age=31536000, immutable',
-          };
-
-          applySecurityHeaders(res);
-          res.writeHead(200, headers);
-          if (req.method === 'HEAD') {
-            res.end();
-          } else {
-            const file = await fs.readFile(htmlPath);
-            res.end(file);
-          }
-          return true;
         } catch (htmlError) {
           if (htmlError.code !== 'ENOENT') {
             console.error('Nie udało się odczytać pliku statycznego:', htmlError);
           }
         }
       }
-    }
-
-    if (error.code !== 'ENOENT') {
-      console.error('Błąd podczas serwowania pliku statycznego:', error);
+    } else if (error.code !== 'ENOENT') {
+      console.error('Nie udało się odczytać pliku statycznego:', error);
     }
   }
 
