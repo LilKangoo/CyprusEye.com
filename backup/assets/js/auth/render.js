@@ -47,15 +47,7 @@ const AUTH_TEMPLATE = `
       aria-labelledby="authTabLogin"
       data-auth-panel="login"
     >
-      <form
-        id="loginForm"
-        class="auth-form"
-        method="post"
-        novalidate
-        data-login-endpoint="/api/login"
-        data-login-mode="hybrid"
-        data-login-fallback="supabase"
-      >
+      <form id="loginForm" class="auth-form" novalidate>
         <label for="loginEmail" data-i18n="auth.email">Adres e-mail</label>
         <input
           id="loginEmail"

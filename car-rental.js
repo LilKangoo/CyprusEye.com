@@ -9,6 +9,18 @@
     return typeof value === 'number' && Number.isFinite(value);
   }
 
+  function isSelectElement(value) {
+    if (!value || typeof value !== 'object') {
+      return false;
+    }
+
+    if (typeof HTMLSelectElement !== 'undefined' && value instanceof HTMLSelectElement) {
+      return true;
+    }
+
+    return typeof value.tagName === 'string' && value.tagName.toLowerCase() === 'select';
+  }
+
   function toNumberOrZero(value) {
     const numeric = Number(value);
     return Number.isFinite(numeric) ? numeric : 0;
@@ -514,7 +526,7 @@
     return rentalLocations.find((location) => location.id === locationId) || null;
   }
 
-  function populateCarSelect(select, selectedValue) {
+  function populateCarSelectInternal(select, selectedValue) {
     if (!select) {
       return;
     }
@@ -546,6 +558,18 @@
     }
   }
 
+  function populateCarSelect(selectOrSelectedValue, maybeSelectedValue) {
+    const isElement = isSelectElement(selectOrSelectedValue);
+    const targetSelect = isElement ? selectOrSelectedValue : document.getElementById('rentalCarSelect');
+    const desiredValue = isElement ? maybeSelectedValue : selectOrSelectedValue;
+
+    if (!targetSelect) {
+      return;
+    }
+
+    populateCarSelectInternal(targetSelect, desiredValue);
+  }
+
   function populateLocationSelects(selects, selectedValues = []) {
     selects
       .filter(Boolean)
@@ -571,6 +595,21 @@
       });
   }
 
+  function populateLocationSelect(select, selectedValue) {
+    if (!select) {
+      return;
+    }
+
+    const selectedValues =
+      typeof selectedValue === 'string' && selectedValue
+        ? [selectedValue]
+        : Array.isArray(selectedValue)
+        ? selectedValue.filter(Boolean)
+        : [];
+
+    populateLocationSelects([select], selectedValues);
+  }
+
   function setDefaultRentalDates(pickupDateInput, returnDateInput) {
     if (!pickupDateInput || !returnDateInput) {
       return;
@@ -586,6 +625,11 @@
     const isoReturn = minimumReturn.toISOString().split('T')[0];
     returnDateInput.value = isoReturn;
     returnDateInput.min = isoToday;
+  }
+
+  function initDatePickers(pickupDateInput, returnDateInput) {
+    setDefaultRentalDates(pickupDateInput, returnDateInput);
+    setupPickupDateSync(pickupDateInput, returnDateInput);
   }
 
   function setupPickupDateSync(pickupDateInput, returnDateInput) {
@@ -829,7 +873,11 @@
     return true;
 
     function setRentalError(message) {
-      resultEl.textContent = '';
+      if (resultEl.dataset?.fallbackTotal) {
+        resultEl.textContent = resultEl.dataset.fallbackTotal;
+      } else {
+        resultEl.textContent = '';
+      }
       breakdownEl.innerHTML = '';
       messageEl.textContent = message;
       messageEl.classList.add('is-error');
@@ -1075,10 +1123,29 @@
 
     rentalContext = context;
 
-    populateCarSelect(carSelect);
-    populateLocationSelects([pickupSelect, returnSelect]);
-    setDefaultRentalDates(pickupDateInput, returnDateInput);
-    setupPickupDateSync(pickupDateInput, returnDateInput);
+    const fallbackCar = carFleet[0];
+    if (fallbackCar && resultEl) {
+      const fallbackPriceValue = toNumberOrZero(fallbackCar.pricePerDay) * RENTAL_MINIMUM_DAYS;
+      const fallbackEstimate = formatPrice(fallbackPriceValue);
+      const fallbackText = translateWithReplacements(
+        'carRental.calculator.total',
+        `Całkowita cena wynajmu: ${fallbackEstimate}`,
+        { price: fallbackEstimate },
+      );
+      resultEl.dataset.fallbackTotal = fallbackText;
+      if (!isNonEmptyString(resultEl.textContent)) {
+        resultEl.textContent = fallbackText;
+      }
+    }
+
+    try {
+      populateCarSelect(carSelect);
+      populateLocationSelect(pickupSelect);
+      populateLocationSelect(returnSelect);
+      initDatePickers(pickupDateInput, returnDateInput);
+    } catch (error) {
+      console.error('Car rental calculator initialization failed', error);
+    }
 
     if (carFleet.length) {
       carSelect.value = carFleet[0].id;
@@ -1118,7 +1185,8 @@
     const selectedReturn = returnSelect?.value;
 
     populateCarSelect(carSelect, selectedCar);
-    populateLocationSelects([pickupSelect, returnSelect], [selectedPickup, selectedReturn]);
+    populateLocationSelect(pickupSelect, selectedPickup);
+    populateLocationSelect(returnSelect, selectedReturn);
     renderCarFleet(grid, rentalContext);
     updateRentalQuote(rentalContext);
   }
@@ -1146,5 +1214,8 @@
     formatPrice,
     getIncludedMessage,
     minimumDays: RENTAL_MINIMUM_DAYS,
+    populateCarSelect,
+    populateLocationSelect,
+    initDatePickers,
   };
 })();

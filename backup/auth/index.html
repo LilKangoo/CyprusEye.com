@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="pl" data-auth-state="guest">
+  <head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-FCSE0876CR');
+</script>
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WakacjeCypr Quest – logowanie</title>
+    <meta
+      name="description"
+      content="Zaloguj się do WakacjeCypr Quest, aby synchronizować postępy, odblokowywać nagrody i kontynuować przygodę na każdym urządzeniu."
+    />
+    <meta name="ce-auth" content="on" />
+    <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co" />
+    <meta
+      name="supabase-anon"
+      content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM"
+    />
+    <meta name="supabase-publishable" content="sb_publishable_QdxNGCb6LYD-6ywFrjCrjg_Oa7yDGTk" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/assets/css/tokens.css" />
+    <link rel="stylesheet" href="/assets/css/base.css" />
+    <link rel="stylesheet" href="/assets/css/components.css" />
+    <link rel="stylesheet" href="/assets/css/mobile.css" />
+    <script type="module" src="/assets/js/auth/boot.js"></script>
+    <script type="module" src="/assets/js/auth/render.js"></script>
+    <script type="module" src="/assets/js/auth/page.js"></script>
+  </head>
+  <body class="auth-page">
+    <div class="auth-page__container">
+      <a class="auth-page__return" href="/">
+        <span aria-hidden="true">⬅️</span>
+        <span>Wróć do strony głównej</span>
+      </a>
+      <header class="auth-page__header">
+        <img
+          src="/assets/cyprus_logo-1000x1054.png"
+          alt="WakacjeCypr Quest – logo"
+          width="1000"
+          height="1054"
+          class="auth-page__logo"
+        />
+        <h1 class="auth-page__title" data-i18n="auth.title">Dołącz do przygody</h1>
+        <p class="auth-page__subtitle" data-i18n="auth.intro">
+          Zaloguj się, utwórz konto lub graj jako gość – wszystkie opcje w jednym miejscu.
+        </p>
+        <span id="authStatusBadge" class="auth-status-badge auth-page__status" data-state="loading"
+          >Łączenie z logowaniem…</span
+        >
+        <p id="authAccountCta" class="auth-page__cta" hidden>
+          🎉 Jesteś zalogowany jako <span id="authAccountName"></span>.
+          <a href="/account/">Przejdź do panelu gracza</a>
+        </p>
+      </header>
+      <main class="auth-page__content" aria-labelledby="authTitle">
+        <div role="presentation">
+          <div class="auth-modal__content" data-auth-view-root></div>
+        </div>
+      </main>
+    </div>
+  </body>
+</html>

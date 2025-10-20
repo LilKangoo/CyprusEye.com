@@ -266,12 +266,12 @@
       </main>
 
       <footer class="standalone-footer">
-        <p data-i18n="vip.footer">© <span id="year"></span> WakacjeCypr.com – Twoja prywatna podróż po Cyprze.</p>
+        <p data-i18n="vip.footer">© <span data-current-year></span> WakacjeCypr.com – Twoja prywatna podróż po Cyprze.</p>
       </footer>
     </div>
 
     <script>
-      const yearEl = document.getElementById('year');
+      const yearEl = document.querySelector('[data-current-year]');
       if (yearEl) {
         yearEl.textContent = new Date().getFullYear();
       }
