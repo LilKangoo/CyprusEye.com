@@ -1160,7 +1160,7 @@ const REVIEW_COMMENT_BONUS_XP = 15;
 const REVIEW_PHOTO_BONUS_XP = 25;
 const DAILY_CHALLENGE_BONUS_XP = 60;
 const MAX_LEVEL = 100;
-const GUEST_STATUS_MESSAGE = 'Grasz jako gość. Twoje postępy zapisują się na tym urządzeniu.';
+const GUEST_STATUS_MESSAGE = 'Grasz jako gość — postęp zapisany lokalnie na tym urządzeniu.';
 const NOTIFICATIONS_LIMIT = 60;
 const TRIP_PLANNER_TRAVEL_SPEED_KMH = 45;
 const TRIP_PLANNER_STOP_DURATION_HOURS = 1.5;
@@ -7651,12 +7651,12 @@ function showAccountSuccess(key, fallback, replacements = {}) {
 }
 
 function clearAuthForms() {
-  const loginForm = document.getElementById('loginForm');
+  const loginForm = document.getElementById('form-login');
   if (loginForm instanceof HTMLFormElement) {
     loginForm.reset();
   }
 
-  const registerForm = document.getElementById('registerForm');
+  const registerForm = document.getElementById('form-register');
   if (registerForm instanceof HTMLFormElement) {
     registerForm.reset();
   }
@@ -8107,7 +8107,7 @@ async function handlePasswordResetRequest(event) {
   event.preventDefault();
 
   const button = event.currentTarget instanceof HTMLButtonElement ? event.currentTarget : null;
-  const form = document.getElementById('loginForm');
+  const form = document.getElementById('form-login');
   const emailInput = form?.querySelector('#loginEmail');
 
   if (!(emailInput instanceof HTMLInputElement)) {
@@ -8341,8 +8341,8 @@ async function handleLogout() {
 function initializeAuth() {
   accounts = loadAccountsFromStorage();
 
-  const loginForm = document.getElementById('loginForm');
-  const registerForm = document.getElementById('registerForm');
+  const loginForm = document.getElementById('form-login');
+  const registerForm = document.getElementById('form-register');
   const loginForgotPasswordBtn = document.getElementById('loginForgotPassword');
   const authOpenBtn = document.getElementById('openAuthModal');
   const logoutBtn = document.getElementById('logoutBtn');
@@ -8352,12 +8352,22 @@ function initializeAuth() {
   const accountCloseBtn = document.getElementById('accountClose');
   const accountPasswordForm = document.getElementById('accountPasswordForm');
   const accountResetBtn = document.getElementById('accountResetProgress');
-  const guestPlayButton = document.getElementById('guestPlayButton');
+  const guestPlayButton = document.getElementById('btn-guest');
+  const loginHandledExternally =
+    loginForm instanceof HTMLFormElement && loginForm.dataset.ceAuthHandler === 'supabase';
+  const registerHandledExternally =
+    registerForm instanceof HTMLFormElement && registerForm.dataset.ceAuthHandler === 'supabase';
+  const guestHandledExternally =
+    guestPlayButton instanceof HTMLButtonElement && guestPlayButton.dataset.ceAuthHandler === 'supabase';
 
   setDocumentAuthState('loading');
 
-  loginForm?.addEventListener('submit', handleLoginSubmit);
-  registerForm?.addEventListener('submit', handleRegisterSubmit);
+  if (!loginHandledExternally) {
+    loginForm?.addEventListener('submit', handleLoginSubmit);
+  }
+  if (!registerHandledExternally) {
+    registerForm?.addEventListener('submit', handleRegisterSubmit);
+  }
   loginForgotPasswordBtn?.addEventListener('click', handlePasswordResetRequest);
 
   authOpenBtn?.addEventListener('click', () => {
@@ -8400,10 +8410,12 @@ function initializeAuth() {
       }
     });
   });
-  guestPlayButton?.addEventListener('click', () => {
-    startGuestSession({});
-    closeAuthModal({ reason: 'guest' });
-  });
+  if (!guestHandledExternally) {
+    guestPlayButton?.addEventListener('click', () => {
+      startGuestSession({});
+      closeAuthModal({ reason: 'guest' });
+    });
+  }
   setActiveAccountTab('stats');
   updateAuthUI();
 

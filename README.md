@@ -11,6 +11,7 @@ Repozytorium zawiera również gotową wersję strony internetowej, dzięki któ
 - Jeżeli strona ma być serwowana spod subścieżki, ustaw `BASE_PATH` (np. `/app`). Linki i serwowanie statycznych plików zostaną automatycznie dopasowane.
 - Do obsługi resetu hasła ustaw `PASSWORD_RESET_URL` z pełnym adresem formularza, który otrzyma użytkownik w e-mailu.
 - Aby otrzymywać zgłoszenia z formularzy na e-mail, skonfiguruj zmienne `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS` oraz opcjonalnie `SMTP_FROM` i `CONTACT_EMAIL` (domyślnie `kontakt@wakacjecypr.com`). Gdy SMTP nie jest dostępne, serwer zapisze treść wiadomości w logach.
+- Konfigurację Supabase dla logowania, resetu hasła i sesji opisuje dokument [docs/supabase-auth-config.md](docs/supabase-auth-config.md).
 
 > W większości przypadków wdrożenie na hosting statyczny wymaga jedynie skopiowania wskazanych plików oraz opcjonalnego uruchomienia `server.js` (np. na małym VPS lub w usłudze typu serverless container).
 
