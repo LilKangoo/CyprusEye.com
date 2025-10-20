@@ -62,6 +62,7 @@
     <link rel="stylesheet" href="assets/css/base.css" />
     <link rel="stylesheet" href="assets/css/components.css" />
     <link rel="stylesheet" href="assets/css/mobile.css" />
+    <link rel="stylesheet" href="assets/css/media-trips.css" />
 
   <meta name="ce-auth" content="on" />
   <meta name="supabase-url" content="https://xkzqolhjvrpjsnzwssml.supabase.co" />
@@ -412,7 +413,7 @@
             Do 4 osób obowiązuje cena bazowa. Wybierz wariant foto, video lub VIP i użyj kalkulatora, aby poznać łączny
             koszt oraz cenę na osobę.
           </p>
-          <div id="mediaTripsList" class="media-trips-list" role="list"></div>
+          <div id="mediaTripsList" class="media-trips-list package-grid" role="list"></div>
         </section>
 
         <section class="media-trips-video card surface-card" aria-labelledby="mediaTripsVideoTitle">
@@ -633,7 +634,7 @@
   </nav>
 
   <footer class="app-footer">
-    <p data-i18n="footer.app">© <span id="year"></span> WakacjeCypr.com • Graj, zwiedzaj i planuj wakacje jednocześnie.</p>
+    <p data-i18n="footer.app">© <span data-current-year></span> WakacjeCypr.com • Graj, zwiedzaj i planuj wakacje jednocześnie.</p>
   </footer>
 
   <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>

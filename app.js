@@ -834,7 +834,12 @@ const mediaTrips = [
 ];
 
 const LOCATIONS_PREVIEW_LIMIT = 6;
-let showAllLocationsPreview = false;
+const LOCATIONS_FULL_DATA_PATH = '/assets/data/attractions-full.json';
+let locationsFullVisible = false;
+let locationsFullLoaded = false;
+let locationsFullLoading = false;
+let locationsFullError = false;
+let locationsFullData = [];
 
 const packingGuide = {
   universal: [
@@ -1320,6 +1325,8 @@ let playerMarker;
 let playerAccuracyCircle;
 let locationWatchId = null;
 let hasCenteredOnPlayer = false;
+const DEFAULT_MAP_CENTER = [35.095, 33.203];
+const DEFAULT_MAP_ZOOM = 9;
 const LEAFLET_STYLESHEET_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
 const LEAFLET_SCRIPT_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
 let leafletStylesheetPromise = null;
@@ -3419,26 +3426,12 @@ function renderLocations() {
   const listEl = document.getElementById('locationsList');
   if (!listEl) return;
 
-  const toggleBtn = document.getElementById('locationsToggle');
-  const shouldShowAll = showAllLocationsPreview || places.length <= LOCATIONS_PREVIEW_LIMIT;
-  const items = shouldShowAll ? places : places.slice(0, LOCATIONS_PREVIEW_LIMIT);
-
   listEl.innerHTML = '';
+  const previewItems = places.slice(0, LOCATIONS_PREVIEW_LIMIT);
 
-  items.forEach((place) => {
-    const li = document.createElement('li');
-    li.dataset.id = place.id;
-    li.innerHTML = `
-      <strong>${getPlaceName(place)}</strong>
-      <span class="location-meta">${getPlaceBadge(place)} • ${place.xp} XP</span>
-    `;
-
-    if (state.visited.has(place.id)) {
-      li.classList.add('visited');
-    }
-
-    li.addEventListener('click', () => focusPlace(place.id));
-    listEl.appendChild(li);
+  previewItems.forEach((place) => {
+    const item = createLocationListItem(place);
+    listEl.appendChild(item);
   });
 
   const carRentalItem = document.createElement('li');
@@ -3465,23 +3458,227 @@ function renderLocations() {
   carRentalItem.appendChild(carRentalLink);
   listEl.appendChild(carRentalItem);
 
-  listEl.classList.toggle('is-expanded', shouldShowAll);
-  listEl.classList.toggle('is-collapsed', !shouldShowAll);
-  listEl.setAttribute('aria-expanded', shouldShowAll ? 'true' : 'false');
+  listEl.classList.toggle('is-collapsed', !locationsFullVisible);
+  listEl.classList.toggle('is-expanded', locationsFullVisible);
+  listEl.setAttribute('aria-expanded', locationsFullVisible ? 'true' : 'false');
 
-  if (toggleBtn) {
-    if (places.length <= LOCATIONS_PREVIEW_LIMIT) {
-      toggleBtn.hidden = true;
+  updateLocationsToggleState();
+
+  if (locationsFullLoaded) {
+    renderFullLocationsList(locationsFullData);
+  }
+}
+
+function createLocationListItem(place) {
+  const li = document.createElement('li');
+  li.dataset.id = place.id;
+  li.innerHTML = `
+    <strong>${getPlaceName(place)}</strong>
+    <span class="location-meta">${getPlaceBadge(place)} • ${place.xp} XP</span>
+  `;
+
+  if (state.visited.has(place.id)) {
+    li.classList.add('visited');
+  }
+
+  li.addEventListener('click', () => focusPlace(place.id));
+  return li;
+}
+
+function updateLocationsToggleState() {
+  const toggleBtn = document.getElementById('locationsToggle');
+  if (!toggleBtn) {
+    return;
+  }
+
+  if (places.length <= LOCATIONS_PREVIEW_LIMIT) {
+    toggleBtn.hidden = true;
+    return;
+  }
+
+  toggleBtn.hidden = false;
+
+  if (locationsFullLoading) {
+    toggleBtn.textContent = translate('locations.toggle.loading', 'Wczytywanie atrakcji…');
+    toggleBtn.setAttribute('aria-busy', 'true');
+    toggleBtn.disabled = true;
+  } else {
+    toggleBtn.disabled = false;
+    toggleBtn.removeAttribute('aria-busy');
+
+    if (locationsFullError) {
+      toggleBtn.textContent = translate(
+        'locations.toggle.retry',
+        'Spróbuj ponownie załadować atrakcje',
+      );
+    } else if (locationsFullVisible) {
+      toggleBtn.textContent = translate('locations.toggle.hide', 'Ukryj pełną listę');
     } else {
-      toggleBtn.hidden = false;
-      toggleBtn.textContent = shouldShowAll
-        ? translate('locations.toggle.hide', 'Ukryj część listy')
-        : translate('locations.toggle.showAll', `Pokaż wszystkie ${places.length} atrakcji`, {
-            total: places.length,
-          });
-      toggleBtn.setAttribute('aria-expanded', shouldShowAll ? 'true' : 'false');
+      toggleBtn.textContent = translate(
+        'locations.toggle.showAll',
+        `Pokaż wszystkie ${places.length} atrakcji`,
+        {
+          total: places.length,
+        },
+      );
     }
   }
+
+  toggleBtn.setAttribute('aria-expanded', locationsFullVisible ? 'true' : 'false');
+}
+
+function renderFullLocationsList(fullPlaces) {
+  const section = document.getElementById('locationsFullSection');
+  const listEl = document.getElementById('locationsFullList');
+  if (!section || !listEl) {
+    return;
+  }
+
+  listEl.innerHTML = '';
+
+  if (!Array.isArray(fullPlaces) || !fullPlaces.length) {
+    setFullLocationsStatus('empty');
+    return;
+  }
+
+  fullPlaces.forEach((place) => {
+    const item = createLocationListItem(place);
+    listEl.appendChild(item);
+  });
+
+  setFullLocationsStatus('ready');
+}
+
+function setFullLocationsStatus(status) {
+  const statusEl = document.getElementById('locationsFullStatus');
+  if (!statusEl) {
+    return;
+  }
+
+  if (status === 'ready') {
+    statusEl.hidden = true;
+    statusEl.textContent = '';
+    return;
+  }
+
+  statusEl.hidden = false;
+
+  if (status === 'loading') {
+    statusEl.textContent = translate(
+      'locations.full.loading',
+      'Wczytywanie pełnej listy atrakcji…',
+    );
+    return;
+  }
+
+  if (status === 'empty') {
+    statusEl.textContent = translate(
+      'locations.full.empty',
+      'Brak dodatkowych atrakcji do wyświetlenia.',
+    );
+    return;
+  }
+
+  statusEl.textContent = translate(
+    'locations.full.error',
+    'Nie udało się wczytać pełnej listy atrakcji. Spróbuj ponownie później.',
+  );
+}
+
+async function openFullLocationsSection() {
+  const section = document.getElementById('locationsFullSection');
+  if (!section || locationsFullLoading) {
+    return;
+  }
+
+  section.hidden = false;
+  section.setAttribute('aria-hidden', 'false');
+  locationsFullLoading = true;
+  locationsFullError = false;
+  setFullLocationsStatus('loading');
+  updateLocationsToggleState();
+
+  try {
+    const data = await fetchFullLocationsData();
+    locationsFullData = data;
+    locationsFullLoaded = true;
+    locationsFullVisible = true;
+    renderFullLocationsList(locationsFullData);
+    enableAttractionsCatalogLink();
+  } catch (error) {
+    console.error('Nie udało się wczytać pełnej listy atrakcji.', error);
+    locationsFullLoaded = false;
+    locationsFullVisible = false;
+    locationsFullError = true;
+    section.hidden = true;
+    section.setAttribute('aria-hidden', 'true');
+    setFullLocationsStatus('error');
+    disableAttractionsCatalogLink();
+  } finally {
+    locationsFullLoading = false;
+    updateLocationsToggleState();
+  }
+}
+
+function closeFullLocationsSection() {
+  const section = document.getElementById('locationsFullSection');
+  if (!section) {
+    return;
+  }
+
+  locationsFullVisible = false;
+  section.hidden = true;
+  section.setAttribute('aria-hidden', 'true');
+  updateLocationsToggleState();
+}
+
+async function fetchFullLocationsData() {
+  if (locationsFullLoaded && Array.isArray(locationsFullData)) {
+    return locationsFullData;
+  }
+
+  const url = `${APP_BASE_PATH || ''}${LOCATIONS_FULL_DATA_PATH}`;
+  const response = await fetch(url, {
+    headers: {
+      Accept: 'application/json',
+    },
+    credentials: 'same-origin',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Request failed with status ${response.status}`);
+  }
+
+  const data = await response.json();
+
+  if (!Array.isArray(data)) {
+    throw new Error('Invalid attractions payload.');
+  }
+
+  locationsFullError = false;
+  locationsFullLoaded = true;
+  locationsFullData = data;
+  return locationsFullData;
+}
+
+function enableAttractionsCatalogLink() {
+  const link = document.getElementById('attractionsCatalogLink');
+  if (!link) {
+    return;
+  }
+
+  link.hidden = false;
+  link.removeAttribute('aria-disabled');
+}
+
+function disableAttractionsCatalogLink() {
+  const link = document.getElementById('attractionsCatalogLink');
+  if (!link) {
+    return;
+  }
+
+  link.hidden = true;
+  link.setAttribute('aria-disabled', 'true');
 }
 
 function formatAttractionCount(count) {
@@ -3522,6 +3719,101 @@ function getCurrentLanguageCode() {
   return 'pl';
 }
 
+const BACK_HOME_ENHANCED_FLAG = 'backHomeEnhanced';
+
+function isModifiedNavigationClick(event) {
+  return (
+    event.button !== 0 ||
+    event.metaKey ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.shiftKey
+  );
+}
+
+function hasSafeHistoryEntry(fallbackUrl) {
+  if (typeof window === 'undefined') {
+    return false;
+  }
+
+  if (!document.referrer || window.history.length <= 1) {
+    return false;
+  }
+
+  try {
+    const referrerUrl = new URL(document.referrer, window.location.href);
+    if (referrerUrl.origin !== window.location.origin) {
+      return false;
+    }
+
+    // Avoid bouncing between the same page repeatedly.
+    if (fallbackUrl && referrerUrl.href === fallbackUrl) {
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.warn('Unable to parse referrer for back navigation.', error);
+    return false;
+  }
+}
+
+function handleBackHomeClick(event) {
+  const link = event.currentTarget;
+  if (!(link instanceof HTMLAnchorElement)) {
+    return;
+  }
+
+  if (event.defaultPrevented || isModifiedNavigationClick(event)) {
+    return;
+  }
+
+  const fallbackUrl = link.dataset.pageUrl || link.href || '/index.html';
+
+  if (hasSafeHistoryEntry(fallbackUrl)) {
+    event.preventDefault();
+
+    let resolved = false;
+    const cleanup = () => {
+      resolved = true;
+      window.removeEventListener('popstate', onPopState);
+    };
+
+    const onPopState = () => {
+      cleanup();
+    };
+
+    window.addEventListener('popstate', onPopState, { once: true });
+    window.history.back();
+
+    window.setTimeout(() => {
+      if (resolved) {
+        return;
+      }
+
+      cleanup();
+      window.location.assign(fallbackUrl);
+    }, 400);
+    return;
+  }
+
+  // When the link does not have a usable href (e.g. placeholder), ensure we still
+  // navigate to the computed fallback URL.
+  if (!link.href || link.getAttribute('href') === '#') {
+    event.preventDefault();
+    window.location.assign(fallbackUrl);
+  }
+}
+
+function enhanceBackHomeLink(link) {
+  if (!(link instanceof HTMLAnchorElement)) {
+    return;
+  }
+
+  link.addEventListener('click', handleBackHomeClick);
+  link.dataset[BACK_HOME_ENHANCED_FLAG] = 'true';
+}
+
 function updateBackLinksHref() {
   if (typeof document === 'undefined') {
     return;
@@ -3531,9 +3823,15 @@ function updateBackLinksHref() {
   const targetUrl = `/index.html?lang=${encodeURIComponent(currentLang)}`;
   const backLinks = document.querySelectorAll('[data-back-home-link]');
   backLinks.forEach((link) => {
-    if (link instanceof HTMLAnchorElement) {
-      link.href = targetUrl;
-      link.dataset.pageUrl = targetUrl;
+    if (!(link instanceof HTMLAnchorElement)) {
+      return;
+    }
+
+    link.href = targetUrl;
+    link.dataset.pageUrl = targetUrl;
+
+    if (link.dataset[BACK_HOME_ENHANCED_FLAG] !== 'true') {
+      enhanceBackHomeLink(link);
     }
   });
 }
@@ -3997,7 +4295,7 @@ function formatCurrencyEUR(value) {
 
 function createMediaTripCard(trip) {
   const card = document.createElement('article');
-  card.className = 'media-trip-card surface-card';
+  card.className = 'media-trip-card surface-card package-card';
   card.setAttribute('role', 'listitem');
 
   const titleText = translate(`mediaTrips.items.${trip.id}.title`, trip?.title ?? '');
@@ -4571,6 +4869,7 @@ function handleLocationTrackingError(error) {
       6000,
     );
   } else if (isGeolocationPermissionDenied(error)) {
+    setDefaultLocation();
     setLevelStatus(
       translate(
         'map.geolocation.enableSharing',
@@ -4594,11 +4893,17 @@ function startPlayerLocationTracking() {
   }
 
   try {
-    locationWatchId = navigator.geolocation.watchPosition(updatePlayerLocation, handleLocationTrackingError, {
-      enableHighAccuracy: true,
-      maximumAge: 10000,
-      timeout: 20000,
-    });
+    locationWatchId = navigator.geolocation.watchPosition(
+      updatePlayerLocation,
+      (error) => {
+        handleLocationTrackingError(error);
+      },
+      {
+        enableHighAccuracy: true,
+        maximumAge: 10000,
+        timeout: 20000,
+      },
+    );
   } catch (error) {
     handleLocationTrackingError(error);
     locationWatchId = null;
@@ -8181,13 +8486,22 @@ function loadLeafletResources() {
   });
 }
 
+function setDefaultLocation() {
+  if (!map) {
+    return;
+  }
+
+  hasCenteredOnPlayer = false;
+  map.setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
+}
+
 function initMap() {
   const mapElement = document.getElementById('map');
   if (map || !mapElement) {
     return;
   }
 
-  map = L.map(mapElement).setView([35.095, 33.203], 9);
+  map = L.map(mapElement).setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> współtwórcy',
@@ -8237,6 +8551,20 @@ function setupMapLazyLoading() {
   }
 }
 
+function populateFooterYear() {
+  const currentYear = String(new Date().getFullYear());
+  document.querySelectorAll('[data-current-year]').forEach((element) => {
+    if (element.textContent !== currentYear) {
+      element.textContent = currentYear;
+    }
+  });
+
+  const legacyYearElement = document.getElementById('year');
+  if (legacyYearElement && legacyYearElement.textContent !== currentYear) {
+    legacyYearElement.textContent = currentYear;
+  }
+}
+
 function bootstrap() {
   if (typeof window.ensureMobileTabbar === 'function') {
     window.ensureMobileTabbar();
@@ -8259,11 +8587,7 @@ function bootstrap() {
     ensureSelectedObjective();
   }
 
-  const currentYear = new Date().getFullYear();
-  const yearEl = document.getElementById('year');
-  if (yearEl) {
-    yearEl.textContent = currentYear;
-  }
+  populateFooterYear();
 
   const checkInBtn = document.getElementById('checkInBtn');
   if (checkInBtn) {
@@ -8602,10 +8926,15 @@ function bootstrap() {
   });
 
   const locationsToggle = document.getElementById('locationsToggle');
-  locationsToggle?.addEventListener('click', () => {
-    showAllLocationsPreview = !showAllLocationsPreview;
-    renderLocations();
-  });
+  if (locationsToggle) {
+    locationsToggle.addEventListener('click', async () => {
+      if (locationsFullVisible) {
+        closeFullLocationsSection();
+      } else {
+        await openFullLocationsSection();
+      }
+    });
+  }
 
   const attractionsSearchInput = document.getElementById('attractionsSearch');
   if (attractionsSearchInput instanceof HTMLInputElement) {

@@ -442,10 +442,30 @@
               <button type="button" class="ghost" id="locationsToggle" data-i18n="discovery.toggle">
                 Pokaż więcej atrakcji
               </button>
-              <a class="btn btn-secondary secondary" href="attractions.html" data-i18n="discovery.catalog">📚 Katalog atrakcji</a>
+              <a
+                class="btn btn-secondary secondary"
+                id="attractionsCatalogLink"
+                href="attractions.html"
+                data-i18n="discovery.catalog"
+                hidden
+                aria-disabled="true"
+              >
+                📚 Katalog atrakcji
+              </a>
             </div>
           </div>
           <ul id="locationsList" class="locations-list locations-list-preview" aria-live="polite"></ul>
+          <div
+            id="locationsFullSection"
+            class="locations-full"
+            aria-live="polite"
+            hidden
+          >
+            <p id="locationsFullStatus" class="locations-full-status" hidden>
+              Wczytywanie pełnej listy atrakcji…
+            </p>
+            <ul id="locationsFullList" class="locations-list locations-list-full"></ul>
+          </div>
         </section>
       </section>
 
@@ -541,7 +561,7 @@
   </nav>
 
   <footer class="app-footer">
-    <p data-i18n="footer.app">© <span id="year"></span> WakacjeCypr.com • Graj, zwiedzaj i planuj wakacje jednocześnie.</p>
+    <p data-i18n="footer.app">© <span data-current-year></span> WakacjeCypr.com • Graj, zwiedzaj i planuj wakacje jednocześnie.</p>
     <button
       type="button"
       class="ghost tutorial-help-button"

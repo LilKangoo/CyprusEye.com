@@ -233,129 +233,6 @@ ready(() => {
 
   const usernamePattern = /^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])$/i;
 
-  function readLoginConfig(form) {
-    if (!(form instanceof HTMLFormElement)) {
-      return {
-        mode: 'hybrid',
-        fallback: 'supabase',
-        endpoint: '/api/login',
-      };
-    }
-
-    const dataset = form.dataset || {};
-    const mode = (dataset.loginMode || 'hybrid').toLowerCase();
-    const fallback = (dataset.loginFallback || 'supabase').toLowerCase();
-    const action = (form.getAttribute('action') || '').trim();
-    const endpoint = (dataset.loginEndpoint || action || '/api/login').trim() || '/api/login';
-
-    return { mode, fallback, endpoint };
-  }
-
-  function shouldUseApiLogin(mode) {
-    if (!mode) return true;
-    const normalized = mode.toLowerCase();
-    if (normalized === 'supabase') {
-      return false;
-    }
-    return true;
-  }
-
-  function allowSupabaseFallback(fallback) {
-    const normalized = (fallback || '').toLowerCase();
-    return normalized !== 'none';
-  }
-
-  function adaptApiUser(user) {
-    if (!user || typeof user !== 'object') {
-      return null;
-    }
-
-    const metadata = {};
-    if (typeof user.username === 'string' && user.username.trim()) {
-      metadata.username = user.username.trim();
-    }
-    if (typeof user.name === 'string' && user.name.trim()) {
-      metadata.display_name = user.name.trim();
-    } else if (typeof user.displayName === 'string' && user.displayName.trim()) {
-      metadata.display_name = user.displayName.trim();
-    } else if (typeof user.firstName === 'string' && user.firstName.trim()) {
-      metadata.display_name = user.firstName.trim();
-    }
-
-    return {
-      ...user,
-      email: typeof user.email === 'string' ? user.email : '',
-      user_metadata: metadata,
-    };
-  }
-
-  async function loginWithApi(credentials, { endpoint }) {
-    const target = endpoint || '/api/login';
-    try {
-      const response = await fetch(target, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-        },
-        body: JSON.stringify(credentials),
-      });
-
-      let payload = null;
-      const contentType = response.headers.get('content-type') || '';
-      if (contentType.includes('application/json')) {
-        try {
-          payload = await response.json();
-        } catch (parseError) {
-          payload = null;
-        }
-      } else {
-        const text = await response.text();
-        if (text) {
-          payload = { message: text };
-        }
-      }
-
-      if (!response.ok) {
-        const errorMessage =
-          typeof payload?.error === 'string'
-            ? payload.error
-            : typeof payload?.message === 'string'
-            ? payload.message
-            : '';
-
-        let message = errorMessage || TEXT.errors.loginUnknown;
-        if (response.status === 400 || response.status === 401) {
-          message = TEXT.errors.loginInvalidCredentials;
-        } else if (response.status >= 500) {
-          message = TEXT.errors.loginNetwork;
-        }
-
-        return {
-          ok: false,
-          status: response.status,
-          message,
-          payload,
-        };
-      }
-
-      return {
-        ok: true,
-        status: response.status,
-        payload,
-        user: payload?.user || null,
-      };
-    } catch (error) {
-      console.warn('Błąd podczas logowania za pomocą API', error);
-      return {
-        ok: false,
-        status: 0,
-        message: TEXT.errors.loginNetwork,
-        error,
-      };
-    }
-  }
-
   function describeUser(user) {
     if (!user) return '';
     const metadata = user.user_metadata || {};
@@ -370,15 +247,6 @@ ready(() => {
     }
     if (typeof metadata.name === 'string' && metadata.name.trim()) {
       return metadata.name.trim();
-    }
-    if (typeof user.name === 'string' && user.name.trim()) {
-      return user.name.trim();
-    }
-    if (typeof user.displayName === 'string' && user.displayName.trim()) {
-      return user.displayName.trim();
-    }
-    if (typeof user.firstName === 'string' && user.firstName.trim()) {
-      return user.firstName.trim();
     }
     if (typeof user.email === 'string' && user.email.trim()) {
       return user.email.trim();
@@ -633,13 +501,6 @@ ready(() => {
         return;
       }
 
-      const loginConfig = readLoginConfig(loginForm);
-      const useApiLogin = shouldUseApiLogin(loginConfig.mode);
-      const supabaseAvailable = Boolean(supabase?.auth?.signInWithPassword);
-      const fallbackMode = (loginConfig.fallback || '').toLowerCase();
-      const fallbackEnabled = allowSupabaseFallback(fallbackMode);
-      const requireApiSuccess = (loginConfig.mode || '').toLowerCase() === 'api';
-
       const submitButton = loginForm.querySelector('button[type="submit"]');
       if (submitButton instanceof HTMLButtonElement) {
         submitButton.disabled = true;
@@ -653,56 +514,16 @@ ready(() => {
       setAuthMessage(TEXT.info.loginConnecting, 'info');
       updateAuthState(AUTH_STATE.LOADING, TEXT.status.loading);
 
-      let loginCompleted = false;
-      let continueToSupabase = supabaseAvailable && (!useApiLogin || fallbackMode !== 'none');
-      let abortAfterApiFailure = false;
-
       try {
-        if (useApiLogin) {
-          const apiResult = await loginWithApi({ email, password }, loginConfig);
-
-          if (!apiResult.ok) {
-            const invalidCredentials = apiResult.status === 400 || apiResult.status === 401;
-            const fallbackAllowed =
-              !requireApiSuccess && fallbackEnabled && supabaseAvailable && !invalidCredentials;
-
-            continueToSupabase = fallbackAllowed;
-
-            if (!fallbackAllowed) {
-              setAuthMessage(apiResult.message, 'error');
-              handleAuthUser(null);
-              abortAfterApiFailure = true;
-              continueToSupabase = false;
-            }
-          } else {
-            const apiUser = adaptApiUser(apiResult.user);
-            if (!supabaseAvailable || fallbackMode === 'none') {
-              if (apiUser) {
-                handleAuthUser(apiUser);
-              }
-              setAuthMessage(TEXT.success.loginRedirect, 'success');
-              loginForm.reset();
-              setTimeout(() => {
-                window.location.href = '/account/';
-              }, 1200);
-              loginCompleted = true;
-              continueToSupabase = false;
-            }
-          }
+        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error) {
+          throw error;
         }
-
-        if (!loginCompleted && continueToSupabase && supabaseAvailable) {
-          const { error } = await supabase.auth.signInWithPassword({ email, password });
-          if (error) {
-            throw error;
-          }
-          setAuthMessage(TEXT.success.loginRedirect, 'success');
-          loginForm.reset();
-          setTimeout(() => {
-            window.location.href = '/account/';
-          }, 1200);
-          loginCompleted = true;
-        }
+        setAuthMessage(TEXT.success.loginRedirect, 'success');
+        loginForm.reset();
+        setTimeout(() => {
+          window.location.href = '/account/';
+        }, 1200);
       } catch (error) {
         const message = resolveSupabaseError(error, 'login');
         setAuthMessage(message, 'error');
@@ -716,10 +537,6 @@ ready(() => {
         if (loginForgotPassword instanceof HTMLButtonElement) {
           loginForgotPassword.disabled = false;
         }
-      }
-
-      if (abortAfterApiFailure || loginCompleted) {
-        return;
       }
     });
 
