@@ -289,6 +289,79 @@ ready(() => {
     };
   }
 
+  function extractApiSession(payload, user, fallbackEmail = '') {
+    const target = payload && typeof payload === 'object' ? payload : {};
+    const nestedSession =
+      target.session && typeof target.session === 'object' ? target.session : {};
+
+    const tokenCandidates = [
+      target.token,
+      target.access_token,
+      nestedSession.access_token,
+      nestedSession.token,
+    ];
+    const refreshCandidates = [target.refresh_token, nestedSession.refresh_token];
+    const expiresCandidates = [
+      target.expires_at,
+      target.expiresAt,
+      nestedSession.expires_at,
+      nestedSession.expiresAt,
+    ];
+
+    const token = tokenCandidates.find((candidate) => typeof candidate === 'string' && candidate) || null;
+    const refreshToken =
+      refreshCandidates.find((candidate) => typeof candidate === 'string' && candidate) || null;
+
+    let expiresAt = null;
+    for (const candidate of expiresCandidates) {
+      if (typeof candidate === 'number' && Number.isFinite(candidate)) {
+        expiresAt = candidate;
+        break;
+      }
+      if (typeof candidate === 'string' && candidate) {
+        expiresAt = candidate;
+        break;
+      }
+    }
+
+    let normalizedUser = user && typeof user === 'object' ? user : null;
+    if (!normalizedUser && (token || refreshToken)) {
+      normalizedUser = {
+        id:
+          typeof nestedSession.user?.id === 'string'
+            ? nestedSession.user.id
+            : typeof target.user?.id === 'string'
+            ? target.user.id
+            : `api-${Date.now()}`,
+        email:
+          typeof user?.email === 'string'
+            ? user.email
+            : typeof target.email === 'string'
+            ? target.email
+            : typeof fallbackEmail === 'string'
+            ? fallbackEmail
+            : '',
+        user_metadata:
+          typeof user?.user_metadata === 'object' && user.user_metadata
+            ? user.user_metadata
+            : {},
+      };
+    }
+
+    if (!normalizedUser && !token && !refreshToken) {
+      return null;
+    }
+
+    return {
+      user: normalizedUser,
+      token,
+      refreshToken,
+      expiresAt,
+      source: 'api',
+      createdAt: Date.now(),
+    };
+  }
+
   async function loginWithApi(credentials, { endpoint }) {
     const target = endpoint || '/api/login';
     try {
@@ -662,11 +735,21 @@ ready(() => {
           const apiResult = await loginWithApi({ email, password }, loginConfig);
 
           if (!apiResult.ok) {
-            const invalidCredentials = apiResult.status === 400 || apiResult.status === 401;
+            const serverError = apiResult.status >= 500 && apiResult.status < 600;
             const fallbackAllowed =
-              !requireApiSuccess && fallbackEnabled && supabaseAvailable && !invalidCredentials;
+              !requireApiSuccess && fallbackEnabled && supabaseAvailable && !serverError;
 
             continueToSupabase = fallbackAllowed;
+
+            if (typeof authApi.clearManualSession === 'function') {
+              authApi.clearManualSession({ silent: false });
+            } else {
+              try {
+                localStorage.removeItem('wakacjecypr-session');
+              } catch (storageError) {
+                console.warn('Nie udało się wyczyścić sesji API z localStorage', storageError);
+              }
+            }
 
             if (!fallbackAllowed) {
               setAuthMessage(apiResult.message, 'error');
@@ -676,9 +759,22 @@ ready(() => {
             }
           } else {
             const apiUser = adaptApiUser(apiResult.user);
+            const apiSession = extractApiSession(apiResult.payload, apiUser, email);
+            const resolvedUser = apiSession?.user || apiUser;
             if (!supabaseAvailable || fallbackMode === 'none') {
-              if (apiUser) {
-                handleAuthUser(apiUser);
+              if (resolvedUser) {
+                handleAuthUser(resolvedUser);
+              }
+              if (apiSession) {
+                if (typeof authApi.setManualSession === 'function') {
+                  authApi.setManualSession(apiSession);
+                } else {
+                  try {
+                    localStorage.setItem('wakacjecypr-session', JSON.stringify(apiSession));
+                  } catch (storageError) {
+                    console.warn('Nie udało się zapisać sesji API w localStorage', storageError);
+                  }
+                }
               }
               setAuthMessage(TEXT.success.loginRedirect, 'success');
               loginForm.reset();
@@ -692,6 +788,15 @@ ready(() => {
         }
 
         if (!loginCompleted && continueToSupabase && supabaseAvailable) {
+          if (typeof authApi.clearManualSession === 'function') {
+            authApi.clearManualSession({ silent: false });
+          } else {
+            try {
+              localStorage.removeItem('wakacjecypr-session');
+            } catch (storageError) {
+              console.warn('Nie udało się wyczyścić sesji API przed logowaniem Supabase', storageError);
+            }
+          }
           const { error } = await supabase.auth.signInWithPassword({ email, password });
           if (error) {
             throw error;
@@ -707,6 +812,15 @@ ready(() => {
         const message = resolveSupabaseError(error, 'login');
         setAuthMessage(message, 'error');
         handleAuthUser(null);
+        if (typeof authApi.clearManualSession === 'function') {
+          authApi.clearManualSession({ silent: false });
+        } else {
+          try {
+            localStorage.removeItem('wakacjecypr-session');
+          } catch (storageError) {
+            console.warn('Nie udało się wyczyścić sesji API po błędzie logowania', storageError);
+          }
+        }
       } finally {
         if (submitButton instanceof HTMLButtonElement) {
           submitButton.disabled = false;
@@ -899,12 +1013,22 @@ ready(() => {
     }
 
     guestPlayButton?.addEventListener('click', async () => {
-      try {
-        await supabase.auth.signOut();
-      } catch (error) {
-        console.warn('Wylogowanie przed trybem gościa nie powiodło się:', error);
+      if (supabase?.auth?.signOut) {
+        try {
+          await supabase.auth.signOut();
+        } catch (error) {
+          console.warn('Wylogowanie przed trybem gościa nie powiodło się:', error);
+        }
       }
-      localStorage.removeItem('wakacjecypr-session');
+      if (typeof authApi.clearManualSession === 'function') {
+        authApi.clearManualSession({ silent: false });
+      } else {
+        try {
+          localStorage.removeItem('wakacjecypr-session');
+        } catch (storageError) {
+          console.warn('Nie udało się wyczyścić sesji podczas przejścia do trybu gościa', storageError);
+        }
+      }
       setAuthMessage(TEXT.success.guestMode, 'success');
       setTimeout(() => {
         window.location.href = '/';

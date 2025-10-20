@@ -47,7 +47,7 @@ const AUTH_TEMPLATE = `
       aria-labelledby="authTabLogin"
       data-auth-panel="login"
     >
-      <form id="loginForm" class="auth-form" novalidate>
+      <form id="loginForm" class="auth-form" method="post" novalidate>
         <label for="loginEmail" data-i18n="auth.email">Adres e-mail</label>
         <input
           id="loginEmail"
