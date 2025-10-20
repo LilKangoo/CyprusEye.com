@@ -135,6 +135,36 @@
     color: rgba(26, 26, 26, 0.7);
   }
 
+  .account-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .account-stats div {
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 0.75rem;
+    padding: 1rem;
+  }
+
+  .account-stats dt {
+    margin: 0 0 0.25rem;
+    font-size: 0.85rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: rgba(26, 26, 26, 0.6);
+  }
+
+  .account-stats dd {
+    margin: 0;
+    font-size: 1.4rem;
+    font-weight: 600;
+  }
+
   @media (max-width: 600px) {
     main {
       margin: 1.5rem auto 2.5rem;
@@ -182,29 +212,26 @@
       </form>
     </section>
     <section class="account-section">
-      <h2>Nazwa użytkownika</h2>
-      <p class="form-hint">Nazwa będzie widoczna publicznie w rankingach i dzienniku podróży.</p>
-      <form id="accountUsernameForm" class="account-form" novalidate>
-        <label for="profileUsername">Nazwa użytkownika</label>
-        <input
-          id="profileUsername"
-          name="username"
-          type="text"
-          required
-          maxlength="32"
-          autocomplete="nickname"
-          aria-label="Nazwa użytkownika"
-          pattern="[A-Za-z0-9][A-Za-z0-9._-]{1,28}[A-Za-z0-9]"
-          title="3-30 znaków: litery, cyfry, kropki, myślniki i podkreślenia."
-        />
-        <button type="submit">Zapisz nazwę użytkownika</button>
-      </form>
+      <h2>Statystyki konta</h2>
+      <p class="form-hint">Postęp i poziom są obliczane automatycznie na podstawie zdarzeń XP.</p>
+      <dl class="account-stats" aria-live="polite">
+        <div>
+          <dt>Poziom</dt>
+          <dd id="profileLevel">—</dd>
+        </div>
+        <div>
+          <dt>Łącznie XP</dt>
+          <dd id="profileXp">—</dd>
+        </div>
+        <div>
+          <dt>Ostatnia aktualizacja</dt>
+          <dd id="profileUpdatedAt">—</dd>
+        </div>
+      </dl>
     </section>
     <button id="logout" type="button">Wyloguj</button>
   </main>
   <script type="module">
-const USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])$/i;
-
 function waitForAuth() {
   return new Promise((resolve) => {
     if (window.CE_AUTH) {
@@ -225,6 +252,46 @@ function redirectToAuth() {
   window.location.href = '/auth/';
 }
 
+function safeTrim(value) {
+  return typeof value === 'string' ? value.trim() : '';
+}
+
+function resolveDisplayName(sessionUser, profile) {
+  const metadata = sessionUser?.user_metadata || {};
+  return (
+    safeTrim(profile?.name) ||
+    safeTrim(metadata.name) ||
+    safeTrim(metadata.full_name) ||
+    safeTrim(metadata.display_name) ||
+    safeTrim(metadata.first_name) ||
+    safeTrim(sessionUser?.email) ||
+    ''
+  );
+}
+
+const language = (document.documentElement?.lang || 'pl').toLowerCase();
+const localeTag = language.startsWith('en') ? 'en-US' : 'pl-PL';
+const numberFormatter = new Intl.NumberFormat(localeTag);
+let dateFormatter;
+try {
+  dateFormatter = new Intl.DateTimeFormat(localeTag, { dateStyle: 'medium', timeStyle: 'short' });
+} catch (error) {
+  dateFormatter = new Intl.DateTimeFormat('en-US', { dateStyle: 'medium', timeStyle: 'short' });
+}
+
+function formatNumber(value) {
+  return Number.isFinite(value) ? numberFormatter.format(value) : null;
+}
+
+function formatUpdatedAt(value) {
+  if (!value) return null;
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (!(date instanceof Date) || Number.isNaN(date.getTime())) {
+    return null;
+  }
+  return dateFormatter.format(date);
+}
+
 const auth = await waitForAuth();
 if (!auth || !auth.enabled) {
   redirectToAuth();
@@ -236,9 +303,10 @@ const me = document.getElementById('me');
 const logoutButton = document.getElementById('logout');
 const accountMessage = document.getElementById('accountMessage');
 const nameForm = document.getElementById('accountNameForm');
-const usernameForm = document.getElementById('accountUsernameForm');
 const firstNameInput = document.getElementById('profileFirstName');
-const usernameInput = document.getElementById('profileUsername');
+const levelValue = document.getElementById('profileLevel');
+const xpValue = document.getElementById('profileXp');
+const updatedValue = document.getElementById('profileUpdatedAt');
 
 let currentSession = null;
 
@@ -255,16 +323,25 @@ function setAccountMessage(message = '', tone = 'info') {
   accountMessage.hidden = false;
 }
 
-function describeDisplayName(sessionUser, profile) {
-  const metadata = sessionUser?.user_metadata || {};
-  const displayName =
-    (profile?.display_name || '').trim() ||
-    (profile?.first_name || '').trim() ||
-    (metadata.display_name || '').trim() ||
-    (metadata.first_name || '').trim() ||
-    (metadata.name || '').trim() ||
-    (sessionUser?.email || '');
-  return displayName;
+function updateStats(profile) {
+  const xp = Number(profile?.xp);
+  const level = Number(profile?.level);
+  const updatedAt = profile?.updated_at || profile?.updatedAt || null;
+
+  if (levelValue) {
+    const formattedLevel = formatNumber(level);
+    levelValue.textContent = formattedLevel ?? '—';
+  }
+
+  if (xpValue) {
+    const formattedXp = formatNumber(xp);
+    xpValue.textContent = formattedXp !== null ? `${formattedXp} XP` : '—';
+  }
+
+  if (updatedValue) {
+    const formattedDate = formatUpdatedAt(updatedAt);
+    updatedValue.textContent = formattedDate ?? '—';
+  }
 }
 
 async function fetchSession() {
@@ -285,7 +362,8 @@ async function fetchSession() {
 async function loadProfile(sessionOverride = null) {
   const session = sessionOverride || (await fetchSession());
   if (!session) {
-    return;
+    updateStats(null);
+    return null;
   }
   currentSession = session;
 
@@ -293,7 +371,7 @@ async function loadProfile(sessionOverride = null) {
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .select('display_name, first_name, username')
+      .select('name, email, xp, level, updated_at')
       .eq('id', session.user.id)
       .maybeSingle();
     if (error && error.code !== 'PGRST116') {
@@ -305,49 +383,38 @@ async function loadProfile(sessionOverride = null) {
     setAccountMessage('Nie udało się pobrać danych profilu. Spróbuj ponownie później.', 'error');
   }
 
-  const displayName = describeDisplayName(session.user, profile) || 'Graczu';
+  const displayName = resolveDisplayName(session.user, profile) || 'Graczu';
   if (me) {
     me.textContent = `Cześć, ${displayName}!`;
   }
 
   if (firstNameInput instanceof HTMLInputElement) {
+    const metadata = session.user.user_metadata || {};
     const nameValue =
-      (profile?.first_name || '').trim() ||
-      (profile?.display_name || '').trim() ||
-      (session.user.user_metadata?.first_name || '').trim() ||
-      (session.user.user_metadata?.display_name || '').trim();
+      safeTrim(profile?.name) ||
+      safeTrim(metadata.name) ||
+      safeTrim(metadata.display_name) ||
+      safeTrim(metadata.first_name);
     firstNameInput.value = nameValue || '';
   }
 
-  if (usernameInput instanceof HTMLInputElement) {
-    const usernameValue =
-      (profile?.username || '').trim() ||
-      (session.user.user_metadata?.username || '').trim();
-    usernameInput.value = usernameValue || '';
-  }
-}
+  updateStats(profile);
 
-async function isUsernameTaken(username, { excludeUserId = null } = {}) {
-  if (!USERNAME_PATTERN.test(username)) {
-    return true;
-  }
-
-  const normalized = username.trim().toLowerCase();
-
-  try {
-    let query = supabase.from('profiles').select('id').ilike('username', normalized).limit(1);
-    if (excludeUserId) {
-      query = query.neq('id', excludeUserId);
+  const userEmail = safeTrim(session.user.email);
+  const profileEmail = safeTrim(profile?.email);
+  if (profile && userEmail && profileEmail !== userEmail) {
+    try {
+      await supabase
+        .from('profiles')
+        .update({ email: userEmail })
+        .eq('id', session.user.id);
+      profile.email = userEmail;
+    } catch (error) {
+      console.warn('Nie udało się zaktualizować adresu e-mail profilu', error);
     }
-    const { data, error } = await query.maybeSingle();
-    if (error && error.code !== 'PGRST116') {
-      throw error;
-    }
-    return Boolean(data?.id);
-  } catch (error) {
-    console.warn('Nie udało się zweryfikować dostępności nazwy użytkownika', error);
-    return false;
   }
+
+  return profile;
 }
 
 nameForm?.addEventListener('submit', async (event) => {
@@ -364,7 +431,7 @@ nameForm?.addEventListener('submit', async (event) => {
   const firstName = firstNameInput.value.trim();
 
   if (!firstName) {
-    setAccountMessage('Podaj imię.', 'error');
+    setAccountMessage('Wprowadź imię.', 'error');
     firstNameInput.focus();
     return;
   }
@@ -384,22 +451,25 @@ nameForm?.addEventListener('submit', async (event) => {
   setAccountMessage('Zapisywanie imienia…', 'info');
 
   try {
+    const email = safeTrim(currentSession.user.email);
     const { error } = await supabase
       .from('profiles')
-      .upsert(
-        {
-          id: currentSession.user.id,
-          display_name: firstName,
-          first_name: firstName,
-        },
-        { onConflict: 'id' },
-      );
+      .update({
+        name: firstName,
+        email: email || null,
+      })
+      .eq('id', currentSession.user.id);
     if (error) {
       throw error;
     }
 
     const { error: metaError } = await supabase.auth.updateUser({
-      data: { display_name: firstName, first_name: firstName },
+      data: {
+        name: firstName,
+        full_name: firstName,
+        display_name: firstName,
+        first_name: firstName,
+      },
     });
     if (metaError) {
       throw metaError;
@@ -411,89 +481,6 @@ nameForm?.addEventListener('submit', async (event) => {
     const message = error && typeof error.message === 'string' && error.message
       ? error.message
       : 'Nie udało się zapisać imienia. Spróbuj ponownie.';
-    setAccountMessage(message, 'error');
-  } finally {
-    if (submitButton instanceof HTMLButtonElement) {
-      submitButton.disabled = false;
-      submitButton.removeAttribute('data-loading');
-      submitButton.removeAttribute('aria-busy');
-    }
-  }
-});
-
-usernameForm?.addEventListener('submit', async (event) => {
-  event.preventDefault();
-  if (!(usernameInput instanceof HTMLInputElement)) {
-    return;
-  }
-  if (!currentSession?.user?.id) {
-    setAccountMessage('Zaloguj się, aby zmienić nazwę użytkownika.', 'error');
-    return;
-  }
-
-  const submitButton = usernameForm.querySelector('button[type="submit"]');
-  const username = usernameInput.value.trim();
-
-  if (!username) {
-    setAccountMessage('Wprowadź nazwę użytkownika.', 'error');
-    usernameInput.focus();
-    return;
-  }
-
-  if (!USERNAME_PATTERN.test(username)) {
-    setAccountMessage('Nazwa użytkownika może zawierać litery, cyfry, kropki, myślniki i podkreślenia (3-30 znaków).', 'error');
-    usernameInput.focus();
-    return;
-  }
-
-  if (submitButton instanceof HTMLButtonElement) {
-    submitButton.disabled = true;
-    submitButton.dataset.loading = 'true';
-    submitButton.setAttribute('aria-busy', 'true');
-  }
-
-  try {
-    setAccountMessage('Sprawdzamy nazwę użytkownika…', 'info');
-    const taken = await isUsernameTaken(username, { excludeUserId: currentSession.user.id });
-    if (taken) {
-      setAccountMessage('Wybrana nazwa użytkownika jest już zajęta. Wybierz inną.', 'error');
-      usernameInput.focus();
-      return;
-    }
-
-    setAccountMessage('Zapisywanie nazwy użytkownika…', 'info');
-
-    const { error } = await supabase
-      .from('profiles')
-      .upsert(
-        {
-          id: currentSession.user.id,
-          username,
-        },
-        { onConflict: 'id' },
-      );
-    if (error) {
-      if (error.code === '23505' || /duplicate key/i.test(error.message || '')) {
-        setAccountMessage('Wybrana nazwa użytkownika jest już zajęta. Wybierz inną.', 'error');
-        usernameInput.focus();
-        return;
-      }
-      throw error;
-    }
-
-    const { error: metaError } = await supabase.auth.updateUser({
-      data: { username },
-    });
-    if (metaError) {
-      throw metaError;
-    }
-
-    setAccountMessage('Nazwa użytkownika zaktualizowana.', 'success');
-    await loadProfile();
-  } catch (error) {
-    const message = error && typeof error.message === 'string' && error.message
-      ? error.message
-      : 'Nie udało się zapisać nazwy użytkownika. Spróbuj ponownie.';
     setAccountMessage(message, 'error');
   } finally {
     if (submitButton instanceof HTMLButtonElement) {
@@ -540,5 +527,6 @@ if (typeof auth.onAuthStateChange === 'function') {
   });
 }
   </script>
+
 </body>
 </html>
