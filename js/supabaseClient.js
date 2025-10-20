@@ -14,7 +14,12 @@ function createSupabase() {
   }
 
   return createClient(url, anon, {
-    auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      multiTab: true,
+    },
     global: {
       headers: publishable
         ? { 'x-application-name': 'CyprusEye', 'x-publishable-key': publishable }
