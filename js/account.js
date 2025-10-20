@@ -1,4 +1,4 @@
-import { bootAuth, updateAuthUI } from './authUi.js';
+import { waitForAuthReady, updateAuthUI } from './authUi.js';
 import { refreshSessionAndProfile } from './auth.js';
 import { getMyProfile, updateMyName } from './profile.js';
 import { myXpEvents } from './xp.js';
@@ -188,7 +188,7 @@ function bindNameForm() {
 
 async function ensureAuthenticated() {
   try {
-    await bootAuth();
+    await waitForAuthReady();
   } catch (error) {
     console.error('Błąd inicjalizacji modułów uwierzytelniania.', error);
     setMessage('Nie udało się zainicjować modułu logowania.', 'error');
