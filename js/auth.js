@@ -1,5 +1,5 @@
 import { sb } from './supabaseClient.js';
-import { updateAuthUI } from './authUi.js';
+import { bootAuth, updateAuthUI } from './authUi.js';
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const PASSWORD_RESET_REDIRECT = 'https://cypruseye.com/auth/callback';
@@ -45,6 +45,94 @@ function setState(next) {
   if (next?.status) {
     setDocumentAuthState(next.status);
   }
+}
+
+const AUTH_REDIRECT_TARGETS = new Set(['/', '/account/']);
+
+function normalizeRedirectTarget(target) {
+  if (!target || typeof target !== 'string') {
+    return null;
+  }
+
+  const trimmed = target.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  const lower = trimmed.toLowerCase();
+  if (AUTH_REDIRECT_TARGETS.has(trimmed)) {
+    return trimmed;
+  }
+  if (AUTH_REDIRECT_TARGETS.has(lower)) {
+    return lower;
+  }
+  if (lower === 'account' || lower === '/account') {
+    return '/account/';
+  }
+  if (lower === 'home' || lower === 'index' || lower === './' || lower === '.') {
+    return '/';
+  }
+  if (lower === '//account') {
+    return '/account/';
+  }
+  if (lower === '//') {
+    return '/';
+  }
+
+  return null;
+}
+
+function pickDatasetRedirect(source) {
+  if (!source || typeof source.dataset !== 'object') {
+    return null;
+  }
+  return normalizeRedirectTarget(source.dataset.authRedirect);
+}
+
+function resolvePostAuthRedirect(...preferred) {
+  for (const candidate of preferred) {
+    const normalized = normalizeRedirectTarget(candidate);
+    if (normalized) {
+      return normalized;
+    }
+  }
+
+  try {
+    const meta = document.querySelector('meta[name="ce-auth-redirect"]');
+    if (meta?.content) {
+      const metaRedirect = normalizeRedirectTarget(meta.content);
+      if (metaRedirect) {
+        return metaRedirect;
+      }
+    }
+  } catch (error) {
+    console.warn('Nie udało się odczytać meta ce-auth-redirect.', error);
+  }
+
+  const searchRedirect = (() => {
+    try {
+      const url = new URL(window.location.href);
+      return normalizeRedirectTarget(url.searchParams.get('redirect'));
+    } catch (error) {
+      console.warn('Nie udało się sparsować adresu URL pod kątem redirect.', error);
+      return null;
+    }
+  })();
+  if (searchRedirect) {
+    return searchRedirect;
+  }
+
+  const docRedirect = pickDatasetRedirect(document.documentElement);
+  if (docRedirect) {
+    return docRedirect;
+  }
+
+  const bodyRedirect = pickDatasetRedirect(document.body);
+  if (bodyRedirect) {
+    return bodyRedirect;
+  }
+
+  return window.location.pathname.startsWith('/account') ? '/account/' : '/';
 }
 
 function clearToast() {
@@ -167,7 +255,7 @@ function normalizeErrorMessage(message) {
   return 'Wystąpił nieznany błąd.';
 }
 
-async function handleAuth(result, okMsg) {
+async function handleAuth(result, okMsg, redirectHint) {
   const { error } = result || {};
   if (error) {
     showToast(normalizeErrorMessage(error.message || 'Nieznany błąd.'), 'error');
@@ -177,16 +265,23 @@ async function handleAuth(result, okMsg) {
   hideResendVerification();
   showToast(okMsg, 'success');
   try {
-    const state = await refreshSessionAndProfile();
+    await refreshSessionAndProfile();
     updateAuthUI();
-    if (state?.session?.user) {
-      window.setTimeout(() => {
-        window.location.assign('/');
-      }, 400);
-    }
   } catch (refreshError) {
     console.error('Nie udało się odświeżyć sesji po logowaniu.', refreshError);
   }
+
+  try {
+    await bootAuth();
+  } catch (bootError) {
+    console.warn('Nie udało się ponownie zainicjalizować bootAuth po logowaniu.', bootError);
+  }
+
+  const redirectTarget = resolvePostAuthRedirect(redirectHint);
+  window.setTimeout(() => {
+    window.location.assign(redirectTarget);
+  }, 400);
+
   return { success: true, data: result?.data ?? null };
 }
 
@@ -294,7 +389,11 @@ $('#form-login')?.addEventListener('submit', async (event) => {
     showToast('Łączenie z logowaniem…', 'info');
     try {
       const { data, error } = await sb.auth.signInWithPassword({ email, password });
-      const outcome = await handleAuth({ data, error }, 'Zalogowano pomyślnie.');
+      const outcome = await handleAuth(
+        { data, error },
+        'Zalogowano pomyślnie.',
+        submitButton?.dataset?.authRedirect || form.dataset?.authRedirect || '/account/',
+      );
       if (!outcome?.success && error?.message === 'Email not confirmed') {
         showResendVerification(email);
       }
@@ -339,7 +438,11 @@ $('#form-register')?.addEventListener('submit', async (event) => {
         password: payload.password,
         options: { data: { name: payload.firstName } },
       });
-      const outcome = await handleAuth({ data, error }, 'Sprawdź e-mail i potwierdź konto.');
+      const outcome = await handleAuth(
+        { data, error },
+        'Sprawdź e-mail i potwierdź konto.',
+        submitButton?.dataset?.authRedirect || form.dataset?.authRedirect || '/account/',
+      );
       if (!outcome?.success && error?.message === 'Email not confirmed') {
         showResendVerification(payload.email);
       }

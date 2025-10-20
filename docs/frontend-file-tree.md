@@ -41,10 +41,7 @@ assets/
 │   └── tokens.css
 ├── js/
 │   ├── auth/
-│   │   ├── boot.js
-│   │   ├── config.js
-│   │   ├── page.js
-│   │   └── render.js
+│   │   └── config.js
 │   └── modal-auth.js
 ├── cyprus_logo-1000x1054.png
 ├── kupon logo.jpeg

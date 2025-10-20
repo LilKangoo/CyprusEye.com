@@ -6,6 +6,8 @@ let booting = false;
 let booted = false;
 let bootPromise = null;
 let toastTimer = null;
+let authSubscription = null;
+let sessionSyncPromise = null;
 
 function isOffline() {
   try {
@@ -157,34 +159,116 @@ function showAuthToast(message, type = 'info') {
   }, 5000);
 }
 
-function withBusy(button, fn) {
-  if (typeof fn !== 'function') {
-    return Promise.resolve();
-  }
+function syncSession(session) {
+  const previous = sessionSyncPromise || Promise.resolve();
+  const next = previous
+    .catch(() => {})
+    .then(() => applySession(session || null));
 
-  return (async () => {
-    const isButton = button instanceof HTMLButtonElement;
-    if (isButton) {
-      if (button.disabled) {
-        return;
-      }
-      button.disabled = true;
+  sessionSyncPromise = next.finally(() => {
+    if (sessionSyncPromise === next) {
+      sessionSyncPromise = null;
     }
+  });
 
-    try {
-      return await fn();
-    } finally {
-      if (isButton) {
-        button.disabled = false;
-      }
-    }
-  })();
+  return next;
 }
 
-function ensureOnlineOrThrow() {
-  if (isOffline()) {
-    throw new Error('Brak internetu. Spróbuj ponownie.');
+async function applySession(session) {
+  const state = (window.CE_STATE = window.CE_STATE || {});
+  state.session = session || null;
+  state.profile = null;
+  state.guest = null;
+  delete state.authError;
+
+  if (session?.user?.id) {
+    clearGuestState();
+    try {
+      const { data: profile, error } = await withTimeout(
+        sb.from('profiles').select('id,email,name,xp,level,updated_at').single(),
+        3000,
+      );
+      if (!error && profile) {
+        state.profile = profile;
+      }
+    } catch (profileError) {
+      console.warn('Nie udało się pobrać profilu użytkownika.', profileError);
+    }
+  } else {
+    state.guest = readGuestState();
   }
+
+  updateAuthUI();
+  return state.session;
+}
+
+async function handleAuthStateChange(sessionChange) {
+  try {
+    await syncSession(sessionChange || null);
+  } catch (error) {
+    console.warn('Nie udało się zaktualizować stanu logowania po zmianie.', error);
+  }
+}
+
+function ensureAuthSubscription() {
+  if (authSubscription) {
+    return;
+  }
+  try {
+    const { data } = sb.auth.onAuthStateChange((_event, sessionChange) => {
+      handleAuthStateChange(sessionChange);
+    });
+    authSubscription = data?.subscription || null;
+  } catch (error) {
+    console.warn('Nie udało się włączyć nasłuchiwania zmian logowania.', error);
+  }
+}
+
+async function loadAuthSession() {
+  if (isOffline()) {
+    const state = (window.CE_STATE = window.CE_STATE || {});
+    state.session = null;
+    state.profile = null;
+    state.guest = readGuestState();
+    state.authError = new Error('OFFLINE');
+    showAuthToast('Brak internetu. Spróbuj ponownie.', 'error');
+    updateAuthUI();
+    return { session: null, shouldReset: true };
+  }
+
+  try {
+    const hashParams = new URLSearchParams(location.hash.slice(1));
+    if (hashParams.get('access_token')) {
+      history.replaceState({}, '', location.pathname);
+    }
+  } catch (error) {
+    console.warn('Nie udało się oczyścić parametrów logowania w adresie URL.', error);
+  }
+
+  const sessionPromise = sb.auth.getSession().then((result) => result?.data?.session || null);
+
+  const onceAuthEvent = new Promise((resolve) => {
+    const { data } = sb.auth.onAuthStateChange((_event, sessionChange) => {
+      try {
+        data?.subscription?.unsubscribe();
+      } catch (error) {
+        console.warn('Nie udało się odpiąć nasłuchiwania zdarzeń logowania.', error);
+      }
+      resolve(sessionChange || null);
+    });
+    window.setTimeout(() => {
+      try {
+        data?.subscription?.unsubscribe();
+      } catch (error) {
+        console.warn('Nie udało się awaryjnie odpiąć nasłuchiwania zdarzeń logowania.', error);
+      }
+      resolve(null);
+    }, 1500);
+  });
+
+  const session = await withTimeout(Promise.race([sessionPromise, onceAuthEvent]));
+  await syncSession(session);
+  return { session, shouldReset: false };
 }
 
 export function bootAuth() {
@@ -192,79 +276,17 @@ export function bootAuth() {
     return bootPromise;
   }
 
+  ensureAuthSubscription();
   booting = true;
   showAuthSpinner(true);
 
   bootPromise = (async () => {
     let shouldReset = false;
     try {
-      if (isOffline()) {
-        const state = (window.CE_STATE = window.CE_STATE || {});
-        state.session = null;
-        state.profile = null;
-        state.guest = readGuestState();
-        state.authError = new Error('OFFLINE');
-        showAuthToast('Brak internetu. Spróbuj ponownie.', 'error');
-        updateAuthUI();
+      const { session, shouldReset: resetBoot } = await loadAuthSession();
+      if (resetBoot) {
         shouldReset = true;
-        return null;
       }
-
-      try {
-        const hashParams = new URLSearchParams(location.hash.slice(1));
-        if (hashParams.get('access_token')) {
-          history.replaceState({}, '', location.pathname);
-        }
-      } catch (error) {
-        console.warn('Nie udało się oczyścić parametrów logowania w adresie URL.', error);
-      }
-
-      const sessionPromise = sb.auth.getSession().then((result) => result?.data?.session || null);
-
-      const onceAuthEvent = new Promise((resolve) => {
-        const { data } = sb.auth.onAuthStateChange((_event, sessionChange) => {
-          try {
-            data?.subscription?.unsubscribe();
-          } catch (error) {
-            console.warn('Nie udało się odpiąć nasłuchiwania zdarzeń logowania.', error);
-          }
-          resolve(sessionChange || null);
-        });
-        window.setTimeout(() => {
-          try {
-            data?.subscription?.unsubscribe();
-          } catch (error) {
-            console.warn('Nie udało się awaryjnie odpiąć nasłuchiwania zdarzeń logowania.', error);
-          }
-          resolve(null);
-        }, 1500);
-      });
-
-      const session = await withTimeout(Promise.race([sessionPromise, onceAuthEvent]));
-      const state = (window.CE_STATE = window.CE_STATE || {});
-      state.session = session;
-      state.profile = null;
-      state.guest = null;
-      delete state.authError;
-
-      if (session?.user?.id) {
-        clearGuestState();
-        try {
-          const { data: profile, error } = await withTimeout(
-            sb.from('profiles').select('id,email,name,xp,level,updated_at').single(),
-            3000,
-          );
-          if (!error && profile) {
-            state.profile = profile;
-          }
-        } catch (profileError) {
-          console.warn('Nie udało się pobrać profilu użytkownika.', profileError);
-        }
-      } else {
-        state.guest = readGuestState();
-      }
-
-      updateAuthUI();
       return session;
     } catch (error) {
       const offline = isOffline();
@@ -342,6 +364,145 @@ export function updateAuthUI() {
   });
 }
 
+function clearAuthMessage() {
+  const authMessage = document.querySelector('#authMessage');
+  if (!authMessage) {
+    return;
+  }
+  authMessage.textContent = '';
+  authMessage.removeAttribute('data-tone');
+  authMessage.removeAttribute('aria-live');
+}
+
+function setupAuthTabs() {
+  const tabButtons = Array.from(document.querySelectorAll('[data-auth-tab]'));
+  if (!tabButtons.length) {
+    return;
+  }
+
+  const panels = new Map();
+  tabButtons.forEach((button) => {
+    const tabId = button.dataset.authTab || '';
+    if (!tabId) {
+      return;
+    }
+    const panel = document.querySelector(`[data-auth-panel="${tabId}"]`);
+    panels.set(tabId, panel instanceof HTMLElement ? panel : null);
+  });
+
+  let activeTab =
+    tabButtons.find((button) => button.classList.contains('is-active'))?.dataset.authTab ||
+    tabButtons[0]?.dataset.authTab ||
+    null;
+
+  const activate = (tabId, { focus = false } = {}) => {
+    if (!tabId || !panels.has(tabId)) {
+      const fallback = tabButtons[0]?.dataset.authTab || null;
+      if (!fallback) {
+        return;
+      }
+      tabId = fallback;
+    }
+
+    activeTab = tabId;
+
+    tabButtons.forEach((button) => {
+      const isActive = button.dataset.authTab === tabId;
+      button.classList.toggle('is-active', isActive);
+      button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      button.setAttribute('tabindex', isActive ? '0' : '-1');
+      if (isActive && focus) {
+        button.focus();
+      }
+    });
+
+    panels.forEach((panel, id) => {
+      if (!panel) {
+        return;
+      }
+      const isActive = id === tabId;
+      panel.classList.toggle('is-active', isActive);
+      if (isActive) {
+        panel.removeAttribute('hidden');
+      } else {
+        panel.setAttribute('hidden', '');
+      }
+    });
+
+    clearAuthMessage();
+  };
+
+  const focusByOffset = (offset) => {
+    if (!tabButtons.length) {
+      return;
+    }
+    const currentIndex = tabButtons.findIndex((button) => button.dataset.authTab === activeTab);
+    const baseIndex = currentIndex === -1 ? 0 : currentIndex;
+    const nextIndex = (baseIndex + offset + tabButtons.length) % tabButtons.length;
+    const nextTab = tabButtons[nextIndex]?.dataset.authTab || '';
+    if (nextTab) {
+      activate(nextTab, { focus: true });
+    }
+  };
+
+  tabButtons.forEach((button) => {
+    if (button.dataset.authTabReady === 'true') {
+      return;
+    }
+    button.dataset.authTabReady = 'true';
+
+    button.addEventListener('click', () => {
+      const tabId = button.dataset.authTab || '';
+      if (tabId) {
+        activate(tabId);
+      }
+    });
+
+    button.addEventListener('keydown', (event) => {
+      switch (event.key) {
+        case 'ArrowLeft':
+          event.preventDefault();
+          focusByOffset(-1);
+          break;
+        case 'ArrowRight':
+          event.preventDefault();
+          focusByOffset(1);
+          break;
+        case 'Home':
+          event.preventDefault();
+          if (tabButtons[0]?.dataset.authTab) {
+            activate(tabButtons[0].dataset.authTab, { focus: true });
+          }
+          break;
+        case 'End':
+          event.preventDefault();
+          if (tabButtons[tabButtons.length - 1]?.dataset.authTab) {
+            activate(tabButtons[tabButtons.length - 1].dataset.authTab, { focus: true });
+          }
+          break;
+        default:
+          break;
+      }
+    });
+  });
+
+  if (activeTab) {
+    activate(activeTab);
+  }
+}
+
+function onReady(callback) {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', callback, { once: true });
+  } else {
+    callback();
+  }
+}
+
+onReady(() => {
+  setupAuthTabs();
+});
+
 document.querySelectorAll('[data-auth=logout]').forEach((el) =>
   el.addEventListener('click', async () => {
     await sb.auth.signOut();
@@ -351,84 +512,3 @@ document.querySelectorAll('[data-auth=logout]').forEach((el) =>
     location.assign('/');
   }),
 );
-
-const loginForm = document.querySelector('#form-login');
-if (loginForm instanceof HTMLFormElement) {
-  loginForm.addEventListener('submit', (event) => {
-    event.preventDefault();
-
-    const submitter =
-      event.submitter instanceof HTMLButtonElement
-        ? event.submitter
-        : loginForm.querySelector('button[type="submit"]');
-
-    withBusy(submitter, async () => {
-      ensureOnlineOrThrow();
-
-      const email = loginForm.email?.value?.trim();
-      const password = loginForm.password?.value;
-
-      if (!email || !password) {
-        throw new Error('Podaj adres e-mail i hasło.');
-      }
-
-      const { error } = await sb.auth.signInWithPassword({ email, password });
-      if (error) {
-        throw error;
-      }
-
-      await bootAuth();
-      location.assign('/');
-    }).catch((error) => {
-      showAuthToast(error?.message || 'Błąd logowania', 'error');
-    });
-  });
-}
-
-const registerForm = document.querySelector('#form-register');
-if (registerForm instanceof HTMLFormElement) {
-  registerForm.addEventListener('submit', (event) => {
-    event.preventDefault();
-
-    const submitter =
-      event.submitter instanceof HTMLButtonElement
-        ? event.submitter
-        : registerForm.querySelector('button[type="submit"]');
-
-    withBusy(submitter, async () => {
-      ensureOnlineOrThrow();
-
-      const firstName = registerForm.firstName?.value?.trim();
-      const email = registerForm.email?.value?.trim();
-      const password = registerForm.password?.value;
-      const passwordConfirm = registerForm.passwordConfirm?.value;
-
-      if (!email || !password) {
-        throw new Error('Podaj adres e-mail i hasło.');
-      }
-
-      if (password !== passwordConfirm) {
-        throw new Error('Hasła nie są takie same.');
-      }
-
-      const { error } = await sb.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            name: firstName || undefined,
-          },
-        },
-      });
-
-      if (error) {
-        throw error;
-      }
-
-      showAuthToast('Sprawdź skrzynkę e-mail, aby potwierdzić konto.', 'info');
-      await bootAuth();
-    }).catch((error) => {
-      showAuthToast(error?.message || 'Błąd rejestracji', 'error');
-    });
-  });
-}
