@@ -32,10 +32,23 @@
 
   header {
     display: flex;
-    justify-content: flex-end;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
     padding: 1rem;
     background: var(--ce-color-surface-raised, #ffffff);
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  }
+
+  .home-link {
+    color: var(--ce-color-primary, #0044ff);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .home-link:hover,
+  .home-link:focus {
+    text-decoration: underline;
   }
 
   main {
@@ -179,6 +192,7 @@
 </head>
 <body>
   <header>
+    <a class="home-link" href="/">← Wróć do strony głównej</a>
     <a
       id="loginBtn"
       class="ghost"
@@ -209,6 +223,54 @@
           aria-label="Imię"
         />
         <button type="submit">Zapisz imię</button>
+      </form>
+    </section>
+    <section class="account-section">
+      <h2>Nazwa użytkownika</h2>
+      <p class="form-hint">
+        Nazwa użytkownika jest widoczna publicznie. Może zawierać litery, cyfry, kropki, myślniki
+        i podkreślenia (3-30 znaków).
+      </p>
+      <form id="accountUsernameForm" class="account-form" novalidate>
+        <label for="profileUsername">Nazwa użytkownika</label>
+        <input
+          id="profileUsername"
+          name="username"
+          type="text"
+          required
+          minlength="3"
+          maxlength="30"
+          autocomplete="username"
+          aria-label="Nazwa użytkownika"
+        />
+        <button type="submit">Zapisz nazwę użytkownika</button>
+      </form>
+    </section>
+    <section class="account-section">
+      <h2>Hasło</h2>
+      <p class="form-hint">Ustaw nowe hasło, aby zabezpieczyć swoje konto.</p>
+      <form id="accountPasswordForm" class="account-form" novalidate>
+        <label for="profileNewPassword">Nowe hasło</label>
+        <input
+          id="profileNewPassword"
+          name="newPassword"
+          type="password"
+          required
+          minlength="8"
+          autocomplete="new-password"
+          aria-label="Nowe hasło"
+        />
+        <label for="profileConfirmPassword">Powtórz nowe hasło</label>
+        <input
+          id="profileConfirmPassword"
+          name="confirmPassword"
+          type="password"
+          required
+          minlength="8"
+          autocomplete="new-password"
+          aria-label="Powtórz nowe hasło"
+        />
+        <button type="submit">Zaktualizuj hasło</button>
       </form>
     </section>
     <section class="account-section">
@@ -303,12 +365,24 @@ const me = document.getElementById('me');
 const logoutButton = document.getElementById('logout');
 const accountMessage = document.getElementById('accountMessage');
 const nameForm = document.getElementById('accountNameForm');
+const usernameForm = document.getElementById('accountUsernameForm');
+const passwordForm = document.getElementById('accountPasswordForm');
 const firstNameInput = document.getElementById('profileFirstName');
+const usernameInput = document.getElementById('profileUsername');
+const newPasswordInput = document.getElementById('profileNewPassword');
+const confirmPasswordInput = document.getElementById('profileConfirmPassword');
 const levelValue = document.getElementById('profileLevel');
 const xpValue = document.getElementById('profileXp');
 const updatedValue = document.getElementById('profileUpdatedAt');
 
 let currentSession = null;
+let currentProfile = null;
+
+const USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])$/i;
+
+function normalizeUsername(value) {
+  return typeof value === 'string' ? value.trim().toLowerCase() : '';
+}
 
 function setAccountMessage(message = '', tone = 'info') {
   if (!accountMessage) return;
@@ -371,7 +445,7 @@ async function loadProfile(sessionOverride = null) {
   try {
     const { data, error } = await supabase
       .from('profiles')
-      .select('name, email, xp, level, updated_at')
+      .select('name, email, username, username_normalized, xp, level, updated_at')
       .eq('id', session.user.id)
       .maybeSingle();
     if (error && error.code !== 'PGRST116') {
@@ -398,6 +472,12 @@ async function loadProfile(sessionOverride = null) {
     firstNameInput.value = nameValue || '';
   }
 
+  if (usernameInput instanceof HTMLInputElement) {
+    const metadata = session.user.user_metadata || {};
+    const usernameValue = safeTrim(profile?.username) || safeTrim(metadata.username);
+    usernameInput.value = usernameValue || '';
+  }
+
   updateStats(profile);
 
   const userEmail = safeTrim(session.user.email);
@@ -413,6 +493,8 @@ async function loadProfile(sessionOverride = null) {
       console.warn('Nie udało się zaktualizować adresu e-mail profilu', error);
     }
   }
+
+  currentProfile = profile;
 
   return profile;
 }
@@ -481,6 +563,195 @@ nameForm?.addEventListener('submit', async (event) => {
     const message = error && typeof error.message === 'string' && error.message
       ? error.message
       : 'Nie udało się zapisać imienia. Spróbuj ponownie.';
+    setAccountMessage(message, 'error');
+  } finally {
+    if (submitButton instanceof HTMLButtonElement) {
+      submitButton.disabled = false;
+      submitButton.removeAttribute('data-loading');
+      submitButton.removeAttribute('aria-busy');
+    }
+  }
+});
+
+usernameForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  if (!(usernameInput instanceof HTMLInputElement)) {
+    return;
+  }
+
+  if (!currentSession?.user?.id) {
+    setAccountMessage('Zaloguj się, aby zmienić nazwę użytkownika.', 'error');
+    return;
+  }
+
+  const submitButton = usernameForm.querySelector('button[type="submit"]');
+  const requestedUsername = usernameInput.value.trim();
+
+  if (!requestedUsername) {
+    setAccountMessage('Wprowadź nazwę użytkownika.', 'error');
+    usernameInput.focus();
+    return;
+  }
+
+  if (!USERNAME_PATTERN.test(requestedUsername)) {
+    setAccountMessage(
+      'Nazwa użytkownika może zawierać litery, cyfry, kropki, myślniki i podkreślenia (3-30 znaków).',
+      'error',
+    );
+    usernameInput.focus();
+    return;
+  }
+
+  const normalized = normalizeUsername(requestedUsername);
+  const currentNormalized = normalizeUsername(
+    currentProfile?.username_normalized ||
+      currentProfile?.username ||
+      currentSession?.user?.user_metadata?.username,
+  );
+  if (normalized === currentNormalized && currentNormalized) {
+    setAccountMessage('Ta nazwa użytkownika jest już ustawiona.', 'info');
+    return;
+  }
+
+  if (submitButton instanceof HTMLButtonElement) {
+    submitButton.disabled = true;
+    submitButton.dataset.loading = 'true';
+    submitButton.setAttribute('aria-busy', 'true');
+  }
+
+  setAccountMessage('Sprawdzanie nazwy użytkownika…', 'info');
+
+  let usernameTaken = null;
+  try {
+    let query = supabase
+      .from('profiles')
+      .select('id')
+      .eq('username_normalized', normalized)
+      .limit(1);
+    if (currentSession.user.id) {
+      query = query.neq('id', currentSession.user.id);
+    }
+    const { data, error } = await query;
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+    usernameTaken = Array.isArray(data) && data.length > 0;
+  } catch (error) {
+    console.warn('Nie udało się sprawdzić dostępności nazwy użytkownika', error);
+    setAccountMessage('Nie udało się zweryfikować nazwy użytkownika. Spróbuj ponownie.', 'error');
+    usernameTaken = null;
+  }
+
+  if (usernameTaken === null) {
+    if (submitButton instanceof HTMLButtonElement) {
+      submitButton.disabled = false;
+      submitButton.removeAttribute('data-loading');
+      submitButton.removeAttribute('aria-busy');
+    }
+    return;
+  }
+
+  if (usernameTaken) {
+    setAccountMessage('Ta nazwa użytkownika jest już zajęta. Wybierz inną.', 'error');
+    usernameInput.focus();
+    if (submitButton instanceof HTMLButtonElement) {
+      submitButton.disabled = false;
+      submitButton.removeAttribute('data-loading');
+      submitButton.removeAttribute('aria-busy');
+    }
+    return;
+  }
+
+  setAccountMessage('Zapisywanie nazwy użytkownika…', 'info');
+
+  try {
+    const updates = {
+      username: requestedUsername,
+      username_normalized: normalized,
+    };
+    const { error } = await supabase
+      .from('profiles')
+      .update(updates)
+      .eq('id', currentSession.user.id);
+    if (error) {
+      throw error;
+    }
+
+    const { error: metaError } = await supabase.auth.updateUser({
+      data: {
+        username: requestedUsername,
+      },
+    });
+    if (metaError) {
+      throw metaError;
+    }
+
+    setAccountMessage('Nazwa użytkownika zaktualizowana.', 'success');
+    await loadProfile();
+  } catch (error) {
+    const message = error && typeof error.message === 'string' && error.message
+      ? error.message
+      : 'Nie udało się zapisać nazwy użytkownika. Spróbuj ponownie.';
+    setAccountMessage(message, 'error');
+  } finally {
+    if (submitButton instanceof HTMLButtonElement) {
+      submitButton.disabled = false;
+      submitButton.removeAttribute('data-loading');
+      submitButton.removeAttribute('aria-busy');
+    }
+  }
+});
+
+passwordForm?.addEventListener('submit', async (event) => {
+  event.preventDefault();
+
+  if (!(newPasswordInput instanceof HTMLInputElement) || !(confirmPasswordInput instanceof HTMLInputElement)) {
+    return;
+  }
+
+  if (!currentSession?.user?.id) {
+    setAccountMessage('Zaloguj się, aby zmienić hasło.', 'error');
+    return;
+  }
+
+  const submitButton = passwordForm.querySelector('button[type="submit"]');
+  const newPassword = newPasswordInput.value;
+  const confirmPassword = confirmPasswordInput.value;
+
+  if (!newPassword || newPassword.length < 8) {
+    setAccountMessage('Hasło powinno mieć co najmniej 8 znaków.', 'error');
+    newPasswordInput.focus();
+    return;
+  }
+
+  if (newPassword !== confirmPassword) {
+    setAccountMessage('Hasła nie są takie same.', 'error');
+    confirmPasswordInput.focus();
+    return;
+  }
+
+  if (submitButton instanceof HTMLButtonElement) {
+    submitButton.disabled = true;
+    submitButton.dataset.loading = 'true';
+    submitButton.setAttribute('aria-busy', 'true');
+  }
+
+  setAccountMessage('Aktualizowanie hasła…', 'info');
+
+  try {
+    const { error } = await supabase.auth.updateUser({ password: newPassword });
+    if (error) {
+      throw error;
+    }
+
+    newPasswordInput.value = '';
+    confirmPasswordInput.value = '';
+    setAccountMessage('Hasło zaktualizowane. Zaloguj się ponownie, jeśli system o to poprosi.', 'success');
+  } catch (error) {
+    const message = error && typeof error.message === 'string' && error.message
+      ? error.message
+      : 'Nie udało się zaktualizować hasła. Spróbuj ponownie.';
     setAccountMessage(message, 'error');
   } finally {
     if (submitButton instanceof HTMLButtonElement) {
