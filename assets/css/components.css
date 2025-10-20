@@ -1259,6 +1259,23 @@ textarea:focus-visible {
   max-width: 26ch;
 }
 
+.auth-spinner {
+  display: block;
+  width: 100%;
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--muted, #334155);
+  opacity: 0;
+  height: 0;
+  overflow: hidden;
+  transition: opacity 0.2s ease;
+}
+
+.auth-spinner.is-visible {
+  opacity: 1;
+  height: auto;
+}
+
 .auth-status-badge {
   display: inline-flex;
   align-items: center;
@@ -1311,6 +1328,38 @@ textarea:focus-visible {
   border-top-color: transparent;
   box-shadow: none;
   animation: authSpinner 0.8s linear infinite;
+}
+
+.auth-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translate(-50%, 1rem);
+  z-index: 1200;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem 1.2rem;
+  border-radius: 999px;
+  background: rgba(30, 41, 59, 0.92);
+  color: #fff;
+  font-size: 0.9rem;
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.35);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+
+.auth-toast.is-visible {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+}
+
+.auth-toast.is-error {
+  background: rgba(220, 38, 38, 0.92);
+  box-shadow: 0 14px 36px rgba(220, 38, 38, 0.28);
 }
 
 .notifications-toggle {

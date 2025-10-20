@@ -71,18 +71,18 @@
           <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
         </button>
         <span id="auth-state" class="auth-status-badge" aria-live="polite">Niezalogowany</span>
-        <button
+        <a
           id="loginBtn"
           class="ghost"
-          type="button"
           data-auth="login"
           data-login-button
           data-login-label-signed-in="Wyloguj"
           data-login-label-signed-out="Zaloguj"
-          onclick="location.href='/auth/'"
+          href="/auth/"
         >
           Zaloguj
-        </button>
+        </a>
+        <div data-auth="spinner" class="auth-spinner" aria-live="polite">Łączenie z logowaniem…</div>
         <p class="auth-guest-note" data-auth-guest-note hidden>
           Grasz jako gość — postęp zapisany lokalnie na tym urządzeniu.
         </p>
@@ -750,9 +750,5 @@
   </div>
 </div>
 
-<script type="module">
-  import { bootAuth } from '/js/authUi.js';
-  bootAuth();
-</script>
 </body>
 </html>
