@@ -1378,6 +1378,25 @@ function getDefaultProgress() {
   };
 }
 
+function sanitizeAccountProfile(profile) {
+  if (!profile || typeof profile !== 'object') {
+    return null;
+  }
+
+  const name = typeof profile.name === 'string' ? profile.name : '';
+  const email = typeof profile.email === 'string' ? profile.email : '';
+  const xp = Number.isFinite(profile.xp) ? profile.xp : 0;
+  const level = Number.isFinite(profile.level) ? profile.level : 1;
+  const updatedAt =
+    typeof profile.updatedAt === 'string' && profile.updatedAt
+      ? profile.updatedAt
+      : typeof profile.updated_at === 'string' && profile.updated_at
+      ? profile.updated_at
+      : null;
+
+  return { name, email, xp, level, updatedAt };
+}
+
 function resetState() {
   state.xp = 0;
   state.level = 1;
@@ -1621,6 +1640,7 @@ function loadAccountsFromStorage() {
         username: typeof value.username === 'string' ? value.username : key,
         passwordHash: typeof value.passwordHash === 'string' ? value.passwordHash : '',
         progress,
+        profile: sanitizeAccountProfile(value.profile),
       };
     });
 
@@ -2481,11 +2501,11 @@ function getSupabaseDisplayName(user) {
   if (!user) return '';
   const metadata = user.user_metadata || {};
   return (
-    (typeof metadata.username === 'string' && metadata.username.trim()) ||
+    (typeof metadata.name === 'string' && metadata.name.trim()) ||
+    (typeof metadata.full_name === 'string' && metadata.full_name.trim()) ||
     (typeof metadata.display_name === 'string' && metadata.display_name.trim()) ||
     (typeof metadata.first_name === 'string' && metadata.first_name.trim()) ||
-    (typeof metadata.full_name === 'string' && metadata.full_name.trim()) ||
-    (typeof metadata.name === 'string' && metadata.name.trim()) ||
+    (typeof metadata.username === 'string' && metadata.username.trim()) ||
     (typeof user.email === 'string' && user.email.trim()) ||
     ''
   );
@@ -2504,18 +2524,29 @@ function ensureSupabaseAccount(user, preferredName = '') {
     accounts[key] = {
       username: displayName,
       progress: getDefaultProgress(),
+      profile: null,
     };
     persistAccounts();
     return accounts[key];
   }
 
+  let updated = false;
   if (displayName && existing.username !== displayName) {
     existing.username = displayName;
-    persistAccounts();
+    updated = true;
   }
 
   if (!existing.progress || typeof existing.progress !== 'object') {
     existing.progress = getDefaultProgress();
+    updated = true;
+  }
+
+  if (!existing.profile || typeof existing.profile !== 'object') {
+    existing.profile = sanitizeAccountProfile(existing.profile) || null;
+    updated = true;
+  }
+
+  if (updated) {
     persistAccounts();
   }
 
@@ -2531,89 +2562,93 @@ async function syncSupabaseProfile(user) {
   try {
     const { data, error } = await client
       .from('profiles')
-      .select('display_name, first_name, username')
+      .select('name, email, xp, level, updated_at')
       .eq('id', user.id)
       .maybeSingle();
     if (error && error.code !== 'PGRST116') {
       throw error;
     }
+
     const metadata = user.user_metadata || {};
-    let profile = data ? { ...data } : null;
+    const profile = data ? { ...data } : null;
+    const profileName = typeof profile?.name === 'string' ? profile.name.trim() : '';
+    const profileEmail = typeof profile?.email === 'string' ? profile.email.trim() : '';
+    const metadataName =
+      (typeof metadata.name === 'string' && metadata.name.trim()) ||
+      (typeof metadata.full_name === 'string' && metadata.full_name.trim()) ||
+      (typeof metadata.display_name === 'string' && metadata.display_name.trim()) ||
+      (typeof metadata.first_name === 'string' && metadata.first_name.trim()) ||
+      '';
+    const userEmail = typeof user.email === 'string' ? user.email.trim() : '';
 
-    const profileDisplayName =
-      typeof profile?.display_name === 'string' ? profile.display_name.trim() : '';
-    const profileFirstName =
-      typeof profile?.first_name === 'string' ? profile.first_name.trim() : '';
-    const profileUsername =
-      typeof profile?.username === 'string' ? profile.username.trim() : '';
-
-    const metadataDisplayName =
-      typeof metadata.display_name === 'string' ? metadata.display_name.trim() : '';
-    const metadataFirstName =
-      typeof metadata.first_name === 'string' ? metadata.first_name.trim() : '';
-    const metadataUsername =
-      typeof metadata.username === 'string' ? metadata.username.trim() : '';
-
-    const updates = { id: user.id };
+    const updates = {};
     let needsUpdate = false;
-
-    if (!profileDisplayName && metadataDisplayName) {
-      updates.display_name = metadataDisplayName;
+    if (!profileName && metadataName) {
+      updates.name = metadataName;
       needsUpdate = true;
     }
-    if (!profileFirstName && metadataFirstName) {
-      updates.first_name = metadataFirstName;
-      needsUpdate = true;
-    }
-    if (!profileUsername && metadataUsername) {
-      updates.username = metadataUsername;
+    if (userEmail && userEmail !== profileEmail) {
+      updates.email = userEmail;
       needsUpdate = true;
     }
 
-    if (!profile && !needsUpdate) {
-      const fallback = getSupabaseDisplayName(user);
-      if (fallback) {
-        updates.display_name = fallback;
-        if (!updates.first_name) {
-          updates.first_name = fallback;
-        }
-        needsUpdate = true;
-      }
-    }
-
+    let updatedProfile = profile ? { ...profile } : null;
     if (needsUpdate) {
       try {
-        await client.from('profiles').upsert(updates, { onConflict: 'id' });
-        profile = { ...(profile || {}), ...updates };
+        const { data: updateData, error: updateError } = await client
+          .from('profiles')
+          .update(updates)
+          .eq('id', user.id)
+          .select('name, email, xp, level, updated_at')
+          .maybeSingle();
+        if (updateError) {
+          throw updateError;
+        }
+        if (updateData) {
+          updatedProfile = updateData;
+        } else if (updatedProfile) {
+          updatedProfile = { ...updatedProfile, ...updates };
+        } else {
+          updatedProfile = { ...updates };
+        }
       } catch (profileError) {
-        console.warn('Nie udało się uzupełnić profilu Supabase:', profileError);
+        console.warn('Nie udało się zaktualizować profilu Supabase:', profileError);
       }
     }
 
-    const finalUsername =
-      (typeof profile?.username === 'string' && profile.username && profile.username.trim()) ||
-      profileUsername ||
-      metadataUsername ||
-      '';
-    const finalDisplayName =
-      (typeof profile?.display_name === 'string' && profile.display_name && profile.display_name.trim()) ||
-      profileDisplayName ||
-      metadataDisplayName ||
-      '';
-    const finalFirstName =
-      (typeof profile?.first_name === 'string' && profile.first_name && profile.first_name.trim()) ||
-      profileFirstName ||
-      metadataFirstName ||
-      '';
-
+    const finalProfile = updatedProfile || profile || null;
     const resolvedName =
-      finalUsername ||
-      finalDisplayName ||
-      finalFirstName ||
+      (typeof finalProfile?.name === 'string' && finalProfile.name && finalProfile.name.trim()) ||
+      metadataName ||
       getSupabaseDisplayName(user) ||
       'Gracz';
 
-    ensureSupabaseAccount(user, resolvedName);
+    const account = ensureSupabaseAccount(user, resolvedName);
+    if (account) {
+      const xpValue = Number(finalProfile?.xp);
+      const levelValue = Number(finalProfile?.level);
+      const resolvedEmail =
+        (typeof finalProfile?.email === 'string' && finalProfile.email.trim()) ||
+        profileEmail ||
+        userEmail ||
+        '';
+      const updatedAtValue =
+        (typeof finalProfile?.updated_at === 'string' && finalProfile.updated_at) ||
+        (typeof finalProfile?.updatedAt === 'string' && finalProfile.updatedAt) ||
+        null;
+
+      const sanitized = sanitizeAccountProfile({
+        name: resolvedName,
+        email: resolvedEmail,
+        xp: Number.isFinite(xpValue) ? xpValue : account.profile?.xp ?? 0,
+        level: Number.isFinite(levelValue) ? levelValue : account.profile?.level ?? 1,
+        updatedAt: updatedAtValue,
+      });
+
+      account.profile = sanitized;
+      persistAccounts();
+    }
+
     return resolvedName;
   } catch (error) {
     console.warn('Nie udało się zsynchronizować profilu Supabase:', error);

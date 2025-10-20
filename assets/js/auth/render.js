@@ -122,19 +122,6 @@ const AUTH_TEMPLATE = `
           data-i18n=""
           data-i18n-attrs="aria-label:auth.firstName"
         />
-        <label for="registerUsername" data-i18n="auth.username">Nazwa użytkownika</label>
-        <input
-          id="registerUsername"
-          name="username"
-          type="text"
-          required
-          autocomplete="nickname"
-          maxlength="32"
-          aria-label="Nazwa użytkownika"
-          inputmode="text"
-          data-i18n=""
-          data-i18n-attrs="aria-label:auth.username"
-        />
         <label for="registerEmail" data-i18n="auth.email">Adres e-mail</label>
         <input
           id="registerEmail"
@@ -182,9 +169,6 @@ const AUTH_TEMPLATE = `
         >
           Utwórz konto
         </button>
-        <p class="form-hint" data-i18n="auth.register.usernameHint">
-          Twoja nazwa użytkownika będzie widoczna publicznie. Możesz ją później zmienić w ustawieniach konta.
-        </p>
       </form>
     </section>
     <section

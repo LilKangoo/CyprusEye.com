@@ -20,8 +20,7 @@ function createAuthCopy() {
       },
       info: {
         loginConnecting: 'Łączenie z kontem…',
-        registerCheckingUsername: 'Sprawdzamy nazwę użytkownika…',
-        registerCreating: 'Tworzenie konta…',
+        registerCreating: 'Tworzenie konta i profilu…',
         resetSending: 'Wysyłamy link resetujący…',
       },
       success: {
@@ -38,11 +37,6 @@ function createAuthCopy() {
         loginUnknown: 'Nie udało się zalogować. Spróbuj ponownie później.',
         registerMissingFirstName: 'Podaj imię, aby utworzyć konto.',
         registerFirstNameShort: 'Imię powinno mieć co najmniej 2 znaki.',
-        registerMissingUsername: 'Wybierz nazwę użytkownika.',
-        registerUsernameInvalid:
-          'Nazwa użytkownika może zawierać litery, cyfry, kropki, myślniki i podkreślenia (3-30 znaków).',
-        registerUsernameTaken: 'Wybrana nazwa użytkownika jest już zajęta. Wybierz inną.',
-        registerUsernameUnknown: 'Nie udało się potwierdzić dostępności nazwy użytkownika. Spróbuj ponownie.',
         registerMissingCredentials: 'Podaj adres e-mail i hasło, aby utworzyć konto.',
         registerPasswordShort: 'Hasło powinno mieć co najmniej 8 znaków.',
         registerPasswordMismatch: 'Hasła nie są identyczne. Spróbuj ponownie.',
@@ -66,8 +60,7 @@ function createAuthCopy() {
       },
       info: {
         loginConnecting: 'Signing you in…',
-        registerCheckingUsername: 'Checking username availability…',
-        registerCreating: 'Creating your account…',
+        registerCreating: 'Creating your account and profile…',
         resetSending: 'Sending reset link…',
       },
       success: {
@@ -84,11 +77,6 @@ function createAuthCopy() {
         loginUnknown: 'Sign-in failed. Please try again later.',
         registerMissingFirstName: 'Enter your first name to create an account.',
         registerFirstNameShort: 'Your first name should have at least 2 characters.',
-        registerMissingUsername: 'Choose a username.',
-        registerUsernameInvalid:
-          'The username can include letters, digits, dots, dashes and underscores (3-30 characters).',
-        registerUsernameTaken: 'This username is already taken. Pick another one.',
-        registerUsernameUnknown: 'We could not verify the username availability. Try again.',
         registerMissingCredentials: 'Enter your email address and password to create an account.',
         registerPasswordShort: 'The password must have at least 8 characters.',
         registerPasswordMismatch: 'The passwords do not match. Try again.',
@@ -231,8 +219,6 @@ ready(() => {
     return field instanceof HTMLInputElement ? field : null;
   }
 
-  const usernamePattern = /^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])$/i;
-
   function readLoginConfig(form) {
     if (!(form instanceof HTMLFormElement)) {
       return {
@@ -271,15 +257,25 @@ ready(() => {
     }
 
     const metadata = {};
+    const nameCandidates = [];
+    if (typeof user.name === 'string' && user.name.trim()) {
+      nameCandidates.push(user.name.trim());
+    }
+    if (typeof user.displayName === 'string' && user.displayName.trim()) {
+      nameCandidates.push(user.displayName.trim());
+    }
+    if (typeof user.firstName === 'string' && user.firstName.trim()) {
+      nameCandidates.push(user.firstName.trim());
+      metadata.first_name = user.firstName.trim();
+    }
+    const resolvedName = nameCandidates.find((value) => value);
+    if (resolvedName) {
+      metadata.name = resolvedName;
+      metadata.full_name = resolvedName;
+      metadata.display_name = resolvedName;
+    }
     if (typeof user.username === 'string' && user.username.trim()) {
       metadata.username = user.username.trim();
-    }
-    if (typeof user.name === 'string' && user.name.trim()) {
-      metadata.display_name = user.name.trim();
-    } else if (typeof user.displayName === 'string' && user.displayName.trim()) {
-      metadata.display_name = user.displayName.trim();
-    } else if (typeof user.firstName === 'string' && user.firstName.trim()) {
-      metadata.display_name = user.firstName.trim();
     }
 
     return {
@@ -432,17 +428,17 @@ ready(() => {
   function describeUser(user) {
     if (!user) return '';
     const metadata = user.user_metadata || {};
-    if (typeof metadata.username === 'string' && metadata.username.trim()) {
-      return metadata.username.trim();
-    }
-    if (typeof metadata.display_name === 'string' && metadata.display_name.trim()) {
-      return metadata.display_name.trim();
+    if (typeof metadata.name === 'string' && metadata.name.trim()) {
+      return metadata.name.trim();
     }
     if (typeof metadata.full_name === 'string' && metadata.full_name.trim()) {
       return metadata.full_name.trim();
     }
-    if (typeof metadata.name === 'string' && metadata.name.trim()) {
-      return metadata.name.trim();
+    if (typeof metadata.display_name === 'string' && metadata.display_name.trim()) {
+      return metadata.display_name.trim();
+    }
+    if (typeof metadata.username === 'string' && metadata.username.trim()) {
+      return metadata.username.trim();
     }
     if (typeof user.name === 'string' && user.name.trim()) {
       return user.name.trim();
@@ -652,29 +648,6 @@ ready(() => {
 
     const supabase = authApi.supabase;
 
-    async function isUsernameTaken(username, { excludeUserId = null } = {}) {
-      if (!usernamePattern.test(username)) {
-        return true;
-      }
-
-      const normalized = username.trim().toLowerCase();
-
-      try {
-        let query = supabase.from('profiles').select('id').ilike('username', normalized).limit(1);
-        if (excludeUserId) {
-          query = query.neq('id', excludeUserId);
-        }
-        const { data, error } = await query.maybeSingle();
-        if (error && error.code !== 'PGRST116') {
-          throw error;
-        }
-        return Boolean(data?.id);
-      } catch (error) {
-        console.warn('Nie udało się zweryfikować dostępności nazwy użytkownika', error);
-        return false;
-      }
-    }
-
     if (typeof authApi.onAuthStateChange === 'function') {
       authApi.onAuthStateChange((user) => {
         handleAuthUser(user);
@@ -845,9 +818,8 @@ ready(() => {
       const passwordInput = getField(registerForm, '#registerPassword');
       const confirmInput = registerPasswordConfirm instanceof HTMLInputElement ? registerPasswordConfirm : null;
       const firstNameInput = getField(registerForm, '#registerFirstName');
-      const usernameInput = getField(registerForm, '#registerUsername');
 
-      if (!emailInput || !passwordInput || !confirmInput || !firstNameInput || !usernameInput) {
+      if (!emailInput || !passwordInput || !confirmInput || !firstNameInput) {
         setAuthMessage('Formularz rejestracji jest niepełny. Odśwież stronę i spróbuj ponownie.', 'error');
         return;
       }
@@ -862,19 +834,6 @@ ready(() => {
       if (firstName.length < 2) {
         setAuthMessage(TEXT.errors.registerFirstNameShort, 'error');
         firstNameInput.focus();
-        return;
-      }
-
-      const username = usernameInput.value.trim();
-      if (!username) {
-        setAuthMessage(TEXT.errors.registerMissingUsername, 'error');
-        usernameInput.focus();
-        return;
-      }
-
-      if (!usernamePattern.test(username)) {
-        setAuthMessage(TEXT.errors.registerUsernameInvalid, 'error');
-        usernameInput.focus();
         return;
       }
 
@@ -907,22 +866,6 @@ ready(() => {
         submitButton.setAttribute('aria-busy', 'true');
       }
 
-      try {
-        setAuthMessage(TEXT.info.registerCheckingUsername, 'info');
-        const taken = await isUsernameTaken(username);
-        if (taken) {
-          setAuthMessage(TEXT.errors.registerUsernameTaken, 'error');
-          usernameInput.focus();
-          return;
-        }
-      } catch (error) {
-        const message = error && typeof error.message === 'string' && error.message
-          ? error.message
-          : TEXT.errors.registerUsernameUnknown;
-        setAuthMessage(message, 'error');
-        return;
-      }
-
       setAuthMessage(TEXT.info.registerCreating, 'info');
 
       try {
@@ -933,10 +876,10 @@ ready(() => {
           options: {
             emailRedirectTo: redirectTo,
             data: {
+              name: firstName,
               display_name: firstName,
+              full_name: firstName,
               first_name: firstName,
-              username,
-              username_normalized: username.toLowerCase(),
             },
           },
         });
@@ -947,15 +890,11 @@ ready(() => {
           try {
             await supabase
               .from('profiles')
-              .upsert(
-                {
-                  id: data.user.id,
-                  display_name: firstName,
-                  first_name: firstName,
-                  username,
-                },
-                { onConflict: 'id' },
-              );
+              .update({
+                name: firstName,
+                email,
+              })
+              .eq('id', data.user.id);
           } catch (profileError) {
             console.warn('Nie udało się zapisać profilu użytkownika podczas rejestracji', profileError);
           }
