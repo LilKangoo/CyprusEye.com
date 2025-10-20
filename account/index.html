@@ -23,55 +23,138 @@
 <script type="module" src="/assets/js/auth/boot.js" defer></script>
 <style>
   body {
-    font-family: 'Jost', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     margin: 0;
-    padding: 0;
-    background: var(--ce-color-surface, #f7f7f7);
-    color: var(--ce-color-text, #1a1a1a);
+    min-height: 100vh;
+    font-family: var(--font-family-base);
+    background: var(--bg-gradient, linear-gradient(180deg, #f9fafb 0%, #eef2ff 42%, #f5f3ff 100%));
+    color: var(--color-neutral-900);
   }
 
-  header {
+  .account-page {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .account-topbar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 1rem;
-    padding: 1rem;
-    background: var(--ce-color-surface-raised, #ffffff);
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    gap: var(--space-3);
+    padding: var(--space-4) clamp(var(--space-4), 4vw, var(--space-8));
+    background: rgba(255, 255, 255, 0.82);
+    backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border, rgba(148, 163, 184, 0.24));
+    position: sticky;
+    top: 0;
+    z-index: 10;
   }
 
-  .home-link {
-    color: var(--ce-color-primary, #0044ff);
+  .account-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
     font-weight: 600;
+    font-size: 1rem;
+    color: var(--color-brand-700);
     text-decoration: none;
   }
 
-  .home-link:hover,
-  .home-link:focus {
-    text-decoration: underline;
+  .account-brand svg {
+    width: 26px;
+    height: 26px;
+    color: var(--color-accent-600);
   }
 
-  main {
-    max-width: 640px;
-    margin: 2rem auto;
-    padding: 0 1.5rem 3rem;
+  .account-auth-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: 0.55rem 1rem;
+    font-weight: 600;
+    color: var(--color-accent-600);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(37, 99, 235, 0.18);
+    background: rgba(255, 255, 255, 0.9);
+    transition: transform var(--transition, 0.2s ease), box-shadow var(--transition, 0.2s ease);
   }
 
-  h1 {
-    font-size: clamp(1.75rem, 4vw, 2.4rem);
-    margin-bottom: 0.5rem;
+  .account-auth-link:hover,
+  .account-auth-link:focus-visible {
+    text-decoration: none;
+    transform: translateY(-1px);
+    box-shadow: var(--elev-1, 0 1px 2px rgba(15, 23, 42, 0.1));
   }
 
-  h2 {
-    font-size: clamp(1.2rem, 3vw, 1.5rem);
+  .account-main {
+    width: min(960px, 100% - clamp(32px, 6vw, 120px));
+    margin: clamp(32px, 6vw, 72px) auto clamp(48px, 7vw, 120px);
+    display: flex;
+    flex-direction: column;
+    gap: clamp(28px, 6vw, 48px);
+  }
+
+  .account-hero {
+    padding: clamp(24px, 5vw, 40px);
+    border-radius: var(--radius-lg);
+    background: var(--surface-strong, rgba(255, 255, 255, 0.95));
+    box-shadow: var(--shadow-soft, 0 22px 45px rgba(14, 116, 144, 0.16));
+    position: relative;
+    overflow: hidden;
+    display: grid;
+    gap: clamp(16px, 4vw, 24px);
+  }
+
+  .account-hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(circle at 100% 0%, rgba(37, 99, 235, 0.18), transparent 45%);
+    pointer-events: none;
+    mix-blend-mode: lighten;
+    z-index: 0;
+  }
+
+  .account-hero > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  .account-hero h1 {
+    margin: 0;
+  }
+
+  .account-hero p {
+    margin: 0;
+    max-width: 42ch;
+    color: var(--color-neutral-600);
+  }
+
+  #me {
+    font-weight: 600;
+    color: var(--color-brand-500);
   }
 
   .account-message {
-    margin: 1rem 0;
-    padding: 0.75rem 1rem;
-    border-radius: 0.75rem;
-    background: var(--ce-color-surface-raised, #ffffff);
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    margin-top: var(--space-4);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(99, 102, 241, 0.16);
+    background: rgba(255, 255, 255, 0.9);
+    box-shadow: var(--elev-1, 0 1px 2px rgba(15, 23, 42, 0.08));
+    display: flex;
+    gap: var(--space-3);
+    align-items: center;
+    font-weight: 500;
+  }
+
+  .account-message::before {
+    content: "";
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--color-accent-600);
+    flex-shrink: 0;
   }
 
   .account-message[hidden] {
@@ -79,220 +162,465 @@
   }
 
   .account-message[data-tone="success"] {
-    border: 1px solid rgba(16, 185, 129, 0.4);
-    background: rgba(236, 253, 245, 0.8);
+    border-color: rgba(34, 197, 94, 0.32);
+    background: rgba(236, 253, 245, 0.94);
+  }
+
+  .account-message[data-tone="success"]::before {
+    background: var(--color-success-600);
   }
 
   .account-message[data-tone="error"] {
-    border: 1px solid rgba(239, 68, 68, 0.4);
-    background: rgba(254, 226, 226, 0.85);
+    border-color: rgba(239, 68, 68, 0.32);
+    background: rgba(254, 226, 226, 0.94);
+  }
+
+  .account-message[data-tone="error"]::before {
+    background: var(--color-error-600);
+  }
+
+  .account-discovery {
+    display: flex;
+    align-items: center;
+    gap: clamp(12px, 3vw, 20px);
+    padding: clamp(12px, 3vw, 18px);
+    border-radius: var(--radius-md);
+    background: rgba(37, 99, 235, 0.08);
+    border: 1px solid rgba(37, 99, 235, 0.16);
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  }
+
+  .account-discovery-title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--color-brand-700);
+    white-space: nowrap;
+  }
+
+  .account-discovery-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .account-discovery-links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.55rem 0.95rem;
+    border-radius: 999px;
+    background: var(--color-white);
+    color: var(--color-accent-600);
+    border: 1px solid rgba(37, 99, 235, 0.22);
+    font-weight: 600;
+    font-size: 0.95rem;
+    text-decoration: none;
+    box-shadow: var(--elev-1, 0 1px 2px rgba(15, 23, 42, 0.08));
+    transition: transform 0.18s ease, box-shadow 0.18s ease, color 0.18s ease;
+    white-space: nowrap;
+  }
+
+  .account-discovery-links a:hover,
+  .account-discovery-links a:focus-visible {
+    color: var(--color-brand-700);
+    transform: translateY(-1px);
+    box-shadow: var(--elev-2, 0 10px 30px rgba(37, 99, 235, 0.22));
+  }
+
+  .account-layout {
+    display: grid;
+    gap: clamp(24px, 4vw, 32px);
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .account-forms {
+    display: grid;
+    gap: clamp(20px, 3.5vw, 28px);
   }
 
   .account-section {
-    margin-top: 2rem;
-    padding: 1.5rem;
-    background: var(--ce-color-surface-raised, #ffffff);
-    border-radius: 1rem;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+    padding: clamp(24px, 4vw, 32px);
+    border-radius: var(--radius-lg);
+    background: var(--surface, rgba(255, 255, 255, 0.82));
+    border: 1px solid rgba(148, 163, 184, 0.18);
+    box-shadow: var(--elev-1, 0 1px 2px rgba(15, 23, 42, 0.08));
+    backdrop-filter: blur(12px);
+  }
+
+  .account-section header {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+    margin-bottom: var(--space-4);
+  }
+
+  .account-section h2 {
+    margin: 0;
+  }
+
+  .account-section .form-hint {
+    margin: 0;
+    color: var(--color-neutral-600);
   }
 
   .account-form {
     display: grid;
-    gap: 0.75rem;
-    margin-top: 1rem;
+    gap: var(--space-4);
+  }
+
+  .form-field {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
   }
 
   label {
     font-weight: 600;
+    color: var(--color-neutral-700);
   }
 
   input[type="text"],
   input[type="email"],
   input[type="password"] {
-    padding: 0.75rem 1rem;
-    border-radius: 0.75rem;
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 0.85rem 1rem;
+    border-radius: var(--radius-md);
+    border: 1px solid rgba(148, 163, 184, 0.38);
+    background: rgba(255, 255, 255, 0.92);
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
     font-size: 1rem;
-    background: #fff;
+  }
+
+  input[type="text"]:focus,
+  input[type="email"]:focus,
+  input[type="password"]:focus {
+    border-color: rgba(37, 99, 235, 0.45);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.16);
+    outline: none;
   }
 
   input:disabled {
-    opacity: 0.6;
+    opacity: 0.7;
+    cursor: not-allowed;
   }
 
   button {
-    padding: 0.75rem 1.25rem;
-    border-radius: 0.75rem;
+    padding: 0.85rem 1.25rem;
+    border-radius: var(--radius-md);
     border: none;
     font-size: 1rem;
     font-weight: 600;
     cursor: pointer;
-    background: var(--ce-color-primary, #0044ff);
-    color: #fff;
-    transition: background 150ms ease-in-out;
+    background: linear-gradient(135deg, var(--color-accent-600), #6366f1);
+    color: var(--color-white);
+    transition: transform 0.18s ease, box-shadow 0.18s ease, filter 0.18s ease;
+  }
+
+  button:hover,
+  button:focus-visible {
+    transform: translateY(-1px);
+    box-shadow: var(--elev-2, 0 10px 30px rgba(79, 70, 229, 0.35));
   }
 
   button[disabled] {
     cursor: not-allowed;
-    opacity: 0.7;
+    opacity: 0.75;
+    transform: none;
+    box-shadow: none;
   }
 
   #logout {
-    margin-top: 2.5rem;
     width: 100%;
-    background: var(--ce-color-danger, #ef4444);
-  }
-
-  .form-hint {
-    font-size: 0.9rem;
-    color: rgba(26, 26, 26, 0.7);
+    margin-top: clamp(16px, 3vw, 24px);
+    background: linear-gradient(135deg, #ef4444, #f97316);
   }
 
   .account-stats {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 1rem;
-    margin: 1rem 0 0;
+    gap: clamp(16px, 3vw, 24px);
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    margin: 0;
     padding: 0;
     list-style: none;
   }
 
   .account-stats div {
-    background: rgba(0, 0, 0, 0.04);
-    border-radius: 0.75rem;
-    padding: 1rem;
+    padding: var(--space-5);
+    border-radius: var(--radius-lg);
+    background: linear-gradient(135deg, rgba(79, 70, 229, 0.12), rgba(14, 165, 233, 0.1));
+    border: 1px solid rgba(99, 102, 241, 0.18);
+    display: grid;
+    gap: var(--space-2);
   }
 
   .account-stats dt {
-    margin: 0 0 0.25rem;
+    margin: 0;
     font-size: 0.85rem;
     font-weight: 600;
-    letter-spacing: 0.05em;
+    letter-spacing: 0.06em;
     text-transform: uppercase;
-    color: rgba(26, 26, 26, 0.6);
+    color: var(--color-neutral-600);
   }
 
   .account-stats dd {
     margin: 0;
-    font-size: 1.4rem;
-    font-weight: 600;
+    font-size: clamp(1.4rem, 3vw, 1.8rem);
+    font-weight: 700;
+    color: var(--color-brand-700);
   }
 
-  @media (max-width: 600px) {
-    main {
-      margin: 1.5rem auto 2.5rem;
-      padding: 0 1rem 2.5rem;
+  .account-meta {
+    display: grid;
+    gap: var(--space-2);
+    color: var(--color-neutral-600);
+  }
+
+  .account-meta span {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    font-size: 0.95rem;
+  }
+
+  .account-meta svg {
+    width: 18px;
+    height: 18px;
+    color: var(--color-accent-600);
+  }
+
+  .account-footer-note {
+    margin-top: var(--space-4);
+    font-size: 0.95rem;
+    color: var(--color-neutral-600);
+    text-align: center;
+  }
+
+  @media (min-width: 960px) {
+    .account-layout {
+      grid-template-columns: 2fr 1fr;
+      align-items: start;
     }
 
-    header {
-      padding: 0.75rem 1rem;
+    .account-layout .account-section:last-of-type {
+      position: sticky;
+      top: 96px;
+    }
+  }
+
+  @media (max-width: 640px) {
+    .account-topbar {
+      padding: var(--space-3) var(--space-4);
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--space-2);
+    }
+
+    .account-auth-link {
+      padding: 0.5rem 0.85rem;
+      width: 100%;
+      justify-content: center;
+    }
+
+    .account-main {
+      width: min(100% - 24px, 100%);
+      margin: var(--space-6) auto var(--space-8);
+    }
+
+    .account-hero {
+      padding: var(--space-5);
+    }
+
+    .account-discovery {
+      flex-direction: column;
+      align-items: stretch;
+      gap: var(--space-3);
+    }
+
+    .account-discovery-links {
+      flex-wrap: nowrap;
+      overflow-x: auto;
+      gap: var(--space-2);
+      padding-bottom: 4px;
+      margin: 0 calc(var(--space-2) * -1);
+      padding-inline: var(--space-2);
+      scroll-snap-type: x mandatory;
+    }
+
+    .account-discovery-links::-webkit-scrollbar {
+      display: none;
+    }
+
+    .account-discovery-links a {
+      scroll-snap-align: start;
+      flex: 0 0 auto;
+    }
+
+    .account-section {
+      padding: var(--space-4);
+    }
+
+    .account-section header {
+      margin-bottom: var(--space-3);
     }
   }
 </style>
 </head>
 <body>
-  <header>
-    <a class="home-link" href="/">← Wróć do strony głównej</a>
-    <a
-      id="loginBtn"
-      class="ghost"
-      href="/auth/"
-      data-login-button
-      data-login-label-signed-in="Wyloguj"
-      data-login-label-signed-out="Zaloguj"
-    >
-      Zaloguj
-    </a>
-  </header>
-  <main>
-    <h1>Twoje konto</h1>
-    <p id="me">Ładowanie…</p>
-    <div id="accountMessage" class="account-message" role="status" aria-live="polite" hidden></div>
-    <section class="account-section">
-      <h2>Imię</h2>
-      <p class="form-hint">Imię pomoże nam dopasować powiadomienia i powitania.</p>
-      <form id="accountNameForm" class="account-form" novalidate>
-        <label for="profileFirstName">Imię</label>
-        <input
-          id="profileFirstName"
-          name="firstName"
-          type="text"
-          required
-          maxlength="60"
-          autocomplete="given-name"
-          aria-label="Imię"
-        />
-        <button type="submit">Zapisz imię</button>
-      </form>
-    </section>
-    <section class="account-section">
-      <h2>Nazwa użytkownika</h2>
-      <p class="form-hint">
-        Nazwa użytkownika jest widoczna publicznie. Może zawierać litery, cyfry, kropki, myślniki
-        i podkreślenia (3-30 znaków).
-      </p>
-      <form id="accountUsernameForm" class="account-form" novalidate>
-        <label for="profileUsername">Nazwa użytkownika</label>
-        <input
-          id="profileUsername"
-          name="username"
-          type="text"
-          required
-          minlength="3"
-          maxlength="30"
-          autocomplete="username"
-          aria-label="Nazwa użytkownika"
-        />
-        <button type="submit">Zapisz nazwę użytkownika</button>
-      </form>
-    </section>
-    <section class="account-section">
-      <h2>Hasło</h2>
-      <p class="form-hint">Ustaw nowe hasło, aby zabezpieczyć swoje konto.</p>
-      <form id="accountPasswordForm" class="account-form" novalidate>
-        <label for="profileNewPassword">Nowe hasło</label>
-        <input
-          id="profileNewPassword"
-          name="newPassword"
-          type="password"
-          required
-          minlength="8"
-          autocomplete="new-password"
-          aria-label="Nowe hasło"
-        />
-        <label for="profileConfirmPassword">Powtórz nowe hasło</label>
-        <input
-          id="profileConfirmPassword"
-          name="confirmPassword"
-          type="password"
-          required
-          minlength="8"
-          autocomplete="new-password"
-          aria-label="Powtórz nowe hasło"
-        />
-        <button type="submit">Zaktualizuj hasło</button>
-      </form>
-    </section>
-    <section class="account-section">
-      <h2>Statystyki konta</h2>
-      <p class="form-hint">Postęp i poziom są obliczane automatycznie na podstawie zdarzeń XP.</p>
-      <dl class="account-stats" aria-live="polite">
-        <div>
-          <dt>Poziom</dt>
-          <dd id="profileLevel">—</dd>
+  <div class="account-page">
+    <header class="account-topbar">
+      <a class="account-brand" href="/">
+        <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+          <path
+            fill="currentColor"
+            d="M12 4.5c3.866 0 7 3.134 7 7s-3.134 7-7 7a6.96 6.96 0 0 1-4.95-2.05l-3.02.9a1 1 0 0 1-1.23-1.23l.9-3.02A6.96 6.96 0 0 1 5 11.5c0-3.866 3.134-7 7-7Zm0 2a5 5 0 1 0 3.535 8.535 1 1 0 0 1 1.414 1.414A6.999 6.999 0 0 1 12 20.5a6.96 6.96 0 0 1-4.95-2.05l-3.02.9a1 1 0 0 1-1.23-1.23l.9-3.02A6.96 6.96 0 0 1 5 11.5c0-3.866 3.134-7 7-7Zm0 3a3 3 0 0 1 2.121 5.121l-1.415-1.415a1 1 0 0 0-1.414-1.414l-1.415-1.415A2.988 2.988 0 0 1 12 9.5Zm0 1.5-.707.707a1 1 0 0 0 1.414 1.414L14 12.5A2.978 2.978 0 0 1 12 13.5a3 3 0 1 1 0-6Z"
+          />
+        </svg>
+        <span>Cyprus Eye</span>
+      </a>
+      <a
+        id="loginBtn"
+        class="account-auth-link"
+        href="/auth/"
+        data-login-button
+        data-login-label-signed-in="Wyloguj"
+        data-login-label-signed-out="Zaloguj"
+      >
+        <span>Zaloguj</span>
+      </a>
+    </header>
+    <main class="account-main">
+      <section class="account-hero">
+        <h1>Twoje konto</h1>
+        <p>Zarządzaj profilem, nazwą użytkownika i bezpieczeństwem konta w jednym miejscu.</p>
+        <nav class="account-discovery" aria-label="Skróty na stronę główną">
+          <span class="account-discovery-title">Odkrywaj dalej:</span>
+          <div class="account-discovery-links">
+            <a href="/attractions.html">Atrakcje</a>
+            <a href="/cruise.html">Rejsy</a>
+            <a href="/car-rental.html">Wynajem auta</a>
+            <a href="/vip.html">Doświadczenia VIP</a>
+            <a href="/tasks.html">Promocje i zadania</a>
+          </div>
+        </nav>
+        <div class="account-meta">
+          <span>
+            <svg aria-hidden="true" viewBox="0 0 24 24" focusable="false">
+              <path
+                fill="currentColor"
+                d="M12 2a7 7 0 0 1 7 7c0 3.054-1.482 5.8-3.762 8.112C13.95 19.382 12.3 20.5 12 20.5s-1.95-1.118-3.238-3.388C6.482 14.8 5 12.054 5 9a7 7 0 0 1 7-7Zm0 3.5A3.5 3.5 0 1 0 15.5 9 3.5 3.5 0 0 0 12 5.5Z"
+              />
+            </svg>
+            <span id="me">Ładowanie…</span>
+          </span>
         </div>
-        <div>
-          <dt>Łącznie XP</dt>
-          <dd id="profileXp">—</dd>
+        <div id="accountMessage" class="account-message" role="status" aria-live="polite" hidden></div>
+      </section>
+      <div class="account-layout">
+        <div class="account-forms">
+          <section class="account-section" aria-labelledby="accountNameTitle">
+            <header>
+              <h2 id="accountNameTitle">Imię</h2>
+              <p class="form-hint">Imię pomoże nam dopasować powiadomienia i powitania.</p>
+            </header>
+            <form id="accountNameForm" class="account-form" novalidate>
+              <div class="form-field">
+                <label for="profileFirstName">Imię</label>
+                <input
+                  id="profileFirstName"
+                  name="firstName"
+                  type="text"
+                  required
+                  maxlength="60"
+                  autocomplete="given-name"
+                  aria-label="Imię"
+                />
+              </div>
+              <button type="submit">Zapisz imię</button>
+            </form>
+          </section>
+          <section class="account-section" aria-labelledby="accountUsernameTitle">
+            <header>
+              <h2 id="accountUsernameTitle">Nazwa użytkownika</h2>
+              <p class="form-hint">
+                Nazwa użytkownika jest widoczna publicznie. Może zawierać litery, cyfry, kropki, myślniki
+                i podkreślenia (3-30 znaków).
+              </p>
+            </header>
+            <form id="accountUsernameForm" class="account-form" novalidate>
+              <div class="form-field">
+                <label for="profileUsername">Nazwa użytkownika</label>
+                <input
+                  id="profileUsername"
+                  name="username"
+                  type="text"
+                  required
+                  minlength="3"
+                  maxlength="30"
+                  autocomplete="username"
+                  aria-label="Nazwa użytkownika"
+                />
+              </div>
+              <button type="submit">Zapisz nazwę użytkownika</button>
+            </form>
+          </section>
+          <section class="account-section" aria-labelledby="accountPasswordTitle">
+            <header>
+              <h2 id="accountPasswordTitle">Hasło</h2>
+              <p class="form-hint">Ustaw nowe hasło, aby zabezpieczyć swoje konto.</p>
+            </header>
+            <form id="accountPasswordForm" class="account-form" novalidate>
+              <div class="form-field">
+                <label for="profileNewPassword">Nowe hasło</label>
+                <input
+                  id="profileNewPassword"
+                  name="newPassword"
+                  type="password"
+                  required
+                  minlength="8"
+                  autocomplete="new-password"
+                  aria-label="Nowe hasło"
+                />
+              </div>
+              <div class="form-field">
+                <label for="profileConfirmPassword">Powtórz nowe hasło</label>
+                <input
+                  id="profileConfirmPassword"
+                  name="confirmPassword"
+                  type="password"
+                  required
+                  minlength="8"
+                  autocomplete="new-password"
+                  aria-label="Powtórz nowe hasło"
+                />
+              </div>
+              <button type="submit">Zaktualizuj hasło</button>
+            </form>
+          </section>
+          <button id="logout" type="button">Wyloguj</button>
         </div>
-        <div>
-          <dt>Ostatnia aktualizacja</dt>
-          <dd id="profileUpdatedAt">—</dd>
-        </div>
-      </dl>
-    </section>
-    <button id="logout" type="button">Wyloguj</button>
-  </main>
+        <section class="account-section" aria-labelledby="accountStatsTitle">
+          <header>
+            <h2 id="accountStatsTitle">Statystyki konta</h2>
+            <p class="form-hint">Postęp i poziom są obliczane automatycznie na podstawie zdarzeń XP.</p>
+          </header>
+          <dl class="account-stats" aria-live="polite">
+            <div>
+              <dt>Poziom</dt>
+              <dd id="profileLevel">—</dd>
+            </div>
+            <div>
+              <dt>Łącznie XP</dt>
+              <dd id="profileXp">—</dd>
+            </div>
+            <div>
+              <dt>Ostatnia aktualizacja</dt>
+              <dd id="profileUpdatedAt">—</dd>
+            </div>
+          </dl>
+        </section>
+      </div>
+      <p class="account-footer-note">Masz pytania? Skontaktuj się z nami, aby otrzymać pomoc w kilka minut.</p>
+    </main>
+  </div>
   <script type="module">
 function waitForAuth() {
   return new Promise((resolve) => {
