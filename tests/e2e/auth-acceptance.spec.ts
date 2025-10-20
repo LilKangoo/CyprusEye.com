@@ -1,27 +1,5 @@
-import { expect, Page, test } from '@playwright/test';
-import { readFileSync } from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const supabaseStub = readFileSync(path.resolve(__dirname, '../fixtures/supabase-stub.js'), 'utf8');
-
-const SUPABASE_MODULE_URL = 'https://esm.sh/@supabase/supabase-js@2';
-
-async function enableSupabaseStub(page: Page) {
-  await page.route(`${SUPABASE_MODULE_URL}*`, async (route) => {
-    await route.fulfill({
-      status: 200,
-      body: supabaseStub,
-      headers: { 'content-type': 'application/javascript' },
-    });
-  });
-}
-
-async function waitForStub(page: Page) {
-  await page.waitForFunction(() => typeof (window as any).__supabaseStub !== 'undefined');
-}
+import { expect, test } from '@playwright/test';
+import { enableSupabaseStub, resetSupabaseStub, waitForSupabaseStub } from './utils/supabase';
 
 test.beforeEach(async ({ page }) => {
   await enableSupabaseStub(page);
@@ -33,8 +11,8 @@ test.beforeEach(async ({ page }) => {
 
 test('guest mode toggles UI and persists across reloads', async ({ page }) => {
   await page.goto('/auth/');
-  await waitForStub(page);
-  await page.evaluate(() => (window as any).__supabaseStub.reset());
+  await waitForSupabaseStub(page);
+  await resetSupabaseStub(page);
 
   await page.click('#btn-guest');
   await page.waitForURL('**/');
@@ -53,8 +31,8 @@ test('guest mode toggles UI and persists across reloads', async ({ page }) => {
 
 test('registration uses Supabase client without leaking credentials in URL', async ({ page }) => {
   await page.goto('/auth/');
-  await waitForStub(page);
-  await page.evaluate(() => (window as any).__supabaseStub.reset());
+  await waitForSupabaseStub(page);
+  await resetSupabaseStub(page);
 
   const email = `new-user-${Date.now()}@example.com`;
   await page.click('[data-auth-tab="register"]');
@@ -93,7 +71,7 @@ test('login updates UI, avoids 405 responses, and unlocks account dashboard', as
   };
 
   await page.goto('/auth/');
-  await waitForStub(page);
+  await waitForSupabaseStub(page);
   await page.evaluate((data) => {
     const stub = (window as any).__supabaseStub;
     stub.reset();
@@ -147,7 +125,7 @@ test('row level security returns only own profile/XP data and guests cannot add 
   };
 
   await page.goto('/auth/');
-  await waitForStub(page);
+  await waitForSupabaseStub(page);
   await page.evaluate(({ playerData, outsiderData }) => {
     const stub = (window as any).__supabaseStub;
     stub.reset();
@@ -196,7 +174,7 @@ test('logout clears session state and restores login controls', async ({ page })
   };
 
   await page.goto('/auth/');
-  await waitForStub(page);
+  await waitForSupabaseStub(page);
   await page.evaluate((data) => {
     const stub = (window as any).__supabaseStub;
     stub.reset();
