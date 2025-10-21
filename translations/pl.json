@@ -862,6 +862,7 @@
   "cruise.footer": "Oferujemy rejsy o zachodzie słońca, snorkeling w Blue Lagoon, wyprawy rodzinne i ekskluzywne eventy na morzu. Skontaktujemy się z Tobą, gdy tylko otworzymy kalendarz.",
   "auth.title": "Dołącz do przygody",
   "auth.intro": "Zaloguj się, utwórz konto lub graj jako gość.",
+  "auth.login.hint": "Wypełnij formularz poniżej, aby się zalogować lub założyć konto.",
   "auth.close.label": "Zamknij okno logowania",
   "auth.tab.login": "Logowanie",
   "auth.tab.register": "Rejestracja",
