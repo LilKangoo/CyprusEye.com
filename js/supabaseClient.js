@@ -124,6 +124,61 @@
     ceAuth.supabase = null;
   }
 
+  const ensureError = (error, fallbackMessage) => {
+    if (error instanceof Error) {
+      return error;
+    }
+    if (error && typeof error === 'object' && typeof error.message === 'string') {
+      return new Error(error.message);
+    }
+    if (typeof error === 'string' && error) {
+      return new Error(error);
+    }
+    return new Error(fallbackMessage);
+  };
+
+  ceAuth.signIn = async function signIn(email, password) {
+    const client = this?.supabase || ceAuth.supabase || window.getSupabase?.();
+    if (!client?.auth?.signInWithPassword) {
+      return { data: null, error: ensureError(null, 'Brak klienta Supabase') };
+    }
+
+    try {
+      const result = await client.auth.signInWithPassword({
+        email: typeof email === 'string' ? email.trim() : '',
+        password,
+      });
+      return result ?? { data: null, error: null };
+    } catch (error) {
+      return { data: null, error: ensureError(error, 'Nie udało się zalogować') };
+    }
+  };
+
+  ceAuth.signUp = async function signUp(email, password, name, redirect) {
+    const client = this?.supabase || ceAuth.supabase || window.getSupabase?.();
+    if (!client?.auth?.signUp) {
+      return { data: null, error: ensureError(null, 'Brak klienta Supabase') };
+    }
+
+    const sanitizedEmail = typeof email === 'string' ? email.trim() : '';
+    const sanitizedName = typeof name === 'string' ? name.trim() : '';
+    const emailRedirectTo = redirect || 'https://cypruseye.com/auth/';
+
+    try {
+      const result = await client.auth.signUp({
+        email: sanitizedEmail,
+        password,
+        options: {
+          data: { name: sanitizedName },
+          emailRedirectTo,
+        },
+      });
+      return result ?? { data: null, error: null };
+    } catch (error) {
+      return { data: null, error: ensureError(error, 'Nie udało się utworzyć konta') };
+    }
+  };
+
   window.CE_AUTH = ceAuth;
 
   if (sb) {
