@@ -1,4 +1,4 @@
-import { sb } from './supabaseClient.js';
+const sb = window.getSupabase();
 
 export async function getMyProfile() {
   const { data, error } = await sb

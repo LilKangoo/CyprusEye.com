@@ -1,11 +1,12 @@
-import { sb } from './supabaseClient.js';
+import { setAria, showErr } from './authMessages.js';
 
 const GUEST_STORAGE_KEY = 'ce_guest';
+
+const sb = window.getSupabase();
 
 let booting = false;
 let booted = false;
 let bootPromise = null;
-let toastTimer = null;
 let authSubscription = null;
 let sessionSyncPromise = null;
 
@@ -22,6 +23,29 @@ function isOffline() {
     console.warn('Nie udało się odczytać stanu połączenia.', error);
     return false;
   }
+}
+
+function sanitizeAuthError(detail) {
+  const raw =
+    typeof detail === 'string'
+      ? detail.trim()
+      : typeof detail?.message === 'string'
+      ? detail.message.trim()
+      : '';
+
+  if (!raw) {
+    return 'Spróbuj ponownie później.';
+  }
+
+  if (/https?:\/\//i.test(raw) || /stack/i.test(raw) || raw.includes('\n')) {
+    return 'Spróbuj ponownie później.';
+  }
+
+  if (raw.length > 160) {
+    return `${raw.slice(0, 157)}…`;
+  }
+
+  return raw;
 }
 
 const readyFallback = () => window.CE_STATE?.session ?? null;
@@ -89,31 +113,6 @@ function getGuestState() {
   return state.guest ?? readGuestState();
 }
 
-function ensureToastElement() {
-  let el = document.querySelector('[data-auth=toast]');
-  if (!el) {
-    el = document.createElement('div');
-    el.dataset.auth = 'toast';
-    el.className = 'auth-toast';
-    el.setAttribute('role', 'status');
-    el.setAttribute('aria-live', 'polite');
-    const parent = document.body || document.documentElement;
-    if (parent) {
-      parent.appendChild(el);
-    } else {
-      document.addEventListener(
-        'DOMContentLoaded',
-        () => {
-          const fallbackParent = document.body || document.documentElement;
-          fallbackParent?.appendChild(el);
-        },
-        { once: true },
-      );
-    }
-  }
-  return el;
-}
-
 function showAuthSpinner(on) {
   const spinner = document.querySelector('[data-auth=spinner]');
   if (spinner) {
@@ -127,36 +126,6 @@ function showAuthSpinner(on) {
       badge.textContent = 'Łączenie…';
     }
   }
-}
-
-function showAuthToast(message, type = 'info') {
-  if (!message) {
-    return;
-  }
-
-  const el = ensureToastElement();
-  el.textContent = message;
-  el.dataset.tone = type;
-  el.classList.add('is-visible');
-  if (type === 'error') {
-    el.classList.add('is-error');
-    el.setAttribute('aria-live', 'assertive');
-  } else {
-    el.classList.remove('is-error');
-    el.setAttribute('aria-live', 'polite');
-  }
-
-  if (toastTimer) {
-    window.clearTimeout(toastTimer);
-    toastTimer = null;
-  }
-
-  toastTimer = window.setTimeout(() => {
-    el.classList.remove('is-visible');
-    el.removeAttribute('data-tone');
-    el.textContent = '';
-    toastTimer = null;
-  }, 5000);
 }
 
 function syncSession(session) {
@@ -231,7 +200,7 @@ async function loadAuthSession() {
     state.profile = null;
     state.guest = readGuestState();
     state.authError = new Error('OFFLINE');
-    showAuthToast('Brak internetu. Spróbuj ponownie.', 'error');
+    showErr('Nie udało się: Brak internetu. Spróbuj ponownie.');
     updateAuthUI();
     return { session: null, shouldReset: true };
   }
@@ -292,14 +261,12 @@ export function bootAuth() {
       const offline = isOffline();
       const state = (window.CE_STATE = window.CE_STATE || {});
       state.authError = error;
-      showAuthToast(
-        offline
-          ? 'Brak internetu. Spróbuj ponownie.'
-          : error?.message === 'AUTH_TIMEOUT'
-          ? 'Problem z połączeniem logowania.'
-          : `Błąd logowania: ${error?.message || error}`,
-        'error',
-      );
+      const message = offline
+        ? 'Brak internetu. Spróbuj ponownie.'
+        : error?.message === 'AUTH_TIMEOUT'
+        ? 'Problem z połączeniem logowania.'
+        : sanitizeAuthError(error);
+      showErr(`Nie udało się: ${message}`);
       updateAuthUI();
       shouldReset = true;
       throw error;
@@ -330,16 +297,14 @@ export function waitForAuthReady() {
 
 export function updateAuthUI() {
   const state = window.CE_STATE || {};
-  const session = state.session || null;
-  const guestState = getGuestState();
-  const isLogged = !!session;
-  const isGuest = !isLogged && !!guestState?.active;
+  const isLogged = !!state.session;
+  const isGuest = !isLogged && !!getGuestState()?.active;
 
   document.querySelectorAll('[data-auth=login]').forEach((el) => {
     el.hidden = isLogged || isGuest;
   });
   document.querySelectorAll('[data-auth=logout]').forEach((el) => {
-    el.hidden = !(isLogged || isGuest);
+    el.hidden = !isLogged;
   });
 
   const badge = document.querySelector('#auth-state');
@@ -365,13 +330,7 @@ export function updateAuthUI() {
 }
 
 function clearAuthMessage() {
-  const authMessage = document.querySelector('#authMessage');
-  if (!authMessage) {
-    return;
-  }
-  authMessage.textContent = '';
-  authMessage.removeAttribute('data-tone');
-  authMessage.removeAttribute('aria-live');
+  setAria('');
 }
 
 function setupAuthTabs() {
@@ -512,3 +471,8 @@ document.querySelectorAll('[data-auth=logout]').forEach((el) =>
     location.assign('/');
   }),
 );
+
+if (typeof window !== 'undefined') {
+  window.bootAuth = bootAuth;
+  window.updateAuthUI = updateAuthUI;
+}

@@ -1,11 +1,113 @@
-import { sb } from './supabaseClient.js';
 import { bootAuth, updateAuthUI } from './authUi.js';
+import { showErr, showInfo, showOk } from './authMessages.js';
+
+const sb = window.getSupabase();
 
 const $ = (selector, root = document) => root.querySelector(selector);
-const PASSWORD_RESET_REDIRECT = 'https://cypruseye.com/auth/callback';
+const PASSWORD_RESET_REDIRECT = 'https://cypruseye.com/reset/';
 const VERIFICATION_REDIRECT = 'https://cypruseye.com/auth/';
-let toastTimer = null;
 let lastAuthEmail = '';
+const SUPABASE_RETURN_PARAMS = new Set([
+  'access_token',
+  'token',
+  'refresh_token',
+  'expires_in',
+  'expires_at',
+  'token_hash',
+  'type',
+  'code',
+  'error',
+  'error_description',
+  'provider_token',
+  'provider_refresh_token',
+  'state',
+]);
+
+function parseSupabaseReturnParams() {
+  if (typeof window === 'undefined') {
+    return null;
+  }
+
+  let currentUrl;
+  try {
+    currentUrl = new URL(window.location.href);
+  } catch (error) {
+    console.warn('Nie udało się odczytać adresu URL dla Supabase.', error);
+    return null;
+  }
+
+  const searchParams = new URLSearchParams(currentUrl.search);
+  const rawHash = currentUrl.hash?.startsWith('#') ? currentUrl.hash.slice(1) : currentUrl.hash;
+  let hashSource = rawHash || '';
+  let hashPrefix = '';
+
+  if (hashSource.startsWith('/?')) {
+    hashSource = hashSource.slice(2);
+  } else if (hashSource.startsWith('?')) {
+    hashSource = hashSource.slice(1);
+  } else {
+    const questionIndex = hashSource.indexOf('?');
+    if (questionIndex !== -1) {
+      hashPrefix = hashSource.slice(0, questionIndex);
+      hashSource = hashSource.slice(questionIndex + 1);
+    }
+  }
+
+  const hashParams = hashSource && hashSource.includes('=') ? new URLSearchParams(hashSource) : null;
+  const typeValue = (searchParams.get('type') || hashParams?.get('type') || '').toLowerCase();
+
+  return { currentUrl, searchParams, rawHash, hashParams, hashPrefix, typeValue };
+}
+
+function stripSupabaseReturnParams(parsed) {
+  if (!parsed) {
+    return false;
+  }
+
+  const { currentUrl, searchParams, hashParams, rawHash, hashPrefix } = parsed;
+  let updated = false;
+
+  SUPABASE_RETURN_PARAMS.forEach((key) => {
+    if (searchParams.has(key)) {
+      searchParams.delete(key);
+      updated = true;
+    }
+  });
+
+  let cleanedHash = '';
+  if (hashParams) {
+    SUPABASE_RETURN_PARAMS.forEach((key) => {
+      if (hashParams.has(key)) {
+        hashParams.delete(key);
+        updated = true;
+      }
+    });
+    cleanedHash = hashParams.toString();
+    if (hashPrefix) {
+      cleanedHash = cleanedHash ? `${hashPrefix}?${cleanedHash}` : hashPrefix;
+    }
+    if (!cleanedHash && rawHash) {
+      updated = true;
+    }
+  }
+
+  const cleanedSearch = searchParams.toString();
+  if (!updated) {
+    return false;
+  }
+
+  const searchPart = cleanedSearch ? `?${cleanedSearch}` : '';
+  const hashPart = cleanedHash ? `#${cleanedHash}` : '';
+  const newUrl = `${currentUrl.pathname}${searchPart}${hashPart}`;
+
+  try {
+    window.history.replaceState(window.history.state, document.title, newUrl);
+  } catch (error) {
+    console.warn('Nie udało się wyczyścić parametrów Supabase z adresu URL.', error);
+  }
+
+  return true;
+}
 
 function readGuestState() {
   try {
@@ -135,16 +237,6 @@ function resolvePostAuthRedirect(...preferred) {
   return window.location.pathname.startsWith('/account') ? '/account/' : '/';
 }
 
-function clearToast() {
-  const messageEl = $('#authMessage');
-  if (!messageEl) {
-    return;
-  }
-  messageEl.textContent = '';
-  messageEl.removeAttribute('data-tone');
-  messageEl.removeAttribute('aria-live');
-}
-
 function getResendVerificationElements() {
   return {
     container: $('#authResendVerification'),
@@ -180,29 +272,16 @@ function showResendVerification(email) {
   }
 }
 
-function showToast(msg, type = 'info') {
-  const messageEl = $('#authMessage');
-  if (!messageEl) {
-    return;
+
+async function requestPasswordReset(email) {
+  const normalized = email?.trim();
+  if (!normalized) {
+    throw new Error('Nieprawidłowy adres e-mail resetu hasła.');
   }
 
-  if (toastTimer) {
-    clearTimeout(toastTimer);
-    toastTimer = null;
-  }
-
-  if (!msg) {
-    clearToast();
-    return;
-  }
-
-  messageEl.textContent = msg;
-  messageEl.dataset.tone = type;
-  messageEl.setAttribute('aria-live', type === 'error' ? 'assertive' : 'polite');
-
-  toastTimer = window.setTimeout(() => {
-    clearToast();
-  }, 6000);
+  return sb.auth.resetPasswordForEmail(normalized, {
+    redirectTo: PASSWORD_RESET_REDIRECT,
+  });
 }
 
 async function withBusy(button, fn) {
@@ -240,35 +319,52 @@ function setFormBusy(form, busy) {
   });
 }
 
-function normalizeErrorMessage(message) {
+function friendlyErrorMessage(message) {
+  const fallback = 'Spróbuj ponownie później.';
   const map = {
     'Invalid login credentials': 'Błędny e-mail lub hasło.',
     'Email not confirmed': 'Potwierdź e-mail przed logowaniem.',
     'User already registered': 'Ten adres e-mail jest już zarejestrowany.',
+    'Invalid email': 'Podaj poprawny e-mail.',
+    'Reset password token has expired or is invalid': 'Link resetujący wygasł. Poproś o nowy.',
   };
-  if (message && map[message]) {
-    return map[message];
+
+  const raw = typeof message === 'string' ? message.trim() : '';
+  if (!raw) {
+    return fallback;
   }
-  if (message) {
-    return `Błąd: ${message}`;
+  if (map[raw]) {
+    return map[raw];
   }
-  return 'Wystąpił nieznany błąd.';
+
+  if (/https?:\/\//i.test(raw) || /stack/i.test(raw) || raw.includes('\n')) {
+    return fallback;
+  }
+
+  if (raw.length > 160) {
+    return `${raw.slice(0, 157)}…`;
+  }
+
+  return raw;
 }
 
 async function handleAuth(result, okMsg, redirectHint) {
   const { error } = result || {};
   if (error) {
-    showToast(normalizeErrorMessage(error.message || 'Nieznany błąd.'), 'error');
+    const message = friendlyErrorMessage(error.message || '');
+    showErr(`Nie udało się: ${message}`);
     return { success: false, error };
   }
 
   hideResendVerification();
-  showToast(okMsg, 'success');
+  showOk(okMsg);
   try {
     await refreshSessionAndProfile();
     updateAuthUI();
   } catch (refreshError) {
-    console.error('Nie udało się odświeżyć sesji po logowaniu.', refreshError);
+    const message = friendlyErrorMessage(refreshError?.message || 'Odświeżenie sesji po logowaniu.');
+    showErr(`Nie udało się: ${message}`);
+    console.warn('Nie udało się odświeżyć sesji po logowaniu.', refreshError);
   }
 
   try {
@@ -291,18 +387,23 @@ function parseRegisterPayload(form) {
   const firstName = form.firstName?.value?.trim() || '';
   const confirm = form.passwordConfirm?.value || '';
 
-  if (!email || !password) {
-    showToast('Podaj adres e-mail i hasło.', 'error');
+  if (!email) {
+    showErr('Podaj poprawny e-mail.');
+    return null;
+  }
+
+  if (!password) {
+    showErr('Podaj hasło.');
     return null;
   }
 
   if (!firstName) {
-    showToast('Podaj imię, aby utworzyć konto.', 'error');
+    showErr('Podaj imię, aby utworzyć konto.');
     return null;
   }
 
   if (confirm && confirm !== password) {
-    showToast('Hasła nie są identyczne.', 'error');
+    showErr('Hasła nie są identyczne.');
     return null;
   }
 
@@ -332,7 +433,9 @@ export async function refreshSessionAndProfile() {
     }
     session = data?.session ?? null;
   } catch (error) {
-    console.error('Nie udało się pobrać sesji Supabase.', error);
+    const message = friendlyErrorMessage(error?.message || 'Nie udało się pobrać sesji Supabase.');
+    showErr(`Nie udało się: ${message}`);
+    console.warn('Nie udało się pobrać sesji Supabase.', error);
   }
 
   const state = { session, guest, profile: null };
@@ -371,8 +474,13 @@ $('#form-login')?.addEventListener('submit', async (event) => {
 
   const email = form.email?.value?.trim() || '';
   const password = form.password?.value || '';
-  if (!email || !password) {
-    showToast('Podaj adres e-mail i hasło.', 'error');
+  if (!email) {
+    showErr('Podaj poprawny e-mail.');
+    return;
+  }
+
+  if (!password) {
+    showErr('Podaj hasło.');
     return;
   }
 
@@ -386,19 +494,20 @@ $('#form-login')?.addEventListener('submit', async (event) => {
 
   await withBusy(submitButton, async () => {
     setFormBusy(form, true);
-    showToast('Łączenie z logowaniem…', 'info');
+    showInfo('Łączenie z logowaniem…');
     try {
       const { data, error } = await sb.auth.signInWithPassword({ email, password });
       const outcome = await handleAuth(
         { data, error },
-        'Zalogowano pomyślnie.',
+        'Zalogowano.',
         submitButton?.dataset?.authRedirect || form.dataset?.authRedirect || '/account/',
       );
       if (!outcome?.success && error?.message === 'Email not confirmed') {
         showResendVerification(email);
       }
     } catch (error) {
-      showToast(normalizeErrorMessage(error.message || 'Nieznany błąd logowania.'), 'error');
+      const message = friendlyErrorMessage(error?.message || 'Nie udało się zalogować.');
+      showErr(`Nie udało się: ${message}`);
       if (error?.message === 'Email not confirmed') {
         showResendVerification(email);
       }
@@ -416,6 +525,16 @@ $('#form-register')?.addEventListener('submit', async (event) => {
     return;
   }
 
+  const emailField = form.email;
+  if (emailField instanceof HTMLInputElement) {
+    emailField.value = emailField.value.trim();
+  }
+
+  const firstNameField = form.firstName;
+  if (firstNameField instanceof HTMLInputElement) {
+    firstNameField.value = firstNameField.value.trim();
+  }
+
   const payload = parseRegisterPayload(form);
   if (!payload) {
     return;
@@ -429,25 +548,49 @@ $('#form-register')?.addEventListener('submit', async (event) => {
       ? event.submitter
       : form.querySelector('button[type="submit"]');
 
+  if (submitButton instanceof HTMLButtonElement && submitButton.disabled) {
+    return;
+  }
+
   await withBusy(submitButton, async () => {
     setFormBusy(form, true);
-    showToast('Tworzenie konta…', 'info');
+    showInfo('Tworzenie konta…');
     try {
       const { data, error } = await sb.auth.signUp({
         email: payload.email,
         password: payload.password,
-        options: { data: { name: payload.firstName } },
+        options: {
+          data: { name: payload.firstName?.trim() || '' },
+          emailRedirectTo: VERIFICATION_REDIRECT,
+        },
       });
-      const outcome = await handleAuth(
-        { data, error },
-        'Sprawdź e-mail i potwierdź konto.',
-        submitButton?.dataset?.authRedirect || form.dataset?.authRedirect || '/account/',
-      );
-      if (!outcome?.success && error?.message === 'Email not confirmed') {
-        showResendVerification(payload.email);
+      if (error) {
+        const message = friendlyErrorMessage(error.message);
+        showErr(`Nie udało się: ${message}`);
+        if (error.message === 'Email not confirmed') {
+          showResendVerification(payload.email);
+        }
+        return;
       }
+
+      if (data?.user) {
+        try {
+          await refreshSessionAndProfile();
+          updateAuthUI();
+        } catch (profileError) {
+          console.warn('Nie udało się odświeżyć stanu po rejestracji.', profileError);
+        }
+        try {
+          await bootAuth();
+        } catch (bootError) {
+          console.warn('Nie udało się ponownie zainicjalizować bootAuth po rejestracji.', bootError);
+        }
+      }
+
+      showOk('E-mail potwierdzający wysłany.');
     } catch (error) {
-      showToast(normalizeErrorMessage(error.message || 'Nieznany błąd rejestracji.'), 'error');
+      const message = friendlyErrorMessage(error?.message || 'Wystąpił błąd rejestracji.');
+      showErr(`Nie udało się: ${message}`);
       if (error?.message === 'Email not confirmed') {
         showResendVerification(payload.email);
       }
@@ -533,7 +676,7 @@ $('#form-reset-password')?.addEventListener('submit', async (event) => {
 
   const email = form.email?.value?.trim() || '';
   if (!email) {
-    showToast('Podaj adres e-mail, aby zresetować hasło.', 'error');
+    showErr('Podaj poprawny e-mail.');
     return;
   }
 
@@ -545,15 +688,14 @@ $('#form-reset-password')?.addEventListener('submit', async (event) => {
   await withBusy(submitButton, async () => {
     setFormBusy(form, true);
     try {
-      await sb.auth.resetPasswordForEmail(email, {
-        redirectTo: PASSWORD_RESET_REDIRECT,
-      });
-      showToast('Sprawdź skrzynkę e-mail i postępuj zgodnie z instrukcjami.', 'success');
+      await requestPasswordReset(email);
+      showOk('Sprawdź skrzynkę – link do resetu wysłany.');
       lastAuthEmail = email;
       const dialog = $('#resetPasswordDialog');
       closeResetDialog(dialog);
     } catch (error) {
-      showToast(normalizeErrorMessage(error.message || 'Nie udało się wysłać resetu hasła.'), 'error');
+      const message = friendlyErrorMessage(error?.message || 'Nie udało się wysłać resetu hasła.');
+      showErr(`Nie udało się: ${message}`);
     } finally {
       setFormBusy(form, false);
     }
@@ -567,20 +709,258 @@ $('#btn-resend-verification')?.addEventListener('click', async (event) => {
   const redirect =
     button instanceof HTMLButtonElement && button.dataset.redirect ? button.dataset.redirect : VERIFICATION_REDIRECT;
   if (!email) {
-    showToast('Podaj adres e-mail w formularzu logowania, aby wysłać link.', 'error');
+    showErr('Podaj poprawny e-mail.');
     return;
   }
 
   await withBusy(button instanceof HTMLButtonElement ? button : null, async () => {
     try {
       await sb.auth.resend({ type: 'signup', email, options: { emailRedirectTo: redirect } });
-      showToast('Nowy link potwierdzający został wysłany.', 'success');
+      showOk('E-mail potwierdzający wysłany.');
       hideResendVerification();
     } catch (error) {
-      showToast(normalizeErrorMessage(error.message || 'Nie udało się wysłać linku potwierdzającego.'), 'error');
+      const message = friendlyErrorMessage(error?.message || 'Nie udało się wysłać linku potwierdzającego.');
+      showErr(`Nie udało się: ${message}`);
     }
   });
 });
+
+function handleSupabaseVerificationReturn() {
+  const parsed = parseSupabaseReturnParams();
+  if (!parsed || parsed.typeValue !== 'signup') {
+    return;
+  }
+
+  showOk('E-mail potwierdzony. Możesz się zalogować.', 6500);
+  stripSupabaseReturnParams(parsed);
+}
+
+function handleSupabaseRecoveryReturn(onDetected) {
+  const parsed = parseSupabaseReturnParams();
+  if (!parsed || parsed.typeValue !== 'recovery') {
+    return;
+  }
+
+  if (typeof onDetected === 'function') {
+    try {
+      onDetected(parsed);
+    } catch (error) {
+      const message = friendlyErrorMessage(error?.message || 'Błąd podczas obsługi resetu Supabase.');
+      showErr(`Nie udało się: ${message}`);
+      console.warn('Błąd podczas obsługi resetu Supabase.', error);
+    }
+  }
+
+  stripSupabaseReturnParams(parsed);
+}
+
+function initResetPage() {
+  const form = document.getElementById('resetForm');
+  const messageEl = document.getElementById('resetMessage');
+
+  if (!(form instanceof HTMLFormElement) || !messageEl) {
+    handleSupabaseRecoveryReturn();
+    return;
+  }
+
+  const emailField = form.querySelector('input[name="email"]');
+  const passwordField = form.querySelector('input[name="newPassword"]');
+  const confirmField = form.querySelector('input[name="newPasswordConfirm"]');
+  const passwordSection = form.querySelector('[data-reset-section="password"]');
+  const submitButton = form.querySelector('button[type="submit"]');
+  const defaultSubmitLabel = submitButton?.textContent?.trim() || 'Wyślij link resetujący';
+  const recoverySubmitLabel = submitButton?.dataset?.resetLabel?.trim() || 'Ustaw nowe hasło';
+
+  let hasRecoverySession = false;
+
+  function setResetMessage(msg, tone = 'info') {
+    if (!messageEl) {
+      return;
+    }
+
+    if (!msg) {
+      messageEl.textContent = '';
+      messageEl.removeAttribute('data-tone');
+      messageEl.setAttribute('aria-live', 'polite');
+      return;
+    }
+
+    messageEl.textContent = msg;
+    if (tone) {
+      messageEl.dataset.tone = tone;
+    } else {
+      messageEl.removeAttribute('data-tone');
+    }
+    messageEl.setAttribute('aria-live', tone === 'error' ? 'assertive' : 'polite');
+  }
+
+  function togglePasswordSection(visible) {
+    if (!passwordSection) {
+      return;
+    }
+
+    passwordSection.hidden = !visible;
+    passwordSection.querySelectorAll('input').forEach((input) => {
+      if (input instanceof HTMLInputElement) {
+        input.disabled = !visible;
+        if (!visible) {
+          input.value = '';
+        }
+      }
+    });
+  }
+
+  function applyResetSession(session, { announce = false } = {}) {
+    const user = session?.user || null;
+    hasRecoverySession = Boolean(user);
+
+    togglePasswordSection(hasRecoverySession);
+
+    if (submitButton instanceof HTMLButtonElement) {
+      submitButton.textContent = hasRecoverySession ? recoverySubmitLabel : defaultSubmitLabel;
+    }
+
+    if (emailField instanceof HTMLInputElement) {
+      if (user?.email) {
+        emailField.value = user.email;
+      }
+      if (hasRecoverySession) {
+        emailField.setAttribute('readonly', 'true');
+      } else {
+        emailField.removeAttribute('readonly');
+      }
+    }
+
+    if (announce && hasRecoverySession && !messageEl.textContent) {
+      setResetMessage('Link potwierdzony. Ustaw nowe hasło.', 'info');
+    }
+  }
+
+  async function syncResetSession({ announce = false } = {}) {
+    let session = null;
+    try {
+      const { data, error } = await sb.auth.getSession();
+      if (error) {
+        throw error;
+      }
+      session = data?.session ?? null;
+    } catch (error) {
+      console.warn('Nie udało się pobrać sesji Supabase dla resetu hasła.', error);
+    }
+
+    applyResetSession(session, { announce });
+    return session;
+  }
+
+  handleSupabaseRecoveryReturn(() => {
+    if (!messageEl.textContent) {
+      setResetMessage('Link potwierdzony. Ustaw nowe hasło.', 'info');
+    }
+  });
+
+  void syncResetSession({ announce: true });
+
+  sb.auth.onAuthStateChange((event, session) => {
+    if (event === 'PASSWORD_RECOVERY' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+      applyResetSession(session, { announce: event === 'PASSWORD_RECOVERY' });
+    }
+  });
+
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+
+    if (emailField instanceof HTMLInputElement) {
+      emailField.value = emailField.value.trim();
+    }
+
+    const submitter =
+      event.submitter instanceof HTMLButtonElement
+        ? event.submitter
+        : submitButton instanceof HTMLButtonElement
+        ? submitButton
+        : null;
+
+    const email = emailField instanceof HTMLInputElement ? emailField.value.trim() : '';
+    const newPassword = passwordField instanceof HTMLInputElement ? passwordField.value : '';
+    const confirmPassword = confirmField instanceof HTMLInputElement ? confirmField.value : '';
+    const recoveryActive = hasRecoverySession;
+
+    await withBusy(submitter, async () => {
+      setFormBusy(form, true);
+      try {
+        if (recoveryActive) {
+          if (!newPassword || newPassword.length < 6) {
+            setResetMessage('Podaj nowe hasło (min. 6 znaków).', 'error');
+            return;
+          }
+
+          if (newPassword !== confirmPassword) {
+            setResetMessage('Hasła nie są identyczne.', 'error');
+            return;
+          }
+
+          setResetMessage('Aktualizowanie hasła…', 'info');
+          const {
+            data: { session } = { session: null },
+            error,
+          } = await sb.auth.updateUser({ password: newPassword });
+
+          if (error) {
+            setResetMessage(friendlyErrorMessage(error.message || 'Nie udało się zaktualizować hasła.'), 'error');
+            return;
+          }
+
+          setResetMessage('Hasło zostało zaktualizowane. Możesz się zalogować.', 'success');
+
+          if (passwordField instanceof HTMLInputElement) {
+            passwordField.value = '';
+          }
+          if (confirmField instanceof HTMLInputElement) {
+            confirmField.value = '';
+          }
+
+          try {
+            await refreshSessionAndProfile();
+            updateAuthUI();
+          } catch (refreshError) {
+            console.warn('Nie udało się odświeżyć stanu po zmianie hasła.', refreshError);
+          }
+
+          await syncResetSession();
+          return;
+        }
+
+        if (!email) {
+          setResetMessage('Podaj adres e-mail, aby zresetować hasło.', 'error');
+          return;
+        }
+
+        setResetMessage('Wysyłanie linku resetującego…', 'info');
+        try {
+          await requestPasswordReset(email);
+          lastAuthEmail = email;
+          setResetMessage('Sprawdź skrzynkę e-mail i postępuj zgodnie z instrukcjami.', 'success');
+        } catch (error) {
+          setResetMessage(friendlyErrorMessage(error.message || 'Nie udało się wysłać resetu hasła.'), 'error');
+        }
+      } finally {
+        setFormBusy(form, false);
+      }
+    });
+  });
+}
+
+function handleAuthDomReady() {
+  handleSupabaseVerificationReturn();
+  initResetPage();
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', handleAuthDomReady, { once: true });
+} else {
+  handleAuthDomReady();
+}
 
 setState({ status: 'loading', guest: readGuestState(), session: null });
 refreshSessionAndProfile()
@@ -588,7 +968,9 @@ refreshSessionAndProfile()
     updateAuthUI();
   })
   .catch((error) => {
-    console.error('Błąd podczas inicjalizacji stanu logowania.', error);
+    const message = friendlyErrorMessage(error?.message || 'Błąd podczas inicjalizacji stanu logowania.');
+    showErr(`Nie udało się: ${message}`);
+    console.warn('Błąd podczas inicjalizacji stanu logowania.', error);
     updateAuthUI();
   });
 
