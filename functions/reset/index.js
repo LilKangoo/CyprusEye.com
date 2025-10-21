@@ -1,4 +1,5 @@
+import { serveStatic } from '../_utils/serveStatic.js';
+
 export async function onRequest(context) {
-  const url = new URL('/reset/index.html', context.request.url);
-  return context.env.ASSETS.fetch(new Request(url, context.request));
+  return serveStatic(context, '/reset/index.html');
 }
