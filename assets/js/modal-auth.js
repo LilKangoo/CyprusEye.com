@@ -223,6 +223,16 @@
 
   window.__authModalController = controller;
 
+  try {
+    document.dispatchEvent(
+      new CustomEvent('ce-auth:modal-ready', {
+        detail: { ready: true },
+      }),
+    );
+  } catch (error) {
+    console.warn('[auth-modal] Nie udało się powiadomić o gotowości modalu.', error);
+  }
+
   openers.forEach((opener) => {
     opener.addEventListener('click', (event) => {
       event.preventDefault();
@@ -247,6 +257,13 @@
       const tabId = button.dataset.authTab;
       controller.setActiveTab(tabId, { focus: true });
     });
+  });
+
+  document.addEventListener('ce-auth:post-login', () => {
+    if (!isOpen()) {
+      return;
+    }
+    closeInternally({ restoreFocus: true });
   });
 
   setActiveTab(currentTab);
