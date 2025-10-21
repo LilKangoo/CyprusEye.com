@@ -3,6 +3,13 @@ import { setAria, showErr } from './authMessages.js';
 const GUEST_STORAGE_KEY = 'ce_guest';
 
 const sb = window.getSupabase();
+const ceAuth = typeof window !== 'undefined' && window.CE_AUTH ? window.CE_AUTH : null;
+
+if (ceAuth?.setSupabaseClient) {
+  ceAuth.setSupabaseClient(sb || null);
+} else if (ceAuth) {
+  ceAuth.supabase = sb || null;
+}
 
 let booting = false;
 let booted = false;
@@ -128,11 +135,11 @@ function showAuthSpinner(on) {
   }
 }
 
-function syncSession(session) {
+function syncSession(session, detail = {}) {
   const previous = sessionSyncPromise || Promise.resolve();
   const next = previous
     .catch(() => {})
-    .then(() => applySession(session || null));
+    .then(() => applySession(session || null, detail));
 
   sessionSyncPromise = next.finally(() => {
     if (sessionSyncPromise === next) {
@@ -143,7 +150,7 @@ function syncSession(session) {
   return next;
 }
 
-async function applySession(session) {
+async function applySession(session, detail = {}) {
   const state = (window.CE_STATE = window.CE_STATE || {});
   state.session = session || null;
   state.profile = null;
@@ -168,12 +175,13 @@ async function applySession(session) {
   }
 
   updateAuthUI();
+  ceAuth?.updateSession?.(session, detail);
   return state.session;
 }
 
-async function handleAuthStateChange(sessionChange) {
+async function handleAuthStateChange(sessionChange, detail = {}) {
   try {
-    await syncSession(sessionChange || null);
+    await syncSession(sessionChange || null, detail);
   } catch (error) {
     console.warn('Nie udało się zaktualizować stanu logowania po zmianie.', error);
   }
@@ -184,8 +192,8 @@ function ensureAuthSubscription() {
     return;
   }
   try {
-    const { data } = sb.auth.onAuthStateChange((_event, sessionChange) => {
-      handleAuthStateChange(sessionChange);
+    const { data } = sb.auth.onAuthStateChange((event, sessionChange) => {
+      handleAuthStateChange(sessionChange, { reason: 'subscription', event });
     });
     authSubscription = data?.subscription || null;
   } catch (error) {
@@ -202,6 +210,7 @@ async function loadAuthSession() {
     state.authError = new Error('OFFLINE');
     showErr('Nie udało się: Brak internetu. Spróbuj ponownie.');
     updateAuthUI();
+    ceAuth?.updateSession?.(null, { reason: 'load-auth-session', status: 'offline' });
     return { session: null, shouldReset: true };
   }
 
@@ -236,7 +245,7 @@ async function loadAuthSession() {
   });
 
   const session = await withTimeout(Promise.race([sessionPromise, onceAuthEvent]));
-  await syncSession(session);
+  await syncSession(session, { reason: 'load-auth-session', status: 'ok' });
   return { session, shouldReset: false };
 }
 
