@@ -860,6 +860,8 @@
   "cruise.form.message": "Wiadomość",
   "cruise.form.submit": "Dodaj mnie do listy",
   "cruise.footer": "Oferujemy rejsy o zachodzie słońca, snorkeling w Blue Lagoon, wyprawy rodzinne i ekskluzywne eventy na morzu. Skontaktujemy się z Tobą, gdy tylko otworzymy kalendarz.",
+  "notifications.task.completed": "🎯 Ukończyłeś zadanie „{{title}}” (+{{xp}} XP).",
+  "notifications.level.up": "🏆 Nowy poziom! Osiągnąłeś poziom {{level}}.",
   "auth.title": "Dołącz do przygody",
   "auth.intro": "Zaloguj się, utwórz konto lub graj jako gość.",
   "auth.confirmation.title": "Zalogowano pomyślnie!",

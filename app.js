@@ -3206,6 +3206,18 @@ function showLevelUpMessage(level) {
     variant: 'success',
     duration: 6500,
   });
+
+  if (currentUserKey) {
+    const notificationMessage = translate(
+      'notifications.level.up',
+      '🏆 Nowy poziom! Osiągnąłeś poziom {{level}}.',
+      { level },
+    );
+    addNotificationForUser(currentUserKey, {
+      type: 'level-up',
+      message: notificationMessage,
+    });
+  }
 }
 
 function getAccountStatsSnapshot() {
@@ -7529,6 +7541,19 @@ function completeTask(task) {
       xp: task.xp,
     });
     setLevelStatus(message, 6000);
+  }
+
+  if (currentUserKey) {
+    const title = getTaskTitle(task);
+    const notificationMessage = translate(
+      'notifications.task.completed',
+      '🎯 Ukończyłeś zadanie „{{title}}” (+{{xp}} XP).',
+      { title, xp: task.xp },
+    );
+    addNotificationForUser(currentUserKey, {
+      type: 'task-completed',
+      message: notificationMessage,
+    });
   }
 }
 

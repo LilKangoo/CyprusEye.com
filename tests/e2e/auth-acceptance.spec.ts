@@ -105,9 +105,9 @@ test('login updates UI, avoids 405 responses, and unlocks account dashboard', as
     page.click('#form-login button[type="submit"]'),
   ]);
 
-  const userBadge = page.locator('[data-auth="user-only"]').first();
-  await expect(userBadge).toBeVisible();
-  await expect(userBadge).toContainText('Zalogowany');
+  const userGreeting = page.locator('#userGreeting');
+  await expect(userGreeting).toBeVisible();
+  await expect(userGreeting).toContainText('Zalogowano');
   await expect(page.locator('[data-auth="login"]').first()).toBeHidden();
   await expect(page.locator('[data-auth="logout"]').first()).toBeVisible();
   expect(disallowedResponses).toEqual([]);

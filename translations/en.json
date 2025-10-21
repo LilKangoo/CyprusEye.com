@@ -1495,5 +1495,7 @@
   "cruise.form.email": "Email address*",
   "cruise.form.message": "Message",
   "cruise.form.submit": "Add me to the list",
-  "cruise.footer": "We offer sunset cruises, Blue Lagoon snorkelling, family outings, and exclusive sea events. We'll reach out as soon as the calendar opens."
+  "cruise.footer": "We offer sunset cruises, Blue Lagoon snorkelling, family outings, and exclusive sea events. We'll reach out as soon as the calendar opens.",
+  "notifications.task.completed": "🎯 Task completed: “{{title}}” (+{{xp}} XP).",
+  "notifications.level.up": "🏆 Level up! You reached level {{level}}."
 }
