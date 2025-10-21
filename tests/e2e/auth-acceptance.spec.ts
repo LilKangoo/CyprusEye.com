@@ -30,6 +30,16 @@ test('guest mode toggles UI and persists across reloads', async ({ page }) => {
   await expect(page.locator('[data-auth="login"]').first()).toBeVisible();
   const guestState = await page.evaluate(() => (window as any).CE_STATE?.guest?.active ?? false);
   expect(guestState).toBe(true);
+
+  await page.goto('/packing.html');
+  const packingPanel = page.locator('[data-gated="true"].packing-panel');
+  await expect(packingPanel).toBeVisible();
+  await expect(page.locator('#packingChecklist')).toBeVisible();
+
+  await page.goto('/tasks.html');
+  const tasksPanel = page.locator('[data-gated="true"].tasks-panel');
+  await expect(tasksPanel).toBeVisible();
+  await expect(page.locator('#tasksView')).toBeVisible();
 });
 
 test('registration uses Supabase client without leaking credentials in URL', async ({ page }) => {
