@@ -70,14 +70,43 @@
           <span class="auth-badge" data-auth="anon-only">Nie zalogowano</span>
         </div>
         <div data-auth="spinner" class="auth-spinner is-visible">Łączenie z logowaniem…</div>
-        <p id="authAccountCta" class="auth-page__cta" hidden>
-          🎉 Jesteś zalogowany jako <span id="authAccountName"></span>.
-          <a href="/account/">Przejdź do panelu gracza</a>
-        </p>
       </header>
       <main class="auth-page__content" aria-labelledby="authTitle">
-        <div role="presentation">
-          <div class="auth-modal__content">
+        <section class="auth-confirmation" data-auth="user-only" data-auth-confirmation hidden>
+          <div class="auth-confirmation__badge" aria-hidden="true">✅</div>
+          <h2 class="auth-confirmation__title" data-i18n="auth.confirmation.title">Zalogowano pomyślnie!</h2>
+          <p class="auth-confirmation__user">
+            <span data-i18n="auth.confirmation.userLabel">Zalogowany jako</span>
+            <strong data-auth="user-name"></strong>
+          </p>
+          <p class="auth-confirmation__message" data-i18n="auth.confirmation.info">
+            Możesz teraz korzystać z wszystkich funkcji WakacjeCypr Quest.
+          </p>
+          <div class="auth-confirmation__actions">
+            <button
+              type="button"
+              class="btn btn--primary"
+              data-auth-confirmation-link
+              data-auth-redirect="/"
+              data-i18n="auth.confirmation.cta"
+            >
+              Kontynuuj przygodę
+            </button>
+            <a
+              class="ghost auth-confirmation__secondary"
+              href="/account/"
+              data-auth-confirmation-link
+              data-auth-redirect="/account/"
+              data-auth-redirect-mode="static"
+              data-i18n="auth.confirmation.account"
+            >
+              Przejdź do panelu gracza
+            </a>
+          </div>
+        </section>
+        <div data-auth="login">
+          <div role="presentation">
+            <div class="auth-modal__content">
             <div class="auth-modal__tabs" role="tablist">
               <button
                 type="button"
@@ -190,6 +219,7 @@
                 class="auth-modal__panel"
                 role="tabpanel"
                 aria-labelledby="authTabRegister"
+                data-auth="login"
                 data-auth-panel="register"
                 hidden
               >
@@ -266,6 +296,7 @@
                 class="auth-modal__panel"
                 role="tabpanel"
                 aria-labelledby="authTabGuest"
+                data-auth="login"
                 data-auth-panel="guest"
                 hidden
               >
@@ -303,6 +334,7 @@
               </form>
             </dialog>
           </div>
+        </div>
         </div>
       </main>
     </div>

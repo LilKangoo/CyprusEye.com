@@ -158,6 +158,151 @@ function toggleVisibility(element, visible) {
   }
 }
 
+const AUTH_CONFIRMATION_TEMPLATE = `
+  <div class="auth-confirmation__badge" aria-hidden="true">✅</div>
+  <h2 class="auth-confirmation__title" data-i18n="auth.confirmation.title">Zalogowano pomyślnie!</h2>
+  <p class="auth-confirmation__user">
+    <span data-i18n="auth.confirmation.userLabel">Zalogowany jako</span>
+    <strong data-auth="user-name"></strong>
+  </p>
+  <p class="auth-confirmation__message" data-i18n="auth.confirmation.info">
+    Możesz teraz korzystać z wszystkich funkcji WakacjeCypr Quest.
+  </p>
+  <div class="auth-confirmation__actions">
+    <button
+      type="button"
+      class="btn btn--primary"
+      data-auth-confirmation-link
+      data-auth-redirect="/"
+      data-i18n="auth.confirmation.cta"
+    >
+      Kontynuuj przygodę
+    </button>
+    <a
+      class="ghost auth-confirmation__secondary"
+      href="/account/"
+      data-auth-confirmation-link
+      data-auth-redirect="/account/"
+      data-auth-redirect-mode="static"
+      data-i18n="auth.confirmation.account"
+    >
+      Przejdź do panelu gracza
+    </a>
+  </div>
+`;
+
+function applyAuthConfirmationTranslations(element) {
+  const i18n = window.appI18n;
+  const language = i18n?.language;
+  if (!i18n || typeof i18n.setLanguage !== 'function' || !language) {
+    return;
+  }
+  try {
+    i18n.setLanguage(language, { persist: false, updateUrl: false });
+  } catch (error) {
+    console.warn('[auth-ui] Nie udało się odświeżyć tłumaczeń sekcji potwierdzenia.', error);
+  }
+}
+
+function createAuthConfirmationElement(doc = document) {
+  const section = doc.createElement('section');
+  section.className = 'auth-confirmation';
+  section.dataset.authConfirmation = 'true';
+  section.dataset.auth = 'user-only';
+  section.setAttribute('hidden', '');
+  section.innerHTML = AUTH_CONFIRMATION_TEMPLATE.trim();
+  return section;
+}
+
+function ensureAuthConfirmation(root) {
+  if (!(root instanceof HTMLElement)) {
+    return null;
+  }
+  let confirmation = root.querySelector('[data-auth-confirmation]');
+  if (!confirmation) {
+    confirmation = createAuthConfirmationElement(root.ownerDocument || document);
+    root.prepend(confirmation);
+    applyAuthConfirmationTranslations(confirmation);
+  }
+  return confirmation;
+}
+
+function syncConfirmationLink(element, state, fallback = '/') {
+  if (!(element instanceof HTMLElement)) {
+    return fallback;
+  }
+  const dataset = element.dataset || {};
+  if (!dataset.authRedirectBase) {
+    const datasetTarget = typeof dataset.authRedirect === 'string' ? dataset.authRedirect.trim() : '';
+    const hrefTarget =
+      element instanceof HTMLAnchorElement ? (element.getAttribute('href') || '').trim() : '';
+    dataset.authRedirectBase = datasetTarget || hrefTarget || fallback;
+  }
+  const baseTarget = dataset.authRedirectBase || fallback;
+  const mode = dataset.authRedirectMode || '';
+  const stateTarget =
+    typeof state.postAuthRedirect === 'string' && state.postAuthRedirect.trim()
+      ? state.postAuthRedirect.trim()
+      : '';
+  const resolved = mode === 'static' ? baseTarget : stateTarget || baseTarget || fallback;
+  dataset.authRedirectResolved = resolved;
+  if (element instanceof HTMLAnchorElement) {
+    element.setAttribute('href', resolved);
+  } else {
+    dataset.authRedirect = resolved;
+  }
+  return resolved;
+}
+
+function getResolvedConfirmationTarget(element, state) {
+  const target = syncConfirmationLink(element, state, '/');
+  return target && typeof target === 'string' ? target : '/';
+}
+
+function handleConfirmationClick(event) {
+  if (event.defaultPrevented) {
+    return;
+  }
+  const trigger =
+    event.target instanceof Element
+      ? event.target.closest('[data-auth-confirmation-link]')
+      : null;
+  if (!(trigger instanceof HTMLElement)) {
+    return;
+  }
+
+  const state = window.CE_STATE || {};
+  const redirectTarget = getResolvedConfirmationTarget(trigger, state);
+
+  if (trigger instanceof HTMLAnchorElement) {
+    event.preventDefault();
+  }
+
+  const controller = window.__authModalController;
+  const currentPath = window.location.pathname || '/';
+
+  if (controller && typeof controller.isOpen === 'function' && controller.isOpen()) {
+    try {
+      controller.close({ restoreFocus: true });
+    } catch (error) {
+      console.warn('[auth-ui] Nie udało się zamknąć okna logowania po potwierdzeniu.', error);
+    }
+    if (!redirectTarget || redirectTarget === currentPath) {
+      return;
+    }
+  }
+
+  if (!redirectTarget || redirectTarget === currentPath) {
+    return;
+  }
+
+  try {
+    window.location.assign(redirectTarget);
+  } catch (error) {
+    console.warn('[auth-ui] Nie udało się przejść do strony po zalogowaniu.', error);
+  }
+}
+
 function getDisplayNameFromState(state) {
   if (!state) {
     return '';
@@ -373,6 +518,22 @@ export function updateAuthUI() {
 
   setDocumentAuthState(documentState);
 
+  if (!isLogged && state.postAuthRedirect) {
+    delete state.postAuthRedirect;
+  }
+
+  document.querySelectorAll('[data-auth-view-root]').forEach((root) => {
+    if (!(root instanceof HTMLElement)) {
+      return;
+    }
+    ensureAuthConfirmation(root);
+    if (isLogged) {
+      root.classList.add('auth-modal__content--signed-in');
+    } else {
+      root.classList.remove('auth-modal__content--signed-in');
+    }
+  });
+
   const updateGroupVisibility = (selector, visible) => {
     document.querySelectorAll(selector).forEach((element) => {
       toggleVisibility(element, visible);
@@ -420,6 +581,10 @@ export function updateAuthUI() {
     if (shouldShow) {
       element.textContent = 'Grasz jako gość — postęp zapisany lokalnie na tym urządzeniu.';
     }
+  });
+
+  document.querySelectorAll('[data-auth-confirmation-link]').forEach((element) => {
+    syncConfirmationLink(element, state, '/');
   });
 }
 
@@ -554,6 +719,21 @@ function onReady(callback) {
 
 onReady(() => {
   setupAuthTabs();
+});
+
+document.addEventListener('click', handleConfirmationClick);
+
+document.addEventListener('ce-auth:post-login', () => {
+  window.setTimeout(() => {
+    const primary = document.querySelector('[data-auth-confirmation-link]');
+    if (primary instanceof HTMLElement && typeof primary.focus === 'function') {
+      try {
+        primary.focus({ preventScroll: false });
+      } catch (error) {
+        // ignore focus errors
+      }
+    }
+  }, 0);
 });
 
 document.querySelectorAll('[data-auth=logout]').forEach((el) => {

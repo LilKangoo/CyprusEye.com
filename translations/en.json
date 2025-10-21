@@ -523,6 +523,11 @@
   "auth.title": "Sign in or create an account",
   "auth.subtitle": "Save your stats and continue adventures on any device.",
   "auth.intro": "Sign in, create an account, or continue as a guest.",
+  "auth.confirmation.title": "You're signed in!",
+  "auth.confirmation.userLabel": "Signed in as",
+  "auth.confirmation.info": "You're ready to enjoy every feature of WakacjeCypr Quest.",
+  "auth.confirmation.cta": "Continue your adventure",
+  "auth.confirmation.account": "Open the player dashboard",
   "auth.login.hint": "Use the form below to sign in or create an account.",
   "auth.close": {
     "text": "✕",

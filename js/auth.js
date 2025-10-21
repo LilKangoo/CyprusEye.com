@@ -374,11 +374,20 @@ async function handleAuth(result, okMsg, redirectHint) {
   }
 
   const redirectTarget = resolvePostAuthRedirect(redirectHint);
-  window.setTimeout(() => {
-    window.location.assign(redirectTarget);
-  }, 400);
+  const state = (window.CE_STATE = window.CE_STATE || {});
+  state.postAuthRedirect = redirectTarget;
 
-  return { success: true, data: result?.data ?? null };
+  try {
+    document.dispatchEvent(
+      new CustomEvent('ce-auth:post-login', {
+        detail: { redirectTarget },
+      }),
+    );
+  } catch (dispatchError) {
+    console.warn('Nie udało się powiadomić o zakończeniu logowania.', dispatchError);
+  }
+
+  return { success: true, data: result?.data ?? null, redirectTarget };
 }
 
 function parseRegisterPayload(form) {
