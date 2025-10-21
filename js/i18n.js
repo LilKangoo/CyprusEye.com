@@ -4,8 +4,8 @@
   const DEFAULT_LANGUAGE = 'pl';
   const STORAGE_KEY = 'ce_lang';
   const SUPPORTED_LANGUAGES = {
-    en: { label: '🇬🇧 English', dir: 'ltr' },
-    pl: { label: '🇵🇱 Polski', dir: 'ltr' },
+    en: { label: 'English', shortLabel: 'EN', flag: '🇬🇧', dir: 'ltr' },
+    pl: { label: 'Polski', shortLabel: 'PL', flag: '🇵🇱', dir: 'ltr' },
   };
 
   const translationCache = new Map();
@@ -268,27 +268,52 @@
     });
   }
 
-  function handleLanguageChange(event) {
-    const nextLanguage = event.target.value;
-    if (!Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, nextLanguage)) {
-      return;
-    }
-    if (nextLanguage === appI18n.language) {
-      return;
-    }
-
-    setLanguage(nextLanguage);
-  }
-
   function updateSwitcherValue(language) {
-    const select = document.getElementById('languageSwitcherSelect');
-    if (select && select.value !== language) {
-      select.value = language;
+    const container = document.querySelector('.language-switcher');
+    if (!container) {
+      return;
+    }
+
+    const info = SUPPORTED_LANGUAGES[language] || SUPPORTED_LANGUAGES[DEFAULT_LANGUAGE];
+
+    const toggle = container.querySelector('.language-switcher-toggle');
+    if (toggle) {
+      toggle.setAttribute('data-language', language);
+      const flag = toggle.querySelector('.language-switcher-toggle-flag');
+      const text = toggle.querySelector('.language-switcher-toggle-text');
+      if (flag) {
+        flag.textContent = info.flag || '';
+      }
+      if (text) {
+        text.textContent = info.shortLabel || language.toUpperCase();
+      }
+    }
+
+    const menu = container.querySelector('.language-switcher-menu');
+    const options = container.querySelectorAll('.language-switcher-option');
+    let activeId = null;
+
+    options.forEach((option) => {
+      const isActive = option.dataset.language === language;
+      option.classList.toggle('is-active', isActive);
+      option.setAttribute('aria-selected', isActive ? 'true' : 'false');
+      if (isActive) {
+        activeId = option.id || null;
+      }
+    });
+
+    if (menu) {
+      if (activeId) {
+        menu.setAttribute('aria-activedescendant', activeId);
+      } else {
+        menu.removeAttribute('aria-activedescendant');
+      }
     }
   }
 
   function ensureLanguageSwitcher(language) {
-    if (document.getElementById('languageSwitcherSelect')) {
+    const existing = document.querySelector('.language-switcher');
+    if (existing) {
       updateSwitcherValue(language);
       return;
     }
@@ -296,33 +321,185 @@
     const container = document.createElement('div');
     container.className = 'language-switcher';
 
-    const label = document.createElement('label');
-    label.className = 'language-switcher-label';
-    label.htmlFor = 'languageSwitcherSelect';
-    label.dataset.i18n = 'language.switcher.label';
-    label.textContent = 'Language';
+    const toggle = document.createElement('button');
+    toggle.type = 'button';
+    toggle.id = 'languageSwitcherToggle';
+    toggle.className = 'language-switcher-toggle';
+    toggle.dataset.testid = 'language-switcher-toggle';
+    toggle.setAttribute('aria-haspopup', 'listbox');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.setAttribute('aria-label', 'Language selector');
+    toggle.dataset.i18nAttrs = 'aria-label:language.switcher.label';
 
-    const select = document.createElement('select');
-    select.id = 'languageSwitcherSelect';
-    select.className = 'language-switcher-select';
-    select.setAttribute('aria-label', 'Language selector');
-    select.dataset.i18nAttrs = 'aria-label:language.switcher.label';
+    const toggleFlag = document.createElement('span');
+    toggleFlag.className = 'language-switcher-toggle-flag';
+    toggle.append(toggleFlag);
+
+    const toggleText = document.createElement('span');
+    toggleText.className = 'language-switcher-toggle-text';
+    toggle.append(toggleText);
+
+    const menu = document.createElement('ul');
+    menu.className = 'language-switcher-menu';
+    menu.id = 'languageSwitcherMenu';
+    menu.setAttribute('role', 'listbox');
+    menu.setAttribute('aria-label', 'Language selector');
+    menu.dataset.i18nAttrs = 'aria-label:language.switcher.label';
+    menu.setAttribute('aria-hidden', 'true');
+
+    toggle.setAttribute('aria-controls', menu.id);
+
+    const setOptionsTabIndex = (value) => {
+      menu.querySelectorAll('.language-switcher-option').forEach((option) => {
+        option.tabIndex = value;
+      });
+    };
+
+    function handleDocumentPointerDown(event) {
+      if (!container.contains(event.target)) {
+        closeMenu();
+      }
+    }
+
+    function handleDocumentKeydown(event) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeMenu({ focusToggle: true });
+      }
+    }
+
+    function handleMenuKeydown(event) {
+      const options = Array.from(menu.querySelectorAll('.language-switcher-option'));
+      if (!options.length) {
+        return;
+      }
+
+      const currentIndex = options.indexOf(document.activeElement);
+      if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        const nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % options.length;
+        options[nextIndex].focus();
+      } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        const prevIndex = currentIndex === -1 ? options.length - 1 : (currentIndex - 1 + options.length) % options.length;
+        options[prevIndex].focus();
+      } else if (event.key === 'Home') {
+        event.preventDefault();
+        options[0].focus();
+      } else if (event.key === 'End') {
+        event.preventDefault();
+        options[options.length - 1].focus();
+      } else if (event.key === 'Escape') {
+        event.preventDefault();
+        closeMenu({ focusToggle: true });
+      } else if (event.key === 'Tab') {
+        closeMenu();
+      }
+    }
+
+    function openMenu() {
+      if (container.classList.contains('is-open')) {
+        return;
+      }
+
+      container.classList.add('is-open');
+      toggle.setAttribute('aria-expanded', 'true');
+      menu.setAttribute('aria-hidden', 'false');
+      setOptionsTabIndex(0);
+
+      const activeOption =
+        menu.querySelector('.language-switcher-option.is-active') ||
+        menu.querySelector('.language-switcher-option');
+
+      window.requestAnimationFrame(() => {
+        if (activeOption) {
+          activeOption.focus();
+        }
+      });
+
+      document.addEventListener('pointerdown', handleDocumentPointerDown, true);
+      document.addEventListener('keydown', handleDocumentKeydown);
+    }
+
+    function closeMenu({ focusToggle = false } = {}) {
+      if (!container.classList.contains('is-open')) {
+        return;
+      }
+
+      container.classList.remove('is-open');
+      toggle.setAttribute('aria-expanded', 'false');
+      menu.setAttribute('aria-hidden', 'true');
+      setOptionsTabIndex(-1);
+
+      document.removeEventListener('pointerdown', handleDocumentPointerDown, true);
+      document.removeEventListener('keydown', handleDocumentKeydown);
+
+      if (focusToggle) {
+        toggle.focus();
+      }
+    }
 
     Object.keys(SUPPORTED_LANGUAGES).forEach((code) => {
       const info = SUPPORTED_LANGUAGES[code];
-      const option = document.createElement('option');
-      option.value = code;
-      option.dataset.i18n = `language.option.${code}`;
-      option.textContent = `${info.flag || ''} ${info.label}`.trim();
-      select.append(option);
+      const item = document.createElement('li');
+      item.className = 'language-switcher-menu-item';
+
+      const option = document.createElement('button');
+      option.type = 'button';
+      option.className = 'language-switcher-option';
+      option.id = `languageSwitcherOption-${code}`;
+      option.dataset.language = code;
+      option.dataset.testid = `language-option-${code}`;
+      option.setAttribute('role', 'option');
+      option.setAttribute('aria-selected', code === language ? 'true' : 'false');
+      option.tabIndex = -1;
+
+      const flag = document.createElement('span');
+      flag.className = 'language-switcher-option-flag';
+      flag.textContent = info.flag || '';
+      option.append(flag);
+
+      const label = document.createElement('span');
+      label.className = 'language-switcher-option-label';
+      label.dataset.i18n = `language.option.${code}`;
+      label.textContent = info.label;
+      option.append(label);
+
+      option.addEventListener('click', () => {
+        closeMenu();
+        if (code !== appI18n.language) {
+          setLanguage(code);
+        }
+      });
+
+      item.append(option);
+      menu.append(item);
     });
 
-    select.addEventListener('change', handleLanguageChange);
+    toggle.addEventListener('click', () => {
+      if (container.classList.contains('is-open')) {
+        closeMenu();
+      } else {
+        openMenu();
+      }
+    });
 
-    container.append(label, select);
+    toggle.addEventListener('keydown', (event) => {
+      if (event.key === 'ArrowDown' || event.key === 'Enter' || event.key === ' ') {
+        if (!container.classList.contains('is-open')) {
+          event.preventDefault();
+          openMenu();
+        }
+      }
+    });
+
+    menu.addEventListener('keydown', handleMenuKeydown);
+
+    container.append(toggle, menu);
     document.body.append(container);
 
     updateSwitcherValue(language);
+    setOptionsTabIndex(-1);
   }
 
   function setLanguage(language, { persist = true, updateUrl = true } = {}) {
