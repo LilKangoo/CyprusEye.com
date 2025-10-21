@@ -169,15 +169,16 @@ const AUTH_CONFIRMATION_TEMPLATE = `
     Możesz teraz korzystać z wszystkich funkcji WakacjeCypr Quest.
   </p>
   <div class="auth-confirmation__actions">
-    <button
-      type="button"
+    <a
       class="btn btn--primary"
+      href="/"
+      role="button"
       data-auth-confirmation-link
       data-auth-redirect="/"
       data-i18n="auth.confirmation.cta"
     >
       Kontynuuj przygodę
-    </button>
+    </a>
     <a
       class="ghost auth-confirmation__secondary"
       href="/account/"
@@ -259,14 +260,74 @@ function getResolvedConfirmationTarget(element, state) {
   return target && typeof target === 'string' ? target : '/';
 }
 
-function handleConfirmationClick(event) {
-  if (event.defaultPrevented) {
+function findConfirmationTrigger(event) {
+  if (!event) {
+    return null;
+  }
+
+  const directTarget = event.target;
+  if (directTarget instanceof HTMLElement) {
+    const closest = directTarget.closest('[data-auth-confirmation-link]');
+    if (closest instanceof HTMLElement) {
+      return closest;
+    }
+  }
+
+  if (typeof event.composedPath === 'function') {
+    const path = event.composedPath();
+    for (const node of path) {
+      if (node instanceof HTMLElement && node.matches('[data-auth-confirmation-link]')) {
+        return node;
+      }
+    }
+  }
+
+  return null;
+}
+
+function navigateToAuthRedirect(target) {
+  const destination = typeof target === 'string' && target.trim() ? target.trim() : '';
+  if (!destination) {
     return;
   }
-  const trigger =
-    event.target instanceof Element
-      ? event.target.closest('[data-auth-confirmation-link]')
-      : null;
+
+  const performNavigation = () => {
+    try {
+      window.location.assign(destination);
+    } catch (assignError) {
+      try {
+        window.location.href = destination;
+      } catch (hrefError) {
+        console.warn('[auth-ui] Nie udało się przejść do strony po zalogowaniu.', hrefError);
+      }
+    }
+  };
+
+  window.setTimeout(performNavigation, 0);
+}
+
+function shouldBypassConfirmationNavigation(event, trigger) {
+  if (!(trigger instanceof HTMLElement)) {
+    return true;
+  }
+
+  if (!(event instanceof MouseEvent)) {
+    return false;
+  }
+
+  if (event.button !== 0) {
+    return true;
+  }
+
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+    return true;
+  }
+
+  return false;
+}
+
+function handleConfirmationClick(event) {
+  const trigger = findConfirmationTrigger(event);
   if (!(trigger instanceof HTMLElement)) {
     return;
   }
@@ -274,12 +335,20 @@ function handleConfirmationClick(event) {
   const state = window.CE_STATE || {};
   const redirectTarget = getResolvedConfirmationTarget(trigger, state);
 
-  if (trigger instanceof HTMLAnchorElement) {
-    event.preventDefault();
+  const bypassNavigation = shouldBypassConfirmationNavigation(event, trigger);
+
+  if (!bypassNavigation) {
+    if (trigger instanceof HTMLAnchorElement) {
+      event.preventDefault();
+    }
+    if (typeof event.stopImmediatePropagation === 'function') {
+      event.stopImmediatePropagation();
+    } else {
+      event.stopPropagation();
+    }
   }
 
   const controller = window.__authModalController;
-  const currentPath = window.location.pathname || '/';
 
   if (controller && typeof controller.isOpen === 'function' && controller.isOpen()) {
     try {
@@ -287,19 +356,10 @@ function handleConfirmationClick(event) {
     } catch (error) {
       console.warn('[auth-ui] Nie udało się zamknąć okna logowania po potwierdzeniu.', error);
     }
-    if (!redirectTarget || redirectTarget === currentPath) {
-      return;
-    }
   }
 
-  if (!redirectTarget || redirectTarget === currentPath) {
-    return;
-  }
-
-  try {
-    window.location.assign(redirectTarget);
-  } catch (error) {
-    console.warn('[auth-ui] Nie udało się przejść do strony po zalogowaniu.', error);
+  if (!bypassNavigation) {
+    navigateToAuthRedirect(redirectTarget);
   }
 }
 
@@ -721,7 +781,7 @@ onReady(() => {
   setupAuthTabs();
 });
 
-document.addEventListener('click', handleConfirmationClick);
+document.addEventListener('click', handleConfirmationClick, { capture: true });
 
 document.addEventListener('ce-auth:post-login', () => {
   window.setTimeout(() => {

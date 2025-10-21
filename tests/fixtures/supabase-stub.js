@@ -1,4 +1,7 @@
 const AUTH_EVENTS = new Set();
+const STORAGE_KEY = '__supabaseStubState';
+const WINDOW_NAME_PREFIX = '[[SUPABASE_STUB_STATE=';
+const WINDOW_NAME_SUFFIX = ']]';
 
 function createEmptyState() {
   return {
@@ -11,7 +14,160 @@ function createEmptyState() {
   };
 }
 
+function getAvailableStorages() {
+  const stores = [];
+  for (const key of ['sessionStorage', 'localStorage']) {
+    try {
+      const store = globalThis?.[key];
+      if (store && typeof store.getItem === 'function' && typeof store.setItem === 'function') {
+        stores.push(store);
+      }
+    } catch (error) {
+      // ignore storage access issues
+    }
+  }
+  return stores;
+}
+
+const STORAGE_TARGETS = getAvailableStorages();
+
+function getWindowName() {
+  try {
+    if (typeof window !== 'undefined' && typeof window.name === 'string') {
+      return window.name;
+    }
+  } catch (error) {
+    // ignore access errors
+  }
+  return '';
+}
+
+function setWindowName(value) {
+  try {
+    if (typeof window !== 'undefined') {
+      window.name = value;
+    }
+  } catch (error) {
+    // ignore write errors
+  }
+}
+
+function readPersistedState() {
+  for (const store of STORAGE_TARGETS) {
+    try {
+      const raw = store.getItem(STORAGE_KEY);
+      if (typeof raw === 'string' && raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          return parsed;
+        }
+      }
+    } catch (error) {
+      // ignore JSON/storage errors
+    }
+  }
+  return readWindowNameState();
+}
+
 const state = createEmptyState();
+
+function persistState() {
+  const payload = JSON.stringify(state);
+  for (const store of STORAGE_TARGETS) {
+    try {
+      store.setItem(STORAGE_KEY, payload);
+    } catch (error) {
+      // ignore storage write failures
+    }
+  }
+  writeWindowNameState(state);
+}
+
+function clearPersistedStateStorage() {
+  for (const store of STORAGE_TARGETS) {
+    try {
+      store.removeItem(STORAGE_KEY);
+    } catch (error) {
+      // ignore storage removal issues
+    }
+  }
+  setWindowName(stripWindowNameState(getWindowName()));
+}
+
+function readWindowNameState() {
+  try {
+    const current = getWindowName();
+    if (!current) {
+      return null;
+    }
+    const start = current.indexOf(WINDOW_NAME_PREFIX);
+    if (start === -1) {
+      return null;
+    }
+    const end = current.indexOf(WINDOW_NAME_SUFFIX, start + WINDOW_NAME_PREFIX.length);
+    if (end === -1) {
+      return null;
+    }
+    const raw = current.slice(start + WINDOW_NAME_PREFIX.length, end);
+    if (!raw) {
+      return null;
+    }
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === 'object' ? parsed : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function stripWindowNameState(current) {
+  if (!current) {
+    return '';
+  }
+  const start = current.indexOf(WINDOW_NAME_PREFIX);
+  if (start === -1) {
+    return current;
+  }
+  const end = current.indexOf(WINDOW_NAME_SUFFIX, start + WINDOW_NAME_PREFIX.length);
+  if (end === -1) {
+    return current.slice(0, start);
+  }
+  return `${current.slice(0, start)}${current.slice(end + WINDOW_NAME_SUFFIX.length)}`;
+}
+
+function writeWindowNameState(value) {
+  try {
+    const serialized = JSON.stringify(value);
+    const current = getWindowName();
+    const cleaned = stripWindowNameState(current);
+    setWindowName(`${cleaned}${WINDOW_NAME_PREFIX}${serialized}${WINDOW_NAME_SUFFIX}`);
+  } catch (error) {
+    // ignore window.name write failures
+  }
+}
+
+function hydrateState(source) {
+  if (!source || typeof source !== 'object') {
+    return;
+  }
+  state.currentSession = source.currentSession ?? null;
+  state.users = source.users ? { ...source.users } : {};
+  state.profiles = source.profiles ? { ...source.profiles } : {};
+  state.xpEvents = source.xpEvents ? { ...source.xpEvents } : {};
+  state.lastResetRequests = Array.isArray(source.lastResetRequests)
+    ? [...source.lastResetRequests]
+    : [];
+  state.lastVerificationRequests = Array.isArray(source.lastVerificationRequests)
+    ? [...source.lastVerificationRequests]
+    : [];
+}
+
+const persistedState = readPersistedState();
+if (persistedState) {
+  hydrateState(persistedState);
+  writeWindowNameState(state);
+} else {
+  persistState();
+}
 
 function resetState() {
   state.currentSession = null;
@@ -20,6 +176,7 @@ function resetState() {
   state.xpEvents = {};
   state.lastResetRequests = [];
   state.lastVerificationRequests = [];
+  persistState();
 }
 
 function broadcast(event) {
@@ -77,6 +234,7 @@ function seedUser({ email, password, profile = {}, xpEvents = [] }) {
     reason: event.reason || `xp-event-${index + 1}`,
     created_at: event.created_at || new Date(Date.now() - index * 60000).toISOString(),
   }));
+  persistState();
   return state.users[email];
 }
 
@@ -123,6 +281,7 @@ function updateProfile(values, filters = []) {
   }
   const updated = { ...existing, ...values, updated_at: new Date().toISOString() };
   state.profiles[user.id] = updated;
+  persistState();
   return { data: clone(updated), error: null };
 }
 
@@ -152,6 +311,7 @@ function insertXpEvents(rows) {
     profile.xp = (profile.xp || 0) + payload.xp_delta;
     profile.updated_at = new Date().toISOString();
   }
+  persistState();
   return { data: [clone(payload)], error: null };
 }
 
@@ -193,6 +353,7 @@ export function createClient() {
         };
         ensureProfile(user.id, { email: user.email });
         broadcast('SIGNED_IN');
+        persistState();
         return { data: { session: state.currentSession }, error: null };
       },
       async signUp({ email, password, options }) {
@@ -201,15 +362,18 @@ export function createClient() {
         }
         const profileData = options?.data ?? {};
         const user = seedUser({ email, password, profile: { name: profileData.name || '' } });
+        persistState();
         return { data: { user: { id: user.id, email: user.email } }, error: null };
       },
       async signOut() {
         state.currentSession = null;
         broadcast('SIGNED_OUT');
+        persistState();
         return { error: null };
       },
       async resetPasswordForEmail(email, { redirectTo } = {}) {
         state.lastResetRequests.push({ email, redirectTo, at: Date.now() });
+        persistState();
         return { data: {}, error: null };
       },
       async updateUser({ password }) {
@@ -221,10 +385,12 @@ export function createClient() {
         if (existing) {
           existing.password = password;
         }
+        persistState();
         return { data: { user: clone(state.currentSession?.user) }, error: null };
       },
       async resend({ type, email, options }) {
         state.lastVerificationRequests.push({ type, email, redirectTo: options?.emailRedirectTo ?? null, at: Date.now() });
+        persistState();
         return { data: {}, error: null };
       },
       onAuthStateChange(callback) {
@@ -292,30 +458,35 @@ export function createClient() {
       };
     },
   };
-}
 
-resetState();
-
-globalThis.__supabaseStub = {
-  state,
-  reset: resetState,
-  seedUser,
-  addXpEvent({ userId, xp_delta, reason, created_at }) {
-    if (!userId) return;
-    if (!Array.isArray(state.xpEvents[userId])) {
-      state.xpEvents[userId] = [];
-    }
-    state.xpEvents[userId].unshift({
-      xp_delta: Number(xp_delta) || 0,
-      reason: reason || 'event',
-      created_at: created_at || new Date().toISOString(),
-    });
-  },
-  setSession(user) {
-    if (!user) {
-      state.currentSession = null;
-      return;
-    }
-    state.currentSession = { user: { id: user.id, email: user.email } };
-  },
+const stubApi =
+  typeof globalThis.__supabaseStub === 'object' && globalThis.__supabaseStub !== null
+    ? globalThis.__supabaseStub
+    : {};
+stubApi.state = state;
+stubApi.reset = resetState;
+stubApi.seedUser = seedUser;
+stubApi.addXpEvent = function addXpEvent({ userId, xp_delta, reason, created_at }) {
+  if (!userId) return;
+  if (!Array.isArray(state.xpEvents[userId])) {
+    state.xpEvents[userId] = [];
+  }
+  state.xpEvents[userId].unshift({
+    xp_delta: Number(xp_delta) || 0,
+    reason: reason || 'event',
+    created_at: created_at || new Date().toISOString(),
+  });
+  persistState();
 };
+stubApi.setSession = function setSession(user) {
+  if (!user) {
+    state.currentSession = null;
+    persistState();
+    return;
+  }
+  state.currentSession = { user: { id: user.id, email: user.email } };
+  persistState();
+};
+stubApi.clearPersistence = clearPersistedStateStorage;
+
+globalThis.__supabaseStub = stubApi;
