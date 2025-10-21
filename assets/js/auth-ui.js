@@ -2,6 +2,7 @@ import { waitForAuthReady, updateAuthUI } from '/js/authUi.js';
 
 const GUEST_STORAGE_KEY = 'ce_guest';
 const DEFAULT_LOGIN_TARGET = '/auth/';
+const LOGIN_MODE_MODAL = 'modal';
 const DEFAULT_GUEST_TARGET = '/';
 
 function readGuestState() {
@@ -87,6 +88,92 @@ function isLoginActionElement(element) {
   return false;
 }
 
+function shouldUseModalLogin(element) {
+  if (!element || typeof element !== 'object') {
+    return false;
+  }
+  const mode = element.dataset?.authLoginMode;
+  if (!mode) {
+    return false;
+  }
+  return mode.trim().toLowerCase() === LOGIN_MODE_MODAL;
+}
+
+function openLoginModal(element, fallback) {
+  if (!shouldUseModalLogin(element)) {
+    return false;
+  }
+
+  const tabId = element.dataset?.authLoginTab || element.dataset?.authTarget || 'login';
+
+  const attemptOpen = () => {
+    if (typeof window?.openAuthModal === 'function') {
+      window.openAuthModal(tabId);
+      return true;
+    }
+
+    const controller = window?.__authModalController;
+    if (controller && typeof controller.open === 'function') {
+      controller.setActiveTab?.(tabId, { focus: false });
+      controller.open(tabId);
+      return true;
+    }
+
+    return false;
+  };
+
+  if (attemptOpen()) {
+    return true;
+  }
+
+  let resolved = false;
+  let timeoutId = null;
+
+  const cleanup = () => {
+    resolved = true;
+    if (timeoutId !== null) {
+      window.clearTimeout(timeoutId);
+      timeoutId = null;
+    }
+    document.removeEventListener('ce-auth:modal-ready', handleReady);
+  };
+
+  const handleReady = () => {
+    if (resolved) {
+      return;
+    }
+    if (attemptOpen()) {
+      cleanup();
+    }
+  };
+
+  document.addEventListener('ce-auth:modal-ready', handleReady);
+
+  if (typeof window?.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(() => {
+      if (!resolved && attemptOpen()) {
+        cleanup();
+      }
+    });
+  }
+
+  timeoutId = window.setTimeout(() => {
+    if (resolved) {
+      return;
+    }
+    cleanup();
+    if (typeof fallback === 'function') {
+      try {
+        fallback();
+      } catch (error) {
+        console.warn('[auth-ui] Nie udało się otworzyć modalu logowania, wykonuję przekierowanie.', error);
+      }
+    }
+  }, 1500);
+
+  return true;
+}
+
 function setupLoginButtons() {
   document.querySelectorAll('[data-auth="login"]').forEach((element) => {
     if (!(element instanceof HTMLElement)) {
@@ -104,9 +191,19 @@ function setupLoginButtons() {
       if (event) {
         event.preventDefault();
       }
-      const target = getRedirectTarget(element, DEFAULT_LOGIN_TARGET);
-      if (target) {
-        window.location.assign(target);
+
+      const handled = openLoginModal(element, () => {
+        const target = getRedirectTarget(element, DEFAULT_LOGIN_TARGET);
+        if (target) {
+          window.location.assign(target);
+        }
+      });
+
+      if (!handled) {
+        const target = getRedirectTarget(element, DEFAULT_LOGIN_TARGET);
+        if (target) {
+          window.location.assign(target);
+        }
       }
     });
   });
