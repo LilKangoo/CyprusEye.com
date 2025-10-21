@@ -159,7 +159,6 @@ function toggleVisibility(element, visible) {
 }
 
 const AUTH_CONFIRMATION_TEMPLATE = `
-  <div class="auth-confirmation__badge" aria-hidden="true">✅</div>
   <h2 class="auth-confirmation__title" data-i18n="auth.confirmation.title">Zalogowano pomyślnie!</h2>
   <p class="auth-confirmation__user">
     <span data-i18n="auth.confirmation.userLabel">Zalogowany jako</span>
@@ -168,28 +167,6 @@ const AUTH_CONFIRMATION_TEMPLATE = `
   <p class="auth-confirmation__message" data-i18n="auth.confirmation.info">
     Możesz teraz korzystać z wszystkich funkcji WakacjeCypr Quest.
   </p>
-  <div class="auth-confirmation__actions">
-    <a
-      class="btn btn--primary"
-      href="/"
-      role="button"
-      data-auth-confirmation-link
-      data-auth-redirect="/"
-      data-i18n="auth.confirmation.cta"
-    >
-      Kontynuuj przygodę
-    </a>
-    <a
-      class="ghost auth-confirmation__secondary"
-      href="/account/"
-      data-auth-confirmation-link
-      data-auth-redirect="/account/"
-      data-auth-redirect-mode="static"
-      data-i18n="auth.confirmation.account"
-    >
-      Przejdź do panelu gracza
-    </a>
-  </div>
 `;
 
 function applyAuthConfirmationTranslations(element) {
@@ -210,6 +187,7 @@ function createAuthConfirmationElement(doc = document) {
   section.className = 'auth-confirmation';
   section.dataset.authConfirmation = 'true';
   section.dataset.auth = 'user-only';
+  section.setAttribute('tabindex', '-1');
   section.setAttribute('hidden', '');
   section.innerHTML = AUTH_CONFIRMATION_TEMPLATE.trim();
   return section;
@@ -786,9 +764,16 @@ document.addEventListener('click', handleConfirmationClick, { capture: true });
 document.addEventListener('ce-auth:post-login', () => {
   window.setTimeout(() => {
     const primary = document.querySelector('[data-auth-confirmation-link]');
-    if (primary instanceof HTMLElement && typeof primary.focus === 'function') {
+    const fallback = document.querySelector('[data-auth-confirmation]');
+    const focusTarget =
+      primary instanceof HTMLElement
+        ? primary
+        : fallback instanceof HTMLElement
+        ? fallback
+        : null;
+    if (focusTarget instanceof HTMLElement && typeof focusTarget.focus === 'function') {
       try {
-        primary.focus({ preventScroll: false });
+        focusTarget.focus({ preventScroll: false });
       } catch (error) {
         // ignore focus errors
       }
