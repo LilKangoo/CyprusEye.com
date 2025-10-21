@@ -82,8 +82,15 @@ test('registration and login persist session across navigation until logout', as
     if (target !== '/') {
       await page.goto(target);
     }
-    await expect(page.locator('[data-auth="user-only"]').first()).toBeVisible();
-    await expect(page.locator('[data-auth="user-only"]').first()).toContainText('Zalogowany');
+    const greeting = page.locator('#userGreeting');
+    if (await greeting.count()) {
+      await expect(greeting).toBeVisible();
+      await expect(greeting).toContainText('Zalogowano');
+    } else {
+      const badge = page.locator('[data-auth="user-only"]').first();
+      await expect(badge).toBeVisible();
+      await expect(badge).toContainText('Zalogowany');
+    }
     await expect(page.locator('[data-auth="login"]').first()).toBeHidden();
     await expect(page.locator('[data-auth="logout"]').first()).toBeVisible();
   }
