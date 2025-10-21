@@ -629,7 +629,7 @@ export function updateAuthUI() {
   }
 
   document.querySelectorAll('[data-gated=true]').forEach((element) => {
-    toggleVisibility(element, isLogged);
+    toggleVisibility(element, isLogged || isGuest);
   });
 
   document.querySelectorAll('[data-auth-guest-note]').forEach((element) => {
