@@ -17,14 +17,17 @@ test('guest mode toggles UI and persists across reloads', async ({ page }) => {
   await page.click('#btn-guest');
   await page.waitForURL('**/');
 
-  const authState = page.locator('#auth-state');
-  await expect(authState).toHaveText('Gość');
-  await expect(page.locator('#loginBtn')).toBeHidden();
+  const guestBadge = page.locator('[data-auth="guest-only"]').first();
+  await expect(guestBadge).toBeVisible();
+  await expect(guestBadge).toContainText('Grasz jako gość');
+  await expect(page.locator('[data-auth="login"]').first()).toBeVisible();
+  await expect(page.locator('[data-auth="guest"]').first()).toBeVisible();
   await expect(page.locator('[data-auth-guest-note]')).toBeVisible();
 
   await page.reload();
-  await expect(authState).toHaveText('Gość');
-  await expect(page.locator('#loginBtn')).toBeHidden();
+  await expect(guestBadge).toBeVisible();
+  await expect(guestBadge).toContainText('Grasz jako gość');
+  await expect(page.locator('[data-auth="login"]').first()).toBeVisible();
   const guestState = await page.evaluate(() => (window as any).CE_STATE?.guest?.active ?? false);
   expect(guestState).toBe(true);
 });
@@ -92,9 +95,11 @@ test('login updates UI, avoids 405 responses, and unlocks account dashboard', as
     page.click('#form-login button[type="submit"]'),
   ]);
 
-  await expect(page.locator('#auth-state')).toHaveText('Zalogowany');
-  await expect(page.locator('#loginBtn')).toBeHidden();
-  await expect(page.locator('#logoutBtn')).toBeVisible();
+  const userBadge = page.locator('[data-auth="user-only"]').first();
+  await expect(userBadge).toBeVisible();
+  await expect(userBadge).toContainText('Zalogowany');
+  await expect(page.locator('[data-auth="login"]').first()).toBeHidden();
+  await expect(page.locator('[data-auth="logout"]').first()).toBeVisible();
   expect(disallowedResponses).toEqual([]);
 
   await page.goto('/account/');
@@ -149,7 +154,8 @@ test('row level security returns only own profile/XP data and guests cannot add 
 
   await page.click('[data-auth="logout"]');
   await page.waitForURL('**/');
-  await expect(page.locator('#auth-state')).toHaveText('Niezalogowany');
+  await expect(page.locator('[data-auth="anon-only"]').first()).toBeVisible();
+  await expect(page.locator('[data-auth="anon-only"]').first()).toContainText('Nie zalogowano');
 
   await page.goto('/');
   await page.waitForLoadState('domcontentloaded');
@@ -188,12 +194,14 @@ test('logout clears session state and restores login controls', async ({ page })
     page.click('#form-login button[type="submit"]'),
   ]);
 
-  await expect(page.locator('#auth-state')).toHaveText('Zalogowany');
-  await page.click('#logoutBtn');
+  await expect(page.locator('[data-auth="user-only"]').first()).toBeVisible();
+  await expect(page.locator('[data-auth="user-only"]').first()).toContainText('Zalogowany');
+  await page.click('[data-auth="logout"]');
   await page.waitForURL('**/');
 
-  await expect(page.locator('#auth-state')).toHaveText('Niezalogowany');
-  await expect(page.locator('#loginBtn')).toBeVisible();
+  await expect(page.locator('[data-auth="anon-only"]').first()).toBeVisible();
+  await expect(page.locator('[data-auth="anon-only"]').first()).toContainText('Nie zalogowano');
+  await expect(page.locator('[data-auth="login"]').first()).toBeVisible();
   const localState = await page.evaluate(() => ({
     guest: window.localStorage.getItem('ce_guest'),
     session: (window as any).CE_STATE?.session ?? null,

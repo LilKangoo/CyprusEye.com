@@ -59,7 +59,14 @@
         <p class="auth-page__subtitle" data-i18n="auth.intro">
           Zaloguj się, utwórz konto lub graj jako gość – wszystkie opcje w jednym miejscu.
         </p>
-        <span id="auth-state">Niezalogowany</span>
+        <div id="auth-actions" class="auth-actions">
+          <button class="btn" data-auth="login" aria-label="Zaloguj do konta">Zaloguj</button>
+          <button class="btn" data-auth="guest" aria-label="Tryb gry jako gość">Graj jako gość</button>
+          <button class="btn" data-auth="logout" aria-label="Wyloguj z konta">Wyloguj</button>
+          <span class="auth-badge" data-auth="user-only">Zalogowany: <strong data-auth="user-name"></strong></span>
+          <span class="auth-badge" data-auth="guest-only">Grasz jako gość</span>
+          <span class="auth-badge" data-auth="anon-only">Nie zalogowano</span>
+        </div>
         <div data-auth="spinner" class="auth-spinner is-visible">Łączenie z logowaniem…</div>
         <p id="authAccountCta" class="auth-page__cta" hidden>
           🎉 Jesteś zalogowany jako <span id="authAccountName"></span>.
@@ -302,5 +309,6 @@
 
       bootAuth();
     </script>
+    <script type="module" src="/assets/js/auth-ui.js"></script>
   </body>
 </html>

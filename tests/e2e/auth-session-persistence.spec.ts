@@ -82,16 +82,18 @@ test('registration and login persist session across navigation until logout', as
     if (target !== '/') {
       await page.goto(target);
     }
-    await expect(page.locator('#auth-state')).toHaveText('Zalogowany');
-    await expect(page.locator('#loginBtn')).toBeHidden();
-    await expect(page.locator('#logoutBtn')).toBeVisible();
+    await expect(page.locator('[data-auth="user-only"]').first()).toBeVisible();
+    await expect(page.locator('[data-auth="user-only"]').first()).toContainText('Zalogowany');
+    await expect(page.locator('[data-auth="login"]').first()).toBeHidden();
+    await expect(page.locator('[data-auth="logout"]').first()).toBeVisible();
   }
 
   await Promise.all([
     page.waitForURL('**/'),
-    page.click('#logoutBtn'),
+    page.click('[data-auth="logout"]'),
   ]);
 
-  await expect(page.locator('#auth-state')).toHaveText('Niezalogowany');
-  await expect(page.locator('#loginBtn')).toBeVisible();
+  await expect(page.locator('[data-auth="anon-only"]').first()).toBeVisible();
+  await expect(page.locator('[data-auth="anon-only"]').first()).toContainText('Nie zalogowano');
+  await expect(page.locator('[data-auth="login"]').first()).toBeVisible();
 });
