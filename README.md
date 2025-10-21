@@ -15,6 +15,15 @@ Repozytorium zawiera również gotową wersję strony internetowej, dzięki któ
 
 > W większości przypadków wdrożenie na hosting statyczny wymaga jedynie skopiowania wskazanych plików oraz opcjonalnego uruchomienia `server.js` (np. na małym VPS lub w usłudze typu serverless container).
 
+## Hosting (Cloudflare Pages)
+- Ten projekt używa pliku `_redirects` do routingu SPA.
+- Kluczowe reguły:
+  - /* → /index.html (200)
+  - /auth/* → /auth/index.html (200)
+  - /reset/* → /reset/index.html (200)
+  - /account/* → /account/index.html (200)
+- Wszystkie linki weryfikacyjne Supabase kierują na https://cypruseye.com/auth/, a reset hasła na https://cypruseye.com/reset/.
+
 ## Funkcje
 - ✅ Interaktywna mapa MapLibre z kafelkami OSM/MapTiler i markerem bieżącej pozycji.
 - ✅ Lokalne geostrefy (ENTER/EXIT) obsługiwane w tle z `expo-task-manager` oraz powiadomieniami lokalnymi.
