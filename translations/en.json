@@ -523,6 +523,7 @@
   "auth.title": "Sign in or create an account",
   "auth.subtitle": "Save your stats and continue adventures on any device.",
   "auth.intro": "Sign in, create an account, or continue as a guest.",
+  "auth.login.hint": "Use the form below to sign in or create an account.",
   "auth.close": {
     "text": "✕",
     "attributes": {

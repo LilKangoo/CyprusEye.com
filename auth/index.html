@@ -60,7 +60,9 @@
           Zaloguj się, utwórz konto lub graj jako gość – wszystkie opcje w jednym miejscu.
         </p>
         <div id="auth-actions" class="auth-actions">
-          <button class="btn" data-auth="login" aria-label="Zaloguj do konta">Zaloguj</button>
+          <p class="auth-actions__hint" data-auth="login" data-i18n="auth.login.hint">
+            Wypełnij formularz poniżej, aby się zalogować lub założyć konto.
+          </p>
           <button class="btn" data-auth="guest" aria-label="Tryb gry jako gość">Graj jako gość</button>
           <button class="btn" data-auth="logout" aria-label="Wyloguj z konta">Wyloguj</button>
           <span class="auth-badge" data-auth="user-only">Zalogowany: <strong data-auth="user-name"></strong></span>
@@ -122,13 +124,13 @@
                 class="auth-modal__panel is-active"
                 role="tabpanel"
                 aria-labelledby="authTabLogin"
+                data-auth="login"
                 data-auth-panel="login"
               >
                 <form
                   id="form-login"
                   class="auth-form"
                   novalidate
-                  data-auth="login"
                   data-ce-auth-handler="supabase"
                 >
                   <label for="loginEmail" data-i18n="auth.email">Adres e-mail</label>
@@ -304,11 +306,6 @@
         </div>
       </main>
     </div>
-    <script type="module">
-      import { bootAuth } from '/js/authUi.js';
-
-      bootAuth();
-    </script>
     <script type="module" src="/assets/js/auth-ui.js"></script>
   </body>
 </html>

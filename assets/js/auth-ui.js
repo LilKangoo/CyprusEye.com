@@ -74,11 +74,31 @@ function activateGuestMode(redirectTarget) {
   }
 }
 
+function isLoginActionElement(element) {
+  if (element instanceof HTMLButtonElement || element instanceof HTMLAnchorElement) {
+    return true;
+  }
+  if (element instanceof HTMLElement) {
+    const role = element.getAttribute('role');
+    if (typeof role === 'string' && role.toLowerCase() === 'button') {
+      return true;
+    }
+  }
+  return false;
+}
+
 function setupLoginButtons() {
   document.querySelectorAll('[data-auth="login"]').forEach((element) => {
-    if (!(element instanceof HTMLElement) || element.dataset.authLoginReady === 'true') {
+    if (!(element instanceof HTMLElement)) {
       return;
     }
+    if (element.dataset.authLoginReady === 'true' || element.dataset.authLoginStatic === 'true') {
+      return;
+    }
+    if (!isLoginActionElement(element)) {
+      return;
+    }
+
     element.dataset.authLoginReady = 'true';
     element.addEventListener('click', (event) => {
       if (event) {
