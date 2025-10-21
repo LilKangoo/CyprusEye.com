@@ -9,8 +9,37 @@ const supabaseStubPath = path.resolve(__dirname, '../../fixtures/supabase-stub.j
 const supabaseStubSource = readFileSync(supabaseStubPath, 'utf8');
 
 export const SUPABASE_MODULE_URL = 'https://esm.sh/@supabase/supabase-js@2';
+export const SUPABASE_CDN_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
 
 export async function enableSupabaseStub(page: Page) {
+  await page.route(`${SUPABASE_CDN_URL}*`, async (route) => {
+    const wrapper = `
+      (function () {
+        if (window.__supabaseShimLoaded) {
+          return;
+        }
+        window.__supabaseShimLoaded = true;
+        (async () => {
+          try {
+            const mod = await import('${SUPABASE_MODULE_URL}');
+            if (mod && typeof mod.createClient === 'function') {
+              window.supabase = mod;
+            } else if (mod && typeof mod.default?.createClient === 'function') {
+              window.supabase = mod.default;
+            }
+          } catch (error) {
+            console.error('supabase shim load error', error);
+          }
+        })();
+      })();
+    `;
+    await route.fulfill({
+      status: 200,
+      body: wrapper,
+      headers: { 'content-type': 'application/javascript' },
+    });
+  });
+
   await page.route(`${SUPABASE_MODULE_URL}*`, async (route) => {
     await route.fulfill({
       status: 200,
@@ -27,6 +56,9 @@ export async function waitForSupabaseStub(page: Page) {
 export async function resetSupabaseStub(page: Page) {
   await page.evaluate(() => {
     const stub = (window as any).__supabaseStub;
+    if (stub && typeof stub.clearPersistence === 'function') {
+      stub.clearPersistence();
+    }
     if (stub && typeof stub.reset === 'function') {
       stub.reset();
     }

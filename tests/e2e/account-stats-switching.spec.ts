@@ -1,26 +1,12 @@
-import { expect, Page, test } from '@playwright/test';
-import { readFileSync } from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-const supabaseStub = readFileSync(path.resolve(__dirname, '../fixtures/supabase-stub.js'), 'utf8');
-
-const SUPABASE_MODULE_URL = 'https://esm.sh/@supabase/supabase-js@2';
-
-async function enableSupabaseStub(page: Page) {
-  await page.route(`${SUPABASE_MODULE_URL}*`, async (route) => {
-    await route.fulfill({
-      status: 200,
-      body: supabaseStub,
-      headers: { 'content-type': 'application/javascript' },
-    });
-  });
-}
+import { expect, test } from '@playwright/test';
+import { enableSupabaseStub, resetSupabaseStub, waitForSupabaseStub } from './utils/supabase';
 
 test.beforeEach(async ({ page }) => {
   await enableSupabaseStub(page);
+});
+
+test.afterEach(async ({ page }) => {
+  await resetSupabaseStub(page);
 });
 
 test('account stats refresh when switching between guest and authenticated sessions', async ({ page }) => {
@@ -65,6 +51,7 @@ test('account stats refresh when switching between guest and authenticated sessi
 
   await page.goto('/index.html');
   await page.waitForFunction(() => document.readyState === 'complete');
+  await waitForSupabaseStub(page);
   await page.waitForFunction(() => document.documentElement.dataset.authState === 'guest');
 
   await expect(page.locator('#accountStatXp')).toHaveText('15 XP');
