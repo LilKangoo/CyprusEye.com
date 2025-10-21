@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test';
 
 test('SOS modal opens and closes via the close button and Escape key', async ({ page }) => {
   await page.goto('/index.html');
-  await page.waitForSelector('#languageSwitcherSelect');
+  await page.waitForSelector('[data-testid="language-switcher-toggle"]');
 
   const modal = page.locator('#sosModal');
   const openButton = page.locator('#sosToggle');

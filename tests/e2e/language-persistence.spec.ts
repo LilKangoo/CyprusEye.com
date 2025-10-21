@@ -2,22 +2,25 @@ import { expect, test } from '@playwright/test';
 
 test('language selection persists between packing and achievements pages', async ({ page }) => {
   await page.goto('/packing.html');
-  const switcher = page.locator('#languageSwitcherSelect');
-  await switcher.waitFor();
+  const toggle = page.locator('[data-testid="language-switcher-toggle"]');
+  await toggle.waitFor();
 
   await expect(page.locator('html')).toHaveAttribute('lang', /en|pl/);
 
-  const initialValue = await switcher.inputValue();
-  const targetLanguage = initialValue === 'pl' ? 'en' : 'pl';
+  const initialLanguage = (await toggle.getAttribute('data-language')) ?? 'pl';
+  const targetLanguage = initialLanguage === 'pl' ? 'en' : 'pl';
 
-  await Promise.all([
-    page.waitForNavigation(),
-    switcher.selectOption(targetLanguage),
-  ]);
+  await toggle.click();
+  const targetOption = page.locator(`[data-testid="language-option-${targetLanguage}"]`);
+  await targetOption.waitFor();
+  await targetOption.click();
 
-  await switcher.waitFor();
-  await expect(page.locator('html')).toHaveAttribute('lang', targetLanguage);
-  await expect(switcher).toHaveValue(targetLanguage);
+  await page.waitForFunction(
+    (lang) => document.documentElement.lang === lang,
+    targetLanguage,
+  );
+  await expect(toggle).toHaveAttribute('data-language', targetLanguage);
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
 
   const achievementsLink = page.locator('a[href*="achievements"]').first();
   await Promise.all([
@@ -25,13 +28,15 @@ test('language selection persists between packing and achievements pages', async
     achievementsLink.click(),
   ]);
 
-  await switcher.waitFor();
+  const toggleAfterNav = page.locator('[data-testid="language-switcher-toggle"]');
+  await toggleAfterNav.waitFor();
   await expect(page).toHaveURL(/achievements\.html/);
   await expect(page.locator('html')).toHaveAttribute('lang', targetLanguage);
-  await expect(page.locator('#languageSwitcherSelect')).toHaveValue(targetLanguage);
+  await expect(toggleAfterNav).toHaveAttribute('data-language', targetLanguage);
 
   await page.goto('/packing.html');
-  await switcher.waitFor();
+  const toggleAfterReturn = page.locator('[data-testid="language-switcher-toggle"]');
+  await toggleAfterReturn.waitFor();
   await expect(page.locator('html')).toHaveAttribute('lang', targetLanguage);
-  await expect(page.locator('#languageSwitcherSelect')).toHaveValue(targetLanguage);
+  await expect(toggleAfterReturn).toHaveAttribute('data-language', targetLanguage);
 });
