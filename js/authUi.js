@@ -125,14 +125,74 @@ function showAuthSpinner(on) {
   if (spinner) {
     spinner.classList.toggle('is-visible', !!on);
   }
-  if (on) {
-    setDocumentAuthState('loading');
-    const badge = document.querySelector('#auth-state');
-    if (badge) {
-      badge.dataset.state = 'loading';
-      badge.textContent = 'Łączenie…';
+
+  const actions = document.getElementById('auth-actions');
+  if (actions instanceof HTMLElement) {
+    if (on) {
+      actions.dataset.state = 'loading';
+      actions.setAttribute('aria-busy', 'true');
+    } else {
+      if (actions.dataset.state === 'loading') {
+        delete actions.dataset.state;
+      }
+      actions.removeAttribute('aria-busy');
     }
   }
+
+  if (on) {
+    setDocumentAuthState('loading');
+  }
+}
+
+function toggleVisibility(element, visible) {
+  if (!(element instanceof HTMLElement)) {
+    return;
+  }
+
+  element.hidden = !visible;
+  element.classList.toggle('hidden', !visible);
+  if (!visible) {
+    element.setAttribute('aria-hidden', 'true');
+  } else {
+    element.removeAttribute('aria-hidden');
+  }
+}
+
+function getDisplayNameFromState(state) {
+  if (!state) {
+    return '';
+  }
+
+  const profileName = typeof state.profile?.name === 'string' ? state.profile.name.trim() : '';
+  if (profileName) {
+    return profileName;
+  }
+
+  const user = state.session?.user || null;
+  const metadata = (user && typeof user.user_metadata === 'object' && user.user_metadata) || {};
+  const metadataNameCandidates = [
+    metadata.full_name,
+    metadata.name,
+    metadata.display_name,
+    metadata.username,
+    metadata.preferred_username,
+  ];
+
+  for (const candidate of metadataNameCandidates) {
+    if (typeof candidate === 'string') {
+      const trimmed = candidate.trim();
+      if (trimmed) {
+        return trimmed;
+      }
+    }
+  }
+
+  const email = typeof user?.email === 'string' ? user.email.trim() : '';
+  if (email) {
+    return email;
+  }
+
+  return 'Gracz';
 }
 
 function syncSession(session, detail = {}) {
@@ -307,33 +367,58 @@ export function waitForAuthReady() {
 export function updateAuthUI() {
   const state = window.CE_STATE || {};
   const isLogged = !!state.session;
-  const isGuest = !isLogged && !!getGuestState()?.active;
+  const guestState = getGuestState();
+  const isGuest = !isLogged && !!guestState?.active;
+  const documentState = isLogged ? 'authenticated' : 'guest';
 
-  document.querySelectorAll('[data-auth=login]').forEach((el) => {
-    el.hidden = isLogged || isGuest;
-  });
-  document.querySelectorAll('[data-auth=logout]').forEach((el) => {
-    el.hidden = !isLogged;
+  setDocumentAuthState(documentState);
+
+  const updateGroupVisibility = (selector, visible) => {
+    document.querySelectorAll(selector).forEach((element) => {
+      toggleVisibility(element, visible);
+    });
+  };
+
+  updateGroupVisibility('[data-auth=login]', !isLogged);
+  updateGroupVisibility('[data-auth=guest]', isGuest);
+  updateGroupVisibility('[data-auth=logout]', isLogged);
+  updateGroupVisibility('[data-auth=user-only]', isLogged);
+  updateGroupVisibility('[data-auth=guest-only]', isGuest);
+  updateGroupVisibility('[data-auth=anon-only]', !isLogged && !isGuest);
+
+  const displayName = isLogged ? getDisplayNameFromState(state) : '';
+  document.querySelectorAll('[data-auth=user-name]').forEach((element) => {
+    if (element instanceof HTMLElement) {
+      element.textContent = displayName;
+    }
   });
 
-  const badge = document.querySelector('#auth-state');
-  if (badge) {
-    badge.textContent = isLogged ? 'Zalogowany' : isGuest ? 'Gość' : 'Niezalogowany';
-    badge.dataset.state = isLogged ? 'authenticated' : isGuest ? 'guest' : 'guest';
+  const actions = document.getElementById('auth-actions');
+  if (actions instanceof HTMLElement) {
+    const actionsState = isLogged ? 'authenticated' : isGuest ? 'guest' : 'anonymous';
+    actions.dataset.state = actionsState;
+    if (actionsState !== 'loading') {
+      actions.removeAttribute('aria-busy');
+    }
+    actions.classList.toggle('is-authenticated', isLogged);
+    actions.classList.toggle('is-guest', isGuest && !isLogged);
+    if (!isLogged && !isGuest) {
+      actions.classList.remove('is-authenticated', 'is-guest');
+    }
   }
 
-  setDocumentAuthState(isLogged ? 'authenticated' : isGuest ? 'guest' : 'guest');
-
-  document.querySelectorAll('[data-gated=true]').forEach((el) => {
-    el.hidden = !isLogged;
+  document.querySelectorAll('[data-gated=true]').forEach((element) => {
+    toggleVisibility(element, isLogged);
   });
 
-  document.querySelectorAll('[data-auth-guest-note]').forEach((el) => {
-    if (isGuest) {
-      el.hidden = false;
-      el.textContent = 'Grasz jako gość — postęp zapisany lokalnie na tym urządzeniu.';
-    } else {
-      el.hidden = true;
+  document.querySelectorAll('[data-auth-guest-note]').forEach((element) => {
+    if (!(element instanceof HTMLElement)) {
+      return;
+    }
+    const shouldShow = isGuest && !isLogged;
+    toggleVisibility(element, shouldShow);
+    if (shouldShow) {
+      element.textContent = 'Grasz jako gość — postęp zapisany lokalnie na tym urządzeniu.';
     }
   });
 }
@@ -471,15 +556,22 @@ onReady(() => {
   setupAuthTabs();
 });
 
-document.querySelectorAll('[data-auth=logout]').forEach((el) =>
+document.querySelectorAll('[data-auth=logout]').forEach((el) => {
+  if (!(el instanceof HTMLElement) || el.dataset.authLogoutReady === 'true') {
+    return;
+  }
+  el.dataset.authLogoutReady = 'true';
   el.addEventListener('click', async () => {
     await sb.auth.signOut();
     clearGuestState();
     window.CE_STATE = {};
     updateAuthUI();
-    location.assign('/');
-  }),
-);
+    const redirectTarget = el.dataset.authRedirect || '/';
+    if (redirectTarget) {
+      location.assign(redirectTarget);
+    }
+  });
+});
 
 if (typeof window !== 'undefined') {
   window.bootAuth = bootAuth;

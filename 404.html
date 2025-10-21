@@ -60,22 +60,15 @@
   <body class="standalone-body" data-seo-page="notFound">
     <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
     <header class="standalone-header" aria-label="Panel logowania">
-        <span id="auth-state" class="auth-status-badge" aria-live="polite">Niezalogowany</span>
-        <a
-          id="loginBtn"
-          class="ghost"
-          data-auth="login"
-          data-login-button
-          data-login-label-signed-in="Wyloguj"
-          data-login-label-signed-out="Zaloguj"
-          href="/auth/"
-        >
-          Zaloguj
-        </a>
-        <div data-auth="spinner" class="auth-spinner" aria-live="polite">Łączenie z logowaniem…</div>
-        <button id="logoutBtn" class="ghost" type="button" data-auth="logout" hidden>
-          Wyloguj
-        </button>
+      <div id="auth-actions" class="auth-actions">
+        <button class="btn" data-auth="login" aria-label="Zaloguj do konta">Zaloguj</button>
+        <button class="btn" data-auth="guest" aria-label="Tryb gry jako gość">Graj jako gość</button>
+        <button class="btn" data-auth="logout" aria-label="Wyloguj z konta">Wyloguj</button>
+        <span class="auth-badge" data-auth="user-only">Zalogowany: <strong data-auth="user-name"></strong></span>
+        <span class="auth-badge" data-auth="guest-only">Grasz jako gość</span>
+        <span class="auth-badge" data-auth="anon-only">Nie zalogowano</span>
+      </div>
+      <div data-auth="spinner" class="auth-spinner" aria-live="polite">Łączenie z logowaniem…</div>
     </header>
     <main class="standalone-page">
       <section class="card surface-card standalone-hero" aria-labelledby="notFoundTitle">
@@ -114,5 +107,6 @@
     </main>
     <script src="js/i18n.js" defer></script>
     <script src="js/seo.js" defer></script>
+    <script type="module" src="/assets/js/auth-ui.js"></script>
   </body>
 </html>

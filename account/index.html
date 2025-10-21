@@ -62,28 +62,8 @@
       }
 
       .account-actions {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.75rem;
-      }
-
-      .account-actions button {
-        padding: 0.55rem 1.1rem;
-        border-radius: var(--radius-md, 12px);
-        border: 1px solid rgba(59, 130, 246, 0.25);
-        background: rgba(255, 255, 255, 0.92);
-        font-weight: 600;
-        cursor: pointer;
-      }
-
-      .account-actions button:hover,
-      .account-actions button:focus-visible {
-        background: rgba(59, 130, 246, 0.08);
-      }
-
-      #auth-state {
-        font-weight: 600;
-        color: var(--color-neutral-600, #475569);
+        display: flex;
+        justify-content: flex-end;
       }
 
       [data-account-message] {
@@ -235,8 +215,14 @@
           <h1>Panel gracza</h1>
         </div>
         <div class="account-actions">
-          <span id="auth-state" aria-live="polite">Niezalogowany</span>
-          <button type="button" data-auth="logout">Wyloguj</button>
+          <div id="auth-actions" class="auth-actions" aria-live="polite">
+            <button class="btn" data-auth="login" aria-label="Zaloguj do konta">Zaloguj</button>
+            <button class="btn" data-auth="guest" aria-label="Tryb gry jako gość">Graj jako gość</button>
+            <button class="btn" data-auth="logout" aria-label="Wyloguj z konta">Wyloguj</button>
+            <span class="auth-badge" data-auth="user-only">Zalogowany: <strong data-auth="user-name"></strong></span>
+            <span class="auth-badge" data-auth="guest-only">Grasz jako gość</span>
+            <span class="auth-badge" data-auth="anon-only">Nie zalogowano</span>
+          </div>
         </div>
       </header>
 
@@ -296,5 +282,6 @@
         </section>
       </main>
     </div>
+    <script type="module" src="/assets/js/auth-ui.js"></script>
   </body>
 </html>

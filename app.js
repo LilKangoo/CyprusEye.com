@@ -7939,7 +7939,7 @@ function updateAuthUI() {
   const userMenu = document.getElementById('userMenu');
   const greeting = document.getElementById('userGreeting');
   const accountSettingsBtn = document.getElementById('accountSettingsBtn');
-  const logoutBtn = document.getElementById('logoutBtn');
+  const logoutBtn = document.querySelector('[data-auth="logout"]');
   const passwordForm = document.getElementById('accountPasswordForm');
   const guestPasswordNote = document.getElementById('accountGuestPasswordNote');
   const authStatusBadge = document.getElementById('authStatusBadge');
@@ -7947,7 +7947,7 @@ function updateAuthUI() {
   const displayName = getCurrentDisplayName();
   const authState = getDocumentAuthState();
 
-  if (logoutBtn) {
+  if (logoutBtn instanceof HTMLElement) {
     logoutBtn.hidden = !isLoggedIn;
   }
 
@@ -8605,7 +8605,7 @@ function initializeAuth() {
   const registerForm = document.getElementById('form-register');
   const loginForgotPasswordBtn = document.getElementById('loginForgotPassword');
   const authOpenBtn = document.getElementById('openAuthModal');
-  const logoutBtn = document.getElementById('logoutBtn');
+  const logoutBtn = document.querySelector('[data-auth="logout"]');
   const authModal = document.getElementById('auth-modal');
   const accountSettingsBtn = document.getElementById('accountSettingsBtn');
   const accountModal = document.getElementById('accountModal');
@@ -8634,9 +8634,11 @@ function initializeAuth() {
     clearAuthForms();
   });
 
-  logoutBtn?.addEventListener('click', () => {
-    void handleLogout();
-  });
+  if (logoutBtn instanceof HTMLElement) {
+    logoutBtn.addEventListener('click', () => {
+      void handleLogout();
+    });
+  }
 
   accountSettingsBtn?.addEventListener('click', () => {
     openAccountModal('stats');
