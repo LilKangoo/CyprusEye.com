@@ -47,7 +47,13 @@ const AUTH_TEMPLATE = `
       aria-labelledby="authTabLogin"
       data-auth-panel="login"
     >
-      <form id="form-login" class="auth-form" novalidate data-ce-auth-handler="supabase">
+      <form
+        id="form-login"
+        class="auth-form"
+        novalidate
+        data-ce-auth-handler="supabase"
+        data-auth="login"
+      >
         <label for="loginEmail" data-i18n="auth.email">Adres e-mail</label>
         <input
           id="loginEmail"
@@ -91,6 +97,7 @@ const AUTH_TEMPLATE = `
             🔑 Resetuj hasło
           </button>
         </div>
+        <div data-auth="message" aria-live="polite"></div>
         <p class="auth-form__meta" id="authResendVerification" hidden>
           Nie otrzymałeś wiadomości z potwierdzeniem?
           <button type="button" class="auth-form__link" id="btn-resend-verification">
@@ -107,7 +114,13 @@ const AUTH_TEMPLATE = `
       data-auth-panel="register"
       hidden
     >
-      <form id="form-register" class="auth-form" novalidate data-ce-auth-handler="supabase">
+      <form
+        id="form-register"
+        class="auth-form"
+        novalidate
+        data-ce-auth-handler="supabase"
+        data-auth="register"
+      >
         <label for="registerFirstName" data-i18n="auth.firstName">Imię</label>
         <input
           id="registerFirstName"
@@ -168,6 +181,7 @@ const AUTH_TEMPLATE = `
           data-i18n=""
           data-i18n-attrs="aria-label:auth.confirmPassword"
         />
+        <div data-auth="message" aria-live="polite"></div>
         <p class="form-hint" data-i18n="auth.register.hint">
           Po rejestracji sprawdź skrzynkę e-mail, aby potwierdzić konto.
         </p>

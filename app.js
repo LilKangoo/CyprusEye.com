@@ -8027,6 +8027,266 @@ function updateAuthUI() {
   renderAccountStats('auth-ui');
 }
 
+function setBusy(form, busy, msg = '') {
+  if (!(form instanceof HTMLFormElement)) {
+    return;
+  }
+
+  const submitButton = form.querySelector('[type="submit"]');
+  if (submitButton instanceof HTMLButtonElement || submitButton instanceof HTMLInputElement) {
+    submitButton.disabled = !!busy;
+  }
+
+  const ariaTarget =
+    form.querySelector('[data-auth="message"]') || document.getElementById('authMessage');
+  const message = typeof msg === 'string' && msg ? msg : busy ? 'Łączenie z logowaniem…' : '';
+
+  if (ariaTarget) {
+    ariaTarget.textContent = message;
+    try {
+      if (message) {
+        ariaTarget.setAttribute('aria-live', 'assertive');
+        if (ariaTarget.dataset) {
+          ariaTarget.dataset.tone = busy ? 'info' : ariaTarget.dataset.tone || 'info';
+        }
+      } else {
+        ariaTarget.setAttribute('aria-live', 'polite');
+        if (ariaTarget.dataset) {
+          delete ariaTarget.dataset.tone;
+        }
+      }
+    } catch (error) {
+      // ignore attribute errors
+    }
+  }
+}
+
+function showErr(msg) {
+  const message = typeof msg === 'string' ? msg : String(msg ?? '');
+  if (!message) {
+    return;
+  }
+
+  const toast = window.Toast?.show;
+  if (typeof toast === 'function') {
+    try {
+      toast.call(window.Toast, message, 'error');
+    } catch (error) {
+      console.warn('[toast:error]', error);
+    }
+  } else if (typeof window.alert === 'function') {
+    window.alert(message);
+  }
+
+  const ariaTarget = document.getElementById('authMessage');
+  if (ariaTarget) {
+    ariaTarget.textContent = message;
+    ariaTarget.setAttribute('aria-live', 'assertive');
+    if (ariaTarget.dataset) {
+      ariaTarget.dataset.tone = 'error';
+    }
+  }
+}
+
+function showOk(msg) {
+  const message = typeof msg === 'string' ? msg : String(msg ?? '');
+  if (!message) {
+    return;
+  }
+
+  const toast = window.Toast?.show;
+  if (typeof toast === 'function') {
+    try {
+      toast.call(window.Toast, message, 'success');
+    } catch (error) {
+      console.warn('[toast:success]', error);
+    }
+  }
+
+  const ariaTarget = document.getElementById('authMessage');
+  if (ariaTarget) {
+    ariaTarget.textContent = message;
+    ariaTarget.setAttribute('aria-live', 'polite');
+    if (ariaTarget.dataset) {
+      ariaTarget.dataset.tone = 'success';
+    }
+  }
+}
+
+function wireAuthForms() {
+  const CE = window.CE_AUTH;
+  const SB = window.getSupabase?.();
+
+  const fallbackLogin = document.getElementById('form-login');
+  if (fallbackLogin instanceof HTMLFormElement && !fallbackLogin.dataset.auth) {
+    fallbackLogin.dataset.auth = 'login';
+  }
+
+  const fallbackRegister = document.getElementById('form-register');
+  if (fallbackRegister instanceof HTMLFormElement && !fallbackRegister.dataset.auth) {
+    fallbackRegister.dataset.auth = 'register';
+  }
+
+  const loginForms = document.querySelectorAll('form[data-auth="login"]');
+  const regForms = document.querySelectorAll('form[data-auth="register"]');
+
+  loginForms.forEach((form) => {
+    if (!(form instanceof HTMLFormElement)) {
+      return;
+    }
+    if (form.dataset.authWired === 'true') {
+      return;
+    }
+
+    form.dataset.authWired = 'true';
+    form.dataset.ceAuthHandler = form.dataset.ceAuthHandler || 'supabase';
+
+    let ariaTarget = form.querySelector('[data-auth="message"]');
+    if (!ariaTarget) {
+      ariaTarget = document.createElement('div');
+      ariaTarget.dataset.auth = 'message';
+      ariaTarget.setAttribute('aria-live', 'polite');
+      form.append(ariaTarget);
+    }
+
+    form.addEventListener(
+      'submit',
+      async (event) => {
+        event.preventDefault();
+        const email = form.querySelector('input[type="email"]')?.value?.trim() || '';
+        const pass = form.querySelector('input[type="password"]')?.value || '';
+        if (!email || !pass) {
+          const message = 'Podaj e-mail i hasło';
+          showErr(message);
+          setBusy(form, false, message);
+          return;
+        }
+
+        setBusy(form, true);
+        try {
+          let error = null;
+          if (CE?.signIn) {
+            ({ error } = await CE.signIn(email, pass));
+          } else if (SB?.auth?.signInWithPassword) {
+            ({ error } = await SB.auth.signInWithPassword({ email, password: pass }));
+          } else {
+            error = new Error('Brak klienta Supabase');
+          }
+          if (error) {
+            throw error;
+          }
+
+          const successMessage = 'Zalogowano';
+          showOk(successMessage);
+          setBusy(form, false, successMessage);
+          location.replace('/');
+        } catch (err) {
+          console.error('[login failed]', err);
+          const message = 'Nie udało się zalogować. ' + (err?.message || 'Spróbuj ponownie.');
+          showErr(message);
+          setBusy(form, false, message);
+        } finally {
+          setTimeout(() => setBusy(form, false, ''), 6000);
+        }
+      },
+      { once: false },
+    );
+  });
+
+  regForms.forEach((form) => {
+    if (!(form instanceof HTMLFormElement)) {
+      return;
+    }
+    if (form.dataset.authWired === 'true') {
+      return;
+    }
+
+    form.dataset.authWired = 'true';
+    form.dataset.ceAuthHandler = form.dataset.ceAuthHandler || 'supabase';
+
+    let ariaTarget = form.querySelector('[data-auth="message"]');
+    if (!ariaTarget) {
+      ariaTarget = document.createElement('div');
+      ariaTarget.dataset.auth = 'message';
+      ariaTarget.setAttribute('aria-live', 'polite');
+      form.append(ariaTarget);
+    }
+
+    form.addEventListener(
+      'submit',
+      async (event) => {
+        event.preventDefault();
+        const email = form.querySelector('input[type="email"]')?.value?.trim() || '';
+        const pass = form.querySelector('input[type="password"]')?.value || '';
+        const name = form.querySelector('[name="firstName"]')?.value?.trim() || '';
+        if (!email || !pass) {
+          const message = 'Uzupełnij e-mail i hasło';
+          showErr(message);
+          setBusy(form, false, message);
+          return;
+        }
+
+        setBusy(form, true);
+        try {
+          let error = null;
+          if (CE?.signUp) {
+            ({ error } = await CE.signUp(email, pass, name, 'https://cypruseye.com/auth/'));
+          } else if (SB?.auth?.signUp) {
+            ({ error } = await SB.auth.signUp({
+              email,
+              password: pass,
+              options: {
+                data: { name },
+                emailRedirectTo: 'https://cypruseye.com/auth/',
+              },
+            }));
+          } else {
+            error = new Error('Brak klienta Supabase');
+          }
+          if (error) {
+            throw error;
+          }
+
+          const successMessage = 'E-mail potwierdzający wysłany';
+          showOk(successMessage);
+          setBusy(form, false, successMessage);
+        } catch (err) {
+          console.error('[signup failed]', err);
+          const message = 'Rejestracja nie powiodła się. ' + (err?.message || 'Spróbuj ponownie.');
+          showErr(message);
+          setBusy(form, false, message);
+        } finally {
+          setTimeout(() => setBusy(form, false, ''), 6000);
+        }
+      },
+      { once: false },
+    );
+  });
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  try {
+    if (window.getSupabase?.()) {
+      wireAuthForms();
+    } else {
+      setTimeout(wireAuthForms, 300);
+    }
+  } catch (error) {
+    console.error('[auth forms] failed to initialize', error);
+  }
+
+  const authModal = document.getElementById('auth-modal');
+  if (authModal) {
+    authModal.addEventListener('auth:opened', () => {
+      try {
+        wireAuthForms();
+      } catch (error) {
+        console.error('[auth forms] failed to rewire after modal open', error);
+      }
+    });
+  }
+});
+
 async function handleLoginSubmit(event) {
   event.preventDefault();
   const form = event.currentTarget;
