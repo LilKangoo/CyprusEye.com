@@ -72,13 +72,8 @@
         <div data-auth="spinner" class="auth-spinner is-visible">Łączenie z logowaniem…</div>
       </header>
       <main class="auth-page__content" aria-labelledby="authTitle">
-        <section
-          class="auth-confirmation"
-          data-auth="user-only"
-          data-auth-confirmation
-          hidden
-          tabindex="-1"
-        >
+        <section class="auth-confirmation" data-auth="user-only" data-auth-confirmation hidden>
+          <div class="auth-confirmation__badge" aria-hidden="true">✅</div>
           <h2 class="auth-confirmation__title" data-i18n="auth.confirmation.title">Zalogowano pomyślnie!</h2>
           <p class="auth-confirmation__user">
             <span data-i18n="auth.confirmation.userLabel">Zalogowany jako</span>
@@ -87,6 +82,28 @@
           <p class="auth-confirmation__message" data-i18n="auth.confirmation.info">
             Możesz teraz korzystać z wszystkich funkcji WakacjeCypr Quest.
           </p>
+          <div class="auth-confirmation__actions">
+            <a
+              class="btn btn--primary"
+              href="/"
+              role="button"
+              data-auth-confirmation-link
+              data-auth-redirect="/"
+              data-i18n="auth.confirmation.cta"
+            >
+              Kontynuuj przygodę
+            </a>
+            <a
+              class="ghost auth-confirmation__secondary"
+              href="/account/"
+              data-auth-confirmation-link
+              data-auth-redirect="/account/"
+              data-auth-redirect-mode="static"
+              data-i18n="auth.confirmation.account"
+            >
+              Przejdź do panelu gracza
+            </a>
+          </div>
         </section>
         <div data-auth="login">
           <div role="presentation">
