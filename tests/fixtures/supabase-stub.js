@@ -198,7 +198,11 @@ function ensureProfile(userId, overrides = {}) {
   const existing = state.profiles[userId];
   if (existing) {
     if (overrides && Object.keys(overrides).length) {
-      state.profiles[userId] = { ...existing, ...overrides, updated_at: new Date().toISOString() };
+      const next = { ...existing, ...overrides, updated_at: new Date().toISOString() };
+      if (typeof overrides.username === 'string' && !('username_normalized' in overrides)) {
+        next.username_normalized = overrides.username.trim().toLowerCase();
+      }
+      state.profiles[userId] = next;
     }
     return state.profiles[userId];
   }
@@ -206,6 +210,11 @@ function ensureProfile(userId, overrides = {}) {
     id: userId,
     email: overrides.email || '',
     name: overrides.name || '',
+    username: overrides.username || '',
+    username_normalized:
+      typeof overrides.username === 'string' && overrides.username
+        ? overrides.username.trim().toLowerCase()
+        : overrides.username_normalized || '',
     xp: overrides.xp ?? 0,
     level: overrides.level ?? 1,
     updated_at: new Date().toISOString(),
@@ -222,11 +231,16 @@ function seedUser({ email, password, profile = {}, xpEvents = [] }) {
     throw new Error('email is required for seedUser');
   }
   const id = profile.id || `user-${Math.random().toString(36).slice(2, 10)}`;
+  const metadata = profile.metadata && typeof profile.metadata === 'object' ? { ...profile.metadata } : {};
+  if (typeof profile.username === 'string' && !metadata.username) {
+    metadata.username = profile.username;
+  }
   state.users[email] = {
     id,
     email,
     password,
     confirmed_at: profile.confirmed_at ?? new Date().toISOString(),
+    metadata,
   };
   ensureProfile(id, { ...profile, email });
   state.xpEvents[id] = xpEvents.map((event, index) => ({
@@ -279,7 +293,53 @@ function updateProfile(values, filters = []) {
   if (!existing) {
     return { data: null, error: { message: 'Profile not found' } };
   }
-  const updated = { ...existing, ...values, updated_at: new Date().toISOString() };
+  if (typeof values.username === 'string') {
+    const normalized = values.username.trim().toLowerCase();
+    for (const [profileId, profile] of Object.entries(state.profiles)) {
+      if (
+        profileId !== user.id &&
+        profile &&
+        typeof profile.username === 'string' &&
+        profile.username.trim().toLowerCase() === normalized
+      ) {
+        return {
+          data: null,
+          error: {
+            message: 'duplicate key value violates unique constraint "profiles_username_key"',
+            code: '23505',
+          },
+        };
+      }
+      if (
+        profileId !== user.id &&
+        profile &&
+        typeof profile.username_normalized === 'string' &&
+        profile.username_normalized === normalized
+      ) {
+        return {
+          data: null,
+          error: {
+            message: 'duplicate key value violates unique constraint "profiles_username_key"',
+            code: '23505',
+          },
+        };
+      }
+    }
+  }
+
+  const updated = { ...existing, ...values };
+  if (typeof values.username === 'string') {
+    const trimmed = values.username.trim();
+    updated.username = trimmed;
+    if ('username_normalized' in values) {
+      updated.username_normalized = values.username_normalized;
+    } else {
+      updated.username_normalized = trimmed ? trimmed.toLowerCase() : '';
+    }
+  } else if (typeof values.username_normalized === 'string') {
+    updated.username_normalized = values.username_normalized;
+  }
+  updated.updated_at = new Date().toISOString();
   state.profiles[user.id] = updated;
   persistState();
   return { data: clone(updated), error: null };
@@ -349,6 +409,7 @@ export function createClient() {
           user: {
             id: user.id,
             email: user.email,
+            user_metadata: { ...(user.metadata || {}) },
           },
         };
         ensureProfile(user.id, { email: user.email });
@@ -376,14 +437,27 @@ export function createClient() {
         persistState();
         return { data: {}, error: null };
       },
-      async updateUser({ password }) {
+      async updateUser({ password, data } = {}) {
         const { user, error } = requireSession();
         if (error) {
           return { data: null, error };
         }
         const existing = resolveUserByEmail(user.email);
         if (existing) {
-          existing.password = password;
+          if (typeof password === 'string') {
+            existing.password = password;
+          }
+          if (data && typeof data === 'object') {
+            existing.metadata = { ...(existing.metadata || {}), ...data };
+          }
+        }
+        if (state.currentSession?.user) {
+          if (data && typeof data === 'object') {
+            state.currentSession.user.user_metadata = {
+              ...(state.currentSession.user.user_metadata || {}),
+              ...data,
+            };
+          }
         }
         persistState();
         return { data: { user: clone(state.currentSession?.user) }, error: null };
@@ -484,7 +558,16 @@ stubApi.setSession = function setSession(user) {
     persistState();
     return;
   }
-  state.currentSession = { user: { id: user.id, email: user.email } };
+  const existing = user.email ? resolveUserByEmail(user.email) : null;
+  const metadata =
+    (user && typeof user.user_metadata === 'object' && user.user_metadata) || existing?.metadata || {};
+  state.currentSession = {
+    user: {
+      id: user.id,
+      email: user.email,
+      user_metadata: { ...metadata },
+    },
+  };
   persistState();
 };
 stubApi.clearPersistence = clearPersistedStateStorage;
