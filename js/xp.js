@@ -1,4 +1,4 @@
-import { sb } from './supabaseClient.js';
+const sb = window.getSupabase();
 
 function ensureNotGuest() {
   const state = window.CE_STATE || {};

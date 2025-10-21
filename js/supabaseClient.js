@@ -1,42 +1,39 @@
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+/* supabaseClient.js */
+(() => {
+  if (window.__SB__) return;
+  const getMeta = (name) => document.querySelector(`meta[name="${name}"]`)?.content?.trim() || '';
+  const SUPABASE_URL = getMeta('supabase-url');
+  const SUPABASE_ANON = getMeta('supabase-anon');
 
-function readMeta(name) {
-  return document.querySelector(`meta[name="${name}"]`)?.content?.trim() || '';
-}
-
-function createSupabase() {
-  const url = readMeta('supabase-url');
-  const anon = readMeta('supabase-anon');
-  const publishable = readMeta('supabase-publishable');
-
-  if (!url || !anon) {
-    throw new Error('Brak konfiguracji Supabase: ustaw meta supabase-url i supabase-anon.');
+  if (!SUPABASE_URL || !SUPABASE_ANON) {
+    console.error('[CE] Supabase meta tags missing');
   }
 
-  return createClient(url, anon, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-      multiTab: true,
-    },
-    global: {
-      headers: publishable
-        ? { 'x-application-name': 'CyprusEye', 'x-publishable-key': publishable }
-        : { 'x-application-name': 'CyprusEye' },
-    },
+  const sb = window.supabase?.createClient
+    ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+        auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+      })
+    : null;
+
+  window.__SB__ = sb;
+  window.getSupabase = () => window.__SB__;
+})();
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('DOMContentLoaded', () => {
+    try {
+      const bootResult = window?.bootAuth?.();
+      if (bootResult?.then) {
+        bootResult
+          .then(() => window?.updateAuthUI?.())
+          .catch(() => window?.updateAuthUI?.());
+      } else {
+        window?.updateAuthUI?.();
+      }
+    } catch (error) {
+      console.warn('[CE] Nie udało się zainicjalizować bootAuth po załadowaniu DOM.', error);
+    }
   });
 }
 
-const existingClient = window.CE_AUTH?.supabase;
-export const sb = existingClient ?? createSupabase();
-
-if (window.CE_AUTH) {
-  if (!window.CE_AUTH.supabase) {
-    window.CE_AUTH.supabase = sb;
-  }
-} else {
-  window.CE_AUTH = { supabase: sb };
-}
-
-export default sb;
+export {};

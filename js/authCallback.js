@@ -1,4 +1,4 @@
-import { sb } from './supabaseClient.js';
+const sb = window.getSupabase();
 
 const form = document.getElementById('form-password-update');
 const messageEl = document.getElementById('resetMessage');
