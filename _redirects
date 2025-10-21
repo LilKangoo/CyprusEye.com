@@ -2,6 +2,3 @@
 /auth/*             /auth/index.html      200
 /reset/*            /reset/index.html     200
 /account/*          /account/index.html   200
-
-# (opcjonalnie) jeśli masz inne podsieżki "aplikacyjne", dodaj je podobnie
-# /gra/*              /gra/index.html        200
