@@ -5400,12 +5400,13 @@ a:focus-visible {
   transition: opacity 0.3s ease;
   padding: clamp(1rem, 4vw, 3rem);
   /*
-    Use a high z-index so the explorer modal always appears above other
-    interface layers such as sticky headers, floating buttons or drawers.
+    Use an even higher z-index so the explorer modal always appears above
+    other interface layers such as sticky headers, floating buttons or drawers.
     Previously it sat behind those panels, making the modal invisible even
-    though it was technically rendered.
+    though it was technically rendered. A larger value ensures the overlay wins
+    every stacking-context comparison without impacting other modals.
   */
-  z-index: 1400;
+  z-index: 2000;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
