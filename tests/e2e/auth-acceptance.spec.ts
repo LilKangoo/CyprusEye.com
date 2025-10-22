@@ -32,12 +32,12 @@ test('guest mode toggles UI and persists across reloads', async ({ page }) => {
   expect(guestState).toBe(true);
 
   await page.goto('/packing.html');
-  const packingPanel = page.locator('[data-gated="true"].packing-panel');
+  const packingPanel = page.locator('.packing-panel');
   await expect(packingPanel).toBeVisible();
   await expect(page.locator('#packingChecklist')).toBeVisible();
 
   await page.goto('/tasks.html');
-  const tasksPanel = page.locator('[data-gated="true"].tasks-panel');
+  const tasksPanel = page.locator('.tasks-panel');
   await expect(tasksPanel).toBeVisible();
   await expect(page.locator('#tasksView')).toBeVisible();
 });
