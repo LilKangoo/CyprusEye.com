@@ -528,6 +528,7 @@
   "auth.confirmation.info": "You're ready to enjoy every feature of WakacjeCypr Quest.",
   "auth.confirmation.cta": "Continue your adventure",
   "auth.confirmation.account": "Open the player dashboard",
+  "auth.confirmation.dismissHint": "Click anywhere to close this message.",
   "auth.login.hint": "Use the form below to sign in or create an account.",
   "auth.close": {
     "text": "✕",

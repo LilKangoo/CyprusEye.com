@@ -7631,6 +7631,85 @@ body.auth-page {
   gap: var(--space-4);
 }
 
+.auth-success-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-4);
+  background: rgba(15, 23, 42, 0.68);
+  z-index: 1200;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease;
+  cursor: pointer;
+}
+
+.auth-success-overlay.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.auth-success-overlay[hidden] {
+  display: none !important;
+}
+
+.auth-success-overlay__inner {
+  width: min(420px, 90vw);
+  background: var(--color-white);
+  border-radius: 28px;
+  padding: clamp(1.5rem, 5vw, 2.5rem);
+  box-shadow: 0 28px 60px rgba(15, 23, 42, 0.25);
+  text-align: center;
+  color: var(--color-slate-900, #0f172a);
+  cursor: inherit;
+}
+
+.auth-success-overlay__inner:focus {
+  outline: none;
+}
+
+.auth-success-overlay__badge {
+  font-size: clamp(2.4rem, 5.8vw, 3.4rem);
+  line-height: 1;
+  margin-bottom: var(--space-2);
+}
+
+.auth-success-overlay__title {
+  margin: 0;
+  font-size: clamp(1.5rem, 4vw, 2rem);
+  font-weight: 700;
+}
+
+.auth-success-overlay__user {
+  margin: var(--space-2) 0 0;
+  font-weight: 600;
+  font-size: 1.05rem;
+}
+
+.auth-success-overlay__user strong {
+  color: var(--primary);
+}
+
+.auth-success-overlay__message {
+  margin: var(--space-2) 0 0;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+.auth-success-overlay__hint {
+  margin: var(--space-3) 0 0;
+  font-size: 0.9rem;
+  color: rgba(15, 23, 42, 0.65);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auth-success-overlay {
+    transition: none;
+  }
+}
+
 .auth-confirmation {
   display: grid;
   gap: var(--space-3);
