@@ -869,6 +869,7 @@
   "auth.confirmation.info": "Możesz teraz korzystać z wszystkich funkcji WakacjeCypr Quest.",
   "auth.confirmation.cta": "Kontynuuj przygodę",
   "auth.confirmation.account": "Przejdź do panelu gracza",
+  "auth.confirmation.dismissHint": "Kliknij gdziekolwiek, aby zamknąć to powiadomienie.",
   "auth.login.hint": "Wypełnij formularz poniżej, aby się zalogować lub założyć konto.",
   "auth.close.label": "Zamknij okno logowania",
   "auth.tab.login": "Logowanie",

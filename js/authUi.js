@@ -192,6 +192,32 @@ const AUTH_CONFIRMATION_TEMPLATE = `
   </div>
 `;
 
+const AUTH_SUCCESS_OVERLAY_TEMPLATE = `
+  <div
+    class="auth-success-overlay__inner"
+    role="alertdialog"
+    aria-modal="true"
+    aria-live="assertive"
+    tabindex="-1"
+    data-auth-success-focus
+  >
+    <div class="auth-success-overlay__badge" aria-hidden="true">✅</div>
+    <h2 class="auth-success-overlay__title" data-i18n="auth.confirmation.title">
+      Zalogowano pomyślnie!
+    </h2>
+    <p class="auth-success-overlay__user">
+      <span data-i18n="auth.confirmation.userLabel">Zalogowany jako</span>
+      <strong data-auth-success-name></strong>
+    </p>
+    <p class="auth-success-overlay__message" data-i18n="auth.confirmation.info">
+      Możesz teraz korzystać z wszystkich funkcji WakacjeCypr Quest.
+    </p>
+    <p class="auth-success-overlay__hint" data-i18n="auth.confirmation.dismissHint">
+      Kliknij gdziekolwiek, aby zamknąć to powiadomienie.
+    </p>
+  </div>
+`;
+
 function applyAuthConfirmationTranslations(element) {
   const i18n = window.appI18n;
   const language = i18n?.language;
@@ -226,6 +252,132 @@ function ensureAuthConfirmation(root) {
     applyAuthConfirmationTranslations(confirmation);
   }
   return confirmation;
+}
+
+let authSuccessOverlay = null;
+let authSuccessPreviousFocus = null;
+let authSuccessKeydownHandler = null;
+
+function ensureAuthSuccessOverlay(doc = document) {
+  if (authSuccessOverlay instanceof HTMLElement && authSuccessOverlay.isConnected) {
+    return authSuccessOverlay;
+  }
+
+  const ownerDocument = doc instanceof Document ? doc : document;
+  if (!ownerDocument?.body) {
+    return authSuccessOverlay instanceof HTMLElement ? authSuccessOverlay : null;
+  }
+
+  const existing = ownerDocument.querySelector('[data-auth-success-overlay]');
+  if (existing instanceof HTMLElement) {
+    authSuccessOverlay = existing;
+    return authSuccessOverlay;
+  }
+
+  const overlay = ownerDocument.createElement('div');
+  overlay.className = 'auth-success-overlay';
+  overlay.dataset.authSuccessOverlay = 'true';
+  overlay.setAttribute('hidden', '');
+  overlay.setAttribute('aria-hidden', 'true');
+  overlay.innerHTML = AUTH_SUCCESS_OVERLAY_TEMPLATE.trim();
+
+  overlay.addEventListener('click', () => {
+    hideAuthSuccessOverlay();
+  });
+
+  ownerDocument.body.append(overlay);
+  applyAuthConfirmationTranslations(overlay);
+
+  authSuccessOverlay = overlay;
+  return authSuccessOverlay;
+}
+
+function updateAuthSuccessOverlayUser(state = window.CE_STATE || {}) {
+  const overlay = ensureAuthSuccessOverlay();
+  if (!(overlay instanceof HTMLElement)) {
+    return;
+  }
+
+  const nameElement = overlay.querySelector('[data-auth-success-name]');
+  if (!(nameElement instanceof HTMLElement)) {
+    return;
+  }
+
+  const name = getDisplayNameFromState(state);
+  nameElement.textContent = name;
+}
+
+function hideAuthSuccessOverlay({ restoreFocus = true } = {}) {
+  const overlay = ensureAuthSuccessOverlay();
+  if (!(overlay instanceof HTMLElement)) {
+    return;
+  }
+
+  overlay.classList.remove('is-visible');
+  overlay.dataset.visible = 'false';
+  overlay.setAttribute('aria-hidden', 'true');
+  overlay.setAttribute('hidden', '');
+
+  if (authSuccessKeydownHandler) {
+    document.removeEventListener('keydown', authSuccessKeydownHandler, true);
+    authSuccessKeydownHandler = null;
+  }
+
+  if (restoreFocus && authSuccessPreviousFocus instanceof HTMLElement) {
+    try {
+      authSuccessPreviousFocus.focus({ preventScroll: true });
+    } catch (error) {
+      // ignore focus errors
+    }
+  }
+
+  authSuccessPreviousFocus = null;
+}
+
+function showAuthSuccessOverlay(state = window.CE_STATE || {}) {
+  const overlay = ensureAuthSuccessOverlay();
+  if (!(overlay instanceof HTMLElement)) {
+    return null;
+  }
+
+  updateAuthSuccessOverlayUser(state);
+
+  authSuccessPreviousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+  overlay.removeAttribute('hidden');
+  overlay.setAttribute('aria-hidden', 'false');
+  overlay.classList.add('is-visible');
+  overlay.dataset.visible = 'true';
+
+  const focusTarget = overlay.querySelector('[data-auth-success-focus]');
+  if (focusTarget instanceof HTMLElement) {
+    window.setTimeout(() => {
+      try {
+        focusTarget.focus({ preventScroll: true });
+      } catch (error) {
+        // ignore focus errors
+      }
+    }, 0);
+  }
+
+  const handleKeydown = (event) => {
+    if (!overlay.classList.contains('is-visible')) {
+      return;
+    }
+    if (event.key === 'Escape' || event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      hideAuthSuccessOverlay();
+    }
+  };
+
+  if (authSuccessKeydownHandler) {
+    document.removeEventListener('keydown', authSuccessKeydownHandler, true);
+  }
+
+  authSuccessKeydownHandler = handleKeydown;
+  document.addEventListener('keydown', authSuccessKeydownHandler, true);
+
+  return overlay;
 }
 
 function syncConfirmationLink(element, state, fallback = '/') {
@@ -576,6 +728,12 @@ export function updateAuthUI() {
   const isGuest = !isLogged && !!guestState?.active;
   const documentState = isLogged ? 'authenticated' : 'guest';
 
+  if (isLogged) {
+    updateAuthSuccessOverlayUser(state);
+  } else {
+    hideAuthSuccessOverlay({ restoreFocus: false });
+  }
+
   setDocumentAuthState(documentState);
 
   if (!isLogged && state.postAuthRedirect) {
@@ -784,6 +942,11 @@ onReady(() => {
 document.addEventListener('click', handleConfirmationClick, { capture: true });
 
 document.addEventListener('ce-auth:post-login', () => {
+  const overlay = showAuthSuccessOverlay();
+  if (overlay instanceof HTMLElement) {
+    return;
+  }
+
   window.setTimeout(() => {
     const primary = document.querySelector('[data-auth-confirmation-link]');
     if (primary instanceof HTMLElement && typeof primary.focus === 'function') {
