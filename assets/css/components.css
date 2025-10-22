@@ -5399,7 +5399,13 @@ a:focus-visible {
   pointer-events: none;
   transition: opacity 0.3s ease;
   padding: clamp(1rem, 4vw, 3rem);
-  z-index: 20;
+  /*
+    Use a high z-index so the explorer modal always appears above other
+    interface layers such as sticky headers, floating buttons or drawers.
+    Previously it sat behind those panels, making the modal invisible even
+    though it was technically rendered.
+  */
+  z-index: 1400;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
