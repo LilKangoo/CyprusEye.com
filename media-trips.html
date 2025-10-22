@@ -825,6 +825,7 @@
     role="dialog"
     aria-modal="true"
     aria-labelledby="accountTitle"
+    data-ce-account-enhanced="true"
   >
     <div class="account-dialog">
       <header class="account-header">
@@ -874,118 +875,242 @@
           </button>
         </div>
 
-        <section
-          class="account-panel is-active"
-          id="accountPanelStats"
-          role="tabpanel"
-          aria-labelledby="accountTabStats"
-          data-account-panel="stats"
-        >
-          <div class="account-stats-grid">
-            <article class="account-stat-card">
-              <h3 data-i18n="account.stats.level.title">Poziom</h3>
-              <p class="account-stat-value" id="accountStatLevel">1</p>
-              <p class="account-stat-label" data-i18n="account.stats.level.description">Aktualny poziom przygody</p>
-            </article>
-            <article class="account-stat-card">
-              <h3 data-i18n="account.stats.xp.title">Doświadczenie</h3>
-              <p class="account-stat-value" id="accountStatXp">0 XP</p>
-              <p class="account-stat-label" data-i18n="account.stats.xp.description">Łącznie zdobytych punktów</p>
-            </article>
-            <article class="account-stat-card">
-              <h3 data-i18n="account.stats.badges.title">Odznaki</h3>
-              <p class="account-stat-value" id="accountStatBadges">0</p>
-              <p class="account-stat-label" data-i18n="account.stats.badges.description">Zebrane unikalne odznaki</p>
-            </article>
-            <article class="account-stat-card">
-              <h3 data-i18n="account.stats.visited.title">Odwiedzone miejsca</h3>
-              <p class="account-stat-value" id="accountStatVisited">0</p>
-              <p class="account-stat-label" data-i18n="account.stats.visited.description">Liczba odkrytych atrakcji</p>
-            </article>
-            <article class="account-stat-card">
-              <h3 data-i18n="account.stats.tasks.title">Ukończone zadania</h3>
-              <p class="account-stat-value" id="accountStatTasks">0</p>
-              <p class="account-stat-label" data-i18n="account.stats.tasks.description">Wykonane misje i checklisty</p>
-            </article>
-            <article class="account-stat-card">
-              <h3 data-i18n="account.stats.streak.title">Passa dnia</h3>
-              <p class="account-stat-value" id="accountStatStreak">0</p>
-              <p class="account-stat-label" data-i18n="account.stats.streak.description">
-                Aktualna / najlepsza: <span id="accountStatBestStreak">0</span>
+        <div class="account-status">
+          <div
+            id="accountMessage"
+            class="account-message"
+            role="status"
+            aria-live="polite"
+            data-account-message
+            hidden
+          ></div>
+          <div data-account-loading hidden>Trwa wczytywanie danych konta…</div>
+        </div>
+
+        <div data-account-content>
+          <section
+            class="account-panel is-active"
+            id="accountPanelStats"
+            role="tabpanel"
+            aria-labelledby="accountTabStats"
+            data-account-panel="stats"
+          >
+            <section class="account-card" aria-labelledby="accountProfileHeading">
+              <div>
+                <h3 id="accountProfileHeading">Twój profil</h3>
+                <p>Podstawowe informacje o koncie i postępy w przygodzie.</p>
+              </div>
+              <dl class="profile-grid">
+                <div>
+                  <dt>E-mail</dt>
+                  <dd data-account-email>—</dd>
+                </div>
+                <div>
+                  <dt>Nazwa użytkownika</dt>
+                  <dd data-account-username>—</dd>
+                </div>
+                <div>
+                  <dt>Imię wyświetlane</dt>
+                  <dd data-account-name>—</dd>
+                </div>
+                <div>
+                  <dt>XP</dt>
+                  <dd data-account-xp>0</dd>
+                </div>
+                <div>
+                  <dt>Poziom</dt>
+                  <dd data-account-level>0</dd>
+                </div>
+                <div>
+                  <dt>Ostatnia aktualizacja</dt>
+                  <dd data-account-updated>—</dd>
+                </div>
+              </dl>
+            </section>
+
+            <section class="account-card" aria-labelledby="accountXpHeading">
+              <div>
+                <h3 id="accountXpHeading">Ostatnie zdarzenia XP</h3>
+                <p>Monitoruj, jak zdobywasz doświadczenie w CyprusEye.</p>
+              </div>
+              <p id="accountXpEmpty" data-account-xp-empty hidden>Brak zarejestrowanych zdarzeń XP.</p>
+              <ul id="accountXpEvents" class="xp-list" aria-live="polite"></ul>
+            </section>
+
+            <div class="account-stats-grid">
+              <article class="account-stat-card">
+                <h3 data-i18n="account.stats.level.title">Poziom</h3>
+                <p class="account-stat-value" id="accountStatLevel">1</p>
+                <p class="account-stat-label" data-i18n="account.stats.level.description">Aktualny poziom przygody</p>
+              </article>
+              <article class="account-stat-card">
+                <h3 data-i18n="account.stats.xp.title">Doświadczenie</h3>
+                <p class="account-stat-value" id="accountStatXp">0 XP</p>
+                <p class="account-stat-label" data-i18n="account.stats.xp.description">Łącznie zdobytych punktów</p>
+              </article>
+              <article class="account-stat-card">
+                <h3 data-i18n="account.stats.badges.title">Odznaki</h3>
+                <p class="account-stat-value" id="accountStatBadges">0</p>
+                <p class="account-stat-label" data-i18n="account.stats.badges.description">Zebrane unikalne odznaki</p>
+              </article>
+              <article class="account-stat-card">
+                <h3 data-i18n="account.stats.visited.title">Odwiedzone miejsca</h3>
+                <p class="account-stat-value" id="accountStatVisited">0</p>
+                <p class="account-stat-label" data-i18n="account.stats.visited.description">Liczba odkrytych atrakcji</p>
+              </article>
+              <article class="account-stat-card">
+                <h3 data-i18n="account.stats.tasks.title">Ukończone zadania</h3>
+                <p class="account-stat-value" id="accountStatTasks">0</p>
+                <p class="account-stat-label" data-i18n="account.stats.tasks.description">Wykonane misje i checklisty</p>
+              </article>
+              <article class="account-stat-card">
+                <h3 data-i18n="account.stats.streak.title">Passa dnia</h3>
+                <p class="account-stat-value" id="accountStatStreak">0</p>
+                <p class="account-stat-label" data-i18n="account.stats.streak.description">
+                  Aktualna / najlepsza: <span id="accountStatBestStreak">0</span>
+                </p>
+              </article>
+            </div>
+
+            <div class="account-reset-card">
+              <h3 data-i18n="account.reset.title">Wyzeruj statystyki</h3>
+              <p id="accountResetDescription" data-i18n="account.reset.description">
+                Rozpocznij przygodę od nowa – reset obejmie doświadczenie, odznaki, odwiedzone miejsca i zadania.
               </p>
-            </article>
-          </div>
+              <button
+                type="button"
+                class="btn btn-danger danger"
+                id="accountResetProgress"
+                data-i18n="account.reset.action"
+              >
+                🔄 Zresetuj postęp
+              </button>
+            </div>
+          </section>
 
-          <div class="account-reset-card">
-            <h3 data-i18n="account.reset.title">Wyzeruj statystyki</h3>
-            <p id="accountResetDescription" data-i18n="account.reset.description">
-              Rozpocznij przygodę od nowa – reset obejmie doświadczenie, odznaki, odwiedzone miejsca i zadania.
-            </p>
-            <button
-              type="button"
-              class="btn btn-danger danger"
-              id="accountResetProgress"
-              data-i18n="account.reset.action"
-            >
-              🔄 Zresetuj postęp
-            </button>
-          </div>
-        </section>
+          <section
+            class="account-panel"
+            id="accountPanelSecurity"
+            role="tabpanel"
+            aria-labelledby="accountTabSecurity"
+            data-account-panel="security"
+            hidden
+          >
+            <section class="account-card" aria-labelledby="accountUsernameHeading">
+              <div>
+                <h3 id="accountUsernameHeading">Zmień nazwę użytkownika</h3>
+                <p>Ustaw identyfikator widoczny w rankingach, komentarzach i dzienniku podróży.</p>
+              </div>
+              <form id="accountUsernameForm" class="account-form account-form--stack" novalidate>
+                <label for="accountUsernameInput">
+                  Nowa nazwa użytkownika
+                  <input
+                    id="accountUsernameInput"
+                    name="username"
+                    type="text"
+                    inputmode="text"
+                    autocomplete="username"
+                    autocapitalize="none"
+                    autocorrect="off"
+                    spellcheck="false"
+                    placeholder="np. cyprus.explorer"
+                    minlength="3"
+                    maxlength="30"
+                    required
+                  />
+                </label>
+                <p class="account-form__hint">
+                  Dozwolone litery, cyfry, kropki, myślniki i podkreślenia (3–30 znaków).
+                </p>
+                <button type="submit">Zapisz nazwę</button>
+              </form>
+            </section>
 
-        <section
-          class="account-panel"
-          id="accountPanelSecurity"
-          role="tabpanel"
-          aria-labelledby="accountTabSecurity"
-          data-account-panel="security"
-          hidden
-        >
-          <form id="accountPasswordForm" class="account-form account-form--vertical">
-            <h3 data-i18n="account.password.title">Zmień hasło</h3>
-            <p class="form-hint" data-i18n="account.password.hint">
-              Aby zaktualizować hasło, potwierdź obecne i podaj nowe (minimum 8 znaków).
+            <section class="account-card" aria-labelledby="accountNameHeading">
+              <div>
+                <h3 id="accountNameHeading">Imię wyświetlane</h3>
+                <p>To imię pojawia się w powiadomieniach oraz powitaniach w aplikacji.</p>
+              </div>
+              <form id="accountNameForm" class="account-form account-form--stack" novalidate>
+                <label for="accountNameInput">
+                  Imię
+                  <input
+                    id="accountNameInput"
+                    name="name"
+                    type="text"
+                    autocomplete="given-name"
+                    placeholder="Twoje imię"
+                    minlength="2"
+                    maxlength="60"
+                    required
+                  />
+                </label>
+                <button type="submit">Zapisz imię</button>
+              </form>
+            </section>
+
+            <section class="account-card" aria-labelledby="accountPasswordHeading">
+              <div>
+                <h3 id="accountPasswordHeading">Aktualizuj hasło</h3>
+                <p>Użyj silnego hasła, aby chronić konto przed niepowołanym dostępem.</p>
+              </div>
+              <form
+                id="accountPasswordForm"
+                class="account-form account-form--grid"
+                data-ce-account-handler="enhanced"
+                novalidate
+              >
+                <label for="accountCurrentPassword">
+                  Obecne hasło
+                  <input
+                    id="accountCurrentPassword"
+                    name="current_password"
+                    type="password"
+                    autocomplete="current-password"
+                    placeholder="••••••••"
+                    required
+                  />
+                </label>
+                <label for="accountNewPassword">
+                  Nowe hasło
+                  <input
+                    id="accountNewPassword"
+                    name="new_password"
+                    type="password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    placeholder="Minimum 8 znaków"
+                    required
+                  />
+                </label>
+                <label for="accountConfirmPassword">
+                  Powtórz nowe hasło
+                  <input
+                    id="accountConfirmPassword"
+                    name="confirm_password"
+                    type="password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    placeholder="Potwierdź hasło"
+                    required
+                  />
+                </label>
+                <p class="account-form__hint">
+                  Hasło powinno mieć co najmniej 8 znaków i zawierać mieszankę liter oraz cyfr.
+                </p>
+                <button type="submit">Zmień hasło</button>
+              </form>
+            </section>
+
+            <p class="account-guest-note" id="accountGuestPasswordNote" data-account-guest-note data-ce-account-enhanced="true" hidden>
+              Goście nie posiadają haseł – zaloguj się, aby zmienić dane konta.
             </p>
-            <label for="accountCurrentPassword" data-i18n="account.password.current">Obecne hasło</label>
-            <input
-              id="accountCurrentPassword"
-              name="accountCurrentPassword"
-              type="password"
-              autocomplete="current-password"
-              required
-            />
-            <label for="accountNewPassword" data-i18n="account.password.new">Nowe hasło</label>
-            <input
-              id="accountNewPassword"
-              name="accountNewPassword"
-              type="password"
-              autocomplete="new-password"
-              required
-              minlength="8"
-            />
-            <label for="accountConfirmPassword" data-i18n="account.password.confirm">Powtórz nowe hasło</label>
-            <input
-              id="accountConfirmPassword"
-              name="accountConfirmPassword"
-              type="password"
-              autocomplete="new-password"
-              required
-              minlength="8"
-            />
-            <button type="submit" class="btn btn-secondary secondary" data-i18n="account.password.submit">
-              Zmień hasło
-            </button>
-          </form>
-          <p class="account-guest-note" id="accountGuestPasswordNote" hidden data-i18n="account.password.guestNote">
-            Goście nie posiadają haseł – zaloguj się, aby zmienić dane konta.
-          </p>
-        </section>
+          </section>
+        </div>
       </div>
-
-      <footer class="account-footer">
-        <p id="accountMessage" class="account-message" role="status" aria-live="polite"></p>
-      </footer>
+    </div>
   </div>
-</div>
+  <script type="module" src="/assets/js/account-modal.js"></script>
   <script type="module" src="/assets/js/auth-ui.js"></script>
 </body>
 </html>
