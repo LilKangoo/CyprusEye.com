@@ -5390,8 +5390,9 @@ a:focus-visible {
 .explorer-modal {
   position: fixed;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
   background: rgba(15, 23, 42, 0.45);
   backdrop-filter: blur(14px);
   opacity: 0;
@@ -5399,11 +5400,19 @@ a:focus-visible {
   transition: opacity 0.3s ease;
   padding: clamp(1rem, 4vw, 3rem);
   z-index: 20;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .explorer-modal.visible {
   opacity: 1;
   pointer-events: auto;
+}
+
+@media (min-width: 768px) {
+  .explorer-modal {
+    align-items: center;
+  }
 }
 
 .explorer-dialog {
