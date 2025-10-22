@@ -2474,15 +2474,52 @@ function getAccount(key) {
 }
 
 function getCurrentDisplayName() {
+  const state = window.CE_STATE || {};
+  const profile = state.profile || null;
+
+  const profileName =
+    (typeof profile?.name === 'string' && profile.name.trim()) ||
+    (typeof profile?.username === 'string' && profile.username.trim()) ||
+    '';
+  if (profileName) {
+    return profileName;
+  }
+
   if (currentUserKey) {
     const account = getAccount(currentUserKey);
-    if (account?.username) {
-      return account.username;
+    const accountName =
+      (typeof account?.profile?.name === 'string' && account.profile.name.trim()) ||
+      (typeof account?.username === 'string' && account.username.trim()) ||
+      '';
+    if (accountName) {
+      return accountName;
     }
   }
-  if (currentSupabaseUser?.email) {
-    return currentSupabaseUser.email;
+
+  const sessionUser = state.session?.user || null;
+  if (sessionUser) {
+    const sessionDisplay = getSupabaseDisplayName(sessionUser);
+    if (sessionDisplay) {
+      return sessionDisplay;
+    }
+    const sessionEmail = typeof sessionUser.email === 'string' ? sessionUser.email.trim() : '';
+    if (sessionEmail) {
+      return sessionEmail;
+    }
   }
+
+  if (currentSupabaseUser) {
+    const supabaseDisplay = getSupabaseDisplayName(currentSupabaseUser);
+    if (supabaseDisplay) {
+      return supabaseDisplay;
+    }
+    const supabaseEmail =
+      typeof currentSupabaseUser.email === 'string' ? currentSupabaseUser.email.trim() : '';
+    if (supabaseEmail) {
+      return supabaseEmail;
+    }
+  }
+
   return 'Gość';
 }
 
@@ -7658,8 +7695,10 @@ function setAccountMessage(message = '', tone = 'info') {
   messageEl.textContent = message;
   if (message) {
     messageEl.dataset.tone = tone;
+    messageEl.hidden = false;
   } else {
     messageEl.removeAttribute('data-tone');
+    messageEl.hidden = true;
   }
 }
 
@@ -7757,6 +7796,14 @@ function setActiveAccountTab(tabId = 'stats') {
       panel.setAttribute('hidden', '');
     }
   });
+
+  try {
+    document.dispatchEvent(new CustomEvent('ce-account:tab-change', { detail: { tab: targetTab } }));
+  } catch (error) {
+    console.warn('Nie udało się wysłać zdarzenia zmiany zakładki konta.', error);
+  }
+
+  return targetTab;
 }
 
 function openAccountModal(initialTab = 'stats') {
@@ -7765,7 +7812,17 @@ function openAccountModal(initialTab = 'stats') {
     return;
   }
 
-  if (!modal.hidden && modal.classList.contains('visible')) {
+  const activeTab = setActiveAccountTab(initialTab);
+  const alreadyOpen = !modal.hidden && modal.classList.contains('visible');
+
+  if (alreadyOpen) {
+    try {
+      document.dispatchEvent(
+        new CustomEvent('ce-account:opened', { detail: { tab: activeTab, reopen: true } }),
+      );
+    } catch (error) {
+      console.warn('Nie udało się wysłać zdarzenia ponownego otwarcia panelu konta.', error);
+    }
     return;
   }
 
@@ -7775,11 +7832,15 @@ function openAccountModal(initialTab = 'stats') {
   }
 
   setAccountMessage('');
-  setActiveAccountTab(initialTab);
   lockBodyScroll();
   modal.hidden = false;
   requestAnimationFrame(() => {
     modal.classList.add('visible');
+    try {
+      document.dispatchEvent(new CustomEvent('ce-account:opened', { detail: { tab: activeTab } }));
+    } catch (error) {
+      console.warn('Nie udało się wysłać zdarzenia otwarcia panelu konta.', error);
+    }
   });
 }
 
@@ -7793,6 +7854,14 @@ function closeAccountModal() {
   modal.hidden = true;
   setAccountMessage('');
   unlockBodyScroll();
+
+  try {
+    const activeTab =
+      modal.querySelector('[data-account-tab].is-active')?.dataset.accountTab || 'stats';
+    document.dispatchEvent(new CustomEvent('ce-account:closed', { detail: { tab: activeTab } }));
+  } catch (error) {
+    console.warn('Nie udało się wysłać zdarzenia zamknięcia panelu konta.', error);
+  }
 
   const passwordForm = document.getElementById('accountPasswordForm');
   if (passwordForm instanceof HTMLFormElement) {
@@ -8035,7 +8104,10 @@ function updateAuthUI() {
       : translate('auth.guest.banner', 'Grasz jako gość');
   }
 
-  if (passwordForm instanceof HTMLFormElement) {
+  if (
+    passwordForm instanceof HTMLFormElement &&
+    passwordForm.dataset?.ceAccountHandler !== 'enhanced'
+  ) {
     passwordForm.classList.toggle('is-disabled', !isLoggedIn);
     passwordForm.querySelectorAll('input, button').forEach((element) => {
       if (element instanceof HTMLInputElement || element instanceof HTMLButtonElement) {
@@ -8044,12 +8116,36 @@ function updateAuthUI() {
     });
   }
 
-  if (guestPasswordNote) {
+  if (guestPasswordNote && guestPasswordNote.dataset?.ceAccountEnhanced !== 'true') {
     guestPasswordNote.hidden = isLoggedIn;
   }
 
   renderNotificationsUI();
   renderAccountStats('auth-ui');
+}
+
+if (typeof window !== 'undefined') {
+  const appApi = (window.CE_APP = window.CE_APP || {});
+  appApi.refreshAuthUi = () => {
+    try {
+      updateAuthUI();
+    } catch (error) {
+      console.warn('[app] Nie udało się odświeżyć interfejsu konta.', error);
+    }
+  };
+}
+
+if (typeof document !== 'undefined') {
+  document.addEventListener('ce-auth:state', () => {
+    try {
+      updateAuthUI();
+    } catch (error) {
+      console.warn(
+        '[app] Nie udało się zaktualizować interfejsu po zmianie stanu konta.',
+        error,
+      );
+    }
+  });
 }
 
 function setBusy(form, busy, msg = '') {
@@ -8644,6 +8740,7 @@ function initializeAuth() {
     registerForm instanceof HTMLFormElement && registerForm.dataset.ceAuthHandler === 'supabase';
   const guestHandledExternally =
     guestPlayButton instanceof HTMLButtonElement && guestPlayButton.dataset.ceAuthHandler === 'supabase';
+  const enhancedAccountModal = accountModal?.dataset?.ceAccountEnhanced === 'true';
 
   setDocumentAuthState('loading');
 
@@ -8681,12 +8778,20 @@ function initializeAuth() {
     });
   }
 
-  accountPasswordForm?.addEventListener('submit', handleAccountPasswordSubmit);
+  if (
+    accountPasswordForm instanceof HTMLFormElement &&
+    accountPasswordForm.dataset?.ceAccountHandler !== 'enhanced'
+  ) {
+    accountPasswordForm.addEventListener('submit', handleAccountPasswordSubmit);
+  }
   accountResetBtn?.addEventListener('click', handleAccountResetProgress);
   document.querySelectorAll('[data-account-tab]').forEach((tab) => {
     tab.addEventListener('click', () => {
       const target = tab.dataset.accountTab || 'stats';
       setActiveAccountTab(target);
+      if (enhancedAccountModal) {
+        return;
+      }
       if (target === 'security' && !currentSupabaseUser) {
         setAccountMessage(
           translate('account.error.password.loginRequired', 'Zaloguj się, aby zmienić hasło.'),
