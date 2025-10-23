@@ -4,6 +4,24 @@ const GUEST_STORAGE_KEY = 'ce_guest';
 const DEFAULT_LOGIN_TARGET = '/auth/';
 const LOGIN_MODE_MODAL = 'modal';
 const DEFAULT_GUEST_TARGET = '/';
+const MOBILE_MODAL_BREAKPOINT = 768;
+
+function isMobileViewport() {
+  try {
+    if (typeof window === 'undefined') {
+      return false;
+    }
+
+    if (typeof window.matchMedia === 'function') {
+      return window.matchMedia(`(max-width: ${MOBILE_MODAL_BREAKPOINT}px)`).matches;
+    }
+
+    return window.innerWidth <= MOBILE_MODAL_BREAKPOINT;
+  } catch (error) {
+    console.warn('[auth-ui] Nie udało się ustalić szerokości ekranu dla logowania modalnego.', error);
+    return false;
+  }
+}
 
 function readGuestState() {
   try {
@@ -92,11 +110,13 @@ function shouldUseModalLogin(element) {
   if (!element || typeof element !== 'object') {
     return false;
   }
+
   const mode = element.dataset?.authLoginMode;
-  if (!mode) {
-    return false;
+  if (mode) {
+    return mode.trim().toLowerCase() === LOGIN_MODE_MODAL;
   }
-  return mode.trim().toLowerCase() === LOGIN_MODE_MODAL;
+
+  return isMobileViewport();
 }
 
 function openLoginModal(element, fallback) {
