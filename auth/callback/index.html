@@ -21,9 +21,9 @@
     <link rel="stylesheet" href="/assets/css/base.css" />
     <link rel="stylesheet" href="/assets/css/components.css" />
     <link rel="stylesheet" href="/assets/css/mobile.css" />
+    <link rel="stylesheet" href="/assets/css/desktop.css" media="screen and (min-width: 768px)" />
     <link rel="stylesheet" href="/css/toast.css" />
-    <script type="module" src="/js/toast.js"></script>
-    <script type="module" src="/js/supabaseClient.js"></script>
+    <script type="module" src="/js/appShell.js"></script>
     <script type="module" src="/js/authCallback.js"></script>
   </head>
   <body class="auth-page">
@@ -39,7 +39,7 @@
           </p>
           <button class="btn" data-login type="button">Zaloguj</button>
           <button class="btn" data-guest type="button">Graj jako gość</button>
-          <button class="btn" data-logout style="display: none" type="button">Wyloguj</button>
+          <button class="btn" data-logout hidden type="button">Wyloguj</button>
           <button class="ghost" type="button" data-award="visit_poi|ayia-napa-harbor">+XP za punkt</button>
         </div>
       </header>

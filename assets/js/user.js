@@ -184,15 +184,15 @@ function renderAuth(user) {
   document.documentElement.dataset.auth = isLoggedIn ? 'in' : 'out';
 
   loginButtons.forEach((button) => {
-    button.style.display = isLoggedIn ? 'none' : '';
+    button.toggleAttribute('hidden', isLoggedIn);
   });
 
   logoutButtons.forEach((button) => {
-    button.style.display = isLoggedIn ? '' : 'none';
+    button.toggleAttribute('hidden', !isLoggedIn);
   });
 
   guestButtons.forEach((button) => {
-    button.style.display = isLoggedIn ? 'none' : '';
+    button.toggleAttribute('hidden', isLoggedIn);
   });
 }
 

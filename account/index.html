@@ -15,11 +15,9 @@
     <link rel="stylesheet" href="/assets/css/base.css" />
     <link rel="stylesheet" href="/assets/css/components.css" />
     <link rel="stylesheet" href="/assets/css/pages.css" />
+    <link rel="stylesheet" href="/assets/css/desktop.css" media="screen and (min-width: 768px)" />
     <link rel="stylesheet" href="/css/toast.css" />
-    <script type="module" src="/js/toast.js"></script>
-    <script type="module" src="/js/supabaseClient.js"></script>
-    <script type="module" src="/js/auth.js"></script>
-    <script type="module" src="/js/authUi.js"></script>
+    <script type="module" src="/js/appShell.js"></script>
     <script type="module" src="/js/account.js" defer></script>
     <style>
       body {
@@ -313,7 +311,7 @@
             </p>
             <button class="btn" data-auth="login" aria-label="Zaloguj do konta" data-login>Zaloguj</button>
             <button class="btn" data-auth="guest" aria-label="Tryb gry jako gość" data-guest>Graj jako gość</button>
-            <button class="btn" data-auth="logout" aria-label="Wyloguj z konta" data-logout style="display: none">
+            <button class="btn" data-auth="logout" aria-label="Wyloguj z konta" data-logout hidden>
               Wyloguj
             </button>
             <button class="ghost" type="button" data-award="visit_poi|ayia-napa-harbor">+XP za punkt</button>
