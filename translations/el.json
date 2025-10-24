@@ -1,8 +1,8 @@
 {
-  "language.switcher.label": "Language",
-  "language.option.pl": "Polish",
-  "language.option.en": "English",
-  "language.option.el": "Greek",
+  "language.switcher.label": "Γλώσσα",
+  "language.option.pl": "Πολωνικά",
+  "language.option.en": "Αγγλικά",
+  "language.option.el": "Ελληνικά",
   "header.notifications": "🔔 Notifications",
   "header.login": "🔐 Sign in",
   "header.accountSettings": "⚙️ Account settings",

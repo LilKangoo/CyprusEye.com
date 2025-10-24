@@ -82,8 +82,8 @@ Zestawienie `<link>` (rel=stylesheet/preconnect/preload) po sprzątaniu.
 - `stylesheet` → `assets/css/base.css`
 - `stylesheet` → `assets/css/components.css`
 - `stylesheet` → `assets/css/mobile.css`
-- `preload` → `https://unpkg.com/leaflet@1.9.4/dist/leaflet.css`
-- `preload` → `https://unpkg.com/leaflet@1.9.4/dist/leaflet.js`
+- `preload` → `assets/vendor/leaflet/leaflet.css`
+- `preload` → `assets/vendor/leaflet/leaflet.js`
 
 ## kupon.html
 - `preconnect` → `https://fonts.googleapis.com`

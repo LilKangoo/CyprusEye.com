@@ -13,7 +13,7 @@ describe('auth meta configuration', () => {
 
   it('declares Supabase meta tags before client script', () => {
     const metaIndex = html.indexOf('<meta name="supabase-url"');
-    const scriptIndex = html.indexOf('<script type="module" src="/js/supabaseClient.js"');
+    const scriptIndex = html.indexOf('<script type="module" src="/js/appShell.js"');
     expect(metaIndex).toBeGreaterThan(-1);
     expect(scriptIndex).toBeGreaterThan(-1);
     expect(metaIndex).toBeLessThan(scriptIndex);

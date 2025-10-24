@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" dir="ltr">
+<html lang="pl" dir="ltr">
   <head>
 <!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
@@ -27,9 +27,8 @@
     />
     <meta property="og:url" content="https://www.cypruseye.com/attractions.html" />
     <meta property="og:image" content="https://www.cypruseye.com/assets/cyprus_logo-1000x1054.png" />
-    <meta property="og:locale" content="en_GB" />
-    <meta property="og:locale:alternate" content="pl_PL" />
-    <meta property="og:locale:alternate" content="el_GR" />
+    <meta property="og:locale" content="pl_PL" />
+    <meta property="og:locale:alternate" content="en_GB" />
     <link rel="canonical" href="https://www.cypruseye.com/attractions.html" />
     <link rel="alternate" hreflang="pl" href="?lang=pl" />
     <link rel="alternate" hreflang="en" href="?lang=en" />
@@ -43,16 +42,14 @@
     <link rel="stylesheet" href="assets/css/base.css" />
     <link rel="stylesheet" href="assets/css/components.css" />
     <link rel="stylesheet" href="assets/css/mobile.css" />
+    <link rel="stylesheet" href="assets/css/desktop.css" media="screen and (min-width: 768px)" />
     <link rel="stylesheet" href="/css/toast.css" />
   
   <meta name="ce-auth" content="on" />
   <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co" />
   <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM" />
   <meta name="supabase-publishable" content="sb_publishable_QdxNGCb6LYD-6ywFrjCrjg_Oa7yDGTk" />
-  <script type="module" src="/js/supabaseClient.js"></script>
-  <script type="module" src="/js/toast.js"></script>
-  <script type="module" src="/js/auth.js"></script>
-  <script type="module" src="/js/authUi.js"></script>
+  <script type="module" src="/js/appShell.js"></script>
 </head>
   <body class="standalone-body" data-seo-page="attractions">
     <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
@@ -111,7 +108,7 @@
             data-auth="logout"
             aria-label="Wyloguj z konta"
             data-logout
-            style="display: none"
+            hidden
           >
             Wyloguj
           </button>
