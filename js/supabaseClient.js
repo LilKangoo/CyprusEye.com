@@ -11,15 +11,6 @@
   const existingClient = window.__SB__ || null;
   let sb = existingClient;
 
-  if (!sb && window.supabase?.createClient) {
-    sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
-      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
-    });
-  }
-
-  window.__SB__ = sb || null;
-  window.getSupabase = () => window.__SB__;
-
   const existingAuth = typeof window.CE_AUTH === 'object' && window.CE_AUTH !== null ? window.CE_AUTH : {};
   const listeners = existingAuth.__listeners instanceof Set ? existingAuth.__listeners : new Set();
   let currentSession = existingAuth.__currentSession || null;
@@ -107,14 +98,53 @@
     }
   };
 
-  ceAuth.setSupabaseClient = (client) => {
+  const applySupabaseClient = (client) => {
+    sb = client || null;
+    window.__SB__ = client || null;
     ceAuth.supabase = client || null;
-    window.__SB__ = ceAuth.supabase;
-    window.getSupabase = () => window.__SB__;
+  };
+
+  const ensureSupabaseClient = () => {
+    if (sb) {
+      if (ceAuth.supabase !== sb) {
+        applySupabaseClient(sb);
+      }
+      dispatchReady();
+      return sb;
+    }
+
+    if (window.__SB__) {
+      applySupabaseClient(window.__SB__);
+      if (sb) {
+        dispatchReady();
+      }
+      return sb;
+    }
+
+    if (!SUPABASE_URL || !SUPABASE_ANON) {
+      return null;
+    }
+
+    if (!window.supabase?.createClient) {
+      return null;
+    }
+
+    const client = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON, {
+      auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: true },
+    });
+    applySupabaseClient(client);
+    dispatchReady();
+    return client;
+  };
+
+  ceAuth.setSupabaseClient = (client) => {
+    applySupabaseClient(client || null);
     if (client) {
       dispatchReady();
     }
   };
+
+  window.getSupabase = () => ensureSupabaseClient();
 
   if (typeof ceAuth.notifyReady !== 'function') {
     ceAuth.notifyReady = dispatchReady;
@@ -181,8 +211,43 @@
 
   window.CE_AUTH = ceAuth;
 
-  if (sb) {
-    ceAuth.setSupabaseClient(sb);
+  const resolvedClient = ensureSupabaseClient();
+
+  if (!resolvedClient) {
+    const MAX_ATTEMPTS = 200;
+    const INTERVAL_MS = 25;
+    let attempts = 0;
+    const intervalId = window.setInterval(() => {
+      attempts += 1;
+      if (ensureSupabaseClient()) {
+        window.clearInterval(intervalId);
+        return;
+      }
+      if (attempts >= MAX_ATTEMPTS) {
+        window.clearInterval(intervalId);
+        console.warn('[CE] Supabase client not ready after waiting for script load.');
+      }
+    }, INTERVAL_MS);
+
+    const handleReady = () => {
+      if (ensureSupabaseClient()) {
+        window.clearInterval(intervalId);
+      }
+    };
+
+    window.addEventListener('load', handleReady, { once: true });
+
+    const supabaseScript = document.querySelector('script[src*="@supabase/supabase-js"]');
+    if (supabaseScript) {
+      supabaseScript.addEventListener('load', handleReady, { once: true });
+      supabaseScript.addEventListener(
+        'error',
+        () => {
+          console.error('[CE] Supabase library failed to load.');
+        },
+        { once: true },
+      );
+    }
   }
 })();
 
