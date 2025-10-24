@@ -884,6 +884,8 @@
   "auth.register.hint": "Po rejestracji sprawdź skrzynkę e-mail, aby potwierdzić konto.",
   "auth.guest.button": "Graj jako gość",
   "auth.guest.description": "Możesz grać jako gość – postęp zapisze się tylko na tym urządzeniu.",
+  "auth.status.loggedInAs": "Grasz jako {{username}}",
+  "auth.status.playerFallback": "użytkownik",
   "auth.status.loggingIn": "Łączenie z kontem…",
   "auth.status.resetting": "Wysyłamy e-mail resetujący…",
   "auth.status.badge.loading": "Łączenie z zapisem chmurowym…",
