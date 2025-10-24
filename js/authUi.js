@@ -1,4 +1,5 @@
 import { setAria, showErr } from './authMessages.js';
+import { loadProfileForUser } from './profile.js';
 
 const GUEST_STORAGE_KEY = 'ce_guest';
 
@@ -563,13 +564,8 @@ async function applySession(session, detail = {}) {
   if (session?.user?.id) {
     clearGuestState();
     try {
-      const { data: profile, error } = await withTimeout(
-        sb.from('profiles').select('id,email,name,xp,level,updated_at').single(),
-        3000,
-      );
-      if (!error && profile) {
-        state.profile = profile;
-      }
+      const profile = await withTimeout(loadProfileForUser(session.user), 3000);
+      state.profile = profile || null;
     } catch (profileError) {
       console.warn('Nie udało się pobrać profilu użytkownika.', profileError);
     }

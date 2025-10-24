@@ -1,5 +1,6 @@
 import { bootAuth, updateAuthUI } from './authUi.js';
 import { showErr, showInfo, showOk } from './authMessages.js';
+import { loadProfileForUser } from './profile.js';
 
 const sb = window.getSupabase();
 
@@ -451,14 +452,7 @@ export async function refreshSessionAndProfile() {
 
   if (session?.user?.id) {
     try {
-      const { data: prof, error: profileError } = await sb
-        .from('profiles')
-        .select('id,email,name,xp,level')
-        .single();
-      if (profileError) {
-        throw profileError;
-      }
-      state.profile = prof || null;
+      state.profile = await loadProfileForUser(session.user);
       ensureGuestState(null);
       state.guest = null;
     } catch (profileError) {
