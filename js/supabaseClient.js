@@ -1,3 +1,5 @@
+import { sb as sharedClient } from '/assets/js/sb.js';
+
 /* supabaseClient.js */
 (() => {
   const getMeta = (name) => document.querySelector(`meta[name="${name}"]`)?.content?.trim() || '';
@@ -8,7 +10,7 @@
     console.error('[CE] Supabase meta tags missing');
   }
 
-  const existingClient = window.__SB__ || null;
+  const existingClient = window.__SB__ || sharedClient || null;
   let sb = existingClient;
 
   const existingAuth = typeof window.CE_AUTH === 'object' && window.CE_AUTH !== null ? window.CE_AUTH : {};
@@ -109,6 +111,13 @@
       if (ceAuth.supabase !== sb) {
         applySupabaseClient(sb);
       }
+      dispatchReady();
+      return sb;
+    }
+
+    if (sharedClient) {
+      applySupabaseClient(sharedClient);
+      sb = sharedClient;
       dispatchReady();
       return sb;
     }
@@ -248,6 +257,10 @@
         { once: true },
       );
     }
+  }
+  if (sharedClient) {
+    applySupabaseClient(sharedClient);
+    dispatchReady();
   }
 })();
 
