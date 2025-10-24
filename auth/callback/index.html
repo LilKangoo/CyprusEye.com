@@ -22,7 +22,6 @@
     <link rel="stylesheet" href="/assets/css/components.css" />
     <link rel="stylesheet" href="/assets/css/mobile.css" />
     <link rel="stylesheet" href="/css/toast.css" />
-    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script type="module" src="/js/toast.js"></script>
     <script type="module" src="/js/supabaseClient.js"></script>
     <script type="module" src="/js/authCallback.js"></script>
@@ -34,6 +33,15 @@
         <p class="auth-page__subtitle">
           Wpisz nowe hasło, aby zakończyć proces odzyskiwania konta.
         </p>
+        <div class="auth-actions">
+          <p class="auth-progress" aria-live="polite">
+            <span data-xp>0</span> XP · <span data-level>1</span> lvl
+          </p>
+          <button class="btn" data-login type="button">Zaloguj</button>
+          <button class="btn" data-guest type="button">Graj jako gość</button>
+          <button class="btn" data-logout style="display: none" type="button">Wyloguj</button>
+          <button class="ghost" type="button" data-award="visit_poi|ayia-napa-harbor">+XP za punkt</button>
+        </div>
       </header>
       <main class="auth-page__content">
         <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
@@ -68,5 +76,7 @@
         </form>
       </main>
     </div>
+    <script type="module" src="/assets/js/sb.js"></script>
+    <script type="module" src="/assets/js/user.js"></script>
   </body>
 </html>

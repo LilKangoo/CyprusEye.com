@@ -49,10 +49,18 @@
         min-height: 12rem;
       }
     </style>
-    <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script type="module" src="/js/supabaseClient.js"></script>
   </head>
   <body>
+    <section class="auth-actions">
+      <p class="auth-progress" aria-live="polite">
+        <span data-xp>0</span> XP · <span data-level>1</span> lvl
+      </p>
+      <button data-login type="button">Zaloguj</button>
+      <button data-guest type="button">Graj jako gość</button>
+      <button data-logout style="display: none" type="button">Wyloguj</button>
+      <button data-award="visit_poi|ayia-napa-harbor" type="button">+XP za punkt</button>
+    </section>
     <main>
       <h1>Supabase Auth Debug</h1>
       <p>
@@ -145,5 +153,7 @@
         }
       });
     </script>
+    <script type="module" src="/assets/js/sb.js"></script>
+    <script type="module" src="/assets/js/user.js"></script>
   </body>
 </html>

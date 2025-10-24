@@ -52,7 +52,6 @@
   <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co" />
   <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM" />
   <meta name="supabase-publishable" content="sb_publishable_QdxNGCb6LYD-6ywFrjCrjg_Oa7yDGTk" />
-  <script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script type="module" src="/js/supabaseClient.js"></script>
   <script type="module" src="/js/toast.js"></script>
   <script type="module" src="/js/auth.js"></script>
@@ -78,9 +77,21 @@
         </div>
         <a class="ghost link" href="index.html" data-i18n="advertise.back">← Wróć do strony głównej</a>
         <div id="auth-actions" class="auth-actions">
-          <button class="btn" data-auth="login" aria-label="Zaloguj do konta">Zaloguj</button>
-          <button class="btn" data-auth="guest" aria-label="Tryb gry jako gość">Graj jako gość</button>
-          <button class="btn" data-auth="logout" aria-label="Wyloguj z konta">Wyloguj</button>
+          <p class="auth-progress" aria-live="polite">
+            <span data-xp>0</span> XP · <span data-level>1</span> lvl
+          </p>
+          <button class="btn" data-auth="login" aria-label="Zaloguj do konta" data-login>Zaloguj</button>
+          <button class="btn" data-auth="guest" aria-label="Tryb gry jako gość" data-guest>Graj jako gość</button>
+          <button
+            class="btn"
+            data-auth="logout"
+            aria-label="Wyloguj z konta"
+            data-logout
+            style="display: none"
+          >
+            Wyloguj
+          </button>
+          <button class="ghost" type="button" data-award="visit_poi|ayia-napa-harbor">+XP za punkt</button>
           <span class="auth-badge" data-auth="user-only">Zalogowany: <strong data-auth="user-name"></strong></span>
           <span class="auth-badge" data-auth="guest-only">Grasz jako gość</span>
           <span class="auth-badge" data-auth="anon-only">Nie zalogowano</span>
@@ -155,6 +166,8 @@
     <script src="js/i18n.js" defer></script>
     <script src="js/forms.js" defer></script>
     <script src="js/seo.js" defer></script>
+    <script type="module" src="/assets/js/sb.js"></script>
+    <script type="module" src="/assets/js/user.js"></script>
     <script type="module" src="/assets/js/auth-ui.js"></script>
   </body>
 </html>

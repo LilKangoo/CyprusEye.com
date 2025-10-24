@@ -28,7 +28,13 @@ function applySecurityHeaders(res) {
   res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
   res.setHeader(
     'Content-Security-Policy',
-    "default-src 'self'; script-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
+    [
+      "default-src 'self'",
+      "script-src 'self' https://esm.sh https://cdn.jsdelivr.net https://unpkg.com",
+      "connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co",
+      "img-src 'self' data:",
+      "style-src 'self' 'unsafe-inline'",
+    ].join('; ')
   );
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-Content-Type-Options', 'nosniff');
