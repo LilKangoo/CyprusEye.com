@@ -407,6 +407,7 @@
   "tasks.status.completed": "Task \"{{title}}\" completed (+{{xp}} XP)",
   "tasks.status.reverted": "Task \"{{title}}\" unmarked (−{{xp}} XP).{{note}}",
   "tasks.status.levelReverted": " You returned to level {{level}}.",
+  "tasks.sync.error": "We couldn't sync this task right now. We'll retry once the connection is back.",
   "tasks.items.sunrise-challenge.title": "Sunrise beach walk",
   "tasks.items.sunrise-challenge.description": "Wake up before sunrise and take a short stroll along one of Cyprus' beaches.",
   "tasks.items.taste-halloumi.title": "Try local halloumi",
