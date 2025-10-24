@@ -1,37 +1,53 @@
-const sb = window.getSupabase();
+import { sb } from '/js/supabaseClient.js'
 
-function ensureNotGuest() {
-  const state = window.CE_STATE || {};
-  if (state.guest?.active && !state.session?.user) {
-    throw new Error('Tryb gościa nie pozwala na zapisywanie XP.');
+const xpEl  = document.querySelector('[data-xp]')
+const lvlEl = document.querySelector('[data-level]')
+
+init()
+
+async function init(){
+  const { data: { session } } = await sb.auth.getSession()
+  const user = session?.user
+  if (user) {
+    await loadProfile(user.id)
+    subscribeProfile(user.id)
   }
+
+  // uniwersalny handler przycisków +XP
+  document.querySelectorAll('[data-award]').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const [type, id] = (btn.dataset.award || '').split('|')
+      if (!type || !id) return
+      if (type === 'visit_poi') await awardPoi(id)
+      if (type === 'task')      await awardTask(id)
+    })
+  })
 }
 
-export async function addXp(xp_delta, reason = 'check-in') {
-  ensureNotGuest();
-  const { data, error: userError } = await sb.auth.getUser();
-  if (userError) {
-    throw userError;
-  }
-  const user = data?.user;
-  if (!user?.id) {
-    throw new Error('Brak zalogowanego użytkownika');
-  }
-
-  const payload = [{ user_id: user.id, xp_delta, reason }];
-  const { error } = await sb.from('user_xp_events').insert(payload);
-  if (error) {
-    throw error;
-  }
+async function loadProfile(userId){
+  const { data, error } = await sb.from('profile_basic').select('*').eq('id', userId).single()
+  if (!error && data) updateUi(data)
 }
 
-export async function myXpEvents() {
-  const { data, error } = await sb
-    .from('user_xp_events')
-    .select('xp_delta,reason,created_at')
-    .order('created_at', { ascending: false });
-  if (error) {
-    throw error;
-  }
-  return data || [];
+function subscribeProfile(userId){
+  sb.channel('profile-rt')
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },
+      payload => updateUi(payload.new))
+    .subscribe()
+}
+
+function updateUi(p){
+  if (xpEl)  xpEl.textContent  = p.xp
+  if (lvlEl) lvlEl.textContent = p.level
+}
+
+// publiczne utilsy do wywołań z innych modułów
+export async function awardPoi(poiId){
+  const { error } = await sb.rpc('award_poi',  { p_poi_id: poiId })
+  if (error) console.error('award_poi:', error.message)
+}
+
+export async function awardTask(taskId){
+  const { error } = await sb.rpc('award_task', { p_task_id: taskId })
+  if (error) console.error('award_task:', error.message)
 }

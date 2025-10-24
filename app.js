@@ -7656,8 +7656,8 @@ function showManualConfirm(place) {
   const button = document.createElement('button');
   button.className = 'primary manual-confirm';
   button.textContent = translate('checkIn.manualConfirm.action', 'Potwierdzam, jestem na miejscu');
-  button.addEventListener('click', () => {
-    completeCheckIn(place, true);
+  button.addEventListener('click', async () => {
+    await completeCheckIn(place, true);
     statusEl.textContent = translate('checkIn.manualConfirm.success', 'Odznaka przyznana!');
     wrapper.remove();
   });
@@ -7702,7 +7702,7 @@ async function tryCheckIn(place) {
   const radius = 350; // metry
 
   if (distance <= radius) {
-    completeCheckIn(place);
+    await completeCheckIn(place);
     statusEl.textContent = translate(
       'checkIn.status.success',
       'Gratulacje! Zameldujesz się dokładnie na miejscu.',
@@ -7734,111 +7734,135 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-function completeCheckIn(place, manual = false) {
+async function completeCheckIn(place, manual = false) {
   if (state.visited.has(place.id)) return;
 
-  state.visited.add(place.id);
-  const localizedName = getPlaceName(place);
-  const localizedBadge = getPlaceBadge(place);
-  state.badges.push({
-    id: place.id,
-    name: localizedBadge,
-    description: manual
-      ? translate('places.badge.manual', `${localizedName} • Odznaka przyznana ręcznie.`, {
-          name: localizedName,
-        })
-      : translate('places.badge.geo', `${localizedName} • Potwierdzono geolokalizacją.`, {
-          name: localizedName,
-        }),
-  });
+  try {
+    state.visited.add(place.id);
 
-  const streakResult = recordDailyCheckIn();
-  const challengeCompleted = completeDailyChallengeIfNeeded(place);
+    try {
+      const { awardPoi } = await import('/js/xp.js');
+      await awardPoi(place.id);
+    } catch (error) {
+      console.error('[XP] awardPoi failed', error);
+    }
 
-  let leveledUp = awardXp(place.xp);
-  if (challengeCompleted) {
-    const leveledUpFromBonus = awardXp(DAILY_CHALLENGE_BONUS_XP);
-    leveledUp = leveledUp || leveledUpFromBonus;
-  }
-
-  updateAfterStateChange(leveledUp);
-  animateMarker(place.id);
-
-  if (challengeCompleted) {
-    showToast(
-      translate('places.toast.dailyChallenge', `Ukończyłeś dzisiejsze wyzwanie w ${localizedName}! +${DAILY_CHALLENGE_BONUS_XP} XP`, {
-        name: localizedName,
-        xp: DAILY_CHALLENGE_BONUS_XP,
-      }),
-      {
-        variant: 'success',
-        icon: '🎯',
-        duration: 7000,
-      },
-    );
-  }
-
-  if (!leveledUp) {
-    let message = translate('places.toast.badge', `Zdobyłeś odznakę „${localizedBadge}”!`, {
-      badge: localizedBadge,
+    const localizedName = getPlaceName(place);
+    const localizedBadge = getPlaceBadge(place);
+    state.badges.push({
+      id: place.id,
+      name: localizedBadge,
+      description: manual
+        ? translate('places.badge.manual', `${localizedName} • Odznaka przyznana ręcznie.`, {
+            name: localizedName,
+          })
+        : translate('places.badge.geo', `${localizedName} • Potwierdzono geolokalizacją.`, {
+            name: localizedName,
+          }),
     });
 
+    const streakResult = recordDailyCheckIn();
+    const challengeCompleted = completeDailyChallengeIfNeeded(place);
+
+    let leveledUp = awardXp(place.xp);
     if (challengeCompleted) {
-      message = translate(
-        'places.toast.dailyBonus',
-        `🎯 Wyzwanie dnia ukończone! Bonus +${DAILY_CHALLENGE_BONUS_XP} XP już na Twoim koncie.`,
-        { xp: DAILY_CHALLENGE_BONUS_XP },
-      );
-    } else if (streakResult.status === 'continued') {
-      message = translate(
-        'places.toast.streakContinue',
-        `🔥 Seria trwa już ${state.dailyStreak.current} dni. Tak trzymaj!`,
-        { days: state.dailyStreak.current },
-      );
-    } else if (streakResult.status === 'started') {
-      message = translate(
-        'places.toast.streakStart',
-        'Rozpocząłeś serię codziennych przygód – wróć jutro po kolejny dzień!',
-      );
-    } else if (streakResult.status === 'reset') {
-      message = translate(
-        'places.toast.streakReset',
-        `Nowa seria rozpoczęta. Cel: pobić rekord ${state.dailyStreak.best} dni!`,
-        { days: state.dailyStreak.best },
+      const leveledUpFromBonus = awardXp(DAILY_CHALLENGE_BONUS_XP);
+      leveledUp = leveledUp || leveledUpFromBonus;
+    }
+
+    updateAfterStateChange(leveledUp);
+    animateMarker(place.id);
+
+    if (challengeCompleted) {
+      showToast(
+        translate('places.toast.dailyChallenge', `Ukończyłeś dzisiejsze wyzwanie w ${localizedName}! +${DAILY_CHALLENGE_BONUS_XP} XP`, {
+          name: localizedName,
+          xp: DAILY_CHALLENGE_BONUS_XP,
+        }),
+        {
+          variant: 'success',
+          icon: '🎯',
+          duration: 7000,
+        },
       );
     }
 
-    setLevelStatus(message, 7000);
+    if (!leveledUp) {
+      let message = translate('places.toast.badge', `Zdobyłeś odznakę „${localizedBadge}”!`, {
+        badge: localizedBadge,
+      });
+
+      if (challengeCompleted) {
+        message = translate(
+          'places.toast.dailyBonus',
+          `🎯 Wyzwanie dnia ukończone! Bonus +${DAILY_CHALLENGE_BONUS_XP} XP już na Twoim koncie.`,
+          { xp: DAILY_CHALLENGE_BONUS_XP },
+        );
+      } else if (streakResult.status === 'continued') {
+        message = translate(
+          'places.toast.streakContinue',
+          `🔥 Seria trwa już ${state.dailyStreak.current} dni. Tak trzymaj!`,
+          { days: state.dailyStreak.current },
+        );
+      } else if (streakResult.status === 'started') {
+        message = translate(
+          'places.toast.streakStart',
+          'Rozpocząłeś serię codziennych przygód – wróć jutro po kolejny dzień!',
+        );
+      } else if (streakResult.status === 'reset') {
+        message = translate(
+          'places.toast.streakReset',
+          `Nowa seria rozpoczęta. Cel: pobić rekord ${state.dailyStreak.best} dni!`,
+          { days: state.dailyStreak.best },
+        );
+      }
+
+      setLevelStatus(message, 7000);
+    }
+  } catch (error) {
+    console.error('completeCheckIn failed', error);
   }
 }
 
-function completeTask(task) {
+async function completeTask(task) {
   if (state.tasksCompleted.has(task.id) || !isTaskUnlocked(task)) return;
 
-  state.tasksCompleted.add(task.id);
-  const leveledUp = awardXp(task.xp);
-  updateAfterStateChange(leveledUp);
+  try {
+    state.tasksCompleted.add(task.id);
 
-  if (!leveledUp) {
-    const title = getTaskTitle(task);
-    const message = translate('tasks.status.completed', 'Ukończyłeś zadanie „{{title}}” (+{{xp}} XP)', {
-      title,
-      xp: task.xp,
-    });
-    setLevelStatus(message, 6000);
-  }
+    try {
+      const { awardTask } = await import('/js/xp.js');
+      await awardTask(task.id);
+    } catch (error) {
+      console.error('[XP] awardTask failed', error);
+    }
 
-  if (currentUserKey) {
-    const title = getTaskTitle(task);
-    const notificationMessage = translate(
-      'notifications.task.completed',
-      '🎯 Ukończyłeś zadanie „{{title}}” (+{{xp}} XP).',
-      { title, xp: task.xp },
-    );
-    addNotificationForUser(currentUserKey, {
-      type: 'task-completed',
-      message: notificationMessage,
-    });
+    const leveledUp = awardXp(task.xp);
+    updateAfterStateChange(leveledUp);
+
+    if (!leveledUp) {
+      const title = getTaskTitle(task);
+      const message = translate('tasks.status.completed', 'Ukończyłeś zadanie „{{title}}” (+{{xp}} XP)', {
+        title,
+        xp: task.xp,
+      });
+      setLevelStatus(message, 6000);
+    }
+
+    if (currentUserKey) {
+      const title = getTaskTitle(task);
+      const notificationMessage = translate(
+        'notifications.task.completed',
+        '🎯 Ukończyłeś zadanie „{{title}}” (+{{xp}} XP).',
+        { title, xp: task.xp },
+      );
+      addNotificationForUser(currentUserKey, {
+        type: 'task-completed',
+        message: notificationMessage,
+      });
+    }
+  } catch (error) {
+    console.error('completeTask failed', error);
   }
 }
 
