@@ -8037,9 +8037,11 @@ function updateAuthUI() {
   const passwordForm = document.getElementById('accountPasswordForm');
   const guestPasswordNote = document.getElementById('accountGuestPasswordNote');
   const authStatusBadge = document.getElementById('authStatusBadge');
-  const isLoggedIn = Boolean(currentSupabaseUser);
-  const displayName = getCurrentDisplayName();
-  const authState = getDocumentAuthState();
+  const state = window.CE_STATE || {};
+  const sessionUser = state.session?.user || null;
+  const isLoggedIn = Boolean(currentSupabaseUser || sessionUser);
+  const displayName = isLoggedIn ? getCurrentDisplayName() : '';
+  const authState = state.status || getDocumentAuthState();
 
   if (logoutBtn instanceof HTMLElement) {
     logoutBtn.hidden = !isLoggedIn;
@@ -8099,8 +8101,10 @@ function updateAuthUI() {
   }
 
   if (greeting) {
+    const fallbackName = translate('auth.status.playerFallback', 'użytkownik');
+    const username = displayName || fallbackName;
     greeting.textContent = isLoggedIn
-      ? translate('auth.status.loggedInAs', 'Zalogowano jako {{username}}', { username: displayName })
+      ? translate('auth.status.loggedInAs', 'Grasz jako {{username}}', { username })
       : translate('auth.guest.banner', 'Grasz jako gość');
   }
 
