@@ -7771,35 +7771,11 @@ body.auth-page {
   max-width: 32ch;
 }
 
-.auth-confirmation__actions {
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-  width: 100%;
-}
-
-.auth-confirmation__actions .btn {
-  width: 100%;
-}
-
-.auth-confirmation__secondary {
-  text-decoration: none;
-  font-weight: 600;
-  color: var(--primary);
-  display: inline-flex;
-  justify-content: center;
-  align-items: center;
-  gap: 0.4rem;
-  padding: 0.65rem 1rem;
-  border-radius: 999px;
-  background: rgba(59, 130, 246, 0.08);
-}
-
-.auth-confirmation__secondary:hover,
-.auth-confirmation__secondary:focus-visible {
-  color: var(--primary-dark);
-  background: rgba(59, 130, 246, 0.16);
-  text-decoration: none;
+.auth-confirmation__hint {
+  margin: 0;
+  color: rgba(15, 23, 42, 0.65);
+  font-size: 0.9rem;
+  max-width: 32ch;
 }
 
 .auth-modal__content--signed-in {
@@ -7856,14 +7832,6 @@ body.auth-page {
   .auth-confirmation {
     padding: clamp(1.25rem, 8vw, 2.25rem);
     gap: var(--space-2);
-  }
-
-  .auth-confirmation__actions {
-    gap: 0.65rem;
-  }
-
-  .auth-confirmation__secondary {
-    font-size: 0.95rem;
   }
 
   .auth-modal__tabs {

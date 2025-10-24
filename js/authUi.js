@@ -64,6 +64,17 @@ function setDocumentAuthState(state) {
   }
 }
 
+function closeAuthModalIfOpen({ restoreFocus = true } = {}) {
+  const controller = window.__authModalController;
+  if (controller && typeof controller.isOpen === 'function' && controller.isOpen()) {
+    try {
+      controller.close({ restoreFocus });
+    } catch (error) {
+      console.warn('[auth-ui] Nie udało się zamknąć okna logowania.', error);
+    }
+  }
+}
+
 const withTimeout = (promise, ms = 4000) => {
   let timerId = null;
   const timeout = new Promise((_, reject) => {
@@ -168,28 +179,9 @@ const AUTH_CONFIRMATION_TEMPLATE = `
   <p class="auth-confirmation__message" data-i18n="auth.confirmation.info">
     Możesz teraz korzystać z wszystkich funkcji WakacjeCypr Quest.
   </p>
-  <div class="auth-confirmation__actions">
-    <a
-      class="btn btn--primary"
-      href="/"
-      role="button"
-      data-auth-confirmation-link
-      data-auth-redirect="/"
-      data-i18n="auth.confirmation.cta"
-    >
-      Kontynuuj przygodę
-    </a>
-    <a
-      class="ghost auth-confirmation__secondary"
-      href="/account/"
-      data-auth-confirmation-link
-      data-auth-redirect="/account/"
-      data-auth-redirect-mode="static"
-      data-i18n="auth.confirmation.account"
-    >
-      Przejdź do panelu gracza
-    </a>
-  </div>
+  <p class="auth-confirmation__hint" data-i18n="auth.confirmation.dismissHint">
+    Kliknij gdziekolwiek, aby zamknąć to powiadomienie.
+  </p>
 `;
 
 const AUTH_SUCCESS_OVERLAY_TEMPLATE = `
@@ -317,6 +309,8 @@ function hideAuthSuccessOverlay({ restoreFocus = true } = {}) {
   overlay.dataset.visible = 'false';
   overlay.setAttribute('aria-hidden', 'true');
   overlay.setAttribute('hidden', '');
+
+  closeAuthModalIfOpen({ restoreFocus });
 
   if (authSuccessKeydownHandler) {
     document.removeEventListener('keydown', authSuccessKeydownHandler, true);
@@ -500,15 +494,7 @@ function handleConfirmationClick(event) {
     }
   }
 
-  const controller = window.__authModalController;
-
-  if (controller && typeof controller.isOpen === 'function' && controller.isOpen()) {
-    try {
-      controller.close({ restoreFocus: true });
-    } catch (error) {
-      console.warn('[auth-ui] Nie udało się zamknąć okna logowania po potwierdzeniu.', error);
-    }
-  }
+  closeAuthModalIfOpen({ restoreFocus: true });
 
   if (!bypassNavigation) {
     navigateToAuthRedirect(redirectTarget);
