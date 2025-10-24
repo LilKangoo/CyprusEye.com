@@ -722,6 +722,97 @@ const tasks = [
   { id: 'wedding-photoshoot-cyprus', xp: 250, requiredLevel: 9 },
 ];
 
+const TASK_TRANSLATION_FALLBACKS = {
+  'sunrise-challenge': {
+    pl: { title: `Poranny spacer po plaży`, description: `Wstań przed wschodem słońca i wybierz się na krótką przechadzkę po jednej z cypryjskich plaż.` },
+    en: { title: `Sunrise beach walk`, description: `Wake up before sunrise and take a short stroll along one of Cyprus' beaches.` },
+  },
+  'taste-halloumi': {
+    pl: { title: `Skosztuj lokalnego halloumi`, description: `Odwiedź tawernę i spróbuj świeżo grillowanego halloumi – wpisz miejsce w swoim dzienniku podróży.` },
+    en: { title: `Try local halloumi`, description: `Visit a tavern and sample freshly grilled halloumi—log the place in your travel journal.` },
+  },
+  'nicosia-day-trip': {
+    pl: { title: `Wycieczka do Nikozji`, description: `Zaplanuj półdniową wizytę w stolicy Cypru i odwiedź co najmniej jedno muzeum lub galerię.` },
+    en: { title: `Day trip to Nicosia`, description: `Plan a half-day visit to Cyprus' capital and step into at least one museum or gallery.` },
+  },
+  'troodos-wine-route': {
+    pl: { title: `Degustacja wina w górach`, description: `Skorzystaj z naszej oferty Troodos Wine Route i zarezerwuj degustację z kierowcą przez WakacjeCypr.com.` },
+    en: { title: `Wine tasting in the mountains`, description: `Use our Troodos Wine Route offer and book a tasting with driver through WakacjeCypr.com.` },
+  },
+  'sea-adventure': {
+    pl: { title: `Morska przygoda w Cape Greco`, description: `Wybierz jedną z morskich atrakcji z naszej oferty (kajak, snorkeling, rejs) i zarezerwuj ją w Cape Greco.` },
+    en: { title: `Sea adventure in Cape Greco`, description: `Choose one of our sea experiences (kayak, snorkel, cruise) and book it in Cape Greco.` },
+  },
+  'nicosia-green-line-walk': {
+    pl: { title: `Spacer Zieloną Linią`, description: `Poznaj historię podziału Nikozji podczas spaceru z lokalnym przewodnikiem.` },
+    en: { title: `Green Line walk`, description: `Discover Nicosia's division history on a walk with a local guide.` },
+  },
+  'loukoumi-workshop': {
+    pl: { title: `Warsztaty loukoumi w Geroskipou`, description: `Weź udział w przygotowaniu tradycyjnych słodyczy i zabierz pamiątkowy zestaw.` },
+    en: { title: `Loukoumi workshop in Geroskipou`, description: `Join a traditional sweets workshop and take home a souvenir set.` },
+  },
+  'akamas-jeep-safari': {
+    pl: { title: `Safari 4x4 po Akamas`, description: `Skorzystaj z naszego safari 4x4 i odwiedź wąwóz Avakas oraz plażę Lara z przewodnikiem WakacjeCypr.com.` },
+    en: { title: `Akamas 4x4 safari`, description: `Use our 4x4 safari and visit Avakas Gorge and Lara Beach with a WakacjeCypr.com guide.` },
+  },
+  'zenobia-dive-challenge': {
+    pl: { title: `Nurkowanie na wraku Zenobia`, description: `Dołącz do organizowanego przez nas nurkowania na wraku Zenobia z licencjonowanym instruktorem i sprzętem w cenie.` },
+    en: { title: `Zenobia wreck dive challenge`, description: `Join our organised dive on the Zenobia wreck with a licensed instructor and gear included.` },
+  },
+  'troodos-stargazing': {
+    pl: { title: `Nocne obserwacje w Troodos`, description: `Zarezerwuj naszą sesję astronomiczną w Troodos i policz konstelacje nad górą Olympos z ekspertem.` },
+    en: { title: `Night stargazing in Troodos`, description: `Book our astronomy session in Troodos and count constellations over Mount Olympos with an expert.` },
+  },
+  'limassol-bike-promenade': {
+    pl: { title: `Rowerem po promenadzie Molos`, description: `Wypożycz rower i przejedź co najmniej 8 km wzdłuż wybrzeża Limassol.` },
+    en: { title: `Bike the Molos promenade`, description: `Rent a bike and ride at least 8 km along Limassol's seafront.` },
+  },
+  'larnaca-art-walk': {
+    pl: { title: `Szlak sztuki Larnaki`, description: `Odwiedź trzy galerie lub murale i opisz ulubione dzieło w dzienniku podróży.` },
+    en: { title: `Larnaca art walk`, description: `Visit three galleries or murals and describe your favourite piece in the travel journal.` },
+  },
+  'karpaz-donkey-care': {
+    pl: { title: `Pomoc w sanktuarium osłów`, description: `Wykup nasz wolontariat w sanktuarium na Karpazie i spędź poranek na karmieniu oraz pielęgnacji osłów.` },
+    en: { title: `Help at the donkey sanctuary`, description: `Purchase our Karpas sanctuary volunteering and spend a morning feeding and grooming donkeys.` },
+  },
+  'halloumi-farm-visit': {
+    pl: { title: `Wizyta na farmie halloumi`, description: `Zarezerwuj wizytę na farmie halloumi przez WakacjeCypr.com i poznaj proces produkcji od wypasu po degustację.` },
+    en: { title: `Halloumi farm visit`, description: `Book a halloumi farm visit via WakacjeCypr.com and learn the process from herding to tasting.` },
+  },
+  'sunset-yoga-nissi': {
+    pl: { title: `Zachodnia joga na Nissi Beach`, description: `Zapisz się na zajęcia jogi o zachodzie słońca i nagraj krótką relację audio.` },
+    en: { title: `Sunset yoga at Nissi Beach`, description: `Sign up for a sunset yoga class and record a short audio story.` },
+  },
+  'premium-car-rental': {
+    pl: { title: `Wynajem auta z odbiorem na lotnisku`, description: `Skorzystaj z naszego wynajmu samochodów z pełnym ubezpieczeniem i odbierz auto na lotnisku w Pafos lub Larnace.` },
+    en: { title: `Airport car rental pickup`, description: `Use our car rental with full insurance and collect your vehicle at Paphos or Larnaca airport.` },
+  },
+  'private-blue-lagoon-charter': {
+    pl: { title: `Prywatny rejs do Blue Lagoon`, description: `Zarezerwuj ekskluzywny rejs lub jacht z oferty WakacjeCypr.com i odkryj Blue Lagoon z własną załogą.` },
+    en: { title: `Private Blue Lagoon charter`, description: `Book an exclusive cruise or yacht from WakacjeCypr.com and explore Blue Lagoon with your own crew.` },
+  },
+  'troodos-private-tour': {
+    pl: { title: `Prywatna wycieczka po Troodos`, description: `Zorganizuj z nami całodniową wycieczkę po górach Troodos z przewodnikiem i wygodnym transportem.` },
+    en: { title: `Private Troodos tour`, description: `Arrange a full-day Troodos mountains trip with our guide and comfortable transport.` },
+  },
+  'nicosia-famagusta-combo': {
+    pl: { title: `Zwiedzanie Nikozji i Famagusty`, description: `Wybierz pakiet łączony z przewodnikiem WakacjeCypr.com i odkryj oba oblicza wyspy w jeden dzień.` },
+    en: { title: `Nicosia & Famagusta combo tour`, description: `Pick our combined package with a WakacjeCypr.com guide and see both sides of the island in one day.` },
+  },
+  'family-waterpark-day': {
+    pl: { title: `Rodzinny dzień w aquaparku`, description: `Kup rodzinny pakiet do jednego z naszych polecanych parków wodnych z transferem hotelowym.` },
+    en: { title: `Family day at the waterpark`, description: `Buy a family package to one of our recommended water parks with hotel transfers.` },
+  },
+  'ayia-napa-sunset-cruise': {
+    pl: { title: `Rejs o zachodzie słońca w Ayia Napa`, description: `Zarezerwuj romantyczny rejs z kolacją i muzyką na żywo przez WakacjeCypr.com.` },
+    en: { title: `Ayia Napa sunset cruise`, description: `Book a romantic cruise with dinner and live music via WakacjeCypr.com.` },
+  },
+  'wedding-photoshoot-cyprus': {
+    pl: { title: `Sesja ślubna na Cyprze`, description: `Skorzystaj z usługi wedding & photo i zorganizuj sesję plenerową z naszym fotografem i stylistką.` },
+    en: { title: `Wedding photoshoot in Cyprus`, description: `Use our wedding & photo service and arrange an outdoor shoot with our photographer and stylist.` },
+  },
+};
+
 let xpModulePromise = null;
 
 const mediaTrips = [
@@ -1211,12 +1302,41 @@ function getTaskTranslationKey(task, field) {
   return `tasks.items.${task.id}.${field}`;
 }
 
+function getTaskFallback(task, field) {
+  if (!task || !task.id) {
+    return '';
+  }
+
+  const currentLanguage =
+    (typeof window !== 'undefined' && window.appI18n && window.appI18n.language) ||
+    (typeof document !== 'undefined' && document.documentElement?.lang) ||
+    'pl';
+
+  const fallbacks = TASK_TRANSLATION_FALLBACKS[task.id] || {};
+  const localizedFallback = fallbacks[currentLanguage];
+  if (localizedFallback && typeof localizedFallback[field] === 'string') {
+    return localizedFallback[field];
+  }
+
+  const defaultPolishFallback = fallbacks.pl;
+  if (defaultPolishFallback && typeof defaultPolishFallback[field] === 'string') {
+    return defaultPolishFallback[field];
+  }
+
+  const defaultEnglishFallback = fallbacks.en;
+  if (defaultEnglishFallback && typeof defaultEnglishFallback[field] === 'string') {
+    return defaultEnglishFallback[field];
+  }
+
+  return '';
+}
+
 function getTaskTitle(task) {
-  return translate(getTaskTranslationKey(task, 'title'), task?.title ?? '');
+  return translate(getTaskTranslationKey(task, 'title'), getTaskFallback(task, 'title'));
 }
 
 function getTaskDescription(task) {
-  return translate(getTaskTranslationKey(task, 'description'), task?.description ?? '');
+  return translate(getTaskTranslationKey(task, 'description'), getTaskFallback(task, 'description'));
 }
 
 function getActiveTranslations() {
