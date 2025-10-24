@@ -1310,6 +1310,11 @@ let supabaseClient = null;
 let supabaseSignOutInProgress = false;
 let supabaseAuthInitialized = false;
 let supabaseReadyListenerAttached = false;
+const SUPABASE_PROGRESS_SYNC_DELAY = 400;
+let pendingSupabaseProgress = null;
+let supabaseProgressSyncPromise = null;
+let supabaseProgressSyncTimeout = null;
+let lastSupabaseSyncedProgress = null;
 let reviews = {};
 let journalEntries = [];
 let editingJournalEntryId = null;
@@ -2548,6 +2553,204 @@ function getSupabaseDisplayName(user) {
   );
 }
 
+function normalizeSupabaseProgressSnapshot(progress) {
+  const xpValue = Number(progress?.xp);
+  const levelValue = Number(progress?.level);
+  const xp = Number.isFinite(xpValue) ? Math.max(0, Math.round(xpValue)) : 0;
+  const level = Number.isFinite(levelValue) ? Math.max(1, Math.round(levelValue)) : 1;
+  return { xp, level };
+}
+
+function markSupabaseProgressSynced(xp, level) {
+  lastSupabaseSyncedProgress = normalizeSupabaseProgressSnapshot({ xp, level });
+}
+
+function resetSupabaseProgressSyncState({ resetLast = true } = {}) {
+  if (supabaseProgressSyncTimeout) {
+    clearTimeout(supabaseProgressSyncTimeout);
+    supabaseProgressSyncTimeout = null;
+  }
+  supabaseProgressSyncPromise = null;
+  pendingSupabaseProgress = null;
+  if (resetLast) {
+    lastSupabaseSyncedProgress = null;
+  }
+}
+
+function queueSupabaseProgressSync({ immediate = false } = {}) {
+  if (!currentSupabaseUser?.id) {
+    return;
+  }
+
+  pendingSupabaseProgress = normalizeSupabaseProgressSnapshot({
+    xp: state.xp,
+    level: state.level,
+  });
+
+  if (
+    lastSupabaseSyncedProgress &&
+    pendingSupabaseProgress.xp === lastSupabaseSyncedProgress.xp &&
+    pendingSupabaseProgress.level === lastSupabaseSyncedProgress.level
+  ) {
+    pendingSupabaseProgress = null;
+    return;
+  }
+
+  if (immediate) {
+    triggerSupabaseProgressSync();
+    return;
+  }
+
+  if (supabaseProgressSyncTimeout) {
+    clearTimeout(supabaseProgressSyncTimeout);
+  }
+
+  supabaseProgressSyncTimeout = setTimeout(
+    triggerSupabaseProgressSync,
+    SUPABASE_PROGRESS_SYNC_DELAY,
+  );
+}
+
+function triggerSupabaseProgressSync() {
+  if (supabaseProgressSyncTimeout) {
+    clearTimeout(supabaseProgressSyncTimeout);
+    supabaseProgressSyncTimeout = null;
+  }
+
+  if (!pendingSupabaseProgress) {
+    return;
+  }
+
+  if (!getSupabaseClient()) {
+    supabaseProgressSyncTimeout = setTimeout(
+      triggerSupabaseProgressSync,
+      SUPABASE_PROGRESS_SYNC_DELAY,
+    );
+    return;
+  }
+
+  performSupabaseProgressSync();
+}
+
+function applySupabaseProfileProgress(xp, level, updatedAt, userId = null) {
+  const targetUserId = userId || currentSupabaseUser?.id;
+  if (!targetUserId) {
+    return;
+  }
+
+  const key = `supabase:${targetUserId}`;
+  const account = getAccount(key);
+  if (!account) {
+    return;
+  }
+
+  const baseProfile =
+    account.profile && typeof account.profile === 'object' ? account.profile : {};
+
+  const sanitized = sanitizeAccountProfile({
+    ...baseProfile,
+    xp,
+    level,
+    updatedAt,
+  });
+
+  const previous = account.profile || null;
+  account.profile = sanitized;
+
+  if (account.progress && typeof account.progress === 'object') {
+    account.progress.xp = sanitized.xp;
+  } else {
+    const progress = getDefaultProgress();
+    progress.xp = sanitized.xp;
+    account.progress = progress;
+  }
+
+  const changed =
+    !previous ||
+    previous.xp !== sanitized.xp ||
+    previous.level !== sanitized.level ||
+    previous.updatedAt !== sanitized.updatedAt;
+
+  if (changed) {
+    persistAccounts();
+  }
+}
+
+function performSupabaseProgressSync() {
+  if (supabaseProgressSyncPromise) {
+    return supabaseProgressSyncPromise;
+  }
+
+  const client = getSupabaseClient();
+  const userId = currentSupabaseUser?.id;
+
+  if (!client || !userId || !pendingSupabaseProgress) {
+    return null;
+  }
+
+  const snapshot = { ...pendingSupabaseProgress };
+  pendingSupabaseProgress = null;
+
+  const payload = {
+    id: userId,
+    xp: snapshot.xp,
+    level: snapshot.level,
+    updated_at: new Date().toISOString(),
+  };
+
+  const query = client
+    .from('profiles')
+    .upsert(payload, { onConflict: 'id' })
+    .select('xp, level, updated_at');
+
+  const request = (async () => {
+    try {
+      const { data, error } =
+        typeof query.maybeSingle === 'function' ? await query.maybeSingle() : await query.single();
+      if (error) {
+        throw error;
+      }
+
+      const xpValue = Number.isFinite(data?.xp) ? data.xp : snapshot.xp;
+      const levelValue = Number.isFinite(data?.level) ? data.level : snapshot.level;
+      const updatedAtValue =
+        (typeof data?.updated_at === 'string' && data.updated_at) ||
+        (typeof data?.updatedAt === 'string' && data.updatedAt) ||
+        payload.updated_at;
+
+      if (currentSupabaseUser?.id === userId) {
+        markSupabaseProgressSynced(xpValue, levelValue);
+      }
+
+      applySupabaseProfileProgress(xpValue, levelValue, updatedAtValue, userId);
+    } catch (error) {
+      console.warn('Nie udało się zsynchronizować doświadczenia z Supabase:', error);
+    }
+  })();
+
+  supabaseProgressSyncPromise = request;
+
+  request.finally(() => {
+    supabaseProgressSyncPromise = null;
+    if (
+      pendingSupabaseProgress &&
+      (!lastSupabaseSyncedProgress ||
+        pendingSupabaseProgress.xp !== lastSupabaseSyncedProgress.xp ||
+        pendingSupabaseProgress.level !== lastSupabaseSyncedProgress.level)
+    ) {
+      if (supabaseProgressSyncTimeout) {
+        clearTimeout(supabaseProgressSyncTimeout);
+      }
+      supabaseProgressSyncTimeout = setTimeout(
+        triggerSupabaseProgressSync,
+        SUPABASE_PROGRESS_SYNC_DELAY,
+      );
+    }
+  });
+
+  return request;
+}
+
 function ensureSupabaseAccount(user, preferredName = '') {
   if (!user || !user.id) {
     return null;
@@ -2682,8 +2885,38 @@ async function syncSupabaseProfile(user) {
         updatedAt: updatedAtValue,
       });
 
+      const localProfile = sanitizeAccountProfile(account.profile);
+      const localUpdatedAtValue =
+        (typeof localProfile?.updatedAt === 'string' && localProfile.updatedAt) || null;
+      const localUpdatedAtTime = localUpdatedAtValue ? Date.parse(localUpdatedAtValue) : null;
+      const remoteUpdatedAtTime = updatedAtValue ? Date.parse(updatedAtValue) : null;
+      const currentProgressXp = Number.isFinite(account.progress?.xp) ? account.progress.xp : 0;
+
+      let shouldApplyRemoteXp = false;
+      if (remoteUpdatedAtTime && (!localUpdatedAtTime || remoteUpdatedAtTime >= localUpdatedAtTime)) {
+        shouldApplyRemoteXp = true;
+      } else if (
+        !remoteUpdatedAtTime &&
+        !localUpdatedAtTime &&
+        Number.isFinite(xpValue) &&
+        xpValue > currentProgressXp
+      ) {
+        shouldApplyRemoteXp = true;
+      }
+
+      if (shouldApplyRemoteXp) {
+        if (account.progress && typeof account.progress === 'object') {
+          account.progress.xp = sanitized.xp;
+        } else {
+          const progress = getDefaultProgress();
+          progress.xp = sanitized.xp;
+          account.progress = progress;
+        }
+      }
+
       account.profile = sanitized;
       persistAccounts();
+      markSupabaseProgressSynced(sanitized.xp, sanitized.level);
     }
 
     return resolvedName;
@@ -2696,6 +2929,9 @@ async function syncSupabaseProfile(user) {
 async function applySupabaseUser(user, { reason = 'change' } = {}) {
   if (user && user.id) {
     const sameUser = currentSupabaseUser?.id === user.id;
+    if (!sameUser) {
+      resetSupabaseProgressSyncState();
+    }
     currentSupabaseUser = user;
     currentUserKey = `supabase:${user.id}`;
     setDocumentAuthState('authenticated');
@@ -2721,6 +2957,7 @@ async function applySupabaseUser(user, { reason = 'change' } = {}) {
   }
 
   currentSupabaseUser = null;
+  resetSupabaseProgressSyncState();
   currentUserKey = null;
   localStorage.removeItem(SESSION_STORAGE_KEY);
   const shouldShowMessage = supabaseSignOutInProgress || reason === 'sign-out';
@@ -2820,10 +3057,21 @@ function saveProgress() {
       const account = getAccount(currentUserKey);
       if (account) {
         account.progress = payload;
+        const baseProfile =
+          account.profile && typeof account.profile === 'object' ? account.profile : {};
+        account.profile = sanitizeAccountProfile({
+          ...baseProfile,
+          xp: state.xp,
+          level: state.level,
+        });
         persistAccounts();
       }
     } else {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+    }
+
+    if (currentSupabaseUser?.id) {
+      queueSupabaseProgressSync();
     }
   } catch (error) {
     console.error('Nie udało się zapisać progresu:', error);
