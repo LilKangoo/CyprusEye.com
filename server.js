@@ -4,298 +4,32 @@ import path from 'path';
 import fs from 'fs/promises';
 import crypto from 'crypto';
 import nodemailer from 'nodemailer';
-import { brotliCompressSync, constants as zlibConstants, gzipSync } from 'zlib';
-import {
-  initSqliteStore,
-  createUser as createStoredUser,
-  getUserByEmail as getStoredUserByEmail,
-  getUserById as getStoredUserById,
-  updateUserPassword as updateStoredUserPassword,
-  replaceResetTokenForUser,
-  getResetToken as getStoredResetToken,
-  deleteResetToken as deleteStoredResetToken,
-  insertJournalEntry as storeJournalEntry,
-  listJournalEntries as listStoredJournalEntries,
-  recordFormSubmission as storeFormSubmission,
-  pruneFormSubmissions as pruneStoredFormSubmissions,
-} from './lib/persistence/sqliteStore.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const DATA_DIR_PATH = path.join(__dirname, 'data');
+const DATA_FILE_PATH = path.join(DATA_DIR_PATH, 'users.json');
+const SPREADSHEET_FILE_PATH = path.join(DATA_DIR_PATH, 'users.csv');
+const COMMUNITY_JOURNAL_FILE_PATH = path.join(DATA_DIR_PATH, 'community-journal.json');
+const FORM_SUBMISSIONS_FILE_PATH = path.join(DATA_DIR_PATH, 'form-submissions.json');
 const NOT_FOUND_PAGE_PATH = path.join(__dirname, '404.html');
 const PASSWORD_RESET_URL = process.env.PASSWORD_RESET_URL || 'http://localhost:3000/reset-password';
 const PASSWORD_RESET_TOKEN_TTL_MS = Number(process.env.PASSWORD_RESET_TOKEN_TTL_MS || 1000 * 60 * 60);
 const BASE_PATH = normalizeBasePath(process.env.BASE_PATH || '/');
 const CONTACT_EMAIL = process.env.CONTACT_EMAIL || 'kontakt@wakacjecypr.com';
 const SMTP_FROM = process.env.SMTP_FROM || 'WakacjeCypr Quest <no-reply@wakacjecypr.com>';
-const EXPORT_HASH_SECRET = process.env.EXPORT_HASH_SECRET || 'cypruseye-export-salt';
-const COMMUNITY_JOURNAL_TOKEN = process.env.COMMUNITY_JOURNAL_TOKEN || process.env.COMMUNITY_JOURNAL_API_KEY;
-const MAX_JOURNAL_PHOTO_SIZE_BYTES = 1_500_000; // ~1.5 MB base64 payload cap
-const LANGUAGE_COOKIE_NAME = 'ce_lang';
-const DEFAULT_LANGUAGE = 'pl';
-const SUPPORTED_LANGUAGES = new Map([
-  ['pl', { code: 'pl', dir: 'ltr' }],
-  ['en', { code: 'en', dir: 'ltr' }],
-  ['el', { code: 'el', dir: 'ltr' }],
-]);
-const NOSCRIPT_LANGUAGE_COPY = new Map([
-  ['pl', { label: 'Wybierz język:' }],
-  ['en', { label: 'Choose language:' }],
-  ['el', { label: 'Επιλέξτε γλώσσα:' }],
-]);
-
-const STATIC_ASSET_CACHE = new Map();
-const BROTLI_OPTIONS = {
-  params: {
-    [zlibConstants.BROTLI_PARAM_QUALITY]: 5,
-  },
-};
-const GZIP_OPTIONS = { level: 6 };
-const COMPRESSIBLE_MIME_TYPES = new Set([
-  'text/html',
-  'text/css',
-  'text/plain',
-  'text/javascript',
-  'application/javascript',
-  'application/json',
-  'application/xml',
-  'image/svg+xml',
-]);
-
-class AsyncLock {
-  constructor() {
-    this._current = Promise.resolve();
-  }
-
-  run(task) {
-    const next = this._current.then(() => task());
-    this._current = next.catch(() => {});
-    return next;
-  }
-}
-
-const userDataLock = new AsyncLock();
-const journalLock = new AsyncLock();
-const formSubmissionsLock = new AsyncLock();
-
-class SlidingWindowRateLimiter {
-  constructor() {
-    this.buckets = new Map();
-  }
-
-  tryConsume(key, limit, windowMs) {
-    const now = Date.now();
-    const threshold = now - windowMs;
-    const bucket = this.buckets.get(key) || [];
-    const recent = bucket.filter((timestamp) => timestamp > threshold);
-    if (recent.length >= limit) {
-      this.buckets.set(key, recent);
-      return false;
-    }
-    recent.push(now);
-    this.buckets.set(key, recent);
-    return true;
-  }
-}
-
-const rateLimiter = new SlidingWindowRateLimiter();
-
-function resolveClientIdentifier(req) {
-  const forwarded = typeof req.headers?.['x-forwarded-for'] === 'string' ? req.headers['x-forwarded-for'] : null;
-  if (forwarded) {
-    const first = forwarded.split(',')[0]?.trim();
-    if (first) {
-      return first;
-    }
-  }
-  return req.socket?.remoteAddress || 'unknown';
-}
-
-function enforceRateLimit(req, res, bucket, limit, windowMs) {
-  const identifier = resolveClientIdentifier(req);
-  const key = `${bucket}:${identifier}`;
-  if (!rateLimiter.tryConsume(key, limit, windowMs)) {
-    jsonResponse(res, 429, {
-      error: 'Zbyt wiele prób. Spróbuj ponownie za kilka minut.',
-    });
-    return false;
-  }
-  return true;
-}
 
 let mailTransport = null;
 let mailTransportInitialized = false;
 
 let cachedNotFoundPage = null;
 
-function hashForExport(value) {
-  return crypto.createHmac('sha256', EXPORT_HASH_SECRET).update(value).digest('hex');
-}
-
-function safeCompareStrings(candidate, reference) {
-  if (typeof candidate !== 'string' || typeof reference !== 'string') {
-    return false;
-  }
-  const candidateBuffer = Buffer.from(candidate);
-  const referenceBuffer = Buffer.from(reference);
-  if (candidateBuffer.length !== referenceBuffer.length) {
-    return false;
-  }
-  return crypto.timingSafeEqual(candidateBuffer, referenceBuffer);
-}
-
-function isJournalRequestAuthorized(req) {
-  if (!COMMUNITY_JOURNAL_TOKEN) {
-    return true;
-  }
-
-  const authHeader = typeof req.headers?.authorization === 'string' ? req.headers.authorization.trim() : '';
-  const bearerToken = authHeader.slice(0, 7).toLowerCase() === 'bearer '
-    ? authHeader.slice(7).trim()
-    : '';
-  const apiKeyHeader = typeof req.headers?.['x-api-key'] === 'string' ? req.headers['x-api-key'].trim() : '';
-
-  return (
-    safeCompareStrings(bearerToken, COMMUNITY_JOURNAL_TOKEN) ||
-    safeCompareStrings(apiKeyHeader, COMMUNITY_JOURNAL_TOKEN)
-  );
-}
-
-function sanitizePhotoDataUrl(value) {
-  if (typeof value !== 'string' || !value.trim()) {
-    return null;
-  }
-
-  const trimmed = value.trim();
-  if (!trimmed.startsWith('data:image/')) {
-    return null;
-  }
-
-  const commaIndex = trimmed.indexOf(',');
-  if (commaIndex === -1) {
-    return null;
-  }
-
-  const header = trimmed.slice(0, commaIndex);
-  if (!/;base64$/i.test(header)) {
-    return null;
-  }
-
-  const mimeType = header.slice('data:'.length).split(';')[0];
-  const allowedMimeTypes = new Set(['image/png', 'image/jpeg', 'image/jpg', 'image/webp']);
-  if (!allowedMimeTypes.has(mimeType.toLowerCase())) {
-    return null;
-  }
-
-  const base64Payload = trimmed.slice(commaIndex + 1);
-
-  if (Buffer.byteLength(base64Payload, 'base64') > MAX_JOURNAL_PHOTO_SIZE_BYTES) {
-    const error = new Error('PHOTO_TOO_LARGE');
-    error.code = 'PHOTO_TOO_LARGE';
-    throw error;
-  }
-
-  return trimmed;
-}
-
-function hashOptional(value) {
-  return typeof value === 'string' && value ? hashForExport(value) : null;
-}
-
-function buildCouponSubmissionSnapshot(entry) {
-  return {
-    id: entry.id,
-    type: 'coupon-search',
-    payload: {
-      couponHash: hashOptional(entry.coupon),
-      couponLength: entry.coupon ? entry.coupon.length : 0,
-      language: entry.language || null,
-      userAgentHash: hashOptional(entry.userAgent),
-      refererHash: hashOptional(entry.referer),
-    },
-    createdAt: entry.createdAt,
-  };
-}
-
-function buildContactSubmissionSnapshot(entry) {
-  return {
-    id: entry.id,
-    type: 'contact',
-    payload: {
-      nameHash: hashOptional(entry.name),
-      emailHash: hashOptional(entry.email),
-      serviceHash: hashOptional(entry.service),
-      language: entry.language || null,
-      userAgentHash: hashOptional(entry.userAgent),
-      refererHash: hashOptional(entry.referer),
-      messageDigest: hashOptional(entry.message),
-      messageLength: entry.message ? entry.message.length : 0,
-    },
-    createdAt: entry.createdAt,
-  };
-}
-
-function createSecurityContext() {
-  return {
-    scriptNonce: crypto.randomBytes(16).toString('base64'),
-    styleNonce: crypto.randomBytes(16).toString('base64'),
-  };
-}
-
 function applySecurityHeaders(res) {
-  const context = res.__securityContext || createSecurityContext();
-  res.__securityContext = context;
-  const scriptNonce = context.scriptNonce;
-  const styleNonce = context.styleNonce;
-
-  const scriptSources = [
-    "'self'",
-    scriptNonce ? `'nonce-${scriptNonce}'` : null,
-    'https://esm.sh',
-    'https://cdn.jsdelivr.net',
-    'https://www.googletagmanager.com',
-    'https://www.google-analytics.com',
-  ].filter(Boolean);
-
-  const styleSources = [
-    "'self'",
-    styleNonce ? `'nonce-${styleNonce}'` : null,
-    'https://fonts.googleapis.com',
-  ].filter(Boolean);
-
-  const connectSources = [
-    "'self'",
-    'https://daoohnbnnowmmcizgvrq.supabase.co',
-    'wss://daoohnbnnowmmcizgvrq.supabase.co',
-    'https://www.google-analytics.com',
-    'https://www.googletagmanager.com',
-  ];
-
-  const imgSources = [
-    "'self'",
-    'data:',
-    'https://www.google-analytics.com',
-    'https://tile.openstreetmap.org',
-    'https://a.tile.openstreetmap.org',
-    'https://b.tile.openstreetmap.org',
-    'https://c.tile.openstreetmap.org',
-  ];
-
-  const fontSources = ["'self'", 'https://fonts.gstatic.com', 'data:'];
-
-  const csp = [
-    `default-src 'self'`,
-    `script-src ${scriptSources.join(' ')}`,
-    `style-src ${styleSources.join(' ')}`,
-    `connect-src ${connectSources.join(' ')}`,
-    `img-src ${imgSources.join(' ')}`,
-    `font-src ${fontSources.join(' ')}`,
-    `frame-ancestors 'self'`,
-  ].join('; ');
-
   res.setHeader('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
-  res.setHeader('Content-Security-Policy', csp);
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'"
+  );
   res.setHeader('X-Frame-Options', 'SAMEORIGIN');
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
@@ -433,15 +167,114 @@ async function sendContactNotification(entry) {
   });
 }
 
-async function appendFormSubmission(entry) {
-  await formSubmissionsLock.run(async () => {
-    try {
-      storeFormSubmission(entry, DATA_DIR_PATH);
-      pruneStoredFormSubmissions(500, DATA_DIR_PATH);
-    } catch (error) {
-      console.error('Nie udało się zapisać zgłoszenia formularza:', error);
+async function ensureSpreadsheetFile() {
+  await fs.mkdir(DATA_DIR_PATH, { recursive: true });
+  try {
+    await fs.access(SPREADSHEET_FILE_PATH);
+  } catch (error) {
+    const header = 'id,email,name,createdAt,updatedAt\n';
+    await fs.writeFile(SPREADSHEET_FILE_PATH, header, 'utf-8');
+  }
+}
+
+function escapeCsvValue(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+  const stringValue = String(value);
+  if (/[",\n]/.test(stringValue)) {
+    return `"${stringValue.replace(/"/g, '""')}"`;
+  }
+  return stringValue;
+}
+
+async function appendUserToSpreadsheet(user) {
+  const row = [
+    user.id,
+    user.email,
+    user.name ?? '',
+    user.createdAt,
+    user.updatedAt,
+  ]
+    .map(escapeCsvValue)
+    .join(',');
+  await ensureSpreadsheetFile();
+  await fs.appendFile(SPREADSHEET_FILE_PATH, `${row}\n`, 'utf-8');
+}
+
+async function ensureDataFile() {
+  await fs.mkdir(DATA_DIR_PATH, { recursive: true });
+  try {
+    await fs.access(DATA_FILE_PATH);
+  } catch (error) {
+    const initialData = { users: [], resetTokens: [] };
+    await fs.writeFile(DATA_FILE_PATH, JSON.stringify(initialData, null, 2), 'utf-8');
+  }
+}
+
+async function ensureCommunityJournalFile() {
+  await fs.mkdir(DATA_DIR_PATH, { recursive: true });
+  try {
+    await fs.access(COMMUNITY_JOURNAL_FILE_PATH);
+  } catch (error) {
+    const initialData = { entries: [] };
+    await fs.writeFile(COMMUNITY_JOURNAL_FILE_PATH, JSON.stringify(initialData, null, 2), 'utf-8');
+  }
+}
+
+async function ensureFormSubmissionsFile() {
+  await fs.mkdir(DATA_DIR_PATH, { recursive: true });
+  try {
+    await fs.access(FORM_SUBMISSIONS_FILE_PATH);
+  } catch (error) {
+    await fs.writeFile(FORM_SUBMISSIONS_FILE_PATH, JSON.stringify([], null, 2), 'utf-8');
+  }
+}
+
+async function readData() {
+  await ensureDataFile();
+  const file = await fs.readFile(DATA_FILE_PATH, 'utf-8');
+  return JSON.parse(file);
+}
+
+async function writeData(data) {
+  await fs.writeFile(DATA_FILE_PATH, JSON.stringify(data, null, 2), 'utf-8');
+}
+
+async function readCommunityJournal() {
+  await ensureCommunityJournalFile();
+  try {
+    const file = await fs.readFile(COMMUNITY_JOURNAL_FILE_PATH, 'utf-8');
+    const parsed = JSON.parse(file);
+    if (!parsed || typeof parsed !== 'object' || !Array.isArray(parsed.entries)) {
+      return { entries: [] };
     }
-  });
+    return { entries: parsed.entries };
+  } catch (error) {
+    console.error('Nie udało się wczytać dziennika podróży:', error);
+    return { entries: [] };
+  }
+}
+
+async function writeCommunityJournal(data) {
+  const payload = {
+    entries: Array.isArray(data?.entries) ? data.entries : [],
+  };
+  await fs.writeFile(COMMUNITY_JOURNAL_FILE_PATH, JSON.stringify(payload, null, 2), 'utf-8');
+}
+
+async function appendFormSubmission(entry) {
+  await ensureFormSubmissionsFile();
+  try {
+    const raw = await fs.readFile(FORM_SUBMISSIONS_FILE_PATH, 'utf-8');
+    const parsed = JSON.parse(raw);
+    const submissions = Array.isArray(parsed) ? parsed : [];
+    submissions.unshift(entry);
+    const limited = submissions.slice(0, 500);
+    await fs.writeFile(FORM_SUBMISSIONS_FILE_PATH, JSON.stringify(limited, null, 2), 'utf-8');
+  } catch (error) {
+    console.error('Nie udało się zapisać zgłoszenia formularza:', error);
+  }
 }
 
 async function parseRequestBody(req) {
@@ -510,41 +343,14 @@ function verifyPassword(password, storedHash) {
   return crypto.timingSafeEqual(Buffer.from(originalHash, 'hex'), Buffer.from(candidateHash, 'hex'));
 }
 
-async function sendPasswordResetEmail(email, token, transport) {
-  if (!transport) {
-    throw new Error('SMTP_NOT_CONFIGURED');
-  }
-
+async function sendPasswordResetEmail(email, token) {
   const resetLink = `${PASSWORD_RESET_URL}?token=${token}`;
-  const text = [
-    'Otrzymaliśmy prośbę o zresetowanie hasła do Twojego konta CyprusEye.',
-    'Jeśli to Ty rozpocząłeś ten proces, kliknij w poniższy link i ustaw nowe hasło:',
-    resetLink,
-    '',
-    'Jeżeli nie prosiłeś o reset, zignoruj tę wiadomość – Twoje hasło pozostanie bez zmian.',
-  ].join('\n');
-  const html = `<!doctype html><html><body style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.6;color:#111;">
-    <p>Otrzymaliśmy prośbę o zresetowanie hasła do Twojego konta CyprusEye.</p>
-    <p>Jeśli to Ty rozpocząłeś ten proces, kliknij w poniższy przycisk, aby ustawić nowe hasło:</p>
-    <p><a href="${resetLink}" style="display:inline-block;padding:10px 18px;background:#2563eb;color:#fff;text-decoration:none;border-radius:6px;">Ustaw nowe hasło</a></p>
-    <p>Jeżeli nie prosiłeś o reset, zignoruj tę wiadomość – Twoje hasło pozostanie bez zmian.</p>
-  </body></html>`;
-
-  await transport.sendMail({
-    from: SMTP_FROM,
-    to: email,
-    subject: 'Resetowanie hasła – CyprusEye',
-    text,
-    html,
-  });
+  const message = `\n===== Symulowana wiadomość e-mail =====\nDo: ${email}\nTemat: Resetowanie hasła - AppGPT\n\nKliknij w poniższy link, aby ustawić nowe hasło:\n${resetLink}\n\nJeśli to nie Ty zainicjowałeś reset, zignoruj tę wiadomość.\n===== Koniec wiadomości =====\n`;
+  console.info(message);
 }
 
 async function handleRegister(req, res) {
   try {
-    if (!enforceRateLimit(req, res, 'register', 5, 10 * 60 * 1000)) {
-      return;
-    }
-
     const body = await parseRequestBody(req);
     const { email, password, name } = body || {};
 
@@ -556,6 +362,12 @@ async function handleRegister(req, res) {
     }
 
     const normalizedEmail = normalizeEmail(email);
+    const data = await readData();
+
+    if (data.users.some((user) => user.email === normalizedEmail)) {
+      return jsonResponse(res, 409, { error: 'Użytkownik z takim adresem e-mail już istnieje.' });
+    }
+
     const passwordHash = hashPassword(password);
     const now = new Date().toISOString();
     const user = {
@@ -567,22 +379,9 @@ async function handleRegister(req, res) {
       updatedAt: now,
     };
 
-    const result = await userDataLock.run(async () => {
-      const existing = getStoredUserByEmail(normalizedEmail, DATA_DIR_PATH);
-      if (existing) {
-        return { status: 409 };
-      }
-      const success = createStoredUser(user, DATA_DIR_PATH);
-      return { status: success ? 201 : 500 };
-    });
-
-    if (result.status === 409) {
-      return jsonResponse(res, 409, { error: 'Użytkownik z takim adresem e-mail już istnieje.' });
-    }
-    if (result.status !== 201) {
-      return jsonResponse(res, 500, { error: 'Nie udało się zapisać użytkownika.' });
-    }
-
+    data.users.push(user);
+    await writeData(data);
+    await appendUserToSpreadsheet(user);
     return jsonResponse(res, 201, { user: sanitizeUser(user) });
   } catch (error) {
     if (error.message === 'INVALID_JSON') {
@@ -595,10 +394,6 @@ async function handleRegister(req, res) {
 
 async function handleLogin(req, res) {
   try {
-    if (!enforceRateLimit(req, res, 'login', 10, 10 * 60 * 1000)) {
-      return;
-    }
-
     const body = await parseRequestBody(req);
     const { email, password } = body || {};
 
@@ -607,13 +402,14 @@ async function handleLogin(req, res) {
     }
 
     const normalizedEmail = normalizeEmail(email);
-    const lookup = getStoredUserByEmail(normalizedEmail, DATA_DIR_PATH);
+    const data = await readData();
+    const user = data.users.find((candidate) => candidate.email === normalizedEmail);
 
-    if (!lookup || !verifyPassword(password, lookup.passwordHash)) {
+    if (!user || !verifyPassword(password, user.passwordHash)) {
       return jsonResponse(res, 401, { error: 'Nieprawidłowy e-mail lub hasło.' });
     }
 
-    return jsonResponse(res, 200, { user: sanitizeUser(lookup) });
+    return jsonResponse(res, 200, { user: sanitizeUser(user) });
   } catch (error) {
     if (error.message === 'INVALID_JSON') {
       return jsonResponse(res, 400, { error: 'Niepoprawny format JSON.' });
@@ -625,10 +421,6 @@ async function handleLogin(req, res) {
 
 async function handlePasswordResetRequest(req, res) {
   try {
-    if (!enforceRateLimit(req, res, 'password-reset-request', 3, 60 * 60 * 1000)) {
-      return;
-    }
-
     const body = await parseRequestBody(req);
     const { email } = body || {};
 
@@ -636,35 +428,22 @@ async function handlePasswordResetRequest(req, res) {
       return jsonResponse(res, 400, { error: 'Adres e-mail jest wymagany.' });
     }
 
-    const transport = getMailTransport();
-    if (!transport) {
-      return jsonResponse(res, 503, {
-        error: 'Reset hasła jest chwilowo niedostępny. Skontaktuj się z obsługą lub spróbuj ponownie później.',
-      });
-    }
-
     const normalizedEmail = normalizeEmail(email);
+    const data = await readData();
+    const user = data.users.find((candidate) => candidate.email === normalizedEmail);
 
-    const result = await userDataLock.run(async () => {
-      const user = getStoredUserByEmail(normalizedEmail, DATA_DIR_PATH);
-      if (!user) {
-        return null;
-      }
-
+    if (user) {
       const token = createToken();
       const expiresAt = new Date(Date.now() + PASSWORD_RESET_TOKEN_TTL_MS).toISOString();
-      replaceResetTokenForUser(user.id, token, expiresAt, DATA_DIR_PATH);
-      return { user, token };
-    });
 
-    if (result && result.user) {
+      data.resetTokens = data.resetTokens.filter((entry) => entry.userId !== user.id);
+      data.resetTokens.push({ token, userId: user.id, expiresAt });
+      await writeData(data);
+
       try {
-        await sendPasswordResetEmail(result.user.email, result.token, transport);
+        await sendPasswordResetEmail(user.email, token);
       } catch (emailError) {
         console.error('Nie udało się wysłać wiadomości resetującej hasło:', emailError);
-        return jsonResponse(res, 502, {
-          error: 'Wiadomość resetująca hasło nie mogła zostać wysłana. Spróbuj ponownie później.',
-        });
       }
     }
 
@@ -692,36 +471,31 @@ async function handlePasswordResetConfirm(req, res) {
       return jsonResponse(res, 400, { error: 'Hasło musi składać się z co najmniej 8 znaków.' });
     }
 
-    const outcome = await userDataLock.run(async () => {
-      const tokenEntry = getStoredResetToken(token, DATA_DIR_PATH);
-      if (!tokenEntry) {
-        return { status: 400, error: 'Nieprawidłowy lub wygasły token.' };
-      }
+    const data = await readData();
+    const tokenIndex = data.resetTokens.findIndex((entry) => entry.token === token);
 
-      if (new Date(tokenEntry.expiresAt).getTime() < Date.now()) {
-        deleteStoredResetToken(token, DATA_DIR_PATH);
-        return { status: 400, error: 'Nieprawidłowy lub wygasły token.' };
-      }
-
-      const user = getStoredUserById(tokenEntry.userId, DATA_DIR_PATH);
-      if (!user) {
-        deleteStoredResetToken(token, DATA_DIR_PATH);
-        return { status: 400, error: 'Nieprawidłowy lub wygasły token.' };
-      }
-
-      const hashed = hashPassword(password);
-      const updatedAt = new Date().toISOString();
-      updateStoredUserPassword(user.id, hashed, updatedAt, DATA_DIR_PATH);
-      deleteStoredResetToken(token, DATA_DIR_PATH);
-
-      return { status: 200 };
-    });
-
-    if (!outcome || outcome.status !== 200) {
-      return jsonResponse(res, outcome?.status || 400, {
-        error: outcome?.error || 'Nieprawidłowy lub wygasły token.',
-      });
+    if (tokenIndex === -1) {
+      return jsonResponse(res, 400, { error: 'Nieprawidłowy lub wygasły token.' });
     }
+
+    const tokenEntry = data.resetTokens[tokenIndex];
+    if (new Date(tokenEntry.expiresAt).getTime() < Date.now()) {
+      data.resetTokens.splice(tokenIndex, 1);
+      await writeData(data);
+      return jsonResponse(res, 400, { error: 'Nieprawidłowy lub wygasły token.' });
+    }
+
+    const user = data.users.find((candidate) => candidate.id === tokenEntry.userId);
+    if (!user) {
+      data.resetTokens.splice(tokenIndex, 1);
+      await writeData(data);
+      return jsonResponse(res, 400, { error: 'Nieprawidłowy lub wygasły token.' });
+    }
+
+    user.passwordHash = hashPassword(password);
+    user.updatedAt = new Date().toISOString();
+    data.resetTokens.splice(tokenIndex, 1);
+    await writeData(data);
 
     return jsonResponse(res, 200, { message: 'Hasło zostało zresetowane.' });
   } catch (error) {
@@ -767,8 +541,8 @@ function broadcastJournalEvent(event, data) {
 
 async function handleListCommunityJournal(req, res) {
   try {
-    const entries = await journalLock.run(async () => listStoredJournalEntries(200, DATA_DIR_PATH));
-    return jsonResponse(res, 200, { entries });
+    const data = await readCommunityJournal();
+    return jsonResponse(res, 200, { entries: data.entries });
   } catch (error) {
     console.error('Błąd podczas odczytywania wpisów dziennika:', error);
     return jsonResponse(res, 500, { error: 'Nie udało się pobrać wpisów dziennika.' });
@@ -788,10 +562,6 @@ function sanitizeJournalString(value, { maxLength } = {}) {
 
 async function handleCreateCommunityJournal(req, res) {
   try {
-    if (!isJournalRequestAuthorized(req)) {
-      return jsonResponse(res, 401, { error: 'Wymagane jest uwierzytelnienie.' });
-    }
-
     const body = await parseRequestBody(req);
     const title = sanitizeJournalString(body?.title, { maxLength: 200 });
     const notes = sanitizeJournalString(body?.notes, { maxLength: 4000 });
@@ -799,15 +569,7 @@ async function handleCreateCommunityJournal(req, res) {
       return jsonResponse(res, 400, { error: 'Treść wpisu jest wymagana.' });
     }
 
-    let photoDataUrl = null;
-    try {
-      photoDataUrl = sanitizePhotoDataUrl(body?.photoDataUrl);
-    } catch (photoError) {
-      if (photoError.code === 'PHOTO_TOO_LARGE') {
-        return jsonResponse(res, 413, { error: 'Załączone zdjęcie jest zbyt duże (limit 1.5 MB).' });
-      }
-      throw photoError;
-    }
+    const photoDataUrl = typeof body?.photoDataUrl === 'string' ? body.photoDataUrl : null;
     const now = new Date().toISOString();
     const entry = {
       id: `journal-${Date.now()}-${crypto.randomUUID().slice(0, 8)}`,
@@ -826,9 +588,9 @@ async function handleCreateCommunityJournal(req, res) {
       comments: [],
     };
 
-    await journalLock.run(async () => {
-      storeJournalEntry(entry, DATA_DIR_PATH);
-    });
+    const data = await readCommunityJournal();
+    const entries = Array.isArray(data.entries) ? data.entries : [];
+    await writeCommunityJournal({ entries: [entry, ...entries] });
     broadcastJournalEvent('journal-entry-created', { entry });
 
     return jsonResponse(res, 201, { entry });
@@ -860,16 +622,15 @@ async function handleCouponSearchForm(req, res) {
     const language = typeof body?.lang === 'string' ? body.lang.trim() : null;
     const now = new Date().toISOString();
 
-    const submission = {
+    await appendFormSubmission({
       id: `coupon-search-${Date.now()}`,
+      type: 'coupon-search',
       coupon: couponQuery,
       language,
       userAgent: req.headers['user-agent'] || null,
       referer: req.headers.referer || null,
       createdAt: now,
-    };
-
-    await appendFormSubmission(buildCouponSubmissionSnapshot(submission));
+    });
 
     const redirectUrl = couponQuery
       ? `/kupon.html?coupon=${encodeURIComponent(couponQuery)}`
@@ -946,7 +707,7 @@ async function handleContactForm(req, res) {
       createdAt: new Date().toISOString(),
     };
 
-    await appendFormSubmission(buildContactSubmissionSnapshot(entry));
+    await appendFormSubmission(entry);
     await sendContactNotification(entry);
 
     const acceptHeader = req.headers.accept || '';
@@ -992,10 +753,6 @@ async function handleContactForm(req, res) {
 }
 
 function handleCommunityJournalStream(req, res) {
-  if (!isJournalRequestAuthorized(req)) {
-    return jsonResponse(res, 401, { error: 'Wymagane jest uwierzytelnienie.' });
-  }
-
   applySecurityHeaders(res);
   if (req.httpVersionMajor < 2) {
     res.writeHead(200, {
@@ -1048,14 +805,10 @@ function resolveRoute(method, pathname) {
 }
 
 function createServer() {
-  initSqliteStore(DATA_DIR_PATH);
   return http.createServer(async (req, res) => {
     if (!req.url || !req.method) {
       return jsonResponse(res, 400, { error: 'Nieobsługiwane żądanie.' });
     }
-
-    const securityContext = createSecurityContext();
-    res.__securityContext = securityContext;
 
     const url = new URL(req.url, `http://${req.headers.host || 'localhost'}`);
 
@@ -1084,11 +837,11 @@ function createServer() {
     }
 
     if (req.method === 'GET' || req.method === 'HEAD') {
-      const served = await tryServeStaticFile(req, url.pathname, res, url);
+      const served = await tryServeStaticFile(req, url.pathname, res);
       if (served) {
         return;
       }
-      await serveNotFoundPage(req, res, url);
+      await serveNotFoundPage(req, res);
       return;
     }
 
@@ -1097,7 +850,10 @@ function createServer() {
 }
 
 export async function start() {
-  initSqliteStore(DATA_DIR_PATH);
+  await ensureSpreadsheetFile();
+  await ensureDataFile();
+  await ensureCommunityJournalFile();
+  await ensureFormSubmissionsFile();
   const port = process.env.PORT !== undefined ? Number(process.env.PORT) : 3001;
   const server = createServer();
   return new Promise((resolve) => {
@@ -1110,7 +866,7 @@ export async function start() {
   });
 }
 
-export { createServer };
+export { createServer, ensureDataFile };
 
 if (process.argv[1] && path.resolve(process.argv[1]) === __filename) {
   start();
@@ -1155,167 +911,6 @@ function extractPathRelativeToBase(pathname) {
   return null;
 }
 
-function normalizeLanguageCandidate(value) {
-  if (typeof value !== 'string') {
-    return null;
-  }
-  const trimmed = value.trim().toLowerCase();
-  return trimmed || null;
-}
-
-function selectSupportedLanguage(value) {
-  const candidate = normalizeLanguageCandidate(value);
-  if (!candidate) {
-    return null;
-  }
-  if (SUPPORTED_LANGUAGES.has(candidate)) {
-    return candidate;
-  }
-  if (candidate.includes('-')) {
-    const short = candidate.split('-')[0];
-    if (SUPPORTED_LANGUAGES.has(short)) {
-      return short;
-    }
-  }
-  return null;
-}
-
-function parseCookies(header = '') {
-  const jar = new Map();
-  if (!header) {
-    return jar;
-  }
-  header.split(';').forEach((part) => {
-    const [name, ...rest] = part.split('=');
-    if (!name) {
-      return;
-    }
-    const key = name.trim();
-    if (!key) {
-      return;
-    }
-    const value = rest.join('=').trim();
-    jar.set(key, value);
-  });
-  return jar;
-}
-
-function detectLanguageFromHeader(header) {
-  if (typeof header !== 'string' || !header.trim()) {
-    return null;
-  }
-  const entries = header.split(',');
-  for (const rawEntry of entries) {
-    const entry = rawEntry.split(';')[0];
-    const candidate = selectSupportedLanguage(entry);
-    if (candidate) {
-      return candidate;
-    }
-  }
-  return null;
-}
-
-function detectPreferredLanguage(req, url) {
-  const urlLang = selectSupportedLanguage(url?.searchParams?.get('lang'));
-  if (urlLang) {
-    return urlLang;
-  }
-
-  const cookies = parseCookies(req.headers?.cookie);
-  const cookieLang = selectSupportedLanguage(cookies.get(LANGUAGE_COOKIE_NAME));
-  if (cookieLang) {
-    return cookieLang;
-  }
-
-  const headerLang = detectLanguageFromHeader(req.headers?.['accept-language']);
-  if (headerLang) {
-    return headerLang;
-  }
-
-  return DEFAULT_LANGUAGE;
-}
-
-function updateHtmlTagAttribute(html, attribute, value) {
-  const match = html.match(/<html\b[^>]*>/i);
-  if (!match) {
-    return html;
-  }
-  const tag = match[0];
-  const attrRegex = new RegExp(`${attribute}\\s*=\\s*"[^"]*"`, 'i');
-  let updated = tag;
-  if (attrRegex.test(tag)) {
-    updated = tag.replace(attrRegex, `${attribute}="${value}"`);
-  } else {
-    updated = tag.replace('<html', `<html ${attribute}="${value}"`);
-  }
-  return html.replace(tag, updated);
-}
-
-function updateLanguageInputs(html, language) {
-  return html.replace(/<input\b[^>]*data-language-field[^>]*>/gi, (match) => {
-    if (!/name\s*=\s*"lang"/i.test(match)) {
-      return match;
-    }
-    if (/value\s*=\s*"[^"]*"/i.test(match)) {
-      return match.replace(/value\s*=\s*"[^"]*"/i, `value="${language}"`);
-    }
-    return match.replace(/\/>$/, ` value="${language}" />`).replace(/>$/, ` value="${language}">`);
-  });
-}
-
-function injectLanguageSwitcherFallback(html, language) {
-  if (/data-noscript-language-switcher/.test(html)) {
-    return html;
-  }
-
-  const copy = NOSCRIPT_LANGUAGE_COPY.get(language) || NOSCRIPT_LANGUAGE_COPY.get(DEFAULT_LANGUAGE);
-  const labelText = copy?.label || 'Choose language:';
-  const fallback = `\n<noscript>\n  <div class="language-switcher language-switcher--static" data-noscript-language-switcher>\n    <p class="language-switcher__label">${labelText}</p>\n    <ul class="language-switcher__list">\n      <li><a class="language-switcher__link" href="?lang=pl">🇵🇱 Polski</a></li>\n      <li><a class="language-switcher__link" href="?lang=en">🇬🇧 English</a></li>\n      <li><a class="language-switcher__link" href="?lang=el">🇬🇷 Ελληνικά</a></li>\n    </ul>\n  </div>\n</noscript>`;
-
-  if (html.includes('</body>')) {
-    return html.replace('</body>', `${fallback}\n</body>`);
-  }
-  return `${html}${fallback}`;
-}
-
-function addNonceAttribute(html, tagName, nonce) {
-  if (!nonce) {
-    return html;
-  }
-
-  const pattern = new RegExp(`<${tagName}([^>]*?)>`, 'gi');
-  return html.replace(pattern, (match, attrs) => {
-    if (/\bnonce\s*=/.test(attrs)) {
-      return match;
-    }
-    const safeAttrs = attrs.replace(/\s+$/, '');
-    return `<${tagName}${safeAttrs} nonce="${nonce}">`;
-  });
-}
-
-function enhanceHtmlDocument(html, { language, securityContext } = {}) {
-  let output = html;
-  const lang = SUPPORTED_LANGUAGES.has(language) ? language : DEFAULT_LANGUAGE;
-  const languageMeta = SUPPORTED_LANGUAGES.get(lang) || SUPPORTED_LANGUAGES.get(DEFAULT_LANGUAGE);
-
-  output = updateHtmlTagAttribute(output, 'lang', lang);
-  if (languageMeta?.dir) {
-    output = updateHtmlTagAttribute(output, 'dir', languageMeta.dir);
-  }
-
-  output = updateLanguageInputs(output, lang);
-  output = injectLanguageSwitcherFallback(output, lang);
-
-  if (securityContext?.styleNonce) {
-    output = addNonceAttribute(output, 'style', securityContext.styleNonce);
-  }
-  if (securityContext?.scriptNonce) {
-    output = addNonceAttribute(output, 'script', securityContext.scriptNonce);
-  }
-
-  return output;
-}
-
 function getMimeType(filePath) {
   const extension = path.extname(filePath).toLowerCase();
   switch (extension) {
@@ -1345,254 +940,20 @@ function getMimeType(filePath) {
   }
 }
 
-function getBaseMimeType(mimeType) {
-  if (typeof mimeType !== 'string') {
-    return '';
-  }
-  return mimeType.split(';')[0];
-}
-
-function isCompressibleMime(mimeType) {
-  const base = getBaseMimeType(mimeType);
-  return COMPRESSIBLE_MIME_TYPES.has(base);
-}
-
-function createEtag(stats) {
-  const size = typeof stats.size === 'number' ? stats.size : 0;
-  const mtimeMs =
-    typeof stats.mtimeMs === 'number'
-      ? stats.mtimeMs
-      : stats.mtime instanceof Date
-      ? stats.mtime.getTime()
-      : Date.now();
-  return `W/"${size.toString(16)}-${Math.round(mtimeMs).toString(16)}"`;
-}
-
-function parseAcceptEncoding(header) {
-  if (typeof header !== 'string' || !header.trim()) {
-    return [];
-  }
-
-  return header
-    .split(',')
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .map((part) => {
-      const [name, ...params] = part.split(';').map((segment) => segment.trim());
-      let q = 1;
-      for (const param of params) {
-        const [key, value] = param.split('=').map((segment) => segment.trim());
-        if (key === 'q') {
-          const numeric = Number.parseFloat(value);
-          if (Number.isFinite(numeric)) {
-            q = numeric;
-          }
-        }
-      }
-      return { name: name.toLowerCase(), q };
-    })
-    .filter((item) => item.q > 0 && item.name);
-}
-
-function selectEncoding(header) {
-  const parsed = parseAcceptEncoding(header);
-  if (!parsed.length) {
-    return null;
-  }
-
-  parsed.sort((a, b) => b.q - a.q);
-  const supported = ['br', 'gzip'];
-  for (const item of parsed) {
-    if (supported.includes(item.name)) {
-      return item.name;
-    }
-    if (item.name === '*') {
-      return supported[0];
-    }
-    if (item.name === 'identity') {
-      return null;
-    }
-  }
-  return null;
-}
-
-function compressBuffer(buffer, encoding) {
-  if (!buffer || !Buffer.isBuffer(buffer)) {
-    return buffer;
-  }
-  try {
-    if (encoding === 'br') {
-      return brotliCompressSync(buffer, BROTLI_OPTIONS);
-    }
-    if (encoding === 'gzip') {
-      return gzipSync(buffer, GZIP_OPTIONS);
-    }
-  } catch (error) {
-    console.warn('Nie udało się skompresować zasobu statycznego:', error);
-  }
-  return buffer;
-}
-
-async function getStaticAssetEntry(filePath, fileStats, mimeType) {
-  const baseMime = getBaseMimeType(mimeType);
-  const mtimeMs =
-    typeof fileStats.mtimeMs === 'number'
-      ? fileStats.mtimeMs
-      : fileStats.mtime instanceof Date
-      ? fileStats.mtime.getTime()
-      : Date.now();
-  const cacheEntry = STATIC_ASSET_CACHE.get(filePath);
-  if (cacheEntry && cacheEntry.mtimeMs === mtimeMs && cacheEntry.size === fileStats.size) {
-    return cacheEntry;
-  }
-
-  let text = null;
-  let buffer = null;
-  const shouldReadAsText =
-    baseMime.startsWith('text/') || baseMime === 'application/json' || baseMime === 'application/javascript' || baseMime === 'image/svg+xml';
-
-  if (shouldReadAsText) {
-    text = await fs.readFile(filePath, 'utf-8');
-    buffer = Buffer.from(text, 'utf-8');
-  } else {
-    buffer = await fs.readFile(filePath);
-  }
-
-  const entry = {
-    filePath,
-    size: fileStats.size,
-    mtimeMs,
-    mimeType: baseMime,
-    buffer,
-    text,
-    etag: createEtag(fileStats),
-    compressed: new Map(),
-  };
-
-  if (baseMime !== 'text/html' && isCompressibleMime(baseMime)) {
-    const brotli = compressBuffer(buffer, 'br');
-    const gzip = compressBuffer(buffer, 'gzip');
-    if (brotli && brotli !== buffer) {
-      entry.compressed.set('br', brotli);
-    }
-    if (gzip && gzip !== buffer) {
-      entry.compressed.set('gzip', gzip);
-    }
-  }
-
-  STATIC_ASSET_CACHE.set(filePath, entry);
-  return entry;
-}
-
-function isFresh(req, entry) {
-  const etag = entry?.etag;
-  const ifNoneMatch = req.headers?.['if-none-match'];
-  if (etag && typeof ifNoneMatch === 'string' && ifNoneMatch) {
-    const tokens = ifNoneMatch
-      .split(',')
-      .map((item) => item.trim())
-      .filter(Boolean);
-    if (tokens.includes(etag)) {
-      return true;
-    }
-  }
-
-  const ifModifiedSince = req.headers?.['if-modified-since'];
-  if (typeof ifModifiedSince === 'string' && ifModifiedSince) {
-    const since = Date.parse(ifModifiedSince);
-    if (!Number.isNaN(since)) {
-      const normalizedMtime = Math.floor(entry.mtimeMs / 1000) * 1000;
-      if (normalizedMtime <= since) {
-        return true;
-      }
-    }
-  }
-
-  return false;
-}
-
-async function serveStaticAsset(req, res, filePath, stats = null, url = null) {
+async function serveStaticAsset(req, res, filePath, stats = null) {
   const fileStats = stats ?? (await fs.stat(filePath));
   if (fileStats.isDirectory()) {
     return false;
   }
 
   const mimeType = getMimeType(filePath);
-  const baseMime = getBaseMimeType(mimeType);
-  const cacheEntry = await getStaticAssetEntry(filePath, fileStats, mimeType);
-  const cacheControl = baseMime === 'text/html' ? 'no-cache' : 'public, max-age=31536000, immutable';
-  const varyHeader = isCompressibleMime(baseMime) ? 'Accept-Encoding' : undefined;
-  const lastModified = new Date(cacheEntry.mtimeMs).toUTCString();
-
-  if (isFresh(req, cacheEntry)) {
-    const notModifiedHeaders = {
-      'Content-Type': mimeType,
-      'Cache-Control': cacheControl,
-      'ETag': cacheEntry.etag,
-      'Last-Modified': lastModified,
-    };
-    if (varyHeader) {
-      notModifiedHeaders.Vary = varyHeader;
-    }
-    applySecurityHeaders(res);
-    res.writeHead(304, notModifiedHeaders);
-    res.end();
-    return true;
-  }
-
-  let bodyBuffer;
-  if (baseMime === 'text/html') {
-    const rawHtml = cacheEntry.text ?? (await fs.readFile(filePath, 'utf-8'));
-    const language = detectPreferredLanguage(req, url);
-    const securityContext = res.__securityContext;
-    const enhanced = enhanceHtmlDocument(rawHtml, { language, securityContext });
-    bodyBuffer = Buffer.from(enhanced, 'utf-8');
-  } else {
-    bodyBuffer = cacheEntry.buffer;
-  }
-
-  let encoding = null;
-  let responseBuffer = bodyBuffer;
-
-  if (isCompressibleMime(baseMime)) {
-    const preferredEncoding = selectEncoding(req.headers?.['accept-encoding']);
-    if (preferredEncoding === 'br' || preferredEncoding === 'gzip') {
-      encoding = preferredEncoding;
-      if (baseMime === 'text/html') {
-        responseBuffer = compressBuffer(bodyBuffer, preferredEncoding);
-      } else {
-        const cachedCompressed = cacheEntry.compressed.get(preferredEncoding);
-        if (cachedCompressed) {
-          responseBuffer = cachedCompressed;
-        } else {
-          responseBuffer = compressBuffer(bodyBuffer, preferredEncoding);
-          if (responseBuffer && responseBuffer !== bodyBuffer) {
-            cacheEntry.compressed.set(preferredEncoding, responseBuffer);
-          }
-        }
-      }
-    }
-  }
-
-  if (encoding && (!responseBuffer || responseBuffer === bodyBuffer)) {
-    encoding = null;
-    responseBuffer = bodyBuffer;
-  }
-
   const headers = {
     'Content-Type': mimeType,
-    'Cache-Control': cacheControl,
-    'ETag': cacheEntry.etag,
-    'Last-Modified': lastModified,
-    'Content-Length': responseBuffer.length,
+    'Content-Length': fileStats.size,
+    'Cache-Control': mimeType.startsWith('text/html')
+      ? 'no-cache'
+      : 'public, max-age=31536000, immutable',
   };
-
-  if (encoding) {
-    headers['Content-Encoding'] = encoding;
-  }
-  if (varyHeader) {
-    headers.Vary = varyHeader;
-  }
 
   applySecurityHeaders(res);
   res.writeHead(200, headers);
@@ -1602,11 +963,12 @@ async function serveStaticAsset(req, res, filePath, stats = null, url = null) {
     return true;
   }
 
-  res.end(responseBuffer);
+  const file = await fs.readFile(filePath);
+  res.end(file);
   return true;
 }
 
-async function tryServeStaticFile(req, pathname, res, url) {
+async function tryServeStaticFile(req, pathname, res) {
   if (!isWithinBasePath(pathname)) {
     return false;
   }
@@ -1632,7 +994,7 @@ async function tryServeStaticFile(req, pathname, res, url) {
     if (stats.isDirectory()) {
       const indexPath = path.join(absolutePath, 'index.html');
       try {
-        const servedIndex = await serveStaticAsset(req, res, indexPath, null, url);
+        const servedIndex = await serveStaticAsset(req, res, indexPath);
         if (servedIndex) {
           return true;
         }
@@ -1644,7 +1006,7 @@ async function tryServeStaticFile(req, pathname, res, url) {
       return false;
     }
 
-    const served = await serveStaticAsset(req, res, absolutePath, stats, url);
+    const served = await serveStaticAsset(req, res, absolutePath, stats);
     if (served) {
       return true;
     }
@@ -1655,7 +1017,7 @@ async function tryServeStaticFile(req, pathname, res, url) {
       const htmlPath = path.resolve(__dirname, htmlCandidate);
       if (htmlPath.startsWith(__dirname)) {
         try {
-          const servedHtml = await serveStaticAsset(req, res, htmlPath, null, url);
+          const servedHtml = await serveStaticAsset(req, res, htmlPath);
           if (servedHtml) {
             return true;
           }
@@ -1673,26 +1035,23 @@ async function tryServeStaticFile(req, pathname, res, url) {
   return false;
 }
 
-async function serveNotFoundPage(req, res, url) {
+async function serveNotFoundPage(req, res) {
   try {
     if (!cachedNotFoundPage) {
       cachedNotFoundPage = await fs.readFile(NOT_FOUND_PAGE_PATH, 'utf-8');
     }
-    const language = detectPreferredLanguage(req, url);
-    const securityContext = res.__securityContext;
-    const body = enhanceHtmlDocument(cachedNotFoundPage, { language, securityContext });
-    const buffer = Buffer.from(body, 'utf-8');
+    const body = cachedNotFoundPage;
     applySecurityHeaders(res);
     const headers = {
       'Content-Type': 'text/html; charset=utf-8',
-      'Content-Length': buffer.length,
+      'Content-Length': Buffer.byteLength(body, 'utf-8'),
       'Cache-Control': 'no-cache',
     };
     res.writeHead(404, headers);
     if (req.method === 'HEAD') {
       res.end();
     } else {
-      res.end(buffer);
+      res.end(body);
     }
   } catch (error) {
     const fallback = '404 Not Found';

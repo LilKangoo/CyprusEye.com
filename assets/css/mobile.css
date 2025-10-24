@@ -1,7 +1,9 @@
 /* Mobile-first layout tuned for handheld widths (360–430px) */
+/* FIX: overflow-x na mobile */
 html,
 body {
   max-width: 100%;
+  overflow-x: hidden;
 }
 
 img,
@@ -57,7 +59,7 @@ video {
   word-break: break-word;
 }
 
-@media (max-width: 379px) {
+@media (max-width: 430px) {
   body,
   html {
     max-width: 100%;
@@ -135,32 +137,6 @@ video {
   }
 }
 
-
-@media (min-width: 380px) and (max-width: 600px) {
-  .header-top-actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    align-items: stretch;
-  }
-
-  .header-actions {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .header-actions-primary {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-
-  .header-actions-primary a,
-  .header-actions-primary button,
-  .header-actions .header-link,
-  .header-actions button {
-    width: 100%;
-  }
-
-  .header-coupon-button {
-    width: 100%;
-  }
-}
 @media (min-width: var(--bp-sm)) {
   .section {
     padding: var(--space-10) var(--space-6);
@@ -185,28 +161,22 @@ video {
   .app-header {
     gap: var(--space-5);
     padding: var(--space-6);
-    border-radius: 24px;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    background: var(--surface-strong);
-    box-shadow: var(--elev-2);
-    color: var(--color-neutral-900);
-  }
-
-  .app-header a,
-  .app-header button {
-    color: inherit;
+    border-radius: 32px;
+    border: 1px solid rgba(255, 255, 255, 0.22);
+    background: linear-gradient(160deg, #0ea5e9 0%, #2563eb 52%, #7c3aed 100%);
+    box-shadow: 0 32px 60px rgba(15, 23, 42, 0.25);
   }
 
   .app-header .auth-bar,
   .app-header .header-top-actions,
   .app-header .header-metrics,
   .app-header .header-tabs {
-    background: var(--surface);
-    border: 1px solid rgba(15, 23, 42, 0.06);
-    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.16);
+    border: 1px solid rgba(255, 255, 255, 0.28);
+    border-radius: 24px;
     padding: var(--space-4);
-    backdrop-filter: none;
-    box-shadow: none;
+    backdrop-filter: blur(18px);
+    box-shadow: 0 24px 40px rgba(15, 23, 42, 0.22);
   }
 
   .auth-bar {
@@ -220,33 +190,32 @@ video {
 
   .auth-controls > button {
     min-height: 48px;
-    border-radius: 14px;
+    border-radius: 16px;
     font-weight: 600;
   }
 
   .app-header .ghost {
-    background: transparent;
-    border: 1px solid var(--color-neutral-200);
-    color: var(--color-neutral-900);
+    background: rgba(15, 23, 42, 0.18);
+    border: 1px solid rgba(255, 255, 255, 0.32);
+    color: #fff;
     box-shadow: none;
   }
 
   .app-header .ghost:hover,
   .app-header .ghost:focus-visible {
-    background: var(--color-neutral-100);
-    color: var(--color-neutral-900);
+    background: rgba(15, 23, 42, 0.25);
+    color: #fff;
   }
 
   .auth-guest-note {
-    color: rgba(15, 23, 42, 0.8);
+    color: rgba(15, 23, 42, 0.85);
   }
 
   .user-menu {
-    background: var(--surface);
-    border: 1px solid rgba(15, 23, 42, 0.06);
-    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 18px;
     padding: var(--space-3);
-    color: inherit;
+    color: #fff;
   }
 
   .header-top {
@@ -259,20 +228,19 @@ video {
     align-items: center;
     gap: var(--space-4);
     padding: var(--space-4);
-    border-radius: 20px;
-    background: var(--color-white);
-    border: 1px solid var(--color-neutral-200);
-    box-shadow: var(--elev-1);
+    border-radius: 26px;
+    background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.72));
+    box-shadow: 0 26px 46px rgba(15, 23, 42, 0.2);
     color: var(--color-neutral-900);
   }
 
   .brand img {
     width: 72px;
     height: 72px;
-    border-radius: 18px;
+    border-radius: 20px;
     padding: 0.5rem;
-    background: var(--color-neutral-100);
-    border: 1px solid var(--color-neutral-200);
+    background: rgba(37, 99, 235, 0.12);
+    border: 2px solid rgba(37, 99, 235, 0.4);
   }
 
   .brand-title {
@@ -286,17 +254,25 @@ video {
     font-size: clamp(1.6rem, 5.4vw, 2.15rem);
     font-weight: 700;
     letter-spacing: -0.018em;
-    color: var(--color-neutral-900);
-    text-shadow: none;
+    color: #0f172a;
+    background: linear-gradient(132deg, #0f172a 0%, #1d4ed8 40%, #38bdf8 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 14px 28px rgba(15, 23, 42, 0.28);
   }
 
   .brand-name span {
-    color: var(--color-brand-500);
+    color: var(--color-accent-600);
+    background: linear-gradient(132deg, #fbbf24 0%, #f97316 45%, #fb7185 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
   }
 
   .brand .tagline {
     margin: 0;
-    color: var(--color-neutral-600);
+    color: rgba(15, 23, 42, 0.72);
     font-size: 0.95rem;
     line-height: 1.45;
   }
@@ -308,13 +284,10 @@ video {
 
   .header-coupon-button {
     width: 100%;
-    border-radius: 16px;
+    border-radius: 18px;
     min-height: 54px;
     font-size: 1rem;
-    background: var(--color-brand-500);
-    color: var(--color-white);
-    border: 1px solid var(--color-brand-700);
-    box-shadow: var(--elev-2);
+    box-shadow: 0 22px 40px rgba(15, 23, 42, 0.25);
   }
 
   .header-actions {
@@ -323,30 +296,14 @@ video {
   }
 
   .header-actions-primary {
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
     gap: var(--space-3);
   }
 
   .header-actions-primary > * {
-    min-height: 52px;
-    border-radius: 14px;
+    min-height: 56px;
+    border-radius: 16px;
     font-weight: 600;
-  }
-
-  .header-actions .ghost,
-  .header-actions .btn {
-    box-shadow: none;
-  }
-
-  .header-actions .btn-primary,
-  .header-actions .primary {
-    background: var(--color-brand-500);
-    border-color: var(--color-brand-700);
-  }
-
-  .header-actions .btn-danger,
-  .header-actions .danger {
-    border-color: var(--color-error-600);
   }
 
   .header-metrics {
@@ -355,15 +312,15 @@ video {
   }
 
   .header-metrics .metric-card {
-    border-radius: 18px;
+    border-radius: 20px;
     padding: var(--space-4);
-    background: var(--color-white);
-    box-shadow: var(--elev-1);
+    background: rgba(255, 255, 255, 0.96);
+    box-shadow: 0 24px 44px rgba(15, 23, 42, 0.22);
   }
 
   .header-metrics .metric-subtext,
   .header-metrics .metric-progress-text {
-    color: var(--color-neutral-600);
+    color: rgba(15, 23, 42, 0.7);
   }
 
   .header-tabs {
@@ -371,23 +328,18 @@ video {
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--space-3);
     padding: var(--space-3);
-    background: transparent;
-    border: none;
-    box-shadow: none;
   }
 
   .header-tab {
     width: 100%;
-    border-radius: 12px;
+    border-radius: 14px;
     padding: 0.75rem 1rem;
-    background: var(--color-white);
-    border: 1px solid var(--color-neutral-200);
-    box-shadow: none;
-    color: var(--color-neutral-900);
+    box-shadow: 0 18px 32px rgba(15, 23, 42, 0.18);
   }
 
   .header-tab.is-active {
-    border-color: var(--color-brand-500);
-    color: var(--color-brand-500);
+    background: #fff;
+    color: var(--color-neutral-900);
+    box-shadow: 0 22px 40px rgba(15, 23, 42, 0.22);
   }
 }

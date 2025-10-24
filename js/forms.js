@@ -19,7 +19,6 @@
         form.appendChild(hiddenField);
       }
       hiddenField.value = language;
-      hiddenField.defaultValue = language;
     });
   }
 

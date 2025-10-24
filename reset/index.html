@@ -17,18 +17,12 @@
 <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co">
 <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM">
 <link rel="stylesheet" href="/css/toast.css">
-<script type="module" src="/js/appShell.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script type="module" src="/js/toast.js"></script>
+<script type="module" src="/js/supabaseClient.js"></script>
+<script type="module" src="/js/auth.js"></script>
 </head>
 <body>
-<section class="auth-actions">
-  <p class="auth-progress" aria-live="polite">
-    <span data-xp>0</span> XP · <span data-level>1</span> lvl
-  </p>
-  <button class="btn" data-login type="button">Zaloguj</button>
-  <button class="btn" data-guest type="button">Graj jako gość</button>
-  <button class="btn" data-logout hidden type="button">Wyloguj</button>
-  <button class="ghost" type="button" data-award="visit_poi|ayia-napa-harbor">+XP za punkt</button>
-</section>
 <main>
   <h1>Reset your password</h1>
   <p>Enter your email to receive a reset link or set a new password if you already opened the reset link.</p>
@@ -65,11 +59,8 @@
 
     <button type="submit" data-reset-label="Ustaw nowe hasło">Wyślij link resetujący</button>
   </form>
-<div id="resetMessage" role="status" aria-live="polite"></div>
+  <div id="resetMessage" role="status" aria-live="polite"></div>
 </main>
-
-<script type="module" src="/assets/js/sb.js"></script>
-<script type="module" src="/assets/js/user.js"></script>
 
 </body>
 </html>
