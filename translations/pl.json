@@ -379,6 +379,7 @@
   "tasks.status.completed": "Ukończyłeś zadanie „{{title}}” (+{{xp}} XP)",
   "tasks.status.reverted": "Cofnięto oznaczenie zadania „{{title}}” (−{{xp}} XP).{{note}}",
   "tasks.status.levelReverted": " Powróciłeś na poziom {{level}}.",
+  "tasks.sync.error": "Nie udało się zsynchronizować zadania. Spróbujemy ponownie, gdy połączenie wróci.",
   "tasks.items.sunrise-challenge.title": "Poranny spacer po plaży",
   "tasks.items.sunrise-challenge.description": "Wstań przed wschodem słońca i wybierz się na krótką przechadzkę po jednej z cypryjskich plaż.",
   "tasks.items.taste-halloumi.title": "Skosztuj lokalnego halloumi",

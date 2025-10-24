@@ -722,6 +722,8 @@ const tasks = [
   { id: 'wedding-photoshoot-cyprus', xp: 250, requiredLevel: 9 },
 ];
 
+let xpModulePromise = null;
+
 const mediaTrips = [
   {
     id: 'photo-trip',
@@ -1215,6 +1217,55 @@ function getTaskTitle(task) {
 
 function getTaskDescription(task) {
   return translate(getTaskTranslationKey(task, 'description'), task?.description ?? '');
+}
+
+function getActiveTranslations() {
+  if (typeof window === 'undefined' || !window.appI18n) {
+    return null;
+  }
+
+  const { language = 'pl', translations = {} } = window.appI18n;
+  return translations?.[language] || null;
+}
+
+function areTranslationsReady() {
+  const activeTranslations = getActiveTranslations();
+  return !!(activeTranslations && Object.keys(activeTranslations).length > 0);
+}
+
+function refreshLocalizedUI() {
+  if (document.readyState === 'loading') {
+    document.addEventListener(
+      'DOMContentLoaded',
+      () => {
+        refreshLocalizedUI();
+      },
+      { once: true },
+    );
+    return;
+  }
+
+  renderAllForCurrentState();
+  updatePackingPlannerLanguage();
+  syncMarkers();
+  updateBackLinksHref();
+
+  if (playerMarker?.getTooltip?.()) {
+    playerMarker.getTooltip().setContent(translate('map.playerLocation', 'Twoje położenie'));
+  }
+}
+
+function loadXpModule() {
+  if (xpModulePromise) {
+    return xpModulePromise;
+  }
+
+  xpModulePromise = import('/js/xp.js').catch((error) => {
+    xpModulePromise = null;
+    throw error;
+  });
+
+  return xpModulePromise;
 }
 
 function getGuestStatusMessage() {
@@ -7824,18 +7875,11 @@ async function completeCheckIn(place, manual = false) {
   }
 }
 
-async function completeTask(task) {
+function completeTask(task) {
   if (state.tasksCompleted.has(task.id) || !isTaskUnlocked(task)) return;
 
   try {
     state.tasksCompleted.add(task.id);
-
-    try {
-      const { awardTask } = await import('/js/xp.js');
-      await awardTask(task.id);
-    } catch (error) {
-      console.error('[XP] awardTask failed', error);
-    }
 
     const leveledUp = awardXp(task.xp);
     updateAfterStateChange(leveledUp);
@@ -7861,6 +7905,28 @@ async function completeTask(task) {
         message: notificationMessage,
       });
     }
+
+    loadXpModule()
+      .then((module) => {
+        if (module?.awardTask) {
+          return module.awardTask(task.id);
+        }
+        return null;
+      })
+      .catch((error) => {
+        console.error('[XP] awardTask failed', error);
+        showToast(
+          translate(
+            'tasks.sync.error',
+            'Nie udało się zsynchronizować zadania. Spróbujemy ponownie, gdy połączenie wróci.',
+          ),
+          {
+            variant: 'error',
+            icon: '⚠️',
+            duration: 6000,
+          },
+        );
+      });
   } catch (error) {
     console.error('completeTask failed', error);
   }
@@ -9787,6 +9853,10 @@ function bootstrap() {
     window.appTutorial.init();
   }
 
+  if (areTranslationsReady()) {
+    refreshLocalizedUI();
+  }
+
 }
 
 window.addEventListener('beforeunload', () => {
@@ -9795,14 +9865,6 @@ window.addEventListener('beforeunload', () => {
   }
 });
 
-document.addEventListener('wakacjecypr:languagechange', updatePackingPlannerLanguage);
 document.addEventListener('DOMContentLoaded', bootstrap);
 
-document.addEventListener('wakacjecypr:languagechange', () => {
-  renderAllForCurrentState();
-  syncMarkers();
-  updateBackLinksHref();
-  if (playerMarker?.getTooltip?.()) {
-    playerMarker.getTooltip().setContent(translate('map.playerLocation', 'Twoje położenie'));
-  }
-});
+document.addEventListener('wakacjecypr:languagechange', refreshLocalizedUI);
