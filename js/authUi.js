@@ -321,7 +321,7 @@ function hideAuthSuccessOverlay({ restoreFocus = true } = {}) {
   if (restoreFocus && authSuccessPreviousFocus instanceof HTMLElement) {
     try {
       authSuccessPreviousFocus.focus({ preventScroll: true });
-    } catch (error) {
+    } catch {
       // ignore focus errors
     }
   }
@@ -349,7 +349,7 @@ function showAuthSuccessOverlay(state = window.CE_STATE || {}) {
     window.setTimeout(() => {
       try {
         focusTarget.focus({ preventScroll: true });
-      } catch (error) {
+      } catch {
         // ignore focus errors
       }
     }, 0);
@@ -441,7 +441,7 @@ function navigateToAuthRedirect(target) {
   const performNavigation = () => {
     try {
       window.location.assign(destination);
-    } catch (assignError) {
+    } catch {
       try {
         window.location.href = destination;
       } catch (hrefError) {
@@ -934,7 +934,7 @@ document.addEventListener('ce-auth:post-login', () => {
     if (primary instanceof HTMLElement && typeof primary.focus === 'function') {
       try {
         primary.focus({ preventScroll: false });
-      } catch (error) {
+      } catch {
         // ignore focus errors
       }
     }
