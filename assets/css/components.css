@@ -5274,8 +5274,23 @@ main::before {
   box-shadow: 0 16px 32px rgba(14, 165, 233, 0.18);
 }
 
-.task-info small {
+.task-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.task-title {
+  margin: 0;
+  font-weight: 600;
+  color: var(--muted-strong);
+}
+
+.task-description {
+  margin: 0;
   color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.4;
 }
 
 .task-meta {

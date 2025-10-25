@@ -4744,9 +4744,21 @@ function renderTasks() {
 
     const info = document.createElement('div');
     info.className = 'task-info';
-    const title = getTaskTitle(task);
-    const description = getTaskDescription(task);
-    info.innerHTML = `<strong>${title}</strong><br/><small>${description}</small>`;
+
+    const titleText = getTaskTitle(task);
+    const descriptionText = getTaskDescription(task);
+
+    const titleEl = document.createElement('p');
+    titleEl.className = 'task-title';
+    titleEl.textContent = titleText;
+    info.appendChild(titleEl);
+
+    if (descriptionText) {
+      const descriptionEl = document.createElement('p');
+      descriptionEl.className = 'task-description';
+      descriptionEl.textContent = descriptionText;
+      info.appendChild(descriptionEl);
+    }
 
     const meta = document.createElement('div');
     meta.className = 'task-meta';
