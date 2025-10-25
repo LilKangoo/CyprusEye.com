@@ -1,5 +1,7 @@
 import { waitForAuthReady, updateAuthUI } from '/js/authUi.js';
 
+const ceAuth = typeof window !== 'undefined' && window.CE_AUTH ? window.CE_AUTH : null;
+
 const GUEST_STORAGE_KEY = 'ce_guest';
 const DEFAULT_LOGIN_TARGET = '/auth/';
 const LOGIN_MODE_MODAL = 'modal';
@@ -77,6 +79,7 @@ function getRedirectTarget(element, fallback) {
 function activateGuestMode(redirectTarget) {
   const guestState = { active: true, since: Date.now() };
   persistGuestState(guestState);
+  ceAuth?.persistSession?.(null);
   const state = (window.CE_STATE = window.CE_STATE || {});
   state.session = null;
   state.profile = null;
