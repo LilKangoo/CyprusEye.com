@@ -1213,10 +1213,7 @@ function initResetPage() {
           }
 
           setResetMessage('Aktualizowanie hasła…', 'info');
-          const {
-            data: { session } = { session: null },
-            error,
-          } = await sb.auth.updateUser({ password: newPassword });
+          const { error } = await sb.auth.updateUser({ password: newPassword });
 
           if (error) {
             setResetMessage(friendlyErrorMessage(error.message || 'Nie udało się zaktualizować hasła.'), 'error');

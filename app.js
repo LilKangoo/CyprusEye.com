@@ -1521,10 +1521,6 @@ let attractionsUserCoords = null;
 let attractionsLocationMessage = '';
 const attractionsDistanceElements = new Map();
 
-function normalizeUsername(username) {
-  return username.trim().toLowerCase();
-}
-
 function getDefaultDailyStreak() {
   return {
     current: 0,
@@ -1702,15 +1698,6 @@ function toUtcDate(value) {
 
 function getTodayDateString() {
   return new Date().toISOString().slice(0, 10);
-}
-
-function getDateStringWithOffset(dateString, offsetDays) {
-  const date = toUtcDate(dateString);
-  if (!date) {
-    return null;
-  }
-  date.setUTCDate(date.getUTCDate() + offsetDays);
-  return date.toISOString().slice(0, 10);
 }
 
 function calculateDayDifference(fromDateString, toDateString) {
@@ -2580,7 +2567,7 @@ async function createCommunityJournalEntry(payload) {
       if (errorBody && typeof errorBody.error === 'string') {
         errorMessage = errorBody.error;
       }
-    } catch (parseError) {
+    } catch {
       // odpowiedź nie jest JSON-em – pozostajemy przy domyślnym komunikacie
     }
     throw new Error(errorMessage);
@@ -8650,7 +8637,7 @@ function setBusy(form, busy, msg = '') {
           delete ariaTarget.dataset.tone;
         }
       }
-    } catch (error) {
+    } catch {
       // ignore attribute errors
     }
   }
@@ -9203,7 +9190,6 @@ function initializeAuth() {
   const loginForgotPasswordBtn = document.getElementById('loginForgotPassword');
   const authOpenBtn = document.getElementById('openAuthModal');
   const logoutBtn = document.querySelector('[data-auth="logout"]');
-  const authModal = document.getElementById('auth-modal');
   const accountSettingsBtn = document.getElementById('accountSettingsBtn');
   const accountModal = document.getElementById('accountModal');
   const accountCloseBtn = document.getElementById('accountClose');
@@ -9532,7 +9518,6 @@ function bootstrap() {
   const jumpToObjectiveBtn = document.getElementById('jumpToObjective');
   const currentObjectiveSection = document.getElementById('current-objective');
   const currentObjectiveHeading = document.getElementById('currentObjectiveHeading');
-  const authModal = document.getElementById('auth-modal');
   const sosModal = document.getElementById('sosModal');
   const sosDialog = sosModal?.querySelector('.sos-dialog');
   const sosClose = document.getElementById('sosClose');
