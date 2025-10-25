@@ -9179,6 +9179,7 @@ async function handleLogout() {
       if (error) {
         throw error;
       }
+      window.CE_AUTH?.persistSession?.(null);
     } catch (error) {
       supabaseSignOutInProgress = false;
       setDocumentAuthState('authenticated');
@@ -9191,6 +9192,7 @@ async function handleLogout() {
   startGuestSession({
     message: translate('auth.guest.switch', 'Wylogowano – grasz teraz jako gość.'),
   });
+  window.CE_AUTH?.persistSession?.(null);
 }
 
 function initializeAuth() {

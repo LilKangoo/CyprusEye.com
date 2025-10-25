@@ -948,6 +948,7 @@ document.querySelectorAll('[data-auth=logout]').forEach((el) => {
   el.dataset.authLogoutReady = 'true';
   el.addEventListener('click', async () => {
     await sb.auth.signOut();
+    ceAuth?.persistSession?.(null);
     clearGuestState();
     window.CE_STATE = {};
     updateAuthUI();

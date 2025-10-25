@@ -3,6 +3,7 @@ import { showErr, showInfo, showOk } from './authMessages.js';
 import { loadProfileForUser } from './profile.js';
 
 const sb = window.getSupabase();
+const ceAuthGlobal = typeof window !== 'undefined' ? (window.CE_AUTH = window.CE_AUTH || {}) : null;
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const PASSWORD_RESET_REDIRECT = 'https://cypruseye.com/reset/';
@@ -148,6 +149,313 @@ function setState(next) {
   if (next?.status) {
     setDocumentAuthState(next.status);
   }
+}
+
+function emitAuthState(detail) {
+  try {
+    document.dispatchEvent(new CustomEvent('ce-auth:state', { detail }));
+  } catch (error) {
+    console.warn('Nie udało się wysłać zdarzenia stanu logowania.', error);
+  }
+}
+
+const AUTH_SESSION_STORAGE_KEY = 'ce_auth_session_v1';
+
+function getAuthStorage() {
+  try {
+    if (typeof window === 'undefined') {
+      return null;
+    }
+    return window.localStorage || null;
+  } catch (error) {
+    console.warn('Nie udało się uzyskać dostępu do localStorage dla sesji.', error);
+    return null;
+  }
+}
+
+function sanitizeSessionForStorage(session) {
+  if (!session || typeof session !== 'object') {
+    return null;
+  }
+
+  const accessToken = typeof session.access_token === 'string' ? session.access_token : '';
+  const refreshToken = typeof session.refresh_token === 'string' ? session.refresh_token : '';
+  const tokenType = typeof session.token_type === 'string' && session.token_type ? session.token_type : 'bearer';
+  const expiresAtValue = Number(session.expires_at);
+  const expiresAt = Number.isFinite(expiresAtValue) ? expiresAtValue : null;
+  const expiresInValue = Number(session.expires_in);
+  const expiresIn = Number.isFinite(expiresInValue) ? expiresInValue : null;
+  const user = session.user;
+
+  if (!accessToken || !user || typeof user !== 'object' || !user.id) {
+    return null;
+  }
+
+  const sanitizedUser = { id: user.id };
+  if (typeof user.email === 'string' && user.email.trim()) {
+    sanitizedUser.email = user.email.trim();
+  }
+
+  const metadata = user.user_metadata;
+  if (metadata && typeof metadata === 'object') {
+    const sanitizedMetadata = {};
+    const metadataKeys = [
+      'name',
+      'full_name',
+      'display_name',
+      'preferred_username',
+      'first_name',
+      'username',
+    ];
+    metadataKeys.forEach((key) => {
+      const value = metadata[key];
+      if (typeof value === 'string') {
+        const trimmed = value.trim();
+        if (trimmed) {
+          sanitizedMetadata[key] = trimmed;
+        }
+      }
+    });
+    if (Object.keys(sanitizedMetadata).length > 0) {
+      sanitizedUser.user_metadata = sanitizedMetadata;
+    }
+  }
+
+  return {
+    access_token: accessToken,
+    refresh_token: refreshToken || null,
+    token_type: tokenType,
+    expires_at: expiresAt,
+    expires_in: expiresIn,
+    user: sanitizedUser,
+  };
+}
+
+function sanitizeProfileForStorage(profile) {
+  if (!profile || typeof profile !== 'object') {
+    return null;
+  }
+
+  const candidates = [profile.name, profile.username, profile.full_name];
+  let resolvedName = '';
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string') {
+      const trimmed = candidate.trim();
+      if (trimmed) {
+        resolvedName = trimmed;
+        break;
+      }
+    }
+  }
+
+  const sanitized = {};
+  if (resolvedName) {
+    sanitized.name = resolvedName;
+  }
+  if (typeof profile.email === 'string' && profile.email.trim()) {
+    sanitized.email = profile.email.trim();
+  }
+
+  const xpValue = Number(profile.xp);
+  if (Number.isFinite(xpValue)) {
+    sanitized.xp = xpValue;
+  }
+
+  const levelValue = Number(profile.level);
+  if (Number.isFinite(levelValue)) {
+    sanitized.level = levelValue;
+  }
+
+  const updatedAtValue =
+    (typeof profile.updated_at === 'string' && profile.updated_at.trim()) ||
+    (typeof profile.updatedAt === 'string' && profile.updatedAt.trim()) ||
+    '';
+  if (updatedAtValue) {
+    sanitized.updatedAt = updatedAtValue;
+  }
+
+  return Object.keys(sanitized).length > 0 ? sanitized : null;
+}
+
+function resolveStoredDisplayName(sessionSnapshot, profileSnapshot) {
+  const candidates = [];
+  if (profileSnapshot && typeof profileSnapshot === 'object') {
+    candidates.push(profileSnapshot.name, profileSnapshot.username, profileSnapshot.full_name);
+  }
+
+  const metadata = sessionSnapshot?.user?.user_metadata;
+  if (metadata && typeof metadata === 'object') {
+    candidates.push(
+      metadata.name,
+      metadata.full_name,
+      metadata.display_name,
+      metadata.preferred_username,
+      metadata.first_name,
+      metadata.username,
+    );
+  }
+
+  if (typeof sessionSnapshot?.user?.email === 'string') {
+    candidates.push(sessionSnapshot.user.email);
+  }
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string') {
+      const trimmed = candidate.trim();
+      if (trimmed) {
+        return trimmed;
+      }
+    }
+  }
+
+  return '';
+}
+
+function persistAuthSession(session, profile) {
+  const storage = getAuthStorage();
+  if (!storage) {
+    return;
+  }
+
+  if (!session) {
+    try {
+      storage.removeItem(AUTH_SESSION_STORAGE_KEY);
+    } catch (error) {
+      console.warn('Nie udało się usunąć zapisanej sesji logowania.', error);
+    }
+    return;
+  }
+
+  const sanitizedSession = sanitizeSessionForStorage(session);
+  if (!sanitizedSession) {
+    try {
+      storage.removeItem(AUTH_SESSION_STORAGE_KEY);
+    } catch (error) {
+      console.warn('Nie udało się usunąć zapisanej sesji logowania.', error);
+    }
+    return;
+  }
+
+  const sanitizedProfile = sanitizeProfileForStorage(profile);
+  const displayName = resolveStoredDisplayName(sanitizedSession, sanitizedProfile);
+
+  const payload = {
+    version: 1,
+    savedAt: Date.now(),
+    session: sanitizedSession,
+    profile: sanitizedProfile,
+    displayName,
+  };
+
+  try {
+    storage.setItem(AUTH_SESSION_STORAGE_KEY, JSON.stringify(payload));
+  } catch (error) {
+    console.warn('Nie udało się zapisać sesji logowania.', error);
+  }
+}
+
+function readPersistedAuthSession() {
+  const storage = getAuthStorage();
+  if (!storage) {
+    return null;
+  }
+
+  let raw = null;
+  try {
+    raw = storage.getItem(AUTH_SESSION_STORAGE_KEY);
+  } catch (error) {
+    console.warn('Nie udało się odczytać zapisanej sesji logowania.', error);
+    return null;
+  }
+
+  if (!raw) {
+    return null;
+  }
+
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') {
+      return null;
+    }
+
+    const session = parsed.session;
+    if (!session || typeof session !== 'object') {
+      return null;
+    }
+
+    if (typeof session.access_token !== 'string' || !session.access_token || !session.user?.id) {
+      storage.removeItem(AUTH_SESSION_STORAGE_KEY);
+      return null;
+    }
+
+    const expiresAtValue = Number(session.expires_at);
+    if (Number.isFinite(expiresAtValue) && expiresAtValue > 0) {
+      if (expiresAtValue * 1000 <= Date.now()) {
+        storage.removeItem(AUTH_SESSION_STORAGE_KEY);
+        return null;
+      }
+      session.expires_at = expiresAtValue;
+    } else {
+      session.expires_at = null;
+    }
+
+    const expiresInValue = Number(session.expires_in);
+    session.expires_in = Number.isFinite(expiresInValue) ? expiresInValue : null;
+
+    const profileSnapshot = parsed.profile && typeof parsed.profile === 'object' ? parsed.profile : null;
+    const displayName = typeof parsed.displayName === 'string' ? parsed.displayName : '';
+
+    return {
+      version: Number(parsed.version) || 1,
+      savedAt: Number(parsed.savedAt) || Date.now(),
+      session,
+      profile: profileSnapshot,
+      displayName,
+    };
+  } catch (error) {
+    console.warn('Nie udało się sparsować zapisanej sesji logowania.', error);
+    return null;
+  }
+}
+
+function applyPersistedAuthSessionSnapshot(snapshot, { emitEvent = true } = {}) {
+  if (!snapshot || typeof snapshot !== 'object' || !snapshot.session) {
+    return false;
+  }
+
+  const session = snapshot.session;
+  const sanitizedSession = {
+    access_token: session.access_token,
+    refresh_token: session.refresh_token || null,
+    token_type: session.token_type || 'bearer',
+    expires_at: Number.isFinite(session.expires_at) ? session.expires_at : null,
+    expires_in: Number.isFinite(session.expires_in) ? session.expires_in : null,
+    user: session.user || null,
+  };
+
+  const profile = snapshot.profile && typeof snapshot.profile === 'object' ? { ...snapshot.profile } : null;
+  const displayName = typeof snapshot.displayName === 'string' ? snapshot.displayName.trim() : '';
+  const resolvedProfile = profile || (displayName ? { name: displayName } : null);
+
+  setState({
+    session: sanitizedSession,
+    profile: resolvedProfile,
+    guest: null,
+    status: 'authenticated',
+  });
+
+  if (emitEvent) {
+    emitAuthState(window.CE_STATE);
+  }
+
+  return true;
+}
+
+if (ceAuthGlobal) {
+  ceAuthGlobal.persistSession = persistAuthSession;
+  ceAuthGlobal.readPersistedSession = readPersistedAuthSession;
+  ceAuthGlobal.applyPersistedSession = (snapshot, options) =>
+    applyPersistedAuthSessionSnapshot(snapshot, options);
 }
 
 const AUTH_REDIRECT_TARGETS = new Set(['/', '/account/']);
@@ -463,7 +771,8 @@ export async function refreshSessionAndProfile() {
 
   const status = session?.user ? 'authenticated' : state.guest?.active ? 'guest' : 'guest';
   setState({ ...state, status });
-  document.dispatchEvent(new CustomEvent('ce-auth:state', { detail: window.CE_STATE }));
+  persistAuthSession(session, state.profile);
+  emitAuthState(window.CE_STATE);
   return window.CE_STATE;
 }
 
@@ -966,6 +1275,13 @@ if (document.readyState === 'loading') {
 }
 
 setState({ status: 'loading', guest: readGuestState(), session: null });
+
+const cachedAuthSession = readPersistedAuthSession();
+if (cachedAuthSession) {
+  applyPersistedAuthSessionSnapshot(cachedAuthSession, { emitEvent: false });
+  updateAuthUI();
+}
+
 refreshSessionAndProfile()
   .then(() => {
     updateAuthUI();
