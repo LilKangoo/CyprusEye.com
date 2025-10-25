@@ -76,7 +76,14 @@
           <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
         </button>
         <div id="auth-actions" class="auth-actions" aria-live="polite">
-          <button class="btn" data-auth="login" aria-label="Zaloguj do konta">Zaloguj</button>
+          <button
+            class="btn"
+            data-auth="login"
+            data-auth-login-mode="modal"
+            aria-label="Zaloguj do konta"
+          >
+            Zaloguj
+          </button>
           <button class="btn" data-auth="guest" aria-label="Tryb gry jako gość">Graj jako gość</button>
           <button class="btn" data-auth="logout" aria-label="Wyloguj z konta">Wyloguj</button>
           <span class="auth-badge" data-auth="anon-only">Nie zalogowano</span>
