@@ -398,6 +398,16 @@ export function createClient() {
         return { data: { session: state.currentSession }, error: null };
       },
       async getUser() {
+        if (Array.isArray(stubApi.getUserQueue) && stubApi.getUserQueue.length > 0) {
+          const next = stubApi.getUserQueue.shift();
+          if (typeof next === 'function') {
+            return await next();
+          }
+          if (next && typeof next === 'object' && ('data' in next || 'error' in next)) {
+            return next;
+          }
+          return { data: { user: next ?? null }, error: null };
+        }
         return { data: { user: getCurrentUser() }, error: null };
       },
       async signInWithPassword({ email, password }) {
@@ -469,12 +479,29 @@ export function createClient() {
       },
       onAuthStateChange(callback) {
         AUTH_EVENTS.add(callback);
-        callback('INITIAL_SESSION', state.currentSession);
+        let initialTimer = null;
+        const triggerInitial = () => {
+          initialTimer = null;
+          try {
+            callback('INITIAL_SESSION', state.currentSession);
+          } catch (error) {
+            console.error('supabase stub initial auth handler error', error);
+          }
+        };
+        if (typeof stubApi.initialSessionEventDelay === 'number' && stubApi.initialSessionEventDelay >= 0) {
+          initialTimer = setTimeout(triggerInitial, stubApi.initialSessionEventDelay);
+        } else {
+          triggerInitial();
+        }
         return {
           data: {
             subscription: {
               unsubscribe: () => {
                 AUTH_EVENTS.delete(callback);
+                if (initialTimer) {
+                  clearTimeout(initialTimer);
+                  initialTimer = null;
+                }
               },
             },
           },
@@ -572,4 +599,16 @@ stubApi.setSession = function setSession(user) {
 };
 stubApi.clearPersistence = clearPersistedStateStorage;
 
+if (!Array.isArray(stubApi.getUserQueue)) {
+  stubApi.getUserQueue = [];
+}
+
 globalThis.__supabaseStub = stubApi;
+
+if (typeof stubApi.onReady === 'function') {
+  try {
+    stubApi.onReady(stubApi);
+  } catch (error) {
+    console.error('supabase stub onReady error', error);
+  }
+}

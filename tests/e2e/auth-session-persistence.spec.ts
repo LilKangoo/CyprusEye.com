@@ -104,3 +104,71 @@ test('registration and login persist session across navigation until logout', as
   await expect(page.locator('[data-auth="anon-only"]').first()).toContainText('Nie zalogowano');
   await expect(page.locator('[data-auth="login"]').first()).toBeVisible();
 });
+
+test('restores session when getUser initially returns null but auth event provides session', async ({ page }) => {
+  const credentials = {
+    email: `queued-session-${Date.now()}@example.com`,
+    password: 'StabilneHaslo456!',
+  };
+
+  await page.addInitScript(({ email, password }) => {
+    const existing = (window as any).__supabaseStub || {};
+    existing.getUserQueue = [
+      { data: { user: null }, error: null },
+    ];
+    existing.initialSessionEventDelay = 100;
+    existing.onReady = (stub) => {
+      if (typeof stub.reset === 'function') {
+        stub.reset();
+      }
+      const seeded = stub.seedUser({
+        email,
+        password,
+        profile: { name: 'Queued Session User', xp: 150 },
+      });
+      stub.setSession({
+        id: seeded.id,
+        email: seeded.email,
+        user_metadata: { name: 'Queued Session User' },
+      });
+    };
+    (window as any).__supabaseStub = existing;
+  }, credentials);
+
+  await page.goto('/');
+  await waitForSupabaseStub(page);
+
+  const logoutButton = page.locator('[data-auth="logout"]').first();
+  await expect(logoutButton).toBeVisible();
+  await expect(page.locator('[data-auth="login"]').first()).toBeHidden();
+
+  await page.waitForFunction((storageKey) => {
+    const value = window.localStorage.getItem(storageKey);
+    return typeof value === 'string' && value.startsWith('supabase:');
+  }, 'wakacjecypr-session');
+
+  const currentSessionEmail = await page.evaluate(() => {
+    const stub = (window as any).__supabaseStub;
+    return stub?.state?.currentSession?.user?.email || null;
+  });
+  expect(currentSessionEmail).toBe(credentials.email);
+
+  const queueLength = await page.evaluate(() => {
+    const stub = (window as any).__supabaseStub;
+    return Array.isArray(stub?.getUserQueue) ? stub.getUserQueue.length : null;
+  });
+  expect(queueLength).toBe(0);
+
+  await page.evaluate(() => {
+    const stub = (window as any).__supabaseStub;
+    if (stub) {
+      stub.initialSessionEventDelay = undefined;
+      if (Array.isArray(stub.getUserQueue)) {
+        stub.getUserQueue.length = 0;
+      }
+      if (typeof stub.onReady === 'function') {
+        stub.onReady = undefined;
+      }
+    }
+  });
+});

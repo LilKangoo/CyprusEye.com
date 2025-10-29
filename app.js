@@ -1480,6 +1480,7 @@ let currentSupabaseUser = null;
 let supabaseClient = null;
 let supabaseSignOutInProgress = false;
 let supabaseAuthInitialized = false;
+let supabaseAuthSubscription = null;
 let supabaseReadyListenerAttached = false;
 const SUPABASE_PROGRESS_SYNC_DELAY = 400;
 let pendingSupabaseProgress = null;
@@ -9106,36 +9107,53 @@ function setupSupabaseAuth(client) {
 
   supabaseAuthInitialized = true;
 
+  if (supabaseAuthSubscription && typeof supabaseAuthSubscription.unsubscribe === 'function') {
+    supabaseAuthSubscription.unsubscribe();
+  }
+  supabaseAuthSubscription = null;
+
   const authApi = window.CE_AUTH || {};
-  let initialAuthResolved = false;
+  const persistedSession = authApi.readPersistedSession?.() || null;
 
-  if (typeof authApi.onAuthStateChange === 'function') {
-    authApi.onAuthStateChange((user) => {
-      if (!initialAuthResolved) {
-        return;
-      }
+  const handleAuthEvent = (event, session) => {
+    if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+      void applySupabaseUser(null, { reason: 'sign-out' });
+      return;
+    }
 
-      if (user) {
-        applySupabaseUser(user, { reason: 'sign-in' });
-      } else {
-        applySupabaseUser(null, { reason: 'sign-out' });
-      }
+    if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+      void applySupabaseUser(session?.user, { reason: event });
+    }
+  };
+
+  try {
+    const { data } = client.auth.onAuthStateChange((event, session) => {
+      handleAuthEvent(event, session);
     });
+    if (data?.subscription) {
+      supabaseAuthSubscription = data.subscription;
+    }
+  } catch (error) {
+    console.error('Nie udało się zarejestrować nasłuchiwania Supabase auth:', error);
   }
 
   client.auth
     .getUser()
     .then(({ data }) => {
       if (data?.user) {
-        applySupabaseUser(data.user, { reason: 'init' });
-      } else {
-        startGuestSession({ skipMessage: true });
+        void applySupabaseUser(data.user, { reason: 'init' });
+        return;
       }
-      initialAuthResolved = true;
+
+      if (persistedSession?.user && !currentSupabaseUser) {
+        void applySupabaseUser(persistedSession.user, { reason: 'persisted' });
+      }
     })
-    .catch(() => {
-      startGuestSession({ skipMessage: true });
-      initialAuthResolved = true;
+    .catch((error) => {
+      console.warn('Błąd podczas odczytu użytkownika Supabase:', error);
+      if (persistedSession?.user && !currentSupabaseUser) {
+        void applySupabaseUser(persistedSession.user, { reason: 'persisted' });
+      }
     });
 
   return true;
