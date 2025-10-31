@@ -2625,11 +2625,34 @@ function getSupabaseClient() {
   if (supabaseClient) {
     return supabaseClient;
   }
+  
+  // Próbuj pobrać z window.getSupabase() (nowy sposób)
+  if (typeof window !== 'undefined' && typeof window.getSupabase === 'function') {
+    try {
+      supabaseClient = window.getSupabase();
+      if (supabaseClient) {
+        return supabaseClient;
+      }
+    } catch (error) {
+      console.warn('Nie udało się pobrać klienta z window.getSupabase():', error);
+    }
+  }
+  
+  // Fallback: sprawdź window.CE_AUTH.supabase (stary sposób)
   const authApi = window.CE_AUTH || {};
   if (authApi.supabase) {
     supabaseClient = authApi.supabase;
+    return supabaseClient;
   }
-  return supabaseClient;
+  
+  // Fallback: sprawdź window.sb
+  if (window.sb) {
+    supabaseClient = window.sb;
+    return supabaseClient;
+  }
+  
+  console.warn('[getSupabaseClient] Brak klienta Supabase - sprawdź czy /js/supabaseClient.js jest załadowany');
+  return null;
 }
 
 function getSupabaseDisplayName(user) {
