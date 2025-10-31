@@ -51,3 +51,31 @@ export async function awardTask(taskId){
   const { error } = await sb.rpc('award_task', { p_task_id: taskId })
   if (error) console.error('award_task:', error.message)
 }
+
+export async function myXpEvents() {
+  try {
+    const { data: { user }, error: userError } = await sb.auth.getUser()
+    if (userError) throw userError
+    if (!user?.id) {
+      console.warn('Brak zalogowanego użytkownika dla myXpEvents')
+      return []
+    }
+
+    const { data, error } = await sb
+      .from('xp_events')
+      .select('*')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(10)
+
+    if (error) {
+      console.error('Błąd pobierania zdarzeń XP:', error)
+      return []
+    }
+
+    return data || []
+  } catch (error) {
+    console.error('Nieoczekiwany błąd w myXpEvents:', error)
+    return []
+  }
+}

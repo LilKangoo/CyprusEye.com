@@ -1,7 +1,12 @@
-const sb = window.getSupabase();
-
 const PROFILE_COLUMNS = 'id,email,name,username,xp,level,updated_at';
 const PROFILE_COLUMNS_FALLBACK = 'id,email,name,xp,level,updated_at';
+
+function getSupabaseClient() {
+  if (typeof window !== 'undefined' && typeof window.getSupabase === 'function') {
+    return window.getSupabase();
+  }
+  throw new Error('Klient Supabase nie jest dostępny.');
+}
 
 function pickFirstString(...values) {
   for (const value of values) {
@@ -80,9 +85,7 @@ function normalizeProfile(user, record) {
 }
 
 async function fetchProfileRow(columns, userId) {
-  if (!sb) {
-    throw new Error('Brak klienta Supabase.');
-  }
+  const sb = getSupabaseClient();
   const query = sb.from('profiles').select(columns).eq('id', userId);
   try {
     const result = typeof query.maybeSingle === 'function' ? await query.maybeSingle() : await query.single();
@@ -96,6 +99,7 @@ async function fetchProfileRow(columns, userId) {
 }
 
 async function requireCurrentUser() {
+  const sb = getSupabaseClient();
   const {
     data: { user },
     error,
@@ -109,6 +113,7 @@ async function requireCurrentUser() {
 
 async function updateProfile(values) {
   const user = await requireCurrentUser();
+  const sb = getSupabaseClient();
   const { data, error } = await sb
     .from('profiles')
     .update(values)
