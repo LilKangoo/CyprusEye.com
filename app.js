@@ -2762,14 +2762,14 @@ async function syncProgressFromSupabase({ force = false } = {}) {
   if (shouldUpdate) {
     console.log('[sync] Applying remote progress from Supabase');
     
-    // Apply remote progress to local account
+    // Apply remote progress to local account (to aktualizuje też state.level z Supabase)
     applySupabaseProfileProgress(remoteXp, remoteLevel, remoteUpdatedAt);
     
     // Reload progress from account into state
     const savedProgress = account.progress;
     if (savedProgress) {
       applyProgressToState(savedProgress);
-      recalculateLevel();
+      // NIE wywołuj recalculateLevel() - poziom został już ustawiony z Supabase w applySupabaseProfileProgress
       renderAllForCurrentState();
       
       const xpDiff = remoteXp - localXp;
@@ -2922,6 +2922,18 @@ function applySupabaseProfileProgress(xp, level, updatedAt, userId = null) {
   if (changed) {
     persistAccounts();
   }
+  
+  // Jeśli to obecny użytkownik, zaktualizuj state.level z Supabase
+  // (Supabase ma generated column która jest source of truth dla poziomu)
+  if (currentUserKey === key && Number.isFinite(sanitized.level)) {
+    console.log('[Supabase] Ustawiam poziom z bazy:', sanitized.level, '(zamiast lokalnego:', state.level, ')');
+    state.level = sanitized.level;
+    state.xp = sanitized.xp;
+    // Przelicz xpIntoLevel i xpForNextLevel bazując na poziomie z Supabase
+    const xpForCurrent = Array.from({ length: sanitized.level - 1 }, (_, i) => xpRequiredForLevel(i + 1)).reduce((sum, xp) => sum + xp, 0);
+    state.xpIntoLevel = sanitized.xp - xpForCurrent;
+    state.xpForNextLevel = xpRequiredForLevel(sanitized.level);
+  }
 }
 
 function performSupabaseProgressSync() {
@@ -2943,7 +2955,7 @@ function performSupabaseProgressSync() {
   const payload = {
     id: userId,
     xp: snapshot.xp,
-    level: snapshot.level,
+    // level jest kolumną generated - oblicza się automatycznie z xp
     updated_at: new Date().toISOString(),
   };
 
@@ -2951,7 +2963,7 @@ function performSupabaseProgressSync() {
     userId,
     email: userEmail,
     xp: payload.xp,
-    level: payload.level
+    expectedLevel: snapshot.level
   });
 
   const query = client
@@ -8281,7 +8293,14 @@ function ensureSelectedObjective() {
 }
 
 function renderAllForCurrentState() {
-  recalculateLevel();
+  // Jeśli użytkownik Supabase, poziom jest już ustawiony z bazy (generated column)
+  // Nie przeliczaj lokalnie bo Supabase jest source of truth
+  const isSupabaseUser = currentSupabaseUser && currentUserKey && currentUserKey.startsWith('supabase:');
+  
+  if (!isSupabaseUser) {
+    recalculateLevel();
+  }
+  
   renderProgress();
   renderAccountStats('render-all');
   renderDailyStreak();
