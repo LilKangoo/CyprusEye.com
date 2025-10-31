@@ -122,6 +122,8 @@ Status: W TRAKCIE
 | Różne poziomy (4 vs 3) | Supabase = source of truth | ✅ Naprawione |
 | Reset nie synchronizuje | Dodano UPDATE do Supabase | ✅ Naprawione |
 | `getSupabaseClient()` undefined | Dodano fallbacki (window.getSupabase, window.sb) | ✅ Naprawione |
+| Brak app.js na standalone | Dodano do 6 stron | ✅ Naprawione |
+| accountSettingsBtn nie działa | Smart redirect (modal lub /account/) | ✅ Naprawione |
 
 ### Testy przygotowane:
 
@@ -148,11 +150,13 @@ Status: W TRAKCIE
 - ✅ `VERIFICATION_REPORT.md` - raport weryfikacji
 - ✅ `TESTING_INSTRUCTIONS.md` - instrukcje testowania
 - ✅ `tests/e2e/supabase-integration.spec.ts` - testy Playwright
+- ✅ `STANDALONE_PAGES_FIX.md` - dokumentacja naprawy standalone pages
+- ✅ `ACCOUNT_MODAL_FIX.md` - dokumentacja naprawy accountSettingsBtn na mobile
 
 **Zmodyfikowane pliki:**
 - ✅ `/js/xp.js` - dodano `myXpEvents()`
 - ✅ `/js/profile.js` - naprawa lazy loading Supabase
-- ✅ `/app.js` - naprawa EventSource, reset w Supabase, sync poziomów
+- ✅ `/app.js` - naprawa EventSource, reset w Supabase, sync poziomów, **smart redirect accountSettingsBtn**
 - ✅ `/package.json` - naprawa zależności
 - ✅ **6 standalone pages** - dodano app.js (car-rental-landing, car-rental, cruise, kupon, autopfo, advertise)
 
@@ -179,6 +183,9 @@ Status: W TRAKCIE
   - kupon.html
   - autopfo.html
   - advertise.html
+- ✅ **accountSettingsBtn nie działa na mobile** - dodano smart redirect:
+  - Strony Z modalem → otwiera modal
+  - Strony BEZ modala → przekierowuje do /account/
 
 ---
 

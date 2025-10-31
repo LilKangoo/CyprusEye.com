@@ -15,6 +15,16 @@ Na stronie **car-rental-landing.html**:
 
 ---
 
+## 🔧 Co naprawiłem:
+
+### 1. ✅ Przycisk "Statystyki i ustawienia"
+**Przed:** Kliknięcie nie robiło nic (modal nie istniał)  
+**Po:** 
+- Na stronach Z modalem → otwiera modal konta
+- Na stronach BEZ modala → przekierowuje do `/account/`
+
+---
+
 ## 🔍 Analiza przyczyny:
 
 **Główna przyczyna:** Brak skryptu `app.js` w HTML

@@ -9500,7 +9500,14 @@ function initializeAuth() {
   }
 
   accountSettingsBtn?.addEventListener('click', () => {
-    openAccountModal('stats');
+    // Jeśli modal istnieje w HTML, otwórz go
+    const accountModal = document.getElementById('accountModal');
+    if (accountModal) {
+      openAccountModal('stats');
+    } else {
+      // Jeśli modal nie istnieje (standalone pages), przekieruj do /account/
+      window.location.href = '/account/';
+    }
   });
 
   accountCloseBtn?.addEventListener('click', () => {
