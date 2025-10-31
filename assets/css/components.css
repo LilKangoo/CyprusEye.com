@@ -2493,6 +2493,20 @@ main::before {
   gap: 0.75rem;
 }
 
+.media-trips-hero-actions .ghost {
+  background: rgba(255, 255, 255, 0.8);
+  border-color: rgba(30, 64, 175, 0.3);
+  color: rgba(30, 64, 175, 0.95);
+  font-weight: 600;
+}
+
+.media-trips-hero-actions .ghost:hover,
+.media-trips-hero-actions .ghost:focus-visible {
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(30, 64, 175, 0.5);
+  color: rgba(30, 64, 175, 1);
+}
+
 .media-trips-overview {
   display: grid;
   gap: clamp(1.2rem, 2.4vw, 2rem);
