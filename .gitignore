@@ -1,4 +1,29 @@
+# Dependencies
 node_modules/
+
+# Testing
 .lighthouseci/
 playwright-report/
 test-results/
+
+# macOS
+.DS_Store
+**/.DS_Store
+
+# Data files (should not be in Git)
+data/
+*.csv
+
+# Backup folders
+backup/
+
+# Build outputs
+dist/
+build/
+.expo/
+ios/
+android/
+
+# Environment
+.env
+.env.local
