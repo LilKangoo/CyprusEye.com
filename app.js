@@ -3958,6 +3958,8 @@ function renderAccountStats(reason = 'render') {
 }
 
 function renderProgress() {
+  console.log('[renderProgress] state.xp:', state.xp, 'state.level:', state.level);
+  
   const xpPointsEl = document.getElementById('xpPoints');
   const badgesCountEl = document.getElementById('badgesCount');
   const xpFillEl = document.getElementById('xpFill');
@@ -3976,7 +3978,10 @@ function renderProgress() {
     xpPointsEl.textContent = state.xp;
   }
   if (headerXpPointsEl) {
+    console.log('[renderProgress] Aktualizuję headerXpPointsEl na:', state.xp);
     headerXpPointsEl.textContent = state.xp;
+  } else {
+    console.warn('[renderProgress] headerXpPointsEl nie znaleziony!');
   }
   if (badgesCountEl) {
     badgesCountEl.textContent = state.badges.length;
@@ -3991,7 +3996,10 @@ function renderProgress() {
     levelNumberEl.textContent = state.level;
   }
   if (headerLevelNumberEl) {
+    console.log('[renderProgress] Aktualizuję headerLevelNumberEl na:', state.level);
     headerLevelNumberEl.textContent = state.level;
+  } else {
+    console.warn('[renderProgress] headerLevelNumberEl nie znaleziony!');
   }
   if (achievementsVisitedCountEl) {
     achievementsVisitedCountEl.textContent = state.visited.size;
