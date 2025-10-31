@@ -2614,6 +2614,11 @@ main::before {
   font-weight: 700;
 }
 
+.media-trips-intro {
+  color: rgba(71, 85, 105, 0.9);
+  font-size: 0.975rem;
+}
+
 .media-trips-video {
   display: grid;
   gap: clamp(1rem, 2vw, 1.6rem);
@@ -2648,6 +2653,22 @@ main::before {
   gap: 0.6rem;
 }
 
+.media-trips-itineraries h3,
+.media-trips-cta h3 {
+  color: rgba(15, 23, 42, 0.95);
+}
+
+.media-trips-itineraries p,
+.media-trips-cta p {
+  color: rgba(51, 65, 85, 0.9);
+}
+
+.media-trips-itineraries .section-eyebrow,
+.media-trips-cta .section-eyebrow {
+  color: rgba(37, 99, 235, 0.9);
+  font-weight: 700;
+}
+
 .media-trips-itineraries-grid {
   display: grid;
   gap: 0.85rem;
@@ -2663,6 +2684,16 @@ main::before {
   gap: 0.6rem;
 }
 
+.media-trips-itinerary h4 {
+  color: rgba(15, 23, 42, 0.95);
+  margin: 0;
+}
+
+.media-trips-itinerary p {
+  color: rgba(51, 65, 85, 0.9);
+  margin: 0;
+}
+
 .media-trips-itinerary ul {
   margin: 0;
   padding-left: 1.2rem;
@@ -2670,10 +2701,14 @@ main::before {
   gap: 0.35rem;
 }
 
+.media-trips-itinerary li {
+  color: rgba(51, 65, 85, 0.9);
+}
+
 .media-trips-itinerary-time {
   margin: 0;
   font-weight: 600;
-  color: var(--primary);
+  color: rgba(37, 99, 235, 0.9);
 }
 
 .media-trips-cta-inner {
@@ -2682,6 +2717,19 @@ main::before {
   padding: clamp(1.4rem, 2.6vw, 2.2rem);
   display: grid;
   gap: 0.8rem;
+}
+
+.media-trips-cta-inner h3 {
+  color: rgba(15, 23, 42, 0.95);
+}
+
+.media-trips-cta-inner p {
+  color: rgba(51, 65, 85, 0.9);
+}
+
+.media-trips-cta-inner .section-eyebrow {
+  color: rgba(37, 99, 235, 0.9);
+  font-weight: 700;
 }
 
 .media-trips-cta-actions {
