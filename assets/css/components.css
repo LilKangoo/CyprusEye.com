@@ -2405,7 +2405,7 @@ main::before {
   gap: 1rem;
 }
 
-.media-trips-panel {
+.vip-panel {
   background: linear-gradient(180deg, rgba(248, 250, 252, 0.85), rgba(255, 255, 255, 0.95));
   border-radius: 28px;
   padding: 1rem;
@@ -2416,7 +2416,7 @@ main::before {
   gap: 1rem;
 }
 
-.media-trips-intro {
+.vip-intro {
   margin: 0;
   color: rgba(15, 23, 42, 0.75);
   line-height: 1.6;
@@ -2424,18 +2424,18 @@ main::before {
   max-width: 65ch;
 }
 
-.media-trips-list {
+.vip-list {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
-.media-trips-content {
+.vip-content {
   display: grid;
   gap: clamp(1.5rem, 3vw, 2.8rem);
 }
 
-.media-trips-hero-card {
+.vip-hero-card {
   position: relative;
   overflow: hidden;
   color: rgba(15, 23, 42, 0.95);
@@ -2446,7 +2446,7 @@ main::before {
   min-height: 280px;
 }
 
-.media-trips-hero-card::before {
+.vip-hero-card::before {
   content: '';
   position: absolute;
   inset: 0;
@@ -2456,21 +2456,21 @@ main::before {
   pointer-events: none;
 }
 
-.media-trips-hero-card > * {
+.vip-hero-card > * {
   position: relative;
   z-index: 1;
 }
 
-.media-trips-hero-card h3 {
+.vip-hero-card h3 {
   color: rgba(15, 23, 42, 0.95);
   font-weight: 700;
 }
 
-.media-trips-hero-card p {
+.vip-hero-card p {
   color: rgba(51, 65, 85, 0.9);
 }
 
-.media-trips-hero-badge {
+.vip-hero-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -2487,43 +2487,43 @@ main::before {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 }
 
-.media-trips-hero-actions {
+.vip-hero-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
 }
 
-.media-trips-hero-actions .ghost {
+.vip-hero-actions .ghost {
   background: rgba(255, 255, 255, 0.8);
   border-color: rgba(30, 64, 175, 0.3);
   color: rgba(30, 64, 175, 0.95);
   font-weight: 600;
 }
 
-.media-trips-hero-actions .ghost:hover,
-.media-trips-hero-actions .ghost:focus-visible {
+.vip-hero-actions .ghost:hover,
+.vip-hero-actions .ghost:focus-visible {
   background: rgba(255, 255, 255, 0.95);
   border-color: rgba(30, 64, 175, 0.5);
   color: rgba(30, 64, 175, 1);
 }
 
-.media-trips-overview {
+.vip-overview {
   display: grid;
   gap: clamp(1.2rem, 2.4vw, 2rem);
 }
 
-.media-trips-overview header {
+.vip-overview header {
   display: grid;
   gap: 0.65rem;
 }
 
-.media-trips-feature-grid {
+.vip-feature-grid {
   display: grid;
   gap: clamp(0.75rem, 1.5vw, 1.25rem);
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
-.media-trips-feature {
+.vip-feature {
   background: rgba(255, 255, 255, 0.82);
   border-radius: 20px;
   padding: 1.25rem;
@@ -2532,7 +2532,7 @@ main::before {
   gap: 0.5rem;
 }
 
-.media-trips-feature-number {
+.vip-feature-number {
   display: inline-flex;
   width: 2.5rem;
   height: 2.5rem;
@@ -2544,7 +2544,7 @@ main::before {
   color: var(--primary);
 }
 
-.media-trips-note {
+.vip-note {
   background: linear-gradient(135deg, rgba(14, 165, 233, 0.12), rgba(99, 102, 241, 0.15));
   border-radius: 22px;
   padding: clamp(1.1rem, 2vw, 1.5rem);
@@ -2552,40 +2552,40 @@ main::before {
   gap: 0.4rem;
 }
 
-.media-trips-note h4 {
+.vip-note h4 {
   margin: 0;
 }
 
-.media-trips-gallery {
+.vip-gallery {
   display: grid;
   gap: clamp(1.2rem, 2.4vw, 2rem);
 }
 
-.media-trips-gallery header {
+.vip-gallery header {
   display: grid;
   gap: 0.6rem;
 }
 
-.media-trips-gallery-grid {
+.vip-gallery-grid {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
-.media-trips-gallery-item {
+.vip-gallery-item {
   position: relative;
   border-radius: 18px;
   overflow: hidden;
   box-shadow: 0 18px 40px rgba(15, 23, 42, 0.18);
 }
 
-.media-trips-gallery-item img {
+.vip-gallery-item img {
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.media-trips-gallery-item figcaption {
+.vip-gallery-item figcaption {
   position: absolute;
   inset-inline: 0;
   bottom: 0;
@@ -2596,57 +2596,57 @@ main::before {
   background: linear-gradient(180deg, transparent, rgba(15, 23, 42, 0.8));
 }
 
-.media-trips-packages {
+.vip-packages {
   display: grid;
   gap: clamp(1rem, 2vw, 1.6rem);
 }
 
-.media-trips-packages header {
+.vip-packages header {
   display: grid;
   gap: 0.6rem;
 }
 
-.media-trips-packages h3,
-.media-trips-overview h3,
-.media-trips-video h3 {
+.vip-packages h3,
+.vip-overview h3,
+.vip-video h3 {
   color: rgba(15, 23, 42, 0.95);
 }
 
-.media-trips-packages p,
-.media-trips-overview p,
-.media-trips-video p {
+.vip-packages p,
+.vip-overview p,
+.vip-video p {
   color: rgba(51, 65, 85, 0.9);
 }
 
-.media-trips-packages .section-eyebrow,
-.media-trips-overview .section-eyebrow,
-.media-trips-video .section-eyebrow {
+.vip-packages .section-eyebrow,
+.vip-overview .section-eyebrow,
+.vip-video .section-eyebrow {
   color: rgba(37, 99, 235, 0.9);
   font-weight: 700;
 }
 
-.media-trips-intro {
+.vip-intro {
   color: rgba(71, 85, 105, 0.9);
   font-size: 0.975rem;
 }
 
-.media-trips-video {
+.vip-video {
   display: grid;
   gap: clamp(1rem, 2vw, 1.6rem);
 }
 
-.media-trips-video header {
+.vip-video header {
   display: grid;
   gap: 0.6rem;
 }
 
-.media-trips-video-grid {
+.vip-video-grid {
   display: grid;
   gap: 0.75rem;
   grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
 }
 
-.media-trips-video-grid iframe {
+.vip-video-grid iframe {
   width: 100%;
   min-height: 220px;
   border: none;
@@ -2654,39 +2654,39 @@ main::before {
   box-shadow: 0 20px 45px rgba(15, 23, 42, 0.18);
 }
 
-.media-trips-itineraries {
+.vip-itineraries {
   display: grid;
   gap: clamp(1rem, 2vw, 1.6rem);
 }
 
-.media-trips-itineraries header {
+.vip-itineraries header {
   display: grid;
   gap: 0.6rem;
 }
 
-.media-trips-itineraries h3,
-.media-trips-cta h3 {
+.vip-itineraries h3,
+.vip-cta h3 {
   color: rgba(15, 23, 42, 0.95);
 }
 
-.media-trips-itineraries p,
-.media-trips-cta p {
+.vip-itineraries p,
+.vip-cta p {
   color: rgba(51, 65, 85, 0.9);
 }
 
-.media-trips-itineraries .section-eyebrow,
-.media-trips-cta .section-eyebrow {
+.vip-itineraries .section-eyebrow,
+.vip-cta .section-eyebrow {
   color: rgba(37, 99, 235, 0.9);
   font-weight: 700;
 }
 
-.media-trips-itineraries-grid {
+.vip-itineraries-grid {
   display: grid;
   gap: 0.85rem;
   grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
 }
 
-.media-trips-itinerary {
+.vip-itinerary {
   background: rgba(255, 255, 255, 0.86);
   border-radius: 20px;
   padding: 1.2rem;
@@ -2695,34 +2695,34 @@ main::before {
   gap: 0.6rem;
 }
 
-.media-trips-itinerary h4 {
+.vip-itinerary h4 {
   color: rgba(15, 23, 42, 0.95);
   margin: 0;
 }
 
-.media-trips-itinerary p {
+.vip-itinerary p {
   color: rgba(51, 65, 85, 0.9);
   margin: 0;
 }
 
-.media-trips-itinerary ul {
+.vip-itinerary ul {
   margin: 0;
   padding-left: 1.2rem;
   display: grid;
   gap: 0.35rem;
 }
 
-.media-trips-itinerary li {
+.vip-itinerary li {
   color: rgba(51, 65, 85, 0.9);
 }
 
-.media-trips-itinerary-time {
+.vip-itinerary-time {
   margin: 0;
   font-weight: 600;
   color: rgba(37, 99, 235, 0.9);
 }
 
-.media-trips-cta-inner {
+.vip-cta-inner {
   background: linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(124, 58, 237, 0.18));
   border-radius: 22px;
   padding: clamp(1.4rem, 2.6vw, 2.2rem);
@@ -2730,42 +2730,42 @@ main::before {
   gap: 0.8rem;
 }
 
-.media-trips-cta-inner h3 {
+.vip-cta-inner h3 {
   color: rgba(15, 23, 42, 0.95);
 }
 
-.media-trips-cta-inner p {
+.vip-cta-inner p {
   color: rgba(51, 65, 85, 0.9);
 }
 
-.media-trips-cta-inner .section-eyebrow {
+.vip-cta-inner .section-eyebrow {
   color: rgba(37, 99, 235, 0.9);
   font-weight: 700;
 }
 
-.media-trips-cta-actions {
+.vip-cta-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.75rem;
 }
 
-.media-trips-contact {
+.vip-contact {
   display: grid;
   gap: clamp(1.2rem, 2.4vw, 2rem);
 }
 
-.media-trips-contact header {
+.vip-contact header {
   display: grid;
   gap: 0.6rem;
 }
 
-.media-trips-contact-grid {
+.vip-contact-grid {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 
-.media-trips-contact-card {
+.vip-contact-card {
   border-radius: 20px;
   padding: 1.2rem;
   border: 1px solid rgba(148, 163, 184, 0.18);
@@ -2774,42 +2774,42 @@ main::before {
   gap: 0.5rem;
 }
 
-.media-trips-contact-card a {
+.vip-contact-card a {
   font-weight: 600;
   color: var(--primary);
 }
 
-.media-trips-contact-icon {
+.vip-contact-icon {
   font-size: 1.6rem;
 }
 
-.media-trips-contact-meta {
+.vip-contact-meta {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
-.media-trips-contact-meta h4 {
+.vip-contact-meta h4 {
   margin-top: 0;
 }
 
-.media-trips-extra {
+.vip-extra {
   display: grid;
   gap: clamp(1.2rem, 2.4vw, 2rem);
 }
 
-.media-trips-extra header {
+.vip-extra header {
   display: grid;
   gap: 0.6rem;
 }
 
-.media-trips-extra-grid {
+.vip-extra-grid {
   display: grid;
   gap: 1rem;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
 }
 
-.media-trips-extra-card {
+.vip-extra-card {
   border-radius: 20px;
   padding: 1.1rem;
   background: rgba(255, 255, 255, 0.86);
@@ -2818,23 +2818,23 @@ main::before {
   gap: 0.4rem;
 }
 
-.media-trips-extra-card a {
+.vip-extra-card a {
   color: var(--primary);
   font-weight: 600;
 }
 
 @media (max-width: 720px) {
-  .media-trips-hero-card {
+  .vip-hero-card {
     text-align: left;
   }
 
-  .media-trips-contact-meta {
+  .vip-contact-meta {
     grid-template-columns: minmax(0, 1fr);
   }
 }
 
 
-.media-trip-card {
+.vip-card {
   position: relative;
   z-index: 1;
   display: grid;
@@ -2848,28 +2848,28 @@ main::before {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.media-trip-card::before,
-.media-trip-card::after {
+.vip-card::before,
+.vip-card::after {
   content: none;
 }
 
 
-.media-trip-primary {
+.vip-primary {
   display: grid;
   gap: clamp(0.75rem, 1.5vw, 1.2rem);
 }
 
-.media-trip-card-header {
+.vip-card-header {
   display: grid;
   gap: 0.5rem;
 }
 
-.media-trip-card-header h3 {
+.vip-card-header h3 {
   margin: 0.1rem 0 0;
   font-size: clamp(1.4rem, 2.2vw, 1.8rem);
 }
 
-.media-trip-meta {
+.vip-meta {
   margin: 0;
   font-size: 0.95rem;
   letter-spacing: 0.02em;
@@ -2878,14 +2878,14 @@ main::before {
   font-weight: 600;
 }
 
-.media-trip-description {
+.vip-description {
   margin: 0.25rem 0 0;
   color: rgba(15, 23, 42, 0.76);
   line-height: 1.65;
   max-width: 60ch;
 }
 
-.media-trip-price {
+.vip-price {
   margin: 0;
   padding: 0.85rem 1rem;
   border-radius: 16px;
@@ -2896,19 +2896,19 @@ main::before {
   line-height: 1.55;
 }
 
-.media-trip-price strong {
+.vip-price strong {
   display: inline-block;
   margin-left: 0.2rem;
   font-size: clamp(1.2rem, 2.6vw, 1.5rem);
   color: var(--secondary);
 }
 
-.media-trip-section {
+.vip-section {
   display: grid;
   gap: 0.6rem;
 }
 
-.media-trip-section-title {
+.vip-section-title {
   margin: 0;
   font-size: 1.05rem;
   font-weight: 700;
@@ -2916,7 +2916,7 @@ main::before {
   color: rgba(15, 23, 42, 0.72);
 }
 
-.media-trip-highlights {
+.vip-highlights {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -2924,14 +2924,14 @@ main::before {
   gap: 0.55rem;
 }
 
-.media-trip-highlights li {
+.vip-highlights li {
   position: relative;
   padding-left: 1.75rem;
   line-height: 1.6;
   color: rgba(15, 23, 42, 0.72);
 }
 
-.media-trip-highlights li::before {
+.vip-highlights li::before {
   content: '✔';
   position: absolute;
   left: 0;
@@ -2941,14 +2941,14 @@ main::before {
   font-weight: 700;
 }
 
-.media-trip-helper {
+.vip-helper {
   margin: 0;
   color: rgba(15, 23, 42, 0.6);
   font-size: 0.9rem;
   line-height: 1.45;
 }
 
-.media-trip-link {
+.vip-link {
   display: inline-flex;
   align-items: center;
   gap: 0.35rem;
@@ -2963,38 +2963,38 @@ main::before {
   transition: transform var(--transition), box-shadow var(--transition), background var(--transition);
 }
 
-.media-trip-link:hover,
-.media-trip-link:focus-visible {
+.vip-link:hover,
+.vip-link:focus-visible {
   background: rgba(37, 99, 235, 0.18);
   box-shadow: 0 12px 22px rgba(37, 99, 235, 0.2);
   transform: translateY(-1px);
 }
 
-.media-trip-form {
+.vip-form {
   display: grid;
   gap: clamp(0.85rem, 1.8vw, 1.25rem);
   border-top: 1px solid rgba(148, 163, 184, 0.32);
   padding-top: clamp(1.1rem, 2vw, 1.5rem);
 }
 
-.media-trip-field {
+.vip-field {
   display: flex;
   flex-direction: column;
   gap: 0.4rem;
 }
 
-.media-trip-field strong {
+.vip-field strong {
   font-size: 1.05rem;
   color: rgba(15, 23, 42, 0.82);
 }
 
-.media-trip-field label {
+.vip-field label {
   font-weight: 600;
   color: rgba(15, 23, 42, 0.8);
 }
 
-.media-trip-field input,
-.media-trip-field select {
+.vip-field input,
+.vip-field select {
   border-radius: 12px;
   border: 1px solid rgba(148, 163, 184, 0.45);
   padding: 0.6rem 0.75rem;
@@ -3003,15 +3003,15 @@ main::before {
   transition: border var(--transition), box-shadow var(--transition);
 }
 
-.media-trip-field input:focus-visible,
-.media-trip-field select:focus-visible {
+.vip-field input:focus-visible,
+.vip-field select:focus-visible {
   outline: 3px solid var(--focus-ring-color);
   outline-offset: 2px;
   border-color: rgba(37, 99, 235, 0.6);
   box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.16);
 }
 
-.media-trip-result {
+.vip-result {
   margin: 0;
   display: grid;
   gap: 0.75rem;
@@ -3022,34 +3022,34 @@ main::before {
   border: 1px solid rgba(37, 99, 235, 0.16);
 }
 
-.media-trip-result-row {
+.vip-result-row {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
   gap: 1rem;
 }
 
-.media-trip-result-row dt {
+.vip-result-row dt {
   font-weight: 600;
 }
 
-.media-trip-result-row dd {
+.vip-result-row dd {
   margin: 0;
 }
 
-.media-trip-output {
+.vip-output {
   font-size: clamp(1.05rem, 2vw, 1.25rem);
   font-weight: 700;
   color: var(--secondary);
 }
 
 @media (min-width: 960px) {
-  .media-trip-card {
+  .vip-card {
     grid-template-columns: minmax(0, 1fr) minmax(0, 0.9fr);
     align-items: start;
   }
 
-  .media-trip-form {
+  .vip-form {
     border-top: none;
     border-left: 1px solid rgba(148, 163, 184, 0.32);
     padding-top: 0;
@@ -3059,13 +3059,13 @@ main::before {
 }
 
 @media (min-width: 1280px) {
-  .media-trip-card {
+  .vip-card {
     padding: clamp(1.1rem, 1.8vw, 1.5rem);
   }
 }
 
 @media (max-width: 640px) {
-  .media-trip-result-row {
+  .vip-result-row {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.3rem;
@@ -7013,7 +7013,7 @@ body.u-lock-scroll {
   box-shadow: var(--shadow-strong);
 }
 
-.media-trips-visual {
+.vip-visual {
   background: linear-gradient(160deg, rgba(15, 23, 42, 0.38), rgba(14, 165, 233, 0.22)),
     url('https://images.unsplash.com/photo-1530789253388-582c481c54b0?auto=format&fit=crop&w=1600&q=80') center/cover;
 }

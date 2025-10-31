@@ -353,7 +353,7 @@
     if (path.includes('tasks')) {
       return 'mobileTasksTab';
     }
-    if (path.includes('media-trips') || path.includes('vip')) {
+    if (path.includes('vip')) {
       return 'mobileMediaTripsTab';
     }
     if (path.includes('car-rental') || path.includes('autopfo')) {

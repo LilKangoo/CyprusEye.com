@@ -4998,7 +4998,7 @@ function formatCurrencyEUR(value) {
 
 function createMediaTripCard(trip) {
   const card = document.createElement('article');
-  card.className = 'media-trip-card surface-card package-card';
+  card.className = 'vip-card surface-card package-card';
   card.setAttribute('role', 'listitem');
 
   const titleText = translate(`mediaTrips.items.${trip.id}.title`, trip?.title ?? '');
@@ -5058,7 +5058,7 @@ function createMediaTripCard(trip) {
     trip.detailsLink?.label ?? '',
   );
   const detailsLink = trip.detailsLink?.href && detailsLabel
-    ? `<a class="media-trip-link" href="${trip.detailsLink.href}" target="_blank" rel="noopener">${detailsLabel}<span aria-hidden="true">→</span></a>`
+    ? `<a class="vip-link" href="${trip.detailsLink.href}" target="_blank" rel="noopener">${detailsLabel}<span aria-hidden="true">→</span></a>`
     : '';
 
   const basePriceLabel = formatCurrencyEUR(trip.basePrice);
@@ -5074,12 +5074,12 @@ function createMediaTripCard(trip) {
 
   const highlightsSection = highlightsList
     ? `
-          <section class="media-trip-section" aria-labelledby="${highlightsTitleId}">
-            <h4 class="media-trip-section-title" id="${highlightsTitleId}">${translate(
+          <section class="vip-section" aria-labelledby="${highlightsTitleId}">
+            <h4 class="vip-section-title" id="${highlightsTitleId}">${translate(
               'mediaTrips.card.highlightsTitle',
               'W pakiecie',
             )}</h4>
-            <ul class="media-trip-highlights">
+            <ul class="vip-highlights">
               ${highlightsList}
             </ul>
           </section>
@@ -5087,24 +5087,24 @@ function createMediaTripCard(trip) {
     : '';
 
   card.innerHTML = `
-    <div class="media-trip-primary" aria-labelledby="${titleId}">
-      <header class="media-trip-card-header">
-        <p class="media-trip-meta">${metaText}</p>
+    <div class="vip-primary" aria-labelledby="${titleId}">
+      <header class="vip-card-header">
+        <p class="vip-meta">${metaText}</p>
         <h3 id="${titleId}">${titleText}</h3>
-        <p class="media-trip-description">${descriptionText}</p>
+        <p class="vip-description">${descriptionText}</p>
       </header>
-      <p class="media-trip-price">${priceText}</p>
+      <p class="vip-price">${priceText}</p>
       ${highlightsSection}
       ${detailsLink}
     </div>
-    <form class="media-trip-form" aria-labelledby="${calculatorHeadingId}">
-      <h4 class="media-trip-section-title" id="${calculatorHeadingId}">${translate(
+    <form class="vip-form" aria-labelledby="${calculatorHeadingId}">
+      <h4 class="vip-section-title" id="${calculatorHeadingId}">${translate(
         'mediaTrips.card.calculatorTitle',
         'Kalkulator pakietu',
       )}</h4>
       ${variantOptions
         ? `
-            <div class="media-trip-field">
+            <div class="vip-field">
               <label for="${trip.id}-variant">${translate(
                 'mediaTrips.card.variantLabel',
                 'Wariant pakietu',
@@ -5112,14 +5112,14 @@ function createMediaTripCard(trip) {
               <select id="${trip.id}-variant" name="variant" aria-describedby="${variantHelperId}">
                 ${variantOptions}
               </select>
-              <p class="media-trip-helper" id="${variantHelperId}">${translate(
+              <p class="vip-helper" id="${variantHelperId}">${translate(
                 'mediaTrips.card.variantHelper',
                 'Kalkulator automatycznie przelicza cenę i dopłatę za dodatkowe osoby.',
               )}</p>
             </div>
           `
         : ''}
-      <div class="media-trip-field">
+      <div class="vip-field">
         <label for="${trip.id}-participants">${translate(
           'mediaTrips.card.participantsLabel',
           'Liczba uczestników',
@@ -5134,24 +5134,24 @@ function createMediaTripCard(trip) {
           value="${trip.defaultParticipants}"
         />
       </div>
-      <dl class="media-trip-result" role="status" aria-live="polite">
-        <div class="media-trip-result-row">
+      <dl class="vip-result" role="status" aria-live="polite">
+        <div class="vip-result-row">
           <dt>${translate('mediaTrips.card.totalLabel', 'Łączny koszt pakietu')}</dt>
           <dd>
-            <output class="media-trip-output" name="total" for="${outputForAttribute}"></output>
+            <output class="vip-output" name="total" for="${outputForAttribute}"></output>
           </dd>
         </div>
-        <div class="media-trip-result-row">
+        <div class="vip-result-row">
           <dt>${translate('mediaTrips.card.perPersonLabel', 'Koszt na osobę')}</dt>
           <dd>
-            <output class="media-trip-output" name="perPerson" for="${outputForAttribute}"></output>
+            <output class="vip-output" name="perPerson" for="${outputForAttribute}"></output>
           </dd>
         </div>
       </dl>
     </form>
   `;
 
-  const form = card.querySelector('.media-trip-form');
+  const form = card.querySelector('.vip-form');
   const variantSelect = form?.querySelector('select[name="variant"]');
   const participantsInput = form?.querySelector('input[name="participants"]');
   const totalOutput = form?.querySelector('output[name="total"]');

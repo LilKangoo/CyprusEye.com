@@ -132,9 +132,9 @@
 }
 
 /* VIP and media trips */
-[dir="rtl"] .media-trips-hero-card,
-[dir="rtl"] .media-trips-overview,
-[dir="rtl"] .media-trips-packages {
+[dir="rtl"] .vip-hero-card,
+[dir="rtl"] .vip-overview,
+[dir="rtl"] .vip-packages {
   direction: rtl;
   text-align: right;
 }

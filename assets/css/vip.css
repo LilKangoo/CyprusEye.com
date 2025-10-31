@@ -10,7 +10,7 @@
 
 /* Karta pakietu - główny kontener */
 .package-card,
-.media-trip-card {
+.vip-card {
   display: flex;
   flex-direction: column;
   background: #fff;
@@ -22,24 +22,24 @@
 }
 
 .package-card:hover,
-.media-trip-card:hover {
+.vip-card:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
   border-color: rgba(59, 130, 246, 0.4);
 }
 
 /* Górna część karty z informacjami */
-.media-trip-primary {
+.vip-primary {
   padding: clamp(1.75rem, 3vw, 2.25rem);
   border-bottom: 1px solid rgba(226, 232, 240, 0.8);
 }
 
 /* Header karty */
-.media-trip-card-header {
+.vip-card-header {
   margin-bottom: 1.5rem;
 }
 
-.media-trip-meta {
+.vip-meta {
   display: inline-block;
   margin: 0 0 0.75rem 0;
   padding: 0.4rem 0.85rem;
@@ -52,7 +52,7 @@
   letter-spacing: 0.03em;
 }
 
-.media-trip-card-header h3 {
+.vip-card-header h3 {
   margin: 0 0 0.75rem 0;
   font-size: clamp(1.35rem, 2.5vw, 1.6rem);
   font-weight: 700;
@@ -60,7 +60,7 @@
   line-height: 1.3;
 }
 
-.media-trip-description {
+.vip-description {
   margin: 0;
   font-size: 0.975rem;
   line-height: 1.6;
@@ -68,7 +68,7 @@
 }
 
 /* Cena */
-.media-trip-price {
+.vip-price {
   margin: 0 0 1.5rem 0;
   padding: 1rem 1.25rem;
   background: linear-gradient(135deg, rgba(241, 245, 249, 0.8), rgba(248, 250, 252, 0.9));
@@ -78,25 +78,25 @@
   border-left: 4px solid #3b82f6;
 }
 
-.media-trip-price strong {
+.vip-price strong {
   font-size: 1.35rem;
   font-weight: 700;
   color: #3b82f6;
 }
 
 /* Sekcja highlights */
-.media-trip-section {
+.vip-section {
   margin-bottom: 1.25rem;
 }
 
-.media-trip-section-title {
+.vip-section-title {
   margin: 0 0 1rem 0;
   font-size: 1.05rem;
   font-weight: 700;
   color: rgba(15, 23, 42, 0.9);
 }
 
-.media-trip-highlights {
+.vip-highlights {
   margin: 0;
   padding: 0;
   list-style: none;
@@ -104,7 +104,7 @@
   gap: 0.75rem;
 }
 
-.media-trip-highlights li {
+.vip-highlights li {
   position: relative;
   padding-left: 2rem;
   font-size: 0.925rem;
@@ -112,7 +112,7 @@
   color: rgba(51, 65, 85, 0.9);
 }
 
-.media-trip-highlights li::before {
+.vip-highlights li::before {
   content: '✓';
   position: absolute;
   left: 0;
@@ -131,7 +131,7 @@
 }
 
 /* Link */
-.media-trip-link {
+.vip-link {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
@@ -143,7 +143,7 @@
   transition: gap 0.2s ease;
 }
 
-.media-trip-link:hover {
+.vip-link:hover {
   gap: 0.75rem;
   text-decoration: underline;
 }
@@ -152,29 +152,29 @@
 
 /* Mobile First - do 600px */
 @media (max-width: 600px) {
-  .media-trips-content {
+  .vip-content {
     padding: 0 var(--space-4, 1rem);
   }
 
-  .media-trips-hero-card h3 {
+  .vip-hero-card h3 {
     font-size: clamp(1.5rem, 5vw, 2rem);
     line-height: 1.3;
     margin: 0.8rem 0;
   }
 
-  .media-trips-hero-card p {
+  .vip-hero-card p {
     font-size: 1rem;
     line-height: 1.6;
   }
 
-  .media-trips-hero-actions {
+  .vip-hero-actions {
     flex-direction: column;
     gap: 0.75rem;
     width: 100%;
   }
 
-  .media-trips-hero-actions .btn,
-  .media-trips-hero-actions .ghost {
+  .vip-hero-actions .btn,
+  .vip-hero-actions .ghost {
     width: 100%;
     text-align: center;
     padding: 0.875rem 1.25rem;
@@ -183,32 +183,32 @@
   }
 
   /* Feature Grid - na mobile 1 kolumna */
-  .media-trips-feature-grid {
+  .vip-feature-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
   }
 
-  .media-trips-feature {
+  .vip-feature {
     padding: 1.25rem;
   }
 
-  .media-trips-feature h4 {
+  .vip-feature h4 {
     font-size: 1.15rem;
     margin: 0.5rem 0;
   }
 
-  .media-trips-feature p {
+  .vip-feature p {
     font-size: 0.95rem;
     line-height: 1.6;
   }
 
   /* Video Grid - aspect ratio fix */
-  .media-trips-video-grid {
+  .vip-video-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
   }
 
-  .media-trips-video-grid iframe {
+  .vip-video-grid iframe {
     width: 100%;
     aspect-ratio: 16 / 9;
     min-height: 200px;
@@ -216,63 +216,63 @@
   }
 
   /* Itineraries - na mobile 1 kolumna */
-  .media-trips-itineraries-grid {
+  .vip-itineraries-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
   }
 
-  .media-trips-itinerary {
+  .vip-itinerary {
     padding: 1.25rem;
   }
 
-  .media-trips-itinerary h4 {
+  .vip-itinerary h4 {
     font-size: 1.15rem;
     margin-bottom: 0.5rem;
   }
 
-  .media-trips-itinerary p,
-  .media-trips-itinerary li {
+  .vip-itinerary p,
+  .vip-itinerary li {
     font-size: 0.95rem;
     line-height: 1.6;
   }
 
-  .media-trips-itinerary ul {
+  .vip-itinerary ul {
     padding-left: 1.5rem;
   }
 
   /* Overview Section */
-  .media-trips-overview h3 {
+  .vip-overview h3 {
     font-size: clamp(1.4rem, 4.5vw, 1.8rem);
     line-height: 1.3;
   }
 
-  .media-trips-overview p {
+  .vip-overview p {
     font-size: 1rem;
     line-height: 1.6;
   }
 
   /* Packages Section */
-  .media-trips-packages h3 {
+  .vip-packages h3 {
     font-size: clamp(1.4rem, 4.5vw, 1.8rem);
   }
 
-  .media-trips-intro {
+  .vip-intro {
     font-size: 1rem;
     line-height: 1.6;
   }
 
   /* CTA Section */
-  .media-trips-cta-inner h3 {
+  .vip-cta-inner h3 {
     font-size: clamp(1.4rem, 4.5vw, 1.8rem);
     line-height: 1.3;
   }
 
-  .media-trips-cta-actions {
+  .vip-cta-actions {
     flex-direction: column;
     width: 100%;
   }
 
-  .media-trips-cta-actions .btn {
+  .vip-cta-actions .btn {
     width: 100%;
     min-height: 48px;
   }
@@ -286,16 +286,16 @@
   }
 
   /* Note Cards */
-  .media-trips-note {
+  .vip-note {
     padding: 1.25rem;
   }
 
-  .media-trips-note h4 {
+  .vip-note h4 {
     font-size: 1.1rem;
     margin-bottom: 0.5rem;
   }
 
-  .media-trips-note p {
+  .vip-note p {
     font-size: 0.95rem;
     line-height: 1.6;
   }
@@ -303,29 +303,29 @@
 
 /* Tablet - 601px do 900px */
 @media (min-width: 601px) and (max-width: 900px) {
-  .media-trips-feature-grid {
+  .vip-feature-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .media-trips-video-grid {
+  .vip-video-grid {
     grid-template-columns: 1fr;
   }
 
-  .media-trips-video-grid iframe {
+  .vip-video-grid iframe {
     aspect-ratio: 16 / 9;
     min-height: 300px;
   }
 
-  .media-trips-itineraries-grid {
+  .vip-itineraries-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .media-trips-hero-actions {
+  .vip-hero-actions {
     flex-wrap: wrap;
   }
 
-  .media-trips-hero-actions .btn,
-  .media-trips-hero-actions .ghost {
+  .vip-hero-actions .btn,
+  .vip-hero-actions .ghost {
     flex: 1 1 auto;
     min-width: 200px;
   }
@@ -345,51 +345,51 @@
 
 /* Large Desktop - 901px i więcej */
 @media (min-width: 901px) {
-  .media-trips-content {
+  .vip-content {
     max-width: 1400px;
     margin: 0 auto;
     padding: 0 var(--space-6, 1.5rem);
   }
 
-  .media-trips-feature-grid {
+  .vip-feature-grid {
     grid-template-columns: repeat(4, 1fr);
   }
 
-  .media-trips-video-grid {
+  .vip-video-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .media-trips-video-grid iframe {
+  .vip-video-grid iframe {
     aspect-ratio: 16 / 9;
     min-height: 360px;
   }
 
-  .media-trips-itineraries-grid {
+  .vip-itineraries-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 
-  .media-trips-hero-card {
+  .vip-hero-card {
     padding: clamp(2rem, 3vw, 3rem);
   }
 
-  .media-trips-hero-card h3 {
+  .vip-hero-card h3 {
     font-size: clamp(2rem, 3.5vw, 2.8rem);
   }
 
-  .media-trips-overview h3,
-  .media-trips-packages h3,
-  .media-trips-video h3 {
+  .vip-overview h3,
+  .vip-packages h3,
+  .vip-video h3 {
     font-size: clamp(1.8rem, 2.5vw, 2.4rem);
   }
 }
 
 /* Extra Large Desktop - 1200px i więcej */
 @media (min-width: 1200px) {
-  .media-trips-itineraries-grid {
+  .vip-itineraries-grid {
     grid-template-columns: repeat(4, 1fr);
   }
 
-  .media-trips-video-grid iframe {
+  .vip-video-grid iframe {
     min-height: 400px;
   }
 }
@@ -397,7 +397,7 @@
 /* Dodatkowe usprawnienia użyteczności */
 
 /* Lepszy spacing między sekcjami */
-.media-trips-content > * + * {
+.vip-content > * + * {
   margin-top: clamp(2rem, 4vw, 3.5rem);
 }
 
@@ -408,9 +408,9 @@
 }
 
 /* Fokus dla accessibility */
-.media-trips-hero-actions a:focus-visible,
-.media-trips-hero-actions button:focus-visible,
-.media-trips-cta-actions a:focus-visible {
+.vip-hero-actions a:focus-visible,
+.vip-hero-actions button:focus-visible,
+.vip-cta-actions a:focus-visible {
   outline: 3px solid var(--primary, #2563eb);
   outline-offset: 3px;
 }
@@ -421,39 +421,39 @@ html {
 }
 
 /* Hover effects dla lepszej interaktywności */
-.media-trips-feature {
+.vip-feature {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.media-trips-feature:hover {
+.vip-feature:hover {
   transform: translateY(-4px);
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
 }
 
-.media-trips-itinerary {
+.vip-itinerary {
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.media-trips-itinerary:hover {
+.vip-itinerary:hover {
   transform: translateY(-2px);
   box-shadow: 0 12px 24px rgba(15, 23, 42, 0.15);
 }
 
 /* Lepsze wyróżnienie linków */
-.media-trips-itinerary a,
-.media-trips-note a {
+.vip-itinerary a,
+.vip-note a {
   text-decoration: underline;
   text-underline-offset: 2px;
   transition: opacity 0.2s ease;
 }
 
-.media-trips-itinerary a:hover,
-.media-trips-note a:hover {
+.vip-itinerary a:hover,
+.vip-note a:hover {
   opacity: 0.8;
 }
 
 /* Responsive video container improvements */
-.media-trips-video-grid > div {
+.vip-video-grid > div {
   position: relative;
   padding-bottom: 56.25%; /* 16:9 aspect ratio */
   height: 0;
@@ -463,7 +463,7 @@ html {
   transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
-.media-trips-video-grid > div iframe {
+.vip-video-grid > div iframe {
   position: absolute;
   top: 0;
   left: 0;
@@ -473,57 +473,57 @@ html {
   border-radius: 18px;
 }
 
-.media-trips-video-grid > div:hover {
+.vip-video-grid > div:hover {
   transform: translateY(-4px);
   box-shadow: 0 24px 52px rgba(15, 23, 42, 0.24);
 }
 
 /* Lepszy kontrast dla section headers */
-.media-trips-overview header h3,
-.media-trips-packages header h3,
-.media-trips-video header h3,
-.media-trips-itineraries header h3,
-.media-trips-cta-inner h3 {
+.vip-overview header h3,
+.vip-packages header h3,
+.vip-video header h3,
+.vip-itineraries header h3,
+.vip-cta-inner h3 {
   color: rgba(15, 23, 42, 0.95);
   font-weight: 700;
 }
 
 /* Poprawiony spacing dla header sekcji */
-.media-trips-overview header,
-.media-trips-packages header,
-.media-trips-video header,
-.media-trips-itineraries header {
+.vip-overview header,
+.vip-packages header,
+.vip-video header,
+.vip-itineraries header {
   margin-bottom: clamp(1rem, 2vw, 1.5rem);
 }
 
 /* Badge styling improvements */
-.media-trips-hero-badge {
+.vip-hero-badge {
   background: rgba(255, 255, 255, 0.2);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 /* Better button styling */
-.media-trips-hero-actions .btn,
-.media-trips-cta-actions .btn {
+.vip-hero-actions .btn,
+.vip-cta-actions .btn {
   font-weight: 600;
   letter-spacing: 0.01em;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 
-.media-trips-hero-actions .btn:hover,
-.media-trips-cta-actions .btn:hover {
+.vip-hero-actions .btn:hover,
+.vip-cta-actions .btn:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 16px rgba(15, 23, 42, 0.2);
 }
 
-.media-trips-hero-actions .btn:active,
-.media-trips-cta-actions .btn:active {
+.vip-hero-actions .btn:active,
+.vip-cta-actions .btn:active {
   transform: translateY(0);
 }
 
 /* Ghost button improvements */
-.media-trips-hero-actions .ghost {
+.vip-hero-actions .ghost {
   background: rgba(255, 255, 255, 0.15);
   border: 1px solid rgba(255, 255, 255, 0.3);
   color: #fff;
@@ -531,20 +531,20 @@ html {
   transition: all 0.2s ease;
 }
 
-.media-trips-hero-actions .ghost:hover {
+.vip-hero-actions .ghost:hover {
   background: rgba(255, 255, 255, 0.25);
   border-color: rgba(255, 255, 255, 0.4);
 }
 
 /* Feature number styling */
-.media-trips-feature-number {
+.vip-feature-number {
   font-weight: 700;
   background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(14, 165, 233, 0.15));
   border: 2px solid rgba(37, 99, 235, 0.25);
 }
 
 /* Itinerary time badge */
-.media-trips-itinerary-time {
+.vip-itinerary-time {
   display: inline-block;
   padding: 0.35rem 0.75rem;
   background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(14, 165, 233, 0.12));
@@ -553,22 +553,22 @@ html {
 }
 
 /* Note section emphasis */
-.media-trips-note {
+.vip-note {
   border-left: 4px solid var(--primary, #2563eb);
 }
 
-.media-trips-note h4 {
+.vip-note h4 {
   color: rgba(15, 23, 42, 0.9);
   font-weight: 700;
 }
 
 /* Lepsze cienie dla kart */
-.media-trips-hero-card,
-.media-trips-overview,
-.media-trips-packages,
-.media-trips-video,
-.media-trips-itineraries,
-.media-trips-cta {
+.vip-hero-card,
+.vip-overview,
+.vip-packages,
+.vip-video,
+.vip-itineraries,
+.vip-cta {
   box-shadow: 0 4px 6px rgba(15, 23, 42, 0.05),
               0 10px 20px rgba(15, 23, 42, 0.08);
 }
@@ -580,11 +580,11 @@ html {
 
 /* Reduce motion dla użytkowników z preferencjami */
 @media (prefers-reduced-motion: reduce) {
-  .media-trips-feature,
-  .media-trips-itinerary,
-  .media-trips-video-grid > div,
-  .media-trips-hero-actions .btn,
-  .media-trips-cta-actions .btn {
+  .vip-feature,
+  .vip-itinerary,
+  .vip-video-grid > div,
+  .vip-hero-actions .btn,
+  .vip-cta-actions .btn {
     transition: none;
   }
   
@@ -595,36 +595,36 @@ html {
 
 /* Print styles */
 @media print {
-  .media-trips-video-grid {
+  .vip-video-grid {
     display: none;
   }
   
-  .media-trips-hero-actions,
-  .media-trips-cta-actions {
+  .vip-hero-actions,
+  .vip-cta-actions {
     display: none;
   }
   
-  .media-trips-content {
+  .vip-content {
     max-width: 100%;
   }
 }
 
 /* Formularz kalkulatora - dolna część karty */
-.media-trip-form {
+.vip-form {
   padding: clamp(1.75rem, 3vw, 2.25rem);
   background: linear-gradient(180deg, rgba(248, 250, 252, 0.5), rgba(241, 245, 249, 0.6));
 }
 
 /* Pole formularza */
-.media-trip-field {
+.vip-field {
   margin-bottom: 1.5rem;
 }
 
-.media-trip-field:last-of-type {
+.vip-field:last-of-type {
   margin-bottom: 2rem;
 }
 
-.media-trip-field label {
+.vip-field label {
   display: block;
   margin-bottom: 0.6rem;
   font-size: 0.925rem;
@@ -632,8 +632,8 @@ html {
   color: rgba(15, 23, 42, 0.9);
 }
 
-.media-trip-field select,
-.media-trip-field input[type="number"] {
+.vip-field select,
+.vip-field input[type="number"] {
   width: 100%;
   padding: 0.85rem 1.1rem;
   font-size: 1rem;
@@ -646,13 +646,13 @@ html {
   box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
 }
 
-.media-trip-field select:hover,
-.media-trip-field input[type="number"]:hover {
+.vip-field select:hover,
+.vip-field input[type="number"]:hover {
   border-color: rgba(148, 163, 184, 0.6);
 }
 
-.media-trip-field select:focus,
-.media-trip-field input[type="number"]:focus {
+.vip-field select:focus,
+.vip-field input[type="number"]:focus {
   outline: none;
   border-color: #3b82f6;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1),
@@ -660,7 +660,7 @@ html {
 }
 
 /* Helper text */
-.media-trip-helper {
+.vip-helper {
   margin: 0.6rem 0 0 0;
   font-size: 0.85rem;
   color: rgba(100, 116, 139, 0.85);
@@ -668,7 +668,7 @@ html {
 }
 
 /* Wynik kalkulacji */
-.media-trip-result {
+.vip-result {
   margin: 0;
   padding: 1.5rem;
   background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(14, 165, 233, 0.06));
@@ -676,7 +676,7 @@ html {
   border-radius: 14px;
 }
 
-.media-trip-result-row {
+.vip-result-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -684,39 +684,39 @@ html {
   gap: 1rem;
 }
 
-.media-trip-result-row:not(:last-child) {
+.vip-result-row:not(:last-child) {
   border-bottom: 1px solid rgba(148, 163, 184, 0.15);
 }
 
-.media-trip-result-row:last-child {
+.vip-result-row:last-child {
   padding-top: 1rem;
   margin-top: 0.5rem;
   border-top: 2px solid rgba(59, 130, 246, 0.2);
 }
 
-.media-trip-result dt {
+.vip-result dt {
   font-size: 0.95rem;
   font-weight: 600;
   color: rgba(15, 23, 42, 0.85);
 }
 
-.media-trip-result-row:last-child dt {
+.vip-result-row:last-child dt {
   font-size: 1.05rem;
   font-weight: 700;
   color: rgba(15, 23, 42, 0.95);
 }
 
-.media-trip-result dd {
+.vip-result dd {
   margin: 0;
 }
 
-.media-trip-output {
+.vip-output {
   font-size: 1.1rem;
   font-weight: 700;
   color: #3b82f6;
 }
 
-.media-trip-result-row:last-child .media-trip-output {
+.vip-result-row:last-child .vip-output {
   font-size: 1.4rem;
 }
 
@@ -727,26 +727,26 @@ html {
     gap: 1.5rem;
   }
   
-  .media-trip-primary,
-  .media-trip-form {
+  .vip-primary,
+  .vip-form {
     padding: 1.5rem;
   }
   
-  .media-trip-card-header h3 {
+  .vip-card-header h3 {
     font-size: 1.25rem;
   }
   
-  .media-trip-result {
+  .vip-result {
     padding: 1.25rem;
   }
   
-  .media-trip-result-row {
+  .vip-result-row {
     flex-direction: column;
     align-items: flex-start;
     gap: 0.5rem;
   }
   
-  .media-trip-output {
+  .vip-output {
     font-size: 1.35rem;
   }
 }
