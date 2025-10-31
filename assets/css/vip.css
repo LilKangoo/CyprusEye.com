@@ -1,48 +1,151 @@
 /* VIP Page - Responsywne style dla vip.html */
 
-/* Package Grid - Estetyczne style */
+/* Package Grid - Nowy czysty design */
 .package-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: clamp(1.5rem, 3vw, 2rem);
-  margin-top: 2rem;
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+  gap: clamp(2rem, 4vw, 3rem);
+  margin-top: 2.5rem;
 }
 
-.package-card {
+/* Karta pakietu - główny kontener */
+.package-card,
+.media-trip-card {
   display: flex;
   flex-direction: column;
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(248, 250, 252, 0.9));
-  border: 1px solid rgba(148, 163, 184, 0.15);
-  border-radius: 24px;
-  padding: clamp(1.5rem, 3vw, 2rem);
-  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.08),
-              0 2px 6px rgba(15, 23, 42, 0.04);
-  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.3s ease;
-  position: relative;
+  background: #fff;
+  border: 2px solid rgba(226, 232, 240, 0.8);
+  border-radius: 20px;
   overflow: hidden;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
 }
 
-.package-card::before {
-  content: '';
+.package-card:hover,
+.media-trip-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 32px rgba(15, 23, 42, 0.12);
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+/* Górna część karty z informacjami */
+.media-trip-primary {
+  padding: clamp(1.75rem, 3vw, 2.25rem);
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+/* Header karty */
+.media-trip-card-header {
+  margin-bottom: 1.5rem;
+}
+
+.media-trip-meta {
+  display: inline-block;
+  margin: 0 0 0.75rem 0;
+  padding: 0.4rem 0.85rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(14, 165, 233, 0.08));
+  border-radius: 8px;
+  font-size: 0.825rem;
+  font-weight: 600;
+  color: #3b82f6;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.media-trip-card-header h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: clamp(1.35rem, 2.5vw, 1.6rem);
+  font-weight: 700;
+  color: rgba(15, 23, 42, 0.95);
+  line-height: 1.3;
+}
+
+.media-trip-description {
+  margin: 0;
+  font-size: 0.975rem;
+  line-height: 1.6;
+  color: rgba(71, 85, 105, 0.9);
+}
+
+/* Cena */
+.media-trip-price {
+  margin: 0 0 1.5rem 0;
+  padding: 1rem 1.25rem;
+  background: linear-gradient(135deg, rgba(241, 245, 249, 0.8), rgba(248, 250, 252, 0.9));
+  border-radius: 12px;
+  font-size: 0.95rem;
+  color: rgba(15, 23, 42, 0.8);
+  border-left: 4px solid #3b82f6;
+}
+
+.media-trip-price strong {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #3b82f6;
+}
+
+/* Sekcja highlights */
+.media-trip-section {
+  margin-bottom: 1.25rem;
+}
+
+.media-trip-section-title {
+  margin: 0 0 1rem 0;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: rgba(15, 23, 42, 0.9);
+}
+
+.media-trip-highlights {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.media-trip-highlights li {
+  position: relative;
+  padding-left: 2rem;
+  font-size: 0.925rem;
+  line-height: 1.6;
+  color: rgba(51, 65, 85, 0.9);
+}
+
+.media-trip-highlights li::before {
+  content: '✓';
   position: absolute;
-  top: 0;
   left: 0;
-  right: 0;
-  height: 4px;
-  background: linear-gradient(90deg, #3b82f6, #06b6d4, #8b5cf6);
-  opacity: 0;
-  transition: opacity 0.3s ease;
+  top: 0;
+  width: 1.4rem;
+  height: 1.4rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, #3b82f6, #06b6d4);
+  color: #fff;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+  flex-shrink: 0;
 }
 
-.package-card:hover::before {
-  opacity: 1;
+/* Link */
+.media-trip-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1rem;
+  font-size: 0.925rem;
+  font-weight: 600;
+  color: #3b82f6;
+  text-decoration: none;
+  transition: gap 0.2s ease;
 }
 
-.package-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.12),
-              0 6px 12px rgba(15, 23, 42, 0.06);
-  border-color: rgba(59, 130, 246, 0.3);
+.media-trip-link:hover {
+  gap: 0.75rem;
+  text-decoration: underline;
 }
 
 /* Media Trips - Responsywne style */
@@ -503,5 +606,147 @@ html {
   
   .media-trips-content {
     max-width: 100%;
+  }
+}
+
+/* Formularz kalkulatora - dolna część karty */
+.media-trip-form {
+  padding: clamp(1.75rem, 3vw, 2.25rem);
+  background: linear-gradient(180deg, rgba(248, 250, 252, 0.5), rgba(241, 245, 249, 0.6));
+}
+
+/* Pole formularza */
+.media-trip-field {
+  margin-bottom: 1.5rem;
+}
+
+.media-trip-field:last-of-type {
+  margin-bottom: 2rem;
+}
+
+.media-trip-field label {
+  display: block;
+  margin-bottom: 0.6rem;
+  font-size: 0.925rem;
+  font-weight: 600;
+  color: rgba(15, 23, 42, 0.9);
+}
+
+.media-trip-field select,
+.media-trip-field input[type="number"] {
+  width: 100%;
+  padding: 0.85rem 1.1rem;
+  font-size: 1rem;
+  font-family: inherit;
+  color: rgba(15, 23, 42, 0.95);
+  background: #fff;
+  border: 2px solid rgba(226, 232, 240, 0.8);
+  border-radius: 12px;
+  transition: all 0.2s ease;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}
+
+.media-trip-field select:hover,
+.media-trip-field input[type="number"]:hover {
+  border-color: rgba(148, 163, 184, 0.6);
+}
+
+.media-trip-field select:focus,
+.media-trip-field input[type="number"]:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1),
+              0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+/* Helper text */
+.media-trip-helper {
+  margin: 0.6rem 0 0 0;
+  font-size: 0.85rem;
+  color: rgba(100, 116, 139, 0.85);
+  line-height: 1.5;
+}
+
+/* Wynik kalkulacji */
+.media-trip-result {
+  margin: 0;
+  padding: 1.5rem;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.06), rgba(14, 165, 233, 0.06));
+  border: 2px solid rgba(59, 130, 246, 0.15);
+  border-radius: 14px;
+}
+
+.media-trip-result-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  gap: 1rem;
+}
+
+.media-trip-result-row:not(:last-child) {
+  border-bottom: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.media-trip-result-row:last-child {
+  padding-top: 1rem;
+  margin-top: 0.5rem;
+  border-top: 2px solid rgba(59, 130, 246, 0.2);
+}
+
+.media-trip-result dt {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: rgba(15, 23, 42, 0.85);
+}
+
+.media-trip-result-row:last-child dt {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: rgba(15, 23, 42, 0.95);
+}
+
+.media-trip-result dd {
+  margin: 0;
+}
+
+.media-trip-output {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #3b82f6;
+}
+
+.media-trip-result-row:last-child .media-trip-output {
+  font-size: 1.4rem;
+}
+
+/* Responsywne dostosowania dla mobile */
+@media (max-width: 600px) {
+  .package-grid {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  
+  .media-trip-primary,
+  .media-trip-form {
+    padding: 1.5rem;
+  }
+  
+  .media-trip-card-header h3 {
+    font-size: 1.25rem;
+  }
+  
+  .media-trip-result {
+    padding: 1.25rem;
+  }
+  
+  .media-trip-result-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .media-trip-output {
+    font-size: 1.35rem;
   }
 }
