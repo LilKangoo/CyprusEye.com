@@ -8628,14 +8628,24 @@ async function handleAccountResetProgress(event) {
   }
 
   console.log('[Reset] 🚀 START - rozpoczynam resetowanie postępu');
+  console.log('[Reset] currentSupabaseUser:', currentSupabaseUser);
 
   // NAJPIERW resetuj w Supabase (jeśli użytkownik zalogowany)
-  if (currentSupabaseUser?.id) {
-    console.log('[Reset] Resetuję profil w Supabase dla user:', currentSupabaseUser.id);
-    try {
-      const client = getSupabaseClient();
+  try {
+    const client = getSupabaseClient();
+    
+    if (client) {
+      // Pobierz aktualnie zalogowanego użytkownika
+      const { data: { user }, error: userError } = await client.auth.getUser();
+      console.log('[Reset] Pobrany user z Supabase:', user);
       
-      if (client) {
+      if (userError) {
+        console.error('[Reset] Błąd pobierania użytkownika:', userError);
+      }
+      
+      if (user?.id) {
+        console.log('[Reset] ✅ Użytkownik zalogowany, resetuję profil w Supabase dla:', user.id);
+        
         console.log('[Reset] Wysyłam UPDATE do Supabase...');
         const { data, error } = await client
           .from('profiles')
@@ -8644,7 +8654,7 @@ async function handleAccountResetProgress(event) {
             level: 1,
             updated_at: new Date().toISOString()
           })
-          .eq('id', currentSupabaseUser.id)
+          .eq('id', user.id)
           .select();
 
         console.log('[Reset] Odpowiedź Supabase:', { data, error });
@@ -8659,19 +8669,20 @@ async function handleAccountResetProgress(event) {
           return; // Przerwij jeśli Supabase failed
         }
 
-        console.log('[Reset] ✅ Supabase zresetowany pomyślnie');
+        console.log('[Reset] ✅ Supabase zresetowany pomyślnie:', data);
         
         // Odśwież dane z Supabase
         await syncProgressFromSupabase({ force: true });
         console.log('[Reset] ✅ Synchronizacja zakończona');
       } else {
-        console.error('[Reset] ❌ Brak klienta Supabase');
+        console.log('[Reset] ⚠️ Użytkownik niezalogowany - pomijam reset w Supabase');
       }
-    } catch (error) {
-      console.error('[Reset] ❌ Exception:', error);
-      alert(`Błąd podczas resetu: ${error.message}`);
-      return;
+    } else {
+      console.error('[Reset] ❌ Brak klienta Supabase');
     }
+  } catch (error) {
+    console.error('[Reset] ❌ Exception podczas resetu Supabase:', error);
+    // Nie przerywamy - kontynuujemy z resetem lokalnym
   }
 
   // POTEM resetuj dane lokalne
