@@ -142,16 +142,17 @@
                   novalidate
                   data-ce-auth-handler="supabase"
                 >
-                  <label for="loginEmail" data-i18n="auth.email">Adres e-mail</label>
+                  <label for="loginEmail" data-i18n="auth.login.username">Email lub nazwa użytkownika</label>
                   <input
                     id="loginEmail"
                     name="email"
-                    type="email"
-                    autocomplete="email"
+                    type="text"
+                    autocomplete="username"
                     required
-                    aria-label="Adres e-mail"
+                    aria-label="Email lub nazwa użytkownika"
                     data-i18n=""
-                    data-i18n-attrs="aria-label:auth.email"
+                    data-i18n-attrs="aria-label:auth.login.username,placeholder:auth.login.username"
+                    placeholder="Email lub nazwa użytkownika"
                   />
                   <label for="loginPassword" data-i18n="auth.password">Hasło</label>
                   <input
@@ -221,6 +222,21 @@
                     aria-label="Imię"
                     data-i18n=""
                     data-i18n-attrs="aria-label:auth.firstName"
+                  />
+                  <label for="registerUsername" data-i18n="auth.username">Nazwa użytkownika</label>
+                  <input
+                    id="registerUsername"
+                    name="username"
+                    type="text"
+                    autocomplete="username"
+                    minlength="3"
+                    maxlength="20"
+                    pattern="[a-zA-Z0-9_]+"
+                    required
+                    aria-label="Nazwa użytkownika"
+                    data-i18n=""
+                    data-i18n-attrs="aria-label:auth.username,placeholder:auth.username.hint"
+                    placeholder="3-20 znaków, litery i cyfry"
                   />
                   <label for="registerEmail" data-i18n="auth.email">Adres e-mail</label>
                   <input

@@ -703,6 +703,7 @@ function parseRegisterPayload(form) {
   const email = form.email?.value?.trim() || '';
   const password = form.password?.value || '';
   const firstName = form.firstName?.value?.trim() || '';
+  const username = form.username?.value?.trim() || '';
   const confirm = form.passwordConfirm?.value || '';
 
   if (!email) {
@@ -720,12 +721,28 @@ function parseRegisterPayload(form) {
     return null;
   }
 
+  if (!username) {
+    showErr('Podaj nazwę użytkownika.');
+    return null;
+  }
+
+  // Validate username format
+  if (username.length < 3 || username.length > 20) {
+    showErr('Nazwa użytkownika musi mieć od 3 do 20 znaków.');
+    return null;
+  }
+
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+    showErr('Nazwa użytkownika może zawierać tylko litery, cyfry i znak podkreślenia.');
+    return null;
+  }
+
   if (confirm && confirm !== password) {
     showErr('Hasła nie są identyczne.');
     return null;
   }
 
-  return { email, password, firstName };
+  return { email, password, firstName, username };
 }
 
 function ensureGuestState(state) {
@@ -784,10 +801,10 @@ $('#form-login')?.addEventListener('submit', async (event) => {
     return;
   }
 
-  const email = form.email?.value?.trim() || '';
+  const emailOrUsername = form.email?.value?.trim() || '';
   const password = form.password?.value || '';
-  if (!email) {
-    showErr('Podaj poprawny e-mail.');
+  if (!emailOrUsername) {
+    showErr('Podaj adres e-mail lub nazwę użytkownika.');
     return;
   }
 
@@ -796,7 +813,6 @@ $('#form-login')?.addEventListener('submit', async (event) => {
     return;
   }
 
-  lastAuthEmail = email;
   hideResendVerification();
 
   const submitButton =
@@ -808,20 +824,46 @@ $('#form-login')?.addEventListener('submit', async (event) => {
     setFormBusy(form, true);
     showInfo('Łączenie z logowaniem…');
     try {
-      const { data, error } = await sb.auth.signInWithPassword({ email, password });
+      // Determine if input is email or username
+      const isEmail = emailOrUsername.includes('@');
+      let loginEmail = emailOrUsername;
+
+      // If username, look up the email from profiles table
+      if (!isEmail) {
+        const { data: profile, error: lookupError } = await sb
+          .from('profiles')
+          .select('email')
+          .ilike('username', emailOrUsername)
+          .maybeSingle();
+
+        if (lookupError && lookupError.code !== 'PGRST116') {
+          throw new Error('Nie udało się sprawdzić nazwy użytkownika.');
+        }
+
+        if (!profile || !profile.email) {
+          showErr('Nie znaleziono użytkownika o podanej nazwie.');
+          return;
+        }
+
+        loginEmail = profile.email;
+      }
+
+      lastAuthEmail = loginEmail;
+
+      const { data, error } = await sb.auth.signInWithPassword({ email: loginEmail, password });
       const outcome = await handleAuth(
         { data, error },
         'Zalogowano.',
         submitButton?.dataset?.authRedirect || form.dataset?.authRedirect || '/account/',
       );
       if (!outcome?.success && error?.message === 'Email not confirmed') {
-        showResendVerification(email);
+        showResendVerification(loginEmail);
       }
     } catch (error) {
       const message = friendlyErrorMessage(error?.message || 'Nie udało się zalogować.');
       showErr(`Nie udało się: ${message}`);
       if (error?.message === 'Email not confirmed') {
-        showResendVerification(email);
+        showResendVerification(lastAuthEmail);
       }
     } finally {
       setFormBusy(form, false);
@@ -847,6 +889,11 @@ $('#form-register')?.addEventListener('submit', async (event) => {
     firstNameField.value = firstNameField.value.trim();
   }
 
+  const usernameField = form.username;
+  if (usernameField instanceof HTMLInputElement) {
+    usernameField.value = usernameField.value.trim();
+  }
+
   const payload = parseRegisterPayload(form);
   if (!payload) {
     return;
@@ -868,11 +915,30 @@ $('#form-register')?.addEventListener('submit', async (event) => {
     setFormBusy(form, true);
     showInfo('Tworzenie konta…');
     try {
+      // Check if username is already taken
+      const { data: existingUser, error: checkError } = await sb
+        .from('profiles')
+        .select('username')
+        .ilike('username', payload.username)
+        .maybeSingle();
+
+      if (checkError && checkError.code !== 'PGRST116') {
+        throw checkError;
+      }
+
+      if (existingUser) {
+        showErr('Ta nazwa użytkownika jest już zajęta. Wybierz inną.');
+        return;
+      }
+
       const { data, error } = await sb.auth.signUp({
         email: payload.email,
         password: payload.password,
         options: {
-          data: { name: payload.firstName?.trim() || '' },
+          data: { 
+            name: payload.firstName?.trim() || '',
+            username: payload.username?.trim() || ''
+          },
           emailRedirectTo: VERIFICATION_REDIRECT,
         },
       });

@@ -9185,11 +9185,11 @@ async function handleLoginSubmit(event) {
   const submitButton = form.querySelector('button[type="submit"]');
   const resetButton = document.getElementById('loginForgotPassword');
 
-  const email = emailInput.value.trim();
+  const emailOrUsername = emailInput.value.trim();
   const password = passwordInput.value;
 
-  if (!email || !password) {
-    showAuthError('auth.error.missingCredentials', 'Podaj adres e-mail i hasło, aby się zalogować.');
+  if (!emailOrUsername || !password) {
+    showAuthError('auth.error.missingCredentials', 'Podaj email/nazwę użytkownika i hasło, aby się zalogować.');
     return;
   }
 
@@ -9215,7 +9215,31 @@ async function handleLoginSubmit(event) {
   setAuthMessage(translate('auth.status.loggingIn', 'Łączenie z kontem…'), 'info');
 
   try {
-    const { error } = await client.auth.signInWithPassword({ email, password });
+    // Determine if input is email or username
+    const isEmail = emailOrUsername.includes('@');
+    let loginEmail = emailOrUsername;
+
+    // If username, look up the email from profiles table
+    if (!isEmail) {
+      const { data: profile, error: lookupError } = await client
+        .from('profiles')
+        .select('email')
+        .ilike('username', emailOrUsername)
+        .maybeSingle();
+
+      if (lookupError && lookupError.code !== 'PGRST116') {
+        throw new Error('Nie udało się sprawdzić nazwy użytkownika.');
+      }
+
+      if (!profile || !profile.email) {
+        showAuthError('auth.error.accountNotFound', 'Nie znaleziono użytkownika o podanej nazwie.');
+        return;
+      }
+
+      loginEmail = profile.email;
+    }
+
+    const { error } = await client.auth.signInWithPassword({ email: loginEmail, password });
     if (error) {
       throw error;
     }
@@ -9318,11 +9342,15 @@ async function handleRegisterSubmit(event) {
   const form = event.currentTarget;
   if (!(form instanceof HTMLFormElement)) return;
 
+  const firstNameInput = form.querySelector('#registerFirstName');
+  const usernameInput = form.querySelector('#registerUsername');
   const emailInput = form.querySelector('#registerEmail');
   const passwordInput = form.querySelector('#registerPassword');
   const confirmInput = form.querySelector('#registerPasswordConfirm');
 
   if (
+    !(firstNameInput instanceof HTMLInputElement) ||
+    !(usernameInput instanceof HTMLInputElement) ||
     !(emailInput instanceof HTMLInputElement) ||
     !(passwordInput instanceof HTMLInputElement) ||
     !(confirmInput instanceof HTMLInputElement)
@@ -9330,9 +9358,31 @@ async function handleRegisterSubmit(event) {
     return;
   }
 
+  const firstName = firstNameInput.value.trim();
+  const username = usernameInput.value.trim();
   const email = emailInput.value.trim();
   const password = passwordInput.value;
   const confirmPassword = confirmInput.value;
+
+  if (!firstName) {
+    showAuthError('auth.error.registration.missingFirstName', 'Podaj imię, aby utworzyć konto.');
+    return;
+  }
+
+  if (!username) {
+    showAuthError('auth.error.registration.missingUsername', 'Podaj nazwę użytkownika.');
+    return;
+  }
+
+  if (username.length < 3 || username.length > 20) {
+    showAuthError('auth.error.username.invalidLength', 'Nazwa użytkownika musi mieć od 3 do 20 znaków.');
+    return;
+  }
+
+  if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+    showAuthError('auth.error.username.invalidFormat', 'Nazwa użytkownika może zawierać tylko litery, cyfry i znak podkreślenia.');
+    return;
+  }
 
   if (!email || !password) {
     showAuthError('auth.error.registration.missingCredentials', 'Podaj adres e-mail i hasło, aby utworzyć konto.');
@@ -9355,11 +9405,39 @@ async function handleRegisterSubmit(event) {
     return;
   }
 
+  // Check if username is already taken
+  try {
+    const { data: existingUser, error: checkError } = await client
+      .from('profiles')
+      .select('username')
+      .ilike('username', username)
+      .maybeSingle();
+
+    if (checkError && checkError.code !== 'PGRST116') {
+      showAuthError('auth.error.checkFailed', 'Nie udało się sprawdzić nazwy użytkownika. Spróbuj ponownie.');
+      return;
+    }
+
+    if (existingUser) {
+      showAuthError('auth.error.usernameTaken', 'Ta nazwa użytkownika jest już zajęta. Wybierz inną.');
+      return;
+    }
+  } catch (error) {
+    showAuthError('auth.error.checkFailed', 'Nie udało się sprawdzić nazwy użytkownika. Spróbuj ponownie.');
+    return;
+  }
+
   const origin = window.location.origin;
   const { error } = await client.auth.signUp({
     email,
     password,
-    options: { emailRedirectTo: `${origin}/auth/callback/` },
+    options: { 
+      emailRedirectTo: `${origin}/auth/callback/`,
+      data: {
+        name: firstName,
+        username: username
+      }
+    },
   });
 
   if (error) {
