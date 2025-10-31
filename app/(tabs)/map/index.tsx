@@ -37,6 +37,7 @@ export default function MapScreen() {
   const [hasCentered, setHasCentered] = useState(false);
   const [showTutorial, setShowTutorial] = useState(true);
   const [tutorialStep, setTutorialStep] = useState(0);
+  const [selectedPoiIndex, setSelectedPoiIndex] = useState<number | null>(null);
   const canToggleMapStyle = mapStyles.length > 1;
 
   useEffect(() => {
@@ -118,20 +119,54 @@ export default function MapScreen() {
     }
   }, [latitude, longitude]);
 
+  // Centruj mapę na wybranym POI
+  useEffect(() => {
+    if (selectedPoiIndex !== null && selectedPoiIndex >= 0 && selectedPoiIndex < POIS.length) {
+      const poi = POIS[selectedPoiIndex];
+      console.log(`Centrowanie na: ${poi.name} (${poi.lat}, ${poi.lon})`);
+      
+      // Użyj setTimeout dla pewności że mapa jest gotowa
+      const timer = setTimeout(() => {
+        cameraRef.current?.setCamera({
+          centerCoordinate: [poi.lon, poi.lat],
+          zoomLevel: 15,
+          animationDuration: 800,
+        });
+      }, 100);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [selectedPoiIndex]);
+
   const handlePoiPress = useCallback((event: any) => {
     const feature = event?.features?.[0];
-    if (feature?.geometry?.coordinates) {
-      const [longitude, latitude] = feature.geometry.coordinates;
-      const poiName = feature.properties?.name || 'POI';
-      console.log(`Centrowanie na: ${poiName} (${latitude}, ${longitude})`);
-      cameraRef.current?.setCamera({
-        centerCoordinate: [longitude, latitude],
-        zoomLevel: 15,
-        animationDuration: 600,
-      });
+    if (feature?.geometry?.coordinates && feature.properties?.id) {
+      // Znajdź index POI na podstawie ID
+      const poiIndex = POIS.findIndex(poi => poi.id === feature.properties.id);
+      if (poiIndex !== -1) {
+        setSelectedPoiIndex(poiIndex);
+      }
     } else {
       console.log('Brak współrzędnych w klikniętym punkcie', event);
     }
+  }, []);
+
+  const handlePreviousPoi = useCallback(() => {
+    setSelectedPoiIndex(prev => {
+      if (prev === null || prev <= 0) {
+        return POIS.length - 1; // Zawijaj do ostatniego
+      }
+      return prev - 1;
+    });
+  }, []);
+
+  const handleNextPoi = useCallback(() => {
+    setSelectedPoiIndex(prev => {
+      if (prev === null || prev >= POIS.length - 1) {
+        return 0; // Zawijaj do pierwszego
+      }
+      return prev + 1;
+    });
   }, []);
 
   const tutorialSteps = useMemo<TutorialStep[]>(() => {
@@ -315,8 +350,27 @@ export default function MapScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={[styles.attributionContainer, { bottom: insets.bottom + 8 }]}>
+      <View style={[styles.attributionContainer, { bottom: insets.bottom + 90 }]}>
         <Text style={styles.attributionText}>© MapLibre, © OpenStreetMap contributors</Text>
+      </View>
+
+      <View style={[styles.poiNavigator, { bottom: insets.bottom + 16 }]}>
+        <TouchableOpacity style={styles.navButton} onPress={handlePreviousPoi}>
+          <Text style={styles.navButtonText}>← Poprzedni</Text>
+        </TouchableOpacity>
+        <View style={styles.poiInfo}>
+          <Text style={styles.poiCounter}>
+            {selectedPoiIndex !== null ? `${selectedPoiIndex + 1} / ${POIS.length}` : `-- / ${POIS.length}`}
+          </Text>
+          {selectedPoiIndex !== null && (
+            <Text style={styles.poiName} numberOfLines={1}>
+              {POIS[selectedPoiIndex].name}
+            </Text>
+          )}
+        </View>
+        <TouchableOpacity style={styles.navButton} onPress={handleNextPoi}>
+          <Text style={styles.navButtonText}>Następny →</Text>
+        </TouchableOpacity>
       </View>
 
       <View style={[styles.controls, { top: controlsTopOffset }]}>
@@ -588,5 +642,50 @@ const styles = StyleSheet.create({
     color: '#f9fafb',
     fontWeight: '600',
     fontSize: 14,
+  },
+  poiNavigator: {
+    position: 'absolute',
+    left: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(17, 24, 39, 0.95)',
+    borderRadius: 16,
+    padding: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  navButton: {
+    backgroundColor: '#2563eb',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    minWidth: 110,
+  },
+  navButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  poiInfo: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  poiCounter: {
+    color: '#9ca3af',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  poiName: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });
