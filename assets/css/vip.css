@@ -1,0 +1,475 @@
+/* VIP Page - Responsywne style dla vip.html */
+
+/* Package Grid - Podstawowe style */
+.package-grid {
+  display: flex;
+  flex-direction: column;
+  gap: clamp(1rem, 2vw, 1.5rem);
+}
+
+.package-card {
+  flex: 1 1 320px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Media Trips - Responsywne style */
+
+/* Mobile First - do 600px */
+@media (max-width: 600px) {
+  .media-trips-content {
+    padding: 0 var(--space-4, 1rem);
+  }
+
+  .media-trips-hero-card h3 {
+    font-size: clamp(1.5rem, 5vw, 2rem);
+    line-height: 1.3;
+    margin: 0.8rem 0;
+  }
+
+  .media-trips-hero-card p {
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  .media-trips-hero-actions {
+    flex-direction: column;
+    gap: 0.75rem;
+    width: 100%;
+  }
+
+  .media-trips-hero-actions .btn,
+  .media-trips-hero-actions .ghost {
+    width: 100%;
+    text-align: center;
+    padding: 0.875rem 1.25rem;
+    font-size: 1rem;
+    min-height: 48px;
+  }
+
+  /* Feature Grid - na mobile 1 kolumna */
+  .media-trips-feature-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .media-trips-feature {
+    padding: 1.25rem;
+  }
+
+  .media-trips-feature h4 {
+    font-size: 1.15rem;
+    margin: 0.5rem 0;
+  }
+
+  .media-trips-feature p {
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  /* Video Grid - aspect ratio fix */
+  .media-trips-video-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .media-trips-video-grid iframe {
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    min-height: 200px;
+    height: auto;
+  }
+
+  /* Itineraries - na mobile 1 kolumna */
+  .media-trips-itineraries-grid {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .media-trips-itinerary {
+    padding: 1.25rem;
+  }
+
+  .media-trips-itinerary h4 {
+    font-size: 1.15rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .media-trips-itinerary p,
+  .media-trips-itinerary li {
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+
+  .media-trips-itinerary ul {
+    padding-left: 1.5rem;
+  }
+
+  /* Overview Section */
+  .media-trips-overview h3 {
+    font-size: clamp(1.4rem, 4.5vw, 1.8rem);
+    line-height: 1.3;
+  }
+
+  .media-trips-overview p {
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  /* Packages Section */
+  .media-trips-packages h3 {
+    font-size: clamp(1.4rem, 4.5vw, 1.8rem);
+  }
+
+  .media-trips-intro {
+    font-size: 1rem;
+    line-height: 1.6;
+  }
+
+  /* CTA Section */
+  .media-trips-cta-inner h3 {
+    font-size: clamp(1.4rem, 4.5vw, 1.8rem);
+    line-height: 1.3;
+  }
+
+  .media-trips-cta-actions {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  .media-trips-cta-actions .btn {
+    width: 100%;
+    min-height: 48px;
+  }
+
+  /* Section Headers */
+  .section-eyebrow {
+    font-size: 0.875rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  /* Note Cards */
+  .media-trips-note {
+    padding: 1.25rem;
+  }
+
+  .media-trips-note h4 {
+    font-size: 1.1rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .media-trips-note p {
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+}
+
+/* Tablet - 601px do 900px */
+@media (min-width: 601px) and (max-width: 900px) {
+  .media-trips-feature-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .media-trips-video-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .media-trips-video-grid iframe {
+    aspect-ratio: 16 / 9;
+    min-height: 300px;
+  }
+
+  .media-trips-itineraries-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .media-trips-hero-actions {
+    flex-wrap: wrap;
+  }
+
+  .media-trips-hero-actions .btn,
+  .media-trips-hero-actions .ghost {
+    flex: 1 1 auto;
+    min-width: 200px;
+  }
+}
+
+/* Desktop - 768px i więcej */
+@media (min-width: 768px) {
+  .package-grid {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .package-card {
+    max-width: 420px;
+  }
+}
+
+/* Large Desktop - 901px i więcej */
+@media (min-width: 901px) {
+  .media-trips-content {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 0 var(--space-6, 1.5rem);
+  }
+
+  .media-trips-feature-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .media-trips-video-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .media-trips-video-grid iframe {
+    aspect-ratio: 16 / 9;
+    min-height: 360px;
+  }
+
+  .media-trips-itineraries-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .media-trips-hero-card {
+    padding: clamp(2rem, 3vw, 3rem);
+  }
+
+  .media-trips-hero-card h3 {
+    font-size: clamp(2rem, 3.5vw, 2.8rem);
+  }
+
+  .media-trips-overview h3,
+  .media-trips-packages h3,
+  .media-trips-video h3 {
+    font-size: clamp(1.8rem, 2.5vw, 2.4rem);
+  }
+}
+
+/* Extra Large Desktop - 1200px i więcej */
+@media (min-width: 1200px) {
+  .media-trips-itineraries-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+
+  .media-trips-video-grid iframe {
+    min-height: 400px;
+  }
+}
+
+/* Dodatkowe usprawnienia użyteczności */
+
+/* Lepszy spacing między sekcjami */
+.media-trips-content > * + * {
+  margin-top: clamp(2rem, 4vw, 3.5rem);
+}
+
+/* Poprawiony kontrast dla eyebrow */
+.section-eyebrow {
+  color: var(--primary, #2563eb);
+  opacity: 0.9;
+}
+
+/* Fokus dla accessibility */
+.media-trips-hero-actions a:focus-visible,
+.media-trips-hero-actions button:focus-visible,
+.media-trips-cta-actions a:focus-visible {
+  outline: 3px solid var(--primary, #2563eb);
+  outline-offset: 3px;
+}
+
+/* Smooth scroll dla anchor links */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Hover effects dla lepszej interaktywności */
+.media-trips-feature {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.media-trips-feature:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+}
+
+.media-trips-itinerary {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.media-trips-itinerary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.15);
+}
+
+/* Lepsze wyróżnienie linków */
+.media-trips-itinerary a,
+.media-trips-note a {
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: opacity 0.2s ease;
+}
+
+.media-trips-itinerary a:hover,
+.media-trips-note a:hover {
+  opacity: 0.8;
+}
+
+/* Responsive video container improvements */
+.media-trips-video-grid > div {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  height: 0;
+  overflow: hidden;
+  border-radius: 18px;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.18);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.media-trips-video-grid > div iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  border-radius: 18px;
+}
+
+.media-trips-video-grid > div:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 24px 52px rgba(15, 23, 42, 0.24);
+}
+
+/* Lepszy kontrast dla section headers */
+.media-trips-overview header h3,
+.media-trips-packages header h3,
+.media-trips-video header h3,
+.media-trips-itineraries header h3,
+.media-trips-cta-inner h3 {
+  color: rgba(15, 23, 42, 0.95);
+  font-weight: 700;
+}
+
+/* Poprawiony spacing dla header sekcji */
+.media-trips-overview header,
+.media-trips-packages header,
+.media-trips-video header,
+.media-trips-itineraries header {
+  margin-bottom: clamp(1rem, 2vw, 1.5rem);
+}
+
+/* Badge styling improvements */
+.media-trips-hero-badge {
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(10px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+}
+
+/* Better button styling */
+.media-trips-hero-actions .btn,
+.media-trips-cta-actions .btn {
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.media-trips-hero-actions .btn:hover,
+.media-trips-cta-actions .btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(15, 23, 42, 0.2);
+}
+
+.media-trips-hero-actions .btn:active,
+.media-trips-cta-actions .btn:active {
+  transform: translateY(0);
+}
+
+/* Ghost button improvements */
+.media-trips-hero-actions .ghost {
+  background: rgba(255, 255, 255, 0.15);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #fff;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.media-trips-hero-actions .ghost:hover {
+  background: rgba(255, 255, 255, 0.25);
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+/* Feature number styling */
+.media-trips-feature-number {
+  font-weight: 700;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.1), rgba(14, 165, 233, 0.15));
+  border: 2px solid rgba(37, 99, 235, 0.25);
+}
+
+/* Itinerary time badge */
+.media-trips-itinerary-time {
+  display: inline-block;
+  padding: 0.35rem 0.75rem;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.08), rgba(14, 165, 233, 0.12));
+  border-radius: 12px;
+  font-size: 0.9rem;
+}
+
+/* Note section emphasis */
+.media-trips-note {
+  border-left: 4px solid var(--primary, #2563eb);
+}
+
+.media-trips-note h4 {
+  color: rgba(15, 23, 42, 0.9);
+  font-weight: 700;
+}
+
+/* Lepsze cienie dla kart */
+.media-trips-hero-card,
+.media-trips-overview,
+.media-trips-packages,
+.media-trips-video,
+.media-trips-itineraries,
+.media-trips-cta {
+  box-shadow: 0 4px 6px rgba(15, 23, 42, 0.05),
+              0 10px 20px rgba(15, 23, 42, 0.08);
+}
+
+/* Services panel na dole strony */
+.services-panel-footer {
+  margin-top: clamp(3rem, 6vw, 5rem);
+}
+
+/* Reduce motion dla użytkowników z preferencjami */
+@media (prefers-reduced-motion: reduce) {
+  .media-trips-feature,
+  .media-trips-itinerary,
+  .media-trips-video-grid > div,
+  .media-trips-hero-actions .btn,
+  .media-trips-cta-actions .btn {
+    transition: none;
+  }
+  
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* Print styles */
+@media print {
+  .media-trips-video-grid {
+    display: none;
+  }
+  
+  .media-trips-hero-actions,
+  .media-trips-cta-actions {
+    display: none;
+  }
+  
+  .media-trips-content {
+    max-width: 100%;
+  }
+}
