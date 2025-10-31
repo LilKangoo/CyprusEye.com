@@ -154,6 +154,7 @@ Status: W TRAKCIE
 - ✅ `/js/profile.js` - naprawa lazy loading Supabase
 - ✅ `/app.js` - naprawa EventSource, reset w Supabase, sync poziomów
 - ✅ `/package.json` - naprawa zależności
+- ✅ **6 standalone pages** - dodano app.js (car-rental-landing, car-rental, cruise, kupon, autopfo, advertise)
 
 ---
 
@@ -164,7 +165,6 @@ Status: W TRAKCIE
 
 ### 🟡 Ostrzeżenia:
 - EventSource MIME type error (nie wpływa na funkcjonalność)
-- Niektóre strony nie mają supabaseClient.js (car-rental, cruise, kupon)
 
 ### 🟢 Naprawione:
 - ✅ Kolumna `level` - generated column
@@ -172,6 +172,13 @@ Status: W TRAKCIE
 - ✅ Reset w Supabase - działa
 - ✅ Synchronizacja poziomów - Supabase = source of truth
 - ✅ Mobile display - działa
+- ✅ **Brak app.js na standalone stronach** - dodano do 6 stron:
+  - car-rental-landing.html
+  - car-rental.html
+  - cruise.html
+  - kupon.html
+  - autopfo.html
+  - advertise.html
 
 ---
 
