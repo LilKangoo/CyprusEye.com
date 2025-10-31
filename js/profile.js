@@ -70,16 +70,14 @@ function normalizeProfile(user, record) {
 async function fetchProfileRow(columns, userId) {
   const sb = getSupabaseClient();
   const query = sb.from('profiles').select(columns).eq('id', userId);
-  console.log('[fetchProfileRow] Pobieranie profilu, kolumny:', columns, 'userId:', userId);
   try {
     const result = typeof query.maybeSingle === 'function' ? await query.maybeSingle() : await query.single();
-    console.log('[fetchProfileRow] Wynik zapytania:', result);
     if (result?.error?.code === 'PGRST116') {
       return { data: null, error: null };
     }
     return result;
   } catch (error) {
-    console.error('[fetchProfileRow] Błąd zapytania:', error);
+    console.error('Błąd pobierania profilu:', error);
     return { data: null, error };
   }
 }
@@ -129,9 +127,7 @@ export async function loadProfileForUser(user) {
 
 export async function getMyProfile() {
   const user = await requireCurrentUser();
-  const profile = await loadProfileForUser(user);
-  console.log('[getMyProfile] Pobrano profil:', profile);
-  return profile;
+  return loadProfileForUser(user);
 }
 
 export async function updateMyName(name) {

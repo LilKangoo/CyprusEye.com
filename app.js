@@ -2444,7 +2444,7 @@ function connectJournalRealtimeUpdates() {
   try {
     journalEventSource = new EventSource(COMMUNITY_JOURNAL_STREAM_URL);
   } catch (error) {
-    console.error('Nie udało się nawiązać połączenia z kanałem dziennika:', error);
+    console.warn('Community journal stream nie jest dostępny');
     journalEventSource = null;
     return;
   }
@@ -2467,10 +2467,19 @@ function connectJournalRealtimeUpdates() {
     }
   });
 
-  journalEventSource.addEventListener('error', () => {
+  journalEventSource.addEventListener('error', (error) => {
+    // Wyłącz reconnect jeśli endpoint nie wspiera SSE (MIME type error)
+    const isMimeError = error?.target?.readyState === EventSource.CLOSED;
+    
     if (journalEventSource) {
       journalEventSource.close();
       journalEventSource = null;
+    }
+
+    // Nie próbuj ponownie łączyć się jeśli to błąd MIME type
+    if (isMimeError) {
+      console.info('Community journal stream wyłączony (endpoint nie wspiera SSE)');
+      return;
     }
 
     if (journalStreamReconnectTimeout !== null) {
@@ -2926,7 +2935,6 @@ function applySupabaseProfileProgress(xp, level, updatedAt, userId = null) {
   // Jeśli to obecny użytkownik, zaktualizuj state.level z Supabase
   // (Supabase ma generated column która jest source of truth dla poziomu)
   if (currentUserKey === key && Number.isFinite(sanitized.level)) {
-    console.log('[Supabase] Ustawiam poziom z bazy:', sanitized.level, '(zamiast lokalnego:', state.level, ')');
     state.level = sanitized.level;
     state.xp = sanitized.xp;
     // Przelicz xpIntoLevel i xpForNextLevel bazując na poziomie z Supabase
@@ -3958,8 +3966,6 @@ function renderAccountStats(reason = 'render') {
 }
 
 function renderProgress() {
-  console.log('[renderProgress] state.xp:', state.xp, 'state.level:', state.level);
-  
   const xpPointsEl = document.getElementById('xpPoints');
   const badgesCountEl = document.getElementById('badgesCount');
   const xpFillEl = document.getElementById('xpFill');
@@ -3978,10 +3984,7 @@ function renderProgress() {
     xpPointsEl.textContent = state.xp;
   }
   if (headerXpPointsEl) {
-    console.log('[renderProgress] Aktualizuję headerXpPointsEl na:', state.xp);
     headerXpPointsEl.textContent = state.xp;
-  } else {
-    console.warn('[renderProgress] headerXpPointsEl nie znaleziony!');
   }
   if (badgesCountEl) {
     badgesCountEl.textContent = state.badges.length;
@@ -3996,10 +3999,7 @@ function renderProgress() {
     levelNumberEl.textContent = state.level;
   }
   if (headerLevelNumberEl) {
-    console.log('[renderProgress] Aktualizuję headerLevelNumberEl na:', state.level);
     headerLevelNumberEl.textContent = state.level;
-  } else {
-    console.warn('[renderProgress] headerLevelNumberEl nie znaleziony!');
   }
   if (achievementsVisitedCountEl) {
     achievementsVisitedCountEl.textContent = state.visited.size;
@@ -8677,9 +8677,6 @@ async function handleAccountResetProgress(event) {
     return;
   }
 
-  console.log('[Reset] 🚀 START - rozpoczynam resetowanie postępu');
-  console.log('[Reset] currentSupabaseUser:', currentSupabaseUser);
-
   // NAJPIERW resetuj w Supabase (jeśli użytkownik zalogowany)
   try {
     const client = getSupabaseClient();
@@ -8687,16 +8684,8 @@ async function handleAccountResetProgress(event) {
     if (client) {
       // Pobierz aktualnie zalogowanego użytkownika
       const { data: { user }, error: userError } = await client.auth.getUser();
-      console.log('[Reset] Pobrany user z Supabase:', user);
-      
-      if (userError) {
-        console.error('[Reset] Błąd pobierania użytkownika:', userError);
-      }
       
       if (user?.id) {
-        console.log('[Reset] ✅ Użytkownik zalogowany, resetuję profil w Supabase dla:', user.id);
-        
-        console.log('[Reset] Wysyłam UPDATE do Supabase...');
         const { data, error } = await client
           .from('profiles')
           .update({
@@ -8707,10 +8696,8 @@ async function handleAccountResetProgress(event) {
           .eq('id', user.id)
           .select();
 
-        console.log('[Reset] Odpowiedź Supabase:', { data, error });
-
         if (error) {
-          console.error('[Reset] ❌ Błąd Supabase:', error);
+          console.error('Błąd resetowania profilu w Supabase:', error);
           alert(`Nie udało się zresetować w Supabase:\n${error.message}\nKod: ${error.code}`);
           showAccountError(
             'account.error.resetFailed',
@@ -8718,25 +8705,17 @@ async function handleAccountResetProgress(event) {
           );
           return; // Przerwij jeśli Supabase failed
         }
-
-        console.log('[Reset] ✅ Supabase zresetowany pomyślnie:', data);
         
         // Odśwież dane z Supabase
         await syncProgressFromSupabase({ force: true });
-        console.log('[Reset] ✅ Synchronizacja zakończona');
-      } else {
-        console.log('[Reset] ⚠️ Użytkownik niezalogowany - pomijam reset w Supabase');
       }
-    } else {
-      console.error('[Reset] ❌ Brak klienta Supabase');
     }
   } catch (error) {
-    console.error('[Reset] ❌ Exception podczas resetu Supabase:', error);
+    console.error('Błąd podczas resetu w Supabase:', error);
     // Nie przerywamy - kontynuujemy z resetem lokalnym
   }
 
   // POTEM resetuj dane lokalne
-  console.log('[Reset] Resetuję dane lokalne...');
   if (currentUserKey) {
     const account = getAccount(currentUserKey);
     if (!account) {
@@ -8751,7 +8730,6 @@ async function handleAccountResetProgress(event) {
   }
 
   // Odśwież UI
-  console.log('[Reset] Odświeżam interfejs...');
   loadProgress();
   renderAllForCurrentState();
   updateAuthUI();
@@ -8764,8 +8742,6 @@ async function handleAccountResetProgress(event) {
     translate('account.status.progressRestart', 'Rozpoczynasz grę od nowa – powodzenia!'),
     6000,
   );
-  
-  console.log('[Reset] ✅ KONIEC - reset zakończony pomyślnie');
 }
 
 function updateAuthUI() {
