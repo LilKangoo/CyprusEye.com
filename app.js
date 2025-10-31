@@ -8252,6 +8252,7 @@ function openAccountModal(initialTab = 'stats') {
   const alreadyOpen = !modal.hidden && modal.classList.contains('visible');
 
   if (alreadyOpen) {
+    renderAccountStats('modal-reopen');
     try {
       document.dispatchEvent(
         new CustomEvent('ce-account:opened', { detail: { tab: activeTab, reopen: true } }),
@@ -8268,6 +8269,7 @@ function openAccountModal(initialTab = 'stats') {
   }
 
   setAccountMessage('');
+  renderAccountStats('modal-open');
   lockBodyScroll();
   modal.hidden = false;
   requestAnimationFrame(() => {
