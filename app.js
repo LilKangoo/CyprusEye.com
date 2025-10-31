@@ -8637,33 +8637,47 @@ async function handleAccountResetProgress() {
 
   // Resetuj w Supabase jeśli użytkownik jest zalogowany
   if (currentSupabaseUser?.id) {
+    console.log('[Reset] Rozpoczynam reset w Supabase dla user:', currentSupabaseUser.id);
     try {
       const client = getSupabaseClient();
+      console.log('[Reset] Client Supabase:', client ? 'OK' : 'BRAK');
+      
       if (client) {
-        const { error } = await client
+        console.log('[Reset] Wysyłam update do Supabase...');
+        const { data, error } = await client
           .from('profiles')
           .update({
             xp: 0,
             level: 1,
             updated_at: new Date().toISOString()
           })
-          .eq('id', currentSupabaseUser.id);
+          .eq('id', currentSupabaseUser.id)
+          .select();
+
+        console.log('[Reset] Odpowiedź z Supabase:', { data, error });
 
         if (error) {
-          console.error('Nie udało się zresetować profilu w Supabase:', error);
+          console.error('[Reset] Błąd z Supabase:', error);
+          alert(`Błąd Supabase: ${error.message}\nKod: ${error.code}\nSzczegóły: ${error.details || 'brak'}`);
           showAccountError(
             'account.error.resetFailed',
             'Reset lokalny zakończony, ale nie udało się zsynchronizować z serwerem.'
           );
         } else {
-          console.log('[Reset] Profil w Supabase został zresetowany');
+          console.log('[Reset] ✅ Profil w Supabase został zresetowany:', data);
           // Odśwież dane z Supabase po resecie
           await syncProgressFromSupabase({ force: true });
         }
+      } else {
+        console.error('[Reset] Brak klienta Supabase!');
+        alert('Brak klienta Supabase - nie można zresetować w bazie danych.');
       }
     } catch (error) {
-      console.error('Błąd podczas resetowania profilu w Supabase:', error);
+      console.error('[Reset] Exception podczas resetowania:', error);
+      alert(`Exception: ${error.message}`);
     }
+  } else {
+    console.log('[Reset] Brak currentSupabaseUser - pomijam reset w Supabase');
   }
 
   loadProgress();
