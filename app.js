@@ -8508,6 +8508,42 @@ function openAccountModal(initialTab = 'stats') {
 
   setAccountMessage('');
   renderAccountStats('modal-open');
+  
+  // Load avatar from Supabase profile
+  if (currentSupabaseUser) {
+    const client = getSupabaseClient();
+    if (client) {
+      client
+        .from('profiles')
+        .select('avatar_url')
+        .eq('id', currentSupabaseUser.id)
+        .maybeSingle()
+        .then(({ data, error }) => {
+          if (!error && data) {
+            const avatarImg = document.querySelector('#profileAvatarImg');
+            const avatarRemoveBtn = document.querySelector('#btnRemoveAvatar');
+            
+            if (avatarImg) {
+              if (data.avatar_url) {
+                avatarImg.src = data.avatar_url;
+                if (avatarRemoveBtn) {
+                  avatarRemoveBtn.hidden = false;
+                }
+              } else {
+                avatarImg.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e0e7ff'/%3E%3Cpath d='M50 45c8.284 0 15-6.716 15-15s-6.716-15-15-15-15 6.716-15 15 6.716 15 15 15zM20 75c0-16.569 13.431-30 30-30s30 13.431 30 30v10H20V75z' fill='%233b82f6'/%3E%3C/svg%3E";
+                if (avatarRemoveBtn) {
+                  avatarRemoveBtn.hidden = true;
+                }
+              }
+            }
+          }
+        })
+        .catch((err) => {
+          console.warn('Nie udało się załadować avatara:', err);
+        });
+    }
+  }
+  
   lockBodyScroll();
   modal.hidden = false;
   requestAnimationFrame(() => {
@@ -9530,6 +9566,159 @@ function initializeAuth() {
     accountPasswordForm.addEventListener('submit', handleAccountPasswordSubmit);
   }
   accountResetBtn?.addEventListener('click', handleAccountResetProgress);
+  
+  // Avatar upload/remove handling
+  const avatarUploadInput = document.querySelector('#avatarUpload');
+  const avatarUploadBtn = document.querySelector('#btnUploadAvatar');
+  const avatarRemoveBtn = document.querySelector('#btnRemoveAvatar');
+  
+  if (avatarUploadBtn && avatarUploadInput) {
+    avatarUploadBtn.addEventListener('click', () => {
+      avatarUploadInput.click();
+    });
+    
+    avatarUploadInput.addEventListener('change', async (event) => {
+      const file = event.target.files?.[0];
+      if (!file) {
+        return;
+      }
+      
+      const client = getSupabaseClient();
+      if (!client || !currentSupabaseUser) {
+        setAccountMessage('Musisz być zalogowany aby zmienić avatar.', 'error');
+        return;
+      }
+      
+      // Walidacja
+      const maxSize = 2 * 1024 * 1024; // 2MB
+      if (file.size > maxSize) {
+        setAccountMessage('Plik jest za duży (maksymalnie 2MB)', 'error');
+        avatarUploadInput.value = '';
+        return;
+      }
+      
+      if (!file.type.startsWith('image/')) {
+        setAccountMessage('Tylko pliki graficzne są dozwolone', 'error');
+        avatarUploadInput.value = '';
+        return;
+      }
+      
+      // Upload
+      setAccountMessage('Przesyłanie zdjęcia...', 'info');
+      avatarUploadBtn.disabled = true;
+      
+      try {
+        const fileExt = file.name.split('.').pop() || 'jpg';
+        const fileName = `${currentSupabaseUser.id}/avatar-${Date.now()}.${fileExt}`;
+        
+        // Usuń stary avatar
+        try {
+          const { data: files } = await client.storage.from('avatars').list(currentSupabaseUser.id);
+          if (files && files.length > 0) {
+            const filesToRemove = files.map((f) => `${currentSupabaseUser.id}/${f.name}`);
+            await client.storage.from('avatars').remove(filesToRemove);
+          }
+        } catch (err) {
+          console.warn('Nie udało się usunąć starego avatara:', err);
+        }
+        
+        // Upload
+        const { data, error } = await client.storage.from('avatars').upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false,
+        });
+        
+        if (error) {
+          console.error('Upload error:', error);
+          if (error.message?.includes('Bucket not found') || error.statusCode === 404) {
+            throw new Error('Bucket "avatars" nie istnieje. Sprawdź AVATAR_SETUP.md');
+          }
+          if (error.message?.includes('permission') || error.statusCode === 403) {
+            throw new Error('Brak uprawnień. Sprawdź RLS policies w AVATAR_SETUP.md');
+          }
+          throw new Error(error.message || 'Upload nie powiódł się');
+        }
+        
+        // Pobierz URL
+        const { data: { publicUrl } } = client.storage.from('avatars').getPublicUrl(fileName);
+        
+        // Update profil
+        const { error: updateError } = await client
+          .from('profiles')
+          .update({ avatar_url: publicUrl })
+          .eq('id', currentSupabaseUser.id);
+          
+        if (updateError) {
+          throw updateError;
+        }
+        
+        // Update UI
+        const avatarImg = document.querySelector('#profileAvatarImg');
+        if (avatarImg) {
+          avatarImg.src = publicUrl;
+        }
+        
+        if (avatarRemoveBtn) {
+          avatarRemoveBtn.hidden = false;
+        }
+        
+        setAccountMessage('Zdjęcie profilowe zostało zaktualizowane.', 'success');
+      } catch (error) {
+        console.error('Avatar upload error:', error);
+        setAccountMessage(`Nie udało się: ${error?.message || 'spróbuj ponownie'}`, 'error');
+      } finally {
+        avatarUploadBtn.disabled = false;
+        avatarUploadInput.value = '';
+      }
+    });
+  }
+  
+  if (avatarRemoveBtn) {
+    avatarRemoveBtn.addEventListener('click', async () => {
+      if (!confirm('Czy na pewno chcesz usunąć zdjęcie profilowe?')) {
+        return;
+      }
+      
+      const client = getSupabaseClient();
+      if (!client || !currentSupabaseUser) {
+        setAccountMessage('Musisz być zalogowany.', 'error');
+        return;
+      }
+      
+      setAccountMessage('Usuwanie zdjęcia...', 'info');
+      avatarRemoveBtn.disabled = true;
+      
+      try {
+        // Usuń z storage
+        const { data: files } = await client.storage.from('avatars').list(currentSupabaseUser.id);
+        if (files && files.length > 0) {
+          const filesToRemove = files.map((f) => `${currentSupabaseUser.id}/${f.name}`);
+          await client.storage.from('avatars').remove(filesToRemove);
+        }
+        
+        // Update profil
+        await client
+          .from('profiles')
+          .update({ avatar_url: null })
+          .eq('id', currentSupabaseUser.id);
+        
+        // Update UI
+        const avatarImg = document.querySelector('#profileAvatarImg');
+        if (avatarImg) {
+          avatarImg.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e0e7ff'/%3E%3Cpath d='M50 45c8.284 0 15-6.716 15-15s-6.716-15-15-15-15 6.716-15 15 6.716 15 15 15zM20 75c0-16.569 13.431-30 30-30s30 13.431 30 30v10H20V75z' fill='%233b82f6'/%3E%3C/svg%3E";
+        }
+        
+        avatarRemoveBtn.hidden = true;
+        setAccountMessage('Zdjęcie profilowe zostało usunięte.', 'success');
+      } catch (error) {
+        console.error('Avatar remove error:', error);
+        setAccountMessage(`Nie udało się: ${error?.message || 'spróbuj ponownie'}`, 'error');
+      } finally {
+        avatarRemoveBtn.disabled = false;
+      }
+    });
+  }
+  
   document.querySelectorAll('[data-account-tab]').forEach((tab) => {
     tab.addEventListener('click', () => {
       const target = tab.dataset.accountTab || 'stats';
