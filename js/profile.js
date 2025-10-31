@@ -1,5 +1,4 @@
-const PROFILE_COLUMNS = 'id,email,name,username,xp,level,updated_at';
-const PROFILE_COLUMNS_FALLBACK = 'id,email,name,xp,level,updated_at';
+const PROFILE_COLUMNS = 'id,email,name,xp,level,updated_at';
 
 function getSupabaseClient() {
   if (typeof window !== 'undefined' && typeof window.getSupabase === 'function') {
@@ -23,22 +22,6 @@ function pickFirstString(...values) {
 function toNumber(value, fallback) {
   const number = Number(value);
   return Number.isFinite(number) ? number : fallback;
-}
-
-function isMissingColumnError(error, column) {
-  if (!error) {
-    return false;
-  }
-  const code = typeof error.code === 'string' ? error.code : '';
-  if (code === '42703') {
-    return true;
-  }
-  const message = `${error.message || ''} ${error.details || ''}`.toLowerCase();
-  const normalizedColumn = String(column || '').toLowerCase();
-  return (
-    normalizedColumn &&
-    (message.includes(`column ${normalizedColumn}`) || message.includes(`${normalizedColumn} does not exist`))
-  );
 }
 
 function normalizeProfile(user, record) {
@@ -87,13 +70,16 @@ function normalizeProfile(user, record) {
 async function fetchProfileRow(columns, userId) {
   const sb = getSupabaseClient();
   const query = sb.from('profiles').select(columns).eq('id', userId);
+  console.log('[fetchProfileRow] Pobieranie profilu, kolumny:', columns, 'userId:', userId);
   try {
     const result = typeof query.maybeSingle === 'function' ? await query.maybeSingle() : await query.single();
+    console.log('[fetchProfileRow] Wynik zapytania:', result);
     if (result?.error?.code === 'PGRST116') {
       return { data: null, error: null };
     }
     return result;
   } catch (error) {
+    console.error('[fetchProfileRow] Błąd zapytania:', error);
     return { data: null, error };
   }
 }
@@ -131,12 +117,9 @@ export async function loadProfileForUser(user) {
 
   const { data, error } = await fetchProfileRow(PROFILE_COLUMNS, user.id);
   if (error) {
-    if (isMissingColumnError(error, 'profiles.username') || isMissingColumnError(error, 'username')) {
-      const fallback = await fetchProfileRow(PROFILE_COLUMNS_FALLBACK, user.id);
-      if (fallback.error) {
-        throw fallback.error;
-      }
-      return normalizeProfile(user, fallback.data);
+    // Jeśli nie ma profilu (PGRST116), zwróć bazowy profil z user metadata
+    if (error.code === 'PGRST116') {
+      return normalizeProfile(user, null);
     }
     throw error;
   }
@@ -146,7 +129,9 @@ export async function loadProfileForUser(user) {
 
 export async function getMyProfile() {
   const user = await requireCurrentUser();
-  return loadProfileForUser(user);
+  const profile = await loadProfileForUser(user);
+  console.log('[getMyProfile] Pobrano profil:', profile);
+  return profile;
 }
 
 export async function updateMyName(name) {
