@@ -2439,19 +2439,20 @@ main::before {
   position: relative;
   overflow: hidden;
   color: #fff;
-  background: linear-gradient(135deg, rgba(37, 99, 235, 0.9), rgba(124, 58, 237, 0.88));
+  background: linear-gradient(135deg, #1e40af, #7c3aed);
   display: grid;
   gap: clamp(0.75rem, 1.6vw, 1.25rem);
-  padding: clamp(1.2rem, 2.4vw, 2rem);
+  padding: clamp(2rem, 3vw, 3rem);
+  min-height: 280px;
 }
 
 .media-trips-hero-card::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: radial-gradient(circle at 18% 12%, rgba(255, 255, 255, 0.25), transparent 62%),
-    radial-gradient(circle at 82% 22%, rgba(14, 165, 233, 0.28), transparent 60%);
-  opacity: 0.9;
+  background: radial-gradient(circle at 20% 20%, rgba(59, 130, 246, 0.3), transparent 50%),
+    radial-gradient(circle at 80% 80%, rgba(139, 92, 246, 0.3), transparent 50%);
+  opacity: 1;
   pointer-events: none;
 }
 
@@ -2460,17 +2461,33 @@ main::before {
   z-index: 1;
 }
 
+.media-trips-hero-card h3 {
+  color: #fff;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  font-weight: 700;
+}
+
+.media-trips-hero-card p {
+  color: rgba(255, 255, 255, 0.95);
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
 .media-trips-hero-badge {
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.9rem;
-  letter-spacing: 0.12em;
+  font-size: 0.875rem;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.25);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.3);
   border-radius: 999px;
-  padding: 0.4rem 0.9rem;
+  padding: 0.5rem 1.1rem;
   font-weight: 600;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .media-trips-hero-actions {
