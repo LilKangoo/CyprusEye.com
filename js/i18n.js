@@ -4,8 +4,10 @@
   const DEFAULT_LANGUAGE = 'pl';
   const STORAGE_KEY = 'ce_lang';
   const SUPPORTED_LANGUAGES = {
-    en: { label: 'English', shortLabel: 'EN', flag: '🇬🇧', dir: 'ltr' },
     pl: { label: 'Polski', shortLabel: 'PL', flag: '🇵🇱', dir: 'ltr' },
+    en: { label: 'English', shortLabel: 'EN', flag: '🇬🇧', dir: 'ltr' },
+    el: { label: 'Ελληνικά', shortLabel: 'EL', flag: '🇬🇷', dir: 'ltr' },
+    he: { label: 'עברית', shortLabel: 'HE', flag: '🇮🇱', dir: 'rtl' },
   };
 
   const translationCache = new Map();
@@ -513,6 +515,13 @@
     }
     if (updateUrl) {
       syncUrl(target);
+    }
+
+    // Apply text direction (RTL/LTR)
+    const langConfig = SUPPORTED_LANGUAGES[target];
+    if (langConfig) {
+      document.documentElement.setAttribute('dir', langConfig.dir);
+      document.documentElement.setAttribute('lang', target);
     }
 
     const apply = (translations = {}) => {

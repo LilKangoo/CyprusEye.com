@@ -44,6 +44,8 @@
     <link rel="stylesheet" href="assets/css/base.css" />
     <link rel="stylesheet" href="assets/css/components.css" />
     <link rel="stylesheet" href="assets/css/mobile.css" />
+    <link rel="stylesheet" href="assets/css/rtl.css" />
+    <link rel="stylesheet" href="assets/css/language-switcher.css" />
     <link rel="stylesheet" href="/css/toast.css" />
 
   <meta name="ce-auth" content="on" />
@@ -58,7 +60,7 @@
 <body data-navigation="multi-page" data-initial-view="tasksView" data-seo-page="tasks">
   <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
   <header class="app-header">
-    <div class="auth-bar" aria-label="Panel konta">
+    <div class="auth-bar" data-i18n-attrs="aria-label:auth.bar.aria" aria-label="Panel konta">
       <div class="auth-controls">
         <button
           id="notificationsToggle"
@@ -79,16 +81,18 @@
             class="btn"
             data-auth="login"
             data-auth-login-mode="modal"
+            data-i18n="header.login"
+            data-i18n-attrs="aria-label:auth.login.aria"
             aria-label="Zaloguj do konta"
           >
             Zaloguj
           </button>
-          <button class="btn" data-auth="guest" aria-label="Tryb gry jako gość">Graj jako gość</button>
-          <button class="btn" data-auth="logout" aria-label="Wyloguj z konta">Wyloguj</button>
-          <span class="auth-badge" data-auth="anon-only">Nie zalogowano</span>
+          <button class="btn" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Graj jako gość</button>
+          <button class="btn" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
+          <span class="auth-badge" data-auth="anon-only" data-i18n="auth.status.anon">Nie zalogowano</span>
         </div>
-        <div data-auth="spinner" class="auth-spinner" aria-live="polite">Łączenie z logowaniem…</div>
-        <p class="auth-guest-note" data-auth-guest-note hidden>
+        <div data-auth="spinner" class="auth-spinner" aria-live="polite" data-i18n="auth.status.spinner">Łączenie z logowaniem…</div>
+        <p class="auth-guest-note" data-auth-guest-note hidden data-i18n="auth.guest.status">
           Grasz jako gość — postęp zapisany lokalnie na tym urządzeniu.
         </p>
         <div class="user-menu" id="userMenu" hidden data-gated="true">
@@ -188,7 +192,7 @@
         <p class="metric-subtext" data-i18n="metrics.badges.subtext">Odkrywaj atrakcje i kolekcjonuj pamiątki.</p>
       </a>
     </div>
-    <nav class="header-tabs" role="tablist" aria-label="Nawigacja główna">
+    <nav class="header-tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna">
       <button
         type="button"
         class="header-tab"
@@ -324,7 +328,7 @@
     </section>
   </main>
 
-  <nav class="mobile-tabbar" aria-label="Dolna nawigacja">
+  <nav class="mobile-tabbar" data-i18n-attrs="aria-label:mobile.nav.aria" aria-label="Dolna nawigacja">
     <button
       type="button"
       class="mobile-tabbar-btn"
@@ -678,11 +682,11 @@
             <dialog id="resetPasswordDialog" class="auth-reset-dialog">
               <form id="form-reset-password" class="auth-form" novalidate>
                 <header class="auth-reset-dialog__header">
-                  <h2>Resetuj hasło</h2>
-                  <button type="button" class="auth-form__link" id="btn-reset-close" aria-label="Zamknij">✖</button>
+                  <h2 data-i18n="auth.reset.title">Resetuj hasło</h2>
+                  <button type="button" class="auth-form__link" id="btn-reset-close" data-i18n-attrs="aria-label:auth.reset.close" aria-label="Zamknij">✖</button>
                 </header>
-                <p>Podaj adres e-mail powiązany z kontem, a wyślemy link do zmiany hasła.</p>
-                <label for="resetEmail">Adres e-mail</label>
+                <p data-i18n="auth.reset.description">Podaj adres e-mail powiązany z kontem, a wyślemy link do zmiany hasła.</p>
+                <label for="resetEmail" data-i18n="auth.reset.emailLabel">Adres e-mail</label>
                 <input id="resetEmail" name="email" type="email" autocomplete="email" required />
                 <div class="auth-form__actions">
                   <button type="submit" class="btn btn--primary">Wyślij link resetujący</button>

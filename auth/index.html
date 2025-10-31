@@ -301,11 +301,11 @@
             <dialog id="resetPasswordDialog" class="auth-reset-dialog">
               <form id="form-reset-password" class="auth-form" novalidate>
                 <header class="auth-reset-dialog__header">
-                  <h2>Resetuj hasło</h2>
-                  <button type="button" class="auth-form__link" id="btn-reset-close" aria-label="Zamknij">✖</button>
+                  <h2 data-i18n="auth.reset.title">Resetuj hasło</h2>
+                  <button type="button" class="auth-form__link" id="btn-reset-close" data-i18n-attrs="aria-label:auth.reset.close" aria-label="Zamknij">✖</button>
                 </header>
-                <p>Podaj adres e-mail powiązany z kontem, a wyślemy link do zmiany hasła.</p>
-                <label for="resetEmail">Adres e-mail</label>
+                <p data-i18n="auth.reset.description">Podaj adres e-mail powiązany z kontem, a wyślemy link do zmiany hasła.</p>
+                <label for="resetEmail" data-i18n="auth.reset.emailLabel">Adres e-mail</label>
                 <input id="resetEmail" name="email" type="email" autocomplete="email" required />
                 <div class="auth-form__actions">
                   <button type="submit" class="btn btn--primary">Wyślij link resetujący</button>
