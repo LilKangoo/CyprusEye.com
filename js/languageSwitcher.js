@@ -89,56 +89,51 @@ function updateLanguageSwitcherUI(currentLang) {
 }
 
 /**
- * Create language switcher UI as FAB (Floating Action Button)
+ * Create desktop language switcher (dropdown in header)
  */
-function createLanguageSwitcher(containerId = 'languageSwitcher') {
+function createDesktopLanguageSwitcher(containerId = 'languageSwitcherDesktop') {
   const container = document.getElementById(containerId);
   if (!container) {
-    console.warn(`Language switcher container #${containerId} not found`);
     return;
   }
 
   const currentLang = getCurrentLanguage();
   const currentConfig = SUPPORTED_LANGUAGES[currentLang];
   
-  // Create FAB structure with toggle button and expandable menu
   const switcherHTML = `
-    <div class="language-switcher" role="group" aria-label="Language selector">
-      <div class="language-switcher-menu" role="menu">
-        ${Object.entries(SUPPORTED_LANGUAGES)
-          .filter(([code]) => code !== currentLang)
-          .map(([code, config]) => `
-            <button 
-              class="language-switcher-btn"
-              data-lang-switch="${code}"
-              role="menuitem"
-              aria-label="Switch to ${config.name}"
-              title="${config.name}"
-            >
-              <span class="language-flag" aria-hidden="true">${config.flag}</span>
-            </button>
-          `).join('')}
-      </div>
+    <div class="language-switcher-desktop" role="group" aria-label="Language selector">
       <button 
         class="language-switcher-toggle"
         aria-label="Change language (current: ${currentConfig.name})"
         aria-expanded="false"
         aria-haspopup="menu"
-        title="${currentConfig.name}"
       >
         <span class="language-flag" aria-hidden="true">${currentConfig.flag}</span>
+        <span class="language-name">${currentConfig.name}</span>
+        <span class="language-arrow" aria-hidden="true">▼</span>
       </button>
+      <div class="language-switcher-menu" role="menu">
+        ${Object.entries(SUPPORTED_LANGUAGES).map(([code, config]) => `
+          <button 
+            class="language-switcher-btn ${code === currentLang ? 'is-active' : ''}"
+            data-lang-switch="${code}"
+            role="menuitem"
+            aria-label="Switch to ${config.name}"
+          >
+            <span class="language-flag" aria-hidden="true">${config.flag}</span>
+            <span class="language-name">${config.name}</span>
+          </button>
+        `).join('')}
+      </div>
     </div>
   `;
 
   container.innerHTML = switcherHTML;
 
-  const switcher = container.querySelector('.language-switcher');
+  const switcher = container.querySelector('.language-switcher-desktop');
   const toggle = container.querySelector('.language-switcher-toggle');
-  const menu = container.querySelector('.language-switcher-menu');
   let isExpanded = false;
 
-  // Toggle menu on click
   toggle.addEventListener('click', (e) => {
     e.stopPropagation();
     isExpanded = !isExpanded;
@@ -146,7 +141,6 @@ function createLanguageSwitcher(containerId = 'languageSwitcher') {
     toggle.setAttribute('aria-expanded', isExpanded.toString());
   });
 
-  // Close menu when clicking outside
   document.addEventListener('click', (e) => {
     if (isExpanded && !switcher.contains(e.target)) {
       isExpanded = false;
@@ -155,7 +149,6 @@ function createLanguageSwitcher(containerId = 'languageSwitcher') {
     }
   });
 
-  // Close menu on Escape key
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && isExpanded) {
       isExpanded = false;
@@ -165,19 +158,113 @@ function createLanguageSwitcher(containerId = 'languageSwitcher') {
     }
   });
 
-  // Attach event listeners to language buttons
   container.querySelectorAll('[data-lang-switch]').forEach(button => {
     button.addEventListener('click', (e) => {
       e.stopPropagation();
       const lang = button.getAttribute('data-lang-switch');
       if (setLanguage(lang)) {
-        // Reload page to apply new translations
         const url = new URL(window.location);
         url.searchParams.set('lang', lang);
         window.location.href = url.toString();
       }
     });
   });
+}
+
+/**
+ * Create mobile language switcher (tabbar button + overlay menu)
+ */
+function createMobileLanguageSwitcher() {
+  const tabbar = document.querySelector('.mobile-tabbar');
+  if (!tabbar) {
+    return;
+  }
+
+  const currentLang = getCurrentLanguage();
+  const currentConfig = SUPPORTED_LANGUAGES[currentLang];
+
+  // Add button to tabbar
+  const tabbarButton = document.createElement('button');
+  tabbarButton.type = 'button';
+  tabbarButton.className = 'mobile-tabbar-btn language-tabbar-btn';
+  tabbarButton.id = 'mobileLanguageTab';
+  tabbarButton.setAttribute('aria-pressed', 'false');
+  tabbarButton.innerHTML = `
+    <span class="mobile-tabbar-icon language-tabbar-icon" aria-hidden="true">${currentConfig.flag}</span>
+    <span class="mobile-tabbar-label language-tabbar-label" data-i18n="mobile.nav.language">Język</span>
+  `;
+  tabbar.appendChild(tabbarButton);
+
+  // Create overlay menu
+  const overlay = document.createElement('div');
+  overlay.className = 'language-mobile-overlay';
+  overlay.setAttribute('aria-hidden', 'true');
+  
+  const menu = document.createElement('div');
+  menu.className = 'language-mobile-menu';
+  menu.setAttribute('role', 'dialog');
+  menu.setAttribute('aria-label', 'Select language');
+  menu.innerHTML = `
+    <div class="language-mobile-menu-header">
+      <h2 class="language-mobile-menu-title" data-i18n="language.switcher.label">Wybierz język</h2>
+      <button class="language-mobile-menu-close" aria-label="Close" type="button">✕</button>
+    </div>
+    <div class="language-mobile-menu-list">
+      ${Object.entries(SUPPORTED_LANGUAGES).map(([code, config]) => `
+        <button 
+          class="language-switcher-btn ${code === currentLang ? 'is-active' : ''}"
+          data-lang-switch="${code}"
+        >
+          <span class="language-flag" aria-hidden="true">${config.flag}</span>
+          <span class="language-name">${config.name}</span>
+        </button>
+      `).join('')}
+    </div>
+  `;
+
+  document.body.appendChild(overlay);
+  document.body.appendChild(menu);
+
+  // Event handlers
+  const openMenu = () => {
+    overlay.classList.add('is-visible');
+    menu.classList.add('is-visible');
+    overlay.setAttribute('aria-hidden', 'false');
+    document.body.style.overflow = 'hidden';
+  };
+
+  const closeMenu = () => {
+    overlay.classList.remove('is-visible');
+    menu.classList.remove('is-visible');
+    overlay.setAttribute('aria-hidden', 'true');
+    document.body.style.overflow = '';
+  };
+
+  tabbarButton.addEventListener('click', openMenu);
+  overlay.addEventListener('click', closeMenu);
+  menu.querySelector('.language-mobile-menu-close').addEventListener('click', closeMenu);
+
+  menu.querySelectorAll('[data-lang-switch]').forEach(button => {
+    button.addEventListener('click', () => {
+      const lang = button.getAttribute('data-lang-switch');
+      if (setLanguage(lang)) {
+        const url = new URL(window.location);
+        url.searchParams.set('lang', lang);
+        window.location.href = url.toString();
+      }
+    });
+  });
+}
+
+/**
+ * Create language switcher UI (both desktop and mobile)
+ */
+function createLanguageSwitcher(containerId = 'languageSwitcherDesktop') {
+  // Desktop dropdown in header
+  createDesktopLanguageSwitcher(containerId);
+  
+  // Mobile tabbar button + overlay
+  createMobileLanguageSwitcher();
 }
 
 /**
@@ -188,7 +275,7 @@ function initLanguageSystem() {
   setLanguage(currentLang);
 
   // Create switcher if container exists
-  if (document.getElementById('languageSwitcher')) {
+  if (document.getElementById('languageSwitcherDesktop') || document.querySelector('.mobile-tabbar')) {
     createLanguageSwitcher();
   }
 

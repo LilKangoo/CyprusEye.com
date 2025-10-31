@@ -98,5 +98,6 @@
   "header.jumpToObjective": "קפוץ ליעד הנוכחי",
   "header.carRentalLink": "🚗 השכרת רכב",
   "header.explorerToggle": "📚 קטלוג אטרקציות",
-  "header.sosToggle": "🚨 SOS"
+  "header.sosToggle": "🚨 SOS",
+  "mobile.nav.language": "שפה"
 }

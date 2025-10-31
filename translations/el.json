@@ -98,5 +98,6 @@
   "header.jumpToObjective": "Μετάβαση στον τρέχοντα στόχο",
   "header.carRentalLink": "🚗 Ενοικίαση αυτοκινήτου",
   "header.explorerToggle": "📚 Κατάλογος αξιοθέατων",
-  "header.sosToggle": "🚨 SOS"
+  "header.sosToggle": "🚨 SOS",
+  "mobile.nav.language": "Γλώσσα"
 }

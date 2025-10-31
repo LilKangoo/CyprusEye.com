@@ -4,6 +4,12 @@
 .language-switcher-desktop {
   position: relative;
   display: inline-block;
+  margin-left: 0.75rem;
+}
+
+[dir="rtl"] .language-switcher-desktop {
+  margin-left: 0;
+  margin-right: 0.75rem;
 }
 
 .language-switcher-desktop .language-switcher-toggle {
