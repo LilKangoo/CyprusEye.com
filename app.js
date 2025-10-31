@@ -9801,6 +9801,30 @@ function bootstrap() {
   });
 
   jumpToObjectiveBtn?.addEventListener('click', () => {
+    // Jeśli nie ma mapy/sekcji z celem, przekieruj do strony głównej
+    if (!currentObjectiveSection) {
+      try {
+        // Zapisz informację o wybranym miejscu (jeśli istnieje)
+        if (state.selected) {
+          storeSelectedPlaceForRedirect(state.selected.id);
+        } else {
+          // Znajdź pierwsze odblokowane miejsce
+          const firstUnlocked = places.find((place) => isPlaceUnlocked(place));
+          if (firstUnlocked) {
+            storeSelectedPlaceForRedirect(firstUnlocked.id);
+          }
+        }
+        // Ustaw flagę, żeby przewinąć do mapy po załadowaniu strony głównej
+        sessionStorage.setItem('wakacjecypr-scroll-to-objective', 'true');
+      } catch (error) {
+        console.warn('Nie udało się zapisać stanu przed przekierowaniem.', error);
+      }
+      // Przekieruj do strony głównej
+      window.location.href = '/index.html';
+      return;
+    }
+
+    // Jesteśmy na stronie głównej - przewiń do mapy
     if (currentObjectiveSection instanceof HTMLElement) {
       currentObjectiveSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
