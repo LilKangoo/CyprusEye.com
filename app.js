@@ -9484,6 +9484,29 @@ function bootstrap() {
     ensureSelectedObjective();
   }
 
+  // Sprawdź, czy użytkownik został przekierowany przez przycisk "Skocz do aktualnego celu"
+  try {
+    const shouldScrollToObjective = sessionStorage.getItem('wakacjecypr-scroll-to-objective');
+    if (shouldScrollToObjective === 'true') {
+      sessionStorage.removeItem('wakacjecypr-scroll-to-objective');
+      // Przewiń do mapy po krótkim opóźnieniu, aby dać czas na załadowanie
+      setTimeout(() => {
+        const objectiveSection = document.getElementById('current-objective');
+        if (objectiveSection instanceof HTMLElement) {
+          objectiveSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          const objectiveHeading = document.getElementById('currentObjectiveHeading');
+          if (objectiveHeading instanceof HTMLElement) {
+            requestAnimationFrame(() => {
+              objectiveHeading.focus({ preventScroll: true });
+            });
+          }
+        }
+      }, 300);
+    }
+  } catch (error) {
+    console.warn('Nie udało się sprawdzić flagi przewijania do celu.', error);
+  }
+
   populateFooterYear();
 
   const checkInBtn = document.getElementById('checkInBtn');
