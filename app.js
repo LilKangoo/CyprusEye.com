@@ -8609,7 +8609,7 @@ async function handleAccountPasswordSubmit(event) {
   showAccountSuccess('account.success.passwordUpdated', 'Hasło zostało pomyślnie zaktualizowane.');
 }
 
-function handleAccountResetProgress() {
+async function handleAccountResetProgress() {
   const confirmed = window.confirm(
     translate(
       'account.confirm.reset',
@@ -8621,6 +8621,7 @@ function handleAccountResetProgress() {
     return;
   }
 
+  // Resetuj dane lokalne
   if (currentUserKey) {
     const account = getAccount(currentUserKey);
     if (!account) {
@@ -8632,6 +8633,37 @@ function handleAccountResetProgress() {
     persistAccounts();
   } else {
     localStorage.removeItem(STORAGE_KEY);
+  }
+
+  // Resetuj w Supabase jeśli użytkownik jest zalogowany
+  if (currentSupabaseUser?.id) {
+    try {
+      const client = getSupabaseClient();
+      if (client) {
+        const { error } = await client
+          .from('profiles')
+          .update({
+            xp: 0,
+            level: 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', currentSupabaseUser.id);
+
+        if (error) {
+          console.error('Nie udało się zresetować profilu w Supabase:', error);
+          showAccountError(
+            'account.error.resetFailed',
+            'Reset lokalny zakończony, ale nie udało się zsynchronizować z serwerem.'
+          );
+        } else {
+          console.log('[Reset] Profil w Supabase został zresetowany');
+          // Odśwież dane z Supabase po resecie
+          await syncProgressFromSupabase({ force: true });
+        }
+      }
+    } catch (error) {
+      console.error('Błąd podczas resetowania profilu w Supabase:', error);
+    }
   }
 
   loadProgress();
