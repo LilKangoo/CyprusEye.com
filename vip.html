@@ -65,44 +65,26 @@
   <script type="module" src="/js/auth.js"></script>
   <script type="module" src="/js/authUi.js"></script>
 </head>
-  <body class="standalone-body" data-seo-page="vip">
+  <body data-navigation="multi-page" data-initial-view="vipView" data-seo-page="vip">
     <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
-    <div class="standalone-page vip-page">
-      <header class="standalone-header vip-header">
-      <div class="standalone-brand">
-        <img
-          src="assets/cyprus_logo-1000x1054.png"
-          alt="WakacjeCypr.com – logo żółwia z flagą Polski"
-          data-i18n-attrs="alt:vip.brand.logoAlt"
-            width="1000"
-            height="1054"
-            loading="eager"
-          />
-        <div>
-          <p class="standalone-brand-overline" data-i18n="vip.brand.overline">Twój concierge na Cyprze</p>
-          <p class="standalone-brand-title" data-i18n="vip.brand.title">WakacjeCypr Quest</p>
-        </div>
-      </div>
-      <a
-      class="header-coupon-button header-coupon-button--light"
-      href="kupon.html"
-      data-i18n="header.coupon"
-      data-i18n-attrs="aria-label:header.couponAria"
-      aria-label="Kupon"
-    >
-      Kupon
-    </a>
-      <a
-        class="ghost"
-        href="/index.html"
-        data-back-home-link="true"
-        data-i18n="vip.back"
-        aria-label="Wróć do aplikacji WakacjeCypr Quest"
-        data-i18n-attrs="aria-label:vip.backAria"
-      >
-        ← Wróć do aplikacji
-      </a>
-        <div id="auth-actions" class="auth-actions">
+  <header class="app-header">
+    <div class="auth-bar" aria-label="Panel konta">
+      <div class="auth-controls">
+        <button
+          id="notificationsToggle"
+          class="ghost notifications-toggle"
+          data-gated="true"
+          data-require-auth
+          data-i18n="header.notifications"
+          type="button"
+          aria-haspopup="true"
+          aria-expanded="false"
+          aria-controls="notificationsPanel"
+        >
+          🔔 Powiadomienia
+          <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
+        </button>
+        <div id="auth-actions" class="auth-actions" aria-live="polite">
           <button
             class="btn"
             data-auth="login"
@@ -113,14 +95,185 @@
           </button>
           <button class="btn" data-auth="guest" aria-label="Tryb gry jako gość">Graj jako gość</button>
           <button class="btn" data-auth="logout" aria-label="Wyloguj z konta">Wyloguj</button>
-          <span class="auth-badge" data-auth="user-only">Zalogowany: <strong data-auth="user-name"></strong></span>
-          <span class="auth-badge" data-auth="guest-only">Grasz jako gość</span>
           <span class="auth-badge" data-auth="anon-only">Nie zalogowano</span>
         </div>
         <div data-auth="spinner" class="auth-spinner" aria-live="polite">Łączenie z logowaniem…</div>
-    </header>
+        <p class="auth-guest-note" data-auth-guest-note hidden>
+          Grasz jako gość — postęp zapisany lokalnie na tym urządzeniu.
+        </p>
+        <div class="user-menu" id="userMenu" hidden data-gated="true">
+          <span id="userGreeting" aria-live="polite"></span>
+          <div class="user-menu-actions">
+            <button type="button" class="ghost" id="accountSettingsBtn" data-i18n="header.accountSettings">
+              📊 Statystyki i ustawienia
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="header-top">
+      <div class="brand">
+        <img
+          src="assets/cyprus_logo-1000x1054.png"
+          alt="WakacjeCypr.com – logo żółwia z flagą Polski"
+          data-i18n-attrs="alt:header.logoAlt"
+          width="1000"
+          height="1054"
+          loading="eager"
+          fetchpriority="high"
+        />
+        <div class="brand-title" data-i18n="header.brand">
+          <p class="brand-name">WakacjeCypr <span>Quest</span></p>
+          <p class="tagline">Zwiedzaj Cypr w interaktywny sposób – zdobywaj odznaki, doświadczenie i odkrywaj nasze najlepsze oferty.</p>
+        </div>
+      </div>
+      <div class="header-top-actions">
+        <a
+          class="header-coupon-button"
+          href="kupon.html"
+          data-i18n="header.coupon"
+          data-i18n-attrs="aria-label:header.couponAria"
+          aria-label="Kupon"
+        >
+          Kupon
+        </a>
+        <div class="header-actions" aria-label="Szybkie działania" data-i18n-attrs="aria-label:header.quickActions.aria">
+          <div class="header-actions-primary">
+            <button class="btn btn-primary primary" type="button" id="jumpToObjective" data-i18n="header.jumpToObjective">
+              Skocz do aktualnego celu
+            </button>
+            <a class="ghost header-link" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
+            <button
+              id="explorerToggle"
+              class="ghost"
+              type="button"
+              aria-haspopup="dialog"
+              aria-controls="explorerModal"
+              data-i18n="header.explorerToggle"
+            >
+              🌍 Przeglądaj atrakcje
+            </button>
+            <button
+              id="sosToggle"
+              class="btn btn-danger danger"
+              type="button"
+              aria-haspopup="dialog"
+              aria-controls="sosModal"
+              data-i18n="header.sosToggle"
+            >
+              🚨 SOS
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="header-metrics" role="list" aria-live="polite" data-gated="true">
+      <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
+        <p class="metric-label" data-i18n="metrics.level.label">Poziom</p>
+        <p class="metric-value" id="headerLevelNumber">1</p>
+        <p class="metric-subtext" id="headerLevelStatus" data-i18n="metrics.level.subtext">
+          Zdobądź pierwsze check-iny, aby awansować!
+        </p>
+      </a>
+      <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
+        <p class="metric-label" data-i18n="metrics.xp.label">Doświadczenie</p>
+        <p class="metric-value"><span id="headerXpPoints">0</span> XP</p>
+        <div
+          class="metric-progress"
+          role="img"
+          aria-label="Postęp doświadczenia"
+          data-i18n-attrs="aria-label:metrics.xp.aria"
+        >
+          <div class="metric-progress-track">
+            <div class="metric-progress-fill is-width-zero" id="headerXpFill"></div>
+          </div>
+          <p class="metric-progress-text" id="headerXpProgressText" data-i18n="metrics.xp.progress">
+            0 / 150 XP do kolejnego poziomu
+          </p>
+        </div>
+      </a>
+      <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
+        <p class="metric-label" data-i18n="metrics.badges.label">Odznaki</p>
+        <p class="metric-value" id="headerBadgesCount">0</p>
+        <p class="metric-subtext" data-i18n="metrics.badges.subtext">Odkrywaj atrakcje i kolekcjonuj pamiątki.</p>
+      </a>
+    </div>
+    <nav class="header-tabs" role="tablist" aria-label="Nawigacja główna">
+      <button
+        type="button"
+        class="header-tab"
+        id="headerAdventureTab"
+        role="tab"
+        aria-selected="false"
+        tabindex="-1"
+        data-page-url="/index.html"
+        data-i18n="nav.adventure"
+      >
+        🎯 Twoja przygoda
+      </button>
+      <button
+        type="button"
+        class="header-tab"
+        id="headerPackingTab"
+        role="tab"
+        aria-selected="false"
+        tabindex="-1"
+        data-page-url="packing.html"
+        data-i18n="nav.packing"
+      >
+        🎒 Planer pakowania
+      </button>
+      <button
+        type="button"
+        class="header-tab"
+        id="headerTasksTab"
+        role="tab"
+        aria-selected="false"
+        tabindex="-1"
+        data-page-url="tasks.html"
+        data-i18n="nav.tasks"
+      >
+        ✅ Zadania do wykonania
+      </button>
+      <button
+        type="button"
+        class="header-tab is-active"
+        id="headerMediaTripsTab"
+        role="tab"
+        aria-selected="true"
+        tabindex="0"
+        data-i18n="nav.mediaTrips"
+      >
+        ✨ VIP wyjazdy indywidualne
+      </button>
+    </nav>
+  </header>
 
-      <main class="standalone-main vip-main">
+  <div id="notificationsPanel" class="notifications-panel" hidden aria-live="polite">
+    <div class="notifications-panel-header">
+      <h3 data-i18n="notifications.title">Powiadomienia</h3>
+      <div class="notifications-panel-actions">
+        <button type="button" class="ghost" id="notificationsMarkAll" data-i18n="notifications.markAll">
+          Oznacz wszystkie jako przeczytane
+        </button>
+        <button
+          type="button"
+          class="ghost notifications-close"
+          id="notificationsClose"
+          aria-label="Zamknij powiadomienia"
+          data-i18n="notifications.close"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+    <p id="notificationsPanelEmpty" class="notifications-empty" data-i18n="notifications.empty">
+      Zaloguj się, aby zobaczyć swoje powiadomienia.
+    </p>
+    <ul id="notificationsPanelList" class="notifications-list" role="list"></ul>
+  </div>
+
+  <main>
         <section class="vip-section" id="vip-offers">
           <header class="section-heading">
             <p class="section-eyebrow" data-i18n="vip.offers.eyebrow">VIP concierge na Cyprze</p>
@@ -274,14 +427,75 @@
           <p data-i18n="vip.contact.whatsapp">Rezerwacja przez WhatsApp: +48&nbsp;534&nbsp;073&nbsp;861</p>
           <p data-i18n="vip.contact.email">E-mail: kontakt@wakacjecypr.com</p>
         </section>
-      </main>
+  </main>
 
-      <footer class="standalone-footer">
-        <p data-i18n="vip.footer">© <span data-current-year></span> WakacjeCypr.com – Twoja prywatna podróż po Cyprze.</p>
-      </footer>
-    </div>
+  <nav class="mobile-tabbar" aria-label="Dolna nawigacja">
+    <button
+      type="button"
+      class="mobile-tabbar-btn"
+      id="mobileAdventureTab"
+      aria-pressed="false"
+      data-page-url="/index.html"
+    >
+      <span class="mobile-tabbar-icon" aria-hidden="true">🎯</span>
+      <span class="mobile-tabbar-label" data-i18n="mobile.nav.adventure">Przygoda</span>
+    </button>
+    <button
+      type="button"
+      class="mobile-tabbar-btn"
+      id="mobilePackingTab"
+      aria-pressed="false"
+      data-page-url="packing.html"
+    >
+      <span class="mobile-tabbar-icon" aria-hidden="true">🎒</span>
+      <span class="mobile-tabbar-label" data-i18n="mobile.nav.packing">Pakowanie</span>
+    </button>
+    <button
+      type="button"
+      class="mobile-tabbar-btn"
+      id="mobileTasksTab"
+      aria-pressed="false"
+      data-page-url="tasks.html"
+    >
+      <span class="mobile-tabbar-icon" aria-hidden="true">✅</span>
+      <span class="mobile-tabbar-label" data-i18n="mobile.nav.tasks">Misje</span>
+    </button>
+    <button
+      type="button"
+      class="mobile-tabbar-btn is-active"
+      id="mobileMediaTripsTab"
+      aria-pressed="true"
+    >
+      <span class="mobile-tabbar-icon" aria-hidden="true">📸</span>
+      <span class="mobile-tabbar-label" data-i18n="mobile.nav.mediaTrips">VIP</span>
+    </button>
+    <button
+      type="button"
+      class="mobile-tabbar-btn"
+      id="mobileCarRentalTab"
+      data-page-url="car-rental-landing.html"
+      aria-pressed="false"
+    >
+      <span class="mobile-tabbar-icon" aria-hidden="true">🚗</span>
+      <span class="mobile-tabbar-label" data-i18n="mobile.nav.carRental">Wynajem aut</span>
+    </button>
+    <button
+      type="button"
+      class="mobile-tabbar-btn"
+      id="mobileCouponsTab"
+      data-page-url="kupon.html"
+      aria-pressed="false"
+    >
+      <span class="mobile-tabbar-icon" aria-hidden="true">🎟️</span>
+      <span class="mobile-tabbar-label" data-i18n="mobile.nav.coupons">Kupony</span>
+    </button>
+  </nav>
 
-    <script>
+  <footer class="app-footer">
+    <p data-i18n="footer.app">© <span data-current-year></span> WakacjeCypr.com • Graj, zwiedzaj i planuj wakacje jednocześnie.</p>
+  </footer>
+
+  <script>
       const yearEl = document.querySelector('[data-current-year]');
       if (yearEl) {
         yearEl.textContent = new Date().getFullYear();
