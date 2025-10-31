@@ -8674,7 +8674,7 @@ async function handleAccountResetProgress(event) {
           .from('profiles')
           .update({
             xp: 0,
-            level: 1,
+            // level jest obliczany automatycznie z xp - nie aktualizuj bezpośrednio
             updated_at: new Date().toISOString()
           })
           .eq('id', user.id)
