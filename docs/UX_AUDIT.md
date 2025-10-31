@@ -3,8 +3,8 @@
 ## 1. Obserwacje globalne
 
 ### 1.1 Fundamenty SEO
-- Brak meta opisu (`<meta name="description">`) w kluczowych plikach (`index.html`, `packing.html`, `tasks.html`, `media-trips.html`, `achievements.html`, `attractions.html`). Dodanie unikalnych, opisowych meta tagów poprawi CTR i widoczność w wynikach wyszukiwania.【F:index.html†L1-L13】【F:packing.html†L1-L13】【F:tasks.html†L1-L13】【F:media-trips.html†L1-L13】【F:achievements.html†L1-L15】【F:attractions.html†L1-L14】
-- Nazwy stron są powtarzalne („WakacjeCypr Quest”) bez doprecyzowania sekcji. Rozważ rozszerzenie `<title>` o słowa kluczowe dla każdej podstrony (np. „Planer pakowania | WakacjeCypr Quest”).【F:packing.html†L7-L13】【F:tasks.html†L7-L13】【F:media-trips.html†L7-L13】
+- Brak meta opisu (`<meta name="description">`) w kluczowych plikach (`index.html`, `packing.html`, `tasks.html`, `vip.html`, `achievements.html`, `attractions.html`). Dodanie unikalnych, opisowych meta tagów poprawi CTR i widoczność w wynikach wyszukiwania.【F:index.html†L1-L13】【F:packing.html†L1-L13】【F:tasks.html†L1-L13】【F:vip.html†L1-L13】【F:achievements.html†L1-L15】【F:attractions.html†L1-L14】
+- Nazwy stron są powtarzalne („WakacjeCypr Quest”) bez doprecyzowania sekcji. Rozważ rozszerzenie `<title>` o słowa kluczowe dla każdej podstrony (np. „Planer pakowania | WakacjeCypr Quest”).【F:packing.html†L7-L13】【F:tasks.html†L7-L13】【F:vip.html†L7-L13】
 
 ### 1.2 Dostępność i nawigacja
 - Brak linku „Skip to content” utrudnia nawigację klawiaturą przy rozbudowanym nagłówku. Warto dodać element ukryty wizualnie pojawiający się po fokusie przed `<header>`.【F:index.html†L15-L169】
@@ -12,11 +12,11 @@
 - Przyciski w pasku metryk (Poziom, XP, Odznaki) są linkami, ale nie mają `aria-current`, przez co użytkownik nie wie, że przeniosą na inną stronę. Dodanie informacji kontekstowej ułatwi orientację.【F:index.html†L90-L115】
 
 ### 1.3 Spójność językowa i lokalizacja
-- HTML określa `lang="pl"`, lecz część treści i danych (np. w `media-trips.html`) zawiera anglicyzmy i zapis wartości w euro bez spacji lub w formacie mieszanym, co utrudnia odbiór. Przygotuj strategię lokalizacyjną (np. pl/en) i stosuj jednolite formatowanie walut z odstępem nierozdzielającym.【F:media-trips.html†L490-L503】
+- HTML określa `lang="pl"`, lecz część treści i danych (np. w `vip.html`) zawiera anglicyzmy i zapis wartości w euro bez spacji lub w formacie mieszanym, co utrudnia odbiór. Przygotuj strategię lokalizacyjną (np. pl/en) i stosuj jednolite formatowanie walut z odstępem nierozdzielającym.【F:vip.html†L490-L503】
 
 ### 1.4 Wydajność
 - Wszystkie strony ładują te same fonty Google (dwa krój) oraz pełny arkusz `assets/css/components.css` (~ szeroki, z licznymi komponentami) nawet jeśli wykorzystują jedynie część komponentów. Rozważ kriowanie krytycznych stylów (critical CSS) dla głównej strony i modularnych arkuszy dla podstron, a także lokalne hostowanie fontów dla lepszego LCP.【F:index.html†L32-L42】【F:car-rental-landing.html†L23-L31】
-- W widokach aplikacji (`index.html`, `packing.html`, `tasks.html`, `media-trips.html`) wczytywany jest Leaflet CSS niezależnie od tego, czy użytkownik faktycznie korzysta z mapy na danej zakładce. Wprowadzenie lazy loadingu skryptów/arkuszy (np. przez dynamiczne importy) skróci czas pierwszego renderu.【F:index.html†L8-L13】【F:packing.html†L8-L13】【F:tasks.html†L8-L13】【F:media-trips.html†L8-L13】
+- W widokach aplikacji (`index.html`, `packing.html`, `tasks.html`, `vip.html`) wczytywany jest Leaflet CSS niezależnie od tego, czy użytkownik faktycznie korzysta z mapy na danej zakładce. Wprowadzenie lazy loadingu skryptów/arkuszy (np. przez dynamiczne importy) skróci czas pierwszego renderu.【F:index.html†L8-L13】【F:packing.html†L8-L13】【F:tasks.html†L8-L13】【F:vip.html†L8-L13】
 
 ### 1.5 Komponenty formularzy
 - Formularze kalkulatorów i rezerwacji (np. w `car-rental.html`, `autopfo.html`) nie mają widocznych komunikatów błędów oraz brak atrybutów `aria-describedby` do powiązania komunikatów statusu z polami. Dodaj walidację z informacjami o błędach w czasie rzeczywistym.【F:car-rental.html†L123-L175】【F:autopfo.html†L124-L176】
@@ -54,9 +54,9 @@
 - Pole wyszukiwania nie zawiera etykiety wizualnej; opiera się na placeholderze. Dodaj widoczny `<label>` lub `aria-labelledby`, by zwiększyć dostępność.【F:attractions.html†L43-L52】
 - Rozważ wprowadzenie filtrów (checkboxy dla kategorii plaże/miasta/natura) oraz sortowania po odległości/popularności dla lepszego UX.【F:attractions.html†L56-L68】
 
-## 6. VIP wyjazdy i media (`media-trips.html`)
+## 6. VIP wyjazdy i media (`vip.html`)
 
-- `media-trips.html` korzysta z layoutu aplikacji, ale nie posiada unikalnego nagłówka z informacją o ofercie VIP. Wstaw stały tytuł i opis w HTML, aby użytkownicy wiedzieli, w jakiej sekcji są po przeładowaniu strony bez JS.【F:media-trips.html†L14-L200】
+- `vip.html` korzysta z layoutu aplikacji, ale nie posiada unikalnego nagłówka z informacją o ofercie VIP. Wstaw stały tytuł i opis w HTML, aby użytkownicy wiedzieli, w jakiej sekcji są po przeładowaniu strony bez JS.【F:vip.html†L14-L200】
 
 ## 7. Wynajem aut (`car-rental-landing.html`, `car-rental.html`, `autopfo.html`)
 
@@ -68,14 +68,14 @@
 ## 8. Elementy prawne i zaufanie
 
 - Brak linków do polityki prywatności, regulaminu i cookies w całym serwisie. Dodaj dedykowaną sekcję w stopce i modale potwierdzające zgodę na przetwarzanie danych przed wysłaniem formularzy, szczególnie że strona operuje na danych osobowych (rezerwacje, kontakt).【F:index.html†L476-L487】【F:car-rental.html†L183-L195】
-- Sekcje z ofertą (np. `media-trips.html`, `car-rental.html`) powinny zawierać opinie klientów lub referencje (np. cytaty, rating). Brak elementów społecznego dowodu utrudnia budowanie zaufania nowych użytkowników.【F:media-trips.html†L490-L503】【F:car-rental.html†L69-L195】
+- Sekcje z ofertą (np. `vip.html`, `car-rental.html`) powinny zawierać opinie klientów lub referencje (np. cytaty, rating). Brak elementów społecznego dowodu utrudnia budowanie zaufania nowych użytkowników.【F:vip.html†L490-L503】【F:car-rental.html†L69-L195】
 
 ## 9. Rekomendacje techniczne
 
 1. **Refaktoryzacja layoutu nagłówka** – rozbij sekcję na moduły, dodaj „skip link” i upraszczaj układ mobilny poprzez hamburger menu dla działań dodatkowych.【F:index.html†L15-L188】
 2. **Wprowadzenie tematu ciemnego** – zastosuj `prefers-color-scheme` i przygotuj wariant kolorystyczny w `assets/css/components.css`, co poprawi komfort nocnego czytania i dostępność (wykorzystać już zdefiniowane zmienne CSS).【F:assets/css/components.css†L1-L80】
 3. **Optymalizacja zasobów** – wdrożenie `rel="preload"` dla głównych fontów, bundling JS (`app.js`, `car-rental.js`, `i18n.js`) i lazy loading modułów mapowych dopiero po wejściu w sekcję mapy.【F:index.html†L8-L13】【F:index.html†L491-L494】
-4. **Dane strukturalne** – dodaj `JSON-LD` dla usług turystycznych (LocalBusiness/TravelAgency) na stronach ofertowych, co poprawi widoczność w wyszukiwarkach.【F:car-rental.html†L34-L200】【F:media-trips.html†L490-L541】
+4. **Dane strukturalne** – dodaj `JSON-LD` dla usług turystycznych (LocalBusiness/TravelAgency) na stronach ofertowych, co poprawi widoczność w wyszukiwarkach.【F:car-rental.html†L34-L200】【F:vip.html†L490-L541】
 5. **Testy użyteczności** – zalecane prototypowanie wariantów CTA i kolejności sekcji (np. w `car-rental-landing.html`) przy pomocy narzędzi jak Hotjar / GA4 (obecnie brak integracji analitycznej w kodzie). Rozważ wdrożenie `dataLayer` i zgód cookies.【F:car-rental-landing.html†L31-L102】
 
 ---

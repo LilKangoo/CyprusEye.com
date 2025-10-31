@@ -94,7 +94,7 @@ Zestawienie `<link>` (rel=stylesheet/preconnect/preload) po sprzątaniu.
 - `stylesheet` → `assets/css/components.css`
 - `stylesheet` → `assets/css/mobile.css`
 
-## media-trips.html
+## vip.html
 - `preconnect` → `https://fonts.googleapis.com`
 - `preconnect` → `https://fonts.gstatic.com`
 - `stylesheet` → `https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap`
