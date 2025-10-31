@@ -2745,6 +2745,7 @@ async function syncProgressFromSupabase({ force = false } = {}) {
   const key = `supabase:${currentSupabaseUser.id}`;
   const account = getAccount(key);
   if (!account) {
+    console.warn('[sync] Account not found for user:', currentSupabaseUser.id);
     return false;
   }
   
@@ -2752,9 +2753,17 @@ async function syncProgressFromSupabase({ force = false } = {}) {
   const remoteLevel = Number.isFinite(remoteData.level) ? remoteData.level : 1;
   const remoteUpdatedAt = remoteData.updated_at || remoteData.updatedAt;
   
+  // Compare against account data, not current state
   const localProfile = account.profile || {};
+  const localProgress = account.progress || {};
   const localUpdatedAt = localProfile.updatedAt;
-  const localXp = Number.isFinite(state.xp) ? state.xp : 0;
+  const localXp = Number.isFinite(localProgress.xp) ? localProgress.xp : 0;
+  
+  console.log('[sync] Comparing progress:', {
+    remote: { xp: remoteXp, level: remoteLevel, updatedAt: remoteUpdatedAt },
+    local: { xp: localXp, updatedAt: localUpdatedAt },
+    force
+  });
   
   // Check if remote data is newer
   let shouldUpdate = force;
@@ -2763,16 +2772,24 @@ async function syncProgressFromSupabase({ force = false } = {}) {
     const remoteTime = Date.parse(remoteUpdatedAt);
     const localTime = Date.parse(localUpdatedAt);
     shouldUpdate = remoteTime > localTime;
+    console.log('[sync] Timestamp comparison:', {
+      remoteTime,
+      localTime,
+      shouldUpdate
+    });
   } else if (!shouldUpdate && remoteXp !== localXp) {
     // If no timestamps or force not set, update if XP differs
     shouldUpdate = true;
+    console.log('[sync] XP differs, updating');
   }
   
   if (shouldUpdate) {
-    // Apply remote progress to local state
+    console.log('[sync] Applying remote progress from Supabase');
+    
+    // Apply remote progress to local account
     applySupabaseProfileProgress(remoteXp, remoteLevel, remoteUpdatedAt);
     
-    // Reload progress from account
+    // Reload progress from account into state
     const savedProgress = account.progress;
     if (savedProgress) {
       applyProgressToState(savedProgress);
@@ -2789,9 +2806,11 @@ async function syncProgressFromSupabase({ force = false } = {}) {
     }
     
     markSupabaseProgressSynced(remoteXp, remoteLevel);
+    console.log('[sync] Progress synced successfully');
     return true;
   }
   
+  console.log('[sync] No update needed, local data is current');
   return false;
 }
 
@@ -2936,6 +2955,7 @@ function performSupabaseProgressSync() {
 
   const client = getSupabaseClient();
   const userId = currentSupabaseUser?.id;
+  const userEmail = currentSupabaseUser?.email || 'unknown';
 
   if (!client || !userId || !pendingSupabaseProgress) {
     return null;
@@ -2950,6 +2970,13 @@ function performSupabaseProgressSync() {
     level: snapshot.level,
     updated_at: new Date().toISOString(),
   };
+
+  console.log('[sync-up] Uploading progress to Supabase:', {
+    userId,
+    email: userEmail,
+    xp: payload.xp,
+    level: payload.level
+  });
 
   const query = client
     .from('profiles')
@@ -2971,12 +2998,19 @@ function performSupabaseProgressSync() {
         (typeof data?.updatedAt === 'string' && data.updatedAt) ||
         payload.updated_at;
 
+      console.log('[sync-up] Progress uploaded successfully:', {
+        xp: xpValue,
+        level: levelValue,
+        updatedAt: updatedAtValue
+      });
+
       if (currentSupabaseUser?.id === userId) {
         markSupabaseProgressSynced(xpValue, levelValue);
       }
 
       applySupabaseProfileProgress(xpValue, levelValue, updatedAtValue, userId);
     } catch (error) {
+      console.warn('[sync-up] Failed to sync progress to Supabase:', error);
       console.warn('Nie udało się zsynchronizować doświadczenia z Supabase:', error);
     }
   })();
@@ -3012,8 +3046,15 @@ function ensureSupabaseAccount(user, preferredName = '') {
   const key = `supabase:${user.id}`;
   const existing = accounts[key];
   const displayName = preferredName || getSupabaseDisplayName(user) || existing?.username || 'Gracz';
+  const userEmail = typeof user.email === 'string' ? user.email.trim() : '';
 
   if (!existing) {
+    console.log('[account] Creating new Supabase account:', {
+      userId: user.id,
+      email: userEmail,
+      displayName
+    });
+    
     accounts[key] = {
       username: displayName,
       progress: getDefaultProgress(),
@@ -3022,6 +3063,13 @@ function ensureSupabaseAccount(user, preferredName = '') {
     persistAccounts();
     return accounts[key];
   }
+
+  console.log('[account] Updating existing Supabase account:', {
+    userId: user.id,
+    email: userEmail,
+    displayName,
+    existingUsername: existing.username
+  });
 
   let updated = false;
   if (displayName && existing.username !== displayName) {
@@ -3041,6 +3089,7 @@ function ensureSupabaseAccount(user, preferredName = '') {
 
   if (updated) {
     persistAccounts();
+    console.log('[account] Account updated and persisted');
   }
 
   return existing;
@@ -3053,6 +3102,12 @@ async function syncSupabaseProfile(user) {
   }
 
   try {
+    const userEmail = typeof user.email === 'string' ? user.email.trim() : '';
+    console.log('[profile] Syncing Supabase profile for user:', {
+      userId: user.id,
+      email: userEmail
+    });
+    
     const { data, error } = await client
       .from('profiles')
       .select('name, email, xp, level, updated_at')
@@ -3072,7 +3127,14 @@ async function syncSupabaseProfile(user) {
       (typeof metadata.display_name === 'string' && metadata.display_name.trim()) ||
       (typeof metadata.first_name === 'string' && metadata.first_name.trim()) ||
       '';
-    const userEmail = typeof user.email === 'string' ? user.email.trim() : '';
+
+    console.log('[profile] Profile data from Supabase:', {
+      hasProfile: !!profile,
+      profileName,
+      profileEmail,
+      metadataName,
+      userEmail
+    });
 
     const updates = {};
     let needsUpdate = false;
@@ -3083,6 +3145,7 @@ async function syncSupabaseProfile(user) {
     if (userEmail && userEmail !== profileEmail) {
       updates.email = userEmail;
       needsUpdate = true;
+      console.log('[profile] Email mismatch, updating profile email to:', userEmail);
     }
 
     let updatedProfile = profile ? { ...profile } : null;
@@ -3182,20 +3245,45 @@ async function syncSupabaseProfile(user) {
 async function applySupabaseUser(user, { reason = 'change' } = {}) {
   if (user && user.id) {
     const sameUser = currentSupabaseUser?.id === user.id;
+    const userEmail = user.email || 'unknown';
+    
+    console.log('[auth] Applying Supabase user:', {
+      userId: user.id,
+      email: userEmail,
+      reason,
+      sameUser
+    });
+    
     if (!sameUser) {
       resetSupabaseProgressSyncState();
     }
+    
     currentSupabaseUser = user;
     currentUserKey = `supabase:${user.id}`;
     setDocumentAuthState('authenticated');
-    const syncedName = await syncSupabaseProfile(user);
-    ensureSupabaseAccount(user, syncedName || getSupabaseDisplayName(user));
-    localStorage.setItem(SESSION_STORAGE_KEY, currentUserKey);
-    loadProgress();
     
-    // Force sync from Supabase to ensure cloud data is the source of truth
-    // This ensures the same stats show on all devices for the same account
-    await syncProgressFromSupabase({ force: true });
+    // First, sync profile from Supabase (includes email and name)
+    console.log('[auth] Syncing profile from Supabase...');
+    const syncedName = await syncSupabaseProfile(user);
+    
+    // Ensure local account exists
+    ensureSupabaseAccount(user, syncedName || getSupabaseDisplayName(user));
+    
+    // Save session
+    localStorage.setItem(SESSION_STORAGE_KEY, currentUserKey);
+    
+    // Force sync progress from Supabase BEFORE loading local progress
+    // This ensures cloud data is the source of truth
+    console.log('[auth] Force syncing progress from Supabase...');
+    const synced = await syncProgressFromSupabase({ force: true });
+    
+    if (!synced) {
+      // If sync failed or no remote data, load from local storage
+      console.log('[auth] No remote progress found, loading local data');
+      loadProgress();
+    } else {
+      console.log('[auth] Successfully synced progress from Supabase');
+    }
     
     renderAllForCurrentState();
     updateAuthUI();
@@ -3214,9 +3302,12 @@ async function applySupabaseUser(user, { reason = 'change' } = {}) {
         6000,
       );
     }
+    
+    console.log('[auth] User applied successfully');
     return;
   }
 
+  console.log('[auth] Signing out user');
   currentSupabaseUser = null;
   resetSupabaseProgressSyncState();
   currentUserKey = null;
@@ -3314,6 +3405,14 @@ function loadProgress() {
 function saveProgress() {
   try {
     const payload = extractProgressFromState();
+    
+    console.log('[save] Saving progress:', {
+      xp: state.xp,
+      level: state.level,
+      hasCurrentUser: !!currentUserKey,
+      hasSupabaseUser: !!currentSupabaseUser?.id
+    });
+    
     if (currentUserKey) {
       const account = getAccount(currentUserKey);
       if (account) {
@@ -3326,12 +3425,15 @@ function saveProgress() {
           level: state.level,
         });
         persistAccounts();
+        console.log('[save] Progress saved to local account');
       }
     } else {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      console.log('[save] Progress saved to localStorage');
     }
 
     if (currentSupabaseUser?.id) {
+      console.log('[save] Queueing Supabase sync');
       queueSupabaseProgressSync();
     }
   } catch (error) {
