@@ -69,6 +69,11 @@ export async function myXpEvents() {
       .limit(10)
 
     if (error) {
+      // Tabela xp_events nie istnieje (404) - to jest OK, zwróć pustą tablicę
+      if (error.code === 'PGRST204' || error.code === '404' || error.message?.includes('does not exist')) {
+        console.info('Tabela xp_events nie istnieje w Supabase - pomijam historię XP')
+        return []
+      }
       console.error('Błąd pobierania zdarzeń XP:', error)
       return []
     }

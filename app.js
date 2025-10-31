@@ -8609,7 +8609,13 @@ async function handleAccountPasswordSubmit(event) {
   showAccountSuccess('account.success.passwordUpdated', 'Hasło zostało pomyślnie zaktualizowane.');
 }
 
-async function handleAccountResetProgress() {
+async function handleAccountResetProgress(event) {
+  // Zatrzymaj propagację eventu
+  if (event) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+
   const confirmed = window.confirm(
     translate(
       'account.confirm.reset',
@@ -8621,7 +8627,55 @@ async function handleAccountResetProgress() {
     return;
   }
 
-  // Resetuj dane lokalne
+  console.log('[Reset] 🚀 START - rozpoczynam resetowanie postępu');
+
+  // NAJPIERW resetuj w Supabase (jeśli użytkownik zalogowany)
+  if (currentSupabaseUser?.id) {
+    console.log('[Reset] Resetuję profil w Supabase dla user:', currentSupabaseUser.id);
+    try {
+      const client = getSupabaseClient();
+      
+      if (client) {
+        console.log('[Reset] Wysyłam UPDATE do Supabase...');
+        const { data, error } = await client
+          .from('profiles')
+          .update({
+            xp: 0,
+            level: 1,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', currentSupabaseUser.id)
+          .select();
+
+        console.log('[Reset] Odpowiedź Supabase:', { data, error });
+
+        if (error) {
+          console.error('[Reset] ❌ Błąd Supabase:', error);
+          alert(`Nie udało się zresetować w Supabase:\n${error.message}\nKod: ${error.code}`);
+          showAccountError(
+            'account.error.resetFailed',
+            'Nie udało się zresetować postępu na serwerze.'
+          );
+          return; // Przerwij jeśli Supabase failed
+        }
+
+        console.log('[Reset] ✅ Supabase zresetowany pomyślnie');
+        
+        // Odśwież dane z Supabase
+        await syncProgressFromSupabase({ force: true });
+        console.log('[Reset] ✅ Synchronizacja zakończona');
+      } else {
+        console.error('[Reset] ❌ Brak klienta Supabase');
+      }
+    } catch (error) {
+      console.error('[Reset] ❌ Exception:', error);
+      alert(`Błąd podczas resetu: ${error.message}`);
+      return;
+    }
+  }
+
+  // POTEM resetuj dane lokalne
+  console.log('[Reset] Resetuję dane lokalne...');
   if (currentUserKey) {
     const account = getAccount(currentUserKey);
     if (!account) {
@@ -8635,54 +8689,12 @@ async function handleAccountResetProgress() {
     localStorage.removeItem(STORAGE_KEY);
   }
 
-  // Resetuj w Supabase jeśli użytkownik jest zalogowany
-  if (currentSupabaseUser?.id) {
-    console.log('[Reset] Rozpoczynam reset w Supabase dla user:', currentSupabaseUser.id);
-    try {
-      const client = getSupabaseClient();
-      console.log('[Reset] Client Supabase:', client ? 'OK' : 'BRAK');
-      
-      if (client) {
-        console.log('[Reset] Wysyłam update do Supabase...');
-        const { data, error } = await client
-          .from('profiles')
-          .update({
-            xp: 0,
-            level: 1,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', currentSupabaseUser.id)
-          .select();
-
-        console.log('[Reset] Odpowiedź z Supabase:', { data, error });
-
-        if (error) {
-          console.error('[Reset] Błąd z Supabase:', error);
-          alert(`Błąd Supabase: ${error.message}\nKod: ${error.code}\nSzczegóły: ${error.details || 'brak'}`);
-          showAccountError(
-            'account.error.resetFailed',
-            'Reset lokalny zakończony, ale nie udało się zsynchronizować z serwerem.'
-          );
-        } else {
-          console.log('[Reset] ✅ Profil w Supabase został zresetowany:', data);
-          // Odśwież dane z Supabase po resecie
-          await syncProgressFromSupabase({ force: true });
-        }
-      } else {
-        console.error('[Reset] Brak klienta Supabase!');
-        alert('Brak klienta Supabase - nie można zresetować w bazie danych.');
-      }
-    } catch (error) {
-      console.error('[Reset] Exception podczas resetowania:', error);
-      alert(`Exception: ${error.message}`);
-    }
-  } else {
-    console.log('[Reset] Brak currentSupabaseUser - pomijam reset w Supabase');
-  }
-
+  // Odśwież UI
+  console.log('[Reset] Odświeżam interfejs...');
   loadProgress();
   renderAllForCurrentState();
   updateAuthUI();
+  
   showAccountSuccess(
     'account.success.progressReset',
     'Postęp został zresetowany. Powodzenia w nowej przygodzie!',
@@ -8691,6 +8703,8 @@ async function handleAccountResetProgress() {
     translate('account.status.progressRestart', 'Rozpoczynasz grę od nowa – powodzenia!'),
     6000,
   );
+  
+  console.log('[Reset] ✅ KONIEC - reset zakończony pomyślnie');
 }
 
 function updateAuthUI() {
