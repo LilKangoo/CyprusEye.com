@@ -1279,18 +1279,5 @@ if (cachedAuthSession) {
   updateAuthUI();
 }
 
-refreshSessionAndProfile()
-  .then(() => {
-    updateAuthUI();
-  })
-  .catch((error) => {
-    const message = friendlyErrorMessage(error?.message || 'Błąd podczas inicjalizacji stanu logowania.');
-    showErr(`Nie udało się: ${message}`);
-    console.warn('Błąd podczas inicjalizacji stanu logowania.', error);
-    updateAuthUI();
-  });
-
-sb.auth.onAuthStateChange(async () => {
-  await refreshSessionAndProfile();
-  updateAuthUI();
-});
+// Inicjalizacja i onAuthStateChange są obsługiwane przez authUi.js -> bootAuth()
+// Nie wywołujemy ich tutaj aby uniknąć podwójnej subskrypcji

@@ -622,6 +622,21 @@ async function loadAuthSession() {
     console.warn('Nie udało się oczyścić parametrów logowania w adresie URL.', error);
   }
 
+  // KRYTYCZNE: Najpierw sprawdź custom storage przed Supabase
+  const ceAuthGlobal = window.CE_AUTH || {};
+  let persistedSnapshot = null;
+  try {
+    if (typeof ceAuthGlobal.readPersistedSession === 'function') {
+      persistedSnapshot = ceAuthGlobal.readPersistedSession();
+      if (persistedSnapshot?.session && typeof ceAuthGlobal.applyPersistedSession === 'function') {
+        ceAuthGlobal.applyPersistedSession(persistedSnapshot, { emitEvent: false });
+        console.log('[auth-ui] Przywrócono sesję z custom storage');
+      }
+    }
+  } catch (error) {
+    console.warn('Nie udało się przywrócić sesji z custom storage:', error);
+  }
+
   const sessionPromise = sb.auth.getSession().then((result) => result?.data?.session || null);
 
   const onceAuthEvent = new Promise((resolve) => {
@@ -644,8 +659,12 @@ async function loadAuthSession() {
   });
 
   const session = await withTimeout(Promise.race([sessionPromise, onceAuthEvent]));
-  await syncSession(session, { reason: 'load-auth-session', status: 'ok' });
-  return { session, shouldReset: false };
+  
+  // Jeśli znaleźliśmy sesję, użyj jej; jeśli nie, użyj persisted snapshot
+  const finalSession = session || persistedSnapshot?.session || null;
+  
+  await syncSession(finalSession, { reason: 'load-auth-session', status: 'ok' });
+  return { session: finalSession, shouldReset: false };
 }
 
 export function bootAuth() {
@@ -962,4 +981,18 @@ document.querySelectorAll('[data-auth=logout]').forEach((el) => {
 if (typeof window !== 'undefined') {
   window.bootAuth = bootAuth;
   window.updateAuthUI = updateAuthUI;
+  
+  // Automatyczna inicjalizacja przy załadowaniu strony
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      bootAuth().catch((error) => {
+        console.warn('[auth-ui] Błąd podczas automatycznej inicjalizacji auth:', error);
+      });
+    });
+  } else {
+    // Dokument już załadowany, uruchom natychmiast
+    bootAuth().catch((error) => {
+      console.warn('[auth-ui] Błąd podczas automatycznej inicjalizacji auth:', error);
+    });
+  }
 }
