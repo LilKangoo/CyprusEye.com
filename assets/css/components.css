@@ -6046,6 +6046,8 @@ body.u-lock-scroll {
   border-radius: 28px;
   padding: clamp(1.5rem, 2.5vw, 2.5rem);
   width: min(840px, 100%);
+  max-height: 90vh;
+  overflow-y: auto;
   box-shadow: 0 35px 65px rgba(15, 23, 42, 0.35);
   border: 1px solid rgba(14, 165, 233, 0.25);
   display: flex;
