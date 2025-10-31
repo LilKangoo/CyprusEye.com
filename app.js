@@ -902,28 +902,6 @@ const mediaTrips = [
       { key: 'transport', text: 'Prywatny transport z hotelu i indywidualna trasa zwiedzania.' },
     ],
   },
-  {
-    id: 'vip-trip',
-    title: 'VIP wyjazd z przewodnikiem WakacjeCypr.com',
-    mediaType: 'Zwiedzanie bez kamer',
-    duration: 'Pakiety 5/8/10 godzin',
-    basePrice: 300,
-    additionalPersonPrice: 55,
-    includedParticipants: 4,
-    defaultParticipants: 4,
-    description:
-      'Pakiety VIP obejmują prywatnego przewodnika, transport oraz personalizację atrakcji. Idealne dla rodzin i par.',
-    pricingOptions: [
-      { key: 'fiveHours', label: 'VIP wyjazd – do 5h', price: 300, extraPerson: 55 },
-      { key: 'eightHours', label: 'VIP wyjazd – do 8h', price: 400, extraPerson: 70 },
-      { key: 'tenHours', label: 'VIP wyjazd – do 10h', price: 500, extraPerson: 85 },
-    ],
-    highlights: [
-      { key: 'private', text: 'Indywidualne tempo zwiedzania bez dodatkowych uczestników.' },
-      { key: 'support', text: 'Wsparcie polskojęzycznego koordynatora i rekomendacje lokalnych miejsc.' },
-      { key: 'extras', text: 'Możliwość łączenia atrakcji z degustacjami i czasem na plaży.' },
-    ],
-  },
 ];
 
 const LOCATIONS_PREVIEW_LIMIT = 6;
