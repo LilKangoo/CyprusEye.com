@@ -267,40 +267,23 @@ function createLanguageSwitcher(containerId = 'languageSwitcherDesktop') {
 
 /**
  * Initialize language system
+ * NOTE: This system is DISABLED - using i18n.js instead
  */
 function initLanguageSystem() {
-  const currentLang = getCurrentLanguage();
-  setLanguage(currentLang);
-
-  // Create mobile switcher if tabbar exists
-  if (document.querySelector('.mobile-tabbar')) {
-    createLanguageSwitcher();
-  }
-
-  // Update existing buttons
-  updateLanguageSwitcherUI(currentLang);
-
-  // Listen for manual language switches
-  document.addEventListener('click', (e) => {
-    const button = e.target.closest('[data-lang-switch]');
-    if (button) {
-      e.preventDefault();
-      const lang = button.getAttribute('data-lang-switch');
-      if (setLanguage(lang)) {
-        const url = new URL(window.location);
-        url.searchParams.set('lang', lang);
-        window.location.href = url.toString();
-      }
-    }
-  });
+  console.log('languageSwitcher.js: DISABLED - using i18n.js system');
+  // System disabled to avoid conflicts with i18n.js
+  // The i18n.js handles all language switching
 }
 
-// Auto-initialize when DOM is ready
+// Auto-initialize when DOM is ready - DISABLED
+// Commenting out to prevent conflicts with i18n.js
+/*
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initLanguageSystem);
 } else {
   initLanguageSystem();
 }
+*/
 
 // Export for external use
 if (typeof module !== 'undefined' && module.exports) {

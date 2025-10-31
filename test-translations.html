@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Test Tłumaczeń</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; }
+    .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+    .test-result { margin: 10px 0; }
+    .success { color: green; }
+    .error { color: red; }
+    .warning { color: orange; }
+    button { padding: 10px 15px; margin: 5px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <h1>Test Systemu Tłumaczeń</h1>
+  
+  <div class="test-section">
+    <h2>1. Przełączanie języków</h2>
+    <button onclick="testLanguage('pl')">Polski</button>
+    <button onclick="testLanguage('en')">English</button>
+    <button onclick="testLanguage('el')">Ελληνικά</button>
+    <button onclick="testLanguage('he')">עברית</button>
+    <div id="current-lang"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>2. Test Tłumaczeń</h2>
+    <p>Nagłówek login: <strong data-i18n="header.login">Ładowanie...</strong></p>
+    <p>Nawigacja: <strong data-i18n="nav.adventure">Ładowanie...</strong></p>
+    <p>Poziom: <strong data-i18n="metrics.level.label">Ładowanie...</strong></p>
+    <p>Doświadczenie: <strong data-i18n="metrics.xp.label">Ładowanie...</strong></p>
+  </div>
+
+  <div class="test-section">
+    <h2>3. Status Systemu</h2>
+    <div id="status-info"></div>
+  </div>
+
+  <div class="test-section">
+    <h2>4. Załadowane Tłumaczenia</h2>
+    <div id="translations-info"></div>
+  </div>
+
+  <script src="js/i18n.js"></script>
+  <script>
+    function testLanguage(lang) {
+      console.log('Switching to:', lang);
+      if (window.appI18n && window.appI18n.setLanguage) {
+        window.appI18n.setLanguage(lang);
+        updateStatus();
+      } else {
+        console.error('appI18n not available');
+      }
+    }
+
+    function updateStatus() {
+      const currentLang = document.getElementById('current-lang');
+      const statusInfo = document.getElementById('status-info');
+      const translationsInfo = document.getElementById('translations-info');
+      
+      if (window.appI18n) {
+        currentLang.innerHTML = `<p class="success">Aktualny język: <strong>${window.appI18n.language}</strong></p>`;
+        
+        const translations = window.appI18n.translations[window.appI18n.language] || {};
+        const keysCount = Object.keys(translations).length;
+        
+        statusInfo.innerHTML = `
+          <p><strong>window.appI18n:</strong> ✓ Dostępne</p>
+          <p><strong>Język:</strong> ${window.appI18n.language}</p>
+          <p><strong>Kierunek:</strong> ${document.documentElement.dir}</p>
+          <p><strong>Lang HTML:</strong> ${document.documentElement.lang}</p>
+        `;
+        
+        translationsInfo.innerHTML = `
+          <p><strong>Załadowane klucze:</strong> ${keysCount}</p>
+          <p><strong>Przykładowe tłumaczenie:</strong></p>
+          <ul>
+            <li>header.login: ${translations['header.login'] || '❌ BRAK'}</li>
+            <li>nav.adventure: ${translations['nav.adventure'] || '❌ BRAK'}</li>
+            <li>metrics.level.label: ${translations['metrics.level.label'] || '❌ BRAK'}</li>
+          </ul>
+        `;
+      } else {
+        currentLang.innerHTML = '<p class="error">window.appI18n nie jest dostępne!</p>';
+        statusInfo.innerHTML = '<p class="error">System i18n nie załadowany poprawnie</p>';
+      }
+    }
+
+    // Update na starcie
+    setTimeout(updateStatus, 1000);
+    
+    // Nasłuchuj na zmiany języka
+    document.addEventListener('wakacjecypr:languagechange', () => {
+      console.log('Language changed event detected');
+      updateStatus();
+    });
+  </script>
+</body>
+</html>
