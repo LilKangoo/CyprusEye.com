@@ -19,5 +19,54 @@
     "lat": 34.6647,
     "lon": 32.8872,
     "radius": 180
+  },
+  {
+    "id": "aphrodite-rock",
+    "name": "Skała Afrodyty",
+    "lat": 34.6641,
+    "lon": 32.6271,
+    "radius": 150
+  },
+  {
+    "id": "kato-pafos-archaeological-park",
+    "name": "Kato Paphos Archaeological Park",
+    "lat": 34.75567,
+    "lon": 32.40417,
+    "radius": 200
+  },
+  {
+    "id": "tombs-of-the-kings",
+    "name": "Tombs of the Kings",
+    "lat": 34.775,
+    "lon": 32.40694,
+    "radius": 180
+  },
+  {
+    "id": "coral-bay",
+    "name": "Coral Bay Beach",
+    "lat": 34.854,
+    "lon": 32.3695,
+    "radius": 150
+  },
+  {
+    "id": "blue-lagoon-akamas",
+    "name": "Błękitna Laguna (Akamas)",
+    "lat": 35.08417,
+    "lon": 32.30611,
+    "radius": 200
+  },
+  {
+    "id": "kolossi-castle",
+    "name": "Zamek Kolossi",
+    "lat": 34.66527,
+    "lon": 32.93396,
+    "radius": 150
+  },
+  {
+    "id": "aphrodites-baths",
+    "name": "Łaźnie Afrodyty",
+    "lat": 35.014,
+    "lon": 32.367,
+    "radius": 150
   }
 ]

@@ -122,11 +122,15 @@ export default function MapScreen() {
     const feature = event?.features?.[0];
     if (feature?.geometry?.coordinates) {
       const [longitude, latitude] = feature.geometry.coordinates;
+      const poiName = feature.properties?.name || 'POI';
+      console.log(`Centrowanie na: ${poiName} (${latitude}, ${longitude})`);
       cameraRef.current?.setCamera({
         centerCoordinate: [longitude, latitude],
         zoomLevel: 15,
         animationDuration: 600,
       });
+    } else {
+      console.log('Brak współrzędnych w klikniętym punkcie', event);
     }
   }, []);
 
@@ -284,10 +288,10 @@ export default function MapScreen() {
           />
         </MapLibreGL.ShapeSource>
 
-        <MapLibreGL.ShapeSource id="pois" shape={poiPoints} onPress={handlePoiPress}>
+        <MapLibreGL.ShapeSource id="pois" shape={poiPoints} onPress={handlePoiPress} hitbox={{ width: 20, height: 20 }}>
           <MapLibreGL.CircleLayer
             id="poi-layer"
-            style={{ circleColor: '#f97316', circleRadius: 5, circleStrokeWidth: 1, circleStrokeColor: '#fff' }}
+            style={{ circleColor: '#f97316', circleRadius: 8, circleStrokeWidth: 2, circleStrokeColor: '#fff' }}
           />
           <MapLibreGL.SymbolLayer
             id="poi-labels"
@@ -297,6 +301,8 @@ export default function MapScreen() {
               textAnchor: 'top',
               textOffset: [0, 1],
               textColor: '#1f2937',
+              textHaloColor: '#ffffff',
+              textHaloWidth: 1,
             }}
           />
         </MapLibreGL.ShapeSource>
