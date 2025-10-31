@@ -1,4 +1,4 @@
-const PROFILE_COLUMNS = 'id,email,name,xp,level,updated_at';
+const PROFILE_COLUMNS = 'id,email,name,username,avatar_url,xp,level,updated_at';
 
 function getSupabaseClient() {
   if (typeof window !== 'undefined' && typeof window.getSupabase === 'function') {
@@ -63,6 +63,7 @@ function normalizeProfile(user, record) {
   profile.xp = toNumber(record?.xp ?? profile.xp, 0);
   profile.level = toNumber(record?.level ?? profile.level, 0);
   profile.updated_at = record?.updated_at || record?.updatedAt || profile.updated_at || null;
+  profile.avatar_url = record?.avatar_url || null;
 
   return profile;
 }
@@ -163,4 +164,70 @@ export async function updateMyUsername(username) {
   }
 
   throw lastError;
+}
+
+export async function uploadAvatar(file) {
+  const user = await requireCurrentUser();
+  const sb = getSupabaseClient();
+
+  // Walidacja pliku
+  const maxSize = 2 * 1024 * 1024; // 2MB
+  if (file.size > maxSize) {
+    throw new Error('Plik jest za duży (maksymalnie 2MB)');
+  }
+
+  if (!file.type.startsWith('image/')) {
+    throw new Error('Tylko pliki graficzne są dozwolone (JPG, PNG, GIF, WebP)');
+  }
+
+  // Usuń stary avatar jeśli istnieje
+  try {
+    const { data: files } = await sb.storage.from('avatars').list(user.id);
+    if (files && files.length > 0) {
+      const filesToRemove = files.map((f) => `${user.id}/${f.name}`);
+      await sb.storage.from('avatars').remove(filesToRemove);
+    }
+  } catch (error) {
+    console.warn('Nie udało się usunąć starego avatara:', error);
+  }
+
+  // Upload nowego pliku
+  const fileExt = file.name.split('.').pop() || 'jpg';
+  const fileName = `${user.id}/avatar-${Date.now()}.${fileExt}`;
+
+  const { data, error } = await sb.storage.from('avatars').upload(fileName, file, {
+    cacheControl: '3600',
+    upsert: false,
+  });
+
+  if (error) {
+    throw error;
+  }
+
+  // Pobierz publiczny URL
+  const {
+    data: { publicUrl },
+  } = sb.storage.from('avatars').getPublicUrl(fileName);
+
+  // Zaktualizuj profil
+  return updateProfile({ avatar_url: publicUrl });
+}
+
+export async function removeAvatar() {
+  const user = await requireCurrentUser();
+  const sb = getSupabaseClient();
+
+  // Usuń pliki z storage
+  try {
+    const { data: files } = await sb.storage.from('avatars').list(user.id);
+    if (files && files.length > 0) {
+      const filesToRemove = files.map((f) => `${user.id}/${f.name}`);
+      await sb.storage.from('avatars').remove(filesToRemove);
+    }
+  } catch (error) {
+    console.warn('Nie udało się usunąć plików avatara:', error);
+  }
+
+  // Zaktualizuj profil (usuń URL)
+  return updateProfile({ avatar_url: null });
 }

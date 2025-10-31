@@ -1,6 +1,6 @@
 import { waitForAuthReady, updateAuthUI } from './authUi.js';
 import { refreshSessionAndProfile } from './auth.js';
-import { getMyProfile, updateMyName, updateMyUsername } from './profile.js';
+import { getMyProfile, updateMyName, updateMyUsername, uploadAvatar, removeAvatar } from './profile.js';
 import { myXpEvents } from './xp.js';
 
 const USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])$/i;
@@ -15,6 +15,10 @@ const selectors = {
   xp: document.querySelector('[data-account-xp]'),
   level: document.querySelector('[data-account-level]'),
   updated: document.querySelector('[data-account-updated]'),
+  avatarImg: document.querySelector('#profileAvatarImg'),
+  avatarUploadInput: document.querySelector('#avatarUpload'),
+  avatarUploadBtn: document.querySelector('#btnUploadAvatar'),
+  avatarRemoveBtn: document.querySelector('#btnRemoveAvatar'),
   usernameForm: document.querySelector('#form-account-username'),
   usernameInput: document.querySelector('#profile-username'),
   nameForm: document.querySelector('#form-account-name'),
@@ -83,7 +87,7 @@ function formatDate(value) {
 }
 
 function renderProfile(profile) {
-  const { email, username, nameDisplay, xp, level, updated, usernameInput, nameInput } = selectors;
+  const { email, username, nameDisplay, xp, level, updated, usernameInput, nameInput, avatarImg, avatarRemoveBtn } = selectors;
   if (email) {
     email.textContent = profile?.email ?? '—';
   }
@@ -109,6 +113,27 @@ function renderProfile(profile) {
     nameInput.value = profile.name;
   } else if (nameInput) {
     nameInput.value = '';
+  }
+  
+  // Avatar
+  if (avatarImg) {
+    const avatarUrl = profile?.avatar_url;
+    if (avatarUrl) {
+      avatarImg.src = avatarUrl;
+      avatarImg.alt = `Avatar użytkownika ${profile?.name || profile?.username || ''}`;
+    } else {
+      avatarImg.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='50' fill='%23e0e7ff'/%3E%3Cpath d='M50 45c8.284 0 15-6.716 15-15s-6.716-15-15-15-15 6.716-15 15 6.716 15 15 15zM20 75c0-16.569 13.431-30 30-30s30 13.431 30 30v10H20V75z' fill='%233b82f6'/%3E%3C/svg%3E";
+      avatarImg.alt = 'Domyślny avatar';
+    }
+  }
+  
+  // Pokaż/ukryj przycisk usuwania avatara
+  if (avatarRemoveBtn) {
+    if (profile?.avatar_url) {
+      avatarRemoveBtn.hidden = false;
+    } else {
+      avatarRemoveBtn.hidden = true;
+    }
   }
 }
 
@@ -511,6 +536,67 @@ function bindPasswordForm() {
   });
 }
 
+function bindAvatarUpload() {
+  const { avatarUploadInput, avatarUploadBtn, avatarRemoveBtn, avatarImg } = selectors;
+  
+  if (!avatarUploadInput || !avatarUploadBtn) {
+    return;
+  }
+
+  // Kliknięcie przycisku otwiera selektor plików
+  avatarUploadBtn.addEventListener('click', () => {
+    avatarUploadInput.click();
+  });
+
+  // Upload pliku
+  avatarUploadInput.addEventListener('change', async (event) => {
+    const file = event.target.files?.[0];
+    if (!file) {
+      return;
+    }
+
+    await withBusy(avatarUploadBtn, async () => {
+      try {
+        setMessage('Przesyłanie zdjęcia...', 'info');
+        const updatedProfile = await uploadAvatar(file);
+        renderProfile(updatedProfile);
+        updateProfileState(updatedProfile);
+        setMessage('Zdjęcie profilowe zostało zaktualizowane.', 'success');
+        await syncSession();
+      } catch (error) {
+        console.error('Nie udało się przesłać zdjęcia:', error);
+        setMessage(`Nie udało się: ${error?.message || 'spróbuj ponownie'}`, 'error');
+      } finally {
+        // Wyczyść input żeby można było ponownie wybrać ten sam plik
+        avatarUploadInput.value = '';
+      }
+    });
+  });
+
+  // Usuwanie avatara
+  if (avatarRemoveBtn) {
+    avatarRemoveBtn.addEventListener('click', async () => {
+      if (!confirm('Czy na pewno chcesz usunąć zdjęcie profilowe?')) {
+        return;
+      }
+
+      await withBusy(avatarRemoveBtn, async () => {
+        try {
+          setMessage('Usuwanie zdjęcia...', 'info');
+          const updatedProfile = await removeAvatar();
+          renderProfile(updatedProfile);
+          updateProfileState(updatedProfile);
+          setMessage('Zdjęcie profilowe zostało usunięte.', 'success');
+          await syncSession();
+        } catch (error) {
+          console.error('Nie udało się usunąć zdjęcia:', error);
+          setMessage(`Nie udało się: ${error?.message || 'spróbuj ponownie'}`, 'error');
+        }
+      });
+    });
+  }
+}
+
 async function ensureAuthenticated() {
   try {
     await waitForAuthReady();
@@ -538,6 +624,7 @@ async function init() {
   bindUsernameForm();
   bindNameForm();
   bindPasswordForm();
+  bindAvatarUpload();
   await loadAccountData();
 }
 
