@@ -610,18 +610,38 @@
     }
   },
   "sos.emergency.title": "🚑 Emergency numbers in Cyprus",
-  "sos.emergency.eu": "EU emergency number (police, ambulance, fire). <a href=\"tel:112\">Call now</a>",
-  "sos.emergency.cyprus": "Cypriot emergency number – works alongside 112. <a href=\"tel:199\">Call</a>",
-  "sos.emergency.police": "24/7 police line (dial the full code when abroad). <a href=\"tel:+35722802020\">Call</a>",
+  "sos.emergency.eu": {
+    "html": "EU emergency number (police, ambulance, fire). <a href=\"tel:112\">Call now</a>"
+  },
+  "sos.emergency.cyprus": {
+    "html": "Cypriot emergency number – works alongside 112. <a href=\"tel:199\">Call</a>"
+  },
+  "sos.emergency.police": {
+    "html": "24/7 police line (dial the full code when abroad). <a href=\"tel:+35722802020\">Call</a>"
+  },
   "sos.embassy.title": "🛡️ Embassy of Poland in Nicosia",
-  "sos.embassy.hotline": "<a href=\"tel:+35799660451\">+357 99 660 451</a> (emergency support for Polish citizens).",
-  "sos.embassy.reception": "<a href=\"tel:+35722751777\">+357 22 751 777</a> (Mon–Fri during office hours).",
-  "sos.embassy.address": "14, Ifigenias Street, 2007 Nicosia • <a href=\"https://maps.google.com/?q=Embassy+of+Poland+in+Cyprus\" target=\"_blank\" rel=\"noopener\">Get directions</a>",
-  "sos.embassy.email": "<a href=\"mailto:nicosia.info@msz.gov.pl\">nicosia.info@msz.gov.pl</a>",
+  "sos.embassy.hotline": {
+    "html": "<a href=\"tel:+35799660451\">+357 99 660 451</a> (emergency support for Polish citizens)."
+  },
+  "sos.embassy.reception": {
+    "html": "<a href=\"tel:+35722751777\">+357 22 751 777</a> (Mon–Fri during office hours)."
+  },
+  "sos.embassy.address": {
+    "html": "14, Ifigenias Street, 2007 Nicosia • <a href=\"https://maps.google.com/?q=Embassy+of+Poland+in+Cyprus\" target=\"_blank\" rel=\"noopener\">Get directions</a>"
+  },
+  "sos.embassy.email": {
+    "html": "<a href=\"mailto:nicosia.info@msz.gov.pl\">nicosia.info@msz.gov.pl</a>"
+  },
   "sos.healthcare.title": "🏥 Closest medical help",
-  "sos.healthcare.hospital": "24/7 emergency department, Anavargos, Paphos. <a href=\"tel:+35726803000\">+357 26 803 000</a> • <a href=\"https://maps.google.com/?q=Paphos+General+Hospital\" target=\"_blank\" rel=\"noopener\">Directions</a>",
-  "sos.healthcare.search": "<a href=\"https://www.google.com/maps/search/hospital+near+me/\" target=\"_blank\" rel=\"noopener\">Open the hospital list on Google Maps</a> and share your location to see nearby options.",
-  "sos.healthcare.pharmacy": "Check duty pharmacies on the <a href=\"https://pharmacy.dl.moh.gov.cy/\" target=\"_blank\" rel=\"noopener\">Ministry of Health website</a> or search for a <a href=\"https://www.google.com/maps/search/pharmacy+near+me/\" target=\"_blank\" rel=\"noopener\">pharmacy nearby</a>.",
+  "sos.healthcare.hospital": {
+    "html": "24/7 emergency department, Anavargos, Paphos. <a href=\"tel:+35726803000\">+357 26 803 000</a> • <a href=\"https://maps.google.com/?q=Paphos+General+Hospital\" target=\"_blank\" rel=\"noopener\">Directions</a>"
+  },
+  "sos.healthcare.search": {
+    "html": "<a href=\"https://www.google.com/maps/search/hospital+near+me/\" target=\"_blank\" rel=\"noopener\">Open the hospital list on Google Maps</a> and share your location to see nearby options."
+  },
+  "sos.healthcare.pharmacy": {
+    "html": "Check duty pharmacies on the <a href=\"https://pharmacy.dl.moh.gov.cy/\" target=\"_blank\" rel=\"noopener\">Ministry of Health website</a> or search for a <a href=\"https://www.google.com/maps/search/pharmacy+near+me/\" target=\"_blank\" rel=\"noopener\">pharmacy nearby</a>."
+  },
   "sos.healthcare.note": "In life-threatening situations always call 112 and clearly state your location. Enable location sharing in the app to find help faster on the map.",
   "account.title": "Account settings",
   "account.subtitle": "Update your login details or start the adventure from scratch.",

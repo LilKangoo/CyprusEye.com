@@ -241,7 +241,9 @@
   "carRental.page.addons.title": "Dostępne dodatki",
   "carRental.page.addons.fullInsurance": "Pełne ubezpieczenie AC bez wkładu własnego – 17 €/dzień.",
   "carRental.page.requirements.title": "Wymagania kierowcy",
-  "carRental.page.requirements.license": "Prawo jazdy od minimum 3 lat <strong>lub</strong> ukończone 25 lat.",
+  "carRental.page.requirements.license": {
+    "html": "Prawo jazdy od minimum 3 lat <strong>lub</strong> ukończone 25 lat."
+  },
   "carRental.page.requirements.youngDriver": "Młodszy kierowca lub staż poniżej 3 lat: +10 €/dzień.",
   "carRental.page.grid.aria": "Pełna flota",
   "carRental.page.tools.aria": "Kalkulator i rezerwacja",
@@ -355,7 +357,9 @@
   "carRentalPfo.page.addons.delivery": "Podstawienie do Coral Bay / Pegeia +10 €, Polis / Latchi +15 €.",
   "carRentalPfo.page.addons.airportShortRental": "Rezerwacja poniżej 7 dni z odbiorem na lotnisku PFO – jednorazowa opłata 10 €.",
   "carRentalPfo.page.requirements.title": "Wymagania kierowcy",
-  "carRentalPfo.page.requirements.license": "Prawo jazdy od minimum 3 lat <strong>lub</strong> ukończone 25 lat.",
+  "carRentalPfo.page.requirements.license": {
+    "html": "Prawo jazdy od minimum 3 lat <strong>lub</strong> ukończone 25 lat."
+  },
   "carRentalPfo.page.requirements.youngDriver": "Młodszy kierowca lub staż poniżej 3 lat: +10 €/dzień.",
   "carRentalPfo.page.grid.aria": "Pełna flota",
   "carRentalPfo.page.tools.aria": "Kalkulator i rezerwacja",
@@ -651,5 +655,47 @@
   "auth.error.resetMissingEmail": "Podaj adres e-mail, aby wysłać link do resetu hasła.",
   "auth.error.resetFailed": "Nie udało się wysłać wiadomości resetującej. Spróbuj ponownie.",
   "mobile.nav.carRental": "Wynajem aut",
-  "mobile.nav.coupons": "Kupony"
+  "mobile.nav.coupons": "Kupony",
+  "sos.title": "SOS",
+  "sos.description": "Szybki dostęp do numerów alarmowych, kontaktu z ambasadą oraz wskazówek medycznych.",
+  "sos.close": {
+    "text": "X",
+    "attributes": {
+      "aria-label": "Zamknij SOS"
+    }
+  },
+  "sos.emergency.title": "🚑 Numery alarmowe na Cyprze",
+  "sos.emergency.eu": {
+    "html": "Uniwersalny numer alarmowy UE (policja, pogotowie, straż pożarna). <a href=\"tel:112\">Zadzwoń teraz</a>"
+  },
+  "sos.emergency.cyprus": {
+    "html": "Cypryjski numer alarmowy – działa równolegle z 112. <a href=\"tel:199\">Połącz</a>"
+  },
+  "sos.emergency.police": {
+    "html": "Całodobowa linia policji (spoza Cypru wybierz pełny numer kierunkowy). <a href=\"tel:+35722802020\">Zadzwoń</a>"
+  },
+  "sos.embassy.title": "🛡️ Ambasada RP w Nikozji",
+  "sos.embassy.hotline": {
+    "html": "<a href=\"tel:+35799660451\">+357 99 660 451</a> (wsparcie w nagłych wypadkach obywateli RP)."
+  },
+  "sos.embassy.reception": {
+    "html": "<a href=\"tel:+35722751777\">+357 22 751 777</a> (pon.–pt. w godz. pracy placówki)."
+  },
+  "sos.embassy.address": {
+    "html": "14, Ifigenias Street, 2007 Nikozja • <a href=\"https://maps.google.com/?q=Embassy+of+Poland+in+Cyprus\" target=\"_blank\" rel=\"noopener\">Wyznacz trasę</a>"
+  },
+  "sos.embassy.email": {
+    "html": "<a href=\"mailto:nicosia.info@msz.gov.pl\">nicosia.info@msz.gov.pl</a>"
+  },
+  "sos.healthcare.title": "🏥 Najbliższa pomoc medyczna",
+  "sos.healthcare.hospital": {
+    "html": "Całodobowa izba przyjęć, Anavargos, Pafos. <a href=\"tel:+35726803000\">+357 26 803 000</a> • <a href=\"https://maps.google.com/?q=Paphos+General+Hospital\" target=\"_blank\" rel=\"noopener\">Mapa dojazdu</a>"
+  },
+  "sos.healthcare.search": {
+    "html": "<a href=\"https://www.google.com/maps/search/hospital+near+me/\" target=\"_blank\" rel=\"noopener\">Otwórz listę szpitali na Mapach Google</a> i udostępnij lokalizację, aby zobaczyć najbliższe opcje."
+  },
+  "sos.healthcare.pharmacy": {
+    "html": "Sprawdź aktualne dyżury na <a href=\"https://pharmacy.dl.moh.gov.cy/\" target=\"_blank\" rel=\"noopener\">stronie Ministerstwa Zdrowia</a> lub wyszukaj <a href=\"https://www.google.com/maps/search/pharmacy+near+me/\" target=\"_blank\" rel=\"noopener\">aptekę w pobliżu</a>."
+  },
+  "sos.healthcare.note": "W sytuacji zagrożenia życia zawsze dzwoń pod 112 i dokładnie podaj lokalizację. W aplikacji włącz udostępnianie lokalizacji, aby szybciej odnaleźć pomoc na mapie."
 }
