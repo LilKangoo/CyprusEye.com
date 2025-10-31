@@ -118,6 +118,18 @@ export default function MapScreen() {
     }
   }, [latitude, longitude]);
 
+  const handlePoiPress = useCallback((event: any) => {
+    const feature = event?.features?.[0];
+    if (feature?.geometry?.coordinates) {
+      const [longitude, latitude] = feature.geometry.coordinates;
+      cameraRef.current?.setCamera({
+        centerCoordinate: [longitude, latitude],
+        zoomLevel: 15,
+        animationDuration: 600,
+      });
+    }
+  }, []);
+
   const tutorialSteps = useMemo<TutorialStep[]>(() => {
     const steps: TutorialStep[] = [
       {
@@ -272,7 +284,7 @@ export default function MapScreen() {
           />
         </MapLibreGL.ShapeSource>
 
-        <MapLibreGL.ShapeSource id="pois" shape={poiPoints}>
+        <MapLibreGL.ShapeSource id="pois" shape={poiPoints} onPress={handlePoiPress}>
           <MapLibreGL.CircleLayer
             id="poi-layer"
             style={{ circleColor: '#f97316', circleRadius: 5, circleStrokeWidth: 1, circleStrokeColor: '#fff' }}
