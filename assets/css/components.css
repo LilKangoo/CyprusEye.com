@@ -3325,30 +3325,62 @@ main::before {
 .locations-panel h2,
 .progress-panel h2,
 .services-panel h2 {
-  margin: 0;
-  font-size: 1.35rem;
+  margin: 0 0 0.5rem 0;
+  font-size: clamp(1.4rem, 3vw, 1.75rem);
+  font-weight: 700;
+  color: rgba(15, 23, 42, 0.95);
 }
 
 .services-panel p {
-  margin: 0;
-  color: var(--muted);
-  line-height: 1.5;
+  margin: 0 0 0.75rem 0;
+  color: rgba(15, 23, 42, 0.75);
+  line-height: 1.6;
+  font-size: clamp(1rem, 2vw, 1.05rem);
 }
 
 .services-panel ul {
-  margin: 0;
-  padding-left: 1.1rem;
+  margin: 0 0 1.25rem 0;
+  padding-left: 1.5rem;
   display: grid;
-  gap: 0.45rem;
-  color: var(--muted);
+  gap: 0.6rem;
+  color: rgba(15, 23, 42, 0.75);
+  line-height: 1.6;
+  font-size: clamp(0.95rem, 2vw, 1rem);
+}
+
+.services-panel ul li {
+  padding-left: 0.25rem;
 }
 
 .services-panel .primary {
   align-self: flex-start;
+  min-height: 48px;
+  padding: 0.875rem 1.5rem;
+  font-weight: 600;
+  font-size: 1rem;
 }
 
 .services-panel-footer {
   margin-top: auto;
+}
+
+@media (max-width: 600px) {
+  .services-panel h2 {
+    font-size: clamp(1.3rem, 4vw, 1.5rem);
+  }
+  
+  .services-panel p {
+    font-size: 1rem;
+  }
+  
+  .services-panel ul {
+    font-size: 0.95rem;
+  }
+  
+  .services-panel .primary {
+    width: 100%;
+    text-align: center;
+  }
 }
 
 .auto-rental-promo {
@@ -4826,19 +4858,53 @@ main::before {
   justify-content: space-between;
   gap: 1rem;
   align-items: center;
+  margin-bottom: clamp(2rem, 4vw, 3rem);
 }
 
 .utility-view-header h2 {
-  margin: 0;
-  font-size: clamp(2rem, 4vw, 2.6rem);
+  margin: 0 0 0.75rem 0;
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
+  color: rgba(15, 23, 42, 0.95);
+  font-weight: 700;
+  line-height: 1.2;
 }
 
 .utility-view-header p {
-  margin: 0.35rem 0 0;
-  max-width: 60ch;
+  margin: 0;
+  max-width: 65ch;
   color: rgba(15, 23, 42, 0.75);
-  font-size: 1.05rem;
+  font-size: clamp(1rem, 2vw, 1.15rem);
   line-height: 1.6;
+}
+
+.utility-view-header > div {
+  flex: 1 1 auto;
+  min-width: 280px;
+}
+
+.utility-view-header a {
+  flex-shrink: 0;
+}
+
+@media (max-width: 600px) {
+  .utility-view-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1.25rem;
+  }
+  
+  .utility-view-header h2 {
+    font-size: clamp(1.5rem, 5vw, 2rem);
+  }
+  
+  .utility-view-header p {
+    font-size: 1rem;
+  }
+  
+  .utility-view-header a {
+    width: 100%;
+    text-align: center;
+  }
 }
 
 .journal-form {
