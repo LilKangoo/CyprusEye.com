@@ -5650,10 +5650,18 @@ function focusPlace(id) {
   state.selected = place;
 
   if (map) {
-    map.setView([place.lat, place.lng], 12, { animate: true });
+    // Użyj flyTo dla bardziej niezawodnego centrowania
+    map.flyTo([place.lat, place.lng], 13, { 
+      animate: true,
+      duration: 1.0,
+      easeLinearity: 0.25
+    });
     const marker = markers.get(place.id);
     if (marker) {
-      marker.openPopup();
+      // Opóźnij otwarcie popup aby mapa zdążyła się wycentrować
+      setTimeout(() => {
+        marker.openPopup();
+      }, 1000);
     }
   }
 
