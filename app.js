@@ -2768,7 +2768,7 @@ async function syncProgressFromSupabase({ force = false } = {}) {
     shouldUpdate = true;
   }
   
-  if (shouldUpdate && remoteXp !== localXp) {
+  if (shouldUpdate) {
     // Apply remote progress to local state
     applySupabaseProfileProgress(remoteXp, remoteLevel, remoteUpdatedAt);
     
@@ -2780,7 +2780,7 @@ async function syncProgressFromSupabase({ force = false } = {}) {
       renderAllForCurrentState();
       
       const xpDiff = remoteXp - localXp;
-      if (xpDiff !== 0) {
+      if (xpDiff !== 0 && !force) {
         const message = xpDiff > 0 
           ? translate('sync.progress.updated', `Zsynchronizowano postęp: +${xpDiff} XP z innego urządzenia`, { xp: xpDiff })
           : translate('sync.progress.synced', 'Postęp zsynchronizowany z chmury');
@@ -3192,6 +3192,11 @@ async function applySupabaseUser(user, { reason = 'change' } = {}) {
     ensureSupabaseAccount(user, syncedName || getSupabaseDisplayName(user));
     localStorage.setItem(SESSION_STORAGE_KEY, currentUserKey);
     loadProgress();
+    
+    // Force sync from Supabase to ensure cloud data is the source of truth
+    // This ensures the same stats show on all devices for the same account
+    await syncProgressFromSupabase({ force: true });
+    
     renderAllForCurrentState();
     updateAuthUI();
     clearAuthForms();
