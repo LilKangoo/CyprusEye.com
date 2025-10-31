@@ -89,7 +89,7 @@ function updateLanguageSwitcherUI(currentLang) {
 }
 
 /**
- * Create language switcher UI
+ * Create language switcher UI as FAB (Floating Action Button)
  */
 function createLanguageSwitcher(containerId = 'languageSwitcher') {
   const container = document.getElementById(containerId);
@@ -99,29 +99,76 @@ function createLanguageSwitcher(containerId = 'languageSwitcher') {
   }
 
   const currentLang = getCurrentLanguage();
+  const currentConfig = SUPPORTED_LANGUAGES[currentLang];
   
+  // Create FAB structure with toggle button and expandable menu
   const switcherHTML = `
     <div class="language-switcher" role="group" aria-label="Language selector">
-      ${Object.entries(SUPPORTED_LANGUAGES).map(([code, config]) => `
-        <button 
-          class="language-switcher-btn ${code === currentLang ? 'is-active' : ''}"
-          data-lang-switch="${code}"
-          aria-label="${config.name}"
-          ${code === currentLang ? 'aria-current="true"' : ''}
-          title="${config.name}"
-        >
-          <span class="language-flag" aria-hidden="true">${config.flag}</span>
-          <span class="language-name">${config.name}</span>
-        </button>
-      `).join('')}
+      <div class="language-switcher-menu" role="menu">
+        ${Object.entries(SUPPORTED_LANGUAGES)
+          .filter(([code]) => code !== currentLang)
+          .map(([code, config]) => `
+            <button 
+              class="language-switcher-btn"
+              data-lang-switch="${code}"
+              role="menuitem"
+              aria-label="Switch to ${config.name}"
+              title="${config.name}"
+            >
+              <span class="language-flag" aria-hidden="true">${config.flag}</span>
+            </button>
+          `).join('')}
+      </div>
+      <button 
+        class="language-switcher-toggle"
+        aria-label="Change language (current: ${currentConfig.name})"
+        aria-expanded="false"
+        aria-haspopup="menu"
+        title="${currentConfig.name}"
+      >
+        <span class="language-flag" aria-hidden="true">${currentConfig.flag}</span>
+      </button>
     </div>
   `;
 
   container.innerHTML = switcherHTML;
 
-  // Attach event listeners
+  const switcher = container.querySelector('.language-switcher');
+  const toggle = container.querySelector('.language-switcher-toggle');
+  const menu = container.querySelector('.language-switcher-menu');
+  let isExpanded = false;
+
+  // Toggle menu on click
+  toggle.addEventListener('click', (e) => {
+    e.stopPropagation();
+    isExpanded = !isExpanded;
+    switcher.classList.toggle('is-expanded', isExpanded);
+    toggle.setAttribute('aria-expanded', isExpanded.toString());
+  });
+
+  // Close menu when clicking outside
+  document.addEventListener('click', (e) => {
+    if (isExpanded && !switcher.contains(e.target)) {
+      isExpanded = false;
+      switcher.classList.remove('is-expanded');
+      toggle.setAttribute('aria-expanded', 'false');
+    }
+  });
+
+  // Close menu on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && isExpanded) {
+      isExpanded = false;
+      switcher.classList.remove('is-expanded');
+      toggle.setAttribute('aria-expanded', 'false');
+      toggle.focus();
+    }
+  });
+
+  // Attach event listeners to language buttons
   container.querySelectorAll('[data-lang-switch]').forEach(button => {
-    button.addEventListener('click', () => {
+    button.addEventListener('click', (e) => {
+      e.stopPropagation();
       const lang = button.getAttribute('data-lang-switch');
       if (setLanguage(lang)) {
         // Reload page to apply new translations

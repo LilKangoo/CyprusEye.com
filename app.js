@@ -1465,6 +1465,9 @@ let pendingSupabaseProgress = null;
 let supabaseProgressSyncPromise = null;
 let supabaseProgressSyncTimeout = null;
 let lastSupabaseSyncedProgress = null;
+let supabaseProgressFetchInterval = null;
+let lastSupabaseProgressFetchTime = null;
+const SUPABASE_PROGRESS_FETCH_INTERVAL = 120000; // 2 minutes
 let reviews = {};
 let journalEntries = [];
 let editingJournalEntryId = null;
@@ -2702,6 +2705,118 @@ function markSupabaseProgressSynced(xp, level) {
   lastSupabaseSyncedProgress = normalizeSupabaseProgressSnapshot({ xp, level });
 }
 
+async function fetchLatestSupabaseProgress() {
+  const client = getSupabaseClient();
+  const userId = currentSupabaseUser?.id;
+  
+  if (!client || !userId) {
+    return null;
+  }
+  
+  try {
+    const { data, error } = await client
+      .from('profiles')
+      .select('xp, level, updated_at')
+      .eq('id', userId)
+      .maybeSingle();
+      
+    if (error && error.code !== 'PGRST116') {
+      throw error;
+    }
+    
+    lastSupabaseProgressFetchTime = Date.now();
+    return data;
+  } catch (error) {
+    console.warn('Nie udało się pobrać postępu z Supabase:', error);
+    return null;
+  }
+}
+
+async function syncProgressFromSupabase({ force = false } = {}) {
+  if (!currentSupabaseUser?.id) {
+    return false;
+  }
+  
+  const remoteData = await fetchLatestSupabaseProgress();
+  if (!remoteData) {
+    return false;
+  }
+  
+  const key = `supabase:${currentSupabaseUser.id}`;
+  const account = getAccount(key);
+  if (!account) {
+    return false;
+  }
+  
+  const remoteXp = Number.isFinite(remoteData.xp) ? remoteData.xp : 0;
+  const remoteLevel = Number.isFinite(remoteData.level) ? remoteData.level : 1;
+  const remoteUpdatedAt = remoteData.updated_at || remoteData.updatedAt;
+  
+  const localProfile = account.profile || {};
+  const localUpdatedAt = localProfile.updatedAt;
+  const localXp = Number.isFinite(state.xp) ? state.xp : 0;
+  
+  // Check if remote data is newer
+  let shouldUpdate = force;
+  
+  if (!shouldUpdate && remoteUpdatedAt && localUpdatedAt) {
+    const remoteTime = Date.parse(remoteUpdatedAt);
+    const localTime = Date.parse(localUpdatedAt);
+    shouldUpdate = remoteTime > localTime;
+  } else if (!shouldUpdate && remoteXp !== localXp) {
+    // If no timestamps or force not set, update if XP differs
+    shouldUpdate = true;
+  }
+  
+  if (shouldUpdate && remoteXp !== localXp) {
+    // Apply remote progress to local state
+    applySupabaseProfileProgress(remoteXp, remoteLevel, remoteUpdatedAt);
+    
+    // Reload progress from account
+    const savedProgress = account.progress;
+    if (savedProgress) {
+      applyProgressToState(savedProgress);
+      recalculateLevel();
+      renderAllForCurrentState();
+      
+      const xpDiff = remoteXp - localXp;
+      if (xpDiff !== 0) {
+        const message = xpDiff > 0 
+          ? translate('sync.progress.updated', `Zsynchronizowano postęp: +${xpDiff} XP z innego urządzenia`, { xp: xpDiff })
+          : translate('sync.progress.synced', 'Postęp zsynchronizowany z chmury');
+        setLevelStatus(message, 5000);
+      }
+    }
+    
+    markSupabaseProgressSynced(remoteXp, remoteLevel);
+    return true;
+  }
+  
+  return false;
+}
+
+function startSupabaseProgressFetching() {
+  if (!currentSupabaseUser?.id) {
+    return;
+  }
+  
+  stopSupabaseProgressFetching();
+  
+  supabaseProgressFetchInterval = setInterval(() => {
+    if (currentSupabaseUser?.id && document.visibilityState === 'visible') {
+      void syncProgressFromSupabase();
+    }
+  }, SUPABASE_PROGRESS_FETCH_INTERVAL);
+}
+
+function stopSupabaseProgressFetching() {
+  if (supabaseProgressFetchInterval) {
+    clearInterval(supabaseProgressFetchInterval);
+    supabaseProgressFetchInterval = null;
+  }
+  lastSupabaseProgressFetchTime = null;
+}
+
 function resetSupabaseProgressSyncState({ resetLast = true } = {}) {
   if (supabaseProgressSyncTimeout) {
     clearTimeout(supabaseProgressSyncTimeout);
@@ -2712,6 +2827,7 @@ function resetSupabaseProgressSyncState({ resetLast = true } = {}) {
   if (resetLast) {
     lastSupabaseSyncedProgress = null;
   }
+  stopSupabaseProgressFetching();
 }
 
 function queueSupabaseProgressSync({ immediate = false } = {}) {
@@ -3081,6 +3197,9 @@ async function applySupabaseUser(user, { reason = 'change' } = {}) {
     clearAuthForms();
     setAuthMessage('');
     closeAuthModal();
+    
+    // Start periodic progress fetching from Supabase
+    startSupabaseProgressFetching();
 
     if (reason === 'sign-in' && !sameUser) {
       setLevelStatus(
@@ -8081,6 +8200,7 @@ function ensureSelectedObjective() {
 function renderAllForCurrentState() {
   recalculateLevel();
   renderProgress();
+  renderAccountStats('render-all');
   renderDailyStreak();
   renderDailyChallenge();
   renderAchievements();
@@ -10026,6 +10146,20 @@ function bootstrap() {
 window.addEventListener('beforeunload', () => {
   if (locationWatchId !== null && 'geolocation' in navigator) {
     navigator.geolocation.clearWatch(locationWatchId);
+  }
+});
+
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && currentSupabaseUser?.id) {
+    // Sync progress from Supabase when user returns to the tab
+    const timeSinceLastFetch = lastSupabaseProgressFetchTime 
+      ? Date.now() - lastSupabaseProgressFetchTime 
+      : Infinity;
+    
+    // Only fetch if it's been more than 30 seconds since last fetch
+    if (timeSinceLastFetch > 30000) {
+      void syncProgressFromSupabase();
+    }
   }
 });
 
