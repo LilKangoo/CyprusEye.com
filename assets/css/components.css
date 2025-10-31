@@ -2595,6 +2595,25 @@ main::before {
   gap: 0.6rem;
 }
 
+.media-trips-packages h3,
+.media-trips-overview h3,
+.media-trips-video h3 {
+  color: rgba(15, 23, 42, 0.95);
+}
+
+.media-trips-packages p,
+.media-trips-overview p,
+.media-trips-video p {
+  color: rgba(51, 65, 85, 0.9);
+}
+
+.media-trips-packages .section-eyebrow,
+.media-trips-overview .section-eyebrow,
+.media-trips-video .section-eyebrow {
+  color: rgba(37, 99, 235, 0.9);
+  font-weight: 700;
+}
+
 .media-trips-video {
   display: grid;
   gap: clamp(1rem, 2vw, 1.6rem);
