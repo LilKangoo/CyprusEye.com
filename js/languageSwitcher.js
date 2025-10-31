@@ -257,13 +257,11 @@ function createMobileLanguageSwitcher() {
 }
 
 /**
- * Create language switcher UI (both desktop and mobile)
+ * Create language switcher UI (mobile only - desktop uses FAB from components.css)
  */
 function createLanguageSwitcher(containerId = 'languageSwitcherDesktop') {
-  // Desktop dropdown in header
-  createDesktopLanguageSwitcher(containerId);
-  
-  // Mobile tabbar button + overlay
+  // Desktop uses the existing FAB from components.css
+  // Only create mobile tabbar button + overlay
   createMobileLanguageSwitcher();
 }
 
@@ -274,8 +272,8 @@ function initLanguageSystem() {
   const currentLang = getCurrentLanguage();
   setLanguage(currentLang);
 
-  // Create switcher if container exists
-  if (document.getElementById('languageSwitcherDesktop') || document.querySelector('.mobile-tabbar')) {
+  // Create mobile switcher if tabbar exists
+  if (document.querySelector('.mobile-tabbar')) {
     createLanguageSwitcher();
   }
 
