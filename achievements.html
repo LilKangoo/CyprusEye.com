@@ -51,9 +51,22 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
+    rel="preload"
+    as="style"
+    href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+  />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+    media="print"
+    onload="this.media='all'"
+  />
+  <noscript>
+    <link
       href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
+  </noscript>
     <link rel="stylesheet" href="assets/css/tokens.css" />
     <link rel="stylesheet" href="assets/css/base.css" />
     <link rel="stylesheet" href="assets/css/components.css" />
@@ -70,7 +83,9 @@
   <script type="module" src="/js/authUi.js"></script>
 </head>
   <body data-navigation="multi-page" data-initial-view="achievementsView" data-seo-page="achievements">
-    <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+  <!-- Accessibility: Skip to main content -->
+  <a href="#main-content" class="skip-link" data-i18n="accessibility.skipToContent">Skip to main content</a>
+      <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
   <header class="app-header">
     <div class="auth-bar" data-i18n-attrs="aria-label:auth.bar.aria" aria-label="Panel konta">
       <div class="auth-controls">
@@ -107,7 +122,7 @@
             aria-label="Mój profil"
             id="profileButton"
           >
-            <img id="headerUserAvatar" class="header-user-avatar" src="/assets/cyprus_logo-1000x1054.png" alt="Avatar" />
+            <img id="headerUserAvatar" class="header-user-avatar" src="/assets/cyprus_logo-1000x1054.png" alt="Avatar" width="40" height="40" loading="eager" />
             <span>Profil</span>
           </a>
           <button class="btn" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
@@ -293,7 +308,7 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
     <ul id="notificationsPanelList" class="notifications-list" role="list"></ul>
   </div>
 
-  <main>
+  <main id="main-content">
     <!-- Profile Header -->
     <section class="card surface-card profile-hero" aria-labelledby="profileTitle" data-gated="true" id="profile-header" hidden>
       <div id="profile-header-loading" style="display: none;">

@@ -23,13 +23,14 @@
     <meta
       name="description"
       content="Partner with CyprusEye to reach travellers planning their Cyprus holidays through our guides, media and concierge services."
-      lang="en"
+      data-i18n-attrs="content:seo.advertise.description"
     />
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="CyprusEye – advertising partnerships" />
+    <meta property="og:title" content="CyprusEye – advertising partnerships" data-i18n-attrs="content:seo.advertise.ogTitle" />
     <meta
       property="og:description"
       content="Work with CyprusEye to reach thousands of travellers who trust our Cyprus guides, newsletters and premium experiences."
+      data-i18n-attrs="content:seo.advertise.ogDescription"
     />
     <meta property="og:url" content="https://www.cypruseye.com/advertise.html" />
     <meta property="og:image" content="https://www.cypruseye.com/assets/cyprus_logo-1000x1054.png" />
@@ -44,9 +45,22 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
+    rel="preload"
+    as="style"
+    href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+  />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+    media="print"
+    onload="this.media='all'"
+  />
+  <noscript>
+    <link
       href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
       rel="stylesheet"
     />
+  </noscript>
     <link rel="stylesheet" href="assets/css/tokens.css" />
     <link rel="stylesheet" href="assets/css/base.css" />
     <link rel="stylesheet" href="assets/css/components.css" />
@@ -60,7 +74,9 @@
   <script type="module" src="/js/authUi.js"></script>
 </head>
   <body class="standalone-body" data-seo-page="advertise">
-    <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+  <!-- Accessibility: Skip to main content -->
+  <a href="#main-content" class="skip-link" data-i18n="accessibility.skipToContent">Skip to main content</a>
+      <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
     <div class="standalone-page">
       <header class="card surface-card standalone-header">
         <div class="standalone-brand">
@@ -108,7 +124,7 @@
         <div data-auth="spinner" class="auth-spinner" aria-live="polite" data-i18n="auth.status.spinner">Łączenie z logowaniem…</div>
       </header>
 
-      <main class="standalone-main">
+      <main id="main-content" class="standalone-main">
         <section class="card surface-card standalone-hero" aria-labelledby="advertiseHeroTitle">
           <div class="standalone-hero-content">
             <p class="standalone-hero-badge" data-i18n="advertise.hero.badge">Partnerzy premium</p>
