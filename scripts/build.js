@@ -47,6 +47,11 @@ const COMMUNITY_FILES = [
   'js/community/i18nHelper.js',
 ];
 
+// Utility modules (src/utils/)
+const UTILITY_FILES = [
+  'src/utils/dates.js',
+];
+
 async function buildFile(filePath) {
   const fullPath = join(ROOT, filePath);
   
@@ -72,10 +77,17 @@ async function buildFile(filePath) {
       format: {
         comments: false,  // Usuń komentarze
       },
+      module: true,  // Support ES6 modules
     });
     
     if (result.error) {
+      console.error(`❌ Minify error in ${filePath}:`, result.error);
       throw result.error;
+    }
+    
+    if (!result.code) {
+      console.error(`❌ Minify returned empty code for ${filePath}`);
+      throw new Error(`Empty minification result for ${filePath}`);
     }
     
     // Zapisz do /dist/
@@ -83,9 +95,10 @@ async function buildFile(filePath) {
     await mkdir(dirname(distPath), { recursive: true });
     await writeFile(distPath, result.code, 'utf-8');
     
-    console.log(`✅ Built: ${filePath}`);
+    console.log(`✅ Built: ${filePath} (${result.code.length} bytes)`);
   } catch (error) {
     console.error(`❌ Error building ${filePath}:`, error.message);
+    console.error(error.stack);
     throw error;
   }
 }
@@ -168,29 +181,40 @@ async function copyStaticFiles() {
 }
 
 async function build() {
-  console.log('🚀 Starting build process...\n');
-  
-  // Wyczyść dist folder
-  if (existsSync(DIST)) {
-    console.log('🧹 Cleaning dist folder...');
-    await rm(DIST, { recursive: true, force: true });
-  }
-  
-  // Utwórz dist
-  await mkdir(DIST, { recursive: true });
-  
-  // Build JS files
-  const allFiles = [...JS_FILES, ...COMMUNITY_FILES];
-  
-  for (const file of allFiles) {
-    await buildFile(file);
-  }
+  try {
+    console.log('🚀 Starting build process...\n');
+    
+    // Najpierw usuń poprzedni dist/
+    if (existsSync(DIST)) {
+      await rm(DIST, { recursive: true });
+    }
+    
+    await mkdir(DIST, { recursive: true });
+    
+    // Buduj pliki główne
+    for (const file of JS_FILES) {
+      await buildFile(file);
+    }
+    
+    // Buduj pliki community
+    for (const file of COMMUNITY_FILES) {
+      await buildFile(file);
+    }
+    
+    // Buduj utility modules
+    for (const file of UTILITY_FILES) {
+      await buildFile(file);
+    }
   
   // Copy static files
   await copyStaticFiles();
   
   console.log('\n✅ Build complete! Files in /dist/');
   console.log(`📊 Output directory: ${DIST}`);
+  } catch (error) {
+    console.error('\n❌ Build failed:', error);
+    process.exit(1);
+  }
 }
 
 build().catch((error) => {

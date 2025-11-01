@@ -1475,13 +1475,7 @@ let attractionsUserCoords = null;
 let attractionsLocationMessage = '';
 const attractionsDistanceElements = new Map();
 
-function getDefaultDailyStreak() {
-  return {
-    current: 0,
-    best: 0,
-    lastCompletedDate: null,
-  };
-}
+// getDefaultDailyStreak moved to src/utils/dates.js
 
 function getDefaultDailyChallenge() {
   return {
@@ -1601,25 +1595,7 @@ function normalizeReviewRewards(raw) {
   return new Map(entries);
 }
 
-function normalizeDailyStreak(raw) {
-  if (!raw || typeof raw !== 'object') {
-    return getDefaultDailyStreak();
-  }
-
-  const current = Number.isFinite(raw.current) ? Math.max(0, Math.floor(raw.current)) : 0;
-  const bestCandidate = Number.isFinite(raw.best) ? Math.max(0, Math.floor(raw.best)) : 0;
-  const best = Math.max(bestCandidate, current);
-  const lastCompletedDate =
-    typeof raw.lastCompletedDate === 'string' && raw.lastCompletedDate.trim()
-      ? raw.lastCompletedDate.trim()
-      : null;
-
-  return {
-    current,
-    best,
-    lastCompletedDate,
-  };
-}
+// normalizeDailyStreak moved to src/utils/dates.js (duplicate removed)
 
 function normalizeDailyChallenge(raw) {
   const defaults = getDefaultDailyChallenge();
@@ -1641,28 +1617,7 @@ function normalizeDailyChallenge(raw) {
   };
 }
 
-function toUtcDate(value) {
-  if (!value) return null;
-  const date = new Date(`${value}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  return date;
-}
-
-function getTodayDateString() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function calculateDayDifference(fromDateString, toDateString) {
-  const fromDate = toUtcDate(fromDateString);
-  const toDate = toUtcDate(toDateString);
-  if (!fromDate || !toDate) {
-    return null;
-  }
-  const diffMs = fromDate.getTime() - toDate.getTime();
-  return Math.round(diffMs / (1000 * 60 * 60 * 24));
-}
+// Date utilities (toUtcDate, getTodayDateString, calculateDayDifference) moved to src/utils/dates.js
 
 function ensureReviewReward(placeId) {
   if (!placeId) {
@@ -2123,23 +2078,7 @@ function markAllNotificationsAsRead() {
   renderNotificationsUI();
 }
 
-function formatNotificationDate(value) {
-  if (!value) {
-    return '';
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-
-  return date.toLocaleString('pl-PL', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+// formatNotificationDate moved to src/utils/dates.js
 
 function openJournalEntry(entryId) {
   switchAppView(ADVENTURE_VIEW_ID);
@@ -5717,16 +5656,7 @@ function createStarVisual(rating) {
   return span;
 }
 
-function formatReviewDate(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('pl-PL', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-}
+// formatReviewDate moved to src/utils/dates.js
 
 function pluralizeReview(count) {
   if (count === 1) return 'oceny';
