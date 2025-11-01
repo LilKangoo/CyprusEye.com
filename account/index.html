@@ -319,6 +319,16 @@
               Zaloguj
             </button>
             <button class="btn" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Graj jako gość</button>
+            <a 
+              href="/achievements.html" 
+              class="btn btn-profile" 
+              data-auth="user-only"
+              aria-label="Mój profil"
+              id="profileButton"
+            >
+              <img id="headerUserAvatar" class="header-user-avatar" src="/assets/cyprus_logo-1000x1054.png" alt="Avatar" />
+              <span>Profil</span>
+            </a>
             <button class="btn" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
             <span class="auth-badge" data-auth="user-only" data-i18n="auth.status.userBadge">Zalogowany: <strong data-auth="user-name"></strong></span>
             <span class="auth-badge" data-auth="guest-only" data-i18n="auth.status.guestBadge">Grasz jako gość</span>
