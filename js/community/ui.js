@@ -8,6 +8,8 @@ import { getRatingStats, getUserRating, ratePlace, renderRatingSummary, renderRa
 // GLOBALS & STATE
 // ===================================
 let currentPoiId = null;
+let currentPoiIndex = -1;
+let filteredPoisData = []; // POIs after filtering/sorting
 let currentUser = null;
 let communityMap = null;
 let selectedPhotos = [];
@@ -16,6 +18,10 @@ let editingCommentId = null;
 
 // POI Data - będzie załadowane z app.js lub pois.json
 let poisData = [];
+
+// Lightbox state
+let lightboxPhotos = [];
+let currentLightboxIndex = 0;
 
 // Default avatar (logo)
 const DEFAULT_AVATAR = '/assets/cyprus_logo-1000x1054.png';
@@ -53,6 +59,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initViewToggle();
     initSearch();
     initModal();
+    initLightbox();
     renderPoisList();
     
     // Initialize map if Leaflet is available
@@ -293,6 +300,9 @@ async function renderPoisList() {
     }
 
     listContainer.innerHTML = html;
+    
+    // Initialize filtered data with all POIs
+    filteredPoisData = [...poisData];
 
     // Add click listeners AFTER rendering (safer than onclick)
     setTimeout(() => {
@@ -379,6 +389,8 @@ async function loadPoisStats(pois) {
         if (ratingContainer) {
           ratingContainer.innerHTML = renderRatingSummary(ratingStats);
         }
+        // Store average rating for sorting
+        card.dataset.averageRating = ratingStats.average_rating || 0;
       }
 
       // Get latest comment
@@ -447,9 +459,10 @@ function filterPois() {
       return nameA.localeCompare(nameB, 'pl');
     } 
     else if (sortBy === 'popular') {
-      const countA = parseInt(a.dataset.commentCount || '0');
-      const countB = parseInt(b.dataset.commentCount || '0');
-      return countB - countA; // descending
+      // Sort by average rating (stars)
+      const ratingA = parseFloat(a.dataset.averageRating || '0');
+      const ratingB = parseFloat(b.dataset.averageRating || '0');
+      return ratingB - ratingA; // descending (highest rating first)
     } 
     else if (sortBy === 'recent') {
       const timeA = parseInt(a.dataset.lastCommentTime || '0');
@@ -458,6 +471,12 @@ function filterPois() {
     }
     return 0;
   });
+  
+  // Update filtered POIs array for navigation
+  filteredPoisData = filteredCards.map(card => {
+    const poiId = card.dataset.poiId;
+    return poisData.find(p => p.id === poiId);
+  }).filter(Boolean);
   
   // Hide all cards first
   cards.forEach(card => card.style.display = 'none');
@@ -477,6 +496,8 @@ function filterPois() {
 function initModal() {
   const modal = document.getElementById('commentsModal');
   const closeBtn = document.getElementById('closeCommentsModal');
+  const prevBtn = document.getElementById('prevPoiBtn');
+  const nextBtn = document.getElementById('nextPoiBtn');
   const form = document.getElementById('addCommentForm');
   const photoInput = document.getElementById('photoUploadInput');
 
@@ -488,15 +509,23 @@ function initModal() {
   }
 
   closeBtn?.addEventListener('click', closeModal);
+  prevBtn?.addEventListener('click', navigateToPrevPoi);
+  nextBtn?.addEventListener('click', navigateToNextPoi);
   
   modal?.addEventListener('click', (e) => {
     if (e.target === modal) closeModal();
   });
 
-  // ESC key to close modal
+  // ESC key to close modal, arrow keys for navigation
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && !modal.hidden) {
+    if (modal.hidden) return;
+    
+    if (e.key === 'Escape') {
       closeModal();
+    } else if (e.key === 'ArrowLeft') {
+      navigateToPrevPoi();
+    } else if (e.key === 'ArrowRight') {
+      navigateToNextPoi();
     }
   });
 
@@ -511,6 +540,11 @@ window.openPoiComments = async function(poiId) {
   console.log('🔓 Opening modal for POI:', poiId);
   
   currentPoiId = poiId;
+  
+  // Find POI index in filtered data for navigation
+  const dataToSearch = filteredPoisData.length > 0 ? filteredPoisData : poisData;
+  currentPoiIndex = dataToSearch.findIndex(p => p.id === poiId);
+  
   const poi = poisData.find(p => p.id === poiId);
   
   if (!poi) {
@@ -521,6 +555,9 @@ window.openPoiComments = async function(poiId) {
   // Update modal title
   document.getElementById('commentsModalTitle').textContent = poi.name;
   document.getElementById('commentsModalLocation').textContent = `📍 ${poi.description || 'Cypr'}`;
+
+  // Update navigation buttons
+  updateNavigationButtons();
 
   // Show/hide auth sections
   updateAuthSections();
@@ -613,6 +650,43 @@ async function loadAndRenderRating(poiId) {
 }
 
 // ===================================
+// NAVIGATION BETWEEN POIS
+// ===================================
+function updateNavigationButtons() {
+  const dataToUse = filteredPoisData.length > 0 ? filteredPoisData : poisData;
+  const prevBtn = document.getElementById('prevPoiBtn');
+  const nextBtn = document.getElementById('nextPoiBtn');
+  
+  if (prevBtn) {
+    prevBtn.disabled = currentPoiIndex <= 0;
+  }
+  
+  if (nextBtn) {
+    nextBtn.disabled = currentPoiIndex >= dataToUse.length - 1;
+  }
+}
+
+function navigateToPrevPoi() {
+  const dataToUse = filteredPoisData.length > 0 ? filteredPoisData : poisData;
+  if (currentPoiIndex > 0) {
+    const prevPoi = dataToUse[currentPoiIndex - 1];
+    if (prevPoi) {
+      window.openPoiComments(prevPoi.id);
+    }
+  }
+}
+
+function navigateToNextPoi() {
+  const dataToUse = filteredPoisData.length > 0 ? filteredPoisData : poisData;
+  if (currentPoiIndex < dataToUse.length - 1) {
+    const nextPoi = dataToUse[currentPoiIndex + 1];
+    if (nextPoi) {
+      window.openPoiComments(nextPoi.id);
+    }
+  }
+}
+
+// ===================================
 // CLOSE MODAL
 // ===================================
 function closeModal() {
@@ -622,6 +696,7 @@ function closeModal() {
   modal.setAttribute('hidden', '');
   document.body.style.overflow = '';
   currentPoiId = null;
+  currentPoiIndex = -1;
   resetCommentForm();
   console.log('✅ Modal closed');
 }
@@ -670,6 +745,19 @@ async function loadAndRenderComments(poiId) {
     }
     
     container.innerHTML = html;
+    
+    // Add lightbox click handlers to photos
+    setTimeout(() => {
+      container.querySelectorAll('.comment-photos').forEach(photoContainer => {
+        const photos = JSON.parse(photoContainer.dataset.commentPhotos || '[]');
+        photoContainer.querySelectorAll('.comment-photo').forEach(img => {
+          img.addEventListener('click', () => {
+            const index = parseInt(img.dataset.photoIndex);
+            window.openLightbox(photos, index);
+          });
+        });
+      });
+    }, 100);
 
   } catch (error) {
     console.error('Error loading comments:', error);
@@ -754,10 +842,10 @@ async function renderComment(comment, isReply = false) {
       </div>
 
       ${photos.length > 0 ? `
-        <div class="comment-photos">
-          ${photos.map(p => `
+        <div class="comment-photos" data-comment-photos='${JSON.stringify(photos)}'>
+          ${photos.map((p, idx) => `
             <img src="${p.photo_url}" alt="Photo" class="comment-photo" 
-                 onclick="window.open('${p.photo_url}', '_blank')" />
+                 data-photo-index="${idx}" />
           `).join('')}
         </div>
       ` : ''}
@@ -1151,6 +1239,90 @@ function formatTimeAgo(dateString) {
   if (seconds < 604800) return `${Math.floor(seconds / 86400)} dni temu`;
   
   return date.toLocaleDateString('pl-PL');
+}
+
+// ===================================
+// PHOTO LIGHTBOX
+// ===================================
+function initLightbox() {
+  const lightbox = document.getElementById('photoLightbox');
+  const closeBtn = document.getElementById('closeLightbox');
+  const prevBtn = document.getElementById('lightboxPrev');
+  const nextBtn = document.getElementById('lightboxNext');
+
+  closeBtn?.addEventListener('click', closeLightbox);
+  prevBtn?.addEventListener('click', () => navigateLightbox(-1));
+  nextBtn?.addEventListener('click', () => navigateLightbox(1));
+
+  lightbox?.addEventListener('click', (e) => {
+    if (e.target === lightbox) closeLightbox();
+  });
+
+  // Keyboard navigation
+  document.addEventListener('keydown', (e) => {
+    if (lightbox && !lightbox.hidden) {
+      if (e.key === 'Escape') closeLightbox();
+      if (e.key === 'ArrowLeft') navigateLightbox(-1);
+      if (e.key === 'ArrowRight') navigateLightbox(1);
+    }
+  });
+}
+
+window.openLightbox = function(photos, index = 0) {
+  lightboxPhotos = photos;
+  currentLightboxIndex = index;
+  showLightboxPhoto();
+  
+  const lightbox = document.getElementById('photoLightbox');
+  if (lightbox) {
+    lightbox.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+};
+
+function showLightboxPhoto() {
+  if (lightboxPhotos.length === 0) return;
+  
+  const photo = lightboxPhotos[currentLightboxIndex];
+  const image = document.getElementById('lightboxImage');
+  const caption = document.getElementById('lightboxCaption');
+  const prevBtn = document.getElementById('lightboxPrev');
+  const nextBtn = document.getElementById('lightboxNext');
+  
+  if (image) {
+    image.src = photo.photo_url || photo;
+    image.alt = `Zdjęcie ${currentLightboxIndex + 1} z ${lightboxPhotos.length}`;
+  }
+  
+  if (caption) {
+    caption.textContent = `${currentLightboxIndex + 1} / ${lightboxPhotos.length}`;
+  }
+  
+  if (prevBtn) {
+    prevBtn.disabled = currentLightboxIndex === 0;
+  }
+  
+  if (nextBtn) {
+    nextBtn.disabled = currentLightboxIndex === lightboxPhotos.length - 1;
+  }
+}
+
+function navigateLightbox(direction) {
+  const newIndex = currentLightboxIndex + direction;
+  if (newIndex >= 0 && newIndex < lightboxPhotos.length) {
+    currentLightboxIndex = newIndex;
+    showLightboxPhoto();
+  }
+}
+
+function closeLightbox() {
+  const lightbox = document.getElementById('photoLightbox');
+  if (lightbox) {
+    lightbox.hidden = true;
+    document.body.style.overflow = '';
+  }
+  lightboxPhotos = [];
+  currentLightboxIndex = 0;
 }
 
 // ===================================
