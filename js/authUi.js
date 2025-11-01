@@ -971,9 +971,28 @@ document.querySelectorAll('[data-auth=logout]').forEach((el) => {
     clearGuestState();
     window.CE_STATE = {};
     updateAuthUI();
-    const redirectTarget = el.dataset.authRedirect || '/';
-    if (redirectTarget) {
-      location.assign(redirectTarget);
+    
+    // Check if we should redirect
+    const redirectTarget = el.dataset.authRedirect;
+    
+    // If data-auth-redirect is explicitly set (even to empty string), use it
+    // If not set and we're on community page, stay on the same page
+    // Otherwise, redirect to home
+    if (redirectTarget !== undefined) {
+      // Explicit redirect set (could be empty string to stay on page)
+      if (redirectTarget) {
+        location.assign(redirectTarget);
+      }
+      // If empty string, stay on current page (reload to update UI)
+      else {
+        location.reload();
+      }
+    } else if (window.location.pathname.includes('community')) {
+      // On community page without explicit redirect - reload to stay here
+      location.reload();
+    } else {
+      // Default behavior - go to home
+      location.assign('/');
     }
   });
 });
