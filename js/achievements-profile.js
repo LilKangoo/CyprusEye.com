@@ -409,10 +409,36 @@ function setupEventListeners() {
     cancelUsernameBtn.addEventListener('click', hideUsernameEditForm);
   }
   
-  // Password change
-  const changePasswordBtn = document.getElementById('changePasswordBtn');
-  if (changePasswordBtn) {
-    changePasswordBtn.addEventListener('click', showPasswordChangeForm);
+  // Email edit
+  const editEmailBtn = document.getElementById('editEmailBtn');
+  if (editEmailBtn) {
+    editEmailBtn.addEventListener('click', showEmailEditForm);
+  }
+  
+  const saveEmailBtn = document.getElementById('saveEmailBtn');
+  if (saveEmailBtn) {
+    saveEmailBtn.addEventListener('click', handleSaveEmail);
+  }
+  
+  const cancelEmailBtn = document.getElementById('cancelEmailBtn');
+  if (cancelEmailBtn) {
+    cancelEmailBtn.addEventListener('click', hideEmailEditForm);
+  }
+  
+  // Password edit
+  const editPasswordBtn = document.getElementById('editPasswordBtn');
+  if (editPasswordBtn) {
+    editPasswordBtn.addEventListener('click', showPasswordEditForm);
+  }
+  
+  const savePasswordBtn = document.getElementById('savePasswordBtn');
+  if (savePasswordBtn) {
+    savePasswordBtn.addEventListener('click', handleSavePassword);
+  }
+  
+  const cancelPasswordBtn = document.getElementById('cancelPasswordBtn');
+  if (cancelPasswordBtn) {
+    cancelPasswordBtn.addEventListener('click', hidePasswordEditForm);
   }
   
   // Delete account
@@ -561,11 +587,171 @@ async function handleSaveUsername() {
 }
 
 /**
- * Show password change form
+ * Show email edit form
  */
-function showPasswordChangeForm() {
-  // This will be implemented with a modal or dedicated section
-  alert('Funkcja zmiany hasła będzie dostępna wkrótce. Użyj opcji "Resetuj hasło" z menu logowania.');
+function showEmailEditForm() {
+  const displayEl = document.getElementById('emailDisplay');
+  const formEl = document.getElementById('emailEditForm');
+  const inputEl = document.getElementById('emailInput');
+  
+  if (displayEl) displayEl.style.display = 'none';
+  if (formEl) formEl.style.display = 'block';
+  if (inputEl) {
+    inputEl.value = currentProfile?.email || '';
+    inputEl.focus();
+  }
+}
+
+/**
+ * Hide email edit form
+ */
+function hideEmailEditForm() {
+  const displayEl = document.getElementById('emailDisplay');
+  const formEl = document.getElementById('emailEditForm');
+  
+  if (displayEl) displayEl.style.display = 'flex';
+  if (formEl) formEl.style.display = 'none';
+}
+
+/**
+ * Handle save email
+ */
+async function handleSaveEmail() {
+  const inputEl = document.getElementById('emailInput');
+  const newEmail = inputEl?.value?.trim();
+  
+  if (!newEmail) {
+    showError('Adres email nie może być pusty.');
+    return;
+  }
+  
+  // Basic email validation
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!emailRegex.test(newEmail)) {
+    showError('Podaj prawidłowy adres email.');
+    return;
+  }
+  
+  if (newEmail === currentProfile?.email) {
+    hideEmailEditForm();
+    return;
+  }
+  
+  try {
+    showLoading('email-edit');
+    
+    const sb = window.getSupabase();
+    
+    // Supabase updateUser for email change
+    const { data, error } = await sb.auth.updateUser({
+      email: newEmail
+    });
+    
+    if (error) throw error;
+    
+    hideLoading('email-edit');
+    hideEmailEditForm();
+    
+    showSuccess(
+      'Email został zaktualizowany!\n\n' +
+      'Sprawdź swoją skrzynkę pocztową (nowy adres) i kliknij link weryfikacyjny.\n' +
+      'Zmiana zostanie aktywna po weryfikacji.'
+    );
+    
+    // Update display (but don't change profile until verified)
+    console.log('Email change initiated:', newEmail);
+    
+  } catch (error) {
+    console.error('❌ Error updating email:', error);
+    hideLoading('email-edit');
+    showError('Nie udało się zaktualizować emaila: ' + error.message);
+  }
+}
+
+/**
+ * Show password edit form
+ */
+function showPasswordEditForm() {
+  const displayEl = document.getElementById('passwordDisplay');
+  const formEl = document.getElementById('passwordEditForm');
+  
+  if (displayEl) displayEl.style.display = 'none';
+  if (formEl) formEl.style.display = 'block';
+  
+  // Clear inputs
+  const currentPasswordInput = document.getElementById('currentPasswordInput');
+  const newPasswordInput = document.getElementById('newPasswordInput');
+  const confirmPasswordInput = document.getElementById('confirmPasswordInput');
+  
+  if (currentPasswordInput) currentPasswordInput.value = '';
+  if (newPasswordInput) newPasswordInput.value = '';
+  if (confirmPasswordInput) confirmPasswordInput.value = '';
+  
+  if (newPasswordInput) newPasswordInput.focus();
+}
+
+/**
+ * Hide password edit form
+ */
+function hidePasswordEditForm() {
+  const displayEl = document.getElementById('passwordDisplay');
+  const formEl = document.getElementById('passwordEditForm');
+  
+  if (displayEl) displayEl.style.display = 'flex';
+  if (formEl) formEl.style.display = 'none';
+}
+
+/**
+ * Handle save password
+ */
+async function handleSavePassword() {
+  const newPasswordInput = document.getElementById('newPasswordInput');
+  const confirmPasswordInput = document.getElementById('confirmPasswordInput');
+  
+  const newPassword = newPasswordInput?.value;
+  const confirmPassword = confirmPasswordInput?.value;
+  
+  // Validation
+  if (!newPassword) {
+    showError('Podaj nowe hasło.');
+    newPasswordInput?.focus();
+    return;
+  }
+  
+  if (newPassword.length < 8) {
+    showError('Hasło musi mieć minimum 8 znaków.');
+    newPasswordInput?.focus();
+    return;
+  }
+  
+  if (newPassword !== confirmPassword) {
+    showError('Hasła nie są identyczne.');
+    confirmPasswordInput?.focus();
+    return;
+  }
+  
+  try {
+    showLoading('password-edit');
+    
+    const sb = window.getSupabase();
+    
+    // Supabase updateUser for password change
+    const { data, error } = await sb.auth.updateUser({
+      password: newPassword
+    });
+    
+    if (error) throw error;
+    
+    hideLoading('password-edit');
+    hidePasswordEditForm();
+    
+    showSuccess('Hasło zostało pomyślnie zmienione!');
+    
+  } catch (error) {
+    console.error('❌ Error updating password:', error);
+    hideLoading('password-edit');
+    showError('Nie udało się zaktualizować hasła: ' + error.message);
+  }
 }
 
 /**

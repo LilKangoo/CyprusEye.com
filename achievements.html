@@ -418,35 +418,115 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
     <section class="card surface-card profile-settings-section" aria-labelledby="settingsTitle" data-gated="true">
       <h2 id="settingsTitle">⚙️ Ustawienia konta</h2>
       <div class="settings-list">
-        <div class="setting-item">
+        
+        <!-- Email Settings -->
+        <div class="setting-item setting-item-email">
           <div class="setting-info">
-            <h3>🔑 Hasło</h3>
-            <p>Zmień hasło do swojego konta</p>
-          </div>
-          <button type="button" class="btn btn-secondary" id="changePasswordBtn">
-            Zmień hasło
-          </button>
-        </div>
-        <div class="setting-item">
-          <div class="setting-info">
-            <h3>📧 Email</h3>
-            <p id="settingsEmail">Twój adres email</p>
-          </div>
-        </div>
-        <div class="setting-item">
-          <div class="setting-info">
-            <h3>🗑️ Usuń konto</h3>
-            <p>Trwale usuń konto i wszystkie dane</p>
-          </div>
-          <div>
-            <button type="button" class="btn btn-danger" id="deleteAccountBtn">
-              Usuń konto
-            </button>
-            <div id="delete-account-loading" style="display: none;">
-              <p>Usuwanie konta...</p>
+            <div class="setting-icon">📧</div>
+            <div>
+              <h3>Adres email</h3>
+              <div id="emailDisplay" class="setting-display">
+                <p id="settingsEmail" class="setting-value">Ładowanie...</p>
+                <button type="button" class="btn btn-sm btn-text" id="editEmailBtn">
+                  ✏️ Zmień
+                </button>
+              </div>
+              <div id="emailEditForm" class="setting-edit-form" style="display: none;">
+                <input 
+                  type="email" 
+                  id="emailInput" 
+                  placeholder="nowy@email.com" 
+                  class="setting-input"
+                  required
+                />
+                <div class="setting-edit-actions">
+                  <button type="button" class="btn btn-sm btn-primary" id="saveEmailBtn">
+                    💾 Zapisz
+                  </button>
+                  <button type="button" class="btn btn-sm btn-ghost" id="cancelEmailBtn">
+                    ✕ Anuluj
+                  </button>
+                </div>
+              </div>
+              <div id="email-edit-loading" class="setting-loading" style="display: none;">
+                <span class="spinner"></span> Aktualizowanie...
+              </div>
+              <p class="setting-help">Otrzymasz email weryfikacyjny na nowy adres</p>
             </div>
           </div>
         </div>
+
+        <!-- Password Settings -->
+        <div class="setting-item setting-item-password">
+          <div class="setting-info">
+            <div class="setting-icon">🔑</div>
+            <div>
+              <h3>Hasło</h3>
+              <div id="passwordDisplay" class="setting-display">
+                <p class="setting-value">••••••••</p>
+                <button type="button" class="btn btn-sm btn-text" id="editPasswordBtn">
+                  ✏️ Zmień
+                </button>
+              </div>
+              <div id="passwordEditForm" class="setting-edit-form" style="display: none;">
+                <input 
+                  type="password" 
+                  id="currentPasswordInput" 
+                  placeholder="Obecne hasło" 
+                  class="setting-input"
+                  autocomplete="current-password"
+                />
+                <input 
+                  type="password" 
+                  id="newPasswordInput" 
+                  placeholder="Nowe hasło (min. 8 znaków)" 
+                  class="setting-input"
+                  minlength="8"
+                  autocomplete="new-password"
+                />
+                <input 
+                  type="password" 
+                  id="confirmPasswordInput" 
+                  placeholder="Potwierdź nowe hasło" 
+                  class="setting-input"
+                  minlength="8"
+                  autocomplete="new-password"
+                />
+                <div class="setting-edit-actions">
+                  <button type="button" class="btn btn-sm btn-primary" id="savePasswordBtn">
+                    💾 Zapisz hasło
+                  </button>
+                  <button type="button" class="btn btn-sm btn-ghost" id="cancelPasswordBtn">
+                    ✕ Anuluj
+                  </button>
+                </div>
+              </div>
+              <div id="password-edit-loading" class="setting-loading" style="display: none;">
+                <span class="spinner"></span> Zapisywanie...
+              </div>
+              <p class="setting-help">Hasło musi mieć minimum 8 znaków</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Delete Account -->
+        <div class="setting-item setting-item-danger">
+          <div class="setting-info">
+            <div class="setting-icon">🗑️</div>
+            <div>
+              <h3>Usuń konto</h3>
+              <p class="setting-description">Trwale usuń swoje konto i wszystkie powiązane dane</p>
+              <button type="button" class="btn btn-danger" id="deleteAccountBtn">
+                Usuń konto
+              </button>
+              <div id="delete-account-loading" class="setting-loading" style="display: none;">
+                <span class="spinner"></span> Usuwanie konta...
+              </div>
+              <p class="setting-help warning">⚠️ Ta akcja jest nieodwracalna!</p>
+            </div>
+          </div>
+        </div>
+
       </div>
     </section>
 

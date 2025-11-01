@@ -344,7 +344,7 @@
   100% { transform: translateX(100%); }
 }
 
-/* Settings Section */
+/* Settings Section - ENHANCED */
 .profile-settings-section {
   margin-bottom: 2rem;
   padding: 2.5rem;
@@ -366,44 +366,208 @@
 .settings-list {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 1.5rem;
 }
 
+/* Setting Item - Improved Layout */
 .setting-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 1.75rem;
-  background: #f9fafb;
+  padding: 2rem;
+  background: linear-gradient(135deg, #ffffff 0%, #f9fafb 100%);
   border-radius: 16px;
   border: 2px solid #e5e7eb;
-  gap: 1.5rem;
-  flex-wrap: wrap;
   transition: all 0.3s ease;
+  position: relative;
+}
+
+.setting-item::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--profile-gradient-info);
+  border-radius: 16px 16px 0 0;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.setting-item:hover::before {
+  opacity: 1;
 }
 
 .setting-item:hover {
-  border-color: rgba(102, 126, 234, 0.3);
+  border-color: rgba(59, 130, 246, 0.3);
   background: white;
-  box-shadow: var(--profile-shadow-sm);
+  box-shadow: var(--profile-shadow-md);
 }
 
+/* Danger variant */
+.setting-item-danger {
+  border-color: rgba(239, 68, 68, 0.2);
+}
+
+.setting-item-danger::before {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+}
+
+.setting-item-danger:hover {
+  border-color: rgba(239, 68, 68, 0.4);
+  background: #fef2f2;
+}
+
+/* Setting Info Layout */
 .setting-info {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5rem;
+  width: 100%;
+}
+
+.setting-icon {
+  font-size: 2.5rem;
+  line-height: 1;
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%);
+  border-radius: 16px;
+  flex-shrink: 0;
+}
+
+.setting-item-danger .setting-icon {
+  background: linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%);
+}
+
+.setting-info > div {
   flex: 1;
-  min-width: 200px;
 }
 
 .setting-info h3 {
-  margin: 0 0 0.5rem 0;
-  font-size: 1.125rem;
-  font-weight: 600;
-  color: var(--color-text, #1f2937);
+  margin: 0 0 0.75rem 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #111827;
+  letter-spacing: -0.01em;
 }
 
-.setting-info p {
+.setting-description {
+  margin: 0 0 1.25rem 0;
+  font-size: 0.9375rem;
+  color: #6b7280;
+  line-height: 1.6;
+}
+
+/* Setting Display (view mode) */
+.setting-display {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.setting-value {
   margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #374151;
+  padding: 0.5rem 1rem;
+  background: #f3f4f6;
+  border-radius: 8px;
+  border: 2px solid #e5e7eb;
+}
+
+/* Setting Edit Form */
+.setting-edit-form {
+  margin-top: 1rem;
+  padding: 1.5rem;
+  background: #f9fafb;
+  border-radius: 12px;
+  border: 2px solid #e5e7eb;
+}
+
+.setting-input {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 2px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 0.9375rem;
+  font-family: inherit;
+  transition: all 0.2s ease;
+  margin-bottom: 0.75rem;
+  background: white;
+}
+
+.setting-input:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.setting-input:last-of-type {
+  margin-bottom: 1rem;
+}
+
+.setting-edit-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+/* Setting Help Text */
+.setting-help {
+  margin: 0.75rem 0 0 0;
+  font-size: 0.8125rem;
+  color: #9ca3af;
+  font-style: italic;
+}
+
+.setting-help.warning {
+  color: #dc2626;
+  font-weight: 600;
+  font-style: normal;
+}
+
+/* Setting Loading State */
+.setting-loading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
   font-size: 0.875rem;
-  color: var(--color-text-secondary, #666);
+  color: #6b7280;
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid #e5e7eb;
+  border-top-color: #3b82f6;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Button Text Variant */
+.btn-text {
+  background: transparent;
+  border: none;
+  color: #3b82f6;
+  padding: 0.375rem 0.75rem;
+  font-weight: 600;
+  transition: all 0.2s ease;
+}
+
+.btn-text:hover {
+  background: rgba(59, 130, 246, 0.1);
+  transform: none;
+  box-shadow: none;
 }
 
 /* Activity Section */
@@ -744,8 +908,18 @@
   }
 
   .setting-item {
+    padding: 1.5rem;
+  }
+  
+  .setting-info {
     flex-direction: column;
-    align-items: flex-start;
+    gap: 1rem;
+  }
+  
+  .setting-icon {
+    width: 56px;
+    height: 56px;
+    font-size: 2rem;
   }
 
   .photos-grid {
@@ -807,6 +981,24 @@
 
   .profile-xp-progress {
     padding: 1.5rem;
+  }
+  
+  .setting-item {
+    padding: 1.25rem;
+  }
+  
+  .setting-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 2rem;
+  }
+  
+  .setting-info h3 {
+    font-size: 1.125rem;
+  }
+  
+  .setting-edit-form {
+    padding: 1.25rem;
   }
 }
 
