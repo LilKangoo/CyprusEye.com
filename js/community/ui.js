@@ -2,6 +2,7 @@ import { loadComments, addComment, editComment, deleteComment, replyToComment } 
 import { likeComment, unlikeComment, getLikesCount, hasUserLiked } from './likes.js';
 import { uploadPhotos, deletePhoto, getCommentPhotos } from './photos.js';
 import { initNotifications, updateNotificationBadge } from './notifications.js';
+import { getRatingStats, getUserRating, ratePlace, renderRatingSummary, renderRatingBreakdown, initInteractiveStars } from './ratings.js';
 
 // ===================================
 // GLOBALS & STATE
@@ -277,6 +278,10 @@ async function renderPoisList() {
               <span id="photos-count-${poi.id}">0 zdjęć</span>
             </div>
           </div>
+          
+          <div class="poi-card-rating" id="rating-${poi.id}">
+            <!-- Rating will be loaded here -->
+          </div>
 
           <div id="latest-comment-${poi.id}"></div>
 
@@ -353,6 +358,7 @@ async function loadPoisStats(pois) {
       // Update UI
       const commentsEl = document.getElementById(`comments-count-${poi.id}`);
       const photosEl = document.getElementById(`photos-count-${poi.id}`);
+      const card = document.querySelector(`[data-poi-id="${poi.id}"]`);
       
       if (commentsEl) {
         commentsEl.textContent = `${commentCount || 0} komentarzy`;
@@ -360,12 +366,26 @@ async function loadPoisStats(pois) {
       if (photosEl) {
         photosEl.textContent = `${photoCount} zdjęć`;
       }
+      
+      // Update card data attributes for sorting
+      if (card) {
+        card.dataset.commentCount = commentCount || 0;
+      }
+      
+      // Get and display rating stats
+      const ratingStats = await getRatingStats(poi.id);
+      if (ratingStats && card) {
+        const ratingContainer = card.querySelector(`#rating-${poi.id}`);
+        if (ratingContainer) {
+          ratingContainer.innerHTML = renderRatingSummary(ratingStats);
+        }
+      }
 
       // Get latest comment
       if (commentCount > 0) {
         const { data: latestComment } = await sb
           .from('poi_comments')
-          .select('content')
+          .select('content, created_at')
           .eq('poi_id', poi.id)
           .is('parent_comment_id', null)
           .order('created_at', { ascending: false })
@@ -380,6 +400,11 @@ async function loadPoisStats(pois) {
                 <p class="poi-latest-comment">"${latestComment.content}"</p>
               </div>
             `;
+          }
+          
+          // Update card data attribute with timestamp for sorting
+          if (card) {
+            card.dataset.lastCommentTime = new Date(latestComment.created_at).getTime();
           }
         }
       }
@@ -405,13 +430,45 @@ function filterPois() {
   const searchTerm = document.getElementById('poiSearchInput')?.value.toLowerCase() || '';
   const sortBy = document.getElementById('poiSortSelect')?.value || 'recent';
   
-  const cards = document.querySelectorAll('.poi-card');
+  const listContainer = document.getElementById('poisList');
+  const cards = Array.from(document.querySelectorAll('.poi-card'));
   
-  cards.forEach(card => {
+  // Filter by search term
+  const filteredCards = cards.filter(card => {
     const name = card.querySelector('.poi-card-name')?.textContent.toLowerCase() || '';
-    const matches = name.includes(searchTerm);
-    card.style.display = matches ? 'block' : 'none';
+    return name.includes(searchTerm);
   });
+  
+  // Sort cards
+  filteredCards.sort((a, b) => {
+    if (sortBy === 'alphabetical') {
+      const nameA = a.querySelector('.poi-card-name')?.textContent || '';
+      const nameB = b.querySelector('.poi-card-name')?.textContent || '';
+      return nameA.localeCompare(nameB, 'pl');
+    } 
+    else if (sortBy === 'popular') {
+      const countA = parseInt(a.dataset.commentCount || '0');
+      const countB = parseInt(b.dataset.commentCount || '0');
+      return countB - countA; // descending
+    } 
+    else if (sortBy === 'recent') {
+      const timeA = parseInt(a.dataset.lastCommentTime || '0');
+      const timeB = parseInt(b.dataset.lastCommentTime || '0');
+      return timeB - timeA; // descending (newest first)
+    }
+    return 0;
+  });
+  
+  // Hide all cards first
+  cards.forEach(card => card.style.display = 'none');
+  
+  // Show and reorder filtered cards
+  filteredCards.forEach(card => {
+    card.style.display = 'block';
+    listContainer.appendChild(card); // Move to end (reorder)
+  });
+  
+  console.log(`✅ Filtered: ${filteredCards.length}/${cards.length} cards, sorted by: ${sortBy}`);
 }
 
 // ===================================
@@ -476,9 +533,84 @@ window.openPoiComments = async function(poiId) {
   
   console.log('✅ Modal opened for:', poi.name);
 
+  // Load ratings
+  await loadAndRenderRating(poiId);
+
   // Load comments
   await loadAndRenderComments(poiId);
 };
+
+// ===================================
+// LOAD AND RENDER RATING
+// ===================================
+async function loadAndRenderRating(poiId) {
+  try {
+    // Get rating stats
+    const stats = await getRatingStats(poiId);
+    
+    // Display overall rating
+    const ratingDisplay = document.getElementById('ratingDisplay');
+    if (ratingDisplay) {
+      ratingDisplay.innerHTML = renderRatingSummary(stats);
+    }
+    
+    // Display rating breakdown
+    const ratingBreakdown = document.getElementById('ratingBreakdown');
+    if (ratingBreakdown) {
+      ratingBreakdown.innerHTML = renderRatingBreakdown(stats);
+    }
+    
+    // Show interactive rating if user is logged in
+    const ratingInteractive = document.getElementById('ratingInteractive');
+    const ratingStarsContainer = document.getElementById('ratingStarsContainer');
+    const ratingPrompt = document.getElementById('ratingPrompt');
+    
+    if (currentUser && ratingStarsContainer) {
+      // Get user's current rating
+      const userRating = await getUserRating(poiId, currentUser.id);
+      
+      // Show interactive stars
+      if (ratingInteractive) {
+        ratingInteractive.hidden = false;
+      }
+      
+      // Initialize interactive stars
+      initInteractiveStars(ratingStarsContainer, userRating || 0, async (rating) => {
+        const success = await ratePlace(poiId, currentUser.id, rating);
+        if (success) {
+          window.showToast?.(`Oceniłeś to miejsce na ${rating} gwiazdek!`, 'success');
+          
+          // Update prompt
+          if (ratingPrompt) {
+            ratingPrompt.textContent = `Twoja ocena: ${rating}★`;
+            ratingPrompt.classList.add('rated');
+          }
+          
+          // Reload rating stats
+          await loadAndRenderRating(poiId);
+        }
+      });
+      
+      // Update prompt based on current rating
+      if (ratingPrompt) {
+        if (userRating) {
+          ratingPrompt.textContent = `Twoja ocena: ${userRating}★`;
+          ratingPrompt.classList.add('rated');
+        } else {
+          ratingPrompt.textContent = 'Kliknij na gwiazdki aby ocenić';
+          ratingPrompt.classList.remove('rated');
+        }
+      }
+    } else {
+      // Hide interactive rating if not logged in
+      if (ratingInteractive) {
+        ratingInteractive.hidden = true;
+      }
+    }
+  } catch (error) {
+    console.error('Error loading rating:', error);
+  }
+}
 
 // ===================================
 // CLOSE MODAL

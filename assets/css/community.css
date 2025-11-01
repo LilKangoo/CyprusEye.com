@@ -864,3 +864,214 @@ textarea:focus-visible {
     padding: 1rem;
   }
 }
+
+/* ===================================
+   RATING SYSTEM STYLES
+   =================================== */
+
+/* Star Rating Container */
+.star-rating {
+  display: inline-flex;
+  gap: 0.125rem;
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+.star-rating.interactive {
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Individual Stars */
+.star {
+  display: inline-block;
+  transition: all 0.2s ease;
+}
+
+.star-full {
+  color: #fbbf24; /* Amber 400 */
+}
+
+.star-half {
+  color: #fbbf24;
+  opacity: 0.6;
+}
+
+.star-empty {
+  color: #d1d5db; /* Gray 300 */
+}
+
+.star-rating.interactive .star {
+  cursor: pointer;
+}
+
+.star-rating.interactive .star:hover {
+  transform: scale(1.2);
+  filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.6));
+}
+
+/* Rating Summary */
+.rating-summary {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.rating-value {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+}
+
+.rating-count {
+  font-size: 0.875rem;
+  color: var(--color-neutral-600);
+}
+
+.rating-text {
+  font-size: 0.875rem;
+  color: var(--color-neutral-500);
+  font-style: italic;
+}
+
+/* Rating in POI Cards */
+.poi-card-rating {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--color-neutral-200);
+}
+
+.poi-card-rating .star-rating {
+  font-size: 1rem;
+}
+
+.poi-card-rating .rating-value {
+  font-size: 1rem;
+}
+
+.poi-card-rating .rating-count {
+  font-size: 0.75rem;
+}
+
+/* Rating Section in Modal */
+.modal-rating-section {
+  padding: 1.5rem;
+  background: var(--color-neutral-50);
+  border-radius: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.modal-rating-section h3 {
+  font-size: 1.125rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: var(--color-neutral-900);
+}
+
+.rating-interactive-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 0.75rem;
+}
+
+.rating-interactive-container .star-rating {
+  font-size: 2rem;
+}
+
+.rating-prompt {
+  font-size: 0.875rem;
+  color: var(--color-neutral-600);
+  margin-top: 0.5rem;
+}
+
+.rating-prompt.rated {
+  color: var(--color-primary-600);
+  font-weight: 500;
+}
+
+/* Rating Breakdown */
+.rating-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+.rating-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.rating-bar-label {
+  font-size: 0.875rem;
+  color: var(--color-neutral-700);
+  min-width: 2.5rem;
+}
+
+.rating-bar {
+  flex: 1;
+  height: 0.5rem;
+  background: var(--color-neutral-200);
+  border-radius: 0.25rem;
+  overflow: hidden;
+}
+
+.rating-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #fbbf24, #f59e0b);
+  transition: width 0.3s ease;
+}
+
+.rating-bar-count {
+  font-size: 0.875rem;
+  color: var(--color-neutral-600);
+  min-width: 2rem;
+  text-align: right;
+}
+
+.rating-breakdown-empty {
+  font-size: 0.875rem;
+  color: var(--color-neutral-500);
+  font-style: italic;
+  text-align: center;
+  padding: 1rem;
+}
+
+/* Remove Rating Button */
+.remove-rating-btn {
+  font-size: 0.75rem;
+  color: var(--color-neutral-500);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-decoration: underline;
+  padding: 0.25rem 0.5rem;
+  margin-top: 0.5rem;
+}
+
+.remove-rating-btn:hover {
+  color: var(--color-red-600);
+}
+
+/* Mobile Adjustments */
+@media (max-width: 768px) {
+  .rating-interactive-container .star-rating {
+    font-size: 1.75rem;
+  }
+  
+  .modal-rating-section {
+    padding: 1rem;
+  }
+  
+  .poi-card-rating {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+}
