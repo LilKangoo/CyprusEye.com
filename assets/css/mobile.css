@@ -6,6 +6,89 @@ body {
   overflow-x: hidden;
 }
 
+/* Fix modal on mobile */
+@media (max-width: 768px) {
+  .modal {
+    padding: 0;
+    align-items: flex-end;
+  }
+  
+  .modal__dialog {
+    width: 100%;
+    max-width: 100%;
+    max-height: 90vh;
+    border-radius: 20px 20px 0 0;
+    padding: 1.5rem 1rem;
+    margin: 0;
+    animation: modalSlideUp 0.3s ease;
+  }
+  
+  @keyframes modalSlideUp {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+  
+  .modal__close {
+    top: 1rem;
+    right: 1rem;
+    width: 36px;
+    height: 36px;
+    font-size: 1.5rem;
+    z-index: 10;
+  }
+  
+  .auth-modal__tabs {
+    gap: 0.5rem;
+  }
+  
+  .auth-modal__tab {
+    padding: 0.5rem 0.25rem;
+    font-size: 0.875rem;
+  }
+  
+  .auth-form input,
+  .auth-form select,
+  .auth-form textarea {
+    font-size: 16px; /* Prevents zoom on iOS */
+    -webkit-appearance: none;
+    appearance: none;
+  }
+  
+  .auth-form__actions {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .auth-form__actions .btn {
+    width: 100%;
+  }
+  
+  /* Fix tap highlight on mobile */
+  .modal,
+  .modal__dialog,
+  .auth-modal__tab,
+  .auth-form button {
+    -webkit-tap-highlight-color: transparent;
+  }
+  
+  /* Ensure modal is touchable */
+  .modal.is-open {
+    touch-action: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  .modal__dialog {
+    touch-action: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 img,
 iframe,
 video {
