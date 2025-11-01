@@ -53,6 +53,8 @@ const UTILITY_FILES = [
   'src/utils/translations.js',
   'src/utils/validation.js',
   'src/utils/dataProcessing.js',
+  'src/utils/storage.js',
+  'src/utils/dom.js',
 ];
 
 async function buildFile(filePath) {
