@@ -21,7 +21,8 @@
   background: var(--profile-gradient-primary);
   color: white;
   box-shadow: var(--profile-shadow-lg);
-  border: none;
+  border: 2px solid rgba(102, 126, 234, 0.3);
+  border-radius: 16px;
 }
 
 .profile-hero-content {
@@ -150,8 +151,22 @@
 .profile-stats-section {
   margin-bottom: 2rem;
   padding: 2.5rem;
-  background: linear-gradient(to bottom, #ffffff 0%, #f9fafb 100%);
+  background: white;
   box-shadow: var(--profile-shadow-md);
+  border-radius: 16px;
+  border: 2px solid #e5e7eb;
+  position: relative;
+}
+
+.profile-stats-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--profile-gradient-primary);
+  border-radius: 16px 16px 0 0;
 }
 
 .profile-stats-section h2 {
@@ -159,7 +174,7 @@
   margin-bottom: 2rem;
   font-size: 1.75rem;
   font-weight: 700;
-  color: #1f2937;
+  color: #111827;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -179,7 +194,7 @@
   padding: 1.75rem;
   background: white;
   border-radius: 16px;
-  border: 2px solid transparent;
+  border: 2px solid #e5e7eb;
   box-shadow: var(--profile-shadow-sm);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
@@ -250,6 +265,7 @@
   padding: 2rem;
   background: var(--profile-gradient-primary);
   border-radius: 16px;
+  border: 2px solid rgba(102, 126, 234, 0.3);
   color: white;
   box-shadow: 
     var(--profile-shadow-md),
@@ -350,6 +366,20 @@
   padding: 2.5rem;
   background: white;
   box-shadow: var(--profile-shadow-md);
+  border-radius: 16px;
+  border: 2px solid #e5e7eb;
+  position: relative;
+}
+
+.profile-settings-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--profile-gradient-success);
+  border-radius: 16px 16px 0 0;
 }
 
 .profile-settings-section h2 {
@@ -357,7 +387,7 @@
   margin-bottom: 2rem;
   font-size: 1.75rem;
   font-weight: 700;
-  color: #1f2937;
+  color: #111827;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -576,6 +606,20 @@
   padding: 2.5rem;
   background: white;
   box-shadow: var(--profile-shadow-md);
+  border-radius: 16px;
+  border: 2px solid #e5e7eb;
+  position: relative;
+}
+
+.profile-activity-section::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: var(--profile-gradient-info);
+  border-radius: 16px 16px 0 0;
 }
 
 .profile-activity-section h2 {
@@ -583,7 +627,7 @@
   margin-bottom: 2rem;
   font-size: 1.75rem;
   font-weight: 700;
-  color: #1f2937;
+  color: #111827;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -602,12 +646,12 @@
   margin-bottom: 1.5rem;
   font-size: 1.375rem;
   font-weight: 700;
-  color: #1f2937;
+  color: #111827;
   display: flex;
   align-items: center;
   gap: 0.5rem;
   padding-bottom: 0.75rem;
-  border-bottom: 3px solid #f3f4f6;
+  border-bottom: 3px solid #e5e7eb;
 }
 
 /* Photos Grid */
@@ -686,7 +730,7 @@
   padding: 1.75rem;
   background: white;
   border-radius: 16px;
-  border: 2px solid #e5e7eb;
+  border: 2px solid #d1d5db;
   cursor: pointer;
   transition: all 0.3s ease;
   position: relative;

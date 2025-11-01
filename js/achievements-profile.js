@@ -440,12 +440,6 @@ function setupEventListeners() {
   if (cancelPasswordBtn) {
     cancelPasswordBtn.addEventListener('click', hidePasswordEditForm);
   }
-  
-  // Delete account
-  const deleteAccountBtn = document.getElementById('deleteAccountBtn');
-  if (deleteAccountBtn) {
-    deleteAccountBtn.addEventListener('click', handleDeleteAccount);
-  }
 }
 
 /**
