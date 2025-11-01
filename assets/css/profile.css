@@ -18,11 +18,11 @@
 /* Profile Hero Section */
 .profile-hero {
   margin-bottom: 2rem;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%);
+  background: linear-gradient(135deg, #c7d2fe 0%, #ddd6fe 100%);
   color: #4338ca;
-  box-shadow: var(--profile-shadow-md);
-  border: 2px solid rgba(99, 102, 241, 0.25);
-  border-radius: 16px;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
+  border: 2px solid rgba(139, 92, 246, 0.3);
+  border-radius: 20px;
 }
 
 .profile-hero-content {
@@ -34,14 +34,14 @@
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 2rem;
-  color: #6366f1;
+  color: #5b21b6;
   text-decoration: none;
   transition: all 0.2s ease;
   font-weight: 600;
   padding: 0.5rem 1rem;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.9);
-  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.15);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
 }
 
 .achievements-back:hover {
@@ -107,7 +107,7 @@
   margin: 0;
   font-size: 2.25rem;
   font-weight: 800;
-  color: #4338ca;
+  color: #5b21b6;
   letter-spacing: -0.02em;
 }
 
@@ -127,33 +127,33 @@
 }
 
 .profile-email {
-  color: #6366f1;
+  color: #5b21b6;
   margin: 0.5rem 0;
   font-size: 1.125rem;
   font-weight: 500;
 }
 
 .profile-member-since {
-  color: #6366f1;
+  color: #5b21b6;
   font-size: 0.9375rem;
   margin: 0.5rem 0;
   display: inline-flex;
   align-items: center;
   gap: 0.5rem;
   padding: 0.375rem 1rem;
-  background: rgba(255, 255, 255, 0.9);
+  background: rgba(255, 255, 255, 0.8);
   border-radius: 20px;
-  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
 }
 
 /* Profile Stats Section */
 .profile-stats-section {
   margin-bottom: 2rem;
   padding: 2.5rem;
-  background: white;
-  box-shadow: var(--profile-shadow-md);
-  border-radius: 16px;
-  border: 2px solid #e5e7eb;
+  background: linear-gradient(135deg, rgba(199, 210, 254, 0.3) 0%, rgba(221, 214, 254, 0.3) 100%);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+  border-radius: 20px;
+  border: 2px solid rgba(139, 92, 246, 0.2);
   position: relative;
 }
 
@@ -173,7 +173,7 @@
   margin-bottom: 2rem;
   font-size: 1.75rem;
   font-weight: 700;
-  color: #111827;
+  color: #5b21b6;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -194,10 +194,10 @@
   text-align: center;
   gap: 0.75rem;
   padding: 1.5rem 1rem;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%);
-  border-radius: 16px;
-  border: 2px solid rgba(139, 92, 246, 0.25);
-  box-shadow: 0 2px 8px rgba(99, 102, 241, 0.1);
+  background: linear-gradient(135deg, #c7d2fe 0%, #ddd6fe 100%);
+  border-radius: 20px;
+  border: 2px solid rgba(139, 92, 246, 0.3);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
   overflow: hidden;
@@ -211,15 +211,15 @@
   left: 0;
   right: 0;
   bottom: 0;
-  background: radial-gradient(circle at top right, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
+  background: radial-gradient(circle at top right, rgba(255, 255, 255, 0.4) 0%, transparent 70%);
   opacity: 1;
 }
 
 .stat-card:hover {
   transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.2);
-  border-color: rgba(139, 92, 246, 0.4);
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(139, 92, 246, 0.25) 100%);
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.25);
+  border-color: rgba(139, 92, 246, 0.5);
+  background: linear-gradient(135deg, #b4c0ff 0%, #d4c5f9 100%);
 }
 
 .stat-card:hover::before {
@@ -255,7 +255,7 @@
 .stat-value {
   font-size: 2.5rem;
   font-weight: 900;
-  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -265,7 +265,7 @@
 
 .stat-label {
   font-size: 0.875rem;
-  color: #6366f1;
+  color: #5b21b6;
   font-weight: 600;
   letter-spacing: 0;
   text-transform: capitalize;
@@ -274,11 +274,11 @@
 /* XP Progress Bar */
 .profile-xp-progress {
   padding: 2rem;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.15) 100%);
-  border-radius: 16px;
-  border: 2px solid rgba(99, 102, 241, 0.25);
-  color: #6366f1;
-  box-shadow: var(--profile-shadow-sm);
+  background: linear-gradient(135deg, #c7d2fe 0%, #ddd6fe 100%);
+  border-radius: 20px;
+  border: 2px solid rgba(139, 92, 246, 0.3);
+  color: #4f46e5;
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.15);
   position: relative;
   overflow: hidden;
 }
@@ -312,36 +312,36 @@
   margin: 0;
   font-size: 1.25rem;
   font-weight: 700;
-  color: #4338ca;
+  color: #5b21b6;
 }
 
 .xp-progress-header span {
   font-size: 0.9375rem;
   font-weight: 600;
-  color: #6366f1;
-  background: rgba(255, 255, 255, 0.9);
+  color: #5b21b6;
+  background: rgba(255, 255, 255, 0.8);
   padding: 0.375rem 0.875rem;
   border-radius: 20px;
-  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.15);
+  box-shadow: 0 2px 4px rgba(99, 102, 241, 0.2);
 }
 
 .progress-bar-container {
   width: 100%;
   height: 16px;
-  background: rgba(99, 102, 241, 0.15);
+  background: rgba(255, 255, 255, 0.6);
   border-radius: 8px;
   overflow: hidden;
-  box-shadow: inset 0 1px 2px rgba(99, 102, 241, 0.1);
+  box-shadow: inset 0 1px 3px rgba(99, 102, 241, 0.2);
   position: relative;
   z-index: 1;
 }
 
 .progress-bar-fill {
   height: 100%;
-  background: linear-gradient(90deg, #6366f1 0%, #8b5cf6 50%, #a78bfa 100%);
+  background: linear-gradient(90deg, #4f46e5 0%, #7c3aed 50%, #a855f7 100%);
   border-radius: 8px;
   transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 0 8px rgba(99, 102, 241, 0.4);
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.5);
   position: relative;
   overflow: hidden;
 }
@@ -371,10 +371,10 @@
 .profile-settings-section {
   margin-bottom: 2rem;
   padding: 2.5rem;
-  background: white;
-  box-shadow: var(--profile-shadow-md);
-  border-radius: 16px;
-  border: 2px solid #e5e7eb;
+  background: linear-gradient(135deg, rgba(199, 210, 254, 0.3) 0%, rgba(221, 214, 254, 0.3) 100%);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+  border-radius: 20px;
+  border: 2px solid rgba(139, 92, 246, 0.2);
   position: relative;
 }
 
@@ -394,7 +394,7 @@
   margin-bottom: 2rem;
   font-size: 1.75rem;
   font-weight: 700;
-  color: #111827;
+  color: #5b21b6;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -611,10 +611,10 @@
 .profile-activity-section {
   margin-bottom: 2rem;
   padding: 2.5rem;
-  background: white;
-  box-shadow: var(--profile-shadow-md);
-  border-radius: 16px;
-  border: 2px solid #e5e7eb;
+  background: linear-gradient(135deg, rgba(199, 210, 254, 0.3) 0%, rgba(221, 214, 254, 0.3) 100%);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.1);
+  border-radius: 20px;
+  border: 2px solid rgba(139, 92, 246, 0.2);
   position: relative;
 }
 
@@ -634,7 +634,7 @@
   margin-bottom: 2rem;
   font-size: 1.75rem;
   font-weight: 700;
-  color: #111827;
+  color: #5b21b6;
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -653,7 +653,7 @@
   margin-bottom: 1.5rem;
   font-size: 1.375rem;
   font-weight: 700;
-  color: #111827;
+  color: #7c3aed;
   display: flex;
   align-items: center;
   gap: 0.5rem;
