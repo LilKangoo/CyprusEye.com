@@ -5773,7 +5773,7 @@ a:focus-visible {
   display: none;
   place-items: center;
   background: rgba(0, 0, 0, 0.65);
-  z-index: 1000;
+  z-index: 10000;
   padding: var(--space-4);
 }
 
