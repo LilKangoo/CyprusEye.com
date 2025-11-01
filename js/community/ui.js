@@ -199,15 +199,29 @@ function initMap() {
     poisData.forEach(poi => {
       const marker = L.marker([poi.lat, poi.lon || poi.lng]).addTo(communityMap);
       
-      marker.bindPopup(`
+      const popupContent = `
         <div style="text-align: center;">
           <strong>${poi.name}</strong><br>
-          <button onclick="window.openPoiComments('${poi.id}')" 
+          <button class="map-comment-btn" data-poi-id="${poi.id}"
                   style="margin-top: 8px; padding: 6px 12px; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer;">
             💬 Zobacz komentarze
           </button>
         </div>
-      `);
+      `;
+      
+      marker.bindPopup(popupContent);
+      
+      // Add click listener to button after popup opens
+      marker.on('popupopen', () => {
+        const btn = document.querySelector('.map-comment-btn[data-poi-id="' + poi.id + '"]');
+        if (btn) {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            window.openPoiComments(poi.id);
+          });
+        }
+      });
     });
 
     console.log('✅ Map initialized with', poisData.length, 'markers');
@@ -244,7 +258,7 @@ async function renderPoisList() {
     let html = '';
     for (const poi of poisData) {
       html += `
-        <div class="poi-card" onclick="window.openPoiComments('${poi.id}')">
+        <div class="poi-card" data-poi-id="${poi.id}">
           <div class="poi-card-header">
             <div class="poi-card-icon">📍</div>
             <div class="poi-card-info">
@@ -274,6 +288,20 @@ async function renderPoisList() {
     }
 
     listContainer.innerHTML = html;
+
+    // Add click listeners AFTER rendering (safer than onclick)
+    setTimeout(() => {
+      document.querySelectorAll('.poi-card').forEach(card => {
+        card.addEventListener('click', function(e) {
+          e.preventDefault();
+          e.stopPropagation();
+          const poiId = this.dataset.poiId;
+          if (poiId) {
+            window.openPoiComments(poiId);
+          }
+        });
+      });
+    }, 100);
 
     // Load stats in background (non-blocking)
     loadPoisStats(poisData);
@@ -395,6 +423,13 @@ function initModal() {
   const form = document.getElementById('addCommentForm');
   const photoInput = document.getElementById('photoUploadInput');
 
+  // CRITICAL: Ensure modal is closed on init
+  if (modal) {
+    modal.hidden = true;
+    modal.setAttribute('hidden', '');
+    console.log('🔒 Modal locked in closed state on init');
+  }
+
   closeBtn?.addEventListener('click', closeModal);
   
   modal?.addEventListener('click', (e) => {
@@ -416,11 +451,13 @@ function initModal() {
 // OPEN COMMENTS MODAL
 // ===================================
 window.openPoiComments = async function(poiId) {
+  console.log('🔓 Opening modal for POI:', poiId);
+  
   currentPoiId = poiId;
   const poi = poisData.find(p => p.id === poiId);
   
   if (!poi) {
-    console.error('POI not found:', poiId);
+    console.error('❌ POI not found:', poiId);
     return;
   }
 
@@ -434,7 +471,10 @@ window.openPoiComments = async function(poiId) {
   // Show modal
   const modal = document.getElementById('commentsModal');
   modal.hidden = false;
+  modal.removeAttribute('hidden');
   document.body.style.overflow = 'hidden';
+  
+  console.log('✅ Modal opened for:', poi.name);
 
   // Load comments
   await loadAndRenderComments(poiId);
@@ -444,11 +484,14 @@ window.openPoiComments = async function(poiId) {
 // CLOSE MODAL
 // ===================================
 function closeModal() {
+  console.log('🔒 Closing modal');
   const modal = document.getElementById('commentsModal');
   modal.hidden = true;
+  modal.setAttribute('hidden', '');
   document.body.style.overflow = '';
   currentPoiId = null;
   resetCommentForm();
+  console.log('✅ Modal closed');
 }
 
 // ===================================

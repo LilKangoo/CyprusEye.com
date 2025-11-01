@@ -291,6 +291,14 @@
   animation: fadeIn 0.2s ease-out;
 }
 
+/* CRITICAL: Force modal to be hidden when has [hidden] attribute */
+.comments-modal[hidden] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}
+
 @keyframes fadeIn {
   from {
     opacity: 0;
