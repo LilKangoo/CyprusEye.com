@@ -551,6 +551,13 @@
   }
 
   function init() {
+    // Check if language selector is active (first visit)
+    const languageSelector = window.languageSelector;
+    if (languageSelector && typeof languageSelector.shouldShow === 'function' && languageSelector.shouldShow()) {
+      // Language selector will handle initialization
+      return;
+    }
+
     const detected = detectLanguage();
     const language = Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, detected)
       ? detected
@@ -561,5 +568,12 @@
 
   appI18n.setLanguage = setLanguage;
 
-  init();
+  // Wait for language selector to be ready before initializing
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(init, 10); // Small delay to let language selector initialize first
+    });
+  } else {
+    setTimeout(init, 10);
+  }
 })();

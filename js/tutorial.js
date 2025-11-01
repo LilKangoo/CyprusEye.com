@@ -147,7 +147,11 @@
       this.updateUiText();
       this.updateHelpButtonLabel();
 
-      if (this.shouldAutoStart() && this.translationsReady) {
+      // Check if language selector is active - if so, don't auto-start yet
+      const languageSelector = window.languageSelector;
+      const selectorActive = languageSelector && typeof languageSelector.shouldShow === 'function' && languageSelector.shouldShow();
+
+      if (this.shouldAutoStart() && this.translationsReady && !selectorActive) {
         this.start();
         this.hasAutoStarted = true;
       }
