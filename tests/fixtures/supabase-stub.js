@@ -612,3 +612,4 @@ if (typeof stubApi.onReady === 'function') {
     console.error('supabase stub onReady error', error);
   }
 }
+}

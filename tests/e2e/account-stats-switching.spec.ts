@@ -1,8 +1,10 @@
 import { expect, test } from '@playwright/test';
+import { disableTutorial } from './utils/disable-tutorial';
 import { enableSupabaseStub, resetSupabaseStub, waitForSupabaseStub } from './utils/supabase';
 
 test.beforeEach(async ({ page }) => {
   await enableSupabaseStub(page);
+  await disableTutorial(page);
 });
 
 test.afterEach(async ({ page }) => {

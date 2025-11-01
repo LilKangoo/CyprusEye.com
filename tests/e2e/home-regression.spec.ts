@@ -1,7 +1,9 @@
 import { expect, test } from '@playwright/test';
+import { disableTutorial } from './utils/disable-tutorial';
 
 test.describe('Home page regressions', () => {
   test.beforeEach(async ({ page }) => {
+    await disableTutorial(page);
     await page.goto('/index.html');
     await page.waitForSelector('body[data-seo-page="home"]');
   });
