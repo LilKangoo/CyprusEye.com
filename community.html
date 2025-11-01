@@ -51,10 +51,50 @@
   <meta name="supabase-publishable" content="sb_publishable_QdxNGCb6LYD-6ywFrjCrjg_Oa7yDGTk" />
   <script type="module" src="/js/supabaseClient.js"></script>
   <script type="module" src="/js/toast.js"></script>
+  <script type="module" src="/js/auth.js"></script>
+  <script type="module" src="/js/authUi.js"></script>
 </head>
 <body data-navigation="multi-page" data-seo-page="community">
+  <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+  
   <!-- Header -->
   <header class="app-header">
+    <div class="auth-bar" data-i18n-attrs="aria-label:auth.bar.aria" aria-label="Panel konta">
+      <div class="auth-controls">
+        <button
+          id="notificationsToggle"
+          class="ghost notifications-toggle"
+          data-gated="true"
+          data-require-auth
+          data-i18n="header.notifications"
+          type="button"
+          aria-haspopup="true"
+          aria-expanded="false"
+          aria-controls="notificationsPanel"
+        >
+          🔔 Powiadomienia
+          <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
+        </button>
+        <div id="auth-actions" class="auth-actions" aria-live="polite">
+          <button
+            class="btn"
+            data-auth="login"
+            data-auth-login-mode="modal"
+            data-i18n="header.login"
+            data-i18n-attrs="aria-label:auth.login.aria"
+            aria-label="Zaloguj do konta"
+          >
+            Zaloguj
+          </button>
+          <button class="btn" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Graj jako gość</button>
+          <button class="btn" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
+        </div>
+        <div data-auth="spinner" class="auth-spinner" aria-live="polite" data-i18n="auth.status.spinner">Łączenie z logowaniem…</div>
+        <div class="user-menu" id="userMenu" hidden data-gated="true">
+          <span id="userGreeting" aria-live="polite"></span>
+        </div>
+      </div>
+    </div>
     
     <div class="header-top">
       <div class="brand">
@@ -222,9 +262,7 @@
         <div class="add-comment-section" id="addCommentSection">
           <div class="auth-required-message" data-auth-required hidden>
             <p data-i18n="community.auth.required">Musisz być zalogowany, aby dodać komentarz</p>
-            <p style="margin-top: 1rem; color: var(--color-neutral-600);">
-              Zaloguj się na <a href="index.html" style="color: var(--color-primary-600); text-decoration: underline;">stronie głównej</a>, a następnie wróć tutaj.
-            </p>
+            <button class="btn btn-primary primary" data-auth="login" data-i18n="header.login">Zaloguj</button>
           </div>
           
           <form id="addCommentForm" class="add-comment-form" data-auth-only hidden>

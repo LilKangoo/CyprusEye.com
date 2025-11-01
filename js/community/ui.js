@@ -1,7 +1,7 @@
 import { loadComments, addComment, editComment, deleteComment, replyToComment } from './comments.js';
 import { likeComment, unlikeComment, getLikesCount, hasUserLiked } from './likes.js';
 import { uploadPhotos, deletePhoto, getCommentPhotos } from './photos.js';
-// import { initNotifications, updateNotificationBadge } from './notifications.js'; // Disabled to prevent popups
+import { initNotifications, updateNotificationBadge } from './notifications.js';
 
 // ===================================
 // GLOBALS & STATE
@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     if (currentUser) {
       console.log('✅ User authenticated:', currentUser.id);
       await loadUserProfile();
-      // initNotifications(currentUser.id); // Disabled to prevent popups
+      initNotifications(currentUser.id);
     } else {
       console.log('ℹ️ No user authenticated');
     }
@@ -977,5 +977,24 @@ function formatTimeAgo(dateString) {
   
   return date.toLocaleDateString('pl-PL');
 }
+
+// ===================================
+// LISTEN TO AUTH STATE CHANGES
+// ===================================
+document.addEventListener('ce-auth:state', async (e) => {
+  const { status, session } = e.detail;
+  
+  if (status === 'authenticated' && session?.user) {
+    currentUser = session.user;
+    await loadUserProfile();
+    updateAuthSections();
+    if (currentUserId) {
+      initNotifications(currentUser.id);
+    }
+  } else if (status === 'signed-out') {
+    currentUser = null;
+    updateAuthSections();
+  }
+});
 
 console.log('✅ Community UI module loaded');
