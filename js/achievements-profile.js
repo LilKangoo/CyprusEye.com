@@ -24,18 +24,37 @@ export async function initProfilePage() {
   console.log('🚀 Initializing profile page...');
   
   try {
-    // Check if user is logged in
-    const sb = window.getSupabase();
-    const { data: { user }, error } = await sb.auth.getUser();
-    
-    if (error) throw error;
-    
-    if (!user) {
-      // Redirect to login if not authenticated
+    // Check if Supabase is available
+    if (!window.getSupabase) {
+      console.warn('⚠️ Supabase not loaded yet, showing login prompt');
       showLoginPrompt();
       return;
     }
     
+    // Check if user is logged in
+    const sb = window.getSupabase();
+    
+    if (!sb) {
+      console.warn('⚠️ Supabase client not available, showing login prompt');
+      showLoginPrompt();
+      return;
+    }
+    
+    const { data: { user }, error } = await sb.auth.getUser();
+    
+    if (error) {
+      console.warn('⚠️ Auth error:', error.message);
+      showLoginPrompt();
+      return;
+    }
+    
+    if (!user) {
+      console.log('👤 No user logged in, showing login prompt');
+      showLoginPrompt();
+      return;
+    }
+    
+    console.log('✅ User authenticated:', user.email);
     currentUser = user;
     
     // Load profile data
@@ -51,7 +70,8 @@ export async function initProfilePage() {
     
   } catch (error) {
     console.error('❌ Error initializing profile page:', error);
-    showError('Nie udało się załadować profilu. Odśwież stronę.');
+    // Show login prompt as fallback
+    showLoginPrompt();
   }
 }
 
@@ -957,7 +977,7 @@ function showLoginPrompt() {
       <div style="font-size: 4rem; margin-bottom: 1rem;">🔒</div>
       <h2 data-i18n="profile.login.title" style="margin-bottom: 1rem;">Zaloguj się, aby zobaczyć swój profil</h2>
       <p data-i18n="profile.login.description" style="margin-bottom: 2rem; color: #6b7280;">Musisz być zalogowany, aby uzyskać dostęp do strony profilu i swoich statystyk.</p>
-      <button class="btn btn-primary" data-auth="login" data-auth-login-mode="modal" data-i18n="profile.login.button">
+      <button id="loginPromptButton" class="btn btn-primary" data-i18n="profile.login.button">
         Zaloguj się
       </button>
       <p style="margin-top: 1rem; font-size: 0.875rem; color: #9ca3af;">
@@ -967,7 +987,88 @@ function showLoginPrompt() {
     
     main.insertBefore(loginPrompt, main.firstChild);
     
+    // Add click handler to login button
+    const loginButton = document.getElementById('loginPromptButton');
+    if (loginButton) {
+      loginButton.addEventListener('click', () => {
+        console.log('🔐 Opening login modal...');
+        openLoginModal();
+      });
+    }
+    
     if (window.i18n) window.i18n.translateElement(loginPrompt);
+  }
+}
+
+/**
+ * Open login modal
+ */
+function openLoginModal() {
+  console.log('🔐 Attempting to open login modal...');
+  
+  // Try using the global openAuthModal function first (used by the app)
+  if (typeof window.openAuthModal === 'function') {
+    console.log('✅ Using window.openAuthModal()');
+    window.openAuthModal('login');
+    return;
+  }
+  
+  // Try using the auth modal controller
+  const controller = window?.__authModalController;
+  if (controller && typeof controller.open === 'function') {
+    console.log('✅ Using __authModalController');
+    controller.setActiveTab?.('login', { focus: false });
+    controller.open('login');
+    return;
+  }
+  
+  // Fallback: manual modal opening
+  console.log('⚠️ Using fallback modal opening');
+  const modal = document.getElementById('auth-modal');
+  if (modal) {
+    modal.classList.add('is-open');
+    modal.setAttribute('aria-hidden', 'false');
+    
+    // Add body class to prevent scrolling
+    document.body.style.overflow = 'hidden';
+    
+    // Focus on the modal
+    const dialog = modal.querySelector('.modal__dialog');
+    if (dialog) {
+      dialog.focus();
+    }
+    
+    // Set login tab as active
+    const loginTab = document.getElementById('authTabLogin');
+    const loginPanel = document.getElementById('authPanelLogin');
+    
+    if (loginTab && loginPanel) {
+      // Remove active from all tabs
+      document.querySelectorAll('.auth-modal__tab').forEach(tab => {
+        tab.classList.remove('is-active');
+        tab.setAttribute('aria-selected', 'false');
+        tab.tabIndex = -1;
+      });
+      
+      // Remove active from all panels
+      document.querySelectorAll('.auth-modal__panel').forEach(panel => {
+        panel.classList.remove('is-active');
+        panel.hidden = true;
+      });
+      
+      // Activate login tab and panel
+      loginTab.classList.add('is-active');
+      loginTab.setAttribute('aria-selected', 'true');
+      loginTab.tabIndex = 0;
+      loginPanel.classList.add('is-active');
+      loginPanel.hidden = false;
+    }
+    
+    console.log('✅ Login modal opened (fallback)');
+  } else {
+    console.error('❌ Auth modal not found in DOM');
+    // Last resort - redirect to auth page
+    window.location.href = '/auth/';
   }
 }
 
@@ -1116,11 +1217,43 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-// Initialize when DOM is ready
+// Wait for all scripts to load before initializing
+async function waitForDependencies() {
+  // Wait for app.js to define openAuthModal
+  let attempts = 0;
+  const maxAttempts = 50; // 5 seconds max
+  
+  while (!window.openAuthModal && attempts < maxAttempts) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    attempts++;
+  }
+  
+  if (!window.openAuthModal) {
+    console.warn('⚠️ window.openAuthModal not available after waiting');
+  }
+  
+  // Also wait for Supabase if needed
+  attempts = 0;
+  while (!window.getSupabase && attempts < maxAttempts) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    attempts++;
+  }
+  
+  if (!window.getSupabase) {
+    console.warn('⚠️ window.getSupabase not available after waiting');
+  }
+}
+
+// Initialize when DOM is ready and dependencies are loaded
+async function init() {
+  await waitForDependencies();
+  await initProfilePage();
+}
+
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initProfilePage);
+  document.addEventListener('DOMContentLoaded', init);
 } else {
-  initProfilePage();
+  init();
 }
 
 console.log('✅ Achievements profile module loaded');
