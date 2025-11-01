@@ -234,7 +234,7 @@ async function loadUserActivity() {
     
     // Load user photos
     const photos = await getUserPhotos(currentUser.id, 20);
-    displayUserPhotos(photos);
+    await displayUserPhotos(photos);
     
     // Load user comments with full data
     const { data: comments, error } = await sb
@@ -266,7 +266,7 @@ async function loadUserActivity() {
 /**
  * Display user photos
  */
-function displayUserPhotos(photos) {
+async function displayUserPhotos(photos) {
   const container = document.getElementById('userPhotosGrid');
   if (!container) return;
   
@@ -277,17 +277,48 @@ function displayUserPhotos(photos) {
     return;
   }
   
-  photos.forEach(photo => {
+  const sb = window.getSupabase();
+  
+  for (const photo of photos) {
+    // Get comment data to find POI ID
+    let poiId = null;
+    try {
+      const { data: comment } = await sb
+        .from('poi_comments')
+        .select('poi_id')
+        .eq('id', photo.comment_id)
+        .single();
+      
+      if (comment) {
+        poiId = comment.poi_id;
+      }
+    } catch (error) {
+      console.warn('Error getting POI ID for photo:', error);
+    }
+    
     const photoCard = document.createElement('div');
     photoCard.className = 'photo-card';
+    
+    // Make the whole card clickable
+    if (poiId) {
+      photoCard.style.cursor = 'pointer';
+      photoCard.addEventListener('click', () => {
+        // Redirect to POI page with comment highlighted
+        window.location.href = `/index.html#poi-${poiId}`;
+      });
+    }
+    
     photoCard.innerHTML = `
       <img src="${photo.photo_url}" alt="Zdjęcie użytkownika" loading="lazy" />
       <div class="photo-card-overlay">
-        <button class="btn btn-sm" onclick="viewPhoto('${photo.id}')">Zobacz</button>
+        <button class="btn btn-sm" onclick="event.stopPropagation()">
+          ${poiId ? '📍 Zobacz miejsce' : '👁️ Zobacz'}
+        </button>
       </div>
     `;
+    
     container.appendChild(photoCard);
-  });
+  }
 }
 
 /**
@@ -315,15 +346,26 @@ function displayUserComments(comments) {
     
     const commentCard = document.createElement('div');
     commentCard.className = 'comment-card';
+    commentCard.style.cursor = 'pointer';
+    
+    // Make the whole card clickable - redirect to POI with comment highlighted
+    commentCard.addEventListener('click', () => {
+      window.location.href = `/index.html#poi-${comment.poi_id}`;
+    });
+    
+    // Add hover title
+    commentCard.title = `Kliknij aby przejść do ${comment.poi_id}`;
+    
     commentCard.innerHTML = `
       <div class="comment-header">
-        <span class="comment-poi-id">${comment.poi_id}</span>
+        <span class="comment-poi-id">📍 ${comment.poi_id}</span>
         <span class="comment-date">${formattedDate}</span>
       </div>
       <p class="comment-content">${escapeHtml(comment.content)}</p>
       <div class="comment-footer">
-        <span class="comment-likes">❤️ ${likesCount} polubień</span>
-        ${comment.is_edited ? '<span class="comment-edited">(edytowany)</span>' : ''}
+        <span class="comment-likes">❤️ ${likesCount}</span>
+        ${comment.is_edited ? '<span class="comment-edited">✏️ edytowany</span>' : ''}
+        <span style="margin-left: auto; color: #9ca3af; font-size: 0.8125rem;">→ Kliknij aby otworzyć</span>
       </div>
     `;
     container.appendChild(commentCard);

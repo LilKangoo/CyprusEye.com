@@ -37,6 +37,9 @@ Strona `/achievements.html` została przekształcona w kompleksową stronę prof
    - ✅ Lista komentarzy użytkownika
    - ✅ Liczba polubień dla każdego komentarza
    - ✅ Data publikacji komentarzy
+   - ✅ **KLIKALNE ZDJĘCIA** - przekierowanie do oryginalnego POI
+   - ✅ **KLIKALNE KOMENTARZE** - przekierowanie do oryginalnego POI
+   - ✅ Wizualne wskazówki hover i "→ Kliknij aby otworzyć"
 
 ## Struktura Plików
 
@@ -92,6 +95,23 @@ Strona `/achievements.html` została przekształcona w kompleksową stronę prof
    - Max rozmiar: 5MB
    - Dozwolone formaty: JPG, PNG, WebP
 
+## Design Enhancements (v2.0)
+
+### Nowy nowoczesny design:
+- ✨ **Gradient header** z animacją pulse
+- 🎨 **Gradient stat values** z -webkit-background-clip
+- 💎 **Glassmorphism effects** z backdrop-filter
+- ✨ **Shimmer animation** na progress barze XP
+- 🌊 **Smooth hover effects** z cubic-bezier transitions
+- 🎯 **Modern card shadows** z wielowarstwowymi cieniami
+- 📱 **Improved responsive** z lepszymi breakpointami
+
+### Klikalne elementy:
+- 🖼️ **Zdjęcia** - kliknięcie przekierowuje do `/index.html#poi-{ID}`
+- 💬 **Komentarze** - kliknięcie przekierowuje do oryginalnego POI
+- 👁️ **Wizualne wskazówki** - "→ Kliknij aby otworzyć"
+- 🎯 **Hover effects** - gradient top border i transform
+
 ## Kluczowe Funkcje JavaScript
 
 ### `initProfilePage()`
@@ -115,6 +135,20 @@ Wyświetla statystyki gry:
 - Pobiera ostatnie 20 zdjęć użytkownika
 - Pobiera ostatnie 20 komentarzy użytkownika
 - Wyświetla je w odpowiednich sekcjach
+
+### `displayUserPhotos(photos)` - ASYNC
+Wyświetla galerię zdjęć użytkownika:
+- Dla każdego zdjęcia pobiera POI ID
+- Tworzy klikalne karty zdjęć
+- Dodaje event listener przekierowujący do `/index.html#poi-{ID}`
+- Wyświetla "📍 Zobacz miejsce" na hover
+
+### `displayUserComments(comments)`
+Wyświetla listę komentarzy użytkownika:
+- Tworzy klikalne karty komentarzy
+- Dodaje event listener przekierowujący do POI
+- Wyświetla "→ Kliknij aby otworzyć" w footerze
+- Dodaje tooltip z nazwą POI
 
 ### `handleAvatarUpload(event)`
 Obsługuje upload nowego awatara:
