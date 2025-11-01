@@ -286,11 +286,11 @@ async function renderPoisList() {
           <div class="poi-card-stats">
             <div class="poi-stat">
               <span class="poi-stat-icon">💬</span>
-              <span id="comments-count-${poi.id}">0 komentarzy</span>
+              <span id="comments-count-${poi.id}">${formatCommentCount(0)}</span>
             </div>
             <div class="poi-stat">
               <span class="poi-stat-icon">📷</span>
-              <span id="photos-count-${poi.id}">0 zdjęć</span>
+              <span id="photos-count-${poi.id}">${formatPhotoCount(0)}</span>
             </div>
           </div>
           
@@ -301,7 +301,7 @@ async function renderPoisList() {
           <div id="latest-comment-${poi.id}"></div>
 
           <button class="poi-card-action">
-            Zobacz komentarze
+            ${t('community.viewComments')}
           </button>
         </div>
       `;

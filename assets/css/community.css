@@ -166,6 +166,9 @@
   transition: all 0.3s;
   cursor: pointer;
   border: 2px solid transparent;
+  overflow: hidden;
+  word-wrap: break-word;
+  max-width: 100%;
 }
 
 .poi-card:hover {
@@ -195,6 +198,9 @@
   font-weight: 600;
   margin-bottom: 0.25rem;
   color: var(--color-neutral-900);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
 }
 
 .poi-card-location {
@@ -220,6 +226,11 @@
   gap: 0.375rem;
   font-size: 0.875rem;
   color: var(--color-neutral-600);
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex-shrink: 1;
 }
 
 .poi-stat-icon {
@@ -998,6 +1009,33 @@ textarea:focus-visible {
     background: rgba(0, 0, 0, 0.2);
     border-radius: 2px;
     z-index: 1;
+  }
+  
+  /* POI Cards - force single column and prevent overflow */
+  .pois-list {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+  
+  .poi-card {
+    padding: 1rem;
+    max-width: 100%;
+    min-width: 0;
+  }
+  
+  .poi-card-name {
+    font-size: 1.125rem;
+  }
+  
+  .poi-card-stats {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .poi-stat {
+    font-size: 0.8125rem;
+    flex: 1 1 45%;
+    min-width: 0;
   }
 }
 

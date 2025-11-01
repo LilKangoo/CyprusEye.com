@@ -727,5 +727,6 @@
   "community.auth.required": "Musisz być zalogowany, aby dodać komentarz",
   "community.comment.hint": "Dodaj komentarz lub zdjęcia",
   "community.comment.placeholder": "Podziel się swoimi wrażeniami...",
-  "community.comment.submit": "Opublikuj"
+  "community.comment.submit": "Opublikuj",
+  "community.viewComments": "Zobacz komentarze"
 }

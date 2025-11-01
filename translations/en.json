@@ -1570,6 +1570,7 @@
   "community.comment.hint": "Add a comment or photos",
   "community.comment.placeholder": "Share your impressions...",
   "community.comment.submit": "Publish",
+  "community.viewComments": "View comments",
   "community.rating.title": "Rate this place",
   "community.rating.prompt": "Click on stars to rate",
   "community.rating.yourRating": "Your rating: {{rating}}★",
