@@ -1,13 +1,14 @@
 import { bootAuth, updateAuthUI } from './authUi.js';
 import { showErr, showInfo, showOk } from './authMessages.js';
 import { loadProfileForUser } from './profile.js';
+import { URLS } from './config.js';
 
 const sb = window.getSupabase();
 const ceAuthGlobal = typeof window !== 'undefined' ? (window.CE_AUTH = window.CE_AUTH || {}) : null;
 
 const $ = (selector, root = document) => root.querySelector(selector);
-const PASSWORD_RESET_REDIRECT = 'https://cypruseye.com/reset/';
-const VERIFICATION_REDIRECT = 'https://cypruseye.com/auth/';
+const PASSWORD_RESET_REDIRECT = URLS.passwordReset;
+const VERIFICATION_REDIRECT = URLS.verification;
 let lastAuthEmail = '';
 const SUPABASE_RETURN_PARAMS = new Set([
   'access_token',
