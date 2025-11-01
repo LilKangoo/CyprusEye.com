@@ -919,5 +919,37 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
     <script src="app.js" defer></script>
     <script type="module" src="/assets/js/auth-ui.js"></script>
     <script type="module" src="/js/achievements-profile.js"></script>
+    
+    <!-- Debug test script -->
+    <script>
+      console.log('🛠️ Debug test script loaded');
+      
+      // Test 1: Check if modal exists
+      setTimeout(() => {
+        const modal = document.getElementById('auth-modal');
+        console.log('📍 auth-modal exists:', modal ? 'YES' : 'NO');
+        
+        // Test 2: Check if openAuthModal exists
+        console.log('📍 window.openAuthModal exists:', typeof window.openAuthModal);
+        
+        // Test 3: Check if login button exists
+        const loginBtn = document.getElementById('loginPromptButton');
+        console.log('📍 loginPromptButton exists:', loginBtn ? 'YES' : 'NO');
+        
+        // Test 4: Try to manually open modal
+        if (loginBtn) {
+          console.log('📍 Adding test click listener');
+          loginBtn.addEventListener('click', function testClick() {
+            console.log('👍 TEST CLICK DETECTED!');
+            if (typeof window.openAuthModal === 'function') {
+              console.log('👍 Calling window.openAuthModal()');
+              window.openAuthModal('login');
+            } else {
+              console.warn('⚠️ window.openAuthModal not available');
+            }
+          }, true); // use capture phase
+        }
+      }, 2000);
+    </script>
   </body>
 </html>

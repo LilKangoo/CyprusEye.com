@@ -987,14 +987,29 @@ function showLoginPrompt() {
     
     main.insertBefore(loginPrompt, main.firstChild);
     
-    // Add click handler to login button
-    const loginButton = document.getElementById('loginPromptButton');
-    if (loginButton) {
-      loginButton.addEventListener('click', () => {
-        console.log('🔐 Opening login modal...');
-        openLoginModal();
-      });
-    }
+    // Add click handler to login button - use requestAnimationFrame to ensure DOM is ready
+    requestAnimationFrame(() => {
+      const loginButton = document.getElementById('loginPromptButton');
+      console.log('🔍 Login button found:', loginButton ? 'YES' : 'NO');
+      
+      if (loginButton) {
+        console.log('✅ Attaching click handler to login button');
+        loginButton.addEventListener('click', (e) => {
+          e.preventDefault();
+          console.log('🔐 Login button clicked!');
+          openLoginModal();
+        });
+        
+        // Also add as onclick fallback
+        loginButton.onclick = (e) => {
+          e.preventDefault();
+          console.log('🔐 Login button onclick triggered!');
+          openLoginModal();
+        };
+      } else {
+        console.error('❌ Login button not found in DOM');
+      }
+    });
     
     if (window.i18n) window.i18n.translateElement(loginPrompt);
   }
@@ -1005,20 +1020,34 @@ function showLoginPrompt() {
  */
 function openLoginModal() {
   console.log('🔐 Attempting to open login modal...');
+  console.log('window.openAuthModal exists:', typeof window.openAuthModal);
+  console.log('window.__authModalController exists:', typeof window.__authModalController);
   
   // Try using the global openAuthModal function first (used by the app)
   if (typeof window.openAuthModal === 'function') {
     console.log('✅ Using window.openAuthModal()');
-    window.openAuthModal('login');
+    try {
+      window.openAuthModal('login');
+      console.log('✅ window.openAuthModal() called successfully');
+    } catch (error) {
+      console.error('❌ Error calling window.openAuthModal:', error);
+    }
     return;
   }
   
   // Try using the auth modal controller
-  const controller = window?.__authModalController;
+  const controller = window.__authModalController;
   if (controller && typeof controller.open === 'function') {
     console.log('✅ Using __authModalController');
-    controller.setActiveTab?.('login', { focus: false });
-    controller.open('login');
+    try {
+      if (controller.setActiveTab) {
+        controller.setActiveTab('login', { focus: false });
+      }
+      controller.open('login');
+      console.log('✅ controller.open() called successfully');
+    } catch (error) {
+      console.error('❌ Error calling controller.open:', error);
+    }
     return;
   }
   
@@ -1257,3 +1286,15 @@ if (document.readyState === 'loading') {
 }
 
 console.log('✅ Achievements profile module loaded');
+
+// Expose functions to window for debugging
+window.__achievementsDebug = {
+  openLoginModal,
+  showLoginPrompt,
+  initProfilePage
+};
+
+console.log('🛠️ Debug functions available: window.__achievementsDebug');
+console.log('  - window.__achievementsDebug.openLoginModal()');
+console.log('  - window.__achievementsDebug.showLoginPrompt()');
+console.log('  - window.__achievementsDebug.initProfilePage()');
