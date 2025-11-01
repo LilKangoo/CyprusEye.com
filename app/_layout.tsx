@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SettingsProvider } from '../context/SettingsContext';
+import { AuthProvider } from '../context/AuthContext';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -21,11 +22,13 @@ export default function RootLayout() {
   }, []);
 
   return (
-    <SettingsProvider>
-      <GestureHandlerRootView style={{ flex: 1 }}>
-        <StatusBar style="dark" />
-        <Stack screenOptions={{ headerShown: false }} />
-      </GestureHandlerRootView>
-    </SettingsProvider>
+    <AuthProvider>
+      <SettingsProvider>
+        <GestureHandlerRootView style={{ flex: 1 }}>
+          <StatusBar style="dark" />
+          <Stack screenOptions={{ headerShown: false }} />
+        </GestureHandlerRootView>
+      </SettingsProvider>
+    </AuthProvider>
   );
 }

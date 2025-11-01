@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
+import { UserHeader } from '../../components/UserHeader';
 
 const tabIcon = (name: React.ComponentProps<typeof Ionicons>['name']) =>
   ({ color, focused }: { color: string; focused: boolean }) => (
@@ -14,6 +15,7 @@ export default function TabsLayout() {
         tabBarActiveTintColor: '#1a73e8',
         tabBarInactiveTintColor: '#6b7280',
         headerTitleAlign: 'center',
+        header: () => <UserHeader />,
       }}
     >
       <Tabs.Screen
