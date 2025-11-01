@@ -144,6 +144,7 @@ async function loadUserProfile() {
 function updateUserAvatar() {
   const avatarEl = document.getElementById('currentUserAvatar');
   const nameEl = document.getElementById('currentUserName');
+  const headerAvatar = document.getElementById('headerUserAvatar');
   
   if (avatarEl && currentUser?.profile) {
     avatarEl.src = currentUser.profile.avatar_url || DEFAULT_AVATAR;
@@ -152,6 +153,12 @@ function updateUserAvatar() {
   
   if (nameEl && currentUser?.profile) {
     nameEl.textContent = currentUser.profile.username || currentUser.profile.name || 'Użytkownik';
+  }
+  
+  // Update header avatar in profile button
+  if (headerAvatar && currentUser?.profile) {
+    headerAvatar.src = currentUser.profile.avatar_url || DEFAULT_AVATAR;
+    headerAvatar.alt = currentUser.profile.username || currentUser.profile.name || 'User';
   }
 }
 

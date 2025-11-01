@@ -849,6 +849,34 @@ textarea:focus-visible {
   margin-bottom: 1.5rem;
 }
 
+/* Profile Button with Avatar */
+.btn-profile {
+  display: inline-flex !important;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem !important;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.btn-profile:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.header-user-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid var(--color-primary-500);
+  background: white;
+}
+
+.btn-profile span {
+  font-weight: 500;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .community-hero h1 {
