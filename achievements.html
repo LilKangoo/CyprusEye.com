@@ -295,10 +295,10 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
     <!-- Profile Header -->
     <section class="card surface-card profile-hero" aria-labelledby="profileTitle" data-gated="true" id="profile-header">
       <div id="profile-header-loading" style="display: none;">
-        <p>Ładowanie profilu...</p>
+        <p data-i18n="profile.loading">Ładowanie profilu...</p>
       </div>
       <div class="profile-hero-content">
-        <a class="ghost achievements-back" href="/index.html" data-back-home-link="true">
+        <a class="ghost achievements-back" href="/index.html" data-back-home-link="true" data-i18n="profile.hero.back">
           ← Wróć do aplikacji
         </a>
         <div class="profile-header">
@@ -311,21 +311,21 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
             />
             <div class="profile-avatar-actions">
               <input type="file" id="avatarInput" accept="image/*" style="display: none;" />
-              <button type="button" class="btn btn-sm btn-secondary" id="uploadAvatarBtn">
+              <button type="button" class="btn btn-sm btn-secondary" id="uploadAvatarBtn" data-i18n="profile.avatar.change">
                 📷 Zmień
               </button>
-              <button type="button" class="btn btn-sm btn-ghost" id="removeAvatarBtn">
+              <button type="button" class="btn btn-sm btn-ghost" id="removeAvatarBtn" data-i18n="profile.avatar.remove">
                 ✕
               </button>
             </div>
             <div id="avatar-upload-loading" style="display: none;">
-              <p>Wysyłanie...</p>
+              <p data-i18n="profile.avatar.uploading">Wysyłanie...</p>
             </div>
           </div>
           <div class="profile-info">
             <div id="usernameDisplay" class="profile-username-display">
               <h1 id="profileUsername">Użytkownik</h1>
-              <button type="button" class="btn btn-sm btn-ghost" id="editUsernameBtn">
+              <button type="button" class="btn btn-sm btn-ghost" id="editUsernameBtn" data-i18n="profile.username.edit">
                 ✏️ Edytuj
               </button>
             </div>
@@ -333,19 +333,20 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
               <input 
                 type="text" 
                 id="usernameInput" 
-                placeholder="Nazwa użytkownika" 
+                placeholder="Nazwa użytkownika"
+                data-i18n-attrs="placeholder:profile.username.placeholder" 
                 maxlength="20"
                 class="profile-username-input"
               />
-              <button type="button" class="btn btn-sm btn-primary" id="saveUsernameBtn">
+              <button type="button" class="btn btn-sm btn-primary" id="saveUsernameBtn" data-i18n="profile.username.save">
                 💾 Zapisz
               </button>
-              <button type="button" class="btn btn-sm btn-ghost" id="cancelUsernameBtn">
+              <button type="button" class="btn btn-sm btn-ghost" id="cancelUsernameBtn" data-i18n="profile.username.cancel">
                 ✕
               </button>
             </div>
             <div id="username-edit-loading" style="display: none;">
-              <p>Zapisywanie...</p>
+              <p data-i18n="profile.username.saving">Zapisywanie...</p>
             </div>
             <p id="profileEmail" class="profile-email"></p>
             <p id="memberSince" class="profile-member-since">Członek od...</p>
@@ -356,48 +357,48 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
 
     <!-- Game Statistics -->
     <section class="card surface-card profile-stats-section" aria-labelledby="statsTitle" data-gated="true">
-      <h2 id="statsTitle">📊 Twoje statystyki w grze</h2>
+      <h2 id="statsTitle" data-i18n="profile.stats.title">📊 Twoje statystyki w grze</h2>
       <div class="profile-stats-grid">
         <div class="stat-card">
           <div class="stat-icon">🎯</div>
           <div class="stat-content">
             <span class="stat-value" id="statLevel">1</span>
-            <span class="stat-label">Poziom</span>
+            <span class="stat-label" data-i18n="profile.stats.level">Poziom</span>
           </div>
         </div>
         <div class="stat-card">
           <div class="stat-icon">⭐</div>
           <div class="stat-content">
             <span class="stat-value" id="statXP">0</span>
-            <span class="stat-label">Doświadczenie (XP)</span>
+            <span class="stat-label" data-i18n="profile.stats.xp">Doświadczenie (XP)</span>
           </div>
         </div>
         <div class="stat-card">
           <div class="stat-icon">🏆</div>
           <div class="stat-content">
             <span class="stat-value" id="statBadges">0</span>
-            <span class="stat-label">Zebrane odznaki</span>
+            <span class="stat-label" data-i18n="profile.stats.badges">Zebrane odznaki</span>
           </div>
         </div>
         <div class="stat-card">
           <div class="stat-icon">📸</div>
           <div class="stat-content">
             <span class="stat-value" id="statPhotos">0</span>
-            <span class="stat-label">Wstawione zdjęcia</span>
+            <span class="stat-label" data-i18n="profile.stats.photos">Wstawione zdjęcia</span>
           </div>
         </div>
         <div class="stat-card">
           <div class="stat-icon">💬</div>
           <div class="stat-content">
             <span class="stat-value" id="statComments">0</span>
-            <span class="stat-label">Komentarze</span>
+            <span class="stat-label" data-i18n="profile.stats.comments">Komentarze</span>
           </div>
         </div>
         <div class="stat-card">
           <div class="stat-icon">❤️</div>
           <div class="stat-content">
             <span class="stat-value" id="statLikesReceived">0</span>
-            <span class="stat-label">Polubienia otrzymane</span>
+            <span class="stat-label" data-i18n="profile.stats.likesReceived">Polubienia otrzymane</span>
           </div>
         </div>
       </div>
@@ -405,8 +406,8 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
       <!-- XP Progress Bar -->
       <div class="profile-xp-progress">
         <div class="xp-progress-header">
-          <h3>Postęp do kolejnego poziomu</h3>
-          <span id="statXPProgress">Ładowanie...</span>
+          <h3 data-i18n="profile.xp.progressTitle">Postęp do kolejnego poziomu</h3>
+          <span id="statXPProgress" data-i18n="profile.xp.loading">Ładowanie...</span>
         </div>
         <div class="progress-bar-container">
           <div class="progress-bar-fill" id="xpProgressBar" style="width: 0%"></div>
@@ -416,7 +417,7 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
 
     <!-- Account Settings -->
     <section class="card surface-card profile-settings-section" aria-labelledby="settingsTitle" data-gated="true">
-      <h2 id="settingsTitle">⚙️ Ustawienia konta</h2>
+      <h2 id="settingsTitle" data-i18n="profile.settings.title">⚙️ Ustawienia konta</h2>
       <div class="settings-list">
         
         <!-- Email Settings -->
@@ -424,10 +425,10 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
           <div class="setting-info">
             <div class="setting-icon">📧</div>
             <div>
-              <h3>Adres email</h3>
+              <h3 data-i18n="profile.settings.email.title">Adres email</h3>
               <div id="emailDisplay" class="setting-display">
-                <p id="settingsEmail" class="setting-value">Ładowanie...</p>
-                <button type="button" class="btn btn-sm btn-text" id="editEmailBtn">
+                <p id="settingsEmail" class="setting-value" data-i18n="profile.xp.loading">Ładowanie...</p>
+                <button type="button" class="btn btn-sm btn-text" id="editEmailBtn" data-i18n="profile.settings.email.edit">
                   ✏️ Zmień
                 </button>
               </div>
@@ -435,23 +436,24 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
                 <input 
                   type="email" 
                   id="emailInput" 
-                  placeholder="nowy@email.com" 
+                  placeholder="nowy@email.com"
+                  data-i18n-attrs="placeholder:profile.settings.email.placeholder" 
                   class="setting-input"
                   required
                 />
                 <div class="setting-edit-actions">
-                  <button type="button" class="btn btn-sm btn-primary" id="saveEmailBtn">
+                  <button type="button" class="btn btn-sm btn-primary" id="saveEmailBtn" data-i18n="profile.settings.email.save">
                     💾 Zapisz
                   </button>
-                  <button type="button" class="btn btn-sm btn-ghost" id="cancelEmailBtn">
+                  <button type="button" class="btn btn-sm btn-ghost" id="cancelEmailBtn" data-i18n="profile.settings.email.cancel">
                     ✕ Anuluj
                   </button>
                 </div>
               </div>
               <div id="email-edit-loading" class="setting-loading" style="display: none;">
-                <span class="spinner"></span> Aktualizowanie...
+                <span class="spinner"></span> <span data-i18n="profile.settings.email.updating">Aktualizowanie...</span>
               </div>
-              <p class="setting-help">Otrzymasz email weryfikacyjny na nowy adres</p>
+              <p class="setting-help" data-i18n="profile.settings.email.help">Otrzymasz email weryfikacyjny na nowy adres</p>
             </div>
           </div>
         </div>
@@ -461,10 +463,10 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
           <div class="setting-info">
             <div class="setting-icon">🔑</div>
             <div>
-              <h3>Hasło</h3>
+              <h3 data-i18n="profile.settings.password.title">Hasło</h3>
               <div id="passwordDisplay" class="setting-display">
                 <p class="setting-value">••••••••</p>
-                <button type="button" class="btn btn-sm btn-text" id="editPasswordBtn">
+                <button type="button" class="btn btn-sm btn-text" id="editPasswordBtn" data-i18n="profile.settings.email.edit">
                   ✏️ Zmień
                 </button>
               </div>
@@ -472,14 +474,16 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
                 <input 
                   type="password" 
                   id="currentPasswordInput" 
-                  placeholder="Obecne hasło" 
+                  placeholder="Obecne hasło"
+                  data-i18n-attrs="placeholder:profile.settings.password.current" 
                   class="setting-input"
                   autocomplete="current-password"
                 />
                 <input 
                   type="password" 
                   id="newPasswordInput" 
-                  placeholder="Nowe hasło (min. 8 znaków)" 
+                  placeholder="Nowe hasło (min. 8 znaków)"
+                  data-i18n-attrs="placeholder:profile.settings.password.new" 
                   class="setting-input"
                   minlength="8"
                   autocomplete="new-password"
@@ -487,24 +491,25 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
                 <input 
                   type="password" 
                   id="confirmPasswordInput" 
-                  placeholder="Potwierdź nowe hasło" 
+                  placeholder="Potwierdź nowe hasło"
+                  data-i18n-attrs="placeholder:profile.settings.password.confirm" 
                   class="setting-input"
                   minlength="8"
                   autocomplete="new-password"
                 />
                 <div class="setting-edit-actions">
-                  <button type="button" class="btn btn-sm btn-primary" id="savePasswordBtn">
+                  <button type="button" class="btn btn-sm btn-primary" id="savePasswordBtn" data-i18n="profile.settings.password.save">
                     💾 Zapisz hasło
                   </button>
-                  <button type="button" class="btn btn-sm btn-ghost" id="cancelPasswordBtn">
+                  <button type="button" class="btn btn-sm btn-ghost" id="cancelPasswordBtn" data-i18n="profile.settings.email.cancel">
                     ✕ Anuluj
                   </button>
                 </div>
               </div>
               <div id="password-edit-loading" class="setting-loading" style="display: none;">
-                <span class="spinner"></span> Zapisywanie...
+                <span class="spinner"></span> <span data-i18n="profile.settings.password.saving">Zapisywanie...</span>
               </div>
-              <p class="setting-help">Hasło musi mieć minimum 8 znaków</p>
+              <p class="setting-help" data-i18n="profile.settings.password.help">Hasło musi mieć minimum 8 znaków</p>
             </div>
           </div>
         </div>
@@ -515,23 +520,23 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
     <!-- User Activity Feed -->
     <section class="card surface-card profile-activity-section" aria-labelledby="activityTitle" data-gated="true">
       <div id="user-activity-loading" style="display: none;">
-        <p>Ładowanie aktywności...</p>
+        <p data-i18n="profile.activity.loading">Ładowanie aktywności...</p>
       </div>
-      <h2 id="activityTitle">📱 Twoja aktywność</h2>
+      <h2 id="activityTitle" data-i18n="profile.activity.title">📱 Twoja aktywność</h2>
       
       <!-- User Photos -->
       <div class="activity-subsection">
-        <h3>📸 Twoje zdjęcia</h3>
+        <h3 data-i18n="profile.activity.photos.title">📸 Twoje zdjęcia</h3>
         <div id="userPhotosGrid" class="photos-grid">
-          <p class="empty-state">Ładowanie zdjęć...</p>
+          <p class="empty-state" data-i18n="profile.xp.loading">Ładowanie zdjęć...</p>
         </div>
       </div>
       
       <!-- User Comments -->
       <div class="activity-subsection">
-        <h3>💬 Twoje komentarze</h3>
+        <h3 data-i18n="profile.activity.comments.title">💬 Twoje komentarze</h3>
         <div id="userCommentsList" class="comments-list">
-          <p class="empty-state">Ładowanie komentarzy...</p>
+          <p class="empty-state" data-i18n="profile.xp.loading">Ładowanie komentarzy...</p>
         </div>
       </div>
     </section>

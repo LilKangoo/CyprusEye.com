@@ -273,7 +273,8 @@ async function displayUserPhotos(photos) {
   container.innerHTML = '';
   
   if (photos.length === 0) {
-    container.innerHTML = '<p class="empty-state">Nie wstawiłeś jeszcze żadnych zdjęć.</p>';
+    container.innerHTML = '<p class="empty-state" data-i18n="profile.activity.photos.empty">Nie wstawiłeś jeszcze żadnych zdjęć.</p>';
+    if (window.i18n) window.i18n.translateElement(container);
     return;
   }
   
@@ -311,11 +312,13 @@ async function displayUserPhotos(photos) {
     photoCard.innerHTML = `
       <img src="${photo.photo_url}" alt="Zdjęcie użytkownika" loading="lazy" />
       <div class="photo-card-overlay">
-        <button class="btn btn-sm" onclick="event.stopPropagation()">
+        <button class="btn btn-sm" onclick="event.stopPropagation()" data-i18n="${poiId ? 'profile.activity.photos.viewPlace' : 'profile.activity.photos.view'}">
           ${poiId ? '📍 Zobacz miejsce' : '👁️ Zobacz'}
         </button>
       </div>
     `;
+    
+    if (window.i18n) window.i18n.translateElement(photoCard);
     
     container.appendChild(photoCard);
   }
@@ -331,7 +334,8 @@ function displayUserComments(comments) {
   container.innerHTML = '';
   
   if (comments.length === 0) {
-    container.innerHTML = '<p class="empty-state">Nie dodałeś jeszcze żadnych komentarzy.</p>';
+    container.innerHTML = '<p class="empty-state" data-i18n="profile.activity.comments.empty">Nie dodałeś jeszcze żadnych komentarzy.</p>';
+    if (window.i18n) window.i18n.translateElement(container);
     return;
   }
   
@@ -364,10 +368,12 @@ function displayUserComments(comments) {
       <p class="comment-content">${escapeHtml(comment.content)}</p>
       <div class="comment-footer">
         <span class="comment-likes">❤️ ${likesCount}</span>
-        ${comment.is_edited ? '<span class="comment-edited">✏️ edytowany</span>' : ''}
-        <span style="margin-left: auto; color: #9ca3af; font-size: 0.8125rem;">→ Kliknij aby otworzyć</span>
+        ${comment.is_edited ? '<span class="comment-edited" data-i18n="profile.activity.comments.edited">✏️ edytowany</span>' : ''}
+        <span style="margin-left: auto; color: #9ca3af; font-size: 0.8125rem;" data-i18n="profile.activity.comments.clickToOpen">→ Kliknij aby otworzyć</span>
       </div>
     `;
+    
+    if (window.i18n) window.i18n.translateElement(commentCard);
     container.appendChild(commentCard);
   });
 }
@@ -867,13 +873,15 @@ function showLoginPrompt() {
   if (container) {
     container.innerHTML = `
       <div class="card surface-card" style="text-align: center; padding: 3rem;">
-        <h2>Zaloguj się, aby zobaczyć swój profil</h2>
-        <p>Musisz być zalogowany, aby uzyskać dostęp do strony profilu.</p>
-        <button class="btn btn-primary" data-auth="login" data-auth-login-mode="modal">
+        <h2 data-i18n="profile.login.title">Zaloguj się, aby zobaczyć swój profil</h2>
+        <p data-i18n="profile.login.description">Musisz być zalogowany, aby uzyskać dostęp do strony profilu.</p>
+        <button class="btn btn-primary" data-auth="login" data-auth-login-mode="modal" data-i18n="profile.login.button">
           Zaloguj się
         </button>
       </div>
     `;
+    
+    if (window.i18n) window.i18n.translateElement(container);
   }
 }
 
