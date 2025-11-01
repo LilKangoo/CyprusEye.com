@@ -1,4 +1,15 @@
 // Debug helper - logs only when debugging is enabled
+// Date utilities (extracted to src/utils/dates.js)
+import {
+  toUtcDate,
+  getTodayDateString,
+  calculateDayDifference,
+  formatNotificationDate,
+  formatReviewDate,
+  getDefaultDailyStreak,
+  normalizeDailyStreak
+} from '/src/utils/dates.js';
+
 const DEBUG = localStorage.getItem('CE_DEBUG') === 'true' || new URLSearchParams(window.location.search).has('debug');
 function debug(...args) {
   if (DEBUG) {
