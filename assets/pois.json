@@ -1,42 +1,16 @@
 [
   {
-    "id": "kykko-monastery",
-    "name": "Klasztor Kykkos",
-    "lat": 34.9953,
-    "lon": 32.7416,
-    "radius": 150
-  },
-  {
-    "id": "nissi-beach",
-    "name": "Plaża Nissi",
-    "lat": 34.9876,
-    "lon": 33.9813,
-    "radius": 200
-  },
-  {
-    "id": "ancient-kourion",
-    "name": "Starożytne Kourion",
-    "lat": 34.6647,
-    "lon": 32.8872,
-    "radius": 180
-  },
-  {
-    "id": "aphrodite-rock",
-    "name": "Skała Afrodyty",
-    "lat": 34.6641,
-    "lon": 32.6271,
-    "radius": 150
-  },
-  {
     "id": "kato-pafos-archaeological-park",
-    "name": "Kato Paphos Archaeological Park",
+    "name": "Kato Paphos Archaeological Park (Nea Paphos)",
+    "description": "Expansive UNESCO site with famous mosaics and the ruins of the ancient city of Nea Paphos.",
     "lat": 34.75567,
     "lon": 32.40417,
     "radius": 200
   },
   {
     "id": "tombs-of-the-kings",
-    "name": "Tombs of the Kings",
+    "name": "Tombs of the Kings in Paphos",
+    "description": "Monumental rock-cut tombs from the Hellenistic and Roman periods adorned with Doric columns.",
     "lat": 34.775,
     "lon": 32.40694,
     "radius": 180
@@ -44,29 +18,449 @@
   {
     "id": "coral-bay",
     "name": "Coral Bay Beach",
+    "description": "Golden sand, gentle entry into the sea and crystal-clear water—the classic spot to relax near Peyia.",
     "lat": 34.854,
     "lon": 32.3695,
     "radius": 150
   },
   {
+    "id": "aphrodite-rock",
+    "name": "Skała Afrodyty (Petra tou Romiou)",
+    "description": "Legenda głosi, że wśród turkusowych fal u stóp skały narodziła się Afrodyta – idealne miejsce na zachód słońca.",
+    "lat": 34.6641,
+    "lon": 32.6271,
+    "radius": 150
+  },
+  {
     "id": "blue-lagoon-akamas",
     "name": "Błękitna Laguna (Akamas)",
+    "description": "Krystalicznie czysta zatoka otoczona dziką przyrodą półwyspu Akamas – raj do snorkelingu.",
     "lat": 35.08417,
     "lon": 32.30611,
     "radius": 200
   },
   {
+    "id": "kourion-archaeological-site",
+    "name": "Stanowisko archeologiczne Kurion",
+    "description": "Ruiny antycznego miasta na klifie z teatrem, łaźniami i mozaikami Domu Eustoliosa.",
+    "lat": 34.6642,
+    "lon": 32.8877,
+    "radius": 180
+  },
+  {
     "id": "kolossi-castle",
     "name": "Zamek Kolossi",
+    "description": "XIII-wieczna forteca joannitów, dawne centrum produkcji słodkiego wina Commandaria.",
     "lat": 34.66527,
     "lon": 32.93396,
     "radius": 150
   },
   {
+    "id": "molos-promenade",
+    "name": "Promenada Molos w Limassol",
+    "description": "Nadmorski park z palmami, rzeźbami i kawiarniami – ulubione miejsce spacerów mieszkańców Limassol.",
+    "lat": 34.67658,
+    "lon": 33.04979,
+    "radius": 150
+  },
+  {
+    "id": "amathus-ruins",
+    "name": "Ruiny starożytnego Amathus",
+    "description": "Pozostałości jednego z królewskich miast Cypru z agorą, świątynią Afrodyty i wczesnochrześcijańską bazyliką.",
+    "lat": 34.7125,
+    "lon": 33.14167,
+    "radius": 180
+  },
+  {
+    "id": "limassol-castle",
+    "name": "Zamek Limassol (Muzeum Średniowiecza)",
+    "description": "Kamienny zamek w sercu starego miasta, dziś mieszczący muzeum średniowiecznych artefaktów.",
+    "lat": 34.6722,
+    "lon": 33.0415,
+    "radius": 150
+  },
+  {
+    "id": "saint-lazarus-church",
+    "name": "Kościół św. Łazarza w Larnace",
+    "description": "Kamienna świątynia z IX wieku, zbudowana nad grobem św. Łazarza i słynąca z bogatego ikonostasu.",
+    "lat": 34.9125,
+    "lon": 33.6333,
+    "radius": 150
+  },
+  {
+    "id": "larnaca-salt-lake-hala-sultan",
+    "name": "Słone Jezioro Larnaka i Hala Sultan Tekke",
+    "description": "Zimowe flamingi i mistyczny meczet Hala Sultan Tekke tworzą wyjątkowy krajobraz nad słonym jeziorem.",
+    "lat": 34.8853,
+    "lon": 33.6102,
+    "radius": 180
+  },
+  {
+    "id": "finikoudes-beach",
+    "name": "Plaża Finikoudes w Larnace",
+    "description": "Miejska plaża z palmową promenadą, tętniącymi życiem kawiarniami i łagodnym wejściem do morza.",
+    "lat": 34.913895,
+    "lon": 33.638418,
+    "radius": 150
+  },
+  {
+    "id": "chirokitia-archaeological-site",
+    "name": "Stanowisko archeologiczne Chirokitia",
+    "description": "Neolityczna osada wpisana na listę UNESCO z rekonstrukcjami okrągłych kamiennych chat.",
+    "lat": 34.79672,
+    "lon": 33.34372,
+    "radius": 200
+  },
+  {
+    "id": "lefkara-village",
+    "name": "Wioska Lefkara",
+    "description": "Górska wioska słynąca z koronek lefkaritiko i srebrnego rękodzieła w kamiennych domach.",
+    "lat": 34.867,
+    "lon": 33.3,
+    "radius": 150
+  },
+  {
+    "id": "nissi-beach",
+    "name": "Plaża Nissi (Ayia Napa)",
+    "description": "Jasny piasek, płytka laguna i wysepka Nissi czynią to miejsce ikoną wypoczynku i sportów wodnych.",
+    "lat": 34.99,
+    "lon": 33.97,
+    "radius": 150
+  },
+  {
+    "id": "cape-greco",
+    "name": "Przylądek Greko (Cape Greco)",
+    "description": "Park narodowy z klifami, morskimi jaskiniami i słynnym skalnym Mostem Miłości.",
+    "lat": 35.0,
+    "lon": 34.01667,
+    "radius": 200
+  },
+  {
+    "id": "fig-tree-bay",
+    "name": "Plaża Fig Tree Bay (Protaras)",
+    "description": "Lazurowa zatoka ze złotym piaskiem i samotnym drzewem figowym będącym symbolem okolicy.",
+    "lat": 35.012567,
+    "lon": 34.058549,
+    "radius": 150
+  },
+  {
+    "id": "ayia-napa-monastery",
+    "name": "Klasztor Ayia Napa",
+    "description": "XVII-wieczny klasztor z dziedzińcem i sykomorą, będący duchową oazą gwarnej Ayia Napy.",
+    "lat": 34.989202,
+    "lon": 33.999746,
+    "radius": 150
+  },
+  {
+    "id": "ayia-napa-sculpture-park",
+    "name": "Park Rzeźb w Ayia Napa",
+    "description": "Plenerowa galeria sztuki z ponad setką rzeźb na tle morza i sąsiedniego parku kaktusów.",
+    "lat": 34.985077,
+    "lon": 34.01929,
+    "radius": 150
+  },
+  {
+    "id": "troodos-olympos",
+    "name": "Góra Olimp (Olimbos)",
+    "description": "Najwyższy szczyt Cypru z letnim szlakiem Artemis i zimowymi stokami narciarskimi.",
+    "lat": 34.93639,
+    "lon": 32.86333,
+    "radius": 200
+  },
+  {
+    "id": "kykkos-monastery",
+    "name": "Klasztor Kykkos",
+    "description": "Najbogatszy klasztor Cypru z mozaikami, złotymi ikonami i muzeum sakralnym.",
+    "lat": 34.98334,
+    "lon": 32.741299,
+    "radius": 180
+  },
+  {
+    "id": "omodos-village",
+    "name": "Wioska Omodos (centrum)",
+    "description": "Historyczna wioska z klasztorem Św. Krzyża, brukowanymi uliczkami i lokalnym rękodziełem.",
+    "lat": 34.84926,
+    "lon": 32.80986,
+    "radius": 150
+  },
+  {
+    "id": "kakopetria-village",
+    "name": "Wioska Kakopetria",
+    "description": "Górska miejscowość z tradycyjnymi domami i strumieniem, idealna na spacery po Troodos.",
+    "lat": 34.9876,
+    "lon": 32.9015,
+    "radius": 150
+  },
+  {
+    "id": "caledonia-waterfall",
+    "name": "Wodospad Kaledonia (Kalidonia)",
+    "description": "Jedna z najwyższych kaskad Cypru ukryta w cienistym wąwozie w pobliżu miejscowości Platres.",
+    "lat": 34.90298,
+    "lon": 32.86989,
+    "radius": 150
+  },
+  {
+    "id": "kyrenia-old-harbour",
+    "name": "Stary port w Kyrenii (Girne)",
+    "description": "Zabytkowy port z tawernami i jachtami u stóp średniowiecznego zamku, tętniący wieczornym życiem.",
+    "lat": 35.34189,
+    "lon": 33.320442,
+    "radius": 150
+  },
+  {
+    "id": "kyrenia-castle",
+    "name": "Zamek w Kyrenii",
+    "description": "Wenecka forteca z muzeum wraku statku i widokami na port oraz Morze Śródziemne.",
+    "lat": 35.34202,
+    "lon": 33.32191,
+    "radius": 180
+  },
+  {
+    "id": "st-hilarion-castle",
+    "name": "Zamek św. Hilariona",
+    "description": "Górska twierdza rozsiana po trzech poziomach skał, z legendarnymi widokami na wybrzeże.",
+    "lat": 35.312485,
+    "lon": 33.281364,
+    "radius": 200
+  },
+  {
+    "id": "famagusta-old-town",
+    "name": "Stare miasto Famagusta (Gazimağusa)",
+    "description": "Ufortyfikowane miasto z weneckimi murami, katedrą św. Mikołaja i zamkiem Othello przy porcie.",
+    "lat": 35.125,
+    "lon": 33.94167,
+    "radius": 200
+  },
+  {
+    "id": "karpaz-golden-beach",
+    "name": "Złota Plaża (Golden Beach) na Półwyspie Karpaz",
+    "description": "Dzika, szeroka plaża o drobnym piasku, otoczona wydmami i stadami dzikich osłów.",
+    "lat": 35.63889,
+    "lon": 34.54389,
+    "radius": 200
+  },
+  {
+    "id": "zenobia-wreck",
+    "name": "Wrak Zenobii (Zenobia Wreck)",
+    "description": "Wrak promu zatopiony u wybrzeża Larnaki, popularny obiekt do nurkowania.",
+    "lat": 34.9,
+    "lon": 33.633,
+    "radius": 200
+  },
+  {
+    "id": "avakas-gorge",
+    "name": "Wąwóz Avakas (Avakas Gorge)",
+    "description": "Wąwóz z dramatycznymi formacjami skalnymi i ścieżkami trekkingowymi na półwyspie Akamas.",
+    "lat": 34.9935,
+    "lon": 32.355,
+    "radius": 180
+  },
+  {
     "id": "aphrodites-baths",
-    "name": "Łaźnie Afrodyty",
+    "name": "Łaźnie Afrodyty (Baths of Aphrodite)",
+    "description": "Mały, romantyczny basen naturalny na półwyspie Akamas, związany z legendą Afrodyty.",
     "lat": 35.014,
     "lon": 32.367,
+    "radius": 150
+  },
+  {
+    "id": "polis-latchi-marina",
+    "name": "Polis i Marina Latchi",
+    "description": "Nadmorskie miasteczko z mariną, będące punktem wypadowym na rejsy do Błękitnej Laguny.",
+    "lat": 35.038,
+    "lon": 32.43,
+    "radius": 150
+  },
+  {
+    "id": "st-hilarion-vantage-point",
+    "name": "Punkt widokowy zamku św. Hilariona",
+    "description": "Punkt widokowy u stóp zamku św. Hilariona z szeroką panoramą wybrzeża Kyrenii.",
+    "lat": 35.31,
+    "lon": 33.28,
+    "radius": 150
+  },
+  {
+    "id": "buffavento-castle",
+    "name": "Zamek Buffavento",
+    "description": "Ruiny zamku na wzgórzu nad Morzem Śródziemnym, niedaleko twierdzy św. Hilariona.",
+    "lat": 35.33,
+    "lon": 33.29,
+    "radius": 180
+  },
+  {
+    "id": "lania-village",
+    "name": "Wioska Lania",
+    "description": "Malownicza osada u podnóża Troodos, znana z winiarstwa, galerii i spokojnej atmosfery.",
+    "lat": 34.78,
+    "lon": 32.9,
+    "radius": 150
+  },
+  {
+    "id": "trooditissa-monastery",
+    "name": "Klasztor Trooditissa",
+    "description": "Górski monastyr w masywie Troodos, otoczony lasami i pełen ikon oraz pielgrzymów.",
+    "lat": 34.916,
+    "lon": 32.819,
+    "radius": 150
+  },
+  {
+    "id": "soli-ancient-site",
+    "name": "Starożytne miasto Soli",
+    "description": "Ruiny antycznego miasta z amfiteatrem i pozostałościami portu w pobliżu Famagusty.",
+    "lat": 35.144,
+    "lon": 33.897,
+    "radius": 180
+  },
+  {
+    "id": "limassol-municipal-aquarium",
+    "name": "Miejskie Akwarium w Limassol",
+    "description": "Kameralne akwarium edukacyjne prezentujące lokalną faunę morską i programy ochronne.",
+    "lat": 34.707,
+    "lon": 33.069,
+    "radius": 150
+  },
+  {
+    "id": "dasoudi-beach",
+    "name": "Plaża Dasoudi",
+    "description": "Piaszczysta plaża w Limassol z nadbrzeżnym parkiem, ścieżkami spacerowymi i terenami zielonymi.",
+    "lat": 34.68,
+    "lon": 33.035,
+    "radius": 150
+  },
+  {
+    "id": "governors-beach",
+    "name": "Governor's Beach (Plaża Gubernatorska)",
+    "description": "Plaża między Limassol a Larnaką ze skałami, mieszanką piasku i żwiru oraz rafami blisko brzegu.",
+    "lat": 34.725,
+    "lon": 33.1,
+    "radius": 150
+  },
+  {
+    "id": "macronissos-beach",
+    "name": "Plaża Macronissos",
+    "description": "Zatoka z jasnym piaskiem i spokojnymi wodami w pobliżu Ayia Napy, idealna na rodzinny wypoczynek.",
+    "lat": 34.9975,
+    "lon": 34.02,
+    "radius": 150
+  },
+  {
+    "id": "yeroskipou-town",
+    "name": "Yeroskipou (Kouklia)",
+    "description": "Miasteczko niedaleko Pafos z kościołem Agios Georgios i słynnymi słodyczami pastelli.",
+    "lat": 34.715,
+    "lon": 32.49,
+    "radius": 150
+  },
+  {
+    "id": "agios-neophytos-monastery",
+    "name": "Klasztor Agios Neophytos",
+    "description": "Pustelniczy klasztor wykuty w skale, zdobiony malowidłami założonymi przez św. Neofitosa.",
+    "lat": 34.822,
+    "lon": 32.389,
+    "radius": 180
+  },
+  {
+    "id": "vouni-ancient-house",
+    "name": "Starożytny dom zgromadzeń w Vouni",
+    "description": "Archeologiczne ruiny na wzgórzu Vouni z widokiem na zatoki i dawne królewskie rezydencje.",
+    "lat": 34.8,
+    "lon": 32.583,
+    "radius": 180
+  },
+  {
+    "id": "nicosia-archaeological-museum",
+    "name": "Muzeum Archeologiczne w Nikozji",
+    "description": "Muzeum ukazujące dzieje Cypru od prehistorii po średniowiecze z bogatą kolekcją artefaktów.",
+    "lat": 35.171,
+    "lon": 33.365,
+    "radius": 150
+  },
+  {
+    "id": "buyuk-han",
+    "name": "Büyük Han w Nikozji",
+    "description": "Otoczony dziedziniec karawanseraj z czasów osmańskich, pełen warsztatów rękodzieła i kawiarni.",
+    "lat": 35.176,
+    "lon": 33.364,
+    "radius": 150
+  },
+  {
+    "id": "ledra-street",
+    "name": "Ulica i Brama Ledra",
+    "description": "Jedna z głównych ulic Starej Nikozji prowadząca przez Zieloną Linię między południem a północą.",
+    "lat": 35.1765,
+    "lon": 33.3605,
+    "radius": 150
+  },
+  {
+    "id": "eleftheria-square",
+    "name": "Plac Eleftheria (Plac Wolności)",
+    "description": "Nowoczesny plac w Nikozji projektu Zahy Hadid, łączący historyczne i współczesne warstwy miasta.",
+    "lat": 35.173,
+    "lon": 33.366,
+    "radius": 150
+  },
+  {
+    "id": "anexartisias-street",
+    "name": "Ulica Anexartisias w Limassol",
+    "description": "Główna ulica handlowa Limassol, ulubiona przez mieszkańców i turystów na zakupy oraz kawiarnie.",
+    "lat": 34.7073,
+    "lon": 33.0214,
+    "radius": 150
+  },
+  {
+    "id": "fasouri-watermania",
+    "name": "Park wodny Fasouri Watermania",
+    "description": "Największy park wodny na Cyprze z licznymi zjeżdżalniami, basenami tematycznymi i strefami relaksu.",
+    "lat": 34.682,
+    "lon": 33.013,
+    "radius": 180
+  },
+  {
+    "id": "akamas-national-park",
+    "name": "Park Narodowy Akamas",
+    "description": "Rozległy obszar dzikiej natury z punktami widokowymi, szlakami i miejscami lęgowymi żółwi.",
+    "lat": 35.041,
+    "lon": 32.375,
+    "radius": 200
+  },
+  {
+    "id": "panagia-kykkos-viewpoint",
+    "name": "Punkt widokowy klasztoru Panagia Kykkos",
+    "description": "Wysoko położony punkt przy klasztorze Kykkos z panoramicznym widokiem na góry Troodos.",
+    "lat": 34.991,
+    "lon": 32.741,
+    "radius": 180
+  },
+  {
+    "id": "troodos-square",
+    "name": "Plac Troodos",
+    "description": "Centralny punkt gór Troodos z bazą wypadową na szlaki i zimową stacją narciarską.",
+    "lat": 34.95,
+    "lon": 32.87,
+    "radius": 150
+  },
+  {
+    "id": "avakas-gorge-west-entrance",
+    "name": "Wąwóz Avakas – wejście zachodnie",
+    "description": "Alternatywne wejście do wąwozu Avakas, oferujące spokojniejszy trekking i inne formacje skalne.",
+    "lat": 35.0005,
+    "lon": 32.35,
+    "radius": 180
+  },
+  {
+    "id": "cape-greco-sea-caves",
+    "name": "Jaskinie morskie Cape Greco",
+    "description": "Spektakularne jaskinie morskie na klifach Cape Greco, dostępne łodzią, kajakiem lub ze snorkelem.",
+    "lat": 34.9965,
+    "lon": 34.025,
+    "radius": 180
+  },
+  {
+    "id": "cyprus-museum",
+    "name": "Cyprus Museum w Nikozji",
+    "description": "Główne muzeum archeologiczne Cypru z kolekcją obejmującą wszystkie epoki historyczne.",
+    "lat": 35.172,
+    "lon": 33.3655,
     "radius": 150
   }
 ]
