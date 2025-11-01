@@ -1,7 +1,9 @@
 // ===================================
 // NOTIFICATIONS MODULE
-// Handles real-time notifications for likes and replies
+// Handles real-time notifications for comments and likes
 // ===================================
+
+import { t } from './i18nHelper.js';
 
 let notificationSubscription = null;
 let currentUserId = null;
@@ -78,8 +80,8 @@ async function handleNewNotification(notification) {
 
   // Show toast notification
   const message = notification.notification_type === 'like'
-    ? '❤️ Ktoś polubił Twój komentarz!'
-    : '💬 Ktoś odpowiedział na Twój komentarz!';
+    ? t('notifications.like')
+    : t('notifications.reply');
 
   window.showToast?.(message, 'info');
 
@@ -374,7 +376,7 @@ function setupNotificationPanel() {
       <div class="notifications-panel-content" id="notificationsPanelContent">
         <div class="loading-spinner">
           <div class="spinner"></div>
-          <p>Ładowanie powiadomień...</p>
+          <p>${t('notifications.loading')}</p>
         </div>
       </div>
     `;
@@ -432,7 +434,7 @@ async function loadNotificationPanel() {
     return;
   }
 
-  content.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><p>Ładowanie...</p></div>';
+  content.innerHTML = `<div class="loading-spinner"><div class="spinner"></div><p>${t('notifications.loading')}</p></div>`;
 
   try {
     const notifications = await getNotifications();

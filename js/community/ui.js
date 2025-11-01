@@ -645,11 +645,11 @@ async function loadAndRenderRating(poiId) {
       initInteractiveStars(ratingStarsContainer, userRating || 0, async (rating) => {
         const success = await ratePlace(poiId, currentUser.id, rating);
         if (success) {
-          window.showToast?.(`Oceniłeś to miejsce na ${rating} gwiazdek!`, 'success');
+          window.showToast?.(t('community.rating.yourRating', { rating: `${rating}` }), 'success');
           
           // Update prompt
           if (ratingPrompt) {
-            ratingPrompt.textContent = `Twoja ocena: ${rating}★`;
+            ratingPrompt.textContent = t('community.rating.yourRating', { rating });
             ratingPrompt.classList.add('rated');
           }
           
@@ -661,10 +661,10 @@ async function loadAndRenderRating(poiId) {
       // Update prompt based on current rating
       if (ratingPrompt) {
         if (userRating) {
-          ratingPrompt.textContent = `Twoja ocena: ${userRating}★`;
+          ratingPrompt.textContent = t('community.rating.yourRating', { rating: userRating });
           ratingPrompt.classList.add('rated');
         } else {
-          ratingPrompt.textContent = 'Kliknij na gwiazdki aby ocenić';
+          ratingPrompt.textContent = t('community.rating.prompt');
           ratingPrompt.classList.remove('rated');
         }
       }
@@ -753,7 +753,7 @@ function updateAuthSections() {
 // ===================================
 async function loadAndRenderComments(poiId) {
   const container = document.getElementById('commentsList');
-  container.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><p>Ładowanie komentarzy...</p></div>';
+  container.innerHTML = `<div class="loading-spinner"><div class="spinner"></div><p>${t('community.comments.loading')}</p></div>`;
 
   try {
     const comments = await loadComments(poiId);
@@ -762,8 +762,8 @@ async function loadAndRenderComments(poiId) {
       container.innerHTML = `
         <div class="empty-state">
           <div class="empty-state-icon">💬</div>
-          <h3 class="empty-state-title">Brak komentarzy</h3>
-          <p class="empty-state-description">Bądź pierwszy, który podzieli się wrażeniami!</p>
+          <h3 class="empty-state-title">${t('community.comments.noComments')}</h3>
+          <p class="empty-state-description">${t('community.comments.beFirst')}</p>
         </div>
       `;
       return;
@@ -794,7 +794,7 @@ async function loadAndRenderComments(poiId) {
     container.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon">⚠️</div>
-        <h3 class="empty-state-title">Błąd wczytywania</h3>
+        <h3 class="empty-state-title">${t('community.error.loading')}</h3>
         <p class="empty-state-description">${error.message}</p>
       </div>
     `;
@@ -873,10 +873,10 @@ async function renderComment(comment, isReply = false) {
             <button class="comment-menu-btn" onclick="window.toggleCommentMenu('${comment.id}')">⋮</button>
             <div id="menu-${comment.id}" class="comment-menu-dropdown" hidden>
               <button class="comment-menu-item" onclick="window.editCommentUI('${comment.id}')">
-                ✏️ Edytuj
+                ${t('community.action.edit')}
               </button>
               <button class="comment-menu-item danger" onclick="window.deleteCommentUI('${comment.id}')">
-                🗑️ Usuń
+                ${t('community.action.delete')}
               </button>
             </div>
           </div>
@@ -903,7 +903,7 @@ async function renderComment(comment, isReply = false) {
         </button>
         ${!isReply && currentUser ? `
           <button class="comment-reply-btn" onclick="window.replyToCommentUI('${comment.id}')">
-            💬 Odpowiedz
+            ${t('community.action.reply')}
           </button>
         ` : ''}
       </div>
@@ -982,11 +982,11 @@ async function handleCommentSubmit(e) {
     // Update stats
     await loadPoisStats([poisData.find(p => p.id === currentPoiId)].filter(Boolean));
 
-    window.showToast?.('Komentarz dodany!', 'success');
+    window.showToast?.(t('community.success.replyAdded'), 'success');
 
   } catch (error) {
     console.error('Error submitting comment:', error);
-    const errorMsg = error.message || 'Błąd dodawania komentarza';
+    const errorMsg = error.message || t('community.error.addComment');
     window.showToast?.(errorMsg, 'error');
     
     // Re-enable button
@@ -1006,11 +1006,11 @@ function handlePhotoSelect(e) {
   // Validate files
   const validFiles = files.filter(file => {
     if (!file.type.startsWith('image/')) {
-      window.showToast?.('Można wgrać tylko zdjęcia', 'error');
+      window.showToast?.(t('community.error.addComment'), 'error');
       return false;
     }
     if (file.size > 5 * 1024 * 1024) {
-      window.showToast?.('Zdjęcie jest za duże (max 5MB)', 'error');
+      window.showToast?.(t('community.error.addComment'), 'error');
       return false;
     }
     return true;
@@ -1102,8 +1102,8 @@ window.editCommentUI = async function(commentId) {
     <form class="edit-comment-form" onsubmit="window.saveEditComment(event, '${commentId}')">
       <textarea class="edit-comment-textarea" rows="3">${currentContent}</textarea>
       <div class="edit-comment-actions">
-        <button type="submit" class="btn btn-primary primary">Zapisz</button>
-        <button type="button" class="btn" onclick="window.cancelEditComment('${commentId}', \`${currentContent}\`)">Anuluj</button>
+        <button type="submit" class="btn btn-primary primary">${t('community.action.save')}</button>
+        <button type="button" class="btn" onclick="window.cancelEditComment('${commentId}', \`${currentContent}\`)">${t('community.action.cancel')}</button>
       </div>
     </form>
   `;
@@ -1119,17 +1119,17 @@ window.saveEditComment = async function(e, commentId) {
   const newContent = textarea.value.trim();
 
   if (!newContent) {
-    window.showToast?.('Komentarz nie może być pusty', 'error');
+    window.showToast?.(t('community.error.editComment'), 'error');
     return;
   }
 
   try {
     await editComment(commentId, newContent);
     await loadAndRenderComments(currentPoiId);
-    window.showToast?.('Komentarz zaktualizowany', 'success');
+    window.showToast?.(t('community.success.commentUpdated'), 'success');
   } catch (error) {
     console.error('Error editing comment:', error);
-    window.showToast?.('Błąd edycji komentarza', 'error');
+    window.showToast?.(t('community.error.editComment'), 'error');
   }
 };
 
@@ -1145,15 +1145,15 @@ window.cancelEditComment = function(commentId, originalContent) {
 // DELETE COMMENT UI
 // ===================================
 window.deleteCommentUI = async function(commentId) {
-  if (!confirm('Czy na pewno chcesz usunąć ten komentarz?')) return;
+  if (!confirm(t('community.error.deleteComment'))) return;
 
   try {
     await deleteComment(commentId);
     await loadAndRenderComments(currentPoiId);
-    window.showToast?.('Komentarz usunięty', 'success');
+    window.showToast?.(t('community.success.commentDeleted'), 'success');
   } catch (error) {
     console.error('Error deleting comment:', error);
-    window.showToast?.('Błąd usuwania komentarza', 'error');
+    window.showToast?.(t('community.error.deleteComment'), 'error');
   }
 };
 
@@ -1162,7 +1162,7 @@ window.deleteCommentUI = async function(commentId) {
 // ===================================
 window.toggleLike = async function(commentId) {
   if (!currentUser) {
-    window.showToast?.('Musisz być zalogowany', 'error');
+    window.showToast?.(t('community.auth.required'), 'error');
     return;
   }
 
@@ -1180,7 +1180,7 @@ window.toggleLike = async function(commentId) {
 
   } catch (error) {
     console.error('Error toggling like:', error);
-    window.showToast?.('Błąd przy polubieniu', 'error');
+    window.showToast?.(t('community.error.like'), 'error');
   }
 };
 
@@ -1199,10 +1199,10 @@ window.replyToCommentUI = function(commentId) {
   formContainer.hidden = false;
   formContainer.innerHTML = `
     <form class="add-comment-form" onsubmit="window.submitReply(event, '${commentId}')" style="margin-top: 1rem;">
-      <textarea class="comment-textarea" placeholder="Napisz odpowiedź..." rows="2" required></textarea>
+      <textarea class="comment-textarea" placeholder="${t('community.placeholder.reply')}" rows="2" required></textarea>
       <div class="add-comment-actions">
-        <button type="submit" class="btn btn-primary primary">Odpowiedz</button>
-        <button type="button" class="btn" onclick="window.cancelReply('${commentId}')">Anuluj</button>
+        <button type="submit" class="btn btn-primary primary">${t('community.action.respond')}</button>
+        <button type="button" class="btn" onclick="window.cancelReply('${commentId}')">${t('community.action.cancel')}</button>
       </div>
     </form>
   `;
@@ -1222,10 +1222,10 @@ window.submitReply = async function(e, parentCommentId) {
   try {
     await replyToComment(currentPoiId, content, parentCommentId);
     await loadAndRenderComments(currentPoiId);
-    window.showToast?.('Odpowiedź dodana!', 'success');
+    window.showToast?.(t('community.success.replyAdded'), 'success');
   } catch (error) {
     console.error('Error replying:', error);
-    window.showToast?.('Błąd dodawania odpowiedzi', 'error');
+    window.showToast?.(t('community.error.reply'), 'error');
   }
 };
 

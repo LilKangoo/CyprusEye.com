@@ -1,7 +1,9 @@
 // ===================================
-// POI RATINGS MODULE
-// Handles place ratings (1-5 stars)
+// Ratings Module
+// Handles place ratings (stars) with Supabase backend
 // ===================================
+
+import { t, formatRatingCount } from './i18nHelper.js';
 
 /**
  * Get rating statistics for a place
@@ -106,7 +108,7 @@ export async function ratePlace(poiId, userId, rating) {
     return true;
   } catch (error) {
     console.error('Error saving rating:', error);
-    window.showToast?.('Nie udało się zapisać oceny', 'error');
+    window.showToast?.(t('community.error.saveRating'), 'error');
     return false;
   }
 }
@@ -233,7 +235,7 @@ export function renderRatingSummary(stats) {
     return `
       <div class="rating-summary">
         <div class="rating-stars">${renderStars(0)}</div>
-        <span class="rating-text">Brak ocen</span>
+        <span class="rating-text">${t('community.rating.noRatings')}</span>
       </div>
     `;
   }
@@ -242,7 +244,7 @@ export function renderRatingSummary(stats) {
     <div class="rating-summary">
       <div class="rating-stars">${renderStars(stats.average_rating)}</div>
       <span class="rating-value">${stats.average_rating.toFixed(1)}</span>
-      <span class="rating-count">(${stats.total_ratings} ${stats.total_ratings === 1 ? 'ocena' : 'ocen'})</span>
+      <span class="rating-count">(${stats.total_ratings} ${formatRatingCount(stats.total_ratings)})</span>
     </div>
   `;
 }
@@ -254,7 +256,7 @@ export function renderRatingSummary(stats) {
  */
 export function renderRatingBreakdown(stats) {
   if (!stats || stats.total_ratings === 0) {
-    return '<p class="rating-breakdown-empty">Bądź pierwszą osobą która oceni to miejsce!</p>';
+    return `<p class="rating-breakdown-empty">${t('community.rating.beFirst')}</p>`;
   }
 
   const total = stats.total_ratings;
