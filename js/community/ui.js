@@ -814,19 +814,9 @@ function escapeHtml(text) {
 // RENDER SINGLE COMMENT
 // ===================================
 async function renderComment(comment, isReply = false) {
-  const sb = window.getSupabase();
+  // Use profile data from JOIN (already loaded in loadComments)
+  const profile = comment.profiles;
   
-  // Get user profile
-  const { data: profile, error: profileError } = await sb
-    .from('profiles')
-    .select('username, name, avatar_url')
-    .eq('id', comment.user_id)
-    .single();
-
-  if (profileError) {
-    console.error('Error fetching profile for comment:', profileError);
-  }
-
   // Priority: username > name > fallback
   let displayName = 'Użytkownik';
   if (profile) {

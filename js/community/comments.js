@@ -13,7 +13,7 @@ export async function loadComments(poiId) {
     const sb = window.getSupabase();
     if (!sb) throw new Error('Supabase client not available');
 
-    // Get all parent comments (no parent_comment_id)
+    // Get all parent comments (no parent_comment_id) with user profiles
     const { data: comments, error } = await sb
       .from('poi_comments')
       .select(`
@@ -24,7 +24,12 @@ export async function loadComments(poiId) {
         parent_comment_id,
         created_at,
         updated_at,
-        is_edited
+        is_edited,
+        profiles (
+          username,
+          name,
+          avatar_url
+        )
       `)
       .eq('poi_id', poiId)
       .is('parent_comment_id', null)
@@ -67,7 +72,12 @@ async function loadReplies(parentCommentId) {
         parent_comment_id,
         created_at,
         updated_at,
-        is_edited
+        is_edited,
+        profiles (
+          username,
+          name,
+          avatar_url
+        )
       `)
       .eq('parent_comment_id', parentCommentId)
       .order('created_at', { ascending: true });
