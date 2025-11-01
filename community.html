@@ -119,6 +119,32 @@
     </div>
   </header>
 
+  <!-- Notifications Panel -->
+  <div id="notificationsPanel" class="notifications-panel" hidden role="dialog" aria-labelledby="notificationsPanelTitle">
+    <div class="notifications-panel-header">
+      <h3 id="notificationsPanelTitle" data-i18n="notifications.title">Powiadomienia</h3>
+      <div class="notifications-panel-actions">
+        <button type="button" class="ghost" id="markAllReadBtn" data-i18n="notifications.markAll">
+          ✓ Oznacz wszystkie
+        </button>
+        <button
+          type="button"
+          class="icon-button"
+          id="closeNotificationsPanel"
+          aria-label="Zamknij powiadomienia"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+    <div class="notifications-panel-content" id="notificationsPanelContent">
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+        <p data-i18n="notifications.loading">Ładowanie powiadomień...</p>
+      </div>
+    </div>
+  </div>
+
   <!-- Main Content -->
   <main class="app-main community-main">
     <div class="community-container">
