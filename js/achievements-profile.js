@@ -67,6 +67,9 @@ async function loadProfileData() {
     
     console.log('📊 Profile loaded:', currentProfile);
     
+    // Show all gated sections
+    showGatedSections();
+    
     // Display profile header
     displayProfileHeader(currentProfile);
     
@@ -83,6 +86,16 @@ async function loadProfileData() {
 }
 
 /**
+ * Show all sections that require authentication
+ */
+function showGatedSections() {
+  const gatedSections = document.querySelectorAll('[data-gated="true"]');
+  gatedSections.forEach(section => {
+    section.hidden = false;
+  });
+}
+
+/**
  * Display profile header (avatar + username)
  */
 function displayProfileHeader(profile) {
@@ -91,13 +104,15 @@ function displayProfileHeader(profile) {
   const emailEl = document.getElementById('profileEmail');
   const memberSinceEl = document.getElementById('memberSince');
   
+  const displayName = profile.username || profile.name || 'Użytkownik';
+  
   if (avatarEl) {
     avatarEl.src = profile.avatar_url || '/assets/cyprus_logo-1000x1054.png';
-    avatarEl.alt = profile.username || profile.name || 'User avatar';
+    avatarEl.alt = `${displayName} - avatar`;
   }
   
   if (usernameEl) {
-    usernameEl.textContent = profile.username || profile.name || 'Użytkownik';
+    usernameEl.textContent = displayName;
   }
   
   if (emailEl) {
@@ -116,6 +131,46 @@ function displayProfileHeader(profile) {
   const settingsEmailEl = document.getElementById('settingsEmail');
   if (settingsEmailEl) {
     settingsEmailEl.textContent = profile.email || 'Brak adresu email';
+  }
+  
+  // Update SEO meta tags dynamically
+  updateMetaTags(displayName, profile);
+}
+
+/**
+ * Update meta tags for SEO with user data
+ */
+function updateMetaTags(username, profile) {
+  // Update page title
+  document.title = `${username} - Profil CyprusEye Quest`;
+  
+  // Update meta description
+  const metaDesc = document.querySelector('meta[name="description"]');
+  if (metaDesc) {
+    metaDesc.setAttribute('content', 
+      `Profil użytkownika ${username} w CyprusEye Quest. Poziom ${profile.level || 1}, ${profile.xp || 0} XP doświadczenia.`
+    );
+  }
+  
+  // Update Open Graph title
+  const ogTitle = document.querySelector('meta[property="og:title"]');
+  if (ogTitle) {
+    ogTitle.setAttribute('content', `${username} - Profil CyprusEye Quest`);
+  }
+  
+  // Update Open Graph description
+  const ogDesc = document.querySelector('meta[property="og:description"]');
+  if (ogDesc) {
+    ogDesc.setAttribute('content', 
+      `Zobacz statystyki użytkownika ${username} w CyprusEye Quest: poziom ${profile.level || 1}, ${profile.xp || 0} punktów doświadczenia.`
+    );
+  }
+  
+  // Update canonical URL with username (optional)
+  const canonical = document.querySelector('link[rel="canonical"]');
+  if (canonical) {
+    // Keep canonical as is or update with user ID if implementing user profile URLs
+    // canonical.setAttribute('href', `https://www.cypruseye.com/profile/${profile.id}`);
   }
 }
 
@@ -270,32 +325,46 @@ async function displayUserPhotos(photos) {
   const container = document.getElementById('userPhotosGrid');
   if (!container) return;
   
-  container.innerHTML = '';
+  // Show loading spinner
+  container.innerHTML = '<div class="loading-spinner" style="grid-column: 1/-1; text-align: center; padding: 2rem;"><div class="spinner" style="display: inline-block; width: 40px; height: 40px; border: 4px solid #e5e7eb; border-top-color: #3b82f6; border-radius: 50%; animation: spin 0.8s linear infinite;"></div><p style="margin-top: 1rem; color: #6b7280;">Ładowanie zdjęć...</p></div>';
+  container.setAttribute('aria-busy', 'true');
+  
+  // Small delay to show spinner
+  await new Promise(resolve => setTimeout(resolve, 100));
   
   if (photos.length === 0) {
     container.innerHTML = '<p class="empty-state" data-i18n="profile.activity.photos.empty">Nie wstawiłeś jeszcze żadnych zdjęć.</p>';
+    container.removeAttribute('aria-busy');
     if (window.i18n) window.i18n.translateElement(container);
     return;
   }
   
   const sb = window.getSupabase();
   
-  for (const photo of photos) {
-    // Get comment data to find POI ID
-    let poiId = null;
+  // FIX: Optimize N+1 query - get all POI IDs in one query with JOIN
+  const commentIds = photos.map(p => p.comment_id).filter(Boolean);
+  let poiIdMap = new Map();
+  
+  if (commentIds.length > 0) {
     try {
-      const { data: comment } = await sb
+      const { data: comments } = await sb
         .from('poi_comments')
-        .select('poi_id')
-        .eq('id', photo.comment_id)
-        .single();
+        .select('id, poi_id')
+        .in('id', commentIds);
       
-      if (comment) {
-        poiId = comment.poi_id;
+      if (comments) {
+        comments.forEach(comment => {
+          poiIdMap.set(comment.id, comment.poi_id);
+        });
       }
     } catch (error) {
-      console.warn('Error getting POI ID for photo:', error);
+      console.warn('Error getting POI IDs for photos:', error);
     }
+  }
+  
+  // Create photo cards
+  for (const photo of photos) {
+    const poiId = poiIdMap.get(photo.comment_id) || null;
     
     const photoCard = document.createElement('div');
     photoCard.className = 'photo-card';
@@ -322,6 +391,9 @@ async function displayUserPhotos(photos) {
     
     container.appendChild(photoCard);
   }
+  
+  // Remove loading state
+  container.removeAttribute('aria-busy');
 }
 
 /**
@@ -553,8 +625,11 @@ async function handleSaveUsername() {
   const inputEl = document.getElementById('usernameInput');
   const newUsername = inputEl?.value?.trim();
   
-  if (!newUsername) {
-    showError('Nazwa użytkownika nie może być pusta.');
+  // Validate username
+  const validation = validateUsername(newUsername);
+  if (!validation.valid) {
+    showError(validation.error);
+    inputEl?.focus();
     return;
   }
   
@@ -620,15 +695,11 @@ async function handleSaveEmail() {
   const inputEl = document.getElementById('emailInput');
   const newEmail = inputEl?.value?.trim();
   
-  if (!newEmail) {
-    showError('Adres email nie może być pusty.');
-    return;
-  }
-  
-  // Basic email validation
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(newEmail)) {
-    showError('Podaj prawidłowy adres email.');
+  // Validate email
+  const validation = validateEmail(newEmail);
+  if (!validation.valid) {
+    showError(validation.error);
+    inputEl?.focus();
     return;
   }
   
@@ -869,20 +940,115 @@ async function handleDeleteAccount() {
  * Show login prompt for non-authenticated users
  */
 function showLoginPrompt() {
-  const container = document.querySelector('.achievements-main');
-  if (container) {
-    container.innerHTML = `
-      <div class="card surface-card" style="text-align: center; padding: 3rem;">
-        <h2 data-i18n="profile.login.title">Zaloguj się, aby zobaczyć swój profil</h2>
-        <p data-i18n="profile.login.description">Musisz być zalogowany, aby uzyskać dostęp do strony profilu.</p>
-        <button class="btn btn-primary" data-auth="login" data-auth-login-mode="modal" data-i18n="profile.login.button">
-          Zaloguj się
-        </button>
-      </div>
+  const main = document.querySelector('main');
+  if (main) {
+    // Hide all gated sections
+    const gatedSections = document.querySelectorAll('[data-gated="true"]');
+    gatedSections.forEach(section => {
+      section.hidden = true;
+    });
+    
+    // Create login prompt
+    const loginPrompt = document.createElement('section');
+    loginPrompt.className = 'card surface-card';
+    loginPrompt.style.cssText = 'text-align: center; padding: 3rem; margin: 2rem auto; max-width: 600px;';
+    loginPrompt.id = 'login-prompt';
+    loginPrompt.innerHTML = `
+      <div style="font-size: 4rem; margin-bottom: 1rem;">🔒</div>
+      <h2 data-i18n="profile.login.title" style="margin-bottom: 1rem;">Zaloguj się, aby zobaczyć swój profil</h2>
+      <p data-i18n="profile.login.description" style="margin-bottom: 2rem; color: #6b7280;">Musisz być zalogowany, aby uzyskać dostęp do strony profilu i swoich statystyk.</p>
+      <button class="btn btn-primary" data-auth="login" data-auth-login-mode="modal" data-i18n="profile.login.button">
+        Zaloguj się
+      </button>
+      <p style="margin-top: 1rem; font-size: 0.875rem; color: #9ca3af;">
+        lub <a href="/index.html" style="color: #3b82f6; text-decoration: underline;">wróć do strony głównej</a>
+      </p>
     `;
     
-    if (window.i18n) window.i18n.translateElement(container);
+    main.insertBefore(loginPrompt, main.firstChild);
+    
+    if (window.i18n) window.i18n.translateElement(loginPrompt);
   }
+}
+
+/**
+ * Validate username
+ * @param {string} username - Username to validate
+ * @returns {Object} - {valid: boolean, error: string}
+ */
+function validateUsername(username) {
+  if (!username || username.length === 0) {
+    return { valid: false, error: 'Nazwa użytkownika nie może być pusta.' };
+  }
+  
+  if (username.length < 3) {
+    return { valid: false, error: 'Nazwa użytkownika musi mieć minimum 3 znaki.' };
+  }
+  
+  if (username.length > 20) {
+    return { valid: false, error: 'Nazwa użytkownika może mieć maksymalnie 20 znaków.' };
+  }
+  
+  // Only alphanumeric and underscore
+  const usernameRegex = /^[a-zA-Z0-9_]+$/;
+  if (!usernameRegex.test(username)) {
+    return { valid: false, error: 'Nazwa użytkownika może zawierać tylko litery, cyfry i podkreślenie (_).' };
+  }
+  
+  // Cannot start with number
+  if (/^\d/.test(username)) {
+    return { valid: false, error: 'Nazwa użytkownika nie może zaczynać się od cyfry.' };
+  }
+  
+  // Reserved words
+  const reserved = ['admin', 'root', 'system', 'moderator', 'support', 'help', 'null', 'undefined'];
+  if (reserved.includes(username.toLowerCase())) {
+    return { valid: false, error: 'Ta nazwa użytkownika jest zarezerwowana.' };
+  }
+  
+  return { valid: true, error: null };
+}
+
+/**
+ * Validate email
+ * @param {string} email - Email to validate
+ * @returns {Object} - {valid: boolean, error: string}
+ */
+function validateEmail(email) {
+  if (!email || email.length === 0) {
+    return { valid: false, error: 'Adres email nie może być pusty.' };
+  }
+  
+  // RFC 5322 compliant email regex (simplified)
+  const emailRegex = /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/;
+  
+  if (!emailRegex.test(email)) {
+    return { valid: false, error: 'Podaj prawidłowy adres email.' };
+  }
+  
+  if (email.length > 254) {
+    return { valid: false, error: 'Adres email jest za długi.' };
+  }
+  
+  // Check for common typos in popular domains
+  const commonDomains = ['gmail.com', 'yahoo.com', 'outlook.com', 'hotmail.com', 'icloud.com'];
+  const domain = email.split('@')[1]?.toLowerCase();
+  const typos = {
+    'gmial.com': 'gmail.com',
+    'gmai.com': 'gmail.com',
+    'yahooo.com': 'yahoo.com',
+    'outlok.com': 'outlook.com',
+    'hotmial.com': 'hotmail.com'
+  };
+  
+  if (domain && typos[domain]) {
+    return { 
+      valid: false, 
+      error: `Czy chodziło Ci o @${typos[domain]}?` 
+    };
+  }
+  
+  return { valid: true, error: null };
 }
 
 /**
@@ -892,6 +1058,13 @@ function showLoading(context) {
   const loadingEl = document.getElementById(`${context}-loading`);
   if (loadingEl) {
     loadingEl.style.display = 'block';
+    loadingEl.setAttribute('aria-busy', 'true');
+  }
+  
+  // Also set aria-busy on the parent section
+  const section = loadingEl.closest('section');
+  if (section) {
+    section.setAttribute('aria-busy', 'true');
   }
 }
 
@@ -902,6 +1075,13 @@ function hideLoading(context) {
   const loadingEl = document.getElementById(`${context}-loading`);
   if (loadingEl) {
     loadingEl.style.display = 'none';
+    loadingEl.removeAttribute('aria-busy');
+  }
+  
+  // Also remove aria-busy from the parent section
+  const section = loadingEl?.closest('section');
+  if (section) {
+    section.removeAttribute('aria-busy');
   }
 }
 

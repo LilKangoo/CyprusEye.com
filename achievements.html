@@ -65,7 +65,6 @@
   <script type="module" src="/js/supabaseClient.js"></script>
   <script type="module" src="/js/toast.js"></script>
   <script type="module" src="/js/auth.js"></script>
-  <script type="module" src="/js/authUi.js"></script>
 </head>
   <body data-navigation="multi-page" data-initial-view="achievementsView" data-seo-page="achievements">
     <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
@@ -293,7 +292,7 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
 
   <main>
     <!-- Profile Header -->
-    <section class="card surface-card profile-hero" aria-labelledby="profileTitle" data-gated="true" id="profile-header">
+    <section class="card surface-card profile-hero" aria-labelledby="profileTitle" data-gated="true" id="profile-header" hidden>
       <div id="profile-header-loading" style="display: none;">
         <p data-i18n="profile.loading">Ładowanie profilu...</p>
       </div>
@@ -308,6 +307,10 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
               class="profile-avatar" 
               src="/assets/cyprus_logo-1000x1054.png" 
               alt="Avatar użytkownika"
+              loading="lazy"
+              decoding="async"
+              width="160"
+              height="160"
             />
             <div class="profile-avatar-actions">
               <input type="file" id="avatarInput" accept="image/*" style="display: none;" />
@@ -336,7 +339,11 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
                 placeholder="Nazwa użytkownika"
                 data-i18n-attrs="placeholder:profile.username.placeholder" 
                 maxlength="20"
+                minlength="3"
+                required
+                aria-required="true"
                 class="profile-username-input"
+                aria-label="Nazwa użytkownika"
               />
               <button type="button" class="btn btn-sm btn-primary" id="saveUsernameBtn" data-i18n="profile.username.save">
                 💾 Zapisz
@@ -356,7 +363,7 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
     </section>
 
     <!-- Game Statistics -->
-    <section class="card surface-card profile-stats-section" aria-labelledby="statsTitle" data-gated="true">
+    <section class="card surface-card profile-stats-section" aria-labelledby="statsTitle" data-gated="true" hidden>
       <h2 id="statsTitle" data-i18n="profile.stats.title">📊 Twoje statystyki w grze</h2>
       <div class="profile-stats-grid">
         <div class="stat-card">
@@ -416,7 +423,7 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
     </section>
 
     <!-- Account Settings -->
-    <section class="card surface-card profile-settings-section" aria-labelledby="settingsTitle" data-gated="true">
+    <section class="card surface-card profile-settings-section" aria-labelledby="settingsTitle" data-gated="true" hidden>
       <h2 id="settingsTitle" data-i18n="profile.settings.title">⚙️ Ustawienia konta</h2>
       <div class="settings-list">
         
@@ -440,6 +447,8 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
                   data-i18n-attrs="placeholder:profile.settings.email.placeholder" 
                   class="setting-input"
                   required
+                  aria-required="true"
+                  aria-label="Nowy adres email"
                 />
                 <div class="setting-edit-actions">
                   <button type="button" class="btn btn-sm btn-primary" id="saveEmailBtn" data-i18n="profile.settings.email.save">
@@ -478,6 +487,7 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
                   data-i18n-attrs="placeholder:profile.settings.password.current" 
                   class="setting-input"
                   autocomplete="current-password"
+                  aria-label="Obecne hasło"
                 />
                 <input 
                   type="password" 
@@ -486,7 +496,10 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
                   data-i18n-attrs="placeholder:profile.settings.password.new" 
                   class="setting-input"
                   minlength="8"
+                  required
+                  aria-required="true"
                   autocomplete="new-password"
+                  aria-label="Nowe hasło"
                 />
                 <input 
                   type="password" 
@@ -495,7 +508,10 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
                   data-i18n-attrs="placeholder:profile.settings.password.confirm" 
                   class="setting-input"
                   minlength="8"
+                  required
+                  aria-required="true"
                   autocomplete="new-password"
+                  aria-label="Potwierdź nowe hasło"
                 />
                 <div class="setting-edit-actions">
                   <button type="button" class="btn btn-sm btn-primary" id="savePasswordBtn" data-i18n="profile.settings.password.save">
@@ -518,7 +534,7 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
     </section>
 
     <!-- User Activity Feed -->
-    <section class="card surface-card profile-activity-section" aria-labelledby="activityTitle" data-gated="true">
+    <section class="card surface-card profile-activity-section" aria-labelledby="activityTitle" data-gated="true" hidden>
       <div id="user-activity-loading" style="display: none;">
         <p data-i18n="profile.activity.loading">Ładowanie aktywności...</p>
       </div>
@@ -818,6 +834,16 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
     >
       <span class="mobile-tabbar-icon" aria-hidden="true">🎯</span>
       <span class="mobile-tabbar-label" data-i18n="mobile.nav.adventure">Przygoda</span>
+    </button>
+    <button
+      type="button"
+      class="mobile-tabbar-btn is-active"
+      id="mobileProfileTab"
+      aria-pressed="true"
+      data-page-url="achievements.html"
+    >
+      <span class="mobile-tabbar-icon" aria-hidden="true">👤</span>
+      <span class="mobile-tabbar-label" data-i18n="mobile.nav.profile">Profil</span>
     </button>
     <button
       type="button"
