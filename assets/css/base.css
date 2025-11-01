@@ -33,3 +33,8 @@ img,video,iframe{max-width:100%;height:auto;display:block}
 a{color:var(--color-accent-600);text-decoration:none}
 a:hover{text-decoration:underline}
 :focus-visible{outline:3px solid var(--color-accent-600);outline-offset:2px;border-radius:6px}
+
+/* Skip link for accessibility (keyboard navigation) */
+.skip-link{position:absolute;top:-40px;left:0;z-index:10000;padding:0.75rem 1.5rem;background:var(--color-accent-600,#0ea5e9);color:white;font-weight:600;text-decoration:none;border-radius:0 0 4px 0;transition:top 0.2s ease-in-out;box-shadow:0 4px 6px rgba(0,0,0,0.2)}
+.skip-link:focus{top:0;outline:3px solid #fff;outline-offset:2px}
+.skip-link:hover{background:var(--color-accent-700,#0284c7);text-decoration:none}

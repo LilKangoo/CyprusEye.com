@@ -1665,5 +1665,6 @@
   "profile.username.saving": "Saving...",
   "profile.login.title": "Sign in to view your profile",
   "profile.login.description": "You must be logged in to access the profile page.",
-  "profile.login.button": "Sign in"
+  "profile.login.button": "Sign in",
+  "accessibility.skipToContent": "Skip to main content"
 }

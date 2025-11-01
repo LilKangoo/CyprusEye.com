@@ -80,6 +80,9 @@
   <script type="module" src="/js/authUi.js"></script>
 </head>
 <body data-navigation="multi-page" data-initial-view="adventureView" data-seo-page="home">
+  <!-- Accessibility: Skip to main content -->
+  <a href="#main-content" class="skip-link" data-i18n="accessibility.skipToContent">Skip to main content</a>
+  
   <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
   <header class="app-header">
     <div class="auth-bar" data-i18n-attrs="aria-label:auth.bar.aria" aria-label="Panel konta">
@@ -303,7 +306,7 @@
     <ul id="notificationsPanelList" class="notifications-list" role="list"></ul>
   </div>
 
-  <main>
+  <main id="main-content">
     <h1 class="sr-only" data-i18n="home.pageTitle">CyprusEye Quest – interaktywny przewodnik po Cyprze</h1>
     <div class="layout app-view" id="adventureView" role="tabpanel" aria-labelledby="headerAdventureTab">
       <div class="primary-column">

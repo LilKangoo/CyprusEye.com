@@ -779,5 +779,6 @@
   "modal.aria.close": "Zamknij",
   "modal.aria.previous": "Poprzednie miejsce",
   "modal.aria.next": "Następne miejsce",
-  "profile.button": "Profil"
+  "profile.button": "Profil",
+  "accessibility.skipToContent": "Przejdź do głównej treści"
 }

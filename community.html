@@ -56,6 +56,9 @@
   <script type="module" src="/js/authUi.js"></script>
 </head>
 <body data-navigation="multi-page" data-seo-page="community">
+  <!-- Accessibility: Skip to main content -->
+  <a href="#main-content" class="skip-link" data-i18n="accessibility.skipToContent">Skip to main content</a>
+  
   <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
   
   <!-- Header -->
@@ -158,7 +161,7 @@
   </div>
 
   <!-- Main Content -->
-  <main class="app-main community-main">
+  <main id="main-content" class="app-main community-main">
     <div class="community-container">
       <!-- Hero Section -->
       <section class="community-hero card surface-card">
