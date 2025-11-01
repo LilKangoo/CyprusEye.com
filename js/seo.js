@@ -492,12 +492,11 @@
     });
 
     attachPageNavigation(mobileTabbar);
-    updateMobileTabbarActiveState(mobileTabbar);
+    // No need to set active state since current page button is not rendered
   }
 
   function initializeMobileTabbar() {
     ensureMobileTabbar();
-    updateMobileTabbarActiveState();
   }
 
   if (document.readyState === 'loading') {
@@ -508,9 +507,4 @@
 
   window.determineActiveMobileTabId = determineActiveMobileTabId;
   window.ensureMobileTabbar = ensureMobileTabbar;
-  window.updateMobileTabbarActiveState = updateMobileTabbarActiveState;
-
-  window.addEventListener('pageshow', () => {
-    updateMobileTabbarActiveState();
-  });
 })();
