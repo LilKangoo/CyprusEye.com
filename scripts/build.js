@@ -51,6 +51,8 @@ const COMMUNITY_FILES = [
 const UTILITY_FILES = [
   'src/utils/dates.js',
   'src/utils/translations.js',
+  'src/utils/validation.js',
+  'src/utils/dataProcessing.js',
 ];
 
 async function buildFile(filePath) {
