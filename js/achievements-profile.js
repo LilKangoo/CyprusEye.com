@@ -1322,6 +1322,21 @@ if (document.readyState === 'loading') {
   init();
 }
 
+// Listen for successful login - reload profile when user logs in
+document.addEventListener('ce-auth:post-login', async () => {
+  console.log('✅ User logged in, reloading profile...');
+  
+  // Remove login prompt if it exists
+  const loginPrompt = document.getElementById('login-prompt');
+  if (loginPrompt) {
+    loginPrompt.remove();
+    console.log('🗑️ Login prompt removed');
+  }
+  
+  // Reload profile page
+  await initProfilePage();
+});
+
 console.log('✅ Achievements profile module loaded');
 
 // Expose functions to window for debugging
