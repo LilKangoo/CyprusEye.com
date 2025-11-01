@@ -146,10 +146,15 @@ export async function getUnreadCount() {
  */
 export async function getNotifications(limit = 20) {
   try {
-    if (!currentUserId) return [];
+    if (!currentUserId) {
+      console.log('⚠️ No currentUserId, cannot load notifications');
+      return [];
+    }
 
     const sb = window.getSupabase();
     if (!sb) throw new Error('Supabase client not available');
+
+    console.log(`🔔 Loading notifications for user: ${currentUserId}`);
 
     const { data: notifications, error } = await sb
       .from('poi_notifications')
@@ -170,28 +175,50 @@ export async function getNotifications(limit = 20) {
       .order('created_at', { ascending: false })
       .limit(limit);
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Error fetching notifications:', error);
+      throw error;
+    }
 
-    // Get trigger user profiles
+    console.log(`📬 Fetched ${notifications?.length || 0} notifications`);
+
+    if (!notifications || notifications.length === 0) {
+      return [];
+    }
+
+    // Get trigger user profiles with error handling
     const notificationsWithUsers = await Promise.all(
-      (notifications || []).map(async (notif) => {
-        const { data: profile } = await sb
-          .from('profiles')
-          .select('username, name, avatar_url')
-          .eq('id', notif.trigger_user_id)
-          .single();
+      notifications.map(async (notif) => {
+        try {
+          const { data: profile, error: profileError } = await sb
+            .from('profiles')
+            .select('username, name, avatar_url')
+            .eq('id', notif.trigger_user_id)
+            .maybeSingle(); // Use maybeSingle instead of single to avoid error if not found
 
-        return {
-          ...notif,
-          trigger_user: profile
-        };
+          if (profileError) {
+            console.warn(`⚠️ Error fetching profile for ${notif.trigger_user_id}:`, profileError);
+          }
+
+          return {
+            ...notif,
+            trigger_user: profile || { username: 'Użytkownik', name: null, avatar_url: null }
+          };
+        } catch (err) {
+          console.error(`❌ Error processing notification ${notif.id}:`, err);
+          return {
+            ...notif,
+            trigger_user: { username: 'Użytkownik', name: null, avatar_url: null }
+          };
+        }
       })
     );
 
+    console.log(`✅ Loaded ${notificationsWithUsers.length} notifications with user profiles`);
     return notificationsWithUsers;
 
   } catch (error) {
-    console.error('Error getting notifications:', error);
+    console.error('❌ Error getting notifications:', error);
     return [];
   }
 }
@@ -397,15 +424,22 @@ function setupNotificationPanel() {
  * Load and render notification panel
  */
 async function loadNotificationPanel() {
+  console.log('📋 Loading notification panel...');
+  
   const content = document.getElementById('notificationsPanelContent');
-  if (!content) return;
+  if (!content) {
+    console.error('❌ notificationsPanelContent not found');
+    return;
+  }
 
   content.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><p>Ładowanie...</p></div>';
 
   try {
     const notifications = await getNotifications();
+    console.log(`📬 Received ${notifications.length} notifications to display`);
 
     if (notifications.length === 0) {
+      console.log('ℹ️ No notifications to display');
       content.innerHTML = `
         <div class="empty-state" style="padding: 2rem; text-align: center;">
           <div style="font-size: 3rem; margin-bottom: 0.5rem;">🔔</div>
@@ -418,7 +452,16 @@ async function loadNotificationPanel() {
     let html = '<div class="notifications-list">';
     
     for (const notif of notifications) {
-      const username = notif.trigger_user?.username || notif.trigger_user?.name || 'Użytkownik';
+      // Better name handling with priority
+      let displayName = 'Użytkownik';
+      if (notif.trigger_user) {
+        if (notif.trigger_user.username && notif.trigger_user.username.trim()) {
+          displayName = notif.trigger_user.username;
+        } else if (notif.trigger_user.name && notif.trigger_user.name.trim()) {
+          displayName = notif.trigger_user.name;
+        }
+      }
+      
       const avatar = notif.trigger_user?.avatar_url || '/assets/cyprus_logo-1000x1054.png';
       const timeAgo = formatTimeAgo(notif.created_at);
       const icon = notif.notification_type === 'like' ? '❤️' : '💬';
@@ -429,9 +472,9 @@ async function loadNotificationPanel() {
         <div class="notification-item ${notif.is_read ? 'read' : 'unread'}" 
              onclick="window.handleNotificationClick('${notif.id}', '${notif.comment_id}', '${notif.poi_comments?.poi_id}')">
           <div class="notification-icon">${icon}</div>
-          <img src="${avatar}" alt="${username}" class="notification-avatar" />
+          <img src="${avatar}" alt="${displayName}" class="notification-avatar" />
           <div class="notification-content">
-            <p><strong>${username}</strong> ${action} Twój komentarz</p>
+            <p><strong>${displayName}</strong> ${action} Twój komentarz</p>
             ${commentPreview ? `<p class="notification-preview">"${commentPreview}..."</p>` : ''}
             <span class="notification-time">${timeAgo}</span>
           </div>
@@ -442,12 +485,14 @@ async function loadNotificationPanel() {
 
     html += '</div>';
     content.innerHTML = html;
+    console.log('✅ Notification panel rendered successfully');
 
   } catch (error) {
-    console.error('Error loading notification panel:', error);
+    console.error('❌ Error loading notification panel:', error);
     content.innerHTML = `
       <div class="empty-state" style="padding: 2rem; text-align: center;">
         <p style="color: var(--color-danger-600);">Błąd wczytywania powiadomień</p>
+        <p style="font-size: 0.875rem; color: var(--color-neutral-600);">${error.message}</p>
       </div>
     `;
   }
