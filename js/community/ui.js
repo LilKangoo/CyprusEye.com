@@ -3,6 +3,7 @@ import { likeComment, unlikeComment, getLikesCount, hasUserLiked } from './likes
 import { uploadPhotos, deletePhoto, getCommentPhotos } from './photos.js';
 import { initNotifications, updateNotificationBadge } from './notifications.js';
 import { getRatingStats, getUserRating, ratePlace, renderRatingSummary, renderRatingBreakdown, initInteractiveStars } from './ratings.js';
+import { t, formatCommentCount, formatPhotoCount } from './i18nHelper.js';
 
 // ===================================
 // GLOBALS & STATE
@@ -111,7 +112,7 @@ async function loadPoisData() {
     
   } catch (error) {
     console.error('❌ Error loading POI data:', error);
-    window.showToast?.('Błąd ładowania danych', 'error');
+    window.showToast?.(t('community.error.loading'), 'error');
   }
 }
 
@@ -256,14 +257,14 @@ async function renderPoisList() {
     listContainer.innerHTML = `
       <div class="empty-state">
         <div class="empty-state-icon">🗺️</div>
-        <h3 class="empty-state-title">Brak dostępnych miejsc</h3>
-        <p class="empty-state-description">Miejsca pojawią się wkrótce</p>
+        <h3 class="empty-state-title">${t('community.empty.noPlaces')}</h3>
+        <p class="empty-state-description">${t('community.empty.soon')}</p>
       </div>
     `;
     return;
   }
 
-  listContainer.innerHTML = '<div class="loading-spinner"><div class="spinner"></div><p>Ładowanie miejsc...</p></div>';
+  listContainer.innerHTML = `<div class="loading-spinner"><div class="spinner"></div><p>${t('community.loading')}</p></div>`;
 
   try {
     const sb = window.getSupabase();
@@ -378,10 +379,10 @@ async function loadPoisStats(pois) {
       const card = document.querySelector(`[data-poi-id="${poi.id}"]`);
       
       if (commentsEl) {
-        commentsEl.textContent = `${commentCount || 0} komentarzy`;
+        commentsEl.textContent = formatCommentCount(commentCount || 0);
       }
       if (photosEl) {
-        photosEl.textContent = `${photoCount} zdjęć`;
+        photosEl.textContent = formatPhotoCount(photoCount);
       }
       
       // Update card data attributes for sorting

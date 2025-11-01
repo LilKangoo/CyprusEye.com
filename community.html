@@ -72,7 +72,7 @@
           aria-expanded="false"
           aria-controls="notificationsPanel"
         >
-          🔔 Powiadomienia
+          🔔 <span data-i18n="notifications.title">Powiadomienia</span>
           <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
         </button>
         <div id="auth-actions" class="auth-actions" aria-live="polite">
@@ -96,7 +96,7 @@
             id="profileButton"
           >
             <img id="headerUserAvatar" class="header-user-avatar" src="/assets/cyprus_logo-1000x1054.png" alt="Avatar" />
-            <span>Profil</span>
+            <span data-i18n="profile.button">Profil</span>
           </a>
           <button class="btn" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
         </div>
@@ -132,16 +132,17 @@
   <!-- Notifications Panel -->
   <div id="notificationsPanel" class="notifications-panel" hidden role="dialog" aria-labelledby="notificationsPanelTitle">
     <div class="notifications-panel-header">
-      <h3 id="notificationsPanelTitle" data-i18n="notifications.title">Powiadomienia</h3>
+      <h3 id="notificationsPanelTitle" data-i18n="notifications.title">Notifications</h3>
       <div class="notifications-panel-actions">
         <button type="button" class="ghost" id="markAllReadBtn" data-i18n="notifications.markAll">
-          ✓ Oznacz wszystkie
+          ✓ Mark all
         </button>
         <button
           type="button"
           class="icon-button"
           id="closeNotificationsPanel"
-          aria-label="Zamknij powiadomienia"
+          aria-label="Close notifications"
+          data-i18n-attrs="aria-label:notifications.close"
         >
           ✕
         </button>
@@ -285,7 +286,7 @@
   <div id="commentsModal" class="comments-modal" hidden role="dialog" aria-modal="true" aria-labelledby="commentsModalTitle">
     <div class="comments-modal-dialog">
       <header class="comments-modal-header">
-        <button type="button" class="modal-nav-btn" id="prevPoiBtn" aria-label="Poprzednie miejsce" title="Poprzednie miejsce">
+        <button type="button" class="modal-nav-btn" id="prevPoiBtn" aria-label="Previous place" title="Previous place" data-i18n-attrs="aria-label:modal.aria.previous,title:modal.aria.previous">
           ‹
         </button>
         <div class="comments-modal-title-section">
@@ -293,10 +294,10 @@
           <p id="commentsModalLocation" class="comments-modal-location"></p>
         </div>
         <div class="modal-header-actions">
-          <button type="button" class="modal-nav-btn" id="nextPoiBtn" aria-label="Następne miejsce" title="Następne miejsce">
+          <button type="button" class="modal-nav-btn" id="nextPoiBtn" aria-label="Next place" title="Next place" data-i18n-attrs="aria-label:modal.aria.next,title:modal.aria.next">
             ›
           </button>
-          <button type="button" class="icon-button" id="closeCommentsModal" aria-label="Zamknij">
+          <button type="button" class="icon-button" id="closeCommentsModal" aria-label="Close" data-i18n-attrs="aria-label:modal.aria.close">
             ✕
           </button>
         </div>
@@ -305,11 +306,11 @@
       <div class="comments-modal-content">
         <!-- Rating Section -->
         <div class="modal-rating-section" id="modalRatingSection">
-          <h3>Oceń to miejsce</h3>
+          <h3 data-i18n="community.rating.title">Rate this place</h3>
           <div id="ratingDisplay"></div>
           <div class="rating-interactive-container" id="ratingInteractive" hidden>
             <div id="ratingStarsContainer"></div>
-            <span id="ratingPrompt" class="rating-prompt">Kliknij na gwiazdki aby ocenić</span>
+            <span id="ratingPrompt" class="rating-prompt" data-i18n="community.rating.prompt">Click on stars to rate</span>
           </div>
           <div id="ratingBreakdown"></div>
         </div>
@@ -344,7 +345,7 @@
             </div>
             <div class="add-comment-actions">
               <label class="btn btn-secondary secondary photo-upload-label">
-                📷 Dodaj zdjęcia
+                <span data-i18n="community.photo.add">📷 Add photos</span>
                 <input 
                   type="file" 
                   id="photoUploadInput" 
