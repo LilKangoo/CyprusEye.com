@@ -56,6 +56,7 @@
     <link rel="stylesheet" href="assets/css/rtl.css" />
     <link rel="stylesheet" href="assets/css/language-switcher.css" />
     <link rel="stylesheet" href="/css/toast.css" />
+    <link rel="stylesheet" href="/assets/css/profile.css" />
   
   <meta name="ce-auth" content="on" />
   <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co" />
@@ -291,83 +292,188 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
   </div>
 
   <main>
-      <section
-        class="card surface-card achievements-hero"
-        aria-labelledby="achievementsTitle"
-        data-gated="true"
-      >
-        <div class="achievements-hero-content">
-          <a
-            class="ghost achievements-back"
-            href="/index.html"
-            data-back-home-link="true"
-            data-i18n="achievements.back"
-          >
-            ← Wróć do aplikacji
-          </a>
-          <h1 id="achievementsTitle" data-i18n="achievements.hero.title">Twoje odznaki i poziomy</h1>
-          <p data-i18n="achievements.hero.intro">
-            Monitoruj swoje postępy, sprawdzaj zdobyte odznaki i zaplanuj następne przygody. Wszystkie dane
-            synchronizują się automatycznie z główną aplikacją WakacjeCypr Quest.
-          </p>
+    <!-- Profile Header -->
+    <section class="card surface-card profile-hero" aria-labelledby="profileTitle" data-gated="true" id="profile-header">
+      <div id="profile-header-loading" style="display: none;">
+        <p>Ładowanie profilu...</p>
+      </div>
+      <div class="profile-hero-content">
+        <a class="ghost achievements-back" href="/index.html" data-back-home-link="true">
+          ← Wróć do aplikacji
+        </a>
+        <div class="profile-header">
+          <div class="profile-avatar-container">
+            <img 
+              id="profileAvatar" 
+              class="profile-avatar" 
+              src="/assets/cyprus_logo-1000x1054.png" 
+              alt="Avatar użytkownika"
+            />
+            <div class="profile-avatar-actions">
+              <input type="file" id="avatarInput" accept="image/*" style="display: none;" />
+              <button type="button" class="btn btn-sm btn-secondary" id="uploadAvatarBtn">
+                📷 Zmień
+              </button>
+              <button type="button" class="btn btn-sm btn-ghost" id="removeAvatarBtn">
+                ✕
+              </button>
+            </div>
+            <div id="avatar-upload-loading" style="display: none;">
+              <p>Wysyłanie...</p>
+            </div>
+          </div>
+          <div class="profile-info">
+            <div id="usernameDisplay" class="profile-username-display">
+              <h1 id="profileUsername">Użytkownik</h1>
+              <button type="button" class="btn btn-sm btn-ghost" id="editUsernameBtn">
+                ✏️ Edytuj
+              </button>
+            </div>
+            <div id="usernameEditForm" class="profile-username-edit" style="display: none;">
+              <input 
+                type="text" 
+                id="usernameInput" 
+                placeholder="Nazwa użytkownika" 
+                maxlength="20"
+                class="profile-username-input"
+              />
+              <button type="button" class="btn btn-sm btn-primary" id="saveUsernameBtn">
+                💾 Zapisz
+              </button>
+              <button type="button" class="btn btn-sm btn-ghost" id="cancelUsernameBtn">
+                ✕
+              </button>
+            </div>
+            <div id="username-edit-loading" style="display: none;">
+              <p>Zapisywanie...</p>
+            </div>
+            <p id="profileEmail" class="profile-email"></p>
+            <p id="memberSince" class="profile-member-since">Członek od...</p>
+          </div>
         </div>
-        <ul class="standalone-hero-stats" aria-label="Aktualne statystyki" data-i18n-attrs="aria-label:achievements.hero.statsLabel">
-          <li>
-            <strong id="achievementsBadgesCount">0</strong>
-            <span data-i18n="achievements.hero.badges">Zebrane odznaki</span>
-          </li>
-          <li>
-            <strong id="achievementsVisitedCount">0</strong>
-            <span data-i18n="achievements.hero.visited">Odwiedzone miejsca</span>
-          </li>
-          <li>
-            <strong><span id="levelNumber">1</span> <span data-i18n="achievements.hero.level.suffix">poziom</span></strong>
-            <span data-i18n="achievements.hero.level">Aktualny poziom podróżnika</span>
-          </li>
-        </ul>
-      </section>
+      </div>
+    </section>
 
-      <main class="standalone-main achievements-main" data-gated="true">
-        <section class="card surface-card achievements-progress" aria-labelledby="achievementsProgressTitle">
-          <div class="achievements-progress-header">
-            <h2 id="achievementsProgressTitle" data-i18n="achievements.progress.title">Postęp doświadczenia</h2>
-            <p class="achievements-subtitle" data-i18n="achievements.progress.subtitle">
-              Zdobywaj XP, by odblokowywać nowe misje, wyzwania i lokalizacje – każdy check-in to krok dalej.
-            </p>
-            <p class="achievements-next" id="achievementsNextMilestone" data-i18n="achievements.progress.empty">Rozpocznij eksplorację Cypru, aby zdobyć pierwsze doświadczenie!</p>
+    <!-- Game Statistics -->
+    <section class="card surface-card profile-stats-section" aria-labelledby="statsTitle" data-gated="true">
+      <h2 id="statsTitle">📊 Twoje statystyki w grze</h2>
+      <div class="profile-stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">🎯</div>
+          <div class="stat-content">
+            <span class="stat-value" id="statLevel">1</span>
+            <span class="stat-label">Poziom</span>
           </div>
-          <div class="achievements-progress-body">
-            <div class="progress" role="img" aria-label="Pasek postępu doświadczenia" data-i18n-attrs="aria-label:achievements.progress.chartLabel">
-              <div class="progress-track">
-                <div class="progress-fill is-width-zero" id="xpFill"></div><!-- migrated from inline -->
-              </div>
-            </div>
-            <div class="achievements-stats">
-              <div>
-                <strong><span id="xpPoints">0</span> <span data-i18n="achievements.progress.total.suffix">XP łącznie</span></strong>
-                <p data-i18n="achievements.progress.total.description">Sumaryczna liczba punktów doświadczenia zdobyta we wszystkich aktywnościach.</p>
-              </div>
-              <div>
-                <strong><span id="xpProgressText">0 / 150 XP do kolejnego poziomu</span></strong>
-                <p data-i18n="achievements.progress.next.description">Śledź ile brakuje Ci do kolejnego awansu – ukończ misje lub odwiedź nowe miejsce.</p>
-              </div>
-            </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">⭐</div>
+          <div class="stat-content">
+            <span class="stat-value" id="statXP">0</span>
+            <span class="stat-label">Doświadczenie (XP)</span>
           </div>
-        </section>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">🏆</div>
+          <div class="stat-content">
+            <span class="stat-value" id="statBadges">0</span>
+            <span class="stat-label">Zebrane odznaki</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">📸</div>
+          <div class="stat-content">
+            <span class="stat-value" id="statPhotos">0</span>
+            <span class="stat-label">Wstawione zdjęcia</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">💬</div>
+          <div class="stat-content">
+            <span class="stat-value" id="statComments">0</span>
+            <span class="stat-label">Komentarze</span>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">❤️</div>
+          <div class="stat-content">
+            <span class="stat-value" id="statLikesReceived">0</span>
+            <span class="stat-label">Polubienia otrzymane</span>
+          </div>
+        </div>
+      </div>
+      
+      <!-- XP Progress Bar -->
+      <div class="profile-xp-progress">
+        <div class="xp-progress-header">
+          <h3>Postęp do kolejnego poziomu</h3>
+          <span id="statXPProgress">Ładowanie...</span>
+        </div>
+        <div class="progress-bar-container">
+          <div class="progress-bar-fill" id="xpProgressBar" style="width: 0%"></div>
+        </div>
+      </div>
+    </section>
 
-        <section class="card surface-card achievements-history" aria-labelledby="achievementsHistoryTitle">
-          <header>
-            <h2 id="achievementsHistoryTitle" data-i18n="achievements.history.title">Odwiedzone miejsca i zdobyte odznaki</h2>
-            <p class="achievements-section-intro" data-i18n="achievements.history.subtitle">
-              Lista aktualizuje się po każdym check-inie. Kliknij dowolną pozycję w aplikacji głównej, aby zobaczyć
-              ją na mapie lub zaplanować kolejną wizytę.
-            </p>
-          </header>
-          <p id="achievementsVisitedEmpty" class="achievements-empty" data-i18n="achievements.history.empty">Jeszcze brak odznak – czas na pierwszą przygodę!</p>
-          <ul id="achievementsVisitedList" class="achievements-visited-list" aria-live="polite"></ul>
-        </section>
-      </main>
-    </div>
+    <!-- Account Settings -->
+    <section class="card surface-card profile-settings-section" aria-labelledby="settingsTitle" data-gated="true">
+      <h2 id="settingsTitle">⚙️ Ustawienia konta</h2>
+      <div class="settings-list">
+        <div class="setting-item">
+          <div class="setting-info">
+            <h3>🔑 Hasło</h3>
+            <p>Zmień hasło do swojego konta</p>
+          </div>
+          <button type="button" class="btn btn-secondary" id="changePasswordBtn">
+            Zmień hasło
+          </button>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <h3>📧 Email</h3>
+            <p id="settingsEmail">Twój adres email</p>
+          </div>
+        </div>
+        <div class="setting-item">
+          <div class="setting-info">
+            <h3>🗑️ Usuń konto</h3>
+            <p>Trwale usuń konto i wszystkie dane</p>
+          </div>
+          <div>
+            <button type="button" class="btn btn-danger" id="deleteAccountBtn">
+              Usuń konto
+            </button>
+            <div id="delete-account-loading" style="display: none;">
+              <p>Usuwanie konta...</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- User Activity Feed -->
+    <section class="card surface-card profile-activity-section" aria-labelledby="activityTitle" data-gated="true">
+      <div id="user-activity-loading" style="display: none;">
+        <p>Ładowanie aktywności...</p>
+      </div>
+      <h2 id="activityTitle">📱 Twoja aktywność</h2>
+      
+      <!-- User Photos -->
+      <div class="activity-subsection">
+        <h3>📸 Twoje zdjęcia</h3>
+        <div id="userPhotosGrid" class="photos-grid">
+          <p class="empty-state">Ładowanie zdjęć...</p>
+        </div>
+      </div>
+      
+      <!-- User Comments -->
+      <div class="activity-subsection">
+        <h3>💬 Twoje komentarze</h3>
+        <div id="userCommentsList" class="comments-list">
+          <p class="empty-state">Ładowanie komentarzy...</p>
+        </div>
+      </div>
+    </section>
+  </main>
 
   <div
     id="auth-modal"
@@ -719,5 +825,6 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
     <script src="js/seo.js" defer></script>
     <script src="app.js" defer></script>
     <script type="module" src="/assets/js/auth-ui.js"></script>
+    <script type="module" src="/js/achievements-profile.js"></script>
   </body>
 </html>
