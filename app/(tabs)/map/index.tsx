@@ -10,6 +10,7 @@ import { useSettings } from '../../../context/SettingsContext';
 import useLiveLocation from '../../../hooks/useLiveLocation';
 import { POIS } from '../../../lib/geofencing';
 import { ensureForegroundPermissions, openSystemLocationSettings } from '../../../lib/permissions';
+import PoiRatingCard from '../../../components/PoiRatingCard';
 
 type TutorialHighlight = 'mapArea' | 'centerButton' | 'styleButton';
 
@@ -373,6 +374,15 @@ export default function MapScreen() {
         </TouchableOpacity>
       </View>
 
+      {selectedPoiIndex !== null && (
+        <View style={[styles.ratingCardContainer, { bottom: insets.bottom + 90 }]}>
+          <PoiRatingCard
+            poi={POIS[selectedPoiIndex]}
+            onClose={() => setSelectedPoiIndex(null)}
+          />
+        </View>
+      )}
+
       <View style={[styles.controls, { top: controlsTopOffset }]}>
         <TouchableOpacity style={styles.controlButton} onPress={handleCenterOnUser}>
           <Text style={styles.controlLabel}>Centrum na mnie</Text>
@@ -687,5 +697,11 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
+  },
+  ratingCardContainer: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 9,
   },
 });
