@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="pl" dir="ltr">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-FCSE0876CR');
+</script>
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="robots" content="index,follow" />
+  <title data-i18n="seo.community.title">Community - Komentarze i zdjęcia z Cypru | CyprusEye Quest</title>
+  <meta
+    name="description"
+    content="Podziel się swoimi wrażeniami z Cypru, dodaj zdjęcia i komentarze do miejsc, które odwiedziłeś."
+  />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Community - CyprusEye Quest" />
+  <meta property="og:description" content="Dołącz do społeczności podróżników na Cyprze" />
+  <meta property="og:url" content="https://www.cypruseye.com/community.html" />
+  <meta property="og:image" content="https://www.cypruseye.com/assets/cyprus_logo-1000x1054.png" />
+  <link rel="canonical" href="https://www.cypruseye.com/community.html" />
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="assets/css/tokens.css" />
+  <link rel="stylesheet" href="assets/css/base.css" />
+  <link rel="stylesheet" href="assets/css/components.css" />
+  <link rel="stylesheet" href="assets/css/mobile.css" />
+  <link rel="stylesheet" href="assets/css/rtl.css" />
+  <link rel="stylesheet" href="assets/css/language-switcher.css" />
+  <link rel="stylesheet" href="/css/toast.css" />
+  <link rel="stylesheet" href="assets/css/community.css" />
+  
+  <!-- Leaflet Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin />
+  
+  <!-- Supabase & Auth -->
+  <meta name="ce-auth" content="on" />
+  <meta name="supabase-url" content="https://daoohnbnnowmmcizgvrq.supabase.co" />
+  <meta name="supabase-anon" content="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM" />
+  <script type="module" src="/js/supabaseClient.js"></script>
+  <script type="module" src="/js/toast.js"></script>
+  <script type="module" src="/js/auth.js"></script>
+  <script type="module" src="/js/authUi.js"></script>
+</head>
+<body data-navigation="multi-page" data-seo-page="community">
+  <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+  
+  <!-- Header -->
+  <header class="app-header">
+    <div class="auth-bar" data-i18n-attrs="aria-label:auth.bar.aria" aria-label="Panel konta">
+      <div class="auth-controls">
+        <button
+          id="notificationsToggle"
+          class="ghost notifications-toggle"
+          data-gated="true"
+          data-require-auth
+          data-i18n="header.notifications"
+          type="button"
+          aria-haspopup="true"
+          aria-expanded="false"
+          aria-controls="notificationsPanel"
+        >
+          🔔 Powiadomienia
+          <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
+        </button>
+        <div id="auth-actions" class="auth-actions" aria-live="polite">
+          <button
+            class="btn"
+            data-auth="login"
+            data-auth-login-mode="modal"
+            data-i18n="header.login"
+            data-i18n-attrs="aria-label:auth.login.aria"
+            aria-label="Zaloguj do konta"
+          >
+            Zaloguj
+          </button>
+          <button class="btn" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Graj jako gość</button>
+          <button class="btn" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
+        </div>
+        <div data-auth="spinner" class="auth-spinner" aria-live="polite" data-i18n="auth.status.spinner">Łączenie z logowaniem…</div>
+        <div class="user-menu" id="userMenu" hidden data-gated="true">
+          <span id="userGreeting" aria-live="polite"></span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="header-top">
+      <div class="brand">
+        <img
+          src="assets/cyprus_logo-1000x1054.png"
+          alt="CyprusEye.com – logo"
+          width="1000"
+          height="1054"
+          loading="eager"
+        />
+        <div class="brand-title">
+          <p class="brand-name">CyprusEye <span>Community</span></p>
+          <p class="tagline" data-i18n="community.tagline">Podziel się swoimi wrażeniami z Cypru</p>
+        </div>
+      </div>
+      <div class="header-top-actions">
+        <a class="ghost header-link" href="index.html" data-i18n="community.backToHome">
+          ← Wróć do gry
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main class="app-main community-main">
+    <div class="community-container">
+      <!-- Hero Section -->
+      <section class="community-hero card surface-card">
+        <h1 data-i18n="community.hero.title">💬 Community - Miejsca z Cypru</h1>
+        <p data-i18n="community.hero.description">
+          Przeglądaj komentarze i zdjęcia od innych podróżników. Podziel się swoimi wrażeniami z odwiedzonych miejsc!
+        </p>
+        <div class="community-stats" id="communityStats">
+          <div class="stat-item">
+            <span class="stat-value" id="totalComments">0</span>
+            <span class="stat-label" data-i18n="community.stats.comments">Komentarzy</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value" id="totalPhotos">0</span>
+            <span class="stat-label" data-i18n="community.stats.photos">Zdjęć</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value" id="activeUsers">0</span>
+            <span class="stat-label" data-i18n="community.stats.users">Użytkowników</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- View Toggle -->
+      <div class="view-toggle-bar">
+        <button 
+          type="button" 
+          class="view-toggle-btn active" 
+          data-view="list"
+          id="listViewBtn"
+        >
+          📋 Lista
+        </button>
+        <button 
+          type="button" 
+          class="view-toggle-btn" 
+          data-view="map"
+          id="mapViewBtn"
+        >
+          🗺️ Mapa
+        </button>
+      </div>
+
+      <!-- Map View -->
+      <section class="community-map-section" id="mapViewSection" hidden>
+        <div class="map-container">
+          <div id="communityMap" class="community-map"></div>
+        </div>
+        <p class="map-hint" data-i18n="community.map.hint">
+          Kliknij w marker, aby zobaczyć komentarze dla danego miejsca
+        </p>
+      </section>
+
+      <!-- List View -->
+      <section class="community-list-section" id="listViewSection">
+        <div class="poi-filter-bar">
+          <input 
+            type="search" 
+            id="poiSearchInput" 
+            class="poi-search-input" 
+            placeholder="Szukaj miejsca..."
+            data-i18n-attrs="placeholder:community.search.placeholder"
+          />
+          <select id="poiSortSelect" class="poi-sort-select">
+            <option value="recent" data-i18n="community.sort.recent">Najnowsze komentarze</option>
+            <option value="popular" data-i18n="community.sort.popular">Najpopularniejsze</option>
+            <option value="alphabetical" data-i18n="community.sort.alphabetical">Alfabetycznie</option>
+          </select>
+        </div>
+        
+        <div id="poisList" class="pois-list">
+          <!-- POI cards will be rendered here -->
+          <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p data-i18n="community.loading">Ładowanie miejsc...</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Mobile Navigation -->
+  <nav class="mobile-tabbar" data-i18n-attrs="aria-label:mobile.nav.aria" aria-label="Dolna nawigacja">
+    <button
+      type="button"
+      class="mobile-tabbar-btn"
+      id="mobileAdventureTab"
+      data-page-url="index.html"
+      aria-pressed="false"
+    >
+      <span class="mobile-tabbar-icon" aria-hidden="true">🎯</span>
+      <span class="mobile-tabbar-label" data-i18n="mobile.nav.adventure">Przygoda</span>
+    </button>
+    <button
+      type="button"
+      class="mobile-tabbar-btn is-active"
+      id="mobileCommunityTab"
+      aria-pressed="true"
+    >
+      <span class="mobile-tabbar-icon" aria-hidden="true">💬</span>
+      <span class="mobile-tabbar-label" data-i18n="mobile.nav.community">Community</span>
+    </button>
+    <button
+      type="button"
+      class="mobile-tabbar-btn"
+      id="mobilePackingTab"
+      data-page-url="packing.html"
+      aria-pressed="false"
+    >
+      <span class="mobile-tabbar-icon" aria-hidden="true">🎒</span>
+      <span class="mobile-tabbar-label" data-i18n="mobile.nav.packing">Pakowanie</span>
+    </button>
+    <button
+      type="button"
+      class="mobile-tabbar-btn"
+      id="mobileTasksTab"
+      data-page-url="tasks.html"
+      aria-pressed="false"
+    >
+      <span class="mobile-tabbar-icon" aria-hidden="true">✅</span>
+      <span class="mobile-tabbar-label" data-i18n="mobile.nav.tasks">Misje</span>
+    </button>
+  </nav>
+
+  <!-- Comments Modal -->
+  <div id="commentsModal" class="comments-modal" hidden role="dialog" aria-modal="true" aria-labelledby="commentsModalTitle">
+    <div class="comments-modal-dialog">
+      <header class="comments-modal-header">
+        <div class="comments-modal-title-section">
+          <h2 id="commentsModalTitle" class="comments-modal-title"></h2>
+          <p id="commentsModalLocation" class="comments-modal-location"></p>
+        </div>
+        <button type="button" class="icon-button" id="closeCommentsModal" aria-label="Zamknij">
+          ✕
+        </button>
+      </header>
+      
+      <div class="comments-modal-content">
+        <!-- Add Comment Form -->
+        <div class="add-comment-section" id="addCommentSection">
+          <div class="auth-required-message" data-auth-required hidden>
+            <p data-i18n="community.auth.required">Musisz być zalogowany, aby dodać komentarz</p>
+            <button class="btn btn-primary primary" data-auth="login" data-i18n="header.login">Zaloguj</button>
+          </div>
+          
+          <form id="addCommentForm" class="add-comment-form" data-auth-only hidden>
+            <div class="user-avatar-section">
+              <img id="currentUserAvatar" class="user-avatar" alt="" />
+              <div>
+                <strong id="currentUserName"></strong>
+                <p class="form-hint" data-i18n="community.comment.hint">Dodaj komentarz lub zdjęcia</p>
+              </div>
+            </div>
+            <textarea 
+              id="commentTextarea" 
+              name="content"
+              class="comment-textarea" 
+              placeholder="Podziel się swoimi wrażeniami..."
+              data-i18n-attrs="placeholder:community.comment.placeholder"
+              rows="3"
+              maxlength="2000"
+              required
+            ></textarea>
+            <div class="comment-photos-preview" id="commentPhotosPreview" hidden>
+              <!-- Photo previews will be rendered here -->
+            </div>
+            <div class="add-comment-actions">
+              <label class="btn btn-secondary secondary photo-upload-label">
+                📷 Dodaj zdjęcia
+                <input 
+                  type="file" 
+                  id="photoUploadInput" 
+                  accept="image/jpeg,image/png,image/webp" 
+                  multiple 
+                  hidden
+                />
+              </label>
+              <button type="submit" class="btn btn-primary primary" data-i18n="community.comment.submit">
+                Opublikuj
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Comments List -->
+        <div class="comments-list" id="commentsList">
+          <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p data-i18n="community.loading">Ładowanie komentarzy...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <p data-i18n="footer.app">© <span data-current-year>2024</span> CyprusEye.com • Community</p>
+  </footer>
+
+  <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
+  <script src="js/i18n.js" defer></script>
+  <script type="module" src="js/community/comments.js"></script>
+  <script type="module" src="js/community/likes.js"></script>
+  <script type="module" src="js/community/photos.js"></script>
+  <script type="module" src="js/community/notifications.js"></script>
+  <script type="module" src="js/community/ui.js"></script>
+</body>
+</html>

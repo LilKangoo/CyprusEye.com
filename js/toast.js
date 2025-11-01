@@ -70,6 +70,9 @@
       return createToast(normalizedMessage, normalizedType, lifetime);
     },
   };
+
+  // Alias for convenience
+  window.showToast = window.Toast.show;
 })();
 
 export {};

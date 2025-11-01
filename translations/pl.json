@@ -707,5 +707,25 @@
   "sos.healthcare.pharmacy": {
     "html": "Sprawdź aktualne dyżury na <a href=\"https://pharmacy.dl.moh.gov.cy/\" target=\"_blank\" rel=\"noopener\">stronie Ministerstwa Zdrowia</a> lub wyszukaj <a href=\"https://www.google.com/maps/search/pharmacy+near+me/\" target=\"_blank\" rel=\"noopener\">aptekę w pobliżu</a>."
   },
-  "sos.healthcare.note": "W sytuacji zagrożenia życia zawsze dzwoń pod 112 i dokładnie podaj lokalizację. W aplikacji włącz udostępnianie lokalizacji, aby szybciej odnaleźć pomoc na mapie."
+  "sos.healthcare.note": "W sytuacji zagrożenia życia zawsze dzwoń pod 112 i dokładnie podaj lokalizację. W aplikacji włącz udostępnianie lokalizacji, aby szybciej odnaleźć pomoc na mapie.",
+  "header.communityLink": "💬 Community",
+  "mobile.nav.community": "Community",
+  "seo.community.title": "Community - Komentarze i zdjęcia z Cypru | CyprusEye Quest",
+  "community.tagline": "Podziel się swoimi wrażeniami z Cypru",
+  "community.backToHome": "← Wróć do gry",
+  "community.hero.title": "💬 Community - Miejsca na Cyprze",
+  "community.hero.description": "Przeglądaj komentarze i zdjęcia od innych podróżników. Podziel się swoimi wrażeniami z odwiedzonych miejsc!",
+  "community.stats.comments": "Komentarzy",
+  "community.stats.photos": "Zdjęć",
+  "community.stats.users": "Użytkowników",
+  "community.search.placeholder": "Szukaj miejsca...",
+  "community.sort.recent": "Najnowsze komentarze",
+  "community.sort.popular": "Najpopularniejsze",
+  "community.sort.alphabetical": "Alfabetycznie",
+  "community.loading": "Ładowanie miejsc...",
+  "community.map.hint": "Kliknij w marker, aby zobaczyć komentarze dla danego miejsca",
+  "community.auth.required": "Musisz być zalogowany, aby dodać komentarz",
+  "community.comment.hint": "Dodaj komentarz lub zdjęcia",
+  "community.comment.placeholder": "Podziel się swoimi wrażeniami...",
+  "community.comment.submit": "Opublikuj"
 }
