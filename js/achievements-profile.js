@@ -977,7 +977,12 @@ function showLoginPrompt() {
       <div style="font-size: 4rem; margin-bottom: 1rem;">🔒</div>
       <h2 data-i18n="profile.login.title" style="margin-bottom: 1rem;">Zaloguj się, aby zobaczyć swój profil</h2>
       <p data-i18n="profile.login.description" style="margin-bottom: 2rem; color: #6b7280;">Musisz być zalogowany, aby uzyskać dostęp do strony profilu i swoich statystyk.</p>
-      <button id="loginPromptButton" class="btn btn-primary" data-i18n="profile.login.button">
+      <button 
+        id="loginPromptButton" 
+        class="btn btn-primary" 
+        data-auth="login"
+        data-auth-login-mode="modal"
+        data-i18n="profile.login.button">
         Zaloguj się
       </button>
       <p style="margin-top: 1rem; font-size: 0.875rem; color: #9ca3af;">
@@ -987,28 +992,60 @@ function showLoginPrompt() {
     
     main.insertBefore(loginPrompt, main.firstChild);
     
-    // Add click handler to login button - use requestAnimationFrame to ensure DOM is ready
+    // Re-initialize auth-ui buttons to catch the new login button
+    // This is how it works on other pages - auth-ui.js scans for [data-auth="login"]
     requestAnimationFrame(() => {
-      const loginButton = document.getElementById('loginPromptButton');
-      console.log('🔍 Login button found:', loginButton ? 'YES' : 'NO');
+      console.log('🔄 Re-initializing auth buttons for dynamically added login prompt');
       
-      if (loginButton) {
-        console.log('✅ Attaching click handler to login button');
-        loginButton.addEventListener('click', (e) => {
-          e.preventDefault();
-          console.log('🔐 Login button clicked!');
-          openLoginModal();
-        });
-        
-        // Also add as onclick fallback
-        loginButton.onclick = (e) => {
-          e.preventDefault();
-          console.log('🔐 Login button onclick triggered!');
-          openLoginModal();
-        };
-      } else {
-        console.error('❌ Login button not found in DOM');
+      const loginButton = document.getElementById('loginPromptButton');
+      console.log('🔍 Login button with data-auth found:', loginButton ? 'YES' : 'NO');
+      
+      if (!loginButton) {
+        console.error('❌ Login button not found after creating it!');
+        return;
       }
+      
+      console.log('📋 Button attributes:', {
+        'data-auth': loginButton.getAttribute('data-auth'),
+        'data-auth-login-mode': loginButton.getAttribute('data-auth-login-mode')
+      });
+      
+      // Check if button already has listener (from auth-ui.js)
+      if (loginButton.dataset.authLoginReady === 'true') {
+        console.log('✅ Button already initialized by auth-ui.js');
+        return;
+      }
+      
+      // Manually initialize the button exactly like auth-ui.js does
+      console.log('⚙️ Manually initializing login button');
+      loginButton.dataset.authLoginReady = 'true';
+      
+      loginButton.addEventListener('click', (event) => {
+        event.preventDefault();
+        console.log('🔐 Login button clicked!');
+        
+        // Call window.openAuthModal if available
+        if (typeof window.openAuthModal === 'function') {
+          console.log('✅ Calling window.openAuthModal()');
+          window.openAuthModal('login');
+        } else {
+          console.warn('⚠️ window.openAuthModal not available, trying fallback');
+          
+          // Fallback to manual modal opening
+          const modal = document.getElementById('auth-modal');
+          if (modal) {
+            console.log('✅ Opening modal manually');
+            modal.classList.add('is-open');
+            modal.setAttribute('aria-hidden', 'false');
+            document.body.style.overflow = 'hidden';
+          } else {
+            console.error('❌ Modal not found, redirecting to /auth/');
+            window.location.href = '/auth/';
+          }
+        }
+      });
+      
+      console.log('✅ Login button initialized successfully');
     });
     
     if (window.i18n) window.i18n.translateElement(loginPrompt);
