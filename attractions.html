@@ -59,7 +59,9 @@
   <script type="module" src="/js/authUi.js"></script>
 </head>
   <body data-navigation="multi-page" data-initial-view="attractionsView" data-seo-page="attractions">
-    <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+  <!-- Accessibility: Skip to main content -->
+  <a href="#main-content" class="skip-link" data-i18n="accessibility.skipToContent">Skip to main content</a>
+      <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
   <header class="app-header">
     <div class="auth-bar" data-i18n-attrs="aria-label:auth.bar.aria" aria-label="Panel konta">
       <div class="auth-controls">
@@ -282,7 +284,7 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
     <ul id="notificationsPanelList" class="notifications-list" role="list"></ul>
   </div>
 
-  <main>
+  <main id="main-content">
         <section class="card surface-card attractions-intro" aria-labelledby="attractionsTitle">
           <div class="attractions-intro-header">
             <a

@@ -59,7 +59,9 @@
   <script type="module" src="/js/authUi.js"></script>
 </head>
   <body class="standalone-body" data-seo-page="notFound">
-    <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+  <!-- Accessibility: Skip to main content -->
+  <a href="#main-content" class="skip-link" data-i18n="accessibility.skipToContent">Skip to main content</a>
+      <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
     <header class="standalone-header" aria-label="Panel logowania">
       <div id="auth-actions" class="auth-actions">
         <button
@@ -90,7 +92,7 @@
       </div>
       <div data-auth="spinner" class="auth-spinner" aria-live="polite" data-i18n="auth.status.spinner">Łączenie z logowaniem…</div>
     </header>
-    <main class="standalone-page">
+    <main id="main-content" class="standalone-page">
       <section class="card surface-card standalone-hero" aria-labelledby="notFoundTitle">
         <div class="standalone-hero-content">
           <p class="standalone-hero-badge" data-i18n="notFound.badge">Błąd 404</p>

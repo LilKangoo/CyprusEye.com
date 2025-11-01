@@ -63,7 +63,9 @@
   <script type="module" src="/js/authUi.js"></script>
 </head>
   <body class="standalone-body" data-seo-page="carRental">
-    <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+  <!-- Accessibility: Skip to main content -->
+  <a href="#main-content" class="skip-link" data-i18n="accessibility.skipToContent">Skip to main content</a>
+      <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
     <div class="standalone-page">
       <header class="card surface-card standalone-header">
         <div class="standalone-brand">
@@ -127,7 +129,7 @@
         <div data-auth="spinner" class="auth-spinner" aria-live="polite" data-i18n="auth.status.spinner">Łączenie z logowaniem…</div>
       </header>
 
-      <main class="standalone-main">
+      <main id="main-content" class="standalone-main">
         <section class="card surface-card standalone-hero" aria-labelledby="standaloneHeroTitle">
           <div class="standalone-hero-content">
             <p class="standalone-hero-badge" data-i18n="carRental.page.hero.badge">

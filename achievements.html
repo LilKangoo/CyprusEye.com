@@ -70,7 +70,9 @@
   <script type="module" src="/js/authUi.js"></script>
 </head>
   <body data-navigation="multi-page" data-initial-view="achievementsView" data-seo-page="achievements">
-    <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+  <!-- Accessibility: Skip to main content -->
+  <a href="#main-content" class="skip-link" data-i18n="accessibility.skipToContent">Skip to main content</a>
+      <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
   <header class="app-header">
     <div class="auth-bar" data-i18n-attrs="aria-label:auth.bar.aria" aria-label="Panel konta">
       <div class="auth-controls">
@@ -293,7 +295,7 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
     <ul id="notificationsPanelList" class="notifications-list" role="list"></ul>
   </div>
 
-  <main>
+  <main id="main-content">
     <!-- Profile Header -->
     <section class="card surface-card profile-hero" aria-labelledby="profileTitle" data-gated="true" id="profile-header" hidden>
       <div id="profile-header-loading" style="display: none;">

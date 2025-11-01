@@ -299,7 +299,9 @@
     </style>
   </head>
   <body>
-    <div class="account-shell">
+  <!-- Accessibility: Skip to main content -->
+  <a href="#main-content" class="skip-link" data-i18n="accessibility.skipToContent">Skip to main content</a>
+      <div class="account-shell">
       <header class="account-header">
         <div>
           <a href="/">← Wróć do strony głównej</a>
@@ -340,7 +342,7 @@
       <div data-account-message hidden role="status" aria-live="polite"></div>
       <div data-account-loading>Trwa wczytywanie danych konta…</div>
 
-      <main data-account-content hidden>
+      <main id="main-content" data-account-content hidden>
         <nav class="account-tabs" role="tablist" aria-label="Zakładki panelu konta">
           <button
             type="button"

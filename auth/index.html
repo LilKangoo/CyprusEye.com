@@ -39,7 +39,9 @@
     <script type="module" src="/js/authUi.js"></script>
   </head>
   <body class="auth-page">
-    <div class="auth-page__container">
+  <!-- Accessibility: Skip to main content -->
+  <a href="#main-content" class="skip-link" data-i18n="accessibility.skipToContent">Skip to main content</a>
+      <div class="auth-page__container">
       <a class="auth-page__return" href="/">
         <span aria-hidden="true">⬅️</span>
         <span>Wróć do strony głównej</span>
@@ -68,7 +70,7 @@
         </div>
         <div data-auth="spinner" class="auth-spinner is-visible">Łączenie z logowaniem…</div>
       </header>
-      <main class="auth-page__content" aria-labelledby="authTitle">
+      <main id="main-content" class="auth-page__content" aria-labelledby="authTitle">
         <section class="auth-confirmation" data-auth="user-only" data-auth-confirmation hidden>
           <div class="auth-confirmation__badge" aria-hidden="true">✅</div>
           <h2 class="auth-confirmation__title" data-i18n="auth.confirmation.title">Zalogowano pomyślnie!</h2>
