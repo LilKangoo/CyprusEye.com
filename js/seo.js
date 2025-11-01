@@ -279,6 +279,13 @@
       target: 'adventureView',
     },
     {
+      id: 'mobileCommunityTab',
+      icon: '💬',
+      label: 'Społeczność',
+      i18nKey: 'mobile.nav.community',
+      pageUrl: 'community.html',
+    },
+    {
       id: 'mobilePackingTab',
       icon: '🎒',
       label: 'Pakowanie',
@@ -324,6 +331,7 @@
     home: 'mobileAdventureTab',
     achievements: 'mobileAdventureTab',
     attractions: 'mobileAdventureTab',
+    community: 'mobileCommunityTab',
     packing: 'mobilePackingTab',
     tasks: 'mobileTasksTab',
     mediatrips: 'mobileMediaTripsTab',
@@ -347,6 +355,9 @@
     }
 
     const path = window.location?.pathname?.toLowerCase() ?? '';
+    if (path.includes('community')) {
+      return 'mobileCommunityTab';
+    }
     if (path.includes('packing')) {
       return 'mobilePackingTab';
     }
@@ -465,7 +476,17 @@
     }
 
     mobileTabbar.innerHTML = '';
+    
+    // Get current page's tab ID to exclude it from navigation
+    const currentTabId = determineActiveMobileTabId();
+    
+    // Render only buttons that are NOT the current page (show 6 out of 7)
     MOBILE_NAV_ITEMS.forEach((item) => {
+      // Skip the button for the current page
+      if (item.id === currentTabId) {
+        return;
+      }
+      
       const button = buildMobileTabbarButton(item);
       mobileTabbar.appendChild(button);
     });
