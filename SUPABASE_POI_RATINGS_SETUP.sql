@@ -28,6 +28,12 @@ CREATE INDEX IF NOT EXISTS idx_poi_ratings_created_at ON poi_ratings(created_at 
 -- 3. ROW LEVEL SECURITY (RLS)
 ALTER TABLE poi_ratings ENABLE ROW LEVEL SECURITY;
 
+-- Usuń istniejące polityki jeśli istnieją
+DROP POLICY IF EXISTS "Anyone can view ratings" ON poi_ratings;
+DROP POLICY IF EXISTS "Authenticated users can insert their own ratings" ON poi_ratings;
+DROP POLICY IF EXISTS "Users can update their own ratings" ON poi_ratings;
+DROP POLICY IF EXISTS "Users can delete their own ratings" ON poi_ratings;
+
 -- Polityka: Wszyscy mogą czytać oceny
 CREATE POLICY "Anyone can view ratings"
   ON poi_ratings
