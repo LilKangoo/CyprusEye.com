@@ -787,14 +787,30 @@ async function renderComment(comment, isReply = false) {
   const sb = window.getSupabase();
   
   // Get user profile
-  const { data: profile } = await sb
+  const { data: profile, error: profileError } = await sb
     .from('profiles')
     .select('username, name, avatar_url')
     .eq('id', comment.user_id)
     .single();
 
-  const username = escapeHtml(profile?.username || profile?.name || 'Użytkownik');
+  if (profileError) {
+    console.error('Error fetching profile for comment:', profileError);
+  }
+
+  // Priority: username > name > fallback
+  let displayName = 'Użytkownik';
+  if (profile) {
+    if (profile.username && profile.username.trim()) {
+      displayName = profile.username;
+    } else if (profile.name && profile.name.trim()) {
+      displayName = profile.name;
+    }
+  }
+  
+  const username = escapeHtml(displayName);
   const avatar = profile?.avatar_url || DEFAULT_AVATAR;
+  
+  console.log(`👤 Comment by user ${comment.user_id}: username="${profile?.username}", name="${profile?.name}", displaying as: "${displayName}"`);
   
   // Get likes info
   const likesCount = await getLikesCount(comment.id);
