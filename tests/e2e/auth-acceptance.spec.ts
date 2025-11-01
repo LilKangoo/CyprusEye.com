@@ -1,11 +1,15 @@
 import { expect, test } from '@playwright/test';
 import { enableSupabaseStub, resetSupabaseStub, waitForSupabaseStub } from './utils/supabase';
+import { disableTutorial } from './utils/disable-tutorial';
 
 test.beforeEach(async ({ page }) => {
   await enableSupabaseStub(page);
+  await disableTutorial(page);
   await page.addInitScript(() => {
     window.localStorage.clear();
     window.sessionStorage.clear();
+    // Re-set tutorial as seen after clearing storage
+    window.localStorage.setItem('seenTutorial', 'true');
   });
 });
 

@@ -1,4 +1,5 @@
 import { expect, Page, test } from '@playwright/test';
+import { disableTutorial } from './utils/disable-tutorial';
 import { enableSupabaseStub, resetSupabaseStub, waitForSupabaseStub } from './utils/supabase';
 
 const TEST_USER = {
@@ -28,6 +29,7 @@ async function seedAuthenticatedUser(page: Page) {
 
 test.beforeEach(async ({ page }) => {
   await enableSupabaseStub(page);
+  await disableTutorial(page);
 });
 
 test.afterEach(async ({ page }) => {
