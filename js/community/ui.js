@@ -76,25 +76,34 @@ async function loadPoisData() {
     // Try to load from assets/pois.json
     const response = await fetch('/assets/pois.json');
     if (response.ok) {
-      poisData = await response.json();
-      console.log(`✅ Loaded ${poisData.length} POIs`);
-    } else {
-      // Fallback to app.js places if available
-      if (window.places && Array.isArray(window.places)) {
-        poisData = window.places.map(p => ({
-          id: p.id,
-          name: p.name,
-          lat: p.lat,
-          lon: p.lng || p.lon,
-          description: p.description
-        }));
-        console.log(`✅ Loaded ${poisData.length} POIs from window.places`);
-      } else {
-        console.warn('⚠️ No POI data available');
+      const data = await response.json();
+      if (Array.isArray(data) && data.length > 0) {
+        poisData = data;
+        console.log(`✅ Loaded ${poisData.length} POIs from pois.json`);
+        return;
       }
     }
+    
+    // Fallback to app.js places if available
+    if (window.places && Array.isArray(window.places) && window.places.length > 0) {
+      poisData = window.places.map(p => ({
+        id: p.id,
+        name: p.name,
+        lat: p.lat,
+        lon: p.lng || p.lon,
+        description: p.description
+      }));
+      console.log(`✅ Loaded ${poisData.length} POIs from window.places`);
+      return;
+    }
+    
+    // If no data available, show error
+    console.error('❌ No POI data available');
+    window.showToast?.('Nie można załadować miejsc', 'error');
+    
   } catch (error) {
     console.error('❌ Error loading POI data:', error);
+    window.showToast?.('Błąd ładowania danych', 'error');
   }
 }
 
@@ -392,6 +401,13 @@ function initModal() {
     if (e.target === modal) closeModal();
   });
 
+  // ESC key to close modal
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.hidden) {
+      closeModal();
+    }
+  });
+
   form?.addEventListener('submit', handleCommentSubmit);
   photoInput?.addEventListener('change', handlePhotoSelect);
 }
@@ -493,6 +509,15 @@ async function loadAndRenderComments(poiId) {
 }
 
 // ===================================
+// UTILITY: ESCAPE HTML
+// ===================================
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// ===================================
 // RENDER SINGLE COMMENT
 // ===================================
 async function renderComment(comment, isReply = false) {
@@ -505,7 +530,7 @@ async function renderComment(comment, isReply = false) {
     .eq('id', comment.user_id)
     .single();
 
-  const username = profile?.username || profile?.name || 'Użytkownik';
+  const username = escapeHtml(profile?.username || profile?.name || 'Użytkownik');
   const avatar = profile?.avatar_url || DEFAULT_AVATAR;
   
   // Get likes info
@@ -550,7 +575,7 @@ async function renderComment(comment, isReply = false) {
       </div>
 
       <div class="comment-content" id="content-${comment.id}">
-        ${comment.content}
+        ${escapeHtml(comment.content)}
       </div>
 
       ${photos.length > 0 ? `
@@ -598,26 +623,43 @@ async function handleCommentSubmit(e) {
     return;
   }
 
-  if (!currentPoiId) return;
+  if (!currentPoiId) {
+    window.showToast?.('Nie wybrano miejsca', 'error');
+    return;
+  }
 
   const textarea = document.getElementById('commentTextarea');
   const content = textarea.value.trim();
 
   if (!content) {
     window.showToast?.('Wpisz treść komentarza', 'error');
+    textarea.focus();
     return;
   }
 
+  if (content.length < 3) {
+    window.showToast?.('Komentarz jest za krótki (min. 3 znaki)', 'error');
+    textarea.focus();
+    return;
+  }
+
+  const submitBtn = e.target.querySelector('button[type="submit"]');
+  const originalText = submitBtn.textContent;
+
   try {
-    const submitBtn = e.target.querySelector('button[type="submit"]');
     submitBtn.disabled = true;
     submitBtn.textContent = 'Wysyłanie...';
 
     // Add comment
     const comment = await addComment(currentPoiId, content, null);
 
+    if (!comment) {
+      throw new Error('Nie udało się dodać komentarza');
+    }
+
     // Upload photos if any
     if (selectedPhotos.length > 0) {
+      submitBtn.textContent = 'Wysyłanie zdjęć...';
       await uploadPhotos(selectedPhotos, comment.id);
     }
 
@@ -625,13 +667,22 @@ async function handleCommentSubmit(e) {
     resetCommentForm();
 
     // Reload comments
+    submitBtn.textContent = 'Odświeżanie...';
     await loadAndRenderComments(currentPoiId);
+
+    // Update stats
+    await loadPoisStats([poisData.find(p => p.id === currentPoiId)].filter(Boolean));
 
     window.showToast?.('Komentarz dodany!', 'success');
 
   } catch (error) {
     console.error('Error submitting comment:', error);
-    window.showToast?.('Błąd dodawania komentarza', 'error');
+    const errorMsg = error.message || 'Błąd dodawania komentarza';
+    window.showToast?.(errorMsg, 'error');
+    
+    // Re-enable button
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
   }
 }
 
@@ -707,10 +758,26 @@ function resetCommentForm() {
 // ===================================
 window.toggleCommentMenu = function(commentId) {
   const menu = document.getElementById(`menu-${commentId}`);
-  if (menu) {
-    menu.hidden = !menu.hidden;
-  }
+  if (!menu) return;
+  
+  // Close all other menus first
+  document.querySelectorAll('.comment-menu-dropdown').forEach(m => {
+    if (m.id !== `menu-${commentId}`) {
+      m.hidden = true;
+    }
+  });
+  
+  menu.hidden = !menu.hidden;
 };
+
+// Close menus when clicking outside
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.comment-actions-menu')) {
+    document.querySelectorAll('.comment-menu-dropdown').forEach(m => {
+      m.hidden = true;
+    });
+  }
+});
 
 // ===================================
 // EDIT COMMENT UI
