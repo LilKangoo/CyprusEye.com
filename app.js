@@ -10,6 +10,21 @@ import {
   normalizeDailyStreak
 } from '/src/utils/dates.js';
 
+// Translation utilities (extracted to src/utils/translations.js)
+import {
+  getTranslation,
+  translate,
+  getActiveTranslations,
+  areTranslationsReady,
+  getTaskTranslationKey,
+  getTaskTitle,
+  getTaskDescription,
+  getPlaceTranslationKey,
+  getPlaceName,
+  getPlaceDescription,
+  getPlaceBadge
+} from '/src/utils/translations.js';
+
 const DEBUG = localStorage.getItem('CE_DEBUG') === 'true' || new URLSearchParams(window.location.search).has('debug');
 function debug(...args) {
   if (DEBUG) {
@@ -17,15 +32,7 @@ function debug(...args) {
   }
 }
 
-// Helper function to get translated text
-function getTranslation(key, fallback = '') {
-  if (window.appI18n && window.appI18n.translations) {
-    const currentLang = window.appI18n.language || 'pl';
-    const translations = window.appI18n.translations[currentLang] || {};
-    return translations[key] || fallback;
-  }
-  return fallback;
-}
+// getTranslation moved to src/utils/translations.js
 
 const places = [
   {
@@ -1349,12 +1356,7 @@ function normalizeSearchText(value) {
     .replace(/\p{Diacritic}/gu, '');
 }
 
-function getPlaceTranslationKey(place, field) {
-  if (!place || !place.id) {
-    return '';
-  }
-  return `places.${place.id}.${field}`;
-}
+// getPlaceTranslationKey moved to src/utils/translations.js
 
 function getPlaceName(place) {
   return translate(getPlaceTranslationKey(place, 'name'), place?.name ?? '');
