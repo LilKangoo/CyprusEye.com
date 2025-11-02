@@ -71,7 +71,7 @@
   <link rel="stylesheet" href="assets/css/rtl.css" />
   <link rel="stylesheet" href="assets/css/language-switcher.css" />
   <link rel="stylesheet" href="assets/css/language-selector.css" />
-  <link rel="stylesheet" href="/css/toast.css" />
+  <link rel="stylesheet" href="css/toast.css" />
   <link
     rel="preload"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -89,10 +89,10 @@
   
 
   <meta name="ce-auth" content="on" />
-  <script type="module" src="/js/supabaseClient.js"></script>
-  <script type="module" src="/js/toast.js"></script>
-  <script type="module" src="/js/auth.js"></script>
-  <script type="module" src="/js/authUi.js"></script>
+  <script type="module" src="js/supabaseClient.js"></script>
+  <script type="module" src="js/toast.js"></script>
+  <script type="module" src="js/auth.js"></script>
+  <script type="module" src="js/authUi.js"></script>
 </head>
 <body data-navigation="multi-page" data-initial-view="adventureView" data-seo-page="home">
   <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
@@ -185,8 +185,8 @@
     
     <!-- User Stats Section - Combined Profile + Metrics -->
     <div class="user-stats-section" data-auth="user-only">
-      <a href="/achievements.html" class="user-profile-card" id="profileButton" aria-label="Mój profil">
-        <img id="headerUserAvatar" class="profile-avatar" src="/assets/cyprus_logo-1000x1054.png" alt="Avatar" width="50" height="50" loading="eager" />
+      <a href="achievements.html" class="user-profile-card" id="profileButton" aria-label="Mój profil">
+        <img id="headerUserAvatar" class="profile-avatar" src="assets/cyprus_logo-1000x1054.png" alt="Avatar" width="50" height="50" loading="eager" />
         <div class="profile-info">
           <div class="profile-name">Mój Profil</div>
           <div class="profile-status">Kliknij aby zobaczyć szczegóły</div>
@@ -277,13 +277,6 @@
         🌍 Przeglądaj atrakcje
       </button>
     </nav>
-    
-    <!-- Jump to objective button -->
-    <div class="jump-to-objective-container">
-      <button class="btn btn-primary primary" type="button" id="jumpToObjective" data-i18n="header.jumpToObjective">
-        Skocz do aktualnego celu
-      </button>
-    </div>
   </header>
 
   <div id="notificationsPanel" class="notifications-panel" hidden aria-live="polite">
@@ -418,10 +411,10 @@
           </a>
           <a
             class="adventure-shortcut-card card surface-card"
-            href="/kupon"
+            href="kupon.html"
             role="button"
             tabindex="0"
-            data-page-url="/kupon"
+            data-page-url="kupon.html"
             data-i18n-attrs="aria-label:coupon.cta_aria"
             aria-label="Kup kupon — przejdź do bezpiecznej płatności Stripe"
           >
@@ -1358,8 +1351,8 @@
       </div>
     </div>
   </div>
-  <script type="module" src="/assets/js/account-modal.js"></script>
-  <script type="module" src="/assets/js/auth-ui.js"></script>
-  <script src="/js/languageSwitcher.js"></script>
+  <script type="module" src="assets/js/account-modal.js"></script>
+  <script type="module" src="assets/js/auth-ui.js"></script>
+  <script src="js/languageSwitcher.js"></script>
 </body>
 </html>

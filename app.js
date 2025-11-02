@@ -6597,6 +6597,14 @@ function openMediaTripsView() {
 function openAdventureView(options = {}) {
   switchAppView(ADVENTURE_VIEW_ID);
 
+  // Scroll to current objective (map section)
+  setTimeout(() => {
+    const objectiveSection = document.getElementById('current-objective');
+    if (objectiveSection) {
+      objectiveSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, 100);
+
   const { showJournalForm = false } = options;
   if (showJournalForm) {
     if (!currentUserKey) {
@@ -10442,9 +10450,11 @@ function bootstrap() {
 
     element.addEventListener('click', (event) => {
       const targetPage = element.dataset?.pageUrl?.trim();
+      console.log('Navigation click:', element.id, 'targetPage:', targetPage, 'mode:', navigationMode);
       if (navigationMode === 'multi-page') {
         if (targetPage) {
           event.preventDefault();
+          console.log('Navigating to:', targetPage);
           window.location.href = targetPage;
           return;
         }
@@ -10502,7 +10512,6 @@ function bootstrap() {
   const adventureTab = document.getElementById('headerAdventureTab');
   const packingTab = document.getElementById('headerPackingTab');
   const tasksTab = document.getElementById('headerTasksTab');
-  const mediaTripsTab = document.getElementById('headerMediaTripsTab');
   const mobileAdventureTab = document.getElementById('mobileAdventureTab');
   const mobilePackingTab = document.getElementById('mobilePackingTab');
   const mobileTasksTab = document.getElementById('mobileTasksTab');
@@ -10511,9 +10520,8 @@ function bootstrap() {
   const mobileCouponsTab = document.getElementById('mobileCouponsTab');
 
   setupNavigationButton(adventureTab, openAdventureView, { enableKeydown: true });
-  setupNavigationButton(packingTab, openPackingPlannerView, { enableKeydown: true });
-  setupNavigationButton(tasksTab, openTasksView, { enableKeydown: true });
-  setupNavigationButton(mediaTripsTab, openMediaTripsView, { enableKeydown: true });
+  setupNavigationButton(packingTab, null, { enableKeydown: true }); // Will use data-page-url
+  setupNavigationButton(tasksTab, null, { enableKeydown: true }); // Will use data-page-url
   setupNavigationButton(mobileAdventureTab, openAdventureView);
   setupNavigationButton(mobilePackingTab, openPackingPlannerView);
   setupNavigationButton(mobileTasksTab, openTasksView);

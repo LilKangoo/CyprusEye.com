@@ -58,7 +58,7 @@
   <link rel="stylesheet" href="assets/css/mobile.css" />
   <link rel="stylesheet" href="assets/css/rtl.css" />
   <link rel="stylesheet" href="assets/css/language-switcher.css" />
-  <link rel="stylesheet" href="/css/toast.css" />
+  <link rel="stylesheet" href="css/toast.css" />
   <link rel="stylesheet" href="assets/css/community.css" />
   
   <!-- Leaflet Map -->
@@ -66,10 +66,10 @@
   
   <!-- Supabase & Auth -->
   <meta name="ce-auth" content="on" />
-  <script type="module" src="/js/supabaseClient.js"></script>
-  <script type="module" src="/js/toast.js"></script>
-  <script type="module" src="/js/auth.js"></script>
-  <script type="module" src="/js/authUi.js"></script>
+  <script type="module" src="js/supabaseClient.js"></script>
+  <script type="module" src="js/toast.js"></script>
+  <script type="module" src="js/auth.js"></script>
+  <script type="module" src="js/authUi.js"></script>
 </head>
 <body data-navigation="multi-page" data-seo-page="community">
   <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
@@ -121,14 +121,14 @@
             </button>
             <button class="btn btn-sm" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Gość</button>
             <a 
-              href="/achievements.html" 
+              href="achievements.html" 
               class="btn btn-sm" 
               data-auth="user-only"
               aria-label="Mój profil"
               id="profileButton"
               style="display: inline-flex; align-items: center; gap: 0.25rem;"
             >
-              <img id="headerUserAvatar" class="header-user-avatar" src="/assets/cyprus_logo-1000x1054.png" alt="Avatar" width="24" height="24" loading="eager" style="border-radius: 50%;" />
+              <img id="headerUserAvatar" class="header-user-avatar" src="assets/cyprus_logo-1000x1054.png" alt="Avatar" width="24" height="24" loading="eager" style="border-radius: 50%;" />
               <span data-i18n="profile.button">Profil</span>
             </a>
             <button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
