@@ -12,6 +12,8 @@ const DIST = join(ROOT, 'dist');
 const JS_FILES = [
   'app.js',
   'car-rental.js',
+  'service-worker.js',
+  'js/pwa.js',
   'js/auth.js',
   'js/authUi.js',
   'js/i18n.js',
