@@ -96,16 +96,12 @@
       const visitedPlaces = profile?.visited_places || [];
       const visitedCount = visitedPlaces.length;
 
-      // Update header display
-      const headerStats = document.getElementById('headerUserStats');
-      if (headerStats) {
-        headerStats.textContent = `Level ${level} • ${xp} XP • ${visitedCount} miejsc`;
-        headerStats.style.color = '#2563eb';
-      }
+      console.log('✅ User stats fetched:', { xp, level, visitedCount, visitedPlaces });
 
-      console.log('✅ User stats updated:', { xp, level, visitedCount, visitedPlaces });
+      // Update header metrics (poziom, doświadczenie, odznaki)
+      updateHeaderMetrics(xp, level, visitedCount);
 
-      // Store in window for access by other functions
+      // Store in window for global access
       window.currentUserStats = { xp, level, visitedPlaces, visitedCount };
 
       // Refresh current place display to show updated visited status
@@ -118,13 +114,62 @@
     }
   }
 
-  // Clear user stats display
+  // Clear user stats
   function clearUserStatsDisplay() {
-    const headerStats = document.getElementById('headerUserStats');
-    if (headerStats) {
-      headerStats.textContent = '';
-    }
     window.currentUserStats = null;
+  }
+
+  // Update header metrics display
+  function updateHeaderMetrics(xp, level, visitedCount) {
+    // Update level
+    const levelEl = document.getElementById('headerLevelNumber');
+    if (levelEl) {
+      levelEl.textContent = level;
+    }
+
+    // Update XP points
+    const xpEl = document.getElementById('headerXpPoints');
+    if (xpEl) {
+      xpEl.textContent = xp;
+    }
+
+    // Calculate XP progress
+    const currentLevelXP = (level - 1) * 1000;
+    const nextLevelXP = level * 1000;
+    const xpInCurrentLevel = xp - currentLevelXP;
+    const xpNeededForLevel = nextLevelXP - currentLevelXP;
+    const xpToNextLevel = nextLevelXP - xp;
+    const percentage = Math.min(100, Math.max(0, (xpInCurrentLevel / xpNeededForLevel) * 100));
+
+    // Update progress bar
+    const progressBar = document.getElementById('headerXpFill');
+    if (progressBar) {
+      progressBar.style.width = `${percentage}%`;
+      progressBar.classList.remove('is-width-zero');
+      if (percentage > 0) {
+        progressBar.style.opacity = '1';
+      }
+    }
+
+    // Update progress text
+    const progressText = document.getElementById('headerXpProgressText');
+    if (progressText) {
+      progressText.textContent = `${xpInCurrentLevel} / ${xpNeededForLevel} XP do kolejnego poziomu`;
+    }
+
+    // Update badges count
+    const badgesEl = document.getElementById('headerBadgesCount');
+    if (badgesEl) {
+      badgesEl.textContent = visitedCount;
+    }
+
+    // Update level status text
+    const levelStatus = document.getElementById('headerLevelStatus');
+    if (levelStatus && visitedCount > 0) {
+      levelStatus.textContent = `${visitedCount} ${visitedCount === 1 ? 'miejsce odwiedzone' : 'miejsca odwiedzone'}!`;
+    }
+
+    console.log('✅ Header metrics updated:', { xp, level, visitedCount, percentage: percentage.toFixed(1) + '%' });
   }
 
   // Export for use by other functions

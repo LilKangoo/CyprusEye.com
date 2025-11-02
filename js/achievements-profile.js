@@ -198,16 +198,20 @@ function updateMetaTags(username, profile) {
  * Display game statistics
  */
 async function displayGameStatistics(profile) {
-  // Level
+  console.log('📊 Displaying game statistics:', profile);
+  
+  // Level (from Supabase - generated column)
+  const level = profile.level || 1;
   const levelEl = document.getElementById('statLevel');
   if (levelEl) {
-    levelEl.textContent = profile.level || 1;
+    levelEl.textContent = level;
   }
   
-  // XP
+  // XP (from Supabase)
+  const xp = profile.xp || 0;
   const xpEl = document.getElementById('statXP');
   if (xpEl) {
-    xpEl.textContent = profile.xp || 0;
+    xpEl.textContent = xp;
   }
   
   // Calculate XP to next level
@@ -248,14 +252,20 @@ async function displayGameStatistics(profile) {
     userStats.likesReceived = likeStats.likesReceived;
     userStats.likesGiven = likeStats.likesGiven;
     
-    // Get visited places count (badges)
-    const visitedPlaces = JSON.parse(localStorage.getItem('visited') || '[]');
-    const badgesCount = visitedPlaces.length;
+    // Get visited places count from Supabase profile
+    const visitedPlaces = profile.visited_places || [];
+    const visitedCount = visitedPlaces.length;
     
-    // Display statistics
+    // Display visited places count
+    const statVisited = document.getElementById('statVisited');
+    if (statVisited) {
+      statVisited.textContent = visitedCount;
+    }
+    
+    // Also update badges count (keep backward compatibility)
     const statBadges = document.getElementById('statBadges');
     if (statBadges) {
-      statBadges.textContent = badgesCount;
+      statBadges.textContent = visitedCount;
     }
     
     const statPhotos = document.getElementById('statPhotos');

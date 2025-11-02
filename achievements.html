@@ -70,6 +70,7 @@
     <link rel="stylesheet" href="assets/css/tokens.css" />
     <link rel="stylesheet" href="assets/css/base.css" />
     <link rel="stylesheet" href="assets/css/components.css" />
+    <link rel="stylesheet" href="assets/css/header-metrics.css" />
     <link rel="stylesheet" href="assets/css/mobile.css" />
     <link rel="stylesheet" href="assets/css/rtl.css" />
     <link rel="stylesheet" href="assets/css/language-switcher.css" />
@@ -83,65 +84,8 @@
   <script type="module" src="/js/authUi.js"></script>
 </head>
   <body data-navigation="multi-page" data-initial-view="achievementsView" data-seo-page="achievements">
-  <!-- Accessibility: Skip to main content -->
-  <a href="#main-content" class="skip-link" data-i18n="accessibility.skipToContent">Skip to main content</a>
-      <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+  <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
   <header class="app-header">
-    <div class="auth-bar" data-i18n-attrs="aria-label:auth.bar.aria" aria-label="Panel konta">
-      <div class="auth-controls">
-        <button
-          id="notificationsToggle"
-          class="ghost notifications-toggle"
-          data-gated="true"
-          data-require-auth
-          data-i18n="header.notifications"
-          type="button"
-          aria-haspopup="true"
-          aria-expanded="false"
-          aria-controls="notificationsPanel"
-        >
-          🔔 Powiadomienia
-          <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
-        </button>
-        <div id="auth-actions" class="auth-actions" aria-live="polite">
-          <button
-            class="btn"
-            data-auth="login"
-            data-auth-login-mode="modal"
-            data-i18n="header.login"
-            data-i18n-attrs="aria-label:auth.login.aria"
-            aria-label="Zaloguj do konta"
-          >
-            Zaloguj
-          </button>
-          <button class="btn" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Graj jako gość</button>
-          <a 
-            href="/achievements.html" 
-            class="btn btn-profile" 
-            data-auth="user-only"
-            aria-label="Mój profil"
-            id="profileButton"
-          >
-            <img id="headerUserAvatar" class="header-user-avatar" src="/assets/cyprus_logo-1000x1054.png" alt="Avatar" width="40" height="40" loading="eager" />
-            <span>Profil</span>
-          </a>
-          <button class="btn" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
-          <span class="auth-badge" data-auth="anon-only" data-i18n="auth.status.anon">Nie zalogowano</span>
-        </div>
-        <div data-auth="spinner" class="auth-spinner" aria-live="polite" data-i18n="auth.status.spinner">Łączenie z logowaniem…</div>
-        <p class="auth-guest-note" data-auth-guest-note hidden data-i18n="auth.guest.status">
-          Grasz jako gość — postęp zapisany lokalnie na tym urządzeniu.
-        </p>
-        <div class="user-menu" id="userMenu" hidden data-gated="true">
-          <span id="userGreeting" aria-live="polite"></span>
-          <div class="user-menu-actions">
-            <button type="button" class="ghost" id="accountSettingsBtn" data-i18n="header.accountSettings">
-              📊 Statystyki i ustawienia
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
     <div class="header-top">
       <div class="brand">
         <img
@@ -159,6 +103,39 @@
         </div>
       </div>
       <div class="header-top-actions">
+        <!-- Auth controls integrated into header -->
+        <div class="header-auth-controls">
+          <button
+            id="notificationsToggle"
+            class="ghost notifications-toggle"
+            data-gated="true"
+            data-require-auth
+            data-i18n="header.notifications"
+            type="button"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-controls="notificationsPanel"
+          >
+            🔔 <span class="btn-text">Powiadomienia</span>
+            <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
+          </button>
+          <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
+            <button
+              class="btn btn-sm"
+              data-auth="login"
+              data-auth-login-mode="modal"
+              data-i18n="header.login"
+              data-i18n-attrs="aria-label:auth.login.aria"
+              aria-label="Zaloguj do konta"
+            >
+              Zaloguj
+            </button>
+            <button class="btn btn-sm" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Gość</button>
+            <button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
+          </div>
+          <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
+        </div>
+        
         <a
           class="header-coupon-button"
           href="kupon.html"

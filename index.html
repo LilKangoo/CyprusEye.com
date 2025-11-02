@@ -66,6 +66,7 @@
   <link rel="stylesheet" href="assets/css/tokens.css" />
   <link rel="stylesheet" href="assets/css/base.css" />
   <link rel="stylesheet" href="assets/css/components.css" />
+  <link rel="stylesheet" href="assets/css/header-metrics.css" />
   <link rel="stylesheet" href="assets/css/mobile.css" />
   <link rel="stylesheet" href="assets/css/rtl.css" />
   <link rel="stylesheet" href="assets/css/language-switcher.css" />
@@ -94,69 +95,8 @@
   <script type="module" src="/js/authUi.js"></script>
 </head>
 <body data-navigation="multi-page" data-initial-view="adventureView" data-seo-page="home">
-  <!-- Accessibility: Skip to main content -->
-  <a href="#main-content" class="skip-link" data-i18n="accessibility.skipToContent">Skip to main content</a>
-  
   <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
   <header class="app-header">
-    <div class="auth-bar" data-i18n-attrs="aria-label:auth.bar.aria" aria-label="Panel konta">
-      <div class="auth-controls">
-        <button
-          id="notificationsToggle"
-          class="ghost notifications-toggle"
-          data-gated="true"
-          data-require-auth
-          data-i18n="header.notifications"
-          type="button"
-          aria-haspopup="true"
-          aria-expanded="false"
-          aria-controls="notificationsPanel"
-        >
-          🔔 Powiadomienia
-          <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
-        </button>
-        <div id="auth-actions" class="auth-actions" aria-live="polite">
-          <button
-            class="btn"
-            data-auth="login"
-            data-auth-login-mode="modal"
-            data-i18n="header.login"
-            data-i18n-attrs="aria-label:auth.login.aria"
-            aria-label="Zaloguj do konta"
-          >
-            Zaloguj
-          </button>
-          <button class="btn" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Graj jako gość</button>
-          <a 
-            href="/achievements.html" 
-            class="btn btn-profile" 
-            data-auth="user-only"
-            aria-label="Mój profil"
-            id="profileButton"
-          >
-            <img id="headerUserAvatar" class="header-user-avatar" src="/assets/cyprus_logo-1000x1054.png" alt="Avatar" width="40" height="40" loading="eager" />
-            <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem;">
-              <span style="font-weight: 600;">Profil</span>
-              <span id="headerUserStats" style="font-size: 0.75rem; color: #666;">Loading...</span>
-            </div>
-          </a>
-          <button class="btn" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
-          <span class="auth-badge" data-auth="anon-only" data-i18n="auth.status.anon">Nie zalogowano</span>
-        </div>
-        <div data-auth="spinner" class="auth-spinner" aria-live="polite" data-i18n="auth.status.spinner">Łączenie z logowaniem…</div>
-        <p class="auth-guest-note" data-auth-guest-note hidden data-i18n="auth.guest.status">
-          Grasz jako gość — postęp zapisany lokalnie na tym urządzeniu.
-        </p>
-        <div class="user-menu" id="userMenu" hidden data-gated="true">
-          <span id="userGreeting" aria-live="polite"></span>
-          <div class="user-menu-actions">
-            <button type="button" class="ghost" id="accountSettingsBtn" data-i18n="header.accountSettings">
-              📊 Statystyki i ustawienia
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
     <div class="header-top">
       <div class="brand">
         <img
@@ -174,6 +114,39 @@
         </div>
       </div>
       <div class="header-top-actions">
+        <!-- Auth controls integrated into header -->
+        <div class="header-auth-controls">
+          <button
+            id="notificationsToggle"
+            class="ghost notifications-toggle"
+            data-gated="true"
+            data-require-auth
+            data-i18n="header.notifications"
+            type="button"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-controls="notificationsPanel"
+          >
+            🔔 <span class="btn-text">Powiadomienia</span>
+            <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
+          </button>
+          <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
+            <button
+              class="btn btn-sm"
+              data-auth="login"
+              data-auth-login-mode="modal"
+              data-i18n="header.login"
+              data-i18n-attrs="aria-label:auth.login.aria"
+              aria-label="Zaloguj do konta"
+            >
+              Zaloguj
+            </button>
+            <button class="btn btn-sm" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Gość</button>
+            <button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
+          </div>
+          <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
+        </div>
+        
         <a
           class="header-coupon-button"
           href="kupon.html"
@@ -214,7 +187,18 @@
         </div>
       </div>
     </div>
-    <div class="header-metrics" role="list" aria-live="polite" data-gated="true">
+    
+    <!-- User Stats Section - Combined Profile + Metrics -->
+    <div class="user-stats-section" data-auth="user-only">
+      <a href="/achievements.html" class="user-profile-card" id="profileButton" aria-label="Mój profil">
+        <img id="headerUserAvatar" class="profile-avatar" src="/assets/cyprus_logo-1000x1054.png" alt="Avatar" width="50" height="50" loading="eager" />
+        <div class="profile-info">
+          <div class="profile-name">Mój Profil</div>
+          <div class="profile-status">Kliknij aby zobaczyć szczegóły</div>
+        </div>
+      </a>
+      
+      <div class="stats-cards">
       <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
         <p class="metric-label" data-i18n="metrics.level.label">Poziom</p>
         <p class="metric-value" id="headerLevelNumber">1</p>
@@ -244,7 +228,9 @@
         <p class="metric-value" id="headerBadgesCount">0</p>
         <p class="metric-subtext" data-i18n="metrics.badges.subtext">Odkrywaj atrakcje i kolekcjonuj pamiątki.</p>
       </a>
+      </div>
     </div>
+    
     <nav class="header-tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna" data-tour-target="tabs-navigation">
       <button
         type="button"
