@@ -3386,6 +3386,34 @@ main::before {
 
 .locations-list-preview {
   position: relative;
+  /* Pokazuj wszystkie miejsca z przewijaniem */
+  max-height: 600px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 0.5rem;
+  
+  /* Ładny scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(37, 99, 235, 0.3) transparent;
+}
+
+.locations-list-preview::-webkit-scrollbar {
+  width: 8px;
+}
+
+.locations-list-preview::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 4px;
+}
+
+.locations-list-preview::-webkit-scrollbar-thumb {
+  background: rgba(37, 99, 235, 0.3);
+  border-radius: 4px;
+  transition: background 0.2s ease;
+}
+
+.locations-list-preview::-webkit-scrollbar-thumb:hover {
+  background: rgba(37, 99, 235, 0.5);
 }
 
 .locations-list-preview.is-collapsed {

@@ -891,7 +891,7 @@ const mediaTrips = [
   },
 ];
 
-const LOCATIONS_PREVIEW_LIMIT = 6;
+const LOCATIONS_PREVIEW_LIMIT = 86; // Pokazuj wszystkie miejsca (było: 6)
 const LOCATIONS_FULL_DATA_PATH = '/assets/data/attractions-full.json';
 let locationsFullVisible = false;
 let locationsFullLoaded = false;
@@ -4131,8 +4131,13 @@ function renderLocations() {
 function createLocationListItem(place) {
   const li = document.createElement('li');
   li.dataset.id = place.id;
+  
+  // Pobierz opis miejsca
+  const description = typeof place.description === 'function' ? place.description() : place.description;
+  
   li.innerHTML = `
     <strong>${getPlaceName(place)}</strong>
+    <p class="location-description" style="font-size: 0.9rem; color: var(--text-secondary, #64748b); margin: 0.5rem 0;">${description || ''}</p>
     <span class="location-meta">${getPlaceBadge(place)} • ${place.xp} XP</span>
   `;
 
@@ -4141,6 +4146,10 @@ function createLocationListItem(place) {
   }
 
   li.addEventListener('click', () => focusPlace(place.id));
+  li.style.cursor = 'pointer';
+  li.setAttribute('role', 'button');
+  li.setAttribute('tabindex', '0');
+  
   return li;
 }
 
