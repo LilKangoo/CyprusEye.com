@@ -10253,8 +10253,13 @@ function bootstrap() {
   }
 
   function openSosModal(triggerElement) {
-    if (!sosModal) return;
+    console.log('openSosModal called, sosModal:', sosModal);
+    if (!sosModal) {
+      console.error('SOS Modal not found!');
+      return;
+    }
     if (!sosModal.hidden && sosModal.classList.contains('visible')) {
+      console.log('SOS Modal already visible');
       return;
     }
 
@@ -10320,6 +10325,8 @@ function bootstrap() {
     console.log('Adding click listener to SOS button:', button.id);
     button.addEventListener('click', (event) => {
       console.log('SOS button clicked!');
+      event.preventDefault();
+      event.stopPropagation();
       const trigger = event.currentTarget;
       if (trigger instanceof HTMLElement) {
         openSosModal(trigger);
