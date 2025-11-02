@@ -8,7 +8,7 @@ import {
   formatReviewDate,
   getDefaultDailyStreak,
   normalizeDailyStreak
-} from '/src/utils/dates.js';
+} from './src/utils/dates.js';
 
 // Translation utilities (extracted to src/utils/translations.js)
 import {
@@ -23,15 +23,7 @@ import {
   getPlaceName,
   getPlaceDescription,
   getPlaceBadge
-} from '/src/utils/translations.js';
-
-// State management
-import store from '/src/state/store.js';
-import {
-  ACCOUNT_STORAGE_KEY,
-  initializeAccountsState,
-  subscribeToAccounts
-} from '/src/state/accounts.js';
+} from './src/utils/translations.js';
 
 const DEBUG = localStorage.getItem('CE_DEBUG') === 'true' || new URLSearchParams(window.location.search).has('debug');
 function debug(...args) {
