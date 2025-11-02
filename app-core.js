@@ -114,8 +114,6 @@
     }
 
     console.log('🎯 Initializing current place section...');
-    console.log('Total places:', PLACES_DATA.length);
-    console.log('First place:', PLACES_DATA[0]);
     
     // Start with first place
     currentPlaceIndex = 0;
@@ -131,8 +129,6 @@
     const place = PLACES_DATA[currentPlaceIndex];
     if (!place) return;
     
-    console.log('Rendering place:', place.id, place);
-    
     // Store current place ID globally for button callbacks
     window.currentPlaceId = place.id;
     
@@ -147,19 +143,67 @@
     const placeName = getPlaceName(place);
     const placeDescription = getPlaceDescription(place);
     
-    console.log('Place name:', placeName);
-    console.log('Place description:', placeDescription);
-    
     if (nameEl) nameEl.textContent = placeName;
     if (descEl) descEl.textContent = placeDescription;
     if (xpEl) xpEl.textContent = place.xp + ' XP';
     
-    // Placeholders for Supabase data
-    if (ratingEl) ratingEl.textContent = 'Brak ocen'; // TODO: Fetch from Supabase
-    if (commentsEl) commentsEl.textContent = '0 komentarzy'; // TODO: Fetch from Supabase
+    // Fetch real data from Supabase
+    fetchPlaceStats(place.id, ratingEl, commentsEl);
     
     // Update map to show this place (without scrolling)
     updateMapForPlace(place);
+  }
+
+  async function fetchPlaceStats(poiId, ratingEl, commentsEl) {
+    try {
+      const sb = window.getSupabase ? window.getSupabase() : null;
+      if (!sb) {
+        console.warn('Supabase not available');
+        return;
+      }
+
+      // Fetch rating stats
+      const { data: ratingData, error: ratingError } = await sb
+        .from('poi_rating_stats')
+        .select('average_rating, total_ratings')
+        .eq('poi_id', poiId)
+        .single();
+
+      if (!ratingError && ratingData && ratingData.total_ratings > 0) {
+        const avgRating = ratingData.average_rating.toFixed(1);
+        const stars = '⭐'.repeat(Math.round(ratingData.average_rating));
+        if (ratingEl) {
+          ratingEl.textContent = `${stars} ${avgRating} (${ratingData.total_ratings})`;
+        }
+      } else {
+        if (ratingEl) ratingEl.textContent = 'Brak ocen';
+      }
+
+      // Fetch comment count
+      const { count: commentCount, error: commentError } = await sb
+        .from('poi_comments')
+        .select('*', { count: 'exact', head: true })
+        .eq('poi_id', poiId);
+
+      if (!commentError && commentCount !== null) {
+        if (commentsEl) {
+          if (commentCount === 0) {
+            commentsEl.textContent = '0 komentarzy';
+          } else if (commentCount === 1) {
+            commentsEl.textContent = '1 komentarz';
+          } else if (commentCount < 5) {
+            commentsEl.textContent = `${commentCount} komentarze`;
+          } else {
+            commentsEl.textContent = `${commentCount} komentarzy`;
+          }
+        }
+      } else {
+        if (commentsEl) commentsEl.textContent = '0 komentarzy';
+      }
+
+    } catch (error) {
+      console.error('Error fetching place stats:', error);
+    }
   }
 
   function updateMapForPlace(place) {
