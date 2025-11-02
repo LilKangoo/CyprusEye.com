@@ -463,45 +463,41 @@
       </aside>
 
       <!-- Current Place Highlight Section -->
-      <section class="current-place-section card surface-card" id="currentPlaceSection" style="margin: 2rem 0; padding: 1.5rem;">
-        <div class="current-place-navigation" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 2px solid #e5e7eb;">
-          <button type="button" class="btn secondary" id="prevPlaceBtn" onclick="navigatePlace(-1)" style="min-width: 120px;">
+      <section class="current-place-section card surface-card" id="currentPlaceSection" style="margin: 1rem 0 0.5rem 0; padding: 1rem;">
+        <div class="current-place-navigation" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb;">
+          <button type="button" class="btn secondary" id="prevPlaceBtn" onclick="navigatePlace(-1)" style="padding: 0.5rem 1rem; white-space: nowrap;">
             ← Poprzednie
           </button>
-          <h2 style="margin: 0; font-size: 1.2rem; color: #666; font-weight: 600;">Aktualne miejsce</h2>
-          <button type="button" class="btn secondary" id="nextPlaceBtn" onclick="navigatePlace(1)" style="min-width: 120px;">
+          <h2 style="margin: 0; font-size: 1rem; color: #666; font-weight: 600;">Aktualne miejsce</h2>
+          <button type="button" class="btn secondary" id="nextPlaceBtn" onclick="navigatePlace(1)" style="padding: 0.5rem 1rem; white-space: nowrap;">
             Następne →
           </button>
         </div>
         
         <div class="current-place-content" id="currentPlaceContent">
-          <h3 id="currentPlaceName" style="margin: 1rem 0 0.5rem 0; font-size: 1.8rem; color: #2563eb;">Ładowanie...</h3>
-          <p id="currentPlaceDescription" style="margin: 0 0 1rem 0; line-height: 1.6; color: #333;">...</p>
+          <h3 id="currentPlaceName" style="margin: 0 0 0.5rem 0; font-size: 1.5rem; color: #2563eb;">Ładowanie...</h3>
+          <p id="currentPlaceDescription" style="margin: 0 0 0.75rem 0; line-height: 1.5; color: #555; font-size: 0.95rem;">...</p>
           
-          <div class="current-place-stats" style="display: flex; gap: 1.5rem; margin: 1rem 0; flex-wrap: wrap;">
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-              <span style="font-size: 1.2rem;">⭐</span>
+          <div class="current-place-stats" style="display: flex; gap: 1.5rem; margin: 0.75rem 0; flex-wrap: wrap; font-size: 0.9rem;">
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              <span>⭐</span>
               <span id="currentPlaceRating">Brak ocen</span>
             </div>
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-              <span style="font-size: 1.2rem;">💬</span>
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              <span>💬</span>
               <span id="currentPlaceComments">0 komentarzy</span>
             </div>
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-              <span style="font-size: 1.2rem;">❤️</span>
-              <span id="currentPlaceLikes">0 polubień</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-              <span style="font-size: 1.2rem;">✨</span>
+            <div style="display: flex; align-items: center; gap: 0.4rem;">
+              <span>✨</span>
               <span id="currentPlaceXP">0 XP</span>
             </div>
           </div>
           
-          <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-            <button class="btn primary" onclick="showCommunity(window.currentPlaceId)">
-              💬 Zobacz komentarze i zdjęcia
+          <div style="display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap;">
+            <button class="btn primary" onclick="showCommunity(window.currentPlaceId)" style="padding: 0.6rem 1rem; font-size: 0.9rem;">
+              💬 Zobacz komentarze
             </button>
-            <button class="btn secondary" onclick="focusPlaceOnMap(window.currentPlaceId)">
+            <button class="btn secondary" onclick="focusPlaceOnMap(window.currentPlaceId)" style="padding: 0.6rem 1rem; font-size: 0.9rem;">
               📍 Pokaż na mapie
             </button>
           </div>

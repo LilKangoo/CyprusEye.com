@@ -114,6 +114,8 @@
     }
 
     console.log('🎯 Initializing current place section...');
+    console.log('Total places:', PLACES_DATA.length);
+    console.log('First place:', PLACES_DATA[0]);
     
     // Start with first place
     currentPlaceIndex = 0;
@@ -129,6 +131,8 @@
     const place = PLACES_DATA[currentPlaceIndex];
     if (!place) return;
     
+    console.log('Rendering place:', place.id, place);
+    
     // Store current place ID globally for button callbacks
     window.currentPlaceId = place.id;
     
@@ -137,17 +141,22 @@
     const descEl = document.getElementById('currentPlaceDescription');
     const ratingEl = document.getElementById('currentPlaceRating');
     const commentsEl = document.getElementById('currentPlaceComments');
-    const likesEl = document.getElementById('currentPlaceLikes');
     const xpEl = document.getElementById('currentPlaceXP');
     
-    if (nameEl) nameEl.textContent = getPlaceName(place);
-    if (descEl) descEl.textContent = getPlaceDescription(place);
+    // Get translated texts
+    const placeName = getPlaceName(place);
+    const placeDescription = getPlaceDescription(place);
+    
+    console.log('Place name:', placeName);
+    console.log('Place description:', placeDescription);
+    
+    if (nameEl) nameEl.textContent = placeName;
+    if (descEl) descEl.textContent = placeDescription;
     if (xpEl) xpEl.textContent = place.xp + ' XP';
     
     // Placeholders for Supabase data
     if (ratingEl) ratingEl.textContent = 'Brak ocen'; // TODO: Fetch from Supabase
     if (commentsEl) commentsEl.textContent = '0 komentarzy'; // TODO: Fetch from Supabase
-    if (likesEl) likesEl.textContent = '0 polubień'; // TODO: Fetch from Supabase
     
     // Update map to show this place (without scrolling)
     updateMapForPlace(place);
