@@ -25,6 +25,14 @@ import {
   getPlaceBadge
 } from '/src/utils/translations.js';
 
+// State management
+import store from '/src/state/store.js';
+import {
+  ACCOUNT_STORAGE_KEY,
+  initializeAccountsState,
+  subscribeToAccounts
+} from '/src/state/accounts.js';
+
 const DEBUG = localStorage.getItem('CE_DEBUG') === 'true' || new URLSearchParams(window.location.search).has('debug');
 function debug(...args) {
   if (DEBUG) {
@@ -1187,7 +1195,7 @@ const packingGuide = {
 let selectedPackingSeasonId = null;
 
 const STORAGE_KEY = 'wakacjecypr-progress';
-const ACCOUNT_STORAGE_KEY = 'wakacjecypr-accounts';
+// ACCOUNT_STORAGE_KEY moved to src/state/accounts.js (imported above)
 const SESSION_STORAGE_KEY = 'wakacjecypr-session';
 const REVIEWS_STORAGE_KEY = 'wakacjecypr-reviews';
 const JOURNAL_STORAGE_KEY = 'wakacjecypr-travel-journal';
@@ -9903,25 +9911,14 @@ function initMap() {
     return;
   }
 
-  // Check if Leaflet is loaded
-  if (typeof window.L === 'undefined') {
-    console.error('Leaflet library not loaded. Map initialization failed.');
-    return;
-  }
+  map = L.map(mapElement).setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
 
-  try {
-    map = L.map(mapElement).setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> współtwórcy',
+  }).addTo(map);
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> współtwórcy',
-    }).addTo(map);
-
-    syncMarkers();
-    startPlayerLocationTracking();
-  } catch (error) {
-    console.error('Failed to initialize map:', error);
-    map = null;
-  }
+  syncMarkers();
+  startPlayerLocationTracking();
 }
 
 function setupMapLazyLoading() {
@@ -9978,23 +9975,10 @@ function populateFooterYear() {
   }
 }
 
-function attachMobileTabbarListeners() {
-  // Mobile tabbar buttons are managed by seo.js
-  // This function is here for future extensibility if needed
-  debug('Mobile tabbar listeners check complete');
-}
-
 function bootstrap() {
-  // Ensure mobile tabbar is created first
   if (typeof window.ensureMobileTabbar === 'function') {
     window.ensureMobileTabbar();
   }
-  
-  // Wait a tick for mobile tabbar to be fully rendered
-  setTimeout(() => {
-    attachMobileTabbarListeners();
-  }, 0);
-  
   initializeAuth();
   initializeNotifications();
   reviews = loadReviewsFromStorage();
@@ -10500,11 +10484,23 @@ function bootstrap() {
   const packingTab = document.getElementById('headerPackingTab');
   const tasksTab = document.getElementById('headerTasksTab');
   const mediaTripsTab = document.getElementById('headerMediaTripsTab');
+  const mobileAdventureTab = document.getElementById('mobileAdventureTab');
+  const mobilePackingTab = document.getElementById('mobilePackingTab');
+  const mobileTasksTab = document.getElementById('mobileTasksTab');
+  const mobileMediaTripsTab = document.getElementById('mobileMediaTripsTab');
+  const mobileCarRentalTab = document.getElementById('mobileCarRentalTab');
+  const mobileCouponsTab = document.getElementById('mobileCouponsTab');
 
   setupNavigationButton(adventureTab, openAdventureView, { enableKeydown: true });
   setupNavigationButton(packingTab, openPackingPlannerView, { enableKeydown: true });
   setupNavigationButton(tasksTab, openTasksView, { enableKeydown: true });
   setupNavigationButton(mediaTripsTab, openMediaTripsView, { enableKeydown: true });
+  setupNavigationButton(mobileAdventureTab, openAdventureView);
+  setupNavigationButton(mobilePackingTab, openPackingPlannerView);
+  setupNavigationButton(mobileTasksTab, openTasksView);
+  setupNavigationButton(mobileMediaTripsTab, openMediaTripsView);
+  setupNavigationButton(mobileCarRentalTab);
+  setupNavigationButton(mobileCouponsTab);
 
   const openPackingFromAdventure = document.getElementById('openPackingFromAdventure');
   setupNavigationButton(openPackingFromAdventure, openPackingPlannerView);
