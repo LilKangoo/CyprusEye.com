@@ -549,6 +549,299 @@
     renderCurrentPlace();
   };
 
+  // Check-in function
+  window.checkInAtPlace = async function(placeId) {
+    console.log('🎯 Check-in attempt for:', placeId);
+    
+    const place = PLACES_DATA.find(p => p.id === placeId);
+    if (!place) {
+      alert('Błąd: Miejsce nie znalezione');
+      return;
+    }
+
+    // Check if user is authenticated
+    const sb = window.getSupabase ? window.getSupabase() : null;
+    if (!sb) {
+      alert('Błąd: Brak połączenia z bazą danych');
+      return;
+    }
+
+    const { data: { user } } = await sb.auth.getUser();
+    if (!user) {
+      alert('Musisz być zalogowany, aby się zameldować!\n\nZaloguj się przez menu w prawym górnym rogu.');
+      return;
+    }
+
+    // Request user location
+    if (!navigator.geolocation) {
+      // No geolocation support - ask for manual confirmation
+      showManualCheckInDialog(place, user.id);
+      return;
+    }
+
+    // Show loading message
+    const loadingMsg = document.createElement('div');
+    loadingMsg.id = 'checkInLoading';
+    loadingMsg.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 2rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); z-index: 10000; text-align: center;';
+    loadingMsg.innerHTML = '<p style="margin: 0; font-size: 1.1rem;">📍 Sprawdzam Twoją lokalizację...</p>';
+    document.body.appendChild(loadingMsg);
+
+    navigator.geolocation.getCurrentPosition(
+      async function(position) {
+        document.getElementById('checkInLoading')?.remove();
+        
+        const userLat = position.coords.latitude;
+        const userLng = position.coords.longitude;
+        const distance = calculateDistance(userLat, userLng, place.lat, place.lng);
+        
+        console.log('📍 User location:', userLat, userLng);
+        console.log('📍 Place location:', place.lat, place.lng);
+        console.log('📏 Distance:', distance.toFixed(2), 'km');
+        
+        if (distance <= 1.0) {
+          // Within 1km - auto check-in
+          await performCheckIn(place, user.id, true, distance);
+        } else {
+          // Too far - show distance and manual option
+          showDistanceDialog(place, user.id, distance);
+        }
+      },
+      function(error) {
+        document.getElementById('checkInLoading')?.remove();
+        console.error('Geolocation error:', error);
+        
+        let errorMsg = 'Nie udało się pobrać lokalizacji.\n\n';
+        if (error.code === error.PERMISSION_DENIED) {
+          errorMsg += 'Odrzuciłeś dostęp do lokalizacji. Włącz lokalizację w ustawieniach przeglądarki.\n\n';
+        }
+        errorMsg += 'Czy chcesz zaznaczyć ręcznie, że jesteś na miejscu?';
+        
+        if (confirm(errorMsg)) {
+          showManualCheckInDialog(place, user.id);
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      }
+    );
+  };
+
+  // Calculate distance between two coordinates (Haversine formula)
+  function calculateDistance(lat1, lon1, lat2, lon2) {
+    const R = 6371; // Earth radius in km
+    const dLat = toRad(lat2 - lat1);
+    const dLon = toRad(lon2 - lon1);
+    const a = 
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+      Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
+
+  function toRad(deg) {
+    return deg * (Math.PI / 180);
+  }
+
+  // Show distance dialog
+  function showDistanceDialog(place, userId, distance) {
+    const placeName = getPlaceName(place);
+    const distanceKm = distance.toFixed(2);
+    const distanceM = (distance * 1000).toFixed(0);
+    
+    const dialog = document.createElement('div');
+    dialog.id = 'distanceDialog';
+    dialog.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 1rem;';
+    
+    dialog.innerHTML = `
+      <div style="background: white; padding: 2rem; border-radius: 12px; max-width: 400px; width: 100%;">
+        <h3 style="margin: 0 0 1rem 0; color: #2563eb;">📍 Sprawdzam lokalizację</h3>
+        <p style="margin: 0 0 1rem 0; font-size: 1.1rem;"><strong>${placeName}</strong></p>
+        <p style="margin: 0 0 1.5rem 0; color: #666;">
+          Jesteś ${distance < 1 ? distanceM + ' metrów' : distanceKm + ' km'} od tego miejsca.
+        </p>
+        <p style="margin: 0 0 1.5rem 0; padding: 1rem; background: #fef3c7; border-radius: 8px; font-size: 0.9rem;">
+          ⚠️ Aby automatycznie się zameldować, musisz być w promieniu <strong>1 km</strong> od miejsca.
+        </p>
+        <p style="margin: 0 0 1.5rem 0; font-size: 0.9rem; color: #666;">
+          Jeśli masz problemy z lokalizacją, ale jesteś na miejscu, możesz potwierdzić ręcznie.
+        </p>
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+          <button onclick="performManualCheckIn('${place.id}', '${userId}')" class="btn primary" style="flex: 1; padding: 0.75rem;">
+            ✅ Jestem na miejscu
+          </button>
+          <button onclick="closeDistanceDialog()" class="btn secondary" style="flex: 1; padding: 0.75rem;">
+            ❌ Anuluj
+          </button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(dialog);
+  }
+
+  // Show manual check-in dialog
+  function showManualCheckInDialog(place, userId) {
+    const placeName = getPlaceName(place);
+    
+    const dialog = document.createElement('div');
+    dialog.id = 'manualCheckInDialog';
+    dialog.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 1rem;';
+    
+    dialog.innerHTML = `
+      <div style="background: white; padding: 2rem; border-radius: 12px; max-width: 400px; width: 100%;">
+        <h3 style="margin: 0 0 1rem 0; color: #2563eb;">📍 Potwierdzenie lokalizacji</h3>
+        <p style="margin: 0 0 1rem 0; font-size: 1.1rem;"><strong>${placeName}</strong></p>
+        <p style="margin: 0 0 1.5rem 0; color: #666;">
+          Nie możemy automatycznie sprawdzić Twojej lokalizacji.
+        </p>
+        <p style="margin: 0 0 1.5rem 0; padding: 1rem; background: #fef3c7; border-radius: 8px; font-size: 0.9rem;">
+          ⚠️ Potwierdź, że jesteś rzeczywiście na miejscu. Fałszywe zameldowania mogą skutkować zablokowaniem konta.
+        </p>
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+          <button onclick="performManualCheckIn('${place.id}', '${userId}')" class="btn primary" style="flex: 1; padding: 0.75rem;">
+            ✅ Jestem na miejscu
+          </button>
+          <button onclick="closeManualCheckInDialog()" class="btn secondary" style="flex: 1; padding: 0.75rem;">
+            ❌ Anuluj
+          </button>
+        </div>
+      </div>
+    `;
+    
+    document.body.appendChild(dialog);
+  }
+
+  window.performManualCheckIn = async function(placeId, userId) {
+    const place = PLACES_DATA.find(p => p.id === placeId);
+    closeDistanceDialog();
+    closeManualCheckInDialog();
+    await performCheckIn(place, userId, false, null);
+  };
+
+  window.closeDistanceDialog = function() {
+    document.getElementById('distanceDialog')?.remove();
+  };
+
+  window.closeManualCheckInDialog = function() {
+    document.getElementById('manualCheckInDialog')?.remove();
+  };
+
+  // Perform actual check-in
+  async function performCheckIn(place, userId, isAutomatic, distance) {
+    console.log('✅ Performing check-in:', place.id, 'for user:', userId);
+    
+    const sb = window.getSupabase();
+    if (!sb) {
+      alert('Błąd: Brak połączenia z bazą danych');
+      return;
+    }
+
+    try {
+      // Get current user profile
+      const { data: profile, error: profileError } = await sb
+        .from('profiles')
+        .select('xp, level, visited_places')
+        .eq('id', userId)
+        .single();
+
+      if (profileError) throw profileError;
+
+      const currentXP = profile?.xp || 0;
+      const currentLevel = profile?.level || 1;
+      const visitedPlaces = profile?.visited_places || [];
+
+      // Check if already visited this place
+      if (visitedPlaces.includes(place.id)) {
+        alert('✅ Już odwiedziłeś to miejsce!\n\nSzukaj innych atrakcji, aby zdobyć więcej XP.');
+        return;
+      }
+
+      const newXP = currentXP + place.xp;
+
+      // Calculate new level (simple formula: level = floor(xp / 1000) + 1)
+      const newLevel = Math.floor(newXP / 1000) + 1;
+      const leveledUp = newLevel > currentLevel;
+
+      // Add place to visited list
+      const newVisitedPlaces = [...visitedPlaces, place.id];
+
+      // Update user profile
+      const { error: updateError } = await sb
+        .from('profiles')
+        .update({
+          xp: newXP,
+          level: newLevel,
+          visited_places: newVisitedPlaces
+        })
+        .eq('id', userId);
+
+      if (updateError) throw updateError;
+
+      console.log('✅ Profile updated:', { newXP, newLevel, visitedPlaces: newVisitedPlaces });
+
+      // Show success message
+      showSuccessDialog(place, place.xp, newXP, newLevel, leveledUp);
+
+    } catch (error) {
+      console.error('❌ Check-in error:', error);
+      
+      // Friendly error messages
+      if (error.message && error.message.includes('visited_places')) {
+        alert('Aktualizuję profil - może to potrwać chwilę...\n\nSpróbuj ponownie za moment.');
+      } else {
+        alert('Błąd podczas zameldowania. Spróbuj ponownie.');
+      }
+    }
+  }
+
+  // Show success dialog
+  function showSuccessDialog(place, earnedXP, totalXP, level, leveledUp) {
+    const placeName = getPlaceName(place);
+    
+    const dialog = document.createElement('div');
+    dialog.id = 'successDialog';
+    dialog.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.7); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 1rem;';
+    
+    const levelUpHTML = leveledUp ? `
+      <div style="margin: 1rem 0; padding: 1rem; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; color: white; text-align: center;">
+        <p style="margin: 0; font-size: 1.5rem; font-weight: bold;">🎉 LEVEL UP!</p>
+        <p style="margin: 0.5rem 0 0 0; font-size: 1.2rem;">Jesteś teraz na poziomie ${level}!</p>
+      </div>
+    ` : '';
+    
+    dialog.innerHTML = `
+      <div style="background: white; padding: 2rem; border-radius: 12px; max-width: 400px; width: 100%; text-align: center;">
+        <div style="font-size: 4rem; margin-bottom: 1rem;">✅</div>
+        <h3 style="margin: 0 0 1rem 0; color: #2563eb;">Zameldowanie udane!</h3>
+        <p style="margin: 0 0 0.5rem 0; font-size: 1.1rem;"><strong>${placeName}</strong></p>
+        
+        ${levelUpHTML}
+        
+        <div style="margin: 1.5rem 0; padding: 1rem; background: #f0f9ff; border-radius: 8px;">
+          <p style="margin: 0 0 0.5rem 0; font-size: 1.3rem; color: #2563eb; font-weight: bold;">
+            +${earnedXP} XP
+          </p>
+          <p style="margin: 0; font-size: 0.9rem; color: #666;">
+            Razem: ${totalXP} XP | Poziom: ${level}
+          </p>
+        </div>
+        
+        <button onclick="closeSuccessDialog()" class="btn primary" style="width: 100%; padding: 0.75rem; margin-top: 1rem;">
+          🎉 Super!
+        </button>
+      </div>
+    `;
+    
+    document.body.appendChild(dialog);
+  }
+
+  window.closeSuccessDialog = function() {
+    document.getElementById('successDialog')?.remove();
+  };
+
   window.focusPlaceOnMap = function(placeId) {
     const place = PLACES_DATA.find(p => p.id === placeId);
     if (!place) {
