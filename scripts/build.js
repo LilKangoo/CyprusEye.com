@@ -71,6 +71,12 @@ const API_FILES = [
   'src/api/supabase.js',
 ];
 
+// Component modules (src/components/)
+const COMPONENT_FILES = [
+  'src/components/modal.js',
+  'src/components/toast.js',
+];
+
 async function buildFile(filePath) {
   const fullPath = join(ROOT, filePath);
   
@@ -232,6 +238,11 @@ async function build() {
     
     // Buduj API modules
     for (const file of API_FILES) {
+      await buildFile(file);
+    }
+    
+    // Buduj component modules
+    for (const file of COMPONENT_FILES) {
       await buildFile(file);
     }
   
