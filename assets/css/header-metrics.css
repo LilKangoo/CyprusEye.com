@@ -12,10 +12,10 @@
 }
 
 .auth-actions-inline {
-  display: flex;
-  align-items: center;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
   gap: 0.25rem;
-  flex-wrap: nowrap;
+  width: 100%;
 }
 
 .btn-sm {
@@ -24,7 +24,8 @@
   border-radius: 5px;
   font-weight: 500;
   white-space: nowrap;
-  flex-shrink: 0;
+  width: 100%;
+  text-align: center;
 }
 
 .btn-sm.btn-danger {
