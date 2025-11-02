@@ -9801,7 +9801,10 @@ function initializeAuth() {
 }
 
 function loadLeafletStylesheet() {
-  if (document.querySelector('link[data-leaflet-stylesheet-loaded]')) {
+  // Sprawdź czy Leaflet CSS już jest załadowany (np. z HTML)
+  const existingLeaflet = document.querySelector('link[href*="leaflet"]');
+  if (existingLeaflet || document.querySelector('link[data-leaflet-stylesheet-loaded]')) {
+    console.log('✅ Leaflet CSS already loaded');
     return Promise.resolve();
   }
 
@@ -9812,7 +9815,10 @@ function loadLeafletStylesheet() {
       link.href = LEAFLET_STYLESHEET_URL;
       link.crossOrigin = '';
       link.dataset.leafletStylesheetLoaded = 'true';
-      link.addEventListener('load', () => resolve());
+      link.addEventListener('load', () => {
+        console.log('✅ Leaflet CSS loaded dynamically');
+        resolve();
+      });
       link.addEventListener('error', () => reject(new Error('Leaflet stylesheet failed to load.')));
       document.head.append(link);
     });
@@ -9822,7 +9828,9 @@ function loadLeafletStylesheet() {
 }
 
 function loadLeafletScript() {
+  // Sprawdź czy Leaflet JS już jest załadowany
   if (typeof window.L !== 'undefined') {
+    console.log('✅ Leaflet JS already loaded');
     return Promise.resolve();
   }
 
@@ -9835,6 +9843,7 @@ function loadLeafletScript() {
       script.dataset.leafletScript = 'true';
       script.addEventListener('load', () => {
         script.dataset.leafletScriptLoaded = 'true';
+        console.log('✅ Leaflet JS loaded dynamically');
         resolve();
       });
       script.addEventListener('error', () => {
@@ -9942,6 +9951,12 @@ function setupMapLazyLoading() {
       });
   };
 
+  // WYŁĄCZONO LAZY LOADING - zawsze ładuj mapę od razu
+  // IntersectionObserver może nie wykryć elementu jeśli nie jest widoczny
+  console.log('🗺️ Loading map immediately (lazy loading disabled)');
+  loadAndInitMap();
+  
+  /* STARY KOD Z LAZY LOADING - zakomentowano
   if ('IntersectionObserver' in window) {
     const observer = new IntersectionObserver(
       (entries, observerInstance) => {
@@ -9959,6 +9974,7 @@ function setupMapLazyLoading() {
   } else {
     loadAndInitMap();
   }
+  */
 }
 
 function populateFooterYear() {
