@@ -887,14 +887,14 @@
 
       console.log('📊 New values:', { newXP, newLevel, newVisitedPlaces });
 
-      // Prepare update - always try to update all fields
+      // Prepare update - DON'T update 'level' as it's a generated column
       const updateData = {
         xp: newXP,
-        level: newLevel,
         visited_places: newVisitedPlaces
       };
 
       console.log('📊 Updating with:', updateData);
+      console.log('ℹ️ Level will be auto-calculated from XP (generated column)');
 
       // Update user profile
       const { error: updateError } = await sb
