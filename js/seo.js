@@ -429,10 +429,6 @@
   }
 
   function attachPageNavigation(nav) {
-    if (document.querySelector('.app-view')) {
-      return;
-    }
-
     nav.querySelectorAll('.mobile-tabbar-btn').forEach((button) => {
       const targetPage = button.dataset.pageUrl;
       if (!targetPage) {

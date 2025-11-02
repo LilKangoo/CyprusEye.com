@@ -9903,14 +9903,25 @@ function initMap() {
     return;
   }
 
-  map = L.map(mapElement).setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
+  // Check if Leaflet is loaded
+  if (typeof window.L === 'undefined') {
+    console.error('Leaflet library not loaded. Map initialization failed.');
+    return;
+  }
 
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> współtwórcy',
-  }).addTo(map);
+  try {
+    map = L.map(mapElement).setView(DEFAULT_MAP_CENTER, DEFAULT_MAP_ZOOM);
 
-  syncMarkers();
-  startPlayerLocationTracking();
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> współtwórcy',
+    }).addTo(map);
+
+    syncMarkers();
+    startPlayerLocationTracking();
+  } catch (error) {
+    console.error('Failed to initialize map:', error);
+    map = null;
+  }
 }
 
 function setupMapLazyLoading() {
@@ -9967,10 +9978,23 @@ function populateFooterYear() {
   }
 }
 
+function attachMobileTabbarListeners() {
+  // Mobile tabbar buttons are managed by seo.js
+  // This function is here for future extensibility if needed
+  debug('Mobile tabbar listeners check complete');
+}
+
 function bootstrap() {
+  // Ensure mobile tabbar is created first
   if (typeof window.ensureMobileTabbar === 'function') {
     window.ensureMobileTabbar();
   }
+  
+  // Wait a tick for mobile tabbar to be fully rendered
+  setTimeout(() => {
+    attachMobileTabbarListeners();
+  }, 0);
+  
   initializeAuth();
   initializeNotifications();
   reviews = loadReviewsFromStorage();
@@ -10476,23 +10500,11 @@ function bootstrap() {
   const packingTab = document.getElementById('headerPackingTab');
   const tasksTab = document.getElementById('headerTasksTab');
   const mediaTripsTab = document.getElementById('headerMediaTripsTab');
-  const mobileAdventureTab = document.getElementById('mobileAdventureTab');
-  const mobilePackingTab = document.getElementById('mobilePackingTab');
-  const mobileTasksTab = document.getElementById('mobileTasksTab');
-  const mobileMediaTripsTab = document.getElementById('mobileMediaTripsTab');
-  const mobileCarRentalTab = document.getElementById('mobileCarRentalTab');
-  const mobileCouponsTab = document.getElementById('mobileCouponsTab');
 
   setupNavigationButton(adventureTab, openAdventureView, { enableKeydown: true });
   setupNavigationButton(packingTab, openPackingPlannerView, { enableKeydown: true });
   setupNavigationButton(tasksTab, openTasksView, { enableKeydown: true });
   setupNavigationButton(mediaTripsTab, openMediaTripsView, { enableKeydown: true });
-  setupNavigationButton(mobileAdventureTab, openAdventureView);
-  setupNavigationButton(mobilePackingTab, openPackingPlannerView);
-  setupNavigationButton(mobileTasksTab, openTasksView);
-  setupNavigationButton(mobileMediaTripsTab, openMediaTripsView);
-  setupNavigationButton(mobileCarRentalTab);
-  setupNavigationButton(mobileCouponsTab);
 
   const openPackingFromAdventure = document.getElementById('openPackingFromAdventure');
   setupNavigationButton(openPackingFromAdventure, openPackingPlannerView);
