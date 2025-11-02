@@ -97,18 +97,38 @@ export function isStandalone() {
 let deferredPrompt = null;
 
 export function setupInstallPrompt() {
+  // Capture the beforeinstallprompt event
   window.addEventListener('beforeinstallprompt', (e) => {
+    console.log('[PWA] 🎯 beforeinstallprompt event fired!');
+    
+    // Prevent default browser mini-infobar
     e.preventDefault();
+    
+    // Store the event for later use
     deferredPrompt = e;
-    console.log('[PWA] Install prompt available');
+    
+    console.log('[PWA] ✅ Install prompt captured and ready!');
+    console.log('[PWA] Button will now trigger native install dialog');
+    
+    // Show the install button
     showInstallButton();
   });
 
-  window.addEventListener('appinstalled', () => {
-    console.log('[PWA] App installed');
+  // Handle successful installation
+  window.addEventListener('appinstalled', (e) => {
+    console.log('[PWA] 🎉 App successfully installed!');
+    console.log('[PWA] Event:', e);
+    
+    // Clear the deferred prompt
     deferredPrompt = null;
+    
+    // Hide the install button
     hideInstallButton();
   });
+  
+  // Log current state for debugging
+  console.log('[PWA] Install prompt listeners registered');
+  console.log('[PWA] Waiting for beforeinstallprompt event...');
 }
 
 /**
@@ -143,64 +163,51 @@ function hideInstallButton() {
 }
 
 /**
- * Prompt user to install
+ * Prompt user to install - DIRECT NATIVE PROMPT ONLY
  */
-export async function promptInstall() {
-  console.log('[PWA] Install button clicked!');
+export async function promptInstall(event) {
+  if (event) {
+    event.preventDefault();
+  }
   
-  // Try native prompt first
+  console.log('[PWA] 🚀 Install button clicked!');
+  console.log('[PWA] Deferred prompt available:', !!deferredPrompt);
+  
+  // ONLY try native prompt - NO fallback messages!
   if (deferredPrompt) {
     try {
-      console.log('[PWA] Showing native install prompt...');
-      deferredPrompt.prompt();
+      console.log('[PWA] ✅ Showing native install dialog...');
       
+      // Show the native install prompt
+      await deferredPrompt.prompt();
+      
+      // Wait for user's choice
       const { outcome } = await deferredPrompt.userChoice;
-      console.log('[PWA] Install prompt outcome:', outcome);
+      
+      console.log(`[PWA] 📱 User choice: ${outcome}`);
       
       if (outcome === 'accepted') {
-        console.log('[PWA] User accepted installation!');
+        console.log('[PWA] 🎉 Installation accepted!');
         deferredPrompt = null;
-        // Button will auto-hide on 'appinstalled' event
       } else {
-        console.log('[PWA] User dismissed installation');
+        console.log('[PWA] ❌ Installation dismissed');
       }
-      return;
+      
     } catch (error) {
-      console.error('[PWA] Native prompt error:', error);
+      console.error('[PWA] ⚠️ Error showing prompt:', error);
+      console.log('[PWA] Error details:', {
+        name: error.name,
+        message: error.message,
+        hasDeferredPrompt: !!deferredPrompt
+      });
     }
-  }
-  
-  // Fallback: Try to trigger browser's native install
-  console.log('[PWA] Deferred prompt not available, checking alternatives...');
-  
-  // For some browsers, the prompt might be available via other means
-  if (window.BeforeInstallPromptEvent) {
-    console.log('[PWA] Browser supports install prompts, waiting for event...');
-  }
-  
-  // Last resort: minimal guidance
-  console.log('[PWA] Native install not available - user needs to use browser menu');
-  showMinimalInstallHint();
-}
-
-/**
- * Show minimal install hint (only when native prompt unavailable)
- */
-function showMinimalInstallHint() {
-  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
-  const isMobile = /Android/i.test(navigator.userAgent);
-  
-  // Very minimal, non-intrusive hint
-  if (isIOS) {
-    console.log('[PWA] iOS detected - user should use Share → Add to Home Screen');
-  } else if (isMobile) {
-    console.log('[PWA] Android detected - user should use browser menu');
   } else {
-    console.log('[PWA] Desktop detected - user should use browser install icon');
+    // Native prompt not available - just log, NO user messages
+    console.log('[PWA] ⚠️ Native prompt not available yet');
+    console.log('[PWA] This is normal - prompt will be available after page fully loads with HTTPS');
+    console.log('[PWA] Current URL protocol:', window.location.protocol);
+    console.log('[PWA] Service Worker registered:', !!navigator.serviceWorker.controller);
   }
-  
-  // No alert! Just console message for developers
-  // Native prompt should work on production with HTTPS
 }
 
 /**
