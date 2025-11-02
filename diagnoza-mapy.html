@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Diagnoza Mapy - CyprusEye</title>
+    <style>
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2563eb;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+        }
+        .test-section h2 {
+            margin-top: 0;
+            color: #374151;
+            font-size: 18px;
+        }
+        .status {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        .status.pass { background: #d1fae5; color: #065f46; }
+        .status.fail { background: #fee2e2; color: #991b1b; }
+        .status.pending { background: #fef3c7; color: #92400e; }
+        .info {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f3f4f6;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        .error {
+            margin: 10px 0;
+            padding: 10px;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 4px;
+            color: #991b1b;
+            font-size: 13px;
+        }
+        .console-output {
+            max-height: 300px;
+            overflow-y: auto;
+            background: #1f2937;
+            color: #f9fafb;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            line-height: 1.6;
+        }
+        .console-output .log-error { color: #fca5a5; }
+        .console-output .log-warn { color: #fcd34d; }
+        .console-output .log-info { color: #93c5fd; }
+        button {
+            background: #2563eb;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        button:hover { background: #1d4ed8; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Diagnoza Mapy CyprusEye</h1>
+        <p class="subtitle">Szczegółowa diagnostyka problemu z mapą Leaflet</p>
+
+        <div class="test-section">
+            <h2>1. Test Podstawowy</h2>
+            <div id="test-basic"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>2. Test CSP (Content Security Policy)</h2>
+            <div id="test-csp"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>3. Test Leaflet CSS</h2>
+            <div id="test-leaflet-css"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>4. Test Leaflet JS</h2>
+            <div id="test-leaflet-js"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>5. Test Kafelków OpenStreetMap</h2>
+            <div id="test-tiles"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>6. Konsola Błędów</h2>
+            <div id="console-output" class="console-output"></div>
+        </div>
+
+        <div class="test-section">
+            <h2>7. Test Pełnej Inicjalizacji</h2>
+            <button onclick="runFullTest()">🚀 Uruchom Test Mapy</button>
+            <div id="test-full" style="margin-top: 20px;"></div>
+        </div>
+    </div>
+
+    <script>
+        const results = {
+            basic: { el: document.getElementById('test-basic'), status: 'pending' },
+            csp: { el: document.getElementById('test-csp'), status: 'pending' },
+            css: { el: document.getElementById('test-leaflet-css'), status: 'pending' },
+            js: { el: document.getElementById('test-leaflet-js'), status: 'pending' },
+            tiles: { el: document.getElementById('test-tiles'), status: 'pending' },
+            full: { el: document.getElementById('test-full'), status: 'pending' }
+        };
+
+        const consoleOutput = document.getElementById('console-output');
+        const originalConsole = {
+            log: console.log,
+            error: console.error,
+            warn: console.warn
+        };
+
+        function logToConsole(type, ...args) {
+            const message = args.map(a => typeof a === 'object' ? JSON.stringify(a, null, 2) : String(a)).join(' ');
+            const time = new Date().toLocaleTimeString();
+            const className = `log-${type}`;
+            consoleOutput.innerHTML += `<div class="${className}">[${time}] [${type.toUpperCase()}] ${message}</div>`;
+            consoleOutput.scrollTop = consoleOutput.scrollHeight;
+            originalConsole[type](...args);
+        }
+
+        console.log = (...args) => logToConsole('info', ...args);
+        console.error = (...args) => logToConsole('error', ...args);
+        console.warn = (...args) => logToConsole('warn', ...args);
+
+        function setStatus(test, status, message) {
+            results[test].status = status;
+            const statusBadge = `<span class="status ${status}">${status === 'pass' ? '✅ OK' : status === 'fail' ? '❌ BŁĄD' : '⏳ OCZEKUJE'}</span>`;
+            results[test].el.innerHTML = statusBadge + message;
+        }
+
+        // Test 1: Podstawowy
+        console.log('🔍 Rozpoczynam diagnostykę...');
+        setStatus('basic', 'pass', `<div class="info">Przeglądarka: ${navigator.userAgent}</div>`);
+
+        // Test 2: CSP
+        function testCSP() {
+            const metaCSP = document.querySelector('meta[http-equiv="Content-Security-Policy"]');
+            if (!metaCSP) {
+                setStatus('csp', 'pass', '<div class="info">Brak CSP w tym pliku testowym - to jest OK</div>');
+                return;
+            }
+            const content = metaCSP.getAttribute('content');
+            const hasOSM = content.includes('tile.openstreetmap.org');
+            if (hasOSM) {
+                setStatus('csp', 'pass', '<div class="info">CSP zawiera tile.openstreetmap.org ✓</div>');
+            } else {
+                setStatus('csp', 'fail', '<div class="error">CSP NIE zawiera tile.openstreetmap.org!</div>');
+            }
+        }
+        testCSP();
+
+        // Test 3: Leaflet CSS
+        function testLeafletCSS() {
+            const link = document.createElement('link');
+            link.rel = 'stylesheet';
+            link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+            link.onload = () => {
+                setStatus('css', 'pass', '<div class="info">Leaflet CSS załadowany poprawnie ✓</div>');
+                testLeafletJS();
+            };
+            link.onerror = () => {
+                setStatus('css', 'fail', '<div class="error">Nie można załadować Leaflet CSS!</div>');
+            };
+            document.head.appendChild(link);
+        }
+        testLeafletCSS();
+
+        // Test 4: Leaflet JS
+        function testLeafletJS() {
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+            script.onload = () => {
+                if (typeof L !== 'undefined') {
+                    setStatus('js', 'pass', `<div class="info">Leaflet JS załadowany ✓<br>Wersja: ${L.version || 'nieznana'}</div>`);
+                    testTiles();
+                } else {
+                    setStatus('js', 'fail', '<div class="error">Leaflet JS załadowany ale obiekt L nie istnieje!</div>');
+                }
+            };
+            script.onerror = () => {
+                setStatus('js', 'fail', '<div class="error">Nie można załadować Leaflet JS!</div>');
+            };
+            document.head.appendChild(script);
+        }
+
+        // Test 5: Kafelki
+        function testTiles() {
+            const testUrl = 'https://a.tile.openstreetmap.org/9/262/172.png';
+            const img = new Image();
+            img.onload = () => {
+                setStatus('tiles', 'pass', '<div class="info">Kafelki OpenStreetMap dostępne ✓</div>');
+            };
+            img.onerror = () => {
+                setStatus('tiles', 'fail', '<div class="error">Nie można pobrać kafelków OpenStreetMap!<br>Sprawdź CSP i połączenie internetowe.</div>');
+            };
+            img.src = testUrl;
+        }
+
+        // Test 6: Pełna inicjalizacja
+        function runFullTest() {
+            console.log('🚀 Uruchamiam pełny test mapy...');
+            
+            if (typeof L === 'undefined') {
+                setStatus('full', 'fail', '<div class="error">Leaflet nie został załadowany. Poczekaj na zakończenie testów powyżej.</div>');
+                return;
+            }
+
+            try {
+                // Stwórz kontener mapy
+                const mapContainer = document.createElement('div');
+                mapContainer.id = 'test-map';
+                mapContainer.style.width = '100%';
+                mapContainer.style.height = '400px';
+                mapContainer.style.border = '2px solid #2563eb';
+                mapContainer.style.borderRadius = '8px';
+                mapContainer.style.marginTop = '15px';
+                
+                results.full.el.appendChild(mapContainer);
+
+                // Inicjalizuj mapę
+                console.log('Tworzenie mapy...');
+                const map = L.map('test-map').setView([35.095, 33.203], 9);
+                
+                console.log('Dodawanie warstwy kafelków...');
+                L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                    attribution: '&copy; OpenStreetMap contributors',
+                    maxZoom: 19
+                }).addTo(map);
+
+                // Dodaj testowe markery
+                const testMarkers = [
+                    { name: 'Paphos', coords: [34.75567, 32.40417] },
+                    { name: 'Limassol', coords: [34.67658, 33.04979] },
+                    { name: 'Larnaca', coords: [34.9125, 33.6333] }
+                ];
+
+                testMarkers.forEach(marker => {
+                    L.marker(marker.coords)
+                        .addTo(map)
+                        .bindPopup(`<strong>${marker.name}</strong>`);
+                    console.log(`Dodano marker: ${marker.name}`);
+                });
+
+                setStatus('full', 'pass', `
+                    <div class="info">
+                        ✅ Mapa działa poprawnie!<br>
+                        • Leaflet zainicjalizowany<br>
+                        • Kafelki ładują się<br>
+                        • Markery dodane (${testMarkers.length})
+                    </div>
+                `);
+                
+                console.log('✅ Test zakończony sukcesem!');
+
+            } catch (error) {
+                console.error('Błąd podczas testu:', error);
+                setStatus('full', 'fail', `<div class="error">Błąd: ${error.message}<br><br>Stack: ${error.stack}</div>`);
+            }
+        }
+
+        // Auto-uruchom po 3 sekundach jeśli wszystko OK
+        setTimeout(() => {
+            if (results.css.status === 'pass' && results.js.status === 'pass' && results.tiles.status === 'pass') {
+                console.log('Wszystkie testy wstępne przeszły - auto-uruchamiam test pełny...');
+                runFullTest();
+            }
+        }, 3000);
+    </script>
+</body>
+</html>
