@@ -27,11 +27,15 @@
     initialize();
   }
 
+  // Current place state
+  let currentPlaceIndex = 0;
+
   function initialize() {
     console.log('🎯 Initializing application...');
     
     // Initialize each module
     initializeMap();
+    initializeCurrentPlace(); // New: current place section
     initializeMapLocationsList(); // List below map
     initializeAttractions();
     initializePackingPlanner();
@@ -100,6 +104,79 @@
     } catch (error) {
       console.error('❌ Error initializing map:', error);
     }
+  }
+
+  function initializeCurrentPlace() {
+    const section = document.getElementById('currentPlaceSection');
+    if (!section) {
+      console.log('ℹ️ Current place section not found on this page');
+      return;
+    }
+
+    console.log('🎯 Initializing current place section...');
+    
+    // Start with first place
+    currentPlaceIndex = 0;
+    renderCurrentPlace();
+    
+    console.log('✅ Current place section initialized');
+  }
+
+  function renderCurrentPlace() {
+    if (currentPlaceIndex < 0) currentPlaceIndex = PLACES_DATA.length - 1;
+    if (currentPlaceIndex >= PLACES_DATA.length) currentPlaceIndex = 0;
+    
+    const place = PLACES_DATA[currentPlaceIndex];
+    if (!place) return;
+    
+    // Store current place ID globally for button callbacks
+    window.currentPlaceId = place.id;
+    
+    // Update content
+    const nameEl = document.getElementById('currentPlaceName');
+    const descEl = document.getElementById('currentPlaceDescription');
+    const ratingEl = document.getElementById('currentPlaceRating');
+    const commentsEl = document.getElementById('currentPlaceComments');
+    const likesEl = document.getElementById('currentPlaceLikes');
+    const xpEl = document.getElementById('currentPlaceXP');
+    
+    if (nameEl) nameEl.textContent = getPlaceName(place);
+    if (descEl) descEl.textContent = getPlaceDescription(place);
+    if (xpEl) xpEl.textContent = place.xp + ' XP';
+    
+    // Placeholders for Supabase data
+    if (ratingEl) ratingEl.textContent = 'Brak ocen'; // TODO: Fetch from Supabase
+    if (commentsEl) commentsEl.textContent = '0 komentarzy'; // TODO: Fetch from Supabase
+    if (likesEl) likesEl.textContent = '0 polubień'; // TODO: Fetch from Supabase
+    
+    // Update map to show this place (without scrolling)
+    updateMapForPlace(place);
+  }
+
+  function updateMapForPlace(place) {
+    const mapElement = document.getElementById('map');
+    if (!mapElement || !mapElement._leaflet_map) return;
+    
+    const map = mapElement._leaflet_map;
+    
+    // Center map on the place with animation (no scroll)
+    map.setView([place.lat, place.lng], 16, {
+      animate: true,
+      duration: 1
+    });
+    
+    // Wait for animation, then open popup
+    setTimeout(function() {
+      map.eachLayer(function(layer) {
+        if (layer instanceof L.Marker) {
+          const latLng = layer.getLatLng();
+          if (Math.abs(latLng.lat - place.lat) < 0.0001 && 
+              Math.abs(latLng.lng - place.lng) < 0.0001) {
+            layer.openPopup();
+          }
+        }
+      });
+    }, 1000);
   }
 
   function initializeMapLocationsList() {
@@ -407,6 +484,11 @@
   window.showCommunity = function(placeId) {
     // Redirect to community page with place parameter
     window.location.href = `community.html?place=${placeId}`;
+  };
+
+  window.navigatePlace = function(direction) {
+    currentPlaceIndex += direction;
+    renderCurrentPlace();
   };
 
   window.focusPlaceOnMap = function(placeId) {
