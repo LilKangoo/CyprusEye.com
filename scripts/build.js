@@ -66,6 +66,11 @@ const STATE_FILES = [
   'src/state/reviews.js',
 ];
 
+// API modules (src/api/)
+const API_FILES = [
+  'src/api/supabase.js',
+];
+
 async function buildFile(filePath) {
   const fullPath = join(ROOT, filePath);
   
@@ -222,6 +227,11 @@ async function build() {
     
     // Buduj state modules
     for (const file of STATE_FILES) {
+      await buildFile(file);
+    }
+    
+    // Buduj API modules
+    for (const file of API_FILES) {
       await buildFile(file);
     }
   
