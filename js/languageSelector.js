@@ -120,13 +120,17 @@
 
     show() {
       if (this.isOpen) {
+        console.log('Language selector already open, skipping...');
         return;
       }
 
+      console.log('Creating language selector UI...');
       this.createUi();
       this.isOpen = true;
       this.overlay.classList.add('is-visible');
       document.body.classList.add('language-selector-open');
+
+      console.log('Language selector UI created and visible');
 
       // Add keyboard listener
       document.addEventListener('keydown', this.handleKeydown, true);
@@ -135,6 +139,7 @@
       requestAnimationFrame(() => {
         if (this.dialog) {
           this.dialog.focus({ preventScroll: true });
+          console.log('Language selector focused and ready');
         }
       });
     }
@@ -257,14 +262,23 @@
   function initSelector() {
     const selector = new LanguageSelector();
 
+    // Debug logging
+    console.log('Language Selector Debug:');
+    console.log('- hasSelectedLanguage:', !hasSelectedLanguage());
+    console.log('- isHomePage:', isHomePage());
+    console.log('- shouldShow:', selector.shouldShow());
+
+    // Expose to window for debugging BEFORE showing
+    window.languageSelector = selector;
+
     // Show selector if needed (before tutorial and i18n init)
     if (selector.shouldShow()) {
+      console.log('Showing language selector...');
       // Show immediately
       selector.show();
+    } else {
+      console.log('Language selector not needed (already selected or not home page)');
     }
-
-    // Expose to window for debugging
-    window.languageSelector = selector;
   }
 
   init();
