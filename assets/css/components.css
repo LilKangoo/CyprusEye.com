@@ -8021,6 +8021,14 @@ body.auth-page {
    PWA Install Button
    ============================================ */
 
+.header-pwa-container {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0.75rem 1.5rem;
+  background: var(--color-background, #ffffff);
+  border-bottom: 1px solid var(--color-border, #e5e7eb);
+}
+
 .pwa-install-button {
   display: inline-flex;
   align-items: center;
@@ -8035,7 +8043,6 @@ body.auth-page {
   cursor: pointer;
   transition: all 0.3s ease;
   box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
-  margin-right: 0.5rem;
 }
 
 .pwa-install-button:hover {
@@ -8057,6 +8064,10 @@ body.auth-page {
 }
 
 @media (max-width: 768px) {
+  .header-pwa-container {
+    padding: 0.5rem 1rem;
+  }
+  
   .pwa-install-button .install-text {
     display: none;
   }
