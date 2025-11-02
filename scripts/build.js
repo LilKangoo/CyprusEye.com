@@ -57,6 +57,11 @@ const UTILITY_FILES = [
   'src/utils/dom.js',
 ];
 
+// State management modules (src/state/)
+const STATE_FILES = [
+  'src/state/store.js',
+];
+
 async function buildFile(filePath) {
   const fullPath = join(ROOT, filePath);
   
@@ -208,6 +213,11 @@ async function build() {
     
     // Buduj utility modules
     for (const file of UTILITY_FILES) {
+      await buildFile(file);
+    }
+    
+    // Buduj state modules
+    for (const file of STATE_FILES) {
       await buildFile(file);
     }
   
