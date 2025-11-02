@@ -127,7 +127,14 @@
     if (currentPlaceIndex >= PLACES_DATA.length) currentPlaceIndex = 0;
     
     const place = PLACES_DATA[currentPlaceIndex];
-    if (!place) return;
+    if (!place) {
+      console.error('❌ No place found at index:', currentPlaceIndex);
+      return;
+    }
+    
+    console.log('📍 Rendering place:', place.id);
+    console.log('   - nameFallback:', place.nameFallback);
+    console.log('   - descriptionFallback:', place.descriptionFallback);
     
     // Store current place ID globally for button callbacks
     window.currentPlaceId = place.id;
@@ -139,12 +146,22 @@
     const commentsEl = document.getElementById('currentPlaceComments');
     const xpEl = document.getElementById('currentPlaceXP');
     
-    // Get translated texts
+    // Get texts directly from fallback
     const placeName = getPlaceName(place);
     const placeDescription = getPlaceDescription(place);
     
-    if (nameEl) nameEl.textContent = placeName;
-    if (descEl) descEl.textContent = placeDescription;
+    console.log('   - Final name:', placeName);
+    console.log('   - Final description:', placeDescription);
+    
+    if (nameEl) {
+      nameEl.textContent = placeName;
+      console.log('   ✅ Name set to:', nameEl.textContent);
+    }
+    if (descEl) {
+      descEl.textContent = placeDescription;
+      descEl.style.display = placeDescription ? 'block' : 'none';
+      console.log('   ✅ Description set, length:', placeDescription.length);
+    }
     if (xpEl) xpEl.textContent = place.xp + ' XP';
     
     // Fetch real data from Supabase
@@ -480,31 +497,19 @@
     return li;
   }
 
-  // Translation helpers
+  // Translation helpers - always prefer fallback values
   function getPlaceName(place) {
-    if (window.appI18n && window.appI18n.translations) {
-      const lang = window.appI18n.language || 'pl';
-      const translations = window.appI18n.translations[lang] || {};
-      return translations[place.nameKey] || place.nameFallback || place.id;
-    }
+    // Always use fallback - it contains proper names
     return place.nameFallback || place.id;
   }
 
   function getPlaceDescription(place) {
-    if (window.appI18n && window.appI18n.translations) {
-      const lang = window.appI18n.language || 'pl';
-      const translations = window.appI18n.translations[lang] || {};
-      return translations[place.descriptionKey] || place.descriptionFallback || '';
-    }
+    // Always use fallback - it contains proper descriptions
     return place.descriptionFallback || '';
   }
 
   function getPlaceBadge(place) {
-    if (window.appI18n && window.appI18n.translations) {
-      const lang = window.appI18n.language || 'pl';
-      const translations = window.appI18n.translations[lang] || {};
-      return translations[place.badgeKey] || place.badgeFallback || '';
-    }
+    // Always use fallback - it contains proper badge names
     return place.badgeFallback || '';
   }
 
