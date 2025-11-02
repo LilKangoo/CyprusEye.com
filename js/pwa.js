@@ -148,44 +148,59 @@ function hideInstallButton() {
 export async function promptInstall() {
   console.log('[PWA] Install button clicked!');
   
-  if (!deferredPrompt) {
-    console.log('[PWA] Native prompt not available - showing instructions');
-    showInstallInstructions();
-    return;
-  }
-
-  try {
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    console.log('[PWA] Install prompt outcome:', outcome);
-    
-    if (outcome === 'accepted') {
-      deferredPrompt = null;
+  // Try native prompt first
+  if (deferredPrompt) {
+    try {
+      console.log('[PWA] Showing native install prompt...');
+      deferredPrompt.prompt();
+      
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log('[PWA] Install prompt outcome:', outcome);
+      
+      if (outcome === 'accepted') {
+        console.log('[PWA] User accepted installation!');
+        deferredPrompt = null;
+        // Button will auto-hide on 'appinstalled' event
+      } else {
+        console.log('[PWA] User dismissed installation');
+      }
+      return;
+    } catch (error) {
+      console.error('[PWA] Native prompt error:', error);
     }
-  } catch (error) {
-    console.error('[PWA] Install prompt error:', error);
-    showInstallInstructions();
   }
+  
+  // Fallback: Try to trigger browser's native install
+  console.log('[PWA] Deferred prompt not available, checking alternatives...');
+  
+  // For some browsers, the prompt might be available via other means
+  if (window.BeforeInstallPromptEvent) {
+    console.log('[PWA] Browser supports install prompts, waiting for event...');
+  }
+  
+  // Last resort: minimal guidance
+  console.log('[PWA] Native install not available - user needs to use browser menu');
+  showMinimalInstallHint();
 }
 
 /**
- * Show manual install instructions
+ * Show minimal install hint (only when native prompt unavailable)
  */
-function showInstallInstructions() {
-  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+function showMinimalInstallHint() {
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const isMobile = /Android/i.test(navigator.userAgent);
   
-  let message = '';
-  
+  // Very minimal, non-intrusive hint
   if (isIOS) {
-    message = '📱 Aby zainstalować:\n1. Kliknij przycisk Udostępnij (⬆️)\n2. Wybierz "Dodaj do ekranu głównego"';
+    console.log('[PWA] iOS detected - user should use Share → Add to Home Screen');
   } else if (isMobile) {
-    message = '📱 Aby zainstalować:\n1. Otwórz menu przeglądarki (⋮)\n2. Wybierz "Dodaj do ekranu głównego"';
+    console.log('[PWA] Android detected - user should use browser menu');
   } else {
-    message = '💻 Aby zainstalować:\n1. Sprawdź ikonę w pasku adresu\n2. Lub otwórz menu przeglądarki\n3. Wybierz "Zainstaluj CyprusEye"';
+    console.log('[PWA] Desktop detected - user should use browser install icon');
   }
   
-  alert(message);
+  // No alert! Just console message for developers
+  // Native prompt should work on production with HTTPS
 }
 
 /**

@@ -8024,30 +8024,44 @@ body.auth-page {
 .header-pwa-container {
   display: flex;
   justify-content: center;
-  padding: 0.5rem 1rem;
-  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
-  border-bottom: 2px solid #0066cc;
+  align-items: center;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #60a5fa 100%);
+  border-bottom: 3px solid rgba(255, 255, 255, 0.3);
   position: sticky;
   top: 0;
   z-index: 1000;
-  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+  box-shadow: 0 4px 16px rgba(30, 64, 175, 0.25);
 }
 
 .pwa-install-button {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
-  background: linear-gradient(135deg, #0066cc, #0052a3);
-  color: white;
-  border: none;
-  border-radius: 12px;
-  font-size: 1rem;
-  font-weight: 600;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 0.875rem 2rem;
+  background: linear-gradient(135deg, #ffffff, #f8fafc);
+  color: #1e40af;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  border-radius: 50px;
+  font-size: 1.05rem;
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
-  animation: pulse-glow 2s ease-in-out infinite;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 4px 20px rgba(255, 255, 255, 0.4), 
+              0 0 0 0 rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  animation: pulse-scale 3s ease-in-out infinite;
+}
+
+.pwa-install-button:hover {
+  background: linear-gradient(135deg, #fef3c7, #fde047);
+  color: #92400e;
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 8px 30px rgba(253, 224, 71, 0.6),
+              0 0 0 8px rgba(253, 224, 71, 0.2);
+  border-color: #fbbf24;
 }
 
 .pwa-install-button:hover {
@@ -8068,12 +8082,16 @@ body.auth-page {
   font-size: 0.875rem;
 }
 
-@keyframes pulse-glow {
+@keyframes pulse-scale {
   0%, 100% {
-    box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+    transform: scale(1);
+    box-shadow: 0 4px 20px rgba(255, 255, 255, 0.4), 
+                0 0 0 0 rgba(255, 255, 255, 0.5);
   }
   50% {
-    box-shadow: 0 6px 20px rgba(0, 102, 204, 0.5);
+    transform: scale(1.03);
+    box-shadow: 0 6px 30px rgba(255, 255, 255, 0.6),
+                0 0 0 6px rgba(255, 255, 255, 0.3);
   }
 }
 
