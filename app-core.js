@@ -835,24 +835,36 @@
     }
 
     try {
-      // Get current user profile - select only basic fields first
+      // Get current user profile
+      console.log('🔍 Fetching profile for user:', userId);
+      
       const { data: profile, error: profileError } = await sb
         .from('profiles')
-        .select('*')
+        .select('id, xp, level, visited_places')
         .eq('id', userId)
         .single();
 
       if (profileError) {
-        console.error('Profile error:', profileError);
+        console.error('❌ Profile fetch error:', profileError);
+        console.error('❌ Error code:', profileError.code);
+        console.error('❌ Error message:', profileError.message);
+        console.error('❌ Error details:', profileError.details);
+        
+        // If column doesn't exist in SELECT
+        if (profileError.code === '42703' || (profileError.message && profileError.message.includes('column'))) {
+          throw new Error('COLUMN_ERROR');
+        }
+        
         throw new Error('Nie można pobrać profilu użytkownika');
       }
 
+      console.log('✅ Profile fetched successfully');
       console.log('📊 Current profile:', profile);
 
       // Get current values with fallbacks
-      const currentXP = profile?.xp || 0;
-      const currentLevel = profile?.level || 1;
-      const visitedPlaces = profile?.visited_places || [];
+      const currentXP = profile?.xp ?? 0;
+      const currentLevel = profile?.level ?? 1;
+      const visitedPlaces = profile?.visited_places ?? [];
 
       console.log('📊 Current XP:', currentXP, 'Level:', currentLevel, 'Visited:', visitedPlaces);
 
@@ -875,21 +887,14 @@
 
       console.log('📊 New values:', { newXP, newLevel, newVisitedPlaces });
 
-      // Prepare update object - only include fields that exist
-      const updateData = {};
-      
-      // Check which fields exist in profile
-      if ('xp' in profile) updateData.xp = newXP;
-      if ('level' in profile) updateData.level = newLevel;
-      if ('visited_places' in profile) updateData.visited_places = newVisitedPlaces;
+      // Prepare update - always try to update all fields
+      const updateData = {
+        xp: newXP,
+        level: newLevel,
+        visited_places: newVisitedPlaces
+      };
 
       console.log('📊 Updating with:', updateData);
-
-      // If no fields to update, show warning
-      if (Object.keys(updateData).length === 0) {
-        alert('⚠️ Twój profil nie ma jeszcze kolumn XP i poziomów.\n\nSkontaktuj się z administratorem, aby je dodać.');
-        return;
-      }
 
       // Update user profile
       const { error: updateError } = await sb
@@ -899,6 +904,13 @@
 
       if (updateError) {
         console.error('Update error:', updateError);
+        console.error('Update error details:', JSON.stringify(updateError, null, 2));
+        
+        // Check if it's a column error
+        if (updateError.message && (updateError.message.includes('column') || updateError.message.includes('xp') || updateError.message.includes('level') || updateError.message.includes('visited_places'))) {
+          throw new Error('COLUMN_ERROR');
+        }
+        
         throw updateError;
       }
 
@@ -922,12 +934,15 @@
       });
       
       // Detailed error messages
-      if (error.message && error.message.includes('column')) {
-        alert('⚠️ Brak kolumn XP w bazie danych.\n\nUruchom skrypt SQL:\nADD_XP_COLUMNS_TO_PROFILES.sql\n\nw Supabase SQL Editor.');
+      if (error.message === 'COLUMN_ERROR') {
+        alert('⚠️ Brak kolumn XP w bazie danych.\n\nUruchom w Supabase SQL Editor:\n\nALTER TABLE profiles\n  ADD COLUMN xp INTEGER DEFAULT 0,\n  ADD COLUMN level INTEGER DEFAULT 1,\n  ADD COLUMN visited_places TEXT[] DEFAULT \'{}\';');
       } else if (error.message && error.message.includes('profil')) {
         alert(error.message);
+      } else if (error.code === '42703') {
+        // PostgreSQL error code for undefined column
+        alert('⚠️ Brak kolumn w tabeli profiles.\n\nKolumny xp, level lub visited_places nie istnieją.\n\nUruchom QUICK_SQL_SETUP.sql w Supabase!');
       } else {
-        alert('Błąd podczas zameldowania:\n\n' + (error.message || 'Nieznany błąd'));
+        alert('Błąd podczas zameldowania:\n\n' + (error.message || 'Nieznany błąd') + '\n\nSprawdź konsolę (F12) aby zobaczyć szczegóły.');
       }
     }
   }
