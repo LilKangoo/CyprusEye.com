@@ -60,6 +60,7 @@ const UTILITY_FILES = [
 // State management modules (src/state/)
 const STATE_FILES = [
   'src/state/store.js',
+  'src/state/accounts.js',
 ];
 
 async function buildFile(filePath) {

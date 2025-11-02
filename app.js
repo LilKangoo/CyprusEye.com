@@ -25,6 +25,14 @@ import {
   getPlaceBadge
 } from '/src/utils/translations.js';
 
+// State management
+import store from '/src/state/store.js';
+import {
+  ACCOUNT_STORAGE_KEY,
+  initializeAccountsState,
+  subscribeToAccounts
+} from '/src/state/accounts.js';
+
 const DEBUG = localStorage.getItem('CE_DEBUG') === 'true' || new URLSearchParams(window.location.search).has('debug');
 function debug(...args) {
   if (DEBUG) {
@@ -1187,7 +1195,7 @@ const packingGuide = {
 let selectedPackingSeasonId = null;
 
 const STORAGE_KEY = 'wakacjecypr-progress';
-const ACCOUNT_STORAGE_KEY = 'wakacjecypr-accounts';
+// ACCOUNT_STORAGE_KEY moved to src/state/accounts.js (imported above)
 const SESSION_STORAGE_KEY = 'wakacjecypr-session';
 const REVIEWS_STORAGE_KEY = 'wakacjecypr-reviews';
 const JOURNAL_STORAGE_KEY = 'wakacjecypr-travel-journal';
