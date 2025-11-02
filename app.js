@@ -10291,7 +10291,9 @@ function bootstrap() {
     }, 320);
   }
 
-  explorerToggle?.addEventListener('click', () => {
+  explorerToggle?.addEventListener('click', (event) => {
+    event.preventDefault(); // Prevent tab navigation behavior
+    event.stopPropagation(); // Stop event bubbling
     openExplorer();
   });
 

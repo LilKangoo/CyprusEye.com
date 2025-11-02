@@ -163,16 +163,15 @@
             </button>
             <a class="ghost header-link" href="community.html" data-i18n="header.communityLink">💬 Społeczność</a>
             <a class="ghost header-link" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
-            <button
-              id="explorerToggle"
-              class="ghost"
-              type="button"
-              aria-haspopup="dialog"
-              aria-controls="explorerModal"
-              data-i18n="header.explorerToggle"
+            <a
+              href="vip.html"
+              class="ghost header-link"
+              data-i18n="nav.mediaTrips"
+              aria-label="Otwórz stronę VIP wyjazdów indywidualnych"
+              data-i18n-attrs="aria-label:nav.mediaTrips.ariaLabel"
             >
-              🌍 Przeglądaj atrakcje
-            </button>
+              ✨ VIP wyjazdy indywidualne
+            </a>
             <button
               id="sosToggle"
               class="btn btn-danger danger"
@@ -271,16 +270,15 @@
       <button
         type="button"
         class="header-tab"
-        id="headerMediaTripsTab"
+        id="explorerToggle"
         role="tab"
         aria-selected="false"
         tabindex="-1"
-        data-page-url="/vip.html"
-        data-i18n="nav.mediaTrips"
-        aria-label="Otwórz stronę VIP wyjazdów indywidualnych"
-        data-i18n-attrs="aria-label:nav.mediaTrips.ariaLabel"
+        aria-haspopup="dialog"
+        aria-controls="explorerModal"
+        data-i18n="header.explorerToggle"
       >
-        ✨ VIP wyjazdy indywidualne
+        🌍 Przeglądaj atrakcje
       </button>
     </nav>
   </header>
