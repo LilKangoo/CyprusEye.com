@@ -61,6 +61,7 @@ const UTILITY_FILES = [
 const STATE_FILES = [
   'src/state/store.js',
   'src/state/accounts.js',
+  'src/state/progress.js',
 ];
 
 async function buildFile(filePath) {
