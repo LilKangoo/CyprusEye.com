@@ -32,6 +32,7 @@
     
     // Initialize each module
     initializeMap();
+    initializeMapLocationsList(); // List below map
     initializeAttractions();
     initializePackingPlanner();
     initializeTasks();
@@ -85,21 +86,90 @@
         const placeName = getPlaceName(place);
         const placeDescription = getPlaceDescription(place);
         
-        // Create more readable popup
+        // Create more readable popup - no Level, just name and rating
         marker.bindPopup(`
-          <div class="map-popup" style="min-width: 250px;">
-            <h3 style="margin: 0 0 10px 0; font-size: 18px; color: #2563eb;">${placeName}</h3>
-            <p style="margin: 0 0 10px 0; font-size: 14px; line-height: 1.5;">${placeDescription}</p>
-            <p style="margin: 0 0 10px 0;"><strong>✨ XP:</strong> ${place.xp}</p>
-            <a href="${place.googleMapsUrl}" target="_blank" rel="noopener" style="display: inline-block; padding: 8px 12px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 14px;">Google Maps →</a>
+          <div class="map-popup" style="min-width: 200px;">
+            <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #2563eb;">${placeName}</h3>
+            <p style="margin: 0 0 8px 0; font-size: 14px;">⭐ Ocena: <span id="rating-${place.id}">Brak ocen</span></p>
+            <a href="${place.googleMapsUrl}" target="_blank" rel="noopener" style="display: inline-block; padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 13px;">Google Maps →</a>
           </div>
-        `, { maxWidth: 300 });
+        `, { maxWidth: 250 });
       });
 
       console.log('✅ Map initialized with', PLACES_DATA.length, 'markers');
     } catch (error) {
       console.error('❌ Error initializing map:', error);
     }
+  }
+
+  function initializeMapLocationsList() {
+    const locationsList = document.getElementById('locationsList');
+    const toggleButton = document.getElementById('locationsToggle');
+    
+    if (!locationsList) {
+      console.log('ℹ️ Locations list not found on this page');
+      return;
+    }
+
+    console.log('🗺️ Initializing map locations list...');
+
+    // Show first 3 places
+    const previewCount = 3;
+    const previewPlaces = PLACES_DATA.slice(0, previewCount);
+    
+    locationsList.innerHTML = '';
+    previewPlaces.forEach(function(place) {
+      const li = createLocationListItem(place);
+      locationsList.appendChild(li);
+    });
+
+    // Handle "Show more" button
+    if (toggleButton) {
+      let showingAll = false;
+      
+      toggleButton.onclick = function() {
+        if (!showingAll) {
+          // Show all places
+          locationsList.innerHTML = '';
+          PLACES_DATA.forEach(function(place) {
+            const li = createLocationListItem(place);
+            locationsList.appendChild(li);
+          });
+          toggleButton.textContent = 'Pokaż mniej atrakcji';
+          showingAll = true;
+        } else {
+          // Show only first 3
+          locationsList.innerHTML = '';
+          previewPlaces.forEach(function(place) {
+            const li = createLocationListItem(place);
+            locationsList.appendChild(li);
+          });
+          toggleButton.textContent = 'Pokaż więcej atrakcji';
+          showingAll = false;
+        }
+      };
+    }
+
+    console.log('✅ Map locations list initialized with', previewCount, 'preview places');
+  }
+
+  function createLocationListItem(place) {
+    const li = document.createElement('li');
+    li.className = 'location-card';
+    
+    const placeName = getPlaceName(place);
+    
+    li.innerHTML = `
+      <div class="location-info">
+        <h3 class="location-name">${placeName}</h3>
+        <p class="location-xp">✨ ${place.xp} XP</p>
+      </div>
+      <button class="location-action secondary" onclick="focusPlaceOnMap('${place.id}')">
+        📍 Pokaż na mapie
+      </button>
+    `;
+    
+    return li;
   }
 
   function initializeAttractions() {
@@ -337,6 +407,50 @@
   window.showCommunity = function(placeId) {
     // Redirect to community page with place parameter
     window.location.href = `community.html?place=${placeId}`;
+  };
+
+  window.focusPlaceOnMap = function(placeId) {
+    const place = PLACES_DATA.find(p => p.id === placeId);
+    if (!place) {
+      console.error('Place not found:', placeId);
+      return;
+    }
+
+    const mapElement = document.getElementById('map');
+    if (!mapElement || !mapElement._leaflet_map) {
+      console.error('Map not initialized');
+      return;
+    }
+
+    const map = mapElement._leaflet_map;
+
+    // Scroll to map smoothly
+    mapElement.scrollIntoView({ 
+      behavior: 'smooth', 
+      block: 'center' 
+    });
+
+    // Wait for scroll, then focus on place
+    setTimeout(function() {
+      // Center map on the place with animation
+      map.setView([place.lat, place.lng], 16, {
+        animate: true,
+        duration: 1
+      });
+
+      // Wait for animation, then open popup
+      setTimeout(function() {
+        map.eachLayer(function(layer) {
+          if (layer instanceof L.Marker) {
+            const latLng = layer.getLatLng();
+            if (Math.abs(latLng.lat - place.lat) < 0.0001 && 
+                Math.abs(latLng.lng - place.lng) < 0.0001) {
+              layer.openPopup();
+            }
+          }
+        });
+      }, 1000);
+    }, 300);
   };
 
   // Check if we should focus on a specific place (from URL parameter)
