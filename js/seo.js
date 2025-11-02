@@ -378,24 +378,16 @@
   }
 
   function buildMobileTabbarButton(item) {
-    const button = document.createElement('button');
-    button.type = 'button';
-    button.className = 'mobile-tabbar-btn';
-    button.id = item.id;
-    button.setAttribute('aria-pressed', 'false');
-
-    if (item.target) {
-      button.setAttribute('data-target', item.target);
-      button.setAttribute('aria-controls', item.target);
-    }
-
-    button.dataset.pageUrl = item.pageUrl;
+    const link = document.createElement('a');
+    link.href = item.pageUrl;
+    link.className = 'mobile-tabbar-btn';
+    link.id = item.id;
 
     if (item.ariaLabel) {
-      button.setAttribute('aria-label', item.ariaLabel);
+      link.setAttribute('aria-label', item.ariaLabel);
     }
     if (item.i18nAttrs) {
-      button.setAttribute('data-i18n-attrs', item.i18nAttrs);
+      link.setAttribute('data-i18n-attrs', item.i18nAttrs);
     }
 
     const icon = document.createElement('span');
@@ -408,9 +400,9 @@
     label.setAttribute('data-i18n', item.i18nKey);
     label.textContent = item.label;
 
-    button.append(icon, label);
+    link.append(icon, label);
 
-    return button;
+    return link;
   }
 
   function updateMobileTabbarActiveState(nav) {
@@ -420,30 +412,16 @@
     }
 
     const activeId = determineActiveMobileTabId();
-    const buttons = mobileTabbar.querySelectorAll('.mobile-tabbar-btn');
-    buttons.forEach((button) => {
-      const isActive = button.id === activeId;
-      button.classList.toggle('is-active', isActive);
-      button.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+    const links = mobileTabbar.querySelectorAll('.mobile-tabbar-btn');
+    links.forEach((link) => {
+      const isActive = link.id === activeId;
+      link.classList.toggle('is-active', isActive);
     });
   }
 
   function attachPageNavigation(nav) {
-    if (document.querySelector('.app-view')) {
-      return;
-    }
-
-    nav.querySelectorAll('.mobile-tabbar-btn').forEach((button) => {
-      const targetPage = button.dataset.pageUrl;
-      if (!targetPage) {
-        return;
-      }
-
-      button.addEventListener('click', (event) => {
-        event.preventDefault();
-        window.location.href = targetPage;
-      });
-    });
+    // Links now work natively - no JavaScript needed!
+    // Keeping this function for backwards compatibility but it does nothing
   }
 
   function insertMobileTabbar(nav) {
