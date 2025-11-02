@@ -32,7 +32,7 @@
 
   function initialize() {
     console.log('🎯 Initializing application...');
-    
+
     // Initialize each module
     initializeMap();
     initializeCurrentPlace(); // New: current place section
@@ -40,9 +40,95 @@
     initializeAttractions();
     initializePackingPlanner();
     initializeTasks();
-    
+    initializeUserStats(); // NEW: Load user stats
+
     console.log('✅ Application initialized!');
   }
+
+  // Initialize and display user stats
+  async function initializeUserStats() {
+    const sb = window.getSupabase ? window.getSupabase() : null;
+    if (!sb) return;
+
+    try {
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) {
+        console.log('ℹ️ No user logged in');
+        return;
+      }
+
+      // Fetch and display user stats
+      await updateUserStatsDisplay(user.id);
+
+      // Listen for auth state changes
+      sb.auth.onAuthStateChange((event, session) => {
+        if (event === 'SIGNED_IN' && session?.user) {
+          updateUserStatsDisplay(session.user.id);
+        } else if (event === 'SIGNED_OUT') {
+          clearUserStatsDisplay();
+        }
+      });
+
+    } catch (error) {
+      console.error('Error initializing user stats:', error);
+    }
+  }
+
+  // Fetch and display user stats from Supabase
+  async function updateUserStatsDisplay(userId) {
+    const sb = window.getSupabase();
+    if (!sb || !userId) return;
+
+    try {
+      const { data: profile, error } = await sb
+        .from('profiles')
+        .select('xp, level, visited_places')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+        return;
+      }
+
+      const xp = profile?.xp || 0;
+      const level = profile?.level || 1;
+      const visitedPlaces = profile?.visited_places || [];
+      const visitedCount = visitedPlaces.length;
+
+      // Update header display
+      const headerStats = document.getElementById('headerUserStats');
+      if (headerStats) {
+        headerStats.textContent = `Level ${level} • ${xp} XP • ${visitedCount} miejsc`;
+        headerStats.style.color = '#2563eb';
+      }
+
+      console.log('✅ User stats updated:', { xp, level, visitedCount, visitedPlaces });
+
+      // Store in window for access by other functions
+      window.currentUserStats = { xp, level, visitedPlaces, visitedCount };
+
+      // Refresh current place display to show updated visited status
+      if (typeof renderCurrentPlace === 'function') {
+        renderCurrentPlace();
+      }
+
+    } catch (error) {
+      console.error('Error updating user stats:', error);
+    }
+  }
+
+  // Clear user stats display
+  function clearUserStatsDisplay() {
+    const headerStats = document.getElementById('headerUserStats');
+    if (headerStats) {
+      headerStats.textContent = '';
+    }
+    window.currentUserStats = null;
+  }
+
+  // Export for use by other functions
+  window.updateUserStatsDisplay = updateUserStatsDisplay;
 
   function initializeMap() {
     const mapElement = document.getElementById('map');
@@ -162,7 +248,16 @@
       descEl.style.display = placeDescription ? 'block' : 'none';
       console.log('   ✅ Description set, length:', placeDescription.length);
     }
-    if (xpEl) xpEl.textContent = place.xp + ' XP';
+    
+    // Check if user has visited this place
+    const hasVisited = window.currentUserStats?.visitedPlaces?.includes(place.id);
+    if (xpEl) {
+      if (hasVisited) {
+        xpEl.innerHTML = `<span style="color: #10b981;">✓ ${place.xp} XP (odwiedzone)</span>`;
+      } else {
+        xpEl.textContent = place.xp + ' XP';
+      }
+    }
     
     // Fetch real data from Supabase
     fetchPlaceStats(place.id, ratingEl, commentsEl);
@@ -740,21 +835,29 @@
     }
 
     try {
-      // Get current user profile
+      // Get current user profile - select only basic fields first
       const { data: profile, error: profileError } = await sb
         .from('profiles')
-        .select('xp, level, visited_places')
+        .select('*')
         .eq('id', userId)
         .single();
 
-      if (profileError) throw profileError;
+      if (profileError) {
+        console.error('Profile error:', profileError);
+        throw new Error('Nie można pobrać profilu użytkownika');
+      }
 
+      console.log('📊 Current profile:', profile);
+
+      // Get current values with fallbacks
       const currentXP = profile?.xp || 0;
       const currentLevel = profile?.level || 1;
       const visitedPlaces = profile?.visited_places || [];
 
+      console.log('📊 Current XP:', currentXP, 'Level:', currentLevel, 'Visited:', visitedPlaces);
+
       // Check if already visited this place
-      if (visitedPlaces.includes(place.id)) {
+      if (Array.isArray(visitedPlaces) && visitedPlaces.includes(place.id)) {
         alert('✅ Już odwiedziłeś to miejsce!\n\nSzukaj innych atrakcji, aby zdobyć więcej XP.');
         return;
       }
@@ -766,33 +869,65 @@
       const leveledUp = newLevel > currentLevel;
 
       // Add place to visited list
-      const newVisitedPlaces = [...visitedPlaces, place.id];
+      const newVisitedPlaces = Array.isArray(visitedPlaces) 
+        ? [...visitedPlaces, place.id] 
+        : [place.id];
+
+      console.log('📊 New values:', { newXP, newLevel, newVisitedPlaces });
+
+      // Prepare update object - only include fields that exist
+      const updateData = {};
+      
+      // Check which fields exist in profile
+      if ('xp' in profile) updateData.xp = newXP;
+      if ('level' in profile) updateData.level = newLevel;
+      if ('visited_places' in profile) updateData.visited_places = newVisitedPlaces;
+
+      console.log('📊 Updating with:', updateData);
+
+      // If no fields to update, show warning
+      if (Object.keys(updateData).length === 0) {
+        alert('⚠️ Twój profil nie ma jeszcze kolumn XP i poziomów.\n\nSkontaktuj się z administratorem, aby je dodać.');
+        return;
+      }
 
       // Update user profile
       const { error: updateError } = await sb
         .from('profiles')
-        .update({
-          xp: newXP,
-          level: newLevel,
-          visited_places: newVisitedPlaces
-        })
+        .update(updateData)
         .eq('id', userId);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Update error:', updateError);
+        throw updateError;
+      }
 
-      console.log('✅ Profile updated:', { newXP, newLevel, visitedPlaces: newVisitedPlaces });
+      console.log('✅ Profile updated successfully!');
+
+      // Refresh user stats display immediately
+      if (typeof window.updateUserStatsDisplay === 'function') {
+        await window.updateUserStatsDisplay(userId);
+      }
 
       // Show success message
       showSuccessDialog(place, place.xp, newXP, newLevel, leveledUp);
 
     } catch (error) {
       console.error('❌ Check-in error:', error);
+      console.error('❌ Error details:', {
+        message: error.message,
+        code: error.code,
+        details: error.details,
+        hint: error.hint
+      });
       
-      // Friendly error messages
-      if (error.message && error.message.includes('visited_places')) {
-        alert('Aktualizuję profil - może to potrwać chwilę...\n\nSpróbuj ponownie za moment.');
+      // Detailed error messages
+      if (error.message && error.message.includes('column')) {
+        alert('⚠️ Brak kolumn XP w bazie danych.\n\nUruchom skrypt SQL:\nADD_XP_COLUMNS_TO_PROFILES.sql\n\nw Supabase SQL Editor.');
+      } else if (error.message && error.message.includes('profil')) {
+        alert(error.message);
       } else {
-        alert('Błąd podczas zameldowania. Spróbuj ponownie.');
+        alert('Błąd podczas zameldowania:\n\n' + (error.message || 'Nieznany błąd'));
       }
     }
   }

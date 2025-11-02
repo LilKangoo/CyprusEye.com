@@ -135,7 +135,10 @@
             id="profileButton"
           >
             <img id="headerUserAvatar" class="header-user-avatar" src="/assets/cyprus_logo-1000x1054.png" alt="Avatar" width="40" height="40" loading="eager" />
-            <span>Profil</span>
+            <div style="display: flex; flex-direction: column; align-items: flex-start; gap: 0.2rem;">
+              <span style="font-weight: 600;">Profil</span>
+              <span id="headerUserStats" style="font-size: 0.75rem; color: #666;">Loading...</span>
+            </div>
           </a>
           <button class="btn" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
           <span class="auth-badge" data-auth="anon-only" data-i18n="auth.status.anon">Nie zalogowano</span>
