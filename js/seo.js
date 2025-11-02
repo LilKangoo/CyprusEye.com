@@ -477,22 +477,14 @@
 
     mobileTabbar.innerHTML = '';
     
-    // Get current page's tab ID to exclude it from navigation
-    const currentTabId = determineActiveMobileTabId();
-    
-    // Render only buttons that are NOT the current page (show 6 out of 7)
+    // Render all 7 buttons on every page
     MOBILE_NAV_ITEMS.forEach((item) => {
-      // Skip the button for the current page
-      if (item.id === currentTabId) {
-        return;
-      }
-      
       const button = buildMobileTabbarButton(item);
       mobileTabbar.appendChild(button);
     });
 
+    updateMobileTabbarActiveState(mobileTabbar);
     attachPageNavigation(mobileTabbar);
-    // No need to set active state since current page button is not rendered
   }
 
   function initializeMobileTabbar() {
