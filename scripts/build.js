@@ -62,6 +62,7 @@ const STATE_FILES = [
   'src/state/store.js',
   'src/state/accounts.js',
   'src/state/progress.js',
+  'src/state/notifications.js',
 ];
 
 async function buildFile(filePath) {
