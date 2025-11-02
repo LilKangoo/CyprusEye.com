@@ -132,25 +132,31 @@
             </button>
             <button class="btn btn-sm" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Gość</button>
             <button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
+            <button
+              id="sosToggle"
+              class="btn btn-sm btn-danger"
+              type="button"
+              aria-haspopup="dialog"
+              aria-controls="sosModal"
+              data-i18n="header.sosToggle"
+            >
+              🚨 SOS
+            </button>
           </div>
           <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
         </div>
         
-        <a
-          class="header-coupon-button"
-          href="kupon.html"
-          data-i18n="header.coupon"
-          data-i18n-attrs="aria-label:header.couponAria"
-          aria-label="Kupon"
-        >
-          Kupon
-        </a>
         <div class="header-actions" aria-label="Szybkie działania" data-i18n-attrs="aria-label:header.quickActions.aria">
           <div class="header-actions-primary">
-            <button class="btn btn-primary primary" type="button" id="jumpToObjective" data-i18n="header.jumpToObjective">
-              Skocz do aktualnego celu
-            </button>
             <a class="ghost header-link" href="community.html" data-i18n="header.communityLink">💬 Społeczność</a>
+            <a
+              class="ghost header-link"
+              href="kupon.html"
+              data-i18n="header.coupon"
+              aria-label="Kupon"
+            >
+              Kupon
+            </a>
             <a class="ghost header-link" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
             <a
               href="vip.html"
@@ -161,16 +167,6 @@
             >
               ✨ VIP wyjazdy indywidualne
             </a>
-            <button
-              id="sosToggle"
-              class="btn btn-danger danger"
-              type="button"
-              aria-haspopup="dialog"
-              aria-controls="sosModal"
-              data-i18n="header.sosToggle"
-            >
-              🚨 SOS
-            </button>
           </div>
         </div>
       </div>

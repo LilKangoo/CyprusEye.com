@@ -27,6 +27,17 @@
   flex-shrink: 0;
 }
 
+.btn-sm.btn-danger {
+  background: #dc2626;
+  color: white;
+  border: 1px solid #b91c1c;
+}
+
+.btn-sm.btn-danger:hover {
+  background: #b91c1c;
+  border-color: #991b1b;
+}
+
 /* Hide spinner by default, show only when loading */
 .auth-spinner-inline {
   display: none;
@@ -127,6 +138,13 @@
 
 .header-top-actions::-webkit-scrollbar {
   display: none;
+}
+
+/* Jump to objective in nav */
+.header-tabs #jumpToObjective {
+  margin-right: auto;
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
 }
 
 /* ===================================
