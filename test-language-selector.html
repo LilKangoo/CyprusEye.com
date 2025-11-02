@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>TEST: Language Selector Event-Driven - CyprusEye</title>
+  <title>Test Language Selector - CyprusEye</title>
   
   <!-- Include only necessary CSS for testing -->
   <link rel="stylesheet" href="assets/css/tokens.css" />
@@ -119,12 +119,6 @@
     </div>
     
     <div class="info-grid" id="infoGrid">
-      <div class="info-label">HTML Flag (pending):</div>
-      <div class="info-value" id="htmlFlag">-</div>
-      
-      <div class="info-label">Window Flag:</div>
-      <div class="info-value" id="windowFlag">-</div>
-      
       <div class="info-label">Language Selected:</div>
       <div class="info-value" id="langSelected">-</div>
       
@@ -136,14 +130,6 @@
       
       <div class="info-label">Selector Active:</div>
       <div class="info-value" id="selectorActive">-</div>
-      
-      <div class="info-label">Events Fired:</div>
-      <div class="info-value" id="eventsFired">-</div>
-    </div>
-    
-    <div class="test-section">
-      <h3>📋 Console Output (Real-time)</h3>
-      <div class="console-output" id="consoleOutput" style="background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 12px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; margin: 10px 0;">Waiting for logs...</div>
     </div>
     
     <div class="controls">
@@ -192,41 +178,15 @@
   <script src="js/languageSelector.js"></script>
   
   <script>
-    // Console capture
-    const originalLog = console.log;
-    const consoleOutput = document.getElementById('consoleOutput');
-    let eventsFired = [];
-    
-    console.log = function(...args) {
-      originalLog.apply(console, args);
-      const message = args.map(arg => 
-        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
-      ).join(' ');
-      consoleOutput.textContent += message + '\n';
-      consoleOutput.scrollTop = consoleOutput.scrollHeight;
-    };
-    
-    // Event listener for languageSelector:ready
-    document.addEventListener('languageSelector:ready', (event) => {
-      console.log('🎉 EVENT FIRED: languageSelector:ready', event.detail);
-      eventsFired.push('languageSelector:ready at ' + new Date().toLocaleTimeString());
-      updateStatus();
-    });
-    
     // Simple test utilities
     function updateStatus() {
-      const htmlFlag = document.documentElement.getAttribute('data-language-selection-pending');
-      const windowFlag = window.languageSelectorActive;
       const langSelected = localStorage.getItem('ce_lang_selected');
       const chosenLang = localStorage.getItem('ce_lang');
       const tutorialSeen = localStorage.getItem('seenTutorial');
       
-      document.getElementById('htmlFlag').textContent = htmlFlag || 'NOT SET';
-      document.getElementById('windowFlag').textContent = String(windowFlag);
       document.getElementById('langSelected').textContent = langSelected || 'null';
       document.getElementById('chosenLang').textContent = chosenLang || 'null';
       document.getElementById('tutorialSeen').textContent = tutorialSeen || 'null';
-      document.getElementById('eventsFired').textContent = eventsFired.length > 0 ? eventsFired.join(', ') : 'NONE';
       
       const selector = window.languageSelector;
       const selectorActive = selector && selector.shouldShow ? selector.shouldShow() : false;

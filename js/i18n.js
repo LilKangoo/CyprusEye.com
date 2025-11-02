@@ -551,28 +551,13 @@
   }
 
   function init() {
-    // Check if language selection is pending
-    const languageSelectionPending = document.documentElement.hasAttribute('data-language-selection-pending');
-    
-    if (languageSelectionPending) {
-      console.log('🌍 i18n: Waiting for language selection...');
-      // Wait for language selector to complete
-      document.addEventListener('languageSelector:ready', (event) => {
-        console.log('🌍 i18n: Language selector ready:', event.detail);
-        // Language selector already called setLanguage if needed
-        if (!appI18n.language) {
-          const detected = detectLanguage();
-          const language = Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, detected)
-            ? detected
-            : DEFAULT_LANGUAGE;
-          setLanguage(language, { persist: true, updateUrl: true });
-        }
-      }, { once: true });
+    // Check if language selector is active (first visit)
+    const languageSelector = window.languageSelector;
+    if (languageSelector && typeof languageSelector.shouldShow === 'function' && languageSelector.shouldShow()) {
+      // Language selector will handle initialization
       return;
     }
 
-    // No language selection needed, proceed normally
-    console.log('🌍 i18n: Initializing normally');
     const detected = detectLanguage();
     const language = Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, detected)
       ? detected
@@ -583,9 +568,12 @@
 
   appI18n.setLanguage = setLanguage;
 
+  // Wait for language selector to be ready before initializing
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
+    document.addEventListener('DOMContentLoaded', () => {
+      setTimeout(init, 10); // Small delay to let language selector initialize first
+    });
   } else {
-    init();
+    setTimeout(init, 10);
   }
 })();

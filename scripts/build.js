@@ -12,8 +12,6 @@ const DIST = join(ROOT, 'dist');
 const JS_FILES = [
   'app.js',
   'car-rental.js',
-  'service-worker.js',
-  'js/pwa.js',
   'js/auth.js',
   'js/authUi.js',
   'js/i18n.js',
@@ -57,26 +55,6 @@ const UTILITY_FILES = [
   'src/utils/dataProcessing.js',
   'src/utils/storage.js',
   'src/utils/dom.js',
-];
-
-// State management modules (src/state/)
-const STATE_FILES = [
-  'src/state/store.js',
-  'src/state/accounts.js',
-  'src/state/progress.js',
-  'src/state/notifications.js',
-  'src/state/reviews.js',
-];
-
-// API modules (src/api/)
-const API_FILES = [
-  'src/api/supabase.js',
-];
-
-// Component modules (src/components/)
-const COMPONENT_FILES = [
-  'src/components/modal.js',
-  'src/components/toast.js',
 ];
 
 async function buildFile(filePath) {
@@ -230,21 +208,6 @@ async function build() {
     
     // Buduj utility modules
     for (const file of UTILITY_FILES) {
-      await buildFile(file);
-    }
-    
-    // Buduj state modules
-    for (const file of STATE_FILES) {
-      await buildFile(file);
-    }
-    
-    // Buduj API modules
-    for (const file of API_FILES) {
-      await buildFile(file);
-    }
-    
-    // Buduj component modules
-    for (const file of COMPONENT_FILES) {
       await buildFile(file);
     }
   

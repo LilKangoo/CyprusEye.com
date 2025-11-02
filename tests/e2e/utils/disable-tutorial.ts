@@ -7,8 +7,6 @@ import { Page } from '@playwright/test';
 export async function disableTutorial(page: Page) {
   await page.addInitScript(() => {
     window.localStorage.setItem('seenTutorial', 'true');
-    // Also disable language selector popup
-    window.localStorage.setItem('languageSelected', 'true');
   });
 }
 
