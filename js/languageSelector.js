@@ -168,6 +168,11 @@
     selectLanguage(code) {
       this.selectedLanguage = code;
       markLanguageAsSelected();
+      console.log(`Language ${code} selected by user`);
+
+      // Remove pending flag
+      document.documentElement.removeAttribute('data-language-selection-pending');
+      window.languageSelectorActive = false;
 
       // Set language using the i18n system
       if (window.appI18n && typeof window.appI18n.setLanguage === 'function') {
@@ -177,12 +182,17 @@
       // Hide the selector
       this.hide();
 
+      // Dispatch event that language was selected and other scripts can proceed
+      document.dispatchEvent(new CustomEvent('languageSelector:ready', {
+        detail: { languageSelected: true, language: code }
+      }));
+
       // Wait for language to be set, then initialize tutorial if needed
       setTimeout(() => {
         if (window.appTutorial && typeof window.appTutorial.init === 'function') {
           window.appTutorial.init();
         }
-      }, 100);
+      }, 150);
     }
 
     handleKeydown(event) {
@@ -271,13 +281,23 @@
     // Expose to window for debugging BEFORE showing
     window.languageSelector = selector;
 
+    // Set global flag indicating if selector is active
+    const shouldShowSelector = selector.shouldShow();
+    window.languageSelectorActive = shouldShowSelector;
+
     // Show selector if needed (before tutorial and i18n init)
-    if (selector.shouldShow()) {
+    if (shouldShowSelector) {
       console.log('Showing language selector...');
+      // BLOCK other scripts from initializing
+      document.documentElement.setAttribute('data-language-selection-pending', 'true');
       // Show immediately
       selector.show();
     } else {
       console.log('Language selector not needed (already selected or not home page)');
+      // Signal that other scripts can proceed
+      document.dispatchEvent(new CustomEvent('languageSelector:ready', {
+        detail: { languageSelected: true, skipSelector: true }
+      }));
     }
   }
 

@@ -147,13 +147,26 @@
       this.updateUiText();
       this.updateHelpButtonLabel();
 
-      // Check if language selector is active - if so, don't auto-start yet
-      const languageSelector = window.languageSelector;
-      const selectorActive = languageSelector && typeof languageSelector.shouldShow === 'function' && languageSelector.shouldShow();
-
-      if (this.shouldAutoStart() && this.translationsReady && !selectorActive) {
-        this.start();
-        this.hasAutoStarted = true;
+      // Check if language selection is pending
+      const languageSelectionPending = document.documentElement.hasAttribute('data-language-selection-pending');
+      
+      if (languageSelectionPending) {
+        console.log('Tutorial: Waiting for language selection...');
+        // Wait for language selector to complete
+        document.addEventListener('languageSelector:ready', () => {
+          console.log('Tutorial: Language selected, can now auto-start if needed');
+          if (this.shouldAutoStart() && this.translationsReady) {
+            this.start();
+            this.hasAutoStarted = true;
+          }
+        }, { once: true });
+      } else {
+        // Language already selected or not needed, can auto-start immediately
+        console.log('Tutorial: No language selection needed, checking auto-start...');
+        if (this.shouldAutoStart() && this.translationsReady) {
+          this.start();
+          this.hasAutoStarted = true;
+        }
       }
     }
 

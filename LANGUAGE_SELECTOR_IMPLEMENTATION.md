@@ -54,7 +54,28 @@ Zaimplementowany system wyboru języka przy pierwszym odwiedzeniu strony. Popup 
   - Jeśli tak, NIE uruchamia automatycznie tutoriala
   - Tutorial wystartuje dopiero PO wyborze języka (wywołane przez languageSelector.js)
 
-## Przepływ Działania
+## ⚡ Event-Driven Architecture - Jak to działa
+
+### Mechanizm Blokowania:
+```javascript
+// 1. Language Selector ustawia BLOKADĘ
+document.documentElement.setAttribute('data-language-selection-pending', 'true');
+window.languageSelectorActive = true;
+
+// 2. Inne skrypty SPRAWDZAJĄ blokadę
+if (document.documentElement.hasAttribute('data-language-selection-pending')) {
+  // CZEKAJ na event
+  document.addEventListener('languageSelector:ready', handleReady, { once: true });
+}
+
+// 3. Po wyborze - USUŃ blokadę i WYŚLIJ event
+document.documentElement.removeAttribute('data-language-selection-pending');
+document.dispatchEvent(new CustomEvent('languageSelector:ready', {
+  detail: { languageSelected: true, language: 'pl' }
+}));
+```
+
+## Przepływ Działania (Event-Driven Architecture)
 
 ### Pierwsze Odwiedzenie (localStorage: ce_lang_selected = null):
 1. **languageSelector.js** ładuje się pierwszy
@@ -62,6 +83,9 @@ Zaimplementowany system wyboru języka przy pierwszym odwiedzeniu strony. Popup 
    - Wyświetla modal z 4 językami
    
 2. **i18n.js** ładuje się, ale NIE inicjalizuje
+   - Sprawdza czy `window.languageSelector.shouldShow()` zwraca true
+   - Jeśli tak, NIE inicjalizuje automatycznie (czeka na wybór użytkownika)
+   
    - Wykrywa że `languageSelector.shouldShow() === true`
    - Czeka na akcję użytkownika
 
@@ -178,6 +202,98 @@ localStorage.getItem('seenTutorial'); // "true" (po zakończeniu tutorial)
 - ✅ Reduced motion preferences
 - ✅ Screen readers
 
-## Status: ✅ COMPLETE
+## 🧪 Instrukcje Testowania
 
-System jest w pełni zintegrowany i gotowy do produkcji.
+### Krok 1: Otwórz stronę testową
+```
+http://localhost:8000/test-language-selector.html
+```
+
+### Krok 2: Test pierwszego odwiedzenia
+1. Kliknij "Clear All Data"
+2. Kliknij "Refresh Page"
+3. **Sprawdź:**
+   - ✅ Language Selector pojawia się NATYCHMIAST
+   - ✅ HTML Flag (pending): "true"
+   - ✅ Console pokazuje: "Language Selector Debug: shouldShow: true"
+   - ✅ Tutorial NIE startuje
+
+### Krok 3: Wybierz język
+1. Kliknij na jeden z języków (np. Polski)
+2. **Sprawdź:**
+   - ✅ Modal znika
+   - ✅ HTML Flag (pending): "NOT SET"
+   - ✅ Console pokazuje: "Language pl selected by user"
+   - ✅ Console pokazuje: "🎉 EVENT FIRED: languageSelector:ready"
+   - ✅ Events Fired: "languageSelector:ready at [time]"
+
+### Krok 4: Test kolejnych wizyt
+1. Odśwież stronę (F5)
+2. **Sprawdź:**
+   - ✅ Language Selector NIE pojawia się
+   - ✅ HTML Flag (pending): "NOT SET"
+   - ✅ Console pokazuje: "Language selector not needed"
+   - ✅ Język zachowany z poprzedniego wyboru
+
+### Krok 5: Test głównej strony
+1. Otwórz `http://localhost:8000/index.html`
+2. Wyczyść localStorage w konsoli:
+   ```javascript
+   localStorage.clear(); location.reload();
+   ```
+3. **Sprawdź:**
+   - ✅ Language Selector pojawia się PRZED tutorialem
+   - ✅ Po wyborze języka tutorial startuje automatycznie
+   - ✅ Tutorial jest w wybranym języku
+
+---
+
+## 🎯 Kluczowe Punkty Rozwiązania
+
+### 1. HTML Attribute jako flaga synchronizacji
+- `data-language-selection-pending="true"` - blokuje inne skrypty
+- Dostępna natychmiast dla wszystkich skryptów
+- Nie ma race condition
+
+### 2. Custom Event jako trigger
+- `languageSelector:ready` - sygnał że język jest gotowy
+- Event wysyłany w 2 przypadkach:
+  - Po wyborze języka przez użytkownika
+  - Gdy język już był wybrany (skipSelector: true)
+
+### 3. Event Listeners z `{ once: true }`
+- Automatycznie usuwają się po pierwszym wywołaniu
+- Zapobiega memory leaks
+- Czysta implementacja
+
+### 4. Console Logging dla diagnostyki
+- Każdy krok jest logowany
+- Łatwe debugowanie
+- Transparentny flow
+
+---
+
+## 📊 Porównanie: Przed vs. Po
+
+### PRZED (setTimeout hack):
+```javascript
+// ❌ Niepewna kolejność
+setTimeout(init, 10); // Może nie wystarczyć
+if (window.languageSelector?.shouldShow()) { ... } // Race condition
+```
+
+### PO (Event-driven):
+```javascript
+// ✅ Gwarantowana kolejność
+if (document.documentElement.hasAttribute('data-language-selection-pending')) {
+  document.addEventListener('languageSelector:ready', init, { once: true });
+}
+```
+
+---
+
+## Status: ✅ COMPLETE & TESTED
+
+System jest w pełni zintegrowany, przetestowany i gotowy do produkcji.
+
+**Event-driven architecture gwarantuje że Language Selector ZAWSZE pokazuje się przed Tutorial.**

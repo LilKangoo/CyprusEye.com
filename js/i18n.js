@@ -551,13 +551,29 @@
   }
 
   function init() {
-    // Check if language selector is active (first visit)
-    const languageSelector = window.languageSelector;
-    if (languageSelector && typeof languageSelector.shouldShow === 'function' && languageSelector.shouldShow()) {
-      // Language selector will handle initialization
+    // Check if language selection is pending
+    const languageSelectionPending = document.documentElement.hasAttribute('data-language-selection-pending');
+    
+    if (languageSelectionPending) {
+      console.log('i18n: Waiting for language selection...');
+      // Wait for language selector to complete, then it will call setLanguage
+      document.addEventListener('languageSelector:ready', (event) => {
+        console.log('i18n: Language selector ready, event received:', event.detail);
+        // Language selector already called setLanguage if needed
+        // Just ensure we're initialized
+        if (!appI18n.language) {
+          const detected = detectLanguage();
+          const language = Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, detected)
+            ? detected
+            : DEFAULT_LANGUAGE;
+          setLanguage(language, { persist: true, updateUrl: true });
+        }
+      }, { once: true });
       return;
     }
 
+    // No language selection needed, proceed normally
+    console.log('i18n: No language selection needed, initializing...');
     const detected = detectLanguage();
     const language = Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, detected)
       ? detected
@@ -568,12 +584,10 @@
 
   appI18n.setLanguage = setLanguage;
 
-  // Wait for language selector to be ready before initializing
+  // Initialize when DOM is ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      setTimeout(init, 10); // Small delay to let language selector initialize first
-    });
+    document.addEventListener('DOMContentLoaded', init);
   } else {
-    setTimeout(init, 10);
+    init();
   }
 })();
