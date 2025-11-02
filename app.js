@@ -10079,6 +10079,7 @@ function bootstrap() {
   const sosDialog = sosModal?.querySelector('.sos-dialog');
   const sosClose = document.getElementById('sosClose');
   const sosToggleButtons = document.querySelectorAll('[aria-controls="sosModal"]');
+  console.log('SOS Toggle Buttons found:', sosToggleButtons.length, sosToggleButtons);
   const dailyChallengeFocus = document.getElementById('dailyChallengeFocus');
   const dailyChallengeShuffle = document.getElementById('dailyChallengeShuffle');
 
@@ -10316,7 +10317,9 @@ function bootstrap() {
   });
 
   sosToggleButtons.forEach((button) => {
+    console.log('Adding click listener to SOS button:', button.id);
     button.addEventListener('click', (event) => {
+      console.log('SOS button clicked!');
       const trigger = event.currentTarget;
       if (trigger instanceof HTMLElement) {
         openSosModal(trigger);
