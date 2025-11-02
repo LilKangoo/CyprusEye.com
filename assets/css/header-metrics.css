@@ -140,11 +140,25 @@
   display: none;
 }
 
-/* Jump to objective in nav */
-.header-tabs #jumpToObjective {
-  margin-right: auto;
-  padding: 0.5rem 1rem;
-  font-size: 0.875rem;
+/* Jump to objective container - below nav */
+.jump-to-objective-container {
+  display: flex;
+  justify-content: center;
+  padding: 0.75rem 1rem;
+  background: #f9fafb;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.jump-to-objective-container #jumpToObjective {
+  padding: 0.625rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  box-shadow: 0 2px 4px rgba(37, 99, 235, 0.2);
+}
+
+.jump-to-objective-container #jumpToObjective:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 8px rgba(37, 99, 235, 0.3);
 }
 
 /* ===================================
