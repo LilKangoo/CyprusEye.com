@@ -578,7 +578,13 @@
     });
   </script>
   
-  <script type="module" src="app.js"></script>
+  <!-- Load data files first -->
+  <script src="js/data-places.js"></script>
+  <script src="js/data-tasks.js"></script>
+  <script src="js/data-packing.js"></script>
+  
+  <!-- Load core application -->
+  <script src="app-core.js"></script>
   <script src="assets/js/modal-auth.js" defer></script>
 
   <div
