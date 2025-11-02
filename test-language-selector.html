@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="pl" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>TEST: Language Selector Event-Driven - CyprusEye</title>
+  
+  <!-- Include only necessary CSS for testing -->
+  <link rel="stylesheet" href="assets/css/tokens.css" />
+  <link rel="stylesheet" href="assets/css/base.css" />
+  <link rel="stylesheet" href="assets/css/language-selector.css" />
+  
+  <style>
+    body {
+      font-family: 'Jost', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    
+    .test-container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    h1 {
+      color: #1a1a1a;
+      margin-bottom: 10px;
+    }
+    
+    .status {
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .status.info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    
+    button {
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      margin: 10px 5px;
+    }
+    
+    button:hover {
+      background: #0052a3;
+    }
+    
+    button.secondary {
+      background: #6c757d;
+    }
+    
+    button.secondary:hover {
+      background: #5a6268;
+    }
+    
+    button.danger {
+      background: #dc3545;
+    }
+    
+    button.danger:hover {
+      background: #c82333;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 20px 0;
+    }
+    
+    .info-grid {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 10px;
+      margin: 15px 0;
+      font-size: 14px;
+    }
+    
+    .info-label {
+      font-weight: 600;
+      color: #495057;
+    }
+    
+    .info-value {
+      color: #212529;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body data-seo-page="home">
+  <div class="test-container">
+    <h1>🧪 Language Selector Test Page</h1>
+    <p>Strona testowa dla systemu wyboru języka przy pierwszym odwiedzeniu.</p>
+    
+    <div class="status info" id="statusBox">
+      Ładowanie...
+    </div>
+    
+    <div class="info-grid" id="infoGrid">
+      <div class="info-label">HTML Flag (pending):</div>
+      <div class="info-value" id="htmlFlag">-</div>
+      
+      <div class="info-label">Window Flag:</div>
+      <div class="info-value" id="windowFlag">-</div>
+      
+      <div class="info-label">Language Selected:</div>
+      <div class="info-value" id="langSelected">-</div>
+      
+      <div class="info-label">Chosen Language:</div>
+      <div class="info-value" id="chosenLang">-</div>
+      
+      <div class="info-label">Tutorial Seen:</div>
+      <div class="info-value" id="tutorialSeen">-</div>
+      
+      <div class="info-label">Selector Active:</div>
+      <div class="info-value" id="selectorActive">-</div>
+      
+      <div class="info-label">Events Fired:</div>
+      <div class="info-value" id="eventsFired">-</div>
+    </div>
+    
+    <div class="test-section">
+      <h3>📋 Console Output (Real-time)</h3>
+      <div class="console-output" id="consoleOutput" style="background: #1e1e1e; color: #d4d4d4; padding: 15px; border-radius: 8px; font-family: 'Courier New', monospace; font-size: 12px; max-height: 200px; overflow-y: auto; white-space: pre-wrap; margin: 10px 0;">Waiting for logs...</div>
+    </div>
+    
+    <div class="controls">
+      <button onclick="clearAllData()">🗑️ Clear All Data (Test First Visit)</button>
+      <button class="secondary" onclick="showSelector()">📋 Show Selector Manually</button>
+      <button class="secondary" onclick="refreshPage()">🔄 Refresh Page</button>
+    </div>
+    
+    <hr style="margin: 30px 0; border: none; border-top: 1px solid #dee2e6;">
+    
+    <h2>Instrukcje testowania:</h2>
+    <ol style="line-height: 1.8;">
+      <li><strong>Test pierwszego odwiedzenia:</strong>
+        <ul>
+          <li>Kliknij "Clear All Data"</li>
+          <li>Odśwież stronę</li>
+          <li>Powinien pojawić się popup z wyborem języka</li>
+        </ul>
+      </li>
+      <li><strong>Test wyboru języka:</strong>
+        <ul>
+          <li>Wybierz jeden z 4 języków (Polski, English, Ελληνικά, עברית)</li>
+          <li>Popup powinien zniknąć</li>
+          <li>Status powinien się zaktualizować</li>
+        </ul>
+      </li>
+      <li><strong>Test kolejnych wizyt:</strong>
+        <ul>
+          <li>Odśwież stronę ponownie</li>
+          <li>Popup NIE powinien się pojawić</li>
+          <li>Język powinien być zapamiętany</li>
+        </ul>
+      </li>
+    </ol>
+    
+    <h2>Oczekiwane zachowanie:</h2>
+    <ul style="line-height: 1.8;">
+      <li>✅ Popup pojawia się tylko przy pierwszym odwiedzeniu</li>
+      <li>✅ Nie można zamknąć popupu bez wyboru (ESC disabled)</li>
+      <li>✅ Nawigacja klawiaturą działa (Arrow Up/Down, Tab)</li>
+      <li>✅ Po wyborze język jest zapisany w localStorage</li>
+      <li>✅ Przy kolejnych wizytach popup się nie pokazuje</li>
+    </ul>
+  </div>
+  
+  <script src="js/languageSelector.js"></script>
+  
+  <script>
+    // Console capture
+    const originalLog = console.log;
+    const consoleOutput = document.getElementById('consoleOutput');
+    let eventsFired = [];
+    
+    console.log = function(...args) {
+      originalLog.apply(console, args);
+      const message = args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+      ).join(' ');
+      consoleOutput.textContent += message + '\n';
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    };
+    
+    // Event listener for languageSelector:ready
+    document.addEventListener('languageSelector:ready', (event) => {
+      console.log('🎉 EVENT FIRED: languageSelector:ready', event.detail);
+      eventsFired.push('languageSelector:ready at ' + new Date().toLocaleTimeString());
+      updateStatus();
+    });
+    
+    // Simple test utilities
+    function updateStatus() {
+      const htmlFlag = document.documentElement.getAttribute('data-language-selection-pending');
+      const windowFlag = window.languageSelectorActive;
+      const langSelected = localStorage.getItem('ce_lang_selected');
+      const chosenLang = localStorage.getItem('ce_lang');
+      const tutorialSeen = localStorage.getItem('seenTutorial');
+      
+      document.getElementById('htmlFlag').textContent = htmlFlag || 'NOT SET';
+      document.getElementById('windowFlag').textContent = String(windowFlag);
+      document.getElementById('langSelected').textContent = langSelected || 'null';
+      document.getElementById('chosenLang').textContent = chosenLang || 'null';
+      document.getElementById('tutorialSeen').textContent = tutorialSeen || 'null';
+      document.getElementById('eventsFired').textContent = eventsFired.length > 0 ? eventsFired.join(', ') : 'NONE';
+      
+      const selector = window.languageSelector;
+      const selectorActive = selector && selector.shouldShow ? selector.shouldShow() : false;
+      document.getElementById('selectorActive').textContent = selectorActive ? 'YES' : 'NO';
+      
+      const statusBox = document.getElementById('statusBox');
+      if (langSelected === 'true') {
+        statusBox.className = 'status success';
+        statusBox.textContent = `✅ Język został wybrany: ${chosenLang || 'nieznany'}`;
+      } else {
+        statusBox.className = 'status info';
+        statusBox.textContent = '⚠️ Język nie został jeszcze wybrany. Popup powinien się pokazać.';
+      }
+    }
+    
+    function clearAllData() {
+      if (confirm('Czy na pewno chcesz wyczyścić wszystkie dane? To wywoła ponowne pokazanie popupu wyboru języka.')) {
+        localStorage.removeItem('ce_lang_selected');
+        localStorage.removeItem('ce_lang');
+        localStorage.removeItem('seenTutorial');
+        alert('Dane wyczyszczone! Odśwież stronę aby zobaczyć popup.');
+        updateStatus();
+      }
+    }
+    
+    function showSelector() {
+      if (window.languageSelector && window.languageSelector.show) {
+        window.languageSelector.show();
+      } else {
+        alert('Language selector nie jest jeszcze dostępny.');
+      }
+    }
+    
+    function refreshPage() {
+      location.reload();
+    }
+    
+    // Update status on load
+    window.addEventListener('load', () => {
+      updateStatus();
+    });
+    
+    // Update status when language changes
+    window.addEventListener('storage', () => {
+      updateStatus();
+    });
+    
+    // Update every second (for development)
+    setInterval(updateStatus, 1000);
+  </script>
+</body>
+</html>

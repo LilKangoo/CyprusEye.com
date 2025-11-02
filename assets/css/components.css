@@ -8017,6 +8017,131 @@ body.auth-page {
   }
 }
 
+/* ============================================
+   PWA Install Button
+   ============================================ */
+
+.header-pwa-container {
+  display: flex;
+  justify-content: center;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+  border-bottom: 2px solid #0066cc;
+  position: sticky;
+  top: 0;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.1);
+}
+
+.pwa-install-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  background: linear-gradient(135deg, #0066cc, #0052a3);
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.pwa-install-button:hover {
+  background: linear-gradient(135deg, #0052a3, #003d7a);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+}
+
+.pwa-install-button:active {
+  transform: translateY(0);
+}
+
+.pwa-install-button[hidden] {
+  display: none;
+}
+
+.pwa-install-button .install-text {
+  font-size: 0.875rem;
+}
+
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+  }
+  50% {
+    box-shadow: 0 6px 20px rgba(0, 102, 204, 0.5);
+  }
+}
+
+@media (max-width: 768px) {
+  .header-pwa-container {
+    padding: 0.5rem;
+  }
+  
+  .pwa-install-button .install-text {
+    display: none;
+  }
+  
+  .pwa-install-button {
+    padding: 0.75rem;
+    font-size: 1.5rem;
+  }
+}
+
+/* ============================================
+   Language Selector
+   ============================================ */
+
+.language-selector {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #0066cc, #0052a3);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 102, 204, 0.2);
+  margin-right: 0.5rem;
+}
+
+.language-selector:hover {
+  background: linear-gradient(135deg, #0052a3, #003d7a);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+}
+
+.language-selector:active {
+  transform: translateY(0);
+}
+
+.language-selector[hidden] {
+  display: none;
+}
+
+.language-selector .language-text {
+  font-size: 0.875rem;
+}
+
+@media (max-width: 768px) {
+  .language-selector .language-text {
+    display: none;
+  }
+  
+  .language-selector {
+    padding: 0.5rem;
+    font-size: 1.2rem;
+  }
+}
+
 /* ========================================
    Profile Avatar Section
    ======================================== */

@@ -12,11 +12,19 @@
 </script>
 
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0" />
+  <meta name="description" content="WakacjeCypr Quest to interaktywna gra, która zamienia podróż po Cyprze w ekscytującą przygodę. Odwiedzaj miejsca, zdobywaj punkty XP, odblokowuj osiągnięcia i odkrywaj ukryte skarby wyspy!" />
   
   <!-- Security: Content Security Policy -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://esm.sh https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://www.google-analytics.com; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
   
+  <!-- PWA Manifest -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#0066cc" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="CyprusEye" />
+  <link rel="apple-touch-icon" href="/assets/cyprus_logo-1000x1054.png" />
   <meta name="theme-color" content="#2563eb" />
   <meta name="robots" content="index,follow" />
   <title data-i18n="seo.home.title">CyprusEye Quest – interactive travel game in Cyprus</title>
@@ -90,8 +98,9 @@
   <meta name="ce-auth" content="on" />
   <script type="module" src="/js/supabaseClient.js"></script>
   <script type="module" src="/js/toast.js"></script>
-  <script type="module" src="/js/auth.js"></script>
-  <script type="module" src="/js/authUi.js"></script>
+  <script type="module" src="/js/seo.js"></script>
+  <script type="module" src="/js/pwa.js"></script>
+  <script type="module" src="app.js"></script>
 </head>
 <body data-navigation="multi-page" data-initial-view="adventureView" data-seo-page="home">
   <!-- Accessibility: Skip to main content -->
@@ -154,6 +163,21 @@
         </div>
       </div>
     </div>
+    
+    <!-- PWA Install Button - Always Visible -->
+    <div class="header-pwa-container" id="pwa-header-container">
+      <button
+        type="button"
+        id="pwa-install-btn"
+        class="pwa-install-button"
+        aria-label="Zainstaluj aplikację CyprusEye"
+        title="Dodaj CyprusEye do ekranu głównego"
+      >
+        <span aria-hidden="true">📲</span>
+        <span class="install-text">Zainstaluj aplikację</span>
+      </button>
+    </div>
+    
     <div class="header-top">
       <div class="brand">
         <img
@@ -586,6 +610,19 @@
             data-i18n="explorer.close"
           >
             ✕
+          </button>
+        </div>
+        <div class="language-selector-container">
+          <button
+            type="button"
+            id="language-selector-button"
+            class="language-selector-button"
+            aria-label="Wybierz język"
+            aria-haspopup="true"
+            aria-expanded="false"
+          >
+            <span class="current-language" id="current-language-display">PL</span>
+            <span class="language-icon" aria-hidden="true">🌐</span>
           </button>
         </div>
       </header>

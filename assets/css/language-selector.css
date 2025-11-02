@@ -1,4 +1,6 @@
-/* Language Selector - First Visit Language Selection */
+/* ============================================================================
+   Language Selector Overlay - First Visit Language Selection
+   ============================================================================ */
 
 .language-selector-overlay {
   position: fixed;
@@ -10,25 +12,38 @@
   display: none;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.85);
-  backdrop-filter: blur(8px);
+  opacity: 0;
+  transition: opacity 0.3s ease;
 }
 
 .language-selector-overlay.is-visible {
   display: flex;
+  opacity: 1;
+}
+
+.language-selector-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
 }
 
 .language-selector-dialog {
+  position: relative;
+  z-index: 10001;
   background: white;
   border-radius: 16px;
   padding: 32px 24px;
   max-width: 400px;
   width: 90%;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: slideIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: languageSelectorSlideIn 0.4s ease-out;
 }
 
-@keyframes slideIn {
+@keyframes languageSelectorSlideIn {
   from {
     opacity: 0;
     transform: translateY(-20px) scale(0.95);
@@ -71,17 +86,22 @@
   text-align: left;
 }
 
-.language-selector-option:hover,
-.language-selector-option:focus {
+.language-selector-option:hover {
   background: #e8f4f8;
   border-color: #0066cc;
   transform: translateX(4px);
+}
+
+.language-selector-option:focus {
   outline: none;
+  background: #e8f4f8;
+  border-color: #0066cc;
   box-shadow: 0 0 0 4px rgba(0, 102, 204, 0.1);
+  transform: translateX(4px);
 }
 
 .language-selector-option:active {
-  transform: scale(0.98);
+  transform: translateX(4px) scale(0.98);
 }
 
 .language-selector-text {
@@ -96,24 +116,74 @@
   margin-left: 12px;
 }
 
+/* Prevent body scroll when selector is open */
+body.language-selector-open {
+  overflow: hidden;
+}
+
+/* RTL Support for Hebrew */
 .language-selector-option[data-language="he"] {
   direction: rtl;
 }
 
+.language-selector-option[data-language="he"] .language-selector-flag {
+  margin-left: 0;
+  margin-right: 12px;
+}
+
+/* Mobile responsive */
 @media (max-width: 480px) {
   .language-selector-dialog {
-    padding: 24px 20px;
+    padding: 24px 16px;
+    max-width: 95%;
   }
-  
+
+  .language-selector-title {
+    font-size: 18px;
+    margin-bottom: 20px;
+  }
+
   .language-selector-option {
     padding: 14px 16px;
+    font-size: 16px;
   }
-  
+
   .language-selector-text {
     font-size: 16px;
   }
-  
+
   .language-selector-flag {
     font-size: 28px;
+  }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .language-selector-option {
+    border-width: 3px;
+  }
+
+  .language-selector-option:focus {
+    box-shadow: 0 0 0 5px rgba(0, 102, 204, 0.3);
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .language-selector-overlay {
+    transition: none;
+  }
+
+  .language-selector-dialog {
+    animation: none;
+  }
+
+  .language-selector-option {
+    transition: none;
+  }
+
+  .language-selector-option:hover,
+  .language-selector-option:focus {
+    transform: none;
   }
 }

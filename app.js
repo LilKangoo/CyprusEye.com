@@ -1,4 +1,38 @@
 // Debug helper - logs only when debugging is enabled
+// Date utilities (extracted to src/utils/dates.js)
+import {
+  toUtcDate,
+  getTodayDateString,
+  calculateDayDifference,
+  formatNotificationDate,
+  formatReviewDate,
+  getDefaultDailyStreak,
+  normalizeDailyStreak
+} from '/src/utils/dates.js';
+
+// Translation utilities (extracted to src/utils/translations.js)
+import {
+  getTranslation,
+  translate,
+  getActiveTranslations,
+  areTranslationsReady,
+  getTaskTranslationKey,
+  getTaskTitle,
+  getTaskDescription,
+  getPlaceTranslationKey,
+  getPlaceName,
+  getPlaceDescription,
+  getPlaceBadge
+} from '/src/utils/translations.js';
+
+// State management
+import store from '/src/state/store.js';
+import {
+  ACCOUNT_STORAGE_KEY,
+  initializeAccountsState,
+  subscribeToAccounts
+} from '/src/state/accounts.js';
+
 const DEBUG = localStorage.getItem('CE_DEBUG') === 'true' || new URLSearchParams(window.location.search).has('debug');
 function debug(...args) {
   if (DEBUG) {
@@ -6,15 +40,7 @@ function debug(...args) {
   }
 }
 
-// Helper function to get translated text
-function getTranslation(key, fallback = '') {
-  if (window.appI18n && window.appI18n.translations) {
-    const currentLang = window.appI18n.language || 'pl';
-    const translations = window.appI18n.translations[currentLang] || {};
-    return translations[key] || fallback;
-  }
-  return fallback;
-}
+// getTranslation moved to src/utils/translations.js
 
 const places = [
   {
@@ -1169,7 +1195,7 @@ const packingGuide = {
 let selectedPackingSeasonId = null;
 
 const STORAGE_KEY = 'wakacjecypr-progress';
-const ACCOUNT_STORAGE_KEY = 'wakacjecypr-accounts';
+// ACCOUNT_STORAGE_KEY moved to src/state/accounts.js (imported above)
 const SESSION_STORAGE_KEY = 'wakacjecypr-session';
 const REVIEWS_STORAGE_KEY = 'wakacjecypr-reviews';
 const JOURNAL_STORAGE_KEY = 'wakacjecypr-travel-journal';
@@ -1338,12 +1364,7 @@ function normalizeSearchText(value) {
     .replace(/\p{Diacritic}/gu, '');
 }
 
-function getPlaceTranslationKey(place, field) {
-  if (!place || !place.id) {
-    return '';
-  }
-  return `places.${place.id}.${field}`;
-}
+// getPlaceTranslationKey moved to src/utils/translations.js
 
 function getPlaceName(place) {
   return translate(getPlaceTranslationKey(place, 'name'), place?.name ?? '');
@@ -1464,13 +1485,7 @@ let attractionsUserCoords = null;
 let attractionsLocationMessage = '';
 const attractionsDistanceElements = new Map();
 
-function getDefaultDailyStreak() {
-  return {
-    current: 0,
-    best: 0,
-    lastCompletedDate: null,
-  };
-}
+// getDefaultDailyStreak moved to src/utils/dates.js
 
 function getDefaultDailyChallenge() {
   return {
@@ -1590,25 +1605,7 @@ function normalizeReviewRewards(raw) {
   return new Map(entries);
 }
 
-function normalizeDailyStreak(raw) {
-  if (!raw || typeof raw !== 'object') {
-    return getDefaultDailyStreak();
-  }
-
-  const current = Number.isFinite(raw.current) ? Math.max(0, Math.floor(raw.current)) : 0;
-  const bestCandidate = Number.isFinite(raw.best) ? Math.max(0, Math.floor(raw.best)) : 0;
-  const best = Math.max(bestCandidate, current);
-  const lastCompletedDate =
-    typeof raw.lastCompletedDate === 'string' && raw.lastCompletedDate.trim()
-      ? raw.lastCompletedDate.trim()
-      : null;
-
-  return {
-    current,
-    best,
-    lastCompletedDate,
-  };
-}
+// normalizeDailyStreak moved to src/utils/dates.js (duplicate removed)
 
 function normalizeDailyChallenge(raw) {
   const defaults = getDefaultDailyChallenge();
@@ -1630,28 +1627,7 @@ function normalizeDailyChallenge(raw) {
   };
 }
 
-function toUtcDate(value) {
-  if (!value) return null;
-  const date = new Date(`${value}T00:00:00Z`);
-  if (Number.isNaN(date.getTime())) {
-    return null;
-  }
-  return date;
-}
-
-function getTodayDateString() {
-  return new Date().toISOString().slice(0, 10);
-}
-
-function calculateDayDifference(fromDateString, toDateString) {
-  const fromDate = toUtcDate(fromDateString);
-  const toDate = toUtcDate(toDateString);
-  if (!fromDate || !toDate) {
-    return null;
-  }
-  const diffMs = fromDate.getTime() - toDate.getTime();
-  return Math.round(diffMs / (1000 * 60 * 60 * 24));
-}
+// Date utilities (toUtcDate, getTodayDateString, calculateDayDifference) moved to src/utils/dates.js
 
 function ensureReviewReward(placeId) {
   if (!placeId) {
@@ -2112,23 +2088,7 @@ function markAllNotificationsAsRead() {
   renderNotificationsUI();
 }
 
-function formatNotificationDate(value) {
-  if (!value) {
-    return '';
-  }
-
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) {
-    return '';
-  }
-
-  return date.toLocaleString('pl-PL', {
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-}
+// formatNotificationDate moved to src/utils/dates.js
 
 function openJournalEntry(entryId) {
   switchAppView(ADVENTURE_VIEW_ID);
@@ -5706,16 +5666,7 @@ function createStarVisual(rating) {
   return span;
 }
 
-function formatReviewDate(value) {
-  if (!value) return '';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return '';
-  return date.toLocaleDateString('pl-PL', {
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  });
-}
+// formatReviewDate moved to src/utils/dates.js
 
 function pluralizeReview(count) {
   if (count === 1) return 'oceny';

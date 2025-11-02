@@ -1,0 +1,75 @@
+{
+  "name": "CyprusEye - Cyprus Adventure Quest",
+  "short_name": "CyprusEye",
+  "description": "Discover Cyprus through an interactive quest adventure. Visit attractions, earn XP, unlock achievements!",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0066cc",
+  "orientation": "any",
+  "scope": "/",
+  "lang": "pl",
+  "dir": "ltr",
+  "categories": ["travel", "education", "games"],
+  "icons": [
+    {
+      "src": "/assets/cyprus_logo-1000x1054.png",
+      "sizes": "1000x1054",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/assets/cyprus_logo-1000x1054.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "screenshots": [
+    {
+      "src": "/assets/cyprus_logo-1000x1054.png",
+      "sizes": "1000x1054",
+      "type": "image/png"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Map",
+      "short_name": "Map",
+      "description": "View Cyprus map with attractions",
+      "url": "/index.html#map",
+      "icons": [
+        {
+          "src": "/assets/cyprus_logo-1000x1054.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Tasks",
+      "short_name": "Tasks",
+      "description": "View your travel tasks",
+      "url": "/tasks.html",
+      "icons": [
+        {
+          "src": "/assets/cyprus_logo-1000x1054.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Community",
+      "short_name": "Community",
+      "description": "Join the Cyprus community",
+      "url": "/community.html",
+      "icons": [
+        {
+          "src": "/assets/cyprus_logo-1000x1054.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

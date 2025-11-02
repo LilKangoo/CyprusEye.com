@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="pl" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DEBUG Language Selector</title>
+  
+  <!-- Include only necessary CSS for testing -->
+  <link rel="stylesheet" href="assets/css/tokens.css" />
+  <link rel="stylesheet" href="assets/css/base.css" />
+  <link rel="stylesheet" href="assets/css/language-selector.css" />
+  
+  <style>
+    body {
+      font-family: 'Jost', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      padding: 20px;
+      background: #f5f5f5;
+    }
+    
+    .debug-container {
+      max-width: 1000px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    
+    .status {
+      padding: 15px;
+      margin: 20px 0;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 14px;
+    }
+    
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+    }
+    
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+    }
+    
+    .status.info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+    
+    button {
+      background: #0066cc;
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 16px;
+      font-weight: 500;
+      cursor: pointer;
+      margin: 10px 5px;
+    }
+    
+    button:hover {
+      background: #0052a3;
+    }
+    
+    button.danger {
+      background: #dc3545;
+    }
+    
+    button.danger:hover {
+      background: #c82333;
+    }
+    
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 20px 0;
+    }
+    
+    .info-grid {
+      display: grid;
+      grid-template-columns: 200px 1fr;
+      gap: 10px;
+      margin: 15px 0;
+      font-size: 14px;
+    }
+    
+    .info-label {
+      font-weight: 600;
+      color: #495057;
+    }
+    
+    .info-value {
+      color: #212529;
+      font-family: monospace;
+    }
+    
+    .console-output {
+      background: #1e1e1e;
+      color: #d4d4d4;
+      padding: 15px;
+      border-radius: 8px;
+      font-family: 'Courier New', monospace;
+      font-size: 12px;
+      max-height: 300px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      margin: 15px 0;
+    }
+    
+    .test-section {
+      margin: 30px 0;
+      padding: 20px;
+      border: 1px solid #dee2e6;
+      border-radius: 8px;
+    }
+    
+    .test-section h3 {
+      margin-top: 0;
+      color: #495057;
+    }
+  </style>
+</head>
+<body data-seo-page="home">
+  <div class="debug-container">
+    <h1>🐛 DEBUG Language Selector</h1>
+    <p>Strona debugowania dla systemu wyboru języka. Otwórz konsolę (F12) aby zobaczyć logi.</p>
+    
+    <div class="status info" id="statusBox">
+      Inicjalizacja...
+    </div>
+    
+    <div class="info-grid" id="infoGrid">
+      <div class="info-label">Body dataset:</div>
+      <div class="info-value" id="bodyDataset">-</div>
+      
+      <div class="info-label">Language Selected:</div>
+      <div class="info-value" id="langSelected">-</div>
+      
+      <div class="info-label">Chosen Language:</div>
+      <div class="info-value" id="chosenLang">-</div>
+      
+      <div class="info-label">Tutorial Seen:</div>
+      <div class="info-value" id="tutorialSeen">-</div>
+      
+      <div class="info-label">Selector exists:</div>
+      <div class="info-value" id="selectorExists">-</div>
+      
+      <div class="info-label">Selector should show:</div>
+      <div class="info-value" id="shouldShow">-</div>
+      
+      <div class="info-label">Selector is open:</div>
+      <div class="info-value" id="isOpen">-</div>
+    </div>
+    
+    <div class="test-section">
+      <h3>📋 Console Output</h3>
+      <div class="console-output" id="consoleOutput">
+        Oczekiwanie na logi z konsoli...
+      </div>
+    </div>
+    
+    <div class="controls">
+      <button onclick="clearAllData()">🗑️ Clear All Data</button>
+      <button onclick="forceShow()">📋 Force Show Selector</button>
+      <button onclick="refreshPage()">🔄 Refresh Page</button>
+      <button class="danger" onclick="resetAndTest()">🧪 Reset & Test</button>
+    </div>
+    
+    <div class="test-section">
+      <h3>🔧 Manual Test Steps</h3>
+      <ol style="line-height: 1.8;">
+        <li><strong>Clear localStorage:</strong> Click "Clear All Data"</li>
+        <li><strong>Refresh page:</strong> Click "Refresh Page"</li>
+        <li><strong>Check console:</strong> Open F12 and look for debug logs</li>
+        <li><strong>Verify popup:</strong> Should appear automatically</li>
+        <li><strong>Select language:</strong> Click any language button</li>
+        <li><strong>Verify save:</strong> Check localStorage values</li>
+      </ol>
+      
+      <h4>Expected Console Output:</h4>
+      <pre style="background: #f8f9fa; padding: 10px; border-radius: 4px; font-size: 12px;">
+Language Selector Debug:
+- hasSelectedLanguage: true
+- isHomePage: true
+- shouldShow: true
+Showing language selector...
+Creating language selector UI...
+Language selector UI created and visible
+Language selector focused and ready
+      </pre>
+    </div>
+    
+    <div class="test-section">
+      <h3>🔍 Troubleshooting</h3>
+      <ul style="line-height: 1.8;">
+        <li><strong>No popup appears:</strong> Check if body has data-seo-page="home"</li>
+        <li><strong>Console shows errors:</strong> Check if CSS files are loading</li>
+        <li><strong>Popup appears but no styling:</strong> Check language-selector.css</li>
+        <li><strong>Popup shows on every visit:</strong> Check localStorage persistence</li>
+      </ul>
+    </div>
+  </div>
+  
+  <script src="js/languageSelector.js"></script>
+  
+  <script>
+    // Console capture
+    const originalLog = console.log;
+    const consoleOutput = document.getElementById('consoleOutput');
+    
+    console.log = function(...args) {
+      originalLog.apply(console, args);
+      const message = args.map(arg => 
+        typeof arg === 'object' ? JSON.stringify(arg, null, 2) : String(arg)
+      ).join(' ');
+      consoleOutput.textContent += message + '\n';
+      consoleOutput.scrollTop = consoleOutput.scrollHeight;
+    };
+    
+    function updateStatus() {
+      const bodyDataset = document.body.dataset.seoPage;
+      const langSelected = localStorage.getItem('ce_lang_selected');
+      const chosenLang = localStorage.getItem('ce_lang');
+      const tutorialSeen = localStorage.getItem('seenTutorial');
+      const selector = window.languageSelector;
+      
+      document.getElementById('bodyDataset').textContent = bodyDataset || 'null';
+      document.getElementById('langSelected').textContent = langSelected || 'null';
+      document.getElementById('chosenLang').textContent = chosenLang || 'null';
+      document.getElementById('tutorialSeen').textContent = tutorialSeen || 'null';
+      document.getElementById('selectorExists').textContent = selector ? 'YES' : 'NO';
+      document.getElementById('shouldShow').textContent = selector && selector.shouldShow ? selector.shouldShow() : 'N/A';
+      document.getElementById('isOpen').textContent = selector ? selector.isOpen : 'N/A';
+      
+      const statusBox = document.getElementById('statusBox');
+      if (langSelected === 'true') {
+        statusBox.className = 'status success';
+        statusBox.textContent = `✅ Język został wybrany: ${chosenLang || 'nieznany'}`;
+      } else if (selector && selector.shouldShow && selector.shouldShow()) {
+        statusBox.className = 'status error';
+        statusBox.textContent = '❌ Język nie został wybrany, ale selector powinien się pokazać!';
+      } else {
+        statusBox.className = 'status info';
+        statusBox.textContent = 'ℹ️ Oczekiwanie na inicjalizację...';
+      }
+    }
+    
+    function clearAllData() {
+      localStorage.removeItem('ce_lang_selected');
+      localStorage.removeItem('ce_lang');
+      localStorage.removeItem('seenTutorial');
+      console.log('LocalStorage cleared');
+      updateStatus();
+    }
+    
+    function forceShow() {
+      if (window.languageSelector && window.languageSelector.show) {
+        window.languageSelector.show();
+        console.log('Force showing selector');
+      } else {
+        console.error('Language selector not available');
+      }
+    }
+    
+    function refreshPage() {
+      location.reload();
+    }
+    
+    function resetAndTest() {
+      clearAllData();
+      setTimeout(() => {
+        console.log('=== RESET & TEST STARTED ===');
+        refreshPage();
+      }, 100);
+    }
+    
+    // Update status periodically
+    window.addEventListener('load', () => {
+      updateStatus();
+      setInterval(updateStatus, 1000);
+    });
+    
+    // Log page load
+    console.log('=== DEBUG PAGE LOADED ===');
+    console.log('Body dataset:', document.body.dataset);
+    console.log('LocalStorage:', {
+      ce_lang_selected: localStorage.getItem('ce_lang_selected'),
+      ce_lang: localStorage.getItem('ce_lang'),
+      seenTutorial: localStorage.getItem('seenTutorial')
+    });
+  </script>
+</body>
+</html>

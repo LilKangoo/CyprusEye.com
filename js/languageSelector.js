@@ -11,10 +11,14 @@
 
   function safeLocalStorage(action, key, value) {
     try {
-      if (action === 'get') return window.localStorage.getItem(key);
-      if (action === 'set') window.localStorage.setItem(key, value);
+      if (action === 'get') {
+        return window.localStorage.getItem(key);
+      }
+      if (action === 'set') {
+        window.localStorage.setItem(key, value);
+      }
     } catch (error) {
-      console.warn('Local storage unavailable:', error);
+      console.warn('Local storage unavailable for language selection.', error);
     }
     return null;
   }
@@ -37,6 +41,8 @@
       this.dialog = null;
       this.isOpen = false;
       this.selectedLanguage = null;
+
+      this.handleKeydown = this.handleKeydown.bind(this);
     }
 
     shouldShow() {
@@ -44,42 +50,65 @@
     }
 
     createUi() {
-      if (this.overlay) return;
+      if (this.overlay) {
+        return;
+      }
 
+      // Create overlay
       this.overlay = document.createElement('div');
       this.overlay.className = 'language-selector-overlay';
+      this.overlay.setAttribute('aria-hidden', 'false');
 
+      // Create backdrop
+      const backdrop = document.createElement('div');
+      backdrop.className = 'language-selector-backdrop';
+      this.overlay.appendChild(backdrop);
+
+      // Create dialog
       this.dialog = document.createElement('div');
       this.dialog.className = 'language-selector-dialog';
       this.dialog.setAttribute('role', 'dialog');
       this.dialog.setAttribute('aria-modal', 'true');
+      this.dialog.setAttribute('aria-labelledby', 'languageSelectorTitle');
+      this.dialog.setAttribute('tabindex', '-1');
 
+      // Create title (hidden visually but accessible)
       const title = document.createElement('h2');
+      title.id = 'languageSelectorTitle';
       title.className = 'language-selector-title';
-      title.textContent = 'Select Language / Wybierz język';
+      title.textContent = 'Select Language / Wybierz język / Επιλέξτε γλώσσα / בחר שפה';
       this.dialog.appendChild(title);
 
+      // Create language options container
       const optionsContainer = document.createElement('div');
       optionsContainer.className = 'language-selector-options';
 
+      // Create buttons for each language
       Object.keys(SUPPORTED_LANGUAGES).forEach((code) => {
         const info = SUPPORTED_LANGUAGES[code];
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'language-selector-option';
         button.dataset.language = code;
+        button.setAttribute('aria-label', `${info.label} ${info.fullName}`);
 
+        // Create flag span
+        const flag = document.createElement('span');
+        flag.className = 'language-selector-flag';
+        flag.textContent = info.flag;
+        flag.setAttribute('aria-hidden', 'true');
+
+        // Create text span
         const text = document.createElement('span');
         text.className = 'language-selector-text';
         text.textContent = info.label;
 
-        const flag = document.createElement('span');
-        flag.className = 'language-selector-flag';
-        flag.textContent = info.flag;
-
         button.appendChild(text);
         button.appendChild(flag);
-        button.addEventListener('click', () => this.selectLanguage(code));
+
+        button.addEventListener('click', () => {
+          this.selectLanguage(code);
+        });
 
         optionsContainer.appendChild(button);
       });
@@ -90,22 +119,43 @@
     }
 
     show() {
-      if (this.isOpen) return;
-      
-      console.log('🌍 Showing language selector...');
+      if (this.isOpen) {
+        console.log('Language selector already open, skipping...');
+        return;
+      }
+
+      console.log('Creating language selector UI...');
       this.createUi();
       this.isOpen = true;
       this.overlay.classList.add('is-visible');
-      document.documentElement.setAttribute('data-language-selection-pending', 'true');
-      window.languageSelectorActive = true;
+      document.body.classList.add('language-selector-open');
+
+      console.log('Language selector UI created and visible');
+
+      // Add keyboard listener
+      document.addEventListener('keydown', this.handleKeydown, true);
+
+      // Focus the dialog
+      requestAnimationFrame(() => {
+        if (this.dialog) {
+          this.dialog.focus({ preventScroll: true });
+          console.log('Language selector focused and ready');
+        }
+      });
     }
 
     hide() {
-      if (!this.isOpen || !this.overlay) return;
+      if (!this.isOpen || !this.overlay) {
+        return;
+      }
 
       this.isOpen = false;
       this.overlay.classList.remove('is-visible');
+      document.body.classList.remove('language-selector-open');
 
+      document.removeEventListener('keydown', this.handleKeydown, true);
+
+      // Remove overlay after animation
       setTimeout(() => {
         if (this.overlay && this.overlay.parentNode) {
           this.overlay.parentNode.removeChild(this.overlay);
@@ -116,58 +166,140 @@
     }
 
     selectLanguage(code) {
-      console.log('✅ Language selected:', code);
-      
       this.selectedLanguage = code;
       markLanguageAsSelected();
-      
+      console.log(`Language ${code} selected by user`);
+
+      // Remove pending flag
       document.documentElement.removeAttribute('data-language-selection-pending');
       window.languageSelectorActive = false;
 
+      // Set language using the i18n system
       if (window.appI18n && typeof window.appI18n.setLanguage === 'function') {
         window.appI18n.setLanguage(code);
       }
 
+      // Hide the selector
       this.hide();
 
+      // Dispatch event that language was selected and other scripts can proceed
       document.dispatchEvent(new CustomEvent('languageSelector:ready', {
         detail: { languageSelected: true, language: code }
       }));
 
+      // Wait for language to be set, then initialize tutorial if needed
       setTimeout(() => {
         if (window.appTutorial && typeof window.appTutorial.init === 'function') {
           window.appTutorial.init();
         }
       }, 150);
     }
+
+    handleKeydown(event) {
+      if (!this.isOpen) {
+        return;
+      }
+
+      // Prevent escape key from closing (user must select a language)
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        return;
+      }
+
+      // Handle arrow key navigation
+      const buttons = Array.from(this.dialog?.querySelectorAll('.language-selector-option') || []);
+      if (buttons.length === 0) {
+        return;
+      }
+
+      const currentIndex = buttons.indexOf(document.activeElement);
+
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+        event.preventDefault();
+        let nextIndex;
+        if (event.key === 'ArrowDown') {
+          nextIndex = currentIndex === -1 ? 0 : (currentIndex + 1) % buttons.length;
+        } else {
+          nextIndex = currentIndex === -1 ? buttons.length - 1 : (currentIndex - 1 + buttons.length) % buttons.length;
+        }
+        buttons[nextIndex].focus();
+      } else if (event.key === 'Home') {
+        event.preventDefault();
+        buttons[0].focus();
+      } else if (event.key === 'End') {
+        event.preventDefault();
+        buttons[buttons.length - 1].focus();
+      }
+
+      // Trap focus within dialog
+      if (event.key === 'Tab') {
+        event.preventDefault();
+        const first = buttons[0];
+        const last = buttons[buttons.length - 1];
+        const activeElement = document.activeElement;
+
+        if (event.shiftKey) {
+          if (activeElement === first || !this.dialog?.contains(activeElement)) {
+            last.focus();
+          } else {
+            const prevIndex = (currentIndex - 1 + buttons.length) % buttons.length;
+            buttons[prevIndex].focus();
+          }
+        } else {
+          if (activeElement === last || !this.dialog?.contains(activeElement)) {
+            first.focus();
+          } else {
+            const nextIndex = (currentIndex + 1) % buttons.length;
+            buttons[nextIndex].focus();
+          }
+        }
+      }
+    }
   }
 
+  // Initialize on DOM ready
   function init() {
+    // Wait for DOM to be ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', () => {
+        initSelector();
+      });
+    } else {
+      initSelector();
+    }
+  }
+
+  function initSelector() {
     const selector = new LanguageSelector();
+
+    // Debug logging
+    console.log('Language Selector Debug:');
+    console.log('- hasSelectedLanguage:', !hasSelectedLanguage());
+    console.log('- isHomePage:', isHomePage());
+    console.log('- shouldShow:', selector.shouldShow());
+
+    // Expose to window for debugging BEFORE showing
     window.languageSelector = selector;
 
+    // Set global flag indicating if selector is active
     const shouldShowSelector = selector.shouldShow();
     window.languageSelectorActive = shouldShowSelector;
 
-    console.log('🔍 Language Selector initialized');
-    console.log('  - Should show:', shouldShowSelector);
-    console.log('  - Is home page:', isHomePage());
-    console.log('  - Has selected language:', hasSelectedLanguage());
-
+    // Show selector if needed (before tutorial and i18n init)
     if (shouldShowSelector) {
+      console.log('Showing language selector...');
+      // BLOCK other scripts from initializing
       document.documentElement.setAttribute('data-language-selection-pending', 'true');
+      // Show immediately
       selector.show();
     } else {
-      console.log('✓ Language already selected, skipping selector');
+      console.log('Language selector not needed (already selected or not home page)');
+      // Signal that other scripts can proceed
       document.dispatchEvent(new CustomEvent('languageSelector:ready', {
         detail: { languageSelected: true, skipSelector: true }
       }));
     }
   }
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
-  }
+  init();
 })();
