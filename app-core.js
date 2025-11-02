@@ -58,27 +58,42 @@
       // Create map
       const map = L.map('map').setView([35.095, 33.203], 9);
       
+      // Store map reference for later use
+      mapElement._leaflet_map = map;
+      
       // Add tile layer
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '© OpenStreetMap contributors',
         maxZoom: 19
       }).addTo(map);
 
+      // Create custom icon for better visibility
+      const customIcon = L.icon({
+        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+        iconSize: [25, 41],
+        iconAnchor: [12, 41],
+        popupAnchor: [1, -34],
+        shadowSize: [41, 41]
+      });
+
       // Add markers for each place
       PLACES_DATA.forEach(function(place) {
-        const marker = L.marker([place.lat, place.lng]).addTo(map);
+        const marker = L.marker([place.lat, place.lng], { icon: customIcon }).addTo(map);
         
         // Get translated name or fallback
         const placeName = getPlaceName(place);
+        const placeDescription = getPlaceDescription(place);
         
+        // Create more readable popup
         marker.bindPopup(`
-          <div class="map-popup">
-            <h3>${placeName}</h3>
-            <p><strong>XP:</strong> ${place.xp}</p>
-            <p><strong>Level:</strong> ${place.requiredLevel}</p>
-            <a href="${place.googleMapsUrl}" target="_blank" rel="noopener">Google Maps</a>
+          <div class="map-popup" style="min-width: 250px;">
+            <h3 style="margin: 0 0 10px 0; font-size: 18px; color: #2563eb;">${placeName}</h3>
+            <p style="margin: 0 0 10px 0; font-size: 14px; line-height: 1.5;">${placeDescription}</p>
+            <p style="margin: 0 0 10px 0;"><strong>✨ XP:</strong> ${place.xp}</p>
+            <a href="${place.googleMapsUrl}" target="_blank" rel="noopener" style="display: inline-block; padding: 8px 12px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 14px;">Google Maps →</a>
           </div>
-        `);
+        `, { maxWidth: 300 });
       });
 
       console.log('✅ Map initialized with', PLACES_DATA.length, 'markers');
@@ -128,9 +143,10 @@
       <div class="attractions-meta">
         <span>🏅 ${placeBadge}</span>
         <span>✨ ${place.xp} XP</span>
-        <span>📍 Level ${place.requiredLevel}</span>
       </div>
       <div class="attractions-actions">
+        <button class="secondary" onclick="showOnMap('${place.id}')">🗺️ Zobacz na mapie</button>
+        <button class="secondary" onclick="showCommunity('${place.id}')">💬 Komentarze</button>
         <a href="${place.googleMapsUrl}" target="_blank" rel="noopener" class="ghost-link">Google Maps</a>
       </div>
     `;
@@ -312,11 +328,76 @@
     return '';
   }
 
+  // Navigation functions (exposed globally)
+  window.showOnMap = function(placeId) {
+    // Redirect to main page with place parameter
+    window.location.href = `index.html?place=${placeId}`;
+  };
+
+  window.showCommunity = function(placeId) {
+    // Redirect to community page with place parameter
+    window.location.href = `community.html?place=${placeId}`;
+  };
+
+  // Check if we should focus on a specific place (from URL parameter)
+  function checkAndFocusPlace() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const placeId = urlParams.get('place');
+    
+    if (placeId && typeof L !== 'undefined') {
+      const place = PLACES_DATA.find(p => p.id === placeId);
+      if (place) {
+        console.log('🎯 Focusing on place:', placeId);
+        
+        // Get the map instance
+        const mapElement = document.getElementById('map');
+        if (mapElement && mapElement._leaflet_map) {
+          const map = mapElement._leaflet_map;
+          
+          // First, scroll the map into view (center of screen)
+          setTimeout(function() {
+            mapElement.scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'center' 
+            });
+            
+            // Then focus on the place
+            setTimeout(function() {
+              // Center map on the place with higher zoom for better visibility
+              map.setView([place.lat, place.lng], 16, {
+                animate: true,
+                duration: 1
+              });
+              
+              // Wait for animation, then open popup
+              setTimeout(function() {
+                // Find and open the marker popup
+                map.eachLayer(function(layer) {
+                  if (layer instanceof L.Marker) {
+                    const latLng = layer.getLatLng();
+                    // More precise matching
+                    if (Math.abs(latLng.lat - place.lat) < 0.0001 && 
+                        Math.abs(latLng.lng - place.lng) < 0.0001) {
+                      layer.openPopup();
+                    }
+                  }
+                });
+              }, 1000);
+            }, 500);
+          }, 300);
+        }
+      }
+    }
+  }
+
   // Start when DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', waitForData);
   } else {
     waitForData();
   }
+
+  // After initialization, check if we need to focus on a place
+  setTimeout(checkAndFocusPlace, 1000);
 
 })();
