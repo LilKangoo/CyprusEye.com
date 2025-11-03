@@ -594,15 +594,15 @@
   </script>
   
   <!-- Load data files first -->
-  <!-- POI Loader - Dynamic loading from Supabase -->
-  <script src="js/poi-loader.js"></script>
   <!-- Static data as fallback -->
   <script src="js/data-places.js"></script>
+  <!-- POI Loader - Dynamic loading from Supabase (defer to wait for supabaseClient) -->
+  <script src="js/poi-loader.js" defer></script>
   <script src="js/data-tasks.js"></script>
   <script src="js/data-packing.js"></script>
   
-  <!-- Load core application -->
-  <script src="app-core.js"></script>
+  <!-- Load core application (defer to wait for poi-loader) -->
+  <script src="app-core.js" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
 
   <div
