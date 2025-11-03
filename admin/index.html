@@ -371,12 +371,112 @@
       <!-- POIs View -->
       <section class="admin-view" id="viewPois" hidden>
         <header class="admin-view-header">
-          <h2>Points of Interest</h2>
-          <p class="admin-view-subtitle">Manage POIs and locations</p>
+          <div>
+            <h2>Points of Interest</h2>
+            <p class="admin-view-subtitle">Manage POIs and locations</p>
+          </div>
+          <div class="admin-view-actions">
+            <span class="poi-data-source" id="poiDataSourceBadge" hidden></span>
+            <button class="btn-secondary" type="button" id="btnRefreshPois" title="Reload POIs">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"/>
+                <polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/>
+                <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>
+              </svg>
+              Refresh
+            </button>
+            <button class="btn-primary" type="button" id="btnAddPoi">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="5" x2="12" y2="19"/>
+                <line x1="5" y1="12" x2="19" y2="12"/>
+              </svg>
+              New POI
+            </button>
+          </div>
         </header>
-        <div class="admin-placeholder">
-          <p>POI management coming soon...</p>
+
+        <!-- POI Stats -->
+        <div class="admin-stats-grid poi-stats">
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total POIs</p>
+              <p class="stat-card-value" id="poiStatTotal">0</p>
+              <p class="stat-card-change" id="poiStatLiveStatus">Awaiting data...</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Published</p>
+              <p class="stat-card-value" id="poiStatPublished">0</p>
+              <p class="stat-card-change">Live on map</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Draft / Hidden</p>
+              <p class="stat-card-value" id="poiStatDrafts">0</p>
+              <p class="stat-card-change">Needs review</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Missing Location</p>
+              <p class="stat-card-value" id="poiStatMissingLocation">0</p>
+              <p class="stat-card-change">Require GPS coordinates</p>
+            </div>
+          </div>
         </div>
+
+        <!-- Filters -->
+        <div class="admin-card">
+          <div class="admin-card-body">
+            <div class="poi-filters">
+              <label class="poi-filter">
+                <span>Search</span>
+                <input type="search" id="poiSearchInput" placeholder="Search POIs by name, slug or description..." />
+              </label>
+              <label class="poi-filter">
+                <span>Category</span>
+                <select id="poiCategoryFilter">
+                  <option value="all">All categories</option>
+                </select>
+              </label>
+              <label class="poi-filter">
+                <span>Status</span>
+                <select id="poiStatusFilter">
+                  <option value="all">All statuses</option>
+                  <option value="published">Published</option>
+                  <option value="draft">Draft</option>
+                  <option value="hidden">Hidden</option>
+                </select>
+              </label>
+            </div>
+            <p class="poi-filter-helper" id="poiFilterHelper">Use filters to quickly find and audit POIs.</p>
+          </div>
+        </div>
+
+        <!-- POI Table -->
+        <div class="admin-table-container">
+          <table class="admin-table admin-poi-table">
+            <thead>
+              <tr>
+                <th>POI</th>
+                <th>Category</th>
+                <th>Coordinates</th>
+                <th>Radius</th>
+                <th>Updated</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="poisTableBody">
+              <tr>
+                <td colspan="6" class="table-loading">Loading POIs...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="poi-table-footer" id="poiTableFooter"></div>
       </section>
 
       <!-- Content View -->
@@ -475,6 +575,100 @@
       </section>
 
     </main>
+  </div>
+
+  <!-- POI Detail Modal -->
+  <div class="admin-modal" id="poiDetailModal" hidden>
+    <div class="admin-modal-overlay" id="poiDetailModalOverlay"></div>
+    <div class="admin-modal-content">
+      <header class="admin-modal-header">
+        <h3 id="poiDetailTitle">POI Details</h3>
+        <button class="btn-modal-close" id="btnClosePoiDetail">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body" id="poiDetailContent">
+        <p>Loading POI details...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- POI Form Modal -->
+  <div class="admin-modal" id="poiFormModal" hidden>
+    <div class="admin-modal-overlay" id="poiFormModalOverlay"></div>
+    <div class="admin-modal-content">
+      <header class="admin-modal-header">
+        <h3 id="poiFormTitle">New POI</h3>
+        <button class="btn-modal-close" id="btnClosePoiForm">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body">
+        <form id="poiForm" class="poi-form">
+          <div class="poi-form-warning" id="poiFormWarning" hidden>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+              <line x1="12" y1="9" x2="12" y2="13"/>
+              <line x1="12" y1="17" x2="12" y2="17"/>
+            </svg>
+            <span id="poiFormWarningText"></span>
+          </div>
+          <div class="admin-form-grid">
+            <label class="admin-form-field">
+              <span>Name *</span>
+              <input type="text" id="poiName" name="name" required placeholder="e.g. Kato Paphos Archaeological Park" />
+            </label>
+            <label class="admin-form-field">
+              <span>Slug</span>
+              <input type="text" id="poiSlug" name="slug" placeholder="auto-generated if empty" />
+            </label>
+            <label class="admin-form-field">
+              <span>Category</span>
+              <input type="text" id="poiCategory" name="category" placeholder="e.g. heritage" />
+            </label>
+            <label class="admin-form-field">
+              <span>Status</span>
+              <select id="poiStatus" name="status">
+                <option value="published">Published</option>
+                <option value="draft">Draft</option>
+                <option value="hidden">Hidden</option>
+              </select>
+            </label>
+            <label class="admin-form-field">
+              <span>Latitude *</span>
+              <input type="number" step="0.000001" id="poiLatitude" name="latitude" placeholder="34.755670" required />
+            </label>
+            <label class="admin-form-field">
+              <span>Longitude *</span>
+              <input type="number" step="0.000001" id="poiLongitude" name="longitude" placeholder="32.404170" required />
+            </label>
+            <label class="admin-form-field">
+              <span>Radius (m)</span>
+              <input type="number" min="50" max="500" step="10" id="poiRadius" name="radius" placeholder="150" />
+            </label>
+            <label class="admin-form-field">
+              <span>Tags</span>
+              <input type="text" id="poiTags" name="tags" placeholder="Comma separated" />
+            </label>
+          </div>
+          <label class="admin-form-field">
+            <span>Description</span>
+            <textarea id="poiDescription" name="description" rows="4" placeholder="Detailed description shown to players"></textarea>
+          </label>
+          <div class="poi-form-error" id="poiFormError" hidden></div>
+          <div class="poi-form-actions">
+            <button type="button" class="btn-secondary" id="poiFormCancel">Cancel</button>
+            <button type="submit" class="btn-primary" id="poiFormSubmit">Save POI</button>
+          </div>
+        </form>
+      </div>
+    </div>
   </div>
 
   <!-- User Detail Modal -->
