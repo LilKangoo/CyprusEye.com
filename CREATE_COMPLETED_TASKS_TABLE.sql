@@ -113,8 +113,8 @@ BEGIN
   -- Oblicz nowe XP
   v_new_xp := COALESCE(v_current_xp, 0) + v_task_xp;
 
-  -- Oblicz nowy level (prosta formuła: 100 XP na level)
-  v_new_level := GREATEST(1, (v_new_xp / 100) + 1);
+  -- Oblicz nowy level (formuła: 1000 XP na level, zgodnie z frontendem)
+  v_new_level := GREATEST(1, FLOOR(v_new_xp / 1000.0) + 1);
 
   -- Zaktualizuj profil
   UPDATE profiles

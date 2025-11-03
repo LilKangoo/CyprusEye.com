@@ -172,8 +172,9 @@
     console.log('✅ Header metrics updated:', { xp, level, visitedCount, percentage: percentage.toFixed(1) + '%' });
   }
 
-  // Export for use by other functions
+  // Export for use by other functions and modules
   window.updateUserStatsDisplay = updateUserStatsDisplay;
+  window.updateHeaderMetrics = updateHeaderMetrics;
 
   function initializeMap() {
     const mapElement = document.getElementById('map');
@@ -614,7 +615,7 @@
 
     // Try to use the dedicated tasks-manager module
     try {
-      const tasksModule = await import('./js/tasks-manager.js?v=2.1');
+      const tasksModule = await import('./js/tasks-manager.js?v=2.2');
       if (tasksModule && tasksModule.initTasks) {
         // Przekaż TASKS_DATA do modułu, żeby uniknąć problemów z globalnym scope
         await tasksModule.initTasks(TASKS_DATA);

@@ -279,7 +279,8 @@ class TasksManager {
 
       if (profile) {
         const newXp = Math.max(0, profile.xp - task.xp);
-        const newLevel = Math.max(1, Math.floor(newXp / 100) + 1);
+        // Formuła: 1000 XP = 1 level (zgodnie z frontendem i SQL)
+        const newLevel = Math.max(1, Math.floor(newXp / 1000) + 1);
         
         await sb
           .from('profiles')
