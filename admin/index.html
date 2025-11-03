@@ -4,8 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
-  <!-- Security: Content Security Policy -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self';">
+  <!-- Security: Content Security Policy - Admin Panel -->
+  <!-- Note: Relaxed CSP for admin panel - protected by authentication -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self';">
+  <!-- Admin panel is already protected by multi-layer authentication -->
   
   <meta name="theme-color" content="#dc2626" />
   <meta name="robots" content="noindex,nofollow" />
@@ -305,10 +307,28 @@
       <section class="admin-view" id="viewContent" hidden>
         <header class="admin-view-header">
           <h2>Content Management</h2>
-          <p class="admin-view-subtitle">Manage comments, ratings, and media</p>
+          <p class="admin-view-subtitle">Moderate comments and user-generated content</p>
         </header>
-        <div class="admin-placeholder">
-          <p>Content management coming soon...</p>
+
+        <!-- Content Table -->
+        <div class="admin-table-container">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Comment</th>
+                <th>Likes</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="contentTable">
+              <tr>
+                <td colspan="6" class="table-loading">Loading content...</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 

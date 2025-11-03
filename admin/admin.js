@@ -216,6 +216,9 @@ function switchView(viewName) {
     case 'users':
       loadUsersData();
       break;
+    case 'content':
+      loadContentData();
+      break;
     case 'diagnostics':
       loadDiagnosticsData();
       break;
@@ -378,21 +381,95 @@ async function viewUserDetails(userId) {
     const content = $('#userDetailContent');
     
     if (!modal || !content) return;
+    
+    const profile = data.profile;
+    const stats = data.stats;
+    const isCurrentUserAdmin = profile && profile.is_admin;
+    const isSelf = profile && profile.id === ADMIN_CONFIG.requiredUserId;
 
     content.innerHTML = `
       <div style="display: grid; gap: 24px;">
+        <!-- Profile Info -->
         <div>
-          <h4 style="margin-bottom: 12px; color: var(--admin-text);">Profile</h4>
-          <pre style="background: var(--admin-bg); padding: 16px; border-radius: 8px; overflow-x: auto;">
-${JSON.stringify(data.profile, null, 2)}
-          </pre>
+          <h4 style="margin-bottom: 12px; color: var(--admin-text);">Profile Information</h4>
+          <div style="background: var(--admin-bg); padding: 20px; border-radius: 8px;">
+            <table style="width: 100%; color: var(--admin-text);">
+              <tr>
+                <td style="padding: 8px 0; font-weight: 500;">Username:</td>
+                <td style="padding: 8px 0;">${profile.username || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: 500;">Email:</td>
+                <td style="padding: 8px 0;">${profile.email || 'N/A'}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: 500;">Level:</td>
+                <td style="padding: 8px 0;">${profile.level || 0}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: 500;">XP:</td>
+                <td style="padding: 8px 0;">${profile.xp || 0}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: 500;">Joined:</td>
+                <td style="padding: 8px 0;">${formatDate(data.auth_data.created_at)}</td>
+              </tr>
+              <tr>
+                <td style="padding: 8px 0; font-weight: 500;">Last Sign In:</td>
+                <td style="padding: 8px 0;">${formatDate(data.auth_data.last_sign_in_at)}</td>
+              </tr>
+            </table>
+          </div>
         </div>
+
+        <!-- Statistics -->
         <div>
-          <h4 style="margin-bottom: 12px; color: var(--admin-text);">Statistics</h4>
-          <pre style="background: var(--admin-bg); padding: 16px; border-radius: 8px; overflow-x: auto;">
-${JSON.stringify(data.stats, null, 2)}
-          </pre>
+          <h4 style="margin-bottom: 12px; color: var(--admin-text);">Activity Statistics</h4>
+          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
+            <div style="background: var(--admin-bg); padding: 16px; border-radius: 8px; text-align: center;">
+              <p style="color: var(--admin-text-muted); font-size: 12px; margin-bottom: 4px;">Comments</p>
+              <p style="color: var(--admin-text); font-size: 24px; font-weight: 700;">${stats.comments || 0}</p>
+            </div>
+            <div style="background: var(--admin-bg); padding: 16px; border-radius: 8px; text-align: center;">
+              <p style="color: var(--admin-text-muted); font-size: 12px; margin-bottom: 4px;">Ratings</p>
+              <p style="color: var(--admin-text); font-size: 24px; font-weight: 700;">${stats.ratings || 0}</p>
+            </div>
+            <div style="background: var(--admin-bg); padding: 16px; border-radius: 8px; text-align: center;">
+              <p style="color: var(--admin-text-muted); font-size: 12px; margin-bottom: 4px;">Visits</p>
+              <p style="color: var(--admin-text); font-size: 24px; font-weight: 700;">${stats.visits || 0}</p>
+            </div>
+            <div style="background: var(--admin-bg); padding: 16px; border-radius: 8px; text-align: center;">
+              <p style="color: var(--admin-text-muted); font-size: 12px; margin-bottom: 4px;">Tasks</p>
+              <p style="color: var(--admin-text); font-size: 24px; font-weight: 700;">${stats.completed_tasks || 0}</p>
+            </div>
+          </div>
         </div>
+
+        <!-- Admin Actions -->
+        ${!isSelf ? `
+        <div>
+          <h4 style="margin-bottom: 12px; color: var(--admin-text);">Admin Actions</h4>
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <button class="btn-primary" onclick="adjustUserXP('${userId}', 100); hideElement($('#userDetailModal'));">
+              +100 XP
+            </button>
+            <button class="btn-primary" onclick="adjustUserXP('${userId}', 500); hideElement($('#userDetailModal'));">
+              +500 XP
+            </button>
+            <button class="btn-secondary" onclick="adjustUserXP('${userId}', -100); hideElement($('#userDetailModal'));">
+              -100 XP
+            </button>
+            <button class="btn-secondary" onclick="adjustUserXP('${userId}', -500); hideElement($('#userDetailModal'));">
+              -500 XP
+            </button>
+            ${!isCurrentUserAdmin ? `
+            <button class="btn-secondary" style="background: var(--admin-danger); border-color: var(--admin-danger);" onclick="banUser('${userId}'); hideElement($('#userDetailModal'));">
+              Ban User (30d)
+            </button>
+            ` : ''}
+          </div>
+        </div>
+        ` : '<p style="color: var(--admin-text-muted); font-style: italic;">Cannot perform actions on your own account</p>'}
       </div>
     `;
 
@@ -659,6 +736,247 @@ async function searchUsers(query) {
     showToast('Search failed', 'error');
   }
 }
+
+// =====================================================
+// ADVANCED ADMIN FUNCTIONS
+// =====================================================
+
+// Adjust User XP
+async function adjustUserXP(userId, xpChange, reason = 'Admin adjustment') {
+  if (!confirm(`Adjust XP by ${xpChange > 0 ? '+' : ''}${xpChange}?\nReason: ${reason}`)) {
+    return;
+  }
+  
+  try {
+    showToast('Adjusting XP...', 'info');
+    
+    const { data, error } = await sb.rpc('admin_adjust_user_xp', {
+      target_user_id: userId,
+      xp_change: xpChange,
+      reason: reason
+    });
+    
+    if (error) throw error;
+    
+    showToast(`XP adjusted: ${data.old_xp} → ${data.new_xp}`, 'success');
+    
+    // Reload users if on users view
+    if (adminState.currentView === 'users') {
+      loadUsersData(adminState.usersPage);
+    }
+    
+  } catch (error) {
+    console.error('XP adjustment failed:', error);
+    showToast('Failed to adjust XP: ' + (error.message || 'Unknown error'), 'error');
+  }
+}
+
+// Ban User
+async function banUser(userId, reason = 'Violating terms', days = 30) {
+  if (!confirm(`Ban this user for ${days} days?\nReason: ${reason}`)) {
+    return;
+  }
+  
+  try {
+    showToast('Banning user...', 'info');
+    
+    const { data, error } = await sb.rpc('admin_ban_user', {
+      target_user_id: userId,
+      ban_reason: reason,
+      ban_duration: `${days} days`
+    });
+    
+    if (error) throw error;
+    
+    showToast('User banned successfully', 'success');
+    
+    if (adminState.currentView === 'users') {
+      loadUsersData(adminState.usersPage);
+    }
+    
+  } catch (error) {
+    console.error('Ban failed:', error);
+    showToast('Failed to ban user: ' + (error.message || 'Unknown error'), 'error');
+  }
+}
+
+// Unban User
+async function unbanUser(userId) {
+  if (!confirm('Remove ban from this user?')) {
+    return;
+  }
+  
+  try {
+    showToast('Unbanning user...', 'info');
+    
+    const { data, error } = await sb.rpc('admin_unban_user', {
+      target_user_id: userId
+    });
+    
+    if (error) throw error;
+    
+    showToast('User unbanned successfully', 'success');
+    
+    if (adminState.currentView === 'users') {
+      loadUsersData(adminState.usersPage);
+    }
+    
+  } catch (error) {
+    console.error('Unban failed:', error);
+    showToast('Failed to unban user: ' + (error.message || 'Unknown error'), 'error');
+  }
+}
+
+// Delete Comment
+async function deleteComment(commentId, reason = 'Content policy violation') {
+  if (!confirm(`Delete this comment?\nReason: ${reason}`)) {
+    return;
+  }
+  
+  try {
+    showToast('Deleting comment...', 'info');
+    
+    const { data, error } = await sb.rpc('admin_delete_comment', {
+      comment_id: commentId,
+      deletion_reason: reason
+    });
+    
+    if (error) throw error;
+    
+    showToast('Comment deleted successfully', 'success');
+    
+    // Reload content if on content view
+    if (adminState.currentView === 'content') {
+      loadContentData();
+    }
+    
+  } catch (error) {
+    console.error('Delete comment failed:', error);
+    showToast('Failed to delete comment: ' + (error.message || 'Unknown error'), 'error');
+  }
+}
+
+// Load Content Management Data
+async function loadContentData() {
+  try {
+    const { data: flaggedContent, error } = await sb.rpc('admin_get_flagged_content', {
+      limit_count: 50
+    });
+    
+    if (error) throw error;
+    
+    const tableBody = $('#contentTable');
+    if (!tableBody) return;
+    
+    if (!flaggedContent || flaggedContent.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="6" class="table-loading">No flagged content</td></tr>';
+      return;
+    }
+    
+    tableBody.innerHTML = flaggedContent.map(item => `
+      <tr>
+        <td>${item.username || 'Unknown'}</td>
+        <td title="${item.comment_content}">${item.comment_content.substring(0, 50)}${item.comment_content.length > 50 ? '...' : ''}</td>
+        <td>${item.like_count || 0}</td>
+        <td>${formatDate(item.created_at)}</td>
+        <td>
+          <span class="badge badge-warning">${item.flag_reason}</span>
+        </td>
+        <td>
+          <button class="btn-secondary" onclick="deleteComment('${item.comment_id}')">
+            Delete
+          </button>
+        </td>
+      </tr>
+    `).join('');
+    
+  } catch (error) {
+    console.error('Failed to load content data:', error);
+    showToast('Failed to load content data', 'error');
+  }
+}
+
+// Get Analytics Data
+async function loadAnalytics() {
+  try {
+    // Get content stats
+    const { data: contentStats, error: statsError } = await sb.rpc('admin_get_content_stats');
+    
+    if (statsError) throw statsError;
+    
+    // Get top contributors
+    const { data: topContributors, error: contribError } = await sb.rpc('admin_get_top_contributors', {
+      limit_count: 10
+    });
+    
+    if (contribError) throw contribError;
+    
+    // Update analytics display
+    const analyticsEl = $('#analyticsContent');
+    if (analyticsEl && contentStats) {
+      analyticsEl.innerHTML = `
+        <div class="admin-stats-grid">
+          <div class="admin-stat-card">
+            <h4>Comments Today</h4>
+            <p style="font-size: 28px; font-weight: 700;">${contentStats.comments_today || 0}</p>
+          </div>
+          <div class="admin-stat-card">
+            <h4>Comments This Week</h4>
+            <p style="font-size: 28px; font-weight: 700;">${contentStats.comments_this_week || 0}</p>
+          </div>
+          <div class="admin-stat-card">
+            <h4>Active Users Today</h4>
+            <p style="font-size: 28px; font-weight: 700;">${contentStats.active_users_today || 0}</p>
+          </div>
+          <div class="admin-stat-card">
+            <h4>Average Rating</h4>
+            <p style="font-size: 28px; font-weight: 700;">${contentStats.avg_rating || 'N/A'}</p>
+          </div>
+        </div>
+        
+        <div class="admin-section" style="margin-top: 32px;">
+          <h3>Top Contributors</h3>
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Username</th>
+                  <th>Comments</th>
+                  <th>Ratings</th>
+                  <th>Visits</th>
+                  <th>XP</th>
+                  <th>Level</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${topContributors && topContributors.length > 0 ? topContributors.map(user => `
+                  <tr>
+                    <td>${user.username || 'N/A'}</td>
+                    <td>${user.comment_count || 0}</td>
+                    <td>${user.rating_count || 0}</td>
+                    <td>${user.visit_count || 0}</td>
+                    <td>${user.total_xp || 0}</td>
+                    <td>${user.level || 0}</td>
+                  </tr>
+                `).join('') : '<tr><td colspan="6" class="table-loading">No contributors found</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    }
+    
+  } catch (error) {
+    console.error('Failed to load analytics:', error);
+    showToast('Failed to load analytics', 'error');
+  }
+}
+
+// Make functions global for onclick handlers
+window.adjustUserXP = adjustUserXP;
+window.banUser = banUser;
+window.unbanUser = unbanUser;
+window.deleteComment = deleteComment;
 
 // =====================================================
 // INITIALIZATION
