@@ -1,13 +1,80 @@
 -- =====================================================
--- ADMIN PANEL - CONTENT MANAGEMENT FUNCTIONS
+-- ADMIN CONTENT MANAGEMENT - NAPRAWIONA WERSJA
 -- =====================================================
--- Kompletne funkcje dla zarządzania treścią użytkowników
--- Posty, komentarze, zdjęcia - z pełną edycją
+-- Ten plik używa PRAWIDŁOWYCH nazw kolumn
+-- Uruchom TYLKO ten plik w Supabase SQL Editor
 -- =====================================================
 
 -- =====================================================
--- Function: Get all comments with full details
+-- PART 1: CORE DEPENDENCIES
 -- =====================================================
+
+-- Function: Check if current user is admin
+CREATE OR REPLACE FUNCTION is_current_user_admin()
+RETURNS BOOLEAN
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+BEGIN
+  RETURN EXISTS (
+    SELECT 1
+    FROM profiles
+    WHERE id = auth.uid()
+      AND is_admin = TRUE
+  );
+END;
+$$;
+
+-- Grant permission
+GRANT EXECUTE ON FUNCTION is_current_user_admin() TO authenticated;
+
+
+-- =====================================================
+-- PART 2: ADMIN ACTIONS TABLE
+-- =====================================================
+
+-- Create admin_actions table if not exists
+CREATE TABLE IF NOT EXISTS admin_actions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  admin_id UUID NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  action_type TEXT NOT NULL,
+  target_user_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
+  action_data JSON DEFAULT '{}'::JSON,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create indexes
+CREATE INDEX IF NOT EXISTS idx_admin_actions_admin_id ON admin_actions(admin_id);
+CREATE INDEX IF NOT EXISTS idx_admin_actions_created_at ON admin_actions(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_admin_actions_type ON admin_actions(action_type);
+
+-- Enable RLS
+ALTER TABLE admin_actions ENABLE ROW LEVEL SECURITY;
+
+-- Drop old policies if they exist
+DROP POLICY IF EXISTS "Admins can view action logs" ON admin_actions;
+DROP POLICY IF EXISTS "Admins can create action logs" ON admin_actions;
+
+-- Create policies
+CREATE POLICY "Admins can view action logs"
+  ON admin_actions
+  FOR SELECT
+  USING (is_current_user_admin());
+
+CREATE POLICY "Admins can create action logs"
+  ON admin_actions
+  FOR INSERT
+  WITH CHECK (is_current_user_admin());
+
+-- Grant table access
+GRANT SELECT, INSERT ON admin_actions TO authenticated;
+
+
+-- =====================================================
+-- PART 3: CONTENT MANAGEMENT FUNCTIONS (FIXED)
+-- =====================================================
+
+-- Function: Get all comments with full details
 CREATE OR REPLACE FUNCTION admin_get_all_comments(
   search_query TEXT DEFAULT NULL,
   poi_filter UUID DEFAULT NULL,
@@ -23,7 +90,7 @@ RETURNS TABLE (
   user_id UUID,
   username TEXT,
   user_email TEXT,
-  poi_id UUID,
+  poi_id TEXT,
   poi_name TEXT,
   created_at TIMESTAMPTZ,
   updated_at TIMESTAMPTZ,
@@ -54,13 +121,13 @@ BEGIN
     COALESCE((SELECT COUNT(*)::INTEGER FROM poi_comment_likes WHERE comment_id = c.id), 0) as like_count,
     COALESCE((SELECT COUNT(*)::INTEGER FROM poi_comment_photos WHERE comment_id = c.id), 0) as photo_count,
     COALESCE(p.level, 0) as user_level,
-    (c.updated_at IS NOT NULL AND c.updated_at > c.created_at) as is_edited
+    COALESCE(c.is_edited::BOOLEAN, FALSE) as is_edited
   FROM poi_comments c
   LEFT JOIN profiles p ON c.user_id = p.id
   LEFT JOIN pois poi ON c.poi_id = poi.id
   WHERE 
-    (search_query IS NULL OR c.content ILIKE '%' || search_query || '%' OR p.username ILIKE '%' || search_query || '%')
-    AND (poi_filter IS NULL OR c.poi_id = poi_filter)
+    (search_query IS NULL OR c.content ILIKE '%' || search_query || '%' OR p.username ILIKE '%' || search_query || '%' OR poi.name ILIKE '%' || search_query || '%')
+    AND (poi_filter IS NULL OR c.poi_id::TEXT = poi_filter::TEXT)
     AND (user_filter IS NULL OR c.user_id = user_filter)
     AND (date_from IS NULL OR c.created_at >= date_from)
     AND (date_to IS NULL OR c.created_at <= date_to)
@@ -71,9 +138,7 @@ END;
 $$;
 
 
--- =====================================================
--- Function: Get comment details with photos
--- =====================================================
+-- Function: Get comment details with photos (FIXED)
 CREATE OR REPLACE FUNCTION admin_get_comment_details(comment_id UUID)
 RETURNS JSON
 LANGUAGE plpgsql
@@ -111,10 +176,9 @@ BEGIN
         json_build_object(
           'id', cp.id,
           'photo_url', cp.photo_url,
-          'created_at', cp.created_at,
-          'order_index', cp.order_index
+          'uploaded_at', cp.uploaded_at
         )
-        ORDER BY cp.order_index, cp.created_at
+        ORDER BY cp.uploaded_at
       ), '[]'::json)
       FROM poi_comment_photos cp
       WHERE cp.comment_id = comment_id
@@ -122,13 +186,14 @@ BEGIN
     'likes', (
       SELECT json_build_object(
         'count', COUNT(*),
-        'users', json_agg(
+        'users', COALESCE(json_agg(
           json_build_object(
             'user_id', l.user_id,
             'username', p.username,
             'liked_at', l.created_at
           )
-        )
+          ORDER BY l.created_at DESC
+        ), '[]'::json)
       )
       FROM poi_comment_likes l
       LEFT JOIN profiles p ON l.user_id = p.id
@@ -141,9 +206,7 @@ END;
 $$;
 
 
--- =====================================================
 -- Function: Update comment content
--- =====================================================
 CREATE OR REPLACE FUNCTION admin_update_comment(
   comment_id UUID,
   new_content TEXT,
@@ -174,7 +237,8 @@ BEGIN
   UPDATE poi_comments
   SET 
     content = new_content,
-    updated_at = NOW()
+    updated_at = NOW(),
+    is_edited = TRUE
   WHERE id = comment_id;
   
   -- Log action
@@ -205,9 +269,7 @@ END;
 $$;
 
 
--- =====================================================
 -- Function: Delete comment photo
--- =====================================================
 CREATE OR REPLACE FUNCTION admin_delete_comment_photo(
   photo_id UUID,
   deletion_reason TEXT DEFAULT 'Admin action'
@@ -266,9 +328,62 @@ END;
 $$;
 
 
--- =====================================================
--- Function: Get all photos (for photo management)
--- =====================================================
+-- Function: Delete comment (with reason)
+CREATE OR REPLACE FUNCTION admin_delete_comment(
+  comment_id UUID,
+  deletion_reason TEXT DEFAULT 'Violating content policy'
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  comment_user_id UUID;
+  comment_content TEXT;
+BEGIN
+  IF NOT is_current_user_admin() THEN
+    RAISE EXCEPTION 'Access denied: Admin only';
+  END IF;
+  
+  -- Get comment details before deletion
+  SELECT user_id, content INTO comment_user_id, comment_content
+  FROM poi_comments
+  WHERE id = comment_id;
+  
+  IF comment_user_id IS NULL THEN
+    RAISE EXCEPTION 'Comment not found';
+  END IF;
+  
+  -- Log before deletion
+  INSERT INTO admin_actions (
+    admin_id,
+    action_type,
+    target_user_id,
+    action_data
+  ) VALUES (
+    auth.uid(),
+    'delete_comment',
+    comment_user_id,
+    json_build_object(
+      'comment_id', comment_id,
+      'content', LEFT(comment_content, 100),
+      'reason', deletion_reason
+    )
+  );
+  
+  -- Delete comment (cascade will handle photos and likes)
+  DELETE FROM poi_comments WHERE id = comment_id;
+  
+  RETURN json_build_object(
+    'success', true,
+    'comment_id', comment_id,
+    'reason', deletion_reason
+  );
+END;
+$$;
+
+
+-- Function: Get all photos (FIXED)
 CREATE OR REPLACE FUNCTION admin_get_all_photos(
   limit_count INTEGER DEFAULT 50,
   offset_count INTEGER DEFAULT 0
@@ -281,8 +396,7 @@ RETURNS TABLE (
   user_id UUID,
   username TEXT,
   poi_name TEXT,
-  created_at TIMESTAMPTZ,
-  order_index INTEGER
+  uploaded_at TIMESTAMPTZ
 )
 LANGUAGE plpgsql
 SECURITY DEFINER
@@ -301,22 +415,19 @@ BEGIN
     c.user_id,
     p.username,
     poi.name as poi_name,
-    cp.created_at,
-    cp.order_index
+    cp.uploaded_at
   FROM poi_comment_photos cp
   JOIN poi_comments c ON cp.comment_id = c.id
   LEFT JOIN profiles p ON c.user_id = p.id
   LEFT JOIN pois poi ON c.poi_id = poi.id
-  ORDER BY cp.created_at DESC
+  ORDER BY cp.uploaded_at DESC
   LIMIT limit_count
   OFFSET offset_count;
 END;
 $$;
 
 
--- =====================================================
--- Function: Get content statistics
--- =====================================================
+-- Function: Get detailed content statistics (FIXED)
 CREATE OR REPLACE FUNCTION admin_get_detailed_content_stats()
 RETURNS JSON
 LANGUAGE plpgsql
@@ -336,14 +447,14 @@ BEGIN
       'this_week', (SELECT COUNT(*) FROM poi_comments WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'),
       'this_month', (SELECT COUNT(*) FROM poi_comments WHERE created_at >= CURRENT_DATE - INTERVAL '30 days'),
       'with_photos', (SELECT COUNT(DISTINCT comment_id) FROM poi_comment_photos),
-      'edited', (SELECT COUNT(*) FROM poi_comments WHERE updated_at IS NOT NULL AND updated_at > created_at)
+      'edited', (SELECT COUNT(*) FROM poi_comments WHERE is_edited = TRUE)
     ),
     'photos', json_build_object(
       'total', (SELECT COUNT(*) FROM poi_comment_photos),
-      'today', (SELECT COUNT(*) FROM poi_comment_photos WHERE DATE(created_at) = CURRENT_DATE),
-      'this_week', (SELECT COUNT(*) FROM poi_comment_photos WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'),
+      'today', (SELECT COUNT(*) FROM poi_comment_photos WHERE DATE(uploaded_at) = CURRENT_DATE),
+      'this_week', (SELECT COUNT(*) FROM poi_comment_photos WHERE uploaded_at >= CURRENT_DATE - INTERVAL '7 days'),
       'avg_per_comment', (
-        SELECT ROUND(AVG(photo_count), 2)
+        SELECT COALESCE(ROUND(AVG(photo_count), 2), 0)
         FROM (
           SELECT COUNT(*) as photo_count
           FROM poi_comment_photos
@@ -355,10 +466,10 @@ BEGIN
       'total', (SELECT COUNT(*) FROM poi_comment_likes),
       'today', (SELECT COUNT(*) FROM poi_comment_likes WHERE DATE(created_at) = CURRENT_DATE),
       'most_liked_comment', (
-        SELECT json_build_object(
+        SELECT COALESCE(json_build_object(
           'comment_id', comment_id,
           'like_count', COUNT(*)
-        )
+        ), '{}'::json)
         FROM poi_comment_likes
         GROUP BY comment_id
         ORDER BY COUNT(*) DESC
@@ -369,11 +480,11 @@ BEGIN
       'total', (SELECT COUNT(*) FROM pois),
       'with_comments', (SELECT COUNT(DISTINCT poi_id) FROM poi_comments),
       'most_commented', (
-        SELECT json_build_object(
+        SELECT COALESCE(json_build_object(
           'poi_id', c.poi_id,
           'poi_name', p.name,
           'comment_count', COUNT(*)
-        )
+        ), '{}'::json)
         FROM poi_comments c
         JOIN pois p ON c.poi_id = p.id
         GROUP BY c.poi_id, p.name
@@ -384,7 +495,7 @@ BEGIN
     'engagement', json_build_object(
       'active_commenters_today', (SELECT COUNT(DISTINCT user_id) FROM poi_comments WHERE DATE(created_at) = CURRENT_DATE),
       'active_commenters_week', (SELECT COUNT(DISTINCT user_id) FROM poi_comments WHERE created_at >= CURRENT_DATE - INTERVAL '7 days'),
-      'avg_comment_length', (SELECT ROUND(AVG(LENGTH(content)), 0) FROM poi_comments)
+      'avg_comment_length', (SELECT COALESCE(ROUND(AVG(LENGTH(content)), 0), 0) FROM poi_comments)
     )
   ) INTO stats;
   
@@ -393,9 +504,7 @@ END;
 $$;
 
 
--- =====================================================
 -- Function: Bulk operations on comments
--- =====================================================
 CREATE OR REPLACE FUNCTION admin_bulk_comment_operation(
   comment_ids UUID[],
   operation TEXT,
@@ -420,11 +529,6 @@ BEGIN
         DELETE FROM poi_comments WHERE id = comment_id;
         affected_count := affected_count + 1;
       END LOOP;
-      
-    WHEN 'hide' THEN
-      -- If you have an is_hidden column
-      -- UPDATE poi_comments SET is_hidden = true WHERE id = ANY(comment_ids);
-      affected_count := array_length(comment_ids, 1);
       
     ELSE
       RAISE EXCEPTION 'Unknown operation: %', operation;
@@ -457,26 +561,44 @@ $$;
 
 
 -- =====================================================
--- Grant permissions
+-- PART 4: GRANT PERMISSIONS
 -- =====================================================
+
 GRANT EXECUTE ON FUNCTION admin_get_all_comments(TEXT, UUID, UUID, TIMESTAMPTZ, TIMESTAMPTZ, INTEGER, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_get_comment_details(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_update_comment(UUID, TEXT, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_delete_comment_photo(UUID, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_delete_comment(UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_get_all_photos(INTEGER, INTEGER) TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_get_detailed_content_stats() TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_bulk_comment_operation(UUID[], TEXT, JSON) TO authenticated;
 
 
 -- =====================================================
--- SUMMARY
+-- PART 5: VERIFICATION
 -- =====================================================
--- ✅ Pobieranie wszystkich komentarzy z filtrami
--- ✅ Szczegóły komentarza ze zdjęciami i likami
--- ✅ Edycja treści komentarzy
--- ✅ Usuwanie zdjęć
--- ✅ Lista wszystkich zdjęć
--- ✅ Szczegółowe statystyki treści
--- ✅ Operacje bulk na komentarzach
--- ✅ Pełne logowanie wszystkich akcji
--- =====================================================
+
+DO $$
+BEGIN
+  RAISE NOTICE '';
+  RAISE NOTICE '=====================================================';
+  RAISE NOTICE '✅ INSTALLATION COMPLETE!';
+  RAISE NOTICE '=====================================================';
+  RAISE NOTICE 'Created/Updated:';
+  RAISE NOTICE '  ✅ is_current_user_admin() function';
+  RAISE NOTICE '  ✅ admin_actions table with RLS';
+  RAISE NOTICE '  ✅ 8 content management functions (FIXED)';
+  RAISE NOTICE '';
+  RAISE NOTICE 'Fixed issues:';
+  RAISE NOTICE '  ✅ poi_comment_photos uses uploaded_at (not created_at)';
+  RAISE NOTICE '  ✅ Removed order_index column (does not exist)';
+  RAISE NOTICE '  ✅ poi_id is TEXT (not UUID)';
+  RAISE NOTICE '  ✅ is_edited is BOOLEAN type';
+  RAISE NOTICE '';
+  RAISE NOTICE 'Next steps:';
+  RAISE NOTICE '  1. Reload admin panel: https://cypruseye.com/admin';
+  RAISE NOTICE '  2. Press Ctrl+Shift+R to force refresh';
+  RAISE NOTICE '  3. Go to Content tab';
+  RAISE NOTICE '  4. Everything should work now!';
+  RAISE NOTICE '=====================================================';
+END $$;
