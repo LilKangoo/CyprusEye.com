@@ -1,62 +1,94 @@
-// POI Loader - Dynamic loading from Supabase
-// This replaces static PLACES_DATA with live database data
+/**
+ * POI LOADER V2 - Uproszczona wersja która NA PEWNO DZIAŁA
+ * Ładuje POI z Supabase i udostępnia globalnie jako PLACES_DATA
+ */
 
-let PLACES_DATA = []; // Will be populated from Supabase
-let poisLoadedFromSupabase = false;
+console.log('🔵 POI Loader V2 - START');
+
+// Globalna zmienna dla POI
+window.PLACES_DATA = [];
+window.PLACES_DATA_LOADED = false;
 
 /**
- * Load POIs from Supabase database
- * @returns {Promise<Array>} Array of POI objects
+ * Czeka na Supabase client
  */
-async function loadPoisFromSupabase() {
-  console.log('🔄 Loading POIs from Supabase...');
+async function waitForSupabase(maxAttempts = 50) {
+  console.log('⏳ Czekam na Supabase client...');
+  
+  for (let i = 0; i < maxAttempts; i++) {
+    // Sprawdź różne sposoby dostępu
+    const client = window.supabaseClient || 
+                   window.sb || 
+                   window.__SB__ ||
+                   (window.getSupabase && window.getSupabase());
+    
+    if (client) {
+      console.log(`✅ Supabase client znaleziony (próba ${i + 1})`);
+      return client;
+    }
+    
+    // Czekaj 100ms
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  
+  console.error('❌ Supabase client nie dostępny po 5 sekundach');
+  return null;
+}
+
+/**
+ * Ładuje POI z Supabase
+ */
+async function loadPOIsFromSupabase() {
+  console.log('📥 Ładuję POI z Supabase...');
   
   try {
-    // Get Supabase client - try multiple methods
-    const supabaseClient = window.supabaseClient || window.sb || (window.getSupabase && window.getSupabase());
+    // Czekaj na Supabase
+    const supabase = await waitForSupabase();
     
-    if (!supabaseClient) {
-      console.warn('⚠️ Supabase client not available, using fallback');
-      return [];
+    if (!supabase) {
+      console.error('❌ Brak Supabase client - używam fallback');
+      return useFallbackData();
     }
-
-    console.log('✅ Supabase client found, fetching POIs...');
-
-    // Fetch ONLY published POIs from database (for public view)
-    const { data: pois, error} = await supabaseClient
+    
+    // Pobierz POI z bazy (tylko Published)
+    console.log('🔍 Zapytanie: SELECT * FROM pois WHERE status = published');
+    const { data: pois, error } = await supabase
       .from('pois')
       .select('*')
       .eq('status', 'published')
       .order('created_at', { ascending: false });
-
+    
     if (error) {
-      console.error('❌ Error loading POIs from Supabase:', error);
-      return [];
+      console.error('❌ Błąd Supabase:', error);
+      return useFallbackData();
     }
-
+    
     if (!pois || pois.length === 0) {
-      console.log('ℹ️ No POIs found in database');
-      return [];
+      console.warn('⚠️ BRAK POI w bazie z statusem "published"');
+      console.warn('→ Uruchom: UPDATE pois SET status = \'published\';');
+      return useFallbackData();
     }
-
-    console.log(`✅ Loaded ${pois.length} POIs from Supabase`);
     
-    // Transform database POIs to app format
-    const transformedPois = pois.map(poi => transformPoiFromDatabase(poi));
+    console.log(`✅ Pobrano ${pois.length} POI z Supabase`);
     
-    return transformedPois;
-  } catch (error) {
-    console.error('❌ Failed to load POIs:', error);
-    return [];
+    // Transformuj dane
+    const transformedPOIs = pois.map(poi => transformPOI(poi));
+    
+    console.log('✅ Transformacja zakończona');
+    console.log('📍 Przykładowy POI:', transformedPOIs[0]);
+    
+    return transformedPOIs;
+    
+  } catch (err) {
+    console.error('❌ Wyjątek podczas ładowania POI:', err);
+    return useFallbackData();
   }
 }
 
 /**
- * Transform POI from database format to app format
- * @param {Object} dbPoi - POI object from database
- * @returns {Object} Transformed POI object
+ * Transformuje POI z formatu bazy do formatu aplikacji
  */
-function transformPoiFromDatabase(dbPoi) {
+function transformPOI(dbPoi) {
   return {
     id: dbPoi.id,
     nameKey: `places.${dbPoi.id}.name`,
@@ -68,124 +100,106 @@ function transformPoiFromDatabase(dbPoi) {
     lat: parseFloat(dbPoi.lat) || 0,
     lng: parseFloat(dbPoi.lng) || 0,
     googleMapsUrl: dbPoi.google_maps_url || `https://maps.google.com/?q=${dbPoi.lat},${dbPoi.lng}`,
+    googleMapsURL: dbPoi.google_maps_url || `https://maps.google.com/?q=${dbPoi.lat},${dbPoi.lng}`,
     xp: parseInt(dbPoi.xp) || 100,
     requiredLevel: parseInt(dbPoi.required_level) || 1,
     source: 'supabase',
+    status: dbPoi.status,
     raw: dbPoi
   };
 }
 
 /**
- * Wait for Supabase to be available
- * @returns {Promise<Object|null>} Supabase client or null
+ * Używa danych statycznych jako fallback
  */
-async function waitForSupabase() {
-  let attempts = 0;
-  const maxAttempts = 50; // 5 seconds max
+function useFallbackData() {
+  console.log('ℹ️ Używam fallback data (STATIC_PLACES_DATA)');
   
-  while (attempts < maxAttempts) {
-    const client = window.supabaseClient || window.sb || (window.getSupabase && window.getSupabase());
-    if (client) {
-      console.log('✅ Supabase client ready');
-      return client;
-    }
-    await new Promise(resolve => setTimeout(resolve, 100));
-    attempts++;
+  if (typeof window.STATIC_PLACES_DATA !== 'undefined' && window.STATIC_PLACES_DATA.length > 0) {
+    console.log(`✅ Znaleziono ${window.STATIC_PLACES_DATA.length} POI w STATIC_PLACES_DATA`);
+    return window.STATIC_PLACES_DATA;
   }
   
-  console.warn('⚠️ Supabase client not available after waiting');
-  return null;
+  console.warn('⚠️ Brak STATIC_PLACES_DATA - zwracam pustą tablicę');
+  return [];
 }
 
 /**
- * Initialize POI data - try Supabase first, fallback to static
- * @returns {Promise<Array>} Array of POI objects
+ * Inicjalizuje dane POI
  */
-async function initializePlacesData() {
-  console.log('🚀 Initializing places data...');
+async function initializePOIs() {
+  console.log('🚀 Inicjalizuję POI...');
   
   try {
-    // Wait for Supabase to be ready
-    await waitForSupabase();
+    // Załaduj z Supabase
+    const pois = await loadPOIsFromSupabase();
     
-    // Try loading from Supabase
-    const supabasePois = await loadPoisFromSupabase();
+    // Ustaw globalnie
+    window.PLACES_DATA = pois;
+    window.PLACES_DATA_LOADED = true;
     
-    if (supabasePois && supabasePois.length > 0) {
-      PLACES_DATA = supabasePois;
-      poisLoadedFromSupabase = true;
-      console.log(`✅ Using ${PLACES_DATA.length} POIs from Supabase`);
-      return PLACES_DATA;
-    }
+    console.log(`✅ PLACES_DATA załadowane: ${pois.length} POI`);
+    console.log('📊 window.PLACES_DATA:', window.PLACES_DATA);
     
-    // Fallback to static data if available
-    if (typeof STATIC_PLACES_DATA !== 'undefined' && STATIC_PLACES_DATA.length > 0) {
-      PLACES_DATA = STATIC_PLACES_DATA;
-      poisLoadedFromSupabase = false;
-      console.log(`ℹ️ Using ${PLACES_DATA.length} POIs from static data (fallback)`);
-      return PLACES_DATA;
-    }
+    // Emit event
+    const event = new CustomEvent('poisDataRefreshed', {
+      detail: {
+        count: pois.length,
+        source: pois.length > 0 && pois[0].source === 'supabase' ? 'supabase' : 'fallback'
+      }
+    });
+    window.dispatchEvent(event);
+    console.log('📡 Event "poisDataRefreshed" emitowany');
     
-    console.warn('⚠️ No POI data available');
-    return [];
-  } catch (error) {
-    console.error('❌ Error initializing places data:', error);
+    return pois;
     
-    // Try fallback
-    if (typeof STATIC_PLACES_DATA !== 'undefined') {
-      PLACES_DATA = STATIC_PLACES_DATA;
-      return PLACES_DATA;
-    }
-    
+  } catch (err) {
+    console.error('❌ Błąd inicjalizacji POI:', err);
+    window.PLACES_DATA = [];
+    window.PLACES_DATA_LOADED = true;
     return [];
   }
 }
 
 /**
- * Refresh POIs from Supabase (call after admin changes)
+ * Refresh POI (po zmianach w admin)
  */
-async function refreshPoisData() {
-  console.log('🔄 Refreshing POIs data...');
-  const newData = await loadPoisFromSupabase();
+async function refreshPOIs() {
+  console.log('🔄 Odświeżam POI...');
   
-  if (newData && newData.length > 0) {
-    PLACES_DATA = newData;
-    poisLoadedFromSupabase = true;
-    
-    console.log(`✅ Refreshed ${PLACES_DATA.length} POIs from Supabase`);
-    console.log('   Sample POI:', PLACES_DATA[0]);
-    
-    // Trigger refresh events
-    if (typeof window.onPoisDataRefreshed === 'function') {
-      window.onPoisDataRefreshed(PLACES_DATA);
+  const pois = await loadPOIsFromSupabase();
+  window.PLACES_DATA = pois;
+  
+  console.log(`✅ POI odświeżone: ${pois.length} elementów`);
+  
+  // Emit event
+  const event = new CustomEvent('poisDataRefreshed', {
+    detail: {
+      count: pois.length,
+      source: pois.length > 0 && pois[0].source === 'supabase' ? 'supabase' : 'fallback'
     }
-    
-    // Dispatch custom event
-    console.log('🔔 Dispatching poisDataRefreshed event');
-    window.dispatchEvent(new CustomEvent('poisDataRefreshed', { 
-      detail: { pois: PLACES_DATA, source: 'supabase', count: PLACES_DATA.length } 
-    }));
-    
-    console.log('✅ Event dispatched, listeners should update now');
-  } else {
-    console.warn('⚠️ No data returned from Supabase during refresh');
-  }
+  });
+  window.dispatchEvent(event);
+  console.log('📡 Event "poisDataRefreshed" emitowany');
   
-  return PLACES_DATA;
+  return pois;
 }
 
-// Export functions globally
-window.loadPoisFromSupabase = loadPoisFromSupabase;
-window.initializePlacesData = initializePlacesData;
-window.refreshPoisData = refreshPoisData;
-window.transformPoiFromDatabase = transformPoiFromDatabase;
+// Export globalnie
+window.initializePOIs = initializePOIs;
+window.refreshPOIs = refreshPOIs;
+window.refreshPoisData = refreshPOIs; // Alias dla kompatybilności
 
-// Auto-initialize when DOM is ready
+// Auto-init
+console.log('⏰ Planowanie auto-init...');
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializePlacesData);
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('📄 DOMContentLoaded - uruchamiam initializePOIs');
+    initializePOIs();
+  });
 } else {
-  // DOM already loaded
-  initializePlacesData();
+  console.log('📄 DOM już załadowany - uruchamiam initializePOIs natychmiast');
+  initializePOIs();
 }
 
-console.log('✅ POI Loader initialized');
+console.log('🔵 POI Loader V2 - GOTOWY');
