@@ -127,6 +127,7 @@ function showToast(message, type = 'info') {
 
 async function checkAdminAccess() {
   try {
+    console.log('=== checkAdminAccess START ===');
     setLoading(true);
 
     // Ensure Supabase client is available
@@ -139,9 +140,13 @@ async function checkAdminAccess() {
     }
 
     // Get current session
+    console.log('Getting session...');
     const { data: { session }, error: sessionError } = await sb.auth.getSession();
     
-    if (sessionError) throw sessionError;
+    if (sessionError) {
+      console.error('Session error:', sessionError);
+      throw sessionError;
+    }
     
     if (!session || !session.user) {
       console.log('No active session - showing login screen');
@@ -149,39 +154,55 @@ async function checkAdminAccess() {
       return false;
     }
 
+    console.log('Session found. User:', session.user.email, 'ID:', session.user.id);
     adminState.user = session.user;
 
     // Check if user ID matches admin
+    console.log('Required admin ID:', ADMIN_CONFIG.requiredUserId);
+    console.log('Current user ID:', session.user.id);
+    
     if (session.user.id !== ADMIN_CONFIG.requiredUserId) {
+      console.log('❌ User ID does NOT match admin ID');
       console.log('User is not admin:', session.user.id);
       showAccessDenied();
       return false;
     }
+    
+    console.log('✅ User ID matches! Checking profile...');
 
     // Get user profile and verify is_admin flag
-    const { data: profile, error: profileError } = await client
+    const { data: profile, error: profileError } = await sb
       .from('profiles')
       .select('*')
       .eq('id', session.user.id)
       .single();
 
-    if (profileError) throw profileError;
+    if (profileError) {
+      console.error('Profile error:', profileError);
+      throw profileError;
+    }
+
+    console.log('Profile loaded:', profile);
+    console.log('is_admin flag:', profile?.is_admin);
 
     if (!profile || !profile.is_admin) {
-      console.log('User profile does not have admin flag');
+      console.log('❌ User profile does not have admin flag');
       showAccessDenied();
       return false;
     }
 
+    console.log('✅ Admin flag confirmed!');
     adminState.profile = profile;
     adminState.isAdmin = true;
 
-    console.log('Admin access granted:', profile.username);
+    console.log('✅✅✅ Admin access GRANTED:', profile.username || profile.email);
+    console.log('=== checkAdminAccess END - SUCCESS ===');
     showAdminPanel();
     return true;
 
   } catch (error) {
-    console.error('Admin access check failed:', error);
+    console.error('❌ Admin access check failed:', error);
+    console.log('=== checkAdminAccess END - FAILED ===');
     showLoginScreen();
     return false;
   } finally {
@@ -659,6 +680,8 @@ async function loadDiagnosticsData() {
 
 async function handleAdminLogin(email, password) {
   try {
+    console.log('handleAdminLogin called with email:', email);
+    
     // Ensure Supabase client is available
     if (!sb) {
       sb = getSupabaseClient();
@@ -668,20 +691,36 @@ async function handleAdminLogin(email, password) {
       throw new Error('Supabase client not available. Please refresh the page.');
     }
     
+    console.log('Attempting sign in...');
+    
     // Sign in with Supabase
     const { data, error } = await sb.auth.signInWithPassword({
       email: email.trim(),
       password: password
     });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Sign in error:', error);
+      throw error;
+    }
 
     if (!data.user) {
       throw new Error('Login failed - no user data');
     }
 
+    console.log('Sign in successful! User ID:', data.user.id);
+    console.log('Checking admin access...');
+
     // Check if user has admin access
-    await checkAdminAccess();
+    const hasAccess = await checkAdminAccess();
+    
+    if (!hasAccess) {
+      console.log('Admin access denied for user:', data.user.id);
+      // Access denied screen should already be showing from checkAdminAccess()
+      throw new Error('You do not have admin access. Only lilkangoomedia@gmail.com is authorized.');
+    }
+    
+    console.log('Admin access granted! Loading panel...');
 
   } catch (error) {
     console.error('Login failed:', error);
@@ -692,6 +731,8 @@ async function handleAdminLogin(email, password) {
         errorMessage = 'Invalid email or password.';
       } else if (error.message.includes('Email not confirmed')) {
         errorMessage = 'Please confirm your email address first.';
+      } else if (error.message.includes('admin access')) {
+        errorMessage = error.message; // Use the admin access error message
       }
     }
     
