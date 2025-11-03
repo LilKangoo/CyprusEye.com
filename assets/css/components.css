@@ -990,18 +990,18 @@ textarea:focus-visible {
 
 .app-header {
   padding: clamp(1.65rem, 4vw, 3.75rem) clamp(1.25rem, 5vw, 4rem);
-  color: #fff;
+  color: #0f172a;
   position: relative;
   overflow: hidden;
   display: grid;
   gap: clamp(1.25rem, 3vw, 2.6rem);
-  background: linear-gradient(140deg, rgba(37, 99, 235, 0.95), rgba(124, 58, 237, 0.88));
+  background: linear-gradient(135deg, rgba(226, 232, 240, 0.6) 0%, rgba(241, 245, 249, 0.8) 100%);
   border-radius: 36px;
-  box-shadow: var(--shadow-strong);
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
   width: 100%;
   max-width: none;
   isolation: isolate;
-  border: 1px solid rgba(255, 255, 255, 0.25);
+  border: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 .header-top {
@@ -1061,30 +1061,35 @@ textarea:focus-visible {
 }
 
 .app-header::before {
-  background: radial-gradient(circle at 18% -10%, rgba(255, 255, 255, 0.32), transparent 58%),
-    radial-gradient(circle at 88% 18%, rgba(14, 165, 233, 0.35), transparent 60%);
-  opacity: 0.9;
+  background: radial-gradient(circle at 20% 10%, rgba(59, 130, 246, 0.06), transparent 60%),
+    radial-gradient(circle at 80% 80%, rgba(167, 139, 250, 0.05), transparent 55%);
+  opacity: 1;
   z-index: 0;
 }
 
 .app-header::after {
-  background: radial-gradient(circle at 50% 120%, rgba(14, 165, 233, 0.28), transparent 65%);
-  animation: headerPulse 18s ease-in-out infinite alternate;
+  background: radial-gradient(circle at 50% 50%, rgba(147, 197, 253, 0.04), transparent 70%);
   z-index: 0;
 }
 
 .brand {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto 1fr;
   align-items: center;
-  gap: 1.5rem;
+  gap: clamp(1rem, 2.5vw, 1.5rem);
+  padding: clamp(1rem, 2.5vw, 1.25rem);
+  border-radius: 26px;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.72));
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  box-shadow: 0 4px 16px rgba(15, 23, 42, 0.08);
+  color: var(--color-neutral-900);
   position: relative;
   z-index: 1;
 }
 
 @media (max-width: 959px) {
   .brand {
-    flex-direction: row;
-    align-items: flex-start;
+    grid-template-columns: auto 1fr;
   }
 }
 
@@ -1092,19 +1097,18 @@ textarea:focus-visible {
   width: clamp(64px, 10vw, 86px);
   height: clamp(64px, 10vw, 86px);
   object-fit: contain;
-  border-radius: 50%;
-  padding: 0.45rem;
-  background: rgba(255, 255, 255, 0.16);
-  border: 2px solid rgba(255, 255, 255, 0.45);
+  border-radius: 20px;
+  padding: 0.5rem;
+  background: rgba(37, 99, 235, 0.12);
+  border: 2px solid rgba(37, 99, 235, 0.4);
   box-shadow: 0 18px 38px rgba(15, 23, 42, 0.18);
   flex-shrink: 0;
 }
 
 .brand-title {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  text-align: center;
+  display: grid;
+  gap: 0.35rem;
+  text-align: left;
 }
 
 .header-top-actions {
@@ -1264,20 +1268,31 @@ textarea:focus-visible {
 
 .brand-title .brand-name {
   margin: 0;
-  font-size: clamp(2.15rem, 5vw, 3.65rem);
+  font-size: clamp(1.6rem, 5vw, 2.15rem);
   font-weight: 700;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.018em;
+  color: #0f172a;
+  background: linear-gradient(132deg, #0f172a 0%, #1d4ed8 40%, #38bdf8 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 14px 28px rgba(15, 23, 42, 0.28);
 }
 
 .brand-title .brand-name span {
-  color: #fef3c7;
+  color: var(--color-accent-600);
+  background: linear-gradient(132deg, #fbbf24 0%, #f97316 45%, #fb7185 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
 }
 
 .tagline {
-  margin: 0.65rem 0 0;
-  font-size: clamp(1rem, 2.3vw, 1.25rem);
+  margin: 0;
+  font-size: clamp(0.95rem, 2.3vw, 1.25rem);
   max-width: 48ch;
-  color: rgba(255, 255, 255, 0.85);
+  color: rgba(15, 23, 42, 0.72);
+  line-height: 1.45;
 }
 
 .header-tabs {
@@ -1287,40 +1302,42 @@ textarea:focus-visible {
   flex-wrap: wrap;
   row-gap: 0.5rem;
   column-gap: 0.65rem;
-  background: rgba(255, 255, 255, 0.5);
+  background: rgba(255, 255, 255, 0.95);
   padding: 0.5rem 0.6rem;
   border-radius: 999px;
-  box-shadow: 0 22px 44px rgba(14, 116, 144, 0.24);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.08);
+  border: 1px solid rgba(148, 163, 184, 0.15);
   position: relative;
   z-index: 1;
   justify-self: center;
 }
 
 .header-tab {
-  border: none;
-  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  background: #ffffff;
   color: rgba(15, 23, 42, 0.88);
   font-weight: 600;
   padding: 0.55rem 1.35rem;
   border-radius: 999px;
   cursor: pointer;
   transition: background-color var(--transition), color var(--transition), transform var(--transition),
-    box-shadow var(--transition);
+    box-shadow var(--transition), border-color var(--transition);
 }
 
 .header-tab:hover,
 .header-tab:focus-visible {
-  background: rgba(255, 255, 255, 0.9);
+  background: #ffffff;
   color: var(--text);
+  border-color: rgba(59, 130, 246, 0.4);
   transform: translateY(-1px);
-  box-shadow: 0 18px 36px rgba(14, 116, 144, 0.22);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
 }
 
 .header-tab.is-active {
-  background: #fff;
-  color: var(--text);
-  box-shadow: 0 20px 44px rgba(14, 116, 144, 0.26);
-  transform: translateY(-1px);
+  background: #ffffff;
+  color: #0f172a;
+  border-color: rgba(59, 130, 246, 0.5);
+  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2);
 }
 
 
@@ -5211,17 +5228,19 @@ main::before {
 }
 
 .app-header .ghost {
-  background: rgba(255, 255, 255, 0.92);
-  border-color: rgba(255, 255, 255, 0.65);
-  color: var(--text);
-  box-shadow: 0 18px 32px rgba(15, 23, 42, 0.18);
-  backdrop-filter: blur(14px);
+  background: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #0f172a;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+  backdrop-filter: none;
 }
 
 .app-header .ghost:hover,
 .app-header .ghost:focus-visible {
-  background: rgba(255, 255, 255, 1);
-  color: var(--text);
+  background: #ffffff;
+  border-color: rgba(59, 130, 246, 0.4);
+  color: #0f172a;
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.12);
 }
 
 .ghost.link {

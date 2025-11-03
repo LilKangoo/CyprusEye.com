@@ -26,6 +26,17 @@
   white-space: nowrap;
   width: 100%;
   text-align: center;
+  background: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #0f172a;
+  box-shadow: 0 2px 4px rgba(15, 23, 42, 0.06);
+  transition: all 0.2s ease;
+}
+
+.btn-sm:hover {
+  background: #ffffff;
+  border-color: rgba(59, 130, 246, 0.4);
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
 }
 
 .btn-sm.btn-danger {
@@ -120,12 +131,6 @@
   position: sticky;
   top: 0;
   z-index: 1000;
-  background: #ffffff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-}
-
-.header-top {
-  border-bottom: 1px solid #e5e7eb;
 }
 
 .header-top-actions {
