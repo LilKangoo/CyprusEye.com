@@ -15,8 +15,9 @@ class TasksManager {
 
   /**
    * Inicjalizacja managera zadań
+   * @param {Array} tasksData - Opcjonalnie przekaż dane zadań
    */
-  async init() {
+  async init(tasksData = null) {
     console.log('🎯 Initializing Tasks Manager...');
     
     // Pobierz element listy zadań
@@ -26,10 +27,11 @@ class TasksManager {
       return;
     }
 
-    // Pobierz dane zadań
-    this.tasks = window.TASKS_DATA || [];
+    // Pobierz dane zadań - najpierw z parametru, potem z window
+    this.tasks = tasksData || window.TASKS_DATA || [];
     if (this.tasks.length === 0) {
       console.error('❌ TASKS_DATA not found or empty');
+      console.log('Available global variables:', Object.keys(window).filter(k => k.includes('TASKS')));
       return;
     }
 
@@ -445,8 +447,8 @@ class TasksManager {
 // Eksportuj instancję i funkcję inicjalizacji
 const tasksManager = new TasksManager();
 
-export async function initTasks() {
-  await tasksManager.init();
+export async function initTasks(tasksData = null) {
+  await tasksManager.init(tasksData);
 }
 
 export default tasksManager;
