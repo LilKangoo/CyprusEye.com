@@ -1328,36 +1328,107 @@ function updatePoiDataSourceBadge() {
   badge.textContent = adminState.poiDataSource === 'supabase' ? 'Live database' : 'Static dataset';
 }
 
+function safeParsePoiData(value) {
+  if (!value) return {};
+
+  if (typeof value === 'object') {
+    return value;
+  }
+
+  if (typeof value === 'string') {
+    try {
+      return JSON.parse(value);
+    } catch (error) {
+      console.warn('Failed to parse POI data payload:', error);
+    }
+  }
+
+  return {};
+}
+
 function normalizePoi(rawPoi, source = 'supabase') {
   if (!rawPoi) return null;
 
-  const data = rawPoi.data && typeof rawPoi.data === 'object' ? rawPoi.data : {};
-  const candidateSlug = data.slug || rawPoi.slug || rawPoi.identifier || rawPoi.poi_id;
+  const data = safeParsePoiData(rawPoi.data);
+  const candidateSlug = data.slug || rawPoi.slug || rawPoi.identifier || rawPoi.poi_id || rawPoi.id;
   const name = rawPoi.name || data.name || 'Unnamed POI';
   const slug = (typeof candidateSlug === 'string' && candidateSlug.trim())
     ? candidateSlug.trim()
     : slugify(name);
 
   const id = rawPoi.id || data.id || slug;
+
   const latitude = parseFloat(
-    rawPoi.latitude ?? rawPoi.lat ?? data.latitude ?? data.lat ?? data.location?.lat ?? data.location?.latitude ?? NaN
+    rawPoi.latitude
+      ?? rawPoi.lat
+      ?? data.latitude
+      ?? data.lat
+      ?? data.location?.lat
+      ?? data.location?.latitude
+      ?? rawPoi.location?.lat
+      ?? rawPoi.location?.latitude
+      ?? NaN
   );
+
   const longitude = parseFloat(
-    rawPoi.longitude ?? rawPoi.lon ?? data.longitude ?? data.lon ?? data.location?.lng ?? data.location?.lon ?? data.location?.longitude ?? NaN
+    rawPoi.longitude
+      ?? rawPoi.lon
+      ?? rawPoi.lng
+      ?? data.longitude
+      ?? data.lon
+      ?? data.lng
+      ?? data.location?.lng
+      ?? data.location?.lon
+      ?? data.location?.longitude
+      ?? rawPoi.location?.lng
+      ?? rawPoi.location?.lon
+      ?? rawPoi.location?.longitude
+      ?? NaN
   );
+
   const radius = parseInt(
-    rawPoi.radius ?? data.radius ?? data.geofence_radius ?? data.geofenceRadius ?? DEFAULT_POI_RADIUS,
+    rawPoi.radius
+      ?? rawPoi.geofence_radius
+      ?? rawPoi.geofenceRadius
+      ?? data.radius
+      ?? data.geofence_radius
+      ?? data.geofenceRadius
+      ?? DEFAULT_POI_RADIUS,
     10
   );
 
-  const tags = Array.isArray(data.tags)
-    ? data.tags
+  const combinedTags = [
+    ...(Array.isArray(data.tags) ? data.tags : []),
+    ...(Array.isArray(rawPoi.tags) ? rawPoi.tags : []),
+  ];
+
+  const tags = combinedTags.length
+    ? combinedTags
     : typeof data.tags === 'string'
       ? data.tags.split(',').map(tag => tag.trim()).filter(Boolean)
-      : [];
+      : typeof rawPoi.tags === 'string'
+        ? rawPoi.tags.split(',').map(tag => tag.trim()).filter(Boolean)
+        : [];
 
-  const status = (data.status || rawPoi.status || (source === 'static' ? 'published' : 'draft')).toString().toLowerCase();
-  const category = (rawPoi.category || data.category || 'uncategorized').toString().toLowerCase();
+  const derivedStatus = rawPoi.is_hidden
+    ? 'hidden'
+    : rawPoi.is_draft
+      ? 'draft'
+      : rawPoi.is_published === false
+        ? 'draft'
+        : null;
+
+  const status = (data.status || rawPoi.status || derivedStatus || (source === 'static' ? 'published' : 'draft'))
+    .toString()
+    .toLowerCase();
+
+  const category = (
+    rawPoi.category
+    || data.category
+    || rawPoi.poi_category
+    || data.poi_category
+    || 'uncategorized'
+  ).toString().toLowerCase();
 
   return {
     id,
@@ -1568,7 +1639,7 @@ async function loadPoisData(forceRefresh = false) {
     try {
       const { data: pois, error } = await client
         .from('pois')
-        .select('id, name, description, latitude, longitude, category, data, status, created_at, updated_at')
+        .select('*')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
