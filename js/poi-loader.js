@@ -12,11 +12,15 @@ async function loadPoisFromSupabase() {
   console.log('🔄 Loading POIs from Supabase...');
   
   try {
-    const supabaseClient = window.supabaseClient;
+    // Get Supabase client - try multiple methods
+    const supabaseClient = window.supabaseClient || window.sb || (window.getSupabase && window.getSupabase());
+    
     if (!supabaseClient) {
       console.warn('⚠️ Supabase client not available, using fallback');
       return [];
     }
+
+    console.log('✅ Supabase client found, fetching POIs...');
 
     // Fetch ONLY published POIs from database (for public view)
     const { data: pois, error} = await supabaseClient
@@ -72,6 +76,28 @@ function transformPoiFromDatabase(dbPoi) {
 }
 
 /**
+ * Wait for Supabase to be available
+ * @returns {Promise<Object|null>} Supabase client or null
+ */
+async function waitForSupabase() {
+  let attempts = 0;
+  const maxAttempts = 50; // 5 seconds max
+  
+  while (attempts < maxAttempts) {
+    const client = window.supabaseClient || window.sb || (window.getSupabase && window.getSupabase());
+    if (client) {
+      console.log('✅ Supabase client ready');
+      return client;
+    }
+    await new Promise(resolve => setTimeout(resolve, 100));
+    attempts++;
+  }
+  
+  console.warn('⚠️ Supabase client not available after waiting');
+  return null;
+}
+
+/**
  * Initialize POI data - try Supabase first, fallback to static
  * @returns {Promise<Array>} Array of POI objects
  */
@@ -79,6 +105,9 @@ async function initializePlacesData() {
   console.log('🚀 Initializing places data...');
   
   try {
+    // Wait for Supabase to be ready
+    await waitForSupabase();
+    
     // Try loading from Supabase
     const supabasePois = await loadPoisFromSupabase();
     
