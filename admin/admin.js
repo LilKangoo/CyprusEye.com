@@ -448,16 +448,11 @@ async function loadUsersData(page = 1) {
       return;
     }
 
-    tableBody.innerHTML = users.map(user => {
-      // Use username if available, otherwise use part of email
-      const displayName = user.username || user.email?.split('@')[0] || 'Anonymous';
-      
-      return `
+    tableBody.innerHTML = users.map(user => `
       <tr>
         <td>
-          ${displayName}
+          ${user.username || 'N/A'}
           ${user.is_admin ? '<span class="badge badge-admin">ADMIN</span>' : ''}
-          ${!user.username ? '<span style="color: var(--admin-text-muted); font-size: 11px; margin-left: 4px;">(no username)</span>' : ''}
         </td>
         <td>${user.email || 'N/A'}</td>
         <td>${user.level || 0}</td>
@@ -474,8 +469,7 @@ async function loadUsersData(page = 1) {
           </button>
         </td>
       </tr>
-      `;
-    }).join('');
+    `).join('');
 
     // Update pagination
     updateUsersPagination();
@@ -1195,14 +1189,11 @@ async function searchUsers(query) {
       return;
     }
 
-    tableBody.innerHTML = users.map(user => {
-      const displayName = user.username || user.email?.split('@')[0] || 'Anonymous';
-      return `
+    tableBody.innerHTML = users.map(user => `
       <tr>
         <td>
-          ${displayName}
+          ${user.username || 'N/A'}
           ${user.is_admin ? '<span class="badge badge-admin">ADMIN</span>' : ''}
-          ${!user.username ? '<span style="color: var(--admin-text-muted); font-size: 11px; margin-left: 4px;">(no username)</span>' : ''}
         </td>
         <td>${user.email || 'N/A'}</td>
         <td>${user.level || 0}</td>
@@ -1219,8 +1210,7 @@ async function searchUsers(query) {
           </button>
         </td>
       </tr>
-      `;
-    }).join('');
+    `).join('');
 
   } catch (error) {
     console.error('User search failed:', error);
