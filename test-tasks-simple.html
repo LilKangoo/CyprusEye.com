@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Zadań</title>
+    <link rel="stylesheet" href="assets/css/tokens.css" />
+    <link rel="stylesheet" href="assets/css/base.css" />
+    <link rel="stylesheet" href="assets/css/components.css" />
+</head>
+<body>
+    <h1>Test Systemu Zadań</h1>
+    <div id="status"></div>
+    <ul id="tasksList" class="tasks-list"></ul>
+
+    <!-- Load data first -->
+    <script src="js/data-tasks.js"></script>
+    <script src="js/i18n.js"></script>
+    
+    <!-- Test script -->
+    <script>
+        console.log('=== TEST START ===');
+        console.log('TASKS_DATA:', typeof TASKS_DATA, TASKS_DATA ? TASKS_DATA.length : 'undefined');
+        console.log('window.appI18n:', typeof window.appI18n);
+        
+        document.getElementById('status').innerHTML = `
+            <p>TASKS_DATA: ${TASKS_DATA ? TASKS_DATA.length + ' zadań' : 'BRAK'}</p>
+            <p>Tłumaczenia: ${window.appI18n ? 'Załadowane' : 'BRAK'}</p>
+        `;
+
+        // Test tasks-manager import
+        import('./js/tasks-manager.js')
+            .then(module => {
+                console.log('✅ Tasks manager loaded:', module);
+                console.log('initTasks function:', typeof module.initTasks);
+                return module.initTasks();
+            })
+            .then(() => {
+                console.log('✅ Tasks initialized');
+            })
+            .catch(err => {
+                console.error('❌ Error loading tasks-manager:', err);
+                document.getElementById('status').innerHTML += `<p style="color:red;">ERROR: ${err.message}</p>`;
+            });
+    </script>
+</body>
+</html>

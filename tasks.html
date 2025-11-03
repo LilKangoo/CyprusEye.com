@@ -57,15 +57,15 @@
       rel="stylesheet"
     />
   </noscript>
-    <link rel="stylesheet" href="assets/css/tokens.css" />
-    <link rel="stylesheet" href="assets/css/base.css" />
-    <link rel="stylesheet" href="assets/css/components.css" />
-    <link rel="stylesheet" href="assets/css/header-metrics.css" />
-    <link rel="stylesheet" href="assets/css/mobile.css" />
-  <link rel="stylesheet" href="assets/css/mobile-nav.css" />
-  <link rel="stylesheet" href="assets/css/rtl.css" />
-    <link rel="stylesheet" href="assets/css/language-switcher.css" />
-    <link rel="stylesheet" href="css/toast.css" />
+    <link rel="stylesheet" href="assets/css/tokens.css?v=2.0" />
+    <link rel="stylesheet" href="assets/css/base.css?v=2.0" />
+    <link rel="stylesheet" href="assets/css/components.css?v=2.0" />
+    <link rel="stylesheet" href="assets/css/header-metrics.css?v=2.0" />
+    <link rel="stylesheet" href="assets/css/mobile.css?v=2.0" />
+  <link rel="stylesheet" href="assets/css/mobile-nav.css?v=2.0" />
+  <link rel="stylesheet" href="assets/css/rtl.css?v=2.0" />
+    <link rel="stylesheet" href="assets/css/language-switcher.css?v=2.0" />
+    <link rel="stylesheet" href="css/toast.css?v=2.0" />
 
   <meta name="ce-auth" content="on" />
   <script type="module" src="js/supabaseClient.js"></script>
@@ -334,13 +334,17 @@
   <script src="js/mobile-nav.js" defer></script>
   <script src="car-rental.js" defer></script>
   <!-- Load data files first -->
-  <script src="js/data-places.js"></script>
-  <script src="js/data-tasks.js"></script>
-  <script src="js/data-packing.js"></script>
+  <script src="js/data-places.js?v=2.0"></script>
+  <script src="js/data-tasks.js?v=2.0"></script>
+  <script src="js/data-packing.js?v=2.0"></script>
   
-  <!-- Load core application -->
-  <script src="app-core.js"></script>
-  <script src="assets/js/modal-auth.js" defer></script>
+  <!-- Load core application with cache busting -->
+  <script src="app-core.js?v=2.0"></script>
+  
+  <!-- Load tasks manager module (will be imported dynamically by app-core) -->
+  <!-- <script type="module" src="js/tasks-manager.js?v=2.0"></script> -->
+  
+  <script src="assets/js/modal-auth.js?v=2.0" defer></script>
 
   <div
     class="explorer-modal"

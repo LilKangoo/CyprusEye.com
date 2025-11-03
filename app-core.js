@@ -599,42 +599,57 @@
     event.target.classList.add('is-active');
   }
 
-  function initializeTasks() {
+  /**
+   * Initialize Tasks - Uses external tasks-manager.js module
+   * Falls back to simple list if module not available
+   */
+  async function initializeTasks() {
     const tasksElement = document.getElementById('tasksList');
     if (!tasksElement) {
       console.log('ℹ️ Tasks list not found on this page');
       return;
     }
 
-    console.log('✅ Initializing tasks...');
+    console.log('🎯 Initializing tasks system...');
 
+    // Try to use the dedicated tasks-manager module
+    try {
+      const tasksModule = await import('./js/tasks-manager.js');
+      if (tasksModule && tasksModule.initTasks) {
+        await tasksModule.initTasks();
+        console.log('✅ Tasks initialized via tasks-manager module');
+        return;
+      }
+    } catch (error) {
+      console.warn('Tasks manager module not available, using fallback:', error);
+    }
+
+    // Fallback: Simple task list without interactivity
+    console.log('⚠️ Using fallback tasks display (no completion tracking)');
     tasksElement.innerHTML = '';
-
-    TASKS_DATA.forEach(function(task) {
-      const taskCard = createTaskCard(task);
-      tasksElement.appendChild(taskCard);
-    });
-
-    console.log('✅ Tasks initialized with', TASKS_DATA.length, 'tasks');
-  }
-
-  function createTaskCard(task) {
-    const li = document.createElement('li');
-    li.className = 'task-card card';
     
-    const taskTitle = getTaskTitle(task);
-    const taskDescription = getTaskDescription(task);
-
-    li.innerHTML = `
-      <h3>${taskTitle}</h3>
-      <p>${taskDescription}</p>
-      <div class="task-meta">
-        <span>✨ ${task.xp} XP</span>
-        <span>📍 Level ${task.requiredLevel}</span>
-      </div>
-    `;
-
-    return li;
+    TASKS_DATA.forEach(function(task) {
+      const li = document.createElement('li');
+      li.className = 'task-card card';
+      
+      const title = getTaskTitle(task);
+      const description = getTaskDescription(task);
+      
+      li.innerHTML = `
+        <h3 class="task-title">${title}</h3>
+        <p class="task-description">${description}</p>
+        <div class="task-meta">
+          <span class="task-xp">✨ ${task.xp} XP</span>
+          <button type="button" class="btn btn-secondary task-action-btn" disabled>
+            Wymaga logowania
+          </button>
+        </div>
+      `;
+      
+      tasksElement.appendChild(li);
+    });
+    
+    console.log(`✅ Tasks list displayed (${TASKS_DATA.length} tasks, read-only mode)`);
   }
 
   // Translation helpers - always prefer fallback values
@@ -654,7 +669,7 @@
   }
 
   function getTaskTitle(task) {
-    const key = `tasks.${task.id}.title`;
+    const key = `tasks.items.${task.id}.title`;
     if (window.appI18n && window.appI18n.translations) {
       const lang = window.appI18n.language || 'pl';
       const translations = window.appI18n.translations[lang] || {};
@@ -664,7 +679,7 @@
   }
 
   function getTaskDescription(task) {
-    const key = `tasks.${task.id}.description`;
+    const key = `tasks.items.${task.id}.description`;
     if (window.appI18n && window.appI18n.translations) {
       const lang = window.appI18n.language || 'pl';
       const translations = window.appI18n.translations[lang] || {};
