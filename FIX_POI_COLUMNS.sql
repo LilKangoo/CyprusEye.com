@@ -7,6 +7,7 @@
 
 -- Drop and recreate admin_create_poi with correct column names
 DROP FUNCTION IF EXISTS admin_create_poi(TEXT, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, TEXT, JSON);
+DROP FUNCTION IF EXISTS admin_create_poi(TEXT, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, TEXT, INTEGER, JSON);
 
 CREATE OR REPLACE FUNCTION admin_create_poi(
   poi_name TEXT,
@@ -14,6 +15,7 @@ CREATE OR REPLACE FUNCTION admin_create_poi(
   poi_latitude DOUBLE PRECISION,
   poi_longitude DOUBLE PRECISION,
   poi_category TEXT DEFAULT 'other',
+  poi_xp INTEGER DEFAULT 100,
   poi_data JSON DEFAULT '{}'::JSON
 )
 RETURNS JSON
@@ -33,7 +35,7 @@ BEGIN
     LOWER(REGEXP_REPLACE(poi_name, '[^a-zA-Z0-9]+', '-', 'g'))
   );
   
-  -- Insert new POI with correct column names (lat, lng)
+  -- Insert new POI with correct column names (lat, lng, xp)
   INSERT INTO pois (
     id,
     name,
@@ -41,6 +43,7 @@ BEGIN
     lat,
     lng,
     category,
+    xp,
     created_by,
     data
   ) VALUES (
@@ -50,6 +53,7 @@ BEGIN
     poi_latitude,
     poi_longitude,
     poi_category,
+    COALESCE(poi_xp, 100),
     auth.uid(),
     poi_data
   );
@@ -67,7 +71,8 @@ BEGIN
     json_build_object(
       'poi_id', new_poi_id,
       'name', poi_name,
-      'category', poi_category
+      'category', poi_category,
+      'xp', poi_xp
     )
   );
   
@@ -76,8 +81,9 @@ END;
 $$;
 
 
--- Drop and recreate admin_update_poi with latitude/longitude support
+-- Drop and recreate admin_update_poi with latitude/longitude/xp support
 DROP FUNCTION IF EXISTS admin_update_poi(UUID, TEXT, TEXT, TEXT, JSON);
+DROP FUNCTION IF EXISTS admin_update_poi(TEXT, TEXT, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, TEXT, JSON);
 
 CREATE OR REPLACE FUNCTION admin_update_poi(
   poi_id TEXT,
@@ -86,6 +92,7 @@ CREATE OR REPLACE FUNCTION admin_update_poi(
   poi_latitude DOUBLE PRECISION DEFAULT NULL,
   poi_longitude DOUBLE PRECISION DEFAULT NULL,
   poi_category TEXT DEFAULT NULL,
+  poi_xp INTEGER DEFAULT NULL,
   poi_data JSON DEFAULT NULL
 )
 RETURNS JSON
@@ -104,6 +111,7 @@ BEGIN
     lat = COALESCE(poi_latitude, lat),
     lng = COALESCE(poi_longitude, lng),
     category = COALESCE(poi_category, category),
+    xp = COALESCE(poi_xp, xp),
     data = COALESCE(poi_data, data),
     updated_at = NOW()
   WHERE id = poi_id;
@@ -127,8 +135,8 @@ $$;
 
 
 -- Grant execute permissions
-GRANT EXECUTE ON FUNCTION admin_create_poi(TEXT, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, TEXT, JSON) TO authenticated;
-GRANT EXECUTE ON FUNCTION admin_update_poi(TEXT, TEXT, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, TEXT, JSON) TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_create_poi(TEXT, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, TEXT, INTEGER, JSON) TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_update_poi(TEXT, TEXT, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, TEXT, INTEGER, JSON) TO authenticated;
 
 
 -- =====================================================

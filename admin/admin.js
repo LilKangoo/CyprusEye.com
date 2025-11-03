@@ -1428,6 +1428,13 @@ function normalizePoi(rawPoi, source = 'supabase') {
     10
   );
 
+  const xp = parseInt(
+    rawPoi.xp
+      ?? data.xp
+      ?? 100,
+    10
+  );
+
   const combinedTags = [
     ...(Array.isArray(data.tags) ? data.tags : []),
     ...(Array.isArray(rawPoi.tags) ? rawPoi.tags : []),
@@ -1470,6 +1477,7 @@ function normalizePoi(rawPoi, source = 'supabase') {
     latitude: Number.isFinite(latitude) ? latitude : null,
     longitude: Number.isFinite(longitude) ? longitude : null,
     radius: Number.isFinite(radius) ? radius : null,
+    xp: Number.isFinite(xp) ? xp : 100,
     category,
     status,
     tags,
@@ -1752,6 +1760,7 @@ function viewPoiDetails(poiId) {
             <div><strong>Category:</strong> ${formatCategoryLabel(poi.category)}</div>
             <div><strong>Status:</strong> ${poi.status.toUpperCase()}</div>
             <div><strong>Radius:</strong> ${poi.radius ? poi.radius + ' m' : '—'}</div>
+            <div><strong>XP Reward:</strong> ${poi.xp ?? 100} XP</div>
           </div>
         </div>
         <div class="poi-detail-section">
@@ -1825,6 +1834,7 @@ function openPoiForm(poiId = null) {
   const latitudeInput = $('#poiLatitude');
   const longitudeInput = $('#poiLongitude');
   const radiusInput = $('#poiRadius');
+  const xpInput = $('#poiXP');
   const tagsInput = $('#poiTags');
   const descriptionInput = $('#poiDescription');
 
@@ -1835,6 +1845,7 @@ function openPoiForm(poiId = null) {
   if (latitudeInput) latitudeInput.value = poi?.latitude ?? '';
   if (longitudeInput) longitudeInput.value = poi?.longitude ?? '';
   if (radiusInput) radiusInput.value = poi?.radius ?? '';
+  if (xpInput) xpInput.value = poi?.xp ?? '';
   if (tagsInput) tagsInput.value = poi?.tags?.join(', ') ?? '';
   if (descriptionInput) descriptionInput.value = poi?.description || '';
 
@@ -1909,6 +1920,8 @@ async function handlePoiFormSubmit(event) {
   const longitude = parseFloat(formData.get('longitude'));
   const radiusValue = formData.get('radius');
   const radius = radiusValue ? parseInt(radiusValue, 10) : null;
+  const xpValue = formData.get('xp');
+  const xp = xpValue ? parseInt(xpValue, 10) : null;
   const tagsValue = (formData.get('tags') || '').toString().trim();
   const tags = tagsValue ? tagsValue.split(',').map(tag => tag.trim()).filter(Boolean) : [];
 
@@ -1940,6 +1953,7 @@ async function handlePoiFormSubmit(event) {
     slug,
     status,
     radius: radius || DEFAULT_POI_RADIUS,
+    xp: xp || 100,
     tags,
   };
 
@@ -1951,6 +1965,7 @@ async function handlePoiFormSubmit(event) {
         poi_latitude: latitude,
         poi_longitude: longitude,
         poi_category: category,
+        poi_xp: xp || 100,
         poi_data: payload,
       });
 
@@ -1968,6 +1983,7 @@ async function handlePoiFormSubmit(event) {
         poi_latitude: latitude,
         poi_longitude: longitude,
         poi_category: category,
+        poi_xp: xp,
         poi_data: {
           ...((poi.raw && poi.raw.data && typeof poi.raw.data === 'object') ? poi.raw.data : {}),
           ...payload,
