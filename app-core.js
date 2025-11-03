@@ -173,6 +173,77 @@ console.log('🔵 App Core V2 - START');
   }
   
   /**
+   * Renderuje listę POI pod mapą
+   */
+  async function renderLocationsList() {
+    console.log('📋 Renderuję listę lokalizacji...');
+    
+    const locationsList = document.getElementById('locationsList');
+    if (!locationsList) {
+      console.log('ℹ️ Element #locationsList nie znaleziony');
+      return;
+    }
+    
+    // Czekaj na dane
+    await waitForPlacesData();
+    
+    if (!window.PLACES_DATA || window.PLACES_DATA.length === 0) {
+      locationsList.innerHTML = '<li style="padding: 1rem; color: #666;">Brak dostępnych lokalizacji</li>';
+      return;
+    }
+    
+    // Wyczyść listę
+    locationsList.innerHTML = '';
+    
+    // Pokaż pierwsze 3 POI
+    const previewCount = 3;
+    const poisToShow = window.PLACES_DATA.slice(0, previewCount);
+    
+    poisToShow.forEach(poi => {
+      const name = poi.nameFallback || poi.name || poi.id || 'Unnamed';
+      const xp = poi.xp || 100;
+      
+      const li = document.createElement('li');
+      li.className = 'location-card';
+      li.innerHTML = `
+        <div class="location-info">
+          <h3 class="location-name">${name}</h3>
+          <p class="location-xp">✨ ${xp} XP</p>
+        </div>
+        <button class="location-action secondary" onclick="focusPlaceOnMap('${poi.id}')">
+          📍 Pokaż na mapie
+        </button>
+      `;
+      locationsList.appendChild(li);
+    });
+    
+    console.log(`✅ Lista renderowana: ${poisToShow.length} lokalizacji`);
+  }
+  
+  /**
+   * Fokusuje mapę na POI
+   */
+  window.focusPlaceOnMap = function(placeId) {
+    const poi = window.PLACES_DATA?.find(p => p.id === placeId);
+    if (!poi || !mapInstance) return;
+    
+    mapInstance.setView([poi.lat, poi.lng], 14, { animate: true });
+    
+    // Znajdź i otwórz popup
+    setTimeout(() => {
+      markersLayer.eachLayer(layer => {
+        if (layer instanceof L.Marker) {
+          const latLng = layer.getLatLng();
+          if (Math.abs(latLng.lat - poi.lat) < 0.0001 && 
+              Math.abs(latLng.lng - poi.lng) < 0.0001) {
+            layer.openPopup();
+          }
+        }
+      });
+    }, 500);
+  };
+  
+  /**
    * Export dla manualnego użycia
    */
   window.addMarkers = addMarkers;
@@ -187,6 +258,9 @@ console.log('🔵 App Core V2 - START');
     
     // Inicjalizuj mapę
     await initializeMap();
+    
+    // Renderuj listę POI
+    await renderLocationsList();
     
     console.log('✅ Aplikacja zainicjalizowana');
   }
