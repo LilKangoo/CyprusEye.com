@@ -152,17 +152,23 @@ async function refreshPoisData() {
     PLACES_DATA = newData;
     poisLoadedFromSupabase = true;
     
+    console.log(`✅ Refreshed ${PLACES_DATA.length} POIs from Supabase`);
+    console.log('   Sample POI:', PLACES_DATA[0]);
+    
     // Trigger refresh events
     if (typeof window.onPoisDataRefreshed === 'function') {
       window.onPoisDataRefreshed(PLACES_DATA);
     }
     
     // Dispatch custom event
+    console.log('🔔 Dispatching poisDataRefreshed event');
     window.dispatchEvent(new CustomEvent('poisDataRefreshed', { 
-      detail: { pois: PLACES_DATA, source: 'supabase' } 
+      detail: { pois: PLACES_DATA, source: 'supabase', count: PLACES_DATA.length } 
     }));
     
-    console.log(`✅ Refreshed ${PLACES_DATA.length} POIs`);
+    console.log('✅ Event dispatched, listeners should update now');
+  } else {
+    console.warn('⚠️ No data returned from Supabase during refresh');
   }
   
   return PLACES_DATA;

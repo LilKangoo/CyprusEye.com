@@ -219,8 +219,10 @@
       updateMapMarkers();
 
       // Listen for POI data refresh
-      window.addEventListener('poisDataRefreshed', () => {
-        console.log('🔄 POI data refreshed, updating map markers...');
+      console.log('📡 Adding event listener for poisDataRefreshed');
+      window.addEventListener('poisDataRefreshed', (event) => {
+        console.log('🔔 poisDataRefreshed event received!', event.detail);
+        console.log('🔄 Updating map markers...');
         updateMapMarkers();
       });
 
@@ -231,6 +233,11 @@
   }
 
   function updateMapMarkers() {
+    console.log('🔄 updateMapMarkers() called');
+    console.log('   - mapInstance:', mapInstance ? 'exists' : 'NULL');
+    console.log('   - markersLayer:', markersLayer ? 'exists' : 'NULL');
+    console.log('   - PLACES_DATA:', PLACES_DATA ? PLACES_DATA.length + ' items' : 'UNDEFINED');
+    
     if (!markersLayer || !mapInstance) {
       console.warn('⚠️ Map not ready for marker update');
       return;
@@ -238,6 +245,7 @@
 
     // Clear existing markers
     markersLayer.clearLayers();
+    console.log('✅ Cleared existing markers');
 
     // Create custom icon for better visibility
     const customIcon = L.icon({
@@ -251,12 +259,15 @@
 
     // Add markers for each place
     if (PLACES_DATA && PLACES_DATA.length > 0) {
+      let addedMarkers = 0;
       PLACES_DATA.forEach(function(place) {
         // Validate coordinates
         if (!place.lat || !place.lng) {
-          console.warn('⚠️ Skipping place without coordinates:', place.id);
+          console.warn('⚠️ Skipping place without coordinates:', place.id, place);
           return;
         }
+
+        console.log(`   📍 Adding marker for: ${place.nameFallback || place.id} at [${place.lat}, ${place.lng}]`);
 
         const marker = L.marker([place.lat, place.lng], { icon: customIcon });
         
@@ -269,17 +280,20 @@
           <div class="map-popup" style="min-width: 200px;">
             <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #2563eb;">${placeName}</h3>
             <p style="margin: 0 0 8px 0; font-size: 14px;">⭐ Ocena: <span id="rating-${place.id}">Brak ocen</span></p>
-            <a href="${place.googleMapsUrl}" target="_blank" rel="noopener" style="display: inline-block; padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 13px;">Google Maps →</a>
+            <a href="${place.googleMapsUrl || place.googleMapsURL || '#'}" target="_blank" rel="noopener" style="display: inline-block; padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 13px;">Google Maps →</a>
           </div>
         `, { maxWidth: 250 });
 
         // Add to markers layer
         marker.addTo(markersLayer);
+        addedMarkers++;
       });
 
-      console.log(`✅ Updated map with ${PLACES_DATA.length} markers`);
+      console.log(`✅ Updated map with ${addedMarkers} markers (from ${PLACES_DATA.length} places)`);
     } else {
       console.warn('⚠️ No PLACES_DATA available for markers');
+      console.warn('   - typeof PLACES_DATA:', typeof PLACES_DATA);
+      console.warn('   - PLACES_DATA value:', PLACES_DATA);
     }
   }
 
