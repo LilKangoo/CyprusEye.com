@@ -322,25 +322,40 @@ async function loadDashboardData() {
       throw new Error('Supabase client not available');
     }
     
+    console.log('Loading dashboard data...');
+    
     // Load system diagnostics
     const { data: diagnostics, error: diagError } = await client
       .from('admin_system_diagnostics')
       .select('*');
 
-    if (diagError) throw diagError;
+    if (diagError) {
+      console.error('Diagnostics error:', diagError);
+      throw diagError;
+    }
+
+    console.log('Diagnostics loaded:', diagnostics);
 
     // Update stat cards
-    if (diagnostics) {
+    if (diagnostics && diagnostics.length > 0) {
       diagnostics.forEach(metric => {
+        // Convert metric name to element ID
+        // e.g., "total_users" -> "statTotalUsers"
         const elementId = `stat${metric.metric.split('_').map(word => 
           word.charAt(0).toUpperCase() + word.slice(1)
         ).join('')}`;
         
+        console.log(`Setting ${elementId} = ${metric.value}`);
+        
         const valueEl = $(`#${elementId}`);
         if (valueEl) {
           valueEl.textContent = metric.value;
+        } else {
+          console.warn(`Element #${elementId} not found`);
         }
       });
+    } else {
+      console.warn('No diagnostics data received');
     }
 
     // Load recent activity
