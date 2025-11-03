@@ -483,8 +483,61 @@
       <section class="admin-view" id="viewContent" hidden>
         <header class="admin-view-header">
           <h2>Content Management</h2>
-          <p class="admin-view-subtitle">Moderate comments and user-generated content</p>
+          <p class="admin-view-subtitle">Manage all comments, photos and user-generated content</p>
         </header>
+
+        <!-- Content Stats -->
+        <div class="admin-stats-grid" id="contentStats">
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total Comments</p>
+              <p class="stat-card-value">-</p>
+              <p class="stat-card-change">Loading...</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total Photos</p>
+              <p class="stat-card-value">-</p>
+              <p class="stat-card-change">Loading...</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total Likes</p>
+              <p class="stat-card-value">-</p>
+              <p class="stat-card-change">Loading...</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Active Users</p>
+              <p class="stat-card-value">-</p>
+              <p class="stat-card-change">Loading...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Search Bar -->
+        <div class="admin-search-bar">
+          <input 
+            type="search" 
+            id="contentSearchInput" 
+            placeholder="Search comments by user, POI, or content..."
+            class="admin-search-input"
+            onkeypress="if(event.key === 'Enter') searchComments();"
+          />
+          <button class="btn-admin-search" onclick="searchComments()">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+            </svg>
+            Search
+          </button>
+          <button class="btn-secondary" onclick="clearContentSearch()">
+            Clear
+          </button>
+        </div>
 
         <!-- Content Table -->
         <div class="admin-table-container">
@@ -492,10 +545,10 @@
             <thead>
               <tr>
                 <th>User</th>
-                <th>Comment</th>
+                <th>POI & Comment</th>
+                <th>Info</th>
                 <th>Likes</th>
                 <th>Date</th>
-                <th>Status</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -505,6 +558,13 @@
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="admin-pagination" id="contentPagination">
+          <button class="btn-pagination" disabled>Previous</button>
+          <span class="pagination-info">Page 1</span>
+          <button class="btn-pagination" disabled>Next</button>
         </div>
       </section>
 
@@ -686,6 +746,61 @@
       </header>
       <div class="admin-modal-body" id="userDetailContent">
         <p>Loading user details...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Comment Detail Modal -->
+  <div class="admin-modal" id="commentDetailModal" hidden>
+    <div class="admin-modal-overlay" id="commentDetailModalOverlay"></div>
+    <div class="admin-modal-content admin-modal-content-large">
+      <header class="admin-modal-header">
+        <h3 id="commentDetailTitle">Comment Details</h3>
+        <button class="btn-modal-close" id="btnCloseCommentDetail">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body" id="commentDetailContent">
+        <p>Loading comment details...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Comment Edit Modal -->
+  <div class="admin-modal" id="commentEditModal" hidden>
+    <div class="admin-modal-overlay" id="commentEditModalOverlay"></div>
+    <div class="admin-modal-content">
+      <header class="admin-modal-header">
+        <h3 id="commentEditTitle">Edit Comment</h3>
+        <button class="btn-modal-close" id="btnCloseCommentEdit">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body">
+        <form id="commentEditForm" onsubmit="handleCommentEditSubmit(event); return false;">
+          <div class="admin-form-field">
+            <span>Comment Content *</span>
+            <textarea 
+              id="commentEditContent" 
+              name="content" 
+              rows="8" 
+              required 
+              placeholder="Enter comment content..."
+              style="min-height: 150px;"
+            ></textarea>
+          </div>
+          <div class="comment-edit-error" id="commentEditError" hidden></div>
+          <div class="poi-form-actions">
+            <button type="button" class="btn-secondary" id="commentEditCancel">Cancel</button>
+            <button type="submit" class="btn-primary" id="commentEditSubmit">Save Changes</button>
+          </div>
+        </form>
       </div>
     </div>
   </div>

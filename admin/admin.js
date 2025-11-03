@@ -1060,6 +1060,47 @@ function initEventListeners() {
     });
   }
 
+  // Comment detail modal
+  const btnCloseCommentDetail = $('#btnCloseCommentDetail');
+  const commentDetailOverlay = $('#commentDetailModalOverlay');
+  const commentDetailModal = $('#commentDetailModal');
+
+  if (btnCloseCommentDetail) {
+    btnCloseCommentDetail.addEventListener('click', () => {
+      hideElement(commentDetailModal);
+    });
+  }
+
+  if (commentDetailOverlay) {
+    commentDetailOverlay.addEventListener('click', () => {
+      hideElement(commentDetailModal);
+    });
+  }
+
+  // Comment edit modal
+  const btnCloseCommentEdit = $('#btnCloseCommentEdit');
+  const commentEditOverlay = $('#commentEditModalOverlay');
+  const commentEditModal = $('#commentEditModal');
+  const commentEditCancel = $('#commentEditCancel');
+
+  if (btnCloseCommentEdit) {
+    btnCloseCommentEdit.addEventListener('click', () => {
+      hideElement(commentEditModal);
+    });
+  }
+
+  if (commentEditOverlay) {
+    commentEditOverlay.addEventListener('click', () => {
+      hideElement(commentEditModal);
+    });
+  }
+
+  if (commentEditCancel) {
+    commentEditCancel.addEventListener('click', () => {
+      hideElement(commentEditModal);
+    });
+  }
+
   // POI filters and actions
   const poiSearchInput = $('#poiSearchInput');
   if (poiSearchInput) {
@@ -2056,6 +2097,19 @@ async function deleteComment(commentId, reason = 'Content policy violation') {
   }
 }
 
+// =====================================================
+// CONTENT MANAGEMENT - STATE
+// =====================================================
+let contentState = {
+  comments: [],
+  currentPage: 1,
+  itemsPerPage: 20,
+  totalComments: 0,
+  searchQuery: '',
+  selectedComment: null,
+  stats: null
+};
+
 // Load Content Management Data
 async function loadContentData() {
   try {
@@ -2065,40 +2119,402 @@ async function loadContentData() {
       return;
     }
     
-    const { data: flaggedContent, error } = await client.rpc('admin_get_flagged_content', {
-      limit_count: 50
-    });
+    // Load statistics first
+    await loadContentStats();
     
-    if (error) throw error;
-    
-    const tableBody = $('#contentTable');
-    if (!tableBody) return;
-    
-    if (!flaggedContent || flaggedContent.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="6" class="table-loading">No flagged content</td></tr>';
-      return;
-    }
-    
-    tableBody.innerHTML = flaggedContent.map(item => `
-      <tr>
-        <td>${item.username || 'Unknown'}</td>
-        <td title="${item.comment_content}">${item.comment_content.substring(0, 50)}${item.comment_content.length > 50 ? '...' : ''}</td>
-        <td>${item.like_count || 0}</td>
-        <td>${formatDate(item.created_at)}</td>
-        <td>
-          <span class="badge badge-warning">${item.flag_reason}</span>
-        </td>
-        <td>
-          <button class="btn-secondary" onclick="deleteComment('${item.comment_id}')">
-            Delete
-          </button>
-        </td>
-      </tr>
-    `).join('');
+    // Load comments
+    await loadComments();
     
   } catch (error) {
     console.error('Failed to load content data:', error);
     showToast('Failed to load content data', 'error');
+  }
+}
+
+// Load content statistics
+async function loadContentStats() {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+    
+    const { data: stats, error } = await client.rpc('admin_get_detailed_content_stats');
+    
+    if (error) throw error;
+    
+    contentState.stats = stats;
+    
+    // Update stats display
+    const statsEl = $('#contentStats');
+    if (statsEl && stats) {
+      statsEl.innerHTML = `
+        <div class="admin-stat-card">
+          <div class="stat-card-content">
+            <p class="stat-card-label">Total Comments</p>
+            <p class="stat-card-value">${stats.comments.total}</p>
+            <p class="stat-card-change">+${stats.comments.today} today</p>
+          </div>
+        </div>
+        <div class="admin-stat-card">
+          <div class="stat-card-content">
+            <p class="stat-card-label">Total Photos</p>
+            <p class="stat-card-value">${stats.photos.total}</p>
+            <p class="stat-card-change">${stats.comments.with_photos} comments with photos</p>
+          </div>
+        </div>
+        <div class="admin-stat-card">
+          <div class="stat-card-content">
+            <p class="stat-card-label">Total Likes</p>
+            <p class="stat-card-value">${stats.likes.total}</p>
+            <p class="stat-card-change">+${stats.likes.today} today</p>
+          </div>
+        </div>
+        <div class="admin-stat-card">
+          <div class="stat-card-content">
+            <p class="stat-card-label">Active Users (7d)</p>
+            <p class="stat-card-value">${stats.engagement.active_commenters_week}</p>
+            <p class="stat-card-change">Contributors this week</p>
+          </div>
+        </div>
+      `;
+    }
+  } catch (error) {
+    console.error('Failed to load content stats:', error);
+  }
+}
+
+// Load comments with filters
+async function loadComments(page = 1) {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+    
+    const tableBody = $('#contentTable');
+    if (!tableBody) return;
+    
+    tableBody.innerHTML = '<tr><td colspan="7" class="table-loading">Loading comments...</td></tr>';
+    
+    contentState.currentPage = page;
+    const offset = (page - 1) * contentState.itemsPerPage;
+    
+    const { data: comments, error } = await client.rpc('admin_get_all_comments', {
+      search_query: contentState.searchQuery || null,
+      poi_filter: null,
+      user_filter: null,
+      date_from: null,
+      date_to: null,
+      limit_count: contentState.itemsPerPage,
+      offset_count: offset
+    });
+    
+    if (error) throw error;
+    
+    contentState.comments = comments || [];
+    
+    if (comments.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="7" class="table-loading">No comments found</td></tr>';
+      updateContentPagination(0);
+      return;
+    }
+    
+    tableBody.innerHTML = comments.map(comment => {
+      const editedBadge = comment.is_edited ? '<span class="badge badge-info" title="Edited">✎</span>' : '';
+      const photoBadge = comment.photo_count > 0 ? `<span class="badge badge-success">📷 ${comment.photo_count}</span>` : '';
+      
+      return `
+      <tr>
+        <td>
+          <div style="font-weight: 500;">${escapeHtml(comment.username)}</div>
+          <div style="font-size: 11px; color: var(--admin-text-muted);">Level ${comment.user_level}</div>
+        </td>
+        <td>
+          <div style="font-weight: 500; margin-bottom: 4px;">${escapeHtml(comment.poi_name || 'Unknown POI')}</div>
+          <div class="comment-preview" title="${escapeHtml(comment.comment_content)}">
+            ${escapeHtml(comment.comment_content.substring(0, 80))}${comment.comment_content.length > 80 ? '...' : ''}
+          </div>
+        </td>
+        <td>
+          <div style="display: flex; gap: 4px; flex-wrap: wrap;">
+            ${editedBadge}
+            ${photoBadge}
+          </div>
+        </td>
+        <td>❤️ ${comment.like_count}</td>
+        <td>${formatDate(comment.created_at)}</td>
+        <td>
+          <div class="poi-table-actions">
+            <button class="btn-icon" type="button" title="View details" onclick="viewCommentDetails('${comment.comment_id}')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/>
+              </svg>
+            </button>
+            <button class="btn-icon" type="button" title="Edit comment" onclick="editComment('${comment.comment_id}')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 20h9"/>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+              </svg>
+            </button>
+            <button class="btn-icon" type="button" title="Delete comment" onclick="deleteComment('${comment.comment_id}')" style="color: var(--admin-danger);">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                <path d="M10 11v6"/>
+                <path d="M14 11v6"/>
+              </svg>
+            </button>
+          </div>
+        </td>
+      </tr>
+      `;
+    }).join('');
+    
+    // Update pagination
+    updateContentPagination(comments.length);
+    
+  } catch (error) {
+    console.error('Failed to load comments:', error);
+    showToast('Failed to load comments', 'error');
+    const tableBody = $('#contentTable');
+    if (tableBody) {
+      tableBody.innerHTML = '<tr><td colspan="7" class="table-loading">Error loading comments</td></tr>';
+    }
+  }
+}
+
+// Update pagination
+function updateContentPagination(loadedCount) {
+  const paginationEl = $('#contentPagination');
+  if (!paginationEl) return;
+  
+  const hasMore = loadedCount === contentState.itemsPerPage;
+  const hasPrev = contentState.currentPage > 1;
+  
+  paginationEl.innerHTML = `
+    <button 
+      class="btn-pagination" 
+      onclick="loadComments(${contentState.currentPage - 1})" 
+      ${!hasPrev ? 'disabled' : ''}>
+      Previous
+    </button>
+    <span class="pagination-info">Page ${contentState.currentPage}</span>
+    <button 
+      class="btn-pagination" 
+      onclick="loadComments(${contentState.currentPage + 1})" 
+      ${!hasMore ? 'disabled' : ''}>
+      Next
+    </button>
+  `;
+}
+
+// View comment details
+async function viewCommentDetails(commentId) {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+    
+    showToast('Loading comment details...', 'info');
+    
+    const { data, error } = await client.rpc('admin_get_comment_details', {
+      comment_id: commentId
+    });
+    
+    if (error) throw error;
+    
+    const comment = data.comment;
+    const photos = data.photos || [];
+    const likes = data.likes || { count: 0, users: [] };
+    
+    contentState.selectedComment = { ...data, comment_id: commentId };
+    
+    // Show modal
+    const modal = $('#commentDetailModal');
+    const title = $('#commentDetailTitle');
+    const content = $('#commentDetailContent');
+    
+    if (title) {
+      title.textContent = `Comment by ${comment.username}`;
+    }
+    
+    if (content) {
+      const photosHtml = photos.length > 0 ? `
+        <div class="comment-photos-grid">
+          ${photos.map(photo => `
+            <div class="comment-photo-item">
+              <img src="${escapeHtml(photo.photo_url)}" alt="Comment photo" onclick="window.open('${escapeHtml(photo.photo_url)}', '_blank')" />
+              <button class="btn-delete-photo" onclick="deleteCommentPhoto('${photo.id}')" title="Delete photo">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="18" y1="6" x2="6" y2="18"/>
+                  <line x1="6" y1="6" x2="18" y2="18"/>
+                </svg>
+              </button>
+            </div>
+          `).join('')}
+        </div>
+      ` : '<p style="color: var(--admin-text-muted);">No photos</p>';
+      
+      const likesHtml = likes.count > 0 ? `
+        <div class="likes-list">
+          ${likes.users.map(user => `
+            <div class="like-item">
+              <span>❤️ ${user.username || 'Anonymous'}</span>
+              <span style="color: var(--admin-text-muted); font-size: 12px;">${formatDate(user.liked_at)}</span>
+            </div>
+          `).join('')}
+        </div>
+      ` : '<p style="color: var(--admin-text-muted);">No likes yet</p>';
+      
+      content.innerHTML = `
+        <div style="display: grid; gap: 24px;">
+          <!-- Comment Info -->
+          <div>
+            <h4 style="margin-bottom: 12px; color: var(--admin-text);">Comment Details</h4>
+            <div style="background: var(--admin-bg); padding: 20px; border-radius: 8px;">
+              <table style="width: 100%; color: var(--admin-text);">
+                <tr>
+                  <td style="padding: 8px 0; font-weight: 500;">POI:</td>
+                  <td style="padding: 8px 0;">${escapeHtml(comment.poi_name || 'Unknown')}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: 500;">User:</td>
+                  <td style="padding: 8px 0;">${escapeHtml(comment.username)} (Level ${comment.user_level}, ${comment.user_xp} XP)</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: 500;">Created:</td>
+                  <td style="padding: 8px 0;">${formatDate(comment.created_at)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: 500;">Updated:</td>
+                  <td style="padding: 8px 0;">${comment.updated_at ? formatDate(comment.updated_at) : 'Never'}</td>
+                </tr>
+              </table>
+            </div>
+          </div>
+          
+          <!-- Comment Content -->
+          <div>
+            <h4 style="margin-bottom: 12px; color: var(--admin-text);">Content</h4>
+            <div style="background: var(--admin-bg); padding: 20px; border-radius: 8px; white-space: pre-wrap; line-height: 1.6;">
+              ${escapeHtml(comment.content)}
+            </div>
+          </div>
+          
+          <!-- Photos -->
+          <div>
+            <h4 style="margin-bottom: 12px; color: var(--admin-text);">Photos (${photos.length})</h4>
+            ${photosHtml}
+          </div>
+          
+          <!-- Likes -->
+          <div>
+            <h4 style="margin-bottom: 12px; color: var(--admin-text);">Likes (${likes.count})</h4>
+            ${likesHtml}
+          </div>
+          
+          <!-- Actions -->
+          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+            <button class="btn-primary" onclick="editComment('${commentId}'); hideElement($('#commentDetailModal'));">
+              Edit Comment
+            </button>
+            <button class="btn-secondary" style="background: var(--admin-danger); border-color: var(--admin-danger);" onclick="deleteComment('${commentId}'); hideElement($('#commentDetailModal'));">
+              Delete Comment
+            </button>
+          </div>
+        </div>
+      `;
+    }
+    
+    showElement(modal);
+    
+  } catch (error) {
+    console.error('Failed to load comment details:', error);
+    showToast('Failed to load comment details', 'error');
+  }
+}
+
+// Edit comment
+function editComment(commentId) {
+  const comment = contentState.comments.find(c => c.comment_id === commentId);
+  if (!comment) {
+    showToast('Comment not found', 'error');
+    return;
+  }
+  
+  contentState.selectedComment = { comment_id: commentId, comment_content: comment.comment_content };
+  
+  const modal = $('#commentEditModal');
+  const title = $('#commentEditTitle');
+  const textarea = $('#commentEditContent');
+  const form = $('#commentEditForm');
+  
+  if (title) {
+    title.textContent = `Edit Comment by ${comment.username}`;
+  }
+  
+  if (textarea) {
+    textarea.value = comment.comment_content;
+  }
+  
+  showElement(modal);
+}
+
+// Handle comment edit form submission
+async function handleCommentEditSubmit(event) {
+  event.preventDefault();
+  
+  const commentId = contentState.selectedComment?.comment_id;
+  if (!commentId) return;
+  
+  const textarea = $('#commentEditContent');
+  const submitBtn = $('#commentEditSubmit');
+  const errorEl = $('#commentEditError');
+  
+  const newContent = textarea.value.trim();
+  
+  if (!newContent) {
+    if (errorEl) {
+      errorEl.textContent = 'Comment content cannot be empty';
+      showElement(errorEl);
+    }
+    return;
+  }
+  
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving...';
+  }
+  
+  if (errorEl) hideElement(errorEl);
+  
+  try {
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database connection not available');
+    
+    const { error } = await client.rpc('admin_update_comment', {
+      comment_id: commentId,
+      new_content: newContent,
+      edit_reason: 'Admin edit'
+    });
+    
+    if (error) throw error;
+    
+    showToast('Comment updated successfully', 'success');
+    hideElement($('#commentEditModal'));
+    
+    // Reload comments
+    await loadComments(contentState.currentPage);
+    
+  } catch (error) {
+    console.error('Failed to update comment:', error);
+    if (errorEl) {
+      errorEl.textContent = error.message || 'Failed to update comment';
+      showElement(errorEl);
+    }
+    showToast('Failed to update comment', 'error');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Save Changes';
+    }
   }
 }
 
@@ -2184,6 +2600,58 @@ async function loadAnalytics() {
   }
 }
 
+// Delete comment photo
+async function deleteCommentPhoto(photoId) {
+  if (!confirm('Delete this photo? This action cannot be undone.')) {
+    return;
+  }
+  
+  try {
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database connection not available');
+    
+    showToast('Deleting photo...', 'info');
+    
+    const { error } = await client.rpc('admin_delete_comment_photo', {
+      photo_id: photoId,
+      deletion_reason: 'Admin action'
+    });
+    
+    if (error) throw error;
+    
+    showToast('Photo deleted successfully', 'success');
+    
+    // Close detail modal and reload
+    hideElement($('#commentDetailModal'));
+    await loadComments(contentState.currentPage);
+    
+  } catch (error) {
+    console.error('Failed to delete photo:', error);
+    showToast('Failed to delete photo: ' + (error.message || 'Unknown error'), 'error');
+  }
+}
+
+// Search comments
+function searchComments() {
+  const searchInput = $('#contentSearchInput');
+  if (searchInput) {
+    contentState.searchQuery = searchInput.value.trim();
+    contentState.currentPage = 1;
+    loadComments(1);
+  }
+}
+
+// Clear search
+function clearContentSearch() {
+  const searchInput = $('#contentSearchInput');
+  if (searchInput) {
+    searchInput.value = '';
+    contentState.searchQuery = '';
+    contentState.currentPage = 1;
+    loadComments(1);
+  }
+}
+
 // Make functions global for onclick handlers
 window.adjustUserXP = adjustUserXP;
 window.banUser = banUser;
@@ -2192,6 +2660,12 @@ window.deleteComment = deleteComment;
 window.viewPoiDetails = viewPoiDetails;
 window.editPoi = editPoi;
 window.deletePoi = deletePoi;
+window.viewCommentDetails = viewCommentDetails;
+window.editComment = editComment;
+window.deleteCommentPhoto = deleteCommentPhoto;
+window.loadComments = loadComments;
+window.searchComments = searchComments;
+window.clearContentSearch = clearContentSearch;
 
 // =====================================================
 // INITIALIZATION
