@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <!-- Security: Content Security Policy -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://unpkg.com https://esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self';">
+  
+  <meta name="theme-color" content="#dc2626" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title>CyprusEye Admin Panel</title>
+  <meta name="description" content="Admin panel for CyprusEye Quest management" />
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="../assets/css/tokens.css" />
+  <link rel="stylesheet" href="../assets/css/base.css" />
+  <link rel="stylesheet" href="admin.css" />
+  
+  <!-- Auth meta -->
+  <meta name="ce-auth" content="required" />
+  <meta name="ce-admin" content="required" />
+  
+  <!-- Scripts -->
+  <script type="module" src="../js/supabaseClient.js"></script>
+  <script type="module" src="../js/toast.js"></script>
+  <script type="module" src="admin.js"></script>
+</head>
+<body data-admin-panel="true">
+  
+  <!-- Admin Header -->
+  <header class="admin-header">
+    <div class="admin-header-content">
+      <div class="admin-header-left">
+        <h1 class="admin-title">
+          <svg class="admin-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          CyprusEye Admin
+        </h1>
+        <div class="admin-breadcrumb" id="breadcrumb">
+          <span>Dashboard</span>
+        </div>
+      </div>
+      <div class="admin-header-right">
+        <div class="admin-user-info" id="adminUserInfo">
+          <span class="admin-user-name" id="adminUserName">Loading...</span>
+          <span class="admin-user-role">Super Admin</span>
+        </div>
+        <button class="btn-admin-logout" id="btnAdminLogout" title="Logout">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+            <polyline points="16 17 21 12 16 7"/>
+            <line x1="21" y1="12" x2="9" y2="12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Loading Screen -->
+  <div class="admin-loading" id="adminLoading">
+    <div class="admin-loading-spinner"></div>
+    <p>Verifying admin access...</p>
+  </div>
+
+  <!-- Access Denied Screen -->
+  <div class="admin-access-denied" id="adminAccessDenied" hidden>
+    <div class="access-denied-content">
+      <svg class="access-denied-icon" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="12" cy="12" r="10"/>
+        <line x1="15" y1="9" x2="9" y2="15"/>
+        <line x1="9" y1="9" x2="15" y2="15"/>
+      </svg>
+      <h2>Access Denied</h2>
+      <p>You don't have permission to access this panel.</p>
+      <a href="/" class="btn-primary">Go to Home</a>
+    </div>
+  </div>
+
+  <!-- Main Admin Panel -->
+  <div class="admin-container" id="adminContainer" hidden>
+    
+    <!-- Sidebar Navigation -->
+    <aside class="admin-sidebar">
+      <nav class="admin-nav">
+        <button class="admin-nav-item active" data-view="dashboard">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"/>
+            <rect x="14" y="3" width="7" height="7"/>
+            <rect x="14" y="14" width="7" height="7"/>
+            <rect x="3" y="14" width="7" height="7"/>
+          </svg>
+          <span>Dashboard</span>
+        </button>
+        
+        <button class="admin-nav-item" data-view="users">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          <span>Users</span>
+        </button>
+        
+        <button class="admin-nav-item" data-view="pois">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          <span>POIs</span>
+        </button>
+        
+        <button class="admin-nav-item" data-view="content">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <line x1="16" y1="13" x2="8" y2="13"/>
+            <line x1="16" y1="17" x2="8" y2="17"/>
+            <polyline points="10 9 9 9 8 9"/>
+          </svg>
+          <span>Content</span>
+        </button>
+        
+        <button class="admin-nav-item" data-view="diagnostics">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+          </svg>
+          <span>Diagnostics</span>
+        </button>
+        
+        <button class="admin-nav-item" data-view="settings">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M12 1v6m0 6v6m0-18a11 11 0 0 1 0 22 11 11 0 0 1 0-22z"/>
+            <path d="M19.07 4.93l-4.24 4.24m0 5.66l4.24 4.24M4.93 4.93l4.24 4.24m5.66 0l4.24-4.24"/>
+          </svg>
+          <span>Settings</span>
+        </button>
+      </nav>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="admin-main">
+      
+      <!-- Dashboard View -->
+      <section class="admin-view active" id="viewDashboard">
+        <header class="admin-view-header">
+          <h2>Dashboard</h2>
+          <p class="admin-view-subtitle">System overview and statistics</p>
+        </header>
+
+        <!-- Stats Cards -->
+        <div class="admin-stats-grid">
+          <div class="admin-stat-card">
+            <div class="stat-card-icon stat-card-icon-blue">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+              </svg>
+            </div>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total Users</p>
+              <p class="stat-card-value" id="statTotalUsers">-</p>
+              <p class="stat-card-change">Loading...</p>
+            </div>
+          </div>
+
+          <div class="admin-stat-card">
+            <div class="stat-card-icon stat-card-icon-green">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+                <circle cx="12" cy="10" r="3"/>
+              </svg>
+            </div>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total POIs</p>
+              <p class="stat-card-value" id="statTotalPois">-</p>
+              <p class="stat-card-change">Loading...</p>
+            </div>
+          </div>
+
+          <div class="admin-stat-card">
+            <div class="stat-card-icon stat-card-icon-purple">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+              </svg>
+            </div>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total Comments</p>
+              <p class="stat-card-value" id="statTotalComments">-</p>
+              <p class="stat-card-change">Loading...</p>
+            </div>
+          </div>
+
+          <div class="admin-stat-card">
+            <div class="stat-card-icon stat-card-icon-orange">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+              </svg>
+            </div>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Active Users (7d)</p>
+              <p class="stat-card-value" id="statActiveUsers">-</p>
+              <p class="stat-card-change">Loading...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="admin-section">
+          <h3>Recent Activity</h3>
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Type</th>
+                  <th>User</th>
+                  <th>Details</th>
+                  <th>Time</th>
+                </tr>
+              </thead>
+              <tbody id="recentActivityTable">
+                <tr>
+                  <td colspan="4" class="table-loading">Loading...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Users View -->
+      <section class="admin-view" id="viewUsers" hidden>
+        <header class="admin-view-header">
+          <h2>User Management</h2>
+          <p class="admin-view-subtitle">Manage user accounts and profiles</p>
+        </header>
+
+        <!-- User Search -->
+        <div class="admin-search-bar">
+          <input 
+            type="text" 
+            id="userSearch" 
+            placeholder="Search users by name, email, or username..."
+            class="admin-search-input"
+          />
+          <button class="btn-admin-search" id="btnUserSearch">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.35-4.35"/>
+            </svg>
+            Search
+          </button>
+        </div>
+
+        <!-- Users Table -->
+        <div class="admin-table-container">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Username</th>
+                <th>Email</th>
+                <th>Level</th>
+                <th>XP</th>
+                <th>Joined</th>
+                <th>Status</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="usersTable">
+              <tr>
+                <td colspan="7" class="table-loading">Loading users...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- Pagination -->
+        <div class="admin-pagination" id="usersPagination">
+          <button class="btn-pagination" id="btnUsersPrev">Previous</button>
+          <span class="pagination-info" id="usersPaginationInfo">Page 1</span>
+          <button class="btn-pagination" id="btnUsersNext">Next</button>
+        </div>
+      </section>
+
+      <!-- POIs View -->
+      <section class="admin-view" id="viewPois" hidden>
+        <header class="admin-view-header">
+          <h2>Points of Interest</h2>
+          <p class="admin-view-subtitle">Manage POIs and locations</p>
+        </header>
+        <div class="admin-placeholder">
+          <p>POI management coming soon...</p>
+        </div>
+      </section>
+
+      <!-- Content View -->
+      <section class="admin-view" id="viewContent" hidden>
+        <header class="admin-view-header">
+          <h2>Content Management</h2>
+          <p class="admin-view-subtitle">Manage comments, ratings, and media</p>
+        </header>
+        <div class="admin-placeholder">
+          <p>Content management coming soon...</p>
+        </div>
+      </section>
+
+      <!-- Diagnostics View -->
+      <section class="admin-view" id="viewDiagnostics" hidden>
+        <header class="admin-view-header">
+          <h2>System Diagnostics</h2>
+          <p class="admin-view-subtitle">Monitor system health and performance</p>
+        </header>
+
+        <div class="admin-diagnostics-grid">
+          <div class="diagnostic-card">
+            <h4>Database Status</h4>
+            <div class="diagnostic-status" id="dbStatus">
+              <span class="status-indicator status-checking"></span>
+              <span>Checking...</span>
+            </div>
+          </div>
+
+          <div class="diagnostic-card">
+            <h4>API Status</h4>
+            <div class="diagnostic-status" id="apiStatus">
+              <span class="status-indicator status-checking"></span>
+              <span>Checking...</span>
+            </div>
+          </div>
+
+          <div class="diagnostic-card">
+            <h4>Storage Status</h4>
+            <div class="diagnostic-status" id="storageStatus">
+              <span class="status-indicator status-checking"></span>
+              <span>Checking...</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- System Metrics -->
+        <div class="admin-section">
+          <h3>System Metrics</h3>
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Metric</th>
+                  <th>Value</th>
+                  <th>Description</th>
+                </tr>
+              </thead>
+              <tbody id="systemMetricsTable">
+                <tr>
+                  <td colspan="3" class="table-loading">Loading metrics...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Settings View -->
+      <section class="admin-view" id="viewSettings" hidden>
+        <header class="admin-view-header">
+          <h2>Settings</h2>
+          <p class="admin-view-subtitle">Configure admin panel settings</p>
+        </header>
+        <div class="admin-placeholder">
+          <p>Settings coming soon...</p>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- User Detail Modal -->
+  <div class="admin-modal" id="userDetailModal" hidden>
+    <div class="admin-modal-overlay" id="userDetailModalOverlay"></div>
+    <div class="admin-modal-content">
+      <header class="admin-modal-header">
+        <h3>User Details</h3>
+        <button class="btn-modal-close" id="btnCloseUserModal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body" id="userDetailContent">
+        <p>Loading user details...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notifications -->
+  <div id="toast-container" class="toast-container"></div>
+
+</body>
+</html>
