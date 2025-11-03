@@ -82,28 +82,52 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ===================================
 async function loadPoisData() {
   try {
-    // Try to load from assets/pois.json
-    const response = await fetch('/assets/pois.json');
-    if (response.ok) {
-      const data = await response.json();
-      if (Array.isArray(data) && data.length > 0) {
-        poisData = data;
-        console.log(`✅ Loaded ${poisData.length} POIs from pois.json`);
-        return;
-      }
+    // Wait for PLACES_DATA to load (from poi-loader.js)
+    let attempts = 0;
+    while (typeof window.PLACES_DATA === 'undefined' && attempts < 50) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      attempts++;
     }
     
-    // Fallback to app.js places if available
-    if (window.places && Array.isArray(window.places) && window.places.length > 0) {
-      poisData = window.places.map(p => ({
+    // Use PLACES_DATA if available (loaded by poi-loader.js from Supabase)
+    if (window.PLACES_DATA && Array.isArray(window.PLACES_DATA) && window.PLACES_DATA.length > 0) {
+      poisData = window.PLACES_DATA.map(p => ({
         id: p.id,
-        name: p.name,
+        name: p.nameFallback || p.name,
         lat: p.lat,
         lon: p.lng || p.lon,
-        description: p.description
+        description: p.descriptionFallback || p.description,
+        xp: p.xp || 100,
+        badge: p.badgeFallback || p.badge,
+        source: p.source || 'supabase'
       }));
-      console.log(`✅ Loaded ${poisData.length} POIs from window.places`);
+      console.log(`✅ Loaded ${poisData.length} POIs from PLACES_DATA (${poisData[0]?.source || 'unknown'})`);
+      
+      // Listen for updates
+      window.addEventListener('poisDataRefreshed', (event) => {
+        console.log('🔄 POIs refreshed, reloading...');
+        loadPoisData().then(() => {
+          renderPoisList();
+          if (communityMap) initMap();
+        });
+      });
+      
       return;
+    }
+    
+    // Fallback to assets/pois.json
+    try {
+      const response = await fetch('/assets/pois.json');
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data) && data.length > 0) {
+          poisData = data;
+          console.log(`✅ Loaded ${poisData.length} POIs from pois.json (fallback)`);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load from pois.json:', e);
     }
     
     // If no data available, show error

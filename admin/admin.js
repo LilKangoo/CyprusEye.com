@@ -1465,7 +1465,8 @@ function normalizePoi(rawPoi, source = 'supabase') {
         ? 'draft'
         : null;
 
-  const status = (data.status || rawPoi.status || derivedStatus || (source === 'static' ? 'published' : 'draft'))
+  // Default to 'published' for all sources unless explicitly set otherwise
+  const status = (data.status || rawPoi.status || derivedStatus || 'published')
     .toString()
     .toLowerCase();
 
@@ -2008,6 +2009,12 @@ async function handlePoiFormSubmit(event) {
       showToast('POI updated successfully', 'success');
     }
 
+    // Refresh global PLACES_DATA for main site and community
+    if (typeof window.refreshPoisData === 'function') {
+      console.log('🔄 Refreshing global PLACES_DATA...');
+      await window.refreshPoisData();
+    }
+
     closePoiForm();
     adminState.poisLoaded = false;
     await loadPoisData(true);
@@ -2055,6 +2062,12 @@ async function deletePoi(poiId) {
     });
 
     if (error) throw error;
+
+    // Refresh global PLACES_DATA for main site and community
+    if (typeof window.refreshPoisData === 'function') {
+      console.log('🔄 Refreshing global PLACES_DATA after delete...');
+      await window.refreshPoisData();
+    }
 
     showToast('POI deleted successfully', 'success');
     adminState.poisLoaded = false;

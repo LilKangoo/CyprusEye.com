@@ -1,6 +1,7 @@
 // Places data - extracted from app.js with fallback values
 // Total: 58 places
-const PLACES_DATA = [
+// NOTE: This is now FALLBACK data. Primary data loads from Supabase via poi-loader.js
+const STATIC_PLACES_DATA = [
   {
     "id": "kato-pafos-archaeological-park",
     "nameKey": "places.kato-pafos-archaeological-park.name",
