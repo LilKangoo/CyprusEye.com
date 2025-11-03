@@ -67,6 +67,7 @@
   <link rel="stylesheet" href="assets/css/base.css" />
   <link rel="stylesheet" href="assets/css/components.css" />
   <link rel="stylesheet" href="assets/css/header-metrics.css" />
+  <link rel="stylesheet" href="assets/css/current-place.css" />
   <link rel="stylesheet" href="assets/css/mobile.css" />
   <link rel="stylesheet" href="assets/css/mobile-nav.css" />
   <link rel="stylesheet" href="assets/css/rtl.css" />
@@ -319,6 +320,52 @@
           >
             Pominięto mapę. Przejdź do kolejnych informacji o lokalizacji.
           </p>
+          
+          <!-- Current Place Highlight Section - moved inside map section -->
+          <div class="current-place-section" id="currentPlaceSection">
+            <div class="current-place-navigation">
+              <button type="button" class="btn secondary" id="prevPlaceBtn" onclick="navigatePlace(-1)">
+                ← Poprz.
+              </button>
+              <h2 class="current-place-heading">Aktualne miejsce</h2>
+              <button type="button" class="btn secondary" id="nextPlaceBtn" onclick="navigatePlace(1)">
+                Nast. →
+              </button>
+            </div>
+            
+            <div class="current-place-content" id="currentPlaceContent">
+              <h3 id="currentPlaceName">Ładowanie...</h3>
+              <p id="currentPlaceDescription">...</p>
+              
+              <div class="current-place-stats">
+                <div>
+                  <span>⭐</span>
+                  <span id="currentPlaceRating">Brak ocen</span>
+                </div>
+                <div>
+                  <span>💬</span>
+                  <span id="currentPlaceComments">0 komentarzy</span>
+                </div>
+                <div>
+                  <span>✨</span>
+                  <span id="currentPlaceXP">0 XP</span>
+                </div>
+              </div>
+              
+              <div class="current-place-actions">
+                <button class="btn primary" onclick="checkInAtPlace(window.currentPlaceId)">
+                  ✅ Zamelduj się
+                </button>
+                <button class="btn secondary" onclick="showCommunity(window.currentPlaceId)">
+                  💬 Komentarze
+                </button>
+                <button class="btn secondary" onclick="focusPlaceOnMap(window.currentPlaceId)">
+                  📍 Mapa
+                </button>
+              </div>
+            </div>
+          </div>
+          
           <div class="current-objective" id="currentObjective" hidden>
             <h2 data-i18n="objective.title">Aktualna lokalizacja</h2>
             <p id="objectiveTitle"></p>
@@ -428,51 +475,6 @@
           </a>
         </section>
       </aside>
-
-      <!-- Current Place Highlight Section -->
-      <section class="current-place-section card surface-card" id="currentPlaceSection" style="margin: 1rem 0 0.5rem 0; padding: 1rem; overflow: hidden;">
-        <div class="current-place-navigation" style="display: grid; grid-template-columns: minmax(80px, 1fr) auto minmax(80px, 1fr); gap: 0.5rem; align-items: center; margin-bottom: 1rem; padding-bottom: 0.75rem; border-bottom: 1px solid #e5e7eb;">
-          <button type="button" class="btn secondary" id="prevPlaceBtn" onclick="navigatePlace(-1)" style="padding: 0.4rem 0.6rem; font-size: 0.85rem; justify-self: start;">
-            ← Poprz.
-          </button>
-          <h2 style="margin: 0; font-size: 0.95rem; color: #666; font-weight: 600; text-align: center;">Aktualne miejsce</h2>
-          <button type="button" class="btn secondary" id="nextPlaceBtn" onclick="navigatePlace(1)" style="padding: 0.4rem 0.6rem; font-size: 0.85rem; justify-self: end;">
-            Nast. →
-          </button>
-        </div>
-        
-        <div class="current-place-content" id="currentPlaceContent">
-          <h3 id="currentPlaceName" style="margin: 0 0 0.5rem 0; font-size: 1.3rem; color: #2563eb; word-wrap: break-word;">Ładowanie...</h3>
-          <p id="currentPlaceDescription" style="margin: 0 0 0.75rem 0; line-height: 1.5; color: #555; font-size: 0.9rem; display: block;">...</p>
-          
-          <div class="current-place-stats" style="display: flex; gap: 1.2rem; margin: 0.75rem 0; flex-wrap: wrap; font-size: 0.85rem;">
-            <div style="display: flex; align-items: center; gap: 0.4rem;">
-              <span>⭐</span>
-              <span id="currentPlaceRating">Brak ocen</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 0.4rem;">
-              <span>💬</span>
-              <span id="currentPlaceComments">0 komentarzy</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 0.4rem;">
-              <span>✨</span>
-              <span id="currentPlaceXP">0 XP</span>
-            </div>
-          </div>
-          
-          <div style="display: flex; gap: 0.75rem; margin-top: 1rem; flex-wrap: wrap;">
-            <button class="btn primary" onclick="checkInAtPlace(window.currentPlaceId)" style="padding: 0.5rem 0.8rem; font-size: 0.85rem;">
-              ✅ Zamelduj się
-            </button>
-            <button class="btn secondary" onclick="showCommunity(window.currentPlaceId)" style="padding: 0.5rem 0.8rem; font-size: 0.85rem;">
-              💬 Komentarze
-            </button>
-            <button class="btn secondary" onclick="focusPlaceOnMap(window.currentPlaceId)" style="padding: 0.5rem 0.8rem; font-size: 0.85rem;">
-              📍 Mapa
-            </button>
-          </div>
-        </div>
-      </section>
 
       <section class="grid discovery-grid" aria-label="Atrakcje i postępy">
         <section class="locations-panel card surface-card">
