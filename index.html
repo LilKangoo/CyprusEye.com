@@ -572,26 +572,7 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   
   <!-- Awaryjny skrypt inicjalizacji mapy -->
-  <script>
-    // Jeśli app.js nie zainicjalizuje mapy w 3 sekundy, zrób to ręcznie
-    window.addEventListener('load', function() {
-      setTimeout(function() {
-        var mapElement = document.getElementById('map');
-        if (mapElement && !mapElement.querySelector('.leaflet-container')) {
-          console.warn('⚠️ Map not initialized by app.js - using fallback');
-          if (typeof L !== 'undefined') {
-            var map = L.map('map').setView([35.095, 33.203], 9);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-              attribution: '&copy; OpenStreetMap contributors'
-            }).addTo(map);
-            console.log('✅ Fallback map initialized');
-          } else {
-            console.error('❌ Leaflet not loaded');
-          }
-        }
-      }, 3000);
-    });
-  </script>
+  <!-- Fallback removed - app-core.js handles all initialization -->
   
   <!-- Load data files first -->
   <!-- Static data as fallback -->
@@ -602,7 +583,7 @@
   <script src="js/data-packing.js"></script>
   
   <!-- Load core application (defer to wait for poi-loader) -->
-  <script src="app-core.js?v=3" defer></script>
+  <script src="app-core.js?v=4" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
 
   <div

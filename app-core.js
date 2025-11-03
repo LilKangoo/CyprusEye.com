@@ -62,7 +62,18 @@ console.log('🔵 App Core V2 - START');
     // Stwórz mapę jeśli nie istnieje
     if (!mapInstance) {
       console.log('🗺️ Tworzę instancję mapy...');
-      mapInstance = L.map('map').setView([35.095, 33.203], 9);
+      
+      // Sprawdź czy element mapy nie jest już zainicjalizowany
+      if (mapElement._leaflet_id) {
+        console.log('⚠️ Mapa już istnieje - używam istniejącej instancji');
+        mapInstance = mapElement._leaflet_map || mapElement._leaflet;
+        if (!mapInstance) {
+          console.error('❌ Nie mogę odnaleźć instancji mapy!');
+          return;
+        }
+      } else {
+        mapInstance = L.map('map').setView([35.095, 33.203], 9);
+      }
       
       // Dodaj kafelki
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
