@@ -825,6 +825,71 @@ function formatDate(dateString) {
 // =====================================================
 
 function initEventListeners() {
+  const sidebar = $('#adminSidebar');
+  const menuToggle = $('#adminMenuToggle');
+  const sidebarOverlay = $('#adminSidebarOverlay');
+  let mobileSidebarOpen = false;
+
+  const updateSidebarState = (isOpen) => {
+    if (!sidebar) return;
+
+    mobileSidebarOpen = isOpen;
+    sidebar.classList.toggle('is-open', isOpen);
+
+    if (menuToggle) {
+      menuToggle.setAttribute('aria-expanded', String(isOpen));
+      menuToggle.classList.toggle('is-active', isOpen);
+    }
+
+    if (sidebarOverlay) {
+      if (isOpen) {
+        sidebarOverlay.hidden = false;
+        if (typeof requestAnimationFrame === 'function') {
+          requestAnimationFrame(() => sidebarOverlay.classList.add('is-active'));
+        } else {
+          sidebarOverlay.classList.add('is-active');
+        }
+      } else {
+        sidebarOverlay.classList.remove('is-active');
+        setTimeout(() => {
+          if (!mobileSidebarOpen) {
+            sidebarOverlay.hidden = true;
+          }
+        }, 300);
+      }
+    }
+
+    document.body.classList.toggle('admin-sidebar-open', isOpen);
+  };
+
+  const closeSidebarForMobile = () => {
+    if (window.innerWidth <= 1024) {
+      updateSidebarState(false);
+    }
+  };
+
+  if (menuToggle && sidebar) {
+    menuToggle.addEventListener('click', () => {
+      updateSidebarState(!mobileSidebarOpen);
+    });
+  }
+
+  if (sidebarOverlay) {
+    sidebarOverlay.addEventListener('click', () => updateSidebarState(false));
+  }
+
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 1024 && mobileSidebarOpen) {
+      updateSidebarState(false);
+    }
+  });
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && mobileSidebarOpen) {
+      updateSidebarState(false);
+    }
+  });
+
   // Login form
   const loginForm = $('#adminLoginForm');
   if (loginForm) {
@@ -867,6 +932,7 @@ function initEventListeners() {
       const viewName = item.dataset.view;
       if (viewName) {
         switchView(viewName);
+        closeSidebarForMobile();
       }
     });
   });
