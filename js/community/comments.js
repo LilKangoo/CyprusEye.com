@@ -28,7 +28,9 @@ export async function loadComments(poiId) {
         profiles (
           username,
           name,
-          avatar_url
+          avatar_url,
+          level,
+          xp
         )
       `)
       .eq('poi_id', poiId)
@@ -76,7 +78,9 @@ async function loadReplies(parentCommentId) {
         profiles (
           username,
           name,
-          avatar_url
+          avatar_url,
+          level,
+          xp
         )
       `)
       .eq('parent_comment_id', parentCommentId)

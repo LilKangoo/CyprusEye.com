@@ -124,7 +124,7 @@ async function loadUserProfile() {
     const sb = window.getSupabase();
     const { data, error } = await sb
       .from('profiles')
-      .select('id, username, name, avatar_url')
+      .select('id, username, name, avatar_url, level, xp')
       .eq('id', currentUser.id)
       .single();
 
@@ -132,6 +132,7 @@ async function loadUserProfile() {
 
     if (data) {
       currentUser.profile = data;
+      console.log('✅ User profile loaded:', { username: data.username, level: data.level, xp: data.xp });
       updateUserAvatar();
     }
   } catch (error) {
@@ -817,6 +818,15 @@ async function renderComment(comment, isReply = false) {
   // Use profile data from JOIN (already loaded in loadComments)
   const profile = comment.profiles;
   
+  // Debug: Log full profile structure
+  console.log('🔍 Full comment profile data:', {
+    comment_id: comment.id,
+    user_id: comment.user_id,
+    profile: profile,
+    has_level: profile?.level !== undefined,
+    level_value: profile?.level
+  });
+  
   // Priority: username > name > fallback
   let displayName = 'Użytkownik';
   if (profile) {
@@ -829,8 +839,9 @@ async function renderComment(comment, isReply = false) {
   
   const username = escapeHtml(displayName);
   const avatar = profile?.avatar_url || DEFAULT_AVATAR;
+  const userLevel = profile?.level || 1;
   
-  console.log(`👤 Comment by user ${comment.user_id}: username="${profile?.username}", name="${profile?.name}", displaying as: "${displayName}"`);
+  console.log(`👤 Comment render: user="${displayName}", level=${userLevel}, avatar=${avatar ? 'set' : 'default'}`);
   
   // Get likes info
   const likesCount = await getLikesCount(comment.id);
@@ -851,7 +862,10 @@ async function renderComment(comment, isReply = false) {
         <div class="comment-author">
           <img src="${avatar}" alt="${username}" class="comment-author-avatar" />
           <div class="comment-author-info">
-            <span class="comment-author-name">${username}</span>
+            <div class="comment-author-name-row">
+              <span class="comment-author-name">${username}</span>
+              <span class="comment-author-level">Lvl ${userLevel}</span>
+            </div>
             <span class="comment-timestamp">
               ${timeAgo}
               ${comment.is_edited ? '<span class="comment-edited">(edytowano)</span>' : ''}
