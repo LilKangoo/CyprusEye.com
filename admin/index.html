@@ -6,7 +6,7 @@
   
   <!-- Security: Content Security Policy - Admin Panel -->
   <!-- Note: Relaxed CSP for admin panel - protected by authentication -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://esm.sh https://*.esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co https://esm.sh; object-src 'none'; base-uri 'self'; form-action 'self';">
   <!-- Admin panel is already protected by multi-layer authentication -->
   
   <meta name="theme-color" content="#dc2626" />
@@ -20,18 +20,18 @@
   <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
   
   <!-- Styles -->
-  <link rel="stylesheet" href="../assets/css/tokens.css" />
-  <link rel="stylesheet" href="../assets/css/base.css" />
-  <link rel="stylesheet" href="admin.css" />
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <link rel="stylesheet" href="/admin/admin.css" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
   <meta name="ce-admin" content="required" />
   
   <!-- Scripts -->
-  <script type="module" src="../js/supabaseClient.js"></script>
-  <script type="module" src="../js/toast.js"></script>
-  <script type="module" src="admin.js"></script>
+  <script type="module" src="/js/supabaseClient.js"></script>
+  <script type="module" src="/js/toast.js"></script>
+  <script type="module" src="/admin/admin.js"></script>
 </head>
 <body data-admin-panel="true">
   

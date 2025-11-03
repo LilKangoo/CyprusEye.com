@@ -27,9 +27,34 @@ let adminState = {
 // SUPABASE CLIENT
 // =====================================================
 
-const sb = window.getSupabase();
+// Wait for Supabase client to be available
+function getSupabaseClient() {
+  if (typeof window.getSupabase === 'function') {
+    return window.getSupabase();
+  }
+  if (window.sb) {
+    return window.sb;
+  }
+  if (window.__SB__) {
+    return window.__SB__;
+  }
+  return null;
+}
+
+// Helper to ensure Supabase is available
+function ensureSupabase() {
+  if (!sb) {
+    sb = getSupabaseClient();
+  }
+  return sb;
+}
+
+// Try to get client immediately
+let sb = getSupabaseClient();
+
+// If not available, wait a bit
 if (!sb) {
-  console.error('Supabase client not available');
+  console.warn('Supabase client not immediately available, waiting...');
 }
 
 // =====================================================
@@ -98,6 +123,15 @@ async function checkAdminAccess() {
   try {
     setLoading(true);
 
+    // Ensure Supabase client is available
+    if (!sb) {
+      sb = getSupabaseClient();
+    }
+    
+    if (!sb) {
+      throw new Error('Supabase client not available');
+    }
+
     // Get current session
     const { data: { session }, error: sessionError } = await sb.auth.getSession();
     
@@ -119,7 +153,7 @@ async function checkAdminAccess() {
     }
 
     // Get user profile and verify is_admin flag
-    const { data: profile, error: profileError } = await sb
+    const { data: profile, error: profileError } = await client
       .from('profiles')
       .select('*')
       .eq('id', session.user.id)
@@ -240,8 +274,13 @@ function switchView(viewName) {
 
 async function loadDashboardData() {
   try {
+    const client = ensureSupabase();
+    if (!client) {
+      throw new Error('Supabase client not available');
+    }
+    
     // Load system diagnostics
-    const { data: diagnostics, error: diagError } = await sb
+    const { data: diagnostics, error: diagError } = await client
       .from('admin_system_diagnostics')
       .select('*');
 
@@ -272,7 +311,10 @@ async function loadDashboardData() {
 
 async function loadRecentActivity() {
   try {
-    const { data: activity, error } = await sb.rpc('admin_get_activity_log', { 
+    const client = ensureSupabase();
+    if (!client) return;
+    
+    const { data: activity, error } = await client.rpc('admin_get_activity_log', { 
       limit_count: 10 
     });
 
@@ -310,9 +352,15 @@ async function loadRecentActivity() {
 
 async function loadUsersData(page = 1) {
   try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+    
     adminState.usersPage = page;
 
-    const { data: users, error, count } = await sb
+    const { data: users, error, count } = await client
       .from('admin_users_overview')
       .select('*', { count: 'exact' })
       .order('created_at', { ascending: false })
@@ -377,9 +425,15 @@ function updateUsersPagination() {
 
 async function viewUserDetails(userId) {
   try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+    
     showToast('Loading user details...', 'info');
 
-    const { data, error } = await sb.rpc('admin_get_user_details', { 
+    const { data, error } = await client.rpc('admin_get_user_details', { 
       target_user_id: userId 
     });
 
@@ -499,10 +553,13 @@ window.viewUserDetails = viewUserDetails;
 
 async function loadDiagnosticsData() {
   try {
+    const client = ensureSupabase();
+    
     // Check database connection
     const dbStatus = $('#dbStatus');
     try {
-      const { error } = await sb.from('profiles').select('id').limit(1);
+      if (!client) throw new Error('Client not available');
+      const { error } = await client.from('profiles').select('id').limit(1);
       if (error) throw error;
       if (dbStatus) {
         dbStatus.innerHTML = '<span class="status-indicator status-ok"></span><span>Connected</span>';
@@ -516,7 +573,8 @@ async function loadDiagnosticsData() {
     // Check API
     const apiStatus = $('#apiStatus');
     try {
-      const { error } = await sb.auth.getSession();
+      if (!client) throw new Error('Client not available');
+      const { error } = await client.auth.getSession();
       if (error) throw error;
       if (apiStatus) {
         apiStatus.innerHTML = '<span class="status-indicator status-ok"></span><span>Operational</span>';
@@ -540,7 +598,12 @@ async function loadDiagnosticsData() {
     }
 
     // Load system metrics
-    const { data: metrics, error } = await sb
+    if (!client) {
+      console.error('Cannot load system metrics - client not available');
+      return;
+    }
+    
+    const { data: metrics, error } = await client
       .from('admin_system_diagnostics')
       .select('*');
 
@@ -574,6 +637,15 @@ async function loadDiagnosticsData() {
 
 async function handleAdminLogin(email, password) {
   try {
+    // Ensure Supabase client is available
+    if (!sb) {
+      sb = getSupabaseClient();
+    }
+    
+    if (!sb) {
+      throw new Error('Supabase client not available. Please refresh the page.');
+    }
+    
     // Sign in with Supabase
     const { data, error } = await sb.auth.signInWithPassword({
       email: email.trim(),
@@ -611,6 +683,16 @@ async function handleAdminLogin(email, password) {
 
 async function handleLogout() {
   try {
+    if (!sb) {
+      sb = getSupabaseClient();
+    }
+    
+    if (!sb) {
+      console.error('Supabase client not available');
+      showLoginScreen();
+      return;
+    }
+    
     const { error } = await sb.auth.signOut();
     if (error) throw error;
     
@@ -773,7 +855,13 @@ function initEventListeners() {
 
 async function searchUsers(query) {
   try {
-    const { data: users, error } = await sb
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+    
+    const { data: users, error } = await client
       .from('admin_users_overview')
       .select('*')
       .or(`username.ilike.%${query}%,email.ilike.%${query}%,name.ilike.%${query}%`)
@@ -830,9 +918,15 @@ async function adjustUserXP(userId, xpChange, reason = 'Admin adjustment') {
   }
   
   try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+    
     showToast('Adjusting XP...', 'info');
     
-    const { data, error } = await sb.rpc('admin_adjust_user_xp', {
+    const { data, error } = await client.rpc('admin_adjust_user_xp', {
       target_user_id: userId,
       xp_change: xpChange,
       reason: reason
@@ -860,9 +954,15 @@ async function banUser(userId, reason = 'Violating terms', days = 30) {
   }
   
   try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+    
     showToast('Banning user...', 'info');
     
-    const { data, error } = await sb.rpc('admin_ban_user', {
+    const { data, error } = await client.rpc('admin_ban_user', {
       target_user_id: userId,
       ban_reason: reason,
       ban_duration: `${days} days`
@@ -889,9 +989,15 @@ async function unbanUser(userId) {
   }
   
   try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+    
     showToast('Unbanning user...', 'info');
     
-    const { data, error } = await sb.rpc('admin_unban_user', {
+    const { data, error } = await client.rpc('admin_unban_user', {
       target_user_id: userId
     });
     
@@ -916,9 +1022,15 @@ async function deleteComment(commentId, reason = 'Content policy violation') {
   }
   
   try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+    
     showToast('Deleting comment...', 'info');
     
-    const { data, error } = await sb.rpc('admin_delete_comment', {
+    const { data, error } = await client.rpc('admin_delete_comment', {
       comment_id: commentId,
       deletion_reason: reason
     });
@@ -941,7 +1053,13 @@ async function deleteComment(commentId, reason = 'Content policy violation') {
 // Load Content Management Data
 async function loadContentData() {
   try {
-    const { data: flaggedContent, error } = await sb.rpc('admin_get_flagged_content', {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+    
+    const { data: flaggedContent, error } = await client.rpc('admin_get_flagged_content', {
       limit_count: 50
     });
     
@@ -981,13 +1099,19 @@ async function loadContentData() {
 // Get Analytics Data
 async function loadAnalytics() {
   try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+    
     // Get content stats
-    const { data: contentStats, error: statsError } = await sb.rpc('admin_get_content_stats');
+    const { data: contentStats, error: statsError } = await client.rpc('admin_get_content_stats');
     
     if (statsError) throw statsError;
     
     // Get top contributors
-    const { data: topContributors, error: contribError } = await sb.rpc('admin_get_top_contributors', {
+    const { data: topContributors, error: contribError } = await client.rpc('admin_get_top_contributors', {
       limit_count: 10
     });
     
@@ -1069,6 +1193,28 @@ async function initAdminPanel() {
   
   // Initialize event listeners FIRST (needed for login form)
   initEventListeners();
+  
+  // Wait a moment for modules to load
+  let retries = 0;
+  const maxRetries = 10;
+  
+  while (!sb && retries < maxRetries) {
+    sb = getSupabaseClient();
+    if (!sb) {
+      console.log(`Waiting for Supabase client... (${retries + 1}/${maxRetries})`);
+      await new Promise(resolve => setTimeout(resolve, 100));
+      retries++;
+    }
+  }
+  
+  if (!sb) {
+    console.error('Failed to load Supabase client after multiple retries');
+    setLoading(false);
+    showLoginScreen();
+    return;
+  }
+  
+  console.log('Supabase client loaded successfully');
   
   // Check admin access
   const hasAccess = await checkAdminAccess();
