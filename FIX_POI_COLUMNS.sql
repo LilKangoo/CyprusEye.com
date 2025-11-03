@@ -36,26 +36,25 @@ BEGIN
   );
   
   -- Insert new POI with correct column names (lat, lng, xp)
+  -- Note: 'category' stored in badge field, no created_by or data columns
   INSERT INTO pois (
     id,
     name,
     description,
     lat,
     lng,
-    category,
     xp,
-    created_by,
-    data
+    badge,
+    required_level
   ) VALUES (
     new_poi_id,
     poi_name,
     poi_description,
     poi_latitude,
     poi_longitude,
-    poi_category,
     COALESCE(poi_xp, 100),
-    auth.uid(),
-    poi_data
+    poi_category,
+    1
   );
   
   -- Log action
@@ -110,10 +109,8 @@ BEGIN
     description = COALESCE(poi_description, description),
     lat = COALESCE(poi_latitude, lat),
     lng = COALESCE(poi_longitude, lng),
-    category = COALESCE(poi_category, category),
-    xp = COALESCE(poi_xp, xp),
-    data = COALESCE(poi_data, data),
-    updated_at = NOW()
+    badge = COALESCE(poi_category, badge),
+    xp = COALESCE(poi_xp, xp)
   WHERE id = poi_id;
   
   -- Log action

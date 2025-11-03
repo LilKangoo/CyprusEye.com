@@ -2,7 +2,8 @@
 
 ## Problem
 - Błąd przy dodawaniu nowego POI: "column 'latitude' of relation 'pois' does not exist"
-- Tabela `pois` używa kolumn `lat` i `lng`, a nie `latitude` i `longitude`
+- Błąd: "column 'category' does not exist"
+- Tabela `pois` używa kolumn `lat`, `lng`, `badge` (nie `latitude`, `longitude`, `category`)
 - Funkcje SQL używały niewłaściwych nazw kolumn
 - Brak możliwości ustawiania XP za odwiedzenie POI w admin panelu
 
@@ -12,10 +13,11 @@
 
 #### `/FIX_POI_COLUMNS.sql` (ZAKTUALIZOWANY)
 - Naprawione funkcje SQL `admin_create_poi` i `admin_update_poi`
-- Funkcje używają teraz właściwych nazw kolumn (`lat`, `lng`, `xp`)
+- Funkcje używają teraz właściwych nazw kolumn (`lat`, `lng`, `badge`, `xp`)
+- `category` zapisywane w kolumnie `badge`
 - Dodano parametry latitude/longitude/xp do obu funkcji
 - Funkcja create_poi generuje automatyczne ID ze slug
-- Domyślna wartość XP: 100
+- Domyślna wartość XP: 100, required_level: 1
 
 #### `/admin/admin.js` (ZAKTUALIZOWANY)
 - Zaktualizowano funkcję `savePoi()` do obsługi XP
@@ -75,11 +77,16 @@ Powinno działać bez błędów! XP będzie zapisane w bazie i widoczne dla grac
 - description (TEXT)
 - lat (DOUBLE PRECISION) ← nie "latitude"
 - lng (DOUBLE PRECISION) ← nie "longitude"
-- category (TEXT)
+- google_maps_url (TEXT)
+- badge (TEXT) ← używane jako "category"
 - xp (INTEGER) ← nagroda XP za odwiedzenie
-- data (JSONB)
-- created_by (UUID)
+- required_level (INTEGER) ← wymagany poziom gracza
 - created_at (TIMESTAMPTZ)
+
+UWAGA: Tabela NIE ma kolumn:
+- category (używamy 'badge' zamiast tego)
+- data (JSONB) 
+- created_by (UUID)
 - updated_at (TIMESTAMPTZ)
 ```
 

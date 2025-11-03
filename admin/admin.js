@@ -1435,6 +1435,15 @@ function normalizePoi(rawPoi, source = 'supabase') {
     10
   );
 
+  const requiredLevel = parseInt(
+    rawPoi.required_level
+      ?? rawPoi.requiredLevel
+      ?? data.required_level
+      ?? data.requiredLevel
+      ?? 1,
+    10
+  );
+
   const combinedTags = [
     ...(Array.isArray(data.tags) ? data.tags : []),
     ...(Array.isArray(rawPoi.tags) ? rawPoi.tags : []),
@@ -1462,7 +1471,9 @@ function normalizePoi(rawPoi, source = 'supabase') {
 
   const category = (
     rawPoi.category
+    || rawPoi.badge
     || data.category
+    || data.badge
     || rawPoi.poi_category
     || data.poi_category
     || 'uncategorized'
@@ -1478,7 +1489,9 @@ function normalizePoi(rawPoi, source = 'supabase') {
     longitude: Number.isFinite(longitude) ? longitude : null,
     radius: Number.isFinite(radius) ? radius : null,
     xp: Number.isFinite(xp) ? xp : 100,
+    requiredLevel: Number.isFinite(requiredLevel) ? requiredLevel : 1,
     category,
+    badge: rawPoi.badge || data.badge || category,
     status,
     tags,
     created_at: rawPoi.created_at || data.created_at || null,
