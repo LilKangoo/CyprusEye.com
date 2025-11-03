@@ -1358,6 +1358,27 @@ body[data-admin-panel="true"].admin-sidebar-open {
   margin-bottom: 16px;
 }
 
+/* Admin error message */
+.admin-error-message {
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  color: #fecaca;
+  padding: 20px;
+  border-radius: var(--admin-radius);
+  text-align: center;
+  font-size: 14px;
+  margin: 20px 0;
+}
+
+.admin-error-message code {
+  background: rgba(0, 0, 0, 0.3);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+  color: #fff;
+}
+
 /* Large modal for content details */
 .admin-modal-content-large {
   max-width: 900px;

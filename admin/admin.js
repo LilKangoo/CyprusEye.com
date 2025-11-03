@@ -2116,6 +2116,10 @@ async function loadContentData() {
     const client = ensureSupabase();
     if (!client) {
       showToast('Database connection not available', 'error');
+      const statsEl = $('#contentStats');
+      if (statsEl) {
+        statsEl.innerHTML = '<div class="admin-error-message">❌ Database not connected. Check console for details.</div>';
+      }
       return;
     }
     
@@ -2127,7 +2131,29 @@ async function loadContentData() {
     
   } catch (error) {
     console.error('Failed to load content data:', error);
-    showToast('Failed to load content data', 'error');
+    showToast('Failed to load content data: ' + error.message, 'error');
+    
+    // Show helpful error message
+    const tableBody = $('#contentTable');
+    if (tableBody) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="6" style="padding: 40px; text-align: center;">
+            <div style="color: var(--admin-danger); margin-bottom: 16px; font-size: 18px;">❌ Error Loading Content</div>
+            <div style="color: var(--admin-text-muted); margin-bottom: 16px;">${escapeHtml(error.message)}</div>
+            <div style="background: rgba(239, 68, 68, 0.1); padding: 16px; border-radius: 8px; text-align: left; max-width: 600px; margin: 0 auto;">
+              <p style="margin: 0 0 8px; font-weight: 600;">Possible solutions:</p>
+              <ol style="margin: 0; padding-left: 20px; color: var(--admin-text);">
+                <li>Run <code>ADMIN_CONTENT_COMPLETE_INSTALL.sql</code> in Supabase SQL Editor</li>
+                <li>Check if you have admin permissions (is_admin = true)</li>
+                <li>Open browser console (F12) for detailed error</li>
+                <li>Verify Supabase connection is working</li>
+              </ol>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
   }
 }
 
@@ -2139,7 +2165,14 @@ async function loadContentStats() {
     
     const { data: stats, error } = await client.rpc('admin_get_detailed_content_stats');
     
-    if (error) throw error;
+    if (error) {
+      console.error('Stats error:', error);
+      throw new Error(`Stats function failed: ${error.message}. Did you run ADMIN_CONTENT_COMPLETE_INSTALL.sql?`);
+    }
+    
+    if (!stats) {
+      throw new Error('No stats data returned');
+    }
     
     contentState.stats = stats;
     
@@ -2179,6 +2212,14 @@ async function loadContentStats() {
     }
   } catch (error) {
     console.error('Failed to load content stats:', error);
+    const statsEl = $('#contentStats');
+    if (statsEl) {
+      statsEl.innerHTML = `
+        <div class="admin-error-message" style="grid-column: 1 / -1;">
+          ⚠️ Statistics unavailable: ${escapeHtml(error.message)}
+        </div>
+      `;
+    }
   }
 }
 
@@ -2206,7 +2247,10 @@ async function loadComments(page = 1) {
       offset_count: offset
     });
     
-    if (error) throw error;
+    if (error) {
+      console.error('Comments RPC error:', error);
+      throw new Error(`Failed to load comments: ${error.message}. Make sure ADMIN_CONTENT_COMPLETE_INSTALL.sql is executed.`);
+    }
     
     contentState.comments = comments || [];
     
