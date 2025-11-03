@@ -1,5 +1,27 @@
 # 🧪 Test wyświetlania poziomu użytkownika w komentarzach
 
+## ⚠️ WAŻNE - Naprawiono błąd 406
+
+Błąd `GET poi_rating_stats 406 (Not Acceptable)` został naprawiony w `js/community/ratings.js`.
+Ten błąd **nie powinien już blokować** wyświetlania komentarzy.
+
+## 🔍 Szybka diagnostyka
+
+**KROK 1:** Otwórz konsolę przeglądarki (F12) i uruchom:
+```javascript
+await window.debugCommentLevels()
+```
+
+Ten skrypt sprawdzi:
+- ✅ Czy kolumny `level` i `xp` istnieją w bazie
+- ✅ Czy komentarze pobierają dane profilu
+- ✅ Czy CSS jest załadowany
+- ✅ Twój profil użytkownika
+
+**KROK 2:** Jeśli widzisz błędy, sprawdź rozwiązania poniżej.
+
+---
+
 ## Zmiany wprowadzone:
 
 ### 1. ✅ Aktualizacja zapytań Supabase
@@ -126,5 +148,93 @@ const subscription = sb
 
 ---
 
-**Status:** ✅ Implementacja zakończona
-**Testowane:** Czeka na weryfikację użytkownika
+## 🔧 Rozwiązywanie problemów
+
+### Problem 1: Kolumny level/xp nie istnieją w bazie
+**Objawy:** Błędy w konsoli typu "column does not exist"
+
+**Rozwiązanie:**
+1. Otwórz Supabase Dashboard
+2. Przejdź do SQL Editor
+3. Uruchom zawartość pliku `ADD_XP_COLUMNS_TO_PROFILES.sql`
+4. Sprawdź czy kolumny zostały dodane: Table Editor → profiles
+
+### Problem 2: Poziom pokazuje zawsze "Lvl 1"
+**Objawy:** Badge wyświetla się, ale zawsze pokazuje 1
+
+**Możliwe przyczyny:**
+- Kolumna level istnieje ale wszystkie wartości to NULL → ustawiono domyślnie 1
+- Dane nie są aktualizowane w bazie
+
+**Rozwiązanie:**
+```sql
+-- W Supabase SQL Editor, ustaw jakiś poziom testowo:
+UPDATE profiles SET level = 5, xp = 1000 WHERE id = 'twoje-user-id';
+```
+
+### Problem 3: Profile są null w komentarzach
+**Objawy:** Console pokazuje `profile: null` lub `profile: undefined`
+
+**Możliwe przyczyny:**
+- RLS (Row Level Security) blokuje dostęp do profili
+- Użytkownik nie ma profilu w tabeli profiles
+
+**Rozwiązanie:**
+```sql
+-- Sprawdź RLS policies dla tabeli profiles:
+-- Dodaj policy dla SELECT:
+CREATE POLICY "Profiles are viewable by everyone"
+  ON profiles FOR SELECT
+  USING (true);
+```
+
+### Problem 4: CSS nie działa
+**Objawy:** Badge nie ma kolorów/stylów
+
+**Rozwiązanie:**
+1. Sprawdź czy plik community.css jest załadowany
+2. Hard refresh: Ctrl+Shift+R (Windows) lub Cmd+Shift+R (Mac)
+3. Wyczyść cache przeglądarki
+
+### Problem 5: Błąd 406 nadal występuje
+**Objawy:** Rating stats nie ładują się
+
+**Możliwe przyczyny:**
+- Tabela poi_rating_stats nie istnieje
+- Brak odpowiednich RLS policies
+
+**Rozwiązanie:**
+- Ten błąd jest teraz **niekrytyczny** i nie blokuje komentarzy
+- Uruchom `SUPABASE_POI_RATINGS_SETUP.sql` jeśli chcesz naprawić ratings
+
+---
+
+## 📞 Debug commands
+
+Uruchom w konsoli przeglądarki:
+
+```javascript
+// Pełna diagnostyka
+await window.debugCommentLevels()
+
+// Sprawdź pojedynczy profil
+const sb = window.getSupabase();
+const { data } = await sb.from('profiles').select('*').limit(1).single();
+console.log('Profile data:', data);
+
+// Sprawdź komentarze
+const { data: comments } = await sb
+  .from('poi_comments')
+  .select('*, profiles(*)')
+  .limit(1);
+console.log('Comment with profile:', comments);
+
+// Sprawdź aktualnego użytkownika
+const { data: { user } } = await sb.auth.getUser();
+console.log('Current user:', user);
+```
+
+---
+
+**Status:** ✅ Implementacja zakończona + narzędzia diagnostyczne
+**Testowane:** Czeka na weryfikację użytkownika z pełnym debugowaniem

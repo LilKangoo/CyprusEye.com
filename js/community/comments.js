@@ -13,6 +13,8 @@ export async function loadComments(poiId) {
     const sb = window.getSupabase();
     if (!sb) throw new Error('Supabase client not available');
 
+    console.log(`📥 Loading comments for POI: ${poiId}`);
+
     // Get all parent comments (no parent_comment_id) with user profiles
     const { data: comments, error } = await sb
       .from('poi_comments')
@@ -37,7 +39,26 @@ export async function loadComments(poiId) {
       .is('parent_comment_id', null)
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Error loading comments:', error);
+      throw error;
+    }
+
+    // Debug: Log first comment's profile structure
+    if (comments && comments.length > 0) {
+      console.log('📊 Sample comment profile data:', {
+        total_comments: comments.length,
+        first_comment: {
+          id: comments[0].id,
+          user_id: comments[0].user_id,
+          profile: comments[0].profiles,
+          has_level: comments[0].profiles?.level !== undefined,
+          level_value: comments[0].profiles?.level
+        }
+      });
+    } else {
+      console.log('ℹ️ No comments found for this POI');
+    }
 
     // Load replies for each comment
     if (comments && comments.length > 0) {
@@ -87,6 +108,11 @@ async function loadReplies(parentCommentId) {
       .order('created_at', { ascending: true });
 
     if (error) throw error;
+
+    // Debug: Log reply profile data if exists
+    if (replies && replies.length > 0) {
+      console.log(`📨 Loaded ${replies.length} replies, first reply has level:`, replies[0].profiles?.level);
+    }
 
     return replies || [];
 
