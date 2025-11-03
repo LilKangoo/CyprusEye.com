@@ -176,6 +176,10 @@
   window.updateUserStatsDisplay = updateUserStatsDisplay;
   window.updateHeaderMetrics = updateHeaderMetrics;
 
+  // Store map instance globally
+  let mapInstance = null;
+  let markersLayer = null;
+
   function initializeMap() {
     const mapElement = document.getElementById('map');
     if (!mapElement) {
@@ -192,31 +196,69 @@
     }
 
     try {
-      // Create map
-      const map = L.map('map').setView([35.095, 33.203], 9);
-      
-      // Store map reference for later use
-      mapElement._leaflet_map = map;
-      
-      // Add tile layer
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap contributors',
-        maxZoom: 19
-      }).addTo(map);
+      // Create map only if it doesn't exist
+      if (!mapInstance) {
+        mapInstance = L.map('map').setView([35.095, 33.203], 9);
+        
+        // Store map reference for later use
+        mapElement._leaflet_map = mapInstance;
+        
+        // Add tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors',
+          maxZoom: 19
+        }).addTo(mapInstance);
 
-      // Create custom icon for better visibility
-      const customIcon = L.icon({
-        iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-        shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-        iconSize: [25, 41],
-        iconAnchor: [12, 41],
-        popupAnchor: [1, -34],
-        shadowSize: [41, 41]
+        // Create layer group for markers
+        markersLayer = L.layerGroup().addTo(mapInstance);
+
+        console.log('✅ Map instance created');
+      }
+
+      // Update markers
+      updateMapMarkers();
+
+      // Listen for POI data refresh
+      window.addEventListener('poisDataRefreshed', () => {
+        console.log('🔄 POI data refreshed, updating map markers...');
+        updateMapMarkers();
       });
 
-      // Add markers for each place
+      console.log('✅ Map initialized with', PLACES_DATA.length, 'markers');
+    } catch (error) {
+      console.error('❌ Error initializing map:', error);
+    }
+  }
+
+  function updateMapMarkers() {
+    if (!markersLayer || !mapInstance) {
+      console.warn('⚠️ Map not ready for marker update');
+      return;
+    }
+
+    // Clear existing markers
+    markersLayer.clearLayers();
+
+    // Create custom icon for better visibility
+    const customIcon = L.icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
+
+    // Add markers for each place
+    if (PLACES_DATA && PLACES_DATA.length > 0) {
       PLACES_DATA.forEach(function(place) {
-        const marker = L.marker([place.lat, place.lng], { icon: customIcon }).addTo(map);
+        // Validate coordinates
+        if (!place.lat || !place.lng) {
+          console.warn('⚠️ Skipping place without coordinates:', place.id);
+          return;
+        }
+
+        const marker = L.marker([place.lat, place.lng], { icon: customIcon });
         
         // Get translated name or fallback
         const placeName = getPlaceName(place);
@@ -230,13 +272,19 @@
             <a href="${place.googleMapsUrl}" target="_blank" rel="noopener" style="display: inline-block; padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 13px;">Google Maps →</a>
           </div>
         `, { maxWidth: 250 });
+
+        // Add to markers layer
+        marker.addTo(markersLayer);
       });
 
-      console.log('✅ Map initialized with', PLACES_DATA.length, 'markers');
-    } catch (error) {
-      console.error('❌ Error initializing map:', error);
+      console.log(`✅ Updated map with ${PLACES_DATA.length} markers`);
+    } else {
+      console.warn('⚠️ No PLACES_DATA available for markers');
     }
   }
+
+  // Export for external use
+  window.updateMapMarkers = updateMapMarkers;
 
   function initializeCurrentPlace() {
     const section = document.getElementById('currentPlaceSection');
