@@ -104,8 +104,8 @@ async function checkAdminAccess() {
     if (sessionError) throw sessionError;
     
     if (!session || !session.user) {
-      console.log('No active session');
-      showAccessDenied();
+      console.log('No active session - showing login screen');
+      showLoginScreen();
       return false;
     }
 
@@ -142,21 +142,30 @@ async function checkAdminAccess() {
 
   } catch (error) {
     console.error('Admin access check failed:', error);
-    showAccessDenied();
+    showLoginScreen();
     return false;
   } finally {
     setLoading(false);
   }
 }
 
+function showLoginScreen() {
+  hideElement($('#adminLoading'));
+  hideElement($('#adminAccessDenied'));
+  hideElement($('#adminContainer'));
+  showElement($('#adminLoginScreen'));
+}
+
 function showAccessDenied() {
   hideElement($('#adminLoading'));
+  hideElement($('#adminLoginScreen'));
   hideElement($('#adminContainer'));
   showElement($('#adminAccessDenied'));
 }
 
 function showAdminPanel() {
   hideElement($('#adminLoading'));
+  hideElement($('#adminLoginScreen'));
   hideElement($('#adminAccessDenied'));
   showElement($('#adminContainer'));
   
@@ -560,6 +569,43 @@ async function loadDiagnosticsData() {
 }
 
 // =====================================================
+// LOGIN
+// =====================================================
+
+async function handleAdminLogin(email, password) {
+  try {
+    // Sign in with Supabase
+    const { data, error } = await sb.auth.signInWithPassword({
+      email: email.trim(),
+      password: password
+    });
+
+    if (error) throw error;
+
+    if (!data.user) {
+      throw new Error('Login failed - no user data');
+    }
+
+    // Check if user has admin access
+    await checkAdminAccess();
+
+  } catch (error) {
+    console.error('Login failed:', error);
+    
+    let errorMessage = 'Login failed. Please check your credentials.';
+    if (error.message) {
+      if (error.message.includes('Invalid login credentials')) {
+        errorMessage = 'Invalid email or password.';
+      } else if (error.message.includes('Email not confirmed')) {
+        errorMessage = 'Please confirm your email address first.';
+      }
+    }
+    
+    throw new Error(errorMessage);
+  }
+}
+
+// =====================================================
 // LOGOUT
 // =====================================================
 
@@ -570,8 +616,8 @@ async function handleLogout() {
     
     showToast('Logged out successfully', 'success');
     setTimeout(() => {
-      window.location.href = '/';
-    }, 1000);
+      showLoginScreen();
+    }, 500);
 
   } catch (error) {
     console.error('Logout failed:', error);
@@ -613,6 +659,42 @@ function formatDate(dateString) {
 // =====================================================
 
 function initEventListeners() {
+  // Login form
+  const loginForm = $('#adminLoginForm');
+  if (loginForm) {
+    loginForm.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      
+      const form = e.target;
+      const email = form.email.value;
+      const password = form.password.value;
+      const submitBtn = $('#btnAdminLogin');
+      const errorDiv = $('#adminLoginError');
+      const btnText = submitBtn.querySelector('.btn-text');
+      const btnSpinner = submitBtn.querySelector('.btn-spinner');
+      
+      // Disable form
+      submitBtn.disabled = true;
+      hideElement(btnText);
+      showElement(btnSpinner);
+      hideElement(errorDiv);
+      
+      try {
+        await handleAdminLogin(email, password);
+        // Success - checkAdminAccess will handle showing the panel
+      } catch (error) {
+        // Show error
+        errorDiv.textContent = error.message || 'Login failed';
+        showElement(errorDiv);
+      } finally {
+        // Re-enable form
+        submitBtn.disabled = false;
+        showElement(btnText);
+        hideElement(btnSpinner);
+      }
+    });
+  }
+
   // Navigation
   $$('.admin-nav-item').forEach(item => {
     item.addEventListener('click', () => {
@@ -985,16 +1067,16 @@ window.deleteComment = deleteComment;
 async function initAdminPanel() {
   console.log('Initializing admin panel...');
   
+  // Initialize event listeners FIRST (needed for login form)
+  initEventListeners();
+  
   // Check admin access
   const hasAccess = await checkAdminAccess();
   
   if (!hasAccess) {
-    console.log('Access denied');
+    console.log('No access - login screen or access denied shown');
     return;
   }
-
-  // Initialize event listeners
-  initEventListeners();
 
   console.log('Admin panel initialized successfully');
 }
