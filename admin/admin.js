@@ -65,11 +65,17 @@ const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => root.querySelectorAll(selector);
 
 function showElement(element) {
-  if (element) element.hidden = false;
+  if (element) {
+    element.hidden = false;
+    element.style.display = '';
+  }
 }
 
 function hideElement(element) {
-  if (element) element.hidden = true;
+  if (element) {
+    element.hidden = true;
+    element.style.display = 'none';
+  }
 }
 
 function setLoading(isLoading) {
@@ -184,10 +190,26 @@ async function checkAdminAccess() {
 }
 
 function showLoginScreen() {
-  hideElement($('#adminLoading'));
-  hideElement($('#adminAccessDenied'));
-  hideElement($('#adminContainer'));
-  showElement($('#adminLoginScreen'));
+  console.log('showLoginScreen() called');
+  
+  const loading = $('#adminLoading');
+  const accessDenied = $('#adminAccessDenied');
+  const container = $('#adminContainer');
+  const loginScreen = $('#adminLoginScreen');
+  
+  console.log('Elements:', {
+    loading: !!loading,
+    accessDenied: !!accessDenied,
+    container: !!container,
+    loginScreen: !!loginScreen
+  });
+  
+  hideElement(loading);
+  hideElement(accessDenied);
+  hideElement(container);
+  showElement(loginScreen);
+  
+  console.log('Login screen should now be visible');
 }
 
 function showAccessDenied() {

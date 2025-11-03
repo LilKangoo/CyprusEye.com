@@ -38,6 +38,11 @@ body[data-admin-panel="true"] {
   overflow-x: hidden;
 }
 
+/* Hidden utility - ensure elements are truly hidden */
+[hidden] {
+  display: none !important;
+}
+
 /* Loading Screen */
 .admin-loading {
   position: fixed;
@@ -47,7 +52,7 @@ body[data-admin-panel="true"] {
   align-items: center;
   justify-content: center;
   background: var(--admin-bg);
-  z-index: 9999;
+  z-index: 10000;
 }
 
 .admin-loading-spinner {
@@ -76,7 +81,7 @@ body[data-admin-panel="true"] {
   align-items: center;
   justify-content: center;
   background: var(--admin-bg);
-  z-index: 9997;
+  z-index: 9999;
 }
 
 .admin-login-container {
@@ -214,7 +219,7 @@ body[data-admin-panel="true"] {
   align-items: center;
   justify-content: center;
   background: var(--admin-bg);
-  z-index: 9998;
+  z-index: 9999;
 }
 
 .access-denied-content {
