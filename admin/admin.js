@@ -21,6 +21,15 @@ let adminState = {
   usersPage: 1,
   usersTotal: 0,
   loading: true,
+  pois: [],
+  poisLoaded: false,
+  poiLoading: false,
+  poiSearch: '',
+  poiFilterCategory: 'all',
+  poiFilterStatus: 'all',
+  poiDataSource: 'supabase',
+  selectedPoi: null,
+  poiFormMode: 'create',
 };
 
 // =====================================================
@@ -301,6 +310,9 @@ function switchView(viewName) {
       break;
     case 'users':
       loadUsersData();
+      break;
+    case 'pois':
+      loadPoisData();
       break;
     case 'content':
       loadContentData();
@@ -820,6 +832,52 @@ function formatDate(dateString) {
   }
 }
 
+function formatCoordinates(latitude, longitude) {
+  if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+    return '—';
+  }
+
+  return `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+}
+
+function slugify(value) {
+  if (!value) return '';
+
+  return value
+    .toString()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .replace(/-{2,}/g, '-');
+}
+
+function escapeHtml(value) {
+  if (value === null || value === undefined) {
+    return '';
+  }
+
+  return value
+    .toString()
+    .replace(/[&<>"']/g, (char) => {
+      switch (char) {
+        case '&':
+          return '&amp;';
+        case '<':
+          return '&lt;';
+        case '>':
+          return '&gt;';
+        case '"':
+          return '&quot;';
+        case "'":
+          return '&#39;';
+        default:
+          return char;
+      }
+    });
+}
+
 // =====================================================
 // EVENT LISTENERS
 // =====================================================
@@ -1001,6 +1059,74 @@ function initEventListeners() {
       hideElement(modal);
     });
   }
+
+  // POI filters and actions
+  const poiSearchInput = $('#poiSearchInput');
+  if (poiSearchInput) {
+    poiSearchInput.addEventListener('input', (event) => {
+      adminState.poiSearch = event.target.value || '';
+      renderPoiList();
+      updatePoiTableFooter(getFilteredPois().length);
+    });
+  }
+
+  const poiCategoryFilter = $('#poiCategoryFilter');
+  if (poiCategoryFilter) {
+    poiCategoryFilter.addEventListener('change', (event) => {
+      adminState.poiFilterCategory = event.target.value;
+      renderPoiList();
+      updatePoiTableFooter(getFilteredPois().length);
+    });
+  }
+
+  const poiStatusFilter = $('#poiStatusFilter');
+  if (poiStatusFilter) {
+    poiStatusFilter.addEventListener('change', (event) => {
+      adminState.poiFilterStatus = event.target.value;
+      renderPoiList();
+      updatePoiTableFooter(getFilteredPois().length);
+    });
+  }
+
+  const addPoiBtn = $('#btnAddPoi');
+  if (addPoiBtn) {
+    addPoiBtn.addEventListener('click', () => openPoiForm());
+  }
+
+  const refreshPoisBtn = $('#btnRefreshPois');
+  if (refreshPoisBtn) {
+    refreshPoisBtn.addEventListener('click', () => refreshPoiList());
+  }
+
+  const poiForm = $('#poiForm');
+  if (poiForm) {
+    poiForm.addEventListener('submit', handlePoiFormSubmit);
+  }
+
+  const poiFormCancel = $('#poiFormCancel');
+  if (poiFormCancel) {
+    poiFormCancel.addEventListener('click', () => closePoiForm());
+  }
+
+  const poiFormClose = $('#btnClosePoiForm');
+  if (poiFormClose) {
+    poiFormClose.addEventListener('click', () => closePoiForm());
+  }
+
+  const poiFormOverlay = $('#poiFormModalOverlay');
+  if (poiFormOverlay) {
+    poiFormOverlay.addEventListener('click', () => closePoiForm());
+  }
+
+  const poiDetailClose = $('#btnClosePoiDetail');
+  if (poiDetailClose) {
+    poiDetailClose.addEventListener('click', () => closePoiDetail());
+  }
+
+  const poiDetailOverlay = $('#poiDetailModalOverlay');
+  if (poiDetailOverlay) {
+    poiDetailOverlay.addEventListener('click', () => closePoiDetail());
+  }
 }
 
 async function searchUsers(query) {
@@ -1167,6 +1293,661 @@ async function unbanUser(userId) {
     console.error('Unban failed:', error);
     showToast('Failed to unban user: ' + (error.message || 'Unknown error'), 'error');
   }
+}
+
+// =====================================================
+// POI MANAGEMENT
+// =====================================================
+
+const DEFAULT_POI_RADIUS = 150;
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function isUuid(value) {
+  return typeof value === 'string' && UUID_REGEX.test(value);
+}
+
+function setPoiTableLoading(isLoading) {
+  const tableBody = $('#poisTableBody');
+  if (!tableBody) return;
+
+  if (isLoading) {
+    tableBody.innerHTML = '<tr><td colspan="6" class="table-loading">Loading POIs...</td></tr>';
+  }
+}
+
+function updatePoiDataSourceBadge() {
+  const badge = $('#poiDataSourceBadge');
+  if (!badge) return;
+
+  if (!adminState.poisLoaded || adminState.poiLoading) {
+    badge.hidden = true;
+    return;
+  }
+
+  badge.hidden = false;
+  badge.textContent = adminState.poiDataSource === 'supabase' ? 'Live database' : 'Static dataset';
+}
+
+function normalizePoi(rawPoi, source = 'supabase') {
+  if (!rawPoi) return null;
+
+  const data = rawPoi.data && typeof rawPoi.data === 'object' ? rawPoi.data : {};
+  const candidateSlug = data.slug || rawPoi.slug || rawPoi.identifier || rawPoi.poi_id;
+  const name = rawPoi.name || data.name || 'Unnamed POI';
+  const slug = (typeof candidateSlug === 'string' && candidateSlug.trim())
+    ? candidateSlug.trim()
+    : slugify(name);
+
+  const id = rawPoi.id || data.id || slug;
+  const latitude = parseFloat(
+    rawPoi.latitude ?? rawPoi.lat ?? data.latitude ?? data.lat ?? data.location?.lat ?? data.location?.latitude ?? NaN
+  );
+  const longitude = parseFloat(
+    rawPoi.longitude ?? rawPoi.lon ?? data.longitude ?? data.lon ?? data.location?.lng ?? data.location?.lon ?? data.location?.longitude ?? NaN
+  );
+  const radius = parseInt(
+    rawPoi.radius ?? data.radius ?? data.geofence_radius ?? data.geofenceRadius ?? DEFAULT_POI_RADIUS,
+    10
+  );
+
+  const tags = Array.isArray(data.tags)
+    ? data.tags
+    : typeof data.tags === 'string'
+      ? data.tags.split(',').map(tag => tag.trim()).filter(Boolean)
+      : [];
+
+  const status = (data.status || rawPoi.status || (source === 'static' ? 'published' : 'draft')).toString().toLowerCase();
+  const category = (rawPoi.category || data.category || 'uncategorized').toString().toLowerCase();
+
+  return {
+    id,
+    uuid: isUuid(id) ? id : (isUuid(rawPoi.uuid) ? rawPoi.uuid : (isUuid(data.id) ? data.id : null)),
+    slug,
+    name,
+    description: rawPoi.description || data.description || '',
+    latitude: Number.isFinite(latitude) ? latitude : null,
+    longitude: Number.isFinite(longitude) ? longitude : null,
+    radius: Number.isFinite(radius) ? radius : null,
+    category,
+    status,
+    tags,
+    created_at: rawPoi.created_at || data.created_at || null,
+    updated_at: rawPoi.updated_at || data.updated_at || rawPoi.created_at || null,
+    source,
+    raw: rawPoi,
+  };
+}
+
+function formatCategoryLabel(category) {
+  if (!category) return 'Uncategorized';
+  return category
+    .toString()
+    .split(/[-_\s]+/)
+    .filter(Boolean)
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(' ');
+}
+
+function findPoi(poiId) {
+  if (!poiId) return null;
+  return adminState.pois.find(poi => poi.id === poiId || poi.slug === poiId) || null;
+}
+
+function getFilteredPois() {
+  const search = adminState.poiSearch.trim().toLowerCase();
+  const filterCategory = adminState.poiFilterCategory;
+  const filterStatus = adminState.poiFilterStatus;
+
+  return adminState.pois.filter(poi => {
+    const matchesCategory = filterCategory === 'all' || (poi.category || 'uncategorized') === filterCategory;
+    const matchesStatus = filterStatus === 'all' || (poi.status || 'published') === filterStatus;
+    const matchesSearch =
+      !search ||
+      (poi.name && poi.name.toLowerCase().includes(search)) ||
+      (poi.slug && poi.slug.toLowerCase().includes(search)) ||
+      (poi.description && poi.description.toLowerCase().includes(search));
+    return matchesCategory && matchesStatus && matchesSearch;
+  });
+}
+
+function updatePoiFilterOptions() {
+  const categorySelect = $('#poiCategoryFilter');
+  if (!categorySelect) return;
+
+  const categories = Array.from(
+    new Set(adminState.pois.map(poi => poi.category || 'uncategorized'))
+  ).sort();
+
+  const currentValue = adminState.poiFilterCategory;
+  const options = ['all', ...categories];
+  categorySelect.innerHTML = options
+    .map(category => `<option value="${category}">${category === 'all' ? 'All categories' : formatCategoryLabel(category)}</option>`)
+    .join('');
+
+  if (options.includes(currentValue)) {
+    categorySelect.value = currentValue;
+  } else {
+    categorySelect.value = 'all';
+    adminState.poiFilterCategory = 'all';
+  }
+}
+
+function updatePoiStats() {
+  const totalEl = $('#poiStatTotal');
+  const publishedEl = $('#poiStatPublished');
+  const draftsEl = $('#poiStatDrafts');
+  const missingEl = $('#poiStatMissingLocation');
+  const statusEl = $('#poiStatLiveStatus');
+
+  const total = adminState.pois.length;
+  const published = adminState.pois.filter(poi => poi.status === 'published').length;
+  const drafts = adminState.pois.filter(poi => poi.status !== 'published').length;
+  const missingLocation = adminState.pois.filter(poi => !Number.isFinite(poi.latitude) || !Number.isFinite(poi.longitude)).length;
+
+  if (totalEl) totalEl.textContent = total;
+  if (publishedEl) publishedEl.textContent = published;
+  if (draftsEl) draftsEl.textContent = drafts;
+  if (missingEl) missingEl.textContent = missingLocation;
+  if (statusEl) {
+    statusEl.textContent = adminState.poiDataSource === 'supabase'
+      ? 'Live Supabase data'
+      : 'Static dataset (read-only)';
+  }
+
+  updatePoiDataSourceBadge();
+}
+
+function updatePoiTableFooter(filteredCount) {
+  const footer = $('#poiTableFooter');
+  if (!footer) return;
+
+  if (!adminState.poisLoaded) {
+    footer.textContent = '';
+    return;
+  }
+
+  const total = adminState.pois.length;
+  const sourceLabel = adminState.poiDataSource === 'supabase' ? 'Supabase (live)' : 'Static JSON fallback';
+  footer.innerHTML = `
+    <span>Showing <strong>${filteredCount}</strong> of <strong>${total}</strong> POIs.</span>
+    <span>Source: ${sourceLabel}</span>
+  `;
+}
+
+function renderPoiList() {
+  const tableBody = $('#poisTableBody');
+  if (!tableBody) return;
+
+  if (!adminState.poisLoaded) {
+    setPoiTableLoading(true);
+    return;
+  }
+
+  const filtered = getFilteredPois();
+
+  if (filtered.length === 0) {
+    tableBody.innerHTML = '<tr><td colspan="6" class="table-loading">No POIs match the current filters.</td></tr>';
+    updatePoiTableFooter(0);
+    return;
+  }
+
+  tableBody.innerHTML = filtered.map(poi => {
+    const statusPill = `<span class="poi-pill poi-pill--${poi.status}">${poi.status.toUpperCase()}</span>`;
+    const sourcePill = poi.source === 'static' ? '<span class="poi-pill poi-pill--static">STATIC</span>' : '';
+    const tags = poi.tags && poi.tags.length
+      ? poi.tags.map(tag => `<span class="badge badge-info">${escapeHtml(tag)}</span>`).join(' ')
+      : '';
+
+    return `
+      <tr>
+        <td>
+          <div class="poi-name">${escapeHtml(poi.name)}</div>
+          <div class="poi-slug">${escapeHtml(poi.slug)}</div>
+          <div class="poi-meta">
+            ${statusPill}
+            ${sourcePill}
+            ${tags}
+          </div>
+        </td>
+        <td>${formatCategoryLabel(poi.category)}</td>
+        <td>${formatCoordinates(poi.latitude, poi.longitude)}</td>
+        <td>${poi.radius ? `${poi.radius} m` : '—'}</td>
+        <td>${poi.updated_at ? formatDate(poi.updated_at) : poi.created_at ? formatDate(poi.created_at) : '—'}</td>
+        <td>
+          <div class="poi-table-actions">
+            <button class="btn-icon" type="button" title="View details" onclick="viewPoiDetails('${poi.id}')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="3"/>
+                <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/>
+              </svg>
+            </button>
+            <button class="btn-icon" type="button" title="Edit POI" onclick="editPoi('${poi.id}')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 20h9"/>
+                <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+              </svg>
+            </button>
+            <button class="btn-icon" type="button" title="Delete POI" onclick="deletePoi('${poi.id}')">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"/>
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                <path d="M10 11v6"/>
+                <path d="M14 11v6"/>
+                <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+              </svg>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  updatePoiTableFooter(filtered.length);
+}
+
+async function loadPoisData(forceRefresh = false) {
+  if (adminState.poiLoading) {
+    return;
+  }
+
+  if (!forceRefresh && adminState.poisLoaded) {
+    renderPoiList();
+    updatePoiStats();
+    updatePoiTableFooter(getFilteredPois().length);
+    updatePoiFilterOptions();
+    return;
+  }
+
+  adminState.poiLoading = true;
+  setPoiTableLoading(true);
+
+  let loaded = false;
+  const client = ensureSupabase();
+
+  if (client) {
+    try {
+      const { data: pois, error } = await client
+        .from('pois')
+        .select('id, name, description, latitude, longitude, category, data, status, created_at, updated_at')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      if (Array.isArray(pois)) {
+        adminState.pois = pois.map(poi => normalizePoi(poi, 'supabase')).filter(Boolean);
+        adminState.poiDataSource = 'supabase';
+        loaded = true;
+      }
+    } catch (error) {
+      console.error('Failed to load POIs from Supabase:', error);
+      showToast('Live POI data unavailable. Loading static dataset.', 'warning');
+    }
+  }
+
+  if (!loaded) {
+    try {
+      const response = await fetch('/assets/pois.json');
+      if (!response.ok) {
+        throw new Error('Failed to load static POIs');
+      }
+      const staticPois = await response.json();
+      adminState.pois = Array.isArray(staticPois)
+        ? staticPois.map(poi => normalizePoi(poi, 'static')).filter(Boolean)
+        : [];
+      adminState.poiDataSource = 'static';
+    } catch (error) {
+      console.error('Failed to load fallback POIs:', error);
+      adminState.pois = [];
+      adminState.poiDataSource = 'static';
+      showToast('Unable to load POIs', 'error');
+    }
+  }
+
+  adminState.poiLoading = false;
+  adminState.poisLoaded = true;
+
+  updatePoiFilterOptions();
+  updatePoiStats();
+  renderPoiList();
+}
+
+function viewPoiDetails(poiId) {
+  const poi = findPoi(poiId);
+  if (!poi) {
+    showToast('POI not found', 'error');
+    return;
+  }
+
+  adminState.selectedPoi = poi;
+
+  const title = $('#poiDetailTitle');
+  const content = $('#poiDetailContent');
+  const modal = $('#poiDetailModal');
+
+  if (title) {
+    title.textContent = poi.name;
+  }
+
+  if (content) {
+    const tags = poi.tags && poi.tags.length
+      ? poi.tags.map(tag => `<span class="badge badge-info">${escapeHtml(tag)}</span>`).join(' ')
+      : '<span style="color: var(--admin-text-muted);">No tags</span>';
+
+    const description = poi.description
+      ? escapeHtml(poi.description).replace(/\n/g, '<br />')
+      : '<span style="color: var(--admin-text-muted);">No description provided.</span>';
+
+    const mapLink = poi.latitude && poi.longitude
+      ? `<a class="btn-secondary" href="https://maps.google.com/?q=${poi.latitude},${poi.longitude}" target="_blank" rel="noopener">Open in Google Maps</a>`
+      : '';
+
+    content.innerHTML = `
+      <div class="poi-detail-grid">
+        <div class="poi-detail-section">
+          <h4>Overview</h4>
+          <div class="poi-detail-list">
+            <div><strong>Slug:</strong> ${escapeHtml(poi.slug)}</div>
+            <div><strong>Category:</strong> ${formatCategoryLabel(poi.category)}</div>
+            <div><strong>Status:</strong> ${poi.status.toUpperCase()}</div>
+            <div><strong>Radius:</strong> ${poi.radius ? poi.radius + ' m' : '—'}</div>
+          </div>
+        </div>
+        <div class="poi-detail-section">
+          <h4>Location</h4>
+          <div class="poi-detail-list">
+            <div><strong>Latitude:</strong> ${poi.latitude ?? '—'}</div>
+            <div><strong>Longitude:</strong> ${poi.longitude ?? '—'}</div>
+            <div><strong>Coordinates:</strong> ${formatCoordinates(poi.latitude, poi.longitude)}</div>
+          </div>
+        </div>
+        <div class="poi-detail-section">
+          <h4>Metadata</h4>
+          <div class="poi-detail-list">
+            <div><strong>Source:</strong> ${poi.source === 'supabase' ? 'Supabase' : 'Static dataset'}</div>
+            <div><strong>Created:</strong> ${poi.created_at ? formatDate(poi.created_at) : '—'}</div>
+            <div><strong>Updated:</strong> ${poi.updated_at ? formatDate(poi.updated_at) : '—'}</div>
+          </div>
+        </div>
+      </div>
+      <div class="poi-detail-section">
+        <h4>Description</h4>
+        <div class="poi-detail-description">${description}</div>
+      </div>
+      <div class="poi-detail-section">
+        <h4>Tags</h4>
+        <div class="poi-meta">${tags}</div>
+      </div>
+      <div class="poi-detail-actions">
+        ${mapLink}
+        <button type="button" class="btn-primary" onclick="editPoi('${poi.id}')">Edit POI</button>
+      </div>
+    `;
+  }
+
+  if (modal) {
+    showElement(modal);
+  }
+}
+
+function closePoiDetail() {
+  const modal = $('#poiDetailModal');
+  if (modal) {
+    hideElement(modal);
+  }
+}
+
+function openPoiForm(poiId = null) {
+  const form = $('#poiForm');
+  const modal = $('#poiFormModal');
+  if (!form || !modal) return;
+
+  let poi = null;
+  if (poiId) {
+    poi = findPoi(poiId);
+  }
+
+  adminState.selectedPoi = poi;
+  adminState.poiFormMode = poi ? 'edit' : 'create';
+
+  form.reset();
+
+  const title = $('#poiFormTitle');
+  if (title) {
+    title.textContent = poi ? 'Edit POI' : 'New POI';
+  }
+
+  const nameInput = $('#poiName');
+  const slugInput = $('#poiSlug');
+  const categoryInput = $('#poiCategory');
+  const statusInput = $('#poiStatus');
+  const latitudeInput = $('#poiLatitude');
+  const longitudeInput = $('#poiLongitude');
+  const radiusInput = $('#poiRadius');
+  const tagsInput = $('#poiTags');
+  const descriptionInput = $('#poiDescription');
+
+  if (nameInput) nameInput.value = poi?.name || '';
+  if (slugInput) slugInput.value = poi?.slug || '';
+  if (categoryInput) categoryInput.value = poi?.category || '';
+  if (statusInput) statusInput.value = poi?.status || 'published';
+  if (latitudeInput) latitudeInput.value = poi?.latitude ?? '';
+  if (longitudeInput) longitudeInput.value = poi?.longitude ?? '';
+  if (radiusInput) radiusInput.value = poi?.radius ?? '';
+  if (tagsInput) tagsInput.value = poi?.tags?.join(', ') ?? '';
+  if (descriptionInput) descriptionInput.value = poi?.description || '';
+
+  const warning = $('#poiFormWarning');
+  const warningText = $('#poiFormWarningText');
+  const submitBtn = $('#poiFormSubmit');
+  const errorEl = $('#poiFormError');
+
+  if (errorEl) {
+    hideElement(errorEl);
+    errorEl.textContent = '';
+  }
+
+  if (adminState.poiDataSource !== 'supabase') {
+    if (warning && warningText) {
+      warningText.textContent = 'Supabase connection required. Static dataset is read-only.';
+      showElement(warning);
+    }
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Read-only';
+    }
+  } else {
+    if (warning) {
+      hideElement(warning);
+    }
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = poi ? 'Save Changes' : 'Create POI';
+    }
+  }
+
+  showElement(modal);
+}
+
+function closePoiForm() {
+  const modal = $('#poiFormModal');
+  if (modal) {
+    hideElement(modal);
+  }
+}
+
+async function handlePoiFormSubmit(event) {
+  event.preventDefault();
+
+  if (adminState.poiDataSource !== 'supabase') {
+    showToast('Cannot save POIs while in static mode.', 'warning');
+    return;
+  }
+
+  const form = event.target;
+  const submitBtn = $('#poiFormSubmit');
+  const errorEl = $('#poiFormError');
+
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Saving...';
+  }
+
+  if (errorEl) {
+    hideElement(errorEl);
+    errorEl.textContent = '';
+  }
+
+  const formData = new FormData(form);
+  const name = (formData.get('name') || '').toString().trim();
+  const slugInput = (formData.get('slug') || '').toString().trim();
+  const category = (formData.get('category') || '').toString().trim().toLowerCase() || 'uncategorized';
+  const status = (formData.get('status') || 'published').toString().toLowerCase();
+  const description = (formData.get('description') || '').toString().trim();
+  const latitude = parseFloat(formData.get('latitude'));
+  const longitude = parseFloat(formData.get('longitude'));
+  const radiusValue = formData.get('radius');
+  const radius = radiusValue ? parseInt(radiusValue, 10) : null;
+  const tagsValue = (formData.get('tags') || '').toString().trim();
+  const tags = tagsValue ? tagsValue.split(',').map(tag => tag.trim()).filter(Boolean) : [];
+
+  const slug = slugInput || slugify(name);
+
+  if (!name || Number.isNaN(latitude) || Number.isNaN(longitude)) {
+    if (errorEl) {
+      errorEl.textContent = 'Name, latitude and longitude are required.';
+      showElement(errorEl);
+    }
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = adminState.poiFormMode === 'edit' ? 'Save Changes' : 'Create POI';
+    }
+    return;
+  }
+
+  const client = ensureSupabase();
+  if (!client) {
+    showToast('Database connection not available', 'error');
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = adminState.poiFormMode === 'edit' ? 'Save Changes' : 'Create POI';
+    }
+    return;
+  }
+
+  const payload = {
+    slug,
+    status,
+    radius: radius || DEFAULT_POI_RADIUS,
+    tags,
+  };
+
+  try {
+    if (adminState.poiFormMode === 'create') {
+      const { error } = await client.rpc('admin_create_poi', {
+        poi_name: name,
+        poi_description: description || null,
+        poi_latitude: latitude,
+        poi_longitude: longitude,
+        poi_category: category,
+        poi_data: payload,
+      });
+
+      if (error) throw error;
+
+      showToast('POI created successfully', 'success');
+    } else if (adminState.selectedPoi) {
+      const poi = adminState.selectedPoi;
+      const poiId = poi.uuid || poi.id;
+
+      const { error } = await client.rpc('admin_update_poi', {
+        poi_id: poiId,
+        poi_name: name,
+        poi_description: description || null,
+        poi_category: category,
+        poi_data: {
+          ...((poi.raw && poi.raw.data && typeof poi.raw.data === 'object') ? poi.raw.data : {}),
+          ...payload,
+        },
+      });
+
+      if (error) throw error;
+
+      if (poi.uuid) {
+        const { error: locationError } = await client
+          .from('pois')
+          .update({ latitude, longitude })
+          .eq('id', poi.uuid);
+        if (locationError) {
+          console.warn('Failed to update POI location directly:', locationError);
+        }
+      }
+
+      showToast('POI updated successfully', 'success');
+    }
+
+    closePoiForm();
+    adminState.poisLoaded = false;
+    await loadPoisData(true);
+  } catch (error) {
+    console.error('Failed to save POI:', error);
+    if (errorEl) {
+      errorEl.textContent = error.message || 'Failed to save POI';
+      showElement(errorEl);
+    }
+    showToast('Failed to save POI: ' + (error.message || 'Unknown error'), 'error');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = adminState.poiFormMode === 'edit' ? 'Save Changes' : 'Create POI';
+    }
+  }
+}
+
+async function deletePoi(poiId) {
+  const poi = findPoi(poiId);
+  if (!poi) {
+    showToast('POI not found', 'error');
+    return;
+  }
+
+  if (adminState.poiDataSource !== 'supabase') {
+    showToast('Cannot delete POIs while in static mode.', 'warning');
+    return;
+  }
+
+  if (!confirm(`Delete POI "${poi.name}"? This action cannot be undone.`)) {
+    return;
+  }
+
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      throw new Error('Database connection not available');
+    }
+
+    const poiIdToDelete = poi.uuid || poi.id;
+    const { error } = await client.rpc('admin_delete_poi', {
+      poi_id: poiIdToDelete,
+      deletion_reason: 'Admin panel removal',
+    });
+
+    if (error) throw error;
+
+    showToast('POI deleted successfully', 'success');
+    adminState.poisLoaded = false;
+    await loadPoisData(true);
+  } catch (error) {
+    console.error('Failed to delete POI:', error);
+    showToast('Failed to delete POI: ' + (error.message || 'Unknown error'), 'error');
+  }
+}
+
+function editPoi(poiId) {
+  openPoiForm(poiId);
+}
+
+function refreshPoiList() {
+  loadPoisData(true);
 }
 
 // Delete Comment
@@ -1337,6 +2118,9 @@ window.adjustUserXP = adjustUserXP;
 window.banUser = banUser;
 window.unbanUser = unbanUser;
 window.deleteComment = deleteComment;
+window.viewPoiDetails = viewPoiDetails;
+window.editPoi = editPoi;
+window.deletePoi = deletePoi;
 
 // =====================================================
 // INITIALIZATION
