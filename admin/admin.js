@@ -2178,37 +2178,38 @@ async function loadContentStats() {
     
     // Update stats display
     const statsEl = $('#contentStats');
-    if (statsEl && stats) {
-      statsEl.innerHTML = `
-        <div class="admin-stat-card">
-          <div class="stat-card-content">
-            <p class="stat-card-label">Total Comments</p>
-            <p class="stat-card-value">${stats.comments.total}</p>
-            <p class="stat-card-change">+${stats.comments.today} today</p>
+    if (statsEl) {
+      if (stats && stats.comments && stats.photos && stats.likes && stats.engagement) {
+        statsEl.innerHTML = `
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total Comments</p>
+              <p class="stat-card-value">${stats.comments.total || 0}</p>
+              <p class="stat-card-change">+${stats.comments.today || 0} today</p>
+            </div>
           </div>
-        </div>
-        <div class="admin-stat-card">
-          <div class="stat-card-content">
-            <p class="stat-card-label">Total Photos</p>
-            <p class="stat-card-value">${stats.photos.total}</p>
-            <p class="stat-card-change">${stats.comments.with_photos} comments with photos</p>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total Photos</p>
+              <p class="stat-card-value">${stats.photos.total || 0}</p>
+              <p class="stat-card-change">${stats.comments.with_photos || 0} comments with photos</p>
+            </div>
           </div>
-        </div>
-        <div class="admin-stat-card">
-          <div class="stat-card-content">
-            <p class="stat-card-label">Total Likes</p>
-            <p class="stat-card-value">${stats.likes.total}</p>
-            <p class="stat-card-change">+${stats.likes.today} today</p>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total Likes</p>
+              <p class="stat-card-value">${stats.likes.total || 0}</p>
+              <p class="stat-card-change">+${stats.likes.today || 0} today</p>
+            </div>
           </div>
-        </div>
-        <div class="admin-stat-card">
-          <div class="stat-card-content">
-            <p class="stat-card-label">Active Users (7d)</p>
-            <p class="stat-card-value">${stats.engagement.active_commenters_week}</p>
-            <p class="stat-card-change">Contributors this week</p>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Active Users (7d)</p>
+              <p class="stat-card-value">${stats.engagement.active_commenters_week || 0}</p>
+              <p class="stat-card-change">Contributors this week</p>
+            </div>
           </div>
-        </div>
-      `;
+        `;
     }
   } catch (error) {
     console.error('Failed to load content stats:', error);
