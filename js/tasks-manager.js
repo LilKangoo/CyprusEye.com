@@ -211,10 +211,13 @@ class TasksManager {
 
       if (insertError) {
         // Sprawdź czy to duplikat (już ukończone)
-        if (insertError.code === '23505') {
-          console.log('Task already completed');
+        // HTTP 409 Conflict lub Postgres kod 23505 (unique violation)
+        if (insertError.code === '23505' || insertError.code === '409') {
+          console.log('Task already completed - updating UI only');
           this.completedTaskIds.add(task.id);
           this.updateTaskUI(cardElement, true);
+          // Odśwież statystyki (mogły się zmienić w innej karcie/sesji)
+          await this.refreshUserStats();
           return;
         }
         throw insertError;

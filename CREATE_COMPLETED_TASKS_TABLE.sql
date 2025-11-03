@@ -19,6 +19,11 @@ CREATE INDEX IF NOT EXISTS idx_completed_tasks_task_id ON completed_tasks(task_i
 -- RLS (Row Level Security)
 ALTER TABLE completed_tasks ENABLE ROW LEVEL SECURITY;
 
+-- Usuń stare policies jeśli istnieją
+DROP POLICY IF EXISTS "Users can view own completed tasks" ON completed_tasks;
+DROP POLICY IF EXISTS "Users can insert own completed tasks" ON completed_tasks;
+DROP POLICY IF EXISTS "Users can delete own completed tasks" ON completed_tasks;
+
 -- Policy: Użytkownik może odczytać tylko swoje zadania
 CREATE POLICY "Users can view own completed tasks"
   ON completed_tasks
@@ -61,12 +66,13 @@ BEGIN
     RAISE EXCEPTION 'User not authenticated';
   END IF;
 
-  -- Sprawdź czy zadanie już ukończone
-  IF EXISTS (
+  -- Sprawdź czy zadanie jest w completed_tasks
+  -- (Frontend wstawia je PRZED wywołaniem tej funkcji)
+  IF NOT EXISTS (
     SELECT 1 FROM completed_tasks 
     WHERE user_id = v_user_id AND task_id = p_task_id
   ) THEN
-    RETURN; -- Zadanie już ukończone, nic nie rób
+    RAISE EXCEPTION 'Task not found in completed_tasks. Frontend should INSERT first.';
   END IF;
 
   -- Mapowanie task_id na XP (zgodne z js/data-tasks.js)
@@ -100,10 +106,8 @@ BEGIN
     RAISE EXCEPTION 'Invalid task_id: %', p_task_id;
   END IF;
 
-  -- Dodaj zadanie do completed_tasks
-  INSERT INTO completed_tasks (user_id, task_id)
-  VALUES (v_user_id, p_task_id)
-  ON CONFLICT (user_id, task_id) DO NOTHING;
+  -- Frontend już wstawił do completed_tasks, więc pomijamy INSERT
+  -- (Frontend robi INSERT przed wywołaniem tej funkcji)
 
   -- Pobierz obecne XP i level
   SELECT xp, level INTO v_current_xp, v_current_level

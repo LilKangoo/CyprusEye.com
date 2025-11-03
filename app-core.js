@@ -615,7 +615,7 @@
 
     // Try to use the dedicated tasks-manager module
     try {
-      const tasksModule = await import('./js/tasks-manager.js?v=2.2');
+      const tasksModule = await import('./js/tasks-manager.js?v=2.3');
       if (tasksModule && tasksModule.initTasks) {
         // Przekaż TASKS_DATA do modułu, żeby uniknąć problemów z globalnym scope
         await tasksModule.initTasks(TASKS_DATA);
