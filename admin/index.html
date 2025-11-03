@@ -39,6 +39,20 @@
   <header class="admin-header">
     <div class="admin-header-content">
       <div class="admin-header-left">
+        <button
+          type="button"
+          class="admin-menu-toggle"
+          id="adminMenuToggle"
+          aria-label="Toggle navigation menu"
+          aria-controls="adminSidebar"
+          aria-expanded="false"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
         <h1 class="admin-title">
           <svg class="admin-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
@@ -64,6 +78,8 @@
       </div>
     </div>
   </header>
+
+  <div class="admin-sidebar-overlay" id="adminSidebarOverlay" hidden></div>
 
   <!-- Loading Screen -->
   <div class="admin-loading" id="adminLoading">
@@ -149,7 +165,7 @@
   <div class="admin-container" id="adminContainer" hidden>
     
     <!-- Sidebar Navigation -->
-    <aside class="admin-sidebar">
+    <aside class="admin-sidebar" id="adminSidebar">
       <nav class="admin-nav">
         <button class="admin-nav-item active" data-view="dashboard">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
