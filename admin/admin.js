@@ -1959,12 +1959,14 @@ async function handlePoiFormSubmit(event) {
       showToast('POI created successfully', 'success');
     } else if (adminState.selectedPoi) {
       const poi = adminState.selectedPoi;
-      const poiId = poi.uuid || poi.id;
+      const poiId = poi.id; // Use poi.id (TEXT) not poi.uuid (UUID)
 
       const { error } = await client.rpc('admin_update_poi', {
         poi_id: poiId,
         poi_name: name,
         poi_description: description || null,
+        poi_latitude: latitude,
+        poi_longitude: longitude,
         poi_category: category,
         poi_data: {
           ...((poi.raw && poi.raw.data && typeof poi.raw.data === 'object') ? poi.raw.data : {}),
@@ -1973,16 +1975,6 @@ async function handlePoiFormSubmit(event) {
       });
 
       if (error) throw error;
-
-      if (poi.uuid) {
-        const { error: locationError } = await client
-          .from('pois')
-          .update({ latitude, longitude })
-          .eq('id', poi.uuid);
-        if (locationError) {
-          console.warn('Failed to update POI location directly:', locationError);
-        }
-      }
 
       showToast('POI updated successfully', 'success');
     }
@@ -2407,12 +2399,24 @@ async function viewCommentDetails(commentId) {
             <div style="background: var(--admin-bg); padding: 20px; border-radius: 8px;">
               <table style="width: 100%; color: var(--admin-text);">
                 <tr>
-                  <td style="padding: 8px 0; font-weight: 500;">POI:</td>
+                  <td style="padding: 8px 0; font-weight: 500; width: 120px;">POI:</td>
                   <td style="padding: 8px 0;">${escapeHtml(comment.poi_name || 'Unknown')}</td>
                 </tr>
                 <tr>
-                  <td style="padding: 8px 0; font-weight: 500;">User:</td>
-                  <td style="padding: 8px 0;">${escapeHtml(comment.username)} (Level ${comment.user_level}, ${comment.user_xp} XP)</td>
+                  <td style="padding: 8px 0; font-weight: 500;">User ID:</td>
+                  <td style="padding: 8px 0; font-family: monospace; font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(comment.user_id || 'N/A')}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: 500;">Username:</td>
+                  <td style="padding: 8px 0;">${escapeHtml(comment.username || 'Anonymous')}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: 500;">Email:</td>
+                  <td style="padding: 8px 0;">${escapeHtml(comment.user_email || 'N/A')}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; font-weight: 500;">Level & XP:</td>
+                  <td style="padding: 8px 0;">Level ${comment.user_level} (${comment.user_xp} XP)</td>
                 </tr>
                 <tr>
                   <td style="padding: 8px 0; font-weight: 500;">Created:</td>
@@ -2698,6 +2702,7 @@ window.editPoi = editPoi;
 window.deletePoi = deletePoi;
 window.viewCommentDetails = viewCommentDetails;
 window.editComment = editComment;
+window.handleCommentEditSubmit = handleCommentEditSubmit;
 window.deleteCommentPhoto = deleteCommentPhoto;
 window.loadComments = loadComments;
 window.searchComments = searchComments;
