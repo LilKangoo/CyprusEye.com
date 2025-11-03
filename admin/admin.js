@@ -2200,6 +2200,7 @@ async function loadContentStats() {
             </div>
           </div>
         `;
+      }
     }
   } catch (error) {
     console.error('Failed to load content stats:', error);
