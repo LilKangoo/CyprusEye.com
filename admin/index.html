@@ -878,6 +878,10 @@
               <input type="text" id="questId" name="id" required placeholder="sunrise-challenge" />
             </label>
             <label class="admin-form-field">
+              <span>Title</span>
+              <input type="text" id="questTitle" name="title" placeholder="Optional display title" />
+            </label>
+            <label class="admin-form-field">
               <span>XP</span>
               <input type="number" id="questXp" name="xp" min="0" step="1" value="0" />
             </label>
@@ -893,6 +897,10 @@
               </select>
             </label>
           </div>
+          <label class="admin-form-field">
+            <span>Description</span>
+            <textarea id="questDescription" name="description" rows="3" placeholder="Optional quest description shown on /tasks"></textarea>
+          </label>
           <div class="poi-form-actions">
             <button type="button" class="btn-secondary" id="questFormCancel">Cancel</button>
             <button type="submit" class="btn-primary" id="questFormSubmit">Save Quest</button>

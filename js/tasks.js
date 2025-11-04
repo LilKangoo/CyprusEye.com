@@ -134,13 +134,13 @@
     if (!sb) return false;
     try {
       // Prefer view if exists
-      let query = sb.from('public_tasks').select('id,xp,sort_order');
+      let query = sb.from('public_tasks').select('id,xp,sort_order,title,description');
       let { data, error } = await query.order('sort_order', { ascending: true });
       if (error) {
         // Fallback to table
         ({ data, error } = await sb
           .from('tasks')
-          .select('id,xp,sort_order,is_active,category')
+          .select('id,xp,sort_order,is_active,category,title,description')
           .eq('is_active', true)
           .eq('category', 'quest')
           .order('sort_order', { ascending: true }));
@@ -150,7 +150,7 @@
         // Replace TASKS with DB data (map to expected shape)
         TASKS.length = 0;
         data.forEach(row => {
-          TASKS.push({ id: row.id, xp: Number(row.xp)||0, requiredLevel: 1 });
+          TASKS.push({ id: row.id, xp: Number(row.xp)||0, requiredLevel: 1, title: row.title || null, description: row.description || null });
         });
         return true;
       }
@@ -220,9 +220,11 @@
 
   // --- Tasks UI ---
   function getTaskTitle(task){
+    if (task && task.title) return task.title;
     return t(`tasks.items.${task.id}.title`, task.id);
   }
   function getTaskDescription(task){
+    if (task && task.description) return task.description;
     return t(`tasks.items.${task.id}.description`, '');
   }
 

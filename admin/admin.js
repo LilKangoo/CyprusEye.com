@@ -894,7 +894,7 @@ async function loadQuestsData() {
     if (!view) return;
     const { data, error } = await client
       .from('tasks')
-      .select('id,xp,is_active,sort_order,category')
+      .select('id,xp,is_active,sort_order,category,title,description')
       .eq('category', 'quest')
       .order('sort_order', { ascending: true });
     if (error) throw error;
@@ -928,24 +928,30 @@ function openQuestForm(mode, quest) {
   const modal = $('#questFormModal');
   const title = $('#questFormTitle');
   const idInput = $('#questId');
+  const titleInput = $('#questTitle');
   const xpInput = $('#questXp');
   const sortInput = $('#questSort');
   const activeSelect = $('#questActive');
+  const descInput = $('#questDescription');
   if (!modal || !title || !idInput || !xpInput || !sortInput || !activeSelect) return;
   if (mode === 'edit' && quest) {
     title.textContent = 'Edit Quest';
     idInput.value = quest.id;
     idInput.disabled = true;
+    if (titleInput) titleInput.value = quest.title || '';
     xpInput.value = Number(quest.xp)||0;
     sortInput.value = Number(quest.sort_order)||1000;
     activeSelect.value = quest.is_active ? 'true' : 'false';
+    if (descInput) descInput.value = quest.description || '';
   } else {
     title.textContent = 'New Quest';
     idInput.value = '';
     idInput.disabled = false;
+    if (titleInput) titleInput.value = '';
     xpInput.value = 0;
     sortInput.value = 1000;
     activeSelect.value = 'true';
+    if (descInput) descInput.value = '';
   }
   showElement(modal);
 }
@@ -974,10 +980,12 @@ async function handleQuestFormSubmit(e) {
   const client = ensureSupabase();
   if (!client) return;
   const id = ($('#questId').value || '').trim();
+  const qtitle = ($('#questTitle').value || '').trim();
   const xp = Number($('#questXp').value || '0') || 0;
   const sort_order = Number($('#questSort').value || '1000') || 1000;
   const is_active = $('#questActive').value === 'true';
-  const payload = { id, xp, sort_order, is_active, category: 'quest' };
+  const description = ($('#questDescription').value || '').trim();
+  const payload = { id, xp, sort_order, is_active, category: 'quest', title: qtitle || null, description: description || null };
   try {
     const { error } = await client.from('tasks').upsert(payload);
     if (error) throw error;
