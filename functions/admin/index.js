@@ -14,5 +14,10 @@ export async function onRequest(context) {
     headers: context.request.headers,
   });
 
-  return context.env.ASSETS.fetch(request);
+  const assetResponse = await context.env.ASSETS.fetch(request);
+  const resp = new Response(assetResponse.body, assetResponse);
+  resp.headers.set('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0');
+  resp.headers.set('Pragma', 'no-cache');
+  resp.headers.set('Expires', '0');
+  return resp;
 }
