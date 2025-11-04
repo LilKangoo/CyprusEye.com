@@ -66,6 +66,10 @@
             <p class="attraction-meta">${badge ? `🏷️ ${badge} • ` : ''}✨ ${xp} XP</p>
           </header>
           <p class="attraction-desc">${desc}</p>
+          <div class="attraction-summary" data-poi-id="${p.id}" style="font-size:13px; color:#374151; margin:6px 0; display:flex; gap:12px;">
+            <span class="summary-rating">⭐ <span data-field="avg">—</span> (<span data-field="cnt">0</span>)</span>
+            <span class="summary-comments">💬 <span data-field="comments">0</span></span>
+          </div>
           <div class="attraction-actions">
             <a class="btn btn-sm" href="index.html?focus=${encodeURIComponent(p.id)}" aria-label="Pokaż na mapie">📍 Pokaż na mapie</a>
             <a class="ghost btn-sm" href="${maps}" target="_blank" rel="noopener">Google Maps →</a>
@@ -89,6 +93,9 @@
         }
       });
     });
+
+    // Load summaries (ratings + comments) asynchronously
+    loadSummaries(pois);
   }
 
   function applySearch(pois){
@@ -127,6 +134,57 @@
       renderList(pois);
       applySearch(pois);
     });
+
+    // Refresh summaries when modal is closed (user might add rating/comment)
+    document.getElementById('closeCommentsModal')?.addEventListener('click', () => {
+      const pois = window.PLACES_DATA || [];
+      loadSummaries(pois);
+    });
+  }
+
+  // Load rating and comments summaries for the given POIs
+  async function loadSummaries(pois){
+    try {
+      const sb = window.getSupabase?.();
+      if (!sb || !Array.isArray(pois) || pois.length === 0) return;
+
+      const ids = pois.map(p => p.id);
+
+      // Batch load rating stats
+      const { data: ratingStats } = await sb
+        .from('poi_rating_stats')
+        .select('*')
+        .in('poi_id', ids);
+
+      const statsById = {};
+      (ratingStats || []).forEach(r => { statsById[r.poi_id] = r; });
+
+      // For comments count, simple per-POI count to ensure compatibility
+      for (const id of ids){
+        const container = document.querySelector(`.attraction-summary[data-poi-id="${id}"]`);
+        if (!container) continue;
+
+        const avgEl = container.querySelector('[data-field="avg"]');
+        const cntEl = container.querySelector('[data-field="cnt"]');
+        const comEl = container.querySelector('[data-field="comments"]');
+
+        const st = statsById[id];
+        if (st){
+          if (avgEl) avgEl.textContent = (st.average_rating || 0).toFixed(1);
+          if (cntEl) cntEl.textContent = st.total_ratings || 0;
+        }
+
+        // comments count
+        const { count } = await sb
+          .from('poi_comments')
+          .select('*', { count:'exact', head:true })
+          .eq('poi_id', id)
+          .is('parent_comment_id', null);
+        if (comEl) comEl.textContent = count || 0;
+      }
+    } catch(err){
+      console.warn('Summaries load warning:', err?.message || err);
+    }
   }
 
   if (document.readyState === 'loading'){
