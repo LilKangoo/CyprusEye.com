@@ -177,6 +177,16 @@
   transform: translateY(-2px);
 }
 
+/* Active card highlight when synced with panel/map */
+.poi-card.active {
+  border-color: var(--color-primary-600);
+  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.18);
+  transform: translateY(-2px);
+}
+
+/* Smooth scrolling */
+html { scroll-behavior: smooth; }
+
 .poi-card-header {
   display: flex;
   align-items: flex-start;

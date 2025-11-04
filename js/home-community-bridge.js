@@ -42,6 +42,11 @@
       const card = document.querySelector('#poisList .poi-card[data-poi-id="'+id+'"]');
       if(card) card.scrollIntoView({behavior:'smooth', block:'nearest'});
     }
+
+    // Toggle active class on cards
+    document.querySelectorAll('#poisList .poi-card.active').forEach(el=>el.classList.remove('active'));
+    const active = document.querySelector('#poisList .poi-card[data-poi-id="'+id+'"]');
+    if(active) active.classList.add('active');
   }
 
   function navigatePlace(delta){
