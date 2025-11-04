@@ -604,6 +604,10 @@ async function viewUserDetails(userId) {
               <input type="checkbox" name="is_admin" ${isCurrentUserAdmin ? 'checked' : ''} ${isSelf ? 'disabled' : ''} />
               <span>Grant administrator access</span>
             </label>
+            <label class="admin-checkbox">
+              <input type="checkbox" name="is_moderator" ${profile.is_moderator ? 'checked' : ''} ${isSelf ? 'disabled' : ''} />
+              <span>Grant moderator access</span>
+            </label>
             ${isSelf ? '<p class="user-detail-hint">You cannot remove admin access from your own account.</p>' : ''}
             <div class="user-detail-actions">
               <button type="submit" class="btn-primary">Save profile changes</button>
@@ -639,6 +643,15 @@ async function viewUserDetails(userId) {
               <button type="submit" class="btn-secondary">Save account settings</button>
             </div>
           </form>
+          <div class="user-detail-actions-group">
+            <span class="user-detail-actions-label">Password & access</span>
+            <div class="user-detail-inline-actions">
+              <button class="btn-secondary" type="button" onclick="handleSendPasswordReset('${userId}')">Send reset link</button>
+              <button class="btn-secondary" type="button" onclick="handleSendMagicLink('${userId}')">Send magic link</button>
+              <input class="admin-inline-input" type="text" placeholder="Temporary password" oninput="this.dataset.pwd=this.value" />
+              <button class="btn-secondary" type="button" onclick="handleSetTempPassword('${userId}', this.previousElementSibling.dataset.pwd||'')">Set temporary</button>
+            </div>
+          </div>
         </section>
 
         <section class="user-detail-card">
@@ -651,6 +664,14 @@ async function viewUserDetails(userId) {
               <button class="btn-primary" type="button" onclick="handleUserXpAdjustment('${userId}', 500)">+500 XP</button>
               <button class="btn-secondary" type="button" onclick="handleUserXpAdjustment('${userId}', -100)">-100 XP</button>
               <button class="btn-secondary" type="button" onclick="handleUserXpAdjustment('${userId}', -500)">-500 XP</button>
+            </div>
+          </div>
+          <div class="user-detail-actions-group">
+            <span class="user-detail-actions-label">Set XP / Level</span>
+            <div class="user-detail-inline-actions">
+              <input class="admin-inline-input" type="number" min="0" step="1" placeholder="XP" oninput="this.dataset.xp=this.value" />
+              <input class="admin-inline-input" type="number" min="0" step="1" placeholder="Level" oninput="this.dataset.level=this.value" />
+              <button class="btn-primary" type="button" onclick="handleSetXpLevel('${userId}', this.previousElementSibling.dataset.level||'', this.previousElementSibling.previousElementSibling.dataset.xp||'')">Save</button>
             </div>
           </div>
           <div class="user-detail-actions-group">
@@ -763,6 +784,7 @@ async function handleUserProfileSubmit(event, userId) {
   const xpRaw = (formData.get('xp') || '').toString().trim();
   const levelRaw = (formData.get('level') || '').toString().trim();
   const isAdmin = formData.get('is_admin') === 'on';
+  const isModerator = formData.get('is_moderator') === 'on';
 
   const xpValue = xpRaw === '' ? null : Number.parseInt(xpRaw, 10);
   const levelValue = levelRaw === '' ? null : Number.parseInt(levelRaw, 10);
@@ -791,6 +813,7 @@ async function handleUserProfileSubmit(event, userId) {
       new_xp: xpValue,
       new_level: levelValue,
       new_is_admin: isAdmin,
+      new_is_moderator: isModerator,
     });
 
     if (error) {
@@ -838,30 +861,12 @@ async function handleUserAccountSubmit(event, userId) {
   const originalPasswordFlag = form.dataset.originalPasswordFlag === 'true';
   const originalEmailFlag = form.dataset.originalEmailFlag === 'true';
 
-  const updates = [];
+  const payload = {};
+  if (email !== originalEmail) payload.email = email;
+  if (requirePasswordChange !== originalPasswordFlag) payload.require_password_change = requirePasswordChange;
+  if (requireEmailUpdate !== originalEmailFlag) payload.require_email_update = requireEmailUpdate;
 
-  if (email !== originalEmail) {
-    updates.push(async () => {
-      const { error } = await client.rpc('admin_update_user_email', {
-        target_user_id: userId,
-        new_email: email,
-      });
-      if (error) throw error;
-    });
-  }
-
-  if (requirePasswordChange !== originalPasswordFlag || requireEmailUpdate !== originalEmailFlag) {
-    updates.push(async () => {
-      const { error } = await client.rpc('admin_set_user_enforcement', {
-        target_user_id: userId,
-        require_password_change: requirePasswordChange,
-        require_email_update: requireEmailUpdate,
-      });
-      if (error) throw error;
-    });
-  }
-
-  if (updates.length === 0) {
+  if (Object.keys(payload).length === 0) {
     showToast('No account changes detected', 'info');
     return;
   }
@@ -872,10 +877,7 @@ async function handleUserAccountSubmit(event, userId) {
 
   try {
     showToast('Applying account updates...', 'info');
-
-    for (const update of updates) {
-      await update();
-    }
+    await apiRequest(`/users/${userId}/account`, { method: 'POST', body: JSON.stringify(payload) });
 
     showToast('Account settings updated', 'success');
 
@@ -923,6 +925,53 @@ window.handleUserAccountSubmit = handleUserAccountSubmit;
 window.handleUserXpAdjustment = handleUserXpAdjustment;
 window.handleUserBanToggle = handleUserBanToggle;
 window.handleUserBanForm = handleUserBanForm;
+window.handleSendPasswordReset = handleSendPasswordReset;
+window.handleSendMagicLink = handleSendMagicLink;
+window.handleSetTempPassword = handleSetTempPassword;
+window.handleSetXpLevel = handleSetXpLevel;
+
+async function handleSendPasswordReset(userId) {
+  try {
+    await apiRequest(`/users/${userId}/password`, { method: 'POST', body: JSON.stringify({ action: 'reset' }) });
+    showToast('Password reset link generated', 'success');
+  } catch (e) {
+    showToast('Failed to generate reset link: ' + (e.message || 'Unknown error'), 'error');
+  }
+}
+
+async function handleSendMagicLink(userId) {
+  try {
+    await apiRequest(`/users/${userId}/password`, { method: 'POST', body: JSON.stringify({ action: 'magic_link' }) });
+    showToast('Magic link generated', 'success');
+  } catch (e) {
+    showToast('Failed to generate magic link: ' + (e.message || 'Unknown error'), 'error');
+  }
+}
+
+async function handleSetTempPassword(userId, tempPwd) {
+  const pwd = (tempPwd || '').trim();
+  if (pwd.length < 8) {
+    showToast('Temporary password must be at least 8 characters', 'error');
+    return;
+  }
+  try {
+    await apiRequest(`/users/${userId}/password`, { method: 'POST', body: JSON.stringify({ action: 'set_temporary', temp_password: pwd }) });
+    showToast('Temporary password set', 'success');
+  } catch (e) {
+    showToast('Failed to set temporary password: ' + (e.message || 'Unknown error'), 'error');
+  }
+}
+
+async function handleSetXpLevel(userId, levelStr, xpStr) {
+  const xp = xpStr === '' ? null : Number.parseInt(xpStr, 10);
+  const level = levelStr === '' ? null : Number.parseInt(levelStr, 10);
+  if ((xp !== null && Number.isNaN(xp)) || (level !== null && Number.isNaN(level))) {
+    showToast('Invalid XP/Level', 'error');
+    return;
+  }
+  const ok = await setUserXpLevel(userId, xp, level);
+  if (ok) await viewUserDetails(userId);
+}
 
 async function getAdminAccessToken() {
   const client = ensureSupabase();

@@ -8,7 +8,8 @@ alter table if exists public.profiles
   add column if not exists ban_reason text null,
   add column if not exists ban_permanent boolean not null default false,
   add column if not exists require_password_change boolean not null default false,
-  add column if not exists require_email_update boolean not null default false;
+  add column if not exists require_email_update boolean not null default false,
+  add column if not exists is_moderator boolean not null default false;
 
 -- 2) Admin activity log
 create table if not exists public.admin_activity_log (
@@ -44,6 +45,30 @@ begin
 end;
 $$;
 
+-- Helper: is current user staff (admin OR moderator)
+create or replace function public.is_current_user_staff()
+returns boolean
+language plpgsql
+stable
+security definer
+as $$
+declare
+  uid uuid;
+  can boolean := false;
+begin
+  begin
+    uid := auth.uid();
+  exception when others then
+    uid := null;
+  end;
+  if uid is null then
+    return false;
+  end if;
+  select coalesce(p.is_admin, false) or coalesce(p.is_moderator, false) into can from public.profiles p where p.id = uid;
+  return coalesce(can, false);
+end;
+$$;
+
 -- 4) Helper: is a specific user banned
 create or replace function public.is_user_banned(u_id uuid)
 returns boolean
@@ -62,7 +87,7 @@ language plpgsql
 security definer
 as $$
 begin
-  if not public.is_current_user_admin() then
+  if not public.is_current_user_staff() then
     raise exception 'forbidden';
   end if;
   update public.profiles set xp = greatest(0, coalesce(xp,0) + delta) where id = target_user_id;
@@ -78,7 +103,7 @@ language plpgsql
 security definer
 as $$
 begin
-  if not public.is_current_user_admin() then
+  if not public.is_current_user_staff() then
     raise exception 'forbidden';
   end if;
   update public.profiles set 
@@ -94,31 +119,47 @@ $$;
 -- 7) RPC: update user profile (username, name, is_admin)
 -- Drop old version first to avoid return type/signature conflicts
 drop function if exists public.admin_update_user_profile(uuid, text, text, integer, integer, boolean);
+drop function if exists public.admin_update_user_profile(uuid, text, text, integer, integer, boolean, boolean);
 create or replace function public.admin_update_user_profile(
   target_user_id uuid,
   new_username text,
   new_name text,
   new_xp int,
   new_level int,
-  new_is_admin boolean
+  new_is_admin boolean,
+  new_is_moderator boolean
 )
 returns void
 language plpgsql
 security definer
 as $$
 begin
-  if not public.is_current_user_admin() then
+  if not public.is_current_user_staff() then
     raise exception 'forbidden';
   end if;
-  update public.profiles set
-    username = coalesce(new_username, username),
-    name = coalesce(new_name, name),
-    xp = coalesce(new_xp, xp),
-    level = coalesce(new_level, level),
-    is_admin = coalesce(new_is_admin, is_admin)
-  where id = target_user_id;
+  -- Only admins can change role flags (is_admin / is_moderator)
+  if public.is_current_user_admin() then
+    update public.profiles set
+      username = coalesce(new_username, username),
+      name = coalesce(new_name, name),
+      xp = coalesce(new_xp, xp),
+      level = coalesce(new_level, level),
+      is_admin = coalesce(new_is_admin, is_admin),
+      is_moderator = coalesce(new_is_moderator, is_moderator)
+    where id = target_user_id;
+  else
+    update public.profiles set
+      username = coalesce(new_username, username),
+      name = coalesce(new_name, name),
+      xp = coalesce(new_xp, xp),
+      level = coalesce(new_level, level)
+    where id = target_user_id;
+    if new_is_admin is not null or new_is_moderator is not null then
+      raise exception 'forbidden: only admins can change roles';
+    end if;
+  end if;
   insert into public.admin_activity_log(actor_id, target_user_id, action, details)
-  values (auth.uid(), target_user_id, 'profile_update', jsonb_build_object('username', new_username, 'name', new_name, 'xp', new_xp, 'level', new_level, 'is_admin', new_is_admin));
+  values (auth.uid(), target_user_id, 'profile_update', jsonb_build_object('username', new_username, 'name', new_name, 'xp', new_xp, 'level', new_level, 'is_admin', new_is_admin, 'is_moderator', new_is_moderator));
 end;
 $$;
 
@@ -133,7 +174,7 @@ language plpgsql
 security definer
 as $$
 begin
-  if not public.is_current_user_admin() then
+  if not public.is_current_user_staff() then
     raise exception 'forbidden';
   end if;
   update public.profiles set
@@ -158,7 +199,7 @@ declare
   a record;
   result jsonb;
 begin
-  if not public.is_current_user_admin() then
+  if not public.is_current_user_staff() then
     raise exception 'forbidden';
   end if;
 
@@ -200,6 +241,6 @@ $$;
 -- 11) Grants for RPCs
 grant execute on function public.admin_adjust_user_xp(uuid, int) to authenticated;
 grant execute on function public.admin_set_user_xp_level(uuid, int, int) to authenticated;
-grant execute on function public.admin_update_user_profile(uuid, text, text, integer, integer, boolean) to authenticated;
+grant execute on function public.admin_update_user_profile(uuid, text, text, integer, integer, boolean, boolean) to authenticated;
 grant execute on function public.admin_set_user_enforcement(uuid, boolean, boolean) to authenticated;
 grant execute on function public.admin_get_user_details(uuid) to authenticated;
