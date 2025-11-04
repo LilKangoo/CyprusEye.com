@@ -330,8 +330,64 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
     <script src="js/data-tasks.js"></script>
     <script src="js/data-packing.js"></script>
     
+    <!-- Comments Modal (shared with community) -->
+    <div id="commentsModal" class="comments-modal" hidden role="dialog" aria-modal="true" aria-labelledby="commentsModalTitle">
+      <div class="comments-modal-dialog">
+        <header class="comments-modal-header">
+          <button type="button" class="modal-nav-btn" id="prevPoiBtn" aria-label="Poprzednie miejsce" title="Poprzednie miejsce">‹</button>
+          <div class="comments-modal-title-section">
+            <h2 id="commentsModalTitle" class="comments-modal-title"></h2>
+            <p id="commentsModalLocation" class="comments-modal-location"></p>
+          </div>
+          <div class="modal-header-actions">
+            <button type="button" class="modal-nav-btn" id="nextPoiBtn" aria-label="Następne miejsce" title="Następne miejsce">›</button>
+            <button type="button" class="icon-button" id="closeCommentsModal" aria-label="Zamknij">✕</button>
+          </div>
+        </header>
+        <div class="comments-modal-content">
+          <div class="modal-rating-section" id="modalRatingSection">
+            <h3>Oceń to miejsce</h3>
+            <div id="ratingDisplay"></div>
+            <div class="rating-interactive-container" id="ratingInteractive" hidden>
+              <div id="ratingStarsContainer"></div>
+              <span id="ratingPrompt" class="rating-prompt">Kliknij na gwiazdki aby ocenić</span>
+            </div>
+            <div id="ratingBreakdown"></div>
+          </div>
+          <div class="add-comment-section" id="addCommentSection">
+            <div class="auth-required-message" data-auth-required hidden>
+              <p>Musisz być zalogowany, aby dodać komentarz</p>
+              <button class="btn btn-primary primary" data-open-auth data-auth-target="login">Zaloguj</button>
+            </div>
+            <form id="addCommentForm" class="add-comment-form" data-auth-only hidden>
+              <div class="user-avatar-section">
+                <img id="currentUserAvatar" class="user-avatar" alt="" />
+                <div>
+                  <strong id="currentUserName"></strong>
+                  <p class="form-hint">Dodaj komentarz lub zdjęcia</p>
+                </div>
+              </div>
+              <textarea id="commentTextarea" name="content" class="comment-textarea" placeholder="Podziel się swoimi wrażeniami..." rows="3" maxlength="2000" required></textarea>
+              <div class="comment-photos-preview" id="commentPhotosPreview" hidden></div>
+              <div class="add-comment-actions">
+                <label class="btn btn-secondary secondary photo-upload-label">
+                  <span>📷 Dodaj zdjęcia</span>
+                  <input type="file" id="photoUploadInput" accept="image/jpeg,image/png,image/webp" multiple hidden />
+                </label>
+                <button type="submit" class="btn btn-primary primary">Opublikuj</button>
+              </div>
+            </form>
+          </div>
+          <div class="comments-list" id="commentsList">
+            <div class="loading-spinner"><div class="spinner"></div><p>Ładowanie komentarzy...</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Load core application & page script -->
     <script src="app-core.js?v=4" defer></script>
+    <script type="module" src="js/community/ui.js?v=1"></script>
     <script src="js/attractions.js?v=1" defer></script>
   </body>
 </html>
