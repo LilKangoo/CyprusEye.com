@@ -197,7 +197,8 @@
   }
 
   function isUnlocked(task){
-    return (Number(task.requiredLevel)||1) <= state.level;
+    // All tasks unlocked for authenticated users; guests cannot complete
+    return !!state.auth.isAuthenticated;
   }
 
   function renderTasks(){
@@ -247,8 +248,11 @@
         button.classList.add('is-completed');
         button.addEventListener('click', () => revertTask(task));
       } else if (!unlocked) {
-        button.textContent = t('tasks.action.locked', 'Poziom {{level}}', { level: task.requiredLevel });
-        button.disabled = true;
+        button.textContent = t('auth.login.button', 'Zaloguj');
+        button.addEventListener('click', () => {
+          const btn = document.querySelector('[data-auth="login"]');
+          if (btn) btn.click();
+        });
       } else {
         button.textContent = t('tasks.action.complete', 'Wykonaj');
         button.addEventListener('click', () => completeTask(task));
@@ -262,28 +266,30 @@
   }
 
   async function completeTask(task){
+    if (!state.auth.isAuthenticated) return; // only logged-in users can complete tasks
     if (state.tasksCompleted.has(task.id)) return;
     state.tasksCompleted.add(task.id);
-    if (state.auth.isAuthenticated) {
-      const ok = await awardTaskServer(task);
-      if (!ok) gainXp(Number(task.xp)||0); // fallback local
-    } else {
-      gainXp(Number(task.xp)||0);
+    const ok = await awardTaskServer(task);
+    if (!ok) {
+      // Do not grant local XP when server fails; revert completion state
+      state.tasksCompleted.delete(task.id);
     }
     saveState();
+    updateHeaderMetrics();
     renderTasks();
   }
 
   async function revertTask(task){
+    if (!state.auth.isAuthenticated) return;
     if (!state.tasksCompleted.has(task.id)) return;
     state.tasksCompleted.delete(task.id);
-    if (state.auth.isAuthenticated) {
-      const ok = await revertTaskServer(task);
-      if (!ok) gainXp(-1 * (Number(task.xp)||0));
-    } else {
-      gainXp(-1 * (Number(task.xp)||0));
+    const ok = await revertTaskServer(task);
+    if (!ok) {
+      // If server failed, restore completion mark
+      state.tasksCompleted.add(task.id);
     }
     saveState();
+    updateHeaderMetrics();
     renderTasks();
   }
 
