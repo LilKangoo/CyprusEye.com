@@ -1271,7 +1271,16 @@ window.cancelReply = function(commentId) {
 // ===================================
 async function updateCommunityStats() {
   try {
-    const sb = window.getSupabase();
+    // Elements may not exist on some pages (e.g. homepage) – fail gracefully
+    const totalCommentsEl = document.getElementById('totalComments');
+    const totalPhotosEl = document.getElementById('totalPhotos');
+    const activeUsersEl = document.getElementById('activeUsers');
+    if (!totalCommentsEl && !totalPhotosEl && !activeUsersEl) {
+      return; // Nothing to update on this page
+    }
+
+    const sb = window.getSupabase?.();
+    if (!sb) return;
 
     // Total comments
     const { count: totalComments } = await sb
@@ -1290,9 +1299,9 @@ async function updateCommunityStats() {
     
     const uniqueUsers = new Set(users?.map(u => u.user_id) || []).size;
 
-    document.getElementById('totalComments').textContent = totalComments || 0;
-    document.getElementById('totalPhotos').textContent = totalPhotos || 0;
-    document.getElementById('activeUsers').textContent = uniqueUsers || 0;
+    if (totalCommentsEl) totalCommentsEl.textContent = String(totalComments || 0);
+    if (totalPhotosEl) totalPhotosEl.textContent = String(totalPhotos || 0);
+    if (activeUsersEl) activeUsersEl.textContent = String(uniqueUsers || 0);
 
   } catch (error) {
     console.error('Error updating stats:', error);
