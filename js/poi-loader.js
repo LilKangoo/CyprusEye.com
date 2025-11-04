@@ -99,8 +99,11 @@ function transformPOI(dbPoi) {
     badgeFallback: dbPoi.badge || 'Explorer',
     lat: parseFloat(dbPoi.lat) || 0,
     lng: parseFloat(dbPoi.lng) || 0,
-    googleMapsUrl: dbPoi.google_maps_url || `https://maps.google.com/?q=${dbPoi.lat},${dbPoi.lng}`,
-    googleMapsURL: dbPoi.google_maps_url || `https://maps.google.com/?q=${dbPoi.lat},${dbPoi.lng}`,
+    // Canonical Google link: prefer dedicated column, fallback to lat/lng
+    google_url: dbPoi.google_url || dbPoi.google_maps_url || `https://www.google.com/maps?q=${dbPoi.lat},${dbPoi.lng}`,
+    // Backwards-compatible aliases commonly used around the site
+    googleMapsUrl: dbPoi.google_url || dbPoi.google_maps_url || `https://www.google.com/maps?q=${dbPoi.lat},${dbPoi.lng}`,
+    googleMapsURL: dbPoi.google_url || dbPoi.google_maps_url || `https://www.google.com/maps?q=${dbPoi.lat},${dbPoi.lng}`,
     xp: parseInt(dbPoi.xp) || 100,
     requiredLevel: parseInt(dbPoi.required_level) || 1,
     source: 'supabase',
@@ -189,6 +192,21 @@ async function refreshPOIs() {
 window.initializePOIs = initializePOIs;
 window.refreshPOIs = refreshPOIs;
 window.refreshPoisData = refreshPOIs; // Alias dla kompatybilności
+
+// Helper: unified Google link getter for any POI-like object
+window.getPoiGoogleUrl = function getPoiGoogleUrl(poi) {
+  if (!poi) return null;
+  const lat = poi.lat ?? poi.latitude;
+  const lng = poi.lng ?? poi.lon ?? poi.longitude;
+  const direct = poi.google_url || poi.googleMapsUrl || poi.googleMapsURL;
+  if (direct && typeof direct === 'string' && direct.trim().length > 0) {
+    return direct.trim();
+  }
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    return `https://www.google.com/maps?q=${lat},${lng}`;
+  }
+  return null;
+};
 
 // Auto-init
 console.log('⏰ Planowanie auto-init...');
