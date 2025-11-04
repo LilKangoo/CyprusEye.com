@@ -1755,6 +1755,15 @@ function normalizePoi(rawPoi, source = 'supabase') {
     || 'uncategorized'
   ).toString().toLowerCase();
 
+  // Prefer explicit google_url field; otherwise compute a default Google Maps link
+  const googleUrl = (
+    rawPoi.google_url
+    || data.google_url
+    || (Number.isFinite(latitude) && Number.isFinite(longitude)
+      ? `https://www.google.com/maps?q=${latitude},${longitude}`
+      : null)
+  );
+
   return {
     id,
     uuid: isUuid(id) ? id : (isUuid(rawPoi.uuid) ? rawPoi.uuid : (isUuid(data.id) ? data.id : null)),
@@ -1770,6 +1779,7 @@ function normalizePoi(rawPoi, source = 'supabase') {
     badge: rawPoi.badge || data.badge || category,
     status,
     tags,
+    google_url: googleUrl,
     created_at: rawPoi.created_at || data.created_at || null,
     updated_at: rawPoi.updated_at || data.updated_at || rawPoi.created_at || null,
     source,
@@ -2124,6 +2134,7 @@ function openPoiForm(poiId = null) {
   const longitudeInput = $('#poiLongitude');
   const radiusInput = $('#poiRadius');
   const xpInput = $('#poiXP');
+  const googleUrlInput = $('#poiGoogleUrl');
   const tagsInput = $('#poiTags');
   const descriptionInput = $('#poiDescription');
 
@@ -2135,6 +2146,7 @@ function openPoiForm(poiId = null) {
   if (longitudeInput) longitudeInput.value = poi?.longitude ?? '';
   if (radiusInput) radiusInput.value = poi?.radius ?? '';
   if (xpInput) xpInput.value = poi?.xp ?? '';
+  if (googleUrlInput) googleUrlInput.value = poi?.google_url || '';
   if (tagsInput) tagsInput.value = poi?.tags?.join(', ') ?? '';
   if (descriptionInput) descriptionInput.value = poi?.description || '';
 
@@ -2211,6 +2223,7 @@ async function handlePoiFormSubmit(event) {
   const radius = radiusValue ? parseInt(radiusValue, 10) : null;
   const xpValue = formData.get('xp');
   const xp = xpValue ? parseInt(xpValue, 10) : null;
+  const googleUrl = (formData.get('google_url') || '').toString().trim();
   const tagsValue = (formData.get('tags') || '').toString().trim();
   const tags = tagsValue ? tagsValue.split(',').map(tag => tag.trim()).filter(Boolean) : [];
 
@@ -2244,6 +2257,7 @@ async function handlePoiFormSubmit(event) {
     radius: radius || DEFAULT_POI_RADIUS,
     xp: xp || 100,
     tags,
+    ...(googleUrl ? { google_url: googleUrl } : {}),
   };
 
   try {
