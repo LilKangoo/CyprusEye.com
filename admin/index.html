@@ -645,6 +645,36 @@
           </div>
         </div>
 
+        <div class="admin-section">
+          <div class="admin-view-header" style="margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; gap: 12px;">
+            <div>
+              <h3>Health Checks</h3>
+              <p class="admin-view-subtitle">Wykrywanie problemów z konfiguracją i danymi. Możesz uruchomić pojedyncze testy lub wszystko naraz.</p>
+            </div>
+            <div class="admin-view-actions">
+              <button class="btn-secondary" id="btnRunAllChecks">Run all</button>
+            </div>
+          </div>
+
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Check</th>
+                  <th>Status</th>
+                  <th>Details</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="diagnosticChecksTable">
+                <tr>
+                  <td colspan="4" class="table-loading">Loading checks...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
         <!-- System Metrics -->
         <div class="admin-section">
           <h3>System Metrics</h3>

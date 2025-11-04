@@ -1091,10 +1091,281 @@ async function loadDiagnosticsData() {
       </tr>
     `).join('');
 
+    // Render health checks table
+    await renderDiagnosticChecks();
+
   } catch (error) {
     console.error('Failed to load diagnostics:', error);
     showToast('Failed to load diagnostics', 'error');
   }
+}
+
+// -----------------------------------------------------
+// Health Checks
+// -----------------------------------------------------
+
+function getDiagnosticChecks() {
+  return [
+    {
+      id: 'check_admin_system_diagnostics_view',
+      title: 'Admin view: admin_system_diagnostics',
+      description: 'View used for metrics and dashboard stats',
+      run: async (client) => {
+        try {
+          const { data, error } = await client.from('admin_system_diagnostics').select('*').limit(1);
+          if (error) throw error;
+          return { status: 'ok', details: (data && data.length ? 'OK (has rows)' : 'OK (no rows)') };
+        } catch (e) {
+          return { status: 'error', details: e.message || 'Query failed' };
+        }
+      },
+      canFix: false,
+    },
+    {
+      id: 'check_admin_users_overview_view',
+      title: 'Admin view: admin_users_overview',
+      description: 'Users overview used in Users tab',
+      run: async (client) => {
+        try {
+          const { data, error } = await client.from('admin_users_overview').select('id').limit(1);
+          if (error) throw error;
+          return { status: 'ok', details: (data && data.length ? 'OK (has rows)' : 'OK (no rows)') };
+        } catch (e) {
+          return { status: 'error', details: e.message || 'Query failed' };
+        }
+      },
+      canFix: false,
+    },
+    {
+      id: 'check_rpc_admin_get_content_stats',
+      title: 'Function: admin_get_content_stats()',
+      description: 'Returns JSON with counts and activity',
+      run: async (client) => {
+        try {
+          const { data, error } = await client.rpc('admin_get_content_stats');
+          if (error) throw error;
+          const keys = data && typeof data === 'object' ? Object.keys(data).length : 0;
+          return { status: 'ok', details: `OK (${keys} keys)` };
+        } catch (e) {
+          return { status: 'error', details: e.message || 'RPC failed' };
+        }
+      },
+      canFix: false,
+    },
+    {
+      id: 'check_pois_missing_coordinates',
+      title: 'POIs: missing/invalid coordinates',
+      description: 'Detects POIs without latitude/longitude',
+      run: async (client) => {
+        try {
+          const { data, error } = await client
+            .from('pois')
+            .select('id, name, latitude, longitude', { count: 'exact', head: false })
+            .or('latitude.is.null,longitude.is.null')
+            .limit(5);
+          if (error) throw error;
+          const countText = Array.isArray(data) ? `${data.length} (sample shown)` : '0';
+          return { status: (data && data.length ? 'warn' : 'ok'), details: data && data.length ? `Found ${countText}` : 'OK (none found)' };
+        } catch (e) {
+          return { status: 'error', details: e.message || 'Query failed' };
+        }
+      },
+      canFix: false,
+    },
+    {
+      id: 'check_pois_missing_google_url',
+      title: 'POIs: missing Google URL',
+      description: 'Detects POIs without google_url',
+      run: async (client) => {
+        try {
+          const { data, error } = await client
+            .from('pois')
+            .select('id, name, google_url')
+            .or('google_url.is.null,google_url.eq.')
+            .limit(5);
+          if (error) throw error;
+          return { status: (data && data.length ? 'warn' : 'ok'), details: data && data.length ? `Found ${data.length} (sample shown)` : 'OK (none found)' };
+        } catch (e) {
+          return { status: 'error', details: e.message || 'Query failed' };
+        }
+      },
+      canFix: false,
+    },
+    {
+      id: 'check_pois_status_column',
+      title: 'POIs: status column present',
+      description: 'Verifies optional column pois.status exists (draft/published/hidden)',
+      run: async (client) => {
+        try {
+          const { error } = await client.from('pois').select('status').limit(1);
+          if (error) throw error;
+          return { status: 'ok', details: 'Column exists' };
+        } catch (e) {
+          return { status: 'warn', details: 'Missing column pois.status (run ADD_POI_STATUS_COLUMN.sql)' };
+        }
+      },
+      canFix: false,
+    },
+    {
+      id: 'check_pois_google_url_column',
+      title: 'POIs: google_url column present',
+      description: 'Verifies optional column pois.google_url exists',
+      run: async (client) => {
+        try {
+          const { error } = await client.from('pois').select('google_url').limit(1);
+          if (error) throw error;
+          return { status: 'ok', details: 'Column exists' };
+        } catch (e) {
+          return { status: 'warn', details: 'Missing column pois.google_url (run ADD_GOOGLE_URL_TO_POIS.sql)' };
+        }
+      },
+      canFix: false,
+    },
+    {
+      id: 'check_admin_actions_table_access',
+      title: 'Admin actions log access',
+      description: 'Ensures admin_actions table is accessible for logs',
+      run: async (client) => {
+        try {
+          const { data, error } = await client.from('admin_actions').select('id').limit(1);
+          if (error) throw error;
+          return { status: 'ok', details: data && data.length ? 'OK (has rows)' : 'OK (no rows yet)' };
+        } catch (e) {
+          return { status: 'warn', details: 'admin_actions not accessible (check policies and creation)' };
+        }
+      },
+      canFix: false,
+    },
+    {
+      id: 'check_profiles_is_admin_column',
+      title: 'Profiles: is_admin column present',
+      description: 'Required to gate admin access',
+      run: async (client) => {
+        try {
+          const { error } = await client.from('profiles').select('is_admin').limit(1);
+          if (error) throw error;
+          return { status: 'ok', details: 'Column exists' };
+        } catch (e) {
+          return { status: 'error', details: 'Missing column profiles.is_admin (see ADMIN_PANEL_SETUP.sql)' };
+        }
+      },
+      canFix: false,
+    },
+    {
+      id: 'check_rpc_admin_get_activity_log',
+      title: 'Function: admin_get_activity_log(limit_count)',
+      description: 'Activity used on dashboard',
+      run: async (client) => {
+        try {
+          const { data, error } = await client.rpc('admin_get_activity_log', { limit_count: 1 });
+          if (error) throw error;
+          return { status: 'ok', details: Array.isArray(data) ? `OK (${data.length} rows sample)` : 'OK' };
+        } catch (e) {
+          return { status: 'warn', details: e.message || 'RPC failed' };
+        }
+      },
+      canFix: false,
+    },
+    {
+      id: 'check_rpc_admin_get_action_log',
+      title: 'Function: admin_get_action_log(limit_count, action_filter)',
+      description: 'Audit log function is callable',
+      run: async (client) => {
+        try {
+          const { data, error } = await client.rpc('admin_get_action_log', { limit_count: 1, action_filter: null });
+          if (error) throw error;
+          return { status: 'ok', details: Array.isArray(data) ? `OK (${data.length} rows sample)` : 'OK' };
+        } catch (e) {
+          return { status: 'warn', details: e.message || 'RPC failed' };
+        }
+      },
+      canFix: false,
+    },
+  ];
+}
+
+async function renderDiagnosticChecks() {
+  const tbody = document.getElementById('diagnosticChecksTable');
+  const btnRunAll = document.getElementById('btnRunAllChecks');
+  if (!tbody) return;
+
+  const client = ensureSupabase();
+  const checks = getDiagnosticChecks();
+
+  // Initial render (checking state)
+  tbody.innerHTML = checks.map((c) => `
+    <tr id="row-${c.id}">
+      <td>
+        <div class="poi-name">${escapeHtml(c.title)}</div>
+        <div class="poi-slug">${escapeHtml(c.description)}</div>
+      </td>
+      <td id="status-${c.id}"><span class="badge badge-info">Checking...</span></td>
+      <td id="details-${c.id}" style="color: var(--admin-text-muted);">—</td>
+      <td>
+        <div class="poi-table-actions">
+          <button class="btn-secondary" data-check-run="${c.id}">Run</button>
+          <button class="btn-secondary" data-check-fix="${c.id}" ${c.canFix ? '' : 'disabled'}>Auto-fix</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+
+  // Attach handlers
+  tbody.querySelectorAll('[data-check-run]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      await runSingleCheck(btn.getAttribute('data-check-run'));
+    });
+  });
+  tbody.querySelectorAll('[data-check-fix]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.getAttribute('data-check-fix');
+      showToast('Auto-fix not available for this check yet', 'info');
+    });
+  });
+
+  if (btnRunAll) {
+    btnRunAll.addEventListener('click', runAllChecks);
+  }
+
+  // Run all once for initial statuses
+  await Promise.all(checks.map(c => runSingleCheck(c.id)));
+}
+
+async function runSingleCheck(checkId) {
+  const client = ensureSupabase();
+  const checks = getDiagnosticChecks();
+  const check = checks.find(c => c.id === checkId);
+  if (!check) return;
+
+  const statusCell = document.getElementById(`status-${check.id}`);
+  const detailsCell = document.getElementById(`details-${check.id}`);
+  if (statusCell) statusCell.innerHTML = '<span class="badge badge-info">Checking...</span>';
+  if (detailsCell) detailsCell.textContent = '—';
+
+  try {
+    const result = await check.run(client);
+    const status = result.status || 'ok';
+    const details = result.details || '';
+    if (statusCell) {
+      const cls = status === 'ok' ? 'badge-success' : status === 'warn' ? 'badge-warning' : 'badge-danger';
+      const label = status === 'ok' ? 'OK' : status === 'warn' ? 'Warning' : 'Error';
+      statusCell.innerHTML = `<span class="badge ${cls}">${label}</span>`;
+    }
+    if (detailsCell) detailsCell.textContent = details;
+  } catch (e) {
+    if (statusCell) statusCell.innerHTML = '<span class="badge badge-danger">Error</span>';
+    if (detailsCell) detailsCell.textContent = e.message || 'Unknown error';
+  }
+}
+
+async function runAllChecks() {
+  const checks = getDiagnosticChecks();
+  for (const c of checks) {
+    // sequential to avoid rate spikes
+    // eslint-disable-next-line no-await-in-loop
+    await runSingleCheck(c.id);
+  }
+  showToast('All checks completed', 'success');
 }
 
 // =====================================================
