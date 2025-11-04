@@ -48,6 +48,11 @@
     if(commentsEl) commentsEl.textContent = '—';
     if(ratingEl) ratingEl.textContent = '—';
 
+    // Load live stats (rating + comments) for the selected place
+    updatePlaceStats(id).catch(()=>{
+      // Non-blocking; leave placeholders on error
+    });
+
     if(options.focus !== false && typeof window.focusPlaceOnMap === 'function'){
       window.focusPlaceOnMap(id);
     }
@@ -68,6 +73,44 @@
       listRoot.querySelectorAll('.poi-card.active').forEach(el=>el.classList.remove('active'));
       const active = document.querySelector('#poisList .poi-card[data-poi-id="'+id+'"]');
       if(active) active.classList.add('active');
+    }
+  }
+
+  // Fetch and render rating average and top-level comment count for a POI
+  async function updatePlaceStats(poiId){
+    try{
+      const sb = window.getSupabase?.();
+      if(!sb) return;
+
+      // Comments: count only top-level comments
+      const { count: commentCount } = await sb
+        .from('poi_comments')
+        .select('*', { count: 'exact', head: true })
+        .eq('poi_id', poiId)
+        .is('parent_comment_id', null);
+
+      const commentsEl = document.getElementById('currentPlaceComments');
+      if(commentsEl){
+        const c = commentCount || 0;
+        // Show just the number next to the bubble icon
+        commentsEl.textContent = String(c);
+      }
+
+      // Rating: read aggregated stats
+      const { data: ratingData, error } = await sb
+        .from('poi_rating_stats')
+        .select('*')
+        .eq('poi_id', poiId)
+        .maybeSingle();
+
+      const ratingEl = document.getElementById('currentPlaceRating');
+      if(ratingEl){
+        const avg = (!error && ratingData && ratingData.total_ratings > 0) ? Number(ratingData.average_rating) : 0;
+        ratingEl.textContent = avg > 0 ? avg.toFixed(1) : '—';
+      }
+    } catch(e){
+      // Silent failure – UI keeps placeholders
+      console.warn('updatePlaceStats error:', e);
     }
   }
 
