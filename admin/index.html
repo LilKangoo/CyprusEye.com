@@ -66,37 +66,6 @@
         <div class="admin-breadcrumb" id="breadcrumb">
           <span>Dashboard</span>
         </div>
-
-  <!-- Diagnostics Auto-Fix Modal -->
-  <div class="admin-modal" id="diagnosticFixModal" hidden>
-    <div class="admin-modal-overlay" id="diagnosticFixModalOverlay"></div>
-    <div class="admin-modal-content admin-modal-content-large">
-      <header class="admin-modal-header">
-        <h3 id="diagnosticFixTitle">Auto-Fix</h3>
-        <button class="btn-modal-close" id="btnCloseDiagnosticFix">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </header>
-      <div class="admin-modal-body" id="diagnosticFixContent">
-        <div class="admin-card">
-          <div class="admin-card-body">
-            <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:8px;">
-              <div>
-                <p class="admin-view-subtitle" id="diagnosticFixDescription">Copy the SQL below and run it in Supabase SQL Editor.</p>
-              </div>
-              <div>
-                <button class="btn-secondary" id="btnCopyDiagnosticSql">Copy SQL</button>
-              </div>
-            </div>
-            <textarea id="diagnosticFixSql" readonly style="width:100%; min-height:260px; background:var(--admin-bg); color:var(--admin-text); border:1px solid var(--admin-border); border-radius:8px; padding:12px; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size:13px;"></textarea>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
       </div>
       <div class="admin-header-right">
         <div class="admin-user-info" id="adminUserInfo">

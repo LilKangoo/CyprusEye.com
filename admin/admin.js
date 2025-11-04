@@ -1352,10 +1352,22 @@ function getDiagnosticChecks() {
       description: 'Detects POIs without latitude/longitude',
       run: async (client) => {
         try {
+          // Detect coordinate column names: prefer lat/lng, fallback to latitude/longitude
+          let cols = { lat: 'lat', lng: 'lng' };
+          let probe = await client.from('pois').select('id, lat, lng').limit(1);
+          if (probe.error) {
+            // Try alternate schema
+            const probe2 = await client.from('pois').select('id, latitude, longitude').limit(1);
+            if (probe2.error) {
+              return { status: 'error', details: 'Neither lat/lng nor latitude/longitude columns exist' };
+            }
+            cols = { lat: 'latitude', lng: 'longitude' };
+          }
+
           const { data, error } = await client
             .from('pois')
-            .select('id, name, latitude, longitude', { count: 'exact', head: false })
-            .or('latitude.is.null,longitude.is.null')
+            .select(`id, name, ${cols.lat}, ${cols.lng}`)
+            .or(`${cols.lat}.is.null,${cols.lng}.is.null`)
             .limit(5);
           if (error) throw error;
           const countText = Array.isArray(data) ? `${data.length} (sample shown)` : '0';
