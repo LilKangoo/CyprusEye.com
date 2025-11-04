@@ -325,10 +325,13 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
     <script src="js/mobile-nav.js" defer></script>
     <!-- Load data files first -->
     <script src="js/data-places.js"></script>
+    <!-- POI Loader - ensure PLACES_DATA is loaded on this page as well -->
+    <script src="js/poi-loader.js?v=2" defer></script>
     <script src="js/data-tasks.js"></script>
     <script src="js/data-packing.js"></script>
     
-    <!-- Load core application -->
-    <script src="app-core.js"></script>
+    <!-- Load core application & page script -->
+    <script src="app-core.js?v=4" defer></script>
+    <script src="js/attractions.js?v=1" defer></script>
   </body>
 </html>

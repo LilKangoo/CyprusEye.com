@@ -1,3 +1,14 @@
+-- Dodaj to NA POCZĄTKU pliku ADMIN_CONTENT_FIX_FINAL.sql
+-- (przed CREATE OR REPLACE FUNCTION admin_get_all_comments)
+
+DROP FUNCTION IF EXISTS admin_get_all_comments(TEXT, UUID, UUID, TIMESTAMPTZ, TIMESTAMPTZ, INTEGER, INTEGER);
+DROP FUNCTION IF EXISTS admin_get_comment_details(UUID);
+DROP FUNCTION IF EXISTS admin_update_comment(UUID, TEXT, TEXT);
+DROP FUNCTION IF EXISTS admin_delete_comment_photo(UUID, TEXT);
+DROP FUNCTION IF EXISTS admin_delete_comment(UUID, TEXT);
+DROP FUNCTION IF EXISTS admin_get_all_photos(INTEGER, INTEGER);
+DROP FUNCTION IF EXISTS admin_get_detailed_content_stats();
+DROP FUNCTION IF EXISTS admin_bulk_comment_operation(UUID[], TEXT, JSON);
 -- =====================================================
 -- ADMIN CONTENT MANAGEMENT - NAPRAWIONA WERSJA
 -- =====================================================
