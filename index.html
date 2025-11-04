@@ -74,6 +74,7 @@
   <link rel="stylesheet" href="assets/css/language-switcher.css" />
   <link rel="stylesheet" href="assets/css/language-selector.css" />
   <link rel="stylesheet" href="css/toast.css" />
+  <link rel="stylesheet" href="assets/css/community.css" />
   <link
     rel="preload"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -476,50 +477,32 @@
         </section>
       </aside>
 
-      <section class="grid discovery-grid" aria-label="Atrakcje i postępy">
-        <section class="locations-panel card surface-card">
-          <div class="discovery-header">
-            <div>
-              <h2 data-i18n="discovery.title">Atrakcje do odkrycia</h2>
-              <p class="discovery-subtitle" data-i18n="discovery.subtitle">
-                Przeglądaj miejsca z gry i planuj kolejne check-iny z mapy.
-              </p>
-            </div>
-            <div class="discovery-actions">
-              <button type="button" class="ghost" id="locationsToggle" data-i18n="discovery.toggle">
-                Pokaż więcej atrakcji
-              </button>
-              <a
-                class="btn btn-secondary secondary"
-                id="attractionsCatalogLink"
-                href="attractions.html"
-                data-i18n="discovery.catalog"
-                hidden
-                aria-disabled="true"
-              >
-                📚 Katalog atrakcji
-              </a>
-            </div>
-          </div>
-          <ul id="locationsList" class="locations-list locations-list-preview" aria-live="polite"></ul>
-          <div
-            id="locationsFullSection"
-            class="locations-full"
-            aria-live="polite"
-            hidden
-          >
-            <p id="locationsFullStatus" class="locations-full-status" hidden>
-              Wczytywanie pełnej listy atrakcji…
-            </p>
-            <ul id="locationsFullList" class="locations-list locations-list-full"></ul>
-          </div>
-        </section>
+      <!-- Discovery grid removed; replaced by Community list -->
+
+      <!-- Community List embedded directly under the map -->
+      <section class="community-list-section card surface-card" id="listViewSection">
+        <div class="poi-filter-bar">
+          <input 
+            type="search" 
+            id="poiSearchInput" 
+            class="poi-search-input" 
+            placeholder="Szukaj miejsca..."
+            data-i18n-attrs="placeholder:community.search.placeholder"
+          />
+          <select id="poiSortSelect" class="poi-sort-select">
+            <option value="recent" data-i18n="community.sort.recent">Najnowsze komentarze</option>
+            <option value="popular" data-i18n="community.sort.popular">Najpopularniejsze</option>
+            <option value="alphabetical" data-i18n="community.sort.alphabetical">Alfabetycznie</option>
+          </select>
+        </div>
+        <div id="poisList" class="pois-list">
+          <div class="loading-spinner"><div class="spinner"></div><p data-i18n="community.loading">Ładowanie miejsc...</p></div>
+        </div>
       </section>
 
       </div>
 
-    <!-- Dodatkowe widoki (planer, zadania, VIP) zostały przeniesione na osobne strony;
-         na stronie głównej pozostawiamy jedynie skróty i mapę. -->
+    <!-- Dodatkowe widoki (planer, zadania, VIP) zostały przeniesione na osobne strony; -->
     <section
       id="services"
       class="services-panel card surface-card services-panel-footer"
