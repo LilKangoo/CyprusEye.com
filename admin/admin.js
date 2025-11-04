@@ -664,6 +664,43 @@ async function viewUserDetails(userId) {
           ` : '<p class="user-detail-hint">You cannot moderate your own account.</p>'}
         </section>
 
+        <section class="user-detail-card">
+          <h4 class="user-detail-section-title">Advanced moderation</h4>
+          ${!isSelf ? `
+          <form class="user-detail-form" onsubmit="handleUserBanForm(event, '${userId}')">
+            <div class="user-detail-form-grid">
+              <label class="admin-form-field">
+                <span>Ban duration</span>
+                <select name="duration">
+                  <option value="24h">24 hours</option>
+                  <option value="7d">7 days</option>
+                  <option value="30d">30 days</option>
+                  <option value="permanent">Permanent</option>
+                  <option value="custom">Custom date</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Custom until</span>
+                <input type="datetime-local" name="until" />
+              </label>
+              <label class="admin-form-field">
+                <span>Reason</span>
+                <input type="text" name="reason" maxlength="200" placeholder="Optional reason" />
+              </label>
+              <label class="admin-checkbox">
+                <input type="checkbox" name="block_email" />
+                <span>Also block this email</span>
+              </label>
+            </div>
+            <div class="user-detail-inline-actions">
+              ${bannedUntil
+                ? '<button type="button" class="btn-primary" onclick="handleUserBanToggle(\'${userId}\', true)">Remove ban</button>'
+                : '<button type="submit" class="btn-secondary user-detail-danger">Ban user</button>'}
+            </div>
+          </form>
+          ` : '<p class="user-detail-hint">Self-ban is disabled.</p>'}
+        </section>
+
         <section class="user-detail-card user-detail-card--full">
           <h4 class="user-detail-section-title">Activity statistics</h4>
           <div class="user-detail-stats-grid">
@@ -885,6 +922,93 @@ window.handleUserProfileSubmit = handleUserProfileSubmit;
 window.handleUserAccountSubmit = handleUserAccountSubmit;
 window.handleUserXpAdjustment = handleUserXpAdjustment;
 window.handleUserBanToggle = handleUserBanToggle;
+window.handleUserBanForm = handleUserBanForm;
+
+async function getAdminAccessToken() {
+  const client = ensureSupabase();
+  if (!client) return null;
+  const { data } = await client.auth.getSession();
+  return data && data.session ? data.session.access_token : null;
+}
+
+async function apiRequest(path, options = {}) {
+  const token = await getAdminAccessToken();
+  const headers = new Headers(options.headers || {});
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+  const res = await fetch(`/admin/api${path}`, { ...options, headers });
+  if (!res.ok) {
+    let msg = 'Request failed';
+    try {
+      const body = await res.json();
+      msg = body.message || body.error || msg;
+    } catch {}
+    throw new Error(msg);
+  }
+  const ct = res.headers.get('content-type') || '';
+  if (ct.includes('application/json')) return res.json();
+  return null;
+}
+
+async function adjustUserXP(userId, delta) {
+  try {
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database connection not available');
+    const { error } = await client.rpc('admin_adjust_user_xp', { target_user_id: userId, delta });
+    if (error) throw error;
+    showToast('XP updated', 'success');
+    return true;
+  } catch (e) {
+    console.error(e);
+    showToast('Failed to update XP: ' + (e.message || 'Unknown error'), 'error');
+    return false;
+  }
+}
+
+async function setUserXpLevel(userId, xp, level) {
+  try {
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database connection not available');
+    const { error } = await client.rpc('admin_set_user_xp_level', { target_user_id: userId, xp, level });
+    if (error) throw error;
+    showToast('XP/Level set', 'success');
+    return true;
+  } catch (e) {
+    console.error(e);
+    showToast('Failed to set XP/Level: ' + (e.message || 'Unknown error'), 'error');
+    return false;
+  }
+}
+
+async function banUser(userId, payload = {}) {
+  await apiRequest(`/users/${userId}/ban`, { method: 'POST', body: JSON.stringify({ ban: true, ...payload }) });
+  showToast('User banned', 'success');
+  return true;
+}
+
+async function unbanUser(userId) {
+  await apiRequest(`/users/${userId}/ban`, { method: 'POST', body: JSON.stringify({ ban: false }) });
+  showToast('Ban removed', 'success');
+  return true;
+}
+
+async function handleUserBanForm(event, userId) {
+  event.preventDefault();
+  const form = event.target;
+  const duration = (form.duration.value || '').trim();
+  const until = (form.until.value || '').trim();
+  const reason = (form.reason.value || '').trim();
+  const block_email = form.block_email.checked;
+  try {
+    const payload = { duration, reason: reason || null, block_email };
+    if (duration === 'custom' && until) payload.until = new Date(until).toISOString();
+    await banUser(userId, payload);
+    await viewUserDetails(userId);
+  } catch (e) {
+    console.error(e);
+    showToast('Failed to ban user: ' + (e.message || 'Unknown error'), 'error');
+  }
+}
 
 async function loadQuestsData() {
   try {
