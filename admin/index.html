@@ -217,6 +217,16 @@
           <span>Content</span>
         </button>
         
+        <button class="admin-nav-item" data-view="analytics">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 3v18h18"/>
+            <rect x="7" y="12" width="3" height="6"/>
+            <rect x="12" y="9" width="3" height="9"/>
+            <rect x="17" y="6" width="3" height="12"/>
+          </svg>
+          <span>Analytics</span>
+        </button>
+        
         <button class="admin-nav-item" data-view="diagnostics">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
@@ -321,6 +331,22 @@
                 </tr>
               </tbody>
             </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Analytics View -->
+      <section class="admin-view" id="viewAnalytics" hidden>
+        <header class="admin-view-header">
+          <h2>Analytics</h2>
+          <p class="admin-view-subtitle">Engagement and contributors overview</p>
+        </header>
+        <div id="analyticsContent">
+          <div class="admin-stats-grid">
+            <div class="admin-stat-card"><h4>Comments Today</h4><p style="font-size: 28px; font-weight: 700;">-</p></div>
+            <div class="admin-stat-card"><h4>Comments This Week</h4><p style="font-size: 28px; font-weight: 700;">-</p></div>
+            <div class="admin-stat-card"><h4>Active Users Today</h4><p style="font-size: 28px; font-weight: 700;">-</p></div>
+            <div class="admin-stat-card"><h4>Average Rating</h4><p style="font-size: 28px; font-weight: 700;">-</p></div>
           </div>
         </div>
       </section>

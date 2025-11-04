@@ -323,6 +323,9 @@ function switchView(viewName) {
     case 'content':
       loadContentData();
       break;
+    case 'analytics':
+      loadAnalytics();
+      break;
     case 'diagnostics':
       loadDiagnosticsData();
       break;
