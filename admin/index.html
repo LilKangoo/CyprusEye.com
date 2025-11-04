@@ -857,6 +857,51 @@
     </div>
   </div>
 
+  <!-- Quest Form Modal -->
+  <div class="admin-modal" id="questFormModal" hidden>
+    <div class="admin-modal-overlay" id="questFormModalOverlay"></div>
+    <div class="admin-modal-content">
+      <header class="admin-modal-header">
+        <h3 id="questFormTitle">New Quest</h3>
+        <button class="btn-modal-close" id="btnCloseQuestForm">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body">
+        <form id="questForm">
+          <div class="admin-form-grid">
+            <label class="admin-form-field">
+              <span>ID *</span>
+              <input type="text" id="questId" name="id" required placeholder="sunrise-challenge" />
+            </label>
+            <label class="admin-form-field">
+              <span>XP</span>
+              <input type="number" id="questXp" name="xp" min="0" step="1" value="0" />
+            </label>
+            <label class="admin-form-field">
+              <span>Sort</span>
+              <input type="number" id="questSort" name="sort_order" min="0" step="1" value="1000" />
+            </label>
+            <label class="admin-form-field">
+              <span>Active</span>
+              <select id="questActive" name="is_active">
+                <option value="true" selected>Yes</option>
+                <option value="false">No</option>
+              </select>
+            </label>
+          </div>
+          <div class="poi-form-actions">
+            <button type="button" class="btn-secondary" id="questFormCancel">Cancel</button>
+            <button type="submit" class="btn-primary" id="questFormSubmit">Save Quest</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notifications -->
   <div id="toast-container" class="toast-container"></div>
 
