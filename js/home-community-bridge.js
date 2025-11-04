@@ -109,6 +109,10 @@
   window.navigatePlace = navigatePlace;
   window.showCommunity = showCommunity;
   window.checkInAtPlace = checkInAtPlace;
+  // Public API for map markers to update the panel and list
+  window.setCurrentPlace = function(id, opts){
+    setCurrentPlace(id, Object.assign({scroll:true, force:true}, opts||{}));
+  };
 
   if(document.readyState==='loading'){
     document.addEventListener('DOMContentLoaded', waitForListThenSetup);

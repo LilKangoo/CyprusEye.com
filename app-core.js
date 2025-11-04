@@ -168,8 +168,18 @@ console.log('🔵 App Core V2 - START');
         </div>
       `, { maxWidth: 270 });
 
-      // Wire comments button on popup open
+      // Sync current place when marker is clicked
+      marker.on('click', () => {
+        if (typeof window.setCurrentPlace === 'function') {
+          window.setCurrentPlace(poi.id, { scroll: true });
+        }
+      });
+
+      // Wire comments button on popup open and sync current place
       marker.on('popupopen', () => {
+        if (typeof window.setCurrentPlace === 'function') {
+          window.setCurrentPlace(poi.id, { scroll: true });
+        }
         const btn = document.querySelector('.popup-comments-btn[data-poi-id="' + poi.id + '"]');
         if (btn) {
           btn.addEventListener('click', (e) => {
