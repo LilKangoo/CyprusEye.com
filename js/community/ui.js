@@ -68,8 +68,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       initMap();
     }
 
-    // Update community stats
-    await updateCommunityStats();
+    // Update community stats (only if stats elements exist on page)
+    if (document.getElementById('totalComments') || 
+        document.getElementById('totalPhotos') || 
+        document.getElementById('activeUsers')) {
+      await updateCommunityStats().catch(err => {
+        console.warn('Stats update failed (non-critical):', err.message);
+      });
+    }
 
     console.log('✅ Community UI initialized successfully');
   } catch (error) {
@@ -595,7 +601,10 @@ function initModal() {
 window.openPoiComments = async function(poiId) {
   console.log('🔓 Opening modal for POI:', poiId);
   
-  currentPoiId = poiId;
+  if (!poiId) {
+    console.error('❌ No POI ID provided');
+    return;
+  }
   
   // Wait for POI data to load (up to 5 seconds)
   let attempts = 0;
@@ -615,18 +624,59 @@ window.openPoiComments = async function(poiId) {
     return;
   }
   
-  // Find POI index in filtered data for navigation
-  const dataToSearch = filteredPoisData.length > 0 ? filteredPoisData : poisData;
-  currentPoiIndex = dataToSearch.findIndex(p => p.id === poiId);
+  // Try multiple matching strategies to find the POI
+  let poi = null;
   
-  const poi = poisData.find(p => p.id === poiId);
+  // 1. Exact ID match
+  poi = poisData.find(p => p.id === poiId);
+  
+  // 2. Case-insensitive ID match
+  if (!poi) {
+    poi = poisData.find(p => p.id?.toLowerCase() === poiId?.toLowerCase());
+  }
+  
+  // 3. Try matching by name slug (convert name to slug and compare)
+  if (!poi) {
+    const normalizeSlug = (str) => str?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const searchSlug = normalizeSlug(poiId);
+    poi = poisData.find(p => {
+      const nameSlug = normalizeSlug(p.name);
+      return nameSlug === searchSlug;
+    });
+  }
+  
+  // 4. Partial match in ID or name
+  if (!poi) {
+    const searchLower = poiId.toLowerCase();
+    poi = poisData.find(p => 
+      p.id?.toLowerCase().includes(searchLower) || 
+      p.name?.toLowerCase().includes(searchLower)
+    );
+  }
   
   if (!poi) {
-    console.error('❌ POI not found:', poiId);
-    console.log('Available POI IDs:', poisData.map(p => p.id));
-    window.showToast?.(`Miejsce ${poiId} nie zostało znalezione`, 'error');
+    // Log to console for debugging but don't spam with errors
+    console.warn('⚠️ POI not found:', poiId);
+    console.debug('Tried matching strategies: exact, case-insensitive, slug, partial');
+    console.debug('Available POIs:', poisData.length, 'loaded');
+    
+    // Only log available IDs in debug mode to avoid console clutter
+    if (window.location.search.includes('debug')) {
+      console.log('Available POI IDs:', poisData.map(p => `${p.id} (${p.name})`));
+    }
+    
+    // Silently skip - don't show error toast
+    // This prevents spamming user with errors for old/invalid links or notifications
     return;
   }
+  
+  // Use the found POI's actual ID for consistency
+  currentPoiId = poi.id;
+  console.log('✅ Found POI:', poi.name, '(ID:', poi.id, ')');
+  
+  // Find POI index in filtered data for navigation
+  const dataToSearch = filteredPoisData.length > 0 ? filteredPoisData : poisData;
+  currentPoiIndex = dataToSearch.findIndex(p => p.id === poi.id);
 
   // Update modal title
   document.getElementById('commentsModalTitle').textContent = poi.name;
@@ -1325,7 +1375,8 @@ async function updateCommunityStats() {
     if (activeUsersEl) activeUsersEl.textContent = String(uniqueUsers || 0);
 
   } catch (error) {
-    console.error('Error updating stats:', error);
+    // Silently fail - stats are non-critical
+    console.debug('Stats update skipped:', error.message);
   }
 }
 
