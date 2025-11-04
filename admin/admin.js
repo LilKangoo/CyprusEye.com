@@ -459,6 +459,7 @@ async function loadUsersData(page = 1) {
         <td>
           ${user.username || 'N/A'}
           ${user.is_admin ? '<span class="badge badge-admin">ADMIN</span>' : ''}
+          ${!user.is_admin && user.is_moderator ? '<span class="badge">MODERATOR</span>' : ''}
         </td>
         <td>${user.email || 'N/A'}</td>
         <td>${user.level || 0}</td>
@@ -549,6 +550,7 @@ async function viewUserDetails(userId) {
             <div class="user-detail-status">
               <span class="badge ${statusBadgeClass}">${banLabel}</span>
               ${isCurrentUserAdmin ? '<span class="badge badge-admin">Admin</span>' : ''}
+              ${!isCurrentUserAdmin && profile.is_moderator ? '<span class="badge">Moderator</span>' : ''}
             </div>
           </div>
           <dl class="user-detail-meta">
@@ -599,15 +601,15 @@ async function viewUserDetails(userId) {
                 <span>Level</span>
                 <input type="number" name="level" min="0" step="1" value="${Number.isFinite(profile.level) ? profile.level : 0}" />
               </label>
+              <label class="admin-form-field">
+                <span>Role</span>
+                <select name="role" ${isSelf ? 'disabled' : ''}>
+                  <option value="user" ${!isCurrentUserAdmin && !profile.is_moderator ? 'selected' : ''}>User</option>
+                  <option value="moderator" ${!isCurrentUserAdmin && profile.is_moderator ? 'selected' : ''}>Moderator</option>
+                  <option value="admin" ${isCurrentUserAdmin ? 'selected' : ''}>Admin</option>
+                </select>
+              </label>
             </div>
-            <label class="admin-checkbox">
-              <input type="checkbox" name="is_admin" ${isCurrentUserAdmin ? 'checked' : ''} ${isSelf ? 'disabled' : ''} />
-              <span>Grant administrator access</span>
-            </label>
-            <label class="admin-checkbox">
-              <input type="checkbox" name="is_moderator" ${profile.is_moderator ? 'checked' : ''} ${isSelf ? 'disabled' : ''} />
-              <span>Grant moderator access</span>
-            </label>
             ${isSelf ? '<p class="user-detail-hint">You cannot remove admin access from your own account.</p>' : ''}
             <div class="user-detail-actions">
               <button type="submit" class="btn-primary">Save profile changes</button>
@@ -783,8 +785,9 @@ async function handleUserProfileSubmit(event, userId) {
   const displayName = (formData.get('name') || '').toString().trim();
   const xpRaw = (formData.get('xp') || '').toString().trim();
   const levelRaw = (formData.get('level') || '').toString().trim();
-  const isAdmin = formData.get('is_admin') === 'on';
-  const isModerator = formData.get('is_moderator') === 'on';
+  const role = (formData.get('role') || '').toString();
+  const isAdmin = role === 'admin';
+  const isModerator = role === 'moderator';
 
   const xpValue = xpRaw === '' ? null : Number.parseInt(xpRaw, 10);
   const levelValue = levelRaw === '' ? null : Number.parseInt(levelRaw, 10);
