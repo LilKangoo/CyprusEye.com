@@ -322,6 +322,86 @@
             Pominięto mapę. Przejdź do kolejnych informacji o lokalizacji.
           </p>
           
+          <!-- Current Place Highlight Section - restored -->
+          <div class="current-place-section" id="currentPlaceSection">
+            <div class="current-place-navigation">
+              <button type="button" class="btn secondary" id="prevPlaceBtn" onclick="navigatePlace(-1)">
+                ← Poprz.
+              </button>
+              <h2 class="current-place-heading">Aktualne miejsce</h2>
+              <button type="button" class="btn secondary" id="nextPlaceBtn" onclick="navigatePlace(1)">
+                Nast. →
+              </button>
+            </div>
+            
+            <div class="current-place-content" id="currentPlaceContent">
+              <h3 id="currentPlaceName">Ładowanie...</h3>
+              <p id="currentPlaceDescription">...</p>
+              
+              <div class="current-place-stats">
+                <div>
+                  <span>⭐</span>
+                  <span id="currentPlaceRating">Brak ocen</span>
+                </div>
+                <div>
+                  <span>💬</span>
+                  <span id="currentPlaceComments">0 komentarzy</span>
+                </div>
+                <div>
+                  <span>✨</span>
+                  <span id="currentPlaceXP">0 XP</span>
+                </div>
+              </div>
+              
+              <div class="current-place-actions">
+                <button class="btn primary" onclick="checkInAtPlace(window.currentPlaceId)">
+                  ✅ Zamelduj się
+                </button>
+                <button class="btn secondary" onclick="showCommunity(window.currentPlaceId)">
+                  💬 Komentarze
+                </button>
+                <button class="btn secondary" onclick="focusPlaceOnMap(window.currentPlaceId)">
+                  📍 Mapa
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          <div class="current-objective" id="currentObjective" hidden>
+            <h2 data-i18n="objective.title">Aktualna lokalizacja</h2>
+            <p id="objectiveTitle"></p>
+            <p id="objectiveDescription"></p>
+            <p>
+              <a id="objectiveLink" href="#" target="_blank" rel="noopener" data-i18n="objective.mapLink">
+                Zobacz na Mapach Google
+              </a>
+            </p>
+            <div class="objective-navigation">
+              <button
+                type="button"
+                class="btn btn-secondary secondary"
+                id="previousPlaceBtn"
+                aria-label="Przejdź do poprzedniego miejsca"
+                data-i18n="objective.previous"
+              >
+                ← Poprzednie miejsce
+              </button>
+              <button
+                type="button"
+                class="btn btn-secondary secondary"
+                id="nextPlaceBtn"
+                aria-label="Przejdź do następnego miejsca"
+                data-i18n="objective.next"
+              >
+                Następne miejsce →
+              </button>
+            </div>
+            <button id="checkInBtn" class="btn btn-primary primary" data-i18n="objective.checkIn">Zamelduj się i zdobądź XP</button>
+            <p class="hint" data-i18n="objective.hint">
+              Wskazówka: pozwól aplikacji użyć Twojej lokalizacji, aby potwierdzić, że jesteś na miejscu.
+            </p>
+            <p class="status" id="checkInStatus"></p>
+          </div>
         </section>
       </div>
 
@@ -399,28 +479,7 @@
 
       <!-- Discovery grid removed; replaced by Community list -->
 
-      <!-- Community List embedded directly under the map -->
-      <section class="community-list-section card surface-card" id="listViewSection">
-        <div class="poi-filter-bar">
-          <input 
-            type="search" 
-            id="poiSearchInput" 
-            class="poi-search-input" 
-            placeholder="Szukaj miejsca..."
-            data-i18n-attrs="placeholder:community.search.placeholder"
-          />
-          <select id="poiSortSelect" class="poi-sort-select">
-            <option value="recent" data-i18n="community.sort.recent">Najnowsze komentarze</option>
-            <option value="popular" data-i18n="community.sort.popular">Najpopularniejsze</option>
-            <option value="alphabetical" data-i18n="community.sort.alphabetical">Alfabetycznie</option>
-          </select>
-        </div>
-        <div id="poisScroll" class="pois-scroll">
-          <div id="poisList" class="pois-list">
-          <div class="loading-spinner"><div class="spinner"></div><p data-i18n="community.loading">Ładowanie miejsc...</p></div>
-          </div>
-        </div>
-      </section>
+      <!-- Community list removed per Option B -->
 
       </div>
 

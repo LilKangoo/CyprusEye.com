@@ -7,7 +7,11 @@
 
   function getOrderedPoiIds(){
     const cards = Array.from(document.querySelectorAll('#poisList .poi-card'));
-    return cards.map(c=>c.dataset.poiId).filter(Boolean);
+    if (cards.length > 0) {
+      return cards.map(c=>c.dataset.poiId).filter(Boolean);
+    }
+    // Fallback to PLACES_DATA order when list is not present on the page
+    return (window.PLACES_DATA||[]).map(p=>p.id).filter(Boolean);
   }
 
   function findPoi(id){
@@ -49,9 +53,12 @@
     }
 
     // Toggle active class on cards
-    document.querySelectorAll('#poisList .poi-card.active').forEach(el=>el.classList.remove('active'));
-    const active = document.querySelector('#poisList .poi-card[data-poi-id="'+id+'"]');
-    if(active) active.classList.add('active');
+    const listRoot = document.getElementById('poisList');
+    if (listRoot) {
+      listRoot.querySelectorAll('.poi-card.active').forEach(el=>el.classList.remove('active'));
+      const active = document.querySelector('#poisList .poi-card[data-poi-id="'+id+'"]');
+      if(active) active.classList.add('active');
+    }
   }
 
   function navigatePlace(delta){
@@ -100,6 +107,7 @@
   }
 
   function waitForListThenSetup(){
+    // If list exists and has cards, observe it; otherwise select the first POI
     const tryInit = () => {
       const list = document.getElementById('poisList');
       const hasCards = list && list.querySelector('.poi-card');
@@ -107,7 +115,12 @@
         setupObserver();
         return true;
       }
-      return false;
+      // No list on this page – select the first POI from PLACES_DATA and update panel + map
+      const firstId = getOrderedPoiIds()[0];
+      if(firstId){
+        setCurrentPlace(firstId, {focus:true, scroll:false, force:true});
+      }
+      return true;
     };
 
     if(tryInit()) return;
