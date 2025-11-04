@@ -38,6 +38,7 @@
     xp: 0,
     level: 1,
     tasksCompleted: new Set(),
+    auth: { userId: null, isAuthenticated: false },
   };
 
   function loadState(){
@@ -92,6 +93,98 @@
         current: into,
         next: XP_PER_LEVEL
       });
+    }
+  }
+
+  // --- Supabase integration ---
+  let sb = null;
+  async function initSupabase(){
+    try {
+      if (typeof window.getSupabase === 'function') sb = window.getSupabase();
+      if (!sb) return;
+      const { data: { user } } = await sb.auth.getUser();
+      if (!user) return; // guest
+      state.auth = { userId: user.id, isAuthenticated: true };
+
+      // Load profile xp/level
+      const { data: profile } = await sb
+        .from('profiles')
+        .select('xp, level')
+        .eq('id', user.id)
+        .single();
+      if (profile) {
+        if (Number.isFinite(profile.xp)) state.xp = profile.xp;
+        if (Number.isFinite(profile.level)) state.level = profile.level;
+      }
+
+      // Load completed tasks
+      const { data: ct } = await sb
+        .from('completed_tasks')
+        .select('task_id')
+        .eq('user_id', user.id);
+      if (Array.isArray(ct)) {
+        state.tasksCompleted = new Set(ct.map(r => r.task_id));
+      }
+
+      saveState();
+    } catch (_) { /* ignore */ }
+  }
+
+  async function awardTaskServer(task){
+    if (!sb || !state.auth.isAuthenticated) return false;
+    try {
+      // Ensure row in completed_tasks exists
+      await sb.from('completed_tasks').upsert({ user_id: state.auth.userId, task_id: task.id }, {
+        onConflict: 'user_id,task_id',
+        ignoreDuplicates: true,
+      });
+      // Call RPC to add XP and update level
+      await sb.rpc('award_task', { p_task_id: task.id });
+      // Refresh profile
+      const { data: profile } = await sb
+        .from('profiles')
+        .select('xp, level')
+        .eq('id', state.auth.userId)
+        .single();
+      if (profile) {
+        state.xp = Number(profile.xp) || 0;
+        state.level = Number(profile.level) || 1;
+      }
+      return true;
+    } catch (e) {
+      console.error('awardTaskServer error', e);
+      return false;
+    }
+  }
+
+  async function revertTaskServer(task){
+    if (!sb || !state.auth.isAuthenticated) return false;
+    try {
+      await sb.from('completed_tasks')
+        .delete()
+        .eq('user_id', state.auth.userId)
+        .eq('task_id', task.id);
+      // Prefer RPC if available; otherwise adjust xp client-side only
+      let ok = false;
+      try {
+        const { error } = await sb.rpc('revert_task', { p_task_id: task.id });
+        ok = !error;
+      } catch(_) { ok = false; }
+      if (ok) {
+        const { data: profile } = await sb
+          .from('profiles')
+          .select('xp, level')
+          .eq('id', state.auth.userId)
+          .single();
+        if (profile) {
+          state.xp = Number(profile.xp) || 0;
+          state.level = Number(profile.level) || 1;
+        }
+      }
+      return true;
+    } catch (e) {
+      console.error('revertTaskServer error', e);
+      return false;
     }
   }
 
@@ -168,17 +261,29 @@
     });
   }
 
-  function completeTask(task){
+  async function completeTask(task){
     if (state.tasksCompleted.has(task.id)) return;
     state.tasksCompleted.add(task.id);
-    gainXp(Number(task.xp)||0);
+    if (state.auth.isAuthenticated) {
+      const ok = await awardTaskServer(task);
+      if (!ok) gainXp(Number(task.xp)||0); // fallback local
+    } else {
+      gainXp(Number(task.xp)||0);
+    }
+    saveState();
     renderTasks();
   }
 
-  function revertTask(task){
+  async function revertTask(task){
     if (!state.tasksCompleted.has(task.id)) return;
     state.tasksCompleted.delete(task.id);
-    gainXp(-1 * (Number(task.xp)||0));
+    if (state.auth.isAuthenticated) {
+      const ok = await revertTaskServer(task);
+      if (!ok) gainXp(-1 * (Number(task.xp)||0));
+    } else {
+      gainXp(-1 * (Number(task.xp)||0));
+    }
+    saveState();
     renderTasks();
   }
 
@@ -187,8 +292,9 @@
     if (view && view.hasAttribute('hidden')) view.removeAttribute('hidden');
   }
 
-  function onReady(){
+  async function onReady(){
     loadState();
+    await initSupabase(); // if logged in -> overrides state with server xp/level/completed tasks
     updateHeaderMetrics();
     renderTasks();
     unhideView();
