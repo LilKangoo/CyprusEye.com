@@ -9,6 +9,13 @@
 -- PART 1: USER MANAGEMENT (Advanced)
 -- =====================================================
 
+-- Ensure enforcement flags exist on profiles
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS require_password_change BOOLEAN DEFAULT FALSE;
+
+ALTER TABLE profiles
+  ADD COLUMN IF NOT EXISTS require_email_update BOOLEAN DEFAULT FALSE;
+
 -- Function: Ban user
 CREATE OR REPLACE FUNCTION admin_ban_user(
   target_user_id UUID,
@@ -189,6 +196,120 @@ BEGIN
     'new_xp', new_xp,
     'old_level', old_level,
     'new_level', new_level
+  );
+END;
+$$;
+
+
+-- Function: Set account enforcement flags
+CREATE OR REPLACE FUNCTION admin_set_user_enforcement(
+  target_user_id UUID,
+  require_password_change BOOLEAN DEFAULT NULL,
+  require_email_update BOOLEAN DEFAULT NULL
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  updated_profile profiles;
+BEGIN
+  IF NOT is_current_user_admin() THEN
+    RAISE EXCEPTION 'Access denied: Admin only';
+  END IF;
+
+  UPDATE profiles
+  SET
+    require_password_change = COALESCE(require_password_change, profiles.require_password_change),
+    require_email_update = COALESCE(require_email_update, profiles.require_email_update),
+    updated_at = NOW()
+  WHERE id = target_user_id
+  RETURNING * INTO updated_profile;
+
+  INSERT INTO admin_actions (
+    admin_id,
+    action_type,
+    target_user_id,
+    action_data
+  ) VALUES (
+    auth.uid(),
+    'set_enforcement',
+    target_user_id,
+    json_build_object(
+      'require_password_change', updated_profile.require_password_change,
+      'require_email_update', updated_profile.require_email_update
+    )
+  );
+
+  RETURN json_build_object('success', true, 'profile', row_to_json(updated_profile));
+END;
+$$;
+
+
+-- Function: Update user email (auth + profile)
+CREATE OR REPLACE FUNCTION admin_update_user_email(
+  target_user_id UUID,
+  new_email TEXT
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  formatted_email TEXT;
+  existing_user UUID;
+BEGIN
+  IF NOT is_current_user_admin() THEN
+    RAISE EXCEPTION 'Access denied: Admin only';
+  END IF;
+
+  formatted_email := lower(trim(new_email));
+
+  IF formatted_email IS NULL OR formatted_email = '' THEN
+    RAISE EXCEPTION 'Email cannot be empty';
+  END IF;
+
+  SELECT id INTO existing_user
+  FROM auth.users
+  WHERE lower(email) = formatted_email
+  LIMIT 1;
+
+  IF existing_user IS NOT NULL AND existing_user <> target_user_id THEN
+    RAISE EXCEPTION 'Email already in use';
+  END IF;
+
+  UPDATE auth.users
+  SET
+    email = formatted_email,
+    updated_at = NOW()
+  WHERE id = target_user_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'User not found';
+  END IF;
+
+  UPDATE profiles
+  SET
+    email = formatted_email,
+    updated_at = NOW()
+  WHERE id = target_user_id;
+
+  INSERT INTO admin_actions (
+    admin_id,
+    action_type,
+    target_user_id,
+    action_data
+  ) VALUES (
+    auth.uid(),
+    'update_email',
+    target_user_id,
+    json_build_object('email', formatted_email)
+  );
+
+  RETURN json_build_object(
+    'success', true,
+    'user_id', target_user_id,
+    'email', formatted_email
   );
 END;
 $$;
@@ -739,6 +860,8 @@ $$;
 GRANT EXECUTE ON FUNCTION admin_ban_user(UUID, TEXT, INTERVAL) TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_unban_user(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_adjust_user_xp(UUID, INTEGER, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_set_user_enforcement(UUID, BOOLEAN, BOOLEAN) TO authenticated;
+GRANT EXECUTE ON FUNCTION admin_update_user_email(UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_bulk_update_users(UUID[], JSON) TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_delete_comment(UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION admin_bulk_delete_comments(UUID[], TEXT) TO authenticated;

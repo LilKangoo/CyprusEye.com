@@ -515,96 +515,183 @@ async function viewUserDetails(userId) {
     
     if (!modal || !content) return;
     
-    const profile = data.profile;
-    const stats = data.stats;
-    const isCurrentUserAdmin = profile && profile.is_admin;
+    const profile = data.profile || {};
+    const stats = data.stats || {};
+    const authData = data.auth_data || {};
+    const isCurrentUserAdmin = Boolean(profile.is_admin);
     const isSelf = profile && profile.id === ADMIN_CONFIG.requiredUserId;
+    const authEmail = authData.email || profile.email || '';
+    const bannedUntil = authData.banned_until;
+    const banLabel = bannedUntil
+      ? `Banned until ${formatDate(bannedUntil)}`
+      : 'Active';
+    const statusBadgeClass = bannedUntil ? 'badge-danger' : 'badge-success';
+    const formattedJoined = authData.created_at ? formatDate(authData.created_at) : 'Unknown';
+    const formattedLastSignIn = authData.last_sign_in_at ? formatDate(authData.last_sign_in_at) : 'Never';
+    const emailEscaped = escapeHtml(authEmail);
+    const usernameEscaped = escapeHtml(profile.username || '');
+    const nameEscaped = escapeHtml(profile.name || '');
 
     content.innerHTML = `
-      <div style="display: grid; gap: 24px;">
-        <!-- Profile Info -->
-        <div>
-          <h4 style="margin-bottom: 12px; color: var(--admin-text);">Profile Information</h4>
-          <div style="background: var(--admin-bg); padding: 20px; border-radius: 8px;">
-            <table style="width: 100%; color: var(--admin-text);">
-              <tr>
-                <td style="padding: 8px 0; font-weight: 500;">Username:</td>
-                <td style="padding: 8px 0;">${profile.username || 'N/A'}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; font-weight: 500;">Email:</td>
-                <td style="padding: 8px 0;">${profile.email || 'N/A'}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; font-weight: 500;">Level:</td>
-                <td style="padding: 8px 0;">${profile.level || 0}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; font-weight: 500;">XP:</td>
-                <td style="padding: 8px 0;">${profile.xp || 0}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; font-weight: 500;">Joined:</td>
-                <td style="padding: 8px 0;">${formatDate(data.auth_data.created_at)}</td>
-              </tr>
-              <tr>
-                <td style="padding: 8px 0; font-weight: 500;">Last Sign In:</td>
-                <td style="padding: 8px 0;">${formatDate(data.auth_data.last_sign_in_at)}</td>
-              </tr>
-            </table>
+      <div class="user-detail-grid">
+        <section class="user-detail-card user-detail-card--full">
+          <div class="user-detail-header">
+            <div>
+              <h4 class="user-detail-title">${usernameEscaped || 'Unknown user'}</h4>
+              <p class="user-detail-subtitle">${emailEscaped || 'No email provided'}</p>
+            </div>
+            <div class="user-detail-status">
+              <span class="badge ${statusBadgeClass}">${banLabel}</span>
+              ${isCurrentUserAdmin ? '<span class="badge badge-admin">Admin</span>' : ''}
+            </div>
           </div>
-        </div>
+          <dl class="user-detail-meta">
+            <div>
+              <dt>User ID</dt>
+              <dd>${escapeHtml(profile.id || 'N/A')}</dd>
+            </div>
+            <div>
+              <dt>Display name</dt>
+              <dd>${nameEscaped || '—'}</dd>
+            </div>
+            <div>
+              <dt>Level</dt>
+              <dd>${Number.isFinite(profile.level) ? profile.level : 0}</dd>
+            </div>
+            <div>
+              <dt>Total XP</dt>
+              <dd>${Number.isFinite(profile.xp) ? profile.xp : 0}</dd>
+            </div>
+            <div>
+              <dt>Joined</dt>
+              <dd>${formattedJoined}</dd>
+            </div>
+            <div>
+              <dt>Last sign in</dt>
+              <dd>${formattedLastSignIn}</dd>
+            </div>
+          </dl>
+        </section>
 
-        <!-- Statistics -->
-        <div>
-          <h4 style="margin-bottom: 12px; color: var(--admin-text);">Activity Statistics</h4>
-          <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px;">
-            <div style="background: var(--admin-bg); padding: 16px; border-radius: 8px; text-align: center;">
-              <p style="color: var(--admin-text-muted); font-size: 12px; margin-bottom: 4px;">Comments</p>
-              <p style="color: var(--admin-text); font-size: 24px; font-weight: 700;">${stats.comments || 0}</p>
+        <section class="user-detail-card">
+          <h4 class="user-detail-section-title">Edit profile</h4>
+          <form id="userProfileForm" class="user-detail-form" onsubmit="handleUserProfileSubmit(event, '${userId}')">
+            <div class="user-detail-form-grid">
+              <label class="admin-form-field">
+                <span>Username</span>
+                <input type="text" name="username" value="${usernameEscaped}" maxlength="32" />
+              </label>
+              <label class="admin-form-field">
+                <span>Display name</span>
+                <input type="text" name="name" value="${nameEscaped}" maxlength="64" />
+              </label>
+              <label class="admin-form-field">
+                <span>XP</span>
+                <input type="number" name="xp" min="0" step="1" value="${Number.isFinite(profile.xp) ? profile.xp : 0}" />
+              </label>
+              <label class="admin-form-field">
+                <span>Level</span>
+                <input type="number" name="level" min="0" step="1" value="${Number.isFinite(profile.level) ? profile.level : 0}" />
+              </label>
             </div>
-            <div style="background: var(--admin-bg); padding: 16px; border-radius: 8px; text-align: center;">
-              <p style="color: var(--admin-text-muted); font-size: 12px; margin-bottom: 4px;">Ratings</p>
-              <p style="color: var(--admin-text); font-size: 24px; font-weight: 700;">${stats.ratings || 0}</p>
+            <label class="admin-checkbox">
+              <input type="checkbox" name="is_admin" ${isCurrentUserAdmin ? 'checked' : ''} ${isSelf ? 'disabled' : ''} />
+              <span>Grant administrator access</span>
+            </label>
+            ${isSelf ? '<p class="user-detail-hint">You cannot remove admin access from your own account.</p>' : ''}
+            <div class="user-detail-actions">
+              <button type="submit" class="btn-primary">Save profile changes</button>
             </div>
-            <div style="background: var(--admin-bg); padding: 16px; border-radius: 8px; text-align: center;">
-              <p style="color: var(--admin-text-muted); font-size: 12px; margin-bottom: 4px;">Visits</p>
-              <p style="color: var(--admin-text); font-size: 24px; font-weight: 700;">${stats.visits || 0}</p>
-            </div>
-            <div style="background: var(--admin-bg); padding: 16px; border-radius: 8px; text-align: center;">
-              <p style="color: var(--admin-text-muted); font-size: 12px; margin-bottom: 4px;">Tasks</p>
-              <p style="color: var(--admin-text); font-size: 24px; font-weight: 700;">${stats.completed_tasks || 0}</p>
-            </div>
-          </div>
-        </div>
+          </form>
+        </section>
 
-        <!-- Admin Actions -->
-        ${!isSelf ? `
-        <div>
-          <h4 style="margin-bottom: 12px; color: var(--admin-text);">Admin Actions</h4>
-          <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-            <button class="btn-primary" onclick="adjustUserXP('${userId}', 100); hideElement($('#userDetailModal'));">
-              +100 XP
-            </button>
-            <button class="btn-primary" onclick="adjustUserXP('${userId}', 500); hideElement($('#userDetailModal'));">
-              +500 XP
-            </button>
-            <button class="btn-secondary" onclick="adjustUserXP('${userId}', -100); hideElement($('#userDetailModal'));">
-              -100 XP
-            </button>
-            <button class="btn-secondary" onclick="adjustUserXP('${userId}', -500); hideElement($('#userDetailModal'));">
-              -500 XP
-            </button>
-            ${!isCurrentUserAdmin ? `
-            <button class="btn-secondary" style="background: var(--admin-danger); border-color: var(--admin-danger);" onclick="banUser('${userId}'); hideElement($('#userDetailModal'));">
-              Ban User (30d)
-            </button>
-            ` : ''}
+        <section class="user-detail-card">
+          <h4 class="user-detail-section-title">Account controls</h4>
+          <form
+            id="userAccountForm"
+            class="user-detail-form"
+            onsubmit="handleUserAccountSubmit(event, '${userId}')"
+            data-original-email="${emailEscaped}"
+            data-original-password-flag="${profile.require_password_change ? 'true' : 'false'}"
+            data-original-email-flag="${profile.require_email_update ? 'true' : 'false'}"
+          >
+            <label class="admin-form-field">
+              <span>Email address</span>
+              <input type="email" name="email" value="${emailEscaped}" required />
+            </label>
+            <div class="user-detail-switches">
+              <label class="admin-checkbox">
+                <input type="checkbox" name="requirePasswordChange" ${profile.require_password_change ? 'checked' : ''} />
+                <span>Require password change on next login</span>
+              </label>
+              <label class="admin-checkbox">
+                <input type="checkbox" name="requireEmailUpdate" ${profile.require_email_update ? 'checked' : ''} />
+                <span>Require user to verify or update email</span>
+              </label>
+            </div>
+            <div class="user-detail-actions">
+              <button type="submit" class="btn-secondary">Save account settings</button>
+            </div>
+          </form>
+        </section>
+
+        <section class="user-detail-card">
+          <h4 class="user-detail-section-title">Moderation tools</h4>
+          ${!isSelf ? `
+          <div class="user-detail-actions-group">
+            <span class="user-detail-actions-label">Quick XP adjustments</span>
+            <div class="user-detail-inline-actions">
+              <button class="btn-primary" type="button" onclick="handleUserXpAdjustment('${userId}', 100)">+100 XP</button>
+              <button class="btn-primary" type="button" onclick="handleUserXpAdjustment('${userId}', 500)">+500 XP</button>
+              <button class="btn-secondary" type="button" onclick="handleUserXpAdjustment('${userId}', -100)">-100 XP</button>
+              <button class="btn-secondary" type="button" onclick="handleUserXpAdjustment('${userId}', -500)">-500 XP</button>
+            </div>
           </div>
-        </div>
-        ` : '<p style="color: var(--admin-text-muted); font-style: italic;">Cannot perform actions on your own account</p>'}
+          <div class="user-detail-actions-group">
+            <span class="user-detail-actions-label">Account status</span>
+            <div class="user-detail-inline-actions">
+              ${bannedUntil
+                ? `<button type="button" class="btn-primary" onclick="handleUserBanToggle('${userId}', true)">Remove ban</button>`
+                : `<button type="button" class="btn-secondary user-detail-danger" onclick="handleUserBanToggle('${userId}', false)">Ban user (30 days)</button>`}
+            </div>
+          </div>
+          ` : '<p class="user-detail-hint">You cannot moderate your own account.</p>'}
+        </section>
+
+        <section class="user-detail-card user-detail-card--full">
+          <h4 class="user-detail-section-title">Activity statistics</h4>
+          <div class="user-detail-stats-grid">
+            <div>
+              <p class="user-detail-stat-label">Comments</p>
+              <p class="user-detail-stat-value">${stats.comments || 0}</p>
+            </div>
+            <div>
+              <p class="user-detail-stat-label">Ratings</p>
+              <p class="user-detail-stat-value">${stats.ratings || 0}</p>
+            </div>
+            <div>
+              <p class="user-detail-stat-label">Visits</p>
+              <p class="user-detail-stat-value">${stats.visits || 0}</p>
+            </div>
+            <div>
+              <p class="user-detail-stat-label">Completed tasks</p>
+              <p class="user-detail-stat-value">${stats.completed_tasks || 0}</p>
+            </div>
+            <div>
+              <p class="user-detail-stat-label">Total XP earned</p>
+              <p class="user-detail-stat-value">${stats.total_xp || profile.xp || 0}</p>
+            </div>
+          </div>
+        </section>
       </div>
     `;
+
+    const accountForm = content.querySelector('#userAccountForm');
+    if (accountForm) {
+      accountForm.dataset.originalEmail = authEmail;
+      accountForm.dataset.originalPasswordFlag = profile.require_password_change ? 'true' : 'false';
+      accountForm.dataset.originalEmailFlag = profile.require_email_update ? 'true' : 'false';
+    }
 
     showElement(modal);
 
@@ -614,8 +701,184 @@ async function viewUserDetails(userId) {
   }
 }
 
+async function handleUserProfileSubmit(event, userId) {
+  event.preventDefault();
+
+  const form = event.target;
+  const formData = new FormData(form);
+  const client = ensureSupabase();
+
+  if (!client) {
+    showToast('Database connection not available', 'error');
+    return;
+  }
+
+  const submitButton = form.querySelector('button[type="submit"]');
+
+  const username = (formData.get('username') || '').toString().trim();
+  const displayName = (formData.get('name') || '').toString().trim();
+  const xpRaw = (formData.get('xp') || '').toString().trim();
+  const levelRaw = (formData.get('level') || '').toString().trim();
+  const isAdmin = formData.get('is_admin') === 'on';
+
+  const xpValue = xpRaw === '' ? null : Number.parseInt(xpRaw, 10);
+  const levelValue = levelRaw === '' ? null : Number.parseInt(levelRaw, 10);
+
+  if (xpValue !== null && Number.isNaN(xpValue)) {
+    showToast('Invalid XP value provided', 'error');
+    return;
+  }
+
+  if (levelValue !== null && Number.isNaN(levelValue)) {
+    showToast('Invalid level value provided', 'error');
+    return;
+  }
+
+  if (submitButton) {
+    submitButton.disabled = true;
+  }
+
+  try {
+    showToast('Saving profile changes...', 'info');
+
+    const { error } = await client.rpc('admin_update_user_profile', {
+      target_user_id: userId,
+      new_username: username || null,
+      new_name: displayName || null,
+      new_xp: xpValue,
+      new_level: levelValue,
+      new_is_admin: isAdmin,
+    });
+
+    if (error) {
+      throw error;
+    }
+
+    showToast('Profile updated successfully', 'success');
+
+    if (adminState.currentView === 'users') {
+      loadUsersData(adminState.usersPage);
+    }
+
+    await viewUserDetails(userId);
+
+  } catch (error) {
+    console.error('Failed to update profile:', error);
+    showToast('Failed to update profile: ' + (error.message || 'Unknown error'), 'error');
+
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+    }
+  }
+}
+
+async function handleUserAccountSubmit(event, userId) {
+  event.preventDefault();
+
+  const form = event.target;
+  const formData = new FormData(form);
+  const client = ensureSupabase();
+
+  if (!client) {
+    showToast('Database connection not available', 'error');
+    return;
+  }
+
+  const submitButton = form.querySelector('button[type="submit"]');
+
+  const email = (formData.get('email') || '').toString().trim();
+  const requirePasswordChange = formData.get('requirePasswordChange') === 'on';
+  const requireEmailUpdate = formData.get('requireEmailUpdate') === 'on';
+
+  const originalEmail = (form.dataset.originalEmail || '').trim();
+  const originalPasswordFlag = form.dataset.originalPasswordFlag === 'true';
+  const originalEmailFlag = form.dataset.originalEmailFlag === 'true';
+
+  const updates = [];
+
+  if (email !== originalEmail) {
+    updates.push(async () => {
+      const { error } = await client.rpc('admin_update_user_email', {
+        target_user_id: userId,
+        new_email: email,
+      });
+      if (error) throw error;
+    });
+  }
+
+  if (requirePasswordChange !== originalPasswordFlag || requireEmailUpdate !== originalEmailFlag) {
+    updates.push(async () => {
+      const { error } = await client.rpc('admin_set_user_enforcement', {
+        target_user_id: userId,
+        require_password_change: requirePasswordChange,
+        require_email_update: requireEmailUpdate,
+      });
+      if (error) throw error;
+    });
+  }
+
+  if (updates.length === 0) {
+    showToast('No account changes detected', 'info');
+    return;
+  }
+
+  if (submitButton) {
+    submitButton.disabled = true;
+  }
+
+  try {
+    showToast('Applying account updates...', 'info');
+
+    for (const update of updates) {
+      await update();
+    }
+
+    showToast('Account settings updated', 'success');
+
+    if (adminState.currentView === 'users') {
+      loadUsersData(adminState.usersPage);
+    }
+
+    await viewUserDetails(userId);
+
+  } catch (error) {
+    console.error('Failed to update account settings:', error);
+    showToast('Failed to update account settings: ' + (error.message || 'Unknown error'), 'error');
+
+  } finally {
+    if (submitButton) {
+      submitButton.disabled = false;
+    }
+  }
+}
+
+async function handleUserXpAdjustment(userId, change) {
+  const success = await adjustUserXP(userId, change);
+  if (success) {
+    await viewUserDetails(userId);
+  }
+}
+
+async function handleUserBanToggle(userId, isCurrentlyBanned) {
+  let success = false;
+  if (isCurrentlyBanned) {
+    success = await unbanUser(userId);
+  } else {
+    success = await banUser(userId);
+  }
+
+  if (success) {
+    await viewUserDetails(userId);
+  }
+}
+
 // Make function global for onclick
 window.viewUserDetails = viewUserDetails;
+window.handleUserProfileSubmit = handleUserProfileSubmit;
+window.handleUserAccountSubmit = handleUserAccountSubmit;
+window.handleUserXpAdjustment = handleUserXpAdjustment;
+window.handleUserBanToggle = handleUserBanToggle;
 
 // =====================================================
 // DIAGNOSTICS
@@ -1246,15 +1509,19 @@ async function adjustUserXP(userId, xpChange, reason = 'Admin adjustment') {
     if (error) throw error;
     
     showToast(`XP adjusted: ${data.old_xp} → ${data.new_xp}`, 'success');
-    
+
     // Reload users if on users view
     if (adminState.currentView === 'users') {
       loadUsersData(adminState.usersPage);
     }
-    
+
+    return true;
+
   } catch (error) {
     console.error('XP adjustment failed:', error);
     showToast('Failed to adjust XP: ' + (error.message || 'Unknown error'), 'error');
+
+    return false;
   }
 }
 
@@ -1282,14 +1549,18 @@ async function banUser(userId, reason = 'Violating terms', days = 30) {
     if (error) throw error;
     
     showToast('User banned successfully', 'success');
-    
+
     if (adminState.currentView === 'users') {
       loadUsersData(adminState.usersPage);
     }
-    
+
+    return true;
+
   } catch (error) {
     console.error('Ban failed:', error);
     showToast('Failed to ban user: ' + (error.message || 'Unknown error'), 'error');
+
+    return false;
   }
 }
 
@@ -1315,14 +1586,18 @@ async function unbanUser(userId) {
     if (error) throw error;
     
     showToast('User unbanned successfully', 'success');
-    
+
     if (adminState.currentView === 'users') {
       loadUsersData(adminState.usersPage);
     }
-    
+
+    return true;
+
   } catch (error) {
     console.error('Unban failed:', error);
     showToast('Failed to unban user: ' + (error.message || 'Unknown error'), 'error');
+
+    return false;
   }
 }
 
