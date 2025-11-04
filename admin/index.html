@@ -887,6 +887,34 @@
     </div>
   </div>
 
+  <!-- Diagnostics Auto-Fix Modal -->
+  <div class="admin-modal" id="diagnosticFixModal" hidden>
+    <div class="admin-modal-overlay" id="diagnosticFixModalOverlay"></div>
+    <div class="admin-modal-content">
+      <header class="admin-modal-header">
+        <h3 id="diagnosticFixTitle">Auto-Fix</h3>
+        <button class="btn-modal-close" id="btnCloseDiagnosticFix">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body">
+        <div style="display: grid; gap: 12px;">
+          <p id="diagnosticFixDescription" style="color: var(--admin-text-muted);"></p>
+          <label class="admin-form-field">
+            <span>SQL to run in Supabase</span>
+            <textarea id="diagnosticFixSql" rows="12" readonly style="font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;"></textarea>
+          </label>
+          <div class="poi-form-actions">
+            <button type="button" class="btn-secondary" id="btnCopyDiagnosticSql">Copy SQL</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Quest Form Modal -->
   <div class="admin-modal" id="questFormModal" hidden>
     <div class="admin-modal-overlay" id="questFormModalOverlay"></div>
