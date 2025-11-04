@@ -158,12 +158,31 @@ console.log('🔵 App Core V2 - START');
       const googleMapsUrl = poi.googleMapsUrl || poi.googleMapsURL || `https://maps.google.com/?q=${poi.lat},${poi.lng}`;
       
       marker.bindPopup(`
-        <div style="min-width: 200px;">
+        <div style="min-width: 220px;">
           <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #2563eb;">${name}</h3>
-          <p style="margin: 0 0 8px 0; font-size: 14px;">⭐ ${poi.xp || 100} XP</p>
-          <a href="${googleMapsUrl}" target="_blank" rel="noopener" style="display: inline-block; padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 13px;">Google Maps →</a>
+          <p style="margin: 0 0 12px 0; font-size: 14px;">⭐ ${poi.xp || 100} XP</p>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <a href="${googleMapsUrl}" target="_blank" rel="noopener" style="display: inline-block; padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 13px;">Google Maps →</a>
+            <button type="button" data-poi-id="${poi.id}" class="popup-comments-btn" style="padding:6px 10px; background:#f3f4f6; color:#111827; border:1px solid #e5e7eb; border-radius:4px; font-size:13px; cursor:pointer;">💬 Komentarze</button>
+          </div>
         </div>
-      `, { maxWidth: 250 });
+      `, { maxWidth: 270 });
+
+      // Wire comments button on popup open
+      marker.on('popupopen', () => {
+        const btn = document.querySelector('.popup-comments-btn[data-poi-id="' + poi.id + '"]');
+        if (btn) {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof window.openPoiComments === 'function') {
+              window.openPoiComments(poi.id);
+            } else {
+              console.warn('openPoiComments not available');
+            }
+          });
+        }
+      });
       
       // Dodaj do warstwy
       marker.addTo(markersLayer);

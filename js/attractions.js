@@ -69,6 +69,7 @@
           <div class="attraction-actions">
             <a class="btn btn-sm" href="index.html?focus=${encodeURIComponent(p.id)}" aria-label="Pokaż na mapie">📍 Pokaż na mapie</a>
             <a class="ghost btn-sm" href="${maps}" target="_blank" rel="noopener">Google Maps →</a>
+            <button type="button" class="btn btn-sm" data-action="comments" data-poi-id="${p.id}">💬 Komentarze</button>
           </div>
         </article>
       `;
@@ -76,6 +77,18 @@
     });
 
     list.appendChild(frag);
+
+    // Wire comments buttons
+    list.querySelectorAll('button[data-action="comments"]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const pid = btn.getAttribute('data-poi-id');
+        if (pid && typeof window.openPoiComments === 'function') {
+          window.openPoiComments(pid);
+        }
+      });
+    });
   }
 
   function applySearch(pois){
