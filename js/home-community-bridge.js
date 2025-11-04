@@ -14,7 +14,7 @@
     return (window.PLACES_DATA||[]).find(p=>p.id===id);
   }
 
-  function setCurrentPlace(id, options={scroll:false}){
+  function setCurrentPlace(id, options={scroll:false, focus:true}){
     if(!id) return;
     if(currentId===id && !options.force) return;
     const poi = findPoi(id);
@@ -34,7 +34,7 @@
     if(commentsEl) commentsEl.textContent = '—';
     if(ratingEl) ratingEl.textContent = '—';
 
-    if(typeof window.focusPlaceOnMap === 'function'){
+    if(options.focus !== false && typeof window.focusPlaceOnMap === 'function'){
       window.focusPlaceOnMap(id);
     }
 
@@ -116,7 +116,7 @@
   window.checkInAtPlace = checkInAtPlace;
   // Public API for map markers to update the panel and list
   window.setCurrentPlace = function(id, opts){
-    setCurrentPlace(id, Object.assign({scroll:true, force:true}, opts||{}));
+    setCurrentPlace(id, Object.assign({scroll:false, force:true}, opts||{}));
   };
 
   if(document.readyState==='loading'){

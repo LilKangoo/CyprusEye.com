@@ -175,11 +175,8 @@ console.log('🔵 App Core V2 - START');
         }
       });
 
-      // Wire comments button on popup open and sync current place
+      // Wire comments button on popup open
       marker.on('popupopen', () => {
-        if (typeof window.setCurrentPlace === 'function') {
-          window.setCurrentPlace(poi.id, { scroll: true });
-        }
         const btn = document.querySelector('.popup-comments-btn[data-poi-id="' + poi.id + '"]');
         if (btn) {
           btn.addEventListener('click', (e) => {
