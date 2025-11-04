@@ -40,7 +40,12 @@
 
     if(options.scroll){
       const card = document.querySelector('#poisList .poi-card[data-poi-id="'+id+'"]');
-      if(card) card.scrollIntoView({behavior:'smooth', block:'nearest'});
+      const scrollBox = document.getElementById('poisScroll');
+      if(card && scrollBox){
+        const cardTop = card.offsetTop - scrollBox.offsetTop;
+        const target = Math.max(0, cardTop - 12);
+        scrollBox.scrollTo({ top: target, behavior: 'smooth' });
+      }
     }
 
     // Toggle active class on cards
