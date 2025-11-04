@@ -18,6 +18,16 @@
     return (window.PLACES_DATA||[]).find(p=>p.id===id);
   }
 
+  async function waitForPlacesData(){
+    for(let i=0;i<100;i++){
+      if(Array.isArray(window.PLACES_DATA) && window.PLACES_DATA.length>0){
+        return window.PLACES_DATA;
+      }
+      await new Promise(r=>setTimeout(r,100));
+    }
+    return window.PLACES_DATA || [];
+  }
+
   function setCurrentPlace(id, options={scroll:false, focus:true}){
     if(!id) return;
     if(currentId===id && !options.force) return;
@@ -137,9 +147,31 @@
     setCurrentPlace(id, Object.assign({scroll:false, force:true}, opts||{}));
   };
 
-  if(document.readyState==='loading'){
-    document.addEventListener('DOMContentLoaded', waitForListThenSetup);
-  } else {
+  async function initialize(){
+    await waitForPlacesData();
+    // Auto-select first POI if not set yet
+    if(!currentId){
+      const firstId = getOrderedPoiIds()[0];
+      if(firstId){
+        setCurrentPlace(firstId, {focus:true, scroll:false, force:true});
+      }
+    }
     waitForListThenSetup();
+  }
+
+  // Refresh handling when data is reloaded
+  window.addEventListener('poisDataRefreshed', () => {
+    if(!currentId){
+      const firstId = getOrderedPoiIds()[0];
+      if(firstId){
+        setCurrentPlace(firstId, {focus:true, scroll:false, force:true});
+      }
+    }
+  });
+
+  if(document.readyState==='loading'){
+    document.addEventListener('DOMContentLoaded', initialize);
+  } else {
+    initialize();
   }
 })();
