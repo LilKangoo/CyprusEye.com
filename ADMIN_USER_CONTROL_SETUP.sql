@@ -154,22 +154,39 @@ language plpgsql
 security definer
 as $$
 declare
-  p jsonb;
-  stats jsonb := '{}'::jsonb;
+  p public.profiles%rowtype;
+  a record;
+  result jsonb;
 begin
   if not public.is_current_user_admin() then
     raise exception 'forbidden';
   end if;
-  select to_jsonb(pr.*) into p from public.profiles pr where pr.id = target_user_id;
-  -- Example stats (adjust to your schema)
-  select jsonb_build_object(
-    'comments', coalesce((select count(*) from public.poi_comments c where c.user_id = target_user_id),0),
-    'ratings',  coalesce((select count(*) from public.poi_ratings r where r.user_id = target_user_id),0),
-    'visits',   coalesce((select count(*) from public.poi_visits v where v.user_id = target_user_id),0),
-    'completed_tasks', coalesce((select count(*) from public.completed_tasks ct where ct.user_id = target_user_id),0),
-    'total_xp', coalesce((select sum(t.xp) from public.completed_tasks ct join public.tasks t on t.id = ct.task_id where ct.user_id = target_user_id),0)
-  ) into stats;
-  return jsonb_build_object('profile', p, 'stats', stats);
+
+  select * into p from public.profiles where id = target_user_id;
+
+  -- Fetch minimal auth data (email, created_at, last_sign_in_at)
+  select u.email, u.created_at, u.last_sign_in_at
+  into a
+  from auth.users u
+  where u.id = target_user_id;
+
+  result := jsonb_build_object(
+    'profile', to_jsonb(p),
+    'auth_data', jsonb_build_object(
+      'email', a.email,
+      'created_at', a.created_at,
+      'last_sign_in_at', a.last_sign_in_at,
+      'banned_until', p.banned_until
+    ),
+    'stats', jsonb_build_object(
+      'comments', coalesce((select count(*) from public.poi_comments c where c.user_id = target_user_id),0),
+      'ratings',  coalesce((select count(*) from public.poi_ratings r where r.user_id = target_user_id),0),
+      'visits',   coalesce((select count(*) from public.user_poi_visits v where v.user_id = target_user_id),0),
+      'completed_tasks', coalesce((select count(*) from public.completed_tasks ct where ct.user_id = target_user_id),0),
+      'total_xp', coalesce((select sum(t.xp) from public.completed_tasks ct join public.tasks t on t.id = ct.task_id where ct.user_id = target_user_id),0)
+    )
+  );
+  return result;
 end;
 $$;
 
@@ -179,3 +196,10 @@ $$;
 -- create policy if not exists poi_comments_insert_allowed on public.poi_comments
 --   for insert
 --   with check ( not public.is_user_banned(auth.uid()) );
+
+-- 11) Grants for RPCs
+grant execute on function public.admin_adjust_user_xp(uuid, int) to authenticated;
+grant execute on function public.admin_set_user_xp_level(uuid, int, int) to authenticated;
+grant execute on function public.admin_update_user_profile(uuid, text, text, integer, integer, boolean) to authenticated;
+grant execute on function public.admin_set_user_enforcement(uuid, boolean, boolean) to authenticated;
+grant execute on function public.admin_get_user_details(uuid) to authenticated;
