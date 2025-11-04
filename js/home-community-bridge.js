@@ -83,34 +83,61 @@
 
   // Fetch and render rating average and top-level comment count for a POI
   async function updatePlaceStats(poiId){
+    if(!poiId){
+      console.warn('updatePlaceStats called without poiId');
+      return;
+    }
+
     try{
-      const sb = window.getSupabase?.();
-      if(!sb) return;
+      // Wait for Supabase client (up to 3 seconds)
+      let sb = window.getSupabase?.();
+      let attempts = 0;
+      while(!sb && attempts < 30){
+        await new Promise(r => setTimeout(r, 100));
+        sb = window.getSupabase?.();
+        attempts++;
+      }
+      
+      if(!sb){
+        console.warn('Supabase client not available for stats');
+        return;
+      }
+
+      console.log('📊 Loading stats for POI:', poiId);
 
       // Comments: count only top-level comments
-      const { count: commentCount } = await sb
+      const { count: commentCount, error: commentsError } = await sb
         .from('poi_comments')
         .select('*', { count: 'exact', head: true })
         .eq('poi_id', poiId)
         .is('parent_comment_id', null);
+
+      if(commentsError){
+        console.warn('Comments count error:', commentsError.message);
+      }
 
       const commentsEl = document.getElementById('currentPlaceComments');
       if(commentsEl){
         const c = commentCount || 0;
         const commentsLabel = c === 1 ? 'Komentarz' : (c >= 2 && c <= 4 ? 'Komentarze' : 'Komentarzy');
         commentsEl.textContent = `${c} ${commentsLabel}`;
+        console.log('✅ Updated comments:', c);
       }
 
       // Rating: read aggregated stats
-      const { data: ratingData, error } = await sb
+      const { data: ratingData, error: ratingError } = await sb
         .from('poi_rating_stats')
         .select('*')
         .eq('poi_id', poiId)
         .maybeSingle();
 
+      if(ratingError){
+        console.warn('Rating stats error:', ratingError.message);
+      }
+
       const ratingEl = document.getElementById('currentPlaceRating');
       if(ratingEl){
-        const total = (!error && ratingData) ? (ratingData.total_ratings||0) : 0;
+        const total = (!ratingError && ratingData) ? (ratingData.total_ratings||0) : 0;
         if(total === 0){
           ratingEl.textContent = '0 Ocen';
         } else {
@@ -118,10 +145,11 @@
           const ratingLabel = total === 1 ? 'ocena' : (total >= 2 && total <= 4 ? 'oceny' : 'ocen');
           ratingEl.textContent = `${avg.toFixed(1)} (${total} ${ratingLabel})`;
         }
+        console.log('✅ Updated rating:', total > 0 ? `${ratingData.average_rating} (${total})` : '0');
       }
     } catch(e){
-      // Silent failure – UI keeps placeholders
-      console.warn('updatePlaceStats error:', e);
+      // Log error but don't break UI
+      console.error('updatePlaceStats error:', e);
     }
   }
 
@@ -202,15 +230,29 @@
   };
 
   async function initialize(){
-    await waitForPlacesData();
+    console.log('🚀 home-community-bridge: initializing...');
+    
+    const data = await waitForPlacesData();
+    console.log(`✅ PLACES_DATA loaded: ${data.length} POIs`);
+    
+    if(data.length === 0){
+      console.warn('⚠️ No PLACES_DATA available');
+      return;
+    }
+    
     // Auto-select first POI if not set yet
     if(!currentId){
       const firstId = getOrderedPoiIds()[0];
       if(firstId){
+        console.log('🎯 Setting initial place:', firstId);
         setCurrentPlace(firstId, {focus:true, scroll:false, force:true});
+      } else {
+        console.warn('⚠️ No POI IDs available');
       }
     }
     waitForListThenSetup();
+    
+    console.log('✅ home-community-bridge: initialized');
   }
 
   // Refresh handling when data is reloaded

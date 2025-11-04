@@ -102,6 +102,7 @@ async function loadPoisData() {
         source: p.source || 'supabase'
       }));
       console.log(`✅ Loaded ${poisData.length} POIs from PLACES_DATA (${poisData[0]?.source || 'unknown'})`);
+      console.log('📍 POI IDs:', poisData.map(p => p.id));
       
       // Listen for updates
       window.addEventListener('poisDataRefreshed', (event) => {
@@ -596,6 +597,24 @@ window.openPoiComments = async function(poiId) {
   
   currentPoiId = poiId;
   
+  // Wait for POI data to load (up to 5 seconds)
+  let attempts = 0;
+  while (poisData.length === 0 && attempts < 50) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    attempts++;
+    
+    // Try to reload from window.PLACES_DATA if available
+    if (window.PLACES_DATA && Array.isArray(window.PLACES_DATA) && window.PLACES_DATA.length > 0) {
+      await loadPoisData();
+    }
+  }
+  
+  if (poisData.length === 0) {
+    console.error('❌ POI data not loaded after waiting');
+    window.showToast?.('Nie można załadować danych miejsc', 'error');
+    return;
+  }
+  
   // Find POI index in filtered data for navigation
   const dataToSearch = filteredPoisData.length > 0 ? filteredPoisData : poisData;
   currentPoiIndex = dataToSearch.findIndex(p => p.id === poiId);
@@ -604,6 +623,8 @@ window.openPoiComments = async function(poiId) {
   
   if (!poi) {
     console.error('❌ POI not found:', poiId);
+    console.log('Available POI IDs:', poisData.map(p => p.id));
+    window.showToast?.(`Miejsce ${poiId} nie zostało znalezione`, 'error');
     return;
   }
 
@@ -1448,5 +1469,13 @@ document.addEventListener('ce-auth:state', async (e) => {
     updateAuthSections();
   }
 });
+
+// Debug helpers - expose for troubleshooting
+window.__debugCommunityUI = {
+  getPoisData: () => poisData,
+  getCurrentPoiId: () => currentPoiId,
+  getFilteredPoisData: () => filteredPoisData,
+  reloadPoisData: loadPoisData
+};
 
 console.log('✅ Community UI module loaded');
