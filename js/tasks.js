@@ -130,6 +130,36 @@
     } catch (_) { /* ignore */ }
   }
 
+  async function loadTasksFromDB(){
+    if (!sb) return false;
+    try {
+      // Prefer view if exists
+      let query = sb.from('public_tasks').select('id,xp,sort_order');
+      let { data, error } = await query.order('sort_order', { ascending: true });
+      if (error) {
+        // Fallback to table
+        ({ data, error } = await sb
+          .from('tasks')
+          .select('id,xp,sort_order,is_active,category')
+          .eq('is_active', true)
+          .eq('category', 'quest')
+          .order('sort_order', { ascending: true }));
+      }
+      if (error) throw error;
+      if (Array.isArray(data) && data.length) {
+        // Replace TASKS with DB data (map to expected shape)
+        TASKS.length = 0;
+        data.forEach(row => {
+          TASKS.push({ id: row.id, xp: Number(row.xp)||0, requiredLevel: 1 });
+        });
+        return true;
+      }
+    } catch (e) {
+      console.warn('loadTasksFromDB failed', e);
+    }
+    return false;
+  }
+
   async function awardTaskServer(task){
     if (!sb || !state.auth.isAuthenticated) return false;
     try {
@@ -301,6 +331,7 @@
   async function onReady(){
     loadState();
     await initSupabase(); // if logged in -> overrides state with server xp/level/completed tasks
+    await loadTasksFromDB();
     updateHeaderMetrics();
     renderTasks();
     unhideView();

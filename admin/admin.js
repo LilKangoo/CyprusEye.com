@@ -30,6 +30,9 @@ let adminState = {
   poiDataSource: 'supabase',
   selectedPoi: null,
   poiFormMode: 'create',
+  quests: [],
+  questFormMode: 'create',
+  selectedQuest: null,
 };
 
 // =====================================================
@@ -313,6 +316,9 @@ function switchView(viewName) {
       break;
     case 'pois':
       loadPoisData();
+      break;
+    case 'quests':
+      loadQuestsData();
       break;
     case 'content':
       loadContentData();
@@ -879,6 +885,125 @@ window.handleUserProfileSubmit = handleUserProfileSubmit;
 window.handleUserAccountSubmit = handleUserAccountSubmit;
 window.handleUserXpAdjustment = handleUserXpAdjustment;
 window.handleUserBanToggle = handleUserBanToggle;
+
+async function loadQuestsData() {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+    const view = $('#viewQuests');
+    if (!view) return;
+    const { data, error } = await client
+      .from('tasks')
+      .select('id,xp,is_active,sort_order,category')
+      .eq('category', 'quest')
+      .order('sort_order', { ascending: true });
+    if (error) throw error;
+    adminState.quests = Array.isArray(data) ? data : [];
+    const tbody = $('#questsTableBody');
+    if (!tbody) return;
+    if (adminState.quests.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="table-loading">No quests</td></tr>';
+      return;
+    }
+    tbody.innerHTML = adminState.quests.map(q => `
+      <tr>
+        <td>${escapeHtml(q.id)}</td>
+        <td>${Number(q.xp)||0}</td>
+        <td>${q.is_active ? 'Yes' : 'No'}</td>
+        <td>${Number(q.sort_order)||0}</td>
+        <td>
+          <button class="btn-secondary" onclick="handleQuestEdit('${q.id}')">Edit</button>
+          <button class="btn-secondary user-detail-danger" onclick="handleQuestDelete('${q.id}')">Delete</button>
+        </td>
+      </tr>
+    `).join('');
+  } catch (e) {
+    showToast('Failed to load quests', 'error');
+  }
+}
+
+function openQuestForm(mode, quest) {
+  adminState.questFormMode = mode;
+  adminState.selectedQuest = quest || null;
+  const modal = $('#questFormModal');
+  const title = $('#questFormTitle');
+  const idInput = $('#questId');
+  const xpInput = $('#questXp');
+  const sortInput = $('#questSort');
+  const activeSelect = $('#questActive');
+  if (!modal || !title || !idInput || !xpInput || !sortInput || !activeSelect) return;
+  if (mode === 'edit' && quest) {
+    title.textContent = 'Edit Quest';
+    idInput.value = quest.id;
+    idInput.disabled = true;
+    xpInput.value = Number(quest.xp)||0;
+    sortInput.value = Number(quest.sort_order)||1000;
+    activeSelect.value = quest.is_active ? 'true' : 'false';
+  } else {
+    title.textContent = 'New Quest';
+    idInput.value = '';
+    idInput.disabled = false;
+    xpInput.value = 0;
+    sortInput.value = 1000;
+    activeSelect.value = 'true';
+  }
+  showElement(modal);
+}
+
+async function handleQuestDelete(id) {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+    const { error } = await client.from('tasks').delete().eq('id', id);
+    if (error) throw error;
+    showToast('Quest deleted', 'success');
+    await loadQuestsData();
+  } catch (e) {
+    showToast('Failed to delete quest', 'error');
+  }
+}
+
+function handleQuestEdit(id) {
+  const q = adminState.quests.find(x => x.id === id);
+  openQuestForm('edit', q || null);
+}
+
+async function handleQuestFormSubmit(e) {
+  e.preventDefault();
+  const form = e.target;
+  const client = ensureSupabase();
+  if (!client) return;
+  const id = ($('#questId').value || '').trim();
+  const xp = Number($('#questXp').value || '0') || 0;
+  const sort_order = Number($('#questSort').value || '1000') || 1000;
+  const is_active = $('#questActive').value === 'true';
+  const payload = { id, xp, sort_order, is_active, category: 'quest' };
+  try {
+    const { error } = await client.from('tasks').upsert(payload);
+    if (error) throw error;
+    showToast('Quest saved', 'success');
+    hideElement($('#questFormModal'));
+    await loadQuestsData();
+  } catch (e) {
+    showToast('Failed to save quest', 'error');
+  }
+}
+
+window.handleQuestDelete = handleQuestDelete;
+window.handleQuestEdit = handleQuestEdit;
+
+document.addEventListener('DOMContentLoaded', () => {
+  const addBtn = $('#btnAddQuest');
+  if (addBtn) addBtn.addEventListener('click', () => openQuestForm('create'));
+  const refreshBtn = $('#btnRefreshQuests');
+  if (refreshBtn) refreshBtn.addEventListener('click', () => loadQuestsData());
+  const closeBtn = $('#btnCloseQuestForm');
+  if (closeBtn) closeBtn.addEventListener('click', () => hideElement($('#questFormModal')));
+  const cancelBtn = $('#questFormCancel');
+  if (cancelBtn) cancelBtn.addEventListener('click', () => hideElement($('#questFormModal')));
+  const form = $('#questForm');
+  if (form) form.addEventListener('submit', handleQuestFormSubmit);
+});
 
 // =====================================================
 // DIAGNOSTICS
