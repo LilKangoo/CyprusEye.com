@@ -4,6 +4,7 @@
   let currentId = null;
   let observer = null;
   let observing = false;
+  let statsTimer = null;
 
   function getOrderedPoiIds(){
     const cards = Array.from(document.querySelectorAll('#poisList .poi-card'));
@@ -45,13 +46,17 @@
     if(nameEl) nameEl.textContent = poi.nameFallback || poi.name || '—';
     if(descEl) descEl.textContent = poi.descriptionFallback || poi.description || 'Cypr';
     if(xpEl) xpEl.textContent = (poi.xp||0) + ' XP';
-    if(commentsEl) commentsEl.textContent = '—';
-    if(ratingEl) ratingEl.textContent = '—';
+    if(commentsEl) commentsEl.textContent = '0 Komentarzy';
+    if(ratingEl) ratingEl.textContent = '0 Ocen';
 
     // Load live stats (rating + comments) for the selected place
     updatePlaceStats(id).catch(()=>{
       // Non-blocking; leave placeholders on error
     });
+
+    // Periodic refresh while this POI is selected
+    if (statsTimer) clearInterval(statsTimer);
+    statsTimer = setInterval(() => { if (currentId===id) updatePlaceStats(id); }, 10000);
 
     if(options.focus !== false && typeof window.focusPlaceOnMap === 'function'){
       window.focusPlaceOnMap(id);
@@ -92,8 +97,8 @@
       const commentsEl = document.getElementById('currentPlaceComments');
       if(commentsEl){
         const c = commentCount || 0;
-        // Show just the number next to the bubble icon
-        commentsEl.textContent = String(c);
+        const commentsLabel = c === 1 ? 'Komentarz' : (c >= 2 && c <= 4 ? 'Komentarze' : 'Komentarzy');
+        commentsEl.textContent = `${c} ${commentsLabel}`;
       }
 
       // Rating: read aggregated stats
@@ -105,8 +110,14 @@
 
       const ratingEl = document.getElementById('currentPlaceRating');
       if(ratingEl){
-        const avg = (!error && ratingData && ratingData.total_ratings > 0) ? Number(ratingData.average_rating) : 0;
-        ratingEl.textContent = avg > 0 ? avg.toFixed(1) : '—';
+        const total = (!error && ratingData) ? (ratingData.total_ratings||0) : 0;
+        if(total === 0){
+          ratingEl.textContent = '0 Ocen';
+        } else {
+          const avg = Number(ratingData.average_rating) || 0;
+          const ratingLabel = total === 1 ? 'ocena' : (total >= 2 && total <= 4 ? 'oceny' : 'ocen');
+          ratingEl.textContent = `${avg.toFixed(1)} (${total} ${ratingLabel})`;
+        }
       }
     } catch(e){
       // Silent failure – UI keeps placeholders
