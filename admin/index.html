@@ -216,6 +216,14 @@
           </svg>
           <span>Content</span>
         </button>
+
+        <button class="admin-nav-item" data-view="moderation">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <path d="M12 8v4l3 3"/>
+          </svg>
+          <span>Moderation</span>
+        </button>
         
         <button class="admin-nav-item" data-view="analytics">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -332,6 +340,41 @@
               </tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <!-- Moderation View -->
+      <section class="admin-view" id="viewModeration" hidden>
+        <header class="admin-view-header">
+          <h2>Moderation</h2>
+          <p class="admin-view-subtitle">Review and resolve reported content</p>
+        </header>
+
+        <div class="admin-table-container">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Type</th>
+                <th>User</th>
+                <th>POI</th>
+                <th>Excerpt</th>
+                <th>Reason</th>
+                <th>Date</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="moderationTable">
+              <tr>
+                <td colspan="7" class="table-loading">Loading reports...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="admin-pagination" id="moderationPagination">
+          <button class="btn-pagination" disabled>Previous</button>
+          <span class="pagination-info">Page 1</span>
+          <button class="btn-pagination" disabled>Next</button>
         </div>
       </section>
 
