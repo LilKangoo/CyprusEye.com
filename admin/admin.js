@@ -1104,6 +1104,200 @@ async function loadDiagnosticsData() {
 // Health Checks
 // -----------------------------------------------------
 
+ // SQL snippets used for guided Auto-Fix
+ const SQL_ADD_POI_STATUS = `-- =====================================================
+ -- ADD STATUS COLUMN TO POIS TABLE
+ -- =====================================================
+ -- This adds a status column so POIs can be draft/published/hidden
+ -- =====================================================
+ 
+ -- Add status column if it doesn't exist
+ DO $$ 
+ BEGIN
+   IF NOT EXISTS (
+     SELECT 1 FROM information_schema.columns 
+     WHERE table_name = 'pois' AND column_name = 'status'
+   ) THEN
+     ALTER TABLE pois ADD COLUMN status TEXT DEFAULT 'published';
+     RAISE NOTICE '✅ Added status column to pois table';
+   ELSE
+     RAISE NOTICE 'ℹ️ Status column already exists';
+   END IF;
+ END $$;
+ 
+ -- Set default status to 'published' for existing POIs
+ UPDATE pois SET status = 'published' WHERE status IS NULL;
+ 
+ -- Create index for faster status queries
+ CREATE INDEX IF NOT EXISTS idx_pois_status ON pois(status);
+ 
+ -- Verify the change
+ DO $$
+ DECLARE
+   total_count INTEGER;
+   published_count INTEGER;
+   draft_count INTEGER;
+   hidden_count INTEGER;
+ BEGIN
+   SELECT 
+     COUNT(*),
+     COUNT(*) FILTER (WHERE status = 'published'),
+     COUNT(*) FILTER (WHERE status = 'draft'),
+     COUNT(*) FILTER (WHERE status = 'hidden')
+   INTO total_count, published_count, draft_count, hidden_count
+   FROM pois;
+   
+   RAISE NOTICE '✅ Status column setup complete';
+   RAISE NOTICE 'Total POIs: %, Published: %, Draft: %, Hidden: %', 
+     total_count, published_count, draft_count, hidden_count;
+ END $$;`;
+ 
+ const SQL_ADD_GOOGLE_URL_TO_POIS = `-- =====================================================
+ -- ADD GOOGLE_URL TO POIS AND UPDATE ADMIN FUNCTIONS
+ -- =====================================================
+ -- This migration adds an optional google_url column to pois and
+ -- updates admin_create_poi/admin_update_poi to read it from poi_data.
+ -- Safe to run multiple times.
+ -- =====================================================
+ 
+ -- 1) Add column if missing
+ DO $$
+ BEGIN
+   IF NOT EXISTS (
+     SELECT 1
+     FROM information_schema.columns
+     WHERE table_name = 'pois'
+       AND column_name = 'google_url'
+   ) THEN
+     ALTER TABLE pois ADD COLUMN google_url TEXT;
+   END IF;
+ END $$;
+ 
+ -- 2) Recreate admin_create_poi to set google_url from poi_data
+ DROP FUNCTION IF EXISTS admin_create_poi(TEXT, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, TEXT, INTEGER, JSON);
+ CREATE OR REPLACE FUNCTION admin_create_poi(
+   poi_name TEXT,
+   poi_description TEXT,
+   poi_latitude DOUBLE PRECISION,
+   poi_longitude DOUBLE PRECISION,
+   poi_category TEXT DEFAULT 'other',
+   poi_xp INTEGER DEFAULT 100,
+   poi_data JSON DEFAULT '{}'::JSON
+ )
+ RETURNS JSON
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ AS $$
+ DECLARE
+   new_poi_id TEXT;
+   new_google_url TEXT;
+ BEGIN
+   IF NOT is_current_user_admin() THEN
+     RAISE EXCEPTION 'Access denied: Admin only';
+   END IF;
+ 
+   new_poi_id := COALESCE(
+     poi_data->>'slug',
+     LOWER(REGEXP_REPLACE(poi_name, '[^a-zA-Z0-9]+', '-', 'g'))
+   );
+ 
+   new_google_url := NULLIF(TRIM(poi_data->>'google_url'), '');
+ 
+   INSERT INTO pois (
+     id,
+     name,
+     description,
+     lat,
+     lng,
+     xp,
+     badge,
+     required_level,
+     status,
+     google_url
+   ) VALUES (
+     new_poi_id,
+     poi_name,
+     poi_description,
+     poi_latitude,
+     poi_longitude,
+     COALESCE(poi_xp, 100),
+     poi_category,
+     1,
+     COALESCE((poi_data->>'status')::TEXT, 'published'),
+     new_google_url
+   );
+ 
+   INSERT INTO admin_actions (
+     admin_id,
+     action_type,
+     target_user_id,
+     action_data
+   ) VALUES (
+     auth.uid(),
+     'create_poi',
+     NULL,
+     json_build_object('poi_id', new_poi_id)
+   );
+ 
+   RETURN json_build_object('success', true, 'poi_id', new_poi_id);
+ END;
+ $$;
+ 
+ -- 3) Recreate admin_update_poi to update google_url when provided
+ DROP FUNCTION IF EXISTS admin_update_poi(TEXT, TEXT, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, TEXT, INTEGER, JSON);
+ CREATE OR REPLACE FUNCTION admin_update_poi(
+   poi_id TEXT,
+   poi_name TEXT DEFAULT NULL,
+   poi_description TEXT DEFAULT NULL,
+   poi_latitude DOUBLE PRECISION DEFAULT NULL,
+   poi_longitude DOUBLE PRECISION DEFAULT NULL,
+   poi_category TEXT DEFAULT NULL,
+   poi_xp INTEGER DEFAULT NULL,
+   poi_data JSON DEFAULT NULL
+ )
+ RETURNS JSON
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ AS $$
+ DECLARE
+   new_google_url TEXT;
+ BEGIN
+   IF NOT is_current_user_admin() THEN
+     RAISE EXCEPTION 'Access denied: Admin only';
+   END IF;
+ 
+   new_google_url := NULLIF(TRIM(COALESCE(poi_data->>'google_url', NULL)), '');
+ 
+   UPDATE pois
+   SET 
+     name = COALESCE(poi_name, name),
+     description = COALESCE(poi_description, description),
+     lat = COALESCE(poi_latitude, lat),
+     lng = COALESCE(poi_longitude, lng),
+     badge = COALESCE(poi_category, badge),
+     xp = COALESCE(poi_xp, xp),
+     status = COALESCE((poi_data->>'status')::TEXT, status),
+     google_url = COALESCE(new_google_url, google_url)
+   WHERE id = poi_id;
+ 
+   INSERT INTO admin_actions (
+     admin_id,
+     action_type,
+     target_user_id,
+     action_data
+   ) VALUES (
+     auth.uid(),
+     'update_poi',
+     NULL,
+     json_build_object('poi_id', poi_id)
+   );
+ 
+   RETURN json_build_object('success', true, 'poi_id', poi_id);
+ END;
+ $$;
+ 
+ GRANT EXECUTE ON FUNCTION admin_create_poi(TEXT, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, TEXT, INTEGER, JSON) TO authenticated;
+ GRANT EXECUTE ON FUNCTION admin_update_poi(TEXT, TEXT, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, TEXT, INTEGER, JSON) TO authenticated;`;
 function getDiagnosticChecks() {
   return [
     {
@@ -1204,7 +1398,7 @@ function getDiagnosticChecks() {
           return { status: 'warn', details: 'Missing column pois.status (run ADD_POI_STATUS_COLUMN.sql)' };
         }
       },
-      canFix: false,
+      canFix: true,
     },
     {
       id: 'check_pois_google_url_column',
@@ -1219,7 +1413,7 @@ function getDiagnosticChecks() {
           return { status: 'warn', details: 'Missing column pois.google_url (run ADD_GOOGLE_URL_TO_POIS.sql)' };
         }
       },
-      canFix: false,
+      canFix: true,
     },
     {
       id: 'check_admin_actions_table_access',
@@ -1319,7 +1513,13 @@ async function renderDiagnosticChecks() {
   tbody.querySelectorAll('[data-check-fix]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const id = btn.getAttribute('data-check-fix');
-      showToast('Auto-fix not available for this check yet', 'info');
+      if (id === 'check_pois_status_column') {
+        openDiagnosticFixModal('Auto-Fix: Add pois.status column', 'Wykonaj poniższy SQL w Supabase, aby dodać kolumnę status i indeks.', SQL_ADD_POI_STATUS);
+      } else if (id === 'check_pois_google_url_column') {
+        openDiagnosticFixModal('Auto-Fix: Add pois.google_url column + functions', 'Wykonaj poniższy SQL w Supabase, aby dodać kolumnę google_url oraz zaktualizować funkcje admin_create_poi/admin_update_poi.', SQL_ADD_GOOGLE_URL_TO_POIS);
+      } else {
+        showToast('Auto-fix not available for this check', 'info');
+      }
     });
   });
 
@@ -1367,6 +1567,38 @@ async function runAllChecks() {
   }
   showToast('All checks completed', 'success');
 }
+ 
+ // -----------------------------------------------------
+ // Diagnostics Auto-Fix Modal helpers
+ // -----------------------------------------------------
+ 
+ function openDiagnosticFixModal(title, description, sql) {
+   const modal = document.getElementById('diagnosticFixModal');
+   const titleEl = document.getElementById('diagnosticFixTitle');
+   const descEl = document.getElementById('diagnosticFixDescription');
+   const sqlEl = document.getElementById('diagnosticFixSql');
+   if (!modal || !titleEl || !descEl || !sqlEl) return;
+   titleEl.textContent = title || 'Auto-Fix';
+   descEl.textContent = description || '';
+   sqlEl.value = sql || '';
+   showElement(modal);
+ }
+ 
+ function closeDiagnosticFixModal() {
+   const modal = document.getElementById('diagnosticFixModal');
+   if (modal) hideElement(modal);
+ }
+ 
+ async function copyDiagnosticSql() {
+   try {
+     const sqlEl = document.getElementById('diagnosticFixSql');
+     if (!sqlEl) return;
+     await navigator.clipboard.writeText(sqlEl.value || '');
+     showToast('SQL copied to clipboard', 'success');
+   } catch {
+     showToast('Failed to copy SQL', 'error');
+   }
+ }
 
 // =====================================================
 // LOGIN
@@ -1828,6 +2060,20 @@ function initEventListeners() {
   const poiDetailOverlay = $('#poiDetailModalOverlay');
   if (poiDetailOverlay) {
     poiDetailOverlay.addEventListener('click', () => closePoiDetail());
+  }
+
+  // Diagnostics Auto-Fix modal
+  const btnCloseDiagnosticFix = $('#btnCloseDiagnosticFix');
+  const diagnosticFixOverlay = $('#diagnosticFixModalOverlay');
+  const btnCopyDiagnosticSql = $('#btnCopyDiagnosticSql');
+  if (btnCloseDiagnosticFix) {
+    btnCloseDiagnosticFix.addEventListener('click', () => closeDiagnosticFixModal());
+  }
+  if (diagnosticFixOverlay) {
+    diagnosticFixOverlay.addEventListener('click', () => closeDiagnosticFixModal());
+  }
+  if (btnCopyDiagnosticSql) {
+    btnCopyDiagnosticSql.addEventListener('click', () => copyDiagnosticSql());
   }
 }
 
