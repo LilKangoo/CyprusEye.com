@@ -1212,11 +1212,23 @@ async function loadCarsData() {
 
     console.log('Loading car bookings data...');
 
-    // Load car bookings
+    // Load statistics using the database function
+    const { data: stats, error: statsError } = await client
+      .rpc('admin_get_car_booking_stats');
+
+    if (statsError) {
+      console.warn('Could not load stats function, calculating manually:', statsError);
+    }
+
+    // Load car bookings with related offer info
     const { data: bookings, error } = await client
       .from('car_bookings')
-      .select('*')
-      .order('created_at', { ascending: false });
+      .select(`
+        *,
+        offer:car_offers(car_type, car_model, location)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(100);
 
     if (error) {
       console.error('Error loading car bookings:', error);
@@ -1225,11 +1237,23 @@ async function loadCarsData() {
 
     console.log('Car bookings loaded:', bookings);
 
-    // Calculate statistics
-    const totalBookings = bookings?.length || 0;
-    const activeRentals = bookings?.filter(b => b.status === 'confirmed' || b.status === 'active').length || 0;
-    const pendingBookings = bookings?.filter(b => b.status === 'pending').length || 0;
-    const totalRevenue = bookings?.reduce((sum, b) => sum + (Number(b.total_price) || 0), 0) || 0;
+    // Use stats from function or calculate manually
+    let totalBookings, activeRentals, pendingBookings, totalRevenue;
+    
+    if (stats && stats.length > 0) {
+      const s = stats[0];
+      totalBookings = Number(s.total_bookings) || 0;
+      activeRentals = Number(s.active_rentals) || 0;
+      pendingBookings = Number(s.pending_bookings) || 0;
+      totalRevenue = Number(s.total_revenue) || 0;
+    } else {
+      // Manual calculation fallback
+      totalBookings = bookings?.length || 0;
+      activeRentals = bookings?.filter(b => b.status === 'confirmed' || b.status === 'active').length || 0;
+      pendingBookings = bookings?.filter(b => b.status === 'pending').length || 0;
+      totalRevenue = bookings?.filter(b => b.payment_status === 'paid' || b.payment_status === 'partial')
+        .reduce((sum, b) => sum + (Number(b.total_price) || 0), 0) || 0;
+    }
 
     // Update stats cards
     const statTotalBookings = $('#statTotalBookings');
@@ -1237,47 +1261,102 @@ async function loadCarsData() {
     const statPendingBookings = $('#statPendingBookings');
     const statTotalRevenue = $('#statTotalRevenue');
 
-    if (statTotalBookings) statTotalBookings.textContent = totalBookings;
-    if (statActiveRentals) statActiveRentals.textContent = activeRentals;
-    if (statPendingBookings) statPendingBookings.textContent = pendingBookings;
-    if (statTotalRevenue) statTotalRevenue.textContent = `€${totalRevenue.toFixed(2)}`;
+    if (statTotalBookings) {
+      statTotalBookings.textContent = totalBookings;
+      const changeEl = statTotalBookings.parentElement.querySelector('.stat-card-change');
+      if (changeEl) changeEl.textContent = `${bookings?.length || 0} in database`;
+    }
+    
+    if (statActiveRentals) {
+      statActiveRentals.textContent = activeRentals;
+      const changeEl = statActiveRentals.parentElement.querySelector('.stat-card-change');
+      if (changeEl) changeEl.textContent = 'Currently active';
+    }
+    
+    if (statPendingBookings) {
+      statPendingBookings.textContent = pendingBookings;
+      const changeEl = statPendingBookings.parentElement.querySelector('.stat-card-change');
+      if (changeEl) changeEl.textContent = 'Awaiting confirmation';
+    }
+    
+    if (statTotalRevenue) {
+      statTotalRevenue.textContent = `€${totalRevenue.toFixed(2)}`;
+      const changeEl = statTotalRevenue.parentElement.querySelector('.stat-card-change');
+      if (changeEl) changeEl.textContent = 'Paid bookings only';
+    }
 
     // Update table
     const tableBody = $('#carsTableBody');
     if (!tableBody) return;
 
     if (!bookings || bookings.length === 0) {
-      tableBody.innerHTML = '<tr><td colspan="7" class="table-loading">No car bookings found</td></tr>';
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="7" class="table-loading">
+            No car bookings yet. System is ready to accept bookings!
+            <br><small style="margin-top: 8px; display: block;">Car offers are available in Paphos and Larnaca.</small>
+          </td>
+        </tr>
+      `;
       return;
     }
 
     tableBody.innerHTML = bookings.map(booking => {
-      const startDate = booking.pickup_date ? new Date(booking.pickup_date).toLocaleDateString() : 'N/A';
-      const endDate = booking.return_date ? new Date(booking.return_date).toLocaleDateString() : 'N/A';
+      const startDate = booking.pickup_date ? new Date(booking.pickup_date).toLocaleDateString('en-GB') : 'N/A';
+      const endDate = booking.return_date ? new Date(booking.return_date).toLocaleDateString('en-GB') : 'N/A';
+      
+      // Status badge colors
       const statusClass = 
         booking.status === 'confirmed' ? 'badge-success' :
+        booking.status === 'active' ? 'badge-info' :
+        booking.status === 'completed' ? 'badge-success' :
         booking.status === 'pending' ? 'badge-warning' :
-        booking.status === 'cancelled' ? 'badge-danger' : 'badge-info';
+        booking.status === 'cancelled' ? 'badge-danger' : 'badge';
+      
+      // Location badges
+      const pickupLoc = booking.pickup_location ? booking.pickup_location.toUpperCase() : '?';
+      const returnLoc = booking.return_location ? booking.return_location.toUpperCase() : '?';
       
       return `
         <tr>
-          <td>#${booking.id.slice(0, 8)}</td>
           <td>
-            <div>${escapeHtml(booking.customer_name || 'N/A')}</div>
+            <div style="font-weight: 600;">#${booking.id.slice(0, 8).toUpperCase()}</div>
+            <div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 2px;">
+              ${pickupLoc} → ${returnLoc}
+            </div>
+          </td>
+          <td>
+            <div style="font-weight: 500;">${escapeHtml(booking.customer_name || 'N/A')}</div>
             <div style="font-size: 12px; color: var(--admin-text-muted);">${escapeHtml(booking.customer_email || '')}</div>
-          </td>
-          <td>${escapeHtml(booking.car_type || 'N/A')}</td>
-          <td>
-            <div style="font-size: 13px;">${startDate} → ${endDate}</div>
+            ${booking.customer_phone ? `<div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(booking.customer_phone)}</div>` : ''}
           </td>
           <td>
-            <span class="badge ${statusClass}">
-              ${booking.status || 'unknown'}
+            <div style="font-weight: 500;">${escapeHtml(booking.car_type || 'N/A')}</div>
+            ${booking.car_model ? `<div style="font-size: 12px; color: var(--admin-text-muted);">${escapeHtml(booking.car_model)}</div>` : ''}
+          </td>
+          <td>
+            <div style="font-size: 13px; white-space: nowrap;">
+              📅 ${startDate}<br>
+              ⬇️ ${endDate}
+            </div>
+            <div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 4px;">
+              ${booking.days_count || 0} day${booking.days_count !== 1 ? 's' : ''}
+            </div>
+          </td>
+          <td>
+            <span class="badge ${statusClass}" style="display: block; margin-bottom: 4px;">
+              ${(booking.status || 'unknown').toUpperCase()}
+            </span>
+            <span class="badge badge-info" style="font-size: 10px;">
+              ${(booking.payment_status || 'unpaid').toUpperCase()}
             </span>
           </td>
-          <td style="font-weight: 600;">€${Number(booking.total_price || 0).toFixed(2)}</td>
+          <td style="font-weight: 600; color: var(--admin-success);">
+            €${Number(booking.total_price || 0).toFixed(2)}
+            ${booking.currency && booking.currency !== 'EUR' ? `<div style="font-size: 11px; color: var(--admin-text-muted);">${booking.currency}</div>` : ''}
+          </td>
           <td>
-            <button class="btn-secondary" onclick="viewCarBookingDetails('${booking.id}')">
+            <button class="btn-secondary" onclick="viewCarBookingDetails('${booking.id}')" title="View details">
               View
             </button>
           </td>
@@ -1285,13 +1364,25 @@ async function loadCarsData() {
       `;
     }).join('');
 
+    showToast('Car bookings loaded successfully', 'success');
+
   } catch (error) {
     console.error('Failed to load car bookings:', error);
     showToast('Failed to load car bookings: ' + (error.message || 'Unknown error'), 'error');
     
     const tableBody = $('#carsTableBody');
     if (tableBody) {
-      tableBody.innerHTML = '<tr><td colspan="7" class="table-loading" style="color: var(--admin-danger);">Error loading data</td></tr>';
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="7" class="table-loading" style="color: var(--admin-danger);">
+            ❌ Error loading data: ${escapeHtml(error.message || 'Unknown error')}
+            <br><small style="margin-top: 8px; display: block;">
+              Make sure the car_bookings table exists in Supabase. 
+              Run the migration: supabase/migrations/001_car_rentals_system.sql
+            </small>
+          </td>
+        </tr>
+      `;
     }
   }
 }
