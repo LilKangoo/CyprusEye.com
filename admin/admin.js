@@ -30,6 +30,7 @@ let adminState = {
   poiDataSource: 'supabase',
   selectedPoi: null,
   poiFormMode: 'create',
+  carSearch: '',
   quests: [],
   questFormMode: 'create',
   selectedQuest: null,
@@ -2271,6 +2272,55 @@ function initEventListeners() {
     poiDetailOverlay.addEventListener('click', () => closePoiDetail());
   }
 
+  // Cars placeholder actions
+  const carsSearchInput = $('#carsSearchInput');
+  if (carsSearchInput) {
+    carsSearchInput.addEventListener('input', (event) => {
+      adminState.carSearch = (event.target.value || '').trim();
+      loadCarsData();
+    });
+  }
+
+  const carsSearchBtn = $('#btnCarsSearch');
+  if (carsSearchBtn) {
+    carsSearchBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      if (carsSearchInput) {
+        adminState.carSearch = (carsSearchInput.value || '').trim();
+      }
+      loadCarsData();
+      showToast('Car search will be available soon.', 'info');
+    });
+  }
+
+  const carsClearBtn = $('#btnCarsClear');
+  if (carsClearBtn) {
+    carsClearBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      adminState.carSearch = '';
+      if (carsSearchInput) {
+        carsSearchInput.value = '';
+      }
+      loadCarsData();
+      showToast('Cleared car search filters.', 'info');
+    });
+  }
+
+  const refreshCarsBtn = $('#btnRefreshCars');
+  if (refreshCarsBtn) {
+    refreshCarsBtn.addEventListener('click', () => {
+      loadCarsData();
+      showToast('Refreshed car overview.', 'info');
+    });
+  }
+
+  const addCarBtn = $('#btnAddCar');
+  if (addCarBtn) {
+    addCarBtn.addEventListener('click', () => {
+      showToast('Car creation tools are coming soon.', 'info');
+    });
+  }
+
   // Diagnostics Auto-Fix modal
   const btnCloseDiagnosticFix = $('#btnCloseDiagnosticFix');
   const diagnosticFixOverlay = $('#diagnosticFixModalOverlay');
@@ -3905,22 +3955,52 @@ window.clearContentSearch = clearContentSearch;
 async function loadCarsData() {
   try {
     const tableBody = document.getElementById('carsTableBody');
+    const helperText = document.getElementById('carsHelperText');
+    const hasSearch = Boolean(adminState.carSearch);
+
+    if (helperText) {
+      helperText.textContent = hasSearch
+        ? `Search results for "${adminState.carSearch}" will appear here soon.`
+        : 'This is a placeholder view. Functionality will be added next.';
+    }
+
     if (tableBody) {
-      tableBody.innerHTML = '<tr><td colspan="6" class="table-loading">Loading...</td></tr>';
-      // Placeholder data; will be replaced with Supabase fetch
-      const rows = [
-        { name: '—', plate: '—', status: '—', location: '—', updated: '-' },
-      ];
-      tableBody.innerHTML = rows.map(r => `
+      const rows = hasSearch
+        ? [
+            {
+              name: `Searching for "${adminState.carSearch}"`,
+              plate: '—',
+              status: 'Preview',
+              badgeClass: 'badge-info',
+              location: 'Results coming soon',
+              updated: '—',
+            },
+          ]
+        : [
+            {
+              name: 'Car management coming soon',
+              plate: '—',
+              status: 'Planned',
+              badgeClass: 'badge-warning',
+              location: 'Administration',
+              updated: '—',
+            },
+          ];
+
+      tableBody.innerHTML = rows
+        .map(
+          (r) => `
         <tr>
           <td>${r.name}</td>
           <td>${r.plate}</td>
-          <td><span class="badge">${r.status}</span></td>
+          <td><span class="badge ${r.badgeClass || ''}">${r.status}</span></td>
           <td>${r.location}</td>
           <td>${r.updated}</td>
           <td><button class="btn-secondary" disabled>View</button></td>
         </tr>
-      `).join('');
+      `,
+        )
+        .join('');
     }
 
     const totalEl = document.getElementById('carsStatTotal');
