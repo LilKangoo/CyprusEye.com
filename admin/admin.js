@@ -1011,21 +1011,6 @@ async function apiRequest(path, options = {}) {
   return null;
 }
 
-async function adjustUserXP(userId, delta) {
-  try {
-    const client = ensureSupabase();
-    if (!client) throw new Error('Database connection not available');
-    const { error } = await client.rpc('admin_adjust_user_xp', { target_user_id: userId, delta });
-    if (error) throw error;
-    showToast('XP updated', 'success');
-    return true;
-  } catch (e) {
-    console.error(e);
-    showToast('Failed to update XP: ' + (e.message || 'Unknown error'), 'error');
-    return false;
-  }
-}
-
 async function setUserXpLevel(userId, xp, level) {
   try {
     const client = ensureSupabase();
@@ -1041,29 +1026,32 @@ async function setUserXpLevel(userId, xp, level) {
   }
 }
 
-async function banUser(userId, payload = {}) {
-  await apiRequest(`/users/${userId}/ban`, { method: 'POST', body: JSON.stringify({ ban: true, ...payload }) });
-  showToast('User banned', 'success');
-  return true;
-}
-
-async function unbanUser(userId) {
-  await apiRequest(`/users/${userId}/ban`, { method: 'POST', body: JSON.stringify({ ban: false }) });
-  showToast('Ban removed', 'success');
-  return true;
-}
-
 async function handleUserBanForm(event, userId) {
   event.preventDefault();
   const form = event.target;
   const duration = (form.duration.value || '').trim();
-  const until = (form.until.value || '').trim();
-  const reason = (form.reason.value || '').trim();
-  const block_email = form.block_email.checked;
+  const reason = (form.reason.value || '').trim() || 'Violating terms';
+  
+  let days = 30;
+  if (duration === '7d') days = 7;
+  else if (duration === '30d') days = 30;
+  else if (duration === '90d') days = 90;
+  else if (duration === 'perm') days = 36500; // 100 years ~= permanent
+  
   try {
-    const payload = { duration, reason: reason || null, block_email };
-    if (duration === 'custom' && until) payload.until = new Date(until).toISOString();
-    await banUser(userId, payload);
+    // Call new version of banUser (without confirm since form already has submit)
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database connection not available');
+    
+    const { error } = await client.rpc('admin_ban_user', {
+      target_user_id: userId,
+      ban_reason: reason,
+      ban_duration: `${days} days`
+    });
+    
+    if (error) throw error;
+    
+    showToast('User banned successfully', 'success');
     await viewUserDetails(userId);
   } catch (e) {
     console.error(e);
@@ -3680,7 +3668,8 @@ async function loadComments(page = 1) {
           </div>
         </td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
     
     // Update pagination
     updateContentPagination(comments.length);
