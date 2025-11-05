@@ -175,19 +175,34 @@ console.log('🔵 App Core V2 - START');
         }
       });
 
-      // Wire comments button on popup open
-      marker.on('popupopen', () => {
-        const btn = document.querySelector('.popup-comments-btn[data-poi-id="' + poi.id + '"]');
-        if (btn) {
-          btn.addEventListener('click', (e) => {
+      // Wire comments button on popup open (scope to this popup only)
+      marker.on('popupopen', (ev) => {
+        try {
+          const popupEl = ev && ev.popup && typeof ev.popup.getElement === 'function'
+            ? ev.popup.getElement()
+            : null;
+          const btn = popupEl ? popupEl.querySelector('.popup-comments-btn[data-poi-id="' + poi.id + '"]')
+                               : document.querySelector('.popup-comments-btn[data-poi-id="' + poi.id + '"]');
+          if (!btn) {
+            console.warn('⚠️ Nie znaleziono przycisku Komentarze w popup dla', poi.id);
+            return;
+          }
+          // Remove previous listener if re-opening the same popup
+          btn.replaceWith(btn.cloneNode(true));
+          const freshBtn = (popupEl ? popupEl.querySelector('.popup-comments-btn[data-poi-id="' + poi.id + '"]')
+                                    : document.querySelector('.popup-comments-btn[data-poi-id="' + poi.id + '"]')) || btn;
+          freshBtn.addEventListener('click', (e) => {
             e.preventDefault();
             e.stopPropagation();
             if (typeof window.openPoiComments === 'function') {
+              console.log('🟢 Klik w Komentarze (map popup) dla POI:', poi.id);
               window.openPoiComments(poi.id);
             } else {
               console.warn('openPoiComments not available');
             }
           });
+        } catch (err) {
+          console.error('❌ Błąd podczas podpinania przycisku Komentarze do popup:', err);
         }
       });
       
