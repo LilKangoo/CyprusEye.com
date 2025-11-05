@@ -8238,6 +8238,12 @@ body.auth-page {
   cursor: not-allowed;
 }
 
+/* Hotfix: hide rating and comments in Current Place section under the map */
+#currentPlaceContent #currentPlaceRating,
+#currentPlaceContent #currentPlaceComments {
+  display: none !important;
+}
+
 /* Mobile adjustments */
 @media (max-width: 640px) {
   .profile-avatar {
