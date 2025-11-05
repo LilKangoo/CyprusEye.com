@@ -314,6 +314,27 @@ console.log('🔵 App Core V2 - START');
     // Renderuj listę POI
     await renderLocationsList();
     
+    // Globalny delegowany handler dla kliknięć w przycisk Komentarze w popupach
+    if (!window.__popupCommentsBound) {
+      window.__popupCommentsBound = true;
+      document.addEventListener('click', (e) => {
+        const target = e.target instanceof Element ? e.target : null;
+        if (!target) return;
+        const btn = target.closest && target.closest('.popup-comments-btn[data-poi-id]');
+        if (!btn) return;
+        const poiId = btn.getAttribute('data-poi-id');
+        if (!poiId) return;
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('🟢 [delegated] Klik w Komentarze (map popup) dla POI:', poiId);
+        if (typeof window.openPoiComments === 'function') {
+          window.openPoiComments(poiId);
+        } else {
+          console.warn('openPoiComments not available (delegated)');
+        }
+      }, true);
+    }
+    
     console.log('✅ Aplikacja zainicjalizowana');
   }
   
