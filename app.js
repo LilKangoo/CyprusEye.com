@@ -5463,19 +5463,64 @@ function syncMarkers() {
 
   places.forEach((place) => {
     const hasMarker = markers.has(place.id);
+    
+    // Prepare popup content with Google Maps link and Comments button
+    const placeName = getPlaceName(place);
+    const googleMapsUrl = place.googleMapsUrl || place.googleMapsURL || `https://maps.google.com/?q=${place.lat},${place.lng}`;
+    
+    const popupContent = `
+      <div style="min-width: 220px;">
+        <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #2563eb;">${placeName}</h3>
+        <p style="margin: 0 0 12px 0; font-size: 14px;">⭐ ${place.xp || 100} XP</p>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <a href="${googleMapsUrl}" target="_blank" rel="noopener" style="display: inline-block; padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 13px;">Google Maps →</a>
+          <button type="button" data-poi-id="${place.id}" class="popup-comments-btn" style="padding:6px 10px; background:#f3f4f6; color:#111827; border:1px solid #e5e7eb; border-radius:4px; font-size:13px; cursor:pointer;">💬 Komentarze</button>
+        </div>
+      </div>
+    `;
 
     if (!hasMarker) {
       const marker = L.marker([place.lat, place.lng]).addTo(map);
-      marker.bindPopup(
-        `<strong>${getPlaceName(place)}</strong><br/>${getPlaceBadge(place)} • ${place.xp} XP`,
-      );
+      marker.bindPopup(popupContent, { maxWidth: 270 });
       marker.on('click', () => focusPlace(place.id));
+      
+      // Wire comments button when popup opens
+      marker.on('popupopen', () => {
+        const btn = document.querySelector('.popup-comments-btn[data-poi-id="' + place.id + '"]');
+        if (btn) {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof window.openPoiComments === 'function') {
+              window.openPoiComments(place.id);
+            } else {
+              console.warn('openPoiComments not available');
+            }
+          });
+        }
+      });
+      
       markers.set(place.id, marker);
     } else {
       const marker = markers.get(place.id);
-      marker.setPopupContent(
-        `<strong>${getPlaceName(place)}</strong><br/>${getPlaceBadge(place)} • ${place.xp} XP`,
-      );
+      marker.setPopupContent(popupContent);
+      
+      // Re-wire comments button event when popup opens
+      marker.off('popupopen'); // Remove old handler
+      marker.on('popupopen', () => {
+        const btn = document.querySelector('.popup-comments-btn[data-poi-id="' + place.id + '"]');
+        if (btn) {
+          btn.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (typeof window.openPoiComments === 'function') {
+              window.openPoiComments(place.id);
+            } else {
+              console.warn('openPoiComments not available');
+            }
+          });
+        }
+      });
     }
   });
 }
