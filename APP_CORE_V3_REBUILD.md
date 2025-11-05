@@ -1,30 +1,25 @@
-# APP CORE V3 - Kompletna Przebudowa Mapy
+# APP CORE V3 - Uproszczenie Mapy
 
 ## 🎯 Cel
-Przebudowanie funkcjonalności mapy aby:
-- Używała **TYLKO** danych z Supabase (`window.PLACES_DATA`)
-- Działała **niezależnie** od panelu pod mapą
-- Prawidłowo otwierała modal komentarzy dla wszystkich POI
-- Eliminowała błędy "POI not found"
+Uproszczenie funkcjonalności mapy:
+- Używa **TYLKO** danych z Supabase (`window.PLACES_DATA`)
+- Pokazuje podstawowe informacje w popupie (nazwa, XP, link do Google Maps)
+- **Usunięto przyciski komentarzy z mapy** - komentarze dostępne tylko w panelu pod mapą
+- Kliknięcie markera synchronizuje panel pod mapą
 
-## 📋 Problem Przed Przebudową
+## 📋 Problem Przed Zmianami
 
-### Błędy w Konsoli
-```
-❌ POI not found: larnaca-beach
-❌ POI not found: limassol-marina
-❌ Opening modal for POI: undefined
-```
+### Błędy
+- Przyciski komentarzy na mapie nie działały poprawnie
+- Błędy "POI not found" w konsoli
+- Niekompatybilność ID między mapą a Supabase
 
-### Przyczyny
-1. **Błąd składniowy** - funkcja `waitForPlacesData()` nie była zamknięta
-2. **Stare ID** - mapa używała hardcoded ID które nie istnieją w Supabase
-3. **Brak walidacji** - nie sprawdzano czy POI istnieje przed otwarciem modala
-4. **Podwójne handlery** - kliknięcia były obsługiwane w 2 miejscach
+### Decyzja
+**Usunięcie przycisków komentarzy z mapy** - komentarze pozostały dostępne w pełni funkcjonalnym panelu pod mapą.
 
-## ✅ Co Zostało Naprawione
+## ✅ Co Zostało Zmienione
 
-### 1. Funkcja `waitForPlacesData()`
+### 1. Funkcja `waitForPlacesData()` - Poprawiona
 **Przed:**
 ```javascript
 async function waitForPlacesData() {
@@ -54,131 +49,52 @@ async function waitForPlacesData() {
 }
 ```
 
-### 2. Nowa Funkcja `safeOpenComments(poiId)`
-Bezpieczne otwarcie modala z pełną walidacją:
+### 2. Usunięcie Funkcji Komentarzy z Mapy
+**Funkcja `safeOpenComments` została usunięta** - komentarze są dostępne tylko w panelu pod mapą.
 
-```javascript
-async function safeOpenComments(poiId) {
-  try {
-    console.log('🔍 safeOpenComments wywołane dla POI:', poiId);
-    
-    // 1. Sprawdź czy mamy poiId
-    if (!poiId) {
-      console.error('❌ Brak poiId');
-      return false;
-    }
-    
-    // 2. Poczekaj na dane z Supabase
-    const placesData = await waitForPlacesData();
-    if (!placesData || placesData.length === 0) {
-      console.error('❌ Brak danych POI');
-      return false;
-    }
-    
-    // 3. Sprawdź czy POI istnieje w PLACES_DATA
-    const poi = placesData.find(p => p.id === poiId);
-    if (!poi) {
-      console.error('❌ POI nie znaleziony w PLACES_DATA:', poiId);
-      console.log('📍 Dostępne ID:', placesData.map(p => p.id));
-      return false;
-    }
-    
-    console.log('✅ POI znaleziony:', poi.nameFallback || poi.name);
-
-    // 4. Poczekaj na window.openPoiComments
-    let tries = 0;
-    while (typeof window.openPoiComments !== 'function' && tries < 50) {
-      await new Promise(r => setTimeout(r, 100));
-      tries++;
-    }
-    
-    if (typeof window.openPoiComments !== 'function') {
-      console.error('❌ window.openPoiComments nie jest dostępna');
-      return false;
-    }
-    
-    // 5. Otwórz modal
-    console.log('🟢 Otwieram modal komentarzy dla:', poiId);
-    await window.openPoiComments(poiId);
-    return true;
-    
-  } catch (e) {
-    console.error('❌ Błąd w safeOpenComments:', e);
-    return false;
-  }
-}
-```
-
-### 3. Przepisana Funkcja `addMarkers()`
+### 3. Uproszczona Funkcja `addMarkers()`
 
 **Kluczowe zmiany:**
 - ✅ Walidacja `poi.id` przed dodaniem markera
 - ✅ Obsługa różnych pól współrzędnych (`lat`, `lng`, `lon`, `latitude`, `longitude`)
-- ✅ Dokładne logi dla każdego markera z ID z Supabase
-- ✅ Popup używa `poi.id` z Supabase w `data-poi-id="${poi.id}"`
-- ✅ Usunięto podwójne handlery - tylko delegowany globalny
+- ✅ Dokładne logi dla każdego markera
+- ❌ **Usunięto przycisk Komentarze** z popupu
+- ✅ Popup zawiera: nazwę, XP, link do Google Maps, info o komentarzach w panelu
 
 ```javascript
-window.PLACES_DATA.forEach((poi, index) => {
-  // Walidacja ID z Supabase
-  if (!poi.id) {
-    console.warn(`⚠️ [${index}] POI bez ID - pomijam`);
-    skippedCount++;
-    return;
-  }
-  
-  // ... normalizacja współrzędnych ...
-  
-  // Nazwa z Supabase
-  const name = poi.nameFallback || poi.name || poi.id;
-  
-  console.log(`📍 [${index}] Dodaję marker: ${name} (ID: ${poi.id}) [${lat}, ${lng}]`);
-  
-  // Popup z przyciskiem Komentarze - używa poi.id z Supabase
-  marker.bindPopup(`
-    <div style="min-width: 220px;">
-      <h3>${name}</h3>
-      <p>⭐ ${poi.xp || 100} XP</p>
-      <button data-poi-id="${poi.id}" class="popup-comments-btn">💬 Komentarze</button>
+// Popup bez przycisku komentarzy
+marker.bindPopup(`
+  <div style="min-width: 220px;">
+    <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #2563eb;">${name}</h3>
+    <p style="margin: 0 0 12px 0; font-size: 14px;">⭐ ${poi.xp || 100} XP</p>
+    <div style="display:flex; gap:8px; flex-wrap:wrap;">
+      <a href="${googleMapsUrl}" target="_blank" rel="noopener" 
+         style="display: inline-block; padding: 6px 10px; background: #2563eb; 
+                color: white; text-decoration: none; border-radius: 4px; font-size: 13px;">
+        Google Maps →
+      </a>
     </div>
-  `);
-  
-  // Dodaj marker do mapy
-  marker.addTo(markersLayer);
+    <p style="margin: 8px 0 0 0; font-size: 12px; color: #6b7280;">
+      💬 Komentarze dostępne w panelu poniżej
+    </p>
+  </div>
+`, { maxWidth: 270 });
+
+// Kliknięcie markera synchronizuje panel pod mapą
+marker.on('click', () => {
+  if (typeof window.setCurrentPlace === 'function') {
+    window.setCurrentPlace(poi.id, { scroll: true });
+  }
 });
 ```
 
-### 4. Zaktualizowany Delegowany Handler
+### 4. Delegowany Handler
 
-**Przed:**
-```javascript
-if (typeof window.openPoiComments === 'function') {
-  window.openPoiComments(poiId);  // ❌ Bezpośrednie wywołanie bez walidacji
-}
-```
-
-**Po:**
-```javascript
-document.addEventListener('click', async (e) => {
-  const btn = e.target.closest('.popup-comments-btn[data-poi-id]');
-  if (!btn) return;
-  
-  const poiId = btn.getAttribute('data-poi-id');
-  if (!poiId) return;
-  
-  e.preventDefault();
-  e.stopPropagation();
-  
-  console.log('🔵 [DELEGATED] Kliknięto Komentarze w popupie dla POI:', poiId);
-  
-  // ✅ Używa bezpiecznej funkcji która weryfikuje ID z Supabase
-  await safeOpenComments(poiId);
-}, true);
-```
+**Usunięty** - nie jest już potrzebny, ponieważ nie ma już przycisków komentarzy na mapie.
 
 ## 🔍 Logi Diagnostyczne
 
-Po przebudowie, w konsoli będziesz widział:
+W konsoli będziesz widział:
 
 ### Podczas Ładowania
 ```
@@ -190,31 +106,22 @@ Po przebudowie, w konsoli będziesz widział:
 📍 [0] Dodaję marker: Wrak Zenobii (ID: wrak-zenobii) [34.9, 33.6]
 📍 [1] Dodaję marker: Starożytne miasto Soli (ID: starożytne-miasto-soli) [35.1, 32.8]
 ✅ Dodano 42 markerów z Supabase
-✅ Delegowany handler dla przycisków Komentarze w popupach zainstalowany
 ✅ Aplikacja zainicjalizowana
-🔵 App Core V3 - GOTOWY (używa tylko danych z Supabase)
+🔵 App Core V3 - GOTOWY (mapa bez komentarzy, komentarze dostępne w panelu poniżej)
 ```
 
-### Podczas Kliknięcia "Komentarze"
+### Podczas Kliknięcia Markera
 ```
-🔵 [DELEGATED] Kliknięto Komentarze w popupie dla POI: wrak-zenobii
-🔍 safeOpenComments wywołane dla POI: wrak-zenobii
-✅ POI znaleziony: Wrak Zenobii
-🟢 Otwieram modal komentarzy dla: wrak-zenobii
+🖱️ Kliknięto marker POI: wrak-zenobii
 ```
+(Panel pod mapą zostanie zsynchronizowany z wybranym miejscem)
 
-### Jeśli POI Nie Istnieje
-```
-❌ POI nie znaleziony w PLACES_DATA: larnaca-beach
-📍 Dostępne ID: ["wrak-zenobii", "starożytne-miasto-soli", ...]
-```
+## Plik Zmieniony
+- `/app-core.js` - **uproszczony**
 
-## 📁 Plik Zmieniony
-- `/app-core.js` - **całkowicie przebudowany**
+## Jak Przetestować
 
-## 🧪 Jak Przetestować
-
-1. **Hard Refresh** strony: `Cmd+Shift+R` (Mac) lub `Ctrl+Shift+F5` (Windows)
+1. **Hard refresh** strony: `Cmd+Shift+R` (Mac) lub `Ctrl+Shift+F5` (Windows)
 
 2. **Otwórz Console** (F12)
 
@@ -225,38 +132,38 @@ Po przebudowie, w konsoli będziesz widział:
 
 4. **Kliknij marker na mapie**
 
-5. **Kliknij "💬 Komentarze" w popupie**
+5. **Sprawdź czy popup zawiera:**
+   - ✅ Nazwę miejsca
+   - ✅ XP
+   - ✅ Link "Google Maps →"
+   - ✅ Informację "💬 Komentarze dostępne w panelu poniżej"
 
-6. **Sprawdź logi:**
-   - ✅ Powinieneś zobaczyć: "[DELEGATED] Kliknięto Komentarze..."
-   - ✅ Powinieneś zobaczyć: "POI znaleziony: [nazwa]"
-   - ✅ Powinieneś zobaczyć: "Otwieram modal komentarzy..."
-   - ✅ Modal powinien się otworzyć z prawidłową nazwą miejsca
+6. **Przewiń w dół** do panelu pod mapą
 
-7. **Sprawdź czy modal wyświetla komentarze z Supabase**
+7. **Kliknij "Komentarze"** w panelu - modal powinien się otworzyć z komentarzami z Supabase
 
 ## ✨ Korzyści
 
-1. **Spójność danych** - mapa używa tych samych ID co tabela `poi_comments` w Supabase
-2. **Niezależność** - mapa działa bez panelu pod nią
-3. **Diagnostyka** - dokładne logi pokazują dokładnie co się dzieje
-4. **Walidacja** - sprawdzamy czy POI istnieje przed otwarciem modala
-5. **Bezpieczeństwo** - tylko jedno miejsce obsługi kliknięć (delegowany handler)
+1. **Prostota** - mapa pokazuje tylko podstawowe informacje
+2. **Spójność** - wszystkie dane z Supabase
+3. **Stabilność** - brak skomplikowanych handlerów dla komentarzy
+4. **Funkcjonalność** - komentarze dostępne w pełni działającym panelu pod mapą
+5. **Diagnostyka** - dokładne logi pokazują co się dzieje
 
-## 🚀 Następne Kroki
+## 👍 Finalne Rozwiązanie
 
-Jeśli nadal widzisz błędy:
+Mapa:
+- ✅ Pokazuje markery z Supabase
+- ✅ Popup z podstawowymi informacjami
+- ✅ Link do Google Maps
+- ✅ Synchronizacja z panelem pod mapą
 
-1. **Sprawdź Console** - poszukaj logów z 🔍 i ❌
-2. **Sprawdź `window.PLACES_DATA`** w console:
-   ```javascript
-   console.log(window.PLACES_DATA)
-   ```
-3. **Sprawdź czy POI mają status="published"** w Supabase
-4. **Sprawdź czy POI mają współrzędne** (lat, lng)
+Komentarze:
+- ✅ Dostępne w pełni funkcjonalnym panelu pod mapą
+- ✅ Bez problemów z ID i Supabase
 
 ---
 
 **Autor:** Cascade AI  
 **Data:** 2025-01-05  
-**Wersja:** V3 - Complete Rebuild
+**Wersja:** V3 - Simplified (Comments Removed from Map)

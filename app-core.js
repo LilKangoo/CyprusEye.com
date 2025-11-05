@@ -32,60 +32,7 @@ console.log('🔵 App Core V3 - START');
     return [];
   }
   
-  /**
-   * Bezpieczne otwarcie modala komentarzy dla danego POI.
-   * Czeka na window.openPoiComments i wywołuje ją z ID z Supabase.
-   */
-  async function safeOpenComments(poiId) {
-    try {
-      console.log('🔍 safeOpenComments wywołane dla POI:', poiId);
-      
-      if (!poiId) {
-        console.error('❌ Brak poiId');
-        return false;
-      }
-      
-      // Upewnij się, że dane POI są dostępne
-      const placesData = await waitForPlacesData();
-      if (!placesData || placesData.length === 0) {
-        console.error('❌ Brak danych POI');
-        return false;
-      }
-      
-      // Sprawdź czy POI istnieje w danych
-      const poi = placesData.find(p => p.id === poiId);
-      if (!poi) {
-        console.error('❌ POI nie znaleziony w PLACES_DATA:', poiId);
-        console.log('📍 Dostępne ID:', placesData.map(p => p.id));
-        return false;
-      }
-      
-      console.log('✅ POI znaleziony:', poi.nameFallback || poi.name);
-
-      // Poczekaj maks 5s aż funkcja openPoiComments będzie dostępna
-      let tries = 0;
-      while (typeof window.openPoiComments !== 'function' && tries < 50) {
-        await new Promise(r => setTimeout(r, 100));
-        tries++;
-      }
-      
-      if (typeof window.openPoiComments !== 'function') {
-        console.error('❌ window.openPoiComments nie jest dostępna');
-        return false;
-      }
-      
-      console.log('🟢 Otwieram modal komentarzy dla:', poiId);
-      await window.openPoiComments(poiId);
-      return true;
-      
-    } catch (e) {
-      console.error('❌ Błąd w safeOpenComments:', e);
-      return false;
-    }
-  }
-  
-  // Export globalny
-  window.safeOpenComments = safeOpenComments;
+  // Funkcja komentarzy została usunięta - komentarze dostępne tylko w panelu pod mapą
   
   /**
    * Inicjalizuje mapę
@@ -230,27 +177,25 @@ console.log('🔵 App Core V3 - START');
         ? (window.getPoiGoogleUrl(poi) || `https://maps.google.com/?q=${lat},${lng}`)
         : (poi.googleMapsUrl || poi.googleMapsURL || poi.google_url || `https://maps.google.com/?q=${lat},${lng}`);
       
-      // Popup z przyciskiem Komentarze - używa poi.id z Supabase
+      // Popup bez przycisku komentarzy - komentarze dostępne tylko w panelu pod mapą
       marker.bindPopup(`
         <div style="min-width: 220px;">
           <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #2563eb;">${name}</h3>
           <p style="margin: 0 0 12px 0; font-size: 14px;">⭐ ${poi.xp || 100} XP</p>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <a href="${googleMapsUrl}" target="_blank" rel="noopener" style="display: inline-block; padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 13px;">Google Maps →</a>
-            <button type="button" data-poi-id="${poi.id}" class="popup-comments-btn" style="padding:6px 10px; background:#f3f4f6; color:#111827; border:1px solid #e5e7eb; border-radius:4px; font-size:13px; cursor:pointer;">💬 Komentarze</button>
           </div>
+          <p style="margin: 8px 0 0 0; font-size: 12px; color: #6b7280;">💬 Komentarze dostępne w panelu poniżej</p>
         </div>
       `, { maxWidth: 270 });
 
-      // Kliknięcie markera - sync z panelem
+      // Kliknięcie markera - sync z panelem pod mapą
       marker.on('click', () => {
         console.log('🖱️ Kliknięto marker POI:', poi.id);
         if (typeof window.setCurrentPlace === 'function') {
           window.setCurrentPlace(poi.id, { scroll: true });
         }
       });
-
-      // Nie podpinamy kliknięcia tutaj - użyjemy delegowanego handlera globalnego
       
       // Dodaj marker do mapy
       marker.addTo(markersLayer);
@@ -359,35 +304,8 @@ console.log('🔵 App Core V3 - START');
     // Renderuj listę POI
     await renderLocationsList();
     
-    // Globalny delegowany handler dla kliknięć w przycisk Komentarze w popupach
-    // Używa safeOpenComments który weryfikuje ID z Supabase
-    if (!window.__popupCommentsBound) {
-      window.__popupCommentsBound = true;
-      document.addEventListener('click', async (e) => {
-        const target = e.target instanceof Element ? e.target : null;
-        if (!target) return;
-        
-        // Sprawdź czy kliknięto przycisk Komentarze w popupie
-        const btn = target.closest && target.closest('.popup-comments-btn[data-poi-id]');
-        if (!btn) return;
-        
-        const poiId = btn.getAttribute('data-poi-id');
-        if (!poiId) {
-          console.warn('⚠️ Przycisk Komentarze bez data-poi-id');
-          return;
-        }
-        
-        e.preventDefault();
-        e.stopPropagation();
-        
-        console.log('🔵 [DELEGATED] Kliknięto Komentarze w popupie dla POI:', poiId);
-        
-        // Użyj bezpiecznej funkcji która weryfikuje ID z Supabase
-        await safeOpenComments(poiId);
-      }, true);
-      
-      console.log('✅ Delegowany handler dla przycisków Komentarze w popupach zainstalowany');
-    }
+    // Przyciski komentarzy na mapie zostały usunięte
+    // Komentarze dostępne są tylko w panelu pod mapą
     
     console.log('✅ Aplikacja zainicjalizowana');
   }
@@ -399,5 +317,5 @@ console.log('🔵 App Core V3 - START');
     initialize();
   }
   
-  console.log('🔵 App Core V3 - GOTOWY (używa tylko danych z Supabase)');
+  console.log('🔵 App Core V3 - GOTOWY (mapa bez komentarzy, komentarze dostępne w panelu poniżej)');
 })();
