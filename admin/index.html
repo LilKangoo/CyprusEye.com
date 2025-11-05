@@ -206,6 +206,15 @@
           <span>Quests</span>
         </button>
         
+        <button class="admin-nav-item" data-view="cars">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 17h14v2H5v-2zM3 11l2.5-5h13L21 11M3 11v6h18v-6M3 11h18"/>
+            <circle cx="7.5" cy="15.5" r="1.5"/>
+            <circle cx="16.5" cy="15.5" r="1.5"/>
+          </svg>
+          <span>Cars</span>
+        </button>
+        
         <button class="admin-nav-item" data-view="content">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -763,6 +772,101 @@
               </tbody>
             </table>
           </div>
+        </div>
+      </section>
+
+      <!-- Cars View -->
+      <section class="admin-view" id="viewCars" hidden>
+        <header class="admin-view-header">
+          <div>
+            <h2>Car Rentals</h2>
+            <p class="admin-view-subtitle">Manage car rental bookings and vehicles</p>
+          </div>
+          <div class="admin-view-actions">
+            <button class="btn-secondary" type="button" id="btnRefreshCars">Refresh</button>
+            <button class="btn-primary" type="button" id="btnAddCar">New Car</button>
+          </div>
+        </header>
+
+        <!-- Car Stats -->
+        <div class="admin-stats-grid">
+          <div class="admin-stat-card">
+            <div class="stat-card-icon stat-card-icon-blue">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M5 17h14v2H5v-2zM3 11l2.5-5h13L21 11M3 11v6h18v-6M3 11h18"/>
+                <circle cx="7.5" cy="15.5" r="1.5"/>
+                <circle cx="16.5" cy="15.5" r="1.5"/>
+              </svg>
+            </div>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total Bookings</p>
+              <p class="stat-card-value" id="statTotalBookings">-</p>
+              <p class="stat-card-change">Loading...</p>
+            </div>
+          </div>
+
+          <div class="admin-stat-card">
+            <div class="stat-card-icon stat-card-icon-green">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="20 6 9 17 4 12"/>
+              </svg>
+            </div>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Active Rentals</p>
+              <p class="stat-card-value" id="statActiveRentals">-</p>
+              <p class="stat-card-change">Loading...</p>
+            </div>
+          </div>
+
+          <div class="admin-stat-card">
+            <div class="stat-card-icon stat-card-icon-orange">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </div>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Pending</p>
+              <p class="stat-card-value" id="statPendingBookings">-</p>
+              <p class="stat-card-change">Loading...</p>
+            </div>
+          </div>
+
+          <div class="admin-stat-card">
+            <div class="stat-card-icon stat-card-icon-purple">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="1" x2="12" y2="23"/>
+                <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+            </div>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Revenue (Total)</p>
+              <p class="stat-card-value" id="statTotalRevenue">-</p>
+              <p class="stat-card-change">Loading...</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Cars Table -->
+        <div class="admin-table-container">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Booking ID</th>
+                <th>Customer</th>
+                <th>Car Type</th>
+                <th>Dates</th>
+                <th>Status</th>
+                <th>Amount</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="carsTableBody">
+              <tr>
+                <td colspan="7" class="table-loading">Loading car bookings...</td>
+              </tr>
+            </tbody>
+          </table>
         </div>
       </section>
 

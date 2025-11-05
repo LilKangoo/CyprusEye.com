@@ -320,6 +320,9 @@ function switchView(viewName) {
     case 'quests':
       loadQuestsData();
       break;
+    case 'cars':
+      loadCarsData();
+      break;
     case 'content':
       loadContentData();
       break;
@@ -1194,6 +1197,113 @@ document.addEventListener('DOMContentLoaded', () => {
   const form = $('#questForm');
   if (form) form.addEventListener('submit', handleQuestFormSubmit);
 });
+
+// =====================================================
+// CARS MANAGEMENT
+// =====================================================
+
+async function loadCarsData() {
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    console.log('Loading car bookings data...');
+
+    // Load car bookings
+    const { data: bookings, error } = await client
+      .from('car_bookings')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error loading car bookings:', error);
+      throw error;
+    }
+
+    console.log('Car bookings loaded:', bookings);
+
+    // Calculate statistics
+    const totalBookings = bookings?.length || 0;
+    const activeRentals = bookings?.filter(b => b.status === 'confirmed' || b.status === 'active').length || 0;
+    const pendingBookings = bookings?.filter(b => b.status === 'pending').length || 0;
+    const totalRevenue = bookings?.reduce((sum, b) => sum + (Number(b.total_price) || 0), 0) || 0;
+
+    // Update stats cards
+    const statTotalBookings = $('#statTotalBookings');
+    const statActiveRentals = $('#statActiveRentals');
+    const statPendingBookings = $('#statPendingBookings');
+    const statTotalRevenue = $('#statTotalRevenue');
+
+    if (statTotalBookings) statTotalBookings.textContent = totalBookings;
+    if (statActiveRentals) statActiveRentals.textContent = activeRentals;
+    if (statPendingBookings) statPendingBookings.textContent = pendingBookings;
+    if (statTotalRevenue) statTotalRevenue.textContent = `€${totalRevenue.toFixed(2)}`;
+
+    // Update table
+    const tableBody = $('#carsTableBody');
+    if (!tableBody) return;
+
+    if (!bookings || bookings.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="7" class="table-loading">No car bookings found</td></tr>';
+      return;
+    }
+
+    tableBody.innerHTML = bookings.map(booking => {
+      const startDate = booking.pickup_date ? new Date(booking.pickup_date).toLocaleDateString() : 'N/A';
+      const endDate = booking.return_date ? new Date(booking.return_date).toLocaleDateString() : 'N/A';
+      const statusClass = 
+        booking.status === 'confirmed' ? 'badge-success' :
+        booking.status === 'pending' ? 'badge-warning' :
+        booking.status === 'cancelled' ? 'badge-danger' : 'badge-info';
+      
+      return `
+        <tr>
+          <td>#${booking.id.slice(0, 8)}</td>
+          <td>
+            <div>${escapeHtml(booking.customer_name || 'N/A')}</div>
+            <div style="font-size: 12px; color: var(--admin-text-muted);">${escapeHtml(booking.customer_email || '')}</div>
+          </td>
+          <td>${escapeHtml(booking.car_type || 'N/A')}</td>
+          <td>
+            <div style="font-size: 13px;">${startDate} → ${endDate}</div>
+          </td>
+          <td>
+            <span class="badge ${statusClass}">
+              ${booking.status || 'unknown'}
+            </span>
+          </td>
+          <td style="font-weight: 600;">€${Number(booking.total_price || 0).toFixed(2)}</td>
+          <td>
+            <button class="btn-secondary" onclick="viewCarBookingDetails('${booking.id}')">
+              View
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+  } catch (error) {
+    console.error('Failed to load car bookings:', error);
+    showToast('Failed to load car bookings: ' + (error.message || 'Unknown error'), 'error');
+    
+    const tableBody = $('#carsTableBody');
+    if (tableBody) {
+      tableBody.innerHTML = '<tr><td colspan="7" class="table-loading" style="color: var(--admin-danger);">Error loading data</td></tr>';
+    }
+  }
+}
+
+async function viewCarBookingDetails(bookingId) {
+  showToast('Car booking details view - coming soon', 'info');
+  console.log('View car booking:', bookingId);
+}
+
+// Make functions global for onclick handlers
+window.viewCarBookingDetails = viewCarBookingDetails;
+window.loadCarsData = loadCarsData;
 
 // =====================================================
 // DIAGNOSTICS
@@ -2248,6 +2358,19 @@ function initEventListeners() {
   const poiDetailOverlay = $('#poiDetailModalOverlay');
   if (poiDetailOverlay) {
     poiDetailOverlay.addEventListener('click', () => closePoiDetail());
+  }
+
+  // Cars actions
+  const refreshCarsBtn = $('#btnRefreshCars');
+  if (refreshCarsBtn) {
+    refreshCarsBtn.addEventListener('click', () => loadCarsData());
+  }
+
+  const addCarBtn = $('#btnAddCar');
+  if (addCarBtn) {
+    addCarBtn.addEventListener('click', () => {
+      showToast('Add new car booking - coming soon', 'info');
+    });
   }
 
   // Logout
