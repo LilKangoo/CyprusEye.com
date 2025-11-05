@@ -30,7 +30,6 @@ let adminState = {
   poiDataSource: 'supabase',
   selectedPoi: null,
   poiFormMode: 'create',
-  carSearch: '',
   quests: [],
   questFormMode: 'create',
   selectedQuest: null,
@@ -317,9 +316,6 @@ function switchView(viewName) {
       break;
     case 'pois':
       loadPoisData();
-      break;
-    case 'cars':
-      loadCarsData();
       break;
     case 'quests':
       loadQuestsData();
@@ -2086,24 +2082,6 @@ function initEventListeners() {
     });
   });
 
-  // Cars view buttons (minimal wiring)
-  const btnRefreshCars = $('#btnRefreshCars');
-  if (btnRefreshCars) btnRefreshCars.addEventListener('click', () => loadCarsData());
-  const btnCarsSearch = $('#btnCarsSearch');
-  const btnCarsClear = $('#btnCarsClear');
-  if (btnCarsSearch) btnCarsSearch.addEventListener('click', () => loadCarsData());
-  if (btnCarsClear) btnCarsClear.addEventListener('click', () => {
-    const input = $('#carsSearchInput');
-    if (input) input.value = '';
-    loadCarsData();
-  });
-
-  // Logout
-  const logoutBtn = $('#btnAdminLogout');
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', handleLogout);
-  }
-
   // Users pagination
   const usersPrevBtn = $('#btnUsersPrev');
   const usersNextBtn = $('#btnUsersNext');
@@ -2272,53 +2250,10 @@ function initEventListeners() {
     poiDetailOverlay.addEventListener('click', () => closePoiDetail());
   }
 
-  // Cars placeholder actions
-  const carsSearchInput = $('#carsSearchInput');
-  if (carsSearchInput) {
-    carsSearchInput.addEventListener('input', (event) => {
-      adminState.carSearch = (event.target.value || '').trim();
-      loadCarsData();
-    });
-  }
-
-  const carsSearchBtn = $('#btnCarsSearch');
-  if (carsSearchBtn) {
-    carsSearchBtn.addEventListener('click', (event) => {
-      event.preventDefault();
-      if (carsSearchInput) {
-        adminState.carSearch = (carsSearchInput.value || '').trim();
-      }
-      loadCarsData();
-      showToast('Car search will be available soon.', 'info');
-    });
-  }
-
-  const carsClearBtn = $('#btnCarsClear');
-  if (carsClearBtn) {
-    carsClearBtn.addEventListener('click', (event) => {
-      event.preventDefault();
-      adminState.carSearch = '';
-      if (carsSearchInput) {
-        carsSearchInput.value = '';
-      }
-      loadCarsData();
-      showToast('Cleared car search filters.', 'info');
-    });
-  }
-
-  const refreshCarsBtn = $('#btnRefreshCars');
-  if (refreshCarsBtn) {
-    refreshCarsBtn.addEventListener('click', () => {
-      loadCarsData();
-      showToast('Refreshed car overview.', 'info');
-    });
-  }
-
-  const addCarBtn = $('#btnAddCar');
-  if (addCarBtn) {
-    addCarBtn.addEventListener('click', () => {
-      showToast('Car creation tools are coming soon.', 'info');
-    });
+  // Logout
+  const logoutBtn = $('#btnAdminLogout');
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', handleLogout);
   }
 
   // Diagnostics Auto-Fix modal
@@ -2344,6 +2279,8 @@ async function searchUsers(query) {
       return;
     }
     
+    adminState.usersPage = 1;
+
     const { data: users, error } = await client
       .from('admin_users_overview')
       .select('*')
@@ -2851,7 +2788,6 @@ function renderPoiList() {
                 <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
                 <path d="M10 11v6"/>
                 <path d="M14 11v6"/>
-                <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
               </svg>
             </button>
           </div>
@@ -3115,11 +3051,8 @@ async function handlePoiFormSubmit(event) {
     submitBtn.textContent = 'Saving...';
   }
 
-  if (errorEl) {
-    hideElement(errorEl);
-    errorEl.textContent = '';
-  }
-
+  if (errorEl) hideElement(errorEl);
+  
   const formData = new FormData(form);
   const name = (formData.get('name') || '').toString().trim();
   const slugInput = (formData.get('slug') || '').toString().trim();
@@ -3533,8 +3466,7 @@ async function loadComments(page = 1) {
           </div>
         </td>
       </tr>
-      `;
-    }).join('');
+    `).join('');
     
     // Update pagination
     updateContentPagination(comments.length);
@@ -3581,13 +3513,13 @@ async function viewCommentDetails(commentId) {
     if (!client) return;
     
     showToast('Loading comment details...', 'info');
-    
+
     const { data, error } = await client.rpc('admin_get_comment_details', {
       comment_id: commentId
     });
-    
+
     if (error) throw error;
-    
+
     const comment = data.comment;
     const photos = data.photos || [];
     const likes = data.likes || { count: 0, users: [] };
@@ -3719,7 +3651,7 @@ function editComment(commentId) {
     return;
   }
   
-  contentState.selectedComment = { comment_id: commentId, comment_content: comment.comment_content };
+  contentState.selectedComment = { ...comment, comment_id: commentId };
   
   const modal = $('#commentEditModal');
   const title = $('#commentEditTitle');
@@ -3888,7 +3820,9 @@ async function deleteCommentPhoto(photoId) {
   
   try {
     const client = ensureSupabase();
-    if (!client) throw new Error('Database connection not available');
+    if (!client) {
+      throw new Error('Database connection not available');
+    }
     
     showToast('Deleting photo...', 'info');
     
@@ -3947,73 +3881,6 @@ window.deleteCommentPhoto = deleteCommentPhoto;
 window.loadComments = loadComments;
 window.searchComments = searchComments;
 window.clearContentSearch = clearContentSearch;
-
-// =====================================================
-// CARS (placeholder)
-// =====================================================
-
-async function loadCarsData() {
-  try {
-    const tableBody = document.getElementById('carsTableBody');
-    const helperText = document.getElementById('carsHelperText');
-    const hasSearch = Boolean(adminState.carSearch);
-
-    if (helperText) {
-      helperText.textContent = hasSearch
-        ? `Search results for "${adminState.carSearch}" will appear here soon.`
-        : 'This is a placeholder view. Functionality will be added next.';
-    }
-
-    if (tableBody) {
-      const rows = hasSearch
-        ? [
-            {
-              name: `Searching for "${adminState.carSearch}"`,
-              plate: '—',
-              status: 'Preview',
-              badgeClass: 'badge-info',
-              location: 'Results coming soon',
-              updated: '—',
-            },
-          ]
-        : [
-            {
-              name: 'Car management coming soon',
-              plate: '—',
-              status: 'Planned',
-              badgeClass: 'badge-warning',
-              location: 'Administration',
-              updated: '—',
-            },
-          ];
-
-      tableBody.innerHTML = rows
-        .map(
-          (r) => `
-        <tr>
-          <td>${r.name}</td>
-          <td>${r.plate}</td>
-          <td><span class="badge ${r.badgeClass || ''}">${r.status}</span></td>
-          <td>${r.location}</td>
-          <td>${r.updated}</td>
-          <td><button class="btn-secondary" disabled>View</button></td>
-        </tr>
-      `,
-        )
-        .join('');
-    }
-
-    const totalEl = document.getElementById('carsStatTotal');
-    const availEl = document.getElementById('carsStatAvailable');
-    const activeEl = document.getElementById('carsStatActive');
-    if (totalEl) totalEl.textContent = '0';
-    if (availEl) availEl.textContent = '0';
-    if (activeEl) activeEl.textContent = '0';
-  } catch (e) {
-    console.error('Failed to load cars:', e);
-    showToast('Failed to load cars', 'error');
-  }
-}
 
 // =====================================================
 // INITIALIZATION
