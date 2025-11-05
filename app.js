@@ -5555,7 +5555,6 @@ function syncMarkers() {
         <div style="display:flex; gap:8px; flex-wrap:wrap;">
           <a href="${googleMapsUrl}" target="_blank" rel="noopener" style="display: inline-block; padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 13px;">Google Maps →</a>
         </div>
-        <p style="margin: 8px 0 0 0; font-size: 12px; color: #6b7280;">💬 Komentarze dostępne w panelu poniżej</p>
       </div>
     `;
 

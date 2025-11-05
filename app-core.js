@@ -177,7 +177,7 @@ console.log('🔵 App Core V3 - START');
         ? (window.getPoiGoogleUrl(poi) || `https://maps.google.com/?q=${lat},${lng}`)
         : (poi.googleMapsUrl || poi.googleMapsURL || poi.google_url || `https://maps.google.com/?q=${lat},${lng}`);
       
-      // Popup bez przycisku komentarzy - komentarze dostępne tylko w panelu pod mapą
+      // Popup z podstawowymi informacjami
       marker.bindPopup(`
         <div style="min-width: 220px;">
           <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #2563eb;">${name}</h3>
@@ -185,7 +185,6 @@ console.log('🔵 App Core V3 - START');
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
             <a href="${googleMapsUrl}" target="_blank" rel="noopener" style="display: inline-block; padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 13px;">Google Maps →</a>
           </div>
-          <p style="margin: 8px 0 0 0; font-size: 12px; color: #6b7280;">💬 Komentarze dostępne w panelu poniżej</p>
         </div>
       `, { maxWidth: 270 });
 
