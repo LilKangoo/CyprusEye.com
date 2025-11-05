@@ -34,7 +34,11 @@ function debug(...args) {
 
 // getTranslation moved to src/utils/translations.js
 
-const places = [
+// POI data - loaded dynamically from Supabase via poi-loader.js
+let places = [];
+
+// Legacy hardcoded places (kept as fallback if Supabase fails)
+const LEGACY_PLACES = [
   {
     id: 'kato-pafos-archaeological-park',
     get name() { return getTranslation('places.kato-pafos-archaeological-park.name', 'Kato Paphos Archaeological Park (Nea Paphos)'); },
@@ -675,6 +679,82 @@ const places = [
     requiredLevel: 4,
   },
 ];
+
+// ===================================
+// LOAD POI DATA FROM SUPABASE
+// ===================================
+async function loadPlacesFromSupabase() {
+  console.log('📥 Loading places data for app.js...');
+  
+  try {
+    // Wait for PLACES_DATA to load (from poi-loader.js)
+    let attempts = 0;
+    while (typeof window.PLACES_DATA === 'undefined' && attempts < 50) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      attempts++;
+    }
+    
+    // Use PLACES_DATA if available (loaded by poi-loader.js from Supabase)
+    if (window.PLACES_DATA && Array.isArray(window.PLACES_DATA) && window.PLACES_DATA.length > 0) {
+      places = window.PLACES_DATA.map(p => ({
+        id: p.id,
+        name: p.nameFallback || p.name,
+        nameKey: p.nameKey,
+        nameFallback: p.nameFallback,
+        description: p.descriptionFallback || p.description,
+        descriptionKey: p.descriptionKey,
+        descriptionFallback: p.descriptionFallback,
+        badge: p.badgeFallback || p.badge,
+        badgeKey: p.badgeKey,
+        badgeFallback: p.badgeFallback,
+        lat: p.lat,
+        lng: p.lng,
+        googleMapsUrl: p.googleMapsUrl || p.google_url || `https://maps.google.com/?q=${p.lat},${p.lng}`,
+        googleMapsURL: p.googleMapsURL || p.google_url || `https://maps.google.com/?q=${p.lat},${p.lng}`,
+        xp: p.xp || 100,
+        requiredLevel: p.requiredLevel || 1,
+        source: p.source || 'supabase'
+      }));
+      
+      console.log(`✅ Loaded ${places.length} places from PLACES_DATA (${places[0]?.source || 'unknown'})`);
+      console.log('📍 Place IDs:', places.map(p => p.id));
+      
+      // Update markers
+      syncMarkers();
+      
+      // Listen for updates
+      window.addEventListener('poisDataRefreshed', async (event) => {
+        console.log('🔄 POIs refreshed, reloading places...');
+        await loadPlacesFromSupabase();
+      });
+      
+      return true;
+    }
+    
+    // Fallback to legacy hardcoded data
+    console.warn('⚠️ PLACES_DATA not available, using legacy hardcoded data');
+    places = LEGACY_PLACES;
+    syncMarkers();
+    return false;
+    
+  } catch (error) {
+    console.error('❌ Error loading places:', error);
+    places = LEGACY_PLACES;
+    syncMarkers();
+    return false;
+  }
+}
+
+// Initialize places data when DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    console.log('📄 DOM ready - loading places data');
+    loadPlacesFromSupabase();
+  });
+} else {
+  console.log('📄 DOM already loaded - loading places data immediately');
+  loadPlacesFromSupabase();
+}
 
 const tasks = [
   { id: 'sunrise-challenge', xp: 80, requiredLevel: 1 },
