@@ -656,6 +656,86 @@
         </div>
       </section>
 
+      <!-- Cars View -->
+      <section class="admin-view" id="viewCars" hidden>
+        <header class="admin-view-header">
+          <div>
+            <h2>Cars</h2>
+            <p class="admin-view-subtitle">Manage rental cars, availability and bookings</p>
+          </div>
+          <div class="admin-view-actions">
+            <button class="btn-secondary" type="button" id="btnRefreshCars">Refresh</button>
+            <button class="btn-primary" type="button" id="btnAddCar">New Car</button>
+          </div>
+        </header>
+
+        <div class="admin-stats-grid" id="carsStats">
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total Cars</p>
+              <p class="stat-card-value" id="carsStatTotal">0</p>
+              <p class="stat-card-change">—</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Available</p>
+              <p class="stat-card-value" id="carsStatAvailable">0</p>
+              <p class="stat-card-change">In fleet</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Active Bookings</p>
+              <p class="stat-card-value" id="carsStatActive">0</p>
+              <p class="stat-card-change">Current</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-card">
+          <div class="admin-card-body">
+            <div class="admin-search-bar">
+              <input 
+                type="search" 
+                id="carsSearchInput" 
+                placeholder="Search cars by model, plate, or location..." 
+                class="admin-search-input" 
+              />
+              <button class="btn-admin-search" id="btnCarsSearch">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="11" cy="11" r="8"/>
+                  <path d="m21 21-4.35-4.35"/>
+                </svg>
+                Search
+              </button>
+              <button class="btn-secondary" id="btnCarsClear">Clear</button>
+            </div>
+            <p class="poi-filter-helper">This is a placeholder view. Functionality will be added next.</p>
+          </div>
+        </div>
+
+        <div class="admin-table-container">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Car</th>
+                <th>Plate</th>
+                <th>Status</th>
+                <th>Location</th>
+                <th>Updated</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="carsTableBody">
+              <tr>
+                <td colspan="6" class="table-loading">Coming soon...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
       <!-- Content View -->
       <section class="admin-view" id="viewContent" hidden>
         <header class="admin-view-header">
