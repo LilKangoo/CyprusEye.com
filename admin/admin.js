@@ -317,6 +317,9 @@ function switchView(viewName) {
     case 'pois':
       loadPoisData();
       break;
+    case 'cars':
+      loadCarsData();
+      break;
     case 'quests':
       loadQuestsData();
       break;
@@ -2080,6 +2083,18 @@ function initEventListeners() {
         closeSidebarForMobile();
       }
     });
+  });
+
+  // Cars view buttons (minimal wiring)
+  const btnRefreshCars = $('#btnRefreshCars');
+  if (btnRefreshCars) btnRefreshCars.addEventListener('click', () => loadCarsData());
+  const btnCarsSearch = $('#btnCarsSearch');
+  const btnCarsClear = $('#btnCarsClear');
+  if (btnCarsSearch) btnCarsSearch.addEventListener('click', () => loadCarsData());
+  if (btnCarsClear) btnCarsClear.addEventListener('click', () => {
+    const input = $('#carsSearchInput');
+    if (input) input.value = '';
+    loadCarsData();
   });
 
   // Logout
@@ -3882,6 +3897,43 @@ window.deleteCommentPhoto = deleteCommentPhoto;
 window.loadComments = loadComments;
 window.searchComments = searchComments;
 window.clearContentSearch = clearContentSearch;
+
+// =====================================================
+// CARS (placeholder)
+// =====================================================
+
+async function loadCarsData() {
+  try {
+    const tableBody = document.getElementById('carsTableBody');
+    if (tableBody) {
+      tableBody.innerHTML = '<tr><td colspan="6" class="table-loading">Loading...</td></tr>';
+      // Placeholder data; will be replaced with Supabase fetch
+      const rows = [
+        { name: '—', plate: '—', status: '—', location: '—', updated: '-' },
+      ];
+      tableBody.innerHTML = rows.map(r => `
+        <tr>
+          <td>${r.name}</td>
+          <td>${r.plate}</td>
+          <td><span class="badge">${r.status}</span></td>
+          <td>${r.location}</td>
+          <td>${r.updated}</td>
+          <td><button class="btn-secondary" disabled>View</button></td>
+        </tr>
+      `).join('');
+    }
+
+    const totalEl = document.getElementById('carsStatTotal');
+    const availEl = document.getElementById('carsStatAvailable');
+    const activeEl = document.getElementById('carsStatActive');
+    if (totalEl) totalEl.textContent = '0';
+    if (availEl) availEl.textContent = '0';
+    if (activeEl) activeEl.textContent = '0';
+  } catch (e) {
+    console.error('Failed to load cars:', e);
+    showToast('Failed to load cars', 'error');
+  }
+}
 
 // =====================================================
 // INITIALIZATION
