@@ -22,6 +22,37 @@ console.log('🔵 App Core V2 - START');
         console.log(`✅ PLACES_DATA gotowe (${window.PLACES_DATA.length} POI)`);
         return window.PLACES_DATA;
       }
+
+  /**
+   * Bezpieczne otwarcie modala komentarzy dla danego POI.
+   * Czeka na: dane POI, załadowanie modułu community/ui.js i funkcję window.openPoiComments.
+   */
+  async function safeOpenComments(poiId) {
+    try {
+      if (!poiId) return false;
+      // Upewnij się, że dane POI są dostępne (spójne ID z Supabase)
+      await waitForPlacesData();
+
+      // Poczekaj maks 5s aż funkcja będzie dostępna (module load)
+      let tries = 0;
+      while (typeof window.openPoiComments !== 'function' && tries < 50) {
+        await new Promise(r => setTimeout(r, 100));
+        tries++;
+      }
+      if (typeof window.openPoiComments !== 'function') {
+        console.error('❌ openPoiComments not ready');
+        return false;
+      }
+      console.log('🟢 safeOpenComments →', poiId);
+      await window.openPoiComments(poiId);
+      return true;
+    } catch (e) {
+      console.error('❌ safeOpenComments error:', e);
+      return false;
+    }
+  }
+  // Export helper for other scripts if needed
+  window.safeOpenComments = safeOpenComments;
       
       await new Promise(resolve => setTimeout(resolve, 100));
     }
@@ -139,9 +170,17 @@ console.log('🔵 App Core V2 - START');
     let skippedCount = 0;
     
     window.PLACES_DATA.forEach((poi, index) => {
-      // Walidacja
-      if (!poi.lat || !poi.lng || poi.lat === 0 || poi.lng === 0) {
-        console.warn(`⚠️ [${index}] Pomijam POI bez współrzędnych:`, poi.id, poi);
+      // Normalizacja współrzędnych (obsługa różnych pól)
+      const lat = (typeof poi.lat === 'number') ? poi.lat
+                 : (typeof poi.latitude === 'number') ? poi.latitude
+                 : parseFloat(poi.lat ?? poi.latitude);
+      const lng = (typeof poi.lng === 'number') ? poi.lng
+                 : (typeof poi.lon === 'number') ? poi.lon
+                 : (typeof poi.longitude === 'number') ? poi.longitude
+                 : parseFloat(poi.lng ?? poi.lon ?? poi.longitude);
+
+      if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat === 0 || lng === 0) {
+        console.warn(`⚠️ [${index}] Pomijam POI bez prawidłowych współrzędnych:`, poi.id, { lat: poi.lat, lng: poi.lng, lon: poi.lon, longitude: poi.longitude });
         skippedCount++;
         return;
       }
@@ -152,10 +191,12 @@ console.log('🔵 App Core V2 - START');
       console.log(`📍 [${index}] Dodaję: ${name} [${poi.lat}, ${poi.lng}]`);
       
       // Stwórz marker
-      const marker = L.marker([poi.lat, poi.lng], { icon: customIcon });
+      const marker = L.marker([lat, lng], { icon: customIcon });
       
       // Popup
-      const googleMapsUrl = poi.googleMapsUrl || poi.googleMapsURL || `https://maps.google.com/?q=${poi.lat},${poi.lng}`;
+      const googleMapsUrl = typeof window.getPoiGoogleUrl === 'function'
+        ? (window.getPoiGoogleUrl(poi) || `https://maps.google.com/?q=${lat},${lng}`)
+        : (poi.googleMapsUrl || poi.googleMapsURL || `https://maps.google.com/?q=${lat},${lng}`);
       
       marker.bindPopup(`
         <div style="min-width: 220px;">
@@ -191,15 +232,10 @@ console.log('🔵 App Core V2 - START');
           btn.replaceWith(btn.cloneNode(true));
           const freshBtn = (popupEl ? popupEl.querySelector('.popup-comments-btn[data-poi-id="' + poi.id + '"]')
                                     : document.querySelector('.popup-comments-btn[data-poi-id="' + poi.id + '"]')) || btn;
-          freshBtn.addEventListener('click', (e) => {
+          freshBtn.addEventListener('click', async (e) => {
             e.preventDefault();
             e.stopPropagation();
-            if (typeof window.openPoiComments === 'function') {
-              console.log('🟢 Klik w Komentarze (map popup) dla POI:', poi.id);
-              window.openPoiComments(poi.id);
-            } else {
-              console.warn('openPoiComments not available');
-            }
+            await safeOpenComments(poi.id);
           });
         } catch (err) {
           console.error('❌ Błąd podczas podpinania przycisku Komentarze do popup:', err);
