@@ -1672,6 +1672,9 @@
     },
     "tabs": {
       "aria": "Główna nawigacja"
+    },
+    "brand": {
+      "html": "<p class=\"brand-name\">Cyprus Eye <span>Quest</span></p><p class=\"tagline\">Odkrywaj Cypr w interaktywny sposób — zdobywaj odznaki, doświadczenie i poznaj nasze najlepsze oferty.</p>"
     }
   },
   "auth": {
@@ -2160,6 +2163,34 @@
     "confirm": {
       "reset": "Czy na pewno zresetować postęp? Tej operacji nie można cofnąć.",
       "guestReset": "Czy na pewno wyczyścić postęp gościa? Tej operacji nie można cofnąć."
+    },
+    "stats": {
+      "level": {
+        "title": "Poziom",
+        "description": "Bieżący poziom przygody"
+      },
+      "xp": {
+        "title": "Doświadczenie",
+        "description": "Suma zdobytego doświadczenia"
+      },
+      "badges": {
+        "title": "Odznaki",
+        "description": "Zebrane unikalne odznaki"
+      },
+      "visited": {
+        "title": "Odwiedzone miejsca",
+        "description": "Odkryte atrakcje"
+      },
+      "tasks": {
+        "title": "Ukończone misje",
+        "description": "Zrealizowane zadania i checklisty"
+      },
+      "streak": {
+        "title": "Codzienna seria",
+        "description": {
+          "html": "Aktualna / rekord: <span id=\"accountStatBestStreak\">0</span>"
+        }
+      }
     }
   },
   "notifications": {
@@ -2171,7 +2202,13 @@
         "aria-label": "Zamknij powiadomienia"
       }
     },
-    "empty": "Zaloguj się, aby zobaczyć powiadomienia."
+    "empty": "Zaloguj się, aby zobaczyć powiadomienia.",
+    "task": {
+      "completed": "Zadanie ukończone"
+    },
+    "level": {
+      "up": "Awans poziomu"
+    }
   },
   "explorer": {
     "title": "Interaktywny przewodnik po Cyprze",
@@ -2256,6 +2293,276 @@
       "streakStart": "🔥 Rozpocząłeś codzienną serię! Pamiętaj o meldunku każdego dnia.",
       "streakReset": "Rozpoczęła się nowa seria. Spróbuj pobić rekord {{days}} dni!",
       "levelUp": "🎉 Poziom wyżej! Odbierz dodatkowe XP z wyzwania dnia."
+    },
+    "kato-pafos-archaeological-park": {
+      "name": "Park Archeologiczny Kato Pafos (Nea Paphos)",
+      "description": "Rozległy obiekt UNESCO ze słynnymi mozaikami i ruinami starożytnego miasta Nea Paphos.",
+      "badge": "Kurator Nea Pafos"
+    },
+    "tombs-of-the-kings": {
+      "name": "Grobowce Królewskie w Pafos",
+      "description": "Monumentalne grobowce wykute w skale z okresu hellenistycznego i rzymskiego, zdobione kolumnami doryckimi.",
+      "badge": "Strażnik Nekropolii"
+    },
+    "coral-bay": {
+      "name": "Plaża Coral Bay",
+      "description": "Złoty piasek, łagodne wejście do morza i krystaliczna woda — klasyczne miejsce relaksu koło Peyii.",
+      "badge": "Odkrywca Plaż"
+    },
+    "aphrodite-rock": {
+      "name": "Skała Afrodyty (Petra tou Romiou)",
+      "description": "Według legendy tutaj z morskiej piany narodziła się Afrodyta — perfekcyjny punkt na zachód słońca.",
+      "badge": "Strażnik Mitów"
+    },
+    "blue-lagoon-akamas": {
+      "name": "Blue Lagoon (Akamas)",
+      "description": "Krystalicznie czysta zatoka otoczona dziką przyrodą półwyspu Akamas — raj do snorkelingu.",
+      "badge": "Łowca Turkusu"
+    },
+    "avakas-gorge": {
+      "name": "Wąwóz Avakas",
+      "description": "Malowniczy kanion na półwyspie Akamas z wysokimi formacjami skalnymi i szlakami trekkingowymi.",
+      "badge": "Wędrowiec Wąwozów"
+    },
+    "aphrodites-baths": {
+      "name": "Łaźnie Afrodyty",
+      "description": "Romantyczne naturalne oczko wodne na Akamasie związane z legendą o Afrodycie.",
+      "badge": "Strażnik Legend Afrodyty"
+    },
+    "polis-latchi-marina": {
+      "name": "Polis i Marina Latchi",
+      "description": "Nadmorskie miasteczko i marina będące miejscem wypłynięć na rejsy do Blue Lagoon.",
+      "badge": "Kapitan Laguny"
+    },
+    "yeroskipou-town": {
+      "name": "Geroskipou (Kouklia)",
+      "description": "Miasteczko obok Pafos z kościołem Agios Georgios oraz słynnymi wyspiarskimi słodyczami pastelli.",
+      "badge": "Degustator Pastelli"
+    },
+    "agios-neophytos-monastery": {
+      "name": "Klasztor Agios Neofitos",
+      "description": "Pustelniczy klasztor wykuty w skale, ozdobiony freskami, założony przez św. Neofitosa.",
+      "badge": "Kronikarz Neofitosa"
+    },
+    "saint-lazarus-church": {
+      "name": "Kościół św. Łazarza w Larnace",
+      "description": "Kamienny kościół z IX wieku wzniesiony nad grobem św. Łazarza, słynący z bogato zdobionego ikonostasu.",
+      "badge": "Opiekun Relikwii"
+    },
+    "larnaca-salt-lake-hala-sultan": {
+      "name": "Słone Jezioro Larnaki i Hala Sultan Tekke",
+      "description": "Zimowe flamingi i mistyczny meczet Hala Sultan Tekke tworzą wyjątkowy pejzaż nad jeziorem.",
+      "badge": "Obserwator Flamingów"
+    },
+    "finikoudes-beach": {
+      "name": "Plaża Finikoudes w Larnace",
+      "description": "Miejska plaża z palmową promenadą, tętniącymi życiem kawiarniami i łagodnym wejściem do morza.",
+      "badge": "Mistrz Palm"
+    },
+    "nissi-beach": {
+      "name": "Plaża Nissi (Ayia Napa)",
+      "description": "Jasny piasek, płytka laguna i wysepka Nissi — ikona wypoczynku i sportów wodnych.",
+      "badge": "Łowca Słońca"
+    },
+    "cape-greco": {
+      "name": "Cape Greco",
+      "description": "Park narodowy klifów, jaskiń morskich i słynnego naturalnego Mostu Miłości.",
+      "badge": "Łowca Horyzontów"
+    },
+    "cape-greco-sea-caves": {
+      "name": "Jaskinie morskie Cape Greco",
+      "description": "Widokowe groty w klifach Cape Greco, dostępne łodzią, kajakiem lub podczas snorkelingu.",
+      "badge": "Poszukiwacz Jaskiń"
+    },
+    "fig-tree-bay": {
+      "name": "Plaża Fig Tree Bay (Protaras)",
+      "description": "Lazurowa zatoka ze złotym piaskiem i samotnym drzewem figowym — symbolem okolicy.",
+      "badge": "Strażnik Piasków"
+    },
+    "ayia-napa-monastery": {
+      "name": "Klasztor w Ayia Napa",
+      "description": "Klasztor z XVII wieku z dziedzińcem i jaworami — duchowa oaza w tętniącej życiem Ayia Napie.",
+      "badge": "Kurator Klasztoru"
+    },
+    "ayia-napa-sculpture-park": {
+      "name": "Park Rzeźby w Ayia Napa",
+      "description": "Plenerowa galeria sztuki ze 100+ rzeźbami z widokiem na morze i sąsiedni park kaktusów.",
+      "badge": "Kurator Rzeźby"
+    },
+    "macronissos-beach": {
+      "name": "Plaża Macronissos",
+      "description": "Osłonięta zatoka z jasnym piaskiem i spokojną wodą w pobliżu Ayia Napy — idealna dla rodzin.",
+      "badge": "Bywalec Macronissos"
+    },
+    "zenobia-wreck": {
+      "name": "Wrak Zenobia",
+      "description": "Zatopiony prom u wybrzeży Larnaki — jedno z najsłynniejszych miejsc nurkowych na wyspie.",
+      "badge": "Mistrz Wraków"
+    },
+    "kourion-archaeological-site": {
+      "name": "Stanowisko Archeologiczne Kourion",
+      "description": "Ruiny na klifie ze starożytnym teatrem, łaźniami i mozaikami z Domu Eustoliosa.",
+      "badge": "Obrońca Kourion"
+    },
+    "kolossi-castle": {
+      "name": "Zamek Kolossi",
+      "description": "XIII‑wieczna warownia joannitów, która nadzorowała produkcję słodkiego wina Commandaria.",
+      "badge": "Rycerz Kolossi"
+    },
+    "molos-promenade": {
+      "name": "Promenada Molos w Limassol",
+      "description": "Nadmorski park z palmami, rzeźbami i kawiarniami — ulubione miejsce spacerów mieszkańców.",
+      "badge": "Mistrz Promenady"
+    },
+    "amathus-ruins": {
+      "name": "Starożytne Ruiny Amathus",
+      "description": "Pozostałości królewskiego miasta z agorą, Świątynią Afrodyty i wczesnochrześcijańską bazyliką.",
+      "badge": "Kurator Amathus"
+    },
+    "limassol-castle": {
+      "name": "Zamek w Limassol (Muzeum Średniowiecza)",
+      "description": "Kamienny zamek w sercu starówki, dziś siedziba kolekcji średniowiecznych artefaktów.",
+      "badge": "Strażnik Limassol"
+    },
+    "limassol-municipal-aquarium": {
+      "name": "Miejskie Akwarium w Limassol",
+      "description": "Kameralne, edukacyjne akwarium prezentujące lokalną faunę morską i programy ochrony.",
+      "badge": "Opiekun Raf Limassol"
+    },
+    "dasoudi-beach": {
+      "name": "Plaża Dasoudi",
+      "description": "Piaszczysta plaża w Limassol z nadmorskim parkiem, ścieżkami spacerowymi i zielenią.",
+      "badge": "Entuzjasta Dasoudi"
+    },
+    "governors-beach": {
+      "name": "Plaża Governor's",
+      "description": "Plaża między Limassol a Larnaką z białymi skałami, mieszanym piaskiem i żwirem oraz rafami blisko brzegu.",
+      "badge": "Odkrywca Klifów"
+    },
+    "troodos-olympos": {
+      "name": "Góra Olimp (Olympos)",
+      "description": "Najwyższy szczyt Cypru ze szlakiem Artemis latem i stokami narciarskimi zimą.",
+      "badge": "Zdobywca Troodos"
+    },
+    "kykkos-monastery": {
+      "name": "Klasztor Kykkos",
+      "description": "Najbogatszy klasztor na Cyprze z mozaikami, złotymi ikonami i muzeum sztuki sakralnej.",
+      "badge": "Strażnik Dziedzictwa"
+    },
+    "omodos-village": {
+      "name": "Wioska Omodos (Centrum)",
+      "description": "Historyczna wioska z Klasztorem Krzyża Świętego, brukowanymi uliczkami i lokalnym rzemiosłem.",
+      "badge": "Sommelier Omodos"
+    },
+    "kakopetria-village": {
+      "name": "Wioska Kakopetria",
+      "description": "Górska osada z tradycyjną zabudową i strumieniem — idealna na spacery w Troodos.",
+      "badge": "Strażnik Wiosek Górskich"
+    },
+    "caledonia-waterfall": {
+      "name": "Wodospad Caledonia",
+      "description": "Jeden z najwyższych wodospadów na Cyprze, ukryty w zacienionym wąwozie koło Platres.",
+      "badge": "Pogromca Wodospadów"
+    },
+    "panagia-kykkos-viewpoint": {
+      "name": "Punkt widokowy Panagia Kykkos",
+      "description": "Wysoki punkt widokowy obok klasztoru Kykkos z panoramą gór Troodos.",
+      "badge": "Pielgrzym Kykkos"
+    },
+    "troodos-square": {
+      "name": "Plac Troodos",
+      "description": "Centralny węzeł gór Troodos z wylotami szlaków i zimową bazą narciarską.",
+      "badge": "Odkrywca Troodos"
+    },
+    "trooditissa-monastery": {
+      "name": "Klasztor Trooditissa",
+      "description": "Górski klasztor w paśmie Troodos otoczony lasami, ikonami i pielgrzymami.",
+      "badge": "Pielgrzym Trooditissa"
+    },
+    "lania-village": {
+      "name": "Wioska Lania",
+      "description": "Malownicza osada u podnóża Troodos słynąca z winiarstwa, galerii i spokojnego rytmu.",
+      "badge": "Artysta z Lanii"
+    },
+    "nicosia-archaeological-museum": {
+      "name": "Muzeum Archeologiczne w Nikozji",
+      "description": "Muzeum prezentujące dzieje Cypru od prehistorii po średniowiecze z bogatą kolekcją artefaktów.",
+      "badge": "Kurator Nikozji"
+    },
+    "buyuk-han": {
+      "name": "Büyük Han w Nikozji",
+      "description": "Dziedziniec dawnego karawanseraju z warsztatami rzemieślników i kawiarniami.",
+      "badge": "Kupiec Han"
+    },
+    "ledra-street": {
+      "name": "Ulica i Brama Ledra",
+      "description": "Jedna z głównych ulic Starej Nikozji, przecinająca Zieloną Linię między południem a północą.",
+      "badge": "Wędrowiec Ledra"
+    },
+    "eleftheria-square": {
+      "name": "Plac Eleftheria",
+      "description": "Plac zaprojektowany przez Zahę Hadid w Nikozji, łączący historyczne i współczesne warstwy miasta.",
+      "badge": "Odkrywca Eleftherii"
+    },
+    "cyprus-museum": {
+      "name": "Muzeum Cypru w Nikozji",
+      "description": "Narodowe muzeum archeologiczne Cypru z kolekcjami z każdej epoki historycznej.",
+      "badge": "Strażnik Dziedzictwa"
+    },
+    "kyrenia-old-harbour": {
+      "name": "Stary Port w Kyrenii (Girne)",
+      "description": "Historyczna przystań z tawernami i jachtami pod średniowiecznym zamkiem, tętniąca życiem po zmroku.",
+      "badge": "Kapitan Morza Śródziemnego"
+    },
+    "kyrenia-castle": {
+      "name": "Zamek w Kyrenii",
+      "description": "Wenecka twierdza z muzeum wraku statku i widokiem na port oraz Morze Śródziemne.",
+      "badge": "Strażnik Bastei"
+    },
+    "st-hilarion-castle": {
+      "name": "Zamek św. Hilariona",
+      "description": "Górska twierdza rozłożona na trzech skalnych poziomach z legendarnymi widokami na wybrzeże.",
+      "badge": "Rycerz Gór Kyreńskich"
+    },
+    "st-hilarion-vantage-point": {
+      "name": "Punkt widokowy Zamku św. Hilariona",
+      "description": "Taras poniżej zamku św. Hilariona z szerokim widokiem na wybrzeże Kyrenii.",
+      "badge": "Łowca Horyzontu"
+    },
+    "buffavento-castle": {
+      "name": "Zamek Buffavento",
+      "description": "Ruiny zamku na wzgórzu z widokiem na Morze Śródziemne, w pobliżu twierdzy św. Hilariona.",
+      "badge": "Strażnik Buffavento"
+    },
+    "soli-ancient-site": {
+      "name": "Starożytne Miasto Soli",
+      "description": "Ruiny starożytnego miasta z amfiteatrem i pozostałościami portu w okolicach Famagusty.",
+      "badge": "Archeolog Soli"
+    },
+    "vouni-ancient-house": {
+      "name": "Starożytny Dom Zgromadzeń w Vouni",
+      "description": "Archeologiczne ruiny na wzgórzu w Vouni z widokiem na zatoki i dawne rezydencje królewskie.",
+      "badge": "Strażnik Vouni"
+    },
+    "anexartisias-street": {
+      "name": "Ulica Anexartisias w Limassol",
+      "description": "Główna ulica handlowa Limassol, lubiana za butiki i kawiarnie.",
+      "badge": "Łowca Wystaw"
+    },
+    "fasouri-watermania": {
+      "name": "Park Wodny Fasouri Watermania",
+      "description": "Największy park wodny na Cyprze z licznymi zjeżdżalniami, strefami tematycznymi i miejscami relaksu.",
+      "badge": "Mistrz Zjeżdżalni"
+    },
+    "akamas-national-park": {
+      "name": "Park Narodowy Akamas",
+      "description": "Rozległa dzicz z punktami widokowymi, szlakami i plażami, gdzie gniazdują żółwie.",
+      "badge": "Strażnik Akamas"
+    },
+    "avakas-gorge-west-entrance": {
+      "name": "Zachodnie Wejście do Wąwozu Avakas",
+      "description": "Alternatywne wejście do Avakas zapewniające spokojniejszy trekking i inne formacje skalne.",
+      "badge": "Tropiciel Avakas"
     }
   },
   "locations": {
@@ -2310,6 +2617,699 @@
       "error": "Nie udało się pobrać lokalizacji. Upewnij się, że masz zgodę lub potwierdź ręcznie.",
       "success": "Gratulacje! Jesteś dokładnie we właściwym miejscu.",
       "distance": "Jesteś ok. {{distance}} km od celu. Sprawdź wskazówki w Mapach Google i potwierdź ręcznie, jeśli faktycznie jesteś na miejscu."
+    }
+  },
+  "coupon": {
+    "conditions": {
+      "title": "��️ Zasady korzystania z kuponu",
+      "rules": {
+        "usage": "Każdy kupon jest ważny jednokrotnie u danego partnera — możesz wykorzystać zniżki u wielu partnerów, ale tylko raz w danym miejscu.",
+        "groupIntro": "Część zniżek dotyczy całej grupy, inne jednej osoby — szczegóły są przy każdej ofercie:",
+        "groupMultiple": {
+          "html": "<strong>✅ Wycieczki –€5</strong> liczone są od osoby."
+        },
+        "groupStay": {
+          "html": "<strong>✅ Noclegi w Lefkara –15% lub –20%</strong> liczone od łącznej ceny pobytu."
+        },
+        "named": "Kupon jest imienny i niepodzielny — nie można rozdzielać jednej zniżki na kilka transakcji.",
+        "show": "Pokaż kupon przed skorzystaniem z usługi — w telefonie lub wydrukowany.",
+        "combine": "Zniżek nie łączy się z innymi promocjami lub kodami — obowiązuje korzystniejsza opcja.",
+        "verify": "Partnerzy mogą weryfikować ważność kuponu — po wykorzystaniu zniżka jest oznaczana jako zrealizowana.",
+        "cash": "Kuponów nie wymienia się na gotówkę — to bonus, a nie forma płatności."
+      }
+    },
+    "offers": {
+      "title": "Gdzie zrealizujesz zniżki",
+      "subtitle": "Kupon działa u partnerów na całej wyspie. Wybierz usługę, podaj numer kuponu i odbierz zniżkę na miejscu lub podczas rezerwacji online.",
+      "items": {
+        "noDeposit": {
+          "category": "Auto Bez Kaucji",
+          "title": "Cała wyspa",
+          "benefit": "–€10 na wynajem"
+        },
+        "noDepositPaphos": {
+          "category": "Auto Bez Kaucji",
+          "title": "Pafos",
+          "benefit": "–€10 na wynajem"
+        },
+        "privateCruise": {
+          "category": "Prywatny rejs Ayia Napa",
+          "title": "Rejs prywatny",
+          "benefit": "–€20 na rejs"
+        },
+        "transport": {
+          "category": "Transport na Cyprze",
+          "title": "Dostawy i przejazdy",
+          "benefit": "–€5 za przesyłkę"
+        },
+        "lefkaraShort": {
+          "category": "Noclegi Lefkara 7 Kamares",
+          "title": "Pobyty do 2 nocy",
+          "benefit": "–15% do 2 nocy"
+        },
+        "lefkaraLong": {
+          "category": "Noclegi Lefkara 7 Kamares",
+          "title": "Pobyty od 3 nocy",
+          "benefit": "–20% od 3 nocy"
+        },
+        "davinci": {
+          "category": "Restauracja Da Vinci's Garden",
+          "title": "Kuchnia cypryjska",
+          "benefit": "–10% powyżej €50"
+        },
+        "silver": {
+          "category": "Srebro w Lefkara",
+          "title": "Biżuteria i pamiątki",
+          "benefit": "–20% na zakupy"
+        },
+        "photo": {
+          "category": "Sesje zdjęciowe w Lefkara",
+          "title": "Sesje fotograficzne",
+          "benefit": "–5% do –20% za sesję"
+        },
+        "tours": {
+          "category": "Wycieczki po Cyprze",
+          "title": "Zwiedzanie wyspy",
+          "benefit": "–€5 za wycieczkę"
+        }
+      }
+    },
+    "search": {
+      "summary": {
+        "html": "Wyniki dla „<span data-coupon-query></span>” — <strong><span data-coupon-results></span></strong> partnerów."
+      },
+      "reset": "Wyczyść filtr",
+      "empty": "Brak partnerów dla podanej frazy. Spróbuj innego słowa."
+    },
+    "how": {
+      "title": "Jak kupić kupon?",
+      "subtitle": "Postępuj według kroków i przejdź do Stripe. Każdy etap zajmuje chwilę.",
+      "step1": {
+        "title": "Zamów kupon",
+        "description": "Użyj powyższego linku i wybierz, dla ilu osób ma działać kupon.",
+        "noteMultiple": {
+          "html": "<strong>Kiedy kupić kilka kuponów?</strong> Przy większych grupach (np. rejsie lub wycieczce), gdy zniżka ma dotyczyć każdego."
+        },
+        "noteSingle": {
+          "html": "<strong>Kiedy wystarczy jeden kupon?</strong> Gdy planujesz tylko zniżki na auto i transport."
+        }
+      },
+      "step2": {
+        "title": "Sprawdź e‑mail",
+        "description": "Podaj e‑mail przy płatności. W ciągu pięciu minut otrzymasz gotowy kupon do użycia u różnych partnerów na wyspie."
+      },
+      "step3": {
+        "title": "Zrealizuj kupon",
+        "description": "Każdy kupon ma unikalny numer. Wpisz go w formularzach online lub pokaż partnerowi na miejscu. Jeden kupon możesz wykorzystać raz u danego partnera."
+      }
+    }
+  },
+  "mediaTrips": {
+    "header": {
+      "subtitle": "Zarezerwuj indywidualne pakiety foto lub video z ekipą WakacjeCypr.com i od razu zobacz koszt na osobę.",
+      "back": "← Wróć do przygody"
+    },
+    "intro": "Wybierz pakiet foto lub video, wpisz liczbę uczestników i zobacz łączny koszt oraz cenę za osobę. Cena bazowa obejmuje do 4 osób; więcej dodasz kalkulatorem poniżej.",
+    "card": {
+      "extraPersonSuffix": " (+{{price}} / dodatkowa osoba)",
+      "variantOption": "{{label}} — {{price}}{{extra}}",
+      "includedParticipants": " (do {{count}} osób)",
+      "priceFrom": "Ceny od{{included}}: <strong>{{price}}</strong>",
+      "highlightsTitle": "W cenie",
+      "calculatorTitle": "Kalkulator pakietu",
+      "variantLabel": "Wariant pakietu",
+      "variantHelper": "Kalkulator automatycznie przelicza cenę i dopłatę za dodatkowe osoby.",
+      "participantsLabel": "Liczba uczestników",
+      "totalLabel": "Łączny koszt pakietu",
+      "perPersonLabel": "Koszt na osobę"
+    },
+    "items": {
+      "vip-photo-trip": {
+        "title": "VIP wyjazdy foto",
+        "mediaType": "Premium sesje zdjęciowe",
+        "duration": "Warianty 10/8/5 godzin",
+        "description": "Prywatne sesje z dedykowanym fotografem i transportem — idealne dla rodzin, par i przyjaciół.",
+        "pricing": {
+          "fullDay": "Dzień (do 10 h)",
+          "threeQuarterDay": "3/4 dnia (do 8 h)",
+          "halfDay": "Pół dnia (do 5 h)"
+        },
+        "highlights": {
+          "transport": "Komfortowy transport z kierowcą i plan na złotą godzinę.",
+          "stylist": "Wsparcie stylistki lub makijażystki na życzenie."
+        },
+        "detailsLink": "Zobacz pełną ofertę VIP"
+      },
+      "vip-video-trip": {
+        "title": "VIP wyjazdy video",
+        "mediaType": "Produkcje filmowe",
+        "duration": "Warianty 10/8/5 godzin",
+        "description": "Profesjonalny operator, pilot drona i montaż video w jakości premium.",
+        "pricing": {
+          "fullDay": "Dzień (do 10 h)",
+          "threeQuarterDay": "3/4 dnia (do 8 h)",
+          "halfDay": "Pół dnia (do 5 h)"
+        },
+        "highlights": {
+          "crew": "Ekipa video z pilotem drona, dźwiękiem i krótkimi wersjami pod social media.",
+          "promo": "Możliwość realizacji ujęć promocyjnych i backstage."
+        },
+        "detailsLink": "Przegląd pakietów video"
+      }
+    },
+    "itineraries": {
+      "eyebrow": "Przykładowe plany dnia",
+      "title": "Wybierz region startu i poznaj proponowane atrakcje",
+      "description": "Dopasujemy godziny i miejsca do Twoich preferencji — tu masz inspiracje na pół i cały dzień.",
+      "one": {
+        "title": "1. Pół dnia z Ayia Napa",
+        "time": "Godziny: 10:00 – 15:00",
+        "stop1": "Ayia Napa – Most Miłości",
+        "stop2": "Ayia Napa – Cape Greco",
+        "stop3": "Lefkara – tradycyjna wioska i degustacja wina",
+        "stop4": "Larnaka – Słone Jezioro",
+        "description": "Prywatne transfery i powrót do hotelu. Bez innych gości skupiamy się na miejscach ważnych dla Ciebie."
+      },
+      "two": {
+        "title": "2. Pół dnia z Pafos",
+        "time": "Godziny: 10:00 – 15:00",
+        "stop1": "Pafos – Skała Afrodyty",
+        "stop2": "Pafos – wrak Edro III",
+        "stop3": "Pafos – White Rocks",
+        "stop4": "Zapallo Bay – spektakularny klif",
+        "description": "Płynny plan w Twoim tempie. Przerwy na zdjęcia, lunch i dodatkowe postoje według życzenia."
+      },
+      "three": {
+        "title": "3. Cały dzień z Ayia Napa",
+        "time": "Godziny: 10:00 – 20:00",
+        "stop1": "Lefkara – wioska i degustacja wina",
+        "stop2": "Zapallo Bay – najlepszy punkt widokowy",
+        "stop3": "Limassol – promenada i marina",
+        "stop4": "Larnaka – Słone Jezioro i akwedukt",
+        "stop5": "Ayia Napa – Most Miłości, Cape Greco, marina",
+        "description": "Połącz góry, morze i klimat miasta w jeden dzień. Polecimy knajpki i rzemieślnicze lody."
+      },
+      "four": {
+        "title": "4. Cały dzień z Pafos",
+        "time": "Godziny: 10:00 – 20:00",
+        "stop1": "Pafos – Skała Afrodyty i wrak Edro III",
+        "stop2": "Pafos – White Rocks",
+        "stop3": "Zapallo Bay – panoramy klifów",
+        "stop4": "Limassol – promenada i marina",
+        "stop5": "Lefkara – koronki i degustacja",
+        "stop6": "Larnaka – Słone Jezioro i akwedukt",
+        "description": "Dla miłośników różnorodności. Zachód słońca w Pafos, złota godzina w Lefkara i relaks przy słonym jeziorze w Larnace."
+      }
+    },
+    "cta": {
+      "eyebrow": "Zrób pierwszy krok",
+      "title": "Skontaktuj się i zaplanuj wyjazd",
+      "description": "Każda wyprawa jest szyta na miarę — napisz do nas, przygotujemy propozycję dla Waszej ekipy.",
+      "button": "Skontaktuj się"
+    }
+  },
+  "vip": {
+    "offers": {
+      "eyebrow": "VIP concierge na Cyprze",
+      "title": "VIP wyjazdy prywatne",
+      "subtitle": "Co oferujemy?",
+      "points": {
+        "transport": "Organizujemy prywatne wyjazdy: odbiór z hotelu, komfortowy transport i odwóz po zakończeniu planu.",
+        "personal": "Podróżuje tylko Twoja grupa, więc przez cały dzień dostosowujemy tempo do preferencji.",
+        "photography": "Opcjonalnie dołącza fotograf LilKangooMedia — premium zdjęcia z wyprawy."
+      }
+    },
+    "packages": {
+      "photo": {
+        "title": "Pakiety „Photo Trip”",
+        "items": {
+          "halfDay": "Pół dnia (do 5 h): €400 dla grup do 4 os., do 30 zdjęć; każda kolejna osoba +€100.",
+          "threeQuarterDay": "3/4 dnia (do 8 h): €500 dla 4 os., do 50 zdjęć; +€125/os.",
+          "fullDay": "Dzień (do 10 h): €600 dla 4 os., do 60 zdjęć; +€150/os.",
+          "twoDays": "2 dni (do 20 h): €1 100 dla 4 os., do 120 zdjęć; +€275/os."
+        },
+        "note": "Jak liczyć cenę? cena całkowita = cena bazowa + max(0, osoby – 4) × dopłata."
+      },
+      "video": {
+        "title": "Pakiety „Video Trip”",
+        "items": {
+          "halfDay": "Pół dnia (do 5 h): €800 dla 4 os., film do 3 min; +€200/os.",
+          "threeQuarterDay": "3/4 dnia (do 8 h): €900 dla 4 os., film do 4 min; +€225/os.",
+          "fullDay": "Dzień (do 10 h): €1 000 dla 4 os., film do 5 min + 2 rolki FB/IG; +€250/os.",
+          "twoDays": "2 dni (do 20 h): €1 800 dla 4 os., film do 10 min + 5 rolek FB/IG; +€450/os."
+        }
+      }
+    },
+    "calculator": {
+      "title": "Kalkulator ceny",
+      "subtitle": "Wybierz pakiet, czas i wielkość grupy, aby oszacować koszt.",
+      "fields": {
+        "package": "Pakiet",
+        "variant": "Wariant czasowy",
+        "persons": "Liczba osób"
+      },
+      "output": {
+        "empty": "Wybierz dane, aby zobaczyć cenę.",
+        "estimate": "Szacowana cena: {{amount}}"
+      },
+      "packages": {
+        "photo": {
+          "label": "Photo trip"
+        },
+        "video": {
+          "label": "Video trip"
+        },
+        "combo": {
+          "label": "VIP (Foto + Video)"
+        }
+      },
+      "variant": {
+        "halfDay": "Pół dnia (do 5 h)",
+        "threeQuarterDay": "3/4 dnia (do 8 h)",
+        "fullDay": "Dzień (do 10 h)",
+        "twoDays": "2 dni (do 20 h)"
+      }
+    },
+    "itineraries": {
+      "title": "Przykładowe plany dnia",
+      "items": {
+        "halfDayAyia": "Pół dnia – Ayia Napa: Most Miłości, Cape Greco, Lefkara (degustacja wina), Słone Jezioro w Larnace.",
+        "halfDayPaphos": "Pół dnia – Pafos: Skała Afrodyty, wrak Edro III, białe klify, Zapallo Bay.",
+        "fullDayAyia": "Cały dzień – Ayia Napa: Lefkara, Zapallo Bay, Limassol (Promenada, Marina), Słone Jezioro i Akwedukt w Larnace, Most Miłości, Cape Greco, Nowa Marina.",
+        "fullDayPaphos": "Cały dzień – Pafos: Skała Afrodyty, wrak Edro III, białe klify, Zapallo Bay, Promenada i Marina w Limassol, Lefkara, Słone Jezioro i Akwedukt."
+      },
+      "note": "Każdy wyjazd zaczyna i kończy się odbiorem spod hotelu, a plan pozostaje elastyczny."
+    },
+    "reservation": {
+      "title": "Zarezerwuj wyjazd",
+      "fields": {
+        "name": {
+          "label": "Imię i nazwisko"
+        },
+        "email": {
+          "label": "E‑mail"
+        },
+        "phone": {
+          "label": "Telefon / WhatsApp"
+        },
+        "date": {
+          "label": "Preferowana data"
+        },
+        "package": {
+          "label": "Pakiet"
+        },
+        "variant": {
+          "label": "Wariant czasowy"
+        },
+        "persons": {
+          "label": "Liczba osób"
+        },
+        "notes": {
+          "label": "Dodatkowe informacje",
+          "placeholder": "Opisz ulubione miejsca, preferencje żywieniowe, logistykę..."
+        }
+      },
+      "price": {
+        "empty": "Szacowaną cenę zobaczysz po wyborze pakietu.",
+        "estimate": "Szacowana cena: {{amount}}"
+      },
+      "submit": "Wyślij zapytanie"
+    },
+    "contact": {
+      "title": "Skontaktuj się z zespołem VIP",
+      "subtitle": "Powiedz nam, czego oczekujesz — przygotujemy propozycje w 24 godziny.",
+      "whatsapp": "Rezerwacje WhatsApp: +48 534 073 861",
+      "email": "E‑mail: kontakt@wakacjecypr.com"
+    },
+    "footer": "© <span id=\"year\"></span> WakacjeCypr.com – Twoja prywatna podróż po Cyprze."
+  },
+  "carRental": {
+    "meta": {
+      "title": "Wybierz miasto – Wynajem aut | WakacjeCypr"
+    },
+    "brand": {
+      "overline": "WakacjeCypr Quest",
+      "title": "Wynajem aut"
+    },
+    "nav": {
+      "aria": "Nawigacja powrotu"
+    },
+    "back": "← Wróć do aplikacji",
+    "hero": {
+      "step": "Krok 1",
+      "title": "Wybierz miejsce odbioru",
+      "description": "Przygotowaliśmy dwie oferty dopasowane do planów podróży. Wybierz region odbioru, aby zobaczyć flotę, kalkulator kosztów i formularz rezerwacji.",
+      "note": "Możesz przełączać oferty w dowolnym momencie — link jest na górze strony.",
+      "infoLabel": "Najważniejsze informacje",
+      "info": {
+        "deposit": "Brak kaucji",
+        "depositDetails": "Obie lokalizacje bez kaucji i z polską obsługą.",
+        "delivery": "Podstawienie auta",
+        "deliveryDetails": "Odbiór na lotnisku, pod hotelem lub w innym umówionym miejscu.",
+        "support": "24/7",
+        "supportDetails": "Całodobowa pomoc niezależnie od wybranej oferty."
+      }
+    },
+    "offers": {
+      "title": "Dwie oferty, jeden standard",
+      "subtitle": "Wybierz miasto startu przygody, a pokażemy dostępne auta i ceny.",
+      "larnaca": {
+        "tag": "Cały Cypr",
+        "title": "Odbiór w Larnace lub dostawa na wyspie",
+        "description": "Idealne, jeśli lądujesz w Larnace i planujesz zwiedzać różne regiony. Odbiór na lotnisku lub dostawa do wybranych kurortów.",
+        "itemOne": "Dostawy do Ayia Napa, Protaras, Limassol, Nikozji",
+        "itemTwo": "Pełne ubezpieczenie i rodzinne dodatki w cenie",
+        "itemThree": "Kalkulator kosztów i formularz rezerwacji online",
+        "cta": "Zobacz ofertę dla całego Cypru",
+        "ctaAria": "Przejdź do oferty ogólnocypryjskiej"
+      },
+      "paphos": {
+        "tag": "Pafos",
+        "title": "Odbiór na lotnisku PFO lub w hotelu bez dopłat",
+        "description": "Wybierz dedykowaną ofertę Pafos — wygodny odbiór bez opłat i opcjonalne dostawy do pobliskich kurortów.",
+        "itemOne": "Lotnisko Paphos i centrum bez dopłat",
+        "itemTwo": "Dostawa do Coral Bay i Polis za niewielką opłatą",
+        "itemThree": "Polska obsługa 24/7 i przejrzysty kalkulator",
+        "cta": "Zobacz ofertę Pafos",
+        "ctaAria": "Przejdź do oferty Pafos"
+      }
+    },
+    "footer": "Skontaktuj się w aplikacji lub telefonicznie — pomożemy dobrać auto.",
+    "page": {
+      "nav": {
+        "aria": "Nawigacja powrotu",
+        "switchCity": "Wybierz inne miasto",
+        "paphos": "Oferta Pafos",
+        "book": "Złóż rezerwację"
+      },
+      "hero": {
+        "badge": "Brak kaucji • Polska obsługa 24/7",
+        "title": "Wynajem aut na całym Cyprze",
+        "description": "Poznaj flotę WakacjeCypr.com, zamów auto z odbiorem na lotnisku lub pod hotelem i policz koszt w przejrzystym kalkulatorze.",
+        "ctaFleet": "Zobacz flotę",
+        "ctaCalculator": "Oblicz koszt wynajmu",
+        "paphosNote": {
+          "prefix": "Szukasz auta w Pafos bez dopłaty? Użyj przycisku „Oferta Pafos” u góry strony lub",
+          "link": "przejdź bezpośrednio do dedykowanej oferty",
+          "suffix": "."
+        }
+      },
+      "stats": {
+        "cars": "aut w naszej flocie",
+        "price": "cena już od",
+        "minDays": "minimalna liczba dni"
+      },
+      "fleet": {
+        "badge": "Brak kaucji",
+        "title": "Wynajmij auto na całym Cyprze",
+        "description": "Odbierz samochód tam, gdzie zaczyna się Twoja przygoda — na lotnisku, w hotelu lub dowolnym mieście. W cenie: pełne ubezpieczenie, dodatkowy kierowca i foteliki dziecięce."
+      },
+      "benefits": {
+        "aria": "Najważniejsze korzyści",
+        "package": {
+          "title": "Pakiet w cenie",
+          "body": "Standard obejmuje brak kaucji, kompleksowe ubezpieczenie oraz rodzinne dodatki z sekcji „Standard w cenie” — bez dopłat."
+        },
+        "flexible": {
+          "title": "Elastyczny odbiór i zwrot",
+          "body": "W Larnace za darmo, a do Ayia Napa, Protaras, Limassol, Nikozji i Pafos za niewielką opłatą — tak jak w ofercie na WakacjeCypr.com."
+        },
+        "nature": {
+          "title": "Wspieramy naturę",
+          "body": "Za każdy dzień wynajmu przekazujemy 1 € na ochronę cypryjskich żółwi morskich."
+        }
+      },
+      "details": {
+        "aria": "Warunki, dodatki i wymagania"
+      },
+      "included": {
+        "title": "Standard w cenie",
+        "description": "Każda rezerwacja zawiera:"
+      },
+      "addons": {
+        "title": "Dostępne dodatki",
+        "fullInsurance": "Pełne AC bez wkładu własnego – 17 €/dzień.",
+        "delivery": "Odbiór/zwrot poza Larnaką: Nikozja lub Ayia Napa +15 €, Protaras lub Limassol +20 €, Pafos +40 €."
+      },
+      "requirements": {
+        "title": "Wymagania kierowcy",
+        "license": "Prawo jazdy min. 3 lata <strong>lub</strong> wiek 25+.",
+        "youngDriver": "Młodszy kierowca lub staż < 3 lata: +10 €/dzień."
+      },
+      "grid": {
+        "aria": "Pełna flota"
+      },
+      "tools": {
+        "aria": "Kalkulator i rezerwacja"
+      },
+      "calculator": {
+        "title": "Kalkulator wynajmu",
+        "description": "Sprawdź dokładną cenę wraz z dodatkami i opłatami za dostawę."
+      }
+    },
+    "common": {
+      "pricePerDay": "{{price}} / dzień",
+      "seats": "{{count}} miejsc",
+      "daysLabel": "dni",
+      "includedMessage": {
+        "template": "W cenie: {{items}}."
+      },
+      "reserveCar": "Zarezerwuj to auto"
+    },
+    "calculator": {
+      "errors": {
+        "selectCar": "Wybierz model auta z listy.",
+        "fillDates": "Uzupełnij daty odbioru i zwrotu.",
+        "invalidDates": "Proszę wybrać poprawne daty i godziny.",
+        "returnAfterPickup": "Data zwrotu musi być późniejsza niż data odbioru.",
+        "minimumDays": "Minimalny czas wynajmu to {{days}} {{daysLabel}}.",
+        "selectLocations": "Wybierz miejsca odbioru i zwrotu pojazdu."
+      },
+      "breakdown": {
+        "base": "{{pricePerDay}} × {{days}} {{daysLabel}} = {{total}}",
+        "pickupWithFee": "Odbiór: {{location}} +{{price}}",
+        "pickupIncluded": "Odbiór: {{location}} – w cenie",
+        "returnWithFee": "Zwrot: {{location}} +{{price}}",
+        "returnIncluded": "Zwrot: {{location}} – w cenie",
+        "fullInsurance": "Pełne AC: {{pricePerDay}} × {{days}} {{daysLabel}} = {{total}}",
+        "youngDriver": "Młody kierowca: {{pricePerDay}} × {{days}} {{daysLabel}} = {{total}}",
+        "title": "Wycena obejmuje:"
+      },
+      "total": "Całkowita cena wynajmu: {{price}}"
+    },
+    "included": {
+      "feature1": {
+        "short": "brak kaucji",
+        "description": "Brak kaucji i blokad na karcie."
+      },
+      "feature2": {
+        "short": "OC + Assistance 24/7",
+        "description": "Ubezpieczenie OC + Assistance 24/7 z udziałem własnym do 500 €."
+      },
+      "feature3": {
+        "short": "gratisowy drugi kierowca i foteliki",
+        "description": "Drugi kierowca oraz foteliki dziecięce gratis."
+      }
+    },
+    "locations": {
+      "larnaca": {
+        "label": "Larnaka (bez opłaty)",
+        "short": "Larnaka"
+      },
+      "nicosia": {
+        "label": "Nikozja (+15€)",
+        "short": "Nikozja"
+      },
+      "ayia-napa": {
+        "label": "Ayia Napa (+15€)",
+        "short": "Ayia Napa"
+      },
+      "protaras": {
+        "label": "Protaras (+20€)",
+        "short": "Protaras"
+      },
+      "limassol": {
+        "label": "Limassol (+20€)",
+        "short": "Limassol"
+      },
+      "paphos": {
+        "label": "Pafos (+40€)",
+        "short": "Pafos"
+      },
+      "paphos-airport": {
+        "label": "Lotnisko Pafos (bez opłaty)",
+        "short": "Lotnisko Pafos"
+      },
+      "paphos-city": {
+        "label": "Pafos – hotele i centrum (bez opłaty)",
+        "short": "Pafos"
+      },
+      "coral-bay": {
+        "label": "Coral Bay / Pegeia (+10€)",
+        "short": "Coral Bay"
+      },
+      "polis": {
+        "label": "Polis / Latchi (+15€)",
+        "short": "Polis"
+      }
+    }
+  },
+  "carRentalPfo": {
+    "page": {
+      "hero": {
+        "note": {
+          "suffix": "."
+        }
+      }
+    }
+  },
+  "language": {
+    "option": {
+      "el": "Grecki",
+      "he": "Hebrajski"
+    }
+  },
+  "metrics": {
+    "level": {
+      "label": "Poziom",
+      "subtext": "Zdobądź pierwsze meldunki, aby awansować!",
+      "defaultStatus": {
+        "initial": "Zdobądź pierwsze meldunki, aby awansować!",
+        "progress": "Kontynuuj eksplorację, by zdobywać kolejne nagrody."
+      }
+    },
+    "xp": {
+      "label": "Doświadczenie",
+      "progress": "0 / 150 XP do następnego poziomu",
+      "aria": "Postęp doświadczenia",
+      "progressTemplate": "{{current}} / {{total}} XP do następnego poziomu",
+      "maxLevel": "Osiągnąłeś maksymalny poziom — gratulacje!",
+      "keepEarning": "Zdobywaj doświadczenie, aby awansować."
+    },
+    "badges": {
+      "label": "Odznaki",
+      "subtext": "Odkrywaj atrakcje i kolekcjonuj pamiątki."
+    }
+  },
+  "home": {
+    "pageTitle": "WakacjeCypr Quest — interaktywny przewodnik po Cyprze"
+  },
+  "discovery": {
+    "title": "Atrakcje do odkrycia",
+    "subtitle": "Przeglądaj lokacje w grze i planuj kolejne meldunki z mapy.",
+    "toggle": "Pokaż więcej atrakcji",
+    "catalog": "📚 Katalog atrakcji"
+  },
+  "objective": {
+    "title": "Bieżąca lokalizacja",
+    "mapLink": "Otwórz w Mapach Google",
+    "previous": "← Poprzednie miejsce",
+    "next": "Następne miejsce →",
+    "checkIn": "Zamelduj się, aby zdobyć XP",
+    "hint": "Wskazówka: pozwól aplikacji użyć lokalizacji, aby potwierdzić, że jesteś na miejscu."
+  },
+  "attractions": {
+    "meta": {
+      "title": "WakacjeCypr Quest – katalog atrakcji"
+    },
+    "brand": {
+      "overline": "Zwiedzaj wyspę miejsce po miejscu",
+      "title": "WakacjeCypr Quest"
+    },
+    "nav": {
+      "aria": "Szybkie skróty",
+      "current": "📚 Katalog atrakcji"
+    },
+    "back": "← Wróć do aplikacji",
+    "title": "Odkryj wszystkie lokalizacje WakacjeCypr Quest",
+    "subtitle": "Filtruj miejsca pod swoje plany, sprawdzaj odległości i status odblokowania. Kliknięcie karty otwiera mapę z wyróżnionym punktem w aplikacji głównej.",
+    "loading": "Ładowanie katalogu…",
+    "search": {
+      "label": "Szukaj atrakcji",
+      "placeholder": "Szukaj po nazwie, odznace lub opisie"
+    },
+    "link": {
+      "achievements": "Zobacz swoje osiągnięcia"
+    },
+    "catalog": {
+      "title": "Atrakcje do odwiedzenia",
+      "subtitle": "Od plaż i parków narodowych po stanowiska archeologiczne i punkty widokowe — katalog obejmuje wszystkie miejsca dostępne w grze. Włącz dostęp do lokalizacji, aby widzieć szacowane odległości.",
+      "empty": "Brak wyników dla wybranych filtrów. Spróbuj innej frazy lub wyczyść wyszukiwanie."
+    }
+  },
+  "profile": {
+    "hero": {
+      "back": "← Wróć do profilu"
+    },
+    "stats": {
+      "title": "Statystyki profilu",
+      "level": "Poziom",
+      "xp": "Doświadczenie",
+      "badges": "Odznaki",
+      "photos": "Zdjęcia",
+      "comments": "Komentarze",
+      "likesReceived": "Otrzymane polubienia"
+    },
+    "xp": {
+      "progressTitle": "Postęp doświadczenia",
+      "loading": "Ładowanie postępu…"
+    },
+    "settings": {
+      "title": "Ustawienia",
+      "email": {
+        "title": "E‑mail",
+        "edit": "Edytuj",
+        "placeholder": "podaj adres e‑mail",
+        "save": "Zapisz",
+        "cancel": "Anuluj",
+        "help": "Adres używany do logowania i powiadomień.",
+        "updating": "Aktualizowanie…"
+      },
+      "password": {
+        "title": "Hasło",
+        "current": "Obecne hasło",
+        "new": "Nowe hasło",
+        "confirm": "Powtórz hasło",
+        "save": "Zapisz",
+        "cancel": "Anuluj",
+        "help": "Hasło min. 8 znaków.",
+        "saving": "Zapisywanie…"
+      }
+    },
+    "activity": {
+      "title": "Aktywność",
+      "loading": "Ładowanie aktywności…",
+      "photos": {
+        "title": "Zdjęcia",
+        "empty": "Brak zdjęć",
+        "viewPlace": "Zobacz miejsce",
+        "view": "Zobacz"
+      },
+      "comments": {
+        "title": "Komentarze",
+        "empty": "Brak komentarzy",
+        "clickToOpen": "Kliknij, aby otworzyć",
+        "edited": "edytowano"
+      }
+    },
+    "memberSince": "Z użytkownikiem od",
+    "loading": "Ładowanie profilu…",
+    "avatar": {
+      "change": "Zmień awatar",
+      "remove": "Usuń awatar",
+      "uploading": "Wysyłanie…"
+    },
+    "username": {
+      "edit": "Edytuj nazwę",
+      "placeholder": "podaj nazwę",
+      "save": "Zapisz",
+      "cancel": "Anuluj",
+      "saving": "Zapisywanie…"
+    },
+    "login": {
+      "title": "Zaloguj się",
+      "description": "Musisz być zalogowany, aby wejść do profilu.",
+      "button": "Zaloguj się"
     }
   }
 }
