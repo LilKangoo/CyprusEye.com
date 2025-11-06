@@ -91,12 +91,6 @@ ON car_bookings FOR INSERT
 TO anon, authenticated
 WITH CHECK (true);
 
--- Allow users to view their own bookings
-CREATE POLICY "Users can view own bookings"
-ON car_bookings FOR SELECT
-TO authenticated
-USING (email = auth.email());
-
 -- Allow admins to view all bookings
 CREATE POLICY "Admins can view all bookings"
 ON car_bookings FOR SELECT

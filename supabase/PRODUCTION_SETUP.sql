@@ -122,12 +122,6 @@ ON car_bookings FOR INSERT
 TO anon, authenticated
 WITH CHECK (true);
 
--- Allow users to view their own bookings
-CREATE POLICY "Users can view own bookings"
-ON car_bookings FOR SELECT
-TO authenticated
-USING (email = auth.email());
-
 -- Allow admins to view all bookings
 CREATE POLICY "Admins can view all bookings"
 ON car_bookings FOR SELECT
@@ -319,8 +313,8 @@ BEGIN
     RAISE WARNING '⚠️  No cars in car_offers! Add some cars or run migration 002_update_car_system.sql';
   END IF;
   
-  IF policies_count < 5 THEN
-    RAISE WARNING '⚠️  Missing some RLS policies! Expected 5, got %', policies_count;
+  IF policies_count < 4 THEN
+    RAISE WARNING '⚠️  Missing some RLS policies! Expected 4, got %', policies_count;
   END IF;
   
   RAISE NOTICE 'Next steps:';
