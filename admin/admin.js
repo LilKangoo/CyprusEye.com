@@ -1200,15 +1200,7 @@ async function loadCarsData() {
 
     console.log('Loading car bookings data...');
 
-    // Load statistics using the database function
-    const { data: stats, error: statsError } = await client
-      .rpc('admin_get_car_booking_stats');
-
-    if (statsError) {
-      console.warn('Could not load stats function, calculating manually:', statsError);
-    }
-
-    // Load car bookings - simplified query without joins
+    // Load car bookings - NO RPC, NO JOIN, just simple select
     const { data: bookings, error } = await client
       .from('car_bookings')
       .select('*')
@@ -1223,22 +1215,25 @@ async function loadCarsData() {
     console.log('Car bookings loaded:', bookings);
     console.log('Total bookings count:', bookings?.length || 0);
 
-    // Use stats from function or calculate manually
+    // Calculate stats manually from bookings data
     let totalBookings, activeRentals, pendingBookings, totalRevenue;
     
-    if (stats && stats.length > 0) {
-      const s = stats[0];
-      totalBookings = Number(s.total_bookings) || 0;
-      activeRentals = Number(s.active_rentals) || 0;
-      pendingBookings = Number(s.pending_bookings) || 0;
-      totalRevenue = Number(s.total_revenue) || 0;
+    if (bookings && bookings.length > 0) {
+      // Count by status
+      totalBookings = bookings.length;
+      activeRentals = bookings.filter(b => b.status === 'active').length;
+      pendingBookings = bookings.filter(b => b.status === 'pending' || b.status === 'message_sent').length;
+      
+      // Sum revenue from confirmed/completed bookings with final_price
+      totalRevenue = bookings
+        .filter(b => (b.status === 'confirmed' || b.status === 'completed') && b.final_price)
+        .reduce((sum, b) => sum + parseFloat(b.final_price), 0);
     } else {
-      // Manual calculation fallback
-      totalBookings = bookings?.length || 0;
-      activeRentals = bookings?.filter(b => b.status === 'confirmed' || b.status === 'active').length || 0;
-      pendingBookings = bookings?.filter(b => b.status === 'pending').length || 0;
-      totalRevenue = bookings?.filter(b => b.payment_status === 'paid' || b.payment_status === 'partial')
-        .reduce((sum, b) => sum + (Number(b.total_price) || 0), 0) || 0;
+      // No bookings yet
+      totalBookings = 0;
+      activeRentals = 0;
+      pendingBookings = 0;
+      totalRevenue = 0;
     }
 
     // Update stats cards
