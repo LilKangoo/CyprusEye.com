@@ -75,127 +75,75 @@
   <script type="module" src="/js/auth.js"></script>
   <script type="module" src="/js/authUi.js"></script>
 </head>
-<body data-navigation="multi-page" data-seo-page="carRentalPfo">
-  <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
-  <header class="app-header">
-    <div class="header-top">
-      <div class="brand">
-        <img
-          src="assets/cyprus_logo-1000x1054.png"
-          alt="WakacjeCypr.com – logo żółwia z flagą Polski"
-          data-i18n-attrs="alt:header.logoAlt"
-          width="1000"
-          height="1054"
-          loading="eager"
-          fetchpriority="high"
-        />
-        <div class="brand-title" data-i18n="header.brand">
-          <p class="brand-name">WakacjeCypr <span>Quest</span></p>
-          <p class="tagline">Zwiedzaj Cypr w interaktywny sposób – zdobywaj odznaki, doświadczenie i odkrywaj nasze najlepsze oferty.</p>
+  <body class="standalone-body" data-seo-page="carRentalPfo">
+  <!-- Accessibility: Skip to main content -->
+  <a href="#main-content" class="skip-link" data-i18n="accessibility.skipToContent">Skip to main content</a>
+      <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+    <div class="standalone-page">
+      <header class="card surface-card standalone-header">
+        <div class="standalone-brand">
+          <img
+            src="assets/cyprus_logo-1000x1054.png"
+            alt="WakacjeCypr.com – logo żółwia z flagą Polski"
+            data-i18n-attrs="alt:carRentalPfo.page.brand.logoAlt"
+            width="1000"
+            height="1054"
+            loading="eager"
+            fetchpriority="high"
+          />
+          <div>
+            <p class="standalone-brand-overline" data-i18n="carRentalPfo.page.brand.overline">WakacjeCypr Quest</p>
+            <p class="standalone-brand-title" data-i18n="carRentalPfo.page.brand.title">Wynajem samochodów</p>
+          </div>
         </div>
-      </div>
-      <div class="header-top-actions">
-        <div class="header-auth-controls">
+        <a
+        class="header-coupon-button header-coupon-button--light"
+        href="kupon.html"
+        data-i18n="header.coupon"
+        data-i18n-attrs="aria-label:header.couponAria"
+        aria-label="Kupon"
+      >
+        🎟️ Kupon
+      </a>
+        <nav
+          class="standalone-nav"
+          aria-label="Nawigacja powrotu"
+          data-i18n-attrs="aria-label:carRentalPfo.page.nav.aria"
+        >
+          <a class="ghost link" href="/index.html" data-back-home-link="true" data-i18n="carRental.back">← Wróć do aplikacji</a>
+          <a class="ghost" href="car-rental-landing.html" data-i18n="carRentalPfo.page.nav.switchCity">Wybierz inne miasto</a>
+          <a class="ghost" href="car-rental.html" data-i18n="carRentalPfo.page.nav.island">Oferta całego Cypru</a>
+          <a class="btn btn-secondary secondary" href="#carReservationForm" data-i18n="carRentalPfo.page.nav.book">Złóż rezerwację</a>
+        </nav>
+        <div id="auth-actions" class="auth-actions">
           <button
-            id="notificationsToggle"
-            class="ghost notifications-toggle"
-            data-gated="true"
-            data-require-auth
-            data-i18n="header.notifications"
-            type="button"
-            aria-haspopup="true"
-            aria-expanded="false"
-            aria-controls="notificationsPanel"
+            class="btn"
+            data-auth="login"
+            data-auth-login-mode="modal"
+            data-i18n="header.login"
+            data-i18n-attrs="aria-label:auth.login.aria"
+            aria-label="Zaloguj do konta"
           >
-            🔔 <span class="btn-text">Powiadomienia</span>
-            <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
+            Zaloguj
           </button>
-          <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
-            <button
-              class="btn btn-sm"
-              data-auth="login"
-              data-auth-login-mode="modal"
-              data-i18n="header.login"
-              data-i18n-attrs="aria-label:auth.login.aria"
-              aria-label="Zaloguj do konta"
-            >
-              Zaloguj
-            </button>
-            <button class="btn btn-sm" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Gość</button>
-            <button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
-            <button
-              id="sosToggle"
-              class="btn btn-sm btn-danger"
-              type="button"
-              aria-haspopup="dialog"
-              aria-controls="sosModal"
-              data-i18n="header.sosToggle"
-            >
-              🚨 SOS
-            </button>
-          </div>
-          <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
+          <button class="btn" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Graj jako gość</button>
+          <a 
+            href="/achievements.html" 
+            class="btn btn-profile" 
+            data-auth="user-only"
+            aria-label="Mój profil"
+            id="profileButton"
+          >
+            <img id="headerUserAvatar" class="header-user-avatar" src="/assets/cyprus_logo-1000x1054.png" alt="Avatar" />
+            <span>Profil</span>
+          </a>
+          <button class="btn" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
+          <span class="auth-badge" data-auth="user-only" data-i18n="auth.status.userBadge">Zalogowany: <strong data-auth="user-name"></strong></span>
+          <span class="auth-badge" data-auth="guest-only" data-i18n="auth.status.guestBadge">Grasz jako gość</span>
+          <span class="auth-badge" data-auth="anon-only" data-i18n="auth.status.anon">Nie zalogowano</span>
         </div>
-        
-        <div class="header-actions" aria-label="Szybkie działania" data-i18n-attrs="aria-label:header.quickActions.aria">
-          <div class="header-actions-primary">
-            <a class="ghost header-link" href="community.html" data-i18n="header.communityLink">💬 Społeczność</a>
-            <a class="ghost header-link" href="kupon.html" data-i18n="header.coupon" aria-label="Kupon">🎟️ Kupon</a>
-            <a class="ghost header-link" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
-            <a href="vip.html" class="ghost header-link" data-i18n="nav.mediaTrips" aria-label="Otwórz stronę VIP wyjazdów indywidualnych" data-i18n-attrs="aria-label:nav.mediaTrips.ariaLabel">✨ VIP wyjazdy</a>
-          </div>
-        </div>
-      </div>
-    </div>
-    
-    <div class="user-stats-section" data-auth="user-only">
-      <a href="achievements.html" class="user-profile-card" id="profileButton" aria-label="Mój profil">
-        <img id="headerUserAvatar" class="profile-avatar" src="assets/cyprus_logo-1000x1054.png" alt="Avatar" width="50" height="50" loading="eager" />
-        <div class="profile-info">
-          <div class="profile-name">Mój Profil</div>
-          <div class="profile-status">Poziom 1 • 0 odznak</div>
-        </div>
-      </a>
-      
-      <div class="stats-cards">
-      <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
-        <p class="metric-label" data-i18n="metrics.level.label">Poziom</p>
-        <p class="metric-value" id="headerLevelNumber">1</p>
-        <p class="metric-subtext" id="headerLevelStatus" data-i18n="metrics.level.subtext">Status poziomu</p>
-      </a>
-      <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
-        <p class="metric-label" data-i18n="metrics.xp.label">XP</p>
-        <p class="metric-value"><span id="headerXpPoints">0</span> XP</p>
-        <div class="metric-progress" role="img" aria-label="Postęp doświadczenia" data-i18n-attrs="aria-label:metrics.xp.aria">
-          <div class="metric-progress-track">
-            <div class="metric-progress-fill is-width-zero" id="headerXpFill"></div>
-          </div>
-          <p class="metric-progress-text" id="headerXpProgressText" data-i18n="metrics.xp.progress">Postęp XP</p>
-        </div>
-      </a>
-      <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
-        <p class="metric-label" data-i18n="metrics.badges.label">Odznaki</p>
-        <p class="metric-value" id="headerBadgesCount">0</p>
-        <p class="metric-subtext" data-i18n="metrics.badges.subtext">Zebrane odznaki</p>
-      </a>
-      </div>
-    </div>
-    
-    <nav class="header-tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna">
-      <a href="index.html" class="header-tab" data-i18n="nav.adventure">🎯 Twoja przygoda</a>
-      <a href="packing.html" class="header-tab" data-i18n="nav.packing">🎒 Planer pakowania</a>
-      <a href="tasks.html" class="header-tab" data-i18n="nav.tasks">✅ Zadania do wykonania</a>
-      <a href="attractions.html" class="header-tab" id="explorerToggle" data-i18n="header.explorerToggle">📚 Eksplorator</a>
-    </nav>
-  </header>
-  
-  <!-- Car Rental Specific Navigation -->
-  <div class="car-rental-nav card surface-card" style="margin: 1rem; padding: 1rem; display: flex; gap: 0.5rem; flex-wrap: wrap; justify-content: center;">
-    <a class="btn ghost" href="/index.html" data-back-home-link="true" data-i18n="carRental.back">← Wróć do aplikacji</a>
-    <a class="btn ghost" href="car-rental-landing.html" data-i18n="carRentalPfo.page.nav.switchCity">Wybierz inne miasto</a>
-    <a class="btn ghost" href="car-rental.html" data-i18n="carRentalPfo.page.nav.island">Oferta całego Cypru</a>
-    <a class="btn btn-secondary" href="#carReservationForm" data-i18n="carRentalPfo.page.nav.book">Złóż rezerwację</a>
-  </div>
+        <div data-auth="spinner" class="auth-spinner" aria-live="polite" data-i18n="auth.status.spinner">Łączenie z logowaniem…</div>
+      </header>
 
       <main id="main-content" class="standalone-main">
         <section class="card surface-card standalone-hero" aria-labelledby="standaloneHeroTitle">
@@ -565,48 +513,12 @@
           <a href="https://wa.me/48534073861" target="_blank" rel="noopener">WhatsApp</a>
         </p>
       </footer>
-  
-  <!-- SOS Modal HTML -->
-  <div class="sos-modal" id="sosModal" role="dialog" aria-labelledby="sosTitle" aria-modal="true" hidden>
-    <div class="sos-dialog">
-      <header class="sos-header">
-        <h2 id="sosTitle">🚨 SOS</h2>
-        <button id="sosClose" class="sos-close" aria-label="Zamknij">✕</button>
-      </header>
-      <div class="sos-grid">
-        <a href="tel:+357 99 005 924" class="sos-card">
-          <span class="sos-icon">📞</span>
-          <span class="sos-label">Zadzwoń do nas</span>
-          <span class="sos-detail">+357 99 005 924</span>
-        </a>
-        <a href="https://wa.me/48534073861" target="_blank" rel="noopener" class="sos-card">
-          <span class="sos-icon">💬</span>
-          <span class="sos-label">WhatsApp</span>
-          <span class="sos-detail">Natychmiastowa pomoc</span>
-        </a>
-        <a href="tel:112" class="sos-card sos-card-emergency">
-          <span class="sos-icon">🚑</span>
-          <span class="sos-label">Pogotowie</span>
-          <span class="sos-detail">112</span>
-        </a>
-        <a href="tel:199" class="sos-card sos-card-emergency">
-          <span class="sos-icon">🚒</span>
-          <span class="sos-label">Straż pożarna</span>
-          <span class="sos-detail">199</span>
-        </a>
-      </div>
     </div>
-  </div>
 
-    <!-- Core Scripts -->
     <script src="js/i18n.js" defer></script>
     <script src="js/forms.js" defer></script>
     <script src="js/seo.js" defer></script>
-    <script src="js/mobile-nav.js" defer></script>
-    <!-- SOS Emergency Modal -->
-    <script src="js/sos.js?v=1" defer></script>
-    <!-- Header Stats - aktualizacja statystyk na wszystkich stronach -->
-    <script src="js/header-stats.js?v=1" defer></script>
+    <script type="module" src="app.js"></script>
     <!-- Dynamic car fleet loading -->
     <script type="module" src="js/car-rental-paphos.js"></script>
     <!-- Local reservation form -->
@@ -651,6 +563,6 @@
         }
       });
     </script>
-    <script src="assets/js/modal-auth.js" defer></script>
+    <script type="module" src="/assets/js/auth-ui.js"></script>
   </body>
 </html>
