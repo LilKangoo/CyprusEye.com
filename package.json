@@ -16,7 +16,8 @@
     "build:clean": "rm -rf dist && npm run build"
   },
   "dependencies": {
-    "nodemailer": "^6.9.11"
+    "nodemailer": "^6.9.11",
+    "@supabase/supabase-js": "^2.45.0"
   },
   "devDependencies": {
     "@lhci/cli": "^0.14.0",
