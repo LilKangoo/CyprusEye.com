@@ -94,13 +94,25 @@ function renderFleet() {
 // Update calculator select options
 function updateCalculatorOptions() {
   const select = document.getElementById('car');
-  if (!select || paphosFleet.length === 0) return;
+  const resSelect = document.getElementById('res_car');
+  
+  if (paphosFleet.length === 0) return;
 
-  select.innerHTML = paphosFleet.map(car => {
+  const optionsHTML = paphosFleet.map(car => {
     const transmission = car.transmission === 'automatic' ? 'Automat' : 'Manual';
     const seats = car.max_passengers || 5;
     return `<option value="${escapeHtml(car.car_model)}">${escapeHtml(car.car_model)} — ${transmission} • ${seats} os.</option>`;
   }).join('');
+
+  // Update calculator select
+  if (select) {
+    select.innerHTML = optionsHTML;
+  }
+
+  // Update reservation select
+  if (resSelect) {
+    resSelect.innerHTML = optionsHTML;
+  }
 }
 
 // Update stats in hero

@@ -338,17 +338,13 @@
             <article class="auto-rental-block" id="carReservationForm">
               <h3 data-i18n="carRentalPfo.page.reservation.title">Złóż rezerwację</h3>
               <p data-i18n="carRentalPfo.page.reservation.description">
-                Wypełnij formularz online, aby potwierdzić dostępność i otrzymać umowę. Możesz też napisać do nas na
-                WhatsApp – odpowiadamy najszybciej jak to możliwe.
+                Wypełnij formularz poniżej lub napisz do nas na WhatsApp – odpowiadamy najszybciej jak to możliwe.
               </p>
-              <div class="auto-reservation-actions">
-                <a
-                  class="btn btn-secondary secondary"
-                  href="https://docs.google.com/forms/d/e/1FAIpQLSfaID2ropSqvD4T50zhy0O0fO6zm-rNojO7EDy969Z6lBVe1w/viewform"
-                  target="_blank"
-                  rel="noopener"
-                  data-i18n="carRentalPfo.page.reservation.formLink"
-                >Otwórz formularz w nowym oknie</a>
+              
+              <div class="auto-reservation-actions" style="margin-bottom: 24px;">
+                <button type="button" id="btnFillFromCalculator" class="btn btn-secondary secondary">
+                  Przenieś dane z kalkulatora
+                </button>
                 <a
                   class="ghost"
                   href="https://wa.me/48534073861"
@@ -358,17 +354,152 @@
                   >Napisz na WhatsApp</a
                 >
               </div>
-              <div class="auto-reservation-frame">
-                <iframe
-                  src="https://docs.google.com/forms/d/e/1FAIpQLSfaID2ropSqvD4T50zhy0O0fO6zm-rNojO7EDy969Z6lBVe1w/viewform?embedded=true"
-                  title="Formularz rezerwacji auta w Pafos"
-                  data-i18n-attrs="title:carRentalPfo.page.reservation.formTitle"
-                  loading="lazy"
-                  allow="fullscreen"
-                  width="700"
-                  height="520"
-                ></iframe>
-              </div>
+
+              <!-- Local Reservation Form -->
+              <form id="localReservationForm" class="auto-reservation-form" novalidate style="background: #f8fafc; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                
+                <!-- Personal Information -->
+                <div style="margin-bottom: 24px;">
+                  <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;">Dane kontaktowe</h4>
+                  <div style="display: grid; gap: 16px;">
+                    <div class="auto-field">
+                      <label for="res_full_name">Imię i nazwisko *</label>
+                      <input type="text" id="res_full_name" name="full_name" required placeholder="Jan Kowalski">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                      <div class="auto-field">
+                        <label for="res_email">Email *</label>
+                        <input type="email" id="res_email" name="email" required placeholder="jan@example.com">
+                      </div>
+                      <div class="auto-field">
+                        <label for="res_phone">Telefon *</label>
+                        <input type="tel" id="res_phone" name="phone" required placeholder="+48 123 456 789">
+                      </div>
+                    </div>
+                    <div class="auto-field">
+                      <label for="res_country">Kraj</label>
+                      <input type="text" id="res_country" name="country" placeholder="Polska">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Rental Details -->
+                <div style="margin-bottom: 24px;">
+                  <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;">Szczegóły wynajmu</h4>
+                  <div style="display: grid; gap: 16px;">
+                    <div class="auto-field">
+                      <label for="res_car">Wybierz auto *</label>
+                      <select id="res_car" name="car" required>
+                        <option value="">Ładowanie...</option>
+                      </select>
+                    </div>
+                    
+                    <!-- Pickup -->
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+                      <div class="auto-field">
+                        <label for="res_pickup_date">Data odbioru *</label>
+                        <input type="date" id="res_pickup_date" name="pickup_date" required>
+                      </div>
+                      <div class="auto-field">
+                        <label for="res_pickup_time">Godzina</label>
+                        <input type="time" id="res_pickup_time" name="pickup_time" value="10:00">
+                      </div>
+                    </div>
+                    
+                    <div class="auto-field">
+                      <label for="res_pickup_location">Miejsce odbioru *</label>
+                      <select id="res_pickup_location" name="pickup_location" required>
+                        <option value="airport_pfo">Lotnisko Paphos (PFO)</option>
+                        <option value="hotel">Hotel</option>
+                        <option value="city_center">Centrum miasta</option>
+                        <option value="other">Inne</option>
+                      </select>
+                    </div>
+                    
+                    <div class="auto-field" id="pickupAddressField" hidden>
+                      <label for="res_pickup_address">Adres odbioru</label>
+                      <input type="text" id="res_pickup_address" name="pickup_address" placeholder="Nazwa hotelu lub dokładny adres">
+                    </div>
+
+                    <!-- Return -->
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+                      <div class="auto-field">
+                        <label for="res_return_date">Data zwrotu *</label>
+                        <input type="date" id="res_return_date" name="return_date" required>
+                      </div>
+                      <div class="auto-field">
+                        <label for="res_return_time">Godzina</label>
+                        <input type="time" id="res_return_time" name="return_time" value="10:00">
+                      </div>
+                    </div>
+                    
+                    <div class="auto-field">
+                      <label for="res_return_location">Miejsce zwrotu *</label>
+                      <select id="res_return_location" name="return_location" required>
+                        <option value="airport_pfo">Lotnisko Paphos (PFO)</option>
+                        <option value="hotel">Hotel</option>
+                        <option value="city_center">Centrum miasta</option>
+                        <option value="other">Inne</option>
+                      </select>
+                    </div>
+                    
+                    <div class="auto-field" id="returnAddressField" hidden>
+                      <label for="res_return_address">Adres zwrotu</label>
+                      <input type="text" id="res_return_address" name="return_address" placeholder="Nazwa hotelu lub dokładny adres">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Additional Options -->
+                <div style="margin-bottom: 24px;">
+                  <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;">Dodatkowe opcje</h4>
+                  <div style="display: grid; gap: 16px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                      <div class="auto-field">
+                        <label for="res_passengers">Liczba pasażerów</label>
+                        <input type="number" id="res_passengers" name="num_passengers" min="1" max="8" value="2">
+                      </div>
+                      <div class="auto-field">
+                        <label for="res_child_seats">Foteliki dziecięce (gratis)</label>
+                        <input type="number" id="res_child_seats" name="child_seats" min="0" max="3" value="0">
+                      </div>
+                    </div>
+                    
+                    <div class="auto-checkbox">
+                      <input type="checkbox" id="res_insurance" name="insurance">
+                      <label for="res_insurance">Pełne ubezpieczenie AC (+17€/dzień)</label>
+                    </div>
+                    
+                    <div class="auto-field">
+                      <label for="res_flight">Numer lotu (opcjonalnie)</label>
+                      <input type="text" id="res_flight" name="flight_number" placeholder="W1234">
+                    </div>
+                    
+                    <div class="auto-field">
+                      <label for="res_notes">Uwagi specjalne</label>
+                      <textarea id="res_notes" name="special_requests" rows="3" placeholder="Dodatkowe informacje lub prośby..."></textarea>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Estimated Price -->
+                <div id="estimatedPrice" style="background: #f1f5f9; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; color: #475569;"></div>
+
+                <!-- Error Display -->
+                <div id="reservationError" class="admin-error-message" hidden style="margin-bottom: 16px;"></div>
+                
+                <!-- Success Display -->
+                <div id="reservationSuccess" hidden></div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn btn-primary primary" style="width: 100%; padding: 14px; font-size: 16px; font-weight: 600;">
+                  Wyślij rezerwację
+                </button>
+                
+                <p style="font-size: 12px; color: #64748b; margin: 12px 0 0; text-align: center;">
+                  Otrzymasz potwierdzenie na email w ciągu 24h
+                </p>
+              </form>
             </article>
           </section>
         </section>
@@ -390,6 +521,8 @@
     <script type="module" src="app.js"></script>
     <!-- Dynamic car fleet loading -->
     <script type="module" src="js/car-rental-paphos.js"></script>
+    <!-- Local reservation form -->
+    <script type="module" src="js/car-reservation.js"></script>
     <script>
       document.addEventListener('DOMContentLoaded', () => {
         const form = document.getElementById('carRentalCalculator');
