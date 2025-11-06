@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Nawigacji - CyprusEye</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 {
+            color: #2563eb;
+        }
+        .test-section {
+            background: white;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .test-link {
+            display: inline-block;
+            padding: 12px 24px;
+            margin: 8px;
+            background: #2563eb;
+            color: white;
+            text-decoration: none;
+            border-radius: 6px;
+            transition: background 0.2s;
+        }
+        .test-link:hover {
+            background: #1d4ed8;
+        }
+        .instructions {
+            background: #fef3c7;
+            padding: 15px;
+            border-left: 4px solid #f59e0b;
+            margin: 20px 0;
+        }
+        .success {
+            background: #d1fae5;
+            border-left-color: #10b981;
+        }
+    </style>
+</head>
+<body>
+    <h1>🧪 Test Nawigacji CyprusEye</h1>
+    
+    <div class="instructions success">
+        <h3>✅ Co zostało zrobione:</h3>
+        <ul>
+            <li><strong>Header Tabs (Desktop):</strong> 36 buttonów → 36 linków na 9 stronach</li>
+            <li><strong>Mobile Tabbar:</strong> Buttony → Linki (generowane przez JS)</li>
+            <li><strong>Quick Links:</strong> Już były linkami (bez zmian)</li>
+        </ul>
+    </div>
+
+    <div class="instructions">
+        <h3>📋 Jak testować:</h3>
+        <ol>
+            <li><strong>Desktop:</strong> Kliknij każdy link poniżej - powinieneś przejść do strony</li>
+            <li><strong>Mobile:</strong> Zmień na widok mobile (F12 → device toolbar) i sprawdź dolny pasek</li>
+            <li><strong>Header Tabs:</strong> Na każdej stronie kliknij 4 taby na górze</li>
+            <li><strong>Test bez JS:</strong> Wyłącz JavaScript - linki nadal powinny działać!</li>
+        </ol>
+    </div>
+
+    <div class="test-section">
+        <h2>🎯 Wszystkie strony (Header Tabs)</h2>
+        <p>Kliknij każdy link - sprawdź czy otwiera stronę:</p>
+        <a href="index.html" class="test-link">🎯 Przygoda (index.html)</a>
+        <a href="packing.html" class="test-link">🎒 Pakowanie (packing.html)</a>
+        <a href="tasks.html" class="test-link">✅ Zadania (tasks.html)</a>
+        <a href="attractions.html" class="test-link">🌍 Atrakcje (attractions.html)</a>
+    </div>
+
+    <div class="test-section">
+        <h2>⚡ Quick Links (w headerze)</h2>
+        <p>Te linki są w headerze każdej strony:</p>
+        <a href="community.html" class="test-link">💬 Społeczność</a>
+        <a href="kupon.html" class="test-link">🎟️ Kupon</a>
+        <a href="car-rental-landing.html" class="test-link">🚗 Wynajem auta</a>
+        <a href="vip.html" class="test-link">✨ VIP wyjazdy</a>
+    </div>
+
+    <div class="test-section">
+        <h2>📱 Mobile Navigation (dolny pasek)</h2>
+        <p>Włącz mobile view (F12 → ikona telefonu) i zobacz dolny pasek.</p>
+        <p><strong>Powinno być 6-7 linków:</strong></p>
+        <ul>
+            <li>🎯 Przygoda → index.html</li>
+            <li>💬 Społeczność → community.html</li>
+            <li>🎒 Pakowanie → packing.html</li>
+            <li>✅ Misje → tasks.html</li>
+            <li>📸 VIP → vip.html</li>
+            <li>🚗 Wynajem aut → car-rental-landing.html</li>
+            <li>🎟️ Kupony → kupon.html</li>
+        </ul>
+        <p><em>Uwaga: Na każdej stronie będzie tylko 6 linków - bieżąca strona jest pominięta</em></p>
+    </div>
+
+    <div class="test-section">
+        <h2>🧩 Dodatkowe strony</h2>
+        <a href="achievements.html" class="test-link">🏆 Achievements</a>
+        <a href="community.html" class="test-link">💬 Community</a>
+    </div>
+
+    <div class="instructions success">
+        <h3>✅ Co sprawdzić:</h3>
+        <ul>
+            <li>Czy każdy link prowadzi do właściwej strony?</li>
+            <li>Czy header tabs (4 linki na górze) działają?</li>
+            <li>Czy quick links (4 linki w headerze) działają?</li>
+            <li>Czy mobile tabbar (dolny pasek) ma 6 linków?</li>
+            <li>Czy linki działają z WYŁĄCZONYM JavaScript?</li>
+        </ul>
+    </div>
+
+    <div class="test-section">
+        <h2>🔧 Debug Info</h2>
+        <p>Sprawdź w konsoli przeglądarki (F12):</p>
+        <pre id="debug" style="background: #f3f4f6; padding: 10px; border-radius: 4px; overflow-x: auto;"></pre>
+    </div>
+
+    <script>
+        // Debug info
+        const debug = document.getElementById('debug');
+        const info = {
+            'User Agent': navigator.userAgent,
+            'Screen Width': window.innerWidth,
+            'Mobile View': window.innerWidth < 768 ? 'YES' : 'NO',
+            'JavaScript': 'ENABLED',
+            'Current URL': window.location.href
+        };
+        
+        debug.textContent = Object.entries(info)
+            .map(([key, value]) => `${key}: ${value}`)
+            .join('\n');
+
+        // Test mobile tabbar generation
+        setTimeout(() => {
+            const mobileTabbar = document.querySelector('.mobile-tabbar');
+            if (mobileTabbar) {
+                const links = mobileTabbar.querySelectorAll('a');
+                debug.textContent += `\n\nMobile Tabbar Found: YES`;
+                debug.textContent += `\nMobile Links Count: ${links.length}`;
+                debug.textContent += `\nMobile Links: ${Array.from(links).map(l => l.href.split('/').pop()).join(', ')}`;
+            } else {
+                debug.textContent += `\n\nMobile Tabbar Found: NO (normal - this is test page)`;
+            }
+        }, 1000);
+    </script>
+</body>
+</html>

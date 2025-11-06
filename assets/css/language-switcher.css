@@ -1,0 +1,140 @@
+/* Language Switcher - Mobile Tabbar Only (Desktop uses FAB from components.css) */
+
+/* Mobile tabbar language button matches existing mobile-tabbar-btn style */
+.mobile-tabbar .language-tabbar-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.5rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  transition: all 0.2s ease;
+  flex: 1;
+  min-width: 0;
+}
+
+.mobile-tabbar .language-tabbar-btn:hover,
+.mobile-tabbar .language-tabbar-btn.is-active {
+  color: var(--primary);
+  background: var(--primary-light, rgba(37, 99, 235, 0.05));
+}
+
+.mobile-tabbar .language-tabbar-icon {
+  font-size: 1.5rem;
+  line-height: 1;
+}
+
+.mobile-tabbar .language-tabbar-label {
+  font-size: 0.625rem;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Mobile language menu (popup overlay) */
+.language-mobile-menu {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top-left-radius: 1rem;
+  border-top-right-radius: 1rem;
+  box-shadow: 0 -4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(100%);
+  transition: transform 0.3s ease;
+  z-index: 10000;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.language-mobile-menu.is-visible {
+  transform: translateY(0);
+}
+
+.language-mobile-menu-header {
+  padding: 1rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.language-mobile-menu-title {
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.language-mobile-menu-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+}
+
+.language-mobile-menu-list {
+  padding: 0.5rem;
+}
+
+.language-mobile-menu .language-switcher-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.875rem 1rem;
+  background: white;
+  border: 1px solid var(--border);
+  border-radius: 0.5rem;
+  margin-bottom: 0.5rem;
+  cursor: pointer;
+  font-size: 1rem;
+  transition: all 0.2s ease;
+}
+
+.language-mobile-menu .language-switcher-btn:hover {
+  background: var(--surface-hover);
+  border-color: var(--primary);
+}
+
+.language-mobile-menu .language-switcher-btn.is-active {
+  background: var(--primary-light);
+  border-color: var(--primary);
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.language-mobile-menu .language-flag {
+  font-size: 1.75rem;
+}
+
+.language-mobile-menu .language-name {
+  font-size: 1rem;
+}
+
+/* Overlay for mobile menu */
+.language-mobile-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 9999;
+}
+
+.language-mobile-overlay.is-visible {
+  opacity: 1;
+  pointer-events: auto;
+}

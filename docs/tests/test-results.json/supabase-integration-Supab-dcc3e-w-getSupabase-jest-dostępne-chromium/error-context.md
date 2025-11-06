@@ -1,0 +1,1127 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - link "Przejdź do głównej treści" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - status [ref=e3]
+  - banner [ref=e4]:
+    - generic "Panel konta" [ref=e5]:
+      - generic [ref=e6]:
+        - button "🔔 Powiadomienia 0" [ref=e7] [cursor=pointer]:
+          - text: 🔔 Powiadomienia
+          - generic [ref=e8]: "0"
+        - generic [ref=e9]:
+          - button "Zaloguj do konta" [ref=e10] [cursor=pointer]: Zaloguj
+          - button "Tryb gry jako gość" [ref=e11] [cursor=pointer]: Graj jako gość
+          - link "Mój profil" [ref=e12] [cursor=pointer]:
+            - /url: /achievements.html?lang=pl
+            - img "Avatar" [ref=e13]
+            - generic [ref=e14]: Profil
+          - button "Wyloguj z konta" [ref=e15] [cursor=pointer]: Wyloguj
+          - generic [ref=e16]: Nie zalogowano
+        - generic: Łączenie z logowaniem…
+        - generic [ref=e17]:
+          - generic [ref=e18]: Grasz jako gość
+          - button "📊 Statystyki i ustawienia" [ref=e20] [cursor=pointer]
+    - generic [ref=e21]:
+      - generic [ref=e22]:
+        - img "WakacjeCypr.com – logo żółwia z flagą Polski" [ref=e23]
+        - generic [ref=e24]:
+          - paragraph [ref=e25]: WakacjeCypr Quest
+          - paragraph [ref=e26]: Zwiedzaj Cypr w interaktywny sposób – zdobywaj odznaki, doświadczenie i odkrywaj nasze najlepsze oferty.
+      - generic [ref=e27]:
+        - link "Kupon" [ref=e28] [cursor=pointer]:
+          - /url: /kupon.html?lang=pl
+        - generic "Szybkie działania" [ref=e29]:
+          - generic [ref=e30]:
+            - button "Skocz do aktualnego celu" [ref=e31] [cursor=pointer]
+            - link "💬 Społeczność" [ref=e32] [cursor=pointer]:
+              - /url: /community.html?lang=pl
+            - link "🚗 Wynajem auta" [ref=e33] [cursor=pointer]:
+              - /url: /car-rental-landing.html?lang=pl
+            - button "🌍 Przeglądaj atrakcje" [ref=e34] [cursor=pointer]
+            - button "🚨 SOS" [ref=e35] [cursor=pointer]
+    - list [ref=e36]:
+      - listitem [ref=e37] [cursor=pointer]:
+        - paragraph [ref=e38]: Poziom
+        - paragraph [ref=e39]: "1"
+        - paragraph [ref=e40]: Zdobądź pierwsze check-iny, aby awansować!
+      - listitem [ref=e41] [cursor=pointer]:
+        - paragraph [ref=e42]: Doświadczenie
+        - paragraph [ref=e43]: 0 XP
+        - img "Postęp doświadczenia" [ref=e44]:
+          - paragraph [ref=e46]: 0 / 150 XP do kolejnego poziomu
+      - listitem [ref=e47] [cursor=pointer]:
+        - paragraph [ref=e48]: Odznaki
+        - paragraph [ref=e49]: "0"
+        - paragraph [ref=e50]: Odkrywaj atrakcje i kolekcjonuj pamiątki.
+    - tablist "Nawigacja główna" [ref=e51]:
+      - tab "🎯 Twoja przygoda" [ref=e52] [cursor=pointer]
+      - tab "🎒 Planer pakowania" [ref=e53] [cursor=pointer]
+      - tab "✅ Zadania do wykonania" [ref=e54] [cursor=pointer]
+      - tab "✨ VIP wyjazdy indywidualne" [selected] [ref=e55] [cursor=pointer]
+  - main [ref=e56]:
+    - heading "VIP wyjazdy i reportaże WakacjeCypr" [level=1] [ref=e57]
+    - tabpanel "✨ VIP wyjazdy indywidualne" [ref=e58]:
+      - generic [ref=e59]:
+        - generic [ref=e60]:
+          - heading "Media Trips i VIP wyjazdy" [level=2] [ref=e61]
+          - paragraph [ref=e62]: Indywidualne sesje foto i video z LilKangooMedia, prywatny przewodnik WakacjeCypr.com oraz wygodny transport po całym Cyprze.
+        - link "← Wróć do przygody" [ref=e63] [cursor=pointer]:
+          - /url: /index.html?lang=pl
+      - generic [ref=e64]:
+        - region "Indywidualne wyjazdy po całym Cyprze skrojone pod Twoją historię" [ref=e65]:
+          - paragraph [ref=e66]: Media Trips • Foto & Video • VIP
+          - heading "Indywidualne wyjazdy po całym Cyprze skrojone pod Twoją historię" [level=3] [ref=e67]
+          - paragraph [ref=e68]: Odbierzemy Cię z hotelu, przygotujemy plan pełen zachwytów i uwiecznimy najpiękniejsze chwile z profesjonalnym fotografem oraz filmowcem.
+          - link "Sprawdź pakiety" [ref=e70] [cursor=pointer]:
+            - /url: "#mediaTripsPackages"
+        - region "Wyjazdy szyte na miarę – tylko Ty, nasi przewodnicy i Cypr." [ref=e71]:
+          - generic [ref=e72]:
+            - paragraph [ref=e73]: Co robimy?
+            - heading "Wyjazdy szyte na miarę – tylko Ty, nasi przewodnicy i Cypr." [level=3] [ref=e74]
+            - paragraph [ref=e75]: Każdy wyjazd planujemy indywidualnie. Zabieramy maksymalnie cztery osoby, dbamy o wygodny transport i dopasowujemy tempo zwiedzania do Twoich marzeń.
+          - generic [ref=e76]:
+            - article [ref=e77]:
+              - generic [ref=e78]: "01"
+              - heading "Indywidualny plan podróży" [level=4] [ref=e79]
+              - paragraph [ref=e80]: Wspólnie wybieramy punkty programu tak, by zobaczyć to, co naprawdę Cię interesuje – od zatok Ayia Napa po góry Troodos.
+            - article [ref=e81]:
+              - generic [ref=e82]: "02"
+              - heading "Komfortowy transport" [level=4] [ref=e83]
+              - paragraph [ref=e84]: Odbierzemy Cię z hotelu, zadbamy o klimatyzowany przejazd i odwiezienie w wybrane miejsce po zakończeniu dnia.
+            - article [ref=e85]:
+              - generic [ref=e86]: "03"
+              - heading "Profesjonalne zdjęcia i filmy" [level=4] [ref=e87]
+              - paragraph [ref=e88]: Fotograf i filmowiec z LilKangooMedia uwiecznią emocje, abyś do wspomnień mógł wracać o każdej porze roku.
+            - article [ref=e89]:
+              - generic [ref=e90]: "04"
+              - heading "Elastyczność i wsparcie" [level=4] [ref=e91]
+              - paragraph [ref=e92]: Plan możemy zmienić w trakcie dnia, a lokalni przewodnicy podpowiedzą najlepsze restauracje i ukryte miejsca.
+          - generic [ref=e93]:
+            - heading "...a poniżej znajdziesz pakiety foto i video z przelicznikiem!" [level=4] [ref=e94]
+            - paragraph [ref=e95]: Wybierz format wyjazdu i użyj kalkulatora, aby poznać dokładną cenę dla Twojej grupy.
+        - region "Wybierz format foto lub video – zajmiemy się resztą" [ref=e96]:
+          - generic [ref=e97]:
+            - paragraph [ref=e98]: Pakiety
+            - heading "Wybierz format foto lub video – zajmiemy się resztą" [level=3] [ref=e99]
+            - paragraph [ref=e100]: Wszystkie pakiety obejmują transport, profesjonalną ekipę i indywidualny plan.
+          - paragraph [ref=e101]: Cena bazowa obejmuje do 4 osób. Wybierz wariant foto lub video i użyj kalkulatora poniżej, aby poznać łączny koszt oraz cenę na osobę.
+          - list [ref=e102]:
+            - listitem [ref=e103]:
+              - generic "Foto wyjazd z LilKangooMedia" [ref=e104]:
+                - generic [ref=e105]:
+                  - paragraph [ref=e106]: Sesje fotograficzne premium • Pakiety 5/8/10/20 godzin
+                  - heading "Foto wyjazd z LilKangooMedia" [level=3] [ref=e107]
+                  - paragraph [ref=e108]: Prywatne zwiedzanie połączone z sesją zdjęciową LilKangooMedia. Odbierzemy Cię z hotelu, dobierzemy lokalizacje i przygotujemy gotową galerię kadrów.
+                - paragraph [ref=e109]:
+                  - text: "Ceny od (do 4 osób):"
+                  - strong [ref=e110]: 400 €
+                - region "W pakiecie" [ref=e111]:
+                  - heading "W pakiecie" [level=4] [ref=e112]
+                  - list [ref=e113]:
+                    - listitem [ref=e114]: ✓ Odbiór z hotelu i komfortowy transport tylko dla Twojej ekipy.
+                    - listitem [ref=e115]: ✓ Indywidualny plan zdjęć dopasowany do złotej godziny.
+                    - listitem [ref=e116]: ✓ 30/50/60/120 obrobionych fotografii zależnie od wariantu.
+              - form "Kalkulator pakietu" [ref=e117]:
+                - heading "Kalkulator pakietu" [level=4] [ref=e118]
+                - generic [ref=e119]:
+                  - generic [ref=e120]: Wariant pakietu
+                  - combobox "Wariant pakietu" [ref=e121]:
+                    - option "Foto wyjazd – do 5h (do 30 zdjęć) — 400 € (+100 € / dodatkowa os.)" [selected]
+                    - option "Foto wyjazd – do 8h (do 50 zdjęć) — 500 € (+125 € / dodatkowa os.)"
+                    - option "Foto wyjazd – do 10h (do 60 zdjęć) — 600 € (+150 € / dodatkowa os.)"
+                    - option "Foto wyjazd 2 dni – do 20h (do 120 zdjęć) — 1100 € (+275 € / dodatkowa os.)"
+                  - paragraph [ref=e122]: Kalkulator automatycznie przelicza cenę i dopłatę za dodatkowe osoby.
+                - generic [ref=e123]:
+                  - generic [ref=e124]: Liczba uczestników
+                  - spinbutton "Liczba uczestników" [ref=e125]: "4"
+                - status [ref=e126]:
+                  - generic [ref=e127]:
+                    - term [ref=e128]: Łączny koszt pakietu
+                    - definition [ref=e129]:
+                      - status [ref=e130]: 400 €
+                  - generic [ref=e131]:
+                    - term [ref=e132]: Koszt na osobę
+                    - definition [ref=e133]:
+                      - status [ref=e134]: 100 €
+            - listitem [ref=e135]:
+              - generic "Video wyjazd z ekipą LilKangooMedia" [ref=e136]:
+                - generic [ref=e137]:
+                  - paragraph [ref=e138]: Produkcje filmowe premium • Pakiety 5/8/10/20 godzin
+                  - heading "Video wyjazd z ekipą LilKangooMedia" [level=3] [ref=e139]
+                  - paragraph [ref=e140]: Dedykowany operator, pilot drona i realizator dźwięku utrwalą Twoją wyprawę w filmowym wydaniu. Zapewniamy transport i indywidualny scenariusz wyjazdu.
+                - paragraph [ref=e141]:
+                  - text: "Ceny od (do 4 osób):"
+                  - strong [ref=e142]: 800 €
+                - region "W pakiecie" [ref=e143]:
+                  - heading "W pakiecie" [level=4] [ref=e144]
+                  - list [ref=e145]:
+                    - listitem [ref=e146]: ✓ Operator kamery, pilot drona i reżyser ujęć tylko dla Twojej grupy.
+                    - listitem [ref=e147]: ✓ Montaż, korekcja kolorów oraz rolki na media społecznościowe.
+                    - listitem [ref=e148]: ✓ Prywatny transport z hotelu i indywidualna trasa zwiedzania.
+              - form "Kalkulator pakietu" [ref=e149]:
+                - heading "Kalkulator pakietu" [level=4] [ref=e150]
+                - generic [ref=e151]:
+                  - generic [ref=e152]: Wariant pakietu
+                  - combobox "Wariant pakietu" [ref=e153]:
+                    - option "Video wyjazd – do 5h (film do 3 minut) — 800 € (+200 € / dodatkowa os.)" [selected]
+                    - option "Video wyjazd – do 8h (film do 4 minut) — 900 € (+225 € / dodatkowa os.)"
+                    - option "Video wyjazd – do 10h (film do 5 minut + 2 rolki) — 1000 € (+250 € / dodatkowa os.)"
+                    - option "Video wyjazd 2 dni – do 20h (film do 10 minut + 5 rolek) — 1800 € (+450 € / dodatkowa os.)"
+                  - paragraph [ref=e154]: Kalkulator automatycznie przelicza cenę i dopłatę za dodatkowe osoby.
+                - generic [ref=e155]:
+                  - generic [ref=e156]: Liczba uczestników
+                  - spinbutton "Liczba uczestników" [ref=e157]: "4"
+                - status [ref=e158]:
+                  - generic [ref=e159]:
+                    - term [ref=e160]: Łączny koszt pakietu
+                    - definition [ref=e161]:
+                      - status [ref=e162]: 800 €
+                  - generic [ref=e163]:
+                    - term [ref=e164]: Koszt na osobę
+                    - definition [ref=e165]:
+                      - status [ref=e166]: 200 €
+        - region "Filmy, które opowiadają Twoją historię" [ref=e167]:
+          - generic [ref=e168]:
+            - paragraph [ref=e169]: Video wyjazdy
+            - heading "Filmy, które opowiadają Twoją historię" [level=3] [ref=e170]
+            - paragraph [ref=e171]: Zanurz się w ruchomych kadrach – od dynamicznych rolek po filmowe ujęcia znad klifów.
+          - generic [ref=e172]:
+            - iframe [ref=e174]:
+              
+            - iframe [ref=e176]:
+              
+        - region "Wybierz region startowy i odkryj propozycję atrakcji" [ref=e177]:
+          - generic [ref=e178]:
+            - paragraph [ref=e179]: Przykładowe plany dnia
+            - heading "Wybierz region startowy i odkryj propozycję atrakcji" [level=3] [ref=e180]
+            - paragraph [ref=e181]: Godziny i atrakcje dopasowujemy do Twoich preferencji – poniżej znajdziesz inspiracje dla pół- i całodniowych wypraw.
+          - generic [ref=e182]:
+            - article [ref=e183]:
+              - heading "1. Pół dnia z Ayia Napa" [level=4] [ref=e184]
+              - paragraph [ref=e185]: "Godziny: 10:00 – 15:00"
+              - list [ref=e186]:
+                - listitem [ref=e187]: Ayia Napa – Most Miłości
+                - listitem [ref=e188]: Ayia Napa – Cape Greco
+                - listitem [ref=e189]: Lefkara – tradycyjna wioska + degustacja w winnicy
+                - listitem [ref=e190]: Larnaca – słone jezioro Salt Lake
+              - paragraph [ref=e191]: Zapewniamy komfortowy odbiór i powrót do hotelu. Bez dodatkowych uczestników w grupie możemy poświęcić czas na miejsca, które najbardziej Cię interesują.
+            - article [ref=e192]:
+              - heading "2. Pół dnia z Pafos" [level=4] [ref=e193]
+              - paragraph [ref=e194]: "Godziny: 10:00 – 15:00"
+              - list [ref=e195]:
+                - listitem [ref=e196]: Pafos – Skała Afrodyty
+                - listitem [ref=e197]: Pafos – wrak Edro III
+                - listitem [ref=e198]: Pafos – białe skały
+                - listitem [ref=e199]: Zapallo Bay – spektakularny klif
+              - paragraph [ref=e200]: Wyjazd dopasowujemy do Twojego tempa. Możemy zatrzymać się na sesję zdjęciową, obiad czy dodatkowe przystanki na lokalne produkty.
+            - article [ref=e201]:
+              - heading "3. Cały dzień z Ayia Napa" [level=4] [ref=e202]
+              - paragraph [ref=e203]: "Godziny: 10:00 – 20:00"
+              - list [ref=e204]:
+                - listitem [ref=e205]: Lefkara – wioska i degustacja wina
+                - listitem [ref=e206]: Zapallo Bay – najlepszy widok na wyspie
+                - listitem [ref=e207]: Limassol – promenada i marina
+                - listitem [ref=e208]: Larnaca – Salt Lake i akwedukt
+                - listitem [ref=e209]: Ayia Napa – Most Miłości, Cape Greco i marina
+              - paragraph [ref=e210]: Długi dzień pozwala połączyć klimat gór, morza i miejskich deptaków. Polecamy najlepsze miejsca na lunch i lokalne lody.
+            - article [ref=e211]:
+              - heading "4. Cały dzień z Pafos" [level=4] [ref=e212]
+              - paragraph [ref=e213]: "Godziny: 10:00 – 20:00"
+              - list [ref=e214]:
+                - listitem [ref=e215]: Pafos – Skała Afrodyty i wrak Edro III
+                - listitem [ref=e216]: Pafos – białe skały
+                - listitem [ref=e217]: Zapallo Bay – klifowe panoramy
+                - listitem [ref=e218]: Limassol – promenada i marina
+                - listitem [ref=e219]: Lefkara – tradycyjne koronki i degustacja
+                - listitem [ref=e220]: Larnaca – Salt Lake i akwedukt
+              - paragraph [ref=e221]: To propozycja dla miłośników różnorodności. W jeden dzień zobaczymy zachód nad Pafos i złote światło w Lefkarze, a na koniec odpoczniemy nad słonym jeziorem w Larnace.
+        - region "Skontaktuj się z nami i zaplanuj swój wyjazd" [ref=e222]:
+          - generic [ref=e223]:
+            - paragraph [ref=e224]: Zrób pierwszy krok
+            - heading "Skontaktuj się z nami i zaplanuj swój wyjazd" [level=3] [ref=e225]
+            - paragraph [ref=e226]: Do każdego wyjazdu podchodzimy indywidualnie – napisz do nas, a przygotujemy plan dopasowany do Twojej ekipy.
+            - link "Skontaktuj się z nami" [ref=e228] [cursor=pointer]:
+              - /url: https://wakacjecypr.com
+    - region "Planowanie podróży i inspiracje" [ref=e229]:
+      - heading "Odkryj z nami Cypr" [level=2] [ref=e230]
+      - paragraph [ref=e231]: WakacjeCypr.com to lokalni eksperci gotowi zorganizować dla Ciebie niezapomniane wakacje, prywatne wycieczki, degustacje wina i rejsy.
+      - list [ref=e232]:
+        - listitem [ref=e233]: Indywidualne plany podróży dopasowane do Twoich check-inów.
+        - listitem [ref=e234]: Wycieczki z przewodnikiem w miejscach, które już odblokowałeś.
+        - listitem [ref=e235]: Kontakt z nami prosto z aplikacji – kliknij przycisk poniżej.
+      - link "Poznaj nasze usługi" [ref=e236] [cursor=pointer]:
+        - /url: https://wakacjecypr.com
+  - contentinfo [ref=e237]:
+    - paragraph [ref=e238]: © 2025 WakacjeCypr.com • Graj, zwiedzaj i planuj wakacje jednocześnie.
+  - dialog "Interaktywny przewodnik po Cyprze":
+    - generic:
+      - banner:
+        - generic:
+          - heading "Interaktywny przewodnik po Cyprze" [level=2]
+          - paragraph: Przeglądaj wszystkie nasze lokalizacje i wybieraj, które chcesz odwiedzić jako następne.
+        - generic:
+          - generic: Filtruj atrakcje
+          - combobox "Filtruj atrakcje":
+            - option "Wszystkie miejsca" [selected]
+            - option "Do odwiedzenia"
+            - option "Zdobyte odznaki"
+          - button "Zamknij okno": ✕
+      - list:
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+            - generic: Wybrana lokalizacja
+          - heading "Kato Paphos Archaeological Park (Nea Paphos)" [level=3]
+          - paragraph: Expansive UNESCO site with famous mosaics and the ruins of the ancient city of Nea Paphos.
+          - generic:
+            - generic: 🏅 Nea Paphos Curator
+            - generic: ✨ 210 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.75567,32.40417
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Tombs of the Kings in Paphos" [level=3]
+          - paragraph: Monumental rock-cut tombs from the Hellenistic and Roman periods adorned with Doric columns.
+          - generic:
+            - generic: 🏅 Necropolis Guardian
+            - generic: ✨ 190 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.77500,32.40694
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Coral Bay Beach" [level=3]
+          - paragraph: Golden sand, gentle entry into the sea and crystal-clear water—the classic spot to relax near Peyia.
+          - generic:
+            - generic: 🏅 Beach Explorer
+            - generic: ✨ 110 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.85400,32.36950
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Skała Afrodyty (Petra tou Romiou)" [level=3]
+          - paragraph: Legenda głosi, że wśród turkusowych fal u stóp skały narodziła się Afrodyta – idealne miejsce na zachód słońca.
+          - generic:
+            - generic: 🏅 Strażnik Mitów
+            - generic: ✨ 120 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.66410,32.62710
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Błękitna Laguna (Akamas)" [level=3]
+          - paragraph: Krystalicznie czysta zatoka otoczona dziką przyrodą półwyspu Akamas – raj do snorkelingu.
+          - generic:
+            - generic: 🏅 Łowca Turkusu
+            - generic: ✨ 220 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.08417,32.30611
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Stanowisko archeologiczne Kurion" [level=3]
+          - paragraph: Ruiny antycznego miasta na klifie z teatrem, łaźniami i mozaikami Domu Eustoliosa.
+          - generic:
+            - generic: 🏅 Obrońca Kurionu
+            - generic: ✨ 200 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.66420,32.88770
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Zamek Kolossi" [level=3]
+          - paragraph: XIII-wieczna forteca joannitów, dawne centrum produkcji słodkiego wina Commandaria.
+          - generic:
+            - generic: 🏅 Rycerz Kolossi
+            - generic: ✨ 170 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.66527,32.93396
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Promenada Molos w Limassol" [level=3]
+          - paragraph: Nadmorski park z palmami, rzeźbami i kawiarniami – ulubione miejsce spacerów mieszkańców Limassol.
+          - generic:
+            - generic: 🏅 Mistrz Promenady
+            - generic: ✨ 130 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.67658,33.04979
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Ruiny starożytnego Amathus" [level=3]
+          - paragraph: Pozostałości jednego z królewskich miast Cypru z agorą, świątynią Afrodyty i wczesnochrześcijańską bazyliką.
+          - generic:
+            - generic: 🏅 Kurator Amathus
+            - generic: ✨ 180 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.71250,33.14167
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Zamek Limassol (Muzeum Średniowiecza)" [level=3]
+          - paragraph: Kamienny zamek w sercu starego miasta, dziś mieszczący muzeum średniowiecznych artefaktów.
+          - generic:
+            - generic: 🏅 Strażnik Limassol
+            - generic: ✨ 160 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.67220,33.04150
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Kościół św. Łazarza w Larnace" [level=3]
+          - paragraph: Kamienna świątynia z IX wieku, zbudowana nad grobem św. Łazarza i słynąca z bogatego ikonostasu.
+          - generic:
+            - generic: 🏅 Opiekun Relikwii
+            - generic: ✨ 150 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.91250,33.63330
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Słone Jezioro Larnaka i Hala Sultan Tekke" [level=3]
+          - paragraph: Zimowe flamingi i mistyczny meczet Hala Sultan Tekke tworzą wyjątkowy krajobraz nad słonym jeziorem.
+          - generic:
+            - generic: 🏅 Obserwator Flamingów
+            - generic: ✨ 140 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.88530,33.61020
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Plaża Finikoudes w Larnace" [level=3]
+          - paragraph: Miejska plaża z palmową promenadą, tętniącymi życiem kawiarniami i łagodnym wejściem do morza.
+          - generic:
+            - generic: 🏅 Mistrz Palm
+            - generic: ✨ 115 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.913895,33.638418
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Stanowisko archeologiczne Chirokitia" [level=3]
+          - paragraph: Neolityczna osada wpisana na listę UNESCO z rekonstrukcjami okrągłych kamiennych chat.
+          - generic:
+            - generic: 🏅 Pionier Neolitu
+            - generic: ✨ 200 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.79672,33.34372
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Wioska Lefkara" [level=3]
+          - paragraph: Górska wioska słynąca z koronek lefkaritiko i srebrnego rękodzieła w kamiennych domach.
+          - generic:
+            - generic: 🏅 Mistrzyni Koronek
+            - generic: ✨ 170 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.86700,33.30000
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Plaża Nissi (Ayia Napa)" [level=3]
+          - paragraph: Jasny piasek, płytka laguna i wysepka Nissi czynią to miejsce ikoną wypoczynku i sportów wodnych.
+          - generic:
+            - generic: 🏅 Łowca Słońca
+            - generic: ✨ 120 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.99000,33.97000
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Przylądek Greko (Cape Greco)" [level=3]
+          - paragraph: Park narodowy z klifami, morskimi jaskiniami i słynnym skalnym Mostem Miłości.
+          - generic:
+            - generic: 🏅 Łowca Horyzontów
+            - generic: ✨ 210 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.00000,34.01667
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Plaża Fig Tree Bay (Protaras)" [level=3]
+          - paragraph: Lazurowa zatoka ze złotym piaskiem i samotnym drzewem figowym będącym symbolem okolicy.
+          - generic:
+            - generic: 🏅 Strażnik Piasków
+            - generic: ✨ 125 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.012567,34.058549
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Klasztor Ayia Napa" [level=3]
+          - paragraph: XVII-wieczny klasztor z dziedzińcem i sykomorą, będący duchową oazą gwarnej Ayia Napy.
+          - generic:
+            - generic: 🏅 Kustosz Monastyrów
+            - generic: ✨ 160 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.989202,33.999746
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Park Rzeźb w Ayia Napa" [level=3]
+          - paragraph: Plenerowa galeria sztuki z ponad setką rzeźb na tle morza i sąsiedniego parku kaktusów.
+          - generic:
+            - generic: 🏅 Kurator Rzeźb
+            - generic: ✨ 150 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.985077,34.019290
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Góra Olimp (Olimbos)" [level=3]
+          - paragraph: Najwyższy szczyt Cypru z letnim szlakiem Artemis i zimowymi stokami narciarskimi.
+          - generic:
+            - generic: 🏅 Zdobywca Troodos
+            - generic: ✨ 200 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.93639,32.86333
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Klasztor Kykkos" [level=3]
+          - paragraph: Najbogatszy klasztor Cypru z mozaikami, złotymi ikonami i muzeum sakralnym.
+          - generic:
+            - generic: 🏅 Opiekun Dziedzictwa
+            - generic: ✨ 190 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.98334,32.741299
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Wioska Omodos (centrum)" [level=3]
+          - paragraph: Historyczna wioska z klasztorem Św. Krzyża, brukowanymi uliczkami i lokalnym rękodziełem.
+          - generic:
+            - generic: 🏅 Sommelier Omodos
+            - generic: ✨ 170 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.84926,32.80986
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Wioska Kakopetria" [level=3]
+          - paragraph: Górska miejscowość z tradycyjnymi domami i strumieniem, idealna na spacery po Troodos.
+          - generic:
+            - generic: 🏅 Strażnik Górskich Wiosek
+            - generic: ✨ 160 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.98760,32.90150
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Wodospad Kaledonia (Kalidonia)" [level=3]
+          - paragraph: Jedna z najwyższych kaskad Cypru ukryta w cienistym wąwozie w pobliżu miejscowości Platres.
+          - generic:
+            - generic: 🏅 Poskramiacz Wodospadów
+            - generic: ✨ 180 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.90298,32.86989
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Stary port w Kyrenii (Girne)" [level=3]
+          - paragraph: Zabytkowy port z tawernami i jachtami u stóp średniowiecznego zamku, tętniący wieczornym życiem.
+          - generic:
+            - generic: 🏅 Kapitan Morza Śródziemnego
+            - generic: ✨ 150 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.34189,33.320442
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Zamek w Kyrenii" [level=3]
+          - paragraph: Wenecka forteca z muzeum wraku statku i widokami na port oraz Morze Śródziemne.
+          - generic:
+            - generic: 🏅 Strażnik Bastionu
+            - generic: ✨ 180 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.34202,33.32191
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Zamek św. Hilariona" [level=3]
+          - paragraph: Górska twierdza rozsiana po trzech poziomach skał, z legendarnymi widokami na wybrzeże.
+          - generic:
+            - generic: 🏅 Rycerz Gór Kyrenii
+            - generic: ✨ 220 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.312485,33.281364
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Stare miasto Famagusta (Gazimağusa)" [level=3]
+          - paragraph: Ufortyfikowane miasto z weneckimi murami, katedrą św. Mikołaja i zamkiem Othello przy porcie.
+          - generic:
+            - generic: 🏅 Kronikarz Famagusty
+            - generic: ✨ 210 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.12500,33.94167
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Złota Plaża (Golden Beach) na Półwyspie Karpaz" [level=3]
+          - paragraph: Dzika, szeroka plaża o drobnym piasku, otoczona wydmami i stadami dzikich osłów.
+          - generic:
+            - generic: 🏅 Strażnik Wydm
+            - generic: ✨ 230 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.63889,34.54389
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Wrak Zenobii (Zenobia Wreck)" [level=3]
+          - paragraph: Wrak promu zatopiony u wybrzeża Larnaki, popularny obiekt do nurkowania.
+          - generic:
+            - generic: 🏅 Mistrz Wraków
+            - generic: ✨ 240 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.90000,33.63300
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Wąwóz Avakas (Avakas Gorge)" [level=3]
+          - paragraph: Wąwóz z dramatycznymi formacjami skalnymi i ścieżkami trekkingowymi na półwyspie Akamas.
+          - generic:
+            - generic: 🏅 Wędrowiec Wąwozów
+            - generic: ✨ 200 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.99350,32.35500
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Łaźnie Afrodyty (Baths of Aphrodite)" [level=3]
+          - paragraph: Mały, romantyczny basen naturalny na półwyspie Akamas, związany z legendą Afrodyty.
+          - generic:
+            - generic: 🏅 Strażnik Legend Afrodyty
+            - generic: ✨ 150 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.01400,32.36700
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Polis i Marina Latchi" [level=3]
+          - paragraph: Nadmorskie miasteczko z mariną, będące punktem wypadowym na rejsy do Błękitnej Laguny.
+          - generic:
+            - generic: 🏅 Kapitan Laguny
+            - generic: ✨ 140 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.03800,32.43000
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Punkt widokowy zamku św. Hilariona" [level=3]
+          - paragraph: Punkt widokowy u stóp zamku św. Hilariona z szeroką panoramą wybrzeża Kyrenii.
+          - generic:
+            - generic: 🏅 Łowca Horyzontów
+            - generic: ✨ 160 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.31000,33.28000
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Zamek Buffavento" [level=3]
+          - paragraph: Ruiny zamku na wzgórzu nad Morzem Śródziemnym, niedaleko twierdzy św. Hilariona.
+          - generic:
+            - generic: 🏅 Strażnik Buffavento
+            - generic: ✨ 210 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.33000,33.29000
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Wioska Lania" [level=3]
+          - paragraph: Malownicza osada u podnóża Troodos, znana z winiarstwa, galerii i spokojnej atmosfery.
+          - generic:
+            - generic: 🏅 Artysta z Lanii
+            - generic: ✨ 120 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.78000,32.90000
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Klasztor Trooditissa" [level=3]
+          - paragraph: Górski monastyr w masywie Troodos, otoczony lasami i pełen ikon oraz pielgrzymów.
+          - generic:
+            - generic: 🏅 Pielgrzym Trooditissa
+            - generic: ✨ 170 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.91600,32.81900
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Starożytne miasto Soli" [level=3]
+          - paragraph: Ruiny antycznego miasta z amfiteatrem i pozostałościami portu w pobliżu Famagusty.
+          - generic:
+            - generic: 🏅 Archeolog Soli
+            - generic: ✨ 180 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.14400,33.89700
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Miejskie Akwarium w Limassol" [level=3]
+          - paragraph: Kameralne akwarium edukacyjne prezentujące lokalną faunę morską i programy ochronne.
+          - generic:
+            - generic: 🏅 Opiekun Raf Limassol
+            - generic: ✨ 110 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.70700,33.06900
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Plaża Dasoudi" [level=3]
+          - paragraph: Piaszczysta plaża w Limassol z nadbrzeżnym parkiem, ścieżkami spacerowymi i terenami zielonymi.
+          - generic:
+            - generic: 🏅 Miłośnik Dasoudi
+            - generic: ✨ 115 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.68000,33.03500
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Governor's Beach (Plaża Gubernatorska)" [level=3]
+          - paragraph: Plaża między Limassol a Larnaką ze skałami, mieszanką piasku i żwiru oraz rafami blisko brzegu.
+          - generic:
+            - generic: 🏅 Odkrywca Klifów
+            - generic: ✨ 130 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.72500,33.10000
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Plaża Macronissos" [level=3]
+          - paragraph: Zatoka z jasnym piaskiem i spokojnymi wodami w pobliżu Ayia Napy, idealna na rodzinny wypoczynek.
+          - generic:
+            - generic: 🏅 Plażowicz Macronissos
+            - generic: ✨ 125 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.99750,34.02000
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Yeroskipou (Kouklia)" [level=3]
+          - paragraph: Miasteczko niedaleko Pafos z kościołem Agios Georgios i słynnymi słodyczami pastelli.
+          - generic:
+            - generic: 🏅 Smakosz Pastelli
+            - generic: ✨ 135 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.71500,32.49000
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Klasztor Agios Neophytos" [level=3]
+          - paragraph: Pustelniczy klasztor wykuty w skale, zdobiony malowidłami założonymi przez św. Neofitosa.
+          - generic:
+            - generic: 🏅 Kronikarz Neofitosa
+            - generic: ✨ 175 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.82200,32.38900
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Starożytny dom zgromadzeń w Vouni" [level=3]
+          - paragraph: Archeologiczne ruiny na wzgórzu Vouni z widokiem na zatoki i dawne królewskie rezydencje.
+          - generic:
+            - generic: 🏅 Strażnik Vouni
+            - generic: ✨ 190 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.80000,32.58300
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Muzeum Archeologiczne w Nikozji" [level=3]
+          - paragraph: Muzeum ukazujące dzieje Cypru od prehistorii po średniowiecze z bogatą kolekcją artefaktów.
+          - generic:
+            - generic: 🏅 Kurator Nikozji
+            - generic: ✨ 160 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.17100,33.36500
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Büyük Han w Nikozji" [level=3]
+          - paragraph: Otoczony dziedziniec karawanseraj z czasów osmańskich, pełen warsztatów rękodzieła i kawiarni.
+          - generic:
+            - generic: 🏅 Kupiec Han
+            - generic: ✨ 150 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.17600,33.36400
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Ulica i Brama Ledra" [level=3]
+          - paragraph: Jedna z głównych ulic Starej Nikozji prowadząca przez Zieloną Linię między południem a północą.
+          - generic:
+            - generic: 🏅 Wędrowiec Ledra
+            - generic: ✨ 120 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.17650,33.36050
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Plac Eleftheria (Plac Wolności)" [level=3]
+          - paragraph: Nowoczesny plac w Nikozji projektu Zahy Hadid, łączący historyczne i współczesne warstwy miasta.
+          - generic:
+            - generic: 🏅 Odkrywca Eleftherii
+            - generic: ✨ 125 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.17300,33.36600
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Ulica Anexartisias w Limassol" [level=3]
+          - paragraph: Główna ulica handlowa Limassol, ulubiona przez mieszkańców i turystów na zakupy oraz kawiarnie.
+          - generic:
+            - generic: 🏅 Łowca Witryn
+            - generic: ✨ 115 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.70730,33.02140
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Park wodny Fasouri Watermania" [level=3]
+          - paragraph: Największy park wodny na Cyprze z licznymi zjeżdżalniami, basenami tematycznymi i strefami relaksu.
+          - generic:
+            - generic: 🏅 Mistrz Zjeżdżalni
+            - generic: ✨ 180 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.68200,33.01300
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Park Narodowy Akamas" [level=3]
+          - paragraph: Rozległy obszar dzikiej natury z punktami widokowymi, szlakami i miejscami lęgowymi żółwi.
+          - generic:
+            - generic: 🏅 Strażnik Akamas
+            - generic: ✨ 230 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.04100,32.37500
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Punkt widokowy klasztoru Panagia Kykkos" [level=3]
+          - paragraph: Wysoko położony punkt przy klasztorze Kykkos z panoramicznym widokiem na góry Troodos.
+          - generic:
+            - generic: 🏅 Pielgrzym Kykkos
+            - generic: ✨ 220 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.99100,32.74100
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Plac Troodos" [level=3]
+          - paragraph: Centralny punkt gór Troodos z bazą wypadową na szlaki i zimową stacją narciarską.
+          - generic:
+            - generic: 🏅 Odkrywca Troodos
+            - generic: ✨ 140 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.95000,32.87000
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Wąwóz Avakas – wejście zachodnie" [level=3]
+          - paragraph: Alternatywne wejście do wąwozu Avakas, oferujące spokojniejszy trekking i inne formacje skalne.
+          - generic:
+            - generic: 🏅 Tropiciel Avakas
+            - generic: ✨ 190 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.00050,32.35000
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Jaskinie morskie Cape Greco" [level=3]
+          - paragraph: Spektakularne jaskinie morskie na klifach Cape Greco, dostępne łodzią, kajakiem lub ze snorkelem.
+          - generic:
+            - generic: 🏅 Poszukiwacz Jaskiń
+            - generic: ✨ 200 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=34.99650,34.02500
+        - listitem:
+          - generic:
+            - generic: Do odwiedzenia
+          - heading "Cyprus Museum w Nikozji" [level=3]
+          - paragraph: Główne muzeum archeologiczne Cypru z kolekcją obejmującą wszystkie epoki historyczne.
+          - generic:
+            - generic: 🏅 Strażnik Dziedzictwa
+            - generic: ✨ 170 XP
+          - generic:
+            - button "Zobacz na mapie"
+            - link "Google Maps":
+              - /url: https://maps.google.com/?q=35.17200,33.36550
+  - dialog "SOS":
+    - document:
+      - banner:
+        - generic:
+          - heading "SOS" [level=2]
+          - paragraph: Szybki dostęp do numerów alarmowych, kontaktu z ambasadą oraz wskazówek medycznych.
+        - button "Zamknij SOS": X
+      - generic:
+        - generic:
+          - heading "🚑 Numery alarmowe na Cyprze" [level=3]
+          - list:
+            - listitem:
+              - strong: "112"
+              - paragraph:
+                - text: Uniwersalny numer alarmowy UE (policja, pogotowie, straż pożarna).
+                - link "Zadzwoń teraz":
+                  - /url: tel:112
+            - listitem:
+              - strong: "199"
+              - paragraph:
+                - text: Cypryjski numer alarmowy – działa równolegle z 112.
+                - link "Połącz":
+                  - /url: tel:199
+            - listitem:
+              - strong: +357 22 802 020
+              - paragraph:
+                - text: Całodobowa linia policji (spoza Cypru wybierz pełny numer kierunkowy).
+                - link "Zadzwoń":
+                  - /url: tel:+35722802020
+        - generic:
+          - heading "🛡️ Ambasada RP w Nikozji" [level=3]
+          - list:
+            - listitem:
+              - strong: Telefon alarmowy
+              - paragraph:
+                - link "+357 99 660 451":
+                  - /url: tel:+35799660451
+                - text: (wsparcie w nagłych wypadkach obywateli RP).
+            - listitem:
+              - strong: Recepcja
+              - paragraph:
+                - link "+357 22 751 777":
+                  - /url: tel:+35722751777
+                - text: (pon.–pt. w godz. pracy placówki).
+            - listitem:
+              - strong: Adres
+              - paragraph:
+                - text: 14, Ifigenias Street, 2007 Nikozja •
+                - link "Wyznacz trasę":
+                  - /url: https://maps.google.com/?q=Embassy+of+Poland+in+Cyprus
+            - listitem:
+              - strong: E-mail
+              - paragraph:
+                - link "nicosia.info@msz.gov.pl":
+                  - /url: mailto:nicosia.info@msz.gov.pl
+        - generic:
+          - heading "🏥 Najbliższa pomoc medyczna" [level=3]
+          - list:
+            - listitem:
+              - strong: Paphos General Hospital
+              - paragraph:
+                - text: Całodobowa izba przyjęć, Anavargos, Pafos.
+                - link "+357 26 803 000":
+                  - /url: tel:+35726803000
+                - text: •
+                - link "Mapa dojazdu":
+                  - /url: https://maps.google.com/?q=Paphos+General+Hospital
+            - listitem:
+              - strong: Wyszukaj szpital w pobliżu
+              - paragraph:
+                - link "Otwórz listę szpitali na Mapach Google":
+                  - /url: https://www.google.com/maps/search/hospital+near+me/
+                - text: i udostępnij lokalizację, aby zobaczyć najbliższe opcje.
+            - listitem:
+              - strong: Dyżurna apteka
+              - paragraph:
+                - text: Sprawdź aktualne dyżury na
+                - link "stronie Ministerstwa Zdrowia":
+                  - /url: https://pharmacy.dl.moh.gov.cy/
+                - text: lub wyszukaj
+                - link "aptekę w pobliżu":
+                  - /url: https://www.google.com/maps/search/pharmacy+near+me/
+                - text: .
+          - paragraph: W sytuacji zagrożenia życia zawsze dzwoń pod 112 i dokładnie podaj lokalizację. W aplikacji włącz udostępnianie lokalizacji, aby szybciej odnaleźć pomoc na mapie.
+  - dialog "Panel statystyk":
+    - generic:
+      - banner:
+        - generic:
+          - heading "Panel statystyk" [level=2]
+          - paragraph: Przeglądaj swoje postępy, zmieniaj hasło i kontroluj przygodę.
+        - button "Zamknij ustawienia konta": ✕
+      - generic:
+        - tablist:
+          - tab "📈 Statystyki" [selected]
+          - tab "🔐 Bezpieczeństwo"
+        - generic:
+          - tabpanel "📈 Statystyki":
+            - region "Twój profil":
+              - generic:
+                - heading "Twój profil" [level=3]
+                - paragraph: Podstawowe informacje o koncie i postępy w przygodzie.
+              - generic:
+                - generic:
+                  - term: E-mail
+                  - definition: —
+                - generic:
+                  - term: Nazwa użytkownika
+                  - definition: —
+                - generic:
+                  - term: Imię wyświetlane
+                  - definition: —
+                - generic:
+                  - term: XP
+                  - definition: "0"
+                - generic:
+                  - term: Poziom
+                  - definition: "0"
+                - generic:
+                  - term: Ostatnia aktualizacja
+                  - definition: —
+            - region "Ostatnie zdarzenia XP":
+              - generic:
+                - heading "Ostatnie zdarzenia XP" [level=3]
+                - paragraph: Monitoruj, jak zdobywasz doświadczenie w CyprusEye.
+              - list
+            - generic:
+              - article:
+                - heading "Poziom" [level=3]
+                - paragraph: "1"
+                - paragraph: Aktualny poziom przygody
+              - article:
+                - heading "Doświadczenie" [level=3]
+                - paragraph: 0 XP
+                - paragraph: Łącznie zdobytych punktów
+              - article:
+                - heading "Odznaki" [level=3]
+                - paragraph: "0"
+                - paragraph: Zebrane unikalne odznaki
+              - article:
+                - heading "Odwiedzone miejsca" [level=3]
+                - paragraph: "0"
+                - paragraph: Liczba odkrytych atrakcji
+              - article:
+                - heading "Ukończone zadania" [level=3]
+                - paragraph: "0"
+                - paragraph: Wykonane misje i checklisty
+              - article:
+                - heading "Passa dnia" [level=3]
+                - paragraph: "0"
+                - paragraph: "Aktualna / najlepsza: 0"
+            - generic:
+              - heading "Wyzeruj statystyki" [level=3]
+              - paragraph: Wyzeruj statystyki zapisane lokalnie na tym urządzeniu.
+              - button "🔄 Zresetuj postęp"
+  - button "Language selector" [ref=e239] [cursor=pointer]:
+    - generic [ref=e240]: 🇵🇱
+    - generic [ref=e241]: PL
+```

@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Test Markerów - Prosty</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <style>
+    body { margin: 0; padding: 20px; font-family: Arial; }
+    #map { height: 500px; width: 100%; border: 2px solid #2563eb; }
+    #status { padding: 10px; background: #f0f0f0; margin-bottom: 10px; }
+    .log { padding: 5px; border-bottom: 1px solid #ddd; font-size: 13px; }
+    .error { color: red; }
+    .success { color: green; }
+    .info { color: blue; }
+  </style>
+</head>
+<body>
+  <h1>🗺️ Test Markerów - Prosty</h1>
+  
+  <div id="status">
+    <strong>Status:</strong> Ładowanie...
+  </div>
+  
+  <div id="logs" style="max-height: 200px; overflow-y: auto; background: #f9f9f9; padding: 10px; margin-bottom: 10px;">
+    <div class="log info">Rozpoczynam test...</div>
+  </div>
+  
+  <div id="map"></div>
+  
+  <div style="margin-top: 20px;">
+    <button onclick="testSupabase()">1. Test Supabase</button>
+    <button onclick="testLoadPOIs()">2. Załaduj POI</button>
+    <button onclick="testAddMarkers()">3. Dodaj Markery</button>
+    <button onclick="runFullTest()">▶ Pełny Test</button>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  
+  <!-- Supabase -->
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+    
+    // Klucze z js/config.js
+    const SUPABASE_URL = 'https://daoohnbnnowmmcizgvrq.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRhb29obmJubm93bW1jaXpndnJxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjA3NjkwNDksImV4cCI6MjA3NjM0NTA0OX0.AJrmxrk18yWxL1_Ejk_SZ1-X04YxN4C8LXCn9c3yFSM';
+    
+    const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+    
+    window.supabase = supabase;
+    window.testData = {
+      map: null,
+      poisData: []
+    };
+    
+    log('✅ Supabase załadowany', 'success');
+  </script>
+
+  <script>
+    // Utility functions
+    function log(message, type = 'info') {
+      const logsDiv = document.getElementById('logs');
+      const logDiv = document.createElement('div');
+      logDiv.className = 'log ' + type;
+      logDiv.innerHTML = `[${new Date().toLocaleTimeString()}] ${message}`;
+      logsDiv.appendChild(logDiv);
+      logsDiv.scrollTop = logsDiv.scrollHeight;
+      console.log(message);
+    }
+    
+    function setStatus(message) {
+      document.getElementById('status').innerHTML = `<strong>Status:</strong> ${message}`;
+    }
+    
+    // Test 1: Sprawdź Supabase
+    async function testSupabase() {
+      log('🔍 Test 1: Sprawdzam Supabase...', 'info');
+      
+      if (!window.supabase) {
+        log('❌ Supabase nie jest dostępny!', 'error');
+        setStatus('❌ Błąd: Supabase nie działa');
+        return false;
+      }
+      
+      log('✅ Supabase client OK', 'success');
+      
+      try {
+        const { data, error } = await window.supabase
+          .from('pois')
+          .select('count')
+          .limit(1);
+          
+        if (error) {
+          log(`❌ Błąd zapytania: ${error.message}`, 'error');
+          setStatus('❌ Błąd połączenia z bazą');
+          return false;
+        }
+        
+        log('✅ Połączenie z bazą działa', 'success');
+        setStatus('✅ Supabase działa');
+        return true;
+      } catch (err) {
+        log(`❌ Wyjątek: ${err.message}`, 'error');
+        setStatus('❌ Błąd testowania');
+        return false;
+      }
+    }
+    
+    // Test 2: Załaduj POI
+    async function testLoadPOIs() {
+      log('🔍 Test 2: Ładuję POI z Supabase...', 'info');
+      
+      if (!window.supabase) {
+        log('❌ Najpierw uruchom Test 1!', 'error');
+        return false;
+      }
+      
+      try {
+        const { data: pois, error } = await window.supabase
+          .from('pois')
+          .select('*')
+          .eq('status', 'published')
+          .order('created_at', { ascending: false });
+          
+        if (error) {
+          log(`❌ Błąd ładowania POI: ${error.message}`, 'error');
+          setStatus('❌ Błąd ładowania POI');
+          return false;
+        }
+        
+        if (!pois || pois.length === 0) {
+          log('⚠️ BRAK POI w bazie z statusem "published"!', 'error');
+          log('→ Uruchom CHECK_DATABASE.sql w Supabase', 'info');
+          setStatus('⚠️ Brak POI do pokazania');
+          return false;
+        }
+        
+        window.testData.poisData = pois;
+        
+        log(`✅ Załadowano ${pois.length} POI`, 'success');
+        log(`📍 Przykładowy POI:`, 'info');
+        log(`   - ID: ${pois[0].id}`, 'info');
+        log(`   - Nazwa: ${pois[0].name}`, 'info');
+        log(`   - Lat: ${pois[0].lat}`, 'info');
+        log(`   - Lng: ${pois[0].lng}`, 'info');
+        log(`   - Status: ${pois[0].status}`, 'info');
+        
+        setStatus(`✅ Załadowano ${pois.length} POI`);
+        return true;
+      } catch (err) {
+        log(`❌ Wyjątek: ${err.message}`, 'error');
+        setStatus('❌ Błąd ładowania');
+        return false;
+      }
+    }
+    
+    // Test 3: Dodaj Markery
+    function testAddMarkers() {
+      log('🔍 Test 3: Dodaję markery na mapę...', 'info');
+      
+      if (window.testData.poisData.length === 0) {
+        log('❌ Najpierw uruchom Test 2!', 'error');
+        return false;
+      }
+      
+      // Stwórz mapę jeśli nie istnieje
+      if (!window.testData.map) {
+        log('🗺️ Tworzę mapę...', 'info');
+        window.testData.map = L.map('map').setView([35.095, 33.203], 9);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap'
+        }).addTo(window.testData.map);
+        log('✅ Mapa utworzona', 'success');
+      }
+      
+      // Dodaj markery
+      let addedCount = 0;
+      let skippedCount = 0;
+      
+      window.testData.poisData.forEach(poi => {
+        if (!poi.lat || !poi.lng) {
+          log(`⚠️ Pomijam POI bez współrzędnych: ${poi.name || poi.id}`, 'error');
+          skippedCount++;
+          return;
+        }
+        
+        const marker = L.marker([poi.lat, poi.lng]).addTo(window.testData.map);
+        marker.bindPopup(`
+          <strong>${poi.name || poi.id}</strong><br>
+          <small>Lat: ${poi.lat}, Lng: ${poi.lng}</small><br>
+          <small>Status: ${poi.status}</small>
+        `);
+        
+        addedCount++;
+        log(`📍 Dodano marker: ${poi.name || poi.id} [${poi.lat}, ${poi.lng}]`, 'success');
+      });
+      
+      log(`✅ Dodano ${addedCount} markerów`, 'success');
+      if (skippedCount > 0) {
+        log(`⚠️ Pominięto ${skippedCount} POI bez współrzędnych`, 'error');
+      }
+      
+      setStatus(`✅ ${addedCount} markerów na mapie`);
+      return true;
+    }
+    
+    // Pełny test
+    async function runFullTest() {
+      log('🚀 === ROZPOCZYNAM PEŁNY TEST ===', 'info');
+      setStatus('🔄 Testowanie...');
+      
+      const step1 = await testSupabase();
+      if (!step1) {
+        log('❌ Test 1 FAILED - przerywam', 'error');
+        return;
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const step2 = await testLoadPOIs();
+      if (!step2) {
+        log('❌ Test 2 FAILED - przerywam', 'error');
+        return;
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      const step3 = testAddMarkers();
+      if (!step3) {
+        log('❌ Test 3 FAILED - przerywam', 'error');
+        return;
+      }
+      
+      log('✅ === WSZYSTKIE TESTY PASSED ===', 'success');
+      setStatus('✅ Test zakończony sukcesem!');
+    }
+    
+    // Auto-start po załadowaniu
+    window.addEventListener('load', () => {
+      setTimeout(() => {
+        log('ℹ️ Kliknij "▶ Pełny Test" aby rozpocząć', 'info');
+      }, 500);
+    });
+  </script>
+</body>
+</html>
