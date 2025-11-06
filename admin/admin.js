@@ -1314,13 +1314,13 @@ async function loadCarsData() {
             </div>
           </td>
           <td>
-            <div style="font-weight: 500;">${escapeHtml(booking.customer_name || 'N/A')}</div>
-            <div style="font-size: 12px; color: var(--admin-text-muted);">${escapeHtml(booking.customer_email || '')}</div>
-            ${booking.customer_phone ? `<div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(booking.customer_phone)}</div>` : ''}
+            <div style="font-weight: 500;">${escapeHtml(booking.full_name || booking.customer_name || 'N/A')}</div>
+            <div style="font-size: 12px; color: var(--admin-text-muted);">${escapeHtml(booking.email || booking.customer_email || '')}</div>
+            ${(booking.phone || booking.customer_phone) ? `<div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(booking.phone || booking.customer_phone)}</div>` : ''}
           </td>
           <td>
-            <div style="font-weight: 500;">${escapeHtml(booking.car_type || 'N/A')}</div>
-            ${booking.car_model ? `<div style="font-size: 12px; color: var(--admin-text-muted);">${escapeHtml(booking.car_model)}</div>` : ''}
+            <div style="font-weight: 500;">${escapeHtml(booking.car_model || booking.car_type || 'N/A')}</div>
+            ${booking.location ? `<div style="font-size: 12px; color: var(--admin-text-muted);">${escapeHtml(booking.location.toUpperCase())}</div>` : ''}
           </td>
           <td>
             <div style="font-size: 13px; white-space: nowrap;">
@@ -1340,8 +1340,9 @@ async function loadCarsData() {
             </span>
           </td>
           <td style="font-weight: 600; color: var(--admin-success);">
-            €${Number(booking.total_price || 0).toFixed(2)}
+            €${Number(booking.final_price || booking.quoted_price || booking.total_price || 0).toFixed(2)}
             ${booking.currency && booking.currency !== 'EUR' ? `<div style="font-size: 11px; color: var(--admin-text-muted);">${booking.currency}</div>` : ''}
+            ${!booking.final_price && !booking.quoted_price ? `<div style="font-size: 10px; color: var(--admin-warning);">Not quoted yet</div>` : ''}
           </td>
           <td>
             <button class="btn-secondary" onclick="viewCarBookingDetails('${booking.id}')" title="View details">
@@ -1376,8 +1377,205 @@ async function loadCarsData() {
 }
 
 async function viewCarBookingDetails(bookingId) {
-  showToast('Car booking details view - coming soon', 'info');
-  console.log('View car booking:', bookingId);
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+
+    console.log('Loading booking details:', bookingId);
+
+    // Fetch booking details
+    const { data: booking, error } = await client
+      .from('car_bookings')
+      .select('*')
+      .eq('id', bookingId)
+      .single();
+
+    if (error) {
+      console.error('Error loading booking:', error);
+      showToast('Failed to load booking details', 'error');
+      return;
+    }
+
+    if (!booking) {
+      showToast('Booking not found', 'error');
+      return;
+    }
+
+    // Show modal
+    const modal = $('#bookingDetailsModal');
+    const content = $('#bookingDetailsContent');
+    if (!modal || !content) return;
+
+    // Format dates
+    const pickupDate = booking.pickup_date ? new Date(booking.pickup_date).toLocaleDateString('en-GB') : 'N/A';
+    const returnDate = booking.return_date ? new Date(booking.return_date).toLocaleDateString('en-GB') : 'N/A';
+    const createdAt = booking.created_at ? new Date(booking.created_at).toLocaleString('en-GB') : 'N/A';
+    
+    // Calculate rental days
+    const days = booking.pickup_date && booking.return_date 
+      ? Math.ceil((new Date(booking.return_date) - new Date(booking.pickup_date)) / (1000 * 60 * 60 * 24))
+      : 0;
+
+    // Status badge
+    const statusClass = 
+      booking.status === 'confirmed' ? 'badge-success' :
+      booking.status === 'pending' ? 'badge-warning' :
+      booking.status === 'cancelled' ? 'badge-danger' : 'badge';
+
+    // Build content HTML
+    content.innerHTML = `
+      <div style="display: grid; gap: 24px;">
+        <!-- Header Info -->
+        <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <h4 style="margin: 0; font-size: 16px; font-weight: 600;">Booking #${booking.id.slice(0, 8).toUpperCase()}</h4>
+              <p style="margin: 4px 0 0; font-size: 12px; color: var(--admin-text-muted);">Created: ${createdAt}</p>
+            </div>
+            <span class="badge ${statusClass}" style="font-size: 14px; padding: 6px 12px;">${(booking.status || 'pending').toUpperCase()}</span>
+          </div>
+        </div>
+
+        <!-- Customer Information -->
+        <div>
+          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Customer Information</h4>
+          <div style="display: grid; gap: 8px;">
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Name:</span>
+              <span>${escapeHtml(booking.full_name || 'N/A')}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Email:</span>
+              <span><a href="mailto:${escapeHtml(booking.email)}">${escapeHtml(booking.email || 'N/A')}</a></span>
+            </div>
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Phone:</span>
+              <span><a href="tel:${escapeHtml(booking.phone)}">${escapeHtml(booking.phone || 'N/A')}</a></span>
+            </div>
+            ${booking.country ? `
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Country:</span>
+              <span>${escapeHtml(booking.country)}</span>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Rental Details -->
+        <div>
+          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Rental Details</h4>
+          <div style="display: grid; gap: 8px;">
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Car Model:</span>
+              <span style="font-weight: 600;">${escapeHtml(booking.car_model || 'N/A')}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Location:</span>
+              <span>${escapeHtml((booking.location || 'N/A').toUpperCase())}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Pickup:</span>
+              <span>📅 ${pickupDate} at ${booking.pickup_time || '10:00'} • 📍 ${escapeHtml((booking.pickup_location || 'N/A').replace('_', ' ').toUpperCase())}</span>
+            </div>
+            ${booking.pickup_address ? `
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Pickup Address:</span>
+              <span>${escapeHtml(booking.pickup_address)}</span>
+            </div>
+            ` : ''}
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Return:</span>
+              <span>📅 ${returnDate} at ${booking.return_time || '10:00'} • 📍 ${escapeHtml((booking.return_location || 'N/A').replace('_', ' ').toUpperCase())}</span>
+            </div>
+            ${booking.return_address ? `
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Return Address:</span>
+              <span>${escapeHtml(booking.return_address)}</span>
+            </div>
+            ` : ''}
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Duration:</span>
+              <span style="font-weight: 600; color: var(--admin-primary);">${days} day${days !== 1 ? 's' : ''}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Additional Options -->
+        <div>
+          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Additional Options</h4>
+          <div style="display: grid; gap: 8px;">
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Passengers:</span>
+              <span>${booking.num_passengers || 1}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Child Seats:</span>
+              <span>${booking.child_seats || 0} ${booking.child_seats > 0 ? '(FREE)' : ''}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Full Insurance:</span>
+              <span>${booking.full_insurance ? '✅ Yes (+17€/day)' : '❌ No'}</span>
+            </div>
+            ${booking.flight_number ? `
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Flight Number:</span>
+              <span>${escapeHtml(booking.flight_number)}</span>
+            </div>
+            ` : ''}
+            ${booking.special_requests ? `
+            <div style="display: grid; grid-template-columns: 120px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Special Requests:</span>
+              <span>${escapeHtml(booking.special_requests)}</span>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Pricing -->
+        <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
+          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Pricing</h4>
+          <div style="display: grid; gap: 8px;">
+            ${booking.quoted_price ? `
+            <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px;">
+              <span>Quoted Price:</span>
+              <span style="font-weight: 600;">€${Number(booking.quoted_price).toFixed(2)}</span>
+            </div>
+            ` : ''}
+            ${booking.final_price ? `
+            <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px; padding-top: 8px; border-top: 1px solid var(--admin-border);">
+              <span style="font-weight: 600; font-size: 16px;">Final Price:</span>
+              <span style="font-weight: 700; font-size: 18px; color: var(--admin-success);">€${Number(booking.final_price).toFixed(2)}</span>
+            </div>
+            ` : `
+            <div style="padding: 12px; background: var(--admin-warning); color: #000; border-radius: 4px; text-align: center;">
+              ⚠️ Price not quoted yet
+            </div>
+            `}
+          </div>
+        </div>
+
+        <!-- Admin Notes -->
+        ${booking.admin_notes ? `
+        <div>
+          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Admin Notes</h4>
+          <div style="background: #fff3cd; padding: 12px; border-radius: 4px; border-left: 3px solid #ffc107;">
+            ${escapeHtml(booking.admin_notes)}
+          </div>
+        </div>
+        ` : ''}
+      </div>
+    `;
+
+    // Store current booking ID for actions
+    modal.dataset.bookingId = bookingId;
+
+    // Show modal
+    modal.hidden = false;
+
+  } catch (e) {
+    console.error('Failed to load booking details:', e);
+    showToast('Failed to load booking details', 'error');
+  }
 }
 
 // Make functions global for onclick handlers
@@ -3125,6 +3323,77 @@ function initEventListeners() {
   const fleetCarFormCancel = $('#fleetCarFormCancel');
   if (fleetCarFormCancel) {
     fleetCarFormCancel.addEventListener('click', closeFleetCarModal);
+  }
+
+  // Booking details modal controls
+  const btnCloseBookingDetails = $('#btnCloseBookingDetails');
+  if (btnCloseBookingDetails) {
+    btnCloseBookingDetails.addEventListener('click', () => {
+      const modal = $('#bookingDetailsModal');
+      if (modal) modal.hidden = true;
+    });
+  }
+
+  const bookingDetailsModalOverlay = $('#bookingDetailsModalOverlay');
+  if (bookingDetailsModalOverlay) {
+    bookingDetailsModalOverlay.addEventListener('click', () => {
+      const modal = $('#bookingDetailsModal');
+      if (modal) modal.hidden = true;
+    });
+  }
+
+  const btnConfirmBooking = $('#btnConfirmBooking');
+  if (btnConfirmBooking) {
+    btnConfirmBooking.addEventListener('click', async () => {
+      const modal = $('#bookingDetailsModal');
+      const bookingId = modal?.dataset?.bookingId;
+      if (!bookingId) return;
+
+      try {
+        const client = ensureSupabase();
+        const { error } = await client
+          .from('car_bookings')
+          .update({ status: 'confirmed', confirmed_at: new Date().toISOString() })
+          .eq('id', bookingId);
+
+        if (error) throw error;
+
+        showToast('Booking confirmed successfully!', 'success');
+        modal.hidden = true;
+        await loadCarsData();
+      } catch (e) {
+        console.error('Failed to confirm booking:', e);
+        showToast('Failed to confirm booking', 'error');
+      }
+    });
+  }
+
+  const btnCancelBooking = $('#btnCancelBooking');
+  if (btnCancelBooking) {
+    btnCancelBooking.addEventListener('click', async () => {
+      if (!confirm('Are you sure you want to cancel this booking?')) return;
+
+      const modal = $('#bookingDetailsModal');
+      const bookingId = modal?.dataset?.bookingId;
+      if (!bookingId) return;
+
+      try {
+        const client = ensureSupabase();
+        const { error } = await client
+          .from('car_bookings')
+          .update({ status: 'cancelled' })
+          .eq('id', bookingId);
+
+        if (error) throw error;
+
+        showToast('Booking cancelled', 'info');
+        modal.hidden = true;
+        await loadCarsData();
+      } catch (e) {
+        console.error('Failed to cancel booking:', e);
+        showToast('Failed to cancel booking', 'error');
+      }
+    });
   }
 
   // Image upload controls

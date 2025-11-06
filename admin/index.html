@@ -1378,6 +1378,33 @@
     </div>
   </div>
 
+  <!-- Car Booking Details Modal -->
+  <div class="admin-modal" id="bookingDetailsModal" hidden>
+    <div class="admin-modal-overlay" id="bookingDetailsModalOverlay"></div>
+    <div class="admin-modal-content" style="max-width: 800px;">
+      <header class="admin-modal-header">
+        <h3>Booking Details</h3>
+        <button class="btn-modal-close" id="btnCloseBookingDetails">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body" id="bookingDetailsContent">
+        <!-- Content will be dynamically filled -->
+        <div style="text-align: center; padding: 40px; color: var(--admin-text-muted);">
+          Loading booking details...
+        </div>
+      </div>
+      <footer class="admin-modal-footer" style="display: flex; gap: 12px; justify-content: flex-end;">
+        <button type="button" class="btn-secondary" id="btnEditBooking">Edit Booking</button>
+        <button type="button" class="btn-primary" id="btnConfirmBooking">Confirm Booking</button>
+        <button type="button" class="btn-secondary user-detail-danger" id="btnCancelBooking">Cancel Booking</button>
+      </footer>
+    </div>
+  </div>
+
   <!-- Quest Form Modal -->
   <div class="admin-modal" id="questFormModal" hidden>
     <div class="admin-modal-overlay" id="questFormModalOverlay"></div>
