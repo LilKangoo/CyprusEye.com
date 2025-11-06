@@ -1889,9 +1889,10 @@ async function loadFleetData() {
           <td>${escapeHtml(car.fuel_type)}</td>
           <td>${car.max_passengers} seats</td>
           <td>
-            <span class="badge ${car.is_available ? 'badge-success' : 'badge-danger'}">
-              ${car.is_available ? 'Yes' : 'No'}
-            </span>
+            <label class="admin-checkbox" style="display:flex; align-items:center; gap:8px;">
+              <input type="checkbox" ${car.is_available ? 'checked' : ''} onchange="toggleCarAvailability('${car.id}', this.checked)" />
+              <span>${car.is_available ? 'Available' : 'Hidden'}</span>
+            </label>
             ${car.stock_count ? `<div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 2px;">Stock: ${car.stock_count}</div>` : ''}
           </td>
           <td>
@@ -2073,6 +2074,30 @@ function openFleetCarModal(carData = null) {
 
   // Show modal
   modal.hidden = false;
+}
+
+async function toggleCarAvailability(carId, isAvailable) {
+  try {
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database connection not available');
+
+    const { error } = await client
+      .from('car_offers')
+      .update({ is_available: !!isAvailable })
+      .eq('id', carId);
+
+    if (error) throw error;
+
+    showToast(isAvailable ? 'Car is now visible on site' : 'Car hidden from site', 'success');
+
+    // Refresh row list to reflect label text
+    loadFleetData();
+  } catch (e) {
+    console.error('Failed to update availability:', e);
+    showToast('Failed to update availability: ' + (e.message || 'Unknown error'), 'error');
+    // Revert UI by reloading list
+    loadFleetData();
+  }
 }
 
 // Image upload functions
@@ -2390,6 +2415,7 @@ window.openFleetCarModal = openFleetCarModal;
 window.closeFleetCarModal = closeFleetCarModal;
 window.handleLocationChange = handleLocationChange;
 window.handleFleetCarSubmit = handleFleetCarSubmit;
+window.toggleCarAvailability = toggleCarAvailability;
 
 function switchCarsTab(tab) {
   // Update tab buttons
