@@ -380,10 +380,22 @@
                     </label>
                   </div>
                 </div>
-                <button type="submit" class="btn btn-primary primary auto-calculate-btn" data-i18n="carRental.calculator.form.submit">
-                  Oblicz cenę
+                <button type="submit" class="btn btn-primary primary" id="btnSubmitReservation" style="width: 100%; padding: 14px; font-size: 16px; font-weight: 600;">
+                  Wyślij rezerwację
                 </button>
+                
+                <p style="font-size: 12px; color: #64748b; margin: 12px 0 0; text-align: center;">
+                  Otrzymasz potwierdzenie na email w ciągu 24h
+                </p>
               </form>
+              
+              <!-- Success Toast Trigger - visible confirmation -->
+              <div id="formSubmitConfirmation" hidden style="background: #10b981; color: white; padding: 20px; border-radius: 12px; margin-top: 24px; text-align: center; animation: slideIn 0.3s ease;">
+                <h3 style="margin: 0 0 8px; font-size: 20px;">🎉 Gratulacje!</h3>
+                <p style="margin: 0; font-size: 16px; opacity: 0.95;">
+                  Twój formularz został wysłany pomyślnie!
+                </p>
+              </div>
               <div class="auto-calculator-result" aria-live="polite">
                 <p id="carRentalResult" class="auto-calculator-total"></p>
                 <div id="carRentalBreakdown" class="auto-calculator-breakdown"></div>

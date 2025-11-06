@@ -142,10 +142,22 @@ async function handleReservationSubmit(event) {
     // Show success message
     showSuccessMessage(booking);
     
+    // Show visible confirmation
+    const confirmDiv = document.getElementById('formSubmitConfirmation');
+    if (confirmDiv) {
+      confirmDiv.hidden = false;
+      confirmDiv.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    
     // Reset form
     form.reset();
     
-    showToast('Rezerwacja została wysłana! Skontaktujemy się wkrótce.', 'success');
+    // Show toast
+    if (typeof showToast === 'function') {
+      showToast('🎉 Gratulacje! Twój formularz został wysłany!', 'success');
+    } else {
+      console.warn('showToast function not available');
+    }
 
   } catch (e) {
     console.error('Reservation error:', e);

@@ -545,7 +545,7 @@
                 <div id="reservationSuccess" hidden></div>
 
                 <!-- Submit Button -->
-                <button type="submit" class="btn btn-primary primary" style="width: 100%; padding: 14px; font-size: 16px; font-weight: 600;">
+                <button type="submit" class="btn btn-primary primary" id="btnSubmitReservation" style="width: 100%; padding: 14px; font-size: 16px; font-weight: 600;">
                   Wyślij rezerwację
                 </button>
                 
@@ -553,6 +553,14 @@
                   Otrzymasz potwierdzenie na email w ciągu 24h
                 </p>
               </form>
+              
+              <!-- Success Toast Trigger - visible confirmation -->
+              <div id="formSubmitConfirmation" hidden style="background: #10b981; color: white; padding: 20px; border-radius: 12px; margin-top: 24px; text-align: center; animation: slideIn 0.3s ease;">
+                <h3 style="margin: 0 0 8px; font-size: 20px;">🎉 Gratulacje!</h3>
+                <p style="margin: 0; font-size: 16px; opacity: 0.95;">
+                  Twój formularz został wysłany pomyślnie!
+                </p>
+              </div>
             </article>
           </section>
         </section>

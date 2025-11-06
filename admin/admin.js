@@ -1208,13 +1208,10 @@ async function loadCarsData() {
       console.warn('Could not load stats function, calculating manually:', statsError);
     }
 
-    // Load car bookings with related offer info
+    // Load car bookings - simplified query without joins
     const { data: bookings, error } = await client
       .from('car_bookings')
-      .select(`
-        *,
-        offer:car_offers(car_type, car_model, location)
-      `)
+      .select('*')
       .order('created_at', { ascending: false })
       .limit(100);
 
@@ -1224,6 +1221,7 @@ async function loadCarsData() {
     }
 
     console.log('Car bookings loaded:', bookings);
+    console.log('Total bookings count:', bookings?.length || 0);
 
     // Use stats from function or calculate manually
     let totalBookings, activeRentals, pendingBookings, totalRevenue;

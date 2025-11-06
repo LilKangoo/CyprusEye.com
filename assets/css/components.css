@@ -3922,23 +3922,43 @@ main::before {
   display: flex;
   flex-direction: column;
   gap: 0.45rem;
-  font-weight: 600;
+  font-size: 0.9rem;
   color: var(--muted-strong);
+  min-width: 0; /* Prevent overflow in grid */
+}
+
+.auto-field label {
+  font-weight: 500;
+  font-size: 14px;
+  color: #334155;
+  margin-bottom: 4px;
 }
 
 .auto-field input,
-.auto-field select {
+.auto-field select,
+.auto-field textarea {
   border-radius: 16px;
   border: 1px solid rgba(148, 163, 184, 0.4);
   padding: 0.65rem 0.85rem;
-  background: rgba(255, 255, 255, 0.95);
+  font-size: 0.95rem;
   transition: border-color var(--transition), box-shadow var(--transition);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .auto-field input:focus-visible,
-.auto-field select:focus-visible {
+.auto-field select:focus-visible,
+.auto-field textarea:focus-visible {
   border-color: rgba(37, 99, 235, 0.75);
   box-shadow: var(--focus-ring);
+  outline: none;
+}
+
+/* Responsive form layout */
+@media (max-width: 640px) {
+  .auto-reservation-form [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+  }
 }
 
 .auto-checkbox {
