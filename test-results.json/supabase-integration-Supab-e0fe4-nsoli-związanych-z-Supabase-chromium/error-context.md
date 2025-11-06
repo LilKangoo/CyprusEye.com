@@ -1,0 +1,151 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - link "Przejdź do głównej treści" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - status [ref=e3]
+  - banner [ref=e4]:
+    - generic "Panel konta" [ref=e5]:
+      - generic [ref=e6]:
+        - button "🔔 Powiadomienia 0" [ref=e7] [cursor=pointer]:
+          - text: 🔔 Powiadomienia
+          - generic [ref=e8]: "0"
+        - generic [ref=e9]:
+          - button "Zaloguj do konta" [ref=e10] [cursor=pointer]: Zaloguj
+          - button "Tryb gry jako gość" [ref=e11] [cursor=pointer]: Graj jako gość
+          - link "Mój profil" [ref=e12] [cursor=pointer]:
+            - /url: /achievements.html?lang=pl
+            - img "Avatar" [ref=e13]
+            - generic [ref=e14]: Profil
+          - button "Wyloguj z konta" [ref=e15] [cursor=pointer]: Wyloguj
+          - generic [ref=e16]: Nie zalogowano
+        - generic: Łączenie z logowaniem…
+        - generic [ref=e17]:
+          - generic [ref=e18]: Grasz jako gość
+          - button "📊 Statystyki i ustawienia" [ref=e20] [cursor=pointer]
+    - generic [ref=e21]:
+      - generic [ref=e22]:
+        - img "WakacjeCypr.com – logo żółwia z flagą Polski" [ref=e23]
+        - generic [ref=e24]:
+          - paragraph [ref=e25]: WakacjeCypr Quest
+          - paragraph [ref=e26]: Zwiedzaj Cypr w interaktywny sposób – zdobywaj odznaki, doświadczenie i odkrywaj nasze najlepsze oferty.
+      - generic [ref=e27]:
+        - link "Kupon" [ref=e28] [cursor=pointer]:
+          - /url: /kupon.html?lang=pl
+        - generic "Szybkie działania" [ref=e29]:
+          - generic [ref=e30]:
+            - button "Skocz do aktualnego celu" [ref=e31] [cursor=pointer]
+            - link "💬 Społeczność" [ref=e32] [cursor=pointer]:
+              - /url: /community.html?lang=pl
+            - link "🚗 Wynajem auta" [ref=e33] [cursor=pointer]:
+              - /url: /car-rental-landing.html?lang=pl
+            - button "🌍 Przeglądaj atrakcje" [ref=e34] [cursor=pointer]
+            - button "🚨 SOS" [ref=e35] [cursor=pointer]
+    - list [ref=e36]:
+      - listitem [ref=e37] [cursor=pointer]:
+        - paragraph [ref=e38]: Poziom
+        - paragraph [ref=e39]: "1"
+        - paragraph [ref=e40]: Zdobądź pierwsze check-iny, aby awansować!
+      - listitem [ref=e41] [cursor=pointer]:
+        - paragraph [ref=e42]: Doświadczenie
+        - paragraph [ref=e43]: 0 XP
+        - img "Postęp doświadczenia" [ref=e44]:
+          - paragraph [ref=e46]: 0 / 150 XP do kolejnego poziomu
+      - listitem [ref=e47] [cursor=pointer]:
+        - paragraph [ref=e48]: Odznaki
+        - paragraph [ref=e49]: "0"
+        - paragraph [ref=e50]: Odkrywaj atrakcje i kolekcjonuj pamiątki.
+    - tablist "Nawigacja główna" [ref=e51]:
+      - tab "🎯 Twoja przygoda" [ref=e52] [cursor=pointer]
+      - tab "🎒 Planer pakowania" [ref=e53] [cursor=pointer]
+      - tab "✅ Zadania do wykonania" [ref=e54] [cursor=pointer]
+      - tab "Otwórz stronę VIP wyjazdów indywidualnych" [ref=e55] [cursor=pointer]: ✨ VIP wyjazdy indywidualne
+  - main [ref=e56]:
+    - region [ref=e57]:
+      - generic [ref=e58]:
+        - link "← Wróć do aplikacji" [ref=e59] [cursor=pointer]:
+          - /url: /index.html?lang=pl
+        - generic [ref=e60]:
+          - generic [ref=e61]:
+            - img "Avatar użytkownika" [ref=e62]
+            - generic [ref=e63]:
+              - button "📷 Zmień" [ref=e64] [cursor=pointer]
+              - button "✕" [ref=e65] [cursor=pointer]
+          - generic [ref=e66]:
+            - generic [ref=e67]:
+              - heading "Użytkownik" [level=1] [ref=e68]
+              - button "✏️ Edytuj" [ref=e69] [cursor=pointer]
+            - paragraph
+            - paragraph [ref=e70]: Członek od...
+    - region "📊 Twoje statystyki w grze" [ref=e71]:
+      - heading "📊 Twoje statystyki w grze" [level=2] [ref=e72]
+      - generic [ref=e73]:
+        - generic [ref=e74]:
+          - generic [ref=e75]: 🎯
+          - generic [ref=e76]:
+            - generic [ref=e77]: "1"
+            - generic [ref=e78]: Poziom
+        - generic [ref=e79]:
+          - generic [ref=e80]: ⭐
+          - generic [ref=e81]:
+            - generic [ref=e82]: "0"
+            - generic [ref=e83]: Doświadczenie (XP)
+        - generic [ref=e84]:
+          - generic [ref=e85]: 🏆
+          - generic [ref=e86]:
+            - generic [ref=e87]: "0"
+            - generic [ref=e88]: Zebrane odznaki
+        - generic [ref=e89]:
+          - generic [ref=e90]: 📸
+          - generic [ref=e91]:
+            - generic [ref=e92]: "0"
+            - generic [ref=e93]: Wstawione zdjęcia
+        - generic [ref=e94]:
+          - generic [ref=e95]: 💬
+          - generic [ref=e96]:
+            - generic [ref=e97]: "0"
+            - generic [ref=e98]: Komentarze
+        - generic [ref=e99]:
+          - generic [ref=e100]: ❤️
+          - generic [ref=e101]:
+            - generic [ref=e102]: "0"
+            - generic [ref=e103]: Polubienia otrzymane
+      - generic [ref=e105]:
+        - heading "Postęp do kolejnego poziomu" [level=3] [ref=e106]
+        - generic [ref=e107]: Ładowanie...
+    - region "⚙️ Ustawienia konta" [ref=e109]:
+      - heading "⚙️ Ustawienia konta" [level=2] [ref=e110]
+      - generic [ref=e111]:
+        - generic [ref=e113]:
+          - generic [ref=e114]: 📧
+          - generic [ref=e115]:
+            - heading "Adres email" [level=3] [ref=e116]
+            - generic [ref=e117]:
+              - paragraph [ref=e118]: Ładowanie...
+              - button "✏️ Zmień" [ref=e119] [cursor=pointer]
+            - paragraph [ref=e120]: Otrzymasz email weryfikacyjny na nowy adres
+        - generic [ref=e122]:
+          - generic [ref=e123]: 🔑
+          - generic [ref=e124]:
+            - heading "Hasło" [level=3] [ref=e125]
+            - generic [ref=e126]:
+              - paragraph [ref=e127]: ••••••••
+              - button "✏️ Zmień" [ref=e128] [cursor=pointer]
+            - paragraph [ref=e129]: Hasło musi mieć minimum 8 znaków
+    - region "📱 Twoja aktywność" [ref=e130]:
+      - heading "📱 Twoja aktywność" [level=2] [ref=e131]
+      - generic [ref=e132]:
+        - heading "📸 Twoje zdjęcia" [level=3] [ref=e133]
+        - paragraph [ref=e135]: Ładowanie zdjęć...
+      - generic [ref=e136]:
+        - heading "💬 Twoje komentarze" [level=3] [ref=e137]
+        - paragraph [ref=e139]: Ładowanie komentarzy...
+  - contentinfo [ref=e140]:
+    - paragraph [ref=e141]:
+      - text: ©
+      - text: WakacjeCypr.com • Graj, zwiedzaj i planuj wakacje jednocześnie.
+  - button "Language selector" [ref=e142] [cursor=pointer]:
+    - generic [ref=e143]: 🇵🇱
+    - generic [ref=e144]: PL
+```

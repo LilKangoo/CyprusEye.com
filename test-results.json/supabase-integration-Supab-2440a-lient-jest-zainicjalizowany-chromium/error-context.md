@@ -1,0 +1,61 @@
+# Page snapshot
+
+```yaml
+- generic [active] [ref=e1]:
+  - link "Skip to main content" [ref=e2] [cursor=pointer]:
+    - /url: "#main-content"
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - link "← Wróć do strony głównej" [ref=e6] [cursor=pointer]:
+          - /url: /
+        - heading "Panel gracza" [level=1] [ref=e7]
+      - generic [ref=e9]:
+        - button "Zaloguj do konta" [ref=e10] [cursor=pointer]: Zaloguj
+        - button "Tryb gry jako gość" [ref=e11] [cursor=pointer]: Graj jako gość
+        - link "Mój profil" [ref=e12] [cursor=pointer]:
+          - /url: /achievements.html
+          - img "Avatar" [ref=e13]
+          - generic [ref=e14]: Profil
+        - button "Wyloguj z konta" [ref=e15] [cursor=pointer]: Wyloguj
+        - generic [ref=e16]:
+          - text: "Zalogowany:"
+          - strong
+        - generic [ref=e17]: Grasz jako gość
+        - generic [ref=e18]: Nie zalogowano
+    - status [ref=e19]
+    - generic [ref=e20]: Trwa wczytywanie danych konta…
+    - main [ref=e21]:
+      - tablist "Zakładki panelu konta" [ref=e22]:
+        - tab "📈 Statystyki" [selected] [ref=e23] [cursor=pointer]
+        - tab "🔐 Bezpieczeństwo" [ref=e24] [cursor=pointer]
+      - tabpanel "📈 Statystyki" [ref=e25]:
+        - region "Twój profil" [ref=e26]:
+          - generic [ref=e27]:
+            - heading "Twój profil" [level=2] [ref=e28]
+            - paragraph [ref=e29]: Podstawowe informacje o koncie i postępy w przygodzie.
+          - generic [ref=e30]:
+            - generic [ref=e31]:
+              - term [ref=e32]: E-mail
+              - definition [ref=e33]: —
+            - generic [ref=e34]:
+              - term [ref=e35]: Nazwa użytkownika
+              - definition [ref=e36]: —
+            - generic [ref=e37]:
+              - term [ref=e38]: Imię wyświetlane
+              - definition [ref=e39]: —
+            - generic [ref=e40]:
+              - term [ref=e41]: XP
+              - definition [ref=e42]: "0"
+            - generic [ref=e43]:
+              - term [ref=e44]: Poziom
+              - definition [ref=e45]: "0"
+            - generic [ref=e46]:
+              - term [ref=e47]: Ostatnia aktualizacja
+              - definition [ref=e48]: —
+        - region "Ostatnie zdarzenia XP" [ref=e49]:
+          - generic [ref=e50]:
+            - heading "Ostatnie zdarzenia XP" [level=2] [ref=e51]
+            - paragraph [ref=e52]: Monitoruj, jak zdobywasz doświadczenie w CyprusEye.
+          - list
+```
