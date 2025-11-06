@@ -8,7 +8,7 @@ import {
   formatReviewDate,
   getDefaultDailyStreak,
   normalizeDailyStreak
-} from './src/utils/dates.js';
+} from '/src/utils/dates.js';
 
 // Translation utilities (extracted to src/utils/translations.js)
 import {
@@ -23,7 +23,7 @@ import {
   getPlaceName,
   getPlaceDescription,
   getPlaceBadge
-} from './src/utils/translations.js';
+} from '/src/utils/translations.js';
 
 const DEBUG = localStorage.getItem('CE_DEBUG') === 'true' || new URLSearchParams(window.location.search).has('debug');
 function debug(...args) {
@@ -34,11 +34,7 @@ function debug(...args) {
 
 // getTranslation moved to src/utils/translations.js
 
-// POI data - loaded dynamically from Supabase via poi-loader.js
-let places = [];
-
-// Legacy hardcoded places (kept as fallback if Supabase fails)
-const LEGACY_PLACES = [
+const places = [
   {
     id: 'kato-pafos-archaeological-park',
     get name() { return getTranslation('places.kato-pafos-archaeological-park.name', 'Kato Paphos Archaeological Park (Nea Paphos)'); },
@@ -680,82 +676,6 @@ const LEGACY_PLACES = [
   },
 ];
 
-// ===================================
-// LOAD POI DATA FROM SUPABASE
-// ===================================
-async function loadPlacesFromSupabase() {
-  console.log('📥 Loading places data for app.js...');
-  
-  try {
-    // Wait for PLACES_DATA to load (from poi-loader.js)
-    let attempts = 0;
-    while (typeof window.PLACES_DATA === 'undefined' && attempts < 50) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      attempts++;
-    }
-    
-    // Use PLACES_DATA if available (loaded by poi-loader.js from Supabase)
-    if (window.PLACES_DATA && Array.isArray(window.PLACES_DATA) && window.PLACES_DATA.length > 0) {
-      places = window.PLACES_DATA.map(p => ({
-        id: p.id,
-        name: p.nameFallback || p.name,
-        nameKey: p.nameKey,
-        nameFallback: p.nameFallback,
-        description: p.descriptionFallback || p.description,
-        descriptionKey: p.descriptionKey,
-        descriptionFallback: p.descriptionFallback,
-        badge: p.badgeFallback || p.badge,
-        badgeKey: p.badgeKey,
-        badgeFallback: p.badgeFallback,
-        lat: p.lat,
-        lng: p.lng,
-        googleMapsUrl: p.googleMapsUrl || p.google_url || `https://maps.google.com/?q=${p.lat},${p.lng}`,
-        googleMapsURL: p.googleMapsURL || p.google_url || `https://maps.google.com/?q=${p.lat},${p.lng}`,
-        xp: p.xp || 100,
-        requiredLevel: p.requiredLevel || 1,
-        source: p.source || 'supabase'
-      }));
-      
-      console.log(`✅ Loaded ${places.length} places from PLACES_DATA (${places[0]?.source || 'unknown'})`);
-      console.log('📍 Place IDs:', places.map(p => p.id));
-      
-      // Update markers
-      syncMarkers();
-      
-      // Listen for updates
-      window.addEventListener('poisDataRefreshed', async (event) => {
-        console.log('🔄 POIs refreshed, reloading places...');
-        await loadPlacesFromSupabase();
-      });
-      
-      return true;
-    }
-    
-    // Fallback to legacy hardcoded data
-    console.warn('⚠️ PLACES_DATA not available, using legacy hardcoded data');
-    places = LEGACY_PLACES;
-    syncMarkers();
-    return false;
-    
-  } catch (error) {
-    console.error('❌ Error loading places:', error);
-    places = LEGACY_PLACES;
-    syncMarkers();
-    return false;
-  }
-}
-
-// Initialize places data when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    console.log('📄 DOM ready - loading places data');
-    loadPlacesFromSupabase();
-  });
-} else {
-  console.log('📄 DOM already loaded - loading places data immediately');
-  loadPlacesFromSupabase();
-}
-
 const tasks = [
   { id: 'sunrise-challenge', xp: 80, requiredLevel: 1 },
   { id: 'taste-halloumi', xp: 95, requiredLevel: 2 },
@@ -963,7 +883,7 @@ const mediaTrips = [
   },
 ];
 
-const LOCATIONS_PREVIEW_LIMIT = 86; // Pokazuj wszystkie miejsca (było: 6)
+const LOCATIONS_PREVIEW_LIMIT = 6;
 const LOCATIONS_FULL_DATA_PATH = '/assets/data/attractions-full.json';
 let locationsFullVisible = false;
 let locationsFullLoaded = false;
@@ -1267,7 +1187,7 @@ const packingGuide = {
 let selectedPackingSeasonId = null;
 
 const STORAGE_KEY = 'wakacjecypr-progress';
-// ACCOUNT_STORAGE_KEY moved to src/state/accounts.js (imported above)
+const ACCOUNT_STORAGE_KEY = 'wakacjecypr-accounts';
 const SESSION_STORAGE_KEY = 'wakacjecypr-session';
 const REVIEWS_STORAGE_KEY = 'wakacjecypr-reviews';
 const JOURNAL_STORAGE_KEY = 'wakacjecypr-travel-journal';
@@ -4203,13 +4123,8 @@ function renderLocations() {
 function createLocationListItem(place) {
   const li = document.createElement('li');
   li.dataset.id = place.id;
-  
-  // Pobierz opis miejsca
-  const description = typeof place.description === 'function' ? place.description() : place.description;
-  
   li.innerHTML = `
     <strong>${getPlaceName(place)}</strong>
-    <p class="location-description" style="font-size: 0.9rem; color: var(--text-secondary, #64748b); margin: 0.5rem 0;">${description || ''}</p>
     <span class="location-meta">${getPlaceBadge(place)} • ${place.xp} XP</span>
   `;
 
@@ -4218,10 +4133,6 @@ function createLocationListItem(place) {
   }
 
   li.addEventListener('click', () => focusPlace(place.id));
-  li.style.cursor = 'pointer';
-  li.setAttribute('role', 'button');
-  li.setAttribute('tabindex', '0');
-  
   return li;
 }
 
@@ -5543,30 +5454,19 @@ function syncMarkers() {
 
   places.forEach((place) => {
     const hasMarker = markers.has(place.id);
-    
-    // Prepare popup content with Google Maps link and Comments button
-    const placeName = getPlaceName(place);
-    const googleMapsUrl = place.googleMapsUrl || place.googleMapsURL || `https://maps.google.com/?q=${place.lat},${place.lng}`;
-    
-    const popupContent = `
-      <div style="min-width: 220px;">
-        <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #2563eb;">${placeName}</h3>
-        <p style="margin: 0 0 12px 0; font-size: 14px;">⭐ ${place.xp || 100} XP</p>
-        <div style="display:flex; gap:8px; flex-wrap:wrap;">
-          <a href="${googleMapsUrl}" target="_blank" rel="noopener" style="display: inline-block; padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 13px;">Google Maps →</a>
-        </div>
-      </div>
-    `;
 
     if (!hasMarker) {
       const marker = L.marker([place.lat, place.lng]).addTo(map);
-      marker.bindPopup(popupContent, { maxWidth: 270 });
+      marker.bindPopup(
+        `<strong>${getPlaceName(place)}</strong><br/>${getPlaceBadge(place)} • ${place.xp} XP`,
+      );
       marker.on('click', () => focusPlace(place.id));
-      
       markers.set(place.id, marker);
     } else {
       const marker = markers.get(place.id);
-      marker.setPopupContent(popupContent);
+      marker.setPopupContent(
+        `<strong>${getPlaceName(place)}</strong><br/>${getPlaceBadge(place)} • ${place.xp} XP`,
+      );
     }
   });
 }
@@ -6687,14 +6587,6 @@ function openMediaTripsView() {
 
 function openAdventureView(options = {}) {
   switchAppView(ADVENTURE_VIEW_ID);
-
-  // Scroll to current objective (map section)
-  setTimeout(() => {
-    const objectiveSection = document.getElementById('current-objective');
-    if (objectiveSection) {
-      objectiveSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, 100);
 
   const { showJournalForm = false } = options;
   if (showJournalForm) {
@@ -9901,10 +9793,7 @@ function initializeAuth() {
 }
 
 function loadLeafletStylesheet() {
-  // Sprawdź czy Leaflet CSS już jest załadowany (np. z HTML)
-  const existingLeaflet = document.querySelector('link[href*="leaflet"]');
-  if (existingLeaflet || document.querySelector('link[data-leaflet-stylesheet-loaded]')) {
-    console.log('✅ Leaflet CSS already loaded');
+  if (document.querySelector('link[data-leaflet-stylesheet-loaded]')) {
     return Promise.resolve();
   }
 
@@ -9915,10 +9804,7 @@ function loadLeafletStylesheet() {
       link.href = LEAFLET_STYLESHEET_URL;
       link.crossOrigin = '';
       link.dataset.leafletStylesheetLoaded = 'true';
-      link.addEventListener('load', () => {
-        console.log('✅ Leaflet CSS loaded dynamically');
-        resolve();
-      });
+      link.addEventListener('load', () => resolve());
       link.addEventListener('error', () => reject(new Error('Leaflet stylesheet failed to load.')));
       document.head.append(link);
     });
@@ -9928,9 +9814,7 @@ function loadLeafletStylesheet() {
 }
 
 function loadLeafletScript() {
-  // Sprawdź czy Leaflet JS już jest załadowany
   if (typeof window.L !== 'undefined') {
-    console.log('✅ Leaflet JS already loaded');
     return Promise.resolve();
   }
 
@@ -9943,7 +9827,6 @@ function loadLeafletScript() {
       script.dataset.leafletScript = 'true';
       script.addEventListener('load', () => {
         script.dataset.leafletScriptLoaded = 'true';
-        console.log('✅ Leaflet JS loaded dynamically');
         resolve();
       });
       script.addEventListener('error', () => {
@@ -10051,12 +9934,6 @@ function setupMapLazyLoading() {
       });
   };
 
-  // WYŁĄCZONO LAZY LOADING - zawsze ładuj mapę od razu
-  // IntersectionObserver może nie wykryć elementu jeśli nie jest widoczny
-  console.log('🗺️ Loading map immediately (lazy loading disabled)');
-  loadAndInitMap();
-  
-  /* STARY KOD Z LAZY LOADING - zakomentowano
   if ('IntersectionObserver' in window) {
     const observer = new IntersectionObserver(
       (entries, observerInstance) => {
@@ -10074,7 +9951,6 @@ function setupMapLazyLoading() {
   } else {
     loadAndInitMap();
   }
-  */
 }
 
 function populateFooterYear() {
@@ -10170,7 +10046,6 @@ function bootstrap() {
   const sosDialog = sosModal?.querySelector('.sos-dialog');
   const sosClose = document.getElementById('sosClose');
   const sosToggleButtons = document.querySelectorAll('[aria-controls="sosModal"]');
-  console.log('SOS Toggle Buttons found:', sosToggleButtons.length, sosToggleButtons);
   const dailyChallengeFocus = document.getElementById('dailyChallengeFocus');
   const dailyChallengeShuffle = document.getElementById('dailyChallengeShuffle');
 
@@ -10344,13 +10219,8 @@ function bootstrap() {
   }
 
   function openSosModal(triggerElement) {
-    console.log('openSosModal called, sosModal:', sosModal);
-    if (!sosModal) {
-      console.error('SOS Modal not found!');
-      return;
-    }
+    if (!sosModal) return;
     if (!sosModal.hidden && sosModal.classList.contains('visible')) {
-      console.log('SOS Modal already visible');
       return;
     }
 
@@ -10396,9 +10266,7 @@ function bootstrap() {
     }, 320);
   }
 
-  explorerToggle?.addEventListener('click', (event) => {
-    event.preventDefault(); // Prevent tab navigation behavior
-    event.stopPropagation(); // Stop event bubbling
+  explorerToggle?.addEventListener('click', () => {
     openExplorer();
   });
 
@@ -10413,11 +10281,7 @@ function bootstrap() {
   });
 
   sosToggleButtons.forEach((button) => {
-    console.log('Adding click listener to SOS button:', button.id);
     button.addEventListener('click', (event) => {
-      console.log('SOS button clicked!');
-      event.preventDefault();
-      event.stopPropagation();
       const trigger = event.currentTarget;
       if (trigger instanceof HTMLElement) {
         openSosModal(trigger);
@@ -10551,11 +10415,9 @@ function bootstrap() {
 
     element.addEventListener('click', (event) => {
       const targetPage = element.dataset?.pageUrl?.trim();
-      console.log('Navigation click:', element.id, 'targetPage:', targetPage, 'mode:', navigationMode);
       if (navigationMode === 'multi-page') {
         if (targetPage) {
           event.preventDefault();
-          console.log('Navigating to:', targetPage);
           window.location.href = targetPage;
           return;
         }
@@ -10613,6 +10475,7 @@ function bootstrap() {
   const adventureTab = document.getElementById('headerAdventureTab');
   const packingTab = document.getElementById('headerPackingTab');
   const tasksTab = document.getElementById('headerTasksTab');
+  const mediaTripsTab = document.getElementById('headerMediaTripsTab');
   const mobileAdventureTab = document.getElementById('mobileAdventureTab');
   const mobilePackingTab = document.getElementById('mobilePackingTab');
   const mobileTasksTab = document.getElementById('mobileTasksTab');
@@ -10621,8 +10484,9 @@ function bootstrap() {
   const mobileCouponsTab = document.getElementById('mobileCouponsTab');
 
   setupNavigationButton(adventureTab, openAdventureView, { enableKeydown: true });
-  setupNavigationButton(packingTab, null, { enableKeydown: true }); // Will use data-page-url
-  setupNavigationButton(tasksTab, null, { enableKeydown: true }); // Will use data-page-url
+  setupNavigationButton(packingTab, openPackingPlannerView, { enableKeydown: true });
+  setupNavigationButton(tasksTab, openTasksView, { enableKeydown: true });
+  setupNavigationButton(mediaTripsTab, openMediaTripsView, { enableKeydown: true });
   setupNavigationButton(mobileAdventureTab, openAdventureView);
   setupNavigationButton(mobilePackingTab, openPackingPlannerView);
   setupNavigationButton(mobileTasksTab, openTasksView);

@@ -15,7 +15,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <!-- Security: Content Security Policy -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://esm.sh https://unpkg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://*.tile.openstreetmap.org https://unpkg.com https://esm.sh; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://esm.sh https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://www.google-analytics.com; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
   
   <meta name="theme-color" content="#2563eb" />
   <meta name="robots" content="index,follow" />
@@ -66,15 +66,11 @@
   <link rel="stylesheet" href="assets/css/tokens.css" />
   <link rel="stylesheet" href="assets/css/base.css" />
   <link rel="stylesheet" href="assets/css/components.css" />
-  <link rel="stylesheet" href="assets/css/header-metrics.css" />
-  <link rel="stylesheet" href="assets/css/current-place.css" />
   <link rel="stylesheet" href="assets/css/mobile.css" />
-  <link rel="stylesheet" href="assets/css/mobile-nav.css" />
   <link rel="stylesheet" href="assets/css/rtl.css" />
   <link rel="stylesheet" href="assets/css/language-switcher.css" />
   <link rel="stylesheet" href="assets/css/language-selector.css" />
-  <link rel="stylesheet" href="css/toast.css" />
-  <link rel="stylesheet" href="assets/css/community.css" />
+  <link rel="stylesheet" href="/css/toast.css" />
   <link
     rel="preload"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -92,14 +88,72 @@
   
 
   <meta name="ce-auth" content="on" />
-  <script type="module" src="js/supabaseClient.js"></script>
-  <script type="module" src="js/toast.js"></script>
-  <script type="module" src="js/auth.js"></script>
-  <script type="module" src="js/authUi.js"></script>
+  <script type="module" src="/js/supabaseClient.js"></script>
+  <script type="module" src="/js/toast.js"></script>
+  <script type="module" src="/js/auth.js"></script>
+  <script type="module" src="/js/authUi.js"></script>
 </head>
 <body data-navigation="multi-page" data-initial-view="adventureView" data-seo-page="home">
+  <!-- Accessibility: Skip to main content -->
+  <a href="#main-content" class="skip-link" data-i18n="accessibility.skipToContent">Skip to main content</a>
+  
   <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
   <header class="app-header">
+    <div class="auth-bar" data-i18n-attrs="aria-label:auth.bar.aria" aria-label="Panel konta">
+      <div class="auth-controls">
+        <button
+          id="notificationsToggle"
+          class="ghost notifications-toggle"
+          data-gated="true"
+          data-require-auth
+          data-i18n="header.notifications"
+          type="button"
+          aria-haspopup="true"
+          aria-expanded="false"
+          aria-controls="notificationsPanel"
+        >
+          🔔 Powiadomienia
+          <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
+        </button>
+        <div id="auth-actions" class="auth-actions" aria-live="polite">
+          <button
+            class="btn"
+            data-auth="login"
+            data-auth-login-mode="modal"
+            data-i18n="header.login"
+            data-i18n-attrs="aria-label:auth.login.aria"
+            aria-label="Zaloguj do konta"
+          >
+            Zaloguj
+          </button>
+          <button class="btn" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Graj jako gość</button>
+          <a 
+            href="/achievements.html" 
+            class="btn btn-profile" 
+            data-auth="user-only"
+            aria-label="Mój profil"
+            id="profileButton"
+          >
+            <img id="headerUserAvatar" class="header-user-avatar" src="/assets/cyprus_logo-1000x1054.png" alt="Avatar" width="40" height="40" loading="eager" />
+            <span>Profil</span>
+          </a>
+          <button class="btn" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
+          <span class="auth-badge" data-auth="anon-only" data-i18n="auth.status.anon">Nie zalogowano</span>
+        </div>
+        <div data-auth="spinner" class="auth-spinner" aria-live="polite" data-i18n="auth.status.spinner">Łączenie z logowaniem…</div>
+        <p class="auth-guest-note" data-auth-guest-note hidden data-i18n="auth.guest.status">
+          Grasz jako gość — postęp zapisany lokalnie na tym urządzeniu.
+        </p>
+        <div class="user-menu" id="userMenu" hidden data-gated="true">
+          <span id="userGreeting" aria-live="polite"></span>
+          <div class="user-menu-actions">
+            <button type="button" class="ghost" id="accountSettingsBtn" data-i18n="header.accountSettings">
+              📊 Statystyki i ustawienia
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
     <div class="header-top">
       <div class="brand">
         <img
@@ -117,38 +171,35 @@
         </div>
       </div>
       <div class="header-top-actions">
-        <!-- Auth controls integrated into header -->
-        <div class="header-auth-controls">
-          <button
-            id="notificationsToggle"
-            class="ghost notifications-toggle"
-            data-gated="true"
-            data-require-auth
-            data-i18n="header.notifications"
-            type="button"
-            aria-haspopup="true"
-            aria-expanded="false"
-            aria-controls="notificationsPanel"
-          >
-            🔔 <span class="btn-text">Powiadomienia</span>
-            <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
-          </button>
-          <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
-            <button
-              class="btn btn-sm"
-              data-auth="login"
-              data-auth-login-mode="modal"
-              data-i18n="header.login"
-              data-i18n-attrs="aria-label:auth.login.aria"
-              aria-label="Zaloguj do konta"
-            >
-              Zaloguj
+        <a
+          class="header-coupon-button"
+          href="kupon.html"
+          data-i18n="header.coupon"
+          data-i18n-attrs="aria-label:header.couponAria"
+          aria-label="Kupon"
+        >
+          Kupon
+        </a>
+        <div class="header-actions" aria-label="Szybkie działania" data-i18n-attrs="aria-label:header.quickActions.aria">
+          <div class="header-actions-primary" data-tour-target="quick-actions">
+            <button class="btn btn-primary primary" type="button" id="jumpToObjective" data-i18n="header.jumpToObjective">
+              Skocz do aktualnego celu
             </button>
-            <button class="btn btn-sm" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Gość</button>
-            <button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
+            <a class="ghost header-link" href="community.html" data-i18n="header.communityLink">💬 Społeczność</a>
+            <a class="ghost header-link" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
+            <button
+              id="explorerToggle"
+              class="ghost"
+              type="button"
+              aria-haspopup="dialog"
+              aria-controls="explorerModal"
+              data-i18n="header.explorerToggle"
+            >
+              🌍 Przeglądaj atrakcje
+            </button>
             <button
               id="sosToggle"
-              class="btn btn-sm btn-danger"
+              class="btn btn-danger danger"
               type="button"
               aria-haspopup="dialog"
               aria-controls="sosModal"
@@ -157,46 +208,10 @@
               🚨 SOS
             </button>
           </div>
-          <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
-        </div>
-        
-        <div class="header-actions" aria-label="Szybkie działania" data-i18n-attrs="aria-label:header.quickActions.aria">
-          <div class="header-actions-primary" data-tour-target="quick-actions">
-            <a class="ghost header-link" href="community.html" data-i18n="header.communityLink">💬 Społeczność</a>
-            <a
-              class="ghost header-link"
-              href="kupon.html"
-              data-i18n="header.coupon"
-              aria-label="Kupon"
-            >
-              Kupon
-            </a>
-            <a class="ghost header-link" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
-            <a
-              href="vip.html"
-              class="ghost header-link"
-              data-i18n="nav.mediaTrips"
-              aria-label="Otwórz stronę VIP wyjazdów indywidualnych"
-              data-i18n-attrs="aria-label:nav.mediaTrips.ariaLabel"
-            >
-              ✨ VIP wyjazdy
-            </a>
-          </div>
         </div>
       </div>
     </div>
-    
-    <!-- User Stats Section - Combined Profile + Metrics -->
-    <div class="user-stats-section" data-auth="user-only">
-      <a href="achievements.html" class="user-profile-card" id="profileButton" aria-label="Mój profil">
-        <img id="headerUserAvatar" class="profile-avatar" src="assets/cyprus_logo-1000x1054.png" alt="Avatar" width="50" height="50" loading="eager" />
-        <div class="profile-info">
-          <div class="profile-name">Mój Profil</div>
-          <div class="profile-status">Kliknij aby zobaczyć szczegóły</div>
-        </div>
-      </a>
-      
-      <div class="stats-cards">
+    <div class="header-metrics" role="list" aria-live="polite" data-gated="true">
       <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
         <p class="metric-label" data-i18n="metrics.level.label">Poziom</p>
         <p class="metric-value" id="headerLevelNumber">1</p>
@@ -226,42 +241,58 @@
         <p class="metric-value" id="headerBadgesCount">0</p>
         <p class="metric-subtext" data-i18n="metrics.badges.subtext">Odkrywaj atrakcje i kolekcjonuj pamiątki.</p>
       </a>
-      </div>
     </div>
-    
     <nav class="header-tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna" data-tour-target="tabs-navigation">
-      <a
-        href="index.html"
+      <button
+        type="button"
         class="header-tab is-active"
         id="headerAdventureTab"
+        role="tab"
+        aria-selected="true"
+        aria-controls="adventureView"
+        tabindex="0"
         data-i18n="nav.adventure"
       >
         🎯 Twoja przygoda
-      </a>
-      <a
-        href="packing.html"
+      </button>
+      <button
+        type="button"
         class="header-tab"
         id="headerPackingTab"
+        role="tab"
+        aria-selected="false"
+        tabindex="-1"
+        data-page-url="packing.html"
         data-i18n="nav.packing"
       >
         🎒 Planer pakowania
-      </a>
-      <a
-        href="tasks.html"
+      </button>
+      <button
+        type="button"
         class="header-tab"
         id="headerTasksTab"
+        role="tab"
+        aria-selected="false"
+        tabindex="-1"
+        data-page-url="tasks.html"
         data-i18n="nav.tasks"
       >
         ✅ Zadania do wykonania
-      </a>
-      <a
-        href="attractions.html"
+      </button>
+      <button
+        type="button"
         class="header-tab"
-        id="explorerToggle"
-        data-i18n="header.explorerToggle"
+        id="headerMediaTripsTab"
+        role="tab"
+        aria-selected="false"
+        tabindex="-1"
+        data-page-url="/vip.html"
+        data-i18n="nav.mediaTrips"
+        aria-label="Otwórz stronę VIP wyjazdów indywidualnych"
+        data-i18n-attrs="aria-label:nav.mediaTrips.ariaLabel"
       >
-        🌍 Przeglądaj atrakcje
-      </a>
+        ✨ VIP wyjazdy indywidualne
+      </button>
     </nav>
   </header>
 
@@ -321,43 +352,6 @@
           >
             Pominięto mapę. Przejdź do kolejnych informacji o lokalizacji.
           </p>
-          
-          <!-- Current Place Highlight Section - restored -->
-          <div class="current-place-section" id="currentPlaceSection">
-            <div class="current-place-navigation">
-              <button type="button" class="btn secondary" id="prevPlaceBtn" onclick="navigatePlace(-1)">
-                ← Poprz.
-              </button>
-              <h2 class="current-place-heading">Aktualne miejsce</h2>
-              <button type="button" class="btn secondary" id="nextPlaceBtn" onclick="navigatePlace(1)">
-                Nast. →
-              </button>
-            </div>
-            
-            <div class="current-place-content" id="currentPlaceContent">
-              <h3 id="currentPlaceName">Ładowanie...</h3>
-              <p id="currentPlaceDescription">...</p>
-              
-              <div class="current-place-stats">
-                <div>
-                  <span>✨</span>
-                  <span id="currentPlaceXP">0 XP</span>
-                </div>
-              </div>
-              <div class="current-place-actions">
-                <button class="btn primary" onclick="checkInAtPlace(window.currentPlaceId)">
-                  ✅ Zamelduj się
-                </button>
-                <button class="btn secondary" onclick="showCommunity(window.currentPlaceId)">
-                  💬 Komentarze
-                </button>
-                <button class="btn secondary" onclick="focusPlaceOnMap(window.currentPlaceId)">
-                  📍 Mapa
-                </button>
-              </div>
-            </div>
-          </div>
-          
           <div class="current-objective" id="currentObjective" hidden>
             <h2 data-i18n="objective.title">Aktualna lokalizacja</h2>
             <p id="objectiveTitle"></p>
@@ -434,10 +428,10 @@
           </a>
           <a
             class="adventure-shortcut-card card surface-card"
-            href="kupon.html"
+            href="/kupon"
             role="button"
             tabindex="0"
-            data-page-url="kupon.html"
+            data-page-url="/kupon"
             data-i18n-attrs="aria-label:coupon.cta_aria"
             aria-label="Kup kupon — przejdź do bezpiecznej płatności Stripe"
           >
@@ -468,13 +462,50 @@
         </section>
       </aside>
 
-      <!-- Discovery grid removed; replaced by Community list -->
-
-      <!-- Community list removed per Option B -->
+      <section class="grid discovery-grid" aria-label="Atrakcje i postępy">
+        <section class="locations-panel card surface-card">
+          <div class="discovery-header">
+            <div>
+              <h2 data-i18n="discovery.title">Atrakcje do odkrycia</h2>
+              <p class="discovery-subtitle" data-i18n="discovery.subtitle">
+                Przeglądaj miejsca z gry i planuj kolejne check-iny z mapy.
+              </p>
+            </div>
+            <div class="discovery-actions">
+              <button type="button" class="ghost" id="locationsToggle" data-i18n="discovery.toggle">
+                Pokaż więcej atrakcji
+              </button>
+              <a
+                class="btn btn-secondary secondary"
+                id="attractionsCatalogLink"
+                href="attractions.html"
+                data-i18n="discovery.catalog"
+                hidden
+                aria-disabled="true"
+              >
+                📚 Katalog atrakcji
+              </a>
+            </div>
+          </div>
+          <ul id="locationsList" class="locations-list locations-list-preview" aria-live="polite"></ul>
+          <div
+            id="locationsFullSection"
+            class="locations-full"
+            aria-live="polite"
+            hidden
+          >
+            <p id="locationsFullStatus" class="locations-full-status" hidden>
+              Wczytywanie pełnej listy atrakcji…
+            </p>
+            <ul id="locationsFullList" class="locations-list locations-list-full"></ul>
+          </div>
+        </section>
+      </section>
 
       </div>
 
-    <!-- Dodatkowe widoki (planer, zadania, VIP) zostały przeniesione na osobne strony; -->
+    <!-- Dodatkowe widoki (planer, zadania, VIP) zostały przeniesione na osobne strony;
+         na stronie głównej pozostawiamy jedynie skróty i mapę. -->
     <section
       id="services"
       class="services-panel card surface-card services-panel-footer"
@@ -519,85 +550,8 @@
   <script src="js/forms.js" defer></script>
   <script src="js/tutorial.js" defer></script>
   <script src="js/seo.js" defer></script>
-  <script src="js/mobile-nav.js" defer></script>
   <script src="car-rental.js" defer></script>
-  
-  <!-- Leaflet - załaduj bezpośrednio jako fallback -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
-  
-  <!-- Awaryjny skrypt inicjalizacji mapy -->
-  <!-- Fallback removed - app-core.js handles all initialization -->
-  
-  <!-- Load data files first -->
-  <!-- Static data as fallback -->
-  <script src="js/data-places.js"></script>
-  <!-- POI Loader - Dynamic loading from Supabase (defer to wait for supabaseClient) -->
-  <script src="js/poi-loader.js?v=2" defer></script>
-  <script src="js/data-tasks.js"></script>
-  <script src="js/data-packing.js"></script>
-  
-  <!-- Comments Modal (shared with community) -->
-  <div id="commentsModal" class="comments-modal" hidden role="dialog" aria-modal="true" aria-labelledby="commentsModalTitle">
-    <div class="comments-modal-dialog">
-      <header class="comments-modal-header">
-        <button type="button" class="modal-nav-btn" id="prevPoiBtn" aria-label="Poprzednie miejsce" title="Poprzednie miejsce">‹</button>
-        <div class="comments-modal-title-section">
-          <h2 id="commentsModalTitle" class="comments-modal-title"></h2>
-          <p id="commentsModalLocation" class="comments-modal-location"></p>
-        </div>
-        <div class="modal-header-actions">
-          <button type="button" class="modal-nav-btn" id="nextPoiBtn" aria-label="Następne miejsce" title="Następne miejsce">›</button>
-          <button type="button" class="icon-button" id="closeCommentsModal" aria-label="Zamknij">✕</button>
-        </div>
-      </header>
-      <div class="comments-modal-content">
-        <div class="modal-rating-section" id="modalRatingSection">
-          <h3>Oceń to miejsce</h3>
-          <div id="ratingDisplay"></div>
-          <div class="rating-interactive-container" id="ratingInteractive" hidden>
-            <div id="ratingStarsContainer"></div>
-            <span id="ratingPrompt" class="rating-prompt">Kliknij na gwiazdki aby ocenić</span>
-          </div>
-          <div id="ratingBreakdown"></div>
-        </div>
-        <div class="add-comment-section" id="addCommentSection">
-          <div class="auth-required-message" data-auth-required hidden>
-            <p>Musisz być zalogowany, aby dodać komentarz</p>
-            <button class="btn btn-primary primary" data-open-auth data-auth-target="login">Zaloguj</button>
-          </div>
-          <form id="addCommentForm" class="add-comment-form" data-auth-only hidden>
-            <div class="user-avatar-section">
-              <img id="currentUserAvatar" class="user-avatar" alt="" />
-              <div>
-                <strong id="currentUserName"></strong>
-                <p class="form-hint">Dodaj komentarz lub zdjęcia</p>
-              </div>
-            </div>
-            <textarea id="commentTextarea" name="content" class="comment-textarea" placeholder="Podziel się swoimi wrażeniami..." rows="3" maxlength="2000" required></textarea>
-            <div class="comment-photos-preview" id="commentPhotosPreview" hidden></div>
-            <div class="add-comment-actions">
-              <label class="btn btn-secondary secondary photo-upload-label">
-                <span>📷 Dodaj zdjęcia</span>
-                <input type="file" id="photoUploadInput" accept="image/jpeg,image/png,image/webp" multiple hidden />
-              </label>
-              <button type="submit" class="btn btn-primary primary">Opublikuj</button>
-            </div>
-          </form>
-        </div>
-        <div class="comments-list" id="commentsList">
-          <div class="loading-spinner"><div class="spinner"></div><p>Ładowanie komentarzy...</p></div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Load core application (defer to wait for poi-loader) -->
-  <script src="app-core.js?v=5" defer></script>
-  <!-- Community UI (module) for comments/ratings modal on this page -->
-  <script type="module" src="js/community/ui.js?v=1"></script>
-  <!-- Bridge to sync list, panel and map on the homepage -->
-  <script src="js/home-community-bridge.js" defer></script>
+  <script src="app.js" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
 
   <div
@@ -1336,8 +1290,8 @@
       </div>
     </div>
   </div>
-  <script type="module" src="assets/js/account-modal.js"></script>
-  <script type="module" src="assets/js/auth-ui.js"></script>
-  <script src="js/languageSwitcher.js"></script>
+  <script type="module" src="/assets/js/account-modal.js"></script>
+  <script type="module" src="/assets/js/auth-ui.js"></script>
+  <script src="/js/languageSwitcher.js"></script>
 </body>
 </html>

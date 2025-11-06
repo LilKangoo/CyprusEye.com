@@ -194,7 +194,7 @@ export async function getNotifications(limit = 20) {
         try {
           const { data: profile, error: profileError } = await sb
             .from('profiles')
-            .select('username, name, avatar_url, level, xp')
+            .select('username, name, avatar_url')
             .eq('id', notif.trigger_user_id)
             .maybeSingle(); // Use maybeSingle instead of single to avoid error if not found
 

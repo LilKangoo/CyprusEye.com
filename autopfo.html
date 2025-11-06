@@ -15,7 +15,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
     <!-- Security: Content Security Policy -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://esm.sh https://unpkg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://*.tile.openstreetmap.org https://esm.sh; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
     
     <meta name="theme-color" content="#2563eb" />
     <meta name="robots" content="index,follow" />
@@ -148,11 +148,12 @@
       <main id="main-content" class="standalone-main">
         <section class="card surface-card standalone-hero" aria-labelledby="standaloneHeroTitle">
           <div class="standalone-hero-content">
-            <p class="standalone-hero-badge" data-i18n="carRentalPfo.page.hero.badge">Paphos • Bez depozytu • Polska obsługa 24/7</p>
-            <h1 id="standaloneHeroTitle" data-i18n="carRentalPfo.page.hero.title">Wynajmij auto Paphos – Wynajmij Dzisiaj</h1>
+            <p class="standalone-hero-badge" data-i18n="carRentalPfo.page.hero.badge">Pafos • Bez kaucji • Polska obsługa 24/7</p>
+            <h1 id="standaloneHeroTitle" data-i18n="carRentalPfo.page.hero.title">Wynajem aut w Pafos bez dopłat</h1>
             <p data-i18n="carRentalPfo.page.hero.description">
-              Za każdy dzień wynajmu auta u nas dajemy <strong>1€ na konserwację żółwi 🐢</strong><br>
-              Dbamy o konserwację Cypru z waszą pomocą! Odbierz auto na lotnisku PFO lub pod swoim hotelem.
+              Poznaj flotę samochodów dostępnych w Pafos, odbierz auto na lotnisku PFO lub pod swoim hotelem, a przy krótszych
+              wynajmach dolicz tylko symboliczne opłaty lotniskowe. Kalkulator poniżej pokaże finalny koszt z wszystkimi
+              dodatkami.
             </p>
             <div class="standalone-hero-actions">
               <a class="btn btn-primary primary" href="#carRentalSection" data-i18n="carRentalPfo.page.hero.ctaFleet">Zobacz flotę</a>
@@ -236,13 +237,12 @@
             <article>
               <h3>Ceny | Flota | Dodatki</h3>
               <ul>
-                <li><strong>Bez depozytu</strong></li>
-                <li><strong>Darmowe foteliki dla dzieci</strong></li>
-                <li><strong>Darmowy transport na lotnisko lub do hotelu</strong> przy rezerwacjach na powyżej 7 dni</li>
-                <li>Odbiór na lotnisku jednorazowo <strong>10€</strong> (Poniżej 7 dni)</li>
-                <li>Oddanie na lotnisku jednorazowo <strong>10€</strong> (Poniżej 7 dni)</li>
-                <li>Pełne ubezpieczenie <strong>+17€/dzień</strong></li>
-                <li style="margin-top: 8px; color: #64748b;">*Prawo jazdy minimum 3 lata i < 25 rok życia</li>
+                <li>Bez depozytu</li>
+                <li>Darmowe foteliki dziecięce</li>
+                <li>Transfer lotnisko/hotel gratis przy wynajmach ≥7 dni</li>
+                <li>Odbiór na lotnisku 10€ i zwrot 10€ tylko przy wynajmach &lt;7 dni</li>
+                <li>Pełne ubezpieczenie AC +17€/dzień</li>
+                <li>Wymagania kierowcy: <em>Prawo jazdy minimum 3 lata i wiek kierowcy ≥ 25 lat</em></li>
               </ul>
             </article>
             <article>
@@ -264,16 +264,147 @@
             <article class="auto-category">
               <header class="auto-category-header">
                 <div class="auto-category-title">
-                  <h3>Flota Paphos</h3>
-                  <p>Automatyczne i manualne skrzynie, klimatyzacja w standardzie. Ceny aktualizowane na bieżąco.</p>
+                  <h3>Flota Pafos</h3>
+                  <p>Automatyczne skrzynie, klimatyzacja i paliwo 95 w standardzie.</p>
                 </div>
                 <span class="auto-category-badge">Od 30€/dzień</span>
               </header>
-              <div class="auto-category-grid" id="paphosCarsGrid">
-                <!-- Cars will be loaded dynamically from database -->
-                <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;">
-                  <p>Ładowanie floty Paphos...</p>
-                </div>
+              <div class="auto-category-grid">
+                <article class="card auto-card">
+                  <header class="auto-card-header">
+                    <span class="auto-card-price">Od 30€/dzień</span>
+                    <div class="auto-card-title">
+                      <h3>Mitsubishi Mirage<span>Automat • 4 os. • AC</span></h3>
+                    </div>
+                  </header>
+                  <ul class="auto-card-specs">
+                    <li>Automat</li>
+                    <li>4 osoby</li>
+                    <li>AC</li>
+                    <li>Paliwo 95</li>
+                  </ul>
+                  <p class="auto-card-note">Zwrotne auto na wąskie uliczki Pafos.</p>
+                  <button type="button" class="btn btn-secondary secondary" data-select-car="Mitsubishi Mirage">Zarezerwuj to auto</button>
+                </article>
+
+                <article class="card auto-card">
+                  <header class="auto-card-header">
+                    <span class="auto-card-price">Od 32€/dzień</span>
+                    <div class="auto-card-title">
+                      <h3>Toyota Vitz<span>Automat • 5 os. • AC</span></h3>
+                    </div>
+                  </header>
+                  <ul class="auto-card-specs">
+                    <li>Automat</li>
+                    <li>5 osób</li>
+                    <li>AC</li>
+                    <li>Paliwo 95</li>
+                  </ul>
+                  <p class="auto-card-note">Komfortowy hatchback z przestrzenią na bagaże.</p>
+                  <button type="button" class="btn btn-secondary secondary" data-select-car="Toyota Vitz">Zarezerwuj to auto</button>
+                </article>
+
+                <article class="card auto-card">
+                  <header class="auto-card-header">
+                    <span class="auto-card-price">Od 32€/dzień</span>
+                    <div class="auto-card-title">
+                      <h3>Toyota Aygo<span>Automat • 5 os. • AC</span></h3>
+                    </div>
+                  </header>
+                  <ul class="auto-card-specs">
+                    <li>Automat</li>
+                    <li>5 osób</li>
+                    <li>AC</li>
+                    <li>Paliwo 95</li>
+                  </ul>
+                  <p class="auto-card-note">Ekonomiczny miejski model z niskim spalaniem.</p>
+                  <button type="button" class="btn btn-secondary secondary" data-select-car="Toyota Aygo">Zarezerwuj to auto</button>
+                </article>
+
+                <article class="card auto-card">
+                  <header class="auto-card-header">
+                    <span class="auto-card-price">Od 34€/dzień</span>
+                    <div class="auto-card-title">
+                      <h3>Honda Fit<span>Automat • 5 os. • AC</span></h3>
+                    </div>
+                  </header>
+                  <ul class="auto-card-specs">
+                    <li>Automat</li>
+                    <li>5 osób</li>
+                    <li>AC</li>
+                    <li>Paliwo 95</li>
+                  </ul>
+                  <p class="auto-card-note">Składane Magic Seats ułatwiają przewóz bagażu.</p>
+                  <button type="button" class="btn btn-secondary secondary" data-select-car="Honda Fit">Zarezerwuj to auto</button>
+                </article>
+
+                <article class="card auto-card">
+                  <header class="auto-card-header">
+                    <span class="auto-card-price">Od 55€/dzień</span>
+                    <div class="auto-card-title">
+                      <h3>Mazda CX5<span>Automat • 5 os. • AC</span></h3>
+                    </div>
+                  </header>
+                  <ul class="auto-card-specs">
+                    <li>Automat</li>
+                    <li>5 osób</li>
+                    <li>AC</li>
+                    <li>Paliwo 95</li>
+                  </ul>
+                  <p class="auto-card-note">Wyższy prześwit idealny na wycieczki po Akamas.</p>
+                  <button type="button" class="btn btn-secondary secondary" data-select-car="Mazda CX5">Zarezerwuj to auto</button>
+                </article>
+
+                <article class="card auto-card">
+                  <header class="auto-card-header">
+                    <span class="auto-card-price">Od 55€/dzień</span>
+                    <div class="auto-card-title">
+                      <h3>Mitsubishi Outlander<span>Automat • 7 os. • AC</span></h3>
+                    </div>
+                  </header>
+                  <ul class="auto-card-specs">
+                    <li>Automat</li>
+                    <li>7 osób</li>
+                    <li>AC</li>
+                    <li>Paliwo 95</li>
+                  </ul>
+                  <p class="auto-card-note">7 miejsc i duży bagażnik dla rodzinnych wypraw.</p>
+                  <button type="button" class="btn btn-secondary secondary" data-select-car="Mitsubishi Outlander">Zarezerwuj to auto</button>
+                </article>
+
+                <article class="card auto-card">
+                  <header class="auto-card-header">
+                    <span class="auto-card-price">Od 60€/dzień</span>
+                    <div class="auto-card-title">
+                      <h3>Nissan Serena<span>Automat • 8 os. • AC</span></h3>
+                    </div>
+                  </header>
+                  <ul class="auto-card-specs">
+                    <li>Automat</li>
+                    <li>8 osób</li>
+                    <li>AC</li>
+                    <li>Paliwo 95</li>
+                  </ul>
+                  <p class="auto-card-note">Najwięcej miejsca dla grup i ekip sportowych.</p>
+                  <button type="button" class="btn btn-secondary secondary" data-select-car="Nissan Serena">Zarezerwuj to auto</button>
+                </article>
+
+                <article class="card auto-card">
+                  <header class="auto-card-header">
+                    <span class="auto-card-price">Od 55€/dzień</span>
+                    <div class="auto-card-title">
+                      <h3>Mazda Premacy<span>Automat • 7 os. • AC</span></h3>
+                    </div>
+                  </header>
+                  <ul class="auto-card-specs">
+                    <li>Automat</li>
+                    <li>7 osób</li>
+                    <li>AC</li>
+                    <li>Paliwo 95</li>
+                  </ul>
+                  <p class="auto-card-note">Praktyczny minivan z przesuwanymi drzwiami.</p>
+                  <button type="button" class="btn btn-secondary secondary" data-select-car="Mazda Premacy">Zarezerwuj to auto</button>
+                </article>
               </div>
             </article>
           </section>
@@ -293,8 +424,14 @@
                   <div class="auto-field">
                     <label for="car">Wybierz auto</label>
                     <select id="car" name="car" required aria-required="true">
-                      <option value="">Ładowanie floty...</option>
-                      <!-- Options will be loaded dynamically from database -->
+                      <option value="Mitsubishi Mirage">Mitsubishi Mirage — Automat • 4 os.</option>
+                      <option value="Toyota Vitz">Toyota Vitz — Automat • 5 os.</option>
+                      <option value="Toyota Aygo">Toyota Aygo — Automat • 5 os.</option>
+                      <option value="Honda Fit">Honda Fit — Automat • 5 os.</option>
+                      <option value="Mazda CX5">Mazda CX5 — Automat • 5 os.</option>
+                      <option value="Mitsubishi Outlander">Mitsubishi Outlander — Automat • 7 os.</option>
+                      <option value="Nissan Serena">Nissan Serena — Automat • 8 os.</option>
+                      <option value="Mazda Premacy">Mazda Premacy — Automat • 7 os.</option>
                     </select>
                   </div>
                   <div class="auto-field">
@@ -387,9 +524,72 @@
     <script src="js/i18n.js" defer></script>
     <script src="js/forms.js" defer></script>
     <script src="js/seo.js" defer></script>
-    <script type="module" src="app.js"></script>
-    <!-- Dynamic car fleet loading -->
-    <script type="module" src="js/car-rental-paphos.js"></script>
+    <script src="app.js" defer></script>
+    <script>
+      function calculatePrice() {
+        const car = document.getElementById("car").value;
+
+        const pickupDateStr = document.getElementById("pickup_date").value;
+        const returnDateStr = document.getElementById("return_date").value;
+        const pickupTimeStr = document.getElementById("pickup_time").value || "10:00";
+        const returnTimeStr = document.getElementById("return_time").value || "10:00";
+
+        const airportPickup = document.getElementById("airport_pickup")?.checked || false;
+        const airportReturn = document.getElementById("airport_return")?.checked || false;
+        const fullInsurance = document.getElementById("full_insurance")?.checked || false;
+
+        const pickupDate = new Date(pickupDateStr + 'T' + pickupTimeStr);
+        const returnDate = new Date(returnDateStr + 'T' + returnTimeStr);
+
+        if (isNaN(pickupDate.getTime()) || isNaN(returnDate.getTime())) {
+          alert("Proszę wybrać poprawne daty i godziny.");
+          return;
+        }
+
+        const hours = (returnDate - pickupDate) / 36e5;
+        if (hours < 72) { alert("Minimalny czas wynajmu to 3 dni"); return; }
+        const days = Math.ceil(hours / 24);
+
+        const pricing = {
+          "Mitsubishi Mirage": [130, 34, 32, 30],
+          "Toyota Vitz": [130, 36, 34, 32],
+          "Toyota Aygo": [130, 36, 34, 32],
+          "Honda Fit": [130, 38, 36, 34],
+          "Mazda Premacy": [180, 55, 50, 45],
+          "Mazda CX5": [225, 65, 60, 55],
+          "Mitsubishi Outlander": [210, 65, 60, 55],
+          "Nissan Serena": [225, 70, 65, 60]
+        };
+
+        let basePrice = 0, dailyRate = 0, totalPrice = 0;
+
+        if (days === 3) {
+          basePrice = pricing[car][0];
+        } else if (days >= 4 && days <= 6) {
+          dailyRate = pricing[car][1]; basePrice = dailyRate * days;
+        } else if (days >= 7 && days <= 10) {
+          dailyRate = pricing[car][2]; basePrice = dailyRate * days;
+        } else if (days > 10) {
+          dailyRate = pricing[car][3]; basePrice = dailyRate * days;
+        }
+        totalPrice = basePrice;
+
+        const airportFeesApplicable = days < 7;
+        const pickupFee = (airportPickup && airportFeesApplicable) ? 10 : 0;
+        const returnFee = (airportReturn && airportFeesApplicable) ? 10 : 0;
+        const insuranceCost = fullInsurance ? 17 * days : 0;
+
+        totalPrice += pickupFee + returnFee + insuranceCost;
+
+        document.getElementById("total_price").innerHTML = "Całkowita cena wynajmu: " + totalPrice + "€";
+        if (days === 3) {
+          document.getElementById("days_price").innerHTML = "Cena pakietu na 3 dni: " + basePrice + "€";
+        } else {
+          const rateText = dailyRate ? " (" + dailyRate + "€/dzień)" : "";
+          document.getElementById("days_price").innerHTML = "Cena za " + days + " dni" + rateText + ": " + basePrice + "€";
+        }
+      }
+    </script>
     <script>
       document.addEventListener('DOMContentLoaded', () => {
         const form = document.getElementById('carRentalCalculator');
@@ -397,7 +597,6 @@
         const returnDateInput = document.getElementById('return_date');
         const yearEl = document.querySelector('[data-current-year]');
 
-        // Set default dates
         const today = new Date();
         const isoToday = today.toISOString().split('T')[0];
         if (pickupDateInput) {
@@ -413,21 +612,38 @@
           returnDateInput.min = isoToday;
         }
 
-        // Form submit and change handlers
         if (form) {
           form.addEventListener('submit', (event) => {
             event.preventDefault();
-            if (window.calculatePrice) window.calculatePrice();
+            calculatePrice();
           });
           form.addEventListener('change', () => {
-            if (window.calculatePrice) window.calculatePrice();
+            calculatePrice();
           });
         }
 
-        // Current year in footer
+        document.querySelectorAll('[data-select-car]').forEach((button) => {
+          button.addEventListener('click', () => {
+            const carName = button.getAttribute('data-select-car');
+            const carSelect = document.getElementById('car');
+            if (carSelect && carName) {
+              carSelect.value = carName;
+              calculatePrice();
+              carSelect.focus({ preventScroll: true });
+            }
+
+            const calculatorBlock = document.getElementById('carRentalCalculatorBlock');
+            if (calculatorBlock) {
+              calculatorBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+          });
+        });
+
         if (yearEl) {
           yearEl.textContent = new Date().getFullYear();
         }
+
+        calculatePrice();
       });
     </script>
     <script type="module" src="/assets/js/auth-ui.js"></script>

@@ -245,9 +245,7 @@
           return;
         }
         url.searchParams.set('lang', language);
-        // Remove leading slash to use relative paths
-        const relativePath = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
-        anchor.setAttribute('href', `${relativePath}${url.search}${url.hash}`);
+        anchor.setAttribute('href', `${url.pathname}${url.search}${url.hash}`);
       } catch (error) {
         console.warn('Unable to normalise link for i18n.', href, error);
       }

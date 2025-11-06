@@ -998,30 +998,6 @@ a:focus:not(:focus-visible) {
   outline: none;
 }
 
-/* Profile stat cards - smaller and more compact */
-.profile-stats-grid {
-  gap: 0.75rem !important;
-}
-
-.profile-stat-card {
-  padding: 1rem !important;
-  min-height: auto !important;
-}
-
-.profile-stat-card h3 {
-  font-size: 0.85rem !important;
-  margin-bottom: 0.5rem !important;
-}
-
-.profile-stat-card .stat-value {
-  font-size: 2rem !important;
-  margin-bottom: 0.25rem !important;
-}
-
-.profile-stat-card .stat-label {
-  font-size: 0.8rem !important;
-}
-
 /* Button Sizes and Styles */
 .btn-sm {
   padding: 0.5rem 1rem;
