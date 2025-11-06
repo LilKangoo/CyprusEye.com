@@ -97,7 +97,6 @@ async function handleReservationSubmit(event) {
       full_name: formData.get('full_name'),
       email: formData.get('email'),
       phone: formData.get('phone'),
-      country: formData.get('country') || 'Polska',
       
       // Rental details (REQUIRED)
       car_model: formData.get('car'),
@@ -115,6 +114,9 @@ async function handleReservationSubmit(event) {
     };
     
     // Add optional fields only if they have values
+    const country = formData.get('country');
+    if (country) data.country = country;
+    
     const pickupAddr = formData.get('pickup_address');
     if (pickupAddr) data.pickup_address = pickupAddr;
     
