@@ -1533,36 +1533,60 @@ async function viewCarBookingDetails(bookingId) {
 
         <!-- Pricing -->
         <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
-          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Pricing</h4>
-          <div style="display: grid; gap: 8px;">
-            ${booking.quoted_price ? `
-            <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px;">
-              <span>Quoted Price:</span>
-              <span style="font-weight: 600;">€${Number(booking.quoted_price).toFixed(2)}</span>
+          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Pricing & Quote</h4>
+          <div style="display: grid; gap: 12px;">
+            <!-- Quote Price Input -->
+            <div>
+              <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px; color: var(--admin-text-muted);">Quoted Price (€)</label>
+              <input 
+                type="number" 
+                id="bookingQuotedPrice" 
+                value="${booking.quoted_price || ''}" 
+                placeholder="0.00" 
+                step="0.01"
+                min="0"
+                style="width: 100%; padding: 8px 12px; border: 1px solid var(--admin-border); border-radius: 4px; font-size: 14px;"
+              />
+              <small style="display: block; margin-top: 4px; font-size: 11px; color: var(--admin-text-muted);">Initial price quote for the customer</small>
             </div>
-            ` : ''}
-            ${booking.final_price ? `
-            <div style="display: grid; grid-template-columns: 1fr auto; gap: 12px; padding-top: 8px; border-top: 1px solid var(--admin-border);">
-              <span style="font-weight: 600; font-size: 16px;">Final Price:</span>
-              <span style="font-weight: 700; font-size: 18px; color: var(--admin-success);">€${Number(booking.final_price).toFixed(2)}</span>
-            </div>
-            ` : `
-            <div style="padding: 12px; background: var(--admin-warning); color: #000; border-radius: 4px; text-align: center;">
-              ⚠️ Price not quoted yet
-            </div>
-            `}
-          </div>
-        </div>
 
-        <!-- Admin Notes -->
-        ${booking.admin_notes ? `
-        <div>
-          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Admin Notes</h4>
-          <div style="background: #fff3cd; padding: 12px; border-radius: 4px; border-left: 3px solid #ffc107;">
-            ${escapeHtml(booking.admin_notes)}
+            <!-- Final Price Input -->
+            <div>
+              <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px; color: var(--admin-text-muted);">Final Price (€)</label>
+              <input 
+                type="number" 
+                id="bookingFinalPrice" 
+                value="${booking.final_price || ''}" 
+                placeholder="0.00" 
+                step="0.01"
+                min="0"
+                style="width: 100%; padding: 8px 12px; border: 1px solid var(--admin-border); border-radius: 4px; font-size: 14px; font-weight: 600;"
+              />
+              <small style="display: block; margin-top: 4px; font-size: 11px; color: var(--admin-text-muted);">Final agreed price (after any adjustments)</small>
+            </div>
+
+            <!-- Admin Notes -->
+            <div>
+              <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px; color: var(--admin-text-muted);">Admin Notes</label>
+              <textarea 
+                id="bookingAdminNotes" 
+                rows="3"
+                placeholder="Add notes about pricing, special conditions, etc."
+                style="width: 100%; padding: 8px 12px; border: 1px solid var(--admin-border); border-radius: 4px; font-size: 13px; resize: vertical; font-family: inherit;"
+              >${escapeHtml(booking.admin_notes || '')}</textarea>
+            </div>
+
+            <!-- Save Pricing Button -->
+            <button 
+              type="button" 
+              id="btnSavePricing" 
+              class="btn-primary"
+              style="width: 100%; padding: 10px; font-size: 14px; font-weight: 600;"
+            >
+              💾 Save Pricing & Notes
+            </button>
           </div>
         </div>
-        ` : ''}
       </div>
     `;
 
@@ -1572,15 +1596,207 @@ async function viewCarBookingDetails(bookingId) {
     // Show modal
     modal.hidden = false;
 
+    // Attach Save Pricing event listener
+    const btnSavePricing = $('#btnSavePricing');
+    if (btnSavePricing) {
+      btnSavePricing.addEventListener('click', async () => {
+        const quotedPrice = parseFloat($('#bookingQuotedPrice')?.value) || null;
+        const finalPrice = parseFloat($('#bookingFinalPrice')?.value) || null;
+        const adminNotes = $('#bookingAdminNotes')?.value || null;
+
+        try {
+          btnSavePricing.disabled = true;
+          btnSavePricing.textContent = 'Saving...';
+
+          const client = ensureSupabase();
+          if (!client) throw new Error('Database connection not available');
+
+          const { error } = await client
+            .from('car_bookings')
+            .update({ 
+              quoted_price: quotedPrice,
+              final_price: finalPrice,
+              admin_notes: adminNotes,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', bookingId);
+
+          if (error) throw error;
+
+          showToast('Pricing and notes saved successfully!', 'success');
+          await loadCarsData(); // Refresh table
+
+        } catch (e) {
+          console.error('Failed to save pricing:', e);
+          showToast('Failed to save pricing: ' + e.message, 'error');
+        } finally {
+          btnSavePricing.disabled = false;
+          btnSavePricing.textContent = '💾 Save Pricing & Notes';
+        }
+      });
+    }
+
   } catch (e) {
     console.error('Failed to load booking details:', e);
     showToast('Failed to load booking details', 'error');
   }
 }
 
+// Open edit booking modal
+async function openEditBooking(bookingId) {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+
+    // Fetch booking details
+    const { data: booking, error } = await client
+      .from('car_bookings')
+      .select('*')
+      .eq('id', bookingId)
+      .single();
+
+    if (error) {
+      console.error('Error loading booking:', error);
+      showToast('Failed to load booking', 'error');
+      return;
+    }
+
+    if (!booking) {
+      showToast('Booking not found', 'error');
+      return;
+    }
+
+    // Populate form
+    $('#editBookingId').value = booking.id;
+    $('#editFullName').value = booking.full_name || '';
+    $('#editEmail').value = booking.email || '';
+    $('#editPhone').value = booking.phone || '';
+    $('#editCountry').value = booking.country || '';
+    
+    $('#editCarModel').value = booking.car_model || '';
+    $('#editLocation').value = booking.location || 'paphos';
+    
+    $('#editPickupDate').value = booking.pickup_date || '';
+    $('#editPickupTime').value = booking.pickup_time || '10:00';
+    $('#editPickupLocation').value = booking.pickup_location || 'airport_pfo';
+    $('#editPickupAddress').value = booking.pickup_address || '';
+    
+    $('#editReturnDate').value = booking.return_date || '';
+    $('#editReturnTime').value = booking.return_time || '10:00';
+    $('#editReturnLocation').value = booking.return_location || 'airport_pfo';
+    $('#editReturnAddress').value = booking.return_address || '';
+    
+    $('#editNumPassengers').value = booking.num_passengers || 2;
+    $('#editChildSeats').value = booking.child_seats || 0;
+    $('#editFullInsurance').checked = booking.full_insurance || false;
+    $('#editFlightNumber').value = booking.flight_number || '';
+    $('#editSpecialRequests').value = booking.special_requests || '';
+    
+    $('#editStatus').value = booking.status || 'pending';
+
+    // Hide details modal, show edit modal
+    const detailsModal = $('#bookingDetailsModal');
+    if (detailsModal) detailsModal.hidden = true;
+
+    const editModal = $('#editBookingModal');
+    if (editModal) editModal.hidden = false;
+
+  } catch (e) {
+    console.error('Failed to open edit booking:', e);
+    showToast('Failed to open edit form', 'error');
+  }
+}
+
+// Handle edit booking form submission
+async function handleEditBookingSubmit(event) {
+  event.preventDefault();
+
+  const submitBtn = $('#editBookingSubmit');
+  const errorEl = $('#editBookingError');
+
+  try {
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving...';
+    }
+
+    if (errorEl) errorEl.hidden = true;
+
+    const bookingId = $('#editBookingId').value;
+    if (!bookingId) throw new Error('Booking ID is missing');
+
+    const updateData = {
+      full_name: $('#editFullName').value,
+      email: $('#editEmail').value,
+      phone: $('#editPhone').value,
+      country: $('#editCountry').value || null,
+      
+      car_model: $('#editCarModel').value,
+      location: $('#editLocation').value,
+      
+      pickup_date: $('#editPickupDate').value,
+      pickup_time: $('#editPickupTime').value,
+      pickup_location: $('#editPickupLocation').value,
+      pickup_address: $('#editPickupAddress').value || null,
+      
+      return_date: $('#editReturnDate').value,
+      return_time: $('#editReturnTime').value,
+      return_location: $('#editReturnLocation').value,
+      return_address: $('#editReturnAddress').value || null,
+      
+      num_passengers: parseInt($('#editNumPassengers').value) || 1,
+      child_seats: parseInt($('#editChildSeats').value) || 0,
+      full_insurance: $('#editFullInsurance').checked,
+      flight_number: $('#editFlightNumber').value || null,
+      special_requests: $('#editSpecialRequests').value || null,
+      
+      status: $('#editStatus').value,
+      updated_at: new Date().toISOString()
+    };
+
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database connection not available');
+
+    const { error } = await client
+      .from('car_bookings')
+      .update(updateData)
+      .eq('id', bookingId);
+
+    if (error) throw error;
+
+    showToast('Booking updated successfully!', 'success');
+
+    // Close edit modal
+    const editModal = $('#editBookingModal');
+    if (editModal) editModal.hidden = true;
+
+    // Reload table
+    await loadCarsData();
+
+    // Reopen details modal
+    await viewCarBookingDetails(bookingId);
+
+  } catch (e) {
+    console.error('Failed to update booking:', e);
+    
+    if (errorEl) {
+      errorEl.textContent = e.message || 'Failed to update booking';
+      errorEl.hidden = false;
+    }
+    
+    showToast('Failed to update booking', 'error');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Save Changes';
+    }
+  }
+}
+
 // Make functions global for onclick handlers
 window.viewCarBookingDetails = viewCarBookingDetails;
 window.loadCarsData = loadCarsData;
+window.openEditBooking = openEditBooking;
 
 // =====================================================
 // FLEET MANAGEMENT
@@ -3394,6 +3610,47 @@ function initEventListeners() {
         showToast('Failed to cancel booking', 'error');
       }
     });
+  }
+
+  const btnEditBooking = $('#btnEditBooking');
+  if (btnEditBooking) {
+    btnEditBooking.addEventListener('click', () => {
+      const modal = $('#bookingDetailsModal');
+      const bookingId = modal?.dataset?.bookingId;
+      if (bookingId) {
+        openEditBooking(bookingId);
+      }
+    });
+  }
+
+  // Edit booking modal controls
+  const btnCloseEditBooking = $('#btnCloseEditBooking');
+  if (btnCloseEditBooking) {
+    btnCloseEditBooking.addEventListener('click', () => {
+      const modal = $('#editBookingModal');
+      if (modal) modal.hidden = true;
+    });
+  }
+
+  const editBookingModalOverlay = $('#editBookingModalOverlay');
+  if (editBookingModalOverlay) {
+    editBookingModalOverlay.addEventListener('click', () => {
+      const modal = $('#editBookingModal');
+      if (modal) modal.hidden = true;
+    });
+  }
+
+  const editBookingCancel = $('#editBookingCancel');
+  if (editBookingCancel) {
+    editBookingCancel.addEventListener('click', () => {
+      const modal = $('#editBookingModal');
+      if (modal) modal.hidden = true;
+    });
+  }
+
+  const editBookingForm = $('#editBookingForm');
+  if (editBookingForm) {
+    editBookingForm.addEventListener('submit', handleEditBookingSubmit);
   }
 
   // Image upload controls

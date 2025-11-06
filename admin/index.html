@@ -1405,6 +1405,172 @@
     </div>
   </div>
 
+  <!-- Edit Booking Modal -->
+  <div class="admin-modal" id="editBookingModal" hidden>
+    <div class="admin-modal-overlay" id="editBookingModalOverlay"></div>
+    <div class="admin-modal-content" style="max-width: 900px;">
+      <header class="admin-modal-header">
+        <h3>Edit Booking</h3>
+        <button class="btn-modal-close" id="btnCloseEditBooking">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body">
+        <form id="editBookingForm">
+          <input type="hidden" id="editBookingId">
+          
+          <div style="display: grid; gap: 24px;">
+            <!-- Customer Info -->
+            <div>
+              <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Customer Information</h4>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <label class="admin-form-field">
+                  <span>Full Name *</span>
+                  <input type="text" id="editFullName" required>
+                </label>
+                <label class="admin-form-field">
+                  <span>Email *</span>
+                  <input type="email" id="editEmail" required>
+                </label>
+                <label class="admin-form-field">
+                  <span>Phone *</span>
+                  <input type="tel" id="editPhone" required>
+                </label>
+                <label class="admin-form-field">
+                  <span>Country</span>
+                  <input type="text" id="editCountry">
+                </label>
+              </div>
+            </div>
+
+            <!-- Rental Details -->
+            <div>
+              <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Rental Details</h4>
+              <div style="display: grid; gap: 12px;">
+                <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 12px;">
+                  <label class="admin-form-field">
+                    <span>Car Model *</span>
+                    <input type="text" id="editCarModel" required>
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Location *</span>
+                    <select id="editLocation" required>
+                      <option value="paphos">Paphos</option>
+                      <option value="larnaca">Larnaca</option>
+                    </select>
+                  </label>
+                </div>
+
+                <div style="display: grid; grid-template-columns: 2fr 1fr 2fr; gap: 12px;">
+                  <label class="admin-form-field">
+                    <span>Pickup Date *</span>
+                    <input type="date" id="editPickupDate" required>
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Time</span>
+                    <input type="time" id="editPickupTime" value="10:00">
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Pickup Location *</span>
+                    <select id="editPickupLocation" required>
+                      <option value="airport_pfo">Airport PFO</option>
+                      <option value="airport_lca">Airport LCA</option>
+                      <option value="hotel">Hotel</option>
+                      <option value="city_center">City Center</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </label>
+                </div>
+
+                <label class="admin-form-field">
+                  <span>Pickup Address (if Hotel/Other)</span>
+                  <input type="text" id="editPickupAddress" placeholder="Hotel name or address">
+                </label>
+
+                <div style="display: grid; grid-template-columns: 2fr 1fr 2fr; gap: 12px;">
+                  <label class="admin-form-field">
+                    <span>Return Date *</span>
+                    <input type="date" id="editReturnDate" required>
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Time</span>
+                    <input type="time" id="editReturnTime" value="10:00">
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Return Location *</span>
+                    <select id="editReturnLocation" required>
+                      <option value="airport_pfo">Airport PFO</option>
+                      <option value="airport_lca">Airport LCA</option>
+                      <option value="hotel">Hotel</option>
+                      <option value="city_center">City Center</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </label>
+                </div>
+
+                <label class="admin-form-field">
+                  <span>Return Address (if Hotel/Other)</span>
+                  <input type="text" id="editReturnAddress" placeholder="Hotel name or address">
+                </label>
+              </div>
+            </div>
+
+            <!-- Additional Options -->
+            <div>
+              <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Additional Options</h4>
+              <div style="display: grid; grid-template-columns: 1fr 1fr 2fr; gap: 12px;">
+                <label class="admin-form-field">
+                  <span>Passengers</span>
+                  <input type="number" id="editNumPassengers" min="1" max="8" value="2">
+                </label>
+                <label class="admin-form-field">
+                  <span>Child Seats</span>
+                  <input type="number" id="editChildSeats" min="0" max="3" value="0">
+                </label>
+                <label class="admin-form-field">
+                  <span>Flight Number</span>
+                  <input type="text" id="editFlightNumber" placeholder="W1234">
+                </label>
+              </div>
+              <label class="admin-form-field" style="margin-top: 12px;">
+                <input type="checkbox" id="editFullInsurance" style="width: auto; margin-right: 8px;">
+                <span>Full Insurance (+17€/day)</span>
+              </label>
+              <label class="admin-form-field" style="margin-top: 12px;">
+                <span>Special Requests</span>
+                <textarea id="editSpecialRequests" rows="3"></textarea>
+              </label>
+            </div>
+
+            <!-- Status -->
+            <div>
+              <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Booking Status</h4>
+              <label class="admin-form-field">
+                <span>Status</span>
+                <select id="editStatus">
+                  <option value="pending">Pending</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                </select>
+              </label>
+            </div>
+          </div>
+
+          <div id="editBookingError" class="admin-error-message" hidden style="margin-top: 16px;"></div>
+
+          <div class="poi-form-actions" style="margin-top: 24px;">
+            <button type="button" class="btn-secondary" id="editBookingCancel">Cancel</button>
+            <button type="submit" class="btn-primary" id="editBookingSubmit">Save Changes</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Quest Form Modal -->
   <div class="admin-modal" id="questFormModal" hidden>
     <div class="admin-modal-overlay" id="questFormModalOverlay"></div>
