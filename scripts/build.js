@@ -12,7 +12,7 @@ const DIST = join(ROOT, 'dist');
 const JS_DIRECTORIES = ['js', 'admin', 'assets/js', 'src/utils'];
 
 // Wybrane pliki JS w katalogu głównym, które muszą być dostępne publicznie
-const ROOT_JS_FILES = ['app-core.js', 'car-rental.js'];
+const ROOT_JS_FILES = ['car-rental.js'];
 
 // Proste skanowanie rekurencyjne (wyklucza katalogi build/test/backup)
 async function collectJsFiles() {
