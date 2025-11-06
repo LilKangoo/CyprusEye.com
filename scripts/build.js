@@ -175,6 +175,14 @@ async function copyStaticFiles() {
     if (existsSync(join(ROOT, '_redirects'))) {
       await cp(join(ROOT, '_redirects'), join(DIST, '_redirects'));
     }
+    if (existsSync(join(ROOT, '_routes.json'))) {
+      await cp(join(ROOT, '_routes.json'), join(DIST, '_routes.json'));
+    }
+    
+    // Kopiuj Cloudflare Functions
+    if (existsSync(join(ROOT, 'functions'))) {
+      await cp(join(ROOT, 'functions'), join(DIST, 'functions'), { recursive: true });
+    }
     
     console.log('✅ Static files copied');
   } catch (error) {

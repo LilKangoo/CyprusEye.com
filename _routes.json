@@ -1,0 +1,28 @@
+{
+  "version": 1,
+  "include": [
+    "/admin/*",
+    "/auth/*",
+    "/account/*",
+    "/reset/*"
+  ],
+  "exclude": [
+    "/*.js",
+    "/*.css",
+    "/*.html",
+    "/*.png",
+    "/*.jpg",
+    "/*.jpeg",
+    "/*.gif",
+    "/*.svg",
+    "/*.webp",
+    "/*.ico",
+    "/*.json",
+    "/*.xml",
+    "/*.txt",
+    "/js/*",
+    "/css/*",
+    "/assets/*",
+    "/public/*"
+  ]
+}
