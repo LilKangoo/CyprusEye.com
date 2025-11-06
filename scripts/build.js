@@ -11,6 +11,9 @@ const DIST = join(ROOT, 'dist');
 // Katalogi do skanowania pod kątem plików JS do minifikacji
 const JS_DIRECTORIES = ['js', 'admin', 'assets/js', 'src/utils'];
 
+// Wybrane pliki JS w katalogu głównym, które muszą być dostępne publicznie
+const ROOT_JS_FILES = ['app-core.js', 'car-rental.js'];
+
 // Proste skanowanie rekurencyjne (wyklucza katalogi build/test/backup)
 async function collectJsFiles() {
   const excludeDirs = new Set([
@@ -198,12 +201,25 @@ async function build() {
     
     // Zbieraj i buduj wszystkie pliki JS
     const allJsFiles = await collectJsFiles();
-    for (const file of allJsFiles) {
+    const filesToBuild = Array.from(new Set([...allJsFiles, ...ROOT_JS_FILES]));
+    for (const file of filesToBuild) {
       await buildFile(file);
     }
   
   // Copy static files
   await copyStaticFiles();
+
+  // Dodatkowa asekuracja: skopiuj całe drzewa JS jeśli z jakiegoś powodu minifikacja pominie pliki
+  try {
+    if (existsSync(join(ROOT, 'js'))) {
+      await cp(join(ROOT, 'js'), join(DIST, 'js'), { recursive: true });
+    }
+    if (existsSync(join(ROOT, 'assets/js'))) {
+      await cp(join(ROOT, 'assets/js'), join(DIST, 'assets/js'), { recursive: true });
+    }
+  } catch (e) {
+    console.warn('⚠️  Fallback copy of JS trees failed:', e.message);
+  }
   
   console.log('\n✅ Build complete! Files in /dist/');
   console.log(`📊 Output directory: ${DIST}`);
