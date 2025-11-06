@@ -126,7 +126,7 @@ WITH CHECK (true);
 CREATE POLICY "Users can view own bookings"
 ON car_bookings FOR SELECT
 TO authenticated
-USING (email = (SELECT email FROM auth.users WHERE id = auth.uid()));
+USING (email = auth.email());
 
 -- Allow admins to view all bookings
 CREATE POLICY "Admins can view all bookings"
