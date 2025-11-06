@@ -151,17 +151,12 @@ async function copyStaticFiles() {
       });
     }
     
-    // Kopiuj CSS
-    await cp(join(ROOT, 'assets/css'), join(DIST, 'assets/css'), { recursive: true });
+    // Kopiuj CSS (global)
     await cp(join(ROOT, 'css'), join(DIST, 'css'), { recursive: true });
-    
-    // Kopiuj obrazy i assets
-    const assetFiles = ['cyprus_logo-1000x1054.png', 'kupon logo.jpeg', 'favicon.json'];
-    for (const file of assetFiles) {
-      const src = join(ROOT, 'assets', file);
-      if (existsSync(src)) {
-        await cp(src, join(DIST, 'assets', file));
-      }
+
+    // Kopiuj CAŁY katalog assets (obrazy, css, js, pois.json, itp.)
+    if (existsSync(join(ROOT, 'assets'))) {
+      await cp(join(ROOT, 'assets'), join(DIST, 'assets'), { recursive: true });
     }
     
     // Kopiuj translations
