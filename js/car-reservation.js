@@ -90,38 +90,51 @@ async function handleReservationSubmit(event) {
 
     // Collect form data
     const formData = new FormData(form);
+    
+    // Build data object with only essential fields
     const data = {
-      // Personal info
+      // Personal info (REQUIRED)
       full_name: formData.get('full_name'),
       email: formData.get('email'),
       phone: formData.get('phone'),
-      country: formData.get('country'),
+      country: formData.get('country') || 'Polska',
       
-      // Rental details
+      // Rental details (REQUIRED)
       car_model: formData.get('car'),
       pickup_date: formData.get('pickup_date'),
-      pickup_time: formData.get('pickup_time'),
+      pickup_time: formData.get('pickup_time') || '10:00',
       pickup_location: formData.get('pickup_location'),
-      pickup_address: formData.get('pickup_address') || null,
-      
       return_date: formData.get('return_date'),
-      return_time: formData.get('return_time'),
+      return_time: formData.get('return_time') || '10:00',
       return_location: formData.get('return_location'),
-      return_address: formData.get('return_address') || null,
-      
-      // Additional info
-      num_passengers: parseInt(formData.get('num_passengers')) || 1,
-      child_seats: parseInt(formData.get('child_seats')) || 0,
-      full_insurance: formData.get('insurance') === 'on',
-      flight_number: formData.get('flight_number') || null,
-      special_requests: formData.get('special_requests') || null,
       
       // Metadata
       location: 'paphos',
       status: 'pending',
-      source: 'website_autopfo',
-      created_at: new Date().toISOString()
+      source: 'website_autopfo'
     };
+    
+    // Add optional fields only if they have values
+    const pickupAddr = formData.get('pickup_address');
+    if (pickupAddr) data.pickup_address = pickupAddr;
+    
+    const returnAddr = formData.get('return_address');
+    if (returnAddr) data.return_address = returnAddr;
+    
+    const numPass = parseInt(formData.get('num_passengers'));
+    if (numPass && numPass > 0) data.num_passengers = numPass;
+    
+    const childSeats = parseInt(formData.get('child_seats'));
+    if (childSeats && childSeats > 0) data.child_seats = childSeats;
+    
+    const insurance = formData.get('insurance');
+    if (insurance === 'on') data.full_insurance = true;
+    
+    const flightNum = formData.get('flight_number');
+    if (flightNum) data.flight_number = flightNum;
+    
+    const requests = formData.get('special_requests');
+    if (requests) data.special_requests = requests;
 
     console.log('Submitting reservation:', data);
 
