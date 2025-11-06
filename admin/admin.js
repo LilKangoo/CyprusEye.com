@@ -5431,6 +5431,179 @@ function clearContentSearch() {
   }
 }
 
+// =====================================================
+// MODERATION MANAGEMENT
+// =====================================================
+
+let moderationState = {
+  reports: [],
+  currentPage: 1,
+  itemsPerPage: 20
+};
+
+// Load moderation data
+async function loadModerationData() {
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+    
+    const tableBody = $('#moderationTable');
+    if (!tableBody) return;
+    
+    tableBody.innerHTML = '<tr><td colspan="7" class="table-loading">Loading reports...</td></tr>';
+    
+    // Load reported content
+    const { data: reports, error } = await client
+      .from('reported_content')
+      .select(`
+        id,
+        report_type,
+        reason,
+        status,
+        created_at,
+        reporter_id,
+        profiles!reporter_id(username, email),
+        comment_id,
+        poi_comments!comment_id(content, poi_id, user_id, profiles!user_id(username))
+      `)
+      .eq('status', 'pending')
+      .order('created_at', { ascending: false })
+      .limit(moderationState.itemsPerPage);
+    
+    if (error) {
+      console.error('Failed to load reports:', error);
+      // Try simpler query if join fails
+      const { data: simpleReports, error: simpleError } = await client
+        .from('reported_content')
+        .select('*')
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(moderationState.itemsPerPage);
+      
+      if (simpleError) throw simpleError;
+      
+      if (!simpleReports || simpleReports.length === 0) {
+        tableBody.innerHTML = '<tr><td colspan="7" class="table-loading">No pending reports</td></tr>';
+        return;
+      }
+      
+      // Render simple version
+      tableBody.innerHTML = simpleReports.map(report => `
+        <tr>
+          <td><span class="badge badge-warning">${escapeHtml(report.report_type || 'unknown')}</span></td>
+          <td>Reporter ID: ${escapeHtml(report.reporter_id ? report.reporter_id.substring(0, 8) : 'N/A')}</td>
+          <td>POI: ${escapeHtml(report.poi_id || 'N/A')}</td>
+          <td>—</td>
+          <td>${escapeHtml(report.reason || 'No reason')}</td>
+          <td>${formatDate(report.created_at)}</td>
+          <td>
+            <div class="poi-table-actions">
+              <button class="btn-secondary" onclick="resolveReport('${report.id}', 'approved')" title="Approve">✓</button>
+              <button class="btn-secondary" onclick="resolveReport('${report.id}', 'rejected')" title="Reject">✗</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+      return;
+    }
+    
+    moderationState.reports = reports || [];
+    
+    if (reports.length === 0) {
+      tableBody.innerHTML = '<tr><td colspan="7" class="table-loading">✅ No pending reports - all clear!</td></tr>';
+      return;
+    }
+    
+    // Render full version with joins
+    tableBody.innerHTML = reports.map(report => {
+      const reporter = report.profiles?.username || 'Anonymous';
+      const comment = report.poi_comments;
+      const commentUser = comment?.profiles?.username || 'Unknown';
+      const commentExcerpt = comment?.content ? comment.content.substring(0, 50) + '...' : 'N/A';
+      const poiId = comment?.poi_id || 'N/A';
+      
+      return `
+        <tr>
+          <td><span class="badge badge-warning">${escapeHtml(report.report_type || 'comment')}</span></td>
+          <td>${escapeHtml(reporter)}</td>
+          <td>${escapeHtml(poiId)}</td>
+          <td title="${escapeHtml(comment?.content || '')}">${escapeHtml(commentExcerpt)}</td>
+          <td>${escapeHtml(report.reason || 'No reason')}</td>
+          <td>${formatDate(report.created_at)}</td>
+          <td>
+            <div class="poi-table-actions">
+              <button class="btn-secondary" onclick="resolveReport('${report.id}', 'approved')" title="Approve & delete content">✓ Approve</button>
+              <button class="btn-secondary" onclick="resolveReport('${report.id}', 'rejected')" title="Reject report">✗ Reject</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+    
+  } catch (error) {
+    console.error('Failed to load moderation data:', error);
+    showToast('Failed to load moderation data: ' + error.message, 'error');
+    
+    const tableBody = $('#moderationTable');
+    if (tableBody) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="7" style="padding: 32px; text-align: center;">
+            <div style="color: var(--admin-danger); margin-bottom: 12px;">❌ Error Loading Reports</div>
+            <div style="color: var(--admin-text-muted);">${escapeHtml(error.message)}</div>
+            <div style="margin-top: 16px;">
+              <small>Make sure reported_content table exists in Supabase</small>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+  }
+}
+
+// Resolve report
+async function resolveReport(reportId, resolution) {
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+    
+    const action = resolution === 'approved' ? 'approved' : 'rejected';
+    
+    if (!confirm(`${action === 'approved' ? 'Approve this report and take action?' : 'Reject this report?'}`)) {
+      return;
+    }
+    
+    showToast('Processing...', 'info');
+    
+    // Update report status
+    const { error } = await client
+      .from('reported_content')
+      .update({
+        status: action,
+        resolved_at: new Date().toISOString(),
+        resolved_by: adminState.user?.id
+      })
+      .eq('id', reportId);
+    
+    if (error) throw error;
+    
+    showToast(`Report ${action} successfully`, 'success');
+    
+    // Reload moderation data
+    await loadModerationData();
+    
+  } catch (error) {
+    console.error('Failed to resolve report:', error);
+    showToast('Failed to resolve report: ' + error.message, 'error');
+  }
+}
+
 // Make functions global for onclick handlers
 window.adjustUserXP = adjustUserXP;
 window.banUser = banUser;
@@ -5446,6 +5619,8 @@ window.deleteCommentPhoto = deleteCommentPhoto;
 window.loadComments = loadComments;
 window.searchComments = searchComments;
 window.clearContentSearch = clearContentSearch;
+window.loadModerationData = loadModerationData;
+window.resolveReport = resolveReport;
 
 // =====================================================
 // INITIALIZATION
