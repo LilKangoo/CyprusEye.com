@@ -2370,9 +2370,10 @@ async function handleFleetCarSubmit(event) {
         .update(carData)
         .eq('id', carId)
         .select()
-        .single();
+        .maybeSingle();
       
       if (error) throw error;
+      if (!data) throw new Error('Car not found or no permission to update');
       result = data;
       
       showToast(`${carData.car_model} updated successfully`, 'success');
