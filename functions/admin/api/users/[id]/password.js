@@ -1,7 +1,7 @@
 // Cloudflare Pages Function: Password operations
 // POST { action: 'reset'|'magic_link'|'set_temporary', temp_password?: string }
 
-import { createSupabaseClients, requireAdmin } from '../../../_utils/supabaseAdmin.js';
+import { createSupabaseClients, requireAdmin } from '../../../../_utils/supabaseAdmin';
 
 export async function onRequestPost(context) {
   try {
