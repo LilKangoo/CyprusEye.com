@@ -784,9 +784,19 @@
           </div>
           <div class="admin-view-actions">
             <button class="btn-secondary" type="button" id="btnRefreshCars">Refresh</button>
-            <button class="btn-primary" type="button" id="btnAddCar">New Car</button>
+            <button class="btn-primary" type="button" id="btnAddCar">New Booking</button>
           </div>
         </header>
+
+        <!-- Sub-navigation for Cars -->
+        <div style="margin-bottom: 24px; border-bottom: 2px solid var(--admin-border); display: flex; gap: 8px;">
+          <button class="cars-tab-button active" data-tab="bookings" style="padding: 12px 24px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: var(--admin-text-muted); transition: all 0.2s;">
+            Bookings
+          </button>
+          <button class="cars-tab-button" data-tab="fleet" style="padding: 12px 24px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: var(--admin-text-muted); transition: all 0.2s;">
+            Fleet Management
+          </button>
+        </div>
 
         <!-- Car Stats -->
         <div class="admin-stats-grid">
@@ -847,26 +857,76 @@
           </div>
         </div>
 
-        <!-- Cars Table -->
-        <div class="admin-table-container">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th>Booking ID</th>
-                <th>Customer</th>
-                <th>Car Type</th>
-                <th>Dates</th>
-                <th>Status</th>
-                <th>Amount</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="carsTableBody">
-              <tr>
-                <td colspan="7" class="table-loading">Loading car bookings...</td>
-              </tr>
-            </tbody>
-          </table>
+        <!-- Bookings Tab Content -->
+        <div id="carsTabBookings" class="cars-tab-content">
+          <!-- Cars Table (Bookings) -->
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Booking ID</th>
+                  <th>Customer</th>
+                  <th>Car Type</th>
+                  <th>Dates</th>
+                  <th>Status</th>
+                  <th>Amount</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="carsTableBody">
+                <tr>
+                  <td colspan="7" class="table-loading">Loading car bookings...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Fleet Tab Content -->
+        <div id="carsTabFleet" class="cars-tab-content" hidden>
+          <div style="margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+            <div style="display: flex; gap: 12px;">
+              <select id="fleetLocationFilter" class="admin-form-field" style="padding: 8px 12px;">
+                <option value="">All Locations</option>
+                <option value="larnaca">Larnaca</option>
+                <option value="paphos">Paphos</option>
+              </select>
+              <select id="fleetTypeFilter" class="admin-form-field" style="padding: 8px 12px;">
+                <option value="">All Types</option>
+                <option value="Economy">Economy</option>
+                <option value="Compact">Compact</option>
+                <option value="SUV">SUV</option>
+                <option value="MPV">MPV</option>
+                <option value="Luxury">Luxury</option>
+              </select>
+            </div>
+            <button class="btn-primary" type="button" id="btnAddFleetCar">Add New Car</button>
+          </div>
+
+          <!-- Fleet Table -->
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th style="width: 80px;">Image</th>
+                  <th>Location</th>
+                  <th>Car Model</th>
+                  <th>Type</th>
+                  <th>Price</th>
+                  <th>Transmission</th>
+                  <th>Fuel</th>
+                  <th>Seats</th>
+                  <th>Available</th>
+                  <th style="width: 120px;">Actions</th>
+                </tr>
+              </thead>
+              <tbody id="fleetTableBody">
+                <tr>
+                  <td colspan="10" class="table-loading">Loading fleet...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 

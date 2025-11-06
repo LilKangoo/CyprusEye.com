@@ -1385,6 +1385,206 @@ window.viewCarBookingDetails = viewCarBookingDetails;
 window.loadCarsData = loadCarsData;
 
 // =====================================================
+// FLEET MANAGEMENT
+// =====================================================
+
+let fleetState = {
+  cars: [],
+  locationFilter: '',
+  typeFilter: ''
+};
+
+async function loadFleetData() {
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    console.log('Loading fleet data...');
+
+    // Build query with filters
+    let query = client
+      .from('car_offers')
+      .select('*')
+      .order('location', { ascending: true })
+      .order('sort_order', { ascending: true });
+
+    // Apply filters
+    if (fleetState.locationFilter) {
+      query = query.eq('location', fleetState.locationFilter);
+    }
+    if (fleetState.typeFilter) {
+      query = query.eq('car_type', fleetState.typeFilter);
+    }
+
+    const { data: cars, error } = await query;
+
+    if (error) {
+      console.error('Error loading fleet:', error);
+      throw error;
+    }
+
+    fleetState.cars = cars || [];
+    console.log(`Loaded ${fleetState.cars.length} cars`);
+
+    // Render fleet table
+    const tbody = $('#fleetTableBody');
+    if (!tbody) return;
+
+    if (fleetState.cars.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="10" class="table-loading">No cars found with current filters</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = fleetState.cars.map(car => {
+      // Determine price display based on location
+      let priceDisplay;
+      if (car.location === 'paphos' && car.price_3days) {
+        priceDisplay = `<div style="font-weight: 600;">€${car.price_3days}/3d</div>
+          <div style="font-size: 11px; color: var(--admin-text-muted);">€${car.price_10plus_days}+/day</div>`;
+      } else {
+        priceDisplay = `<div style="font-weight: 600;">€${car.price_per_day}/day</div>`;
+      }
+
+      // Image display
+      const imageDisplay = car.image_url 
+        ? `<img src="${escapeHtml(car.image_url)}" alt="${escapeHtml(car.car_model)}" style="width: 60px; height: 40px; object-fit: cover; border-radius: 4px;">`
+        : `<div style="width: 60px; height: 40px; background: var(--admin-border); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 20px;">🚗</div>`;
+
+      return `
+        <tr>
+          <td>${imageDisplay}</td>
+          <td>
+            <span class="badge ${car.location === 'larnaca' ? 'badge-info' : 'badge-warning'}">
+              ${car.location.toUpperCase()}
+            </span>
+          </td>
+          <td>
+            <div style="font-weight: 600;">${escapeHtml(car.car_model)}</div>
+            <div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(car.description?.substring(0, 40) || '')}${car.description?.length > 40 ? '...' : ''}</div>
+          </td>
+          <td>${escapeHtml(car.car_type)}</td>
+          <td>${priceDisplay}</td>
+          <td>
+            <span class="badge ${car.transmission === 'automatic' ? 'badge-success' : 'badge-secondary'}">
+              ${car.transmission}
+            </span>
+          </td>
+          <td>${escapeHtml(car.fuel_type)}</td>
+          <td>${car.max_passengers} seats</td>
+          <td>
+            <span class="badge ${car.is_available ? 'badge-success' : 'badge-danger'}">
+              ${car.is_available ? 'Yes' : 'No'}
+            </span>
+            ${car.stock_count ? `<div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 2px;">Stock: ${car.stock_count}</div>` : ''}
+          </td>
+          <td>
+            <div style="display: flex; gap: 4px;">
+              <button class="btn-icon" type="button" title="Edit" onclick="editFleetCar('${car.id}')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 20h9"/>
+                  <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
+                </svg>
+              </button>
+              <button class="btn-icon" type="button" title="Delete" onclick="deleteFleetCar('${car.id}', '${escapeHtml(car.car_model)}')" style="color: var(--admin-danger);">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="3 6 5 6 21 6"/>
+                  <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
+                  <path d="M10 11v6"/>
+                  <path d="M14 11v6"/>
+                </svg>
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+  } catch (e) {
+    console.error('Error loading fleet:', e);
+    showToast('Failed to load fleet: ' + (e.message || 'Unknown error'), 'error');
+    const tbody = $('#fleetTableBody');
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="10" class="table-loading" style="color: var(--admin-danger);">Error: ${escapeHtml(e.message)}</td></tr>`;
+    }
+  }
+}
+
+async function deleteFleetCar(carId, carModel) {
+  if (!confirm(`Are you sure you want to delete ${carModel}?\n\nThis action cannot be undone.`)) {
+    return;
+  }
+
+  try {
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database connection not available');
+
+    const { error } = await client
+      .from('car_offers')
+      .delete()
+      .eq('id', carId);
+
+    if (error) throw error;
+
+    showToast(`${carModel} deleted successfully`, 'success');
+    loadFleetData(); // Reload the list
+
+  } catch (e) {
+    console.error('Error deleting car:', e);
+    showToast('Failed to delete car: ' + (e.message || 'Unknown error'), 'error');
+  }
+}
+
+async function editFleetCar(carId) {
+  // TODO: Implement edit modal
+  showToast('Edit car feature - coming soon', 'info');
+  console.log('Edit car:', carId);
+}
+
+function switchCarsTab(tab) {
+  // Update tab buttons
+  document.querySelectorAll('.cars-tab-button').forEach(btn => {
+    const isActive = btn.dataset.tab === tab;
+    btn.classList.toggle('active', isActive);
+    btn.style.borderBottom = isActive ? '2px solid var(--admin-primary)' : '2px solid transparent';
+    btn.style.color = isActive ? 'var(--admin-primary)' : 'var(--admin-text-muted)';
+  });
+
+  // Show/hide tab content
+  const bookingsTab = $('#carsTabBookings');
+  const fleetTab = $('#carsTabFleet');
+
+  if (bookingsTab) bookingsTab.hidden = (tab !== 'bookings');
+  if (fleetTab) fleetTab.hidden = (tab !== 'fleet');
+
+  // Update action buttons
+  const btnAddCar = $('#btnAddCar');
+  const btnRefreshCars = $('#btnRefreshCars');
+  
+  if (tab === 'bookings') {
+    if (btnAddCar) btnAddCar.textContent = 'New Booking';
+    if (btnRefreshCars) {
+      btnRefreshCars.onclick = () => loadCarsData();
+    }
+    loadCarsData();
+  } else if (tab === 'fleet') {
+    if (btnAddCar) btnAddCar.textContent = 'Add Car (Booking)';
+    if (btnRefreshCars) {
+      btnRefreshCars.onclick = () => loadFleetData();
+    }
+    loadFleetData();
+  }
+}
+
+// Make functions global
+window.loadFleetData = loadFleetData;
+window.deleteFleetCar = deleteFleetCar;
+window.editFleetCar = editFleetCar;
+window.switchCarsTab = switchCarsTab;
+
+// =====================================================
 // DIAGNOSTICS
 // =====================================================
 
@@ -2439,7 +2639,39 @@ function initEventListeners() {
     poiDetailOverlay.addEventListener('click', () => closePoiDetail());
   }
 
-  // Cars actions
+  // Cars tab switchers
+  document.querySelectorAll('.cars-tab-button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      switchCarsTab(btn.dataset.tab);
+    });
+  });
+
+  // Fleet filters
+  const fleetLocationFilter = $('#fleetLocationFilter');
+  if (fleetLocationFilter) {
+    fleetLocationFilter.addEventListener('change', (e) => {
+      fleetState.locationFilter = e.target.value;
+      loadFleetData();
+    });
+  }
+
+  const fleetTypeFilter = $('#fleetTypeFilter');
+  if (fleetTypeFilter) {
+    fleetTypeFilter.addEventListener('change', (e) => {
+      fleetState.typeFilter = e.target.value;
+      loadFleetData();
+    });
+  }
+
+  // Add new car to fleet
+  const btnAddFleetCar = $('#btnAddFleetCar');
+  if (btnAddFleetCar) {
+    btnAddFleetCar.addEventListener('click', () => {
+      showToast('Add new car to fleet - coming soon', 'info');
+    });
+  }
+
+  // Cars actions (will be updated by switchCarsTab)
   const refreshCarsBtn = $('#btnRefreshCars');
   if (refreshCarsBtn) {
     refreshCarsBtn.addEventListener('click', () => loadCarsData());
