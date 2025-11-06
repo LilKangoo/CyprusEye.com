@@ -47,8 +47,16 @@ async function loadPaphosFleet() {
 
 // Render fleet cards
 function renderFleet() {
-  const grid = document.querySelector('.auto-category-grid');
-  if (!grid || paphosFleet.length === 0) return;
+  const grid = document.getElementById('paphosCarsGrid');
+  if (!grid) {
+    console.error('Could not find #paphosCarsGrid element');
+    return;
+  }
+  
+  if (paphosFleet.length === 0) {
+    grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;"><p>Brak dostępnych samochodów w Paphos</p></div>';
+    return;
+  }
 
   grid.innerHTML = paphosFleet.map(car => {
     const features = Array.isArray(car.features) ? car.features : [];
