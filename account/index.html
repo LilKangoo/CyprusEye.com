@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="pl">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    
+    <!-- Security: Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
+    
+    <title>Panel gracza</title>
+    <meta name="ce-auth" content="on" />
+    <meta name="description" content="Zarządzaj swoim profilem, XP i ustawieniami konta CyprusEye." />
+    <link rel="stylesheet" href="/assets/css/tokens.css" />
+    <link rel="stylesheet" href="/assets/css/base.css" />
+    <link rel="stylesheet" href="/assets/css/components.css" />
+    <link rel="stylesheet" href="/assets/css/pages.css" />
+    <link rel="stylesheet" href="/css/toast.css" />
+    <script type="module" src="/js/supabaseClient.js"></script>
+    <script type="module" src="/js/toast.js"></script>
+    <script type="module" src="/js/auth.js"></script>
+    <script type="module" src="/js/authUi.js"></script>
+    <script type="module" src="/js/account.js" defer></script>
+    <style>
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: var(--font-family-base, 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI');
+        background: linear-gradient(180deg, #f8fafc 0%, #eef2ff 55%, #f5f3ff 100%);
+        color: var(--color-neutral-900, #0f172a);
+        display: flex;
+        justify-content: center;
+      }
+
+      .account-shell {
+        width: min(960px, 100%);
+        padding: clamp(1.5rem, 4vw, 3rem) clamp(1.25rem, 4vw, 3rem) 4rem;
+        display: flex;
+        flex-direction: column;
+        gap: clamp(1.5rem, 3vw, 2.5rem);
+      }
+
+      .account-header {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+      }
+
+      .account-header h1 {
+        margin: 0;
+        font-size: clamp(1.75rem, 3vw, 2.25rem);
+        color: var(--color-brand-600, #1d4ed8);
+      }
+
+      .account-header a {
+        color: inherit;
+        text-decoration: none;
+        font-weight: 500;
+      }
+
+      .account-actions {
+        display: flex;
+        justify-content: flex-end;
+      }
+
+      [data-account-message] {
+        border-radius: var(--radius-md, 12px);
+        padding: 0.85rem 1.1rem;
+        font-weight: 500;
+        border: 1px solid transparent;
+      }
+
+      [data-account-message][data-tone='info'] {
+        background: rgba(59, 130, 246, 0.08);
+        border-color: rgba(59, 130, 246, 0.18);
+      }
+
+      [data-account-message][data-tone='success'] {
+        background: rgba(34, 197, 94, 0.12);
+        border-color: rgba(34, 197, 94, 0.25);
+      }
+
+      [data-account-message][data-tone='error'] {
+        background: rgba(239, 68, 68, 0.12);
+        border-color: rgba(239, 68, 68, 0.25);
+      }
+
+      .account-tabs {
+        display: inline-flex;
+        background: rgba(255, 255, 255, 0.75);
+        border-radius: var(--radius-lg, 16px);
+        padding: 0.4rem;
+        gap: 0.35rem;
+        box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+        align-self: flex-start;
+      }
+
+      .account-tab {
+        appearance: none;
+        border: none;
+        background: transparent;
+        color: var(--color-neutral-500, #64748b);
+        font-weight: 600;
+        padding: 0.55rem 1.1rem;
+        border-radius: var(--radius-md, 12px);
+        cursor: pointer;
+        transition: background 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .account-tab:focus-visible {
+        outline: 3px solid rgba(37, 99, 235, 0.35);
+        outline-offset: 2px;
+      }
+
+      .account-tab.is-active {
+        background: var(--color-brand-600, #2563eb);
+        color: #fff;
+        box-shadow: 0 8px 18px rgba(37, 99, 235, 0.28);
+      }
+
+      .account-card {
+        background: rgba(255, 255, 255, 0.95);
+        border-radius: var(--radius-lg, 16px);
+        box-shadow: 0 18px 42px rgba(15, 23, 42, 0.12);
+        padding: clamp(1.5rem, 3vw, 2.25rem);
+        display: flex;
+        flex-direction: column;
+        gap: clamp(1rem, 2vw, 1.5rem);
+      }
+
+      .account-card h2 {
+        margin: 0;
+        font-size: clamp(1.25rem, 2.5vw, 1.65rem);
+      }
+
+      .account-card p {
+        margin: 0;
+        color: var(--color-neutral-600, #475569);
+      }
+
+      .account-panel {
+        display: flex;
+        flex-direction: column;
+        gap: clamp(1.25rem, 3vw, 2rem);
+      }
+
+      .account-panel:not(.is-active) {
+        display: none;
+      }
+
+      .profile-grid {
+        display: grid;
+        gap: 1rem;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      }
+
+      .profile-grid dt {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        color: var(--color-neutral-500, #64748b);
+        margin-bottom: 0.4rem;
+      }
+
+      .profile-grid dd {
+        margin: 0;
+        font-size: 1.1rem;
+        font-weight: 600;
+      }
+
+      .account-form {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+      }
+
+      .account-form label {
+        flex: 1 1 240px;
+        display: flex;
+        flex-direction: column;
+        font-weight: 600;
+        color: var(--color-neutral-600, #475569);
+        gap: 0.35rem;
+      }
+
+      .account-form input {
+        border-radius: var(--radius-md, 12px);
+        border: 1px solid rgba(148, 163, 184, 0.4);
+        padding: 0.65rem 0.9rem;
+        font-size: 1rem;
+      }
+
+      .account-form button {
+        padding: 0.65rem 1.4rem;
+        border-radius: var(--radius-md, 12px);
+        border: none;
+        background: var(--color-brand-600, #2563eb);
+        color: #fff;
+        font-weight: 600;
+        cursor: pointer;
+      }
+
+      .account-form button[disabled] {
+        opacity: 0.65;
+        cursor: progress;
+      }
+
+      .account-form.account-form--stack {
+        flex-direction: column;
+        align-items: stretch;
+      }
+
+      .account-form.account-form--stack button {
+        align-self: flex-start;
+        margin-top: 0.25rem;
+      }
+
+      .account-form.account-form--grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+        gap: 0.75rem 1rem;
+        align-items: end;
+      }
+
+      .account-form.account-form--grid button {
+        justify-self: flex-start;
+        margin-top: 0.35rem;
+      }
+
+      .account-form__hint {
+        margin: 0;
+        font-size: 0.9rem;
+        color: var(--color-neutral-500, #64748b);
+      }
+
+      .account-form.account-form--grid .account-form__hint {
+        grid-column: 1 / -1;
+      }
+
+      .account-form__danger {
+        color: var(--color-error-600, #dc2626);
+      }
+
+      .xp-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+
+      .xp-item {
+        display: grid;
+        gap: 0.45rem;
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        align-items: baseline;
+        padding: 0.75rem 1rem;
+        border-radius: var(--radius-md, 12px);
+        background: rgba(248, 250, 252, 0.75);
+        border: 1px solid rgba(148, 163, 184, 0.28);
+      }
+
+      .xp-item__reason {
+        font-weight: 600;
+        color: var(--color-neutral-700, #334155);
+      }
+
+      .xp-item__delta {
+        font-family: var(--font-family-mono, 'Roboto Mono', monospace);
+        color: var(--color-brand-600, #2563eb);
+      }
+
+      .xp-item__date {
+        font-size: 0.85rem;
+        color: var(--color-neutral-500, #64748b);
+      }
+
+      [data-account-loading] {
+        font-weight: 600;
+        color: var(--color-neutral-600, #475569);
+      }
+
+      @media (max-width: 600px) {
+        .account-tabs {
+          align-self: stretch;
+        }
+
+        .account-form.account-form--grid {
+          grid-template-columns: 1fr;
+        }
+
+        .account-form.account-form--stack button,
+        .account-form.account-form--grid button {
+          width: 100%;
+        }
+      }
+    </style>
+  </head>
+  <body>
+  <!-- Accessibility: Skip to main content -->
+  <a href="#main-content" class="skip-link" data-i18n="accessibility.skipToContent">Skip to main content</a>
+      <div class="account-shell">
+      <header class="account-header">
+        <div>
+          <a href="/">← Wróć do strony głównej</a>
+          <h1>Panel gracza</h1>
+        </div>
+        <div class="account-actions">
+          <div id="auth-actions" class="auth-actions" aria-live="polite">
+            <button
+              class="btn"
+              data-auth="login"
+              data-auth-login-mode="modal"
+              data-i18n="header.login"
+              data-i18n-attrs="aria-label:auth.login.aria"
+              aria-label="Zaloguj do konta"
+            >
+              Zaloguj
+            </button>
+            <button class="btn" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Graj jako gość</button>
+            <a 
+              href="/achievements.html" 
+              class="btn btn-profile" 
+              data-auth="user-only"
+              aria-label="Mój profil"
+              id="profileButton"
+            >
+              <img id="headerUserAvatar" class="header-user-avatar" src="/assets/cyprus_logo-1000x1054.png" alt="Avatar" />
+              <span>Profil</span>
+            </a>
+            <button class="btn" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
+            <span class="auth-badge" data-auth="user-only" data-i18n="auth.status.userBadge">Zalogowany: <strong data-auth="user-name"></strong></span>
+            <span class="auth-badge" data-auth="guest-only" data-i18n="auth.status.guestBadge">Grasz jako gość</span>
+            <span class="auth-badge" data-auth="anon-only" data-i18n="auth.status.anon">Nie zalogowano</span>
+          </div>
+        </div>
+      </header>
+
+      <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+      <div data-account-message hidden role="status" aria-live="polite"></div>
+      <div data-account-loading>Trwa wczytywanie danych konta…</div>
+
+      <main id="main-content" data-account-content hidden>
+        <nav class="account-tabs" role="tablist" aria-label="Zakładki panelu konta">
+          <button
+            type="button"
+            class="account-tab is-active"
+            id="account-tab-stats"
+            role="tab"
+            aria-selected="true"
+            aria-controls="account-panel-stats"
+            data-account-tab="stats"
+            tabindex="0"
+          >
+            📈 Statystyki
+          </button>
+          <button
+            type="button"
+            class="account-tab"
+            id="account-tab-security"
+            role="tab"
+            aria-selected="false"
+            aria-controls="account-panel-security"
+            data-account-tab="security"
+            tabindex="-1"
+          >
+            🔐 Bezpieczeństwo
+          </button>
+        </nav>
+
+        <section
+          class="account-panel is-active"
+          id="account-panel-stats"
+          role="tabpanel"
+          aria-labelledby="account-tab-stats"
+          data-account-panel="stats"
+        >
+          <section class="account-card" aria-labelledby="profile-heading">
+            <div>
+              <h2 id="profile-heading">Twój profil</h2>
+              <p>Podstawowe informacje o koncie i postępy w przygodzie.</p>
+            </div>
+            <dl class="profile-grid">
+              <div>
+                <dt>E-mail</dt>
+                <dd data-account-email>—</dd>
+              </div>
+              <div>
+                <dt>Nazwa użytkownika</dt>
+                <dd data-account-username>—</dd>
+              </div>
+              <div>
+                <dt>Imię wyświetlane</dt>
+                <dd data-account-name>—</dd>
+              </div>
+              <div>
+                <dt>XP</dt>
+                <dd data-account-xp>0</dd>
+              </div>
+              <div>
+                <dt>Poziom</dt>
+                <dd data-account-level>0</dd>
+              </div>
+              <div>
+                <dt>Ostatnia aktualizacja</dt>
+                <dd data-account-updated>—</dd>
+              </div>
+            </dl>
+          </section>
+
+          <section class="account-card" aria-labelledby="xp-heading">
+            <div>
+              <h2 id="xp-heading">Ostatnie zdarzenia XP</h2>
+              <p>Monitoruj, jak zdobywasz doświadczenie w CyprusEye.</p>
+            </div>
+            <p id="xp-empty" hidden>Brak zarejestrowanych zdarzeń XP.</p>
+            <ul id="xp-events" class="xp-list" aria-live="polite"></ul>
+          </section>
+        </section>
+
+        <section
+          class="account-panel"
+          id="account-panel-security"
+          role="tabpanel"
+          aria-labelledby="account-tab-security"
+          data-account-panel="security"
+          hidden
+        >
+          <section class="account-card" aria-labelledby="username-heading">
+            <div>
+              <h2 id="username-heading">Zmień nazwę użytkownika</h2>
+              <p>Ustaw identyfikator widoczny w rankingach, komentarzach i dzienniku podróży.</p>
+            </div>
+            <form id="form-account-username" class="account-form account-form--stack" novalidate>
+              <label for="profile-username">
+                Nowa nazwa użytkownika
+                <input
+                  id="profile-username"
+                  name="username"
+                  type="text"
+                  inputmode="text"
+                  autocomplete="username"
+                  autocapitalize="none"
+                  autocorrect="off"
+                  spellcheck="false"
+                  placeholder="np. cyprus.explorer"
+                  minlength="3"
+                  maxlength="30"
+                  aria-describedby="username-hint"
+                  required
+                />
+              </label>
+              <p class="account-form__hint" id="username-hint">
+                Dozwolone litery, cyfry, kropki, myślniki i podkreślenia (3–30 znaków).
+              </p>
+              <button type="submit">Zapisz nazwę</button>
+            </form>
+          </section>
+
+          <section class="account-card" aria-labelledby="name-heading">
+            <div>
+              <h2 id="name-heading">Imię wyświetlane</h2>
+              <p>To imię pojawia się w powiadomieniach oraz powitaniach w aplikacji.</p>
+            </div>
+            <form id="form-account-name" class="account-form account-form--stack">
+              <label for="profile-name">
+                Imię
+                <input
+                  id="profile-name"
+                  name="name"
+                  type="text"
+                  autocomplete="given-name"
+                  placeholder="Twoje imię"
+                  minlength="2"
+                  maxlength="60"
+                  required
+                />
+              </label>
+              <button type="submit">Zapisz imię</button>
+            </form>
+          </section>
+
+          <section class="account-card" aria-labelledby="password-heading">
+            <div>
+              <h2 id="password-heading">Aktualizuj hasło</h2>
+              <p>Użyj silnego hasła, aby chronić konto przed niepowołanym dostępem.</p>
+            </div>
+            <form id="form-account-password" class="account-form account-form--grid" novalidate>
+              <label for="password-current">
+                Obecne hasło
+                <input
+                  id="password-current"
+                  name="current_password"
+                  type="password"
+                  autocomplete="current-password"
+                  placeholder="••••••••"
+                  required
+                />
+              </label>
+              <label for="password-new">
+                Nowe hasło
+                <input
+                  id="password-new"
+                  name="new_password"
+                  type="password"
+                  autocomplete="new-password"
+                  minlength="8"
+                  placeholder="Minimum 8 znaków"
+                  required
+                />
+              </label>
+              <label for="password-confirm">
+                Powtórz nowe hasło
+                <input
+                  id="password-confirm"
+                  name="confirm_password"
+                  type="password"
+                  autocomplete="new-password"
+                  minlength="8"
+                  placeholder="Potwierdź hasło"
+                  required
+                />
+              </label>
+              <p class="account-form__hint" id="password-hint">
+                Hasło powinno mieć co najmniej 8 znaków i zawierać mieszankę liter oraz cyfr.
+              </p>
+              <button type="submit" aria-describedby="password-hint">Zmień hasło</button>
+            </form>
+          </section>
+        </section>
+      </main>
+    </div>
+    <script type="module" src="/assets/js/auth-ui.js"></script>
+  </body>
+</html>

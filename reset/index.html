@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-FCSE0876CR');
+</script>
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<!-- Security: Content Security Policy -->
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://esm.sh; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
+
+<title>Set new password</title>
+<meta name="ce-auth" content="on">
+<script type="module" src="/js/supabaseClient.js"></script>
+<script type="module" src="/js/toast.js"></script>
+<script type="module" src="/js/auth.js"></script>
+<link rel="stylesheet" href="/css/toast.css">
+</head>
+<body>
+  <!-- Accessibility: Skip to main content -->
+  <a href="#main-content" class="skip-link" data-i18n="accessibility.skipToContent">Skip to main content</a>
+  <main id="main-content">
+  <h1>Reset your password</h1>
+  <p>Enter your email to receive a reset link or set a new password if you already opened the reset link.</p>
+  <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+  <form id="resetForm" autocomplete="off" novalidate>
+    <fieldset>
+      <legend>Send reset link</legend>
+      <label for="resetEmail">E-mail</label>
+      <input id="resetEmail" name="email" type="email" autocomplete="email" required>
+    </fieldset>
+
+    <fieldset data-reset-section="password" hidden>
+      <legend>Set a new password</legend>
+      <label for="resetNewPassword">New password</label>
+      <input
+        id="resetNewPassword"
+        name="newPassword"
+        type="password"
+        minlength="6"
+        autocomplete="new-password"
+        required
+      >
+
+      <label for="resetConfirmPassword">Confirm new password</label>
+      <input
+        id="resetConfirmPassword"
+        name="newPasswordConfirm"
+        type="password"
+        minlength="6"
+        autocomplete="new-password"
+        required
+      >
+    </fieldset>
+
+    <button type="submit" data-reset-label="Ustaw nowe hasło">Wyślij link resetujący</button>
+  </form>
+  <div id="resetMessage" role="status" aria-live="polite"></div>
+</main>
+
+</body>
+</html>

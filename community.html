@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="pl" dir="ltr">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-FCSE0876CR');
+</script>
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <!-- Security: Content Security Policy -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://esm.sh https://unpkg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://*.tile.openstreetmap.org https://unpkg.com https://esm.sh; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
+  
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="robots" content="index,follow" />
+  <title data-i18n="seo.community.title">Community - Komentarze i zdjęcia z Cypru | CyprusEye Quest</title>
+  <meta
+    name="description"
+    content="Podziel się swoimi wrażeniami z Cypru, dodaj zdjęcia i komentarze do miejsc, które odwiedziłeś."
+  />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Community - CyprusEye Quest" />
+  <meta property="og:description" content="Dołącz do społeczności podróżników na Cyprze" />
+  <meta property="og:url" content="https://www.cypruseye.com/community.html" />
+  <meta property="og:image" content="https://www.cypruseye.com/assets/cyprus_logo-1000x1054.png" />
+  <link rel="canonical" href="https://www.cypruseye.com/community.html" />
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    rel="preload"
+    as="style"
+    href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+  />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+    media="print"
+    onload="this.media='all'"
+  />
+  <noscript>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </noscript>
+  
+  <!-- Styles -->
+  <link rel="stylesheet" href="assets/css/tokens.css" />
+  <link rel="stylesheet" href="assets/css/base.css" />
+  <link rel="stylesheet" href="assets/css/components.css" />
+  <link rel="stylesheet" href="assets/css/header-metrics.css" />
+  <link rel="stylesheet" href="assets/css/mobile.css" />
+  <link rel="stylesheet" href="assets/css/mobile-nav.css" />
+  <link rel="stylesheet" href="assets/css/rtl.css" />
+  <link rel="stylesheet" href="assets/css/language-switcher.css" />
+  <link rel="stylesheet" href="css/toast.css" />
+  <link rel="stylesheet" href="assets/css/community.css" />
+  
+  <!-- Leaflet Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin />
+  
+  <!-- Supabase & Auth -->
+  <meta name="ce-auth" content="on" />
+  <script type="module" src="js/supabaseClient.js"></script>
+  <script type="module" src="js/toast.js"></script>
+  <script type="module" src="js/auth.js"></script>
+  <script type="module" src="js/authUi.js"></script>
+</head>
+<body data-navigation="multi-page" data-seo-page="community">
+  <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+  
+  <!-- Header -->
+  <header class="app-header">
+    <div class="header-top">
+      <div class="brand">
+        <img
+          src="assets/cyprus_logo-1000x1054.png"
+          alt="WakacjeCypr.com – logo żółwia z flagą Polski"
+          data-i18n-attrs="alt:header.logoAlt"
+          width="1000"
+          height="1054"
+          loading="eager"
+          fetchpriority="high"
+        />
+        <div class="brand-title" data-i18n="header.brand">
+          <p class="brand-name">WakacjeCypr <span>Quest</span></p>
+          <p class="tagline">Zwiedzaj Cypr w interaktywny sposób – zdobywaj odznaki, doświadczenie i odkrywaj nasze najlepsze oferty.</p>
+        </div>
+      </div>
+      <div class="header-top-actions">
+        <!-- Auth controls integrated into header -->
+        <div class="header-auth-controls">
+          <button
+            id="notificationsToggle"
+            class="ghost notifications-toggle"
+            data-gated="true"
+            data-require-auth
+            data-i18n="header.notifications"
+            type="button"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-controls="notificationsPanel"
+          >
+            🔔 <span class="btn-text">Powiadomienia</span>
+            <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
+          </button>
+          <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
+            <button
+              class="btn btn-sm"
+              data-auth="login"
+              data-auth-login-mode="modal"
+              data-i18n="header.login"
+              data-i18n-attrs="aria-label:auth.login.aria"
+              aria-label="Zaloguj do konta"
+            >
+              Zaloguj
+            </button>
+            <button class="btn btn-sm" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Gość</button>
+            <button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
+            <button
+              id="sosToggle"
+              class="btn btn-sm btn-danger"
+              type="button"
+              aria-haspopup="dialog"
+              aria-controls="sosModal"
+              data-i18n="header.sosToggle"
+            >
+              🚨 SOS
+            </button>
+          </div>
+          <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
+        </div>
+        
+        <div class="header-actions" aria-label="Szybkie działania" data-i18n-attrs="aria-label:header.quickActions.aria">
+          <div class="header-actions-primary">
+            <a class="ghost header-link" href="community.html" data-i18n="header.communityLink">💬 Społeczność</a>
+            <a
+              class="ghost header-link"
+              href="kupon.html"
+              data-i18n="header.coupon"
+              aria-label="Kupon"
+            >
+              Kupon
+            </a>
+            <a class="ghost header-link" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
+            <a
+              href="vip.html"
+              class="ghost header-link"
+              data-i18n="nav.mediaTrips"
+              aria-label="Otwórz stronę VIP wyjazdów indywidualnych"
+              data-i18n-attrs="aria-label:nav.mediaTrips.ariaLabel"
+            >
+              ✨ VIP wyjazdy
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- User Stats Section - Combined Profile + Metrics -->
+    <div class="user-stats-section" data-auth="user-only">
+      <a href="achievements.html" class="user-profile-card" id="profileButton" aria-label="Mój profil">
+        <img id="headerUserAvatar" class="profile-avatar" src="assets/cyprus_logo-1000x1054.png" alt="Avatar" width="50" height="50" loading="eager" />
+        <div class="profile-info">
+          <div class="profile-name">Mój Profil</div>
+          <div class="profile-status">Kliknij aby zobaczyć szczegóły</div>
+        </div>
+      </a>
+      
+      <div class="stats-cards">
+      <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
+        <p class="metric-label" data-i18n="metrics.level.label">Poziom</p>
+        <p class="metric-value" id="headerLevelNumber">1</p>
+        <p class="metric-subtext" id="headerLevelStatus" data-i18n="metrics.level.subtext">
+          Zdobądź pierwsze check-iny, aby awansować!
+        </p>
+      </a>
+      <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
+        <p class="metric-label" data-i18n="metrics.xp.label">Doświadczenie</p>
+        <p class="metric-value"><span id="headerXpPoints">0</span> XP</p>
+        <div
+          class="metric-progress"
+          role="img"
+          aria-label="Postęp doświadczenia"
+          data-i18n-attrs="aria-label:metrics.xp.aria"
+        >
+          <div class="metric-progress-track">
+            <div class="metric-progress-fill is-width-zero" id="headerXpFill"></div>
+          </div>
+          <p class="metric-progress-text" id="headerXpProgressText" data-i18n="metrics.xp.progress">
+            0 / 150 XP do kolejnego poziomu
+          </p>
+        </div>
+      </a>
+      <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
+        <p class="metric-label" data-i18n="metrics.badges.label">Odznaki</p>
+        <p class="metric-value" id="headerBadgesCount">0</p>
+        <p class="metric-subtext" data-i18n="metrics.badges.subtext">Odkrywaj atrakcje i kolekcjonuj pamiątki.</p>
+      </a>
+      </div>
+    </div>
+    
+    <nav class="header-tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna">
+      <a
+        href="index.html"
+        class="header-tab"
+        id="headerAdventureTab"
+        data-i18n="nav.adventure"
+      >
+        🎯 Twoja przygoda
+      </a>
+      <a
+        href="packing.html"
+        class="header-tab"
+        id="headerPackingTab"
+        data-i18n="nav.packing"
+      >
+        🎒 Planer pakowania
+      </a>
+      <a
+        href="tasks.html"
+        class="header-tab"
+        id="headerTasksTab"
+        data-i18n="nav.tasks"
+      >
+        ✅ Zadania do wykonania
+      </a>
+      <a
+        href="attractions.html"
+        class="header-tab"
+        id="explorerToggle"
+        data-i18n="header.explorerToggle"
+      >
+        🌍 Przeglądaj atrakcje
+      </a>
+    </nav>
+  </header>
+
+  <!-- Notifications Panel -->
+  <div id="notificationsPanel" class="notifications-panel" hidden role="dialog" aria-labelledby="notificationsPanelTitle">
+    <div class="notifications-panel-header">
+      <h3 id="notificationsPanelTitle" data-i18n="notifications.title">Powiadomienia</h3>
+      <div class="notifications-panel-actions">
+        <button type="button" class="ghost" id="markAllReadBtn" data-i18n="notifications.markAll">
+          ✓ Oznacz wszystkie
+        </button>
+        <button
+          type="button"
+          class="icon-button"
+          id="closeNotificationsPanel"
+          aria-label="Zamknij powiadomienia"
+          data-i18n-attrs="aria-label:notifications.close"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+    <div class="notifications-panel-content" id="notificationsPanelContent">
+      <div class="loading-spinner">
+        <div class="spinner"></div>
+        <p data-i18n="notifications.loading">Ładowanie powiadomień...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <main id="main-content" class="app-main community-main">
+    <div class="community-container">
+      <!-- Hero Section -->
+      <section class="community-hero card surface-card">
+        <h1 data-i18n="community.hero.title">💬 Społeczność - Miejsca na Cyprze</h1>
+        <p data-i18n="community.hero.description">
+          Przeglądaj komentarze i zdjęcia od innych podróżników. Podziel się swoimi wrażeniami z odwiedzonych miejsc!
+        </p>
+        <div class="community-stats" id="communityStats">
+          <div class="stat-item">
+            <span class="stat-value" id="totalComments">0</span>
+            <span class="stat-label" data-i18n="community.stats.comments">Komentarzy</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value" id="totalPhotos">0</span>
+            <span class="stat-label" data-i18n="community.stats.photos">Zdjęć</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value" id="activeUsers">0</span>
+            <span class="stat-label" data-i18n="community.stats.users">Użytkowników</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- View Toggle -->
+      <div class="view-toggle-bar">
+        <button 
+          type="button" 
+          class="view-toggle-btn active" 
+          data-view="list"
+          id="listViewBtn"
+        >
+          📋 Lista
+        </button>
+        <button 
+          type="button" 
+          class="view-toggle-btn" 
+          data-view="map"
+          id="mapViewBtn"
+        >
+          🗺️ Mapa
+        </button>
+      </div>
+
+      <!-- Map View -->
+      <section class="community-map-section" id="mapViewSection" hidden>
+        <div class="map-container">
+          <div id="communityMap" class="community-map"></div>
+        </div>
+        <p class="map-hint" data-i18n="community.map.hint">
+          Kliknij w marker, aby zobaczyć komentarze dla danego miejsca
+        </p>
+      </section>
+
+      <!-- List View -->
+      <section class="community-list-section" id="listViewSection">
+        <div class="poi-filter-bar">
+          <input 
+            type="search" 
+            id="poiSearchInput" 
+            class="poi-search-input" 
+            placeholder="Szukaj miejsca..."
+            data-i18n-attrs="placeholder:community.search.placeholder"
+          />
+          <select id="poiSortSelect" class="poi-sort-select">
+            <option value="recent" data-i18n="community.sort.recent">Najnowsze komentarze</option>
+            <option value="popular" data-i18n="community.sort.popular">Najpopularniejsze</option>
+            <option value="alphabetical" data-i18n="community.sort.alphabetical">Alfabetycznie</option>
+          </select>
+        </div>
+        
+        <div id="poisList" class="pois-list">
+          <!-- POI cards will be rendered here -->
+          <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p data-i18n="community.loading">Ładowanie miejsc...</p>
+          </div>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Mobile tabbar is dynamically generated by seo.js -->
+
+  <!-- Comments Modal -->
+  <div id="commentsModal" class="comments-modal" hidden role="dialog" aria-modal="true" aria-labelledby="commentsModalTitle">
+    <div class="comments-modal-dialog">
+      <header class="comments-modal-header">
+        <button type="button" class="modal-nav-btn" id="prevPoiBtn" aria-label="Poprzednie miejsce" title="Poprzednie miejsce" data-i18n-attrs="aria-label:modal.aria.previous,title:modal.aria.previous">
+          ‹
+        </button>
+        <div class="comments-modal-title-section">
+          <h2 id="commentsModalTitle" class="comments-modal-title"></h2>
+          <p id="commentsModalLocation" class="comments-modal-location"></p>
+        </div>
+        <div class="modal-header-actions">
+          <button type="button" class="modal-nav-btn" id="nextPoiBtn" aria-label="Następne miejsce" title="Następne miejsce" data-i18n-attrs="aria-label:modal.aria.next,title:modal.aria.next">
+            ›
+          </button>
+          <button type="button" class="icon-button" id="closeCommentsModal" aria-label="Zamknij" data-i18n-attrs="aria-label:modal.aria.close">
+            ✕
+          </button>
+        </div>
+      </header>
+      
+      <div class="comments-modal-content">
+        <!-- Rating Section -->
+        <div class="modal-rating-section" id="modalRatingSection">
+          <h3 data-i18n="community.rating.title">Oceń to miejsce</h3>
+          <div id="ratingDisplay"></div>
+          <div class="rating-interactive-container" id="ratingInteractive" hidden>
+            <div id="ratingStarsContainer"></div>
+            <span id="ratingPrompt" class="rating-prompt" data-i18n="community.rating.prompt">Kliknij na gwiazdki aby ocenić</span>
+          </div>
+          <div id="ratingBreakdown"></div>
+        </div>
+        
+        <!-- Add Comment Form -->
+        <div class="add-comment-section" id="addCommentSection">
+          <div class="auth-required-message" data-auth-required hidden>
+            <p data-i18n="community.auth.required">Musisz być zalogowany, aby dodać komentarz</p>
+            <button class="btn btn-primary primary" data-open-auth data-auth-target="login" data-i18n="header.login">Zaloguj</button>
+          </div>
+          
+          <form id="addCommentForm" class="add-comment-form" data-auth-only hidden>
+            <div class="user-avatar-section">
+              <img id="currentUserAvatar" class="user-avatar" alt="" />
+              <div>
+                <strong id="currentUserName"></strong>
+                <p class="form-hint" data-i18n="community.comment.hint">Dodaj komentarz lub zdjęcia</p>
+              </div>
+            </div>
+            <textarea 
+              id="commentTextarea" 
+              name="content"
+              class="comment-textarea" 
+              placeholder="Podziel się swoimi wrażeniami..."
+              data-i18n-attrs="placeholder:community.comment.placeholder"
+              rows="3"
+              maxlength="2000"
+              required
+            ></textarea>
+            <div class="comment-photos-preview" id="commentPhotosPreview" hidden>
+              <!-- Photo previews will be rendered here -->
+            </div>
+            <div class="add-comment-actions">
+              <label class="btn btn-secondary secondary photo-upload-label">
+                <span data-i18n="community.photo.add">📷 Dodaj zdjęcia</span>
+                <input 
+                  type="file" 
+                  id="photoUploadInput" 
+                  accept="image/jpeg,image/png,image/webp" 
+                  multiple 
+                  hidden
+                />
+              </label>
+              <button type="submit" class="btn btn-primary primary" data-i18n="community.comment.submit">
+                Opublikuj
+              </button>
+            </div>
+          </form>
+        </div>
+
+        <!-- Comments List -->
+        <div class="comments-list" id="commentsList">
+          <div class="loading-spinner">
+            <div class="spinner"></div>
+            <p data-i18n="community.loading">Ładowanie komentarzy...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <p data-i18n="footer.app">© <span data-current-year>2024</span> CyprusEye.com • Community</p>
+  </footer>
+
+  <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
+
+  <!-- Photo Lightbox -->
+  <div id="photoLightbox" class="photo-lightbox" hidden>
+    <button type="button" class="lightbox-close" id="closeLightbox" aria-label="Zamknij">✕</button>
+    <button type="button" class="lightbox-nav lightbox-prev" id="lightboxPrev" aria-label="Poprzednie zdjęcie">‹</button>
+    <button type="button" class="lightbox-nav lightbox-next" id="lightboxNext" aria-label="Następne zdjęcie">›</button>
+    <div class="lightbox-content">
+      <img id="lightboxImage" src="" alt="Zdjęcie" class="lightbox-image" />
+      <div class="lightbox-caption" id="lightboxCaption"></div>
+    </div>
+  </div>
+
+  <!-- Auth Modal -->
+  <div
+    id="auth-modal"
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="auth-title"
+    aria-hidden="true"
+  >
+    <div class="modal__dialog" tabindex="-1" role="document">
+      <button
+        class="modal__close"
+        type="button"
+        aria-label="Zamknij"
+        data-close
+        data-i18n=""
+        data-i18n-attrs="aria-label:auth.close.label"
+      >
+        ×
+      </button>
+      <h2 id="auth-title" data-i18n="auth.title">Dołącz do przygody</h2>
+      <p class="auth-intro" data-i18n="auth.intro">Zaloguj się, utwórz konto lub graj jako gość.</p>
+      <div class="auth-modal__content" data-auth-view-root>
+        <div data-auth="login">
+          <div role="presentation">
+            <div class="auth-modal__tabs" role="tablist">
+              <button
+                type="button"
+                class="auth-modal__tab is-active"
+                role="tab"
+                id="authTabLogin"
+                aria-selected="true"
+                aria-controls="authPanelLogin"
+                data-auth-tab="login"
+                data-i18n="auth.tab.login"
+              >
+                Logowanie
+              </button>
+              <button
+                type="button"
+                class="auth-modal__tab"
+                role="tab"
+                id="authTabRegister"
+                aria-selected="false"
+                aria-controls="authPanelRegister"
+                data-auth-tab="register"
+                data-i18n="auth.tab.register"
+                tabindex="-1"
+              >
+                Rejestracja
+              </button>
+              <button
+                type="button"
+                class="auth-modal__tab"
+                role="tab"
+                id="authTabGuest"
+                aria-selected="false"
+                aria-controls="authPanelGuest"
+                data-auth-tab="guest"
+                data-i18n="auth.tab.guest"
+                tabindex="-1"
+              >
+                Gość
+              </button>
+            </div>
+            <div class="auth-modal__panels">
+              <section
+                id="authPanelLogin"
+                class="auth-modal__panel is-active"
+                role="tabpanel"
+                aria-labelledby="authTabLogin"
+                data-auth="login"
+                data-auth-panel="login"
+              >
+                <form id="form-login" class="auth-form" novalidate data-ce-auth-handler="supabase">
+                  <label for="loginEmail" data-i18n="auth.login.username">Email lub nazwa użytkownika</label>
+                  <input
+                    id="loginEmail"
+                    name="email"
+                    type="text"
+                    autocomplete="username"
+                    required
+                    aria-label="Email lub nazwa użytkownika"
+                    data-i18n=""
+                    data-i18n-attrs="aria-label:auth.login.username,placeholder:auth.login.username"
+                    placeholder="Email lub nazwa użytkownika"
+                  />
+                  <label for="loginPassword" data-i18n="auth.password">Hasło</label>
+                  <input
+                    id="loginPassword"
+                    name="password"
+                    type="password"
+                    autocomplete="current-password"
+                    required
+                    aria-label="Hasło"
+                    data-i18n=""
+                    data-i18n-attrs="aria-label:auth.password"
+                  />
+                  <div class="auth-form__actions">
+                    <button
+                      type="submit"
+                      class="btn btn--primary"
+                      data-i18n="auth.login.button"
+                      data-i18n-attrs="aria-label:auth.login.button"
+                      aria-label="Zaloguj się"
+                    >
+                      Zaloguj się
+                    </button>
+                    <button
+                      type="button"
+                      class="auth-form__link"
+                      id="loginForgotPassword"
+                      data-i18n="auth.reset.button"
+                      data-i18n-attrs="aria-label:auth.reset.button"
+                      aria-label="🔑 Resetuj hasło"
+                    >
+                      🔑 Resetuj hasło
+                    </button>
+                  </div>
+                  <div data-auth="message" aria-live="polite"></div>
+                  <p class="auth-form__meta" id="authResendVerification" hidden>
+                    Nie otrzymałeś wiadomości z potwierdzeniem?
+                    <button type="button" class="auth-form__link" id="btn-resend-verification">
+                      Wyślij ponownie link weryfikacyjny
+                    </button>
+                  </p>
+                </form>
+              </section>
+              <section
+                id="authPanelRegister"
+                class="auth-modal__panel"
+                role="tabpanel"
+                aria-labelledby="authTabRegister"
+                data-auth="login"
+                data-auth-panel="register"
+                hidden
+              >
+                <form
+                  id="form-register"
+                  class="auth-form"
+                  novalidate
+                  data-auth="register"
+                  data-ce-auth-handler="supabase"
+                >
+                  <label for="registerFirstName" data-i18n="auth.firstName">Imię</label>
+                  <input
+                    id="registerFirstName"
+                    name="firstName"
+                    type="text"
+                    autocomplete="given-name"
+                    maxlength="60"
+                    required
+                    aria-label="Imię"
+                    data-i18n=""
+                    data-i18n-attrs="aria-label:auth.firstName"
+                  />
+                  <label for="registerUsername" data-i18n="auth.username">Nazwa użytkownika</label>
+                  <input
+                    id="registerUsername"
+                    name="username"
+                    type="text"
+                    autocomplete="username"
+                    minlength="3"
+                    maxlength="20"
+                    pattern="[a-zA-Z0-9_]+"
+                    required
+                    aria-label="Nazwa użytkownika"
+                    data-i18n=""
+                    data-i18n-attrs="aria-label:auth.username,placeholder:auth.username.hint"
+                    placeholder="3-20 znaków, litery i cyfry"
+                  />
+                  <label for="registerEmail" data-i18n="auth.email">Adres e-mail</label>
+                  <input
+                    id="registerEmail"
+                    name="email"
+                    type="email"
+                    autocomplete="email"
+                    required
+                    aria-label="Adres e-mail"
+                    data-i18n=""
+                    data-i18n-attrs="aria-label:auth.email"
+                  />
+                  <label for="registerPassword" data-i18n="auth.password">Hasło</label>
+                  <input
+                    id="registerPassword"
+                    name="password"
+                    type="password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required
+                    aria-label="Hasło"
+                    data-i18n=""
+                    data-i18n-attrs="aria-label:auth.password"
+                  />
+                  <label for="registerPasswordConfirm" data-i18n="auth.confirmPassword">Powtórz hasło</label>
+                  <input
+                    id="registerPasswordConfirm"
+                    name="passwordConfirm"
+                    type="password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    aria-label="Powtórz hasło"
+                    data-i18n=""
+                    data-i18n-attrs="aria-label:auth.confirmPassword"
+                  />
+                  <div data-auth="message" aria-live="polite"></div>
+                  <p class="form-hint" data-i18n="auth.register.hint">
+                    Po rejestracji sprawdź skrzynkę e-mail, aby potwierdzić konto.
+                  </p>
+                  <button
+                    type="submit"
+                    class="btn btn--primary"
+                    data-i18n="auth.register.button"
+                    data-i18n-attrs="aria-label:auth.register.button"
+                    aria-label="Utwórz konto"
+                  >
+                    Utwórz konto
+                  </button>
+                </form>
+              </section>
+              <section
+                id="authPanelGuest"
+                class="auth-modal__panel"
+                role="tabpanel"
+                aria-labelledby="authTabGuest"
+                data-auth="login"
+                data-auth-panel="guest"
+                hidden
+              >
+                <div class="auth-guest">
+                  <p data-i18n="auth.guest.description">
+                    Możesz grać jako gość – postęp zapisze się tylko na tym urządzeniu.
+                  </p>
+                  <button
+                    type="button"
+                    class="btn btn--secondary"
+                    id="btn-guest"
+                    data-i18n="auth.guest.button"
+                    data-i18n-attrs="aria-label:auth.guest.button"
+                    aria-label="Graj jako gość"
+                  >
+                    Graj jako gość
+                  </button>
+                </div>
+              </section>
+            </div>
+            <dialog id="resetPasswordDialog" class="auth-reset-dialog">
+              <form id="form-reset-password" class="auth-form" novalidate>
+                <header class="auth-reset-dialog__header">
+                  <h2 data-i18n="auth.reset.title">Resetuj hasło</h2>
+                  <button type="button" class="auth-form__link" id="btn-reset-close" data-i18n-attrs="aria-label:auth.reset.close" aria-label="Zamknij">✖</button>
+                </header>
+                <p data-i18n="auth.reset.description">Podaj adres e-mail powiązany z kontem, a wyślemy link do zmiany hasła.</p>
+                <label for="resetEmail" data-i18n="auth.reset.emailLabel">Adres e-mail</label>
+                <input id="resetEmail" name="email" type="email" autocomplete="email" required />
+                <div class="auth-form__actions">
+                  <button type="submit" class="btn btn--primary">Wyślij link resetujący</button>
+                  <button type="button" class="auth-form__link" id="btn-reset-cancel">Anuluj</button>
+                </div>
+              </form>
+            </dialog>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
+  
+  <!-- Load POI data first -->
+  <script src="js/poi-loader.js"></script>
+  <script src="js/data-places.js"></script>
+  
+  <script src="js/i18n.js" defer></script>
+  <script src="js/seo.js" defer></script>
+  <script src="js/mobile-nav.js" defer></script>
+  <script src="assets/js/modal-auth.js" defer></script>
+  <script type="module" src="js/community/ratings.js"></script>
+  <script type="module" src="js/community/comments.js"></script>
+  <script type="module" src="js/community/likes.js"></script>
+  <script type="module" src="js/community/photos.js"></script>
+  <script type="module" src="js/community/notifications.js"></script>
+  <script type="module" src="js/community/location-filter.js"></script>
+  <script type="module" src="js/community/ui.js"></script>
+</body>
+</html>

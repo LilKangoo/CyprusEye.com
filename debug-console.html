@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Console</title>
+    <style>
+        body { margin: 0; padding: 20px; font-family: monospace; background: #1a1a1a; color: #f0f0f0; }
+        h1 { color: #60a5fa; }
+        .error { color: #f87171; background: #7f1d1d; padding: 10px; margin: 5px 0; border-radius: 4px; }
+        .warning { color: #fbbf24; background: #78350f; padding: 10px; margin: 5px 0; border-radius: 4px; }
+        .info { color: #93c5fd; background: #1e3a8a; padding: 10px; margin: 5px 0; border-radius: 4px; }
+        .success { color: #86efac; background: #14532d; padding: 10px; margin: 5px 0; border-radius: 4px; }
+        pre { background: #262626; padding: 15px; border-radius: 6px; overflow-x: auto; }
+        button { background: #2563eb; color: white; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-size: 16px; margin: 5px; }
+        button:hover { background: #1d4ed8; }
+        .test-section { margin: 20px 0; padding: 20px; background: #262626; border-radius: 8px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 Debug Console - CyprusEye</h1>
+    
+    <div class="test-section">
+        <h2>Szybkie Testy</h2>
+        <button onclick="testLeaflet()">Test Leaflet</button>
+        <button onclick="testAppJs()">Test app.js</button>
+        <button onclick="testModules()">Test Modułów ES6</button>
+        <button onclick="testMap()">Test Mapa DOM</button>
+        <button onclick="openIndex()">Otwórz Index.html</button>
+    </div>
+    
+    <div id="output"></div>
+    
+    <script>
+        const output = document.getElementById('output');
+        
+        function log(message, type = 'info') {
+            const div = document.createElement('div');
+            div.className = type;
+            div.innerHTML = `<strong>[${new Date().toLocaleTimeString()}]</strong> ${message}`;
+            output.appendChild(div);
+            console.log(message);
+        }
+        
+        function testLeaflet() {
+            output.innerHTML = '';
+            log('🧪 Test Leaflet...', 'info');
+            
+            if (typeof L !== 'undefined') {
+                log(`✅ Leaflet załadowany! Wersja: ${L.version}`, 'success');
+            } else {
+                log('❌ Leaflet NIE JEST załadowany!', 'error');
+                log('To znaczy że problem jest z ładowaniem Leaflet w index.html', 'warning');
+            }
+        }
+        
+        function testAppJs() {
+            output.innerHTML = '';
+            log('🧪 Test app.js...', 'info');
+            
+            // Sprawdź czy app.js się załadował
+            fetch('/app.js')
+                .then(response => {
+                    if (response.ok) {
+                        log(`✅ app.js odpowiada (status: ${response.status})`, 'success');
+                        return response.text();
+                    } else {
+                        throw new Error(`Status: ${response.status}`);
+                    }
+                })
+                .then(content => {
+                    log(`✅ app.js ma ${content.length} znaków`, 'success');
+                    
+                    // Sprawdź czy ma importy
+                    if (content.includes('import')) {
+                        log('✅ app.js używa ES6 imports', 'success');
+                        log('⚠️ MUSI być ładowany jako type="module"', 'warning');
+                    }
+                    
+                    // Sprawdź kluczowe funkcje
+                    const functions = ['initMap', 'bootstrap', 'loadLeafletResources', 'setupMapLazyLoading'];
+                    functions.forEach(fn => {
+                        if (content.includes(`function ${fn}`)) {
+                            log(`✅ Znaleziono funkcję: ${fn}`, 'success');
+                        } else {
+                            log(`⚠️ Nie znaleziono funkcji: ${fn}`, 'warning');
+                        }
+                    });
+                })
+                .catch(error => {
+                    log(`❌ Błąd ładowania app.js: ${error.message}`, 'error');
+                });
+        }
+        
+        function testModules() {
+            output.innerHTML = '';
+            log('🧪 Test Modułów ES6...', 'info');
+            
+            const modules = [
+                '/src/utils/dates.js',
+                '/src/utils/translations.js',
+                '/src/state/store.js',
+                '/src/state/accounts.js'
+            ];
+            
+            modules.forEach(module => {
+                fetch(module)
+                    .then(response => {
+                        if (response.ok) {
+                            log(`✅ ${module} - OK`, 'success');
+                        } else {
+                            log(`❌ ${module} - Błąd ${response.status}`, 'error');
+                        }
+                    })
+                    .catch(error => {
+                        log(`❌ ${module} - ${error.message}`, 'error');
+                    });
+            });
+        }
+        
+        function testMap() {
+            output.innerHTML = '';
+            log('🧪 Test Element Mapy...', 'info');
+            
+            // Sprawdź w nowym oknie
+            const win = window.open('/index.html', '_blank');
+            
+            setTimeout(() => {
+                try {
+                    const mapElement = win.document.getElementById('map');
+                    if (mapElement) {
+                        log('✅ Element #map istnieje', 'success');
+                        log(`📐 Wymiary: ${mapElement.offsetWidth}x${mapElement.offsetHeight}px`, 'info');
+                        
+                        if (mapElement.offsetHeight === 0) {
+                            log('❌ PROBLEM: Mapa ma wysokość 0px!', 'error');
+                        }
+                        
+                        // Sprawdź czy Leaflet został zainicjalizowany
+                        const hasLeaflet = mapElement.querySelector('.leaflet-container');
+                        if (hasLeaflet) {
+                            log('✅ Leaflet zainicjalizowany na mapie', 'success');
+                        } else {
+                            log('❌ PROBLEM: Leaflet NIE został zainicjalizowany!', 'error');
+                            log('To znaczy że initMap() nie został wywołany', 'warning');
+                        }
+                    } else {
+                        log('❌ Element #map NIE ISTNIEJE!', 'error');
+                    }
+                } catch (error) {
+                    log(`❌ Błąd: ${error.message}`, 'error');
+                }
+            }, 2000);
+        }
+        
+        function openIndex() {
+            window.open('/index.html', '_blank');
+            log('📂 Otwarto index.html w nowej karcie', 'info');
+            log('⚠️ Otwórz DevTools (F12) w nowej karcie i sprawdź Console!', 'warning');
+        }
+        
+        // Auto-test po załadowaniu
+        window.addEventListener('load', () => {
+            log('🚀 Debug Console Załadowany', 'success');
+            log('Kliknij przycisk aby uruchomić test', 'info');
+        });
+    </script>
+</body>
+</html>
