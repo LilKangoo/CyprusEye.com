@@ -1,1 +1,0 @@
-INSERT INTO "public"."xp_rules" ("event_key", "xp_delta") VALUES ('bonus_photo_upload', '20'), ('daily_login', '5'), ('visit_poi', '10');
