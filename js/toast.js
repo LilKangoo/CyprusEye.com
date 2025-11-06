@@ -75,5 +75,12 @@
   window.showToast = window.Toast.show;
 })();
 
-export {};
+// Export for ES6 modules
+export function showToast(message, type = 'info', ttl = 3500) {
+  if (typeof window !== 'undefined' && window.showToast) {
+    return window.showToast(message, type, ttl);
+  }
+  console.warn('showToast not available');
+  return null;
+}
 
