@@ -1,7 +1,7 @@
 // Cloudflare Pages Function: Update account (email + enforcement flags)
 // POST { email?: string, require_password_change?: boolean, require_email_update?: boolean }
 
-import { createSupabaseClients, requireAdmin } from '../../../functions/_utils/supabaseAdmin.js';
+import { createSupabaseClients, requireAdmin } from '../../../../_utils/supabaseAdmin';
 
 export async function onRequestPost(context) {
   try {

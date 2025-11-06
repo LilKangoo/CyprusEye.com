@@ -2,7 +2,7 @@
 // POST { ban: boolean, duration?: '24h'|'7d'|'30d'|'permanent'|'custom', until?: ISO8601, reason?: string, block_email?: boolean }
 // Requires SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY (and optionally SUPABASE_ANON_KEY)
 
-import { createSupabaseClients, requireAdmin } from '../../../_utils/supabaseAdmin.js';
+import { createSupabaseClients, requireAdmin } from '../../../../_utils/supabaseAdmin';
 
 export async function onRequestPost(context) {
   try {
