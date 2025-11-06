@@ -1808,6 +1808,39 @@ let fleetState = {
   typeFilter: ''
 };
 
+// Setup event delegation for car availability dropdowns
+function setupFleetEventListeners() {
+  console.log('🔧 Setting up fleet event listeners...');
+  
+  const tbody = $('#fleetTableBody');
+  if (!tbody) {
+    console.warn('⚠️ Fleet table body not found');
+    return;
+  }
+  
+  // Use event delegation on tbody instead of document
+  tbody.removeEventListener('change', handleAvailabilityChange);
+  tbody.addEventListener('change', handleAvailabilityChange);
+  
+  console.log('✅ Event listener attached to fleetTableBody');
+}
+
+function handleAvailabilityChange(e) {
+  console.log('🎯 Change event detected on:', e.target);
+  
+  if (e.target && e.target.classList.contains('car-availability-select')) {
+    const carId = e.target.dataset.carId;
+    const newValue = e.target.value;
+    console.log('🔄 Availability dropdown changed:', { carId, newValue, element: e.target });
+    
+    if (carId && newValue) {
+      toggleCarAvailability(carId, newValue);
+    } else {
+      console.error('❌ Missing carId or newValue:', { carId, newValue });
+    }
+  }
+}
+
 async function loadFleetData() {
   try {
     const client = ensureSupabase();
@@ -1891,11 +1924,14 @@ async function loadFleetData() {
           <td>
             <select 
               class="car-availability-select" 
-              style="padding: 6px 8px; font-size: 13px; background-color: ${car.is_available ? '#10b981' : '#ef4444'}; color: white; border: none; border-radius: 4px; font-weight: 500; cursor: pointer;"
+              style="padding: 8px 12px; font-size: 13px; font-weight: 600; border: 2px solid; border-radius: 6px; cursor: pointer; min-width: 140px;
+                     background-color: ${car.is_available ? '#d1fae5' : '#fee2e2'};
+                     color: ${car.is_available ? '#065f46' : '#991b1b'};
+                     border-color: ${car.is_available ? '#10b981' : '#ef4444'};"
               data-car-id="${car.id}"
             >
-              <option value="true" ${car.is_available ? 'selected' : ''} style="background: white; color: #10b981;">✓ Available</option>
-              <option value="false" ${!car.is_available ? 'selected' : ''} style="background: white; color: #ef4444;">✗ Not Available</option>
+              <option value="true" ${car.is_available ? 'selected' : ''}>✓ Available</option>
+              <option value="false" ${!car.is_available ? 'selected' : ''}>✗ Not Available</option>
             </select>
             ${car.stock_count ? `<div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 4px;">Stock: ${car.stock_count}</div>` : ''}
           </td>
@@ -1920,6 +1956,9 @@ async function loadFleetData() {
         </tr>
       `;
     }).join('');
+
+    // Setup event listeners after rendering table
+    setupFleetEventListeners();
 
   } catch (e) {
     console.error('Error loading fleet:', e);
@@ -2470,29 +2509,6 @@ function switchCarsTab(tab) {
     loadFleetData();
   }
 }
-
-// Setup event delegation for car availability dropdowns
-function setupFleetEventListeners() {
-  // Remove any existing listener to avoid duplicates
-  document.removeEventListener('change', handleAvailabilityChange);
-  // Add event delegation for availability dropdowns
-  document.addEventListener('change', handleAvailabilityChange);
-}
-
-function handleAvailabilityChange(e) {
-  if (e.target && e.target.classList.contains('car-availability-select')) {
-    const carId = e.target.dataset.carId;
-    const newValue = e.target.value;
-    console.log('🔄 Availability dropdown changed:', { carId, newValue });
-    
-    if (carId && newValue) {
-      toggleCarAvailability(carId, newValue);
-    }
-  }
-}
-
-// Initialize event listeners on page load
-setupFleetEventListeners();
 
 // Make functions global
 window.loadFleetData = loadFleetData;
