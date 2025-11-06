@@ -1577,6 +1577,9 @@ function openFleetCarModal(carData = null) {
     errorDiv.textContent = '';
   }
 
+  // Reset image preview
+  resetImagePreview();
+
   if (carData) {
     // Edit mode
     title.textContent = `Edit ${carData.car_model}`;
@@ -1613,6 +1616,11 @@ function openFleetCarModal(carData = null) {
     // Image and availability
     $('#fleetCarImageUrl').value = carData.image_url || '';
     $('#fleetCarIsAvailable').checked = carData.is_available !== false;
+    
+    // Show existing image if available
+    if (carData.image_url) {
+      showImagePreview(carData.image_url);
+    }
     
     // Features (convert JSON array to text)
     if (carData.features) {
@@ -1652,6 +1660,163 @@ function openFleetCarModal(carData = null) {
   // Show modal
   modal.hidden = false;
 }
+
+// Image upload functions
+function showImagePreview(imageUrl) {
+  const preview = $('#fleetCarImagePreview');
+  const previewImg = $('#fleetCarImagePreviewImg');
+  
+  if (preview && previewImg && imageUrl) {
+    previewImg.src = imageUrl;
+    preview.hidden = false;
+  }
+}
+
+function resetImagePreview() {
+  const preview = $('#fleetCarImagePreview');
+  const previewImg = $('#fleetCarImagePreviewImg');
+  const fileInput = $('#fleetCarImageFile');
+  const progress = $('#fleetCarImageUploadProgress');
+  
+  if (preview) preview.hidden = true;
+  if (previewImg) previewImg.src = '';
+  if (fileInput) fileInput.value = '';
+  if (progress) progress.hidden = true;
+  
+  $('#fleetCarImageUrl').value = '';
+}
+
+function removeCarImage() {
+  resetImagePreview();
+  showToast('Image removed. Save the form to apply changes.', 'info');
+}
+
+async function uploadCarImage(file) {
+  const client = ensureSupabase();
+  if (!client) throw new Error('Database connection not available');
+
+  // Validate file
+  if (!file) throw new Error('No file selected');
+  
+  const maxSize = 5 * 1024 * 1024; // 5MB
+  if (file.size > maxSize) {
+    throw new Error('File too large. Maximum size is 5MB.');
+  }
+
+  const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!allowedTypes.includes(file.type)) {
+    throw new Error('Invalid file type. Only JPG, PNG, and WebP are allowed.');
+  }
+
+  // Generate unique filename
+  const timestamp = Date.now();
+  const randomStr = Math.random().toString(36).substring(2, 8);
+  const ext = file.name.split('.').pop();
+  const filename = `car-${timestamp}-${randomStr}.${ext}`;
+
+  // Show progress
+  const progressDiv = $('#fleetCarImageUploadProgress');
+  const progressBar = $('#fleetCarImageUploadProgressBar');
+  const statusText = $('#fleetCarImageUploadStatus');
+  
+  if (progressDiv) progressDiv.hidden = false;
+  if (statusText) statusText.textContent = 'Uploading...';
+  if (progressBar) progressBar.style.width = '30%';
+
+  try {
+    // Upload to Supabase Storage
+    const { data, error } = await client.storage
+      .from('car-images')
+      .upload(filename, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (error) throw error;
+
+    if (progressBar) progressBar.style.width = '100%';
+    if (statusText) statusText.textContent = 'Upload complete!';
+
+    // Get public URL
+    const { data: urlData } = client.storage
+      .from('car-images')
+      .getPublicUrl(filename);
+
+    if (!urlData || !urlData.publicUrl) {
+      throw new Error('Failed to get public URL for uploaded image');
+    }
+
+    console.log('Image uploaded successfully:', urlData.publicUrl);
+
+    // Set the URL in hidden field
+    $('#fleetCarImageUrl').value = urlData.publicUrl;
+    
+    // Show preview
+    showImagePreview(urlData.publicUrl);
+
+    // Hide progress after a moment
+    setTimeout(() => {
+      if (progressDiv) progressDiv.hidden = true;
+      if (progressBar) progressBar.style.width = '0%';
+    }, 1500);
+
+    showToast('Image uploaded successfully!', 'success');
+    
+    return urlData.publicUrl;
+
+  } catch (e) {
+    if (progressBar) progressBar.style.width = '0%';
+    if (statusText) statusText.textContent = 'Upload failed';
+    if (progressDiv) {
+      setTimeout(() => {
+        progressDiv.hidden = true;
+      }, 3000);
+    }
+    throw e;
+  }
+}
+
+function handleImageFileChange(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  uploadCarImage(file).catch(e => {
+    console.error('Upload error:', e);
+    showToast('Failed to upload image: ' + (e.message || 'Unknown error'), 'error');
+    // Reset file input
+    event.target.value = '';
+  });
+}
+
+function handleUseImageUrl() {
+  const urlInput = $('#fleetCarImageUrlInput');
+  if (!urlInput) return;
+
+  const imageUrl = urlInput.value.trim();
+  if (!imageUrl) {
+    showToast('Please enter an image URL', 'warning');
+    return;
+  }
+
+  // Validate URL
+  try {
+    new URL(imageUrl);
+  } catch (e) {
+    showToast('Invalid URL format', 'error');
+    return;
+  }
+
+  // Set URL and show preview
+  $('#fleetCarImageUrl').value = imageUrl;
+  showImagePreview(imageUrl);
+  urlInput.value = '';
+  showToast('Image URL set successfully', 'success');
+}
+
+// Make functions global
+window.removeCarImage = removeCarImage;
+window.handleImageFileChange = handleImageFileChange;
+window.handleUseImageUrl = handleUseImageUrl;
 
 function closeFleetCarModal() {
   const modal = $('#fleetCarModal');
@@ -2960,6 +3125,22 @@ function initEventListeners() {
   const fleetCarFormCancel = $('#fleetCarFormCancel');
   if (fleetCarFormCancel) {
     fleetCarFormCancel.addEventListener('click', closeFleetCarModal);
+  }
+
+  // Image upload controls
+  const fleetCarImageFile = $('#fleetCarImageFile');
+  if (fleetCarImageFile) {
+    fleetCarImageFile.addEventListener('change', handleImageFileChange);
+  }
+
+  const btnRemoveCarImage = $('#btnRemoveCarImage');
+  if (btnRemoveCarImage) {
+    btnRemoveCarImage.addEventListener('click', removeCarImage);
+  }
+
+  const btnUseImageUrl = $('#btnUseImageUrl');
+  if (btnUseImageUrl) {
+    btnUseImageUrl.addEventListener('click', handleUseImageUrl);
   }
 
   // Cars actions (will be updated by switchCarsTab)
