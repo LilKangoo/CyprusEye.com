@@ -55,7 +55,7 @@ CREATE TABLE IF NOT EXISTS car_bookings (
   
   -- Constraints
   CONSTRAINT valid_dates CHECK (return_date >= pickup_date),
-  CONSTRAINT valid_status CHECK (status IN ('pending', 'confirmed', 'completed', 'cancelled')),
+  CONSTRAINT valid_status CHECK (status IN ('pending', 'message_sent', 'confirmed', 'active', 'completed', 'cancelled')),
   CONSTRAINT valid_location CHECK (location IN ('paphos', 'larnaca', 'all-cyprus'))
 );
 
@@ -148,7 +148,7 @@ ORDER BY created_at DESC;
 
 -- Add comments
 COMMENT ON TABLE car_bookings IS 'Customer car rental reservations from website forms';
-COMMENT ON COLUMN car_bookings.status IS 'pending: new booking | confirmed: admin confirmed | completed: rental finished | cancelled: booking cancelled';
+COMMENT ON COLUMN car_bookings.status IS 'pending: new booking | message_sent: confirmation sent | confirmed: admin confirmed | active: rental in progress | completed: rental finished | cancelled: booking cancelled';
 COMMENT ON COLUMN car_bookings.source IS 'Where the booking came from (website_autopfo, website_autolca, admin, etc)';
 COMMENT ON COLUMN car_bookings.pickup_location IS 'airport_pfo, hotel, city_center, other';
 

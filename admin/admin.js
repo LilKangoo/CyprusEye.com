@@ -1427,12 +1427,22 @@ async function viewCarBookingDetails(bookingId) {
       <div style="display: grid; gap: 24px;">
         <!-- Header Info -->
         <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
-          <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px;">
             <div>
               <h4 style="margin: 0; font-size: 16px; font-weight: 600;">Booking #${booking.id.slice(0, 8).toUpperCase()}</h4>
               <p style="margin: 4px 0 0; font-size: 12px; color: var(--admin-text-muted);">Created: ${createdAt}</p>
             </div>
-            <span class="badge ${statusClass}" style="font-size: 14px; padding: 6px 12px;">${(booking.status || 'pending').toUpperCase()}</span>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <select id="bookingStatusDropdown" class="admin-form-field" style="padding: 8px 12px; font-size: 14px; font-weight: 600;" onchange="updateBookingStatus('${booking.id}', this.value)">
+                <option value="pending" ${booking.status === 'pending' ? 'selected' : ''}>⏳ Pending</option>
+                <option value="message_sent" ${booking.status === 'message_sent' ? 'selected' : ''}>📧 Wiadomość wysłana</option>
+                <option value="confirmed" ${booking.status === 'confirmed' ? 'selected' : ''}>✅ Potwierdzone</option>
+                <option value="active" ${booking.status === 'active' ? 'selected' : ''}>🚗 Active</option>
+                <option value="completed" ${booking.status === 'completed' ? 'selected' : ''}>✔️ Completed</option>
+                <option value="cancelled" ${booking.status === 'cancelled' ? 'selected' : ''}>❌ Cancelled</option>
+              </select>
+              <span class="badge ${statusClass}" style="font-size: 14px; padding: 6px 12px;">${(booking.status || 'pending').toUpperCase()}</span>
+            </div>
           </div>
         </div>
 
@@ -1793,10 +1803,61 @@ async function handleEditBookingSubmit(event) {
   }
 }
 
+// Update booking status from dropdown
+async function updateBookingStatus(bookingId, newStatus) {
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    console.log(`Updating booking ${bookingId} status to: ${newStatus}`);
+
+    const updateData = {
+      status: newStatus,
+      updated_at: new Date().toISOString()
+    };
+
+    // Add confirmed timestamp if status is confirmed
+    if (newStatus === 'confirmed') {
+      updateData.confirmed_at = new Date().toISOString();
+      updateData.confirmed_by = adminState.user?.id || null;
+    }
+
+    const { error } = await client
+      .from('car_bookings')
+      .update(updateData)
+      .eq('id', bookingId);
+
+    if (error) {
+      console.error('Failed to update booking status:', error);
+      showToast('Błąd aktualizacji statusu: ' + error.message, 'error');
+      return;
+    }
+
+    showToast(`Status zmieniony na: ${newStatus}`, 'success');
+
+    // Reload data
+    await loadCarsData();
+
+    // Refresh modal if still open
+    const modal = $('#bookingDetailsModal');
+    if (modal && !modal.hidden) {
+      await viewCarBookingDetails(bookingId);
+    }
+
+  } catch (e) {
+    console.error('Error updating booking status:', e);
+    showToast('Błąd: ' + e.message, 'error');
+  }
+}
+
 // Make functions global for onclick handlers
 window.viewCarBookingDetails = viewCarBookingDetails;
 window.loadCarsData = loadCarsData;
 window.openEditBooking = openEditBooking;
+window.updateBookingStatus = updateBookingStatus;
 
 // =====================================================
 // FLEET MANAGEMENT
