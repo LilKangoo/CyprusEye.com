@@ -24,25 +24,31 @@ ON CONFLICT (id) DO UPDATE SET
   file_size_limit = 5242880,
   allowed_mime_types = ARRAY['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
 
--- 3. Allow anyone to view car images (public read)
-CREATE POLICY IF NOT EXISTS "Public can view car images"
+-- 3. Drop existing policies if they exist
+DROP POLICY IF EXISTS "Public can view car images" ON storage.objects;
+DROP POLICY IF EXISTS "Authenticated users can upload car images" ON storage.objects;
+DROP POLICY IF EXISTS "Users can update car images" ON storage.objects;
+DROP POLICY IF EXISTS "Users can delete car images" ON storage.objects;
+
+-- 4. Allow anyone to view car images (public read)
+CREATE POLICY "Public can view car images"
 ON storage.objects FOR SELECT
 USING (bucket_id = 'car-images');
 
--- 4. Allow authenticated users to upload car images
-CREATE POLICY IF NOT EXISTS "Authenticated users can upload car images"
+-- 5. Allow authenticated users to upload car images
+CREATE POLICY "Authenticated users can upload car images"
 ON storage.objects FOR INSERT
 TO authenticated
 WITH CHECK (bucket_id = 'car-images');
 
--- 5. Allow car image owners to update their images
-CREATE POLICY IF NOT EXISTS "Users can update car images"
+-- 6. Allow car image owners to update their images
+CREATE POLICY "Users can update car images"
 ON storage.objects FOR UPDATE
 TO authenticated
 USING (bucket_id = 'car-images');
 
--- 6. Allow car image owners to delete their images
-CREATE POLICY IF NOT EXISTS "Users can delete car images"
+-- 7. Allow car image owners to delete their images
+CREATE POLICY "Users can delete car images"
 ON storage.objects FOR DELETE
 TO authenticated
 USING (bucket_id = 'car-images');
