@@ -2083,7 +2083,7 @@ async function toggleCarAvailability(carId, isAvailable) {
 
     const { error } = await client
       .from('car_offers')
-      .update({ is_available: !!isAvailable })
+      .update({ is_available: !!isAvailable }, { returning: 'minimal' })
       .eq('id', carId);
 
     if (error) throw error;
@@ -2364,18 +2364,15 @@ async function handleFleetCarSubmit(event) {
     // Insert or Update
     let result;
     if (carId) {
-      // Update existing car
-      const { data, error } = await client
+      // Update existing car (no select to avoid 406 when zero rows are returned)
+      const { error } = await client
         .from('car_offers')
-        .update(carData)
-        .eq('id', carId)
-        .select()
-        .maybeSingle();
-      
+        .update(carData, { returning: 'minimal' })
+        .eq('id', carId);
+
       if (error) throw error;
-      if (!data) throw new Error('Car not found or no permission to update');
-      result = data;
-      
+
+      result = { id: carId, ...carData };
       showToast(`${carData.car_model} updated successfully`, 'success');
     } else {
       // Insert new car
