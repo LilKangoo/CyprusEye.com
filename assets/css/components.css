@@ -6494,6 +6494,10 @@ body.u-lock-scroll {
   pointer-events: auto;
 }
 
+.sos-modal[hidden] {
+  display: none !important;
+}
+
 .sos-dialog {
   background: var(--surface-strong);
   border-radius: 28px;
