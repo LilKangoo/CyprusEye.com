@@ -177,6 +177,16 @@
   transform: translateY(-2px);
 }
 
+/* Active card highlight when synced with panel/map */
+.poi-card.active {
+  border-color: var(--color-primary-600);
+  box-shadow: 0 10px 28px rgba(37, 99, 235, 0.18);
+  transform: translateY(-2px);
+}
+
+/* Smooth scrolling */
+html { scroll-behavior: smooth; }
+
 .poi-card-header {
   display: flex;
   align-items: flex-start;
@@ -599,9 +609,25 @@
   gap: 0.125rem;
 }
 
+.comment-author-name-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
 .comment-author-name {
   font-weight: 600;
   color: var(--color-neutral-900);
+}
+
+.comment-author-level {
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.125rem 0.5rem;
+  border-radius: 12px;
+  background: linear-gradient(135deg, var(--color-primary-500), var(--color-primary-600));
+  color: white;
+  white-space: nowrap;
 }
 
 .comment-timestamp {
@@ -963,6 +989,16 @@ textarea:focus-visible {
   /* Larger tap area for photo upload */
   .photo-preview-container {
     min-height: 44px;
+  }
+  
+  /* Comment level badge on mobile */
+  .comment-author-level {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.4rem;
+  }
+  
+  .comment-author-name-row {
+    gap: 0.35rem;
   }
   
   /* POI cards more touch-friendly */

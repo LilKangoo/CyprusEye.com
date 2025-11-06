@@ -13,8 +13,12 @@ export const sb = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey, {
   },
 })
 
+// Export as both 'sb' and 'supabase' for compatibility
+export const supabase = sb;
+
 if (typeof window !== 'undefined') {
   window.sb = sb
+  window.supabase = sb
   window.__SB__ = sb
   if (typeof window.getSupabase !== 'function') {
     window.getSupabase = () => sb

@@ -15,7 +15,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     
     <!-- Security: Content Security Policy -->
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://esm.sh https://unpkg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://*.tile.openstreetmap.org https://esm.sh; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
     
     <meta name="theme-color" content="#2563eb" />
     <meta name="robots" content="index,follow" />
@@ -148,12 +148,11 @@
       <main id="main-content" class="standalone-main">
         <section class="card surface-card standalone-hero" aria-labelledby="standaloneHeroTitle">
           <div class="standalone-hero-content">
-            <p class="standalone-hero-badge" data-i18n="carRentalPfo.page.hero.badge">Pafos • Bez kaucji • Polska obsługa 24/7</p>
-            <h1 id="standaloneHeroTitle" data-i18n="carRentalPfo.page.hero.title">Wynajem aut w Pafos bez dopłat</h1>
+            <p class="standalone-hero-badge" data-i18n="carRentalPfo.page.hero.badge">Paphos • Bez depozytu • Polska obsługa 24/7</p>
+            <h1 id="standaloneHeroTitle" data-i18n="carRentalPfo.page.hero.title">Wynajmij auto Paphos – Wynajmij Dzisiaj</h1>
             <p data-i18n="carRentalPfo.page.hero.description">
-              Poznaj flotę samochodów dostępnych w Pafos, odbierz auto na lotnisku PFO lub pod swoim hotelem, a przy krótszych
-              wynajmach dolicz tylko symboliczne opłaty lotniskowe. Kalkulator poniżej pokaże finalny koszt z wszystkimi
-              dodatkami.
+              Za każdy dzień wynajmu auta u nas dajemy <strong>1€ na konserwację żółwi 🐢</strong><br>
+              Dbamy o konserwację Cypru z waszą pomocą! Odbierz auto na lotnisku PFO lub pod swoim hotelem.
             </p>
             <div class="standalone-hero-actions">
               <a class="btn btn-primary primary" href="#carRentalSection" data-i18n="carRentalPfo.page.hero.ctaFleet">Zobacz flotę</a>
@@ -237,12 +236,13 @@
             <article>
               <h3>Ceny | Flota | Dodatki</h3>
               <ul>
-                <li>Bez depozytu</li>
-                <li>Darmowe foteliki dziecięce</li>
-                <li>Transfer lotnisko/hotel gratis przy wynajmach ≥7 dni</li>
-                <li>Odbiór na lotnisku 10€ i zwrot 10€ tylko przy wynajmach &lt;7 dni</li>
-                <li>Pełne ubezpieczenie AC +17€/dzień</li>
-                <li>Wymagania kierowcy: <em>Prawo jazdy minimum 3 lata i wiek kierowcy ≥ 25 lat</em></li>
+                <li><strong>Bez depozytu</strong></li>
+                <li><strong>Darmowe foteliki dla dzieci</strong></li>
+                <li><strong>Darmowy transport na lotnisko lub do hotelu</strong> przy rezerwacjach na powyżej 7 dni</li>
+                <li>Odbiór na lotnisku jednorazowo <strong>10€</strong> (Poniżej 7 dni)</li>
+                <li>Oddanie na lotnisku jednorazowo <strong>10€</strong> (Poniżej 7 dni)</li>
+                <li>Pełne ubezpieczenie <strong>+17€/dzień</strong></li>
+                <li style="margin-top: 8px; color: #64748b;">*Prawo jazdy minimum 3 lata i < 25 rok życia</li>
               </ul>
             </article>
             <article>
@@ -264,147 +264,16 @@
             <article class="auto-category">
               <header class="auto-category-header">
                 <div class="auto-category-title">
-                  <h3>Flota Pafos</h3>
-                  <p>Automatyczne skrzynie, klimatyzacja i paliwo 95 w standardzie.</p>
+                  <h3>Flota Paphos</h3>
+                  <p>Automatyczne i manualne skrzynie, klimatyzacja w standardzie. Ceny aktualizowane na bieżąco.</p>
                 </div>
                 <span class="auto-category-badge">Od 30€/dzień</span>
               </header>
-              <div class="auto-category-grid">
-                <article class="card auto-card">
-                  <header class="auto-card-header">
-                    <span class="auto-card-price">Od 30€/dzień</span>
-                    <div class="auto-card-title">
-                      <h3>Mitsubishi Mirage<span>Automat • 4 os. • AC</span></h3>
-                    </div>
-                  </header>
-                  <ul class="auto-card-specs">
-                    <li>Automat</li>
-                    <li>4 osoby</li>
-                    <li>AC</li>
-                    <li>Paliwo 95</li>
-                  </ul>
-                  <p class="auto-card-note">Zwrotne auto na wąskie uliczki Pafos.</p>
-                  <button type="button" class="btn btn-secondary secondary" data-select-car="Mitsubishi Mirage">Zarezerwuj to auto</button>
-                </article>
-
-                <article class="card auto-card">
-                  <header class="auto-card-header">
-                    <span class="auto-card-price">Od 32€/dzień</span>
-                    <div class="auto-card-title">
-                      <h3>Toyota Vitz<span>Automat • 5 os. • AC</span></h3>
-                    </div>
-                  </header>
-                  <ul class="auto-card-specs">
-                    <li>Automat</li>
-                    <li>5 osób</li>
-                    <li>AC</li>
-                    <li>Paliwo 95</li>
-                  </ul>
-                  <p class="auto-card-note">Komfortowy hatchback z przestrzenią na bagaże.</p>
-                  <button type="button" class="btn btn-secondary secondary" data-select-car="Toyota Vitz">Zarezerwuj to auto</button>
-                </article>
-
-                <article class="card auto-card">
-                  <header class="auto-card-header">
-                    <span class="auto-card-price">Od 32€/dzień</span>
-                    <div class="auto-card-title">
-                      <h3>Toyota Aygo<span>Automat • 5 os. • AC</span></h3>
-                    </div>
-                  </header>
-                  <ul class="auto-card-specs">
-                    <li>Automat</li>
-                    <li>5 osób</li>
-                    <li>AC</li>
-                    <li>Paliwo 95</li>
-                  </ul>
-                  <p class="auto-card-note">Ekonomiczny miejski model z niskim spalaniem.</p>
-                  <button type="button" class="btn btn-secondary secondary" data-select-car="Toyota Aygo">Zarezerwuj to auto</button>
-                </article>
-
-                <article class="card auto-card">
-                  <header class="auto-card-header">
-                    <span class="auto-card-price">Od 34€/dzień</span>
-                    <div class="auto-card-title">
-                      <h3>Honda Fit<span>Automat • 5 os. • AC</span></h3>
-                    </div>
-                  </header>
-                  <ul class="auto-card-specs">
-                    <li>Automat</li>
-                    <li>5 osób</li>
-                    <li>AC</li>
-                    <li>Paliwo 95</li>
-                  </ul>
-                  <p class="auto-card-note">Składane Magic Seats ułatwiają przewóz bagażu.</p>
-                  <button type="button" class="btn btn-secondary secondary" data-select-car="Honda Fit">Zarezerwuj to auto</button>
-                </article>
-
-                <article class="card auto-card">
-                  <header class="auto-card-header">
-                    <span class="auto-card-price">Od 55€/dzień</span>
-                    <div class="auto-card-title">
-                      <h3>Mazda CX5<span>Automat • 5 os. • AC</span></h3>
-                    </div>
-                  </header>
-                  <ul class="auto-card-specs">
-                    <li>Automat</li>
-                    <li>5 osób</li>
-                    <li>AC</li>
-                    <li>Paliwo 95</li>
-                  </ul>
-                  <p class="auto-card-note">Wyższy prześwit idealny na wycieczki po Akamas.</p>
-                  <button type="button" class="btn btn-secondary secondary" data-select-car="Mazda CX5">Zarezerwuj to auto</button>
-                </article>
-
-                <article class="card auto-card">
-                  <header class="auto-card-header">
-                    <span class="auto-card-price">Od 55€/dzień</span>
-                    <div class="auto-card-title">
-                      <h3>Mitsubishi Outlander<span>Automat • 7 os. • AC</span></h3>
-                    </div>
-                  </header>
-                  <ul class="auto-card-specs">
-                    <li>Automat</li>
-                    <li>7 osób</li>
-                    <li>AC</li>
-                    <li>Paliwo 95</li>
-                  </ul>
-                  <p class="auto-card-note">7 miejsc i duży bagażnik dla rodzinnych wypraw.</p>
-                  <button type="button" class="btn btn-secondary secondary" data-select-car="Mitsubishi Outlander">Zarezerwuj to auto</button>
-                </article>
-
-                <article class="card auto-card">
-                  <header class="auto-card-header">
-                    <span class="auto-card-price">Od 60€/dzień</span>
-                    <div class="auto-card-title">
-                      <h3>Nissan Serena<span>Automat • 8 os. • AC</span></h3>
-                    </div>
-                  </header>
-                  <ul class="auto-card-specs">
-                    <li>Automat</li>
-                    <li>8 osób</li>
-                    <li>AC</li>
-                    <li>Paliwo 95</li>
-                  </ul>
-                  <p class="auto-card-note">Najwięcej miejsca dla grup i ekip sportowych.</p>
-                  <button type="button" class="btn btn-secondary secondary" data-select-car="Nissan Serena">Zarezerwuj to auto</button>
-                </article>
-
-                <article class="card auto-card">
-                  <header class="auto-card-header">
-                    <span class="auto-card-price">Od 55€/dzień</span>
-                    <div class="auto-card-title">
-                      <h3>Mazda Premacy<span>Automat • 7 os. • AC</span></h3>
-                    </div>
-                  </header>
-                  <ul class="auto-card-specs">
-                    <li>Automat</li>
-                    <li>7 osób</li>
-                    <li>AC</li>
-                    <li>Paliwo 95</li>
-                  </ul>
-                  <p class="auto-card-note">Praktyczny minivan z przesuwanymi drzwiami.</p>
-                  <button type="button" class="btn btn-secondary secondary" data-select-car="Mazda Premacy">Zarezerwuj to auto</button>
-                </article>
+              <div class="auto-category-grid" id="paphosCarsGrid">
+                <!-- Cars will be loaded dynamically from database -->
+                <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;">
+                  <p>Ładowanie floty Paphos...</p>
+                </div>
               </div>
             </article>
           </section>
@@ -424,14 +293,8 @@
                   <div class="auto-field">
                     <label for="car">Wybierz auto</label>
                     <select id="car" name="car" required aria-required="true">
-                      <option value="Mitsubishi Mirage">Mitsubishi Mirage — Automat • 4 os.</option>
-                      <option value="Toyota Vitz">Toyota Vitz — Automat • 5 os.</option>
-                      <option value="Toyota Aygo">Toyota Aygo — Automat • 5 os.</option>
-                      <option value="Honda Fit">Honda Fit — Automat • 5 os.</option>
-                      <option value="Mazda CX5">Mazda CX5 — Automat • 5 os.</option>
-                      <option value="Mitsubishi Outlander">Mitsubishi Outlander — Automat • 7 os.</option>
-                      <option value="Nissan Serena">Nissan Serena — Automat • 8 os.</option>
-                      <option value="Mazda Premacy">Mazda Premacy — Automat • 7 os.</option>
+                      <option value="">Ładowanie floty...</option>
+                      <!-- Options will be loaded dynamically from database -->
                     </select>
                   </div>
                   <div class="auto-field">
@@ -475,17 +338,13 @@
             <article class="auto-rental-block" id="carReservationForm">
               <h3 data-i18n="carRentalPfo.page.reservation.title">Złóż rezerwację</h3>
               <p data-i18n="carRentalPfo.page.reservation.description">
-                Wypełnij formularz online, aby potwierdzić dostępność i otrzymać umowę. Możesz też napisać do nas na
-                WhatsApp – odpowiadamy najszybciej jak to możliwe.
+                Wypełnij formularz poniżej lub napisz do nas na WhatsApp – odpowiadamy najszybciej jak to możliwe.
               </p>
-              <div class="auto-reservation-actions">
-                <a
-                  class="btn btn-secondary secondary"
-                  href="https://docs.google.com/forms/d/e/1FAIpQLSfaID2ropSqvD4T50zhy0O0fO6zm-rNojO7EDy969Z6lBVe1w/viewform"
-                  target="_blank"
-                  rel="noopener"
-                  data-i18n="carRentalPfo.page.reservation.formLink"
-                >Otwórz formularz w nowym oknie</a>
+              
+              <div class="auto-reservation-actions" style="margin-bottom: 24px;">
+                <button type="button" id="btnFillFromCalculator" class="btn btn-secondary secondary">
+                  Przenieś dane z kalkulatora
+                </button>
                 <a
                   class="ghost"
                   href="https://wa.me/48534073861"
@@ -495,17 +354,152 @@
                   >Napisz na WhatsApp</a
                 >
               </div>
-              <div class="auto-reservation-frame">
-                <iframe
-                  src="https://docs.google.com/forms/d/e/1FAIpQLSfaID2ropSqvD4T50zhy0O0fO6zm-rNojO7EDy969Z6lBVe1w/viewform?embedded=true"
-                  title="Formularz rezerwacji auta w Pafos"
-                  data-i18n-attrs="title:carRentalPfo.page.reservation.formTitle"
-                  loading="lazy"
-                  allow="fullscreen"
-                  width="700"
-                  height="520"
-                ></iframe>
-              </div>
+
+              <!-- Local Reservation Form -->
+              <form id="localReservationForm" class="auto-reservation-form" novalidate style="background: #f8fafc; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0;">
+                
+                <!-- Personal Information -->
+                <div style="margin-bottom: 24px;">
+                  <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;">Dane kontaktowe</h4>
+                  <div style="display: grid; gap: 16px;">
+                    <div class="auto-field">
+                      <label for="res_full_name">Imię i nazwisko *</label>
+                      <input type="text" id="res_full_name" name="full_name" required placeholder="Jan Kowalski">
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                      <div class="auto-field">
+                        <label for="res_email">Email *</label>
+                        <input type="email" id="res_email" name="email" required placeholder="jan@example.com">
+                      </div>
+                      <div class="auto-field">
+                        <label for="res_phone">Telefon *</label>
+                        <input type="tel" id="res_phone" name="phone" required placeholder="+48 123 456 789">
+                      </div>
+                    </div>
+                    <div class="auto-field">
+                      <label for="res_country">Kraj</label>
+                      <input type="text" id="res_country" name="country" placeholder="Polska">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Rental Details -->
+                <div style="margin-bottom: 24px;">
+                  <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;">Szczegóły wynajmu</h4>
+                  <div style="display: grid; gap: 16px;">
+                    <div class="auto-field">
+                      <label for="res_car">Wybierz auto *</label>
+                      <select id="res_car" name="car" required>
+                        <option value="">Ładowanie...</option>
+                      </select>
+                    </div>
+                    
+                    <!-- Pickup -->
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+                      <div class="auto-field">
+                        <label for="res_pickup_date">Data odbioru *</label>
+                        <input type="date" id="res_pickup_date" name="pickup_date" required>
+                      </div>
+                      <div class="auto-field">
+                        <label for="res_pickup_time">Godzina</label>
+                        <input type="time" id="res_pickup_time" name="pickup_time" value="10:00">
+                      </div>
+                    </div>
+                    
+                    <div class="auto-field">
+                      <label for="res_pickup_location">Miejsce odbioru *</label>
+                      <select id="res_pickup_location" name="pickup_location" required>
+                        <option value="airport_pfo">Lotnisko Paphos (PFO)</option>
+                        <option value="hotel">Hotel</option>
+                        <option value="city_center">Centrum miasta</option>
+                        <option value="other">Inne</option>
+                      </select>
+                    </div>
+                    
+                    <div class="auto-field" id="pickupAddressField" hidden>
+                      <label for="res_pickup_address">Adres odbioru</label>
+                      <input type="text" id="res_pickup_address" name="pickup_address" placeholder="Nazwa hotelu lub dokładny adres">
+                    </div>
+
+                    <!-- Return -->
+                    <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+                      <div class="auto-field">
+                        <label for="res_return_date">Data zwrotu *</label>
+                        <input type="date" id="res_return_date" name="return_date" required>
+                      </div>
+                      <div class="auto-field">
+                        <label for="res_return_time">Godzina</label>
+                        <input type="time" id="res_return_time" name="return_time" value="10:00">
+                      </div>
+                    </div>
+                    
+                    <div class="auto-field">
+                      <label for="res_return_location">Miejsce zwrotu *</label>
+                      <select id="res_return_location" name="return_location" required>
+                        <option value="airport_pfo">Lotnisko Paphos (PFO)</option>
+                        <option value="hotel">Hotel</option>
+                        <option value="city_center">Centrum miasta</option>
+                        <option value="other">Inne</option>
+                      </select>
+                    </div>
+                    
+                    <div class="auto-field" id="returnAddressField" hidden>
+                      <label for="res_return_address">Adres zwrotu</label>
+                      <input type="text" id="res_return_address" name="return_address" placeholder="Nazwa hotelu lub dokładny adres">
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Additional Options -->
+                <div style="margin-bottom: 24px;">
+                  <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;">Dodatkowe opcje</h4>
+                  <div style="display: grid; gap: 16px;">
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                      <div class="auto-field">
+                        <label for="res_passengers">Liczba pasażerów</label>
+                        <input type="number" id="res_passengers" name="num_passengers" min="1" max="8" value="2">
+                      </div>
+                      <div class="auto-field">
+                        <label for="res_child_seats">Foteliki dziecięce (gratis)</label>
+                        <input type="number" id="res_child_seats" name="child_seats" min="0" max="3" value="0">
+                      </div>
+                    </div>
+                    
+                    <div class="auto-checkbox">
+                      <input type="checkbox" id="res_insurance" name="insurance">
+                      <label for="res_insurance">Pełne ubezpieczenie AC (+17€/dzień)</label>
+                    </div>
+                    
+                    <div class="auto-field">
+                      <label for="res_flight">Numer lotu (opcjonalnie)</label>
+                      <input type="text" id="res_flight" name="flight_number" placeholder="W1234">
+                    </div>
+                    
+                    <div class="auto-field">
+                      <label for="res_notes">Uwagi specjalne</label>
+                      <textarea id="res_notes" name="special_requests" rows="3" placeholder="Dodatkowe informacje lub prośby..."></textarea>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Estimated Price -->
+                <div id="estimatedPrice" style="background: #f1f5f9; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; color: #475569;"></div>
+
+                <!-- Error Display -->
+                <div id="reservationError" class="admin-error-message" hidden style="margin-bottom: 16px;"></div>
+                
+                <!-- Success Display -->
+                <div id="reservationSuccess" hidden></div>
+
+                <!-- Submit Button -->
+                <button type="submit" class="btn btn-primary primary" style="width: 100%; padding: 14px; font-size: 16px; font-weight: 600;">
+                  Wyślij rezerwację
+                </button>
+                
+                <p style="font-size: 12px; color: #64748b; margin: 12px 0 0; text-align: center;">
+                  Otrzymasz potwierdzenie na email w ciągu 24h
+                </p>
+              </form>
             </article>
           </section>
         </section>
@@ -524,72 +518,11 @@
     <script src="js/i18n.js" defer></script>
     <script src="js/forms.js" defer></script>
     <script src="js/seo.js" defer></script>
-    <script src="app.js" defer></script>
-    <script>
-      function calculatePrice() {
-        const car = document.getElementById("car").value;
-
-        const pickupDateStr = document.getElementById("pickup_date").value;
-        const returnDateStr = document.getElementById("return_date").value;
-        const pickupTimeStr = document.getElementById("pickup_time").value || "10:00";
-        const returnTimeStr = document.getElementById("return_time").value || "10:00";
-
-        const airportPickup = document.getElementById("airport_pickup")?.checked || false;
-        const airportReturn = document.getElementById("airport_return")?.checked || false;
-        const fullInsurance = document.getElementById("full_insurance")?.checked || false;
-
-        const pickupDate = new Date(pickupDateStr + 'T' + pickupTimeStr);
-        const returnDate = new Date(returnDateStr + 'T' + returnTimeStr);
-
-        if (isNaN(pickupDate.getTime()) || isNaN(returnDate.getTime())) {
-          alert("Proszę wybrać poprawne daty i godziny.");
-          return;
-        }
-
-        const hours = (returnDate - pickupDate) / 36e5;
-        if (hours < 72) { alert("Minimalny czas wynajmu to 3 dni"); return; }
-        const days = Math.ceil(hours / 24);
-
-        const pricing = {
-          "Mitsubishi Mirage": [130, 34, 32, 30],
-          "Toyota Vitz": [130, 36, 34, 32],
-          "Toyota Aygo": [130, 36, 34, 32],
-          "Honda Fit": [130, 38, 36, 34],
-          "Mazda Premacy": [180, 55, 50, 45],
-          "Mazda CX5": [225, 65, 60, 55],
-          "Mitsubishi Outlander": [210, 65, 60, 55],
-          "Nissan Serena": [225, 70, 65, 60]
-        };
-
-        let basePrice = 0, dailyRate = 0, totalPrice = 0;
-
-        if (days === 3) {
-          basePrice = pricing[car][0];
-        } else if (days >= 4 && days <= 6) {
-          dailyRate = pricing[car][1]; basePrice = dailyRate * days;
-        } else if (days >= 7 && days <= 10) {
-          dailyRate = pricing[car][2]; basePrice = dailyRate * days;
-        } else if (days > 10) {
-          dailyRate = pricing[car][3]; basePrice = dailyRate * days;
-        }
-        totalPrice = basePrice;
-
-        const airportFeesApplicable = days < 7;
-        const pickupFee = (airportPickup && airportFeesApplicable) ? 10 : 0;
-        const returnFee = (airportReturn && airportFeesApplicable) ? 10 : 0;
-        const insuranceCost = fullInsurance ? 17 * days : 0;
-
-        totalPrice += pickupFee + returnFee + insuranceCost;
-
-        document.getElementById("total_price").innerHTML = "Całkowita cena wynajmu: " + totalPrice + "€";
-        if (days === 3) {
-          document.getElementById("days_price").innerHTML = "Cena pakietu na 3 dni: " + basePrice + "€";
-        } else {
-          const rateText = dailyRate ? " (" + dailyRate + "€/dzień)" : "";
-          document.getElementById("days_price").innerHTML = "Cena za " + days + " dni" + rateText + ": " + basePrice + "€";
-        }
-      }
-    </script>
+    <script type="module" src="app.js"></script>
+    <!-- Dynamic car fleet loading -->
+    <script type="module" src="js/car-rental-paphos.js"></script>
+    <!-- Local reservation form -->
+    <script type="module" src="js/car-reservation.js"></script>
     <script>
       document.addEventListener('DOMContentLoaded', () => {
         const form = document.getElementById('carRentalCalculator');
@@ -597,6 +530,7 @@
         const returnDateInput = document.getElementById('return_date');
         const yearEl = document.querySelector('[data-current-year]');
 
+        // Set default dates
         const today = new Date();
         const isoToday = today.toISOString().split('T')[0];
         if (pickupDateInput) {
@@ -612,38 +546,21 @@
           returnDateInput.min = isoToday;
         }
 
+        // Form submit and change handlers
         if (form) {
           form.addEventListener('submit', (event) => {
             event.preventDefault();
-            calculatePrice();
+            if (window.calculatePrice) window.calculatePrice();
           });
           form.addEventListener('change', () => {
-            calculatePrice();
+            if (window.calculatePrice) window.calculatePrice();
           });
         }
 
-        document.querySelectorAll('[data-select-car]').forEach((button) => {
-          button.addEventListener('click', () => {
-            const carName = button.getAttribute('data-select-car');
-            const carSelect = document.getElementById('car');
-            if (carSelect && carName) {
-              carSelect.value = carName;
-              calculatePrice();
-              carSelect.focus({ preventScroll: true });
-            }
-
-            const calculatorBlock = document.getElementById('carRentalCalculatorBlock');
-            if (calculatorBlock) {
-              calculatorBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            }
-          });
-        });
-
+        // Current year in footer
         if (yearEl) {
           yearEl.textContent = new Date().getFullYear();
         }
-
-        calculatePrice();
       });
     </script>
     <script type="module" src="/assets/js/auth-ui.js"></script>

@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prosty Test - Bez CSP</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; padding: 20px; font-family: Arial, sans-serif; }
+        h1 { color: #2563eb; }
+        #map { width: 100%; height: 500px; border: 2px solid #333; margin: 20px 0; }
+        .status { padding: 15px; margin: 10px 0; border-radius: 8px; font-weight: bold; }
+        .success { background: #d1fae5; color: #065f46; }
+        .error { background: #fee2e2; color: #991b1b; }
+        .info { background: #dbeafe; color: #1e40af; }
+        pre { background: #f3f4f6; padding: 15px; border-radius: 6px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🔬 Prosty Test Mapy - BEZ CSP</h1>
+    <p><strong>Ten plik NIE ma Content Security Policy - testujemy czy problem jest w CSP czy gdzie indziej</strong></p>
+    
+    <div id="status" class="status info">Ładowanie...</div>
+    
+    <div id="map"></div>
+    
+    <h2>Console Output:</h2>
+    <pre id="console"></pre>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const statusEl = document.getElementById('status');
+        const consoleEl = document.getElementById('console');
+        
+        function log(message, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            consoleEl.textContent += `[${time}] ${message}\n`;
+            console.log(message);
+        }
+        
+        log('🚀 Start testu mapy');
+        
+        try {
+            // Sprawdź czy Leaflet został załadowany
+            if (typeof L === 'undefined') {
+                throw new Error('❌ Leaflet nie został załadowany!');
+            }
+            log('✅ Leaflet załadowany');
+            log(`   Wersja: ${L.version}`);
+            
+            // Inicjalizacja mapy
+            log('🗺️ Tworzenie mapy...');
+            const map = L.map('map').setView([35.095, 33.203], 9);
+            log('✅ Mapa utworzona');
+            
+            // Dodanie kafelków
+            log('📦 Dodawanie kafelków OpenStreetMap...');
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '&copy; OpenStreetMap contributors',
+                maxZoom: 19
+            }).addTo(map);
+            log('✅ Kafelki dodane');
+            
+            // Dodanie markerów testowych
+            log('📍 Dodawanie markerów...');
+            const testMarkers = [
+                { name: 'Paphos', coords: [34.75567, 32.40417] },
+                { name: 'Limassol', coords: [34.67658, 33.04979] },
+                { name: 'Larnaca', coords: [34.9125, 33.6333] },
+                { name: 'Nicosia', coords: [35.185566, 33.382276] },
+                { name: 'Ayia Napa', coords: [34.99, 33.97] }
+            ];
+            
+            testMarkers.forEach(marker => {
+                L.marker(marker.coords)
+                    .addTo(map)
+                    .bindPopup(`<strong>${marker.name}</strong>`);
+                log(`   ✅ Marker: ${marker.name}`);
+            });
+            
+            statusEl.className = 'status success';
+            statusEl.textContent = `✅ Mapa działa poprawnie! Załadowano ${testMarkers.length} markerów.`;
+            log(`\n🎉 TEST ZAKOŃCZONY SUKCESEM!`);
+            log(`\nJeśli ten test działa, problem jest w CSP lub app.js, NIE w Leaflet!`);
+            
+        } catch (error) {
+            statusEl.className = 'status error';
+            statusEl.textContent = `❌ Błąd: ${error.message}`;
+            log(`\n❌ BŁĄD: ${error.message}`);
+            log(`Stack: ${error.stack}`);
+            console.error('Błąd testu:', error);
+        }
+        
+        // Sprawdź czy kafelki się ładują
+        setTimeout(() => {
+            log('\n🔍 Sprawdzam ładowanie kafelków...');
+            const tiles = document.querySelectorAll('.leaflet-tile');
+            if (tiles.length > 0) {
+                log(`✅ Znaleziono ${tiles.length} kafelków na mapie`);
+            } else {
+                log('⚠️ UWAGA: Nie znaleziono kafelków - może być problem z siecią lub CSP');
+            }
+        }, 3000);
+    </script>
+</body>
+</html>

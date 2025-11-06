@@ -8,54 +8,47 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(__dirname, '..');
 const DIST = join(ROOT, 'dist');
 
-// Pliki JS do zminifikowania
-const JS_FILES = [
-  'app.js',
-  'car-rental.js',
-  'js/auth.js',
-  'js/authUi.js',
-  'js/i18n.js',
-  'js/account.js',
-  'js/profile.js',
-  'js/toast.js',
-  'js/tutorial.js',
-  'js/seo.js',
-  'js/forms.js',
-  'js/coupon.js',
-  'js/xp.js',
-  'js/supabaseClient.js',
-  'js/authCallback.js',
-  'js/authMessages.js',
-  'js/languageSwitcher.js',
-  'js/mobileTabbar.js',
-  'js/achievements-profile.js',
-  'js/config.js',
-  'assets/js/modal-auth.js',
-  'assets/js/account-modal.js',
-  'assets/js/auth-ui.js',
-];
+// Katalogi do skanowania pod kątem plików JS do minifikacji
+const JS_DIRECTORIES = ['js', 'admin', 'assets/js', 'src/utils'];
 
-// Community files
-const COMMUNITY_FILES = [
-  'js/community/ui.js',
-  'js/community/photos.js',
-  'js/community/comments.js',
-  'js/community/likes.js',
-  'js/community/ratings.js',
-  'js/community/notifications.js',
-  'js/community/location-filter.js',
-  'js/community/i18nHelper.js',
-];
+// Proste skanowanie rekurencyjne (wyklucza katalogi build/test/backup)
+async function collectJsFiles() {
+  const excludeDirs = new Set([
+    'node_modules',
+    'dist',
+    'scripts',
+    'tests',
+    'test-results',
+    'test-results.json',
+    'DELETED_BACKUPS',
+    'backup',
+  ]);
 
-// Utility modules (src/utils/)
-const UTILITY_FILES = [
-  'src/utils/dates.js',
-  'src/utils/translations.js',
-  'src/utils/validation.js',
-  'src/utils/dataProcessing.js',
-  'src/utils/storage.js',
-  'src/utils/dom.js',
-];
+  /** @type {string[]} */
+  const results = [];
+
+  async function walk(dirRel) {
+    const base = join(ROOT, dirRel);
+    if (!existsSync(base)) return;
+    const entries = await readdir(base, { withFileTypes: true });
+    for (const entry of entries) {
+      const name = entry.name;
+      if (excludeDirs.has(name)) continue;
+      const relPath = join(dirRel, name);
+      if (entry.isDirectory()) {
+        await walk(relPath);
+      } else if (entry.isFile() && name.endsWith('.js')) {
+        results.push(relPath);
+      }
+    }
+  }
+
+  for (const dir of JS_DIRECTORIES) {
+    await walk(dir);
+  }
+
+  return results;
+}
 
 async function buildFile(filePath) {
   const fullPath = join(ROOT, filePath);
@@ -86,21 +79,18 @@ async function buildFile(filePath) {
     });
     
     if (result.error) {
-      console.error(`❌ Minify error in ${filePath}:`, result.error);
-      throw result.error;
+      console.warn(`⚠️  Minify error in ${filePath}, copying original:`, result.error.message || result.error);
     }
     
-    if (!result.code) {
-      console.error(`❌ Minify returned empty code for ${filePath}`);
-      throw new Error(`Empty minification result for ${filePath}`);
-    }
+    // Jeśli minifikacja zwróciła pusty kod (np. plik tylko z danymi bez efektów ubocznych) – kopiuj oryginał
+    const outputCode = result.code && result.code.trim().length > 0 ? result.code : code;
     
     // Zapisz do /dist/
     const distPath = join(DIST, filePath);
     await mkdir(dirname(distPath), { recursive: true });
-    await writeFile(distPath, result.code, 'utf-8');
+    await writeFile(distPath, outputCode, 'utf-8');
     
-    console.log(`✅ Built: ${filePath} (${result.code.length} bytes)`);
+    console.log(`✅ Built: ${filePath} (${outputCode.length} bytes)`);
   } catch (error) {
     console.error(`❌ Error building ${filePath}:`, error.message);
     console.error(error.stack);
@@ -146,6 +136,16 @@ async function copyStaticFiles() {
       if (existsSync(src)) {
         await cp(src, dest, { recursive: true });
       }
+    }
+
+    // Kopiuj admin (bez plików .js, bo są budowane do dist wcześniej)
+    const adminSrc = join(ROOT, 'admin');
+    const adminDest = join(DIST, 'admin');
+    if (existsSync(adminSrc)) {
+      await cp(adminSrc, adminDest, {
+        recursive: true,
+        filter: (srcPath) => !srcPath.endsWith('.js'),
+      });
     }
     
     // Kopiuj CSS
@@ -196,18 +196,9 @@ async function build() {
     
     await mkdir(DIST, { recursive: true });
     
-    // Buduj pliki główne
-    for (const file of JS_FILES) {
-      await buildFile(file);
-    }
-    
-    // Buduj pliki community
-    for (const file of COMMUNITY_FILES) {
-      await buildFile(file);
-    }
-    
-    // Buduj utility modules
-    for (const file of UTILITY_FILES) {
+    // Zbieraj i buduj wszystkie pliki JS
+    const allJsFiles = await collectJsFiles();
+    for (const file of allJsFiles) {
       await buildFile(file);
     }
   

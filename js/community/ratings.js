@@ -19,11 +19,21 @@ export async function getRatingStats(poiId) {
       .from('poi_rating_stats')
       .select('*')
       .eq('poi_id', poiId)
-      .single();
+      .maybeSingle();
 
-    if (error && error.code !== 'PGRST116') {
-      // PGRST116 = no rows returned (it's ok, place has no ratings yet)
-      throw error;
+    if (error) {
+      // Log error but don't throw - ratings are optional
+      console.warn('⚠️ Rating stats error (non-critical):', error.message || error);
+      return {
+        poi_id: poiId,
+        total_ratings: 0,
+        average_rating: 0,
+        five_star: 0,
+        four_star: 0,
+        three_star: 0,
+        two_star: 0,
+        one_star: 0
+      };
     }
 
     return data || {
@@ -37,7 +47,7 @@ export async function getRatingStats(poiId) {
       one_star: 0
     };
   } catch (error) {
-    console.error('Error getting rating stats:', error);
+    console.warn('⚠️ Rating stats exception (non-critical):', error.message || error);
     return {
       poi_id: poiId,
       total_ratings: 0,

@@ -15,7 +15,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <!-- Security: Content Security Policy -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://esm.sh https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://www.google-analytics.com; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://esm.sh https://unpkg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://*.tile.openstreetmap.org https://unpkg.com https://esm.sh; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
   
   <meta name="theme-color" content="#2563eb" />
   <meta name="robots" content="index,follow" />
@@ -57,80 +57,25 @@
       rel="stylesheet"
     />
   </noscript>
-    <link rel="stylesheet" href="assets/css/tokens.css" />
-    <link rel="stylesheet" href="assets/css/base.css" />
-    <link rel="stylesheet" href="assets/css/components.css" />
-    <link rel="stylesheet" href="assets/css/mobile.css" />
-    <link rel="stylesheet" href="assets/css/rtl.css" />
-    <link rel="stylesheet" href="assets/css/language-switcher.css" />
-    <link rel="stylesheet" href="/css/toast.css" />
+    <link rel="stylesheet" href="assets/css/tokens.css?v=2.0" />
+    <link rel="stylesheet" href="assets/css/base.css?v=2.0" />
+    <link rel="stylesheet" href="assets/css/components.css?v=2.0" />
+    <link rel="stylesheet" href="assets/css/header-metrics.css?v=2.0" />
+    <link rel="stylesheet" href="assets/css/mobile.css?v=2.0" />
+  <link rel="stylesheet" href="assets/css/mobile-nav.css?v=2.0" />
+  <link rel="stylesheet" href="assets/css/rtl.css?v=2.0" />
+    <link rel="stylesheet" href="assets/css/language-switcher.css?v=2.0" />
+    <link rel="stylesheet" href="css/toast.css?v=2.0" />
 
   <meta name="ce-auth" content="on" />
-  <script type="module" src="/js/supabaseClient.js"></script>
-  <script type="module" src="/js/toast.js"></script>
-  <script type="module" src="/js/auth.js"></script>
-  <script type="module" src="/js/authUi.js"></script>
+  <script type="module" src="js/supabaseClient.js"></script>
+  <script type="module" src="js/toast.js"></script>
+  <script type="module" src="js/auth.js"></script>
+  <script type="module" src="js/authUi.js"></script>
 </head>
 <body data-navigation="multi-page" data-initial-view="tasksView" data-seo-page="tasks">
-  <!-- Accessibility: Skip to main content -->
-  <a href="#main-content" class="skip-link" data-i18n="accessibility.skipToContent">Skip to main content</a>
-    <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+  <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
   <header class="app-header">
-    <div class="auth-bar" data-i18n-attrs="aria-label:auth.bar.aria" aria-label="Panel konta">
-      <div class="auth-controls">
-        <button
-          id="notificationsToggle"
-          class="ghost notifications-toggle"
-          data-gated="true"
-          data-require-auth
-          data-i18n="header.notifications"
-          type="button"
-          aria-haspopup="true"
-          aria-expanded="false"
-          aria-controls="notificationsPanel"
-        >
-          🔔 Powiadomienia
-          <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
-        </button>
-        <div id="auth-actions" class="auth-actions" aria-live="polite">
-          <button
-            class="btn"
-            data-auth="login"
-            data-auth-login-mode="modal"
-            data-i18n="header.login"
-            data-i18n-attrs="aria-label:auth.login.aria"
-            aria-label="Zaloguj do konta"
-          >
-            Zaloguj
-          </button>
-          <button class="btn" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Graj jako gość</button>
-          <a 
-            href="/achievements.html" 
-            class="btn btn-profile" 
-            data-auth="user-only"
-            aria-label="Mój profil"
-            id="profileButton"
-          >
-            <img id="headerUserAvatar" class="header-user-avatar" src="/assets/cyprus_logo-1000x1054.png" alt="Avatar" width="40" height="40" loading="eager" />
-            <span>Profil</span>
-          </a>
-          <button class="btn" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
-          <span class="auth-badge" data-auth="anon-only" data-i18n="auth.status.anon">Nie zalogowano</span>
-        </div>
-        <div data-auth="spinner" class="auth-spinner" aria-live="polite" data-i18n="auth.status.spinner">Łączenie z logowaniem…</div>
-        <p class="auth-guest-note" data-auth-guest-note hidden data-i18n="auth.guest.status">
-          Grasz jako gość — postęp zapisany lokalnie na tym urządzeniu.
-        </p>
-        <div class="user-menu" id="userMenu" hidden data-gated="true">
-          <span id="userGreeting" aria-live="polite"></span>
-          <div class="user-menu-actions">
-            <button type="button" class="ghost" id="accountSettingsBtn" data-i18n="header.accountSettings">
-              📊 Statystyki i ustawienia
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
     <div class="header-top">
       <div class="brand">
         <img
@@ -148,35 +93,38 @@
         </div>
       </div>
       <div class="header-top-actions">
-        <a
-          class="header-coupon-button"
-          href="kupon.html"
-          data-i18n="header.coupon"
-          data-i18n-attrs="aria-label:header.couponAria"
-          aria-label="Kupon"
-        >
-          Kupon
-        </a>
-        <div class="header-actions" aria-label="Szybkie działania" data-i18n-attrs="aria-label:header.quickActions.aria">
-          <div class="header-actions-primary">
-            <button class="btn btn-primary primary" type="button" id="jumpToObjective" data-i18n="header.jumpToObjective">
-              Skocz do aktualnego celu
-            </button>
-            <a class="ghost header-link" href="community.html" data-i18n="header.communityLink">💬 Społeczność</a>
-            <a class="ghost header-link" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
+        <!-- Auth controls integrated into header -->
+        <div class="header-auth-controls">
+          <button
+            id="notificationsToggle"
+            class="ghost notifications-toggle"
+            data-gated="true"
+            data-require-auth
+            data-i18n="header.notifications"
+            type="button"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-controls="notificationsPanel"
+          >
+            🔔 <span class="btn-text">Powiadomienia</span>
+            <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
+          </button>
+          <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
             <button
-              id="explorerToggle"
-              class="ghost"
-              type="button"
-              aria-haspopup="dialog"
-              aria-controls="explorerModal"
-              data-i18n="header.explorerToggle"
+              class="btn btn-sm"
+              data-auth="login"
+              data-auth-login-mode="modal"
+              data-i18n="header.login"
+              data-i18n-attrs="aria-label:auth.login.aria"
+              aria-label="Zaloguj do konta"
             >
-              🌍 Przeglądaj atrakcje
+              Zaloguj
             </button>
+            <button class="btn btn-sm" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Gość</button>
+            <button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
             <button
               id="sosToggle"
-              class="btn btn-danger danger"
+              class="btn btn-sm btn-danger"
               type="button"
               aria-haspopup="dialog"
               aria-controls="sosModal"
@@ -185,10 +133,46 @@
               🚨 SOS
             </button>
           </div>
+          <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
+        </div>
+        
+        <div class="header-actions" aria-label="Szybkie działania" data-i18n-attrs="aria-label:header.quickActions.aria">
+          <div class="header-actions-primary">
+            <a class="ghost header-link" href="community.html" data-i18n="header.communityLink">💬 Społeczność</a>
+            <a
+              class="ghost header-link"
+              href="kupon.html"
+              data-i18n="header.coupon"
+              aria-label="Kupon"
+            >
+              Kupon
+            </a>
+            <a class="ghost header-link" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
+            <a
+              href="vip.html"
+              class="ghost header-link"
+              data-i18n="nav.mediaTrips"
+              aria-label="Otwórz stronę VIP wyjazdów indywidualnych"
+              data-i18n-attrs="aria-label:nav.mediaTrips.ariaLabel"
+            >
+              ✨ VIP wyjazdy
+            </a>
+          </div>
         </div>
       </div>
     </div>
-    <div class="header-metrics" role="list" aria-live="polite" data-gated="true">
+    
+    <!-- User Stats Section - Combined Profile + Metrics -->
+    <div class="user-stats-section" data-auth="user-only">
+      <a href="achievements.html" class="user-profile-card" id="profileButton" aria-label="Mój profil">
+        <img id="headerUserAvatar" class="profile-avatar" src="assets/cyprus_logo-1000x1054.png" alt="Avatar" width="50" height="50" loading="eager" />
+        <div class="profile-info">
+          <div class="profile-name">Mój Profil</div>
+          <div class="profile-status">Kliknij aby zobaczyć szczegóły</div>
+        </div>
+      </a>
+      
+      <div class="stats-cards">
       <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
         <p class="metric-label" data-i18n="metrics.level.label">Poziom</p>
         <p class="metric-value" id="headerLevelNumber">1</p>
@@ -206,7 +190,7 @@
           data-i18n-attrs="aria-label:metrics.xp.aria"
         >
           <div class="metric-progress-track">
-            <div class="metric-progress-fill is-width-zero" id="headerXpFill"></div><!-- migrated from inline -->
+            <div class="metric-progress-fill is-width-zero" id="headerXpFill"></div>
           </div>
           <p class="metric-progress-text" id="headerXpProgressText" data-i18n="metrics.xp.progress">
             0 / 150 XP do kolejnego poziomu
@@ -218,61 +202,42 @@
         <p class="metric-value" id="headerBadgesCount">0</p>
         <p class="metric-subtext" data-i18n="metrics.badges.subtext">Odkrywaj atrakcje i kolekcjonuj pamiątki.</p>
       </a>
+      </div>
     </div>
+    
     <nav class="header-tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna">
-      <button
-        type="button"
+      <a
+        href="index.html"
         class="header-tab"
         id="headerAdventureTab"
-        role="tab"
-        aria-selected="false"
-        aria-controls="adventureView"
-        tabindex="-1"
-        data-page-url="/index.html"
         data-i18n="nav.adventure"
       >
         🎯 Twoja przygoda
-      </button>
-      <button
-        type="button"
+      </a>
+      <a
+        href="packing.html"
         class="header-tab"
         id="headerPackingTab"
-        role="tab"
-        aria-selected="false"
-        aria-controls="packingView"
-        tabindex="-1"
-        data-page-url="packing.html"
         data-i18n="nav.packing"
       >
         🎒 Planer pakowania
-      </button>
-      <button
-        type="button"
+      </a>
+      <a
+        href="tasks.html"
         class="header-tab is-active"
         id="headerTasksTab"
-        role="tab"
-        aria-selected="true"
-        aria-controls="tasksView"
-        tabindex="0"
         data-i18n="nav.tasks"
       >
         ✅ Zadania do wykonania
-      </button>
-      <button
-        type="button"
+      </a>
+      <a
+        href="attractions.html"
         class="header-tab"
-        id="headerMediaTripsTab"
-        role="tab"
-        aria-selected="false"
-        aria-controls="mediaTripsView"
-        tabindex="-1"
-        data-page-url="/vip.html"
-        data-i18n="nav.mediaTrips"
-        aria-label="Otwórz stronę VIP wyjazdów indywidualnych"
-        data-i18n-attrs="aria-label:nav.mediaTrips.ariaLabel"
+        id="explorerToggle"
+        data-i18n="header.explorerToggle"
       >
-        ✨ VIP wyjazdy indywidualne
-      </button>
+        🌍 Przeglądaj atrakcje
+      </a>
     </nav>
   </header>
 
@@ -322,7 +287,7 @@
           id="openAdventureFromTasks"
           data-back-home-link="true"
           data-i18n="tasks.header.back"
-          href="/index.html"
+          href="index.html"
         >
           ← Wróć do przygody
         </a>
@@ -366,9 +331,20 @@
   <script src="js/i18n.js" defer></script>
   <script src="js/forms.js" defer></script>
   <script src="js/seo.js" defer></script>
+  <script src="js/mobile-nav.js" defer></script>
   <script src="car-rental.js" defer></script>
-  <script src="app.js" defer></script>
-  <script src="assets/js/modal-auth.js" defer></script>
+  <!-- Load data files first -->
+  <script src="js/data-places.js?v=2.3"></script>
+  <script src="js/data-tasks.js?v=2.3"></script>
+  <script src="js/data-packing.js?v=2.3"></script>
+  
+  <!-- Load lightweight Tasks initializer (no module collisions) -->
+  <script src="js/tasks.js?v=1"></script>
+  
+  <!-- Load tasks manager module (will be imported dynamically by app-core) -->
+  <!-- <script type="module" src="js/tasks-manager.js?v=2.0"></script> -->
+  
+  <script src="assets/js/modal-auth.js?v=2.0" defer></script>
 
   <div
     class="explorer-modal"
@@ -1082,8 +1058,8 @@
       </div>
     </div>
   </div>
-  <script type="module" src="/assets/js/account-modal.js"></script>
-  <script type="module" src="/assets/js/auth-ui.js"></script>
-  <script type="module" src="/js/xp.js"></script>
+  <script type="module" src="assets/js/account-modal.js"></script>
+  <script type="module" src="assets/js/auth-ui.js"></script>
+  <script type="module" src="js/xp.js"></script>
 </body>
 </html>

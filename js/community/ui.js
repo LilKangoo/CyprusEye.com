@@ -68,8 +68,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       initMap();
     }
 
-    // Update community stats
-    await updateCommunityStats();
+    // Update community stats (only if stats elements exist on page)
+    if (document.getElementById('totalComments') || 
+        document.getElementById('totalPhotos') || 
+        document.getElementById('activeUsers')) {
+      await updateCommunityStats().catch(err => {
+        console.warn('Stats update failed (non-critical):', err.message);
+      });
+    }
 
     console.log('✅ Community UI initialized successfully');
   } catch (error) {
@@ -82,28 +88,53 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ===================================
 async function loadPoisData() {
   try {
-    // Try to load from assets/pois.json
-    const response = await fetch('/assets/pois.json');
-    if (response.ok) {
-      const data = await response.json();
-      if (Array.isArray(data) && data.length > 0) {
-        poisData = data;
-        console.log(`✅ Loaded ${poisData.length} POIs from pois.json`);
-        return;
-      }
+    // Wait for PLACES_DATA to load (from poi-loader.js)
+    let attempts = 0;
+    while (typeof window.PLACES_DATA === 'undefined' && attempts < 50) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      attempts++;
     }
     
-    // Fallback to app.js places if available
-    if (window.places && Array.isArray(window.places) && window.places.length > 0) {
-      poisData = window.places.map(p => ({
+    // Use PLACES_DATA if available (loaded by poi-loader.js from Supabase)
+    if (window.PLACES_DATA && Array.isArray(window.PLACES_DATA) && window.PLACES_DATA.length > 0) {
+      poisData = window.PLACES_DATA.map(p => ({
         id: p.id,
-        name: p.name,
+        name: p.nameFallback || p.name,
         lat: p.lat,
         lon: p.lng || p.lon,
-        description: p.description
+        description: p.descriptionFallback || p.description,
+        xp: p.xp || 100,
+        badge: p.badgeFallback || p.badge,
+        source: p.source || 'supabase'
       }));
-      console.log(`✅ Loaded ${poisData.length} POIs from window.places`);
+      console.log(`✅ Loaded ${poisData.length} POIs from PLACES_DATA (${poisData[0]?.source || 'unknown'})`);
+      console.log('📍 POI IDs:', poisData.map(p => p.id));
+      
+      // Listen for updates
+      window.addEventListener('poisDataRefreshed', (event) => {
+        console.log('🔄 POIs refreshed, reloading...');
+        loadPoisData().then(() => {
+          renderPoisList();
+          if (communityMap) initMap();
+        });
+      });
+      
       return;
+    }
+    
+    // Fallback to assets/pois.json
+    try {
+      const response = await fetch('/assets/pois.json');
+      if (response.ok) {
+        const data = await response.json();
+        if (Array.isArray(data) && data.length > 0) {
+          poisData = data;
+          console.log(`✅ Loaded ${poisData.length} POIs from pois.json (fallback)`);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load from pois.json:', e);
     }
     
     // If no data available, show error
@@ -124,7 +155,7 @@ async function loadUserProfile() {
     const sb = window.getSupabase();
     const { data, error } = await sb
       .from('profiles')
-      .select('id, username, name, avatar_url')
+      .select('id, username, name, avatar_url, level, xp')
       .eq('id', currentUser.id)
       .single();
 
@@ -132,6 +163,7 @@ async function loadUserProfile() {
 
     if (data) {
       currentUser.profile = data;
+      console.log('✅ User profile loaded:', { username: data.username, level: data.level, xp: data.xp });
       updateUserAvatar();
     }
   } catch (error) {
@@ -569,18 +601,82 @@ function initModal() {
 window.openPoiComments = async function(poiId) {
   console.log('🔓 Opening modal for POI:', poiId);
   
-  currentPoiId = poiId;
+  if (!poiId) {
+    console.error('❌ No POI ID provided');
+    return;
+  }
+  
+  // Wait for POI data to load (up to 5 seconds)
+  let attempts = 0;
+  while (poisData.length === 0 && attempts < 50) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+    attempts++;
+    
+    // Try to reload from window.PLACES_DATA if available
+    if (window.PLACES_DATA && Array.isArray(window.PLACES_DATA) && window.PLACES_DATA.length > 0) {
+      await loadPoisData();
+    }
+  }
+  
+  if (poisData.length === 0) {
+    console.error('❌ POI data not loaded after waiting');
+    window.showToast?.('Nie można załadować danych miejsc', 'error');
+    return;
+  }
+  
+  // Try multiple matching strategies to find the POI
+  let poi = null;
+  
+  // 1. Exact ID match
+  poi = poisData.find(p => p.id === poiId);
+  
+  // 2. Case-insensitive ID match
+  if (!poi) {
+    poi = poisData.find(p => p.id?.toLowerCase() === poiId?.toLowerCase());
+  }
+  
+  // 3. Try matching by name slug (convert name to slug and compare)
+  if (!poi) {
+    const normalizeSlug = (str) => str?.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+    const searchSlug = normalizeSlug(poiId);
+    poi = poisData.find(p => {
+      const nameSlug = normalizeSlug(p.name);
+      return nameSlug === searchSlug;
+    });
+  }
+  
+  // 4. Partial match in ID or name
+  if (!poi) {
+    const searchLower = poiId.toLowerCase();
+    poi = poisData.find(p => 
+      p.id?.toLowerCase().includes(searchLower) || 
+      p.name?.toLowerCase().includes(searchLower)
+    );
+  }
+  
+  if (!poi) {
+    // Log to console for debugging but don't spam with errors
+    console.warn('⚠️ POI not found:', poiId);
+    console.debug('Tried matching strategies: exact, case-insensitive, slug, partial');
+    console.debug('Available POIs:', poisData.length, 'loaded');
+    
+    // Only log available IDs in debug mode to avoid console clutter
+    if (window.location.search.includes('debug')) {
+      console.log('Available POI IDs:', poisData.map(p => `${p.id} (${p.name})`));
+    }
+    
+    // Silently skip - don't show error toast
+    // This prevents spamming user with errors for old/invalid links or notifications
+    return;
+  }
+  
+  // Use the found POI's actual ID for consistency
+  currentPoiId = poi.id;
+  console.log('✅ Found POI:', poi.name, '(ID:', poi.id, ')');
   
   // Find POI index in filtered data for navigation
   const dataToSearch = filteredPoisData.length > 0 ? filteredPoisData : poisData;
-  currentPoiIndex = dataToSearch.findIndex(p => p.id === poiId);
-  
-  const poi = poisData.find(p => p.id === poiId);
-  
-  if (!poi) {
-    console.error('❌ POI not found:', poiId);
-    return;
-  }
+  currentPoiIndex = dataToSearch.findIndex(p => p.id === poi.id);
 
   // Update modal title
   document.getElementById('commentsModalTitle').textContent = poi.name;
@@ -817,6 +913,15 @@ async function renderComment(comment, isReply = false) {
   // Use profile data from JOIN (already loaded in loadComments)
   const profile = comment.profiles;
   
+  // Debug: Log full profile structure
+  console.log('🔍 Full comment profile data:', {
+    comment_id: comment.id,
+    user_id: comment.user_id,
+    profile: profile,
+    has_level: profile?.level !== undefined,
+    level_value: profile?.level
+  });
+  
   // Priority: username > name > fallback
   let displayName = 'Użytkownik';
   if (profile) {
@@ -829,8 +934,9 @@ async function renderComment(comment, isReply = false) {
   
   const username = escapeHtml(displayName);
   const avatar = profile?.avatar_url || DEFAULT_AVATAR;
+  const userLevel = profile?.level || 1;
   
-  console.log(`👤 Comment by user ${comment.user_id}: username="${profile?.username}", name="${profile?.name}", displaying as: "${displayName}"`);
+  console.log(`👤 Comment render: user="${displayName}", level=${userLevel}, avatar=${avatar ? 'set' : 'default'}`);
   
   // Get likes info
   const likesCount = await getLikesCount(comment.id);
@@ -851,7 +957,10 @@ async function renderComment(comment, isReply = false) {
         <div class="comment-author">
           <img src="${avatar}" alt="${username}" class="comment-author-avatar" />
           <div class="comment-author-info">
-            <span class="comment-author-name">${username}</span>
+            <div class="comment-author-name-row">
+              <span class="comment-author-name">${username}</span>
+              <span class="comment-author-level">Lvl ${userLevel}</span>
+            </div>
             <span class="comment-timestamp">
               ${timeAgo}
               ${comment.is_edited ? '<span class="comment-edited">(edytowano)</span>' : ''}
@@ -1233,7 +1342,16 @@ window.cancelReply = function(commentId) {
 // ===================================
 async function updateCommunityStats() {
   try {
-    const sb = window.getSupabase();
+    // Elements may not exist on some pages (e.g. homepage) – fail gracefully
+    const totalCommentsEl = document.getElementById('totalComments');
+    const totalPhotosEl = document.getElementById('totalPhotos');
+    const activeUsersEl = document.getElementById('activeUsers');
+    if (!totalCommentsEl && !totalPhotosEl && !activeUsersEl) {
+      return; // Nothing to update on this page
+    }
+
+    const sb = window.getSupabase?.();
+    if (!sb) return;
 
     // Total comments
     const { count: totalComments } = await sb
@@ -1252,12 +1370,13 @@ async function updateCommunityStats() {
     
     const uniqueUsers = new Set(users?.map(u => u.user_id) || []).size;
 
-    document.getElementById('totalComments').textContent = totalComments || 0;
-    document.getElementById('totalPhotos').textContent = totalPhotos || 0;
-    document.getElementById('activeUsers').textContent = uniqueUsers || 0;
+    if (totalCommentsEl) totalCommentsEl.textContent = String(totalComments || 0);
+    if (totalPhotosEl) totalPhotosEl.textContent = String(totalPhotos || 0);
+    if (activeUsersEl) activeUsersEl.textContent = String(uniqueUsers || 0);
 
   } catch (error) {
-    console.error('Error updating stats:', error);
+    // Silently fail - stats are non-critical
+    console.debug('Stats update skipped:', error.message);
   }
 }
 
@@ -1401,5 +1520,13 @@ document.addEventListener('ce-auth:state', async (e) => {
     updateAuthSections();
   }
 });
+
+// Debug helpers - expose for troubleshooting
+window.__debugCommunityUI = {
+  getPoisData: () => poisData,
+  getCurrentPoiId: () => currentPoiId,
+  getFilteredPoisData: () => filteredPoisData,
+  reloadPoisData: loadPoisData
+};
 
 console.log('✅ Community UI module loaded');

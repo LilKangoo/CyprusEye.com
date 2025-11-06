@@ -10,7 +10,6 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "strict": true,
-    "types": ["jest", "react", "react-native"]
-  },
-  "extends": "expo/tsconfig.base"
+    "types": ["jest"]
+  }
 }

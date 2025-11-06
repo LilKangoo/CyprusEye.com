@@ -8,6 +8,19 @@
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: geolocation=(self), microphone=(), camera=()
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' https://esm.sh https://*.esm.sh https://www.googletagmanager.com https://www.google-analytics.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co https://esm.sh https://www.google-analytics.com; object-src 'none'; base-uri 'self'; form-action 'self' https://daoohnbnnowmmcizgvrq.supabase.co
+
+# Admin Panel - Relaxed CSP for ES modules
+/admin/*
+  Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://esm.sh https://*.esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co https://esm.sh; object-src 'none'; base-uri 'self'; form-action 'self'
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Ensure correct MIME types
+/admin/*.css
+  Content-Type: text/css; charset=utf-8
+
+/admin/*.js
+  Content-Type: application/javascript; charset=utf-8
 
 # Cache static assets (1 year)
 /assets/*
@@ -15,9 +28,11 @@
 
 /js/*
   Cache-Control: public, max-age=31536000, immutable
+  Content-Type: application/javascript; charset=utf-8
 
 /css/*
   Cache-Control: public, max-age=31536000, immutable
+  Content-Type: text/css; charset=utf-8
 
 /translations/*
   Cache-Control: public, max-age=86400
