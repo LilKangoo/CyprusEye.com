@@ -139,6 +139,8 @@ async function handleReservationSubmit(event) {
     if (requests) data.special_requests = requests;
 
     console.log('Submitting reservation:', data);
+    console.log('Supabase client:', supabase);
+    console.log('Data keys:', Object.keys(data));
 
     // Save to Supabase
     const { data: booking, error } = await supabase
@@ -146,6 +148,9 @@ async function handleReservationSubmit(event) {
       .insert([data])
       .select()
       .single();
+    
+    console.log('Insert result - booking:', booking);
+    console.log('Insert result - error:', error);
 
     if (error) {
       console.error('Booking error:', error);
