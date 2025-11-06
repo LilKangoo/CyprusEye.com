@@ -1148,6 +1148,196 @@
     </div>
   </div>
 
+  <!-- Fleet Car Add/Edit Modal -->
+  <div class="admin-modal" id="fleetCarModal" hidden>
+    <div class="admin-modal-overlay" id="fleetCarModalOverlay"></div>
+    <div class="admin-modal-content" style="max-width: 900px;">
+      <header class="admin-modal-header">
+        <h3 id="fleetCarModalTitle">Add New Car</h3>
+        <button class="btn-modal-close" id="btnCloseFleetCarModal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body">
+        <form id="fleetCarForm" onsubmit="handleFleetCarSubmit(event); return false;">
+          <input type="hidden" id="fleetCarId" name="id">
+          
+          <!-- Basic Info -->
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px;">
+            <label class="admin-form-field">
+              <span>Location *</span>
+              <select id="fleetCarLocation" name="location" required onchange="handleLocationChange(this.value)">
+                <option value="">Select location</option>
+                <option value="larnaca">Larnaca</option>
+                <option value="paphos">Paphos</option>
+              </select>
+            </label>
+
+            <label class="admin-form-field">
+              <span>Car Type *</span>
+              <select id="fleetCarType" name="car_type" required>
+                <option value="">Select type</option>
+                <option value="Economy">Economy</option>
+                <option value="Compact">Compact</option>
+                <option value="Hybrid Economy">Hybrid Economy</option>
+                <option value="Standard Sedan">Standard Sedan</option>
+                <option value="SUV">SUV</option>
+                <option value="MPV">MPV / Minivan</option>
+                <option value="Luxury">Luxury</option>
+                <option value="Premium">Premium</option>
+              </select>
+            </label>
+          </div>
+
+          <div style="display: grid; gap: 16px; margin-bottom: 16px;">
+            <label class="admin-form-field">
+              <span>Car Model *</span>
+              <input type="text" id="fleetCarModel" name="car_model" required placeholder="e.g. Toyota Yaris (2023)">
+            </label>
+
+            <label class="admin-form-field">
+              <span>Description</span>
+              <textarea id="fleetCarDescription" name="description" rows="2" placeholder="Short description of the car..."></textarea>
+            </label>
+          </div>
+
+          <!-- Pricing Section -->
+          <div style="background: var(--admin-card-bg); border: 1px solid var(--admin-border); border-radius: 8px; padding: 16px; margin-bottom: 16px;">
+            <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Pricing</h4>
+            
+            <!-- Larnaca Pricing (Single rate) -->
+            <div id="larnacaPricing" hidden>
+              <label class="admin-form-field">
+                <span>Price per day (€) *</span>
+                <input type="number" id="fleetCarPricePerDay" name="price_per_day" step="0.01" min="0" placeholder="e.g. 35.00">
+              </label>
+            </div>
+
+            <!-- Paphos Pricing (Tiered) -->
+            <div id="paphosPricing" hidden>
+              <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+                <label class="admin-form-field">
+                  <span>3 days (€) *</span>
+                  <input type="number" id="fleetCarPrice3Days" name="price_3days" step="0.01" min="0" placeholder="130.00">
+                </label>
+                <label class="admin-form-field">
+                  <span>4-6 days/day (€)</span>
+                  <input type="number" id="fleetCarPrice4_6Days" name="price_4_6days" step="0.01" min="0" placeholder="34.00">
+                </label>
+                <label class="admin-form-field">
+                  <span>7-10 days/day (€)</span>
+                  <input type="number" id="fleetCarPrice7_10Days" name="price_7_10days" step="0.01" min="0" placeholder="32.00">
+                </label>
+                <label class="admin-form-field">
+                  <span>10+ days/day (€)</span>
+                  <input type="number" id="fleetCarPrice10PlusDays" name="price_10plus_days" step="0.01" min="0" placeholder="30.00">
+                </label>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px;">
+              <label class="admin-form-field">
+                <span>Deposit Amount (€)</span>
+                <input type="number" id="fleetCarDeposit" name="deposit_amount" step="0.01" min="0" value="200" placeholder="200.00">
+              </label>
+              <label class="admin-form-field">
+                <span>Insurance per day (€)</span>
+                <input type="number" id="fleetCarInsurance" name="insurance_per_day" step="0.01" min="0" value="17" placeholder="17.00">
+              </label>
+            </div>
+          </div>
+
+          <!-- Specifications -->
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-bottom: 16px;">
+            <label class="admin-form-field">
+              <span>Transmission *</span>
+              <select id="fleetCarTransmission" name="transmission" required>
+                <option value="manual">Manual</option>
+                <option value="automatic">Automatic</option>
+              </select>
+            </label>
+
+            <label class="admin-form-field">
+              <span>Fuel Type *</span>
+              <select id="fleetCarFuelType" name="fuel_type" required>
+                <option value="petrol">Petrol</option>
+                <option value="diesel">Diesel</option>
+                <option value="hybrid">Hybrid</option>
+                <option value="electric">Electric</option>
+              </select>
+            </label>
+
+            <label class="admin-form-field">
+              <span>Currency</span>
+              <select id="fleetCarCurrency" name="currency">
+                <option value="EUR">EUR (€)</option>
+                <option value="USD">USD ($)</option>
+                <option value="GBP">GBP (£)</option>
+              </select>
+            </label>
+          </div>
+
+          <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;">
+            <label class="admin-form-field">
+              <span>Max Passengers *</span>
+              <input type="number" id="fleetCarMaxPassengers" name="max_passengers" min="1" max="12" value="5" required>
+            </label>
+
+            <label class="admin-form-field">
+              <span>Max Luggage</span>
+              <input type="number" id="fleetCarMaxLuggage" name="max_luggage" min="0" max="10" value="2">
+            </label>
+
+            <label class="admin-form-field">
+              <span>Stock Count</span>
+              <input type="number" id="fleetCarStockCount" name="stock_count" min="0" max="50" value="1">
+            </label>
+
+            <label class="admin-form-field">
+              <span>Sort Order</span>
+              <input type="number" id="fleetCarSortOrder" name="sort_order" min="1" value="1000">
+            </label>
+          </div>
+
+          <!-- Image and Availability -->
+          <div style="display: grid; gap: 12px; margin-bottom: 16px;">
+            <label class="admin-form-field">
+              <span>Image URL</span>
+              <input type="url" id="fleetCarImageUrl" name="image_url" placeholder="https://example.com/car-image.jpg">
+              <small style="color: var(--admin-text-muted); font-size: 11px; margin-top: 4px;">Enter a public URL to car image</small>
+            </label>
+
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="fleetCarIsAvailable" name="is_available" checked style="width: 18px; height: 18px;">
+              <span style="font-weight: 500;">Car is available for rent</span>
+            </label>
+          </div>
+
+          <!-- Features (JSON array) -->
+          <div style="margin-bottom: 16px;">
+            <label class="admin-form-field">
+              <span>Features (one per line)</span>
+              <textarea id="fleetCarFeatures" name="features" rows="3" placeholder="Air Conditioning&#10;Bluetooth&#10;GPS Navigation"></textarea>
+              <small style="color: var(--admin-text-muted); font-size: 11px; margin-top: 4px;">Enter each feature on a new line</small>
+            </label>
+          </div>
+
+          <!-- Error Display -->
+          <div id="fleetCarFormError" class="admin-error-message" hidden style="margin-bottom: 16px;"></div>
+
+          <!-- Actions -->
+          <div class="poi-form-actions">
+            <button type="button" class="btn-secondary" id="fleetCarFormCancel">Cancel</button>
+            <button type="submit" class="btn-primary" id="fleetCarFormSubmit">Save Car</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Quest Form Modal -->
   <div class="admin-modal" id="questFormModal" hidden>
     <div class="admin-modal-overlay" id="questFormModalOverlay"></div>

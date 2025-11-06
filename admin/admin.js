@@ -1538,10 +1538,279 @@ async function deleteFleetCar(carId, carModel) {
 }
 
 async function editFleetCar(carId) {
-  // TODO: Implement edit modal
-  showToast('Edit car feature - coming soon', 'info');
-  console.log('Edit car:', carId);
+  try {
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database connection not available');
+
+    // Fetch car data
+    const { data: car, error } = await client
+      .from('car_offers')
+      .select('*')
+      .eq('id', carId)
+      .single();
+
+    if (error) throw error;
+    if (!car) throw new Error('Car not found');
+
+    // Open modal in edit mode
+    openFleetCarModal(car);
+
+  } catch (e) {
+    console.error('Error loading car for edit:', e);
+    showToast('Failed to load car: ' + (e.message || 'Unknown error'), 'error');
+  }
 }
+
+function openFleetCarModal(carData = null) {
+  const modal = $('#fleetCarModal');
+  const title = $('#fleetCarModalTitle');
+  const form = $('#fleetCarForm');
+  
+  if (!modal || !title || !form) return;
+
+  // Reset form
+  form.reset();
+  
+  const errorDiv = $('#fleetCarFormError');
+  if (errorDiv) {
+    errorDiv.hidden = true;
+    errorDiv.textContent = '';
+  }
+
+  if (carData) {
+    // Edit mode
+    title.textContent = `Edit ${carData.car_model}`;
+    
+    // Fill form with existing data
+    $('#fleetCarId').value = carData.id;
+    $('#fleetCarLocation').value = carData.location || '';
+    $('#fleetCarType').value = carData.car_type || '';
+    $('#fleetCarModel').value = carData.car_model || '';
+    $('#fleetCarDescription').value = carData.description || '';
+    
+    // Pricing
+    if (carData.location === 'larnaca') {
+      $('#fleetCarPricePerDay').value = carData.price_per_day || '';
+    } else if (carData.location === 'paphos') {
+      $('#fleetCarPrice3Days').value = carData.price_3days || '';
+      $('#fleetCarPrice4_6Days').value = carData.price_4_6days || '';
+      $('#fleetCarPrice7_10Days').value = carData.price_7_10days || '';
+      $('#fleetCarPrice10PlusDays').value = carData.price_10plus_days || '';
+    }
+    
+    $('#fleetCarDeposit').value = carData.deposit_amount || 200;
+    $('#fleetCarInsurance').value = carData.insurance_per_day || 17;
+    
+    // Specs
+    $('#fleetCarTransmission').value = carData.transmission || 'manual';
+    $('#fleetCarFuelType').value = carData.fuel_type || 'petrol';
+    $('#fleetCarCurrency').value = carData.currency || 'EUR';
+    $('#fleetCarMaxPassengers').value = carData.max_passengers || 5;
+    $('#fleetCarMaxLuggage').value = carData.max_luggage || 2;
+    $('#fleetCarStockCount').value = carData.stock_count || 1;
+    $('#fleetCarSortOrder').value = carData.sort_order || 1000;
+    
+    // Image and availability
+    $('#fleetCarImageUrl').value = carData.image_url || '';
+    $('#fleetCarIsAvailable').checked = carData.is_available !== false;
+    
+    // Features (convert JSON array to text)
+    if (carData.features) {
+      try {
+        const featuresArray = typeof carData.features === 'string' 
+          ? JSON.parse(carData.features) 
+          : carData.features;
+        $('#fleetCarFeatures').value = Array.isArray(featuresArray) 
+          ? featuresArray.join('\n') 
+          : '';
+      } catch (e) {
+        $('#fleetCarFeatures').value = '';
+      }
+    }
+    
+    // Trigger location change to show correct pricing fields
+    handleLocationChange(carData.location);
+    
+  } else {
+    // Add mode
+    title.textContent = 'Add New Car';
+    $('#fleetCarId').value = '';
+    
+    // Set defaults
+    $('#fleetCarCurrency').value = 'EUR';
+    $('#fleetCarTransmission').value = 'manual';
+    $('#fleetCarFuelType').value = 'petrol';
+    $('#fleetCarMaxPassengers').value = 5;
+    $('#fleetCarMaxLuggage').value = 2;
+    $('#fleetCarStockCount').value = 1;
+    $('#fleetCarSortOrder').value = 1000;
+    $('#fleetCarDeposit').value = 200;
+    $('#fleetCarInsurance').value = 17;
+    $('#fleetCarIsAvailable').checked = true;
+  }
+
+  // Show modal
+  modal.hidden = false;
+}
+
+function closeFleetCarModal() {
+  const modal = $('#fleetCarModal');
+  if (modal) modal.hidden = true;
+}
+
+function handleLocationChange(location) {
+  const larnacaPricing = $('#larnacaPricing');
+  const paphosPricing = $('#paphosPricing');
+  
+  if (!larnacaPricing || !paphosPricing) return;
+
+  if (location === 'larnaca') {
+    larnacaPricing.hidden = false;
+    paphosPricing.hidden = true;
+    
+    // Make Larnaca field required
+    const pricePerDay = $('#fleetCarPricePerDay');
+    if (pricePerDay) pricePerDay.required = true;
+    
+    // Remove Paphos field requirements
+    $('#fleetCarPrice3Days').required = false;
+    
+  } else if (location === 'paphos') {
+    larnacaPricing.hidden = true;
+    paphosPricing.hidden = false;
+    
+    // Remove Larnaca field requirement
+    const pricePerDay = $('#fleetCarPricePerDay');
+    if (pricePerDay) pricePerDay.required = false;
+    
+    // Make Paphos 3-day price required
+    $('#fleetCarPrice3Days').required = true;
+    
+  } else {
+    // No location selected
+    larnacaPricing.hidden = true;
+    paphosPricing.hidden = true;
+  }
+}
+
+async function handleFleetCarSubmit(event) {
+  event.preventDefault();
+  
+  const form = event.target;
+  const errorDiv = $('#fleetCarFormError');
+  const submitBtn = $('#fleetCarFormSubmit');
+  
+  try {
+    if (submitBtn) submitBtn.disabled = true;
+    if (errorDiv) errorDiv.hidden = true;
+
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database connection not available');
+
+    // Get form data
+    const carId = $('#fleetCarId').value;
+    const location = $('#fleetCarLocation').value;
+    
+    // Build car object
+    const carData = {
+      location: location,
+      car_type: $('#fleetCarType').value,
+      car_model: $('#fleetCarModel').value,
+      description: $('#fleetCarDescription').value || null,
+      transmission: $('#fleetCarTransmission').value,
+      fuel_type: $('#fleetCarFuelType').value,
+      currency: $('#fleetCarCurrency').value,
+      max_passengers: parseInt($('#fleetCarMaxPassengers').value) || 5,
+      max_luggage: parseInt($('#fleetCarMaxLuggage').value) || 2,
+      stock_count: parseInt($('#fleetCarStockCount').value) || 1,
+      sort_order: parseInt($('#fleetCarSortOrder').value) || 1000,
+      deposit_amount: parseFloat($('#fleetCarDeposit').value) || 0,
+      insurance_per_day: parseFloat($('#fleetCarInsurance').value) || 0,
+      image_url: $('#fleetCarImageUrl').value || null,
+      is_available: $('#fleetCarIsAvailable').checked
+    };
+
+    // Location-specific pricing
+    if (location === 'larnaca') {
+      carData.price_per_day = parseFloat($('#fleetCarPricePerDay').value) || 0;
+      carData.price_3days = null;
+      carData.price_4_6days = null;
+      carData.price_7_10days = null;
+      carData.price_10plus_days = null;
+    } else if (location === 'paphos') {
+      carData.price_per_day = parseFloat($('#fleetCarPrice3Days').value) || 0; // Use 3-day as base
+      carData.price_3days = parseFloat($('#fleetCarPrice3Days').value) || 0;
+      carData.price_4_6days = parseFloat($('#fleetCarPrice4_6Days').value) || 0;
+      carData.price_7_10days = parseFloat($('#fleetCarPrice7_10Days').value) || 0;
+      carData.price_10plus_days = parseFloat($('#fleetCarPrice10PlusDays').value) || 0;
+    }
+
+    // Parse features from textarea (one per line)
+    const featuresText = $('#fleetCarFeatures').value.trim();
+    if (featuresText) {
+      const featuresArray = featuresText
+        .split('\n')
+        .map(f => f.trim())
+        .filter(f => f.length > 0);
+      carData.features = featuresArray;
+    } else {
+      carData.features = [];
+    }
+
+    // Insert or Update
+    let result;
+    if (carId) {
+      // Update existing car
+      const { data, error } = await client
+        .from('car_offers')
+        .update(carData)
+        .eq('id', carId)
+        .select()
+        .single();
+      
+      if (error) throw error;
+      result = data;
+      
+      showToast(`${carData.car_model} updated successfully`, 'success');
+    } else {
+      // Insert new car
+      const { data, error } = await client
+        .from('car_offers')
+        .insert([carData])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      result = data;
+      
+      showToast(`${carData.car_model} added successfully`, 'success');
+    }
+
+    console.log('Car saved:', result);
+
+    // Close modal and refresh list
+    closeFleetCarModal();
+    loadFleetData();
+
+  } catch (e) {
+    console.error('Error saving car:', e);
+    
+    if (errorDiv) {
+      errorDiv.textContent = 'Failed to save car: ' + (e.message || 'Unknown error');
+      errorDiv.hidden = false;
+    }
+    
+    showToast('Failed to save car: ' + (e.message || 'Unknown error'), 'error');
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+  }
+}
+
+// Make functions global
+window.openFleetCarModal = openFleetCarModal;
+window.closeFleetCarModal = closeFleetCarModal;
+window.handleLocationChange = handleLocationChange;
+window.handleFleetCarSubmit = handleFleetCarSubmit;
 
 function switchCarsTab(tab) {
   // Update tab buttons
@@ -1564,13 +1833,19 @@ function switchCarsTab(tab) {
   const btnRefreshCars = $('#btnRefreshCars');
   
   if (tab === 'bookings') {
-    if (btnAddCar) btnAddCar.textContent = 'New Booking';
+    if (btnAddCar) {
+      btnAddCar.textContent = 'New Booking';
+      btnAddCar.onclick = () => showToast('Add new car booking - coming soon', 'info');
+    }
     if (btnRefreshCars) {
       btnRefreshCars.onclick = () => loadCarsData();
     }
     loadCarsData();
   } else if (tab === 'fleet') {
-    if (btnAddCar) btnAddCar.textContent = 'Add Car (Booking)';
+    if (btnAddCar) {
+      btnAddCar.textContent = 'Add New Car';
+      btnAddCar.onclick = () => openFleetCarModal();
+    }
     if (btnRefreshCars) {
       btnRefreshCars.onclick = () => loadFleetData();
     }
@@ -2667,8 +2942,24 @@ function initEventListeners() {
   const btnAddFleetCar = $('#btnAddFleetCar');
   if (btnAddFleetCar) {
     btnAddFleetCar.addEventListener('click', () => {
-      showToast('Add new car to fleet - coming soon', 'info');
+      openFleetCarModal(); // Open modal in add mode
     });
+  }
+
+  // Fleet car modal controls
+  const btnCloseFleetCarModal = $('#btnCloseFleetCarModal');
+  if (btnCloseFleetCarModal) {
+    btnCloseFleetCarModal.addEventListener('click', closeFleetCarModal);
+  }
+
+  const fleetCarModalOverlay = $('#fleetCarModalOverlay');
+  if (fleetCarModalOverlay) {
+    fleetCarModalOverlay.addEventListener('click', closeFleetCarModal);
+  }
+
+  const fleetCarFormCancel = $('#fleetCarFormCancel');
+  if (fleetCarFormCancel) {
+    fleetCarFormCancel.addEventListener('click', closeFleetCarModal);
   }
 
   // Cars actions (will be updated by switchCarsTab)
