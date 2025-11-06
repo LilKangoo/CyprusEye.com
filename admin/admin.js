@@ -1890,9 +1890,8 @@ async function loadFleetData() {
           <td>${car.max_passengers} seats</td>
           <td>
             <select 
-              class="admin-form-field" 
+              class="car-availability-select" 
               style="padding: 6px 8px; font-size: 13px; background-color: ${car.is_available ? '#10b981' : '#ef4444'}; color: white; border: none; border-radius: 4px; font-weight: 500; cursor: pointer;"
-              onchange="toggleCarAvailability('${car.id}', this.value === 'true')"
               data-car-id="${car.id}"
             >
               <option value="true" ${car.is_available ? 'selected' : ''} style="background: white; color: #10b981;">✓ Available</option>
@@ -2471,6 +2470,29 @@ function switchCarsTab(tab) {
     loadFleetData();
   }
 }
+
+// Setup event delegation for car availability dropdowns
+function setupFleetEventListeners() {
+  // Remove any existing listener to avoid duplicates
+  document.removeEventListener('change', handleAvailabilityChange);
+  // Add event delegation for availability dropdowns
+  document.addEventListener('change', handleAvailabilityChange);
+}
+
+function handleAvailabilityChange(e) {
+  if (e.target && e.target.classList.contains('car-availability-select')) {
+    const carId = e.target.dataset.carId;
+    const newValue = e.target.value;
+    console.log('🔄 Availability dropdown changed:', { carId, newValue });
+    
+    if (carId && newValue) {
+      toggleCarAvailability(carId, newValue);
+    }
+  }
+}
+
+// Initialize event listeners on page load
+setupFleetEventListeners();
 
 // Make functions global
 window.loadFleetData = loadFleetData;
