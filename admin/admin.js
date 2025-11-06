@@ -1889,11 +1889,16 @@ async function loadFleetData() {
           <td>${escapeHtml(car.fuel_type)}</td>
           <td>${car.max_passengers} seats</td>
           <td>
-            <label class="admin-checkbox" style="display:flex; align-items:center; gap:8px;">
-              <input type="checkbox" ${car.is_available ? 'checked' : ''} onchange="toggleCarAvailability('${car.id}', this.checked)" />
-              <span>${car.is_available ? 'Available' : 'Hidden'}</span>
-            </label>
-            ${car.stock_count ? `<div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 2px;">Stock: ${car.stock_count}</div>` : ''}
+            <select 
+              class="admin-form-field" 
+              style="padding: 6px 8px; font-size: 13px; background-color: ${car.is_available ? '#10b981' : '#ef4444'}; color: white; border: none; border-radius: 4px; font-weight: 500; cursor: pointer;"
+              onchange="toggleCarAvailability('${car.id}', this.value === 'true')"
+              data-car-id="${car.id}"
+            >
+              <option value="true" ${car.is_available ? 'selected' : ''} style="background: white; color: #10b981;">✓ Available</option>
+              <option value="false" ${!car.is_available ? 'selected' : ''} style="background: white; color: #ef4444;">✗ Not Available</option>
+            </select>
+            ${car.stock_count ? `<div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 4px;">Stock: ${car.stock_count}</div>` : ''}
           </td>
           <td>
             <div style="display: flex; gap: 4px;">
@@ -2078,25 +2083,36 @@ function openFleetCarModal(carData = null) {
 
 async function toggleCarAvailability(carId, isAvailable) {
   try {
+    console.log('toggleCarAvailability called:', { carId, isAvailable });
+    
     const client = ensureSupabase();
     if (!client) throw new Error('Database connection not available');
 
+    // Convert string to boolean if needed
+    const availableBoolean = typeof isAvailable === 'string' ? isAvailable === 'true' : !!isAvailable;
+    
+    console.log('Updating car availability:', { carId, availableBoolean });
+
     const { error } = await client
       .from('car_offers')
-      .update({ is_available: !!isAvailable }, { returning: 'minimal' })
+      .update({ is_available: availableBoolean }, { returning: 'minimal' })
       .eq('id', carId);
 
-    if (error) throw error;
+    if (error) {
+      console.error('Supabase error:', error);
+      throw error;
+    }
 
-    showToast(isAvailable ? 'Car is now visible on site' : 'Car hidden from site', 'success');
+    showToast(availableBoolean ? '✓ Car is now visible on site' : '✗ Car hidden from site', 'success');
 
-    // Refresh row list to reflect label text
-    loadFleetData();
+    // Refresh row list to reflect updated dropdown color
+    await loadFleetData();
+    
   } catch (e) {
     console.error('Failed to update availability:', e);
     showToast('Failed to update availability: ' + (e.message || 'Unknown error'), 'error');
     // Revert UI by reloading list
-    loadFleetData();
+    await loadFleetData();
   }
 }
 
