@@ -254,14 +254,6 @@
       >
         ✅ Zadania do wykonania
       </a>
-      <a
-        href="attractions.html"
-        class="header-tab"
-        id="explorerToggle"
-        data-i18n="header.explorerToggle"
-      >
-        🌍 Przeglądaj atrakcje
-      </a>
     </nav>
   </header>
 
@@ -603,44 +595,6 @@
   <script src="js/home-community-bridge.js" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
 
-  <div
-    class="explorer-modal"
-    id="explorerModal"
-    hidden
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="explorerTitle"
-    aria-describedby="explorerDescription"
-  >
-    <div class="explorer-dialog">
-      <header class="explorer-header">
-        <div>
-          <h2 id="explorerTitle" data-i18n="explorer.title">Interaktywny przewodnik po Cyprze</h2>
-          <p id="explorerDescription" data-i18n="explorer.subtitle">
-            Przeglądaj wszystkie nasze lokalizacje i wybieraj, które chcesz odwiedzić jako następne.
-          </p>
-        </div>
-        <div class="explorer-controls">
-          <label class="sr-only" for="explorerFilter" data-i18n="explorer.filterLabel">Filtruj atrakcje</label>
-          <select id="explorerFilter">
-            <option value="all" data-i18n="explorer.filter.all">Wszystkie miejsca</option>
-            <option value="available" data-i18n="explorer.filter.available">Do odwiedzenia</option>
-            <option value="visited" data-i18n="explorer.filter.visited">Zdobyte odznaki</option>
-          </select>
-          <button
-            type="button"
-            class="icon-button"
-            id="explorerClose"
-            aria-label="Zamknij okno"
-            data-i18n="explorer.close"
-          >
-            ✕
-          </button>
-        </div>
-      </header>
-      <div class="explorer-grid" id="explorerGrid" role="list"></div>
-    </div>
-  </div>
 
   <div
     id="auth-modal"
