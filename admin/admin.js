@@ -3241,27 +3241,24 @@ async function handleAdminLogin(email, password) {
 
 async function handleLogout() {
   try {
-    if (!sb) {
-      sb = getSupabaseClient();
+    const client = ensureSupabase();
+    if (client) {
+      await client.auth.signOut();
     }
     
-    if (!sb) {
-      console.error('Supabase client not available');
-      showLoginScreen();
-      return;
-    }
+    // Clear all local storage
+    localStorage.clear();
+    sessionStorage.clear();
     
-    const { error } = await sb.auth.signOut();
-    if (error) throw error;
+    // Force redirect to login
+    window.location.href = '/admin/login.html';
     
-    showToast('Logged out successfully', 'success');
-    setTimeout(() => {
-      showLoginScreen();
-    }, 500);
-
   } catch (error) {
     console.error('Logout failed:', error);
-    showToast('Logout failed', 'error');
+    // Force redirect anyway
+    localStorage.clear();
+    sessionStorage.clear();
+    window.location.href = '/admin/login.html';
   }
 }
 
