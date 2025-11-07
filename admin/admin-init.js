@@ -5,7 +5,7 @@ import { sb, supabase } from '/js/supabaseClient.js';
 
 // Configuration
 const ADMIN_CONFIG = {
-  requiredUserId: '3c72e07a-9dda-4fa8-8002-1f8f66ba0e76',
+  requiredUserId: '15f3d442-092d-4eb8-9627-db90da0283eb',
   requiredEmail: 'lilkangoomedia@gmail.com'
 };
 
