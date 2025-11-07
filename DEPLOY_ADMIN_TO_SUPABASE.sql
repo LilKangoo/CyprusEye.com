@@ -28,10 +28,17 @@ ALTER TABLE profiles
   ADD COLUMN IF NOT EXISTS ban_permanent boolean DEFAULT false,
   ADD COLUMN IF NOT EXISTS is_moderator boolean DEFAULT false;
 
--- Set the admin user
-UPDATE profiles 
-SET is_admin = TRUE 
-WHERE id = '15f3d442-092d-4eb8-9627-db90da0283eb';
+-- Set the admin user (create profile if it doesn't exist)
+INSERT INTO profiles (id, is_admin, email, username)
+SELECT 
+  id,
+  true as is_admin,
+  email,
+  COALESCE(raw_user_meta_data->>'username', email) as username
+FROM auth.users
+WHERE id = '15f3d442-092d-4eb8-9627-db90da0283eb'
+ON CONFLICT (id) DO UPDATE
+SET is_admin = true;
 
 -- Create index for faster admin checks
 CREATE INDEX IF NOT EXISTS idx_profiles_is_admin ON profiles(is_admin) WHERE is_admin = TRUE;
@@ -351,21 +358,26 @@ GRANT EXECUTE ON FUNCTION is_user_admin(UUID) TO authenticated;
 
 
 -- =====================================================
--- VERIFICATION QUERIES (optional - run these to test)
+-- VERIFICATION QUERIES (run these AFTER deployment to verify)
 -- =====================================================
+-- NOTE: Don't run these in the same query as the deployment!
+-- Run them separately to verify everything works.
 
 -- Test 1: Check if admin user is set correctly
-SELECT id, email, username, is_admin 
-FROM profiles 
-WHERE id = '15f3d442-092d-4eb8-9627-db90da0283eb';
+-- SELECT id, email, username, is_admin 
+-- FROM profiles 
+-- WHERE id = '15f3d442-092d-4eb8-9627-db90da0283eb';
 
 -- Test 2: Check system diagnostics view
-SELECT * FROM admin_system_diagnostics;
+-- SELECT * FROM admin_system_diagnostics;
 
 -- Test 3: Check users overview
-SELECT id, username, email, is_admin, comment_count 
-FROM admin_users_overview 
-LIMIT 5;
+-- SELECT id, username, email, is_admin, comment_count 
+-- FROM admin_users_overview 
+-- LIMIT 5;
+
+-- NOTE: To test RPC functions, you must be logged in as admin user in the app
+-- They will fail in SQL Editor because auth.uid() is NULL
 
 -- =====================================================
 -- DEPLOYMENT COMPLETE! 🎉
