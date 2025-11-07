@@ -344,11 +344,18 @@
             persistSession: true,
             autoRefreshToken: true,
             detectSessionInUrl: true,
-            storageKey: 'cypruseye-auth',
+            // Use the same storage key as the main app to share the session
+            storageKey: 'sb-daoohnbnnowmmcizgvrq-auth-token',
             storage: window.localStorage,
             flowType: 'pkce'
           }
         });
+        
+        // Expose for console diagnostics and consistency with dashboard
+        window.supabase = supabase;
+        if (typeof window.getSupabase !== 'function') {
+          window.getSupabase = () => supabase;
+        }
         
         // Check for existing session
         const { data: { session } } = await supabase.auth.getSession();
