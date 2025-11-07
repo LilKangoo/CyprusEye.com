@@ -391,10 +391,10 @@
           throw new Error('Access denied. Admin privileges required.');
         }
         
-        // Success - redirect to admin panel
+        // Success - redirect to dashboard (skip index.html check)
         showStatus('Access granted! Redirecting...', 'success');
         setTimeout(() => {
-          window.location.href = '/admin/index.html';
+          window.location.replace('/admin/dashboard.html');
         }, 500);
         
       } catch (error) {

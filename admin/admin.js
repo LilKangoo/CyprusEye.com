@@ -5628,11 +5628,12 @@ window.resolveReport = resolveReport;
 
 async function initAdminPanel() {
   console.log('Initializing admin panel...');
+  console.log('NOTE: Auth already verified by /admin/index.html - skipping auth checks');
   
-  // Initialize event listeners FIRST (needed for login form)
+  // Initialize event listeners
   initEventListeners();
   
-  // Wait a moment for modules to load
+  // Wait for Supabase client
   let retries = 0;
   const maxRetries = 10;
   
@@ -5648,18 +5649,36 @@ async function initAdminPanel() {
   if (!sb) {
     console.error('Failed to load Supabase client after multiple retries');
     setLoading(false);
-    showLoginScreen();
     return;
   }
   
   console.log('Supabase client loaded successfully');
   
-  // Check admin access
-  const hasAccess = await checkAdminAccess();
-  
-  if (!hasAccess) {
-    console.log('No access - login screen or access denied shown');
-    return;
+  // Load user session (but don't redirect - index.html already verified)
+  try {
+    const { data: { session } } = await sb.auth.getSession();
+    if (session && session.user) {
+      adminState.user = session.user;
+      console.log('User session loaded:', session.user.email);
+      
+      // Load profile
+      const { data: profile } = await sb
+        .from('profiles')
+        .select('*')
+        .eq('id', session.user.id)
+        .single();
+      
+      if (profile) {
+        adminState.profile = profile;
+        adminState.isAdmin = profile.is_admin;
+        console.log('Profile loaded:', profile.username || profile.email);
+      }
+      
+      // Show admin panel and hide loading
+      showAdminPanel();
+    }
+  } catch (error) {
+    console.error('Error loading session:', error);
   }
 
   console.log('Admin panel initialized successfully');

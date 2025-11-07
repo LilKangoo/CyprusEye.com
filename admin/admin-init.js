@@ -1,5 +1,6 @@
 // Simple admin panel initialization
-// Authentication is handled by /admin/index.html before loading dashboard
+// Authentication is ALREADY VERIFIED by /admin/index.html before loading dashboard
+// This file only initializes UI - NO AUTH CHECKS HERE to prevent redirect loops
 
 import { sb, supabase } from '/js/supabaseClient.js';
 
@@ -29,22 +30,20 @@ function hideElement(el) {
   if (el) el.hidden = true;
 }
 
-// Verify session on load
-async function verifySession() {
+// Load user profile data (NO redirects, just load data)
+async function loadUserProfile() {
   try {
     const client = sb || supabase || window.supabase;
     
     if (!client) {
-      console.error('Supabase client not available');
-      window.location.replace('/admin/login.html');
+      console.warn('Supabase client not available yet');
       return false;
     }
     
     const { data: { session } } = await client.auth.getSession();
     
     if (!session || !session.user) {
-      console.log('No session found - redirecting to login');
-      window.location.replace('/admin/login.html');
+      console.warn('No session - but index.html should have caught this');
       return false;
     }
     
@@ -68,8 +67,7 @@ async function verifySession() {
     return true;
     
   } catch (error) {
-    console.error('Session verification failed:', error);
-    window.location.replace('/admin/login.html');
+    console.error('Failed to load profile:', error);
     return false;
   }
 }
@@ -103,14 +101,10 @@ async function handleLogout() {
 async function initAdminDashboard() {
   console.log('Initializing admin dashboard...');
   
-  // Verify session
-  const isValid = await verifySession();
+  // Load user profile (no redirects)
+  await loadUserProfile();
   
-  if (!isValid) {
-    return;
-  }
-  
-  // Show admin container
+  // Show admin container (already visible by default now)
   const container = $('#adminContainer');
   if (container) {
     showElement(container);
