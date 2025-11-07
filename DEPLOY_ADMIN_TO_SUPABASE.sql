@@ -152,6 +152,9 @@ GRANT SELECT ON admin_system_diagnostics TO authenticated;
 -- STEP 4: RPC function to get user details
 -- =====================================================
 
+-- Drop old version first (may have different return type)
+DROP FUNCTION IF EXISTS admin_get_user_details(UUID);
+
 CREATE OR REPLACE FUNCTION admin_get_user_details(target_user_id UUID)
 RETURNS JSON
 LANGUAGE plpgsql
@@ -194,6 +197,9 @@ $$;
 -- =====================================================
 -- STEP 5: RPC function to get activity log
 -- =====================================================
+
+-- Drop old version first (may have different return type)
+DROP FUNCTION IF EXISTS admin_get_activity_log(INTEGER);
 
 CREATE OR REPLACE FUNCTION admin_get_activity_log(limit_count INTEGER DEFAULT 10)
 RETURNS TABLE (
