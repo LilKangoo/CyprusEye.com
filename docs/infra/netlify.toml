@@ -1,6 +1,7 @@
-# FIX: prawidłowy status 404
+# Cloudflare Pages & Netlify Configuration
 [build]
-  publish = "."
+  publish = "dist"
+  command = "npm run build"
 
 [[redirects]]
   from = "/*"
