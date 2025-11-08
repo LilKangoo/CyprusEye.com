@@ -292,9 +292,15 @@ async function openNewTripModal() {
           // auto slug from title
           payload.slug = slugifyTitle(payload.title.pl);
 
+          // Ensure Authorization header (admin endpoints require admin token)
+          const client = ensureSupabase();
+          const { data: { session } } = await client.auth.getSession();
+          const headers = { 'Content-Type': 'application/json' };
+          if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+
           const res = await fetch('/admin/trips', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers,
             body: JSON.stringify(payload)
           });
           const data = await res.json().catch(()=>({}));
