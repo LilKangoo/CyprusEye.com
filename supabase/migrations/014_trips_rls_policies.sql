@@ -2,6 +2,28 @@
 -- TRIPS TABLE RLS POLICIES (matching car_bookings pattern)
 -- =====================================================
 
+-- Add is_published column if it doesn't exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema='public' AND table_name='trips' AND column_name='is_published'
+  ) THEN
+    ALTER TABLE public.trips ADD COLUMN is_published boolean DEFAULT false;
+  END IF;
+END $$;
+
+-- Add status column if it doesn't exist (like car_bookings)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM information_schema.columns 
+    WHERE table_schema='public' AND table_name='trips' AND column_name='status'
+  ) THEN
+    ALTER TABLE public.trips ADD COLUMN status text DEFAULT 'draft' CHECK (status IN ('draft', 'published', 'archived'));
+  END IF;
+END $$;
+
 -- Enable RLS on trips table if not already enabled
 ALTER TABLE trips ENABLE ROW LEVEL SECURITY;
 
