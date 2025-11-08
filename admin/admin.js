@@ -345,24 +345,25 @@ async function openNewTripModal() {
       form.onsubmit = async (ev) => {
         ev.preventDefault();
         try {
+          const client = ensureSupabase();
+          if (!client) throw new Error('Database connection not available');
+
           const fd = new FormData(form);
           const payload = Object.fromEntries(fd.entries());
+          
           // Normalize types
           ['price_base','price_per_person','price_extra_person','included_people','min_hours'].forEach(k=>{
             if (payload[k] === '' || payload[k] == null) delete payload[k];
             else payload[k] = Number(payload[k]);
           });
+          
           payload.title = { pl: payload.title_pl || '' };
           payload.description = { pl: payload.description_pl || '' };
-          delete payload.title_pl; delete payload.description_pl;
-          // auto slug from title
+          delete payload.title_pl; 
+          delete payload.description_pl;
+          
+          // Auto-generate slug from title
           payload.slug = slugifyTitle(payload.title.pl);
-
-          // Ensure Authorization header (admin endpoints require admin token)
-          const client = ensureSupabase();
-          const { data: { session } } = await client.auth.getSession();
-          const headers = { 'Content-Type': 'application/json' };
-          if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
 
           // Optional direct upload of cover image to Storage
           let coverUrl = (payload.cover_image_url || '').trim() || '';
@@ -371,28 +372,44 @@ async function openNewTripModal() {
             if (!file.type.startsWith('image/')) throw new Error('Nieprawidłowy typ pliku okładki');
             const maxSize = 8 * 1024 * 1024;
             if (file.size > maxSize) throw new Error('Plik okładki jest za duży (max 8MB)');
+            
             const compressed = await compressToWebp(file, 1920, 1080, 0.82);
             const path = `trips/${payload.slug}/cover-${Date.now()}.webp`;
-            const { error: upErr } = await client.storage.from('poi-photos').upload(path, compressed, { cacheControl: '3600', upsert: false, contentType: 'image/webp' });
+            const { error: upErr } = await client.storage.from('poi-photos').upload(path, compressed, { 
+              cacheControl: '3600', 
+              upsert: false, 
+              contentType: 'image/webp' 
+            });
             if (upErr) throw upErr;
+            
             const { data: pub } = client.storage.from('poi-photos').getPublicUrl(path);
             coverUrl = pub?.publicUrl || '';
           }
-          if (coverUrl) payload.cover_image_url = coverUrl; else delete payload.cover_image_url;
+          if (coverUrl) payload.cover_image_url = coverUrl; 
+          else delete payload.cover_image_url;
 
-          const res = await fetch('/admin/trips', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify(payload)
-          });
-          const data = await res.json().catch(()=>({}));
-          if (!res.ok) throw new Error(data?.error || 'Failed to create trip');
-          showToast('Trip created', 'success');
+          // Set timestamps
+          const now = new Date().toISOString();
+          payload.created_at = now;
+          payload.updated_at = now;
+          payload.is_published = false; // New trips start as drafts
+
+          // Insert directly via Supabase client (like Cars does)
+          const { data, error } = await client
+            .from('trips')
+            .insert(payload)
+            .select('*')
+            .single();
+
+          if (error) throw error;
+
+          showToast('Trip created successfully', 'success');
           document.getElementById('newTripModal').hidden = true;
           await loadTripsAdminData();
+          
         } catch (err) {
-          console.error('Create trip failed', err);
-          showToast(err.message || 'Create trip failed', 'error');
+          console.error('Create trip failed:', err);
+          showToast(err.message || 'Failed to create trip', 'error');
         }
       };
     }
