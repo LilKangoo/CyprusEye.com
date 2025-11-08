@@ -263,6 +263,36 @@ function slugifyTitle(title) {
     .slice(0, 80) || `trip-${Date.now()}`;
 }
 
+function compressToWebp(file, maxWidth = 1920, maxHeight = 1080, quality = 0.82) {
+  return new Promise((resolve, reject) => {
+    try {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          let w = img.width, h = img.height;
+          const ratio = Math.min(maxWidth / w, maxHeight / h, 1);
+          w = Math.round(w * ratio);
+          h = Math.round(h * ratio);
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(img, 0, 0, w, h);
+          canvas.toBlob((blob) => {
+            if (!blob) return reject(new Error('Compression failed'));
+            const out = new File([blob], (file.name.split('.')[0] || 'cover') + '.webp', { type: 'image/webp' });
+            resolve(out);
+          }, 'image/webp', quality);
+        };
+        img.onerror = () => reject(new Error('Image load failed'));
+        img.src = reader.result;
+      };
+      reader.onerror = () => reject(new Error('Read error'));
+      reader.readAsDataURL(file);
+    } catch (e) { reject(e); }
+  });
+}
+
 async function openNewTripModal() {
   try {
     // Defaults
@@ -299,6 +329,19 @@ async function openNewTripModal() {
           }
         };
       }
+      if (urlInput && previewWrap && previewImg) {
+        urlInput.oninput = () => {
+          const v = (urlInput.value || '').trim();
+          if (v) {
+            previewImg.src = v;
+            previewWrap.style.display = '';
+            if (fileInput) fileInput.value = '';
+          } else {
+            previewWrap.style.display = 'none';
+            previewImg.removeAttribute('src');
+          }
+        };
+      }
       form.onsubmit = async (ev) => {
         ev.preventDefault();
         try {
@@ -326,11 +369,11 @@ async function openNewTripModal() {
           const file = fileInput && fileInput.files ? fileInput.files[0] : null;
           if (file) {
             if (!file.type.startsWith('image/')) throw new Error('Nieprawidłowy typ pliku okładki');
-            const maxSize = 5 * 1024 * 1024;
-            if (file.size > maxSize) throw new Error('Plik okładki jest za duży (max 5MB)');
-            const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
-            const path = `trips/${payload.slug}/cover-${Date.now()}.${ext}`;
-            const { error: upErr } = await client.storage.from('poi-photos').upload(path, file, { cacheControl: '3600', upsert: false, contentType: file.type });
+            const maxSize = 8 * 1024 * 1024;
+            if (file.size > maxSize) throw new Error('Plik okładki jest za duży (max 8MB)');
+            const compressed = await compressToWebp(file, 1920, 1080, 0.82);
+            const path = `trips/${payload.slug}/cover-${Date.now()}.webp`;
+            const { error: upErr } = await client.storage.from('poi-photos').upload(path, compressed, { cacheControl: '3600', upsert: false, contentType: 'image/webp' });
             if (upErr) throw upErr;
             const { data: pub } = client.storage.from('poi-photos').getPublicUrl(path);
             coverUrl = pub?.publicUrl || '';
