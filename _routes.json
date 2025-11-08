@@ -1,7 +1,8 @@
 {
   "version": 1,
   "include": [
-    "/admin/*",
+    "/admin/trips",
+    "/admin/trips/*",
     "/auth/*",
     "/account/*",
     "/reset/*",
@@ -9,30 +10,10 @@
     "/api/*"
   ],
   "exclude": [
-    "/*.js",
-    "/*.css",
-    "/*.html",
-    "/*.png",
-    "/*.jpg",
-    "/*.jpeg",
-    "/*.gif",
-    "/*.svg",
-    "/*.webp",
-    "/*.ico",
-    "/*.json",
-    "/*.xml",
-    "/*.txt",
-    "/js/*",
-    "/css/*",
-    "/assets/*",
-    "/admin/*.js",
-    "/admin/*.css",
-    "/admin/*.html",
+    "/admin/dashboard.html",
+    "/admin/admin.js",
+    "/admin/admin.css",
     "/admin/*.png",
-    "/admin/*.jpg",
-    "/admin/*.jpeg",
-    "/admin/*.gif",
-    "/admin/*.svg",
-    "/admin/*.webp"
+    "/admin/*.jpg"
   ]
 }
