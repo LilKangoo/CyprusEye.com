@@ -79,8 +79,9 @@
         </div>
       </header>
 
-      <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;">
-        <input id="q" placeholder="Szukaj po mieście lub tytule" style="flex:1;" />
+      <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <input id="q" placeholder="Szukaj po mieście lub tytule" style="flex:1;min-width:240px;" />
+        <select id="cityFilter" style="min-width:200px;display:none;"></select>
         <button id="btnSzukaj" class="btn-secondary">Szukaj</button>
       </div>
       <div id="lista" class="card-grid"></div>
@@ -94,15 +95,19 @@
   <script type="module">
     const $ = (s,r=document)=>r.querySelector(s);
     const lista = $('#lista');
+    const citySel = $('#cityFilter');
+    let allTrips = [];
+    let citiesReady = false;
 
-    async function loadTrips(){
-      const res = await fetch('/trips');
-      const data = await res.json();
+    function renderList(){
       const q = ($('#q').value||'').toLowerCase();
-      const items = (data||[]).filter(t=>{
+      const selCity = (citySel.value||'').toLowerCase();
+      const items = (allTrips||[]).filter(t=>{
         const title = (t.title?.pl || t.title?.en || '').toLowerCase();
         const city = (t.start_city||'').toLowerCase();
-        return !q || title.includes(q) || city.includes(q);
+        const okQ = !q || title.includes(q) || city.includes(q);
+        const okCity = !selCity || selCity==='__all__' || city===selCity;
+        return okQ && okCity;
       });
       if(!items.length){
         lista.innerHTML = '<p>Brak wycieczek.</p>';
@@ -126,7 +131,29 @@
       }).join('');
     }
 
-    $('#btnSzukaj').addEventListener('click', loadTrips);
+    function initCities(){
+      const cities = Array.from(new Set((allTrips||[]).map(t=>t.start_city).filter(Boolean)));
+      if (cities.length <= 1){
+        citySel.style.display = 'none';
+        citiesReady = true;
+        return;
+      }
+      const opts = ['<option value="__all__">Wszystkie miasta</option>']
+        .concat(cities.map(c => `<option value="${c}">${c}</option>`));
+      citySel.innerHTML = opts.join('');
+      citySel.style.display = '';
+      citiesReady = true;
+    }
+
+    async function loadTrips(){
+      const res = await fetch('/trips');
+      allTrips = await res.json();
+      if (!citiesReady) initCities();
+      renderList();
+    }
+
+    $('#btnSzukaj').addEventListener('click', renderList);
+    citySel.addEventListener('change', renderList);
     loadTrips();
   </script>
   <script src="/js/seo.js" defer></script>
