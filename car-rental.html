@@ -613,102 +613,10 @@
     <script src="js/sos.js?v=1" defer></script>
     <!-- Header Stats - aktualizacja statystyk na wszystkich stronach -->
     <script src="js/header-stats.js?v=1" defer></script>
-    <script type="module" src="js/car-reservation.js?v=20251107"></script>
-    <script type="module">
-      import { supabase } from '/js/supabaseClient.js';
-
-      const EURO = new Intl.NumberFormat('pl-PL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 });
-
-      async function loadLarnacaConfig() {
-        const { data: cars, error } = await supabase
-          .from('car_offers')
-          .select('*')
-          .eq('location', 'larnaca')
-          .eq('is_available', true)
-          .order('sort_order', { ascending: true });
-
-        if (error) {
-          console.error('Fleet load error (Larnaca):', error);
-          return { fleet: [], pricing: {} };
-        }
-
-        const fleet = (cars || []).map((car) => ({
-          id: car.id,
-          name: car.car_model,
-          year: undefined,
-          pricingKey: car.car_model,
-          pricePerDay: Number(car.price_per_day || 35),
-          specs: [
-            car.transmission === 'automatic' ? 'Automat' : 'Manual',
-            `${car.max_passengers || 5} os.`,
-            'AC',
-          ],
-          features: Array.isArray(car.features) ? car.features : [],
-          note: car.description || '',
-          image: car.image_url ? { src: car.image_url, alt: car.car_model } : {},
-          displayName: car.car_model,
-        }));
-
-        const pricing = {};
-        fleet.forEach((car) => {
-          const perDay = Number(car.pricePerDay || 35);
-          // Use single per-day pricing across tiers for Larnaca
-          pricing[car.pricingKey] = [perDay * 3, perDay, perDay, perDay];
-        });
-
-        return { fleet, pricing };
-      }
-
-      function injectCarRentalScript(onload) {
-        const s = document.createElement('script');
-        // Use absolute path to avoid resolving to /car-rental/car-rental.js (404 -> text/html)
-        s.src = '/car-rental.js';
-        s.defer = true;
-        s.onload = onload;
-        document.body.appendChild(s);
-      }
-
-      (async function init() {
-        const { fleet, pricing } = await loadLarnacaConfig();
-        window.CAR_RENTAL_CONFIG = {
-          fleet,
-          pricing,
-          minimumDays: 3,
-          includedMessage: '',
-        };
-
-        injectCarRentalScript(() => {
-          const rental = window.CarRental;
-          if (!rental) return;
-          rental.initializeSection();
-
-          const carCountEl = document.querySelector('[data-car-count]');
-          const lowestPriceEl = document.querySelector('[data-lowest-price]');
-          const minimumDaysEl = document.querySelector('[data-minimum-days]');
-          const includedMessageEl = document.querySelector('[data-included-message]');
-          const yearEl = document.querySelector('[data-current-year]');
-
-          const updateSummary = () => {
-            const fleetData = rental.getFleet?.() ?? [];
-            if (carCountEl) carCountEl.textContent = String(fleetData.length);
-            if (lowestPriceEl) {
-              if (fleetData.length) {
-                const lowest = fleetData.reduce((min, car) => Math.min(min, car.pricePerDay || Infinity), Infinity);
-                if (Number.isFinite(lowest)) lowestPriceEl.innerHTML = EURO.format(lowest);
-              } else {
-                lowestPriceEl.textContent = '';
-              }
-            }
-            if (minimumDaysEl) minimumDaysEl.textContent = String(rental.minimumDays);
-            if (includedMessageEl) includedMessageEl.textContent = rental.getIncludedMessage();
-          };
-
-          updateSummary();
-          if (yearEl) yearEl.textContent = new Date().getFullYear();
-          document.addEventListener('wakacjecypr:languagechange', updateSummary);
-        });
-      })();
-    </script>
+    <!-- Dynamic car fleet loading (same script as Paphos, autodetects location) -->
+    <script type="module" src="/js/car-rental-paphos.js?v=20251107"></script>
+    <!-- Local reservation form -->
+    <script type="module" src="/js/car-reservation.js?v=20251107"></script>
     <script src="assets/js/modal-auth.js" defer></script>
   </body>
 </html>

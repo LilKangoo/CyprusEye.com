@@ -4,15 +4,21 @@ import { supabase } from './supabaseClient.js';
 let paphosFleet = [];
 let pricing = {};
 
-// Load Paphos fleet from database
+function getPageLocation() {
+  const loc = (document.body?.dataset?.carLocation || '').toLowerCase();
+  return loc === 'larnaca' ? 'larnaca' : 'paphos';
+}
+
+// Load fleet from database (Paphos default, supports Larnaca)
 async function loadPaphosFleet() {
   try {
-    console.log('Loading Paphos fleet from database...');
+    const pageLocation = getPageLocation();
+    console.log(`Loading ${pageLocation} fleet from database...`);
 
     const { data: cars, error } = await supabase
       .from('car_offers')
       .select('*')
-      .eq('location', 'paphos')
+      .eq('location', pageLocation)
       .eq('is_available', true)
       .order('sort_order', { ascending: true });
 
@@ -22,17 +28,22 @@ async function loadPaphosFleet() {
     }
 
     paphosFleet = cars || [];
-    console.log(`Loaded ${paphosFleet.length} cars from Paphos`);
+    console.log(`Loaded ${paphosFleet.length} cars from ${pageLocation}`);
 
-    // Build pricing object for calculator
+    // Build pricing object for calculator (tiered for paphos, per-day for larnaca)
     pricing = {};
     paphosFleet.forEach(car => {
-      pricing[car.car_model] = [
-        car.price_3days || 130,
-        car.price_4_6days || 34,
-        car.price_7_10days || 32,
-        car.price_10plus_days || 30
-      ];
+      if (pageLocation === 'larnaca') {
+        const perDay = car.price_per_day || car.price_10plus_days || car.price_7_10days || car.price_4_6days || 35;
+        pricing[car.car_model] = [perDay * 3, perDay, perDay, perDay];
+      } else {
+        pricing[car.car_model] = [
+          car.price_3days || 130,
+          car.price_4_6days || 34,
+          car.price_7_10days || 32,
+          car.price_10plus_days || 30
+        ];
+      }
     });
 
     // Render fleet
@@ -47,14 +58,19 @@ async function loadPaphosFleet() {
 
 // Render fleet cards
 function renderFleet() {
-  const grid = document.getElementById('paphosCarsGrid');
+  const loc = getPageLocation();
+  const grid =
+    (loc === 'larnaca' ? (document.getElementById('larnacaCarsGrid') || document.getElementById('carRentalGrid')) : null) ||
+    document.getElementById('paphosCarsGrid') ||
+    document.getElementById('carRentalGrid');
   if (!grid) {
-    console.error('Could not find #paphosCarsGrid element');
+    console.error('Could not find fleet grid element for location', loc);
     return;
   }
   
   if (paphosFleet.length === 0) {
-    grid.innerHTML = '<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;"><p>Brak dostępnych samochodów w Paphos</p></div>';
+    const cityLabel = getPageLocation() === 'larnaca' ? 'Larnace' : 'Paphos';
+    grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;"><p>Brak dostępnych samochodów w ${cityLabel}</p></div>`;
     return;
   }
 
@@ -101,7 +117,7 @@ function renderFleet() {
 
 // Update calculator select options
 function updateCalculatorOptions() {
-  const select = document.getElementById('car');
+  const select = document.getElementById('car') || document.getElementById('rentalCarSelect');
   const resSelect = document.getElementById('res_car');
   
   if (paphosFleet.length === 0) return;
@@ -132,7 +148,10 @@ function updateStats() {
 
   // Find lowest price
   if (paphosFleet.length > 0) {
-    const lowestPrice = Math.min(...paphosFleet.map(c => c.price_10plus_days || c.price_per_day || 30));
+    const loc = getPageLocation();
+    const lowestPrice = Math.min(
+      ...paphosFleet.map(c => (loc === 'larnaca' ? (c.price_per_day || 35) : (c.price_10plus_days || c.price_per_day || 30)))
+    );
     const priceEl = document.querySelector('.standalone-hero-stats li:nth-child(2) strong');
     if (priceEl) {
       priceEl.textContent = `${lowestPrice} €`;
