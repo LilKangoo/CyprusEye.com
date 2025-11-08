@@ -60,14 +60,16 @@ function populateFromCalculator() {
   // Map locations
   const pageLocation = (document.body?.dataset?.carLocation || '').toLowerCase();
   if (calcPickupLocLca) {
-    document.getElementById('res_pickup_location').value = calcPickupLocLca === 'larnaca' ? 'airport_lca' : (calcPickupLocLca === 'paphos' ? 'airport_pfo' : (calcPickupLocLca === 'limassol' ? 'city_center' : 'other'));
+    // Direct pass-through of city ID from calculator (larnaca, nicosia, ayia-napa, protaras, limassol, paphos)
+    document.getElementById('res_pickup_location').value = calcPickupLocLca;
   } else if (calcAirportPickupPfo) {
-    document.getElementById('res_pickup_location').value = pageLocation === 'larnaca' ? 'airport_lca' : 'airport_pfo';
+    // Fallback for Paphos calculator checkbox
+    document.getElementById('res_pickup_location').value = pageLocation === 'larnaca' ? 'larnaca' : 'paphos';
   }
   if (calcReturnLocLca) {
-    document.getElementById('res_return_location').value = calcReturnLocLca === 'larnaca' ? 'airport_lca' : (calcReturnLocLca === 'paphos' ? 'airport_pfo' : (calcReturnLocLca === 'limassol' ? 'city_center' : 'other'));
+    document.getElementById('res_return_location').value = calcReturnLocLca;
   } else if (calcAirportReturnPfo) {
-    document.getElementById('res_return_location').value = pageLocation === 'larnaca' ? 'airport_lca' : 'airport_pfo';
+    document.getElementById('res_return_location').value = pageLocation === 'larnaca' ? 'larnaca' : 'paphos';
   }
 
   // Insurance
