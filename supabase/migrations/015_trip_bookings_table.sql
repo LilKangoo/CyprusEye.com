@@ -18,7 +18,9 @@ CREATE TABLE trip_bookings (
   customer_phone text,
   
   -- Booking details
-  start_date date,
+  trip_date date,
+  arrival_date date NOT NULL,
+  departure_date date NOT NULL,
   num_adults integer DEFAULT 1,
   num_children integer DEFAULT 0,
   num_hours integer DEFAULT 1,

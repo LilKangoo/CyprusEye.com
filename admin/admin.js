@@ -165,13 +165,20 @@ async function loadTripBookingsData() {
             ${booking.customer_phone ? `<div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(booking.customer_phone)}</div>` : ''}
           </td>
           <td>
-            <div>${booking.start_date ? new Date(booking.start_date).toLocaleDateString('en-GB') : 'Not set'}</div>
-            <div style="font-size: 11px; color: var(--admin-text-muted);">
+            <div style="font-size: 12px;">
+              ${booking.trip_date ? '🎯 ' + new Date(booking.trip_date).toLocaleDateString('en-GB') : ''}
+            </div>
+            <div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 4px;">
+              ${booking.arrival_date && booking.departure_date ? 
+                `✈️ ${new Date(booking.arrival_date).toLocaleDateString('en-GB')} - ${new Date(booking.departure_date).toLocaleDateString('en-GB')}` 
+                : 'No dates'}
+            </div>
+            <div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 2px;">
               ${booking.num_adults || booking.num_hours || booking.num_days ? 
-                (booking.num_adults ? `👥 ${booking.num_adults} adults, ${booking.num_children || 0} children` : '') +
-                (booking.num_hours ? `⏱️ ${booking.num_hours} hours` : '') +
-                (booking.num_days ? `📅 ${booking.num_days} days` : '')
-                : 'No details'}
+                (booking.num_adults ? `👥 ${booking.num_adults}+${booking.num_children || 0}` : '') +
+                (booking.num_hours ? ` ⏱️ ${booking.num_hours}h` : '') +
+                (booking.num_days ? ` 📅 ${booking.num_days}d` : '')
+                : ''}
             </div>
           </td>
           <td>

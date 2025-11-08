@@ -581,8 +581,19 @@
                   <input type="tel" id="bookingPhone" name="phone" />
                 </div>
                 <div class="form-field">
-                  <label for="bookingDate">Data rozpoczęcia</label>
-                  <input type="date" id="bookingDate" name="start_date" />
+                  <label for="bookingDate">Preferowana data wycieczki</label>
+                  <input type="date" id="bookingDate" name="trip_date" />
+                </div>
+              </div>
+              
+              <div class="form-row">
+                <div class="form-field">
+                  <label for="arrivalDate">Data przylotu na Cypr *</label>
+                  <input type="date" id="arrivalDate" name="arrival_date" required />
+                </div>
+                <div class="form-field">
+                  <label for="departureDate">Data wylotu z Cypru *</label>
+                  <input type="date" id="departureDate" name="departure_date" required />
                 </div>
               </div>
               
@@ -816,6 +827,23 @@
       // Calculate initial price
       updateLivePrice();
       
+      // Date validation - departure must be after arrival
+      const arrivalInput = document.getElementById('arrivalDate');
+      const departureInput = document.getElementById('departureDate');
+      
+      arrivalInput.addEventListener('change', function() {
+        if (departureInput.value && this.value > departureInput.value) {
+          departureInput.value = this.value;
+        }
+        departureInput.min = this.value;
+      });
+      
+      departureInput.addEventListener('change', function() {
+        if (arrivalInput.value && this.value < arrivalInput.value) {
+          this.value = arrivalInput.value;
+        }
+      });
+      
       // Remove old listeners and add new ones
       const adultsInput = document.getElementById('bookingAdults');
       const childrenInput = document.getElementById('bookingChildren');
@@ -872,7 +900,9 @@
         customer_name: formData.get('name'),
         customer_email: formData.get('email'),
         customer_phone: formData.get('phone'),
-        start_date: formData.get('start_date'),
+        trip_date: formData.get('trip_date'),
+        arrival_date: formData.get('arrival_date'),
+        departure_date: formData.get('departure_date'),
         num_adults: adults,
         num_children: children,
         num_hours: hours,
