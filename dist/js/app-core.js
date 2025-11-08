@@ -56,15 +56,8 @@ console.log('🔵 App Core V3 - START');
       return;
     }
     
-    // Czekaj na dane
-    await waitForPlacesData();
-    
-    if (!window.PLACES_DATA || window.PLACES_DATA.length === 0) {
-      console.error('❌ Brak PLACES_DATA - nie mogę dodać markerów');
-      console.error('→ Sprawdź czy są POI w bazie z statusem "published"');
-      console.error('→ Uruchom CHECK_DATABASE.sql w Supabase');
-      return;
-    }
+    // Nie blokuj inicjalizacji mapy na danych – uruchom mapę i geolokalizację od razu
+    const hasPlacesNow = Array.isArray(window.PLACES_DATA) && window.PLACES_DATA.length > 0;
     
     // Stwórz mapę jeśli nie istnieje
     if (!mapInstance) {
@@ -91,14 +84,23 @@ console.log('🔵 App Core V3 - START');
       // Stwórz warstwę dla markerów
       markersLayer = L.layerGroup().addTo(mapInstance);
 
-      // Uruchom śledzenie lokalizacji użytkownika (bez wymuszania zoomu)
+      // Uruchom śledzenie lokalizacji użytkownika natychmiast
       startLiveLocation();
+      // Dodaj kontrolkę centrowania na użytkowniku
+      addLocateControl();
       
       console.log('✅ Mapa utworzona');
     }
     
-    // Dodaj markery
-    addMarkers();
+    // Dodaj markery jeśli dane już są; w przeciwnym razie poczekaj asynchronicznie
+    if (hasPlacesNow) {
+      addMarkers();
+    } else {
+      // Poczekaj asynchronicznie aż PLACES_DATA będzie dostępne i wtedy dodaj markery
+      waitForPlacesData().then(() => {
+        if (mapInstance && markersLayer) addMarkers();
+      });
+    }
     
     // Nasłuchuj na refresh
     console.log('📡 Dodaję listener dla poisDataRefreshed');
@@ -245,45 +247,58 @@ console.log('🔵 App Core V3 - START');
     });
   }
 
+  // Wspólna aktualizacja markera/okręgu i centrowania
+  function applyUserLocation(lat, lng, accuracy) {
+    const latlng = [lat, lng];
+    if (!userLocationMarker) {
+      userLocationMarker = L.marker(latlng, { icon: createUserIcon(), zIndexOffset: 1000 }).addTo(mapInstance);
+    } else {
+      userLocationMarker.setLatLng(latlng);
+    }
+    if (!userAccuracyCircle) {
+      userAccuracyCircle = L.circle(latlng, {
+        radius: Math.max(accuracy || 30, 10),
+        color: '#2563eb',
+        weight: 2,
+        opacity: 0.65,
+        fillOpacity: 0.08
+      }).addTo(mapInstance);
+    } else {
+      userAccuracyCircle.setLatLng(latlng);
+      userAccuracyCircle.setRadius(Math.max(accuracy || 30, 10));
+    }
+    if (!userLocationInitialized) {
+      userLocationInitialized = true;
+      try { mapInstance.setView(latlng, Math.max(mapInstance.getZoom(), 13), { animate: true }); } catch (_) {}
+    }
+    window.CURRENT_POSITION = { lat, lng, accuracy };
+  }
+
   function startLiveLocation() {
     if (!mapInstance) return;
-
-    // Common updater used by both APIs
-    function updateLocation(lat, lng, accuracy) {
-      const latlng = [lat, lng];
-      if (!userLocationMarker) {
-        userLocationMarker = L.marker(latlng, { icon: createUserIcon(), zIndexOffset: 1000 }).addTo(mapInstance);
-      } else {
-        userLocationMarker.setLatLng(latlng);
-      }
-      if (!userAccuracyCircle) {
-        userAccuracyCircle = L.circle(latlng, {
-          radius: Math.max(accuracy || 30, 10),
-          color: '#2563eb',
-          weight: 2,
-          opacity: 0.65,
-          fillOpacity: 0.08
-        }).addTo(mapInstance);
-      } else {
-        userAccuracyCircle.setLatLng(latlng);
-        userAccuracyCircle.setRadius(Math.max(accuracy || 30, 10));
-      }
-      if (!userLocationInitialized) {
-        userLocationInitialized = true;
-        try { mapInstance.setView(latlng, Math.max(mapInstance.getZoom(), 13), { animate: true }); } catch (_) {}
-      }
-      window.CURRENT_POSITION = { lat, lng, accuracy };
-    }
 
     // 1) Native Geolocation API (primary)
     if (navigator.geolocation) {
       const options = { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 };
       try {
         navigator.geolocation.watchPosition(
-          (pos) => updateLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
+          (pos) => applyUserLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
           (err) => console.warn('watchPosition error:', err && err.message),
           options
         );
+
+        // Dodatkowy refresh co 15s dla urządzeń, gdzie watch potrafi przestać działać
+        if (!window.__ceGeoRefresh) {
+          window.__ceGeoRefresh = setInterval(() => {
+            try {
+              navigator.geolocation.getCurrentPosition(
+                (pos) => applyUserLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
+                () => {},
+                { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+              );
+            } catch (_) {}
+          }, 15000);
+        }
       } catch (e) {
         console.warn('watchPosition threw:', e?.message);
       }
@@ -293,12 +308,41 @@ console.log('🔵 App Core V3 - START');
 
     // 2) Leaflet fallback using map.locate (handles some iOS cases)
     try {
-      mapInstance.on('locationfound', (e) => updateLocation(e.latlng.lat, e.latlng.lng, e.accuracy));
+      mapInstance.on('locationfound', (e) => applyUserLocation(e.latlng.lat, e.latlng.lng, e.accuracy));
       mapInstance.on('locationerror', (e) => console.warn('Leaflet locate error:', e?.message));
       mapInstance.locate({ setView: false, watch: true, enableHighAccuracy: true, maxZoom: 15 });
     } catch (e) {
       console.warn('map.locate failed:', e?.message);
     }
+  }
+
+  // Dodaj przycisk "Centruj na mnie" jako kontrolkę Leaflet
+  function addLocateControl() {
+    if (!mapInstance || L.Control.CeLocate) return;
+    L.Control.CeLocate = L.Control.extend({
+      onAdd() {
+        const btn = L.DomUtil.create('button', 'leaflet-bar');
+        btn.title = 'Pokaż moją lokalizację';
+        btn.innerHTML = '🎯';
+        btn.style.cssText = 'background:#fff;border:none;width:34px;height:34px;cursor:pointer;font-size:18px;line-height:34px;text-align:center;';
+        L.DomEvent.on(btn, 'click', (e) => {
+          L.DomEvent.stopPropagation(e);
+          L.DomEvent.preventDefault(e);
+          if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition((pos) => {
+              applyUserLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
+              try { mapInstance.setView([pos.coords.latitude, pos.coords.longitude], Math.max(mapInstance.getZoom(), 14), { animate: true }); } catch (_) {}
+            }, () => requestLocationPermission(), { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+          } else {
+            requestLocationPermission();
+          }
+        });
+        return btn;
+      },
+      onRemove() {}
+    });
+    L.control.ceLocate = function(opts){ return new L.Control.CeLocate(opts); };
+    L.control.ceLocate({ position: 'topleft' }).addTo(mapInstance);
   }
 
   /**
