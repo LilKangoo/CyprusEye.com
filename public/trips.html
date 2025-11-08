@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wycieczki • CyprusEye</title>
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <link rel="stylesheet" href="/assets/css/components.css" />
+  <link rel="icon" href="/assets/cyprus_logo-1000x1054.png" />
+</head>
+<body>
+  <header style="padding:16px;display:flex;align-items:center;justify-content:space-between;">
+    <h1>Wycieczki</h1>
+    <a href="/" class="btn-primary">Strona główna</a>
+  </header>
+
+  <main style="padding:16px;max-width:1100px;margin:0 auto;">
+    <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;">
+      <input id="q" placeholder="Szukaj po mieście lub tytule" style="flex:1;" />
+      <button id="btnSzukaj" class="btn-secondary">Szukaj</button>
+    </div>
+    <div id="lista" class="card-grid"></div>
+  </main>
+
+  <script type="module">
+    const $ = (s,r=document)=>r.querySelector(s);
+    const lista = $('#lista');
+
+    async function loadTrips(){
+      const res = await fetch('/trips');
+      const data = await res.json();
+      const q = ($('#q').value||'').toLowerCase();
+      const items = (data||[]).filter(t=>{
+        const title = (t.title?.pl || t.title?.en || '').toLowerCase();
+        const city = (t.start_city||'').toLowerCase();
+        return !q || title.includes(q) || city.includes(q);
+      });
+      if(!items.length){
+        lista.innerHTML = '<p>Brak wycieczek.</p>';
+        return;
+      }
+      lista.innerHTML = items.map(t=>{
+        const title = t.title?.pl || t.title?.en || t.slug;
+        const badge = t.display_mode==='per_hour'?'za godzinę': t.display_mode==='per_person'?'za osobę': t.display_mode==='from_price'?'od ceny': (t.display_mode==='custom_label'? (t.display_label||''): '');
+        const price = t.pricing_model==='per_person' && t.price_per_person ? `${Number(t.price_per_person).toFixed(2)} €` : (t.price_base? `${Number(t.price_base).toFixed(2)} €` : '');
+        const sub = [t.start_city, badge].filter(Boolean).join(' • ');
+        return `
+          <a class="card" href="/trip.html?slug=${encodeURIComponent(t.slug)}">
+            ${t.cover_image_url?`<img src="${t.cover_image_url}" alt="${title}" style="width:100%;height:180px;object-fit:cover;border-radius:8px;">`:''}
+            <div class="card-body">
+              <h3>${title}</h3>
+              <p>${sub}</p>
+              ${price?`<div class="price">${price}</div>`:''}
+            </div>
+          </a>
+        `;
+      }).join('');
+    }
+
+    $('#btnSzukaj').addEventListener('click', loadTrips);
+    loadTrips();
+  </script>
+</body>
+</html>
