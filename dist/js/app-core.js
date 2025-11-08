@@ -249,19 +249,20 @@ console.log('🔵 App Core V3 - START');
 
   // Wspólna aktualizacja markera/okręgu i centrowania
   function applyUserLocation(lat, lng, accuracy) {
+    console.log('[GEO] applyUserLocation', { lat, lng, accuracy });
     const latlng = [lat, lng];
     if (!userLocationMarker) {
-      // Prosty, zawsze widoczny znacznik: nie używamy avatara/logo
-      userLocationMarker = L.circleMarker(latlng, {
-        radius: 7,
-        color: '#ffffff',
-        weight: 2,
-        opacity: 1,
-        fillColor: '#2563eb',
-        fillOpacity: 1
-      }).addTo(mapInstance);
+      // Bardzo widoczny punkt w markerPane (zIndexOffset wysoki), bez obrazków
+      const icon = L.divIcon({
+        className: 'ce-user-dot',
+        html: '<div style="width:16px;height:16px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 3px rgba(37,99,235,.25);"></div>',
+        iconSize: [16, 16],
+        iconAnchor: [8, 8]
+      });
+      userLocationMarker = L.marker(latlng, { icon, zIndexOffset: 10000 }).addTo(mapInstance);
     } else {
       userLocationMarker.setLatLng(latlng);
+      try { userLocationMarker.setZIndexOffset(10000); } catch (_) {}
     }
     // Upewnij się, że znacznik jest nad innymi warstwami
     try { userLocationMarker.bringToFront(); } catch (_) {}
@@ -292,8 +293,8 @@ console.log('🔵 App Core V3 - START');
       const options = { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 };
       try {
         navigator.geolocation.watchPosition(
-          (pos) => applyUserLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
-          (err) => console.warn('watchPosition error:', err && err.message),
+          (pos) => { console.log('[GEO] watchPosition fix'); applyUserLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy); },
+          (err) => console.warn('[GEO] watchPosition error:', err && err.message),
           options
         );
 
@@ -302,27 +303,38 @@ console.log('🔵 App Core V3 - START');
           window.__ceGeoRefresh = setInterval(() => {
             try {
               navigator.geolocation.getCurrentPosition(
-                (pos) => applyUserLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
-                () => {},
+                (pos) => { console.log('[GEO] periodic getCurrentPosition fix'); applyUserLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy); },
+                (e) => console.warn('[GEO] periodic getCurrentPosition error:', e?.message),
                 { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
               );
             } catch (_) {}
           }, 15000);
         }
       } catch (e) {
-        console.warn('watchPosition threw:', e?.message);
+        console.warn('[GEO] watchPosition threw:', e?.message);
       }
     } else {
-      console.warn('navigator.geolocation not available');
+      console.warn('[GEO] navigator.geolocation not available');
     }
 
     // 2) Leaflet fallback using map.locate (handles some iOS cases)
     try {
-      mapInstance.on('locationfound', (e) => applyUserLocation(e.latlng.lat, e.latlng.lng, e.accuracy));
-      mapInstance.on('locationerror', (e) => console.warn('Leaflet locate error:', e?.message));
+      mapInstance.on('locationfound', (e) => { console.log('[GEO] leaflet locationfound'); applyUserLocation(e.latlng.lat, e.latlng.lng, e.accuracy); });
+      mapInstance.on('locationerror', (e) => console.warn('[GEO] Leaflet locate error:', e?.message));
       mapInstance.locate({ setView: false, watch: true, enableHighAccuracy: true, maxZoom: 15 });
     } catch (e) {
-      console.warn('map.locate failed:', e?.message);
+      console.warn('[GEO] map.locate failed:', e?.message);
+    }
+
+    // Fallback: jeżeli po 5 sekundach wciąż brak pozycji, wymuś jednorazowe locate z centrowaniem
+    if (!window.__ceForcedLocate) {
+      window.__ceForcedLocate = true;
+      setTimeout(() => {
+        if (!userLocationInitialized) {
+          console.log('[GEO] forcing single locate with setView');
+          try { mapInstance.locate({ setView: true, watch: false, enableHighAccuracy: true, maxZoom: 15 }); } catch (_) {}
+        }
+      }, 5000);
     }
   }
 
@@ -467,8 +479,8 @@ console.log('🔵 App Core V3 - START');
       if (!navigator.geolocation) return;
       await new Promise((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(
-          (pos) => { window.__lastInitialFix = pos; resolve(pos); },
-          (err) => { console.warn('getCurrentPosition error:', err?.message); resolve(null); },
+          (pos) => { console.log('[GEO] getCurrentPosition initial fix'); window.__lastInitialFix = pos; resolve(pos); },
+          (err) => { console.warn('[GEO] getCurrentPosition error:', err?.message); resolve(null); },
           { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
         );
       });
@@ -478,7 +490,7 @@ console.log('🔵 App Core V3 - START');
       const bar = document.getElementById('ce-location-prompt');
       if (bar) bar.remove();
     } catch (e) {
-      console.warn('requestLocationPermission error:', e?.message);
+      console.warn('[GEO] requestLocationPermission error:', e?.message);
     }
   }
 
@@ -491,7 +503,9 @@ console.log('🔵 App Core V3 - START');
     try {
       const status = await navigator.permissions.query({ name: 'geolocation' });
       if (status.state === 'granted') {
-        // Nic nie pokazuj – działa
+        console.log('[GEO] permission already granted');
+        // Upewnij się, że tracking startuje
+        startLiveLocation();
         return;
       }
       if (status.state === 'prompt') {
