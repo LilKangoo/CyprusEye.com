@@ -153,7 +153,8 @@ async function loadTripsAdminData() {
     const addBtn = document.getElementById('btnAddTrip');
     if (addBtn && !addBtn.dataset.bound) {
       addBtn.addEventListener('click', () => {
-        window.open('/public/admin/trips.html#new', '_blank');
+        // Navigate in the same tab to avoid popup blockers
+        window.location.assign('/public/admin/trips.html#new');
       });
       addBtn.dataset.bound = '1';
     }

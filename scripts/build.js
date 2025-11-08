@@ -185,6 +185,11 @@ async function copyStaticFiles() {
     if (existsSync(join(ROOT, 'functions'))) {
       await cp(join(ROOT, 'functions'), join(DIST, 'functions'), { recursive: true });
     }
+
+    // Kopiuj katalog public (np. /public/admin/trips.html i skrypty)
+    if (existsSync(join(ROOT, 'public'))) {
+      await cp(join(ROOT, 'public'), join(DIST, 'public'), { recursive: true });
+    }
     
     console.log('✅ Static files copied');
   } catch (error) {
