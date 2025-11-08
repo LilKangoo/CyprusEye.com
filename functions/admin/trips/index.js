@@ -28,6 +28,7 @@ export async function onRequest(context) {
     const now = new Date().toISOString();
     const payload = {
       slug: body?.slug || `trip-${Date.now()}`,
+      poi_id: body?.poi_id ?? null,
       title: body?.title || { pl: body?.title_pl || '' },
       description: body?.description || { pl: body?.description_pl || '' },
       start_city: body?.start_city || 'Larnaca',
