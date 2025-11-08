@@ -276,6 +276,29 @@ async function openNewTripModal() {
     if (form) {
       // reset fields
       form.reset();
+      // cover preview setup
+      const fileInput = document.getElementById('newTripCoverFile');
+      const urlInput = document.getElementById('newTripCoverUrl');
+      const previewWrap = document.getElementById('newTripCoverPreview');
+      const previewImg = previewWrap ? previewWrap.querySelector('img') : null;
+      if (fileInput && previewWrap && previewImg) {
+        fileInput.onchange = () => {
+          const f = fileInput.files && fileInput.files[0];
+          if (f && f.type && f.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = () => {
+              previewImg.src = reader.result;
+              previewWrap.style.display = '';
+            };
+            reader.readAsDataURL(f);
+            // Clear URL if file chosen
+            if (urlInput) urlInput.value = '';
+          } else {
+            previewWrap.style.display = 'none';
+            previewImg.removeAttribute('src');
+          }
+        };
+      }
       form.onsubmit = async (ev) => {
         ev.preventDefault();
         try {
@@ -297,6 +320,22 @@ async function openNewTripModal() {
           const { data: { session } } = await client.auth.getSession();
           const headers = { 'Content-Type': 'application/json' };
           if (session?.access_token) headers['Authorization'] = `Bearer ${session.access_token}`;
+
+          // Optional direct upload of cover image to Storage
+          let coverUrl = (payload.cover_image_url || '').trim() || '';
+          const file = fileInput && fileInput.files ? fileInput.files[0] : null;
+          if (file) {
+            if (!file.type.startsWith('image/')) throw new Error('Nieprawidłowy typ pliku okładki');
+            const maxSize = 5 * 1024 * 1024;
+            if (file.size > maxSize) throw new Error('Plik okładki jest za duży (max 5MB)');
+            const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+            const path = `trips/${payload.slug}/cover-${Date.now()}.${ext}`;
+            const { error: upErr } = await client.storage.from('poi-photos').upload(path, file, { cacheControl: '3600', upsert: false, contentType: file.type });
+            if (upErr) throw upErr;
+            const { data: pub } = client.storage.from('poi-photos').getPublicUrl(path);
+            coverUrl = pub?.publicUrl || '';
+          }
+          if (coverUrl) payload.cover_image_url = coverUrl; else delete payload.cover_image_url;
 
           const res = await fetch('/admin/trips', {
             method: 'POST',
