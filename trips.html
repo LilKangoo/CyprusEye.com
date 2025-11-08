@@ -24,6 +24,10 @@
   <link rel="stylesheet" href="/assets/css/mobile-nav.css" />
   <link rel="stylesheet" href="/css/toast.css" />
   <style>
+    html, body {
+      overflow-x: hidden;
+      max-width: 100vw;
+    }
     .trips-hero {
       padding: 40px 20px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -44,6 +48,7 @@
       max-width: 1200px;
       margin: 0 auto;
       padding: 40px 20px;
+      overflow-x: hidden;
     }
     .trips-tabs {
       display: flex;
@@ -417,28 +422,49 @@
         font-size: 0.95rem;
       }
       .trips-hero { 
-        padding: 24px 16px; 
+        padding: 24px 20px; 
       }
       .trips-container { 
-        padding: 20px 12px 80px 12px; 
+        padding: 16px 16px 100px 16px;
+        max-width: 100%;
+      }
+      .trips-tabs {
+        margin-left: -16px;
+        margin-right: -16px;
+        padding-left: 16px;
+        padding-right: 16px;
       }
       .city-grid { 
         grid-template-columns: 1fr; 
-        gap: 12px;
+        gap: 16px;
+        max-width: 100%;
       }
       .city-card {
-        height: 180px;
-        border-radius: 12px;
+        width: 100%;
+        height: 0;
+        padding-bottom: 100%; /* Square aspect ratio 1:1 */
+        position: relative;
+      }
+      .city-card-image {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
       }
       .city-card-overlay {
         padding: 16px;
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
       }
       .city-card-title {
         font-size: 1.1rem;
         margin: 0 0 4px;
       }
       .city-card-count {
-        font-size: 0.8rem;
+        font-size: 0.85rem;
       }
       .trip-item { flex-direction: column; }
       .trip-item-image { width: 100%; height: 180px; }
