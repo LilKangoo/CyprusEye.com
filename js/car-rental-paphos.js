@@ -137,6 +137,23 @@ function updateCalculatorOptions() {
   if (resSelect) {
     resSelect.innerHTML = optionsHTML;
   }
+
+  // Populate Larnaca pickup/return location selects if present
+  const pickupSelect = document.getElementById('pickupLocation');
+  const returnSelect = document.getElementById('returnLocation');
+  if (pickupSelect && returnSelect) {
+    const locationOptions = [
+      { id: 'larnaca', label: 'Larnaka (bez opłaty)', fee: 0 },
+      { id: 'nicosia', label: 'Nikozja (+15€)', fee: 15 },
+      { id: 'ayia-napa', label: 'Ayia Napa (+15€)', fee: 15 },
+      { id: 'protaras', label: 'Protaras (+20€)', fee: 20 },
+      { id: 'limassol', label: 'Limassol (+20€)', fee: 20 },
+      { id: 'paphos', label: 'Pafos (+40€)', fee: 40 },
+    ];
+    const locHTML = locationOptions.map(opt => `<option value="${opt.id}">${opt.label}</option>`).join('');
+    pickupSelect.innerHTML = locHTML;
+    returnSelect.innerHTML = locHTML;
+  }
 }
 
 // Update stats in hero
@@ -161,96 +178,169 @@ function updateStats() {
 
 // Calculate price function (updated)
 window.calculatePrice = function() {
-  const car = document.getElementById("car").value;
-  const pickupDateStr = document.getElementById("pickup_date").value;
-  const returnDateStr = document.getElementById("return_date").value;
-  const pickupTimeStr = document.getElementById("pickup_time").value || "10:00";
-  const returnTimeStr = document.getElementById("return_time").value || "10:00";
-  const airportPickup = document.getElementById("airport_pickup")?.checked || false;
-  const airportReturn = document.getElementById("airport_return")?.checked || false;
-  const fullInsurance = document.getElementById("full_insurance")?.checked || false;
+  const loc = getPageLocation();
+  // Paphos legacy calculator (autopfo.html)
+  const pfoCar = document.getElementById('car');
+  if (loc === 'paphos' && pfoCar) {
+    const car = pfoCar.value;
+    const pickupDateStr = document.getElementById("pickup_date").value;
+    const returnDateStr = document.getElementById("return_date").value;
+    const pickupTimeStr = document.getElementById("pickup_time").value || "10:00";
+    const returnTimeStr = document.getElementById("return_time").value || "10:00";
+    const airportPickup = document.getElementById("airport_pickup")?.checked || false;
+    const airportReturn = document.getElementById("airport_return")?.checked || false;
+    const fullInsurance = document.getElementById("full_insurance")?.checked || false;
 
-  const pickupDate = new Date(pickupDateStr + 'T' + pickupTimeStr);
-  const returnDate = new Date(returnDateStr + 'T' + returnTimeStr);
+    const pickupDate = new Date(pickupDateStr + 'T' + pickupTimeStr);
+    const returnDate = new Date(returnDateStr + 'T' + returnTimeStr);
 
-  if (isNaN(pickupDate.getTime()) || isNaN(returnDate.getTime())) {
-    alert("Proszę wybrać poprawne daty i godziny.");
+    if (isNaN(pickupDate.getTime()) || isNaN(returnDate.getTime())) {
+      alert("Proszę wybrać poprawne daty i godziny.");
+      return;
+    }
+
+    const hours = (returnDate - pickupDate) / 36e5;
+    if (hours < 72) { alert("Minimalny czas wynajmu to 3 dni"); return; }
+    const days = Math.ceil(hours / 24);
+
+    const carPricing = pricing[car];
+    if (!carPricing) { alert("Proszę wybrać auto z listy"); return; }
+
+    let basePrice = 0, dailyRate = 0;
+    if (days === 3) basePrice = carPricing[0];
+    else if (days >= 4 && days <= 6) { dailyRate = carPricing[1]; basePrice = dailyRate * days; }
+    else if (days >= 7 && days <= 10) { dailyRate = carPricing[2]; basePrice = dailyRate * days; }
+    else if (days > 10) { dailyRate = carPricing[3]; basePrice = dailyRate * days; }
+
+    let totalPrice = basePrice;
+    const airportFeesApplicable = days < 7;
+    const pickupFee = (airportPickup && airportFeesApplicable) ? 10 : 0;
+    const returnFee = (airportReturn && airportFeesApplicable) ? 10 : 0;
+    const insuranceCost = fullInsurance ? 17 * days : 0;
+
+    totalPrice += pickupFee + returnFee + insuranceCost;
+
+    document.getElementById("total_price").innerHTML = "Całkowita cena wynajmu: " + totalPrice + "€";
+    if (days === 3) document.getElementById("days_price").innerHTML = "Cena pakietu na 3 dni: " + basePrice + "€";
+    else {
+      const rateText = dailyRate ? " (" + dailyRate + "€/dzień)" : "";
+      document.getElementById("days_price").innerHTML = "Cena za " + days + " dni" + rateText + ": " + basePrice + "€";
+    }
+
+    let breakdown = [];
+    if (pickupFee > 0) breakdown.push(`Odbiór lotnisko: ${pickupFee}€`);
+    if (returnFee > 0) breakdown.push(`Zwrot lotnisko: ${returnFee}€`);
+    if (insuranceCost > 0) breakdown.push(`Ubezpieczenie AC: ${insuranceCost}€`);
+    if (breakdown.length > 0) {
+      document.getElementById("days_price").innerHTML += `<br><small style="color: #64748b;">${breakdown.join(' | ')}</small>`;
+    }
     return;
   }
 
+  // Larnaca calculator (car-rental.html)
+  const lcaCarSelect = document.getElementById('rentalCarSelect');
+  if (!lcaCarSelect) return;
+
+  const car = lcaCarSelect.value;
+  const pickupDateStr = document.getElementById('pickupDate').value;
+  const returnDateStr = document.getElementById('returnDate').value;
+  const pickupTimeStr = document.getElementById('pickupTime').value || '10:00';
+  const returnTimeStr = document.getElementById('returnTime').value || '10:00';
+  const pickupLoc = document.getElementById('pickupLocation').value;
+  const returnLoc = document.getElementById('returnLocation').value;
+  const fullInsurance = document.getElementById('fullInsurance')?.checked || false;
+  const youngDriver = document.getElementById('youngDriver')?.checked || false;
+
+  const pickupDate = new Date(pickupDateStr + 'T' + pickupTimeStr);
+  const returnDate = new Date(returnDateStr + 'T' + returnTimeStr);
+  if (isNaN(pickupDate.getTime()) || isNaN(returnDate.getTime())) {
+    setCalculatorMessage('Proszę wybrać poprawne daty i godziny.', true);
+    return;
+  }
   const hours = (returnDate - pickupDate) / 36e5;
-  if (hours < 72) { 
-    alert("Minimalny czas wynajmu to 3 dni"); 
-    return; 
+  if (hours < 72) {
+    setCalculatorMessage('Minimalny czas wynajmu to 3 dni', true);
+    return;
   }
   const days = Math.ceil(hours / 24);
 
-  // Use pricing from database
   const carPricing = pricing[car];
   if (!carPricing) {
-    alert("Proszę wybrać auto z listy");
+    setCalculatorMessage('Proszę wybrać auto z listy', true);
     return;
   }
 
   let basePrice = 0, dailyRate = 0;
+  if (days === 3) basePrice = carPricing[0];
+  else if (days >= 4 && days <= 6) { dailyRate = carPricing[1]; basePrice = dailyRate * days; }
+  else if (days >= 7 && days <= 10) { dailyRate = carPricing[2]; basePrice = dailyRate * days; }
+  else if (days > 10) { dailyRate = carPricing[3]; basePrice = dailyRate * days; }
 
-  if (days === 3) {
-    basePrice = carPricing[0];
-  } else if (days >= 4 && days <= 6) {
-    dailyRate = carPricing[1]; 
-    basePrice = dailyRate * days;
-  } else if (days >= 7 && days <= 10) {
-    dailyRate = carPricing[2]; 
-    basePrice = dailyRate * days;
-  } else if (days > 10) {
-    dailyRate = carPricing[3]; 
-    basePrice = dailyRate * days;
-  }
+  const feeFor = (city) => {
+    switch (city) {
+      case 'nicosia':
+      case 'ayia-napa':
+        return 15;
+      case 'protaras':
+      case 'limassol':
+        return 20;
+      case 'paphos':
+        return 40;
+      default:
+        return 0; // larnaca or unknown
+    }
+  };
 
-  let totalPrice = basePrice;
-
-  // Airport fees only if rental < 7 days
-  const airportFeesApplicable = days < 7;
-  const pickupFee = (airportPickup && airportFeesApplicable) ? 10 : 0;
-  const returnFee = (airportReturn && airportFeesApplicable) ? 10 : 0;
+  const pickupFee = feeFor(pickupLoc);
+  const returnFee = feeFor(returnLoc);
   const insuranceCost = fullInsurance ? 17 * days : 0;
+  const youngDriverCost = youngDriver ? 10 * days : 0;
 
-  totalPrice += pickupFee + returnFee + insuranceCost;
+  const totalPrice = basePrice + pickupFee + returnFee + insuranceCost + youngDriverCost;
 
-  document.getElementById("total_price").innerHTML = "Całkowita cena wynajmu: " + totalPrice + "€";
-  if (days === 3) {
-    document.getElementById("days_price").innerHTML = "Cena pakietu na 3 dni: " + basePrice + "€";
-  } else {
-    const rateText = dailyRate ? " (" + dailyRate + "€/dzień)" : "";
-    document.getElementById("days_price").innerHTML = "Cena za " + days + " dni" + rateText + ": " + basePrice + "€";
-  }
+  const resultEl = document.getElementById('carRentalResult');
+  const breakdownEl = document.getElementById('carRentalBreakdown');
+  const messageEl = document.getElementById('carRentalMessage');
 
-  // Show fee breakdown
-  let breakdown = [];
-  if (pickupFee > 0) breakdown.push(`Odbiór lotnisko: ${pickupFee}€`);
-  if (returnFee > 0) breakdown.push(`Zwrot lotnisko: ${returnFee}€`);
-  if (insuranceCost > 0) breakdown.push(`Ubezpieczenie AC: ${insuranceCost}€`);
-  if (breakdown.length > 0) {
-    document.getElementById("days_price").innerHTML += `<br><small style="color: #64748b;">${breakdown.join(' | ')}</small>`;
-  }
+  if (resultEl) resultEl.textContent = `Całkowita cena wynajmu: ${totalPrice}€`;
+
+  const parts = [];
+  if (days === 3) parts.push(`Pakiet 3 dni: ${basePrice}€`);
+  else parts.push(`Cena za ${days} dni${dailyRate ? ` (${dailyRate}€/dzień)` : ''}: ${basePrice}€`);
+  if (pickupFee) parts.push(`Odbiór poza Larnaką: ${pickupFee}€`);
+  if (returnFee) parts.push(`Zwrot poza Larnaką: ${returnFee}€`);
+  if (insuranceCost) parts.push(`Ubezpieczenie AC: ${insuranceCost}€`);
+  if (youngDriverCost) parts.push(`Młody kierowca: ${youngDriverCost}€`);
+  if (breakdownEl) breakdownEl.innerHTML = parts.map(p => `<div>${p}</div>`).join('');
+  if (messageEl) { messageEl.textContent = ''; messageEl.classList.remove('is-error'); }
 };
+
+function setCalculatorMessage(text, isError) {
+  const messageEl = document.getElementById('carRentalMessage');
+  if (!messageEl) return;
+  messageEl.textContent = text;
+  messageEl.classList.toggle('is-error', !!isError);
+}
 
 // Attach car select buttons
 function attachCarSelectButtons() {
   document.querySelectorAll('[data-select-car]').forEach((button) => {
     button.addEventListener('click', () => {
       const carName = button.getAttribute('data-select-car');
-      const carSelect = document.getElementById('car');
-      if (carSelect && carName) {
-        carSelect.value = carName;
-        window.calculatePrice();
-        carSelect.focus({ preventScroll: true });
+      const pfoSelect = document.getElementById('car');
+      const lcaSelect = document.getElementById('rentalCarSelect');
+      if (pfoSelect && carName) {
+        pfoSelect.value = carName;
       }
-
+      if (lcaSelect && carName) {
+        lcaSelect.value = carName;
+      }
+      window.calculatePrice();
       const calculatorBlock = document.getElementById('carRentalCalculatorBlock');
       if (calculatorBlock) {
         calculatorBlock.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
+      (lcaSelect || pfoSelect)?.focus?.({ preventScroll: true });
     });
   });
 }
@@ -269,7 +359,16 @@ function escapeHtml(unsafe) {
 
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
-  loadPaphosFleet();
+  loadPaphosFleet().then(() => {
+    // Wire Larnaca calculator events, if present
+    const lcaForm = document.getElementById('carRentalCalculator');
+    if (lcaForm) {
+      lcaForm.addEventListener('submit', (e) => { e.preventDefault(); window.calculatePrice(); });
+      lcaForm.addEventListener('change', () => window.calculatePrice());
+      // Initial calculation when data ready
+      window.calculatePrice();
+    }
+  });
 });
 
 export { loadPaphosFleet, paphosFleet };
