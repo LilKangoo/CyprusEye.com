@@ -23,6 +23,212 @@
   <link rel="stylesheet" href="/assets/css/mobile.css" />
   <link rel="stylesheet" href="/assets/css/mobile-nav.css" />
   <link rel="stylesheet" href="/css/toast.css" />
+  <style>
+    .trips-hero {
+      padding: 40px 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      text-align: center;
+    }
+    .trips-hero h1 {
+      font-size: 2.5rem;
+      margin: 0 0 12px;
+      font-weight: 700;
+    }
+    .trips-hero p {
+      font-size: 1.1rem;
+      opacity: 0.95;
+      margin: 0;
+    }
+    .trips-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 20px;
+    }
+    .trips-tabs {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 32px;
+      border-bottom: 2px solid #e5e7eb;
+      overflow-x: auto;
+    }
+    .trips-tab {
+      padding: 12px 24px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #6b7280;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .trips-tab:hover {
+      color: #374151;
+    }
+    .trips-tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+    .city-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 24px;
+    }
+    .city-card {
+      position: relative;
+      height: 280px;
+      border-radius: 16px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.3s, box-shadow 0.3s;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .city-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+    }
+    .city-card-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .city-card-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 24px;
+      background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+      color: white;
+    }
+    .city-card-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 0 0 4px;
+    }
+    .city-card-count {
+      font-size: 0.95rem;
+      opacity: 0.9;
+      margin: 0;
+    }
+    .trips-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 20px;
+    }
+    .trips-modal.active {
+      display: flex;
+    }
+    .trips-modal-content {
+      background: white;
+      border-radius: 16px;
+      max-width: 900px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      position: relative;
+    }
+    .trips-modal-header {
+      padding: 24px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      background: white;
+      z-index: 10;
+    }
+    .trips-modal-title {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin: 0;
+    }
+    .trips-modal-close {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: none;
+      background: #f3f4f6;
+      cursor: pointer;
+      font-size: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .trips-modal-close:hover {
+      background: #e5e7eb;
+    }
+    .trips-modal-body {
+      padding: 24px;
+    }
+    .trip-item {
+      display: flex;
+      gap: 16px;
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      margin-bottom: 16px;
+      transition: all 0.2s;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+    }
+    .trip-item:hover {
+      border-color: #667eea;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+    }
+    .trip-item-image {
+      width: 120px;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+    .trip-item-content {
+      flex: 1;
+    }
+    .trip-item-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 0 0 8px;
+    }
+    .trip-item-desc {
+      font-size: 0.95rem;
+      color: #6b7280;
+      margin: 0 0 12px;
+      line-height: 1.5;
+    }
+    .trip-item-meta {
+      display: flex;
+      gap: 16px;
+      font-size: 0.9rem;
+      color: #9ca3af;
+    }
+    .trip-item-price {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #667eea;
+      align-self: flex-start;
+    }
+    @media (max-width: 768px) {
+      .trips-hero h1 { font-size: 1.75rem; }
+      .city-grid { grid-template-columns: 1fr; }
+      .trip-item { flex-direction: column; }
+      .trip-item-image { width: 100%; height: 180px; }
+    }
+  </style>
 
   <meta name="ce-auth" content="on" />
   <script type="module" src="/js/supabaseClient.js"></script>
@@ -70,22 +276,36 @@
   </header>
 
   <main id="main-content">
-    <h1 class="sr-only">Wycieczki</h1>
-    <section id="tripsView" class="utility-view app-view" role="tabpanel" aria-labelledby="headerTripsTab">
-      <header class="utility-view-header">
-        <div>
-          <h2>Wycieczki</h2>
-          <p>Przeglądaj dostępne wycieczki i złóż rezerwację online.</p>
-        </div>
-      </header>
+    <div class="trips-hero">
+      <h1>Odkryj Cypr</h1>
+      <p>Wybierz miasto i przeglądaj najlepsze wycieczki</p>
+    </div>
 
-      <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
-        <input id="q" placeholder="Szukaj po mieście lub tytule" style="flex:1;min-width:240px;" />
-        <select id="cityFilter" style="min-width:200px;display:none;"></select>
-        <button id="btnSzukaj" class="btn-secondary">Szukaj</button>
+    <div class="trips-container">
+      <div class="trips-tabs" id="tripsTabs">
+        <button class="trips-tab active" data-region="all">Wszystkie miasta</button>
+        <button class="trips-tab" data-region="coast">Wybrzeże</button>
+        <button class="trips-tab" data-region="mountains">Góry</button>
+        <button class="trips-tab" data-region="popular">Najpopularniejsze</button>
       </div>
-      <div id="lista" class="card-grid"></div>
-    </section>
+
+      <div class="city-grid" id="cityGrid">
+        <!-- Cities will be rendered here -->
+      </div>
+    </div>
+
+    <!-- Trips Modal -->
+    <div class="trips-modal" id="tripsModal">
+      <div class="trips-modal-content">
+        <div class="trips-modal-header">
+          <h2 class="trips-modal-title" id="modalCityName">Miasto</h2>
+          <button class="trips-modal-close" onclick="closeTripsModal()">✕</button>
+        </div>
+        <div class="trips-modal-body" id="modalTripsBody">
+          <!-- Trips list will be rendered here -->
+        </div>
+      </div>
+    </div>
   </main>
 
   <footer class="app-footer">
@@ -93,67 +313,133 @@
   </footer>
 
   <script type="module">
-    const $ = (s,r=document)=>r.querySelector(s);
-    const lista = $('#lista');
-    const citySel = $('#cityFilter');
     let allTrips = [];
-    let citiesReady = false;
+    let currentRegion = 'all';
 
-    function renderList(){
-      const q = ($('#q').value||'').toLowerCase();
-      const selCity = (citySel.value||'').toLowerCase();
-      const items = (allTrips||[]).filter(t=>{
-        const title = (t.title?.pl || t.title?.en || '').toLowerCase();
-        const city = (t.start_city||'').toLowerCase();
-        const okQ = !q || title.includes(q) || city.includes(q);
-        const okCity = !selCity || selCity==='__all__' || city===selCity;
-        return okQ && okCity;
+    // City images mapping (replace with real images)
+    const cityImages = {
+      'Larnaca': 'https://images.unsplash.com/photo-1580837119756-563d608dd119?w=800&h=600&fit=crop',
+      'Paphos': 'https://images.unsplash.com/photo-1601581987809-a874a81309c9?w=800&h=600&fit=crop',
+      'Limassol': 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&h=600&fit=crop',
+      'Ayia Napa': 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800&h=600&fit=crop',
+      'Nicosia': 'https://images.unsplash.com/photo-1580837119756-563d608dd119?w=800&h=600&fit=crop',
+      'All Cities': 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop'
+    };
+
+    function groupTripsByCity() {
+      const groups = {};
+      allTrips.forEach(trip => {
+        const city = trip.start_city || 'Other';
+        if (!groups[city]) groups[city] = [];
+        groups[city].push(trip);
       });
-      if(!items.length){
-        lista.innerHTML = '<p>Brak wycieczek.</p>';
+      return groups;
+    }
+
+    function renderCityCards() {
+      const cityGroups = groupTripsByCity();
+      const cities = Object.keys(cityGroups).sort();
+      
+      const grid = document.getElementById('cityGrid');
+      if (!cities.length) {
+        grid.innerHTML = '<p style="text-align:center;color:#6b7280;">Brak dostępnych wycieczek</p>';
         return;
       }
-      lista.innerHTML = items.map(t=>{
-        const title = t.title?.pl || t.title?.en || t.slug;
-        const badge = t.display_mode==='per_hour'?'za godzinę': t.display_mode==='per_person'?'za osobę': t.display_mode==='from_price'?'od ceny': (t.display_mode==='custom_label'? (t.display_label||''): '');
-        const price = t.pricing_model==='per_person' && t.price_per_person ? `${Number(t.price_per_person).toFixed(2)} €` : (t.price_base? `${Number(t.price_base).toFixed(2)} €` : '');
-        const sub = [t.start_city, badge].filter(Boolean).join(' • ');
+
+      grid.innerHTML = cities.map(city => {
+        const trips = cityGroups[city];
+        const count = trips.length;
+        const image = cityImages[city] || cityImages['All Cities'];
+        
         return `
-          <a class="card" href="/trip.html?slug=${encodeURIComponent(t.slug)}">
-            ${t.cover_image_url?`<img src="${t.cover_image_url}" alt="${title}" style="width:100%;height:180px;object-fit:cover;border-radius:8px;">`:''}
-            <div class="card-body">
-              <h3>${title}</h3>
-              <p>${sub}</p>
-              ${price?`<div class=\"price\">${price}</div>`:''}
+          <div class="city-card" onclick="openCityModal('${city}')">
+            <img class="city-card-image" src="${image}" alt="${city}" />
+            <div class="city-card-overlay">
+              <h3 class="city-card-title">${city}</h3>
+              <p class="city-card-count">${count} ${count === 1 ? 'wycieczka' : 'wycieczek'}</p>
             </div>
-          </a>
+          </div>
         `;
       }).join('');
     }
 
-    function initCities(){
-      const cities = Array.from(new Set((allTrips||[]).map(t=>t.start_city).filter(Boolean)));
-      if (cities.length <= 1){
-        citySel.style.display = 'none';
-        citiesReady = true;
-        return;
+    window.openCityModal = function(cityName) {
+      const cityTrips = allTrips.filter(t => t.start_city === cityName);
+      const modal = document.getElementById('tripsModal');
+      const modalTitle = document.getElementById('modalCityName');
+      const modalBody = document.getElementById('modalTripsBody');
+
+      modalTitle.textContent = cityName;
+      
+      if (!cityTrips.length) {
+        modalBody.innerHTML = '<p style="text-align:center;color:#6b7280;">Brak wycieczek w tym mieście</p>';
+      } else {
+        modalBody.innerHTML = cityTrips.map(trip => {
+          const title = trip.title?.pl || trip.title?.en || trip.slug;
+          const desc = trip.description?.pl || trip.description?.en || '';
+          const shortDesc = desc.length > 120 ? desc.substring(0, 120) + '...' : desc;
+          const price = trip.pricing_model === 'per_person' && trip.price_per_person 
+            ? `${Number(trip.price_per_person).toFixed(2)} €` 
+            : trip.price_base 
+            ? `${Number(trip.price_base).toFixed(2)} €` 
+            : 'Zapytaj o cenę';
+          
+          return `
+            <a href="/trip.html?slug=${encodeURIComponent(trip.slug)}" class="trip-item">
+              ${trip.cover_image_url 
+                ? `<img class="trip-item-image" src="${trip.cover_image_url}" alt="${title}" />` 
+                : ''}
+              <div class="trip-item-content">
+                <h3 class="trip-item-title">${title}</h3>
+                ${shortDesc ? `<p class="trip-item-desc">${shortDesc}</p>` : ''}
+                <div class="trip-item-meta">
+                  <span>📍 ${trip.start_city || ''}</span>
+                  ${trip.pricing_model ? `<span>💰 ${trip.pricing_model}</span>` : ''}
+                </div>
+              </div>
+              <div class="trip-item-price">${price}</div>
+            </a>
+          `;
+        }).join('');
       }
-      const opts = ['<option value="__all__">Wszystkie miasta</option>']
-        .concat(cities.map(c => `<option value="${c}">${c}</option>`));
-      citySel.innerHTML = opts.join('');
-      citySel.style.display = '';
-      citiesReady = true;
+
+      modal.classList.add('active');
+    };
+
+    window.closeTripsModal = function() {
+      document.getElementById('tripsModal').classList.remove('active');
+    };
+
+    // Close modal on backdrop click
+    document.getElementById('tripsModal').addEventListener('click', function(e) {
+      if (e.target === this) closeTripsModal();
+    });
+
+    // Tab switching
+    document.querySelectorAll('.trips-tab').forEach(tab => {
+      tab.addEventListener('click', function() {
+        document.querySelectorAll('.trips-tab').forEach(t => t.classList.remove('active'));
+        this.classList.add('active');
+        currentRegion = this.dataset.region;
+        // For now, show all - you can add filtering logic later
+        renderCityCards();
+      });
+    });
+
+    // Load trips from API
+    async function loadTrips() {
+      try {
+        const res = await fetch('/trips');
+        allTrips = await res.json();
+        // Filter only published trips
+        allTrips = allTrips.filter(t => t.is_published);
+        renderCityCards();
+      } catch (err) {
+        console.error('Failed to load trips:', err);
+        document.getElementById('cityGrid').innerHTML = '<p style="text-align:center;color:#ef4444;">Błąd ładowania wycieczek</p>';
+      }
     }
 
-    async function loadTrips(){
-      const res = await fetch('/trips');
-      allTrips = await res.json();
-      if (!citiesReady) initCities();
-      renderList();
-    }
-
-    $('#btnSzukaj').addEventListener('click', renderList);
-    citySel.addEventListener('change', renderList);
     loadTrips();
   </script>
   <script src="/js/seo.js" defer></script>
