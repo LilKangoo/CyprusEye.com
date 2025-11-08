@@ -6310,3 +6310,55 @@ if (document.readyState === 'loading') {
 } else {
   initAdminPanel();
 }
+
+// =====================================================
+// TRIPS TABS FUNCTIONALITY
+// =====================================================
+
+// Trips tabs switching
+document.addEventListener('DOMContentLoaded', function() {
+  const tripsTabButtons = document.querySelectorAll('.trips-tab-button');
+  
+  tripsTabButtons.forEach(button => {
+    button.addEventListener('click', function() {
+      const tab = this.getAttribute('data-tab');
+      
+      // Update active state
+      tripsTabButtons.forEach(btn => {
+        btn.classList.remove('active');
+        btn.style.borderBottomColor = 'transparent';
+        btn.style.color = 'var(--admin-text-muted)';
+      });
+      this.classList.add('active');
+      this.style.borderBottomColor = 'var(--admin-primary)';
+      this.style.color = 'var(--admin-text)';
+      
+      // Show/hide tab content
+      document.getElementById('tripsTabTrips').hidden = (tab !== 'trips');
+      document.getElementById('tripsTabBookings').hidden = (tab !== 'bookings');
+      
+      // Load data for the selected tab
+      if (tab === 'bookings') {
+        loadTripBookingsData();
+      } else {
+        loadTripsAdminData();
+      }
+    });
+  });
+  
+  // Refresh button for trips
+  const btnRefreshTrips = document.getElementById('btnRefreshTrips');
+  if (btnRefreshTrips) {
+    btnRefreshTrips.addEventListener('click', function() {
+      const activeTab = document.querySelector('.trips-tab-button.active');
+      if (activeTab) {
+        const tab = activeTab.getAttribute('data-tab');
+        if (tab === 'bookings') {
+          loadTripBookingsData();
+        } else {
+          loadTripsAdminData();
+        }
+      }
+    });
+  }
+});

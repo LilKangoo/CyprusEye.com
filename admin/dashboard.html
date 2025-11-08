@@ -306,10 +306,23 @@
             <p class="admin-view-subtitle">Manage trips and customer bookings</p>
           </div>
           <div class="admin-view-actions">
+            <button class="btn-secondary" type="button" id="btnRefreshTrips">Refresh</button>
             <button class="btn-primary" type="button" id="btnAddTrip" onclick="openNewTripModal()">New Trip</button>
           </div>
         </header>
 
+        <!-- Sub-navigation for Trips -->
+        <div style="margin-bottom: 24px; border-bottom: 2px solid var(--admin-border); display: flex; gap: 8px;">
+          <button class="trips-tab-button active" data-tab="trips" style="padding: 12px 24px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: var(--admin-text-muted); transition: all 0.2s;">
+            Trips
+          </button>
+          <button class="trips-tab-button" data-tab="bookings" style="padding: 12px 24px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: var(--admin-text-muted); transition: all 0.2s;">
+            Bookings
+          </button>
+        </div>
+
+        <!-- Trips Tab Content -->
+        <div id="tripsTabTrips" class="trips-tab-content">
         <div class="admin-stats-grid">
           <div class="admin-stat-card">
             <div class="stat-card-content">
@@ -348,6 +361,89 @@
         </div>
 
         <div id="tripsTableFooter" class="poi-table-footer"></div>
+        </div>
+
+        <!-- Bookings Tab Content -->
+        <div id="tripsTabBookings" class="trips-tab-content" hidden>
+          <!-- Trip Bookings Stats -->
+          <div class="admin-stats-grid">
+            <div class="admin-stat-card">
+              <div class="stat-card-icon stat-card-icon-blue">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                  <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+              </div>
+              <div class="stat-card-content">
+                <p class="stat-card-label">Total Bookings</p>
+                <p class="stat-card-value" id="statTripBookingsTotal">-</p>
+                <p class="stat-card-change">Loading...</p>
+              </div>
+            </div>
+
+            <div class="admin-stat-card">
+              <div class="stat-card-icon stat-card-icon-orange">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </div>
+              <div class="stat-card-content">
+                <p class="stat-card-label">Pending</p>
+                <p class="stat-card-value" id="statTripBookingsPending">-</p>
+                <p class="stat-card-change">Awaiting confirmation</p>
+              </div>
+            </div>
+
+            <div class="admin-stat-card">
+              <div class="stat-card-icon stat-card-icon-green">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+              <div class="stat-card-content">
+                <p class="stat-card-label">Confirmed</p>
+                <p class="stat-card-value" id="statTripBookingsConfirmed">-</p>
+                <p class="stat-card-change">Active bookings</p>
+              </div>
+            </div>
+
+            <div class="admin-stat-card">
+              <div class="stat-card-icon stat-card-icon-purple">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="1" x2="12" y2="23"/>
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+              </div>
+              <div class="stat-card-content">
+                <p class="stat-card-label">Revenue (Total)</p>
+                <p class="stat-card-value" id="statTripBookingsRevenue">-</p>
+                <p class="stat-card-change">Paid bookings</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Trip Bookings Table -->
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Booking ID</th>
+                  <th>Customer</th>
+                  <th>Dates & Details</th>
+                  <th>Status</th>
+                  <th>Amount</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tripBookingsTableBody">
+                <tr>
+                  <td colspan="6" class="table-loading">Loading trip bookings...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </section>
 
       <!-- Edit Trip Modal -->
