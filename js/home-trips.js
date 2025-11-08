@@ -14,11 +14,12 @@ async function loadHomeTrips() {
       return;
     }
 
+    // Load only published trips (same as trips.html)
     const { data: trips, error } = await client
       .from('trips')
       .select('*')
-      .order('created_at', { ascending: false })
-      .limit(20);
+      .eq('is_published', true)
+      .order('created_at', { ascending: false });
 
     if (error) {
       console.error('Error loading trips:', error);
@@ -31,6 +32,7 @@ async function loadHomeTrips() {
     }
 
     homeTripsData = trips || [];
+    console.log('Loaded trips:', homeTripsData.length, homeTripsData);
     renderHomeTrips();
 
   } catch (error) {
@@ -45,16 +47,20 @@ function renderHomeTrips() {
 
   let filteredTrips = homeTripsData;
 
-  // Filter by city if not 'all'
+  // Filter by city if not 'all' (same logic as trips.html)
   if (homeTripsCurrentCity !== 'all') {
     filteredTrips = homeTripsData.filter(trip => 
       trip.start_city === homeTripsCurrentCity || 
-      (trip.start_city === 'All Cities' && homeTripsCurrentCity === 'all')
+      trip.start_city === 'All Cities'  // Include "All Cities" trips in every category
     );
   }
 
   // Limit to 6 trips on home page
   const displayTrips = filteredTrips.slice(0, 6);
+  
+  console.log('Current city:', homeTripsCurrentCity);
+  console.log('Filtered trips:', filteredTrips.length);
+  console.log('Display trips:', displayTrips.length);
 
   if (displayTrips.length === 0) {
     grid.innerHTML = `
@@ -67,18 +73,22 @@ function renderHomeTrips() {
 
   grid.innerHTML = displayTrips.map(trip => {
     const imageUrl = trip.cover_image_url || '/assets/cyprus_logo-1000x1054.png';
-    const price = trip.base_price_per_person || trip.base_price_total || trip.hourly_rate || trip.daily_rate || 0;
-    const pricingModel = trip.pricing_model || 'per_person';
     
+    // Get title (support multilingual or slug)
+    const title = trip.title?.pl || trip.title?.en || trip.title || trip.slug || 'Wycieczka';
+    
+    // Get price based on pricing model (same as trips.html)
+    const pricingModel = trip.pricing_model || 'per_person';
     let priceLabel = '';
-    if (pricingModel === 'per_person') {
-      priceLabel = `${price.toFixed(2)} € / os.`;
-    } else if (pricingModel === 'base_plus_extra') {
-      priceLabel = `od ${trip.base_price_total?.toFixed(2) || 0} €`;
-    } else if (pricingModel === 'per_hour') {
-      priceLabel = `${trip.hourly_rate?.toFixed(2) || 0} € / godz.`;
-    } else if (pricingModel === 'per_day') {
-      priceLabel = `${trip.daily_rate?.toFixed(2) || 0} € / dzień`;
+    
+    if (pricingModel === 'per_person' && trip.price_per_person) {
+      priceLabel = `${Number(trip.price_per_person).toFixed(2)} €`;
+    } else if (trip.price_base) {
+      priceLabel = `${Number(trip.price_base).toFixed(2)} €`;
+    } else if (trip.hourly_rate) {
+      priceLabel = `${Number(trip.hourly_rate).toFixed(2)} € / godz.`;
+    } else if (trip.daily_rate) {
+      priceLabel = `${Number(trip.daily_rate).toFixed(2)} € / dzień`;
     }
 
     return `
@@ -101,7 +111,7 @@ function renderHomeTrips() {
       >
         <img 
           src="${imageUrl}" 
-          alt="${trip.title || 'Trip'}"
+          alt="${title}"
           style="
             width: 100%;
             height: 100%;
@@ -123,12 +133,12 @@ function renderHomeTrips() {
             font-size: 1.1rem;
             font-weight: 700;
             line-height: 1.3;
-          ">${trip.title || 'Wycieczka'}</h3>
+          ">${title}</h3>
           <p style="
             margin: 0;
             font-size: 0.85rem;
             opacity: 0.95;
-          ">${trip.start_city || ''} · ${priceLabel}</p>
+          ">${trip.start_city || ''} ${priceLabel ? '• ' + priceLabel : ''}</p>
         </div>
       </a>
     `;
@@ -155,6 +165,7 @@ function initHomeTripsTabs() {
       
       // Update current city and re-render
       homeTripsCurrentCity = city;
+      console.log('Filtering by city:', city);
       renderHomeTrips();
     });
   });
