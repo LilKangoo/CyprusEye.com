@@ -139,17 +139,35 @@
 
     async function loadTrip(){
       if (!slug){ $('#viewLoading').textContent='Brak parametru slug'; return; }
-      const res = await fetch(`/trips/${encodeURIComponent(slug)}`);
-      if (!res.ok){ $('#viewLoading').textContent='Nie znaleziono wycieczki'; return; }
-      const t = await res.json();
-      trip = t;
+      
+      try {
+        // Load trip directly from Supabase
+        const { supabase } = await import('/js/supabaseClient.js');
+        if (!supabase) throw new Error('Supabase client not available');
+        
+        const { data, error } = await supabase
+          .from('trips')
+          .select('*')
+          .eq('slug', slug)
+          .eq('is_published', true)
+          .single();
+        
+        if (error) throw error;
+        if (!data) throw new Error('Trip not found');
+        
+        trip = data;
+      } catch (err) {
+        console.error('Failed to load trip:', err);
+        $('#viewLoading').textContent = 'Nie znaleziono wycieczki';
+        return;
+      }
       $('#viewLoading').hidden = true;
       $('#viewTrip').hidden = false;
 
-      if (t.cover_image_url){ $('#imgWrap').innerHTML = `<img src="${t.cover_image_url}" alt="${t.title?.pl||t.slug}">`; }
-      $('#tTitle').textContent = t.title?.pl || t.title?.en || t.slug;
-      $('#tSub').textContent = [t.start_city, badgeFor(t)].filter(Boolean).join(' • ');
-      const desc = (t.description?.pl || '').replace(/\n/g,'<br/>');
+      if (trip.cover_image_url){ $('#imgWrap').innerHTML = `<img src="${trip.cover_image_url}" alt="${trip.title?.pl||trip.slug}">`; }
+      $('#tTitle').textContent = trip.title?.pl || trip.title?.en || trip.slug;
+      $('#tSub').textContent = [trip.start_city, badgeFor(trip)].filter(Boolean).join(' • ');
+      const desc = (trip.description?.pl || '').replace(/\n/g,'<br/>');
       $('#tDesc').innerHTML = desc;
 
       renderModelFields();

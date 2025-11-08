@@ -27,14 +27,29 @@
     const lista = $('#lista');
 
     async function loadTrips(){
-      const res = await fetch('/trips');
-      const data = await res.json();
-      const q = ($('#q').value||'').toLowerCase();
-      const items = (data||[]).filter(t=>{
-        const title = (t.title?.pl || t.title?.en || '').toLowerCase();
-        const city = (t.start_city||'').toLowerCase();
-        return !q || title.includes(q) || city.includes(q);
-      });
+      try {
+        const { supabase } = await import('/js/supabaseClient.js');
+        if (!supabase) throw new Error('Supabase client not available');
+        
+        const { data, error } = await supabase
+          .from('trips')
+          .select('*')
+          .eq('is_published', true)
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        const q = ($('#q').value||'').toLowerCase();
+        const items = (data||[]).filter(t=>{
+          const title = (t.title?.pl || t.title?.en || '').toLowerCase();
+          const city = (t.start_city||'').toLowerCase();
+          return !q || title.includes(q) || city.includes(q);
+        });
+      } catch (err) {
+        console.error('Failed to load trips:', err);
+        lista.innerHTML = '<p style="color:#ef4444;">Błąd ładowania wycieczek</p>';
+        return;
+      }
       if(!items.length){
         lista.innerHTML = '<p>Brak wycieczek.</p>';
         return;
