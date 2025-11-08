@@ -86,7 +86,9 @@
     }
     .city-card {
       position: relative;
-      height: 280px;
+      aspect-ratio: 4/3;
+      min-height: 240px;
+      max-height: 320px;
       border-radius: 16px;
       overflow: hidden;
       cursor: pointer;
@@ -410,7 +412,23 @@
     }
     @media (max-width: 768px) {
       .trips-hero h1 { font-size: 1.75rem; }
-      .city-grid { grid-template-columns: 1fr; }
+      .trips-hero { padding: 32px 16px; }
+      .trips-container { padding: 24px 16px; }
+      .city-grid { 
+        grid-template-columns: 1fr; 
+        gap: 16px;
+      }
+      .city-card {
+        aspect-ratio: 16/9;
+        min-height: 200px;
+        max-height: 280px;
+      }
+      .city-card-title {
+        font-size: 1.25rem;
+      }
+      .city-card-count {
+        font-size: 0.85rem;
+      }
       .trip-item { flex-direction: column; }
       .trip-item-image { width: 100%; height: 180px; }
       .form-row { grid-template-columns: 1fr; }
