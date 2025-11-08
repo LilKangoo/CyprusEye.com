@@ -260,18 +260,18 @@ async function openNewTripModal() {
       return;
     }
 
-    // Load POIs (only essential info)
+    // Load POIs (essential fields only to avoid schema mismatches)
     const { data: pois, error } = await client
       .from('pois')
-      .select('id, name, slug, status')
-      .order('updated_at', { ascending: false })
+      .select('id, name')
+      .order('id', { ascending: false })
       .limit(200);
     if (error) throw error;
 
     const sel = document.getElementById('newTripPoi');
     if (sel) {
       sel.innerHTML = (pois || [])
-        .map(p => `<option value="${p.id}">${escapeHtml(p.name || p.slug || p.id)}${p.status && p.status!=='published' ? ' · '+escapeHtml(p.status) : ''}</option>`) 
+        .map(p => `<option value="${p.id}">${escapeHtml(p.name || p.id)}</option>`) 
         .join('');
     }
 
