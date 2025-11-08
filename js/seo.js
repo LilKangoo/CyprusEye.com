@@ -252,6 +252,7 @@
 
   function applyForCurrentLanguage() {
     updateSeo(getActiveLanguage());
+    try { ensureTripsQuickAction(); } catch(e) { /* noop */ }
   }
 
   document.addEventListener('wakacjecypr:languagechange', (event) => {
@@ -265,5 +266,25 @@
     applyForCurrentLanguage();
   }
 })();
+
+// Inject "Wycieczki" link into header quick actions if missing
+function ensureTripsQuickAction() {
+  const container = document.querySelector('.header-actions-primary');
+  if (!container) return;
+  const already = Array.from(container.querySelectorAll('a')).some(a => /\btrips\.html\b/i.test(a.getAttribute('href')||''));
+  if (already) return;
+  const a = document.createElement('a');
+  a.className = 'ghost header-link';
+  a.href = 'trips.html';
+  a.setAttribute('aria-label', 'Wycieczki');
+  a.textContent = '🧭 Wycieczki';
+  // Insert before VIP if present, else append
+  const vip = Array.from(container.querySelectorAll('a')).find(x => (x.textContent||'').includes('VIP') || /vip\.html/i.test(x.getAttribute('href')||''));
+  if (vip && vip.parentNode === container) {
+    container.insertBefore(a, vip);
+  } else {
+    container.appendChild(a);
+  }
+}
 
 // Mobile navigation moved to separate file: js/mobile-nav.js

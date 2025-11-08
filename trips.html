@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pl" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://esm.sh https://unpkg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co wss://*.supabase.co https://esm.sh https://unpkg.com; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;" />
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="robots" content="index,follow" />
+  <title data-i18n="seo.trips.title">Wycieczki – CyprusEye</title>
+  <meta name="description" content="Przeglądaj wycieczki i rezerwuj online.">
+  <meta property="og:title" content="Wycieczki – CyprusEye" />
+  <meta property="og:description" content="Przeglądaj wycieczki i rezerwuj online." />
+  <meta property="og:url" content="https://www.cypruseye.com/trips.html" />
+  <meta property="og:image" content="https://www.cypruseye.com/assets/cyprus_logo-1000x1054.png" />
+  <link rel="icon" href="/assets/cyprus_logo-1000x1054.png" type="image/png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <link rel="stylesheet" href="/assets/css/components.css" />
+  <link rel="stylesheet" href="/assets/css/mobile.css" />
+  <link rel="stylesheet" href="/assets/css/mobile-nav.css" />
+  <link rel="stylesheet" href="/css/toast.css" />
+
+  <meta name="ce-auth" content="on" />
+  <script type="module" src="/js/supabaseClient.js"></script>
+  <script type="module" src="/js/toast.js"></script>
+  <script type="module" src="/js/auth.js"></script>
+  <script type="module" src="/js/authUi.js"></script>
+</head>
+<body data-navigation="multi-page" data-initial-view="tripsView" data-seo-page="trips">
+  <header class="app-header">
+    <div class="header-top">
+      <div class="brand">
+        <img src="/assets/cyprus_logo-1000x1054.png" alt="WakacjeCypr.com – logo" width="64" height="64" />
+        <div class="brand-title">
+          <p class="brand-name">WakacjeCypr <span>Quest</span></p>
+          <p class="tagline">Zwiedzaj Cypr w interaktywny sposób – zarezerwuj wycieczkę!</p>
+        </div>
+      </div>
+      <div class="header-top-actions">
+        <div class="header-auth-controls">
+          <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
+            <button class="btn btn-sm" data-auth="login">Zaloguj</button>
+            <button class="btn btn-sm" data-auth="guest">Gość</button>
+            <button class="btn btn-sm" data-auth="logout">Wyloguj</button>
+            <button id="sosToggle" class="btn btn-sm btn-danger" type="button">🚨 SOS</button>
+          </div>
+        </div>
+        <div class="header-actions" aria-label="Szybkie działania">
+          <div class="header-actions-primary">
+            <a class="ghost header-link" href="/community.html">💬 Społeczność</a>
+            <a class="ghost header-link" href="/kupon.html">🎟️ Kupon</a>
+            <a class="ghost header-link" href="/car-rental-landing.html">🚗 Wynajem auta</a>
+            <a class="ghost header-link" href="/trips.html" aria-label="Wycieczki">🧭 Wycieczki</a>
+            <a class="ghost header-link" href="/vip.html">✨ VIP wyjazdy</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="header-tabs" role="tablist" aria-label="Nawigacja główna">
+      <a href="/index.html" class="header-tab" id="headerAdventureTab">🎯 Twoja przygoda</a>
+      <a href="/packing.html" class="header-tab" id="headerPackingTab">🎒 Planer pakowania</a>
+      <a href="/tasks.html" class="header-tab" id="headerTasksTab">✅ Zadania</a>
+      <a href="/trips.html" class="header-tab is-active" id="headerTripsTab">🧭 Wycieczki</a>
+    </nav>
+  </header>
+
+  <main id="main-content">
+    <h1 class="sr-only">Wycieczki</h1>
+    <section id="tripsView" class="utility-view app-view" role="tabpanel" aria-labelledby="headerTripsTab">
+      <header class="utility-view-header">
+        <div>
+          <h2>Wycieczki</h2>
+          <p>Przeglądaj dostępne wycieczki i złóż rezerwację online.</p>
+        </div>
+      </header>
+
+      <div style="margin-bottom:12px;display:flex;gap:8px;align-items:center;">
+        <input id="q" placeholder="Szukaj po mieście lub tytule" style="flex:1;" />
+        <button id="btnSzukaj" class="btn-secondary">Szukaj</button>
+      </div>
+      <div id="lista" class="card-grid"></div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <p>© <span data-current-year></span> WakacjeCypr.com</p>
+  </footer>
+
+  <script type="module">
+    const $ = (s,r=document)=>r.querySelector(s);
+    const lista = $('#lista');
+
+    async function loadTrips(){
+      const res = await fetch('/trips');
+      const data = await res.json();
+      const q = ($('#q').value||'').toLowerCase();
+      const items = (data||[]).filter(t=>{
+        const title = (t.title?.pl || t.title?.en || '').toLowerCase();
+        const city = (t.start_city||'').toLowerCase();
+        return !q || title.includes(q) || city.includes(q);
+      });
+      if(!items.length){
+        lista.innerHTML = '<p>Brak wycieczek.</p>';
+        return;
+      }
+      lista.innerHTML = items.map(t=>{
+        const title = t.title?.pl || t.title?.en || t.slug;
+        const badge = t.display_mode==='per_hour'?'za godzinę': t.display_mode==='per_person'?'za osobę': t.display_mode==='from_price'?'od ceny': (t.display_mode==='custom_label'? (t.display_label||''): '');
+        const price = t.pricing_model==='per_person' && t.price_per_person ? `${Number(t.price_per_person).toFixed(2)} €` : (t.price_base? `${Number(t.price_base).toFixed(2)} €` : '');
+        const sub = [t.start_city, badge].filter(Boolean).join(' • ');
+        return `
+          <a class="card" href="/trip.html?slug=${encodeURIComponent(t.slug)}">
+            ${t.cover_image_url?`<img src="${t.cover_image_url}" alt="${title}" style="width:100%;height:180px;object-fit:cover;border-radius:8px;">`:''}
+            <div class="card-body">
+              <h3>${title}</h3>
+              <p>${sub}</p>
+              ${price?`<div class=\"price\">${price}</div>`:''}
+            </div>
+          </a>
+        `;
+      }).join('');
+    }
+
+    $('#btnSzukaj').addEventListener('click', loadTrips);
+    loadTrips();
+  </script>
+  <script src="/js/seo.js" defer></script>
+  <script src="/js/mobile-nav.js" defer></script>
+</body>
+</html>

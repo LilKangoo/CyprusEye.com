@@ -12,6 +12,7 @@
     { icon: '💬', label: 'Społeczność', href: 'community.html', page: 'community' },
     { icon: '🎒', label: 'Pakowanie', href: 'packing.html', page: 'packing' },
     { icon: '✅', label: 'Misje', href: 'tasks.html', page: 'tasks' },
+    { icon: '🧭', label: 'Wycieczki', href: 'trips.html', page: 'trips' },
     { icon: '📸', label: 'VIP', href: 'vip.html', page: 'vip' },
     { icon: '🚗', label: 'Wynajem', href: 'car-rental-landing.html', page: 'carrental' },
     { icon: '🎟️', label: 'Kupony', href: 'kupon.html', page: 'kupon' }
@@ -32,6 +33,7 @@
       if (normalized === 'packing') return 'packing';
       if (normalized === 'tasks') return 'tasks';
       if (normalized === 'vip' || normalized === 'mediatrips') return 'vip';
+      if (normalized === 'trips') return 'trips';
       if (normalized.includes('rental') || normalized === 'carrental') return 'carrental';
       if (normalized === 'coupon') return 'kupon';
     }
@@ -41,6 +43,7 @@
     if (path.includes('packing')) return 'packing';
     if (path.includes('tasks')) return 'tasks';
     if (path.includes('vip')) return 'vip';
+    if (path.includes('trips')) return 'trips';
     if (path.includes('car-rental') || path.includes('rental')) return 'carrental';
     if (path.includes('kupon') || path.includes('coupon')) return 'kupon';
     
