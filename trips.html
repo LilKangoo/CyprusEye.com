@@ -444,13 +444,26 @@
       });
     });
 
-    // Load trips from API
+    // Load trips from Supabase directly
     async function loadTrips() {
       try {
-        const res = await fetch('/trips');
-        allTrips = await res.json();
-        // Filter only published trips
-        allTrips = allTrips.filter(t => t.is_published);
+        // Import Supabase client
+        const { supabase } = await import('/js/supabaseClient.js');
+        
+        if (!supabase) {
+          throw new Error('Supabase client not available');
+        }
+
+        // Fetch published trips
+        const { data, error } = await supabase
+          .from('trips')
+          .select('*')
+          .eq('is_published', true)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        allTrips = data || [];
         renderCityCards();
       } catch (err) {
         console.error('Failed to load trips:', err);
