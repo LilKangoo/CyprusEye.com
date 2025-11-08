@@ -12,6 +12,14 @@ export async function onRequest(context) {
     console.log('[Admin [[path]]] Original request:', url.toString());
     console.log('[Admin [[path]]] Pathname:', pathname);
     
+    // CRITICAL: Skip API routes - let them be handled by their dedicated Functions
+    const apiPaths = ['/admin/trips', '/admin/api'];
+    if (apiPaths.some(p => pathname.startsWith(p))) {
+      console.log('[Admin [[path]]] Skipping API path:', pathname);
+      // Return a pass-through response to let Cloudflare route to the actual Function
+      return context.next();
+    }
+    
     // Remove query params for asset fetching
     const cleanUrl = new URL(url.origin + pathname);
     
