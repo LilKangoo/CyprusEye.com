@@ -1,19 +1,11 @@
 {
   "version": 1,
   "include": [
-    "/admin/trips",
-    "/admin/trips/*",
+    "/admin/*",
     "/auth/*",
     "/account/*",
     "/reset/*",
-    "/trips",
-    "/api/*"
+    "/trips"
   ],
-  "exclude": [
-    "/admin/dashboard.html",
-    "/admin/admin.js",
-    "/admin/admin.css",
-    "/admin/*.png",
-    "/admin/*.jpg"
-  ]
+  "exclude": []
 }
