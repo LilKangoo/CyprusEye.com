@@ -4,39 +4,32 @@
 let homeTripsData = [];
 let homeTripsCurrentCity = 'all';
 
-// Load trips from Supabase
+// Load trips from Supabase (exactly like trips.html)
 async function loadHomeTrips() {
   try {
-    const client = window.getSupabaseClient?.();
-    if (!client) {
-      console.log('Supabase client not ready, will retry...');
-      setTimeout(loadHomeTrips, 500);
-      return;
+    // Import Supabase client (same as trips.html)
+    const { supabase } = await import('/js/supabaseClient.js');
+    
+    if (!supabase) {
+      throw new Error('Supabase client not available');
     }
 
-    // Load only published trips (same as trips.html)
-    const { data: trips, error } = await client
+    // Fetch published trips (same as trips.html)
+    const { data, error } = await supabase
       .from('trips')
       .select('*')
       .eq('is_published', true)
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Error loading trips:', error);
-      document.getElementById('tripsHomeGrid').innerHTML = `
-        <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: #ef4444;">
-          Błąd ładowania wycieczek
-        </div>
-      `;
-      return;
-    }
+    if (error) throw error;
 
-    homeTripsData = trips || [];
-    console.log('Loaded trips:', homeTripsData.length, homeTripsData);
+    homeTripsData = data || [];
+    console.log('✅ Loaded trips:', homeTripsData.length, homeTripsData);
     renderHomeTrips();
 
-  } catch (error) {
-    console.error('Failed to load trips:', error);
+  } catch (err) {
+    console.error('❌ Failed to load trips:', err);
+    document.getElementById('tripsHomeGrid').innerHTML = '<p style="text-align:center;color:#ef4444;">Błąd ładowania wycieczek</p>';
   }
 }
 
@@ -171,18 +164,8 @@ function initHomeTripsTabs() {
   });
 }
 
-// Initialize when DOM is ready and Supabase client is available
+// Initialize when DOM is ready (exactly like trips.html)
 document.addEventListener('DOMContentLoaded', function() {
-  // Wait a bit for Supabase client to be ready
-  setTimeout(() => {
-    loadHomeTrips();
-    initHomeTripsTabs();
-  }, 1000);
+  loadHomeTrips();
+  initHomeTripsTabs();
 });
-
-// Also try to load when Supabase client signals ready
-if (window.addEventListener) {
-  window.addEventListener('supabase-ready', function() {
-    loadHomeTrips();
-  });
-}
