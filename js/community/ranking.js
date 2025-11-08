@@ -8,7 +8,7 @@
     if (!sb) return [];
     const { data, error } = await sb
       .from('profiles')
-      .select('id, username, name, avatar_url, level, xp')
+      .select('id, username, name, avatar_url, level, xp, visited_places')
       .order('level', { ascending: false })
       .order('xp', { ascending: false })
       .limit(100);
@@ -17,7 +17,15 @@
   }
 
   async function fetchUserStats(userId) {
-    return { tasksCompleted: 0, placesVisited: 0 };
+    // Tasks count source not specified yet -> default to 0
+    // Places visited is derived from array length in profiles
+    try {
+      const user = state.data.find(u => u.id === userId);
+      const placesVisited = Array.isArray(user?.visited_places) ? user.visited_places.length : 0;
+      return { tasksCompleted: 0, placesVisited };
+    } catch (_) {
+      return { tasksCompleted: 0, placesVisited: 0 };
+    }
   }
 
   function renderSkeleton(container, count = 10) {

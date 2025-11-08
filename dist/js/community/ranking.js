@@ -8,7 +8,7 @@
     if (!sb) return [];
     const { data, error } = await sb
       .from('profiles')
-      .select('id, username, name, avatar_url, level, xp')
+      .select('id, username, name, avatar_url, level, xp, visited_places')
       .order('level', { ascending: false })
       .order('xp', { ascending: false })
       .limit(100);
@@ -17,8 +17,14 @@
   }
 
   async function fetchUserStats(userId) {
-    // TODO: replace with real counts from Supabase (completed tasks, visited places)
-    return { tasksCompleted: 0, placesVisited: 0 };
+    // TODO: replace tasksCompleted with real source when ready
+    try {
+      const user = state.data.find(u => u.id === userId);
+      const placesVisited = Array.isArray(user?.visited_places) ? user.visited_places.length : 0;
+      return { tasksCompleted: 0, placesVisited };
+    } catch (_) {
+      return { tasksCompleted: 0, placesVisited: 0 };
+    }
   }
 
   function renderSkeleton(container, count = 10) {
