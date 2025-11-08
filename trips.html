@@ -283,27 +283,11 @@
 
     <div class="trips-container">
       <div class="trips-tabs" id="tripsTabs">
-        <button class="trips-tab active" data-region="all">Wszystkie miasta</button>
-        <button class="trips-tab" data-region="coast">Wybrzeże</button>
-        <button class="trips-tab" data-region="mountains">Góry</button>
-        <button class="trips-tab" data-region="popular">Najpopularniejsze</button>
+        <!-- Tabs will be generated dynamically from cities -->
       </div>
 
       <div class="city-grid" id="cityGrid">
-        <!-- Cities will be rendered here -->
-      </div>
-    </div>
-
-    <!-- Trips Modal -->
-    <div class="trips-modal" id="tripsModal">
-      <div class="trips-modal-content">
-        <div class="trips-modal-header">
-          <h2 class="trips-modal-title" id="modalCityName">Miasto</h2>
-          <button class="trips-modal-close" onclick="closeTripsModal()">✕</button>
-        </div>
-        <div class="trips-modal-body" id="modalTripsBody">
-          <!-- Trips list will be rendered here -->
-        </div>
+        <!-- Trips will be rendered here -->
       </div>
     </div>
   </main>
@@ -314,135 +298,85 @@
 
   <script type="module">
     let allTrips = [];
-    let currentRegion = 'all';
+    let currentCity = 'all';
 
-    function groupTripsByCity() {
-      const groups = {};
+    function getUniqueCities() {
+      const cities = new Set();
       allTrips.forEach(trip => {
         const city = trip.start_city || 'Other';
-        if (!groups[city]) groups[city] = [];
-        groups[city].push(trip);
+        if (city !== 'All Cities') { // Exclude "All Cities" from tabs
+          cities.add(city);
+        }
       });
-      return groups;
+      return Array.from(cities).sort();
     }
 
-    function getCityImage(cityTrips) {
-      // Get cover image from first trip that has one
-      const tripWithImage = cityTrips.find(t => t.cover_image_url);
-      return tripWithImage?.cover_image_url || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop';
-    }
-
-    function renderCityCards() {
-      const cityGroups = groupTripsByCity();
-      let cities = Object.keys(cityGroups).sort();
+    function renderTabs() {
+      const cities = getUniqueCities();
+      const tabsContainer = document.getElementById('tripsTabs');
       
-      // Filter by region if needed
-      if (currentRegion !== 'all') {
-        cities = filterCitiesByRegion(cities, cityGroups);
+      // Create "Wszystkie miasta" tab + tabs for each city
+      const tabs = ['<button class="trips-tab active" data-city="all">Wszystkie miasta</button>'];
+      cities.forEach(city => {
+        tabs.push(`<button class="trips-tab" data-city="${city}">${city}</button>`);
+      });
+      
+      tabsContainer.innerHTML = tabs.join('');
+      
+      // Add click listeners
+      document.querySelectorAll('.trips-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+          document.querySelectorAll('.trips-tab').forEach(t => t.classList.remove('active'));
+          this.classList.add('active');
+          currentCity = this.dataset.city;
+          renderTrips();
+        });
+      });
+    }
+
+    function getFilteredTrips() {
+      if (currentCity === 'all') {
+        return allTrips;
       }
       
+      // Filter trips by selected city
+      // Include trips marked as "All Cities" + trips from selected city
+      return allTrips.filter(trip => {
+        return trip.start_city === currentCity || trip.start_city === 'All Cities';
+      });
+    }
+
+    function renderTrips() {
+      const filteredTrips = getFilteredTrips();
       const grid = document.getElementById('cityGrid');
-      if (!cities.length) {
+      
+      if (!filteredTrips.length) {
         grid.innerHTML = '<p style="text-align:center;color:#6b7280;">Brak dostępnych wycieczek w tej kategorii</p>';
         return;
       }
 
-      grid.innerHTML = cities.map(city => {
-        const trips = cityGroups[city];
-        const count = trips.length;
-        const image = getCityImage(trips);
+      grid.innerHTML = filteredTrips.map(trip => {
+        const title = trip.title?.pl || trip.title?.en || trip.slug;
+        const desc = trip.description?.pl || trip.description?.en || '';
+        const shortDesc = desc.length > 100 ? desc.substring(0, 100) + '...' : desc;
+        const price = trip.pricing_model === 'per_person' && trip.price_per_person 
+          ? `${Number(trip.price_per_person).toFixed(2)} €` 
+          : trip.price_base 
+          ? `${Number(trip.price_base).toFixed(2)} €` 
+          : '';
+        const image = trip.cover_image_url || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop';
         
         return `
-          <div class="city-card" onclick="openCityModal('${city}')">
-            <img class="city-card-image" src="${image}" alt="${city}" loading="lazy" />
+          <div class="city-card" onclick="window.location.href='/trip.html?slug=${encodeURIComponent(trip.slug)}'">
+            <img class="city-card-image" src="${image}" alt="${title}" loading="lazy" />
             <div class="city-card-overlay">
-              <h3 class="city-card-title">${city}</h3>
-              <p class="city-card-count">${count} ${count === 1 ? 'wycieczka' : 'wycieczek'}</p>
+              <h3 class="city-card-title">${title}</h3>
+              <p class="city-card-count">${trip.start_city || ''} ${price ? '• ' + price : ''}</p>
             </div>
           </div>
         `;
       }).join('');
     }
-
-    function filterCitiesByRegion(cities, cityGroups) {
-      const coastalCities = ['Larnaca', 'Paphos', 'Limassol', 'Ayia Napa', 'Protaras'];
-      const mountainCities = ['Troodos', 'Platres', 'Kakopetria', 'Nicosia'];
-      
-      if (currentRegion === 'coast') {
-        return cities.filter(c => coastalCities.includes(c));
-      } else if (currentRegion === 'mountains') {
-        return cities.filter(c => mountainCities.includes(c));
-      } else if (currentRegion === 'popular') {
-        // Sort by number of trips descending, take top 6
-        return cities
-          .sort((a, b) => cityGroups[b].length - cityGroups[a].length)
-          .slice(0, 6);
-      }
-      return cities;
-    }
-
-    window.openCityModal = function(cityName) {
-      const cityTrips = allTrips.filter(t => t.start_city === cityName);
-      const modal = document.getElementById('tripsModal');
-      const modalTitle = document.getElementById('modalCityName');
-      const modalBody = document.getElementById('modalTripsBody');
-
-      modalTitle.textContent = cityName;
-      
-      if (!cityTrips.length) {
-        modalBody.innerHTML = '<p style="text-align:center;color:#6b7280;">Brak wycieczek w tym mieście</p>';
-      } else {
-        modalBody.innerHTML = cityTrips.map(trip => {
-          const title = trip.title?.pl || trip.title?.en || trip.slug;
-          const desc = trip.description?.pl || trip.description?.en || '';
-          const shortDesc = desc.length > 120 ? desc.substring(0, 120) + '...' : desc;
-          const price = trip.pricing_model === 'per_person' && trip.price_per_person 
-            ? `${Number(trip.price_per_person).toFixed(2)} €` 
-            : trip.price_base 
-            ? `${Number(trip.price_base).toFixed(2)} €` 
-            : 'Zapytaj o cenę';
-          
-          return `
-            <a href="/trip.html?slug=${encodeURIComponent(trip.slug)}" class="trip-item">
-              ${trip.cover_image_url 
-                ? `<img class="trip-item-image" src="${trip.cover_image_url}" alt="${title}" />` 
-                : ''}
-              <div class="trip-item-content">
-                <h3 class="trip-item-title">${title}</h3>
-                ${shortDesc ? `<p class="trip-item-desc">${shortDesc}</p>` : ''}
-                <div class="trip-item-meta">
-                  <span>📍 ${trip.start_city || ''}</span>
-                  ${trip.pricing_model ? `<span>💰 ${trip.pricing_model}</span>` : ''}
-                </div>
-              </div>
-              <div class="trip-item-price">${price}</div>
-            </a>
-          `;
-        }).join('');
-      }
-
-      modal.classList.add('active');
-    };
-
-    window.closeTripsModal = function() {
-      document.getElementById('tripsModal').classList.remove('active');
-    };
-
-    // Close modal on backdrop click
-    document.getElementById('tripsModal').addEventListener('click', function(e) {
-      if (e.target === this) closeTripsModal();
-    });
-
-    // Tab switching
-    document.querySelectorAll('.trips-tab').forEach(tab => {
-      tab.addEventListener('click', function() {
-        document.querySelectorAll('.trips-tab').forEach(t => t.classList.remove('active'));
-        this.classList.add('active');
-        currentRegion = this.dataset.region;
-        // For now, show all - you can add filtering logic later
-        renderCityCards();
-      });
-    });
 
     // Load trips from Supabase directly
     async function loadTrips() {
@@ -464,7 +398,8 @@
         if (error) throw error;
 
         allTrips = data || [];
-        renderCityCards();
+        renderTabs();  // Generate tabs from cities
+        renderTrips(); // Show all trips initially
       } catch (err) {
         console.error('Failed to load trips:', err);
         document.getElementById('cityGrid').innerHTML = '<p style="text-align:center;color:#ef4444;">Błąd ładowania wycieczek</p>';
