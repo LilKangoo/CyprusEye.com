@@ -817,15 +817,15 @@
       const bookingData = {
         trip_id: currentTrip.id,
         trip_slug: currentTrip.slug,
-        name: formData.get('name'),
-        email: formData.get('email'),
-        phone: formData.get('phone'),
+        customer_name: formData.get('name'),
+        customer_email: formData.get('email'),
+        customer_phone: formData.get('phone'),
         start_date: formData.get('start_date'),
-        adults: adults,
-        children: children,
+        num_adults: adults,
+        num_children: children,
         notes: formData.get('notes'),
         total_price: calculatedPrice,
-        created_at: new Date().toISOString()
+        status: 'pending'
       };
       
       const submitBtn = e.target.querySelector('.booking-submit');

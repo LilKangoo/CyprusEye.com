@@ -84,6 +84,159 @@ function showElement(element) {
 }
 
 // =====================================================
+// TRIP BOOKINGS MODULE
+// =====================================================
+
+async function loadTripBookingsData() {
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    console.log('Loading trip bookings data...');
+
+    const { data: bookings, error } = await client
+      .from('trip_bookings')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) {
+      console.error('Error loading trip bookings:', error);
+      throw error;
+    }
+
+    console.log('Trip bookings loaded:', bookings);
+
+    // Calculate stats
+    const totalBookings = bookings?.length || 0;
+    const pendingBookings = bookings?.filter(b => b.status === 'pending').length || 0;
+    const confirmedBookings = bookings?.filter(b => b.status === 'confirmed').length || 0;
+    const totalRevenue = bookings
+      ?.filter(b => (b.status === 'confirmed' || b.status === 'completed') && b.total_price)
+      .reduce((sum, b) => sum + parseFloat(b.total_price), 0) || 0;
+
+    // Update stats if elements exist
+    const statTotal = $('#statTripBookingsTotal');
+    const statPending = $('#statTripBookingsPending');
+    const statConfirmed = $('#statTripBookingsConfirmed');
+    const statRevenue = $('#statTripBookingsRevenue');
+
+    if (statTotal) statTotal.textContent = totalBookings;
+    if (statPending) statPending.textContent = pendingBookings;
+    if (statConfirmed) statConfirmed.textContent = confirmedBookings;
+    if (statRevenue) statRevenue.textContent = `€${totalRevenue.toFixed(2)}`;
+
+    // Update table
+    const tableBody = $('#tripBookingsTableBody');
+    if (!tableBody) return;
+
+    if (!bookings || bookings.length === 0) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="6" class="table-loading">
+            No trip bookings yet. System is ready to accept bookings!
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tableBody.innerHTML = bookings.map(booking => {
+      const statusClass = 
+        booking.status === 'confirmed' ? 'badge-success' :
+        booking.status === 'completed' ? 'badge-success' :
+        booking.status === 'pending' ? 'badge-warning' :
+        booking.status === 'cancelled' ? 'badge-danger' : 'badge';
+      
+      return `
+        <tr>
+          <td>
+            <div style="font-weight: 600;">#${booking.id.slice(0, 8).toUpperCase()}</div>
+            <div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 2px;">
+              ${escapeHtml(booking.trip_slug || 'N/A')}
+            </div>
+          </td>
+          <td>
+            <div style="font-weight: 500;">${escapeHtml(booking.customer_name || 'N/A')}</div>
+            <div style="font-size: 12px; color: var(--admin-text-muted);">${escapeHtml(booking.customer_email || '')}</div>
+            ${booking.customer_phone ? `<div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(booking.customer_phone)}</div>` : ''}
+          </td>
+          <td>
+            <div>${booking.start_date ? new Date(booking.start_date).toLocaleDateString('en-GB') : 'Not set'}</div>
+            <div style="font-size: 11px; color: var(--admin-text-muted);">
+              👥 ${booking.num_adults || 0} adults, ${booking.num_children || 0} children
+            </div>
+          </td>
+          <td>
+            <span class="badge ${statusClass}">
+              ${(booking.status || 'unknown').toUpperCase()}
+            </span>
+          </td>
+          <td style="font-weight: 600; color: var(--admin-success);">
+            €${Number(booking.total_price || 0).toFixed(2)}
+          </td>
+          <td>
+            <button class="btn-secondary" onclick="viewTripBookingDetails('${booking.id}')" title="View details">
+              View
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    showToast('Trip bookings loaded successfully', 'success');
+
+  } catch (error) {
+    console.error('Failed to load trip bookings:', error);
+    showToast('Failed to load trip bookings: ' + (error.message || 'Unknown error'), 'error');
+    
+    const tableBody = $('#tripBookingsTableBody');
+    if (tableBody) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="6" class="table-loading" style="color: var(--admin-danger);">
+            ❌ Error loading data: ${escapeHtml(error.message || 'Unknown error')}
+            <br><small style="margin-top: 8px; display: block;">
+              Make sure the trip_bookings table exists in Supabase. 
+              Run the migration: supabase/migrations/015_trip_bookings_table.sql
+            </small>
+          </td>
+        </tr>
+      `;
+    }
+  }
+}
+
+async function viewTripBookingDetails(bookingId) {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+
+    const { data: booking, error } = await client
+      .from('trip_bookings')
+      .select('*')
+      .eq('id', bookingId)
+      .single();
+
+    if (error) {
+      console.error('Error loading booking:', error);
+      showToast('Failed to load booking details', 'error');
+      return;
+    }
+
+    // Show modal with booking details
+    alert(`Trip Booking Details:\n\nID: ${booking.id}\nCustomer: ${booking.customer_name}\nEmail: ${booking.customer_email}\nStatus: ${booking.status}\nPrice: €${booking.total_price}`);
+    // TODO: Create proper modal like car bookings
+  } catch (error) {
+    console.error('Error:', error);
+    showToast('Error loading details', 'error');
+  }
+}
+
+// =====================================================
 // TRIPS MANAGEMENT
 // =====================================================
 

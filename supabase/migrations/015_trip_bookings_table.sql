@@ -2,7 +2,10 @@
 -- TRIP BOOKINGS TABLE
 -- =====================================================
 
-CREATE TABLE IF NOT EXISTS trip_bookings (
+-- Drop and recreate if exists
+DROP TABLE IF EXISTS trip_bookings CASCADE;
+
+CREATE TABLE trip_bookings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   
   -- Trip reference
@@ -10,15 +13,18 @@ CREATE TABLE IF NOT EXISTS trip_bookings (
   trip_slug text,
   
   -- Customer information
-  name text NOT NULL,
-  email text NOT NULL,
-  phone text,
+  customer_name text NOT NULL,
+  customer_email text NOT NULL,
+  customer_phone text,
   
   -- Booking details
   start_date date,
-  adults integer DEFAULT 1,
-  children integer DEFAULT 0,
+  num_adults integer DEFAULT 1,
+  num_children integer DEFAULT 0,
   notes text,
+  
+  -- Pricing
+  total_price numeric(10,2),
   
   -- Status
   status text DEFAULT 'pending' CHECK (status IN (
@@ -30,11 +36,13 @@ CREATE TABLE IF NOT EXISTS trip_bookings (
   
   -- Timestamps
   created_at timestamptz DEFAULT now(),
-  updated_at timestamptz DEFAULT now()
+  updated_at timestamptz DEFAULT now(),
+  confirmed_at timestamptz,
+  cancelled_at timestamptz
 );
 
 -- Indexes
-CREATE INDEX IF NOT EXISTS idx_trip_bookings_email ON trip_bookings(email);
+CREATE INDEX IF NOT EXISTS idx_trip_bookings_email ON trip_bookings(customer_email);
 CREATE INDEX IF NOT EXISTS idx_trip_bookings_trip_id ON trip_bookings(trip_id);
 CREATE INDEX IF NOT EXISTS idx_trip_bookings_created ON trip_bookings(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_trip_bookings_status ON trip_bookings(status);
@@ -69,7 +77,7 @@ CREATE POLICY "Anyone can create trip bookings"
 CREATE POLICY "Users can view own trip bookings"
   ON trip_bookings FOR SELECT
   TO authenticated
-  USING (email = (SELECT email FROM auth.users WHERE id = auth.uid()));
+  USING (customer_email = (SELECT email FROM auth.users WHERE id = auth.uid()));
 
 -- Admins can view all bookings
 CREATE POLICY "Admins can view all trip bookings"
