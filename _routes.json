@@ -4,7 +4,9 @@
     "/admin/*",
     "/auth/*",
     "/account/*",
-    "/reset/*"
+    "/reset/*",
+    "/trips",
+    "/api/*"
   ],
   "exclude": [
     "/*.js",
@@ -23,6 +25,14 @@
     "/js/*",
     "/css/*",
     "/assets/*",
-    "/public/*"
+    "/admin/*.js",
+    "/admin/*.css",
+    "/admin/*.html",
+    "/admin/*.png",
+    "/admin/*.jpg",
+    "/admin/*.jpeg",
+    "/admin/*.gif",
+    "/admin/*.svg",
+    "/admin/*.webp"
   ]
 }
