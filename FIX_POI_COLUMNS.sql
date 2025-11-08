@@ -35,7 +35,7 @@ BEGIN
     LOWER(REGEXP_REPLACE(poi_name, '[^a-zA-Z0-9]+', '-', 'g'))
   );
   
-  -- Insert new POI with correct column names (lat, lng, xp, status)
+  -- Insert new POI with correct column names (lat, lng, xp, status, radius)
   -- Note: 'category' stored in badge field, no created_by or data columns
   INSERT INTO pois (
     id,
@@ -46,7 +46,8 @@ BEGIN
     xp,
     badge,
     required_level,
-    status
+    status,
+    radius
   ) VALUES (
     new_poi_id,
     poi_name,
@@ -56,7 +57,8 @@ BEGIN
     COALESCE(poi_xp, 100),
     poi_category,
     1,
-    COALESCE((poi_data->>'status')::TEXT, 'published')
+    COALESCE((poi_data->>'status')::TEXT, 'published'),
+    COALESCE((poi_data->>'radius')::INT, 150)
   );
   
   -- Log action
@@ -113,7 +115,8 @@ BEGIN
     lng = COALESCE(poi_longitude, lng),
     badge = COALESCE(poi_category, badge),
     xp = COALESCE(poi_xp, xp),
-    status = COALESCE((poi_data->>'status')::TEXT, status)
+    status = COALESCE((poi_data->>'status')::TEXT, status),
+    radius = COALESCE((poi_data->>'radius')::INT, radius)
   WHERE id = poi_id;
   
   -- Log action
