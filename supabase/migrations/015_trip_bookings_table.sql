@@ -21,6 +21,8 @@ CREATE TABLE trip_bookings (
   start_date date,
   num_adults integer DEFAULT 1,
   num_children integer DEFAULT 0,
+  num_hours integer DEFAULT 1,
+  num_days integer DEFAULT 1,
   notes text,
   
   -- Pricing

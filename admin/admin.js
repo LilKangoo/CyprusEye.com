@@ -167,7 +167,11 @@ async function loadTripBookingsData() {
           <td>
             <div>${booking.start_date ? new Date(booking.start_date).toLocaleDateString('en-GB') : 'Not set'}</div>
             <div style="font-size: 11px; color: var(--admin-text-muted);">
-              👥 ${booking.num_adults || 0} adults, ${booking.num_children || 0} children
+              ${booking.num_adults || booking.num_hours || booking.num_days ? 
+                (booking.num_adults ? `👥 ${booking.num_adults} adults, ${booking.num_children || 0} children` : '') +
+                (booking.num_hours ? `⏱️ ${booking.num_hours} hours` : '') +
+                (booking.num_days ? `📅 ${booking.num_days} days` : '')
+                : 'No details'}
             </div>
           </td>
           <td>

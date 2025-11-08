@@ -586,7 +586,7 @@
                 </div>
               </div>
               
-              <div class="form-row">
+              <div class="form-row" id="peopleFields">
                 <div class="form-field">
                   <label for="bookingAdults">Liczba dorosłych</label>
                   <input type="number" id="bookingAdults" name="adults" min="1" value="1" />
@@ -594,6 +594,17 @@
                 <div class="form-field">
                   <label for="bookingChildren">Dzieci</label>
                   <input type="number" id="bookingChildren" name="children" min="0" value="0" />
+                </div>
+              </div>
+              
+              <div class="form-row" id="timeFields" style="display:none;">
+                <div class="form-field">
+                  <label for="bookingHours">Liczba godzin</label>
+                  <input type="number" id="bookingHours" name="hours" min="1" value="1" />
+                </div>
+                <div class="form-field">
+                  <label for="bookingDays">Liczba dni</label>
+                  <input type="number" id="bookingDays" name="days" min="1" value="1" />
                 </div>
               </div>
               
@@ -705,9 +716,11 @@
     let currentTripIndex = null;
     let currentTrip = null;
 
-    function calculateTripPrice(trip, adults, children) {
+    function calculateTripPrice(trip, adults, children, hours, days) {
       adults = parseInt(adults) || 1;
       children = parseInt(children) || 0;
+      hours = parseInt(hours) || 1;
+      days = parseInt(days) || 1;
       
       const pricing = trip.pricing_model;
       let price = 0;
@@ -727,10 +740,10 @@
         }
       } else if (pricing === 'per_hour') {
         const hourlyRate = Number(trip.price_base) || 0;
-        price = hourlyRate; // Default to 1 hour, can add hours field
+        price = hourlyRate * hours;
       } else if (pricing === 'per_day') {
         const dailyRate = Number(trip.price_base) || 0;
-        price = dailyRate; // Default to 1 day
+        price = dailyRate * days;
       } else {
         // Default to base price
         price = Number(trip.price_base) || Number(trip.price_per_person) || 0;
@@ -744,7 +757,9 @@
       
       const adults = document.getElementById('bookingAdults').value;
       const children = document.getElementById('bookingChildren').value;
-      const totalPrice = calculateTripPrice(currentTrip, adults, children);
+      const hours = document.getElementById('bookingHours').value;
+      const days = document.getElementById('bookingDays').value;
+      const totalPrice = calculateTripPrice(currentTrip, adults, children, hours, days);
       
       document.getElementById('modalTripPrice').textContent = `${totalPrice.toFixed(2)} €`;
     }
@@ -771,21 +786,56 @@
       document.getElementById('bookingForm').reset();
       document.getElementById('bookingMessage').style.display = 'none';
       
+      // Show/hide fields based on pricing model
+      const peopleFields = document.getElementById('peopleFields');
+      const timeFields = document.getElementById('timeFields');
+      const hoursField = document.getElementById('bookingHours').parentElement;
+      const daysField = document.getElementById('bookingDays').parentElement;
+      
+      const pricing = trip.pricing_model;
+      
+      if (pricing === 'per_hour') {
+        peopleFields.style.display = 'none';
+        timeFields.style.display = 'grid';
+        hoursField.style.display = 'flex';
+        daysField.style.display = 'none';
+      } else if (pricing === 'per_day') {
+        peopleFields.style.display = 'none';
+        timeFields.style.display = 'grid';
+        hoursField.style.display = 'none';
+        daysField.style.display = 'flex';
+      } else if (pricing === 'per_person' || pricing === 'base_plus_extra') {
+        peopleFields.style.display = 'grid';
+        timeFields.style.display = 'none';
+      } else {
+        // Default - show people fields
+        peopleFields.style.display = 'grid';
+        timeFields.style.display = 'none';
+      }
+      
       // Calculate initial price
       updateLivePrice();
       
       // Remove old listeners and add new ones
       const adultsInput = document.getElementById('bookingAdults');
       const childrenInput = document.getElementById('bookingChildren');
+      const hoursInput = document.getElementById('bookingHours');
+      const daysInput = document.getElementById('bookingDays');
       
       const newAdultsInput = adultsInput.cloneNode(true);
       const newChildrenInput = childrenInput.cloneNode(true);
+      const newHoursInput = hoursInput.cloneNode(true);
+      const newDaysInput = daysInput.cloneNode(true);
       
       adultsInput.parentNode.replaceChild(newAdultsInput, adultsInput);
       childrenInput.parentNode.replaceChild(newChildrenInput, childrenInput);
+      hoursInput.parentNode.replaceChild(newHoursInput, hoursInput);
+      daysInput.parentNode.replaceChild(newDaysInput, daysInput);
       
       newAdultsInput.addEventListener('input', updateLivePrice);
       newChildrenInput.addEventListener('input', updateLivePrice);
+      newHoursInput.addEventListener('input', updateLivePrice);
+      newDaysInput.addEventListener('input', updateLivePrice);
       
       // Show modal
       document.getElementById('tripModal').classList.add('active');
@@ -812,7 +862,9 @@
       const formData = new FormData(e.target);
       const adults = parseInt(formData.get('adults')) || 1;
       const children = parseInt(formData.get('children')) || 0;
-      const calculatedPrice = calculateTripPrice(currentTrip, adults, children);
+      const hours = parseInt(formData.get('hours')) || 1;
+      const days = parseInt(formData.get('days')) || 1;
+      const calculatedPrice = calculateTripPrice(currentTrip, adults, children, hours, days);
       
       const bookingData = {
         trip_id: currentTrip.id,
@@ -823,6 +875,8 @@
         start_date: formData.get('start_date'),
         num_adults: adults,
         num_children: children,
+        num_hours: hours,
+        num_days: days,
         notes: formData.get('notes'),
         total_price: calculatedPrice,
         status: 'pending'
