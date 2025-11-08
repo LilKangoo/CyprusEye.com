@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="pl" data-auth-state="guest">
+  <head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'G-FCSE0876CR');
+</script>
+
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    
+    <!-- Security: Content Security Policy -->
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://esm.sh https://unpkg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://*.tile.openstreetmap.org https://esm.sh; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
+    
+    <title>WakacjeCypr Quest – logowanie</title>
+    <meta name="ce-auth" content="on" />
+    <meta
+      name="description"
+      content="Zaloguj się do WakacjeCypr Quest, aby synchronizować postępy, odblokowywać nagrody i kontynuować przygodę na każdym urządzeniu."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+    rel="preload"
+    as="style"
+    href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+  />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+    media="print"
+    onload="this.media='all'"
+  />
+  <noscript>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </noscript>
+    <link rel="stylesheet" href="/assets/css/tokens.css" />
+    <link rel="stylesheet" href="/assets/css/base.css" />
+    <link rel="stylesheet" href="/assets/css/mobile.css" />
+    <link rel="stylesheet" href="/css/toast.css" />
+    <script type="module" src="/js/supabaseClient.js"></script>
+    <script type="module" src="/js/toast.js"></script>
+    <script type="module" src="/js/auth.js"></script>
+    <script type="module" src="/js/authUi.js"></script>
+  </head>
+  <body class="auth-page">
+  <!-- Accessibility: Skip to main content -->
+  <a href="#main-content" class="skip-link" data-i18n="accessibility.skipToContent">Skip to main content</a>
+      <div class="auth-page__container">
+      <a class="auth-page__return" href="/">
+        <span aria-hidden="true">⬅️</span>
+        <span>Wróć do strony głównej</span>
+      </a>
+      <header class="auth-page__header">
+        <img
+          src="/assets/cyprus_logo-1000x1054.png"
+          alt="WakacjeCypr Quest – logo"
+          width="1000"
+          height="1054"
+          class="auth-page__logo"
+        />
+        <h1 class="auth-page__title" data-i18n="auth.title">Dołącz do przygody</h1>
+        <p class="auth-page__subtitle" data-i18n="auth.intro">
+          Zaloguj się, utwórz konto lub graj jako gość – wszystkie opcje w jednym miejscu.
+        </p>
+        <div id="auth-actions" class="auth-actions">
+          <p class="auth-actions__hint" data-auth="login" data-i18n="auth.login.hint">
+            Wypełnij formularz poniżej, aby się zalogować lub założyć konto.
+          </p>
+          <button class="btn" data-auth="guest" aria-label="Tryb gry jako gość">Graj jako gość</button>
+          <button class="btn" data-auth="logout" aria-label="Wyloguj z konta">Wyloguj</button>
+          <span class="auth-badge" data-auth="user-only">Zalogowany: <strong data-auth="user-name"></strong></span>
+          <span class="auth-badge" data-auth="guest-only">Grasz jako gość</span>
+          <span class="auth-badge" data-auth="anon-only">Nie zalogowano</span>
+        </div>
+        <div data-auth="spinner" class="auth-spinner is-visible">Łączenie z logowaniem…</div>
+      </header>
+      <main id="main-content" class="auth-page__content" aria-labelledby="authTitle">
+        <section class="auth-confirmation" data-auth="user-only" data-auth-confirmation hidden>
+          <div class="auth-confirmation__badge" aria-hidden="true">✅</div>
+          <h2 class="auth-confirmation__title" data-i18n="auth.confirmation.title">Zalogowano pomyślnie!</h2>
+          <p class="auth-confirmation__user">
+            <span data-i18n="auth.confirmation.userLabel">Zalogowany jako</span>
+            <strong data-auth="user-name"></strong>
+          </p>
+          <p class="auth-confirmation__message" data-i18n="auth.confirmation.info">
+            Możesz teraz korzystać z wszystkich funkcji WakacjeCypr Quest.
+          </p>
+          <p class="auth-confirmation__hint" data-i18n="auth.confirmation.dismissHint">
+            Kliknij gdziekolwiek, aby zamknąć to powiadomienie.
+          </p>
+        </section>
+        <div data-auth="login">
+          <div role="presentation">
+            <div class="auth-modal__content">
+            <div class="auth-modal__tabs" role="tablist">
+              <button
+                type="button"
+                class="auth-modal__tab is-active"
+                role="tab"
+                id="authTabLogin"
+                aria-selected="true"
+                aria-controls="authPanelLogin"
+                data-auth-tab="login"
+                data-i18n="auth.tab.login"
+              >
+                Logowanie
+              </button>
+              <button
+                type="button"
+                class="auth-modal__tab"
+                role="tab"
+                id="authTabRegister"
+                aria-selected="false"
+                aria-controls="authPanelRegister"
+                data-auth-tab="register"
+                data-i18n="auth.tab.register"
+                tabindex="-1"
+              >
+                Rejestracja
+              </button>
+              <button
+                type="button"
+                class="auth-modal__tab"
+                role="tab"
+                id="authTabGuest"
+                aria-selected="false"
+                aria-controls="authPanelGuest"
+                data-auth-tab="guest"
+                data-i18n="auth.tab.guest"
+                tabindex="-1"
+              >
+                Gość
+              </button>
+            </div>
+            <div class="auth-modal__panels">
+              <section
+                id="authPanelLogin"
+                class="auth-modal__panel is-active"
+                role="tabpanel"
+                aria-labelledby="authTabLogin"
+                data-auth="login"
+                data-auth-panel="login"
+              >
+                <form
+                  id="form-login"
+                  class="auth-form"
+                  novalidate
+                  data-ce-auth-handler="supabase"
+                >
+                  <label for="loginEmail" data-i18n="auth.login.username">Email lub nazwa użytkownika</label>
+                  <input
+                    id="loginEmail"
+                    name="email"
+                    type="text"
+                    autocomplete="username"
+                    required
+                    aria-label="Email lub nazwa użytkownika"
+                    data-i18n=""
+                    data-i18n-attrs="aria-label:auth.login.username,placeholder:auth.login.username"
+                    placeholder="Email lub nazwa użytkownika"
+                  />
+                  <label for="loginPassword" data-i18n="auth.password">Hasło</label>
+                  <input
+                    id="loginPassword"
+                    name="password"
+                    type="password"
+                    autocomplete="current-password"
+                    required
+                    aria-label="Hasło"
+                    data-i18n=""
+                    data-i18n-attrs="aria-label:auth.password"
+                  />
+                  <div class="auth-form__actions">
+                    <button
+                      type="submit"
+                      class="btn btn--primary"
+                      data-i18n="auth.login.button"
+                      data-i18n-attrs="aria-label:auth.login.button"
+                      aria-label="Zaloguj się"
+                    >
+                      Zaloguj się
+                    </button>
+                    <button
+                      type="button"
+                      class="auth-form__link"
+                      id="loginForgotPassword"
+                      data-i18n="auth.reset.button"
+                      data-i18n-attrs="aria-label:auth.reset.button"
+                      aria-label="🔑 Resetuj hasło"
+                    >
+                      🔑 Resetuj hasło
+                    </button>
+                  </div>
+                  <div data-auth="message" aria-live="polite"></div>
+                  <p class="auth-form__meta" id="authResendVerification" hidden>
+                    Nie otrzymałeś wiadomości z potwierdzeniem?
+                    <button type="button" class="auth-form__link" id="btn-resend-verification">
+                      Wyślij ponownie link weryfikacyjny
+                    </button>
+                  </p>
+                </form>
+              </section>
+              <section
+                id="authPanelRegister"
+                class="auth-modal__panel"
+                role="tabpanel"
+                aria-labelledby="authTabRegister"
+                data-auth="login"
+                data-auth-panel="register"
+                hidden
+              >
+                <form
+                  id="form-register"
+                  class="auth-form"
+                  novalidate
+                  data-auth="register"
+                  data-ce-auth-handler="supabase"
+                >
+                  <label for="registerFirstName" data-i18n="auth.firstName">Imię</label>
+                  <input
+                    id="registerFirstName"
+                    name="firstName"
+                    type="text"
+                    autocomplete="given-name"
+                    maxlength="60"
+                    required
+                    aria-label="Imię"
+                    data-i18n=""
+                    data-i18n-attrs="aria-label:auth.firstName"
+                  />
+                  <label for="registerUsername" data-i18n="auth.username">Nazwa użytkownika</label>
+                  <input
+                    id="registerUsername"
+                    name="username"
+                    type="text"
+                    autocomplete="username"
+                    minlength="3"
+                    maxlength="20"
+                    pattern="[a-zA-Z0-9_]+"
+                    required
+                    aria-label="Nazwa użytkownika"
+                    data-i18n=""
+                    data-i18n-attrs="aria-label:auth.username,placeholder:auth.username.hint"
+                    placeholder="3-20 znaków, litery i cyfry"
+                  />
+                  <label for="registerEmail" data-i18n="auth.email">Adres e-mail</label>
+                  <input
+                    id="registerEmail"
+                    name="email"
+                    type="email"
+                    autocomplete="email"
+                    required
+                    aria-label="Adres e-mail"
+                    data-i18n=""
+                    data-i18n-attrs="aria-label:auth.email"
+                  />
+                  <label for="registerPassword" data-i18n="auth.password">Hasło</label>
+                  <input
+                    id="registerPassword"
+                    name="password"
+                    type="password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required
+                    aria-label="Hasło"
+                    data-i18n=""
+                    data-i18n-attrs="aria-label:auth.password"
+                  />
+                  <label for="registerPasswordConfirm" data-i18n="auth.confirmPassword">Powtórz hasło</label>
+                  <input
+                    id="registerPasswordConfirm"
+                    name="passwordConfirm"
+                    type="password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    aria-label="Powtórz hasło"
+                    data-i18n=""
+                    data-i18n-attrs="aria-label:auth.confirmPassword"
+                  />
+                  <div data-auth="message" aria-live="polite"></div>
+                  <p class="form-hint" data-i18n="auth.register.hint">
+                    Po rejestracji sprawdź skrzynkę e-mail, aby potwierdzić konto.
+                  </p>
+                  <button
+                    type="submit"
+                    class="btn btn--primary"
+                    data-i18n="auth.register.button"
+                    data-i18n-attrs="aria-label:auth.register.button"
+                    aria-label="Utwórz konto"
+                  >
+                    Utwórz konto
+                  </button>
+                </form>
+              </section>
+              <section
+                id="authPanelGuest"
+                class="auth-modal__panel"
+                role="tabpanel"
+                aria-labelledby="authTabGuest"
+                data-auth="login"
+                data-auth-panel="guest"
+                hidden
+              >
+                <div class="auth-guest">
+                  <p data-i18n="auth.guest.description">
+                    Możesz grać jako gość – postęp zapisze się tylko na tym urządzeniu.
+                  </p>
+                  <button
+                    type="button"
+                    class="btn btn--secondary"
+                    id="btn-guest"
+                    data-i18n="auth.guest.button"
+                    data-i18n-attrs="aria-label:auth.guest.button"
+                    aria-label="Graj jako gość"
+                  >
+                    Graj jako gość
+                  </button>
+                </div>
+              </section>
+            </div>
+            <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+            <dialog id="resetPasswordDialog" class="auth-reset-dialog">
+              <form id="form-reset-password" class="auth-form" novalidate>
+                <header class="auth-reset-dialog__header">
+                  <h2 data-i18n="auth.reset.title">Resetuj hasło</h2>
+                  <button type="button" class="auth-form__link" id="btn-reset-close" data-i18n-attrs="aria-label:auth.reset.close" aria-label="Zamknij">✖</button>
+                </header>
+                <p data-i18n="auth.reset.description">Podaj adres e-mail powiązany z kontem, a wyślemy link do zmiany hasła.</p>
+                <label for="resetEmail" data-i18n="auth.reset.emailLabel">Adres e-mail</label>
+                <input id="resetEmail" name="email" type="email" autocomplete="email" required />
+                <div class="auth-form__actions">
+                  <button type="submit" class="btn btn--primary">Wyślij link resetujący</button>
+                  <button type="button" class="auth-form__link" id="btn-reset-cancel">Anuluj</button>
+                </div>
+              </form>
+            </dialog>
+          </div>
+        </div>
+        </div>
+      </main>
+    </div>
+    <script type="module" src="/assets/js/auth-ui.js"></script>
+  </body>
+</html>

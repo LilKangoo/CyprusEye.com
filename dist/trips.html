@@ -1,0 +1,986 @@
+<!DOCTYPE html>
+<html lang="pl" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://esm.sh https://unpkg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co wss://*.supabase.co https://esm.sh https://unpkg.com; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;" />
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="robots" content="index,follow" />
+  <title data-i18n="seo.trips.title">Wycieczki – CyprusEye</title>
+  <meta name="description" content="Przeglądaj wycieczki i rezerwuj online.">
+  <meta property="og:title" content="Wycieczki – CyprusEye" />
+  <meta property="og:description" content="Przeglądaj wycieczki i rezerwuj online." />
+  <meta property="og:url" content="https://www.cypruseye.com/trips.html" />
+  <meta property="og:image" content="https://www.cypruseye.com/assets/cyprus_logo-1000x1054.png" />
+  <link rel="icon" href="/assets/cyprus_logo-1000x1054.png" type="image/png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <link rel="stylesheet" href="/assets/css/components.css" />
+  <link rel="stylesheet" href="/assets/css/mobile.css" />
+  <link rel="stylesheet" href="/assets/css/mobile-nav.css" />
+  <link rel="stylesheet" href="/css/toast.css" />
+  <style>
+    html, body {
+      overflow-x: hidden;
+      max-width: 100vw;
+    }
+    .trips-hero {
+      padding: 40px 20px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      text-align: center;
+    }
+    .trips-hero h1 {
+      font-size: 2.5rem;
+      margin: 0 0 12px;
+      font-weight: 700;
+    }
+    .trips-hero p {
+      font-size: 1.1rem;
+      opacity: 0.95;
+      margin: 0;
+    }
+    .trips-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 40px 20px;
+      overflow-x: hidden;
+    }
+    .trips-tabs {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 32px;
+      border-bottom: 2px solid #e5e7eb;
+      overflow-x: auto;
+      overflow-y: hidden;
+      -webkit-overflow-scrolling: touch;
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none; /* IE/Edge */
+    }
+    .trips-tabs::-webkit-scrollbar {
+      display: none; /* Chrome/Safari */
+    }
+    .trips-tab {
+      padding: 12px 24px;
+      font-size: 1rem;
+      font-weight: 600;
+      color: #6b7280;
+      background: none;
+      border: none;
+      border-bottom: 3px solid transparent;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+      flex-shrink: 0; /* Prevent tabs from shrinking */
+    }
+    .trips-tab:hover {
+      color: #374151;
+    }
+    .trips-tab.active {
+      color: #667eea;
+      border-bottom-color: #667eea;
+    }
+    .city-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
+    }
+    .city-card {
+      position: relative;
+      height: 250px;
+      border-radius: 12px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.3s, box-shadow 0.3s;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .city-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 12px 24px rgba(0,0,0,0.15);
+    }
+    .city-card-image {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    .city-card-overlay {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 24px;
+      background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+      color: white;
+    }
+    .city-card-title {
+      font-size: 1.5rem;
+      font-weight: 700;
+      margin: 0 0 4px;
+    }
+    .city-card-count {
+      font-size: 0.95rem;
+      opacity: 0.9;
+      margin: 0;
+    }
+    .trips-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.5);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 20px;
+    }
+    .trips-modal.active {
+      display: flex;
+    }
+    .trips-modal-content {
+      background: white;
+      border-radius: 16px;
+      max-width: 900px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      position: relative;
+    }
+    .trips-modal-header {
+      padding: 24px;
+      border-bottom: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      position: sticky;
+      top: 0;
+      background: white;
+      z-index: 10;
+    }
+    .trips-modal-title {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin: 0;
+    }
+    .trips-modal-close {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      border: none;
+      background: #f3f4f6;
+      cursor: pointer;
+      font-size: 1.25rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+    }
+    .trips-modal-close:hover {
+      background: #e5e7eb;
+    }
+    .trips-modal-body {
+      padding: 24px;
+    }
+    .trip-item {
+      display: flex;
+      gap: 16px;
+      padding: 16px;
+      border-radius: 12px;
+      border: 1px solid #e5e7eb;
+      margin-bottom: 16px;
+      transition: all 0.2s;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+    }
+    .trip-item:hover {
+      border-color: #667eea;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.15);
+    }
+    .trip-item-image {
+      width: 120px;
+      height: 120px;
+      object-fit: cover;
+      border-radius: 8px;
+      flex-shrink: 0;
+    }
+    .trip-item-content {
+      flex: 1;
+    }
+    .trip-item-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 0 0 8px;
+    }
+    .trip-item-desc {
+      font-size: 0.95rem;
+      color: #6b7280;
+      margin: 0 0 12px;
+      line-height: 1.5;
+    }
+    .trip-item-meta {
+      display: flex;
+      gap: 16px;
+      font-size: 0.9rem;
+      color: #9ca3af;
+    }
+    .trip-item-price {
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #667eea;
+      align-self: flex-start;
+    }
+    .trip-modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.6);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      padding: 20px;
+      overflow-y: auto;
+    }
+    .trip-modal.active {
+      display: flex;
+    }
+    .trip-modal-content {
+      background: white;
+      border-radius: 24px;
+      max-width: 900px;
+      width: 100%;
+      max-height: 90vh;
+      overflow-y: auto;
+      position: relative;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+    .trip-modal-image {
+      width: 100%;
+      height: 300px;
+      object-fit: cover;
+      border-radius: 24px 24px 0 0;
+    }
+    .trip-modal-header {
+      padding: 32px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .trip-modal-close {
+      position: absolute;
+      top: 16px;
+      right: 16px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: none;
+      background: white;
+      cursor: pointer;
+      font-size: 1.5rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+      z-index: 10;
+      transition: all 0.2s;
+    }
+    .trip-modal-close:hover {
+      background: #f3f4f6;
+      transform: scale(1.1);
+    }
+    .trip-modal-title {
+      font-size: 2rem;
+      font-weight: 700;
+      margin: 0 0 12px;
+      color: #111827;
+    }
+    .trip-modal-subtitle {
+      font-size: 1.1rem;
+      color: #6b7280;
+      margin: 0;
+    }
+    .trip-modal-body {
+      padding: 32px;
+    }
+    .trip-section {
+      margin-bottom: 32px;
+    }
+    .trip-section-title {
+      font-size: 1.25rem;
+      font-weight: 600;
+      margin: 0 0 16px;
+      color: #374151;
+    }
+    .trip-description {
+      font-size: 1rem;
+      line-height: 1.6;
+      color: #4b5563;
+    }
+    .trip-price-box {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 24px;
+      border-radius: 16px;
+      margin-bottom: 24px;
+    }
+    .trip-price-label {
+      font-size: 0.9rem;
+      opacity: 0.9;
+      margin: 0 0 8px;
+    }
+    .trip-price-value {
+      font-size: 2.5rem;
+      font-weight: 700;
+      margin: 0;
+    }
+    .booking-form {
+      display: grid;
+      gap: 20px;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .form-field label {
+      font-size: 0.95rem;
+      font-weight: 500;
+      color: #374151;
+    }
+    .form-field input,
+    .form-field textarea {
+      padding: 12px 16px;
+      border: 2px solid #e5e7eb;
+      border-radius: 12px;
+      font-size: 1rem;
+      transition: all 0.2s;
+      font-family: inherit;
+    }
+    .form-field input:focus,
+    .form-field textarea:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+    .form-field textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+    .booking-submit {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 16px 32px;
+      border-radius: 12px;
+      font-size: 1.1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s;
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    .booking-submit:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+    }
+    .booking-submit:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .booking-message {
+      padding: 16px;
+      border-radius: 12px;
+      margin-top: 16px;
+      font-weight: 500;
+      text-align: center;
+    }
+    .booking-message.success {
+      background: #d1fae5;
+      color: #065f46;
+    }
+    .booking-message.error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
+    @media (max-width: 768px) {
+      .trips-hero h1 { 
+        font-size: 1.5rem;
+        margin: 0 0 8px;
+      }
+      .trips-hero p {
+        font-size: 0.95rem;
+      }
+      .trips-hero { 
+        padding: 24px 20px; 
+      }
+      .trips-container { 
+        padding: 16px 16px 100px 16px;
+        max-width: 100%;
+      }
+      .trips-tabs {
+        margin-left: -16px;
+        margin-right: -16px;
+        padding-left: 16px;
+        padding-right: 16px;
+      }
+      .city-grid { 
+        grid-template-columns: 1fr; 
+        gap: 16px;
+        max-width: 100%;
+      }
+      .city-card {
+        width: 100%;
+        height: 0;
+        padding-bottom: 100%; /* Square aspect ratio 1:1 */
+        position: relative;
+      }
+      .city-card-image {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+      }
+      .city-card-overlay {
+        padding: 16px;
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+      }
+      .city-card-title {
+        font-size: 1.1rem;
+        margin: 0 0 4px;
+      }
+      .city-card-count {
+        font-size: 0.85rem;
+      }
+      .trip-item { flex-direction: column; }
+      .trip-item-image { width: 100%; height: 180px; }
+      .form-row { grid-template-columns: 1fr; }
+      .trip-modal-content { 
+        margin: 10px;
+        max-width: calc(100vw - 20px);
+      }
+      .trip-modal-image {
+        height: 200px;
+      }
+      .trip-modal-header { padding: 20px; }
+      .trip-modal-body { padding: 20px; }
+      .trip-modal-title {
+        font-size: 1.5rem;
+      }
+    }
+  </style>
+
+  <meta name="ce-auth" content="on" />
+  <script type="module" src="/js/supabaseClient.js"></script>
+  <script type="module" src="/js/toast.js"></script>
+  <script type="module" src="/js/auth.js"></script>
+  <script type="module" src="/js/authUi.js"></script>
+</head>
+<body data-navigation="multi-page" data-initial-view="tripsView" data-seo-page="trips">
+  <header class="app-header">
+    <div class="header-top">
+      <div class="brand">
+        <img src="/assets/cyprus_logo-1000x1054.png" alt="WakacjeCypr.com – logo" width="64" height="64" />
+        <div class="brand-title">
+          <p class="brand-name">WakacjeCypr <span>Quest</span></p>
+          <p class="tagline">Zwiedzaj Cypr w interaktywny sposób – zarezerwuj wycieczkę!</p>
+        </div>
+      </div>
+      <div class="header-top-actions">
+        <div class="header-auth-controls">
+          <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
+            <button class="btn btn-sm" data-auth="login">Zaloguj</button>
+            <button class="btn btn-sm" data-auth="guest">Gość</button>
+            <button class="btn btn-sm" data-auth="logout">Wyloguj</button>
+            <button id="sosToggle" class="btn btn-sm btn-danger" type="button">🚨 SOS</button>
+          </div>
+        </div>
+        <div class="header-actions" aria-label="Szybkie działania">
+          <div class="header-actions-primary">
+            <a class="ghost header-link" href="/community.html">💬 Społeczność</a>
+            <a class="ghost header-link" href="/kupon.html">🎟️ Kupon</a>
+            <a class="ghost header-link" href="/car-rental-landing.html">🚗 Wynajem auta</a>
+            <a class="ghost header-link" href="/trips.html" aria-label="Wycieczki">🧭 Wycieczki</a>
+            <a class="ghost header-link" href="/vip.html">✨ VIP wyjazdy</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="header-tabs" role="tablist" aria-label="Nawigacja główna">
+      <a href="/index.html" class="header-tab" id="headerAdventureTab">🎯 Twoja przygoda</a>
+      <a href="/packing.html" class="header-tab" id="headerPackingTab">🎒 Planer pakowania</a>
+      <a href="/tasks.html" class="header-tab" id="headerTasksTab">✅ Zadania</a>
+      <a href="/trips.html" class="header-tab is-active" id="headerTripsTab">🧭 Wycieczki</a>
+    </nav>
+  </header>
+
+  <main id="main-content">
+    <div class="trips-hero">
+      <h1>Odkryj Cypr</h1>
+      <p>Wybierz miasto i przeglądaj najlepsze wycieczki</p>
+    </div>
+
+    <div class="trips-container">
+      <div class="trips-tabs" id="tripsTabs">
+        <!-- Tabs will be generated dynamically from cities -->
+      </div>
+
+      <div class="city-grid" id="cityGrid">
+        <!-- Trips will be rendered here -->
+      </div>
+    </div>
+
+    <!-- Trip Details Modal -->
+    <div class="trip-modal" id="tripModal">
+      <div class="trip-modal-content">
+        <button class="trip-modal-close" onclick="closeTripModal()">✕</button>
+        <img class="trip-modal-image" id="modalTripImage" src="" alt="Trip" />
+        <div class="trip-modal-header">
+          <h2 class="trip-modal-title" id="modalTripTitle">Trip Title</h2>
+          <p class="trip-modal-subtitle" id="modalTripSubtitle">Subtitle</p>
+        </div>
+        <div class="trip-modal-body">
+          <div class="trip-section">
+            <h3 class="trip-section-title">Opis</h3>
+            <div class="trip-description" id="modalTripDescription"></div>
+          </div>
+
+          <div class="trip-section">
+            <h3 class="trip-section-title">Rezerwacja</h3>
+            
+            <form class="booking-form" id="bookingForm">
+              <div class="form-row">
+                <div class="form-field">
+                  <label for="bookingName">Imię i nazwisko *</label>
+                  <input type="text" id="bookingName" name="name" required />
+                </div>
+                <div class="form-field">
+                  <label for="bookingEmail">Email *</label>
+                  <input type="email" id="bookingEmail" name="email" required />
+                </div>
+              </div>
+              
+              <div class="form-row">
+                <div class="form-field">
+                  <label for="bookingPhone">Telefon</label>
+                  <input type="tel" id="bookingPhone" name="phone" />
+                </div>
+                <div class="form-field">
+                  <label for="bookingDate">Preferowana data wycieczki</label>
+                  <input type="date" id="bookingDate" name="trip_date" />
+                </div>
+              </div>
+              
+              <div class="form-row">
+                <div class="form-field">
+                  <label for="arrivalDate">Data przylotu na Cypr *</label>
+                  <input type="date" id="arrivalDate" name="arrival_date" required />
+                </div>
+                <div class="form-field">
+                  <label for="departureDate">Data wylotu z Cypru *</label>
+                  <input type="date" id="departureDate" name="departure_date" required />
+                </div>
+              </div>
+              
+              <div class="form-row" id="peopleFields">
+                <div class="form-field">
+                  <label for="bookingAdults">Liczba dorosłych</label>
+                  <input type="number" id="bookingAdults" name="adults" min="1" value="1" />
+                </div>
+                <div class="form-field">
+                  <label for="bookingChildren">Dzieci</label>
+                  <input type="number" id="bookingChildren" name="children" min="0" value="0" />
+                </div>
+              </div>
+              
+              <div class="form-row" id="timeFields" style="display:none;">
+                <div class="form-field">
+                  <label for="bookingHours">Liczba godzin</label>
+                  <input type="number" id="bookingHours" name="hours" min="1" value="1" />
+                </div>
+                <div class="form-field">
+                  <label for="bookingDays">Liczba dni</label>
+                  <input type="number" id="bookingDays" name="days" min="1" value="1" />
+                </div>
+              </div>
+              
+              <div class="form-field">
+                <label for="bookingNotes">Uwagi (opcjonalnie)</label>
+                <textarea id="bookingNotes" name="notes"></textarea>
+              </div>
+
+              <div class="trip-price-box">
+                <p class="trip-price-label">Cena</p>
+                <p class="trip-price-value" id="modalTripPrice">0.00 €</p>
+              </div>
+              
+              <button type="submit" class="booking-submit">Zarezerwuj</button>
+              <div id="bookingMessage" class="booking-message" style="display:none;"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="app-footer">
+    <p>© <span data-current-year></span> WakacjeCypr.com</p>
+  </footer>
+
+  <script type="module">
+    let allTrips = [];
+    let currentCity = 'all';
+
+    function getUniqueCities() {
+      const cities = new Set();
+      allTrips.forEach(trip => {
+        const city = trip.start_city || 'Other';
+        if (city !== 'All Cities') { // Exclude "All Cities" from tabs
+          cities.add(city);
+        }
+      });
+      return Array.from(cities).sort();
+    }
+
+    function renderTabs() {
+      const cities = getUniqueCities();
+      const tabsContainer = document.getElementById('tripsTabs');
+      
+      // Create "Wszystkie miasta" tab + tabs for each city
+      const tabs = ['<button class="trips-tab active" data-city="all">Wszystkie miasta</button>'];
+      cities.forEach(city => {
+        tabs.push(`<button class="trips-tab" data-city="${city}">${city}</button>`);
+      });
+      
+      tabsContainer.innerHTML = tabs.join('');
+      
+      // Add click listeners
+      document.querySelectorAll('.trips-tab').forEach(tab => {
+        tab.addEventListener('click', function() {
+          document.querySelectorAll('.trips-tab').forEach(t => t.classList.remove('active'));
+          this.classList.add('active');
+          currentCity = this.dataset.city;
+          renderTrips();
+        });
+      });
+    }
+
+    function getFilteredTrips() {
+      if (currentCity === 'all') {
+        return allTrips;
+      }
+      
+      // Filter trips by selected city
+      // Include trips marked as "All Cities" + trips from selected city
+      return allTrips.filter(trip => {
+        return trip.start_city === currentCity || trip.start_city === 'All Cities';
+      });
+    }
+
+    function renderTrips() {
+      const filteredTrips = getFilteredTrips();
+      const grid = document.getElementById('cityGrid');
+      
+      if (!filteredTrips.length) {
+        grid.innerHTML = '<p style="text-align:center;color:#6b7280;">Brak dostępnych wycieczek w tej kategorii</p>';
+        return;
+      }
+
+      grid.innerHTML = filteredTrips.map((trip, index) => {
+        const title = trip.title?.pl || trip.title?.en || trip.slug;
+        const desc = trip.description?.pl || trip.description?.en || '';
+        const shortDesc = desc.length > 100 ? desc.substring(0, 100) + '...' : desc;
+        const price = trip.pricing_model === 'per_person' && trip.price_per_person 
+          ? `${Number(trip.price_per_person).toFixed(2)} €` 
+          : trip.price_base 
+          ? `${Number(trip.price_base).toFixed(2)} €` 
+          : '';
+        const image = trip.cover_image_url || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop';
+        
+        return `
+          <div class="city-card" onclick="openTripModal(${index})">
+            <img class="city-card-image" src="${image}" alt="${title}" loading="lazy" />
+            <div class="city-card-overlay">
+              <h3 class="city-card-title">${title}</h3>
+              <p class="city-card-count">${trip.start_city || ''} ${price ? '• ' + price : ''}</p>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    let currentTripIndex = null;
+    let currentTrip = null;
+
+    function calculateTripPrice(trip, adults, children, hours, days) {
+      adults = parseInt(adults) || 1;
+      children = parseInt(children) || 0;
+      hours = parseInt(hours) || 1;
+      days = parseInt(days) || 1;
+      
+      const pricing = trip.pricing_model;
+      let price = 0;
+      
+      if (pricing === 'per_person') {
+        const pricePerPerson = Number(trip.price_per_person) || 0;
+        price = pricePerPerson * (adults + children);
+      } else if (pricing === 'base_plus_extra') {
+        const basePrice = Number(trip.price_base) || 0;
+        const includedPeople = Number(trip.included_people) || 1;
+        const extraPrice = Number(trip.price_extra_person) || 0;
+        const totalPeople = adults + children;
+        
+        price = basePrice;
+        if (totalPeople > includedPeople) {
+          price += (totalPeople - includedPeople) * extraPrice;
+        }
+      } else if (pricing === 'per_hour') {
+        const hourlyRate = Number(trip.price_base) || 0;
+        price = hourlyRate * hours;
+      } else if (pricing === 'per_day') {
+        const dailyRate = Number(trip.price_base) || 0;
+        price = dailyRate * days;
+      } else {
+        // Default to base price
+        price = Number(trip.price_base) || Number(trip.price_per_person) || 0;
+      }
+      
+      return price;
+    }
+
+    function updateLivePrice() {
+      if (!currentTrip) return;
+      
+      const adults = document.getElementById('bookingAdults').value;
+      const children = document.getElementById('bookingChildren').value;
+      const hours = document.getElementById('bookingHours').value;
+      const days = document.getElementById('bookingDays').value;
+      const totalPrice = calculateTripPrice(currentTrip, adults, children, hours, days);
+      
+      document.getElementById('modalTripPrice').textContent = `${totalPrice.toFixed(2)} €`;
+    }
+
+    window.openTripModal = function(tripIndex) {
+      const filteredTrips = getFilteredTrips();
+      const trip = filteredTrips[tripIndex];
+      if (!trip) return;
+      
+      currentTripIndex = tripIndex;
+      currentTrip = trip;
+      
+      // Populate modal
+      const title = trip.title?.pl || trip.title?.en || trip.slug;
+      const desc = trip.description?.pl || trip.description?.en || '';
+      const image = trip.cover_image_url || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop';
+      
+      document.getElementById('modalTripImage').src = image;
+      document.getElementById('modalTripTitle').textContent = title;
+      document.getElementById('modalTripSubtitle').textContent = trip.start_city || '';
+      document.getElementById('modalTripDescription').innerHTML = desc.replace(/\n/g, '<br/>');
+      
+      // Reset form
+      document.getElementById('bookingForm').reset();
+      document.getElementById('bookingMessage').style.display = 'none';
+      
+      // Show/hide fields based on pricing model
+      const peopleFields = document.getElementById('peopleFields');
+      const timeFields = document.getElementById('timeFields');
+      const hoursField = document.getElementById('bookingHours').parentElement;
+      const daysField = document.getElementById('bookingDays').parentElement;
+      
+      const pricing = trip.pricing_model;
+      
+      if (pricing === 'per_hour') {
+        peopleFields.style.display = 'none';
+        timeFields.style.display = 'grid';
+        hoursField.style.display = 'flex';
+        daysField.style.display = 'none';
+      } else if (pricing === 'per_day') {
+        peopleFields.style.display = 'none';
+        timeFields.style.display = 'grid';
+        hoursField.style.display = 'none';
+        daysField.style.display = 'flex';
+      } else if (pricing === 'per_person' || pricing === 'base_plus_extra') {
+        peopleFields.style.display = 'grid';
+        timeFields.style.display = 'none';
+      } else {
+        // Default - show people fields
+        peopleFields.style.display = 'grid';
+        timeFields.style.display = 'none';
+      }
+      
+      // Calculate initial price
+      updateLivePrice();
+      
+      // Date validation - departure must be after arrival
+      const arrivalInput = document.getElementById('arrivalDate');
+      const departureInput = document.getElementById('departureDate');
+      
+      arrivalInput.addEventListener('change', function() {
+        if (departureInput.value && this.value > departureInput.value) {
+          departureInput.value = this.value;
+        }
+        departureInput.min = this.value;
+      });
+      
+      departureInput.addEventListener('change', function() {
+        if (arrivalInput.value && this.value < arrivalInput.value) {
+          this.value = arrivalInput.value;
+        }
+      });
+      
+      // Remove old listeners and add new ones
+      const adultsInput = document.getElementById('bookingAdults');
+      const childrenInput = document.getElementById('bookingChildren');
+      const hoursInput = document.getElementById('bookingHours');
+      const daysInput = document.getElementById('bookingDays');
+      
+      const newAdultsInput = adultsInput.cloneNode(true);
+      const newChildrenInput = childrenInput.cloneNode(true);
+      const newHoursInput = hoursInput.cloneNode(true);
+      const newDaysInput = daysInput.cloneNode(true);
+      
+      adultsInput.parentNode.replaceChild(newAdultsInput, adultsInput);
+      childrenInput.parentNode.replaceChild(newChildrenInput, childrenInput);
+      hoursInput.parentNode.replaceChild(newHoursInput, hoursInput);
+      daysInput.parentNode.replaceChild(newDaysInput, daysInput);
+      
+      newAdultsInput.addEventListener('input', updateLivePrice);
+      newChildrenInput.addEventListener('input', updateLivePrice);
+      newHoursInput.addEventListener('input', updateLivePrice);
+      newDaysInput.addEventListener('input', updateLivePrice);
+      
+      // Show modal
+      document.getElementById('tripModal').classList.add('active');
+      document.body.style.overflow = 'hidden';
+    };
+
+    window.closeTripModal = function() {
+      document.getElementById('tripModal').classList.remove('active');
+      document.body.style.overflow = '';
+      currentTripIndex = null;
+    };
+
+    // Close modal on backdrop click
+    document.getElementById('tripModal').addEventListener('click', function(e) {
+      if (e.target === this) closeTripModal();
+    });
+
+    // Handle booking form submission
+    document.getElementById('bookingForm').addEventListener('submit', async function(e) {
+      e.preventDefault();
+      
+      if (!currentTrip) return;
+      
+      const formData = new FormData(e.target);
+      const adults = parseInt(formData.get('adults')) || 1;
+      const children = parseInt(formData.get('children')) || 0;
+      const hours = parseInt(formData.get('hours')) || 1;
+      const days = parseInt(formData.get('days')) || 1;
+      const calculatedPrice = calculateTripPrice(currentTrip, adults, children, hours, days);
+      
+      const bookingData = {
+        trip_id: currentTrip.id,
+        trip_slug: currentTrip.slug,
+        customer_name: formData.get('name'),
+        customer_email: formData.get('email'),
+        customer_phone: formData.get('phone'),
+        trip_date: formData.get('trip_date'),
+        arrival_date: formData.get('arrival_date'),
+        departure_date: formData.get('departure_date'),
+        num_adults: adults,
+        num_children: children,
+        num_hours: hours,
+        num_days: days,
+        notes: formData.get('notes'),
+        total_price: calculatedPrice,
+        status: 'pending'
+      };
+      
+      const submitBtn = e.target.querySelector('.booking-submit');
+      const message = document.getElementById('bookingMessage');
+      
+      try {
+        submitBtn.disabled = true;
+        submitBtn.textContent = 'Wysyłanie...';
+        
+        const { supabase } = await import('/js/supabaseClient.js');
+        if (!supabase) throw new Error('Database not available');
+        
+        // Insert booking into database
+        const { data, error } = await supabase
+          .from('trip_bookings')
+          .insert([bookingData])
+          .select()
+          .single();
+        
+        if (error) throw error;
+        
+        // Show success
+        message.textContent = 'Rezerwacja przyjęta! Skontaktujemy się z Tobą wkrótce.';
+        message.className = 'booking-message success';
+        message.style.display = 'block';
+        
+        // Reset form
+        e.target.reset();
+        
+      } catch (err) {
+        console.error('Booking error:', err);
+        message.textContent = err.message || 'Wystąpił błąd podczas rezerwacji. Spróbuj ponownie.';
+        message.className = 'booking-message error';
+        message.style.display = 'block';
+      } finally {
+        submitBtn.disabled = false;
+        submitBtn.textContent = 'Zarezerwuj';
+      }
+    });
+
+    // Load trips from Supabase directly
+    async function loadTrips() {
+      try {
+        // Import Supabase client
+        const { supabase } = await import('/js/supabaseClient.js');
+        
+        if (!supabase) {
+          throw new Error('Supabase client not available');
+        }
+
+        // Fetch published trips
+        const { data, error } = await supabase
+          .from('trips')
+          .select('*')
+          .eq('is_published', true)
+          .order('created_at', { ascending: false });
+
+        if (error) throw error;
+
+        allTrips = data || [];
+        renderTabs();  // Generate tabs from cities
+        renderTrips(); // Show all trips initially
+      } catch (err) {
+        console.error('Failed to load trips:', err);
+        document.getElementById('cityGrid').innerHTML = '<p style="text-align:center;color:#ef4444;">Błąd ładowania wycieczek</p>';
+      }
+    }
+
+    loadTrips();
+  </script>
+  <script src="/js/seo.js" defer></script>
+  <script src="/js/mobile-nav.js" defer></script>
+</body>
+</html>

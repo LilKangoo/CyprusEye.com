@@ -1,0 +1,148 @@
+/* ===================================
+   CURRENT PLACE SECTION - Inside Map Panel
+   ================================== */
+
+.current-place-section {
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+.current-place-navigation {
+  display: grid;
+  grid-template-columns: minmax(80px, 1fr) auto minmax(80px, 1fr);
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.current-place-navigation button {
+  padding: 0.4rem 0.6rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.current-place-navigation button:first-child {
+  justify-self: start;
+}
+
+.current-place-navigation button:last-child {
+  justify-self: end;
+}
+
+.current-place-heading {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #64748b;
+  font-weight: 600;
+  text-align: center;
+}
+
+.current-place-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+#currentPlaceName {
+  margin: 0;
+  font-size: 1.3rem;
+  color: #2563eb;
+  font-weight: 700;
+  word-wrap: break-word;
+  line-height: 1.3;
+}
+
+#currentPlaceDescription {
+  margin: 0;
+  line-height: 1.6;
+  color: #475569;
+  font-size: 0.95rem;
+}
+
+.current-place-stats {
+  display: flex;
+  gap: 1.2rem;
+  flex-wrap: wrap;
+  font-size: 0.85rem;
+  padding: 0.75rem;
+  background: rgba(241, 245, 249, 0.5);
+  border-radius: 12px;
+}
+
+.current-place-stats > div {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: #475569;
+  font-weight: 500;
+}
+
+.current-place-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.current-place-actions button {
+  padding: 0.5rem 0.8rem;
+  font-size: 0.85rem;
+  flex: 1;
+  min-width: fit-content;
+}
+
+/* Mobile optimization */
+@media (max-width: 768px) {
+  .current-place-section {
+    margin-top: 1rem;
+    padding-top: 1rem;
+  }
+  
+  .current-place-navigation {
+    gap: 0.35rem;
+  }
+  
+  .current-place-navigation button {
+    padding: 0.35rem 0.5rem;
+    font-size: 0.8rem;
+  }
+  
+  .current-place-heading {
+    font-size: 0.85rem;
+  }
+  
+  #currentPlaceName {
+    font-size: 1.15rem;
+  }
+  
+  #currentPlaceDescription {
+    font-size: 0.875rem;
+  }
+  
+  .current-place-stats {
+    gap: 0.75rem;
+    font-size: 0.8rem;
+    padding: 0.625rem;
+  }
+  
+  .current-place-actions {
+    flex-direction: column;
+  }
+  
+  .current-place-actions button {
+    width: 100%;
+  }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+  .current-place-navigation {
+    grid-template-columns: auto 1fr auto;
+  }
+  
+  .current-place-heading {
+    font-size: 0.8rem;
+  }
+}
