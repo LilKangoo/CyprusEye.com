@@ -18,7 +18,16 @@ export function initReservationForm() {
   // Auto-fill from calculator button
   const btnFillFromCalc = document.getElementById('btnFillFromCalculator');
   if (btnFillFromCalc) {
-    btnFillFromCalc.addEventListener('click', populateFromCalculator);
+    btnFillFromCalc.addEventListener('click', () => {
+      populateFromCalculator();
+      // Scroll to form and focus first field
+      const formEl = document.getElementById('localReservationForm');
+      if (formEl) {
+        formEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        const firstInput = document.getElementById('res_full_name') || formEl.querySelector('input, select, textarea');
+        firstInput?.focus?.({ preventScroll: true });
+      }
+    });
   }
 }
 
