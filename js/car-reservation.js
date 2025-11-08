@@ -24,34 +24,60 @@ export function initReservationForm() {
 
 // Populate form from calculator
 function populateFromCalculator() {
-  const calcCar = document.getElementById('car')?.value;
-  const calcPickupDate = document.getElementById('pickup_date')?.value;
-  const calcPickupTime = document.getElementById('pickup_time')?.value;
-  const calcReturnDate = document.getElementById('return_date')?.value;
-  const calcReturnTime = document.getElementById('return_time')?.value;
-  const calcAirportPickup = document.getElementById('airport_pickup')?.checked;
-  const calcAirportReturn = document.getElementById('airport_return')?.checked;
-  const calcInsurance = document.getElementById('full_insurance')?.checked;
+  // Autopfo calculator IDs
+  const calcCarPfo = document.getElementById('car')?.value;
+  const calcPickupDatePfo = document.getElementById('pickup_date')?.value;
+  const calcPickupTimePfo = document.getElementById('pickup_time')?.value;
+  const calcReturnDatePfo = document.getElementById('return_date')?.value;
+  const calcReturnTimePfo = document.getElementById('return_time')?.value;
+  const calcAirportPickupPfo = document.getElementById('airport_pickup')?.checked;
+  const calcAirportReturnPfo = document.getElementById('airport_return')?.checked;
+  const calcInsurancePfo = document.getElementById('full_insurance')?.checked;
+
+  // Larnaca calculator IDs (car-rental.html)
+  const calcCarLca = document.getElementById('rentalCarSelect')?.value;
+  const calcPickupDateLca = document.getElementById('pickupDate')?.value;
+  const calcPickupTimeLca = document.getElementById('pickupTime')?.value;
+  const calcReturnDateLca = document.getElementById('returnDate')?.value;
+  const calcReturnTimeLca = document.getElementById('returnTime')?.value;
+  const calcPickupLocLca = document.getElementById('pickupLocation')?.value;
+  const calcReturnLocLca = document.getElementById('returnLocation')?.value;
+  const calcInsuranceLca = document.getElementById('fullInsurance')?.checked;
+
+  // Prefer Larnaca values when available, otherwise use Paphos
+  const calcCar = calcCarLca || calcCarPfo;
+  const calcPickupDate = calcPickupDateLca || calcPickupDatePfo;
+  const calcPickupTime = calcPickupTimeLca || calcPickupTimePfo;
+  const calcReturnDate = calcReturnDateLca || calcReturnDatePfo;
+  const calcReturnTime = calcReturnTimeLca || calcReturnTimePfo;
 
   if (calcCar) document.getElementById('res_car').value = calcCar;
   if (calcPickupDate) document.getElementById('res_pickup_date').value = calcPickupDate;
   if (calcPickupTime) document.getElementById('res_pickup_time').value = calcPickupTime;
   if (calcReturnDate) document.getElementById('res_return_date').value = calcReturnDate;
   if (calcReturnTime) document.getElementById('res_return_time').value = calcReturnTime;
-  
-  if (calcAirportPickup) {
-    document.getElementById('res_pickup_location').value = 'airport_pfo';
+
+  // Map locations
+  const pageLocation = (document.body?.dataset?.carLocation || '').toLowerCase();
+  if (calcPickupLocLca) {
+    document.getElementById('res_pickup_location').value = calcPickupLocLca === 'larnaca' ? 'airport_lca' : (calcPickupLocLca === 'paphos' ? 'airport_pfo' : (calcPickupLocLca === 'limassol' ? 'city_center' : 'other'));
+  } else if (calcAirportPickupPfo) {
+    document.getElementById('res_pickup_location').value = pageLocation === 'larnaca' ? 'airport_lca' : 'airport_pfo';
   }
-  if (calcAirportReturn) {
-    document.getElementById('res_return_location').value = 'airport_pfo';
+  if (calcReturnLocLca) {
+    document.getElementById('res_return_location').value = calcReturnLocLca === 'larnaca' ? 'airport_lca' : (calcReturnLocLca === 'paphos' ? 'airport_pfo' : (calcReturnLocLca === 'limassol' ? 'city_center' : 'other'));
+  } else if (calcAirportReturnPfo) {
+    document.getElementById('res_return_location').value = pageLocation === 'larnaca' ? 'airport_lca' : 'airport_pfo';
   }
-  if (calcInsurance) {
+
+  // Insurance
+  const insuranceChecked = !!(calcInsuranceLca || calcInsurancePfo);
+  if (insuranceChecked) {
     document.getElementById('res_insurance').checked = true;
   }
 
   // Calculate and show estimated price
   calculateEstimatedPrice();
-
   showToast('Dane z kalkulatora zostały przeniesione!', 'success');
 }
 
@@ -108,9 +134,9 @@ async function handleReservationSubmit(event) {
       return_location: formData.get('return_location'),
       
       // Metadata
-      location: 'paphos',
+      location: (document.body?.dataset?.carLocation || (location?.href?.includes('autopfo') ? 'paphos' : 'larnaca')).toLowerCase(),
       status: 'pending',
-      source: 'website_autopfo'
+      source: (document.body?.dataset?.carLocation || '').toLowerCase() === 'paphos' ? 'website_autopfo' : 'website_car_rental'
     };
     
     // Add optional fields only if they have values
