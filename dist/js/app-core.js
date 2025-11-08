@@ -382,6 +382,84 @@ console.log('🔵 App Core V3 - START');
   /**
    * Inicjalizacja główna
    */
+  function createLocationPromptUI(onClick) {
+    const id = 'ce-location-prompt';
+    if (document.getElementById(id)) return;
+    const bar = document.createElement('div');
+    bar.id = id;
+    bar.setAttribute('role', 'dialog');
+    bar.style.cssText = 'position:fixed;left:16px;right:16px;bottom:16px;z-index:10000;padding:12px 14px;background:#0ea5e9;color:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(2,6,23,.25);display:flex;gap:12px;align-items:center;justify-content:space-between;';
+    bar.innerHTML = `
+      <div style="display:flex;gap:10px;align-items:center;">
+        <span style="font-size:18px">📍</span>
+        <div>
+          <div style="font-weight:700;">Włącz lokalizację</div>
+          <div style="font-size:13px;opacity:.95">Pokażemy Twoją pozycję na mapie, aby łatwiej zdobywać punkty.</div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        <button id="ceLocationEnableBtn" style="appearance:none;border:0;background:#fff;color:#0ea5e9;font-weight:700;padding:8px 12px;border-radius:10px;cursor:pointer;">Włącz teraz</button>
+        <button id="ceLocationCloseBtn" aria-label="Zamknij" style="appearance:none;border:0;background:transparent;color:#fff;font-size:20px;opacity:.9;cursor:pointer;">×</button>
+      </div>`;
+    document.body.appendChild(bar);
+    const btn = document.getElementById('ceLocationEnableBtn');
+    const close = document.getElementById('ceLocationCloseBtn');
+    if (btn) btn.addEventListener('click', () => onClick && onClick());
+    if (close) close.addEventListener('click', () => bar.remove());
+  }
+
+  async function requestLocationPermission() {
+    try {
+      if (!navigator.geolocation) return;
+      await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(
+          (pos) => { window.__lastInitialFix = pos; resolve(pos); },
+          (err) => { console.warn('getCurrentPosition error:', err?.message); resolve(null); },
+          { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+        );
+      });
+      // Uruchom ponownie śledzenie po interakcji
+      startLiveLocation();
+      // Schowaj pasek jeśli istnieje
+      const bar = document.getElementById('ce-location-prompt');
+      if (bar) bar.remove();
+    } catch (e) {
+      console.warn('requestLocationPermission error:', e?.message);
+    }
+  }
+
+  async function checkGeolocationPermission() {
+    if (!('permissions' in navigator)) {
+      // Brak Permissions API – pokaż przycisk dla bezpieczeństwa
+      createLocationPromptUI(requestLocationPermission);
+      return;
+    }
+    try {
+      const status = await navigator.permissions.query({ name: 'geolocation' });
+      if (status.state === 'granted') {
+        // Nic nie pokazuj – działa
+        return;
+      }
+      if (status.state === 'prompt') {
+        createLocationPromptUI(requestLocationPermission);
+      } else if (status.state === 'denied') {
+        // Pokaż pasek z informacją i przyciskiem (może otworzyć prompt w niektórych przeglądarkach)
+        createLocationPromptUI(requestLocationPermission);
+      }
+      // Reaguj na zmiany
+      status.onchange = () => {
+        if (status.state === 'granted') {
+          const bar = document.getElementById('ce-location-prompt');
+          if (bar) bar.remove();
+          startLiveLocation();
+        }
+      };
+    } catch (e) {
+      console.warn('permissions.query failed:', e?.message);
+      createLocationPromptUI(requestLocationPermission);
+    }
+  }
+
   async function initialize() {
     console.log('🚀 Inicjalizuję aplikację...');
     
@@ -390,6 +468,9 @@ console.log('🔵 App Core V3 - START');
     
     // Renderuj listę POI
     await renderLocationsList();
+
+    // Jeżeli pozycja nie jest jeszcze znana, zaproponuj włączenie lokalizacji (user gesture)
+    checkGeolocationPermission();
     
     // Przyciski komentarzy na mapie zostały usunięte
     // Komentarze dostępne są tylko w panelu pod mapą
