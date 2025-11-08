@@ -361,16 +361,15 @@
             <form id="newTripForm">
               <div class="admin-form-grid">
                 <label class="admin-form-field">
-                  <span>POI</span>
-                  <select name="poi_id" id="newTripPoi" required></select>
-                </label>
-                <label class="admin-form-field">
-                  <span>Slug</span>
-                  <input type="text" name="slug" id="newTripSlug" required />
-                </label>
-                <label class="admin-form-field">
-                  <span>Start City</span>
-                  <input type="text" name="start_city" id="newTripCity" required />
+                  <span>City</span>
+                  <select name="start_city" id="newTripCity" required>
+                    <option value="Larnaca">Larnaca</option>
+                    <option value="Paphos">Paphos</option>
+                    <option value="Limassol">Limassol</option>
+                    <option value="Ayia Napa">Ayia Napa</option>
+                    <option value="Nicosia">Nicosia</option>
+                    <option value="All Cities">All Cities</option>
+                  </select>
                 </label>
                 <label class="admin-form-field" style="grid-column:1/-1;">
                   <span>Title (PL)</span>

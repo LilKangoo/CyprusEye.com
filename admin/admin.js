@@ -252,29 +252,19 @@ function renderNewTripPriceFields(model) {
   }
 }
 
+function slugifyTitle(title) {
+  return String(title || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 80) || `trip-${Date.now()}`;
+}
+
 async function openNewTripModal() {
   try {
-    const client = ensureSupabase();
-    if (!client) {
-      showToast('Database connection not available', 'error');
-      return;
-    }
-
-    // Load POIs (essential fields only to avoid schema mismatches)
-    const { data: pois, error } = await client
-      .from('pois')
-      .select('id, name')
-      .order('id', { ascending: false })
-      .limit(200);
-    if (error) throw error;
-
-    const sel = document.getElementById('newTripPoi');
-    if (sel) {
-      sel.innerHTML = (pois || [])
-        .map(p => `<option value="${p.id}">${escapeHtml(p.name || p.id)}</option>`) 
-        .join('');
-    }
-
     // Defaults
     const pricingSel = document.getElementById('newTripPricing');
     if (pricingSel) {
@@ -284,6 +274,8 @@ async function openNewTripModal() {
 
     const form = document.getElementById('newTripForm');
     if (form) {
+      // reset fields
+      form.reset();
       form.onsubmit = async (ev) => {
         ev.preventDefault();
         try {
@@ -297,6 +289,8 @@ async function openNewTripModal() {
           payload.title = { pl: payload.title_pl || '' };
           payload.description = { pl: payload.description_pl || '' };
           delete payload.title_pl; delete payload.description_pl;
+          // auto slug from title
+          payload.slug = slugifyTitle(payload.title.pl);
 
           const res = await fetch('/admin/trips', {
             method: 'POST',
