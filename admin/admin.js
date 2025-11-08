@@ -141,9 +141,8 @@ async function loadTripsAdminData() {
           </td>
           <td>${updated}</td>
           <td style="display:flex;gap:8px;">
-            <button class="btn-secondary" onclick="openTripDetails('${t.id}')">View</button>
-            <a class="btn-secondary" href="/public/admin/trips.html?edit=${encodeURIComponent(t.slug)}" target="_blank">Edit</a>
-            <a class="btn-secondary" href="/trip.html?slug=${encodeURIComponent(t.slug)}" target="_blank">Open</a>
+            <button class="btn-primary" onclick="editTrip('${t.id}')">Edit</button>
+            <a class="btn-secondary" href="/trip.html?slug=${encodeURIComponent(t.slug)}" target="_blank">Preview</a>
           </td>
         </tr>
       `;
@@ -182,44 +181,160 @@ async function toggleTripPublish(tripId, publish) {
   }
 }
 
-async function openTripDetails(tripId) {
+async function editTrip(tripId) {
   try {
     const client = ensureSupabase();
     if (!client) return;
-    const { data: t, error } = await client
+    
+    // Fetch trip data
+    const { data: trip, error } = await client
       .from('trips')
       .select('*')
       .eq('id', tripId)
       .single();
+    
     if (error) throw error;
-    const modal = document.getElementById('tripDetailsModal');
-    const content = document.getElementById('tripDetailsContent');
-    if (!modal || !content) return;
-    const title = (t.title && (t.title.pl || t.title.en)) || t.slug || t.id;
-    content.innerHTML = `
-      <div style="display:grid;gap:16px;">
-        <div>
-          <h4 style="margin:0 0 8px;">${escapeHtml(title)}</h4>
-          <p style="margin:0;color:var(--admin-text-muted);">Slug: ${escapeHtml(t.slug||'')}</p>
-          <p style="margin:0;color:var(--admin-text-muted);">Miasto: ${escapeHtml(t.start_city||'')}</p>
-        </div>
-        ${t.description?.pl || t.description?.en ? `<div><h4 style=\"margin:0 0 8px;\">Opis</h4><p>${escapeHtml(t.description.pl || t.description.en)}</p></div>` : ''}
-        <div style="display:flex;gap:8px;">
-          <a class="btn-primary" href="/public/admin/trips.html?edit=${encodeURIComponent(t.slug)}" target="_blank">Edit in Manager</a>
-          <a class="btn-secondary" href="/trip.html?slug=${encodeURIComponent(t.slug)}" target="_blank">Open Public</a>
-        </div>
-      </div>
-    `;
+    
+    // Populate form fields
+    const modal = document.getElementById('editTripModal');
+    const form = document.getElementById('editTripForm');
+    if (!modal || !form) return;
+    
+    document.getElementById('editTripId').value = trip.id;
+    document.getElementById('editTripSlug').value = trip.slug || '';
+    document.getElementById('editTripCity').value = trip.start_city || 'Larnaca';
+    document.getElementById('editTripTitlePl').value = (trip.title && trip.title.pl) || '';
+    document.getElementById('editTripDescPl').value = (trip.description && trip.description.pl) || '';
+    document.getElementById('editTripCoverUrl').value = trip.cover_image_url || '';
+    document.getElementById('editTripPricing').value = trip.pricing_model || 'per_person';
+    document.getElementById('editTripPublished').checked = !!trip.is_published;
+    
+    // Show cover preview if URL exists
+    const previewWrap = document.getElementById('editTripCoverPreview');
+    const previewImg = previewWrap ? previewWrap.querySelector('img') : null;
+    if (trip.cover_image_url && previewImg) {
+      previewImg.src = trip.cover_image_url;
+      previewWrap.style.display = '';
+    } else if (previewWrap) {
+      previewWrap.style.display = 'none';
+    }
+    
+    // Render price fields based on pricing model
+    renderEditTripPriceFields(trip.pricing_model, trip);
+    
+    // Setup pricing model change listener
+    const pricingSelect = document.getElementById('editTripPricing');
+    if (pricingSelect) {
+      pricingSelect.onchange = (e) => renderEditTripPriceFields(e.target.value, trip);
+    }
+    
+    // Setup cover URL input preview
+    const urlInput = document.getElementById('editTripCoverUrl');
+    if (urlInput && previewWrap && previewImg) {
+      urlInput.oninput = () => {
+        const url = (urlInput.value || '').trim();
+        if (url) {
+          previewImg.src = url;
+          previewWrap.style.display = '';
+        } else {
+          previewWrap.style.display = 'none';
+        }
+      };
+    }
+    
+    // Setup form submit handler
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      await handleEditTripSubmit(e, trip);
+    };
+    
     modal.hidden = false;
   } catch (e) {
-    console.error('Failed to open trip details:', e);
-    showToast('Failed to open details', 'error');
+    console.error('Failed to open edit modal:', e);
+    showToast('Failed to load trip for editing', 'error');
+  }
+}
+
+function renderEditTripPriceFields(model, trip) {
+  const container = document.getElementById('editTripPriceFields');
+  if (!container) return;
+  
+  if (model === 'per_person') {
+    container.innerHTML = `
+      <label class="admin-form-field"><span>Price per person</span><input name="price_per_person" type="number" step="0.01" value="${trip.price_per_person || ''}" /></label>
+    `;
+  } else if (model === 'base_plus_extra') {
+    container.innerHTML = `
+      <label class="admin-form-field"><span>Base price</span><input name="price_base" type="number" step="0.01" value="${trip.price_base || ''}" /></label>
+      <label class="admin-form-field"><span>Included people</span><input name="included_people" type="number" step="1" value="${trip.included_people || ''}" /></label>
+      <label class="admin-form-field"><span>Extra per person</span><input name="price_extra_person" type="number" step="0.01" value="${trip.price_extra_person || ''}" /></label>
+    `;
+  } else if (model === 'per_hour') {
+    container.innerHTML = `
+      <label class="admin-form-field"><span>Price per hour</span><input name="price_base" type="number" step="0.01" value="${trip.price_base || ''}" /></label>
+      <label class="admin-form-field"><span>Min hours</span><input name="min_hours" type="number" step="1" value="${trip.min_hours || ''}" /></label>
+    `;
+  } else if (model === 'per_day') {
+    container.innerHTML = `
+      <label class="admin-form-field"><span>Price per day</span><input name="price_base" type="number" step="0.01" value="${trip.price_base || ''}" /></label>
+    `;
+  } else {
+    container.innerHTML = '';
+  }
+}
+
+async function handleEditTripSubmit(event, originalTrip) {
+  event.preventDefault();
+  
+  try {
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database connection not available');
+    
+    const form = event.target;
+    const fd = new FormData(form);
+    const payload = Object.fromEntries(fd.entries());
+    
+    // Normalize types
+    ['price_base', 'price_per_person', 'price_extra_person', 'included_people', 'min_hours'].forEach(k => {
+      if (payload[k] === '' || payload[k] == null) delete payload[k];
+      else payload[k] = Number(payload[k]);
+    });
+    
+    // Build title/description objects
+    payload.title = { pl: payload.title_pl || '' };
+    payload.description = { pl: payload.description_pl || '' };
+    delete payload.title_pl;
+    delete payload.description_pl;
+    
+    // Handle is_published checkbox
+    payload.is_published = form.querySelector('#editTripPublished').checked;
+    
+    // Update timestamp
+    payload.updated_at = new Date().toISOString();
+    
+    const tripId = document.getElementById('editTripId').value;
+    
+    // Update via Supabase client
+    const { error } = await client
+      .from('trips')
+      .update(payload)
+      .eq('id', tripId);
+    
+    if (error) throw error;
+    
+    showToast('Trip updated successfully', 'success');
+    document.getElementById('editTripModal').hidden = true;
+    await loadTripsAdminData();
+    
+  } catch (err) {
+    console.error('Failed to update trip:', err);
+    showToast(err.message || 'Failed to update trip', 'error');
   }
 }
 
 // expose trip helpers for inline handlers
 window.toggleTripPublish = toggleTripPublish;
-window.openTripDetails = openTripDetails;
+window.editTrip = editTrip;
 
 // =====================================================
 // NEW TRIP MODAL (create + link to POI)

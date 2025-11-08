@@ -350,6 +350,73 @@
         <div id="tripsTableFooter" class="poi-table-footer"></div>
       </section>
 
+      <!-- Edit Trip Modal -->
+      <div class="admin-modal" id="editTripModal" hidden>
+        <div class="admin-modal-dialog" style="max-width: 800px;">
+          <header class="admin-modal-header">
+            <h3>Edit Trip</h3>
+            <button type="button" class="admin-modal-close" onclick="document.getElementById('editTripModal').hidden=true">✕</button>
+          </header>
+          <div class="admin-modal-content">
+            <form id="editTripForm">
+              <input type="hidden" id="editTripId" />
+              <div class="admin-form-grid">
+                <label class="admin-form-field">
+                  <span>Slug (read-only)</span>
+                  <input type="text" id="editTripSlug" readonly style="background:#2a2f3a;cursor:not-allowed;" />
+                </label>
+                <label class="admin-form-field">
+                  <span>City</span>
+                  <select name="start_city" id="editTripCity" required>
+                    <option value="Larnaca">Larnaca</option>
+                    <option value="Paphos">Paphos</option>
+                    <option value="Limassol">Limassol</option>
+                    <option value="Ayia Napa">Ayia Napa</option>
+                    <option value="Nicosia">Nicosia</option>
+                    <option value="All Cities">All Cities</option>
+                  </select>
+                </label>
+                <label class="admin-form-field" style="grid-column:1/-1;">
+                  <span>Title (PL)</span>
+                  <input type="text" name="title_pl" id="editTripTitlePl" required />
+                </label>
+                <div class="admin-form-field" style="grid-column:1/-1;">
+                  <span>Cover Image URL</span>
+                  <input type="url" name="cover_image_url" id="editTripCoverUrl" placeholder="https://..." />
+                  <div id="editTripCoverPreview" style="margin-top:8px;display:none;">
+                    <img alt="Podgląd okładki" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;" />
+                  </div>
+                </div>
+                <label class="admin-form-field" style="grid-column:1/-1;">
+                  <span>Description (PL)</span>
+                  <textarea name="description_pl" id="editTripDescPl" rows="4"></textarea>
+                </label>
+                <label class="admin-form-field">
+                  <span>Pricing Model</span>
+                  <select name="pricing_model" id="editTripPricing">
+                    <option value="per_person">per_person</option>
+                    <option value="base_plus_extra">base_plus_extra</option>
+                    <option value="per_hour">per_hour</option>
+                    <option value="per_day">per_day</option>
+                  </select>
+                </label>
+                <div id="editTripPriceFields" class="admin-form-inline"></div>
+                <label class="admin-form-field" style="grid-column:1/-1;">
+                  <span style="display:flex;align-items:center;gap:8px;">
+                    <input type="checkbox" name="is_published" id="editTripPublished" style="width:auto;" />
+                    Published (visible to customers)
+                  </span>
+                </label>
+              </div>
+              <div class="admin-modal-actions">
+                <button type="button" class="btn-secondary" onclick="document.getElementById('editTripModal').hidden=true">Cancel</button>
+                <button type="submit" class="btn-primary">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
       <!-- New Trip Modal -->
       <div class="admin-modal" id="newTripModal" hidden>
         <div class="admin-modal-dialog">
