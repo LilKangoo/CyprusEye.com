@@ -83,6 +83,146 @@ function showElement(element) {
   }
 }
 
+// =====================================================
+// TRIPS MANAGEMENT
+// =====================================================
+
+async function loadTripsAdminData() {
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    // Load trips list
+    const { data: trips, error } = await client
+      .from('trips')
+      .select('*')
+      .order('updated_at', { ascending: false })
+      .limit(200);
+
+    if (error) throw error;
+
+    // Stats
+    const total = trips?.length || 0;
+    const published = (trips || []).filter(t => t.is_published).length;
+    const statTotal = document.getElementById('tripsStatTotal');
+    const statPub = document.getElementById('tripsStatPublished');
+    const sub = document.getElementById('tripsStatSubtitle');
+    if (statTotal) statTotal.textContent = total;
+    if (statPub) statPub.textContent = published;
+    if (sub) sub.textContent = total ? `${published} published` : 'No trips yet';
+
+    // Table
+    const tbody = document.getElementById('tripsTableBody');
+    if (!tbody) return;
+    if (!trips || trips.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="table-loading">No trips found</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = trips.map(t => {
+      const title = (t.title && (t.title.pl || t.title.en)) || t.slug || t.id;
+      const updated = t.updated_at ? new Date(t.updated_at).toLocaleString('en-GB') : '-';
+      return `
+        <tr>
+          <td>
+            <div style="font-weight:600">${escapeHtml(title)}</div>
+            ${t.display_mode ? `<div style=\"font-size:11px;color:var(--admin-text-muted)\">${escapeHtml(t.display_mode)}</div>` : ''}
+          </td>
+          <td>${escapeHtml(t.slug || '')}</td>
+          <td>${escapeHtml(t.start_city || '')}</td>
+          <td>
+            <label class="admin-switch" title="Toggle publish">
+              <input type="checkbox" ${t.is_published ? 'checked' : ''} onchange="toggleTripPublish('${t.id}', this.checked)">
+              <span></span>
+            </label>
+          </td>
+          <td>${updated}</td>
+          <td style="display:flex;gap:8px;">
+            <button class="btn-secondary" onclick="openTripDetails('${t.id}')">View</button>
+            <a class="btn-secondary" href="/public/admin/trips.html?edit=${encodeURIComponent(t.slug)}" target="_blank">Edit</a>
+            <a class="btn-secondary" href="/trip.html?slug=${encodeURIComponent(t.slug)}" target="_blank">Open</a>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    // Button: New Trip
+    const addBtn = document.getElementById('btnAddTrip');
+    if (addBtn && !addBtn.dataset.bound) {
+      addBtn.addEventListener('click', () => {
+        window.open('/public/admin/trips.html#new', '_blank');
+      });
+      addBtn.dataset.bound = '1';
+    }
+
+    showToast('Trips loaded', 'success');
+  } catch (e) {
+    console.error('Failed to load trips:', e);
+    showToast('Failed to load trips: ' + (e.message || 'Unknown error'), 'error');
+    const tbody = document.getElementById('tripsTableBody');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="table-loading" style="color:var(--admin-danger)">Error: ${escapeHtml(e.message||'')}</td></tr>`;
+  }
+}
+
+async function toggleTripPublish(tripId, publish) {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+    const { error } = await client
+      .from('trips')
+      .update({ is_published: !!publish, updated_at: new Date().toISOString() })
+      .eq('id', tripId);
+    if (error) throw error;
+    showToast(publish ? 'Trip published' : 'Trip unpublished', 'success');
+    await loadTripsAdminData();
+  } catch (e) {
+    console.error('Publish toggle failed:', e);
+    showToast('Failed to update publish state', 'error');
+  }
+}
+
+async function openTripDetails(tripId) {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+    const { data: t, error } = await client
+      .from('trips')
+      .select('*')
+      .eq('id', tripId)
+      .single();
+    if (error) throw error;
+    const modal = document.getElementById('tripDetailsModal');
+    const content = document.getElementById('tripDetailsContent');
+    if (!modal || !content) return;
+    const title = (t.title && (t.title.pl || t.title.en)) || t.slug || t.id;
+    content.innerHTML = `
+      <div style="display:grid;gap:16px;">
+        <div>
+          <h4 style="margin:0 0 8px;">${escapeHtml(title)}</h4>
+          <p style="margin:0;color:var(--admin-text-muted);">Slug: ${escapeHtml(t.slug||'')}</p>
+          <p style="margin:0;color:var(--admin-text-muted);">Miasto: ${escapeHtml(t.start_city||'')}</p>
+        </div>
+        ${t.description?.pl || t.description?.en ? `<div><h4 style=\"margin:0 0 8px;\">Opis</h4><p>${escapeHtml(t.description.pl || t.description.en)}</p></div>` : ''}
+        <div style="display:flex;gap:8px;">
+          <a class="btn-primary" href="/public/admin/trips.html?edit=${encodeURIComponent(t.slug)}" target="_blank">Edit in Manager</a>
+          <a class="btn-secondary" href="/trip.html?slug=${encodeURIComponent(t.slug)}" target="_blank">Open Public</a>
+        </div>
+      </div>
+    `;
+    modal.hidden = false;
+  } catch (e) {
+    console.error('Failed to open trip details:', e);
+    showToast('Failed to open details', 'error');
+  }
+}
+
+// expose trip helpers for inline handlers
+window.toggleTripPublish = toggleTripPublish;
+window.openTripDetails = openTripDetails;
+
 function hideElement(element) {
   if (element) {
     element.hidden = true;
@@ -322,6 +462,9 @@ function switchView(viewName) {
       break;
     case 'cars':
       loadCarsData();
+      break;
+    case 'trips':
+      loadTripsAdminData();
       break;
     case 'content':
       loadContentData();

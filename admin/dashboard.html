@@ -154,6 +154,13 @@
           <span>Cars</span>
         </button>
         
+        <button class="admin-nav-item" data-view="trips">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 11l9-9 9 9v9a2 2 0 0 1-2 2h-5v-7H10v7H5a2 2 0 0 1-2-2v-9z"/>
+          </svg>
+          <span>Trips</span>
+        </button>
+        
         <button class="admin-nav-item" data-view="content">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
@@ -290,6 +297,72 @@
           </div>
         </div>
       </section>
+
+      <!-- Trips View -->
+      <section class="admin-view" id="viewTrips" hidden>
+        <header class="admin-view-header">
+          <div>
+            <h2>Trips</h2>
+            <p class="admin-view-subtitle">Manage trips and customer bookings</p>
+          </div>
+          <div class="admin-view-actions">
+            <a class="btn-secondary" href="/public/admin/trips.html" target="_blank">Open Trips Manager</a>
+            <button class="btn-primary" type="button" id="btnAddTrip">New Trip</button>
+          </div>
+        </header>
+
+        <div class="admin-stats-grid">
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total Trips</p>
+              <p class="stat-card-value" id="tripsStatTotal">0</p>
+              <p class="stat-card-change" id="tripsStatSubtitle">Loading...</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Published</p>
+              <p class="stat-card-value" id="tripsStatPublished">0</p>
+              <p class="stat-card-change">Visible to customers</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-table-container">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Trip</th>
+                <th>Slug</th>
+                <th>City</th>
+                <th>Published</th>
+                <th>Updated</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="tripsTableBody">
+              <tr>
+                <td colspan="6" class="table-loading">Loading trips...</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div id="tripsTableFooter" class="poi-table-footer"></div>
+      </section>
+
+      <!-- Trip Details Modal -->
+      <div class="admin-modal" id="tripDetailsModal" hidden>
+        <div class="admin-modal-dialog">
+          <header class="admin-modal-header">
+            <h3>Trip details</h3>
+            <button type="button" class="admin-modal-close" onclick="document.getElementById('tripDetailsModal').hidden=true">✕</button>
+          </header>
+          <div class="admin-modal-content" id="tripDetailsContent">
+            <p class="table-loading">Loading...</p>
+          </div>
+        </div>
+      </div>
 
       <!-- Moderation View -->
       <section class="admin-view" id="viewModeration" hidden>
