@@ -316,16 +316,6 @@
     let allTrips = [];
     let currentRegion = 'all';
 
-    // City images mapping (replace with real images)
-    const cityImages = {
-      'Larnaca': 'https://images.unsplash.com/photo-1580837119756-563d608dd119?w=800&h=600&fit=crop',
-      'Paphos': 'https://images.unsplash.com/photo-1601581987809-a874a81309c9?w=800&h=600&fit=crop',
-      'Limassol': 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&h=600&fit=crop',
-      'Ayia Napa': 'https://images.unsplash.com/photo-1559827260-dc66d52bef19?w=800&h=600&fit=crop',
-      'Nicosia': 'https://images.unsplash.com/photo-1580837119756-563d608dd119?w=800&h=600&fit=crop',
-      'All Cities': 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop'
-    };
-
     function groupTripsByCity() {
       const groups = {};
       allTrips.forEach(trip => {
@@ -336,24 +326,35 @@
       return groups;
     }
 
+    function getCityImage(cityTrips) {
+      // Get cover image from first trip that has one
+      const tripWithImage = cityTrips.find(t => t.cover_image_url);
+      return tripWithImage?.cover_image_url || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop';
+    }
+
     function renderCityCards() {
       const cityGroups = groupTripsByCity();
-      const cities = Object.keys(cityGroups).sort();
+      let cities = Object.keys(cityGroups).sort();
+      
+      // Filter by region if needed
+      if (currentRegion !== 'all') {
+        cities = filterCitiesByRegion(cities, cityGroups);
+      }
       
       const grid = document.getElementById('cityGrid');
       if (!cities.length) {
-        grid.innerHTML = '<p style="text-align:center;color:#6b7280;">Brak dostępnych wycieczek</p>';
+        grid.innerHTML = '<p style="text-align:center;color:#6b7280;">Brak dostępnych wycieczek w tej kategorii</p>';
         return;
       }
 
       grid.innerHTML = cities.map(city => {
         const trips = cityGroups[city];
         const count = trips.length;
-        const image = cityImages[city] || cityImages['All Cities'];
+        const image = getCityImage(trips);
         
         return `
           <div class="city-card" onclick="openCityModal('${city}')">
-            <img class="city-card-image" src="${image}" alt="${city}" />
+            <img class="city-card-image" src="${image}" alt="${city}" loading="lazy" />
             <div class="city-card-overlay">
               <h3 class="city-card-title">${city}</h3>
               <p class="city-card-count">${count} ${count === 1 ? 'wycieczka' : 'wycieczek'}</p>
@@ -361,6 +362,23 @@
           </div>
         `;
       }).join('');
+    }
+
+    function filterCitiesByRegion(cities, cityGroups) {
+      const coastalCities = ['Larnaca', 'Paphos', 'Limassol', 'Ayia Napa', 'Protaras'];
+      const mountainCities = ['Troodos', 'Platres', 'Kakopetria', 'Nicosia'];
+      
+      if (currentRegion === 'coast') {
+        return cities.filter(c => coastalCities.includes(c));
+      } else if (currentRegion === 'mountains') {
+        return cities.filter(c => mountainCities.includes(c));
+      } else if (currentRegion === 'popular') {
+        // Sort by number of trips descending, take top 6
+        return cities
+          .sort((a, b) => cityGroups[b].length - cityGroups[a].length)
+          .slice(0, 6);
+      }
+      return cities;
     }
 
     window.openCityModal = function(cityName) {
