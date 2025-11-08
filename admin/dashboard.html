@@ -307,7 +307,7 @@
           </div>
           <div class="admin-view-actions">
             <a class="btn-secondary" href="/public/admin/trips.html" target="_blank">Open Trips Manager</a>
-            <button class="btn-primary" type="button" id="btnAddTrip">New Trip</button>
+            <button class="btn-primary" type="button" id="btnAddTrip" onclick="openNewTripModal()">New Trip</button>
           </div>
         </header>
 
@@ -350,6 +350,56 @@
 
         <div id="tripsTableFooter" class="poi-table-footer"></div>
       </section>
+
+      <!-- New Trip Modal -->
+      <div class="admin-modal" id="newTripModal" hidden>
+        <div class="admin-modal-dialog">
+          <header class="admin-modal-header">
+            <h3>Create New Trip</h3>
+            <button type="button" class="admin-modal-close" onclick="document.getElementById('newTripModal').hidden=true">✕</button>
+          </header>
+          <div class="admin-modal-content">
+            <form id="newTripForm">
+              <div class="admin-form-grid">
+                <label class="admin-form-field">
+                  <span>POI</span>
+                  <select name="poi_id" id="newTripPoi" required></select>
+                </label>
+                <label class="admin-form-field">
+                  <span>Slug</span>
+                  <input type="text" name="slug" id="newTripSlug" required />
+                </label>
+                <label class="admin-form-field">
+                  <span>Start City</span>
+                  <input type="text" name="start_city" id="newTripCity" required />
+                </label>
+                <label class="admin-form-field" style="grid-column:1/-1;">
+                  <span>Title (PL)</span>
+                  <input type="text" name="title_pl" id="newTripTitlePl" required />
+                </label>
+                <label class="admin-form-field" style="grid-column:1/-1;">
+                  <span>Description (PL)</span>
+                  <textarea name="description_pl" id="newTripDescPl" rows="3"></textarea>
+                </label>
+                <label class="admin-form-field">
+                  <span>Pricing Model</span>
+                  <select name="pricing_model" id="newTripPricing">
+                    <option value="per_person">per_person</option>
+                    <option value="base_plus_extra">base_plus_extra</option>
+                    <option value="per_hour">per_hour</option>
+                    <option value="per_day">per_day</option>
+                  </select>
+                </label>
+                <div id="newTripPriceFields" class="admin-form-inline"></div>
+              </div>
+              <div class="admin-modal-actions">
+                <button type="submit" class="btn-primary">Create</button>
+                <button type="button" class="btn-secondary" onclick="document.getElementById('newTripModal').hidden=true">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
 
       <!-- Trip Details Modal -->
       <div class="admin-modal" id="tripDetailsModal" hidden>

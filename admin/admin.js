@@ -152,10 +152,7 @@ async function loadTripsAdminData() {
     // Button: New Trip
     const addBtn = document.getElementById('btnAddTrip');
     if (addBtn && !addBtn.dataset.bound) {
-      addBtn.addEventListener('click', () => {
-        // Navigate in the same tab to avoid popup blockers
-        window.location.assign('/public/admin/trips.html#new');
-      });
+      addBtn.addEventListener('click', openNewTripModal);
       addBtn.dataset.bound = '1';
     }
 
@@ -223,6 +220,110 @@ async function openTripDetails(tripId) {
 // expose trip helpers for inline handlers
 window.toggleTripPublish = toggleTripPublish;
 window.openTripDetails = openTripDetails;
+
+// =====================================================
+// NEW TRIP MODAL (create + link to POI)
+// =====================================================
+
+function renderNewTripPriceFields(model) {
+  const c = document.getElementById('newTripPriceFields');
+  if (!c) return;
+  if (model === 'per_person') {
+    c.innerHTML = `
+      <label class="admin-form-field"><span>Price per person</span><input name="price_per_person" type="number" step="0.01" /></label>
+    `;
+  } else if (model === 'base_plus_extra') {
+    c.innerHTML = `
+      <label class="admin-form-field"><span>Base price</span><input name="price_base" type="number" step="0.01" /></label>
+      <label class="admin-form-field"><span>Included people</span><input name="included_people" type="number" step="1" /></label>
+      <label class="admin-form-field"><span>Extra per person</span><input name="price_extra_person" type="number" step="0.01" /></label>
+    `;
+  } else if (model === 'per_hour') {
+    c.innerHTML = `
+      <label class="admin-form-field"><span>Price per hour</span><input name="price_base" type="number" step="0.01" /></label>
+      <label class="admin-form-field"><span>Min hours</span><input name="min_hours" type="number" step="1" /></label>
+    `;
+  } else if (model === 'per_day') {
+    c.innerHTML = `
+      <label class="admin-form-field"><span>Price per day</span><input name="price_base" type="number" step="0.01" /></label>
+    `;
+  } else {
+    c.innerHTML = '';
+  }
+}
+
+async function openNewTripModal() {
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    // Load POIs (only essential info)
+    const { data: pois, error } = await client
+      .from('pois')
+      .select('id, name, slug, status')
+      .order('updated_at', { ascending: false })
+      .limit(200);
+    if (error) throw error;
+
+    const sel = document.getElementById('newTripPoi');
+    if (sel) {
+      sel.innerHTML = (pois || [])
+        .map(p => `<option value="${p.id}">${escapeHtml(p.name || p.slug || p.id)}${p.status && p.status!=='published' ? ' · '+escapeHtml(p.status) : ''}</option>`) 
+        .join('');
+    }
+
+    // Defaults
+    const pricingSel = document.getElementById('newTripPricing');
+    if (pricingSel) {
+      renderNewTripPriceFields(pricingSel.value || 'per_person');
+      pricingSel.onchange = (e) => renderNewTripPriceFields(e.target.value);
+    }
+
+    const form = document.getElementById('newTripForm');
+    if (form) {
+      form.onsubmit = async (ev) => {
+        ev.preventDefault();
+        try {
+          const fd = new FormData(form);
+          const payload = Object.fromEntries(fd.entries());
+          // Normalize types
+          ['price_base','price_per_person','price_extra_person','included_people','min_hours'].forEach(k=>{
+            if (payload[k] === '' || payload[k] == null) delete payload[k];
+            else payload[k] = Number(payload[k]);
+          });
+          payload.title = { pl: payload.title_pl || '' };
+          payload.description = { pl: payload.description_pl || '' };
+          delete payload.title_pl; delete payload.description_pl;
+
+          const res = await fetch('/admin/trips', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const data = await res.json().catch(()=>({}));
+          if (!res.ok) throw new Error(data?.error || 'Failed to create trip');
+          showToast('Trip created', 'success');
+          document.getElementById('newTripModal').hidden = true;
+          await loadTripsAdminData();
+        } catch (err) {
+          console.error('Create trip failed', err);
+          showToast(err.message || 'Create trip failed', 'error');
+        }
+      };
+    }
+
+    const modal = document.getElementById('newTripModal');
+    if (modal) modal.hidden = false;
+  } catch (e) {
+    console.error('openNewTripModal failed', e);
+    showToast('Failed to open New Trip', 'error');
+  }
+}
+
+window.openNewTripModal = openNewTripModal;
 
 function hideElement(element) {
   if (element) {
