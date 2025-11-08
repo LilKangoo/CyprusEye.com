@@ -703,6 +703,51 @@
     }
 
     let currentTripIndex = null;
+    let currentTrip = null;
+
+    function calculateTripPrice(trip, adults, children) {
+      adults = parseInt(adults) || 1;
+      children = parseInt(children) || 0;
+      
+      const pricing = trip.pricing_model;
+      let price = 0;
+      
+      if (pricing === 'per_person') {
+        const pricePerPerson = Number(trip.price_per_person) || 0;
+        price = pricePerPerson * (adults + children);
+      } else if (pricing === 'base_plus_extra') {
+        const basePrice = Number(trip.price_base) || 0;
+        const includedPeople = Number(trip.included_people) || 1;
+        const extraPrice = Number(trip.price_extra_person) || 0;
+        const totalPeople = adults + children;
+        
+        price = basePrice;
+        if (totalPeople > includedPeople) {
+          price += (totalPeople - includedPeople) * extraPrice;
+        }
+      } else if (pricing === 'per_hour') {
+        const hourlyRate = Number(trip.price_base) || 0;
+        price = hourlyRate; // Default to 1 hour, can add hours field
+      } else if (pricing === 'per_day') {
+        const dailyRate = Number(trip.price_base) || 0;
+        price = dailyRate; // Default to 1 day
+      } else {
+        // Default to base price
+        price = Number(trip.price_base) || Number(trip.price_per_person) || 0;
+      }
+      
+      return price;
+    }
+
+    function updateLivePrice() {
+      if (!currentTrip) return;
+      
+      const adults = document.getElementById('bookingAdults').value;
+      const children = document.getElementById('bookingChildren').value;
+      const totalPrice = calculateTripPrice(currentTrip, adults, children);
+      
+      document.getElementById('modalTripPrice').textContent = `${totalPrice.toFixed(2)} €`;
+    }
 
     window.openTripModal = function(tripIndex) {
       const filteredTrips = getFilteredTrips();
@@ -710,26 +755,37 @@
       if (!trip) return;
       
       currentTripIndex = tripIndex;
+      currentTrip = trip;
       
       // Populate modal
       const title = trip.title?.pl || trip.title?.en || trip.slug;
       const desc = trip.description?.pl || trip.description?.en || '';
-      const price = trip.pricing_model === 'per_person' && trip.price_per_person 
-        ? `${Number(trip.price_per_person).toFixed(2)} €` 
-        : trip.price_base 
-        ? `${Number(trip.price_base).toFixed(2)} €` 
-        : 'Zapytaj o cenę';
       const image = trip.cover_image_url || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop';
       
       document.getElementById('modalTripImage').src = image;
       document.getElementById('modalTripTitle').textContent = title;
       document.getElementById('modalTripSubtitle').textContent = trip.start_city || '';
       document.getElementById('modalTripDescription').innerHTML = desc.replace(/\n/g, '<br/>');
-      document.getElementById('modalTripPrice').textContent = price;
       
       // Reset form
       document.getElementById('bookingForm').reset();
       document.getElementById('bookingMessage').style.display = 'none';
+      
+      // Calculate initial price
+      updateLivePrice();
+      
+      // Remove old listeners and add new ones
+      const adultsInput = document.getElementById('bookingAdults');
+      const childrenInput = document.getElementById('bookingChildren');
+      
+      const newAdultsInput = adultsInput.cloneNode(true);
+      const newChildrenInput = childrenInput.cloneNode(true);
+      
+      adultsInput.parentNode.replaceChild(newAdultsInput, adultsInput);
+      childrenInput.parentNode.replaceChild(newChildrenInput, childrenInput);
+      
+      newAdultsInput.addEventListener('input', updateLivePrice);
+      newChildrenInput.addEventListener('input', updateLivePrice);
       
       // Show modal
       document.getElementById('tripModal').classList.add('active');
@@ -751,21 +807,24 @@
     document.getElementById('bookingForm').addEventListener('submit', async function(e) {
       e.preventDefault();
       
-      const filteredTrips = getFilteredTrips();
-      const trip = filteredTrips[currentTripIndex];
-      if (!trip) return;
+      if (!currentTrip) return;
       
       const formData = new FormData(e.target);
+      const adults = parseInt(formData.get('adults')) || 1;
+      const children = parseInt(formData.get('children')) || 0;
+      const calculatedPrice = calculateTripPrice(currentTrip, adults, children);
+      
       const bookingData = {
-        trip_id: trip.id,
-        trip_slug: trip.slug,
+        trip_id: currentTrip.id,
+        trip_slug: currentTrip.slug,
         name: formData.get('name'),
         email: formData.get('email'),
         phone: formData.get('phone'),
         start_date: formData.get('start_date'),
-        adults: parseInt(formData.get('adults')) || 1,
-        children: parseInt(formData.get('children')) || 0,
+        adults: adults,
+        children: children,
         notes: formData.get('notes'),
+        total_price: calculatedPrice,
         created_at: new Date().toISOString()
       };
       
