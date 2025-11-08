@@ -5,6 +5,7 @@
   let observer = null;
   let observing = false;
   let statsTimer = null;
+  let checkInBusy = false;
 
   function getOrderedPoiIds(){
     const cards = Array.from(document.querySelectorAll('#poisList .poi-card'));
@@ -169,10 +170,86 @@
     }
   }
 
-  function checkInAtPlace(){
-    if(window.showToast){
-      window.showToast('Check-in wkrótce dostępny', 'info');
+  async function checkInAtPlace(id){
+    try{
+      if(checkInBusy) return;
+      checkInBusy = true;
+
+      const targetId = id || currentId;
+      const poi = targetId ? findPoi(targetId) : null;
+      if(!poi){
+        window.showToast?.('Brak wybranej lokalizacji', 'error');
+        return;
+      }
+
+      // Anti-duplication: skip if already checked-in on this device
+      const storageKey = `visited_poi_${poi.id}`;
+      if(localStorage.getItem(storageKey)){
+        window.showToast?.('Już zameldowano to miejsce na tym urządzeniu', 'info');
+        return;
+      }
+
+      if(!('geolocation' in navigator)){
+        window.showToast?.('Twoja przeglądarka nie wspiera geolokalizacji. Zbliż się do miejsca i spróbuj ponownie.', 'warning');
+        return;
+      }
+
+      const position = await new Promise((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        });
+      });
+
+      const { latitude, longitude } = position.coords;
+      // Normalizuj współrzędne POI
+      const lat = typeof poi.lat === 'number' ? poi.lat : (typeof poi.latitude === 'number' ? poi.latitude : parseFloat(poi.lat ?? poi.latitude));
+      const lng = typeof poi.lng === 'number' ? poi.lng : (typeof poi.lon === 'number' ? poi.lon : (typeof poi.longitude === 'number' ? poi.longitude : parseFloat(poi.lng ?? poi.lon ?? poi.longitude)));
+
+      if(!Number.isFinite(lat) || !Number.isFinite(lng)){
+        window.showToast?.('Błąd danych lokalizacji miejsca', 'error');
+        return;
+      }
+
+      const distance = haversineDistance(latitude, longitude, lat, lng);
+      const radius = 350; // metry
+
+      if(distance <= radius){
+        // Mark as visited locally to prevent double award
+        localStorage.setItem(storageKey, Date.now().toString());
+        try{
+          const mod = await import('/js/xp.js');
+          if(typeof mod.awardPoi === 'function'){
+            await mod.awardPoi(poi.id);
+          }
+        } catch(e){
+          console.error('[XP] awardPoi failed', e);
+        }
+        window.showToast?.('Gratulacje! Zamelodowałeś się i otrzymasz XP.', 'success');
+      } else {
+        const km = (distance/1000).toFixed(2);
+        window.showToast?.(`Jesteś ok. ${km} km od celu. Zbliż się do miejsca, aby się zameldować.`, 'info');
+      }
+    } catch(err){
+      console.warn('checkInAtPlace error:', err);
+      const msg = err?.message?.includes('permission') ? 'Udziel zgody na dostęp do lokalizacji i spróbuj ponownie.' : 'Nie udało się pobrać lokalizacji.';
+      window.showToast?.(msg, 'error');
+    } finally {
+      checkInBusy = false;
     }
+  }
+
+  function haversineDistance(lat1, lon1, lat2, lon2){
+    const toRad = v => (v * Math.PI) / 180;
+    const R = 6371e3; // meters
+    const φ1 = toRad(lat1);
+    const φ2 = toRad(lat2);
+    const Δφ = toRad(lat2 - lat1);
+    const Δλ = toRad(lon2 - lon1);
+    const a = Math.sin(Δφ/2) ** 2 + Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ/2) ** 2;
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
   }
 
   function setupObserver(){
