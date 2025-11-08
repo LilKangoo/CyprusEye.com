@@ -246,23 +246,16 @@ console.log('🔵 App Core V3 - START');
   }
 
   function startLiveLocation() {
-    if (!navigator.geolocation || !mapInstance) {
-      console.warn('Geolocation not available');
-      return;
-    }
-    const options = { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 };
-    navigator.geolocation.watchPosition((pos) => {
-      const { latitude, longitude, accuracy } = pos.coords;
-      const latlng = [latitude, longitude];
+    if (!mapInstance) return;
 
-      // Zaktualizuj marker
+    // Common updater used by both APIs
+    function updateLocation(lat, lng, accuracy) {
+      const latlng = [lat, lng];
       if (!userLocationMarker) {
         userLocationMarker = L.marker(latlng, { icon: createUserIcon(), zIndexOffset: 1000 }).addTo(mapInstance);
       } else {
         userLocationMarker.setLatLng(latlng);
       }
-
-      // Zaktualizuj okrąg dokładności
       if (!userAccuracyCircle) {
         userAccuracyCircle = L.circle(latlng, {
           radius: Math.max(accuracy || 30, 10),
@@ -275,18 +268,37 @@ console.log('🔵 App Core V3 - START');
         userAccuracyCircle.setLatLng(latlng);
         userAccuracyCircle.setRadius(Math.max(accuracy || 30, 10));
       }
-
-      // Jednorazowe wycentrowanie po pierwszej lokalizacji
       if (!userLocationInitialized) {
         userLocationInitialized = true;
-        try { mapInstance.setView(latlng, Math.max(mapInstance.getZoom(), 12), { animate: true }); } catch (_) {}
+        try { mapInstance.setView(latlng, Math.max(mapInstance.getZoom(), 13), { animate: true }); } catch (_) {}
       }
+      window.CURRENT_POSITION = { lat, lng, accuracy };
+    }
 
-      // Udostępnij globalnie bieżącą pozycję
-      window.CURRENT_POSITION = { lat: latitude, lng: longitude, accuracy };
-    }, (err) => {
-      console.warn('Geolocation error:', err && err.message);
-    }, options);
+    // 1) Native Geolocation API (primary)
+    if (navigator.geolocation) {
+      const options = { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 };
+      try {
+        navigator.geolocation.watchPosition(
+          (pos) => updateLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy),
+          (err) => console.warn('watchPosition error:', err && err.message),
+          options
+        );
+      } catch (e) {
+        console.warn('watchPosition threw:', e?.message);
+      }
+    } else {
+      console.warn('navigator.geolocation not available');
+    }
+
+    // 2) Leaflet fallback using map.locate (handles some iOS cases)
+    try {
+      mapInstance.on('locationfound', (e) => updateLocation(e.latlng.lat, e.latlng.lng, e.accuracy));
+      mapInstance.on('locationerror', (e) => console.warn('Leaflet locate error:', e?.message));
+      mapInstance.locate({ setView: false, watch: true, enableHighAccuracy: true, maxZoom: 15 });
+    } catch (e) {
+      console.warn('map.locate failed:', e?.message);
+    }
   }
 
   /**
