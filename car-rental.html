@@ -661,7 +661,8 @@
 
       function injectCarRentalScript(onload) {
         const s = document.createElement('script');
-        s.src = 'car-rental.js';
+        // Use absolute path to avoid resolving to /car-rental/car-rental.js (404 -> text/html)
+        s.src = '/car-rental.js';
         s.defer = true;
         s.onload = onload;
         document.body.appendChild(s);
