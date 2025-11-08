@@ -200,8 +200,8 @@ window.calculatePrice = function() {
     }
 
     const hours = (returnDate - pickupDate) / 36e5;
-    if (hours < 72) { alert("Minimalny czas wynajmu to 3 dni"); return; }
     const days = Math.ceil(hours / 24);
+    if (days < 3) { alert("Minimalny czas wynajmu to 3 dni"); return; }
 
     const carPricing = pricing[car];
     if (!carPricing) { alert("Proszę wybrać auto z listy"); return; }
@@ -258,11 +258,11 @@ window.calculatePrice = function() {
     return;
   }
   const hours = (returnDate - pickupDate) / 36e5;
-  if (hours < 72) {
+  const days = Math.ceil(hours / 24);
+  if (days < 3) {
     setCalculatorMessage('Minimalny czas wynajmu to 3 dni', true);
     return;
   }
-  const days = Math.ceil(hours / 24);
 
   const carPricing = pricing[car];
   if (!carPricing) {
