@@ -63,8 +63,7 @@
   <link rel="stylesheet" href="css/toast.css" />
   <link rel="stylesheet" href="assets/css/community.css" />
   
-  <!-- Leaflet Map -->
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin />
+  
   
   <!-- Supabase & Auth -->
   <meta name="ce-auth" content="on" />
@@ -300,21 +299,26 @@
         <button 
           type="button" 
           class="view-toggle-btn" 
-          data-view="map"
-          id="mapViewBtn"
+          data-view="ranking"
+          id="rankingViewBtn"
         >
-          🗺️ Mapa
+          🏆 Ranking
         </button>
       </div>
 
-      <!-- Map View -->
-      <section class="community-map-section" id="mapViewSection" hidden>
-        <div class="map-container">
-          <div id="communityMap" class="community-map"></div>
+      <!-- Ranking View -->
+      <section class="community-ranking-section" id="rankingViewSection" hidden>
+        <div class="ranking-container">
+          <div id="rankingHeader" class="ranking-header">
+            <h2>🏆 Top 100 użytkowników</h2>
+          </div>
+          <div id="rankingList" class="ranking-list">
+            <div class="loading-spinner">
+              <div class="spinner"></div>
+              <p>Ładowanie rankingu...</p>
+            </div>
+          </div>
         </div>
-        <p class="map-hint" data-i18n="community.map.hint">
-          Kliknij w marker, aby zobaczyć komentarze dla danego miejsca
-        </p>
       </section>
 
       <!-- List View -->
@@ -841,7 +845,6 @@
   </div>
 
   <!-- Scripts -->
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
   
   <!-- Load POI data first -->
   <script src="js/poi-loader.js"></script>
@@ -861,5 +864,6 @@
   <script type="module" src="js/community/notifications.js"></script>
   <script type="module" src="js/community/location-filter.js"></script>
   <script type="module" src="js/community/ui.js"></script>
+  <script type="module" src="js/community/ranking.js" defer></script>
 </body>
 </html>

@@ -63,10 +63,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initLightbox();
     renderPoisList();
     
-    // Initialize map if Leaflet is available
-    if (typeof L !== 'undefined') {
-      initMap();
-    }
+    // Map view removed. Ranking initialized on demand.
 
     // Update community stats (only if stats elements exist on page)
     if (document.getElementById('totalComments') || 
@@ -196,30 +193,43 @@ function updateUserAvatar() {
 }
 
 // ===================================
-// VIEW TOGGLE (List/Map)
+// VIEW TOGGLE (List/Ranking)
 // ===================================
 function initViewToggle() {
   const listBtn = document.getElementById('listViewBtn');
-  const mapBtn = document.getElementById('mapViewBtn');
+  const rankingBtn = document.getElementById('rankingViewBtn');
   const listSection = document.getElementById('listViewSection');
-  const mapSection = document.getElementById('mapViewSection');
+  const rankingSection = document.getElementById('rankingViewSection');
 
   listBtn?.addEventListener('click', () => {
     listBtn.classList.add('active');
-    mapBtn.classList.remove('active');
-    listSection.hidden = false;
-    mapSection.hidden = true;
+    rankingBtn?.classList.remove('active');
+    if (listSection) listSection.hidden = false;
+    if (rankingSection) rankingSection.hidden = true;
   });
 
-  mapBtn?.addEventListener('click', () => {
-    mapBtn.classList.add('active');
-    listBtn.classList.remove('active');
-    mapSection.hidden = false;
-    listSection.hidden = true;
-    
-    // Initialize map if not already initialized
-    if (!communityMap && typeof L !== 'undefined') {
-      setTimeout(() => initMap(), 100);
+  rankingBtn?.addEventListener('click', async () => {
+    rankingBtn.classList.add('active');
+    listBtn?.classList.remove('active');
+    if (rankingSection) rankingSection.hidden = false;
+    if (listSection) listSection.hidden = true;
+
+    // Lazy-init ranking module
+    try {
+      if (!window.communityRanking?.initialized) {
+        // If module is not loaded by the page yet, try dynamic import
+        if (!window.communityRanking) {
+          try {
+            await import('./ranking.js');
+          } catch (e) {
+            console.warn('Ranking module dynamic import failed (may already be loaded by HTML):', e?.message);
+          }
+        }
+        await window.communityRanking?.init();
+      }
+    } catch (e) {
+      console.error('Error initializing ranking:', e);
+      window.showToast?.('Nie można załadować rankingu', 'error');
     }
   });
 }
