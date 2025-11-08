@@ -226,6 +226,8 @@ async function viewTripBookingDetails(bookingId) {
     const client = ensureSupabase();
     if (!client) return;
 
+    console.log('Loading trip booking details:', bookingId);
+
     const { data: booking, error } = await client
       .from('trip_bookings')
       .select('*')
@@ -238,14 +240,238 @@ async function viewTripBookingDetails(bookingId) {
       return;
     }
 
-    // Show modal with booking details
-    alert(`Trip Booking Details:\n\nID: ${booking.id}\nCustomer: ${booking.customer_name}\nEmail: ${booking.customer_email}\nStatus: ${booking.status}\nPrice: €${booking.total_price}`);
-    // TODO: Create proper modal like car bookings
-  } catch (error) {
-    console.error('Error:', error);
-    showToast('Error loading details', 'error');
+    if (!booking) {
+      showToast('Booking not found', 'error');
+      return;
+    }
+
+    // Show modal
+    const modal = $('#tripBookingDetailsModal');
+    const content = $('#tripBookingDetailsContent');
+    if (!modal || !content) {
+      console.error('Modal elements not found');
+      return;
+    }
+
+    // Format dates
+    const tripDate = booking.trip_date ? new Date(booking.trip_date).toLocaleDateString('en-GB') : 'Not set';
+    const arrivalDate = booking.arrival_date ? new Date(booking.arrival_date).toLocaleDateString('en-GB') : 'N/A';
+    const departureDate = booking.departure_date ? new Date(booking.departure_date).toLocaleDateString('en-GB') : 'N/A';
+    const createdAt = booking.created_at ? new Date(booking.created_at).toLocaleString('en-GB') : 'N/A';
+
+    // Status badge
+    const statusClass = 
+      booking.status === 'confirmed' ? 'badge-success' :
+      booking.status === 'pending' ? 'badge-warning' :
+      booking.status === 'cancelled' ? 'badge-danger' :
+      booking.status === 'completed' ? 'badge-success' : 'badge';
+
+    // Build content HTML
+    content.innerHTML = `
+      <div style="display: grid; gap: 24px;">
+        <!-- Header Info -->
+        <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+            <div>
+              <h4 style="margin: 0; font-size: 16px; font-weight: 600;">Booking #${booking.id.slice(0, 8).toUpperCase()}</h4>
+              <p style="margin: 4px 0 0; font-size: 12px; color: var(--admin-text-muted);">Trip: ${escapeHtml(booking.trip_slug || 'N/A')}</p>
+              <p style="margin: 2px 0 0; font-size: 11px; color: var(--admin-text-muted);">Created: ${createdAt}</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <select id="tripBookingStatusDropdown" class="admin-form-field" style="padding: 8px 12px; font-size: 14px; font-weight: 600;" onchange="updateTripBookingStatus('${booking.id}', this.value)">
+                <option value="pending" ${booking.status === 'pending' ? 'selected' : ''}>⏳ Pending</option>
+                <option value="confirmed" ${booking.status === 'confirmed' ? 'selected' : ''}>✅ Confirmed</option>
+                <option value="completed" ${booking.status === 'completed' ? 'selected' : ''}>✔️ Completed</option>
+                <option value="cancelled" ${booking.status === 'cancelled' ? 'selected' : ''}>❌ Cancelled</option>
+              </select>
+              <span class="badge ${statusClass}" style="font-size: 14px; padding: 6px 12px;">${(booking.status || 'pending').toUpperCase()}</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Customer Information -->
+        <div>
+          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Customer Information</h4>
+          <div style="display: grid; gap: 8px;">
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Name:</span>
+              <span>${escapeHtml(booking.customer_name || 'N/A')}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Email:</span>
+              <span><a href="mailto:${escapeHtml(booking.customer_email)}">${escapeHtml(booking.customer_email || 'N/A')}</a></span>
+            </div>
+            ${booking.customer_phone ? `
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Phone:</span>
+              <span><a href="tel:${escapeHtml(booking.customer_phone)}">${escapeHtml(booking.customer_phone)}</a></span>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Trip Details -->
+        <div>
+          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Trip Details</h4>
+          <div style="display: grid; gap: 8px;">
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Preferred Date:</span>
+              <span>🎯 ${tripDate}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Stay on Cyprus:</span>
+              <span>✈️ ${arrivalDate} → ${departureDate}</span>
+            </div>
+            ${booking.num_adults ? `
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Participants:</span>
+              <span>👥 ${booking.num_adults} adult(s), ${booking.num_children || 0} child(ren)</span>
+            </div>
+            ` : ''}
+            ${booking.num_hours ? `
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Duration:</span>
+              <span>⏱️ ${booking.num_hours} hour(s)</span>
+            </div>
+            ` : ''}
+            ${booking.num_days ? `
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Duration:</span>
+              <span>📅 ${booking.num_days} day(s)</span>
+            </div>
+            ` : ''}
+            ${booking.notes ? `
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Notes:</span>
+              <span>${escapeHtml(booking.notes)}</span>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <!-- Pricing -->
+        <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
+          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Price</h4>
+          <div style="padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; text-align: center;">
+            <div style="font-size: 24px; font-weight: 700; color: white;">€${Number(booking.total_price || 0).toFixed(2)}</div>
+            <div style="font-size: 12px; color: rgba(255,255,255,0.9); margin-top: 4px;">Total Price</div>
+          </div>
+        </div>
+
+        <!-- Actions -->
+        <div style="display: flex; gap: 12px;">
+          <button 
+            type="button" 
+            class="btn-secondary"
+            onclick="document.getElementById('tripBookingDetailsModal').hidden=true"
+            style="flex: 1;"
+          >
+            Close
+          </button>
+          <button 
+            type="button" 
+            class="btn-danger"
+            onclick="deleteTripBooking('${booking.id}')"
+            style="flex: 1;"
+          >
+            🗑️ Delete Booking
+          </button>
+        </div>
+      </div>
+    `;
+
+    // Show modal
+    modal.hidden = false;
+
+  } catch (e) {
+    console.error('Failed to load trip booking details:', e);
+    showToast('Failed to load booking details', 'error');
   }
 }
+
+// Update trip booking status
+async function updateTripBookingStatus(bookingId, newStatus) {
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    const updateData = { 
+      status: newStatus,
+      updated_at: new Date().toISOString()
+    };
+
+    // Add timestamp for confirmed/cancelled
+    if (newStatus === 'confirmed') {
+      updateData.confirmed_at = new Date().toISOString();
+    } else if (newStatus === 'cancelled') {
+      updateData.cancelled_at = new Date().toISOString();
+    }
+
+    const { error } = await client
+      .from('trip_bookings')
+      .update(updateData)
+      .eq('id', bookingId);
+
+    if (error) throw error;
+
+    showToast(`Status updated to: ${newStatus}`, 'success');
+    await loadTripBookingsData(); // Refresh table
+    
+    // Update badge in modal
+    const badge = document.querySelector('#tripBookingDetailsModal .badge');
+    if (badge) {
+      badge.textContent = newStatus.toUpperCase();
+      badge.className = 'badge ' + (
+        newStatus === 'confirmed' ? 'badge-success' :
+        newStatus === 'pending' ? 'badge-warning' :
+        newStatus === 'cancelled' ? 'badge-danger' :
+        newStatus === 'completed' ? 'badge-success' : 'badge'
+      );
+    }
+
+  } catch (e) {
+    console.error('Failed to update status:', e);
+    showToast('Failed to update status: ' + e.message, 'error');
+  }
+}
+
+// Delete trip booking
+async function deleteTripBooking(bookingId) {
+  if (!confirm('Are you sure you want to delete this booking? This action cannot be undone.')) {
+    return;
+  }
+
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    const { error } = await client
+      .from('trip_bookings')
+      .delete()
+      .eq('id', bookingId);
+
+    if (error) throw error;
+
+    showToast('Booking deleted successfully', 'success');
+    document.getElementById('tripBookingDetailsModal').hidden = true;
+    await loadTripBookingsData(); // Refresh table
+
+  } catch (e) {
+    console.error('Failed to delete booking:', e);
+    showToast('Failed to delete booking: ' + e.message, 'error');
+  }
+}
+
+// Export functions
+window.viewTripBookingDetails = viewTripBookingDetails;
+window.updateTripBookingStatus = updateTripBookingStatus;
+window.deleteTripBooking = deleteTripBooking;
 
 // =====================================================
 // TRIPS MANAGEMENT
