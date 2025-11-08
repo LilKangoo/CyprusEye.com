@@ -11,6 +11,10 @@ console.log('🔵 App Core V3 - START');
   // Globalne zmienne mapy
   let mapInstance = null;
   let markersLayer = null;
+  // User location state
+  let userLocationMarker = null;
+  let userAccuracyCircle = null;
+  let userLocationInitialized = false;
   
   /**
    * Czeka na PLACES_DATA z Supabase
@@ -86,6 +90,9 @@ console.log('🔵 App Core V3 - START');
       
       // Stwórz warstwę dla markerów
       markersLayer = L.layerGroup().addTo(mapInstance);
+
+      // Uruchom śledzenie lokalizacji użytkownika (bez wymuszania zoomu)
+      startLiveLocation();
       
       console.log('✅ Mapa utworzona');
     }
@@ -213,6 +220,75 @@ console.log('🔵 App Core V3 - START');
     }
   }
   
+  /**
+   * Live user location: creates/updates a marker and accuracy circle
+   */
+  function getUserAvatarUrl() {
+    // Spróbuj znaleźć avatar użytkownika jeśli istnieje globalny kontekst
+    try {
+      const p = (window.CE_USER && window.CE_USER.profile) || window.USER_PROFILE || window.currentUser || {};
+      return p.avatar_url || p.avatar || null;
+    } catch (_) { return null; }
+  }
+
+  function createUserIcon() {
+    const avatar = getUserAvatarUrl();
+    const url = avatar || '/assets/cyprus_logo-1000x1054.png';
+    // Użyj markeru typu divIcon z okrągłym obrazkiem
+    return L.divIcon({
+      className: 'ce-user-location-icon',
+      html: `<div style="width:36px;height:36px;border-radius:50%;overflow:hidden;box-shadow:0 0 0 3px rgba(37,99,235,.4);background:#fff;display:flex;align-items:center;justify-content:center;">
+               <img src="${url}" alt="me" style="width:100%;height:100%;object-fit:cover;"/>
+             </div>`,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18]
+    });
+  }
+
+  function startLiveLocation() {
+    if (!navigator.geolocation || !mapInstance) {
+      console.warn('Geolocation not available');
+      return;
+    }
+    const options = { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 };
+    navigator.geolocation.watchPosition((pos) => {
+      const { latitude, longitude, accuracy } = pos.coords;
+      const latlng = [latitude, longitude];
+
+      // Zaktualizuj marker
+      if (!userLocationMarker) {
+        userLocationMarker = L.marker(latlng, { icon: createUserIcon(), zIndexOffset: 1000 }).addTo(mapInstance);
+      } else {
+        userLocationMarker.setLatLng(latlng);
+      }
+
+      // Zaktualizuj okrąg dokładności
+      if (!userAccuracyCircle) {
+        userAccuracyCircle = L.circle(latlng, {
+          radius: Math.max(accuracy || 30, 10),
+          color: '#2563eb',
+          weight: 2,
+          opacity: 0.65,
+          fillOpacity: 0.08
+        }).addTo(mapInstance);
+      } else {
+        userAccuracyCircle.setLatLng(latlng);
+        userAccuracyCircle.setRadius(Math.max(accuracy || 30, 10));
+      }
+
+      // Jednorazowe wycentrowanie po pierwszej lokalizacji
+      if (!userLocationInitialized) {
+        userLocationInitialized = true;
+        try { mapInstance.setView(latlng, Math.max(mapInstance.getZoom(), 12), { animate: true }); } catch (_) {}
+      }
+
+      // Udostępnij globalnie bieżącą pozycję
+      window.CURRENT_POSITION = { lat: latitude, lng: longitude, accuracy };
+    }, (err) => {
+      console.warn('Geolocation error:', err && err.message);
+    }, options);
+  }
+
   /**
    * Renderuje listę POI pod mapą
    */
