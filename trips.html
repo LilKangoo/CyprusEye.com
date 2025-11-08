@@ -81,15 +81,13 @@
     }
     .city-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
-      gap: 24px;
+      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+      gap: 20px;
     }
     .city-card {
       position: relative;
-      aspect-ratio: 4/3;
-      min-height: 240px;
-      max-height: 320px;
-      border-radius: 16px;
+      height: 250px;
+      border-radius: 12px;
       overflow: hidden;
       cursor: pointer;
       transition: transform 0.3s, box-shadow 0.3s;
@@ -411,30 +409,52 @@
       color: #991b1b;
     }
     @media (max-width: 768px) {
-      .trips-hero h1 { font-size: 1.75rem; }
-      .trips-hero { padding: 32px 16px; }
-      .trips-container { padding: 24px 16px; }
+      .trips-hero h1 { 
+        font-size: 1.5rem;
+        margin: 0 0 8px;
+      }
+      .trips-hero p {
+        font-size: 0.95rem;
+      }
+      .trips-hero { 
+        padding: 24px 16px; 
+      }
+      .trips-container { 
+        padding: 20px 12px 80px 12px; 
+      }
       .city-grid { 
         grid-template-columns: 1fr; 
-        gap: 16px;
+        gap: 12px;
       }
       .city-card {
-        aspect-ratio: 16/9;
-        min-height: 200px;
-        max-height: 280px;
+        height: 180px;
+        border-radius: 12px;
+      }
+      .city-card-overlay {
+        padding: 16px;
       }
       .city-card-title {
-        font-size: 1.25rem;
+        font-size: 1.1rem;
+        margin: 0 0 4px;
       }
       .city-card-count {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
       }
       .trip-item { flex-direction: column; }
       .trip-item-image { width: 100%; height: 180px; }
       .form-row { grid-template-columns: 1fr; }
-      .trip-modal-content { margin: 10px; }
-      .trip-modal-header { padding: 24px; }
-      .trip-modal-body { padding: 24px; }
+      .trip-modal-content { 
+        margin: 10px;
+        max-width: calc(100vw - 20px);
+      }
+      .trip-modal-image {
+        height: 200px;
+      }
+      .trip-modal-header { padding: 20px; }
+      .trip-modal-body { padding: 20px; }
+      .trip-modal-title {
+        font-size: 1.5rem;
+      }
     }
   </style>
 
