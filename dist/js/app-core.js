@@ -251,10 +251,20 @@ console.log('🔵 App Core V3 - START');
   function applyUserLocation(lat, lng, accuracy) {
     const latlng = [lat, lng];
     if (!userLocationMarker) {
-      userLocationMarker = L.marker(latlng, { icon: createUserIcon(), zIndexOffset: 1000 }).addTo(mapInstance);
+      // Prosty, zawsze widoczny znacznik: nie używamy avatara/logo
+      userLocationMarker = L.circleMarker(latlng, {
+        radius: 7,
+        color: '#ffffff',
+        weight: 2,
+        opacity: 1,
+        fillColor: '#2563eb',
+        fillOpacity: 1
+      }).addTo(mapInstance);
     } else {
       userLocationMarker.setLatLng(latlng);
     }
+    // Upewnij się, że znacznik jest nad innymi warstwami
+    try { userLocationMarker.bringToFront(); } catch (_) {}
     if (!userAccuracyCircle) {
       userAccuracyCircle = L.circle(latlng, {
         radius: Math.max(accuracy || 30, 10),
