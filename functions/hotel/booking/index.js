@@ -1,4 +1,4 @@
-import { createSupabaseClients } from '../_utils/supabaseAdmin.js';
+import { createSupabaseClients } from '../../_utils/supabaseAdmin.js';
 
 const CORS = {
   'access-control-allow-origin': '*',

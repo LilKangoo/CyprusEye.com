@@ -132,12 +132,29 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const msg = document.getElementById('hotelBookingMessage');
     const btn = e.target.querySelector('.booking-submit');
     let success = false;
+    
+    // Hide previous messages
+    if(msg) msg.style.display='none';
+    
     try{
       if(!homeCurrentHotel) throw new Error('Brak oferty');
+      
+      // Validate form
+      if(!e.target.checkValidity()){
+        e.target.reportValidity();
+        return;
+      }
+      
       btn.disabled=true; btn.textContent='Wysyłanie...';
       const fd = new FormData(e.target);
       const a = fd.get('arrival_date');
       const d = fd.get('departure_date');
+      
+      // Validate dates
+      if(!a || !d){
+        throw new Error('Proszę podać daty przyjazdu i wyjazdu');
+      }
+      
       const nights = nightsBetween(a,d);
       const adults = Number(fd.get('adults')||0);
       const children = Number(fd.get('children')||0);
@@ -210,6 +227,10 @@ document.addEventListener('DOMContentLoaded', ()=>{
         msg.textContent='Rezerwacja przyjęta! Skontaktujemy się wkrótce.';
         msg.style.display='block';
         e.target.reset();
+        // Clear HTML5 validation errors
+        Array.from(e.target.elements).forEach(el => {
+          if(el.setCustomValidity) el.setCustomValidity('');
+        });
         updateHotelLivePrice();
       }
     }catch(err){
