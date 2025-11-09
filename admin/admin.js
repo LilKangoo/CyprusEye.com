@@ -1105,6 +1105,12 @@ async function editHotel(hotelId) {
       btnAddEditTier.dataset.boundFor = hotel.id;
     }
 
+    // Max persons
+    const maxPersonsEl = document.getElementById('editHotelMaxPersons');
+    if (maxPersonsEl) {
+      maxPersonsEl.value = hotel.max_persons != null ? Number(hotel.max_persons) : '';
+    }
+
     // Photos preview existing
     const photosWrap = document.getElementById('editHotelPhotosPreview');
     if (photosWrap) {
@@ -1163,6 +1169,15 @@ async function handleEditHotelSubmit(event, originalHotel) {
 
     // pricing tiers
     payload.pricing_tiers = collectPricingTiers('editHotelPricingTiersBody');
+
+    // max persons
+    const maxP = document.getElementById('editHotelMaxPersons');
+    if (maxP && maxP.value) {
+      const v = Number(maxP.value);
+      payload.max_persons = Number.isFinite(v) && v > 0 ? v : null;
+    } else {
+      payload.max_persons = null;
+    }
 
     // Photos: start with existing
     let existingPhotos = Array.isArray(originalHotel.photos) ? originalHotel.photos.slice(0, 10) : [];
@@ -1282,6 +1297,13 @@ async function openNewHotelModal() {
 
           // pricing tiers
           payload.pricing_tiers = collectPricingTiers('newHotelPricingTiersBody');
+
+          // max persons
+          const maxPNew = document.getElementById('newHotelMaxPersons');
+          if (maxPNew && maxPNew.value) {
+            const v = Number(maxPNew.value);
+            payload.max_persons = Number.isFinite(v) && v > 0 ? v : null;
+          }
 
           // multi photos upload (up to 10)
           const photosInput = document.getElementById('newHotelPhotos');

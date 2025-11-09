@@ -293,23 +293,28 @@
       const children = Number(document.getElementById('bookingChildren').value||0);
       let nights = Number(document.getElementById('bookingNights').value||0);
       const persons = adults + children;
+      const maxPersons = Number(currentHotel.max_persons||0) || null;
       const calcNights = nightsBetween(a,d);
       if(!nights || nights!==calcNights){
         nights = calcNights;
         document.getElementById('bookingNights').value = nights;
       }
-      const price = calculateHotelPrice(currentHotel, persons, nights);
-      document.getElementById('modalHotelPrice').textContent = `${price.toFixed(2)} €`;
+      let limitedPersons = persons;
       const note = document.getElementById('hotelPriceNote');
-      const tiers = currentHotel.pricing_tiers?.rules||[];
-      const match = tiers.find(r=>Number(r.persons)===persons);
-      if(match && match.min_nights && nights < Number(match.min_nights)){
-        note.style.display='block';
-        note.className='booking-message';
-        note.textContent = `Uwaga: minimalna liczba nocy dla ${persons} os. to ${match.min_nights}. Cena naliczona za ${match.min_nights} nocy.`;
-      } else {
-        note.style.display='none';
+      let notes = [];
+      if (maxPersons && persons > maxPersons) {
+        limitedPersons = maxPersons;
+        notes.push(`Limit osób dla tego obiektu to ${maxPersons}. Cena policzona dla ${maxPersons} os.`);
       }
+      const price = calculateHotelPrice(currentHotel, limitedPersons, nights);
+      document.getElementById('modalHotelPrice').textContent = `${price.toFixed(2)} €`;
+      const tiers = currentHotel.pricing_tiers?.rules||[];
+      const match = tiers.find(r=>Number(r.persons)===limitedPersons);
+      if(match && match.min_nights && nights < Number(match.min_nights)){
+        notes.push(`Minimalna liczba nocy dla ${limitedPersons} os. to ${match.min_nights}. Cena naliczona za ${match.min_nights} nocy.`);
+      }
+      if (notes.length){ note.style.display='block'; note.className='booking-message'; note.textContent = notes.join(' '); }
+      else { note.style.display='none'; }
     }
 
     window.openHotelModal = function(idx){
@@ -336,6 +341,17 @@
       document.getElementById('modalHotelDescription').innerHTML = (h.description?.pl||'').replace(/\n/g,'<br/>');
       document.getElementById('hotelBookingForm').reset();
       document.getElementById('hotelBookingMessage').style.display='none';
+      // Enforce max persons on inputs
+      const maxPersons = Number(h.max_persons||0) || null;
+      const adultsEl = document.getElementById('bookingAdults');
+      const childrenEl = document.getElementById('bookingChildren');
+      if (maxPersons){
+        adultsEl.max = String(maxPersons);
+        childrenEl.max = String(Math.max(0, maxPersons-1));
+      } else {
+        adultsEl.removeAttribute('max');
+        childrenEl.removeAttribute('max');
+      }
       updateLivePrice();
       document.getElementById('hotelModal').classList.add('active');
       document.body.style.overflow='hidden';
@@ -372,6 +388,10 @@
         const adults = Number(fd.get('adults')||0);
         const children = Number(fd.get('children')||0);
         const persons = adults + children;
+        const maxPersons = Number(currentHotel.max_persons||0) || null;
+        if (maxPersons && persons > maxPersons) {
+          throw new Error(`Maksymalna liczba osób: ${maxPersons}`);
+        }
         const total = calculateHotelPrice(currentHotel, persons, nights);
         const payload = {
           hotel_id: currentHotel.id,
