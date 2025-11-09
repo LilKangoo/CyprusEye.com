@@ -9,14 +9,20 @@ const CORS = {
   'cache-control': 'no-store'
 };
 
-export async function onRequestOptions(context){
-  return new Response(null, { status: 204, headers: CORS });
-}
-
-export async function onRequestPost(context) {
+export async function onRequest(context) {
+  const { request, env } = context;
+  
+  // Handle OPTIONS preflight
+  if (request.method === 'OPTIONS') {
+    return new Response(null, { status: 204, headers: CORS });
+  }
+  
+  // Only allow POST
+  if (request.method !== 'POST') {
+    return json({ ok: false, error: 'Method not allowed. Use POST.' }, 405);
+  }
+  
   try {
-    const { request, env } = context;
-    
     // Check env vars
     if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
       console.error('Missing Supabase env vars');
