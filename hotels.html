@@ -67,6 +67,16 @@
     .gallery-thumbs img{width:80px;height:80px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid transparent}
     .gallery-thumbs img.active{border-color:#059669}
 
+    /* Fullscreen lightbox */
+    .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;z-index:10000}
+    .lightbox.active{display:flex}
+    .lightbox-content{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+    .lightbox-img{max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+    .lightbox-close{position:absolute;top:16px;right:16px;width:44px;height:44px;border-radius:50%;border:none;background:#fff;color:#111;cursor:pointer;font-size:1.4rem;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+    .lightbox-arrow{position:absolute;top:50%;transform:translateY(-50%);width:48px;height:48px;border-radius:50%;border:none;background:rgba(255,255,255,.9);color:#111;cursor:pointer;font-size:1.4rem;display:flex;align-items:center;justify-content:center}
+    .lightbox-prev{left:16px}
+    .lightbox-next{right:16px}
+
     @media (max-width:768px){
       .hotels-hero h1{font-size:1.5rem;margin:0 0 8px}
       .hotels-hero{padding:24px 20px}
@@ -99,6 +109,15 @@
         <a class="ghost header-link" href="/community.html">💬 Społeczność</a>
         <a class="ghost header-link" href="/trips.html">🧭 Wycieczki</a>
         <a class="ghost header-link" href="/hotels.html" aria-current="page">🏨 Hotele</a>
+      </div>
+    </div>
+    <!-- Fullscreen image lightbox -->
+    <div class="lightbox" id="imgLightbox" aria-modal="true" role="dialog">
+      <div class="lightbox-content" id="lightboxContent">
+        <button class="lightbox-arrow lightbox-prev" id="lbPrev" aria-label="Poprzednie">‹</button>
+        <img id="lbImg" class="lightbox-img" alt="Podgląd" />
+        <button class="lightbox-arrow lightbox-next" id="lbNext" aria-label="Następne">›</button>
+        <button class="lightbox-close" id="lbClose" aria-label="Zamknij">✕</button>
       </div>
     </div>
     <nav class="header-tabs" role="tablist" aria-label="Nawigacja główna">
@@ -224,6 +243,57 @@
           currentCity = btn.dataset.city;
           renderHotels();
         });
+
+    // Lightbox logic
+    let lbIndex = 0;
+    function getModalPhotos(){
+      return Array.isArray(currentHotel?.photos) ? currentHotel.photos : [];
+    }
+    function currentPhotoIndex(){
+      const src = document.getElementById('modalHotelImage').src;
+      const arr = getModalPhotos();
+      const i = arr.findIndex(u=>src.includes(u));
+      return i>=0? i: 0;
+    }
+    function showLightbox(i){
+      const arr = getModalPhotos();
+      if(!arr.length) return;
+      lbIndex = (i+arr.length)%arr.length;
+      document.getElementById('lbImg').src = arr[lbIndex];
+    }
+    function openLightbox(i){
+      if(!currentHotel) return;
+      const lb = document.getElementById('imgLightbox');
+      lb.classList.add('active');
+      showLightbox(typeof i==='number'? i : currentPhotoIndex());
+      document.addEventListener('keydown', onLbKey);
+    }
+    function closeLightbox(){
+      const lb = document.getElementById('imgLightbox');
+      lb.classList.remove('active');
+      document.removeEventListener('keydown', onLbKey);
+    }
+    function onLbKey(e){
+      if(e.key==='Escape') return closeLightbox();
+      if(e.key==='ArrowRight') return showLightbox(lbIndex+1);
+      if(e.key==='ArrowLeft') return showLightbox(lbIndex-1);
+    }
+    document.getElementById('lbClose').addEventListener('click', closeLightbox);
+    document.getElementById('lbNext').addEventListener('click', ()=>showLightbox(lbIndex+1));
+    document.getElementById('lbPrev').addEventListener('click', ()=>showLightbox(lbIndex-1));
+    // backdrop click
+    document.getElementById('imgLightbox').addEventListener('click', (e)=>{ if(e.target.id==='imgLightbox') closeLightbox(); });
+    // touch swipe
+    (function(){
+      const el = document.getElementById('lightboxContent');
+      let sx = null, sy = null;
+      el.addEventListener('touchstart', (e)=>{ const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; }, {passive:true});
+      el.addEventListener('touchend', (e)=>{
+        if(sx==null) return; const t=e.changedTouches[0];
+        const dx = t.clientX - sx; const dy = t.clientY - sy; sx=sy=null;
+        if(Math.abs(dx)>60 && Math.abs(dy)<80){ if(dx<0) showLightbox(lbIndex+1); else showLightbox(lbIndex-1); }
+      }, {passive:true});
+    })();
       });
     }
 
@@ -319,6 +389,8 @@
       const image = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png';
       const imgEl = document.getElementById('modalHotelImage');
       imgEl.src = image;
+      // click main image to open lightbox
+      imgEl.onclick = () => openLightbox();
       const thumbsWrap = document.getElementById('modalHotelThumbs');
       const photos = Array.isArray(h.photos)? h.photos: [];
       thumbsWrap.innerHTML = photos.map((u,i)=>`<img src="${u}" alt="miniatura" class="${i===0?'active':''}" data-src="${u}" />`).join('');
@@ -327,6 +399,8 @@
           thumbsWrap.querySelectorAll('img').forEach(t=>t.classList.remove('active'));
           el.classList.add('active');
           imgEl.src = el.dataset.src;
+          // also allow opening from thumb via double click
+          el.ondblclick = () => openLightbox();
         });
       });
       document.getElementById('modalHotelTitle').textContent = title;
