@@ -161,9 +161,20 @@ document.addEventListener('DOMContentLoaded', ()=>{
         total_price: total,
         status: 'pending'
       };
-      const { supabase } = await import('/js/supabaseClient.js');
-      const { error } = await supabase.from('hotel_bookings').insert([payload]).select().single();
-      if (error) throw error;
+      // First try via secure function (bypasses RLS in production)
+      let ok = false; let errMsg = '';
+      try{
+        const res = await fetch('/hotel/booking', { method:'POST', headers:{ 'content-type':'application/json' }, body: JSON.stringify(payload) });
+        const json = await res.json().catch(()=>({}));
+        if (res.ok && json?.ok) { ok = true; }
+        else { errMsg = json?.error || `HTTP ${res.status}`; }
+      }catch(fnErr){ errMsg = fnErr.message; }
+      if (!ok){
+        // Fallback to direct insert (dev environments)
+        const { supabase } = await import('/js/supabaseClient.js');
+        const { error } = await supabase.from('hotel_bookings').insert([payload]).select().single();
+        if (error) throw error;
+      }
       if (msg){ msg.className='booking-message success'; msg.textContent='Rezerwacja przyjęta! Skontaktujemy się wkrótce.'; msg.style.display='block'; }
       form.reset();
       updateHotelLivePrice();
