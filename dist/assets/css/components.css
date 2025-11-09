@@ -41,7 +41,7 @@
   object-fit: cover;
   border-radius: 24px 24px 0 0;
 }
-.trip-modal-header { padding: 32px; border-bottom: 1px solid #e5e7eb; }
+.trip-modal-header { padding: 32px; border-bottom: 1px solid #e5e7eb; text-align: center; }
 .trip-modal-close {
   position: absolute; top: 16px; right: 16px;
   width: 40px; height: 40px; border-radius: 50%; border: none;
@@ -91,6 +91,12 @@
 .trip-modal-nav.prev { left: 10px; }
 .trip-modal-nav.next { right: 10px; }
 .trip-modal-nav:disabled { opacity: .4; cursor: default; }
+
+@media (min-width: 1024px){
+  /* Move arrows slightly outside content on desktop */
+  .trip-modal-nav.prev { left: -22px; }
+  .trip-modal-nav.next { right: -22px; }
+}
 
 /* Detail modal (shared) */
 .detail-modal[hidden] { display: none; }
