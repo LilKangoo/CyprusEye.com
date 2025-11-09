@@ -20,6 +20,9 @@
   <link rel="stylesheet" href="/assets/css/tokens.css" />
   <link rel="stylesheet" href="/assets/css/base.css" />
   <link rel="stylesheet" href="/assets/css/components.css" />
+  <link rel="stylesheet" href="/assets/css/header-metrics.css" />
+  <link rel="stylesheet" href="/assets/css/language-switcher.css" />
+  <link rel="stylesheet" href="/assets/css/language-selector.css" />
   <link rel="stylesheet" href="/assets/css/mobile.css" />
   <link rel="stylesheet" href="/assets/css/mobile-nav.css" />
   <link rel="stylesheet" href="/css/toast.css" />
@@ -37,9 +40,10 @@
     .hotel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px}
 
     /* Modal (mirrors Trips) */
-    .trip-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:none;align-items:flex-start;justify-content:center;z-index:99999;padding:20px 20px 20px 20px;padding-top:var(--header-offset,0px);overflow:hidden;overscroll-behavior:contain}
-    .trip-modal.active{display:flex}
-    .trip-modal-content{background:#fff;border-radius:24px;max-width:900px;width:100%;max-height:calc(100vh - var(--header-offset,0px) - 40px);overflow:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.3);-webkit-overflow-scrolling:touch}
+    /* Modal as page section (no overlay scroll, page scrolls) */
+    .trip-modal{display:none;margin:24px auto 40px;max-width:1000px;padding:0 16px}
+    .trip-modal.active{display:block}
+    .trip-modal-content{background:#fff;border-radius:24px;max-width:100%;width:100%;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.12)}
     .trip-modal-image{width:100%;max-height:70vh;height:auto;object-fit:contain;border-radius:24px 24px 0 0;background:#000}
     .trip-modal-header{padding:32px;border-bottom:1px solid #e5e7eb}
     .trip-modal-close{position:absolute;top:16px;right:16px;width:40px;height:40px;border-radius:50%;border:none;background:#fff;cursor:pointer;font-size:1.5rem;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:10;transition:.2s}
@@ -88,16 +92,14 @@
       .form-row{grid-template-columns:1fr}
     }
 
-    /* Sticky, visible header */
-    .app-header{position:sticky;top:0;z-index:1000;background:rgba(255,255,255,.85);backdrop-filter:saturate(180%) blur(10px);-webkit-backdrop-filter:saturate(180%) blur(10px);border-bottom:1px solid #e5e7eb}
-    .header-top{max-width:1200px;margin:0 auto;padding:12px 16px}
-    .header-tabs{position:sticky;top:0;z-index:1001;background:transparent;padding:8px 16px;max-width:1200px;margin:0 auto}
-    .hotels-hero{margin-top:8px}
+    /* Header uses global styles from base/components; avoid local overrides here */
+    /* Ensure page content starts after header ends */
+    .app-header{ margin-bottom: 16px; }
 
     /* Sticky footer layout */
     html, body { height:100%; }
     body { display:flex; flex-direction:column; }
-    body.modal-open { overflow:hidden; position:relative; touch-action:none; }
+    /* Page scrolls normally on modal open */
     main { flex:1 0 auto; }
     .app-footer { margin-top:auto; }
   </style>
@@ -108,29 +110,36 @@
   <script type="module" src="/js/auth.js"></script>
   <script type="module" src="/js/authUi.js"></script>
 </head>
-<body>
+<body data-navigation="multi-page" data-seo-page="hotels">
   <header class="app-header">
     <div class="header-top">
       <div class="brand">
-        <img src="/assets/cyprus_logo-1000x1054.png" alt="CyprusEye – logo" width="64" height="64" />
+        <img src="/assets/cyprus_logo-1000x1054.png" alt="WakacjeCypr.com – logo żółwia z flagą Polski" width="1000" height="1054" loading="eager" fetchpriority="high" />
         <div class="brand-title">
           <p class="brand-name">WakacjeCypr <span>Quest</span></p>
-          <p class="tagline">Znajdź idealne zakwaterowanie i zarezerwuj!</p>
+          <p class="tagline">Explore Cyprus in an interactive way — earn badges, experience, and discover our best offers.</p>
         </div>
       </div>
-      <div class="header-actions">
-        <a class="ghost header-link" href="/community.html">💬 Społeczność</a>
-        <a class="ghost header-link" href="/trips.html">🧭 Wycieczki</a>
-        <a class="ghost header-link" href="/hotels.html" aria-current="page">🏨 Hotele</a>
-      </div>
-    </div>
-    <!-- Fullscreen image lightbox -->
-    <div class="lightbox" id="imgLightbox" aria-modal="true" role="dialog">
-      <div class="lightbox-content" id="lightboxContent">
-        <button class="lightbox-arrow lightbox-prev" id="lbPrev" aria-label="Poprzednie">‹</button>
-        <img id="lbImg" class="lightbox-img" alt="Podgląd" />
-        <button class="lightbox-arrow lightbox-next" id="lbNext" aria-label="Następne">›</button>
-        <button class="lightbox-close" id="lbClose" aria-label="Zamknij">✕</button>
+      <div class="header-top-actions">
+        <div class="header-auth-controls">
+          <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
+            <button class="btn btn-sm" data-auth="login">Zaloguj</button>
+            <button class="btn btn-sm" data-auth="guest">Gość</button>
+            <button class="btn btn-sm" data-auth="logout">Wyloguj</button>
+            <button id="sosToggle" class="btn btn-sm btn-danger" type="button">🚨 SOS</button>
+          </div>
+          <div data-auth="spinner" class="auth-spinner-inline" hidden>Łączenie...</div>
+        </div>
+        <div class="header-actions" aria-label="Szybkie działania">
+          <div class="header-actions-primary">
+            <a class="ghost header-link" href="/community.html">💬 Społeczność</a>
+            <a class="ghost header-link" href="/kupon.html">🎟️ Kupon</a>
+            <a class="ghost header-link" href="/car-rental-landing.html">🚗 Wynajem auta</a>
+            <a class="ghost header-link" href="/trips.html" aria-label="Wycieczki">🧭 Wycieczki</a>
+            <a class="ghost header-link" href="/hotels.html" aria-current="page" aria-label="Hotele">🏨 Hotele</a>
+            <a class="ghost header-link" href="/vip.html">✨ VIP wyjazdy</a>
+          </div>
+        </div>
       </div>
     </div>
     <nav class="header-tabs" role="tablist" aria-label="Nawigacja główna">
@@ -231,6 +240,23 @@
     <p>© <span data-current-year></span> WakacjeCypr.com</p>
   </footer>
 
+  <!-- Fullscreen Lightbox Markup -->
+  <div class="lightbox" id="imgLightbox">
+    <div class="lightbox-content" id="lightboxContent">
+      <img id="lbImg" class="lightbox-img" alt="Podgląd zdjęcia" />
+      <button id="lbClose" class="lightbox-close" type="button" aria-label="Zamknij">✕</button>
+      <button id="lbPrev" class="lightbox-arrow lightbox-prev" type="button" aria-label="Poprzednie">‹</button>
+      <button id="lbNext" class="lightbox-arrow lightbox-next" type="button" aria-label="Następne">›</button>
+    </div>
+  </div>
+
+  <!-- Header scripts for consistency with index -->
+  <script src="/js/languageSelector.js" defer></script>
+  <script src="/js/i18n.js" defer></script>
+  <script src="/js/header-stats.js" defer></script>
+  <script src="/js/seo.js" defer></script>
+  <script src="/js/mobile-nav.js" defer></script>
+
   <script type="module">
     import { supabase } from '/js/supabaseClient.js';
 
@@ -256,8 +282,10 @@
           currentCity = btn.dataset.city;
           renderHotels();
         });
+      });
+    }
 
-    // Lightbox logic
+    // Lightbox logic (guarded by element existence)
     let lbIndex = 0;
     function getModalPhotos(){
       return Array.isArray(currentHotel?.photos) ? currentHotel.photos : [];
@@ -272,17 +300,20 @@
       const arr = getModalPhotos();
       if(!arr.length) return;
       lbIndex = (i+arr.length)%arr.length;
-      document.getElementById('lbImg').src = arr[lbIndex];
+      const img = document.getElementById('lbImg');
+      if(img) img.src = arr[lbIndex];
     }
     function openLightbox(i){
       if(!currentHotel) return;
       const lb = document.getElementById('imgLightbox');
+      if(!lb) return;
       lb.classList.add('active');
       showLightbox(typeof i==='number'? i : currentPhotoIndex());
       document.addEventListener('keydown', onLbKey);
     }
     function closeLightbox(){
       const lb = document.getElementById('imgLightbox');
+      if(!lb) return;
       lb.classList.remove('active');
       document.removeEventListener('keydown', onLbKey);
     }
@@ -291,24 +322,27 @@
       if(e.key==='ArrowRight') return showLightbox(lbIndex+1);
       if(e.key==='ArrowLeft') return showLightbox(lbIndex-1);
     }
-    document.getElementById('lbClose').addEventListener('click', closeLightbox);
-    document.getElementById('lbNext').addEventListener('click', ()=>showLightbox(lbIndex+1));
-    document.getElementById('lbPrev').addEventListener('click', ()=>showLightbox(lbIndex-1));
-    // backdrop click
-    document.getElementById('imgLightbox').addEventListener('click', (e)=>{ if(e.target.id==='imgLightbox') closeLightbox(); });
-    // touch swipe
-    (function(){
-      const el = document.getElementById('lightboxContent');
-      let sx = null, sy = null;
-      el.addEventListener('touchstart', (e)=>{ const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; }, {passive:true});
-      el.addEventListener('touchend', (e)=>{
+    // Bind only if elements exist
+    (function bindLightbox(){
+      const lb = document.getElementById('imgLightbox');
+      const content = document.getElementById('lightboxContent');
+      const closeBtn = document.getElementById('lbClose');
+      const nextBtn = document.getElementById('lbNext');
+      const prevBtn = document.getElementById('lbPrev');
+      if(!lb || !content || !closeBtn || !nextBtn || !prevBtn) return;
+      closeBtn.addEventListener('click', closeLightbox);
+      nextBtn.addEventListener('click', ()=>showLightbox(lbIndex+1));
+      prevBtn.addEventListener('click', ()=>showLightbox(lbIndex-1));
+      lb.addEventListener('click', (e)=>{ if(e.target.id==='imgLightbox') closeLightbox(); });
+      // touch swipe
+      let sx=null, sy=null;
+      content.addEventListener('touchstart', (e)=>{ const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; }, {passive:true});
+      content.addEventListener('touchend', (e)=>{
         if(sx==null) return; const t=e.changedTouches[0];
         const dx = t.clientX - sx; const dy = t.clientY - sy; sx=sy=null;
         if(Math.abs(dx)>60 && Math.abs(dy)<80){ if(dx<0) showLightbox(lbIndex+1); else showLightbox(lbIndex-1); }
       }, {passive:true});
     })();
-      });
-    }
 
     function priceSummary(h){
       const tiers = h.pricing_tiers?.rules || [];
@@ -434,45 +468,20 @@
       }
       updateLivePrice();
       const modalEl = document.getElementById('hotelModal');
-      // position modal content just below header
-      const header = document.querySelector('.app-header');
-      const offset = header ? header.offsetHeight : 0;
-      modalEl.style.setProperty('--header-offset', offset + 'px');
-      function __onResize(){
-        const h = document.querySelector('.app-header');
-        modalEl.style.setProperty('--header-offset', (h?h.offsetHeight:0)+'px');
-      }
-      window.addEventListener('resize', __onResize);
-      modalEl.__onResize = __onResize;
       modalEl.classList.add('active');
-      // reset scroll positions so the modal starts at the top
-      const modalContent = modalEl.querySelector('.trip-modal-content');
-      function resetScroll(){
-        try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); } catch(_) { window.scrollTo(0,0); }
-        document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
-        modalEl.scrollTop = 0;
-        if(modalContent && modalContent.scrollIntoView){ modalContent.scrollIntoView({ block: 'start', inline: 'nearest' }); }
-      }
-      resetScroll();
-      // do it once more after paint to be safe on mobile browsers
-      requestAnimationFrame(()=>{ resetScroll(); setTimeout(resetScroll, 50); });
-      document.body.style.overflow='hidden';
-      document.body.classList.add('modal-open');
+      // Scroll page to the modal block under header
+      const headerEl = document.querySelector('.app-header');
+      const top = modalEl.getBoundingClientRect().top + window.scrollY - (headerEl? 8: 0);
+      try { window.scrollTo({ top, behavior:'smooth' }); } catch(_) { window.scrollTo(0, top); }
     }
 
     window.closeHotelModal = function(){
       const modalEl = document.getElementById('hotelModal');
       modalEl.classList.remove('active');
-      if(modalEl.__onResize){ window.removeEventListener('resize', modalEl.__onResize); delete modalEl.__onResize; }
-      document.body.style.overflow='';
-      document.body.classList.remove('modal-open');
       currentHotel = null;
     }
 
-    // Close modal on backdrop click
-    document.getElementById('hotelModal').addEventListener('click', function(e){
-      if (e.target === this) closeHotelModal();
-    });
+    // No backdrop; close via button only
 
     document.getElementById('arrivalDate').addEventListener('change', updateLivePrice);
     document.getElementById('departureDate').addEventListener('change', updateLivePrice);
