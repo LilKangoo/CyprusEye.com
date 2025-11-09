@@ -389,22 +389,19 @@
             <p class="status" id="checkInStatus"></p>
           </div>
         </section>
-      </div>
 
-      <aside class="sidebar-column">
-        <section class="grid adventure-shortcuts" aria-label="Szybkie przejścia" data-tour-target="shortcut-cards">
+        <!-- Home panels: 2 columns (Trips + Hotels) under the map -->
+        <section class="grid home-panels-2col" aria-label="Oferty i zakwaterowania">
           <!-- Trips Section -->
           <div
             class="adventure-shortcut-card card surface-card trips-home-section"
             id="tripsHomeSection"
-            style="grid-column: 1 / -1;"
+            style="grid-column: auto;"
           >
             <h2 style="margin: 0 0 16px; font-size: 1.5rem; font-weight: 700;">🚤 Wycieczki</h2>
             <p style="margin: 0 0 20px; color: #6b7280; font-size: 0.95rem;">
               Wybierz miasto i przeglądaj najlepsze wycieczki na Cyprze
             </p>
-            
-            <!-- City Tabs -->
             <div class="trips-home-tabs" style="display: flex; gap: 12px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 8px;">
               <button class="trips-home-tab active" data-city="all" style="padding: 8px 16px; background: #667eea; color: white; border: none; border-radius: 20px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: all 0.2s;">
                 Wszystkie miasta
@@ -422,15 +419,11 @@
                 Nicosia
               </button>
             </div>
-
-            <!-- Trips Grid -->
             <div id="tripsHomeGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px;">
               <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: #9ca3af;">
                 Ładowanie wycieczek...
               </div>
             </div>
-
-            <!-- View All Link -->
             <a
               href="trips.html"
               class="btn btn-primary primary"
@@ -444,7 +437,7 @@
           <div
             class="adventure-shortcut-card card surface-card hotels-home-section"
             id="hotelsHomeSection"
-            style="grid-column: 1 / -1;"
+            style="grid-column: auto;"
           >
             <h2 style="margin: 0 0 16px; font-size: 1.5rem; font-weight: 700;">🏨 Zakwaterowania</h2>
             <p style="margin: 0 0 20px; color: #6b7280; font-size: 0.95rem;">
@@ -460,7 +453,10 @@
               Zobacz wszystkie hotele →
             </a>
           </div>
+        </section>
 
+        <!-- Remaining shortcut cards in single column -->
+        <section class="grid home-panels-1col" aria-label="Skróty do funkcji">
           <a
             class="adventure-shortcut-card card surface-card"
             id="openPackingFromAdventure"
@@ -540,7 +536,9 @@
             <span class="adventure-shortcut-cta btn btn-secondary secondary">Zobacz wycieczki</span>
           </a>
         </section>
-      </aside>
+      </div>
+
+      <aside class="sidebar-column"><!-- moved panels into primary column for full-width map layout --></aside>
 
       <!-- Discovery grid removed; replaced by Community list -->
 
