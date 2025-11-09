@@ -91,11 +91,7 @@
       .form-row{grid-template-columns:1fr}
     }
 
-    /* Sticky, visible header */
-    .app-header{position:sticky;top:0;z-index:1000;background:rgba(255,255,255,.85);backdrop-filter:saturate(180%) blur(10px);-webkit-backdrop-filter:saturate(180%) blur(10px);border-bottom:1px solid #e5e7eb}
-    .header-top{max-width:1200px;margin:0 auto;padding:12px 16px}
-    .header-tabs{position:sticky;top:0;z-index:1001;background:transparent;padding:8px 16px;max-width:1200px;margin:0 auto}
-    .hotels-hero{margin-top:8px}
+    /* Header uses global styles from base/components; avoid local overrides here */
 
     /* Sticky footer layout */
     html, body { height:100%; }
@@ -241,6 +237,16 @@
     <p>© <span data-current-year></span> WakacjeCypr.com</p>
   </footer>
 
+  <!-- Fullscreen Lightbox Markup -->
+  <div class="lightbox" id="imgLightbox">
+    <div class="lightbox-content" id="lightboxContent">
+      <img id="lbImg" class="lightbox-img" alt="Podgląd zdjęcia" />
+      <button id="lbClose" class="lightbox-close" type="button" aria-label="Zamknij">✕</button>
+      <button id="lbPrev" class="lightbox-arrow lightbox-prev" type="button" aria-label="Poprzednie">‹</button>
+      <button id="lbNext" class="lightbox-arrow lightbox-next" type="button" aria-label="Następne">›</button>
+    </div>
+  </div>
+
   <!-- Header scripts for consistency with index -->
   <script src="/js/languageSelector.js" defer></script>
   <script src="/js/i18n.js" defer></script>
@@ -273,8 +279,10 @@
           currentCity = btn.dataset.city;
           renderHotels();
         });
+      });
+    }
 
-    // Lightbox logic
+    // Lightbox logic (guarded by element existence)
     let lbIndex = 0;
     function getModalPhotos(){
       return Array.isArray(currentHotel?.photos) ? currentHotel.photos : [];
@@ -289,17 +297,20 @@
       const arr = getModalPhotos();
       if(!arr.length) return;
       lbIndex = (i+arr.length)%arr.length;
-      document.getElementById('lbImg').src = arr[lbIndex];
+      const img = document.getElementById('lbImg');
+      if(img) img.src = arr[lbIndex];
     }
     function openLightbox(i){
       if(!currentHotel) return;
       const lb = document.getElementById('imgLightbox');
+      if(!lb) return;
       lb.classList.add('active');
       showLightbox(typeof i==='number'? i : currentPhotoIndex());
       document.addEventListener('keydown', onLbKey);
     }
     function closeLightbox(){
       const lb = document.getElementById('imgLightbox');
+      if(!lb) return;
       lb.classList.remove('active');
       document.removeEventListener('keydown', onLbKey);
     }
@@ -308,24 +319,27 @@
       if(e.key==='ArrowRight') return showLightbox(lbIndex+1);
       if(e.key==='ArrowLeft') return showLightbox(lbIndex-1);
     }
-    document.getElementById('lbClose').addEventListener('click', closeLightbox);
-    document.getElementById('lbNext').addEventListener('click', ()=>showLightbox(lbIndex+1));
-    document.getElementById('lbPrev').addEventListener('click', ()=>showLightbox(lbIndex-1));
-    // backdrop click
-    document.getElementById('imgLightbox').addEventListener('click', (e)=>{ if(e.target.id==='imgLightbox') closeLightbox(); });
-    // touch swipe
-    (function(){
-      const el = document.getElementById('lightboxContent');
-      let sx = null, sy = null;
-      el.addEventListener('touchstart', (e)=>{ const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; }, {passive:true});
-      el.addEventListener('touchend', (e)=>{
+    // Bind only if elements exist
+    (function bindLightbox(){
+      const lb = document.getElementById('imgLightbox');
+      const content = document.getElementById('lightboxContent');
+      const closeBtn = document.getElementById('lbClose');
+      const nextBtn = document.getElementById('lbNext');
+      const prevBtn = document.getElementById('lbPrev');
+      if(!lb || !content || !closeBtn || !nextBtn || !prevBtn) return;
+      closeBtn.addEventListener('click', closeLightbox);
+      nextBtn.addEventListener('click', ()=>showLightbox(lbIndex+1));
+      prevBtn.addEventListener('click', ()=>showLightbox(lbIndex-1));
+      lb.addEventListener('click', (e)=>{ if(e.target.id==='imgLightbox') closeLightbox(); });
+      // touch swipe
+      let sx=null, sy=null;
+      content.addEventListener('touchstart', (e)=>{ const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; }, {passive:true});
+      content.addEventListener('touchend', (e)=>{
         if(sx==null) return; const t=e.changedTouches[0];
         const dx = t.clientX - sx; const dy = t.clientY - sy; sx=sy=null;
         if(Math.abs(dx)>60 && Math.abs(dy)<80){ if(dx<0) showLightbox(lbIndex+1); else showLightbox(lbIndex-1); }
       }, {passive:true});
     })();
-      });
-    }
 
     function priceSummary(h){
       const tiers = h.pricing_tiers?.rules || [];
