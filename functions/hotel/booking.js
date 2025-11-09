@@ -1,5 +1,18 @@
 import { createSupabaseClients } from '../_utils/supabaseAdmin.js';
 
+const CORS = {
+  'access-control-allow-origin': '*',
+  'access-control-allow-methods': 'POST, OPTIONS',
+  'access-control-allow-headers': 'content-type, authorization',
+  'access-control-max-age': '86400',
+  'content-type': 'application/json; charset=utf-8',
+  'cache-control': 'no-store'
+};
+
+export async function onRequestOptions(context){
+  return new Response(null, { status: 204, headers: CORS });
+}
+
 export async function onRequestPost(context) {
   try {
     const { request, env } = context;
@@ -46,11 +59,5 @@ export async function onRequestPost(context) {
 }
 
 function json(obj, status = 200) {
-  return new Response(JSON.stringify(obj), {
-    status,
-    headers: {
-      'content-type': 'application/json; charset=utf-8',
-      'cache-control': 'no-store'
-    }
-  });
+  return new Response(JSON.stringify(obj), { status, headers: CORS });
 }
