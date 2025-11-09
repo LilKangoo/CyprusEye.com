@@ -51,7 +51,7 @@
             <label>Data wyjazdu<input name="departure_date" id="departure" type="date" required /></label>
             <label>Liczba dorosłych<input name="adults" id="adults" type="number" min="1" value="2" required /></label>
             <label>Dzieci<input name="children" id="children" type="number" min="0" value="0" /></label>
-            <label>Noclegi<input name="nights" id="nights" type="number" min="1" value="1" required /></label>
+            
             <label style="grid-column:1/-1">Uwagi (opcjonalnie)<textarea name="note" rows="2"></textarea></label>
             <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;">
               <div id="priceLive" class="price-live">Cena: —</div>
@@ -97,10 +97,10 @@
       if(!hotel) return;
       const a=$('#arrival').value, d=$('#departure').value;
       const adults=Number($('#adults').value||0), children=Number($('#children').value||0);
-      let nights=Number($('#nights').value||0);
+      let nights=0;
       const persons=adults+children;
       const calcN=nightsBetween(a,d);
-      if(!nights || nights!==calcN){ nights=calcN; $('#nights').value=nights; }
+      nights=calcN;
       const total=calcPrice(hotel,persons,nights);
       $('#priceLive').textContent = `Cena: ${total.toFixed(2)} €`;
       const tiers = hotel.pricing_tiers?.rules || [];
@@ -140,7 +140,7 @@
       $('#hDesc').innerHTML = (hotel.description?.pl || '').replace(/\n/g,'<br/>');
       updateLive();
       $('#bookForm').addEventListener('input', (e)=>{
-        if(['arrival_date','departure_date','adults','children','nights'].includes(e.target.name)) updateLive();
+        if(['arrival_date','departure_date','adults','children'].includes(e.target.name)) updateLive();
       });
       $('#bookForm').addEventListener('submit', submitBooking);
     }

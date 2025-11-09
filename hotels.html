@@ -174,10 +174,6 @@
                   <label>Dzieci</label>
                   <input type="number" name="children" id="bookingChildren" min="0" value="0" />
                 </div>
-                <div class="form-field">
-                  <label>Noclegi</label>
-                  <input type="number" name="nights" id="bookingNights" min="1" value="1" />
-                </div>
               </div>
               <div class="form-field">
                 <label>Uwagi (opcjonalnie)</label>
@@ -291,14 +287,11 @@
       const d = document.getElementById('departureDate').value;
       const adults = Number(document.getElementById('bookingAdults').value||0);
       const children = Number(document.getElementById('bookingChildren').value||0);
-      let nights = Number(document.getElementById('bookingNights').value||0);
+      let nights = 0;
       const persons = adults + children;
       const maxPersons = Number(currentHotel.max_persons||0) || null;
       const calcNights = nightsBetween(a,d);
-      if(!nights || nights!==calcNights){
-        nights = calcNights;
-        document.getElementById('bookingNights').value = nights;
-      }
+      nights = calcNights;
       let limitedPersons = persons;
       const note = document.getElementById('hotelPriceNote');
       let notes = [];
@@ -372,7 +365,7 @@
     document.getElementById('departureDate').addEventListener('change', updateLivePrice);
     document.getElementById('bookingAdults').addEventListener('input', updateLivePrice);
     document.getElementById('bookingChildren').addEventListener('input', updateLivePrice);
-    document.getElementById('bookingNights').addEventListener('input', updateLivePrice);
+    
 
     document.getElementById('hotelBookingForm').addEventListener('submit', async (e)=>{
       e.preventDefault();
