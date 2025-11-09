@@ -125,25 +125,53 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const modal = document.getElementById('hotelModal');
   if (modal) modal.addEventListener('click', (e)=>{ if (e.target === modal) closeHotelModal(); });
 
-  // Form submit with RLS fallback
+  // Clear message on form change
   const form = document.getElementById('hotelBookingForm');
+  if (form) {
+    form.addEventListener('input', () => {
+      const msg = document.getElementById('hotelBookingMessage');
+      if(msg && msg.style.display !== 'none') {
+        msg.style.display = 'none';
+        msg.textContent = '';
+      }
+    });
+  }
+  
+  // Setup date constraints (once, not per modal open)
+  const arrivalEl = document.getElementById('arrivalDate');
+  const departureEl = document.getElementById('departureDate');
+  if (arrivalEl && departureEl) {
+    arrivalEl.addEventListener('change', () => {
+      if (arrivalEl.value) {
+        departureEl.min = arrivalEl.value;
+        // If departure is before arrival, clear it
+        if (departureEl.value && departureEl.value < arrivalEl.value) {
+          departureEl.value = '';
+        }
+      }
+    });
+  }
+  
+  // Form submit with RLS fallback
   if (form) form.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const msg = document.getElementById('hotelBookingMessage');
     const btn = e.target.querySelector('.booking-submit');
-    let success = false;
     
-    // Hide previous messages
-    if(msg) msg.style.display='none';
+    // ALWAYS hide previous messages first
+    if(msg) { msg.style.display='none'; msg.textContent=''; }
+    
+    // Validate form BEFORE doing anything else
+    if(!e.target.checkValidity()){
+      console.warn('Form validation failed - missing required fields');
+      e.target.reportValidity();
+      return; // Stop here - don't proceed
+    }
+    
+    let success = false;
     
     try{
       if(!homeCurrentHotel) throw new Error('Brak oferty');
-      
-      // Validate form
-      if(!e.target.checkValidity()){
-        e.target.reportValidity();
-        return;
-      }
       
       btn.disabled=true; btn.textContent='Wysyłanie...';
       const fd = new FormData(e.target);
@@ -179,6 +207,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
         total_price: total,
         status: 'pending'
       };
+      
+      console.log('📤 Sending booking payload:', payload);
       
       // Try direct insert first (works if RLS allows anonymous)
       try{
@@ -342,6 +372,14 @@ window.openHotelModalHome = function(index){
 
   const form = document.getElementById('hotelBookingForm');
   if (form){ form.reset(); const msg=document.getElementById('hotelBookingMessage'); if(msg) msg.style.display='none'; }
+  
+  // Set date min constraints to today
+  const today = new Date().toISOString().split('T')[0];
+  const arrivalEl = document.getElementById('arrivalDate');
+  const departureEl = document.getElementById('departureDate');
+  if (arrivalEl) arrivalEl.min = today;
+  if (departureEl) departureEl.min = today;
+  
   // max persons
   const maxPersons = Number(h.max_persons||0) || null;
   const adultsEl = document.getElementById('bookingAdults');
