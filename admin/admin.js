@@ -847,6 +847,21 @@ async function openNewTripModal() {
           }
         };
       }
+      // Pricing tiers editor init
+      renderPricingTiers('newHotelPricingTiersBody', []);
+      const btnAddNewTier = document.getElementById('btnAddNewHotelTier');
+      if (btnAddNewTier && !btnAddNewTier.dataset.bound) {
+        btnAddNewTier.addEventListener('click', () => addPricingTierRow('newHotelPricingTiersBody'));
+        btnAddNewTier.dataset.bound = '1';
+      }
+
+      // Photos multiple preview
+      const multiPhotos = document.getElementById('newHotelPhotos');
+      const multiPreview = document.getElementById('newHotelPhotosPreview');
+      if (multiPhotos && multiPreview) {
+        multiPhotos.onchange = () => previewLocalImages(multiPhotos, multiPreview, 10);
+      }
+
       form.onsubmit = async (ev) => {
         ev.preventDefault();
         try {
@@ -963,9 +978,22 @@ async function loadHotelsAdminData() {
       return;
     }
 
+    function formatHotelPriceSummary(h) {
+      try {
+        const tiers = h.pricing_tiers && h.pricing_tiers.rules ? h.pricing_tiers.rules : [];
+        if (!tiers || tiers.length === 0) return '-';
+        // prefer price for 2 persons, otherwise min price
+        const by2 = tiers.find(t => Number(t.persons) === 2 && t.price_per_night != null);
+        const price = by2 ? Number(by2.price_per_night) : Math.min(...tiers.map(t => Number(t.price_per_night || Infinity)));
+        if (!isFinite(price)) return '-';
+        return `€${price.toFixed(2)}/night`;
+      } catch (_) { return '-'; }
+    }
+
     tbody.innerHTML = hotels.map(h => {
       const title = (h.title && (h.title.pl || h.title.en)) || h.slug || h.id;
       const updated = h.updated_at ? new Date(h.updated_at).toLocaleString('en-GB') : '-';
+      const priceSummary = formatHotelPriceSummary(h);
       return `
         <tr>
           <td>
@@ -973,6 +1001,7 @@ async function loadHotelsAdminData() {
           </td>
           <td>${escapeHtml(h.slug || '')}</td>
           <td>${escapeHtml(h.city || '')}</td>
+          <td>${escapeHtml(priceSummary)}</td>
           <td>
             <label class="admin-switch" title="Toggle publish">
               <input type="checkbox" ${h.is_published ? 'checked' : ''} onchange="toggleHotelPublish('${h.id}', this.checked)">
@@ -1068,6 +1097,38 @@ async function editHotel(hotelId) {
       };
     }
 
+    // Pricing tiers populate
+    renderPricingTiers('editHotelPricingTiersBody', hotel.pricing_tiers && hotel.pricing_tiers.rules ? hotel.pricing_tiers.rules : []);
+    const btnAddEditTier = document.getElementById('btnAddEditHotelTier');
+    if (btnAddEditTier && btnAddEditTier.dataset.boundFor !== hotel.id) {
+      btnAddEditTier.addEventListener('click', () => addPricingTierRow('editHotelPricingTiersBody'));
+      btnAddEditTier.dataset.boundFor = hotel.id;
+    }
+
+    // Photos preview existing
+    const photosWrap = document.getElementById('editHotelPhotosPreview');
+    if (photosWrap) {
+      photosWrap.innerHTML = '';
+      const photos = Array.isArray(hotel.photos) ? hotel.photos : [];
+      photos.slice(0, 10).forEach(url => {
+        const img = document.createElement('img');
+        img.src = url;
+        img.alt = 'photo';
+        img.style.width = '72px';
+        img.style.height = '72px';
+        img.style.objectFit = 'cover';
+        img.style.borderRadius = '6px';
+        img.loading = 'lazy';
+        photosWrap.appendChild(img);
+      });
+    }
+
+    // Bind file input for extra photos
+    const editPhotosInput = document.getElementById('editHotelPhotos');
+    if (editPhotosInput && photosWrap) {
+      editPhotosInput.onchange = () => previewLocalImages(editPhotosInput, photosWrap, 10);
+    }
+
     form.onsubmit = async (e) => {
       e.preventDefault();
       await handleEditHotelSubmit(e, hotel);
@@ -1099,6 +1160,19 @@ async function handleEditHotelSubmit(event, originalHotel) {
     payload.updated_at = new Date().toISOString();
 
     const hotelId = document.getElementById('editHotelId').value;
+
+    // pricing tiers
+    payload.pricing_tiers = collectPricingTiers('editHotelPricingTiersBody');
+
+    // Photos: start with existing
+    let existingPhotos = Array.isArray(originalHotel.photos) ? originalHotel.photos.slice(0, 10) : [];
+    const addFilesInput = document.getElementById('editHotelPhotos');
+    if (addFilesInput && addFilesInput.files && addFilesInput.files.length) {
+      const toUpload = Array.from(addFilesInput.files).slice(0, Math.max(0, 10 - existingPhotos.length));
+      const newUrls = await uploadHotelPhotosBatch(payload.slug || originalHotel.slug, toUpload);
+      existingPhotos = existingPhotos.concat(newUrls).slice(0, 10);
+    }
+    payload.photos = existingPhotos;
 
     const { error } = await client
       .from('hotels')
@@ -1205,6 +1279,18 @@ async function openNewHotelModal() {
             coverUrl = pub?.publicUrl || '';
           }
           if (coverUrl) payload.cover_image_url = coverUrl; else delete payload.cover_image_url;
+
+          // pricing tiers
+          payload.pricing_tiers = collectPricingTiers('newHotelPricingTiersBody');
+
+          // multi photos upload (up to 10)
+          const photosInput = document.getElementById('newHotelPhotos');
+          let photosUrls = [];
+          if (photosInput && photosInput.files && photosInput.files.length) {
+            const files = Array.from(photosInput.files).slice(0, 10);
+            photosUrls = await uploadHotelPhotosBatch(payload.slug, files);
+          }
+          if (photosUrls.length) payload.photos = photosUrls;
 
           const now = new Date().toISOString();
           payload.created_at = now;
@@ -1546,6 +1632,99 @@ window.openNewHotelModal = openNewHotelModal;
 window.viewHotelBookingDetails = viewHotelBookingDetails;
 window.updateHotelBookingStatus = updateHotelBookingStatus;
 window.deleteHotelBooking = deleteHotelBooking;
+
+function addPricingTierRow(tbodyId, tier) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  if (tbody.querySelector('.table-loading')) tbody.innerHTML = '';
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="number" min="1" class="admin-input" style="width:100px" value="${tier && tier.persons != null ? Number(tier.persons) : ''}" placeholder="2" /></td>
+    <td><input type="number" min="0" step="0.01" class="admin-input" style="width:140px" value="${tier && tier.price_per_night != null ? Number(tier.price_per_night) : ''}" placeholder="0.00" /></td>
+    <td><input type="number" min="1" class="admin-input" style="width:140px" value="${tier && tier.min_nights != null ? Number(tier.min_nights) : ''}" placeholder="" /></td>
+    <td><button type="button" class="btn-danger">Remove</button></td>
+  `;
+  const btn = tr.querySelector('button');
+  btn.addEventListener('click', () => {
+    tr.remove();
+    if (!tbody.children.length) {
+      tbody.innerHTML = '<tr><td colspan="4" class="table-loading">No tiers yet</td></tr>';
+    }
+  });
+  tbody.appendChild(tr);
+}
+
+function renderPricingTiers(tbodyId, rules) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return;
+  tbody.innerHTML = '';
+  const list = Array.isArray(rules) ? rules : [];
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="4" class="table-loading">No tiers yet</td></tr>';
+    return;
+  }
+  list.forEach(r => addPricingTierRow(tbodyId, r));
+}
+
+function collectPricingTiers(tbodyId) {
+  const tbody = document.getElementById(tbodyId);
+  if (!tbody) return { currency: 'EUR', rules: [] };
+  const rows = Array.from(tbody.querySelectorAll('tr'));
+  const rules = [];
+  rows.forEach(tr => {
+    const inputs = tr.querySelectorAll('input');
+    if (!inputs || inputs.length < 2) return;
+    const persons = Number(inputs[0].value);
+    const price = Number(inputs[1].value);
+    const minNights = inputs[2] && inputs[2].value ? Number(inputs[2].value) : null;
+    if (Number.isFinite(persons) && persons > 0 && Number.isFinite(price) && price >= 0) {
+      const rule = { persons, price_per_night: price };
+      if (Number.isFinite(minNights) && minNights > 0) rule.min_nights = minNights;
+      rules.push(rule);
+    }
+  });
+  rules.sort((a, b) => a.persons - b.persons);
+  return { currency: 'EUR', rules };
+}
+
+function previewLocalImages(fileInput, container, max = 10) {
+  container.innerHTML = '';
+  if (!fileInput || !fileInput.files) return;
+  const files = Array.from(fileInput.files).slice(0, max);
+  files.forEach(f => {
+    if (!f.type.startsWith('image/')) return;
+    const img = document.createElement('img');
+    img.alt = f.name;
+    img.style.width = '72px';
+    img.style.height = '72px';
+    img.style.objectFit = 'cover';
+    img.style.borderRadius = '6px';
+    const reader = new FileReader();
+    reader.onload = () => { img.src = reader.result; };
+    reader.readAsDataURL(f);
+    container.appendChild(img);
+  });
+}
+
+async function uploadHotelPhotosBatch(slug, files) {
+  const client = ensureSupabase();
+  if (!client) throw new Error('Database connection not available');
+  const results = [];
+  for (const file of files) {
+    if (!file || !file.type || !file.type.startsWith('image/')) continue;
+    const compressed = await compressToWebp(file, 1600, 1200, 0.82);
+    const path = `hotels/${slug}/gallery/${Date.now()}-${Math.random().toString(36).slice(2,8)}.webp`;
+    const { error: upErr } = await client.storage.from('poi-photos').upload(path, compressed, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: 'image/webp'
+    });
+    if (upErr) throw upErr;
+    const { data: pub } = client.storage.from('poi-photos').getPublicUrl(path);
+    if (pub && pub.publicUrl) results.push(pub.publicUrl);
+  }
+  return results;
+}
 
 window.openNewTripModal = openNewTripModal;
 

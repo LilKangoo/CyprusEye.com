@@ -355,6 +355,7 @@
                   <th>Hotel</th>
                   <th>Slug</th>
                   <th>City</th>
+                  <th>Price</th>
                   <th>Published</th>
                   <th>Updated</th>
                   <th>Actions</th>
@@ -362,7 +363,7 @@
               </thead>
               <tbody id="hotelsTableBody">
                 <tr>
-                  <td colspan="6" class="table-loading">Loading hotels...</td>
+                  <td colspan="7" class="table-loading">Loading hotels...</td>
                 </tr>
               </tbody>
             </table>
@@ -504,6 +505,11 @@
                     <img alt="Podgląd okładki" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;" />
                   </div>
                 </div>
+                <div class="admin-form-field" style="grid-column:1/-1;">
+                  <span>Photos (max 10)</span>
+                  <input type="file" id="editHotelPhotos" accept="image/*" multiple />
+                  <div id="editHotelPhotosPreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"></div>
+                </div>
                 <label class="admin-form-field" style="grid-column:1/-1;">
                   <span>Description (PL)</span>
                   <textarea name="description_pl" id="editHotelDescPl" rows="4"></textarea>
@@ -515,6 +521,25 @@
                     <option value="category_per_night">category_per_night</option>
                   </select>
                 </label>
+                <div class="admin-form-field" style="grid-column:1/-1;">
+                  <span>Pricing Tiers (per night)</span>
+                  <div>
+                    <table class="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Persons</th>
+                          <th>Price / night (€)</th>
+                          <th>Min nights (optional)</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody id="editHotelPricingTiersBody">
+                        <tr><td colspan="4" class="table-loading">No tiers yet</td></tr>
+                      </tbody>
+                    </table>
+                    <button type="button" class="btn-secondary" id="btnAddEditHotelTier" style="margin-top:8px;">Add tier</button>
+                  </div>
+                </div>
                 <label class="admin-form-field" style="grid-column:1/-1;">
                   <span style="display:flex;align-items:center;gap:8px;">
                     <input type="checkbox" name="is_published" id="editHotelPublished" style="width:auto;" />
@@ -566,6 +591,11 @@
                     <img alt="Podgląd okładki" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;" />
                   </div>
                 </div>
+                <div class="admin-form-field" style="grid-column:1/-1;">
+                  <span>Photos (max 10)</span>
+                  <input type="file" id="newHotelPhotos" accept="image/*" multiple />
+                  <div id="newHotelPhotosPreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;"></div>
+                </div>
                 <label class="admin-form-field" style="grid-column:1/-1;">
                   <span>Description (PL)</span>
                   <textarea name="description_pl" id="newHotelDescPl" rows="3"></textarea>
@@ -577,6 +607,25 @@
                     <option value="category_per_night">category_per_night</option>
                   </select>
                 </label>
+                <div class="admin-form-field" style="grid-column:1/-1;">
+                  <span>Pricing Tiers (per night)</span>
+                  <div>
+                    <table class="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Persons</th>
+                          <th>Price / night (€)</th>
+                          <th>Min nights (optional)</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody id="newHotelPricingTiersBody">
+                        <tr><td colspan="4" class="table-loading">No tiers yet</td></tr>
+                      </tbody>
+                    </table>
+                    <button type="button" class="btn-secondary" id="btnAddNewHotelTier" style="margin-top:8px;">Add tier</button>
+                  </div>
+                </div>
               </div>
               <div class="admin-modal-actions">
                 <button type="submit" class="btn-primary">Create</button>
