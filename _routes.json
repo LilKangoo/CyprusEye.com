@@ -5,6 +5,7 @@
     "/auth/*",
     "/account/*",
     "/reset/*",
+    "/hotel/*",
     "/trips"
   ],
   "exclude": []
