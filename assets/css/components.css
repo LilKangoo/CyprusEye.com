@@ -3203,7 +3203,7 @@ main::before {
 
 .adventure-shortcuts {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: 1fr; /* stack panels in one column to avoid wide empty areas */
   gap: clamp(1rem, 2vw, 1.75rem);
 }
 
