@@ -157,6 +157,27 @@
               🚨 SOS
             </button>
           </div>
+
+          <!-- Hotels Section on Home (mirrors trips panel) -->
+          <div
+            class="adventure-shortcut-card card surface-card hotels-home-section"
+            id="hotelsHomeSection"
+            style="grid-column: 1 / -1;"
+          >
+            <h2 style="margin: 0 0 16px; font-size: 1.5rem; font-weight: 700;">🏨 Zakwaterowania</h2>
+            <p style="margin: 0 0 20px; color: #6b7280; font-size: 0.95rem;">
+              Wybierz miasto i przeglądaj najlepsze zakwaterowania na Cyprze
+            </p>
+            <div id="hotelsHomeTabs" style="display: flex; gap: 12px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 8px;"></div>
+            <div id="hotelsHomeGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px;">
+              <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: #9ca3af;">
+                Ładowanie hoteli...
+              </div>
+            </div>
+            <a href="hotels.html" class="btn btn-primary primary" style="width: 100%; text-align: center; padding: 12px; font-weight: 600;">
+              Zobacz wszystkie hotele →
+            </a>
+          </div>
           <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
         </div>
         
@@ -589,6 +610,7 @@
   <script src="js/data-tasks.js"></script>
   <script src="js/data-packing.js"></script>
   <script src="js/home-trips.js"></script>
+  <script src="js/home-hotels.js"></script>
   
   <!-- Comments Modal (shared with community) -->
   <div id="commentsModal" class="comments-modal" hidden role="dialog" aria-modal="true" aria-labelledby="commentsModalTitle">
