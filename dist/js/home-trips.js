@@ -173,6 +173,20 @@ document.addEventListener('DOMContentLoaded', function() {
   const next = document.querySelector('.home-carousel-container .home-carousel-nav.next[data-target="#tripsHomeGrid"]');
   const grid = document.getElementById('tripsHomeGrid');
   const scrollBy = () => Math.round(grid.clientWidth * 0.85);
-  if (prev && grid) prev.addEventListener('click', () => grid.scrollBy({left: -scrollBy(), behavior: 'smooth'}));
-  if (next && grid) next.addEventListener('click', () => grid.scrollBy({left: scrollBy(), behavior: 'smooth'}));
+  const updateArrows = () => {
+    if (!prev || !next || !grid) return;
+    const maxScroll = grid.scrollWidth - grid.clientWidth - 1;
+    const atStart = grid.scrollLeft <= 1;
+    const atEnd = grid.scrollLeft >= maxScroll;
+    prev.hidden = atStart;
+    next.hidden = atEnd;
+    // hide both if no overflow
+    const noOverflow = grid.scrollWidth <= grid.clientWidth + 1;
+    if (noOverflow) { prev.hidden = true; next.hidden = true; }
+  };
+  if (prev && grid) prev.addEventListener('click', () => { grid.scrollBy({left: -scrollBy(), behavior: 'smooth'}); setTimeout(updateArrows, 350); });
+  if (next && grid) next.addEventListener('click', () => { grid.scrollBy({left: scrollBy(), behavior: 'smooth'}); setTimeout(updateArrows, 350); });
+  if (grid) grid.addEventListener('scroll', updateArrows, { passive: true });
+  window.addEventListener('resize', updateArrows);
+  updateArrows();
 });

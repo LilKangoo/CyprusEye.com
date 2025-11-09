@@ -21,19 +21,23 @@
   top: 50%;
   transform: translateY(-50%);
   z-index: 2;
-  width: 34px;
-  height: 34px;
+  width: 30px;
+  height: 30px;
   border-radius: 999px;
   border: 1px solid rgba(148,163,184,.35);
-  background: rgba(255,255,255,.9);
+  background: rgba(255,255,255,.92);
   box-shadow: var(--glass-shadow);
   display: grid;
   place-items: center;
   cursor: pointer;
+  backdrop-filter: blur(6px);
+  color: #111827;
 }
 
 .home-carousel-nav.prev { left: 6px; }
 .home-carousel-nav.next { right: 6px; }
+
+.home-carousel-nav[hidden] { display: none !important; }
 
 /* Desktop: grid look */
 .home-carousel {
@@ -43,6 +47,7 @@
 
 /* Mobile: horizontal scroll with snap */
 @media (max-width: 900px) {
+  .home-carousel-nav { width: 28px; height: 28px; left: 2px; right: 2px; }
   .home-carousel {
     display: flex;
     overflow-x: auto;
