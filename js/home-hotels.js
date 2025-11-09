@@ -71,7 +71,7 @@ function renderHomeHotels(){
         <img src="${image}" alt="${title}" style="width:100%;height:100%;object-fit:cover;" onerror="this.src='/assets/cyprus_logo-1000x1054.png'" />
         <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,.9) 0%, rgba(0,0,0,.6) 70%, transparent 100%);padding:16px;color:white;">
           <h3 style="margin:0 0 4px;font-size:1.1rem;font-weight:700;line-height:1.3;">${title}</h3>
-          <p style="margin:0;font-size:.85rem;opacity:.95;">${h.city||''} ${price? '• '+price: ''}</p>
+          <p style="margin:0;font-size:.85rem;opacity:.98;color:#ffffff;text-shadow:0 1px 2px rgba(0,0,0,.35);">${h.city||''} ${price? '• '+price: ''}</p>
         </div>
       </a>
     `;
