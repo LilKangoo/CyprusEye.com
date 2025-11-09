@@ -125,16 +125,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const modal = document.getElementById('hotelModal');
   if (modal) modal.addEventListener('click', (e)=>{ if (e.target === modal) closeHotelModal(); });
 
-  // Form submit
+  // Form submit (1:1 with /hotels.html)
   const form = document.getElementById('hotelBookingForm');
   if (form) form.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const msg = document.getElementById('hotelBookingMessage');
-    const btn = form.querySelector('.booking-submit');
+    const btn = e.target.querySelector('.booking-submit');
     try{
       if(!homeCurrentHotel) throw new Error('Brak oferty');
-      if (btn){ btn.disabled=true; btn.textContent='Wysyłanie...'; }
-      const fd = new FormData(form);
+      btn.disabled=true; btn.textContent='Wysyłanie...';
+      const fd = new FormData(e.target);
       const a = fd.get('arrival_date');
       const d = fd.get('departure_date');
       const nights = nightsBetween(a,d);
@@ -161,31 +161,20 @@ document.addEventListener('DOMContentLoaded', ()=>{
         total_price: total,
         status: 'pending'
       };
-      // 1) Try direct insert (1:1 z /hotels.html)
-      let ok = false; let lastErr = null;
-      try{
-        const { supabase } = await import('/js/supabaseClient.js');
-        const { error } = await supabase.from('hotel_bookings').insert([payload]).select().single();
-        if (!error) ok = true; else lastErr = error;
-      }catch(e){ lastErr = e; }
-      // 2) Fallback: secure function (bypass RLS w produkcji)
-      if (!ok){
-        try{
-          const res = await fetch('/hotel/booking', { method:'POST', headers:{ 'content-type':'application/json' }, body: JSON.stringify(payload) });
-          const json = await res.json().catch(()=>({}));
-          if (res.ok && json?.ok) { ok = true; }
-          else { lastErr = new Error(json?.error || `HTTP ${res.status}`); }
-        }catch(fnErr){ lastErr = fnErr; }
-      }
-      if (!ok && lastErr) throw lastErr;
-      if (msg){ msg.className='booking-message success'; msg.textContent='Rezerwacja przyjęta! Skontaktujemy się wkrótce.'; msg.style.display='block'; }
-      form.reset();
+      const { data, error } = await window.supabase.from('hotel_bookings').insert([payload]).select().single();
+      if(error) throw error;
+      msg.className='booking-message success';
+      msg.textContent='Rezerwacja przyjęta! Skontaktujemy się wkrótce.';
+      msg.style.display='block';
+      e.target.reset();
       updateHotelLivePrice();
     }catch(err){
       console.error(err);
-      if (msg){ msg.className='booking-message error'; msg.textContent= err.message || 'Błąd podczas rezerwacji.'; msg.style.display='block'; }
+      msg.className='booking-message error';
+      msg.textContent= err.message || 'Błąd podczas rezerwacji.';
+      msg.style.display='block';
     }finally{
-      if (btn){ btn.disabled=false; btn.textContent='Zarezerwuj'; }
+      btn.disabled=false; btn.textContent='Zarezerwuj';
     }
   });
 

@@ -125,16 +125,16 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const modal = document.getElementById('hotelModal');
   if (modal) modal.addEventListener('click', (e)=>{ if (e.target === modal) closeHotelModal(); });
 
-  // Form submit
+  // Form submit (1:1 with /hotels.html)
   const form = document.getElementById('hotelBookingForm');
   if (form) form.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const msg = document.getElementById('hotelBookingMessage');
-    const btn = form.querySelector('.booking-submit');
+    const btn = e.target.querySelector('.booking-submit');
     try{
       if(!homeCurrentHotel) throw new Error('Brak oferty');
-      if (btn){ btn.disabled=true; btn.textContent='Wysyłanie...'; }
-      const fd = new FormData(form);
+      btn.disabled=true; btn.textContent='Wysyłanie...';
+      const fd = new FormData(e.target);
       const a = fd.get('arrival_date');
       const d = fd.get('departure_date');
       const nights = nightsBetween(a,d);
@@ -161,28 +161,20 @@ document.addEventListener('DOMContentLoaded', ()=>{
         total_price: total,
         status: 'pending'
       };
-      // First try via secure function (bypasses RLS in production)
-      let ok = false; let errMsg = '';
-      try{
-        const res = await fetch('/hotel/booking', { method:'POST', headers:{ 'content-type':'application/json' }, body: JSON.stringify(payload) });
-        const json = await res.json().catch(()=>({}));
-        if (res.ok && json?.ok) { ok = true; }
-        else { errMsg = json?.error || `HTTP ${res.status}`; }
-      }catch(fnErr){ errMsg = fnErr.message; }
-      if (!ok){
-        // Fallback to direct insert (dev environments)
-        const { supabase } = await import('/js/supabaseClient.js');
-        const { error } = await supabase.from('hotel_bookings').insert([payload]).select().single();
-        if (error) throw error;
-      }
-      if (msg){ msg.className='booking-message success'; msg.textContent='Rezerwacja przyjęta! Skontaktujemy się wkrótce.'; msg.style.display='block'; }
-      form.reset();
+      const { data, error } = await window.supabase.from('hotel_bookings').insert([payload]).select().single();
+      if(error) throw error;
+      msg.className='booking-message success';
+      msg.textContent='Rezerwacja przyjęta! Skontaktujemy się wkrótce.';
+      msg.style.display='block';
+      e.target.reset();
       updateHotelLivePrice();
     }catch(err){
       console.error(err);
-      if (msg){ msg.className='booking-message error'; msg.textContent= err.message || 'Błąd podczas rezerwacji.'; msg.style.display='block'; }
+      msg.className='booking-message error';
+      msg.textContent= err.message || 'Błąd podczas rezerwacji.';
+      msg.style.display='block';
     }finally{
-      if (btn){ btn.disabled=false; btn.textContent='Zarezerwuj'; }
+      btn.disabled=false; btn.textContent='Zarezerwuj';
     }
   });
 
@@ -231,22 +223,25 @@ function calculateHotelPrice(h, persons, nights){
 
 function updateHotelLivePrice(){
   if(!homeCurrentHotel) return;
-  const a = document.getElementById('arrivalDate').value;
-  const d = document.getElementById('departureDate').value;
-  const adults = Number(document.getElementById('bookingAdults').value||0);
-  const children = Number(document.getElementById('bookingChildren').value||0);
+  const modal = document.getElementById('hotelModal');
+  const form = modal ? modal.querySelector('#hotelBookingForm') : null;
+  if (!form) return;
+  const a = (form.querySelector('#arrivalDate')||{}).value || '';
+  const d = (form.querySelector('#departureDate')||{}).value || '';
+  const adults = Number((form.querySelector('#bookingAdults')||{}).value||0);
+  const children = Number((form.querySelector('#bookingChildren')||{}).value||0);
   const persons = adults + children;
   const maxPersons = Number(homeCurrentHotel.max_persons||0) || null;
   const nights = nightsBetween(a,d);
   let limitedPersons = persons;
-  const note = document.getElementById('hotelPriceNote');
+  const note = modal ? modal.querySelector('#hotelPriceNote') : null;
   let notes = [];
   if (maxPersons && persons > maxPersons) {
     limitedPersons = maxPersons;
     notes.push(`Limit osób dla tego obiektu to ${maxPersons}. Cena policzona dla ${maxPersons} os.`);
   }
   const price = calculateHotelPrice(homeCurrentHotel, limitedPersons, nights);
-  const priceEl = document.getElementById('modalHotelPrice');
+  const priceEl = modal ? modal.querySelector('#modalHotelPrice') : null;
   if (priceEl) priceEl.textContent = `${price.toFixed(2)} €`;
   const tiers = homeCurrentHotel.pricing_tiers?.rules||[];
   const match = tiers.find(r=>Number(r.persons)===limitedPersons);
