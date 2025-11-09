@@ -93,9 +93,11 @@
 .trip-modal-nav:disabled { opacity: .4; cursor: default; }
 
 @media (min-width: 1024px){
-  /* Move arrows slightly outside content on desktop */
-  .trip-modal-nav.prev { left: -22px; }
-  .trip-modal-nav.next { right: -22px; }
+  /* Move arrows completely outside the centered panel */
+  .trip-modal { --modal-w: min(900px, calc(100vw - 40px)); }
+  .trip-modal-nav { position: fixed; }
+  .trip-modal-nav.prev { left: calc(50vw - (var(--modal-w) / 2) - 30px); }
+  .trip-modal-nav.next { left: calc(50vw + (var(--modal-w) / 2) + 30px); }
 }
 
 /* Detail modal (shared) */
