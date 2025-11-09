@@ -116,6 +116,81 @@
           <p class="tagline">Zwiedzaj Cypr w interaktywny sposób – zdobywaj odznaki, doświadczenie i odkrywaj nasze najlepsze oferty.</p>
         </div>
 
+  <!-- Hotel Details Modal (same structure as /hotels) -->
+  <div class="trip-modal" id="hotelModal" hidden>
+    <div class="trip-modal-content">
+      <button class="trip-modal-nav prev" type="button" aria-label="Poprzednia" id="hotelModalPrev">‹</button>
+      <button class="trip-modal-nav next" type="button" aria-label="Następna" id="hotelModalNext">›</button>
+      <button class="trip-modal-close" onclick="closeHotelModal()">✕</button>
+      <img class="trip-modal-image" id="modalHotelImage" src="" alt="Hotel" />
+      <div id="modalHotelThumbs" class="gallery-thumbs"></div>
+      <div class="trip-modal-header" style="text-align:center">
+        <h2 class="trip-modal-title" id="modalHotelTitle">Hotel</h2>
+        <p class="trip-modal-subtitle" id="modalHotelSubtitle">Miasto</p>
+      </div>
+      <div class="trip-modal-body">
+        <div class="trip-section">
+          <h3 class="trip-section-title">Opis</h3>
+          <div class="trip-description" id="modalHotelDescription"></div>
+        </div>
+
+        <div class="trip-section">
+          <h3 class="trip-section-title">Rezerwacja</h3>
+          <form class="booking-form" id="hotelBookingForm">
+            <div class="form-row">
+              <div class="form-field">
+                <label>Imię i nazwisko *</label>
+                <input name="name" required />
+              </div>
+              <div class="form-field">
+                <label>Email *</label>
+                <input type="email" name="email" required />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Telefon</label>
+                <input name="phone" />
+              </div>
+              <div class="form-field">
+                <label>Data przyjazdu *</label>
+                <input type="date" name="arrival_date" id="arrivalDate" required />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Data wyjazdu *</label>
+                <input type="date" name="departure_date" id="departureDate" required />
+              </div>
+              <div class="form-field">
+                <label>Dorośli</label>
+                <input type="number" name="adults" id="bookingAdults" min="1" value="2" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label>Dzieci</label>
+                <input type="number" name="children" id="bookingChildren" min="0" value="0" />
+              </div>
+            </div>
+            <div class="form-field">
+              <label>Uwagi (opcjonalnie)</label>
+              <textarea name="notes"></textarea>
+            </div>
+
+            <div class="trip-price-box">
+              <p class="trip-price-label">Cena</p>
+              <p class="trip-price-value" id="modalHotelPrice">—</p>
+            </div>
+            <div id="hotelPriceNote" class="booking-message" style="display:none"></div>
+
+            <button type="submit" class="booking-submit">Zarezerwuj</button>
+            <div id="hotelBookingMessage" class="booking-message" style="display:none;"></div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
   <!-- Trip Details Modal (same as /trips) -->
   <div class="trip-modal" id="tripModal" hidden>
     <div class="trip-modal-content">

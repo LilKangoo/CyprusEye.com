@@ -3,6 +3,9 @@
 
 let homeHotelsData = [];
 let homeHotelsCurrentCity = 'all';
+let homeHotelsDisplay = [];
+let homeCurrentHotel = null;
+let homeHotelIndex = null;
 
 async function loadHomeHotels(){
   try{
@@ -50,11 +53,12 @@ function renderHomeHotels(){
     list = homeHotelsData.filter(h=>h.city===homeHotelsCurrentCity);
   }
   const display = list.slice(0,6);
+  homeHotelsDisplay = display;
   if(!display.length){
     grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:#9ca3af;">Brak hoteli w tym mieście</div>';
     return;
   }
-  grid.innerHTML = display.map(h=>{
+  grid.innerHTML = display.map((h, index)=>{
     const image = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png';
     const title = h.title?.pl || h.title?.en || h.slug || 'Hotel';
     let price = '';
@@ -65,7 +69,7 @@ function renderHomeHotels(){
       if(isFinite(p)) price = `${p.toFixed(2)} € / noc`;
     }
     return `
-      <a href="hotels.html#${h.slug}" class="hotel-home-card" style="position:relative;height:200px;border-radius:12px;overflow:hidden;cursor:pointer;transition:transform .3s,box-shadow .3s;box-shadow:0 4px 6px rgba(0,0,0,.1);text-decoration:none;display:block;"
+      <a href="#" onclick="openHotelModalHome(${index}); return false;" class="hotel-home-card" style="position:relative;height:200px;border-radius:12px;overflow:hidden;cursor:pointer;transition:transform .3s,box-shadow .3s;box-shadow:0 4px 6px rgba(0,0,0,.1);text-decoration:none;display:block;"
          onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 12px rgba(0,0,0,0.15)'"
          onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.1)'">
         <img src="${image}" alt="${title}" style="width:100%;height:100%;object-fit:cover;" onerror="this.src='/assets/cyprus_logo-1000x1054.png'" />
@@ -116,4 +120,192 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if (grid) grid.addEventListener('scroll', updateArrows, { passive: true });
   window.addEventListener('resize', updateArrows);
   updateArrows();
+
+  // Backdrop close
+  const modal = document.getElementById('hotelModal');
+  if (modal) modal.addEventListener('click', (e)=>{ if (e.target === modal) closeHotelModal(); });
+
+  // Form submit
+  const form = document.getElementById('hotelBookingForm');
+  if (form) form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    const msg = document.getElementById('hotelBookingMessage');
+    const btn = form.querySelector('.booking-submit');
+    try{
+      if(!homeCurrentHotel) throw new Error('Brak oferty');
+      if (btn){ btn.disabled=true; btn.textContent='Wysyłanie...'; }
+      const fd = new FormData(form);
+      const a = fd.get('arrival_date');
+      const d = fd.get('departure_date');
+      const nights = nightsBetween(a,d);
+      const adults = Number(fd.get('adults')||0);
+      const children = Number(fd.get('children')||0);
+      const persons = adults + children;
+      const maxPersons = Number(homeCurrentHotel.max_persons||0) || null;
+      if (maxPersons && persons > maxPersons) {
+        throw new Error(`Maksymalna liczba osób: ${maxPersons}`);
+      }
+      const total = calculateHotelPrice(homeCurrentHotel, persons, nights);
+      const payload = {
+        hotel_id: homeCurrentHotel.id,
+        hotel_slug: homeCurrentHotel.slug,
+        customer_name: fd.get('name'),
+        customer_email: fd.get('email'),
+        customer_phone: fd.get('phone'),
+        arrival_date: a,
+        departure_date: d,
+        num_adults: adults,
+        num_children: children,
+        nights,
+        notes: fd.get('notes'),
+        total_price: total,
+        status: 'pending'
+      };
+      const { supabase } = await import('/js/supabaseClient.js');
+      const { error } = await supabase.from('hotel_bookings').insert([payload]).select().single();
+      if (error) throw error;
+      if (msg){ msg.className='booking-message success'; msg.textContent='Rezerwacja przyjęta! Skontaktujemy się wkrótce.'; msg.style.display='block'; }
+      form.reset();
+      updateHotelLivePrice();
+    }catch(err){
+      console.error(err);
+      if (msg){ msg.className='booking-message error'; msg.textContent= err.message || 'Błąd podczas rezerwacji.'; msg.style.display='block'; }
+    }finally{
+      if (btn){ btn.disabled=false; btn.textContent='Zarezerwuj'; }
+    }
+  });
+
+  // Nav arrows
+  const prevBtn = document.getElementById('hotelModalPrev');
+  const nextBtn = document.getElementById('hotelModalNext');
+  if (prevBtn) prevBtn.addEventListener('click', ()=>{ if (homeHotelIndex==null) return; const i=Math.max(0, homeHotelIndex-1); openHotelModalHome(i); });
+  if (nextBtn) nextBtn.addEventListener('click', ()=>{ if (homeHotelIndex==null) return; const i=Math.min(homeHotelsDisplay.length-1, homeHotelIndex+1); openHotelModalHome(i); });
 });
+
+// ----- Modal helpers (1:1 with /hotels) -----
+function nightsBetween(a,b){
+  if(!a||!b) return 1;
+  const da=new Date(a), db=new Date(b);
+  const diff = Math.round((db - da)/(1000*60*60*24));
+  return Math.max(1, diff);
+}
+
+function calculateHotelPrice(h, persons, nights){
+  const tiers = h.pricing_tiers?.rules || [];
+  if(!tiers.length) return 0;
+  persons = Number(persons)||1;
+  nights = Number(nights)||1;
+  let rule = tiers.find(r=>Number(r.persons)===persons);
+  if(!rule){
+    const lowers = tiers.filter(r=>Number(r.persons)<=persons);
+    if(lowers.length) rule = lowers.sort((a,b)=>Number(b.persons)-Number(a.persons))[0];
+  }
+  if(!rule){
+    rule = tiers.sort((a,b)=>Number(a.price_per_night)-Number(b.price_per_night))[0];
+  }
+  const minN = Number(rule.min_nights||0);
+  const billNights = minN? Math.max(minN, nights): nights;
+  return billNights * Number(rule.price_per_night||0);
+}
+
+function updateHotelLivePrice(){
+  if(!homeCurrentHotel) return;
+  const a = document.getElementById('arrivalDate').value;
+  const d = document.getElementById('departureDate').value;
+  const adults = Number(document.getElementById('bookingAdults').value||0);
+  const children = Number(document.getElementById('bookingChildren').value||0);
+  const persons = adults + children;
+  const maxPersons = Number(homeCurrentHotel.max_persons||0) || null;
+  const nights = nightsBetween(a,d);
+  let limitedPersons = persons;
+  const note = document.getElementById('hotelPriceNote');
+  let notes = [];
+  if (maxPersons && persons > maxPersons) {
+    limitedPersons = maxPersons;
+    notes.push(`Limit osób dla tego obiektu to ${maxPersons}. Cena policzona dla ${maxPersons} os.`);
+  }
+  const price = calculateHotelPrice(homeCurrentHotel, limitedPersons, nights);
+  const priceEl = document.getElementById('modalHotelPrice');
+  if (priceEl) priceEl.textContent = `${price.toFixed(2)} €`;
+  const tiers = homeCurrentHotel.pricing_tiers?.rules||[];
+  const match = tiers.find(r=>Number(r.persons)===limitedPersons);
+  if(match && match.min_nights && nights < Number(match.min_nights)){
+    notes.push(`Minimalna liczba nocy dla ${limitedPersons} os. to ${match.min_nights}. Cena naliczona za ${match.min_nights} nocy.`);
+  }
+  if (note){ if (notes.length){ note.style.display='block'; note.className='booking-message'; note.textContent = notes.join(' ');} else { note.style.display='none'; } }
+}
+
+window.openHotelModalHome = function(index){
+  const h = homeHotelsDisplay[index];
+  if(!h) return;
+  homeCurrentHotel = h; homeHotelIndex = index;
+  const title = h.title?.pl || h.title?.en || h.slug;
+  const image = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png';
+  const imgEl = document.getElementById('modalHotelImage');
+  imgEl.src = image;
+  imgEl.onclick = () => openHotelLightbox();
+  const thumbsWrap = document.getElementById('modalHotelThumbs');
+  const photos = Array.isArray(h.photos)? h.photos: [];
+  thumbsWrap.innerHTML = photos.map((u,i)=>`<img src="${u}" alt="miniatura" class="${i===0?'active':''}" data-src="${u}" />`).join('');
+  thumbsWrap.querySelectorAll('img').forEach(el=>{
+    el.addEventListener('click', ()=>{
+      thumbsWrap.querySelectorAll('img').forEach(t=>t.classList.remove('active'));
+      el.classList.add('active');
+      imgEl.src = el.dataset.src;
+    });
+    el.ondblclick = ()=> openHotelLightbox();
+  });
+  document.getElementById('modalHotelTitle').textContent = title;
+  document.getElementById('modalHotelSubtitle').textContent = h.city || '';
+  document.getElementById('modalHotelDescription').innerHTML = (h.description?.pl||'').replace(/\n/g,'<br/>');
+
+  const form = document.getElementById('hotelBookingForm');
+  if (form){ form.reset(); const msg=document.getElementById('hotelBookingMessage'); if(msg) msg.style.display='none'; }
+  // max persons
+  const maxPersons = Number(h.max_persons||0) || null;
+  const adultsEl = document.getElementById('bookingAdults');
+  const childrenEl = document.getElementById('bookingChildren');
+  if (maxPersons){ adultsEl.max = String(maxPersons); childrenEl.max = String(Math.max(0, maxPersons-1)); }
+  else { adultsEl.removeAttribute('max'); childrenEl.removeAttribute('max'); }
+
+  // bind price updates
+  ['arrivalDate','departureDate','bookingAdults','bookingChildren'].forEach(id=>{
+    const old = document.getElementById(id);
+    if (!old) return;
+    const clone = old.cloneNode(true);
+    old.parentNode.replaceChild(clone, old);
+    clone.addEventListener(id==='arrivalDate'||id==='departureDate'? 'change':'input', updateHotelLivePrice);
+  });
+  updateHotelLivePrice();
+
+  const modalEl = document.getElementById('hotelModal');
+  if (modalEl){ modalEl.hidden=false; modalEl.classList.add('active'); document.body.style.overflow='hidden'; }
+  updateHotelModalArrows();
+}
+
+window.closeHotelModal = function(){
+  const modalEl = document.getElementById('hotelModal');
+  if (modalEl){ modalEl.classList.remove('active'); modalEl.hidden=true; document.body.style.overflow=''; }
+  homeCurrentHotel = null; homeHotelIndex = null;
+}
+
+// Lightbox (gallery)
+let lbIndex = 0;
+function getHotelPhotos(){ return Array.isArray(homeCurrentHotel?.photos)? homeCurrentHotel.photos: []; }
+function currentHotelPhotoIndex(){ const src=document.getElementById('modalHotelImage').src; const arr=getHotelPhotos(); const i=arr.findIndex(u=>src.includes(u)); return i>=0? i:0; }
+function showHotelLightbox(i){ const arr=getHotelPhotos(); if(!arr.length) return; lbIndex=(i+arr.length)%arr.length; const img=document.getElementById('lbImg'); if(img) img.src=arr[lbIndex]; }
+function openHotelLightbox(i){ const lb=document.getElementById('imgLightbox'); if(!lb) return; lb.classList.add('active'); showHotelLightbox(typeof i==='number'? i: currentHotelPhotoIndex()); document.addEventListener('keydown', onHotelLbKey); }
+function closeHotelLightbox(){ const lb=document.getElementById('imgLightbox'); if(!lb) return; lb.classList.remove('active'); document.removeEventListener('keydown', onHotelLbKey); }
+function onHotelLbKey(e){ if(e.key==='Escape') return closeHotelLightbox(); if(e.key==='ArrowRight') return showHotelLightbox(lbIndex+1); if(e.key==='ArrowLeft') return showHotelLightbox(lbIndex-1); }
+window.openHotelLightbox = openHotelLightbox;
+window.closeHotelLightbox = closeHotelLightbox;
+
+function updateHotelModalArrows(){
+  const prevBtn = document.getElementById('hotelModalPrev');
+  const nextBtn = document.getElementById('hotelModalNext');
+  if (!prevBtn || !nextBtn) return;
+  const total = homeHotelsDisplay.length;
+  const i = homeHotelIndex ?? 0;
+  prevBtn.disabled = (i <= 0);
+  nextBtn.disabled = (i >= total - 1);
+}
