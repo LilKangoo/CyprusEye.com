@@ -432,6 +432,10 @@
       window.addEventListener('resize', __onResize);
       modalEl.__onResize = __onResize;
       modalEl.classList.add('active');
+      // reset scroll positions so the modal starts at the top
+      modalEl.scrollTop = 0;
+      try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); } catch(_) { window.scrollTo(0,0); }
+      setTimeout(()=>{ modalEl.scrollTop = 0; }, 0);
       document.body.style.overflow='hidden';
     }
 

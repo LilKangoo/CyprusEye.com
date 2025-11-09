@@ -432,6 +432,17 @@
       window.addEventListener('resize', __onResize);
       modalEl.__onResize = __onResize;
       modalEl.classList.add('active');
+      // reset scroll positions so the modal starts at the top
+      const modalContent = modalEl.querySelector('.trip-modal-content');
+      function resetScroll(){
+        try { window.scrollTo({ top: 0, left: 0, behavior: 'instant' }); } catch(_) { window.scrollTo(0,0); }
+        document.documentElement.scrollTop = 0; document.body.scrollTop = 0;
+        modalEl.scrollTop = 0;
+        if(modalContent && modalContent.scrollIntoView){ modalContent.scrollIntoView({ block: 'start', inline: 'nearest' }); }
+      }
+      resetScroll();
+      // do it once more after paint to be safe on mobile browsers
+      requestAnimationFrame(()=>{ resetScroll(); setTimeout(resetScroll, 50); });
       document.body.style.overflow='hidden';
     }
 
