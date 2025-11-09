@@ -94,8 +94,8 @@
 
     /* Header uses global styles from base/components; avoid local overrides here */
     /* Ensure page content starts clearly after header ends (both top bar and tabs) */
-    .app-header{ margin-bottom: 24px; }
-    @media (max-width:768px){ .app-header{ margin-bottom: 20px; } }
+    .app-header{ margin-bottom: var(--header-gap, 24px); }
+    @media (max-width:768px){ .app-header{ margin-bottom: var(--header-gap, 20px); } }
     .app-header + main{ display:block; }
 
     /* Sticky footer layout */
@@ -265,6 +265,18 @@
     let allHotels = [];
     let currentCity = 'all';
     let currentHotel = null;
+
+    // Dynamic spacing under header (accounts for multi-row actions and tabs)
+    function applyHeaderGap(){
+      const header = document.querySelector('.app-header');
+      if(!header) return;
+      const h = header.getBoundingClientRect().height;
+      // base 16px + small fraction of header height to keep visual air when header wraps
+      const gap = Math.max(16, Math.min(48, Math.round(16 + h*0.08)));
+      document.documentElement.style.setProperty('--header-gap', gap + 'px');
+    }
+    window.addEventListener('resize', applyHeaderGap, { passive:true });
+    document.addEventListener('DOMContentLoaded', applyHeaderGap);
 
     function getCities(){
       const s = new Set();
