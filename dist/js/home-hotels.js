@@ -125,12 +125,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
   const modal = document.getElementById('hotelModal');
   if (modal) modal.addEventListener('click', (e)=>{ if (e.target === modal) closeHotelModal(); });
 
-  // Form submit (1:1 with /hotels.html)
+  // Form submit with RLS fallback
   const form = document.getElementById('hotelBookingForm');
   if (form) form.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const msg = document.getElementById('hotelBookingMessage');
     const btn = e.target.querySelector('.booking-submit');
+    let success = false;
     try{
       if(!homeCurrentHotel) throw new Error('Brak oferty');
       btn.disabled=true; btn.textContent='Wysyłanie...';
@@ -161,17 +162,60 @@ document.addEventListener('DOMContentLoaded', ()=>{
         total_price: total,
         status: 'pending'
       };
-      const { data, error } = await window.supabase.from('hotel_bookings').insert([payload]).select().single();
-      if(error) throw error;
-      msg.className='booking-message success';
-      msg.textContent='Rezerwacja przyjęta! Skontaktujemy się wkrótce.';
-      msg.style.display='block';
-      e.target.reset();
-      updateHotelLivePrice();
+      
+      // Try direct insert first (works if RLS allows anonymous)
+      try{
+        const { data, error } = await window.supabase.from('hotel_bookings').insert([payload]).select().single();
+        if(!error){ 
+          success = true;
+        } else if(error.message && error.message.toLowerCase().includes('row-level security')){
+          // RLS blocked - try function fallback
+          console.warn('RLS blocked direct insert, trying function fallback...');
+          const res = await fetch('/hotel/booking', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const json = await res.json().catch(()=>({}));
+          if(res.ok && json?.ok){
+            success = true;
+          } else {
+            throw new Error(json?.error || `Błąd serwera (${res.status}). Skontaktuj się: info@cypruseye.com`);
+          }
+        } else {
+          throw error;
+        }
+      }catch(directErr){
+        // Direct insert failed for other reason - try function
+        console.warn('Direct insert failed:', directErr);
+        try{
+          const res = await fetch('/hotel/booking', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          const json = await res.json().catch(()=>({}));
+          if(res.ok && json?.ok){
+            success = true;
+          } else {
+            throw new Error(json?.error || `Funkcja rezerwacji niedostępna. Skontaktuj się: info@cypruseye.com (${res.status})`);
+          }
+        }catch(fnErr){
+          throw new Error(`Nie udało się wysłać rezerwacji. Skontaktuj się mailowo: info@cypruseye.com`);
+        }
+      }
+      
+      if(success){
+        msg.className='booking-message success';
+        msg.textContent='Rezerwacja przyjęta! Skontaktujemy się wkrótce.';
+        msg.style.display='block';
+        e.target.reset();
+        updateHotelLivePrice();
+      }
     }catch(err){
-      console.error(err);
+      console.error('Booking error:', err);
       msg.className='booking-message error';
-      msg.textContent= err.message || 'Błąd podczas rezerwacji.';
+      msg.textContent= err.message || 'Błąd podczas rezerwacji. Skontaktuj się: info@cypruseye.com';
       msg.style.display='block';
     }finally{
       btn.disabled=false; btn.textContent='Zarezerwuj';

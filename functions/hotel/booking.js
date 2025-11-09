@@ -16,6 +16,13 @@ export async function onRequestOptions(context){
 export async function onRequestPost(context) {
   try {
     const { request, env } = context;
+    
+    // Check env vars
+    if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('Missing Supabase env vars');
+      return json({ ok: false, error: 'Server configuration error. Missing environment variables.' }, 500);
+    }
+    
     const { adminClient } = createSupabaseClients(env);
     const body = await request.json();
 
