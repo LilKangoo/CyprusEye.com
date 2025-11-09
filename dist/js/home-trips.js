@@ -168,4 +168,11 @@ function initHomeTripsTabs() {
 document.addEventListener('DOMContentLoaded', function() {
   loadHomeTrips();
   initHomeTripsTabs();
+  // init carousel arrows for trips
+  const prev = document.querySelector('.home-carousel-container .home-carousel-nav.prev[data-target="#tripsHomeGrid"]');
+  const next = document.querySelector('.home-carousel-container .home-carousel-nav.next[data-target="#tripsHomeGrid"]');
+  const grid = document.getElementById('tripsHomeGrid');
+  const scrollBy = () => Math.round(grid.clientWidth * 0.85);
+  if (prev && grid) prev.addEventListener('click', () => grid.scrollBy({left: -scrollBy(), behavior: 'smooth'}));
+  if (next && grid) next.addEventListener('click', () => grid.scrollBy({left: scrollBy(), behavior: 'smooth'}));
 });

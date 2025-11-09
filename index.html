@@ -419,7 +419,11 @@
                 Nicosia
               </button>
             </div>
-            <div id="tripsHomeGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px;">
+            <div class="home-carousel-container">
+              <button class="home-carousel-nav prev" aria-label="Poprzednie" data-target="#tripsHomeGrid">‹</button>
+              <button class="home-carousel-nav next" aria-label="Następne" data-target="#tripsHomeGrid">›</button>
+            </div>
+            <div id="tripsHomeGrid" class="home-carousel" style="gap: 16px; margin-bottom: 20px;">
               <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: #9ca3af;">
                 Ładowanie wycieczek...
               </div>
@@ -444,7 +448,11 @@
               Wybierz miasto i przeglądaj najlepsze zakwaterowania na Cyprze
             </p>
             <div id="hotelsHomeTabs" style="display: flex; gap: 12px; margin-bottom: 20px; overflow-x: auto; padding-bottom: 8px;"></div>
-            <div id="hotelsHomeGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; margin-bottom: 20px;">
+            <div class="home-carousel-container">
+              <button class="home-carousel-nav prev" aria-label="Poprzednie" data-target="#hotelsHomeGrid">‹</button>
+              <button class="home-carousel-nav next" aria-label="Następne" data-target="#hotelsHomeGrid">›</button>
+            </div>
+            <div id="hotelsHomeGrid" class="home-carousel" style="gap: 16px; margin-bottom: 20px;">
               <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: #9ca3af;">
                 Ładowanie hoteli...
               </div>

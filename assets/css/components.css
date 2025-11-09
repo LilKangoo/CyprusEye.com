@@ -11,6 +11,56 @@
   isolation: isolate; /* Create new stacking context */
 }
 
+/* Home carousels (Trips/Hotels) */
+.home-carousel-container {
+  position: relative;
+}
+
+.home-carousel-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid rgba(148,163,184,.35);
+  background: rgba(255,255,255,.9);
+  box-shadow: var(--glass-shadow);
+  display: grid;
+  place-items: center;
+  cursor: pointer;
+}
+
+.home-carousel-nav.prev { left: 6px; }
+.home-carousel-nav.next { right: 6px; }
+
+/* Desktop: grid look */
+.home-carousel {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+
+/* Mobile: horizontal scroll with snap */
+@media (max-width: 900px) {
+  .home-carousel {
+    display: flex;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px;
+  }
+  .home-carousel > a,
+  .home-carousel > div.trip-home-card,
+  .home-carousel > div.hotel-home-card { /* safety */
+    scroll-snap-align: start;
+    flex: 0 0 85%;
+  }
+  /* Hide native scrollbar */
+  .home-carousel::-webkit-scrollbar { display: none; }
+  .home-carousel { scrollbar-width: none; }
+}
+
 .language-switcher-toggle {
   pointer-events: auto;
   width: 3.1rem;

@@ -96,4 +96,11 @@ function initHomeHotelsTabs(){
 // init
 document.addEventListener('DOMContentLoaded', ()=>{
   loadHomeHotels();
+  // init carousel arrows for hotels
+  const prev = document.querySelector('.home-carousel-container .home-carousel-nav.prev[data-target="#hotelsHomeGrid"]');
+  const next = document.querySelector('.home-carousel-container .home-carousel-nav.next[data-target="#hotelsHomeGrid"]');
+  const grid = document.getElementById('hotelsHomeGrid');
+  const scrollBy = () => Math.round(grid.clientWidth * 0.85);
+  if (prev && grid) prev.addEventListener('click', () => grid.scrollBy({left: -scrollBy(), behavior: 'smooth'}));
+  if (next && grid) next.addEventListener('click', () => grid.scrollBy({left: scrollBy(), behavior: 'smooth'}));
 });
