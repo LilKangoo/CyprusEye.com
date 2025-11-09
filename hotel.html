@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hotel • CyprusEye</title>
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <link rel="stylesheet" href="/assets/css/components.css" />
+  <link rel="icon" href="/assets/cyprus_logo-1000x1054.png" />
+  <style>
+    .hotel-hero{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
+    .hotel-hero img{width:100%;height:220px;object-fit:cover;border-radius:12px}
+    .gallery{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .gallery img{width:80px;height:80px;object-fit:cover;border-radius:8px;cursor:pointer}
+    .form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+    .form-grid label{display:grid;gap:6px}
+    .price-live{font-size:20px;font-weight:700;margin-top:8px}
+    @media (max-width:760px){.hotel-hero{grid-template-columns:1fr}}
+  </style>
+  <script type="module" src="/js/supabaseClient.js"></script>
+</head>
+<body>
+  <header style="padding:16px;display:flex;align-items:center;justify-content:space-between;">
+    <a href="/hotels.html" class="btn-secondary">← Hotele</a>
+    <a href="/" class="btn-primary">Strona główna</a>
+  </header>
+
+  <main style="padding:16px;max-width:1000px;margin:0 auto;">
+    <div id="viewLoading">Ładowanie...</div>
+    <section id="viewHotel" hidden>
+      <div class="hotel-hero">
+        <div>
+          <img id="mainImg" alt="Hotel" />
+          <div id="gallery" class="gallery"></div>
+        </div>
+        <div>
+          <h1 id="hTitle">Hotel</h1>
+          <p id="hSub" class="trip-badge"></p>
+          <div id="hDesc" style="margin-top:8px;color:#334;line-height:1.5"></div>
+        </div>
+      </div>
+
+      <section class="card" style="margin-top:16px;">
+        <div class="card-body">
+          <h3>Rezerwacja</h3>
+          <form id="bookForm" class="form-grid">
+            <label>Imię i nazwisko<input name="name" required /></label>
+            <label>Email<input name="email" type="email" required /></label>
+            <label>Telefon<input name="phone" /></label>
+            <label>Data przyjazdu<input name="arrival_date" id="arrival" type="date" required /></label>
+            <label>Data wyjazdu<input name="departure_date" id="departure" type="date" required /></label>
+            <label>Liczba dorosłych<input name="adults" id="adults" type="number" min="1" value="2" required /></label>
+            <label>Dzieci<input name="children" id="children" type="number" min="0" value="0" /></label>
+            <label>Noclegi<input name="nights" id="nights" type="number" min="1" value="1" required /></label>
+            <label style="grid-column:1/-1">Uwagi (opcjonalnie)<textarea name="note" rows="2"></textarea></label>
+            <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;">
+              <div id="priceLive" class="price-live">Cena: —</div>
+              <button class="btn-primary" type="submit" id="btnBook">Zarezerwuj</button>
+            </div>
+          </form>
+          <div id="priceNote" style="margin-top:6px;color:#555"></div>
+          <div id="bookMsg" style="margin-top:8px;color:#0a0"></div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const $ = (s,r=document)=>r.querySelector(s);
+    const params = new URLSearchParams(location.search);
+    const slug = params.get('slug');
+    let hotel = null;
+
+    function nightsBetween(a,b){
+      if(!a||!b) return 1;
+      const da=new Date(a), db=new Date(b);
+      const diff = Math.round((db-da)/(1000*60*60*24));
+      return Math.max(1,diff);
+    }
+
+    function calcPrice(h, persons, nights){
+      const tiers = h.pricing_tiers && h.pricing_tiers.rules ? h.pricing_tiers.rules : [];
+      if(!tiers.length) return 0;
+      persons = Number(persons)||1; nights = Number(nights)||1;
+      let rule = tiers.find(r=>Number(r.persons)===persons);
+      if(!rule){
+        const lowers = tiers.filter(r=>Number(r.persons)<=persons);
+        if(lowers.length) rule = lowers.sort((a,b)=>Number(b.persons)-Number(a.persons))[0];
+      }
+      if(!rule){ rule = tiers.sort((a,b)=>Number(a.price_per_night)-Number(b.price_per_night))[0]; }
+      const minN = Number(rule.min_nights||0);
+      const bill = minN? Math.max(minN, nights): nights;
+      return bill * Number(rule.price_per_night||0);
+    }
+
+    function updateLive(){
+      if(!hotel) return;
+      const a=$('#arrival').value, d=$('#departure').value;
+      const adults=Number($('#adults').value||0), children=Number($('#children').value||0);
+      let nights=Number($('#nights').value||0);
+      const persons=adults+children;
+      const calcN=nightsBetween(a,d);
+      if(!nights || nights!==calcN){ nights=calcN; $('#nights').value=nights; }
+      const total=calcPrice(hotel,persons,nights);
+      $('#priceLive').textContent = `Cena: ${total.toFixed(2)} €`;
+      const tiers = hotel.pricing_tiers?.rules || [];
+      const match = tiers.find(r=>Number(r.persons)===persons);
+      if(match && match.min_nights && nights < Number(match.min_nights)){
+        $('#priceNote').textContent = `Uwaga: minimalna liczba nocy dla ${persons} os. to ${match.min_nights}. Cena naliczona za ${match.min_nights} nocy.`;
+      } else $('#priceNote').textContent='';
+    }
+
+    async function loadHotel(){
+      if(!slug){ $('#viewLoading').textContent='Brak parametru slug'; return; }
+      try{
+        const { supabase } = await import('/js/supabaseClient.js');
+        const { data, error } = await supabase
+          .from('hotels')
+          .select('*')
+          .eq('slug', slug)
+          .eq('is_published', true)
+          .single();
+        if(error) throw error;
+        if(!data) throw new Error('Hotel not found');
+        hotel = data;
+      }catch(err){
+        console.error('Failed to load hotel:', err);
+        $('#viewLoading').textContent='Nie znaleziono hotelu';
+        return;
+      }
+      $('#viewLoading').hidden=true; $('#viewHotel').hidden=false;
+      const title = hotel.title?.pl || hotel.title?.en || hotel.slug;
+      const photos = Array.isArray(hotel.photos)? hotel.photos: [];
+      const cover = hotel.cover_image_url || photos[0] || '/assets/cyprus_logo-1000x1054.png';
+      $('#mainImg').src = cover;
+      const gal = $('#gallery');
+      gal.innerHTML = photos.map((u)=>`<img src="${u}" alt="photo" onclick="document.getElementById('mainImg').src='${u}'"/>`).join('');
+      $('#hTitle').textContent = title;
+      $('#hSub').textContent = hotel.city || '';
+      $('#hDesc').innerHTML = (hotel.description?.pl || '').replace(/\n/g,'<br/>');
+      updateLive();
+      $('#bookForm').addEventListener('input', (e)=>{
+        if(['arrival_date','departure_date','adults','children','nights'].includes(e.target.name)) updateLive();
+      });
+      $('#bookForm').addEventListener('submit', submitBooking);
+    }
+
+    async function submitBooking(e){
+      e.preventDefault();
+      $('#bookMsg').textContent='';
+      const f=$('#bookForm');
+      const payload=Object.fromEntries(new FormData(f).entries());
+      const nights=nightsBetween(payload.arrival_date,payload.departure_date);
+      const total=calcPrice(hotel, Number(payload.adults||0)+Number(payload.children||0), nights);
+      const { supabase } = await import('/js/supabaseClient.js');
+      const res = await supabase.from('hotel_bookings').insert([{
+        hotel_id: hotel.id,
+        hotel_slug: hotel.slug,
+        customer_name: payload.name,
+        customer_email: payload.email,
+        customer_phone: payload.phone,
+        arrival_date: payload.arrival_date,
+        departure_date: payload.departure_date,
+        num_adults: Number(payload.adults||0),
+        num_children: Number(payload.children||0),
+        nights,
+        notes: payload.note,
+        total_price: total,
+        status: 'pending'
+      }]).select().single();
+      if(res.error){ $('#bookMsg').style.color='#a00'; $('#bookMsg').textContent=res.error.message; return; }
+      $('#bookMsg').style.color='#0a0';
+      $('#bookMsg').textContent = `Rezerwacja przyjęta. Suma: ${Number(res.data.total_price||0).toFixed(2)} €`;
+      f.reset(); updateLive();
+    }
+
+    loadHotel();
+  </script>
+</body>
+</html>
