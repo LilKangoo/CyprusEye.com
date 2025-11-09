@@ -3,6 +3,8 @@
 
 let homeTripsData = [];
 let homeTripsCurrentCity = 'all';
+let homeTripsDisplay = [];
+let homeCurrentTrip = null;
 
 // Load trips from Supabase (exactly like trips.html)
 async function loadHomeTrips() {
@@ -50,6 +52,7 @@ function renderHomeTrips() {
 
   // Limit to 6 trips on home page
   const displayTrips = filteredTrips.slice(0, 6);
+  homeTripsDisplay = displayTrips;
   
   console.log('Current city:', homeTripsCurrentCity);
   console.log('Filtered trips:', filteredTrips.length);
@@ -64,7 +67,7 @@ function renderHomeTrips() {
     return;
   }
 
-  grid.innerHTML = displayTrips.map(trip => {
+  grid.innerHTML = displayTrips.map((trip, index) => {
     const imageUrl = trip.cover_image_url || '/assets/cyprus_logo-1000x1054.png';
     
     // Get title (support multilingual or slug)
@@ -86,7 +89,7 @@ function renderHomeTrips() {
 
     return `
       <a 
-        href="trips.html#${trip.slug}" 
+        href="#" 
         class="trip-home-card"
         style="
           position: relative;
@@ -99,6 +102,7 @@ function renderHomeTrips() {
           text-decoration: none;
           display: block;
         "
+        onclick="openTripModalHome(${index}); return false;"
         onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 12px rgba(0,0,0,0.15)'"
         onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.1)'"
       >
@@ -191,4 +195,160 @@ document.addEventListener('DOMContentLoaded', function() {
   if (grid) grid.addEventListener('scroll', updateArrows, { passive: true });
   window.addEventListener('resize', updateArrows);
   updateArrows();
+});
+
+// --- Modal logic identical to /trips ---
+function calculateTripPrice(trip, adults, children, hours, days) {
+  adults = parseInt(adults) || 1;
+  children = parseInt(children) || 0;
+  hours = parseInt(hours) || 1;
+  days = parseInt(days) || 1;
+  const pricing = trip.pricing_model;
+  let price = 0;
+  if (pricing === 'per_person') {
+    const pricePerPerson = Number(trip.price_per_person) || 0;
+    price = pricePerPerson * (adults + children);
+  } else if (pricing === 'base_plus_extra') {
+    const basePrice = Number(trip.price_base) || 0;
+    const includedPeople = Number(trip.included_people) || 1;
+    const extraPrice = Number(trip.price_extra_person) || 0;
+    const totalPeople = adults + children;
+    price = basePrice;
+    if (totalPeople > includedPeople) {
+      price += (totalPeople - includedPeople) * extraPrice;
+    }
+  } else if (pricing === 'per_hour') {
+    const hourlyRate = Number(trip.price_base) || 0;
+    price = hourlyRate * hours;
+  } else if (pricing === 'per_day') {
+    const dailyRate = Number(trip.price_base) || 0;
+    price = dailyRate * days;
+  } else {
+    price = Number(trip.price_base) || Number(trip.price_per_person) || 0;
+  }
+  return price;
+}
+
+function updateLivePriceHome() {
+  if (!homeCurrentTrip) return;
+  const adults = document.getElementById('bookingAdults')?.value;
+  const children = document.getElementById('bookingChildren')?.value;
+  const hours = document.getElementById('bookingHours')?.value;
+  const days = document.getElementById('bookingDays')?.value;
+  const totalPrice = calculateTripPrice(homeCurrentTrip, adults, children, hours, days);
+  const priceEl = document.getElementById('modalTripPrice');
+  if (priceEl) priceEl.textContent = `${totalPrice.toFixed(2)} €`;
+}
+
+window.openTripModalHome = function(index){
+  const trip = homeTripsDisplay[index];
+  if (!trip) return;
+  homeCurrentTrip = trip;
+  const title = trip.title?.pl || trip.title?.en || trip.slug;
+  const desc = trip.description?.pl || trip.description?.en || '';
+  const image = trip.cover_image_url || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop';
+  document.getElementById('modalTripImage').src = image;
+  document.getElementById('modalTripTitle').textContent = title;
+  document.getElementById('modalTripSubtitle').textContent = trip.start_city || '';
+  document.getElementById('modalTripDescription').innerHTML = desc.replace(/\n/g, '<br/>');
+
+  // Reset form and message
+  const form = document.getElementById('bookingForm');
+  if (form) { form.reset(); const msg = document.getElementById('bookingMessage'); if (msg) msg.style.display='none'; }
+
+  // Toggle fields based on pricing model (1:1)
+  const peopleFields = document.getElementById('peopleFields');
+  const timeFields = document.getElementById('timeFields');
+  const hoursField = document.getElementById('bookingHours')?.parentElement;
+  const daysField = document.getElementById('bookingDays')?.parentElement;
+  const pricing = trip.pricing_model;
+  if (pricing === 'per_hour') {
+    if (peopleFields) peopleFields.style.display = 'none';
+    if (timeFields) timeFields.style.display = 'grid';
+    if (hoursField) hoursField.style.display = 'flex';
+    if (daysField) daysField.style.display = 'none';
+  } else if (pricing === 'per_day') {
+    if (peopleFields) peopleFields.style.display = 'none';
+    if (timeFields) timeFields.style.display = 'grid';
+    if (hoursField) hoursField.style.display = 'none';
+    if (daysField) daysField.style.display = 'flex';
+  } else if (pricing === 'per_person' || pricing === 'base_plus_extra') {
+    if (peopleFields) peopleFields.style.display = 'grid';
+    if (timeFields) timeFields.style.display = 'none';
+  } else {
+    if (peopleFields) peopleFields.style.display = 'grid';
+    if (timeFields) timeFields.style.display = 'none';
+  }
+
+  // Rebind inputs to update price
+  const adultsInput = document.getElementById('bookingAdults');
+  const childrenInput = document.getElementById('bookingChildren');
+  const hoursInput = document.getElementById('bookingHours');
+  const daysInput = document.getElementById('bookingDays');
+  if (adultsInput) { const n = adultsInput.cloneNode(true); adultsInput.parentNode.replaceChild(n, adultsInput); n.addEventListener('input', updateLivePriceHome); }
+  if (childrenInput) { const n = childrenInput.cloneNode(true); childrenInput.parentNode.replaceChild(n, childrenInput); n.addEventListener('input', updateLivePriceHome); }
+  if (hoursInput) { const n = hoursInput.cloneNode(true); hoursInput.parentNode.replaceChild(n, hoursInput); n.addEventListener('input', updateLivePriceHome); }
+  if (daysInput) { const n = daysInput.cloneNode(true); daysInput.parentNode.replaceChild(n, daysInput); n.addEventListener('input', updateLivePriceHome); }
+
+  updateLivePriceHome();
+
+  const modal = document.getElementById('tripModal');
+  if (modal) { modal.hidden = false; modal.classList.add('active'); document.body.style.overflow = 'hidden'; }
+};
+
+window.closeTripModal = function(){
+  const modal = document.getElementById('tripModal');
+  if (modal) { modal.classList.remove('active'); modal.hidden = true; document.body.style.overflow = ''; }
+  homeCurrentTrip = null;
+};
+
+// Backdrop close
+document.addEventListener('DOMContentLoaded', ()=>{
+  const modal = document.getElementById('tripModal');
+  if (modal) modal.addEventListener('click', (e)=>{ if (e.target === modal) closeTripModal(); });
+
+  // Booking submit identical to trips.html
+  const form = document.getElementById('bookingForm');
+  if (form) form.addEventListener('submit', async (e)=>{
+    e.preventDefault();
+    if (!homeCurrentTrip) return;
+    const fd = new FormData(form);
+    const adults = parseInt(fd.get('adults')) || 1;
+    const children = parseInt(fd.get('children')) || 0;
+    const hours = parseInt(fd.get('hours')) || 1;
+    const days = parseInt(fd.get('days')) || 1;
+    const total = calculateTripPrice(homeCurrentTrip, adults, children, hours, days);
+    const payload = {
+      trip_id: homeCurrentTrip.id,
+      trip_slug: homeCurrentTrip.slug,
+      customer_name: fd.get('name'),
+      customer_email: fd.get('email'),
+      customer_phone: fd.get('phone'),
+      trip_date: fd.get('trip_date'),
+      arrival_date: fd.get('arrival_date'),
+      departure_date: fd.get('departure_date'),
+      num_adults: adults,
+      num_children: children,
+      num_hours: hours,
+      num_days: days,
+      notes: fd.get('notes'),
+      total_price: total,
+      status: 'pending'
+    };
+    const btn = form.querySelector('.booking-submit');
+    const msg = document.getElementById('bookingMessage');
+    try{
+      if (btn){ btn.disabled = true; btn.textContent = 'Wysyłanie...'; }
+      const { supabase } = await import('/js/supabaseClient.js');
+      const { error } = await supabase.from('trip_bookings').insert([payload]).select().single();
+      if (error) throw error;
+      if (msg){ msg.textContent='Rezerwacja przyjęta! Skontaktujemy się z Tobą wkrótce.'; msg.className='booking-message success'; msg.style.display='block'; }
+      form.reset();
+    }catch(err){
+      console.error('Booking error:', err);
+      if (msg){ msg.textContent= err.message || 'Wystąpił błąd podczas rezerwacji. Spróbuj ponownie.'; msg.className='booking-message error'; msg.style.display='block'; }
+    }finally{
+      if (btn){ btn.disabled=false; btn.textContent='Zarezerwuj'; }
+    }
+  });
 });

@@ -115,6 +115,89 @@
           <p class="brand-name">WakacjeCypr <span>Quest</span></p>
           <p class="tagline">Zwiedzaj Cypr w interaktywny sposób – zdobywaj odznaki, doświadczenie i odkrywaj nasze najlepsze oferty.</p>
         </div>
+
+  <!-- Trip Details Modal (same as /trips) -->
+  <div class="trip-modal" id="tripModal" hidden>
+    <div class="trip-modal-content">
+      <button class="trip-modal-close" onclick="closeTripModal()">✕</button>
+      <img class="trip-modal-image" id="modalTripImage" src="" alt="Trip" />
+      <div class="trip-modal-header">
+        <h2 class="trip-modal-title" id="modalTripTitle">Trip Title</h2>
+        <p class="trip-modal-subtitle" id="modalTripSubtitle">Subtitle</p>
+      </div>
+      <div class="trip-modal-body">
+        <div class="trip-section">
+          <h3 class="trip-section-title">Opis</h3>
+          <div class="trip-description" id="modalTripDescription"></div>
+        </div>
+        <div class="trip-section">
+          <h3 class="trip-section-title">Rezerwacja</h3>
+          <form class="booking-form" id="bookingForm">
+            <div class="form-row">
+              <div class="form-field">
+                <label for="bookingName">Imię i nazwisko *</label>
+                <input type="text" id="bookingName" name="name" required />
+              </div>
+              <div class="form-field">
+                <label for="bookingEmail">Email *</label>
+                <input type="email" id="bookingEmail" name="email" required />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label for="bookingPhone">Telefon</label>
+                <input type="tel" id="bookingPhone" name="phone" />
+              </div>
+              <div class="form-field">
+                <label for="bookingDate">Preferowana data wycieczki</label>
+                <input type="date" id="bookingDate" name="trip_date" />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-field">
+                <label for="arrivalDate">Data przylotu na Cypr *</label>
+                <input type="date" id="arrivalDate" name="arrival_date" required />
+              </div>
+              <div class="form-field">
+                <label for="departureDate">Data wylotu z Cypru *</label>
+                <input type="date" id="departureDate" name="departure_date" required />
+              </div>
+            </div>
+            <div class="form-row" id="peopleFields">
+              <div class="form-field">
+                <label for="bookingAdults">Liczba dorosłych</label>
+                <input type="number" id="bookingAdults" name="adults" min="1" value="1" />
+              </div>
+              <div class="form-field">
+                <label for="bookingChildren">Dzieci</label>
+                <input type="number" id="bookingChildren" name="children" min="0" value="0" />
+              </div>
+            </div>
+            <div class="form-row" id="timeFields" style="display:none;">
+              <div class="form-field">
+                <label for="bookingHours">Liczba godzin</label>
+                <input type="number" id="bookingHours" name="hours" min="1" value="1" />
+              </div>
+              <div class="form-field">
+                <label for="bookingDays">Liczba dni</label>
+                <input type="number" id="bookingDays" name="days" min="1" value="1" />
+              </div>
+            </div>
+            <div class="form-field">
+              <label for="bookingNotes">Uwagi (opcjonalnie)</label>
+              <textarea id="bookingNotes" name="notes"></textarea>
+            </div>
+            <div class="trip-price-box">
+              <p class="trip-price-label">Cena</p>
+              <p class="trip-price-value" id="modalTripPrice">0.00 €</p>
+            </div>
+            <button type="submit" class="booking-submit">Zarezerwuj</button>
+            <div id="bookingMessage" class="booking-message" style="display:none;"></div>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
       </div>
       <div class="header-top-actions">
         <!-- Auth controls integrated into header -->
@@ -594,26 +677,6 @@
 
   <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
 
-  <!-- Shared Detail Modal for Trips/Hotels -->
-  <div id="detailModal" class="detail-modal" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle" hidden>
-    <div class="detail-modal-dialog" role="document">
-      <header class="detail-modal-header">
-        <h2 id="detailModalTitle" class="detail-modal-title">Szczegóły</h2>
-        <button type="button" class="detail-modal-close" aria-label="Zamknij" data-close-detail>✕</button>
-      </header>
-      <div id="detailModalBody" class="detail-modal-body">
-        <!-- Skeleton while loading -->
-        <div class="detail-skeleton">
-          <div class="sk-media"></div>
-          <div class="sk-lines">
-            <div class="sk-line"></div>
-            <div class="sk-line"></div>
-            <div class="sk-line short"></div>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
 
   <script src="js/languageSelector.js" defer></script>
   <script src="js/i18n.js" defer></script>
@@ -638,7 +701,6 @@
   <script src="js/data-packing.js"></script>
   <script src="js/home-trips.js"></script>
   <script src="js/home-hotels.js"></script>
-  <script src="js/detail-modal.js" defer></script>
   
   <!-- Comments Modal (shared with community) -->
   <div id="commentsModal" class="comments-modal" hidden role="dialog" aria-modal="true" aria-labelledby="commentsModalTitle">
