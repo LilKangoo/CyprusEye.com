@@ -33,7 +33,7 @@
     .hotels-tabs{display:flex;gap:16px;margin-bottom:32px;border-bottom:2px solid #e5e7eb;overflow-x:auto}
     .hotels-tab{padding:12px 24px;font-weight:600;color:#6b7280;background:none;border:none;border-bottom:3px solid transparent;cursor:pointer}
     .hotels-tab.active{color:#059669;border-bottom-color:#059669}
-    .hotel-card{position:relative;height:250px;border-radius:12px;overflow:hidden;cursor:pointer;transition:transform .3s,box-shadow .3s;box-shadow:0 4px 6px rgba(0,0,0,.1)}
+    .hotel-card{position:relative;aspect-ratio:4/3;height:auto;border-radius:12px;overflow:hidden;cursor:pointer;transition:transform .3s,box-shadow .3s;box-shadow:0 4px 6px rgba(0,0,0,.1);background:#f3f4f6}
     .hotel-card:hover{transform:translateY(-4px);box-shadow:0 12px 24px rgba(0,0,0,.15)}
     .hotel-card img{width:100%;height:100%;object-fit:cover}
     .hotel-card-overlay{position:absolute;left:0;right:0;bottom:0;padding:16px;background:linear-gradient(to top,rgba(0,0,0,.8),transparent);color:#fff}
@@ -93,8 +93,10 @@
     }
 
     /* Header uses global styles from base/components; avoid local overrides here */
-    /* Ensure page content starts after header ends */
-    .app-header{ margin-bottom: 16px; }
+    /* Ensure page content starts clearly after header ends (both top bar and tabs) */
+    .app-header{ margin-bottom: var(--header-gap, 24px); }
+    @media (max-width:768px){ .app-header{ margin-bottom: var(--header-gap, 20px); } }
+    .app-header + main{ display:block; }
 
     /* Sticky footer layout */
     html, body { height:100%; }
@@ -130,25 +132,10 @@
           </div>
           <div data-auth="spinner" class="auth-spinner-inline" hidden>Łączenie...</div>
         </div>
-        <div class="header-actions" aria-label="Szybkie działania">
-          <div class="header-actions-primary">
-            <a class="ghost header-link" href="/community.html">💬 Społeczność</a>
-            <a class="ghost header-link" href="/kupon.html">🎟️ Kupon</a>
-            <a class="ghost header-link" href="/car-rental-landing.html">🚗 Wynajem auta</a>
-            <a class="ghost header-link" href="/trips.html" aria-label="Wycieczki">🧭 Wycieczki</a>
-            <a class="ghost header-link" href="/hotels.html" aria-current="page" aria-label="Hotele">🏨 Hotele</a>
-            <a class="ghost header-link" href="/vip.html">✨ VIP wyjazdy</a>
-          </div>
-        </div>
+        
       </div>
     </div>
-    <nav class="header-tabs" role="tablist" aria-label="Nawigacja główna">
-      <a href="/index.html" class="header-tab" id="headerAdventureTab">🎯 Twoja przygoda</a>
-      <a href="/packing.html" class="header-tab" id="headerPackingTab">🎒 Planer pakowania</a>
-      <a href="/tasks.html" class="header-tab" id="headerTasksTab">✅ Zadania</a>
-      <a href="/trips.html" class="header-tab" id="headerTripsTab">🧭 Wycieczki</a>
-      <a href="/hotels.html" class="header-tab is-active" id="headerHotelsTab">🏨 Hotele</a>
-    </nav>
+    
   </header>
 
   <main>
@@ -263,6 +250,18 @@
     let allHotels = [];
     let currentCity = 'all';
     let currentHotel = null;
+
+    // Dynamic spacing under header (accounts for multi-row actions and tabs)
+    function applyHeaderGap(){
+      const header = document.querySelector('.app-header');
+      if(!header) return;
+      const h = header.getBoundingClientRect().height;
+      // base 16px + small fraction of header height to keep visual air when header wraps
+      const gap = Math.max(16, Math.min(48, Math.round(16 + h*0.08)));
+      document.documentElement.style.setProperty('--header-gap', gap + 'px');
+    }
+    window.addEventListener('resize', applyHeaderGap, { passive:true });
+    document.addEventListener('DOMContentLoaded', applyHeaderGap);
 
     function getCities(){
       const s = new Set();
