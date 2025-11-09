@@ -119,6 +119,8 @@
   <!-- Trip Details Modal (same as /trips) -->
   <div class="trip-modal" id="tripModal" hidden>
     <div class="trip-modal-content">
+      <button class="trip-modal-nav prev" type="button" aria-label="Poprzednia" id="tripModalPrev">‹</button>
+      <button class="trip-modal-nav next" type="button" aria-label="Następna" id="tripModalNext">›</button>
       <button class="trip-modal-close" onclick="closeTripModal()">✕</button>
       <img class="trip-modal-image" id="modalTripImage" src="" alt="Trip" />
       <div class="trip-modal-header">
@@ -198,6 +200,7 @@
       </div>
     </div>
   </div>
+
       </div>
       <div class="header-top-actions">
         <!-- Auth controls integrated into header -->

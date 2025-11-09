@@ -5,6 +5,7 @@ let homeTripsData = [];
 let homeTripsCurrentCity = 'all';
 let homeTripsDisplay = [];
 let homeCurrentTrip = null;
+let homeCurrentIndex = null;
 
 // Load trips from Supabase (exactly like trips.html)
 async function loadHomeTrips() {
@@ -244,6 +245,7 @@ window.openTripModalHome = function(index){
   const trip = homeTripsDisplay[index];
   if (!trip) return;
   homeCurrentTrip = trip;
+  homeCurrentIndex = index;
   const title = trip.title?.pl || trip.title?.en || trip.slug;
   const desc = trip.description?.pl || trip.description?.en || '';
   const image = trip.cover_image_url || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop';
@@ -294,12 +296,14 @@ window.openTripModalHome = function(index){
 
   const modal = document.getElementById('tripModal');
   if (modal) { modal.hidden = false; modal.classList.add('active'); document.body.style.overflow = 'hidden'; }
+  updateModalArrows();
 };
 
 window.closeTripModal = function(){
   const modal = document.getElementById('tripModal');
   if (modal) { modal.classList.remove('active'); modal.hidden = true; document.body.style.overflow = ''; }
   homeCurrentTrip = null;
+  homeCurrentIndex = null;
 };
 
 // Backdrop close
@@ -351,4 +355,28 @@ document.addEventListener('DOMContentLoaded', ()=>{
       if (btn){ btn.disabled=false; btn.textContent='Zarezerwuj'; }
     }
   });
+
+  // Modal navigation
+  const prevBtn = document.getElementById('tripModalPrev');
+  const nextBtn = document.getElementById('tripModalNext');
+  if (prevBtn) prevBtn.addEventListener('click', ()=>{
+    if (homeCurrentIndex === null) return;
+    const i = Math.max(0, homeCurrentIndex - 1);
+    openTripModalHome(i);
+  });
+  if (nextBtn) nextBtn.addEventListener('click', ()=>{
+    if (homeCurrentIndex === null) return;
+    const i = Math.min(homeTripsDisplay.length - 1, homeCurrentIndex + 1);
+    openTripModalHome(i);
+  });
 });
+
+function updateModalArrows(){
+  const prevBtn = document.getElementById('tripModalPrev');
+  const nextBtn = document.getElementById('tripModalNext');
+  if (!prevBtn || !nextBtn) return;
+  const total = homeTripsDisplay.length;
+  const i = homeCurrentIndex ?? 0;
+  prevBtn.disabled = (i <= 0);
+  nextBtn.disabled = (i >= total - 1);
+}
