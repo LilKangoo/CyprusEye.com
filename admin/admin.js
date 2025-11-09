@@ -927,6 +927,626 @@ async function openNewTripModal() {
   }
 }
 
+// =====================================================
+// HOTELS MANAGEMENT (mirrors Trips)
+// =====================================================
+
+async function loadHotelsAdminData() {
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    const { data: hotels, error } = await client
+      .from('hotels')
+      .select('*')
+      .order('updated_at', { ascending: false })
+      .limit(200);
+
+    if (error) throw error;
+
+    const total = hotels?.length || 0;
+    const published = (hotels || []).filter(h => h.is_published).length;
+    const statTotal = document.getElementById('hotelsStatTotal');
+    const statPub = document.getElementById('hotelsStatPublished');
+    const sub = document.getElementById('hotelsStatSubtitle');
+    if (statTotal) statTotal.textContent = total;
+    if (statPub) statPub.textContent = published;
+    if (sub) sub.textContent = total ? `${published} published` : 'No hotels yet';
+
+    const tbody = document.getElementById('hotelsTableBody');
+    if (!tbody) return;
+    if (!hotels || hotels.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="table-loading">No hotels found</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = hotels.map(h => {
+      const title = (h.title && (h.title.pl || h.title.en)) || h.slug || h.id;
+      const updated = h.updated_at ? new Date(h.updated_at).toLocaleString('en-GB') : '-';
+      return `
+        <tr>
+          <td>
+            <div style="font-weight:600">${escapeHtml(title)}</div>
+          </td>
+          <td>${escapeHtml(h.slug || '')}</td>
+          <td>${escapeHtml(h.city || '')}</td>
+          <td>
+            <label class="admin-switch" title="Toggle publish">
+              <input type="checkbox" ${h.is_published ? 'checked' : ''} onchange="toggleHotelPublish('${h.id}', this.checked)">
+              <span></span>
+            </label>
+          </td>
+          <td>${updated}</td>
+          <td style="display:flex;gap:8px;">
+            <button class="btn-primary" onclick="editHotel('${h.id}')">Edit</button>
+            <a class="btn-secondary" href="/hotel.html?slug=${encodeURIComponent(h.slug)}" target="_blank">Preview</a>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    const addBtn = document.getElementById('btnAddHotel');
+    if (addBtn && !addBtn.dataset.bound) {
+      addBtn.addEventListener('click', openNewHotelModal);
+      addBtn.dataset.bound = '1';
+    }
+
+    showToast('Hotels loaded', 'success');
+  } catch (e) {
+    console.error('Failed to load hotels:', e);
+    showToast('Failed to load hotels: ' + (e.message || 'Unknown error'), 'error');
+    const tbody = document.getElementById('hotelsTableBody');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="table-loading" style="color:var(--admin-danger)">Error: ${escapeHtml(e.message||'')}</td></tr>`;
+  }
+}
+
+async function toggleHotelPublish(hotelId, publish) {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+    const { error } = await client
+      .from('hotels')
+      .update({ is_published: !!publish, updated_at: new Date().toISOString() })
+      .eq('id', hotelId);
+    if (error) throw error;
+    showToast(publish ? 'Hotel published' : 'Hotel unpublished', 'success');
+    await loadHotelsAdminData();
+  } catch (e) {
+    console.error('Publish toggle failed:', e);
+    showToast('Failed to update publish state', 'error');
+  }
+}
+
+async function editHotel(hotelId) {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+
+    const { data: hotel, error } = await client
+      .from('hotels')
+      .select('*')
+      .eq('id', hotelId)
+      .single();
+
+    if (error) throw error;
+
+    const modal = document.getElementById('editHotelModal');
+    const form = document.getElementById('editHotelForm');
+    if (!modal || !form) return;
+
+    document.getElementById('editHotelId').value = hotel.id;
+    document.getElementById('editHotelSlug').value = hotel.slug || '';
+    document.getElementById('editHotelCity').value = hotel.city || 'Larnaca';
+    document.getElementById('editHotelTitlePl').value = (hotel.title && hotel.title.pl) || '';
+    document.getElementById('editHotelDescPl').value = (hotel.description && hotel.description.pl) || '';
+    document.getElementById('editHotelCoverUrl').value = hotel.cover_image_url || '';
+    document.getElementById('editHotelPricing').value = hotel.pricing_model || 'per_person_per_night';
+    document.getElementById('editHotelPublished').checked = !!hotel.is_published;
+
+    const previewWrap = document.getElementById('editHotelCoverPreview');
+    const previewImg = previewWrap ? previewWrap.querySelector('img') : null;
+    if (hotel.cover_image_url && previewImg) {
+      previewImg.src = hotel.cover_image_url;
+      previewWrap.style.display = '';
+    } else if (previewWrap) {
+      previewWrap.style.display = 'none';
+    }
+
+    const urlInput = document.getElementById('editHotelCoverUrl');
+    if (urlInput && previewWrap && previewImg) {
+      urlInput.oninput = () => {
+        const url = (urlInput.value || '').trim();
+        if (url) {
+          previewImg.src = url;
+          previewWrap.style.display = '';
+        } else {
+          previewWrap.style.display = 'none';
+        }
+      };
+    }
+
+    form.onsubmit = async (e) => {
+      e.preventDefault();
+      await handleEditHotelSubmit(e, hotel);
+    };
+
+    modal.hidden = false;
+  } catch (e) {
+    console.error('Failed to open edit hotel modal:', e);
+    showToast('Failed to load hotel for editing', 'error');
+  }
+}
+
+async function handleEditHotelSubmit(event, originalHotel) {
+  event.preventDefault();
+  try {
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database connection not available');
+
+    const form = event.target;
+    const fd = new FormData(form);
+    const payload = Object.fromEntries(fd.entries());
+
+    payload.title = { pl: payload.title_pl || '' };
+    payload.description = { pl: payload.description_pl || '' };
+    delete payload.title_pl;
+    delete payload.description_pl;
+
+    payload.is_published = form.querySelector('#editHotelPublished').checked;
+    payload.updated_at = new Date().toISOString();
+
+    const hotelId = document.getElementById('editHotelId').value;
+
+    const { error } = await client
+      .from('hotels')
+      .update(payload)
+      .eq('id', hotelId);
+
+    if (error) throw error;
+
+    showToast('Hotel updated successfully', 'success');
+    document.getElementById('editHotelModal').hidden = true;
+    await loadHotelsAdminData();
+  } catch (err) {
+    console.error('Failed to update hotel:', err);
+    showToast(err.message || 'Failed to update hotel', 'error');
+  }
+}
+
+function slugifyHotelTitle(title) {
+  return String(title || '')
+    .toLowerCase()
+    .normalize('NFKD')
+    .replace(/[^a-z0-9\s-]/g, '')
+    .trim()
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .slice(0, 80) || `hotel-${Date.now()}`;
+}
+
+async function openNewHotelModal() {
+  try {
+    const form = document.getElementById('newHotelForm');
+    if (form) {
+      form.reset();
+
+      const fileInput = document.getElementById('newHotelCoverFile');
+      const urlInput = document.getElementById('newHotelCoverUrl');
+      const previewWrap = document.getElementById('newHotelCoverPreview');
+      const previewImg = previewWrap ? previewWrap.querySelector('img') : null;
+
+      if (fileInput && previewWrap && previewImg) {
+        fileInput.onchange = () => {
+          const f = fileInput.files && fileInput.files[0];
+          if (f && f.type && f.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = () => {
+              previewImg.src = reader.result;
+              previewWrap.style.display = '';
+            };
+            reader.readAsDataURL(f);
+            if (urlInput) urlInput.value = '';
+          } else {
+            previewWrap.style.display = 'none';
+            previewImg.removeAttribute('src');
+          }
+        };
+      }
+      if (urlInput && previewWrap && previewImg) {
+        urlInput.oninput = () => {
+          const v = (urlInput.value || '').trim();
+          if (v) {
+            previewImg.src = v;
+            previewWrap.style.display = '';
+            if (fileInput) fileInput.value = '';
+          } else {
+            previewWrap.style.display = 'none';
+            previewImg.removeAttribute('src');
+          }
+        };
+      }
+
+      form.onsubmit = async (ev) => {
+        ev.preventDefault();
+        try {
+          const client = ensureSupabase();
+          if (!client) throw new Error('Database connection not available');
+
+          const fd = new FormData(form);
+          const payload = Object.fromEntries(fd.entries());
+
+          payload.title = { pl: payload.title_pl || '' };
+          payload.description = { pl: payload.description_pl || '' };
+          delete payload.title_pl;
+          delete payload.description_pl;
+
+          payload.slug = slugifyHotelTitle(payload.title.pl);
+
+          let coverUrl = (payload.cover_image_url || '').trim() || '';
+          const file = fileInput && fileInput.files ? fileInput.files[0] : null;
+          if (file) {
+            if (!file.type.startsWith('image/')) throw new Error('Nieprawidłowy typ pliku okładki');
+            const maxSize = 8 * 1024 * 1024;
+            if (file.size > maxSize) throw new Error('Plik okładki jest za duży (max 8MB)');
+
+            const compressed = await compressToWebp(file, 1920, 1080, 0.82);
+            const path = `hotels/${payload.slug}/cover-${Date.now()}.webp`;
+            const { error: upErr } = await client.storage.from('poi-photos').upload(path, compressed, {
+              cacheControl: '3600',
+              upsert: false,
+              contentType: 'image/webp'
+            });
+            if (upErr) throw upErr;
+
+            const { data: pub } = client.storage.from('poi-photos').getPublicUrl(path);
+            coverUrl = pub?.publicUrl || '';
+          }
+          if (coverUrl) payload.cover_image_url = coverUrl; else delete payload.cover_image_url;
+
+          const now = new Date().toISOString();
+          payload.created_at = now;
+          payload.updated_at = now;
+          payload.is_published = false;
+
+          const { data, error } = await client
+            .from('hotels')
+            .insert(payload)
+            .select('*')
+            .single();
+
+          if (error) throw error;
+
+          showToast('Hotel created successfully', 'success');
+          document.getElementById('newHotelModal').hidden = true;
+          await loadHotelsAdminData();
+        } catch (err) {
+          console.error('Create hotel failed:', err);
+          showToast(err.message || 'Failed to create hotel', 'error');
+        }
+      };
+    }
+
+    const modal = document.getElementById('newHotelModal');
+    if (modal) modal.hidden = false;
+  } catch (e) {
+    console.error('openNewHotelModal failed', e);
+    showToast('Failed to open New Hotel', 'error');
+  }
+}
+
+// =====================================================
+// HOTEL BOOKINGS MODULE (mirrors Trip bookings)
+// =====================================================
+
+async function loadHotelBookingsData() {
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    const { data: bookings, error } = await client
+      .from('hotel_bookings')
+      .select('*')
+      .order('created_at', { ascending: false })
+      .limit(100);
+
+    if (error) throw error;
+
+    const totalBookings = bookings?.length || 0;
+    const pendingBookings = bookings?.filter(b => b.status === 'pending').length || 0;
+    const confirmedBookings = bookings?.filter(b => b.status === 'confirmed').length || 0;
+    const totalRevenue = bookings
+      ?.filter(b => (b.status === 'confirmed' || b.status === 'completed') && b.total_price)
+      .reduce((sum, b) => sum + parseFloat(b.total_price), 0) || 0;
+
+    const statTotal = document.getElementById('statHotelBookingsTotal');
+    const statPending = document.getElementById('statHotelBookingsPending');
+    const statConfirmed = document.getElementById('statHotelBookingsConfirmed');
+    const statRevenue = document.getElementById('statHotelBookingsRevenue');
+
+    if (statTotal) statTotal.textContent = totalBookings;
+    if (statPending) statPending.textContent = pendingBookings;
+    if (statConfirmed) statConfirmed.textContent = confirmedBookings;
+    if (statRevenue) statRevenue.textContent = `€${totalRevenue.toFixed(2)}`;
+
+    const tableBody = document.getElementById('hotelBookingsTableBody');
+    if (!tableBody) return;
+
+    if (!bookings || bookings.length === 0) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="6" class="table-loading">
+            No hotel bookings yet. System is ready to accept bookings!
+          </td>
+        </tr>
+      `;
+      return;
+    }
+
+    tableBody.innerHTML = bookings.map(booking => {
+      const statusClass = 
+        booking.status === 'confirmed' ? 'badge-success' :
+        booking.status === 'completed' ? 'badge-success' :
+        booking.status === 'pending' ? 'badge-warning' :
+        booking.status === 'cancelled' ? 'badge-danger' : 'badge';
+      const arr = booking.arrival_date ? new Date(booking.arrival_date).toLocaleDateString('en-GB') : '';
+      const dep = booking.departure_date ? new Date(booking.departure_date).toLocaleDateString('en-GB') : '';
+      return `
+        <tr>
+          <td>
+            <div style="font-weight: 600;">#${booking.id.slice(0, 8).toUpperCase()}</div>
+            <div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 2px;">
+              ${escapeHtml(booking.hotel_slug || 'N/A')}
+            </div>
+          </td>
+          <td>
+            <div style="font-weight: 500;">${escapeHtml(booking.customer_name || 'N/A')}</div>
+            <div style="font-size: 12px; color: var(--admin-text-muted);">${escapeHtml(booking.customer_email || '')}</div>
+            ${booking.customer_phone ? `<div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(booking.customer_phone)}</div>` : ''}
+          </td>
+          <td>
+            <div style="font-size: 12px;">
+              ${arr && dep ? `🏨 ${arr} - ${dep}` : 'No dates'}
+            </div>
+            <div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 2px;">
+              ${booking.num_adults || booking.num_children ? `👥 ${booking.num_adults || 0}+${booking.num_children || 0}` : ''}
+              ${booking.nights ? ` 📅 ${booking.nights} night(s)` : ''}
+            </div>
+          </td>
+          <td>
+            <span class="badge ${statusClass}">${(booking.status || 'unknown').toUpperCase()}</span>
+          </td>
+          <td style="font-weight: 600; color: var(--admin-success);">
+            €${Number(booking.total_price || 0).toFixed(2)}
+          </td>
+          <td>
+            <button class="btn-secondary" onclick="viewHotelBookingDetails('${booking.id}')" title="View details">
+              View
+            </button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    showToast('Hotel bookings loaded successfully', 'success');
+
+  } catch (error) {
+    console.error('Failed to load hotel bookings:', error);
+    showToast('Failed to load hotel bookings: ' + (error.message || 'Unknown error'), 'error');
+    const tableBody = document.getElementById('hotelBookingsTableBody');
+    if (tableBody) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="6" class="table-loading" style="color: var(--admin-danger);">
+            ❌ Error loading data: ${escapeHtml(error.message || 'Unknown error')}
+            <br><small style="margin-top: 8px; display: block;">
+              Make sure the hotel tables exist in Supabase.
+            </small>
+          </td>
+        </tr>
+      `;
+    }
+  }
+}
+
+async function viewHotelBookingDetails(bookingId) {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+
+    const { data: booking, error } = await client
+      .from('hotel_bookings')
+      .select('*')
+      .eq('id', bookingId)
+      .single();
+
+    if (error) {
+      showToast('Failed to load booking details', 'error');
+      return;
+    }
+    if (!booking) {
+      showToast('Booking not found', 'error');
+      return;
+    }
+
+    const modal = document.getElementById('hotelBookingDetailsModal');
+    const content = document.getElementById('hotelBookingDetailsContent');
+    if (!modal || !content) return;
+
+    const arrivalDate = booking.arrival_date ? new Date(booking.arrival_date).toLocaleDateString('en-GB') : 'N/A';
+    const departureDate = booking.departure_date ? new Date(booking.departure_date).toLocaleDateString('en-GB') : 'N/A';
+    const createdAt = booking.created_at ? new Date(booking.created_at).toLocaleString('en-GB') : 'N/A';
+    const statusClass = 
+      booking.status === 'confirmed' ? 'badge-success' :
+      booking.status === 'pending' ? 'badge-warning' :
+      booking.status === 'cancelled' ? 'badge-danger' :
+      booking.status === 'completed' ? 'badge-success' : 'badge';
+
+    content.innerHTML = `
+      <div style="display: grid; gap: 24px;">
+        <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
+            <div>
+              <h4 style="margin: 0; font-size: 16px; font-weight: 600;">Booking #${booking.id.slice(0, 8).toUpperCase()}</h4>
+              <p style="margin: 4px 0 0; font-size: 12px; color: var(--admin-text-muted);">Hotel: ${escapeHtml(booking.hotel_slug || 'N/A')}</p>
+              <p style="margin: 2px 0 0; font-size: 11px; color: var(--admin-text-muted);">Created: ${createdAt}</p>
+            </div>
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <select id="hotelBookingStatusDropdown" class="admin-form-field" style="padding: 8px 12px; font-size: 14px; font-weight: 600;" onchange="updateHotelBookingStatus('${booking.id}', this.value)">
+                <option value="pending" ${booking.status === 'pending' ? 'selected' : ''}>⏳ Pending</option>
+                <option value="confirmed" ${booking.status === 'confirmed' ? 'selected' : ''}>✅ Confirmed</option>
+                <option value="completed" ${booking.status === 'completed' ? 'selected' : ''}>✔️ Completed</option>
+                <option value="cancelled" ${booking.status === 'cancelled' ? 'selected' : ''}>❌ Cancelled</option>
+              </select>
+              <span class="badge ${statusClass}" style="font-size: 14px; padding: 6px 12px;">${(booking.status || 'pending').toUpperCase()}</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Customer Information</h4>
+          <div style="display: grid; gap: 8px;">
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Name:</span>
+              <span>${escapeHtml(booking.customer_name || 'N/A')}</span>
+            </div>
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Email:</span>
+              <span><a href="mailto:${escapeHtml(booking.customer_email)}">${escapeHtml(booking.customer_email || 'N/A')}</a></span>
+            </div>
+            ${booking.customer_phone ? `
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Phone:</span>
+              <span><a href="tel:${escapeHtml(booking.customer_phone)}">${escapeHtml(booking.customer_phone)}</a></span>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <div>
+          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Stay Details</h4>
+          <div style="display: grid; gap: 8px;">
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Stay:</span>
+              <span>🏨 ${arrivalDate} → ${departureDate}</span>
+            </div>
+            ${booking.num_adults ? `
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Guests:</span>
+              <span>👥 ${booking.num_adults} adult(s), ${booking.num_children || 0} child(ren)</span>
+            </div>
+            ` : ''}
+            ${booking.nights ? `
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Nights:</span>
+              <span>📅 ${booking.nights}</span>
+            </div>
+            ` : ''}
+            ${booking.notes ? `
+            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
+              <span style="font-weight: 500;">Notes:</span>
+              <span>${escapeHtml(booking.notes)}</span>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+
+        <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
+          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Price</h4>
+          <div style="padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; text-align: center;">
+            <div style="font-size: 24px; font-weight: 700; color: white;">€${Number(booking.total_price || 0).toFixed(2)}</div>
+            <div style="font-size: 12px; color: rgba(255,255,255,0.9); margin-top: 4px;">Total Price</div>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 12px;">
+          <button type="button" class="btn-secondary" onclick="document.getElementById('hotelBookingDetailsModal').hidden=true" style="flex: 1;">Close</button>
+          <button type="button" class="btn-danger" onclick="deleteHotelBooking('${booking.id}')" style="flex: 1;">🗑️ Delete Booking</button>
+        </div>
+      </div>
+    `;
+
+    modal.hidden = false;
+  } catch (e) {
+    console.error('Failed to load hotel booking details:', e);
+    showToast('Failed to load booking details', 'error');
+  }
+}
+
+async function updateHotelBookingStatus(bookingId, newStatus) {
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    const updateData = { status: newStatus, updated_at: new Date().toISOString() };
+    if (newStatus === 'confirmed') updateData.confirmed_at = new Date().toISOString();
+    else if (newStatus === 'cancelled') updateData.cancelled_at = new Date().toISOString();
+
+    const { error } = await client
+      .from('hotel_bookings')
+      .update(updateData)
+      .eq('id', bookingId);
+
+    if (error) throw error;
+    showToast(`Status updated to: ${newStatus}`, 'success');
+    await loadHotelBookingsData();
+
+    const badge = document.querySelector('#hotelBookingDetailsModal .badge');
+    if (badge) {
+      badge.textContent = newStatus.toUpperCase();
+      badge.className = 'badge ' + (
+        newStatus === 'confirmed' ? 'badge-success' :
+        newStatus === 'pending' ? 'badge-warning' :
+        newStatus === 'cancelled' ? 'badge-danger' :
+        newStatus === 'completed' ? 'badge-success' : 'badge'
+      );
+    }
+  } catch (e) {
+    console.error('Failed to update status:', e);
+    showToast('Failed to update status: ' + e.message, 'error');
+  }
+}
+
+async function deleteHotelBooking(bookingId) {
+  if (!confirm('Are you sure you want to delete this booking? This action cannot be undone.')) {
+    return;
+  }
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+    const { error } = await client
+      .from('hotel_bookings')
+      .delete()
+      .eq('id', bookingId);
+    if (error) throw error;
+    showToast('Booking deleted successfully', 'success');
+    document.getElementById('hotelBookingDetailsModal').hidden = true;
+    await loadHotelBookingsData();
+  } catch (e) {
+    console.error('Failed to delete booking:', e);
+    showToast('Failed to delete booking: ' + e.message, 'error');
+  }
+}
+
+// Expose for inline handlers
+window.toggleHotelPublish = toggleHotelPublish;
+window.editHotel = editHotel;
+window.openNewHotelModal = openNewHotelModal;
+window.viewHotelBookingDetails = viewHotelBookingDetails;
+window.updateHotelBookingStatus = updateHotelBookingStatus;
+window.deleteHotelBooking = deleteHotelBooking;
+
 window.openNewTripModal = openNewTripModal;
 
 function hideElement(element) {
@@ -1171,6 +1791,9 @@ function switchView(viewName) {
       break;
     case 'trips':
       loadTripsAdminData();
+      break;
+    case 'hotels':
+      loadHotelsAdminData();
       break;
     case 'content':
       loadContentData();
@@ -6583,6 +7206,52 @@ document.addEventListener('DOMContentLoaded', function() {
           loadTripBookingsData();
         } else {
           loadTripsAdminData();
+        }
+      }
+    });
+  }
+});
+
+// =====================================================
+// HOTELS TABS FUNCTIONALITY
+// =====================================================
+document.addEventListener('DOMContentLoaded', function() {
+  const hotelsTabButtons = document.querySelectorAll('.hotels-tab-button');
+
+  hotelsTabButtons.forEach(button => {
+    button.addEventListener('click', function() {
+      const tab = this.getAttribute('data-tab');
+
+      hotelsTabButtons.forEach(btn => {
+        btn.classList.remove('active');
+        btn.style.borderBottomColor = 'transparent';
+        btn.style.color = 'var(--admin-text-muted)';
+      });
+      this.classList.add('active');
+      this.style.borderBottomColor = 'var(--admin-primary)';
+      this.style.color = 'var(--admin-text)';
+
+      document.getElementById('hotelsTabHotels').hidden = (tab !== 'hotels');
+      document.getElementById('hotelsTabBookings').hidden = (tab !== 'bookings');
+
+      if (tab === 'bookings') {
+        loadHotelBookingsData();
+      } else {
+        loadHotelsAdminData();
+      }
+    });
+  });
+
+  const btnRefreshHotels = document.getElementById('btnRefreshHotels');
+  if (btnRefreshHotels) {
+    btnRefreshHotels.addEventListener('click', function() {
+      const activeTab = document.querySelector('.hotels-tab-button.active');
+      if (activeTab) {
+        const tab = activeTab.getAttribute('data-tab');
+        if (tab === 'bookings') {
+          loadHotelBookingsData();
+        } else {
+          loadHotelsAdminData();
         }
       }
     });
