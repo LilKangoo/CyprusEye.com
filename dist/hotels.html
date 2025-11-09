@@ -37,7 +37,7 @@
     .hotel-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:20px}
 
     /* Modal (mirrors Trips) */
-    .trip-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:9999;padding:20px;overflow-y:auto}
+    .trip-modal{position:fixed;top:var(--header-offset,0px);left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:none;align-items:flex-start;justify-content:center;z-index:9998;padding:20px;overflow-y:auto}
     .trip-modal.active{display:flex}
     .trip-modal-content{background:#fff;border-radius:24px;max-width:900px;width:100%;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.3)}
     .trip-modal-image{width:100%;max-height:70vh;height:auto;object-fit:contain;border-radius:24px 24px 0 0;background:#000}
@@ -420,12 +420,25 @@
         childrenEl.removeAttribute('max');
       }
       updateLivePrice();
-      document.getElementById('hotelModal').classList.add('active');
+      const modalEl = document.getElementById('hotelModal');
+      // position modal content just below header
+      const header = document.querySelector('.app-header');
+      const offset = header ? header.offsetHeight : 0;
+      modalEl.style.setProperty('--header-offset', offset + 'px');
+      function __onResize(){
+        const h = document.querySelector('.app-header');
+        modalEl.style.setProperty('--header-offset', (h?h.offsetHeight:0)+'px');
+      }
+      window.addEventListener('resize', __onResize);
+      modalEl.__onResize = __onResize;
+      modalEl.classList.add('active');
       document.body.style.overflow='hidden';
     }
 
     window.closeHotelModal = function(){
-      document.getElementById('hotelModal').classList.remove('active');
+      const modalEl = document.getElementById('hotelModal');
+      modalEl.classList.remove('active');
+      if(modalEl.__onResize){ window.removeEventListener('resize', modalEl.__onResize); delete modalEl.__onResize; }
       document.body.style.overflow='';
       currentHotel = null;
     }
