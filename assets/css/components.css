@@ -1827,6 +1827,14 @@ main::before {
     align-items: start;
   }
 
+  /* Home page: use single-column layout to remove empty sidebar space */
+  body[data-seo-page="home"] .layout {
+    grid-template-columns: 1fr;
+  }
+  body[data-seo-page="home"] .sidebar-column {
+    display: none;
+  }
+
   .primary-column {
     grid-column: 1;
     gap: clamp(1.2rem, 1.9vw, 2rem);
