@@ -117,6 +117,8 @@ async function copyStaticFiles() {
       'car-rental.html',
       'community.html',
       'cruise.html',
+      'hotels.html',
+      'hotel.html',
       'trips.html',
       'trip.html',
       'kupon.html',
