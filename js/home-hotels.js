@@ -234,22 +234,25 @@ function calculateHotelPrice(h, persons, nights){
 
 function updateHotelLivePrice(){
   if(!homeCurrentHotel) return;
-  const a = document.getElementById('arrivalDate').value;
-  const d = document.getElementById('departureDate').value;
-  const adults = Number(document.getElementById('bookingAdults').value||0);
-  const children = Number(document.getElementById('bookingChildren').value||0);
+  const modal = document.getElementById('hotelModal');
+  const form = modal ? modal.querySelector('#hotelBookingForm') : null;
+  if (!form) return;
+  const a = (form.querySelector('#arrivalDate')||{}).value || '';
+  const d = (form.querySelector('#departureDate')||{}).value || '';
+  const adults = Number((form.querySelector('#bookingAdults')||{}).value||0);
+  const children = Number((form.querySelector('#bookingChildren')||{}).value||0);
   const persons = adults + children;
   const maxPersons = Number(homeCurrentHotel.max_persons||0) || null;
   const nights = nightsBetween(a,d);
   let limitedPersons = persons;
-  const note = document.getElementById('hotelPriceNote');
+  const note = modal ? modal.querySelector('#hotelPriceNote') : null;
   let notes = [];
   if (maxPersons && persons > maxPersons) {
     limitedPersons = maxPersons;
     notes.push(`Limit osób dla tego obiektu to ${maxPersons}. Cena policzona dla ${maxPersons} os.`);
   }
   const price = calculateHotelPrice(homeCurrentHotel, limitedPersons, nights);
-  const priceEl = document.getElementById('modalHotelPrice');
+  const priceEl = modal ? modal.querySelector('#modalHotelPrice') : null;
   if (priceEl) priceEl.textContent = `${price.toFixed(2)} €`;
   const tiers = homeCurrentHotel.pricing_tiers?.rules||[];
   const match = tiers.find(r=>Number(r.persons)===limitedPersons);
