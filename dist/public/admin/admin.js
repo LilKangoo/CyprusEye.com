@@ -4668,7 +4668,7 @@ async function handlePoiFormSubmit(event) {
 
   try {
     if (adminState.poiFormMode === 'create') {
-      const { data: createRes, error } = await client.rpc('admin_create_poi', {
+      const { error } = await client.rpc('admin_create_poi', {
         poi_name: name,
         poi_description: description || null,
         poi_latitude: latitude,
@@ -4681,15 +4681,6 @@ async function handlePoiFormSubmit(event) {
       if (error) throw error;
 
       showToast('POI created successfully', 'success');
-      try {
-        const newId = (createRes && (createRes.poi_id || createRes.id)) ? (createRes.poi_id || createRes.id) : null;
-        if (newId && radius != null) {
-          let upd = await client.from('pois').update({ radius }).eq('id', newId);
-          if (upd.error) {
-            await client.from('pois').update({ geofence_radius: radius }).eq('id', newId);
-          }
-        }
-      } catch (_) {}
     } else if (adminState.selectedPoi) {
       const poi = adminState.selectedPoi;
       const poiId = poi.id; // Use poi.id (TEXT) not poi.uuid (UUID)
@@ -4711,14 +4702,6 @@ async function handlePoiFormSubmit(event) {
       if (error) throw error;
 
       showToast('POI updated successfully', 'success');
-      try {
-        if (poiId && radius != null) {
-          let upd = await client.from('pois').update({ radius }).eq('id', poiId);
-          if (upd.error) {
-            await client.from('pois').update({ geofence_radius: radius }).eq('id', poiId);
-          }
-        }
-      } catch (_) {}
     }
 
     // Refresh global PLACES_DATA for main site and community

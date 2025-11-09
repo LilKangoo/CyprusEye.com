@@ -11,10 +11,6 @@ console.log('🔵 App Core V3 - START');
   // Globalne zmienne mapy
   let mapInstance = null;
   let markersLayer = null;
-  // User location state
-  let userLocationMarker = null;
-  let userAccuracyCircle = null;
-  let userLocationInitialized = false;
   
   /**
    * Czeka na PLACES_DATA z Supabase
@@ -56,8 +52,15 @@ console.log('🔵 App Core V3 - START');
       return;
     }
     
-    // Nie blokuj inicjalizacji mapy na danych – uruchom mapę i geolokalizację od razu
-    const hasPlacesNow = Array.isArray(window.PLACES_DATA) && window.PLACES_DATA.length > 0;
+    // Czekaj na dane
+    await waitForPlacesData();
+    
+    if (!window.PLACES_DATA || window.PLACES_DATA.length === 0) {
+      console.error('❌ Brak PLACES_DATA - nie mogę dodać markerów');
+      console.error('→ Sprawdź czy są POI w bazie z statusem "published"');
+      console.error('→ Uruchom CHECK_DATABASE.sql w Supabase');
+      return;
+    }
     
     // Stwórz mapę jeśli nie istnieje
     if (!mapInstance) {
@@ -83,24 +86,12 @@ console.log('🔵 App Core V3 - START');
       
       // Stwórz warstwę dla markerów
       markersLayer = L.layerGroup().addTo(mapInstance);
-
-      // Uruchom śledzenie lokalizacji użytkownika natychmiast
-      startLiveLocation();
-      // Dodaj kontrolkę centrowania na użytkowniku
-      addLocateControl();
       
       console.log('✅ Mapa utworzona');
     }
     
-    // Dodaj markery jeśli dane już są; w przeciwnym razie poczekaj asynchronicznie
-    if (hasPlacesNow) {
-      addMarkers();
-    } else {
-      // Poczekaj asynchronicznie aż PLACES_DATA będzie dostępne i wtedy dodaj markery
-      waitForPlacesData().then(() => {
-        if (mapInstance && markersLayer) addMarkers();
-      });
-    }
+    // Dodaj markery
+    addMarkers();
     
     // Nasłuchuj na refresh
     console.log('📡 Dodaję listener dla poisDataRefreshed');
@@ -223,151 +214,6 @@ console.log('🔵 App Core V3 - START');
   }
   
   /**
-   * Live user location: creates/updates a marker and accuracy circle
-   */
-  function getUserAvatarUrl() {
-    // Spróbuj znaleźć avatar użytkownika jeśli istnieje globalny kontekst
-    try {
-      const p = (window.CE_USER && window.CE_USER.profile) || window.USER_PROFILE || window.currentUser || {};
-      return p.avatar_url || p.avatar || null;
-    } catch (_) { return null; }
-  }
-
-  function createUserIcon() {
-    const avatar = getUserAvatarUrl();
-    const url = avatar || '/assets/cyprus_logo-1000x1054.png';
-    // Użyj markeru typu divIcon z okrągłym obrazkiem
-    return L.divIcon({
-      className: 'ce-user-location-icon',
-      html: `<div style="width:36px;height:36px;border-radius:50%;overflow:hidden;box-shadow:0 0 0 3px rgba(37,99,235,.4);background:#fff;display:flex;align-items:center;justify-content:center;">
-               <img src="${url}" alt="me" style="width:100%;height:100%;object-fit:cover;"/>
-             </div>`,
-      iconSize: [36, 36],
-      iconAnchor: [18, 18]
-    });
-  }
-
-  // Wspólna aktualizacja markera/okręgu i centrowania
-  function applyUserLocation(lat, lng, accuracy) {
-    console.log('[GEO] applyUserLocation', { lat, lng, accuracy });
-    const latlng = [lat, lng];
-    if (!userLocationMarker) {
-      // Bardzo widoczny punkt w markerPane (zIndexOffset wysoki), bez obrazków
-      const icon = L.divIcon({
-        className: 'ce-user-dot',
-        html: '<div style="width:16px;height:16px;border-radius:50%;background:#2563eb;border:2px solid #fff;box-shadow:0 0 0 3px rgba(37,99,235,.25);"></div>',
-        iconSize: [16, 16],
-        iconAnchor: [8, 8]
-      });
-      userLocationMarker = L.marker(latlng, { icon, zIndexOffset: 10000 }).addTo(mapInstance);
-    } else {
-      userLocationMarker.setLatLng(latlng);
-      try { userLocationMarker.setZIndexOffset(10000); } catch (_) {}
-    }
-    // Upewnij się, że znacznik jest nad innymi warstwami
-    try { userLocationMarker.bringToFront(); } catch (_) {}
-    if (!userAccuracyCircle) {
-      userAccuracyCircle = L.circle(latlng, {
-        radius: Math.max(accuracy || 30, 10),
-        color: '#2563eb',
-        weight: 2,
-        opacity: 0.65,
-        fillOpacity: 0.08
-      }).addTo(mapInstance);
-    } else {
-      userAccuracyCircle.setLatLng(latlng);
-      userAccuracyCircle.setRadius(Math.max(accuracy || 30, 10));
-    }
-    if (!userLocationInitialized) {
-      userLocationInitialized = true;
-      try { mapInstance.setView(latlng, Math.max(mapInstance.getZoom(), 13), { animate: true }); } catch (_) {}
-    }
-    window.CURRENT_POSITION = { lat, lng, accuracy };
-  }
-
-  function startLiveLocation() {
-    if (!mapInstance) return;
-
-    // 1) Native Geolocation API (primary)
-    if (navigator.geolocation) {
-      const options = { enableHighAccuracy: true, maximumAge: 5000, timeout: 20000 };
-      try {
-        navigator.geolocation.watchPosition(
-          (pos) => { console.log('[GEO] watchPosition fix'); applyUserLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy); },
-          (err) => console.warn('[GEO] watchPosition error:', err && err.message),
-          options
-        );
-
-        // Dodatkowy refresh co 15s dla urządzeń, gdzie watch potrafi przestać działać
-        if (!window.__ceGeoRefresh) {
-          window.__ceGeoRefresh = setInterval(() => {
-            try {
-              navigator.geolocation.getCurrentPosition(
-                (pos) => { console.log('[GEO] periodic getCurrentPosition fix'); applyUserLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy); },
-                (e) => console.warn('[GEO] periodic getCurrentPosition error:', e?.message),
-                { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
-              );
-            } catch (_) {}
-          }, 15000);
-        }
-      } catch (e) {
-        console.warn('[GEO] watchPosition threw:', e?.message);
-      }
-    } else {
-      console.warn('[GEO] navigator.geolocation not available');
-    }
-
-    // 2) Leaflet fallback using map.locate (handles some iOS cases)
-    try {
-      mapInstance.on('locationfound', (e) => { console.log('[GEO] leaflet locationfound'); applyUserLocation(e.latlng.lat, e.latlng.lng, e.accuracy); });
-      mapInstance.on('locationerror', (e) => console.warn('[GEO] Leaflet locate error:', e?.message));
-      mapInstance.locate({ setView: false, watch: true, enableHighAccuracy: true, maxZoom: 15 });
-    } catch (e) {
-      console.warn('[GEO] map.locate failed:', e?.message);
-    }
-
-    // Fallback: jeżeli po 5 sekundach wciąż brak pozycji, wymuś jednorazowe locate z centrowaniem
-    if (!window.__ceForcedLocate) {
-      window.__ceForcedLocate = true;
-      setTimeout(() => {
-        if (!userLocationInitialized) {
-          console.log('[GEO] forcing single locate with setView');
-          try { mapInstance.locate({ setView: true, watch: false, enableHighAccuracy: true, maxZoom: 15 }); } catch (_) {}
-        }
-      }, 5000);
-    }
-  }
-
-  // Dodaj przycisk "Centruj na mnie" jako kontrolkę Leaflet
-  function addLocateControl() {
-    if (!mapInstance || L.Control.CeLocate) return;
-    L.Control.CeLocate = L.Control.extend({
-      onAdd() {
-        const btn = L.DomUtil.create('button', 'leaflet-bar');
-        btn.title = 'Pokaż moją lokalizację';
-        btn.innerHTML = '🎯';
-        btn.style.cssText = 'background:#fff;border:none;width:34px;height:34px;cursor:pointer;font-size:18px;line-height:34px;text-align:center;';
-        L.DomEvent.on(btn, 'click', (e) => {
-          L.DomEvent.stopPropagation(e);
-          L.DomEvent.preventDefault(e);
-          if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition((pos) => {
-              applyUserLocation(pos.coords.latitude, pos.coords.longitude, pos.coords.accuracy);
-              try { mapInstance.setView([pos.coords.latitude, pos.coords.longitude], Math.max(mapInstance.getZoom(), 14), { animate: true }); } catch (_) {}
-            }, () => requestLocationPermission(), { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
-          } else {
-            requestLocationPermission();
-          }
-        });
-        return btn;
-      },
-      onRemove() {}
-    });
-    L.control.ceLocate = function(opts){ return new L.Control.CeLocate(opts); };
-    L.control.ceLocate({ position: 'topleft' }).addTo(mapInstance);
-  }
-
-  /**
    * Renderuje listę POI pod mapą
    */
   async function renderLocationsList() {
@@ -448,86 +294,6 @@ console.log('🔵 App Core V3 - START');
   /**
    * Inicjalizacja główna
    */
-  function createLocationPromptUI(onClick) {
-    const id = 'ce-location-prompt';
-    if (document.getElementById(id)) return;
-    const bar = document.createElement('div');
-    bar.id = id;
-    bar.setAttribute('role', 'dialog');
-    bar.style.cssText = 'position:fixed;left:16px;right:16px;bottom:16px;z-index:10000;padding:12px 14px;background:#0ea5e9;color:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(2,6,23,.25);display:flex;gap:12px;align-items:center;justify-content:space-between;';
-    bar.innerHTML = `
-      <div style="display:flex;gap:10px;align-items:center;">
-        <span style="font-size:18px">📍</span>
-        <div>
-          <div style="font-weight:700;">Włącz lokalizację</div>
-          <div style="font-size:13px;opacity:.95">Pokażemy Twoją pozycję na mapie, aby łatwiej zdobywać punkty.</div>
-        </div>
-      </div>
-      <div style="display:flex;gap:8px;align-items:center;">
-        <button id="ceLocationEnableBtn" style="appearance:none;border:0;background:#fff;color:#0ea5e9;font-weight:700;padding:8px 12px;border-radius:10px;cursor:pointer;">Włącz teraz</button>
-        <button id="ceLocationCloseBtn" aria-label="Zamknij" style="appearance:none;border:0;background:transparent;color:#fff;font-size:20px;opacity:.9;cursor:pointer;">×</button>
-      </div>`;
-    document.body.appendChild(bar);
-    const btn = document.getElementById('ceLocationEnableBtn');
-    const close = document.getElementById('ceLocationCloseBtn');
-    if (btn) btn.addEventListener('click', () => onClick && onClick());
-    if (close) close.addEventListener('click', () => bar.remove());
-  }
-
-  async function requestLocationPermission() {
-    try {
-      if (!navigator.geolocation) return;
-      await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(
-          (pos) => { console.log('[GEO] getCurrentPosition initial fix'); window.__lastInitialFix = pos; resolve(pos); },
-          (err) => { console.warn('[GEO] getCurrentPosition error:', err?.message); resolve(null); },
-          { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
-        );
-      });
-      // Uruchom ponownie śledzenie po interakcji
-      startLiveLocation();
-      // Schowaj pasek jeśli istnieje
-      const bar = document.getElementById('ce-location-prompt');
-      if (bar) bar.remove();
-    } catch (e) {
-      console.warn('[GEO] requestLocationPermission error:', e?.message);
-    }
-  }
-
-  async function checkGeolocationPermission() {
-    if (!('permissions' in navigator)) {
-      // Brak Permissions API – pokaż przycisk dla bezpieczeństwa
-      createLocationPromptUI(requestLocationPermission);
-      return;
-    }
-    try {
-      const status = await navigator.permissions.query({ name: 'geolocation' });
-      if (status.state === 'granted') {
-        console.log('[GEO] permission already granted');
-        // Upewnij się, że tracking startuje
-        startLiveLocation();
-        return;
-      }
-      if (status.state === 'prompt') {
-        createLocationPromptUI(requestLocationPermission);
-      } else if (status.state === 'denied') {
-        // Pokaż pasek z informacją i przyciskiem (może otworzyć prompt w niektórych przeglądarkach)
-        createLocationPromptUI(requestLocationPermission);
-      }
-      // Reaguj na zmiany
-      status.onchange = () => {
-        if (status.state === 'granted') {
-          const bar = document.getElementById('ce-location-prompt');
-          if (bar) bar.remove();
-          startLiveLocation();
-        }
-      };
-    } catch (e) {
-      console.warn('permissions.query failed:', e?.message);
-      createLocationPromptUI(requestLocationPermission);
-    }
-  }
-
   async function initialize() {
     console.log('🚀 Inicjalizuję aplikację...');
     
@@ -536,9 +302,6 @@ console.log('🔵 App Core V3 - START');
     
     // Renderuj listę POI
     await renderLocationsList();
-
-    // Jeżeli pozycja nie jest jeszcze znana, zaproponuj włączenie lokalizacji (user gesture)
-    checkGeolocationPermission();
     
     // Przyciski komentarzy na mapie zostały usunięte
     // Komentarze dostępne są tylko w panelu pod mapą

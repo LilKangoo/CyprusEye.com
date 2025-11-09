@@ -1,4 +1,4 @@
-// Minimal ranking module scaffold (built)
+// Minimal ranking module scaffold
 (function(){
   const DEFAULT_AVATAR = '/assets/cyprus_logo-1000x1054.png';
   const state = { initialized: false, loading: false, data: [] };
@@ -17,7 +17,8 @@
   }
 
   async function fetchUserStats(userId) {
-    // TODO: replace tasksCompleted with real source when ready
+    // Tasks count source not specified yet -> default to 0
+    // Places visited is derived from array length in profiles
     try {
       const user = state.data.find(u => u.id === userId);
       const placesVisited = Array.isArray(user?.visited_places) ? user.visited_places.length : 0;

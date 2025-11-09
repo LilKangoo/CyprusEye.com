@@ -9,6 +9,134 @@
   margin: 0 auto;
 }
 
+/* Ranking (Top 100) */
+.community-ranking-section {
+  margin-top: 1rem;
+}
+
+.ranking-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.ranking-header h2 {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-neutral-900);
+}
+
+.ranking-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.ranking-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: #fff;
+  border: 1px solid var(--color-neutral-200);
+  border-radius: 0.75rem;
+}
+
+.ranking-item + .ranking-item {
+  border-top: 1px solid var(--color-neutral-100);
+}
+
+.ranking-rank {
+  min-width: 44px;
+  text-align: center;
+  font-weight: 700;
+  color: var(--color-primary-600);
+}
+
+.ranking-user {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1;
+  min-width: 0;
+}
+
+.ranking-avatar {
+  width: 40px;
+  height: 40px;
+  border-radius: 9999px;
+  object-fit: cover;
+  border: 2px solid var(--color-primary-100);
+  background: #fff;
+}
+
+.ranking-user-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.ranking-username {
+  font-weight: 600;
+  color: var(--color-neutral-900);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.ranking-meta {
+  font-size: 0.8125rem;
+  color: var(--color-neutral-500);
+}
+
+.ranking-stats {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.ranking-stat {
+  font-size: 0.8125rem;
+  color: var(--color-neutral-700);
+  background: var(--color-neutral-50);
+  border: 1px solid var(--color-neutral-200);
+  border-radius: 9999px;
+  padding: 0.25rem 0.5rem;
+  white-space: nowrap;
+}
+
+.ranking-item.skeleton {
+  background: var(--color-neutral-50);
+}
+
+.ranking-item.skeleton .ranking-avatar {
+  background: var(--color-neutral-200);
+  border-color: var(--color-neutral-200);
+}
+
+.ranking-item.skeleton .ranking-username,
+.ranking-item.skeleton .ranking-meta,
+.ranking-item.skeleton .ranking-rank,
+.ranking-item.skeleton .ranking-stat {
+  color: transparent;
+  background: linear-gradient(90deg, rgba(0,0,0,0.06), rgba(0,0,0,0.12), rgba(0,0,0,0.06));
+  background-size: 200% 100%;
+  animation: ranking-shimmer 1.2s linear infinite;
+  border-radius: 0.25rem;
+}
+
+@keyframes ranking-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+@media (max-width: 768px) {
+  .ranking-avatar { width: 32px; height: 32px; }
+  .ranking-rank { min-width: 36px; }
+  .ranking-item { padding: 0.625rem 0.75rem; }
+}
+
 .community-container {
   display: flex;
   flex-direction: column;

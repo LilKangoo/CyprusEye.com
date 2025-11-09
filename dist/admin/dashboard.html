@@ -33,7 +33,7 @@
   <!-- Scripts -->
   <script type="module" src="/js/supabaseClient.js?v=20251107"></script>
   <script type="module" src="/js/toast.js?v=20251107"></script>
-  <script type="module" src="/public/admin/admin.js?v=20251107"></script>
+  <script type="module" src="/admin/admin.js?v=20251107"></script>
 </head>
 <body data-admin-panel="true">
   
@@ -159,6 +159,14 @@
             <path d="M3 11l9-9 9 9v9a2 2 0 0 1-2 2h-5v-7H10v7H5a2 2 0 0 1-2-2v-9z"/>
           </svg>
           <span>Trips</span>
+        </button>
+        
+        <button class="admin-nav-item" data-view="hotels">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 21V8a2 2 0 0 1 2-2h3V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2h3a2 2 0 0 1 2 2v13"/>
+            <path d="M6 21v-6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v6"/>
+          </svg>
+          <span>Hotels</span>
         </button>
         
         <button class="admin-nav-item" data-view="content">
@@ -297,6 +305,342 @@
           </div>
         </div>
       </section>
+
+      <!-- Hotels View -->
+      <section class="admin-view" id="viewHotels" hidden>
+        <header class="admin-view-header">
+          <div>
+            <h2>Hotels</h2>
+            <p class="admin-view-subtitle">Manage hotels and accommodation bookings</p>
+          </div>
+          <div class="admin-view-actions">
+            <button class="btn-secondary" type="button" id="btnRefreshHotels">Refresh</button>
+            <button class="btn-primary" type="button" id="btnAddHotel" onclick="openNewHotelModal()">New Hotel</button>
+          </div>
+        </header>
+
+        <!-- Sub-navigation for Hotels -->
+        <div style="margin-bottom: 24px; border-bottom: 2px solid var(--admin-border); display: flex; gap: 8px;">
+          <button class="hotels-tab-button active" data-tab="hotels" style="padding: 12px 24px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: var(--admin-text-muted); transition: all 0.2s;">
+            Hotels
+          </button>
+          <button class="hotels-tab-button" data-tab="bookings" style="padding: 12px 24px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: var(--admin-text-muted); transition: all 0.2s;">
+            Bookings
+          </button>
+        </div>
+
+        <!-- Hotels Tab Content -->
+        <div id="hotelsTabHotels" class="hotels-tab-content">
+          <div class="admin-stats-grid">
+            <div class="admin-stat-card">
+              <div class="stat-card-content">
+                <p class="stat-card-label">Total Hotels</p>
+                <p class="stat-card-value" id="hotelsStatTotal">0</p>
+                <p class="stat-card-change" id="hotelsStatSubtitle">Loading...</p>
+              </div>
+            </div>
+            <div class="admin-stat-card">
+              <div class="stat-card-content">
+                <p class="stat-card-label">Published</p>
+                <p class="stat-card-value" id="hotelsStatPublished">0</p>
+                <p class="stat-card-change">Visible to customers</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Hotel</th>
+                  <th>Slug</th>
+                  <th>City</th>
+                  <th>Price</th>
+                  <th>Published</th>
+                  <th>Updated</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="hotelsTableBody">
+                <tr>
+                  <td colspan="7" class="table-loading">Loading hotels...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div id="hotelsTableFooter" class="poi-table-footer"></div>
+        </div>
+
+        <!-- Bookings Tab Content -->
+        <div id="hotelsTabBookings" class="hotels-tab-content" hidden>
+          <!-- Hotel Bookings Stats -->
+          <div class="admin-stats-grid">
+            <div class="admin-stat-card">
+              <div class="stat-card-icon stat-card-icon-blue">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M12 2L2 7l10 5 10-5-10-5z"/>
+                  <path d="M2 17l10 5 10-5M2 12l10 5 10-5"/>
+                </svg>
+              </div>
+              <div class="stat-card-content">
+                <p class="stat-card-label">Total Bookings</p>
+                <p class="stat-card-value" id="statHotelBookingsTotal">-</p>
+                <p class="stat-card-change">Loading...</p>
+              </div>
+            </div>
+
+            <div class="admin-stat-card">
+              <div class="stat-card-icon stat-card-icon-orange">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+              </div>
+              <div class="stat-card-content">
+                <p class="stat-card-label">Pending</p>
+                <p class="stat-card-value" id="statHotelBookingsPending">-</p>
+                <p class="stat-card-change">Awaiting confirmation</p>
+              </div>
+            </div>
+
+            <div class="admin-stat-card">
+              <div class="stat-card-icon stat-card-icon-green">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="20 6 9 17 4 12"/>
+                </svg>
+              </div>
+              <div class="stat-card-content">
+                <p class="stat-card-label">Confirmed</p>
+                <p class="stat-card-value" id="statHotelBookingsConfirmed">-</p>
+                <p class="stat-card-change">Active bookings</p>
+              </div>
+            </div>
+
+            <div class="admin-stat-card">
+              <div class="stat-card-icon stat-card-icon-purple">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="1" x2="12" y2="23"/>
+                  <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+                </svg>
+              </div>
+              <div class="stat-card-content">
+                <p class="stat-card-label">Revenue (Total)</p>
+                <p class="stat-card-value" id="statHotelBookingsRevenue">-</p>
+                <p class="stat-card-change">Paid bookings</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Hotel Bookings Table -->
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Booking ID</th>
+                  <th>Customer</th>
+                  <th>Dates & Details</th>
+                  <th>Status</th>
+                  <th>Amount</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="hotelBookingsTableBody">
+                <tr>
+                  <td colspan="6" class="table-loading">Loading hotel bookings...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Hotel Booking Details Modal -->
+      <div class="admin-modal" id="hotelBookingDetailsModal" hidden>
+        <div class="admin-modal-dialog" style="max-width: 700px;">
+          <header class="admin-modal-header">
+            <h3>Hotel Booking Details</h3>
+            <button type="button" class="admin-modal-close" onclick="document.getElementById('hotelBookingDetailsModal').hidden=true">✕</button>
+          </header>
+          <div class="admin-modal-content" id="hotelBookingDetailsContent">
+            <div class="table-loading">Loading...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Edit Hotel Modal -->
+      <div class="admin-modal" id="editHotelModal" hidden>
+        <div class="admin-modal-dialog" style="max-width: 800px;">
+          <header class="admin-modal-header">
+            <h3>Edit Hotel</h3>
+            <button type="button" class="admin-modal-close" onclick="document.getElementById('editHotelModal').hidden=true">✕</button>
+          </header>
+          <div class="admin-modal-content">
+            <form id="editHotelForm">
+              <input type="hidden" id="editHotelId" />
+              <div class="admin-form-grid">
+                <label class="admin-form-field">
+                  <span>Slug (read-only)</span>
+                  <input type="text" id="editHotelSlug" readonly style="background:#2a2f3a;cursor:not-allowed;" />
+                </label>
+                <label class="admin-form-field">
+                  <span>City</span>
+                  <select name="city" id="editHotelCity" required>
+                    <option value="Larnaca">Larnaca</option>
+                    <option value="Paphos">Paphos</option>
+                    <option value="Limassol">Limassol</option>
+                    <option value="Ayia Napa">Ayia Napa</option>
+                    <option value="Nicosia">Nicosia</option>
+                    <option value="All Cities">All Cities</option>
+                  </select>
+                </label>
+                <label class="admin-form-field" style="grid-column:1/-1;">
+                  <span>Title (PL)</span>
+                  <input type="text" name="title_pl" id="editHotelTitlePl" required />
+                </label>
+                <div class="admin-form-field" style="grid-column:1/-1;">
+                  <span>Cover Image URL</span>
+                  <input type="url" name="cover_image_url" id="editHotelCoverUrl" placeholder="https://..." />
+                  <div id="editHotelCoverPreview" style="margin-top:8px;display:none;">
+                    <img alt="Podgląd okładki" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;" />
+                  </div>
+                </div>
+                <div class="admin-form-field" style="grid-column:1/-1;">
+                  <span>Photos (max 10)</span>
+                  <input type="file" id="editHotelPhotos" accept="image/*" multiple />
+                  <div id="editHotelPhotosPreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;max-height:160px;overflow:auto;padding:4px;border:1px dashed #3b82f6;border-radius:8px;"></div>
+                </div>
+                <label class="admin-form-field" style="grid-column:1/-1;">
+                  <span>Description (PL)</span>
+                  <textarea name="description_pl" id="editHotelDescPl" rows="4"></textarea>
+                </label>
+                <label class="admin-form-field">
+                  <span>Pricing Model</span>
+                  <select name="pricing_model" id="editHotelPricing">
+                    <option value="per_person_per_night">per_person_per_night</option>
+                  </select>
+                </label>
+                <label class="admin-form-field">
+                  <span>Max persons (limit)</span>
+                  <input type="number" min="1" id="editHotelMaxPersons" placeholder="np. 6" />
+                </label>
+                <div class="admin-form-field" style="grid-column:1/-1;">
+                  <span>Pricing Tiers (per night)</span>
+                  <div>
+                    <table class="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Persons</th>
+                          <th>Price / night (€)</th>
+                          <th>Min nights (optional)</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody id="editHotelPricingTiersBody">
+                        <tr><td colspan="4" class="table-loading">No tiers yet</td></tr>
+                      </tbody>
+                    </table>
+                    <button type="button" class="btn-secondary" id="btnAddEditHotelTier" style="margin-top:8px;">Add tier</button>
+                  </div>
+                </div>
+                <label class="admin-form-field" style="grid-column:1/-1;">
+                  <span style="display:flex;align-items:center;gap:8px;">
+                    <input type="checkbox" name="is_published" id="editHotelPublished" style="width:auto;" />
+                    Published (visible to customers)
+                  </span>
+                </label>
+              </div>
+              <div class="admin-modal-actions">
+                <button type="button" class="btn-secondary" onclick="document.getElementById('editHotelModal').hidden=true">Cancel</button>
+                <button type="submit" class="btn-primary">Save Changes</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- New Hotel Modal -->
+      <div class="admin-modal" id="newHotelModal" hidden>
+        <div class="admin-modal-dialog">
+          <header class="admin-modal-header">
+            <h3>Create New Hotel</h3>
+            <button type="button" class="admin-modal-close" onclick="document.getElementById('newHotelModal').hidden=true">✕</button>
+          </header>
+          <div class="admin-modal-content">
+            <form id="newHotelForm">
+              <div class="admin-form-grid">
+                <label class="admin-form-field">
+                  <span>City</span>
+                  <select name="city" id="newHotelCity" required>
+                    <option value="Larnaca">Larnaca</option>
+                    <option value="Paphos">Paphos</option>
+                    <option value="Limassol">Limassol</option>
+                    <option value="Ayia Napa">Ayia Napa</option>
+                    <option value="Nicosia">Nicosia</option>
+                    <option value="All Cities">All Cities</option>
+                  </select>
+                </label>
+                <label class="admin-form-field" style="grid-column:1/-1;">
+                  <span>Title (PL)</span>
+                  <input type="text" name="title_pl" id="newHotelTitlePl" required />
+                </label>
+                <div class="admin-form-field" style="grid-column:1/-1;">
+                  <span>Cover Image (upload) lub URL (opcjonalnie)</span>
+                  <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+                    <input type="file" id="newHotelCoverFile" accept="image/*" />
+                    <input type="url" name="cover_image_url" id="newHotelCoverUrl" placeholder="https://..." style="flex:1;min-width:240px;" />
+                  </div>
+                  <div id="newHotelCoverPreview" style="margin-top:8px;display:none;">
+                    <img alt="Podgląd okładki" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;" />
+                  </div>
+                </div>
+                <div class="admin-form-field" style="grid-column:1/-1;">
+                  <span>Photos (max 10)</span>
+                  <input type="file" id="newHotelPhotos" accept="image/*" multiple />
+                  <div id="newHotelPhotosPreview" style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;max-height:160px;overflow:auto;padding:4px;border:1px dashed #3b82f6;border-radius:8px;"></div>
+                </div>
+                <label class="admin-form-field" style="grid-column:1/-1;">
+                  <span>Description (PL)</span>
+                  <textarea name="description_pl" id="newHotelDescPl" rows="3"></textarea>
+                </label>
+                <label class="admin-form-field">
+                  <span>Pricing Model</span>
+                  <select name="pricing_model" id="newHotelPricing">
+                    <option value="per_person_per_night">per_person_per_night</option>
+                  </select>
+                </label>
+                <label class="admin-form-field">
+                  <span>Max persons (limit)</span>
+                  <input type="number" min="1" id="newHotelMaxPersons" placeholder="np. 6" />
+                </label>
+                <div class="admin-form-field" style="grid-column:1/-1;">
+                  <span>Pricing Tiers (per night)</span>
+                  <div>
+                    <table class="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Persons</th>
+                          <th>Price / night (€)</th>
+                          <th>Min nights (optional)</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody id="newHotelPricingTiersBody">
+                        <tr><td colspan="4" class="table-loading">No tiers yet</td></tr>
+                      </tbody>
+                    </table>
+                    <button type="button" class="btn-secondary" id="btnAddNewHotelTier" style="margin-top:8px;">Add tier</button>
+                  </div>
+                </div>
+              </div>
+              <div class="admin-modal-actions">
+                <button type="submit" class="btn-primary">Create</button>
+                <button type="button" class="btn-secondary" onclick="document.getElementById('newHotelModal').hidden=true">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
 
       <!-- Trips View -->
       <section class="admin-view" id="viewTrips" hidden>
