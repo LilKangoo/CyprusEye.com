@@ -19,7 +19,7 @@
   display: none;
   align-items: center;
   justify-content: center;
-  z-index: 9999;
+  z-index: 19000;
   padding: 20px;
   overflow-y: auto;
 }
@@ -87,6 +87,7 @@
   background: rgba(255,255,255,.95); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
   box-shadow: 0 6px 18px rgba(0,0,0,.18);
+  z-index: 19100;
 }
 .trip-modal-nav.prev { left: 10px; }
 .trip-modal-nav.next { right: 10px; }
