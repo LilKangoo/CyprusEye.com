@@ -270,10 +270,26 @@ Kliknij: `💾 Save Pricing & Notes`
 
 ### Obliczanie dni
 ```javascript
-Math.ceil((return_date - pickup_date) / (1000 * 60 * 60 * 24))
+// Połączenie daty z godziną dla dokładnej kalkulacji
+const pickupDateTime = new Date(booking.pickup_date + 'T' + (booking.pickup_time || '10:00:00'));
+const returnDateTime = new Date(booking.return_date + 'T' + (booking.return_time || '10:00:00'));
+const hours = (returnDateTime - pickupDateTime) / (1000 * 60 * 60);
+const days = Math.ceil(hours / 24);
 ```
-- Zawsze zaokrąglone w górę
-- Minimum 1 dzień
+
+**Ważne**: 
+- Daty w bazie są typu `DATE` (bez godziny), godziny są w osobnych polach `pickup_time` i `return_time`
+- Przed obliczeniem łączymy datę z godziną: `'2025-11-08' + 'T' + '10:00:00'` = `'2025-11-08T10:00:00'`
+- Math.ceil() zaokrągla w górę - każda rozpoczęta doba = pełny dzień
+- Domyślna godzina (jeśli brak w bazie): 10:00:00
+
+**Przykład**:
+```
+Pickup:  08/11/2025 at 10:00
+Return:  10/11/2025 at 12:00
+= 50 godzin = 2 dni + 2h
+Math.ceil(50/24) = Math.ceil(2.083) = 3 dni ✓
+```
 
 ## 🎨 Design Details
 

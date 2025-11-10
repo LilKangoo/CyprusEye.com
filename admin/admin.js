@@ -2959,10 +2959,16 @@ async function loadCarsData() {
       const startDate = booking.pickup_date ? new Date(booking.pickup_date).toLocaleDateString('en-GB') : 'N/A';
       const endDate = booking.return_date ? new Date(booking.return_date).toLocaleDateString('en-GB') : 'N/A';
       
-      // Calculate rental days
-      const rentalDays = booking.pickup_date && booking.return_date 
-        ? Math.ceil((new Date(booking.return_date) - new Date(booking.pickup_date)) / (1000 * 60 * 60 * 24))
-        : (booking.days_count || 0);
+      // Calculate rental days (combine date + time for accurate calculation)
+      let rentalDays = 0;
+      if (booking.pickup_date && booking.return_date) {
+        const pickupDateTime = new Date(booking.pickup_date + 'T' + (booking.pickup_time || '10:00:00'));
+        const returnDateTime = new Date(booking.return_date + 'T' + (booking.return_time || '10:00:00'));
+        const hours = (returnDateTime - pickupDateTime) / (1000 * 60 * 60);
+        rentalDays = Math.ceil(hours / 24);
+      } else {
+        rentalDays = booking.days_count || 0;
+      }
       
       // Status badge colors
       const statusClass = 
@@ -3082,10 +3088,14 @@ async function viewCarBookingDetails(bookingId) {
     const returnDate = booking.return_date ? new Date(booking.return_date).toLocaleDateString('en-GB') : 'N/A';
     const createdAt = booking.created_at ? new Date(booking.created_at).toLocaleString('en-GB') : 'N/A';
     
-    // Calculate rental days
-    const days = booking.pickup_date && booking.return_date 
-      ? Math.ceil((new Date(booking.return_date) - new Date(booking.pickup_date)) / (1000 * 60 * 60 * 24))
-      : 0;
+    // Calculate rental days (combine date + time for accurate calculation)
+    let days = 0;
+    if (booking.pickup_date && booking.return_date) {
+      const pickupDateTime = new Date(booking.pickup_date + 'T' + (booking.pickup_time || '10:00:00'));
+      const returnDateTime = new Date(booking.return_date + 'T' + (booking.return_time || '10:00:00'));
+      const hours = (returnDateTime - pickupDateTime) / (1000 * 60 * 60);
+      days = Math.ceil(hours / 24);
+    }
 
     // Fetch car pricing from car_offers table
     let carPricing = null;
