@@ -5418,7 +5418,7 @@ function initEventListeners() {
 
   const addPoiBtn = $('#btnAddPoi');
   if (addPoiBtn) {
-    addPoiBtn.addEventListener('click', () => openPoiForm());
+    addPoiBtn.addEventListener('click', () => openPoiI18nForm());
   }
 
   const refreshPoisBtn = $('#btnRefreshPois');
@@ -6021,6 +6021,10 @@ function normalizePoi(rawPoi, source = 'supabase') {
     status,
     tags,
     google_url: googleUrl,
+    // i18n fields
+    name_i18n: rawPoi.name_i18n || null,
+    description_i18n: rawPoi.description_i18n || null,
+    badge_i18n: rawPoi.badge_i18n || null,
     created_at: rawPoi.created_at || data.created_at || null,
     updated_at: rawPoi.updated_at || data.updated_at || rawPoi.created_at || null,
     source,
@@ -6605,7 +6609,7 @@ async function deletePoi(poiId) {
 }
 
 function editPoi(poiId) {
-  openPoiForm(poiId);
+  openPoiI18nForm(poiId);
 }
 
 function refreshPoiList() {

@@ -1821,3 +1821,198 @@ select#orderStatusFilter:focus {
     min-width: 100px;
   }
 }
+
+/* =====================================================
+   I18N LANGUAGE TABS
+   ===================================================== */
+
+.lang-tabs {
+  display: flex;
+  gap: 4px;
+  margin: 20px 0 10px;
+  border-bottom: 2px solid var(--admin-border);
+}
+
+.lang-tab {
+  padding: 10px 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-weight: 500;
+  color: var(--admin-text-muted);
+  transition: all 0.2s;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+}
+
+.lang-tab:hover {
+  color: var(--admin-text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.lang-tab.active {
+  color: var(--admin-primary);
+  border-bottom-color: var(--admin-primary);
+}
+
+.lang-tab .required {
+  color: var(--admin-danger);
+  font-weight: bold;
+  margin-left: 4px;
+}
+
+.lang-content {
+  display: none;
+  padding: 20px 0;
+}
+
+.lang-content.active {
+  display: block;
+  animation: fadeIn 0.3s;
+}
+
+.lang-content[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+}
+
+.lang-content[dir="rtl"] label {
+  text-align: right;
+}
+
+.lang-content[dir="rtl"] input,
+.lang-content[dir="rtl"] textarea {
+  direction: rtl;
+  text-align: right;
+}
+
+.lang-content label {
+  display: block;
+  margin: 12px 0 4px;
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+.lang-content input,
+.lang-content textarea {
+  width: 100%;
+  padding: 8px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 6px;
+  background: var(--admin-bg-light);
+  color: var(--admin-text);
+  font-family: inherit;
+}
+
+.lang-content textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.draft-notice {
+  background: #fef3c7;
+  color: #78350f;
+  border: 1px solid #fbbf24;
+  padding: 12px;
+  border-radius: 6px;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.draft-notice button {
+  background: #78350f;
+  color: #fef3c7;
+  border: none;
+  padding: 4px 12px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.draft-notice button:hover {
+  background: #451a03;
+}
+
+.form-hint {
+  font-size: 14px;
+  color: var(--admin-text-muted);
+  margin: -10px 0 15px;
+}
+
+.form-section {
+  margin-bottom: 24px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--admin-border);
+}
+
+.form-section:last-of-type {
+  border-bottom: none;
+}
+
+.form-section h4 {
+  margin-bottom: 16px;
+  color: var(--admin-text);
+  font-size: 16px;
+}
+
+.form-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.form-field {
+  display: flex;
+  flex-direction: column;
+}
+
+.form-field label {
+  margin-bottom: 6px;
+  font-weight: 600;
+  color: var(--admin-text);
+  font-size: 14px;
+}
+
+.form-field input,
+.form-field textarea,
+.form-field select {
+  padding: 10px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 6px;
+  background: var(--admin-bg-light);
+  color: var(--admin-text);
+  font-family: inherit;
+  font-size: 14px;
+}
+
+.form-field input:focus,
+.form-field textarea:focus,
+.form-field select:focus {
+  outline: none;
+  border-color: var(--admin-primary);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+.form-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  margin-top: 24px;
+  padding-top: 24px;
+  border-top: 1px solid var(--admin-border);
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

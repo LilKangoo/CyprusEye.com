@@ -86,17 +86,40 @@ async function loadPOIsFromSupabase() {
 }
 
 /**
+ * Get translation from i18n JSONB field
+ */
+function getTranslation(i18nObj, fallback = '') {
+  if (!i18nObj || typeof i18nObj !== 'object') {
+    return fallback;
+  }
+  
+  // Get current language
+  const currentLang = window.appI18n?.language || 'pl';
+  
+  // Fallback chain: current → en → pl → fallback
+  return i18nObj[currentLang] || i18nObj.en || i18nObj.pl || fallback;
+}
+
+/**
  * Transformuje POI z formatu bazy do formatu aplikacji
  */
 function transformPOI(dbPoi) {
+  // Use i18n fields if available, otherwise fallback to old fields
+  const name = getTranslation(dbPoi.name_i18n, dbPoi.name || 'Unnamed Place');
+  const description = getTranslation(dbPoi.description_i18n, dbPoi.description || '');
+  const badge = getTranslation(dbPoi.badge_i18n, dbPoi.badge || 'Explorer');
+  
   return {
     id: dbPoi.id,
-    nameKey: `places.${dbPoi.id}.name`,
-    nameFallback: dbPoi.name || 'Unnamed Place',
+    name: name, // Direct translated value
+    nameFallback: name,  // For backward compatibility
+    nameKey: `places.${dbPoi.id}.name`, // Keep for legacy
+    description: description,
+    descriptionFallback: description,
     descriptionKey: `places.${dbPoi.id}.description`,
-    descriptionFallback: dbPoi.description || '',
+    badge: badge,
+    badgeFallback: badge,
     badgeKey: `places.${dbPoi.id}.badge`,
-    badgeFallback: dbPoi.badge || 'Explorer',
     lat: parseFloat(dbPoi.lat) || 0,
     lng: parseFloat(dbPoi.lng) || 0,
     // Canonical Google link: prefer dedicated column, fallback to lat/lng
@@ -108,7 +131,7 @@ function transformPOI(dbPoi) {
     requiredLevel: parseInt(dbPoi.required_level) || 1,
     source: 'supabase',
     status: dbPoi.status,
-    raw: dbPoi
+    raw: dbPoi // Keep raw data for re-transform on language change
   };
 }
 
@@ -219,5 +242,31 @@ if (document.readyState === 'loading') {
   console.log('📄 DOM już załadowany - uruchamiam initializePOIs natychmiast');
   initializePOIs();
 }
+
+// Listen for language change
+document.addEventListener('wakacjecypr:languagechange', (event) => {
+  const newLanguage = event.detail.language;
+  console.log(`🌍 Język zmieniony na: ${newLanguage}`);
+  
+  // Re-transform POIs with new language
+  if (window.PLACES_DATA && window.PLACES_DATA.length > 0) {
+    window.PLACES_DATA = window.PLACES_DATA.map(poi => {
+      if (poi.raw) {
+        return transformPOI(poi.raw);
+      }
+      return poi;
+    });
+    
+    // Emit refresh event
+    window.dispatchEvent(new CustomEvent('poisDataRefreshed', {
+      detail: { 
+        count: window.PLACES_DATA.length,
+        language: newLanguage 
+      }
+    }));
+    
+    console.log(`✅ POI przetłumaczone na: ${newLanguage}`);
+  }
+});
 
 console.log('🔵 POI Loader V2 - GOTOWY');
