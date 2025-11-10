@@ -152,121 +152,47 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   }
   
-  // Form submit with RLS fallback
+  // Form submit - clean Supabase insert
   if (form) form.addEventListener('submit', async (e)=>{
     e.preventDefault();
     const msg = document.getElementById('hotelBookingMessage');
     const btn = e.target.querySelector('.booking-submit');
     
-    // ALWAYS hide previous messages first
+    // Hide previous messages
     if(msg) { msg.style.display='none'; msg.textContent=''; }
     
-    // Validate form BEFORE doing anything else
+    // Validate form
     if(!e.target.checkValidity()){
       console.warn('Form validation failed - missing required fields');
       e.target.reportValidity();
-      return; // Stop here - don't proceed
+      return;
     }
-    
-    let success = false;
     
     try{
       if(!homeCurrentHotel) throw new Error('Brak oferty');
       
       btn.disabled=true; btn.textContent='Wysyłanie...';
-      const fd = new FormData(e.target);
-      const a = fd.get('arrival_date');
-      const d = fd.get('departure_date');
       
-      // Validate dates
-      if(!a || !d){
-        throw new Error('Proszę podać daty przyjazdu i wyjazdu');
-      }
+      // Use the hotel booking service
+      const { submitHotelBooking } = await import('./services/hotelBooking.js');
+      await submitHotelBooking(e.target);
       
-      const nights = nightsBetween(a,d);
-      const adults = Number(fd.get('adults')||0);
-      const children = Number(fd.get('children')||0);
-      const persons = adults + children;
-      const maxPersons = Number(homeCurrentHotel.max_persons||0) || null;
-      if (maxPersons && persons > maxPersons) {
-        throw new Error(`Maksymalna liczba osób: ${maxPersons}`);
-      }
-      const total = calculateHotelPrice(homeCurrentHotel, persons, nights);
-      const payload = {
-        hotel_id: homeCurrentHotel.id,
-        hotel_slug: homeCurrentHotel.slug,
-        customer_name: fd.get('name'),
-        customer_email: fd.get('email'),
-        customer_phone: fd.get('phone'),
-        arrival_date: a,
-        departure_date: d,
-        num_adults: adults,
-        num_children: children,
-        nights,
-        notes: fd.get('notes'),
-        total_price: total,
-        status: 'pending'
-      };
+      // Success
+      msg.className='booking-message success';
+      msg.textContent='Rezerwacja przyjęta! Skontaktujemy się wkrótce.';
+      msg.style.display='block';
+      e.target.reset();
       
-      console.log('📤 Sending booking payload:', payload);
+      // Clear HTML5 validation errors
+      Array.from(e.target.elements).forEach(el => {
+        if(el.setCustomValidity) el.setCustomValidity('');
+      });
+      updateHotelLivePrice();
       
-      // Try direct insert first (works if RLS allows anonymous)
-      try{
-        const { data, error } = await window.supabase.from('hotel_bookings').insert([payload]).select().single();
-        if(!error){ 
-          success = true;
-        } else if(error.message && error.message.toLowerCase().includes('row-level security')){
-          // RLS blocked - try function fallback
-          console.warn('RLS blocked direct insert, trying function fallback...');
-          const res = await fetch('/hotel/booking', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          const json = await res.json().catch(()=>({}));
-          if(res.ok && json?.ok){
-            success = true;
-          } else {
-            throw new Error(json?.error || `Błąd serwera (${res.status}). Skontaktuj się: info@cypruseye.com`);
-          }
-        } else {
-          throw error;
-        }
-      }catch(directErr){
-        // Direct insert failed for other reason - try function
-        console.warn('Direct insert failed:', directErr);
-        try{
-          const res = await fetch('/hotel/booking', {
-            method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-          const json = await res.json().catch(()=>({}));
-          if(res.ok && json?.ok){
-            success = true;
-          } else {
-            throw new Error(json?.error || `Funkcja rezerwacji niedostępna. Skontaktuj się: info@cypruseye.com (${res.status})`);
-          }
-        }catch(fnErr){
-          throw new Error(`Nie udało się wysłać rezerwacji. Skontaktuj się mailowo: info@cypruseye.com`);
-        }
-      }
-      
-      if(success){
-        msg.className='booking-message success';
-        msg.textContent='Rezerwacja przyjęta! Skontaktujemy się wkrótce.';
-        msg.style.display='block';
-        e.target.reset();
-        // Clear HTML5 validation errors
-        Array.from(e.target.elements).forEach(el => {
-          if(el.setCustomValidity) el.setCustomValidity('');
-        });
-        updateHotelLivePrice();
-      }
     }catch(err){
-      console.error('Booking error:', err);
+      console.error('❌ Booking error:', err);
       msg.className='booking-message error';
-      msg.textContent= err.message || 'Błąd podczas rezerwacji. Skontaktuj się: info@cypruseye.com';
+      msg.textContent = err.message || 'Błąd podczas rezerwacji';
       msg.style.display='block';
     }finally{
       btn.disabled=false; btn.textContent='Zarezerwuj';
@@ -349,7 +275,9 @@ function updateHotelLivePrice(){
 window.openHotelModalHome = function(index){
   const h = homeHotelsDisplay[index];
   if(!h) return;
-  homeCurrentHotel = h; homeHotelIndex = index;
+  homeCurrentHotel = h; 
+  window.homeCurrentHotel = h; // Expose for booking service
+  homeHotelIndex = index;
   const title = h.title?.pl || h.title?.en || h.slug;
   const image = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png';
   const imgEl = document.getElementById('modalHotelImage');
@@ -405,7 +333,9 @@ window.openHotelModalHome = function(index){
 window.closeHotelModal = function(){
   const modalEl = document.getElementById('hotelModal');
   if (modalEl){ modalEl.classList.remove('active'); modalEl.hidden=true; document.body.style.overflow=''; }
-  homeCurrentHotel = null; homeHotelIndex = null;
+  homeCurrentHotel = null; 
+  window.homeCurrentHotel = null; // Clear global reference
+  homeHotelIndex = null;
 }
 
 // Lightbox (gallery)
