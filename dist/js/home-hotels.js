@@ -204,18 +204,25 @@ document.addEventListener('DOMContentLoaded', ()=>{
       
       if (error) throw error;
       
-      // Success
-      msg.className='booking-message success';
-      msg.textContent='Rezerwacja przyjęta! Skontaktujemy się wkrótce.';
-      msg.style.display='block';
+      // Success - show beautiful popup
+      showSuccessPopup('✅ Rezerwacja przyjęta!', 'Skontaktujemy się z Tobą wkrótce. Dziękujemy!');
+      
+      // Reset form and clear validation errors
       form.reset();
+      clearFormValidation(form);
       updateHotelLivePrice();
+      
+      // Optional: close modal after 3 seconds
+      setTimeout(() => {
+        const modalEl = document.getElementById('hotelModal');
+        if (modalEl && modalEl.classList.contains('active')) {
+          closeHotelModal();
+        }
+      }, 3000);
       
     }catch(err){
       console.error('❌ Booking error:', err);
-      msg.className='booking-message error';
-      msg.textContent = err.message || 'Błąd podczas rezerwacji';
-      msg.style.display='block';
+      showErrorPopup('❌ Błąd rezerwacji', err.message || 'Wystąpił błąd. Spróbuj ponownie.');
     }finally{
       btn.disabled=false; btn.textContent='Zarezerwuj';
     }
