@@ -1,9 +1,6 @@
 // Home page hotels section loader
 // Loads and displays hotels from Supabase on the main page (mirrors trips home panel)
 
-import { submitHotelBooking } from './services/hotelBooking.js';
-import { supabase } from './lib/supabase.js';
-
 let homeHotelsData = [];
 let homeHotelsCurrentCity = 'all';
 let homeHotelsDisplay = [];
@@ -12,6 +9,7 @@ let homeHotelIndex = null;
 
 async function loadHomeHotels(){
   try{
+    const { supabase } = await import('./supabaseClient.js');
     if(!supabase) throw new Error('Supabase client not available');
 
     const { data, error } = await supabase
@@ -154,40 +152,63 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   }
   
-  // Form submit - clean Supabase insert
+  // Form submit - inline Supabase insert (same pattern as trips)
   if (form) form.addEventListener('submit', async (e)=>{
     e.preventDefault();
+    if(!homeCurrentHotel) return;
+    
     const msg = document.getElementById('hotelBookingMessage');
     const btn = e.target.querySelector('.booking-submit');
     
     // Hide previous messages
     if(msg) { msg.style.display='none'; msg.textContent=''; }
     
-    // Validate form
-    if(!e.target.checkValidity()){
-      console.warn('Form validation failed - missing required fields');
-      e.target.reportValidity();
-      return;
-    }
-    
     try{
-      if(!homeCurrentHotel) throw new Error('Brak oferty');
-      
       btn.disabled=true; btn.textContent='Wysyłanie...';
       
-      // Use the hotel booking service
-      await submitHotelBooking(e.target);
+      // Import Supabase inline (same as trips)
+      const { supabase } = await import('./supabaseClient.js');
+      
+      // Build payload from form data
+      const fd = new FormData(form);
+      const arrivalDate = fd.get('arrival_date');
+      const departureDate = fd.get('departure_date');
+      const adults = parseInt(fd.get('adults')) || 2;
+      const children = parseInt(fd.get('children')) || 0;
+      const nights = nightsBetween(arrivalDate, departureDate);
+      const totalPrice = calculateHotelPrice(homeCurrentHotel, adults + children, nights);
+      
+      const payload = {
+        hotel_id: homeCurrentHotel.id,
+        hotel_slug: homeCurrentHotel.slug,
+        category_id: homeCurrentHotel.category_id,
+        customer_name: fd.get('name'),
+        customer_email: fd.get('email'),
+        customer_phone: fd.get('phone'),
+        arrival_date: arrivalDate,
+        departure_date: departureDate,
+        num_adults: adults,
+        num_children: children,
+        nights: nights,
+        notes: fd.get('notes'),
+        total_price: totalPrice,
+        status: 'pending'
+      };
+      
+      // Insert to Supabase (same as trips)
+      const { error } = await supabase
+        .from('hotel_bookings')
+        .insert([payload])
+        .select()
+        .single();
+      
+      if (error) throw error;
       
       // Success
       msg.className='booking-message success';
       msg.textContent='Rezerwacja przyjęta! Skontaktujemy się wkrótce.';
       msg.style.display='block';
-      e.target.reset();
-      
-      // Clear HTML5 validation errors
-      Array.from(e.target.elements).forEach(el => {
-        if(el.setCustomValidity) el.setCustomValidity('');
-      });
+      form.reset();
       updateHotelLivePrice();
       
     }catch(err){
@@ -276,8 +297,7 @@ function updateHotelLivePrice(){
 window.openHotelModalHome = function(index){
   const h = homeHotelsDisplay[index];
   if(!h) return;
-  homeCurrentHotel = h; 
-  window.homeCurrentHotel = h; // Expose for booking service
+  homeCurrentHotel = h;
   homeHotelIndex = index;
   const title = h.title?.pl || h.title?.en || h.slug;
   const image = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png';
@@ -334,8 +354,7 @@ window.openHotelModalHome = function(index){
 window.closeHotelModal = function(){
   const modalEl = document.getElementById('hotelModal');
   if (modalEl){ modalEl.classList.remove('active'); modalEl.hidden=true; document.body.style.overflow=''; }
-  homeCurrentHotel = null; 
-  window.homeCurrentHotel = null; // Clear global reference
+  homeCurrentHotel = null;
   homeHotelIndex = null;
 }
 
