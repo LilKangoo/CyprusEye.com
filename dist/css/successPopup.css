@@ -10,10 +10,18 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 10000;
+  /* Higher z-index to appear above trip/hotel modals */
+  z-index: 15000;
   opacity: 0;
   transition: opacity 0.3s ease;
   cursor: pointer;
+  /* iOS Safe area support */
+  padding: max(env(safe-area-inset-top, 0px), 20px) 
+           max(env(safe-area-inset-right, 0px), 20px)
+           max(env(safe-area-inset-bottom, 0px), 20px) 
+           max(env(safe-area-inset-left, 0px), 20px);
+  /* Ensure it works on mobile */
+  touch-action: auto;
 }
 
 .booking-popup-overlay.active {
@@ -99,23 +107,34 @@
 
 /* Mobile responsive */
 @media (max-width: 640px) {
+  .booking-popup-overlay {
+    /* Extra safe margins on mobile */
+    padding: max(env(safe-area-inset-top, 0px), 30px) 
+             max(env(safe-area-inset-right, 0px), 16px)
+             max(env(safe-area-inset-bottom, 0px), 30px) 
+             max(env(safe-area-inset-left, 0px), 16px);
+  }
+  
   .booking-popup {
-    padding: 32px 24px;
-    width: 85%;
+    padding: 28px 20px;
+    width: calc(100% - 32px);
+    max-width: 340px;
   }
   
   .booking-popup-icon {
     width: 64px;
     height: 64px;
     font-size: 36px;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
   }
   
   .booking-popup-title {
-    font-size: 20px;
+    font-size: 18px;
+    margin-bottom: 8px;
   }
   
   .booking-popup-message {
     font-size: 14px;
+    line-height: 1.5;
   }
 }

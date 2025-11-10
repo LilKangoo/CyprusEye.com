@@ -23,10 +23,16 @@ body.modal-open {
   z-index: 20000 !important;
 }
 
-/* Toast notifications - always visible */
+/* Toast notifications - always visible, above everything except lightbox */
 .toast-notifications,
 .ce-toast {
-  z-index: 15000 !important;
+  z-index: 16000 !important;
+}
+
+/* Success/Booking popup - appears above trip/hotel modals */
+.success-popup-overlay,
+.booking-popup-overlay {
+  z-index: 15000 !important; /* Above modals when showing success/confirmation */
 }
 
 /* Trip/Hotel Modals - ABOVE EVERYTHING ELSE (language, header, etc) */
@@ -34,11 +40,6 @@ body.modal-open {
 #hotelModal,
 #tripModal {
   z-index: 12000 !important;
-}
-
-/* Success popup */
-.success-popup-overlay {
-  z-index: 12500 !important; /* Above modals when showing success */
 }
 
 /* Detail modal */
