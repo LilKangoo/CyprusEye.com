@@ -9,7 +9,7 @@ const ROOT = join(__dirname, '..');
 const DIST = join(ROOT, 'dist');
 
 // Katalogi do skanowania pod kątem plików JS do minifikacji
-const JS_DIRECTORIES = ['js', 'admin', 'assets/js', 'src/utils', 'src/lib', 'src/services'];
+const JS_DIRECTORIES = ['js', 'admin', 'assets/js', 'src/utils'];
 
 // Wybrane pliki JS w katalogu głównym, które muszą być dostępne publicznie
 const ROOT_JS_FILES = ['car-rental.js'];

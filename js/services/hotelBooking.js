@@ -4,6 +4,8 @@
  * Uses VITE_* environment variables for authentication
  */
 
+import { supabase } from '../lib/supabase.js';
+
 /**
  * Submit hotel booking form to Supabase
  * @param {HTMLFormElement} form - The booking form element
@@ -11,9 +13,6 @@
  * @throws {Error} If submission fails with detailed error info
  */
 export async function submitHotelBooking(form) {
-  // Import Supabase client with VITE_* env vars
-  const { supabase } = await import('../../src/lib/supabase.js');
-  
   if (!supabase) {
     throw new Error('Supabase client not initialized');
   }

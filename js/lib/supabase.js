@@ -6,7 +6,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 // Get environment variables from import.meta.env (Vite/Cloudflare Pages)
-// Fallback to window.__ENV__ if needed for runtime injection
 const getEnvVar = (key) => {
   // Try import.meta.env first (build-time)
   if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[key]) {
@@ -15,10 +14,6 @@ const getEnvVar = (key) => {
   // Fallback to window (runtime injection by Cloudflare)
   if (typeof window !== 'undefined' && window.__ENV__ && window.__ENV__[key]) {
     return window.__ENV__[key];
-  }
-  // Fallback to process.env (for compatibility)
-  if (typeof process !== 'undefined' && process.env && process.env[key]) {
-    return process.env[key];
   }
   return null;
 };

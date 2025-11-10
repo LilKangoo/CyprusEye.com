@@ -1,6 +1,8 @@
 // Home page hotels section loader
 // Loads and displays hotels from Supabase on the main page (mirrors trips home panel)
 
+import { submitHotelBooking } from './services/hotelBooking.js';
+
 let homeHotelsData = [];
 let homeHotelsCurrentCity = 'all';
 let homeHotelsDisplay = [];
@@ -174,7 +176,6 @@ document.addEventListener('DOMContentLoaded', ()=>{
       btn.disabled=true; btn.textContent='Wysyłanie...';
       
       // Use the hotel booking service
-      const { submitHotelBooking } = await import('./services/hotelBooking.js');
       await submitHotelBooking(e.target);
       
       // Success
