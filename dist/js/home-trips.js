@@ -351,16 +351,43 @@ document.addEventListener('DOMContentLoaded', ()=>{
     };
     const btn = form.querySelector('.booking-submit');
     const msg = document.getElementById('bookingMessage');
+    
+    // Hide previous messages
+    if (msg) { msg.style.display = 'none'; msg.textContent = ''; }
+    
     try{
       if (btn){ btn.disabled = true; btn.textContent = 'Wysyłanie...'; }
       const { supabase } = await import('/js/supabaseClient.js');
       const { error } = await supabase.from('trip_bookings').insert([payload]).select().single();
       if (error) throw error;
-      if (msg){ msg.textContent='Rezerwacja przyjęta! Skontaktujemy się z Tobą wkrótce.'; msg.className='booking-message success'; msg.style.display='block'; }
+      
+      // Success - show beautiful popup (same as hotels)
+      showSuccessPopup('✅ Rezerwacja przyjęta!', 'Skontaktujemy się z Tobą wkrótce. Dziękujemy!');
+      
+      // Reset form and clear validation errors
       form.reset();
+      if (typeof clearFormValidation === 'function') {
+        clearFormValidation(form);
+      }
+      updateLivePriceHome();
+      
+      // Optional: close modal after 3 seconds
+      setTimeout(() => {
+        const modalEl = document.getElementById('tripModal');
+        if (modalEl && modalEl.classList.contains('active')) {
+          closeTripModal();
+        }
+      }, 3000);
+      
     }catch(err){
-      console.error('Booking error:', err);
-      if (msg){ msg.textContent= err.message || 'Wystąpił błąd podczas rezerwacji. Spróbuj ponownie.'; msg.className='booking-message error'; msg.style.display='block'; }
+      console.error('❌ Booking error:', err);
+      // Show error popup
+      if (typeof showErrorPopup === 'function') {
+        showErrorPopup('❌ Błąd rezerwacji', err.message || 'Wystąpił błąd podczas rezerwacji. Spróbuj ponownie.');
+      } else {
+        // Fallback to old message
+        if (msg){ msg.textContent= err.message || 'Wystąpił błąd podczas rezerwacji. Spróbuj ponownie.'; msg.className='booking-message error'; msg.style.display='block'; }
+      }
     }finally{
       if (btn){ btn.disabled=false; btn.textContent='Zarezerwuj'; }
     }
