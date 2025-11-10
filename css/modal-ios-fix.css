@@ -11,14 +11,57 @@ body.modal-open {
   scroll-margin-top: 80px;
 }
 
-/* Ensure modals are above header */
+/* Z-INDEX HIERARCHY - FIXED FOR MOBILE */
+/* Lightbox (fullscreen photos) - highest */
+.lightbox,
+#imgLightbox {
+  z-index: 20000 !important;
+}
+
+/* Toast notifications - always visible */
+.toast-notifications,
+.ce-toast {
+  z-index: 15000 !important;
+}
+
+/* Trip/Hotel Modals - ABOVE EVERYTHING ELSE (language, header, etc) */
 .trip-modal,
-#hotelModal {
+#hotelModal,
+#tripModal {
+  z-index: 12000 !important;
+}
+
+/* Success popup */
+.success-popup-overlay {
+  z-index: 12500 !important; /* Above modals when showing success */
+}
+
+/* Detail modal */
+.detail-modal {
+  z-index: 11000 !important;
+}
+
+/* Language selector - BELOW trip/hotel modals */
+.language-selector,
+.language-selector-dialog,
+.language-mobile-overlay,
+.language-switcher-panel {
   z-index: 10000 !important;
 }
 
-/* Header z-index (must be below modals) */
+/* Tutorial overlay */
+.tutorial-overlay {
+  z-index: 9000 !important;
+}
+
+/* Header - way below modals */
 header,
-.header {
-  z-index: 100;
+.header,
+.app-header {
+  z-index: 1000 !important;
+}
+
+/* Mobile nav */
+.mobile-nav {
+  z-index: 1000 !important;
 }
