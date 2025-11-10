@@ -1693,3 +1693,131 @@ body[data-admin-panel="true"].admin-sidebar-open {
     justify-content: center;
   }
 }
+
+/* =====================================================
+   ALL ORDERS PANEL - UNIFIED ORDERS MANAGEMENT
+   ===================================================== */
+
+/* Order category badges with icons */
+.order-category-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.order-category-badge.cars {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+  color: #3b82f6;
+}
+
+.order-category-badge.trips {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.3);
+  color: #10b981;
+}
+
+.order-category-badge.hotels {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.3);
+  color: #8b5cf6;
+}
+
+/* Filters container */
+#btnRefreshAllOrders svg {
+  vertical-align: middle;
+  display: inline-block;
+}
+
+/* Stats mini cards hover effects */
+.admin-section > div[style*="grid-template-columns"] > div[style*="gradient"] {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: default;
+}
+
+.admin-section > div[style*="grid-template-columns"] > div[style*="gradient"]:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.3);
+}
+
+/* Order row styling */
+.admin-table tbody tr {
+  transition: background-color 0.2s ease, opacity 0.2s ease;
+}
+
+.admin-table tbody tr:hover {
+  background-color: rgba(59, 130, 246, 0.05);
+}
+
+/* Completed/cancelled orders have reduced opacity */
+.admin-table tbody tr[style*="opacity"] {
+  transition: opacity 0.2s ease;
+}
+
+.admin-table tbody tr[style*="opacity"]:hover {
+  opacity: 0.85 !important;
+}
+
+/* Filter selects styling */
+select#orderCategoryFilter,
+select#orderStatusFilter {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
+}
+
+select#orderCategoryFilter:hover,
+select#orderStatusFilter:hover {
+  border-color: var(--admin-primary);
+}
+
+select#orderCategoryFilter:focus,
+select#orderStatusFilter:focus {
+  outline: none;
+  border-color: var(--admin-primary);
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.1);
+}
+
+/* Refresh button enhancement */
+#btnRefreshAllOrders {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.2s ease;
+}
+
+#btnRefreshAllOrders:hover {
+  transform: translateY(-1px);
+}
+
+#btnRefreshAllOrders:active {
+  transform: translateY(0);
+}
+
+/* Responsive adjustments for All Orders panel */
+@media (max-width: 768px) {
+  .admin-section > div[style*="justify-content"] {
+    flex-direction: column;
+    gap: 12px;
+    align-items: stretch !important;
+  }
+
+  .admin-section > div[style*="justify-content"] > div {
+    flex-direction: column;
+    width: 100%;
+  }
+
+  select#orderCategoryFilter,
+  select#orderStatusFilter {
+    width: 100%;
+  }
+
+  .admin-table thead th[style*="width"] {
+    min-width: 100px;
+  }
+}

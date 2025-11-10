@@ -7458,3 +7458,280 @@ document.addEventListener('DOMContentLoaded', function() {
     });
   }
 });
+
+// =====================================================
+// ALL ORDERS UNIFIED PANEL
+// =====================================================
+
+let allOrdersCache = [];
+let filteredOrders = [];
+
+/**
+ * Load all orders from car_bookings, trip_bookings, and hotel_bookings
+ */
+async function loadAllOrders() {
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    console.log('Loading all orders from all categories...');
+
+    // Fetch all bookings in parallel
+    const [carsResult, tripsResult, hotelsResult] = await Promise.all([
+      client.from('car_bookings').select('*').order('created_at', { ascending: false }).limit(200),
+      client.from('trip_bookings').select('*').order('created_at', { ascending: false }).limit(200),
+      client.from('hotel_bookings').select('*').order('created_at', { ascending: false }).limit(200)
+    ]);
+
+    // Process car bookings
+    const carBookings = (carsResult.data || []).map(booking => ({
+      ...booking,
+      category: 'cars',
+      categoryLabel: 'Car Rental',
+      categoryIcon: '🚗',
+      categoryColor: '#3b82f6',
+      displayName: `${booking.car_type || 'N/A'} - ${booking.pickup_location || 'N/A'}`,
+      viewFunction: 'viewCarBookingDetails'
+    }));
+
+    // Process trip bookings
+    const tripBookings = (tripsResult.data || []).map(booking => ({
+      ...booking,
+      category: 'trips',
+      categoryLabel: 'Trip',
+      categoryIcon: '🎯',
+      categoryColor: '#10b981',
+      displayName: booking.trip_slug || 'N/A',
+      viewFunction: 'viewTripBookingDetails'
+    }));
+
+    // Process hotel bookings
+    const hotelBookings = (hotelsResult.data || []).map(booking => ({
+      ...booking,
+      category: 'hotels',
+      categoryLabel: 'Hotel',
+      categoryIcon: '🏨',
+      categoryColor: '#8b5cf6',
+      displayName: booking.hotel_slug || 'N/A',
+      viewFunction: 'viewHotelBookingDetails'
+    }));
+
+    // Combine all orders
+    allOrdersCache = [...carBookings, ...tripBookings, ...hotelBookings];
+
+    // Sort: pending/confirmed first, then by created_at descending
+    allOrdersCache.sort((a, b) => {
+      const statusPriority = {
+        'pending': 1,
+        'confirmed': 2,
+        'completed': 3,
+        'cancelled': 4
+      };
+      
+      const aPriority = statusPriority[a.status] || 99;
+      const bPriority = statusPriority[b.status] || 99;
+      
+      if (aPriority !== bPriority) {
+        return aPriority - bPriority;
+      }
+      
+      // Within same status, sort by created_at descending
+      return new Date(b.created_at) - new Date(a.created_at);
+    });
+
+    console.log('All orders loaded:', allOrdersCache.length);
+
+    // Update stats
+    updateAllOrdersStats();
+
+    // Apply filters and render
+    applyOrderFilters();
+
+    showToast(`Loaded ${allOrdersCache.length} orders successfully`, 'success');
+
+  } catch (error) {
+    console.error('Failed to load all orders:', error);
+    showToast('Failed to load orders: ' + (error.message || 'Unknown error'), 'error');
+    
+    const tableBody = $('#allOrdersTableBody');
+    if (tableBody) {
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="8" class="table-loading" style="color: var(--admin-danger);">
+            ❌ Error loading orders: ${escapeHtml(error.message || 'Unknown error')}
+          </td>
+        </tr>
+      `;
+    }
+  }
+}
+
+/**
+ * Update statistics for all orders panel
+ */
+function updateAllOrdersStats() {
+  const carsPending = allOrdersCache.filter(o => o.category === 'cars' && o.status === 'pending').length;
+  const tripsPending = allOrdersCache.filter(o => o.category === 'trips' && o.status === 'pending').length;
+  const hotelsPending = allOrdersCache.filter(o => o.category === 'hotels' && o.status === 'pending').length;
+  const totalOrders = allOrdersCache.length;
+
+  const statCarsPendingEl = $('#statCarsPending');
+  const statTripsPendingEl = $('#statTripsPending');
+  const statHotelsPendingEl = $('#statHotelsPending');
+  const statTotalOrdersEl = $('#statTotalOrders');
+
+  if (statCarsPendingEl) statCarsPendingEl.textContent = carsPending;
+  if (statTripsPendingEl) statTripsPendingEl.textContent = tripsPending;
+  if (statHotelsPendingEl) statHotelsPendingEl.textContent = hotelsPending;
+  if (statTotalOrdersEl) statTotalOrdersEl.textContent = totalOrders;
+}
+
+/**
+ * Apply filters to orders
+ */
+function applyOrderFilters() {
+  const categoryFilter = $('#orderCategoryFilter')?.value || 'all';
+  const statusFilter = $('#orderStatusFilter')?.value || 'all';
+
+  filteredOrders = allOrdersCache.filter(order => {
+    const matchCategory = categoryFilter === 'all' || order.category === categoryFilter;
+    const matchStatus = statusFilter === 'all' || order.status === statusFilter;
+    return matchCategory && matchStatus;
+  });
+
+  renderAllOrdersTable();
+}
+
+/**
+ * Render the unified orders table
+ */
+function renderAllOrdersTable() {
+  const tableBody = $('#allOrdersTableBody');
+  if (!tableBody) return;
+
+  if (filteredOrders.length === 0) {
+    tableBody.innerHTML = `
+      <tr>
+        <td colspan="8" class="table-loading">
+          No orders found with current filters.
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  tableBody.innerHTML = filteredOrders.map(order => {
+    const statusClass = 
+      order.status === 'confirmed' ? 'badge-success' :
+      order.status === 'completed' ? 'badge-success' :
+      order.status === 'pending' ? 'badge-warning' :
+      order.status === 'cancelled' ? 'badge-danger' : 'badge';
+
+    // Format dates based on category
+    let dateInfo = '';
+    if (order.category === 'cars') {
+      const pickup = order.pickup_date ? new Date(order.pickup_date).toLocaleDateString('en-GB') : 'N/A';
+      const dropoff = order.dropoff_date ? new Date(order.dropoff_date).toLocaleDateString('en-GB') : 'N/A';
+      dateInfo = `${pickup} → ${dropoff}`;
+    } else if (order.category === 'trips') {
+      const tripDate = order.trip_date ? new Date(order.trip_date).toLocaleDateString('en-GB') : 'N/A';
+      dateInfo = `Trip: ${tripDate}`;
+    } else if (order.category === 'hotels') {
+      const checkin = order.arrival_date ? new Date(order.arrival_date).toLocaleDateString('en-GB') : 'N/A';
+      const checkout = order.departure_date ? new Date(order.departure_date).toLocaleDateString('en-GB') : 'N/A';
+      dateInfo = `${checkin} → ${checkout}`;
+    }
+
+    const createdAt = order.created_at ? new Date(order.created_at).toLocaleDateString('en-GB') : 'N/A';
+    const createdTime = order.created_at ? new Date(order.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '';
+
+    return `
+      <tr style="${order.status === 'completed' || order.status === 'cancelled' ? 'opacity: 0.6;' : ''}">
+        <td>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 18px;">${order.categoryIcon}</span>
+            <span style="font-size: 12px; font-weight: 600; color: ${order.categoryColor};">
+              ${order.categoryLabel}
+            </span>
+          </div>
+        </td>
+        <td>
+          <div style="font-weight: 600; font-size: 13px;">#${order.id.slice(0, 8).toUpperCase()}</div>
+          <div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 2px;">
+            ${escapeHtml(order.displayName)}
+          </div>
+        </td>
+        <td>
+          <div style="font-weight: 500; font-size: 13px;">${escapeHtml(order.customer_name || 'N/A')}</div>
+          <div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(order.customer_email || '')}</div>
+          ${order.customer_phone ? `<div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(order.customer_phone)}</div>` : ''}
+        </td>
+        <td>
+          <div style="font-size: 12px;">${dateInfo}</div>
+          ${order.num_adults ? `<div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 2px;">👥 ${order.num_adults}${order.num_children ? '+' + order.num_children : ''}</div>` : ''}
+        </td>
+        <td>
+          <span class="badge ${statusClass}">
+            ${(order.status || 'unknown').toUpperCase()}
+          </span>
+        </td>
+        <td style="font-weight: 600; color: var(--admin-success); font-size: 14px;">
+          €${Number(order.total_price || order.quoted_price || order.final_price || 0).toFixed(2)}
+        </td>
+        <td>
+          <div style="font-size: 12px;">${createdAt}</div>
+          <div style="font-size: 11px; color: var(--admin-text-muted);">${createdTime}</div>
+        </td>
+        <td>
+          <button class="btn-secondary" onclick="${order.viewFunction}('${order.id}')" title="View details" style="font-size: 13px; padding: 6px 12px;">
+            View
+          </button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  // Update footer
+  const footer = $('#allOrdersFooter');
+  if (footer) {
+    footer.innerHTML = `
+      Showing ${filteredOrders.length} of ${allOrdersCache.length} total orders
+    `;
+  }
+}
+
+// Initialize All Orders Panel
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('Initializing All Orders panel...');
+
+  // Load orders when dashboard view becomes active
+  const dashboardView = document.getElementById('viewDashboard');
+  if (dashboardView && !dashboardView.hidden) {
+    // Load immediately if dashboard is already visible
+    setTimeout(() => loadAllOrders(), 1000);
+  }
+
+  // Refresh button
+  const btnRefresh = document.getElementById('btnRefreshAllOrders');
+  if (btnRefresh) {
+    btnRefresh.addEventListener('click', loadAllOrders);
+  }
+
+  // Category filter
+  const categoryFilter = document.getElementById('orderCategoryFilter');
+  if (categoryFilter) {
+    categoryFilter.addEventListener('change', applyOrderFilters);
+  }
+
+  // Status filter
+  const statusFilter = document.getElementById('orderStatusFilter');
+  if (statusFilter) {
+    statusFilter.addEventListener('change', applyOrderFilters);
+  }
+});
+
+// Export functions to window for onclick handlers
+window.loadAllOrders = loadAllOrders;
