@@ -2,6 +2,7 @@
 // Loads and displays hotels from Supabase on the main page (mirrors trips home panel)
 
 import { submitHotelBooking } from './services/hotelBooking.js';
+import { supabase } from './lib/supabase.js';
 
 let homeHotelsData = [];
 let homeHotelsCurrentCity = 'all';
@@ -11,7 +12,6 @@ let homeHotelIndex = null;
 
 async function loadHomeHotels(){
   try{
-    const { supabase } = await import('/js/supabaseClient.js');
     if(!supabase) throw new Error('Supabase client not available');
 
     const { data, error } = await supabase
