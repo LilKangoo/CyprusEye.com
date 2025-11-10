@@ -1,9 +1,14 @@
 /* iOS Modal Fix - Body scroll lock */
 body.modal-open {
-  overflow: hidden;
-  position: fixed;
-  width: 100%;
-  height: 100%;
+  overflow: hidden !important;
+  position: fixed !important;
+  width: 100% !important;
+  height: 100% !important;
+  /* Prevent ALL touch gestures on body when modal is open */
+  touch-action: none !important;
+  /* Prevent text selection during scroll attempts */
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 /* Target scroll margin for anchors */
