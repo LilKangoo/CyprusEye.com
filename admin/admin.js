@@ -2959,6 +2959,11 @@ async function loadCarsData() {
       const startDate = booking.pickup_date ? new Date(booking.pickup_date).toLocaleDateString('en-GB') : 'N/A';
       const endDate = booking.return_date ? new Date(booking.return_date).toLocaleDateString('en-GB') : 'N/A';
       
+      // Calculate rental days
+      const rentalDays = booking.pickup_date && booking.return_date 
+        ? Math.ceil((new Date(booking.return_date) - new Date(booking.pickup_date)) / (1000 * 60 * 60 * 24))
+        : (booking.days_count || 0);
+      
       // Status badge colors
       const statusClass = 
         booking.status === 'confirmed' ? 'badge-success' :
@@ -2968,8 +2973,8 @@ async function loadCarsData() {
         booking.status === 'cancelled' ? 'badge-danger' : 'badge';
       
       // Location badges
-      const pickupLoc = booking.pickup_location ? booking.pickup_location.toUpperCase() : '?';
-      const returnLoc = booking.return_location ? booking.return_location.toUpperCase() : '?';
+      const pickupLoc = booking.pickup_location ? booking.pickup_location.toUpperCase().replace('_', ' ') : '?';
+      const returnLoc = booking.return_location ? booking.return_location.toUpperCase().replace('_', ' ') : '?';
       
       return `
         <tr>
@@ -2993,8 +2998,8 @@ async function loadCarsData() {
               📅 ${startDate}<br>
               ⬇️ ${endDate}
             </div>
-            <div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 4px;">
-              ${booking.days_count || 0} day${booking.days_count !== 1 ? 's' : ''}
+            <div style="font-size: 11px; font-weight: 600; color: var(--admin-primary); margin-top: 4px;">
+              🕒 ${rentalDays} day${rentalDays !== 1 ? 's' : ''}
             </div>
           </td>
           <td>
@@ -3081,6 +3086,63 @@ async function viewCarBookingDetails(bookingId) {
     const days = booking.pickup_date && booking.return_date 
       ? Math.ceil((new Date(booking.return_date) - new Date(booking.pickup_date)) / (1000 * 60 * 60 * 24))
       : 0;
+
+    // Fetch car pricing from car_offers table
+    let carPricing = null;
+    let calculatedBasePrice = 0;
+    let priceBreakdown = '';
+    
+    try {
+      const { data: carOffer } = await client
+        .from('car_offers')
+        .select('*')
+        .eq('car_model', booking.car_model)
+        .eq('location', (booking.location || 'larnaca').toLowerCase())
+        .single();
+      
+      carPricing = carOffer;
+      
+      // Calculate base price according to pricing tiers
+      if (carPricing) {
+        const location = (booking.location || 'larnaca').toLowerCase();
+        
+        if (location === 'paphos') {
+          // Paphos tiered pricing
+          if (days <= 3) {
+            calculatedBasePrice = carPricing.price_3days || 0;
+            priceBreakdown = `${days} days × Package rate = €${calculatedBasePrice.toFixed(2)}`;
+          } else if (days <= 6) {
+            const dailyRate = carPricing.price_4_6days || 0;
+            calculatedBasePrice = dailyRate * days;
+            priceBreakdown = `${days} days × €${dailyRate}/day = €${calculatedBasePrice.toFixed(2)}`;
+          } else if (days <= 10) {
+            const dailyRate = carPricing.price_7_10days || 0;
+            calculatedBasePrice = dailyRate * days;
+            priceBreakdown = `${days} days × €${dailyRate}/day = €${calculatedBasePrice.toFixed(2)}`;
+          } else {
+            const dailyRate = carPricing.price_10plus_days || 0;
+            calculatedBasePrice = dailyRate * days;
+            priceBreakdown = `${days} days × €${dailyRate}/day = €${calculatedBasePrice.toFixed(2)}`;
+          }
+        } else {
+          // Larnaca simple per-day pricing
+          const dailyRate = carPricing.price_per_day || carPricing.price_10plus_days || 0;
+          calculatedBasePrice = dailyRate * days;
+          priceBreakdown = `${days} days × €${dailyRate}/day = €${calculatedBasePrice.toFixed(2)}`;
+        }
+      }
+    } catch (err) {
+      console.warn('Could not fetch car pricing:', err);
+    }
+
+    // Calculate extras
+    const numPassengers = booking.num_passengers || 1;
+    const passengerSurcharge = numPassengers > 2 ? (numPassengers - 2) * 5 : 0; // €5 per extra passenger
+    const childSeatsSurcharge = 0; // Child seats are FREE
+    const insuranceCost = booking.full_insurance ? (days * 17) : 0; // €17/day for full insurance
+    
+    const totalExtras = passengerSurcharge + childSeatsSurcharge + insuranceCost;
+    const suggestedTotal = calculatedBasePrice + totalExtras;
 
     // Status badge
     const statusClass = 
@@ -3207,13 +3269,89 @@ async function viewCarBookingDetails(bookingId) {
           </div>
         </div>
 
-        <!-- Pricing -->
+        <!-- Automatic Price Calculation -->
+        <div style="background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%); padding: 20px; border-radius: 12px; color: white;">
+          <h4 style="margin: 0 0 16px; font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px;">
+            <span style="font-size: 24px;">🧮</span>
+            Automatic Price Calculation (${(booking.location || 'Larnaca').toUpperCase()} Rate)
+          </h4>
+          
+          ${carPricing ? `
+          <div style="background: rgba(255, 255, 255, 0.1); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
+            <div style="display: grid; gap: 10px;">
+              <!-- Base Price -->
+              <div style="display: flex; justify-content: space-between; align-items: center; padding-bottom: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.2);">
+                <div>
+                  <div style="font-weight: 600; font-size: 14px;">Base Rental Price</div>
+                  <div style="font-size: 12px; opacity: 0.85; margin-top: 2px;">${priceBreakdown}</div>
+                </div>
+                <div style="font-size: 18px; font-weight: 700;">€${calculatedBasePrice.toFixed(2)}</div>
+              </div>
+
+              <!-- Extras -->
+              ${passengerSurcharge > 0 || insuranceCost > 0 || booking.child_seats > 0 ? `
+              <div style="padding-top: 8px;">
+                <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px; opacity: 0.9;">Extras:</div>
+                ${passengerSurcharge > 0 ? `
+                <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">
+                  <span>• Extra Passengers (${numPassengers - 2})</span>
+                  <span>+€${passengerSurcharge.toFixed(2)}</span>
+                </div>
+                ` : ''}
+                ${booking.child_seats > 0 ? `
+                <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">
+                  <span>• Child Seats (${booking.child_seats})</span>
+                  <span style="color: #86efac;">FREE</span>
+                </div>
+                ` : ''}
+                ${insuranceCost > 0 ? `
+                <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">
+                  <span>• Full Insurance (${days} days × €17)</span>
+                  <span>+€${insuranceCost.toFixed(2)}</span>
+                </div>
+                ` : ''}
+              </div>
+              ` : ''}
+
+              <!-- Total -->
+              <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 12px; border-top: 2px solid rgba(255, 255, 255, 0.3); margin-top: 8px;">
+                <div style="font-weight: 700; font-size: 16px;">SUGGESTED TOTAL</div>
+                <div style="font-size: 24px; font-weight: 700; color: #fbbf24;">€${suggestedTotal.toFixed(2)}</div>
+              </div>
+            </div>
+          </div>
+          
+          <div style="background: rgba(255, 255, 255, 0.15); padding: 12px; border-radius: 6px; font-size: 12px; line-height: 1.5;">
+            <strong>ℹ️ Note:</strong> This is an automatic calculation based on the ${(booking.location || 'Larnaca').toUpperCase()} rate card. 
+            You can adjust the quoted and final prices below if needed.
+          </div>
+          ` : `
+          <div style="background: rgba(255, 255, 255, 0.1); padding: 16px; border-radius: 8px; text-align: center;">
+            <div style="font-size: 14px; opacity: 0.9;">⚠️ Car pricing not found in database for this model and location.</div>
+            <div style="font-size: 12px; opacity: 0.75; margin-top: 8px;">Please manually set the quoted price below.</div>
+          </div>
+          `}
+        </div>
+
+        <!-- Manual Pricing Override -->
         <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
-          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Pricing & Quote</h4>
+          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Manual Pricing Override</h4>
           <div style="display: grid; gap: 12px;">
             <!-- Quote Price Input -->
             <div>
-              <label style="display: block; font-size: 12px; font-weight: 500; margin-bottom: 4px; color: var(--admin-text-muted);">Quoted Price (€)</label>
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
+                <label style="font-size: 12px; font-weight: 500; color: var(--admin-text-muted);">Quoted Price (€)</label>
+                ${suggestedTotal > 0 ? `
+                <button 
+                  type="button" 
+                  id="btnUseSuggestedPrice"
+                  style="font-size: 11px; padding: 4px 8px; background: #3b82f6; color: white; border: none; border-radius: 4px; cursor: pointer; font-weight: 600;"
+                  title="Use automatic calculated price"
+                >
+                  📋 Use €${suggestedTotal.toFixed(2)}
+                </button>
+                ` : ''}
+              </div>
               <input 
                 type="number" 
                 id="bookingQuotedPrice" 
@@ -3271,6 +3409,19 @@ async function viewCarBookingDetails(bookingId) {
 
     // Show modal
     modal.hidden = false;
+
+    // Attach "Use Suggested Price" button event listener
+    const btnUseSuggestedPrice = $('#btnUseSuggestedPrice');
+    if (btnUseSuggestedPrice && suggestedTotal > 0) {
+      btnUseSuggestedPrice.addEventListener('click', () => {
+        const quotedPriceInput = $('#bookingQuotedPrice');
+        if (quotedPriceInput) {
+          quotedPriceInput.value = suggestedTotal.toFixed(2);
+          quotedPriceInput.focus();
+          showToast('Suggested price applied!', 'success');
+        }
+      });
+    }
 
     // Attach Save Pricing event listener
     const btnSavePricing = $('#btnSavePricing');
