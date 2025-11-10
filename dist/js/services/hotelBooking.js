@@ -1,54 +1,81 @@
 /**
  * Hotel Booking Service
  * Handles hotel booking submissions to Supabase
+ * Uses VITE_* environment variables for authentication
  */
 
 /**
  * Submit hotel booking form to Supabase
  * @param {HTMLFormElement} form - The booking form element
  * @returns {Promise<any>} Inserted booking data
- * @throws {Error} If submission fails
+ * @throws {Error} If submission fails with detailed error info
  */
 export async function submitHotelBooking(form) {
-  // Import Supabase client
-  const { supabase } = await import('../supabaseClient.js');
+  // Import Supabase client with VITE_* env vars
+  const { supabase } = await import('../../src/lib/supabase.js');
   
   if (!supabase) {
-    throw new Error('Supabase client not available');
+    throw new Error('Supabase client not initialized');
   }
 
   // Get form data
   const fd = new FormData(form);
   
-  // Map form fields to database columns
-  // Form uses: name, email, phone, arrival_date, departure_date, adults, children, notes
-  // DB expects: customer_name, customer_email, customer_phone, arrival_date, departure_date, 
-  //             num_adults, num_children, notes, nights, total_price
-  
+  // Get dates
   const arrivalDate = fd.get('arrival_date');
   const departureDate = fd.get('departure_date');
+  
+  // Validate required fields
+  if (!fd.get('name') || !fd.get('email')) {
+    throw new Error('Imię i email są wymagane');
+  }
+  
+  if (!arrivalDate || !departureDate) {
+    throw new Error('Daty przyjazdu i wyjazdu są wymagane');
+  }
   
   // Calculate nights between dates
   const nights = calculateNights(arrivalDate, departureDate);
   
-  // Get current hotel data from the modal (set by openHotelModalHome)
+  // Get current hotel data from global (set by openHotelModalHome)
   const currentHotel = window.homeCurrentHotel;
   
-  // Build payload matching database schema
+  if (!currentHotel) {
+    throw new Error('Nie wybrano hotelu');
+  }
+  
+  // Get form values
+  const adults = Number(fd.get('adults') || 2);
+  const children = Number(fd.get('children') || 0);
+  const totalPersons = adults + children;
+  
+  // Calculate price
+  const totalPrice = calculatePrice(currentHotel, totalPersons, nights);
+  
+  // Build payload matching database schema exactly
   const payload = {
-    hotel_id: currentHotel?.id || null,
-    hotel_slug: currentHotel?.slug || null,
-    category_id: currentHotel?.category_id || null,
+    // Hotel references
+    hotel_id: currentHotel.id || null,
+    hotel_slug: currentHotel.slug || null,
+    category_id: currentHotel.category_id || null,
+    
+    // Customer info (match DB column names)
     customer_name: fd.get('name'),
     customer_email: fd.get('email'),
     customer_phone: fd.get('phone') || null,
+    
+    // Stay details
     arrival_date: arrivalDate,
     departure_date: departureDate,
-    num_adults: Number(fd.get('adults') || 2),
-    num_children: Number(fd.get('children') || 0),
+    num_adults: adults,
+    num_children: children,
     nights: nights,
     notes: fd.get('notes') || null,
-    total_price: currentHotel ? calculatePrice(currentHotel, Number(fd.get('adults') || 2) + Number(fd.get('children') || 0), nights) : 0,
+    
+    // Pricing
+    total_price: totalPrice,
+    
+    // Status
     status: 'pending'
   };
   
@@ -59,23 +86,46 @@ export async function submitHotelBooking(form) {
     }
   });
   
-  console.log('📤 Submitting hotel booking:', payload);
+  console.log('📤 Submitting hotel booking to Supabase:', payload);
   
-  // Insert into Supabase
+  // Insert into Supabase with proper error handling
   const { data, error } = await supabase
     .from('hotel_bookings')
     .insert([payload])
     .select();
   
   if (error) {
-    console.error('❌ Supabase error:', error);
-    const errorMsg = error.message || 'Insert failed';
-    const details = error.details ? ` — ${error.details}` : '';
-    const hint = error.hint ? ` (${error.hint})` : '';
-    throw new Error(errorMsg + details + hint);
+    // Log detailed error information
+    console.error('❌ Supabase error details:', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      status: error.status
+    });
+    
+    // Build user-friendly error message
+    let errorMsg = error.message || 'Błąd podczas zapisywania rezerwacji';
+    
+    if (error.code === '42501') {
+      errorMsg = 'Brak uprawnień do zapisu. Sprawdź polityki RLS w Supabase.';
+    } else if (error.code === '23502') {
+      errorMsg = `Brak wymaganego pola: ${error.details || 'sprawdź formularz'}`;
+    } else if (error.code === '23503') {
+      errorMsg = `Błąd relacji: ${error.details || 'nieprawidłowy hotel'}`;
+    }
+    
+    if (error.details) {
+      errorMsg += ` — ${error.details}`;
+    }
+    if (error.hint) {
+      errorMsg += ` (${error.hint})`;
+    }
+    
+    throw new Error(errorMsg);
   }
   
-  console.log('✅ Booking created:', data);
+  console.log('✅ Hotel booking created successfully:', data);
   return data;
 }
 

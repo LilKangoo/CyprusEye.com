@@ -1,7 +1,6 @@
 /**
  * Hotel Booking Service
- * Handles hotel booking submissions to Supabase
- * Uses VITE_* environment variables for authentication
+ * Submits hotel bookings to Supabase public.hotel_bookings table
  */
 
 /**
@@ -12,7 +11,7 @@
  */
 export async function submitHotelBooking(form) {
   // Import Supabase client with VITE_* env vars
-  const { supabase } = await import('../../src/lib/supabase.js');
+  const { supabase } = await import('../lib/supabase.js');
   
   if (!supabase) {
     throw new Error('Supabase client not initialized');
