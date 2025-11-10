@@ -1,0 +1,24 @@
+/* iOS Modal Fix - Body scroll lock */
+body.modal-open {
+  overflow: hidden;
+  position: fixed;
+  width: 100%;
+  height: 100%;
+}
+
+/* Target scroll margin for anchors */
+:target {
+  scroll-margin-top: 80px;
+}
+
+/* Ensure modals are above header */
+.trip-modal,
+#hotelModal {
+  z-index: 10000 !important;
+}
+
+/* Header z-index (must be below modals) */
+header,
+.header {
+  z-index: 100;
+}

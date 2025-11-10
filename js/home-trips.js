@@ -295,13 +295,23 @@ window.openTripModalHome = function(index){
   updateLivePriceHome();
 
   const modal = document.getElementById('tripModal');
-  if (modal) { modal.hidden = false; modal.classList.add('active'); document.body.style.overflow = 'hidden'; }
+  if (typeof openSheet === 'function') {
+    openSheet(modal);
+  } else {
+    // Fallback if modalUtils not loaded
+    if (modal) { modal.hidden = false; modal.classList.add('active'); document.body.style.overflow = 'hidden'; }
+  }
   updateModalArrows();
 };
 
 window.closeTripModal = function(){
   const modal = document.getElementById('tripModal');
-  if (modal) { modal.classList.remove('active'); modal.hidden = true; document.body.style.overflow = ''; }
+  if (typeof closeSheet === 'function') {
+    closeSheet(modal);
+  } else {
+    // Fallback
+    if (modal) { modal.classList.remove('active'); modal.hidden = true; document.body.style.overflow = ''; }
+  }
   homeCurrentTrip = null;
   homeCurrentIndex = null;
 };

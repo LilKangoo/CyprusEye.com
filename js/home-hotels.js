@@ -354,13 +354,23 @@ window.openHotelModalHome = function(index){
   updateHotelLivePrice();
 
   const modalEl = document.getElementById('hotelModal');
-  if (modalEl){ modalEl.hidden=false; modalEl.classList.add('active'); document.body.style.overflow='hidden'; }
+  if (typeof openSheet === 'function') {
+    openSheet(modalEl);
+  } else {
+    // Fallback
+    if (modalEl){ modalEl.hidden=false; modalEl.classList.add('active'); document.body.style.overflow='hidden'; }
+  }
   updateHotelModalArrows();
 }
 
 window.closeHotelModal = function(){
   const modalEl = document.getElementById('hotelModal');
-  if (modalEl){ modalEl.classList.remove('active'); modalEl.hidden=true; document.body.style.overflow=''; }
+  if (typeof closeSheet === 'function') {
+    closeSheet(modalEl);
+  } else {
+    // Fallback
+    if (modalEl){ modalEl.classList.remove('active'); modalEl.hidden=true; document.body.style.overflow=''; }
+  }
   homeCurrentHotel = null;
   homeHotelIndex = null;
 }
