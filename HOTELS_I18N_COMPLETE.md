@@ -558,8 +558,52 @@ setInterval(() => {
 
 ---
 
-**Data:** 2025-01-11 10:18 PM  
-**Status:** ✅ **HOTELS I18N - KOMPLETNE (admin + frontend)!**
+## 🔧 **NAPRAWA #5 (2025-01-11 10:23 PM):**
+
+### **Problem:**
+❌ Create New Hotel nie działał:
+1. Przycisk "Add tier" nie reagował
+2. Nie można było dodać pricing tiers
+3. Tworzenie nowych hoteli nie działało poprawnie
+
+### **Przyczyna:**
+Podczas wcześniejszych zmian i18n przypadkowo usunięto inicjalizację pricing tiers w `openNewHotelModal()`:
+- Brak `renderPricingTiers()`
+- Brak event listener dla "Add tier"
+- Brak preview dla wielu zdjęć
+
+### **Rozwiązanie:**
+Przywrócono brakującą inicjalizację:
+```javascript
+// Pricing tiers editor init
+renderPricingTiers('newHotelPricingTiersBody', []);
+const btnAddNewTier = document.getElementById('btnAddNewHotelTier');
+if (btnAddNewTier && !btnAddNewTier.dataset.bound) {
+  btnAddNewTier.addEventListener('click', () => addPricingTierRow('newHotelPricingTiersBody'));
+  btnAddNewTier.dataset.bound = '1';
+}
+
+// Photos multiple preview
+const multiPhotos = document.getElementById('newHotelPhotos');
+const multiPreview = document.getElementById('newHotelPhotosPreview');
+if (multiPhotos && multiPreview) {
+  multiPhotos.onchange = () => previewLocalImages(multiPhotos, multiPreview, 10);
+}
+```
+
+**Rezultat:**
+- ✅ "Add tier" działa
+- ✅ Można dodawać wiele pricing tiers
+- ✅ "Remove" usuwa wiersze
+- ✅ Preview zdjęć działa
+- ✅ Tworzenie hoteli z i18n + pricing tiers działa
+
+**Szczegóły + testy:** Zobacz `HOTELS_CREATE_ADD_TIER_FIX.md`
+
+---
+
+**Data:** 2025-01-11 10:23 PM  
+**Status:** ✅ **HOTELS I18N - W PEŁNI KOMPLETNE!**
 
 **WSZYSTKO DZIAŁA:**
 - ✅ Admin panel z tabami językowymi
@@ -567,5 +611,8 @@ setInterval(() => {
 - ✅ Frontend z auto-zmianą języka
 - ✅ Scroll w modalach
 - ✅ Walidacja PL+EN
+- ✅ **Create New Hotel z pricing tiers**
+- ✅ **Edit Hotel z pricing tiers**
+- ✅ **Add tier / Remove tier**
 
-**DEPLOY, HARD REFRESH I TESTUJ!** 🚀🌐
+**DEPLOY, HARD REFRESH I TESTUJ!** 🚀🌐🏨

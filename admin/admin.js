@@ -1424,6 +1424,21 @@ async function openNewHotelModal() {
         };
       }
 
+      // Pricing tiers editor init
+      renderPricingTiers('newHotelPricingTiersBody', []);
+      const btnAddNewTier = document.getElementById('btnAddNewHotelTier');
+      if (btnAddNewTier && !btnAddNewTier.dataset.bound) {
+        btnAddNewTier.addEventListener('click', () => addPricingTierRow('newHotelPricingTiersBody'));
+        btnAddNewTier.dataset.bound = '1';
+      }
+
+      // Photos multiple preview
+      const multiPhotos = document.getElementById('newHotelPhotos');
+      const multiPreview = document.getElementById('newHotelPhotosPreview');
+      if (multiPhotos && multiPreview) {
+        multiPhotos.onchange = () => previewLocalImages(multiPhotos, multiPreview, 10);
+      }
+
       form.onsubmit = async (ev) => {
         ev.preventDefault();
         try {
