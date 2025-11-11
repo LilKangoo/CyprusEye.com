@@ -598,8 +598,8 @@ async function editTrip(tripId) {
     document.getElementById('editTripPublished').checked = !!trip.is_published;
     
     // Check if we should use i18n fields
-    // New trips default to i18n, existing trips use i18n if they have i18n fields
-    const useI18n = trip ? (trip.title_i18n || trip.description_i18n) : true;
+    // All trips use i18n (title and description are JSONB)
+    const useI18n = true;
     const i18nContainer = $('#tripI18nFields');
     const legacyFields = $('#tripLegacyFields');
     
@@ -614,7 +614,7 @@ async function editTrip(tripId) {
           label: 'Title',
           type: 'text',
           placeholder: 'Trip title',
-          currentValues: trip?.title_i18n || {}
+          currentValues: trip?.title || {}
         });
       }
       
@@ -625,7 +625,7 @@ async function editTrip(tripId) {
           type: 'textarea',
           rows: 4,
           placeholder: 'Trip description',
-          currentValues: trip?.description_i18n || {}
+          currentValues: trip?.description || {}
         });
       }
       
@@ -720,6 +720,8 @@ async function handleEditTripSubmit(event, originalTrip) {
   event.preventDefault();
   
   try {
+    console.log('📝 Trip edit form submitted');
+    
     const client = ensureSupabase();
     if (!client) throw new Error('Database connection not available');
     
@@ -733,33 +735,39 @@ async function handleEditTripSubmit(event, originalTrip) {
       else payload[k] = Number(payload[k]);
     });
     
-    // Check if using i18n fields
-    const usingI18n = $('#tripI18nFields')?.style.display !== 'none';
-    
-    if (usingI18n && window.extractI18nValues) {
-      // Extract i18n values
+    // Extract i18n values (title and description are JSONB)
+    if (window.extractI18nValues) {
       const titleI18n = window.extractI18nValues(fd, 'title');
       const descriptionI18n = window.extractI18nValues(fd, 'description');
       
+      console.log('🔍 Extracted i18n values:', { titleI18n, descriptionI18n });
+      
       // Validate i18n fields
-      const titleError = window.validateI18nField(titleI18n, 'Title');
-      if (titleError) {
-        throw new Error(titleError);
+      if (window.validateI18nField) {
+        const titleError = window.validateI18nField(titleI18n, 'Title');
+        if (titleError) {
+          console.error('❌ Validation error:', titleError);
+          throw new Error(titleError);
+        }
+        console.log('✅ Validation passed');
       }
       
-      // Save i18n fields
-      payload.title_i18n = titleI18n;
-      payload.description_i18n = descriptionI18n;
+      // Save directly to title and description (JSONB columns, like Hotels)
+      if (titleI18n) payload.title = titleI18n;
+      if (descriptionI18n) payload.description = descriptionI18n;
       
-      // Backward compatibility - use Polish version
-      payload.title = { pl: titleI18n?.pl || '' };
-      payload.description = { pl: descriptionI18n?.pl || '' };
-    } else {
-      // Use legacy fields
-      payload.title = { pl: payload.title_pl || '' };
-      payload.description = { pl: payload.description_pl || '' };
+      console.log('💾 Payload title:', payload.title);
+      console.log('💾 Payload description:', payload.description);
+      
+      // Clean up legacy fields from payload
       delete payload.title_pl;
+      delete payload.title_en;
+      delete payload.title_el;
+      delete payload.title_he;
       delete payload.description_pl;
+      delete payload.description_en;
+      delete payload.description_el;
+      delete payload.description_he;
     }
     
     // Handle is_published checkbox
@@ -770,20 +778,28 @@ async function handleEditTripSubmit(event, originalTrip) {
     
     const tripId = document.getElementById('editTripId').value;
     
+    console.log('🚀 Updating trip in database...');
+    console.log('   Trip ID:', tripId);
+    console.log('   Payload:', payload);
+    
     // Update via Supabase client
     const { error } = await client
       .from('trips')
       .update(payload)
       .eq('id', tripId);
     
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Trip update error:', error);
+      throw error;
+    }
     
+    console.log('✅ Trip updated successfully');
     showToast('Trip updated successfully', 'success');
     document.getElementById('editTripModal').hidden = true;
     await loadTripsAdminData();
     
   } catch (err) {
-    console.error('Failed to update trip:', err);
+    console.error('❌ Failed to update trip:', err);
     showToast(err.message || 'Failed to update trip', 'error');
   }
 }
