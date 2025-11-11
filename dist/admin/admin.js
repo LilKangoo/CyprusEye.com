@@ -6411,9 +6411,9 @@ function openPoiForm(poiId = null) {
   // Check if we should use i18n fields
   const useI18n = poi?.name_i18n || poi?.description_i18n;
   const i18nContainer = $('#poiI18nFieldsContainer');
-  const legacyFields = $('#poiLegacyFields');
+  const legacyNameDesc = $('#poiLegacyNameDesc');
   
-  if (useI18n && i18nContainer && legacyFields && window.renderI18nInput) {
+  if (useI18n && i18nContainer && legacyNameDesc && window.renderI18nInput) {
     // Render i18n fields
     const nameContainer = $('#poiNameI18n');
     const descContainer = $('#poiDescriptionI18n');
@@ -6450,13 +6450,13 @@ function openPoiForm(poiId = null) {
       });
     }
     
-    // Show i18n container, hide legacy fields
+    // Show i18n container, hide legacy name/description
     i18nContainer.style.display = 'block';
-    legacyFields.style.display = 'none';
-  } else if (legacyFields && i18nContainer) {
-    // Use legacy fields
+    legacyNameDesc.style.display = 'none';
+  } else if (legacyNameDesc && i18nContainer) {
+    // Use legacy name/description fields
     i18nContainer.style.display = 'none';
-    legacyFields.style.display = 'block';
+    legacyNameDesc.style.display = 'block';
   }
 
   const nameInput = $('#poiName');

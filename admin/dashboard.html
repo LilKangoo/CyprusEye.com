@@ -1656,20 +1656,29 @@
             </svg>
             <span id="poiFormWarningText"></span>
           </div>
-          <!-- I18N Fields Container (rendered dynamically) -->
+          <!-- I18N Fields Container (rendered dynamically for Name/Description/Badge) -->
           <div id="poiI18nFieldsContainer" style="display: none; margin-bottom: 24px;">
             <div id="poiNameI18n"></div>
             <div id="poiDescriptionI18n"></div>
             <div id="poiBadgeI18n"></div>
           </div>
 
-          <!-- Legacy Fields (fallback) -->
-          <div id="poiLegacyFields">
+          <!-- Legacy Name/Description (fallback when not using i18n) -->
+          <div id="poiLegacyNameDesc">
             <div class="admin-form-grid">
               <label class="admin-form-field">
                 <span>Name *</span>
                 <input type="text" id="poiName" name="name" required placeholder="e.g. Kato Paphos Archaeological Park" />
               </label>
+            </div>
+            <label class="admin-form-field">
+              <span>Description</span>
+              <textarea id="poiDescription" name="description" rows="4" placeholder="Detailed description shown to players"></textarea>
+            </label>
+          </div>
+
+          <!-- Technical Fields (ALWAYS VISIBLE) -->
+          <div class="admin-form-grid">
             <label class="admin-form-field">
               <span>Slug</span>
               <input type="text" id="poiSlug" name="slug" placeholder="auto-generated if empty" />
@@ -1711,12 +1720,6 @@
               <input type="text" id="poiTags" name="tags" placeholder="Comma separated" />
             </label>
           </div>
-            <label class="admin-form-field">
-              <span>Description</span>
-              <textarea id="poiDescription" name="description" rows="4" placeholder="Detailed description shown to players"></textarea>
-            </label>
-          </div>
-          <!-- End Legacy Fields -->
           
           <div class="poi-form-error" id="poiFormError" hidden></div>
           <div class="poi-form-actions">
