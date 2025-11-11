@@ -72,7 +72,7 @@ function renderHomeTrips() {
     const imageUrl = trip.cover_image_url || '/assets/cyprus_logo-1000x1054.png';
     
     // Get title (support multilingual or slug)
-    const title = trip.title?.pl || trip.title?.en || trip.title || trip.slug || 'Wycieczka';
+    const title = window.getTripName ? window.getTripName(trip) : (trip.title?.pl || trip.title?.en || trip.title || trip.slug || 'Wycieczka');
     
     // Get price based on pricing model (same as trips.html)
     const pricingModel = trip.pricing_model || 'per_person';

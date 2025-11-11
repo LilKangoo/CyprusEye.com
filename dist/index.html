@@ -1564,5 +1564,27 @@
     </div>
   </div>
 
+  <script>
+    // Auto-refresh content when language changes
+    let lastLanguage = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
+    
+    setInterval(() => {
+      const currentLang = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
+      if (currentLang !== lastLanguage) {
+        console.log('🌐 Language changed from', lastLanguage, 'to', currentLang);
+        lastLanguage = currentLang;
+        
+        // Re-render all sections
+        if (typeof renderHomeTrips === 'function') {
+          renderHomeTrips();
+        }
+        if (typeof renderHomeHotels === 'function') {
+          renderHomeHotels();
+        }
+        // POIs are handled by app-core.js
+      }
+    }, 300);
+  </script>
+
 </body>
 </html>

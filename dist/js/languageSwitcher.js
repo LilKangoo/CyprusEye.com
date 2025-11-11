@@ -388,6 +388,54 @@ function getHotelDescription(hotel) {
   return getHotelTranslatedField(hotel, 'description') || '';
 }
 
+/**
+ * Get a translated field from a trip object based on current language
+ * @param {Object} trip - Trip object with i18n fields
+ * @param {string} fieldName - Field to translate (e.g., 'title', 'description')
+ * @returns {string} Translated value
+ */
+function getTripTranslatedField(trip, fieldName) {
+  if (!trip) return '';
+  
+  const currentLang = getCurrentLanguage();
+  
+  // Check if field is an i18n object
+  if (trip[fieldName] && typeof trip[fieldName] === 'object') {
+    // Try current language
+    const translated = trip[fieldName][currentLang];
+    if (translated) return translated;
+    
+    // Fallback to Polish if current language not available
+    if (trip[fieldName].pl) return trip[fieldName].pl;
+    
+    // Fallback to English if Polish not available
+    if (trip[fieldName].en) return trip[fieldName].en;
+  }
+  
+  // Fallback to direct field if it's a string (legacy)
+  if (typeof trip[fieldName] === 'string') return trip[fieldName];
+  
+  return '';
+}
+
+/**
+ * Convenience function to get translated trip title
+ * @param {Object} trip - Trip object
+ * @returns {string} Translated title
+ */
+function getTripName(trip) {
+  return getTripTranslatedField(trip, 'title') || trip.slug || 'Unnamed Trip';
+}
+
+/**
+ * Convenience function to get translated trip description
+ * @param {Object} trip - Trip object
+ * @returns {string} Translated description
+ */
+function getTripDescription(trip) {
+  return getTripTranslatedField(trip, 'description') || '';
+}
+
 // Make POI functions globally accessible
 window.getPoiName = getPoiName;
 window.getPoiDescription = getPoiDescription;
@@ -398,6 +446,11 @@ window.getPoiTranslatedField = getPoiTranslatedField;
 window.getHotelName = getHotelName;
 window.getHotelDescription = getHotelDescription;
 window.getHotelTranslatedField = getHotelTranslatedField;
+
+// Make Trip functions globally accessible
+window.getTripName = getTripName;
+window.getTripDescription = getTripDescription;
+window.getTripTranslatedField = getTripTranslatedField;
 
 // Export for external use
 if (typeof module !== 'undefined' && module.exports) {
