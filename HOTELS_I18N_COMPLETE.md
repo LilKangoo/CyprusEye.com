@@ -428,7 +428,46 @@ titleContainer.innerHTML = window.renderI18nInput({
 
 ---
 
-**Data:** 2025-01-11 08:32 PM  
-**Status:** ✅ **HOTELS I18N - NAPRAWIONE I KOMPLETNE!**
+## 🔧 **NAPRAWA #2 (2025-01-11 09:49 PM):**
 
-**DEPLOY I TESTUJ (HARD REFRESH!)** 🚀
+### **Problemy:**
+1. ❌ Scroll w modalu nie działał - nie można było dojechać do "Save Changes"
+2. ❌ Dane i18n nie zapisywały się do bazy - legacy fields (`title_pl`, etc.) w payload
+
+### **Rozwiązania:**
+
+#### **1. Scroll - `admin/admin.css`:**
+```css
+.admin-modal-content {
+  max-height: 85vh;      /* ✅ Zmniejszono z 90vh */
+  overflow-y: auto;      /* ✅ Dodano scroll */
+  overflow-x: hidden;    /* ✅ Bez poziomego */
+}
+```
+
+#### **2. Zapisywanie - `admin/admin.js`:**
+```javascript
+// ✅ Czyszczenie legacy fields:
+delete payload.title_pl;
+delete payload.title_en;
+delete payload.title_el;
+delete payload.title_he;
+delete payload.description_pl;
+delete payload.description_en;
+delete payload.description_el;
+delete payload.description_he;
+
+// ✅ Console logs do debugowania:
+console.log('🔍 Hotel i18n extracted:', { titleI18n, descriptionI18n });
+console.log('💾 Updating hotel with payload:', {...});
+console.log('✅ Hotel updated successfully');
+```
+
+**Szczegóły:** Zobacz `HOTELS_I18N_SCROLL_AND_SAVE_FIX.md`
+
+---
+
+**Data:** 2025-01-11 09:49 PM  
+**Status:** ✅ **HOTELS I18N - KOMPLETNE (scroll + save)!**
+
+**DEPLOY I TESTUJ (HARD REFRESH + SPRAWDŹ CONSOLE!)** 🚀

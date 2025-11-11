@@ -1251,6 +1251,8 @@ async function handleEditHotelSubmit(event, originalHotel) {
     const titleI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'title') : null;
     const descriptionI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'description') : null;
     
+    console.log('🔍 Hotel i18n extracted:', { titleI18n, descriptionI18n });
+    
     // Validate required fields (PL and EN)
     if (window.validateI18nField && !window.validateI18nField(titleI18n, 'Title')) {
       throw new Error('Title must be provided in Polish and English');
@@ -1259,6 +1261,16 @@ async function handleEditHotelSubmit(event, originalHotel) {
     // Assign i18n fields
     if (titleI18n) payload.title = titleI18n;
     if (descriptionI18n) payload.description = descriptionI18n;
+    
+    // Clean up legacy fields from payload
+    delete payload.title_pl;
+    delete payload.title_en;
+    delete payload.title_el;
+    delete payload.title_he;
+    delete payload.description_pl;
+    delete payload.description_en;
+    delete payload.description_el;
+    delete payload.description_he;
 
     payload.is_published = form.querySelector('#editHotelPublished').checked;
     payload.updated_at = new Date().toISOString();
@@ -1287,12 +1299,24 @@ async function handleEditHotelSubmit(event, originalHotel) {
     }
     payload.photos = existingPhotos;
 
+    console.log('💾 Updating hotel with payload:', {
+      hotelId,
+      title: payload.title,
+      description: payload.description,
+      slug: payload.slug
+    });
+
     const { error } = await client
       .from('hotels')
       .update(payload)
       .eq('id', hotelId);
 
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Hotel update error:', error);
+      throw error;
+    }
+    
+    console.log('✅ Hotel updated successfully');
 
     showToast('Hotel updated successfully', 'success');
     document.getElementById('editHotelModal').hidden = true;
@@ -1394,6 +1418,8 @@ async function openNewHotelModal() {
           const titleI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'title') : null;
           const descriptionI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'description') : null;
           
+          console.log('🔍 New Hotel i18n extracted:', { titleI18n, descriptionI18n });
+          
           // Validate required fields (PL and EN)
           if (window.validateI18nField && !window.validateI18nField(titleI18n, 'Title')) {
             throw new Error('Title must be provided in Polish and English');
@@ -1402,6 +1428,16 @@ async function openNewHotelModal() {
           // Assign i18n fields
           if (titleI18n) payload.title = titleI18n;
           if (descriptionI18n) payload.description = descriptionI18n;
+          
+          // Clean up legacy fields from payload
+          delete payload.title_pl;
+          delete payload.title_en;
+          delete payload.title_el;
+          delete payload.title_he;
+          delete payload.description_pl;
+          delete payload.description_en;
+          delete payload.description_el;
+          delete payload.description_he;
           
           // Generate slug from Polish title (fallback to English)
           const slugSource = titleI18n?.pl || titleI18n?.en || `hotel-${Date.now()}`;
@@ -1452,13 +1488,24 @@ async function openNewHotelModal() {
           payload.updated_at = now;
           payload.is_published = false;
 
+          console.log('💾 Creating new hotel with payload:', {
+            slug: payload.slug,
+            title: payload.title,
+            description: payload.description
+          });
+
           const { data, error } = await client
             .from('hotels')
             .insert(payload)
             .select('*')
             .single();
 
-          if (error) throw error;
+          if (error) {
+            console.error('❌ Hotel insert error:', error);
+            throw error;
+          }
+          
+          console.log('✅ Hotel created successfully:', data);
 
           showToast('Hotel created successfully', 'success');
           document.getElementById('newHotelModal').hidden = true;

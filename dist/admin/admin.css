@@ -826,8 +826,9 @@ body[data-admin-panel="true"].admin-sidebar-open {
   border-radius: var(--admin-radius);
   max-width: 800px;
   width: 90%;
-  max-height: 90vh;
-  overflow: hidden;
+  max-height: 85vh;
+  overflow-y: auto;
+  overflow-x: hidden;
   box-shadow: var(--admin-shadow-lg);
   animation: modalSlideIn 0.3s ease;
 }
