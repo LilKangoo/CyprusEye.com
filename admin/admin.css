@@ -1863,13 +1863,18 @@ select#orderStatusFilter:focus {
 }
 
 .lang-content {
-  display: none;
-  padding: 20px 0;
+  display: block;
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  padding: 0;
+  transition: max-height 0.3s, opacity 0.3s, padding 0.3s;
 }
 
 .lang-content.active {
-  display: block;
-  animation: fadeIn 0.3s;
+  max-height: 1000px;
+  opacity: 1;
+  padding: 20px 0;
 }
 
 .lang-content[dir="rtl"] {
