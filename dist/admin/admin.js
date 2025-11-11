@@ -593,11 +593,53 @@ async function editTrip(tripId) {
     document.getElementById('editTripId').value = trip.id;
     document.getElementById('editTripSlug').value = trip.slug || '';
     document.getElementById('editTripCity').value = trip.start_city || 'Larnaca';
-    document.getElementById('editTripTitlePl').value = (trip.title && trip.title.pl) || '';
-    document.getElementById('editTripDescPl').value = (trip.description && trip.description.pl) || '';
     document.getElementById('editTripCoverUrl').value = trip.cover_image_url || '';
     document.getElementById('editTripPricing').value = trip.pricing_model || 'per_person';
     document.getElementById('editTripPublished').checked = !!trip.is_published;
+    
+    // Check if we should use i18n fields
+    const useI18n = trip?.title_i18n || trip?.description_i18n;
+    const i18nContainer = $('#tripI18nFields');
+    const legacyFields = $('#tripLegacyFields');
+    
+    if (useI18n && i18nContainer && legacyFields && window.renderI18nInput) {
+      // Render i18n fields
+      const titleContainer = $('#tripTitleI18n');
+      const descContainer = $('#tripDescriptionI18n');
+      
+      if (titleContainer) {
+        titleContainer.innerHTML = window.renderI18nInput({
+          fieldName: 'title',
+          label: 'Title',
+          type: 'text',
+          placeholder: 'Trip title',
+          currentValues: trip?.title_i18n || {}
+        });
+      }
+      
+      if (descContainer) {
+        descContainer.innerHTML = window.renderI18nInput({
+          fieldName: 'description',
+          label: 'Description',
+          type: 'textarea',
+          rows: 4,
+          placeholder: 'Trip description',
+          currentValues: trip?.description_i18n || {}
+        });
+      }
+      
+      // Show i18n container, hide legacy fields
+      i18nContainer.style.display = 'block';
+      legacyFields.style.display = 'none';
+    } else if (legacyFields && i18nContainer) {
+      // Use legacy fields
+      i18nContainer.style.display = 'none';
+      legacyFields.style.display = 'contents';
+      
+      // Fill legacy fields
+      document.getElementById('editTripTitlePl').value = (trip.title && trip.title.pl) || '';
+      document.getElementById('editTripDescPl').value = (trip.description && trip.description.pl) || '';
+    }
     
     // Show cover preview if URL exists
     const previewWrap = document.getElementById('editTripCoverPreview');
@@ -690,11 +732,34 @@ async function handleEditTripSubmit(event, originalTrip) {
       else payload[k] = Number(payload[k]);
     });
     
-    // Build title/description objects
-    payload.title = { pl: payload.title_pl || '' };
-    payload.description = { pl: payload.description_pl || '' };
-    delete payload.title_pl;
-    delete payload.description_pl;
+    // Check if using i18n fields
+    const usingI18n = $('#tripI18nFields')?.style.display !== 'none';
+    
+    if (usingI18n && window.extractI18nValues) {
+      // Extract i18n values
+      const titleI18n = window.extractI18nValues(fd, 'title');
+      const descriptionI18n = window.extractI18nValues(fd, 'description');
+      
+      // Validate i18n fields
+      const titleError = window.validateI18nField(titleI18n, 'Title');
+      if (titleError) {
+        throw new Error(titleError);
+      }
+      
+      // Save i18n fields
+      payload.title_i18n = titleI18n;
+      payload.description_i18n = descriptionI18n;
+      
+      // Backward compatibility - use Polish version
+      payload.title = { pl: titleI18n?.pl || '' };
+      payload.description = { pl: descriptionI18n?.pl || '' };
+    } else {
+      // Use legacy fields
+      payload.title = { pl: payload.title_pl || '' };
+      payload.description = { pl: payload.description_pl || '' };
+      delete payload.title_pl;
+      delete payload.description_pl;
+    }
     
     // Handle is_published checkbox
     payload.is_published = form.querySelector('#editTripPublished').checked;

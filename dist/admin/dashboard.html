@@ -906,10 +906,24 @@
                     <option value="All Cities">All Cities</option>
                   </select>
                 </label>
-                <label class="admin-form-field" style="grid-column:1/-1;">
-                  <span>Title (PL)</span>
-                  <input type="text" name="title_pl" id="editTripTitlePl" required />
-                </label>
+                <!-- I18N Fields (hidden by default) -->
+                <div id="tripI18nFields" style="display: none; grid-column:1/-1;">
+                  <div id="tripTitleI18n"></div>
+                  <div id="tripDescriptionI18n"></div>
+                </div>
+
+                <!-- Legacy Fields (visible by default) -->
+                <div id="tripLegacyFields" style="display: contents;">
+                  <label class="admin-form-field" style="grid-column:1/-1;">
+                    <span>Title (PL)</span>
+                    <input type="text" name="title_pl" id="editTripTitlePl" required />
+                  </label>
+                  <label class="admin-form-field" style="grid-column:1/-1;">
+                    <span>Description (PL)</span>
+                    <textarea name="description_pl" id="editTripDescPl" rows="4"></textarea>
+                  </label>
+                </div>
+
                 <div class="admin-form-field" style="grid-column:1/-1;">
                   <span>Cover Image URL</span>
                   <input type="url" name="cover_image_url" id="editTripCoverUrl" placeholder="https://..." />
@@ -917,10 +931,6 @@
                     <img alt="Podgląd okładki" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;" />
                   </div>
                 </div>
-                <label class="admin-form-field" style="grid-column:1/-1;">
-                  <span>Description (PL)</span>
-                  <textarea name="description_pl" id="editTripDescPl" rows="4"></textarea>
-                </label>
                 <label class="admin-form-field">
                   <span>Pricing Model</span>
                   <select name="pricing_model" id="editTripPricing">
