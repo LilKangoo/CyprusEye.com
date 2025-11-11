@@ -600,13 +600,13 @@ async function editTrip(tripId) {
     // Check if we should use i18n fields
     // All trips use i18n (title and description are JSONB)
     const useI18n = true;
-    const i18nContainer = $('#tripI18nFields');
-    const legacyFields = $('#tripLegacyFields');
+    const i18nContainer = document.getElementById('tripI18nFields');
+    const legacyFields = document.getElementById('tripLegacyFields');
     
     if (useI18n && i18nContainer && legacyFields && window.renderI18nInput) {
       // Render i18n fields
-      const titleContainer = $('#tripTitleI18n');
-      const descContainer = $('#tripDescriptionI18n');
+      const titleContainer = document.getElementById('tripTitleI18n');
+      const descContainer = document.getElementById('tripDescriptionI18n');
       
       if (titleContainer) {
         titleContainer.innerHTML = window.renderI18nInput({
@@ -893,6 +893,32 @@ async function openNewTripModal() {
     if (form) {
       // reset fields
       form.reset();
+      
+      // Render i18n fields for title and description
+      const titleContainer = document.getElementById('newTripTitleI18n');
+      const descContainer = document.getElementById('newTripDescriptionI18n');
+      
+      if (titleContainer && window.renderI18nInput) {
+        titleContainer.innerHTML = window.renderI18nInput({
+          fieldName: 'title',
+          label: 'Title',
+          type: 'text',
+          placeholder: 'Trip title',
+          currentValues: {}
+        });
+      }
+      
+      if (descContainer && window.renderI18nInput) {
+        descContainer.innerHTML = window.renderI18nInput({
+          fieldName: 'description',
+          label: 'Description',
+          type: 'textarea',
+          rows: 3,
+          placeholder: 'Trip description',
+          currentValues: {}
+        });
+      }
+      
       // cover preview setup
       const fileInput = document.getElementById('newTripCoverFile');
       const urlInput = document.getElementById('newTripCoverUrl');
@@ -953,19 +979,50 @@ async function openNewTripModal() {
           const fd = new FormData(form);
           const payload = Object.fromEntries(fd.entries());
           
+          console.log('📝 Creating new trip...');
+          
           // Normalize types
           ['price_base','price_per_person','price_extra_person','included_people','min_hours'].forEach(k=>{
             if (payload[k] === '' || payload[k] == null) delete payload[k];
             else payload[k] = Number(payload[k]);
           });
           
-          payload.title = { pl: payload.title_pl || '' };
-          payload.description = { pl: payload.description_pl || '' };
-          delete payload.title_pl; 
-          delete payload.description_pl;
-          
-          // Auto-generate slug from title
-          payload.slug = slugifyTitle(payload.title.pl);
+          // Extract i18n values (title and description are JSONB)
+          if (window.extractI18nValues) {
+            const titleI18n = window.extractI18nValues(fd, 'title');
+            const descriptionI18n = window.extractI18nValues(fd, 'description');
+            
+            console.log('🔍 Extracted i18n values:', { titleI18n, descriptionI18n });
+            
+            // Validate i18n fields
+            if (window.validateI18nField) {
+              const titleError = window.validateI18nField(titleI18n, 'Title');
+              if (titleError) {
+                console.error('❌ Validation error:', titleError);
+                throw new Error(titleError);
+              }
+              console.log('✅ Validation passed');
+            }
+            
+            // Save directly to title and description (JSONB columns, like Hotels)
+            if (titleI18n) payload.title = titleI18n;
+            if (descriptionI18n) payload.description = descriptionI18n;
+            
+            // Clean up legacy fields from payload
+            delete payload.title_pl;
+            delete payload.title_en;
+            delete payload.title_el;
+            delete payload.title_he;
+            delete payload.description_pl;
+            delete payload.description_en;
+            delete payload.description_el;
+            delete payload.description_he;
+            
+            // Auto-generate slug from Polish title
+            payload.slug = slugifyTitle(titleI18n?.pl || 'trip');
+          } else {
+            throw new Error('i18n functions not available');
+          }
 
           // Optional direct upload of cover image to Storage
           let coverUrl = (payload.cover_image_url || '').trim() || '';
@@ -996,6 +1053,9 @@ async function openNewTripModal() {
           payload.updated_at = now;
           payload.is_published = false; // New trips start as drafts
 
+          console.log('🚀 Inserting trip into database...');
+          console.log('   Payload:', payload);
+
           // Insert directly via Supabase client (like Cars does)
           const { data, error } = await client
             .from('trips')
@@ -1003,14 +1063,18 @@ async function openNewTripModal() {
             .select('*')
             .single();
 
-          if (error) throw error;
+          if (error) {
+            console.error('❌ Trip insert error:', error);
+            throw error;
+          }
 
+          console.log('✅ Trip created successfully:', data);
           showToast('Trip created successfully', 'success');
           document.getElementById('newTripModal').hidden = true;
           await loadTripsAdminData();
           
         } catch (err) {
-          console.error('Create trip failed:', err);
+          console.error('❌ Create trip failed:', err);
           showToast(err.message || 'Failed to create trip', 'error');
         }
       };
