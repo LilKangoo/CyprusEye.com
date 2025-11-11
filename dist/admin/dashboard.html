@@ -1877,13 +1877,26 @@
             </label>
           </div>
 
-          <!-- I18N Fields Container -->
-          <div id="carI18nFields" style="margin-bottom: 16px;">
+          <!-- I18N Fields Container (hidden by default) -->
+          <div id="carI18nFields" style="display: none; margin-bottom: 16px;">
             <!-- Car Model - will be rendered dynamically -->
             <div id="carModelI18n"></div>
             
             <!-- Description - will be rendered dynamically -->
             <div id="carDescriptionI18n"></div>
+          </div>
+
+          <!-- Legacy Fields (visible by default) -->
+          <div id="carLegacyFields" style="margin-bottom: 16px;">
+            <label class="admin-form-field">
+              <span>Car Model *</span>
+              <input type="text" id="fleetCarModel" name="car_model" required placeholder="e.g., Toyota Yaris (2023)">
+            </label>
+            
+            <label class="admin-form-field">
+              <span>Description</span>
+              <textarea id="fleetCarDescription" name="description" rows="3" placeholder="Short description of the car"></textarea>
+            </label>
           </div>
 
           <!-- Pricing Section -->

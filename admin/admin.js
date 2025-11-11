@@ -3926,29 +3926,44 @@ function openFleetCarModal(carData = null) {
   // Reset image preview
   resetImagePreview();
   
-  // Render i18n fields
-  const carModelContainer = $('#carModelI18n');
-  const carDescContainer = $('#carDescriptionI18n');
+  // Check if we should use i18n fields
+  const useI18n = carData?.car_model_i18n || carData?.description_i18n;
+  const i18nContainer = $('#carI18nFields');
+  const legacyFields = $('#carLegacyFields');
   
-  if (carModelContainer) {
-    carModelContainer.innerHTML = window.renderI18nInput({
-      fieldName: 'car_model',
-      label: 'Car Model',
-      type: 'text',
-      placeholder: 'e.g., Toyota Yaris (2023)',
-      currentValues: carData?.car_model_i18n || {}
-    });
-  }
-  
-  if (carDescContainer) {
-    carDescContainer.innerHTML = window.renderI18nInput({
-      fieldName: 'description',
-      label: 'Description',
-      type: 'textarea',
-      rows: 3,
-      placeholder: 'Short description of the car',
-      currentValues: carData?.description_i18n || {}
-    });
+  if (useI18n && i18nContainer && legacyFields && window.renderI18nInput) {
+    // Render i18n fields
+    const carModelContainer = $('#carModelI18n');
+    const carDescContainer = $('#carDescriptionI18n');
+    
+    if (carModelContainer) {
+      carModelContainer.innerHTML = window.renderI18nInput({
+        fieldName: 'car_model',
+        label: 'Car Model',
+        type: 'text',
+        placeholder: 'e.g., Toyota Yaris (2023)',
+        currentValues: carData?.car_model_i18n || {}
+      });
+    }
+    
+    if (carDescContainer) {
+      carDescContainer.innerHTML = window.renderI18nInput({
+        fieldName: 'description',
+        label: 'Description',
+        type: 'textarea',
+        rows: 3,
+        placeholder: 'Short description of the car',
+        currentValues: carData?.description_i18n || {}
+      });
+    }
+    
+    // Show i18n container, hide legacy fields
+    i18nContainer.style.display = 'block';
+    legacyFields.style.display = 'none';
+  } else if (legacyFields && i18nContainer) {
+    // Use legacy fields
+    i18nContainer.style.display = 'none';
+    legacyFields.style.display = 'block';
   }
 
   if (carData) {
@@ -3960,6 +3975,14 @@ function openFleetCarModal(carData = null) {
     $('#fleetCarId').value = carData.id;
     $('#fleetCarLocation').value = carData.location || '';
     $('#fleetCarType').value = carData.car_type || '';
+    
+    // Fill legacy fields if not using i18n
+    if (!useI18n) {
+      const legacyModel = $('#fleetCarModel');
+      const legacyDesc = $('#fleetCarDescription');
+      if (legacyModel) legacyModel.value = carData.car_model || '';
+      if (legacyDesc) legacyDesc.value = carData.description || '';
+    }
     
     // Pricing
     if (carData.location === 'larnaca') {
@@ -4281,26 +4304,42 @@ async function handleFleetCarSubmit(event) {
     const carId = $('#fleetCarId').value;
     const location = $('#fleetCarLocation').value;
     
-    // Extract i18n values
-    const formData = new FormData(form);
-    const carModelI18n = window.extractI18nValues(formData, 'car_model');
-    const descriptionI18n = window.extractI18nValues(formData, 'description');
+    // Check if using i18n fields
+    const usingI18n = $('#carI18nFields')?.style.display !== 'none';
+    let carModel, description;
+    let carModelI18n, descriptionI18n;
     
-    // Validate i18n fields
-    const modelError = window.validateI18nField(carModelI18n, 'Car Model');
-    if (modelError) {
-      throw new Error(modelError);
+    if (usingI18n && window.extractI18nValues) {
+      // Extract i18n values
+      const formData = new FormData(form);
+      carModelI18n = window.extractI18nValues(formData, 'car_model');
+      descriptionI18n = window.extractI18nValues(formData, 'description');
+      
+      // Validate i18n fields
+      const modelError = window.validateI18nField(carModelI18n, 'Car Model');
+      if (modelError) {
+        throw new Error(modelError);
+      }
+      
+      // Use Polish as fallback for backward compatibility
+      carModel = carModelI18n?.pl || '';
+      description = descriptionI18n?.pl || '';
+    } else {
+      // Use legacy fields
+      carModel = ($('#fleetCarModel')?.value || '').trim();
+      description = ($('#fleetCarDescription')?.value || '').trim();
+      
+      if (!carModel) {
+        throw new Error('Car Model is required');
+      }
     }
     
     // Build car object
     const carData = {
       location: location,
       car_type: $('#fleetCarType').value,
-      car_model_i18n: carModelI18n,
-      description_i18n: descriptionI18n,
-      // Backward compatibility - use Polish version
-      car_model: carModelI18n?.pl || '',
-      description: descriptionI18n?.pl || '',
+      car_model: carModel,
+      description: description,
       transmission: $('#fleetCarTransmission').value,
       fuel_type: $('#fleetCarFuelType').value,
       currency: $('#fleetCarCurrency').value,
@@ -4313,6 +4352,12 @@ async function handleFleetCarSubmit(event) {
       image_url: $('#fleetCarImageUrl').value || null,
       is_available: $('#fleetCarIsAvailable').checked
     };
+    
+    // Add i18n fields if available
+    if (usingI18n) {
+      if (carModelI18n) carData.car_model_i18n = carModelI18n;
+      if (descriptionI18n) carData.description_i18n = descriptionI18n;
+    }
 
     // Location-specific pricing
     if (location === 'larnaca') {
