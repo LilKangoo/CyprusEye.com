@@ -397,7 +397,38 @@ Po potwierdzeniu że Hotels i18n działa:
 
 ---
 
-**Data:** 2025-01-11 08:13 PM  
-**Status:** ✅ **HOTELS I18N - KOMPLETNE!**
+---
 
-**DEPLOY I TESTUJ!** 🚀
+## 🔧 **NAPRAWA (2025-01-11 08:32 PM):**
+
+### **Problem:**
+Pola i18n nie wyświetlały się w admin panel (puste pola pod labelami).
+
+### **Przyczyna:**
+Źle użyte API `renderI18nInput()`:
+- ❌ Brak `.innerHTML =`
+- ❌ `fieldType` zamiast `type`
+- ❌ `existingValues` zamiast `currentValues`
+- ❌ Brak `label`
+
+### **Rozwiązanie:**
+```javascript
+// ✅ POPRAWNIE:
+const titleContainer = document.getElementById('editHotelTitleI18n');
+titleContainer.innerHTML = window.renderI18nInput({
+  fieldName: 'title',
+  label: 'Title',
+  type: 'text',
+  currentValues: hotel.title || {},
+  placeholder: 'Hotel title'
+});
+```
+
+**Szczegóły:** Zobacz `HOTELS_I18N_FIX_CRITICAL.md`
+
+---
+
+**Data:** 2025-01-11 08:32 PM  
+**Status:** ✅ **HOTELS I18N - NAPRAWIONE I KOMPLETNE!**
+
+**DEPLOY I TESTUJ (HARD REFRESH!)** 🚀

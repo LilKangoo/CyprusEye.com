@@ -1137,23 +1137,25 @@ async function editHotel(hotelId) {
     document.getElementById('editHotelCity').value = hotel.city || 'Larnaca';
     
     // Render i18n inputs for Title
-    if (typeof window.renderI18nInput === 'function') {
-      window.renderI18nInput({
-        containerId: 'editHotelTitleI18n',
+    const titleContainer = document.getElementById('editHotelTitleI18n');
+    if (titleContainer && typeof window.renderI18nInput === 'function') {
+      titleContainer.innerHTML = window.renderI18nInput({
         fieldName: 'title',
-        fieldType: 'input',
-        existingValues: hotel.title || {},
+        label: 'Title',
+        type: 'text',
+        currentValues: hotel.title || {},
         placeholder: 'Hotel title'
       });
     }
     
     // Render i18n inputs for Description
-    if (typeof window.renderI18nInput === 'function') {
-      window.renderI18nInput({
-        containerId: 'editHotelDescriptionI18n',
+    const descContainer = document.getElementById('editHotelDescriptionI18n');
+    if (descContainer && typeof window.renderI18nInput === 'function') {
+      descContainer.innerHTML = window.renderI18nInput({
         fieldName: 'description',
-        fieldType: 'textarea',
-        existingValues: hotel.description || {},
+        label: 'Description',
+        type: 'textarea',
+        currentValues: hotel.description || {},
         placeholder: 'Hotel description',
         rows: 4
       });
@@ -1319,23 +1321,25 @@ async function openNewHotelModal() {
       form.reset();
       
       // Render i18n inputs for Title
-      if (typeof window.renderI18nInput === 'function') {
-        window.renderI18nInput({
-          containerId: 'newHotelTitleI18n',
+      const newTitleContainer = document.getElementById('newHotelTitleI18n');
+      if (newTitleContainer && typeof window.renderI18nInput === 'function') {
+        newTitleContainer.innerHTML = window.renderI18nInput({
           fieldName: 'title',
-          fieldType: 'input',
-          existingValues: {},
+          label: 'Title',
+          type: 'text',
+          currentValues: {},
           placeholder: 'Hotel title'
         });
       }
       
       // Render i18n inputs for Description
-      if (typeof window.renderI18nInput === 'function') {
-        window.renderI18nInput({
-          containerId: 'newHotelDescriptionI18n',
+      const newDescContainer = document.getElementById('newHotelDescriptionI18n');
+      if (newDescContainer && typeof window.renderI18nInput === 'function') {
+        newDescContainer.innerHTML = window.renderI18nInput({
           fieldName: 'description',
-          fieldType: 'textarea',
-          existingValues: {},
+          label: 'Description',
+          type: 'textarea',
+          currentValues: {},
           placeholder: 'Hotel description',
           rows: 3
         });
