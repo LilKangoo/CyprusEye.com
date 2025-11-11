@@ -340,11 +340,64 @@ function getPoiBadge(poi) {
   return getPoiTranslatedField(poi, 'badge') || '';
 }
 
-// Make functions globally accessible
+/**
+ * Get translated field from Hotel object based on current language
+ * @param {Object} hotel - Hotel object
+ * @param {string} fieldName - Field name ('title', 'description')
+ * @returns {string} Translated value or fallback
+ */
+function getHotelTranslatedField(hotel, fieldName) {
+  if (!hotel) return '';
+  
+  const currentLang = getCurrentLanguage();
+  
+  // Hotel fields are already JSONB (title, description)
+  // No _i18n suffix needed
+  if (hotel[fieldName] && typeof hotel[fieldName] === 'object') {
+    const translated = hotel[fieldName][currentLang];
+    if (translated) return translated;
+    
+    // Fallback to Polish if current language not available
+    if (hotel[fieldName].pl) return hotel[fieldName].pl;
+    
+    // Fallback to English if Polish not available
+    if (hotel[fieldName].en) return hotel[fieldName].en;
+  }
+  
+  // Fallback to direct field if it's a string (legacy)
+  if (typeof hotel[fieldName] === 'string') return hotel[fieldName];
+  
+  return '';
+}
+
+/**
+ * Convenience function to get translated hotel title
+ * @param {Object} hotel - Hotel object
+ * @returns {string} Translated title
+ */
+function getHotelName(hotel) {
+  return getHotelTranslatedField(hotel, 'title') || hotel.slug || 'Unnamed Hotel';
+}
+
+/**
+ * Convenience function to get translated hotel description
+ * @param {Object} hotel - Hotel object
+ * @returns {string} Translated description
+ */
+function getHotelDescription(hotel) {
+  return getHotelTranslatedField(hotel, 'description') || '';
+}
+
+// Make POI functions globally accessible
 window.getPoiName = getPoiName;
 window.getPoiDescription = getPoiDescription;
 window.getPoiBadge = getPoiBadge;
 window.getPoiTranslatedField = getPoiTranslatedField;
+
+// Make Hotel functions globally accessible
+window.getHotelName = getHotelName;
+window.getHotelDescription = getHotelDescription;
+window.getHotelTranslatedField = getHotelTranslatedField;
 
 // Export for external use
 if (typeof module !== 'undefined' && module.exports) {
@@ -357,6 +410,9 @@ if (typeof module !== 'undefined' && module.exports) {
     getPoiTranslatedField,
     getPoiName,
     getPoiDescription,
-    getPoiBadge
+    getPoiBadge,
+    getHotelTranslatedField,
+    getHotelName,
+    getHotelDescription
   };
 }

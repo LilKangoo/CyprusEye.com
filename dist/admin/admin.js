@@ -1135,8 +1135,30 @@ async function editHotel(hotelId) {
     document.getElementById('editHotelId').value = hotel.id;
     document.getElementById('editHotelSlug').value = hotel.slug || '';
     document.getElementById('editHotelCity').value = hotel.city || 'Larnaca';
-    document.getElementById('editHotelTitlePl').value = (hotel.title && hotel.title.pl) || '';
-    document.getElementById('editHotelDescPl').value = (hotel.description && hotel.description.pl) || '';
+    
+    // Render i18n inputs for Title
+    if (typeof window.renderI18nInput === 'function') {
+      window.renderI18nInput({
+        containerId: 'editHotelTitleI18n',
+        fieldName: 'title',
+        fieldType: 'input',
+        existingValues: hotel.title || {},
+        placeholder: 'Hotel title'
+      });
+    }
+    
+    // Render i18n inputs for Description
+    if (typeof window.renderI18nInput === 'function') {
+      window.renderI18nInput({
+        containerId: 'editHotelDescriptionI18n',
+        fieldName: 'description',
+        fieldType: 'textarea',
+        existingValues: hotel.description || {},
+        placeholder: 'Hotel description',
+        rows: 4
+      });
+    }
+    
     document.getElementById('editHotelCoverUrl').value = hotel.cover_image_url || '';
     document.getElementById('editHotelPricing').value = hotel.pricing_model || 'per_person_per_night';
     document.getElementById('editHotelPublished').checked = !!hotel.is_published;
@@ -1223,10 +1245,18 @@ async function handleEditHotelSubmit(event, originalHotel) {
     const fd = new FormData(form);
     const payload = Object.fromEntries(fd.entries());
 
-    payload.title = { pl: payload.title_pl || '' };
-    payload.description = { pl: payload.description_pl || '' };
-    delete payload.title_pl;
-    delete payload.description_pl;
+    // Extract i18n values
+    const titleI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'title') : null;
+    const descriptionI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'description') : null;
+    
+    // Validate required fields (PL and EN)
+    if (window.validateI18nField && !window.validateI18nField(titleI18n, 'Title')) {
+      throw new Error('Title must be provided in Polish and English');
+    }
+    
+    // Assign i18n fields
+    if (titleI18n) payload.title = titleI18n;
+    if (descriptionI18n) payload.description = descriptionI18n;
 
     payload.is_published = form.querySelector('#editHotelPublished').checked;
     payload.updated_at = new Date().toISOString();
@@ -1287,6 +1317,29 @@ async function openNewHotelModal() {
     const form = document.getElementById('newHotelForm');
     if (form) {
       form.reset();
+      
+      // Render i18n inputs for Title
+      if (typeof window.renderI18nInput === 'function') {
+        window.renderI18nInput({
+          containerId: 'newHotelTitleI18n',
+          fieldName: 'title',
+          fieldType: 'input',
+          existingValues: {},
+          placeholder: 'Hotel title'
+        });
+      }
+      
+      // Render i18n inputs for Description
+      if (typeof window.renderI18nInput === 'function') {
+        window.renderI18nInput({
+          containerId: 'newHotelDescriptionI18n',
+          fieldName: 'description',
+          fieldType: 'textarea',
+          existingValues: {},
+          placeholder: 'Hotel description',
+          rows: 3
+        });
+      }
 
       const fileInput = document.getElementById('newHotelCoverFile');
       const urlInput = document.getElementById('newHotelCoverUrl');
@@ -1333,12 +1386,22 @@ async function openNewHotelModal() {
           const fd = new FormData(form);
           const payload = Object.fromEntries(fd.entries());
 
-          payload.title = { pl: payload.title_pl || '' };
-          payload.description = { pl: payload.description_pl || '' };
-          delete payload.title_pl;
-          delete payload.description_pl;
-
-          payload.slug = slugifyHotelTitle(payload.title.pl);
+          // Extract i18n values
+          const titleI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'title') : null;
+          const descriptionI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'description') : null;
+          
+          // Validate required fields (PL and EN)
+          if (window.validateI18nField && !window.validateI18nField(titleI18n, 'Title')) {
+            throw new Error('Title must be provided in Polish and English');
+          }
+          
+          // Assign i18n fields
+          if (titleI18n) payload.title = titleI18n;
+          if (descriptionI18n) payload.description = descriptionI18n;
+          
+          // Generate slug from Polish title (fallback to English)
+          const slugSource = titleI18n?.pl || titleI18n?.en || `hotel-${Date.now()}`;
+          payload.slug = slugifyHotelTitle(slugSource);
 
           let coverUrl = (payload.cover_image_url || '').trim() || '';
           const file = fileInput && fileInput.files ? fileInput.files[0] : null;

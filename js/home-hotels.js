@@ -60,7 +60,7 @@ function renderHomeHotels(){
   }
   grid.innerHTML = display.map((h, index)=>{
     const image = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png';
-    const title = h.title?.pl || h.title?.en || h.slug || 'Hotel';
+    const title = window.getHotelName ? window.getHotelName(h) : (h.title?.pl || h.title?.en || h.slug || 'Hotel');
     let price = '';
     const tiers = h.pricing_tiers?.rules || [];
     if(tiers.length){
@@ -306,7 +306,7 @@ window.openHotelModalHome = function(index){
   if(!h) return;
   homeCurrentHotel = h;
   homeHotelIndex = index;
-  const title = h.title?.pl || h.title?.en || h.slug;
+  const title = window.getHotelName ? window.getHotelName(h) : (h.title?.pl || h.title?.en || h.slug);
   const image = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png';
   const imgEl = document.getElementById('modalHotelImage');
   imgEl.src = image;

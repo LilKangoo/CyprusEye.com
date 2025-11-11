@@ -119,7 +119,7 @@ function mapHotel(h){
   return {
     id: h.id,
     slug: h.slug,
-    title: h.title?.pl || h.title?.en || h.slug,
+    title: window.getHotelName ? window.getHotelName(h) : (h.title?.pl || h.title?.en || h.slug),
     city: h.city || '',
     priceLabel: hotelMinPrice(h),
     images: [h.cover_image_url].filter(Boolean).concat(photos),
