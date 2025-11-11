@@ -6636,7 +6636,6 @@ async function handlePoiFormSubmit(event) {
         description: description || null,
         lat: latitude,
         lng: longitude,
-        category: category,
         xp: xp,
         status: status,
         radius: radius || DEFAULT_POI_RADIUS,
