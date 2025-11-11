@@ -4225,8 +4225,8 @@ function openFleetCarModal(carData = null) {
   resetImagePreview();
   
   // Check if we should use i18n fields
-  // New cars default to i18n, existing cars use i18n if they have i18n fields
-  const useI18n = carData ? (carData.car_model_i18n || carData.description_i18n) : true;
+  // All cars use i18n (car_model, car_type, description are JSONB)
+  const useI18n = true;
   const i18nContainer = $('#carI18nFields');
   const legacyFields = $('#carLegacyFields');
   
@@ -4241,7 +4241,7 @@ function openFleetCarModal(carData = null) {
         label: 'Car Model',
         type: 'text',
         placeholder: 'e.g., Toyota Yaris (2023)',
-        currentValues: carData?.car_model_i18n || {}
+        currentValues: carData?.car_model || {}
       });
     }
     
@@ -4252,7 +4252,7 @@ function openFleetCarModal(carData = null) {
         type: 'textarea',
         rows: 3,
         placeholder: 'Short description of the car',
-        currentValues: carData?.description_i18n || {}
+        currentValues: carData?.description || {}
       });
     }
     
@@ -4267,7 +4267,7 @@ function openFleetCarModal(carData = null) {
 
   if (carData) {
     // Edit mode
-    const modelDisplay = carData.car_model_i18n?.pl || carData.car_model_i18n?.en || carData.car_model || 'this car';
+    const modelDisplay = carData.car_model?.pl || carData.car_model?.en || 'this car';
     title.textContent = `Edit ${modelDisplay}`;
     
     // Fill form with existing data
@@ -4614,15 +4614,17 @@ async function handleFleetCarSubmit(event) {
       carModelI18n = window.extractI18nValues(formData, 'car_model');
       descriptionI18n = window.extractI18nValues(formData, 'description');
       
-      // Validate i18n fields
-      const modelError = window.validateI18nField(carModelI18n, 'Car Model');
-      if (modelError) {
-        throw new Error(modelError);
-      }
+      console.log('🔍 Extracted car i18n values:', { carModelI18n, descriptionI18n });
       
-      // Use Polish as fallback for backward compatibility
-      carModel = carModelI18n?.pl || '';
-      description = descriptionI18n?.pl || '';
+      // Validate i18n fields
+      if (window.validateI18nField) {
+        const modelError = window.validateI18nField(carModelI18n, 'Car Model');
+        if (modelError) {
+          console.error('❌ Validation error:', modelError);
+          throw new Error(modelError);
+        }
+        console.log('✅ Validation passed');
+      }
     } else {
       // Use legacy fields
       carModel = ($('#fleetCarModel')?.value || '').trim();
@@ -4637,8 +4639,6 @@ async function handleFleetCarSubmit(event) {
     const carData = {
       location: location,
       car_type: $('#fleetCarType').value,
-      car_model: carModel,
-      description: description,
       transmission: $('#fleetCarTransmission').value,
       fuel_type: $('#fleetCarFuelType').value,
       currency: $('#fleetCarCurrency').value,
@@ -4652,11 +4652,27 @@ async function handleFleetCarSubmit(event) {
       is_available: $('#fleetCarIsAvailable').checked
     };
     
-    // Add i18n fields if available
-    if (usingI18n) {
-      if (carModelI18n) carData.car_model_i18n = carModelI18n;
-      if (descriptionI18n) carData.description_i18n = descriptionI18n;
+    // Save i18n fields directly to car_model and description (JSONB columns)
+    if (usingI18n && window.extractI18nValues) {
+      if (carModelI18n) carData.car_model = carModelI18n;
+      if (descriptionI18n) carData.description = descriptionI18n;
+      
+      // Clean up legacy fields
+      delete carData.car_model_pl;
+      delete carData.car_model_en;
+      delete carData.car_model_el;
+      delete carData.car_model_he;
+      delete carData.description_pl;
+      delete carData.description_en;
+      delete carData.description_el;
+      delete carData.description_he;
+    } else {
+      // Legacy mode - save as text
+      carData.car_model = carModel;
+      carData.description = description;
     }
+    
+    console.log('💾 Car payload:', carData);
 
     // Location-specific pricing
     if (location === 'larnaca') {

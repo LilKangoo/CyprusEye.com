@@ -33,11 +33,12 @@ async function loadPaphosFleet() {
     // Build pricing object for calculator (tiered for paphos, per-day for larnaca)
     pricing = {};
     paphosFleet.forEach(car => {
+      const carModelName = window.getCarName ? window.getCarName(car) : car.car_model;
       if (pageLocation === 'larnaca') {
         const perDay = car.price_per_day || car.price_10plus_days || car.price_7_10days || car.price_4_6days || 35;
-        pricing[car.car_model] = [perDay * 3, perDay, perDay, perDay];
+        pricing[carModelName] = [perDay * 3, perDay, perDay, perDay];
       } else {
-        pricing[car.car_model] = [
+        pricing[carModelName] = [
           car.price_3days || 130,
           car.price_4_6days || 34,
           car.price_7_10days || 32,
@@ -82,16 +83,19 @@ function renderFleet() {
     // Calculate display price (use 10+ days rate as "from" price)
     const fromPrice = car.price_10plus_days || car.price_per_day || 30;
 
+    // Get translated car model name
+    const carModelName = window.getCarName ? window.getCarName(car) : car.car_model;
+    
     // Get image or use placeholder
-    const imageUrl = car.image_url || 'https://placehold.co/400x250/1e293b/ffffff?text=' + encodeURIComponent(car.car_model);
+    const imageUrl = car.image_url || 'https://placehold.co/400x250/1e293b/ffffff?text=' + encodeURIComponent(carModelName);
 
     return `
       <article class="card auto-card">
-        ${car.image_url ? `<img src="${escapeHtml(car.image_url)}" alt="${escapeHtml(car.car_model)}" class="auto-card-image" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0;">` : ''}
+        ${car.image_url ? `<img src="${escapeHtml(car.image_url)}" alt="${escapeHtml(carModelName)}" class="auto-card-image" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0;">` : ''}
         <header class="auto-card-header">
           <span class="auto-card-price">Od ${fromPrice}€/dzień</span>
           <div class="auto-card-title">
-            <h3>${escapeHtml(car.car_model)}<span>${transmission} • ${seats} os. • AC</span></h3>
+            <h3>${escapeHtml(carModelName)}<span>${transmission} • ${seats} os. • AC</span></h3>
           </div>
         </header>
         <ul class="auto-card-specs">
@@ -100,13 +104,13 @@ function renderFleet() {
           <li>AC</li>
           <li>${car.fuel_type === 'petrol' ? 'Paliwo 95' : car.fuel_type === 'diesel' ? 'Diesel' : car.fuel_type}</li>
         </ul>
-        ${car.description ? `<p class="auto-card-note">${escapeHtml(car.description)}</p>` : ''}
+        ${window.getCarDescription ? `<p class="auto-card-note">${escapeHtml(window.getCarDescription(car))}</p>` : (car.description ? `<p class="auto-card-note">${escapeHtml(car.description)}</p>` : '')}
         ${features.length > 0 ? `
           <ul class="auto-card-features" style="font-size: 12px; color: #64748b; margin: 8px 0;">
             ${features.slice(0, 3).map(f => `<li>✓ ${escapeHtml(f)}</li>`).join('')}
           </ul>
         ` : ''}
-        <button type="button" class="btn btn-secondary secondary" data-select-car="${escapeHtml(car.car_model)}">Zarezerwuj to auto</button>
+        <button type="button" class="btn btn-secondary secondary" data-select-car="${escapeHtml(carModelName)}">Zarezerwuj to auto</button>
       </article>
     `;
   }).join('');
@@ -125,7 +129,8 @@ function updateCalculatorOptions() {
   const optionsHTML = paphosFleet.map(car => {
     const transmission = car.transmission === 'automatic' ? 'Automat' : 'Manual';
     const seats = car.max_passengers || 5;
-    return `<option value="${escapeHtml(car.car_model)}">${escapeHtml(car.car_model)} — ${transmission} • ${seats} os.</option>`;
+    const carModelName = window.getCarName ? window.getCarName(car) : car.car_model;
+    return `<option value="${escapeHtml(carModelName)}">${escapeHtml(carModelName)} — ${transmission} • ${seats} os.</option>`;
   }).join('');
 
   // Update calculator select

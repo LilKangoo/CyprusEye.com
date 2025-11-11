@@ -452,6 +452,69 @@ window.getTripName = getTripName;
 window.getTripDescription = getTripDescription;
 window.getTripTranslatedField = getTripTranslatedField;
 
+/**
+ * Get a translated field from a car object based on current language
+ * @param {Object} car - Car object with i18n fields
+ * @param {string} fieldName - Field to translate (e.g., 'car_model', 'description', 'car_type')
+ * @returns {string} Translated value
+ */
+function getCarTranslatedField(car, fieldName) {
+  if (!car) return '';
+  
+  const currentLang = getCurrentLanguage();
+  
+  // Check if field is an i18n object
+  if (car[fieldName] && typeof car[fieldName] === 'object') {
+    // Try current language
+    const translated = car[fieldName][currentLang];
+    if (translated) return translated;
+    
+    // Fallback to Polish if current language not available
+    if (car[fieldName].pl) return car[fieldName].pl;
+    
+    // Fallback to English if Polish not available
+    if (car[fieldName].en) return car[fieldName].en;
+  }
+  
+  // Fallback to direct field if it's a string (legacy)
+  if (typeof car[fieldName] === 'string') return car[fieldName];
+  
+  return '';
+}
+
+/**
+ * Convenience function to get translated car model name
+ * @param {Object} car - Car object
+ * @returns {string} Translated car model
+ */
+function getCarName(car) {
+  return getCarTranslatedField(car, 'car_model') || car.car_type || 'Unknown Car';
+}
+
+/**
+ * Convenience function to get translated car description
+ * @param {Object} car - Car object
+ * @returns {string} Translated description
+ */
+function getCarDescription(car) {
+  return getCarTranslatedField(car, 'description') || '';
+}
+
+/**
+ * Convenience function to get translated car type
+ * @param {Object} car - Car object
+ * @returns {string} Translated car type
+ */
+function getCarType(car) {
+  return getCarTranslatedField(car, 'car_type') || '';
+}
+
+// Make Car functions globally accessible
+window.getCarTranslatedField = getCarTranslatedField;
+window.getCarName = getCarName;
+window.getCarDescription = getCarDescription;
+window.getCarType = getCarType;
+
 // Export for external use
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
