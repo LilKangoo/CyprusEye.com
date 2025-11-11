@@ -598,7 +598,8 @@ async function editTrip(tripId) {
     document.getElementById('editTripPublished').checked = !!trip.is_published;
     
     // Check if we should use i18n fields
-    const useI18n = trip?.title_i18n || trip?.description_i18n;
+    // New trips default to i18n, existing trips use i18n if they have i18n fields
+    const useI18n = trip ? (trip.title_i18n || trip.description_i18n) : true;
     const i18nContainer = $('#tripI18nFields');
     const legacyFields = $('#tripLegacyFields');
     
@@ -3992,7 +3993,8 @@ function openFleetCarModal(carData = null) {
   resetImagePreview();
   
   // Check if we should use i18n fields
-  const useI18n = carData?.car_model_i18n || carData?.description_i18n;
+  // New cars default to i18n, existing cars use i18n if they have i18n fields
+  const useI18n = carData ? (carData.car_model_i18n || carData.description_i18n) : true;
   const i18nContainer = $('#carI18nFields');
   const legacyFields = $('#carLegacyFields');
   
@@ -6519,7 +6521,8 @@ function openPoiForm(poiId = null) {
   }
 
   // Check if we should use i18n fields
-  const useI18n = poi?.name_i18n || poi?.description_i18n;
+  // New POIs default to i18n, existing POIs use i18n if they have i18n fields
+  const useI18n = poi ? (poi.name_i18n || poi.description_i18n) : true;
   const i18nContainer = $('#poiI18nFieldsContainer');
   const legacyNameDesc = $('#poiLegacyNameDesc');
   
