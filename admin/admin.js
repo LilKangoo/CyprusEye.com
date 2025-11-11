@@ -6752,15 +6752,29 @@ async function handlePoiFormSubmit(event) {
     };
 
     if (adminState.poiFormMode === 'create') {
-      const { error } = await client.rpc('admin_create_poi', {
-        poi_name: name,
-        poi_description: description || null,
-        poi_latitude: latitude,
-        poi_longitude: longitude,
-        poi_category: category,
-        poi_xp: xp || 100,
-        poi_data: payload,
-      });
+      // Build insert object
+      const insertData = {
+        name: name,
+        description: description || null,
+        lat: latitude,
+        lng: longitude,
+        xp: xp || 100,
+        status: status,
+        radius: radius || DEFAULT_POI_RADIUS,
+        google_url: googleUrl || null,
+        slug: slug,
+      };
+      
+      // Add i18n fields if available
+      if (usingI18n) {
+        if (nameI18n) insertData.name_i18n = nameI18n;
+        if (descriptionI18n) insertData.description_i18n = descriptionI18n;
+        if (badgeI18n) insertData.badge_i18n = badgeI18n;
+      }
+
+      const { error } = await client
+        .from('pois')
+        .insert(insertData);
 
       if (error) throw error;
 
