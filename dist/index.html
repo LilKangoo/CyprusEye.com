@@ -1581,6 +1581,22 @@
         if (typeof renderHomeHotels === 'function') {
           renderHomeHotels();
         }
+        
+        // Re-render modals if open
+        // Trip modal
+        const tripModal = document.getElementById('tripModal');
+        if (tripModal && !tripModal.hidden && typeof homeCurrentIndex === 'number' && typeof openTripModalHome === 'function') {
+          console.log('🔄 Re-rendering trip modal for language change');
+          openTripModalHome(homeCurrentIndex);
+        }
+        
+        // Hotel modal
+        const hotelModal = document.getElementById('hotelModal');
+        if (hotelModal && !hotelModal.hidden && typeof homeHotelIndex === 'number' && typeof openHotelModalHome === 'function') {
+          console.log('🔄 Re-rendering hotel modal for language change');
+          openHotelModalHome(homeHotelIndex);
+        }
+        
         // POIs are handled by app-core.js
       }
     }, 300);

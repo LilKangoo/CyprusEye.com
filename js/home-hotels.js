@@ -322,9 +322,10 @@ window.openHotelModalHome = function(index){
     });
     el.ondblclick = ()=> openHotelLightbox();
   });
+  const description = window.getHotelDescription ? window.getHotelDescription(h) : (h.description?.pl || h.description?.en || '');
   document.getElementById('modalHotelTitle').textContent = title;
   document.getElementById('modalHotelSubtitle').textContent = h.city || '';
-  document.getElementById('modalHotelDescription').innerHTML = (h.description?.pl||'').replace(/\n/g,'<br/>');
+  document.getElementById('modalHotelDescription').innerHTML = description.replace(/\n/g,'<br/>');
 
   const form = document.getElementById('hotelBookingForm');
   if (form){ form.reset(); const msg=document.getElementById('hotelBookingMessage'); if(msg) msg.style.display='none'; }

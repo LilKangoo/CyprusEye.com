@@ -246,8 +246,8 @@ window.openTripModalHome = function(index){
   if (!trip) return;
   homeCurrentTrip = trip;
   homeCurrentIndex = index;
-  const title = trip.title?.pl || trip.title?.en || trip.slug;
-  const desc = trip.description?.pl || trip.description?.en || '';
+  const title = window.getTripName ? window.getTripName(trip) : (trip.title?.pl || trip.title?.en || trip.slug);
+  const desc = window.getTripDescription ? window.getTripDescription(trip) : (trip.description?.pl || trip.description?.en || '');
   const image = trip.cover_image_url || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop';
   document.getElementById('modalTripImage').src = image;
   document.getElementById('modalTripTitle').textContent = title;

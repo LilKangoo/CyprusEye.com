@@ -399,12 +399,82 @@ Jeśli POIs nie działają, problem jest w app-core.js, nie w tym fix.
 
 ---
 
-**Data:** 2025-01-11 10:34 PM  
-**Status:** ✅ **INDEX.HTML AUTO-REFRESH JĘZYKA DZIAŁA!**
+---
 
-**DEPLOY, HARD REFRESH I TESTUJ ZMIANĘ JĘZYKA NA STRONIE GŁÓWNEJ!** 🚀🌐
+## 🔧 **NAPRAWA #2 (2025-01-11 11:08 PM):**
+
+### **Problem:**
+❌ Modals (Trip/Hotel) nie aktualizowały się po zmianie języka:
+1. Lista się zmieniała ✅
+2. Modal pokazywał stary język ❌
+3. Trzeba było zamknąć i otworzyć ponownie
+
+### **Przyczyna:**
+1. `openTripModalHome()` używał hardcoded: `trip.title?.pl`
+2. `openHotelModalHome()` używał hardcoded: `h.description?.pl`
+3. Brak re-renderowania modalu po zmianie języka
+
+### **Rozwiązanie:**
+
+#### **1. Naprawiono `home-trips.js`:**
+```javascript
+// ✅ Zamiast: trip.title?.pl || trip.title?.en
+const title = window.getTripName 
+  ? window.getTripName(trip) 
+  : (trip.title?.pl || trip.title?.en || trip.slug);
+
+const desc = window.getTripDescription 
+  ? window.getTripDescription(trip) 
+  : (trip.description?.pl || trip.description?.en || '');
+```
+
+#### **2. Naprawiono `home-hotels.js`:**
+```javascript
+// ✅ Zamiast: h.description?.pl
+const description = window.getHotelDescription 
+  ? window.getHotelDescription(h) 
+  : (h.description?.pl || h.description?.en || '');
+```
+
+#### **3. Dodano re-rendering modali w `dist/index.html`:**
+```javascript
+// Trip modal
+const tripModal = document.getElementById('tripModal');
+if (tripModal && !tripModal.hidden && typeof homeCurrentIndex === 'number') {
+  console.log('🔄 Re-rendering trip modal for language change');
+  openTripModalHome(homeCurrentIndex);
+}
+
+// Hotel modal
+const hotelModal = document.getElementById('hotelModal');
+if (hotelModal && !hotelModal.hidden && typeof homeHotelIndex === 'number') {
+  console.log('🔄 Re-rendering hotel modal for language change');
+  openHotelModalHome(homeHotelIndex);
+}
+```
+
+**Rezultat:**
+- ✅ Modal się aktualizuje automatycznie przy zmianie języka
+- ✅ Nie trzeba zamykać i otwierać ponownie
+- ✅ Tytuł i opis zmieniają się na żywo
+- ✅ Działa dla Trip i Hotel modali
+
+**Szczegóły + testy:** Zobacz `MODAL_AUTO_LANGUAGE_REFRESH_FIX.md`
+
+---
+
+**Data:** 2025-01-11 11:08 PM  
+**Status:** ✅ **INDEX.HTML AUTO-REFRESH JĘZYKA - W PEŁNI KOMPLETNE!**
+
+**DEPLOY, HARD REFRESH I TESTUJ ZMIANĘ JĘZYKA!** 🚀🌐
 
 **Teraz wszystkie strony mają auto-refresh języka:**
 - ✅ `/hotels` - działa
 - ✅ `/` (index.html) - **naprawione!**
+  - ✅ Lista Trips
+  - ✅ **Modal Trips (tytuł + opis)**
+  - ✅ Lista Hotels
+  - ✅ **Modal Hotels (tytuł + opis)**
 - ✅ `/community` - działa (z wcześniejszej naprawy)
+
+**KONIEC PRZEŁADOWYWANIA PANELU!** 🎉
