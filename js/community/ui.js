@@ -94,18 +94,21 @@ async function loadPoisData() {
     
     // Use PLACES_DATA if available (loaded by poi-loader.js from Supabase)
     if (window.PLACES_DATA && Array.isArray(window.PLACES_DATA) && window.PLACES_DATA.length > 0) {
+      // Use full POI objects to preserve i18n fields (name_i18n, description_i18n, badge_i18n)
       poisData = window.PLACES_DATA.map(p => ({
-        id: p.id,
-        name: p.nameFallback || p.name,
-        lat: p.lat,
+        ...p,  // Keep ALL fields from PLACES_DATA
+        // Ensure lon/lng compatibility
         lon: p.lng || p.lon,
-        description: p.descriptionFallback || p.description,
+        // Add backward compatibility fields
+        name: p.name || p.nameFallback || p.id,
+        description: p.description || p.descriptionFallback || '',
+        badge: p.badge || p.badgeFallback || '',
         xp: p.xp || 100,
-        badge: p.badgeFallback || p.badge,
         source: p.source || 'supabase'
       }));
       console.log(`✅ Loaded ${poisData.length} POIs from PLACES_DATA (${poisData[0]?.source || 'unknown'})`);
       console.log('📍 POI IDs:', poisData.map(p => p.id));
+      console.log('🌍 POIs with i18n:', poisData.filter(p => p.name_i18n).length);
       
       // Listen for updates
       window.addEventListener('poisDataRefreshed', (event) => {
