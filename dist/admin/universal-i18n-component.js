@@ -58,7 +58,6 @@ function renderI18nInput(config) {
             <textarea 
               name="${fieldName}_${lang.code}" 
               rows="${rows}"
-              ${lang.required ? 'required' : ''}
               placeholder="${placeholder} (${lang.code.toUpperCase()})"
               class="i18n-input"
             >${currentValues[lang.code] || ''}</textarea>
@@ -67,7 +66,6 @@ function renderI18nInput(config) {
               type="text"
               name="${fieldName}_${lang.code}"
               value="${currentValues[lang.code] || ''}"
-              ${lang.required ? 'required' : ''}
               placeholder="${placeholder} (${lang.code.toUpperCase()})"
               class="i18n-input"
             />
