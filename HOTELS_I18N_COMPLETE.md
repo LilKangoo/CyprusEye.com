@@ -511,7 +511,61 @@ if (titleError) {  // Sprawdza czy string (błąd)
 
 ---
 
-**Data:** 2025-01-11 10:03 PM  
-**Status:** ✅ **HOTELS I18N - KOMPLETNE (scroll + save + validation)!**
+## 🔧 **NAPRAWA #4 (2025-01-11 10:18 PM):**
 
-**DEPLOY, HARD REFRESH I OTWÓRZ CONSOLE (F12) ŻEBY ZOBACZYĆ LOGI!** 🚀
+### **Problem:**
+❌ Po zmianie języka na stronie `/hotels?lang=en` tytuły hoteli nadal były po polsku
+
+### **Przyczyny:**
+1. Brak `languageSwitcher.js` w `hotels.html`
+2. Hardcoded fallback: `h.title?.pl || h.title?.en`
+3. Brak re-renderowania po zmianie języka
+
+### **Rozwiązanie:**
+
+#### **1. Dodano `languageSwitcher.js`:**
+```html
+<script src="/js/languageSwitcher.js"></script>
+```
+
+#### **2. Użyto `getHotelName()`:**
+```javascript
+// ✅ Zamiast: h.title?.pl || h.title?.en || h.slug
+const title = window.getHotelName 
+  ? window.getHotelName(h) 
+  : (h.title?.pl || h.title?.en || h.slug);
+```
+
+#### **3. Auto-refresh co 300ms:**
+```javascript
+setInterval(() => {
+  const currentLang = window.getCurrentLanguage();
+  if (currentLang !== lastLanguage) {
+    console.log('🌐 Language changed from', lastLanguage, 'to', currentLang);
+    lastLanguage = currentLang;
+    renderHotels();  // Re-render grid
+    // Re-render modal if open
+  }
+}, 300);
+```
+
+**Rezultat:**
+- ✅ Zmiana języka działa natychmiastowo (~300ms)
+- ✅ Tytuły hoteli zmieniają się na żywo
+- ✅ Modal również się aktualizuje
+
+**Szczegóły + testy:** Zobacz `HOTELS_FRONTEND_LANGUAGE_SWITCH_FIX.md`
+
+---
+
+**Data:** 2025-01-11 10:18 PM  
+**Status:** ✅ **HOTELS I18N - KOMPLETNE (admin + frontend)!**
+
+**WSZYSTKO DZIAŁA:**
+- ✅ Admin panel z tabami językowymi
+- ✅ Zapisywanie do bazy (JSONB)
+- ✅ Frontend z auto-zmianą języka
+- ✅ Scroll w modalach
+- ✅ Walidacja PL+EN
+
+**DEPLOY, HARD REFRESH I TESTUJ!** 🚀🌐

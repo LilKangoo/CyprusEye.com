@@ -254,6 +254,7 @@
   </div>
 
   <!-- Header scripts for consistency with index -->
+  <script src="/js/languageSwitcher.js"></script>
   <script src="/js/languageSelector.js" defer></script>
   <script src="/js/i18n.js" defer></script>
   <script src="/js/header-stats.js" defer></script>
@@ -372,7 +373,7 @@
       const list = currentCity==='all'? allHotels : allHotels.filter(h=> (h.city===currentCity));
       if(!list.length){ grid.innerHTML = '<p style="text-align:center;color:#6b7280;">Brak ofert</p>'; return; }
       grid.innerHTML = list.map((h,idx)=>{
-        const title = h.title?.pl || h.title?.en || h.slug;
+        const title = window.getHotelName ? window.getHotelName(h) : (h.title?.pl || h.title?.en || h.slug);
         const image = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png';
         const price = priceSummary(h);
         return `
@@ -447,7 +448,7 @@
       const h = list[idx];
       if(!h) return;
       currentHotel = h;
-      const title = h.title?.pl || h.title?.en || h.slug;
+      const title = window.getHotelName ? window.getHotelName(h) : (h.title?.pl || h.title?.en || h.slug);
       const image = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png';
       const imgEl = document.getElementById('modalHotelImage');
       imgEl.src = image;
@@ -565,6 +566,25 @@
       renderTabs();
       renderHotels();
     })();
+
+    // Listen for language changes and re-render hotels
+    let lastLanguage = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
+    
+    setInterval(() => {
+      const currentLang = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
+      if (currentLang !== lastLanguage) {
+        console.log('🌐 Language changed from', lastLanguage, 'to', currentLang);
+        lastLanguage = currentLang;
+        renderHotels();
+        // Re-render modal if open
+        if (currentHotel && !document.getElementById('hotelModal').hidden) {
+          const idx = allHotels.indexOf(currentHotel);
+          if (idx !== -1) {
+            window.openHotelModal(idx);
+          }
+        }
+      }
+    }, 300);
   </script>
 </body>
 </html>
