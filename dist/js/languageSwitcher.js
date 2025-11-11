@@ -285,6 +285,67 @@ if (document.readyState === 'loading') {
 }
 */
 
+/**
+ * Get translated field from POI object based on current language
+ * @param {Object} poi - POI object
+ * @param {string} fieldName - Field name ('name', 'description', 'badge')
+ * @returns {string} Translated value or fallback
+ */
+function getPoiTranslatedField(poi, fieldName) {
+  if (!poi) return '';
+  
+  const currentLang = getCurrentLanguage();
+  const i18nFieldName = `${fieldName}_i18n`;
+  
+  // Try to get i18n value for current language
+  if (poi[i18nFieldName] && typeof poi[i18nFieldName] === 'object') {
+    const translated = poi[i18nFieldName][currentLang];
+    if (translated) return translated;
+    
+    // Fallback to Polish if current language not available
+    if (poi[i18nFieldName].pl) return poi[i18nFieldName].pl;
+    
+    // Fallback to English if Polish not available
+    if (poi[i18nFieldName].en) return poi[i18nFieldName].en;
+  }
+  
+  // Fallback to legacy field
+  return poi[fieldName] || '';
+}
+
+/**
+ * Convenience function to get translated POI name
+ * @param {Object} poi - POI object
+ * @returns {string} Translated name
+ */
+function getPoiName(poi) {
+  return getPoiTranslatedField(poi, 'name') || poi.id || 'Unnamed';
+}
+
+/**
+ * Convenience function to get translated POI description
+ * @param {Object} poi - POI object
+ * @returns {string} Translated description
+ */
+function getPoiDescription(poi) {
+  return getPoiTranslatedField(poi, 'description') || '';
+}
+
+/**
+ * Convenience function to get translated POI badge
+ * @param {Object} poi - POI object
+ * @returns {string} Translated badge
+ */
+function getPoiBadge(poi) {
+  return getPoiTranslatedField(poi, 'badge') || '';
+}
+
+// Make functions globally accessible
+window.getPoiName = getPoiName;
+window.getPoiDescription = getPoiDescription;
+window.getPoiBadge = getPoiBadge;
+window.getPoiTranslatedField = getPoiTranslatedField;
+
 // Export for external use
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {
@@ -292,6 +353,10 @@ if (typeof module !== 'undefined' && module.exports) {
     getCurrentLanguage,
     setLanguage,
     createLanguageSwitcher,
-    initLanguageSystem
+    initLanguageSystem,
+    getPoiTranslatedField,
+    getPoiName,
+    getPoiDescription,
+    getPoiBadge
   };
 }

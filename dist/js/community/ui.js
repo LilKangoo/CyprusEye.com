@@ -257,9 +257,10 @@ function initMap() {
     poisData.forEach(poi => {
       const marker = L.marker([poi.lat, poi.lon || poi.lng]).addTo(communityMap);
       
+      const poiName = window.getPoiName ? window.getPoiName(poi) : poi.name;
       const popupContent = `
         <div style="text-align: center;">
-          <strong>${poi.name}</strong><br>
+          <strong>${poiName}</strong><br>
           <button class="map-comment-btn" data-poi-id="${poi.id}"
                   style="margin-top: 8px; padding: 6px 12px; background: #2563eb; color: white; border: none; border-radius: 4px; cursor: pointer;">
             💬 Zobacz komentarze
@@ -320,7 +321,7 @@ async function renderPoisList() {
           <div class="poi-card-header">
             <div class="poi-card-icon">📍</div>
             <div class="poi-card-info">
-              <h3 class="poi-card-name">${poi.name}</h3>
+              <h3 class="poi-card-name">${window.getPoiName ? window.getPoiName(poi) : poi.name}</h3>
               <p class="poi-card-location">🗺️ Cypr</p>
             </div>
           </div>
@@ -682,15 +683,17 @@ window.openPoiComments = async function(poiId) {
   
   // Use the found POI's actual ID for consistency
   currentPoiId = poi.id;
-  console.log('✅ Found POI:', poi.name, '(ID:', poi.id, ')');
+  const poiName = window.getPoiName ? window.getPoiName(poi) : poi.name;
+  const poiDesc = window.getPoiDescription ? window.getPoiDescription(poi) : (poi.description || 'Cypr');
+  console.log('✅ Found POI:', poiName, '(ID:', poi.id, ')');
   
   // Find POI index in filtered data for navigation
   const dataToSearch = filteredPoisData.length > 0 ? filteredPoisData : poisData;
   currentPoiIndex = dataToSearch.findIndex(p => p.id === poi.id);
 
   // Update modal title
-  document.getElementById('commentsModalTitle').textContent = poi.name;
-  document.getElementById('commentsModalLocation').textContent = `📍 ${poi.description || 'Cypr'}`;
+  document.getElementById('commentsModalTitle').textContent = poiName;
+  document.getElementById('commentsModalLocation').textContent = `📍 ${poiDesc}`;
 
   // Update navigation buttons
   updateNavigationButtons();
@@ -704,7 +707,7 @@ window.openPoiComments = async function(poiId) {
   modal.removeAttribute('hidden');
   document.body.style.overflow = 'hidden';
   
-  console.log('✅ Modal opened for:', poi.name);
+  console.log('✅ Modal opened for:', poiName);
 
   // Load ratings
   await loadAndRenderRating(poiId);

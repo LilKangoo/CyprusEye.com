@@ -164,8 +164,8 @@ console.log('🔵 App Core V3 - START');
         return;
       }
       
-      // Nazwa z Supabase
-      const name = poi.nameFallback || poi.name || poi.id;
+      // Nazwa z Supabase (with i18n support)
+      const name = window.getPoiName ? window.getPoiName(poi) : (poi.nameFallback || poi.name || poi.id);
       
       console.log(`📍 [${index}] Dodaję marker: ${name} (ID: ${poi.id}) [${lat}, ${lng}]`);
       
@@ -241,7 +241,7 @@ console.log('🔵 App Core V3 - START');
     const poisToShow = window.PLACES_DATA.slice(0, previewCount);
     
     poisToShow.forEach(poi => {
-      const name = poi.nameFallback || poi.name || poi.id || 'Unnamed';
+      const name = window.getPoiName ? window.getPoiName(poi) : (poi.nameFallback || poi.name || poi.id || 'Unnamed');
       const xp = poi.xp || 100;
       
       const li = document.createElement('li');

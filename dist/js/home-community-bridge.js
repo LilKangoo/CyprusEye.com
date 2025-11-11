@@ -44,8 +44,11 @@
     const commentsEl = document.getElementById('currentPlaceComments');
     const ratingEl = document.getElementById('currentPlaceRating');
 
-    if(nameEl) nameEl.textContent = poi.nameFallback || poi.name || '—';
-    if(descEl) descEl.textContent = poi.descriptionFallback || poi.description || 'Cypr';
+    const poiName = window.getPoiName ? window.getPoiName(poi) : (poi.nameFallback || poi.name || '—');
+    const poiDesc = window.getPoiDescription ? window.getPoiDescription(poi) : (poi.descriptionFallback || poi.description || 'Cypr');
+    
+    if(nameEl) nameEl.textContent = poiName;
+    if(descEl) descEl.textContent = poiDesc;
     if(xpEl) xpEl.textContent = (poi.xp||0) + ' XP';
     if(commentsEl) commentsEl.textContent = '0 Komentarzy';
     if(ratingEl) ratingEl.textContent = '0 Ocen';
