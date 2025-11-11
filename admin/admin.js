@@ -6637,6 +6637,8 @@ function closePoiForm() {
 
 async function handlePoiFormSubmit(event) {
   event.preventDefault();
+  
+  console.log('POI Form Submit started');
 
   if (adminState.poiDataSource !== 'supabase') {
     showToast('Cannot save POIs while in static mode.', 'warning');
@@ -6647,31 +6649,80 @@ async function handlePoiFormSubmit(event) {
   const submitBtn = $('#poiFormSubmit');
   const errorEl = $('#poiFormError');
 
-  if (submitBtn) {
-    submitBtn.disabled = true;
-    submitBtn.textContent = 'Saving...';
-  }
+  try {
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = 'Saving...';
+    }
 
-  if (errorEl) hideElement(errorEl);
-  
-  const formData = new FormData(form);
-  
-  // Check if using i18n fields
-  const usingI18n = $('#poiI18nFieldsContainer')?.style.display !== 'none';
-  let name, description, badge;
-  let nameI18n, descriptionI18n, badgeI18n;
-  
-  if (usingI18n && window.extractI18nValues) {
-    // Extract i18n values
-    nameI18n = window.extractI18nValues(formData, 'name');
-    descriptionI18n = window.extractI18nValues(formData, 'description');
-    badgeI18n = window.extractI18nValues(formData, 'badge');
+    if (errorEl) hideElement(errorEl);
     
-    // Validate i18n fields (PL and EN required)
-    const nameError = window.validateI18nField(nameI18n, 'Name');
-    if (nameError) {
+    const formData = new FormData(form);
+    
+    // Check if using i18n fields
+    const usingI18n = $('#poiI18nFieldsContainer')?.style.display !== 'none';
+    console.log('Using i18n:', usingI18n);
+    
+    let name, description, badge;
+    let nameI18n, descriptionI18n, badgeI18n;
+    
+    if (usingI18n && window.extractI18nValues) {
+      // Extract i18n values
+      nameI18n = window.extractI18nValues(formData, 'name');
+      descriptionI18n = window.extractI18nValues(formData, 'description');
+      badgeI18n = window.extractI18nValues(formData, 'badge');
+      
+      console.log('Extracted i18n values:', { nameI18n, descriptionI18n, badgeI18n });
+      
+      // Validate i18n fields (PL and EN required)
+      if (window.validateI18nField) {
+        const nameError = window.validateI18nField(nameI18n, 'Name');
+        if (nameError) {
+          console.log('Validation error:', nameError);
+          if (errorEl) {
+            errorEl.textContent = nameError;
+            showElement(errorEl);
+          }
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = adminState.poiFormMode === 'edit' ? 'Save Changes' : 'Create POI';
+          }
+          return;
+        }
+      } else {
+        console.warn('window.validateI18nField not available');
+      }
+      
+      // Use Polish as fallback for backward compatibility
+      name = nameI18n?.pl || '';
+      description = descriptionI18n?.pl || '';
+      badge = badgeI18n?.pl || '';
+    } else {
+      console.log('Using legacy fields');
+      // Use legacy fields
+      name = (formData.get('name') || '').toString().trim();
+      description = (formData.get('description') || '').toString().trim();
+      badge = '';
+    }
+    
+    const slugInput = (formData.get('slug') || '').toString().trim();
+    const category = (formData.get('category') || '').toString().trim().toLowerCase() || 'uncategorized';
+    const status = (formData.get('status') || 'published').toString().toLowerCase();
+    const latitude = parseFloat(formData.get('latitude'));
+    const longitude = parseFloat(formData.get('longitude'));
+    const radiusValue = formData.get('radius');
+    const radius = radiusValue ? parseInt(radiusValue, 10) : null;
+    const xpValue = formData.get('xp');
+    const xp = xpValue ? parseInt(xpValue, 10) : null;
+    const googleUrl = (formData.get('google_url') || '').toString().trim();
+    const tagsValue = (formData.get('tags') || '').toString().trim();
+    const tags = tagsValue ? tagsValue.split(',').map(tag => tag.trim()).filter(Boolean) : [];
+
+    const slug = slugInput || slugify(name);
+
+    if (!name || Number.isNaN(latitude) || Number.isNaN(longitude)) {
       if (errorEl) {
-        errorEl.textContent = nameError;
+        errorEl.textContent = 'Name, latitude and longitude are required.';
         showElement(errorEl);
       }
       if (submitBtn) {
@@ -6680,65 +6731,26 @@ async function handlePoiFormSubmit(event) {
       }
       return;
     }
-    
-    // Use Polish as fallback for backward compatibility
-    name = nameI18n?.pl || '';
-    description = descriptionI18n?.pl || '';
-    badge = badgeI18n?.pl || '';
-  } else {
-    // Use legacy fields
-    name = (formData.get('name') || '').toString().trim();
-    description = (formData.get('description') || '').toString().trim();
-    badge = '';
-  }
-  
-  const slugInput = (formData.get('slug') || '').toString().trim();
-  const category = (formData.get('category') || '').toString().trim().toLowerCase() || 'uncategorized';
-  const status = (formData.get('status') || 'published').toString().toLowerCase();
-  const latitude = parseFloat(formData.get('latitude'));
-  const longitude = parseFloat(formData.get('longitude'));
-  const radiusValue = formData.get('radius');
-  const radius = radiusValue ? parseInt(radiusValue, 10) : null;
-  const xpValue = formData.get('xp');
-  const xp = xpValue ? parseInt(xpValue, 10) : null;
-  const googleUrl = (formData.get('google_url') || '').toString().trim();
-  const tagsValue = (formData.get('tags') || '').toString().trim();
-  const tags = tagsValue ? tagsValue.split(',').map(tag => tag.trim()).filter(Boolean) : [];
 
-  const slug = slugInput || slugify(name);
-
-  if (!name || Number.isNaN(latitude) || Number.isNaN(longitude)) {
-    if (errorEl) {
-      errorEl.textContent = 'Name, latitude and longitude are required.';
-      showElement(errorEl);
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = adminState.poiFormMode === 'edit' ? 'Save Changes' : 'Create POI';
+      }
+      return;
     }
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = adminState.poiFormMode === 'edit' ? 'Save Changes' : 'Create POI';
-    }
-    return;
-  }
 
-  const client = ensureSupabase();
-  if (!client) {
-    showToast('Database connection not available', 'error');
-    if (submitBtn) {
-      submitBtn.disabled = false;
-      submitBtn.textContent = adminState.poiFormMode === 'edit' ? 'Save Changes' : 'Create POI';
-    }
-    return;
-  }
+    const payload = {
+      slug,
+      status,
+      radius: radius || DEFAULT_POI_RADIUS,
+      xp: xp || 100,
+      tags,
+      ...(googleUrl ? { google_url: googleUrl } : {}),
+    };
 
-  const payload = {
-    slug,
-    status,
-    radius: radius || DEFAULT_POI_RADIUS,
-    xp: xp || 100,
-    tags,
-    ...(googleUrl ? { google_url: googleUrl } : {}),
-  };
-
-  try {
     if (adminState.poiFormMode === 'create') {
       const { error } = await client.rpc('admin_create_poi', {
         poi_name: name,
