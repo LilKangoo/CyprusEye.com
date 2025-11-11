@@ -679,6 +679,9 @@
     </div>
   </div>
 
+  <!-- Language Switcher - MUST load before other scripts that use getPoiName() -->
+  <script src="js/languageSwitcher.js"></script>
+  
   <!-- Load core application (defer to wait for poi-loader) -->
   <script src="js/app-core.js?v=5" defer></script>
   <!-- SOS Emergency Modal -->
@@ -1391,7 +1394,6 @@
   </div>
   <script type="module" src="assets/js/account-modal.js"></script>
   <script type="module" src="assets/js/auth-ui.js"></script>
-  <script src="js/languageSwitcher.js"></script>
 
   <!-- Fullscreen Lightbox for hotel gallery -->
   <div class="lightbox" id="imgLightbox" hidden>
