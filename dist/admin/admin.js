@@ -6667,6 +6667,20 @@ async function handlePoiFormSubmit(event) {
     descriptionI18n = window.extractI18nValues(formData, 'description');
     badgeI18n = window.extractI18nValues(formData, 'badge');
     
+    // Validate i18n fields (PL and EN required)
+    const nameError = window.validateI18nField(nameI18n, 'Name');
+    if (nameError) {
+      if (errorEl) {
+        errorEl.textContent = nameError;
+        showElement(errorEl);
+      }
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = adminState.poiFormMode === 'edit' ? 'Save Changes' : 'Create POI';
+      }
+      return;
+    }
+    
     // Use Polish as fallback for backward compatibility
     name = nameI18n?.pl || '';
     description = descriptionI18n?.pl || '';
