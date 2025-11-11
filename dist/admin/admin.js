@@ -4072,6 +4072,11 @@ async function loadFleetData() {
     }
 
     tbody.innerHTML = fleetState.cars.map(car => {
+      // Extract i18n values for display (prefer Polish, fallback to English)
+      const carModel = car.car_model?.pl || car.car_model?.en || car.car_model || 'Unknown';
+      const carType = car.car_type?.pl || car.car_type?.en || car.car_type || '';
+      const carDesc = car.description?.pl || car.description?.en || car.description || '';
+      
       // Determine price display based on location
       let priceDisplay;
       if (car.location === 'paphos' && car.price_3days) {
@@ -4083,7 +4088,7 @@ async function loadFleetData() {
 
       // Image display
       const imageDisplay = car.image_url 
-        ? `<img src="${escapeHtml(car.image_url)}" alt="${escapeHtml(car.car_model)}" style="width: 60px; height: 40px; object-fit: cover; border-radius: 4px;">`
+        ? `<img src="${escapeHtml(car.image_url)}" alt="${escapeHtml(carModel)}" style="width: 60px; height: 40px; object-fit: cover; border-radius: 4px;">`
         : `<div style="width: 60px; height: 40px; background: var(--admin-border); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 20px;">🚗</div>`;
 
       return `
@@ -4095,10 +4100,10 @@ async function loadFleetData() {
             </span>
           </td>
           <td>
-            <div style="font-weight: 600;">${escapeHtml(car.car_model)}</div>
-            <div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(car.description?.substring(0, 40) || '')}${car.description?.length > 40 ? '...' : ''}</div>
+            <div style="font-weight: 600;">${escapeHtml(carModel)}</div>
+            <div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(carDesc.substring(0, 40))}${carDesc.length > 40 ? '...' : ''}</div>
           </td>
-          <td>${escapeHtml(car.car_type)}</td>
+          <td>${escapeHtml(carType)}</td>
           <td>${priceDisplay}</td>
           <td>
             <span class="badge ${car.transmission === 'automatic' ? 'badge-success' : 'badge-secondary'}">
@@ -4129,7 +4134,7 @@ async function loadFleetData() {
                   <path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4 12.5-12.5z"/>
                 </svg>
               </button>
-              <button class="btn-icon" type="button" title="Delete" onclick="deleteFleetCar('${car.id}', '${escapeHtml(car.car_model)}')" style="color: var(--admin-danger);">
+              <button class="btn-icon" type="button" title="Delete" onclick="deleteFleetCar('${car.id}', '${escapeHtml(carModel)}')" style="color: var(--admin-danger);">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="3 6 5 6 21 6"/>
                   <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/>
@@ -4273,7 +4278,9 @@ function openFleetCarModal(carData = null) {
     // Fill form with existing data
     $('#fleetCarId').value = carData.id;
     $('#fleetCarLocation').value = carData.location || '';
-    $('#fleetCarType').value = carData.car_type || '';
+    // Extract English car_type to match dropdown options
+    const carTypeValue = carData.car_type?.en || carData.car_type || '';
+    $('#fleetCarType').value = carTypeValue;
     
     // Fill legacy fields if not using i18n
     if (!useI18n) {
