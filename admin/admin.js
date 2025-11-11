@@ -1239,23 +1239,42 @@ async function editHotel(hotelId) {
 
 async function handleEditHotelSubmit(event, originalHotel) {
   event.preventDefault();
+  console.log('📝 Hotel edit form submitted');
+  
   try {
     const client = ensureSupabase();
     if (!client) throw new Error('Database connection not available');
 
     const form = event.target;
     const fd = new FormData(form);
+    
+    console.log('📋 FormData entries:');
+    for (let [key, value] of fd.entries()) {
+      if (key.includes('title') || key.includes('description')) {
+        console.log(`  ${key}: ${value.substring(0, 50)}${value.length > 50 ? '...' : ''}`);
+      }
+    }
+    
     const payload = Object.fromEntries(fd.entries());
 
     // Extract i18n values
+    console.log('🔧 Checking i18n functions:', {
+      extractI18nValues: typeof window.extractI18nValues,
+      validateI18nField: typeof window.validateI18nField
+    });
+    
     const titleI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'title') : null;
     const descriptionI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'description') : null;
     
     console.log('🔍 Hotel i18n extracted:', { titleI18n, descriptionI18n });
     
     // Validate required fields (PL and EN)
-    if (window.validateI18nField && !window.validateI18nField(titleI18n, 'Title')) {
-      throw new Error('Title must be provided in Polish and English');
+    if (window.validateI18nField) {
+      const titleError = window.validateI18nField(titleI18n, 'Title');
+      if (titleError) {
+        console.error('❌ Validation error:', titleError);
+        throw new Error(titleError);
+      }
     }
     
     // Assign i18n fields
@@ -1421,8 +1440,12 @@ async function openNewHotelModal() {
           console.log('🔍 New Hotel i18n extracted:', { titleI18n, descriptionI18n });
           
           // Validate required fields (PL and EN)
-          if (window.validateI18nField && !window.validateI18nField(titleI18n, 'Title')) {
-            throw new Error('Title must be provided in Polish and English');
+          if (window.validateI18nField) {
+            const titleError = window.validateI18nField(titleI18n, 'Title');
+            if (titleError) {
+              console.error('❌ Validation error:', titleError);
+              throw new Error(titleError);
+            }
           }
           
           // Assign i18n fields

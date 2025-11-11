@@ -467,7 +467,51 @@ console.log('✅ Hotel updated successfully');
 
 ---
 
-**Data:** 2025-01-11 09:49 PM  
-**Status:** ✅ **HOTELS I18N - KOMPLETNE (scroll + save)!**
+## 🔧 **NAPRAWA #3 (2025-01-11 10:03 PM):**
 
-**DEPLOY I TESTUJ (HARD REFRESH + SPRAWDŹ CONSOLE!)** 🚀
+### **Problem:**
+❌ Formularz nie zapisywał się - brak reakcji po kliknięciu "Save Changes"
+
+### **Przyczyna:**
+**ODWRÓCONA LOGIKA WALIDACJI!**
+
+Funkcja `validateI18nField()` zwraca:
+- `string` = błąd (gdy walidacja failed)
+- `null` = OK (gdy walidacja passed)
+
+Ale kod sprawdzał:
+```javascript
+// ❌ ŹLE:
+if (!validateI18nField()) { throw error; }
+// !null = true → rzuca błąd gdy OK ❌
+// !string = false → nie rzuca błędu gdy błąd ❌
+```
+
+### **Rozwiązanie:**
+```javascript
+// ✅ DOBRZE:
+const titleError = validateI18nField(titleI18n, 'Title');
+if (titleError) {  // Sprawdza czy string (błąd)
+  throw new Error(titleError);
+}
+```
+
+### **Dodano rozszerzone debugowanie:**
+```javascript
+📝 Hotel edit form submitted
+📋 FormData entries
+🔧 Checking i18n functions
+🔍 Hotel i18n extracted
+❌ Validation error (jeśli jest)
+💾 Updating hotel with payload
+✅ Hotel updated successfully
+```
+
+**Szczegóły + instrukcje debugowania:** Zobacz `HOTELS_I18N_VALIDATION_FIX.md`
+
+---
+
+**Data:** 2025-01-11 10:03 PM  
+**Status:** ✅ **HOTELS I18N - KOMPLETNE (scroll + save + validation)!**
+
+**DEPLOY, HARD REFRESH I OTWÓRZ CONSOLE (F12) ŻEBY ZOBACZYĆ LOGI!** 🚀
