@@ -108,6 +108,66 @@ function extractI18nValues(formData, fieldName) {
 }
 
 /**
+ * Render i18n array input field (for features, tags, etc.)
+ */
+function renderI18nArrayInput(config) {
+  const {
+    fieldName,     // e.g., 'features'
+    label,         // e.g., 'Features'
+    rows = 4,
+    placeholder = '',
+    currentValues = {} // { pl: ['value1', 'value2'], en: ['value1', 'value2'], ... }
+  } = config;
+  
+  return `
+    <div class="i18n-field-group">
+      <label class="i18n-field-label">${label}</label>
+      ${renderI18nTabs(fieldName)}
+      
+      ${I18N_LANGUAGES.map((lang, i) => `
+        <div class="lang-content ${lang.code === 'pl' ? 'active' : ''}" 
+             data-lang="${lang.code}"
+             data-field="${fieldName}"
+             ${lang.rtl ? 'dir="rtl"' : ''}>
+          
+          <textarea 
+            name="${fieldName}_${lang.code}" 
+            rows="${rows}"
+            placeholder="${placeholder} (${lang.code.toUpperCase()})"
+            class="i18n-input"
+          >${Array.isArray(currentValues[lang.code]) ? currentValues[lang.code].join('\n') : ''}</textarea>
+          <small style="color: var(--admin-text-muted); font-size: 11px; margin-top: 4px; display: block;">Enter each item on a new line</small>
+        </div>
+      `).join('')}
+    </div>
+  `;
+}
+
+/**
+ * Extract i18n array values from FormData (split by newlines)
+ */
+function extractI18nArrayValues(formData, fieldName) {
+  const i18nObj = {};
+  
+  I18N_LANGUAGES.forEach(lang => {
+    const value = formData.get(`${fieldName}_${lang.code}`);
+    if (value && value.trim()) {
+      // Split by newlines, trim each line, filter empty lines
+      const items = value
+        .split('\n')
+        .map(line => line.trim())
+        .filter(line => line.length > 0);
+      
+      if (items.length > 0) {
+        i18nObj[lang.code] = items;
+      }
+    }
+  });
+  
+  return Object.keys(i18nObj).length > 0 ? i18nObj : null;
+}
+
+/**
  * Validate i18n fields (PL and EN required)
  */
 function validateI18nField(i18nObj, fieldLabel) {
@@ -198,8 +258,10 @@ if (document.readyState === 'loading') {
 window.I18N_LANGUAGES = I18N_LANGUAGES;
 window.renderI18nTabs = renderI18nTabs;
 window.renderI18nInput = renderI18nInput;
+window.renderI18nArrayInput = renderI18nArrayInput;
 window.switchI18nTab = switchI18nTab;
 window.extractI18nValues = extractI18nValues;
+window.extractI18nArrayValues = extractI18nArrayValues;
 window.validateI18nField = validateI18nField;
 window.getI18nValue = getI18nValue;
 

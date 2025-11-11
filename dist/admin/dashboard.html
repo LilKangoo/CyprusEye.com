@@ -2063,11 +2063,13 @@
             </label>
           </div>
 
-          <!-- Features (JSON array) -->
+          <!-- Features (i18n JSONB array) -->
           <div style="margin-bottom: 16px;">
             <label class="admin-form-field">
-              <span>Features (one per line)</span>
-              <textarea id="fleetCarFeatures" name="features" rows="3" placeholder="Air Conditioning&#10;Bluetooth&#10;GPS Navigation"></textarea>
+              <span>Features</span>
+              <div id="featuresI18n" style="margin-top: 8px;">
+                <!-- i18n tabs will be rendered here by JS -->
+              </div>
               <small style="color: var(--admin-text-muted); font-size: 11px; margin-top: 4px;">Enter each feature on a new line</small>
             </label>
           </div>

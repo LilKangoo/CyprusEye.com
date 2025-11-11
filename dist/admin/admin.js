@@ -4261,6 +4261,18 @@ function openFleetCarModal(carData = null) {
       });
     }
     
+    // Render features i18n (array input)
+    const featuresContainer = $('#featuresI18n');
+    if (featuresContainer && window.renderI18nArrayInput) {
+      featuresContainer.innerHTML = window.renderI18nArrayInput({
+        fieldName: 'features',
+        label: 'Features',
+        rows: 5,
+        placeholder: 'Air Conditioning\nBluetooth\nGPS Navigation',
+        currentValues: carData?.features || {}
+      });
+    }
+    
     // Show i18n container, hide legacy fields
     i18nContainer.style.display = 'block';
     legacyFields.style.display = 'none';
@@ -4613,7 +4625,7 @@ async function handleFleetCarSubmit(event) {
     // Check if using i18n fields
     const usingI18n = $('#carI18nFields')?.style.display !== 'none';
     let carModel, description;
-    let carModelI18n, descriptionI18n;
+    let carModelI18n, descriptionI18n, featuresI18n;
     
     if (usingI18n && window.extractI18nValues) {
       // Extract i18n values
@@ -4621,7 +4633,12 @@ async function handleFleetCarSubmit(event) {
       carModelI18n = window.extractI18nValues(formData, 'car_model');
       descriptionI18n = window.extractI18nValues(formData, 'description');
       
-      console.log('🔍 Extracted car i18n values:', { carModelI18n, descriptionI18n });
+      // Extract features i18n (array values)
+      if (window.extractI18nArrayValues) {
+        featuresI18n = window.extractI18nArrayValues(formData, 'features');
+      }
+      
+      console.log('🔍 Extracted car i18n values:', { carModelI18n, descriptionI18n, featuresI18n });
       
       // Validate i18n fields
       if (window.validateI18nField) {
@@ -4659,10 +4676,11 @@ async function handleFleetCarSubmit(event) {
       is_available: $('#fleetCarIsAvailable').checked
     };
     
-    // Save i18n fields directly to car_model and description (JSONB columns)
+    // Save i18n fields directly to car_model, description, and features (JSONB columns)
     if (usingI18n && window.extractI18nValues) {
       if (carModelI18n) carData.car_model = carModelI18n;
       if (descriptionI18n) carData.description = descriptionI18n;
+      if (featuresI18n) carData.features = featuresI18n;
       
       // Clean up legacy fields
       delete carData.car_model_pl;
@@ -4677,6 +4695,18 @@ async function handleFleetCarSubmit(event) {
       // Legacy mode - save as text
       carData.car_model = carModel;
       carData.description = description;
+      
+      // Parse features from legacy textarea (one per line)
+      const featuresText = $('#fleetCarFeatures')?.value?.trim() || '';
+      if (featuresText) {
+        const featuresArray = featuresText
+          .split('\n')
+          .map(f => f.trim())
+          .filter(f => f.length > 0);
+        carData.features = featuresArray;
+      } else {
+        carData.features = [];
+      }
     }
     
     console.log('💾 Car payload:', carData);
@@ -4694,18 +4724,6 @@ async function handleFleetCarSubmit(event) {
       carData.price_4_6days = parseFloat($('#fleetCarPrice4_6Days').value) || 0;
       carData.price_7_10days = parseFloat($('#fleetCarPrice7_10Days').value) || 0;
       carData.price_10plus_days = parseFloat($('#fleetCarPrice10PlusDays').value) || 0;
-    }
-
-    // Parse features from textarea (one per line)
-    const featuresText = $('#fleetCarFeatures').value.trim();
-    if (featuresText) {
-      const featuresArray = featuresText
-        .split('\n')
-        .map(f => f.trim())
-        .filter(f => f.length > 0);
-      carData.features = featuresArray;
-    } else {
-      carData.features = [];
     }
 
     // Insert or Update
