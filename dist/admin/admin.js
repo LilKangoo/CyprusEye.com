@@ -6752,17 +6752,19 @@ async function handlePoiFormSubmit(event) {
     };
 
     if (adminState.poiFormMode === 'create') {
-      // Build insert object
+      // Build insert object - MATCH database schema
       const insertData = {
+        id: slug,  // 'id' column, not 'slug'
         name: name,
         description: description || null,
         lat: latitude,
         lng: longitude,
         xp: xp || 100,
+        badge: badge || category || 'Explorer',  // badge column
+        required_level: 1,  // default level
         status: status,
         radius: radius || DEFAULT_POI_RADIUS,
         google_url: googleUrl || null,
-        slug: slug,
       };
       
       // Add i18n fields if available
@@ -6771,12 +6773,17 @@ async function handlePoiFormSubmit(event) {
         if (descriptionI18n) insertData.description_i18n = descriptionI18n;
         if (badgeI18n) insertData.badge_i18n = badgeI18n;
       }
+      
+      console.log('Creating POI with data:', insertData);
 
       const { error } = await client
         .from('pois')
         .insert(insertData);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Insert error:', error);
+        throw error;
+      }
 
       showToast('POI created successfully', 'success');
     } else if (adminState.selectedPoi) {
