@@ -4333,19 +4333,9 @@ function openFleetCarModal(carData = null) {
       showImagePreview(carData.image_url);
     }
     
-    // Features (convert JSON array to text)
-    if (carData.features) {
-      try {
-        const featuresArray = typeof carData.features === 'string' 
-          ? JSON.parse(carData.features) 
-          : carData.features;
-        $('#fleetCarFeatures').value = Array.isArray(featuresArray) 
-          ? featuresArray.join('\n') 
-          : '';
-      } catch (e) {
-        $('#fleetCarFeatures').value = '';
-      }
-    }
+    // Features are now handled by i18n component (renderI18nArrayInput)
+    // No need to manually set #fleetCarFeatures as it doesn't exist anymore
+    // Features are loaded in the i18n rendering section above (lines 4264-4274)
     
     // Trigger location change to show correct pricing fields
     handleLocationChange(carData.location);
