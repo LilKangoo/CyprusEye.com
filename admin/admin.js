@@ -6674,6 +6674,14 @@ async function handlePoiFormSubmit(event) {
       
       console.log('Extracted i18n values:', { nameI18n, descriptionI18n, badgeI18n });
       
+      // DEBUG: Show all FormData entries
+      console.log('FormData entries:');
+      for (let [key, value] of formData.entries()) {
+        if (key.includes('name') || key.includes('description') || key.includes('badge')) {
+          console.log(`  ${key}: ${value}`);
+        }
+      }
+      
       // Validate i18n fields (PL and EN required)
       if (window.validateI18nField) {
         const nameError = window.validateI18nField(nameI18n, 'Name');
@@ -6768,13 +6776,28 @@ async function handlePoiFormSubmit(event) {
       };
       
       // Add i18n fields if available
+      console.log('Before adding i18n - usingI18n:', usingI18n);
+      console.log('nameI18n:', nameI18n, 'type:', typeof nameI18n);
+      console.log('descriptionI18n:', descriptionI18n, 'type:', typeof descriptionI18n);
+      console.log('badgeI18n:', badgeI18n, 'type:', typeof badgeI18n);
+      
       if (usingI18n) {
-        if (nameI18n) insertData.name_i18n = nameI18n;
-        if (descriptionI18n) insertData.description_i18n = descriptionI18n;
-        if (badgeI18n) insertData.badge_i18n = badgeI18n;
+        console.log('Adding i18n fields to insertData...');
+        if (nameI18n) {
+          console.log('Adding name_i18n:', nameI18n);
+          insertData.name_i18n = nameI18n;
+        }
+        if (descriptionI18n) {
+          console.log('Adding description_i18n:', descriptionI18n);
+          insertData.description_i18n = descriptionI18n;
+        }
+        if (badgeI18n) {
+          console.log('Adding badge_i18n:', badgeI18n);
+          insertData.badge_i18n = badgeI18n;
+        }
       }
       
-      console.log('Creating POI with data:', insertData);
+      console.log('Creating POI with data:', JSON.stringify(insertData, null, 2));
 
       const { error } = await client
         .from('pois')
