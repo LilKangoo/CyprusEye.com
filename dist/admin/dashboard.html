@@ -33,8 +33,9 @@
   <!-- Scripts -->
   <script type="module" src="/js/supabaseClient.js?v=20251107"></script>
   <script type="module" src="/js/toast.js?v=20251107"></script>
+  <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
-  <script type="module" src="/admin/admin.js?v=20251107"></script>
+  <script type="module" src="/admin/admin.js?v=20251110"></script>
 </head>
 <body data-admin-panel="true">
   
@@ -1655,11 +1656,20 @@
             </svg>
             <span id="poiFormWarningText"></span>
           </div>
-          <div class="admin-form-grid">
-            <label class="admin-form-field">
-              <span>Name *</span>
-              <input type="text" id="poiName" name="name" required placeholder="e.g. Kato Paphos Archaeological Park" />
-            </label>
+          <!-- I18N Fields Container (rendered dynamically) -->
+          <div id="poiI18nFieldsContainer" style="display: none; margin-bottom: 24px;">
+            <div id="poiNameI18n"></div>
+            <div id="poiDescriptionI18n"></div>
+            <div id="poiBadgeI18n"></div>
+          </div>
+
+          <!-- Legacy Fields (fallback) -->
+          <div id="poiLegacyFields">
+            <div class="admin-form-grid">
+              <label class="admin-form-field">
+                <span>Name *</span>
+                <input type="text" id="poiName" name="name" required placeholder="e.g. Kato Paphos Archaeological Park" />
+              </label>
             <label class="admin-form-field">
               <span>Slug</span>
               <input type="text" id="poiSlug" name="slug" placeholder="auto-generated if empty" />
@@ -1701,10 +1711,13 @@
               <input type="text" id="poiTags" name="tags" placeholder="Comma separated" />
             </label>
           </div>
-          <label class="admin-form-field">
-            <span>Description</span>
-            <textarea id="poiDescription" name="description" rows="4" placeholder="Detailed description shown to players"></textarea>
-          </label>
+            <label class="admin-form-field">
+              <span>Description</span>
+              <textarea id="poiDescription" name="description" rows="4" placeholder="Detailed description shown to players"></textarea>
+            </label>
+          </div>
+          <!-- End Legacy Fields -->
+          
           <div class="poi-form-error" id="poiFormError" hidden></div>
           <div class="poi-form-actions">
             <button type="button" class="btn-secondary" id="poiFormCancel">Cancel</button>
@@ -1861,16 +1874,13 @@
             </label>
           </div>
 
-          <div style="display: grid; gap: 16px; margin-bottom: 16px;">
-            <label class="admin-form-field">
-              <span>Car Model *</span>
-              <input type="text" id="fleetCarModel" name="car_model" required placeholder="e.g. Toyota Yaris (2023)">
-            </label>
-
-            <label class="admin-form-field">
-              <span>Description</span>
-              <textarea id="fleetCarDescription" name="description" rows="2" placeholder="Short description of the car..."></textarea>
-            </label>
+          <!-- I18N Fields Container -->
+          <div id="carI18nFields" style="margin-bottom: 16px;">
+            <!-- Car Model - will be rendered dynamically -->
+            <div id="carModelI18n"></div>
+            
+            <!-- Description - will be rendered dynamically -->
+            <div id="carDescriptionI18n"></div>
           </div>
 
           <!-- Pricing Section -->

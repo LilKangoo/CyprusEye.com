@@ -3925,17 +3925,41 @@ function openFleetCarModal(carData = null) {
 
   // Reset image preview
   resetImagePreview();
+  
+  // Render i18n fields
+  const carModelContainer = $('#carModelI18n');
+  const carDescContainer = $('#carDescriptionI18n');
+  
+  if (carModelContainer) {
+    carModelContainer.innerHTML = window.renderI18nInput({
+      fieldName: 'car_model',
+      label: 'Car Model',
+      type: 'text',
+      placeholder: 'e.g., Toyota Yaris (2023)',
+      currentValues: carData?.car_model_i18n || {}
+    });
+  }
+  
+  if (carDescContainer) {
+    carDescContainer.innerHTML = window.renderI18nInput({
+      fieldName: 'description',
+      label: 'Description',
+      type: 'textarea',
+      rows: 3,
+      placeholder: 'Short description of the car',
+      currentValues: carData?.description_i18n || {}
+    });
+  }
 
   if (carData) {
     // Edit mode
-    title.textContent = `Edit ${carData.car_model}`;
+    const modelDisplay = carData.car_model_i18n?.pl || carData.car_model_i18n?.en || carData.car_model || 'this car';
+    title.textContent = `Edit ${modelDisplay}`;
     
     // Fill form with existing data
     $('#fleetCarId').value = carData.id;
     $('#fleetCarLocation').value = carData.location || '';
     $('#fleetCarType').value = carData.car_type || '';
-    $('#fleetCarModel').value = carData.car_model || '';
-    $('#fleetCarDescription').value = carData.description || '';
     
     // Pricing
     if (carData.location === 'larnaca') {
@@ -4257,12 +4281,26 @@ async function handleFleetCarSubmit(event) {
     const carId = $('#fleetCarId').value;
     const location = $('#fleetCarLocation').value;
     
+    // Extract i18n values
+    const formData = new FormData(form);
+    const carModelI18n = window.extractI18nValues(formData, 'car_model');
+    const descriptionI18n = window.extractI18nValues(formData, 'description');
+    
+    // Validate i18n fields
+    const modelError = window.validateI18nField(carModelI18n, 'Car Model');
+    if (modelError) {
+      throw new Error(modelError);
+    }
+    
     // Build car object
     const carData = {
       location: location,
       car_type: $('#fleetCarType').value,
-      car_model: $('#fleetCarModel').value,
-      description: $('#fleetCarDescription').value || null,
+      car_model_i18n: carModelI18n,
+      description_i18n: descriptionI18n,
+      // Backward compatibility - use Polish version
+      car_model: carModelI18n?.pl || '',
+      description: descriptionI18n?.pl || '',
       transmission: $('#fleetCarTransmission').value,
       fuel_type: $('#fleetCarFuelType').value,
       currency: $('#fleetCarCurrency').value,
@@ -5418,7 +5456,7 @@ function initEventListeners() {
 
   const addPoiBtn = $('#btnAddPoi');
   if (addPoiBtn) {
-    addPoiBtn.addEventListener('click', () => openPoiI18nForm());
+    addPoiBtn.addEventListener('click', () => openPoiForm());
   }
 
   const refreshPoisBtn = $('#btnRefreshPois');
@@ -6370,6 +6408,57 @@ function openPoiForm(poiId = null) {
     title.textContent = poi ? 'Edit POI' : 'New POI';
   }
 
+  // Check if we should use i18n fields
+  const useI18n = poi?.name_i18n || poi?.description_i18n;
+  const i18nContainer = $('#poiI18nFieldsContainer');
+  const legacyFields = $('#poiLegacyFields');
+  
+  if (useI18n && i18nContainer && legacyFields && window.renderI18nInput) {
+    // Render i18n fields
+    const nameContainer = $('#poiNameI18n');
+    const descContainer = $('#poiDescriptionI18n');
+    const badgeContainer = $('#poiBadgeI18n');
+    
+    if (nameContainer) {
+      nameContainer.innerHTML = window.renderI18nInput({
+        fieldName: 'name',
+        label: 'Name',
+        type: 'text',
+        placeholder: 'e.g., Kato Paphos Archaeological Park',
+        currentValues: poi?.name_i18n || {}
+      });
+    }
+    
+    if (descContainer) {
+      descContainer.innerHTML = window.renderI18nInput({
+        fieldName: 'description',
+        label: 'Description',
+        type: 'textarea',
+        rows: 4,
+        placeholder: 'Detailed description',
+        currentValues: poi?.description_i18n || {}
+      });
+    }
+    
+    if (badgeContainer) {
+      badgeContainer.innerHTML = window.renderI18nInput({
+        fieldName: 'badge',
+        label: 'Badge',
+        type: 'text',
+        placeholder: 'e.g., Explorer, Adventurer',
+        currentValues: poi?.badge_i18n || {}
+      });
+    }
+    
+    // Show i18n container, hide legacy fields
+    i18nContainer.style.display = 'block';
+    legacyFields.style.display = 'none';
+  } else if (legacyFields && i18nContainer) {
+    // Use legacy fields
+    i18nContainer.style.display = 'none';
+    legacyFields.style.display = 'block';
+  }
+
   const nameInput = $('#poiName');
   const slugInput = $('#poiSlug');
   const categoryInput = $('#poiCategory');
@@ -6453,11 +6542,32 @@ async function handlePoiFormSubmit(event) {
   if (errorEl) hideElement(errorEl);
   
   const formData = new FormData(form);
-  const name = (formData.get('name') || '').toString().trim();
+  
+  // Check if using i18n fields
+  const usingI18n = $('#poiI18nFieldsContainer')?.style.display !== 'none';
+  let name, description, badge;
+  let nameI18n, descriptionI18n, badgeI18n;
+  
+  if (usingI18n && window.extractI18nValues) {
+    // Extract i18n values
+    nameI18n = window.extractI18nValues(formData, 'name');
+    descriptionI18n = window.extractI18nValues(formData, 'description');
+    badgeI18n = window.extractI18nValues(formData, 'badge');
+    
+    // Use Polish as fallback for backward compatibility
+    name = nameI18n?.pl || '';
+    description = descriptionI18n?.pl || '';
+    badge = badgeI18n?.pl || '';
+  } else {
+    // Use legacy fields
+    name = (formData.get('name') || '').toString().trim();
+    description = (formData.get('description') || '').toString().trim();
+    badge = '';
+  }
+  
   const slugInput = (formData.get('slug') || '').toString().trim();
   const category = (formData.get('category') || '').toString().trim().toLowerCase() || 'uncategorized';
   const status = (formData.get('status') || 'published').toString().toLowerCase();
-  const description = (formData.get('description') || '').toString().trim();
   const latitude = parseFloat(formData.get('latitude'));
   const longitude = parseFloat(formData.get('longitude'));
   const radiusValue = formData.get('radius');
@@ -6520,19 +6630,31 @@ async function handlePoiFormSubmit(event) {
       const poi = adminState.selectedPoi;
       const poiId = poi.id; // Use poi.id (TEXT) not poi.uuid (UUID)
 
-      const { error } = await client.rpc('admin_update_poi', {
-        poi_id: poiId,
-        poi_name: name,
-        poi_description: description || null,
-        poi_latitude: latitude,
-        poi_longitude: longitude,
-        poi_category: category,
-        poi_xp: xp,
-        poi_data: {
-          ...((poi.raw && poi.raw.data && typeof poi.raw.data === 'object') ? poi.raw.data : {}),
-          ...payload,
-        },
-      });
+      // Build update object
+      const updateData = {
+        name: name,
+        description: description || null,
+        lat: latitude,
+        lng: longitude,
+        category: category,
+        xp: xp,
+        status: status,
+        radius: radius || DEFAULT_POI_RADIUS,
+        google_url: googleUrl || null,
+        tags: tags,
+      };
+      
+      // Add i18n fields if available
+      if (usingI18n) {
+        if (nameI18n) updateData.name_i18n = nameI18n;
+        if (descriptionI18n) updateData.description_i18n = descriptionI18n;
+        if (badgeI18n) updateData.badge_i18n = badgeI18n;
+      }
+
+      const { error } = await client
+        .from('pois')
+        .update(updateData)
+        .eq('id', poiId);
 
       if (error) throw error;
 
@@ -6609,7 +6731,7 @@ async function deletePoi(poiId) {
 }
 
 function editPoi(poiId) {
-  openPoiI18nForm(poiId);
+  openPoiForm(poiId);
 }
 
 function refreshPoiList() {
