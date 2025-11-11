@@ -6640,7 +6640,6 @@ async function handlePoiFormSubmit(event) {
         status: status,
         radius: radius || DEFAULT_POI_RADIUS,
         google_url: googleUrl || null,
-        tags: tags,
       };
       
       // Add i18n fields if available
