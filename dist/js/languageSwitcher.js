@@ -248,9 +248,15 @@ function createMobileLanguageSwitcher() {
     button.addEventListener('click', () => {
       const lang = button.getAttribute('data-lang-switch');
       if (setLanguage(lang)) {
+        // Update URL without reloading
         const url = new URL(window.location);
         url.searchParams.set('lang', lang);
-        window.location.href = url.toString();
+        window.history.pushState({}, '', url.toString());
+        
+        // Close menu
+        closeMenu();
+        
+        // Update UI immediately (event already dispatched in setLanguage())
       }
     });
   });

@@ -57,15 +57,18 @@ async function loadPaphosFleet() {
   }
 }
 
-// Render fleet cards
+// Render fleet grid
 function renderFleet() {
   const loc = getPageLocation();
   const grid =
     (loc === 'larnaca' ? (document.getElementById('larnacaCarsGrid') || document.getElementById('carRentalGrid')) : null) ||
     document.getElementById('paphosCarsGrid') ||
     document.getElementById('carRentalGrid');
+  
+  console.log('🚗 renderFleet() called - Location:', loc, 'Grid found:', !!grid);
+  
   if (!grid) {
-    console.error('Could not find fleet grid element for location', loc);
+    console.error('❌ Could not find fleet grid element for location', loc);
     return;
   }
   
@@ -380,6 +383,9 @@ function escapeHtml(unsafe) {
     .replace(/'/g, "&#039;");
 }
 
+// Debounce helper
+let languageChangeTimeout = null;
+
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   loadPaphosFleet().then(() => {
@@ -393,20 +399,45 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  // Listen for language changes and re-render fleet
-  window.addEventListener('languageChanged', (e) => {
-    console.log('🌐 Language changed to:', e.detail.language);
+  // Function to handle language change (used by both event types)
+  const handleLanguageChange = (language) => {
+    console.log('🌐 Language changed to:', language);
     
-    // Re-render fleet with new language
-    renderFleet();
-    
-    // Update calculator options
-    updateCalculatorOptions();
-    
-    // Re-calculate prices if calculator exists
-    if (typeof window.calculatePrice === 'function') {
-      window.calculatePrice();
+    // Clear previous timeout
+    if (languageChangeTimeout) {
+      clearTimeout(languageChangeTimeout);
     }
+    
+    // Debounce re-render by 200ms
+    languageChangeTimeout = setTimeout(() => {
+      console.log('🔄 Re-rendering fleet for language:', language);
+      
+      // Only re-render if fleet is loaded
+      if (paphosFleet && paphosFleet.length > 0) {
+        renderFleet();
+        updateCalculatorOptions();
+        
+        // Re-calculate prices if calculator exists
+        if (typeof window.calculatePrice === 'function') {
+          window.calculatePrice();
+        }
+        
+        console.log('✅ Fleet re-rendered successfully');
+      } else {
+        console.warn('⚠️ Fleet not loaded yet, skipping re-render');
+      }
+    }, 200); // 200ms debounce
+  };
+  
+  // Listen for both language change events
+  // languageSwitcher.js uses 'languageChanged'
+  window.addEventListener('languageChanged', (e) => {
+    handleLanguageChange(e.detail.language);
+  });
+  
+  // i18n.js uses 'wakacjecypr:languagechange'
+  document.addEventListener('wakacjecypr:languagechange', (e) => {
+    handleLanguageChange(e.detail.language);
   });
 });
 
