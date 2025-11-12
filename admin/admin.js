@@ -3401,12 +3401,28 @@ async function viewCarBookingDetails(bookingId) {
     let priceBreakdown = '';
     
     try {
-      const { data: carOffer } = await client
+      // Fetch all cars for this location
+      const { data: carOffers } = await client
         .from('car_offers')
         .select('*')
-        .eq('car_model', booking.car_model)
-        .eq('location', (booking.location || 'larnaca').toLowerCase())
-        .single();
+        .eq('location', (booking.location || 'larnaca').toLowerCase());
+      
+      // Find matching car by comparing car_model in any language
+      // booking.car_model is a string like "Nissan Note Hybrid (2023)"
+      // car.car_model is JSONB like {"pl": "...", "en": "..."}
+      const carOffer = carOffers?.find(car => {
+        if (typeof car.car_model === 'string') {
+          // Legacy: direct string comparison
+          return car.car_model === booking.car_model;
+        } else if (car.car_model && typeof car.car_model === 'object') {
+          // i18n: check all language variants
+          return car.car_model.pl === booking.car_model ||
+                 car.car_model.en === booking.car_model ||
+                 car.car_model.el === booking.car_model ||
+                 car.car_model.he === booking.car_model;
+        }
+        return false;
+      });
       
       carPricing = carOffer;
       
