@@ -3038,7 +3038,7 @@ async function loadQuestsData() {
     if (!view) return;
     const { data, error } = await client
       .from('tasks')
-      .select('id,xp,is_active,sort_order,category,title,description')
+      .select('id,xp,is_active,sort_order,category,title,description,title_i18n,description_i18n')
       .eq('category', 'quest')
       .order('sort_order', { ascending: true });
     if (error) throw error;
@@ -3072,31 +3072,67 @@ function openQuestForm(mode, quest) {
   const modal = $('#questFormModal');
   const title = $('#questFormTitle');
   const idInput = $('#questId');
-  const titleInput = $('#questTitle');
   const xpInput = $('#questXp');
   const sortInput = $('#questSort');
   const activeSelect = $('#questActive');
-  const descInput = $('#questDescription');
+  
   if (!modal || !title || !idInput || !xpInput || !sortInput || !activeSelect) return;
+  
+  // Set basic fields
   if (mode === 'edit' && quest) {
     title.textContent = 'Edit Quest';
     idInput.value = quest.id;
     idInput.disabled = true;
-    if (titleInput) titleInput.value = quest.title || '';
     xpInput.value = Number(quest.xp)||0;
     sortInput.value = Number(quest.sort_order)||1000;
     activeSelect.value = quest.is_active ? 'true' : 'false';
-    if (descInput) descInput.value = quest.description || '';
   } else {
     title.textContent = 'New Quest';
     idInput.value = '';
     idInput.disabled = false;
-    if (titleInput) titleInput.value = '';
     xpInput.value = 0;
     sortInput.value = 1000;
     activeSelect.value = 'true';
-    if (descInput) descInput.value = '';
   }
+  
+  // Render i18n components for title and description
+  if (window.renderI18nInput && window.renderI18nTextarea) {
+    const titleContainer = $('#questTitleI18nContainer');
+    const descContainer = $('#questDescriptionI18nContainer');
+    
+    if (titleContainer) {
+      // Prepare title data (prefer i18n, fallback to legacy)
+      const titleData = (mode === 'edit' && quest?.title_i18n) 
+        ? quest.title_i18n 
+        : (mode === 'edit' && quest?.title) 
+          ? { pl: quest.title } 
+          : {};
+      
+      window.renderI18nInput(
+        titleContainer,
+        'title',
+        titleData,
+        { placeholder: 'Quest title', required: true }
+      );
+    }
+    
+    if (descContainer) {
+      // Prepare description data (prefer i18n, fallback to legacy)
+      const descData = (mode === 'edit' && quest?.description_i18n) 
+        ? quest.description_i18n 
+        : (mode === 'edit' && quest?.description) 
+          ? { pl: quest.description } 
+          : {};
+      
+      window.renderI18nTextarea(
+        descContainer,
+        'description',
+        descData,
+        { placeholder: 'Quest description (optional)', rows: 3 }
+      );
+    }
+  }
+  
   showElement(modal);
 }
 
@@ -3123,13 +3159,44 @@ async function handleQuestFormSubmit(e) {
   const form = e.target;
   const client = ensureSupabase();
   if (!client) return;
+  
+  // Get basic fields
   const id = ($('#questId').value || '').trim();
-  const qtitle = ($('#questTitle').value || '').trim();
   const xp = Number($('#questXp').value || '0') || 0;
   const sort_order = Number($('#questSort').value || '1000') || 1000;
   const is_active = $('#questActive').value === 'true';
-  const description = ($('#questDescription').value || '').trim();
-  const payload = { id, xp, sort_order, is_active, category: 'quest', title: qtitle || null, description: description || null };
+  
+  // Extract i18n values
+  const fd = new FormData($('#questForm'));
+  const titleI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'title') : null;
+  const descriptionI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'description') : null;
+  
+  // Validate title (at least one language required)
+  if (window.validateI18nField) {
+    const titleError = window.validateI18nField(titleI18n, 'Title');
+    if (titleError) {
+      showToast(titleError, 'error');
+      return;
+    }
+  }
+  
+  // Build payload
+  const payload = { 
+    id, 
+    xp, 
+    sort_order, 
+    is_active, 
+    category: 'quest'
+  };
+  
+  // Add i18n fields
+  if (titleI18n) payload.title_i18n = titleI18n;
+  if (descriptionI18n) payload.description_i18n = descriptionI18n;
+  
+  // Clean legacy fields (for backward compatibility)
+  payload.title = null;
+  payload.description = null;
+  
   try {
     const { error } = await client.from('tasks').upsert(payload);
     if (error) throw error;
@@ -3137,7 +3204,8 @@ async function handleQuestFormSubmit(e) {
     hideElement($('#questFormModal'));
     await loadQuestsData();
   } catch (e) {
-    showToast('Failed to save quest', 'error');
+    console.error('Quest save error:', e);
+    showToast('Failed to save quest: ' + (e.message || 'Unknown error'), 'error');
   }
 }
 

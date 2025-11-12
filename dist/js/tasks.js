@@ -134,13 +134,13 @@
     if (!sb) return false;
     try {
       // Prefer view if exists
-      let query = sb.from('public_tasks').select('id,xp,sort_order,title,description');
+      let query = sb.from('public_tasks').select('id,xp,sort_order,title,description,title_i18n,description_i18n');
       let { data, error } = await query.order('sort_order', { ascending: true });
       if (error) {
         // Fallback to table
         ({ data, error } = await sb
           .from('tasks')
-          .select('id,xp,sort_order,is_active,category,title,description')
+          .select('id,xp,sort_order,is_active,category,title,description,title_i18n,description_i18n')
           .eq('is_active', true)
           .eq('category', 'quest')
           .order('sort_order', { ascending: true }));
@@ -150,7 +150,18 @@
         // Replace TASKS with DB data (map to expected shape)
         TASKS.length = 0;
         data.forEach(row => {
-          TASKS.push({ id: row.id, xp: Number(row.xp)||0, requiredLevel: 1, title: row.title || null, description: row.description || null });
+          // Use i18n helpers for translated content
+          const title = window.getQuestTitle ? window.getQuestTitle(row) : (row.title || null);
+          const description = window.getQuestDescription ? window.getQuestDescription(row) : (row.description || null);
+          
+          TASKS.push({ 
+            id: row.id, 
+            xp: Number(row.xp)||0, 
+            requiredLevel: 1, 
+            title: title, 
+            description: description,
+            _raw: row // Keep raw data for future reference
+          });
         });
         return true;
       }
@@ -350,3 +361,16 @@
     onReady();
   }
 })();
+
+// Register global language change handler for quest re-rendering
+if (typeof window.registerLanguageChangeHandler === 'function') {
+  window.registerLanguageChangeHandler((language) => {
+    console.log('📋 Tasks: Re-rendering for language:', language);
+    
+    // Trigger the existing i18n:updated event that tasks.js already listens to
+    // This will re-render tasks with the new language
+    window.dispatchEvent(new CustomEvent('i18n:updated'));
+    
+    console.log('✅ Tasks re-render triggered');
+  });
+}

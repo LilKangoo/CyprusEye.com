@@ -459,6 +459,59 @@ window.getTripDescription = getTripDescription;
 window.getTripTranslatedField = getTripTranslatedField;
 
 /**
+ * Get a translated field from a quest/task object based on current language
+ * @param {Object} quest - Quest/Task object
+ * @param {string} fieldName - Field to translate (e.g., 'title', 'description')
+ * @returns {string} Translated value
+ */
+function getQuestTranslatedField(quest, fieldName) {
+  if (!quest) return '';
+  
+  const currentLang = getCurrentLanguage();
+  const i18nField = `${fieldName}_i18n`;
+  
+  // Check if i18n field exists
+  if (quest[i18nField] && typeof quest[i18nField] === 'object') {
+    // Try current language
+    if (quest[i18nField][currentLang]) return quest[i18nField][currentLang];
+    
+    // Fallback to Polish
+    if (quest[i18nField].pl) return quest[i18nField].pl;
+    
+    // Fallback to English
+    if (quest[i18nField].en) return quest[i18nField].en;
+  }
+  
+  // Fallback to legacy field (backward compatibility)
+  if (typeof quest[fieldName] === 'string') return quest[fieldName];
+  
+  return '';
+}
+
+/**
+ * Convenience function to get translated quest title
+ * @param {Object} quest - Quest object
+ * @returns {string} Translated title
+ */
+function getQuestTitle(quest) {
+  return getQuestTranslatedField(quest, 'title') || quest?.id || 'Unnamed Quest';
+}
+
+/**
+ * Convenience function to get translated quest description
+ * @param {Object} quest - Quest object
+ * @returns {string} Translated description
+ */
+function getQuestDescription(quest) {
+  return getQuestTranslatedField(quest, 'description') || '';
+}
+
+// Make Quest functions globally accessible
+window.getQuestTitle = getQuestTitle;
+window.getQuestDescription = getQuestDescription;
+window.getQuestTranslatedField = getQuestTranslatedField;
+
+/**
  * Get a translated field from a car object based on current language
  * @param {Object} car - Car object with i18n fields
  * @param {string} fieldName - Field to translate (e.g., 'car_model', 'description', 'car_type')
