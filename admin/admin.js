@@ -3096,7 +3096,7 @@ function openQuestForm(mode, quest) {
   }
   
   // Render i18n components for title and description
-  if (window.renderI18nInput && window.renderI18nTextarea) {
+  if (window.renderI18nInput) {
     const titleContainer = $('#questTitleI18nContainer');
     const descContainer = $('#questDescriptionI18nContainer');
     
@@ -3108,12 +3108,13 @@ function openQuestForm(mode, quest) {
           ? { pl: quest.title } 
           : {};
       
-      window.renderI18nInput(
-        titleContainer,
-        'title',
-        titleData,
-        { placeholder: 'Quest title', required: true }
-      );
+      titleContainer.innerHTML = window.renderI18nInput({
+        fieldName: 'title',
+        label: 'Title',
+        type: 'text',
+        placeholder: 'Quest title',
+        currentValues: titleData
+      });
     }
     
     if (descContainer) {
@@ -3124,12 +3125,14 @@ function openQuestForm(mode, quest) {
           ? { pl: quest.description } 
           : {};
       
-      window.renderI18nTextarea(
-        descContainer,
-        'description',
-        descData,
-        { placeholder: 'Quest description (optional)', rows: 3 }
-      );
+      descContainer.innerHTML = window.renderI18nInput({
+        fieldName: 'description',
+        label: 'Description',
+        type: 'textarea',
+        rows: 3,
+        placeholder: 'Quest description (optional)',
+        currentValues: descData
+      });
     }
   }
   
