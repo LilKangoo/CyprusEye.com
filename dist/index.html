@@ -607,8 +607,6 @@
   <script src="js/data-packing.js"></script>
   <script src="js/modalUtils.js"></script>
   <script src="js/successPopup.js"></script>
-  <script src="js/home-trips.js"></script>
-  <script src="js/home-hotels.js"></script>
   
   <!-- Comments Modal (shared with community) -->
   <div id="commentsModal" class="comments-modal" hidden role="dialog" aria-modal="true" aria-labelledby="commentsModalTitle">
@@ -670,6 +668,10 @@
   
   <!-- Global Language Refresh System -->
   <script src="js/languageRefresh.js"></script>
+  
+  <!-- Home page section scripts (MUST load AFTER languageSwitcher.js for i18n helpers) -->
+  <script src="js/home-trips.js" defer></script>
+  <script src="js/home-hotels.js" defer></script>
   
   <!-- Load core application (defer to wait for poi-loader) -->
   <script src="js/app-core.js?v=5" defer></script>
