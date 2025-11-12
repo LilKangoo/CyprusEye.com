@@ -28,12 +28,44 @@ async function loadHomeTrips() {
 
     homeTripsData = data || [];
     console.log('✅ Loaded trips:', homeTripsData.length, homeTripsData);
+    renderHomeTripsTabs();
     renderHomeTrips();
 
   } catch (err) {
     console.error('❌ Failed to load trips:', err);
     document.getElementById('tripsHomeGrid').innerHTML = '<p style="text-align:center;color:#ef4444;">Błąd ładowania wycieczek</p>';
   }
+}
+
+// Get unique cities from trips
+function getTripCities() {
+  const cities = new Set();
+  homeTripsData.forEach(trip => {
+    if (trip.start_city && trip.start_city !== 'All Cities') {
+      cities.add(trip.start_city);
+    }
+  });
+  return Array.from(cities).sort();
+}
+
+// Render trip city tabs with translations
+function renderHomeTripsTabs() {
+  const tabsWrap = document.getElementById('tripsHomeTabs');
+  if (!tabsWrap) return;
+  
+  // Get current language for translations
+  const currentLang = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
+  const allCitiesLabel = currentLang === 'en' ? 'All Cities' : 
+                         currentLang === 'el' ? 'Όλες οι πόλεις' :
+                         currentLang === 'he' ? 'כל הערים' : 
+                         'Wszystkie miasta';
+  
+  const tabs = [`<button class="trips-home-tab active" data-city="all" style="padding:8px 16px;background:#667eea;color:white;border:none;border-radius:20px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.2s;">${allCitiesLabel}</button>`];
+  getTripCities().forEach(city => {
+    tabs.push(`<button class="trips-home-tab" data-city="${city}" style="padding:8px 16px;background:#f3f4f6;color:#374151;border:none;border-radius:20px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.2s;">${city}</button>`);
+  });
+  tabsWrap.innerHTML = tabs.join('');
+  initHomeTripsTabs();
 }
 
 // Render trips grid
@@ -202,6 +234,7 @@ document.addEventListener('DOMContentLoaded', function() {
     window.registerLanguageChangeHandler((language) => {
       console.log('🗺️ Trips: Re-rendering for language:', language);
       if (homeTripsData && homeTripsData.length > 0) {
+        renderHomeTripsTabs(); // Re-render tabs with new language
         renderHomeTrips();
         console.log('✅ Trips re-rendered');
       }

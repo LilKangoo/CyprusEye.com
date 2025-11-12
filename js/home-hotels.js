@@ -37,7 +37,15 @@ function getHotelCities(){
 function renderHomeHotelsTabs(){
   const tabsWrap = document.getElementById('hotelsHomeTabs');
   if(!tabsWrap) return;
-  const tabs = ['<button class="hotels-home-tab active" data-city="all" style="padding:8px 16px;background:#10b981;color:white;border:none;border-radius:20px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.2s;">Wszystkie miasta</button>'];
+  
+  // Get current language for translations
+  const currentLang = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
+  const allCitiesLabel = currentLang === 'en' ? 'All Cities' : 
+                         currentLang === 'el' ? 'Όλες οι πόλεις' :
+                         currentLang === 'he' ? 'כל הערים' : 
+                         'Wszystkie miasta';
+  
+  const tabs = [`<button class="hotels-home-tab active" data-city="all" style="padding:8px 16px;background:#10b981;color:white;border:none;border-radius:20px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.2s;">${allCitiesLabel}</button>`];
   getHotelCities().forEach(c=>{
     tabs.push(`<button class="hotels-home-tab" data-city="${c}" style="padding:8px 16px;background:#f3f4f6;color:#374151;border:none;border-radius:20px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.2s;">${c}</button>`);
   });
@@ -249,6 +257,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     window.registerLanguageChangeHandler((language) => {
       console.log('🏨 Hotels: Re-rendering for language:', language);
       if (homeHotelsData && homeHotelsData.length > 0) {
+        renderHomeHotelsTabs(); // Re-render tabs with new language
         renderHomeHotels();
         console.log('✅ Hotels re-rendered');
       }
