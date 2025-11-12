@@ -132,6 +132,20 @@
 
   async function loadTasksFromDB(){
     if (!sb) return false;
+    
+    // Wait for languageSwitcher to load (with timeout)
+    let attempts = 0;
+    while (!window.getQuestTitle && attempts < 50) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      attempts++;
+    }
+    
+    if (!window.getQuestTitle) {
+      console.warn('⚠️ getQuestTitle not available after 5s, using fallback');
+    } else {
+      console.log('✅ getQuestTitle is available');
+    }
+    
     try {
       // Prefer view if exists
       let query = sb.from('public_tasks').select('id,xp,sort_order,title,description,title_i18n,description_i18n');
@@ -163,6 +177,8 @@
             _raw: row // Keep raw data for future reference
           });
         });
+        
+        console.log('📋 Tasks loaded:', TASKS.length, 'Sample:', TASKS[0]);
         return true;
       }
     } catch (e) {
@@ -231,11 +247,30 @@
 
   // --- Tasks UI ---
   function getTaskTitle(task){
+    // Try to use i18n helper first (for live language switching)
+    if (window.getQuestTitle && task._raw) {
+      const translated = window.getQuestTitle(task._raw);
+      if (translated) return translated;
+    }
+    
+    // Fallback to pre-processed title
     if (task && task.title) return task.title;
+    
+    // Final fallback to i18n key or id
     return t(`tasks.items.${task.id}.title`, task.id);
   }
+  
   function getTaskDescription(task){
+    // Try to use i18n helper first (for live language switching)
+    if (window.getQuestDescription && task._raw) {
+      const translated = window.getQuestDescription(task._raw);
+      if (translated) return translated;
+    }
+    
+    // Fallback to pre-processed description
     if (task && task.description) return task.description;
+    
+    // Final fallback to i18n key
     return t(`tasks.items.${task.id}.description`, '');
   }
 
