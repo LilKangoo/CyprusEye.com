@@ -663,8 +663,15 @@
       const cities = getUniqueCities();
       const tabsContainer = document.getElementById('tripsTabs');
       
-      // Create "Wszystkie miasta" tab + tabs for each city
-      const tabs = ['<button class="trips-tab active" data-city="all">Wszystkie miasta</button>'];
+      // Get current language for translations
+      const currentLang = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
+      const allCitiesLabel = currentLang === 'en' ? 'All Cities' : 
+                             currentLang === 'el' ? 'Όλες οι πόλεις' :
+                             currentLang === 'he' ? 'כל הערים' : 
+                             'Wszystkie miasta';
+      
+      // Create "All Cities" tab + tabs for each city
+      const tabs = [`<button class="trips-tab active" data-city="all">${allCitiesLabel}</button>`];
       cities.forEach(city => {
         tabs.push(`<button class="trips-tab" data-city="${city}">${city}</button>`);
       });
@@ -704,8 +711,8 @@
       }
 
       grid.innerHTML = filteredTrips.map((trip, index) => {
-        const title = trip.title?.pl || trip.title?.en || trip.slug;
-        const desc = trip.description?.pl || trip.description?.en || '';
+        const title = window.getTripName ? window.getTripName(trip) : (trip.title?.pl || trip.title?.en || trip.slug);
+        const desc = window.getTripDescription ? window.getTripDescription(trip) : (trip.description?.pl || trip.description?.en || '');
         const shortDesc = desc.length > 100 ? desc.substring(0, 100) + '...' : desc;
         const price = trip.pricing_model === 'per_person' && trip.price_per_person 
           ? `${Number(trip.price_per_person).toFixed(2)} €` 
@@ -785,9 +792,9 @@
       currentTripIndex = tripIndex;
       currentTrip = trip;
       
-      // Populate modal
-      const title = trip.title?.pl || trip.title?.en || trip.slug;
-      const desc = trip.description?.pl || trip.description?.en || '';
+      // Populate modal with i18n support
+      const title = window.getTripName ? window.getTripName(trip) : (trip.title?.pl || trip.title?.en || trip.slug);
+      const desc = window.getTripDescription ? window.getTripDescription(trip) : (trip.description?.pl || trip.description?.en || '');
       const image = trip.cover_image_url || 'https://images.unsplash.com/photo-1476514525535-07fb3b4ae5f1?w=800&h=600&fit=crop';
       
       document.getElementById('modalTripImage').src = image;
@@ -981,7 +988,23 @@
     }
 
     loadTrips();
+    
+    // Register language change handler
+    if (typeof window.registerLanguageChangeHandler === 'function') {
+      window.registerLanguageChangeHandler((language) => {
+        console.log('🚤 Trips Page: Re-rendering for language:', language);
+        if (allTrips && allTrips.length > 0) {
+          renderTabs();
+          renderTrips();
+          console.log('✅ Trips Page re-rendered');
+        }
+      });
+    }
   </script>
+  <!-- Language Switcher for i18n helpers -->
+  <script src="/js/languageSwitcher.js"></script>
+  <!-- Global Language Refresh System -->
+  <script src="/js/languageRefresh.js"></script>
   <script src="/js/seo.js" defer></script>
   <script src="/js/mobile-nav.js" defer></script>
 </body>

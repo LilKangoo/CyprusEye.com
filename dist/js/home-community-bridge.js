@@ -345,6 +345,18 @@
     }
   });
 
+  // Register language change handler to refresh current place display
+  if (typeof window.registerLanguageChangeHandler === 'function') {
+    window.registerLanguageChangeHandler((language) => {
+      console.log('📍 POI Panel: Re-rendering for language:', language);
+      if (currentId) {
+        // Re-render current place with new language
+        setCurrentPlace(currentId, {focus:false, scroll:false, force:true});
+        console.log('✅ POI Panel re-rendered');
+      }
+    });
+  }
+
   if(document.readyState==='loading'){
     document.addEventListener('DOMContentLoaded', initialize);
   } else {
