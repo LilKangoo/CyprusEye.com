@@ -509,11 +509,48 @@ function getCarType(car) {
   return getCarTranslatedField(car, 'car_type') || '';
 }
 
+/**
+ * Get translated features array for current language
+ * @param {Object} car - Car object
+ * @returns {Array} Array of translated features
+ */
+function getCarFeatures(car) {
+  if (!car || !car.features) return [];
+  
+  const currentLang = getCurrentLanguage();
+  
+  // Check if features is an i18n object
+  if (car.features && typeof car.features === 'object' && !Array.isArray(car.features)) {
+    // Try current language
+    if (car.features[currentLang] && Array.isArray(car.features[currentLang])) {
+      return car.features[currentLang];
+    }
+    
+    // Fallback to Polish if current language not available
+    if (car.features.pl && Array.isArray(car.features.pl)) {
+      return car.features.pl;
+    }
+    
+    // Fallback to English if Polish not available
+    if (car.features.en && Array.isArray(car.features.en)) {
+      return car.features.en;
+    }
+  }
+  
+  // Fallback to direct array (legacy)
+  if (Array.isArray(car.features)) {
+    return car.features;
+  }
+  
+  return [];
+}
+
 // Make Car functions globally accessible
 window.getCarTranslatedField = getCarTranslatedField;
 window.getCarName = getCarName;
 window.getCarDescription = getCarDescription;
 window.getCarType = getCarType;
+window.getCarFeatures = getCarFeatures;
 
 // Export for external use
 if (typeof module !== 'undefined' && module.exports) {

@@ -76,8 +76,17 @@ function renderFleet() {
   }
 
   grid.innerHTML = paphosFleet.map(car => {
-    const features = Array.isArray(car.features) ? car.features : [];
-    const transmission = car.transmission === 'automatic' ? 'Automat' : 'Manual';
+    // Get translated features using i18n helper
+    const features = window.getCarFeatures ? window.getCarFeatures(car) : (Array.isArray(car.features) ? car.features : []);
+    
+    // Get current language for translations
+    const currentLang = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
+    
+    // Translate transmission
+    const transmission = car.transmission === 'automatic' 
+      ? (currentLang === 'en' ? 'Automatic' : currentLang === 'pl' ? 'Automat' : 'Automatic')
+      : (currentLang === 'en' ? 'Manual' : currentLang === 'pl' ? 'Manual' : 'Manual');
+    
     const seats = car.max_passengers || 5;
     
     // Calculate display price (use 10+ days rate as "from" price)
@@ -100,9 +109,9 @@ function renderFleet() {
         </header>
         <ul class="auto-card-specs">
           <li>${transmission}</li>
-          <li>${seats} ${seats === 1 ? 'osoba' : seats < 5 ? 'osoby' : 'osób'}</li>
+          <li>${seats} ${currentLang === 'en' ? (seats === 1 ? 'seat' : 'seats') : (seats === 1 ? 'osoba' : seats < 5 ? 'osoby' : 'osób')}</li>
           <li>AC</li>
-          <li>${car.fuel_type === 'petrol' ? 'Paliwo 95' : car.fuel_type === 'diesel' ? 'Diesel' : car.fuel_type}</li>
+          <li>${car.fuel_type === 'petrol' ? (currentLang === 'en' ? 'Petrol 95' : 'Paliwo 95') : car.fuel_type === 'diesel' ? 'Diesel' : car.fuel_type}</li>
         </ul>
         ${window.getCarDescription ? `<p class="auto-card-note">${escapeHtml(window.getCarDescription(car))}</p>` : (car.description ? `<p class="auto-card-note">${escapeHtml(car.description)}</p>` : '')}
         ${features.length > 0 ? `
@@ -127,10 +136,14 @@ function updateCalculatorOptions() {
   if (paphosFleet.length === 0) return;
 
   const optionsHTML = paphosFleet.map(car => {
-    const transmission = car.transmission === 'automatic' ? 'Automat' : 'Manual';
+    const currentLang = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
+    const transmission = car.transmission === 'automatic' 
+      ? (currentLang === 'en' ? 'Automatic' : 'Automat')
+      : (currentLang === 'en' ? 'Manual' : 'Manual');
     const seats = car.max_passengers || 5;
     const carModelName = window.getCarName ? window.getCarName(car) : car.car_model;
-    return `<option value="${escapeHtml(carModelName)}">${escapeHtml(carModelName)} — ${transmission} • ${seats} os.</option>`;
+    const seatsLabel = currentLang === 'en' ? (seats === 1 ? 'seat' : 'seats') : 'os.';
+    return `<option value="${escapeHtml(carModelName)}">${escapeHtml(carModelName)} — ${transmission} • ${seats} ${seatsLabel}</option>`;
   }).join('');
 
   // Update calculator select
