@@ -9,6 +9,19 @@ let homeHotelIndex = null;
 
 async function loadHomeHotels(){
   try{
+    // Wait for languageSwitcher to load (with timeout)
+    let attempts = 0;
+    while (!window.getHotelName && attempts < 50) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      attempts++;
+    }
+    
+    if (!window.getHotelName) {
+      console.warn('⚠️ getHotelName not available after 5s, using fallback');
+    } else {
+      console.log('✅ getHotelName is available');
+    }
+    
     const { supabase } = await import('./supabaseClient.js');
     if(!supabase) throw new Error('Supabase client not available');
 
@@ -69,6 +82,16 @@ function renderHomeHotels(){
   grid.innerHTML = display.map((h, index)=>{
     const image = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png';
     const title = window.getHotelName ? window.getHotelName(h) : (h.title?.pl || h.title?.en || h.slug || 'Hotel');
+    
+    // DEBUG: Log what we're rendering
+    if (index === 0) {
+      console.log('🔍 Hotels render debug:', {
+        hasHotelName: !!window.getHotelName,
+        currentLang: window.getCurrentLanguage ? window.getCurrentLanguage() : 'unknown',
+        hotelTitle: h.title,
+        renderedTitle: title
+      });
+    }
     let price = '';
     const tiers = h.pricing_tiers?.rules || [];
     if(tiers.length){

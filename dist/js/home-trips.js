@@ -10,6 +10,19 @@ let homeCurrentIndex = null;
 // Load trips from Supabase (exactly like trips.html)
 async function loadHomeTrips() {
   try {
+    // Wait for languageSwitcher to load (with timeout)
+    let attempts = 0;
+    while (!window.getTripName && attempts < 50) {
+      await new Promise(resolve => setTimeout(resolve, 100));
+      attempts++;
+    }
+    
+    if (!window.getTripName) {
+      console.warn('⚠️ getTripName not available after 5s, using fallback');
+    } else {
+      console.log('✅ getTripName is available');
+    }
+    
     // Import Supabase client (same as trips.html)
     const { supabase } = await import('/js/supabaseClient.js');
     
@@ -105,6 +118,16 @@ function renderHomeTrips() {
     
     // Get title (support multilingual or slug)
     const title = window.getTripName ? window.getTripName(trip) : (trip.title?.pl || trip.title?.en || trip.title || trip.slug || 'Wycieczka');
+    
+    // DEBUG: Log what we're rendering
+    if (index === 0) {
+      console.log('🔍 Trips render debug:', {
+        hasTripName: !!window.getTripName,
+        currentLang: window.getCurrentLanguage ? window.getCurrentLanguage() : 'unknown',
+        tripTitle: trip.title,
+        renderedTitle: title
+      });
+    }
     
     // Get price based on pricing model (same as trips.html)
     const pricingModel = trip.pricing_model || 'per_person';
