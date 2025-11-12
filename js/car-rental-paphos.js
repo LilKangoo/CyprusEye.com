@@ -98,11 +98,16 @@ function renderFleet() {
     // Get image or use placeholder
     const imageUrl = car.image_url || 'https://placehold.co/400x250/1e293b/ffffff?text=' + encodeURIComponent(carModelName);
 
+    // Translate labels
+    const fromLabel = currentLang === 'en' ? 'From' : 'Od';
+    const perDayLabel = currentLang === 'en' ? '/day' : '/dzień';
+    const reserveLabel = currentLang === 'en' ? 'Reserve this car' : 'Zarezerwuj to auto';
+    
     return `
       <article class="card auto-card">
         ${car.image_url ? `<img src="${escapeHtml(car.image_url)}" alt="${escapeHtml(carModelName)}" class="auto-card-image" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0;">` : ''}
         <header class="auto-card-header">
-          <span class="auto-card-price">Od ${fromPrice}€/dzień</span>
+          <span class="auto-card-price">${fromLabel} ${fromPrice}€${perDayLabel}</span>
           <div class="auto-card-title">
             <h3>${escapeHtml(carModelName)}<span>${transmission} • ${seats} os. • AC</span></h3>
           </div>
@@ -119,7 +124,7 @@ function renderFleet() {
             ${features.slice(0, 3).map(f => `<li>✓ ${escapeHtml(f)}</li>`).join('')}
           </ul>
         ` : ''}
-        <button type="button" class="btn btn-secondary secondary" data-select-car="${escapeHtml(carModelName)}">Zarezerwuj to auto</button>
+        <button type="button" class="btn btn-secondary secondary" data-select-car="${escapeHtml(carModelName)}">${reserveLabel}</button>
       </article>
     `;
   }).join('');
@@ -384,6 +389,22 @@ document.addEventListener('DOMContentLoaded', () => {
       lcaForm.addEventListener('submit', (e) => { e.preventDefault(); window.calculatePrice(); });
       lcaForm.addEventListener('change', () => window.calculatePrice());
       // Initial calculation when data ready
+      window.calculatePrice();
+    }
+  });
+  
+  // Listen for language changes and re-render fleet
+  window.addEventListener('languageChanged', (e) => {
+    console.log('🌐 Language changed to:', e.detail.language);
+    
+    // Re-render fleet with new language
+    renderFleet();
+    
+    // Update calculator options
+    updateCalculatorOptions();
+    
+    // Re-calculate prices if calculator exists
+    if (typeof window.calculatePrice === 'function') {
       window.calculatePrice();
     }
   });
