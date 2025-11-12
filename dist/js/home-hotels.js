@@ -243,6 +243,17 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if (lbPrev) lbPrev.addEventListener('click', ()=> showHotelLightbox(lbIndex-1));
   if (lbNext) lbNext.addEventListener('click', ()=> showHotelLightbox(lbIndex+1));
   if (lb) lb.addEventListener('click', (e)=>{ if (e.target === lb) closeHotelLightbox(); });
+  
+  // Register language change handler
+  if (typeof window.registerLanguageChangeHandler === 'function') {
+    window.registerLanguageChangeHandler((language) => {
+      console.log('🏨 Hotels: Re-rendering for language:', language);
+      if (homeHotelsData && homeHotelsData.length > 0) {
+        renderHomeHotels();
+        console.log('✅ Hotels re-rendered');
+      }
+    });
+  }
 });
 
 // ----- Modal helpers (1:1 with /hotels) -----

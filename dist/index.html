@@ -682,6 +682,9 @@
   <!-- Language Switcher - MUST load before other scripts that use getPoiName() -->
   <script src="js/languageSwitcher.js"></script>
   
+  <!-- Global Language Refresh System -->
+  <script src="js/languageRefresh.js"></script>
+  
   <!-- Load core application (defer to wait for poi-loader) -->
   <script src="js/app-core.js?v=5" defer></script>
   <!-- SOS Emergency Modal -->
@@ -1563,44 +1566,6 @@
       </div>
     </div>
   </div>
-
-  <script>
-    // Auto-refresh content when language changes
-    let lastLanguage = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
-    
-    setInterval(() => {
-      const currentLang = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
-      if (currentLang !== lastLanguage) {
-        console.log('🌐 Language changed from', lastLanguage, 'to', currentLang);
-        lastLanguage = currentLang;
-        
-        // Re-render all sections
-        if (typeof renderHomeTrips === 'function') {
-          renderHomeTrips();
-        }
-        if (typeof renderHomeHotels === 'function') {
-          renderHomeHotels();
-        }
-        
-        // Re-render modals if open
-        // Trip modal
-        const tripModal = document.getElementById('tripModal');
-        if (tripModal && !tripModal.hidden && typeof homeCurrentIndex === 'number' && typeof openTripModalHome === 'function') {
-          console.log('🔄 Re-rendering trip modal for language change');
-          openTripModalHome(homeCurrentIndex);
-        }
-        
-        // Hotel modal
-        const hotelModal = document.getElementById('hotelModal');
-        if (hotelModal && !hotelModal.hidden && typeof homeHotelIndex === 'number' && typeof openHotelModalHome === 'function') {
-          console.log('🔄 Re-rendering hotel modal for language change');
-          openHotelModalHome(homeHotelIndex);
-        }
-        
-        // POIs are handled by app-core.js
-      }
-    }, 300);
-  </script>
 
 </body>
 </html>

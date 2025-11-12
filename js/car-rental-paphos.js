@@ -383,9 +383,6 @@ function escapeHtml(unsafe) {
     .replace(/'/g, "&#039;");
 }
 
-// Debounce helper
-let languageChangeTimeout = null;
-
 // Initialize
 document.addEventListener('DOMContentLoaded', () => {
   loadPaphosFleet().then(() => {
@@ -399,18 +396,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
   
-  // Function to handle language change (used by both event types)
-  const handleLanguageChange = (language) => {
-    console.log('🌐 Language changed to:', language);
-    
-    // Clear previous timeout
-    if (languageChangeTimeout) {
-      clearTimeout(languageChangeTimeout);
-    }
-    
-    // Debounce re-render by 200ms
-    languageChangeTimeout = setTimeout(() => {
-      console.log('🔄 Re-rendering fleet for language:', language);
+  // Register language change handler (uses global helper if available)
+  if (typeof window.registerLanguageChangeHandler === 'function') {
+    window.registerLanguageChangeHandler((language) => {
+      console.log('🚗 Car rental: Re-rendering for language:', language);
       
       // Only re-render if fleet is loaded
       if (paphosFleet && paphosFleet.length > 0) {
@@ -422,23 +411,10 @@ document.addEventListener('DOMContentLoaded', () => {
           window.calculatePrice();
         }
         
-        console.log('✅ Fleet re-rendered successfully');
-      } else {
-        console.warn('⚠️ Fleet not loaded yet, skipping re-render');
+        console.log('✅ Car rental re-rendered');
       }
-    }, 200); // 200ms debounce
-  };
-  
-  // Listen for both language change events
-  // languageSwitcher.js uses 'languageChanged'
-  window.addEventListener('languageChanged', (e) => {
-    handleLanguageChange(e.detail.language);
-  });
-  
-  // i18n.js uses 'wakacjecypr:languagechange'
-  document.addEventListener('wakacjecypr:languagechange', (e) => {
-    handleLanguageChange(e.detail.language);
-  });
+    });
+  }
 });
 
 export { loadPaphosFleet, paphosFleet };

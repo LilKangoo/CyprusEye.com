@@ -196,6 +196,17 @@ document.addEventListener('DOMContentLoaded', function() {
   if (grid) grid.addEventListener('scroll', updateArrows, { passive: true });
   window.addEventListener('resize', updateArrows);
   updateArrows();
+  
+  // Register language change handler
+  if (typeof window.registerLanguageChangeHandler === 'function') {
+    window.registerLanguageChangeHandler((language) => {
+      console.log('🗺️ Trips: Re-rendering for language:', language);
+      if (homeTripsData && homeTripsData.length > 0) {
+        renderHomeTrips();
+        console.log('✅ Trips re-rendered');
+      }
+    });
+  }
 });
 
 // --- Modal logic identical to /trips ---
