@@ -146,6 +146,12 @@ function moveTripDown(tripId) {
   moveTrip(tripId, 1);
 }
 
+// Expose helpers for inline onclick handlers in dashboard.html
+if (typeof window !== 'undefined') {
+  window.moveTripUp = moveTripUp;
+  window.moveTripDown = moveTripDown;
+}
+
 // =====================================================
 // TRIP BOOKINGS MODULE
 // =====================================================
