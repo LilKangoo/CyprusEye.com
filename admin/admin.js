@@ -747,7 +747,10 @@ async function loadTripsAdminData() {
     console.error('Failed to load trips:', e);
     showToast('Failed to load trips: ' + (e.message || 'Unknown error'), 'error');
     const tbody = document.getElementById('tripsTableBody');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="table-loading" style="color:var(--admin-danger)">Error: ${escapeHtml(e.message||'')}</td></tr>`;
+    if (tbody) {
+      const msg = 'Error: ' + escapeHtml(e.message || '');
+      tbody.innerHTML = '<tr><td colspan="6" class="table-loading" style="color:var(--admin-danger)">' + msg + '</td></tr>';
+    }
   }
 }
 
