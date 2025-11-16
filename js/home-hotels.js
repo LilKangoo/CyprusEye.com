@@ -29,7 +29,7 @@ async function loadHomeHotels(){
       .from('hotels')
       .select('*')
       .eq('is_published', true)
-      .order('sort_order', { ascending: true });
+      .order('created_at', { ascending: false });
     if(error) throw error;
     homeHotelsData = data || [];
     renderHomeHotelsTabs();
@@ -168,9 +168,9 @@ document.addEventListener('DOMContentLoaded', ()=>{
     });
   }
   
-  // Setup date constraints (once, not per modal open) – HOTEL MODAL ONLY
-  const arrivalEl = document.getElementById('hotelArrivalDate');
-  const departureEl = document.getElementById('hotelDepartureDate');
+  // Setup date constraints (once, not per modal open)
+  const arrivalEl = document.getElementById('arrivalDate');
+  const departureEl = document.getElementById('departureDate');
   if (arrivalEl && departureEl) {
     arrivalEl.addEventListener('change', () => {
       if (arrivalEl.value) {
@@ -201,33 +201,28 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const { supabase } = await import('./supabaseClient.js');
       
       // Build payload from form data
-      const fd = new FormData(e.target);
-      const a = fd.get('arrival_date');
-      const d = fd.get('departure_date');
-      
-      // Validate dates
-      if(!a || !d){
-        throw new Error('Proszę podać daty przyjazdu i wyjazdu');
-      }
-      
-      const nights = nightsBetween(a,d);
-      const adults = Number(fd.get('adults')||0);
-      const children = Number(fd.get('children')||0);
-      const total = calculateHotelPrice(homeCurrentHotel, adults + children, nights);
+      const fd = new FormData(form);
+      const arrivalDate = fd.get('arrival_date');
+      const departureDate = fd.get('departure_date');
+      const adults = parseInt(fd.get('adults')) || 2;
+      const children = parseInt(fd.get('children')) || 0;
+      const nights = nightsBetween(arrivalDate, departureDate);
+      const totalPrice = calculateHotelPrice(homeCurrentHotel, adults + children, nights);
       
       const payload = {
         hotel_id: homeCurrentHotel.id,
         hotel_slug: homeCurrentHotel.slug,
+        category_id: homeCurrentHotel.category_id,
         customer_name: fd.get('name'),
         customer_email: fd.get('email'),
         customer_phone: fd.get('phone'),
-        arrival_date: a,
-        departure_date: d,
+        arrival_date: arrivalDate,
+        departure_date: departureDate,
         num_adults: adults,
         num_children: children,
-        nights,
+        nights: nights,
         notes: fd.get('notes'),
-        total_price: total,
+        total_price: totalPrice,
         status: 'pending'
       };
       
@@ -324,10 +319,10 @@ function updateHotelLivePrice(){
   const modal = document.getElementById('hotelModal');
   const form = modal ? modal.querySelector('#hotelBookingForm') : null;
   if (!form) return;
-  const a = (form.querySelector('#hotelArrivalDate')||{}).value || '';
-  const d = (form.querySelector('#hotelDepartureDate')||{}).value || '';
-  const adults = Number((form.querySelector('#hotelBookingAdults')||{}).value||0);
-  const children = Number((form.querySelector('#hotelBookingChildren')||{}).value||0);
+  const a = (form.querySelector('#arrivalDate')||{}).value || '';
+  const d = (form.querySelector('#departureDate')||{}).value || '';
+  const adults = Number((form.querySelector('#bookingAdults')||{}).value||0);
+  const children = Number((form.querySelector('#bookingChildren')||{}).value||0);
   const persons = adults + children;
   const maxPersons = Number(homeCurrentHotel.max_persons||0) || null;
   const nights = nightsBetween(a,d);
@@ -380,20 +375,20 @@ window.openHotelModalHome = function(index){
   
   // Set date min constraints to today
   const today = new Date().toISOString().split('T')[0];
-  const arrivalEl = document.getElementById('hotelArrivalDate');
-  const departureEl = document.getElementById('hotelDepartureDate');
+  const arrivalEl = document.getElementById('arrivalDate');
+  const departureEl = document.getElementById('departureDate');
   if (arrivalEl) arrivalEl.min = today;
   if (departureEl) departureEl.min = today;
   
   // max persons
   const maxPersons = Number(h.max_persons||0) || null;
-  const adultsEl = document.getElementById('hotelBookingAdults');
-  const childrenEl = document.getElementById('hotelBookingChildren');
+  const adultsEl = document.getElementById('bookingAdults');
+  const childrenEl = document.getElementById('bookingChildren');
   if (maxPersons){ adultsEl.max = String(maxPersons); childrenEl.max = String(Math.max(0, maxPersons-1)); }
   else { adultsEl.removeAttribute('max'); childrenEl.removeAttribute('max'); }
 
-  // bind price updates (HOTEL IDs ONLY)
-  ['hotelArrivalDate','hotelDepartureDate','hotelBookingAdults','hotelBookingChildren'].forEach(id=>{
+  // bind price updates
+  ['arrivalDate','departureDate','bookingAdults','bookingChildren'].forEach(id=>{
     const old = document.getElementById(id);
     if (!old) return;
     const clone = old.cloneNode(true);

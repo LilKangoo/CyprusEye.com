@@ -1,1 +1,237 @@
-export function getLocationFromURL(){return new URLSearchParams(window.location.search).get("location")}export function setLocationFilter(locationId){const url=new URL(window.location.href);locationId?url.searchParams.set("location",locationId):url.searchParams.delete("location"),window.history.pushState({},"",url)}export function shouldShowContent(contentLocationId){const filterLocation=getLocationFromURL();return!filterLocation||contentLocationId===filterLocation}export function initLocationFilter(){const locationId=getLocationFromURL();locationId&&(function(locationId){const badge=document.createElement("div");badge.id="location-filter-badge",badge.className="location-filter-badge",badge.innerHTML=`\n    <div class="badge-content">\n      <span class="badge-icon">📍</span>\n      <span class="badge-text">Filtr: ${locationId}</span>\n      <button class="badge-close" onclick="window.clearLocationFilter()">×</button>\n    </div>\n  `;const container=document.querySelector(".community-container")||document.body;container.insertBefore(badge,container.firstChild)}(locationId),function(locationId){const allPosts=document.querySelectorAll("[data-location]");let visibleCount=0;allPosts.forEach(post=>{post.getAttribute("data-location")===locationId?(post.style.display="",visibleCount++):post.style.display="none"}),0===visibleCount&&function(locationId){const message=document.createElement("div");message.className="no-content-message",message.innerHTML=`\n    <div class="no-content-card">\n      <div class="no-content-icon">📸</div>\n      <h3>Brak treści dla tego miejsca</h3>\n      <p>Bądź pierwszy i dodaj zdjęcie lub komentarz dla <strong>${locationId}</strong>!</p>\n      <button class="btn btn-primary" onclick="window.clearLocationFilter()">\n        Zobacz wszystkie miejsca\n      </button>\n    </div>\n  `,(document.querySelector(".community-container")||document.body).appendChild(message)}(locationId)}(locationId))}window.clearLocationFilter=function(){setLocationFilter(null),window.location.reload()};const style=document.createElement("style");style.textContent="\n  .location-filter-badge {\n    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);\n    padding: 12px 20px;\n    margin: 16px 0;\n    border-radius: 12px;\n    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);\n    animation: slideDown 0.3s ease-out;\n  }\n  \n  .badge-content {\n    display: flex;\n    align-items: center;\n    gap: 12px;\n    color: white;\n    font-weight: 600;\n  }\n  \n  .badge-icon {\n    font-size: 20px;\n  }\n  \n  .badge-text {\n    flex: 1;\n    font-size: 15px;\n  }\n  \n  .badge-close {\n    background: rgba(255, 255, 255, 0.2);\n    border: none;\n    color: white;\n    width: 28px;\n    height: 28px;\n    border-radius: 50%;\n    cursor: pointer;\n    font-size: 20px;\n    line-height: 1;\n    transition: background 0.2s;\n  }\n  \n  .badge-close:hover {\n    background: rgba(255, 255, 255, 0.3);\n  }\n  \n  .no-content-message {\n    padding: 40px 20px;\n    text-align: center;\n  }\n  \n  .no-content-card {\n    background: white;\n    border-radius: 16px;\n    padding: 40px;\n    max-width: 500px;\n    margin: 0 auto;\n    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);\n  }\n  \n  .no-content-icon {\n    font-size: 64px;\n    margin-bottom: 16px;\n  }\n  \n  .no-content-card h3 {\n    font-size: 24px;\n    margin-bottom: 12px;\n    color: #1f2937;\n  }\n  \n  .no-content-card p {\n    font-size: 16px;\n    color: #6b7280;\n    margin-bottom: 24px;\n    line-height: 1.5;\n  }\n  \n  @keyframes slideDown {\n    from {\n      opacity: 0;\n      transform: translateY(-20px);\n    }\n    to {\n      opacity: 1;\n      transform: translateY(0);\n    }\n  }\n",document.head.appendChild(style),"loading"===document.readyState?document.addEventListener("DOMContentLoaded",initLocationFilter):initLocationFilter();
+// ===================================
+// Location Filter Module
+// Handles filtering community content by POI location
+// ===================================
+
+/**
+ * Get the location parameter from URL
+ * @returns {string|null} Location ID or null
+ */
+export function getLocationFromURL() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get('location');
+}
+
+/**
+ * Set location filter in URL without page reload
+ * @param {string|null} locationId - POI ID to filter by
+ */
+export function setLocationFilter(locationId) {
+  const url = new URL(window.location.href);
+  if (locationId) {
+    url.searchParams.set('location', locationId);
+  } else {
+    url.searchParams.delete('location');
+  }
+  window.history.pushState({}, '', url);
+}
+
+/**
+ * Check if content should be shown for current location filter
+ * @param {string} contentLocationId - Location ID from content
+ * @returns {boolean} True if should be shown
+ */
+export function shouldShowContent(contentLocationId) {
+  const filterLocation = getLocationFromURL();
+  
+  // No filter - show all content
+  if (!filterLocation) return true;
+  
+  // Filter active - only show matching content
+  return contentLocationId === filterLocation;
+}
+
+/**
+ * Initialize location filter UI
+ */
+export function initLocationFilter() {
+  const locationId = getLocationFromURL();
+  
+  if (locationId) {
+    console.log(`🗺️ Filtrowanie społeczności dla lokalizacji: ${locationId}`);
+    
+    // Show filter badge
+    showLocationFilterBadge(locationId);
+    
+    // Filter existing content
+    filterExistingContent(locationId);
+  }
+}
+
+/**
+ * Show location filter badge in UI
+ * @param {string} locationId - POI ID
+ */
+function showLocationFilterBadge(locationId) {
+  const badge = document.createElement('div');
+  badge.id = 'location-filter-badge';
+  badge.className = 'location-filter-badge';
+  badge.innerHTML = `
+    <div class="badge-content">
+      <span class="badge-icon">📍</span>
+      <span class="badge-text">Filtr: ${locationId}</span>
+      <button class="badge-close" onclick="window.clearLocationFilter()">×</button>
+    </div>
+  `;
+  
+  // Insert at top of community container
+  const container = document.querySelector('.community-container') || document.body;
+  container.insertBefore(badge, container.firstChild);
+}
+
+/**
+ * Clear location filter
+ */
+window.clearLocationFilter = function() {
+  setLocationFilter(null);
+  window.location.reload();
+};
+
+/**
+ * Filter existing content on page
+ * @param {string} locationId - POI ID to filter by
+ */
+function filterExistingContent(locationId) {
+  // Hide content that doesn't match
+  const allPosts = document.querySelectorAll('[data-location]');
+  let visibleCount = 0;
+  
+  allPosts.forEach(post => {
+    const postLocation = post.getAttribute('data-location');
+    if (postLocation === locationId) {
+      post.style.display = '';
+      visibleCount++;
+    } else {
+      post.style.display = 'none';
+    }
+  });
+  
+  console.log(`✅ Filtrowanie zakończone: ${visibleCount} postów widocznych`);
+  
+  // Show "no content" message if needed
+  if (visibleCount === 0) {
+    showNoContentMessage(locationId);
+  }
+}
+
+/**
+ * Show "no content" message
+ * @param {string} locationId - POI ID
+ */
+function showNoContentMessage(locationId) {
+  const message = document.createElement('div');
+  message.className = 'no-content-message';
+  message.innerHTML = `
+    <div class="no-content-card">
+      <div class="no-content-icon">📸</div>
+      <h3>Brak treści dla tego miejsca</h3>
+      <p>Bądź pierwszy i dodaj zdjęcie lub komentarz dla <strong>${locationId}</strong>!</p>
+      <button class="btn btn-primary" onclick="window.clearLocationFilter()">
+        Zobacz wszystkie miejsca
+      </button>
+    </div>
+  `;
+  
+  const container = document.querySelector('.community-container') || document.body;
+  container.appendChild(message);
+}
+
+// Add CSS for filter badge
+const style = document.createElement('style');
+style.textContent = `
+  .location-filter-badge {
+    background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+    padding: 12px 20px;
+    margin: 16px 0;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+    animation: slideDown 0.3s ease-out;
+  }
+  
+  .badge-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: white;
+    font-weight: 600;
+  }
+  
+  .badge-icon {
+    font-size: 20px;
+  }
+  
+  .badge-text {
+    flex: 1;
+    font-size: 15px;
+  }
+  
+  .badge-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 20px;
+    line-height: 1;
+    transition: background 0.2s;
+  }
+  
+  .badge-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+  }
+  
+  .no-content-message {
+    padding: 40px 20px;
+    text-align: center;
+  }
+  
+  .no-content-card {
+    background: white;
+    border-radius: 16px;
+    padding: 40px;
+    max-width: 500px;
+    margin: 0 auto;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  }
+  
+  .no-content-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+  }
+  
+  .no-content-card h3 {
+    font-size: 24px;
+    margin-bottom: 12px;
+    color: #1f2937;
+  }
+  
+  .no-content-card p {
+    font-size: 16px;
+    color: #6b7280;
+    margin-bottom: 24px;
+    line-height: 1.5;
+  }
+  
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+`;
+document.head.appendChild(style);
+
+// Initialize on page load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initLocationFilter);
+} else {
+  initLocationFilter();
+}
+
+console.log('✅ Location filter module loaded');

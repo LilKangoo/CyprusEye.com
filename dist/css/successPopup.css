@@ -1,0 +1,140 @@
+/* Success/Error Popup Modal */
+.booking-popup-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* Higher z-index to appear above trip/hotel modals */
+  z-index: 15000;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  cursor: pointer;
+  /* iOS Safe area support */
+  padding: max(env(safe-area-inset-top, 0px), 20px) 
+           max(env(safe-area-inset-right, 0px), 20px)
+           max(env(safe-area-inset-bottom, 0px), 20px) 
+           max(env(safe-area-inset-left, 0px), 20px);
+  /* Ensure it works on mobile */
+  touch-action: auto;
+}
+
+.booking-popup-overlay.active {
+  opacity: 1;
+}
+
+.booking-popup {
+  background: white;
+  border-radius: 16px;
+  padding: 40px 48px;
+  max-width: 480px;
+  width: 90%;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  text-align: center;
+  transform: scale(0.9) translateY(-20px);
+  transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+  cursor: default;
+}
+
+.booking-popup-overlay.active .booking-popup {
+  transform: scale(1) translateY(0);
+}
+
+.booking-popup-icon {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  margin: 0 auto 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 48px;
+  font-weight: bold;
+  color: white;
+  animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.booking-popup-overlay.success .booking-popup-icon {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  box-shadow: 0 8px 24px rgba(16, 185, 129, 0.4);
+}
+
+.booking-popup-overlay.error .booking-popup-icon {
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  box-shadow: 0 8px 24px rgba(239, 68, 68, 0.4);
+}
+
+.booking-popup-title {
+  font-size: 24px;
+  font-weight: 700;
+  margin: 0 0 12px;
+  color: #1f2937;
+}
+
+.booking-popup-overlay.success .booking-popup-title {
+  color: #059669;
+}
+
+.booking-popup-overlay.error .booking-popup-title {
+  color: #dc2626;
+}
+
+.booking-popup-message {
+  font-size: 16px;
+  color: #6b7280;
+  margin: 0;
+  line-height: 1.6;
+}
+
+@keyframes popIn {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+/* Mobile responsive */
+@media (max-width: 640px) {
+  .booking-popup-overlay {
+    /* Extra safe margins on mobile */
+    padding: max(env(safe-area-inset-top, 0px), 30px) 
+             max(env(safe-area-inset-right, 0px), 16px)
+             max(env(safe-area-inset-bottom, 0px), 30px) 
+             max(env(safe-area-inset-left, 0px), 16px);
+  }
+  
+  .booking-popup {
+    padding: 28px 20px;
+    width: calc(100% - 32px);
+    max-width: 340px;
+  }
+  
+  .booking-popup-icon {
+    width: 64px;
+    height: 64px;
+    font-size: 36px;
+    margin-bottom: 16px;
+  }
+  
+  .booking-popup-title {
+    font-size: 18px;
+    margin-bottom: 8px;
+  }
+  
+  .booking-popup-message {
+    font-size: 14px;
+    line-height: 1.5;
+  }
+}

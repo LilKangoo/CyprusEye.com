@@ -1,1 +1,105 @@
-!function(){const state={initialized:!1,loading:!1,data:[]};window.communityRanking=window.communityRanking||{init:async function(){if(state.loading)return;state.loading=!0;const list=document.getElementById("rankingList");if(!list)return void(state.loading=!1);!function(container,count=10){let html="";for(let i=0;i<count;i++)html+='<div class="ranking-item skeleton">\n  <div class="ranking-rank">#</div>\n  <div class="ranking-user">\n    <div class="ranking-avatar"></div>\n    <div class="ranking-user-info">\n      <div class="ranking-username"></div>\n      <div class="ranking-meta"></div>\n    </div>\n  </div>\n  <div class="ranking-stats">\n    <div class="ranking-stat"></div>\n    <div class="ranking-stat"></div>\n  </div>\n</div>';container.innerHTML=html}(list,8);const users=await async function(){const sb=window.getSupabase?.();if(!sb)return[];const{data:data,error:error}=await sb.from("profiles").select("id, username, name, avatar_url, level, xp, visited_places").order("level",{ascending:!1}).order("xp",{ascending:!1}).limit(100);return error?[]:Array.isArray(data)?data:[]}();state.data=users,function(container,users){let html="";users.forEach((u,idx)=>{const name=u.username||u.name||"Użytkownik",avatar=u.avatar_url||"/assets/cyprus_logo-1000x1054.png",medal=0===idx?"🥇":1===idx?"🥈":2===idx?"🥉":`#${idx+1}`;html+=`\n        <div class="ranking-item" data-user-id="${u.id}">\n          <div class="ranking-rank">${medal}</div>\n          <div class="ranking-user">\n            <img class="ranking-avatar" src="${avatar}" alt="${name}" />\n            <div class="ranking-user-info">\n              <div class="ranking-username">${name}</div>\n              <div class="ranking-meta">Lvl ${u.level||1} • ${u.xp||0} XP</div>\n            </div>\n          </div>\n          <div class="ranking-stats">\n            <div class="ranking-stat" data-stat="tasks">✅ <span>0</span></div>\n            <div class="ranking-stat" data-stat="places">📍 <span>0</span></div>\n          </div>\n        </div>`}),container.innerHTML=html}(list,users),await async function(container,users){const items=Array.from(container.querySelectorAll(".ranking-item"));await Promise.all(users.map(async(u,i)=>{const stats=await async function(userId){try{const user=state.data.find(u=>u.id===userId);return{tasksCompleted:0,placesVisited:Array.isArray(user?.visited_places)?user.visited_places.length:0}}catch(_){return{tasksCompleted:0,placesVisited:0}}}(u.id),item=items[i];if(!item)return;const tasksEl=item.querySelector('[data-stat="tasks"] span'),placesEl=item.querySelector('[data-stat="places"] span');tasksEl&&(tasksEl.textContent=String(stats.tasksCompleted||0)),placesEl&&(placesEl.textContent=String(stats.placesVisited||0))}))}(list,users),state.loading=!1,state.initialized=!0},get state(){return state}}}();
+// Minimal ranking module scaffold
+(function(){
+  const DEFAULT_AVATAR = '/assets/cyprus_logo-1000x1054.png';
+  const state = { initialized: false, loading: false, data: [] };
+
+  async function fetchTopUsers() {
+    const sb = window.getSupabase?.();
+    if (!sb) return [];
+    const { data, error } = await sb
+      .from('profiles')
+      .select('id, username, name, avatar_url, level, xp, visited_places')
+      .order('level', { ascending: false })
+      .order('xp', { ascending: false })
+      .limit(100);
+    if (error) return [];
+    return Array.isArray(data) ? data : [];
+  }
+
+  async function fetchUserStats(userId) {
+    // Tasks count source not specified yet -> default to 0
+    // Places visited is derived from array length in profiles
+    try {
+      const user = state.data.find(u => u.id === userId);
+      const placesVisited = Array.isArray(user?.visited_places) ? user.visited_places.length : 0;
+      return { tasksCompleted: 0, placesVisited };
+    } catch (_) {
+      return { tasksCompleted: 0, placesVisited: 0 };
+    }
+  }
+
+  function renderSkeleton(container, count = 10) {
+    let html = '';
+    for (let i = 0; i < count; i++) {
+      html += '<div class="ranking-item skeleton">\n' +
+              '  <div class="ranking-rank">#</div>\n' +
+              '  <div class="ranking-user">\n' +
+              '    <div class="ranking-avatar"></div>\n' +
+              '    <div class="ranking-user-info">\n' +
+              '      <div class="ranking-username"></div>\n' +
+              '      <div class="ranking-meta"></div>\n' +
+              '    </div>\n' +
+              '  </div>\n' +
+              '  <div class="ranking-stats">\n' +
+              '    <div class="ranking-stat"></div>\n' +
+              '    <div class="ranking-stat"></div>\n' +
+              '  </div>\n' +
+              '</div>';
+    }
+    container.innerHTML = html;
+  }
+
+  function renderList(container, users) {
+    let html = '';
+    users.forEach((u, idx) => {
+      const name = u.username || u.name || 'Użytkownik';
+      const avatar = u.avatar_url || DEFAULT_AVATAR;
+      const medal = idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : `#${idx+1}`;
+      html += `
+        <div class="ranking-item" data-user-id="${u.id}">
+          <div class="ranking-rank">${medal}</div>
+          <div class="ranking-user">
+            <img class="ranking-avatar" src="${avatar}" alt="${name}" />
+            <div class="ranking-user-info">
+              <div class="ranking-username">${name}</div>
+              <div class="ranking-meta">Lvl ${u.level || 1} • ${u.xp || 0} XP</div>
+            </div>
+          </div>
+          <div class="ranking-stats">
+            <div class="ranking-stat" data-stat="tasks">✅ <span>0</span></div>
+            <div class="ranking-stat" data-stat="places">📍 <span>0</span></div>
+          </div>
+        </div>`;
+    });
+    container.innerHTML = html;
+  }
+
+  async function enrichStats(container, users) {
+    const items = Array.from(container.querySelectorAll('.ranking-item'));
+    await Promise.all(users.map(async (u, i) => {
+      const stats = await fetchUserStats(u.id);
+      const item = items[i];
+      if (!item) return;
+      const tasksEl = item.querySelector('[data-stat="tasks"] span');
+      const placesEl = item.querySelector('[data-stat="places"] span');
+      if (tasksEl) tasksEl.textContent = String(stats.tasksCompleted || 0);
+      if (placesEl) placesEl.textContent = String(stats.placesVisited || 0);
+    }));
+  }
+
+  async function init() {
+    if (state.loading) return;
+    state.loading = true;
+    const list = document.getElementById('rankingList');
+    if (!list) { state.loading = false; return; }
+    renderSkeleton(list, 8);
+    const users = await fetchTopUsers();
+    state.data = users;
+    renderList(list, users);
+    await enrichStats(list, users);
+    state.loading = false;
+    state.initialized = true;
+  }
+
+  window.communityRanking = window.communityRanking || { init, get state(){ return state; } };
+})();

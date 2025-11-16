@@ -1,1 +1,136 @@
-!function(){function syncFormLanguages(){const language=window.appI18n&&window.appI18n.language?window.appI18n.language:document.documentElement.lang||"pl";document.querySelectorAll("[data-enhanced-form]").forEach(form=>{let hiddenField=form.querySelector('input[name="lang"]');hiddenField||(hiddenField=document.createElement("input"),hiddenField.type="hidden",hiddenField.name="lang",form.appendChild(hiddenField)),hiddenField.value=language})}function showFormFeedback(){const params=new URLSearchParams(window.location.search),isSuccess="1"===params.get("success"),isError="1"===params.get("error");document.querySelectorAll("[data-form-feedback]").forEach(element=>{element.hidden=!0,element.removeAttribute("role"),isSuccess?(element.textContent=element.dataset.successMessage||"Dziękujemy! Formularz został wysłany.",element.hidden=!1,element.setAttribute("role","status"),element.setAttribute("aria-live","polite")):isError&&(element.textContent=element.dataset.errorMessage||"Nie udało się wysłać formularza. Spróbuj ponownie.",element.hidden=!1,element.setAttribute("role","alert"),element.setAttribute("aria-live","assertive"))})}function enhanceValidation(){document.querySelectorAll("form").forEach(form=>{const trackedFields=Array.from(form.querySelectorAll("input, select, textarea")).map((field,index)=>{if(!field.id){const baseId=form.id||field.name||field.type||"field";field.id=`${baseId}-${index}`}const wrapper=field.closest(".form-field, .auto-field, .auto-checkbox, .vip-field, .standalone-form")||field.parentElement;let errorEl=wrapper?wrapper.querySelector(".form-error"):null;if(wrapper&&!errorEl?(errorEl=document.createElement("p"),errorEl.className="form-error",errorEl.id=`${field.id}Error`,errorEl.setAttribute("role","alert"),errorEl.hidden=!0,wrapper.appendChild(errorEl)):errorEl&&!errorEl.id&&(errorEl.id=`${field.id}Error`),errorEl){const describedBy=field.getAttribute("aria-describedby"),tokens=new Set((describedBy||"").split(" ").filter(Boolean));tokens.add(errorEl.id),field.setAttribute("aria-describedby",Array.from(tokens).join(" "))}const updateValidity=()=>{field.checkValidity()?(field.removeAttribute("aria-invalid"),errorEl&&(errorEl.textContent="",errorEl.hidden=!0)):(field.setAttribute("aria-invalid","true"),errorEl&&(errorEl.textContent=field.validationMessage,errorEl.hidden=!1))};return field.addEventListener("input",updateValidity),field.addEventListener("change",updateValidity),field.addEventListener("blur",updateValidity),{field:field,updateValidity:updateValidity}});form.addEventListener("submit",event=>{let hasInvalid=!1;if(trackedFields.forEach(({field:field,updateValidity:updateValidity})=>{updateValidity(),field.checkValidity()||(hasInvalid=!0)}),hasInvalid){event.preventDefault();const firstInvalid=trackedFields.find(({field:field})=>!field.checkValidity());firstInvalid&&firstInvalid.field.focus({preventScroll:!1})}})})}document.addEventListener("wakacjecypr:languagechange",syncFormLanguages),"loading"===document.readyState?document.addEventListener("DOMContentLoaded",()=>{syncFormLanguages(),showFormFeedback(),enhanceValidation()}):(syncFormLanguages(),showFormFeedback(),enhanceValidation())}();
+(function () {
+  'use strict';
+
+  function getActiveLanguage() {
+    if (window.appI18n && window.appI18n.language) {
+      return window.appI18n.language;
+    }
+    return document.documentElement.lang || 'pl';
+  }
+
+  function syncFormLanguages() {
+    const language = getActiveLanguage();
+    document.querySelectorAll('[data-enhanced-form]').forEach((form) => {
+      let hiddenField = form.querySelector('input[name="lang"]');
+      if (!hiddenField) {
+        hiddenField = document.createElement('input');
+        hiddenField.type = 'hidden';
+        hiddenField.name = 'lang';
+        form.appendChild(hiddenField);
+      }
+      hiddenField.value = language;
+    });
+  }
+
+  function showFormFeedback() {
+    const params = new URLSearchParams(window.location.search);
+    const isSuccess = params.get('success') === '1';
+    const isError = params.get('error') === '1';
+
+    document.querySelectorAll('[data-form-feedback]').forEach((element) => {
+      element.hidden = true;
+      element.removeAttribute('role');
+
+      if (isSuccess) {
+        element.textContent = element.dataset.successMessage || 'Dziękujemy! Formularz został wysłany.';
+        element.hidden = false;
+        element.setAttribute('role', 'status');
+        element.setAttribute('aria-live', 'polite');
+      } else if (isError) {
+        element.textContent = element.dataset.errorMessage || 'Nie udało się wysłać formularza. Spróbuj ponownie.';
+        element.hidden = false;
+        element.setAttribute('role', 'alert');
+        element.setAttribute('aria-live', 'assertive');
+      }
+    });
+  }
+
+  function enhanceValidation() {
+    const containersSelector = '.form-field, .auto-field, .auto-checkbox, .vip-field, .standalone-form';
+
+    document.querySelectorAll('form').forEach((form) => {
+      const trackedFields = Array.from(form.querySelectorAll('input, select, textarea')).map((field, index) => {
+        if (!field.id) {
+          const baseId = form.id || field.name || field.type || 'field';
+          field.id = `${baseId}-${index}`;
+        }
+
+        const wrapper = field.closest(containersSelector) || field.parentElement;
+        let errorEl = wrapper ? wrapper.querySelector('.form-error') : null;
+
+        if (wrapper && !errorEl) {
+          errorEl = document.createElement('p');
+          errorEl.className = 'form-error';
+          errorEl.id = `${field.id}Error`;
+          errorEl.setAttribute('role', 'alert');
+          errorEl.hidden = true;
+          wrapper.appendChild(errorEl);
+        } else if (errorEl && !errorEl.id) {
+          errorEl.id = `${field.id}Error`;
+        }
+
+        if (errorEl) {
+          const describedBy = field.getAttribute('aria-describedby');
+          const tokens = new Set((describedBy || '').split(' ').filter(Boolean));
+          tokens.add(errorEl.id);
+          field.setAttribute('aria-describedby', Array.from(tokens).join(' '));
+        }
+
+        const updateValidity = () => {
+          if (!field.checkValidity()) {
+            field.setAttribute('aria-invalid', 'true');
+            if (errorEl) {
+              errorEl.textContent = field.validationMessage;
+              errorEl.hidden = false;
+            }
+          } else {
+            field.removeAttribute('aria-invalid');
+            if (errorEl) {
+              errorEl.textContent = '';
+              errorEl.hidden = true;
+            }
+          }
+        };
+
+        field.addEventListener('input', updateValidity);
+        field.addEventListener('change', updateValidity);
+        field.addEventListener('blur', updateValidity);
+
+        return { field, updateValidity };
+      });
+
+      form.addEventListener('submit', (event) => {
+        let hasInvalid = false;
+
+        trackedFields.forEach(({ field, updateValidity }) => {
+          updateValidity();
+          if (!field.checkValidity()) {
+            hasInvalid = true;
+          }
+        });
+
+        if (hasInvalid) {
+          event.preventDefault();
+          const firstInvalid = trackedFields.find(({ field }) => !field.checkValidity());
+          if (firstInvalid) {
+            firstInvalid.field.focus({ preventScroll: false });
+          }
+        }
+      });
+    });
+  }
+
+  document.addEventListener('wakacjecypr:languagechange', syncFormLanguages);
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', () => {
+      syncFormLanguages();
+      showFormFeedback();
+      enhanceValidation();
+    });
+  } else {
+    syncFormLanguages();
+    showFormFeedback();
+    enhanceValidation();
+  }
+})();

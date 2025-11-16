@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "include": [
+    "/admin/*",
+    "/auth/*",
+    "/account/*",
+    "/reset/*",
+    "/hotel/*",
+    "/trips"
+  ],
+  "exclude": []
+}
