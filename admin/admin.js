@@ -416,12 +416,6 @@ async function loadTripBookingsData() {
             ❌ Error loading data: ${escapeHtml(error.message || 'Unknown error')}
             <br><small style="margin-top: 8px; display: block;">
               Make sure the trip_bookings table exists in Supabase. 
-              Run the migration: supabase/migrations/015_trip_bookings_table.sql
-            </small>
-          </td>
-        </tr>
-      `;
-    }
   }
 }
 
@@ -470,119 +464,108 @@ async function viewTripBookingDetails(bookingId) {
       booking.status === 'cancelled' ? 'badge-danger' :
       booking.status === 'completed' ? 'badge-success' : 'badge';
 
-    // Build content HTML
-    content.innerHTML = `
-      <div style="display: grid; gap: 24px;">
-        <!-- Header Info -->
-        <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">
-            <div>
-              <h4 style="margin: 0; font-size: 16px; font-weight: 600;">Booking #${booking.id.slice(0, 8).toUpperCase()}</h4>
-              <p style="margin: 4px 0 0; font-size: 12px; color: var(--admin-text-muted);">Trip: ${escapeHtml(booking.trip_slug || 'N/A')}</p>
-              <p style="margin: 2px 0 0; font-size: 11px; color: var(--admin-text-muted);">Created: ${createdAt}</p>
-            </div>
-            <div style="display: flex; align-items: center; gap: 12px;">
-              <select id="tripBookingStatusDropdown" class="admin-form-field" style="padding: 8px 12px; font-size: 14px; font-weight: 600;" onchange="updateTripBookingStatus('${booking.id}', this.value)">
-                <option value="pending" ${booking.status === 'pending' ? 'selected' : ''}>⏳ Pending</option>
-                <option value="confirmed" ${booking.status === 'confirmed' ? 'selected' : ''}>✅ Confirmed</option>
-                <option value="completed" ${booking.status === 'completed' ? 'selected' : ''}>✔️ Completed</option>
-                <option value="cancelled" ${booking.status === 'cancelled' ? 'selected' : ''}>❌ Cancelled</option>
-              </select>
-              <span class="badge ${statusClass}" style="font-size: 14px; padding: 6px 12px;">${(booking.status || 'pending').toUpperCase()}</span>
-            </div>
-          </div>
-        </div>
+    // Build content HTML (avoid nested template literals for minifier)
+    let html = '';
+    html += '<div style="display: grid; gap: 24px;">';
 
-        <!-- Customer Information -->
-        <div>
-          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Customer Information</h4>
-          <div style="display: grid; gap: 8px;">
-            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
-              <span style="font-weight: 500;">Name:</span>
-              <span>${escapeHtml(booking.customer_name || 'N/A')}</span>
-            </div>
-            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
-              <span style="font-weight: 500;">Email:</span>
-              <span><a href="mailto:${escapeHtml(booking.customer_email)}">${escapeHtml(booking.customer_email || 'N/A')}</a></span>
-            </div>
-            ${booking.customer_phone ? `
-            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
-              <span style="font-weight: 500;">Phone:</span>
-              <span><a href="tel:${escapeHtml(booking.customer_phone)}">${escapeHtml(booking.customer_phone)}</a></span>
-            </div>
-            ` : ''}
-          </div>
-        </div>
+    // Header
+    html += '<div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">';
+    html += '<div style="display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;">';
+    html += '<div>';
+    html += '<h4 style="margin: 0; font-size: 16px; font-weight: 600;">Booking #' + booking.id.slice(0, 8).toUpperCase() + '</h4>';
+    html += '<p style="margin: 4px 0 0; font-size: 12px; color: var(--admin-text-muted);">Trip: ' + escapeHtml(booking.trip_slug || 'N/A') + '</p>';
+    html += '<p style="margin: 2px 0 0; font-size: 11px; color: var(--admin-text-muted);">Created: ' + createdAt + '</p>';
+    html += '</div>';
+    html += '<div style="display: flex; align-items: center; gap: 12px;">';
+    html += '<select id="tripBookingStatusDropdown" class="admin-form-field" style="padding: 8px 12px; font-size: 14px; font-weight: 600;" onchange="updateTripBookingStatus(\'' + booking.id + '\', this.value)">';
+    html += '<option value="pending"' + (booking.status === 'pending' ? ' selected' : '') + '>⏳ Pending</option>';
+    html += '<option value="confirmed"' + (booking.status === 'confirmed' ? ' selected' : '') + '>✅ Confirmed</option>';
+    html += '<option value="completed"' + (booking.status === 'completed' ? ' selected' : '') + '>✔️ Completed</option>';
+    html += '<option value="cancelled"' + (booking.status === 'cancelled' ? ' selected' : '') + '>❌ Cancelled</option>';
+    html += '</select>';
+    html += '<span class="badge ' + statusClass + '" style="font-size: 14px; padding: 6px 12px;">' + (booking.status || 'pending').toUpperCase() + '</span>';
+    html += '</div>'; // header right
+    html += '</div>'; // header row
+    html += '</div>'; // header card
 
-        <!-- Trip Details -->
-        <div>
-          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Trip Details</h4>
-          <div style="display: grid; gap: 8px;">
-            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
-              <span style="font-weight: 500;">Preferred Date:</span>
-              <span>🎯 ${tripDate}</span>
-            </div>
-            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
-              <span style="font-weight: 500;">Stay on Cyprus:</span>
-              <span>✈️ ${arrivalDate} → ${departureDate}</span>
-            </div>
-            ${booking.num_adults ? `
-            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
-              <span style="font-weight: 500;">Participants:</span>
-              <span>👥 ${booking.num_adults} adult(s), ${booking.num_children || 0} child(ren)</span>
-            </div>
-            ` : ''}
-            ${booking.num_hours ? `
-            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
-              <span style="font-weight: 500;">Duration:</span>
-              <span>⏱️ ${booking.num_hours} hour(s)</span>
-            </div>
-            ` : ''}
-            ${booking.num_days ? `
-            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
-              <span style="font-weight: 500;">Duration:</span>
-              <span>📅 ${booking.num_days} day(s)</span>
-            </div>
-            ` : ''}
-            ${booking.notes ? `
-            <div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">
-              <span style="font-weight: 500;">Notes:</span>
-              <span>${escapeHtml(booking.notes)}</span>
-            </div>
-            ` : ''}
-          </div>
-        </div>
+    // Customer info
+    html += '<div>';
+    html += '<h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Customer Information</h4>';
+    html += '<div style="display: grid; gap: 8px;">';
+    html += '<div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">';
+    html += '<span style="font-weight: 500;">Name:</span>';
+    html += '<span>' + escapeHtml(booking.customer_name || 'N/A') + '</span>';
+    html += '</div>';
+    html += '<div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">';
+    html += '<span style="font-weight: 500;">Email:</span>';
+    html += '<span><a href="mailto:' + escapeHtml(booking.customer_email) + '">' + escapeHtml(booking.customer_email || 'N/A') + '</a></span>';
+    html += '</div>';
+    if (booking.customer_phone) {
+      html += '<div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">';
+      html += '<span style="font-weight: 500;">Phone:</span>';
+      html += '<span><a href="tel:' + escapeHtml(booking.customer_phone) + '">' + escapeHtml(booking.customer_phone) + '</a></span>';
+      html += '</div>';
+    }
+    html += '</div>'; // customer grid
+    html += '</div>'; // customer section
 
-        <!-- Pricing -->
-        <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
-          <h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Price</h4>
-          <div style="padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; text-align: center;">
-            <div style="font-size: 24px; font-weight: 700; color: white;">€${Number(booking.total_price || 0).toFixed(2)}</div>
-            <div style="font-size: 12px; color: rgba(255,255,255,0.9); margin-top: 4px;">Total Price</div>
-          </div>
-        </div>
+    // Trip details
+    html += '<div>';
+    html += '<h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600; color: var(--admin-text-muted);">Trip Details</h4>';
+    html += '<div style="display: grid; gap: 8px;">';
+    html += '<div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">';
+    html += '<span style="font-weight: 500;">Preferred Date:</span>';
+    html += '<span>🎯 ' + tripDate + '</span>';
+    html += '</div>';
+    html += '<div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">';
+    html += '<span style="font-weight: 500;">Stay on Cyprus:</span>';
+    html += '<span>✈️ ' + arrivalDate + ' → ' + departureDate + '</span>';
+    html += '</div>';
+    if (booking.num_adults) {
+      html += '<div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">';
+      html += '<span style="font-weight: 500;">Participants:</span>';
+      html += '<span>👥 ' + booking.num_adults + ' adult(s), ' + (booking.num_children || 0) + ' child(ren)</span>';
+      html += '</div>';
+    }
+    if (booking.num_hours) {
+      html += '<div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">';
+      html += '<span style="font-weight: 500;">Duration:</span>';
+      html += '<span>⏱️ ' + booking.num_hours + ' hour(s)</span>';
+      html += '</div>';
+    }
+    if (booking.num_days) {
+      html += '<div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">';
+      html += '<span style="font-weight: 500;">Duration:</span>';
+      html += '<span>📅 ' + booking.num_days + ' day(s)</span>';
+      html += '</div>';
+    }
+    if (booking.notes) {
+      html += '<div style="display: grid; grid-template-columns: 140px 1fr; gap: 12px;">';
+      html += '<span style="font-weight: 500;">Notes:</span>';
+      html += '<span>' + escapeHtml(booking.notes) + '</span>';
+      html += '</div>';
+    }
+    html += '</div>'; // details grid
+    html += '</div>'; // details section
 
-        <!-- Actions -->
-        <div style="display: flex; gap: 12px;">
-          <button 
-            type="button" 
-            class="btn-secondary"
-            onclick="document.getElementById('tripBookingDetailsModal').hidden=true"
-            style="flex: 1;"
-          >
-            Close
-          </button>
-          <button 
-            type="button" 
-            class="btn-danger"
-            onclick="deleteTripBooking('${booking.id}')"
-            style="flex: 1;"
-          >
-            🗑️ Delete Booking
-          </button>
-        </div>
-      </div>
-    `;
+    // Pricing
+    html += '<div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">';
+    html += '<h4 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">Price</h4>';
+    html += '<div style="padding: 12px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 8px; text-align: center;">';
+    html += '<div style="font-size: 24px; font-weight: 700; color: white;">€' + Number(booking.total_price || 0).toFixed(2) + '</div>';
+    html += '<div style="font-size: 12px; color: rgba(255,255,255,0.9); margin-top: 4px;">Total Price</div>';
+    html += '</div>';
+    html += '</div>'; // pricing section
+
+    // Actions
+    html += '<div style="display: flex; gap: 12px;">';
+    html += '<button type="button" class="btn-secondary" onclick="document.getElementById(\'tripBookingDetailsModal\').hidden=true" style="flex: 1;">Close</button>';
+    html += '<button type="button" class="btn-danger" onclick="deleteTripBooking(\'' + booking.id + '\')" style="flex: 1;">🗑️ Delete Booking</button>';
+    html += '</div>'; // actions
+
+    html += '</div>'; // root container
+
+    content.innerHTML = html;
 
     // Show modal
     modal.hidden = false;
@@ -1016,6 +999,9 @@ async function handleEditTripSubmit(event, originalTrip) {
 // expose trip helpers for inline handlers
 window.toggleTripPublish = toggleTripPublish;
 window.editTrip = editTrip;
+
+// expose POI helpers for inline handlers
+window.togglePoiStatus = togglePoiStatus;
 
 // =====================================================
 // NEW TRIP MODAL (create + link to POI)
@@ -6864,7 +6850,10 @@ function renderPoiList() {
   }
 
   tableBody.innerHTML = filtered.map(poi => {
-    const statusPill = `<span class="poi-pill poi-pill--${poi.status}">${poi.status.toUpperCase()}</span>`;
+    const canToggle = poi.source === 'supabase' && adminState.poiDataSource === 'supabase';
+    const statusPill = canToggle
+      ? `<button type="button" class="poi-pill poi-pill--${poi.status}" title="Toggle published/hidden" onclick="togglePoiStatus('${poi.id}')">${poi.status.toUpperCase()}</button>`
+      : `<span class="poi-pill poi-pill--${poi.status}">${poi.status.toUpperCase()}</span>`;
     const sourcePill = poi.source === 'static' ? '<span class="poi-pill poi-pill--static">STATIC</span>' : '';
     const tags = poi.tags && poi.tags.length
       ? poi.tags.map(tag => `<span class="badge badge-info">${escapeHtml(tag)}</span>`).join(' ')
