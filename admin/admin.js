@@ -489,14 +489,18 @@ async function loadTripsAdminData() {
     const { data: trips, error } = await client
       .from('trips')
       .select('*')
+      .order('sort_order', { ascending: true })
       .order('updated_at', { ascending: false })
       .limit(200);
 
     if (error) throw error;
 
+    // Store list globally for reordering helpers
+    window.tripsAdminList = Array.isArray(trips) ? trips.slice() : [];
+
     // Stats
-    const total = trips?.length || 0;
-    const published = (trips || []).filter(t => t.is_published).length;
+    const total = window.tripsAdminList?.length || 0;
+    const published = (window.tripsAdminList || []).filter(t => t.is_published).length;
     const statTotal = document.getElementById('tripsStatTotal');
     const statPub = document.getElementById('tripsStatPublished');
     const sub = document.getElementById('tripsStatSubtitle');
@@ -508,7 +512,7 @@ async function loadTripsAdminData() {
     const tbody = document.getElementById('tripsTableBody');
     if (!tbody) return;
     if (!trips || trips.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="table-loading">No trips found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" class="table-loading">No trips found</td></tr>';
       return;
     }
 
@@ -530,6 +534,10 @@ async function loadTripsAdminData() {
             </label>
           </td>
           <td>${updated}</td>
+          <td>
+            <button class="btn-secondary" onclick="moveTripOrder('${t.id}', 'up')">⬆️</button>
+            <button class="btn-secondary" onclick="moveTripOrder('${t.id}', 'down')">⬇️</button>
+          </td>
           <td style="display:flex;gap:8px;">
             <button class="btn-primary" onclick="editTrip('${t.id}')">Edit</button>
             <a class="btn-secondary" href="/trip.html?slug=${encodeURIComponent(t.slug)}" target="_blank">Preview</a>
@@ -550,7 +558,51 @@ async function loadTripsAdminData() {
     console.error('Failed to load trips:', e);
     showToast('Failed to load trips: ' + (e.message || 'Unknown error'), 'error');
     const tbody = document.getElementById('tripsTableBody');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="table-loading" style="color:var(--admin-danger)">Error: ${escapeHtml(e.message||'')}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" class="table-loading" style="color:var(--admin-danger)">Error: ${escapeHtml(e.message||'')}</td></tr>`;
+  }
+}
+
+async function moveTripOrder(tripId, direction) {
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    const list = Array.isArray(window.tripsAdminList) ? window.tripsAdminList : [];
+    const index = list.findIndex(t => t.id === tripId);
+    if (index === -1) return;
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= list.length) {
+      showToast('Cannot move further', 'info');
+      return;
+    }
+
+    const current = list[index];
+    const target = list[targetIndex];
+    const currentOrder = typeof current.sort_order === 'number' ? current.sort_order : (index + 1);
+    const targetOrder = typeof target.sort_order === 'number' ? target.sort_order : (targetIndex + 1);
+
+    // Swap sort_order values between the two trips
+    const { error: err1 } = await client
+      .from('trips')
+      .update({ sort_order: targetOrder })
+      .eq('id', current.id);
+    if (err1) throw err1;
+
+    const { error: err2 } = await client
+      .from('trips')
+      .update({ sort_order: currentOrder })
+      .eq('id', target.id);
+    if (err2) throw err2;
+
+    showToast('Trip order updated', 'success');
+    await loadTripsAdminData();
+  } catch (e) {
+    console.error('Failed to update trip order:', e);
+    showToast('Failed to update order: ' + (e.message || 'Unknown error'), 'error');
   }
 }
 
@@ -807,6 +859,7 @@ async function handleEditTripSubmit(event, originalTrip) {
 // expose trip helpers for inline handlers
 window.toggleTripPublish = toggleTripPublish;
 window.editTrip = editTrip;
+window.moveTripOrder = moveTripOrder;
 
 // =====================================================
 // NEW TRIP MODAL (create + link to POI)
