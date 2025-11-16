@@ -604,7 +604,7 @@ async function updateTripBookingStatus(bookingId, newStatus) {
 
     if (error) throw error;
 
-    showToast(`Status updated to: ${newStatus}`, 'success');
+    showToast('Status updated to: ' + newStatus, 'success');
     await loadTripBookingsData(); // Refresh table
     
     // Update badge in modal
@@ -690,7 +690,7 @@ async function loadTripsAdminData() {
     const sub = document.getElementById('tripsStatSubtitle');
     if (statTotal) statTotal.textContent = total;
     if (statPub) statPub.textContent = published;
-    if (sub) sub.textContent = total ? `${published} published` : 'No trips yet';
+    if (sub) sub.textContent = total ? (published + ' published') : 'No trips yet';
 
     // Table
     const tbody = document.getElementById('tripsTableBody');
@@ -703,31 +703,36 @@ async function loadTripsAdminData() {
     tbody.innerHTML = trips.map(t => {
       const title = (t.title && (t.title.pl || t.title.en)) || t.slug || t.id;
       const updated = t.updated_at ? new Date(t.updated_at).toLocaleString('en-GB') : '-';
-      return `
-        <tr data-trip-id="${t.id}" data-sort-order="${t.sort_order ?? ''}">
-          <td>
-            <div style="font-weight:600">${escapeHtml(title)}</div>
-            ${t.display_mode ? `<div style=\"font-size:11px;color:var(--admin-text-muted)\">${escapeHtml(t.display_mode)}</div>` : ''}
-          </td>
-          <td>${escapeHtml(t.slug || '')}</td>
-          <td>${escapeHtml(t.start_city || '')}</td>
-          <td>
-            <label class="admin-switch" title="Toggle publish">
-              <input type="checkbox" ${t.is_published ? 'checked' : ''} onchange="toggleTripPublish('${t.id}', this.checked)">
-              <span></span>
-            </label>
-          </td>
-          <td>${updated}</td>
-          <td style="display:flex;gap:8px;align-items:center;">
-            <div style="display:flex;flex-direction:column;gap:2px;margin-right:8px;">
-              <button type="button" class="btn-secondary" style="padding:2px 6px;font-size:11px;line-height:1;" onclick="moveTripUp('${t.id}')">▲</button>
-              <button type="button" class="btn-secondary" style="padding:2px 6px;font-size:11px;line-height:1;" onclick="moveTripDown('${t.id}')">▼</button>
-            </div>
-            <button class="btn-primary" onclick="editTrip('${t.id}')">Edit</button>
-            <a class="btn-secondary" href="/trip.html?slug=${encodeURIComponent(t.slug)}" target="_blank">Preview</a>
-          </td>
-        </tr>
-      `;
+      const displayMode = t.display_mode
+        ? '<div style="font-size:11px;color:var(--admin-text-muted)">' + escapeHtml(t.display_mode) + '</div>'
+        : '';
+
+      let row = '';
+      row += '<tr data-trip-id="' + t.id + '" data-sort-order="' + (t.sort_order ?? '') + '">';
+      row += '<td>';
+      row += '<div style="font-weight:600">' + escapeHtml(title) + '</div>';
+      row += displayMode;
+      row += '</td>';
+      row += '<td>' + escapeHtml(t.slug || '') + '</td>';
+      row += '<td>' + escapeHtml(t.start_city || '') + '</td>';
+      row += '<td>';
+      row += '<label class="admin-switch" title="Toggle publish">';
+      row += '<input type="checkbox"' + (t.is_published ? ' checked' : '') + ' onchange="toggleTripPublish(\'' + t.id + '\', this.checked)">';
+      row += '<span></span>';
+      row += '</label>';
+      row += '</td>';
+      row += '<td>' + updated + '</td>';
+      row += '<td style="display:flex;gap:8px;align-items:center;">';
+      row += '<div style="display:flex;flex-direction:column;gap:2px;margin-right:8px;">';
+      row += '<button type="button" class="btn-secondary" style="padding:2px 6px;font-size:11px;line-height:1;" onclick="moveTripUp(\'' + t.id + '\')">▲</button>';
+      row += '<button type="button" class="btn-secondary" style="padding:2px 6px;font-size:11px;line-height:1;" onclick="moveTripDown(\'' + t.id + '\')">▼</button>';
+      row += '</div>';
+      row += '<button class="btn-primary" onclick="editTrip(\'' + t.id + '\')">Edit</button>';
+      row += '<a class="btn-secondary" href="/trip.html?slug=' + encodeURIComponent(t.slug) + '" target="_blank">Preview</a>';
+      row += '</td>';
+      row += '</tr>';
+
+      return row;
     }).join('');
 
     // Button: New Trip
