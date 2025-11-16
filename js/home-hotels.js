@@ -29,7 +29,7 @@ async function loadHomeHotels(){
       .from('hotels')
       .select('*')
       .eq('is_published', true)
-      .order('created_at', { ascending: false });
+      .order('sort_order', { ascending: true });
     if(error) throw error;
     homeHotelsData = data || [];
     renderHomeHotelsTabs();

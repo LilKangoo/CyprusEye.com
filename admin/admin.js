@@ -83,6 +83,141 @@ function showElement(element) {
   }
 }
 
+async function moveCar(carId, direction) {
+  try {
+    const tbody = document.getElementById('fleetTableBody');
+    if (!tbody) return;
+
+    const row = tbody.querySelector(`tr[data-car-id="${carId}"]`);
+    if (!row) return;
+
+    const targetRow = direction < 0 ? row.previousElementSibling : row.nextElementSibling;
+    if (!targetRow || !targetRow.dataset.carId) {
+      return; // top/bottom
+    }
+
+    const currentLocation = row.dataset.location;
+    const neighborLocation = targetRow.dataset.location;
+    if (currentLocation !== neighborLocation) {
+      // Do not reorder across locations
+      return;
+    }
+
+    const currentId = row.dataset.carId;
+    const neighborId = targetRow.dataset.carId;
+    const currentOrder = Number(row.dataset.sortOrder || 0);
+    const neighborOrder = Number(targetRow.dataset.sortOrder || 0);
+
+    if (!currentId || !neighborId || Number.isNaN(currentOrder) || Number.isNaN(neighborOrder)) {
+      console.warn('Cannot move car – invalid sort_order data');
+      return;
+    }
+
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    const { error: err1 } = await client
+      .from('car_offers')
+      .update({ sort_order: neighborOrder, updated_at: now })
+      .eq('id', currentId);
+    if (err1) throw err1;
+
+    const { error: err2 } = await client
+      .from('car_offers')
+      .update({ sort_order: currentOrder, updated_at: now })
+      .eq('id', neighborId);
+    if (err2) throw err2;
+
+    showToast('Car order updated', 'success');
+    await loadFleetData();
+  } catch (e) {
+    console.error('Failed to move car:', e);
+    showToast('Failed to update car order', 'error');
+  }
+}
+
+function moveCarUp(carId) {
+  moveCar(carId, -1);
+}
+
+function moveCarDown(carId) {
+  moveCar(carId, 1);
+}
+
+if (typeof window !== 'undefined') {
+  window.moveCarUp = moveCarUp;
+  window.moveCarDown = moveCarDown;
+}
+
+async function moveHotel(hotelId, direction) {
+  try {
+    const tbody = document.getElementById('hotelsTableBody');
+    if (!tbody) return;
+
+    const row = tbody.querySelector(`tr[data-hotel-id="${hotelId}"]`);
+    if (!row) return;
+
+    const targetRow = direction < 0 ? row.previousElementSibling : row.nextElementSibling;
+    if (!targetRow || !targetRow.dataset.hotelId) {
+      return; // already at top/bottom
+    }
+
+    const currentId = row.dataset.hotelId;
+    const neighborId = targetRow.dataset.hotelId;
+    const currentOrder = Number(row.dataset.sortOrder || 0);
+    const neighborOrder = Number(targetRow.dataset.sortOrder || 0);
+
+    if (!currentId || !neighborId || Number.isNaN(currentOrder) || Number.isNaN(neighborOrder)) {
+      console.warn('Cannot move hotel – invalid sort_order data');
+      return;
+    }
+
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    const { error: err1 } = await client
+      .from('hotels')
+      .update({ sort_order: neighborOrder, updated_at: now })
+      .eq('id', currentId);
+    if (err1) throw err1;
+
+    const { error: err2 } = await client
+      .from('hotels')
+      .update({ sort_order: currentOrder, updated_at: now })
+      .eq('id', neighborId);
+    if (err2) throw err2;
+
+    showToast('Hotel order updated', 'success');
+    await loadHotelsAdminData();
+  } catch (e) {
+    console.error('Failed to move hotel:', e);
+    showToast('Failed to update hotel order', 'error');
+  }
+}
+
+function moveHotelUp(hotelId) {
+  moveHotel(hotelId, -1);
+}
+
+function moveHotelDown(hotelId) {
+  moveHotel(hotelId, 1);
+}
+
+if (typeof window !== 'undefined') {
+  window.moveHotelUp = moveHotelUp;
+  window.moveHotelDown = moveHotelDown;
+}
+
 async function moveTrip(tripId, direction) {
   try {
     const tbody = document.getElementById('tripsTableBody');
@@ -221,7 +356,7 @@ async function loadTripBookingsData() {
         booking.status === 'cancelled' ? 'badge-danger' : 'badge';
       
       return `
-        <tr>
+        <tr data-car-id="${car.id}" data-sort-order="${car.sort_order ?? ''}" data-location="${car.location}">
           <td>
             <div style="font-weight: 600;">#${booking.id.slice(0, 8).toUpperCase()}</div>
             <div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 2px;">
@@ -1177,6 +1312,7 @@ async function loadHotelsAdminData() {
     const { data: hotels, error } = await client
       .from('hotels')
       .select('*')
+      .order('sort_order', { ascending: true })
       .order('updated_at', { ascending: false })
       .limit(200);
 
@@ -1215,7 +1351,7 @@ async function loadHotelsAdminData() {
       const updated = h.updated_at ? new Date(h.updated_at).toLocaleString('en-GB') : '-';
       const priceSummary = formatHotelPriceSummary(h);
       return `
-        <tr>
+        <tr data-hotel-id="${h.id}" data-sort-order="${h.sort_order ?? ''}">
           <td>
             <div style="font-weight:600">${escapeHtml(title)}</div>
           </td>
@@ -1229,7 +1365,11 @@ async function loadHotelsAdminData() {
             </label>
           </td>
           <td>${updated}</td>
-          <td style="display:flex;gap:8px;">
+          <td style="display:flex;gap:8px;align-items:center;">
+            <div style="display:flex;flex-direction:column;gap:2px;margin-right:8px;">
+              <button type="button" class="btn-secondary" style="padding:2px 6px;font-size:11px;line-height:1;" onclick="moveHotelUp('${h.id}')">▲</button>
+              <button type="button" class="btn-secondary" style="padding:2px 6px;font-size:11px;line-height:1;" onclick="moveHotelDown('${h.id}')">▼</button>
+            </div>
             <button class="btn-primary" onclick="editHotel('${h.id}')">Edit</button>
             <a class="btn-secondary" href="/hotel.html?slug=${encodeURIComponent(h.slug)}" target="_blank">Preview</a>
           </td>
@@ -4288,7 +4428,11 @@ async function loadFleetData() {
             ${car.stock_count ? `<div style="font-size: 11px; color: var(--admin-text-muted); margin-top: 4px;">Stock: ${car.stock_count}</div>` : ''}
           </td>
           <td>
-            <div style="display: flex; gap: 4px;">
+            <div style="display: flex; gap: 4px; align-items:center;">
+              <div style="display:flex;flex-direction:column;gap:2px;margin-right:4px;">
+                <button class="btn-icon" type="button" title="Move up" onclick="moveCarUp('${car.id}')">▲</button>
+                <button class="btn-icon" type="button" title="Move down" onclick="moveCarDown('${car.id}')">▼</button>
+              </div>
               <button class="btn-icon" type="button" title="Edit" onclick="editFleetCar('${car.id}')">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M12 20h9"/>

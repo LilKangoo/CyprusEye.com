@@ -560,7 +560,7 @@
         .from('hotels')
         .select('*')
         .eq('is_published', true)
-        .order('created_at', { ascending: false });
+        .order('sort_order', { ascending: true });
       if(error){ console.error(error); return; }
       allHotels = data || [];
       renderTabs();
