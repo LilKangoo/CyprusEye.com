@@ -969,12 +969,12 @@
           throw new Error('Supabase client not available');
         }
 
-        // Fetch published trips
+        // Fetch published trips sorted by explicit sort_order
         const { data, error } = await supabase
           .from('trips')
           .select('*')
           .eq('is_published', true)
-          .order('created_at', { ascending: false });
+          .order('sort_order', { ascending: true });
 
         if (error) throw error;
 

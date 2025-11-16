@@ -30,12 +30,12 @@ async function loadHomeTrips() {
       throw new Error('Supabase client not available');
     }
 
-    // Fetch published trips (same as trips.html)
+    // Fetch published trips (same as trips.html) – sorted by sort_order
     const { data, error } = await supabase
       .from('trips')
       .select('*')
       .eq('is_published', true)
-      .order('created_at', { ascending: false });
+      .order('sort_order', { ascending: true });
 
     if (error) throw error;
 

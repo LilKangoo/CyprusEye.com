@@ -83,6 +83,69 @@ function showElement(element) {
   }
 }
 
+async function moveTrip(tripId, direction) {
+  try {
+    const tbody = document.getElementById('tripsTableBody');
+    if (!tbody) return;
+
+    const row = tbody.querySelector(`tr[data-trip-id="${tripId}"]`);
+    if (!row) return;
+
+    const targetRow = direction < 0 ? row.previousElementSibling : row.nextElementSibling;
+    if (!targetRow || !targetRow.dataset.tripId) {
+      // Already at top/bottom
+      return;
+    }
+
+    const currentId = row.dataset.tripId;
+    const neighborId = targetRow.dataset.tripId;
+    const currentOrder = Number(row.dataset.sortOrder || 0);
+    const neighborOrder = Number(targetRow.dataset.sortOrder || 0);
+
+    if (!currentId || !neighborId || Number.isNaN(currentOrder) || Number.isNaN(neighborOrder)) {
+      console.warn('Cannot move trip – invalid sort_order data');
+      return;
+    }
+
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    const now = new Date().toISOString();
+
+    // Swap sort_order between the two rows
+    const { error: err1 } = await client
+      .from('trips')
+      .update({ sort_order: neighborOrder, updated_at: now })
+      .eq('id', currentId);
+
+    if (err1) throw err1;
+
+    const { error: err2 } = await client
+      .from('trips')
+      .update({ sort_order: currentOrder, updated_at: now })
+      .eq('id', neighborId);
+
+    if (err2) throw err2;
+
+    showToast('Trip order updated', 'success');
+    await loadTripsAdminData();
+  } catch (e) {
+    console.error('Failed to move trip:', e);
+    showToast('Failed to update trip order', 'error');
+  }
+}
+
+function moveTripUp(tripId) {
+  moveTrip(tripId, -1);
+}
+
+function moveTripDown(tripId) {
+  moveTrip(tripId, 1);
+}
+
 // =====================================================
 // TRIP BOOKINGS MODULE
 // =====================================================
@@ -485,10 +548,11 @@ async function loadTripsAdminData() {
       return;
     }
 
-    // Load trips list
+    // Load trips list ordered by explicit sort_order (then updated_at for stability)
     const { data: trips, error } = await client
       .from('trips')
       .select('*')
+      .order('sort_order', { ascending: true })
       .order('updated_at', { ascending: false })
       .limit(200);
 
@@ -516,7 +580,7 @@ async function loadTripsAdminData() {
       const title = (t.title && (t.title.pl || t.title.en)) || t.slug || t.id;
       const updated = t.updated_at ? new Date(t.updated_at).toLocaleString('en-GB') : '-';
       return `
-        <tr>
+        <tr data-trip-id="${t.id}" data-sort-order="${t.sort_order ?? ''}">
           <td>
             <div style="font-weight:600">${escapeHtml(title)}</div>
             ${t.display_mode ? `<div style=\"font-size:11px;color:var(--admin-text-muted)\">${escapeHtml(t.display_mode)}</div>` : ''}
@@ -530,7 +594,11 @@ async function loadTripsAdminData() {
             </label>
           </td>
           <td>${updated}</td>
-          <td style="display:flex;gap:8px;">
+          <td style="display:flex;gap:8px;align-items:center;">
+            <div style="display:flex;flex-direction:column;gap:2px;margin-right:8px;">
+              <button type="button" class="btn-secondary" style="padding:2px 6px;font-size:11px;line-height:1;" onclick="moveTripUp('${t.id}')">▲</button>
+              <button type="button" class="btn-secondary" style="padding:2px 6px;font-size:11px;line-height:1;" onclick="moveTripDown('${t.id}')">▼</button>
+            </div>
             <button class="btn-primary" onclick="editTrip('${t.id}')">Edit</button>
             <a class="btn-secondary" href="/trip.html?slug=${encodeURIComponent(t.slug)}" target="_blank">Preview</a>
           </td>
