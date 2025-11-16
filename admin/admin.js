@@ -893,24 +893,25 @@ function renderEditTripPriceFields(model, trip) {
   if (!container) return;
   
   if (model === 'per_person') {
-    container.innerHTML = `
-      <label class="admin-form-field"><span>Price per person</span><input name="price_per_person" type="number" step="0.01" value="${trip.price_per_person || ''}" /></label>
-    `;
+    const val = trip.price_per_person || '';
+    container.innerHTML = '<label class="admin-form-field"><span>Price per person</span><input name="price_per_person" type="number" step="0.01" value="' + val + '" /></label>';
   } else if (model === 'base_plus_extra') {
-    container.innerHTML = `
-      <label class="admin-form-field"><span>Base price</span><input name="price_base" type="number" step="0.01" value="${trip.price_base || ''}" /></label>
-      <label class="admin-form-field"><span>Included people</span><input name="included_people" type="number" step="1" value="${trip.included_people || ''}" /></label>
-      <label class="admin-form-field"><span>Extra per person</span><input name="price_extra_person" type="number" step="0.01" value="${trip.price_extra_person || ''}" /></label>
-    `;
+    const base = trip.price_base || '';
+    const included = trip.included_people || '';
+    const extra = trip.price_extra_person || '';
+    container.innerHTML = ''
+      + '<label class="admin-form-field"><span>Base price</span><input name="price_base" type="number" step="0.01" value="' + base + '" /></label>'
+      + '<label class="admin-form-field"><span>Included people</span><input name="included_people" type="number" step="1" value="' + included + '" /></label>'
+      + '<label class="admin-form-field"><span>Extra per person</span><input name="price_extra_person" type="number" step="0.01" value="' + extra + '" /></label>';
   } else if (model === 'per_hour') {
-    container.innerHTML = `
-      <label class="admin-form-field"><span>Price per hour</span><input name="price_base" type="number" step="0.01" value="${trip.price_base || ''}" /></label>
-      <label class="admin-form-field"><span>Min hours</span><input name="min_hours" type="number" step="1" value="${trip.min_hours || ''}" /></label>
-    `;
+    const base = trip.price_base || '';
+    const minH = trip.min_hours || '';
+    container.innerHTML = ''
+      + '<label class="admin-form-field"><span>Price per hour</span><input name="price_base" type="number" step="0.01" value="' + base + '" /></label>'
+      + '<label class="admin-form-field"><span>Min hours</span><input name="min_hours" type="number" step="1" value="' + minH + '" /></label>';
   } else if (model === 'per_day') {
-    container.innerHTML = `
-      <label class="admin-form-field"><span>Price per day</span><input name="price_base" type="number" step="0.01" value="${trip.price_base || ''}" /></label>
-    `;
+    const base = trip.price_base || '';
+    container.innerHTML = '<label class="admin-form-field"><span>Price per day</span><input name="price_base" type="number" step="0.01" value="' + base + '" /></label>';
   } else {
     container.innerHTML = '';
   }
@@ -1019,24 +1020,18 @@ function renderNewTripPriceFields(model) {
   const c = document.getElementById('newTripPriceFields');
   if (!c) return;
   if (model === 'per_person') {
-    c.innerHTML = `
-      <label class="admin-form-field"><span>Price per person</span><input name="price_per_person" type="number" step="0.01" /></label>
-    `;
+    c.innerHTML = '<label class="admin-form-field"><span>Price per person</span><input name="price_per_person" type="number" step="0.01" /></label>';
   } else if (model === 'base_plus_extra') {
-    c.innerHTML = `
-      <label class="admin-form-field"><span>Base price</span><input name="price_base" type="number" step="0.01" /></label>
-      <label class="admin-form-field"><span>Included people</span><input name="included_people" type="number" step="1" /></label>
-      <label class="admin-form-field"><span>Extra per person</span><input name="price_extra_person" type="number" step="0.01" /></label>
-    `;
+    c.innerHTML = ''
+      + '<label class="admin-form-field"><span>Base price</span><input name="price_base" type="number" step="0.01" /></label>'
+      + '<label class="admin-form-field"><span>Included people</span><input name="included_people" type="number" step="1" /></label>'
+      + '<label class="admin-form-field"><span>Extra per person</span><input name="price_extra_person" type="number" step="0.01" /></label>';
   } else if (model === 'per_hour') {
-    c.innerHTML = `
-      <label class="admin-form-field"><span>Price per hour</span><input name="price_base" type="number" step="0.01" /></label>
-      <label class="admin-form-field"><span>Min hours</span><input name="min_hours" type="number" step="1" /></label>
-    `;
+    c.innerHTML = ''
+      + '<label class="admin-form-field"><span>Price per hour</span><input name="price_base" type="number" step="0.01" /></label>'
+      + '<label class="admin-form-field"><span>Min hours</span><input name="min_hours" type="number" step="1" /></label>';
   } else if (model === 'per_day') {
-    c.innerHTML = `
-      <label class="admin-form-field"><span>Price per day</span><input name="price_base" type="number" step="0.01" /></label>
-    `;
+    c.innerHTML = '<label class="admin-form-field"><span>Price per day</span><input name="price_base" type="number" step="0.01" /></label>';
   } else {
     c.innerHTML = '';
   }
@@ -1050,7 +1045,7 @@ function slugifyTitle(title) {
     .trim()
     .replace(/\s+/g, '-')
     .replace(/-+/g, '-')
-    .slice(0, 80) || `trip-${Date.now()}`;
+    .slice(0, 80) || ('trip-' + Date.now());
 }
 
 function compressToWebp(file, maxWidth = 1920, maxHeight = 1080, quality = 0.82) {
@@ -1236,11 +1231,11 @@ async function openNewTripModal() {
             if (file.size > maxSize) throw new Error('Plik okładki jest za duży (max 8MB)');
             
             const compressed = await compressToWebp(file, 1920, 1080, 0.82);
-            const path = `trips/${payload.slug}/cover-${Date.now()}.webp`;
-            const { error: upErr } = await client.storage.from('poi-photos').upload(path, compressed, { 
-              cacheControl: '3600', 
-              upsert: false, 
-              contentType: 'image/webp' 
+            const path = 'trips/' + payload.slug + '/cover-' + Date.now() + '.webp';
+            const { error: upErr } = await client.storage.from('poi-photos').upload(path, compressed, {
+              cacheControl: '3600',
+              upsert: false,
+              contentType: 'image/webp'
             });
             if (upErr) throw upErr;
             
@@ -1319,7 +1314,7 @@ async function loadHotelsAdminData() {
     const sub = document.getElementById('hotelsStatSubtitle');
     if (statTotal) statTotal.textContent = total;
     if (statPub) statPub.textContent = published;
-    if (sub) sub.textContent = total ? `${published} published` : 'No hotels yet';
+    if (sub) sub.textContent = total ? published + ' published' : 'No hotels yet';
 
     const tbody = document.getElementById('hotelsTableBody');
     if (!tbody) return;
