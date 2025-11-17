@@ -33,10 +33,10 @@ export async function onRequestPost(context) {
     }
 
     if (action === 'magic_link') {
-      // Send a magic link email using the standard auth flow
-      const { data, error } = await publicClient.auth.signInWithOtp({
-        email: targetEmail,
-        options: { emailRedirectTo: redirectTo },
+      // For admin UX, treat "magic link" as an alternative entry to the same
+      // password reset flow: send a recovery email that leads to the callback page.
+      const { data, error } = await publicClient.auth.resetPasswordForEmail(targetEmail, {
+        redirectTo,
       });
       if (error) throw error;
       return new Response(JSON.stringify({ ok: true, link: null }), { headers: { 'content-type': 'application/json' } });
