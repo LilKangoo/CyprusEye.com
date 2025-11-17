@@ -90,11 +90,16 @@ function renderHomeTrips() {
   let filteredTrips = homeTripsData;
 
   // Filter by city if not 'all'.
-  // On the homepage we want:
-  // - "Wszystkie miasta": wszystkie wycieczki (w tym start_city = 'All Cities')
-  // - Konkretne miasto (np. Ayia Napa, Paphos): tylko wycieczki z tym miastem.
+  // Homepage behaviour:
+  // - "Wszystkie miasta": wszystkie wycieczki
+  // - Konkretne miasto (np. Ayia Napa, Paphos):
+  //     * wycieczki z tym miastem
+  //     * + globalne wycieczki z start_city = 'All Cities'.
   if (homeTripsCurrentCity !== 'all') {
-    filteredTrips = homeTripsData.filter(trip => trip.start_city === homeTripsCurrentCity);
+    filteredTrips = homeTripsData.filter(trip => 
+      trip.start_city === homeTripsCurrentCity ||
+      trip.start_city === 'All Cities'
+    );
   }
 
   // Show all trips on home page (carousel arrows handle overflow)

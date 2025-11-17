@@ -90,10 +90,13 @@ function renderHomeTrips() {
 
   // Filter by city if not 'all'.
   // Homepage behaviour:
-  // - "Wszystkie miasta": all trips (including start_city = 'All Cities')
-  // - Specific city tab: only trips with that start_city.
+  // - "Wszystkie miasta": all trips
+  // - Specific city tab: trips from that city + global trips (start_city = 'All Cities').
   if (homeTripsCurrentCity !== 'all') {
-    filteredTrips = homeTripsData.filter(trip => trip.start_city === homeTripsCurrentCity);
+    filteredTrips = homeTripsData.filter(trip => 
+      trip.start_city === homeTripsCurrentCity ||
+      trip.start_city === 'All Cities'
+    );
   }
 
   // Show all trips on home page (carousel arrows handle overflow)
