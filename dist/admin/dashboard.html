@@ -1418,6 +1418,43 @@
             </div>
           </div>
 
+          <!-- Diagnostics summary stats -->
+          <div class="admin-stats-grid" style="margin-bottom: 16px;">
+            <div class="admin-stat-card">
+              <div class="stat-card-content">
+                <p class="stat-card-label">Total checks</p>
+                <p class="stat-card-value" id="diagStatTotal">0</p>
+                <p class="stat-card-change">All defined diagnostics</p>
+              </div>
+            </div>
+            <div class="admin-stat-card">
+              <div class="stat-card-content">
+                <p class="stat-card-label">Warnings</p>
+                <p class="stat-card-value" id="diagStatWarnings">0</p>
+                <p class="stat-card-change">Items to improve</p>
+              </div>
+            </div>
+            <div class="admin-stat-card">
+              <div class="stat-card-content">
+                <p class="stat-card-label">Errors</p>
+                <p class="stat-card-value" id="diagStatErrors">0</p>
+                <p class="stat-card-change">Critical issues</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Diagnostics mini chart -->
+          <div style="margin-bottom: 24px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;font-size:12px;color:var(--admin-text-muted);">
+              <span>Checks status distribution</span>
+            </div>
+            <div style="height:10px;border-radius:999px;overflow:hidden;background:rgba(148,163,184,0.3);display:flex;">
+              <div id="diagBarOk" style="height:100%;background:#16a34a;width:0;"></div>
+              <div id="diagBarWarn" style="height:100%;background:#f59e0b;width:0;"></div>
+              <div id="diagBarError" style="height:100%;background:#ef4444;width:0;"></div>
+            </div>
+          </div>
+
           <div class="admin-table-container">
             <table class="admin-table">
               <thead>

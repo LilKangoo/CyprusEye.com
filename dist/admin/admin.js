@@ -5159,7 +5159,11 @@ async function loadDiagnosticsData() {
 // Health Checks
 // -----------------------------------------------------
 
- // SQL snippets used for guided Auto-Fix
+const diagnosticsState = {
+  statuses: {},
+};
+
+// SQL snippets used for guided Auto-Fix
  const SQL_ADD_POI_STATUS = `-- =====================================================
  -- ADD STATUS COLUMN TO POIS TABLE
  -- =====================================================
@@ -5542,6 +5546,114 @@ function getDiagnosticChecks() {
       },
       canFix: false,
     },
+    {
+      id: 'check_hotels_sort_order',
+      title: 'Hotels: sort_order & publication',
+      description: 'Detects hotels with missing sort_order or unpublished but ordered items',
+      run: async (client) => {
+        try {
+          const { data, error } = await client
+            .from('hotels')
+            .select('id, slug, sort_order, is_published')
+            .order('sort_order', { ascending: true })
+            .limit(100);
+          if (error) throw error;
+          const items = Array.isArray(data) ? data : [];
+          const missingOrder = items.filter(h => h.sort_order == null).length;
+          const unpublishedWithOrder = items.filter(h => h.is_published === false && h.sort_order != null).length;
+          if (!items.length) {
+            return { status: 'ok', details: 'No hotels in sample' };
+          }
+          if (missingOrder || unpublishedWithOrder) {
+            return {
+              status: 'warn',
+              details: `Missing sort_order: ${missingOrder}, unpublished with sort_order: ${unpublishedWithOrder} (sample 100)`,
+            };
+          }
+          return { status: 'ok', details: 'All sampled hotels have sort_order set' };
+        } catch (e) {
+          return { status: 'error', details: e.message || 'Query failed' };
+        }
+      },
+      canFix: false,
+    },
+    {
+      id: 'check_hotels_cover_image',
+      title: 'Hotels: missing cover image',
+      description: 'Detects hotels without cover_image_url',
+      run: async (client) => {
+        try {
+          const { data, error } = await client
+            .from('hotels')
+            .select('id, slug, cover_image_url')
+            .or('cover_image_url.is.null,cover_image_url.eq.')
+            .limit(5);
+          if (error) throw error;
+          const missing = Array.isArray(data) ? data.length : 0;
+          return {
+            status: missing ? 'warn' : 'ok',
+            details: missing ? `Found ${missing} hotels without cover image (sample shown)` : 'OK (all have image in sample)',
+          };
+        } catch (e) {
+          return { status: 'error', details: e.message || 'Query failed' };
+        }
+      },
+      canFix: false,
+    },
+    {
+      id: 'check_cars_sort_order',
+      title: 'Cars: sort_order & availability',
+      description: 'Detects cars with missing sort_order or unavailable but ordered items',
+      run: async (client) => {
+        try {
+          const { data, error } = await client
+            .from('car_offers')
+            .select('id, car_model, sort_order, is_available')
+            .order('sort_order', { ascending: true })
+            .limit(100);
+          if (error) throw error;
+          const items = Array.isArray(data) ? data : [];
+          const missingOrder = items.filter(c => c.sort_order == null).length;
+          const unavailableWithOrder = items.filter(c => c.is_available === false && c.sort_order != null).length;
+          if (!items.length) {
+            return { status: 'ok', details: 'No cars in sample' };
+          }
+          if (missingOrder || unavailableWithOrder) {
+            return {
+              status: 'warn',
+              details: `Missing sort_order: ${missingOrder}, unavailable with sort_order: ${unavailableWithOrder} (sample 100)`,
+            };
+          }
+          return { status: 'ok', details: 'All sampled cars have sort_order set' };
+        } catch (e) {
+          return { status: 'error', details: e.message || 'Query failed' };
+        }
+      },
+      canFix: false,
+    },
+    {
+      id: 'check_cars_image_url',
+      title: 'Cars: missing image_url',
+      description: 'Detects cars without image_url',
+      run: async (client) => {
+        try {
+          const { data, error } = await client
+            .from('car_offers')
+            .select('id, car_model, image_url')
+            .or('image_url.is.null,image_url.eq.')
+            .limit(5);
+          if (error) throw error;
+          const missing = Array.isArray(data) ? data.length : 0;
+          return {
+            status: missing ? 'warn' : 'ok',
+            details: missing ? `Found ${missing} cars without image (sample shown)` : 'OK (all have image in sample)',
+          };
+        } catch (e) {
+          return { status: 'error', details: e.message || 'Query failed' };
+        }
+      },
+      canFix: false,
+    },
   ];
 }
 
@@ -5596,6 +5708,7 @@ async function renderDiagnosticChecks() {
 
   // Run all once for initial statuses
   await Promise.all(checks.map(c => runSingleCheck(c.id)));
+  updateDiagnosticsSummary();
 }
 
 async function runSingleCheck(checkId) {
@@ -5613,12 +5726,14 @@ async function runSingleCheck(checkId) {
     const result = await check.run(client);
     const status = result.status || 'ok';
     const details = result.details || '';
+    diagnosticsState.statuses[check.id] = status;
     if (statusCell) {
       const cls = status === 'ok' ? 'badge-success' : status === 'warn' ? 'badge-warning' : 'badge-danger';
       const label = status === 'ok' ? 'OK' : status === 'warn' ? 'Warning' : 'Error';
       statusCell.innerHTML = `<span class="badge ${cls}">${label}</span>`;
     }
     if (detailsCell) detailsCell.textContent = details;
+    updateDiagnosticsSummary();
   } catch (e) {
     if (statusCell) statusCell.innerHTML = '<span class="badge badge-danger">Error</span>';
     if (detailsCell) detailsCell.textContent = e.message || 'Unknown error';
@@ -5632,7 +5747,35 @@ async function runAllChecks() {
     // eslint-disable-next-line no-await-in-loop
     await runSingleCheck(c.id);
   }
+  updateDiagnosticsSummary();
   showToast('All checks completed', 'success');
+}
+
+function updateDiagnosticsSummary() {
+  const statuses = diagnosticsState.statuses || {};
+  const values = Object.values(statuses);
+  const total = values.length;
+  const ok = values.filter(s => s === 'ok').length;
+  const warn = values.filter(s => s === 'warn').length;
+  const error = values.filter(s => s === 'error').length;
+
+  const totalEl = document.getElementById('diagStatTotal');
+  const warnEl = document.getElementById('diagStatWarnings');
+  const errorEl = document.getElementById('diagStatErrors');
+  if (totalEl) totalEl.textContent = total || 0;
+  if (warnEl) warnEl.textContent = warn || 0;
+  if (errorEl) errorEl.textContent = error || 0;
+
+  const barOk = document.getElementById('diagBarOk');
+  const barWarn = document.getElementById('diagBarWarn');
+  const barError = document.getElementById('diagBarError');
+  const safeTotal = total || 1;
+  const okPct = Math.round((ok / safeTotal) * 100);
+  const warnPct = Math.round((warn / safeTotal) * 100);
+  const errorPct = 100 - okPct - warnPct;
+  if (barOk) barOk.style.width = `${okPct}%`;
+  if (barWarn) barWarn.style.width = `${warnPct}%`;
+  if (barError) barError.style.width = `${errorPct}%`;
 }
  
  // -----------------------------------------------------
