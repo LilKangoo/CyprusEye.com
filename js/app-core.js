@@ -39,13 +39,13 @@ console.log('🔵 App Core V3 - START');
       return;
     }
     let hasCenteredOnUser = false;
+    const avatarEl = document.getElementById('headerUserAvatar');
+    const avatarUrl = avatarEl && avatarEl.src ? avatarEl.src : 'assets/cyprus_logo-1000x1054.png';
     const userIcon = L.icon({
-      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png',
-      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41]
+      iconUrl: avatarUrl,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
+      popupAnchor: [0, -20]
     });
     const updatePosition = (lat, lng) => {
       const latLng = [lat, lng];
