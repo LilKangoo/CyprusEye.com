@@ -30,11 +30,12 @@ async function loadHomeTrips() {
       throw new Error('Supabase client not available');
     }
 
-    // Fetch published trips (same as trips.html)
+    // Fetch published trips - ordered exactly like trips.html
     const { data, error } = await supabase
       .from('trips')
       .select('*')
       .eq('is_published', true)
+      .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -96,8 +97,8 @@ function renderHomeTrips() {
     );
   }
 
-  // Limit to 6 trips on home page
-  const displayTrips = filteredTrips.slice(0, 6);
+  // Show all trips on home page (carousel arrows handle overflow)
+  const displayTrips = filteredTrips;
   homeTripsDisplay = displayTrips;
   
   console.log('Current city:', homeTripsCurrentCity);
