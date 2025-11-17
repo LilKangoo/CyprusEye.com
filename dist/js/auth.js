@@ -5,6 +5,196 @@ import { URLS } from './config.js';
 
 const sb = window.getSupabase();
 const ceAuthGlobal = typeof window !== 'undefined' ? (window.CE_AUTH = window.CE_AUTH || {}) : null;
+const IS_PASSWORD_RESET_CALLBACK =
+  typeof window !== 'undefined' && window.location.pathname.startsWith('/auth/callback');
+
+function createCallbackResetLayout() {
+  const body = document.body;
+  if (!body) return;
+
+  body.classList.add('auth-page');
+  body.innerHTML = '';
+
+  const container = document.createElement('div');
+  container.className = 'auth-page__container';
+  container.innerHTML = `
+    <header class="auth-page__header">
+      <h1 class="auth-page__title">Ustaw nowe hasło</h1>
+      <p class="auth-page__subtitle">
+        Wpisz nowe hasło, aby zakończyć proces odzyskiwania konta.
+      </p>
+    </header>
+    <main class="auth-page__content">
+      <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+      <form id="form-password-update" class="auth-form" novalidate>
+        <p id="resetMessage" class="auth-message" role="status" aria-live="polite">
+          Sprawdzamy link odzyskiwania…
+        </p>
+        <label for="resetNewPassword">Nowe hasło</label>
+        <input
+          id="resetNewPassword"
+          name="password"
+          type="password"
+          required
+          minlength="8"
+          autocomplete="new-password"
+        />
+        <label for="resetNewPasswordConfirm">Powtórz hasło</label>
+        <input
+          id="resetNewPasswordConfirm"
+          name="passwordConfirm"
+          type="password"
+          required
+          minlength="8"
+          autocomplete="new-password"
+        />
+        <div class="auth-form__actions">
+          <button type="submit" class="btn btn--primary">Zapisz nowe hasło</button>
+          <button type="button" class="auth-form__link" id="resetBackToAuth">
+            Wróć do logowania
+          </button>
+        </div>
+      </form>
+    </main>
+  `;
+
+  body.appendChild(container);
+}
+
+function setCallbackMessage(text, tone = 'info') {
+  const messageEl = document.getElementById('resetMessage');
+  if (!messageEl) return;
+  messageEl.textContent = text || '';
+  if (tone) {
+    messageEl.dataset.tone = tone;
+    messageEl.setAttribute('aria-live', tone === 'error' ? 'assertive' : 'polite');
+  } else {
+    messageEl.removeAttribute('data-tone');
+    messageEl.removeAttribute('aria-live');
+  }
+}
+
+function setCallbackFormDisabled(disabled) {
+  const form = document.getElementById('form-password-update');
+  if (!(form instanceof HTMLFormElement)) return;
+  form.querySelectorAll('input, button').forEach((el) => {
+    if (el instanceof HTMLInputElement || el instanceof HTMLButtonElement) {
+      el.disabled = disabled;
+    }
+  });
+}
+
+async function applyCallbackSessionFromHash() {
+  const hash = window.location.hash ? window.location.hash.replace(/^#/, '') : '';
+  if (!hash) {
+    return;
+  }
+
+  const params = new URLSearchParams(hash);
+  const accessToken = params.get('access_token');
+  const refreshToken = params.get('refresh_token');
+
+  if (accessToken && refreshToken) {
+    await sb.auth.setSession({ access_token: accessToken, refresh_token: refreshToken });
+    window.history.replaceState({}, document.title, window.location.pathname + window.location.search);
+  }
+}
+
+async function ensureCallbackRecoverySession() {
+  setCallbackMessage('Sprawdzamy link odzyskiwania…', 'info');
+  setCallbackFormDisabled(true);
+
+  try {
+    await applyCallbackSessionFromHash();
+    const { data, error } = await sb.auth.getSession();
+    if (error) {
+      throw error;
+    }
+    const session = data?.session;
+    if (!session?.user) {
+      setCallbackMessage('Link odzyskiwania jest nieprawidłowy lub wygasł.', 'error');
+      return false;
+    }
+    setCallbackFormDisabled(false);
+    setCallbackMessage('Wprowadź nowe hasło dla swojego konta.', 'info');
+    return true;
+  } catch (error) {
+    console.error('Nie udało się zweryfikować linku resetu hasła.', error);
+    setCallbackMessage(`Błąd: ${error.message || 'Nie udało się zweryfikować linku.'}`, 'error');
+    return false;
+  }
+}
+
+async function handleCallbackPasswordUpdate(event) {
+  event.preventDefault();
+  event.stopPropagation();
+
+  const form = document.getElementById('form-password-update');
+  if (!(form instanceof HTMLFormElement)) return;
+
+  const password = form.password?.value || '';
+  const confirm = form.passwordConfirm?.value || '';
+
+  if (!password || password.length < 8) {
+    setCallbackMessage('Hasło musi mieć co najmniej 8 znaków.', 'error');
+    return;
+  }
+
+  if (password !== confirm) {
+    setCallbackMessage('Hasła nie są identyczne.', 'error');
+    return;
+  }
+
+  setCallbackFormDisabled(true);
+  setCallbackMessage('Zapisujemy nowe hasło…', 'info');
+
+  try {
+    const { error } = await sb.auth.updateUser({ password });
+    if (error) {
+      throw error;
+    }
+    setCallbackMessage('Hasło zostało zaktualizowane. Przenosimy do logowania…', 'success');
+    window.setTimeout(() => {
+      window.location.assign('/auth/');
+    }, 800);
+  } catch (error) {
+    console.error('Nie udało się zaktualizować hasła.', error);
+    setCallbackFormDisabled(false);
+    setCallbackMessage(`Błąd: ${error.message || 'Nie udało się zapisać nowego hasła.'}`, 'error');
+  }
+}
+
+function initPasswordResetCallbackPageIfNeeded() {
+  if (!IS_PASSWORD_RESET_CALLBACK) return;
+
+  createCallbackResetLayout();
+
+  const form = document.getElementById('form-password-update');
+  const backButton = document.getElementById('resetBackToAuth');
+
+  if (form instanceof HTMLFormElement) {
+    void ensureCallbackRecoverySession().then((ready) => {
+      if (ready) {
+        form.addEventListener('submit', handleCallbackPasswordUpdate);
+      }
+    });
+  }
+
+  if (backButton instanceof HTMLButtonElement) {
+    backButton.addEventListener('click', (event) => {
+      event.preventDefault();
+      window.location.assign('/auth/');
+    });
+  }
+}
+
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initPasswordResetCallbackPageIfNeeded, { once: true });
+  } else {
+    initPasswordResetCallbackPageIfNeeded();
+  }
+}
 
 const $ = (selector, root = document) => root.querySelector(selector);
 const PASSWORD_RESET_REDIRECT = URLS.passwordReset;
