@@ -4255,18 +4255,19 @@ async function loadFleetData() {
     }
 
     fleetState.cars = cars || [];
-    console.log(`Loaded ${fleetState.cars.length} cars`);
+    window.fleetCarsList = Array.isArray(fleetState.cars) ? fleetState.cars.slice() : [];
+    console.log(`Loaded ${window.fleetCarsList.length} cars`);
 
     // Render fleet table
     const tbody = $('#fleetTableBody');
     if (!tbody) return;
 
-    if (fleetState.cars.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="10" class="table-loading">No cars found with current filters</td></tr>';
+    if (!window.fleetCarsList || window.fleetCarsList.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="11" class="table-loading">No cars found with current filters</td></tr>';
       return;
     }
 
-    tbody.innerHTML = fleetState.cars.map(car => {
+    tbody.innerHTML = window.fleetCarsList.map((car, index) => {
       // Extract i18n values for display (prefer Polish, fallback to English)
       const carModel = car.car_model?.pl || car.car_model?.en || car.car_model || 'Unknown';
       const carType = car.car_type?.pl || car.car_type?.en || car.car_type || '';
@@ -4286,6 +4287,8 @@ async function loadFleetData() {
         ? `<img src="${escapeHtml(car.image_url)}" alt="${escapeHtml(carModel)}" style="width: 60px; height: 40px; object-fit: cover; border-radius: 4px;">`
         : `<div style="width: 60px; height: 40px; background: var(--admin-border); border-radius: 4px; display: flex; align-items: center; justify-content: center; font-size: 20px;">🚗</div>`;
 
+      const sortOrder = typeof car.sort_order === 'number' ? car.sort_order : (index + 1);
+
       return `
         <tr>
           <td>${imageDisplay}</td>
@@ -4293,6 +4296,16 @@ async function loadFleetData() {
             <span class="badge ${car.location === 'larnaca' ? 'badge-info' : 'badge-warning'}">
               ${car.location.toUpperCase()}
             </span>
+          </td>
+          <td>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+              <span style="font-size:11px;color:var(--admin-text-muted);">#${index + 1}</span>
+              <div style="display:flex;flex-direction:column;gap:2px;">
+                <button type="button" title="Move up" onclick="moveFleetCarOrder('${car.id}','up')" style="border:1px solid var(--admin-border);background:var(--admin-bg-secondary);color:var(--admin-text);border-radius:4px;padding:0 4px;font-size:10px;line-height:14px;">▲</button>
+                <button type="button" title="Move down" onclick="moveFleetCarOrder('${car.id}','down')" style="border:1px solid var(--admin-border);background:var(--admin-bg-secondary);color:var(--admin-text);border-radius:4px;padding:0 4px;font-size:10px;line-height:14px;">▼</button>
+              </div>
+              <span style="font-size:10px;color:var(--admin-text-muted);">${sortOrder}</span>
+            </div>
           </td>
           <td>
             <div style="font-weight: 600;">${escapeHtml(carModel)}</div>
@@ -4351,8 +4364,51 @@ async function loadFleetData() {
     showToast('Failed to load fleet: ' + (e.message || 'Unknown error'), 'error');
     const tbody = $('#fleetTableBody');
     if (tbody) {
-      tbody.innerHTML = `<tr><td colspan="10" class="table-loading" style="color: var(--admin-danger);">Error: ${escapeHtml(e.message)}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="11" class="table-loading" style="color: var(--admin-danger);">Error: ${escapeHtml(e.message)}</td></tr>`;
     }
+  }
+}
+
+async function moveFleetCarOrder(carId, direction) {
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    const list = Array.isArray(window.fleetCarsList) ? window.fleetCarsList : [];
+    const index = list.findIndex(c => c.id === carId);
+    if (index === -1) return;
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= list.length) {
+      showToast('Cannot move further', 'info');
+      return;
+    }
+
+    const current = list[index];
+    const target = list[targetIndex];
+    const currentOrder = typeof current.sort_order === 'number' ? current.sort_order : (index + 1);
+    const targetOrder = typeof target.sort_order === 'number' ? target.sort_order : (targetIndex + 1);
+
+    const { error: err1 } = await client
+      .from('car_offers')
+      .update({ sort_order: targetOrder })
+      .eq('id', current.id);
+    if (err1) throw err1;
+
+    const { error: err2 } = await client
+      .from('car_offers')
+      .update({ sort_order: currentOrder })
+      .eq('id', target.id);
+    if (err2) throw err2;
+
+    showToast('Car order updated', 'success');
+    await loadFleetData();
+  } catch (e) {
+    console.error('Failed to update car order:', e);
+    showToast('Failed to update order: ' + (e.message || 'Unknown error'), 'error');
   }
 }
 
