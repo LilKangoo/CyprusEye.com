@@ -3082,6 +3082,18 @@ async function handleSetTempPassword(userId, tempPwd) {
   }
 }
 
+// Make function global for onclick
+window.viewUserDetails = viewUserDetails;
+window.handleUserProfileSubmit = handleUserProfileSubmit;
+window.handleUserAccountSubmit = handleUserAccountSubmit;
+window.handleUserXpAdjustment = handleUserXpAdjustment;
+window.handleUserBanToggle = handleUserBanToggle;
+window.handleUserBanForm = handleUserBanForm;
+window.handleSendPasswordReset = handleSendPasswordReset;
+window.handleSendMagicLink = handleSendMagicLink;
+window.handleSetTempPassword = handleSetTempPassword;
+window.handleSetXpLevel = handleSetXpLevel;
+
 async function handleSetXpLevel(userId, levelStr, xpStr) {
   const xp = xpStr === '' ? null : Number.parseInt(xpStr, 10);
   const level = levelStr === '' ? null : Number.parseInt(levelStr, 10);
