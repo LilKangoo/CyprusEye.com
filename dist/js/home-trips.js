@@ -88,16 +88,16 @@ function renderHomeTrips() {
 
   let filteredTrips = homeTripsData;
 
-  // Filter by city if not 'all' (same logic as trips.html)
+  // Filter by city if not 'all'.
+  // Homepage behaviour:
+  // - "Wszystkie miasta": all trips (including start_city = 'All Cities')
+  // - Specific city tab: only trips with that start_city.
   if (homeTripsCurrentCity !== 'all') {
-    filteredTrips = homeTripsData.filter(trip => 
-      trip.start_city === homeTripsCurrentCity || 
-      trip.start_city === 'All Cities'  // Include "All Cities" trips in every category
-    );
+    filteredTrips = homeTripsData.filter(trip => trip.start_city === homeTripsCurrentCity);
   }
 
-  // Limit to 6 trips on home page
-  const displayTrips = filteredTrips.slice(0, 6);
+  // Show all trips on home page (carousel arrows handle overflow)
+  const displayTrips = filteredTrips;
   homeTripsDisplay = displayTrips;
   
   console.log('Current city:', homeTripsCurrentCity);

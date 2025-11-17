@@ -89,12 +89,12 @@ function renderHomeTrips() {
 
   let filteredTrips = homeTripsData;
 
-  // Filter by city if not 'all' (same logic as trips.html)
+  // Filter by city if not 'all'.
+  // On the homepage we want:
+  // - "Wszystkie miasta": wszystkie wycieczki (w tym start_city = 'All Cities')
+  // - Konkretne miasto (np. Ayia Napa, Paphos): tylko wycieczki z tym miastem.
   if (homeTripsCurrentCity !== 'all') {
-    filteredTrips = homeTripsData.filter(trip => 
-      trip.start_city === homeTripsCurrentCity || 
-      trip.start_city === 'All Cities'  // Include "All Cities" trips in every category
-    );
+    filteredTrips = homeTripsData.filter(trip => trip.start_city === homeTripsCurrentCity);
   }
 
   // Show all trips on home page (carousel arrows handle overflow)
