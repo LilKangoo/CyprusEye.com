@@ -1154,13 +1154,16 @@ async function loadHotelsAdminData() {
     const { data: hotels, error } = await client
       .from('hotels')
       .select('*')
+      .order('sort_order', { ascending: true })
       .order('updated_at', { ascending: false })
       .limit(200);
 
     if (error) throw error;
 
-    const total = hotels?.length || 0;
-    const published = (hotels || []).filter(h => h.is_published).length;
+    window.hotelsAdminList = Array.isArray(hotels) ? hotels.slice() : [];
+
+    const total = window.hotelsAdminList?.length || 0;
+    const published = (window.hotelsAdminList || []).filter(h => h.is_published).length;
     const statTotal = document.getElementById('hotelsStatTotal');
     const statPub = document.getElementById('hotelsStatPublished');
     const sub = document.getElementById('hotelsStatSubtitle');
@@ -1170,8 +1173,8 @@ async function loadHotelsAdminData() {
 
     const tbody = document.getElementById('hotelsTableBody');
     if (!tbody) return;
-    if (!hotels || hotels.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="6" class="table-loading">No hotels found</td></tr>';
+    if (!window.hotelsAdminList || window.hotelsAdminList.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="8" class="table-loading">No hotels found</td></tr>';
       return;
     }
 
@@ -1187,14 +1190,25 @@ async function loadHotelsAdminData() {
       } catch (_) { return '-'; }
     }
 
-    tbody.innerHTML = hotels.map(h => {
+    tbody.innerHTML = window.hotelsAdminList.map((h, index) => {
       const title = (h.title && (h.title.pl || h.title.en)) || h.slug || h.id;
       const updated = h.updated_at ? new Date(h.updated_at).toLocaleString('en-GB') : '-';
       const priceSummary = formatHotelPriceSummary(h);
+      const sortOrder = typeof h.sort_order === 'number' ? h.sort_order : (index + 1);
       return `
         <tr>
           <td>
             <div style="font-weight:600">${escapeHtml(title)}</div>
+          </td>
+          <td>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+              <span style="font-size:11px;color:var(--admin-text-muted);">#${index + 1}</span>
+              <div style="display:flex;flex-direction:column;gap:2px;">
+                <button type="button" title="Move up" onclick="moveHotelOrder('${h.id}','up')" style="border:1px solid var(--admin-border);background:var(--admin-bg-secondary);color:var(--admin-text);border-radius:4px;padding:0 4px;font-size:10px;line-height:14px;">▲</button>
+                <button type="button" title="Move down" onclick="moveHotelOrder('${h.id}','down')" style="border:1px solid var(--admin-border);background:var(--admin-bg-secondary);color:var(--admin-text);border-radius:4px;padding:0 4px;font-size:10px;line-height:14px;">▼</button>
+              </div>
+              <span style="font-size:10px;color:var(--admin-text-muted);">${sortOrder}</span>
+            </div>
           </td>
           <td>${escapeHtml(h.slug || '')}</td>
           <td>${escapeHtml(h.city || '')}</td>
@@ -1225,7 +1239,50 @@ async function loadHotelsAdminData() {
     console.error('Failed to load hotels:', e);
     showToast('Failed to load hotels: ' + (e.message || 'Unknown error'), 'error');
     const tbody = document.getElementById('hotelsTableBody');
-    if (tbody) tbody.innerHTML = `<tr><td colspan="6" class="table-loading" style="color:var(--admin-danger)">Error: ${escapeHtml(e.message||'')}</td></tr>`;
+    if (tbody) tbody.innerHTML = `<tr><td colspan="8" class="table-loading" style="color:var(--admin-danger)">Error: ${escapeHtml(e.message||'')}</td></tr>`;
+  }
+}
+
+async function moveHotelOrder(hotelId, direction) {
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    const list = Array.isArray(window.hotelsAdminList) ? window.hotelsAdminList : [];
+    const index = list.findIndex(h => h.id === hotelId);
+    if (index === -1) return;
+
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= list.length) {
+      showToast('Cannot move further', 'info');
+      return;
+    }
+
+    const current = list[index];
+    const target = list[targetIndex];
+    const currentOrder = typeof current.sort_order === 'number' ? current.sort_order : (index + 1);
+    const targetOrder = typeof target.sort_order === 'number' ? target.sort_order : (targetIndex + 1);
+
+    const { error: err1 } = await client
+      .from('hotels')
+      .update({ sort_order: targetOrder })
+      .eq('id', current.id);
+    if (err1) throw err1;
+
+    const { error: err2 } = await client
+      .from('hotels')
+      .update({ sort_order: currentOrder })
+      .eq('id', target.id);
+    if (err2) throw err2;
+
+    showToast('Hotel order updated', 'success');
+    await loadHotelsAdminData();
+  } catch (e) {
+    console.error('Failed to update hotel order:', e);
+    showToast('Failed to update order: ' + (e.message || 'Unknown error'), 'error');
   }
 }
 
