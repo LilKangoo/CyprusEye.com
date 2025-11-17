@@ -138,8 +138,8 @@
         </div>
         
         <div class="header-actions" aria-label="Szybkie działania" data-i18n-attrs="aria-label:header.quickActions.aria">
-          <div class="header-actions-primary">
-            <a class="ghost header-link" href="community.html" data-i18n="header.communityLink">💬 Społeczność</a>
+          <div class="header-actions-primary" data-tour-target="quick-actions">
+            <a class="ghost header-link" href="packing.html" data-i18n="nav.packing">🎒 Pakowanie</a>
             <a
               class="ghost header-link"
               href="kupon.html"
@@ -206,25 +206,10 @@
       </div>
     </div>
     
-    <nav class="header-tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna">
-      <a
-        href="index.html"
-        class="header-tab"
-        id="headerAdventureTab"
-        data-i18n="nav.adventure"
-      >
-        🎯 Twoja przygoda
-      </a>
-      <a
-        href="packing.html"
-        class="header-tab"
-        id="headerPackingTab"
-        data-i18n="nav.packing"
-      >
-        🎒 Planer pakowania
-      </a>
-      <a
-        href="tasks.html"
+    <nav class="header-tabs" role="tablist" aria-label="Nawigacja główna">
+      <a href="/index.html" class="header-tab" id="headerAdventureTab">🎯 Twoja przygoda</a>
+      <a href="/community.html" class="header-tab is-active" id="headerPackingTab">💬 Społeczność</a>
+      <a href="/tasks.html" class="header-tab" id="headerTasksTab">✅ Zadania</a>
         class="header-tab"
         id="headerTasksTab"
         data-i18n="nav.tasks"
