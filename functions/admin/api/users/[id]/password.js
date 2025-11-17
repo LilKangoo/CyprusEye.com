@@ -11,7 +11,7 @@ export async function onRequestPost(context) {
     if (!userId) return new Response(JSON.stringify({ error: 'Missing user id' }), { status: 400, headers: { 'content-type': 'application/json' } });
 
     await requireAdmin(request, env);
-    const { adminClient } = createSupabaseClients(env, request.headers.get('Authorization'));
+    const { adminClient, publicClient } = createSupabaseClients(env, request.headers.get('Authorization'));
 
     // Resolve target user email once and reuse for link generation
     const { data: userRes, error: userErr } = await adminClient.auth.admin.getUserById(userId);
@@ -22,21 +22,17 @@ export async function onRequestPost(context) {
 
     const action = body?.action;
     if (action === 'reset') {
-      const { data, error } = await adminClient.auth.admin.generateLink({
-        type: 'recovery',
-        email: targetEmail,
-      });
+      // Trigger Supabase to send a standard password reset email
+      const { data, error } = await publicClient.auth.resetPasswordForEmail(targetEmail);
       if (error) throw error;
-      return new Response(JSON.stringify({ ok: true, link: data?.properties?.action_link || null }), { headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ ok: true, link: null }), { headers: { 'content-type': 'application/json' } });
     }
 
     if (action === 'magic_link') {
-      const { data, error } = await adminClient.auth.admin.generateLink({
-        type: 'magiclink',
-        email: targetEmail,
-      });
+      // Send a magic link email using the standard auth flow
+      const { data, error } = await publicClient.auth.signInWithOtp({ email: targetEmail });
       if (error) throw error;
-      return new Response(JSON.stringify({ ok: true, link: data?.properties?.action_link || null }), { headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ ok: true, link: null }), { headers: { 'content-type': 'application/json' } });
     }
 
     if (action === 'set_temporary') {
