@@ -3013,22 +3013,27 @@ async function handleUserBanToggle(userId, isCurrentlyBanned) {
   }
 }
 
-// Make function global for onclick
-window.viewUserDetails = viewUserDetails;
-window.handleUserProfileSubmit = handleUserProfileSubmit;
-window.handleUserAccountSubmit = handleUserAccountSubmit;
-window.handleUserXpAdjustment = handleUserXpAdjustment;
-window.handleUserBanToggle = handleUserBanToggle;
-window.handleUserBanForm = handleUserBanForm;
-window.handleSendPasswordReset = handleSendPasswordReset;
-window.handleSendMagicLink = handleSendMagicLink;
-window.handleSetTempPassword = handleSetTempPassword;
-window.handleSetXpLevel = handleSetXpLevel;
-
 async function handleSendPasswordReset(userId) {
   try {
-    await apiRequest(`/users/${userId}/password`, { method: 'POST', body: JSON.stringify({ action: 'reset' }) });
-    showToast('Password reset link generated', 'success');
+    const result = await apiRequest(`/users/${userId}/password`, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'reset' }),
+    });
+
+    if (result && result.link) {
+      try {
+        if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(result.link);
+          showToast('Password reset link generated and copied to clipboard', 'success');
+          return;
+        }
+      } catch (_) {
+        // Fallback to normal toast below
+      }
+      showToast('Password reset link generated. Copy it from the console/network response.', 'success');
+    } else {
+      showToast('Password reset link generated', 'success');
+    }
   } catch (e) {
     showToast('Failed to generate reset link: ' + (e.message || 'Unknown error'), 'error');
   }
@@ -3036,13 +3041,30 @@ async function handleSendPasswordReset(userId) {
 
 async function handleSendMagicLink(userId) {
   try {
-    await apiRequest(`/users/${userId}/password`, { method: 'POST', body: JSON.stringify({ action: 'magic_link' }) });
-    showToast('Magic link generated', 'success');
+    const result = await apiRequest(`/users/${userId}/password`, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'magic_link' }),
+    });
+
+    if (result && result.link) {
+      try {
+        if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(result.link);
+          showToast('Magic link generated and copied to clipboard', 'success');
+          return;
+        }
+      } catch (_) {
+        // Fallback to normal toast below
+      }
+      showToast('Magic link generated. Copy it from the console/network response.', 'success');
+    } else {
+      showToast('Magic link generated', 'success');
+    }
   } catch (e) {
     showToast('Failed to generate magic link: ' + (e.message || 'Unknown error'), 'error');
   }
 }
-
+ 
 async function handleSetTempPassword(userId, tempPwd) {
   const pwd = (tempPwd || '').trim();
   if (pwd.length < 8) {
@@ -3050,7 +3072,10 @@ async function handleSetTempPassword(userId, tempPwd) {
     return;
   }
   try {
-    await apiRequest(`/users/${userId}/password`, { method: 'POST', body: JSON.stringify({ action: 'set_temporary', temp_password: pwd }) });
+    await apiRequest(`/users/${userId}/password`, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'set_temporary', temp_password: pwd }),
+    });
     showToast('Temporary password set', 'success');
   } catch (e) {
     showToast('Failed to set temporary password: ' + (e.message || 'Unknown error'), 'error');
