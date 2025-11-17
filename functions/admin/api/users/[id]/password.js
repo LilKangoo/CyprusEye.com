@@ -21,16 +21,23 @@ export async function onRequestPost(context) {
     const targetEmail = userRes.user.email;
 
     const action = body?.action;
+    const redirectTo = 'https://cypruseye.com/auth/callback/';
+
     if (action === 'reset') {
       // Trigger Supabase to send a standard password reset email
-      const { data, error } = await publicClient.auth.resetPasswordForEmail(targetEmail);
+      const { data, error } = await publicClient.auth.resetPasswordForEmail(targetEmail, {
+        redirectTo,
+      });
       if (error) throw error;
       return new Response(JSON.stringify({ ok: true, link: null }), { headers: { 'content-type': 'application/json' } });
     }
 
     if (action === 'magic_link') {
       // Send a magic link email using the standard auth flow
-      const { data, error } = await publicClient.auth.signInWithOtp({ email: targetEmail });
+      const { data, error } = await publicClient.auth.signInWithOtp({
+        email: targetEmail,
+        options: { emailRedirectTo: redirectTo },
+      });
       if (error) throw error;
       return new Response(JSON.stringify({ ok: true, link: null }), { headers: { 'content-type': 'application/json' } });
     }
