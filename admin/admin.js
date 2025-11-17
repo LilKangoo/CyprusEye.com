@@ -8121,25 +8121,84 @@ async function loadAnalytics() {
     const analyticsEl = $('#analyticsContent');
     if (analyticsEl && contentStats) {
       analyticsEl.innerHTML = `
-        <div class="admin-stats-grid">
+        <!-- Engagement & activity -->
+        <div class="admin-stats-grid" style="margin-bottom:24px;">
           <div class="admin-stat-card">
-            <h4>Comments Today</h4>
-            <p style="font-size: 28px; font-weight: 700;">${contentStats.comments_today || 0}</p>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Comments Today</p>
+              <p class="stat-card-value">${contentStats.comments_today || 0}</p>
+              <p class="stat-card-change">New comments in last 24h</p>
+            </div>
           </div>
           <div class="admin-stat-card">
-            <h4>Comments This Week</h4>
-            <p style="font-size: 28px; font-weight: 700;">${contentStats.comments_this_week || 0}</p>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Comments This Week</p>
+              <p class="stat-card-value">${contentStats.comments_this_week || 0}</p>
+              <p class="stat-card-change">Last 7 days</p>
+            </div>
           </div>
           <div class="admin-stat-card">
-            <h4>Active Users Today</h4>
-            <p style="font-size: 28px; font-weight: 700;">${contentStats.active_users_today || 0}</p>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Comments This Month</p>
+              <p class="stat-card-value">${contentStats.comments_this_month || 0}</p>
+              <p class="stat-card-change">Last 30 days</p>
+            </div>
           </div>
           <div class="admin-stat-card">
-            <h4>Average Rating</h4>
-            <p style="font-size: 28px; font-weight: 700;">${contentStats.avg_rating || 'N/A'}</p>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Active Users Today</p>
+              <p class="stat-card-value">${contentStats.active_users_today || 0}</p>
+              <p class="stat-card-change">Unique users today</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Active Users (7 days)</p>
+              <p class="stat-card-value">${contentStats.active_users_week || 0}</p>
+              <p class="stat-card-change">Unique users in last 7 days</p>
+            </div>
           </div>
         </div>
-        
+
+        <!-- Content totals -->
+        <div class="admin-stats-grid">
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total POIs</p>
+              <p class="stat-card-value">${contentStats.total_pois || 0}</p>
+              <p class="stat-card-change">All attractions in system</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total Comments</p>
+              <p class="stat-card-value">${contentStats.total_comments || 0}</p>
+              <p class="stat-card-change">All user comments</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total Ratings</p>
+              <p class="stat-card-value">${contentStats.total_ratings || 0}</p>
+              <p class="stat-card-change">Number of rating events</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total Visits</p>
+              <p class="stat-card-value">${contentStats.total_visits || 0}</p>
+              <p class="stat-card-change">Recorded POI visits</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-content">
+              <p class="stat-card-label">Average Rating</p>
+              <p class="stat-card-value">${contentStats.avg_rating != null ? contentStats.avg_rating : 'N/A'}</p>
+              <p class="stat-card-change">Across all rated POIs</p>
+            </div>
+          </div>
+        </div>
+
         <div class="admin-section" style="margin-top: 32px;">
           <h3>Top Contributors</h3>
           <div class="admin-table-container">
