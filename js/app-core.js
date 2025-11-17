@@ -11,6 +11,8 @@ console.log('🔵 App Core V3 - START');
   // Globalne zmienne mapy
   let mapInstance = null;
   let markersLayer = null;
+  let userLocationMarker = null;
+  let userLocationWatchId = null;
   
   /**
    * Czeka na PLACES_DATA z Supabase
@@ -24,6 +26,42 @@ console.log('🔵 App Core V3 - START');
         console.log('📍 Przykładowe ID:', window.PLACES_DATA.slice(0, 3).map(p => p.id));
         return window.PLACES_DATA;
       }
+  
+  function initializeUserLocation() {
+    if (!mapInstance || !navigator.geolocation) {
+      return;
+    }
+    let hasCenteredOnUser = false;
+    const userIcon = L.icon({
+      iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-violet.png',
+      shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+      iconSize: [25, 41],
+      iconAnchor: [12, 41],
+      popupAnchor: [1, -34],
+      shadowSize: [41, 41]
+    });
+    const updatePosition = (lat, lng) => {
+      const latLng = [lat, lng];
+      if (!userLocationMarker) {
+        userLocationMarker = L.marker(latLng, { icon: userIcon }).addTo(mapInstance);
+        userLocationMarker.bindPopup('Twoja aktualna pozycja');
+      } else {
+        userLocationMarker.setLatLng(latLng);
+      }
+      if (!hasCenteredOnUser) {
+        hasCenteredOnUser = true;
+        mapInstance.setView(latLng, 13, { animate: true });
+      }
+    };
+    navigator.geolocation.getCurrentPosition(function(position) {
+      updatePosition(position.coords.latitude, position.coords.longitude);
+    }, function() {}, { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 });
+    if (userLocationWatchId === null) {
+      userLocationWatchId = navigator.geolocation.watchPosition(function(position) {
+        updatePosition(position.coords.latitude, position.coords.longitude);
+      }, function() {}, { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 });
+    }
+  }
       await new Promise(resolve => setTimeout(resolve, 100));
     }
     
@@ -92,6 +130,7 @@ console.log('🔵 App Core V3 - START');
     
     // Dodaj markery
     addMarkers();
+    initializeUserLocation();
     
     // Nasłuchuj na refresh
     console.log('📡 Dodaję listener dla poisDataRefreshed');
