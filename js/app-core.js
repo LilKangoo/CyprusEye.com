@@ -26,7 +26,14 @@ console.log('🔵 App Core V3 - START');
         console.log('📍 Przykładowe ID:', window.PLACES_DATA.slice(0, 3).map(p => p.id));
         return window.PLACES_DATA;
       }
-  
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    
+    console.error('❌ PLACES_DATA nie załadowane po 10 sekundach');
+    console.error('→ window.PLACES_DATA:', window.PLACES_DATA);
+    return [];
+  }
+
   function initializeUserLocation() {
     if (!mapInstance || !navigator.geolocation) {
       return;
@@ -43,7 +50,7 @@ console.log('🔵 App Core V3 - START');
     const updatePosition = (lat, lng) => {
       const latLng = [lat, lng];
       if (!userLocationMarker) {
-        userLocationMarker = L.marker(latLng, { icon: userIcon }).addTo(mapInstance);
+        userLocationMarker = L.marker(latLng, { icon: userIcon, zIndexOffset: 1000 }).addTo(mapInstance);
         userLocationMarker.bindPopup('Twoja aktualna pozycja');
       } else {
         userLocationMarker.setLatLng(latLng);
@@ -61,13 +68,6 @@ console.log('🔵 App Core V3 - START');
         updatePosition(position.coords.latitude, position.coords.longitude);
       }, function() {}, { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 });
     }
-  }
-      await new Promise(resolve => setTimeout(resolve, 100));
-    }
-    
-    console.error('❌ PLACES_DATA nie załadowane po 10 sekundach');
-    console.error('→ window.PLACES_DATA:', window.PLACES_DATA);
-    return [];
   }
   
   // Funkcja komentarzy została usunięta - komentarze dostępne tylko w panelu pod mapą
