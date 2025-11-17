@@ -153,9 +153,9 @@ async function handleCallbackPasswordUpdate(event) {
     if (error) {
       throw error;
     }
-    setCallbackMessage('Hasło zostało zaktualizowane. Przenosimy do logowania…', 'success');
+    setCallbackMessage('Hasło zostało zaktualizowane. Przenosimy na stronę główną…', 'success');
     window.setTimeout(() => {
-      window.location.assign('/auth/');
+      window.location.assign('/');
     }, 800);
   } catch (error) {
     console.error('Nie udało się zaktualizować hasła.', error);
