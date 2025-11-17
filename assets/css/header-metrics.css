@@ -486,3 +486,31 @@
     border-radius: 999px;
   }
 }
+
+/* ==============================
+   GLOBAL HEADER EMOJI ICONS
+   Added via CSS to keep i18n intact
+   ============================== */
+.auth-actions-inline [data-auth="login"]::before {
+  content: "🔐 ";
+}
+
+.auth-actions-inline [data-auth="guest"]::before {
+  content: "🎮 ";
+}
+
+.auth-actions-inline [data-auth="logout"]::before {
+  content: "🚪 ";
+}
+
+#tripsHomeSection .btn.btn-primary.primary::before {
+  content: "🧭 ";
+}
+
+#hotelsHomeSection .btn.btn-primary.primary::before {
+  content: "🏨 ";
+}
+
+.user-stats-section .metric-card .metric-label::before {
+  content: "✨ ";
+}
