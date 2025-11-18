@@ -95,7 +95,7 @@
 
     /* Header uses global styles from base/components; avoid local overrides here */
     /* Ensure page content starts clearly after header ends (both top bar and tabs) */
-    .app-header{ margin-bottom: var(--header-gap, 24px); }
+    .app-header{ margin-bottom: var(--header-gap, 24px); position: relative; z-index: 100; }
     @media (max-width:768px){ .app-header{ margin-bottom: var(--header-gap, 20px); } }
     .app-header + main{ display:block; }
 
