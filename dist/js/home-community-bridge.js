@@ -157,6 +157,12 @@
     }
   }
 
+  function setCheckInStatus(message){
+    const el = document.getElementById('currentPlaceCheckInStatus');
+    if(!el) return;
+    el.textContent = message || '';
+  }
+
   function navigatePlace(delta){
     const ids = getOrderedPoiIds();
     if(ids.length===0) return;
@@ -181,6 +187,7 @@
       const targetId = id || currentId;
       const poi = targetId ? findPoi(targetId) : null;
       if(!poi){
+        setCheckInStatus('Brak wybranej lokalizacji. Wybierz miejsce z listy lub mapy.');
         window.showToast?.('Brak wybranej lokalizacji', 'error');
         return;
       }
@@ -188,11 +195,13 @@
       // Anti-duplication: skip if already checked-in on this device
       const storageKey = `visited_poi_${poi.id}`;
       if(localStorage.getItem(storageKey)){
+        setCheckInStatus('To miejsce zostało już zameldowane na tym urządzeniu.');
         window.showToast?.('Już zameldowano to miejsce na tym urządzeniu', 'info');
         return;
       }
 
       if(!('geolocation' in navigator)){
+        setCheckInStatus('Twoja przeglądarka nie wspiera geolokalizacji. Zbliż się do miejsca i spróbuj ponownie.');
         window.showToast?.('Twoja przeglądarka nie wspiera geolokalizacji. Zbliż się do miejsca i spróbuj ponownie.', 'warning');
         return;
       }
@@ -211,6 +220,7 @@
       const lng = typeof poi.lng === 'number' ? poi.lng : (typeof poi.lon === 'number' ? poi.lon : (typeof poi.longitude === 'number' ? poi.longitude : parseFloat(poi.lng ?? poi.lon ?? poi.longitude)));
 
       if(!Number.isFinite(lat) || !Number.isFinite(lng)){
+        setCheckInStatus('Błąd danych lokalizacji miejsca. Spróbuj inne miejsce lub odśwież stronę.');
         window.showToast?.('Błąd danych lokalizacji miejsca', 'error');
         return;
       }
@@ -229,14 +239,18 @@
         } catch(e){
           console.error('[XP] awardPoi failed', e);
         }
+        setCheckInStatus('Gratulacje! Jesteś na miejscu i otrzymasz XP za to miejsce.');
         window.showToast?.('Gratulacje! Zamelodowałeś się i otrzymasz XP.', 'success');
       } else {
         const km = (distance/1000).toFixed(2);
-        window.showToast?.(`Jesteś ok. ${km} km od celu. Zbliż się do miejsca, aby się zameldować.`, 'info');
+        const msg = `Jesteś ok. ${km} km od celu. Zbliż się do miejsca, aby się zameldować.`;
+        setCheckInStatus(msg);
+        window.showToast?.(msg, 'info');
       }
     } catch(err){
       console.warn('checkInAtPlace error:', err);
       const msg = err?.message?.includes('permission') ? 'Udziel zgody na dostęp do lokalizacji i spróbuj ponownie.' : 'Nie udało się pobrać lokalizacji.';
+      setCheckInStatus(msg);
       window.showToast?.(msg, 'error');
     } finally {
       checkInBusy = false;
