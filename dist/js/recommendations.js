@@ -3,34 +3,20 @@
  * Public-facing recommendations with categories, filters, and modal
  */
 
+import { supabase } from '/js/supabaseClient.js';
+
 // ============================================================================
 // STATE
 // ============================================================================
 let allRecommendations = [];
 let allCategories = [];
 let currentCategoryFilter = '';
-let supabaseClient = null;
 
 // ============================================================================
-// SUPABASE CLIENT
+// DEBUG
 // ============================================================================
-function getSupabase() {
-  if (typeof window.getSupabase === 'function') return window.getSupabase();
-  if (window.sb) return window.sb;
-  if (window.__SB__) return window.__SB__;
-  return null;
-}
-
-async function waitForSupabase() {
-  return new Promise((resolve) => {
-    const check = () => {
-      supabaseClient = getSupabase();
-      if (supabaseClient) resolve(supabaseClient);
-      else setTimeout(check, 100);
-    };
-    check();
-  });
-}
+console.log('🔵 Recommendations.js loaded');
+console.log('🔵 Supabase client:', supabase ? '✅ Ready' : '❌ Missing');
 
 // ============================================================================
 // LOAD DATA
@@ -39,13 +25,24 @@ async function loadData() {
   try {
     console.log('🔵 Loading recommendations data...');
     
-    document.getElementById('loadingState').style.display = 'block';
-    document.getElementById('emptyState').style.display = 'none';
+    const loadingEl = document.getElementById('loadingState');
+    const emptyEl = document.getElementById('emptyState');
     
-    await waitForSupabase();
+    if (!loadingEl || !emptyEl) {
+      console.error('❌ Missing DOM elements: loadingState or emptyState');
+      return;
+    }
+    
+    loadingEl.style.display = 'block';
+    emptyEl.style.display = 'none';
+    
+    if (!supabase) {
+      throw new Error('Supabase client not initialized');
+    }
     
     // Load categories
-    const { data: cats, error: catError } = await supabaseClient
+    console.log('🔵 Fetching categories...');
+    const { data: cats, error: catError } = await supabase
       .from('recommendation_categories')
       .select('*')
       .eq('active', true)
@@ -57,10 +54,11 @@ async function loadData() {
     }
     
     allCategories = cats || [];
-    console.log('✅ Categories loaded:', allCategories.length);
+    console.log('✅ Categories loaded:', allCategories.length, allCategories);
     
     // Load recommendations
-    const { data: recs, error: recError } = await supabaseClient
+    console.log('🔵 Fetching recommendations...');
+    const { data: recs, error: recError } = await supabase
       .from('recommendations')
       .select('*, recommendation_categories(name_pl, name_en, icon, color)')
       .eq('active', true)
@@ -74,25 +72,31 @@ async function loadData() {
     }
     
     allRecommendations = recs || [];
-    console.log('✅ Recommendations loaded:', allRecommendations.length);
+    console.log('✅ Recommendations loaded:', allRecommendations.length, allRecommendations);
     
-    document.getElementById('loadingState').style.display = 'none';
+    loadingEl.style.display = 'none';
     
     if (allRecommendations.length === 0) {
-      document.getElementById('emptyState').style.display = 'block';
+      console.log('⚠️ No recommendations found - showing empty state');
+      emptyEl.style.display = 'block';
     } else {
+      console.log('✅ Rendering recommendations...');
       renderCategoryFilters();
       renderRecommendations();
     }
     
   } catch (error) {
     console.error('❌ Error loading data:', error);
-    document.getElementById('loadingState').innerHTML = `
-      <div style="color: #ef4444; text-align: center;">
-        <p>Nie udało się załadować rekomendacji</p>
-        <button class="btn" onclick="location.reload()">Spróbuj ponownie</button>
-      </div>
-    `;
+    const loadingEl = document.getElementById('loadingState');
+    if (loadingEl) {
+      loadingEl.innerHTML = `
+        <div style="color: #ef4444; text-align: center;">
+          <p>Nie udało się załadować rekomendacji</p>
+          <p style="font-size: 0.875rem; color: #666; margin-top: 8px;">${error.message}</p>
+          <button class="btn" onclick="location.reload()">Spróbuj ponownie</button>
+        </div>
+      `;
+    }
   }
 }
 
@@ -359,9 +363,9 @@ window.closeDetailModal = function() {
 // TRACKING
 // ============================================================================
 async function trackView(recId) {
-  if (!supabaseClient) return;
+  if (!supabase) return;
   try {
-    await supabaseClient.from('recommendation_views').insert([{ 
+    await supabase.from('recommendation_views').insert([{ 
       recommendation_id: recId 
     }]);
     console.log('✅ View tracked:', recId);
@@ -371,9 +375,9 @@ async function trackView(recId) {
 }
 
 window.trackClick = async function(recId, type) {
-  if (!supabaseClient) return;
+  if (!supabase) return;
   try {
-    await supabaseClient.from('recommendation_clicks').insert([{ 
+    await supabase.from('recommendation_clicks').insert([{ 
       recommendation_id: recId,
       click_type: type
     }]);
