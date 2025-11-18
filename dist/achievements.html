@@ -102,6 +102,49 @@
           <p class="brand-name">WakacjeCypr <span>Quest</span></p>
           <p class="tagline">Zwiedzaj Cypr w interaktywny sposób – zdobywaj odznaki, doświadczenie i odkrywaj nasze najlepsze oferty.</p>
         </div>
+        
+        <!-- User Stats Section - Combined Profile + Metrics -->
+        <div class="user-stats-section" data-auth="user-only">
+          <a href="achievements.html" class="user-profile-card" id="profileButton" aria-label="Mój profil">
+            <img id="headerUserAvatar" class="profile-avatar" src="assets/cyprus_logo-1000x1054.png" alt="Avatar" width="50" height="50" loading="eager" />
+            <div class="profile-info">
+              <div class="profile-name">Mój Profil</div>
+              <div class="profile-status">Poziom 1 • 0 odznak</div>
+            </div>
+          </a>
+          
+          <div class="stats-cards">
+          <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
+            <p class="metric-label" data-i18n="metrics.level.label">Poziom</p>
+            <p class="metric-value" id="headerLevelNumber">1</p>
+            <p class="metric-subtext" id="headerLevelStatus" data-i18n="metrics.level.subtext">
+              Zdobądź pierwsze check-iny, aby awansować!
+            </p>
+          </a>
+          <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
+            <p class="metric-label" data-i18n="metrics.xp.label">Doświadczenie</p>
+            <p class="metric-value"><span id="headerXpPoints">0</span> XP</p>
+            <div
+              class="metric-progress"
+              role="img"
+              aria-label="Postęp doświadczenia"
+              data-i18n-attrs="aria-label:metrics.xp.aria"
+            >
+              <div class="metric-progress-track">
+                <div class="metric-progress-fill is-width-zero" id="headerXpFill"></div>
+              </div>
+              <p class="metric-progress-text" id="headerXpProgressText" data-i18n="metrics.xp.progress">
+                0 / 150 XP do kolejnego poziomu
+              </p>
+            </div>
+          </a>
+          <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
+            <p class="metric-label" data-i18n="metrics.badges.label">Odznaki</p>
+            <p class="metric-value" id="headerBadgesCount">0</p>
+            <p class="metric-subtext" data-i18n="metrics.badges.subtext">Odkrywaj atrakcje i kolekcjonuj pamiątki.</p>
+          </a>
+          </div>
+        </div>
       </div>
       <div class="header-top-actions">
         <!-- Auth controls integrated into header -->
@@ -148,8 +191,8 @@
         </div>
         
         <div class="header-actions" aria-label="Szybkie działania" data-i18n-attrs="aria-label:header.quickActions.aria">
-          <div class="header-actions-primary">
-            <a class="ghost header-link" href="community.html" data-i18n="header.communityLink">💬 Społeczność</a>
+          <div class="header-actions-primary" data-tour-target="quick-actions">
+            <a class="ghost header-link" href="packing.html" data-i18n="nav.packing">🎒 Pakowanie</a>
             <a
               class="ghost header-link"
               href="kupon.html"
@@ -159,42 +202,18 @@
               🎟️ Kupon
             </a>
             <a class="ghost header-link" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
+            <a class="ghost header-link" href="trips.html" aria-label="Wycieczki">
+              🧭 Wycieczki
+            </a>
+            <a class="ghost header-link" href="hotels.html" aria-label="Hotele">
+              🏨 Hotele
+            </a>
           </div>
         </div>
       </div>
     </div>
-    <div class="header-metrics" role="list" aria-live="polite" data-gated="true">
-      <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
-        <p class="metric-label" data-i18n="metrics.level.label">Poziom</p>
-        <p class="metric-value" id="headerLevelNumber">1</p>
-        <p class="metric-subtext" id="headerLevelStatus" data-i18n="metrics.level.subtext">
-          Zdobądź pierwsze check-iny, aby awansować!
-        </p>
-      </a>
-      <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
-        <p class="metric-label" data-i18n="metrics.xp.label">Doświadczenie</p>
-        <p class="metric-value"><span id="headerXpPoints">0</span> XP</p>
-        <div
-          class="metric-progress"
-          role="img"
-          aria-label="Postęp doświadczenia"
-          data-i18n-attrs="aria-label:metrics.xp.aria"
-        >
-          <div class="metric-progress-track">
-            <div class="metric-progress-fill is-width-zero" id="headerXpFill"></div>
-          </div>
-          <p class="metric-progress-text" id="headerXpProgressText" data-i18n="metrics.xp.progress">
-            0 / 150 XP do kolejnego poziomu
-          </p>
-        </div>
-      </a>
-      <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
-        <p class="metric-label" data-i18n="metrics.badges.label">Odznaki</p>
-        <p class="metric-value" id="headerBadgesCount">0</p>
-        <p class="metric-subtext" data-i18n="metrics.badges.subtext">Odkrywaj atrakcje i kolekcjonuj pamiątki.</p>
-      </a>
-    </div>
-    <nav class="header-tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna">
+    
+    <nav class="header-tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna" data-tour-target="tabs-navigation">
       <a
         href="index.html"
         class="header-tab"
@@ -204,12 +223,12 @@
         🎯 Twoja przygoda
       </a>
       <a
-        href="packing.html"
+        href="community.html"
         class="header-tab"
         id="headerPackingTab"
-        data-i18n="nav.packing"
+        data-i18n="nav.community"
       >
-        🎒 Planer pakowania
+        💬 Społeczność
       </a>
       <a
         href="tasks.html"
