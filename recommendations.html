@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" dir="ltr">
 <head>
+<!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -11,65 +12,208 @@
 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co https://www.google-analytics.com https://unpkg.com https://*.tile.openstreetmap.org; frame-src 'self' https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
+  
+  <!-- Security: Content Security Policy -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co wss://*.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://*.tile.openstreetmap.org; frame-src 'self' https://docs.google.com https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
   
   <meta name="theme-color" content="#2563eb" />
-  <title>Our Recommendations – CyprusEye</title>
-  <meta name="description" content="Discover our handpicked recommendations for the best places to visit, eat, and stay in Cyprus." />
+  <meta name="robots" content="index,follow" />
+  <title>Rekomendacje – CyprusEye Quest</title>
+  <meta name="description" content="Odkryj nasze sprawdzone polecenia – najlepsze miejsca, restauracje, hotele i atrakcje na Cyprze." />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Rekomendacje – CyprusEye Quest" />
+  <meta property="og:description" content="Nasze ulubione miejsca na Cyprze z ekskluzywnymi zniżkami i promocjami." />
+  <meta property="og:url" content="https://www.cypruseye.com/recommendations.html" />
+  <meta property="og:image" content="https://www.cypruseye.com/assets/cyprus_logo-1000x1054.png" />
+  <meta property="og:locale" content="en_GB" />
   
+  <link rel="canonical" href="https://www.cypruseye.com/recommendations.html" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  <link rel="icon" href="/assets/cyprus_logo-1000x1054.png" type="image/png" />
   
   <link rel="stylesheet" href="assets/css/tokens.css" />
   <link rel="stylesheet" href="assets/css/base.css" />
   <link rel="stylesheet" href="assets/css/components.css" />
+  <link rel="stylesheet" href="assets/css/header-metrics.css" />
+  <link rel="stylesheet" href="assets/css/mobile.css" />
+  <link rel="stylesheet" href="assets/css/mobile-nav.css" />
   <link rel="stylesheet" href="css/toast.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin />
   <link rel="stylesheet" href="assets/css/recommendations.css" />
   
   <meta name="ce-auth" content="optional" />
   
   <script type="module" src="/js/supabaseClient.js"></script>
   <script type="module" src="/js/toast.js"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script type="module" src="/js/auth.js"></script>
+  <script type="module" src="/js/authUi.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
 </head>
-<body>
+<body data-navigation="multi-page" data-initial-view="recommendationsView" data-seo-page="recommendations">
+  <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
   
-  <div class="recommendations-hero">
-    <h1>✨ Our Recommendations</h1>
-    <p>Handpicked places we love in Cyprus</p>
-  </div>
+  <!-- HEADER from index.html -->
+  <header class="app-header">
+    <div class="header-top">
+      <div class="brand">
+        <img
+          src="assets/cyprus_logo-1000x1054.png"
+          alt="WakacjeCypr.com – logo żółwia z flagą Polski"
+          width="1000"
+          height="1054"
+          loading="eager"
+          fetchpriority="high"
+        />
+        <div class="brand-title">
+          <p class="brand-name">WakacjeCypr <span>Quest</span></p>
+          <p class="tagline">Zwiedzaj Cypr w interaktywny sposób – zdobywaj odznaki, doświadczenie i odkrywaj nasze najlepsze oferty.</p>
+        </div>
+        
+        <!-- User Stats Section - Combined Profile + Metrics -->
+        <div class="user-stats-section" data-auth="user-only">
+          <a href="achievements.html" class="user-profile-card" id="profileButton" aria-label="Mój profil">
+            <img id="headerUserAvatar" class="profile-avatar" src="assets/cyprus_logo-1000x1054.png" alt="Avatar" width="50" height="50" loading="eager" />
+            <div class="profile-info">
+              <div class="profile-name">Mój Profil</div>
+              <div class="profile-status">Poziom 1 • 0 odznak</div>
+            </div>
+          </a>
+          
+          <div class="stats-cards">
+          <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
+            <p class="metric-label">Poziom</p>
+            <p class="metric-value" id="headerLevelNumber">1</p>
+            <p class="metric-subtext" id="headerLevelStatus">
+              Zdobądź pierwsze check-iny, aby awansować!
+            </p>
+          </a>
+          <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
+            <p class="metric-label">Doświadczenie</p>
+            <p class="metric-value"><span id="headerXpPoints">0</span> XP</p>
+            <div class="metric-progress" role="img" aria-label="Postęp doświadczenia">
+              <div class="metric-progress-track">
+                <div class="metric-progress-fill is-width-zero" id="headerXpFill"></div>
+              </div>
+              <p class="metric-progress-text" id="headerXpProgressText">
+                0 / 150 XP do kolejnego poziomu
+              </p>
+            </div>
+          </a>
+          <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
+            <p class="metric-label">Odznaki</p>
+            <p class="metric-value" id="headerBadgesCount">0</p>
+            <p class="metric-subtext">Odkrywaj atrakcje i kolekcjonuj pamiątki.</p>
+          </a>
+          </div>
+        </div>
+      </div>
+      
+      <div class="header-top-actions">
+        <!-- Auth controls integrated into header -->
+        <div class="header-auth-controls">
+          <button
+            id="notificationsToggle"
+            class="ghost notifications-toggle"
+            data-gated="true"
+            data-require-auth
+            type="button"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-controls="notificationsPanel"
+          >
+            🔔 <span class="btn-text">Powiadomienia</span>
+            <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
+          </button>
+          <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
+            <button class="btn btn-sm" data-auth="login" data-auth-login-mode="modal" aria-label="Zaloguj do konta">Zaloguj</button>
+            <button class="btn btn-sm" data-auth="guest" aria-label="Tryb gry jako gość">Gość</button>
+            <button class="btn btn-sm" data-auth="logout" aria-label="Wyloguj z konta">Wyloguj</button>
+            <button id="sosToggle" class="btn btn-sm btn-danger" type="button" aria-haspopup="dialog" aria-controls="sosModal">🚨 SOS</button>
+          </div>
+          <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" hidden>Łączenie...</div>
+        </div>
+        
+        <div class="header-actions" aria-label="Szybkie działania">
+          <div class="header-actions-primary">
+            <a class="ghost header-link" href="packing.html">🎒 Pakowanie</a>
+            <a class="ghost header-link" href="kupon.html" aria-label="Kupon">🎟️ Kupon</a>
+            <a class="ghost header-link" href="car-rental-landing.html">🚗 Wynajem auta</a>
+            <a class="ghost header-link" href="trips.html" aria-label="Wycieczki">🧭 Wycieczki</a>
+            <a class="ghost header-link" href="hotels.html" aria-label="Hotele">🏨 Hotele</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="header-tabs" role="tablist" aria-label="Nawigacja główna">
+      <a href="index.html" class="header-tab">🎯 Twoja przygoda</a>
+      <a href="community.html" class="header-tab">💬 Społeczność</a>
+      <a href="recommendations.html" class="header-tab is-active">✨ Rekomendacje</a>
+      <a href="tasks.html" class="header-tab">✅ Zadania do wykonania</a>
+    </nav>
+  </header>
   
-  <div class="recommendations-container">
-    <div class="filter-section">
-      <button class="filter-btn active" data-category="">All</button>
+  <!-- MAIN CONTENT -->
+  <main class="recommendations-main">
+    
+    <!-- Hero Section -->
+    <section class="recommendations-hero">
+      <div class="hero-content">
+        <h1>✨ Nasze Rekomendacje</h1>
+        <p class="hero-subtitle">Sprawdzone miejsca, które kochamy na Cyprze – z ekskluzywnymi zniżkami dla Ciebie!</p>
+      </div>
+    </section>
+    
+    <!-- Filters Section -->
+    <section class="recommendations-filters">
+      <div class="filters-container">
+        <div class="filters-header">
+          <h2>Kategorie</h2>
+          <button id="clearFilters" class="btn-text" style="display: none;">Wyczyść filtry</button>
+        </div>
+        <div class="filters-grid" id="categoriesFilters">
+          <button class="filter-btn active" data-category="" data-category-name="All">
+            <span class="filter-icon">🌟</span>
+            <span class="filter-label">Wszystkie</span>
+            <span class="filter-count" id="count-all">0</span>
+          </button>
+          <!-- Categories będą dodane dynamicznie -->
+        </div>
+      </div>
+    </section>
+    
+    <!-- Loading State -->
+    <div id="loadingState" class="loading-state" style="display: none;">
+      <div class="loading-spinner"></div>
+      <p>Ładowanie rekomendacji...</p>
     </div>
     
-    <div id="loadingState" class="loading-spinner">
-      <p>Loading recommendations...</p>
-    </div>
-    
-    <div id="emptyState" class="empty-state" style="display: none;">
-      <h3>No recommendations yet</h3>
-      <p>Check back soon!</p>
-    </div>
-    
-    <div id="recommendationsGrid" class="recommendations-grid"></div>
-  </div>
+    <!-- Recommendations Grid -->
+    <section class="recommendations-section">
+      <div class="recommendations-grid" id="recommendationsGrid">
+      <!-- Recommendations cards będą dodane dynamicznie -->
+      </div>
+      
+      <!-- Empty State -->
+      <div id="emptyState" class="empty-state" style="display: none;">
+        <div class="empty-state-icon">🔍</div>
+        <h3>Brak rekomendacji</h3>
+        <p>Nie znaleźliśmy miejsc w wybranej kategorii. Spróbuj innej kategorii!</p>
+        <button class="btn" onclick="clearFilters()">Pokaż wszystkie</button>
+      </div>
+    </section>
+  </main>
   
-  <div id="recModal" class="rec-modal">
-    <div class="rec-modal-content">
-      <button class="rec-modal-close" onclick="closeModal()">×</button>
-      <div id="modalContent"></div>
+  <!-- Detail Modal -->
+  <div id="detailModal" class="recommendation-modal" style="display: none;">
+    <div class="modal-overlay" onclick="closeDetailModal()"></div>
+    <div class="modal-content">
+      <button class="modal-close" onclick="closeDetailModal()" aria-label="Zamknij">✕</button>
+      <div id="modalDetails" class="modal-body">
+        <!-- Details będą dodane dynamicznie -->
+      </div>
     </div>
-  </div>
-  
-  <div style="text-align: center; padding: 40px 20px;">
-    <a href="/" style="color: #667eea; font-weight: 600; text-decoration: none;">
-      ← Back to Home
-    </a>
   </div>
   
   <script src="/js/recommendations.js"></script>
