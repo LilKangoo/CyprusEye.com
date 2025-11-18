@@ -1,61 +1,78 @@
 <!DOCTYPE html>
 <html lang="pl" dir="ltr">
 <head>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
-  gtag('config', 'G-FCSE0876CR');
-</script>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);} 
+    gtag('js', new Date());
+    gtag('config', 'G-FCSE0876CR');
+  </script>
 
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  
-  <!-- Security: Content Security Policy -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co wss://*.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://*.tile.openstreetmap.org; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
-  
+
+  <!-- Security: Content Security Policy (skopiowane z index.html) -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co wss://*.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://*.tile.openstreetmap.org; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;" />
+
   <meta name="theme-color" content="#2563eb" />
   <meta name="robots" content="index,follow" />
   <title>Rekomendacje – CyprusEye Quest</title>
-  <meta name="description" content="Odkryj nasze sprawdzone polecenia – najlepsze miejsca, restauracje, hotele i atrakcje na Cyprze." />
-  
+  <meta name="description" content="Odkryj nasze sprawdzone rekomendacje – najlepsze miejsca, restauracje, hotele i atrakcje na Cyprze z ekskluzywnymi zniżkami." />
+  <link rel="canonical" href="https://www.cypruseye.com/recommendations.html" />
+
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
-  
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript>
+    <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  </noscript>
+
+  <!-- Global styles takie jak w index.html -->
   <link rel="stylesheet" href="assets/css/tokens.css" />
   <link rel="stylesheet" href="assets/css/base.css" />
   <link rel="stylesheet" href="assets/css/components.css" />
   <link rel="stylesheet" href="assets/css/header-metrics.css" />
   <link rel="stylesheet" href="assets/css/mobile.css" />
   <link rel="stylesheet" href="assets/css/mobile-nav.css" />
+  <link rel="stylesheet" href="assets/css/rtl.css" />
+  <link rel="stylesheet" href="assets/css/language-switcher.css" />
+  <link rel="stylesheet" href="assets/css/language-selector.css" />
   <link rel="stylesheet" href="css/toast.css" />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin />
   <link rel="stylesheet" href="assets/css/recommendations.css" />
-  
-  <meta name="ce-auth" content="optional" />
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin data-leaflet-resource="style" />
+
+  <meta name="ce-auth" content="on" />
   <script type="module" src="js/supabaseClient.js"></script>
   <script type="module" src="js/toast.js"></script>
   <script type="module" src="js/auth.js"></script>
   <script type="module" src="js/authUi.js"></script>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
 </head>
-<body data-navigation="multi-page">
+<body data-navigation="multi-page" data-seo-page="recommendations">
   <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
-  
-  <!-- HEADER - DOKŁADNIE JAK W INDEX.HTML -->
+
+  <!-- HEADER: taki sam układ jak w index.html, tylko aktywna zakładka Rekomendacje -->
   <header class="app-header">
     <div class="header-top">
       <div class="brand">
-        <img src="assets/cyprus_logo-1000x1054.png" alt="WakacjeCypr.com – logo żółwia z flagą Polski" width="1000" height="1054" loading="eager" fetchpriority="high" />
-        <div class="brand-title">
+        <img
+          src="assets/cyprus_logo-1000x1054.png"
+          alt="WakacjeCypr.com – logo żółwia z flagą Polski"
+          data-i18n-attrs="alt:header.logoAlt"
+          width="1000"
+          height="1054"
+          loading="eager"
+          fetchpriority="high"
+        />
+        <div class="brand-title" data-i18n="header.brand">
           <p class="brand-name">WakacjeCypr <span>Quest</span></p>
           <p class="tagline">Zwiedzaj Cypr w interaktywny sposób – zdobywaj odznaki, doświadczenie i odkrywaj nasze najlepsze oferty.</p>
         </div>
-        
-        <!-- User Stats Section -->
+
         <div class="user-stats-section" data-auth="user-only">
           <a href="achievements.html" class="user-profile-card" id="profileButton" aria-label="Mój profil">
             <img id="headerUserAvatar" class="profile-avatar" src="assets/cyprus_logo-1000x1054.png" alt="Avatar" width="50" height="50" loading="eager" />
@@ -64,186 +81,151 @@
               <div class="profile-status">Poziom 1 • 0 odznak</div>
             </div>
           </a>
-          
+
           <div class="stats-cards">
             <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
-              <p class="metric-label">Poziom</p>
+              <p class="metric-label" data-i18n="metrics.level.label">Poziom</p>
               <p class="metric-value" id="headerLevelNumber">1</p>
-              <p class="metric-subtext" id="headerLevelStatus">Zdobądź pierwsze check-iny, aby awansować!</p>
+              <p class="metric-subtext" id="headerLevelStatus" data-i18n="metrics.level.subtext">Zdobądź pierwsze check-iny, aby awansować!</p>
             </a>
             <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
-              <p class="metric-label">Doświadczenie</p>
+              <p class="metric-label" data-i18n="metrics.xp.label">Doświadczenie</p>
               <p class="metric-value"><span id="headerXpPoints">0</span> XP</p>
-              <div class="metric-progress" role="img" aria-label="Postęp doświadczenia">
+              <div class="metric-progress" role="img" aria-label="Postęp doświadczenia" data-i18n-attrs="aria-label:metrics.xp.aria">
                 <div class="metric-progress-track">
                   <div class="metric-progress-fill is-width-zero" id="headerXpFill"></div>
                 </div>
-                <p class="metric-progress-text" id="headerXpProgressText">0 / 150 XP do kolejnego poziomu</p>
+                <p class="metric-progress-text" id="headerXpProgressText" data-i18n="metrics.xp.progress">0 / 150 XP do kolejnego poziomu</p>
               </div>
             </a>
             <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
-              <p class="metric-label">Odznaki</p>
+              <p class="metric-label" data-i18n="metrics.badges.label">Odznaki</p>
               <p class="metric-value" id="headerBadgesCount">0</p>
-              <p class="metric-subtext">Odkrywaj atrakcje i kolekcjonuj pamiątki.</p>
+              <p class="metric-subtext" data-i18n="metrics.badges.subtext">Odkrywaj atrakcje i kolekcjonuj pamiątki.</p>
             </a>
           </div>
         </div>
       </div>
-      
+
       <div class="header-top-actions">
-        <!-- Auth controls -->
         <div class="header-auth-controls">
-          <button id="notificationsToggle" class="ghost notifications-toggle" data-gated="true" data-require-auth type="button">
+          <button
+            id="notificationsToggle"
+            class="ghost notifications-toggle"
+            data-gated="true"
+            data-require-auth
+            data-i18n="header.notifications"
+            type="button"
+            aria-haspopup="true"
+            aria-expanded="false"
+            aria-controls="notificationsPanel"
+          >
             🔔 <span class="btn-text">Powiadomienia</span>
             <span id="notificationsCounter" class="notifications-counter" hidden>0</span>
           </button>
           <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
-            <button class="btn btn-sm" data-auth="login" data-auth-login-mode="modal">Zaloguj</button>
-            <button class="btn btn-sm" data-auth="guest">Gość</button>
-            <button class="btn btn-sm" data-auth="logout">Wyloguj</button>
-            <button id="sosToggle" class="btn btn-sm btn-danger" type="button">🚨 SOS</button>
+            <button class="btn btn-sm" data-auth="login" data-auth-login-mode="modal" data-i18n="header.login" data-i18n-attrs="aria-label:auth.login.aria" aria-label="Zaloguj do konta">Zaloguj</button>
+            <button class="btn btn-sm" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Gość</button>
+            <button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
+            <button id="sosToggle" class="btn btn-sm btn-danger" type="button" aria-haspopup="dialog" aria-controls="sosModal" data-i18n="header.sosToggle">🚨 SOS</button>
           </div>
-          <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" hidden>Łączenie...</div>
+          <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
         </div>
-        
-        <div class="header-actions">
-          <div class="header-actions-primary">
-            <a class="ghost header-link" href="packing.html">🎒 Pakowanie</a>
-            <a class="ghost header-link" href="kupon.html">🎟️ Kupon</a>
-            <a class="ghost header-link" href="car-rental-landing.html">🚗 Wynajem auta</a>
-            <a class="ghost header-link" href="trips.html">🧭 Wycieczki</a>
-            <a class="ghost header-link" href="hotels.html">🏨 Hotele</a>
+
+        <div class="header-actions" aria-label="Szybkie działania" data-i18n-attrs="aria-label:header.quickActions.aria">
+          <div class="header-actions-primary" data-tour-target="quick-actions">
+            <a class="ghost header-link" href="packing.html" data-i18n="nav.packing">🎒 Pakowanie</a>
+            <a class="ghost header-link" href="kupon.html" data-i18n="header.coupon" aria-label="Kupon">🎟️ Kupon</a>
+            <a class="ghost header-link" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
+            <a class="ghost header-link" href="trips.html" aria-label="Wycieczki">🧭 Wycieczki</a>
+            <a class="ghost header-link" href="hotels.html" aria-label="Hotele">🏨 Hotele</a>
           </div>
         </div>
       </div>
     </div>
 
-    <nav class="header-tabs" role="tablist">
-      <a href="index.html" class="header-tab">🎯 Twoja przygoda</a>
-      <a href="community.html" class="header-tab">💬 Społeczność</a>
-      <a href="recommendations.html" class="header-tab is-active">✨ Rekomendacje</a>
-      <a href="tasks.html" class="header-tab">✅ Zadania do wykonania</a>
+    <nav class="header-tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna" data-tour-target="tabs-navigation">
+      <a href="index.html" class="header-tab" id="headerAdventureTab" data-i18n="nav.adventure">🎯 Twoja przygoda</a>
+      <a href="community.html" class="header-tab" id="headerCommunityTab" data-i18n="nav.community">💬 Społeczność</a>
+      <a href="recommendations.html" class="header-tab is-active" id="headerRecommendationsTab" data-i18n="nav.recommendations">✨ Polecane</a>
+      <a href="tasks.html" class="header-tab" id="headerTasksTab" data-i18n="nav.tasks">✅ Zadania do wykonania</a>
     </nav>
   </header>
-  
-  <!-- MAIN CONTENT -->
-  <main style="padding: 40px 20px; max-width: 1400px; margin: 0 auto;">
-    
-    <!-- Hero Section -->
-    <section style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 60px 40px; border-radius: 20px; text-align: center; margin-bottom: 40px;">
-      <h1 style="font-size: 3rem; font-weight: 700; margin: 0 0 16px;">✨ Nasze Rekomendacje</h1>
-      <p style="font-size: 1.25rem; margin: 0; opacity: 0.95;">Sprawdzone miejsca, które kochamy na Cyprze – z ekskluzywnymi zniżkami dla Ciebie!</p>
+
+  <!-- PANEL POWIADOMIEŃ (jak w index) -->
+  <div id="notificationsPanel" class="notifications-panel" hidden aria-live="polite">
+    <div class="notifications-panel-header">
+      <h3 data-i18n="notifications.title">Powiadomienia</h3>
+      <div class="notifications-panel-actions">
+        <button type="button" class="ghost" id="notificationsMarkAll" data-i18n="notifications.markAll">Oznacz wszystkie jako przeczytane</button>
+        <button type="button" class="ghost notifications-close" id="notificationsClose" aria-label="Zamknij powiadomienia" data-i18n="notifications.close">✕</button>
+      </div>
+    </div>
+    <p id="notificationsPanelEmpty" class="notifications-empty" data-i18n="notifications.empty">Zaloguj się, aby zobaczyć swoje powiadomienia.</p>
+  </div>
+
+  <!-- GŁÓWNA CZĘŚĆ STRONY REKOMENDACJI -->
+  <main class="recommendations-main" data-page="recommendations">
+    <!-- Hero -->
+    <section class="recommendations-hero">
+      <div class="hero-content">
+        <h1>✨ Nasze Rekomendacje</h1>
+        <p class="hero-subtitle">Sprawdzone miejsca, które kochamy na Cyprze – z ekskluzywnymi zniżkami i bonusami dla Ciebie.</p>
+      </div>
     </section>
-    
-    <!-- Loading State -->
-    <div id="loadingState" style="text-align: center; padding: 60px 20px;">
-      <div style="width: 50px; height: 50px; border: 4px solid #e5e7eb; border-top-color: #667eea; border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 20px;"></div>
-      <p style="color: #6b7280;">Ładowanie rekomendacji...</p>
-    </div>
-    
-    <style>
-      @keyframes spin { to { transform: rotate(360deg); } }
-    </style>
-    
-    <!-- Recommendations Grid -->
-    <div id="recommendationsGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 24px; margin-bottom: 40px;">
-      <!-- Karty będą dodane przez JavaScript -->
-    </div>
-    
-    <!-- Empty State -->
-    <div id="emptyState" style="display: none; text-align: center; padding: 60px 20px;">
-      <div style="font-size: 60px; margin-bottom: 20px;">🔍</div>
-      <h3 style="font-size: 1.5rem; font-weight: 700; margin: 0 0 12px;">Brak rekomendacji</h3>
-      <p style="color: #6b7280;">Nie znaleźliśmy żadnych miejsc. Dodaj je w panelu admin!</p>
+
+    <!-- Filtry kategorii -->
+    <section class="recommendations-filters" aria-label="Filtry kategorii">
+      <div class="filters-container">
+        <div class="filters-header">
+          <h2>Wybierz kategorię</h2>
+          <button id="clearFilters" class="btn-text" type="button" style="display:none">Wyczyść filtry</button>
+        </div>
+        <div id="categoriesFilters" class="filters-grid" aria-live="polite">
+          <!-- Dynamiczne przyciski kategorii z js/recommendations.js -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Lista rekomendacji -->
+    <section class="recommendations-section" aria-label="Lista rekomendowanych miejsc">
+      <div id="loadingState" class="loading-state">
+        <div class="loading-spinner" aria-hidden="true"></div>
+        <p>Ładowanie rekomendacji...</p>
+      </div>
+
+      <div id="recommendationsGrid" class="recommendations-grid" aria-live="polite">
+        <!-- Karty rekomendacji będą generowane w js/recommendations.js -->
+      </div>
+
+      <div id="emptyState" class="empty-state" style="display:none">
+        <div class="empty-state-icon">🔍</div>
+        <h3>Brak wyników</h3>
+        <p>Nie znaleźliśmy miejsc dla wybranych filtrów. Spróbuj zmienić kategorię lub wyczyścić filtry.</p>
+        <button type="button" class="btn" onclick="clearFilters()">Pokaż wszystkie miejsca</button>
+      </div>
+    </section>
+
+    <!-- Modal szczegółów rekomendacji -->
+    <div id="detailModal" class="recommendation-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle">
+      <div class="modal-overlay" onclick="closeDetailModal()"></div>
+      <div class="modal-content">
+        <button class="modal-close" type="button" aria-label="Zamknij" onclick="closeDetailModal()">✕</button>
+        <div id="modalDetails" class="modal-body">
+          <!-- Zawartość modalu wypełnia js/recommendations.js (openDetailModal) -->
+        </div>
+      </div>
     </div>
   </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin data-leaflet-resource="script"></script>
+  <script src="js/recommendations.js"></script>
   
-  <!-- SIMPLE JavaScript -->
-  <script>
-    console.log('🚀 Recommendations page loaded');
-    
-    // Wait for Supabase
-    async function loadRecommendations() {
-      try {
-        // Get Supabase client
-        await new Promise(resolve => {
-          const check = () => {
-            if (window.sb || window.getSupabase) {
-              resolve();
-            } else {
-              setTimeout(check, 100);
-            }
-          };
-          check();
-        });
-        
-        const supabase = window.getSupabase ? window.getSupabase() : window.sb;
-        console.log('✅ Supabase connected');
-        
-        // Load recommendations
-        const { data, error } = await supabase
-          .from('recommendations')
-          .select('*, recommendation_categories(name_pl, name_en, icon)')
-          .eq('active', true)
-          .order('featured', { ascending: false })
-          .limit(20);
-        
-        if (error) {
-          console.error('❌ Error:', error);
-          throw error;
-        }
-        
-        console.log('✅ Loaded recommendations:', data.length);
-        
-        document.getElementById('loadingState').style.display = 'none';
-        
-        if (data.length === 0) {
-          document.getElementById('emptyState').style.display = 'block';
-          return;
-        }
-        
-        // Render cards
-        const grid = document.getElementById('recommendationsGrid');
-        grid.innerHTML = data.map(rec => `
-          <div style="background: white; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.1); transition: transform 0.2s; cursor: pointer;" onmouseover="this.style.transform='translateY(-4px)'" onmouseout="this.style.transform='translateY(0)'">
-            ${rec.image_url ? 
-              `<img src="${rec.image_url}" alt="${rec.title_pl || rec.title_en}" style="width: 100%; height: 200px; object-fit: cover;" />` :
-              '<div style="width: 100%; height: 200px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>'
-            }
-            <div style="padding: 20px;">
-              ${rec.recommendation_categories ? `
-                <div style="display: inline-block; padding: 6px 12px; background: #f3f4f6; border-radius: 12px; font-size: 13px; font-weight: 600; margin-bottom: 12px;">
-                  ${rec.recommendation_categories.icon || '📍'} ${rec.recommendation_categories.name_pl || rec.recommendation_categories.name_en}
-                </div>
-              ` : ''}
-              <h3 style="font-size: 1.5rem; font-weight: 700; margin: 0 0 8px; color: #111827;">${rec.title_pl || rec.title_en || 'Bez tytułu'}</h3>
-              ${rec.location_name ? `<p style="color: #6b7280; font-size: 14px; margin: 0 0 12px;">📍 ${rec.location_name}</p>` : ''}
-              ${rec.description_pl || rec.description_en ? `<p style="color: #4b5563; font-size: 15px; line-height: 1.6; margin: 0 0 16px;">${(rec.description_pl || rec.description_en).substring(0, 120)}...</p>` : ''}
-              ${rec.promo_code ? `
-                <div style="background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%); color: white; padding: 12px; border-radius: 8px; text-align: center; font-weight: 700; margin-bottom: 16px;">
-                  🎟️ Kod: ${rec.promo_code}
-                </div>
-              ` : ''}
-              <div style="display: flex; gap: 8px;">
-                ${rec.google_url ? `<a href="${rec.google_url}" target="_blank" style="flex: 1; padding: 10px 16px; background: #667eea; color: white; border-radius: 8px; text-align: center; text-decoration: none; font-weight: 600;">📍 Mapa</a>` : ''}
-                ${rec.website_url ? `<a href="${rec.website_url}" target="_blank" style="flex: 1; padding: 10px 16px; background: #f3f4f6; color: #374151; border-radius: 8px; text-align: center; text-decoration: none; font-weight: 600;">🌐 WWW</a>` : ''}
-              </div>
-            </div>
-          </div>
-        `).join('');
-        
-      } catch (error) {
-        console.error('❌ Load error:', error);
-        document.getElementById('loadingState').innerHTML = '<p style="color: #ef4444;">Błąd ładowania. Sprawdź czy dane są w Supabase.</p>';
-      }
-    }
-    
-    // Start loading
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', loadRecommendations);
-    } else {
-      loadRecommendations();
-    }
-  </script>
+  <!-- Language system -->
+  <script src="js/languageSwitcher.js"></script>
+  <script src="js/languageSelector.js" defer></script>
+  <script src="js/i18n.js" defer></script>
+  <script src="js/seo.js" defer></script>
+  <script src="js/mobile-nav.js" defer></script>
 </body>
 </html>
