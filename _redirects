@@ -20,5 +20,8 @@
 /*.webp            /:splat                 200
 /*.ico             /:splat                 200
 
+# HTML pages - serve as-is (MUST come before SPA fallback)
+/*.html            /:splat                 200
+
 # SPA fallback (main app only - NOT admin)
 /*                 /index.html             200
