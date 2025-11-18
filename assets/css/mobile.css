@@ -363,6 +363,12 @@ video {
     line-height: 1.45;
   }
 
+  .brand .user-stats-section {
+    grid-column: 1 / -1;
+    margin-top: var(--space-4);
+    width: 100%;
+  }
+
   .header-top-actions {
     display: grid;
     gap: var(--space-4);

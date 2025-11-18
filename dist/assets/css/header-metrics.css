@@ -517,6 +517,7 @@
   }
 
   .app-header .brand .user-stats-section {
+    grid-column: 1 / -1;
     margin-top: 0.75rem;
     padding: 0.55rem 0.85rem;
     border-radius: 18px;
