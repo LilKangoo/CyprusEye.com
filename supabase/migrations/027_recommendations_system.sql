@@ -281,11 +281,23 @@ create policy recommendation_categories_select_public
   on public.recommendation_categories for select 
   using (active = true);
 
--- Admin może wszystko
+-- Admin może wszystko (sprawdzamy is_admin w tabeli profiles)
 create policy recommendation_categories_all_admin 
   on public.recommendation_categories for all 
-  using (public.is_admin()) 
-  with check (public.is_admin());
+  using (
+    EXISTS (
+      SELECT 1 FROM public.profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.is_admin = true
+    )
+  ) 
+  with check (
+    EXISTS (
+      SELECT 1 FROM public.profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.is_admin = true
+    )
+  );
 
 -- Policies: recommendations
 -- Wszyscy mogą czytać aktywne rekomendacje
@@ -293,11 +305,23 @@ create policy recommendations_select_public
   on public.recommendations for select 
   using (active = true);
 
--- Admin może wszystko
+-- Admin może wszystko (sprawdzamy is_admin w tabeli profiles)
 create policy recommendations_all_admin 
   on public.recommendations for all 
-  using (public.is_admin()) 
-  with check (public.is_admin());
+  using (
+    EXISTS (
+      SELECT 1 FROM public.profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.is_admin = true
+    )
+  ) 
+  with check (
+    EXISTS (
+      SELECT 1 FROM public.profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.is_admin = true
+    )
+  );
 
 -- Policies: recommendation_views
 -- Użytkownicy mogą dodawać swoje wyświetlenia
@@ -308,7 +332,13 @@ create policy recommendation_views_insert_public
 -- Admin może czytać wszystkie
 create policy recommendation_views_select_admin 
   on public.recommendation_views for select 
-  using (public.is_admin());
+  using (
+    EXISTS (
+      SELECT 1 FROM public.profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.is_admin = true
+    )
+  );
 
 -- Policies: recommendation_clicks
 -- Użytkownicy mogą dodawać swoje kliknięcia
@@ -319,7 +349,13 @@ create policy recommendation_clicks_insert_public
 -- Admin może czytać wszystkie
 create policy recommendation_clicks_select_admin 
   on public.recommendation_clicks for select 
-  using (public.is_admin());
+  using (
+    EXISTS (
+      SELECT 1 FROM public.profiles 
+      WHERE profiles.id = auth.uid() 
+      AND profiles.is_admin = true
+    )
+  );
 
 -- ============================================================================
 -- SEED DATA - Domyślne kategorie
