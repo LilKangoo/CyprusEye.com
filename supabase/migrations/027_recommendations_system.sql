@@ -13,11 +13,10 @@ create extension if not exists postgis;
 -- ============================================================================
 create table if not exists public.recommendation_categories (
   id uuid primary key default gen_random_uuid(),
+  name_pl text not null,
   name_en text not null,
   name_el text,
-  name_pl text,
   name_he text,
-  name_ru text,
   icon text, -- np. 'hotel', 'restaurant', 'car', 'beach'
   color text default '#FF6B35', -- kolor dla znacznika na mapie
   display_order int default 0,
@@ -35,17 +34,15 @@ create table if not exists public.recommendations (
   category_id uuid not null references public.recommendation_categories(id) on delete restrict,
   
   -- Podstawowe informacje (wielojęzyczne)
+  title_pl text not null,
   title_en text not null,
   title_el text,
-  title_pl text,
   title_he text,
-  title_ru text,
   
+  description_pl text not null,
   description_en text not null,
   description_el text,
-  description_pl text,
   description_he text,
-  description_ru text,
   
   -- Lokalizacja
   location_name text not null, -- np. "Larnaka", "Paphos", lub custom
@@ -65,17 +62,15 @@ create table if not exists public.recommendations (
   
   -- Promocje (wielojęzyczne)
   promo_code text,
+  discount_text_pl text,
   discount_text_en text,
   discount_text_el text,
-  discount_text_pl text,
   discount_text_he text,
-  discount_text_ru text,
   
+  offer_text_pl text,
   offer_text_en text,
   offer_text_el text,
-  offer_text_pl text,
   offer_text_he text,
-  offer_text_ru text,
   
   -- Metadata
   display_order int default 0, -- kolejność wyświetlania
@@ -361,15 +356,15 @@ create policy recommendation_clicks_select_admin
 -- SEED DATA - Domyślne kategorie
 -- ============================================================================
 
-insert into public.recommendation_categories (name_en, name_el, name_pl, name_he, name_ru, icon, color, display_order) values
-  ('Accommodation', 'Διαμονή', 'Zakwaterowanie', 'לינה', 'Размещение', 'hotel', '#FF6B35', 1),
-  ('Restaurants', 'Εστιατόρια', 'Restauracje', 'מסעדות', 'Рестораны', 'restaurant', '#4ECDC4', 2),
-  ('Car Rentals', 'Ενοικίαση Αυτοκινήτων', 'Wynajem Aut', 'השכרת רכב', 'Аренда авто', 'directions_car', '#FFE66D', 3),
-  ('Beaches', 'Παραλίες', 'Plaże', 'חופים', 'Пляжи', 'beach_access', '#95E1D3', 4),
-  ('Activities', 'Δραστηριότητες', 'Aktywności', 'פעילויות', 'Активности', 'local_activity', '#F38181', 5),
-  ('Shopping', 'Ψώνια', 'Zakupy', 'קניות', 'Покупки', 'shopping_bag', '#AA96DA', 6),
-  ('Nightlife', 'Νυχτερινή Ζωή', 'Życie Nocne', 'חיי לילה', 'Ночная жизнь', 'nightlife', '#FCBAD3', 7),
-  ('Services', 'Υπηρεσίες', 'Usługi', 'שירותים', 'Услуги', 'miscellaneous_services', '#A8D8EA', 8)
+insert into public.recommendation_categories (name_pl, name_en, name_el, name_he, icon, color, display_order) values
+  ('Zakwaterowanie', 'Accommodation', 'Διαμονή', 'לינה', 'hotel', '#FF6B35', 1),
+  ('Restauracje', 'Restaurants', 'Εστιατόρια', 'מסעדות', 'restaurant', '#4ECDC4', 2),
+  ('Wynajem Aut', 'Car Rentals', 'Ενοικίαση Αυτοκινήτων', 'השכרת רכב', 'directions_car', '#FFE66D', 3),
+  ('Plaże', 'Beaches', 'Παραλίες', 'חופים', 'beach_access', '#95E1D3', 4),
+  ('Aktywności', 'Activities', 'Δραστηριότητες', 'פעילויות', 'local_activity', '#F38181', 5),
+  ('Zakupy', 'Shopping', 'Ψώνια', 'קניות', 'shopping_bag', '#AA96DA', 6),
+  ('Życie Nocne', 'Nightlife', 'Νυχτερινή Ζωή', 'חיי לילה', 'nightlife', '#FCBAD3', 7),
+  ('Usługi', 'Services', 'Υπηρεσίες', 'שירותים', 'miscellaneous_services', '#A8D8EA', 8)
 on conflict do nothing;
 
 -- ============================================================================

@@ -9052,21 +9052,9 @@ function populateCategoryFilters() {
   recommendationsCategories.forEach(cat => {
     const option = document.createElement('option');
     option.value = cat.id;
-    option.textContent = cat.name_en;
+    option.textContent = `${cat.name_pl || cat.name_en} / ${cat.name_en}`;
     select.appendChild(option);
   });
-
-  // Also populate form category select
-  const formSelect = $('#recCategory');
-  if (formSelect) {
-    formSelect.innerHTML = '<option value="">Select category...</option>';
-    recommendationsCategories.forEach(cat => {
-      const option = document.createElement('option');
-      option.value = cat.id;
-      option.textContent = cat.name_en;
-      formSelect.appendChild(option);
-    });
-  }
 }
 
 // Update Table
@@ -9080,7 +9068,8 @@ function updateRecommendationsTable() {
 
   let filtered = recommendationsCache.filter(rec => {
     // Search filter
-    if (searchTerm && !rec.title_en?.toLowerCase().includes(searchTerm) && 
+    if (searchTerm && !rec.title_pl?.toLowerCase().includes(searchTerm) && 
+        !rec.title_en?.toLowerCase().includes(searchTerm) &&
         !rec.location_name?.toLowerCase().includes(searchTerm)) {
       return false;
     }
@@ -9121,13 +9110,17 @@ function updateRecommendationsTable() {
         </td>
         <td style="font-weight: 600;">${rec.display_order}</td>
         <td>
-          <div style="font-weight: 600;">${rec.title_en || 'Untitled'}</div>
-          <div style="font-size: 12px; color: var(--admin-text-muted); margin-top: 2px;">${rec.description_en?.substring(0, 60) || ''}${rec.description_en?.length > 60 ? '...' : ''}</div>
+          <div style="font-weight: 600;">${rec.title_pl || rec.title_en || 'Untitled'}</div>
+          <div style="font-size: 11px; color: var(--admin-text-secondary); margin-top: 2px;">${rec.title_en || ''}</div>
+          <div style="font-size: 12px; color: var(--admin-text-muted); margin-top: 4px;">${rec.description_pl?.substring(0, 60) || rec.description_en?.substring(0, 60) || ''}${(rec.description_pl || rec.description_en)?.length > 60 ? '...' : ''}</div>
         </td>
         <td>
           <div style="display: flex; align-items: center; gap: 6px;">
             <span style="font-size: 18px;">${category.icon ? String.fromCodePoint(parseInt(category.icon, 16)) : '📍'}</span>
-            <span>${category.name_en || 'N/A'}</span>
+            <div>
+              <div>${category.name_pl || category.name_en || 'N/A'}</div>
+              <div style="font-size: 11px; color: var(--admin-text-muted);">${category.name_en || ''}</div>
+            </div>
           </div>
         </td>
         <td>${rec.location_name || 'N/A'}</td>
@@ -9156,10 +9149,10 @@ function openCreateRecommendationModal() {
   currentRecommendation = null;
   
   $('#recommendationFormTitle').textContent = 'New Recommendation';
-  $('#recommendationForm').reset();
-  $('#recDisplayOrder').value = recommendationsCache.length;
-  $('#recActive').checked = true;
-  $('#recFeatured').checked = false;
+  
+  // Render i18n form
+  const formContent = $('#recommendationFormContent');
+  formContent.innerHTML = renderRecommendationI18nForm(null);
   
   showElement($('#recommendationFormModal'));
 }
@@ -9177,137 +9170,11 @@ async function editRecommendation(id) {
   
   $('#recommendationFormTitle').textContent = 'Edit Recommendation';
   
-  // Populate form
-  $('#recCategory').value = rec.category_id || '';
-  $('#recDisplayOrder').value = rec.display_order || 0;
-  $('#recActive').checked = rec.active;
-  $('#recFeatured').checked = rec.featured || false;
-  
-  // Titles
-  $('#recTitleEn').value = rec.title_en || '';
-  $('#recTitleEl').value = rec.title_el || '';
-  $('#recTitlePl').value = rec.title_pl || '';
-  $('#recTitleHe').value = rec.title_he || '';
-  $('#recTitleRu').value = rec.title_ru || '';
-  
-  // Descriptions
-  $('#recDescEn').value = rec.description_en || '';
-  $('#recDescEl').value = rec.description_el || '';
-  $('#recDescPl').value = rec.description_pl || '';
-  $('#recDescHe').value = rec.description_he || '';
-  $('#recDescRu').value = rec.description_ru || '';
-  
-  // Location
-  $('#recLocationName').value = rec.location_name || '';
-  $('#recLatitude').value = rec.latitude || '';
-  $('#recLongitude').value = rec.longitude || '';
-  
-  // Media
-  $('#recImageUrl').value = rec.image_url || '';
-  
-  // Links & Contact
-  $('#recGoogleUrl').value = rec.google_url || '';
-  $('#recWebsiteUrl').value = rec.website_url || '';
-  $('#recPhone').value = rec.phone || '';
-  $('#recEmail').value = rec.email || '';
-  
-  // Promo & Discount
-  $('#recPromoCode').value = rec.promo_code || '';
-  $('#recDiscountEn').value = rec.discount_text_en || '';
-  $('#recDiscountEl').value = rec.discount_text_el || '';
-  $('#recDiscountPl').value = rec.discount_text_pl || '';
-  $('#recDiscountHe').value = rec.discount_text_he || '';
-  $('#recDiscountRu').value = rec.discount_text_ru || '';
-  
-  // Offer
-  $('#recOfferEn').value = rec.offer_text_en || '';
-  $('#recOfferEl').value = rec.offer_text_el || '';
-  $('#recOfferPl').value = rec.offer_text_pl || '';
-  $('#recOfferHe').value = rec.offer_text_he || '';
-  $('#recOfferRu').value = rec.offer_text_ru || '';
+  // Render i18n form with data
+  const formContent = $('#recommendationFormContent');
+  formContent.innerHTML = renderRecommendationI18nForm(rec);
   
   showElement($('#recommendationFormModal'));
-}
-
-// Save Recommendation
-async function saveRecommendation(event) {
-  event.preventDefault();
-  
-  try {
-    const client = ensureSupabase();
-    if (!client) {
-      showToast('Database connection not available', 'error');
-      return;
-    }
-
-    const data = {
-      category_id: $('#recCategory').value,
-      display_order: parseInt($('#recDisplayOrder').value) || 0,
-      active: $('#recActive').checked,
-      featured: $('#recFeatured').checked || false,
-      
-      title_en: $('#recTitleEn').value.trim(),
-      title_el: $('#recTitleEl').value.trim() || null,
-      title_pl: $('#recTitlePl').value.trim() || null,
-      title_he: $('#recTitleHe').value.trim() || null,
-      title_ru: $('#recTitleRu').value.trim() || null,
-      
-      description_en: $('#recDescEn').value.trim(),
-      description_el: $('#recDescEl').value.trim() || null,
-      description_pl: $('#recDescPl').value.trim() || null,
-      description_he: $('#recDescHe').value.trim() || null,
-      description_ru: $('#recDescRu').value.trim() || null,
-      
-      location_name: $('#recLocationName').value.trim(),
-      latitude: $('#recLatitude').value ? parseFloat($('#recLatitude').value) : null,
-      longitude: $('#recLongitude').value ? parseFloat($('#recLongitude').value) : null,
-      
-      image_url: $('#recImageUrl').value.trim() || null,
-      google_url: $('#recGoogleUrl').value.trim() || null,
-      website_url: $('#recWebsiteUrl').value.trim() || null,
-      phone: $('#recPhone').value.trim() || null,
-      email: $('#recEmail').value.trim() || null,
-      
-      promo_code: $('#recPromoCode').value.trim() || null,
-      discount_text_en: $('#recDiscountEn').value.trim() || null,
-      discount_text_el: $('#recDiscountEl').value.trim() || null,
-      discount_text_pl: $('#recDiscountPl').value.trim() || null,
-      discount_text_he: $('#recDiscountHe').value.trim() || null,
-      discount_text_ru: $('#recDiscountRu').value.trim() || null,
-      
-      offer_text_en: $('#recOfferEn').value.trim() || null,
-      offer_text_el: $('#recOfferEl').value.trim() || null,
-      offer_text_pl: $('#recOfferPl').value.trim() || null,
-      offer_text_he: $('#recOfferHe').value.trim() || null,
-      offer_text_ru: $('#recOfferRu').value.trim() || null,
-    };
-
-    if (recommendationFormMode === 'create') {
-      const { error } = await client
-        .from('recommendations')
-        .insert([data]);
-
-      if (error) throw error;
-      showToast('Recommendation created successfully', 'success');
-    } else {
-      data.updated_by = adminState.user?.id;
-      
-      const { error } = await client
-        .from('recommendations')
-        .update(data)
-        .eq('id', currentRecommendation.id);
-
-      if (error) throw error;
-      showToast('Recommendation updated successfully', 'success');
-    }
-
-    $('#recommendationFormModal').hidden = true;
-    await loadRecommendationsData();
-    
-  } catch (error) {
-    console.error('Error saving recommendation:', error);
-    showToast('Failed to save recommendation: ' + error.message, 'error');
-  }
 }
 
 // Delete Recommendation
@@ -9339,12 +9206,6 @@ async function deleteRecommendation(id) {
   }
 }
 
-// Close Modal
-function closeRecommendationModal() {
-  $('#recommendationFormModal').hidden = true;
-  currentRecommendation = null;
-}
-
 // Initialize Recommendations Module
 document.addEventListener('DOMContentLoaded', function() {
   console.log('Initializing Recommendations module...');
@@ -9362,24 +9223,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
   const btnClose = $('#btnCloseRecommendationForm');
   if (btnClose) {
-    btnClose.addEventListener('click', closeRecommendationModal);
-  }
-
-  const btnCancel = $('#btnCancelRecommendation');
-  if (btnCancel) {
-    btnCancel.addEventListener('click', closeRecommendationModal);
-  }
-
-  // Form submit
-  const form = $('#recommendationForm');
-  if (form) {
-    form.addEventListener('submit', saveRecommendation);
+    btnClose.addEventListener('click', closeRecI18nForm);
   }
 
   // Modal overlay
   const overlay = $('#recommendationFormModalOverlay');
   if (overlay) {
-    overlay.addEventListener('click', closeRecommendationModal);
+    overlay.addEventListener('click', closeRecI18nForm);
   }
 
   // Filters
