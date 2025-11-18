@@ -362,7 +362,7 @@ window.closeDetailModal = function() {
 // ============================================================================
 // TRACKING
 // ============================================================================
-async function trackView(recId) {
+window.trackView = async function(recId) {
   if (!supabase) return;
   try {
     await supabase.from('recommendation_views').insert([{ 
