@@ -9148,13 +9148,20 @@ async function openCreateRecommendationModal() {
   window.recommendationFormMode = 'create';
   currentRecommendation = null;
   
+  console.log('🔵 Opening create modal, categories count:', recommendationsCategories.length);
+  console.log('🔵 Categories:', recommendationsCategories);
+  
   // Ensure categories are loaded
   if (recommendationsCategories.length === 0) {
-    console.log('Categories not loaded, loading now...');
+    console.log('⚠️ Categories not loaded, loading now...');
     await loadRecommendationsData();
+    console.log('✅ Categories loaded:', recommendationsCategories.length);
   }
   
   $('#recommendationFormTitle').textContent = 'New Recommendation';
+  
+  // Make sure recommendationsCategories is globally accessible for the form
+  window.recommendationsCategories = recommendationsCategories;
   
   // Render i18n form
   const formContent = $('#recommendationFormContent');

@@ -38,14 +38,35 @@ window.renderRecommendationI18nForm = function(rec = null) {
         <div class="form-row">
           <div class="form-field">
             <label>Category *</label>
-            <select name="category_id" required>
-              <option value="">Select category...</option>
-              ${(typeof recommendationsCategories !== 'undefined' ? recommendationsCategories : []).map(cat => `
-                <option value="${cat.id}" ${data?.category_id === cat.id ? 'selected' : ''}>
-                  ${cat.name_pl} / ${cat.name_en}
-                </option>
-              `).join('')}
-            </select>
+            <div style="display: flex; gap: 8px; align-items: flex-start;">
+              <select name="category_id" id="recCategorySelect" required style="flex: 1;">
+                <option value="">Select category...</option>
+                ${(() => {
+                  const cats = window.recommendationsCategories || [];
+                  console.log('📋 Rendering categories in form:', cats.length, cats);
+                  return cats.map(cat => `
+                    <option value="${cat.id}" ${data?.category_id === cat.id ? 'selected' : ''}>
+                      ${cat.name_pl || cat.name_en} / ${cat.name_en}
+                    </option>
+                  `).join('');
+                })()}
+              </select>
+              <button type="button" 
+                      class="btn-secondary" 
+                      onclick="openAddCategoryModal()"
+                      style="white-space: nowrap; padding: 8px 12px;"
+                      title="Add new category">
+                ➕
+              </button>
+            </div>
+            ${(() => {
+              const cats = window.recommendationsCategories || [];
+              return cats.length === 0 ? `
+                <small style="color: #f59e0b; display: block; margin-top: 4px;">
+                  ⚠️ No categories found. Click ➕ to add one.
+                </small>
+              ` : '';
+            })()}
           </div>
           
           <div class="form-field">
@@ -416,6 +437,149 @@ window.handleRecI18nSubmit = async function(event) {
     showToast('Failed to save: ' + error.message, 'error');
   }
 }
+
+/**
+ * Open modal to add new category
+ */
+window.openAddCategoryModal = function() {
+  const modalHtml = `
+    <div id="addCategoryModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 10000; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,0.7);">
+      <div style="background: var(--admin-bg); border-radius: 12px; padding: 24px; max-width: 600px; width: 90%; max-height: 80vh; overflow-y: auto;">
+        <h3 style="margin: 0 0 20px; color: var(--admin-text);">Add New Category</h3>
+        
+        <form id="addCategoryForm" onsubmit="handleAddCategory(event)">
+          <div style="display: grid; gap: 16px;">
+            
+            <div>
+              <label style="display: block; margin-bottom: 4px; font-weight: 600;">🇵🇱 Name (Polish) *</label>
+              <input type="text" name="name_pl" required style="width: 100%; padding: 10px; background: var(--admin-bg-secondary); border: 1px solid var(--admin-border); border-radius: 6px; color: var(--admin-text);">
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 4px; font-weight: 600;">🇬🇧 Name (English) *</label>
+              <input type="text" name="name_en" required style="width: 100%; padding: 10px; background: var(--admin-bg-secondary); border: 1px solid var(--admin-border); border-radius: 6px; color: var(--admin-text);">
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 4px; font-weight: 600;">🇬🇷 Name (Greek)</label>
+              <input type="text" name="name_el" style="width: 100%; padding: 10px; background: var(--admin-bg-secondary); border: 1px solid var(--admin-border); border-radius: 6px; color: var(--admin-text);">
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 4px; font-weight: 600;">🇮🇱 Name (Hebrew)</label>
+              <input type="text" name="name_he" dir="rtl" style="width: 100%; padding: 10px; background: var(--admin-bg-secondary); border: 1px solid var(--admin-border); border-radius: 6px; color: var(--admin-text);">
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 4px; font-weight: 600;">Icon (emoji or text)</label>
+              <input type="text" name="icon" placeholder="🏨 or hotel" style="width: 100%; padding: 10px; background: var(--admin-bg-secondary); border: 1px solid var(--admin-border); border-radius: 6px; color: var(--admin-text);">
+              <small style="color: var(--admin-text-muted); display: block; margin-top: 4px;">Example: 🏨, 🍽️, 🚗, 🏖️</small>
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 4px; font-weight: 600;">Color (hex)</label>
+              <input type="color" name="color" value="#FF6B35" style="width: 100%; height: 40px; padding: 4px; background: var(--admin-bg-secondary); border: 1px solid var(--admin-border); border-radius: 6px;">
+            </div>
+            
+            <div>
+              <label style="display: block; margin-bottom: 4px; font-weight: 600;">Display Order</label>
+              <input type="number" name="display_order" value="0" min="0" style="width: 100%; padding: 10px; background: var(--admin-bg-secondary); border: 1px solid var(--admin-border); border-radius: 6px; color: var(--admin-text);">
+            </div>
+            
+          </div>
+          
+          <div style="display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px;">
+            <button type="button" onclick="closeAddCategoryModal()" class="btn-secondary">
+              Cancel
+            </button>
+            <button type="submit" class="btn-primary">
+              💾 Save Category
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+  
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+};
+
+window.closeAddCategoryModal = function() {
+  const modal = document.getElementById('addCategoryModal');
+  if (modal) modal.remove();
+};
+
+window.handleAddCategory = async function(event) {
+  event.preventDefault();
+  
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+    
+    const formData = new FormData(event.target);
+    
+    const categoryData = {
+      name_pl: formData.get('name_pl').trim(),
+      name_en: formData.get('name_en').trim(),
+      name_el: formData.get('name_el')?.trim() || null,
+      name_he: formData.get('name_he')?.trim() || null,
+      icon: formData.get('icon')?.trim() || null,
+      color: formData.get('color') || '#FF6B35',
+      display_order: parseInt(formData.get('display_order')) || 0,
+      active: true
+    };
+    
+    console.log('Creating category:', categoryData);
+    
+    const { data, error } = await client
+      .from('recommendation_categories')
+      .insert([categoryData])
+      .select()
+      .single();
+    
+    if (error) {
+      console.error('Error creating category:', error);
+      throw error;
+    }
+    
+    console.log('Category created:', data);
+    showToast('Category created successfully!', 'success');
+    
+    // Update global categories arrays
+    if (typeof recommendationsCategories !== 'undefined') {
+      recommendationsCategories.push(data);
+    }
+    if (window.recommendationsCategories) {
+      window.recommendationsCategories.push(data);
+    } else {
+      window.recommendationsCategories = [data];
+    }
+    
+    // Close modal
+    closeAddCategoryModal();
+    
+    // Refresh the recommendation form to show new category
+    const select = document.getElementById('recCategorySelect');
+    if (select) {
+      // Remove "no categories" warning if exists
+      const warning = select.parentElement.parentElement.querySelector('small');
+      if (warning) warning.remove();
+      
+      const option = document.createElement('option');
+      option.value = data.id;
+      option.textContent = `${data.name_pl} / ${data.name_en}`;
+      option.selected = true;
+      select.appendChild(option);
+    }
+    
+  } catch (error) {
+    console.error('Error adding category:', error);
+    showToast('Failed to add category: ' + error.message, 'error');
+  }
+};
 
 /**
  * Handle image upload to Supabase Storage
