@@ -483,22 +483,16 @@
       }
     }
 
-    /* Prevent header from being covered by content */
+    /* Header and layout fixes */
     .app-header { 
       position: relative; 
-      z-index: 100;
-      margin-bottom: 0 !important;
+      z-index: 900; 
     }
     
     main { 
-      margin-top: 0; 
-      padding-top: 0; 
-      clear: both;
       position: relative;
       z-index: 1;
     }
-    
-    .trips-hero { margin-top: 0; }
   </style>
 
   <meta name="ce-auth" content="on" />
