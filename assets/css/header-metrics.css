@@ -424,6 +424,7 @@
   .app-header {
     background: linear-gradient(135deg, rgba(226, 232, 240, 0.85) 0%, rgba(241, 245, 249, 0.96) 100%);
     box-shadow: 0 10px 30px rgba(15, 23, 42, 0.10);
+    padding: 0.6rem 0 0.75rem;
   }
 
   .app-header > .header-top,
@@ -436,22 +437,22 @@
 
   .header-top {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
-    gap: 1.5rem;
-    padding: 1rem 1.25rem 0.75rem;
+    gap: 1.1rem;
+    padding: 0.75rem 1.25rem 0.35rem;
   }
 
   .header-top .brand {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.75rem;
   }
 
   .header-top .brand-title {
     display: flex;
     flex-direction: column;
-    gap: 0.35rem;
+    gap: 0.25rem;
   }
 
   .header-top-actions {
@@ -463,27 +464,71 @@
     display: flex;
     flex-wrap: wrap;
     justify-content: flex-end;
-    gap: 0.5rem;
+    gap: 0.4rem;
   }
 
-  .header-actions-primary .header-link {
-    padding-inline: 0.9rem;
-    min-height: 40px;
+  .app-header .header-actions-primary .header-link {
+    padding: 0.4rem 0.8rem;
+    min-height: 36px;
     border-radius: 999px;
+    font-size: 0.9rem;
   }
 
   .header-tabs {
     display: flex;
     justify-content: center;
-    gap: 0.75rem;
-    padding: 0.5rem 1.25rem 1rem;
+    gap: 0.6rem;
+    padding: 0.4rem 1.25rem 0.7rem;
     border-top: 1px solid rgba(148, 163, 184, 0.25);
   }
 
-  .header-tab {
+  .app-header .header-tab {
     min-width: 0;
-    padding-inline: 1rem;
+    padding: 0.45rem 0.95rem;
     border-radius: 999px;
+    font-size: 0.9rem;
+  }
+
+  .app-header .brand img {
+    width: 64px;
+    height: 64px;
+  }
+
+  .app-header .brand-title .brand-name {
+    font-size: 1.35rem;
+  }
+
+  .app-header .tagline {
+    font-size: 0.95rem;
+    max-width: 40ch;
+  }
+
+  .user-stats-section {
+    margin-top: 0.35rem;
+    padding: 0.6rem 0.85rem;
+    border-radius: 18px;
+  }
+
+  .user-profile-card {
+    padding: 0.65rem;
+    gap: 0.55rem;
+  }
+
+  .profile-avatar {
+    width: 46px;
+    height: 46px;
+  }
+
+  .stats-cards {
+    gap: 0.5rem;
+  }
+
+  .metric-card {
+    padding: 0.5rem 0.7rem;
+  }
+
+  .metric-value {
+    font-size: 1.35rem;
   }
 }
 
