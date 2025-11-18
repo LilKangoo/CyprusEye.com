@@ -9116,7 +9116,7 @@ function updateRecommendationsTable() {
         </td>
         <td>
           <div style="display: flex; align-items: center; gap: 6px;">
-            <span style="font-size: 18px;">${category.icon ? String.fromCodePoint(parseInt(category.icon, 16)) : '📍'}</span>
+            <span style="font-size: 18px;">${category.icon || '📍'}</span>
             <div>
               <div>${category.name_pl || category.name_en || 'N/A'}</div>
               <div style="font-size: 11px; color: var(--admin-text-muted);">${category.name_en || ''}</div>

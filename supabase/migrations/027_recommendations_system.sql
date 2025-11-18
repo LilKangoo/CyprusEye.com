@@ -14,10 +14,10 @@ create extension if not exists postgis;
 create table if not exists public.recommendation_categories (
   id uuid primary key default gen_random_uuid(),
   name_pl text not null,
-  name_en text not null,
+  name_en text not null unique, -- unique to prevent duplicates
   name_el text,
   name_he text,
-  icon text, -- np. 'hotel', 'restaurant', 'car', 'beach'
+  icon text, -- emoji: 🏨, 🍽️, 🚗, 🏖️
   color text default '#FF6B35', -- kolor dla znacznika na mapie
   display_order int default 0,
   active boolean default true,
@@ -357,15 +357,15 @@ create policy recommendation_clicks_select_admin
 -- ============================================================================
 
 insert into public.recommendation_categories (name_pl, name_en, name_el, name_he, icon, color, display_order) values
-  ('Zakwaterowanie', 'Accommodation', 'Διαμονή', 'לינה', 'hotel', '#FF6B35', 1),
-  ('Restauracje', 'Restaurants', 'Εστιατόρια', 'מסעדות', 'restaurant', '#4ECDC4', 2),
-  ('Wynajem Aut', 'Car Rentals', 'Ενοικίαση Αυτοκινήτων', 'השכרת רכב', 'directions_car', '#FFE66D', 3),
-  ('Plaże', 'Beaches', 'Παραλίες', 'חופים', 'beach_access', '#95E1D3', 4),
-  ('Aktywności', 'Activities', 'Δραστηριότητες', 'פעילויות', 'local_activity', '#F38181', 5),
-  ('Zakupy', 'Shopping', 'Ψώνια', 'קניות', 'shopping_bag', '#AA96DA', 6),
-  ('Życie Nocne', 'Nightlife', 'Νυχτερινή Ζωή', 'חיי לילה', 'nightlife', '#FCBAD3', 7),
-  ('Usługi', 'Services', 'Υπηρεσίες', 'שירותים', 'miscellaneous_services', '#A8D8EA', 8)
-on conflict do nothing;
+  ('Zakwaterowanie', 'Accommodation', 'Διαμονή', 'לינה', '🏨', '#FF6B35', 1),
+  ('Restauracje', 'Restaurants', 'Εστιατόρια', 'מסעדות', '🍽️', '#4ECDC4', 2),
+  ('Wynajem Aut', 'Car Rentals', 'Ενοικίαση Αυτοκινήτων', 'השכרת רכב', '🚗', '#FFE66D', 3),
+  ('Plaże', 'Beaches', 'Παραλίες', 'חופים', '🏖️', '#95E1D3', 4),
+  ('Aktywności', 'Activities', 'Δραστηριότητες', 'פעילויות', '🎯', '#F38181', 5),
+  ('Zakupy', 'Shopping', 'Ψώνια', 'קניות', '🛍️', '#AA96DA', 6),
+  ('Życie Nocne', 'Nightlife', 'Νυχτερινή Ζωή', 'חיי לילה', '🎉', '#FCBAD3', 7),
+  ('Usługi', 'Services', 'Υπηρεσίες', 'שירותים', '🔧', '#A8D8EA', 8)
+on conflict (name_en) do nothing;
 
 -- ============================================================================
 -- GRANTS
