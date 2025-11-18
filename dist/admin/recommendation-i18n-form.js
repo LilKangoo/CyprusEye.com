@@ -9,7 +9,7 @@ let recAutoSaveTimer = null;
 /**
  * Render Recommendation form with i18n tabs
  */
-function renderRecommendationI18nForm(rec = null) {
+window.renderRecommendationI18nForm = function(rec = null) {
   const languages = [
     { code: 'pl', label: '🇵🇱 Polski', required: true, rtl: false },
     { code: 'en', label: '🇬🇧 English', required: true, rtl: false },
@@ -40,7 +40,7 @@ function renderRecommendationI18nForm(rec = null) {
             <label>Category *</label>
             <select name="category_id" required>
               <option value="">Select category...</option>
-              ${recommendationsCategories.map(cat => `
+              ${(typeof recommendationsCategories !== 'undefined' ? recommendationsCategories : []).map(cat => `
                 <option value="${cat.id}" ${data?.category_id === cat.id ? 'selected' : ''}>
                   ${cat.name_pl} / ${cat.name_en}
                 </option>
@@ -201,7 +201,7 @@ function renderRecommendationI18nForm(rec = null) {
 /**
  * Switch language tab
  */
-function switchRecLangTab(langCode) {
+window.switchRecLangTab = function(langCode) {
   document.querySelectorAll('.lang-tab').forEach(btn => {
     btn.classList.toggle('active', btn.dataset.lang === langCode);
   });
@@ -214,7 +214,7 @@ function switchRecLangTab(langCode) {
 /**
  * Auto-save draft
  */
-function scheduleRecAutoSave() {
+window.scheduleRecAutoSave = function() {
   clearTimeout(recAutoSaveTimer);
   recAutoSaveTimer = setTimeout(() => {
     const form = document.getElementById('recI18nForm');
@@ -260,7 +260,7 @@ function scheduleRecAutoSave() {
 /**
  * Clear draft
  */
-function clearRecDraft(key) {
+window.clearRecDraft = function(key) {
   localStorage.removeItem(key);
   showToast('Draft cleared', 'info');
   closeRecI18nForm();
@@ -269,15 +269,17 @@ function clearRecDraft(key) {
 /**
  * Close form
  */
-function closeRecI18nForm() {
+window.closeRecI18nForm = function() {
   document.getElementById('recommendationFormModal').hidden = true;
-  currentRecommendation = null;
+  if (typeof currentRecommendation !== 'undefined') {
+    currentRecommendation = null;
+  }
 }
 
 /**
  * Submit handler
  */
-async function handleRecI18nSubmit(event) {
+window.handleRecI18nSubmit = async function(event) {
   event.preventDefault();
   
   try {
@@ -329,9 +331,14 @@ async function handleRecI18nSubmit(event) {
 
     const recId = formData.get('id');
     
-    if (recId && recommendationFormMode === 'edit') {
+    // Get mode from global scope or default to 'create'
+    const mode = window.recommendationFormMode || 'create';
+    
+    if (recId && mode === 'edit') {
       // Update existing
-      data.updated_by = adminState.user?.id;
+      if (typeof adminState !== 'undefined' && adminState.user) {
+        data.updated_by = adminState.user.id;
+      }
       
       const { error } = await client
         .from('recommendations')
@@ -342,7 +349,9 @@ async function handleRecI18nSubmit(event) {
       showToast('Recommendation updated successfully', 'success');
     } else {
       // Insert new
-      data.created_by = adminState.user?.id;
+      if (typeof adminState !== 'undefined' && adminState.user) {
+        data.created_by = adminState.user.id;
+      }
       
       const { error } = await client
         .from('recommendations')
@@ -357,7 +366,11 @@ async function handleRecI18nSubmit(event) {
     localStorage.removeItem(draftKey);
     
     closeRecI18nForm();
-    await loadRecommendationsData();
+    
+    // Reload recommendations if function exists
+    if (typeof loadRecommendationsData === 'function') {
+      await loadRecommendationsData();
+    }
     
   } catch (error) {
     console.error('Error saving recommendation:', error);

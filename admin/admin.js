@@ -9145,7 +9145,7 @@ function updateRecommendationsTable() {
 
 // Open Create Modal
 function openCreateRecommendationModal() {
-  recommendationFormMode = 'create';
+  window.recommendationFormMode = 'create';
   currentRecommendation = null;
   
   $('#recommendationFormTitle').textContent = 'New Recommendation';
@@ -9165,7 +9165,7 @@ async function editRecommendation(id) {
     return;
   }
 
-  recommendationFormMode = 'edit';
+  window.recommendationFormMode = 'edit';
   currentRecommendation = rec;
   
   $('#recommendationFormTitle').textContent = 'Edit Recommendation';
