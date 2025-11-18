@@ -484,7 +484,21 @@
     }
 
     /* Prevent header from being covered by content */
-    .app-header { position: relative; z-index: 100; }
+    .app-header { 
+      position: relative; 
+      z-index: 100;
+      margin-bottom: 0 !important;
+    }
+    
+    main { 
+      margin-top: 0; 
+      padding-top: 0; 
+      clear: both;
+      position: relative;
+      z-index: 1;
+    }
+    
+    .trips-hero { margin-top: 0; }
   </style>
 
   <meta name="ce-auth" content="on" />
