@@ -342,28 +342,88 @@ window.closeRecI18nForm = function() {
 window.handleRecI18nSubmit = async function(event) {
   event.preventDefault();
   
+  console.log('🔵 handleRecI18nSubmit called');
+  
+  // Disable submit button
+  const submitBtn = event.target.querySelector('button[type="submit"]');
+  if (submitBtn) {
+    submitBtn.disabled = true;
+    submitBtn.textContent = '💾 Saving...';
+  }
+  
   try {
     const client = ensureSupabase();
     if (!client) {
       showToast('Database connection not available', 'error');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '💾 Save Recommendation';
+      }
       return;
     }
 
     const formData = new FormData(event.target);
     
+    // Validate required fields
+    const category_id = formData.get('category_id');
+    const title_pl = formData.get('title_pl')?.trim();
+    const title_en = formData.get('title_en')?.trim();
+    const description_pl = formData.get('description_pl')?.trim();
+    const description_en = formData.get('description_en')?.trim();
+    
+    console.log('📝 Form data:', {
+      category_id,
+      title_pl,
+      title_en,
+      description_pl,
+      description_en
+    });
+    
+    // Validation
+    if (!category_id) {
+      showToast('Please select a category', 'error');
+      document.getElementById('recCategorySelect')?.focus();
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '💾 Save Recommendation';
+      }
+      return;
+    }
+    
+    if (!title_pl || !title_en) {
+      showToast('Title in Polish and English are required', 'error');
+      // Switch to Polish tab
+      const plTab = document.querySelector('.lang-tab[data-lang="pl"]');
+      if (plTab) plTab.click();
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '💾 Save Recommendation';
+      }
+      return;
+    }
+    
+    if (!description_pl || !description_en) {
+      showToast('Description in Polish and English are required', 'error');
+      if (submitBtn) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = '💾 Save Recommendation';
+      }
+      return;
+    }
+    
     const data = {
-      category_id: formData.get('category_id'),
+      category_id,
       display_order: parseInt(formData.get('display_order')) || 0,
       active: formData.get('active') === 'on',
       featured: formData.get('featured') === 'on' || false,
       
-      title_pl: formData.get('title_pl')?.trim() || null,
-      title_en: formData.get('title_en')?.trim() || null,
+      title_pl,
+      title_en,
       title_el: formData.get('title_el')?.trim() || null,
       title_he: formData.get('title_he')?.trim() || null,
       
-      description_pl: formData.get('description_pl')?.trim() || null,
-      description_en: formData.get('description_en')?.trim() || null,
+      description_pl,
+      description_en,
       description_el: formData.get('description_el')?.trim() || null,
       description_he: formData.get('description_he')?.trim() || null,
       
@@ -389,35 +449,50 @@ window.handleRecI18nSubmit = async function(event) {
       offer_text_he: formData.get('offer_text_he')?.trim() || null,
     };
 
+    console.log('💾 Data to save:', data);
+
     const recId = formData.get('id');
     
     // Get mode from global scope or default to 'create'
     const mode = window.recommendationFormMode || 'create';
+    console.log('📌 Save mode:', mode, 'recId:', recId);
     
     if (recId && mode === 'edit') {
       // Update existing
+      console.log('🔄 Updating existing recommendation...');
       if (typeof adminState !== 'undefined' && adminState.user) {
         data.updated_by = adminState.user.id;
       }
       
-      const { error } = await client
+      const { data: result, error } = await client
         .from('recommendations')
         .update(data)
-        .eq('id', recId);
+        .eq('id', recId)
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Update error:', error);
+        throw error;
+      }
+      console.log('✅ Updated:', result);
       showToast('Recommendation updated successfully', 'success');
     } else {
       // Insert new
+      console.log('➕ Creating new recommendation...');
       if (typeof adminState !== 'undefined' && adminState.user) {
         data.created_by = adminState.user.id;
       }
       
-      const { error } = await client
+      const { data: result, error } = await client
         .from('recommendations')
-        .insert([data]);
+        .insert([data])
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Insert error:', error);
+        throw error;
+      }
+      console.log('✅ Created:', result);
       showToast('Recommendation created successfully', 'success');
     }
 
@@ -425,16 +500,37 @@ window.handleRecI18nSubmit = async function(event) {
     const draftKey = `rec_draft_${recId || 'new'}`;
     localStorage.removeItem(draftKey);
     
+    console.log('🔒 Closing form...');
     closeRecI18nForm();
     
     // Reload recommendations if function exists
     if (typeof loadRecommendationsData === 'function') {
+      console.log('🔄 Reloading recommendations list...');
       await loadRecommendationsData();
     }
     
   } catch (error) {
-    console.error('Error saving recommendation:', error);
-    showToast('Failed to save: ' + error.message, 'error');
+    console.error('❌ Error saving recommendation:', error);
+    
+    // More detailed error message
+    let errorMsg = 'Failed to save recommendation';
+    if (error.message) {
+      errorMsg += ': ' + error.message;
+    }
+    if (error.details) {
+      errorMsg += ' (' + error.details + ')';
+    }
+    if (error.hint) {
+      errorMsg += ' Hint: ' + error.hint;
+    }
+    
+    showToast(errorMsg, 'error');
+    
+    // Re-enable submit button
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '💾 Save Recommendation';
+    }
   }
 }
 
