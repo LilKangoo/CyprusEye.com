@@ -2406,6 +2406,9 @@ function switchView(viewName) {
     case 'hotels':
       loadHotelsAdminData();
       break;
+    case 'recommendations':
+      loadRecommendationsData();
+      break;
     case 'content':
       loadContentData();
       break;
@@ -8962,3 +8965,441 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // Export functions to window for onclick handlers
 window.loadAllOrders = loadAllOrders;
+
+// =====================================================
+// RECOMMENDATIONS MODULE
+// =====================================================
+
+let recommendationsCache = [];
+let recommendationsCategories = [];
+let currentRecommendation = null;
+let recommendationFormMode = 'create';
+
+// Load Recommendations Data
+async function loadRecommendationsData() {
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    console.log('Loading recommendations data...');
+
+    // Load categories first
+    const { data: categories, error: catError } = await client
+      .from('recommendation_categories')
+      .select('*')
+      .order('display_order', { ascending: true });
+
+    if (catError) {
+      console.error('Error loading categories:', catError);
+      showToast('Failed to load categories', 'error');
+      return;
+    }
+
+    recommendationsCategories = categories || [];
+    console.log('Categories loaded:', recommendationsCategories.length);
+
+    // Load recommendations
+    const { data: recommendations, error } = await client
+      .from('recommendations')
+      .select('*, recommendation_categories(name_en, icon, color)')
+      .order('display_order', { ascending: true })
+      .order('created_at', { ascending: false });
+
+    if (error) {
+      console.error('Error loading recommendations:', error);
+      showToast('Failed to load recommendations', 'error');
+      return;
+    }
+
+    recommendationsCache = recommendations || [];
+    console.log('Recommendations loaded:', recommendationsCache.length);
+
+    // Update UI
+    updateRecommendationsStats();
+    updateRecommendationsTable();
+    populateCategoryFilters();
+
+  } catch (error) {
+    console.error('Error in loadRecommendationsData:', error);
+    showToast('Failed to load recommendations data', 'error');
+  }
+}
+
+// Update Stats
+function updateRecommendationsStats() {
+  const total = recommendationsCache.length;
+  const active = recommendationsCache.filter(r => r.active).length;
+  const totalViews = recommendationsCache.reduce((sum, r) => sum + (r.view_count || 0), 0);
+  const totalClicks = recommendationsCache.reduce((sum, r) => sum + (r.click_count || 0), 0);
+
+  $('#statTotalRecommendations').textContent = total;
+  $('#statActiveRecommendations').textContent = active;
+  $('#statTotalViews').textContent = totalViews.toLocaleString();
+  $('#statTotalClicks').textContent = totalClicks.toLocaleString();
+}
+
+// Populate Category Filters
+function populateCategoryFilters() {
+  const select = $('#recommendationCategoryFilter');
+  if (!select) return;
+
+  // Clear and rebuild
+  select.innerHTML = '<option value="">All Categories</option>';
+  
+  recommendationsCategories.forEach(cat => {
+    const option = document.createElement('option');
+    option.value = cat.id;
+    option.textContent = cat.name_en;
+    select.appendChild(option);
+  });
+
+  // Also populate form category select
+  const formSelect = $('#recCategory');
+  if (formSelect) {
+    formSelect.innerHTML = '<option value="">Select category...</option>';
+    recommendationsCategories.forEach(cat => {
+      const option = document.createElement('option');
+      option.value = cat.id;
+      option.textContent = cat.name_en;
+      formSelect.appendChild(option);
+    });
+  }
+}
+
+// Update Table
+function updateRecommendationsTable() {
+  const tbody = $('#recommendationsTableBody');
+  if (!tbody) return;
+
+  const searchTerm = $('#recommendationSearchInput')?.value.toLowerCase() || '';
+  const categoryFilter = $('#recommendationCategoryFilter')?.value || '';
+  const statusFilter = $('#recommendationStatusFilter')?.value || '';
+
+  let filtered = recommendationsCache.filter(rec => {
+    // Search filter
+    if (searchTerm && !rec.title_en?.toLowerCase().includes(searchTerm) && 
+        !rec.location_name?.toLowerCase().includes(searchTerm)) {
+      return false;
+    }
+
+    // Category filter
+    if (categoryFilter && rec.category_id !== categoryFilter) {
+      return false;
+    }
+
+    // Status filter
+    if (statusFilter === 'active' && !rec.active) return false;
+    if (statusFilter === 'inactive' && rec.active) return false;
+    if (statusFilter === 'featured' && !rec.featured) return false;
+
+    return true;
+  });
+
+  if (filtered.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="10" class="table-empty">No recommendations found</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(rec => {
+    const category = rec.recommendation_categories || {};
+    const statusBadge = rec.active ? 
+      '<span class="badge badge-success">Active</span>' : 
+      '<span class="badge badge-secondary">Inactive</span>';
+    const featuredBadge = rec.featured ? 
+      '<span class="badge badge-warning" style="margin-left: 4px;">Featured</span>' : '';
+
+    return `
+      <tr>
+        <td>
+          ${rec.image_url ? 
+            `<img src="${rec.image_url}" alt="${rec.title_en}" style="width: 60px; height: 60px; object-fit: cover; border-radius: 6px;">` : 
+            '<div style="width: 60px; height: 60px; background: var(--admin-bg-secondary); border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 24px;">📍</div>'
+          }
+        </td>
+        <td style="font-weight: 600;">${rec.display_order}</td>
+        <td>
+          <div style="font-weight: 600;">${rec.title_en || 'Untitled'}</div>
+          <div style="font-size: 12px; color: var(--admin-text-muted); margin-top: 2px;">${rec.description_en?.substring(0, 60) || ''}${rec.description_en?.length > 60 ? '...' : ''}</div>
+        </td>
+        <td>
+          <div style="display: flex; align-items: center; gap: 6px;">
+            <span style="font-size: 18px;">${category.icon ? String.fromCodePoint(parseInt(category.icon, 16)) : '📍'}</span>
+            <span>${category.name_en || 'N/A'}</span>
+          </div>
+        </td>
+        <td>${rec.location_name || 'N/A'}</td>
+        <td>${rec.view_count || 0}</td>
+        <td>${rec.click_count || 0}</td>
+        <td>${rec.promo_code || '-'}</td>
+        <td>${statusBadge}${featuredBadge}</td>
+        <td>
+          <div style="display: flex; gap: 4px;">
+            <button class="btn-secondary" onclick="editRecommendation('${rec.id}')" title="Edit" style="font-size: 13px; padding: 4px 8px;">
+              Edit
+            </button>
+            <button class="btn-danger" onclick="deleteRecommendation('${rec.id}')" title="Delete" style="font-size: 13px; padding: 4px 8px;">
+              Delete
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Open Create Modal
+function openCreateRecommendationModal() {
+  recommendationFormMode = 'create';
+  currentRecommendation = null;
+  
+  $('#recommendationFormTitle').textContent = 'New Recommendation';
+  $('#recommendationForm').reset();
+  $('#recDisplayOrder').value = recommendationsCache.length;
+  $('#recActive').checked = true;
+  $('#recFeatured').checked = false;
+  
+  showElement($('#recommendationFormModal'));
+}
+
+// Open Edit Modal
+async function editRecommendation(id) {
+  const rec = recommendationsCache.find(r => r.id === id);
+  if (!rec) {
+    showToast('Recommendation not found', 'error');
+    return;
+  }
+
+  recommendationFormMode = 'edit';
+  currentRecommendation = rec;
+  
+  $('#recommendationFormTitle').textContent = 'Edit Recommendation';
+  
+  // Populate form
+  $('#recCategory').value = rec.category_id || '';
+  $('#recDisplayOrder').value = rec.display_order || 0;
+  $('#recActive').checked = rec.active;
+  $('#recFeatured').checked = rec.featured || false;
+  
+  // Titles
+  $('#recTitleEn').value = rec.title_en || '';
+  $('#recTitleEl').value = rec.title_el || '';
+  $('#recTitlePl').value = rec.title_pl || '';
+  $('#recTitleHe').value = rec.title_he || '';
+  $('#recTitleRu').value = rec.title_ru || '';
+  
+  // Descriptions
+  $('#recDescEn').value = rec.description_en || '';
+  $('#recDescEl').value = rec.description_el || '';
+  $('#recDescPl').value = rec.description_pl || '';
+  $('#recDescHe').value = rec.description_he || '';
+  $('#recDescRu').value = rec.description_ru || '';
+  
+  // Location
+  $('#recLocationName').value = rec.location_name || '';
+  $('#recLatitude').value = rec.latitude || '';
+  $('#recLongitude').value = rec.longitude || '';
+  
+  // Media
+  $('#recImageUrl').value = rec.image_url || '';
+  
+  // Links & Contact
+  $('#recGoogleUrl').value = rec.google_url || '';
+  $('#recWebsiteUrl').value = rec.website_url || '';
+  $('#recPhone').value = rec.phone || '';
+  $('#recEmail').value = rec.email || '';
+  
+  // Promo & Discount
+  $('#recPromoCode').value = rec.promo_code || '';
+  $('#recDiscountEn').value = rec.discount_text_en || '';
+  $('#recDiscountEl').value = rec.discount_text_el || '';
+  $('#recDiscountPl').value = rec.discount_text_pl || '';
+  $('#recDiscountHe').value = rec.discount_text_he || '';
+  $('#recDiscountRu').value = rec.discount_text_ru || '';
+  
+  // Offer
+  $('#recOfferEn').value = rec.offer_text_en || '';
+  $('#recOfferEl').value = rec.offer_text_el || '';
+  $('#recOfferPl').value = rec.offer_text_pl || '';
+  $('#recOfferHe').value = rec.offer_text_he || '';
+  $('#recOfferRu').value = rec.offer_text_ru || '';
+  
+  showElement($('#recommendationFormModal'));
+}
+
+// Save Recommendation
+async function saveRecommendation(event) {
+  event.preventDefault();
+  
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    const data = {
+      category_id: $('#recCategory').value,
+      display_order: parseInt($('#recDisplayOrder').value) || 0,
+      active: $('#recActive').checked,
+      featured: $('#recFeatured').checked || false,
+      
+      title_en: $('#recTitleEn').value.trim(),
+      title_el: $('#recTitleEl').value.trim() || null,
+      title_pl: $('#recTitlePl').value.trim() || null,
+      title_he: $('#recTitleHe').value.trim() || null,
+      title_ru: $('#recTitleRu').value.trim() || null,
+      
+      description_en: $('#recDescEn').value.trim(),
+      description_el: $('#recDescEl').value.trim() || null,
+      description_pl: $('#recDescPl').value.trim() || null,
+      description_he: $('#recDescHe').value.trim() || null,
+      description_ru: $('#recDescRu').value.trim() || null,
+      
+      location_name: $('#recLocationName').value.trim(),
+      latitude: $('#recLatitude').value ? parseFloat($('#recLatitude').value) : null,
+      longitude: $('#recLongitude').value ? parseFloat($('#recLongitude').value) : null,
+      
+      image_url: $('#recImageUrl').value.trim() || null,
+      google_url: $('#recGoogleUrl').value.trim() || null,
+      website_url: $('#recWebsiteUrl').value.trim() || null,
+      phone: $('#recPhone').value.trim() || null,
+      email: $('#recEmail').value.trim() || null,
+      
+      promo_code: $('#recPromoCode').value.trim() || null,
+      discount_text_en: $('#recDiscountEn').value.trim() || null,
+      discount_text_el: $('#recDiscountEl').value.trim() || null,
+      discount_text_pl: $('#recDiscountPl').value.trim() || null,
+      discount_text_he: $('#recDiscountHe').value.trim() || null,
+      discount_text_ru: $('#recDiscountRu').value.trim() || null,
+      
+      offer_text_en: $('#recOfferEn').value.trim() || null,
+      offer_text_el: $('#recOfferEl').value.trim() || null,
+      offer_text_pl: $('#recOfferPl').value.trim() || null,
+      offer_text_he: $('#recOfferHe').value.trim() || null,
+      offer_text_ru: $('#recOfferRu').value.trim() || null,
+    };
+
+    if (recommendationFormMode === 'create') {
+      const { error } = await client
+        .from('recommendations')
+        .insert([data]);
+
+      if (error) throw error;
+      showToast('Recommendation created successfully', 'success');
+    } else {
+      data.updated_by = adminState.user?.id;
+      
+      const { error } = await client
+        .from('recommendations')
+        .update(data)
+        .eq('id', currentRecommendation.id);
+
+      if (error) throw error;
+      showToast('Recommendation updated successfully', 'success');
+    }
+
+    $('#recommendationFormModal').hidden = true;
+    await loadRecommendationsData();
+    
+  } catch (error) {
+    console.error('Error saving recommendation:', error);
+    showToast('Failed to save recommendation: ' + error.message, 'error');
+  }
+}
+
+// Delete Recommendation
+async function deleteRecommendation(id) {
+  if (!confirm('Are you sure you want to delete this recommendation?')) {
+    return;
+  }
+
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    const { error } = await client
+      .from('recommendations')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    showToast('Recommendation deleted successfully', 'success');
+    await loadRecommendationsData();
+
+  } catch (error) {
+    console.error('Error deleting recommendation:', error);
+    showToast('Failed to delete recommendation: ' + error.message, 'error');
+  }
+}
+
+// Close Modal
+function closeRecommendationModal() {
+  $('#recommendationFormModal').hidden = true;
+  currentRecommendation = null;
+}
+
+// Initialize Recommendations Module
+document.addEventListener('DOMContentLoaded', function() {
+  console.log('Initializing Recommendations module...');
+
+  // Buttons
+  const btnAdd = $('#btnAddRecommendation');
+  if (btnAdd) {
+    btnAdd.addEventListener('click', openCreateRecommendationModal);
+  }
+
+  const btnRefresh = $('#btnRefreshRecommendations');
+  if (btnRefresh) {
+    btnRefresh.addEventListener('click', loadRecommendationsData);
+  }
+
+  const btnClose = $('#btnCloseRecommendationForm');
+  if (btnClose) {
+    btnClose.addEventListener('click', closeRecommendationModal);
+  }
+
+  const btnCancel = $('#btnCancelRecommendation');
+  if (btnCancel) {
+    btnCancel.addEventListener('click', closeRecommendationModal);
+  }
+
+  // Form submit
+  const form = $('#recommendationForm');
+  if (form) {
+    form.addEventListener('submit', saveRecommendation);
+  }
+
+  // Modal overlay
+  const overlay = $('#recommendationFormModalOverlay');
+  if (overlay) {
+    overlay.addEventListener('click', closeRecommendationModal);
+  }
+
+  // Filters
+  const searchInput = $('#recommendationSearchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', updateRecommendationsTable);
+  }
+
+  const categoryFilter = $('#recommendationCategoryFilter');
+  if (categoryFilter) {
+    categoryFilter.addEventListener('change', updateRecommendationsTable);
+  }
+
+  const statusFilter = $('#recommendationStatusFilter');
+  if (statusFilter) {
+    statusFilter.addEventListener('change', updateRecommendationsTable);
+  }
+});
+
+// Export functions
+window.loadRecommendationsData = loadRecommendationsData;
+window.editRecommendation = editRecommendation;
+window.deleteRecommendation = deleteRecommendation;

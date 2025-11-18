@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-FCSE0876CR');
+</script>
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co https://www.google-analytics.com https://unpkg.com https://*.tile.openstreetmap.org; frame-src 'self' https://www.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
+  
+  <meta name="theme-color" content="#2563eb" />
+  <title>Our Recommendations – CyprusEye</title>
+  <meta name="description" content="Discover our handpicked recommendations for the best places to visit, eat, and stay in Cyprus." />
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="icon" href="/assets/cyprus_logo-1000x1054.png" type="image/png" />
+  
+  <link rel="stylesheet" href="assets/css/tokens.css" />
+  <link rel="stylesheet" href="assets/css/base.css" />
+  <link rel="stylesheet" href="assets/css/components.css" />
+  <link rel="stylesheet" href="css/toast.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <link rel="stylesheet" href="assets/css/recommendations.css" />
+  
+  <meta name="ce-auth" content="optional" />
+  
+  <script type="module" src="/js/supabaseClient.js"></script>
+  <script type="module" src="/js/toast.js"></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+</head>
+<body>
+  
+  <div class="recommendations-hero">
+    <h1>✨ Our Recommendations</h1>
+    <p>Handpicked places we love in Cyprus</p>
+  </div>
+  
+  <div class="recommendations-container">
+    <div class="filter-section">
+      <button class="filter-btn active" data-category="">All</button>
+    </div>
+    
+    <div id="loadingState" class="loading-spinner">
+      <p>Loading recommendations...</p>
+    </div>
+    
+    <div id="emptyState" class="empty-state" style="display: none;">
+      <h3>No recommendations yet</h3>
+      <p>Check back soon!</p>
+    </div>
+    
+    <div id="recommendationsGrid" class="recommendations-grid"></div>
+  </div>
+  
+  <div id="recModal" class="rec-modal">
+    <div class="rec-modal-content">
+      <button class="rec-modal-close" onclick="closeModal()">×</button>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+  
+  <div style="text-align: center; padding: 40px 20px;">
+    <a href="/" style="color: #667eea; font-weight: 600; text-decoration: none;">
+      ← Back to Home
+    </a>
+  </div>
+  
+  <script src="/js/recommendations.js"></script>
+</body>
+</html>
