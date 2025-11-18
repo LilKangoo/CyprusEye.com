@@ -1,60 +1,80 @@
 /**
- * RECOMMENDATIONS PAGE - CYPRUSEYE
- * Public recommendations display
+ * RECOMMENDATIONS PAGE - CYPRUSEYE QUEST
+ * Public-facing recommendations with categories, filters, and modal
  */
 
+// ============================================================================
+// STATE
+// ============================================================================
 let allRecommendations = [];
-let categories = [];
-let supabase = null;
+let allCategories = [];
+let currentCategoryFilter = '';
+let supabaseClient = null;
 
-// Get Supabase client
-function getSupabaseClient() {
-  if (typeof window.getSupabase === 'function') {
-    return window.getSupabase();
-  }
+// ============================================================================
+// SUPABASE CLIENT
+// ============================================================================
+function getSupabase() {
+  if (typeof window.getSupabase === 'function') return window.getSupabase();
   if (window.sb) return window.sb;
   if (window.__SB__) return window.__SB__;
   return null;
 }
 
-// Wait for Supabase
 async function waitForSupabase() {
   return new Promise((resolve) => {
     const check = () => {
-      supabase = getSupabaseClient();
-      if (supabase) {
-        resolve(supabase);
-      } else {
-        setTimeout(check, 100);
-      }
+      supabaseClient = getSupabase();
+      if (supabaseClient) resolve(supabaseClient);
+      else setTimeout(check, 100);
     };
     check();
   });
 }
 
-// Load recommendations
-async function loadRecommendations() {
+// ============================================================================
+// LOAD DATA
+// ============================================================================
+async function loadData() {
   try {
+    console.log('🔵 Loading recommendations data...');
+    
+    document.getElementById('loadingState').style.display = 'block';
+    document.getElementById('emptyState').style.display = 'none';
+    
     await waitForSupabase();
     
-    const { data: cats, error: catError } = await supabase
+    // Load categories
+    const { data: cats, error: catError } = await supabaseClient
       .from('recommendation_categories')
       .select('*')
       .eq('active', true)
       .order('display_order', { ascending: true });
     
-    if (catError) throw catError;
-    categories = cats || [];
+    if (catError) {
+      console.error('❌ Categories error:', catError);
+      throw catError;
+    }
     
-    const { data: recs, error: recError } = await supabase
+    allCategories = cats || [];
+    console.log('✅ Categories loaded:', allCategories.length);
+    
+    // Load recommendations
+    const { data: recs, error: recError } = await supabaseClient
       .from('recommendations')
-      .select('*, recommendation_categories(name_en, icon, color)')
+      .select('*, recommendation_categories(name_pl, name_en, icon, color)')
       .eq('active', true)
+      .order('featured', { ascending: false })
       .order('display_order', { ascending: true })
-      .order('priority', { ascending: false});
+      .order('created_at', { ascending: false });
     
-    if (recError) throw recError;
+    if (recError) {
+      console.error('❌ Recommendations error:', recError);
+      throw recError;
+    }
+    
     allRecommendations = recs || [];
+    console.log('✅ Recommendations loaded:', allRecommendations.length);
     
     document.getElementById('loadingState').style.display = 'none';
     
@@ -66,69 +86,123 @@ async function loadRecommendations() {
     }
     
   } catch (error) {
-    console.error('Error loading:', error);
-    document.getElementById('loadingState').innerHTML = '<p style="color: red;">Failed to load</p>';
+    console.error('❌ Error loading data:', error);
+    document.getElementById('loadingState').innerHTML = `
+      <div style="color: #ef4444; text-align: center;">
+        <p>Nie udało się załadować rekomendacji</p>
+        <button class="btn" onclick="location.reload()">Spróbuj ponownie</button>
+      </div>
+    `;
   }
 }
 
-// Render category filters
+// ============================================================================
+// RENDER CATEGORY FILTERS
+// ============================================================================
 function renderCategoryFilters() {
-  const filterSection = document.querySelector('.filter-section');
+  const container = document.getElementById('categoriesFilters');
+  if (!container) return;
   
-  categories.forEach(cat => {
+  // Update "All" count
+  document.getElementById('count-all').textContent = allRecommendations.length;
+  
+  // Add category buttons
+  allCategories.forEach(cat => {
+    const count = allRecommendations.filter(r => r.category_id === cat.id).length;
+    
     const btn = document.createElement('button');
     btn.className = 'filter-btn';
     btn.dataset.category = cat.id;
-    btn.textContent = cat.name_en;
+    btn.dataset.categoryName = cat.name_pl || cat.name_en;
+    btn.innerHTML = `
+      <span class="filter-icon">${cat.icon || '📍'}</span>
+      <span class="filter-label">${cat.name_pl || cat.name_en}</span>
+      <span class="filter-count">${count}</span>
+    `;
     btn.onclick = () => filterByCategory(cat.id);
-    filterSection.appendChild(btn);
+    container.appendChild(btn);
   });
 }
 
-// Filter by category
+// ============================================================================
+// FILTER BY CATEGORY
+// ============================================================================
 function filterByCategory(categoryId) {
+  currentCategoryFilter = categoryId;
+  
+  // Update active state
   document.querySelectorAll('.filter-btn').forEach(btn => {
-    if (btn.dataset.category === categoryId) {
+    if (btn.dataset.category === categoryId || (!categoryId && !btn.dataset.category)) {
       btn.classList.add('active');
     } else {
       btn.classList.remove('active');
     }
   });
   
-  renderRecommendations(categoryId);
-}
-
-// Render recommendations
-function renderRecommendations(categoryFilter = '') {
-  const grid = document.getElementById('recommendationsGrid');
-  
-  let filtered = allRecommendations;
-  if (categoryFilter) {
-    filtered = allRecommendations.filter(r => r.category_id === categoryFilter);
+  // Show/hide clear button
+  const clearBtn = document.getElementById('clearFilters');
+  if (clearBtn) {
+    clearBtn.style.display = categoryId ? 'block' : 'none';
   }
   
-  grid.innerHTML = filtered.map(rec => {
-    const category = rec.recommendation_categories || {};
-    const title = rec.title_en;
-    const description = rec.description_en;
-    const discount = rec.discount_text_en;
-    
-    return `
-      <div class="rec-card" onclick="openModal('${rec.id}')">
-        ${rec.featured ? '<div class="rec-featured-badge">⭐ Featured</div>' : ''}
+  renderRecommendations();
+}
+
+window.clearFilters = function() {
+  filterByCategory('');
+};
+
+// ============================================================================
+// RENDER RECOMMENDATIONS
+// ============================================================================
+function renderRecommendations() {
+  const grid = document.getElementById('recommendationsGrid');
+  const emptyState = document.getElementById('emptyState');
+  
+  if (!grid) return;
+  
+  // Filter
+  let filtered = allRecommendations;
+  if (currentCategoryFilter) {
+    filtered = allRecommendations.filter(r => r.category_id === currentCategoryFilter);
+  }
+  
+  if (filtered.length === 0) {
+    grid.innerHTML = '';
+    emptyState.style.display = 'block';
+    return;
+  }
+  
+  emptyState.style.display = 'none';
+  
+  // Render cards
+  grid.innerHTML = filtered.map(rec => createRecommendationCard(rec)).join('');
+}
+
+function createRecommendationCard(rec) {
+  const category = rec.recommendation_categories || {};
+  const title = rec.title_pl || rec.title_en || 'Untitled';
+  const description = rec.description_pl || rec.description_en || '';
+  const discount = rec.discount_text_pl || rec.discount_text_en;
+  
+  return `
+    <div class="rec-card" onclick="openDetailModal('${rec.id}')">
+      ${rec.featured ? '<div class="rec-featured-badge">⭐ Polecane</div>' : ''}
+      
+      ${rec.image_url ? 
+        `<img src="${rec.image_url}" alt="${title}" class="rec-card-image" loading="lazy" />` :
+        '<div class="rec-card-image"></div>'
+      }
+      
+      <div class="rec-card-content">
+        <div class="rec-card-category">
+          <span>${category.icon || '📍'}</span>
+          <span>${category.name_pl || category.name_en || 'General'}</span>
+        </div>
         
-        ${rec.image_url ? 
-          `<img src="${rec.image_url}" alt="${title}" class="rec-card-image" />` :
-          '<div class="rec-card-image"></div>'
-        }
+        <h2 class="rec-card-title">${title}</h2>
         
-        <div class="rec-card-content">
-          <div class="rec-card-category">
-            <span>${category.name_en || 'General'}</span>
-          </div>
-          
-          <h2 class="rec-card-title">${title}</h2>
-          
+        ${rec.location_name ? `
           <div class="rec-card-location">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
@@ -136,103 +210,111 @@ function renderRecommendations(categoryFilter = '') {
             </svg>
             ${rec.location_name}
           </div>
-          
-          <p class="rec-card-description">${description.substring(0, 120)}${description.length > 120 ? '...' : ''}</p>
-          
-          ${rec.promo_code || discount ? `
-            <div class="rec-card-promo">
-              ${discount ? `<div>${discount}</div>` : ''}
-              ${rec.promo_code ? `<div class="rec-card-promo-code">Code: ${rec.promo_code}</div>` : ''}
-            </div>
-          ` : ''}
-          
-          <div class="rec-card-actions">
-            ${rec.google_url ? `
-              <a href="${rec.google_url}" target="_blank" class="rec-btn rec-btn-primary" onclick="event.stopPropagation(); trackClick('${rec.id}', 'google');">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                  <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-                  <circle cx="12" cy="10" r="3"/>
-                </svg>
-                Map
-              </a>
-            ` : ''}
-            
-            ${rec.website_url ? `
-              <a href="${rec.website_url}" target="_blank" class="rec-btn rec-btn-secondary" onclick="event.stopPropagation(); trackClick('${rec.id}', 'website');">
-                Website
-              </a>
-            ` : ''}
+        ` : ''}
+        
+        ${description ? `
+          <p class="rec-card-description">${description.substring(0, 150)}${description.length > 150 ? '...' : ''}</p>
+        ` : ''}
+        
+        ${rec.promo_code && discount ? `
+          <div class="rec-card-promo">
+            <div class="rec-card-promo-label">${discount}</div>
+            <div class="rec-card-promo-code">${rec.promo_code}</div>
           </div>
+        ` : ''}
+        
+        <div class="rec-card-actions">
+          <button class="rec-btn rec-btn-primary" onclick="event.stopPropagation(); openDetailModal('${rec.id}')">
+            Zobacz szczegóły
+          </button>
+          ${rec.website_url ? `
+            <a href="${rec.website_url}" target="_blank" rel="noopener" class="rec-btn rec-btn-secondary" onclick="event.stopPropagation(); trackClick('${rec.id}', 'website');">
+              Strona www
+            </a>
+          ` : ''}
         </div>
       </div>
-    `;
-  }).join('');
-  
-  filtered.forEach(rec => trackView(rec.id));
+    </div>
+  `;
 }
 
-// Open modal
-window.openModal = async function(id) {
+// ============================================================================
+// MODAL
+// ============================================================================
+window.openDetailModal = async function(id) {
   const rec = allRecommendations.find(r => r.id === id);
   if (!rec) return;
   
   const category = rec.recommendation_categories || {};
-  const title = rec.title_en;
-  const description = rec.description_en;
-  const discount = rec.discount_text_en;
-  const offer = rec.offer_text_en;
+  const title = rec.title_pl || rec.title_en;
+  const description = rec.description_pl || rec.description_en;
+  const discount = rec.discount_text_pl || rec.discount_text_en;
+  const offer = rec.offer_text_pl || rec.offer_text_en;
   
-  const modalContent = document.getElementById('modalContent');
-  modalContent.innerHTML = `
-    ${rec.image_url ? `<img src="${rec.image_url}" alt="${title}" class="rec-modal-image" />` : ''}
+  const modalDetails = document.getElementById('modalDetails');
+  modalDetails.innerHTML = `
+    ${rec.image_url ? `
+      <img src="${rec.image_url}" alt="${title}" class="rec-modal-image" />
+    ` : ''}
     
-    <div class="rec-modal-body">
-      <div class="rec-card-category" style="margin-bottom: 12px;">
-        ${category.name_en || 'General'}
+    <div class="rec-modal-content-section">
+      <div class="rec-card-category" style="margin-bottom: 16px;">
+        <span>${category.icon || '📍'}</span>
+        <span>${category.name_pl || category.name_en}</span>
       </div>
       
-      <h1 style="font-size: 2rem; font-weight: 700; margin: 0 0 12px;">${title}</h1>
+      <h1 style="font-size: 2.25rem; font-weight: 700; margin: 0 0 16px; color: #111827;">${title}</h1>
       
-      <div style="display: flex; align-items: center; gap: 8px; color: #6b7280; margin-bottom: 20px;">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-          <circle cx="12" cy="10" r="3"/>
-        </svg>
-        ${rec.location_name}
-      </div>
+      ${rec.location_name ? `
+        <div style="display: flex; align-items: center; gap: 8px; color: #6b7280; margin-bottom: 24px; font-size: 16px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          ${rec.location_name}
+        </div>
+      ` : ''}
       
-      <p style="font-size: 16px; line-height: 1.7; color: #374151; margin-bottom: 20px;">${description}</p>
+      ${description ? `
+        <p style="font-size: 17px; line-height: 1.8; color: #374151; margin-bottom: 24px;">${description}</p>
+      ` : ''}
       
       ${offer ? `
-        <div style="background: #f0fdf4; border-left: 4px solid #22c55e; padding: 16px; border-radius: 8px; margin-bottom: 20px;">
-          <strong style="color: #16a34a;">Special Offer:</strong>
-          <p style="margin: 8px 0 0; color: #166534;">${offer}</p>
+        <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left: 4px solid #22c55e; padding: 20px; border-radius: 12px; margin-bottom: 24px;">
+          <strong style="color: #16a34a; font-size: 16px; display: block; margin-bottom: 8px;">🎁 Special Offer</strong>
+          <p style="margin: 0; color: #166534; font-size: 15px; line-height: 1.6;">${offer}</p>
         </div>
       ` : ''}
       
-      ${rec.promo_code || discount ? `
-        <div class="rec-card-promo" style="margin-bottom: 20px;">
-          ${discount ? `<div>${discount}</div>` : ''}
-          ${rec.promo_code ? `<div class="rec-card-promo-code">Code: ${rec.promo_code}</div>` : ''}
+      ${rec.promo_code && discount ? `
+        <div class="rec-card-promo" style="margin-bottom: 24px;">
+          <div class="rec-card-promo-label">${discount}</div>
+          <div class="rec-card-promo-code">${rec.promo_code}</div>
         </div>
       ` : ''}
       
-      <div class="rec-card-actions" style="margin-bottom: 24px;">
+      <div class="rec-card-actions" style="margin-bottom: 32px; gap: 16px;">
         ${rec.google_url ? `
-          <a href="${rec.google_url}" target="_blank" class="rec-btn rec-btn-primary" onclick="trackClick('${rec.id}', 'google');">
-            Open in Maps
+          <a href="${rec.google_url}" target="_blank" rel="noopener" class="rec-btn rec-btn-primary" onclick="trackClick('${rec.id}', 'google');">
+            🗺️ Otwórz w mapach
           </a>
         ` : ''}
         
         ${rec.website_url ? `
-          <a href="${rec.website_url}" target="_blank" class="rec-btn rec-btn-secondary" onclick="trackClick('${rec.id}', 'website');">
-            Visit Website
+          <a href="${rec.website_url}" target="_blank" rel="noopener" class="rec-btn rec-btn-secondary" onclick="trackClick('${rec.id}', 'website');">
+            🌐 Odwiedź stronę
           </a>
         ` : ''}
         
         ${rec.phone ? `
           <a href="tel:${rec.phone}" class="rec-btn rec-btn-secondary" onclick="trackClick('${rec.id}', 'phone');">
-            ${rec.phone}
+            📞 ${rec.phone}
+          </a>
+        ` : ''}
+        
+        ${rec.email ? `
+          <a href="mailto:${rec.email}" class="rec-btn rec-btn-secondary" onclick="trackClick('${rec.id}', 'email');">
+            ✉️ ${rec.email}
           </a>
         ` : ''}
       </div>
@@ -243,46 +325,68 @@ window.openModal = async function(id) {
     </div>
   `;
   
-  document.getElementById('recModal').classList.add('active');
+  // Show modal
+  document.getElementById('detailModal').style.display = 'flex';
   document.body.style.overflow = 'hidden';
   
-  if (rec.latitude && rec.longitude) {
+  // Track view
+  trackView(rec.id);
+  
+  // Initialize map
+  if (rec.latitude && rec.longitude && typeof L !== 'undefined') {
     setTimeout(() => {
-      const map = L.map('modalMap').setView([rec.latitude, rec.longitude], 14);
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '© OpenStreetMap'
-      }).addTo(map);
-      L.marker([rec.latitude, rec.longitude]).addTo(map);
-    }, 100);
+      try {
+        const map = L.map('modalMap').setView([rec.latitude, rec.longitude], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        const marker = L.marker([rec.latitude, rec.longitude]).addTo(map);
+        if (title) marker.bindPopup(title);
+      } catch (e) {
+        console.error('Map error:', e);
+      }
+    }, 200);
   }
 };
 
-// Close modal
-window.closeModal = function() {
-  document.getElementById('recModal').classList.remove('active');
+window.closeDetailModal = function() {
+  document.getElementById('detailModal').style.display = 'none';
   document.body.style.overflow = '';
 };
 
-// Track view
+// ============================================================================
+// TRACKING
+// ============================================================================
 async function trackView(recId) {
+  if (!supabaseClient) return;
   try {
-    await supabase.from('recommendation_views').insert([{ recommendation_id: recId }]);
+    await supabaseClient.from('recommendation_views').insert([{ 
+      recommendation_id: recId 
+    }]);
+    console.log('✅ View tracked:', recId);
   } catch (e) {
     console.error('Track view error:', e);
   }
 }
 
-// Track click
 window.trackClick = async function(recId, type) {
+  if (!supabaseClient) return;
   try {
-    await supabase.from('recommendation_clicks').insert([{ 
+    await supabaseClient.from('recommendation_clicks').insert([{ 
       recommendation_id: recId,
       click_type: type
     }]);
+    console.log('✅ Click tracked:', recId, type);
   } catch (e) {
     console.error('Track click error:', e);
   }
 };
 
-// Init on load
-document.addEventListener('DOMContentLoaded', loadRecommendations);
+// ============================================================================
+// INIT
+// ============================================================================
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('🚀 Recommendations page initialized');
+  loadData();
+});
