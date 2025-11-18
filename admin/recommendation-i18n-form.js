@@ -7,6 +7,25 @@
 let recAutoSaveTimer = null;
 
 /**
+ * Helper function to show toast (safe access)
+ */
+function safeShowToast(message, type = 'info') {
+  if (typeof showToast === 'function') {
+    showToast(message, type);
+  } else if (window.showToast) {
+    window.showToast(message, type);
+  } else {
+    // Fallback
+    console.log(`[${type.toUpperCase()}] ${message}`);
+    const typeEmoji = type === 'success' ? '✅' : type === 'error' ? '❌' : 'ℹ️';
+    alert(`${typeEmoji} ${message}`);
+  }
+}
+
+// Make it available globally
+window.safeShowToast = safeShowToast;
+
+/**
  * Render Recommendation form with i18n tabs
  */
 window.renderRecommendationI18nForm = function(rec = null) {
@@ -322,7 +341,7 @@ window.scheduleRecAutoSave = function() {
  */
 window.clearRecDraft = function(key) {
   localStorage.removeItem(key);
-  showToast('Draft cleared', 'info');
+  safeShowToast('Draft cleared', 'info');
   closeRecI18nForm();
 }
 
@@ -352,15 +371,22 @@ window.handleRecI18nSubmit = async function(event) {
   }
   
   try {
-    const client = ensureSupabase();
+    // Get Supabase client - try multiple methods
+    const client = (typeof ensureSupabase === 'function' ? ensureSupabase() : null) 
+                || window.supabaseClient 
+                || window.sb;
+    
     if (!client) {
-      showToast('Database connection not available', 'error');
+      console.error('❌ Supabase client not available');
+      safeShowToast('Database connection not available', 'error');
       if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.textContent = '💾 Save Recommendation';
       }
       return;
     }
+    
+    console.log('✅ Supabase client obtained:', !!client);
 
     const formData = new FormData(event.target);
     
@@ -381,7 +407,7 @@ window.handleRecI18nSubmit = async function(event) {
     
     // Validation
     if (!category_id) {
-      showToast('Please select a category', 'error');
+      safeShowToast('Please select a category', 'error');
       document.getElementById('recCategorySelect')?.focus();
       if (submitBtn) {
         submitBtn.disabled = false;
@@ -391,7 +417,7 @@ window.handleRecI18nSubmit = async function(event) {
     }
     
     if (!title_pl || !title_en) {
-      showToast('Title in Polish and English are required', 'error');
+      safeShowToast('Title in Polish and English are required', 'error');
       // Switch to Polish tab
       const plTab = document.querySelector('.lang-tab[data-lang="pl"]');
       if (plTab) plTab.click();
@@ -403,7 +429,7 @@ window.handleRecI18nSubmit = async function(event) {
     }
     
     if (!description_pl || !description_en) {
-      showToast('Description in Polish and English are required', 'error');
+      safeShowToast('Description in Polish and English are required', 'error');
       if (submitBtn) {
         submitBtn.disabled = false;
         submitBtn.textContent = '💾 Save Recommendation';
@@ -475,7 +501,7 @@ window.handleRecI18nSubmit = async function(event) {
         throw error;
       }
       console.log('✅ Updated:', result);
-      showToast('Recommendation updated successfully', 'success');
+      safeShowToast('Recommendation updated successfully', 'success');
     } else {
       // Insert new
       console.log('➕ Creating new recommendation...');
@@ -493,7 +519,7 @@ window.handleRecI18nSubmit = async function(event) {
         throw error;
       }
       console.log('✅ Created:', result);
-      showToast('Recommendation created successfully', 'success');
+      safeShowToast('Recommendation created successfully', 'success');
     }
 
     // Clear draft
@@ -524,7 +550,7 @@ window.handleRecI18nSubmit = async function(event) {
       errorMsg += ' Hint: ' + error.hint;
     }
     
-    showToast(errorMsg, 'error');
+    safeShowToast(errorMsg, 'error');
     
     // Re-enable submit button
     if (submitBtn) {
@@ -608,12 +634,21 @@ window.closeAddCategoryModal = function() {
 window.handleAddCategory = async function(event) {
   event.preventDefault();
   
+  console.log('🔵 handleAddCategory called');
+  
   try {
-    const client = ensureSupabase();
+    // Get Supabase client - try multiple methods
+    const client = (typeof ensureSupabase === 'function' ? ensureSupabase() : null) 
+                || window.supabaseClient 
+                || window.sb;
+    
     if (!client) {
-      showToast('Database connection not available', 'error');
+      console.error('❌ Supabase client not available for category');
+      safeShowToast('Database connection not available', 'error');
       return;
     }
+    
+    console.log('✅ Supabase client obtained for category:', !!client);
     
     const formData = new FormData(event.target);
     
@@ -642,7 +677,7 @@ window.handleAddCategory = async function(event) {
     }
     
     console.log('Category created:', data);
-    showToast('Category created successfully!', 'success');
+    safeShowToast('Category created successfully!', 'success');
     
     // Update global categories arrays
     if (typeof recommendationsCategories !== 'undefined') {
@@ -673,7 +708,7 @@ window.handleAddCategory = async function(event) {
     
   } catch (error) {
     console.error('Error adding category:', error);
-    showToast('Failed to add category: ' + error.message, 'error');
+    safeShowToast('Failed to add category: ' + error.message, 'error');
   }
 };
 
@@ -684,10 +719,12 @@ window.handleRecImageUpload = async function(event) {
   const file = event.target.files[0];
   if (!file) return;
   
+  console.log('🔵 handleRecImageUpload called, file:', file.name);
+  
   // Validate file type
   const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
   if (!validTypes.includes(file.type)) {
-    showToast('Please select a valid image file (JPG, PNG, WEBP)', 'error');
+    safeShowToast('Please select a valid image file (JPG, PNG, WEBP)', 'error');
     event.target.value = '';
     return;
   }
@@ -695,17 +732,24 @@ window.handleRecImageUpload = async function(event) {
   // Validate file size (max 5MB)
   const maxSize = 5 * 1024 * 1024;
   if (file.size > maxSize) {
-    showToast('Image size must be less than 5MB', 'error');
+    safeShowToast('Image size must be less than 5MB', 'error');
     event.target.value = '';
     return;
   }
   
   try {
-    const client = ensureSupabase();
+    // Get Supabase client - try multiple methods
+    const client = (typeof ensureSupabase === 'function' ? ensureSupabase() : null) 
+                || window.supabaseClient 
+                || window.sb;
+    
     if (!client) {
-      showToast('Database connection not available', 'error');
+      console.error('❌ Supabase client not available for image upload');
+      safeShowToast('Database connection not available', 'error');
       return;
     }
+    
+    console.log('✅ Supabase client obtained for upload:', !!client);
     
     // Show progress
     const progressDiv = document.getElementById('recImageProgress');
@@ -751,7 +795,7 @@ window.handleRecImageUpload = async function(event) {
     }
     
     // Show success message
-    showToast('Image uploaded successfully!', 'success');
+    safeShowToast('Image uploaded successfully!', 'success');
     
     // Hide progress after delay
     setTimeout(() => {
@@ -776,7 +820,7 @@ window.handleRecImageUpload = async function(event) {
     
   } catch (error) {
     console.error('Error uploading image:', error);
-    showToast('Failed to upload image: ' + error.message, 'error');
+    safeShowToast('Failed to upload image: ' + error.message, 'error');
     
     // Hide progress
     const progressDiv = document.getElementById('recImageProgress');
