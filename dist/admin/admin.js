@@ -9144,9 +9144,15 @@ function updateRecommendationsTable() {
 }
 
 // Open Create Modal
-function openCreateRecommendationModal() {
+async function openCreateRecommendationModal() {
   window.recommendationFormMode = 'create';
   currentRecommendation = null;
+  
+  // Ensure categories are loaded
+  if (recommendationsCategories.length === 0) {
+    console.log('Categories not loaded, loading now...');
+    await loadRecommendationsData();
+  }
   
   $('#recommendationFormTitle').textContent = 'New Recommendation';
   

@@ -149,10 +149,49 @@ window.renderRecommendationI18nForm = function(rec = null) {
       <!-- Media & Links -->
       <div class="form-section">
         <h4>Media & Links</h4>
+        
         <div class="form-field">
-          <label>Image URL</label>
-          <input type="url" name="image_url" value="${data?.image_url || ''}" placeholder="https://...">
-          <small>Upload to Supabase Storage or use external URL</small>
+          <label>Image</label>
+          
+          ${data?.image_url ? `
+            <div style="margin-bottom: 12px;">
+              <img src="${data.image_url}" alt="Current image" style="max-width: 200px; max-height: 200px; border-radius: 8px; object-fit: cover;">
+            </div>
+          ` : ''}
+          
+          <div style="margin-bottom: 8px;">
+            <input type="file" 
+                   id="recImageFile" 
+                   accept="image/jpeg,image/png,image/webp,image/jpg" 
+                   onchange="handleRecImageUpload(event)"
+                   style="display: none;">
+            <button type="button" 
+                    class="btn-secondary" 
+                    onclick="document.getElementById('recImageFile').click()"
+                    style="width: 100%; padding: 12px; display: flex; align-items: center; justify-content: center; gap: 8px;">
+              📁 Upload Image
+            </button>
+            <small style="display: block; margin-top: 4px; color: var(--admin-text-muted);">
+              Max 5MB • JPG, PNG, WEBP
+            </small>
+          </div>
+          
+          <div id="recImageProgress" style="display: none; margin: 8px 0;">
+            <div style="background: var(--admin-bg-secondary); border-radius: 4px; overflow: hidden; height: 4px;">
+              <div id="recImageProgressBar" style="background: var(--admin-primary); height: 100%; width: 0%; transition: width 0.3s;"></div>
+            </div>
+            <small style="color: var(--admin-text-muted); display: block; margin-top: 4px;">Uploading...</small>
+          </div>
+          
+          <input type="hidden" name="image_url" id="recImageUrl" value="${data?.image_url || ''}">
+          
+          <small style="color: var(--admin-text-muted); display: block; margin-top: 4px;">
+            Or paste URL: <input type="url" 
+                                  placeholder="https://..." 
+                                  value="${data?.image_url || ''}"
+                                  onchange="document.getElementById('recImageUrl').value = this.value"
+                                  style="width: 100%; margin-top: 4px; padding: 6px; background: var(--admin-bg-secondary); border: 1px solid var(--admin-border); border-radius: 4px; color: var(--admin-text);">
+          </small>
         </div>
         <div class="form-field">
           <label>Google Maps URL</label>
@@ -375,5 +414,115 @@ window.handleRecI18nSubmit = async function(event) {
   } catch (error) {
     console.error('Error saving recommendation:', error);
     showToast('Failed to save: ' + error.message, 'error');
+  }
+}
+
+/**
+ * Handle image upload to Supabase Storage
+ */
+window.handleRecImageUpload = async function(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  
+  // Validate file type
+  const validTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+  if (!validTypes.includes(file.type)) {
+    showToast('Please select a valid image file (JPG, PNG, WEBP)', 'error');
+    event.target.value = '';
+    return;
+  }
+  
+  // Validate file size (max 5MB)
+  const maxSize = 5 * 1024 * 1024;
+  if (file.size > maxSize) {
+    showToast('Image size must be less than 5MB', 'error');
+    event.target.value = '';
+    return;
+  }
+  
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+    
+    // Show progress
+    const progressDiv = document.getElementById('recImageProgress');
+    const progressBar = document.getElementById('recImageProgressBar');
+    if (progressDiv) progressDiv.style.display = 'block';
+    if (progressBar) progressBar.style.width = '30%';
+    
+    // Generate unique filename
+    const timestamp = Date.now();
+    const randomStr = Math.random().toString(36).substring(2, 8);
+    const extension = file.name.split('.').pop();
+    const fileName = `rec_${timestamp}_${randomStr}.${extension}`;
+    const filePath = `recommendations/${fileName}`;
+    
+    // Upload to Supabase Storage
+    const { data, error } = await client.storage
+      .from('images')
+      .upload(filePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+    
+    if (error) {
+      console.error('Upload error:', error);
+      throw new Error(error.message);
+    }
+    
+    if (progressBar) progressBar.style.width = '70%';
+    
+    // Get public URL
+    const { data: urlData } = client.storage
+      .from('images')
+      .getPublicUrl(filePath);
+    
+    const publicUrl = urlData.publicUrl;
+    
+    if (progressBar) progressBar.style.width = '100%';
+    
+    // Update hidden input and preview
+    const imageUrlInput = document.getElementById('recImageUrl');
+    if (imageUrlInput) {
+      imageUrlInput.value = publicUrl;
+    }
+    
+    // Show success message
+    showToast('Image uploaded successfully!', 'success');
+    
+    // Hide progress after delay
+    setTimeout(() => {
+      if (progressDiv) progressDiv.style.display = 'none';
+      if (progressBar) progressBar.style.width = '0%';
+    }, 1000);
+    
+    // Create preview
+    const previewContainer = event.target.parentElement.parentElement;
+    let preview = previewContainer.querySelector('.image-preview');
+    if (!preview) {
+      preview = document.createElement('div');
+      preview.className = 'image-preview';
+      preview.style.cssText = 'margin-top: 12px;';
+      previewContainer.insertBefore(preview, event.target.parentElement);
+    }
+    preview.innerHTML = `
+      <img src="${publicUrl}" 
+           alt="Uploaded image" 
+           style="max-width: 200px; max-height: 200px; border-radius: 8px; object-fit: cover; display: block;">
+    `;
+    
+  } catch (error) {
+    console.error('Error uploading image:', error);
+    showToast('Failed to upload image: ' + error.message, 'error');
+    
+    // Hide progress
+    const progressDiv = document.getElementById('recImageProgress');
+    if (progressDiv) progressDiv.style.display = 'none';
+    
+    // Clear file input
+    event.target.value = '';
   }
 }
