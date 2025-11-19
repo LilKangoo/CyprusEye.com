@@ -105,7 +105,12 @@ async function loadData() {
 // ============================================================================
 function renderCategoryFilters() {
   const container = document.getElementById('categoriesFilters');
-  if (!container) return;
+  if (!container) {
+    console.error('❌ Element #categoriesFilters not found');
+    return;
+  }
+  
+  console.log('🔵 Rendering category filters:', allCategories.length, 'categories');
   
   // Update "All" count
   document.getElementById('count-all').textContent = allRecommendations.length;
@@ -163,7 +168,10 @@ function renderRecommendations() {
   const grid = document.getElementById('recommendationsGrid');
   const emptyState = document.getElementById('emptyState');
   
-  if (!grid) return;
+  if (!grid) {
+    console.error('❌ Element #recommendationsGrid not found');
+    return;
+  }
   
   // Filter
   let filtered = allRecommendations;
@@ -171,16 +179,23 @@ function renderRecommendations() {
     filtered = allRecommendations.filter(r => r.category_id === currentCategoryFilter);
   }
   
+  console.log('🔵 Rendering recommendations:', filtered.length, 'items');
+  
   if (filtered.length === 0) {
     grid.innerHTML = '';
-    emptyState.style.display = 'block';
+    if (emptyState) {
+      emptyState.style.display = 'block';
+    }
     return;
   }
   
-  emptyState.style.display = 'none';
+  if (emptyState) {
+    emptyState.style.display = 'none';
+  }
   
   // Render cards
   grid.innerHTML = filtered.map(rec => createRecommendationCard(rec)).join('');
+  console.log('✅ Recommendations rendered to DOM');
 }
 
 function createRecommendationCard(rec) {
