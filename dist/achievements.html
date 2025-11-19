@@ -202,10 +202,22 @@
               🎟️ Kupon
             </a>
             <a class="ghost header-link" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
-            <a class="ghost header-link" href="trips.html" aria-label="Wycieczki">
+            <a
+              class="ghost header-link"
+              href="trips.html"
+              aria-label="Wycieczki"
+              data-i18n="nav.trips"
+              data-i18n-attrs="aria-label:nav.trips"
+            >
               🧭 Wycieczki
             </a>
-            <a class="ghost header-link" href="hotels.html" aria-label="Hotele">
+            <a
+              class="ghost header-link"
+              href="hotels.html"
+              aria-label="Hotele"
+              data-i18n="nav.hotels"
+              data-i18n-attrs="aria-label:nav.hotels"
+            >
               🏨 Hotele
             </a>
           </div>
@@ -216,7 +228,7 @@
     <nav class="header-tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna" data-tour-target="tabs-navigation">
       <a
         href="index.html"
-        class="header-tab"
+        class="header-tab is-active"
         id="headerAdventureTab"
         data-i18n="nav.adventure"
       >
@@ -229,6 +241,14 @@
         data-i18n="nav.community"
       >
         💬 Społeczność
+      </a>
+      <a
+        href="recommendations.html"
+        class="header-tab"
+        id="headerRecommendationsTab"
+        data-i18n="nav.recommendations"
+      >
+        ✨ Polecane
       </a>
       <a
         href="tasks.html"
@@ -547,7 +567,6 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
         type="button"
         aria-label="Zamknij"
         data-close
-        data-i18n=""
         data-i18n-attrs="aria-label:auth.close.label"
       >
         ×
@@ -615,7 +634,6 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
                     autocomplete="username"
                     required
                     aria-label="Email lub nazwa użytkownika"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.login.username,placeholder:auth.login.username"
                     placeholder="Email lub nazwa użytkownika"
                   />
@@ -627,7 +645,6 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
                     autocomplete="current-password"
                     required
                     aria-label="Hasło"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.password"
                   />
                   <div class="auth-form__actions">
@@ -685,7 +702,6 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
                     maxlength="60"
                     required
                     aria-label="Imię"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.firstName"
                   />
                   <label for="registerUsername" data-i18n="auth.username">Nazwa użytkownika</label>
@@ -699,7 +715,6 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
                     pattern="[a-zA-Z0-9_]+"
                     required
                     aria-label="Nazwa użytkownika"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.username,placeholder:auth.username.hint"
                     placeholder="3-20 znaków, litery i cyfry"
                   />
@@ -711,7 +726,6 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
                     autocomplete="email"
                     required
                     aria-label="Adres e-mail"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.email"
                   />
                   <label for="registerPassword" data-i18n="auth.password">Hasło</label>
@@ -723,7 +737,6 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
                     minlength="8"
                     required
                     aria-label="Hasło"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.password"
                   />
                   <label for="registerPasswordConfirm" data-i18n="auth.confirmPassword">Powtórz hasło</label>
@@ -734,7 +747,6 @@ Zaloguj się, aby zobaczyć swoje powiadomienia.
                     autocomplete="new-password"
                     minlength="8"
                     aria-label="Powtórz hasło"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.confirmPassword"
                   />
                   <div data-auth="message" aria-live="polite"></div>

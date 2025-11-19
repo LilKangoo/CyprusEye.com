@@ -99,9 +99,9 @@ async function handlePasswordUpdate(event) {
     if (error) {
       throw error;
     }
-    setMessage('Hasło zostało zaktualizowane. Przenosimy do logowania…', 'success');
+    setMessage('Hasło zostało zaktualizowane. Przenosimy na stronę główną…', 'success');
     window.setTimeout(() => {
-      window.location.assign('/auth/');
+      window.location.assign('/');
     }, 800);
   } catch (error) {
     console.error('Nie udało się zaktualizować hasła.', error);

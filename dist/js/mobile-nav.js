@@ -13,7 +13,6 @@
     { icon: '🎒', label: 'Pakowanie', href: 'packing.html', page: 'packing' },
     { icon: '✅', label: 'Misje', href: 'tasks.html', page: 'tasks' },
     { icon: '🧭', label: 'Wycieczki', href: 'trips.html', page: 'trips' },
-    { icon: '📸', label: 'VIP', href: 'vip.html', page: 'vip' },
     { icon: '🚗', label: 'Wynajem', href: 'car-rental-landing.html', page: 'carrental' },
     { icon: '🎟️', label: 'Kupony', href: 'kupon.html', page: 'kupon' }
   ];

@@ -19,13 +19,13 @@
   
   <meta name="theme-color" content="#2563eb" />
   <meta name="robots" content="index,follow" />
-  <title data-i18n="seo.tasks.title">CyprusEye Quest – task list</title>
-  <meta name="description" content="Plan your travel preparations, missions and reminders inside the CyprusEye Quest task list." data-i18n-attrs="content:seo.tasks.description" />
+  <title data-i18n="seo.tasks.title">CyprusEye Quest – lista zadań</title>
+  <meta name="description" content="Planuj swoje przygotowania do podróży, misje i przypomnienia wewnątrz listy zadań CyprusEye Quest." data-i18n-attrs="content:seo.tasks.description" />
   <meta property="og:type" content="website" />
-  <meta property="og:title" content="CyprusEye Quest – task list" />
+  <meta property="og:title" content="CyprusEye Quest – lista zadań" />
   <meta
     property="og:description"
-    content="Stay on track with preparations and hit every goal before you fly to Cyprus."
+    content="Trzymaj się na bieżąco z przygotowaniami i osiągaj każdy cel przed wylotem na Cypr."
     data-i18n-attrs="content:seo.tasks.ogDescription"
   />
   <meta property="og:url" content="https://www.cypruseye.com/tasks.html" />
@@ -86,50 +86,56 @@
           fetchpriority="high"
         />
         <div class="brand-title" data-i18n="header.brand">
-          <p class="brand-name">Cyprus Eye <span>Quest</span></p>
-          <p class="tagline">Odkrywaj Cypr w interaktywny sposób – zdobywaj odznaki, punkty doświadczenia i poznawaj nasze najlepsze oferty.</p>
+          <p class="brand-name">WakacjeCypr <span>Quest</span></p>
+          <p class="tagline">Zwiedzaj Cypr w interaktywny sposób – zdobywaj odznaki, doświadczenie i odkrywaj nasze najlepsze oferty.</p>
         </div>
         
         <!-- User Stats Section - Combined Profile + Metrics -->
         <div class="user-stats-section" data-auth="user-only">
-          <a href="achievements.html" class="user-profile-card" id="profileButton" aria-label="Mój profil">
+          <a
+            href="achievements.html"
+            class="user-profile-card"
+            id="profileButton"
+            aria-label="Mój profil"
+            data-i18n-attrs="aria-label:header.profile.aria"
+          >
             <img id="headerUserAvatar" class="profile-avatar" src="assets/cyprus_logo-1000x1054.png" alt="Avatar" width="50" height="50" loading="eager" />
             <div class="profile-info">
-              <div class="profile-name">Mój Profil</div>
-              <div class="profile-status">Poziom 1 • 0 odznak</div>
+              <div class="profile-name" data-i18n="header.profile.name">Mój Profil</div>
+              <div class="profile-status" data-i18n="header.profile.status">Poziom 1 • 0 odznak</div>
             </div>
           </a>
           
           <div class="stats-cards">
-          <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
-            <p class="metric-label" data-i18n="metrics.level.label">Poziom</p>
-            <p class="metric-value" id="headerLevelNumber">1</p>
-            <p class="metric-subtext" id="headerLevelStatus" data-i18n="metrics.level.subtext">
-              Zdobądź pierwsze check-iny, aby awansować!
-            </p>
-          </a>
-          <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
-            <p class="metric-label" data-i18n="metrics.xp.label">Doświadczenie</p>
-            <p class="metric-value"><span id="headerXpPoints">0</span> XP</p>
-            <div
-              class="metric-progress"
-              role="img"
-              aria-label="Postęp doświadczenia"
-              data-i18n-attrs="aria-label:metrics.xp.aria"
-            >
-              <div class="metric-progress-track">
-                <div class="metric-progress-fill is-width-zero" id="headerXpFill"></div>
-              </div>
-              <p class="metric-progress-text" id="headerXpProgressText" data-i18n="metrics.xp.progress">
-                0 / 150 XP do kolejnego poziomu
+            <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
+              <p class="metric-label" data-i18n="metrics.level.label">Poziom</p>
+              <p class="metric-value" id="headerLevelNumber">1</p>
+              <p class="metric-subtext" id="headerLevelStatus" data-i18n="metrics.level.subtext">
+                Zdobądź pierwsze check-iny, aby awansować!
               </p>
-            </div>
-          </a>
-          <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
-            <p class="metric-label" data-i18n="metrics.badges.label">Odznaki</p>
-            <p class="metric-value" id="headerBadgesCount">0</p>
-            <p class="metric-subtext" data-i18n="metrics.badges.subtext">Odkrywaj atrakcje i kolekcjonuj pamiątki.</p>
-          </a>
+            </a>
+            <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
+              <p class="metric-label" data-i18n="metrics.xp.label">Doświadczenie</p>
+              <p class="metric-value"><span id="headerXpPoints">0</span> XP</p>
+              <div
+                class="metric-progress"
+                role="img"
+                aria-label="Postęp doświadczenia"
+                data-i18n-attrs="aria-label:metrics.xp.aria"
+              >
+                <div class="metric-progress-track">
+                  <div class="metric-progress-fill is-width-zero" id="headerXpFill"></div>
+                </div>
+                <p class="metric-progress-text" id="headerXpProgressText" data-i18n="metrics.xp.progress">
+                  0 / 150 XP do kolejnego poziomu
+                </p>
+              </div>
+            </a>
+            <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
+              <p class="metric-label" data-i18n="metrics.badges.label">Odznaki</p>
+              <p class="metric-value" id="headerBadgesCount">0</p>
+              <p class="metric-subtext" data-i18n="metrics.badges.subtext">Odkrywaj atrakcje i kolekcjonuj pamiątki.</p>
+            </a>
           </div>
         </div>
       </div>
@@ -189,17 +195,29 @@
               🎟️ Kupon
             </a>
             <a class="ghost header-link" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
-            <a class="ghost header-link" href="trips.html" aria-label="Wycieczki">
+            <a
+              class="ghost header-link"
+              href="trips.html"
+              aria-label="Wycieczki"
+              data-i18n="nav.trips"
+              data-i18n-attrs="aria-label:nav.trips"
+            >
               🧭 Wycieczki
             </a>
-            <a class="ghost header-link" href="hotels.html" aria-label="Hotele">
+            <a
+              class="ghost header-link"
+              href="hotels.html"
+              aria-label="Hotele"
+              data-i18n="nav.hotels"
+              data-i18n-attrs="aria-label:nav.hotels"
+            >
               🏨 Hotele
             </a>
           </div>
         </div>
       </div>
     </div>
-    
+
     <nav class="header-tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna" data-tour-target="tabs-navigation">
       <a
         href="index.html"
@@ -212,10 +230,18 @@
       <a
         href="community.html"
         class="header-tab"
-        id="headerCommunityTab"
+        id="headerPackingTab"
         data-i18n="nav.community"
       >
         💬 Społeczność
+      </a>
+      <a
+        href="recommendations.html"
+        class="header-tab"
+        id="headerRecommendationsTab"
+        data-i18n="nav.recommendations"
+      >
+        ✨ Polecane
       </a>
       <a
         href="tasks.html"
@@ -357,7 +383,6 @@
         type="button"
         aria-label="Zamknij"
         data-close
-        data-i18n=""
         data-i18n-attrs="aria-label:auth.close.label"
       >
         ×
@@ -425,7 +450,6 @@
                     autocomplete="username"
                     required
                     aria-label="Email lub nazwa użytkownika"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.login.username,placeholder:auth.login.username"
                     placeholder="Email lub nazwa użytkownika"
                   />
@@ -437,7 +461,6 @@
                     autocomplete="current-password"
                     required
                     aria-label="Hasło"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.password"
                   />
                   <div class="auth-form__actions">
@@ -495,7 +518,6 @@
                     maxlength="60"
                     required
                     aria-label="Imię"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.firstName"
                   />
                   <label for="registerUsername" data-i18n="auth.username">Nazwa użytkownika</label>
@@ -509,7 +531,6 @@
                     pattern="[a-zA-Z0-9_]+"
                     required
                     aria-label="Nazwa użytkownika"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.username,placeholder:auth.username.hint"
                     placeholder="3-20 znaków, litery i cyfry"
                   />
@@ -521,7 +542,6 @@
                     autocomplete="email"
                     required
                     aria-label="Adres e-mail"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.email"
                   />
                   <label for="registerPassword" data-i18n="auth.password">Hasło</label>
@@ -533,7 +553,6 @@
                     minlength="8"
                     required
                     aria-label="Hasło"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.password"
                   />
                   <label for="registerPasswordConfirm" data-i18n="auth.confirmPassword">Powtórz hasło</label>
@@ -544,7 +563,6 @@
                     autocomplete="new-password"
                     minlength="8"
                     aria-label="Powtórz hasło"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.confirmPassword"
                   />
                   <div data-auth="message" aria-live="polite"></div>

@@ -87,10 +87,10 @@
           fetchpriority="high"
         />
         <div class="brand-title" data-i18n="header.brand">
-          <p class="brand-name">Cyprus Eye <span>Quest</span></p>
-          <p class="tagline">Odkrywaj Cypr w interaktywny sposób – zdobywaj odznaki, punkty doświadczenia i poznawaj nasze najlepsze oferty.</p>
+          <p class="brand-name">WakacjeCypr <span>Quest</span></p>
+          <p class="tagline">Zwiedzaj Cypr w interaktywny sposób – zdobywaj odznaki, doświadczenie i odkrywaj nasze najlepsze oferty.</p>
         </div>
-        
+
         <!-- User Stats Section - Combined Profile + Metrics -->
         <div class="user-stats-section" data-auth="user-only">
           <a href="achievements.html" class="user-profile-card" id="profileButton" aria-label="Mój profil">
@@ -100,7 +100,7 @@
               <div class="profile-status">Poziom 1 • 0 odznak</div>
             </div>
           </a>
-          
+
           <div class="stats-cards">
           <a class="card metric-card metric-card-link" role="listitem" href="achievements.html">
             <p class="metric-label" data-i18n="metrics.level.label">Poziom</p>
@@ -177,7 +177,7 @@
           </div>
           <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
         </div>
-        
+
         <div class="header-actions" aria-label="Szybkie działania" data-i18n-attrs="aria-label:header.quickActions.aria">
           <div class="header-actions-primary" data-tour-target="quick-actions">
             <a class="ghost header-link" href="packing.html" data-i18n="nav.packing">🎒 Pakowanie</a>
@@ -190,21 +190,33 @@
               🎟️ Kupon
             </a>
             <a class="ghost header-link" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
-            <a class="ghost header-link" href="trips.html" aria-label="Wycieczki">
+            <a
+              class="ghost header-link"
+              href="trips.html"
+              aria-label="Wycieczki"
+              data-i18n="nav.trips"
+              data-i18n-attrs="aria-label:nav.trips"
+            >
               🧭 Wycieczki
             </a>
-            <a class="ghost header-link" href="hotels.html" aria-label="Hotele">
+            <a
+              class="ghost header-link"
+              href="hotels.html"
+              aria-label="Hotele"
+              data-i18n="nav.hotels"
+              data-i18n-attrs="aria-label:nav.hotels"
+            >
               🏨 Hotele
             </a>
           </div>
         </div>
       </div>
     </div>
-    
+
     <nav class="header-tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna" data-tour-target="tabs-navigation">
       <a
         href="index.html"
-        class="header-tab"
+        class="header-tab is-active"
         id="headerAdventureTab"
         data-i18n="nav.adventure"
       >
@@ -217,6 +229,14 @@
         data-i18n="nav.community"
       >
         💬 Społeczność
+      </a>
+      <a
+        href="recommendations.html"
+        class="header-tab"
+        id="headerRecommendationsTab"
+        data-i18n="nav.recommendations"
+      >
+        ✨ Polecane
       </a>
       <a
         href="tasks.html"

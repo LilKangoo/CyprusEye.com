@@ -696,7 +696,36 @@
     <!-- Trip Details Modal -->
     <div class="trip-modal" id="tripModal">
       <div class="trip-modal-content">
-        <button class="trip-modal-close" onclick="closeTripModal()">✕</button>
+        <button
+          id="lbClose"
+          class="lightbox-close"
+          type="button"
+          aria-label="Zamknij"
+          data-i18n="lightbox.close"
+          data-i18n-attrs="aria-label:lightbox.close"
+        >
+          ✕
+        </button>
+        <button
+          id="lbPrev"
+          class="lightbox-arrow lightbox-prev"
+          type="button"
+          aria-label="Poprzednie"
+          data-i18n="lightbox.prev"
+          data-i18n-attrs="aria-label:lightbox.prev"
+        >
+          ‹
+        </button>
+        <button
+          id="lbNext"
+          class="lightbox-arrow lightbox-next"
+          type="button"
+          aria-label="Następne"
+          data-i18n="lightbox.next"
+          data-i18n-attrs="aria-label:lightbox.next"
+        >
+          ›
+        </button>
         <img class="trip-modal-image" id="modalTripImage" src="" alt="Trip" />
         <div class="trip-modal-header">
           <h2 class="trip-modal-title" id="modalTripTitle">Trip Title</h2>

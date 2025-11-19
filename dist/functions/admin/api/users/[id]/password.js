@@ -8,22 +8,38 @@ export async function onRequestPost(context) {
     const { request, env, params } = context;
     const body = await request.json();
     const userId = params.id;
-    if (!userId) return new Response(JSON.stringify({ error: 'Missing user id' }), { status: 400 });
+    if (!userId) return new Response(JSON.stringify({ error: 'Missing user id' }), { status: 400, headers: { 'content-type': 'application/json' } });
 
     await requireAdmin(request, env);
-    const { adminClient } = createSupabaseClients(env, request.headers.get('Authorization'));
+    const { adminClient, publicClient } = createSupabaseClients(env, request.headers.get('Authorization'));
+
+    // Resolve target user email once and reuse for link generation
+    const { data: userRes, error: userErr } = await adminClient.auth.admin.getUserById(userId);
+    if (userErr || !userRes?.user?.email) {
+      throw new Error('Target user not found or has no email');
+    }
+    const targetEmail = userRes.user.email;
 
     const action = body?.action;
+    const redirectTo = 'https://cypruseye.com/auth/callback/';
+
     if (action === 'reset') {
-      const { data, error } = await adminClient.auth.admin.generateLink({ type: 'recovery', user_id: userId });
+      // Trigger Supabase to send a standard password reset email
+      const { data, error } = await publicClient.auth.resetPasswordForEmail(targetEmail, {
+        redirectTo,
+      });
       if (error) throw error;
-      return new Response(JSON.stringify({ ok: true, link: data?.properties?.action_link || null }), { headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ ok: true, link: null }), { headers: { 'content-type': 'application/json' } });
     }
 
     if (action === 'magic_link') {
-      const { data, error } = await adminClient.auth.admin.generateLink({ type: 'magiclink', user_id: userId });
+      // For admin UX, treat "magic link" as an alternative entry to the same
+      // password reset flow: send a recovery email that leads to the callback page.
+      const { data, error } = await publicClient.auth.resetPasswordForEmail(targetEmail, {
+        redirectTo,
+      });
       if (error) throw error;
-      return new Response(JSON.stringify({ ok: true, link: data?.properties?.action_link || null }), { headers: { 'content-type': 'application/json' } });
+      return new Response(JSON.stringify({ ok: true, link: null }), { headers: { 'content-type': 'application/json' } });
     }
 
     if (action === 'set_temporary') {

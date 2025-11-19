@@ -89,8 +89,8 @@
           fetchpriority="high"
         />
         <div class="brand-title" data-i18n="header.brand">
-          <p class="brand-name">Cyprus Eye <span>Quest</span></p>
-          <p class="tagline">Odkrywaj Cypr w interaktywny sposób – zdobywaj odznaki, punkty doświadczenia i poznawaj nasze najlepsze oferty.</p>
+          <p class="brand-name">WakacjeCypr <span>Quest</span></p>
+          <p class="tagline">Zwiedzaj Cypr w interaktywny sposób – zdobywaj odznaki, doświadczenie i odkrywaj nasze najlepsze oferty.</p>
         </div>
         
         <!-- User Stats Section - Combined Profile + Metrics -->
@@ -221,6 +221,14 @@
         💬 Społeczność
       </a>
       <a
+        href="recommendations.html"
+        class="header-tab"
+        id="headerRecommendationsTab"
+        data-i18n="nav.recommendations"
+      >
+        ✨ Polecane
+      </a>
+      <a
         href="tasks.html"
         class="header-tab"
         id="headerTasksTab"
@@ -230,7 +238,7 @@
       </a>
     </nav>
   </header>
-  
+
   <!-- Notifications Panel -->
   <div id="notificationsPanel" class="notifications-panel" hidden role="dialog" aria-labelledby="notificationsPanelTitle">
     <div class="notifications-panel-header">
@@ -290,6 +298,7 @@
           class="view-toggle-btn active" 
           data-view="list"
           id="listViewBtn"
+          data-i18n="community.viewToggle.list"
         >
           📋 Lista
         </button>
@@ -298,6 +307,7 @@
           class="view-toggle-btn" 
           data-view="ranking"
           id="rankingViewBtn"
+          data-i18n="community.viewToggle.ranking"
         >
           🏆 Ranking
         </button>
@@ -307,12 +317,12 @@
       <section class="community-ranking-section" id="rankingViewSection" hidden>
         <div class="ranking-container">
           <div id="rankingHeader" class="ranking-header">
-            <h2>🏆 Top 100 użytkowników</h2>
+            <h2 data-i18n="community.ranking.title">🏆 Top 100 użytkowników</h2>
           </div>
           <div id="rankingList" class="ranking-list">
             <div class="loading-spinner">
               <div class="spinner"></div>
-              <p>Ładowanie rankingu...</p>
+              <p data-i18n="community.ranking.loading">Ładowanie rankingu...</p>
             </div>
           </div>
         </div>
@@ -447,9 +457,36 @@
 
   <!-- Photo Lightbox -->
   <div id="photoLightbox" class="photo-lightbox" hidden>
-    <button type="button" class="lightbox-close" id="closeLightbox" aria-label="Zamknij">✕</button>
-    <button type="button" class="lightbox-nav lightbox-prev" id="lightboxPrev" aria-label="Poprzednie zdjęcie">‹</button>
-    <button type="button" class="lightbox-nav lightbox-next" id="lightboxNext" aria-label="Następne zdjęcie">›</button>
+    <button
+      type="button"
+      class="lightbox-close"
+      id="closeLightbox"
+      aria-label="Zamknij"
+      data-i18n="lightbox.close"
+      data-i18n-attrs="aria-label:lightbox.close"
+    >
+      ✕
+    </button>
+    <button
+      type="button"
+      class="lightbox-nav lightbox-prev"
+      id="lightboxPrev"
+      aria-label="Poprzednie zdjęcie"
+      data-i18n="lightbox.prev"
+      data-i18n-attrs="aria-label:lightbox.prev"
+    >
+      ‹
+    </button>
+    <button
+      type="button"
+      class="lightbox-nav lightbox-next"
+      id="lightboxNext"
+      aria-label="Następne zdjęcie"
+      data-i18n="lightbox.next"
+      data-i18n-attrs="aria-label:lightbox.next"
+    >
+      ›
+    </button>
     <div class="lightbox-content">
       <img id="lightboxImage" src="" alt="Zdjęcie" class="lightbox-image" />
       <div class="lightbox-caption" id="lightboxCaption"></div>
@@ -471,7 +508,6 @@
         type="button"
         aria-label="Zamknij"
         data-close
-        data-i18n=""
         data-i18n-attrs="aria-label:auth.close.label"
       >
         ×

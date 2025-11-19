@@ -30,11 +30,12 @@ async function loadHomeTrips() {
       throw new Error('Supabase client not available');
     }
 
-    // Fetch published trips (same as trips.html)
+    // Fetch published trips - ordered exactly like trips.html
     const { data, error } = await supabase
       .from('trips')
       .select('*')
       .eq('is_published', true)
+      .order('sort_order', { ascending: true })
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -90,8 +91,10 @@ function renderHomeTrips() {
 
   // Filter by city if not 'all'.
   // Homepage behaviour:
-  // - "Wszystkie miasta": all trips
-  // - Specific city tab: trips from that city + global trips (start_city = 'All Cities').
+  // - "Wszystkie miasta": wszystkie wycieczki
+  // - Konkretne miasto (np. Ayia Napa, Paphos):
+  //     * wycieczki z tym miastem
+  //     * + globalne wycieczki z start_city = 'All Cities'.
   if (homeTripsCurrentCity !== 'all') {
     filteredTrips = homeTripsData.filter(trip => 
       trip.start_city === homeTripsCurrentCity ||

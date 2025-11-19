@@ -232,10 +232,22 @@
               🎟️ Kupon
             </a>
             <a class="ghost header-link" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
-            <a class="ghost header-link" href="trips.html" aria-label="Wycieczki">
+            <a
+              class="ghost header-link"
+              href="trips.html"
+              aria-label="Wycieczki"
+              data-i18n="nav.trips"
+              data-i18n-attrs="aria-label:nav.trips"
+            >
               🧭 Wycieczki
             </a>
-            <a class="ghost header-link" href="hotels.html" aria-label="Hotele">
+            <a
+              class="ghost header-link"
+              href="hotels.html"
+              aria-label="Hotele"
+              data-i18n="nav.hotels"
+              data-i18n-attrs="aria-label:nav.hotels"
+            >
               🏨 Hotele
             </a>
           </div>
@@ -259,6 +271,14 @@
         data-i18n="nav.community"
       >
         💬 Społeczność
+      </a>
+      <a
+        href="recommendations.html"
+        class="header-tab"
+        id="headerRecommendationsTab"
+        data-i18n="nav.recommendations"
+      >
+        ✨ Polecane
       </a>
       <a
         href="tasks.html"
@@ -345,6 +365,7 @@
                 <p class="trip-price-label" data-i18n="hotels.booking.priceLabel">Cena</p>
                 <p class="trip-price-value" id="modalHotelPrice">—</p>
               </div>
+              <div id="hotelPriceNote" class="booking-message" style="display:none"></div>
 
               <button type="submit" class="booking-submit" data-i18n="hotels.booking.submit">Zarezerwuj</button>
               <div id="hotelBookingMessage" class="booking-message" style="display:none;"></div>
@@ -363,9 +384,36 @@
   <div class="lightbox" id="imgLightbox">
     <div class="lightbox-content" id="lightboxContent">
       <img id="lbImg" class="lightbox-img" alt="Podgląd zdjęcia" />
-      <button id="lbClose" class="lightbox-close" type="button" aria-label="Zamknij">✕</button>
-      <button id="lbPrev" class="lightbox-arrow lightbox-prev" type="button" aria-label="Poprzednie">‹</button>
-      <button id="lbNext" class="lightbox-arrow lightbox-next" type="button" aria-label="Następne">›</button>
+      <button
+        id="lbClose"
+        class="lightbox-close"
+        type="button"
+        aria-label="Zamknij"
+        data-i18n="lightbox.close"
+        data-i18n-attrs="aria-label:lightbox.close"
+      >
+        ✕
+      </button>
+      <button
+        id="lbPrev"
+        class="lightbox-arrow lightbox-prev"
+        type="button"
+        aria-label="Poprzednie"
+        data-i18n="lightbox.prev"
+        data-i18n-attrs="aria-label:lightbox.prev"
+      >
+        ‹
+      </button>
+      <button
+        id="lbNext"
+        class="lightbox-arrow lightbox-next"
+        type="button"
+        aria-label="Następne"
+        data-i18n="lightbox.next"
+        data-i18n-attrs="aria-label:lightbox.next"
+      >
+        ›
+      </button>
     </div>
   </div>
 
