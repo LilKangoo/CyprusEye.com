@@ -200,6 +200,13 @@
     "Pick-up in major cities",
     "Transparent pricing & rules"
   ],
+  "recommendations.description": "Curated recommendations and exclusive perks",
+  "recommendations.home.title": "✨ Our recommendations",
+  "recommendations.home.subtitle": "Trusted Cyprus partners with exclusive discounts",
+  "recommendations.home.filters.title": "Filter by category",
+  "recommendations.home.filters.clear": "Clear filters",
+  "recommendations.home.loading": "Loading recommendations...",
+  "recommendations.home.cta": "View all recommendations →",
   "coupon.smallprint": "You'll receive the coupon within a few minutes at the email used during payment.",
   "coupon.cta_aria": "Buy coupon — proceed to secure Stripe checkout",
   "coupon.cta": "Buy coupon",
