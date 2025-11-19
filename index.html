@@ -76,6 +76,7 @@
   <link rel="stylesheet" href="css/toast.css" />
   <link rel="stylesheet" href="css/successPopup.css" />
   <link rel="stylesheet" href="css/modal-ios-fix.css" />
+  <link rel="stylesheet" href="assets/css/recommendations.css" />
   <link rel="stylesheet" href="assets/css/community.css" />
   <link
     rel="preload"
@@ -445,6 +446,40 @@
           </div>
         </section>
 
+        <!-- Recommendations Section - Nasze Rekomendacje -->
+        <section class="recommendations-home-section" aria-label="Nasze rekomendacje" style="max-width: 1400px; margin: 40px auto 0; padding: 0 20px;">
+          <div style="margin-bottom: 24px;">
+            <h2 style="margin: 0 0 8px; font-size: 1.75rem; font-weight: 700; color: #111827;">
+              ✨ Nasze Rekomendacje
+            </h2>
+            <p style="margin: 0; color: #6b7280; font-size: 1rem;">
+              Sprawdzone miejsca, które kochamy na Cyprze – z ekskluzywnymi zniżkami
+            </p>
+          </div>
+          
+          <!-- Filtry kategorii -->
+          <div class="filters-container" style="background: white; border-radius: 16px; padding: 20px 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 32px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+              <h3 style="font-size: 1.125rem; font-weight: 600; color: #111827; margin: 0;">Wybierz kategorię</h3>
+              <button id="clearFiltersHome" class="btn-text" type="button" style="display:none; background: none; border: none; color: #667eea; font-weight: 500; cursor: pointer; font-size: 13px; padding: 6px 10px; border-radius: 6px;">Wyczyść filtry</button>
+            </div>
+            <div id="categoriesFiltersHome" class="filters-grid" style="display: flex; flex-wrap: wrap; gap: 8px;">
+              <!-- Filtry generowane dynamicznie przez JS -->
+            </div>
+          </div>
+          
+          <!-- Grid rekomendacji - 1 kolumna -->
+          <div id="recommendationsHomeGrid" class="recommendations-grid" style="display: grid; grid-template-columns: 1fr; gap: 20px; margin-bottom: 24px;">
+            <div style="text-align: center; padding: 40px 20px; color: #9ca3af;">
+              Ładowanie rekomendacji...
+            </div>
+          </div>
+          
+          <a href="recommendations.html" class="btn btn-primary primary" style="display: block; width: 100%; max-width: 400px; margin: 0 auto; text-align: center; padding: 12px; font-weight: 600;">
+            Zobacz wszystkie rekomendacje →
+          </a>
+        </section>
+
         <!-- Remaining shortcut cards in single column -->
         <section class="grid home-panels-1col" aria-label="Skróty do funkcji">
           <a
@@ -665,6 +700,7 @@
   <!-- Home page section scripts (MUST load AFTER languageSwitcher.js for i18n helpers) -->
   <script src="js/home-trips.js" defer></script>
   <script src="js/home-hotels.js?v=2" defer></script>
+  <script type="module" src="js/home-recommendations.js" defer></script>
   
   <!-- Load core application (defer to wait for poi-loader) -->
   <script src="js/app-core.js?v=5" defer></script>
