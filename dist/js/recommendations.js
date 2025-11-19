@@ -118,10 +118,17 @@ function renderCategoryFilters() {
     countAll.textContent = allRecommendations.length;
   }
   
-  // Add category buttons
+  // Add category buttons - tylko dla kategorii z dostępnymi rekomendacjami
+  let visibleCount = 0;
   allCategories.forEach(cat => {
     const count = allRecommendations.filter(r => r.category_id === cat.id).length;
     
+    // Pomiń kategorie bez rekomendacji
+    if (count === 0) {
+      return;
+    }
+    
+    visibleCount++;
     const btn = document.createElement('button');
     btn.className = 'filter-btn';
     btn.dataset.category = cat.id;
@@ -134,6 +141,8 @@ function renderCategoryFilters() {
     btn.onclick = () => filterByCategory(cat.id);
     container.appendChild(btn);
   });
+  
+  console.log('✅ Rendered', visibleCount, 'category filters with available recommendations');
 }
 
 // ============================================================================
