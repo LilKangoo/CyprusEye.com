@@ -87,7 +87,7 @@ async function loadPoisData() {
   try {
     // Wait for PLACES_DATA to load (from poi-loader.js)
     let attempts = 0;
-    while (typeof window.PLACES_DATA === 'undefined' && attempts < 50) {
+    while ((!Array.isArray(window.PLACES_DATA) || window.PLACES_DATA.length === 0) && attempts < 50) {
       await new Promise(resolve => setTimeout(resolve, 100));
       attempts++;
     }
