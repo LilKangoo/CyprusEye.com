@@ -51,32 +51,32 @@
   margin: 0;
 }
 
-/* Filters Section */
+/* Filters Section - Kompaktowy układ */
 .recommendations-filters {
   max-width: 1400px;
-  margin: -40px auto 0;
-  padding: 0 20px 40px;
+  margin: -30px auto 0;
+  padding: 0 20px 30px;
   position: relative;
   z-index: 10;
 }
 
 .filters-container {
   background: white;
-  border-radius: 20px;
-  padding: 32px;
-  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border-radius: 16px;
+  padding: 20px 24px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 .filters-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: 16px;
 }
 
 .filters-header h2 {
-  font-size: 1.5rem;
-  font-weight: 700;
+  font-size: 1.125rem;
+  font-weight: 600;
   color: #111827;
   margin: 0;
 }
@@ -85,10 +85,10 @@
   background: none;
   border: none;
   color: #667eea;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
-  font-size: 14px;
-  padding: 8px 12px;
+  font-size: 13px;
+  padding: 6px 10px;
   border-radius: 6px;
   transition: all 0.2s;
 }
@@ -98,82 +98,64 @@
 }
 
 .filters-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 12px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .filter-btn {
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
+  flex-direction: row;
   align-items: center;
-  gap: 8px;
-  padding: 16px 12px;
-  border: 2px solid #e5e7eb;
+  gap: 6px;
+  padding: 8px 14px;
+  border: 1.5px solid #e5e7eb;
   background: white;
-  border-radius: 16px;
-  font-weight: 600;
+  border-radius: 20px;
+  font-weight: 500;
+  font-size: 14px;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.2s ease;
   position: relative;
-  overflow: hidden;
-}
-
-.filter-btn::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  opacity: 0;
-  transition: opacity 0.3s;
+  white-space: nowrap;
 }
 
 .filter-btn:hover {
   border-color: #667eea;
-  transform: translateY(-2px);
-  box-shadow: 0 10px 15px -3px rgba(102, 126, 234, 0.2);
+  background: #f5f3ff;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(102, 126, 234, 0.15);
 }
 
 .filter-btn.active {
   border-color: #667eea;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
-}
-
-.filter-btn.active::before {
-  opacity: 1;
+  box-shadow: 0 4px 6px -1px rgba(102, 126, 234, 0.3);
 }
 
 .filter-icon {
-  font-size: 32px;
-  position: relative;
-  z-index: 1;
-  transition: transform 0.3s;
-}
-
-.filter-btn:hover .filter-icon {
-  transform: scale(1.1);
+  font-size: 18px;
+  line-height: 1;
 }
 
 .filter-label {
   font-size: 14px;
-  position: relative;
-  z-index: 1;
-  text-align: center;
+  line-height: 1;
 }
 
 .filter-count {
-  font-size: 12px;
-  font-weight: 700;
-  position: relative;
-  z-index: 1;
-  opacity: 0.8;
-  background: rgba(0, 0, 0, 0.1);
-  padding: 2px 8px;
-  border-radius: 12px;
-  min-width: 24px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.08);
+  min-width: 20px;
+  text-align: center;
+}
+
+.filter-btn.active .filter-count {
+  background: rgba(255, 255, 255, 0.3);
 }
 
 /* Recommendations Section */
@@ -561,8 +543,8 @@
     padding: 100px 20px 60px;
   }
   
-  .recommendations-hero h1 {
-    font-size: 2.5rem;
+  .hero-content h1 {
+    font-size: 2rem;
   }
   
   .hero-subtitle {
@@ -570,20 +552,24 @@
   }
   
   .filters-container {
-    padding: 24px 20px;
+    padding: 16px 18px;
+  }
+  
+  .filters-header h2 {
+    font-size: 1rem;
   }
   
   .filters-grid {
-    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-    gap: 10px;
+    gap: 6px;
   }
   
   .filter-btn {
-    padding: 12px 8px;
+    padding: 6px 12px;
+    font-size: 13px;
   }
   
   .filter-icon {
-    font-size: 28px;
+    font-size: 16px;
   }
   
   .filter-label {
