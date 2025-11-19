@@ -2549,12 +2549,110 @@
       },
       "reservation": {
         "title": "Submit a reservation",
-        "description": "Fill in the online form to confirm availability and receive the agreement. You can also message us on WhatsApp—we respond as quickly as possible.",
+        "description": "Fill in the form below or message us on WhatsApp — we usually reply within 24 hours.",
         "formLink": "Open the form in a new window",
         "whatsapp": "Message on WhatsApp",
-        "formTitle": "Car reservation form in Paphos"
+        "formTitle": "Car reservation form in Paphos",
+        "actions": {
+          "fillFromCalculator": "Copy data from calculator"
+        },
+        "sections": {
+          "contact": "Contact details",
+          "rental": "Rental details",
+          "options": "Additional options"
+        },
+        "fields": {
+          "fullName": {
+            "label": "Full name *",
+            "placeholder": "John Smith"
+          },
+          "email": {
+            "label": "Email *",
+            "placeholder": "john@example.com"
+          },
+          "phone": {
+            "label": "Phone *",
+            "placeholder": "+44 123 456 789"
+          },
+          "country": {
+            "label": "Country",
+            "placeholder": "United Kingdom"
+          },
+          "car": {
+            "label": "Choose a car *",
+            "loading": "Loading..."
+          },
+          "pickupDate": {
+            "label": "Pickup date *"
+          },
+          "pickupTime": {
+            "label": "Time"
+          },
+          "pickupLocation": {
+            "label": "Pickup location *"
+          },
+          "pickupAddress": {
+            "label": "Pickup address",
+            "placeholder": "Hotel name or full address"
+          },
+          "returnDate": {
+            "label": "Return date *"
+          },
+          "returnTime": {
+            "label": "Time"
+          },
+          "returnLocation": {
+            "label": "Return location *"
+          },
+          "returnAddress": {
+            "label": "Return address",
+            "placeholder": "Hotel name or full address"
+          },
+          "locations": {
+            "airport": "Paphos Airport (PFO)",
+            "hotel": "Hotel",
+            "city": "City centre",
+            "other": "Other"
+          },
+          "passengers": {
+            "label": "Number of passengers"
+          },
+          "childSeats": {
+            "label": "Child seats (free)"
+          },
+          "insurance": {
+            "label": "Full AC insurance (+€17/day)"
+          },
+          "flight": {
+            "label": "Flight number (optional)",
+            "placeholder": "W1234"
+          },
+          "notes": {
+            "label": "Special requests",
+            "placeholder": "Additional information or requests..."
+          }
+        },
+        "submit": "Send reservation",
+        "confirmationNote": "You will receive confirmation by email within 24 hours.",
+        "successTitle": "🎉 Thank you!",
+        "successMessage": "Your reservation form has been sent successfully."
       },
       "footer": "© <span data-current-year></span> HolidayCyprus.com • Car rental with Polish support in Cyprus."
+    },
+    "calculator": {
+      "form": {
+        "car": "Choose a car",
+        "loading": "Loading fleet...",
+        "pickupDate": "Pickup date",
+        "pickupTime": "Pickup time",
+        "returnDate": "Return date",
+        "returnTime": "Return time",
+        "airportPickup": "Pickup at PFO airport",
+        "airportReturn": "Return at PFO airport",
+        "fullInsurance": "Full AC insurance (+€17/day)",
+        "calculate": "Calculate price",
+        "message": "No deposit, child seats always included for free."
+      }
     },
     "included": {
       "feature1": {
