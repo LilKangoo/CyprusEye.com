@@ -147,7 +147,29 @@
     if (!key || !translations) {
       return null;
     }
-    return translations[key];
+
+    // Direct lookup for flat keys
+    if (Object.prototype.hasOwnProperty.call(translations, key)) {
+      return translations[key];
+    }
+
+    // Support nested objects via dot notation (e.g. 'language.switcher.label')
+    if (key.indexOf('.') !== -1) {
+      const parts = key.split('.');
+      let current = translations;
+
+      for (const part of parts) {
+        if (current && typeof current === 'object' && Object.prototype.hasOwnProperty.call(current, part)) {
+          current = current[part];
+        } else {
+          return null;
+        }
+      }
+
+      return current;
+    }
+
+    return null;
   }
 
   function getTranslationString(translations, key) {

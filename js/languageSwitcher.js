@@ -41,6 +41,8 @@ function getCurrentLanguage() {
 
 /**
  * Set the language and apply direction
+ * Also delegates to the global i18n system (appI18n) when available
+ * so that all data-i18n translations are refreshed immediately.
  */
 function setLanguage(lang) {
   if (!SUPPORTED_LANGUAGES[lang]) {
@@ -50,7 +52,7 @@ function setLanguage(lang) {
 
   const langConfig = SUPPORTED_LANGUAGES[lang];
   
-  // Save to localStorage
+  // Save to localStorage (used by this switcher on next load)
   localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
 
   // Update HTML attributes
@@ -63,7 +65,17 @@ function setLanguage(lang) {
     ogLocale.content = langConfig.locale;
   }
 
-  // Trigger event for i18n system to reload
+  // If the legacy/global i18n system is present, delegate to it so that
+  // all [data-i18n] elements and internal modules switch language too.
+  if (window.appI18n && typeof window.appI18n.setLanguage === 'function') {
+    try {
+      window.appI18n.setLanguage(lang);
+    } catch (error) {
+      console.error('Failed to delegate language change to appI18n:', error);
+    }
+  }
+
+  // Trigger event for other listeners (languageRefresh, custom modules)
   window.dispatchEvent(new CustomEvent('languageChanged', { detail: { language: lang } }));
 
   // Update active button state
