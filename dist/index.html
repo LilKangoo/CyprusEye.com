@@ -636,6 +636,17 @@
   <script src="js/modalUtils.js"></script>
   <script src="js/successPopup.js"></script>
   
+  <!-- Recommendations Detail Modal -->
+  <div id="detailModal" class="recommendation-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle">
+    <div class="modal-overlay" onclick="closeDetailModal()"></div>
+    <div class="modal-content">
+      <button class="modal-close" type="button" aria-label="Zamknij" onclick="closeDetailModal()">✕</button>
+      <div id="modalDetails" class="modal-body">
+        <!-- Modal content filled by home-recommendations.js -->
+      </div>
+    </div>
+  </div>
+  
   <!-- Comments Modal (shared with community) -->
   <div id="commentsModal" class="comments-modal" hidden role="dialog" aria-modal="true" aria-labelledby="commentsModalTitle">
     <div class="comments-modal-dialog">

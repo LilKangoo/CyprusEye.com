@@ -180,7 +180,7 @@ function createRecommendationCard(rec) {
   const discount = rec.discount_text_pl || rec.discount_text_en;
   
   return `
-    <div class="rec-card" onclick="window.location.href='recommendations.html#${rec.id}'" style="cursor: pointer;">
+    <div class="rec-card" onclick="openDetailModal('${rec.id}')" style="cursor: pointer;">
       ${rec.featured ? '<div class="rec-featured-badge">⭐ Polecane</div>' : ''}
       
       ${rec.image_url ? 
@@ -218,11 +218,11 @@ function createRecommendationCard(rec) {
         ` : ''}
         
         <div class="rec-card-actions">
-          <button class="rec-btn rec-btn-primary" onclick="event.stopPropagation(); window.location.href='recommendations.html#${rec.id}'">
+          <button class="rec-btn rec-btn-primary" onclick="event.stopPropagation(); openDetailModal('${rec.id}')">
             Zobacz szczegóły
           </button>
           ${rec.website_url ? `
-            <a href="${rec.website_url}" target="_blank" rel="noopener" class="rec-btn rec-btn-secondary" onclick="event.stopPropagation();">
+            <a href="${rec.website_url}" target="_blank" rel="noopener" class="rec-btn rec-btn-secondary" onclick="event.stopPropagation(); trackClick('${rec.id}', 'website');">
               Strona www
             </a>
           ` : ''}
@@ -231,3 +231,159 @@ function createRecommendationCard(rec) {
     </div>
   `;
 }
+
+// ============================================================================
+// MODAL
+// ============================================================================
+window.openDetailModal = async function(id) {
+  const rec = allRecommendations.find(r => r.id === id);
+  if (!rec) return;
+  
+  const category = rec.recommendation_categories || {};
+  const title = rec.title_pl || rec.title_en;
+  const description = rec.description_pl || rec.description_en;
+  const discount = rec.discount_text_pl || rec.discount_text_en;
+  const offer = rec.offer_text_pl || rec.offer_text_en;
+  
+  const modalDetails = document.getElementById('modalDetails');
+  if (!modalDetails) return;
+  
+  modalDetails.innerHTML = `
+    ${rec.image_url ? `
+      <img src="${rec.image_url}" alt="${title}" class="rec-modal-image" />
+    ` : ''}
+    
+    <div class="rec-modal-content-section">
+      <div class="rec-card-category" style="margin-bottom: 16px;">
+        <span>${category.icon || '📍'}</span>
+        <span>${category.name_pl || category.name_en}</span>
+      </div>
+      
+      <h1 style="font-size: 2.25rem; font-weight: 700; margin: 0 0 16px; color: #111827;">${title}</h1>
+      
+      ${rec.location_name ? `
+        <div style="display: flex; align-items: center; gap: 8px; color: #6b7280; margin-bottom: 24px; font-size: 16px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+            <circle cx="12" cy="10" r="3"/>
+          </svg>
+          ${rec.location_name}
+        </div>
+      ` : ''}
+      
+      ${description ? `
+        <p style="font-size: 17px; line-height: 1.8; color: #374151; margin-bottom: 24px;">${description}</p>
+      ` : ''}
+      
+      ${offer ? `
+        <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left: 4px solid #22c55e; padding: 20px; border-radius: 12px; margin-bottom: 24px;">
+          <strong style="color: #16a34a; font-size: 16px; display: block; margin-bottom: 8px;">🎁 Special Offer</strong>
+          <p style="margin: 0; color: #166534; font-size: 15px; line-height: 1.6;">${offer}</p>
+        </div>
+      ` : ''}
+      
+      ${rec.promo_code && discount ? `
+        <div class="rec-card-promo" style="margin-bottom: 24px;">
+          <div class="rec-card-promo-label">${discount}</div>
+          <div class="rec-card-promo-code">${rec.promo_code}</div>
+        </div>
+      ` : ''}
+      
+      <div class="rec-card-actions" style="margin-bottom: 32px; gap: 16px;">
+        ${rec.google_url ? `
+          <a href="${rec.google_url}" target="_blank" rel="noopener" class="rec-btn rec-btn-primary" onclick="trackClick('${rec.id}', 'google');">
+            🗺️ Otwórz w mapach
+          </a>
+        ` : ''}
+        
+        ${rec.website_url ? `
+          <a href="${rec.website_url}" target="_blank" rel="noopener" class="rec-btn rec-btn-secondary" onclick="trackClick('${rec.id}', 'website');">
+            🌐 Odwiedź stronę
+          </a>
+        ` : ''}
+        
+        ${rec.phone ? `
+          <a href="tel:${rec.phone}" class="rec-btn rec-btn-secondary" onclick="trackClick('${rec.id}', 'phone');">
+            📞 ${rec.phone}
+          </a>
+        ` : ''}
+        
+        ${rec.email ? `
+          <a href="mailto:${rec.email}" class="rec-btn rec-btn-secondary" onclick="trackClick('${rec.id}', 'email');">
+            ✉️ ${rec.email}
+          </a>
+        ` : ''}
+      </div>
+      
+      ${rec.latitude && rec.longitude ? `
+        <div id="modalMap" class="rec-modal-map"></div>
+      ` : ''}
+    </div>
+  `;
+  
+  // Show modal
+  const modal = document.getElementById('detailModal');
+  if (modal) {
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+  }
+  
+  // Track view
+  trackView(rec.id);
+  
+  // Initialize map
+  if (rec.latitude && rec.longitude && typeof L !== 'undefined') {
+    setTimeout(() => {
+      try {
+        const mapEl = document.getElementById('modalMap');
+        if (!mapEl) return;
+        
+        const map = L.map('modalMap').setView([rec.latitude, rec.longitude], 15);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
+        
+        const marker = L.marker([rec.latitude, rec.longitude]).addTo(map);
+        if (title) marker.bindPopup(title);
+      } catch (e) {
+        console.error('Map error:', e);
+      }
+    }, 200);
+  }
+};
+
+window.closeDetailModal = function() {
+  const modal = document.getElementById('detailModal');
+  if (modal) {
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
+  }
+};
+
+// ============================================================================
+// TRACKING
+// ============================================================================
+window.trackView = async function(recId) {
+  if (!supabase) return;
+  try {
+    await supabase.from('recommendation_views').insert([{ 
+      recommendation_id: recId 
+    }]);
+    console.log('✅ View tracked:', recId);
+  } catch (e) {
+    console.error('Track view error:', e);
+  }
+}
+
+window.trackClick = async function(recId, type) {
+  if (!supabase) return;
+  try {
+    await supabase.from('recommendation_clicks').insert([{ 
+      recommendation_id: recId,
+      click_type: type
+    }]);
+    console.log('✅ Click tracked:', recId, type);
+  } catch (e) {
+    console.error('Track click error:', e);
+  }
+};
