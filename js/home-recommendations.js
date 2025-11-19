@@ -219,11 +219,7 @@ function createRecommendationCard(rec) {
       <div class="rec-card-content">
         <div class="rec-card-category">
           <span>${category.icon || '📍'}</span>
-          <span>${
-            lang === 'en'
-              ? (category.name_en || category.name_pl || 'General')
-              : (category.name_pl || category.name_en || 'Ogólne')
-          }</span>
+          <span>${lang === 'en' ? (category.name_en || category.name_pl || 'General') : (category.name_pl || category.name_en || 'Ogólne')}</span>
         </div>
         
         <h2 class="rec-card-title">${title}</h2>
@@ -257,6 +253,12 @@ function createRecommendationCard(rec) {
             <a href="${rec.website_url}" target="_blank" rel="noopener" class="rec-btn rec-btn-secondary" onclick="event.stopPropagation(); trackClick('${rec.id}', 'website');">
               ${websiteLabel}
             </a>
+          ` : ''}
+        </div>
+      </div>
+    </div>
+  `;
+}
 
 // ============================================================================
 // MODAL
