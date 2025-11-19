@@ -315,7 +315,7 @@
           </p>
           
           <!-- Current Place Highlight Section - restored -->
-          <div class="current-place-section" id="currentPlaceSection">
+          <div class="current-place-section" id="currentPlaceSection" data-tour-target="current-place">
             <div class="current-place-navigation">
               <button type="button" class="btn secondary" id="prevPlaceBtn" onclick="navigatePlace(-1)">
                 ← Poprz.
@@ -527,6 +527,7 @@
             data-page-url="kupon.html"
             data-i18n-attrs="aria-label:coupon.cta_aria"
             aria-label="Kup kupon — przejdź do bezpiecznej płatności Stripe"
+            data-tour-target="coupon-card"
           >
             <h2 data-i18n="coupon.nav_tile">💸 Kupon</h2>
             <p data-i18n="coupon.subtitle">
@@ -579,6 +580,7 @@
       id="services"
       class="services-panel card surface-card services-panel-footer"
       aria-label="Planowanie podróży i inspiracje"
+      data-tour-target="services-panel"
     >
       <h2 data-i18n="services.title">Odkryj z nami Cypr</h2>
       <p data-i18n="services.description">
