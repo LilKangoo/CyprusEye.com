@@ -298,6 +298,7 @@
           class="view-toggle-btn active" 
           data-view="list"
           id="listViewBtn"
+          data-i18n="community.viewToggle.list"
         >
           📋 Lista
         </button>
@@ -306,6 +307,7 @@
           class="view-toggle-btn" 
           data-view="ranking"
           id="rankingViewBtn"
+          data-i18n="community.viewToggle.ranking"
         >
           🏆 Ranking
         </button>
@@ -315,12 +317,12 @@
       <section class="community-ranking-section" id="rankingViewSection" hidden>
         <div class="ranking-container">
           <div id="rankingHeader" class="ranking-header">
-            <h2>🏆 Top 100 użytkowników</h2>
+            <h2 data-i18n="community.ranking.title">🏆 Top 100 użytkowników</h2>
           </div>
           <div id="rankingList" class="ranking-list">
             <div class="loading-spinner">
               <div class="spinner"></div>
-              <p>Ładowanie rankingu...</p>
+              <p data-i18n="community.ranking.loading">Ładowanie rankingu...</p>
             </div>
           </div>
         </div>

@@ -21,6 +21,16 @@
   "seo.home.ogTitle": "WakacjeCypr Quest – interaktywna gra turystyczna po Cyprze",
   "seo.home.ogDescription": "Dołącz do WakacjeCypr Quest, odkrywaj mapę atrakcji, śledź postępy wyprawy i odblokowuj nowe nagrody.",
   "home.pageTitle": "WakacjeCypr Quest – interaktywny przewodnik po Cyprze",
+  "home.trips.title": "🚤 Wycieczki",
+  "home.trips.description": "Wybierz miasto i przeglądaj najlepsze wycieczki na Cyprze",
+  "home.trips.loading": "Ładowanie wycieczek...",
+  "home.trips.cta": "Zobacz wszystkie wycieczki →",
+  "home.hotels.title": "🏨 Zakwaterowania",
+  "home.hotels.description": "Odkryj najlepsze hotele, wille i apartamenty na Cyprze",
+  "home.hotels.loading": "Ładowanie hoteli...",
+  "home.hotels.cta": "Zobacz wszystkie hotele →",
+  "home.carousel.prev": "Poprzednie",
+  "home.carousel.next": "Następne",
   "seo.achievements.title": "WakacjeCypr Quest – Twoje osiągnięcia",
   "seo.achievements.description": "Sprawdź zdobyte odznaki, odwiedzone miejsca i poziom doświadczenia w panelu osiągnięć WakacjeCypr Quest.",
   "seo.achievements.ogTitle": "WakacjeCypr Quest – Twoje osiągnięcia",
@@ -164,6 +174,10 @@
   "nav.adventure": "🎯 Przygoda",
   "nav.packing": "🎒 Pakowanie",
   "nav.tasks": "✅ Zadania",
+  "nav.recommendations": "✨ Polecane",
+  "nav.community": "💬 Społeczność",
+  "nav.trips": "🧭 Wycieczki",
+  "nav.hotels": "🏨 Hotele",
   "nav.mediaTrips": "✨ VIP wyjazdy indywidualne",
   "coupon.nav_tile": "💸 Kupon",
   "coupon.hero_kicker": "Limitowana oferta",
@@ -207,10 +221,10 @@
   "coupon.conditions.rules.usage": "Kupon jest imienny i przeznaczony do użytku osobistego.",
   "coupon.conditions.rules.groupIntro": "Wyjątki dla grup i rodzin:",
   "coupon.conditions.rules.groupMultiple": {
-    "html": "<strong>✅ Tours –€5</strong> applies per person."
+    "html": "<strong>✅ Wycieczki –5 €</strong> naliczane za każdą osobę."
   },
   "coupon.conditions.rules.groupStay": {
-    "html": "<strong>✅ Lefkara accommodation –15% or –20%</strong> is calculated from the total stay price."
+    "html": "<strong>✅ Nocleg w Lefkarze –15% lub –20%</strong> liczony od łącznej ceny pobytu."
   },
   "coupon.conditions.rules.named": "Personel może poprosić o dokument tożsamości.",
   "coupon.conditions.rules.show": "Pokaż kupon przed płatnością.",
@@ -220,7 +234,7 @@
   "coupon.offers.title": "Oferty",
   "coupon.offers.subtitle": "Aktualne zniżki i pakiety specjalne",
   "coupon.search.summary": {
-    "html": "Results for “<span data-coupon-query></span>” — <strong><span data-coupon-results></span></strong> partners."
+    "html": "Wyniki dla „<span data-coupon-query></span>” — <strong><span data-coupon-results></span></strong> partnerów."
   },
   "coupon.search.reset": "Wyczyść filtry",
   "coupon.search.empty": "Brak ofert dla wybranych filtrów",
@@ -259,10 +273,10 @@
   "coupon.how.step1.title": "1. Wybierz ofertę",
   "coupon.how.step1.description": "Sprawdź listę ofert i wybierz interesującą zniżkę.",
   "coupon.how.step1.noteMultiple": {
-    "html": "<strong>When should you buy multiple coupons?</strong> For larger groups (e.g. a cruise or tour) when everyone should get the discount."
+    "html": "<strong>Kiedy kupić kilka kuponów?</strong> Przy większych grupach (np. rejs lub wycieczka), gdy zniżka ma objąć wszystkich."
   },
   "coupon.how.step1.noteSingle": {
-    "html": "<strong>When is one coupon enough?</strong> If you only plan to use car and transport discounts."
+    "html": "<strong>Kiedy wystarczy jeden kupon?</strong> Jeśli korzystasz tylko z rabatów na samochód i transport."
   },
   "coupon.how.step2.title": "2. Pokaż kupon",
   "coupon.how.step2.description": "W miejscu realizacji pokaż kupon w aplikacji/na stronie przed płatnością.",
@@ -494,6 +508,13 @@
   "mediaTrips.items.vip-video-trip.detailsLink": "Szczegóły",
   "services.title": "Usługi",
   "services.description": "Dodatkowe wsparcie podczas podróży",
+  "recommendations.description": "Dodatkowe wsparcie podczas podróży",
+  "recommendations.home.title": "✨ Nasze rekomendacje",
+  "recommendations.home.subtitle": "Sprawdzone miejsca na Cyprze z ekskluzywnymi zniżkami",
+  "recommendations.home.filters.title": "Wybierz kategorię",
+  "recommendations.home.filters.clear": "Wyczyść filtry",
+  "recommendations.home.loading": "Ładowanie rekomendacji...",
+  "recommendations.home.cta": "Zobacz wszystkie rekomendacje →",
   "services.itemOne": "Transfery i transport",
   "services.itemTwo": "Wycieczki i przewodnicy",
   "services.itemThree": "Media i sesje foto/wideo",
@@ -520,7 +541,7 @@
   "explorer.close": {
     "text": "✕",
     "attributes": {
-      "aria-label": "Close window"
+      "aria-label": "Zamknij okno eksploratora"
     }
   },
   "auth.title": "Dołącz do przygody",
@@ -539,7 +560,7 @@
   "auth.close": {
     "text": "✕",
     "attributes": {
-      "aria-label": "Close sign-in window"
+      "aria-label": "Zamknij okno logowania"
     }
   },
   "auth.close.label": "Zamknij okno logowania",
@@ -604,12 +625,12 @@
   "auth.error.username.invalidFormat": "Nazwa użytkownika może zawierać tylko litery, cyfry i znak podkreślenia.",
   "auth.error.usernameTaken": "Ta nazwa użytkownika jest już zajęta. Wybierz inną.",
   "auth.error.checkFailed": "Nie udało się sprawdzić nazwy użytkownika. Spróbuj ponownie.",
-  "sos.title": "SOS",
+  "sos.title": "Panel SOS",
   "sos.description": "Szybki dostęp do numerów alarmowych, kontaktu z ambasadą oraz wskazówek medycznych.",
   "sos.close": {
-    "text": "X",
+    "text": "✕",
     "attributes": {
-      "aria-label": "Zamknij SOS"
+      "aria-label": "Zamknij panel SOS"
     }
   },
   "sos.emergency.title": "🚑 Numery alarmowe na Cyprze",
@@ -633,7 +654,7 @@
     "html": "14, Ifigenias Street, 2007 Nikozja • <a href=\"https://maps.google.com/?q=Embassy+of+Poland+in+Cyprus\" target=\"_blank\" rel=\"noopener\">Wyznacz trasę</a>"
   },
   "sos.embassy.email": {
-    "html": "<a href=\"mailto:nicosia.info@msz.gov.pl\">nicosia.info@msz.gov.pl</a>"
+    "html": "Napisz na <a href=\"mailto:nicosia.info@msz.gov.pl\">nicosia.info@msz.gov.pl</a> w sprawach konsularnych."
   },
   "sos.healthcare.title": "🏥 Najbliższa pomoc medyczna",
   "sos.healthcare.hospital": {
@@ -662,12 +683,12 @@
   "account.stats.tasks.description": "Wyzwania i cele do zrealizowania.",
   "account.stats.streak.title": "Seria dni",
   "account.stats.streak.description": {
-    "html": "Current / best: <span id=\"accountStatBestStreak\">0</span>"
+    "html": "Obecna / najlepsza: <span id=\"accountStatBestStreak\">0</span>"
   },
   "account.close": {
     "text": "✕",
     "attributes": {
-      "aria-label": "Close account settings"
+      "aria-label": "Zamknij ustawienia konta"
     }
   },
   "account.username.title": "Nazwa użytkownika",
@@ -992,7 +1013,7 @@
   "carRental.hero.info.depositDetails": "Obie lokalizacje bez depozytu i z polskim wsparciem.",
   "carRental.hero.info.delivery": "Dostawa auta",
   "carRental.hero.info.deliveryDetails": "Odbiór na lotnisku, w hotelu lub w umówionym miejscu.",
-  "carRental.hero.info.support": "24/7",
+  "carRental.hero.info.support": "Wsparcie 24/7",
   "carRental.hero.info.supportDetails": "Całodobowe wsparcie niezależnie od wybranej oferty.",
   "carRental.offers.title": "Dwie oferty, jeden standard",
   "carRental.offers.subtitle": "Wybierz miasto startu, a pokażemy dostępne auta i ceny.",
@@ -1152,7 +1173,7 @@
   "carRental.page.hero.ctaCalculator": "Oblicz koszt wynajmu",
   "carRental.page.hero.paphosNote.prefix": "Szukasz auta w Pafos bez dopłaty za odbiór? Skorzystaj z przycisku „Oferta Pafos” u góry strony lub",
   "carRental.page.hero.paphosNote.link": "przejdź bezpośrednio do dedykowanej oferty",
-  "carRental.page.hero.paphosNote.suffix": ".",
+  "carRental.page.hero.paphosNote.suffix": " i poznaj wszystkie szczegóły.",
   "carRental.page.stats.cars": "aut w naszej flocie",
   "carRental.page.stats.price": "cena już od",
   "carRental.page.stats.minDays": "minimalna liczba dni",
@@ -1266,7 +1287,7 @@
   "carRentalPfo.page.hero.ctaCalculator": "Oblicz koszt wynajmu",
   "carRentalPfo.page.hero.note.prefix": "Planujesz podróż po całej wyspie? Skorzystaj z przycisku „Oferta całego Cypru” u góry strony lub",
   "carRentalPfo.page.hero.note.link": "sprawdź flotę dostępną na całym Cyprze",
-  "carRentalPfo.page.hero.note.suffix": ".",
+  "carRentalPfo.page.hero.note.suffix": " i zobacz pełną ofertę.",
   "carRentalPfo.page.stats.cars": "aut w naszej flocie",
   "carRentalPfo.page.stats.price": "cena już od",
   "carRentalPfo.page.stats.minDays": "minimalna liczba dni",
@@ -1485,7 +1506,7 @@
   "carRentalPfo.fleet.mazda-premacy-paphos.feature3": "Drugi kierowca gratis",
   "carRentalPfo.fleet.mazda-premacy-paphos.note": "Praktyczny minivan dla większych rodzin podróżujących po zachodnim Cyprze.",
   "carRentalPfo.fleet.mazda-cx5-paphos.transmission": "Automat",
-  "carRentalPfo.fleet.mazda-cx5-paphos.category": "SUV",
+  "carRentalPfo.fleet.mazda-cx5-paphos.category": "SUV / crossover",
   "carRentalPfo.fleet.mazda-cx5-paphos.fuel": "Benzyna",
   "carRentalPfo.fleet.mazda-cx5-paphos.feature1": "System i-ACTIVSENSE",
   "carRentalPfo.fleet.mazda-cx5-paphos.feature2": "Bez kaucji",
@@ -1571,9 +1592,13 @@
   "community.backToHome": "← Wróć do gry",
   "community.hero.title": "💬 Społeczność - Miejsca na Cyprze",
   "community.hero.description": "Przeglądaj komentarze i zdjęcia od innych podróżników. Podziel się swoimi wrażeniami z odwiedzonych miejsc!",
+  "community.ranking.title": "🏆 Top 100 użytkowników",
+  "community.ranking.loading": "Ładowanie rankingu...",
   "community.stats.comments": "Komentarzy",
   "community.stats.photos": "Zdjęć",
   "community.stats.users": "Użytkowników",
+  "community.viewToggle.list": "📋 Lista",
+  "community.viewToggle.ranking": "🏆 Ranking",
   "community.search.placeholder": "Szukaj miejsca...",
   "community.sort.recent": "Najnowsze komentarze",
   "community.sort.popular": "Najpopularniejsze",
@@ -3477,6 +3502,10 @@
     "tasks": {
       "description": "Planuj swoje przygotowania do podróży, misje i przypomnienia w ramach listy zadań CyprusEye Quest.",
       "ogDescription": "Bądź na bieżąco z przygotowaniami i zrealizuj każdy cel przed lotem na Cypr."
+    },
+    "packing": {
+      "description": "Wybierz sezon podróży na Cypr i odhacz wszystko, co musisz spakować z planerem CyprusEye Quest.",
+      "ogDescription": "Skorzystaj z gotowych list pakowania na każdy sezon na Cyprze i zachowaj porządek przed wyjazdem."
     }
   },
   "language": {

@@ -92,11 +92,17 @@
         
         <!-- User Stats Section - Combined Profile + Metrics -->
         <div class="user-stats-section" data-auth="user-only">
-          <a href="achievements.html" class="user-profile-card" id="profileButton" aria-label="Mój profil">
+          <a
+            href="achievements.html"
+            class="user-profile-card"
+            id="profileButton"
+            aria-label="Mój profil"
+            data-i18n-attrs="aria-label:header.profile.aria"
+          >
             <img id="headerUserAvatar" class="profile-avatar" src="assets/cyprus_logo-1000x1054.png" alt="Avatar" width="50" height="50" loading="eager" />
             <div class="profile-info">
-              <div class="profile-name">Mój Profil</div>
-              <div class="profile-status">Poziom 1 • 0 odznak</div>
+              <div class="profile-name" data-i18n="header.profile.name">Mój Profil</div>
+              <div class="profile-status" data-i18n="header.profile.status">Poziom 1 • 0 odznak</div>
             </div>
           </a>
           
@@ -189,10 +195,22 @@
               🎟️ Kupon
             </a>
             <a class="ghost header-link" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
-            <a class="ghost header-link" href="trips.html" aria-label="Wycieczki">
+            <a
+              class="ghost header-link"
+              href="trips.html"
+              aria-label="Wycieczki"
+              data-i18n="nav.trips"
+              data-i18n-attrs="aria-label:nav.trips"
+            >
               🧭 Wycieczki
             </a>
-            <a class="ghost header-link" href="hotels.html" aria-label="Hotele">
+            <a
+              class="ghost header-link"
+              href="hotels.html"
+              aria-label="Hotele"
+              data-i18n="nav.hotels"
+              data-i18n-attrs="aria-label:nav.hotels"
+            >
               🏨 Hotele
             </a>
           </div>
@@ -365,7 +383,6 @@
         type="button"
         aria-label="Zamknij"
         data-close
-        data-i18n=""
         data-i18n-attrs="aria-label:auth.close.label"
       >
         ×
@@ -433,7 +450,6 @@
                     autocomplete="username"
                     required
                     aria-label="Email lub nazwa użytkownika"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.login.username,placeholder:auth.login.username"
                     placeholder="Email lub nazwa użytkownika"
                   />
@@ -445,7 +461,6 @@
                     autocomplete="current-password"
                     required
                     aria-label="Hasło"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.password"
                   />
                   <div class="auth-form__actions">
@@ -503,7 +518,6 @@
                     maxlength="60"
                     required
                     aria-label="Imię"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.firstName"
                   />
                   <label for="registerUsername" data-i18n="auth.username">Nazwa użytkownika</label>
@@ -517,7 +531,6 @@
                     pattern="[a-zA-Z0-9_]+"
                     required
                     aria-label="Nazwa użytkownika"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.username,placeholder:auth.username.hint"
                     placeholder="3-20 znaków, litery i cyfry"
                   />
@@ -529,7 +542,6 @@
                     autocomplete="email"
                     required
                     aria-label="Adres e-mail"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.email"
                   />
                   <label for="registerPassword" data-i18n="auth.password">Hasło</label>
@@ -541,7 +553,6 @@
                     minlength="8"
                     required
                     aria-label="Hasło"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.password"
                   />
                   <label for="registerPasswordConfirm" data-i18n="auth.confirmPassword">Powtórz hasło</label>
@@ -552,7 +563,6 @@
                     autocomplete="new-password"
                     minlength="8"
                     aria-label="Powtórz hasło"
-                    data-i18n=""
                     data-i18n-attrs="aria-label:auth.confirmPassword"
                   />
                   <div data-auth="message" aria-live="polite"></div>
