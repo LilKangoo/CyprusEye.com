@@ -311,23 +311,58 @@ if (document.readyState === 'loading') {
  */
 function getPoiTranslatedField(poi, fieldName) {
   if (!poi) return '';
-  
+
   const currentLang = getCurrentLanguage();
   const i18nFieldName = `${fieldName}_i18n`;
-  
-  // Try to get i18n value for current language
+
+  // 1) Supabase JSONB i18n field on the POI (preferred)
   if (poi[i18nFieldName] && typeof poi[i18nFieldName] === 'object') {
     const translated = poi[i18nFieldName][currentLang];
     if (translated) return translated;
-    
+
     // Fallback to Polish if current language not available
     if (poi[i18nFieldName].pl) return poi[i18nFieldName].pl;
-    
+
     // Fallback to English if Polish not available
     if (poi[i18nFieldName].en) return poi[i18nFieldName].en;
   }
-  
-  // Fallback to legacy field
+
+  // 2) Static i18n JSON (places.<id>.<field>) when key is available
+  const keyFieldName = `${fieldName}Key`;
+  const translationKey = poi[keyFieldName];
+  if (translationKey && window.appI18n && window.appI18n.translations) {
+    const lang = window.appI18n.language || currentLang;
+    const translations = window.appI18n.translations[lang];
+
+    if (translations) {
+      let value = translations[translationKey];
+
+      // Support nested keys via dot notation (e.g. 'places.panagia-kykkos-viewpoint.name')
+      if (typeof value === 'undefined' && translationKey.indexOf('.') !== -1) {
+        const parts = translationKey.split('.');
+        let current = translations;
+        for (const part of parts) {
+          if (current && typeof current === 'object' && Object.prototype.hasOwnProperty.call(current, part)) {
+            current = current[part];
+          } else {
+            current = undefined;
+            break;
+          }
+        }
+        value = current;
+      }
+
+      if (typeof value === 'string') {
+        return value;
+      }
+      if (value && typeof value === 'object') {
+        if (typeof value.text === 'string') return value.text;
+        if (typeof value.html === 'string') return value.html;
+      }
+    }
+  }
+
+  // 3) Fallback to legacy field
   return poi[fieldName] || '';
 }
 
