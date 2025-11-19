@@ -112,8 +112,11 @@ function renderCategoryFilters() {
   
   console.log('🔵 Rendering category filters:', allCategories.length, 'categories');
   
-  // Update "All" count
-  document.getElementById('count-all').textContent = allRecommendations.length;
+  // Update "All" count (if exists)
+  const countAll = document.getElementById('count-all');
+  if (countAll) {
+    countAll.textContent = allRecommendations.length;
+  }
   
   // Add category buttons
   allCategories.forEach(cat => {
