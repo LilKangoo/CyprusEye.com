@@ -174,8 +174,26 @@
 
   function showCommunity(id){
     const targetId = id || currentId;
-    if(typeof window.openPoiComments === 'function' && targetId){
-      window.openPoiComments(targetId);
+    if (!targetId) {
+      return;
+    }
+
+    if (typeof window.openPoiComments === 'function') {
+      try {
+        window.openPoiComments(targetId);
+        return;
+      } catch (error) {
+        console.error('openPoiComments failed on home page, redirecting to community:', error);
+      }
+    }
+
+    try {
+      const url = new URL('/community.html', window.location.origin);
+      url.searchParams.set('poi', targetId);
+      window.location.href = url.toString();
+    } catch (e) {
+      // Fallback for very old browsers
+      window.location.href = '/community.html?poi=' + encodeURIComponent(targetId);
     }
   }
 
