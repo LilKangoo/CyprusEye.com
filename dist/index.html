@@ -182,10 +182,12 @@
           </button>
           <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
             <button
-              class="btn btn-sm"
-              data-auth="login"
-              data-auth-login-mode="modal"
-              data-i18n="header.login"
+              class="ghost header-link"
+              data-open-auth
+              data-auth="anon-only"
+              data-tour-target="login-button"
+              data-i18n="nav.login"
+            >
               data-i18n-attrs="aria-label:auth.login.aria"
               aria-label="Zaloguj do konta"
             >
@@ -393,6 +395,7 @@
           <div
             class="adventure-shortcut-card card surface-card trips-home-section"
             id="tripsHomeSection"
+            data-tour-target="trips-section"
             style="grid-column: auto;"
           >
             <h2 style="margin: 0 0 16px; font-size: 1.5rem; font-weight: 700;" data-i18n="home.trips.title">🚤 Wycieczki</h2>
@@ -424,6 +427,7 @@
           <div
             class="adventure-shortcut-card card surface-card hotels-home-section"
             id="hotelsHomeSection"
+            data-tour-target="hotels-section"
             style="grid-column: auto;"
           >
             <h2 style="margin: 0 0 16px; font-size: 1.5rem; font-weight: 700;" data-i18n="home.hotels.title">🏨 Zakwaterowania</h2>
@@ -447,7 +451,7 @@
         </section>
 
         <!-- Recommendations Section - Nasze Rekomendacje -->
-        <section class="recommendations-home-section" aria-label="Nasze rekomendacje" style="max-width: 1400px; margin: 40px auto 0; padding: 0 20px;">
+        <section class="recommendations-home-section" data-tour-target="recommendations-section" aria-label="Nasze rekomendacje" style="max-width: 1400px; margin: 40px auto 0; padding: 0 20px;">
           <div style="margin-bottom: 24px;">
             <h2 style="margin: 0 0 8px; font-size: 1.75rem; font-weight: 700; color: #111827;">
               ✨ Nasze Rekomendacje

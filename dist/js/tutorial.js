@@ -76,42 +76,98 @@
       this.steps = [
         {
           id: 'step1',
-          target: '[data-tour-target="quick-actions"]',
-          fallbackTitle: 'Szybkie działania w nagłówku',
+          target: '[data-tour-target="tabs-navigation"]',
+          fallbackTitle: 'Witaj w CyprusEye! 👋',
           fallbackDescription:
-            'Skocz do aktualnego celu, otwórz wynajem auta, przeglądaj atrakcje lub wezwij pomoc SOS jednym kliknięciem.',
+            'Rozpocznijmy przewodnik po aplikacji. Tutaj znajduje się główna nawigacja - zakładki do różnych sekcji aplikacji.',
           arrow: { icon: '⬆️', placement: 'bottom' },
         },
         {
           id: 'step2',
-          target: '[data-tour-target="map-section"]',
-          fallbackTitle: 'Mapa z przyciskiem meldowania',
+          target: '[data-tour-target="login-button"]',
+          fallbackTitle: 'Zaloguj się lub zagraj jako gość',
           fallbackDescription:
-            'Sprawdź interaktywną mapę, zamelduj się w aktualnym celu lub pomiń mapę za pomocą linku dostępności.',
+            'Zaloguj się aby zapisywać swój postęp, odznaki i osiągnięcia. Możesz też kontynuować jako gość bez rejestracji.',
           arrow: { icon: '⬆️', placement: 'bottom' },
         },
         {
           id: 'step3',
-          target: '[data-tour-target="shortcut-cards"]',
-          fallbackTitle: 'Karty skrótów po prawej stronie',
+          target: '[data-tour-target="map-section"]',
+          fallbackTitle: 'Interaktywna mapa Cypru 🗺️',
           fallbackDescription:
-            'Przejdź stąd do planera pakowania, listy zadań i przewodnika po wynajmie auta – wszystko w jednym miejscu.',
-          arrow: { icon: '➡️', placement: 'left' },
+            'Przeglądaj miejsca na mapie, klikaj w pinezki aby zobaczyć szczegóły. Zamelduj się w miejscach aby zdobywać XP i odznaki!',
+          arrow: { icon: '⬅️', placement: 'right' },
         },
         {
           id: 'step4',
-          target: '[data-tour-target="tabs-navigation"]',
-          fallbackTitle: 'Nawigacja po zakładkach i statystyki',
+          target: '[data-tour-target="trips-section"]',
+          fallbackTitle: 'Wycieczki po Cyprze 🚤',
           fallbackDescription:
-            'Tutaj zmienisz zakładki przygody, pakowania, zadań i VIP oraz sprawdzisz poziom, XP i zebrane odznaki.',
-          arrow: { icon: '⬆️', placement: 'bottom' },
+            'Przeglądaj najlepsze wycieczki według miast. Wybierz miasto z zakładek i zobacz dostępne atrakcje. Kliknij "Zobacz wszystkie" aby przejść do pełnej listy.',
+          arrow: { icon: '⬅️', placement: 'right' },
         },
         {
           id: 'step5',
-          target: '[data-tour-target="help-button"]',
-          fallbackTitle: 'Potrzebujesz powtórki?',
+          target: '[data-tour-target="hotels-section"]',
+          fallbackTitle: 'Zakwaterowanie 🏨',
           fallbackDescription:
-            'Kliknij przycisk Pokaż instrukcję w stopce, aby uruchomić samouczek ponownie w dowolnym momencie.',
+            'Znajdź najlepsze hotele, wille i apartamenty na Cyprze. Przeglądaj według lokalizacji i rezerwuj z naszymi partnerami.',
+          arrow: { icon: '⬅️', placement: 'right' },
+        },
+        {
+          id: 'step6',
+          target: '[data-tour-target="recommendations-section"]',
+          fallbackTitle: 'Nasze Rekomendacje ✨',
+          fallbackDescription:
+            'Sprawdzone miejsca z ekskluzywnymi zniżkami! Filtruj według kategorii (restauracje, plaże, sklepy). Kliknij w kartę aby zobaczyć szczegóły i kody promocyjne.',
+          arrow: { icon: '⬅️', placement: 'right' },
+        },
+        {
+          id: 'step7',
+          target: '[data-tour-target="packing-card"]',
+          fallbackTitle: 'Planer pakowania 🎒',
+          fallbackDescription:
+            'Zaplanuj co zapakować na wakacje! Lista rzeczy przystosowana do sezonu i długości pobytu. Możesz dodawać własne przedmioty.',
+          arrow: { icon: '➡️', placement: 'left' },
+        },
+        {
+          id: 'step8',
+          target: '[data-tour-target="tasks-card"]',
+          fallbackTitle: 'Lista zadań ✅',
+          fallbackDescription:
+            'Sprawdź zadania przed wyjazdem - rezerwacje, dokumenty, ubezpieczenie. Odhaczaj wykonane zadania i śledź postęp.',
+          arrow: { icon: '➡️', placement: 'left' },
+        },
+        {
+          id: 'step9',
+          target: '[data-tour-target="car-card"]',
+          fallbackTitle: 'Wynajem samochodu 🚗',
+          fallbackDescription:
+            'Wynajmij auto bezpośrednio przez aplikację! Porównaj ceny, wybierz ubezpieczenie i zarezerwuj samochód na swoje daty.',
+          arrow: { icon: '➡️', placement: 'left' },
+        },
+        {
+          id: 'step10',
+          target: '[data-tour-target="sos-button"]',
+          fallbackTitle: 'Przycisk SOS 🆘',
+          fallbackDescription:
+            'W nagłówku znajdziesz przycisk SOS - numery alarmowe (policja, pogotowie, straż), ambasada i przydatne informacje w sytuacjach awaryjnych.',
+          arrow: { icon: '⬆️', placement: 'bottom' },
+        },
+        {
+          id: 'step11',
+          target: '[data-tour-target="quick-actions"]',
+          fallbackTitle: 'Szybkie działania 🎯',
+          fallbackDescription:
+            'Szybki dostęp do najważniejszych funkcji: pakowanie, zadania, wynajem auta, community (komentarze i oceny miejsc).',
+          arrow: { icon: '⬆️', placement: 'bottom' },
+        },
+        {
+          id: 'step12',
+          target: '[data-tour-target="help-button"]',
+          fallbackTitle: 'Potrzebujesz pomocy? 🔁',
+          fallbackDescription:
+            'Kliknij przycisk "Pokaż instrukcję" w stopce, aby uruchomić ten samouczek ponownie w dowolnym momencie. Miłej zabawy!',
           arrow: { icon: '⬇️', placement: 'top' },
         },
       ];
