@@ -103,6 +103,11 @@ async function loadData() {
 // ============================================================================
 // RENDER CATEGORY FILTERS
 // ============================================================================
+function getCurrentLanguage() {
+  const i18n = window.appI18n || {};
+  return i18n.language || document.documentElement.lang || 'pl';
+}
+
 function renderCategoryFilters() {
   const container = document.getElementById('categoriesFilters');
   if (!container) {
@@ -120,6 +125,8 @@ function renderCategoryFilters() {
   
   // Add category buttons - tylko dla kategorii z dostępnymi rekomendacjami
   let visibleCount = 0;
+  const lang = getCurrentLanguage();
+
   allCategories.forEach(cat => {
     const count = allRecommendations.filter(r => r.category_id === cat.id).length;
     
@@ -132,10 +139,13 @@ function renderCategoryFilters() {
     const btn = document.createElement('button');
     btn.className = 'filter-btn';
     btn.dataset.category = cat.id;
-    btn.dataset.categoryName = cat.name_pl || cat.name_en;
+    btn.dataset.categoryName =
+      lang === 'en' ? (cat.name_en || cat.name_pl) : (cat.name_pl || cat.name_en);
     btn.innerHTML = `
       <span class="filter-icon">${cat.icon || '📍'}</span>
-      <span class="filter-label">${cat.name_pl || cat.name_en}</span>
+      <span class="filter-label">${
+        lang === 'en' ? (cat.name_en || cat.name_pl) : (cat.name_pl || cat.name_en)
+      }</span>
       <span class="filter-count">${count}</span>
     `;
     btn.onclick = () => filterByCategory(cat.id);
@@ -212,13 +222,29 @@ function renderRecommendations() {
 
 function createRecommendationCard(rec) {
   const category = rec.recommendation_categories || {};
-  const title = rec.title_pl || rec.title_en || 'Untitled';
-  const description = rec.description_pl || rec.description_en || '';
-  const discount = rec.discount_text_pl || rec.discount_text_en;
+  const lang = getCurrentLanguage();
+
+  const title =
+    lang === 'en'
+      ? (rec.title_en || rec.title_pl || 'Untitled')
+      : (rec.title_pl || rec.title_en || 'Bez tytułu');
+
+  const description =
+    lang === 'en'
+      ? (rec.description_en || rec.description_pl || '')
+      : (rec.description_pl || rec.description_en || '');
+
+  const discount =
+    lang === 'en'
+      ? (rec.discount_text_en || rec.discount_text_pl)
+      : (rec.discount_text_pl || rec.discount_text_en);
+
+  const featuredLabel = lang === 'en' ? 'Recommended' : 'Polecane';
+  const detailsLabel = lang === 'en' ? 'View details' : 'Zobacz szczegóły';
   
   return `
     <div class="rec-card" onclick="openDetailModal('${rec.id}')">
-      ${rec.featured ? '<div class="rec-featured-badge">⭐ Polecane</div>' : ''}
+      ${rec.featured ? `<div class="rec-featured-badge">⭐ ${featuredLabel}</div>` : ''}
       
       ${rec.image_url ? 
         `<img src="${rec.image_url}" alt="${title}" class="rec-card-image" loading="lazy" />` :
@@ -228,7 +254,11 @@ function createRecommendationCard(rec) {
       <div class="rec-card-content">
         <div class="rec-card-category">
           <span>${category.icon || '📍'}</span>
-          <span>${category.name_pl || category.name_en || 'General'}</span>
+          <span>${
+            lang === 'en'
+              ? (category.name_en || category.name_pl || 'General')
+              : (category.name_pl || category.name_en || 'Ogólne')
+          }</span>
         </div>
         
         <h2 class="rec-card-title">${title}</h2>
@@ -251,20 +281,19 @@ function createRecommendationCard(rec) {
           <div class="rec-card-promo">
             <div class="rec-card-promo-label">${discount}</div>
             <div class="rec-card-promo-code">${rec.promo_code}</div>
-          </div>
         ` : ''}
         
         <div class="rec-card-actions">
           <button class="rec-btn rec-btn-primary" onclick="event.stopPropagation(); openDetailModal('${rec.id}')">
-            Zobacz szczegóły
+            ${lang === 'en' ? 'View details' : 'Zobacz szczegóły'}
           </button>
-          ${rec.website_url ? `
+        </div>
+  ${rec.website_url ? `
             <a href="${rec.website_url}" target="_blank" rel="noopener" class="rec-btn rec-btn-secondary" onclick="event.stopPropagation(); trackClick('${rec.id}', 'website');">
-              Strona www
+              ${lang === 'en' ? 'Visit website' : 'Strona www'}
             </a>
           ` : ''}
         </div>
-      </div>
     </div>
   `;
 }
@@ -277,10 +306,35 @@ window.openDetailModal = async function(id) {
   if (!rec) return;
   
   const category = rec.recommendation_categories || {};
-  const title = rec.title_pl || rec.title_en;
-  const description = rec.description_pl || rec.description_en;
-  const discount = rec.discount_text_pl || rec.discount_text_en;
-  const offer = rec.offer_text_pl || rec.offer_text_en;
+  const lang = getCurrentLanguage();
+
+  const title =
+    lang === 'en'
+      ? (rec.title_en || rec.title_pl)
+      : (rec.title_pl || rec.title_en);
+
+  const description =
+    lang === 'en'
+      ? (rec.description_en || rec.description_pl)
+      : (rec.description_pl || rec.description_en);
+
+  const discount =
+    lang === 'en'
+      ? (rec.discount_text_en || rec.discount_text_pl)
+      : (rec.discount_text_pl || rec.discount_text_en);
+
+  const offer =
+    lang === 'en'
+      ? (rec.offer_text_en || rec.offer_text_pl)
+      : (rec.offer_text_pl || rec.offer_text_en);
+
+  const categoryName =
+    lang === 'en'
+      ? (category.name_en || category.name_pl)
+      : (category.name_pl || category.name_en);
+
+  const openMapLabel = lang === 'en' ? 'Open in maps' : 'Otwórz w mapach';
+  const visitSiteLabel = lang === 'en' ? 'Visit website' : 'Odwiedź stronę';
   
   const modalDetails = document.getElementById('modalDetails');
   modalDetails.innerHTML = `
@@ -291,7 +345,7 @@ window.openDetailModal = async function(id) {
     <div class="rec-modal-content-section">
       <div class="rec-card-category" style="margin-bottom: 16px;">
         <span>${category.icon || '📍'}</span>
-        <span>${category.name_pl || category.name_en}</span>
+        <span>${categoryName || 'General'}</span>
       </div>
       
       <h1 style="font-size: 2.25rem; font-weight: 700; margin: 0 0 16px; color: #111827;">${title}</h1>
@@ -327,13 +381,13 @@ window.openDetailModal = async function(id) {
       <div class="rec-card-actions" style="margin-bottom: 32px; gap: 16px;">
         ${rec.google_url ? `
           <a href="${rec.google_url}" target="_blank" rel="noopener" class="rec-btn rec-btn-primary" onclick="trackClick('${rec.id}', 'google');">
-            🗺️ Otwórz w mapach
+            🗺️ ${openMapLabel}
           </a>
         ` : ''}
         
         ${rec.website_url ? `
           <a href="${rec.website_url}" target="_blank" rel="noopener" class="rec-btn rec-btn-secondary" onclick="trackClick('${rec.id}', 'website');">
-            🌐 Odwiedź stronę
+            🌐 ${visitSiteLabel}
           </a>
         ` : ''}
         
@@ -413,6 +467,21 @@ window.trackClick = async function(recId, type) {
     console.error('Track click error:', e);
   }
 };
+
+// ==========================================================================
+// LANGUAGE CHANGE HANDLER
+// ==========================================================================
+document.addEventListener('wakacjecypr:languagechange', () => {
+  if (!allRecommendations.length) {
+    return;
+  }
+  try {
+    renderCategoryFilters();
+    renderRecommendations();
+  } catch (error) {
+    console.error('Error re-rendering recommendations after language change:', error);
+  }
+});
 
 // ============================================================================
 // INIT

@@ -1856,6 +1856,11 @@
       "title": "🚗 Wynajem auta na Cyprze",
       "description": "Poznaj flotę, porównaj ceny i zarezerwuj auto w dedykowanej sekcji.",
       "action": "Przejdź do wynajmu"
+    },
+    "trips": {
+      "title": "🧭 Wycieczki",
+      "description": "Przeglądaj wycieczki i złóż rezerwację.",
+      "action": "Zobacz wycieczki"
     }
   },
   "packing": {
@@ -3555,6 +3560,15 @@
     "next": "Następne miejsce →",
     "checkIn": "Zamelduj się, aby zdobyć XP",
     "hint": "Wskazówka: pozwól aplikacji użyć lokalizacji, aby potwierdzić, że jesteś na miejscu."
+  },
+  "currentPlace": {
+    "prev": "← Poprz.",
+    "next": "Nast. →",
+    "heading": "Aktualne miejsce",
+    "loading": "Ładowanie...",
+    "checkIn": "Zamelduj się",
+    "comments": "Komentarze",
+    "map": "Mapa"
   },
   "attractions": {
     "meta": {

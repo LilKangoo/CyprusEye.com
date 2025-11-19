@@ -1760,6 +1760,15 @@
     "checkIn": "Check in",
     "hint": "Hint"
   },
+  "currentPlace": {
+    "prev": "← Prev",
+    "next": "Next →",
+    "heading": "Current place",
+    "loading": "Loading...",
+    "checkIn": "✅ Check in",
+    "comments": "💬 Comments",
+    "map": "📍 Map"
+  },
   "shortcuts": {
     "packing": {
       "title": "🎒 Packing planner",
@@ -1775,6 +1784,11 @@
       "title": "🚗 Cyprus car rental",
       "description": "See the fleet, compare prices, and reserve a car in the dedicated section.",
       "action": "Go to car rental"
+    },
+    "trips": {
+      "title": "🧭 Trips",
+      "description": "Browse trips and make a reservation.",
+      "action": "View trips"
     }
   },
   "discovery": {

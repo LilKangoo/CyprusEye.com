@@ -28,8 +28,28 @@
   function getTranslation(key, fallback) {
     const i18n = window.appI18n || {};
     const language = i18n.language || document.documentElement.lang || 'pl';
-    const dictionary = (i18n.translations && i18n.translations[language]) || {};
-    const entry = dictionary[key];
+    const translations = (i18n.translations && i18n.translations[language]) || {};
+
+    if (!key) {
+      return fallback;
+    }
+
+    // Resolve nested keys with dot notation, same as i18n.js
+    let entry = translations[key];
+    if (typeof entry === 'undefined' && key.indexOf('.') !== -1) {
+      const parts = key.split('.');
+      let current = translations;
+      for (const part of parts) {
+        if (current && typeof current === 'object' && Object.prototype.hasOwnProperty.call(current, part)) {
+          current = current[part];
+        } else {
+          current = undefined;
+          break;
+        }
+      }
+      entry = current;
+    }
+
     if (typeof entry === 'string') {
       return entry;
     }
@@ -41,6 +61,7 @@
         return entry.html;
       }
     }
+
     return fallback;
   }
 

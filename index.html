@@ -186,7 +186,7 @@
               data-open-auth
               data-auth="anon-only"
               data-tour-target="login-button"
-              data-i18n="nav.login"
+              data-i18n="header.login"
               data-i18n-attrs="aria-label:auth.login.aria"
               aria-label="Zaloguj do konta"
             >
@@ -220,10 +220,22 @@
               🎟️ Kupon
             </a>
             <a class="ghost header-link" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
-            <a class="ghost header-link" href="trips.html" aria-label="Wycieczki">
+            <a
+              class="ghost header-link"
+              href="trips.html"
+              data-i18n="nav.trips"
+              data-i18n-attrs="aria-label:nav.trips"
+              aria-label="Wycieczki"
+            >
               🧭 Wycieczki
             </a>
-            <a class="ghost header-link" href="hotels.html" aria-label="Hotele">
+            <a
+              class="ghost header-link"
+              href="hotels.html"
+              data-i18n="nav.hotels"
+              data-i18n-attrs="aria-label:nav.hotels"
+              aria-label="Hotele"
+            >
               🏨 Hotele
             </a>
           </div>
@@ -317,17 +329,29 @@
           <!-- Current Place Highlight Section - restored -->
           <div class="current-place-section" id="currentPlaceSection" data-tour-target="current-place">
             <div class="current-place-navigation">
-              <button type="button" class="btn secondary" id="prevPlaceBtn" onclick="navigatePlace(-1)">
-                ← Poprz.
+              <button
+                type="button"
+                class="btn secondary"
+                id="prevPlaceBtn"
+                onclick="navigatePlace(-1)"
+                data-i18n="currentPlace.prev"
+              >
+                Prev
               </button>
-              <h2 class="current-place-heading">Aktualne miejsce</h2>
-              <button type="button" class="btn secondary" id="nextPlaceBtn" onclick="navigatePlace(1)">
-                Nast. →
+              <h2 class="current-place-heading" data-i18n="currentPlace.heading">Aktualne miejsce</h2>
+              <button
+                type="button"
+                class="btn secondary"
+                id="nextPlaceBtn"
+                onclick="navigatePlace(1)"
+                data-i18n="currentPlace.next"
+              >
+                Next
               </button>
             </div>
             
             <div class="current-place-content" id="currentPlaceContent">
-              <h3 id="currentPlaceName">Ładowanie...</h3>
+              <h3 id="currentPlaceName" data-i18n="currentPlace.loading">Loading...</h3>
               <p id="currentPlaceDescription">...</p>
               
               <div class="current-place-stats">
@@ -337,14 +361,26 @@
                 </div>
               </div>
               <div class="current-place-actions">
-                <button class="btn primary" onclick="checkInAtPlace(window.currentPlaceId)">
-                  ✅ Zamelduj się
+                <button
+                  class="btn primary"
+                  onclick="checkInAtPlace(window.currentPlaceId)"
+                  data-i18n="currentPlace.checkIn"
+                >
+                  Check-in
                 </button>
-                <button class="btn secondary" onclick="showCommunity(window.currentPlaceId)">
-                  💬 Komentarze
+                <button
+                  class="btn secondary"
+                  onclick="showCommunity(window.currentPlaceId)"
+                  data-i18n="currentPlace.comments"
+                >
+                  Comments
                 </button>
-                <button class="btn secondary" onclick="focusPlaceOnMap(window.currentPlaceId)">
-                  📍 Mapa
+                <button
+                  class="btn secondary"
+                  onclick="focusPlaceOnMap(window.currentPlaceId)"
+                  data-i18n="currentPlace.map"
+                >
+                  Map
                 </button>
               </div>
               <p id="currentPlaceCheckInStatus" class="current-place-checkin-status" aria-live="polite"></p>
@@ -607,10 +643,13 @@
             role="button"
             tabindex="0"
             data-page-url="trips.html"
+            data-tour-target="trips-section"
           >
-            <h2>🧭 Wycieczki</h2>
-            <p>Przeglądaj wycieczki i złóż rezerwację.</p>
-            <span class="adventure-shortcut-cta btn btn-secondary secondary">Zobacz wycieczki</span>
+            <h2 data-i18n="shortcuts.trips.title">🧭 Wycieczki</h2>
+            <p data-i18n="shortcuts.trips.description">Przeglądaj wycieczki i złóż rezerwację.</p>
+            <span class="adventure-shortcut-cta btn btn-secondary secondary" data-i18n="shortcuts.trips.action">
+              Zobacz wycieczki
+            </span>
           </a>
         </section>
       </div>
