@@ -395,19 +395,28 @@
                     </label>
                   </div>
                 </div>
-                <button type="button" class="btn btn-primary primary" id="btnFillFromCalculator" style="width: 100%; padding: 14px; font-size: 16px; font-weight: 600;">
+                <button
+                  type="button"
+                  class="btn btn-primary primary"
+                  id="btnFillFromCalculator"
+                  style="width: 100%; padding: 14px; font-size: 16px; font-weight: 600;"
+                  data-i18n="carRental.calculator.fillButton"
+                >
                   Przenieś do formularza
                 </button>
                 
-                <p style="font-size: 12px; color: #64748b; margin: 12px 0 0; text-align: center;">
+                <p
+                  style="font-size: 12px; color: #64748b; margin: 12px 0 0; text-align: center;"
+                  data-i18n="carRental.calculator.confirmationNote"
+                >
                   Otrzymasz potwierdzenie na email w ciągu 24h
                 </p>
               </form>
               
               <!-- Success Toast Trigger - visible confirmation -->
               <div id="formSubmitConfirmation" hidden style="background: #10b981; color: white; padding: 20px; border-radius: 12px; margin-top: 24px; text-align: center; animation: slideIn 0.3s ease;">
-                <h3 style="margin: 0 0 8px; font-size: 20px;">🎉 Gratulacje!</h3>
-                <p style="margin: 0; font-size: 16px; opacity: 0.95;">
+                <h3 style="margin: 0 0 8px; font-size: 20px;" data-i18n="carRental.calculator.successTitle">🎉 Gratulacje!</h3>
+                <p style="margin: 0; font-size: 16px; opacity: 0.95;" data-i18n="carRental.calculator.successMessage">
                   Twój formularz został wysłany pomyślnie!
                 </p>
               </div>
@@ -419,141 +428,215 @@
             </article>
 
             <article class="auto-rental-block" id="carReservationForm">
-              <h3>Złóż rezerwację</h3>
-              <p>
+              <h3 data-i18n="carRental.page.reservation.title">Złóż rezerwację</h3>
+              <p data-i18n="carRental.page.reservation.description">
                 Wypełnij formularz poniżej lub napisz do nas na WhatsApp – odpowiadamy najszybciej jak to możliwe.
               </p>
-
+              
               <div class="auto-reservation-actions" style="margin-bottom: 24px;">
-                <a class="ghost" href="https://wa.me/48534073861" target="_blank" rel="noopener">Napisz na WhatsApp</a>
+                <a
+                  class="ghost"
+                  href="https://wa.me/48534073861"
+                  target="_blank"
+                  rel="noopener"
+                  data-i18n="carRental.page.reservation.actions.whatsapp"
+                >
+                  Napisz na WhatsApp
+                </a>
               </div>
 
               <form id="localReservationForm" class="auto-reservation-form" novalidate style="background: #f8fafc; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0;">
                 <div style="margin-bottom: 24px;">
-                  <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;">Dane kontaktowe</h4>
+                  <h4
+                    style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;"
+                    data-i18n="carRental.page.reservation.sections.contact"
+                  >
+                    Dane kontaktowe
+                  </h4>
                   <div style="display: grid; gap: 16px;">
                     <div class="auto-field">
-                      <label for="res_full_name">Imię i nazwisko *</label>
-                      <input type="text" id="res_full_name" name="full_name" required placeholder="Jan Kowalski">
+                      <label for="res_full_name" data-i18n="carRental.page.reservation.fields.fullName.label">Imię i nazwisko *</label>
+                      <input
+                        type="text"
+                        id="res_full_name"
+                        name="full_name"
+                        required
+                        placeholder="Jan Kowalski"
+                        data-i18n-attrs="placeholder:carRental.page.reservation.fields.fullName.placeholder"
+                      >
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                       <div class="auto-field">
-                        <label for="res_email">Email *</label>
-                        <input type="email" id="res_email" name="email" required placeholder="jan@example.com">
+                        <label for="res_email" data-i18n="carRental.page.reservation.fields.email.label">Email *</label>
+                        <input
+                          type="email"
+                          id="res_email"
+                          name="email"
+                          required
+                          placeholder="jan@example.com"
+                          data-i18n-attrs="placeholder:carRental.page.reservation.fields.email.placeholder"
+                        >
                       </div>
                       <div class="auto-field">
-                        <label for="res_phone">Telefon *</label>
-                        <input type="tel" id="res_phone" name="phone" required placeholder="+48 123 456 789">
+                        <label for="res_phone" data-i18n="carRental.page.reservation.fields.phone.label">Telefon *</label>
+                        <input
+                          type="tel"
+                          id="res_phone"
+                          name="phone"
+                          required
+                          placeholder="+48 123 456 789"
+                          data-i18n-attrs="placeholder:carRental.page.reservation.fields.phone.placeholder"
+                        >
                       </div>
                     </div>
                     <div class="auto-field">
-                      <label for="res_country">Kraj</label>
-                      <input type="text" id="res_country" name="country" placeholder="Polska">
+                      <label for="res_country" data-i18n="carRental.page.reservation.fields.country.label">Kraj</label>
+                      <input
+                        type="text"
+                        id="res_country"
+                        name="country"
+                        placeholder="Polska"
+                        data-i18n-attrs="placeholder:carRental.page.reservation.fields.country.placeholder"
+                      >
                     </div>
                   </div>
                 </div>
 
                 <div style="margin-bottom: 24px;">
-                  <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;">Szczegóły wynajmu</h4>
+                  <h4
+                    style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;"
+                    data-i18n="carRental.page.reservation.sections.rental"
+                  >
+                    Szczegóły wynajmu
+                  </h4>
                   <div style="display: grid; gap: 16px;">
                     <div class="auto-field">
-                      <label for="res_car">Wybierz auto *</label>
+                      <label for="res_car" data-i18n="carRental.page.reservation.fields.car.label">Wybierz auto *</label>
                       <select id="res_car" name="car" required>
-                        <option value="">Ładowanie...</option>
+                        <option value="" data-i18n="carRental.page.reservation.fields.car.loading">Ładowanie...</option>
                       </select>
                     </div>
 
                     <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
                       <div class="auto-field">
-                        <label for="res_pickup_date">Data odbioru *</label>
+                        <label for="res_pickup_date" data-i18n="carRental.page.reservation.fields.pickupDate.label">Data odbioru *</label>
                         <input type="date" id="res_pickup_date" name="pickup_date" required>
                       </div>
                       <div class="auto-field">
-                        <label for="res_pickup_time">Godzina</label>
+                        <label for="res_pickup_time" data-i18n="carRental.page.reservation.fields.pickupTime.label">Godzina</label>
                         <input type="time" id="res_pickup_time" name="pickup_time" value="10:00">
                       </div>
                     </div>
 
                     <div class="auto-field">
-                      <label for="res_pickup_location">Miejsce odbioru *</label>
+                      <label for="res_pickup_location" data-i18n="carRental.page.reservation.fields.pickupLocation.label">Miejsce odbioru *</label>
                       <select id="res_pickup_location" name="pickup_location" required>
-                        <option value="larnaca">Larnaka (bez opłaty)</option>
-                        <option value="nicosia">Nikozja (+15€)</option>
-                        <option value="ayia-napa">Ayia Napa (+15€)</option>
-                        <option value="protaras">Protaras (+20€)</option>
-                        <option value="limassol">Limassol (+20€)</option>
-                        <option value="paphos">Pafos (+40€)</option>
-                        <option value="hotel">Hotel</option>
-                        <option value="city_center">Centrum miasta</option>
-                        <option value="other">Inne</option>
+                        <option value="larnaca" data-i18n="carRental.locations.larnaca.label">Larnaka (bez opłaty)</option>
+                        <option value="nicosia" data-i18n="carRental.locations.nicosia.label">Nikozja (+15€)</option>
+                        <option value="ayia-napa" data-i18n="carRental.locations.ayia-napa.label">Ayia Napa (+15€)</option>
+                        <option value="protaras" data-i18n="carRental.locations.protaras.label">Protaras (+20€)</option>
+                        <option value="limassol" data-i18n="carRental.locations.limassol.label">Limassol (+20€)</option>
+                        <option value="paphos" data-i18n="carRental.locations.paphos.label">Pafos (+40€)</option>
+                        <option value="hotel" data-i18n="carRental.page.reservation.fields.pickupLocation.hotel">Hotel</option>
+                        <option value="city_center" data-i18n="carRental.page.reservation.fields.pickupLocation.city">Centrum miasta</option>
+                        <option value="other" data-i18n="carRental.page.reservation.fields.other">Inne</option>
                       </select>
                     </div>
 
                     <div class="auto-field" id="pickupAddressField" hidden>
-                      <label for="res_pickup_address">Adres odbioru</label>
-                      <input type="text" id="res_pickup_address" name="pickup_address" placeholder="Nazwa hotelu lub dokładny adres">
+                      <label for="res_pickup_address" data-i18n="carRental.page.reservation.fields.pickupAddress.label">Adres odbioru</label>
+                      <input
+                        type="text"
+                        id="res_pickup_address"
+                        name="pickup_address"
+                        placeholder="Nazwa hotelu lub dokładny adres"
+                        data-i18n-attrs="placeholder:carRental.page.reservation.fields.pickupAddress.placeholder"
+                      >
                     </div>
 
                     <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
                       <div class="auto-field">
-                        <label for="res_return_date">Data zwrotu *</label>
+                        <label for="res_return_date" data-i18n="carRental.page.reservation.fields.returnDate.label">Data zwrotu *</label>
                         <input type="date" id="res_return_date" name="return_date" required>
                       </div>
                       <div class="auto-field">
-                        <label for="res_return_time">Godzina</label>
+                        <label for="res_return_time" data-i18n="carRental.page.reservation.fields.returnTime.label">Godzina</label>
                         <input type="time" id="res_return_time" name="return_time" value="10:00">
                       </div>
                     </div>
 
                     <div class="auto-field">
-                      <label for="res_return_location">Miejsce zwrotu *</label>
+                      <label for="res_return_location" data-i18n="carRental.page.reservation.fields.returnLocation.label">Miejsce zwrotu *</label>
                       <select id="res_return_location" name="return_location" required>
-                        <option value="larnaca">Larnaka (bez opłaty)</option>
-                        <option value="nicosia">Nikozja (+15€)</option>
-                        <option value="ayia-napa">Ayia Napa (+15€)</option>
-                        <option value="protaras">Protaras (+20€)</option>
-                        <option value="limassol">Limassol (+20€)</option>
-                        <option value="paphos">Pafos (+40€)</option>
-                        <option value="hotel">Hotel</option>
-                        <option value="city_center">Centrum miasta</option>
-                        <option value="other">Inne</option>
+                        <option value="larnaca" data-i18n="carRental.locations.larnaca.label">Larnaka (bez opłaty)</option>
+                        <option value="nicosia" data-i18n="carRental.locations.nicosia.label">Nikozja (+15€)</option>
+                        <option value="ayia-napa" data-i18n="carRental.locations.ayia-napa.label">Ayia Napa (+15€)</option>
+                        <option value="protaras" data-i18n="carRental.locations.protaras.label">Protaras (+20€)</option>
+                        <option value="limassol" data-i18n="carRental.locations.limassol.label">Limassol (+20€)</option>
+                        <option value="paphos" data-i18n="carRental.locations.paphos.label">Pafos (+40€)</option>
+                        <option value="hotel" data-i18n="carRental.page.reservation.fields.pickupLocation.hotel">Hotel</option>
+                        <option value="city_center" data-i18n="carRental.page.reservation.fields.pickupLocation.city">Centrum miasta</option>
+                        <option value="other" data-i18n="carRental.page.reservation.fields.other">Inne</option>
                       </select>
                     </div>
 
                     <div class="auto-field" id="returnAddressField" hidden>
-                      <label for="res_return_address">Adres zwrotu</label>
-                      <input type="text" id="res_return_address" name="return_address" placeholder="Nazwa hotelu lub dokładny adres">
+                      <label for="res_return_address" data-i18n="carRental.page.reservation.fields.returnAddress.label">Adres zwrotu</label>
+                      <input
+                        type="text"
+                        id="res_return_address"
+                        name="return_address"
+                        placeholder="Nazwa hotelu lub dokładny adres"
+                        data-i18n-attrs="placeholder:carRental.page.reservation.fields.returnAddress.placeholder"
+                      >
                     </div>
                   </div>
                 </div>
 
                 <div style="margin-bottom: 24px;">
-                  <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;">Dodatkowe opcje</h4>
+                  <h4
+                    style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;"
+                    data-i18n="carRental.page.reservation.sections.options"
+                  >
+                    Dodatkowe opcje
+                  </h4>
                   <div style="display: grid; gap: 16px;">
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                       <div class="auto-field">
-                        <label for="res_passengers">Liczba pasażerów</label>
+                        <label for="res_passengers" data-i18n="carRental.page.reservation.fields.passengers.label">Liczba pasażerów</label>
                         <input type="number" id="res_passengers" name="num_passengers" min="1" max="8" value="2">
                       </div>
                       <div class="auto-field">
-                        <label for="res_child_seats">Foteliki dziecięce (gratis)</label>
+                        <label for="res_child_seats" data-i18n="carRental.page.reservation.fields.childSeats.label">Foteliki dziecięce (gratis)</label>
                         <input type="number" id="res_child_seats" name="child_seats" min="0" max="3" value="0">
                       </div>
                     </div>
 
                     <div class="auto-checkbox">
                       <input type="checkbox" id="res_insurance" name="insurance">
-                      <label for="res_insurance">Pełne ubezpieczenie AC (+17€/dzień)</label>
+                      <label for="res_insurance" data-i18n="carRental.page.reservation.fields.insurance.label">Pełne ubezpieczenie AC (+17€/dzień)</label>
                     </div>
 
                     <div class="auto-field">
-                      <label for="res_flight">Numer lotu (opcjonalnie)</label>
-                      <input type="text" id="res_flight" name="flight_number" placeholder="W1234">
+                      <label for="res_flight" data-i18n="carRental.page.reservation.fields.flight.label">Numer lotu (opcjonalnie)</label>
+                      <input
+                        type="text"
+                        id="res_flight"
+                        name="flight_number"
+                        placeholder="W1234"
+                        data-i18n-attrs="placeholder:carRental.page.reservation.fields.flight.placeholder"
+                      >
                     </div>
 
                     <div class="auto-field">
-                      <label for="res_notes">Uwagi specjalne</label>
-                      <textarea id="res_notes" name="special_requests" rows="3" placeholder="Dodatkowe informacje lub prośby..."></textarea>
+                      <label for="res_notes" data-i18n="carRental.page.reservation.fields.notes.label">Uwagi specjalne</label>
+                      <textarea
+                        id="res_notes"
+                        name="special_requests"
+                        rows="3"
+                        placeholder="Dodatkowe informacje lub prośby..."
+                        data-i18n-attrs="placeholder:carRental.page.reservation.fields.notes.placeholder"
+                      ></textarea>
                     </div>
                   </div>
                 </div>
@@ -563,18 +646,27 @@
                 <div id="reservationError" class="admin-error-message" hidden style="margin-bottom: 16px;"></div>
                 <div id="reservationSuccess" hidden></div>
 
-                <button type="submit" class="btn btn-primary primary" id="btnSubmitReservation" style="width: 100%; padding: 14px; font-size: 16px; font-weight: 600;">
+                <button
+                  type="submit"
+                  class="btn btn-primary primary"
+                  id="btnSubmitReservation"
+                  style="width: 100%; padding: 14px; font-size: 16px; font-weight: 600;"
+                  data-i18n="carRental.page.reservation.submit"
+                >
                   Wyślij rezerwację
                 </button>
                 
-                <p style="font-size: 12px; color: #64748b; margin: 12px 0 0; text-align: center;">
+                <p
+                  style="font-size: 12px; color: #64748b; margin: 12px 0 0; text-align: center;"
+                  data-i18n="carRental.page.reservation.confirmationNote"
+                >
                   Otrzymasz potwierdzenie na email w ciągu 24h
                 </p>
               </form>
 
               <div id="formSubmitConfirmation" hidden style="background: #10b981; color: white; padding: 20px; border-radius: 12px; margin-top: 24px; text-align: center; animation: slideIn 0.3s ease;">
-                <h3 style="margin: 0 0 8px; font-size: 20px;">🎉 Gratulacje!</h3>
-                <p style="margin: 0; font-size: 16px; opacity: 0.95;">Twój formularz został wysłany pomyślnie!</p>
+                <h3 style="margin: 0 0 8px; font-size: 20px;" data-i18n="carRental.calculator.successTitle">🎉 Gratulacje!</h3>
+                <p style="margin: 0; font-size: 16px; opacity: 0.95;" data-i18n="carRental.calculator.successMessage">Twój formularz został wysłany pomyślnie!</p>
               </div>
             </article>
           </section>

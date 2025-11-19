@@ -3094,6 +3094,88 @@
       "calculator": {
         "title": "Kalkulator wynajmu",
         "description": "Sprawdź dokładną cenę wraz z dodatkami i opłatami za dostawę."
+      },
+      "reservation": {
+        "title": "Złóż rezerwację",
+        "description": "Wypełnij formularz poniżej lub napisz do nas na WhatsApp – odpowiadamy najszybciej jak to możliwe.",
+        "actions": {
+          "whatsapp": "Napisz na WhatsApp"
+        },
+        "sections": {
+          "contact": "Dane kontaktowe",
+          "rental": "Szczegóły wynajmu",
+          "options": "Dodatkowe opcje"
+        },
+        "fields": {
+          "fullName": {
+            "label": "Imię i nazwisko *",
+            "placeholder": "Jan Kowalski"
+          },
+          "email": {
+            "label": "Email *",
+            "placeholder": "jan@example.com"
+          },
+          "phone": {
+            "label": "Telefon *",
+            "placeholder": "+48 123 456 789"
+          },
+          "country": {
+            "label": "Kraj",
+            "placeholder": "Polska"
+          },
+          "car": {
+            "label": "Wybierz auto *",
+            "loading": "Ładowanie..."
+          },
+          "pickupDate": {
+            "label": "Data odbioru *"
+          },
+          "pickupTime": {
+            "label": "Godzina"
+          },
+          "pickupLocation": {
+            "label": "Miejsce odbioru *",
+            "hotel": "Hotel",
+            "city": "Centrum miasta"
+          },
+          "pickupAddress": {
+            "label": "Adres odbioru",
+            "placeholder": "Nazwa hotelu lub dokładny adres"
+          },
+          "returnDate": {
+            "label": "Data zwrotu *"
+          },
+          "returnTime": {
+            "label": "Godzina"
+          },
+          "returnLocation": {
+            "label": "Miejsce zwrotu *"
+          },
+          "returnAddress": {
+            "label": "Adres zwrotu",
+            "placeholder": "Nazwa hotelu lub dokładny adres"
+          },
+          "other": "Inne",
+          "passengers": {
+            "label": "Liczba pasażerów"
+          },
+          "childSeats": {
+            "label": "Foteliki dziecięce (gratis)"
+          },
+          "insurance": {
+            "label": "Pełne ubezpieczenie AC (+17€/dzień)"
+          },
+          "flight": {
+            "label": "Numer lotu (opcjonalnie)",
+            "placeholder": "W1234"
+          },
+          "notes": {
+            "label": "Uwagi specjalne",
+            "placeholder": "Dodatkowe informacje lub prośby..."
+          }
+        },
+        "submit": "Wyślij rezerwację",
+        "confirmationNote": "Otrzymasz potwierdzenie na email w ciągu 24h"
       }
     },
     "common": {
@@ -3124,7 +3206,11 @@
         "youngDriver": "Młody kierowca: {{pricePerDay}} × {{days}} {{daysLabel}} = {{total}}",
         "title": "Wycena obejmuje:"
       },
-      "total": "Całkowita cena wynajmu: {{price}}"
+      "total": "Całkowita cena wynajmu: {{price}}",
+      "fillButton": "Przenieś do formularza",
+      "confirmationNote": "Otrzymasz potwierdzenie na email w ciągu 24h",
+      "successTitle": "🎉 Gratulacje!",
+      "successMessage": "Twój formularz został wysłany pomyślnie!"
     },
     "included": {
       "feature1": {
