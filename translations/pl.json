@@ -3270,12 +3270,218 @@
     }
   },
   "carRentalPfo": {
+    "calculator": {
+      "form": {
+        "car": "Wybierz auto",
+        "loading": "Ładowanie floty...",
+        "pickupDate": "Data odbioru",
+        "pickupTime": "Godzina odbioru",
+        "returnDate": "Data zwrotu",
+        "returnTime": "Godzina zwrotu",
+        "airportPickup": "Odbiór na lotnisku PFO",
+        "airportReturn": "Zwrot na lotnisku PFO",
+        "fullInsurance": "Pełne ubezpieczenie AC (+17€/dzień)",
+        "calculate": "Oblicz cenę",
+        "message": "Bez depozytu, foteliki dziecięce zawsze gratis."
+      }
+    },
     "page": {
       "hero": {
         "note": {
           "suffix": "."
         }
+      },
+      "reservation": {
+        "title": "Złóż rezerwację",
+        "description": "Wypełnij formularz poniżej lub napisz do nas na WhatsApp – odpowiadamy najszybciej jak to możliwe.",
+        "whatsapp": "Napisz na WhatsApp",
+        "actions": {
+          "fillFromCalculator": "Przenieś dane z kalkulatora"
+        },
+        "sections": {
+          "contact": "Dane kontaktowe",
+          "rental": "Szczegóły wynajmu",
+          "options": "Dodatkowe opcje"
+        },
+        "fields": {
+          "fullName": {
+            "label": "Imię i nazwisko *",
+            "placeholder": "Jan Kowalski"
+          },
+          "email": {
+            "label": "Email *",
+            "placeholder": "jan@example.com"
+          },
+          "phone": {
+            "label": "Telefon *",
+            "placeholder": "+48 123 456 789"
+          },
+          "country": {
+            "label": "Kraj",
+            "placeholder": "Polska"
+          },
+          "car": {
+            "label": "Wybierz auto *",
+            "loading": "Ładowanie..."
+          },
+          "pickupDate": {
+            "label": "Data odbioru *"
+          },
+          "pickupTime": {
+            "label": "Godzina"
+          },
+          "pickupLocation": {
+            "label": "Miejsce odbioru *"
+          },
+          "pickupAddress": {
+            "label": "Adres odbioru",
+            "placeholder": "Nazwa hotelu lub dokładny adres"
+          },
+          "returnDate": {
+            "label": "Data zwrotu *"
+          },
+          "returnTime": {
+            "label": "Godzina"
+          },
+          "returnLocation": {
+            "label": "Miejsce zwrotu *"
+          },
+          "returnAddress": {
+            "label": "Adres zwrotu",
+            "placeholder": "Nazwa hotelu lub dokładny adres"
+          },
+          "locations": {
+            "airport": "Lotnisko Paphos (PFO)",
+            "hotel": "Hotel",
+            "city": "Centrum miasta",
+            "other": "Inne"
+          },
+          "passengers": {
+            "label": "Liczba pasażerów"
+          },
+          "childSeats": {
+            "label": "Foteliki dziecięce (gratis)"
+          },
+          "insurance": {
+            "label": "Pełne ubezpieczenie AC (+17€/dzień)"
+          },
+          "flight": {
+            "label": "Numer lotu (opcjonalnie)",
+            "placeholder": "W1234"
+          },
+          "notes": {
+            "label": "Uwagi specjalne",
+            "placeholder": "Dodatkowe informacje lub prośby..."
+          }
+        },
+        "submit": "Wyślij rezerwację",
+        "confirmationNote": "Otrzymasz potwierdzenie na email w ciągu 24h",
+        "successTitle": "🎉 Gratulacje!",
+        "successMessage": "Twój formularz został wysłany pomyślnie!"
       }
+    }
+  },
+  "advertise": {
+    "overline": "CyprusEye",
+    "title": "Współpraca reklamowa",
+    "back": "← Wróć do strony głównej",
+    "hero": {
+      "badge": "Partnerzy premium",
+      "title": "Dotrzyj do turystów przed ich przylotem na Cypr",
+      "description": "Publikujemy przewodniki, listy zadań i kupony, z których korzystają tysiące polskich i międzynarodowych podróżników. Wypełnij formularz, a nasz zespół przedstawi pakiet dopasowany do Twojej marki."
+    },
+    "stats": {
+      "group": "członków społeczności WakacjeCypr",
+      "guides": "aktywnych przewodników tematycznych",
+      "languages": "wersje językowe treści"
+    },
+    "form": {
+      "title": "Zgłoś swoją markę",
+      "subtitle": "Opowiedz nam o swojej usłudze, a przygotujemy propozycję ekspozycji w serwisach CyprusEye i WakacjeCypr.",
+      "name": "Imię i nazwisko*",
+      "email": "Adres e-mail*",
+      "service": "Nazwa marki lub usługi",
+      "message": "Wiadomość*",
+      "submit": "Wyślij zgłoszenie"
+    },
+    "footer": "Współpracujemy z usługodawcami transportowymi, hotelami, atrakcjami oraz markami lifestyle. Zadbamy o widoczność Twojej oferty wśród podróżników wybierających Cypr."
+  },
+  "trips": {
+    "hero": {
+      "heading": "Odkryj Cypr",
+      "subheading": "Wybierz miasto i przeglądaj najlepsze wycieczki"
+    },
+    "modal": {
+      "descriptionTitle": "Opis",
+      "bookingTitle": "Rezerwacja"
+    },
+    "booking": {
+      "fields": {
+        "name": "Imię i nazwisko *",
+        "email": "Email *",
+        "phone": "Telefon",
+        "tripDate": "Preferowana data wycieczki",
+        "arrivalDate": "Data przylotu na Cypr *",
+        "departureDate": "Data wylotu z Cypru *",
+        "adults": "Liczba dorosłych",
+        "children": "Dzieci",
+        "hours": "Liczba godzin",
+        "days": "Liczba dni",
+        "notes": "Uwagi (opcjonalnie)"
+      },
+      "priceLabel": "Cena",
+      "submit": "Zarezerwuj"
+    }
+  },
+  "hotels": {
+    "hero": {
+      "heading": "Zakwaterowania na Cyprze",
+      "subheading": "Wybierz miasto i przeglądaj najlepsze oferty"
+    },
+    "modal": {
+      "descriptionTitle": "Opis",
+      "bookingTitle": "Rezerwacja"
+    },
+    "booking": {
+      "fields": {
+        "name": "Imię i nazwisko *",
+        "email": "Email *",
+        "phone": "Telefon",
+        "arrivalDate": "Data przyjazdu *",
+        "departureDate": "Data wyjazdu *",
+        "adults": "Dorośli",
+        "children": "Dzieci",
+        "notes": "Uwagi (opcjonalnie)"
+      },
+      "priceLabel": "Cena",
+      "submit": "Zarezerwuj"
+    }
+  },
+  "recommendations": {
+    "hero": {
+      "title": "✨ Nasze Rekomendacje",
+      "subtitle": "Sprawdzone miejsca, które kochamy na Cyprze – z ekskluzywnymi zniżkami i bonusami dla Ciebie."
+    },
+    "filters": {
+      "aria": "Filtry kategorii",
+      "title": "Wybierz kategorię",
+      "clear": "Wyczyść filtry"
+    },
+    "loading": "Ładowanie rekomendacji...",
+    "empty": {
+      "title": "Brak wyników",
+      "body": "Nie znaleźliśmy miejsc dla wybranych filtrów. Spróbuj zmienić kategorię lub wyczyścić filtry.",
+      "cta": "Pokaż wszystkie miejsca"
+    }
+  },
+  "seo": {
+    "tasks": {
+      "description": "Planuj swoje przygotowania do podróży, misje i przypomnienia w ramach listy zadań CyprusEye Quest.",
+      "ogDescription": "Bądź na bieżąco z przygotowaniami i zrealizuj każdy cel przed lotem na Cypr."
+    },
+    "packing": {
+      "description": "Wybierz sezon podróży na Cypr i odhacz wszystko, co musisz spakować z planerem CyprusEye Quest.",
+      "ogDescription": "Skorzystaj z gotowych list pakowania na każdy sezon na Cyprze i zachowaj porządek przed wyjazdem."
     }
   },
   "language": {

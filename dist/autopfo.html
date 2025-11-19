@@ -345,47 +345,49 @@
               <form id="carRentalCalculator" class="auto-calculator" novalidate>
                 <div class="grid auto-calculator-grid">
                   <div class="auto-field">
-                    <label for="car">Wybierz auto</label>
+                    <label for="car" data-i18n="carRentalPfo.calculator.form.car">Wybierz auto</label>
                     <select id="car" name="car" required aria-required="true">
-                      <option value="">Ładowanie floty...</option>
+                      <option value="" data-i18n="carRentalPfo.calculator.form.loading">Ładowanie floty...</option>
                       <!-- Options will be loaded dynamically from database -->
                     </select>
                   </div>
                   <div class="auto-field">
-                    <label for="pickup_date">Data odbioru</label>
+                    <label for="pickup_date" data-i18n="carRentalPfo.calculator.form.pickupDate">Data odbioru</label>
                     <input type="date" id="pickup_date" name="pickup_date" required aria-required="true" />
                   </div>
                   <div class="auto-field">
-                    <label for="pickup_time">Godzina odbioru</label>
+                    <label for="pickup_time" data-i18n="carRentalPfo.calculator.form.pickupTime">Godzina odbioru</label>
                     <input type="time" id="pickup_time" name="pickup_time" value="10:00" />
                   </div>
                   <div class="auto-field">
-                    <label for="return_date">Data zwrotu</label>
+                    <label for="return_date" data-i18n="carRentalPfo.calculator.form.returnDate">Data zwrotu</label>
                     <input type="date" id="return_date" name="return_date" required aria-required="true" />
                   </div>
                   <div class="auto-field">
-                    <label for="return_time">Godzina zwrotu</label>
+                    <label for="return_time" data-i18n="carRentalPfo.calculator.form.returnTime">Godzina zwrotu</label>
                     <input type="time" id="return_time" name="return_time" value="10:00" />
                   </div>
                   <div class="auto-checkbox">
                     <input type="checkbox" id="airport_pickup" name="airport_pickup" />
-                    <label for="airport_pickup">Odbiór na lotnisku PFO</label>
+                    <label for="airport_pickup" data-i18n="carRentalPfo.calculator.form.airportPickup">Odbiór na lotnisku PFO</label>
                   </div>
                   <div class="auto-checkbox">
                     <input type="checkbox" id="airport_return" name="airport_return" />
-                    <label for="airport_return">Zwrot na lotnisku PFO</label>
+                    <label for="airport_return" data-i18n="carRentalPfo.calculator.form.airportReturn">Zwrot na lotnisku PFO</label>
                   </div>
                   <div class="auto-checkbox">
                     <input type="checkbox" id="full_insurance" name="full_insurance" />
-                    <label for="full_insurance">Pełne ubezpieczenie AC (+17&nbsp;€/dzień)</label>
+                    <label for="full_insurance" data-i18n="carRentalPfo.calculator.form.fullInsurance">Pełne ubezpieczenie AC (+17&nbsp;€/dzień)</label>
                   </div>
                 </div>
-                <button type="submit" class="btn btn-primary primary auto-calculate-btn">Oblicz cenę</button>
+                <button type="submit" class="btn btn-primary primary auto-calculate-btn" data-i18n="carRentalPfo.calculator.form.calculate">
+                  Oblicz cenę
+                </button>
               </form>
               <div class="auto-calculator-result" aria-live="polite">
                 <p id="total_price" class="auto-calculator-total"></p>
                 <p id="days_price" class="auto-calculator-breakdown"></p>
-                <p class="auto-calculator-message">Bez depozytu, foteliki dziecięce zawsze gratis.</p>
+                <p class="auto-calculator-message" data-i18n="carRentalPfo.calculator.form.message">Bez depozytu, foteliki dziecięce zawsze gratis.</p>
               </div>
             </article>
 
@@ -396,7 +398,12 @@
               </p>
               
               <div class="auto-reservation-actions" style="margin-bottom: 24px;">
-                <button type="button" id="btnFillFromCalculator" class="btn btn-secondary secondary">
+                <button
+                  type="button"
+                  id="btnFillFromCalculator"
+                  class="btn btn-secondary secondary"
+                  data-i18n="carRentalPfo.page.reservation.actions.fillFromCalculator"
+                >
                   Przenieś dane z kalkulatora
                 </button>
                 <a
@@ -405,8 +412,7 @@
                   target="_blank"
                   rel="noopener"
                   data-i18n="carRentalPfo.page.reservation.whatsapp"
-                  >Napisz na WhatsApp</a
-                >
+                >Napisz na WhatsApp</a>
               </div>
 
               <!-- Local Reservation Form -->
@@ -414,124 +420,175 @@
                 
                 <!-- Personal Information -->
                 <div style="margin-bottom: 24px;">
-                  <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;">Dane kontaktowe</h4>
+                  <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;" data-i18n="carRentalPfo.page.reservation.sections.contact">Dane kontaktowe</h4>
                   <div style="display: grid; gap: 16px;">
                     <div class="auto-field">
-                      <label for="res_full_name">Imię i nazwisko *</label>
-                      <input type="text" id="res_full_name" name="full_name" required placeholder="Jan Kowalski">
+                      <label for="res_full_name" data-i18n="carRentalPfo.page.reservation.fields.fullName.label">Imię i nazwisko *</label>
+                      <input
+                        type="text"
+                        id="res_full_name"
+                        name="full_name"
+                        required
+                        placeholder="Jan Kowalski"
+                        data-i18n-attrs="placeholder:carRentalPfo.page.reservation.fields.fullName.placeholder"
+                      >
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                       <div class="auto-field">
-                        <label for="res_email">Email *</label>
-                        <input type="email" id="res_email" name="email" required placeholder="jan@example.com">
+                        <label for="res_email" data-i18n="carRentalPfo.page.reservation.fields.email.label">Email *</label>
+                        <input
+                          type="email"
+                          id="res_email"
+                          name="email"
+                          required
+                          placeholder="jan@example.com"
+                          data-i18n-attrs="placeholder:carRentalPfo.page.reservation.fields.email.placeholder"
+                        >
                       </div>
                       <div class="auto-field">
-                        <label for="res_phone">Telefon *</label>
-                        <input type="tel" id="res_phone" name="phone" required placeholder="+48 123 456 789">
+                        <label for="res_phone" data-i18n="carRentalPfo.page.reservation.fields.phone.label">Telefon *</label>
+                        <input
+                          type="tel"
+                          id="res_phone"
+                          name="phone"
+                          required
+                          placeholder="+48 123 456 789"
+                          data-i18n-attrs="placeholder:carRentalPfo.page.reservation.fields.phone.placeholder"
+                        >
                       </div>
                     </div>
                     <div class="auto-field">
-                      <label for="res_country">Kraj</label>
-                      <input type="text" id="res_country" name="country" placeholder="Polska">
+                      <label for="res_country" data-i18n="carRentalPfo.page.reservation.fields.country.label">Kraj</label>
+                      <input
+                        type="text"
+                        id="res_country"
+                        name="country"
+                        placeholder="Polska"
+                        data-i18n-attrs="placeholder:carRentalPfo.page.reservation.fields.country.placeholder"
+                      >
                     </div>
                   </div>
                 </div>
 
                 <!-- Rental Details -->
                 <div style="margin-bottom: 24px;">
-                  <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;">Szczegóły wynajmu</h4>
+                  <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;" data-i18n="carRentalPfo.page.reservation.sections.rental">Szczegóły wynajmu</h4>
                   <div style="display: grid; gap: 16px;">
                     <div class="auto-field">
-                      <label for="res_car">Wybierz auto *</label>
+                      <label for="res_car" data-i18n="carRentalPfo.page.reservation.fields.car.label">Wybierz auto *</label>
                       <select id="res_car" name="car" required>
-                        <option value="">Ładowanie...</option>
+                        <option value="" data-i18n="carRentalPfo.page.reservation.fields.car.loading">Ładowanie...</option>
                       </select>
                     </div>
                     
                     <!-- Pickup -->
                     <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
                       <div class="auto-field">
-                        <label for="res_pickup_date">Data odbioru *</label>
+                        <label for="res_pickup_date" data-i18n="carRentalPfo.page.reservation.fields.pickupDate.label">Data odbioru *</label>
                         <input type="date" id="res_pickup_date" name="pickup_date" required>
                       </div>
                       <div class="auto-field">
-                        <label for="res_pickup_time">Godzina</label>
+                        <label for="res_pickup_time" data-i18n="carRentalPfo.page.reservation.fields.pickupTime.label">Godzina</label>
                         <input type="time" id="res_pickup_time" name="pickup_time" value="10:00">
                       </div>
                     </div>
                     
                     <div class="auto-field">
-                      <label for="res_pickup_location">Miejsce odbioru *</label>
+                      <label for="res_pickup_location" data-i18n="carRentalPfo.page.reservation.fields.pickupLocation.label">Miejsce odbioru *</label>
                       <select id="res_pickup_location" name="pickup_location" required>
-                        <option value="airport_pfo">Lotnisko Paphos (PFO)</option>
-                        <option value="hotel">Hotel</option>
-                        <option value="city_center">Centrum miasta</option>
-                        <option value="other">Inne</option>
+                        <option value="airport_pfo" data-i18n="carRentalPfo.page.reservation.fields.locations.airport">Lotnisko Paphos (PFO)</option>
+                        <option value="hotel" data-i18n="carRentalPfo.page.reservation.fields.locations.hotel">Hotel</option>
+                        <option value="city_center" data-i18n="carRentalPfo.page.reservation.fields.locations.city">Centrum miasta</option>
+                        <option value="other" data-i18n="carRentalPfo.page.reservation.fields.locations.other">Inne</option>
                       </select>
                     </div>
                     
                     <div class="auto-field" id="pickupAddressField" hidden>
-                      <label for="res_pickup_address">Adres odbioru</label>
-                      <input type="text" id="res_pickup_address" name="pickup_address" placeholder="Nazwa hotelu lub dokładny adres">
+                      <label for="res_pickup_address" data-i18n="carRentalPfo.page.reservation.fields.pickupAddress.label">Adres odbioru</label>
+                      <input
+                        type="text"
+                        id="res_pickup_address"
+                        name="pickup_address"
+                        placeholder="Nazwa hotelu lub dokładny adres"
+                        data-i18n-attrs="placeholder:carRentalPfo.page.reservation.fields.pickupAddress.placeholder"
+                      >
                     </div>
 
                     <!-- Return -->
                     <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
                       <div class="auto-field">
-                        <label for="res_return_date">Data zwrotu *</label>
+                        <label for="res_return_date" data-i18n="carRentalPfo.page.reservation.fields.returnDate.label">Data zwrotu *</label>
                         <input type="date" id="res_return_date" name="return_date" required>
                       </div>
                       <div class="auto-field">
-                        <label for="res_return_time">Godzina</label>
+                        <label for="res_return_time" data-i18n="carRentalPfo.page.reservation.fields.returnTime.label">Godzina</label>
                         <input type="time" id="res_return_time" name="return_time" value="10:00">
                       </div>
                     </div>
                     
                     <div class="auto-field">
-                      <label for="res_return_location">Miejsce zwrotu *</label>
+                      <label for="res_return_location" data-i18n="carRentalPfo.page.reservation.fields.returnLocation.label">Miejsce zwrotu *</label>
                       <select id="res_return_location" name="return_location" required>
-                        <option value="airport_pfo">Lotnisko Paphos (PFO)</option>
-                        <option value="hotel">Hotel</option>
-                        <option value="city_center">Centrum miasta</option>
-                        <option value="other">Inne</option>
+                        <option value="airport_pfo" data-i18n="carRentalPfo.page.reservation.fields.locations.airport">Lotnisko Paphos (PFO)</option>
+                        <option value="hotel" data-i18n="carRentalPfo.page.reservation.fields.locations.hotel">Hotel</option>
+                        <option value="city_center" data-i18n="carRentalPfo.page.reservation.fields.locations.city">Centrum miasta</option>
+                        <option value="other" data-i18n="carRentalPfo.page.reservation.fields.locations.other">Inne</option>
                       </select>
                     </div>
                     
                     <div class="auto-field" id="returnAddressField" hidden>
-                      <label for="res_return_address">Adres zwrotu</label>
-                      <input type="text" id="res_return_address" name="return_address" placeholder="Nazwa hotelu lub dokładny adres">
+                      <label for="res_return_address" data-i18n="carRentalPfo.page.reservation.fields.returnAddress.label">Adres zwrotu</label>
+                      <input
+                        type="text"
+                        id="res_return_address"
+                        name="return_address"
+                        placeholder="Nazwa hotelu lub dokładny adres"
+                        data-i18n-attrs="placeholder:carRentalPfo.page.reservation.fields.returnAddress.placeholder"
+                      >
                     </div>
                   </div>
                 </div>
 
                 <!-- Additional Options -->
                 <div style="margin-bottom: 24px;">
-                  <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;">Dodatkowe opcje</h4>
+                  <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;" data-i18n="carRentalPfo.page.reservation.sections.options">Dodatkowe opcje</h4>
                   <div style="display: grid; gap: 16px;">
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
                       <div class="auto-field">
-                        <label for="res_passengers">Liczba pasażerów</label>
+                        <label for="res_passengers" data-i18n="carRentalPfo.page.reservation.fields.passengers.label">Liczba pasażerów</label>
                         <input type="number" id="res_passengers" name="num_passengers" min="1" max="8" value="2">
                       </div>
                       <div class="auto-field">
-                        <label for="res_child_seats">Foteliki dziecięce (gratis)</label>
+                        <label for="res_child_seats" data-i18n="carRentalPfo.page.reservation.fields.childSeats.label">Foteliki dziecięce (gratis)</label>
                         <input type="number" id="res_child_seats" name="child_seats" min="0" max="3" value="0">
                       </div>
                     </div>
                     
                     <div class="auto-checkbox">
                       <input type="checkbox" id="res_insurance" name="insurance">
-                      <label for="res_insurance">Pełne ubezpieczenie AC (+17€/dzień)</label>
+                      <label for="res_insurance" data-i18n="carRentalPfo.page.reservation.fields.insurance.label">Pełne ubezpieczenie AC (+17€/dzień)</label>
                     </div>
                     
                     <div class="auto-field">
-                      <label for="res_flight">Numer lotu (opcjonalnie)</label>
-                      <input type="text" id="res_flight" name="flight_number" placeholder="W1234">
+                      <label for="res_flight" data-i18n="carRentalPfo.page.reservation.fields.flight.label">Numer lotu (opcjonalnie)</label>
+                      <input
+                        type="text"
+                        id="res_flight"
+                        name="flight_number"
+                        placeholder="W1234"
+                        data-i18n-attrs="placeholder:carRentalPfo.page.reservation.fields.flight.placeholder"
+                      >
                     </div>
                     
                     <div class="auto-field">
-                      <label for="res_notes">Uwagi specjalne</label>
-                      <textarea id="res_notes" name="special_requests" rows="3" placeholder="Dodatkowe informacje lub prośby..."></textarea>
+                      <label for="res_notes" data-i18n="carRentalPfo.page.reservation.fields.notes.label">Uwagi specjalne</label>
+                      <textarea
+                        id="res_notes"
+                        name="special_requests"
+                        rows="3"
+                        placeholder="Dodatkowe informacje lub prośby..."
+                        data-i18n-attrs="placeholder:carRentalPfo.page.reservation.fields.notes.placeholder"
+                      ></textarea>
                     </div>
                   </div>
                 </div>
@@ -546,19 +603,28 @@
                 <div id="reservationSuccess" hidden></div>
 
                 <!-- Submit Button -->
-                <button type="submit" class="btn btn-primary primary" id="btnSubmitReservation" style="width: 100%; padding: 14px; font-size: 16px; font-weight: 600;">
+                <button
+                  type="submit"
+                  class="btn btn-primary primary"
+                  id="btnSubmitReservation"
+                  style="width: 100%; padding: 14px; font-size: 16px; font-weight: 600;"
+                  data-i18n="carRentalPfo.page.reservation.submit"
+                >
                   Wyślij rezerwację
                 </button>
                 
-                <p style="font-size: 12px; color: #64748b; margin: 12px 0 0; text-align: center;">
+                <p
+                  style="font-size: 12px; color: #64748b; margin: 12px 0 0; text-align: center;"
+                  data-i18n="carRentalPfo.page.reservation.confirmationNote"
+                >
                   Otrzymasz potwierdzenie na email w ciągu 24h
                 </p>
               </form>
               
               <!-- Success Toast Trigger - visible confirmation -->
               <div id="formSubmitConfirmation" hidden style="background: #10b981; color: white; padding: 20px; border-radius: 12px; margin-top: 24px; text-align: center; animation: slideIn 0.3s ease;">
-                <h3 style="margin: 0 0 8px; font-size: 20px;">🎉 Gratulacje!</h3>
-                <p style="margin: 0; font-size: 16px; opacity: 0.95;">
+                <h3 style="margin: 0 0 8px; font-size: 20px;" data-i18n="carRentalPfo.page.reservation.successTitle">🎉 Gratulacje!</h3>
+                <p style="margin: 0; font-size: 16px; opacity: 0.95;" data-i18n="carRentalPfo.page.reservation.successMessage">
                   Twój formularz został wysłany pomyślnie!
                 </p>
               </div>

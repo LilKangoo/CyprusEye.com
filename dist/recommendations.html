@@ -169,17 +169,17 @@
     <!-- Hero -->
     <section class="recommendations-hero">
       <div class="hero-content">
-        <h1>✨ Nasze Rekomendacje</h1>
-        <p class="hero-subtitle">Sprawdzone miejsca, które kochamy na Cyprze – z ekskluzywnymi zniżkami i bonusami dla Ciebie.</p>
+        <h1 data-i18n="recommendations.hero.title">✨ Nasze Rekomendacje</h1>
+        <p class="hero-subtitle" data-i18n="recommendations.hero.subtitle">Sprawdzone miejsca, które kochamy na Cyprze – z ekskluzywnymi zniżkami i bonusami dla Ciebie.</p>
       </div>
     </section>
 
     <!-- Filtry kategorii -->
-    <section class="recommendations-filters" aria-label="Filtry kategorii">
+    <section class="recommendations-filters" aria-label="Filtry kategorii" data-i18n-attrs="aria-label:recommendations.filters.aria">
       <div class="filters-container">
         <div class="filters-header">
-          <h2>Wybierz kategorię</h2>
-          <button id="clearFilters" class="btn-text" type="button" style="display:none">Wyczyść filtry</button>
+          <h2 data-i18n="recommendations.filters.title">Wybierz kategorię</h2>
+          <button id="clearFilters" class="btn-text" type="button" style="display:none" data-i18n="recommendations.filters.clear">Wyczyść filtry</button>
         </div>
         <div id="categoriesFilters" class="filters-grid" aria-live="polite">
           <!-- Dynamiczne przyciski kategorii z js/recommendations.js -->
@@ -191,7 +191,7 @@
     <section class="recommendations-section" aria-label="Lista rekomendowanych miejsc">
       <div id="loadingState" class="loading-state">
         <div class="loading-spinner" aria-hidden="true"></div>
-        <p>Ładowanie rekomendacji...</p>
+        <p data-i18n="recommendations.loading">Ładowanie rekomendacji...</p>
       </div>
 
       <div id="recommendationsGrid" class="recommendations-grid" aria-live="polite">
@@ -200,9 +200,9 @@
 
       <div id="emptyState" class="empty-state" style="display:none">
         <div class="empty-state-icon">🔍</div>
-        <h3>Brak wyników</h3>
-        <p>Nie znaleźliśmy miejsc dla wybranych filtrów. Spróbuj zmienić kategorię lub wyczyścić filtry.</p>
-        <button type="button" class="btn" onclick="clearFilters()">Pokaż wszystkie miejsca</button>
+        <h3 data-i18n="recommendations.empty.title">Brak wyników</h3>
+        <p data-i18n="recommendations.empty.body">Nie znaleźliśmy miejsc dla wybranych filtrów. Spróbuj zmienić kategorię lub wyczyścić filtry.</p>
+        <button type="button" class="btn" onclick="clearFilters()" data-i18n="recommendations.empty.cta">Pokaż wszystkie miejsca</button>
       </div>
     </section>
 

@@ -273,8 +273,8 @@
 
   <main id="main-content">
     <section class="trips-hero">
-      <h1>Zakwaterowania na Cyprze</h1>
-      <p>Wybierz miasto i przeglądaj najlepsze oferty</p>
+      <h1 data-i18n="hotels.hero.heading">Zakwaterowania na Cyprze</h1>
+      <p data-i18n="hotels.hero.subheading">Wybierz miasto i przeglądaj najlepsze oferty</p>
     </section>
 
     <section class="trips-container">
@@ -293,61 +293,60 @@
         </div>
         <div class="trip-modal-body">
           <div class="trip-section">
-            <h3 class="trip-section-title">Opis</h3>
+            <h3 class="trip-section-title" data-i18n="hotels.modal.descriptionTitle">Opis</h3>
             <div class="trip-description" id="modalHotelDescription"></div>
           </div>
 
           <div class="trip-section">
-            <h3 class="trip-section-title">Rezerwacja</h3>
+            <h3 class="trip-section-title" data-i18n="hotels.modal.bookingTitle">Rezerwacja</h3>
             <form class="booking-form" id="hotelBookingForm">
               <div class="form-row">
                 <div class="form-field">
-                  <label>Imię i nazwisko *</label>
+                  <label data-i18n="hotels.booking.fields.name">Imię i nazwisko *</label>
                   <input name="name" required />
                 </div>
                 <div class="form-field">
-                  <label>Email *</label>
+                  <label data-i18n="hotels.booking.fields.email">Email *</label>
                   <input type="email" name="email" required />
                 </div>
               </div>
               <div class="form-row">
                 <div class="form-field">
-                  <label>Telefon</label>
+                  <label data-i18n="hotels.booking.fields.phone">Telefon</label>
                   <input name="phone" />
                 </div>
                 <div class="form-field">
-                  <label>Data przyjazdu *</label>
+                  <label data-i18n="hotels.booking.fields.arrivalDate">Data przyjazdu *</label>
                   <input type="date" name="arrival_date" id="arrivalDate" required />
                 </div>
               </div>
               <div class="form-row">
                 <div class="form-field">
-                  <label>Data wyjazdu *</label>
+                  <label data-i18n="hotels.booking.fields.departureDate">Data wyjazdu *</label>
                   <input type="date" name="departure_date" id="departureDate" required />
                 </div>
                 <div class="form-field">
-                  <label>Dorośli</label>
+                  <label data-i18n="hotels.booking.fields.adults">Dorośli</label>
                   <input type="number" name="adults" id="bookingAdults" min="1" value="2" />
                 </div>
               </div>
               <div class="form-row">
                 <div class="form-field">
-                  <label>Dzieci</label>
+                  <label data-i18n="hotels.booking.fields.children">Dzieci</label>
                   <input type="number" name="children" id="bookingChildren" min="0" value="0" />
                 </div>
               </div>
               <div class="form-field">
-                <label>Uwagi (opcjonalnie)</label>
+                <label data-i18n="hotels.booking.fields.notes">Uwagi (opcjonalnie)</label>
                 <textarea name="notes"></textarea>
               </div>
 
               <div class="trip-price-box">
-                <p class="trip-price-label">Cena</p>
+                <p class="trip-price-label" data-i18n="hotels.booking.priceLabel">Cena</p>
                 <p class="trip-price-value" id="modalHotelPrice">—</p>
               </div>
-              <div id="hotelPriceNote" class="booking-message" style="display:none"></div>
 
-              <button type="submit" class="booking-submit">Zarezerwuj</button>
+              <button type="submit" class="booking-submit" data-i18n="hotels.booking.submit">Zarezerwuj</button>
               <div id="hotelBookingMessage" class="booking-message" style="display:none;"></div>
             </form>
           </div>
