@@ -686,8 +686,24 @@ window.openPoiComments = async function(poiId) {
   
   // Use the found POI's actual ID for consistency
   currentPoiId = poi.id;
-  const poiName = window.getPoiName ? window.getPoiName(poi) : poi.name;
-  const poiDesc = window.getPoiDescription ? window.getPoiDescription(poi) : (poi.description || 'Cypr');
+
+  // Base name/description using global POI helpers
+  let poiName = window.getPoiName ? window.getPoiName(poi) : poi.name;
+  let poiDesc = window.getPoiDescription ? window.getPoiDescription(poi) : (poi.description || 'Cypr');
+
+  // Try to override with static i18n JSON if available (places.<id>.name/description)
+  const nameKey = `places.${poi.id}.name`;
+  const descKey = `places.${poi.id}.description`;
+  const translatedName = t(nameKey);
+  const translatedDesc = t(descKey);
+
+  if (translatedName && translatedName !== nameKey) {
+    poiName = translatedName;
+  }
+
+  if (translatedDesc && translatedDesc !== descKey) {
+    poiDesc = translatedDesc;
+  }
   console.log('✅ Found POI:', poiName, '(ID:', poi.id, ')');
   
   // Find POI index in filtered data for navigation
@@ -1072,7 +1088,7 @@ async function handleCommentSubmit(e) {
 
   try {
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Wysyłanie...';
+    submitBtn.textContent = t('community.comment.sending');
 
     // Add comment
     const comment = await addComment(currentPoiId, content, null);
@@ -1083,7 +1099,7 @@ async function handleCommentSubmit(e) {
 
     // Upload photos if any
     if (selectedPhotos.length > 0) {
-      submitBtn.textContent = 'Wysyłanie zdjęć...';
+      submitBtn.textContent = t('community.comment.sendingPhotos');
       await uploadPhotos(selectedPhotos, comment.id);
     }
 
@@ -1091,7 +1107,7 @@ async function handleCommentSubmit(e) {
     resetCommentForm();
 
     // Reload comments
-    submitBtn.textContent = 'Odświeżanie...';
+    submitBtn.textContent = t('community.comment.refreshing');
     await loadAndRenderComments(currentPoiId);
 
     // Update stats
@@ -1173,7 +1189,8 @@ function resetCommentForm() {
   const submitBtn = document.querySelector('#addCommentForm button[type="submit"]');
   if (submitBtn) {
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Opublikuj';
+    // Use translated label instead of hardcoded Polish
+    submitBtn.textContent = t('community.comment.submit');
   }
 }
 
