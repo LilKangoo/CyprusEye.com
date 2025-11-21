@@ -1610,6 +1610,329 @@ textarea:focus-visible {
   box-shadow: 0 4px 16px rgba(59, 130, 246, 0.2);
 }
 
+/* =============================================================
+   MODERN NAV HEADER (Desktop + Mobile) - matches new mockups
+   ============================================================= */
+.app-header.nav-modern {
+  padding: 0;
+  border-radius: 0;
+  background: #ffffff;
+  border-bottom: 1px solid #e2e8f0;
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+  position: sticky;
+  top: 0;
+  z-index: 950;
+}
+
+.app-header.nav-modern::before,
+.app-header.nav-modern::after {
+  display: none;
+}
+
+.nav-modern__shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.header-top.nav-modern__primary {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  min-height: 86px;
+}
+
+.brand.nav-modern__brand-block {
+  flex: 0 0 auto;
+}
+
+.nav-modern__brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.8rem;
+  text-decoration: none;
+}
+
+.nav-modern__brand-link img {
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  padding: 0.35rem;
+  background: linear-gradient(135deg, #e0f2fe, #fef9c3);
+}
+
+.nav-modern__brand-link .brand-title {
+  gap: 0.2rem;
+}
+
+.nav-modern__brand-link .brand-name {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #0f172a;
+}
+
+.nav-modern__brand-link .brand-name span {
+  color: #f97316;
+}
+
+.nav-modern__brand-link .tagline {
+  margin: 0;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: #0ea5e9;
+  font-weight: 600;
+}
+
+.nav-modern__controls {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 1.25rem;
+}
+
+.language-pill-group {
+  display: inline-flex;
+  padding: 0.2rem;
+  background: #f1f5f9;
+  border-radius: 999px;
+  gap: 0.15rem;
+  border: 1px solid #e2e8f0;
+}
+
+.language-pill-group .language-pill {
+  border: none;
+  background: transparent;
+  border-radius: 999px;
+  padding: 0.3rem 0.85rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: #64748b;
+  transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.language-pill-group .language-pill[aria-pressed='true'],
+.language-pill-group .language-pill.is-active {
+  background: #ffffff;
+  color: #0f172a;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.12);
+}
+
+.nav-modern__stats.user-stats-section {
+  padding: 0.5rem 0.75rem;
+  border-radius: 16px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.nav-modern__stats .user-profile-card {
+  background: transparent;
+  color: #0f172a;
+  box-shadow: none;
+  padding: 0;
+}
+
+.nav-modern__stats .profile-status {
+  color: #94a3b8;
+}
+
+.nav-modern__stats .stats-cards {
+  display: flex;
+  gap: 0.75rem;
+}
+
+.nav-modern__stats .metric-card {
+  min-width: 64px;
+  padding: 0.25rem 0.5rem;
+  border-radius: 10px;
+  border-color: #e2e8f0;
+  box-shadow: none;
+}
+
+.nav-modern__actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.nav-modern__sos {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: none;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-weight: 700;
+  box-shadow: inset 0 0 0 1px #fecaca;
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.nav-modern__sos:hover {
+  background: #dc2626;
+  color: #ffffff;
+}
+
+.nav-modern__auth .ghost.header-link {
+  display: none;
+}
+
+.nav-modern__auth .btn.btn-sm {
+  border-radius: 16px;
+  padding: 0.65rem 1.6rem;
+  font-weight: 700;
+  background: #0f172a;
+  color: #ffffff;
+  border: none;
+  min-width: 120px;
+  box-shadow: 0 6px 20px rgba(15, 23, 42, 0.2);
+}
+
+.nav-modern__auth .btn.btn-sm + .btn.btn-sm {
+  background: #f8fafc;
+  color: #0f172a;
+  box-shadow: inset 0 0 0 1px #e2e8f0;
+}
+
+.nav-modern__quick {
+  padding: 0.35rem 0;
+  border-top: 1px solid #e2e8f0;
+}
+
+.nav-modern__quick .header-actions-primary {
+  display: flex;
+  align-items: center;
+  gap: 1.25rem;
+  overflow-x: auto;
+  padding: 0.2rem 0;
+}
+
+.nav-modern__quick .header-link {
+  color: #475569;
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.nav-modern__tabs {
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+}
+
+.nav-modern__tabs-shell {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1.5rem;
+}
+
+.nav-modern__tabs .header-tabs {
+  width: 100%;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  justify-content: flex-start;
+  gap: 1.5rem;
+  padding: 0;
+}
+
+.nav-modern__tabs .header-tab {
+  border: none;
+  background: transparent;
+  border-radius: 0;
+  padding: 1rem 0;
+  font-weight: 600;
+  color: #64748b;
+  position: relative;
+}
+
+.nav-modern__tabs .header-tab.is-active {
+  color: #0f172a;
+  box-shadow: none;
+}
+
+.nav-modern__tabs .header-tab.is-active::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.25rem;
+  height: 3px;
+  border-radius: 999px;
+  background: #2563eb;
+}
+
+.nav-modern__tabs .header-tab:not(.is-active):hover {
+  color: #0f172a;
+}
+
+@media (max-width: 1024px) {
+  .header-top.nav-modern__primary {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 0.75rem 0;
+    gap: 0.75rem;
+  }
+
+  .nav-modern__controls {
+    flex-wrap: wrap;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .nav-modern__actions {
+    margin-left: auto;
+  }
+
+  .nav-modern__stats.user-stats-section {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .nav-modern__quick {
+    border-top: none;
+    padding-top: 0;
+  }
+
+  .nav-modern__tabs .header-tabs {
+    overflow-x: auto;
+    white-space: nowrap;
+    gap: 1rem;
+  }
+}
+
+@media (max-width: 640px) {
+  .nav-modern__controls {
+    gap: 0.5rem;
+  }
+
+  .nav-modern__stats.user-stats-section {
+    display: none;
+  }
+
+  .language-pill-group {
+    order: 1;
+  }
+
+  .nav-modern__actions {
+    order: 2;
+  }
+
+  .nav-modern__auth .btn.btn-sm {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .nav-modern__quick .header-actions-primary {
+    gap: 0.85rem;
+  }
+}
+
 
 .header-actions {
   display: flex;
