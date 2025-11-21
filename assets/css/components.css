@@ -1650,6 +1650,110 @@ textarea:focus-visible {
   flex: 0 0 auto;
 }
 
+.nav-modern__stats {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 18px;
+  border: 1px solid #e2e8f0;
+  background: #f8fafc;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.6);
+}
+
+.nav-modern__stats .user-profile-card {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 14px;
+  background: #ffffff;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  text-decoration: none;
+  color: inherit;
+  min-width: 180px;
+}
+
+.nav-modern__stats .profile-avatar {
+  width: 46px;
+  height: 46px;
+  border-radius: 14px;
+  object-fit: cover;
+  border: 1px solid rgba(148, 163, 184, 0.4);
+}
+
+.nav-modern__stats .profile-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.nav-modern__stats .profile-name {
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.nav-modern__stats .profile-status {
+  font-size: 0.85rem;
+  color: #64748b;
+  margin: 0;
+}
+
+.nav-modern__stats .stats-cards {
+  display: flex;
+  gap: 0.55rem;
+}
+
+.nav-modern__stats .metric-card {
+  background: #ffffff;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  padding: 0.45rem 0.75rem;
+  min-width: 110px;
+  text-decoration: none;
+  color: inherit;
+}
+
+.nav-modern__stats .metric-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: #94a3b8;
+  margin: 0 0 0.15rem;
+}
+
+.nav-modern__stats .metric-value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin: 0;
+  color: #0f172a;
+}
+
+.nav-modern__stats .metric-subtext,
+.nav-modern__stats .metric-progress-text {
+  font-size: 0.75rem;
+  margin: 0;
+  color: #64748b;
+}
+
+.nav-modern__stats .metric-progress {
+  margin-top: 0.25rem;
+}
+
+.nav-modern__stats .metric-progress-track {
+  height: 6px;
+  border-radius: 999px;
+  background: #e2e8f0;
+}
+
+.nav-modern__stats .metric-progress-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #3b82f6, #0ea5e9);
+}
+
 .nav-modern__brand-link {
   display: inline-flex;
   align-items: center;
@@ -1900,8 +2004,20 @@ textarea:focus-visible {
     justify-content: space-between;
   }
 
+  .nav-modern__stats {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: space-between;
+  }
+
+  .nav-modern__stats .stats-cards {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
   .nav-modern__chips {
     width: 100%;
+    overflow-x: auto;
   }
 }
 
@@ -1910,6 +2026,22 @@ textarea:focus-visible {
     gap: 0.5rem;
     flex-wrap: wrap;
     justify-content: flex-start;
+  }
+
+  .nav-modern__stats {
+    order: 3;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .nav-modern__stats .user-profile-card {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .nav-modern__stats .stats-cards {
+    flex-direction: column;
   }
 
   .language-pill-group {
