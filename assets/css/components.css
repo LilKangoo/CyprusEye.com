@@ -1782,12 +1782,42 @@ textarea:focus-visible {
   padding: 0.35rem 0 0.45rem;
 }
 
+.nav-modern__links-row {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  overflow-x: auto;
+  padding: 0.1rem 0;
+  scrollbar-width: thin;
+}
+
+.nav-modern__links-row::-webkit-scrollbar {
+  height: 6px;
+}
+
+.nav-modern__links-row::-webkit-scrollbar-thumb {
+  background: rgba(148, 163, 184, 0.5);
+  border-radius: 999px;
+}
+
+.nav-modern__links-row::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .nav-modern__tabs {
   display: flex;
   gap: 1.25rem;
   align-items: center;
   padding: 0.4rem 0;
   overflow-x: auto;
+}
+
+.nav-modern__tabs::-webkit-scrollbar {
+  display: none;
+}
+
+.nav-modern__tabs {
+  scrollbar-width: none;
 }
 
 .nav-modern__tab {
@@ -1825,8 +1855,9 @@ textarea:focus-visible {
 
 .nav-modern__chips {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: 0.5rem;
+  flex: 0 0 auto;
 }
 
 .nav-chip {
@@ -1843,6 +1874,11 @@ textarea:focus-visible {
   text-decoration: none;
   font-size: 0.9rem;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.nav-chip,
+.nav-modern__tab {
+  flex: 0 0 auto;
 }
 
 .nav-chip:hover {
@@ -1903,6 +1939,7 @@ textarea:focus-visible {
 
   .nav-modern__chips {
     flex-direction: column;
+    flex-wrap: nowrap;
   }
 
   .nav-chip {
