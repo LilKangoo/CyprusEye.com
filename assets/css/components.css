@@ -2178,11 +2178,6 @@ textarea:focus-visible {
     justify-content: center;
   }
 
-  .language-switcher,
-  .language-switcher-panel,
-  .language-switcher-toggle {
-    display: none !important;
-  }
 }
 
 .header-actions {
