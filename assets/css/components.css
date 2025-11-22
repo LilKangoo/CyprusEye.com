@@ -1483,6 +1483,8 @@ textarea:focus-visible {
   max-width: 1200px;
   margin: 0 auto;
   padding: 0 1.5rem;
+  width: 100%;
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
@@ -1753,6 +1755,7 @@ textarea:focus-visible {
   gap: 0.35rem;
   border-top: 1px solid #e2e8f0;
   padding: 0.35rem 0 0.45rem;
+  width: 100%;
 }
 
 .nav-modern__links-row {
@@ -1767,6 +1770,7 @@ textarea:focus-visible {
   width: 100%;
   scroll-snap-type: x proximity;
   touch-action: pan-x;
+  box-sizing: border-box;
 }
 
 .nav-modern__links-row > * {
@@ -2048,6 +2052,45 @@ textarea:focus-visible {
     justify-content: center;
   }
 
+  .nav-modern__links-row {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.45rem;
+    overflow: visible;
+    scroll-snap-type: none;
+  }
+
+  .nav-modern__tabs,
+  .nav-modern__chips {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+  }
+
+  .nav-modern__tabs {
+    gap: 0.75rem;
+    scrollbar-width: none;
+  }
+
+  .nav-modern__tabs::-webkit-scrollbar,
+  .nav-modern__chips::-webkit-scrollbar {
+    display: none;
+  }
+
+  .nav-modern__chips {
+    flex-direction: row;
+    gap: 0.45rem;
+    scrollbar-width: none;
+  }
+
+  .nav-chip {
+    flex: 0 0 auto;
+    min-width: 110px;
+    justify-content: center;
+  }
 }
 
 .header-actions {
