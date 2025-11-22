@@ -1932,6 +1932,15 @@ textarea:focus-visible {
 }
 
 @media (max-width: 640px) {
+  .nav-modern__top {
+    align-items: stretch;
+  }
+
+  .nav-modern__brand-block {
+    width: 100%;
+    order: 0;
+  }
+
   .nav-modern__top-actions {
     display: grid;
     grid-template-columns: minmax(54px, auto) 1fr;
@@ -2053,42 +2062,34 @@ textarea:focus-visible {
   }
 
   .nav-modern__links-row {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 0.45rem;
-    overflow: visible;
-    scroll-snap-type: none;
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem;
+    overflow-x: auto;
+    padding: 0.35rem 0 0.15rem;
+    scroll-snap-type: x proximity;
   }
 
   .nav-modern__tabs,
   .nav-modern__chips {
-    flex: 1 1 auto;
-    min-width: 0;
-    width: 100%;
+    flex: 0 0 auto;
+    min-width: max(100%, 420px);
+    width: auto;
     justify-content: flex-start;
-    overflow-x: auto;
-    padding-bottom: 0.25rem;
   }
 
   .nav-modern__tabs {
-    gap: 0.75rem;
-    scrollbar-width: none;
-  }
-
-  .nav-modern__tabs::-webkit-scrollbar,
-  .nav-modern__chips::-webkit-scrollbar {
-    display: none;
+    gap: 0.85rem;
   }
 
   .nav-modern__chips {
     flex-direction: row;
-    gap: 0.45rem;
-    scrollbar-width: none;
+    gap: 0.55rem;
   }
 
   .nav-chip {
     flex: 0 0 auto;
-    min-width: 110px;
+    min-width: 120px;
     justify-content: center;
   }
 }
