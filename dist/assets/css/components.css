@@ -3611,6 +3611,16 @@ main::before {
   .progress-cards {
     grid-template-columns: 1fr;
   }
+
+  .nav-modern__auth .nav-modern__login,
+  .nav-modern__auth .btn.btn-sm {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    justify-content: center;
+    display: inline-flex;
+  }
 }
 
 .discovery-header {
@@ -3623,11 +3633,6 @@ main::before {
   display: flex;
   flex-wrap: wrap;
   gap: 0.65rem;
-}
-
-.discovery-actions .ghost,
-.discovery-actions .secondary {
-  white-space: nowrap;
 }
 
 .discovery-subtitle {
@@ -5383,6 +5388,28 @@ main::before {
   font-size: 1.35rem;
 }
 
+/* Login width and two-row chip grid adjustments */
+@media (max-width: 640px) {
+  .nav-modern__auth .nav-modern__login,
+  .nav-modern__auth .btn.btn-sm {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    max-width: 100%;
+    justify-content: center;
+    display: inline-flex;
+  }
+
+  .nav-modern__chips {
+    gap: 0.65rem 0.5rem;
+    display: grid;
+    grid-template-rows: repeat(2, minmax(0, 1fr));
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(130px, 1fr);
+    align-items: stretch;
+    padding-right: 0.25rem;
+  }
+}
 
 .btn,
 .primary,
