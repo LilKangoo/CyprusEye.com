@@ -1839,9 +1839,11 @@ textarea:focus-visible {
 
 @media (max-width: 640px) {
   .nav-modern__top-actions {
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    justify-content: flex-start;
+    display: grid;
+    grid-template-columns: minmax(54px, auto) 1fr;
+    column-gap: 0.55rem;
+    row-gap: 0.55rem;
+    align-items: center;
   }
 
   .language-pill-group {
@@ -1855,8 +1857,9 @@ textarea:focus-visible {
   }
 
   .nav-modern__auth {
+    order: 1;
     width: 100%;
-    justify-content: space-between;
+    grid-column: 1 / -1;
   }
 
   .nav-modern__auth .nav-modern__login,

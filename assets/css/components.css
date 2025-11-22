@@ -1929,10 +1929,11 @@ textarea:focus-visible {
 
 @media (max-width: 640px) {
   .nav-modern__top-actions {
-    gap: 0.5rem;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    align-items: stretch;
+    display: grid;
+    grid-template-columns: minmax(54px, auto) 1fr;
+    column-gap: 0.55rem;
+    row-gap: 0.55rem;
+    align-items: center;
   }
 
   .nav-modern__stats {
@@ -1970,12 +1971,21 @@ textarea:focus-visible {
   .nav-modern__auth {
     order: 1;
     width: 100%;
+    grid-column: 1 / -1;
   }
 
   .nav-modern__sos {
     order: 2;
-    flex: 0 0 64px;
-    align-self: stretch;
+    flex: 0 0 56px;
+    height: 58px;
+    border-radius: 18px;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    gap: 0.15rem;
+    grid-column: 1 / 2;
   }
 
   .language-pill-group {
@@ -1985,10 +1995,20 @@ textarea:focus-visible {
     width: auto;
     justify-content: flex-start;
     overflow-x: auto;
-    padding: 0.2rem 0.4rem;
-    gap: 0.35rem;
+    padding: 0.3rem 0.5rem;
+    gap: 0.4rem;
     white-space: nowrap;
     -webkit-overflow-scrolling: touch;
+    border-radius: 999px;
+    border: 1px solid rgba(148, 163, 184, 0.4);
+    background: #f8fbff;
+    box-shadow: inset 0 1px 3px rgba(15, 23, 42, 0.08);
+    grid-column: 2 / -1;
+  }
+
+  .language-pill-group .language-pill {
+    padding: 0.25rem 0.75rem;
+    font-size: 0.78rem;
   }
 
   .nav-modern__actions {
