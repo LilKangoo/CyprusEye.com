@@ -25,6 +25,60 @@
       if (action === 'get') {
         return window.localStorage.getItem(key);
       }
+
+  function updateLanguagePills(language) {
+    const groups = document.querySelectorAll('[data-language-toggle]');
+    if (!groups.length) {
+      return;
+    }
+
+    groups.forEach((group) => {
+      const pills = group.querySelectorAll('[data-language-pill]');
+      pills.forEach((pill) => {
+        const code = (pill.dataset.languagePill || '').toLowerCase();
+        const isActive = code === language;
+        pill.classList.toggle('is-active', isActive);
+        pill.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      });
+    });
+  }
+
+  function initLanguagePills() {
+    const groups = document.querySelectorAll('[data-language-toggle]');
+    if (!groups.length) {
+      return false;
+    }
+
+    groups.forEach((group) => {
+      if (group.dataset.languageInit === 'true') {
+        return;
+      }
+
+      group.dataset.languageInit = 'true';
+
+      group.addEventListener('click', (event) => {
+        const pill = event.target.closest('[data-language-pill]');
+        if (!pill || !group.contains(pill)) {
+          return;
+        }
+
+        const lang = (pill.dataset.languagePill || '').toLowerCase();
+        if (!lang) {
+          return;
+        }
+
+        if (lang === appI18n.language) {
+          updateLanguagePills(appI18n.language);
+          return;
+        }
+
+        setLanguage(lang);
+      });
+    });
+
+    updateLanguagePills(appI18n.language);
+    return true;
+  }
       if (action === 'set') {
         window.localStorage.setItem(key, value);
       }
@@ -273,6 +327,7 @@
   }
 
   function updateSwitcherValue(language) {
+    updateLanguagePills(language);
     const container = document.querySelector('.language-switcher');
     if (!container) {
       return;
@@ -316,6 +371,17 @@
   }
 
   function ensureLanguageSwitcher(language) {
+    const hasInlineSwitcher = document.querySelector('[data-language-toggle]');
+    if (hasInlineSwitcher) {
+      initLanguagePills();
+      updateLanguagePills(language);
+      const floating = document.querySelector('.language-switcher');
+      if (floating && floating.parentNode) {
+        floating.parentNode.removeChild(floating);
+      }
+      return;
+    }
+
     const existing = document.querySelector('.language-switcher');
     if (existing) {
       updateSwitcherValue(language);
