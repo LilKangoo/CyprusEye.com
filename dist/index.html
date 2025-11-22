@@ -122,48 +122,46 @@
           </a>
         </div>
 
-        <div class="nav-modern__stats user-stats-section" data-auth="user-only">
-          <a href="achievements.html" class="user-profile-card" id="profileButton" aria-label="Mój profil">
-            <img
-              id="headerUserAvatar"
-              class="profile-avatar"
-              src="assets/cyprus_logo-1000x1054.png"
-              alt="Avatar"
-              width="50"
-              height="50"
-              loading="eager"
-            />
-            <div class="profile-info">
-              <div class="profile-name">Mój Profil</div>
-              <div class="profile-status">Poziom 1 • 0 odznak</div>
-            </div>
-          </a>
-
-          <div class="stats-cards">
-            <a class="metric-card" role="listitem" href="achievements.html">
-              <p class="metric-label" data-i18n="metrics.level.label">Poziom</p>
-              <p class="metric-value" id="headerLevelNumber">1</p>
-              <p class="metric-subtext" id="headerLevelStatus" data-i18n="metrics.level.subtext">
-                Zdobądź pierwsze check-iny, aby awansować!
-              </p>
-            </a>
-            <a class="metric-card" role="listitem" href="achievements.html">
-              <p class="metric-label" data-i18n="metrics.xp.label">XP</p>
-              <p class="metric-value"><span id="headerXpPoints">0</span> XP</p>
-              <div class="metric-progress" role="img" aria-label="Postęp doświadczenia" data-i18n-attrs="aria-label:metrics.xp.aria">
-                <div class="metric-progress-track">
-                  <div class="metric-progress-fill is-width-zero" id="headerXpFill"></div>
-                </div>
-                <p class="metric-progress-text" id="headerXpProgressText" data-i18n="metrics.xp.progress">
-                  0 / 150 XP do kolejnego poziomu
-                </p>
+        <div class="nav-modern__stats nav-modern__stats-lite" data-auth="user-only">
+          <div class="stats-lite__pill">
+            <a href="achievements.html" class="stats-lite__profile" id="profileButton" aria-label="Mój profil">
+              <img
+                id="headerUserAvatar"
+                class="profile-avatar"
+                src="assets/cyprus_logo-1000x1054.png"
+                alt="Avatar"
+                width="48"
+                height="48"
+                loading="eager"
+              />
+              <div class="profile-info">
+                <p class="profile-name">Mój Profil</p>
+                <p class="profile-status">Poziom 1 • 0 odznak</p>
               </div>
             </a>
-            <a class="metric-card" role="listitem" href="achievements.html">
-              <p class="metric-label" data-i18n="metrics.badges.label">Odznaki</p>
-              <p class="metric-value" id="headerBadgesCount">0</p>
-              <p class="metric-subtext" data-i18n="metrics.badges.subtext">Zebrane odznaki</p>
-            </a>
+
+            <div class="stats-lite__panel">
+              <div class="stats-lite__level">
+                <span class="stats-lite__label">LVL</span>
+                <span class="stats-lite__value" id="headerLevelNumber">1</span>
+                <span class="stats-lite__status" id="headerLevelStatus" data-i18n="metrics.level.subtext">Status poziomu</span>
+              </div>
+
+              <div class="stats-lite__xp" role="img" aria-label="Postęp doświadczenia" data-i18n-attrs="aria-label:metrics.xp.aria">
+                <span class="stats-lite__xp-current"><span id="headerXpPoints">0</span> XP</span>
+                <div class="stats-lite__xp-bar">
+                  <div class="stats-lite__xp-fill is-width-zero" id="headerXpFill"></div>
+                </div>
+                <span class="stats-lite__xp-target" id="headerXpProgressText" data-i18n="metrics.xp.progress">
+                  0 / 150 XP do kolejnego poziomu
+                </span>
+              </div>
+
+              <div class="stats-lite__badges">
+                <span class="stats-lite__label">🏆</span>
+                <span class="stats-lite__value" id="headerBadgesCount">0</span>
+              </div>
+            </div>
           </div>
         </div>
 
