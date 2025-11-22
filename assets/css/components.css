@@ -1912,6 +1912,8 @@ textarea:focus-visible {
   overflow-x: auto;
   padding: 0.1rem 0;
   scrollbar-width: thin;
+  flex-wrap: nowrap;
+  -webkit-overflow-scrolling: touch;
 }
 
 .nav-modern__links-row::-webkit-scrollbar {
@@ -2065,6 +2067,7 @@ textarea:focus-visible {
     width: 100%;
     overflow-x: auto;
     flex-wrap: nowrap;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -2107,12 +2110,21 @@ textarea:focus-visible {
     font-size: 0.75rem;
   }
 
-  .language-pill-group {
+  .nav-modern__auth {
     order: 1;
+  }
+
+  .nav-modern__sos {
+    order: 2;
+  }
+
+  .language-pill-group {
+    order: 3;
     width: 100%;
     justify-content: space-between;
     overflow-x: auto;
     padding: 0.2rem 0.4rem;
+    gap: 0.4rem;
   }
 
   .nav-modern__actions {
@@ -2133,9 +2145,7 @@ textarea:focus-visible {
   }
 
   .nav-modern__links-row {
-    flex-wrap: nowrap;
     gap: 1.25rem;
-    overflow-x: auto;
   }
 
   .nav-modern__tabs,
@@ -2157,6 +2167,12 @@ textarea:focus-visible {
     flex: 0 0 auto;
     min-width: 120px;
     justify-content: center;
+  }
+
+  .language-switcher,
+  .language-switcher-panel,
+  .language-switcher-toggle {
+    display: none !important;
   }
 }
 
