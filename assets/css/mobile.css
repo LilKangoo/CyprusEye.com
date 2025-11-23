@@ -232,10 +232,10 @@ video {
 
 @media (max-width: 600px) {
   .app-header {
-    gap: var(--space-5);
-    padding: var(--space-6);
-    border-radius: 32px;
-    border: 1px solid rgba(148, 163, 184, 0.2);
+    gap: 0;
+    padding: 0.25rem;
+    border-radius: 0;
+    border: none;
     background: linear-gradient(135deg, rgba(226, 232, 240, 0.6) 0%, rgba(241, 245, 249, 0.8) 100%);
     box-shadow: 0 4px 20px rgba(15, 23, 42, 0.08);
   }
@@ -303,7 +303,9 @@ video {
 
   .header-top-actions {
     display: grid;
-    gap: var(--space-4);
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.25rem;
+    padding: 0 !important;
   }
 
   .header-coupon-button {
@@ -316,12 +318,12 @@ video {
 
   .header-actions {
     display: grid;
-    gap: var(--space-3);
+    gap: 0.25rem;
   }
 
   .header-actions-primary {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: var(--space-3);
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+    gap: 0.25rem;
   }
 
   .header-actions-primary > * {
