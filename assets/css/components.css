@@ -2009,16 +2009,28 @@ textarea:focus-visible {
 }
 
 @media (max-width: 640px) {
+  .app-header.nav-modern {
+    padding: 0.5rem !important;
+    border-radius: 0 !important;
+    gap: 0 !important;
+  }
+
   .nav-modern {
     max-width: 100% !important;
     overflow-x: hidden !important;
+  }
+
+  .nav-modern__shell {
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
   }
 
   .nav-modern__top {
     align-items: stretch;
     flex-direction: column;
     gap: 0.75rem;
-    padding: 0 0.5rem;
+    padding: 0 !important;
     max-width: 100%;
     box-sizing: border-box;
   }
@@ -2072,9 +2084,9 @@ textarea:focus-visible {
 
   .nav-modern__top-actions {
     display: grid !important;
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    grid-template-columns: 1fr 1fr;
     grid-template-rows: auto auto;
-    column-gap: 0.5rem;
+    column-gap: 0.4rem;
     row-gap: 0.5rem;
     align-items: stretch;
     width: 100%;
@@ -2157,7 +2169,7 @@ textarea:focus-visible {
 
   .language-pill-group {
     display: grid !important;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     visibility: visible !important;
     opacity: 1 !important;
     grid-column: 1 / -1;
@@ -2180,7 +2192,7 @@ textarea:focus-visible {
   }
 
   .language-pill-group .language-pill {
-    padding: 0.35rem 0.1rem;
+    padding: 0.35rem 0;
     font-size: 0.7rem;
     width: 100%;
     min-width: 0;
