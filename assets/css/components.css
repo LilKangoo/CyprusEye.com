@@ -2156,7 +2156,8 @@ textarea:focus-visible {
   }
 
   .language-pill-group {
-    display: flex !important;
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     visibility: visible !important;
     opacity: 1 !important;
     grid-column: 1 / -1;
@@ -2166,12 +2167,9 @@ textarea:focus-visible {
     width: 100%;
     max-width: 100%;
     box-sizing: border-box;
-    justify-content: space-between;
-    flex-wrap: nowrap;
-    overflow-x: visible;
-    overflow-y: hidden;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
+    justify-items: stretch;
+    align-items: stretch;
+    overflow: hidden;
     background: #f1f5f9;
     border-radius: 999px;
     border: 1px solid #e2e8f0;
@@ -2182,11 +2180,11 @@ textarea:focus-visible {
   }
 
   .language-pill-group .language-pill {
-    padding: 0.35rem 0.45rem;
+    padding: 0.35rem 0.1rem;
     font-size: 0.7rem;
-    flex: 1 1 0;
+    width: 100%;
     min-width: 0;
-    max-width: 25%;
+    max-width: 100%;
     text-align: center;
     white-space: nowrap;
     display: inline-flex !important;
@@ -2199,6 +2197,8 @@ textarea:focus-visible {
     font-weight: 600;
     transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
     box-sizing: border-box;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .language-pill-group .language-pill[aria-pressed='true'],
