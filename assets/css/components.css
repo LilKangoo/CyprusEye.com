@@ -2084,7 +2084,7 @@ textarea:focus-visible {
 
   .nav-modern__top-actions {
     display: grid !important;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     grid-template-rows: auto auto;
     column-gap: 0.4rem;
     row-gap: 0.5rem;
@@ -2169,7 +2169,7 @@ textarea:focus-visible {
 
   .language-pill-group {
     display: grid !important;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(4, minmax(0, 1fr));
     visibility: visible !important;
     opacity: 1 !important;
     grid-column: 1 / -1;
