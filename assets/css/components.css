@@ -1503,6 +1503,11 @@ textarea:focus-visible {
   gap: clamp(0.6rem, 2vw, 1rem);
   min-height: 82px;
   flex-wrap: wrap;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 clamp(1rem, 3vw, 1.5rem);
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .brand.nav-modern__brand-block {
