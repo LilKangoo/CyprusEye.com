@@ -1992,31 +1992,73 @@ textarea:focus-visible {
 }
 
 @media (max-width: 900px) {
+  .nav-modern__toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    padding: 0.75rem;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    font-weight: 600;
+    color: #0f172a;
+    cursor: pointer;
+    margin-bottom: 0.5rem;
+    transition: background-color 0.2s ease;
+  }
+
+  .nav-modern__toggle-btn:hover {
+    background: #e2e8f0;
+  }
+
+  .nav-modern__toggle-btn[aria-expanded="true"] {
+    background: #e2e8f0;
+    border-color: #cbd5e1;
+  }
+
   .nav-modern__links-row {
+    display: none;
     flex-direction: column;
-    align-items: stretch;
-    gap: 0.45rem;
-    overflow: visible;
-    padding: 0;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    margin-top: 0.25rem;
+    animation: slideDown 0.2s ease-out;
+  }
+
+  .nav-modern__links-row.is-open {
+    display: flex;
+  }
+
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
 
   .nav-modern__tabs,
   .nav-modern__chips {
-    width: 100%;
-    min-width: 0;
-    flex: 1 1 auto;
-    overflow-x: auto;
-    flex-wrap: nowrap;
-    padding: 0.25rem 0.5rem 0.5rem;
-    padding-right: 1.5rem;
-    scroll-snap-type: x proximity;
-    scrollbar-width: none;
-    -webkit-overflow-scrolling: touch;
+    flex-wrap: wrap;
+    overflow-x: visible;
+    padding: 0;
+    gap: 0.5rem;
   }
 
-  .nav-modern__tabs::-webkit-scrollbar,
-  .nav-modern__chips::-webkit-scrollbar {
-    display: none;
+  .nav-modern__tab,
+  .nav-chip {
+    flex: 1 1 auto;
+    text-align: center;
+    justify-content: center;
+    width: auto;
   }
 }
 

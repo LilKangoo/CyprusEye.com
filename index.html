@@ -206,7 +206,10 @@
     <div class="nav-modern__shell">
 
       <div class="nav-modern__bars" data-tour-target="tabs-navigation">
-        <div class="nav-modern__links-row" aria-label="Główna nawigacja i skróty" data-i18n-attrs="aria-label:header.quickActions.aria">
+        <button class="nav-modern__toggle-btn" id="navToggleBtn" aria-expanded="false" aria-controls="navLinksRow" data-i18n="nav.toggle">
+          ☰ Nawigacja
+        </button>
+        <div class="nav-modern__links-row" id="navLinksRow" aria-label="Główna nawigacja i skróty" data-i18n-attrs="aria-label:header.quickActions.aria">
           <nav class="nav-modern__tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna">
             <a href="index.html" class="nav-modern__tab is-active" id="headerAdventureTab" data-i18n="nav.adventure">
               🎯 Przygoda
@@ -665,7 +668,7 @@
   <script src="js/tutorial.js" defer></script>
   <script src="js/seo.js" defer></script>
   <script src="js/mobile-nav.js" defer></script>
-  <script src="js/header-scroll.js" defer></script>
+  <script src="js/header-dropdown.js" defer></script>
   
   <!-- Leaflet - załaduj bezpośrednio jako fallback -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
