@@ -2076,6 +2076,17 @@ textarea:focus-visible {
     padding: 0.5rem !important;
     border-radius: 0 !important;
     gap: 0.5rem !important;
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 0 !important;
+    justify-content: flex-start !important;
+    align-items: stretch !important;
+  }
+
+  .nav-modern__top,
+  .nav-modern__shell {
+    flex: 0 0 auto !important;
+    width: 100% !important;
   }
 
   .nav-modern {
