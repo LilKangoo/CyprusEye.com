@@ -372,19 +372,7 @@
               >
                 Rejestracja
               </button>
-              <button
-                type="button"
-                class="auth-modal__tab"
-                role="tab"
-                id="authTabGuest"
-                aria-selected="false"
-                aria-controls="authPanelGuest"
-                data-auth-tab="guest"
-                data-i18n="auth.tab.guest"
-                tabindex="-1"
-              >
-                Gość
-              </button>
+              
             </div>
             <div class="auth-modal__panels">
               <section
@@ -534,31 +522,7 @@
                   </button>
                 </form>
               </section>
-              <section
-                id="authPanelGuest"
-                class="auth-modal__panel"
-                role="tabpanel"
-                aria-labelledby="authTabGuest"
-                data-auth="login"
-                data-auth-panel="guest"
-                hidden
-              >
-                <div class="auth-guest">
-                  <p data-i18n="auth.guest.description">
-                    Możesz grać jako gość – postęp zapisze się tylko na tym urządzeniu.
-                  </p>
-                  <button
-                    type="button"
-                    class="btn btn--secondary"
-                    id="btn-guest"
-                    data-i18n="auth.guest.button"
-                    data-i18n-attrs="aria-label:auth.guest.button"
-                    aria-label="Graj jako gość"
-                  >
-                    Graj jako gość
-                  </button>
-                </div>
-              </section>
+              
             </div>
             <dialog id="resetPasswordDialog" class="auth-reset-dialog">
               <form id="form-reset-password" class="auth-form" novalidate>
