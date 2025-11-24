@@ -2052,18 +2052,21 @@ textarea:focus-visible {
 
   .nav-modern__tabs,
   .nav-modern__chips {
-    flex-wrap: wrap;
-    overflow-x: visible;
-    padding: 0;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
     gap: 0.5rem;
+    overflow: visible;
+    padding: 0;
+    width: 100%;
   }
 
   .nav-modern__tab,
   .nav-chip {
-    flex: 1 1 auto;
+    width: 100%;
     text-align: center;
     justify-content: center;
-    width: auto;
+    min-width: 0;
+    box-sizing: border-box;
   }
 }
 
