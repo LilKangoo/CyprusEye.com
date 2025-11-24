@@ -320,10 +320,10 @@ function updateHotelLivePrice(){
   const modal = document.getElementById('hotelModal');
   const form = modal ? modal.querySelector('#hotelBookingForm') : null;
   if (!form) return;
-  const a = (form.querySelector('#arrivalDate')||{}).value || '';
-  const d = (form.querySelector('#departureDate')||{}).value || '';
-  const adults = Number((form.querySelector('#bookingAdults')||{}).value||0);
-  const children = Number((form.querySelector('#bookingChildren')||{}).value||0);
+  const a = (form.querySelector('#hotelArrivalDate')||{}).value || '';
+  const d = (form.querySelector('#hotelDepartureDate')||{}).value || '';
+  const adults = Number((form.querySelector('#hotelBookingAdults')||{}).value||0);
+  const children = Number((form.querySelector('#hotelBookingChildren')||{}).value||0);
   const persons = adults + children;
   const maxPersons = Number(homeCurrentHotel.max_persons||0) || null;
   const nights = nightsBetween(a,d);
@@ -376,15 +376,15 @@ window.openHotelModalHome = function(index){
   
   // Set date min constraints to today
   const today = new Date().toISOString().split('T')[0];
-  const arrivalEl = document.getElementById('arrivalDate');
-  const departureEl = document.getElementById('departureDate');
+  const arrivalEl = document.getElementById('hotelArrivalDate');
+  const departureEl = document.getElementById('hotelDepartureDate');
   if (arrivalEl) arrivalEl.min = today;
   if (departureEl) departureEl.min = today;
   
   // max persons
   const maxPersons = Number(h.max_persons||0) || null;
-  const adultsEl = document.getElementById('bookingAdults');
-  const childrenEl = document.getElementById('bookingChildren');
+  const adultsEl = document.getElementById('hotelBookingAdults');
+  const childrenEl = document.getElementById('hotelBookingChildren');
   if (maxPersons){ adultsEl.max = String(maxPersons); childrenEl.max = String(Math.max(0, maxPersons-1)); }
   else { adultsEl.removeAttribute('max'); childrenEl.removeAttribute('max'); }
 
@@ -399,12 +399,12 @@ window.openHotelModalHome = function(index){
     }
   };
   
-  ['arrivalDate','departureDate','bookingAdults','bookingChildren'].forEach(id=>{
+  ['hotelArrivalDate','hotelDepartureDate','hotelBookingAdults','hotelBookingChildren'].forEach(id=>{
     const old = document.getElementById(id);
     if (!old) return;
     const clone = old.cloneNode(true);
     old.parentNode.replaceChild(clone, old);
-    const isDate = id === 'arrivalDate' || id === 'departureDate';
+    const isDate = id === 'hotelArrivalDate' || id === 'hotelDepartureDate';
     addAllEvents(clone, isDate);
   });
   updateHotelLivePrice();
