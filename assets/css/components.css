@@ -2095,7 +2095,7 @@ textarea:focus-visible {
     padding: 0 !important;
     max-width: 100%;
     box-sizing: border-box;
-    margin-bottom: 0.25rem;
+    margin-bottom: 0;
   }
 
   .nav-modern__brand-block,
