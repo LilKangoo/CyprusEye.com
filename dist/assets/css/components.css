@@ -2165,97 +2165,120 @@ textarea:focus-visible {
   }
 
   .nav-modern__stats-lite .stats-lite__pill {
-    flex-direction: row;
-    align-items: center;
-    justify-content: space-between;
-    gap: 0.5rem;
-    padding: 0.4rem 0.6rem;
-    min-height: 44px;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    gap: 0.5rem !important;
+    padding: 0.25rem 0.5rem !important;
+    min-height: 44px !important;
+    height: 48px !important;
+    max-height: 48px !important;
+    overflow: hidden !important;
+    width: 100% !important;
+    box-sizing: border-box !important;
   }
 
   .stats-lite__profile {
-    padding: 0;
-    gap: 0.5rem;
-    flex: 0 1 auto;
-    border-bottom: none;
-    margin-bottom: 0;
+    padding: 0 !important;
+    gap: 0.5rem !important;
+    flex: 0 1 auto !important;
+    border: none !important;
+    margin: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    height: 100% !important;
   }
 
   .stats-lite__profile img {
-    width: 32px;
-    height: 32px;
-    border-radius: 10px;
+    width: 32px !important;
+    height: 32px !important;
+    border-radius: 8px !important;
+    margin: 0 !important;
   }
 
   .stats-lite__profile .profile-info {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 0;
+    display: flex !important;
+    flex-direction: column !important;
+    justify-content: center !important;
+    gap: 0 !important;
   }
 
   .stats-lite__profile .profile-name {
-    font-size: 0.85rem;
-    line-height: 1.1;
+    font-size: 0.85rem !important;
+    line-height: 1 !important;
+    margin: 0 !important;
   }
 
   .stats-lite__profile .profile-status {
-    font-size: 0.7rem;
-    line-height: 1.1;
+    font-size: 0.65rem !important;
+    line-height: 1 !important;
+    margin: 0 !important;
+    opacity: 0.8;
   }
 
   .stats-lite__panel {
-    flex: 1 1 auto;
-    width: auto;
-    display: flex;
-    flex-direction: row;
-    align-items: center;
-    justify-content: flex-end;
-    gap: 0.75rem;
-    margin-top: 0;
-    padding-top: 0;
-    border-top: none;
+    flex: 1 1 auto !important;
+    width: auto !important;
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    gap: 0.75rem !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    height: 100% !important;
   }
 
   .stats-lite__level {
-    display: none; /* Hide level text to save space, avatar shows generic status */
+    display: none !important;
   }
 
   .stats-lite__xp {
-    flex: 0 1 auto;
-    margin-top: 0;
-    width: auto;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 0.1rem;
+    flex: 0 1 auto !important;
+    margin: 0 !important;
+    width: auto !important;
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    justify-content: center !important;
+    gap: 2px !important;
   }
 
   .stats-lite__xp-current {
-    font-size: 0.75rem;
+    font-size: 0.7rem !important;
+    line-height: 1 !important;
   }
 
   .stats-lite__xp-bar {
-    width: 60px;
-    height: 4px;
+    width: 50px !important;
+    height: 3px !important;
+    margin: 0 !important;
   }
 
   .stats-lite__xp-target {
-    display: none; /* Hide verbose text */
+    display: none !important;
   }
 
   .stats-lite__badges {
-    flex: 0 0 auto;
-    min-width: auto;
-    gap: 0.25rem;
+    flex: 0 0 auto !important;
+    min-width: auto !important;
+    gap: 0.25rem !important;
+    display: flex !important;
+    align-items: center !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
   }
 
   .stats-lite__badges .stats-lite__label {
-    font-size: 0.9rem;
+    font-size: 0.85rem !important;
+    margin: 0 !important;
   }
 
   .stats-lite__badges .stats-lite__value {
-    font-size: 0.85rem;
+    font-size: 0.8rem !important;
+    margin: 0 !important;
   }
 
   .nav-modern__auth {
