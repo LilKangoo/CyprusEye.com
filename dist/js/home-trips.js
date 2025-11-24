@@ -305,15 +305,14 @@ function calculateTripPrice(trip, adults, children, hours, days) {
 
 function updateLivePriceHome() {
   if (!homeCurrentTrip) return;
-  const adults = document.getElementById('bookingAdults')?.value;
-  const children = document.getElementById('bookingChildren')?.value;
-  const hours = document.getElementById('bookingHours')?.value;
-  const days = document.getElementById('bookingDays')?.value;
-  console.log('🔄 Updating trip price:', { adults, children, hours, days, pricing: homeCurrentTrip.pricing_model });
+  
+  const adults = document.getElementById('bookingAdults').value;
+  const children = document.getElementById('bookingChildren').value;
+  const hours = document.getElementById('bookingHours').value;
+  const days = document.getElementById('bookingDays').value;
   const totalPrice = calculateTripPrice(homeCurrentTrip, adults, children, hours, days);
-  console.log('💰 Calculated price:', totalPrice);
-  const priceEl = document.getElementById('modalTripPrice');
-  if (priceEl) priceEl.textContent = `${totalPrice.toFixed(2)} €`;
+  
+  document.getElementById('modalTripPrice').textContent = `${totalPrice.toFixed(2)} €`;
 }
 
 window.openTripModalHome = function(index){
@@ -357,25 +356,54 @@ window.openTripModalHome = function(index){
     if (timeFields) timeFields.style.display = 'none';
   }
 
-  // Rebind inputs to update price - comprehensive event coverage for number inputs
+  // Calculate initial price
+  updateLivePriceHome();
+  
+  // Date validation - departure must be after arrival (EXACT copy from trips.html)
+  const arrivalInput = document.getElementById('arrivalDate');
+  const departureInput = document.getElementById('departureDate');
+  
+  arrivalInput.addEventListener('change', function() {
+    if (departureInput.value && this.value > departureInput.value) {
+      departureInput.value = this.value;
+    }
+    departureInput.min = this.value;
+  });
+  
+  departureInput.addEventListener('change', function() {
+    if (arrivalInput.value && this.value < arrivalInput.value) {
+      this.value = arrivalInput.value;
+    }
+  });
+  
+  // Remove old listeners and add new ones (EXACT copy from trips.html)
   const adultsInput = document.getElementById('bookingAdults');
   const childrenInput = document.getElementById('bookingChildren');
   const hoursInput = document.getElementById('bookingHours');
   const daysInput = document.getElementById('bookingDays');
   
+  const newAdultsInput = adultsInput.cloneNode(true);
+  const newChildrenInput = childrenInput.cloneNode(true);
+  const newHoursInput = hoursInput.cloneNode(true);
+  const newDaysInput = daysInput.cloneNode(true);
+  
+  adultsInput.parentNode.replaceChild(newAdultsInput, adultsInput);
+  childrenInput.parentNode.replaceChild(newChildrenInput, childrenInput);
+  hoursInput.parentNode.replaceChild(newHoursInput, hoursInput);
+  daysInput.parentNode.replaceChild(newDaysInput, daysInput);
+  
+  // Add comprehensive event listeners for number inputs (EXACT copy from trips.html)
   const addAllEvents = (element) => {
     element.addEventListener('input', updateLivePriceHome);
     element.addEventListener('change', updateLivePriceHome);
-    element.addEventListener('click', updateLivePriceHome); // For spinner buttons
-    element.addEventListener('keyup', updateLivePriceHome);  // For arrow keys
+    element.addEventListener('click', updateLivePriceHome);  // For spinner buttons
+    element.addEventListener('keyup', updateLivePriceHome);   // For arrow keys
   };
   
-  if (adultsInput) { const n = adultsInput.cloneNode(true); adultsInput.parentNode.replaceChild(n, adultsInput); addAllEvents(n); }
-  if (childrenInput) { const n = childrenInput.cloneNode(true); childrenInput.parentNode.replaceChild(n, childrenInput); addAllEvents(n); }
-  if (hoursInput) { const n = hoursInput.cloneNode(true); hoursInput.parentNode.replaceChild(n, hoursInput); addAllEvents(n); }
-  if (daysInput) { const n = daysInput.cloneNode(true); daysInput.parentNode.replaceChild(n, daysInput); addAllEvents(n); }
-
-  updateLivePriceHome();
+  addAllEvents(newAdultsInput);
+  addAllEvents(newChildrenInput);
+  addAllEvents(newHoursInput);
+  addAllEvents(newDaysInput);
 
   const modal = document.getElementById('tripModal');
   if (typeof openSheet === 'function') {
