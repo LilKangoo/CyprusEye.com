@@ -213,6 +213,31 @@
     </div>
   </header>
 
+  <div id="notificationsPanel" class="notifications-panel" hidden aria-live="polite">
+    <div class="notifications-panel-header">
+      <h3 data-i18n="notifications.title">Powiadomienia</h3>
+      <div class="notifications-panel-actions">
+        <button type="button" class="ghost" id="notificationsMarkAll" data-i18n="notifications.markAll">
+          Oznacz wszystkie jako przeczytane
+        </button>
+        <button
+          type="button"
+          class="ghost notifications-close"
+          id="notificationsClose"
+          aria-label="Zamknij powiadomienia"
+          data-i18n="notifications.close"
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+    <p id="notificationsPanelEmpty" class="notifications-empty" data-i18n="notifications.empty">
+      Zaloguj się, aby zobaczyć swoje powiadomienia.
+    </p>
+    <ul id="notificationsPanelList" class="notifications-list" role="list"></ul>
+  </div>
+
+
       <main id="main-content" class="standalone-main">
         <section class="card surface-card standalone-hero" aria-labelledby="advertiseHeroTitle">
           <div class="standalone-hero-content">
@@ -277,10 +302,14 @@
         </p>
       </footer>
     </div>
-    <script src="js/i18n.js" defer></script>
     <script src="js/forms.js" defer></script>
-    <script src="js/seo.js" defer></script>
     <script type="module" src="app.js"></script>
     <script type="module" src="/assets/js/auth-ui.js"></script>
+    <script src="js/languageSelector.js" defer></script>
+  <script src="js/i18n.js" defer></script>
+  <script src="js/seo.js" defer></script>
+  <script src="js/mobile-nav.js" defer></script>
+  <script src="js/header-dropdown.js" defer></script>
+  <script src="js/languageSwitcher.js"></script>
   </body>
 </html>
