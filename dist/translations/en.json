@@ -1786,6 +1786,7 @@
     "footer": "© <span id=\"year\"></span> HolidayCyprus.com – Play, explore, and inspire fellow travellers."
   },
   "nav": {
+    "toggle": "☰ Navigation",
     "adventure": "🎯 Your adventure",
     "packing": "🎒 Packing planner",
     "tasks": "✅ Task list",
