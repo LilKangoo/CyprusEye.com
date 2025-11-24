@@ -625,9 +625,13 @@
     document.getElementById('hotelModal').addEventListener('click', function(e){ if(e.target === this) closeHotelModal(); });
 
     document.getElementById('arrivalDate').addEventListener('change', updateLivePrice);
+    document.getElementById('arrivalDate').addEventListener('input', updateLivePrice);
     document.getElementById('departureDate').addEventListener('change', updateLivePrice);
+    document.getElementById('departureDate').addEventListener('input', updateLivePrice);
     document.getElementById('bookingAdults').addEventListener('input', updateLivePrice);
+    document.getElementById('bookingAdults').addEventListener('change', updateLivePrice);
     document.getElementById('bookingChildren').addEventListener('input', updateLivePrice);
+    document.getElementById('bookingChildren').addEventListener('change', updateLivePrice);
     
 
     document.getElementById('hotelBookingForm').addEventListener('submit', async (e)=>{

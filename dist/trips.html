@@ -1008,9 +1008,13 @@
       daysInput.parentNode.replaceChild(newDaysInput, daysInput);
       
       newAdultsInput.addEventListener('input', updateLivePrice);
+      newAdultsInput.addEventListener('change', updateLivePrice);
       newChildrenInput.addEventListener('input', updateLivePrice);
+      newChildrenInput.addEventListener('change', updateLivePrice);
       newHoursInput.addEventListener('input', updateLivePrice);
+      newHoursInput.addEventListener('change', updateLivePrice);
       newDaysInput.addEventListener('input', updateLivePrice);
+      newDaysInput.addEventListener('change', updateLivePrice);
       
       // Show modal
       document.getElementById('tripModal').classList.add('active');

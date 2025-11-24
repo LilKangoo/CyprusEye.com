@@ -360,10 +360,10 @@ window.openTripModalHome = function(index){
   const childrenInput = document.getElementById('bookingChildren');
   const hoursInput = document.getElementById('bookingHours');
   const daysInput = document.getElementById('bookingDays');
-  if (adultsInput) { const n = adultsInput.cloneNode(true); adultsInput.parentNode.replaceChild(n, adultsInput); n.addEventListener('input', updateLivePriceHome); }
-  if (childrenInput) { const n = childrenInput.cloneNode(true); childrenInput.parentNode.replaceChild(n, childrenInput); n.addEventListener('input', updateLivePriceHome); }
-  if (hoursInput) { const n = hoursInput.cloneNode(true); hoursInput.parentNode.replaceChild(n, hoursInput); n.addEventListener('input', updateLivePriceHome); }
-  if (daysInput) { const n = daysInput.cloneNode(true); daysInput.parentNode.replaceChild(n, daysInput); n.addEventListener('input', updateLivePriceHome); }
+  if (adultsInput) { const n = adultsInput.cloneNode(true); adultsInput.parentNode.replaceChild(n, adultsInput); n.addEventListener('input', updateLivePriceHome); n.addEventListener('change', updateLivePriceHome); }
+  if (childrenInput) { const n = childrenInput.cloneNode(true); childrenInput.parentNode.replaceChild(n, childrenInput); n.addEventListener('input', updateLivePriceHome); n.addEventListener('change', updateLivePriceHome); }
+  if (hoursInput) { const n = hoursInput.cloneNode(true); hoursInput.parentNode.replaceChild(n, hoursInput); n.addEventListener('input', updateLivePriceHome); n.addEventListener('change', updateLivePriceHome); }
+  if (daysInput) { const n = daysInput.cloneNode(true); daysInput.parentNode.replaceChild(n, daysInput); n.addEventListener('input', updateLivePriceHome); n.addEventListener('change', updateLivePriceHome); }
 
   updateLivePriceHome();
 

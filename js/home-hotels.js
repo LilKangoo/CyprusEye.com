@@ -394,7 +394,9 @@ window.openHotelModalHome = function(index){
     if (!old) return;
     const clone = old.cloneNode(true);
     old.parentNode.replaceChild(clone, old);
-    clone.addEventListener(id==='arrivalDate'||id==='departureDate'? 'change':'input', updateHotelLivePrice);
+    // Add both input and change events for maximum compatibility
+    clone.addEventListener('input', updateHotelLivePrice);
+    clone.addEventListener('change', updateHotelLivePrice);
   });
   updateHotelLivePrice();
 
