@@ -155,7 +155,7 @@
   "seo.coupon.locale": "pl_PL",
   "seo.coupon.localeAlternate": "en_GB",
   "header.brand": {
-    "html": "<p class=\"brand-name\">Cyprus Eye <span>Quest</span></p><p class=\"tagline\">Odkrywaj Cypr w interaktywny sposób – zdobywaj odznaki, punkty doświadczenia i poznawaj nasze najlepsze oferty.</p>"
+    "html": "<p class=\"brand-name\">CyprusEye Quest &amp; Travel</p>"
   },
   "header.jumpToObjective": "Przejdź do celu",
   "header.carRentalLink": "🚗 Wynajem auta",

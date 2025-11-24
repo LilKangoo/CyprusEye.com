@@ -25,60 +25,6 @@
       if (action === 'get') {
         return window.localStorage.getItem(key);
       }
-
-  function updateLanguagePills(language) {
-    const groups = document.querySelectorAll('[data-language-toggle]');
-    if (!groups.length) {
-      return;
-    }
-
-    groups.forEach((group) => {
-      const pills = group.querySelectorAll('[data-language-pill]');
-      pills.forEach((pill) => {
-        const code = (pill.dataset.languagePill || '').toLowerCase();
-        const isActive = code === language;
-        pill.classList.toggle('is-active', isActive);
-        pill.setAttribute('aria-pressed', isActive ? 'true' : 'false');
-      });
-    });
-  }
-
-  function initLanguagePills() {
-    const groups = document.querySelectorAll('[data-language-toggle]');
-    if (!groups.length) {
-      return false;
-    }
-
-    groups.forEach((group) => {
-      if (group.dataset.languageInit === 'true') {
-        return;
-      }
-
-      group.dataset.languageInit = 'true';
-
-      group.addEventListener('click', (event) => {
-        const pill = event.target.closest('[data-language-pill]');
-        if (!pill || !group.contains(pill)) {
-          return;
-        }
-
-        const lang = (pill.dataset.languagePill || '').toLowerCase();
-        if (!lang) {
-          return;
-        }
-
-        if (lang === appI18n.language) {
-          updateLanguagePills(appI18n.language);
-          return;
-        }
-
-        setLanguage(lang);
-      });
-    });
-
-    updateLanguagePills(appI18n.language);
-    return true;
-  }
       if (action === 'set') {
         window.localStorage.setItem(key, value);
       }
@@ -201,7 +147,29 @@
     if (!key || !translations) {
       return null;
     }
-    return translations[key];
+
+    // Direct lookup for flat keys
+    if (Object.prototype.hasOwnProperty.call(translations, key)) {
+      return translations[key];
+    }
+
+    // Support nested objects via dot notation (e.g. 'language.switcher.label')
+    if (key.indexOf('.') !== -1) {
+      const parts = key.split('.');
+      let current = translations;
+
+      for (const part of parts) {
+        if (current && typeof current === 'object' && Object.prototype.hasOwnProperty.call(current, part)) {
+          current = current[part];
+        } else {
+          return null;
+        }
+      }
+
+      return current;
+    }
+
+    return null;
   }
 
   function getTranslationString(translations, key) {
@@ -324,6 +292,60 @@
         console.warn('Unable to normalise navigation target for i18n.', target, error);
       }
     });
+  }
+
+  function updateLanguagePills(language) {
+    const groups = document.querySelectorAll('[data-language-toggle]');
+    if (!groups.length) {
+      return;
+    }
+
+    groups.forEach((group) => {
+      const pills = group.querySelectorAll('[data-language-pill]');
+      pills.forEach((pill) => {
+        const code = (pill.dataset.languagePill || '').toLowerCase();
+        const isActive = code === language;
+        pill.classList.toggle('is-active', isActive);
+        pill.setAttribute('aria-pressed', isActive ? 'true' : 'false');
+      });
+    });
+  }
+
+  function initLanguagePills() {
+    const groups = document.querySelectorAll('[data-language-toggle]');
+    if (!groups.length) {
+      return false;
+    }
+
+    groups.forEach((group) => {
+      if (group.dataset.languageInit === 'true') {
+        return;
+      }
+
+      group.dataset.languageInit = 'true';
+
+      group.addEventListener('click', (event) => {
+        const pill = event.target.closest('[data-language-pill]');
+        if (!pill || !group.contains(pill)) {
+          return;
+        }
+
+        const lang = (pill.dataset.languagePill || '').toLowerCase();
+        if (!lang) {
+          return;
+        }
+
+        if (lang === appI18n.language) {
+          updateLanguagePills(appI18n.language);
+          return;
+        }
+
+        setLanguage(lang);
+      });
+    });
+
+    updateLanguagePills(appI18n.language);
+    return true;
   }
 
   function updateSwitcherValue(language) {

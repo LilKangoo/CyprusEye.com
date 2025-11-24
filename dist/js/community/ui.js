@@ -1087,7 +1087,7 @@ async function handleCommentSubmit(e) {
   const originalText = submitBtn.textContent;
 
   try {
-    submitBtn.disabled = !0;
+    submitBtn.disabled = true;
     submitBtn.textContent = t('community.comment.sending');
 
     // Add comment
@@ -1121,8 +1121,8 @@ async function handleCommentSubmit(e) {
     window.showToast?.(errorMsg, 'error');
     
     // Re-enable button
-    submitBtn.disabled = !1;
-    submitBtn.textContent = t('community.comment.submit');
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
   }
 }
 
@@ -1188,7 +1188,8 @@ function resetCommentForm() {
   renderPhotoPreview();
   const submitBtn = document.querySelector('#addCommentForm button[type="submit"]');
   if (submitBtn) {
-    submitBtn.disabled = !1;
+    submitBtn.disabled = false;
+    // Use translated label instead of hardcoded Polish
     submitBtn.textContent = t('community.comment.submit');
   }
 }

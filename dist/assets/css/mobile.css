@@ -297,6 +297,8 @@ video {
     gap: var(--space-4);
   }
 
+  /* .brand styling moved to components.css @media (max-width: 640px) for better control */
+
   /* All .brand, .brand img, .brand-title, .brand-name styling moved to components.css for consistency */
 
   .header-top-actions {
@@ -316,12 +318,12 @@ video {
 
   .header-actions {
     display: grid;
-    gap: var(--space-3);
+    gap: 0.25rem;
   }
 
   .header-actions-primary {
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: var(--space-3);
+    grid-template-columns: repeat(2, minmax(140px, 1fr));
+    gap: 0.25rem;
   }
 
   .header-actions-primary > * {
