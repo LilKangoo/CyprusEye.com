@@ -1699,6 +1699,12 @@ textarea:focus-visible {
   transition: background-color 0.2s ease, color 0.2s ease, box-shadow 0.2s ease;
 }
 
+/* Flags for language pills */
+.language-pill[data-language-pill="pl"]::before { content: "🇵🇱 "; }
+.language-pill[data-language-pill="en"]::before { content: "🇬🇧 "; }
+.language-pill[data-language-pill="el"]::before { content: "🇨🇾 "; }
+.language-pill[data-language-pill="he"]::before { content: "🇮🇱 "; }
+
 .language-pill-group .language-pill[aria-pressed='true'],
 .language-pill-group .language-pill.is-active {
   background: #ffffff;
