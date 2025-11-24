@@ -1571,5 +1571,6 @@
   "community.auth.required": "Πρέπει να συνδεθείτε για να προσθέσετε σχόλιο",
   "community.comment.hint": "Προσθέστε σχόλιο ή φωτογραφίες",
   "community.comment.placeholder": "Μοιραστείτε τις εντυπώσεις σας...",
-  "community.comment.submit": "Δημοσίευση"
+  "community.comment.submit": "Δημοσίευση",
+  "profile.status": "Επίπεδο {{level}} • {{badges}} σήματα"
 }

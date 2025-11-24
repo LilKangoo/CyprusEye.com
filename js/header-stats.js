@@ -77,7 +77,10 @@
     }
 
     if (el.xpProgressText) {
-      el.xpProgressText.textContent = `${currentLevelXP} / ${XP_PER_LEVEL} XP`;
+      const xpText = window.i18n ? 
+        window.i18n.t('metrics.xp.progressTemplate', { current: currentLevelXP, target: XP_PER_LEVEL }) : 
+        `${currentLevelXP} / ${XP_PER_LEVEL} XP`;
+      el.xpProgressText.textContent = xpText;
     }
 
     // Aktualizuj odznaki
@@ -90,9 +93,12 @@
       el.profileName.textContent = name;
     }
 
-    // Aktualizuj status
+    // Aktualizuj status z tłumaczeniem
     if (el.profileStatus) {
-      el.profileStatus.textContent = `Poziom ${level} • ${badges} odznak`;
+      const statusText = window.i18n ? 
+        window.i18n.t('profile.status', { level, badges }) : 
+        `Poziom ${level} • ${badges} odznak`;
+      el.profileStatus.textContent = statusText;
     }
 
     // Aktualizuj avatar
@@ -233,6 +239,15 @@
         updateHeaderStats(stats);
       }
     };
+
+    // Nasłuchuj zmian języka i odśwież statystyki
+    window.addEventListener('languageChanged', async () => {
+      console.log('🔄 Język zmieniony - odświeżam statystyki headera');
+      const stats = await fetchUserStats();
+      if (stats) {
+        updateHeaderStats(stats);
+      }
+    });
 
     console.log('✅ Header Stats zainicjalizowany');
   }

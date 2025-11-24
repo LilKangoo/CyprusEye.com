@@ -1575,5 +1575,6 @@
   "community.auth.required": "עליך להתחבר כדי להוסיף תגובה",
   "community.comment.hint": "הוסף תגובה או תמונות",
   "community.comment.placeholder": "שתפו את הרושם שלכם...",
-  "community.comment.submit": "פרסם"
+  "community.comment.submit": "פרסם",
+  "profile.status": "רמה {{level}} • {{badges}} תגים"
 }

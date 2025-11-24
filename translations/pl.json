@@ -1659,6 +1659,7 @@
   "modal.aria.previous": "Poprzednie miejsce",
   "modal.aria.next": "Następne miejsce",
   "profile.button": "Profil",
+  "profile.status": "Poziom {{level}} • {{badges}} odznak",
   "profile.hero.back": "← Wróć do aplikacji",
   "profile.stats.title": "📊 Twoje statystyki gry",
   "profile.stats.level": "Poziom",
