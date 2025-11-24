@@ -3710,7 +3710,7 @@ main::before {
 
   .nav-modern__top-actions {
     display: grid !important;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: auto 1fr;
     grid-template-rows: auto auto;
     column-gap: 0.25rem;
     row-gap: 0.35rem;
@@ -3746,7 +3746,8 @@ main::before {
   }
 
   .nav-modern__sos {
-    width: 100%;
+    width: auto;
+    padding-inline: 1rem;
     height: 50px;
     border-radius: 16px;
     display: flex !important;
