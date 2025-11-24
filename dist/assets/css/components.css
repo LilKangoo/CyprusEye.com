@@ -2006,6 +2006,7 @@ textarea:focus-visible {
     font-weight: 600;
     color: #0f172a;
     cursor: pointer;
+    margin-top: 0;
     margin-bottom: 0.5rem;
     transition: background-color 0.2s ease;
   }
