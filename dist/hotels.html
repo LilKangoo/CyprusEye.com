@@ -624,14 +624,23 @@
     // Close modal on backdrop click (like trips)
     document.getElementById('hotelModal').addEventListener('click', function(e){ if(e.target === this) closeHotelModal(); });
 
-    document.getElementById('arrivalDate').addEventListener('change', updateLivePrice);
-    document.getElementById('arrivalDate').addEventListener('input', updateLivePrice);
-    document.getElementById('departureDate').addEventListener('change', updateLivePrice);
-    document.getElementById('departureDate').addEventListener('input', updateLivePrice);
-    document.getElementById('bookingAdults').addEventListener('input', updateLivePrice);
-    document.getElementById('bookingAdults').addEventListener('change', updateLivePrice);
-    document.getElementById('bookingChildren').addEventListener('input', updateLivePrice);
-    document.getElementById('bookingChildren').addEventListener('change', updateLivePrice);
+    // Add comprehensive event listeners
+    const addAllEvents = (id, isDate = false) => {
+      const element = document.getElementById(id);
+      if (!element) return;
+      element.addEventListener('input', updateLivePrice);
+      element.addEventListener('change', updateLivePrice);
+      if (!isDate) {
+        // For number inputs, also handle click (spinner buttons) and keyup
+        element.addEventListener('click', updateLivePrice);
+        element.addEventListener('keyup', updateLivePrice);
+      }
+    };
+    
+    addAllEvents('arrivalDate', true);
+    addAllEvents('departureDate', true);
+    addAllEvents('bookingAdults', false);
+    addAllEvents('bookingChildren', false);
     
 
     document.getElementById('hotelBookingForm').addEventListener('submit', async (e)=>{

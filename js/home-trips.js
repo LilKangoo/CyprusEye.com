@@ -309,7 +309,9 @@ function updateLivePriceHome() {
   const children = document.getElementById('bookingChildren')?.value;
   const hours = document.getElementById('bookingHours')?.value;
   const days = document.getElementById('bookingDays')?.value;
+  console.log('🔄 Updating trip price:', { adults, children, hours, days, pricing: homeCurrentTrip.pricing_model });
   const totalPrice = calculateTripPrice(homeCurrentTrip, adults, children, hours, days);
+  console.log('💰 Calculated price:', totalPrice);
   const priceEl = document.getElementById('modalTripPrice');
   if (priceEl) priceEl.textContent = `${totalPrice.toFixed(2)} €`;
 }
@@ -355,15 +357,23 @@ window.openTripModalHome = function(index){
     if (timeFields) timeFields.style.display = 'none';
   }
 
-  // Rebind inputs to update price
+  // Rebind inputs to update price - comprehensive event coverage for number inputs
   const adultsInput = document.getElementById('bookingAdults');
   const childrenInput = document.getElementById('bookingChildren');
   const hoursInput = document.getElementById('bookingHours');
   const daysInput = document.getElementById('bookingDays');
-  if (adultsInput) { const n = adultsInput.cloneNode(true); adultsInput.parentNode.replaceChild(n, adultsInput); n.addEventListener('input', updateLivePriceHome); n.addEventListener('change', updateLivePriceHome); }
-  if (childrenInput) { const n = childrenInput.cloneNode(true); childrenInput.parentNode.replaceChild(n, childrenInput); n.addEventListener('input', updateLivePriceHome); n.addEventListener('change', updateLivePriceHome); }
-  if (hoursInput) { const n = hoursInput.cloneNode(true); hoursInput.parentNode.replaceChild(n, hoursInput); n.addEventListener('input', updateLivePriceHome); n.addEventListener('change', updateLivePriceHome); }
-  if (daysInput) { const n = daysInput.cloneNode(true); daysInput.parentNode.replaceChild(n, daysInput); n.addEventListener('input', updateLivePriceHome); n.addEventListener('change', updateLivePriceHome); }
+  
+  const addAllEvents = (element) => {
+    element.addEventListener('input', updateLivePriceHome);
+    element.addEventListener('change', updateLivePriceHome);
+    element.addEventListener('click', updateLivePriceHome); // For spinner buttons
+    element.addEventListener('keyup', updateLivePriceHome);  // For arrow keys
+  };
+  
+  if (adultsInput) { const n = adultsInput.cloneNode(true); adultsInput.parentNode.replaceChild(n, adultsInput); addAllEvents(n); }
+  if (childrenInput) { const n = childrenInput.cloneNode(true); childrenInput.parentNode.replaceChild(n, childrenInput); addAllEvents(n); }
+  if (hoursInput) { const n = hoursInput.cloneNode(true); hoursInput.parentNode.replaceChild(n, hoursInput); addAllEvents(n); }
+  if (daysInput) { const n = daysInput.cloneNode(true); daysInput.parentNode.replaceChild(n, daysInput); addAllEvents(n); }
 
   updateLivePriceHome();
 

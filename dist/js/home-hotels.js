@@ -388,15 +388,24 @@ window.openHotelModalHome = function(index){
   if (maxPersons){ adultsEl.max = String(maxPersons); childrenEl.max = String(Math.max(0, maxPersons-1)); }
   else { adultsEl.removeAttribute('max'); childrenEl.removeAttribute('max'); }
 
-  // bind price updates
+  // bind price updates - comprehensive event coverage
+  const addAllEvents = (element, isDate = false) => {
+    element.addEventListener('input', updateHotelLivePrice);
+    element.addEventListener('change', updateHotelLivePrice);
+    if (!isDate) {
+      // For number inputs, also handle click (spinner buttons) and keyup
+      element.addEventListener('click', updateHotelLivePrice);
+      element.addEventListener('keyup', updateHotelLivePrice);
+    }
+  };
+  
   ['arrivalDate','departureDate','bookingAdults','bookingChildren'].forEach(id=>{
     const old = document.getElementById(id);
     if (!old) return;
     const clone = old.cloneNode(true);
     old.parentNode.replaceChild(clone, old);
-    // Add both input and change events for maximum compatibility
-    clone.addEventListener('input', updateHotelLivePrice);
-    clone.addEventListener('change', updateHotelLivePrice);
+    const isDate = id === 'arrivalDate' || id === 'departureDate';
+    addAllEvents(clone, isDate);
   });
   updateHotelLivePrice();
 
