@@ -78,51 +78,140 @@
   <a href="#main-content" class="skip-link" data-i18n="accessibility.skipToContent">Skip to main content</a>
       <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
     <div class="standalone-page">
-      <header class="card surface-card standalone-header">
-        <div class="standalone-brand">
-          <img
-            src="assets/cyprus_logo-1000x1054.png"
-            alt="Logo CyprusEye"
-            width="96"
-            height="101"
-            loading="eager"
-            fetchpriority="high"
-          />
-          <div>
-            <p class="standalone-brand-overline" data-i18n="advertise.overline">CyprusEye</p>
-            <p class="standalone-brand-title" data-i18n="advertise.title">Współpraca reklamowa</p>
+        <header class="app-header nav-modern">
+      <div class="nav-modern__top" aria-label="Global header">
+        <div class="brand nav-modern__brand-block">
+          <a href="index.html" class="nav-modern__brand-link" aria-label="CyprusEye Quest home">
+            <img
+              src="assets/cyprus_logo-1000x1054.png"
+              alt="WakacjeCypr.com – logo żółwia z flagą Polski"
+              data-i18n-attrs="alt:header.logoAlt"
+              width="1000"
+              height="1054"
+              loading="eager"
+              fetchpriority="high"
+            />
+            <div class="brand-title" data-i18n="header.brand">
+              <p class="brand-name">CyprusEye Quest &amp; Travel</p>
+            </div>
+          </a>
+        </div>
+
+        <div class="nav-modern__stats nav-modern__stats-lite" data-auth="user-only">
+          <div class="stats-lite__pill">
+            <a href="achievements.html" class="stats-lite__profile" id="profileButton" aria-label="Mój profil">
+              <img
+                id="headerUserAvatar"
+                class="profile-avatar"
+                src="assets/cyprus_logo-1000x1054.png"
+                alt="Avatar"
+                width="48"
+                height="48"
+                loading="eager"
+              />
+              <div class="profile-info">
+                <p class="profile-name">Mój Profil</p>
+                <p class="profile-status">Poziom 1 • 0 odznak</p>
+              </div>
+            </a>
+
+            <div class="stats-lite__panel">
+              <div class="stats-lite__level">
+                <span class="stats-lite__label">LVL</span>
+                <span class="stats-lite__value" id="headerLevelNumber">1</span>
+                <span class="stats-lite__status" id="headerLevelStatus" data-i18n="metrics.level.subtext">Status poziomu</span>
+              </div>
+
+              <div class="stats-lite__xp" role="img" aria-label="Postęp doświadczenia" data-i18n-attrs="aria-label:metrics.xp.aria">
+                <span class="stats-lite__xp-current"><span id="headerXpPoints">0</span> XP</span>
+                <div class="stats-lite__xp-bar">
+                  <div class="stats-lite__xp-fill is-width-zero" id="headerXpFill"></div>
+                </div>
+                <span class="stats-lite__xp-target" id="headerXpProgressText" data-i18n="metrics.xp.progress">
+                  0 / 150 XP do kolejnego poziomu
+                </span>
+              </div>
+
+              <div class="stats-lite__badges">
+                <span class="stats-lite__label">🏆</span>
+                <span class="stats-lite__value" id="headerBadgesCount">0</span>
+              </div>
+            </div>
           </div>
         </div>
-        <a class="ghost link" href="index.html" data-i18n="advertise.back">← Wróć do strony głównej</a>
-        <div id="auth-actions" class="auth-actions">
+
+        <div class="nav-modern__top-actions">
+          <div class="nav-modern__auth">
+            <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
+              <button
+                class="nav-modern__login"
+                data-open-auth
+                data-auth="anon-only"
+                data-tour-target="login-button"
+                data-i18n="header.login"
+                data-i18n-attrs="aria-label:auth.login.aria"
+                aria-label="Zaloguj do konta"
+              >
+                Zaloguj
+              </button>
+              <button class="btn btn-sm" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Gość</button>
+              <button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
+            </div>
+            <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
+          </div>
+
           <button
-            class="btn"
-            data-auth="login"
-            data-auth-login-mode="modal"
-            data-i18n="header.login"
-            data-i18n-attrs="aria-label:auth.login.aria"
-            aria-label="Zaloguj do konta"
+            id="sosToggle"
+            class="nav-modern__sos"
+            type="button"
+            aria-haspopup="dialog"
+            aria-controls="sosModal"
+            data-i18n="header.sosToggle"
           >
-            Zaloguj
+            ⚠️ SOS
           </button>
-          <button class="btn" data-auth="guest" data-i18n="auth.guest.button" data-i18n-attrs="aria-label:auth.guest.aria" aria-label="Tryb gry jako gość">Graj jako gość</button>
-          <a 
-            href="/achievements.html" 
-            class="btn btn-profile" 
-            data-auth="user-only"
-            aria-label="Mój profil"
-            id="profileButton"
-          >
-            <img id="headerUserAvatar" class="header-user-avatar" src="/assets/cyprus_logo-1000x1054.png" alt="Avatar" />
-            <span>Profil</span>
-          </a>
-          <button class="btn" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
-          <span class="auth-badge" data-auth="user-only" data-i18n="auth.status.userBadge">Zalogowany: <strong data-auth="user-name"></strong></span>
-          <span class="auth-badge" data-auth="guest-only" data-i18n="auth.status.guestBadge">Grasz jako gość</span>
-          <span class="auth-badge" data-auth="anon-only" data-i18n="auth.status.anon">Nie zalogowano</span>
+
+          <div class="language-pill-group" data-language-toggle aria-label="Language selector" data-i18n-attrs="aria-label:language.switcher.label">
+            <button type="button" class="language-pill" data-language-pill="pl" aria-pressed="false">PL</button>
+            <button type="button" class="language-pill" data-language-pill="en" aria-pressed="false">EN</button>
+            <button type="button" class="language-pill" data-language-pill="el" aria-pressed="false">EL</button>
+            <button type="button" class="language-pill" data-language-pill="he" aria-pressed="false">HE</button>
+          </div>
         </div>
-        <div data-auth="spinner" class="auth-spinner" aria-live="polite" data-i18n="auth.status.spinner">Łączenie z logowaniem…</div>
-      </header>
+      </div>
+    <div class="nav-modern__shell">
+
+      <div class="nav-modern__bars" data-tour-target="tabs-navigation">
+        <button class="nav-modern__toggle-btn" id="navToggleBtn" aria-expanded="false" aria-controls="navLinksRow" data-i18n="nav.toggle">
+          ☰ Nawigacja
+        </button>
+        <div class="nav-modern__links-row" id="navLinksRow" aria-label="Główna nawigacja i skróty" data-i18n-attrs="aria-label:header.quickActions.aria">
+          <nav class="nav-modern__tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna">
+            <a href="index.html" class="nav-modern__tab is-active" id="headerAdventureTab" data-i18n="nav.adventure">
+              🎯 Przygoda
+            </a>
+            <a href="community.html" class="nav-modern__tab" id="headerPackingTab" data-i18n="nav.community">
+              💬 Społeczność
+            </a>
+            <a href="recommendations.html" class="nav-modern__tab" id="headerRecommendationsTab" data-i18n="nav.recommendations">
+              ✨ Polecane
+            </a>
+            <a href="tasks.html" class="nav-modern__tab" id="headerTasksTab" data-i18n="nav.tasks">
+              ☑️ Zadania
+            </a>
+          </nav>
+
+          <div class="nav-modern__chips">
+            <a class="nav-chip" href="packing.html" data-i18n="nav.packing">🎒 Pakowanie</a>
+            <a class="nav-chip" href="kupon.html" data-i18n="header.coupon">🎟️ Kupon</a>
+            <a class="nav-chip" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
+            <a class="nav-chip" href="trips.html" data-i18n="nav.trips">🧭 Wycieczki</a>
+            <a class="nav-chip" href="hotels.html" data-i18n="nav.hotels">🏨 Hotele</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
 
       <main id="main-content" class="standalone-main">
         <section class="card surface-card standalone-hero" aria-labelledby="advertiseHeroTitle">

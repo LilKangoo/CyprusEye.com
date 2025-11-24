@@ -2083,8 +2083,6 @@ textarea:focus-visible {
     gap: 0 !important;
     height: auto !important;
     min-height: 0 !important;
-    justify-content: flex-start !important;
-    align-items: stretch !important;
   }
 
   .nav-modern__top,
