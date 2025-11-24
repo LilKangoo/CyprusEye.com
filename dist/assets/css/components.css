@@ -1991,6 +1991,10 @@ textarea:focus-visible {
   }
 }
 
+.nav-modern__toggle-btn {
+  display: none;
+}
+
 @media (max-width: 900px) {
   .nav-modern__toggle-btn {
     display: flex;
