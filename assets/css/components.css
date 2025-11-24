@@ -2021,9 +2021,9 @@ textarea:focus-visible {
 
 @media (max-width: 640px) {
   .app-header.nav-modern {
-    padding: 0.25rem !important;
+    padding: 0.5rem !important;
     border-radius: 0 !important;
-    gap: 0 !important;
+    gap: 0.5rem !important;
   }
 
   .nav-modern {
@@ -2188,7 +2188,8 @@ textarea:focus-visible {
     grid-row: 1 / 2;
     padding: 0.25rem;
     gap: 0.25rem;
-    width: 100%;
+    width: auto;
+    margin: 0 auto;
     max-width: 100%;
     box-sizing: border-box;
     justify-content: center;
@@ -9133,8 +9134,5 @@ body.auth-page {
 
 .btn-profile span {
   font-weight: 500;
-}
-
-weight: 500;
 }
 

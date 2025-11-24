@@ -2021,9 +2021,9 @@ textarea:focus-visible {
 
 @media (max-width: 640px) {
   .app-header.nav-modern {
-    padding: 0.25rem !important;
+    padding: 0.5rem !important;
     border-radius: 0 !important;
-    gap: 0 !important;
+    gap: 0.5rem !important;
   }
 
   .nav-modern {
