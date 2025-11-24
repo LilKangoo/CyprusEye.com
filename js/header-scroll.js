@@ -4,40 +4,45 @@
  * in the mobile header navigation.
  */
 
-document.addEventListener('DOMContentLoaded', () => {
-  const tabs = document.querySelector('.nav-modern__tabs');
-  const chips = document.querySelector('.nav-modern__chips');
+(function() {
+  function initHeaderScroll() {
+    const tabs = document.querySelector('.nav-modern__tabs');
+    const chips = document.querySelector('.nav-modern__chips');
 
-  if (!tabs || !chips) return;
+    if (!tabs || !chips) {
+        console.warn('Header scroll elements not found');
+        return;
+    }
 
-  let activeSource = null;
-  let scrollTimeout = null;
+    console.log('✅ Header scroll synchronization initialized');
 
-  // Function to handle scroll synchronization
-  function syncScroll(source, target, sourceName) {
-    if (activeSource !== null && activeSource !== sourceName) return;
-    
-    activeSource = sourceName;
-    
-    // Sync the scroll position
-    if (target.scrollLeft !== source.scrollLeft) {
+    let isSyncing = false;
+
+    function sync(source, target) {
+      // If we are already in a sync operation initiated by the other element, skip
+      if (isSyncing) return;
+
+      // If positions are already close enough, don't update.
+      // This breaks the loop if the scroll event fires later asynchronously.
+      if (Math.abs(source.scrollLeft - target.scrollLeft) < 2) return;
+
+      isSyncing = true;
       target.scrollLeft = source.scrollLeft;
+      
+      // Reset the flag after a short delay to allow the scroll event to fire and be ignored
+      window.requestAnimationFrame(() => {
+        isSyncing = false;
+      });
     }
 
-    // Clear existing timeout
-    if (scrollTimeout) {
-      clearTimeout(scrollTimeout);
-    }
-
-    // Reset active source after scrolling stops
-    scrollTimeout = setTimeout(() => {
-      activeSource = null;
-    }, 150);
+    tabs.addEventListener('scroll', () => sync(tabs, chips), { passive: true });
+    chips.addEventListener('scroll', () => sync(chips, tabs), { passive: true });
   }
 
-  // Add listeners
-  tabs.addEventListener('scroll', () => syncScroll(tabs, chips, 'tabs'), { passive: true });
-  chips.addEventListener('scroll', () => syncScroll(chips, tabs, 'chips'), { passive: true });
-  
-  console.log('✅ Header scroll synchronization initialized');
-});
+  // Initialize when DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initHeaderScroll);
+  } else {
+    initHeaderScroll();
+  }
+})();
