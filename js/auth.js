@@ -302,25 +302,6 @@ function stripSupabaseReturnParams(parsed) {
   return true;
 }
 
-function readGuestState() {
-  try {
-    const raw = localStorage.getItem('ce_guest');
-    if (!raw) {
-      return null;
-    }
-    const parsed = JSON.parse(raw);
-    if (parsed && typeof parsed === 'object') {
-      return {
-        active: Boolean(parsed.active),
-        since: Number.isFinite(parsed.since) ? parsed.since : Date.now(),
-      };
-    }
-  } catch (error) {
-    console.warn('Nie udało się odczytać trybu gościa.', error);
-  }
-  return null;
-}
-
 function setDocumentAuthState(state) {
   const root = document.documentElement;
   if (root) {
@@ -331,7 +312,6 @@ function setDocumentAuthState(state) {
 function setState(next) {
   window.CE_STATE = {
     session: null,
-    guest: null,
     profile: null,
     status: 'loading',
     ...(window.CE_STATE || {}),
@@ -631,7 +611,6 @@ function applyPersistedAuthSessionSnapshot(snapshot, { emitEvent = true } = {}) 
   setState({
     session: sanitizedSession,
     profile: resolvedProfile,
-    guest: null,
     status: 'authenticated',
   });
 
@@ -771,7 +750,6 @@ function showResendVerification(email) {
     button.dataset.redirect = VERIFICATION_REDIRECT;
   }
 }
-
 
 async function requestPasswordReset(email) {
   const normalized = email?.trim();
@@ -936,51 +914,34 @@ function parseRegisterPayload(form) {
   return { email, password, firstName, username };
 }
 
-function ensureGuestState(state) {
-  try {
-    if (state) {
-      localStorage.setItem('ce_guest', JSON.stringify(state));
-    } else {
-      localStorage.removeItem('ce_guest');
-    }
-  } catch (error) {
-    console.warn('Nie udało się zapisać trybu gościa.', error);
-  }
-}
-
 export async function refreshSessionAndProfile() {
-  const guest = readGuestState();
   let session = null;
 
   try {
-    const { data, error } = await sb.auth.getSession();
-    if (error) {
-      throw error;
+    const { data: sessionData, error: sessionError } = await sb.auth.getSession();
+    if (!sessionError && sessionData?.session) {
+      session = sessionData.session;
     }
-    session = data?.session ?? null;
   } catch (error) {
-    const message = friendlyErrorMessage(error?.message || 'Nie udało się pobrać sesji Supabase.');
-    showErr(`Nie udało się: ${message}`);
     console.warn('Nie udało się pobrać sesji Supabase.', error);
   }
 
-  const state = { session, guest, profile: null };
+  const state = { session, profile: null };
 
   if (session?.user?.id) {
     try {
       state.profile = await loadProfileForUser(session.user);
-      ensureGuestState(null);
-      state.guest = null;
     } catch (profileError) {
       console.warn('Nie udało się pobrać profilu użytkownika.', profileError);
       state.profile = null;
     }
   }
 
-  const status = session?.user ? 'authenticated' : state.guest?.active ? 'guest' : 'guest';
+  const status = session?.user ? 'authenticated' : 'anonymous';
   setState({ ...state, status });
   persistAuthSession(session, state.profile);
   emitAuthState(window.CE_STATE);
+
   return window.CE_STATE;
 }
 
@@ -1169,16 +1130,7 @@ $('#form-register')?.addEventListener('submit', async (event) => {
   });
 });
 
-$('#btn-guest')?.addEventListener('click', (event) => {
-  const button = event.currentTarget;
-  void withBusy(button instanceof HTMLButtonElement ? button : null, async () => {
-    const guestState = { active: true, since: Date.now() };
-    ensureGuestState(guestState);
-    setState({ session: null, profile: null, guest: guestState, status: 'guest' });
-    updateAuthUI();
-    window.location.assign('/');
-  });
-});
+// Guest mode removed - button no longer exists
 
 function closeResetDialog(dialog) {
   if (!dialog) {
@@ -1528,7 +1480,7 @@ if (document.readyState === 'loading') {
   handleAuthDomReady();
 }
 
-setState({ status: 'loading', guest: readGuestState(), session: null });
+setState({ status: 'loading', session: null });
 
 const cachedAuthSession = readPersistedAuthSession();
 if (cachedAuthSession) {

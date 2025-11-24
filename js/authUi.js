@@ -1,7 +1,7 @@
 import { setAria, showErr } from './authMessages.js';
 import { loadProfileForUser } from './profile.js';
 
-const GUEST_STORAGE_KEY = 'ce_guest';
+// Guest mode removed
 
 const sb = window.getSupabase();
 const ceAuth = typeof window !== 'undefined' && window.CE_AUTH ? window.CE_AUTH : null;
@@ -94,43 +94,9 @@ const withTimeout = (promise, ms = 4000) => {
   ]);
 };
 
-function readGuestState() {
-  try {
-    const storage = window.localStorage;
-    const raw = storage?.getItem ? storage.getItem(GUEST_STORAGE_KEY) : null;
-    if (!raw) {
-      return null;
-    }
-    try {
-      const parsed = JSON.parse(raw);
-      if (parsed && typeof parsed === 'object') {
-        return {
-          active: Boolean(parsed.active),
-          since: Number.isFinite(parsed.since) ? parsed.since : Date.now(),
-        };
-      }
-    } catch (parseError) {
-      console.warn('Nie udało się sparsować stanu trybu gościa.', parseError);
-    }
-  } catch (error) {
-    console.warn('Nie udało się odczytać stanu trybu gościa.', error);
-  }
-  return null;
-}
+// Guest mode removed - function no longer needed
 
-function clearGuestState() {
-  try {
-    const storage = window.localStorage;
-    storage?.removeItem?.(GUEST_STORAGE_KEY);
-  } catch (error) {
-    console.warn('Nie udało się usunąć stanu trybu gościa.', error);
-  }
-}
-
-function getGuestState() {
-  const state = window.CE_STATE || {};
-  return state.guest ?? readGuestState();
-}
+// Guest mode removed - function no longer needed
 
 function showAuthSpinner(on) {
   const spinner = document.querySelector('[data-auth=spinner]');
@@ -558,19 +524,15 @@ async function applySession(session, detail = {}) {
   const state = (window.CE_STATE = window.CE_STATE || {});
   state.session = session || null;
   state.profile = null;
-  state.guest = null;
   delete state.authError;
 
   if (session?.user?.id) {
-    clearGuestState();
     try {
       const profile = await withTimeout(loadProfileForUser(session.user), 3000);
       state.profile = profile || null;
     } catch (profileError) {
       console.warn('Nie udało się pobrać profilu użytkownika.', profileError);
     }
-  } else {
-    state.guest = readGuestState();
   }
 
   updateAuthUI();
@@ -605,7 +567,6 @@ async function loadAuthSession() {
     const state = (window.CE_STATE = window.CE_STATE || {});
     state.session = null;
     state.profile = null;
-    state.guest = readGuestState();
     state.authError = new Error('OFFLINE');
     showErr('Nie udało się: Brak internetu. Spróbuj ponownie.');
     updateAuthUI();
@@ -725,9 +686,7 @@ export function waitForAuthReady() {
 export function updateAuthUI() {
   const state = window.CE_STATE || {};
   const isLogged = !!state.session;
-  const guestState = getGuestState();
-  const isGuest = !isLogged && !!guestState?.active;
-  const documentState = isLogged ? 'authenticated' : 'guest';
+  const documentState = isLogged ? 'authenticated' : 'anonymous';
 
   if (isLogged) {
     updateAuthSuccessOverlayUser(state);
@@ -760,11 +719,9 @@ export function updateAuthUI() {
   };
 
   updateGroupVisibility('[data-auth=login]', !isLogged);
-  updateGroupVisibility('[data-auth=guest]', isGuest);
   updateGroupVisibility('[data-auth=logout]', isLogged);
   updateGroupVisibility('[data-auth=user-only]', isLogged);
-  updateGroupVisibility('[data-auth=guest-only]', isGuest);
-  updateGroupVisibility('[data-auth=anon-only]', !isLogged && !isGuest);
+  updateGroupVisibility('[data-auth=anon-only]', !isLogged);
 
   const displayName = isLogged ? getDisplayNameFromState(state) : '';
   document.querySelectorAll('[data-auth=user-name]').forEach((element) => {
@@ -775,32 +732,19 @@ export function updateAuthUI() {
 
   const actions = document.getElementById('auth-actions');
   if (actions instanceof HTMLElement) {
-    const actionsState = isLogged ? 'authenticated' : isGuest ? 'guest' : 'anonymous';
+    const actionsState = isLogged ? 'authenticated' : 'anonymous';
     actions.dataset.state = actionsState;
     if (actionsState !== 'loading') {
       actions.removeAttribute('aria-busy');
     }
     actions.classList.toggle('is-authenticated', isLogged);
-    actions.classList.toggle('is-guest', isGuest && !isLogged);
-    if (!isLogged && !isGuest) {
-      actions.classList.remove('is-authenticated', 'is-guest');
-    }
   }
 
   document.querySelectorAll('[data-gated=true]').forEach((element) => {
-    toggleVisibility(element, isLogged || isGuest);
+    toggleVisibility(element, isLogged);
   });
 
-  document.querySelectorAll('[data-auth-guest-note]').forEach((element) => {
-    if (!(element instanceof HTMLElement)) {
-      return;
-    }
-    const shouldShow = isGuest && !isLogged;
-    toggleVisibility(element, shouldShow);
-    if (shouldShow) {
-      element.textContent = 'Grasz jako gość — postęp zapisany lokalnie na tym urządzeniu.';
-    }
-  });
+  // Guest notes removed
 
   document.querySelectorAll('[data-auth-confirmation-link]').forEach((element) => {
     syncConfirmationLink(element, state, '/');
@@ -968,7 +912,6 @@ document.querySelectorAll('[data-auth=logout]').forEach((el) => {
   el.addEventListener('click', async () => {
     await sb.auth.signOut();
     ceAuth?.persistSession?.(null);
-    clearGuestState();
     window.CE_STATE = {};
     updateAuthUI();
     
