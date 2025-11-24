@@ -550,7 +550,7 @@
   },
   "auth.title": "Dołącz do przygody",
   "auth.subtitle": "Zaloguj się, aby zapisać postępy i odblokować funkcje.",
-  "auth.intro": "Zaloguj się, utwórz konto lub graj jako gość.",
+  "auth.intro": "Zaloguj się lub utwórz konto.",
   "auth.confirmation.title": "Potwierdź logowanie",
   "auth.confirmation.userLabel": "Użytkownik",
   "auth.confirmation.info": "Czy na pewno chcesz się zalogować jako powyższy użytkownik?",

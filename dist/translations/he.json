@@ -157,7 +157,7 @@
   "auth.guest.description": "אתה יכול להשתמש באפליקציה ללא חשבון – ההתקדמות תישאר במכשיר זה.",
   "auth.guest.status": "אתה משחק כאורח. ההתקדמות נשמרת במכשיר זה.",
   "auth.guest.switch": "Logged out—you are now playing as a guest.",
-  "auth.intro": "התחבר, צור חשבון או המשך כאורח.",
+  "auth.intro": "התחבר או צור חשבון.",
   "auth.login.aria": "התחבר לחשבון",
   "auth.login.button": "התחבר",
   "auth.login.hint": "Use the form below to sign in or create an account.",

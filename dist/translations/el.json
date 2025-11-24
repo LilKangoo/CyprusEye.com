@@ -157,7 +157,7 @@
   "auth.guest.description": "Μπορείτε να χρησιμοποιήσετε την εφαρμογή χωρίς λογαριασμό – η πρόοδος θα παραμείνει σε αυτήν τη συσκευή.",
   "auth.guest.status": "Παίζετε ως επισκέπτης. Η πρόοδος αποθηκεύεται σε αυτήν τη συσκευή.",
   "auth.guest.switch": "Logged out—you are now playing as a guest.",
-  "auth.intro": "Συνδεθείτε, δημιουργήστε λογαριασμό ή συνεχίστε ως επισκέπτης.",
+  "auth.intro": "Συνδεθείτε ή δημιουργήστε λογαριασμό.",
   "auth.login.aria": "Σύνδεση στο λογαριασμό",
   "auth.login.button": "Σύνδεση",
   "auth.login.hint": "Use the form below to sign in or create an account.",
