@@ -125,6 +125,7 @@ async function copyStaticFiles() {
       'packing.html',
       'tasks.html',
       'recommendations.html',
+      'terms.html',
     ];
     
     for (const file of htmlFiles) {
