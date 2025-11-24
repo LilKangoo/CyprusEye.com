@@ -49,7 +49,7 @@
       margin: 0;
     }
     .trips-container {
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
       padding: 40px 20px;
       overflow-x: hidden;
@@ -64,6 +64,7 @@
       -webkit-overflow-scrolling: touch;
       scrollbar-width: none; /* Firefox */
       -ms-overflow-style: none; /* IE/Edge */
+      justify-content: center; /* Center tabs on desktop */
     }
     .trips-tabs::-webkit-scrollbar {
       display: none; /* Chrome/Safari */
@@ -90,14 +91,15 @@
     }
     .city-grid {
       display: grid;
-      /* Modern responsive grid: creates as many columns as fit, min 340px wide */
-      grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+      /* Adjusted for 4 columns on large screens (1400px / 4 ~ 350px minus gaps) */
+      /* Using minmax(260px, 1fr) ensures 4 columns fit on screens > ~1200px */
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
       gap: 24px;
       padding-bottom: 40px;
     }
     .city-card {
       position: relative;
-      height: 400px; /* Taller, more modern aspect ratio */
+      height: 380px; /* Slightly shorter to balance width */
       border-radius: 20px;
       overflow: hidden;
       cursor: pointer;
