@@ -91,12 +91,29 @@
     }
     .city-grid {
       display: grid;
-      /* Adjusted for 4 columns on large screens (1400px / 4 ~ 350px minus gaps) */
-      /* Using minmax(260px, 1fr) ensures 4 columns fit on screens > ~1200px */
-      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      grid-template-columns: repeat(4, 1fr); /* Default desktop: 4 columns */
       gap: 24px;
       padding-bottom: 40px;
     }
+    
+    @media (max-width: 1200px) {
+      .city-grid {
+        grid-template-columns: repeat(3, 1fr); /* Laptop: 3 columns */
+      }
+    }
+    
+    @media (max-width: 900px) {
+      .city-grid {
+        grid-template-columns: repeat(2, 1fr); /* Tablet: 2 columns */
+      }
+    }
+    
+    @media (max-width: 600px) {
+      .city-grid {
+        grid-template-columns: 1fr; /* Mobile: 1 column */
+      }
+    }
+
     .city-card {
       position: relative;
       height: 380px; /* Slightly shorter to balance width */
@@ -106,6 +123,7 @@
       transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
       box-shadow: 0 10px 30px rgba(0,0,0,0.08);
       background: #f3f4f6;
+      width: 100%; /* Ensure card doesn't overflow cell */
     }
     .city-card:hover {
       transform: translateY(-8px);
