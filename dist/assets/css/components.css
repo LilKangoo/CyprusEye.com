@@ -109,11 +109,78 @@
   background: #fff;
 }
 .form-field input:focus, .form-field textarea:focus, .form-field select:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.15); }
-.trip-price-box { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 12px; padding: 12px; display: flex; justify-content: space-between; align-items: center; }
-.trip-price-label { margin: 0; color: #6b7280; font-weight: 600; }
-.trip-price-value { margin: 0; font-size: 1.25rem; font-weight: 800; color: #111827; }
-.booking-submit { background: #111827; color: #fff; border: none; border-radius: 12px; padding: 12px 16px; font-weight: 700; cursor: pointer; }
-.booking-submit:hover { background: #0b1220; }
+.trip-price-box {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  padding: 24px;
+  border-radius: 16px;
+  margin-bottom: 24px;
+}
+.trip-price-label {
+  font-size: 0.9rem;
+  opacity: 0.9;
+  margin: 0 0 8px;
+}
+.trip-price-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin: 0;
+}
+.booking-submit {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border: none;
+  padding: 16px 32px;
+  border-radius: 12px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s;
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+.booking-submit:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+}
+.booking-submit:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Trip section styles (identical to /trips) */
+.trip-section {
+  margin-bottom: 32px;
+}
+.trip-section-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  margin: 0 0 16px;
+  color: #374151;
+}
+.trip-description {
+  font-size: 1rem;
+  line-height: 1.6;
+  color: #4b5563;
+}
+
+/* Booking message styles (identical to /trips) */
+.booking-message {
+  padding: 16px;
+  border-radius: 12px;
+  margin-top: 16px;
+  font-weight: 500;
+  text-align: center;
+}
+.booking-message.success {
+  background: #d1fae5;
+  color: #065f46;
+}
+.booking-message.error {
+  background: #fee2e2;
+  color: #991b1b;
+}
+
 @media (max-width: 900px){ .form-row { grid-template-columns: 1fr; } }
 
 /* Modal nav arrows */
@@ -209,9 +276,6 @@
 .detail-booking label { font-size: .9rem; color: #374151; font-weight: 600; }
 .detail-booking input, .detail-booking select, .detail-booking textarea { width: 100%; border: 1px solid rgba(148,163,184,.4); border-radius: 10px; padding: .6rem .7rem; }
 .detail-booking .booking-submit { padding: .7rem 1rem; border-radius: 12px; font-weight: 700; }
-.booking-message { display:none; font-size: .95rem; }
-.booking-message.success { color: #059669; }
-.booking-message.error { color: #dc2626; }
 
 @media (max-width: 900px){
   .detail-skeleton, .detail-content { grid-template-columns: 1fr; }
