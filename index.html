@@ -264,7 +264,7 @@
     <h1 class="sr-only" data-i18n="home.pageTitle">CyprusEye Quest – interaktywny przewodnik po Cyprze</h1>
     <div class="layout app-view" id="adventureView" role="tabpanel" aria-labelledby="headerAdventureTab">
       <div class="primary-column">
-        <section id="current-objective" class="map-panel card surface-card" data-tour-target="map-section">
+        <section id="current-objective" class="map-panel" data-tour-target="map-section">
           <h2 id="currentObjectiveHeading" class="sr-only" tabindex="-1" data-i18n="objective.title">
             Aktualna lokalizacja
           </h2>
@@ -273,7 +273,10 @@
               Pomiń interaktywną mapę
             </a>
           </div>
+          
+          <!-- Map Container (Background) -->
           <div id="map" aria-label="Interaktywna mapa atrakcji"></div>
+          
           <p
             id="mapSkipTarget"
             class="sr-only map-skip-target"
@@ -283,102 +286,67 @@
             Pominięto mapę. Przejdź do kolejnych informacji o lokalizacji.
           </p>
           
-          <!-- Current Place Highlight Section - restored -->
+          <!-- Floating Details Card -->
           <div class="current-place-section" id="currentPlaceSection" data-tour-target="current-place">
+            <!-- Navigation (Arrows & Counter) -->
             <div class="current-place-navigation">
               <button
                 type="button"
-                class="btn secondary"
                 id="prevPlaceBtn"
                 onclick="navigatePlace(-1)"
-                data-i18n="currentPlace.prev"
+                aria-label="Poprzednie"
               >
-                Prev
+                ←
               </button>
-              <h2 class="current-place-heading" data-i18n="currentPlace.heading">Aktualne miejsce</h2>
+              <span class="current-place-heading" id="placeCounter">X / Y</span>
               <button
                 type="button"
-                class="btn secondary"
                 id="nextPlaceBtn"
                 onclick="navigatePlace(1)"
-                data-i18n="currentPlace.next"
+                aria-label="Następne"
               >
-                Next
+                →
               </button>
             </div>
             
             <div class="current-place-content" id="currentPlaceContent">
+              <!-- Badges Row (Added for new design) -->
+              <div class="place-badges">
+                <span class="badge-pill badge-type">LANDMARK</span>
+                <span class="badge-pill badge-xp" id="currentPlaceXPBadge">+0 XP</span>
+                <span class="badge-pill badge-trophy" id="currentPlaceTrophyBadge" style="display:none;">🏆 <span id="trophyName"></span></span>
+              </div>
+
               <h3 id="currentPlaceName" data-i18n="currentPlace.loading">Loading...</h3>
               <p id="currentPlaceDescription">...</p>
               
-              <div class="current-place-stats">
-                <div>
-                  <span>✨</span>
-                  <span id="currentPlaceXP">0 XP</span>
-                </div>
-              </div>
+              <!-- Actions Grid -->
               <div class="current-place-actions">
                 <button
                   class="btn primary"
                   onclick="checkInAtPlace(window.currentPlaceId)"
-                  data-i18n="currentPlace.checkIn"
                 >
-                  Check-in
+                  <span class="btn-icon">✓</span> <span data-i18n="currentPlace.checkIn">Check</span>
                 </button>
                 <button
                   class="btn secondary"
                   onclick="showCommunity(window.currentPlaceId)"
-                  data-i18n="currentPlace.comments"
                 >
-                  Comments
+                  <span class="btn-icon">💬</span> <span data-i18n="currentPlace.comments">Komentarze</span>
                 </button>
                 <button
                   class="btn secondary"
                   onclick="focusPlaceOnMap(window.currentPlaceId)"
-                  data-i18n="currentPlace.map"
                 >
-                  Map
+                  <span class="btn-icon">➤</span> <span data-i18n="currentPlace.map">Nav</span>
                 </button>
               </div>
               <p id="currentPlaceCheckInStatus" class="current-place-checkin-status" aria-live="polite"></p>
             </div>
           </div>
           
-          <div class="current-objective" id="currentObjective" hidden>
-            <h2 data-i18n="objective.title">Aktualna lokalizacja</h2>
-            <p id="objectiveTitle"></p>
-            <p id="objectiveDescription"></p>
-            <p>
-              <a id="objectiveLink" href="#" target="_blank" rel="noopener" data-i18n="objective.mapLink">
-                Zobacz na Mapach Google
-              </a>
-            </p>
-            <div class="objective-navigation">
-              <button
-                type="button"
-                class="btn btn-secondary secondary"
-                id="previousPlaceBtn"
-                aria-label="Przejdź do poprzedniego miejsca"
-                data-i18n="objective.previous"
-              >
-                ← Poprzednie miejsce
-              </button>
-              <button
-                type="button"
-                class="btn btn-secondary secondary"
-                id="nextPlaceBtn"
-                aria-label="Przejdź do następnego miejsca"
-                data-i18n="objective.next"
-              >
-                Następne miejsce →
-              </button>
-            </div>
-            <button id="checkInBtn" class="btn btn-primary primary" data-i18n="objective.checkIn">Zamelduj się i zdobądź XP</button>
-            <p class="hint" data-i18n="objective.hint">
-              Wskazówka: pozwól aplikacji użyć Twojej lokalizacji, aby potwierdzić, że jesteś na miejscu.
-            </p>
-            <p class="status" id="checkInStatus"></p>
-          </div>
+          <!-- Old fallback objective div hidden but kept for logic compatibility if needed -->
+          <div class="current-objective" id="currentObjective" hidden></div>
         </section>
 
         <!-- Home panels: 2 columns (Trips + Hotels) under the map -->

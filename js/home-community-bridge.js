@@ -40,6 +40,14 @@
 
     const nameEl = document.getElementById('currentPlaceName');
     const descEl = document.getElementById('currentPlaceDescription');
+    
+    // New Elements
+    const xpBadgeEl = document.getElementById('currentPlaceXPBadge');
+    const trophyBadgeEl = document.getElementById('currentPlaceTrophyBadge');
+    const trophyNameEl = document.getElementById('trophyName');
+    const counterEl = document.getElementById('placeCounter');
+
+    // Old Elements (Fallback)
     const xpEl = document.getElementById('currentPlaceXP');
     const commentsEl = document.getElementById('currentPlaceComments');
     const ratingEl = document.getElementById('currentPlaceRating');
@@ -49,9 +57,38 @@
     
     if(nameEl) nameEl.textContent = poiName;
     if(descEl) descEl.textContent = poiDesc;
+    
+    // Update XP Badge
+    if(xpBadgeEl) {
+      xpBadgeEl.textContent = `+${poi.xp||0} XP`;
+    }
+    // Update Old XP Element (if still exists in other views)
     if(xpEl) xpEl.textContent = (poi.xp||0) + ' XP';
-    if(commentsEl) commentsEl.textContent = '0 Komentarzy';
-    if(ratingEl) ratingEl.textContent = '0 Ocen';
+
+    // Update Trophy Badge
+    if(trophyBadgeEl && trophyNameEl) {
+      if(poi.trophy_name) {
+        trophyBadgeEl.style.display = 'inline-flex';
+        trophyNameEl.textContent = poi.trophy_name;
+      } else {
+        trophyBadgeEl.style.display = 'none';
+      }
+    }
+
+    // Update Counter (X / Y)
+    if(counterEl) {
+      const allIds = getOrderedPoiIds();
+      const index = allIds.indexOf(id);
+      if(index !== -1) {
+        counterEl.textContent = `${index + 1} / ${allIds.length}`;
+      } else {
+        counterEl.textContent = '1 / 1';
+      }
+    }
+
+    // Legacy: Reset comments/rating placeholders (will be updated by updatePlaceStats)
+    if(commentsEl) commentsEl.textContent = '...';
+    if(ratingEl) ratingEl.textContent = '...';
 
     // Load live stats (rating + comments) for the selected place
     updatePlaceStats(id).catch(()=>{
