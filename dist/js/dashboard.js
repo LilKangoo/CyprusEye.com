@@ -255,13 +255,29 @@ async function fetchAllBookings(limit = 100) {
     console.warn('Hotel bookings table not found or error:', e);
   }
 
-  console.log('Found trips:', tripBookings?.length, 'hotels:', hotelBookings?.length);
+  // Fetch Car Bookings
+  let carBookings = [];
+  try {
+    const { data, error } = await supabase
+      .from('car_bookings')
+      .select('*')
+      .ilike('email', currentUser.email) // Note: car bookings use 'email', not 'customer_email'
+      .order('created_at', { ascending: false })
+      .limit(limit);
+    
+    if (error) console.warn('Car bookings fetch error:', error);
+    if (data) carBookings = data;
+  } catch (e) {
+    console.warn('Car bookings table not found or error:', e);
+  }
+
+  console.log('Found trips:', tripBookings?.length, 'hotels:', hotelBookings?.length, 'cars:', carBookings?.length);
 
   // Normalize Data
   const trips = (tripBookings || []).map(t => ({
     type: 'trip',
     id: t.id,
-    title: t.trip_slug || 'Trip Booking', // Ideally join with trips table for title
+    title: t.trip_slug || 'Trip Booking', 
     date: t.trip_date,
     created_at: t.created_at,
     status: t.status || 'pending',
@@ -280,8 +296,19 @@ async function fetchAllBookings(limit = 100) {
     people: (h.adults || 0) + (h.children || 0)
   }));
 
+  const cars = carBookings.map(c => ({
+    type: 'car',
+    id: c.id,
+    title: c.car_model || 'Car Rental',
+    date: c.pickup_date,
+    created_at: c.created_at,
+    status: c.status || 'pending',
+    price: 0, // Car bookings often don't have total_price calculated in DB based on JS
+    people: c.num_passengers || 0
+  }));
+
   // Merge and Sort
-  return [...trips, ...hotels].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, limit);
+  return [...trips, ...hotels, ...cars].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, limit);
 }
 
 function renderReservations(filter) {
@@ -298,7 +325,7 @@ function renderReservations(filter) {
 
 function createBookingCard(booking, simple = false) {
   const date = new Date(booking.date || booking.created_at).toLocaleDateString();
-  const icon = booking.type === 'trip' ? '🚤' : '🏨';
+  const icon = booking.type === 'trip' ? '🚤' : (booking.type === 'car' ? '🚗' : '🏨');
   const statusClass = booking.status.toLowerCase();
   
   // Determine badge text based on translation (simplified here)
