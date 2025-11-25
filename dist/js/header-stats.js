@@ -12,6 +12,7 @@
 
   // Cache elementów DOM
   let elements = null;
+  let profileChannel = null;
 
   function getElements() {
     if (elements) return elements;
@@ -150,12 +151,51 @@
         level: profile?.level || 1,
         badges: badgesCount,
         name: profile?.name || profile?.username || 'Gracz',
-        avatar_url: profile?.avatar_url || null
+        avatar_url: profile?.avatar_url || null,
+        userId: user.id
       };
 
     } catch (error) {
       console.error('❌ Błąd pobierania statystyk:', error);
       return null;
+    }
+  }
+
+  function subscribeProfileRealtime(userId) {
+    try {
+      const sb = typeof window.getSupabase === 'function' ? window.getSupabase() : null;
+      if (!sb || !userId) {
+        return;
+      }
+
+      if (profileChannel && typeof profileChannel.unsubscribe === 'function') {
+        profileChannel.unsubscribe();
+        profileChannel = null;
+      }
+
+      profileChannel = sb
+        .channel(`header-profile-rt-${userId}`)
+        .on(
+          'postgres_changes',
+          { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${userId}` },
+          (payload) => {
+            const newRow = payload && payload.new ? payload.new : null;
+            if (!newRow) {
+              return;
+            }
+            const badgesCount = Array.isArray(newRow.visited_places) ? newRow.visited_places.length : 0;
+            updateHeaderStats({
+              xp: newRow.xp || 0,
+              level: newRow.level || 1,
+              badges: badgesCount,
+              name: newRow.name || newRow.username || 'Gracz',
+              avatar_url: newRow.avatar_url || null
+            });
+          }
+        )
+        .subscribe();
+    } catch (error) {
+      console.warn('⚠️ Nie udało się włączyć nasłuchu zmian profilu w headerze:', error);
     }
   }
 
@@ -198,6 +238,9 @@
     const stats = await fetchUserStats();
     if (stats) {
       updateHeaderStats(stats);
+      if (stats.userId) {
+        subscribeProfileRealtime(stats.userId);
+      }
     }
 
     // Nasłuchuj zmian sesji
@@ -207,11 +250,23 @@
         console.log('🔄 Zmiana stanu autoryzacji:', event);
         
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          const userId = session && session.user ? session.user.id : null;
+          if (userId) {
+            subscribeProfileRealtime(userId);
+          }
           const stats = await fetchUserStats();
           if (stats) {
             updateHeaderStats(stats);
           }
         } else if (event === 'SIGNED_OUT') {
+          if (profileChannel && typeof profileChannel.unsubscribe === 'function') {
+            try {
+              profileChannel.unsubscribe();
+            } catch (e) {
+              console.warn('⚠️ Błąd podczas odpinania kanału profilu w headerze:', e);
+            }
+            profileChannel = null;
+          }
           // Resetuj do wartości domyślnych
           updateHeaderStats({
             xp: 0,

@@ -48,12 +48,29 @@ export async function awardPoi(poiId){
     console.error('award_poi:', error.message)
     throw error
   }
+  if (typeof window !== 'undefined' && typeof window.refreshHeaderStats === 'function') {
+    try {
+      window.refreshHeaderStats()
+    } catch (e) {
+      console.warn('Błąd podczas odświeżania statystyk w headerze po award_poi:', e)
+    }
+  }
   return data
 }
 
 export async function awardTask(taskId){
   const { error } = await sb.rpc('award_task', { p_task_id: taskId })
-  if (error) console.error('award_task:', error.message)
+  if (error) {
+    console.error('award_task:', error.message)
+    return
+  }
+  if (typeof window !== 'undefined' && typeof window.refreshHeaderStats === 'function') {
+    try {
+      window.refreshHeaderStats()
+    } catch (e) {
+      console.warn('Błąd podczas odświeżania statystyk w headerze po award_task:', e)
+    }
+  }
 }
 
 export async function myXpEvents() {
