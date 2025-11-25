@@ -1,874 +1,256 @@
 <!DOCTYPE html>
 <html lang="en" dir="ltr">
-  <head>
-<!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
-<script>
-  window.dataLayer = window.dataLayer || [];
-  function gtag(){dataLayer.push(arguments);}
-  gtag('js', new Date());
+<head>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
 
-  gtag('config', 'G-FCSE0876CR');
-</script>
+    gtag('config', 'G-FCSE0876CR');
+  </script>
 
-    <meta charset="UTF-8" />
+  <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   
   <!-- Security: Content Security Policy -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://esm.sh https://unpkg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://*.tile.openstreetmap.org https://unpkg.com https://esm.sh; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
   
   <meta name="theme-color" content="#2563eb" />
-    <meta name="robots" content="index,follow" />
-    <title data-i18n="achievements.meta.title">CyprusEye Quest – your achievements</title>
-    <meta
-      name="description"
-      content="Review the badges you have earned, places you explored, and your experience level inside the CyprusEye Quest achievement hub."
-      data-i18n-attrs="content:seo.achievements.description"
-    />
-    <meta property="og:type" content="website" />
-    <meta
-      property="og:title"
-      content="CyprusEye Quest – your achievements"
-      data-i18n-attrs="content:seo.achievements.ogTitle"
-    />
-    <meta
-      property="og:description"
-      content="See your adventure statistics, return to visited places, and plan the next missions across Cyprus."
-      data-i18n-attrs="content:seo.achievements.ogDescription"
-    />
-    <meta property="og:url" content="https://www.cypruseye.com/achievements.html" />
-    <meta
-      property="og:image"
-      content="https://www.cypruseye.com/assets/cyprus_logo-1000x1054.png"
-      data-i18n-attrs="content:seo.ogImage"
-    />
-    <meta property="og:locale" content="en_GB" data-i18n-attrs="content:seo.locale" />
-    <meta property="og:locale:alternate" content="pl_PL" />
-    <meta property="og:locale:alternate" content="el_GR" />
-    <link rel="canonical" href="https://www.cypruseye.com/achievements.html" />
-    <link rel="alternate" hreflang="pl" href="?lang=pl" />
-    <link rel="alternate" hreflang="en" href="?lang=en" />
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-    rel="preload"
-    as="style"
-    href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
-  />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
-    rel="stylesheet"
-    media="print"
-    onload="this.media='all'"
-  />
-  <noscript>
-    <link
-      href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
-      rel="stylesheet"
-    />
-  </noscript>
-    <link rel="stylesheet" href="assets/css/tokens.css" />
-    <link rel="stylesheet" href="assets/css/base.css" />
-    <link rel="stylesheet" href="assets/css/components.css" />
-    <link rel="stylesheet" href="assets/css/header-metrics.css" />
-    <link rel="stylesheet" href="assets/css/mobile.css" />
-    <link rel="stylesheet" href="assets/css/mobile-nav.css" />
-    <link rel="stylesheet" href="assets/css/rtl.css" />
-    <link rel="stylesheet" href="assets/css/language-switcher.css" />
-    <link rel="stylesheet" href="css/toast.css" />
-    <link rel="stylesheet" href="assets/css/profile.css" />
+  <meta name="robots" content="noindex,nofollow" />
+  <title data-i18n="dashboard.meta.title">User Dashboard – CyprusEye Quest</title>
   
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  
+  <link rel="stylesheet" href="assets/css/tokens.css" />
+  <link rel="stylesheet" href="assets/css/base.css" />
+  <link rel="stylesheet" href="assets/css/components.css" />
+  <link rel="stylesheet" href="assets/css/header-metrics.css" />
+  <link rel="stylesheet" href="assets/css/mobile.css" />
+  <link rel="stylesheet" href="assets/css/mobile-nav.css" />
+  <link rel="stylesheet" href="css/toast.css" />
+  <!-- New Dashboard Styles -->
+  <link rel="stylesheet" href="assets/css/dashboard.css" />
+
   <meta name="ce-auth" content="on" />
   <script type="module" src="js/supabaseClient.js"></script>
   <script type="module" src="js/toast.js"></script>
   <script type="module" src="js/auth.js"></script>
   <script type="module" src="js/authUi.js"></script>
 </head>
-<body data-navigation="multi-page" data-initial-view="achievementsView" data-seo-page="achievements">
+<body data-navigation="dashboard" class="dashboard-body">
+  
   <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
-    <header class="app-header nav-modern">
-      <div class="nav-modern__top" aria-label="Global header">
-        <div class="brand nav-modern__brand-block">
-          <a href="index.html" class="nav-modern__brand-link" aria-label="CyprusEye Quest home">
-            <img
-              src="assets/cyprus_logo-1000x1054.png"
-              alt="WakacjeCypr.com – logo żółwia z flagą Polski"
-              data-i18n-attrs="alt:header.logoAlt"
-              width="1000"
-              height="1054"
-              loading="eager"
-              fetchpriority="high"
-            />
-            <div class="brand-title" data-i18n="header.brand">
-              <p class="brand-name">CyprusEye Quest &amp; Travel</p>
-            </div>
-          </a>
-        </div>
 
-        <div class="nav-modern__stats nav-modern__stats-lite" data-auth="user-only">
-          <div class="stats-lite__pill">
-            <a href="achievements.html" class="stats-lite__profile" id="profileButton" aria-label="Mój profil">
-              <img
-                id="headerUserAvatar"
-                class="profile-avatar"
-                src="assets/cyprus_logo-1000x1054.png"
-                alt="Avatar"
-                width="48"
-                height="48"
-                loading="eager"
-              />
-              <div class="profile-info">
-                <p class="profile-name">Mój Profil</p>
-                <p class="profile-status">Poziom 1 • 0 odznak</p>
-              </div>
-            </a>
-
-            <div class="stats-lite__panel">
-              <div class="stats-lite__level">
-                <span class="stats-lite__label">LVL</span>
-                <span class="stats-lite__value" id="headerLevelNumber">1</span>
-                <span class="stats-lite__status" id="headerLevelStatus" data-i18n="metrics.level.subtext">Status poziomu</span>
-              </div>
-
-              <div class="stats-lite__xp" role="img" aria-label="Postęp doświadczenia" data-i18n-attrs="aria-label:metrics.xp.aria">
-                <span class="stats-lite__xp-current"><span id="headerXpPoints">0</span> XP</span>
-                <div class="stats-lite__xp-bar">
-                  <div class="stats-lite__xp-fill is-width-zero" id="headerXpFill"></div>
-                </div>
-                <span class="stats-lite__xp-target" id="headerXpProgressText" data-i18n="metrics.xp.progress">
-                  0 / 150 XP do kolejnego poziomu
-                </span>
-              </div>
-
-              <div class="stats-lite__badges">
-                <span class="stats-lite__label">🏆</span>
-                <span class="stats-lite__value" id="headerBadgesCount">0</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="nav-modern__top-actions">
-          <div class="nav-modern__auth">
-            <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
-              <button
-                class="nav-modern__login"
-                data-open-auth
-                data-auth="anon-only"
-                data-tour-target="login-button"
-                data-i18n="header.login"
-                data-i18n-attrs="aria-label:auth.login.aria"
-                aria-label="Zaloguj do konta"
-              >
-                Zaloguj
-              </button>
-<button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
-            </div>
-            <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
-          </div>
-
-          <button
-            id="sosToggle"
-            class="nav-modern__sos"
-            type="button"
-            aria-haspopup="dialog"
-            aria-controls="sosModal"
-            data-i18n="header.sosToggle"
-          >
-            ⚠️ SOS
-          </button>
-
-          <div class="language-pill-group" data-language-toggle aria-label="Language selector" data-i18n-attrs="aria-label:language.switcher.label">
-            <button type="button" class="language-pill" data-language-pill="pl" aria-pressed="false">PL</button>
-            <button type="button" class="language-pill" data-language-pill="en" aria-pressed="false">EN</button>
-            <button type="button" class="language-pill" data-language-pill="el" aria-pressed="false">EL</button>
-            <button type="button" class="language-pill" data-language-pill="he" aria-pressed="false">HE</button>
-          </div>
-        </div>
-      </div>
-    <div class="nav-modern__shell">
-
-      <div class="nav-modern__bars" data-tour-target="tabs-navigation">
-        <button class="nav-modern__toggle-btn" id="navToggleBtn" aria-expanded="false" aria-controls="navLinksRow" data-i18n="nav.toggle">
-          ☰ Nawigacja
-        </button>
-        <div class="nav-modern__links-row" id="navLinksRow" aria-label="Główna nawigacja i skróty" data-i18n-attrs="aria-label:header.quickActions.aria">
-          <nav class="nav-modern__tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna">
-            <a href="index.html" class="nav-modern__tab is-active" id="headerAdventureTab" data-i18n="nav.adventure">
-              🎯 Przygoda
-            </a>
-            <a href="community.html" class="nav-modern__tab" id="headerPackingTab" data-i18n="nav.community">
-              💬 Społeczność
-            </a>
-            <a href="recommendations.html" class="nav-modern__tab" id="headerRecommendationsTab" data-i18n="nav.recommendations">
-              ✨ Polecane
-            </a>
-            <a href="tasks.html" class="nav-modern__tab" id="headerTasksTab" data-i18n="nav.tasks">
-              ☑️ Zadania
-            </a>
-          </nav>
-
-          <div class="nav-modern__chips">
-            <a class="nav-chip" href="packing.html" data-i18n="nav.packing">🎒 Pakowanie</a>
-            <a class="nav-chip" href="kupon.html" data-i18n="header.coupon">🎟️ Kupon</a>
-            <a class="nav-chip" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
-            <a class="nav-chip" href="trips.html" data-i18n="nav.trips">🧭 Wycieczki</a>
-            <a class="nav-chip" href="hotels.html" data-i18n="nav.hotels">🏨 Hotele</a>
-          </div>
-        </div>
-      </div>
-    </div>
-  </header>
-
-  <div id="notificationsPanel" class="notifications-panel" hidden aria-live="polite">
-    <div class="notifications-panel-header">
-      <h3 data-i18n="notifications.title">Powiadomienia</h3>
-      <div class="notifications-panel-actions">
-        <button type="button" class="ghost" id="notificationsMarkAll" data-i18n="notifications.markAll">
-          Oznacz wszystkie jako przeczytane
-        </button>
-        <button
-          type="button"
-          class="ghost notifications-close"
-          id="notificationsClose"
-          aria-label="Zamknij powiadomienia"
-          data-i18n="notifications.close"
-        >
-          ✕
-        </button>
-      </div>
-    </div>
-    <p id="notificationsPanelEmpty" class="notifications-empty" data-i18n="notifications.empty">
-Zaloguj się, aby zobaczyć swoje powiadomienia.
-    </p>
-    <ul id="notificationsPanelList" class="notifications-list" role="list"></ul>
-  </div>
-
-  <main id="main-content">
-    <!-- Profile Header -->
-    <section class="card surface-card profile-hero" aria-labelledby="profileTitle" data-gated="true" id="profile-header" hidden>
-      <div id="profile-header-loading" style="display: none;">
-        <p data-i18n="profile.loading">Ładowanie profilu...</p>
-      </div>
-      <div class="profile-hero-content">
-        <a class="ghost achievements-back" href="index.html" data-back-home-link="true" data-i18n="profile.hero.back">
-          ← Wróć do aplikacji
+  <!-- Dashboard Layout -->
+  <div class="dashboard-container">
+    
+    <!-- Sidebar -->
+    <aside class="dashboard-sidebar">
+      <div class="sidebar-header">
+        <a href="index.html" class="sidebar-brand">
+          <img src="assets/cyprus_logo-1000x1054.png" alt="Logo" width="32" height="32">
+          <span>CyprusEye</span>
         </a>
-        <div class="profile-header">
-          <div class="profile-avatar-container">
-            <img 
-              id="profileAvatar" 
-              class="profile-avatar" 
-              src="assets/cyprus_logo-1000x1054.png" 
-              alt="Avatar użytkownika"
-              loading="lazy"
-              decoding="async"
-              width="160"
-              height="160"
-            />
-            <div class="profile-avatar-actions">
-              <input type="file" id="avatarInput" accept="image/*" style="display: none;" />
-              <button type="button" class="btn btn-sm btn-secondary" id="uploadAvatarBtn" data-i18n="profile.avatar.change">
-                📷 Zmień
-              </button>
-              <button type="button" class="btn btn-sm btn-ghost" id="removeAvatarBtn" data-i18n="profile.avatar.remove">
-                ✕
-              </button>
-            </div>
-            <div id="avatar-upload-loading" style="display: none;">
-              <p data-i18n="profile.avatar.uploading">Wysyłanie...</p>
-            </div>
-          </div>
-          <div class="profile-info">
-            <div id="usernameDisplay" class="profile-username-display">
-              <h1 id="profileUsername">Użytkownik</h1>
-              <button type="button" class="btn btn-sm btn-ghost" id="editUsernameBtn" data-i18n="profile.username.edit">
-                ✏️ Edytuj
-              </button>
-            </div>
-            <div id="usernameEditForm" class="profile-username-edit" style="display: none;">
-              <input 
-                type="text" 
-                id="usernameInput" 
-                placeholder="Nazwa użytkownika"
-                data-i18n-attrs="placeholder:profile.username.placeholder" 
-                maxlength="20"
-                minlength="3"
-                required
-                aria-required="true"
-                class="profile-username-input"
-                aria-label="Nazwa użytkownika"
-              />
-              <button type="button" class="btn btn-sm btn-primary" id="saveUsernameBtn" data-i18n="profile.username.save">
-                💾 Zapisz
-              </button>
-              <button type="button" class="btn btn-sm btn-ghost" id="cancelUsernameBtn" data-i18n="profile.username.cancel">
-                ✕
-              </button>
-            </div>
-            <div id="username-edit-loading" style="display: none;">
-              <p data-i18n="profile.username.saving">Zapisywanie...</p>
-            </div>
-            <p id="profileEmail" class="profile-email"></p>
-            <p id="memberSince" class="profile-member-since">Członek od...</p>
-          </div>
-        </div>
       </div>
-    </section>
 
-    <!-- Game Statistics -->
-    <section class="card surface-card profile-stats-section" aria-labelledby="statsTitle" data-gated="true" hidden>
-      <h2 id="statsTitle" data-i18n="profile.stats.title">📊 Twoje statystyki w grze</h2>
-      <div class="profile-stats-grid">
-        <div class="stat-card">
-          <div class="stat-icon">🎯</div>
-          <div class="stat-content">
-            <span class="stat-value" id="statLevel">1</span>
-            <span class="stat-label" data-i18n="profile.stats.level">Poziom</span>
-          </div>
+      <div class="user-brief">
+        <div class="user-brief-avatar">
+          <img id="sidebarAvatar" src="assets/cyprus_logo-1000x1054.png" alt="Avatar">
         </div>
-        <div class="stat-card">
-          <div class="stat-icon">⭐</div>
-          <div class="stat-content">
-            <span class="stat-value" id="statXP">0</span>
-            <span class="stat-label" data-i18n="profile.stats.xp">Doświadczenie (XP)</span>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon">🏆</div>
-          <div class="stat-content">
-            <span class="stat-value" id="statBadges">0</span>
-            <span class="stat-label" data-i18n="profile.stats.badges">Zebrane odznaki</span>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon">📸</div>
-          <div class="stat-content">
-            <span class="stat-value" id="statPhotos">0</span>
-            <span class="stat-label" data-i18n="profile.stats.photos">Wstawione zdjęcia</span>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon">💬</div>
-          <div class="stat-content">
-            <span class="stat-value" id="statComments">0</span>
-            <span class="stat-label" data-i18n="profile.stats.comments">Komentarze</span>
-          </div>
-        </div>
-        <div class="stat-card">
-          <div class="stat-icon">❤️</div>
-          <div class="stat-content">
-            <span class="stat-value" id="statLikesReceived">0</span>
-            <span class="stat-label" data-i18n="profile.stats.likesReceived">Polubienia otrzymane</span>
-          </div>
+        <div class="user-brief-info">
+          <p id="sidebarUsername" class="user-brief-name">Loading...</p>
+          <p id="sidebarLevel" class="user-brief-level">Level 1</p>
         </div>
       </div>
-      
-      <!-- XP Progress Bar -->
-      <div class="profile-xp-progress">
-        <div class="xp-progress-header">
-          <h3 data-i18n="profile.xp.progressTitle">Postęp do kolejnego poziomu</h3>
-          <span id="statXPProgress" data-i18n="profile.xp.loading">Ładowanie...</span>
-        </div>
-        <div class="progress-bar-container">
-          <div class="progress-bar-fill" id="xpProgressBar" style="width: 0%"></div>
-        </div>
-      </div>
-    </section>
 
-    <!-- Account Settings -->
-    <section class="card surface-card profile-settings-section" aria-labelledby="settingsTitle" data-gated="true" hidden>
-      <h2 id="settingsTitle" data-i18n="profile.settings.title">⚙️ Ustawienia konta</h2>
-      <div class="settings-list">
-        
-        <!-- Email Settings -->
-        <div class="setting-item setting-item-email">
-          <div class="setting-info">
-            <div class="setting-icon">📧</div>
-            <div>
-              <h3 data-i18n="profile.settings.email.title">Adres email</h3>
-              <div id="emailDisplay" class="setting-display">
-                <p id="settingsEmail" class="setting-value" data-i18n="profile.xp.loading">Ładowanie...</p>
-                <button type="button" class="btn btn-sm btn-text" id="editEmailBtn" data-i18n="profile.settings.email.edit">
-                  ✏️ Zmień
-                </button>
-              </div>
-              <div id="emailEditForm" class="setting-edit-form" style="display: none;">
-                <input 
-                  type="email" 
-                  id="emailInput" 
-                  placeholder="nowy@email.com"
-                  data-i18n-attrs="placeholder:profile.settings.email.placeholder" 
-                  class="setting-input"
-                  required
-                  aria-required="true"
-                  aria-label="Nowy adres email"
-                />
-                <div class="setting-edit-actions">
-                  <button type="button" class="btn btn-sm btn-primary" id="saveEmailBtn" data-i18n="profile.settings.email.save">
-                    💾 Zapisz
-                  </button>
-                  <button type="button" class="btn btn-sm btn-ghost" id="cancelEmailBtn" data-i18n="profile.settings.email.cancel">
-                    ✕ Anuluj
-                  </button>
-                </div>
-              </div>
-              <div id="email-edit-loading" class="setting-loading" style="display: none;">
-                <span class="spinner"></span> <span data-i18n="profile.settings.email.updating">Aktualizowanie...</span>
-              </div>
-              <p class="setting-help" data-i18n="profile.settings.email.help">Otrzymasz email weryfikacyjny na nowy adres</p>
-            </div>
-          </div>
-        </div>
-
-        <!-- Password Settings -->
-        <div class="setting-item setting-item-password">
-          <div class="setting-info">
-            <div class="setting-icon">🔑</div>
-            <div>
-              <h3 data-i18n="profile.settings.password.title">Hasło</h3>
-              <div id="passwordDisplay" class="setting-display">
-                <p class="setting-value">••••••••</p>
-                <button type="button" class="btn btn-sm btn-text" id="editPasswordBtn" data-i18n="profile.settings.email.edit">
-                  ✏️ Zmień
-                </button>
-              </div>
-              <div id="passwordEditForm" class="setting-edit-form" style="display: none;">
-                <input 
-                  type="password" 
-                  id="currentPasswordInput" 
-                  placeholder="Obecne hasło"
-                  data-i18n-attrs="placeholder:profile.settings.password.current" 
-                  class="setting-input"
-                  autocomplete="current-password"
-                  aria-label="Obecne hasło"
-                />
-                <input 
-                  type="password" 
-                  id="newPasswordInput" 
-                  placeholder="Nowe hasło (min. 8 znaków)"
-                  data-i18n-attrs="placeholder:profile.settings.password.new" 
-                  class="setting-input"
-                  minlength="8"
-                  required
-                  aria-required="true"
-                  autocomplete="new-password"
-                  aria-label="Nowe hasło"
-                />
-                <input 
-                  type="password" 
-                  id="confirmPasswordInput" 
-                  placeholder="Potwierdź nowe hasło"
-                  data-i18n-attrs="placeholder:profile.settings.password.confirm" 
-                  class="setting-input"
-                  minlength="8"
-                  required
-                  aria-required="true"
-                  autocomplete="new-password"
-                  aria-label="Potwierdź nowe hasło"
-                />
-                <div class="setting-edit-actions">
-                  <button type="button" class="btn btn-sm btn-primary" id="savePasswordBtn" data-i18n="profile.settings.password.save">
-                    💾 Zapisz hasło
-                  </button>
-                  <button type="button" class="btn btn-sm btn-ghost" id="cancelPasswordBtn" data-i18n="profile.settings.email.cancel">
-                    ✕ Anuluj
-                  </button>
-                </div>
-              </div>
-              <div id="password-edit-loading" class="setting-loading" style="display: none;">
-                <span class="spinner"></span> <span data-i18n="profile.settings.password.saving">Zapisywanie...</span>
-              </div>
-              <p class="setting-help" data-i18n="profile.settings.password.help">Hasło musi mieć minimum 8 znaków</p>
-            </div>
-          </div>
-        </div>
-
-      </div>
-    </section>
-
-    <!-- User Activity Feed -->
-    <section class="card surface-card profile-activity-section" aria-labelledby="activityTitle" data-gated="true" hidden>
-      <div id="user-activity-loading" style="display: none;">
-        <p data-i18n="profile.activity.loading">Ładowanie aktywności...</p>
-      </div>
-      <h2 id="activityTitle" data-i18n="profile.activity.title">📱 Twoja aktywność</h2>
-      
-      <!-- User Photos -->
-      <div class="activity-subsection">
-        <h3 data-i18n="profile.activity.photos.title">📸 Twoje zdjęcia</h3>
-        <div id="userPhotosGrid" class="photos-grid">
-          <p class="empty-state" data-i18n="profile.xp.loading">Ładowanie zdjęć...</p>
-        </div>
-      </div>
-      
-      <!-- User Comments -->
-      <div class="activity-subsection">
-        <h3 data-i18n="profile.activity.comments.title">💬 Twoje komentarze</h3>
-        <div id="userCommentsList" class="comments-list">
-          <p class="empty-state" data-i18n="profile.xp.loading">Ładowanie komentarzy...</p>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <div
-    id="auth-modal"
-    class="modal"
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="auth-title"
-    aria-hidden="true"
-  >
-    <div class="modal__dialog" tabindex="-1" role="document">
-      <button
-        class="modal__close"
-        type="button"
-        aria-label="Zamknij"
-        data-close
-        data-i18n-attrs="aria-label:auth.close.label"
-      >
-        ×
-      </button>
-      <h2 id="auth-title" data-i18n="auth.title">Dołącz do przygody</h2>
-      <p class="auth-intro" data-i18n="auth.intro">Zaloguj się, utwórz konto lub graj jako gość.</p>
-      <div class="auth-modal__content" data-auth-view-root>
-        <div data-auth="login">
-          <div role="presentation">
-            <div class="auth-modal__tabs" role="tablist">
-              <button
-                type="button"
-                class="auth-modal__tab is-active"
-                role="tab"
-                id="authTabLogin"
-                aria-selected="true"
-                aria-controls="authPanelLogin"
-                data-auth-tab="login"
-                data-i18n="auth.tab.login"
-              >
-                Logowanie
-              </button>
-              <button
-                type="button"
-                class="auth-modal__tab"
-                role="tab"
-                id="authTabRegister"
-                aria-selected="false"
-                aria-controls="authPanelRegister"
-                data-auth-tab="register"
-                data-i18n="auth.tab.register"
-                tabindex="-1"
-              >
-                Rejestracja
-              </button>
-              
-            </div>
-            <div class="auth-modal__panels">
-              <section
-                id="authPanelLogin"
-                class="auth-modal__panel is-active"
-                role="tabpanel"
-                aria-labelledby="authTabLogin"
-                data-auth="login"
-                data-auth-panel="login"
-              >
-                <form id="form-login" class="auth-form" novalidate data-ce-auth-handler="supabase">
-                  <label for="loginEmail" data-i18n="auth.login.username">Email lub nazwa użytkownika</label>
-                  <input
-                    id="loginEmail"
-                    name="email"
-                    type="text"
-                    autocomplete="username"
-                    required
-                    aria-label="Email lub nazwa użytkownika"
-                    data-i18n-attrs="aria-label:auth.login.username,placeholder:auth.login.username"
-                    placeholder="Email lub nazwa użytkownika"
-                  />
-                  <label for="loginPassword" data-i18n="auth.password">Hasło</label>
-                  <input
-                    id="loginPassword"
-                    name="password"
-                    type="password"
-                    autocomplete="current-password"
-                    required
-                    aria-label="Hasło"
-                    data-i18n-attrs="aria-label:auth.password"
-                  />
-                  <div class="auth-form__actions">
-                    <button
-                      type="submit"
-                      class="btn btn--primary"
-                      data-i18n="auth.login.button"
-                      data-i18n-attrs="aria-label:auth.login.button"
-                      aria-label="Zaloguj się"
-                    >
-                      Zaloguj się
-                    </button>
-                    <button
-                      type="button"
-                      class="auth-form__link"
-                      id="loginForgotPassword"
-                      data-i18n="auth.reset.button"
-                      data-i18n-attrs="aria-label:auth.reset.button"
-                      aria-label="🔑 Resetuj hasło"
-                    >
-                      🔑 Resetuj hasło
-                    </button>
-                  </div>
-                  <div data-auth="message" aria-live="polite"></div>
-                  <p class="auth-form__meta" id="authResendVerification" hidden>
-                    Nie otrzymałeś wiadomości z potwierdzeniem?
-                    <button type="button" class="auth-form__link" id="btn-resend-verification">
-                      Wyślij ponownie link weryfikacyjny
-                    </button>
-                  </p>
-                </form>
-              </section>
-              <section
-                id="authPanelRegister"
-                class="auth-modal__panel"
-                role="tabpanel"
-                aria-labelledby="authTabRegister"
-                data-auth="login"
-                data-auth-panel="register"
-                hidden
-              >
-                <form
-                  id="form-register"
-                  class="auth-form"
-                  novalidate
-                  data-auth="register"
-                  data-ce-auth-handler="supabase"
-                >
-                  <label for="registerFirstName" data-i18n="auth.firstName">Imię</label>
-                  <input
-                    id="registerFirstName"
-                    name="firstName"
-                    type="text"
-                    autocomplete="given-name"
-                    maxlength="60"
-                    required
-                    aria-label="Imię"
-                    data-i18n-attrs="aria-label:auth.firstName"
-                  />
-                  <label for="registerUsername" data-i18n="auth.username">Nazwa użytkownika</label>
-                  <input
-                    id="registerUsername"
-                    name="username"
-                    type="text"
-                    autocomplete="username"
-                    minlength="3"
-                    maxlength="20"
-                    pattern="[a-zA-Z0-9_]+"
-                    required
-                    aria-label="Nazwa użytkownika"
-                    data-i18n-attrs="aria-label:auth.username,placeholder:auth.username.hint"
-                    placeholder="3-20 znaków, litery i cyfry"
-                  />
-                  <label for="registerEmail" data-i18n="auth.email">Adres e-mail</label>
-                  <input
-                    id="registerEmail"
-                    name="email"
-                    type="email"
-                    autocomplete="email"
-                    required
-                    aria-label="Adres e-mail"
-                    data-i18n-attrs="aria-label:auth.email"
-                  />
-                  <label for="registerPassword" data-i18n="auth.password">Hasło</label>
-                  <input
-                    id="registerPassword"
-                    name="password"
-                    type="password"
-                    autocomplete="new-password"
-                    minlength="8"
-                    required
-                    aria-label="Hasło"
-                    data-i18n-attrs="aria-label:auth.password"
-                  />
-                  <label for="registerPasswordConfirm" data-i18n="auth.confirmPassword">Powtórz hasło</label>
-                  <input
-                    id="registerPasswordConfirm"
-                    name="passwordConfirm"
-                    type="password"
-                    autocomplete="new-password"
-                    minlength="8"
-                    aria-label="Powtórz hasło"
-                    data-i18n-attrs="aria-label:auth.confirmPassword"
-                  />
-                  <div data-auth="message" aria-live="polite"></div>
-                  <p class="form-hint" data-i18n="auth.register.hint">
-                    Po rejestracji sprawdź skrzynkę e-mail, aby potwierdzić konto.
-                  </p>
-                  <button
-                    type="submit"
-                    class="btn btn--primary"
-                    data-i18n="auth.register.button"
-                    data-i18n-attrs="aria-label:auth.register.button"
-                    aria-label="Utwórz konto"
-                  >
-                    Utwórz konto
-                  </button>
-                </form>
-              </section>
-              
-            </div>
-            <dialog id="resetPasswordDialog" class="auth-reset-dialog">
-              <form id="form-reset-password" class="auth-form" novalidate>
-                <header class="auth-reset-dialog__header">
-                  <h2 data-i18n="auth.reset.title">Resetuj hasło</h2>
-                  <button type="button" class="auth-form__link" id="btn-reset-close" data-i18n-attrs="aria-label:auth.reset.close" aria-label="Zamknij">✖</button>
-                </header>
-                <p data-i18n="auth.reset.description">Podaj adres e-mail powiązany z kontem, a wyślemy link do zmiany hasła.</p>
-                <label for="resetEmail" data-i18n="auth.reset.emailLabel">Adres e-mail</label>
-                <input id="resetEmail" name="email" type="email" autocomplete="email" required />
-                <div class="auth-form__actions">
-                  <button type="submit" class="btn btn--primary">Wyślij link resetujący</button>
-                  <button type="button" class="auth-form__link" id="btn-reset-cancel">Anuluj</button>
-                </div>
-              </form>
-            </dialog>
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-
-  <!-- SOS Emergency Modal -->
-  <!-- Header Stats - aktualizacja statystyk na wszystkich stronach -->
-  <script src="js/header-stats.js?v=1" defer></script>
-  <div
-    class="sos-modal"
-    id="sosModal"
-    hidden
-    role="dialog"
-    aria-modal="true"
-    aria-labelledby="sosTitle"
-    aria-describedby="sosDescription"
-  >
-    <div class="sos-dialog" role="document" tabindex="-1">
-      <header class="sos-header">
-        <div>
-          <h2 id="sosTitle" data-i18n="sos.title">SOS</h2>
-          <p id="sosDescription" data-i18n="sos.description">
-            Szybki dostęp do numerów alarmowych, kontaktu z ambasadą oraz wskazówek medycznych.
-          </p>
-        </div>
-        <button
-          type="button"
-          class="icon-button"
-          id="sosClose"
-          aria-label="Zamknij SOS"
-          data-i18n="sos.close"
-        >
-          X
+      <nav class="sidebar-nav">
+        <button class="nav-item active" data-section="overview">
+          <span class="icon">📊</span>
+          <span data-i18n="dashboard.nav.overview">Overview</span>
         </button>
+        <button class="nav-item" data-section="reservations">
+          <span class="icon">📅</span>
+          <span data-i18n="dashboard.nav.reservations">Orders & Bookings</span>
+          <span class="badge-count" id="reservationsCount" hidden>0</span>
+        </button>
+        <button class="nav-item" data-section="achievements">
+          <span class="icon">🏆</span>
+          <span data-i18n="dashboard.nav.achievements">Achievements</span>
+        </button>
+        <button class="nav-item" data-section="settings">
+          <span class="icon">⚙️</span>
+          <span data-i18n="dashboard.nav.settings">Settings</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="nav-item logout-btn" data-auth="logout">
+          <span class="icon">🚪</span>
+          <span data-i18n="auth.logout">Log out</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="dashboard-main">
+      
+      <!-- Mobile Header -->
+      <header class="dashboard-mobile-header">
+        <a href="index.html" class="mobile-logo">
+          <img src="assets/cyprus_logo-1000x1054.png" alt="Logo" width="32">
+        </a>
+        <button id="mobileMenuToggle" class="mobile-menu-toggle">☰</button>
       </header>
 
-      <div class="sos-grid" aria-describedby="sosDescription">
-        <section class="sos-card">
-          <h3 data-i18n="sos.emergency.title">🚑 Numery alarmowe na Cyprze</h3>
-          <ul>
-            <li>
-              <strong>112</strong>
-              <p data-i18n="sos.emergency.eu">
-                Uniwersalny numer alarmowy UE (policja, pogotowie, straż pożarna). <a href="tel:112">Zadzwoń teraz</a>
-              </p>
-            </li>
-            <li>
-              <strong>199</strong>
-              <p data-i18n="sos.emergency.cyprus">
-                Cypryjski numer alarmowy – działa równolegle z 112. <a href="tel:199">Połącz</a>
-              </p>
-            </li>
-            <li>
-              <strong>+357 22 802 020</strong>
-              <p data-i18n="sos.emergency.police">
-                Całodobowa linia policji (spoza Cypru wybierz pełny numer kierunkowy). <a href="tel:+35722802020">Zadzwoń</a>
-              </p>
-            </li>
-          </ul>
-        </section>
+      <!-- SECTION: OVERVIEW -->
+      <section id="section-overview" class="dashboard-section active">
+        <div class="section-header">
+          <h1 data-i18n="dashboard.overview.title">Welcome back!</h1>
+          <p data-i18n="dashboard.overview.subtitle">Here is what's happening with your adventure.</p>
+        </div>
 
-        <section class="sos-card">
-          <h3 data-i18n="sos.embassy.title">🛡️ Ambasada RP w Nikozji</h3>
-          <ul>
-            <li>
-              <strong>Telefon alarmowy</strong>
-              <p data-i18n="sos.embassy.hotline">
-                <a href="tel:+35799660451">+357 99 660 451</a> (wsparcie w nagłych wypadkach obywateli RP).
-              </p>
-            </li>
-            <li>
-              <strong>Recepcja</strong>
-              <p data-i18n="sos.embassy.reception">
-                <a href="tel:+35722751777">+357 22 751 777</a> (pon.–pt. w godz. pracy placówki).
-              </p>
-            </li>
-            <li>
-              <strong>Adres</strong>
-              <p data-i18n="sos.embassy.address">
-                14, Ifigenias Street, 2007 Nikozja • <a href="https://maps.google.com/?q=Embassy+of+Poland+in+Cyprus" target="_blank" rel="noopener">Wyznacz trasę</a>
-              </p>
-            </li>
-            <li>
-              <strong>E-mail</strong>
-              <p data-i18n="sos.embassy.email"><a href="mailto:nicosia.info@msz.gov.pl">nicosia.info@msz.gov.pl</a></p>
-            </li>
-          </ul>
-        </section>
+        <!-- Stats Grid -->
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-icon xp">✨</div>
+            <div class="stat-details">
+              <h3 data-i18n="metrics.xp">Experience</h3>
+              <p class="stat-number" id="overviewXP">0 XP</p>
+              <div class="progress-bar-sm">
+                <div class="progress-fill" id="overviewXPBar" style="width: 0%"></div>
+              </div>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon level">🆙</div>
+            <div class="stat-details">
+              <h3 data-i18n="metrics.level">Level</h3>
+              <p class="stat-number" id="overviewLevel">1</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon places">📍</div>
+            <div class="stat-details">
+              <h3 data-i18n="metrics.visited">Visited</h3>
+              <p class="stat-number" id="overviewVisited">0</p>
+            </div>
+          </div>
+          <div class="stat-card">
+            <div class="stat-icon bookings">📅</div>
+            <div class="stat-details">
+              <h3 data-i18n="metrics.activeBookings">Active Bookings</h3>
+              <p class="stat-number" id="overviewActiveBookings">0</p>
+            </div>
+          </div>
+        </div>
 
-        <section class="sos-card">
-          <h3 data-i18n="sos.healthcare.title">🏥 Najbliższa pomoc medyczna</h3>
-          <ul>
-            <li>
-              <strong>Paphos General Hospital</strong>
-              <p data-i18n="sos.healthcare.hospital">
-                Całodobowa izba przyjęć, Anavargos, Pafos. <a href="tel:+35726803000">+357 26 803 000</a> •
-                <a href="https://maps.google.com/?q=Paphos+General+Hospital" target="_blank" rel="noopener">Mapa dojazdu</a>
-              </p>
-            </li>
-            <li>
-              <strong>Wyszukaj szpital w pobliżu</strong>
-              <p data-i18n="sos.healthcare.search">
-                <a href="https://www.google.com/maps/search/hospital+near+me/" target="_blank" rel="noopener">Otwórz listę szpitali na Mapach Google</a>
-                i udostępnij lokalizację, aby zobaczyć najbliższe opcje.
-              </p>
-            </li>
-            <li>
-              <strong>Dyżurna apteka</strong>
-              <p data-i18n="sos.healthcare.pharmacy">
-                Sprawdź aktualne dyżury na <a href="https://pharmacy.dl.moh.gov.cy/" target="_blank" rel="noopener">stronie Ministerstwa Zdrowia</a>
-                lub wyszukaj <a href="https://www.google.com/maps/search/pharmacy+near+me/" target="_blank" rel="noopener">aptekę w pobliżu</a>.
-              </p>
-            </li>
-          </ul>
-          <p class="sos-note" data-i18n="sos.healthcare.note">
-            W sytuacji zagrożenia życia zawsze dzwoń pod 112 i dokładnie podaj lokalizację. W aplikacji włącz udostępnianie
-            lokalizacji, aby szybciej odnaleźć pomoc na mapie.
-          </p>
-        </section>
-      </div>
-    </div>
+        <div class="content-grid">
+          <!-- Recent Activity -->
+          <div class="card dashboard-card wide">
+            <div class="card-header">
+              <h2 data-i18n="dashboard.activity.title">Recent Activity</h2>
+            </div>
+            <div class="card-body" id="recentActivityList">
+              <p class="empty-state" data-i18n="dashboard.activity.empty">No recent activity.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION: RESERVATIONS -->
+      <section id="section-reservations" class="dashboard-section">
+        <div class="section-header">
+          <h1 data-i18n="dashboard.reservations.title">My Orders & Bookings</h1>
+          <p data-i18n="dashboard.reservations.subtitle">Track current status of your trips, hotels and rentals.</p>
+        </div>
+
+        <div class="reservations-container">
+          <!-- Tabs -->
+          <div class="tabs-line">
+            <button class="tab-btn active" data-filter="all" data-i18n="dashboard.reservations.all">All</button>
+            <button class="tab-btn" data-filter="pending" data-i18n="dashboard.reservations.pending">Pending</button>
+            <button class="tab-btn" data-filter="confirmed" data-i18n="dashboard.reservations.confirmed">Confirmed</button>
+            <button class="tab-btn" data-filter="completed" data-i18n="dashboard.reservations.completed">History</button>
+          </div>
+
+          <div class="reservations-list" id="reservationsList">
+            <!-- Loading State -->
+            <div class="loading-state">
+              <div class="spinner"></div>
+              <p>Loading orders...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION: ACHIEVEMENTS -->
+      <section id="section-achievements" class="dashboard-section">
+        <div class="section-header">
+          <h1 data-i18n="dashboard.achievements.title">Badges & Rewards</h1>
+        </div>
+        <div class="badges-grid" id="badgesGrid">
+          <!-- Filled by JS -->
+          <p>Loading badges...</p>
+        </div>
+      </section>
+
+      <!-- SECTION: SETTINGS -->
+      <section id="section-settings" class="dashboard-section">
+        <div class="section-header">
+          <h1 data-i18n="dashboard.settings.title">Account Settings</h1>
+        </div>
+        <div class="settings-grid">
+          <div class="card dashboard-card">
+            <div class="card-header">
+              <h2 data-i18n="profile.profile">Profile</h2>
+            </div>
+            <div class="card-body settings-form">
+              <div class="form-group">
+                <label data-i18n="profile.avatar.change">Avatar</label>
+                <div class="avatar-upload-row">
+                  <img id="settingsAvatarPreview" src="assets/cyprus_logo-1000x1054.png" width="64" height="64">
+                  <button class="btn btn-secondary btn-sm" id="uploadAvatarBtn" data-i18n="profile.avatar.change">Change</button>
+                  <input type="file" id="avatarInput" hidden accept="image/*">
+                </div>
+              </div>
+              <div class="form-group">
+                <label data-i18n="profile.username.label">Username</label>
+                <div class="input-group">
+                  <input type="text" id="settingsUsername" disabled>
+                  <button class="btn btn-ghost btn-sm" id="editUsernameBtn">Edit</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div class="card dashboard-card">
+            <div class="card-header">
+              <h2 data-i18n="profile.security">Security</h2>
+            </div>
+            <div class="card-body">
+              <button class="btn btn-outline" id="changePasswordBtn" data-i18n="profile.security.password.change">Change Password</button>
+              <div class="danger-zone">
+                <p class="text-danger" data-i18n="profile.security.delete.warning">Deleting your account is irreversible.</p>
+                <button class="btn btn-danger btn-sm" id="deleteAccountBtn" data-i18n="profile.security.delete">Delete Account</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
   </div>
 
-  <!-- Mobile tabbar is dynamically generated by seo.js -->
+  <!-- Scripts -->
+  <script src="js/languageSelector.js" defer></script>
+  <script src="js/i18n.js" defer></script>
+  
+  <!-- Load core logic -->
+  <script type="module" src="js/dashboard.js"></script>
 
-  <footer class="app-footer">
-    <p data-i18n="footer.app">© <span data-current-year"></span> WakacjeCypr.com • Graj, zwiedzaj i planuj wakacje jednocześnie.</p>
-  </footer>
-
-    <script src="js/i18n.js" defer></script>
-    <script src="js/forms.js" defer></script>
-    <script src="js/seo.js" defer></script>
-    <script type="module" src="app.js"></script>
-    <!-- SOS Emergency Modal -->
-  <!-- Header Stats - aktualizacja statystyk na wszystkich stronach -->
-    <script src="js/sos.js?v=1" defer></script>
-    <script src="assets/js/modal-auth.js" defer></script>
-    <script type="module" src="assets/js/auth-ui.js"></script>
-    <script type="module" src="js/achievements-profile.js"></script>
-    <script src="js/mobile-nav.js" defer></script>
-  <script src="js/header-dropdown.js" defer></script>
-  </body>
+</body>
 </html>

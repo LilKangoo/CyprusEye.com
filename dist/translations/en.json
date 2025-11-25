@@ -2998,5 +2998,44 @@
   },
   "accessibility": {
     "skipToContent": "Skip to main content"
+  },
+  "dashboard": {
+    "meta": {
+      "title": "User Dashboard – CyprusEye Quest"
+    },
+    "nav": {
+      "overview": "Overview",
+      "reservations": "Orders & Bookings",
+      "achievements": "Achievements",
+      "settings": "Settings"
+    },
+    "overview": {
+      "title": "Welcome back!",
+      "subtitle": "Here is what's happening with your adventure."
+    },
+    "activity": {
+      "title": "Recent Activity",
+      "empty": "No recent activity."
+    },
+    "reservations": {
+      "title": "My Orders & Bookings",
+      "subtitle": "Track current status of your trips, hotels and rentals.",
+      "all": "All",
+      "pending": "Pending",
+      "confirmed": "Confirmed",
+      "completed": "History"
+    },
+    "achievements": {
+      "title": "Badges & Rewards"
+    },
+    "settings": {
+      "title": "Account Settings"
+    }
+  },
+  "metrics": {
+    "activeBookings": "Active Bookings",
+    "xp": "Experience",
+    "level": "Level",
+    "visited": "Visited"
   }
 }
