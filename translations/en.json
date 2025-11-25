@@ -376,7 +376,66 @@
     "cta": "Explore our services"
   },
   "tutorial": {
-    "showAgain": "🔁 Show tutorial"
+    "showAgain": "🔁 Show tutorial",
+    "prev": "Back",
+    "next": "Next",
+    "skip": "Skip",
+    "step1": {
+      "title": "Welcome to CyprusEye Quest! 🎉",
+      "description": "Discover the quick actions in the header. From here you have instant access to: 📦 Packing, 🎁 Coupon, 🚗 Car rental, 🗺️ Trips, 🏨 Hotels. Everything is one tap away."
+    },
+    "step2": {
+      "title": "Tabs navigation 🗂️",
+      "description": "These are the main app tabs: 🗺️ Adventure (map & check-ins), 👥 Community, 📚 Recommendations, 📝 Tasks. Tap a tab to switch views."
+    },
+    "step3": {
+      "title": "Interactive map of Cyprus 🗺️",
+      "description": "Explore places on the map, read descriptions, and see photos and comments. Check in at places to earn XP, levels, and badges. Tap the pins on the map."
+    },
+    "step4": {
+      "title": "Current place and check-in 📍",
+      "description": "This panel shows where you are now, how much XP you will earn, and lets you quickly check in, open comments, or zoom the map to this place."
+    },
+    "step5": {
+      "title": "Trips and attractions 🗺️",
+      "description": "Choose a city to see the best trips and prices, then go to the full list to book your spot."
+    },
+    "step6": {
+      "title": "Stays in Cyprus 🏨",
+      "description": "Hotels, villas, and apartments organised by location. Browse the cards and open details to book your accommodation."
+    },
+    "step7": {
+      "title": "Our discounted recommendations 🎁",
+      "description": "Verified places with exclusive promo codes. Filter by category and open cards to see the map and available discounts."
+    },
+    "step8": {
+      "title": "Packing planner 📦",
+      "description": "Adjust the list to the season and length of stay. Add your own items and tick off what you have already packed so you don’t forget anything."
+    },
+    "step9": {
+      "title": "Pre-trip task list 📝",
+      "description": "Reservations, documents, and formalities in one place. Tick completed tasks and follow your preparation progress."
+    },
+    "step10": {
+      "title": "Special coupon 🎁",
+      "description": "A quick shortcut to purchase the coupon with secure payment. Perfect if you want to use the offer without extra formalities."
+    },
+    "step11": {
+      "title": "Car rental guide 🚗",
+      "description": "Learn everything about renting a car in Cyprus: tips, insurance, and cost calculator 📊 – all in one place."
+    },
+    "step12": {
+      "title": "Services and trip planning 🗺️",
+      "description": "Meet our on-site team: private trips, tastings, and concierge support. Click to go to the WakacjeCypr.com offer."
+    },
+    "step13": {
+      "title": "Sign in and save your progress! 🔒",
+      "description": "Click \"Sign in\" to create an account and save your progress, badges, and achievements. You can also play as a guest without registering."
+    },
+    "step14": {
+      "title": "Ready for the adventure? 🎉",
+      "description": "Click \"🔁 Show tutorial\" in the footer to start this guide again at any time. Enjoy exploring Cyprus!"
+    }
   },
   "lightbox": {
     "close": "Close",
@@ -2508,69 +2567,6 @@
         "title": "Congratulations!"
       }
     }
-  },
-  "tutorial": {
-    "step1": {
-      "title": "Discover quick actions",
-      "description": "Use the header shortcuts to jump to your current objective, open car rental, browse attractions, or reach the SOS panel instantly."
-    },
-    "step2": {
-      "title": "Map and check-in",
-      "description": "This section hosts the interactive map with the \"Check in\" button and an accessibility link to skip the map when you prefer the details view."
-    },
-    "step3": {
-      "title": "Right-hand shortcut cards",
-      "description": "Follow these cards to open the packing planner, task list, and our dedicated car rental guide without leaving the page."
-    },
-    "step4": {
-      "title": "Tab navigation explained",
-      "description": "Switch between adventure, packing, tasks, and VIP tabs here while tracking your level, XP progress, and unlocked badges."
-    },
-    "step5": {
-      "title": "Need a refresher?",
-      "description": "Use the \"Show instructions\" button in the footer to relaunch this tutorial whenever you want a guided tour again."
-    },
-    "step6": {
-      "title": "Accommodation",
-      "description": "Find hotels, villas, and apartments by switching city tabs and opening each card for details."
-    },
-    "step7": {
-      "title": "Our recommendations",
-      "description": "Filter trusted partners by category and discover exclusive discounts."
-    },
-    "step8": {
-      "title": "Packing planner",
-      "description": "Jump straight to the packing checklist tailored to each season."
-    },
-    "step9": {
-      "title": "Task list",
-      "description": "Track preparations – bookings, documents, and every travel duty in one place."
-    },
-    "step10": {
-      "title": "Special coupon",
-      "description": "Buy the coupon securely and use our offers without extra formalities."
-    },
-    "step11": {
-      "title": "Car rental guide",
-      "description": "Learn everything about renting a car in Cyprus: tips, pricing, and the calculator."
-    },
-    "step12": {
-      "title": "Services and planning",
-      "description": "Explore our private trips, concierge support, and on-the-ground assistance."
-    },
-    "step13": {
-      "title": "Sign in and save progress",
-      "description": "After signing in you track levels, XP, badges, and continue across devices."
-    },
-    "step14": {
-      "title": "Need the guide again?",
-      "description": "Click \"Show tutorial\" in the footer anytime to restart the walkthrough."
-    },
-    "next": "Next",
-    "prev": "Back",
-    "skip": "Skip",
-    "finish": "Finish",
-    "showAgain": "🔁 Show instructions"
   },
   "carRentalPfo": {
     "page": {

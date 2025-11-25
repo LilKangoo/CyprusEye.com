@@ -274,32 +274,51 @@
         return;
       }
 
-      if(!('geolocation' in navigator)){
-        setCheckInStatus('Twoja przeglądarka nie wspiera geolokalizacji. Zbliż się do miejsca i spróbuj ponownie.');
-        window.showToast?.('Twoja przeglądarka nie wspiera geolokalizacji. Zbliż się do miejsca i spróbuj ponownie.', 'warning');
-        return;
+      let latitude;
+      let longitude;
+
+      // 1) Spróbuj użyć ostatniej znanej lokalizacji z mapy (app-core.js)
+      const cachedLoc = window.currentUserLocation;
+      const now = Date.now();
+      const isCachedFresh = cachedLoc &&
+        Number.isFinite(cachedLoc.lat) &&
+        Number.isFinite(cachedLoc.lng) &&
+        (now - (cachedLoc.timestamp || 0)) < 5 * 60 * 1000; // 5 minut
+
+      if (isCachedFresh) {
+        console.log('Using cached user location from map for check-in', cachedLoc);
+        latitude = cachedLoc.lat;
+        longitude = cachedLoc.lng;
+      } else {
+        // 2) Brak świeżej lokalizacji – użyj geolokalizacji przeglądarki
+        if(!('geolocation' in navigator)){
+          setCheckInStatus('Twoja przeglądarka nie wspiera geolokalizacji. Zbliż się do miejsca i spróbuj ponownie.');
+          window.showToast?.('Twoja przeglądarka nie wspiera geolokalizacji. Zbliż się do miejsca i spróbuj ponownie.', 'warning');
+          return;
+        }
+
+        setCheckInStatus('Sprawdzam Twoją lokalizację... (to może chwilę potrwać)');
+
+        let position;
+        try {
+          // First attempt: high accuracy (GPS)
+          position = await getPosition(true);
+        } catch (firstError) {
+          console.warn('High accuracy geolocation failed, trying low accuracy...', firstError);
+          setCheckInStatus('Słaby sygnał GPS, próbuję przybliżoną lokalizację...');
+          // Second attempt: lower accuracy (WiFi / GSM)
+          position = await getPosition(false);
+        }
+
+        if (!position || !position.coords) {
+          setCheckInStatus('Nie udało się pobrać lokalizacji. Spróbuj ponownie lub użyj innego urządzenia.');
+          window.showToast?.('Nie udało się pobrać lokalizacji. Spróbuj ponownie.', 'error');
+          return;
+        }
+
+        latitude = position.coords.latitude;
+        longitude = position.coords.longitude;
       }
-
-      setCheckInStatus('Sprawdzam Twoją lokalizację... (to może chwilę potrwać)');
-
-      let position;
-      try {
-        // First attempt: high accuracy (GPS)
-        position = await getPosition(true);
-      } catch (firstError) {
-        console.warn('High accuracy geolocation failed, trying low accuracy...', firstError);
-        setCheckInStatus('Słaby sygnał GPS, próbuję przybliżoną lokalizację...');
-        // Second attempt: lower accuracy (WiFi / GSM)
-        position = await getPosition(false);
-      }
-
-      if (!position || !position.coords) {
-        setCheckInStatus('Nie udało się pobrać lokalizacji. Spróbuj ponownie lub użyj innego urządzenia.');
-        window.showToast?.('Nie udało się pobrać lokalizacji. Spróbuj ponownie.', 'error');
-        return;
-      }
-
-      const { latitude, longitude } = position.coords;
       // Normalizuj współrzędne POI
       const lat = typeof poi.lat === 'number' ? poi.lat : (typeof poi.latitude === 'number' ? poi.latitude : parseFloat(poi.lat ?? poi.latitude));
       const lng = typeof poi.lng === 'number' ? poi.lng : (typeof poi.lon === 'number' ? poi.lon : (typeof poi.longitude === 'number' ? poi.longitude : parseFloat(poi.lng ?? poi.lon ?? poi.longitude)));
