@@ -8079,13 +8079,13 @@ function focusAdjacentPlace(direction) {
 }
 
 function clearManualConfirm() {
-  const statusEl = document.getElementById('checkInStatus');
+  const statusEl = document.getElementById('currentPlaceCheckInStatus');
   if (!statusEl) return;
   statusEl.querySelectorAll('.manual-confirm-wrapper').forEach((wrapper) => wrapper.remove());
 }
 
 function showManualConfirm(place) {
-  const statusEl = document.getElementById('checkInStatus');
+  const statusEl = document.getElementById('currentPlaceCheckInStatus');
   if (!statusEl) return;
   clearManualConfirm();
 
@@ -8103,8 +8103,18 @@ function showManualConfirm(place) {
   statusEl.appendChild(wrapper);
 }
 
+// Expose check-in function for inline onclick handlers
+window.checkInAtPlace = function(placeId) {
+  const place = places.find(p => p.id === placeId);
+  if (place) {
+    tryCheckIn(place).catch(err => console.error('Check-in failed:', err));
+  } else {
+    console.warn('Place not found for check-in:', placeId);
+  }
+};
+
 async function tryCheckIn(place) {
-  const statusEl = document.getElementById('checkInStatus');
+  const statusEl = document.getElementById('currentPlaceCheckInStatus');
   if (!statusEl) return;
 
   statusEl.textContent = translate('checkIn.status.checking', 'Sprawdzam Twoją lokalizację…');
