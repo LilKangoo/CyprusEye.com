@@ -261,7 +261,7 @@ async function fetchAllBookings(limit = 100) {
     const { data, error } = await supabase
       .from('car_bookings')
       .select('*')
-      .ilike('email', currentUser.email) // Note: car bookings use 'email', not 'customer_email'
+      .ilike('email', currentUser.email) // Correct column from schema: 'email'
       .order('created_at', { ascending: false })
       .limit(limit);
     
@@ -278,7 +278,7 @@ async function fetchAllBookings(limit = 100) {
     type: 'trip',
     id: t.id,
     title: t.trip_slug || 'Trip Booking', 
-    date: t.trip_date,
+    date: t.trip_date || t.start_date, // Fallback to start_date if trip_date is null
     created_at: t.created_at,
     status: t.status || 'pending',
     price: t.total_price,
@@ -288,12 +288,12 @@ async function fetchAllBookings(limit = 100) {
   const hotels = hotelBookings.map(h => ({
     type: 'hotel',
     id: h.id,
-    title: h.hotel_name || 'Hotel Booking',
+    title: h.hotel_slug || h.hotel_id || 'Hotel Booking', // Use slug or ID if name not joined
     date: h.arrival_date,
     created_at: h.created_at,
     status: h.status || 'pending',
     price: h.total_price,
-    people: (h.adults || 0) + (h.children || 0)
+    people: (h.num_adults || 0) + (h.num_children || 0) // Correct columns: num_adults, num_children
   }));
 
   const cars = carBookings.map(c => ({
@@ -303,7 +303,7 @@ async function fetchAllBookings(limit = 100) {
     date: c.pickup_date,
     created_at: c.created_at,
     status: c.status || 'pending',
-    price: 0, // Car bookings often don't have total_price calculated in DB based on JS
+    price: c.final_price || c.quoted_price || 0, // Use final or quoted price
     people: c.num_passengers || 0
   }));
 

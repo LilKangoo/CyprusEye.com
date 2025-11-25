@@ -581,6 +581,10 @@
 
 /* Mobile Toggle Bar Improvement */
 @media (max-width: 768px) {
+  .dashboard-container {
+    padding-top: 160px;
+  }
+
   .dashboard-mobile-toggle-bar {
     position: sticky;
     top: 130px; /* Below header */
