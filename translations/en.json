@@ -1824,9 +1824,9 @@
     "next": "Next →",
     "heading": "Current place",
     "loading": "Loading...",
-    "checkIn": "✅ Check in",
-    "comments": "💬 Comments",
-    "map": "📍 Map"
+    "checkIn": "Check in",
+    "comments": "Comments",
+    "map": "Map"
   },
   "shortcuts": {
     "packing": {
