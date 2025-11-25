@@ -114,7 +114,7 @@ function setupNavigation() {
 }
 
 function setupMobileMenu() {
-  const toggle = document.getElementById('mobileMenuToggle');
+  const toggle = document.getElementById('dashboardSidebarToggle');
   const sidebar = document.querySelector('.dashboard-sidebar');
   
   if (toggle && sidebar) {
