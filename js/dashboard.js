@@ -278,7 +278,7 @@ async function fetchAllBookings(limit = 100) {
     type: 'trip',
     id: t.id,
     title: t.trip_slug || 'Trip Booking', 
-    date: t.trip_date || t.start_date, // Fallback to start_date if trip_date is null
+    date: t.trip_date || t.start_date,
     created_at: t.created_at,
     status: t.status || 'pending',
     price: t.total_price,
@@ -288,12 +288,13 @@ async function fetchAllBookings(limit = 100) {
   const hotels = hotelBookings.map(h => ({
     type: 'hotel',
     id: h.id,
-    title: h.hotel_slug || h.hotel_id || 'Hotel Booking', // Use slug or ID if name not joined
+    title: h.hotel_slug || h.hotel_id || 'Hotel Booking',
     date: h.arrival_date,
     created_at: h.created_at,
     status: h.status || 'pending',
     price: h.total_price,
-    people: (h.num_adults || 0) + (h.num_children || 0) // Correct columns: num_adults, num_children
+    people: (h.num_adults || 0) + (h.num_children || 0),
+    nights: h.nights // Added
   }));
 
   const cars = carBookings.map(c => ({
@@ -303,8 +304,10 @@ async function fetchAllBookings(limit = 100) {
     date: c.pickup_date,
     created_at: c.created_at,
     status: c.status || 'pending',
-    price: c.final_price || c.quoted_price || 0, // Use final or quoted price
-    people: c.num_passengers || 0
+    price: c.final_price || c.quoted_price || 0,
+    people: c.num_passengers || 0,
+    pickup_location: c.pickup_location, // Added
+    return_location: c.return_location // Added
   }));
 
   // Merge and Sort
@@ -328,7 +331,6 @@ function createBookingCard(booking, simple = false) {
   const icon = booking.type === 'trip' ? '🚤' : (booking.type === 'car' ? '🚗' : '🏨');
   const statusClass = booking.status.toLowerCase();
   
-  // Determine badge text based on translation (simplified here)
   const statusText = {
     pending: 'Pending',
     confirmed: 'Confirmed',
@@ -336,39 +338,71 @@ function createBookingCard(booking, simple = false) {
     cancelled: 'Cancelled'
   }[statusClass] || booking.status;
 
-  if (simple) {
-    return `
-      <div class="reservation-card simple">
-        <div class="res-info">
-          <h4>${icon} ${booking.title}</h4>
-          <span class="res-status ${statusClass}">${statusText}</span>
-        </div>
-        <div class="res-meta">
-          <span>${date}</span>
-        </div>
-      </div>
-    `;
+  // Price formatting
+  let priceDisplay = `€${parseFloat(booking.price).toFixed(2)}`;
+  if (!booking.price || booking.price == 0) {
+    priceDisplay = '<span style="font-size: 0.9em; color: #ea580c;">Quote Request</span>';
   }
 
+  // Make card clickable
   return `
-    <div class="reservation-card">
-      <div class="res-main">
-        <div class="res-info">
-          <h4>${icon} ${booking.title}</h4>
-          <div class="res-meta">
-            <span>📅 ${date}</span>
-            <span>👥 ${booking.people} guests</span>
-            <span>💰 €${Number(booking.price).toFixed(2)}</span>
-          </div>
+    <div class="reservation-card" onclick="window.openBookingDetails('${booking.id}', '${booking.type}')">
+      <div class="res-info">
+        <h4>${icon} ${booking.title}</h4>
+        <div class="res-meta">
+          <span>📅 ${date}</span>
+          <span>👥 ${booking.people} guests</span>
+          <span>💰 ${priceDisplay}</span>
         </div>
       </div>
-      <div class="res-actions">
-        <span class="res-status ${statusClass}">${statusText}</span>
-        <!-- <button class="btn btn-sm btn-ghost">Details</button> -->
+      <div class="res-status ${statusClass}">
+        ${statusText.toUpperCase()}
       </div>
     </div>
   `;
 }
+
+// --- Details Modal Logic ---
+window.openBookingDetails = function(id, type) {
+  const booking = ordersData.find(o => o.id === id && o.type === type);
+  if (!booking) return;
+
+  const modal = document.getElementById('bookingDetailsModal');
+  const title = document.getElementById('bookingDetailTitle');
+  const body = document.getElementById('bookingDetailBody');
+
+  title.textContent = booking.title;
+  
+  let detailsHtml = `
+    <div class="detail-row"><span class="detail-label">Status</span><span class="detail-value" style="text-transform: uppercase;">${booking.status}</span></div>
+    <div class="detail-row"><span class="detail-label">Date</span><span class="detail-value">${new Date(booking.date).toLocaleDateString()}</span></div>
+    <div class="detail-row"><span class="detail-label">Created At</span><span class="detail-value">${new Date(booking.created_at).toLocaleString()}</span></div>
+  `;
+
+  if (booking.type === 'car') {
+    detailsHtml += `
+      <div class="detail-row"><span class="detail-label">Pickup Location</span><span class="detail-value">${booking.pickup_location || '-'}</span></div>
+      <div class="detail-row"><span class="detail-label">Return Location</span><span class="detail-value">${booking.return_location || '-'}</span></div>
+      <div class="detail-row"><span class="detail-label">Passengers</span><span class="detail-value">${booking.people}</span></div>
+    `;
+  } else if (booking.type === 'hotel') {
+    detailsHtml += `
+      <div class="detail-row"><span class="detail-label">Guests</span><span class="detail-value">${booking.people}</span></div>
+      <div class="detail-row"><span class="detail-label">Nights</span><span class="detail-value">${booking.nights || '-'}</span></div>
+    `;
+  } else {
+    detailsHtml += `
+      <div class="detail-row"><span class="detail-label">People</span><span class="detail-value">${booking.people}</span></div>
+    `;
+  }
+
+  // Price
+  const priceText = (!booking.price || booking.price == 0) ? 'Quote Request' : `€${parseFloat(booking.price).toFixed(2)}`;
+  detailsHtml += `<div class="detail-row" style="margin-top: 20px; border-top: 1px solid #e5e7eb; padding-top: 12px;"><span class="detail-label">Total Price</span><span class="detail-value" style="font-size: 1.2em; color: #2563eb;">${priceText}</span></div>`;
+
+  body.innerHTML = detailsHtml;
+  modal.hidden = false;
+};
 
 // Setup Reservation Tabs
 document.querySelectorAll('.tabs-line .tab-btn').forEach(btn => {

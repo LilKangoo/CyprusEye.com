@@ -342,6 +342,22 @@
     </main>
   </div>
 
+  <!-- Booking Details Modal -->
+  <div id="bookingDetailsModal" class="modal-overlay" hidden>
+    <div class="modal-content dashboard-modal">
+      <div class="modal-header">
+        <h2 id="bookingDetailTitle">Booking Details</h2>
+        <button class="close-modal-btn" onclick="document.getElementById('bookingDetailsModal').hidden = true">&times;</button>
+      </div>
+      <div class="modal-body" id="bookingDetailBody">
+        <!-- Details injected by JS -->
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary" onclick="document.getElementById('bookingDetailsModal').hidden = true">Close</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Scripts -->
   <script src="js/languageSelector.js" defer></script>
   <script src="js/i18n.js" defer></script>
