@@ -1898,6 +1898,40 @@
       },
       "loading": "Loading recommendations...",
       "cta": "View all recommendations →"
+    },
+    "hero": {
+      "title": "✨ Our recommendations",
+      "subtitle": "Trusted places in Cyprus with exclusive discounts and bonuses for you."
+    },
+    "filters": {
+      "aria": "Recommendation category filters",
+      "title": "Filter by category",
+      "clear": "Clear filters"
+    },
+    "loading": "Loading recommendations...",
+    "empty": {
+      "title": "No results",
+      "body": "We couldn't find any places for the selected filters. Try changing the category or clearing filters.",
+      "cta": "Show all places"
+    },
+    "card": {
+      "featured": "Recommended",
+      "details": "View details",
+      "visitSite": "Visit website"
+    },
+    "modal": {
+      "openMap": "Open in maps",
+      "visitSite": "Visit website",
+      "offerLabel": "🎁 Special offer"
+    },
+    "error": {
+      "title": "Couldn't load recommendations",
+      "message": "Something went wrong. Please try again in a moment.",
+      "retry": "Try again"
+    },
+    "seo": {
+      "title": "HolidayCyprus Quest – Recommendations",
+      "description": "Discover trusted Cyprus partners with exclusive discounts and bonuses for you. Browse our curated recommendations and plan your trip."
     }
   },
   "objective": {

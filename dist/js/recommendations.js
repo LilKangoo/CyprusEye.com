@@ -117,6 +117,9 @@ function renderCategoryFilters() {
   
   console.log('🔵 Rendering category filters:', allCategories.length, 'categories');
   
+  // Clear previous filters to avoid duplicates (e.g. after language change)
+  container.innerHTML = '';
+  
   // Update "All" count (if exists)
   const countAll = document.getElementById('count-all');
   if (countAll) {
