@@ -48,6 +48,8 @@ console.log('🔵 App Core V3 - START');
       popupAnchor: [0, -20]
     });
     const updatePosition = (lat, lng) => {
+      // Udostępnij ostatnią znaną lokalizację globalnie jako fallback dla check-in
+      window.currentUserLocation = { lat, lng, timestamp: Date.now() };
       const latLng = [lat, lng];
       if (!userLocationMarker) {
         userLocationMarker = L.marker(latLng, { icon: userIcon, zIndexOffset: 1000 }).addTo(mapInstance);

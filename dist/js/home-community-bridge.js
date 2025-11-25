@@ -234,10 +234,29 @@
     }
   }
 
+  async function getPosition(highAccuracy = true) {
+    return new Promise((resolve, reject) => {
+      navigator.geolocation.getCurrentPosition(resolve, reject, {
+        enableHighAccuracy: highAccuracy,
+        timeout: 15000,
+        maximumAge: 0,
+      });
+    });
+  }
+
   async function checkInAtPlace(id){
+    let btn;
     try{
       if(checkInBusy) return;
       checkInBusy = true;
+
+      // Visual feedback on the primary action button
+      btn = document.querySelector('.current-place-actions .btn.primary');
+      if (btn) {
+        btn.disabled = true;
+        btn.dataset.originalHtml = btn.innerHTML;
+        btn.innerHTML = '<span class="spinner-small"></span>' + (btn.textContent.trim() || 'Sprawdzanie...');
+      }
 
       const targetId = id || currentId;
       const poi = targetId ? findPoi(targetId) : null;
@@ -261,13 +280,24 @@
         return;
       }
 
-      const position = await new Promise((resolve, reject) => {
-        navigator.geolocation.getCurrentPosition(resolve, reject, {
-          enableHighAccuracy: true,
-          timeout: 10000,
-          maximumAge: 0,
-        });
-      });
+      setCheckInStatus('Sprawdzam Twoją lokalizację... (to może chwilę potrwać)');
+
+      let position;
+      try {
+        // First attempt: high accuracy (GPS)
+        position = await getPosition(true);
+      } catch (firstError) {
+        console.warn('High accuracy geolocation failed, trying low accuracy...', firstError);
+        setCheckInStatus('Słaby sygnał GPS, próbuję przybliżoną lokalizację...');
+        // Second attempt: lower accuracy (WiFi / GSM)
+        position = await getPosition(false);
+      }
+
+      if (!position || !position.coords) {
+        setCheckInStatus('Nie udało się pobrać lokalizacji. Spróbuj ponownie lub użyj innego urządzenia.');
+        window.showToast?.('Nie udało się pobrać lokalizacji. Spróbuj ponownie.', 'error');
+        return;
+      }
 
       const { latitude, longitude } = position.coords;
       // Normalizuj współrzędne POI
@@ -304,11 +334,24 @@
       }
     } catch(err){
       console.warn('checkInAtPlace error:', err);
-      const msg = err?.message?.includes('permission') ? 'Udziel zgody na dostęp do lokalizacji i spróbuj ponownie.' : 'Nie udało się pobrać lokalizacji.';
+      let msg = 'Nie udało się pobrać lokalizacji.';
+      if (err && typeof err.code === 'number') {
+        if (err.code === 1) msg = 'Brak zgody na lokalizację. Udziel zgody w przeglądarce i spróbuj ponownie.';
+        else if (err.code === 2) msg = 'Lokalizacja niedostępna (słaby sygnał). Spróbuj podejść bliżej okna lub na zewnątrz.';
+        else if (err.code === 3) msg = 'Upłynął limit czasu pobierania lokalizacji. Spróbuj ponownie.';
+      } else if (err?.message?.includes('permission')) {
+        msg = 'Udziel zgody na dostęp do lokalizacji i spróbuj ponownie.';
+      }
       setCheckInStatus(msg);
       window.showToast?.(msg, 'error');
     } finally {
       checkInBusy = false;
+      if (btn) {
+        btn.disabled = false;
+        if (btn.dataset.originalHtml) {
+          btn.innerHTML = btn.dataset.originalHtml;
+        }
+      }
     }
   }
 
