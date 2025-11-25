@@ -130,10 +130,10 @@
 
       console.log('👤 Pobieram statystyki użytkownika:', user.id);
 
-      // Pobierz profil
+      // Pobierz profil i odwiedzone miejsca
       const { data: profile, error: profileError } = await sb
         .from('profiles')
-        .select('xp, level, name, username, avatar_url')
+        .select('xp, level, name, username, avatar_url, visited_places')
         .eq('id', user.id)
         .single();
 
@@ -142,13 +142,8 @@
         return null;
       }
 
-      // Pobierz liczbę odznak (odwiedzone miejsca)
-      const { data: visits, error: visitsError } = await sb
-        .from('user_visits')
-        .select('place_id', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-
-      const badgesCount = visitsError ? 0 : (visits || []).length;
+      // Oblicz liczbę odznak z tablicy visited_places
+      const badgesCount = Array.isArray(profile?.visited_places) ? profile.visited_places.length : 0;
 
       return {
         xp: profile?.xp || 0,
