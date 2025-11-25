@@ -8106,18 +8106,43 @@ function showManualConfirm(place) {
 // Expose check-in function for inline onclick handlers
 window.checkInAtPlace = function(placeId) {
   const place = places.find(p => p.id === placeId);
+  const btn = document.querySelector('.current-place-actions .btn.primary');
+  
   if (place) {
-    tryCheckIn(place).catch(err => console.error('Check-in failed:', err));
+    if (btn) {
+      btn.dataset.originalText = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner-small"></span> Checking...';
+    }
+    
+    tryCheckIn(place).catch(err => {
+      console.error('Check-in failed:', err);
+    }).finally(() => {
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = btn.dataset.originalText || '<span class="btn-icon">✓</span> Check';
+      }
+    });
   } else {
     console.warn('Place not found for check-in:', placeId);
   }
 };
 
+async function getPosition(highAccuracy = true) {
+  return new Promise((resolve, reject) => {
+    navigator.geolocation.getCurrentPosition(resolve, reject, {
+      enableHighAccuracy: highAccuracy,
+      timeout: 15000, // Zwiększony timeout
+      maximumAge: 0,
+    });
+  });
+}
+
 async function tryCheckIn(place) {
   const statusEl = document.getElementById('currentPlaceCheckInStatus');
   if (!statusEl) return;
 
-  statusEl.textContent = translate('checkIn.status.checking', 'Sprawdzam Twoją lokalizację…');
+  statusEl.textContent = translate('checkIn.status.checking', 'Sprawdzam Twoją lokalizację... (może to potrwać chwilę)');
 
   if (!('geolocation' in navigator)) {
     statusEl.textContent = translate(
@@ -8128,21 +8153,28 @@ async function tryCheckIn(place) {
     return;
   }
 
-  const position = await new Promise((resolve, reject) => {
-    navigator.geolocation.getCurrentPosition(resolve, reject, {
-      enableHighAccuracy: true,
-      timeout: 10000,
-      maximumAge: 0,
-    });
-  }).catch((error) => {
+  let position;
+  try {
+    // Próba 1: Wysoka dokładność
+    try {
+      position = await getPosition(true);
+    } catch (err) {
+      console.warn('High accuracy failed, trying low accuracy...', err);
+      // Próba 2: Niska dokładność (szybciej, WiFi/GSM)
+      statusEl.textContent = 'Słaby sygnał GPS, próbuję przybliżoną lokalizację...';
+      position = await getPosition(false);
+    }
+  } catch (error) {
     console.warn('Błąd geolokalizacji', error);
-    statusEl.textContent = translate(
-      'checkIn.status.error',
-      'Nie udało się uzyskać lokalizacji. Upewnij się, że wyraziłeś zgodę lub użyj ręcznego potwierdzenia.',
-    );
+    let errorMsg = 'Nie udało się pobrać lokalizacji.';
+    if (error.code === 1) errorMsg = 'Brak zgody na lokalizację.';
+    if (error.code === 2) errorMsg = 'Lokalizacja niedostępna (słaby sygnał).';
+    if (error.code === 3) errorMsg = 'Upłynął limit czasu żądania.';
+    
+    statusEl.textContent = errorMsg + ' Spróbuj ręcznego potwierdzenia.';
     showManualConfirm(place);
     throw error;
-  });
+  }
 
   if (!position) return;
   const { latitude, longitude } = position.coords;
