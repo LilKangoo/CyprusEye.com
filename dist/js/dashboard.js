@@ -397,12 +397,48 @@ window.openBookingDetails = function(id, type) {
   }
 
   // Price
-  const priceText = (!booking.price || booking.price == 0) ? 'Quote Request' : `€${parseFloat(booking.price).toFixed(2)}`;
+  const priceText = (!booking.price || booking.price == 0) ? '<span style="color:#ea580c">Price pending confirmation</span>' : `€${parseFloat(booking.price).toFixed(2)}`;
+  
   detailsHtml += `<div class="detail-row" style="margin-top: 20px; border-top: 1px solid #e5e7eb; padding-top: 12px;"><span class="detail-label">Total Price</span><span class="detail-value" style="font-size: 1.2em; color: #2563eb;">${priceText}</span></div>`;
+  
+  if (!booking.price || booking.price == 0) {
+    detailsHtml += `<p style="font-size: 0.85rem; color: #6b7280; margin-top: 8px; text-align: center;">Final price will be sent to your email shortly.</p>`;
+  }
 
   body.innerHTML = detailsHtml;
   modal.hidden = false;
 };
+
+// --- Modal Event Listeners ---
+function setupModalListeners() {
+  const modal = document.getElementById('bookingDetailsModal');
+  const btnX = document.getElementById('btnCloseModalX');
+  const btnClose = document.getElementById('btnCloseModalBtn');
+  
+  if (!modal) return;
+
+  function closeModal() {
+    modal.hidden = true;
+  }
+
+  if (btnX) btnX.addEventListener('click', closeModal);
+  if (btnClose) btnClose.addEventListener('click', closeModal);
+  
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modal.hidden) closeModal();
+  });
+}
+
+// Call setup on load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', setupModalListeners);
+} else {
+  setupModalListeners();
+}
 
 // Setup Reservation Tabs
 document.querySelectorAll('.tabs-line .tab-btn').forEach(btn => {
