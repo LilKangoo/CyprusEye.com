@@ -361,7 +361,12 @@ async function fetchAllBookings(limit = 100) {
     };
     
     if (!carObj.price || carObj.price == 0) {
-      carObj.price = calculateEstimatedPrice(carObj);
+      try {
+        carObj.price = calculateEstimatedPrice(carObj);
+      } catch (err) {
+        console.warn('Price calc error for booking', c.id, err);
+        carObj.price = 0;
+      }
     }
     
     return carObj;
