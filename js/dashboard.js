@@ -219,32 +219,46 @@ async function loadOverviewStats() {
   try {
     const orders = await fetchAllBookings(5);
     ordersData = orders;
-    
-    // Update Stats Cards
-    // XP & Level
-    const levelVal = currentProfile.level || 1;
-    const xpVal = currentProfile.xp || 0;
-    const nextLevelXp = levelVal * 1000; 
-    const xpPercent = Math.min(100, (xpVal / nextLevelXp) * 100);
-    
-    document.getElementById('statLevel').textContent = levelVal;
-    document.getElementById('statXp').textContent = `${xpVal} / ${nextLevelXp} XP`;
-    document.getElementById('statXpProgress').style.width = `${xpPercent}%`;
 
-    // Places
-    const places = (currentProfile.visited_places || []).length;
-    document.getElementById('statPlaces').textContent = places;
-    
-    // Bookings
-    const activeBookings = orders.filter(o => o.status === 'confirmed' || o.status === 'pending').length;
-    document.getElementById('statBookings').textContent = activeBookings;
+    // --- XP & Level ---
+    const levelVal = (currentProfile && currentProfile.level) || 1;
+    const xpVal = (currentProfile && currentProfile.xp) || 0;
+    const nextLevelXp = levelVal * 1000;
+    const xpPercent = nextLevelXp > 0 ? Math.min(100, (xpVal / nextLevelXp) * 100) : 0;
 
-    // Recent Activity List
+    const levelEl = document.getElementById('overviewLevel');
+    const xpEl = document.getElementById('overviewXP');
+    const xpBarEl = document.getElementById('overviewXPBar');
+
+    if (levelEl) levelEl.textContent = levelVal;
+    if (xpEl) xpEl.textContent = `${xpVal} XP`;
+    if (xpBarEl) xpBarEl.style.width = `${xpPercent}%`;
+
+    // --- Visited places ---
+    const places = (currentProfile && currentProfile.visited_places
+      ? currentProfile.visited_places.length
+      : 0);
+    const visitedEl = document.getElementById('overviewVisited');
+    if (visitedEl) visitedEl.textContent = places;
+
+    // --- Active bookings ---
+    const activeBookings = orders.filter(o =>
+      o.status === 'confirmed' || o.status === 'pending'
+    ).length;
+    const bookingsEl = document.getElementById('overviewActiveBookings');
+    if (bookingsEl) bookingsEl.textContent = activeBookings;
+
+    // --- Recent Activity List ---
     const listEl = document.getElementById('recentActivityList');
-    if (orders.length === 0) {
-      listEl.innerHTML = '<p class="empty-state" data-i18n="dashboard.activity.empty">No recent activity.</p>';
-    } else {
-      listEl.innerHTML = orders.slice(0, 3).map(o => createBookingCard(o, true)).join('');
+    if (listEl) {
+      if (orders.length === 0) {
+        listEl.innerHTML = '<p class="empty-state" data-i18n="dashboard.activity.empty">No recent activity.</p>';
+      } else {
+        listEl.innerHTML = orders
+          .slice(0, 3)
+          .map(o => createBookingCard(o, true))
+          .join('');
+      }
     }
 
   } catch (e) {
