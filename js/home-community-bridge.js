@@ -200,6 +200,21 @@
     el.textContent = message || '';
   }
 
+  function openLoginModalIfAvailable(){
+    try{
+      if (typeof window.openAuthModal === 'function') {
+        window.openAuthModal('login');
+        return;
+      }
+      const opener = document.querySelector('[data-open-auth]');
+      if (opener instanceof HTMLElement) {
+        opener.click();
+      }
+    } catch(e){
+      console.warn('Unable to open auth modal from check-in:', e);
+    }
+  }
+
   function navigatePlace(delta){
     const ids = getOrderedPoiIds();
     if(ids.length===0) return;
@@ -263,6 +278,32 @@
       if(!poi){
         setCheckInStatus('Brak wybranej lokalizacji. Wybierz miejsce z listy lub mapy.');
         window.showToast?.('Brak wybranej lokalizacji', 'error');
+        return;
+      }
+
+      let sb = window.getSupabase?.();
+      if (!sb) {
+        setCheckInStatus('Nie udało się połączyć z kontem. Odśwież stronę i zaloguj się, aby się zameldować.');
+        window.showToast?.('Zaloguj się, aby zbierać XP za odwiedzone miejsca.', 'warning');
+        openLoginModalIfAvailable();
+        return;
+      }
+
+      let user = null;
+      try{
+        const { data, error } = await sb.auth.getUser();
+        if (error) {
+          console.warn('Supabase getUser error during check-in:', error);
+        }
+        user = data?.user || null;
+      } catch(e){
+        console.warn('Supabase getUser threw during check-in:', e);
+      }
+
+      if(!user){
+        setCheckInStatus('Zaloguj się, aby zameldować się w tym miejscu i zdobyć XP.');
+        window.showToast?.('Zaloguj się lub utwórz konto, aby zbierać XP.', 'warning');
+        openLoginModalIfAvailable();
         return;
       }
 
@@ -333,18 +374,20 @@
       const radius = 350; // metry
 
       if(distance <= radius){
-        // Mark as visited locally to prevent double award
-        localStorage.setItem(storageKey, Date.now().toString());
         try{
           const mod = await import('/js/xp.js');
           if(typeof mod.awardPoi === 'function'){
             await mod.awardPoi(poi.id);
           }
+          localStorage.setItem(storageKey, Date.now().toString());
+          setCheckInStatus('Gratulacje! Jesteś na miejscu i otrzymasz XP za to miejsce.');
+          window.showToast?.('Gratulacje! Zamelodowałeś się i otrzymasz XP.', 'success');
         } catch(e){
           console.error('[XP] awardPoi failed', e);
+          setCheckInStatus('Nie udało się zapisać zameldowania w systemie. Spróbuj ponownie po chwili.');
+          window.showToast?.('Nie udało się zapisać w systemie. Sprawdź połączenie lub zalogowanie.', 'error');
+          return;
         }
-        setCheckInStatus('Gratulacje! Jesteś na miejscu i otrzymasz XP za to miejsce.');
-        window.showToast?.('Gratulacje! Zamelodowałeś się i otrzymasz XP.', 'success');
       } else {
         const km = (distance/1000).toFixed(2);
         const msg = `Jesteś ok. ${km} km od celu. Zbliż się do miejsca, aby się zameldować.`;

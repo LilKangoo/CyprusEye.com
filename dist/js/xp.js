@@ -43,8 +43,12 @@ function updateUi(p){
 
 // publiczne utilsy do wywołań z innych modułów
 export async function awardPoi(poiId){
-  const { error } = await sb.rpc('award_poi',  { p_poi_id: poiId })
-  if (error) console.error('award_poi:', error.message)
+  const { data, error } = await sb.rpc('award_poi',  { p_poi_id: poiId })
+  if (error) {
+    console.error('award_poi:', error.message)
+    throw error
+  }
+  return data
 }
 
 export async function awardTask(taskId){
