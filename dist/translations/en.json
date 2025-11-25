@@ -2568,69 +2568,6 @@
       }
     }
   },
-  "tutorial": {
-    "step1": {
-      "title": "Discover quick actions",
-      "description": "Use the header shortcuts to jump to your current objective, open car rental, browse attractions, or reach the SOS panel instantly."
-    },
-    "step2": {
-      "title": "Map and check-in",
-      "description": "This section hosts the interactive map with the \"Check in\" button and an accessibility link to skip the map when you prefer the details view."
-    },
-    "step3": {
-      "title": "Right-hand shortcut cards",
-      "description": "Follow these cards to open the packing planner, task list, and our dedicated car rental guide without leaving the page."
-    },
-    "step4": {
-      "title": "Tab navigation explained",
-      "description": "Switch between adventure, packing, tasks, and VIP tabs here while tracking your level, XP progress, and unlocked badges."
-    },
-    "step5": {
-      "title": "Need a refresher?",
-      "description": "Use the \"Show instructions\" button in the footer to relaunch this tutorial whenever you want a guided tour again."
-    },
-    "step6": {
-      "title": "Accommodation",
-      "description": "Find hotels, villas, and apartments by switching city tabs and opening each card for details."
-    },
-    "step7": {
-      "title": "Our recommendations",
-      "description": "Filter trusted partners by category and discover exclusive discounts."
-    },
-    "step8": {
-      "title": "Packing planner",
-      "description": "Jump straight to the packing checklist tailored to each season."
-    },
-    "step9": {
-      "title": "Task list",
-      "description": "Track preparations – bookings, documents, and every travel duty in one place."
-    },
-    "step10": {
-      "title": "Special coupon",
-      "description": "Buy the coupon securely and use our offers without extra formalities."
-    },
-    "step11": {
-      "title": "Car rental guide",
-      "description": "Learn everything about renting a car in Cyprus: tips, pricing, and the calculator."
-    },
-    "step12": {
-      "title": "Services and planning",
-      "description": "Explore our private trips, concierge support, and on-the-ground assistance."
-    },
-    "step13": {
-      "title": "Sign in and save progress",
-      "description": "After signing in you track levels, XP, badges, and continue across devices."
-    },
-    "step14": {
-      "title": "Need the guide again?",
-      "description": "Click \"Show tutorial\" in the footer anytime to restart the walkthrough."
-    },
-    "next": "Next",
-    "prev": "Back",
-    "skip": "Skip",
-    "finish": "Finish",
-    "showAgain": "🔁 Show instructions"
-  },
   "carRentalPfo": {
     "page": {
       "brand": {
