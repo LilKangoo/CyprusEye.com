@@ -131,7 +131,12 @@
     "carRentalLink": "🚗 Car rental",
     "explorerToggle": "🌍 Browse attractions",
     "sosToggle": "🚨 SOS",
-    "communityLink": "💬 Community"
+    "communityLink": "💬 Community",
+    "profile": "My Profile",
+    "statusPlaceholder": "Level 1 • 0 badges"
+  },
+  "badges": {
+    "landmark": "LANDMARK"
   },
   "auth": {
     "bar": {
@@ -361,6 +366,17 @@
       "prev": "Previous",
       "next": "Next"
     }
+  },
+  "services": {
+    "title": "Discover Cyprus with us",
+    "description": "WakacjeCypr.com are local experts ready to organize unforgettable holidays, private tours, wine tastings and cruises for you.",
+    "itemOne": "Individual itineraries tailored to your check-ins.",
+    "itemTwo": "Guided tours in places you've already unlocked.",
+    "itemThree": "Contact us directly from the app – click the button below.",
+    "cta": "Explore our services"
+  },
+  "tutorial": {
+    "showAgain": "🔁 Show tutorial"
   },
   "lightbox": {
     "close": "Close",
@@ -935,15 +951,6 @@
       "passwordUpdated": "Password updated successfully.",
       "progressReset": "Progress reset. Good luck on your new adventure!"
     },
-    "status": {
-      "progressRestart": "You're starting the game over—good luck!",
-      "resetNotAvailable": "You're signed in—use account settings to reset your progress.",
-      "guestProgressReset": "Guest stats cleared. You're back at level 1!"
-    },
-    "confirm": {
-      "reset": "Are you sure you want to reset progress? This action cannot be undone.",
-      "guestReset": "Are you sure you want to wipe guest progress? This action cannot be undone."
-    },
     "stats": {
       "level": {
         "title": "Level",
@@ -951,32 +958,55 @@
       },
       "xp": {
         "title": "Experience",
-        "description": "Total experience earned"
+        "description": "Total points earned"
       },
       "badges": {
         "title": "Badges",
         "description": "Unique badges collected"
       },
       "visited": {
-        "title": "Visited places",
-        "description": "Discovered attractions"
+        "title": "Visited Places",
+        "description": "Number of discovered attractions"
       },
       "tasks": {
-        "title": "Completed quests",
-        "description": "Finished missions and checklists"
+        "title": "Completed Tasks",
+        "description": "Missions and checklists done"
       },
       "streak": {
-        "title": "Daily streak",
-        "description": {
-          "html": "Current / best: <span id=\"accountStatBestStreak\">0</span>"
-        }
+        "title": "Daily Streak",
+        "description": "Current / best: <span id=\"accountStatBestStreak\">0</span>"
       }
     },
-    "close": {
-      "text": "✕",
-      "attributes": {
-        "aria-label": "Close account settings"
-      }
+    "reset": {
+      "title": "Reset Statistics",
+      "description": "Start the adventure over – reset includes experience, badges, visited places, and tasks.",
+      "action": "🔄 Reset Progress"
+    },
+    "security": {
+      "username": {
+        "heading": "Change Username",
+        "desc": "Set an ID visible in rankings, comments, and travel journal.",
+        "label": "New username",
+        "hint": "Allowed letters, numbers, dots, hyphens, underscores (3–30 chars).",
+        "submit": "Save username"
+      },
+      "displayName": {
+        "heading": "Display Name",
+        "desc": "This name appears in notifications and app greetings.",
+        "label": "Name",
+        "placeholder": "Your name",
+        "submit": "Save name"
+      },
+      "password": {
+        "heading": "Update Password",
+        "desc": "Use a strong password to protect your account.",
+        "current": "Current password",
+        "new": "New password",
+        "confirm": "Confirm new password",
+        "hint": "Password must be at least 8 characters with mixed letters and numbers.",
+        "submit": "Change password"
+      },
+      "guestNote": "Guests do not have passwords – sign in to change account details."
     }
   },
   "coupon": {

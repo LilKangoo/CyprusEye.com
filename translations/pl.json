@@ -3693,5 +3693,79 @@
   "explorer.close.text": "Zamknij",
   "explorer.close.attributes.aria-label": "Zamknij",
   "sos.close.text": "Zamknij",
-  "sos.embassy.email.html": "Napisz do ambasady: <a href=\"mailto:{{email}}\">{{email}}</a>"
+  "sos.embassy.email.html": "Napisz do ambasady: <a href=\"mailto:{{email}}\">{{email}}</a>",
+  "badges": {
+    "landmark": "ATRAKCJA"
+  },
+  "services": {
+    "title": "Odkryj z nami Cypr",
+    "description": "WakacjeCypr.com to lokalni eksperci gotowi zorganizować dla Ciebie niezapomniane wakacje, prywatne wycieczki, degustacje wina i rejsy.",
+    "itemOne": "Indywidualne plany podróży dopasowane do Twoich check-inów.",
+    "itemTwo": "Wycieczki z przewodnikiem w miejscach, które już odblokowałeś.",
+    "itemThree": "Kontakt z nami prosto z aplikacji – kliknij przycisk poniżej.",
+    "cta": "Poznaj nasze usługi"
+  },
+  "tutorial": {
+    "showAgain": "🔁 Pokaż instrukcję"
+  },
+  "lightbox": {
+    "alt": "Podgląd zdjęcia",
+    "close": "Zamknij",
+    "prev": "Poprzednie",
+    "next": "Następne"
+  },
+  "modal": {
+    "description": "Opis",
+    "booking": "Rezerwacja",
+    "form": {
+      "name": "Imię i nazwisko *",
+      "email": "Email *",
+      "phone": "Telefon",
+      "tripDate": "Preferowana data wycieczki",
+      "arrival": "Data przyjazdu *",
+      "arrivalCyprus": "Data przylotu na Cypr *",
+      "departure": "Data wyjazdu *",
+      "departureCyprus": "Data wylotu z Cypru *",
+      "adults": "Dorośli",
+      "children": "Dzieci",
+      "hours": "Liczba godzin",
+      "days": "Liczba dni",
+      "notes": "Uwagi (opcjonalnie)",
+      "price": "Cena",
+      "submit": "Zarezerwuj"
+    }
+  },
+  "header.profile": "Mój Profil",
+  "header.statusPlaceholder": "Poziom 1 • 0 odznak",
+  "account.profile.heading": "Twój profil",
+  "account.profile.desc": "Podstawowe informacje o koncie i postępy w przygodzie.",
+  "account.profile.changeAvatar": "📷 Zmień zdjęcie",
+  "account.profile.removeAvatar": "🗑️ Usuń",
+  "account.profile.labels.email": "E-mail",
+  "account.profile.labels.username": "Nazwa użytkownika",
+  "account.profile.labels.displayName": "Imię wyświetlane",
+  "account.profile.labels.xp": "XP",
+  "account.profile.labels.level": "Poziom",
+  "account.profile.labels.lastUpdated": "Ostatnia aktualizacja",
+  "account.xpEvents.title": "Ostatnie zdarzenia XP",
+  "account.xpEvents.desc": "Monitoruj, jak zdobywasz doświadczenie w CyprusEye.",
+  "account.xpEvents.empty": "Brak zarejestrowanych zdarzeń XP.",
+  "account.security.username.heading": "Zmień nazwę użytkownika",
+  "account.security.username.desc": "Ustaw identyfikator widoczny w rankingach.",
+  "account.security.username.label": "Nowa nazwa użytkownika",
+  "account.security.username.hint": "Dozwolone litery, cyfry, kropki (3–30 znaków).",
+  "account.security.username.submit": "Zapisz nazwę",
+  "account.security.displayName.heading": "Imię wyświetlane",
+  "account.security.displayName.desc": "To imię pojawia się w powiadomieniach.",
+  "account.security.displayName.label": "Imię",
+  "account.security.displayName.placeholder": "Twoje imię",
+  "account.security.displayName.submit": "Zapisz imię",
+  "account.security.password.heading": "Aktualizuj hasło",
+  "account.security.password.desc": "Użyj silnego hasła, aby chronić konto.",
+  "account.security.password.current": "Obecne hasło",
+  "account.security.password.new": "Nowe hasło",
+  "account.security.password.confirm": "Powtórz nowe hasło",
+  "account.security.password.hint": "Hasło musi mieć min. 8 znaków.",
+  "account.security.password.submit": "Zmień hasło",
+  "account.security.guestNote": "Goście nie posiadają haseł – zaloguj się, aby zmienić dane konta."
 }

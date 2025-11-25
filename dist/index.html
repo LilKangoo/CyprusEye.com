@@ -134,8 +134,8 @@
                 loading="eager"
               />
               <div class="profile-info">
-                <p class="profile-name">Mój Profil</p>
-                <p class="profile-status">Poziom 1 • 0 odznak</p>
+                <p class="profile-name" data-i18n="header.profile">Mój Profil</p>
+                <p class="profile-status" data-i18n="header.statusPlaceholder">Poziom 1 • 0 odznak</p>
               </div>
             </a>
 
@@ -295,6 +295,7 @@
                 id="prevPlaceBtn"
                 onclick="navigatePlace(-1)"
                 aria-label="Poprzednie"
+                data-i18n-attrs="aria-label:currentPlace.prev"
               >
                 ←
               </button>
@@ -304,6 +305,7 @@
                 id="nextPlaceBtn"
                 onclick="navigatePlace(1)"
                 aria-label="Następne"
+                data-i18n-attrs="aria-label:currentPlace.next"
               >
                 →
               </button>
@@ -312,7 +314,7 @@
             <div class="current-place-content" id="currentPlaceContent">
               <!-- Badges Row (Added for new design) -->
               <div class="place-badges">
-                <span class="badge-pill badge-type">LANDMARK</span>
+                <span class="badge-pill badge-type" data-i18n="badges.landmark">LANDMARK</span>
                 <span class="badge-pill badge-xp" id="currentPlaceXPBadge">+0 XP</span>
                 <span class="badge-pill badge-trophy" id="currentPlaceTrophyBadge" style="display:none;">🏆 <span id="trophyName"></span></span>
               </div>
@@ -1474,10 +1476,10 @@
   <!-- Fullscreen Lightbox for hotel gallery -->
   <div class="lightbox" id="imgLightbox" hidden>
     <div class="lightbox-content" id="lightboxContent">
-      <img id="lbImg" class="lightbox-img" alt="Podgląd zdjęcia" />
-      <button id="lbClose" class="lightbox-close" type="button" aria-label="Zamknij">✕</button>
-      <button id="lbPrev" class="lightbox-arrow lightbox-prev" type="button" aria-label="Poprzednie">‹</button>
-      <button id="lbNext" class="lightbox-arrow lightbox-next" type="button" aria-label="Następne">›</button>
+      <img id="lbImg" class="lightbox-img" alt="Preview" data-i18n-attrs="alt:lightbox.alt" />
+      <button id="lbClose" class="lightbox-close" type="button" aria-label="Close" data-i18n-attrs="aria-label:lightbox.close">✕</button>
+      <button id="lbPrev" class="lightbox-arrow lightbox-prev" type="button" aria-label="Previous" data-i18n-attrs="aria-label:lightbox.prev">‹</button>
+      <button id="lbNext" class="lightbox-arrow lightbox-next" type="button" aria-label="Next" data-i18n-attrs="aria-label:lightbox.next">›</button>
     </div>
   </div>
   <!-- Hotel Details Modal (same structure as /hotels) -->
@@ -1494,61 +1496,61 @@
       </div>
       <div class="trip-modal-body">
         <div class="trip-section">
-          <h3 class="trip-section-title">Opis</h3>
+          <h3 class="trip-section-title" data-i18n="modal.description">Opis</h3>
           <div class="trip-description" id="modalHotelDescription"></div>
         </div>
 
         <div class="trip-section">
-          <h3 class="trip-section-title">Rezerwacja</h3>
+          <h3 class="trip-section-title" data-i18n="modal.booking">Rezerwacja</h3>
           <form class="booking-form" id="hotelBookingForm">
             <div class="form-row">
               <div class="form-field">
-                <label>Imię i nazwisko *</label>
+                <label data-i18n="modal.form.name">Imię i nazwisko *</label>
                 <input name="name" required />
               </div>
               <div class="form-field">
-                <label>Email *</label>
+                <label data-i18n="modal.form.email">Email *</label>
                 <input type="email" name="email" required />
               </div>
             </div>
             <div class="form-row">
               <div class="form-field">
-                <label>Telefon</label>
+                <label data-i18n="modal.form.phone">Telefon</label>
                 <input name="phone" />
               </div>
               <div class="form-field">
-                <label>Data przyjazdu *</label>
+                <label data-i18n="modal.form.arrival">Data przyjazdu *</label>
                 <input type="date" name="arrival_date" id="hotelArrivalDate" required />
               </div>
             </div>
             <div class="form-row">
               <div class="form-field">
-                <label>Data wyjazdu *</label>
+                <label data-i18n="modal.form.departure">Data wyjazdu *</label>
                 <input type="date" name="departure_date" id="hotelDepartureDate" required />
               </div>
               <div class="form-field">
-                <label>Dorośli</label>
+                <label data-i18n="modal.form.adults">Dorośli</label>
                 <input type="number" name="adults" id="hotelBookingAdults" min="1" value="2" />
               </div>
             </div>
             <div class="form-row">
               <div class="form-field">
-                <label>Dzieci</label>
+                <label data-i18n="modal.form.children">Dzieci</label>
                 <input type="number" name="children" id="hotelBookingChildren" min="0" value="0" />
               </div>
             </div>
             <div class="form-field">
-              <label>Uwagi (opcjonalnie)</label>
+              <label data-i18n="modal.form.notes">Uwagi (opcjonalnie)</label>
               <textarea name="notes"></textarea>
             </div>
 
             <div class="trip-price-box">
-              <p class="trip-price-label">Cena</p>
+              <p class="trip-price-label" data-i18n="modal.form.price">Cena</p>
               <p class="trip-price-value" id="modalHotelPrice">—</p>
             </div>
             <div id="hotelPriceNote" class="booking-message" style="display:none"></div>
 
-            <button type="submit" class="booking-submit">Zarezerwuj</button>
+            <button type="submit" class="booking-submit" data-i18n="modal.form.submit">Zarezerwuj</button>
             <div id="hotelBookingMessage" class="booking-message" style="display:none;"></div>
           </form>
         </div>
@@ -1568,71 +1570,71 @@
       </div>
       <div class="trip-modal-body">
         <div class="trip-section">
-          <h3 class="trip-section-title">Opis</h3>
+          <h3 class="trip-section-title" data-i18n="modal.description">Opis</h3>
           <div class="trip-description" id="modalTripDescription"></div>
         </div>
         <div class="trip-section">
-          <h3 class="trip-section-title">Rezerwacja</h3>
+          <h3 class="trip-section-title" data-i18n="modal.booking">Rezerwacja</h3>
           <form class="booking-form" id="bookingForm">
             <div class="form-row">
               <div class="form-field">
-                <label for="bookingName">Imię i nazwisko *</label>
+                <label for="bookingName" data-i18n="modal.form.name">Imię i nazwisko *</label>
                 <input type="text" id="bookingName" name="name" required />
               </div>
               <div class="form-field">
-                <label for="bookingEmail">Email *</label>
+                <label for="bookingEmail" data-i18n="modal.form.email">Email *</label>
                 <input type="email" id="bookingEmail" name="email" required />
               </div>
             </div>
             <div class="form-row">
               <div class="form-field">
-                <label for="bookingPhone">Telefon</label>
+                <label for="bookingPhone" data-i18n="modal.form.phone">Telefon</label>
                 <input type="tel" id="bookingPhone" name="phone" />
               </div>
               <div class="form-field">
-                <label for="bookingDate">Preferowana data wycieczki</label>
+                <label for="bookingDate" data-i18n="modal.form.tripDate">Preferowana data wycieczki</label>
                 <input type="date" id="bookingDate" name="trip_date" />
               </div>
             </div>
             <div class="form-row">
               <div class="form-field">
-                <label for="arrivalDate">Data przylotu na Cypr *</label>
+                <label for="arrivalDate" data-i18n="modal.form.arrivalCyprus">Data przylotu na Cypr *</label>
                 <input type="date" id="arrivalDate" name="arrival_date" required />
               </div>
               <div class="form-field">
-                <label for="departureDate">Data wylotu z Cypru *</label>
+                <label for="departureDate" data-i18n="modal.form.departureCyprus">Data wylotu z Cypru *</label>
                 <input type="date" id="departureDate" name="departure_date" required />
               </div>
             </div>
             <div class="form-row" id="peopleFields">
               <div class="form-field">
-                <label for="bookingAdults">Liczba dorosłych</label>
+                <label for="bookingAdults" data-i18n="modal.form.adults">Liczba dorosłych</label>
                 <input type="number" id="bookingAdults" name="adults" min="1" value="1" />
               </div>
               <div class="form-field">
-                <label for="bookingChildren">Dzieci</label>
+                <label for="bookingChildren" data-i18n="modal.form.children">Dzieci</label>
                 <input type="number" id="bookingChildren" name="children" min="0" value="0" />
               </div>
             </div>
             <div class="form-row" id="timeFields" style="display:none;">
               <div class="form-field">
-                <label for="bookingHours">Liczba godzin</label>
+                <label for="bookingHours" data-i18n="modal.form.hours">Liczba godzin</label>
                 <input type="number" id="bookingHours" name="hours" min="1" value="1" />
               </div>
               <div class="form-field">
-                <label for="bookingDays">Liczba dni</label>
+                <label for="bookingDays" data-i18n="modal.form.days">Liczba dni</label>
                 <input type="number" id="bookingDays" name="days" min="1" value="1" />
               </div>
             </div>
             <div class="form-field">
-              <label for="bookingNotes">Uwagi (opcjonalnie)</label>
+              <label for="bookingNotes" data-i18n="modal.form.notes">Uwagi (opcjonalnie)</label>
               <textarea id="bookingNotes" name="notes"></textarea>
             </div>
             <div class="trip-price-box">
-              <p class="trip-price-label">Cena</p>
+              <p class="trip-price-label" data-i18n="modal.form.price">Cena</p>
               <p class="trip-price-value" id="modalTripPrice">0.00 €</p>
             </div>
-            <button type="submit" class="booking-submit">Zarezerwuj</button>
+            <button type="submit" class="booking-submit" data-i18n="modal.form.submit">Zarezerwuj</button>
             <div id="bookingMessage" class="booking-message" style="display:none;"></div>
           </form>
         </div>
