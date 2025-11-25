@@ -204,7 +204,7 @@
 
   <!-- GŁÓWNA CZĘŚĆ STRONY REKOMENDACJI -->
   <main class="recommendations-main" data-page="recommendations">
-    <!-- Hero -->
+    <!-- Hero (Minimal) -->
     <section class="recommendations-hero">
       <div class="hero-content">
         <h1 data-i18n="recommendations.hero.title">✨ Nasze Rekomendacje</h1>
@@ -212,10 +212,10 @@
       </div>
     </section>
 
-    <!-- Filtry kategorii -->
+    <!-- Filtry kategorii (Minimal Sticky Bar) -->
     <section class="recommendations-filters" aria-label="Filtry kategorii" data-i18n-attrs="aria-label:recommendations.filters.aria">
       <div class="filters-container">
-        <div class="filters-header">
+        <div class="filters-header" style="display:none;"> <!-- Ukrywamy nagłówek filtrów w minimalu, jest oczywisty -->
           <h2 data-i18n="recommendations.filters.title">Wybierz kategorię</h2>
           <button id="clearFilters" class="btn-text" type="button" style="display:none" data-i18n="recommendations.filters.clear">Wyczyść filtry</button>
         </div>
