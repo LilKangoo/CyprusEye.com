@@ -307,15 +307,29 @@ console.log('🔵 App Core V3 - START');
     const poi = window.PLACES_DATA?.find(p => p.id === placeId);
     if (!poi || !mapInstance) return;
     
-    mapInstance.setView([poi.lat, poi.lng], 14, { animate: true });
+    const targetZoom = 15; // Slightly closer zoom
+    const latLng = [poi.lat, poi.lng];
     
-    // Znajdź i otwórz popup
+    // Calculate offset to show marker above the bottom card
+    // On mobile, card is taller/more prominent, so more offset needed
+    const isMobile = window.innerWidth <= 768;
+    const offsetY = isMobile ? 150 : 100; // Pixels to shift center DOWN (so marker moves UP)
+
+    // Use Leaflet projection to calculate new center
+    const point = mapInstance.project(latLng, targetZoom);
+    point.y += offsetY;
+    const targetCenter = mapInstance.unproject(point, targetZoom);
+
+    mapInstance.setView(targetCenter, targetZoom, { animate: true });
+    
+    // Find and open popup
     setTimeout(() => {
       markersLayer.eachLayer(layer => {
         if (layer instanceof L.Marker) {
-          const latLng = layer.getLatLng();
-          if (Math.abs(latLng.lat - poi.lat) < 0.0001 && 
-              Math.abs(latLng.lng - poi.lng) < 0.0001) {
+          const lPos = layer.getLatLng();
+          // Fuzzy match coordinates
+          if (Math.abs(lPos.lat - poi.lat) < 0.0001 && 
+              Math.abs(lPos.lng - poi.lng) < 0.0001) {
             layer.openPopup();
           }
         }
