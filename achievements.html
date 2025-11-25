@@ -144,6 +144,10 @@
           <span data-i18n="dashboard.nav.reservations">Orders & Bookings</span>
           <span class="badge-count" id="reservationsCount" hidden>0</span>
         </button>
+        <button class="nav-item" data-section="content">
+          <span class="icon">📝</span>
+          <span data-i18n="dashboard.nav.content">My Content</span>
+        </button>
         <button class="nav-item" data-section="achievements">
           <span class="icon">🏆</span>
           <span data-i18n="dashboard.nav.achievements">Achievements</span>
@@ -248,6 +252,33 @@
             <div class="loading-state">
               <div class="spinner"></div>
               <p>Loading orders...</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- SECTION: CONTENT (New) -->
+      <section id="section-content" class="dashboard-section">
+        <div class="section-header">
+          <h1 data-i18n="dashboard.content.title">My Content</h1>
+          <p data-i18n="dashboard.content.subtitle">Manage your photos and comments.</p>
+        </div>
+
+        <div class="content-container">
+          <div class="tabs-line">
+            <button class="tab-btn active" data-content-tab="photos" data-i18n="dashboard.content.photos">Photos</button>
+            <button class="tab-btn" data-content-tab="comments" data-i18n="dashboard.content.comments">Comments</button>
+          </div>
+
+          <div id="content-photos" class="content-tab-pane active">
+            <div class="photos-grid" id="userPhotosList">
+              <div class="loading-state"><div class="spinner"></div><p>Loading photos...</p></div>
+            </div>
+          </div>
+
+          <div id="content-comments" class="content-tab-pane" style="display:none">
+            <div class="comments-list" id="userCommentsList">
+              <div class="loading-state"><div class="spinner"></div><p>Loading comments...</p></div>
             </div>
           </div>
         </div>

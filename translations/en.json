@@ -3006,6 +3006,7 @@
     "nav": {
       "overview": "Overview",
       "reservations": "Orders & Bookings",
+      "content": "My Content",
       "achievements": "Achievements",
       "settings": "Settings"
     },
@@ -3024,6 +3025,12 @@
       "pending": "Pending",
       "confirmed": "Confirmed",
       "completed": "History"
+    },
+    "content": {
+      "title": "My Content",
+      "subtitle": "Manage your photos and comments.",
+      "photos": "Photos",
+      "comments": "Comments"
     },
     "achievements": {
       "title": "Badges & Rewards"

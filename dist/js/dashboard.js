@@ -159,6 +159,9 @@ async function loadSection(sectionId) {
     case 'reservations':
       await loadReservations();
       break;
+    case 'content':
+      await loadUserContent();
+      break;
     case 'achievements':
       await loadAchievements();
       break;
@@ -474,6 +477,138 @@ async function updateGlobalBadges() {
     }
   } catch (e) { /* ignore */ }
 }
+
+// --- Content Logic ---
+async function loadUserContent() {
+  // Setup Tabs
+  const tabs = document.querySelectorAll('[data-content-tab]');
+  tabs.forEach(tab => {
+    // Remove old listeners to avoid duplicates if reloaded
+    const newTab = tab.cloneNode(true);
+    tab.parentNode.replaceChild(newTab, tab);
+    
+    newTab.addEventListener('click', () => {
+      document.querySelectorAll('[data-content-tab]').forEach(t => t.classList.remove('active'));
+      newTab.classList.add('active');
+      
+      document.querySelectorAll('.content-tab-pane').forEach(p => p.style.display = 'none');
+      const target = document.getElementById(`content-${newTab.dataset.contentTab}`);
+      if (target) target.style.display = 'block';
+    });
+  });
+
+  await Promise.all([loadUserPhotos(), loadUserComments()]);
+}
+
+async function loadUserPhotos() {
+  const container = document.getElementById('userPhotosList');
+  try {
+    const photos = await getUserPhotos(currentUser.id, 50); // Fetch up to 50 photos
+    
+    if (photos.length === 0) {
+      container.innerHTML = '<p class="empty-state">No photos uploaded yet.</p>';
+      return;
+    }
+
+    container.innerHTML = photos.map(photo => `
+      <div class="photo-card">
+        <img src="${photo.photo_url}" loading="lazy" alt="User photo">
+        <div class="photo-actions">
+          <button class="action-btn delete" onclick="window.deleteContent('photo', '${photo.photo_filename}', '${photo.comment_id}')" title="Delete Photo">🗑️</button>
+        </div>
+      </div>
+    `).join('');
+    
+  } catch (err) {
+    console.error('Error loading photos:', err);
+    container.innerHTML = '<p class="error-state">Failed to load photos.</p>';
+  }
+}
+
+async function loadUserComments() {
+  const container = document.getElementById('userCommentsList');
+  try {
+    const { data: comments, error } = await supabase
+      .from('poi_comments')
+      .select(`
+        id, 
+        content, 
+        created_at, 
+        poi_id, 
+        is_edited,
+        poi_comment_likes(count)
+      `)
+      .eq('user_id', currentUser.id)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    if (!comments || comments.length === 0) {
+      container.innerHTML = '<p class="empty-state">No comments yet.</p>';
+      return;
+    }
+
+    container.innerHTML = comments.map(comment => {
+      const date = new Date(comment.created_at).toLocaleDateString();
+      const likes = comment.poi_comment_likes?.[0]?.count || 0;
+      
+      return `
+        <div class="comment-card" id="comment-${comment.id}">
+          <div class="comment-header">
+            <span class="comment-place">📍 ${comment.poi_id}</span>
+            <span class="comment-date">${date}</span>
+          </div>
+          <div class="comment-text">${comment.content}</div>
+          <div class="comment-footer">
+            <div class="comment-stats">
+              <span>❤️ ${likes}</span>
+              ${comment.is_edited ? '<span>✏️ Edited</span>' : ''}
+            </div>
+            <div class="comment-actions-row">
+              <button class="btn btn-sm btn-ghost delete-btn" onclick="window.deleteContent('comment', null, '${comment.id}')">Delete</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+  } catch (err) {
+    console.error('Error loading comments:', err);
+    container.innerHTML = '<p class="error-state">Failed to load comments.</p>';
+  }
+}
+
+// Expose delete function to window
+window.deleteContent = async function(type, filename, id) {
+  if (!confirm('Are you sure you want to delete this? This action cannot be undone.')) return;
+
+  try {
+    if (type === 'photo' && filename) {
+      // Delete from storage
+      const { error: storageError } = await supabase.storage.from('poi-photos').remove([filename]);
+      if (storageError) console.warn('Storage delete warning:', storageError);
+      
+      // If photo is linked to comment, we might want to delete the comment too or just update it?
+      // Usually photos are attached to comments. If we delete photo, we might update comment metadata if it exists.
+      // But here we assume simple deletion.
+    }
+
+    if (id) {
+      // Delete comment (cascade should handle likes/photos if set up, but explicit is safer)
+      const { error } = await supabase.from('poi_comments').delete().eq('id', id);
+      if (error) throw error;
+    }
+
+    showToast('Deleted successfully', 'success');
+    // Reload content
+    if (type === 'photo') loadUserPhotos();
+    if (type === 'comment') loadUserComments();
+
+  } catch (err) {
+    console.error('Delete error:', err);
+    showToast('Failed to delete: ' + err.message, 'error');
+  }
+};
 
 // Helper Toast
 function showToast(message, type = 'info') {
