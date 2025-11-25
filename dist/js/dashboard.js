@@ -9,7 +9,7 @@ let currentProfile = null;
 let ordersData = [];
 
 // --- Constants ---
-const SECTIONS = ['overview', 'reservations', 'achievements', 'settings'];
+const SECTIONS = ['overview', 'reservations', 'content', 'achievements', 'settings'];
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -227,13 +227,17 @@ async function loadReservations() {
 }
 
 async function fetchAllBookings(limit = 100) {
+  console.log('📦 Fetching bookings for:', currentUser.email);
+  
   // Fetch Trip Bookings
   const { data: tripBookings, error: tripError } = await supabase
     .from('trip_bookings')
     .select('*')
-    .eq('customer_email', currentUser.email) // Assuming RLS allows reading own email
+    .ilike('customer_email', currentUser.email) // Case insensitive
     .order('created_at', { ascending: false })
     .limit(limit);
+
+  if (tripError) console.warn('Trip bookings fetch error (RLS?):', tripError);
 
   // Fetch Hotel Bookings (assuming table exists)
   let hotelBookings = [];
@@ -241,13 +245,17 @@ async function fetchAllBookings(limit = 100) {
     const { data, error } = await supabase
       .from('hotel_bookings')
       .select('*')
-      .eq('customer_email', currentUser.email)
+      .ilike('customer_email', currentUser.email)
       .order('created_at', { ascending: false })
       .limit(limit);
-    if (!error && data) hotelBookings = data;
+    
+    if (error) console.warn('Hotel bookings fetch error:', error);
+    if (data) hotelBookings = data;
   } catch (e) {
     console.warn('Hotel bookings table not found or error:', e);
   }
+
+  console.log('Found trips:', tripBookings?.length, 'hotels:', hotelBookings?.length);
 
   // Normalize Data
   const trips = (tripBookings || []).map(t => ({
