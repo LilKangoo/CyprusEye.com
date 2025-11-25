@@ -1276,6 +1276,16 @@
     "comments": "Comments",
     "map": "Map"
   },
+  "nav": {
+    "adventure": "🎯 Adventure",
+    "community": "💬 Community",
+    "recommendations": "✨ Recommendations",
+    "tasks": "✅ Task list",
+    "packing": "🎒 Packing planner",
+    "trips": "🧭 Trips",
+    "hotels": "🏨 Hotels",
+    "toggle": "☰ Navigation"
+  },
   "shortcuts": {
     "packing": {
       "title": "🎒 Packing planner",

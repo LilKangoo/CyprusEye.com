@@ -1867,8 +1867,13 @@
   },
   "nav": {
     "adventure": "🎯 Twoja przygoda",
+    "community": "💬 Społeczność",
+    "recommendations": "✨ Polecane",
+    "tasks": "✅ Lista zadań",
     "packing": "🎒 Planer pakowania",
-    "tasks": "✅ Lista zadań"
+    "trips": "🧭 Wycieczki",
+    "hotels": "🏨 Hotele",
+    "toggle": "☰ Nawigacja"
   },
   "shortcuts": {
     "packing": {
