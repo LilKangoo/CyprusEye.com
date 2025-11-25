@@ -89,11 +89,16 @@ async function loadData() {
     console.error('❌ Error loading data:', error);
     const loadingEl = document.getElementById('loadingState');
     if (loadingEl) {
+      const title = t('recommendations.error.title', 'Nie udało się załadować rekomendacji');
+      const message = error && error.message
+        ? error.message
+        : t('recommendations.error.message', 'Coś poszło nie tak. Spróbuj ponownie później.');
+      const retry = t('recommendations.error.retry', 'Spróbuj ponownie');
       loadingEl.innerHTML = `
         <div style="color: #ef4444; text-align: center;">
-          <p>Nie udało się załadować rekomendacji</p>
-          <p style="font-size: 0.875rem; color: #666; margin-top: 8px;">${error.message}</p>
-          <button class="btn" onclick="location.reload()">Spróbuj ponownie</button>
+          <p>${title}</p>
+          <p style="font-size: 0.875rem; color: #666; margin-top: 8px;">${message}</p>
+          <button class="btn" onclick="location.reload()">${retry}</button>
         </div>
       `;
     }
@@ -106,6 +111,23 @@ async function loadData() {
 function getCurrentLanguage() {
   const i18n = window.appI18n || {};
   return i18n.language || document.documentElement.lang || 'pl';
+}
+
+function t(key, fallback) {
+  try {
+    const i18n = window.appI18n || {};
+    const lang = i18n.language || document.documentElement.lang || 'pl';
+    const translations = (i18n.translations && i18n.translations[lang]) || {};
+    const entry = translations[key];
+    if (typeof entry === 'string') return entry;
+    if (entry && typeof entry === 'object') {
+      if (typeof entry.text === 'string') return entry.text;
+      if (typeof entry.html === 'string') return entry.html;
+    }
+  } catch (e) {
+    console.warn('recommendations.t error', e);
+  }
+  return fallback;
 }
 
 function renderCategoryFilters() {
@@ -223,24 +245,32 @@ function renderRecommendations() {
 function createRecommendationCard(rec) {
   const category = rec.recommendation_categories || {};
   const lang = getCurrentLanguage();
+  const isPolish = lang === 'pl';
 
-  const title =
-    lang === 'en'
-      ? (rec.title_en || rec.title_pl || 'Untitled')
-      : (rec.title_pl || rec.title_en || 'Bez tytułu');
+  const title = isPolish
+    ? (rec.title_pl || rec.title_en || 'Bez tytułu')
+    : (rec.title_en || rec.title_pl || 'Untitled');
 
-  const description =
-    lang === 'en'
-      ? (rec.description_en || rec.description_pl || '')
-      : (rec.description_pl || rec.description_en || '');
+  const description = isPolish
+    ? (rec.description_pl || rec.description_en || '')
+    : (rec.description_en || rec.description_pl || '');
 
-  const discount =
-    lang === 'en'
-      ? (rec.discount_text_en || rec.discount_text_pl)
-      : (rec.discount_text_pl || rec.discount_text_en);
+  const discount = isPolish
+    ? (rec.discount_text_pl || rec.discount_text_en)
+    : (rec.discount_text_en || rec.discount_text_pl);
 
-  const featuredLabel = lang === 'en' ? 'Recommended' : 'Polecane';
-  const detailsLabel = lang === 'en' ? 'View details' : 'Zobacz szczegóły';
+  const featuredLabel = t(
+    'recommendations.card.featured',
+    isPolish ? 'Polecane' : 'Recommended'
+  );
+  const detailsLabel = t(
+    'recommendations.card.details',
+    isPolish ? 'Zobacz szczegóły' : 'View details'
+  );
+  const visitWebsiteLabel = t(
+    'recommendations.card.visitSite',
+    isPolish ? 'Strona www' : 'Visit website'
+  );
   
   return `
     <div class="rec-card" onclick="openDetailModal('${rec.id}')">
@@ -255,9 +285,9 @@ function createRecommendationCard(rec) {
         <div class="rec-card-category">
           <span>${category.icon || '📍'}</span>
           <span>${
-            lang === 'en'
-              ? (category.name_en || category.name_pl || 'General')
-              : (category.name_pl || category.name_en || 'Ogólne')
+            isPolish
+              ? (category.name_pl || category.name_en || 'Ogólne')
+              : (category.name_en || category.name_pl || 'General')
           }</span>
         </div>
         
@@ -285,15 +315,15 @@ function createRecommendationCard(rec) {
         
         <div class="rec-card-actions">
           <button class="rec-btn rec-btn-primary" onclick="event.stopPropagation(); openDetailModal('${rec.id}')">
-            ${lang === 'en' ? 'View details' : 'Zobacz szczegóły'}
+            ${detailsLabel}
           </button>
         </div>
-  ${rec.website_url ? `
-            <a href="${rec.website_url}" target="_blank" rel="noopener" class="rec-btn rec-btn-secondary" onclick="event.stopPropagation(); trackClick('${rec.id}', 'website');">
-              ${lang === 'en' ? 'Visit website' : 'Strona www'}
-            </a>
-          ` : ''}
-        </div>
+        ${rec.website_url ? `
+          <a href="${rec.website_url}" target="_blank" rel="noopener" class="rec-btn rec-btn-secondary" onclick="event.stopPropagation(); trackClick('${rec.id}', 'website');">
+            ${visitWebsiteLabel}
+          </a>
+        ` : ''}
+      </div>
     </div>
   `;
 }
@@ -307,34 +337,40 @@ window.openDetailModal = async function(id) {
   
   const category = rec.recommendation_categories || {};
   const lang = getCurrentLanguage();
+  const isPolish = lang === 'pl';
 
-  const title =
-    lang === 'en'
-      ? (rec.title_en || rec.title_pl)
-      : (rec.title_pl || rec.title_en);
+  const title = isPolish
+    ? (rec.title_pl || rec.title_en)
+    : (rec.title_en || rec.title_pl);
 
-  const description =
-    lang === 'en'
-      ? (rec.description_en || rec.description_pl)
-      : (rec.description_pl || rec.description_en);
+  const description = isPolish
+    ? (rec.description_pl || rec.description_en)
+    : (rec.description_en || rec.description_pl);
 
-  const discount =
-    lang === 'en'
-      ? (rec.discount_text_en || rec.discount_text_pl)
-      : (rec.discount_text_pl || rec.discount_text_en);
+  const discount = isPolish
+    ? (rec.discount_text_pl || rec.discount_text_en)
+    : (rec.discount_text_en || rec.discount_text_pl);
 
-  const offer =
-    lang === 'en'
-      ? (rec.offer_text_en || rec.offer_text_pl)
-      : (rec.offer_text_pl || rec.offer_text_en);
+  const offer = isPolish
+    ? (rec.offer_text_pl || rec.offer_text_en)
+    : (rec.offer_text_en || rec.offer_text_pl);
 
-  const categoryName =
-    lang === 'en'
-      ? (category.name_en || category.name_pl)
-      : (category.name_pl || category.name_en);
+  const categoryName = isPolish
+    ? (category.name_pl || category.name_en)
+    : (category.name_en || category.name_pl);
 
-  const openMapLabel = lang === 'en' ? 'Open in maps' : 'Otwórz w mapach';
-  const visitSiteLabel = lang === 'en' ? 'Visit website' : 'Odwiedź stronę';
+  const openMapLabel = t(
+    'recommendations.modal.openMap',
+    isPolish ? 'Otwórz w mapach' : 'Open in maps'
+  );
+  const visitSiteLabel = t(
+    'recommendations.modal.visitSite',
+    isPolish ? 'Odwiedź stronę' : 'Visit website'
+  );
+  const offerLabel = t(
+    'recommendations.modal.offerLabel',
+    isPolish ? '🎁 Specjalna oferta' : '🎁 Special offer'
+  );
   
   const modalDetails = document.getElementById('modalDetails');
   modalDetails.innerHTML = `
@@ -366,7 +402,7 @@ window.openDetailModal = async function(id) {
       
       ${offer ? `
         <div style="background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%); border-left: 4px solid #22c55e; padding: 20px; border-radius: 12px; margin-bottom: 24px;">
-          <strong style="color: #16a34a; font-size: 16px; display: block; margin-bottom: 8px;">🎁 Special Offer</strong>
+          <strong style="color: #16a34a; font-size: 16px; display: block; margin-bottom: 8px;">${offerLabel}</strong>
           <p style="margin: 0; color: #166534; font-size: 15px; line-height: 1.6;">${offer}</p>
         </div>
       ` : ''}
