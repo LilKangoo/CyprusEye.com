@@ -1,15 +1,16 @@
 import { getMyProfile, updateMyUsername, uploadAvatar, removeAvatar } from './profile.js';
 import { supabase } from './supabaseClient.js';
 import { getUserPhotos } from './community/photos.js';
-import { getUserLikeStats } from './community/likes.js';
 
 // --- State ---
 let currentUser = null;
 let currentProfile = null;
 let ordersData = [];
+let carPricingData = []; // Cache for car offers
 
 // --- Constants ---
 const SECTIONS = ['overview', 'reservations', 'content', 'achievements', 'settings'];
+const INSURANCE_RATE = 17;
 
 // --- Initialization ---
 document.addEventListener('DOMContentLoaded', () => {
@@ -17,70 +18,120 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 async function initDashboard() {
-  console.log('🚀 Initializing Dashboard...');
+  console.log('�� Initializing Dashboard...');
   
   try {
-    // 1. Check Auth
-    const { data: { user }, error } = await supabase.auth.getUser();
-    
-    if (error || !user) {
-      console.warn('🔒 No user, redirecting to home...');
-      window.location.href = '/index.html?login=true'; // Redirect to home and open login
+    // Check Auth
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      window.location.href = '/index.html'; // Redirect if not logged in
       return;
     }
+    currentUser = session.user;
+    console.log('👤 User:', currentUser.email);
+
+    // Load Pricing Data (in parallel with profile)
+    const pricingPromise = fetchCarPricing();
+
+    // Load Profile
+    const { data: profile, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', currentUser.id)
+      .single();
+
+    if (error && error.code !== 'PGRST116') console.error('Profile error:', error);
+    currentProfile = profile || { email: currentUser.email, level: 1, xp: 0 };
+
+    updateSidebarProfile();
     
-    currentUser = user;
-    console.log('👤 Logged in as:', currentUser.email);
+    // Wait for pricing
+    await pricingPromise;
 
-    // 2. Load Profile
-    await loadProfile();
-
-    // 3. Setup Navigation
+    // Setup Navigation
     setupNavigation();
     setupMobileMenu();
 
-    // 4. Initial Load of Active Section
-    const activeSection = document.querySelector('.dashboard-section.active')?.id.replace('section-', '') || 'overview';
-    loadSection(activeSection);
-
-    // 5. Load Global Data (Reservations count, etc.)
-    updateGlobalBadges();
+    // Load Section based on URL or default
+    const urlParams = new URLSearchParams(window.location.search);
+    const section = urlParams.get('section') || 'overview';
+    
+    // Activate correct sidebar item
+    const activeBtn = document.querySelector(`.nav-item[data-section="${section}"]`);
+    if (activeBtn) {
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+      activeBtn.classList.add('active');
+    }
+    
+    switchSection(section);
 
   } catch (err) {
-    console.error('❌ Dashboard Init Error:', err);
-    showToast('Error initializing dashboard', 'error');
+    console.error('Init error:', err);
   }
 }
 
-// --- Profile & Stats ---
-async function loadProfile() {
+async function fetchCarPricing() {
   try {
-    // Load profile from Supabase (profile.js helper)
-    currentProfile = await getMyProfile();
-    
-    // Update Sidebar UI
-    updateSidebarProfile();
-    
-    // Update Settings UI
-    updateSettingsForms();
-
-  } catch (err) {
-    console.error('❌ Profile Load Error:', err);
+    const { data, error } = await supabase.from('car_offers').select('*');
+    if (!error) carPricingData = data || [];
+    console.log('🚗 Pricing loaded:', carPricingData.length);
+  } catch (e) {
+    console.warn('Pricing load error:', e);
   }
 }
 
 function updateSidebarProfile() {
-  const avatarEl = document.getElementById('sidebarAvatar');
-  const usernameEl = document.getElementById('sidebarUsername');
-  const levelEl = document.getElementById('sidebarLevel');
+   const avatarEl = document.getElementById('sidebarAvatar');
+   const usernameEl = document.getElementById('sidebarUsername');
+   const levelEl = document.getElementById('sidebarLevel');
+   
+   const displayName = currentProfile?.username || currentProfile?.name || currentUser.email.split('@')[0];
+   const avatarUrl = currentProfile?.avatar_url || 'assets/cyprus_logo-1000x1054.png';
+   const level = currentProfile?.level || 1;
 
-  const displayName = currentProfile?.username || currentProfile?.name || currentUser.email.split('@')[0];
-  const avatarUrl = currentProfile?.avatar_url || 'assets/cyprus_logo-1000x1054.png';
-  const level = currentProfile?.level || 1;
+   if (avatarEl) avatarEl.src = avatarUrl;
+   if (usernameEl) usernameEl.textContent = displayName;
+   if (levelEl) levelEl.textContent = `Level ${level}`;
+}
 
-  if (avatarEl) avatarEl.src = avatarUrl;
-  if (usernameEl) usernameEl.textContent = displayName;
-  if (levelEl) levelEl.textContent = `Level ${level}`;
+function calculateEstimatedPrice(booking) {
+  if (booking.type !== 'car' || !booking.pickup_date || !booking.return_date) return 0;
+  
+  // Try match by model name (case insensitive)
+  const offer = carPricingData.find(c => c.car_model && booking.car_model && c.car_model.toLowerCase() === booking.car_model.toLowerCase());
+  
+  if (!offer) return 0;
+
+  const start = new Date(booking.pickup_date);
+  const end = new Date(booking.return_date);
+  const diffTime = Math.abs(end - start);
+  const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  
+  if (days <= 0) return 0;
+
+  let basePrice = 0;
+  const location = (booking.location || offer.location || 'paphos').toLowerCase();
+
+  if (location === 'larnaca') {
+    const rate = offer.price_per_day || offer.price_4_6days || 35;
+    basePrice = rate * days;
+  } else {
+    if (days <= 3) {
+       basePrice = offer.price_3days || 130; 
+    } else if (days <= 6) {
+      basePrice = days * (offer.price_4_6days || 34);
+    } else if (days <= 10) {
+      basePrice = days * (offer.price_7_10days || 32);
+    } else {
+      basePrice = days * (offer.price_10plus_days || 30);
+    }
+  }
+
+  if (booking.full_insurance) {
+    basePrice += (days * INSURANCE_RATE);
+  }
+
+  return basePrice;
 }
 
 // --- Navigation ---
@@ -91,19 +142,15 @@ function setupNavigation() {
     btn.addEventListener('click', () => {
       const sectionId = btn.dataset.section;
       
-      // Update Active State
       navButtons.forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       
-      // Switch Section
       switchSection(sectionId);
       
-      // Close mobile menu if open
       document.querySelector('.dashboard-sidebar').classList.remove('open');
     });
   });
 
-  // Logout
   const logoutBtns = document.querySelectorAll('[data-auth="logout"]');
   logoutBtns.forEach(btn => {
     btn.addEventListener('click', async () => {
@@ -122,7 +169,6 @@ function setupMobileMenu() {
       sidebar.classList.toggle('open');
     });
     
-    // Close when clicking outside
     document.addEventListener('click', (e) => {
       if (sidebar.classList.contains('open') && 
           !sidebar.contains(e.target) && 
@@ -134,17 +180,15 @@ function setupMobileMenu() {
 }
 
 function switchSection(sectionId) {
-  // Hide all sections
   SECTIONS.forEach(id => {
     const el = document.getElementById(`section-${id}`);
     if (el) el.classList.remove('active');
   });
   
-  // Show target
   const target = document.getElementById(`section-${sectionId}`);
   if (target) {
     target.classList.add('active');
-    loadSection(sectionId); // Load data for this section
+    loadSection(sectionId);
   }
 }
 
@@ -166,64 +210,65 @@ async function loadSection(sectionId) {
       await loadAchievements();
       break;
     case 'settings':
-      // Settings are already pre-filled from loadProfile
       break;
   }
 }
 
 // --- Overview Logic ---
 async function loadOverviewStats() {
-  if (!currentProfile) return;
+  try {
+    const orders = await fetchAllBookings(5);
+    ordersData = orders;
+    
+    // Update Stats Cards
+    // XP & Level
+    const levelVal = currentProfile.level || 1;
+    const xpVal = currentProfile.xp || 0;
+    const nextLevelXp = levelVal * 1000; 
+    const xpPercent = Math.min(100, (xpVal / nextLevelXp) * 100);
+    
+    document.getElementById('statLevel').textContent = levelVal;
+    document.getElementById('statXp').textContent = `${xpVal} / ${nextLevelXp} XP`;
+    document.getElementById('statXpProgress').style.width = `${xpPercent}%`;
 
-  // Update Stat Cards
-  document.getElementById('overviewXP').textContent = `${currentProfile.xp || 0} XP`;
-  document.getElementById('overviewLevel').textContent = currentProfile.level || 1;
-  document.getElementById('overviewVisited').textContent = (currentProfile.visited_places || []).length;
-  
-  // XP Progress
-  const currentXP = currentProfile.xp || 0;
-  const level = currentProfile.level || 1;
-  const nextLevelXP = 150 + (level - 1) * 200; // Simplified formula matching achievements-profile.js
-  const prevLevelXP = level === 1 ? 0 : (150 + (level - 2) * 200);
-  const progress = Math.min(100, Math.max(0, ((currentXP - prevLevelXP) / (nextLevelXP - prevLevelXP)) * 100));
-  
-  document.getElementById('overviewXPBar').style.width = `${progress}%`;
+    // Places
+    const places = (currentProfile.visited_places || []).length;
+    document.getElementById('statPlaces').textContent = places;
+    
+    // Bookings
+    const activeBookings = orders.filter(o => o.status === 'confirmed' || o.status === 'pending').length;
+    document.getElementById('statBookings').textContent = activeBookings;
 
-  // Load Recent Activity (Mockup or Real)
-  // For now, we show recent reservations or "Joined"
-  const activityList = document.getElementById('recentActivityList');
-  
-  // Fetch recent bookings quickly
-  const bookings = await fetchAllBookings(3); // Limit 3
-  
-  if (bookings.length === 0) {
-    activityList.innerHTML = `<p class="empty-state">No recent activity.</p>`;
-  } else {
-    activityList.innerHTML = bookings.map(b => createBookingCard(b, true)).join('');
+    // Recent Activity List
+    const listEl = document.getElementById('recentActivityList');
+    if (orders.length === 0) {
+      listEl.innerHTML = '<p class="empty-state" data-i18n="dashboard.activity.empty">No recent activity.</p>';
+    } else {
+      listEl.innerHTML = orders.slice(0, 3).map(o => createBookingCard(o, true)).join('');
+    }
+
+  } catch (e) {
+    console.error('Error loading overview:', e);
   }
-  
-  // Update Active Bookings Count
-  const activeCount = bookings.filter(b => ['pending', 'confirmed'].includes(b.status)).length;
-  document.getElementById('overviewActiveBookings').textContent = activeCount;
 }
 
 // --- Reservations Logic ---
 async function loadReservations() {
-  const listEl = document.getElementById('reservationsList');
-  listEl.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading orders...</p></div>';
-
   try {
-    ordersData = await fetchAllBookings();
+    const listEl = document.getElementById('reservationsList');
+    listEl.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading...</p></div>';
+    
+    ordersData = await fetchAllBookings(100);
     renderReservations('all');
     
-    // Update badge
-    document.getElementById('reservationsCount').textContent = ordersData.length;
-    document.getElementById('reservationsCount').hidden = ordersData.length === 0;
-
-  } catch (err) {
-    console.error('Error loading reservations:', err);
-    listEl.innerHTML = `<p class="error-state">Failed to load reservations. Please try again later.</p>`;
-  }
+    // Update Badge
+    const count = ordersData.length;
+    const badge = document.getElementById('reservationsCount');
+    if (badge) {
+      badge.textContent = count;
+      badge.hidden = count === 0;
+    }
+  } catch (e) { /* ignore */ }
 }
 
 async function fetchAllBookings(limit = 100) {
@@ -233,13 +278,13 @@ async function fetchAllBookings(limit = 100) {
   const { data: tripBookings, error: tripError } = await supabase
     .from('trip_bookings')
     .select('*')
-    .ilike('customer_email', currentUser.email) // Case insensitive
+    .ilike('customer_email', currentUser.email)
     .order('created_at', { ascending: false })
     .limit(limit);
 
   if (tripError) console.warn('Trip bookings fetch error (RLS?):', tripError);
 
-  // Fetch Hotel Bookings (assuming table exists)
+  // Fetch Hotel Bookings
   let hotelBookings = [];
   try {
     const { data, error } = await supabase
@@ -261,7 +306,7 @@ async function fetchAllBookings(limit = 100) {
     const { data, error } = await supabase
       .from('car_bookings')
       .select('*')
-      .ilike('email', currentUser.email) // Correct column from schema: 'email'
+      .ilike('email', currentUser.email)
       .order('created_at', { ascending: false })
       .limit(limit);
     
@@ -270,8 +315,6 @@ async function fetchAllBookings(limit = 100) {
   } catch (e) {
     console.warn('Car bookings table not found or error:', e);
   }
-
-  console.log('Found trips:', tripBookings?.length, 'hotels:', hotelBookings?.length, 'cars:', carBookings?.length);
 
   // Normalize Data
   const trips = (tripBookings || []).map(t => ({
@@ -294,23 +337,36 @@ async function fetchAllBookings(limit = 100) {
     status: h.status || 'pending',
     price: h.total_price,
     people: (h.num_adults || 0) + (h.num_children || 0),
-    nights: h.nights // Added
+    nights: h.nights
   }));
 
-  const cars = carBookings.map(c => ({
-    type: 'car',
-    id: c.id,
-    title: c.car_model || 'Car Rental',
-    date: c.pickup_date,
-    created_at: c.created_at,
-    status: c.status || 'pending',
-    price: c.final_price || c.quoted_price || 0,
-    people: c.num_passengers || 0,
-    pickup_location: c.pickup_location, // Added
-    return_location: c.return_location // Added
-  }));
+  const cars = carBookings.map(c => {
+    // Calculate price if missing
+    const carObj = {
+      type: 'car',
+      id: c.id,
+      title: c.car_model || 'Car Rental',
+      date: c.pickup_date,
+      created_at: c.created_at,
+      status: c.status || 'pending',
+      price: c.final_price || c.quoted_price || 0,
+      people: c.num_passengers || 0,
+      pickup_location: c.pickup_location,
+      return_location: c.return_location,
+      pickup_date: c.pickup_date,
+      return_date: c.return_date,
+      car_model: c.car_model,
+      location: c.location,
+      full_insurance: c.full_insurance
+    };
+    
+    if (!carObj.price || carObj.price == 0) {
+      carObj.price = calculateEstimatedPrice(carObj);
+    }
+    
+    return carObj;
+  });
 
-  // Merge and Sort
   return [...trips, ...hotels, ...cars].sort((a, b) => new Date(b.created_at) - new Date(a.created_at)).slice(0, limit);
 }
 
@@ -341,10 +397,9 @@ function createBookingCard(booking, simple = false) {
   // Price formatting
   let priceDisplay = `€${parseFloat(booking.price).toFixed(2)}`;
   if (!booking.price || booking.price == 0) {
-    priceDisplay = '<span style="font-size: 0.9em; color: #ea580c;">Quote Request</span>';
+    priceDisplay = '<span style="font-size: 0.9em; color: #ea580c;">Pending</span>';
   }
 
-  // Make card clickable
   return `
     <div class="reservation-card" onclick="window.openBookingDetails('${booking.id}', '${booking.type}')">
       <div class="res-info">
@@ -397,12 +452,12 @@ window.openBookingDetails = function(id, type) {
   }
 
   // Price
-  const priceText = (!booking.price || booking.price == 0) ? '<span style="color:#ea580c">Price pending confirmation</span>' : `€${parseFloat(booking.price).toFixed(2)}`;
+  const priceText = (!booking.price || booking.price == 0) ? '<span style="color:#ea580c">Calculation pending</span>' : `€${parseFloat(booking.price).toFixed(2)}`;
   
   detailsHtml += `<div class="detail-row" style="margin-top: 20px; border-top: 1px solid #e5e7eb; padding-top: 12px;"><span class="detail-label">Total Price</span><span class="detail-value" style="font-size: 1.2em; color: #2563eb;">${priceText}</span></div>`;
   
-  if (!booking.price || booking.price == 0) {
-    detailsHtml += `<p style="font-size: 0.85rem; color: #6b7280; margin-top: 8px; text-align: center;">Final price will be sent to your email shortly.</p>`;
+  if (booking.type === 'car' && booking.price > 0 && (!booking.final_price && !booking.quoted_price)) {
+     detailsHtml += `<p style="font-size: 0.85rem; color: #6b7280; margin-top: 8px; text-align: center;">Estimated price based on current rates.</p>`;
   }
 
   body.innerHTML = detailsHtml;
@@ -433,188 +488,37 @@ function setupModalListeners() {
   });
 }
 
-// Call setup on load
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', setupModalListeners);
 } else {
   setupModalListeners();
 }
 
-// Setup Reservation Tabs
-document.querySelectorAll('.tabs-line .tab-btn').forEach(btn => {
-  btn.addEventListener('click', () => {
-    document.querySelectorAll('.tabs-line .tab-btn').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
-    renderReservations(btn.dataset.filter);
-  });
-});
-
-// --- Achievements Logic ---
-async function loadAchievements() {
-  const container = document.getElementById('badgesGrid');
-  
-  // Mockup badges for now, or load from visited places
-  const visitedCount = (currentProfile.visited_places || []).length;
-  
-  // Simple logic: Badge for every 5 places
-  const badges = [];
-  
-  if (visitedCount >= 1) badges.push({ name: 'First Step', icon: '🦶', desc: 'Visited 1 place' });
-  if (visitedCount >= 5) badges.push({ name: 'Explorer', icon: '🧭', desc: 'Visited 5 places' });
-  if (visitedCount >= 10) badges.push({ name: 'Adventurer', icon: '🤠', desc: 'Visited 10 places' });
-  if (visitedCount >= 20) badges.push({ name: 'Expert', icon: '🗺️', desc: 'Visited 20 places' });
-  if (currentProfile.level >= 2) badges.push({ name: 'Level Up', icon: '🆙', desc: 'Reached Level 2' });
-
-  if (badges.length === 0) {
-    container.innerHTML = `<p class="empty-state">No badges yet. Go explore Cyprus!</p>`;
-    return;
-  }
-
-  container.innerHTML = badges.map(badge => `
-    <div class="badge-card">
-      <div class="badge-icon">${badge.icon}</div>
-      <h3>${badge.name}</h3>
-      <p>${badge.desc}</p>
-    </div>
-  `).join('');
-}
-
-// --- Settings Logic ---
-function updateSettingsForms() {
-  const usernameInput = document.getElementById('settingsUsername');
-  if (usernameInput) usernameInput.value = currentProfile?.username || '';
-  
-  const avatarPreview = document.getElementById('settingsAvatarPreview');
-  if (avatarPreview) avatarPreview.src = currentProfile?.avatar_url || 'assets/cyprus_logo-1000x1054.png';
-}
-
-// Avatar Upload
-const uploadBtn = document.getElementById('uploadAvatarBtn');
-const fileInput = document.getElementById('avatarInput');
-
-if (uploadBtn && fileInput) {
-  uploadBtn.addEventListener('click', () => fileInput.click());
-  fileInput.addEventListener('change', async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    
-    try {
-      uploadBtn.textContent = 'Uploading...';
-      uploadBtn.disabled = true;
-      
-      const updated = await uploadAvatar(file);
-      currentProfile = updated;
-      
-      updateSidebarProfile();
-      updateSettingsForms();
-      showToast('Avatar updated successfully!', 'success');
-      
-    } catch (err) {
-      console.error('Avatar upload error:', err);
-      showToast(err.message, 'error');
-    } finally {
-      uploadBtn.textContent = 'Change';
-      uploadBtn.disabled = false;
-    }
-  });
-}
-
-// Edit Username
-const editUserBtn = document.getElementById('editUsernameBtn');
-const usernameInput = document.getElementById('settingsUsername');
-
-if (editUserBtn && usernameInput) {
-  editUserBtn.addEventListener('click', async () => {
-    if (usernameInput.disabled) {
-      usernameInput.disabled = false;
-      usernameInput.focus();
-      editUserBtn.textContent = 'Save';
-      editUserBtn.classList.add('btn-primary');
-      editUserBtn.classList.remove('btn-ghost');
-    } else {
-      // Save
-      const newName = usernameInput.value.trim();
-      if (!newName) return;
-      
-      try {
-        editUserBtn.textContent = 'Saving...';
-        const updated = await updateMyUsername(newName);
-        currentProfile = updated;
-        
-        updateSidebarProfile();
-        showToast('Username updated!', 'success');
-        
-        // Reset UI
-        usernameInput.disabled = true;
-        editUserBtn.textContent = 'Edit';
-        editUserBtn.classList.remove('btn-primary');
-        editUserBtn.classList.add('btn-ghost');
-        
-      } catch (err) {
-        showToast(err.message, 'error');
-        editUserBtn.textContent = 'Save';
-      }
-    }
-  });
-}
-
-// Delete Account
-const deleteBtn = document.getElementById('deleteAccountBtn');
-if (deleteBtn) {
-  deleteBtn.addEventListener('click', () => {
-    if (confirm('Are you sure you want to delete your account? This cannot be undone.')) {
-      // In a real app, we'd call an Edge Function. 
-      // Here we just sign out and maybe clear data via RLS if allowed.
-      alert('Please contact support@cypruseye.com to permanently delete your data.');
-    }
-  });
-}
-
-// Global Badge Updater
-async function updateGlobalBadges() {
-  try {
-    const orders = await fetchAllBookings(100);
-    const count = orders.length;
-    const badge = document.getElementById('reservationsCount');
-    if (badge) {
-      badge.textContent = count;
-      badge.hidden = count === 0;
-    }
-  } catch (e) { /* ignore */ }
-}
-
 // --- Content Logic ---
 async function loadUserContent() {
-  // Setup Tabs
   const tabs = document.querySelectorAll('[data-content-tab]');
   tabs.forEach(tab => {
-    // Remove old listeners to avoid duplicates if reloaded
     const newTab = tab.cloneNode(true);
     tab.parentNode.replaceChild(newTab, tab);
-    
     newTab.addEventListener('click', () => {
       document.querySelectorAll('[data-content-tab]').forEach(t => t.classList.remove('active'));
       newTab.classList.add('active');
-      
       document.querySelectorAll('.content-tab-pane').forEach(p => p.style.display = 'none');
       const target = document.getElementById(`content-${newTab.dataset.contentTab}`);
       if (target) target.style.display = 'block';
     });
   });
-
   await Promise.all([loadUserPhotos(), loadUserComments()]);
 }
 
 async function loadUserPhotos() {
   const container = document.getElementById('userPhotosList');
   try {
-    const photos = await getUserPhotos(currentUser.id, 50); // Fetch up to 50 photos
-    
+    const photos = await getUserPhotos(currentUser.id, 50);
     if (photos.length === 0) {
       container.innerHTML = '<p class="empty-state">No photos uploaded yet.</p>';
       return;
     }
-
     container.innerHTML = photos.map(photo => `
       <div class="photo-card">
         <img src="${photo.photo_url}" loading="lazy" alt="User photo">
@@ -623,7 +527,6 @@ async function loadUserPhotos() {
         </div>
       </div>
     `).join('');
-    
   } catch (err) {
     console.error('Error loading photos:', err);
     container.innerHTML = '<p class="error-state">Failed to load photos.</p>';
@@ -635,28 +538,18 @@ async function loadUserComments() {
   try {
     const { data: comments, error } = await supabase
       .from('poi_comments')
-      .select(`
-        id, 
-        content, 
-        created_at, 
-        poi_id, 
-        is_edited,
-        poi_comment_likes(count)
-      `)
+      .select(`id, content, created_at, poi_id, is_edited, poi_comment_likes(count)`)
       .eq('user_id', currentUser.id)
       .order('created_at', { ascending: false });
 
     if (error) throw error;
-
     if (!comments || comments.length === 0) {
       container.innerHTML = '<p class="empty-state">No comments yet.</p>';
       return;
     }
-
     container.innerHTML = comments.map(comment => {
       const date = new Date(comment.created_at).toLocaleDateString();
       const likes = comment.poi_comment_likes?.[0]?.count || 0;
-      
       return `
         <div class="comment-card" id="comment-${comment.id}">
           <div class="comment-header">
@@ -676,50 +569,66 @@ async function loadUserComments() {
         </div>
       `;
     }).join('');
-
   } catch (err) {
     console.error('Error loading comments:', err);
     container.innerHTML = '<p class="error-state">Failed to load comments.</p>';
   }
 }
 
-// Expose delete function to window
 window.deleteContent = async function(type, filename, id) {
-  if (!confirm('Are you sure you want to delete this? This action cannot be undone.')) return;
-
+  if (!confirm('Are you sure you want to delete this?')) return;
   try {
     if (type === 'photo' && filename) {
-      // Delete from storage
-      const { error: storageError } = await supabase.storage.from('poi-photos').remove([filename]);
-      if (storageError) console.warn('Storage delete warning:', storageError);
-      
-      // If photo is linked to comment, we might want to delete the comment too or just update it?
-      // Usually photos are attached to comments. If we delete photo, we might update comment metadata if it exists.
-      // But here we assume simple deletion.
+      await supabase.storage.from('poi-photos').remove([filename]);
     }
-
     if (id) {
-      // Delete comment (cascade should handle likes/photos if set up, but explicit is safer)
-      const { error } = await supabase.from('poi_comments').delete().eq('id', id);
-      if (error) throw error;
+      await supabase.from('poi_comments').delete().eq('id', id);
     }
-
     showToast('Deleted successfully', 'success');
-    // Reload content
     if (type === 'photo') loadUserPhotos();
     if (type === 'comment') loadUserComments();
-
   } catch (err) {
     console.error('Delete error:', err);
-    showToast('Failed to delete: ' + err.message, 'error');
+    showToast('Failed to delete', 'error');
   }
 };
 
-// Helper Toast
 function showToast(message, type = 'info') {
   if (window.Toast) {
-    new window.Toast(message, type); // Assuming Toast class exists
+    new window.Toast(message, type);
   } else {
     alert(message);
   }
 }
+
+async function loadAchievements() {
+  const container = document.getElementById('badgesGrid');
+  if (!container) return;
+  // Mockup badges
+  const visitedCount = (currentProfile.visited_places || []).length;
+  const badges = [];
+  if (visitedCount >= 1) badges.push({ name: 'First Step', icon: '🦶' });
+  if (visitedCount >= 5) badges.push({ name: 'Explorer', icon: '🧭' });
+  
+  if (badges.length === 0) {
+    container.innerHTML = '<p class="empty-state">No badges yet. Visit places to earn them!</p>';
+    return;
+  }
+  
+  container.innerHTML = badges.map(b => `
+    <div class="badge-card">
+      <div class="badge-icon">${b.icon}</div>
+      <p class="badge-name">${b.name}</p>
+    </div>
+  `).join('');
+}
+
+// Setup tabs helper
+document.querySelectorAll('.tabs-line .tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const group = btn.parentElement;
+    group.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    if (btn.dataset.filter) renderReservations(btn.dataset.filter);
+  });
+});
