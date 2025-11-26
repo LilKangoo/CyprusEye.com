@@ -2403,6 +2403,33 @@
       }
     }
   },
+  "trips": {
+    "hero": {
+      "heading": "Discover Cyprus",
+      "subheading": "Choose a city and explore the best trips"
+    },
+    "modal": {
+      "descriptionTitle": "Description",
+      "bookingTitle": "Booking"
+    },
+    "booking": {
+      "fields": {
+        "name": "Full name *",
+        "email": "Email *",
+        "phone": "Phone",
+        "tripDate": "Preferred trip date",
+        "arrivalDate": "Arrival date in Cyprus *",
+        "departureDate": "Departure date from Cyprus *",
+        "adults": "Number of adults",
+        "children": "Children",
+        "hours": "Number of hours",
+        "days": "Number of days",
+        "notes": "Notes (optional)"
+      },
+      "priceLabel": "Price",
+      "submit": "Book"
+    }
+  },
   "notFound": {
     "badge": "Error 404",
     "title": "Page not found",
