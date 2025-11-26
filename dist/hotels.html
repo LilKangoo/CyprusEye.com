@@ -328,8 +328,8 @@
 
   <main id="main-content">
     <section class="trips-hero">
-      <h1 data-i18n="hotels.hero.heading">Zakwaterowania na Cyprze</h1>
-      <p data-i18n="hotels.hero.subheading">Wybierz miasto i przeglądaj najlepsze oferty</p>
+	      <h1 data-i18n="hotels.hero.heading">Stays in Cyprus</h1>
+	      <p data-i18n="hotels.hero.subheading">Choose a city and browse the best accommodation offers</p>
     </section>
 
     <section class="trips-container">
@@ -490,7 +490,13 @@
     }
 
     function renderTabs(){
-      const tabs = ['<button class="trips-tab active" data-city="all">Wszystkie miasta</button>'];
+      const lang = (window.appI18n && window.appI18n.language) || (window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl');
+      const allLabel =
+        lang === 'en' ? 'All cities' :
+        lang === 'el' ? 'Όλες οι πόλεις' :
+        lang === 'he' ? 'כל הערים' :
+        'Wszystkie miasta';
+      const tabs = [`<button class="trips-tab active" data-city="all">${allLabel}</button>`];
       getCities().forEach(c=> tabs.push(`<button class="trips-tab" data-city="${c}">${c}</button>`));
       const wrap = document.getElementById('tripsTabs');
       wrap.innerHTML = tabs.join('');
