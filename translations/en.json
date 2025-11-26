@@ -987,11 +987,6 @@
       "submit": "Change password",
       "guestNote": "Guests don't have passwords – sign in to update your account details."
     },
-    "reset": {
-      "title": "Restart game",
-      "description": "Reset collected badges and experience to start again from level one.",
-      "action": "🔄 Reset progress"
-    },
     "error": {
       "loginRequired": "Sign in to edit account details.",
       "username": {

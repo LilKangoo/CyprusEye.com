@@ -981,11 +981,6 @@
       "submit": "Change password",
       "guestNote": "Guests don't have passwords – sign in to update your account details."
     },
-    "reset": {
-      "title": "Restart game",
-      "description": "Reset collected badges and experience to start again from level one.",
-      "action": "🔄 Reset progress"
-    },
     "error": {
       "loginRequired": "Sign in to edit account details.",
       "username": {
@@ -1657,14 +1652,6 @@
         "note": "Sporty elegance for exploring Cyprus in top comfort."
       }
     }
-  },
-  "services": {
-    "title": "Discover Cyprus with us",
-    "description": "WakacjeCypr.com are local experts ready to organise unforgettable holidays, private tours, wine tastings, and cruises for you.",
-    "itemOne": "Tailor-made itineraries aligned with your check-ins.",
-    "itemTwo": "Guided tours in the places you have already unlocked.",
-    "itemThree": "Contact us straight from the app – tap the button below.",
-    "cta": "Discover our services"
   },
   "mobile": {
     "nav": {
