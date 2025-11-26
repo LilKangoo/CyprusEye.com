@@ -543,6 +543,7 @@
   <script type="module" src="/js/authUi.js"></script>
 </head>
 <body data-navigation="multi-page" data-initial-view="tripsView" data-seo-page="trips">
+  <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
     <header class="app-header nav-modern">
       <div class="nav-modern__top" aria-label="Global header">
         <div class="brand nav-modern__brand-block">
@@ -821,6 +822,37 @@
        <a href="terms.html" class="footer-link" data-i18n="legal.termsLink">Terms of Service</a>
     </div>
   </footer>
+  <!-- SOS Modal HTML -->
+  <div class="sos-modal" id="sosModal" role="dialog" aria-labelledby="sosTitle" aria-modal="true" hidden>
+    <div class="sos-dialog">
+      <header class="sos-header">
+        <h2 id="sosTitle">🚨 SOS</h2>
+        <button id="sosClose" class="sos-close" aria-label="Close">✕</button>
+      </header>
+      <div class="sos-grid">
+        <a href="tel:+357 99 005 924" class="sos-card">
+          <span class="sos-icon">📞</span>
+          <span class="sos-label">Call us</span>
+          <span class="sos-detail">+357 99 005 924</span>
+        </a>
+        <a href="https://wa.me/48534073861" target="_blank" rel="noopener" class="sos-card">
+          <span class="sos-icon">💬</span>
+          <span class="sos-label">WhatsApp</span>
+          <span class="sos-detail">Immediate help</span>
+        </a>
+        <a href="tel:112" class="sos-card sos-card-emergency">
+          <span class="sos-icon">🚑</span>
+          <span class="sos-label">Ambulance</span>
+          <span class="sos-detail">112</span>
+        </a>
+        <a href="tel:199" class="sos-card sos-card-emergency">
+          <span class="sos-icon">🚒</span>
+          <span class="sos-label">Fire brigade</span>
+          <span class="sos-detail">199</span>
+        </a>
+      </div>
+    </div>
+  </div>
 
   <script type="module">
     let allTrips = [];
@@ -1188,6 +1220,8 @@
       });
     }
   </script>
+  <!-- Core i18n loader -->
+  <script src="/js/i18n.js" defer></script>
   <!-- Language Switcher for i18n helpers -->
   <script src="/js/languageSwitcher.js"></script>
   <!-- Global Language Refresh System -->
@@ -1195,5 +1229,10 @@
   <script src="/js/seo.js" defer></script>
   <script src="/js/mobile-nav.js" defer></script>
   <script src="/js/header-dropdown.js" defer></script>
+  <script src="/js/sos.js?v=1" defer></script>
+  <script src="/js/header-stats.js?v=1" defer></script>
+  <script src="assets/js/modal-auth.js" defer></script>
+  <script type="module" src="assets/js/account-modal.js"></script>
+  <script type="module" src="assets/js/auth-ui.js"></script>
 </body>
 </html>
