@@ -115,7 +115,7 @@
     "login": "🔐 Sign in",
     "accountSettings": "⚙️ Account settings",
     "logout": "Log out",
-    "logoAlt": "HolidayCyprus.com – turtle logo with the Polish flag",
+    "logoAlt": "CyprusEye.com – turtle logo with the Polish flag",
     "coupon": "Coupon",
     "couponAria": "Open coupon page",
     "quickActions": {
@@ -293,35 +293,35 @@
       "localeAlternate": "pl_PL"
     },
     "carRentalLanding": {
-      "title": "Choose city – Car rental | HolidayCyprus",
-      "description": "Select your starting city and compare HolidayCyprus no-deposit car rental offers across the island.",
-      "ogTitle": "Choose city – Car rental | HolidayCyprus",
+      "title": "Choose city – Car rental | CyprusEye",
+      "description": "Select your starting city and compare CyprusEye no-deposit car rental offers across the island.",
+      "ogTitle": "Choose city – Car rental | CyprusEye",
       "ogDescription": "Pick Larnaca or Paphos to view dedicated fleets, price calculators, and booking options with Polish support."
     },
     "carRental": {
-      "title": "HolidayCyprus – Car rental across Cyprus",
-      "description": "Rent a car anywhere in Cyprus with no deposit, airport or hotel delivery, and transparent pricing from HolidayCyprus.",
-      "ogTitle": "HolidayCyprus – Car rental across Cyprus",
+      "title": "CyprusEye – Car rental across Cyprus",
+      "description": "Rent a car anywhere in Cyprus with no deposit, airport or hotel delivery, and transparent pricing from CyprusEye.",
+      "ogTitle": "CyprusEye – Car rental across Cyprus",
       "ogDescription": "Explore Cyprus freely with an island-wide fleet, full insurance, and Polish assistance 24/7."
     },
     "carRentalPfo": {
-      "title": "HolidayCyprus – Paphos car rental offer",
+      "title": "CyprusEye – Paphos car rental offer",
       "description": "Book a car in Paphos with airport pickup or hotel delivery, no hidden fees, and round-the-clock Polish support.",
-      "ogTitle": "HolidayCyprus – Paphos car rental offer",
+      "ogTitle": "CyprusEye – Paphos car rental offer",
       "ogDescription": "Discover the dedicated Paphos fleet, instant pricing, and included extras tailored to your stay."
     },
     "vip": {
-      "title": "HolidayCyprus Quest – VIP individual trips",
+      "title": "CyprusEye Quest – VIP individual trips",
       "description": "Create a private Cyprus journey with concierge planning, exclusive experiences, and premium on-trip media.",
-      "ogTitle": "HolidayCyprus Quest – VIP individual trips",
+      "ogTitle": "CyprusEye Quest – VIP individual trips",
       "ogDescription": "Secure bespoke itineraries, luxury services, and discreet 24/7 support for your Cyprus adventure.",
       "locale": "en_GB",
       "localeAlternate": "pl_PL"
     },
     "coupon": {
-      "title": "HolidayCyprus Coupon – quick Stripe checkout",
-      "description": "Purchase the HolidayCyprus special coupon and jump straight to secure Stripe payment.",
-      "ogTitle": "HolidayCyprus Coupon – quick Stripe checkout",
+      "title": "CyprusEye Coupon – quick Stripe checkout",
+      "description": "Purchase the CyprusEye special coupon and jump straight to secure Stripe payment.",
+      "ogTitle": "CyprusEye Coupon – quick Stripe checkout",
       "ogDescription": "Reserve our offer in seconds with the coupon and secure Stripe payment.",
       "locale": "en_GB",
       "localeAlternate": "pl_PL"
@@ -801,7 +801,7 @@
     "pageTitle": "Cyprus Eye VIP individual trips",
     "header": {
       "title": "Media trips and VIP experiences",
-      "description": "Private photo and video sessions by LilKangooMedia, a HolidayCyprus.com guide, and comfortable transport across the island.",
+      "description": "Private photo and video sessions by LilKangooMedia, a CyprusEye.com guide, and comfortable transport across the island.",
       "subtitle": "Book individual photo or video packages with the WakacjeCypr.com crew and instantly see the per-person cost for your group.",
       "back": "← Back to adventure"
     },
@@ -1190,13 +1190,13 @@
     "smallprint": "You'll receive the coupon within a few minutes at the email used during payment.",
     "cta_aria": "Buy coupon — proceed to secure Stripe checkout",
     "cta": "Buy coupon",
-    "image_alt": "HolidayCyprus coupon artwork",
+    "image_alt": "CyprusEye coupon artwork",
     "header": {
       "aria": "Coupon navigation"
     },
     "brand": {
-      "logoAlt": "HolidayCyprus logo",
-      "overline": "HolidayCyprus Quest",
+      "logoAlt": "CyprusEye logo",
+      "overline": "CyprusEye Quest",
       "title": "Coupon hub"
     },
     "nav": {
@@ -1221,8 +1221,8 @@
   "carRental": {
     "page": {
       "brand": {
-        "logoAlt": "HolidayCyprus.com – turtle logo with the Polish flag",
-        "overline": "HolidayCyprus Quest",
+        "logoAlt": "CyprusEye.com – turtle logo with the Polish flag",
+        "overline": "CyprusEye Quest",
         "title": "Car rental"
       },
       "nav": {
@@ -1234,7 +1234,7 @@
       "hero": {
         "badge": "No deposit • Polish support 24/7",
         "title": "Car rental across Cyprus",
-        "description": "Meet the HolidayCyprus.com fleet, arrange airport or hotel delivery, and check the cost with our transparent calculator.",
+        "description": "Meet the CyprusEye.com fleet, arrange airport or hotel delivery, and check the cost with our transparent calculator.",
         "ctaFleet": "See the fleet",
         "ctaCalculator": "Calculate rental cost",
         "paphosNote": {
@@ -1261,7 +1261,7 @@
         },
         "flexible": {
           "title": "Flexible pickup and return",
-          "body": "We deliver cars in Larnaca free of charge or for a small fee to Ayia Napa, Protaras, Limassol, Nicosia, and Paphos—exactly as in our HolidayCyprus.com offer."
+          "body": "We deliver cars in Larnaca free of charge or for a small fee to Ayia Napa, Protaras, Limassol, Nicosia, and Paphos—exactly as in our CyprusEye.com offer."
         },
         "nature": {
           "title": "We support nature",
@@ -1302,13 +1302,13 @@
         "whatsapp": "Message on WhatsApp",
         "formTitle": "Car reservation form"
       },
-      "footer": "© <span data-current-year></span> HolidayCyprus.com • Car rental with Polish support in Cyprus."
+      "footer": "© <span data-current-year></span> CyprusEye.com • Car rental with Polish support in Cyprus."
     },
     "meta": {
-      "title": "Choose city – Car rental | HolidayCyprus"
+      "title": "Choose city – Car rental | CyprusEye"
     },
     "brand": {
-      "overline": "HolidayCyprus Quest",
+      "overline": "CyprusEye Quest",
       "title": "Car rental"
     },
     "nav": {
@@ -1821,12 +1821,12 @@
   "achievements": {
     "emptyBadges": "No badges yet – time for your first adventure!",
     "meta": {
-      "title": "HolidayCyprus Quest – Your achievements"
+      "title": "CyprusEye Quest – Your achievements"
     },
     "brand": {
       "overline": "Your Cyprus travel game",
-      "title": "HolidayCyprus Quest",
-      "logoAlt": "HolidayCyprus Quest logo"
+      "title": "CyprusEye Quest",
+      "logoAlt": "CyprusEye Quest logo"
     },
     "nav": {
       "current": "🏅 Achievements",
@@ -1835,7 +1835,7 @@
     "back": "← Back to the app",
     "hero": {
       "title": "Your badges and levels",
-      "intro": "Track your progress, review earned badges, and plan the next adventures. All data syncs automatically with the main HolidayCyprus Quest app.",
+      "intro": "Track your progress, review earned badges, and plan the next adventures. All data syncs automatically with the main CyprusEye Quest app.",
       "badges": "Badges collected",
       "visited": "Places visited",
       "level": "Current traveller level",
@@ -1859,7 +1859,7 @@
       "subtitle": "The list updates after every check-in. Click any entry in the main app to view it on the map or plan the next visit.",
       "empty": "No badges yet—time for the first adventure!"
     },
-    "footer": "© <span id=\"year\"></span> HolidayCyprus.com – Play, explore, and inspire fellow travellers."
+    "footer": "© <span id=\"year\"></span> CyprusEye.com – Play, explore, and inspire fellow travellers."
   },
   "nav": {
     "toggle": "☰ Navigation",
@@ -2551,14 +2551,14 @@
       "current": "📚 Attractions catalogue"
     },
     "meta": {
-      "title": "HolidayCyprus Quest – Attractions catalogue"
+      "title": "CyprusEye Quest – Attractions catalogue"
     },
     "brand": {
       "overline": "Explore the island location by location",
-      "title": "HolidayCyprus Quest"
+      "title": "CyprusEye Quest"
     },
     "back": "← Back to the app",
-    "title": "Discover every HolidayCyprus Quest location",
+    "title": "Discover every CyprusEye Quest location",
     "subtitle": "Filter places according to your travel plans, check distances, and see unlock status. Clicking any card opens the map with the highlighted point in the main app.",
     "loading": "Loading catalogue…",
     "search": {
@@ -2573,24 +2573,24 @@
       "subtitle": "From beaches and national parks to archaeological sites and viewpoints—the catalogue covers every place available in the game. Allow location access to see estimated distances.",
       "empty": "No attractions match your filters. Try another phrase or clear the search."
     },
-    "footer": "© <span id=\"year\"></span> HolidayCyprus.com – Find your next adventure in Cyprus."
+    "footer": "© <span id=\"year\"></span> CyprusEye.com – Find your next adventure in Cyprus."
   },
   "vip": {
     "brand": {
-      "logoAlt": "HolidayCyprus.com – turtle logo with the Polish flag",
+      "logoAlt": "CyprusEye.com – turtle logo with the Polish flag",
       "overline": "Your Cyprus concierge",
-      "title": "HolidayCyprus Quest"
+      "title": "CyprusEye Quest"
     },
     "back": "← Back to the app",
-    "backAria": "Return to the HolidayCyprus Quest app",
+    "backAria": "Return to the CyprusEye Quest app",
     "hero": {
       "badge": "VIP concierge in Cyprus",
       "title": "VIP individual trips",
       "intro": "Every itinerary is tailored to your expectations—from private cruises and wine tastings to villa weekends with 24/7 support.",
       "ctaPrimary": "Book a concierge call",
-      "ctaPrimaryAria": "Book a call with the HolidayCyprus concierge",
+      "ctaPrimaryAria": "Book a call with the CyprusEye concierge",
       "ctaSecondary": "Email our team",
-      "ctaSecondaryAria": "Send an email to the HolidayCyprus team",
+      "ctaSecondaryAria": "Send an email to the CyprusEye team",
       "visualLabel": "Illustration of a private trip in Cyprus"
     },
     "offers": {
@@ -2729,7 +2729,7 @@
         "email": "✉️ Email: kontakt@wakacjecypr.com"
       }
     },
-    "footer": "© <span id=\"year\"></span> HolidayCyprus.com – Your private journey across Cyprus."
+    "footer": "© <span id=\"year\"></span> CyprusEye.com – Your private journey across Cyprus."
   },
   "level": {
     "toast": {
@@ -2742,8 +2742,8 @@
   "carRentalPfo": {
     "page": {
       "brand": {
-        "logoAlt": "HolidayCyprus.com – turtle logo with the Polish flag",
-        "overline": "HolidayCyprus Quest",
+        "logoAlt": "CyprusEye.com – turtle logo with the Polish flag",
+        "overline": "CyprusEye Quest",
         "title": "Car rental"
       },
       "nav": {
@@ -2907,7 +2907,7 @@
         "successTitle": "🎉 Thank you!",
         "successMessage": "Your reservation form has been sent successfully."
       },
-      "footer": "© <span data-current-year></span> HolidayCyprus.com • Car rental with Polish support in Cyprus."
+      "footer": "© <span data-current-year></span> CyprusEye.com • Car rental with Polish support in Cyprus."
     },
     "calculator": {
       "form": {
@@ -3037,7 +3037,7 @@
       "description": "We publish guides, task lists, and coupons used by thousands of Polish and international travellers. Complete the form and our team will prepare a package tailored to your brand."
     },
     "stats": {
-      "group": "members in the HolidayCyprus community",
+      "group": "members in the CyprusEye community",
       "guides": "active themed guides",
       "languages": "content languages"
     },
