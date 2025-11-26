@@ -1277,7 +1277,7 @@
       },
       "addons": {
         "title": "Available extras",
-        "fullInsurance": "Full AC insurance with zero excess – €17/day.",
+        "fullInsurance": "Full insurance with zero excess – €17/day.",
         "delivery": "Pickup/drop-off outside Larnaca: Nicosia or Ayia Napa +€15, Protaras or Limassol +€20, Paphos +€40."
       },
       "requirements": {
@@ -1364,7 +1364,7 @@
         "returnTime": "Return time",
         "pickupLocation": "Pickup location",
         "returnLocation": "Return location",
-        "fullInsurance": "Full AC insurance (+€17/day)",
+        "fullInsurance": "Full insurance (+€17/day)",
         "youngDriver": "Young driver / licence < 3 years (+€10/day)",
         "submit": "Calculate price"
       },
@@ -1382,7 +1382,7 @@
         "pickupIncluded": "Pickup: {{location}} – included",
         "returnWithFee": "Return: {{location}} +{{price}}",
         "returnIncluded": "Return: {{location}} – included",
-        "fullInsurance": "Full AC: {{pricePerDay}} × {{days}} {{daysLabel}} = {{total}}",
+        "fullInsurance": "Full: {{pricePerDay}} × {{days}} {{daysLabel}} = {{total}}",
         "youngDriver": "Young driver: {{pricePerDay}} × {{days}} {{daysLabel}} = {{total}}",
         "title": "Quote includes:"
       },
@@ -2772,7 +2772,7 @@
       "fleet": {
         "badge": "No deposit",
         "title": "Rent a car in Paphos and nearby",
-        "description": "We deliver cars to Paphos Airport or your hotel with no deposit. Rentals of 7+ days include free airport/hotel transfer, while shorter bookings add only €10 for pickup and €10 for return. Child seats and 24/7 Polish support stay included, and full AC cover is available for €17/day."
+        "description": "We deliver cars to Paphos Airport or your hotel with no deposit. Rentals of 7+ days include free airport/hotel transfer, while shorter bookings add only €10 for pickup and €10 for return. Child seats and 24/7 Polish support stay included, and full cover is available for €17/day."
       },
       "benefits": {
         "aria": "Key benefits",
@@ -2798,7 +2798,7 @@
       },
       "addons": {
         "title": "Available extras",
-        "fullInsurance": "Full AC insurance with zero excess – €17/day.",
+        "fullInsurance": "Full insurance with zero excess – €17/day.",
         "delivery": "Delivery to Coral Bay / Pegeia +€10, Polis / Latchi +€15.",
         "airportShortRental": "Bookings under 7 days with PFO airport pickup – one-off €10 fee."
       },
@@ -2891,7 +2891,7 @@
             "label": "Child seats (free)"
           },
           "insurance": {
-            "label": "Full AC insurance (+€17/day)"
+            "label": "Full insurance (+€17/day)"
           },
           "flight": {
             "label": "Flight number (optional)",
@@ -2919,7 +2919,7 @@
         "returnTime": "Return time",
         "airportPickup": "Pickup at PFO airport",
         "airportReturn": "Return at PFO airport",
-        "fullInsurance": "Full AC insurance (+€17/day)",
+        "fullInsurance": "Full insurance (+€17/day)",
         "calculate": "Calculate price",
         "message": "No deposit, child seats always included for free."
       }
