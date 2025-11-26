@@ -2430,6 +2430,30 @@
       "submit": "Book"
     }
   },
+  "hotels": {
+    "hero": {
+      "heading": "Stays in Cyprus",
+      "subheading": "Choose a city and browse the best accommodation offers"
+    },
+    "modal": {
+      "descriptionTitle": "Description",
+      "bookingTitle": "Booking"
+    },
+    "booking": {
+      "fields": {
+        "name": "Full name *",
+        "email": "Email *",
+        "phone": "Phone",
+        "arrivalDate": "Arrival date *",
+        "departureDate": "Departure date *",
+        "adults": "Adults",
+        "children": "Children",
+        "notes": "Notes (optional)"
+      },
+      "priceLabel": "Price",
+      "submit": "Book"
+    }
+  },
   "notFound": {
     "badge": "Error 404",
     "title": "Page not found",
