@@ -2060,7 +2060,7 @@
   "carRental.page.reservation.fields.returnAddress.placeholder": "Hotel name or full address",
   "carRental.page.reservation.fields.passengers.label": "Number of passengers",
   "carRental.page.reservation.fields.childSeats.label": "Child seats (free)",
-  "carRental.page.reservation.fields.insurance.label": "Full AC insurance (+€17/day)",
+  "carRental.page.reservation.fields.insurance.label": "Full insurance (+€17/day)",
   "carRental.page.reservation.fields.flight.label": "Flight number (optional)",
   "carRental.page.reservation.fields.flight.placeholder": "W1234",
   "carRental.page.reservation.fields.notes.label": "Special requests",
