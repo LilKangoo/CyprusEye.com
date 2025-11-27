@@ -6,23 +6,46 @@
   async function fetchTopUsers() {
     const sb = window.getSupabase?.();
     if (!sb) return [];
-    const { data, error } = await sb
-      .from('profiles')
-      .select('id, username, name, avatar_url, level, xp, visited_places')
-      .order('level', { ascending: false })
-      .order('xp', { ascending: false })
-      .limit(100);
+    // Prefer a pre-aggregated view if available to avoid RLS issues on completed_tasks
+    // View name chosen to match admin SQL scripts (completed_tasks_count column on profiles view).
+    // Fallback gracefully to plain profiles if the view does not exist or query fails.
+    let data = [];
+    let error = null;
+    try {
+      const viewQuery = await sb
+        .from('public_profiles_with_tasks')
+        .select('id, username, name, avatar_url, level, xp, visited_places, completed_tasks_count')
+        .order('level', { ascending: false })
+        .order('xp', { ascending: false })
+        .limit(100);
+      data = viewQuery.data;
+      error = viewQuery.error;
+      if (error) throw error;
+    } catch (_) {
+      const fallback = await sb
+        .from('profiles')
+        .select('id, username, name, avatar_url, level, xp, visited_places')
+        .order('level', { ascending: false })
+        .order('xp', { ascending: false })
+        .limit(100);
+      data = fallback.data;
+      error = fallback.error;
+    }
     if (error) return [];
     return Array.isArray(data) ? data : [];
   }
 
   async function fetchUserStats(userId) {
-    // Tasks count source not specified yet -> default to 0
     // Places visited is derived from array length in profiles
+    // Tasks completed is provided either by aggregated view (completed_tasks_count)
+    // or, as a safe fallback, left as 0 when that field is missing.
     try {
       const user = state.data.find(u => u.id === userId);
       const placesVisited = Array.isArray(user?.visited_places) ? user.visited_places.length : 0;
-      return { tasksCompleted: 0, placesVisited };
+      const tasksCompleted = typeof user?.completed_tasks_count === 'number'
+        ? user.completed_tasks_count
+        : 0;
+      return { tasksCompleted, placesVisited };
     } catch (_) {
       return { tasksCompleted: 0, placesVisited: 0 };
     }
