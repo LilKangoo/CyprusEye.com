@@ -7,10 +7,10 @@
     const sb = window.getSupabase?.();
     if (!sb) return [];
     // Prefer a pre-aggregated view if available to avoid RLS issues on completed_tasks
-    // View name chosen to match admin SQL scripts (completed_tasks_count column on profiles view).
-    // Fallback gracefully to plain profiles if the view does not exist or query fails.
-    let data = [];
-    let error = null;
+    // If the view is not available, fall back to profiles and aggregate completed tasks per user.
+    let users = [];
+
+    // 1) Try public view with completed_tasks_count, if it exists
     try {
       const viewQuery = await sb
         .from('public_profiles_with_tasks')
@@ -18,21 +18,56 @@
         .order('level', { ascending: false })
         .order('xp', { ascending: false })
         .limit(100);
-      data = viewQuery.data;
-      error = viewQuery.error;
-      if (error) throw error;
+
+      if (!viewQuery.error && Array.isArray(viewQuery.data)) {
+        return viewQuery.data;
+      }
     } catch (_) {
-      const fallback = await sb
+      // ignore and fall back to profiles
+    }
+
+    // 2) Fallback: load profiles normally
+    try {
+      const { data, error } = await sb
         .from('profiles')
         .select('id, username, name, avatar_url, level, xp, visited_places')
         .order('level', { ascending: false })
         .order('xp', { ascending: false })
         .limit(100);
-      data = fallback.data;
-      error = fallback.error;
+
+      if (error || !Array.isArray(data)) return [];
+      users = data;
+    } catch (_) {
+      return [];
     }
-    if (error) return [];
-    return Array.isArray(data) ? data : [];
+
+    // 3) Enrich with completed tasks count aggregated from completed_tasks
+    try {
+      const userIds = users.map(u => u.id).filter(Boolean);
+      if (!userIds.length) return users;
+
+      const { data: tasksData, error: tasksError } = await sb
+        .from('completed_tasks')
+        .select('user_id')
+        .in('user_id', userIds);
+
+      if (!tasksError && Array.isArray(tasksData)) {
+        const counts = {};
+        for (const row of tasksData) {
+          const uid = row && row.user_id;
+          if (!uid) continue;
+          counts[uid] = (counts[uid] || 0) + 1;
+        }
+        users = users.map(u => ({
+          ...u,
+          completed_tasks_count: counts[u.id] || 0,
+        }));
+      }
+    } catch (_) {
+      // If aggregation fails (e.g. RLS), just return users without tasks count
+    }
+
+    return users;
   }
 
   async function fetchUserStats(userId) {
