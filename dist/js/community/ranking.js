@@ -6,27 +6,7 @@
   async function fetchTopUsers() {
     const sb = window.getSupabase?.();
     if (!sb) return [];
-    // Prefer a pre-aggregated view if available to avoid RLS issues on completed_tasks
-    // If the view is not available, fall back to profiles and aggregate completed tasks per user.
-    let users = [];
-
-    // 1) Try public view with completed_tasks_count, if it exists
-    try {
-      const viewQuery = await sb
-        .from('public_profiles_with_tasks')
-        .select('id, username, name, avatar_url, level, xp, visited_places, completed_tasks_count')
-        .order('level', { ascending: false })
-        .order('xp', { ascending: false })
-        .limit(100);
-
-      if (!viewQuery.error && Array.isArray(viewQuery.data)) {
-        return viewQuery.data;
-      }
-    } catch (_) {
-      // ignore and fall back to profiles
-    }
-
-    // 2) Fallback: load profiles normally
+    // Load top profiles ordered by level and XP (no tasks column in ranking)
     try {
       const { data, error } = await sb
         .from('profiles')
@@ -36,38 +16,10 @@
         .limit(100);
 
       if (error || !Array.isArray(data)) return [];
-      users = data;
+      return data;
     } catch (_) {
       return [];
     }
-
-    // 3) Enrich with completed tasks count aggregated from completed_tasks
-    try {
-      const userIds = users.map(u => u.id).filter(Boolean);
-      if (!userIds.length) return users;
-
-      const { data: tasksData, error: tasksError } = await sb
-        .from('completed_tasks')
-        .select('user_id')
-        .in('user_id', userIds);
-
-      if (!tasksError && Array.isArray(tasksData)) {
-        const counts = {};
-        for (const row of tasksData) {
-          const uid = row && row.user_id;
-          if (!uid) continue;
-          counts[uid] = (counts[uid] || 0) + 1;
-        }
-        users = users.map(u => ({
-          ...u,
-          completed_tasks_count: counts[u.id] || 0,
-        }));
-      }
-    } catch (_) {
-      // If aggregation fails (e.g. RLS), just return users without tasks count
-    }
-
-    return users;
   }
 
   async function fetchUserStats(userId) {
@@ -124,7 +76,6 @@
             </div>
           </div>
           <div class="ranking-stats">
-            <div class="ranking-stat" data-stat="tasks">✅ <span>0</span></div>
             <div class="ranking-stat" data-stat="places">📍 <span>0</span></div>
           </div>
         </div>`;
