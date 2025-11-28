@@ -17,6 +17,13 @@
     { icon: '🎟️', label: 'Kupony', href: 'kupon.html', page: 'kupon' }
   ];
 
+  function toRootHref(href) {
+    if (!href) return '#';
+    if (/^https?:\/\//i.test(href)) return href;
+    if (href.charAt(0) === '/') return href;
+    return '/' + href.replace(/^\/+/, '');
+  }
+
   /**
    * Detect current page from URL
    */
@@ -27,7 +34,7 @@
     const seoPage = document.body?.dataset?.seoPage;
     if (seoPage) {
       const normalized = seoPage.toLowerCase();
-      if (normalized === 'home' || normalized === 'achievements' || normalized === 'attractions') return 'home';
+      if (normalized === 'home' || normalized === 'achievements' || normalized === 'attractions' || normalized === 'auth' || normalized === 'reset') return 'home';
       if (normalized === 'community') return 'community';
       if (normalized === 'packing') return 'packing';
       if (normalized === 'tasks') return 'tasks';
@@ -67,7 +74,7 @@
     // Create links
     linksToShow.forEach(page => {
       const link = document.createElement('a');
-      link.href = page.href;
+      link.href = toRootHref(page.href);
       link.className = 'mobile-nav-link';
       link.setAttribute('aria-label', page.label);
       
