@@ -138,6 +138,18 @@
   "badges": {
     "landmark": "LANDMARK"
   },
+  "metrics.level.label": "Level",
+  "metrics.level.subtext": "Level status",
+  "metrics.level.defaultStatus.initial": "Start",
+  "metrics.level.defaultStatus.progress": "In progress",
+  "metrics.xp.label": "XP",
+  "metrics.xp.progress": "XP progress",
+  "metrics.xp.aria": "Experience progress",
+  "metrics.xp.progressTemplate": "{{current}} / {{target}} XP",
+  "metrics.xp.maxLevel": "You have reached the maximum level • congratulations!",
+  "metrics.xp.keepEarning": "Keep earning XP",
+  "metrics.badges.label": "Badges",
+  "metrics.badges.subtext": "Collected badges",
   "auth": {
     "bar": {
       "aria": "Account panel"

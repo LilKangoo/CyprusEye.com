@@ -10,6 +10,65 @@
 
   const XP_PER_LEVEL = 150;
 
+  // Local i18n helper for header stats
+  function translateHeader(key, params, fallback) {
+    // Prefer appI18n (global i18n.js system)
+    try {
+      const i18n = window.appI18n;
+      if (i18n && i18n.translations) {
+        const lang = i18n.language || document.documentElement.lang || 'pl';
+        const translations = i18n.translations[lang] || {};
+
+        let entry = translations;
+        if (key && typeof key === 'string') {
+          const parts = key.split('.');
+          for (const part of parts) {
+            if (entry && typeof entry === 'object' && Object.prototype.hasOwnProperty.call(entry, part)) {
+              entry = entry[part];
+            } else {
+              entry = null;
+              break;
+            }
+          }
+        } else {
+          entry = null;
+        }
+
+        let text = null;
+        if (typeof entry === 'string') {
+          text = entry;
+        } else if (entry && typeof entry === 'object') {
+          if (typeof entry.text === 'string') {
+            text = entry.text;
+          } else if (typeof entry.html === 'string') {
+            text = entry.html;
+          }
+        }
+
+        if (typeof text === 'string' && text) {
+          if (params && typeof params === 'object') {
+            return text.replace(/\{\{(\w+)\}\}/g, (m, p) =>
+              Object.prototype.hasOwnProperty.call(params, p) ? String(params[p]) : m
+            );
+          }
+          return text;
+        }
+      }
+    } catch (_) { /* ignore i18n errors */ }
+
+    // Fallback to legacy window.i18n if available
+    try {
+      if (window.i18n && typeof window.i18n.t === 'function') {
+        const value = window.i18n.t(key, params || {});
+        if (typeof value === 'string' && value) {
+          return value;
+        }
+      }
+    } catch (_) { /* ignore legacy i18n errors */ }
+
+    return typeof fallback === 'string' ? fallback : '';
+  }
+
   // Cache elementów DOM
   let elements = null;
   let profileChannel = null;
@@ -78,9 +137,14 @@
     }
 
     if (el.xpProgressText) {
-      const xpText = window.i18n ? 
-        window.i18n.t('metrics.xp.progressTemplate', { current: currentLevelXP, target: XP_PER_LEVEL }) : 
-        `${currentLevelXP} / ${XP_PER_LEVEL} XP`;
+      const xpParams = {
+        current: currentLevelXP,
+        target: XP_PER_LEVEL,
+        total: XP_PER_LEVEL,
+        required: XP_PER_LEVEL,
+      };
+      const defaultXpText = `${currentLevelXP} / ${XP_PER_LEVEL} XP`;
+      const xpText = translateHeader('metrics.xp.progressTemplate', xpParams, defaultXpText);
       el.xpProgressText.textContent = xpText;
     }
 
@@ -96,9 +160,8 @@
 
     // Aktualizuj status z tłumaczeniem
     if (el.profileStatus) {
-      const statusText = window.i18n ? 
-        window.i18n.t('profile.status', { level, badges }) : 
-        `Poziom ${level} • ${badges} odznak`;
+      const defaultStatus = `Level ${level} • ${badges} badges`;
+      const statusText = translateHeader('profile.status', { level, badges }, defaultStatus);
       el.profileStatus.textContent = statusText;
     }
 
