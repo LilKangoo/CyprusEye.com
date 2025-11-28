@@ -156,19 +156,19 @@
   </header>
 
   <main id="main-content">
-  <h1>Reset your password</h1>
-  <p>Enter your email to receive a reset link or set a new password if you already opened the reset link.</p>
+  <h1 data-i18n="resetPage.title">Reset your password</h1>
+  <p data-i18n="resetPage.description">Enter your email to receive a reset link or set a new password if you already opened the reset link.</p>
   <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
   <form id="resetForm" autocomplete="off" novalidate>
     <fieldset>
-      <legend>Send reset link</legend>
-      <label for="resetEmail">E-mail</label>
+      <legend data-i18n="resetPage.emailLegend">Send reset link</legend>
+      <label for="resetEmail" data-i18n="resetPage.emailLabel">E-mail</label>
       <input id="resetEmail" name="email" type="email" autocomplete="email" required>
     </fieldset>
 
     <fieldset data-reset-section="password" hidden>
-      <legend>Set a new password</legend>
-      <label for="resetNewPassword">New password</label>
+      <legend data-i18n="resetPage.passwordLegend">Set a new password</legend>
+      <label for="resetNewPassword" data-i18n="resetPage.newPasswordLabel">New password</label>
       <input
         id="resetNewPassword"
         name="newPassword"
@@ -178,7 +178,7 @@
         required
       >
 
-      <label for="resetConfirmPassword">Confirm new password</label>
+      <label for="resetConfirmPassword" data-i18n="resetPage.confirmPasswordLabel">Confirm new password</label>
       <input
         id="resetConfirmPassword"
         name="newPasswordConfirm"
@@ -189,7 +189,14 @@
       >
     </fieldset>
 
-    <button type="submit" data-reset-label="Ustaw nowe hasło">Wyślij link resetujący</button>
+    <button
+      type="submit"
+      data-i18n="resetPage.submitRequest"
+      data-i18n-attrs="data-reset-label:resetPage.submitConfirm"
+      data-reset-label="Ustaw nowe hasło"
+    >
+      Wyślij link resetujący
+    </button>
   </form>
   <div id="resetMessage" role="status" aria-live="polite"></div>
 </main>

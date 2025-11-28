@@ -263,6 +263,26 @@
       "checkFailed": "We couldn't check the username availability. Try again."
     }
   },
+  "resetPage": {
+    "title": "Reset your password",
+    "description": "Enter your email to receive a reset link or set a new password if you already opened the reset link.",
+    "emailLegend": "Send reset link",
+    "emailLabel": "E-mail",
+    "passwordLegend": "Set a new password",
+    "newPasswordLabel": "New password",
+    "confirmPasswordLabel": "Confirm new password",
+    "submitRequest": "Send reset link",
+    "submitConfirm": "Set new password",
+    "linkConfirmed": "Link confirmed. Set a new password.",
+    "errorNewPasswordTooShort": "Enter a new password (min. 6 characters).",
+    "errorPasswordsMismatch": "Passwords do not match.",
+    "statusUpdatingPassword": "Updating password…",
+    "successPasswordUpdated": "Password has been updated. You can sign in.",
+    "errorMissingEmail": "Enter your email to reset the password.",
+    "statusSendingEmail": "Sending reset link…",
+    "successEmailSent": "Check your inbox and follow the instructions.",
+    "genericError": "We couldn't send the password reset. Please try again."
+  },
   "seo": {
     "locale": "en_GB",
     "ogImage": "assets/cyprus_logo-1000x1054.png",
