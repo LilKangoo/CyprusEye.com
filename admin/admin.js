@@ -1005,35 +1005,14 @@ async function openNewTripModal() {
             previewImg.src = v;
             previewWrap.style.display = '';
             if (fileInput) fileInput.value = '';
-          } else {
-            previewWrap.style.display = 'none';
-            previewImg.removeAttribute('src');
-          }
-        };
-      }
-      // Pricing tiers editor init
-      renderPricingTiers('newHotelPricingTiersBody', []);
-      const btnAddNewTier = document.getElementById('btnAddNewHotelTier');
-      if (btnAddNewTier && !btnAddNewTier.dataset.bound) {
-        btnAddNewTier.addEventListener('click', () => addPricingTierRow('newHotelPricingTiersBody'));
-        btnAddNewTier.dataset.bound = '1';
-      }
-
-      // Photos multiple preview
-      const multiPhotos = document.getElementById('newHotelPhotos');
-      const multiPreview = document.getElementById('newHotelPhotosPreview');
-      if (multiPhotos && multiPreview) {
-        multiPhotos.onchange = () => previewLocalImages(multiPhotos, multiPreview, 10);
-      }
-
-      form.onsubmit = async (ev) => {
 
 async function openNewHotelModal() {
-  try {
-    const form = document.getElementById('newHotelForm');
-    if (form) {
-      form.reset();
-      
+try {
+  const form = document.getElementById('newHotelForm');
+  if (form) {
+    form.reset();
+    
+    // ... (rest of the code remains the same)
       // Render i18n inputs for Title
       const newTitleContainer = document.getElementById('newHotelTitleI18n');
       if (newTitleContainer && typeof window.renderI18nInput === 'function') {
