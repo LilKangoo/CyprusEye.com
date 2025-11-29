@@ -8950,12 +8950,27 @@ body.tutorial-open {
 body.auth-page {
   min-height: 100vh;
   margin: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   background: radial-gradient(circle at top, rgba(37, 99, 235, 0.18), transparent 55%),
     linear-gradient(160deg, rgba(191, 219, 254, 0.65), rgba(59, 130, 246, 0.35));
   padding: clamp(var(--space-4), 4vw, var(--space-8));
+}
+
+/* Default: center single auth card (pages without global nav, e.g. callback) */
+body.auth-page:not([data-navigation="multi-page"]) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Pages with global nav (data-navigation="multi-page") use normal flow.
+   Add a safe top margin to main so content is always below header. */
+body.auth-page[data-navigation="multi-page"] {
+  display: block;
+}
+
+body.auth-page[data-navigation="multi-page"] main {
+  box-sizing: border-box;
+  margin-top: max(88px, var(--header-gap, 88px));
 }
 
 .auth-page__container {

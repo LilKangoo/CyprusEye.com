@@ -14,12 +14,38 @@
   })();
   let selectedPackingSeasonId = null;
 
+  function getTranslationEntry(translations, key) {
+    if (!key || !translations) return null;
+
+    if (Object.prototype.hasOwnProperty.call(translations, key)) {
+      return translations[key];
+    }
+
+    if (key.indexOf('.') !== -1) {
+      const parts = key.split('.');
+      let current = translations;
+
+      for (const part of parts) {
+        if (current && typeof current === 'object' && Object.prototype.hasOwnProperty.call(current, part)) {
+          current = current[part];
+        } else {
+          return null;
+        }
+      }
+
+      return current;
+    }
+
+    return null;
+  }
+
   function translate(key, fallback = '') {
     try {
       const i18n = typeof window !== 'undefined' ? window.appI18n : null;
       if (i18n && i18n.translations) {
         const lang = i18n.language || 'pl';
-        const entry = i18n.translations[lang] && i18n.translations[lang][key];
+        const translations = i18n.translations[lang] || {};
+        const entry = getTranslationEntry(translations, key);
         if (typeof entry === 'string') return entry;
         if (entry && typeof entry === 'object') {
           if (typeof entry.text === 'string') return entry.text;
@@ -257,6 +283,7 @@
 
     // Re-render when translations change (if i18n library dispatches an event)
     window.addEventListener('i18n:updated', updatePackingPlannerLanguage);
+    document.addEventListener('wakacjecypr:languagechange', updatePackingPlannerLanguage);
   }
 
   if (document.readyState === 'loading') {

@@ -115,7 +115,7 @@
     "login": "🔐 Sign in",
     "accountSettings": "⚙️ Account settings",
     "logout": "Log out",
-    "logoAlt": "CyprusEye.com – turtle logo with the Polish flag",
+    "logoAlt": "HolidayCyprus.com – turtle logo with the Polish flag",
     "coupon": "Coupon",
     "couponAria": "Open coupon page",
     "quickActions": {
@@ -325,38 +325,44 @@
       "localeAlternate": "pl_PL"
     },
     "carRentalLanding": {
-      "title": "Choose city – Car rental | CyprusEye",
-      "description": "Select your starting city and compare CyprusEye no-deposit car rental offers across the island.",
-      "ogTitle": "Choose city – Car rental | CyprusEye",
+      "title": "Choose city – Car rental | HolidayCyprus",
+      "description": "Select your starting city and compare HolidayCyprus no-deposit car rental offers across the island.",
+      "ogTitle": "Choose city – Car rental | HolidayCyprus",
       "ogDescription": "Pick Larnaca or Paphos to view dedicated fleets, price calculators, and booking options with Polish support."
     },
     "carRental": {
-      "title": "CyprusEye – Car rental across Cyprus",
-      "description": "Rent a car anywhere in Cyprus with no deposit, airport or hotel delivery, and transparent pricing from CyprusEye.",
-      "ogTitle": "CyprusEye – Car rental across Cyprus",
+      "title": "HolidayCyprus – Car rental across Cyprus",
+      "description": "Rent a car anywhere in Cyprus with no deposit, airport or hotel delivery, and transparent pricing from HolidayCyprus.",
+      "ogTitle": "HolidayCyprus – Car rental across Cyprus",
       "ogDescription": "Explore Cyprus freely with an island-wide fleet, full insurance, and Polish assistance 24/7."
     },
     "carRentalPfo": {
-      "title": "CyprusEye – Paphos car rental offer",
+      "title": "HolidayCyprus – Paphos car rental offer",
       "description": "Book a car in Paphos with airport pickup or hotel delivery, no hidden fees, and round-the-clock Polish support.",
-      "ogTitle": "CyprusEye – Paphos car rental offer",
+      "ogTitle": "HolidayCyprus – Paphos car rental offer",
       "ogDescription": "Discover the dedicated Paphos fleet, instant pricing, and included extras tailored to your stay."
     },
     "vip": {
-      "title": "CyprusEye Quest – VIP individual trips",
+      "title": "HolidayCyprus Quest – VIP individual trips",
       "description": "Create a private Cyprus journey with concierge planning, exclusive experiences, and premium on-trip media.",
-      "ogTitle": "CyprusEye Quest – VIP individual trips",
+      "ogTitle": "HolidayCyprus Quest – VIP individual trips",
       "ogDescription": "Secure bespoke itineraries, luxury services, and discreet 24/7 support for your Cyprus adventure.",
       "locale": "en_GB",
       "localeAlternate": "pl_PL"
     },
     "coupon": {
-      "title": "CyprusEye Coupon – quick Stripe checkout",
-      "description": "Purchase the CyprusEye special coupon and jump straight to secure Stripe payment.",
-      "ogTitle": "CyprusEye Coupon – quick Stripe checkout",
+      "title": "HolidayCyprus Coupon – quick Stripe checkout",
+      "description": "Purchase the HolidayCyprus special coupon and jump straight to secure Stripe payment.",
+      "ogTitle": "HolidayCyprus Coupon – quick Stripe checkout",
       "ogDescription": "Reserve our offer in seconds with the coupon and secure Stripe payment.",
       "locale": "en_GB",
       "localeAlternate": "pl_PL"
+    },
+    "recommendations": {
+      "title": "Recommendations – CyprusEye Quest",
+      "description": "Discover curated recommendations – the best places, restaurants, hotels and attractions in Cyprus with exclusive discounts.",
+      "ogTitle": "Recommendations – CyprusEye Quest",
+      "ogDescription": "Discover curated recommendations – the best places, restaurants, hotels and attractions in Cyprus with exclusive discounts."
     },
     "notFound": {
       "title": "Page not found – CyprusEye",
@@ -833,7 +839,7 @@
     "pageTitle": "Cyprus Eye VIP individual trips",
     "header": {
       "title": "Media trips and VIP experiences",
-      "description": "Private photo and video sessions by LilKangooMedia, a CyprusEye.com guide, and comfortable transport across the island.",
+      "description": "Private photo and video sessions by LilKangooMedia, a HolidayCyprus.com guide, and comfortable transport across the island.",
       "subtitle": "Book individual photo or video packages with the WakacjeCypr.com crew and instantly see the per-person cost for your group.",
       "back": "← Back to adventure"
     },
@@ -1222,13 +1228,13 @@
     "smallprint": "You'll receive the coupon within a few minutes at the email used during payment.",
     "cta_aria": "Buy coupon — proceed to secure Stripe checkout",
     "cta": "Buy coupon",
-    "image_alt": "CyprusEye coupon artwork",
+    "image_alt": "HolidayCyprus coupon artwork",
     "header": {
       "aria": "Coupon navigation"
     },
     "brand": {
-      "logoAlt": "CyprusEye logo",
-      "overline": "CyprusEye Quest",
+      "logoAlt": "HolidayCyprus logo",
+      "overline": "HolidayCyprus Quest",
       "title": "Coupon hub"
     },
     "nav": {
@@ -1237,674 +1243,48 @@
       "car": "🚗 Car rental",
       "attractions": "📚 Attractions",
       "mediaTrips": "Media Trips",
-      "services": "Services"
+      "tasks": "✅ Task list",
+      "recommendations": "✨ Recommendations",
+      "community": "💬 Community",
+      "trips": "🧭 Trips",
+      "hotels": "🏨 Hotels",
+      "mediaTrips": {
+        "ariaLabel": "Open the VIP individual trips page"
+      }
     },
-    "hero": {
-      "aria": "Key coupon information",
-      "ctaAria": "Coupon purchase section",
-      "priceAria": "Coupon price",
-      "savings": "You save €4.01 upfront"
-    },
-    "info": {
-      "title": "Coupon",
-      "subtitle": "Order your coupon today and enjoy cheaper holidays across Cyprus 🇨🇾"
-    }
-  },
-  "carRental": {
-    "page": {
-      "brand": {
-        "logoAlt": "CyprusEye.com – turtle logo with the Polish flag",
-        "overline": "CyprusEye Quest",
-        "title": "Car rental"
-      },
-      "nav": {
-        "aria": "Return navigation",
-        "switchCity": "Choose another city",
-        "paphos": "Paphos offer",
-        "book": "Submit a reservation"
-      },
-      "hero": {
-        "badge": "No deposit • Polish support 24/7",
-        "title": "Car rental across Cyprus",
-        "description": "Meet the CyprusEye.com fleet, arrange airport or hotel delivery, and check the cost with our transparent calculator.",
-        "ctaFleet": "See the fleet",
-        "ctaCalculator": "Calculate rental cost",
-        "paphosNote": {
-          "prefix": "Looking for a car in Paphos without pickup fees? Use the “Paphos offer” button at the top of the page or",
-          "link": "go straight to the dedicated offer",
-          "suffix": "."
-        }
-      },
-      "stats": {
-        "cars": "cars in our fleet",
-        "price": "price from",
-        "minDays": "minimum rental days"
-      },
-      "fleet": {
-        "badge": "No deposit",
-        "title": "Rent a car anywhere in Cyprus",
-        "description": "Pick up the car where your adventure begins—at the airport, your hotel, or any town on the island. Every vehicle includes comprehensive insurance, a free extra driver, and child seats."
-      },
-      "benefits": {
-        "aria": "Key benefits",
-        "package": {
-          "title": "Package included",
-          "body": "The standard package covers no deposit, comprehensive insurance, and family extras listed in the “Included as standard” section—all without surcharges."
+    "recommendations": {
+      "description": "Curated recommendations and exclusive perks",
+      "home": {
+        "title": "✨ Our recommendations",
+        "subtitle": "Trusted Cyprus partners with exclusive discounts",
+        "filters": {
+          "title": "Filter by category",
+          "clear": "Clear filters"
         },
-        "flexible": {
-          "title": "Flexible pickup and return",
-          "body": "We deliver cars in Larnaca free of charge or for a small fee to Ayia Napa, Protaras, Limassol, Nicosia, and Paphos—exactly as in our CyprusEye.com offer."
-        },
-        "nature": {
-          "title": "We support nature",
-          "body": "For every rental day we donate €1 to conserve Cyprus’ marine turtles."
-        }
-      },
-      "details": {
-        "aria": "Terms, extras, and requirements"
-      },
-      "included": {
-        "title": "Included as standard",
-        "description": "Every reservation includes:"
-      },
-      "addons": {
-        "title": "Available extras",
-        "fullInsurance": "Full insurance with zero excess – €17/day.",
-        "delivery": "Pickup/drop-off outside Larnaca: Nicosia or Ayia Napa +€15, Protaras or Limassol +€20, Paphos +€40."
-      },
-      "requirements": {
-        "title": "Driver requirements",
-        "license": "Driving licence held for at least 3 years <strong>or</strong> age 25+.",
-        "youngDriver": "Young driver or licence under 3 years: +€10/day."
-      },
-      "grid": {
-        "aria": "Full fleet"
-      },
-      "tools": {
-        "aria": "Calculator and reservation"
-      },
-      "calculator": {
-        "title": "Rental calculator",
-        "description": "Check the exact rental price together with extras and delivery fees."
-      },
-      "reservation": {
-        "title": "Submit a reservation",
-        "description": "Fill in the online form to confirm availability and receive the agreement. You can also message us on WhatsApp—we respond as quickly as possible.",
-        "formLink": "Open the form in a new window",
-        "whatsapp": "Message on WhatsApp",
-        "formTitle": "Car reservation form"
-      },
-      "footer": "© <span data-current-year></span> CyprusEye.com • Car rental with Polish support in Cyprus."
-    },
-    "meta": {
-      "title": "Choose city – Car rental | CyprusEye"
-    },
-    "brand": {
-      "overline": "CyprusEye Quest",
-      "title": "Car rental"
-    },
-    "nav": {
-      "aria": "Return navigation"
-    },
-    "back": "← Back to the app",
-    "hero": {
-      "step": "Step 1",
-      "title": "Choose your pickup location",
-      "description": "We prepared two offers tailored to your travel plans. Pick the region where you need a car to see the fleet, cost calculator, and booking form.",
-      "note": "You can switch between offers at any time—the link is available at the top of the page.",
-      "infoLabel": "Key information",
-      "info": {
-        "deposit": "No deposit",
-        "depositDetails": "Both locations require no deposit and include Polish support.",
-        "delivery": "Car delivery",
-        "deliveryDetails": "Collect the car at the airport, your hotel, or another arranged spot.",
-        "support": "24/7",
-        "supportDetails": "Round-the-clock assistance regardless of the offer you choose."
+        "loading": "Loading recommendations...",
+        "cta": "View all recommendations →"
       }
     },
-    "offers": {
-      "title": "Two offers, one service standard",
-      "subtitle": "Choose the city where your adventure begins and we'll show available cars and prices.",
-      "larnaca": {
-        "tag": "Whole Cyprus",
-        "title": "Pickup in Larnaca or island-wide delivery",
-        "description": "Perfect if you land in Larnaca and plan to explore different regions. Pickup at the airport or delivery to selected resorts.",
-        "itemOne": "Delivery to Ayia Napa, Protaras, Limassol, and Nicosia",
-        "itemTwo": "Full insurance and family extras included",
-        "itemThree": "Cost calculator and online reservation form",
-        "cta": "View island-wide offer",
-        "ctaAria": "Go to the island-wide car rental offer"
-      },
-      "paphos": {
-        "tag": "Paphos",
-        "title": "Pickup at PFO airport or your hotel at no extra cost",
-        "description": "Choose the dedicated Paphos offer for convenient pickup without additional fees and optional delivery to nearby resorts.",
-        "itemOne": "Paphos airport and city centre without surcharges",
-        "itemTwo": "Delivery to Coral Bay and Polis for a small fee",
-        "itemThree": "Polish support 24/7 and a transparent rental calculator",
-        "cta": "View Paphos offer",
-        "ctaAria": "Go to the Paphos car rental offer"
-      }
-    },
-    "footer": "Contact us in the app or by phone—we'll help you pick the best car.",
-    "calculator": {
-      "form": {
-        "car": "Choose a car",
-        "pickupDate": "Pickup date",
-        "pickupTime": "Pickup time",
-        "returnDate": "Return date",
-        "returnTime": "Return time",
-        "pickupLocation": "Pickup location",
-        "returnLocation": "Return location",
-        "fullInsurance": "Full insurance (+€17/day)",
-        "youngDriver": "Young driver / licence < 3 years (+€10/day)",
-        "submit": "Calculate price"
-      },
-      "errors": {
-        "selectCar": "Choose a car model from the list.",
-        "fillDates": "Fill in the pickup and return dates.",
-        "invalidDates": "Please choose valid dates and times.",
-        "returnAfterPickup": "The return date must be later than the pickup date.",
-        "minimumDays": "The minimum rental duration is {{days}} {{daysLabel}}.",
-        "selectLocations": "Choose the pickup and drop-off locations."
-      },
-      "breakdown": {
-        "base": "{{pricePerDay}} × {{days}} {{daysLabel}} = {{total}}",
-        "pickupWithFee": "Pickup: {{location}} +{{price}}",
-        "pickupIncluded": "Pickup: {{location}} – included",
-        "returnWithFee": "Return: {{location}} +{{price}}",
-        "returnIncluded": "Return: {{location}} – included",
-        "fullInsurance": "Full: {{pricePerDay}} × {{days}} {{daysLabel}} = {{total}}",
-        "youngDriver": "Young driver: {{pricePerDay}} × {{days}} {{daysLabel}} = {{total}}",
-        "title": "Quote includes:"
-      },
-      "total": "Total rental price: {{price}}"
-    },
-    "common": {
-      "pricePerDay": "{{price}} / day",
-      "seats": "{{count}} seats",
-      "daysLabel": "days",
-      "includedMessage": {
-        "template": "Included in the price: {{items}}."
-      },
-      "reserveCar": "Reserve this car"
-    },
-    "included": {
-      "feature1": {
-        "short": "no deposit",
-        "description": "No deposit or card holds."
-      },
-      "feature2": {
-        "short": "Liability + 24/7 assistance",
-        "description": "Liability insurance + 24/7 assistance with up to €500 excess."
-      },
-      "feature3": {
-        "short": "free extra driver and child seats",
-        "description": "Extra driver and child seats included."
-      }
-    },
-    "locations": {
-      "larnaca": {
-        "label": "Larnaca (free)",
-        "short": "Larnaca"
-      },
-      "nicosia": {
-        "label": "Nicosia (+€15)",
-        "short": "Nicosia"
-      },
-      "ayia-napa": {
-        "label": "Ayia Napa (+€15)",
-        "short": "Ayia Napa"
-      },
-      "protaras": {
-        "label": "Protaras (+€20)",
-        "short": "Protaras"
-      },
-      "limassol": {
-        "label": "Limassol (+€20)",
-        "short": "Limassol"
-      },
-      "paphos": {
-        "label": "Paphos (+€40)",
-        "short": "Paphos"
-      },
-      "paphos-airport": {
-        "label": "Paphos Airport (free)",
-        "short": "Paphos Airport"
-      },
-      "paphos-city": {
-        "label": "Paphos – hotels and city centre (free)",
-        "short": "Paphos"
-      },
-      "coral-bay": {
-        "label": "Coral Bay / Pegeia (+€10)",
-        "short": "Coral Bay"
-      },
-      "polis": {
-        "label": "Polis / Latchi (+€15)",
-        "short": "Polis"
-      }
-    },
-    "categories": {
-      "economy": {
-        "label": "Economy & city",
-        "badge": "up to €40 / day",
-        "description": "Agile cars ideal for resort drives and everyday trips."
-      },
-      "comfort": {
-        "label": "Family & comfort",
-        "badge": "€41 – €75 / day",
-        "description": "More luggage space, comfort on longer routes, and 7–8 seat minivans."
-      },
-      "premium": {
-        "label": "Premium & special",
-        "badge": "over €75 / day",
-        "description": "Top equipment levels and luxury limousines for special occasions."
-      }
-    },
-    "fleet": {
-      "toyota-passo-2020": {
-        "transmission": "Automatic",
-        "category": "City compact",
-        "fuel": "Petrol",
-        "feature1": "No deposit",
-        "feature2": "Air conditioning",
-        "feature3": "24/7 assistance",
-        "note": "Highly manoeuvrable model perfect for parking in busy resorts."
-      },
-      "toyota-yaris-2023": {
-        "transmission": "Automatic",
-        "category": "City hatchback",
-        "fuel": "Petrol",
-        "feature1": "New generation",
-        "feature2": "No deposit",
-        "feature3": "Fuel efficient",
-        "note": "Ideal for city sightseeing and short trips beyond the resorts."
-      },
-      "nissan-note-2020": {
-        "transmission": "Automatic",
-        "category": "City hatchback",
-        "fuel": "Petrol",
-        "feature1": "High seating position",
-        "feature2": "24/7 assistance",
-        "feature3": "Extra driver included",
-        "note": "Increased headroom keeps you comfortable on longer drives."
-      },
-      "kia-rio-2019": {
-        "transmission": "Automatic",
-        "category": "Hatchback",
-        "fuel": "Petrol",
-        "feature1": "Easy manoeuvring",
-        "feature2": "Air conditioning",
-        "feature3": "Child seats included",
-        "note": "Stable handling is great for touring the whole island."
-      },
-      "toyota-yaris-hybrid-2023": {
-        "transmission": "Automatic",
-        "category": "City hybrid",
-        "fuel": "Hybrid",
-        "feature1": "Hybrid drive",
-        "feature2": "No deposit",
-        "feature3": "EV mode in town",
-        "note": "Ideal for drivers wanting to reduce fuel use on frequent journeys."
-      },
-      "toyota-aqua-hybrid-2022": {
-        "transmission": "Automatic",
-        "category": "Hybrid",
-        "fuel": "Hybrid",
-        "feature1": "Low fuel consumption",
-        "feature2": "Start/Stop system",
-        "feature3": "24/7 assistance",
-        "note": "Hybrid powertrain and spacious boot make family trips easier."
-      },
-      "honda-fit-2022": {
-        "transmission": "Automatic",
-        "category": "Family compact",
-        "fuel": "Petrol",
-        "feature1": "Magic Seats",
-        "feature2": "Air conditioning",
-        "feature3": "Extra driver included",
-        "note": "Adjustable seats let you easily fit a stroller or beach gear."
-      },
-      "honda-fit-hybrid-2019": {
-        "transmission": "Automatic",
-        "category": "Hybrid",
-        "fuel": "Hybrid",
-        "feature1": "Efficient driving",
-        "feature2": "ECO driving modes",
-        "feature3": "No deposit",
-        "note": "A great compromise between compact dimensions and a roomy cabin."
-      },
-      "honda-fit-hybrid-2022": {
-        "transmission": "Automatic",
-        "category": "City hybrid",
-        "fuel": "Hybrid",
-        "feature1": "Modern infotainment",
-        "feature2": "Hybrid drive",
-        "feature3": "Child seats included",
-        "note": "Delivers a quiet ride and flexible interior for active families."
-      },
-      "nissan-note-hybrid-2023": {
-        "transmission": "Automatic",
-        "category": "Hybrid",
-        "fuel": "Hybrid",
-        "feature1": "e-Power system",
-        "feature2": "24/7 assistance",
-        "feature3": "Advanced safety systems",
-        "note": "Dynamic e-Power hybrid drive delivers smooth acceleration."
-      },
-      "mazda-2-2023": {
-        "transmission": "Automatic",
-        "category": "Hatchback",
-        "fuel": "Petrol",
-        "feature1": "Skyactiv cockpit",
-        "feature2": "Apple CarPlay/Android Auto",
-        "feature3": "No deposit",
-        "note": "Stylish and agile—perfect for city traffic."
-      },
-      "toyota-corolla-2021": {
-        "transmission": "Automatic",
-        "category": "Sedan",
-        "fuel": "Petrol",
-        "feature1": "Spacious boot",
-        "feature2": "Toyota Safety Sense",
-        "feature3": "24/7 assistance",
-        "note": "Comfortable sedan for longer trips and family touring across the island."
-      },
-      "mazda-atenza-2019": {
-        "transmission": "Automatic",
-        "category": "Mid-size sedan",
-        "fuel": "Petrol",
-        "feature1": "Leather interior",
-        "feature2": "Adaptive lights",
-        "feature3": "Extra driver included",
-        "note": "Elegant premium-class sedan with dynamic handling."
-      },
-      "mazda-premacy-2018": {
-        "transmission": "Automatic",
-        "category": "7-seater minivan",
-        "fuel": "Petrol",
-        "feature1": "Sliding doors",
-        "feature2": "Flexible seating",
-        "feature3": "Child seats included",
-        "note": "Ideal for larger groups thanks to configurable seats and luggage space."
-      },
-      "toyota-sienta-2022": {
-        "transmission": "Automatic",
-        "category": "7-seater minivan",
-        "fuel": "Hybrid",
-        "feature1": "Hybrid drive",
-        "feature2": "Sliding doors",
-        "feature3": "Family package",
-        "note": "Lightweight, economical minivan for day trips with kids."
-      },
-      "nissan-serena-hybrid-2016": {
-        "transmission": "Automatic",
-        "category": "8-seater minivan",
-        "fuel": "Hybrid",
-        "feature1": "Ample space",
-        "feature2": "Dual-zone air conditioning",
-        "feature3": "24/7 assistance",
-        "note": "Great choice for groups with extra luggage or sports gear."
-      },
-      "mazda-axela-2022": {
-        "transmission": "Automatic",
-        "category": "Premium hatchback",
-        "fuel": "Petrol",
-        "feature1": "Head-up display",
-        "feature2": "Bose Audio system",
-        "feature3": "No deposit",
-        "note": "Dynamic premium hatchback for demanding drivers."
-      },
-      "nissan-serena-hybrid-2022": {
-        "transmission": "Automatic",
-        "category": "Premium minivan",
-        "fuel": "Hybrid",
-        "feature1": "New e-Power generation",
-        "feature2": "ProPILOT safety package",
-        "feature3": "Child seats included",
-        "note": "Latest generation of the popular minivan with rich equipment."
-      },
-      "mercedes-s-class-2017": {
-        "transmission": "Automatic",
-        "category": "Premium limousine",
-        "fuel": "Petrol",
-        "feature1": "VIP package",
-        "feature2": "Leather interior",
-        "feature3": "Air suspension",
-        "note": "Luxury transport for special occasions, with chauffeur available on request."
-      },
-      "mercedes-c-class-2020": {
-        "transmission": "Automatic",
-        "category": "Premium coupé",
-        "fuel": "Petrol",
-        "feature1": "Panoramic roof",
-        "feature2": "AMG package",
-        "feature3": "24/7 assistance",
-        "note": "Sporty elegance for exploring Cyprus in top comfort."
-      }
-    }
-  },
-  "mobile": {
-    "nav": {
-      "aria": "Bottom navigation",
-      "adventure": "Adventure",
-      "packing": "Packing",
-      "tasks": "Missions",
-      "mediaTrips": "VIP",
-      "carRental": "Car rental",
-      "coupons": "Coupons",
-      "language": "Language",
-      "community": "Community"
-    }
-  },
-  "footer": {
-    "app": "© <span id=\"year\"></span> WakacjeCypr.com • Play, explore and plan your holidays at the same time."
-  },
-  "map": {
-    "playerLocation": "Your location",
-    "skipLink": "Skip interactive map",
-    "skipTarget": "Map skipped. Continue to the location details.",
-    "geolocation": {
-      "enableSharing": "Enable location sharing to see your position on the map.",
-      "noSupport": "Your browser does not support geolocation—the player position will not be visible.",
-      "secureContextRequired": "Use a secure HTTPS connection to share your location."
-    }
-  },
-  "locations": {
-    "highlight": {
-      "title": "Car rental in Cyprus",
-      "subtitle": "Collect your car at the airport or directly from your hotel",
-      "aria": "Go to the Cyprus car rental section"
-    },
-    "toggle": {
-      "hide": "Hide part of the list",
-      "showAll": "Show all {{total}} attractions"
-    }
-  },
-  "tripPlanner": {
-    "startBadge": "Start",
-    "selectStart": "Choose a starting point to plan your day.",
-    "selectStops": "Select at least one attraction to see bonus XP and trip duration."
-  },
-  "dailyChallenge": {
-    "title": "Daily challenge",
-    "bonus": "Complete it for extra XP!",
-    "focusSet": "Objective set to {{name}}.",
-    "noneAvailable": "No challenges available. Unlock more attractions to receive daily missions.",
-    "placeholderTitle": "Discover a new place",
-    "placeholderDescription": "Check in at any attraction to start today’s mission.",
-    "status": {
-      "completed": "Completed! Bonus +{{bonus}} XP added.",
-      "locked": "Reach a higher level to unlock this challenge or draw another one.",
-      "visited": "You already have this badge. Draw a new challenge or come back tomorrow.",
-      "active": "Check in at this attraction today to earn extra experience points!"
-    },
-    "toast": {
-      "new": "New challenge: {{name}}."
-    },
-    "noneToShuffle": "No other challenges to draw. Unlock more attractions to get new missions."
-  },
-  "dailyStreak": {
-    "title": "Daily streak",
-    "current": "Current streak:",
-    "best": "Best streak: {{days}} days",
-    "message": {
-      "start": "Check in at any attraction to start your adventure streak.",
-      "today": "Great! Today’s check-in kept your streak alive. Come back tomorrow for another day.",
-      "warning": "You still have time today to keep the streak going—visit any place and earn XP.",
-      "reset": "Start a new streak and beat your record of {{best}} days.",
-      "keepGoing": "Keep exploring to extend your check-in streak."
-    }
-  },
-  "community.stats.comments": "Comments",
-  "community.stats.photos": "Photos",
-  "community.stats.users": "Users",
-  "community.viewToggle.list": "📋 List",
-  "community.viewToggle.ranking": "🏆 Ranking",
-  "community.search.placeholder": "Search for a place...",
-  "community.sort.recent": "Newest comments",
-  "community.sort.popular": "Most popular",
-  "community.sort.alphabetical": "Alphabetically",
-  "community.loading": "Loading places...",
-  "community.map.hint": "Click a marker to see comments for that place",
-  "community.auth.required": "You must be signed in to add a comment",
-  "community.comment.hint": "Add a comment or photos",
-  "community.comment.placeholder": "Share your impressions...",
-  "community.comment.submit": "Post",
-  "community.comment.sending": "Sending...",
-  "community.comment.sendingPhotos": "Uploading photos...",
-  "community.comment.refreshing": "Refreshing...",
-  "community.viewComments": "View comments",
-  "community.rating.title": "Rate this place",
-  "community.rating.prompt": "Click the stars to rate",
-  "community.rating.yourRating": "Your rating: {{rating}}★",
-  "community.rating.noRatings": "No ratings yet",
-  "community.rating.beFirst": "Be the first one to rate this place!",
-  "community.rating.oneRating": "rating",
-  "community.rating.multipleRatings": "ratings",
-  "community.comments.loading": "Loading comments...",
-  "community.comments.noComments": "No comments yet",
-  "community.comments.beFirst": "Be the first to share your experience!",
-  "community.comments.count.zero": "0 comments",
-  "community.comments.count.one": "1 comment",
-  "community.comments.count.multiple": "{{count}} comments",
-  "community.photos.count.zero": "0 photos",
-  "community.photos.count.one": "1 photo",
-  "community.photos.count.multiple": "{{count}} photos",
-  "community.photo.add": "📷 Add photos",
-  "community.action.edit": "✏️ Edit",
-  "community.action.delete": "🗑️ Delete",
-  "community.action.reply": "💬 Reply",
-  "community.action.save": "Save",
-  "community.action.cancel": "Cancel",
-  "community.action.respond": "Reply",
-  "community.error.loading": "Loading error",
-  "community.error.addComment": "Error adding comment",
-  "community.error.editComment": "Error editing comment",
-  "community.error.deleteComment": "Error deleting comment",
-  "community.error.like": "Error while liking",
-  "community.error.reply": "Error adding reply",
-  "community.error.saveRating": "Could not save your rating",
-  "community.success.commentUpdated": "Comment updated",
-  "community.success.commentDeleted": "Comment deleted",
-  "community.success.replyAdded": "Reply added!",
-  "community.placeholder.reply": "Write a reply...",
-  "community.empty.noPlaces": "No places available",
-  "community.empty.soon": "Places will appear soon",
-  "modal.aria.close": "Close",
-  "modal.aria.previous": "Previous place",
-  "modal.aria.next": "Next place",
-  "checkIn": {
-    "manualConfirm": {
-      "action": "I confirm I am on site",
-      "success": "Badge awarded!"
-    },
-    "status": {
-      "checking": "Checking your location…",
-      "unsupported": "Your browser does not support geolocation. You can confirm your visit manually below.",
-      "error": "We could not obtain your location. Make sure you granted permission or confirm manually.",
-      "success": "Congratulations! You are exactly at the right spot.",
-      "distance": "You are about {{distance}} km from the target. Check Google Maps for directions and confirm manually if you really are on site."
-    }
-  },
-  "metrics": {
-    "level": {
-      "label": "Level",
-      "subtext": "Get your first check-ins to level up!",
-      "defaultStatus": {
-        "initial": "Get your first check-ins to level up!",
-        "progress": "Keep exploring to earn more rewards."
-      }
-    },
-    "xp": {
-      "label": "Experience",
-      "progress": "0 / 150 XP to the next level",
-      "aria": "Experience progress",
-      "progressTemplate": "{{current}} / {{total}} XP to the next level",
-      "maxLevel": "You have reached the maximum level – congratulations!",
-      "keepEarning": "Keep earning experience to level up."
-    },
-    "badges": {
-      "label": "Badges",
-      "subtext": "Explore attractions and collect souvenirs."
-    }
-  },
-  "achievements": {
-    "emptyBadges": "No badges yet – time for your first adventure!",
-    "meta": {
-      "title": "CyprusEye Quest – Your achievements"
-    },
-    "brand": {
-      "overline": "Your Cyprus travel game",
-      "title": "CyprusEye Quest",
-      "logoAlt": "CyprusEye Quest logo"
-    },
-    "nav": {
-      "current": "🏅 Achievements",
-      "aria": "Shortcut navigation"
-    },
-    "back": "← Back to the app",
-    "hero": {
-      "title": "Your badges and levels",
-      "intro": "Track your progress, review earned badges, and plan the next adventures. All data syncs automatically with the main CyprusEye Quest app.",
-      "badges": "Badges collected",
-      "visited": "Places visited",
-      "level": "Current traveller level",
-      "statsLabel": "Current statistics"
-    },
-    "progress": {
-      "title": "Experience progress",
-      "subtitle": "Earn XP to unlock new missions, challenges, and locations—every check-in takes you further.",
-      "empty": "Start exploring Cyprus to collect your first experience!",
-      "total": {
-        "suffix": "XP total",
-        "description": "The total amount of experience points earned across every activity."
-      },
-      "next": {
-        "description": "See how much is left to the next level—complete missions or visit a new place."
-      },
-      "chartLabel": "Experience progress bar"
-    },
-    "history": {
-      "title": "Visited places and earned badges",
-      "subtitle": "The list updates after every check-in. Click any entry in the main app to view it on the map or plan the next visit.",
-      "empty": "No badges yet—time for the first adventure!"
-    },
-    "footer": "© <span id=\"year\"></span> CyprusEye.com – Play, explore, and inspire fellow travellers."
-  },
-  "nav": {
-    "toggle": "☰ Navigation",
-    "adventure": "🎯 Your adventure",
-    "packing": "🎒 Packing planner",
-    "tasks": "✅ Task list",
-    "recommendations": "✨ Recommendations",
-    "community": "💬 Community",
-    "trips": "🧭 Trips",
-    "hotels": "🏨 Hotels",
-    "mediaTrips": {
-      "ariaLabel": "Open the VIP individual trips page"
-    }
+    "recommendations.hero.title": "✨ Our recommendations",
+    "recommendations.hero.subtitle": "Trusted places in Cyprus with exclusive discounts and bonuses for you.",
+    "recommendations.filters.aria": "Recommendation category filters",
+    "recommendations.filters.title": "Filter by category",
+    "recommendations.filters.clear": "Clear filters",
+    "recommendations.loading": "Loading recommendations...",
+    "recommendations.empty.title": "No results",
+    "recommendations.empty.body": "We couldn't find any places for the selected filters. Try changing the category or clearing filters.",
+    "recommendations.empty.cta": "Show all places",
+    "recommendations.card.featured": "Recommended",
+    "recommendations.card.details": "View details",
+    "recommendations.card.visitSite": "Visit website",
+    "recommendations.modal.openMap": "Open in maps",
+    "recommendations.modal.visitSite": "Visit website",
+    "recommendations.modal.offerLabel": "🎁 Special offer",
+    "recommendations.error.title": "Couldn't load recommendations",
+    "recommendations.error.message": "Something went wrong. Please try again in a moment.",
+    "recommendations.error.retry": "Try again",
+    "recommendations.seo.title": "HolidayCyprus Quest – Recommendations",
+    "recommendations.seo.description": "Discover trusted Cyprus partners with exclusive discounts and bonuses for you. Browse our curated recommendations and plan your trip."
   },
   "recommendations": {
     "description": "Curated recommendations and exclusive perks",
@@ -1957,7 +1337,6 @@
     "title": "Objective",
     "mapLink": "Map",
     "previous": "Previous",
-    "next": "Next",
     "checkIn": "Check in",
     "hint": "Hint"
   },
@@ -2092,7 +1471,7 @@
   "carRental.page.reservation.fields.returnAddress.placeholder": "Hotel name or full address",
   "carRental.page.reservation.fields.passengers.label": "Number of passengers",
   "carRental.page.reservation.fields.childSeats.label": "Child seats (free)",
-  "carRental.page.reservation.fields.insurance.label": "Full insurance (+€17/day)",
+  "carRental.page.reservation.fields.insurance.label": "Full AC insurance (+€17/day)",
   "carRental.page.reservation.fields.flight.label": "Flight number (optional)",
   "carRental.page.reservation.fields.flight.placeholder": "W1234",
   "carRental.page.reservation.fields.notes.label": "Special requests",
@@ -2120,6 +1499,16 @@
   "carRental.calculator.breakdown.returnIncluded": "Return: {{location}} – included",
   "carRental.calculator.breakdown.fullInsurance": "Full insurance: {{pricePerDay}} × {{days}} {{daysLabel}} = {{total}}",
   "carRental.calculator.breakdown.youngDriver": "Young driver: {{pricePerDay}} × {{days}} {{daysLabel}} = {{total}}",
+  "nav": {
+    "adventure": "🎯 Adventure",
+    "community": "💬 Community",
+    "recommendations": "✨ Recommendations",
+    "tasks": "✅ Task list",
+    "packing": "🎒 Packing planner",
+    "trips": "🧭 Trips",
+    "hotels": "🏨 Hotels",
+    "toggle": "☰ Navigation"
+  },
   "shortcuts": {
     "packing": {
       "title": "🎒 Packing planner",
@@ -2583,14 +1972,14 @@
       "current": "📚 Attractions catalogue"
     },
     "meta": {
-      "title": "CyprusEye Quest – Attractions catalogue"
+      "title": "HolidayCyprus Quest – Attractions catalogue"
     },
     "brand": {
       "overline": "Explore the island location by location",
-      "title": "CyprusEye Quest"
+      "title": "HolidayCyprus Quest"
     },
     "back": "← Back to the app",
-    "title": "Discover every CyprusEye Quest location",
+    "title": "Discover every HolidayCyprus Quest location",
     "subtitle": "Filter places according to your travel plans, check distances, and see unlock status. Clicking any card opens the map with the highlighted point in the main app.",
     "loading": "Loading catalogue…",
     "search": {
@@ -2605,24 +1994,24 @@
       "subtitle": "From beaches and national parks to archaeological sites and viewpoints—the catalogue covers every place available in the game. Allow location access to see estimated distances.",
       "empty": "No attractions match your filters. Try another phrase or clear the search."
     },
-    "footer": "© <span id=\"year\"></span> CyprusEye.com – Find your next adventure in Cyprus."
+    "footer": "© <span id=\"year\"></span> HolidayCyprus.com – Find your next adventure in Cyprus."
   },
   "vip": {
     "brand": {
-      "logoAlt": "CyprusEye.com – turtle logo with the Polish flag",
+      "logoAlt": "HolidayCyprus.com – turtle logo with the Polish flag",
       "overline": "Your Cyprus concierge",
-      "title": "CyprusEye Quest"
+      "title": "HolidayCyprus Quest"
     },
     "back": "← Back to the app",
-    "backAria": "Return to the CyprusEye Quest app",
+    "backAria": "Return to the HolidayCyprus Quest app",
     "hero": {
       "badge": "VIP concierge in Cyprus",
       "title": "VIP individual trips",
       "intro": "Every itinerary is tailored to your expectations—from private cruises and wine tastings to villa weekends with 24/7 support.",
       "ctaPrimary": "Book a concierge call",
-      "ctaPrimaryAria": "Book a call with the CyprusEye concierge",
+      "ctaPrimaryAria": "Book a call with the HolidayCyprus concierge",
       "ctaSecondary": "Email our team",
-      "ctaSecondaryAria": "Send an email to the CyprusEye team",
+      "ctaSecondaryAria": "Send an email to the HolidayCyprus team",
       "visualLabel": "Illustration of a private trip in Cyprus"
     },
     "offers": {
@@ -2761,7 +2150,7 @@
         "email": "✉️ Email: kontakt@wakacjecypr.com"
       }
     },
-    "footer": "© <span id=\"year\"></span> CyprusEye.com – Your private journey across Cyprus."
+    "footer": "© <span id=\"year\"></span> HolidayCyprus.com – Your private journey across Cyprus."
   },
   "level": {
     "toast": {
@@ -2774,8 +2163,8 @@
   "carRentalPfo": {
     "page": {
       "brand": {
-        "logoAlt": "CyprusEye.com – turtle logo with the Polish flag",
-        "overline": "CyprusEye Quest",
+        "logoAlt": "HolidayCyprus.com – turtle logo with the Polish flag",
+        "overline": "HolidayCyprus Quest",
         "title": "Car rental"
       },
       "nav": {
@@ -2804,7 +2193,7 @@
       "fleet": {
         "badge": "No deposit",
         "title": "Rent a car in Paphos and nearby",
-        "description": "We deliver cars to Paphos Airport or your hotel with no deposit. Rentals of 7+ days include free airport/hotel transfer, while shorter bookings add only €10 for pickup and €10 for return. Child seats and 24/7 Polish support stay included, and full cover is available for €17/day."
+        "description": "We deliver cars to Paphos Airport or your hotel with no deposit. Rentals of 7+ days include free airport/hotel transfer, while shorter bookings add only €10 for pickup and €10 for return. Child seats and 24/7 Polish support stay included, and full AC cover is available for €17/day."
       },
       "benefits": {
         "aria": "Key benefits",
@@ -2830,7 +2219,7 @@
       },
       "addons": {
         "title": "Available extras",
-        "fullInsurance": "Full insurance with zero excess – €17/day.",
+        "fullInsurance": "Full AC insurance with zero excess – €17/day.",
         "delivery": "Delivery to Coral Bay / Pegeia +€10, Polis / Latchi +€15.",
         "airportShortRental": "Bookings under 7 days with PFO airport pickup – one-off €10 fee."
       },
@@ -2923,7 +2312,7 @@
             "label": "Child seats (free)"
           },
           "insurance": {
-            "label": "Full insurance (+€17/day)"
+            "label": "Full AC insurance (+€17/day)"
           },
           "flight": {
             "label": "Flight number (optional)",
@@ -2939,7 +2328,7 @@
         "successTitle": "🎉 Thank you!",
         "successMessage": "Your reservation form has been sent successfully."
       },
-      "footer": "© <span data-current-year></span> CyprusEye.com • Car rental with Polish support in Cyprus."
+      "footer": "© <span data-current-year></span> HolidayCyprus.com • Car rental with Polish support in Cyprus."
     },
     "calculator": {
       "form": {
@@ -2951,7 +2340,7 @@
         "returnTime": "Return time",
         "airportPickup": "Pickup at PFO airport",
         "airportReturn": "Return at PFO airport",
-        "fullInsurance": "Full insurance (+€17/day)",
+        "fullInsurance": "Full AC insurance (+€17/day)",
         "calculate": "Calculate price",
         "message": "No deposit, child seats always included for free."
       }
@@ -3120,7 +2509,7 @@
       "description": "We publish guides, task lists, and coupons used by thousands of Polish and international travellers. Complete the form and our team will prepare a package tailored to your brand."
     },
     "stats": {
-      "group": "members in the CyprusEye community",
+      "group": "members in the HolidayCyprus community",
       "guides": "active themed guides",
       "languages": "content languages"
     },

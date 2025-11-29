@@ -154,6 +154,10 @@
   "seo.coupon.ogDescription": "Zarezerwuj naszą ofertę w kilka sekund dzięki kuponowi i bezpiecznej płatności Stripe.",
   "seo.coupon.locale": "pl_PL",
   "seo.coupon.localeAlternate": "en_GB",
+  "seo.recommendations.title": "Rekomendacje – CyprusEye Quest",
+  "seo.recommendations.description": "Odkryj nasze sprawdzone rekomendacje – najlepsze miejsca, restauracje, hotele i atrakcje na Cyprze z ekskluzywnymi zniżkami.",
+  "seo.recommendations.ogTitle": "Rekomendacje – CyprusEye Quest",
+  "seo.recommendations.ogDescription": "Odkryj nasze sprawdzone rekomendacje – najlepsze miejsca, restauracje, hotele i atrakcje na Cyprze z ekskluzywnymi zniżkami.",
   "header.brand": {
     "html": "<p class=\"brand-name\">CyprusEye Quest &amp; Travel</p>"
   },
@@ -1881,8 +1885,13 @@
   },
   "nav": {
     "adventure": "🎯 Twoja przygoda",
+    "community": "💬 Społeczność",
+    "recommendations": "✨ Polecane",
+    "tasks": "✅ Lista zadań",
     "packing": "🎒 Planer pakowania",
-    "tasks": "✅ Lista zadań"
+    "trips": "🧭 Wycieczki",
+    "hotels": "🏨 Hotele",
+    "toggle": "☰ Nawigacja"
   },
   "shortcuts": {
     "packing": {
@@ -3716,41 +3725,6 @@
       "description": "Musisz być zalogowany, aby wejść do profilu.",
       "button": "Zaloguj się"
     }
-  },
-  "coupon.conditions.rules.groupMultiple.html": "Dla rezerwacji grupowych <b>możliwy</b> jest jeden kupon na kilka osób, jeśli regulamin oferty to dopuszcza.",
-  "coupon.conditions.rules.groupStay.html": "Przy wspólnym pobycie pod jednym adresem <b>możliwa</b> jest łączna zniżka zgodnie z opisem oferty.",
-  "coupon.search.summary.html": "Znaleziono <b>{{count}}</b> ofert",
-  "coupon.how.step1.noteMultiple.html": "Przy rezerwacjach grupowych zniżka może dotyczyć kilku osób, jeśli oferta tak stanowi.",
-  "coupon.how.step1.noteSingle.html": "Dla ofert indywidualnych kupon jest imienny.",
-  "account.stats.streak.description.html": "Utrzymuj serię codziennych odwiedzin, aby zdobywać bonusy.",
-  "account.close.text": "Zamknij",
-  "account.close.attributes.aria-label": "Zamknij",
-  "auth.close.text": "Zamknij",
-  "auth.close.attributes.aria-label": "Zamknij",
-  "header.brand.html": "<strong>CyprusEye</strong> – odkrywaj Cypr",
-  "explorer.close.text": "Zamknij",
-  "explorer.close.attributes.aria-label": "Zamknij",
-  "sos.close.text": "Zamknij",
-  "sos.embassy.email.html": "Napisz do ambasady: <a href=\"mailto:{{email}}\">{{email}}</a>",
-  "badges": {
-    "landmark": "ATRAKCJA"
-  },
-  "services": {
-    "title": "Odkryj z nami Cypr",
-    "description": "WakacjeCypr.com to lokalni eksperci gotowi zorganizować dla Ciebie niezapomniane wakacje, prywatne wycieczki, degustacje wina i rejsy.",
-    "itemOne": "Indywidualne plany podróży dopasowane do Twoich check-inów.",
-    "itemTwo": "Wycieczki z przewodnikiem w miejscach, które już odblokowałeś.",
-    "itemThree": "Kontakt z nami prosto z aplikacji – kliknij przycisk poniżej.",
-    "cta": "Poznaj nasze usługi"
-  },
-  "tutorial": {
-    "showAgain": "🔁 Pokaż instrukcję"
-  },
-  "lightbox": {
-    "alt": "Podgląd zdjęcia",
-    "close": "Zamknij",
-    "prev": "Poprzednie",
-    "next": "Następne"
   },
   "modal": {
     "description": "Opis",
