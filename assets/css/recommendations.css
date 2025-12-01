@@ -525,6 +525,12 @@
   border: none !important;
 }
 
+/* User location marker */
+.user-location-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
 .recommendation-popup .leaflet-popup-content-wrapper {
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.15);

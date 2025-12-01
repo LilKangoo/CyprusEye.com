@@ -35,23 +35,50 @@ console.log('🔵 App Core V3 - START');
   }
 
   function initializeUserLocation() {
-    if (!mapInstance || !navigator.geolocation) {
+    console.log('📍 initializeUserLocation() wywołane');
+    if (!mapInstance) {
+      console.warn('📍 Brak mapInstance - pomijam lokalizację użytkownika');
       return;
     }
+    if (!navigator.geolocation) {
+      console.warn('📍 Brak geolocation API');
+      return;
+    }
+    
     let hasCenteredOnUser = false;
+    
+    // Pobierz avatar użytkownika lub użyj logo
     const avatarEl = document.getElementById('headerUserAvatar');
-    const avatarUrl = avatarEl && avatarEl.src ? avatarEl.src : 'assets/cyprus_logo-1000x1054.png';
-    const userIcon = L.icon({
-      iconUrl: avatarUrl,
-      iconSize: [40, 40],
-      iconAnchor: [20, 20],
-      popupAnchor: [0, -20]
+    let avatarUrl = 'assets/cyprus_logo-1000x1054.png';
+    if (avatarEl && avatarEl.src && !avatarEl.src.includes('data:') && !avatarEl.src.endsWith('/')) {
+      avatarUrl = avatarEl.src;
+    }
+    console.log('📍 Avatar URL:', avatarUrl);
+    
+    // Użyj divIcon z obrazkiem dla lepszej kontroli
+    const userIcon = L.divIcon({
+      className: 'user-location-marker',
+      html: `<div style="
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        border: 3px solid #f97316;
+        box-shadow: 0 2px 10px rgba(249,115,22,0.5);
+        overflow: hidden;
+        background: white;
+      "><img src="${avatarUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" onerror="this.src='assets/cyprus_logo-1000x1054.png'" /></div>`,
+      iconSize: [44, 44],
+      iconAnchor: [22, 22],
+      popupAnchor: [0, -22]
     });
+    
     const updatePosition = (lat, lng) => {
+      console.log('📍 Aktualizacja pozycji:', lat, lng);
       // Udostępnij ostatnią znaną lokalizację globalnie jako fallback dla check-in
       window.currentUserLocation = { lat, lng, timestamp: Date.now() };
       const latLng = [lat, lng];
       if (!userLocationMarker) {
+        console.log('📍 Tworzę marker użytkownika');
         userLocationMarker = L.marker(latLng, { icon: userIcon, zIndexOffset: 1000 }).addTo(mapInstance);
         userLocationMarker.bindPopup('Twoja aktualna pozycja');
       } else {
@@ -62,13 +89,22 @@ console.log('🔵 App Core V3 - START');
         mapInstance.setView(latLng, 13, { animate: true });
       }
     };
+    
+    console.log('📍 Pobieram lokalizację...');
     navigator.geolocation.getCurrentPosition(function(position) {
+      console.log('📍 Otrzymano lokalizację');
       updatePosition(position.coords.latitude, position.coords.longitude);
-    }, function() {}, { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 });
+    }, function(error) {
+      console.warn('📍 Błąd geolokalizacji:', error.message);
+    }, { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 });
+    
     if (userLocationWatchId === null) {
       userLocationWatchId = navigator.geolocation.watchPosition(function(position) {
         updatePosition(position.coords.latitude, position.coords.longitude);
-      }, function() {}, { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 });
+      }, function(error) {
+        console.warn('📍 Błąd śledzenia lokalizacji:', error.message);
+      }, { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 });
+      console.log('📍 Śledzenie lokalizacji uruchomione, watchId:', userLocationWatchId);
     }
   }
   
