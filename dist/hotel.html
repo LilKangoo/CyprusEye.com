@@ -28,6 +28,9 @@
     .lightbox-next{right:16px}
   </style>
   <script type="module" src="/js/supabaseClient.js"></script>
+  <script type="module" src="/js/toast.js"></script>
+  <script type="module" src="/js/auth.js"></script>
+  <script type="module" src="/js/authUi.js"></script>
 </head>
 <body>
     <header class="app-header nav-modern">
@@ -95,17 +98,17 @@
         <div class="nav-modern__top-actions">
           <div class="nav-modern__auth">
             <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
-              <button
-                class="nav-modern__login"
-                data-open-auth
-                data-auth="anon-only"
+              <a
+                href="/auth/"
+                class="nav-modern__login btn btn-sm"
+                data-auth="login"
                 data-tour-target="login-button"
                 data-i18n="header.login"
                 data-i18n-attrs="aria-label:auth.login.aria"
                 aria-label="Zaloguj do konta"
               >
                 Zaloguj
-              </button>
+              </a>
 <button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
             </div>
             <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
