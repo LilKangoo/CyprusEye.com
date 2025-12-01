@@ -4,6 +4,52 @@ import { showToast } from './toast.js';
 
 let reservationData = {};
 
+// Prefill form fields from logged-in user session
+async function prefillFromUserSession() {
+  try {
+    // Wait for auth to be ready
+    if (typeof window.waitForAuthReady === 'function') {
+      await window.waitForAuthReady();
+    }
+    
+    const session = window.CE_STATE?.session;
+    const profile = window.CE_STATE?.profile;
+    
+    // Prefill email from session
+    if (session?.user?.email) {
+      const emailField = document.getElementById('res_email');
+      if (emailField && !emailField.value) {
+        emailField.value = session.user.email;
+        // Visual indicator (green flash) that email was auto-filled
+        emailField.style.backgroundColor = '#f0fdf4';
+        setTimeout(() => { emailField.style.backgroundColor = ''; }, 2000);
+      }
+    }
+    
+    // Prefill name from profile (if available)
+    if (profile?.full_name || profile?.username || profile?.name) {
+      const nameField = document.getElementById('res_full_name');
+      if (nameField && !nameField.value) {
+        nameField.value = profile.full_name || profile.name || profile.username || '';
+        nameField.style.backgroundColor = '#f0fdf4';
+        setTimeout(() => { nameField.style.backgroundColor = ''; }, 2000);
+      }
+    }
+    
+    // Prefill phone from profile (if available)
+    if (profile?.phone) {
+      const phoneField = document.getElementById('res_phone');
+      if (phoneField && !phoneField.value) {
+        phoneField.value = profile.phone;
+        phoneField.style.backgroundColor = '#f0fdf4';
+        setTimeout(() => { phoneField.style.backgroundColor = ''; }, 2000);
+      }
+    }
+  } catch (err) {
+    console.warn('Could not prefill user data:', err);
+  }
+}
+
 // Initialize form
 export function initReservationForm() {
   const form = document.getElementById('localReservationForm');
@@ -11,6 +57,9 @@ export function initReservationForm() {
 
   // Populate form with calculator data if available
   populateFromCalculator();
+  
+  // Prefill user data from session (email, name, phone)
+  prefillFromUserSession();
 
   // Form submission
   form.addEventListener('submit', handleReservationSubmit);
