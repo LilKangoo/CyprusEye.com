@@ -9186,7 +9186,19 @@ async function editRecommendation(id) {
   window.recommendationFormMode = 'edit';
   currentRecommendation = rec;
   
+  console.log('🔵 Opening edit modal, categories count:', recommendationsCategories.length);
+  
+  // Ensure categories are loaded
+  if (recommendationsCategories.length === 0) {
+    console.log('⚠️ Categories not loaded, loading now...');
+    await loadRecommendationsData();
+    console.log('✅ Categories loaded:', recommendationsCategories.length);
+  }
+  
   $('#recommendationFormTitle').textContent = 'Edit Recommendation';
+  
+  // Make sure recommendationsCategories is globally accessible for the form
+  window.recommendationsCategories = recommendationsCategories;
   
   // Render i18n form with data
   const formContent = $('#recommendationFormContent');
