@@ -334,6 +334,15 @@
   color: #166534;
 }
 
+.rec-card-promo-code[data-promo-visible="false"] {
+  display: none;
+}
+
+.rec-card-promo-toggle {
+  margin-top: 10px;
+  width: 100%;
+}
+
 /* Buttons */
 .rec-card-actions {
   display: grid;
