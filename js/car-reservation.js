@@ -169,6 +169,118 @@ function calculateEstimatedPrice() {
     `Szacunkowy czas wynajmu: ${days} dni. Ostateczną cenę otrzymasz po potwierdzeniu dostępności.`;
 }
 
+// Validation messages in multiple languages
+function getValidationMessages() {
+  const lang = (typeof window.getCurrentLanguage === 'function') ? window.getCurrentLanguage() : 'pl';
+  
+  const messages = {
+    pl: {
+      fullName: 'Proszę podać imię i nazwisko',
+      email: 'Proszę podać poprawny adres email',
+      phone: 'Proszę podać numer telefonu',
+      pickupDate: 'Proszę wybrać datę odbioru',
+      returnDate: 'Proszę wybrać datę zwrotu',
+      car: 'Proszę wybrać samochód',
+      pickupLocation: 'Proszę wybrać miejsce odbioru',
+      returnLocation: 'Proszę wybrać miejsce zwrotu'
+    },
+    en: {
+      fullName: 'Please enter your full name',
+      email: 'Please enter a valid email address',
+      phone: 'Please enter your phone number',
+      pickupDate: 'Please select pickup date',
+      returnDate: 'Please select return date',
+      car: 'Please select a car',
+      pickupLocation: 'Please select pickup location',
+      returnLocation: 'Please select return location'
+    },
+    el: {
+      fullName: 'Παρακαλώ εισάγετε το ονοματεπώνυμό σας',
+      email: 'Παρακαλώ εισάγετε έγκυρη διεύθυνση email',
+      phone: 'Παρακαλώ εισάγετε τον αριθμό τηλεφώνου σας',
+      pickupDate: 'Παρακαλώ επιλέξτε ημερομηνία παραλαβής',
+      returnDate: 'Παρακαλώ επιλέξτε ημερομηνία επιστροφής',
+      car: 'Παρακαλώ επιλέξτε αυτοκίνητο',
+      pickupLocation: 'Παρακαλώ επιλέξτε τοποθεσία παραλαβής',
+      returnLocation: 'Παρακαλώ επιλέξτε τοποθεσία επιστροφής'
+    },
+    he: {
+      fullName: 'אנא הזן את שמך המלא',
+      email: 'אנא הזן כתובת אימייל תקינה',
+      phone: 'אנא הזן את מספר הטלפון שלך',
+      pickupDate: 'אנא בחר תאריך איסוף',
+      returnDate: 'אנא בחר תאריך החזרה',
+      car: 'אנא בחר רכב',
+      pickupLocation: 'אנא בחר מיקום איסוף',
+      returnLocation: 'אנא בחר מיקום החזרה'
+    }
+  };
+  
+  return messages[lang] || messages.pl;
+}
+
+// Validate form fields
+function validateReservationForm(formData) {
+  const msgs = getValidationMessages();
+  const errors = [];
+  
+  // Required fields validation
+  const fullName = formData.get('full_name')?.trim();
+  if (!fullName) errors.push({ field: 'res_full_name', message: msgs.fullName });
+  
+  const email = formData.get('email')?.trim();
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (!email || !emailRegex.test(email)) errors.push({ field: 'res_email', message: msgs.email });
+  
+  const phone = formData.get('phone')?.trim();
+  if (!phone) errors.push({ field: 'res_phone', message: msgs.phone });
+  
+  const pickupDate = formData.get('pickup_date');
+  if (!pickupDate) errors.push({ field: 'res_pickup_date', message: msgs.pickupDate });
+  
+  const returnDate = formData.get('return_date');
+  if (!returnDate) errors.push({ field: 'res_return_date', message: msgs.returnDate });
+  
+  const car = formData.get('car');
+  if (!car) errors.push({ field: 'res_car', message: msgs.car });
+  
+  const pickupLocation = formData.get('pickup_location');
+  if (!pickupLocation) errors.push({ field: 'res_pickup_location', message: msgs.pickupLocation });
+  
+  const returnLocation = formData.get('return_location');
+  if (!returnLocation) errors.push({ field: 'res_return_location', message: msgs.returnLocation });
+  
+  return errors;
+}
+
+// Show validation errors on form fields
+function showValidationErrors(errors) {
+  // Clear previous errors
+  document.querySelectorAll('.field-error').forEach(el => el.remove());
+  document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+  
+  errors.forEach(err => {
+    const field = document.getElementById(err.field);
+    if (field) {
+      field.classList.add('input-error');
+      const errorSpan = document.createElement('span');
+      errorSpan.className = 'field-error';
+      errorSpan.textContent = err.message;
+      errorSpan.style.cssText = 'color: #dc2626; font-size: 12px; display: block; margin-top: 4px;';
+      field.parentNode.appendChild(errorSpan);
+    }
+  });
+  
+  // Scroll to first error
+  if (errors.length > 0) {
+    const firstField = document.getElementById(errors[0].field);
+    if (firstField) {
+      firstField.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      firstField.focus();
+    }
+  }
+}
+
 // Handle form submission
 async function handleReservationSubmit(event) {
   event.preventDefault();
@@ -177,12 +289,23 @@ async function handleReservationSubmit(event) {
   const submitBtn = form.querySelector('button[type="submit"]');
   const errorDiv = document.getElementById('reservationError');
 
+  // Collect form data
+  const formData = new FormData(form);
+  
+  // Validate form
+  const validationErrors = validateReservationForm(formData);
+  if (validationErrors.length > 0) {
+    showValidationErrors(validationErrors);
+    return;
+  }
+  
+  // Clear any previous validation errors
+  document.querySelectorAll('.field-error').forEach(el => el.remove());
+  document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
+
   try {
     if (submitBtn) submitBtn.disabled = true;
     if (errorDiv) errorDiv.hidden = true;
-
-    // Collect form data
-    const formData = new FormData(form);
     
     // Build data object with only essential fields
     const data = {

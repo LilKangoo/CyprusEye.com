@@ -9374,3 +9374,23 @@ body.auth-page[data-navigation="multi-page"] main {
   font-weight: 500;
 }
 
+/* Form validation error styles */
+.input-error {
+  border-color: #dc2626 !important;
+  background-color: #fef2f2 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.15) !important;
+}
+
+.input-error:focus {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.25) !important;
+}
+
+.field-error {
+  color: #dc2626;
+  font-size: 12px;
+  display: block;
+  margin-top: 4px;
+  font-weight: 500;
+}
+
