@@ -620,26 +620,146 @@ function showToast(message, type = 'info') {
   }
 }
 
+function resolvePoiName(poi) {
+  if (!poi) return '';
+  if (typeof window !== 'undefined' && typeof window.getPoiName === 'function') {
+    const name = window.getPoiName(poi);
+    if (name) return name;
+  }
+  if (poi.name) return poi.name;
+  if (poi.id) return poi.id;
+  return '';
+}
+
+function resolvePoiBadge(poi) {
+  if (!poi) return '';
+  if (typeof window !== 'undefined' && typeof window.getPoiBadge === 'function') {
+    const badge = window.getPoiBadge(poi);
+    if (badge) return badge;
+  }
+  if (poi.badge) return poi.badge;
+  if (poi.name) return poi.name;
+  if (poi.id) return poi.id;
+  return '';
+}
+
+function renderPlaceBadgeCard(badge) {
+  const location = [badge.city, badge.region].filter(Boolean).join(' · ');
+  const hasTasks = badge.tasksTotal > 0;
+  const tasksRatio = hasTasks && badge.tasksTotal > 0
+    ? Math.min(100, Math.max(0, Math.round((badge.tasksCompleted / badge.tasksTotal) * 100)))
+    : 0;
+  return `
+    <div class="badge-card">
+      <div class="badge-header-row">
+        <div class="badge-icon">🏅</div>
+        <div class="badge-texts">
+          <p class="badge-name">${badge.badgeTitle}</p>
+          <p class="badge-place">${badge.placeName}${location ? ` · ${location}` : ''}</p>
+        </div>
+      </div>
+      <div class="badge-meta">
+        <p class="badge-xp">${badge.xp ? `✨ ${badge.xp} XP` : ''}</p>
+        ${hasTasks ? `
+          <div class="badge-tasks">
+            <span class="badge-tasks-label">Zadania w tym miejscu: ${badge.tasksCompleted} / ${badge.tasksTotal}</span>
+            <div class="badge-tasks-bar">
+              <div class="badge-tasks-fill" style="width: ${tasksRatio}%;"></div>
+            </div>
+          </div>
+        ` : ''}
+      </div>
+    </div>
+  `;
+}
+
 async function loadAchievements() {
   const container = document.getElementById('badgesGrid');
   if (!container) return;
-  // Mockup badges
-  const visitedCount = (currentProfile.visited_places || []).length;
-  const badges = [];
-  if (visitedCount >= 1) badges.push({ name: 'First Step', icon: '🦶' });
-  if (visitedCount >= 5) badges.push({ name: 'Explorer', icon: '🧭' });
-  
-  if (badges.length === 0) {
-    container.innerHTML = '<p class="empty-state">No badges yet. Visit places to earn them!</p>';
-    return;
+  try {
+    if (!currentProfile || !Array.isArray(currentProfile.visited_places)) {
+      container.innerHTML = '<p class="empty-state">No badges yet. Visit places to earn them!</p>';
+      return;
+    }
+
+    const visitedIds = Array.from(new Set(currentProfile.visited_places.filter(Boolean)));
+
+    if (visitedIds.length === 0) {
+      container.innerHTML = '<p class="empty-state">No badges yet. Visit places to earn them!</p>';
+      return;
+    }
+
+    container.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading badges...</p></div>';
+
+    const { data: pois, error } = await supabase
+      .from('pois')
+      .select('id, name, name_i18n, badge, badge_i18n, city, region, xp')
+      .in('id', visitedIds);
+
+    if (error) {
+      console.error('Error loading POI badges:', error);
+      container.innerHTML = '<p class="error-state">Failed to load badges.</p>';
+      return;
+    }
+
+    const badges = [];
+
+    const PoiTaskMap = {};
+
+    let completedSet = new Set();
+    try {
+      if (currentUser) {
+        const { data: completed, error: completedError } = await supabase
+          .from('completed_tasks')
+          .select('task_id')
+          .eq('user_id', currentUser.id);
+        if (!completedError && Array.isArray(completed)) {
+          completedSet = new Set(completed.map(row => row.task_id));
+        }
+      }
+    } catch (tasksError) {
+      console.warn('Error loading completed tasks summary for badges:', tasksError);
+    }
+
+    (pois || []).forEach(poi => {
+      const badgeTitle = resolvePoiBadge(poi);
+      const placeName = resolvePoiName(poi);
+      if (!badgeTitle && !placeName) {
+        return;
+      }
+
+      const taskIds = PoiTaskMap[poi.id] || [];
+      const tasksTotal = taskIds.length;
+      let tasksCompleted = 0;
+      if (tasksTotal > 0 && completedSet.size > 0) {
+        tasksCompleted = taskIds.reduce(
+          (sum, id) => sum + (completedSet.has(id) ? 1 : 0),
+          0
+        );
+      }
+
+      badges.push({
+        poiId: poi.id,
+        badgeTitle,
+        placeName,
+        city: poi.city || '',
+        region: poi.region || '',
+        xp: poi.xp || 0,
+        tasksTotal,
+        tasksCompleted
+      });
+    });
+
+    if (badges.length === 0) {
+      container.innerHTML = '<p class="empty-state">No badges yet. Visit places to earn them!</p>';
+      return;
+    }
+
+    container.innerHTML = badges.map(renderPlaceBadgeCard).join('');
+  } catch (error) {
+    console.error('Unexpected error while loading achievements:', error);
+    container.innerHTML = '<p class="error-state">Failed to load badges.</p>';
   }
-  
-  container.innerHTML = badges.map(b => `
-    <div class="badge-card">
-      <div class="badge-icon">${b.icon}</div>
-      <p class="badge-name">${b.name}</p>
-    </div>
-  `).join('');
 }
 
 // Setup tabs helper
