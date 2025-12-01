@@ -282,9 +282,9 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0,0,0,0.8); /* Darker background for better contrast */
+      background: rgba(0,0,0,0.85); /* Dark background for focus */
       display: none;
-      z-index: 9999;
+      z-index: 99999; /* Above everything including header */
       padding: 20px;
       overflow-y: auto; /* Scrollable container */
       -webkit-overflow-scrolling: touch;
@@ -353,7 +353,7 @@
       align-items: center;
       justify-content: center;
       box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-      z-index: 10001;
+      z-index: 100000; /* Above modal */
       transition: all 0.2s;
     }
     .trip-modal-nav:hover {
@@ -589,7 +589,7 @@
     
     main { 
       position: relative;
-      z-index: 1;
+      /* Removed z-index to allow modal inside to overlay header */
     }
   </style>
 
