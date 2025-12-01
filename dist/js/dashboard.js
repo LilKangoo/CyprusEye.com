@@ -95,43 +95,52 @@ function updateSidebarProfile() {
 }
 
 function calculateEstimatedPrice(booking) {
-  if (booking.type !== 'car' || !booking.pickup_date || !booking.return_date) return 0;
-  
-  // Try match by model name (case insensitive)
-  const offer = carPricingData.find(c => c.car_model && booking.car_model && c.car_model.toLowerCase() === booking.car_model.toLowerCase());
-  
-  if (!offer) return 0;
+  try {
+    if (booking.type !== 'car' || !booking.pickup_date || !booking.return_date) return 0;
+    
+    // Try match by model name (case insensitive) - with type safety
+    const offer = carPricingData.find(c => 
+      typeof c.car_model === 'string' && 
+      typeof booking.car_model === 'string' && 
+      c.car_model.toLowerCase() === booking.car_model.toLowerCase()
+    );
+    
+    if (!offer) return 0;
 
-  const start = new Date(booking.pickup_date);
-  const end = new Date(booking.return_date);
-  const diffTime = Math.abs(end - start);
-  const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-  
-  if (days <= 0) return 0;
+    const start = new Date(booking.pickup_date);
+    const end = new Date(booking.return_date);
+    const diffTime = Math.abs(end - start);
+    const days = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    if (days <= 0) return 0;
 
-  let basePrice = 0;
-  const location = (booking.location || offer.location || 'paphos').toLowerCase();
+    let basePrice = 0;
+    const location = String(booking.location || offer.location || 'paphos').toLowerCase();
 
-  if (location === 'larnaca') {
-    const rate = offer.price_per_day || offer.price_4_6days || 35;
-    basePrice = rate * days;
-  } else {
-    if (days <= 3) {
-       basePrice = offer.price_3days || 130; 
-    } else if (days <= 6) {
-      basePrice = days * (offer.price_4_6days || 34);
-    } else if (days <= 10) {
-      basePrice = days * (offer.price_7_10days || 32);
+    if (location === 'larnaca') {
+      const rate = offer.price_per_day || offer.price_4_6days || 35;
+      basePrice = rate * days;
     } else {
-      basePrice = days * (offer.price_10plus_days || 30);
+      if (days <= 3) {
+         basePrice = offer.price_3days || 130; 
+      } else if (days <= 6) {
+        basePrice = days * (offer.price_4_6days || 34);
+      } else if (days <= 10) {
+        basePrice = days * (offer.price_7_10days || 32);
+      } else {
+        basePrice = days * (offer.price_10plus_days || 30);
+      }
     }
-  }
 
-  if (booking.full_insurance) {
-    basePrice += (days * INSURANCE_RATE);
-  }
+    if (booking.full_insurance) {
+      basePrice += (days * INSURANCE_RATE);
+    }
 
-  return basePrice;
+    return basePrice;
+  } catch (err) {
+    console.warn('calculateEstimatedPrice error:', err);
+    return 0;
+  }
 }
 
 // --- Navigation ---
