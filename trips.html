@@ -282,26 +282,26 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background: rgba(0,0,0,0.6);
+      background: rgba(0,0,0,0.8); /* Darker background for better contrast */
       display: none;
-      align-items: center;
-      justify-content: center;
       z-index: 9999;
       padding: 20px;
-      overflow-y: auto;
+      overflow-y: auto; /* Scrollable container */
+      -webkit-overflow-scrolling: touch;
     }
     .trip-modal.active {
-      display: flex;
+      display: flex; /* Flexbox for centering */
     }
     .trip-modal-content {
       background: white;
       border-radius: 24px;
       max-width: 900px;
       width: 100%;
-      max-height: 90vh;
-      overflow-y: auto;
+      /* Remove max-height to allow full content display */
+      /* Remove overflow-y: auto from here */
       position: relative;
       box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+      margin: auto; /* Center vertically and horizontally, allow scroll if taller */
     }
     .trip-modal-image {
       width: 100%;
@@ -370,9 +370,8 @@
     /* Body lock when modal is open */
     body.modal-open {
       overflow: hidden !important;
-      position: fixed;
-      width: 100%;
-      height: 100%;
+      /* Prevent layout shift if scrollbar disappears */
+      padding-right: 15px; /* Assuming ~15px scrollbar width, fine for most */
     }
     .trip-modal-title {
       font-size: 2rem;
@@ -1364,18 +1363,13 @@
       addAllEvents(newDaysInput);
       
       // Show modal with body lock
-      const scrollY = window.scrollY;
       document.body.classList.add('modal-open');
-      document.body.style.top = `-${scrollY}px`;
       document.getElementById('tripModal').classList.add('active');
     };
 
     window.closeTripModal = function() {
       document.getElementById('tripModal').classList.remove('active');
-      const scrollY = document.body.style.top;
       document.body.classList.remove('modal-open');
-      document.body.style.top = '';
-      window.scrollTo(0, parseInt(scrollY || '0') * -1);
       currentTripIndex = null;
     };
 
