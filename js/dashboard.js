@@ -644,7 +644,6 @@ function resolvePoiBadge(poi) {
 }
 
 function renderPlaceBadgeCard(badge) {
-  const location = [badge.city, badge.region].filter(Boolean).join(' · ');
   const hasTasks = badge.tasksTotal > 0;
   const tasksRatio = hasTasks && badge.tasksTotal > 0
     ? Math.min(100, Math.max(0, Math.round((badge.tasksCompleted / badge.tasksTotal) * 100)))
@@ -655,7 +654,7 @@ function renderPlaceBadgeCard(badge) {
         <div class="badge-icon">🏅</div>
         <div class="badge-texts">
           <p class="badge-name">${badge.badgeTitle}</p>
-          <p class="badge-place">${badge.placeName}${location ? ` · ${location}` : ''}</p>
+          <p class="badge-place">${badge.placeName}</p>
         </div>
       </div>
       <div class="badge-meta">
@@ -693,7 +692,7 @@ async function loadAchievements() {
 
     const { data: pois, error } = await supabase
       .from('pois')
-      .select('id, name, name_i18n, badge, badge_i18n, city, region, xp')
+      .select('id, name, name_i18n, badge, badge_i18n, xp')
       .in('id', visitedIds);
 
     if (error) {
@@ -742,8 +741,6 @@ async function loadAchievements() {
         poiId: poi.id,
         badgeTitle,
         placeName,
-        city: poi.city || '',
-        region: poi.region || '',
         xp: poi.xp || 0,
         tasksTotal,
         tasksCompleted
