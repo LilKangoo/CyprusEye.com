@@ -139,17 +139,17 @@
         <div class="nav-modern__top-actions">
           <div class="nav-modern__auth">
             <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
-              <a
-                href="/auth/"
-                class="nav-modern__login btn btn-sm"
-                data-auth="login"
+              <button
+                class="nav-modern__login"
+                data-open-auth
+                data-auth="anon-only"
                 data-tour-target="login-button"
                 data-i18n="header.login"
                 data-i18n-attrs="aria-label:auth.login.aria"
                 aria-label="Zaloguj do konta"
               >
                 Zaloguj
-              </a>
+              </button>
 <button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
             </div>
             <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
@@ -757,5 +757,73 @@
   <!-- Header Stats - aktualizacja statystyk na wszystkich stronach -->
     <script src="js/sos.js?v=1" defer></script>
     <script type="module" src="assets/js/auth-ui.js"></script>
+    <script src="assets/js/modal-auth.js" defer></script>
+
+  <!-- Auth Modal -->
+  <div id="auth-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="auth-title" aria-hidden="true">
+    <div class="modal__dialog" tabindex="-1" role="document">
+      <button class="modal__close" type="button" aria-label="Zamknij" data-close data-i18n-attrs="aria-label:auth.close.label">×</button>
+      <h2 id="auth-title" data-i18n="auth.title">Dołącz do przygody</h2>
+      <p class="auth-intro" data-i18n="auth.intro">Zaloguj się, utwórz konto lub graj jako gość.</p>
+      <div class="auth-modal__content" data-auth-view-root>
+        <div data-auth="login">
+          <div role="presentation">
+            <div class="auth-modal__tabs" role="tablist">
+              <button type="button" class="auth-modal__tab is-active" role="tab" id="authTabLogin" aria-selected="true" aria-controls="authPanelLogin" data-auth-tab="login" data-i18n="auth.tab.login">Logowanie</button>
+              <button type="button" class="auth-modal__tab" role="tab" id="authTabRegister" aria-selected="false" aria-controls="authPanelRegister" data-auth-tab="register" data-i18n="auth.tab.register" tabindex="-1">Rejestracja</button>
+            </div>
+            <div class="auth-modal__panels">
+              <section id="authPanelLogin" class="auth-modal__panel is-active" role="tabpanel" aria-labelledby="authTabLogin" data-auth="login" data-auth-panel="login">
+                <form id="form-login" class="auth-form" novalidate data-ce-auth-handler="supabase">
+                  <label for="loginEmail" data-i18n="auth.login.username">Email lub nazwa użytkownika</label>
+                  <input id="loginEmail" name="email" type="text" autocomplete="username" required aria-label="Email lub nazwa użytkownika" data-i18n-attrs="aria-label:auth.login.username,placeholder:auth.login.username" placeholder="Email lub nazwa użytkownika" />
+                  <label for="loginPassword" data-i18n="auth.password">Hasło</label>
+                  <input id="loginPassword" name="password" type="password" autocomplete="current-password" required aria-label="Hasło" data-i18n-attrs="aria-label:auth.password" />
+                  <div class="auth-form__actions">
+                    <button type="submit" class="btn btn--primary" data-i18n="auth.login.button" aria-label="Zaloguj się">Zaloguj się</button>
+                    <button type="button" class="auth-form__link" id="loginForgotPassword" data-i18n="auth.reset.button" aria-label="🔑 Resetuj hasło">🔑 Resetuj hasło</button>
+                  </div>
+                  <div data-auth="message" aria-live="polite"></div>
+                </form>
+              </section>
+              <section id="authPanelRegister" class="auth-modal__panel" role="tabpanel" aria-labelledby="authTabRegister" data-auth="login" data-auth-panel="register" hidden>
+                <form id="form-register" class="auth-form" novalidate data-auth="register" data-ce-auth-handler="supabase">
+                  <label for="registerFirstName" data-i18n="auth.firstName">Imię</label>
+                  <input id="registerFirstName" name="firstName" type="text" autocomplete="given-name" maxlength="60" required aria-label="Imię" />
+                  <label for="registerUsername" data-i18n="auth.username">Nazwa użytkownika</label>
+                  <input id="registerUsername" name="username" type="text" autocomplete="username" minlength="3" maxlength="20" pattern="[a-zA-Z0-9_]+" required aria-label="Nazwa użytkownika" placeholder="3-20 znaków, litery i cyfry" />
+                  <label for="registerEmail" data-i18n="auth.email">Adres e-mail</label>
+                  <input id="registerEmail" name="email" type="email" autocomplete="email" required aria-label="Adres e-mail" />
+                  <label for="registerPassword" data-i18n="auth.password">Hasło</label>
+                  <input id="registerPassword" name="password" type="password" autocomplete="new-password" minlength="8" required aria-label="Hasło" />
+                  <label for="registerPasswordConfirm" data-i18n="auth.confirmPassword">Powtórz hasło</label>
+                  <input id="registerPasswordConfirm" name="passwordConfirm" type="password" autocomplete="new-password" minlength="8" aria-label="Powtórz hasło" />
+                  <div data-auth="message" aria-live="polite"></div>
+                  <p class="form-hint" data-i18n="auth.register.hint">Po rejestracji sprawdź skrzynkę e-mail, aby potwierdzić konto.</p>
+                  <button type="submit" class="btn btn--primary" data-i18n="auth.register.button" aria-label="Utwórz konto">Utwórz konto</button>
+                </form>
+              </section>
+            </div>
+            <dialog id="resetPasswordDialog" class="auth-reset-dialog">
+              <form id="form-reset-password" class="auth-form" novalidate>
+                <header class="auth-reset-dialog__header">
+                  <h2 data-i18n="auth.reset.title">Resetuj hasło</h2>
+                  <button type="button" class="auth-form__link" id="btn-reset-close" aria-label="Zamknij">✖</button>
+                </header>
+                <p data-i18n="auth.reset.description">Podaj adres e-mail powiązany z kontem, a wyślemy link do zmiany hasła.</p>
+                <label for="resetEmail" data-i18n="auth.reset.emailLabel">Adres e-mail</label>
+                <input id="resetEmail" name="email" type="email" autocomplete="email" required />
+                <div class="auth-form__actions">
+                  <button type="submit" class="btn btn--primary">Wyślij link resetujący</button>
+                  <button type="button" class="auth-form__link" id="btn-reset-cancel">Anuluj</button>
+                </div>
+              </form>
+            </dialog>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   </body>
 </html>
