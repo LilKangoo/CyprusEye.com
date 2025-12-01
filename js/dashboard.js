@@ -98,12 +98,30 @@ function calculateEstimatedPrice(booking) {
   try {
     if (booking.type !== 'car' || !booking.pickup_date || !booking.return_date) return 0;
     
-    // Try match by model name (case insensitive) - with type safety
-    const offer = carPricingData.find(c => 
-      typeof c.car_model === 'string' && 
-      typeof booking.car_model === 'string' && 
-      c.car_model.toLowerCase() === booking.car_model.toLowerCase()
+    const bookingLocation = String(booking.location || 'paphos').toLowerCase();
+    const bookingCarModel = booking.car_model || '';
+    
+    // Filter by location first, then find matching car
+    const locationOffers = carPricingData.filter(c => 
+      String(c.location || '').toLowerCase() === bookingLocation
     );
+    
+    // Find car by matching car_model (supports both string and JSONB i18n format)
+    const offer = locationOffers.find(car => {
+      if (!car.car_model) return false;
+      
+      if (typeof car.car_model === 'string') {
+        // Legacy: direct string comparison
+        return car.car_model === bookingCarModel;
+      } else if (typeof car.car_model === 'object') {
+        // i18n JSONB: check all language variants
+        return car.car_model.pl === bookingCarModel ||
+               car.car_model.en === bookingCarModel ||
+               car.car_model.el === bookingCarModel ||
+               car.car_model.he === bookingCarModel;
+      }
+      return false;
+    });
     
     if (!offer) return 0;
 
@@ -115,14 +133,15 @@ function calculateEstimatedPrice(booking) {
     if (days <= 0) return 0;
 
     let basePrice = 0;
-    const location = String(booking.location || offer.location || 'paphos').toLowerCase();
 
-    if (location === 'larnaca') {
-      const rate = offer.price_per_day || offer.price_4_6days || 35;
-      basePrice = rate * days;
+    if (bookingLocation === 'larnaca') {
+      // Larnaca: simple per-day pricing
+      const dailyRate = offer.price_per_day || offer.price_10plus_days || 35;
+      basePrice = dailyRate * days;
     } else {
+      // Paphos: tiered pricing
       if (days <= 3) {
-         basePrice = offer.price_3days || 130; 
+        basePrice = offer.price_3days || 130;
       } else if (days <= 6) {
         basePrice = days * (offer.price_4_6days || 34);
       } else if (days <= 10) {
@@ -132,8 +151,15 @@ function calculateEstimatedPrice(booking) {
       }
     }
 
+    // Add insurance cost (€17/day)
     if (booking.full_insurance) {
       basePrice += (days * INSURANCE_RATE);
+    }
+    
+    // Add passenger surcharge (€5 per extra passenger above 2)
+    const numPassengers = booking.people || booking.num_passengers || 1;
+    if (numPassengers > 2) {
+      basePrice += (numPassengers - 2) * 5;
     }
 
     return basePrice;
