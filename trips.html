@@ -335,6 +335,45 @@
       background: #f3f4f6;
       transform: scale(1.1);
     }
+    /* Navigation arrows */
+    .trip-modal-nav {
+      position: fixed;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      border: none;
+      background: rgba(255,255,255,0.95);
+      cursor: pointer;
+      font-size: 2rem;
+      font-weight: 300;
+      color: #374151;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+      z-index: 10001;
+      transition: all 0.2s;
+    }
+    .trip-modal-nav:hover {
+      background: white;
+      transform: translateY(-50%) scale(1.1);
+      box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+    }
+    .trip-modal-prev {
+      left: 20px;
+    }
+    .trip-modal-next {
+      right: 20px;
+    }
+    /* Body lock when modal is open */
+    body.modal-open {
+      overflow: hidden !important;
+      position: fixed;
+      width: 100%;
+      height: 100%;
+    }
     .trip-modal-title {
       font-size: 2rem;
       font-weight: 700;
@@ -522,6 +561,25 @@
       .trip-modal-title {
         font-size: 1.5rem;
       }
+      /* Mobile navigation arrows - bottom positioned */
+      .trip-modal-nav {
+        position: fixed;
+        top: auto;
+        bottom: 20px;
+        transform: none;
+        width: 44px;
+        height: 44px;
+        font-size: 1.5rem;
+      }
+      .trip-modal-nav:hover {
+        transform: scale(1.05);
+      }
+      .trip-modal-prev {
+        left: 20px;
+      }
+      .trip-modal-next {
+        right: 20px;
+      }
     }
 
     /* Header and layout fixes */
@@ -699,34 +757,25 @@
       <div class="trip-modal-content">
         <button
           id="lbClose"
-          class="lightbox-close"
+          class="trip-modal-close"
           type="button"
           aria-label="Zamknij"
-          data-i18n="lightbox.close"
           data-i18n-attrs="aria-label:lightbox.close"
-        >
-          ✕
-        </button>
+        >✕</button>
         <button
           id="lbPrev"
-          class="lightbox-arrow lightbox-prev"
+          class="trip-modal-nav trip-modal-prev"
           type="button"
           aria-label="Poprzednie"
-          data-i18n="lightbox.prev"
           data-i18n-attrs="aria-label:lightbox.prev"
-        >
-          ‹
-        </button>
+        >‹</button>
         <button
           id="lbNext"
-          class="lightbox-arrow lightbox-next"
+          class="trip-modal-nav trip-modal-next"
           type="button"
           aria-label="Następne"
-          data-i18n="lightbox.next"
           data-i18n-attrs="aria-label:lightbox.next"
-        >
-          ›
-        </button>
+        >›</button>
         <img class="trip-modal-image" id="modalTripImage" src="" alt="Trip" />
         <div class="trip-modal-header">
           <h2 class="trip-modal-title" id="modalTripTitle">Trip Title</h2>
@@ -1314,14 +1363,19 @@
       addAllEvents(newHoursInput);
       addAllEvents(newDaysInput);
       
-      // Show modal
+      // Show modal with body lock
+      const scrollY = window.scrollY;
+      document.body.classList.add('modal-open');
+      document.body.style.top = `-${scrollY}px`;
       document.getElementById('tripModal').classList.add('active');
-      document.body.style.overflow = 'hidden';
     };
 
     window.closeTripModal = function() {
       document.getElementById('tripModal').classList.remove('active');
-      document.body.style.overflow = '';
+      const scrollY = document.body.style.top;
+      document.body.classList.remove('modal-open');
+      document.body.style.top = '';
+      window.scrollTo(0, parseInt(scrollY || '0') * -1);
       currentTripIndex = null;
     };
 
