@@ -156,6 +156,11 @@ function calculateEstimatedPrice(booking) {
       basePrice += (days * INSURANCE_RATE);
     }
     
+    // Add young driver surcharge (€10/day)
+    if (booking.young_driver) {
+      basePrice += (days * 10);
+    }
+    
     // Add passenger surcharge (€5 per extra passenger above 2)
     const numPassengers = booking.people || booking.num_passengers || 1;
     if (numPassengers > 2) {
@@ -406,7 +411,8 @@ async function fetchAllBookings(limit = 100) {
       return_date: c.return_date,
       car_model: c.car_model,
       location: c.location,
-      full_insurance: c.full_insurance
+      full_insurance: c.full_insurance,
+      young_driver: c.young_driver
     };
     
     if (!carObj.price || carObj.price == 0) {
@@ -492,6 +498,7 @@ function getBookingLabels() {
       duration: 'Czas trwania',
       days: 'dni',
       insurance: 'Pełne ubezpieczenie',
+      youngDriver: 'Młody kierowca',
       yes: 'Tak',
       no: 'Nie'
     },
@@ -511,6 +518,7 @@ function getBookingLabels() {
       duration: 'Duration',
       days: 'days',
       insurance: 'Full Insurance',
+      youngDriver: 'Young Driver',
       yes: 'Yes',
       no: 'No'
     },
@@ -530,6 +538,7 @@ function getBookingLabels() {
       duration: 'Διάρκεια',
       days: 'ημέρες',
       insurance: 'Πλήρης ασφάλιση',
+      youngDriver: 'Νέος οδηγός',
       yes: 'Ναι',
       no: 'Όχι'
     },
@@ -549,6 +558,7 @@ function getBookingLabels() {
       duration: 'משך',
       days: 'ימים',
       insurance: 'ביטוח מלא',
+      youngDriver: 'נהג צעיר',
       yes: 'כן',
       no: 'לא'
     }
@@ -661,6 +671,12 @@ window.openBookingDetails = function(id, type) {
       <div class="detail-row">
         <span class="detail-label">${labels.insurance}</span>
         <span class="detail-value">${booking.full_insurance ? '✅ ' + labels.yes + ' (+17€/' + labels.days.slice(0, -1) + ')' : '❌ ' + labels.no}</span>
+      </div>
+      ` : ''}
+      ${booking.young_driver !== undefined ? `
+      <div class="detail-row">
+        <span class="detail-label">${labels.youngDriver}</span>
+        <span class="detail-value">${booking.young_driver ? '✅ ' + labels.yes + ' (+10€/' + labels.days.slice(0, -1) + ')' : '❌ ' + labels.no}</span>
       </div>
       ` : ''}
     `;

@@ -7,6 +7,53 @@ let homeHotelsDisplay = [];
 let homeCurrentHotel = null;
 let homeHotelIndex = null;
 
+// Prefill hotel booking form from logged-in user session
+async function prefillHotelFormFromSession(form) {
+  if (!form) return;
+  
+  try {
+    // Wait for auth to be ready
+    if (typeof window.waitForAuthReady === 'function') {
+      await window.waitForAuthReady();
+    }
+    
+    const session = window.CE_STATE?.session;
+    const profile = window.CE_STATE?.profile;
+    
+    // Prefill email from session
+    if (session?.user?.email) {
+      const emailField = form.querySelector('[name="email"]');
+      if (emailField && !emailField.value) {
+        emailField.value = session.user.email;
+        emailField.style.backgroundColor = '#f0fdf4';
+        setTimeout(() => { emailField.style.backgroundColor = ''; }, 2000);
+      }
+    }
+    
+    // Prefill name from profile
+    if (profile?.full_name || profile?.username || profile?.name) {
+      const nameField = form.querySelector('[name="name"]');
+      if (nameField && !nameField.value) {
+        nameField.value = profile.full_name || profile.name || profile.username || '';
+        nameField.style.backgroundColor = '#f0fdf4';
+        setTimeout(() => { nameField.style.backgroundColor = ''; }, 2000);
+      }
+    }
+    
+    // Prefill phone from profile
+    if (profile?.phone) {
+      const phoneField = form.querySelector('[name="phone"]');
+      if (phoneField && !phoneField.value) {
+        phoneField.value = profile.phone;
+        phoneField.style.backgroundColor = '#f0fdf4';
+        setTimeout(() => { phoneField.style.backgroundColor = ''; }, 2000);
+      }
+    }
+  } catch (err) {
+    console.warn('Could not prefill hotel form:', err);
+  }
+}
+
 async function loadHomeHotels(){
   try{
     // Wait for languageSwitcher to load (with timeout)
@@ -373,6 +420,9 @@ window.openHotelModalHome = function(index){
 
   const form = document.getElementById('hotelBookingForm');
   if (form){ form.reset(); const msg=document.getElementById('hotelBookingMessage'); if(msg) msg.style.display='none'; }
+  
+  // Prefill user data from session (if logged in)
+  prefillHotelFormFromSession(form);
   
   // Set date min constraints to today
   const today = new Date().toISOString().split('T')[0];

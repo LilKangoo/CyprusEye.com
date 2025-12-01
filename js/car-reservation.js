@@ -101,6 +101,7 @@ function populateFromCalculator() {
   const calcPickupLocLca = document.getElementById('pickupLocation')?.value;
   const calcReturnLocLca = document.getElementById('returnLocation')?.value;
   const calcInsuranceLca = document.getElementById('fullInsurance')?.checked;
+  const calcYoungDriverLca = document.getElementById('youngDriver')?.checked;
 
   // Prefer Larnaca values when available, otherwise use Paphos
   const calcCar = calcCarLca || calcCarPfo;
@@ -134,6 +135,12 @@ function populateFromCalculator() {
   const insuranceChecked = !!(calcInsuranceLca || calcInsurancePfo);
   if (insuranceChecked) {
     document.getElementById('res_insurance').checked = true;
+  }
+  
+  // Young driver
+  if (calcYoungDriverLca) {
+    const youngDriverField = document.getElementById('res_young_driver');
+    if (youngDriverField) youngDriverField.checked = true;
   }
 
   // Calculate and show estimated price
@@ -217,6 +224,9 @@ async function handleReservationSubmit(event) {
     
     const insurance = formData.get('insurance');
     if (insurance === 'on') data.full_insurance = true;
+    
+    const youngDriver = formData.get('young_driver');
+    if (youngDriver === 'on') data.young_driver = true;
     
     const flightNum = formData.get('flight_number');
     if (flightNum) data.flight_number = flightNum;
