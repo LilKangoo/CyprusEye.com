@@ -624,8 +624,8 @@
   "coupon.conditions.rules.usage": "Each coupon is valid once per partner – you can redeem discounts with multiple providers, but only once at a given location.",
   "coupon.conditions.rules.verify": "Partners may verify coupon validity – once used, the discount is marked as redeemed.",
   "coupon.conditions.title": "🏝️ Coupon usage terms",
-  "coupon.cta": "Buy coupon",
-  "coupon.cta_aria": "Buy coupon — proceed to secure Stripe checkout",
+  "coupon.cta": "Αγόρασε κουπόνι",
+  "coupon.cta_aria": "Αγόρασε κουπόνι — μετάβαση σε ασφαλή πληρωμή μέσω Stripe",
   "coupon.header.aria": "Coupon navigation",
   "coupon.hero.aria": "Key coupon information",
   "coupon.hero.ctaAria": "Coupon purchase section",
@@ -655,7 +655,7 @@
   "coupon.nav.home": "🏠 Home",
   "coupon.nav.mediaTrips": "🎧 Media trips",
   "coupon.nav.services": "🛎️ Services",
-  "coupon.nav_tile": "💸 Coupon",
+  "coupon.nav_tile": "💸 Κουπόνι",
   "coupon.offers.items.davinci.benefit": "–10% above €50",
   "coupon.offers.items.davinci.category": "Da Vinci's Garden restaurant",
   "coupon.offers.items.davinci.title": "Cypriot cuisine",
@@ -699,8 +699,8 @@
   "coupon.search.summary": {
     "html": "Results for “<span data-coupon-query></span>” — <strong><span data-coupon-results></span></strong> partners."
   },
-  "coupon.smallprint": "You'll receive the coupon within a few minutes at the email used during payment.",
-  "coupon.subtitle": "The simplest way to use our offer — no hassle.",
+  "coupon.smallprint": "Θα λάβεις το κουπόνι μέσα σε λίγα λεπτά στο email που χρησιμοποίησες για την πληρωμή.",
+  "coupon.subtitle": "Ο πιο απλός τρόπος να χρησιμοποιήσεις την προσφορά μας — χωρίς γραφειοκρατία.",
   "coupon.summary.instant": "Instant coupon activation",
   "coupon.summary.price_current": "€7.99",
   "coupon.summary.price_label": "Coupon price",
@@ -1041,6 +1041,10 @@
   "objective.next": "Επόμενο σημείο →",
   "objective.previous": "← Προηγούμενο σημείο",
   "objective.title": "Τρέχουσα τοποθεσία",
+  "currentPlace.loading": "Φόρτωση…",
+  "currentPlace.checkIn": "Check‑in",
+  "currentPlace.comments": "Σχόλια",
+  "currentPlace.map": "Χάρτης",
   "packing.guide.optional": "optional",
   "packing.guide.seasonal.title": "Seasonal additions",
   "packing.guide.seasons.autumn.camera.hint": "Vineyards and the Troodos mountains glow golden.",
@@ -1467,44 +1471,44 @@
   "sos.close": {
     "text": "X",
     "attributes": {
-      "aria-label": "Close SOS"
+      "aria-label": "Κλείσιμο πίνακα SOS"
     }
   },
-  "sos.description": "Quick access to emergency numbers, embassy contacts, and medical guidance.",
+  "sos.description": "Γρήγορη πρόσβαση σε αριθμούς έκτακτης ανάγκης, στοιχεία πρεσβείας και ιατρικές οδηγίες.",
   "sos.embassy.address": {
-    "html": "14, Ifigenias Street, 2007 Nicosia • <a href=\"https://maps.google.com/?q=Embassy+of+Poland+in+Cyprus\" target=\"_blank\" rel=\"noopener\">Get directions</a>"
+    "html": "Λεωφ. Βύρωνος 8–10, 1096 Λευκωσία (Τ.Θ. 21799, 1513 Λευκωσία) • <a href=\"https://maps.google.com/?q=Embassy+of+Greece+in+Cyprus\" target=\"_blank\" rel=\"noopener\">Οδηγίες πρόσβασης</a>"
   },
   "sos.embassy.email": {
-    "html": "<a href=\"mailto:nicosia.info@msz.gov.pl\">nicosia.info@msz.gov.pl</a>"
+    "html": "<a href=\"mailto:grcon.nic@mfa.gr\">grcon.nic@mfa.gr</a>"
   },
   "sos.embassy.hotline": {
-    "html": "<a href=\"tel:+35799660451\">+357 99 660 451</a> (emergency support for Polish citizens)."
+    "html": "<a href=\"tel:+35797700529\">+357 97 700 529</a> (γραμμή έκτακτης ανάγκης για Έλληνες πολίτες)."
   },
   "sos.embassy.reception": {
-    "html": "<a href=\"tel:+35722751777\">+357 22 751 777</a> (Mon–Fri during office hours)."
+    "html": "<a href=\"tel:+35722445111\">+357 22 445 111</a> (Δευτέρα–Παρασκευή, ώρες γραφείου)."
   },
-  "sos.embassy.title": "🛡️ Embassy of Poland in Nicosia",
+  "sos.embassy.title": "🛡️ Πρεσβεία της Ελλάδας στη Λευκωσία",
   "sos.emergency.cyprus": {
-    "html": "Cypriot emergency number – works alongside 112. <a href=\"tel:199\">Call</a>"
+    "html": "Κυπριακός αριθμός έκτακτης ανάγκης – λειτουργεί παράλληλα με το 112. <a href=\"tel:199\">Κλήση</a>"
   },
   "sos.emergency.eu": {
-    "html": "EU emergency number (police, ambulance, fire). <a href=\"tel:112\">Call now</a>"
+    "html": "Ενιαίος αριθμός έκτακτης ανάγκης της ΕΕ (αστυνομία, ασθενοφόρο, πυροσβεστική). <a href=\"tel:112\">Κάλεσε τώρα</a>"
   },
   "sos.emergency.police": {
-    "html": "24/7 police line (dial the full code when abroad). <a href=\"tel:+35722802020\">Call</a>"
+    "html": "24ωρη γραμμή αστυνομίας (από το εξωτερικό κάλεσε με τον πλήρη κωδικό χώρας). <a href=\"tel:+35722802020\">Κλήση</a>"
   },
-  "sos.emergency.title": "🚑 Emergency numbers in Cyprus",
+  "sos.emergency.title": "🚑 Αριθμοί έκτακτης ανάγκης στην Κύπρο",
   "sos.healthcare.hospital": {
-    "html": "24/7 emergency department, Anavargos, Paphos. <a href=\"tel:+35726803000\">+357 26 803 000</a> • <a href=\"https://maps.google.com/?q=Paphos+General+Hospital\" target=\"_blank\" rel=\"noopener\">Directions</a>"
+    "html": "24ωρο τμήμα επειγόντων, Anavargos, Πάφος. <a href=\"tel:+35726803000\">+357 26 803 000</a> • <a href=\"https://maps.google.com/?q=Paphos+General+Hospital\" target=\"_blank\" rel=\"noopener\">Οδηγίες στο χάρτη</a>"
   },
-  "sos.healthcare.note": "In life-threatening situations always call 112 and clearly state your location. Enable location sharing in the app to find help faster on the map.",
+  "sos.healthcare.note": "Σε απειλητικές για τη ζωή καταστάσεις κάλεσε πάντα το 112 και δώσε με σαφήνεια την τοποθεσία σου. Ενεργοποίησε την κοινή χρήση τοποθεσίας στην εφαρμογή για να βρεις βοήθεια πιο γρήγορα στον χάρτη.",
   "sos.healthcare.pharmacy": {
-    "html": "Check duty pharmacies on the <a href=\"https://pharmacy.dl.moh.gov.cy/\" target=\"_blank\" rel=\"noopener\">Ministry of Health website</a> or search for a <a href=\"https://www.google.com/maps/search/pharmacy+near+me/\" target=\"_blank\" rel=\"noopener\">pharmacy nearby</a>."
+    "html": "Δες τις εφημερίες φαρμακείων στη <a href=\"https://pharmacy.dl.moh.gov.cy/\" target=\"_blank\" rel=\"noopener\">σελίδα του Υπουργείου Υγείας</a> ή αναζήτησε <a href=\"https://www.google.com/maps/search/pharmacy+near+me/\" target=\"_blank\" rel=\"noopener\">φαρμακείο κοντά σου</a>."
   },
   "sos.healthcare.search": {
-    "html": "<a href=\"https://www.google.com/maps/search/hospital+near+me/\" target=\"_blank\" rel=\"noopener\">Open the hospital list on Google Maps</a> and share your location to see nearby options."
+    "html": "<a href=\"https://www.google.com/maps/search/hospital+near+me/\" target=\"_blank\" rel=\"noopener\">Άνοιξε τη λίστα νοσοκομείων στο Google Maps</a> και επίτρεψε την κοινοποίηση τοποθεσίας για να δεις επιλογές κοντά σου."
   },
-  "sos.healthcare.title": "🏥 Closest medical help",
+  "sos.healthcare.title": "🏥 Πλησιέστερη ιατρική βοήθεια",
   "sos.title": "SOS",
   "sync.progress.synced": "Progress synchronized from cloud",
   "sync.progress.updated": "Progress synced: +{{xp}} XP from another device",
