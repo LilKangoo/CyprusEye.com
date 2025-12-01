@@ -695,14 +695,7 @@ async function editTrip(tripId) {
     }
     
     // Show cover preview if URL exists
-    const previewWrap = document.getElementById('editTripCoverPreview');
-    const previewImg = previewWrap ? previewWrap.querySelector('img') : null;
-    if (trip.cover_image_url && previewImg) {
-      previewImg.src = trip.cover_image_url;
-      previewWrap.style.display = '';
-    } else if (previewWrap) {
-      previewWrap.style.display = 'none';
-    }
+    updateTripCoverPreview(trip.cover_image_url || '');
     
     // Render price fields based on pricing model
     renderEditTripPriceFields(trip.pricing_model, trip);
@@ -713,17 +706,11 @@ async function editTrip(tripId) {
       pricingSelect.onchange = (e) => renderEditTripPriceFields(e.target.value, trip);
     }
     
-    // Setup cover URL input preview
+    // Setup cover URL input preview (live update as user types)
     const urlInput = document.getElementById('editTripCoverUrl');
-    if (urlInput && previewWrap && previewImg) {
+    if (urlInput) {
       urlInput.oninput = () => {
-        const url = (urlInput.value || '').trim();
-        if (url) {
-          previewImg.src = url;
-          previewWrap.style.display = '';
-        } else {
-          previewWrap.style.display = 'none';
-        }
+        updateTripCoverPreview(urlInput.value);
       };
     }
     
@@ -856,10 +843,104 @@ async function handleEditTripSubmit(event, originalTrip) {
   }
 }
 
+// Trip cover image upload
+async function handleTripCoverUpload(input) {
+  const file = input.files?.[0];
+  if (!file) return;
+  
+  // Validate file
+  if (!file.type.startsWith('image/')) {
+    showToast('Please select an image file', 'error');
+    return;
+  }
+  
+  if (file.size > 5 * 1024 * 1024) {
+    showToast('Image must be smaller than 5MB', 'error');
+    return;
+  }
+  
+  const uploadBtn = input.previousElementSibling?.previousElementSibling?.querySelector?.('.btn-upload-image') 
+    || document.querySelector('.btn-upload-image');
+  
+  try {
+    if (uploadBtn) {
+      uploadBtn.disabled = true;
+      uploadBtn.innerHTML = '⏳ Uploading...';
+    }
+    
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database not available');
+    
+    // Generate unique filename
+    const ext = file.name.split('.').pop();
+    const filename = `trips/cover_${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${ext}`;
+    
+    // Upload to Supabase Storage
+    const { data, error } = await client.storage
+      .from('images')
+      .upload(filename, file, {
+        cacheControl: '3600',
+        upsert: true
+      });
+    
+    if (error) throw error;
+    
+    // Get public URL
+    const { data: { publicUrl } } = client.storage
+      .from('images')
+      .getPublicUrl(filename);
+    
+    // Set URL in input field
+    const urlInput = document.getElementById('editTripCoverUrl');
+    if (urlInput) {
+      urlInput.value = publicUrl;
+      // Trigger preview update
+      updateTripCoverPreview(publicUrl);
+    }
+    
+    showToast('Image uploaded successfully', 'success');
+    
+  } catch (err) {
+    console.error('Upload error:', err);
+    showToast('Failed to upload image: ' + (err.message || 'Unknown error'), 'error');
+  } finally {
+    if (uploadBtn) {
+      uploadBtn.disabled = false;
+      uploadBtn.innerHTML = '📤 Upload';
+    }
+    input.value = ''; // Reset file input
+  }
+}
+
+function updateTripCoverPreview(url) {
+  const previewWrap = document.getElementById('editTripCoverPreview');
+  const previewImg = previewWrap?.querySelector('img');
+  
+  if (!previewWrap || !previewImg) return;
+  
+  if (url && url.trim()) {
+    previewImg.src = url;
+    previewWrap.style.display = 'block';
+  } else {
+    previewWrap.style.display = 'none';
+  }
+}
+
+function removeTripCoverImage() {
+  const urlInput = document.getElementById('editTripCoverUrl');
+  if (urlInput) {
+    urlInput.value = '';
+  }
+  updateTripCoverPreview('');
+}
+
 // expose trip helpers for inline handlers
 window.toggleTripPublish = toggleTripPublish;
 window.editTrip = editTrip;
 window.moveTripOrder = moveTripOrder;
+window.handleTripCoverUpload = handleTripCoverUpload;
+window.removeTripCoverImage = removeTripCoverImage;
+window.updateTripCoverPreview = updateTripCoverPreview;
 
 // =====================================================
 // NEW TRIP MODAL (create + link to POI)

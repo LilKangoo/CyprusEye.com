@@ -939,10 +939,20 @@
                 </div>
 
                 <div class="admin-form-field" style="grid-column:1/-1;">
-                  <span>Cover Image URL</span>
-                  <input type="url" name="cover_image_url" id="editTripCoverUrl" placeholder="https://..." />
-                  <div id="editTripCoverPreview" style="margin-top:8px;display:none;">
-                    <img alt="Podgląd okładki" style="width:100%;max-height:160px;object-fit:cover;border-radius:8px;" />
+                  <span>Cover Image</span>
+                  <div class="image-upload-section">
+                    <div class="image-upload-row">
+                      <input type="url" name="cover_image_url" id="editTripCoverUrl" placeholder="https://... or upload an image" />
+                      <input type="file" id="editTripCoverFile" accept="image/*" style="display:none;" onchange="handleTripCoverUpload(this)" />
+                      <button type="button" class="btn-upload-image" onclick="document.getElementById('editTripCoverFile').click()">
+                        📤 Upload
+                      </button>
+                    </div>
+                    <div id="editTripCoverPreview" class="image-preview-container" style="display:none;">
+                      <img alt="Cover preview" />
+                      <button type="button" class="btn-remove-image" onclick="removeTripCoverImage()">✕ Remove</button>
+                    </div>
+                    <small style="color: var(--admin-text-muted);">Upload an image or paste a URL. Recommended size: 1200x600px</small>
                   </div>
                 </div>
                 <label class="admin-form-field">

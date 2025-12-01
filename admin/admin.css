@@ -819,18 +819,183 @@ body[data-admin-panel="true"].admin-sidebar-open {
   backdrop-filter: blur(4px);
 }
 
-.admin-modal-content {
+.admin-modal-dialog {
   position: relative;
   background: var(--admin-bg-light);
   border: 1px solid var(--admin-border);
   border-radius: var(--admin-radius);
-  max-width: 800px;
-  width: 90%;
-  max-height: 85vh;
+  max-width: 900px;
+  width: 95%;
+  max-height: 90vh;
   overflow-y: auto;
   overflow-x: hidden;
   box-shadow: var(--admin-shadow-lg);
   animation: modalSlideIn 0.3s ease;
+}
+
+.admin-modal-content {
+  padding: 24px;
+}
+
+/* Image upload section */
+.image-upload-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.image-upload-row {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+
+.image-upload-row input[type="url"] {
+  flex: 1;
+}
+
+.btn-upload-image {
+  background: var(--admin-primary);
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: var(--admin-radius);
+  cursor: pointer;
+  font-size: 14px;
+  white-space: nowrap;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s;
+}
+
+.btn-upload-image:hover {
+  background: var(--admin-primary-hover);
+}
+
+.btn-upload-image:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.image-preview-container {
+  position: relative;
+  margin-top: 8px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--admin-bg);
+}
+
+.image-preview-container img {
+  width: 100%;
+  max-height: 200px;
+  object-fit: cover;
+  display: block;
+}
+
+.image-preview-container .btn-remove-image {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  border: none;
+  padding: 6px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+}
+
+.image-preview-container .btn-remove-image:hover {
+  background: var(--admin-danger);
+}
+
+/* Modal actions */
+.admin-modal-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  padding: 20px 0 0;
+  margin-top: 20px;
+  border-top: 1px solid var(--admin-border);
+}
+
+.admin-modal-actions .btn-primary {
+  background: var(--admin-primary);
+  color: white;
+  padding: 12px 24px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.admin-modal-actions .btn-secondary {
+  padding: 12px 24px;
+  font-size: 14px;
+}
+
+/* Form grid for modals */
+.admin-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+.admin-form-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-form-field > span {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--admin-text-muted);
+}
+
+.admin-form-field input,
+.admin-form-field select,
+.admin-form-field textarea {
+  padding: 10px 12px;
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: var(--admin-radius);
+  color: var(--admin-text);
+  font-size: 14px;
+}
+
+.admin-form-field input:focus,
+.admin-form-field select:focus,
+.admin-form-field textarea:focus {
+  outline: none;
+  border-color: var(--admin-primary);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.admin-form-field small {
+  font-size: 12px;
+  color: var(--admin-text-muted);
+}
+
+/* Modal close button */
+.admin-modal-close {
+  background: transparent;
+  border: 1px solid var(--admin-border);
+  color: var(--admin-text-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: var(--admin-radius);
+  cursor: pointer;
+  font-size: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.admin-modal-close:hover {
+  background: var(--admin-danger);
+  border-color: var(--admin-danger);
+  color: white;
 }
 
 @keyframes modalSlideIn {
