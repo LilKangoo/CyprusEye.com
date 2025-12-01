@@ -4,6 +4,7 @@
  */
 
 import { supabase } from '/js/supabaseClient.js';
+import { waitForAuthReady } from '/js/authUi.js';
 
 // ============================================================================
 // STATE
@@ -242,7 +243,103 @@ function renderRecommendations() {
   
   // Render cards
   grid.innerHTML = filtered.map(rec => createRecommendationCard(rec)).join('');
+  attachPromoCodeHandlers(grid);
   console.log('✅ Recommendations rendered to DOM');
+}
+
+async function ensureLoggedIn(onAuthenticated) {
+  try {
+    let session = null;
+    if (typeof waitForAuthReady === 'function') {
+      const maybeSession = await waitForAuthReady();
+      if (maybeSession && maybeSession.user) {
+        session = maybeSession;
+      }
+    }
+    const state = window.CE_STATE || {};
+    if (state.session && state.session.user) {
+      session = state.session;
+    }
+    const isLoggedIn = !!(session && session.user);
+    if (isLoggedIn) {
+      if (typeof onAuthenticated === 'function') {
+        onAuthenticated(session);
+      }
+      return true;
+    }
+    if (typeof window.openAuthModal === 'function') {
+      window.openAuthModal('login');
+    } else {
+      const opener = document.querySelector('[data-open-auth]');
+      if (opener instanceof HTMLElement) {
+        opener.click();
+      } else {
+        console.warn('[recommendations] Auth opener not found for promo code gate.');
+      }
+    }
+    return false;
+  } catch (error) {
+    console.warn('[recommendations] Error while checking auth state for promo code gate.', error);
+    return false;
+  }
+}
+
+function attachPromoCodeHandlers(root) {
+  if (!root) return;
+  const buttons = root.querySelectorAll('.rec-card-promo-toggle');
+  buttons.forEach((btn) => {
+    if (!(btn instanceof HTMLButtonElement)) return;
+    if (btn.dataset.promoReady === 'true') return;
+    btn.dataset.promoReady = 'true';
+    btn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      handlePromoToggleClick(btn);
+    });
+  });
+}
+
+function handlePromoToggleClick(button) {
+  if (!(button instanceof HTMLButtonElement)) {
+    return;
+  }
+  const promoCode = button.dataset.promoCode || '';
+  if (!promoCode) {
+    return;
+  }
+  void ensureLoggedIn(() => {
+    const promoContainer = button.closest('.rec-card-promo');
+    if (!(promoContainer instanceof HTMLElement)) {
+      return;
+    }
+    const codeEl = promoContainer.querySelector('.rec-card-promo-code');
+    if (!(codeEl instanceof HTMLElement)) {
+      return;
+    }
+    if (codeEl.dataset.promoVisible === 'true') {
+      return;
+    }
+    codeEl.textContent = promoCode;
+    codeEl.dataset.promoVisible = 'true';
+  });
+}
+
+function createPromoSection(rec, lang, options = {}) {
+  const discount = options.discount;
+  if (!rec || !rec.promo_code || !discount) {
+    return '';
+  }
+  const isEnglish = lang === 'en';
+  const showCodeLabel = isEnglish ? 'Show code' : 'Pokaż kod';
+  return `
+    <div class="rec-card-promo">
+      <div class="rec-card-promo-label">${discount}</div>
+      <div class="rec-card-promo-code" data-promo-visible="false"></div>
+      <button type="button" class="rec-btn rec-btn-secondary rec-card-promo-toggle" data-promo-code="${rec.promo_code}" data-rec-id="${rec.id}">
+        ${showCodeLabel}
+      </button>
+    </div>
+  `;
 }
 
 function createRecommendationCard(rec) {
@@ -310,11 +407,7 @@ function createRecommendationCard(rec) {
           <p class="rec-card-description">${description.substring(0, 150)}${description.length > 150 ? '...' : ''}</p>
         ` : ''}
         
-        ${rec.promo_code && discount ? `
-          <div class="rec-card-promo">
-            <div class="rec-card-promo-label">${discount}</div>
-            <div class="rec-card-promo-code">${rec.promo_code}</div>
-        ` : ''}
+        ${createPromoSection(rec, lang, { discount })}
         
         <div class="rec-card-actions">
           <button class="rec-btn rec-btn-primary" onclick="event.stopPropagation(); openDetailModal('${rec.id}')">
@@ -410,12 +503,7 @@ window.openDetailModal = async function(id) {
         </div>
       ` : ''}
       
-      ${rec.promo_code && discount ? `
-        <div class="rec-card-promo" style="margin-bottom: 24px;">
-          <div class="rec-card-promo-label">${discount}</div>
-          <div class="rec-card-promo-code">${rec.promo_code}</div>
-        </div>
-      ` : ''}
+      ${createPromoSection(rec, lang, { discount })}
       
       <div class="rec-card-actions" style="margin-bottom: 32px; gap: 16px;">
         ${rec.google_url ? `
@@ -448,6 +536,8 @@ window.openDetailModal = async function(id) {
       ` : ''}
     </div>
   `;
+  
+  attachPromoCodeHandlers(modalDetails);
   
   // Show modal
   document.getElementById('detailModal').style.display = 'flex';
