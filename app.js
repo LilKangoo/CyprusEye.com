@@ -10070,6 +10070,11 @@ function initMap() {
 
   syncMarkers();
   startPlayerLocationTracking();
+  
+  // Initialize recommendation markers (green)
+  if (typeof window.initMapRecommendations === 'function') {
+    window.initMapRecommendations(map);
+  }
 }
 
 function setupMapLazyLoading() {

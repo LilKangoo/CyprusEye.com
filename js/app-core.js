@@ -134,6 +134,11 @@ console.log('🔵 App Core V3 - START');
     addMarkers();
     initializeUserLocation();
     
+    // Initialize recommendation markers (green)
+    if (typeof window.initMapRecommendations === 'function') {
+      window.initMapRecommendations(mapInstance);
+    }
+    
     // Nasłuchuj na refresh
     console.log('📡 Dodaję listener dla poisDataRefreshed');
     window.addEventListener('poisDataRefreshed', (event) => {
