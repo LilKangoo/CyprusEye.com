@@ -1364,7 +1364,15 @@
       
       // Show modal with body lock
       document.body.classList.add('modal-open');
-      document.getElementById('tripModal').classList.add('active');
+      const modal = document.getElementById('tripModal');
+      modal.classList.add('active');
+      
+      // Scroll modal to top
+      modal.scrollTop = 0;
+      
+      // Also scroll modal content to top
+      const modalContent = modal.querySelector('.trip-modal-content');
+      if (modalContent) modalContent.scrollTop = 0;
     };
 
     window.closeTripModal = function() {
@@ -1372,6 +1380,59 @@
       document.body.classList.remove('modal-open');
       currentTripIndex = null;
     };
+
+    // Navigate to previous trip
+    window.prevTrip = function() {
+      const filteredTrips = getFilteredTrips();
+      if (currentTripIndex === null || filteredTrips.length === 0) return;
+      
+      let newIndex = currentTripIndex - 1;
+      if (newIndex < 0) newIndex = filteredTrips.length - 1; // Wrap to last
+      
+      openTripModal(newIndex);
+    };
+
+    // Navigate to next trip
+    window.nextTrip = function() {
+      const filteredTrips = getFilteredTrips();
+      if (currentTripIndex === null || filteredTrips.length === 0) return;
+      
+      let newIndex = currentTripIndex + 1;
+      if (newIndex >= filteredTrips.length) newIndex = 0; // Wrap to first
+      
+      openTripModal(newIndex);
+    };
+
+    // Close button event listener
+    document.getElementById('lbClose').addEventListener('click', function(e) {
+      e.stopPropagation();
+      closeTripModal();
+    });
+
+    // Navigation arrows event listeners
+    document.getElementById('lbPrev').addEventListener('click', function(e) {
+      e.stopPropagation();
+      prevTrip();
+    });
+
+    document.getElementById('lbNext').addEventListener('click', function(e) {
+      e.stopPropagation();
+      nextTrip();
+    });
+
+    // Keyboard navigation (Escape to close, arrows to navigate)
+    document.addEventListener('keydown', function(e) {
+      const modal = document.getElementById('tripModal');
+      if (!modal.classList.contains('active')) return;
+      
+      if (e.key === 'Escape') {
+        closeTripModal();
+      } else if (e.key === 'ArrowLeft') {
+        prevTrip();
+      } else if (e.key === 'ArrowRight') {
+        nextTrip();
+      }
+    });
 
     // Close modal on backdrop click
     document.getElementById('tripModal').addEventListener('click', function(e) {
