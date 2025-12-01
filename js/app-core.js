@@ -55,21 +55,13 @@ console.log('🔵 App Core V3 - START');
     }
     console.log('📍 Avatar URL:', avatarUrl);
     
-    // Użyj divIcon z obrazkiem dla lepszej kontroli
-    const userIcon = L.divIcon({
-      className: 'user-location-marker',
-      html: `<div style="
-        width: 44px;
-        height: 44px;
-        border-radius: 50%;
-        border: 3px solid #f97316;
-        box-shadow: 0 2px 10px rgba(249,115,22,0.5);
-        overflow: hidden;
-        background: white;
-      "><img src="${avatarUrl}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" onerror="this.src='assets/cyprus_logo-1000x1054.png'" /></div>`,
-      iconSize: [44, 44],
-      iconAnchor: [22, 22],
-      popupAnchor: [0, -22]
+    // Powrót do sprawdzonego L.icon
+    const userIcon = L.icon({
+      iconUrl: avatarUrl,
+      iconSize: [40, 40],
+      iconAnchor: [20, 20],
+      popupAnchor: [0, -20],
+      className: 'user-avatar-marker' // Klasa CSS do zaokrąglenia
     });
     
     const updatePosition = (lat, lng) => {
