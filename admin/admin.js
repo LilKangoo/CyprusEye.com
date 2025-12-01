@@ -8723,7 +8723,12 @@ async function loadAllOrders() {
       categoryLabel: 'Car Rental',
       categoryIcon: '🚗',
       categoryColor: '#3b82f6',
-      displayName: `${booking.car_type || 'N/A'} - ${booking.pickup_location || 'N/A'}`,
+      // Map car booking fields to unified format
+      customer_name: booking.full_name || booking.customer_name || 'N/A',
+      customer_email: booking.email || booking.customer_email || '',
+      customer_phone: booking.phone || booking.customer_phone || '',
+      dropoff_date: booking.return_date || booking.dropoff_date,
+      displayName: `${booking.car_model || booking.car_type || 'N/A'} - ${booking.pickup_location || 'N/A'}`,
       viewFunction: 'viewCarBookingDetails'
     }));
 
