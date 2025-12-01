@@ -471,6 +471,138 @@ function createBookingCard(booking, simple = false) {
   `;
 }
 
+// --- i18n Labels for Booking Details ---
+function getBookingLabels() {
+  const lang = (typeof window.getCurrentLanguage === 'function') ? window.getCurrentLanguage() : 'pl';
+  
+  const labels = {
+    pl: {
+      status: 'Status',
+      date: 'Data',
+      createdAt: 'Utworzono',
+      pickupLocation: 'Miejsce odbioru',
+      returnLocation: 'Miejsce zwrotu',
+      passengers: 'Pasażerowie',
+      guests: 'Goście',
+      nights: 'Noce',
+      people: 'Osoby',
+      totalPrice: 'Całkowita cena',
+      pendingPrice: 'Oczekuje na wycenę',
+      estimatedPrice: 'Szacunkowa cena na podstawie aktualnych stawek.',
+      duration: 'Czas trwania',
+      days: 'dni',
+      insurance: 'Pełne ubezpieczenie',
+      yes: 'Tak',
+      no: 'Nie'
+    },
+    en: {
+      status: 'Status',
+      date: 'Date',
+      createdAt: 'Created At',
+      pickupLocation: 'Pickup Location',
+      returnLocation: 'Return Location',
+      passengers: 'Passengers',
+      guests: 'Guests',
+      nights: 'Nights',
+      people: 'People',
+      totalPrice: 'Total Price',
+      pendingPrice: 'Pending quote',
+      estimatedPrice: 'Estimated price based on current rates.',
+      duration: 'Duration',
+      days: 'days',
+      insurance: 'Full Insurance',
+      yes: 'Yes',
+      no: 'No'
+    },
+    el: {
+      status: 'Κατάσταση',
+      date: 'Ημερομηνία',
+      createdAt: 'Δημιουργήθηκε',
+      pickupLocation: 'Τοποθεσία παραλαβής',
+      returnLocation: 'Τοποθεσία επιστροφής',
+      passengers: 'Επιβάτες',
+      guests: 'Επισκέπτες',
+      nights: 'Νύχτες',
+      people: 'Άτομα',
+      totalPrice: 'Συνολική τιμή',
+      pendingPrice: 'Αναμονή τιμής',
+      estimatedPrice: 'Εκτιμώμενη τιμή βάσει τρεχουσών τιμών.',
+      duration: 'Διάρκεια',
+      days: 'ημέρες',
+      insurance: 'Πλήρης ασφάλιση',
+      yes: 'Ναι',
+      no: 'Όχι'
+    },
+    he: {
+      status: 'סטטוס',
+      date: 'תאריך',
+      createdAt: 'נוצר ב',
+      pickupLocation: 'מיקום איסוף',
+      returnLocation: 'מיקום החזרה',
+      passengers: 'נוסעים',
+      guests: 'אורחים',
+      nights: 'לילות',
+      people: 'אנשים',
+      totalPrice: 'מחיר כולל',
+      pendingPrice: 'ממתין להצעת מחיר',
+      estimatedPrice: 'מחיר משוער על פי תעריפים נוכחיים.',
+      duration: 'משך',
+      days: 'ימים',
+      insurance: 'ביטוח מלא',
+      yes: 'כן',
+      no: 'לא'
+    }
+  };
+  
+  return labels[lang] || labels.pl;
+}
+
+// Format location names nicely
+function formatLocationName(location) {
+  if (!location) return '-';
+  
+  const lang = (typeof window.getCurrentLanguage === 'function') ? window.getCurrentLanguage() : 'pl';
+  
+  // Location mappings
+  const locationNames = {
+    'airport_pfo': { pl: 'Lotnisko Pafos (PFO)', en: 'Paphos Airport (PFO)', el: 'Αεροδρόμιο Πάφου (PFO)', he: 'נמל תעופה פאפוס (PFO)' },
+    'airport_lca': { pl: 'Lotnisko Larnaka (LCA)', en: 'Larnaca Airport (LCA)', el: 'Αεροδρόμιο Λάρνακας (LCA)', he: 'נמל תעופה לרנקה (LCA)' },
+    'paphos': { pl: 'Pafos', en: 'Paphos', el: 'Πάφος', he: 'פאפוס' },
+    'larnaca': { pl: 'Larnaka', en: 'Larnaca', el: 'Λάρνακα', he: 'לרנקה' },
+    'limassol': { pl: 'Limassol', en: 'Limassol', el: 'Λεμεσός', he: 'לימסול' },
+    'nicosia': { pl: 'Nikozja', en: 'Nicosia', el: 'Λευκωσία', he: 'ניקוסיה' },
+    'ayia_napa': { pl: 'Ayia Napa', en: 'Ayia Napa', el: 'Αγία Νάπα', he: 'איה נאפה' },
+    'protaras': { pl: 'Protaras', en: 'Protaras', el: 'Πρωταράς', he: 'פרוטראס' }
+  };
+  
+  const key = location.toLowerCase().trim();
+  if (locationNames[key]) {
+    return locationNames[key][lang] || locationNames[key].en;
+  }
+  
+  // Fallback: format nicely (replace underscores, capitalize)
+  return location
+    .replace(/_/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// Format status with translation
+function formatStatus(status, lang) {
+  const statusLabels = {
+    pending: { pl: 'Oczekujące', en: 'Pending', el: 'Εκκρεμεί', he: 'ממתין' },
+    confirmed: { pl: 'Potwierdzone', en: 'Confirmed', el: 'Επιβεβαιωμένο', he: 'מאושר' },
+    completed: { pl: 'Zakończone', en: 'Completed', el: 'Ολοκληρώθηκε', he: 'הושלם' },
+    cancelled: { pl: 'Anulowane', en: 'Cancelled', el: 'Ακυρώθηκε', he: 'בוטל' },
+    message_sent: { pl: 'Wiadomość wysłana', en: 'Message Sent', el: 'Μήνυμα εστάλη', he: 'הודעה נשלחה' }
+  };
+  
+  const key = (status || 'pending').toLowerCase();
+  if (statusLabels[key]) {
+    return statusLabels[key][lang] || statusLabels[key].en;
+  }
+  return status;
+}
+
 // --- Details Modal Logic ---
 window.openBookingDetails = function(id, type) {
   const booking = ordersData.find(o => o.id === id && o.type === type);
@@ -479,39 +611,93 @@ window.openBookingDetails = function(id, type) {
   const modal = document.getElementById('bookingDetailsModal');
   const title = document.getElementById('bookingDetailTitle');
   const body = document.getElementById('bookingDetailBody');
+  
+  const labels = getBookingLabels();
+  const lang = (typeof window.getCurrentLanguage === 'function') ? window.getCurrentLanguage() : 'pl';
 
   title.textContent = booking.title;
   
+  // Calculate duration for car rentals
+  let durationText = '';
+  if (booking.type === 'car' && booking.pickup_date && booking.return_date) {
+    const start = new Date(booking.pickup_date);
+    const end = new Date(booking.return_date);
+    const days = Math.ceil(Math.abs(end - start) / (1000 * 60 * 60 * 24));
+    durationText = `${days} ${labels.days}`;
+  }
+  
   let detailsHtml = `
-    <div class="detail-row"><span class="detail-label">Status</span><span class="detail-value" style="text-transform: uppercase;">${booking.status}</span></div>
-    <div class="detail-row"><span class="detail-label">Date</span><span class="detail-value">${new Date(booking.date).toLocaleDateString()}</span></div>
-    <div class="detail-row"><span class="detail-label">Created At</span><span class="detail-value">${new Date(booking.created_at).toLocaleString()}</span></div>
+    <div class="detail-row">
+      <span class="detail-label">${labels.status}</span>
+      <span class="detail-value detail-status detail-status--${booking.status}">${formatStatus(booking.status, lang).toUpperCase()}</span>
+    </div>
+    <div class="detail-row">
+      <span class="detail-label">${labels.date}</span>
+      <span class="detail-value">📅 ${new Date(booking.date).toLocaleDateString(lang === 'he' ? 'he-IL' : lang + '-' + (lang === 'el' ? 'GR' : lang.toUpperCase()))}</span>
+    </div>
   `;
 
   if (booking.type === 'car') {
     detailsHtml += `
-      <div class="detail-row"><span class="detail-label">Pickup Location</span><span class="detail-value">${booking.pickup_location || '-'}</span></div>
-      <div class="detail-row"><span class="detail-label">Return Location</span><span class="detail-value">${booking.return_location || '-'}</span></div>
-      <div class="detail-row"><span class="detail-label">Passengers</span><span class="detail-value">${booking.people}</span></div>
+      <div class="detail-row">
+        <span class="detail-label">${labels.pickupLocation}</span>
+        <span class="detail-value">📍 ${formatLocationName(booking.pickup_location)}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">${labels.returnLocation}</span>
+        <span class="detail-value">📍 ${formatLocationName(booking.return_location)}</span>
+      </div>
+      ${durationText ? `
+      <div class="detail-row">
+        <span class="detail-label">${labels.duration}</span>
+        <span class="detail-value" style="color: #2563eb; font-weight: 600;">🕐 ${durationText}</span>
+      </div>
+      ` : ''}
+      <div class="detail-row">
+        <span class="detail-label">${labels.passengers}</span>
+        <span class="detail-value">👥 ${booking.people}</span>
+      </div>
+      ${booking.full_insurance !== undefined ? `
+      <div class="detail-row">
+        <span class="detail-label">${labels.insurance}</span>
+        <span class="detail-value">${booking.full_insurance ? '✅ ' + labels.yes + ' (+17€/' + labels.days.slice(0, -1) + ')' : '❌ ' + labels.no}</span>
+      </div>
+      ` : ''}
     `;
   } else if (booking.type === 'hotel') {
     detailsHtml += `
-      <div class="detail-row"><span class="detail-label">Guests</span><span class="detail-value">${booking.people}</span></div>
-      <div class="detail-row"><span class="detail-label">Nights</span><span class="detail-value">${booking.nights || '-'}</span></div>
+      <div class="detail-row">
+        <span class="detail-label">${labels.guests}</span>
+        <span class="detail-value">👥 ${booking.people}</span>
+      </div>
+      <div class="detail-row">
+        <span class="detail-label">${labels.nights}</span>
+        <span class="detail-value">🌙 ${booking.nights || '-'}</span>
+      </div>
     `;
   } else {
     detailsHtml += `
-      <div class="detail-row"><span class="detail-label">People</span><span class="detail-value">${booking.people}</span></div>
+      <div class="detail-row">
+        <span class="detail-label">${labels.people}</span>
+        <span class="detail-value">👥 ${booking.people}</span>
+      </div>
     `;
   }
 
   // Price
-  const priceText = (!booking.price || booking.price == 0) ? '<span style="color:#ea580c">Calculation pending</span>' : `€${parseFloat(booking.price).toFixed(2)}`;
+  const priceText = (!booking.price || booking.price == 0) 
+    ? `<span style="color:#ea580c">${labels.pendingPrice}</span>` 
+    : `€${parseFloat(booking.price).toFixed(2)}`;
   
-  detailsHtml += `<div class="detail-row" style="margin-top: 20px; border-top: 1px solid #e5e7eb; padding-top: 12px;"><span class="detail-label">Total Price</span><span class="detail-value" style="font-size: 1.2em; color: #2563eb;">${priceText}</span></div>`;
+  detailsHtml += `
+    <div class="detail-row detail-row--total">
+      <span class="detail-label">${labels.totalPrice}</span>
+      <span class="detail-value detail-price">${priceText}</span>
+    </div>
+  `;
   
   if (booking.type === 'car' && booking.price > 0 && (!booking.final_price && !booking.quoted_price)) {
-     detailsHtml += `<p style="font-size: 0.85rem; color: #6b7280; margin-top: 8px; text-align: center;">Estimated price based on current rates.</p>`;
+    detailsHtml += `<p class="detail-note">ℹ️ ${labels.estimatedPrice}</p>`;
   }
 
   body.innerHTML = detailsHtml;

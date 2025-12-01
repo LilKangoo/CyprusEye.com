@@ -762,6 +762,44 @@
   text-align: right;
 }
 
+/* Status colors in modal */
+.detail-status {
+  padding: 4px 12px;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.detail-status--pending { background: #fef3c7; color: #d97706; }
+.detail-status--confirmed { background: #dcfce7; color: #16a34a; }
+.detail-status--completed { background: #f3f4f6; color: #4b5563; }
+.detail-status--cancelled { background: #fee2e2; color: #dc2626; }
+.detail-status--message_sent { background: #dbeafe; color: #2563eb; }
+
+/* Price row */
+.detail-row--total {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 2px solid #e5e7eb;
+}
+
+.detail-price {
+  font-size: 1.4em !important;
+  color: #2563eb !important;
+}
+
+/* Note text */
+.detail-note {
+  font-size: 0.85rem;
+  color: #6b7280;
+  margin-top: 12px;
+  text-align: center;
+  background: #f9fafb;
+  padding: 10px;
+  border-radius: 8px;
+}
+
 .modal-footer {
   padding: 16px 24px;
   border-top: 1px solid #e5e7eb;
