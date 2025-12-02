@@ -240,7 +240,7 @@
     document.documentElement.lang = language;
     document.documentElement.dir = languageInfo.dir;
 
-    const elements = document.querySelectorAll('[data-i18n]');
+    const elements = document.querySelectorAll('[data-i18n], [data-i18n-attrs]');
     elements.forEach((element) => {
       applyTranslationToElement(element, translations);
     });
