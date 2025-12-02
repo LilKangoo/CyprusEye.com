@@ -168,7 +168,7 @@
   "auth.login.password": "Password",
   "auth.login.submit": "Sign in",
   "auth.login.title": "Sign in",
-  "auth.login.username": "Email address or username",
+  "auth.login.username": "Διεύθυνση email ή όνομα χρήστη",
   "auth.logout.aria": "Αποσύνδεση από το λογαριασμό",
   "auth.password": "Κωδικός πρόσβασης",
   "auth.register.button": "Δημιουργία λογαριασμού",
@@ -1501,10 +1501,12 @@
   "sos.healthcare.hospital": {
     "html": "24ωρο τμήμα επειγόντων, Anavargos, Πάφος. <a href=\"tel:+35726803000\">+357 26 803 000</a> • <a href=\"https://maps.google.com/?q=Paphos+General+Hospital\" target=\"_blank\" rel=\"noopener\">Οδηγίες στο χάρτη</a>"
   },
+  "sos.healthcare.searchTitle": "Αναζήτησε νοσοκομείο κοντά σου",
   "sos.healthcare.note": "Σε απειλητικές για τη ζωή καταστάσεις κάλεσε πάντα το 112 και δώσε με σαφήνεια την τοποθεσία σου. Ενεργοποίησε την κοινή χρήση τοποθεσίας στην εφαρμογή για να βρεις βοήθεια πιο γρήγορα στον χάρτη.",
   "sos.healthcare.pharmacy": {
     "html": "Δες τις εφημερίες φαρμακείων στη <a href=\"https://pharmacy.dl.moh.gov.cy/\" target=\"_blank\" rel=\"noopener\">σελίδα του Υπουργείου Υγείας</a> ή αναζήτησε <a href=\"https://www.google.com/maps/search/pharmacy+near+me/\" target=\"_blank\" rel=\"noopener\">φαρμακείο κοντά σου</a>."
   },
+  "sos.healthcare.pharmacyTitle": "Εφημερεύον φαρμακείο",
   "sos.healthcare.search": {
     "html": "<a href=\"https://www.google.com/maps/search/hospital+near+me/\" target=\"_blank\" rel=\"noopener\">Άνοιξε τη λίστα νοσοκομείων στο Google Maps</a> και επίτρεψε την κοινοποίηση τοποθεσίας για να δεις επιλογές κοντά σου."
   },

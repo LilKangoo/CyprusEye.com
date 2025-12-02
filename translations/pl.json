@@ -706,12 +706,14 @@
   "sos.healthcare.hospital": {
     "html": "Całodobowa izba przyjęć, Anavargos, Pafos. <a href=\"tel:+35726803000\">+357 26 803 000</a> • <a href=\"https://maps.google.com/?q=Paphos+General+Hospital\" target=\"_blank\" rel=\"noopener\">Mapa dojazdu</a>"
   },
+  "sos.healthcare.searchTitle": "Wyszukaj szpital w pobliżu",
   "sos.healthcare.search": {
     "html": "<a href=\"https://www.google.com/maps/search/hospital+near+me/\" target=\"_blank\" rel=\"noopener\">Otwórz listę szpitali na Mapach Google</a> i udostępnij lokalizację, aby zobaczyć najbliższe opcje."
   },
   "sos.healthcare.pharmacy": {
     "html": "Sprawdź aktualne dyżury na <a href=\"https://pharmacy.dl.moh.gov.cy/\" target=\"_blank\" rel=\"noopener\">stronie Ministerstwa Zdrowia</a> lub wyszukaj <a href=\"https://www.google.com/maps/search/pharmacy+near+me/\" target=\"_blank\" rel=\"noopener\">aptekę w pobliżu</a>."
   },
+  "sos.healthcare.pharmacyTitle": "Dyżurna apteka",
   "sos.healthcare.note": "W sytuacji zagrożenia życia zawsze dzwoń pod 112 i dokładnie podaj lokalizację. W aplikacji włącz udostępnianie lokalizacji, aby szybciej odnaleźć pomoc na mapie.",
   "account.title": "Konto",
   "account.subtitle": "Zarządzaj statystykami i bezpieczeństwem",
