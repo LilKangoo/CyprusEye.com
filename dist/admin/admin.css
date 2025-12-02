@@ -834,7 +834,19 @@ body[data-admin-panel="true"].admin-sidebar-open {
 }
 
 .admin-modal-content {
-  padding: 24px;
+  position: relative;
+  z-index: 1;
+  background: var(--admin-bg-light);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+  width: 100%;
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-shadow: var(--admin-shadow-lg);
+  animation: modalSlideIn 0.3s ease;
+  padding: 0;
 }
 
 /* Image upload section */
