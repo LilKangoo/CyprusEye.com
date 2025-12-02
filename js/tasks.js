@@ -7,7 +7,19 @@
       const i18n = window.appI18n;
       if (i18n && i18n.translations) {
         const lang = i18n.language || 'pl';
-        const entry = i18n.translations[lang] && i18n.translations[lang][key];
+        let entry = i18n.translations[lang];
+        
+        // Handle nested keys (e.g. "tasks.details.show")
+        const parts = key.split('.');
+        for (const part of parts) {
+          if (entry && typeof entry === 'object' && part in entry) {
+            entry = entry[part];
+          } else {
+            entry = undefined;
+            break;
+          }
+        }
+
         let result = null;
         if (typeof entry === 'string') result = entry;
         else if (entry && typeof entry === 'object') {
