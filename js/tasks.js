@@ -561,8 +561,12 @@
         button.className = 'task-action';
         button.textContent = t('auth.login.button', 'Zaloguj');
         button.addEventListener('click', () => {
-          const btn = document.querySelector('[data-auth="login"]');
-          if (btn) btn.click();
+          if (window.__authModalController) {
+            window.__authModalController.open('login');
+          } else {
+            const btn = document.querySelector('[data-open-auth]');
+            if (btn) btn.click();
+          }
         });
         actionsContainer.appendChild(button);
       } else if (requiresCode) {
