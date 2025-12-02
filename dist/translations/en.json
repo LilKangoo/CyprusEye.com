@@ -736,6 +736,25 @@
       "locked": "Level {{level}}",
       "complete": "Complete"
     },
+    "code": {
+      "placeholder": "Enter code",
+      "verify": "Verify"
+    },
+    "location": {
+      "verify": "📍 I'm here"
+    },
+    "success": "Quest completed!",
+    "error": {
+      "login": "You must be logged in",
+      "empty_code": "Enter a code",
+      "invalid_code": "Invalid code",
+      "server": "Server error",
+      "too_far": "Too far from location",
+      "no_gps": "GPS unavailable",
+      "gps_denied": "GPS access denied",
+      "gps_unavailable": "GPS unavailable",
+      "gps_timeout": "GPS timeout"
+    },
     "status": {
       "completed": "Task \"{{title}}\" completed (+{{xp}} XP)",
       "reverted": "Task \"{{title}}\" unmarked (−{{xp}} XP).{{note}}",
