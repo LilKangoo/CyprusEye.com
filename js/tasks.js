@@ -295,115 +295,78 @@
     style.id = 'quest-verification-styles';
     style.textContent = `
       .task {
-        display: flex;
-        flex-direction: column; /* Mobile first */
-        gap: 12px;
-        padding: 16px;
         background: #fff;
         border-radius: 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         margin-bottom: 16px;
-        transition: all 0.2s ease;
-      }
-      @media (min-width: 640px) {
-        .task {
-          flex-direction: row;
-          align-items: flex-start;
-          justify-content: space-between;
-        }
-      }
-      .task-info {
-        flex: 1;
-        min-width: 0; /* Truncate text fix */
-      }
-      .task-meta {
-        display: flex;
-        flex-direction: row;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-        width: 100%;
-        margin-top: 8px;
-        border-top: 1px solid #f1f5f9;
-        padding-top: 12px;
-      }
-      @media (min-width: 640px) {
-        .task-meta {
-          flex-direction: column;
-          align-items: flex-end;
-          width: auto;
-          margin-top: 0;
-          border-top: none;
-          padding-top: 0;
-        }
-      }
-      .task-actions {
+        padding: 16px;
         display: flex;
         flex-direction: column;
-        gap: 8px;
-        align-items: flex-end;
-        width: 100%;
+        gap: 12px;
+        overflow: hidden; /* Prevent overflow */
       }
-      .task-code-form {
+      .task-header {
         display: flex;
-        gap: 8px;
-        align-items: center;
-        width: 100%;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 10px;
       }
-      .task-code-input {
+      .task-title-wrap {
         flex: 1;
-        min-width: 0;
-        padding: 10px 12px !important;
-        border: 1px solid #cbd5e1 !important;
-        border-radius: 8px !important;
-        font-size: 16px !important; /* Prevent iOS zoom */
-        text-transform: uppercase;
-        font-family: monospace;
-        letter-spacing: 1px;
       }
-      .task-verify-btn {
-        background: #3b82f6 !important;
-        color: white !important;
-        border: 2px solid #3b82f6 !important;
-        padding: 10px 20px !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
-        transition: all 0.2s ease !important;
-        cursor: pointer !important;
+      .task-title {
+        font-weight: 700;
+        font-size: 1.05em;
+        margin: 0;
+        line-height: 1.3;
+        color: #1e293b;
+      }
+      .task-xp-badge {
+        font-weight: 700;
+        color: #3b82f6;
+        font-size: 0.95em;
         white-space: nowrap;
-        flex-shrink: 0;
+        background: #eff6ff;
+        padding: 4px 8px;
+        border-radius: 6px;
       }
-      .task-verify-btn:hover {
-        background: white !important;
-        color: #3b82f6 !important;
+      .task-verification-badge {
+        display: inline-block;
+        vertical-align: middle;
+        margin-left: 6px;
+        font-size: 0.75em;
+        padding: 2px 6px;
+        border-radius: 4px;
+        background: #3b82f6;
+        color: white;
+        white-space: nowrap;
       }
-      .task-location-btn {
-        width: 100%;
-        padding: 12px !important;
-        border-radius: 8px !important;
-        font-weight: 600 !important;
-        text-align: center;
+      .task-description {
+        color: #475569;
+        font-size: 0.95em;
+        line-height: 1.5;
+        margin: 0;
       }
       .task-details-toggle {
         background: none;
         border: none;
         color: #3b82f6;
         font-size: 0.9em;
+        font-weight: 500;
         cursor: pointer;
-        padding: 8px 0;
+        padding: 0;
         display: inline-flex;
         align-items: center;
-        gap: 6px;
-        font-weight: 500;
+        gap: 4px;
+        margin-top: 4px;
       }
       .task-details-panel {
         background: #f8fafc;
-        border-radius: 12px;
-        padding: 16px;
-        margin-top: 12px;
+        border-radius: 8px;
+        padding: 12px;
         border: 1px solid #e2e8f0;
         display: none;
-        width: 100%;
+        font-size: 0.9em;
       }
       .task-details-panel.is-open {
         display: block;
@@ -411,29 +374,78 @@
       }
       .task-details-row {
         display: flex;
-        align-items: flex-start;
-        gap: 10px;
-        margin-bottom: 10px;
+        gap: 8px;
+        margin-bottom: 6px;
+        line-height: 1.4;
+      }
+      .task-details-row:last-child { margin-bottom: 0; }
+      
+      /* Actions Section */
+      .task-actions {
+        margin-top: auto;
+        width: 100%;
+      }
+      .task-code-form {
+        display: flex;
+        gap: 8px;
+        width: 100%;
+      }
+      .task-code-input {
+        flex: 1;
+        min-width: 0;
+        padding: 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 8px;
+        font-size: 16px; /* No iOS zoom */
+        text-transform: uppercase;
+        font-family: monospace;
+        text-align: center;
+      }
+      .task-verify-btn, .task-action {
+        padding: 10px 16px;
+        border-radius: 8px;
+        font-weight: 600;
         font-size: 0.95em;
-        color: #475569;
-        line-height: 1.5;
+        cursor: pointer;
+        border: none;
+        transition: opacity 0.2s;
+        white-space: nowrap;
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
       }
-      .task-details-row span:first-child {
-        font-size: 1.2em;
-        line-height: 1;
-        margin-top: 2px;
+      .task-verify-btn {
+        background: #3b82f6;
+        color: white;
       }
-      @media (max-width: 639px) {
+      .task-verify-btn:active { opacity: 0.9; }
+      
+      .task-action {
+        width: 100%;
+        background: #0f172a;
+        color: white;
+      }
+      .task-action.is-completed {
+        background: #f1f5f9;
+        color: #64748b;
+      }
+      .task-location-btn {
+        background: #3b82f6;
+        width: 100%;
+      }
+      
+      /* Mobile Tweaks */
+      @media (max-width: 380px) {
         .task-code-form {
           flex-direction: column;
-          align-items: stretch;
         }
         .task-verify-btn {
           width: 100%;
         }
       }
+      
       @keyframes slideDown {
-        from { opacity: 0; transform: translateY(-8px); }
+        from { opacity: 0; transform: translateY(-5px); }
         to { opacity: 1; transform: translateY(0); }
       }
     `;
@@ -459,109 +471,83 @@
       if (completed) li.classList.add('completed');
       if (!unlocked) li.classList.add('locked');
 
-      const info = document.createElement('div');
-      info.className = 'task-info';
-
-      const titleEl = document.createElement('p');
+      // 1. Header: Title + XP
+      const header = document.createElement('div');
+      header.className = 'task-header';
+      
+      const titleWrap = document.createElement('div');
+      titleWrap.className = 'task-title-wrap';
+      
+      const titleEl = document.createElement('h4'); // Changed to h4 for semantic structure
       titleEl.className = 'task-title';
       titleEl.textContent = getTaskTitle(task);
       
-      // Add verification badge
       if (requiresCode || requiresLocation) {
         const badge = document.createElement('span');
         badge.className = 'task-verification-badge';
-        badge.style.cssText = 'margin-left: 8px; font-size: 0.75em; padding: 2px 6px; border-radius: 4px; background: #3b82f6; color: white;';
         badge.textContent = requiresCode && requiresLocation ? '🔑📍' : requiresCode ? '🔑' : '📍';
         titleEl.appendChild(badge);
       }
-      info.appendChild(titleEl);
+      titleWrap.appendChild(titleEl);
+      
+      const xpBadge = document.createElement('div');
+      xpBadge.className = 'task-xp-badge';
+      xpBadge.textContent = `+${task.xp} XP`;
+      
+      header.appendChild(titleWrap);
+      header.appendChild(xpBadge);
+      li.appendChild(header);
 
+      // 2. Description
       const descriptionText = getTaskDescription(task);
       if (descriptionText) {
         const descriptionEl = document.createElement('p');
         descriptionEl.className = 'task-description';
         descriptionEl.textContent = descriptionText;
-        info.appendChild(descriptionEl);
+        li.appendChild(descriptionEl);
       }
       
-      // Show details toggle button if quest has location info
+      // 3. Details Toggle & Panel
       if (hasDetails && !completed) {
+        const detailsContainer = document.createElement('div');
+        
         const detailsToggle = document.createElement('button');
         detailsToggle.type = 'button';
         detailsToggle.className = 'task-details-toggle';
         detailsToggle.innerHTML = `<span class="toggle-icon">▶</span> ${t('tasks.details.show', 'Pokaż szczegóły')}`;
-        detailsToggle.addEventListener('click', () => {
-          const panel = document.getElementById(`details-${task.id}`);
-          const icon = detailsToggle.querySelector('.toggle-icon');
-          if (panel) {
-            panel.classList.toggle('is-open');
-            icon.textContent = panel.classList.contains('is-open') ? '▼' : '▶';
-            detailsToggle.innerHTML = `<span class="toggle-icon">${panel.classList.contains('is-open') ? '▼' : '▶'}</span> ${panel.classList.contains('is-open') ? t('tasks.details.hide', 'Ukryj szczegóły') : t('tasks.details.show', 'Pokaż szczegóły')}`;
-          }
-        });
-        info.appendChild(detailsToggle);
         
-        // Details panel
         const detailsPanel = document.createElement('div');
         detailsPanel.className = 'task-details-panel';
         detailsPanel.id = `details-${task.id}`;
         
-        // Location name
+        // Panel content
         if (task.location_name) {
-          const locRow = document.createElement('div');
-          locRow.className = 'task-details-row';
-          locRow.innerHTML = `<span>📍</span> <strong>${t('tasks.details.location', 'Lokalizacja')}:</strong> ${task.location_name}`;
-          detailsPanel.appendChild(locRow);
+          detailsPanel.innerHTML += `<div class="task-details-row"><span>📍</span> <span><strong>${t('tasks.details.location', 'Lokalizacja')}:</strong> ${task.location_name}</span></div>`;
         }
-        
-        // Coordinates with Google Maps link
         if (task.latitude && task.longitude) {
-          const coordRow = document.createElement('div');
-          coordRow.className = 'task-details-row';
           const mapsUrl = `https://www.google.com/maps?q=${task.latitude},${task.longitude}`;
-          coordRow.innerHTML = `<span>🗺️</span> <a href="${mapsUrl}" target="_blank" rel="noopener">${t('tasks.details.openMaps', 'Otwórz w Mapach Google')}</a>`;
-          detailsPanel.appendChild(coordRow);
+          detailsPanel.innerHTML += `<div class="task-details-row"><span>🗺️</span> <a href="${mapsUrl}" target="_blank" rel="noopener" style="color:#3b82f6">${t('tasks.details.openMaps', 'Otwórz w Mapach Google')}</a></div>`;
+        }
+        if (requiresCode) {
+           detailsPanel.innerHTML += `<div class="task-details-row"><span>ℹ️</span> <span>${t('tasks.details.typeCode', 'Poproś o kod...')}</span></div>`;
         }
         
-        // Radius info
-        if (task.location_radius && requiresLocation) {
-          const radiusRow = document.createElement('div');
-          radiusRow.className = 'task-details-row';
-          radiusRow.innerHTML = `<span>📏</span> ${t('tasks.details.radius', 'Promień weryfikacji')}: ${task.location_radius}m`;
-          detailsPanel.appendChild(radiusRow);
-        }
+        detailsToggle.addEventListener('click', () => {
+          detailsPanel.classList.toggle('is-open');
+          const isOpen = detailsPanel.classList.contains('is-open');
+          detailsToggle.querySelector('.toggle-icon').textContent = isOpen ? '▼' : '▶';
+          // Update text if needed, or keep simplified
+        });
         
-        // Verification type info
-        const typeRow = document.createElement('div');
-        typeRow.className = 'task-details-row';
-        let typeText = '';
-        if (requiresCode && requiresLocation) {
-          typeText = t('tasks.details.typeBoth', 'Wymagany kod + potwierdzenie lokalizacji');
-        } else if (requiresCode) {
-          typeText = t('tasks.details.typeCode', 'Poproś o kod u partnera i wpisz go poniżej');
-        } else if (requiresLocation) {
-          typeText = t('tasks.details.typeLocation', 'Kliknij "Jestem na miejscu" gdy będziesz w lokalizacji');
-        }
-        if (typeText) {
-          typeRow.innerHTML = `<span>ℹ️</span> <span>${typeText}</span>`;
-          detailsPanel.appendChild(typeRow);
-        }
-        
-        info.appendChild(detailsPanel);
+        detailsContainer.appendChild(detailsToggle);
+        detailsContainer.appendChild(detailsPanel);
+        li.appendChild(detailsContainer);
       }
 
-      const meta = document.createElement('div');
-      meta.className = 'task-meta';
-
-      const xp = document.createElement('span');
-      xp.className = 'task-xp';
-      xp.textContent = `+${task.xp} XP`;
-      meta.appendChild(xp);
-
-      // Actions container
+      // 4. Actions
       const actionsContainer = document.createElement('div');
       actionsContainer.className = 'task-actions';
-      
+
       if (completed) {
         const button = document.createElement('button');
         button.type = 'button';
@@ -580,17 +566,14 @@
         });
         actionsContainer.appendChild(button);
       } else if (requiresCode) {
-        // Code verification UI
         const codeForm = document.createElement('div');
         codeForm.className = 'task-code-form';
         
         const codeInput = document.createElement('input');
         codeInput.type = 'text';
-        codeInput.placeholder = t('tasks.code.placeholder', 'Wpisz kod');
+        codeInput.placeholder = t('tasks.code.placeholder', 'WPISZ KOD');
         codeInput.className = 'task-code-input';
-        // Remove inline styles to use class styles
         codeInput.maxLength = 20;
-        codeInput.id = `code-input-${task.id}`;
         
         const verifyBtn = document.createElement('button');
         verifyBtn.type = 'button';
@@ -598,7 +581,6 @@
         verifyBtn.textContent = t('tasks.code.verify', 'Weryfikuj');
         verifyBtn.addEventListener('click', () => verifyQuestCode(task, codeInput.value));
         
-        // Allow Enter key to submit
         codeInput.addEventListener('keypress', (e) => {
           if (e.key === 'Enter') verifyBtn.click();
         });
@@ -607,30 +589,24 @@
         codeForm.appendChild(verifyBtn);
         actionsContainer.appendChild(codeForm);
         
-        // Error message container
         const errorMsg = document.createElement('div');
         errorMsg.id = `code-error-${task.id}`;
-        errorMsg.style.cssText = 'color: #ef4444; font-size: 0.8em; display: none; width: 100%; text-align: right;';
+        errorMsg.style.cssText = 'color: #ef4444; font-size: 0.85em; display: none; margin-top: 6px; text-align: center;';
         actionsContainer.appendChild(errorMsg);
         
       } else if (requiresLocation) {
-        // Location verification UI
         const locBtn = document.createElement('button');
         locBtn.type = 'button';
         locBtn.className = 'task-action task-location-btn';
         locBtn.textContent = t('tasks.location.verify', '📍 Jestem na miejscu');
-        // Use styles from CSS class instead
         locBtn.addEventListener('click', () => verifyQuestLocation(task));
         actionsContainer.appendChild(locBtn);
         
-        // Error message container
         const errorMsg = document.createElement('div');
         errorMsg.id = `loc-error-${task.id}`;
-        errorMsg.style.cssText = 'color: #ef4444; font-size: 0.8em; display: none; width: 100%; text-align: center;';
+        errorMsg.style.cssText = 'color: #ef4444; font-size: 0.85em; display: none; margin-top: 6px; text-align: center;';
         actionsContainer.appendChild(errorMsg);
-        
       } else {
-        // Standard completion button
         const button = document.createElement('button');
         button.type = 'button';
         button.className = 'task-action';
@@ -639,9 +615,7 @@
         actionsContainer.appendChild(button);
       }
 
-      meta.appendChild(actionsContainer);
-      li.appendChild(info);
-      li.appendChild(meta);
+      li.appendChild(actionsContainer);
       listEl.appendChild(li);
     });
   }
