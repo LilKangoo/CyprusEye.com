@@ -288,7 +288,80 @@
     return !!state.auth.isAuthenticated;
   }
 
+  // Add CSS styles for quest verification buttons
+  function injectQuestStyles() {
+    if (document.getElementById('quest-verification-styles')) return;
+    const style = document.createElement('style');
+    style.id = 'quest-verification-styles';
+    style.textContent = `
+      .task-verify-btn {
+        background: #3b82f6 !important;
+        color: white !important;
+        border: 2px solid #3b82f6 !important;
+        padding: 8px 16px !important;
+        border-radius: 20px !important;
+        font-weight: 600 !important;
+        transition: all 0.2s ease !important;
+        cursor: pointer !important;
+      }
+      .task-verify-btn:hover {
+        background: white !important;
+        color: #3b82f6 !important;
+      }
+      .task-details-toggle {
+        background: none;
+        border: none;
+        color: #3b82f6;
+        font-size: 0.85em;
+        cursor: pointer;
+        padding: 4px 0;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+      }
+      .task-details-toggle:hover {
+        text-decoration: underline;
+      }
+      .task-details-panel {
+        background: #f8fafc;
+        border-radius: 8px;
+        padding: 12px 16px;
+        margin-top: 12px;
+        border: 1px solid #e2e8f0;
+        display: none;
+      }
+      .task-details-panel.is-open {
+        display: block;
+        animation: slideDown 0.2s ease;
+      }
+      .task-details-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+        font-size: 0.9em;
+        color: #475569;
+      }
+      .task-details-row:last-child {
+        margin-bottom: 0;
+      }
+      .task-details-row a {
+        color: #3b82f6;
+        text-decoration: none;
+      }
+      .task-details-row a:hover {
+        text-decoration: underline;
+      }
+      @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
   function renderTasks(){
+    injectQuestStyles();
     const listEl = document.getElementById('tasksList');
     if (!listEl) return;
     listEl.innerHTML = '';
@@ -298,6 +371,7 @@
       const completed = state.tasksCompleted.has(task.id);
       const requiresCode = task.verification_type === 'code' || task.verification_type === 'both';
       const requiresLocation = task.verification_type === 'location' || task.verification_type === 'both';
+      const hasDetails = task.location_name || (task.latitude && task.longitude);
       
       const li = document.createElement('li');
       li.className = 'task';
@@ -316,8 +390,8 @@
       if (requiresCode || requiresLocation) {
         const badge = document.createElement('span');
         badge.className = 'task-verification-badge';
-        badge.style.cssText = 'margin-left: 8px; font-size: 0.75em; padding: 2px 6px; border-radius: 4px; background: linear-gradient(135deg, #10b981, #059669); color: white;';
-        badge.textContent = requiresCode && requiresLocation ? '🔑📍' : requiresCode ? '🔑 Kod' : '📍 GPS';
+        badge.style.cssText = 'margin-left: 8px; font-size: 0.75em; padding: 2px 6px; border-radius: 4px; background: #3b82f6; color: white;';
+        badge.textContent = requiresCode && requiresLocation ? '🔑📍' : requiresCode ? '🔑' : '📍';
         titleEl.appendChild(badge);
       }
       info.appendChild(titleEl);
@@ -330,13 +404,70 @@
         info.appendChild(descriptionEl);
       }
       
-      // Show location name if available
-      if (task.location_name && !completed) {
-        const locEl = document.createElement('p');
-        locEl.className = 'task-location';
-        locEl.style.cssText = 'font-size: 0.85em; color: #6b7280; margin-top: 4px;';
-        locEl.textContent = `📍 ${task.location_name}`;
-        info.appendChild(locEl);
+      // Show details toggle button if quest has location info
+      if (hasDetails && !completed) {
+        const detailsToggle = document.createElement('button');
+        detailsToggle.type = 'button';
+        detailsToggle.className = 'task-details-toggle';
+        detailsToggle.innerHTML = `<span class="toggle-icon">▶</span> ${t('tasks.details.show', 'Pokaż szczegóły')}`;
+        detailsToggle.addEventListener('click', () => {
+          const panel = document.getElementById(`details-${task.id}`);
+          const icon = detailsToggle.querySelector('.toggle-icon');
+          if (panel) {
+            panel.classList.toggle('is-open');
+            icon.textContent = panel.classList.contains('is-open') ? '▼' : '▶';
+            detailsToggle.innerHTML = `<span class="toggle-icon">${panel.classList.contains('is-open') ? '▼' : '▶'}</span> ${panel.classList.contains('is-open') ? t('tasks.details.hide', 'Ukryj szczegóły') : t('tasks.details.show', 'Pokaż szczegóły')}`;
+          }
+        });
+        info.appendChild(detailsToggle);
+        
+        // Details panel
+        const detailsPanel = document.createElement('div');
+        detailsPanel.className = 'task-details-panel';
+        detailsPanel.id = `details-${task.id}`;
+        
+        // Location name
+        if (task.location_name) {
+          const locRow = document.createElement('div');
+          locRow.className = 'task-details-row';
+          locRow.innerHTML = `<span>📍</span> <strong>${t('tasks.details.location', 'Lokalizacja')}:</strong> ${task.location_name}`;
+          detailsPanel.appendChild(locRow);
+        }
+        
+        // Coordinates with Google Maps link
+        if (task.latitude && task.longitude) {
+          const coordRow = document.createElement('div');
+          coordRow.className = 'task-details-row';
+          const mapsUrl = `https://www.google.com/maps?q=${task.latitude},${task.longitude}`;
+          coordRow.innerHTML = `<span>🗺️</span> <a href="${mapsUrl}" target="_blank" rel="noopener">${t('tasks.details.openMaps', 'Otwórz w Mapach Google')}</a>`;
+          detailsPanel.appendChild(coordRow);
+        }
+        
+        // Radius info
+        if (task.location_radius && requiresLocation) {
+          const radiusRow = document.createElement('div');
+          radiusRow.className = 'task-details-row';
+          radiusRow.innerHTML = `<span>📏</span> ${t('tasks.details.radius', 'Promień weryfikacji')}: ${task.location_radius}m`;
+          detailsPanel.appendChild(radiusRow);
+        }
+        
+        // Verification type info
+        const typeRow = document.createElement('div');
+        typeRow.className = 'task-details-row';
+        let typeText = '';
+        if (requiresCode && requiresLocation) {
+          typeText = t('tasks.details.typeBoth', 'Wymagany kod + potwierdzenie lokalizacji');
+        } else if (requiresCode) {
+          typeText = t('tasks.details.typeCode', 'Poproś o kod u partnera i wpisz go poniżej');
+        } else if (requiresLocation) {
+          typeText = t('tasks.details.typeLocation', 'Kliknij "Jestem na miejscu" gdy będziesz w lokalizacji');
+        }
+        if (typeText) {
+          typeRow.innerHTML = `<span>ℹ️</span> ${typeText}`;
+          detailsPanel.appendChild(typeRow);
+        }
+        
+        info.appendChild(detailsPanel);
       }
 
       const meta = document.createElement('div');
@@ -385,9 +516,8 @@
         
         const verifyBtn = document.createElement('button');
         verifyBtn.type = 'button';
-        verifyBtn.className = 'task-action task-verify-btn';
+        verifyBtn.className = 'task-verify-btn';
         verifyBtn.textContent = t('tasks.code.verify', 'Weryfikuj');
-        verifyBtn.style.cssText = 'background: linear-gradient(135deg, #10b981, #059669); white-space: nowrap;';
         verifyBtn.addEventListener('click', () => verifyQuestCode(task, codeInput.value));
         
         // Allow Enter key to submit

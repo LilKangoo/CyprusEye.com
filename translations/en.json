@@ -755,6 +755,16 @@
       "gps_unavailable": "GPS unavailable",
       "gps_timeout": "GPS timeout"
     },
+    "details": {
+      "show": "Show details",
+      "hide": "Hide details",
+      "location": "Location",
+      "openMaps": "Open in Google Maps",
+      "radius": "Verification radius",
+      "typeCode": "Ask the partner for a code and enter it below",
+      "typeLocation": "Click \"I'm here\" when you arrive at the location",
+      "typeBoth": "Code + location verification required"
+    },
     "status": {
       "completed": "Task \"{{title}}\" completed (+{{xp}} XP)",
       "reverted": "Task \"{{title}}\" unmarked (−{{xp}} XP).{{note}}",
