@@ -294,41 +294,116 @@
     const style = document.createElement('style');
     style.id = 'quest-verification-styles';
     style.textContent = `
+      .task {
+        display: flex;
+        flex-direction: column; /* Mobile first */
+        gap: 12px;
+        padding: 16px;
+        background: #fff;
+        border-radius: 12px;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+        margin-bottom: 16px;
+        transition: all 0.2s ease;
+      }
+      @media (min-width: 640px) {
+        .task {
+          flex-direction: row;
+          align-items: flex-start;
+          justify-content: space-between;
+        }
+      }
+      .task-info {
+        flex: 1;
+        min-width: 0; /* Truncate text fix */
+      }
+      .task-meta {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        width: 100%;
+        margin-top: 8px;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 12px;
+      }
+      @media (min-width: 640px) {
+        .task-meta {
+          flex-direction: column;
+          align-items: flex-end;
+          width: auto;
+          margin-top: 0;
+          border-top: none;
+          padding-top: 0;
+        }
+      }
+      .task-actions {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        align-items: flex-end;
+        width: 100%;
+      }
+      .task-code-form {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+        width: 100%;
+      }
+      .task-code-input {
+        flex: 1;
+        min-width: 0;
+        padding: 10px 12px !important;
+        border: 1px solid #cbd5e1 !important;
+        border-radius: 8px !important;
+        font-size: 16px !important; /* Prevent iOS zoom */
+        text-transform: uppercase;
+        font-family: monospace;
+        letter-spacing: 1px;
+      }
       .task-verify-btn {
         background: #3b82f6 !important;
         color: white !important;
         border: 2px solid #3b82f6 !important;
-        padding: 8px 16px !important;
-        border-radius: 20px !important;
+        padding: 10px 20px !important;
+        border-radius: 8px !important;
         font-weight: 600 !important;
         transition: all 0.2s ease !important;
         cursor: pointer !important;
+        white-space: nowrap;
+        flex-shrink: 0;
       }
       .task-verify-btn:hover {
         background: white !important;
         color: #3b82f6 !important;
       }
+      .task-location-btn {
+        width: 100%;
+        padding: 12px !important;
+        border-radius: 8px !important;
+        font-weight: 600 !important;
+        text-align: center;
+      }
       .task-details-toggle {
         background: none;
         border: none;
         color: #3b82f6;
-        font-size: 0.85em;
+        font-size: 0.9em;
         cursor: pointer;
-        padding: 4px 0;
-        display: flex;
+        padding: 8px 0;
+        display: inline-flex;
         align-items: center;
-        gap: 4px;
-      }
-      .task-details-toggle:hover {
-        text-decoration: underline;
+        gap: 6px;
+        font-weight: 500;
       }
       .task-details-panel {
         background: #f8fafc;
-        border-radius: 8px;
-        padding: 12px 16px;
+        border-radius: 12px;
+        padding: 16px;
         margin-top: 12px;
         border: 1px solid #e2e8f0;
         display: none;
+        width: 100%;
       }
       .task-details-panel.is-open {
         display: block;
@@ -336,21 +411,26 @@
       }
       .task-details-row {
         display: flex;
-        align-items: center;
-        gap: 8px;
-        margin-bottom: 8px;
-        font-size: 0.9em;
+        align-items: flex-start;
+        gap: 10px;
+        margin-bottom: 10px;
+        font-size: 0.95em;
         color: #475569;
+        line-height: 1.5;
       }
-      .task-details-row:last-child {
-        margin-bottom: 0;
+      .task-details-row span:first-child {
+        font-size: 1.2em;
+        line-height: 1;
+        margin-top: 2px;
       }
-      .task-details-row a {
-        color: #3b82f6;
-        text-decoration: none;
-      }
-      .task-details-row a:hover {
-        text-decoration: underline;
+      @media (max-width: 639px) {
+        .task-code-form {
+          flex-direction: column;
+          align-items: stretch;
+        }
+        .task-verify-btn {
+          width: 100%;
+        }
       }
       @keyframes slideDown {
         from { opacity: 0; transform: translateY(-8px); }
@@ -463,7 +543,7 @@
           typeText = t('tasks.details.typeLocation', 'Kliknij "Jestem na miejscu" gdy będziesz w lokalizacji');
         }
         if (typeText) {
-          typeRow.innerHTML = `<span>ℹ️</span> ${typeText}`;
+          typeRow.innerHTML = `<span>ℹ️</span> <span>${typeText}</span>`;
           detailsPanel.appendChild(typeRow);
         }
         
@@ -481,8 +561,7 @@
       // Actions container
       const actionsContainer = document.createElement('div');
       actionsContainer.className = 'task-actions';
-      actionsContainer.style.cssText = 'display: flex; flex-direction: column; gap: 8px; align-items: flex-end;';
-
+      
       if (completed) {
         const button = document.createElement('button');
         button.type = 'button';
@@ -504,13 +583,12 @@
         // Code verification UI
         const codeForm = document.createElement('div');
         codeForm.className = 'task-code-form';
-        codeForm.style.cssText = 'display: flex; gap: 6px; align-items: center;';
         
         const codeInput = document.createElement('input');
         codeInput.type = 'text';
         codeInput.placeholder = t('tasks.code.placeholder', 'Wpisz kod');
         codeInput.className = 'task-code-input';
-        codeInput.style.cssText = 'padding: 8px 12px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 14px; text-transform: uppercase; width: 120px; font-family: monospace;';
+        // Remove inline styles to use class styles
         codeInput.maxLength = 20;
         codeInput.id = `code-input-${task.id}`;
         
@@ -532,7 +610,7 @@
         // Error message container
         const errorMsg = document.createElement('div');
         errorMsg.id = `code-error-${task.id}`;
-        errorMsg.style.cssText = 'color: #ef4444; font-size: 0.8em; display: none;';
+        errorMsg.style.cssText = 'color: #ef4444; font-size: 0.8em; display: none; width: 100%; text-align: right;';
         actionsContainer.appendChild(errorMsg);
         
       } else if (requiresLocation) {
@@ -541,14 +619,14 @@
         locBtn.type = 'button';
         locBtn.className = 'task-action task-location-btn';
         locBtn.textContent = t('tasks.location.verify', '📍 Jestem na miejscu');
-        locBtn.style.cssText = 'background: linear-gradient(135deg, #3b82f6, #2563eb);';
+        // Use styles from CSS class instead
         locBtn.addEventListener('click', () => verifyQuestLocation(task));
         actionsContainer.appendChild(locBtn);
         
         // Error message container
         const errorMsg = document.createElement('div');
         errorMsg.id = `loc-error-${task.id}`;
-        errorMsg.style.cssText = 'color: #ef4444; font-size: 0.8em; display: none;';
+        errorMsg.style.cssText = 'color: #ef4444; font-size: 0.8em; display: none; width: 100%; text-align: center;';
         actionsContainer.appendChild(errorMsg);
         
       } else {
