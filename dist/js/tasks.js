@@ -879,6 +879,27 @@
       updateHeaderMetrics();
       renderTasks();
     });
+
+    // Listen for auth state changes to auto-refresh tasks
+    if (sb && sb.auth) {
+      sb.auth.onAuthStateChange(async (event, session) => {
+        if (event === 'SIGNED_IN') {
+          console.log('📋 Tasks: Auth SIGNED_IN detected, refreshing...');
+          await initSupabase();
+          renderTasks();
+          updateHeaderMetrics();
+        } else if (event === 'SIGNED_OUT') {
+          console.log('📋 Tasks: Auth SIGNED_OUT detected, clearing state...');
+          state.auth = { userId: null, isAuthenticated: false };
+          state.tasksCompleted.clear();
+          state.xp = 0;
+          state.level = 1;
+          saveState(); // clear local state
+          renderTasks();
+          updateHeaderMetrics();
+        }
+      });
+    }
   }
 
   if (document.readyState === 'loading') {
