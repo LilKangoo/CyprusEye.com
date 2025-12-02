@@ -6,8 +6,8 @@
   const SUPPORTED_LANGUAGES = {
     pl: { label: 'Polski', shortLabel: 'PL', flag: '🇵🇱', dir: 'ltr' },
     en: { label: 'English', shortLabel: 'EN', flag: '🇬🇧', dir: 'ltr' },
-    el: { label: 'Ελληνικά', shortLabel: 'EL', flag: '🇬🇷', dir: 'ltr' },
-    he: { label: 'עברית', shortLabel: 'HE', flag: '🇮🇱', dir: 'rtl' },
+    // el: { label: 'Ελληνικά', shortLabel: 'EL', flag: '🇬🇷', dir: 'ltr' },
+    // he: { label: 'עברית', shortLabel: 'HE', flag: '🇮🇱', dir: 'rtl' },
   };
 
   const translationCache = new Map();

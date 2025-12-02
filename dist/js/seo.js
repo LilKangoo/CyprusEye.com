@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  const SUPPORTED_LANGUAGES = ['pl', 'en', 'el', 'he'];
+  const SUPPORTED_LANGUAGES = ['pl', 'en']; // ['pl', 'en', 'el', 'he'];
   const DEFAULT_IMAGE = 'assets/cyprus_logo-1000x1054.png';
   const CANONICAL_ORIGIN = 'https://www.cypruseye.com';
   const LOCALE_FALLBACK = {

@@ -5,8 +5,8 @@
   const SUPPORTED_LANGUAGES = {
     pl: { label: 'Wybierz', flag: '🇵🇱', fullName: 'Polski' },
     en: { label: 'Choose', flag: '🇬🇧', fullName: 'English' },
-    el: { label: 'Επιλέξτε', flag: '🇬🇷', fullName: 'Ελληνικά' },
-    he: { label: 'בחר', flag: '🇮🇱', fullName: 'עברית' },
+    // el: { label: 'Επιλέξτε', flag: '🇬🇷', fullName: 'Ελληνικά' },
+    // he: { label: 'בחר', flag: '🇮🇱', fullName: 'עברית' },
   };
 
   function safeLocalStorage(action, key, value) {

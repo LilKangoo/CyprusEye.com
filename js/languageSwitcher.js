@@ -6,8 +6,8 @@
 const SUPPORTED_LANGUAGES = {
   pl: { name: 'Polski', flag: '🇵🇱', dir: 'ltr', locale: 'pl_PL' },
   en: { name: 'English', flag: '🇬🇧', dir: 'ltr', locale: 'en_GB' },
-  el: { name: 'Ελληνικά', flag: '🇬🇷', dir: 'ltr', locale: 'el_GR' },
-  he: { name: 'עברית', flag: '🇮🇱', dir: 'rtl', locale: 'he_IL' }
+  // el: { name: 'Ελληνικά', flag: '🇬🇷', dir: 'ltr', locale: 'el_GR' },
+  // he: { name: 'עברית', flag: '🇮🇱', dir: 'rtl', locale: 'he_IL' }
 };
 
 const DEFAULT_LANGUAGE = 'pl';
