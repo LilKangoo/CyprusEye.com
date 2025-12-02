@@ -1123,12 +1123,13 @@
                 <th>XP</th>
                 <th>Active</th>
                 <th>Sort</th>
+                <th>Code</th>
                 <th>Actions</th>
               </tr>
             </thead>
             <tbody id="questsTableBody">
               <tr>
-                <td colspan="5" class="table-loading">Loading quests...</td>
+                <td colspan="6" class="table-loading">Loading quests...</td>
               </tr>
             </tbody>
           </table>
@@ -2457,7 +2458,7 @@
   <!-- Quest Form Modal -->
   <div class="admin-modal" id="questFormModal" hidden>
     <div class="admin-modal-overlay" id="questFormModalOverlay"></div>
-    <div class="admin-modal-content">
+    <div class="admin-modal-content" style="max-width: 800px;">
       <header class="admin-modal-header">
         <h3 id="questFormTitle">New Quest</h3>
         <button class="btn-modal-close" id="btnCloseQuestForm">
@@ -2469,6 +2470,7 @@
       </header>
       <div class="admin-modal-body">
         <form id="questForm">
+          <!-- Basic Info -->
           <div class="admin-form-grid">
             <label class="admin-form-field">
               <span>ID *</span>
@@ -2490,15 +2492,64 @@
               </select>
             </label>
           </div>
-          <label class="admin-form-field">
-            <span>Title (i18n) *</span>
-            <div id="questTitleI18nContainer"></div>
-          </label>
-          <label class="admin-form-field">
-            <span>Description (i18n)</span>
-            <div id="questDescriptionI18nContainer"></div>
-          </label>
-          <div class="poi-form-actions">
+
+          <!-- Title & Description i18n -->
+          <div id="questTitleI18nContainer" style="margin-bottom: 16px;"></div>
+          <div id="questDescriptionI18nContainer" style="margin-bottom: 16px;"></div>
+
+          <!-- Verification Section -->
+          <div style="border-top: 1px solid var(--admin-border); padding-top: 16px; margin-top: 16px;">
+            <h4 style="margin: 0 0 12px 0; color: var(--admin-text);">🔐 Verification Settings</h4>
+            
+            <div class="admin-form-grid">
+              <label class="admin-form-field">
+                <span>Verification Type</span>
+                <select id="questVerificationType" name="verification_type">
+                  <option value="none">None (manual completion)</option>
+                  <option value="code">Code only</option>
+                  <option value="location">Location only (GPS)</option>
+                  <option value="both">Code + Location</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Link to Recommendation</span>
+                <select id="questRecommendationId" name="recommendation_id">
+                  <option value="">-- None --</option>
+                  <!-- Options will be loaded dynamically -->
+                </select>
+              </label>
+            </div>
+
+            <!-- Code verification fields -->
+            <div id="questCodeFields" style="display: none; margin-top: 12px;">
+              <label class="admin-form-field">
+                <span>🔑 Unlock Code (given to partners/vendors)</span>
+                <input type="text" id="questUnlockCode" name="unlock_code" placeholder="e.g. CYPRUS2024" style="font-family: monospace; text-transform: uppercase;" />
+                <small style="color: var(--admin-text-muted);">Users will enter this code to complete the quest</small>
+              </label>
+            </div>
+
+            <!-- Location verification fields -->
+            <div id="questLocationFields" style="display: none; margin-top: 12px;">
+              <div class="admin-form-grid">
+                <label class="admin-form-field">
+                  <span>📍 Latitude</span>
+                  <input type="number" id="questLatitude" name="latitude" step="0.000001" placeholder="34.755670" />
+                </label>
+                <label class="admin-form-field">
+                  <span>📍 Longitude</span>
+                  <input type="number" id="questLongitude" name="longitude" step="0.000001" placeholder="32.404170" />
+                </label>
+                <label class="admin-form-field">
+                  <span>📏 Radius (meters)</span>
+                  <input type="number" id="questLocationRadius" name="location_radius" min="50" max="1000" step="10" value="100" />
+                </label>
+              </div>
+              <div id="questLocationNameI18nContainer" style="margin-top: 12px;"></div>
+            </div>
+          </div>
+
+          <div class="poi-form-actions" style="margin-top: 20px;">
             <button type="button" class="btn-secondary" id="questFormCancel">Cancel</button>
             <button type="submit" class="btn-primary" id="questFormSubmit">Save Quest</button>
           </div>

@@ -3271,7 +3271,7 @@ async function loadQuestsData() {
     if (!view) return;
     const { data, error } = await client
       .from('tasks')
-      .select('id,xp,is_active,sort_order,category,title,description,title_i18n,description_i18n')
+      .select('id,xp,is_active,sort_order,category,title,description,title_i18n,description_i18n,verification_type,unlock_code,latitude,longitude,location_radius,location_name_i18n,recommendation_id')
       .eq('category', 'quest')
       .order('sort_order', { ascending: true });
     if (error) throw error;
@@ -3279,27 +3279,32 @@ async function loadQuestsData() {
     const tbody = $('#questsTableBody');
     if (!tbody) return;
     if (adminState.quests.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5" class="table-loading">No quests</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="6" class="table-loading">No quests</td></tr>';
       return;
     }
-    tbody.innerHTML = adminState.quests.map(q => `
+    tbody.innerHTML = adminState.quests.map(q => {
+      const verificationBadge = q.verification_type && q.verification_type !== 'none' 
+        ? `<span style="font-size: 0.8em; padding: 2px 6px; border-radius: 4px; background: ${q.verification_type === 'code' ? '#10b981' : q.verification_type === 'location' ? '#3b82f6' : '#8b5cf6'}; color: white;">${q.verification_type === 'code' ? '🔑 Code' : q.verification_type === 'location' ? '📍 GPS' : '🔑📍 Both'}</span>`
+        : '';
+      return `
       <tr>
-        <td>${escapeHtml(q.id)}</td>
+        <td>${escapeHtml(q.id)} ${verificationBadge}</td>
         <td>${Number(q.xp)||0}</td>
         <td>${q.is_active ? 'Yes' : 'No'}</td>
         <td>${Number(q.sort_order)||0}</td>
+        <td>${q.unlock_code ? '✓' : '—'}</td>
         <td>
           <button class="btn-secondary" onclick="handleQuestEdit('${q.id}')">Edit</button>
           <button class="btn-secondary user-detail-danger" onclick="handleQuestDelete('${q.id}')">Delete</button>
         </td>
       </tr>
-    `).join('');
+    `}).join('');
   } catch (e) {
     showToast('Failed to load quests', 'error');
   }
 }
 
-function openQuestForm(mode, quest) {
+async function openQuestForm(mode, quest) {
   adminState.questFormMode = mode;
   adminState.selectedQuest = quest || null;
   const modal = $('#questFormModal');
@@ -3334,7 +3339,6 @@ function openQuestForm(mode, quest) {
     const descContainer = $('#questDescriptionI18nContainer');
     
     if (titleContainer) {
-      // Prepare title data (prefer i18n, fallback to legacy)
       const titleData = (mode === 'edit' && quest?.title_i18n) 
         ? quest.title_i18n 
         : (mode === 'edit' && quest?.title) 
@@ -3351,7 +3355,6 @@ function openQuestForm(mode, quest) {
     }
     
     if (descContainer) {
-      // Prepare description data (prefer i18n, fallback to legacy)
       const descData = (mode === 'edit' && quest?.description_i18n) 
         ? quest.description_i18n 
         : (mode === 'edit' && quest?.description) 
@@ -3369,7 +3372,122 @@ function openQuestForm(mode, quest) {
     }
   }
   
+  // Set verification fields
+  const verifyType = $('#questVerificationType');
+  const unlockCode = $('#questUnlockCode');
+  const latitude = $('#questLatitude');
+  const longitude = $('#questLongitude');
+  const locationRadius = $('#questLocationRadius');
+  const recommendationSelect = $('#questRecommendationId');
+  
+  if (mode === 'edit' && quest) {
+    if (verifyType) verifyType.value = quest.verification_type || 'none';
+    if (unlockCode) unlockCode.value = quest.unlock_code || '';
+    if (latitude) latitude.value = quest.latitude || '';
+    if (longitude) longitude.value = quest.longitude || '';
+    if (locationRadius) locationRadius.value = quest.location_radius || 100;
+    if (recommendationSelect) recommendationSelect.value = quest.recommendation_id || '';
+  } else {
+    if (verifyType) verifyType.value = 'none';
+    if (unlockCode) unlockCode.value = '';
+    if (latitude) latitude.value = '';
+    if (longitude) longitude.value = '';
+    if (locationRadius) locationRadius.value = 100;
+    if (recommendationSelect) recommendationSelect.value = '';
+  }
+  
+  // Render location name i18n
+  const locNameContainer = $('#questLocationNameI18nContainer');
+  if (locNameContainer && window.renderI18nInput) {
+    const locNameData = (mode === 'edit' && quest?.location_name_i18n) ? quest.location_name_i18n : {};
+    locNameContainer.innerHTML = window.renderI18nInput({
+      fieldName: 'location_name',
+      label: 'Location Name',
+      type: 'text',
+      placeholder: 'e.g., Local Shop, Beach Bar',
+      currentValues: locNameData
+    });
+  }
+  
+  // Toggle visibility of verification fields
+  toggleQuestVerificationFields(verifyType?.value || 'none');
+  
+  // Load recommendations for dropdown
+  await loadRecommendationsForQuestForm();
+  if (mode === 'edit' && quest?.recommendation_id) {
+    if (recommendationSelect) recommendationSelect.value = quest.recommendation_id;
+  }
+  
   showElement(modal);
+}
+
+function toggleQuestVerificationFields(type) {
+  const codeFields = $('#questCodeFields');
+  const locationFields = $('#questLocationFields');
+  
+  if (codeFields) {
+    codeFields.style.display = (type === 'code' || type === 'both') ? 'block' : 'none';
+  }
+  if (locationFields) {
+    locationFields.style.display = (type === 'location' || type === 'both') ? 'block' : 'none';
+  }
+}
+
+async function loadRecommendationsForQuestForm() {
+  const select = $('#questRecommendationId');
+  if (!select) return;
+  
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+    
+    const { data: recs, error } = await client
+      .from('recommendations')
+      .select('id, title_pl, title_en, latitude, longitude')
+      .eq('active', true)
+      .order('title_en', { ascending: true });
+    
+    if (error) throw error;
+    
+    // Keep first option and rebuild
+    select.innerHTML = '<option value="">-- None --</option>';
+    
+    if (Array.isArray(recs)) {
+      recs.forEach(rec => {
+        const title = rec.title_pl || rec.title_en || 'Unnamed';
+        const hasLocation = rec.latitude && rec.longitude;
+        const option = document.createElement('option');
+        option.value = rec.id;
+        option.textContent = `${title}${hasLocation ? ' 📍' : ''}`;
+        option.dataset.lat = rec.latitude || '';
+        option.dataset.lng = rec.longitude || '';
+        select.appendChild(option);
+      });
+    }
+  } catch (e) {
+    console.error('Failed to load recommendations for quest form:', e);
+  }
+}
+
+function handleRecommendationSelect(e) {
+  const select = e.target;
+  const selectedOption = select.options[select.selectedIndex];
+  
+  if (!selectedOption || !selectedOption.value) return;
+  
+  const lat = selectedOption.dataset.lat;
+  const lng = selectedOption.dataset.lng;
+  
+  if (lat && lng) {
+    const latInput = $('#questLatitude');
+    const lngInput = $('#questLongitude');
+    
+    // Only fill if empty
+    if (latInput && !latInput.value) latInput.value = lat;
+    if (lngInput && !lngInput.value) lngInput.value = lng;
+    
+    showToast('Location auto-filled from recommendation', 'info');
+  }
 }
 
 async function handleQuestDelete(id) {
@@ -3402,10 +3520,34 @@ async function handleQuestFormSubmit(e) {
   const sort_order = Number($('#questSort').value || '1000') || 1000;
   const is_active = $('#questActive').value === 'true';
   
+  // Get verification fields
+  const verification_type = $('#questVerificationType')?.value || 'none';
+  const unlock_code = ($('#questUnlockCode')?.value || '').trim().toUpperCase() || null;
+  const latitude = $('#questLatitude')?.value ? parseFloat($('#questLatitude').value) : null;
+  const longitude = $('#questLongitude')?.value ? parseFloat($('#questLongitude').value) : null;
+  const location_radius = parseInt($('#questLocationRadius')?.value) || 100;
+  const recommendation_id = $('#questRecommendationId')?.value || null;
+  
+  // Validate verification settings
+  if (verification_type === 'code' || verification_type === 'both') {
+    if (!unlock_code || unlock_code.length < 4) {
+      showToast('Unlock code must be at least 4 characters', 'error');
+      return;
+    }
+  }
+  
+  if (verification_type === 'location' || verification_type === 'both') {
+    if (!latitude || !longitude) {
+      showToast('Latitude and Longitude are required for location verification', 'error');
+      return;
+    }
+  }
+  
   // Extract i18n values
   const fd = new FormData($('#questForm'));
   const titleI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'title') : null;
   const descriptionI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'description') : null;
+  const locationNameI18n = window.extractI18nValues ? window.extractI18nValues(fd, 'location_name') : null;
   
   // Validate title (at least one language required)
   if (window.validateI18nField) {
@@ -3422,12 +3564,21 @@ async function handleQuestFormSubmit(e) {
     xp, 
     sort_order, 
     is_active, 
-    category: 'quest'
+    category: 'quest',
+    verification_type,
+    unlock_code: (verification_type === 'code' || verification_type === 'both') ? unlock_code : null,
+    latitude: (verification_type === 'location' || verification_type === 'both') ? latitude : null,
+    longitude: (verification_type === 'location' || verification_type === 'both') ? longitude : null,
+    location_radius: (verification_type === 'location' || verification_type === 'both') ? location_radius : 100,
+    recommendation_id: recommendation_id || null
   };
   
   // Add i18n fields
   if (titleI18n) payload.title_i18n = titleI18n;
   if (descriptionI18n) payload.description_i18n = descriptionI18n;
+  if (locationNameI18n && (verification_type === 'location' || verification_type === 'both')) {
+    payload.location_name_i18n = locationNameI18n;
+  }
   
   // Clean legacy fields (for backward compatibility)
   payload.title = null;
@@ -3459,6 +3610,18 @@ document.addEventListener('DOMContentLoaded', () => {
   if (cancelBtn) cancelBtn.addEventListener('click', () => hideElement($('#questFormModal')));
   const form = $('#questForm');
   if (form) form.addEventListener('submit', handleQuestFormSubmit);
+  
+  // Verification type toggle
+  const verifyTypeSelect = $('#questVerificationType');
+  if (verifyTypeSelect) {
+    verifyTypeSelect.addEventListener('change', (e) => toggleQuestVerificationFields(e.target.value));
+  }
+  
+  // Recommendation select - auto-fill location
+  const recSelect = $('#questRecommendationId');
+  if (recSelect) {
+    recSelect.addEventListener('change', handleRecommendationSelect);
+  }
 });
 
 // =====================================================
