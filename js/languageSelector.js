@@ -76,7 +76,7 @@
       const title = document.createElement('h2');
       title.id = 'languageSelectorTitle';
       title.className = 'language-selector-title';
-      title.textContent = 'Select Language / Wybierz język / Επιλέξτε γλώσσα / בחר שפה';
+      title.textContent = 'Select Language / Wybierz język';
       this.dialog.appendChild(title);
 
       // Create language options container
