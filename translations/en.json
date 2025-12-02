@@ -1242,13 +1242,13 @@
       "home": "🏠 Home",
       "car": "🚗 Car rental",
       "attractions": "📚 Attractions",
-      "mediaTrips": "Media Trips",
       "tasks": "✅ Task list",
       "recommendations": "✨ Recommendations",
       "community": "💬 Community",
       "trips": "🧭 Trips",
       "hotels": "🏨 Hotels",
       "mediaTrips": {
+        "label": "Media Trips",
         "ariaLabel": "Open the VIP individual trips page"
       }
     },

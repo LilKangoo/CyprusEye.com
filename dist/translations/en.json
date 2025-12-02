@@ -1242,13 +1242,13 @@
       "home": "🏠 Home",
       "car": "🚗 Car rental",
       "attractions": "📚 Attractions",
-      "mediaTrips": "Media Trips",
       "tasks": "✅ Task list",
       "recommendations": "✨ Recommendations",
       "community": "💬 Community",
       "trips": "🧭 Trips",
       "hotels": "🏨 Hotels",
       "mediaTrips": {
+        "label": "Media Trips",
         "ariaLabel": "Open the VIP individual trips page"
       }
     },
@@ -1601,13 +1601,16 @@
     },
     "healthcare": {
       "title": "🏥 Closest medical help",
-      "hospital": {
+      "sos.healthcare.title": "🏥 Closest medical help",
+      "sos.healthcare.hospital": {
         "html": "24/7 emergency department, Anavargos, Paphos. <a href=\"tel:+35726803000\">+357 26 803 000</a> • <a href=\"https://maps.google.com/?q=Paphos+General+Hospital\" target=\"_blank\" rel=\"noopener\">Directions</a>"
       },
-      "search": {
+      "sos.healthcare.searchTitle": "Search for a nearby hospital",
+      "sos.healthcare.search": {
         "html": "<a href=\"https://www.google.com/maps/search/hospital+near+me/\" target=\"_blank\" rel=\"noopener\">Open the hospital list on Google Maps</a> and share your location to see nearby options."
       },
-      "pharmacy": {
+      "sos.healthcare.pharmacyTitle": "Duty pharmacy",
+      "sos.healthcare.pharmacy": {
         "html": "Check duty pharmacies on the <a href=\"https://pharmacy.dl.moh.gov.cy/\" target=\"_blank\" rel=\"noopener\">Ministry of Health website</a> or search for a <a href=\"https://www.google.com/maps/search/pharmacy+near+me/\" target=\"_blank\" rel=\"noopener\">pharmacy nearby</a>."
       },
       "note": "In life-threatening situations always call 112 and clearly state your location. Enable location sharing in the app to find help faster on the map."
