@@ -427,7 +427,7 @@
         align-items: center;
       }
       .task-verify-btn {
-        background: #3b82f6;
+        background: #10b981; /* Green for code verification */
         color: white;
       }
       .task-verify-btn:active { opacity: 0.9; }
@@ -440,10 +440,12 @@
       .task-action.is-completed {
         background: #f1f5f9;
         color: #64748b;
+        border: 1px solid #e2e8f0;
       }
       .task-location-btn {
-        background: #3b82f6;
+        background: #8b5cf6; /* Purple for location verification */
         width: 100%;
+        color: white;
       }
       
       /* Mobile Tweaks */
@@ -536,6 +538,9 @@
         if (task.location_name) {
           detailsPanel.innerHTML += `<div class="task-details-row"><span>📍</span> <span><strong>${t('tasks.details.location', 'Lokalizacja')}:</strong> ${task.location_name}</span></div>`;
         }
+        if (task.location_radius) {
+          detailsPanel.innerHTML += `<div class="task-details-row"><span>⭕</span> <span><strong>${t('tasks.details.radius', 'Promień')}:</strong> ${task.location_radius}m</span></div>`;
+        }
         if (task.latitude && task.longitude) {
           const mapsUrl = `https://www.google.com/maps?q=${task.latitude},${task.longitude}`;
           detailsPanel.innerHTML += `<div class="task-details-row"><span>🗺️</span> <a href="${mapsUrl}" target="_blank" rel="noopener" style="color:#3b82f6">${t('tasks.details.openMaps', 'Otwórz w Mapach Google')}</a></div>`;
@@ -582,6 +587,12 @@
         });
         actionsContainer.appendChild(button);
       } else if (requiresCode) {
+        // Instruction
+        const instruction = document.createElement('p');
+        instruction.style.cssText = "font-size: 0.9em; color: #475569; margin-bottom: 8px; text-align: center;";
+        instruction.textContent = t('tasks.instruction.code', 'Poproś obsługę o kod, aby zdobyć punkty!');
+        actionsContainer.appendChild(instruction);
+
         const codeForm = document.createElement('div');
         codeForm.className = 'task-code-form';
         
@@ -611,6 +622,12 @@
         actionsContainer.appendChild(errorMsg);
         
       } else if (requiresLocation) {
+        // Instruction
+        const instruction = document.createElement('p');
+        instruction.style.cssText = "font-size: 0.9em; color: #475569; margin-bottom: 8px; text-align: center;";
+        instruction.textContent = t('tasks.instruction.location', 'Udaj się na miejsce i kliknij przycisk, aby zdobyć punkty!');
+        actionsContainer.appendChild(instruction);
+
         const locBtn = document.createElement('button');
         locBtn.type = 'button';
         locBtn.className = 'task-action task-location-btn';

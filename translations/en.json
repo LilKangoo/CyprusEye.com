@@ -847,6 +847,10 @@
       "typeLocation": "Click \"I'm here\" when you arrive at the location",
       "typeBoth": "Code + location verification required"
     },
+    "instruction": {
+      "code": "Ask staff for the code to earn XP!",
+      "location": "Go to the location and click the button to earn XP!"
+    },
     "status": {
       "completed": "Task \"{{title}}\" completed (+{{xp}} XP)",
       "reverted": "Task \"{{title}}\" unmarked (−{{xp}} XP).{{note}}",

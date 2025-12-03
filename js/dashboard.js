@@ -1180,20 +1180,33 @@ async function loadAchievements() {
     badgesContainer.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading badges...</p></div>';
     questsContainer.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading quests...</p></div>';
 
-    // 1. Load Completed Tasks (needed for both badges and quests list)
+    // 1. Load Completed Tasks
     let completedTasks = [];
-    let completedSet = new Set();
+    let taskDefinitions = new Map(); // Map<id, taskDef>
     
     if (currentUser) {
-      const { data, error } = await supabase
+      // Fetch completed tasks
+      const { data: completedData, error: completedError } = await supabase
         .from('completed_tasks')
         .select('task_id, created_at')
         .eq('user_id', currentUser.id)
         .order('created_at', { ascending: false });
         
-      if (!error && data) {
-        completedTasks = data;
-        completedSet = new Set(data.map(t => t.task_id));
+      if (!completedError && completedData) {
+        completedTasks = completedData;
+        
+        // Fetch definitions for these tasks from DB
+        const taskIds = completedTasks.map(t => t.task_id);
+        if (taskIds.length > 0) {
+          const { data: tasksData, error: tasksError } = await supabase
+            .from('tasks')
+            .select('id, title, title_i18n, xp')
+            .in('id', taskIds);
+            
+          if (!tasksError && tasksData) {
+            tasksData.forEach(t => taskDefinitions.set(t.id, t));
+          }
+        }
       }
     }
 
@@ -1202,7 +1215,14 @@ async function loadAchievements() {
       questsContainer.innerHTML = `<p class="empty-state" data-i18n="dashboard.achievements.quests.empty">No completed quests yet.</p>`;
     } else {
       const questsHtml = completedTasks.map(taskRecord => {
-        const taskDef = TASKS_DATA.find(t => t.id === taskRecord.task_id);
+        // Try getting definition from DB first
+        let taskDef = taskDefinitions.get(taskRecord.task_id);
+        
+        // Fallback to static data if not in DB
+        if (!taskDef) {
+           taskDef = TASKS_DATA.find(t => t.id === taskRecord.task_id);
+        }
+
         if (!taskDef) return ''; // Skip unknown tasks
         
         return createQuestCard(taskDef, taskRecord.created_at);
@@ -1261,9 +1281,19 @@ function createQuestCard(task, completedAt) {
   // Get translations
   const lang = (typeof window.getCurrentLanguage === 'function') ? window.getCurrentLanguage() : 'pl';
   
-  // Try to get title from i18n, fallback to ID
-  let title = task.id;
-  if (window.i18next && window.i18next.exists(`tasks.items.${task.id}.title`)) {
+  // Try to get title:
+  // 1. From i18n object in DB (title_i18n)
+  // 2. From i18next keys (legacy static tasks)
+  // 3. Raw title from DB
+  // 4. ID as fallback
+  
+  let title = task.title || task.id;
+
+  if (task.title_i18n) {
+    // DB format: { pl: "...", en: "..." }
+    title = task.title_i18n[lang] || task.title_i18n['en'] || task.title_i18n['pl'] || title;
+  } else if (window.i18next && window.i18next.exists(`tasks.items.${task.id}.title`)) {
+    // Static format
     title = window.i18next.t(`tasks.items.${task.id}.title`);
   }
   

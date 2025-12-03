@@ -469,6 +469,8 @@
   "tasks.details.typeCode": "Poproś o kod u partnera i wpisz go poniżej",
   "tasks.details.typeLocation": "Kliknij \"Jestem na miejscu\" gdy będziesz w lokalizacji",
   "tasks.details.typeBoth": "Wymagany kod + potwierdzenie lokalizacji",
+  "tasks.instruction.code": "Poproś obsługę o kod, aby zdobyć punkty!",
+  "tasks.instruction.location": "Udaj się na miejsce i kliknij przycisk, aby zdobyć punkty!",
   "tasks.status.completed": "Ukończyłeś zadanie „{{title}}” (+{{xp}} XP)",
   "tasks.status.reverted": "Cofnięto oznaczenie zadania „{{title}}” (−{{xp}} XP).{{note}}",
   "tasks.status.levelReverted": " Powróciłeś na poziom {{level}}.",
