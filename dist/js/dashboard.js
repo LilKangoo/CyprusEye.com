@@ -1251,12 +1251,12 @@ async function loadAchievements() {
           // Create a minimal fallback card with task ID
           const shortId = taskRecord.task_id.substring(0, 8);
           return `
-            <div class="quest-card" style="opacity: 0.7; border: 1px dashed #cbd5e1;">
-              <div class="quest-icon">✅</div>
+            <div class="quest-card" style="opacity: 0.8; border-style: dashed;">
+              <div class="quest-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">?</div>
               <div class="quest-info">
-                <h4 class="quest-title">Ukończone zadanie (${shortId}...)</h4>
+                <h4 class="quest-title">Ukończone zadanie</h4>
                 <p class="quest-meta">
-                  <span style="color: #f59e0b;">⚠️ Szczegóły niedostępne</span>
+                  <span style="color: #6b7280; font-size: 0.8rem;">ID: ${shortId}...</span>
                 </p>
               </div>
             </div>
@@ -1315,22 +1315,41 @@ function createQuestCard(task) {
   // Get translations
   const lang = (typeof window.getCurrentLanguage === 'function') ? window.getCurrentLanguage() : 'pl';
   
-  // Try to get title:
-  let title = task.title || task.id;
+  // Try to get title from multiple sources
+  let title = null;
 
-  if (task.title_i18n) {
-    // DB format: { pl: "...", en: "..." }
-    title = task.title_i18n[lang] || task.title_i18n['en'] || task.title_i18n['pl'] || title;
-  } else if (window.i18next && window.i18next.exists(`tasks.items.${task.id}.title`)) {
-    // Static format
-    title = window.i18next.t(`tasks.items.${task.id}.title`);
+  // 1. Try DB format (title_i18n object)
+  if (task.title_i18n && typeof task.title_i18n === 'object') {
+    title = task.title_i18n[lang] || task.title_i18n['en'] || task.title_i18n['pl'];
+  }
+  
+  // 2. Try direct title field
+  if (!title && task.title) {
+    title = task.title;
+  }
+  
+  // 3. Try i18next translation for static tasks
+  if (!title && window.i18next) {
+    const i18nKey = `tasks.items.${task.id}.title`;
+    if (window.i18next.exists(i18nKey)) {
+      title = window.i18next.t(i18nKey);
+    }
+  }
+  
+  // 4. Final fallback: format the task ID nicely
+  if (!title) {
+    // Convert "family-waterpark-day" to "Family Waterpark Day"
+    title = task.id
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   }
   
   const xpVal = task.xp || 0;
 
   return `
     <div class="quest-card">
-      <div class="quest-icon">✅</div>
+      <div class="quest-icon">✓</div>
       <div class="quest-info">
         <h4 class="quest-title">${title}</h4>
         <p class="quest-meta">
