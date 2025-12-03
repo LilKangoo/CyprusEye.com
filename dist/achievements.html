@@ -301,11 +301,13 @@
           <h1 data-i18n="dashboard.settings.title">Account Settings</h1>
         </div>
         <div class="settings-grid">
+          <!-- Profile Card -->
           <div class="card dashboard-card">
             <div class="card-header">
               <h2 data-i18n="profile.profile">Profile</h2>
             </div>
             <div class="card-body settings-form">
+              <!-- Avatar -->
               <div class="form-group">
                 <label data-i18n="profile.avatar.change">Avatar</label>
                 <div class="avatar-upload-row">
@@ -314,25 +316,62 @@
                   <input type="file" id="avatarInput" hidden accept="image/*">
                 </div>
               </div>
+              
+              <!-- Username -->
               <div class="form-group">
                 <label data-i18n="profile.username.label">Username</label>
                 <div class="input-group">
                   <input type="text" id="settingsUsername" disabled>
                   <button class="btn btn-ghost btn-sm" id="editUsernameBtn">Edit</button>
+                  <button class="btn btn-primary btn-sm" id="saveUsernameBtn" hidden>Save</button>
+                </div>
+              </div>
+
+              <!-- Name -->
+              <div class="form-group">
+                <label data-i18n="profile.name.label">Name</label>
+                <div class="input-group">
+                  <input type="text" id="settingsName" disabled>
+                  <button class="btn btn-ghost btn-sm" id="editNameBtn">Edit</button>
+                  <button class="btn btn-primary btn-sm" id="saveNameBtn" hidden>Save</button>
+                </div>
+              </div>
+
+              <!-- Email -->
+              <div class="form-group">
+                <label data-i18n="profile.email.label">Email</label>
+                <div class="input-group">
+                  <input type="email" id="settingsEmail" disabled>
+                  <button class="btn btn-ghost btn-sm" id="changeEmailBtn" data-i18n="profile.email.change">Change</button>
                 </div>
               </div>
             </div>
           </div>
           
+          <!-- Referral Card -->
+          <div class="card dashboard-card">
+            <div class="card-header">
+              <h2 data-i18n="profile.referral">Refer a Friend</h2>
+            </div>
+            <div class="card-body">
+              <p class="text-muted" data-i18n="profile.referral.desc">Share your link and earn bonuses.</p>
+              <div class="input-group referral-group">
+                <input type="text" id="referralLink" readonly value="https://cypruseye.com/?ref=...">
+                <button class="btn btn-secondary" id="copyReferralBtn" data-i18n="profile.referral.copy">Copy</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Security Card -->
           <div class="card dashboard-card">
             <div class="card-header">
               <h2 data-i18n="profile.security">Security</h2>
             </div>
             <div class="card-body">
-              <button class="btn btn-outline" id="changePasswordBtn" data-i18n="profile.security.password.change">Change Password</button>
+              <button class="btn btn-outline w-100 mb-3" id="changePasswordBtn" data-i18n="profile.security.password.change">Change Password</button>
               <div class="danger-zone">
-                <p class="text-danger" data-i18n="profile.security.delete.warning">Deleting your account is irreversible.</p>
-                <button class="btn btn-danger btn-sm" id="deleteAccountBtn" data-i18n="profile.security.delete">Delete Account</button>
+                <p class="text-danger small mb-2" data-i18n="profile.security.delete.warning">Irreversible action.</p>
+                <button class="btn btn-danger btn-sm w-100" id="deleteAccountBtn" data-i18n="profile.security.delete">Delete Account</button>
               </div>
             </div>
           </div>
@@ -354,6 +393,70 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-secondary" id="btnCloseModalBtn">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Change Password Modal -->
+  <div id="changePasswordModal" class="modal-overlay" hidden>
+    <div class="modal-content dashboard-modal modal-sm">
+      <div class="modal-header">
+        <h2 data-i18n="profile.modal.password.title">Change Password</h2>
+        <button class="close-modal-btn close-pwd-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label data-i18n="profile.modal.password.new">New Password</label>
+          <input type="password" id="newPasswordInput" class="form-control" minlength="6">
+        </div>
+        <div class="form-group">
+          <label data-i18n="profile.modal.password.confirm">Confirm Password</label>
+          <input type="password" id="confirmPasswordInput" class="form-control" minlength="6">
+        </div>
+        <p id="pwdError" class="text-danger small" hidden></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary close-pwd-modal">Cancel</button>
+        <button class="btn btn-primary" id="submitPasswordBtn" data-i18n="profile.modal.password.submit">Change</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Change Email Modal -->
+  <div id="changeEmailModal" class="modal-overlay" hidden>
+    <div class="modal-content dashboard-modal modal-sm">
+      <div class="modal-header">
+        <h2 data-i18n="profile.modal.email.title">Change Email</h2>
+        <button class="close-modal-btn close-email-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="small text-muted" data-i18n="profile.modal.email.info">We will send a confirmation link.</p>
+        <div class="form-group">
+          <label data-i18n="profile.modal.email.new">New Email</label>
+          <input type="email" id="newEmailInput" class="form-control">
+        </div>
+        <p id="emailError" class="text-danger small" hidden></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary close-email-modal">Cancel</button>
+        <button class="btn btn-primary" id="submitEmailBtn">Send Link</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Delete Account Modal -->
+  <div id="deleteAccountModal" class="modal-overlay" hidden>
+    <div class="modal-content dashboard-modal modal-sm">
+      <div class="modal-header">
+        <h2 data-i18n="profile.modal.delete.title">Are you sure?</h2>
+        <button class="close-modal-btn close-del-modal">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p class="text-danger" data-i18n="profile.security.delete.warning">This is irreversible.</p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-secondary close-del-modal">Cancel</button>
+        <button class="btn btn-danger" id="confirmDeleteBtn" data-i18n="profile.modal.delete.confirm">Delete Account</button>
       </div>
     </div>
   </div>

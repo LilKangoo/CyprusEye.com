@@ -132,7 +132,63 @@
     "explorerToggle": "🌍 Browse attractions",
     "sosToggle": "🚨 SOS",
     "communityLink": "💬 Community",
-    "profile": "My Profile",
+    "profile": {
+      "profile": "Profile",
+      "basicInfo": "Basic Information",
+      "avatar": {
+        "change": "Change Avatar",
+        "uploading": "Uploading..."
+      },
+      "username": {
+        "label": "Username"
+      },
+      "name": {
+        "label": "Name / Display Name"
+      },
+      "email": {
+        "label": "Email Address",
+        "change": "Change Email"
+      },
+      "save": "Save Changes",
+      "security": "Security",
+      "security.password": {
+        "change": "Change Password"
+      },
+      "security.delete": {
+        "delete": "Delete Account",
+        "warning": "Deleting your account is irreversible. You will lose all progress and badges."
+      },
+      "referral": "Refer a Friend",
+      "referral.desc": "Share your referral link and earn bonuses when friends join CyprusEye.",
+      "referral.copy": "Copy Link",
+      "referral.copied": "Copied!",
+      "modal": {
+        "password": {
+          "title": "Change Password",
+          "new": "New Password",
+          "confirm": "Confirm New Password",
+          "submit": "Change Password"
+        },
+        "email": {
+          "title": "Change Email Address",
+          "new": "New Email Address",
+          "info": "We will send a confirmation link to your new email address."
+        },
+        "delete": {
+          "title": "Are you sure?",
+          "confirm": "Yes, delete my account"
+        }
+      },
+      "success": {
+        "updated": "Profile updated successfully",
+        "password": "Password has been changed",
+        "email": "Confirmation link sent to new email"
+      },
+      "error": {
+        "generic": "An error occurred. Please try again.",
+        "passwordMismatch": "Passwords do not match"
+      }
+    },
     "statusPlaceholder": "Level 1 • 0 badges"
   },
   "badges": {
