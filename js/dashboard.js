@@ -1,6 +1,7 @@
 import { getMyProfile, updateMyUsername, updateMyName, uploadAvatar, removeAvatar } from './profile.js';
 import { supabase } from './supabaseClient.js';
 import { getUserPhotos } from './community/photos.js';
+import { TASKS_DATA } from './tasks-data-module.js';
 
 // --- State ---
 let currentUser = null;
@@ -1153,90 +1154,133 @@ function renderPlaceBadgeCard(badge) {
 }
 
 async function loadAchievements() {
-  const container = document.getElementById('badgesGrid');
-  if (!container) return;
+  // Setup Tabs
+  const tabs = document.querySelectorAll('[data-achievements-tab]');
+  tabs.forEach(tab => {
+    // Remove old listeners to prevent duplicates (cloning method)
+    const newTab = tab.cloneNode(true);
+    tab.parentNode.replaceChild(newTab, tab);
+    
+    newTab.addEventListener('click', () => {
+      document.querySelectorAll('[data-achievements-tab]').forEach(t => t.classList.remove('active'));
+      newTab.classList.add('active');
+      
+      document.querySelectorAll('.achievements-tab-pane').forEach(p => p.style.display = 'none');
+      const target = document.getElementById(`achievements-${newTab.dataset.achievementsTab}`);
+      if (target) target.style.display = 'block';
+    });
+  });
+
+  const badgesContainer = document.getElementById('badgesGrid');
+  const questsContainer = document.getElementById('completedQuestsList');
+  
+  if (!badgesContainer || !questsContainer) return;
+
   try {
-    if (!currentProfile || !Array.isArray(currentProfile.visited_places)) {
-      container.innerHTML = '<p class="empty-state">No badges yet. Visit places to earn them!</p>';
+    badgesContainer.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading badges...</p></div>';
+    questsContainer.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading quests...</p></div>';
+
+    // 1. Load Completed Tasks (needed for both badges and quests list)
+    let completedTasks = [];
+    let completedSet = new Set();
+    
+    if (currentUser) {
+      const { data, error } = await supabase
+        .from('completed_tasks')
+        .select('task_id, created_at')
+        .eq('user_id', currentUser.id)
+        .order('created_at', { ascending: false });
+        
+      if (!error && data) {
+        completedTasks = data;
+        completedSet = new Set(data.map(t => t.task_id));
+      }
+    }
+
+    // 2. Render Quests List
+    if (completedTasks.length === 0) {
+      questsContainer.innerHTML = `<p class="empty-state" data-i18n="dashboard.achievements.quests.empty">No completed quests yet.</p>`;
+    } else {
+      const questsHtml = completedTasks.map(taskRecord => {
+        const taskDef = TASKS_DATA.find(t => t.id === taskRecord.task_id);
+        if (!taskDef) return ''; // Skip unknown tasks
+        
+        return createQuestCard(taskDef, taskRecord.created_at);
+      }).join('');
+      
+      questsContainer.innerHTML = questsHtml || '<p class="empty-state">No valid quests found.</p>';
+    }
+
+    // 3. Render Badges (POI Visited)
+    if (!currentProfile || !Array.isArray(currentProfile.visited_places) || currentProfile.visited_places.length === 0) {
+      badgesContainer.innerHTML = '<p class="empty-state" data-i18n="achievements.emptyBadges">No badges yet.</p>';
       return;
     }
 
     const visitedIds = Array.from(new Set(currentProfile.visited_places.filter(Boolean)));
-
-    if (visitedIds.length === 0) {
-      container.innerHTML = '<p class="empty-state">No badges yet. Visit places to earn them!</p>';
-      return;
-    }
-
-    container.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading badges...</p></div>';
-
-    const { data: pois, error } = await supabase
+    const { data: pois, error: poisError } = await supabase
       .from('pois')
       .select('id, name, name_i18n, badge, badge_i18n, xp')
       .in('id', visitedIds);
 
-    if (error) {
-      console.error('Error loading POI badges:', error);
-      container.innerHTML = '<p class="error-state">Failed to load badges.</p>';
-      return;
-    }
+    if (poisError) throw poisError;
 
-    const badges = [];
-
-    const PoiTaskMap = {};
-
-    let completedSet = new Set();
-    try {
-      if (currentUser) {
-        const { data: completed, error: completedError } = await supabase
-          .from('completed_tasks')
-          .select('task_id')
-          .eq('user_id', currentUser.id);
-        if (!completedError && Array.isArray(completed)) {
-          completedSet = new Set(completed.map(row => row.task_id));
-        }
-      }
-    } catch (tasksError) {
-      console.warn('Error loading completed tasks summary for badges:', tasksError);
-    }
-
-    (pois || []).forEach(poi => {
+    const badges = (pois || []).map(poi => {
       const badgeTitle = resolvePoiBadge(poi);
       const placeName = resolvePoiName(poi);
-      if (!badgeTitle && !placeName) {
-        return;
-      }
+      if (!badgeTitle && !placeName) return null;
 
-      const taskIds = PoiTaskMap[poi.id] || [];
-      const tasksTotal = taskIds.length;
-      let tasksCompleted = 0;
-      if (tasksTotal > 0 && completedSet.size > 0) {
-        tasksCompleted = taskIds.reduce(
-          (sum, id) => sum + (completedSet.has(id) ? 1 : 0),
-          0
-        );
-      }
-
-      badges.push({
+      // Calculate tasks progress for this POI (if any tasks are mapped to it)
+      // Note: We would need a map of POI -> Tasks here. 
+      // For now, we just show the badge.
+      
+      return {
         poiId: poi.id,
         badgeTitle,
         placeName,
         xp: poi.xp || 0,
-        tasksTotal,
-        tasksCompleted
-      });
-    });
+        tasksTotal: 0, // To be implemented if we map tasks to POIs
+        tasksCompleted: 0
+      };
+    }).filter(Boolean);
 
     if (badges.length === 0) {
-      container.innerHTML = '<p class="empty-state">No badges yet. Visit places to earn them!</p>';
-      return;
+      badgesContainer.innerHTML = '<p class="empty-state" data-i18n="achievements.emptyBadges">No badges yet.</p>';
+    } else {
+      badgesContainer.innerHTML = badges.map(renderPlaceBadgeCard).join('');
     }
 
-    container.innerHTML = badges.map(renderPlaceBadgeCard).join('');
   } catch (error) {
-    console.error('Unexpected error while loading achievements:', error);
-    container.innerHTML = '<p class="error-state">Failed to load badges.</p>';
+    console.error('Error loading achievements:', error);
+    badgesContainer.innerHTML = '<p class="error-state">Failed to load data.</p>';
+    questsContainer.innerHTML = '<p class="error-state">Failed to load data.</p>';
   }
+}
+
+function createQuestCard(task, completedAt) {
+  // Get translations
+  const lang = (typeof window.getCurrentLanguage === 'function') ? window.getCurrentLanguage() : 'pl';
+  
+  // Try to get title from i18n, fallback to ID
+  let title = task.id;
+  if (window.i18next && window.i18next.exists(`tasks.items.${task.id}.title`)) {
+    title = window.i18next.t(`tasks.items.${task.id}.title`);
+  }
+  
+  const dateStr = new Date(completedAt).toLocaleDateString();
+
+  return `
+    <div class="quest-card">
+      <div class="quest-icon">✅</div>
+      <div class="quest-info">
+        <h4 class="quest-title">${title}</h4>
+        <p class="quest-meta">
+          <span class="quest-xp">✨ ${task.xp} XP</span>
+          <span class="quest-date">📅 ${dateStr}</span>
+        </p>
+      </div>
+    </div>
+  `;
 }
 
 // Setup tabs helper

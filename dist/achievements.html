@@ -289,9 +289,23 @@
         <div class="section-header">
           <h1 data-i18n="dashboard.achievements.title">Badges & Rewards</h1>
         </div>
-        <div class="badges-grid" id="badgesGrid">
-          <!-- Filled by JS -->
-          <p>Loading badges...</p>
+
+        <div class="tabs-line">
+          <button class="tab-btn active" data-achievements-tab="badges" data-i18n="dashboard.achievements.tab.badges">🏅 Badges</button>
+          <button class="tab-btn" data-achievements-tab="quests" data-i18n="dashboard.achievements.tab.quests">✅ Completed Quests</button>
+        </div>
+
+        <div id="achievements-badges" class="achievements-tab-pane active">
+          <div class="badges-grid" id="badgesGrid">
+            <!-- Filled by JS -->
+            <p>Loading badges...</p>
+          </div>
+        </div>
+
+        <div id="achievements-quests" class="achievements-tab-pane" style="display:none">
+          <div class="quests-grid" id="completedQuestsList">
+            <div class="loading-state"><div class="spinner"></div><p>Loading quests...</p></div>
+          </div>
         </div>
       </section>
 
