@@ -8,15 +8,12 @@
 .dashboard-container {
   display: flex;
   min-height: 100vh;
-  padding-top: 180px; /* Increased for double-row header */
+  padding-top: 0; /* Removed fixed padding */
 }
 
 /* Header Overrides for Dashboard */
 .app-header {
-  position: fixed !important;
-  top: 0;
-  left: 0;
-  right: 0;
+  position: relative !important; /* Changed to relative so it scrolls */
   z-index: 1000;
   background: white;
   border-bottom: 1px solid #e5e7eb;
@@ -29,9 +26,9 @@
   border-right: 1px solid #e5e7eb;
   display: flex;
   flex-direction: column;
-  position: fixed;
-  top: 180px; /* Increased below header */
-  bottom: 0; /* Full height minus top */
+  position: sticky; /* Changed to sticky */
+  top: 0;
+  height: 100vh;
   z-index: 900;
   overflow-y: auto;
   transition: transform 0.3s ease, box-shadow 0.3s ease;
@@ -565,11 +562,11 @@
 /* Mobile Responsive */
 @media (max-width: 768px) {
   .dashboard-container {
-    padding-top: 180px; /* Match header height on mobile */
+    padding-top: 0; /* No padding needed as header scrolls */
   }
 
   .dashboard-sidebar {
-    position: fixed;
+    position: fixed; /* Keep fixed for drawer behavior */
     top: 0;
     bottom: 0;
     left: 0;
@@ -596,15 +593,16 @@
   /* Show local toggle bar on mobile */
   .dashboard-mobile-toggle-bar {
     display: flex;
-    position: sticky;
-    top: 170px; /* Just below header */
+    position: relative; /* Changed from sticky */
+    top: 0;
     z-index: 890;
-    margin: -20px -20px 20px -20px;
-    border-radius: 0;
-    border-bottom: 1px solid #e5e7eb;
-    background: #ffffff;
-    padding: 12px 20px;
+    margin: 0 0 20px 0; /* Reset margins */
+    border-radius: 12px; /* Restore rounded corners */
+    border-bottom: none;
+    background: white;
+    padding: 12px 16px;
     justify-content: space-between;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
   }
 
   .mobile-sidebar-toggle {
