@@ -46,6 +46,7 @@ async function initDashboard() {
     setupNavigation();
     setupMobileMenu();
     setupSettingsListeners(); // New listeners for settings
+    setupSOS(); // Initialize SOS modal logic
 
     // Load Section based on URL or default
     const urlParams = new URLSearchParams(window.location.search);
@@ -224,6 +225,46 @@ function setupMobileMenu() {
       }
     });
   }
+}
+
+function setupSOS() {
+  const sosBtn = document.getElementById('sosToggle');
+  const sosModal = document.getElementById('sosModal');
+  const sosClose = document.getElementById('sosClose');
+
+  if (!sosBtn || !sosModal) return;
+
+  const openSOS = () => {
+    sosModal.hidden = false;
+    sosModal.style.display = 'flex'; // Ensure flex display for centering
+    document.body.style.overflow = 'hidden'; // Prevent background scrolling
+  };
+
+  const closeSOS = () => {
+    sosModal.hidden = true;
+    sosModal.style.display = 'none';
+    document.body.style.overflow = '';
+  };
+
+  sosBtn.addEventListener('click', openSOS);
+
+  if (sosClose) {
+    sosClose.addEventListener('click', closeSOS);
+  }
+
+  // Close when clicking outside the dialog content
+  sosModal.addEventListener('click', (e) => {
+    if (e.target === sosModal) {
+      closeSOS();
+    }
+  });
+
+  // Close on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !sosModal.hidden) {
+      closeSOS();
+    }
+  });
 }
 
 function switchSection(sectionId) {
