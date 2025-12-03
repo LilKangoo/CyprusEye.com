@@ -1180,55 +1180,42 @@ async function loadAchievements() {
     badgesContainer.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading badges...</p></div>';
     questsContainer.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading quests...</p></div>';
 
-    // 1. Load Completed Tasks
+    // 1. Load Completed Tasks (Two-step approach - no FK join available)
     let completedTasks = [];
+    let taskDefinitions = new Map();
     
     if (currentUser) {
       console.log('🏆 Loading achievements for:', currentUser.id);
       
-      // Attempt 1: Try Join Query (Most robust)
-      const { data: joinedData, error: joinedError } = await supabase
+      // Step 1: Fetch completed task IDs
+      const { data: completedData, error: completedError } = await supabase
         .from('completed_tasks')
-        .select('created_at, task_id, tasks ( id, title, title_i18n, xp )')
+        .select('task_id, created_at')
         .eq('user_id', currentUser.id)
         .order('created_at', { ascending: false });
 
-      if (!joinedError && joinedData) {
-        console.log('✅ Loaded completed tasks (Join):', joinedData.length);
-        completedTasks = joinedData.map(row => {
-          // If join worked, row.tasks is an object. If not (no FK), it's null.
-          let def = row.tasks;
-          // Fallback for definition
-          if (!def) {
-             def = TASKS_DATA.find(t => t.id === row.task_id);
-          }
-          return {
-            ...row,
-            _definition: def || null
-          };
-        });
-      } 
-      
-      // Attempt 2: Fallback if Join returned null tasks (e.g. RLS or no FK) but we have IDs
-      // Check if we have rows but missing definitions
-      const missingDefs = completedTasks.filter(t => !t._definition);
-      if (missingDefs.length > 0) {
-        console.log('⚠️ Some tasks missing definitions, fetching separately:', missingDefs.length);
-        const missingIds = missingDefs.map(t => t.task_id);
+      if (completedError) {
+        console.error('❌ Error fetching completed_tasks:', completedError);
+      } else if (completedData && completedData.length > 0) {
+        console.log('✅ Loaded completed task IDs:', completedData.length, completedData.map(t => t.task_id));
+        completedTasks = completedData;
+        
+        // Step 2: Fetch task definitions for these IDs
+        const taskIds = completedTasks.map(t => t.task_id);
         
         const { data: tasksData, error: tasksError } = await supabase
           .from('tasks')
           .select('id, title, title_i18n, xp')
-          .in('id', missingIds);
+          .in('id', taskIds);
           
-        if (!tasksError && tasksData) {
-          const defMap = new Map(tasksData.map(t => [t.id, t]));
-          completedTasks.forEach(t => {
-            if (!t._definition) {
-              t._definition = defMap.get(t.task_id) || TASKS_DATA.find(td => td.id === t.task_id);
-            }
-          });
+        if (tasksError) {
+          console.error('❌ Error fetching task definitions:', tasksError);
+        } else if (tasksData) {
+          console.log('✅ Loaded task definitions:', tasksData.length, tasksData);
+          tasksData.forEach(t => taskDefinitions.set(t.id, t));
         }
+      } else {
+        console.log('ℹ️ No completed tasks found for user');
       }
     }
 
@@ -1237,11 +1224,31 @@ async function loadAchievements() {
       questsContainer.innerHTML = `<p class="empty-state" data-i18n="dashboard.achievements.quests.empty">No completed quests yet.</p>`;
     } else {
       const questsHtml = completedTasks.map(taskRecord => {
-        const taskDef = taskRecord._definition;
+        // Try getting definition from DB first
+        let taskDef = taskDefinitions.get(taskRecord.task_id);
+        
+        // Fallback to static data if not in DB
         if (!taskDef) {
-          console.warn('❌ Missing definition for task:', taskRecord.task_id);
-          return ''; 
+          console.log('⚠️ Task not found in DB, checking TASKS_DATA for:', taskRecord.task_id);
+          taskDef = TASKS_DATA.find(t => t.id === taskRecord.task_id);
         }
+
+        if (!taskDef) {
+          console.warn('❌ No definition found for task:', taskRecord.task_id);
+          // Create a minimal fallback card
+          return `
+            <div class="quest-card">
+              <div class="quest-icon">✅</div>
+              <div class="quest-info">
+                <h4 class="quest-title">Quest #${taskRecord.task_id}</h4>
+                <p class="quest-meta">
+                  <span class="quest-date">📅 ${new Date(taskRecord.created_at).toLocaleDateString()}</span>
+                </p>
+              </div>
+            </div>
+          `;
+        }
+        
         return createQuestCard(taskDef, taskRecord.created_at);
       }).join('');
       
