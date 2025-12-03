@@ -89,6 +89,7 @@ async function fetchCarPricing() {
 }
 
 function updateSidebarProfile() {
+   // Sidebar elements
    const avatarEl = document.getElementById('sidebarAvatar');
    const usernameEl = document.getElementById('sidebarUsername');
    const levelEl = document.getElementById('sidebarLevel');
@@ -96,10 +97,43 @@ function updateSidebarProfile() {
    const displayName = currentProfile?.username || currentProfile?.name || currentUser.email.split('@')[0];
    const avatarUrl = currentProfile?.avatar_url || 'assets/cyprus_logo-1000x1054.png';
    const level = currentProfile?.level || 1;
+   const xp = currentProfile?.xp || 0;
 
    if (avatarEl) avatarEl.src = avatarUrl;
    if (usernameEl) usernameEl.textContent = displayName;
    if (levelEl) levelEl.textContent = `Level ${level}`;
+
+   // Header elements (from index.html structure)
+   const headerAvatar = document.getElementById('headerUserAvatar');
+   const headerLevel = document.getElementById('headerLevelNumber');
+   const headerXp = document.getElementById('headerXpPoints');
+   const headerXpFill = document.getElementById('headerXpFill');
+   const headerXpText = document.getElementById('headerXpProgressText');
+   const headerBadges = document.getElementById('headerBadgesCount');
+
+   if (headerAvatar) headerAvatar.src = avatarUrl;
+   if (headerLevel) headerLevel.textContent = level;
+   if (headerXp) headerXp.textContent = xp;
+
+   // Calculate Badges Count
+   let badgeCount = 0;
+   if (currentProfile?.visited_places && Array.isArray(currentProfile.visited_places)) {
+     badgeCount += currentProfile.visited_places.length;
+   }
+   if (currentProfile?.completed_tasks && Array.isArray(currentProfile.completed_tasks)) {
+     // Filter unique valid tasks if needed, or just count
+     badgeCount += currentProfile.completed_tasks.length;
+   }
+   if (headerBadges) headerBadges.textContent = badgeCount;
+
+   // XP Progress (Simple logic for visualization)
+   // Assuming 1000 XP per level for visualization if no config
+   const progress = Math.min(100, Math.max(0, (xp % 1000) / 10)); 
+   if (headerXpFill) {
+      headerXpFill.style.width = `${progress}%`;
+      headerXpFill.classList.remove('is-width-zero');
+   }
+   if (headerXpText) headerXpText.textContent = `${xp} XP`;
 }
 
 function calculateEstimatedPrice(booking) {
