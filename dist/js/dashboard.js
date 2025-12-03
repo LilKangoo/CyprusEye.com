@@ -1180,20 +1180,55 @@ async function loadAchievements() {
     badgesContainer.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading badges...</p></div>';
     questsContainer.innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading quests...</p></div>';
 
-    // 1. Load Completed Tasks (needed for both badges and quests list)
+    // 1. Load Completed Tasks
     let completedTasks = [];
-    let completedSet = new Set();
     
     if (currentUser) {
-      const { data, error } = await supabase
+      console.log('🏆 Loading achievements for:', currentUser.id);
+      
+      // Attempt 1: Try Join Query (Most robust)
+      const { data: joinedData, error: joinedError } = await supabase
         .from('completed_tasks')
-        .select('task_id, created_at')
+        .select('created_at, task_id, tasks ( id, title, title_i18n, xp )')
         .eq('user_id', currentUser.id)
         .order('created_at', { ascending: false });
+
+      if (!joinedError && joinedData) {
+        console.log('✅ Loaded completed tasks (Join):', joinedData.length);
+        completedTasks = joinedData.map(row => {
+          // If join worked, row.tasks is an object. If not (no FK), it's null.
+          let def = row.tasks;
+          // Fallback for definition
+          if (!def) {
+             def = TASKS_DATA.find(t => t.id === row.task_id);
+          }
+          return {
+            ...row,
+            _definition: def || null
+          };
+        });
+      } 
+      
+      // Attempt 2: Fallback if Join returned null tasks (e.g. RLS or no FK) but we have IDs
+      // Check if we have rows but missing definitions
+      const missingDefs = completedTasks.filter(t => !t._definition);
+      if (missingDefs.length > 0) {
+        console.log('⚠️ Some tasks missing definitions, fetching separately:', missingDefs.length);
+        const missingIds = missingDefs.map(t => t.task_id);
         
-      if (!error && data) {
-        completedTasks = data;
-        completedSet = new Set(data.map(t => t.task_id));
+        const { data: tasksData, error: tasksError } = await supabase
+          .from('tasks')
+          .select('id, title, title_i18n, xp')
+          .in('id', missingIds);
+          
+        if (!tasksError && tasksData) {
+          const defMap = new Map(tasksData.map(t => [t.id, t]));
+          completedTasks.forEach(t => {
+            if (!t._definition) {
+              t._definition = defMap.get(t.task_id) || TASKS_DATA.find(td => td.id === t.task_id);
+            }
+          });
+        }
       }
     }
 
@@ -1202,9 +1237,11 @@ async function loadAchievements() {
       questsContainer.innerHTML = `<p class="empty-state" data-i18n="dashboard.achievements.quests.empty">No completed quests yet.</p>`;
     } else {
       const questsHtml = completedTasks.map(taskRecord => {
-        const taskDef = TASKS_DATA.find(t => t.id === taskRecord.task_id);
-        if (!taskDef) return ''; // Skip unknown tasks
-        
+        const taskDef = taskRecord._definition;
+        if (!taskDef) {
+          console.warn('❌ Missing definition for task:', taskRecord.task_id);
+          return ''; 
+        }
         return createQuestCard(taskDef, taskRecord.created_at);
       }).join('');
       
@@ -1229,17 +1266,13 @@ async function loadAchievements() {
       const badgeTitle = resolvePoiBadge(poi);
       const placeName = resolvePoiName(poi);
       if (!badgeTitle && !placeName) return null;
-
-      // Calculate tasks progress for this POI (if any tasks are mapped to it)
-      // Note: We would need a map of POI -> Tasks here. 
-      // For now, we just show the badge.
       
       return {
         poiId: poi.id,
         badgeTitle,
         placeName,
         xp: poi.xp || 0,
-        tasksTotal: 0, // To be implemented if we map tasks to POIs
+        tasksTotal: 0, 
         tasksCompleted: 0
       };
     }).filter(Boolean);
@@ -1261,13 +1294,19 @@ function createQuestCard(task, completedAt) {
   // Get translations
   const lang = (typeof window.getCurrentLanguage === 'function') ? window.getCurrentLanguage() : 'pl';
   
-  // Try to get title from i18n, fallback to ID
-  let title = task.id;
-  if (window.i18next && window.i18next.exists(`tasks.items.${task.id}.title`)) {
+  // Try to get title:
+  let title = task.title || task.id;
+
+  if (task.title_i18n) {
+    // DB format: { pl: "...", en: "..." }
+    title = task.title_i18n[lang] || task.title_i18n['en'] || task.title_i18n['pl'] || title;
+  } else if (window.i18next && window.i18next.exists(`tasks.items.${task.id}.title`)) {
+    // Static format
     title = window.i18next.t(`tasks.items.${task.id}.title`);
   }
   
   const dateStr = new Date(completedAt).toLocaleDateString();
+  const xpVal = task.xp || 0;
 
   return `
     <div class="quest-card">
@@ -1275,7 +1314,7 @@ function createQuestCard(task, completedAt) {
       <div class="quest-info">
         <h4 class="quest-title">${title}</h4>
         <p class="quest-meta">
-          <span class="quest-xp">✨ ${task.xp} XP</span>
+          <span class="quest-xp">✨ ${xpVal} XP</span>
           <span class="quest-date">📅 ${dateStr}</span>
         </p>
       </div>
