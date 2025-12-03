@@ -1187,16 +1187,15 @@ async function loadAchievements() {
     if (currentUser) {
       console.log('🏆 Loading achievements for:', currentUser.id);
       
-      // Step 1: Fetch completed task IDs
+      // Step 1: Fetch completed task IDs (note: completed_tasks only has task_id and user_id)
       const { data: completedData, error: completedError } = await supabase
         .from('completed_tasks')
-        .select('task_id, created_at')
-        .eq('user_id', currentUser.id)
-        .order('created_at', { ascending: false });
+        .select('task_id')
+        .eq('user_id', currentUser.id);
 
       if (completedError) {
         console.error('❌ Error fetching completed_tasks:', completedError);
-        throw completedError;
+        // Don't throw - continue to load badges
       }
       
       if (completedData && completedData.length > 0) {
@@ -1248,24 +1247,23 @@ async function loadAchievements() {
         const taskDef = taskDefinitions.get(taskRecord.task_id);
         
         if (!taskDef) {
-          console.warn('❌ No definition found for task:', taskRecord.task_id, '- This is likely an RLS permissions issue');
+          console.warn('❌ No definition found for task:', taskRecord.task_id);
           // Create a minimal fallback card with task ID
           const shortId = taskRecord.task_id.substring(0, 8);
           return `
             <div class="quest-card" style="opacity: 0.7; border: 1px dashed #cbd5e1;">
               <div class="quest-icon">✅</div>
               <div class="quest-info">
-                <h4 class="quest-title">Completed Quest (ID: ${shortId}...)</h4>
+                <h4 class="quest-title">Ukończone zadanie (${shortId}...)</h4>
                 <p class="quest-meta">
-                  <span class="quest-date">📅 ${new Date(taskRecord.created_at).toLocaleDateString()}</span>
-                  <span style="color: #ef4444; font-size: 0.85em; display: block; margin-top: 4px;">⚠️ Task details unavailable</span>
+                  <span style="color: #f59e0b;">⚠️ Szczegóły niedostępne</span>
                 </p>
               </div>
             </div>
           `;
         }
         
-        return createQuestCard(taskDef, taskRecord.created_at);
+        return createQuestCard(taskDef);
       }).join('');
       
       questsContainer.innerHTML = questsHtml || '<p class="empty-state">No valid quests found.</p>';
@@ -1313,7 +1311,7 @@ async function loadAchievements() {
   }
 }
 
-function createQuestCard(task, completedAt) {
+function createQuestCard(task) {
   // Get translations
   const lang = (typeof window.getCurrentLanguage === 'function') ? window.getCurrentLanguage() : 'pl';
   
@@ -1328,7 +1326,6 @@ function createQuestCard(task, completedAt) {
     title = window.i18next.t(`tasks.items.${task.id}.title`);
   }
   
-  const dateStr = new Date(completedAt).toLocaleDateString();
   const xpVal = task.xp || 0;
 
   return `
@@ -1338,7 +1335,6 @@ function createQuestCard(task, completedAt) {
         <h4 class="quest-title">${title}</h4>
         <p class="quest-meta">
           <span class="quest-xp">✨ ${xpVal} XP</span>
-          <span class="quest-date">📅 ${dateStr}</span>
         </p>
       </div>
     </div>
