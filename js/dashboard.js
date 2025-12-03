@@ -1196,23 +1196,44 @@ async function loadAchievements() {
 
       if (completedError) {
         console.error('❌ Error fetching completed_tasks:', completedError);
-      } else if (completedData && completedData.length > 0) {
-        console.log('✅ Loaded completed task IDs:', completedData.length, completedData.map(t => t.task_id));
+        throw completedError;
+      }
+      
+      if (completedData && completedData.length > 0) {
+        console.log('✅ Loaded completed task IDs:', completedData.length, completedData);
         completedTasks = completedData;
         
         // Step 2: Fetch task definitions for these IDs
         const taskIds = completedTasks.map(t => t.task_id);
+        console.log('📋 Fetching definitions for task IDs:', taskIds);
         
+        // Try to fetch from tasks table (may fail due to RLS)
         const { data: tasksData, error: tasksError } = await supabase
           .from('tasks')
-          .select('id, title, title_i18n, xp')
+          .select('id, title, title_i18n, description_i18n, xp, category')
           .in('id', taskIds);
           
         if (tasksError) {
-          console.error('❌ Error fetching task definitions:', tasksError);
-        } else if (tasksData) {
-          console.log('✅ Loaded task definitions:', tasksData.length, tasksData);
+          console.error('❌ Error fetching task definitions from tasks table:', tasksError);
+          console.error('❌ Error details:', JSON.stringify(tasksError));
+        } else if (tasksData && tasksData.length > 0) {
+          console.log('✅ Loaded task definitions from DB:', tasksData.length, tasksData);
           tasksData.forEach(t => taskDefinitions.set(t.id, t));
+        } else {
+          console.warn('⚠️ Tasks query returned empty. This might be an RLS issue.');
+        }
+        
+        // Fallback: Check TASKS_DATA for any missing definitions (old static tasks)
+        if (typeof TASKS_DATA !== 'undefined' && Array.isArray(TASKS_DATA)) {
+          completedTasks.forEach(ct => {
+            if (!taskDefinitions.has(ct.task_id)) {
+              const staticTask = TASKS_DATA.find(t => t.id === ct.task_id);
+              if (staticTask) {
+                console.log('📦 Found static task definition for:', ct.task_id);
+                taskDefinitions.set(ct.task_id, staticTask);
+              }
+            }
+          });
         }
       } else {
         console.log('ℹ️ No completed tasks found for user');
@@ -1224,25 +1245,20 @@ async function loadAchievements() {
       questsContainer.innerHTML = `<p class="empty-state" data-i18n="dashboard.achievements.quests.empty">No completed quests yet.</p>`;
     } else {
       const questsHtml = completedTasks.map(taskRecord => {
-        // Try getting definition from DB first
-        let taskDef = taskDefinitions.get(taskRecord.task_id);
+        const taskDef = taskDefinitions.get(taskRecord.task_id);
         
-        // Fallback to static data if not in DB
         if (!taskDef) {
-          console.log('⚠️ Task not found in DB, checking TASKS_DATA for:', taskRecord.task_id);
-          taskDef = TASKS_DATA.find(t => t.id === taskRecord.task_id);
-        }
-
-        if (!taskDef) {
-          console.warn('❌ No definition found for task:', taskRecord.task_id);
-          // Create a minimal fallback card
+          console.warn('❌ No definition found for task:', taskRecord.task_id, '- This is likely an RLS permissions issue');
+          // Create a minimal fallback card with task ID
+          const shortId = taskRecord.task_id.substring(0, 8);
           return `
-            <div class="quest-card">
+            <div class="quest-card" style="opacity: 0.7; border: 1px dashed #cbd5e1;">
               <div class="quest-icon">✅</div>
               <div class="quest-info">
-                <h4 class="quest-title">Quest #${taskRecord.task_id}</h4>
+                <h4 class="quest-title">Completed Quest (ID: ${shortId}...)</h4>
                 <p class="quest-meta">
                   <span class="quest-date">📅 ${new Date(taskRecord.created_at).toLocaleDateString()}</span>
+                  <span style="color: #ef4444; font-size: 0.85em; display: block; margin-top: 4px;">⚠️ Task details unavailable</span>
                 </p>
               </div>
             </div>
