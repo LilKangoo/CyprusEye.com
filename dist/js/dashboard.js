@@ -1243,30 +1243,26 @@ async function loadAchievements() {
     if (completedTasks.length === 0) {
       questsContainer.innerHTML = `<p class="empty-state" data-i18n="dashboard.achievements.quests.empty">No completed quests yet.</p>`;
     } else {
-      const questsHtml = completedTasks.map(taskRecord => {
+      // Filter out tasks without definitions (deleted or test tasks)
+      const validTasks = completedTasks.filter(taskRecord => {
         const taskDef = taskDefinitions.get(taskRecord.task_id);
-        
         if (!taskDef) {
-          console.warn('❌ No definition found for task:', taskRecord.task_id);
-          // Create a minimal fallback card with task ID
-          const shortId = taskRecord.task_id.substring(0, 8);
-          return `
-            <div class="quest-card" style="opacity: 0.8; border-style: dashed;">
-              <div class="quest-icon" style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);">?</div>
-              <div class="quest-info">
-                <h4 class="quest-title">Ukończone zadanie</h4>
-                <p class="quest-meta">
-                  <span style="color: #6b7280; font-size: 0.8rem;">ID: ${shortId}...</span>
-                </p>
-              </div>
-            </div>
-          `;
+          console.log('ℹ️ Skipping task without definition:', taskRecord.task_id);
+          return false;
         }
-        
-        return createQuestCard(taskDef);
-      }).join('');
+        return true;
+      });
       
-      questsContainer.innerHTML = questsHtml || '<p class="empty-state">No valid quests found.</p>';
+      if (validTasks.length === 0) {
+        questsContainer.innerHTML = `<p class="empty-state" data-i18n="dashboard.achievements.quests.empty">No completed quests yet.</p>`;
+      } else {
+        const questsHtml = validTasks.map(taskRecord => {
+          const taskDef = taskDefinitions.get(taskRecord.task_id);
+          return createQuestCard(taskDef);
+        }).join('');
+        
+        questsContainer.innerHTML = questsHtml;
+      }
     }
 
     // 3. Render Badges (POI Visited)
