@@ -152,16 +152,21 @@ function getHotelCities(){
   return Array.from(s).sort();
 }
 
+// Translation helper for hotels
+function hotelsT(key, fallback) {
+  if (window.appI18n && typeof window.appI18n.t === 'function') {
+    const result = window.appI18n.t(key);
+    return result !== key ? result : fallback;
+  }
+  return fallback;
+}
+
 function renderHomeHotelsTabs(){
   const tabsWrap = document.getElementById('hotelsHomeTabs');
   if(!tabsWrap) return;
   
-  // Get current language for translations
-  const currentLang = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
-  const allCitiesLabel = currentLang === 'en' ? 'All Cities' : 
-                         currentLang === 'el' ? 'Όλες οι πόλεις' :
-                         currentLang === 'he' ? 'כל הערים' : 
-                         'Wszystkie miasta';
+  // Get translated label
+  const allCitiesLabel = hotelsT('hotels.tabs.allCities', 'Wszystkie miasta');
   
   const tabs = [`<button class="hotels-home-tab active" data-city="all" style="padding:8px 16px;background:#10b981;color:white;border:none;border-radius:20px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.2s;">${allCitiesLabel}</button>`];
   getHotelCities().forEach(c=>{
@@ -181,7 +186,8 @@ function renderHomeHotels(){
   const display = list.slice(0,6);
   homeHotelsDisplay = display;
   if(!display.length){
-    grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:#9ca3af;">Brak hoteli w tym mieście</div>';
+    const emptyText = hotelsT('hotels.empty', 'Brak ofert');
+    grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:40px 20px;color:#9ca3af;">${emptyText}</div>`;
     return;
   }
   grid.innerHTML = display.map((h, index)=>{

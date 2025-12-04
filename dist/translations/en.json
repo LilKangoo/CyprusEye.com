@@ -2602,6 +2602,19 @@
       },
       "priceLabel": "Price",
       "submit": "Book"
+    },
+    "card": {
+      "perNight": "/ night",
+      "from": "from"
+    },
+    "tabs": {
+      "allCities": "All cities"
+    },
+    "empty": "No offers available",
+    "price": {
+      "personLimit": "Person limit: {{max}}. Price for {{max}} guests.",
+      "minNights": "Min. {{min}} nights. Price for {{billable}} nights.",
+      "discount": "Price: €{{price}}/night (discount for {{min}}+ nights)"
     }
   },
   "notFound": {
@@ -2674,6 +2687,20 @@
       "close": "Close",
       "previous": "Previous place",
       "next": "Next place"
+    },
+    "description": "Description",
+    "booking": "Booking",
+    "form": {
+      "name": "Full name *",
+      "email": "Email *",
+      "phone": "Phone",
+      "arrival": "Arrival date *",
+      "departure": "Departure date *",
+      "adults": "Adults",
+      "children": "Children",
+      "notes": "Notes (optional)",
+      "price": "Price",
+      "submit": "Book"
     }
   },
   "profile": {

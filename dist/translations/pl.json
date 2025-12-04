@@ -3594,6 +3594,19 @@
       },
       "priceLabel": "Cena",
       "submit": "Zarezerwuj"
+    },
+    "card": {
+      "perNight": "/ noc",
+      "from": "od"
+    },
+    "tabs": {
+      "allCities": "Wszystkie miasta"
+    },
+    "empty": "Brak ofert",
+    "price": {
+      "personLimit": "Limit osób: {{max}}. Cena dla {{max}} os.",
+      "minNights": "Min. {{min}} nocy. Cena za {{billable}} nocy.",
+      "discount": "Cena: {{price}}€/noc (rabat za {{min}}+ nocy)"
     }
   },
   "recommendations": {

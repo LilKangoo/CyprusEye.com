@@ -540,15 +540,27 @@
       return Array.from(s).sort();
     }
 
+    // Translation helper
+    function t(key, fallback, params = {}) {
+      let text = (window.appI18n && typeof window.appI18n.t === 'function') 
+        ? window.appI18n.t(key) 
+        : fallback;
+      // If translation not found, use fallback
+      if (text === key) text = fallback;
+      // Replace params like {{max}}
+      Object.keys(params).forEach(k => {
+        text = text.replace(new RegExp(`{{${k}}}`, 'g'), params[k]);
+      });
+      return text;
+    }
+
     function renderTabs(){
-      const lang = (window.appI18n && window.appI18n.language) || (window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl');
-      const allLabel =
-        lang === 'en' ? 'All cities' :
-        lang === 'el' ? 'Όλες οι πόλεις' :
-        lang === 'he' ? 'כל הערים' :
-        'Wszystkie miasta';
-      const tabs = [`<button class="trips-tab active" data-city="all">${allLabel}</button>`];
-      getCities().forEach(c=> tabs.push(`<button class="trips-tab" data-city="${c}">${c}</button>`));
+      const allLabel = t('hotels.tabs.allCities', 'Wszystkie miasta');
+      const activeCity = currentCity;
+      const tabs = [`<button class="trips-tab ${activeCity === 'all' ? 'active' : ''}" data-city="all">${allLabel}</button>`];
+      getCities().forEach(c => {
+        tabs.push(`<button class="trips-tab ${activeCity === c ? 'active' : ''}" data-city="${c}">${c}</button>`);
+      });
       const wrap = document.getElementById('tripsTabs');
       wrap.innerHTML = tabs.join('');
       wrap.querySelectorAll('.trips-tab').forEach(btn=>{
@@ -625,13 +637,15 @@
       if(!tiers.length) return '';
       const for2 = tiers.find(r=>Number(r.persons)===2 && r.price_per_night!=null);
       const p = for2? Number(for2.price_per_night): Math.min(...tiers.map(r=>Number(r.price_per_night||Infinity)));
-      return isFinite(p)? `${p.toFixed(2)} € / noc` : '';
+      const perNight = t('hotels.card.perNight', '/ noc');
+      return isFinite(p)? `${p.toFixed(2)} € ${perNight}` : '';
     }
 
     function renderHotels(){
       const grid = document.getElementById('cityGrid');
       const list = currentCity==='all'? allHotels : allHotels.filter(h=> (h.city===currentCity));
-      if(!list.length){ grid.innerHTML = '<p style="text-align:center;color:#6b7280;">Brak ofert</p>'; return; }
+      const emptyText = t('hotels.empty', 'Brak ofert');
+      if(!list.length){ grid.innerHTML = `<p style="text-align:center;color:#6b7280;">${emptyText}</p>`; return; }
       grid.innerHTML = list.map((h,idx)=>{
         const title = window.getHotelName ? window.getHotelName(h) : (h.title?.pl || h.title?.en || h.slug);
         const image = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png';
@@ -741,7 +755,7 @@
       // Limit osób
       if (maxPersons && persons > maxPersons) {
         persons = maxPersons;
-        notes.push(`Limit osób: ${maxPersons}. Cena dla ${maxPersons} os.`);
+        notes.push(t('hotels.price.personLimit', `Limit osób: ${maxPersons}. Cena dla ${maxPersons} os.`, { max: maxPersons }));
       }
       
       // Oblicz cenę z nowym API
@@ -750,13 +764,15 @@
       
       // Informacja o minimum nocy
       if (result.tier && result.billableNights > nights) {
-        notes.push(`Min. ${result.tier.min_nights} nocy. Cena za ${result.billableNights} nocy.`);
+        notes.push(t('hotels.price.minNights', `Min. ${result.tier.min_nights} nocy. Cena za ${result.billableNights} nocy.`, 
+          { min: result.tier.min_nights, billable: result.billableNights }));
       }
       
       // Informacja o rabacie (dla tiered_by_nights)
       const model = currentHotel.pricing_model || 'per_person_per_night';
       if (model === 'tiered_by_nights' && result.tier?.min_nights && result.tier.min_nights > 1) {
-        notes.push(`Cena: ${result.pricePerNight.toFixed(2)}€/noc (rabat za ${result.tier.min_nights}+ nocy)`);
+        notes.push(t('hotels.price.discount', `Cena: ${result.pricePerNight.toFixed(2)}€/noc (rabat za ${result.tier.min_nights}+ nocy)`,
+          { price: result.pricePerNight.toFixed(2), min: result.tier.min_nights }));
       }
       
       if (notes.length) {
@@ -908,22 +924,41 @@
       renderHotels();
     })();
 
-    // Listen for language changes and re-render hotels
+    // Listen for language changes and re-render everything
     let lastLanguage = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
+    
+    function onLanguageChange() {
+      console.log('🌐 Language changed, re-rendering...');
+      renderTabs();
+      renderHotels();
+      
+      // Re-render modal description and amenities if open
+      if (currentHotel && !document.getElementById('hotelModal').hidden) {
+        const description = window.getHotelDescription 
+          ? window.getHotelDescription(currentHotel) 
+          : (currentHotel.description?.pl || '');
+        document.getElementById('modalHotelDescription').innerHTML = description.replace(/\n/g,'<br/>');
+        
+        const title = window.getHotelName 
+          ? window.getHotelName(currentHotel) 
+          : (currentHotel.title?.pl || currentHotel.slug);
+        document.getElementById('modalHotelTitle').textContent = title;
+        
+        renderHotelAmenitiesChips(currentHotel);
+        updateLivePrice();
+      }
+      
+      // Apply i18n translations to static elements
+      if (typeof window.applyTranslations === 'function') {
+        window.applyTranslations();
+      }
+    }
     
     setInterval(() => {
       const currentLang = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
       if (currentLang !== lastLanguage) {
-        console.log('🌐 Language changed from', lastLanguage, 'to', currentLang);
         lastLanguage = currentLang;
-        renderHotels();
-        // Re-render modal if open
-        if (currentHotel && !document.getElementById('hotelModal').hidden) {
-          const idx = allHotels.indexOf(currentHotel);
-          if (idx !== -1) {
-            window.openHotelModal(idx);
-          }
-        }
+        onLanguageChange();
       }
     }, 300);
   </script>
