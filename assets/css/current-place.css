@@ -188,6 +188,7 @@
   color: #4b5563;
   display: -webkit-box;
   -webkit-line-clamp: 3; /* Limit description to 3 lines initially */
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -250,46 +251,132 @@
 }
 
 /* ===================================
-   RESPONSIVE ADJUSTMENTS
+   RESPONSIVE ADJUSTMENTS (BOTTOM SHEET REDESIGN)
    ================================== */
 
 @media (max-width: 768px) {
+  /* Map takes full viewport height relative to its container */
   #current-objective.map-panel {
-    height: 85vh; /* Very tall on mobile to be immersive */
-    border-radius: 0 0 24px 24px; /* Only bottom rounded on mobile if it touches top */
-    border-left: none;
-    border-right: none;
-    margin-bottom: 24px;
+    height: calc(100vh - 70px); /* Subtract header height approx */
+    max-height: none;
+    border-radius: 0;
+    margin-bottom: 0;
+    border: none;
   }
 
+  /* Leaflet Controls Position Adjustment */
+  /* Move zoom controls to top-right to avoid covering bottom sheet */
+  .leaflet-top.leaflet-left {
+    top: 10px;
+    left: auto;
+    right: 10px;
+  }
+  
+  .leaflet-control-zoom {
+    margin-top: 60px !important; /* Push down below any top overlays */
+  }
+
+  /* Bottom Sheet Container */
   .current-place-section {
-    bottom: 16px;
-    left: 16px;
-    right: 16px;
-    width: auto;
+    position: absolute; /* Absolute within map panel */
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
     max-width: none;
-    padding: 20px;
+    margin: 0;
+    
+    background: #ffffff;
+    border-radius: 24px 24px 0 0; /* Rounded top corners only */
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
+    padding: 20px 24px 24px 24px;
+    z-index: 1000;
+    
+    /* Ensure it sits above map */
+    transform: translateY(0);
+    transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
   }
 
+  /* Navigation Row (Arrows & Counter) - Integrated into Sheet Header */
+  .current-place-navigation {
+    margin-bottom: 16px;
+    justify-content: center; /* Center the counter */
+    gap: 20px;
+    position: relative;
+  }
+  
+  .current-place-navigation button {
+    width: 36px;
+    height: 36px;
+    background: #f3f4f6; /* Subtle grey background */
+    border: none;
+    font-size: 1.1rem;
+  }
+  
+  .current-place-heading {
+    font-size: 0.9rem;
+    color: #6b7280;
+  }
+
+  /* Content Typography */
   #currentPlaceName {
-    font-size: 1.25rem;
+    font-size: 1.3rem;
+    margin-bottom: 4px;
   }
 
-  /* Specific mobile grid layout for buttons */
-  .current-place-actions {
-    grid-template-columns: 1fr 1fr;
-    grid-template-areas: 
-      "check check"
-      "comments nav";
+  /* Description - Truncate to 2 lines to save space */
+  #currentPlaceDescription {
+    font-size: 0.9rem;
+    margin-bottom: 16px;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    color: #6b7280;
   }
   
-  .current-place-actions button:nth-child(1) { grid-area: check; } /* Check-in */
-  .current-place-actions button:nth-child(2) { grid-area: comments; } /* Comments */
-  .current-place-actions button:nth-child(3) { grid-area: nav; } /* Map/Nav */
+  /* Badges Row */
+  .place-badges {
+    margin-bottom: 12px;
+  }
+
+  /* Actions Layout - Compact Row */
+  .current-place-actions {
+    display: grid;
+    grid-template-columns: 1fr auto auto; /* Main button + 2 icon buttons */
+    gap: 12px;
+    grid-template-areas: "check comments nav";
+    margin-top: 0;
+  }
   
-  /* Hide stats block on mobile inside card to save space if needed, or style it minimal */
-  .current-place-stats {
-    display: none; /* XP is now in the badge pill */
+  /* Check-in Button (Primary) */
+  .current-place-actions button:nth-child(1) { 
+    grid-area: check;
+    height: 48px; /* Taller touch target */
+    font-size: 1rem;
+  }
+  
+  /* Secondary Buttons (Icon only or compact) */
+  .current-place-actions button.btn.secondary {
+    padding: 0;
+    width: 48px; /* Square buttons */
+    height: 48px;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+  }
+  
+  .current-place-actions button.btn.secondary span:not(.btn-icon) {
+    display: none; /* Hide text label on mobile */
+  }
+  
+  .current-place-actions button.btn.secondary .btn-icon {
+    font-size: 1.2rem;
+    margin: 0;
+  }
+
+  /* Hide XP badge if it clutters, or keep small */
+  .badge-xp {
+    font-size: 0.65rem;
+    padding: 3px 8px;
   }
 }
 
