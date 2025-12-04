@@ -701,17 +701,26 @@ async function fetchAllBookings(limit = 100) {
     people: (t.num_adults || 0) + (t.num_children || 0)
   }));
 
-  const hotels = hotelBookings.map(h => ({
-    type: 'hotel',
-    id: h.id,
-    title: h.hotel_slug || h.hotel_id || 'Hotel Booking',
-    date: h.arrival_date,
-    created_at: h.created_at,
-    status: h.status || 'pending',
-    price: h.total_price,
-    people: (h.num_adults || 0) + (h.num_children || 0),
-    nights: h.nights
-  }));
+  const hotels = hotelBookings.map(h => {
+    // Get translated hotel name
+    let hotelName = h.hotel_slug || 'Hotel';
+    if (h.hotel_name) {
+      const lang = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
+      const nameObj = typeof h.hotel_name === 'string' ? JSON.parse(h.hotel_name) : h.hotel_name;
+      hotelName = nameObj[lang] || nameObj.en || nameObj.pl || h.hotel_slug || 'Hotel';
+    }
+    return {
+      type: 'hotel',
+      id: h.id,
+      title: hotelName,
+      date: h.arrival_date,
+      created_at: h.created_at,
+      status: h.status || 'pending',
+      price: h.total_price,
+      people: (h.num_adults || 0) + (h.num_children || 0),
+      nights: h.nights
+    };
+  });
 
   const cars = carBookings.map(c => {
     // Calculate price if missing

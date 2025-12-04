@@ -926,9 +926,16 @@
         }
         const priceResult = calculateHotelPrice(currentHotel, persons, nights);
         
+        // Get current user if logged in
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        // Get hotel name for display (store as JSON for i18n)
+        const hotelTitle = currentHotel.title || {};
+        
         const payload = {
           hotel_id: currentHotel.id,
           hotel_slug: currentHotel.slug,
+          hotel_name: hotelTitle,
           customer_name: fd.get('name'),
           customer_email: fd.get('email'),
           customer_phone: fd.get('phone'),
@@ -939,7 +946,8 @@
           nights,
           notes: fd.get('notes'),
           total_price: priceResult.total,
-          status: 'pending'
+          status: 'pending',
+          user_id: user?.id || null
         };
         const { data, error } = await supabase.from('hotel_bookings').insert([payload]).select().single();
         if(error) throw error;
