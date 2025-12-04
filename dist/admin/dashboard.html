@@ -133,6 +133,14 @@
           <span>Users</span>
         </button>
         
+        <button class="admin-nav-item" data-view="referrals">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+          <span>Referrals</span>
+        </button>
+        
         <button class="admin-nav-item" data-view="pois">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
@@ -1327,6 +1335,139 @@
           <button class="btn-pagination" id="btnUsersPrev">Previous</button>
           <span class="pagination-info" id="usersPaginationInfo">Page 1</span>
           <button class="btn-pagination" id="btnUsersNext">Next</button>
+        </div>
+      </section>
+
+      <!-- Referrals View -->
+      <section class="admin-view" id="viewReferrals" hidden>
+        <header class="admin-view-header">
+          <div>
+            <h2>🔗 Referral System</h2>
+            <p class="admin-view-subtitle">Manage referrals, XP rewards, and view referral tree</p>
+          </div>
+        </header>
+
+        <!-- Referral Tabs -->
+        <div class="admin-tabs" id="referralTabs">
+          <button class="admin-tab active" data-tab="referralSettings">⚙️ Settings</button>
+          <button class="admin-tab" data-tab="referralList">📋 All Referrals</button>
+          <button class="admin-tab" data-tab="referralTree">🌳 Tree View</button>
+          <button class="admin-tab" data-tab="referralStats">📊 Statistics</button>
+        </div>
+
+        <!-- Tab: Settings -->
+        <div class="admin-tab-content active" id="tabReferralSettings">
+          <div class="admin-card" style="max-width: 500px;">
+            <h3>XP Reward Settings</h3>
+            <div class="form-group" style="margin-top: 16px;">
+              <label for="referralXpAmount">XP za polecenie użytkownika:</label>
+              <div style="display: flex; gap: 12px; align-items: center; margin-top: 8px;">
+                <input type="number" id="referralXpAmount" class="form-control" min="0" max="10000" value="100" style="width: 120px;">
+                <span>XP</span>
+                <button class="btn-primary" id="btnSaveReferralXp">💾 Save</button>
+              </div>
+            </div>
+            <p class="text-muted" style="margin-top: 12px; font-size: 13px;">
+              This amount will be awarded to the referrer when someone registers using their referral link.
+            </p>
+          </div>
+        </div>
+
+        <!-- Tab: All Referrals List -->
+        <div class="admin-tab-content" id="tabReferralList" hidden>
+          <div class="admin-search-bar">
+            <input type="text" id="referralSearch" placeholder="Search by username or email..." class="admin-search-input" />
+            <select id="referralStatusFilter" class="form-control" style="width: 150px;">
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            <button class="btn-admin-search" id="btnRefreshReferrals">🔄 Refresh</button>
+          </div>
+
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Referrer</th>
+                  <th>Referred User</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>XP Awarded</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="referralsTable">
+                <tr>
+                  <td colspan="6" class="table-loading">Loading referrals...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div class="admin-pagination" id="referralsPagination">
+            <button class="btn-pagination" id="btnReferralsPrev">Previous</button>
+            <span class="pagination-info" id="referralsPaginationInfo">Page 1</span>
+            <button class="btn-pagination" id="btnReferralsNext">Next</button>
+          </div>
+        </div>
+
+        <!-- Tab: Tree View -->
+        <div class="admin-tab-content" id="tabReferralTree" hidden>
+          <div class="admin-search-bar">
+            <input type="text" id="treeSearch" placeholder="Find user in tree..." class="admin-search-input" />
+            <button class="btn-secondary" id="btnExpandAll">Expand All</button>
+            <button class="btn-secondary" id="btnCollapseAll">Collapse All</button>
+          </div>
+          <div id="referralTreeContainer" class="referral-tree-container">
+            <p class="text-muted">Loading referral tree...</p>
+          </div>
+        </div>
+
+        <!-- Tab: Statistics -->
+        <div class="admin-tab-content" id="tabReferralStats" hidden>
+          <div class="admin-stats-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px;">
+            <div class="admin-stat-card">
+              <div class="stat-value" id="statTotalReferrals">0</div>
+              <div class="stat-label">Total Referrals</div>
+            </div>
+            <div class="admin-stat-card">
+              <div class="stat-value" id="statConfirmedReferrals">0</div>
+              <div class="stat-label">Confirmed</div>
+            </div>
+            <div class="admin-stat-card">
+              <div class="stat-value" id="statPendingReferrals">0</div>
+              <div class="stat-label">Pending</div>
+            </div>
+            <div class="admin-stat-card">
+              <div class="stat-value" id="statTotalXpAwarded">0</div>
+              <div class="stat-label">XP Awarded</div>
+            </div>
+            <div class="admin-stat-card">
+              <div class="stat-value" id="statUniqueReferrers">0</div>
+              <div class="stat-label">Active Referrers</div>
+            </div>
+          </div>
+
+          <h3>🏆 Top Referrers</h3>
+          <div class="admin-table-container">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>User</th>
+                  <th>Referrals</th>
+                  <th>XP Earned</th>
+                </tr>
+              </thead>
+              <tbody id="topReferrersTable">
+                <tr>
+                  <td colspan="4" class="table-loading">Loading...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
         </div>
       </section>
 

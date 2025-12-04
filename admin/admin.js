@@ -3038,6 +3038,10 @@ function switchView(viewName) {
     case 'hotels':
       loadHotelsAdminData();
       break;
+    case 'referrals':
+      loadReferralSettings();
+      loadReferralsData();
+      break;
     case 'recommendations':
       loadRecommendationsData();
       break;
@@ -10078,3 +10082,476 @@ document.addEventListener('DOMContentLoaded', function() {
 window.loadRecommendationsData = loadRecommendationsData;
 window.editRecommendation = editRecommendation;
 window.deleteRecommendation = deleteRecommendation;
+
+// =====================================================
+// REFERRAL SYSTEM ADMIN PANEL
+// =====================================================
+
+let referralsCache = [];
+let referralUsersCache = {};
+let referralCurrentPage = 1;
+const REFERRALS_PER_PAGE = 20;
+
+/**
+ * Load referral XP settings
+ */
+async function loadReferralSettings() {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+
+    const { data, error } = await client
+      .from('app_settings')
+      .select('value')
+      .eq('key', 'referral_xp')
+      .single();
+
+    if (data?.value?.amount) {
+      const input = document.getElementById('referralXpAmount');
+      if (input) input.value = data.value.amount;
+    }
+  } catch (e) {
+    console.warn('Could not load referral settings:', e);
+  }
+}
+
+/**
+ * Save referral XP settings
+ */
+async function saveReferralXpSettings() {
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database not available', 'error');
+      return;
+    }
+
+    const input = document.getElementById('referralXpAmount');
+    const amount = parseInt(input?.value) || 100;
+
+    const { error } = await client
+      .from('app_settings')
+      .update({ 
+        value: { amount, bonus_for_referred: 0, auto_confirm: false },
+        updated_at: new Date().toISOString()
+      })
+      .eq('key', 'referral_xp');
+
+    if (error) throw error;
+    showToast('Referral XP settings saved!', 'success');
+  } catch (e) {
+    console.error('Failed to save referral settings:', e);
+    showToast('Failed to save settings: ' + e.message, 'error');
+  }
+}
+
+/**
+ * Load all referrals with user data
+ */
+async function loadReferralsData() {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+
+    const tbody = document.getElementById('referralsTable');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="table-loading">Loading referrals...</td></tr>';
+
+    // Load referrals
+    const { data: referrals, error } = await client
+      .from('referrals')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    referralsCache = referrals || [];
+
+    // Get unique user IDs
+    const userIds = new Set();
+    referrals?.forEach(r => {
+      if (r.referrer_id) userIds.add(r.referrer_id);
+      if (r.referred_id) userIds.add(r.referred_id);
+    });
+
+    // Load user profiles
+    if (userIds.size > 0) {
+      const { data: profiles } = await client
+        .from('profiles')
+        .select('id, username, email, name')
+        .in('id', Array.from(userIds));
+
+      referralUsersCache = {};
+      profiles?.forEach(p => {
+        referralUsersCache[p.id] = p;
+      });
+    }
+
+    renderReferralsTable();
+  } catch (e) {
+    console.error('Failed to load referrals:', e);
+    const tbody = document.getElementById('referralsTable');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" class="text-danger">Error loading referrals</td></tr>';
+  }
+}
+
+/**
+ * Render referrals table with pagination
+ */
+function renderReferralsTable() {
+  const tbody = document.getElementById('referralsTable');
+  if (!tbody) return;
+
+  // Apply filters
+  const searchTerm = document.getElementById('referralSearch')?.value?.toLowerCase() || '';
+  const statusFilter = document.getElementById('referralStatusFilter')?.value || '';
+
+  let filtered = referralsCache.filter(r => {
+    const referrer = referralUsersCache[r.referrer_id];
+    const referred = referralUsersCache[r.referred_id];
+    
+    const matchesSearch = !searchTerm || 
+      referrer?.username?.toLowerCase().includes(searchTerm) ||
+      referrer?.email?.toLowerCase().includes(searchTerm) ||
+      referred?.username?.toLowerCase().includes(searchTerm) ||
+      referred?.email?.toLowerCase().includes(searchTerm);
+    
+    const matchesStatus = !statusFilter || r.status === statusFilter;
+    
+    return matchesSearch && matchesStatus;
+  });
+
+  // Pagination
+  const totalPages = Math.ceil(filtered.length / REFERRALS_PER_PAGE);
+  const start = (referralCurrentPage - 1) * REFERRALS_PER_PAGE;
+  const pageData = filtered.slice(start, start + REFERRALS_PER_PAGE);
+
+  if (pageData.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="6" class="text-muted" style="text-align:center">No referrals found</td></tr>';
+  } else {
+    tbody.innerHTML = pageData.map(r => {
+      const referrer = referralUsersCache[r.referrer_id] || {};
+      const referred = referralUsersCache[r.referred_id] || {};
+      const statusClass = r.status === 'confirmed' ? 'status-active' : 
+                         r.status === 'rejected' ? 'status-inactive' : 'status-pending';
+      const statusIcon = r.status === 'confirmed' ? '✅' : 
+                        r.status === 'rejected' ? '❌' : '⏳';
+      
+      return `
+        <tr>
+          <td>
+            <strong>${referrer.username || 'Unknown'}</strong>
+            <br><small class="text-muted">${referrer.email || ''}</small>
+          </td>
+          <td>
+            <strong>${referred.username || 'Unknown'}</strong>
+            <br><small class="text-muted">${referred.email || ''}</small>
+          </td>
+          <td>${new Date(r.created_at).toLocaleDateString('pl-PL')}</td>
+          <td><span class="status-badge ${statusClass}">${statusIcon} ${r.status}</span></td>
+          <td>${r.xp_awarded || 0} XP</td>
+          <td>
+            ${r.status === 'pending' ? `
+              <button class="btn-action btn-success" onclick="confirmReferral('${r.id}')" title="Confirm">✓</button>
+              <button class="btn-action btn-danger" onclick="rejectReferral('${r.id}')" title="Reject">✗</button>
+            ` : '—'}
+          </td>
+        </tr>
+      `;
+    }).join('');
+  }
+
+  // Update pagination info
+  const paginationInfo = document.getElementById('referralsPaginationInfo');
+  if (paginationInfo) {
+    paginationInfo.textContent = `Page ${referralCurrentPage} of ${totalPages || 1} (${filtered.length} total)`;
+  }
+
+  // Update pagination buttons
+  const btnPrev = document.getElementById('btnReferralsPrev');
+  const btnNext = document.getElementById('btnReferralsNext');
+  if (btnPrev) btnPrev.disabled = referralCurrentPage <= 1;
+  if (btnNext) btnNext.disabled = referralCurrentPage >= totalPages;
+}
+
+/**
+ * Confirm a referral and award XP
+ */
+async function confirmReferral(referralId) {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+
+    const { data, error } = await client.rpc('confirm_referral', { referral_id: referralId });
+    
+    if (error) throw error;
+    
+    if (data?.success) {
+      showToast(`Referral confirmed! ${data.xp_awarded} XP awarded`, 'success');
+    } else {
+      showToast(data?.error || 'Failed to confirm', 'error');
+    }
+    
+    await loadReferralsData();
+    await loadReferralStats();
+  } catch (e) {
+    console.error('Failed to confirm referral:', e);
+    showToast('Error confirming referral: ' + e.message, 'error');
+  }
+}
+window.confirmReferral = confirmReferral;
+
+/**
+ * Reject a referral
+ */
+async function rejectReferral(referralId) {
+  if (!confirm('Are you sure you want to reject this referral?')) return;
+  
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+
+    const { error } = await client
+      .from('referrals')
+      .update({ status: 'rejected' })
+      .eq('id', referralId);
+    
+    if (error) throw error;
+    showToast('Referral rejected', 'success');
+    await loadReferralsData();
+  } catch (e) {
+    console.error('Failed to reject referral:', e);
+    showToast('Error rejecting referral: ' + e.message, 'error');
+  }
+}
+window.rejectReferral = rejectReferral;
+
+/**
+ * Load referral statistics
+ */
+async function loadReferralStats() {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+
+    // Load stats from view
+    const { data: stats } = await client
+      .from('referral_stats')
+      .select('*')
+      .single();
+
+    if (stats) {
+      document.getElementById('statTotalReferrals').textContent = stats.total_referrals || 0;
+      document.getElementById('statConfirmedReferrals').textContent = stats.confirmed_referrals || 0;
+      document.getElementById('statPendingReferrals').textContent = stats.pending_referrals || 0;
+      document.getElementById('statTotalXpAwarded').textContent = (stats.total_xp_awarded || 0).toLocaleString();
+      document.getElementById('statUniqueReferrers').textContent = stats.unique_referrers || 0;
+    }
+
+    // Load top referrers
+    const { data: topReferrers } = await client
+      .from('top_referrers')
+      .select('*')
+      .limit(10);
+
+    const topTable = document.getElementById('topReferrersTable');
+    if (topTable) {
+      if (!topReferrers?.length) {
+        topTable.innerHTML = '<tr><td colspan="4" class="text-muted" style="text-align:center">No referrers yet</td></tr>';
+      } else {
+        topTable.innerHTML = topReferrers.map((r, i) => `
+          <tr>
+            <td><strong>${i + 1}</strong></td>
+            <td>
+              <strong>${r.username || r.display_name || 'Unknown'}</strong>
+            </td>
+            <td>${r.referral_count || 0}</td>
+            <td>${(r.total_xp_from_referrals || 0).toLocaleString()} XP</td>
+          </tr>
+        `).join('');
+      }
+    }
+  } catch (e) {
+    console.error('Failed to load referral stats:', e);
+  }
+}
+
+/**
+ * Build and render referral tree
+ */
+async function loadReferralTree() {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+
+    const container = document.getElementById('referralTreeContainer');
+    if (!container) return;
+    container.innerHTML = '<p class="text-muted">Loading tree...</p>';
+
+    // Get all profiles with referral data
+    const { data: profiles } = await client
+      .from('profiles')
+      .select('id, username, name, referral_count, referred_by')
+      .order('referral_count', { ascending: false });
+
+    if (!profiles?.length) {
+      container.innerHTML = '<p class="text-muted">No referral data yet</p>';
+      return;
+    }
+
+    // Build tree structure
+    const profileMap = {};
+    profiles.forEach(p => { profileMap[p.id] = { ...p, children: [] }; });
+
+    const rootUsers = [];
+    profiles.forEach(p => {
+      if (p.referred_by && profileMap[p.referred_by]) {
+        profileMap[p.referred_by].children.push(profileMap[p.id]);
+      } else if (!p.referred_by) {
+        // Only show users who have referrals
+        if (p.referral_count > 0) {
+          rootUsers.push(profileMap[p.id]);
+        }
+      }
+    });
+
+    // Sort roots by referral count
+    rootUsers.sort((a, b) => (b.referral_count || 0) - (a.referral_count || 0));
+
+    // Render tree
+    function renderNode(node, level = 0) {
+      const indent = level * 24;
+      const hasChildren = node.children?.length > 0;
+      const icon = hasChildren ? '📍' : '👤';
+      const countBadge = node.referral_count > 0 ? 
+        `<span class="tree-badge">${node.referral_count} referrals</span>` : '';
+      
+      let html = `
+        <div class="tree-node" style="margin-left: ${indent}px;">
+          <span class="tree-icon">${icon}</span>
+          <strong>${node.username || node.name || 'Unknown'}</strong>
+          ${countBadge}
+        </div>
+      `;
+      
+      if (hasChildren) {
+        node.children.forEach(child => {
+          html += renderNode(child, level + 1);
+        });
+      }
+      
+      return html;
+    }
+
+    if (rootUsers.length === 0) {
+      container.innerHTML = '<p class="text-muted">No referral chains yet</p>';
+    } else {
+      container.innerHTML = rootUsers.map(r => renderNode(r)).join('');
+    }
+  } catch (e) {
+    console.error('Failed to load referral tree:', e);
+    const container = document.getElementById('referralTreeContainer');
+    if (container) container.innerHTML = '<p class="text-danger">Error loading tree</p>';
+  }
+}
+
+// Initialize referrals tab handling
+document.addEventListener('DOMContentLoaded', () => {
+  // Referral tab switching
+  const referralTabs = document.querySelectorAll('#referralTabs .admin-tab');
+  referralTabs.forEach(tab => {
+    tab.addEventListener('click', function() {
+      const tabName = this.getAttribute('data-tab');
+      
+      // Update tab buttons
+      referralTabs.forEach(t => t.classList.remove('active'));
+      this.classList.add('active');
+      
+      // Show/hide content
+      document.getElementById('tabReferralSettings').hidden = (tabName !== 'referralSettings');
+      document.getElementById('tabReferralList').hidden = (tabName !== 'referralList');
+      document.getElementById('tabReferralTree').hidden = (tabName !== 'referralTree');
+      document.getElementById('tabReferralStats').hidden = (tabName !== 'referralStats');
+      
+      // Load data for tab
+      if (tabName === 'referralList') loadReferralsData();
+      if (tabName === 'referralTree') loadReferralTree();
+      if (tabName === 'referralStats') loadReferralStats();
+      if (tabName === 'referralSettings') loadReferralSettings();
+    });
+  });
+
+  // Save XP button
+  const btnSaveXp = document.getElementById('btnSaveReferralXp');
+  if (btnSaveXp) {
+    btnSaveXp.addEventListener('click', saveReferralXpSettings);
+  }
+
+  // Refresh button
+  const btnRefresh = document.getElementById('btnRefreshReferrals');
+  if (btnRefresh) {
+    btnRefresh.addEventListener('click', loadReferralsData);
+  }
+
+  // Search and filter
+  const referralSearch = document.getElementById('referralSearch');
+  if (referralSearch) {
+    referralSearch.addEventListener('input', () => {
+      referralCurrentPage = 1;
+      renderReferralsTable();
+    });
+  }
+
+  const statusFilter = document.getElementById('referralStatusFilter');
+  if (statusFilter) {
+    statusFilter.addEventListener('change', () => {
+      referralCurrentPage = 1;
+      renderReferralsTable();
+    });
+  }
+
+  // Pagination
+  const btnPrev = document.getElementById('btnReferralsPrev');
+  const btnNext = document.getElementById('btnReferralsNext');
+  if (btnPrev) {
+    btnPrev.addEventListener('click', () => {
+      if (referralCurrentPage > 1) {
+        referralCurrentPage--;
+        renderReferralsTable();
+      }
+    });
+  }
+  if (btnNext) {
+    btnNext.addEventListener('click', () => {
+      referralCurrentPage++;
+      renderReferralsTable();
+    });
+  }
+
+  // Tree controls
+  const btnExpandAll = document.getElementById('btnExpandAll');
+  const btnCollapseAll = document.getElementById('btnCollapseAll');
+  if (btnExpandAll) {
+    btnExpandAll.addEventListener('click', () => {
+      document.querySelectorAll('.tree-node').forEach(n => n.style.display = 'flex');
+    });
+  }
+  if (btnCollapseAll) {
+    btnCollapseAll.addEventListener('click', () => {
+      document.querySelectorAll('.tree-node').forEach((n, i) => {
+        if (i > 0) n.style.display = 'none';
+      });
+    });
+  }
+});
+
+// Load referrals when view becomes active
+window.loadReferralsPanel = function() {
+  loadReferralSettings();
+  loadReferralsData();
+  loadReferralStats();
+};
+
+// Export
+window.loadReferralSettings = loadReferralSettings;
+window.loadReferralsData = loadReferralsData;
+window.loadReferralStats = loadReferralStats;
+window.loadReferralTree = loadReferralTree;

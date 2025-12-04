@@ -2487,3 +2487,152 @@ select#orderStatusFilter:focus {
   background: #dc2626 !important;
   color: white !important;
 }
+
+/* =====================================================
+   REFERRAL SYSTEM STYLES
+   ===================================================== */
+
+.admin-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid var(--admin-border);
+  padding-bottom: 4px;
+}
+
+.admin-tab {
+  padding: 10px 20px;
+  background: transparent;
+  border: none;
+  color: var(--admin-text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 6px 6px 0 0;
+  transition: all 0.2s;
+}
+
+.admin-tab:hover {
+  color: var(--admin-text);
+  background: var(--admin-bg-light);
+}
+
+.admin-tab.active {
+  color: var(--admin-primary);
+  background: var(--admin-bg-light);
+  border-bottom: 2px solid var(--admin-primary);
+}
+
+.admin-tab-content {
+  animation: fadeIn 0.2s ease;
+}
+
+.admin-tab-content[hidden] {
+  display: none;
+}
+
+/* Stats Grid */
+.admin-stat-card {
+  background: var(--admin-bg-light);
+  border-radius: var(--admin-radius);
+  padding: 24px;
+  text-align: center;
+  border: 1px solid var(--admin-border);
+}
+
+.admin-stat-card .stat-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--admin-text);
+  margin-bottom: 4px;
+}
+
+.admin-stat-card .stat-label {
+  font-size: 13px;
+  color: var(--admin-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+/* Referral Tree */
+.referral-tree-container {
+  background: var(--admin-bg-light);
+  border-radius: var(--admin-radius);
+  padding: 24px;
+  min-height: 300px;
+  border: 1px solid var(--admin-border);
+}
+
+.tree-node {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  margin: 4px 0;
+  background: rgba(255,255,255,0.05);
+  border-radius: 6px;
+  border-left: 3px solid var(--admin-primary);
+}
+
+.tree-node:hover {
+  background: rgba(255,255,255,0.1);
+}
+
+.tree-icon {
+  font-size: 18px;
+}
+
+.tree-badge {
+  background: var(--admin-primary);
+  color: white;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: auto;
+}
+
+/* Status badges for referrals */
+.status-pending {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+}
+
+.status-active {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.status-inactive {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+/* Action buttons */
+.btn-action {
+  padding: 4px 8px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  margin-right: 4px;
+}
+
+.btn-action.btn-success {
+  background: var(--admin-success);
+  color: white;
+}
+
+.btn-action.btn-danger {
+  background: var(--admin-danger);
+  color: white;
+}
+
+.btn-action:hover {
+  opacity: 0.8;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
