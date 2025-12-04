@@ -437,7 +437,7 @@
             <div class="card-body">
               <p class="text-muted" data-i18n="profile.referral.desc">Share your link and earn bonuses.</p>
               <div class="input-group referral-group">
-                <input type="text" id="referralLink" readonly value="https://cypruseye.com/?ref=...">
+                <input type="text" id="referralLink" readonly value="Ładowanie...">
                 <button class="btn btn-secondary" id="copyReferralBtn" data-i18n="profile.referral.copy">Copy</button>
               </div>
             </div>
@@ -683,34 +683,43 @@
       const referralInput = document.getElementById('referralLink');
       const copyBtn = document.getElementById('copyReferralBtn');
       
+      console.log('🔗 Referral setup - input element:', referralInput);
       if (!referralInput) return;
       
       // Get username from Supabase directly
       try {
         const supabase = window.getSupabase();
+        console.log('🔗 Supabase client:', supabase ? 'OK' : 'MISSING');
         if (!supabase) throw new Error('No supabase');
         
         const { data: { user } } = await supabase.auth.getUser();
+        console.log('🔗 User:', user ? user.id : 'NOT LOGGED IN');
         if (!user) {
           referralInput.value = 'Zaloguj się, aby zobaczyć link';
           return;
         }
         
-        const { data: profile } = await supabase
+        const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('username')
           .eq('id', user.id)
           .single();
         
+        console.log('🔗 Profile query result:', { profile, error: profileError });
+        console.log('🔗 Username from DB:', profile?.username);
+        console.log('🔗 Is UUID?:', isUUID(profile?.username));
+        
         // Validate username exists and is not a UUID
         if (profile?.username && !isUUID(profile.username)) {
           const link = generateReferralLink(profile.username);
+          console.log('🔗 Generated link:', link);
           referralInput.value = link;
         } else {
+          console.log('🔗 Username invalid or is UUID');
           referralInput.value = 'Ustaw nazwę użytkownika w ustawieniach';
         }
       } catch (err) {
-        console.warn('Could not load referral link:', err);
+        console.error('🔗 Referral link error:', err);
         referralInput.value = 'Zaloguj się, aby zobaczyć link';
       }
       
