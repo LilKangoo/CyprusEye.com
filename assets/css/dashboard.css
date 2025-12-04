@@ -134,10 +134,9 @@
 /* Main Content */
 .dashboard-main {
   flex: 1;
-  margin-left: 280px; /* Match sidebar width */
   padding: 32px 40px;
   max-width: 1200px; /* Limit content width */
-  width: 100%;
+  width: calc(100% - 280px); /* Account for sidebar */
 }
 
 /* Dashboard Mobile Toggle */
