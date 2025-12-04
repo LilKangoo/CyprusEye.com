@@ -105,6 +105,25 @@ export function clearStoredReferralCode() {
 }
 
 /**
+ * Wait for profile to exist in database
+ */
+async function waitForProfile(sb, userId, maxAttempts = 5) {
+  for (let i = 0; i < maxAttempts; i++) {
+    const { data } = await sb
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .maybeSingle();
+    
+    if (data) return true;
+    
+    // Wait before next attempt (500ms, 1s, 1.5s, 2s, 2.5s)
+    await new Promise(resolve => setTimeout(resolve, 500 * (i + 1)));
+  }
+  return false;
+}
+
+/**
  * Process referral after user registration
  * Links the new user to the referrer
  */
@@ -118,6 +137,16 @@ export async function processReferralAfterRegistration(newUserId) {
       console.warn('Supabase not available for referral processing');
       return null;
     }
+    
+    // Wait for the profile to be created by the database trigger
+    console.log('⏳ Waiting for profile to be created...');
+    const profileExists = await waitForProfile(sb, newUserId);
+    if (!profileExists) {
+      console.warn('Profile not created in time, saving referral for later');
+      // Don't clear the code - user might need to retry
+      return null;
+    }
+    console.log('✅ Profile found, processing referral...');
     
     // Find referrer by username
     const { data: referrer, error: referrerError } = await sb
