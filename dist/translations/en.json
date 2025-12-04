@@ -162,6 +162,8 @@
       "referral.desc": "Share your referral link and earn bonuses when friends join CyprusEye.",
       "referral.copy": "Copy Link",
       "referral.copied": "Copied!",
+      "referral.invited": "Invited",
+      "referral.earned": "XP Earned",
       "modal": {
         "password": {
           "title": "Change Password",

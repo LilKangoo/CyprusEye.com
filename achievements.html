@@ -440,6 +440,18 @@
                 <input type="text" id="referralLink" readonly value="Ładowanie...">
                 <button class="btn btn-secondary" id="copyReferralBtn" data-i18n="profile.referral.copy">Copy</button>
               </div>
+              
+              <!-- Referral Stats -->
+              <div class="referral-stats" style="display: flex; gap: 1.5rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color, #e5e7eb);">
+                <div class="stat-item" style="text-align: center; flex: 1;">
+                  <div id="referralCount" style="font-size: 1.5rem; font-weight: 700; color: var(--primary-color, #3b82f6);">0</div>
+                  <div style="font-size: 0.75rem; color: var(--text-muted, #6b7280);" data-i18n="profile.referral.invited">Zaproszonych</div>
+                </div>
+                <div class="stat-item" style="text-align: center; flex: 1;">
+                  <div id="referralXpEarned" style="font-size: 1.5rem; font-weight: 700; color: var(--success-color, #10b981);">0 XP</div>
+                  <div style="font-size: 0.75rem; color: var(--text-muted, #6b7280);" data-i18n="profile.referral.earned">Zdobyte XP</div>
+                </div>
+              </div>
             </div>
           </div>
 

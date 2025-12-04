@@ -370,6 +370,42 @@ function loadSettings() {
       referralInput.value = 'Ustaw nazwę użytkownika w ustawieniach';
     }
   }
+  
+  // Load referral stats
+  loadReferralStats();
+}
+
+async function loadReferralStats() {
+  const countEl = document.getElementById('referralCount');
+  const xpEl = document.getElementById('referralXpEarned');
+  
+  if (!countEl || !xpEl) return;
+  
+  try {
+    const supabase = window.getSupabase();
+    if (!supabase || !currentUser) return;
+    
+    // Get referral count and XP from referrals table
+    const { data: referrals, error } = await supabase
+      .from('referrals')
+      .select('id, xp_awarded, status')
+      .eq('referrer_id', currentUser.id);
+    
+    if (error) {
+      console.warn('Could not load referral stats:', error);
+      return;
+    }
+    
+    const totalCount = referrals?.length || 0;
+    const confirmedReferrals = referrals?.filter(r => r.status === 'confirmed') || [];
+    const totalXp = confirmedReferrals.reduce((sum, r) => sum + (r.xp_awarded || 0), 0);
+    
+    countEl.textContent = totalCount;
+    xpEl.textContent = `${totalXp} XP`;
+    
+  } catch (err) {
+    console.warn('Error loading referral stats:', err);
+  }
 }
 
 function setupSettingsListeners() {

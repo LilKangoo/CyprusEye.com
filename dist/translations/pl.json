@@ -1742,6 +1742,8 @@
   "profile.referral.desc": "Udostępnij swój link polecający i zdobywaj bonusy, gdy znajomi dołączą do CyprusEye.",
   "profile.referral.copy": "Kopiuj link",
   "profile.referral.copied": "Skopiowano!",
+  "profile.referral.invited": "Zaproszonych",
+  "profile.referral.earned": "Zdobyte XP",
   "profile.modal.password.title": "Zmiana hasła",
   "profile.modal.password.new": "Nowe hasło",
   "profile.modal.password.confirm": "Potwierdź nowe hasło",
