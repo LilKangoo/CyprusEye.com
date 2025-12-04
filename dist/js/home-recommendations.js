@@ -243,6 +243,7 @@ function handlePromoToggleClick(button) {
     return;
   }
   const promoCode = button.dataset.promoCode || '';
+  const recId = button.dataset.recId || '';
   if (!promoCode) {
     return;
   }
@@ -258,6 +259,12 @@ function handlePromoToggleClick(button) {
     if (codeEl.dataset.promoVisible === 'true') {
       return;
     }
+    
+    // Track promo code click
+    if (recId) {
+      trackClick(recId, 'promo_code');
+    }
+    
     codeEl.textContent = promoCode;
     codeEl.dataset.promoVisible = 'true';
   });

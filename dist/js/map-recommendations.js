@@ -10,6 +10,38 @@ let mapRecommendations = [];
 let recommendationMarkers = new Map();
 let recommendationModalOpen = false;
 
+// ============================================================================
+// TRACKING FUNCTIONS
+// ============================================================================
+async function trackRecommendationView(recId) {
+  try {
+    const supabase = window.getSupabase ? window.getSupabase() : (window.sb || null);
+    if (!supabase) return;
+    
+    await supabase.from('recommendation_views').insert([{ 
+      recommendation_id: recId 
+    }]);
+    console.log('✅ [map-rec] View tracked:', recId);
+  } catch (e) {
+    console.error('[map-rec] Track view error:', e);
+  }
+}
+
+async function trackRecommendationClick(recId, clickType) {
+  try {
+    const supabase = window.getSupabase ? window.getSupabase() : (window.sb || null);
+    if (!supabase) return;
+    
+    await supabase.from('recommendation_clicks').insert([{ 
+      recommendation_id: recId,
+      click_type: clickType
+    }]);
+    console.log('✅ [map-rec] Click tracked:', recId, clickType);
+  } catch (e) {
+    console.error('[map-rec] Track click error:', e);
+  }
+}
+
 // Green marker icon for recommendations
 const greenIcon = typeof L !== 'undefined' ? L.divIcon({
   className: 'recommendation-marker',
@@ -289,13 +321,13 @@ window.openRecommendationDetailModal = function(id) {
         
         <div class="rec-map-modal-actions">
           ${rec.google_url ? `
-            <a href="${rec.google_url}" target="_blank" rel="noopener" class="rec-map-modal-btn rec-map-modal-btn-primary">
+            <a href="${rec.google_url}" target="_blank" rel="noopener" class="rec-map-modal-btn rec-map-modal-btn-primary" onclick="trackRecommendationClick('${rec.id}', 'google')">
               🗺️ ${openMapLabel}
             </a>
           ` : ''}
           
           ${rec.phone ? `
-            <a href="tel:${rec.phone}" class="rec-map-modal-btn rec-map-modal-btn-secondary">
+            <a href="tel:${rec.phone}" class="rec-map-modal-btn rec-map-modal-btn-secondary" onclick="trackRecommendationClick('${rec.id}', 'phone')">
               📞 ${rec.phone}
             </a>
           ` : ''}
@@ -311,6 +343,9 @@ window.openRecommendationDetailModal = function(id) {
   modal.style.display = 'flex';
   document.body.style.overflow = 'hidden';
   recommendationModalOpen = true;
+  
+  // Track view
+  trackRecommendationView(rec.id);
   
   // Initialize mini map
   if (rec.latitude && rec.longitude && typeof L !== 'undefined') {
@@ -376,6 +411,9 @@ window.showRecommendationPromoCode = function(id, code) {
       return;
     }
     
+    // Track promo code click
+    trackRecommendationClick(id, 'promo_code');
+    
     codeEl.textContent = code;
     codeEl.dataset.visible = 'true';
     codeEl.style.display = 'block';
@@ -399,3 +437,5 @@ async function initMapRecommendations(mapInstance) {
 window.initMapRecommendations = initMapRecommendations;
 window.syncRecommendationMarkers = syncRecommendationMarkers;
 window.loadRecommendationsForMap = loadRecommendationsForMap;
+window.trackRecommendationClick = trackRecommendationClick;
+window.trackRecommendationView = trackRecommendationView;
