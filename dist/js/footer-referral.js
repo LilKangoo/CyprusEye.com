@@ -7,6 +7,75 @@ const SHARE_TEXT = "🌴 Dołącz do CyprusEye Quest & Travel przez mój link po
 const SHARE_TEXT_EN = "🌴 Join us in the CyprusEye Quest & Travel and explore Cyprus like never before!";
 
 /**
+ * Get translation from i18n system
+ * Supports both flat keys ("footer.referral.invite") and nested keys
+ */
+function getTranslation(key, fallback) {
+  try {
+    const i18n = window.appI18n;
+    if (i18n && i18n.translations) {
+      const lang = i18n.language || 'pl';
+      const langData = i18n.translations[lang];
+      
+      if (!langData) return fallback;
+      
+      // First try: flat key (key with dots as literal string)
+      if (typeof langData[key] === 'string') {
+        return langData[key];
+      }
+      
+      // Second try: nested lookup
+      const keys = key.split('.');
+      let value = langData;
+      for (const k of keys) {
+        if (value && typeof value === 'object' && k in value) {
+          value = value[k];
+        } else {
+          value = undefined;
+          break;
+        }
+      }
+      if (typeof value === 'string') return value;
+      
+      // Third try: search in all nested objects for flat key
+      const searchFlat = (obj) => {
+        if (!obj || typeof obj !== 'object') return null;
+        if (typeof obj[key] === 'string') return obj[key];
+        for (const k of Object.keys(obj)) {
+          if (typeof obj[k] === 'object') {
+            const found = searchFlat(obj[k]);
+            if (found) return found;
+          }
+        }
+        return null;
+      };
+      const found = searchFlat(langData);
+      if (found) return found;
+    }
+  } catch (e) {
+    console.warn('Footer referral getTranslation error:', e);
+  }
+  return fallback;
+}
+
+/**
+ * Update translations for footer referral elements
+ */
+function updateFooterReferralTranslations() {
+  const container = document.getElementById('footerReferral');
+  if (!container) return;
+  
+  // Update text elements with data-i18n attributes
+  const inviteText = container.querySelector('[data-i18n="footer.referral.invite"]');
+  const copyText = container.querySelector('[data-i18n="footer.referral.copy"]');
+  const fbText = container.querySelector('[data-i18n="footer.referral.facebook"]');
+  
+  if (inviteText) inviteText.textContent = getTranslation('footer.referral.invite', 'Zaproś znajomych i zdobądź bonusy!');
+  if (copyText) copyText.textContent = getTranslation('footer.referral.copy', 'Kopiuj link');
+  if (fbText) fbText.textContent = getTranslation('footer.referral.facebook', 'Facebook');
+}
+
+/**
  * Wait for Supabase to be available
  */
 function waitForSupabase(callback, maxAttempts = 20) {
@@ -83,6 +152,9 @@ async function checkUserAndShowReferral(container, copyBtn, fbBtn) {
     // Show referral section
     container.style.display = 'block';
     
+    // Apply translations to the section
+    updateFooterReferralTranslations();
+    
     const refLink = `https://cypruseye.com/?ref=${encodeURIComponent(username)}`;
     
     // Setup copy button
@@ -108,9 +180,10 @@ async function copyRefLink(button, link) {
   try {
     await navigator.clipboard.writeText(link);
     
-    // Show success feedback
+    // Show success feedback with translated text
     const originalHTML = button.innerHTML;
-    button.innerHTML = '<span>✓</span> <span>Skopiowano!</span>';
+    const copiedText = getTranslation('footer.referral.copied', 'Skopiowano!');
+    button.innerHTML = `<span>✓</span> <span>${copiedText}</span>`;
     button.classList.add('btn-success');
     
     setTimeout(() => {
@@ -161,6 +234,9 @@ function showReferralWithUsername(username) {
   // Show referral section
   container.style.display = 'block';
   
+  // Apply translations to the section
+  updateFooterReferralTranslations();
+  
   // Setup copy button
   if (copyBtn) {
     copyBtn.onclick = () => copyRefLink(copyBtn, refLink);
@@ -197,8 +273,29 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     initFooterReferral();
     setupAuthListener();
+    setupLanguageListener();
   });
 } else {
   initFooterReferral();
   setupAuthListener();
+  setupLanguageListener();
+}
+
+/**
+ * Setup listener for language changes
+ */
+function setupLanguageListener() {
+  // Listen for i18n:updated event (fired when translations are applied)
+  window.addEventListener('i18n:updated', () => {
+    console.log('Footer referral: Language updated, refreshing translations');
+    updateFooterReferralTranslations();
+  });
+  
+  // Also register with global language change handler if available
+  if (typeof window.registerLanguageChangeHandler === 'function') {
+    window.registerLanguageChangeHandler((language) => {
+      console.log('Footer referral: Language changed to', language);
+      updateFooterReferralTranslations();
+    });
+  }
 }
