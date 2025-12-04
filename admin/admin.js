@@ -1226,6 +1226,163 @@ async function openNewTripModal() {
 // HOTELS MANAGEMENT (mirrors Trips)
 // =====================================================
 
+// =====================================================
+// HOTEL CITIES MANAGEMENT
+// =====================================================
+let hotelCitiesCache = [];
+
+async function loadHotelCities() {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+    
+    const { data, error } = await client
+      .from('hotel_cities')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
+    
+    if (error) {
+      console.warn('Failed to load hotel cities from DB, using fallback:', error);
+      // Fallback to hardcoded cities
+      hotelCitiesCache = [
+        { name: 'Larnaca' },
+        { name: 'Paphos' },
+        { name: 'Limassol' },
+        { name: 'Ayia Napa' },
+        { name: 'Nicosia' }
+      ];
+    } else {
+      hotelCitiesCache = data || [];
+      console.log('✅ Hotel cities loaded:', hotelCitiesCache.length);
+    }
+    
+    populateHotelCitySelects();
+  } catch (e) {
+    console.error('Failed to load hotel cities:', e);
+    hotelCitiesCache = [
+      { name: 'Larnaca' },
+      { name: 'Paphos' },
+      { name: 'Limassol' },
+      { name: 'Ayia Napa' },
+      { name: 'Nicosia' }
+    ];
+    populateHotelCitySelects();
+  }
+}
+
+function populateHotelCitySelects(selectedValue = null) {
+  const selectIds = ['newHotelCity', 'editHotelCity'];
+  
+  selectIds.forEach(id => {
+    const select = document.getElementById(id);
+    if (!select) return;
+    
+    const currentValue = selectedValue || select.value;
+    
+    select.innerHTML = hotelCitiesCache.map(city => 
+      `<option value="${escapeHtml(city.name)}">${escapeHtml(city.name)}</option>`
+    ).join('');
+    
+    // Restore selected value if exists
+    if (currentValue) {
+      const option = Array.from(select.options).find(o => o.value === currentValue);
+      if (option) {
+        select.value = currentValue;
+      }
+    }
+  });
+}
+
+function openAddCityModal() {
+  const modal = document.getElementById('addCityModal');
+  const form = document.getElementById('addCityForm');
+  
+  if (!modal || !form) {
+    // Fallback to prompt if modal doesn't exist
+    const cityName = prompt('Enter new city name:');
+    if (cityName && cityName.trim()) {
+      addNewHotelCity(cityName.trim());
+    }
+    return;
+  }
+  
+  form.reset();
+  modal.hidden = false;
+  setTimeout(() => document.getElementById('newCityName')?.focus(), 100);
+}
+
+async function addNewHotelCity(name, namePl = null) {
+  try {
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database not available');
+    
+    // Check if city already exists
+    const exists = hotelCitiesCache.find(c => 
+      c.name.toLowerCase() === name.toLowerCase()
+    );
+    if (exists) {
+      showToast(`City "${name}" already exists`, 'warning');
+      return;
+    }
+    
+    const payload = {
+      name: name.trim(),
+      name_en: name.trim(),
+      name_pl: namePl?.trim() || name.trim(),
+      display_order: hotelCitiesCache.length + 1,
+      is_active: true
+    };
+    
+    const { error } = await client
+      .from('hotel_cities')
+      .insert(payload);
+    
+    if (error) throw error;
+    
+    showToast(`City "${name}" added successfully`, 'success');
+    
+    // Reload cities and update selects
+    await loadHotelCities();
+    
+    // Select the new city in the active form
+    populateHotelCitySelects(name);
+    
+    // Close modal if open
+    const modal = document.getElementById('addCityModal');
+    if (modal) modal.hidden = true;
+    
+  } catch (e) {
+    console.error('Failed to add city:', e);
+    showToast('Failed to add city: ' + (e.message || 'Unknown error'), 'error');
+  }
+}
+
+// Form handler for Add City modal
+function setupAddCityForm() {
+  const form = document.getElementById('addCityForm');
+  if (!form || form.dataset.bound === '1') return;
+  form.dataset.bound = '1';
+  
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const name = document.getElementById('newCityName')?.value?.trim();
+    const namePl = document.getElementById('newCityNamePl')?.value?.trim();
+    
+    if (!name) {
+      showToast('City name is required', 'error');
+      return;
+    }
+    
+    await addNewHotelCity(name, namePl || null);
+  });
+}
+
+// Export functions globally
+window.openAddCityModal = openAddCityModal;
+window.addNewHotelCity = addNewHotelCity;
+
 async function loadHotelsAdminData() {
   try {
     const client = ensureSupabase();
@@ -1233,6 +1390,10 @@ async function loadHotelsAdminData() {
       showToast('Database connection not available', 'error');
       return;
     }
+
+    // Load cities first
+    await loadHotelCities();
+    setupAddCityForm();
 
     const { data: hotels, error } = await client
       .from('hotels')
@@ -1406,7 +1567,23 @@ async function editHotel(hotelId) {
 
     document.getElementById('editHotelId').value = hotel.id;
     document.getElementById('editHotelSlug').value = hotel.slug || '';
-    document.getElementById('editHotelCity').value = hotel.city || 'Larnaca';
+    
+    // Ensure cities are loaded and set the value
+    if (hotelCitiesCache.length === 0) {
+      await loadHotelCities();
+    }
+    const citySelect = document.getElementById('editHotelCity');
+    if (citySelect && hotel.city) {
+      // Ensure city exists in options, if not add it temporarily
+      const cityExists = Array.from(citySelect.options).find(o => o.value === hotel.city);
+      if (!cityExists) {
+        const opt = document.createElement('option');
+        opt.value = hotel.city;
+        opt.textContent = hotel.city;
+        citySelect.appendChild(opt);
+      }
+      citySelect.value = hotel.city;
+    }
     
     // Render i18n inputs for Title
     const titleContainer = document.getElementById('editHotelTitleI18n');

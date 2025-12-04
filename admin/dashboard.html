@@ -569,17 +569,17 @@
                   <span>Slug (read-only)</span>
                   <input type="text" id="editHotelSlug" readonly style="background:#2a2f3a;cursor:not-allowed;" />
                 </label>
-                <label class="admin-form-field">
+                <div class="admin-form-field">
                   <span>City</span>
-                  <select name="city" id="editHotelCity" required>
-                    <option value="Larnaca">Larnaca</option>
-                    <option value="Paphos">Paphos</option>
-                    <option value="Limassol">Limassol</option>
-                    <option value="Ayia Napa">Ayia Napa</option>
-                    <option value="Nicosia">Nicosia</option>
-                    <option value="All Cities">All Cities</option>
-                  </select>
-                </label>
+                  <div style="display: flex; gap: 8px; align-items: center;">
+                    <select name="city" id="editHotelCity" required style="flex: 1;"></select>
+                    <button type="button" class="btn-add-city" onclick="openAddCityModal()" title="Add new city">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
                 <!-- Hotel Title (i18n) -->
                 <div class="admin-form-field" style="grid-column:1/-1;">
                   <label>Title (Multilingual)</label>
@@ -657,17 +657,17 @@
           <div class="admin-modal-content">
             <form id="newHotelForm" novalidate>
               <div class="admin-form-grid">
-                <label class="admin-form-field">
+                <div class="admin-form-field">
                   <span>City</span>
-                  <select name="city" id="newHotelCity" required>
-                    <option value="Larnaca">Larnaca</option>
-                    <option value="Paphos">Paphos</option>
-                    <option value="Limassol">Limassol</option>
-                    <option value="Ayia Napa">Ayia Napa</option>
-                    <option value="Nicosia">Nicosia</option>
-                    <option value="All Cities">All Cities</option>
-                  </select>
-                </label>
+                  <div style="display: flex; gap: 8px; align-items: center;">
+                    <select name="city" id="newHotelCity" required style="flex: 1;"></select>
+                    <button type="button" class="btn-add-city" onclick="openAddCityModal()" title="Add new city">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                      </svg>
+                    </button>
+                  </div>
+                </div>
                 <!-- Hotel Title (i18n) -->
                 <div class="admin-form-field" style="grid-column:1/-1;">
                   <label>Title (Multilingual)</label>
@@ -726,6 +726,34 @@
               <div class="admin-modal-actions">
                 <button type="submit" class="btn-primary">Create</button>
                 <button type="button" class="btn-secondary" onclick="document.getElementById('newHotelModal').hidden=true">Cancel</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      </div>
+
+      <!-- Add City Modal -->
+      <div class="admin-modal" id="addCityModal" hidden>
+        <div class="admin-modal-dialog" style="max-width: 400px;">
+          <header class="admin-modal-header">
+            <h3>Add New City</h3>
+            <button type="button" class="admin-modal-close" onclick="document.getElementById('addCityModal').hidden=true">✕</button>
+          </header>
+          <div class="admin-modal-content">
+            <form id="addCityForm" novalidate>
+              <div class="admin-form-grid" style="gap: 16px;">
+                <label class="admin-form-field">
+                  <span>City Name (English) *</span>
+                  <input type="text" id="newCityName" required placeholder="e.g. Kyrenia">
+                </label>
+                <label class="admin-form-field">
+                  <span>City Name (Polish)</span>
+                  <input type="text" id="newCityNamePl" placeholder="e.g. Kyrenia">
+                </label>
+              </div>
+              <div class="admin-modal-actions" style="margin-top: 20px;">
+                <button type="submit" class="btn-primary">Add City</button>
+                <button type="button" class="btn-secondary" onclick="document.getElementById('addCityModal').hidden=true">Cancel</button>
               </div>
             </form>
           </div>

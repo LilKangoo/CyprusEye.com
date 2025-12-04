@@ -2199,3 +2199,25 @@ select#orderStatusFilter:focus {
     transform: translateY(0);
   }
 }
+
+/* Add City Button */
+.btn-add-city {
+  background: var(--admin-bg-light);
+  border: 1px solid var(--admin-border);
+  border-radius: 6px;
+  padding: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--admin-text-muted);
+  transition: all 0.2s ease;
+}
+.btn-add-city:hover {
+  background: var(--admin-primary);
+  border-color: var(--admin-primary);
+  color: white;
+}
+.btn-add-city svg {
+  stroke: currentColor;
+}
