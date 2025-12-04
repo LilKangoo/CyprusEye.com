@@ -142,18 +142,32 @@ function shareOnFacebook(refLink) {
  * Setup auth state listener to show/hide referral on login/logout
  */
 function setupAuthListener() {
+  // Listen for custom CyprusEye auth event (fires immediately on login)
+  document.addEventListener('ce-auth:state', (e) => {
+    const state = e.detail;
+    console.log('Footer referral: ce-auth:state =', state?.status);
+    
+    if (state?.status === 'authenticated' && state?.user) {
+      // User logged in - show referral immediately
+      setTimeout(() => initFooterReferral(), 100);
+    } else if (state?.status === 'anonymous') {
+      // User logged out - hide referral
+      const container = document.getElementById('footerReferral');
+      if (container) container.style.display = 'none';
+    }
+  });
+  
+  // Also listen for Supabase auth changes as backup
   waitForSupabase(() => {
     const supabase = window.getSupabase();
     if (!supabase) return;
     
     supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Footer referral: auth state changed =', event);
+      console.log('Footer referral: supabase auth =', event);
       
       if (event === 'SIGNED_IN' && session?.user) {
-        // User just logged in - show referral
-        initFooterReferral();
+        setTimeout(() => initFooterReferral(), 100);
       } else if (event === 'SIGNED_OUT') {
-        // User logged out - hide referral
         const container = document.getElementById('footerReferral');
         if (container) container.style.display = 'none';
       }
