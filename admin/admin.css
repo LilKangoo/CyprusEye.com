@@ -2296,3 +2296,194 @@ select#orderStatusFilter:focus {
   overflow: hidden;
   text-overflow: ellipsis;
 }
+
+/* =====================================================
+   HOTEL PHOTO MANAGER
+   ===================================================== */
+
+/* Cover Image Manager */
+.cover-image-manager {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  padding: 16px;
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+}
+
+.cover-preview-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.cover-preview-wrap img {
+  width: 200px;
+  height: 150px;
+  object-fit: cover;
+  border-radius: 8px;
+  border: 2px solid var(--admin-border);
+  background: var(--admin-bg-light);
+}
+
+.cover-preview-wrap img[src=""],
+.cover-preview-wrap img:not([src]) {
+  display: none;
+}
+
+.cover-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cover-url-fallback {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 200px;
+}
+
+.cover-url-fallback label {
+  font-size: 12px;
+  color: var(--admin-text-muted);
+}
+
+.cover-url-fallback input {
+  padding: 8px 12px;
+  border: 1px solid var(--admin-border);
+  border-radius: 6px;
+  background: var(--admin-bg-light);
+  color: var(--admin-text);
+  font-size: 13px;
+}
+
+/* Photos Header */
+.photos-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.photos-header span {
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+/* Photos Manager Grid */
+.photos-manager-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  padding: 16px;
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  min-height: 100px;
+}
+
+.photos-manager-grid:empty::after {
+  content: 'No photos yet. Click "Add Photos" to upload.';
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--admin-text-muted);
+  font-size: 14px;
+}
+
+.photo-item {
+  position: relative;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 2px solid var(--admin-border);
+  background: var(--admin-bg-light);
+  transition: all 0.2s ease;
+}
+
+.photo-item:hover {
+  border-color: var(--admin-primary);
+}
+
+.photo-item.is-cover {
+  border-color: #f59e0b;
+  box-shadow: 0 0 0 2px rgba(245, 158, 11, 0.3);
+}
+
+.photo-item.is-cover::before {
+  content: '⭐ Cover';
+  position: absolute;
+  top: 6px;
+  left: 6px;
+  padding: 2px 8px;
+  background: #f59e0b;
+  color: #000;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 4px;
+  z-index: 2;
+}
+
+.photo-item img {
+  width: 100%;
+  aspect-ratio: 4/3;
+  object-fit: cover;
+  display: block;
+}
+
+.photo-actions {
+  display: flex;
+  justify-content: center;
+  gap: 2px;
+  padding: 6px 4px;
+  background: rgba(0, 0, 0, 0.85);
+}
+
+.photo-actions button {
+  padding: 4px 6px;
+  font-size: 11px;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  background: var(--admin-bg-light);
+  color: var(--admin-text);
+  transition: all 0.15s ease;
+}
+
+.photo-actions button:hover {
+  background: var(--admin-primary);
+  color: white;
+}
+
+.photo-actions button:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.photo-actions button.btn-delete:hover {
+  background: #dc2626;
+}
+
+.photo-actions button.btn-cover:hover {
+  background: #f59e0b;
+  color: #000;
+}
+
+/* Small button variant */
+.btn-sm {
+  padding: 6px 12px !important;
+  font-size: 12px !important;
+}
+
+.btn-danger {
+  color: #dc2626 !important;
+  border-color: #dc2626 !important;
+}
+
+.btn-danger:hover {
+  background: #dc2626 !important;
+  color: white !important;
+}

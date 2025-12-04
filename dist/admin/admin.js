@@ -1565,6 +1565,262 @@ function setupAddAmenityForm() {
 window.openAddAmenityModal = openAddAmenityModal;
 window.addNewAmenity = addNewAmenity;
 
+// =====================================================
+// HOTEL PHOTO MANAGER
+// =====================================================
+
+// Local state for photo management
+let editHotelPhotosState = {
+  photos: [],
+  coverUrl: '',
+  pendingUploads: []
+};
+
+let newHotelPhotosState = {
+  photos: [],
+  coverUrl: '',
+  pendingUploads: []
+};
+
+function getPhotoState(formType) {
+  return formType === 'edit' ? editHotelPhotosState : newHotelPhotosState;
+}
+
+function renderPhotoManager(formType) {
+  const state = getPhotoState(formType);
+  const containerId = formType === 'edit' ? 'editHotelPhotosManager' : 'newHotelPhotosManager';
+  const countId = formType === 'edit' ? 'editHotelPhotosCount' : 'newHotelPhotosCount';
+  const coverImgId = formType === 'edit' ? 'editHotelCoverPreviewImg' : 'newHotelCoverPreviewImg';
+  const coverUrlId = formType === 'edit' ? 'editHotelCoverUrl' : 'newHotelCoverUrl';
+  
+  const container = document.getElementById(containerId);
+  const countEl = document.getElementById(countId);
+  const coverImg = document.getElementById(coverImgId);
+  const coverUrlInput = document.getElementById(coverUrlId);
+  
+  if (!container) return;
+  
+  // Update count
+  if (countEl) countEl.textContent = state.photos.length;
+  
+  // Update cover preview
+  if (coverImg) {
+    coverImg.src = state.coverUrl || '';
+    coverImg.style.display = state.coverUrl ? 'block' : 'none';
+  }
+  if (coverUrlInput && state.coverUrl) {
+    coverUrlInput.value = state.coverUrl;
+  }
+  
+  // Render photo grid
+  if (!state.photos.length) {
+    container.innerHTML = '';
+    return;
+  }
+  
+  container.innerHTML = state.photos.map((url, index) => {
+    const isCover = url === state.coverUrl;
+    return `
+      <div class="photo-item ${isCover ? 'is-cover' : ''}" data-index="${index}">
+        <img src="${escapeHtml(url)}" alt="Photo ${index + 1}" loading="lazy">
+        <div class="photo-actions">
+          <button type="button" onclick="moveHotelPhoto('${formType}', ${index}, -1)" ${index === 0 ? 'disabled' : ''} title="Move left">◀</button>
+          <button type="button" onclick="moveHotelPhoto('${formType}', ${index}, 1)" ${index === state.photos.length - 1 ? 'disabled' : ''} title="Move right">▶</button>
+          <button type="button" class="btn-cover" onclick="setAsCoverImage('${formType}', ${index})" title="Set as cover">⭐</button>
+          <button type="button" class="btn-delete" onclick="deleteHotelPhoto('${formType}', ${index})" title="Delete">✕</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function moveHotelPhoto(formType, index, direction) {
+  const state = getPhotoState(formType);
+  const newIndex = index + direction;
+  
+  if (newIndex < 0 || newIndex >= state.photos.length) return;
+  
+  // Swap
+  const temp = state.photos[index];
+  state.photos[index] = state.photos[newIndex];
+  state.photos[newIndex] = temp;
+  
+  renderPhotoManager(formType);
+}
+
+function deleteHotelPhoto(formType, index) {
+  const state = getPhotoState(formType);
+  const deletedUrl = state.photos[index];
+  
+  state.photos.splice(index, 1);
+  
+  // If deleted photo was cover, reset cover
+  if (deletedUrl === state.coverUrl) {
+    state.coverUrl = state.photos[0] || '';
+  }
+  
+  renderPhotoManager(formType);
+}
+
+function setAsCoverImage(formType, index) {
+  const state = getPhotoState(formType);
+  state.coverUrl = state.photos[index];
+  
+  // Also update the URL input
+  const coverUrlId = formType === 'edit' ? 'editHotelCoverUrl' : 'newHotelCoverUrl';
+  const coverUrlInput = document.getElementById(coverUrlId);
+  if (coverUrlInput) coverUrlInput.value = state.coverUrl;
+  
+  renderPhotoManager(formType);
+  showToast('Cover image updated', 'success');
+}
+
+function removeCoverImage(formType) {
+  const state = getPhotoState(formType);
+  state.coverUrl = '';
+  
+  const coverUrlId = formType === 'edit' ? 'editHotelCoverUrl' : 'newHotelCoverUrl';
+  const coverUrlInput = document.getElementById(coverUrlId);
+  if (coverUrlInput) coverUrlInput.value = '';
+  
+  renderPhotoManager(formType);
+}
+
+async function handleCoverFileUpload(formType, file, hotelSlug) {
+  if (!file || !file.type.startsWith('image/')) return null;
+  
+  const state = getPhotoState(formType);
+  
+  try {
+    const client = ensureSupabase();
+    const compressed = await compressToWebp(file, 1920, 1080, 0.82);
+    const path = `hotels/${hotelSlug}/cover-${Date.now()}.webp`;
+    
+    const { error } = await client.storage.from('poi-photos').upload(path, compressed, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: 'image/webp'
+    });
+    
+    if (error) throw error;
+    
+    const { data: pub } = client.storage.from('poi-photos').getPublicUrl(path);
+    const url = pub?.publicUrl || '';
+    
+    state.coverUrl = url;
+    renderPhotoManager(formType);
+    
+    return url;
+  } catch (e) {
+    console.error('Cover upload failed:', e);
+    showToast('Failed to upload cover image', 'error');
+    return null;
+  }
+}
+
+async function handlePhotosUpload(formType, files, hotelSlug) {
+  const state = getPhotoState(formType);
+  const maxPhotos = 10;
+  const available = maxPhotos - state.photos.length;
+  
+  if (available <= 0) {
+    showToast('Maximum 10 photos allowed', 'warning');
+    return;
+  }
+  
+  const filesToUpload = Array.from(files).slice(0, available);
+  
+  try {
+    const client = ensureSupabase();
+    
+    for (const file of filesToUpload) {
+      if (!file.type.startsWith('image/')) continue;
+      
+      const compressed = await compressToWebp(file, 1920, 1080, 0.82);
+      const path = `hotels/${hotelSlug}/photo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}.webp`;
+      
+      const { error } = await client.storage.from('poi-photos').upload(path, compressed, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: 'image/webp'
+      });
+      
+      if (error) {
+        console.error('Photo upload failed:', error);
+        continue;
+      }
+      
+      const { data: pub } = client.storage.from('poi-photos').getPublicUrl(path);
+      const url = pub?.publicUrl || '';
+      
+      if (url) {
+        state.photos.push(url);
+        
+        // Set as cover if no cover yet
+        if (!state.coverUrl) {
+          state.coverUrl = url;
+        }
+      }
+    }
+    
+    renderPhotoManager(formType);
+    showToast(`${filesToUpload.length} photo(s) uploaded`, 'success');
+    
+  } catch (e) {
+    console.error('Photos upload failed:', e);
+    showToast('Failed to upload photos', 'error');
+  }
+}
+
+function setupPhotoManagerBindings(formType, hotelSlug) {
+  const coverFileId = formType === 'edit' ? 'editHotelCoverFile' : 'newHotelCoverFile';
+  const photosAddId = formType === 'edit' ? 'editHotelPhotosAdd' : 'newHotelPhotosAdd';
+  const coverUrlId = formType === 'edit' ? 'editHotelCoverUrl' : 'newHotelCoverUrl';
+  
+  const coverFileInput = document.getElementById(coverFileId);
+  const photosAddInput = document.getElementById(photosAddId);
+  const coverUrlInput = document.getElementById(coverUrlId);
+  
+  // Cover file upload
+  if (coverFileInput) {
+    coverFileInput.onchange = async () => {
+      const file = coverFileInput.files?.[0];
+      if (file) {
+        showToast('Uploading cover...', 'info');
+        await handleCoverFileUpload(formType, file, hotelSlug);
+      }
+      coverFileInput.value = '';
+    };
+  }
+  
+  // Photos upload
+  if (photosAddInput) {
+    photosAddInput.onchange = async () => {
+      const files = photosAddInput.files;
+      if (files?.length) {
+        showToast('Uploading photos...', 'info');
+        await handlePhotosUpload(formType, files, hotelSlug);
+      }
+      photosAddInput.value = '';
+    };
+  }
+  
+  // Cover URL input
+  if (coverUrlInput) {
+    coverUrlInput.oninput = () => {
+      const state = getPhotoState(formType);
+      state.coverUrl = coverUrlInput.value.trim();
+      renderPhotoManager(formType);
+    };
+  }
+}
+
+// Export photo manager functions
+window.moveHotelPhoto = moveHotelPhoto;
+window.deleteHotelPhoto = deleteHotelPhoto;
+window.setAsCoverImage = setAsCoverImage;
+window.removeCoverImage = removeCoverImage;
+
 async function loadHotelsAdminData() {
   try {
     const client = ensureSupabase();
@@ -1834,29 +2090,13 @@ async function editHotel(hotelId) {
       maxPersonsEl.value = hotel.max_persons != null ? Number(hotel.max_persons) : '';
     }
 
-    // Photos preview existing
-    const photosWrap = document.getElementById('editHotelPhotosPreview');
-    if (photosWrap) {
-      photosWrap.innerHTML = '';
-      const photos = Array.isArray(hotel.photos) ? hotel.photos : [];
-      photos.slice(0, 10).forEach(url => {
-        const img = document.createElement('img');
-        img.src = url;
-        img.alt = 'photo';
-        img.style.width = '72px';
-        img.style.height = '72px';
-        img.style.objectFit = 'cover';
-        img.style.borderRadius = '6px';
-        img.loading = 'lazy';
-        photosWrap.appendChild(img);
-      });
-    }
-
-    // Bind file input for extra photos
-    const editPhotosInput = document.getElementById('editHotelPhotos');
-    if (editPhotosInput && photosWrap) {
-      editPhotosInput.onchange = () => previewLocalImages(editPhotosInput, photosWrap, 10);
-    }
+    // Initialize photo manager state
+    editHotelPhotosState.photos = Array.isArray(hotel.photos) ? hotel.photos.slice() : [];
+    editHotelPhotosState.coverUrl = hotel.cover_image_url || '';
+    
+    // Setup bindings and render
+    setupPhotoManagerBindings('edit', hotel.slug);
+    renderPhotoManager('edit');
 
     // Render amenities checkboxes with currently selected values
     const hotelAmenities = Array.isArray(hotel.amenities) ? hotel.amenities : [];
@@ -1948,15 +2188,9 @@ async function handleEditHotelSubmit(event, originalHotel) {
     // Collect amenities
     payload.amenities = collectSelectedAmenities('editHotelAmenities');
 
-    // Photos: start with existing
-    let existingPhotos = Array.isArray(originalHotel.photos) ? originalHotel.photos.slice(0, 10) : [];
-    const addFilesInput = document.getElementById('editHotelPhotos');
-    if (addFilesInput && addFilesInput.files && addFilesInput.files.length) {
-      const toUpload = Array.from(addFilesInput.files).slice(0, Math.max(0, 10 - existingPhotos.length));
-      const newUrls = await uploadHotelPhotosBatch(payload.slug || originalHotel.slug, toUpload);
-      existingPhotos = existingPhotos.concat(newUrls).slice(0, 10);
-    }
-    payload.photos = existingPhotos;
+    // Get photos and cover from state
+    payload.photos = editHotelPhotosState.photos.slice(0, 10);
+    payload.cover_image_url = editHotelPhotosState.coverUrl || null;
 
     console.log('💾 Updating hotel with payload:', {
       hotelId,
@@ -2028,41 +2262,13 @@ async function openNewHotelModal() {
         });
       }
 
-      const fileInput = document.getElementById('newHotelCoverFile');
-      const urlInput = document.getElementById('newHotelCoverUrl');
-      const previewWrap = document.getElementById('newHotelCoverPreview');
-      const previewImg = previewWrap ? previewWrap.querySelector('img') : null;
-
-      if (fileInput && previewWrap && previewImg) {
-        fileInput.onchange = () => {
-          const f = fileInput.files && fileInput.files[0];
-          if (f && f.type && f.type.startsWith('image/')) {
-            const reader = new FileReader();
-            reader.onload = () => {
-              previewImg.src = reader.result;
-              previewWrap.style.display = '';
-            };
-            reader.readAsDataURL(f);
-            if (urlInput) urlInput.value = '';
-          } else {
-            previewWrap.style.display = 'none';
-            previewImg.removeAttribute('src');
-          }
-        };
-      }
-      if (urlInput && previewWrap && previewImg) {
-        urlInput.oninput = () => {
-          const v = (urlInput.value || '').trim();
-          if (v) {
-            previewImg.src = v;
-            previewWrap.style.display = '';
-            if (fileInput) fileInput.value = '';
-          } else {
-            previewWrap.style.display = 'none';
-            previewImg.removeAttribute('src');
-          }
-        };
-      }
+      // Initialize photo manager state for new hotel
+      newHotelPhotosState.photos = [];
+      newHotelPhotosState.coverUrl = '';
+      
+      // Note: bindings will be set up after slug is generated in form submit
+      // For now, just render empty state
+      renderPhotoManager('new');
 
       // Pricing tiers editor init
       renderPricingTiers('newHotelPricingTiersBody', []);
@@ -2071,13 +2277,10 @@ async function openNewHotelModal() {
         btnAddNewTier.addEventListener('click', () => addPricingTierRow('newHotelPricingTiersBody'));
         btnAddNewTier.dataset.bound = '1';
       }
-
-      // Photos multiple preview
-      const multiPhotos = document.getElementById('newHotelPhotos');
-      const multiPreview = document.getElementById('newHotelPhotosPreview');
-      if (multiPhotos && multiPreview) {
-        multiPhotos.onchange = () => previewLocalImages(multiPhotos, multiPreview, 10);
-      }
+      
+      // Setup temporary slug for uploads (will be updated)
+      const tempSlug = `new-hotel-${Date.now()}`;
+      setupPhotoManagerBindings('new', tempSlug);
 
       form.onsubmit = async (ev) => {
         ev.preventDefault();
@@ -2121,26 +2324,9 @@ async function openNewHotelModal() {
           const slugSource = titleI18n?.pl || titleI18n?.en || `hotel-${Date.now()}`;
           payload.slug = slugifyHotelTitle(slugSource);
 
-          let coverUrl = (payload.cover_image_url || '').trim() || '';
-          const file = fileInput && fileInput.files ? fileInput.files[0] : null;
-          if (file) {
-            if (!file.type.startsWith('image/')) throw new Error('Nieprawidłowy typ pliku okładki');
-            const maxSize = 8 * 1024 * 1024;
-            if (file.size > maxSize) throw new Error('Plik okładki jest za duży (max 8MB)');
-
-            const compressed = await compressToWebp(file, 1920, 1080, 0.82);
-            const path = `hotels/${payload.slug}/cover-${Date.now()}.webp`;
-            const { error: upErr } = await client.storage.from('poi-photos').upload(path, compressed, {
-              cacheControl: '3600',
-              upsert: false,
-              contentType: 'image/webp'
-            });
-            if (upErr) throw upErr;
-
-            const { data: pub } = client.storage.from('poi-photos').getPublicUrl(path);
-            coverUrl = pub?.publicUrl || '';
-          }
-          if (coverUrl) payload.cover_image_url = coverUrl; else delete payload.cover_image_url;
+          // Get photos and cover from state (already uploaded via photo manager)
+          payload.photos = newHotelPhotosState.photos.slice(0, 10);
+          payload.cover_image_url = newHotelPhotosState.coverUrl || null;
 
           // pricing tiers
           payload.pricing_tiers = collectPricingTiers('newHotelPricingTiersBody');
@@ -2154,15 +2340,6 @@ async function openNewHotelModal() {
 
           // Collect amenities
           payload.amenities = collectSelectedAmenities('newHotelAmenities');
-
-          // multi photos upload (up to 10)
-          const photosInput = document.getElementById('newHotelPhotos');
-          let photosUrls = [];
-          if (photosInput && photosInput.files && photosInput.files.length) {
-            const files = Array.from(photosInput.files).slice(0, 10);
-            photosUrls = await uploadHotelPhotosBatch(payload.slug, files);
-          }
-          if (photosUrls.length) payload.photos = photosUrls;
 
           const now = new Date().toISOString();
           payload.created_at = now;
