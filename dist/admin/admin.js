@@ -1383,6 +1383,188 @@ function setupAddCityForm() {
 window.openAddCityModal = openAddCityModal;
 window.addNewHotelCity = addNewHotelCity;
 
+// =====================================================
+// HOTEL AMENITIES MANAGEMENT
+// =====================================================
+let hotelAmenitiesCache = [];
+
+const AMENITY_CATEGORY_LABELS = {
+  general: { label: 'General', icon: '🏨' },
+  wellness: { label: 'Wellness & Spa', icon: '💆' },
+  food: { label: 'Food & Drink', icon: '🍽️' },
+  room: { label: 'Room Features', icon: '🛏️' },
+  outdoor: { label: 'Outdoor', icon: '🌳' },
+  services: { label: 'Services', icon: '🛎️' }
+};
+
+async function loadHotelAmenities() {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+    
+    const { data, error } = await client
+      .from('hotel_amenities')
+      .select('*')
+      .eq('is_active', true)
+      .order('display_order', { ascending: true });
+    
+    if (error) {
+      console.warn('Failed to load hotel amenities:', error);
+      hotelAmenitiesCache = [];
+    } else {
+      hotelAmenitiesCache = data || [];
+      console.log('✅ Hotel amenities loaded:', hotelAmenitiesCache.length);
+    }
+  } catch (e) {
+    console.error('Failed to load hotel amenities:', e);
+    hotelAmenitiesCache = [];
+  }
+}
+
+function renderAmenitiesCheckboxes(containerId, selectedCodes = []) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  
+  if (!hotelAmenitiesCache.length) {
+    container.innerHTML = '<div class="table-loading">No amenities available</div>';
+    return;
+  }
+  
+  // Group by category
+  const categories = {};
+  hotelAmenitiesCache.forEach(a => {
+    if (!categories[a.category]) categories[a.category] = [];
+    categories[a.category].push(a);
+  });
+  
+  // Order categories
+  const categoryOrder = ['general', 'wellness', 'food', 'room', 'outdoor', 'services'];
+  
+  let html = '';
+  categoryOrder.forEach(cat => {
+    const items = categories[cat];
+    if (!items || !items.length) return;
+    
+    const catInfo = AMENITY_CATEGORY_LABELS[cat] || { label: cat, icon: '📍' };
+    
+    html += `
+      <div class="amenity-category">
+        <div class="amenity-category-header">
+          <span class="category-icon">${catInfo.icon}</span>
+          ${catInfo.label}
+        </div>
+        <div class="amenity-items">
+          ${items.map(a => `
+            <label class="amenity-checkbox">
+              <input type="checkbox" name="amenities" value="${escapeHtml(a.code)}" 
+                ${selectedCodes.includes(a.code) ? 'checked' : ''}>
+              <span>${a.icon} ${escapeHtml(a.name_en)}</span>
+            </label>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  });
+  
+  container.innerHTML = html;
+}
+
+function collectSelectedAmenities(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return [];
+  const checked = container.querySelectorAll('input[name="amenities"]:checked');
+  return Array.from(checked).map(cb => cb.value);
+}
+
+function openAddAmenityModal() {
+  const modal = document.getElementById('addAmenityModal');
+  const form = document.getElementById('addAmenityForm');
+  if (!modal || !form) return;
+  
+  form.reset();
+  modal.hidden = false;
+  setTimeout(() => document.getElementById('newAmenityCode')?.focus(), 100);
+}
+
+async function addNewAmenity(data) {
+  try {
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database not available');
+    
+    // Check if code already exists
+    const exists = hotelAmenitiesCache.find(a => a.code === data.code);
+    if (exists) {
+      showToast(`Amenity with code "${data.code}" already exists`, 'warning');
+      return false;
+    }
+    
+    const payload = {
+      code: data.code.toLowerCase().replace(/[^a-z_]/g, ''),
+      category: data.category,
+      icon: data.icon,
+      name_en: data.name_en,
+      name_pl: data.name_pl,
+      display_order: hotelAmenitiesCache.length + 1,
+      is_popular: data.is_popular || false,
+      is_active: true
+    };
+    
+    const { error } = await client
+      .from('hotel_amenities')
+      .insert(payload);
+    
+    if (error) throw error;
+    
+    showToast(`Amenity "${data.name_en}" added successfully`, 'success');
+    
+    // Reload amenities
+    await loadHotelAmenities();
+    
+    // Re-render checkboxes in both forms
+    renderAmenitiesCheckboxes('newHotelAmenities', collectSelectedAmenities('newHotelAmenities'));
+    renderAmenitiesCheckboxes('editHotelAmenities', collectSelectedAmenities('editHotelAmenities'));
+    
+    return true;
+  } catch (e) {
+    console.error('Failed to add amenity:', e);
+    showToast('Failed to add amenity: ' + (e.message || 'Unknown error'), 'error');
+    return false;
+  }
+}
+
+function setupAddAmenityForm() {
+  const form = document.getElementById('addAmenityForm');
+  if (!form || form.dataset.bound === '1') return;
+  form.dataset.bound = '1';
+  
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    
+    const data = {
+      code: document.getElementById('newAmenityCode')?.value?.trim(),
+      category: document.getElementById('newAmenityCategory')?.value,
+      icon: document.getElementById('newAmenityIcon')?.value?.trim(),
+      name_en: document.getElementById('newAmenityNameEn')?.value?.trim(),
+      name_pl: document.getElementById('newAmenityNamePl')?.value?.trim(),
+      is_popular: document.getElementById('newAmenityPopular')?.checked || false
+    };
+    
+    if (!data.code || !data.name_en || !data.name_pl || !data.icon) {
+      showToast('All fields are required', 'error');
+      return;
+    }
+    
+    const success = await addNewAmenity(data);
+    if (success) {
+      document.getElementById('addAmenityModal').hidden = true;
+    }
+  });
+}
+
+// Export amenity functions globally
+window.openAddAmenityModal = openAddAmenityModal;
+window.addNewAmenity = addNewAmenity;
+
 async function loadHotelsAdminData() {
   try {
     const client = ensureSupabase();
@@ -1391,9 +1573,11 @@ async function loadHotelsAdminData() {
       return;
     }
 
-    // Load cities first
+    // Load cities and amenities first
     await loadHotelCities();
+    await loadHotelAmenities();
     setupAddCityForm();
+    setupAddAmenityForm();
 
     const { data: hotels, error } = await client
       .from('hotels')
@@ -1674,6 +1858,10 @@ async function editHotel(hotelId) {
       editPhotosInput.onchange = () => previewLocalImages(editPhotosInput, photosWrap, 10);
     }
 
+    // Render amenities checkboxes with currently selected values
+    const hotelAmenities = Array.isArray(hotel.amenities) ? hotel.amenities : [];
+    renderAmenitiesCheckboxes('editHotelAmenities', hotelAmenities);
+
     form.onsubmit = async (e) => {
       e.preventDefault();
       await handleEditHotelSubmit(e, hotel);
@@ -1756,6 +1944,9 @@ async function handleEditHotelSubmit(event, originalHotel) {
     } else {
       payload.max_persons = null;
     }
+
+    // Collect amenities
+    payload.amenities = collectSelectedAmenities('editHotelAmenities');
 
     // Photos: start with existing
     let existingPhotos = Array.isArray(originalHotel.photos) ? originalHotel.photos.slice(0, 10) : [];
@@ -1961,6 +2152,9 @@ async function openNewHotelModal() {
             payload.max_persons = Number.isFinite(v) && v > 0 ? v : null;
           }
 
+          // Collect amenities
+          payload.amenities = collectSelectedAmenities('newHotelAmenities');
+
           // multi photos upload (up to 10)
           const photosInput = document.getElementById('newHotelPhotos');
           let photosUrls = [];
@@ -2003,6 +2197,9 @@ async function openNewHotelModal() {
         }
       };
     }
+
+    // Render amenities checkboxes
+    renderAmenitiesCheckboxes('newHotelAmenities', []);
 
     const modal = document.getElementById('newHotelModal');
     if (modal) modal.hidden = false;

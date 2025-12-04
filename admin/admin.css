@@ -2221,3 +2221,78 @@ select#orderStatusFilter:focus {
 .btn-add-city svg {
   stroke: currentColor;
 }
+
+/* Amenities Grid */
+.amenities-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  max-height: 400px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.amenity-category {
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 8px;
+  padding: 12px;
+}
+
+.amenity-category-header {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  color: var(--admin-text);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.amenity-category-header .category-icon {
+  font-size: 16px;
+}
+
+.amenity-items {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 8px;
+}
+
+.amenity-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  background: var(--admin-bg-light);
+  border: 1px solid var(--admin-border);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 13px;
+}
+
+.amenity-checkbox:hover {
+  border-color: var(--admin-primary);
+  background: rgba(220, 38, 38, 0.05);
+}
+
+.amenity-checkbox input {
+  accent-color: var(--admin-primary);
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.amenity-checkbox input:checked + span {
+  color: var(--admin-primary);
+  font-weight: 500;
+}
+
+.amenity-checkbox span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}

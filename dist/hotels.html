@@ -350,6 +350,7 @@
           <div class="trip-section">
             <h3 class="trip-section-title" data-i18n="hotels.modal.descriptionTitle">Opis</h3>
             <div class="trip-description" id="modalHotelDescription"></div>
+            <div class="hotel-amenities-chips" id="hotelAmenitiesChips" style="display:none;"></div>
           </div>
 
           <div class="trip-section">
@@ -470,6 +471,56 @@
     let allHotels = [];
     let currentCity = 'all';
     let currentHotel = null;
+    let hotelAmenitiesMap = {};
+
+    // Load amenities for display
+    async function loadHotelAmenitiesForDisplay() {
+      try {
+        const { data } = await supabase
+          .from('hotel_amenities')
+          .select('code, icon, name_en, name_pl, is_popular')
+          .eq('is_active', true);
+        
+        if (data) {
+          data.forEach(a => { hotelAmenitiesMap[a.code] = a; });
+          console.log('✅ Hotel amenities loaded:', Object.keys(hotelAmenitiesMap).length);
+        }
+      } catch (e) {
+        console.warn('Failed to load amenities:', e);
+      }
+    }
+
+    function renderHotelAmenitiesChips(hotel) {
+      const container = document.getElementById('hotelAmenitiesChips');
+      if (!container) return;
+      
+      const amenities = Array.isArray(hotel.amenities) ? hotel.amenities : [];
+      if (!amenities.length) {
+        container.innerHTML = '';
+        container.style.display = 'none';
+        return;
+      }
+      
+      const lang = (window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl') || 'pl';
+      
+      const popularFirst = amenities
+        .map(code => hotelAmenitiesMap[code])
+        .filter(Boolean)
+        .sort((a, b) => (b.is_popular ? 1 : 0) - (a.is_popular ? 1 : 0))
+        .slice(0, 8);
+      
+      if (!popularFirst.length) {
+        container.innerHTML = '';
+        container.style.display = 'none';
+        return;
+      }
+      
+      container.style.display = 'flex';
+      container.innerHTML = popularFirst.map(a => {
+        const name = lang === 'en' ? a.name_en : (a.name_pl || a.name_en);
+        return `<span class="amenity-chip">${a.icon} ${name}</span>`;
+      }).join('');
+    }
 
     // Dynamic spacing under header (accounts for multi-row actions and tabs)
     function applyHeaderGap(){
@@ -743,6 +794,7 @@
       document.getElementById('modalHotelTitle').textContent = title;
       document.getElementById('modalHotelSubtitle').textContent = h.city || '';
       document.getElementById('modalHotelDescription').innerHTML = (h.description?.pl||'').replace(/\n/g,'<br/>');
+      renderHotelAmenitiesChips(h);
       document.getElementById('hotelBookingForm').reset();
       document.getElementById('hotelBookingMessage').style.display='none';
       // Enforce max persons on inputs
@@ -851,6 +903,7 @@
         .order('created_at', { ascending: false });
       if(error){ console.error(error); return; }
       allHotels = data || [];
+      await loadHotelAmenitiesForDisplay();
       renderTabs();
       renderHotels();
     })();

@@ -7,6 +7,59 @@ let homeHotelsDisplay = [];
 let homeCurrentHotel = null;
 let homeHotelIndex = null;
 
+// Amenities cache and helpers
+let hotelAmenitiesMap = {};
+
+async function loadHotelAmenitiesForDisplay() {
+  try {
+    const { supabase } = await import('./supabaseClient.js');
+    const { data } = await supabase
+      .from('hotel_amenities')
+      .select('code, icon, name_en, name_pl, is_popular')
+      .eq('is_active', true);
+    
+    if (data) {
+      data.forEach(a => { hotelAmenitiesMap[a.code] = a; });
+      console.log('✅ Hotel amenities loaded for display:', Object.keys(hotelAmenitiesMap).length);
+    }
+  } catch (e) {
+    console.warn('Failed to load amenities for display:', e);
+  }
+}
+
+function renderHotelAmenitiesChips(hotel) {
+  const container = document.getElementById('hotelAmenitiesChips');
+  if (!container) return;
+  
+  const amenities = Array.isArray(hotel.amenities) ? hotel.amenities : [];
+  if (!amenities.length) {
+    container.innerHTML = '';
+    container.style.display = 'none';
+    return;
+  }
+  
+  const lang = (typeof getCurrentLanguage === 'function' ? getCurrentLanguage() : 'pl') || 'pl';
+  
+  // Limit to popular or first 8
+  const popularFirst = amenities
+    .map(code => hotelAmenitiesMap[code])
+    .filter(Boolean)
+    .sort((a, b) => (b.is_popular ? 1 : 0) - (a.is_popular ? 1 : 0))
+    .slice(0, 8);
+  
+  if (!popularFirst.length) {
+    container.innerHTML = '';
+    container.style.display = 'none';
+    return;
+  }
+  
+  container.style.display = 'flex';
+  container.innerHTML = popularFirst.map(a => {
+    const name = lang === 'en' ? a.name_en : (a.name_pl || a.name_en);
+    return `<span class="amenity-chip">${a.icon} ${name}</span>`;
+  }).join('');
+}
+
 // Prefill hotel booking form from logged-in user session
 async function prefillHotelFormFromSession(form) {
   if (!form) return;
@@ -80,6 +133,10 @@ async function loadHomeHotels(){
       .order('created_at', { ascending: false });
     if(error) throw error;
     homeHotelsData = data || [];
+    
+    // Load amenities for display
+    await loadHotelAmenitiesForDisplay();
+    
     renderHomeHotelsTabs();
     renderHomeHotels();
   }catch(err){
@@ -495,6 +552,9 @@ window.openHotelModalHome = function(index){
   document.getElementById('modalHotelTitle').textContent = title;
   document.getElementById('modalHotelSubtitle').textContent = h.city || '';
   document.getElementById('modalHotelDescription').innerHTML = description.replace(/\n/g,'<br/>');
+  
+  // Render amenities chips
+  renderHotelAmenitiesChips(h);
 
   const form = document.getElementById('hotelBookingForm');
   if (form){ form.reset(); const msg=document.getElementById('hotelBookingMessage'); if(msg) msg.style.display='none'; }
