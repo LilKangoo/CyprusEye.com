@@ -359,10 +359,16 @@ function loadSettings() {
   const emailInput = document.getElementById('settingsEmail');
   if (emailInput) emailInput.value = currentUser.email || '';
 
-  // Referral Link
+  // Referral Link - use username, not user ID
   const referralInput = document.getElementById('referralLink');
-  if (referralInput) {
-    referralInput.value = `https://cypruseye.com/?ref=${currentUser.id}`;
+  if (referralInput && currentProfile?.username) {
+    // Check if username is not a UUID
+    const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(currentProfile.username);
+    if (!isUUID) {
+      referralInput.value = `https://cypruseye.com/?ref=${encodeURIComponent(currentProfile.username)}`;
+    } else {
+      referralInput.value = 'Ustaw nazwę użytkownika w ustawieniach';
+    }
   }
 }
 
