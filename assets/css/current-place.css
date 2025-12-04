@@ -386,82 +386,169 @@
 }
 
 /* ===================================
+   USER LOCATION MARKER (Blue Dot)
+   ================================== */
+.user-location-marker {
+  background: transparent !important;
+  border: none !important;
+}
+
+.user-dot {
+  position: relative;
+  width: 24px;
+  height: 24px;
+}
+
+.user-dot-core {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 14px;
+  height: 14px;
+  background: #3b82f6;
+  border: 3px solid #ffffff;
+  border-radius: 50%;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.5);
+  z-index: 2;
+}
+
+.user-dot-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 24px;
+  height: 24px;
+  background: rgba(59, 130, 246, 0.3);
+  border-radius: 50%;
+  animation: userPulse 2s ease-out infinite;
+  z-index: 1;
+}
+
+@keyframes userPulse {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.5);
+    opacity: 0;
+  }
+}
+
+/* ===================================
    MOBILE LEAFLET POPUP OPTIMIZATION
    ================================== */
 @media (max-width: 768px) {
   .leaflet-popup-content-wrapper {
-    border-radius: 16px;
-    padding: 0; /* Use internal padding */
+    border-radius: 12px;
+    padding: 0;
     overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
   }
 
   .leaflet-popup-content {
     margin: 0;
-    width: 260px !important; /* Force narrower width */
+    width: 240px !important;
+    max-width: 240px !important;
   }
 
-  /* Optimize Popup Images */
+  /* All Popup Images - very compact */
   .leaflet-popup-content img {
-    height: 120px !important; /* Reduced height */
+    height: 80px !important;
+    max-height: 80px !important;
     width: 100%;
     object-fit: cover;
-    border-radius: 16px 16px 0 0 !important;
+    border-radius: 12px 12px 0 0 !important;
+    margin-bottom: 0 !important;
   }
 
-  /* Optimize Popup Content */
-  .leaflet-popup-content h3, 
-  .leaflet-popup-content .popup-title {
-    font-size: 1rem !important;
-    margin: 10px 12px 4px !important;
-    line-height: 1.3;
+  /* Popup Content Text */
+  .leaflet-popup-content h3 {
+    font-size: 0.95rem !important;
+    margin: 8px 10px 4px !important;
+    line-height: 1.2;
   }
 
-  .leaflet-popup-content p,
-  .leaflet-popup-content .popup-desc {
-    font-size: 0.85rem !important;
-    margin: 0 12px 10px !important;
+  .leaflet-popup-content p {
+    font-size: 0.8rem !important;
+    margin: 0 10px 8px !important;
     color: #6b7280;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
 
-  /* Compact Badges in Popup */
-  .leaflet-popup-content .popup-badges {
-    margin: 0 12px 8px !important;
-    gap: 6px;
+  /* Compact Buttons in Popups */
+  .leaflet-popup-content button,
+  .leaflet-popup-content a[style*="background"] {
+    margin: 0 10px 10px !important;
+    padding: 8px 12px !important;
+    font-size: 0.85rem !important;
+    height: auto !important;
+    width: calc(100% - 20px) !important;
+  }
+
+  /* Close Button */
+  .leaflet-container a.leaflet-popup-close-button {
+    top: 4px;
+    right: 4px;
+    width: 22px;
+    height: 22px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 50%;
+    color: #fff;
+    font-size: 14px;
+    line-height: 22px;
+    text-align: center;
+    padding: 0;
+  }
+
+  /* ===================================
+     RECOMMENDATION POPUP SPECIFIC
+     ================================== */
+  .recommendation-popup .leaflet-popup-content-wrapper {
+    border-radius: 12px;
   }
   
-  .leaflet-popup-content .badge-pill {
-    padding: 2px 6px;
-    font-size: 0.65rem;
+  .recommendation-popup .leaflet-popup-content {
+    width: 220px !important;
+    max-width: 220px !important;
   }
-
-  /* Compact Button */
-  .leaflet-popup-content .popup-btn,
-  .leaflet-popup-content button {
-    margin: 0 12px 12px !important;
-    padding: 8px !important;
+  
+  /* Rec popup image */
+  .rec-map-popup img {
+    height: 70px !important;
+    max-height: 70px !important;
+    margin-bottom: 6px !important;
+    border-radius: 8px !important;
+  }
+  
+  /* Rec popup category row */
+  .rec-map-popup > div:first-of-type {
+    font-size: 10px !important;
+    margin-bottom: 4px !important;
+  }
+  
+  /* Rec popup title */
+  .rec-map-popup h3 {
     font-size: 0.9rem !important;
-    height: auto !important;
-    width: calc(100% - 24px) !important;
+    margin: 0 0 4px 0 !important;
   }
-
-  /* Adjust Close Button */
-  .leaflet-container a.leaflet-popup-close-button {
-    top: 8px;
-    right: 8px;
-    width: 24px;
-    height: 24px;
-    background: rgba(255,255,255,0.8);
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: #333;
-    font-size: 16px;
-    padding: 0;
+  
+  /* Rec popup location */
+  .rec-map-popup > div:nth-of-type(2) {
+    font-size: 11px !important;
+    margin-bottom: 6px !important;
+  }
+  
+  /* Rec popup button */
+  .rec-map-popup button {
+    padding: 8px 10px !important;
+    font-size: 0.8rem !important;
+    border-radius: 6px !important;
   }
 }

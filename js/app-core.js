@@ -47,73 +47,86 @@ console.log('🔵 App Core V3 - START');
     
     let hasCenteredOnUser = false;
     
-    // Pobierz avatar użytkownika lub użyj logo
-    const avatarEl = document.getElementById('headerUserAvatar');
-    let avatarUrl = 'assets/cyprus_logo-1000x1054.png';
-    if (avatarEl && avatarEl.src && !avatarEl.src.includes('data:') && !avatarEl.src.endsWith('/')) {
-      avatarUrl = avatarEl.src;
-    }
-    console.log('📍 Avatar URL:', avatarUrl);
-    
-    // Powrót do sprawdzonego L.icon
-    const userIcon = L.icon({
-      iconUrl: avatarUrl,
-      iconSize: [40, 40],
-      iconAnchor: [20, 20],
-      popupAnchor: [0, -20],
-      className: 'user-avatar-marker' // Klasa CSS do zaokrąglenia
+    // Użyj niebieskiej kropki zamiast avatara (bardziej widoczna)
+    const userIcon = L.divIcon({
+      className: 'user-location-marker',
+      html: `<div class="user-dot">
+        <div class="user-dot-pulse"></div>
+        <div class="user-dot-core"></div>
+      </div>`,
+      iconSize: [24, 24],
+      iconAnchor: [12, 12]
     });
     
-    const updatePosition = (lat, lng) => {
-      console.log('📍 Aktualizacja pozycji:', lat, lng);
-      // Udostępnij ostatnią znaną lokalizację globalnie jako fallback dla check-in
-      window.currentUserLocation = { lat, lng, timestamp: Date.now() };
+    const updatePosition = (lat, lng, accuracy) => {
+      console.log('📍 Aktualizacja pozycji:', lat, lng, '(dokładność:', accuracy, 'm)');
+      window.currentUserLocation = { lat, lng, accuracy, timestamp: Date.now() };
       const latLng = [lat, lng];
+      
       if (!userLocationMarker) {
         console.log('📍 Tworzę marker użytkownika');
-        userLocationMarker = L.marker(latLng, { icon: userIcon, zIndexOffset: 10000 }).addTo(mapInstance);
-        userLocationMarker.bindPopup('Twoja aktualna pozycja');
+        userLocationMarker = L.marker(latLng, { 
+          icon: userIcon, 
+          zIndexOffset: 10000,
+          interactive: true
+        }).addTo(mapInstance);
+        userLocationMarker.bindPopup('📍 Twoja lokalizacja');
       } else {
         userLocationMarker.setLatLng(latLng);
       }
+      
       if (!hasCenteredOnUser) {
         hasCenteredOnUser = true;
-        mapInstance.setView(latLng, 13, { animate: true });
+        // Nie centruj na użytkowniku automatycznie - niech widzi całą mapę
+        // mapInstance.setView(latLng, 13, { animate: true });
       }
     };
     
-    console.log('📍 Pobieram lokalizację...');
+    console.log('📍 Pobieram lokalizację (niska dokładność najpierw)...');
     
-    const geoOptions = { enableHighAccuracy: true, maximumAge: 30000, timeout: 30000 };
-    
-    const onGeoSuccess = (position) => {
-      console.log('📍 Otrzymano lokalizację');
-      updatePosition(position.coords.latitude, position.coords.longitude);
-    };
-    
-    const onGeoError = (error) => {
-      console.warn(`📍 Błąd geolokalizacji (${error.code}):`, error.message);
-      // Retry with lower accuracy if timeout or other error
-      if (error.code === error.TIMEOUT || error.code === error.POSITION_UNAVAILABLE) {
-        console.log('📍 Próbuję z niższą dokładnością...');
-        navigator.geolocation.getCurrentPosition(
-          onGeoSuccess, 
-          (err) => console.warn('📍 Błąd geolokalizacji (low acc):', err.message),
-          { enableHighAccuracy: false, maximumAge: 60000, timeout: 30000 }
+    // STRATEGIA: Najpierw szybka, niska dokładność, potem tracking z wysoką
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        console.log('📍 Szybka lokalizacja OK');
+        updatePosition(
+          position.coords.latitude, 
+          position.coords.longitude,
+          position.coords.accuracy
         );
-      }
-    };
-
-    navigator.geolocation.getCurrentPosition(onGeoSuccess, onGeoError, geoOptions);
+        
+        // Teraz włącz tracking z wysoką dokładnością
+        startHighAccuracyTracking(updatePosition);
+      },
+      (error) => {
+        console.warn('📍 Szybka lokalizacja failed:', error.message);
+        // Spróbuj od razu z wysoką dokładnością
+        startHighAccuracyTracking(updatePosition);
+      },
+      { enableHighAccuracy: false, maximumAge: 120000, timeout: 15000 }
+    );
+  }
+  
+  function startHighAccuracyTracking(updatePosition) {
+    if (userLocationWatchId !== null) return;
     
-    if (userLocationWatchId === null) {
-      userLocationWatchId = navigator.geolocation.watchPosition(
-        (position) => updatePosition(position.coords.latitude, position.coords.longitude),
-        (error) => console.warn('📍 Błąd śledzenia lokalizacji:', error.message),
-        { enableHighAccuracy: true, maximumAge: 30000, timeout: 30000 }
-      );
-      console.log('📍 Śledzenie lokalizacji uruchomione, watchId:', userLocationWatchId);
-    }
+    console.log('📍 Uruchamiam tracking wysokiej dokładności...');
+    userLocationWatchId = navigator.geolocation.watchPosition(
+      (position) => {
+        updatePosition(
+          position.coords.latitude, 
+          position.coords.longitude,
+          position.coords.accuracy
+        );
+      },
+      (error) => {
+        // Cichy błąd - nie spamuj konsoli przy każdym timeout
+        if (error.code !== 3) { // 3 = TIMEOUT
+          console.warn('📍 Tracking error:', error.message);
+        }
+      },
+      { enableHighAccuracy: true, maximumAge: 30000, timeout: 60000 }
+    );
+    console.log('📍 Tracking watchId:', userLocationWatchId);
   }
   
   // Funkcja komentarzy została usunięta - komentarze dostępne tylko w panelu pod mapą
