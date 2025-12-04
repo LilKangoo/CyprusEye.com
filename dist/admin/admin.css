@@ -2561,35 +2561,120 @@ select#orderStatusFilter:focus {
   padding: 24px;
   min-height: 300px;
   border: 1px solid var(--admin-border);
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.tree-item {
+  margin: 2px 0;
 }
 
 .tree-node {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 12px;
-  margin: 4px 0;
-  background: rgba(255,255,255,0.05);
-  border-radius: 6px;
-  border-left: 3px solid var(--admin-primary);
+  padding: 10px 12px;
+  background: rgba(255,255,255,0.03);
+  border-radius: 8px;
+  border-left: 3px solid var(--admin-border);
+  transition: all 0.15s ease;
 }
 
-.tree-node:hover {
-  background: rgba(255,255,255,0.1);
+.tree-node-parent {
+  cursor: pointer;
+  border-left-color: var(--admin-primary);
 }
 
-.tree-icon {
+.tree-node-parent:hover {
+  background: rgba(255,255,255,0.08);
+}
+
+.tree-node-highlight {
+  background: rgba(59, 130, 246, 0.2) !important;
+  border-left-color: #3b82f6 !important;
+}
+
+.tree-toggle {
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10px;
+  color: #64748b;
+  flex-shrink: 0;
+}
+
+.tree-toggle-active {
+  cursor: pointer;
+  color: var(--admin-primary);
+  font-size: 12px;
+  transition: transform 0.2s ease;
+}
+
+.tree-toggle-active:hover {
+  color: #60a5fa;
+  transform: scale(1.2);
+}
+
+.tree-user-icon {
   font-size: 18px;
+  flex-shrink: 0;
+}
+
+.tree-user-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.tree-username {
+  color: #f1f5f9;
+  font-size: 14px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tree-email {
+  color: #64748b;
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .tree-badge {
-  background: var(--admin-primary);
-  color: white;
-  padding: 2px 8px;
+  padding: 3px 10px;
   border-radius: 12px;
   font-size: 11px;
   font-weight: 600;
-  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.tree-badge-success {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.tree-badge-neutral {
+  background: rgba(100, 116, 139, 0.2);
+  color: #94a3b8;
+}
+
+.tree-date {
+  color: #64748b;
+  font-size: 11px;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.tree-children {
+  margin-left: 12px;
+  border-left: 1px dashed rgba(100, 116, 139, 0.3);
+  padding-left: 8px;
 }
 
 /* Status badges for referrals */
