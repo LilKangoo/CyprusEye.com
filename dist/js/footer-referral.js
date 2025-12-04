@@ -139,39 +139,56 @@ function shareOnFacebook(refLink) {
 }
 
 /**
+ * Show referral section with given username (no supabase call needed)
+ */
+function showReferralWithUsername(username) {
+  const container = document.getElementById('footerReferral');
+  const copyBtn = document.getElementById('footerCopyRef');
+  const fbBtn = document.getElementById('footerShareFb');
+  
+  if (!container || !username) return;
+  
+  // Check if username is valid (not UUID)
+  const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(username);
+  if (isUUID) {
+    console.log('Footer referral: username is UUID, hiding');
+    return;
+  }
+  
+  const refLink = `https://cypruseye.com/?ref=${encodeURIComponent(username)}`;
+  console.log('Footer referral: showing with link =', refLink);
+  
+  // Show referral section
+  container.style.display = 'block';
+  
+  // Setup copy button
+  if (copyBtn) {
+    copyBtn.onclick = () => copyRefLink(copyBtn, refLink);
+  }
+  
+  // Setup Facebook button
+  if (fbBtn) {
+    fbBtn.onclick = () => shareOnFacebook(refLink);
+  }
+}
+
+/**
  * Setup auth state listener to show/hide referral on login/logout
  */
 function setupAuthListener() {
   // Listen for custom CyprusEye auth event (fires immediately on login)
   document.addEventListener('ce-auth:state', (e) => {
     const state = e.detail;
-    console.log('Footer referral: ce-auth:state =', state?.status);
+    console.log('Footer referral: ce-auth:state =', state?.status, 'profile =', state?.profile?.username);
     
-    if (state?.status === 'authenticated' && state?.user) {
-      // User logged in - show referral immediately
-      setTimeout(() => initFooterReferral(), 100);
+    if (state?.status === 'authenticated' && state?.profile?.username) {
+      // User logged in - show referral immediately using profile from state
+      showReferralWithUsername(state.profile.username);
     } else if (state?.status === 'anonymous') {
       // User logged out - hide referral
       const container = document.getElementById('footerReferral');
       if (container) container.style.display = 'none';
     }
-  });
-  
-  // Also listen for Supabase auth changes as backup
-  waitForSupabase(() => {
-    const supabase = window.getSupabase();
-    if (!supabase) return;
-    
-    supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Footer referral: supabase auth =', event);
-      
-      if (event === 'SIGNED_IN' && session?.user) {
-        setTimeout(() => initFooterReferral(), 100);
-      } else if (event === 'SIGNED_OUT') {
-        const container = document.getElementById('footerReferral');
-        if (container) container.style.display = 'none';
-      }
-    });
   });
 }
 
