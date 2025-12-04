@@ -138,9 +138,36 @@ function shareOnFacebook(refLink) {
   window.open(fbUrl, 'facebook-share', 'width=600,height=400,menubar=no,toolbar=no');
 }
 
+/**
+ * Setup auth state listener to show/hide referral on login/logout
+ */
+function setupAuthListener() {
+  waitForSupabase(() => {
+    const supabase = window.getSupabase();
+    if (!supabase) return;
+    
+    supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Footer referral: auth state changed =', event);
+      
+      if (event === 'SIGNED_IN' && session?.user) {
+        // User just logged in - show referral
+        initFooterReferral();
+      } else if (event === 'SIGNED_OUT') {
+        // User logged out - hide referral
+        const container = document.getElementById('footerReferral');
+        if (container) container.style.display = 'none';
+      }
+    });
+  });
+}
+
 // Initialize on DOM ready
 if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initFooterReferral);
+  document.addEventListener('DOMContentLoaded', () => {
+    initFooterReferral();
+    setupAuthListener();
+  });
 } else {
   initFooterReferral();
+  setupAuthListener();
 }
