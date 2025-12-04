@@ -689,6 +689,25 @@ async function fetchAllBookings(limit = 100) {
     console.warn('Car bookings table not found or error:', e);
   }
 
+  // Fetch Hotels data for name lookup (for bookings without hotel_name)
+  let hotelsMap = {};
+  if (hotelBookings.length > 0) {
+    try {
+      const hotelIds = [...new Set(hotelBookings.map(h => h.hotel_id).filter(Boolean))];
+      if (hotelIds.length > 0) {
+        const { data: hotelsData } = await supabase
+          .from('hotels')
+          .select('id, title, slug')
+          .in('id', hotelIds);
+        if (hotelsData) {
+          hotelsData.forEach(h => { hotelsMap[h.id] = h; });
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch hotels for name lookup:', e);
+    }
+  }
+
   // Normalize Data
   const trips = (tripBookings || []).map(t => ({
     type: 'trip',
@@ -703,12 +722,25 @@ async function fetchAllBookings(limit = 100) {
 
   const hotels = hotelBookings.map(h => {
     // Get translated hotel name
+    const lang = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
     let hotelName = h.hotel_slug || 'Hotel';
+    
+    // First try from hotel_name field in booking
     if (h.hotel_name) {
-      const lang = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
-      const nameObj = typeof h.hotel_name === 'string' ? JSON.parse(h.hotel_name) : h.hotel_name;
-      hotelName = nameObj[lang] || nameObj.en || nameObj.pl || h.hotel_slug || 'Hotel';
+      try {
+        const nameObj = typeof h.hotel_name === 'string' ? JSON.parse(h.hotel_name) : h.hotel_name;
+        hotelName = nameObj[lang] || nameObj.en || nameObj.pl || hotelName;
+      } catch (e) {}
     }
+    // Fallback: look up from hotels table
+    else if (h.hotel_id && hotelsMap[h.hotel_id]) {
+      const hotel = hotelsMap[h.hotel_id];
+      if (hotel.title) {
+        const titleObj = typeof hotel.title === 'string' ? JSON.parse(hotel.title) : hotel.title;
+        hotelName = titleObj[lang] || titleObj.en || titleObj.pl || hotel.slug || hotelName;
+      }
+    }
+    
     return {
       type: 'hotel',
       id: h.id,
