@@ -3,8 +3,8 @@
  * Handles referral sharing in footer (only for logged-in users)
  */
 
-const SHARE_TEXT = "🌴 Dołącz do CyprusEye i odkryj najlepsze miejsca na Cyprze! Planuj wakacje, zdobywaj punkty i wygrywaj nagrody!";
-const SHARE_TEXT_EN = "🌴 Join CyprusEye and discover the best places in Cyprus! Plan your vacation, earn points and win prizes!";
+const SHARE_TEXT = "🌴 Dołącz do CyprusEye Quest & Travel przez mój link polecający i odkryj Cypr jak nigdy wcześniej!";
+const SHARE_TEXT_EN = "🌴 Join us in the CyprusEye Quest & Travel and explore Cyprus like never before!";
 
 /**
  * Wait for Supabase to be available
