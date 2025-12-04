@@ -71,7 +71,7 @@ console.log('🔵 App Core V3 - START');
       const latLng = [lat, lng];
       if (!userLocationMarker) {
         console.log('📍 Tworzę marker użytkownika');
-        userLocationMarker = L.marker(latLng, { icon: userIcon, zIndexOffset: 1000 }).addTo(mapInstance);
+        userLocationMarker = L.marker(latLng, { icon: userIcon, zIndexOffset: 10000 }).addTo(mapInstance);
         userLocationMarker.bindPopup('Twoja aktualna pozycja');
       } else {
         userLocationMarker.setLatLng(latLng);
@@ -83,19 +83,35 @@ console.log('🔵 App Core V3 - START');
     };
     
     console.log('📍 Pobieram lokalizację...');
-    navigator.geolocation.getCurrentPosition(function(position) {
+    
+    const geoOptions = { enableHighAccuracy: true, maximumAge: 30000, timeout: 30000 };
+    
+    const onGeoSuccess = (position) => {
       console.log('📍 Otrzymano lokalizację');
       updatePosition(position.coords.latitude, position.coords.longitude);
-    }, function(error) {
-      console.warn('📍 Błąd geolokalizacji:', error.message);
-    }, { enableHighAccuracy: true, maximumAge: 30000, timeout: 10000 });
+    };
+    
+    const onGeoError = (error) => {
+      console.warn(`📍 Błąd geolokalizacji (${error.code}):`, error.message);
+      // Retry with lower accuracy if timeout or other error
+      if (error.code === error.TIMEOUT || error.code === error.POSITION_UNAVAILABLE) {
+        console.log('📍 Próbuję z niższą dokładnością...');
+        navigator.geolocation.getCurrentPosition(
+          onGeoSuccess, 
+          (err) => console.warn('📍 Błąd geolokalizacji (low acc):', err.message),
+          { enableHighAccuracy: false, maximumAge: 60000, timeout: 30000 }
+        );
+      }
+    };
+
+    navigator.geolocation.getCurrentPosition(onGeoSuccess, onGeoError, geoOptions);
     
     if (userLocationWatchId === null) {
-      userLocationWatchId = navigator.geolocation.watchPosition(function(position) {
-        updatePosition(position.coords.latitude, position.coords.longitude);
-      }, function(error) {
-        console.warn('📍 Błąd śledzenia lokalizacji:', error.message);
-      }, { enableHighAccuracy: true, maximumAge: 30000, timeout: 20000 });
+      userLocationWatchId = navigator.geolocation.watchPosition(
+        (position) => updatePosition(position.coords.latitude, position.coords.longitude),
+        (error) => console.warn('📍 Błąd śledzenia lokalizacji:', error.message),
+        { enableHighAccuracy: true, maximumAge: 30000, timeout: 30000 }
+      );
       console.log('📍 Śledzenie lokalizacji uruchomione, watchId:', userLocationWatchId);
     }
   }
@@ -265,8 +281,11 @@ console.log('🔵 App Core V3 - START');
       // Kliknięcie markera - sync z panelem pod mapą
       marker.on('click', () => {
         console.log('🖱️ Kliknięto marker POI:', poi.id);
+        // Manually center map with offset
+        window.focusPlaceOnMap(poi.id);
+        // Update bottom card content
         if (typeof window.setCurrentPlace === 'function') {
-          window.setCurrentPlace(poi.id, { scroll: true });
+          window.setCurrentPlace(poi.id, { scroll: false });
         }
       });
       
@@ -348,7 +367,8 @@ console.log('🔵 App Core V3 - START');
     // Calculate offset to show marker above the bottom card
     // On mobile, card is taller/more prominent, so more offset needed
     const isMobile = window.innerWidth <= 768;
-    const offsetY = isMobile ? 150 : 100; // Pixels to shift center DOWN (so marker moves UP)
+    // Shift map center DOWN so marker appears HIGHER
+    const offsetY = isMobile ? (window.innerHeight * 0.25) : 100;
 
     // Use Leaflet projection to calculate new center
     const point = mapInstance.project(latLng, targetZoom);
