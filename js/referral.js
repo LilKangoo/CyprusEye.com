@@ -4,7 +4,7 @@
  */
 
 const REFERRAL_STORAGE_KEY = 'cypruseye_referral_code';
-const REFERRAL_EXPIRY_DAYS = 30;
+const REFERRAL_EXPIRY_DAYS = 14;
 
 /**
  * Capture referral code from URL parameter (?ref=username)

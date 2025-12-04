@@ -673,6 +673,12 @@
   <script type="module">
     import { generateReferralLink } from './js/referral.js';
     
+    // Check if string looks like a UUID
+    function isUUID(str) {
+      if (!str) return false;
+      return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(str);
+    }
+    
     document.addEventListener('DOMContentLoaded', async () => {
       const referralInput = document.getElementById('referralLink');
       const copyBtn = document.getElementById('copyReferralBtn');
@@ -696,11 +702,12 @@
           .eq('id', user.id)
           .single();
         
-        if (profile?.username) {
+        // Validate username exists and is not a UUID
+        if (profile?.username && !isUUID(profile.username)) {
           const link = generateReferralLink(profile.username);
           referralInput.value = link;
         } else {
-          referralInput.value = 'Ustaw nazwę użytkownika w profilu';
+          referralInput.value = 'Ustaw nazwę użytkownika w ustawieniach';
         }
       } catch (err) {
         console.warn('Could not load referral link:', err);
