@@ -657,13 +657,13 @@ async function fetchAllBookings(limit = 100) {
 
   if (tripError) console.warn('Trip bookings fetch error (RLS?):', tripError);
 
-  // Fetch Hotel Bookings (by user_id or email)
+  // Fetch Hotel Bookings (by email)
   let hotelBookings = [];
   try {
     const { data, error } = await supabase
       .from('hotel_bookings')
       .select('*')
-      .or(`user_id.eq.${currentUser.id},customer_email.ilike.${currentUser.email}`)
+      .ilike('customer_email', currentUser.email)
       .order('created_at', { ascending: false })
       .limit(limit);
     
