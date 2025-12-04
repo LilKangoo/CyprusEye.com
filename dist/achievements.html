@@ -679,27 +679,31 @@
       
       if (!referralInput) return;
       
-      // Wait for user profile to load
-      const waitForProfile = () => new Promise((resolve) => {
-        const check = () => {
-          const profile = window.CE_AUTH?.profile;
-          if (profile?.username) {
-            resolve(profile);
-          } else {
-            setTimeout(check, 200);
-          }
-        };
-        check();
-        // Timeout after 5s
-        setTimeout(() => resolve(null), 5000);
-      });
-      
-      const profile = await waitForProfile();
-      
-      if (profile?.username) {
-        const link = generateReferralLink(profile.username);
-        referralInput.value = link;
-      } else {
+      // Get username from Supabase directly
+      try {
+        const supabase = window.getSupabase();
+        if (!supabase) throw new Error('No supabase');
+        
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
+          referralInput.value = 'Zaloguj się, aby zobaczyć link';
+          return;
+        }
+        
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', user.id)
+          .single();
+        
+        if (profile?.username) {
+          const link = generateReferralLink(profile.username);
+          referralInput.value = link;
+        } else {
+          referralInput.value = 'Ustaw nazwę użytkownika w profilu';
+        }
+      } catch (err) {
+        console.warn('Could not load referral link:', err);
         referralInput.value = 'Zaloguj się, aby zobaczyć link';
       }
       
@@ -707,7 +711,7 @@
       if (copyBtn) {
         copyBtn.addEventListener('click', async () => {
           const link = referralInput.value;
-          if (!link || link.includes('Zaloguj')) return;
+          if (!link || link.includes('Zaloguj') || link.includes('Ustaw')) return;
           
           try {
             await navigator.clipboard.writeText(link);
