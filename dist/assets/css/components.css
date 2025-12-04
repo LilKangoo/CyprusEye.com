@@ -9294,39 +9294,41 @@ body.auth-page[data-navigation="multi-page"] main {
   gap: 8px;
   margin-top: 16px;
   padding-top: 16px;
-  border-top: 1px solid rgba(255,255,255,0.1);
+  border-top: 1px solid #e5e7eb; /* Light gray divider */
 }
 
 .amenity-chip {
   display: inline-flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
   padding: 8px 14px;
-  background: rgba(255,255,255,0.08);
-  border: 1px solid rgba(255,255,255,0.15);
+  background: #f3f4f6; /* Light gray background */
+  border: 1px solid #e5e7eb;
   border-radius: 20px;
-  font-size: 13px;
-  color: rgba(255,255,255,0.9);
+  font-size: 14px;
+  font-weight: 500;
+  color: #374151; /* Dark gray text */
   white-space: nowrap;
   transition: all 0.2s ease;
 }
 
 .amenity-chip:hover {
-  background: rgba(255,255,255,0.12);
-  border-color: rgba(255,255,255,0.25);
+  background: #e5e7eb;
+  border-color: #d1d5db;
+  color: #111827; /* Black text on hover */
 }
 
 /* Mobile adjustments */
 @media (max-width: 640px) {
   .hotel-amenities-chips {
-    gap: 6px;
+    gap: 8px;
     margin-top: 12px;
     padding-top: 12px;
   }
   
   .amenity-chip {
-    padding: 6px 10px;
-    font-size: 12px;
+    padding: 6px 12px;
+    font-size: 13px;
     border-radius: 16px;
   }
 }
