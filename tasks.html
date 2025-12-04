@@ -260,6 +260,39 @@
           ← Wróć do przygody
         </a>
       </header>
+
+      <!-- Referral Rewards Section (only for logged-in users) -->
+      <section class="referral-rewards-card" id="referralRewardsSection" data-auth="user-only" style="display:none;">
+        <div class="referral-rewards-header">
+          <div class="referral-rewards-icon">🎁</div>
+          <div class="referral-rewards-title">
+            <h3 data-i18n="tasks.referral.title">Nagrody za polecenia</h3>
+            <p data-i18n="tasks.referral.subtitle">Zapraszaj znajomych i zdobywaj XP za każdego nowego użytkownika!</p>
+          </div>
+        </div>
+        
+        <div class="referral-rewards-stats">
+          <div class="referral-stat-box">
+            <span class="referral-stat-value" id="tasksReferralCount">0</span>
+            <span class="referral-stat-label" data-i18n="tasks.referral.invited">Zaproszonych</span>
+          </div>
+          <div class="referral-stat-box referral-stat-xp">
+            <span class="referral-stat-value" id="tasksReferralXp">0</span>
+            <span class="referral-stat-label" data-i18n="tasks.referral.xpEarned">Zdobyte XP</span>
+          </div>
+        </div>
+
+        <div class="referral-link-section">
+          <label class="referral-link-label" data-i18n="tasks.referral.yourLink">Twój link polecający:</label>
+          <div class="referral-link-box">
+            <input type="text" id="tasksReferralLink" class="referral-link-input" readonly />
+            <button type="button" class="btn-copy-ref" id="tasksRefCopyBtn" data-i18n="tasks.referral.copy">
+              📋 Kopiuj
+            </button>
+          </div>
+        </div>
+      </section>
+
       <section class="tasks-panel" aria-labelledby="tasksViewTitle">
         <p class="tasks-hint" data-i18n="tasks.hint">
           Wypełniaj zadania, aby zdobywać dodatkowe XP i planować swoje cypryjskie przygody.

@@ -865,6 +865,15 @@
     "sync": {
       "error": "We couldn't sync this task right now. We'll retry once the connection is back."
     },
+    "referral": {
+      "title": "Referral Rewards",
+      "subtitle": "Invite friends and earn XP for every new user!",
+      "invited": "Invited",
+      "xpEarned": "XP Earned",
+      "yourLink": "Your referral link:",
+      "copy": "📋 Copy",
+      "copied": "Copied!"
+    },
     "items": {
       "sunrise-challenge": {
         "title": "Sunrise beach walk",

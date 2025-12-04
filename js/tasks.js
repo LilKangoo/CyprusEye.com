@@ -896,13 +896,110 @@
     if (view && view.hasAttribute('hidden')) view.removeAttribute('hidden');
   }
 
+  // --- Referral Stats Section ---
+  async function loadTasksReferralStats() {
+    const section = document.getElementById('referralRewardsSection');
+    const countEl = document.getElementById('tasksReferralCount');
+    const xpEl = document.getElementById('tasksReferralXp');
+    const linkEl = document.getElementById('tasksReferralLink');
+    const copyBtn = document.getElementById('tasksRefCopyBtn');
+    
+    // Hide section if not logged in
+    if (!state.auth.isAuthenticated || !sb) {
+      if (section) section.style.display = 'none';
+      return;
+    }
+    
+    // Show section for logged in users
+    if (section) section.style.display = 'block';
+    
+    try {
+      // Get user's username for referral link
+      const { data: profile } = await sb
+        .from('profiles')
+        .select('username')
+        .eq('id', state.auth.userId)
+        .single();
+      
+      const username = profile?.username;
+      
+      // Check if username is valid (not UUID)
+      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(username);
+      
+      if (!username || isUUID) {
+        if (section) section.style.display = 'none';
+        return;
+      }
+      
+      // Set referral link
+      const refLink = `https://cypruseye.com/?ref=${encodeURIComponent(username)}`;
+      if (linkEl) linkEl.value = refLink;
+      
+      // Setup copy button
+      if (copyBtn) {
+        copyBtn.onclick = async () => {
+          try {
+            await navigator.clipboard.writeText(refLink);
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = '✓ ' + t('tasks.referral.copied', 'Skopiowano!');
+            copyBtn.classList.add('copied');
+            setTimeout(() => {
+              copyBtn.textContent = originalText;
+              copyBtn.classList.remove('copied');
+            }, 2000);
+          } catch (e) {
+            console.warn('Copy failed:', e);
+          }
+        };
+      }
+      
+      // Get referral stats
+      const { data: referrals, error } = await sb
+        .from('referrals')
+        .select('id, xp_awarded, status')
+        .eq('referrer_id', state.auth.userId);
+      
+      if (error) {
+        console.warn('Could not load referral stats:', error);
+        return;
+      }
+      
+      const totalCount = referrals?.length || 0;
+      const confirmedReferrals = referrals?.filter(r => r.status === 'confirmed') || [];
+      const totalXp = confirmedReferrals.reduce((sum, r) => sum + (r.xp_awarded || 0), 0);
+      
+      if (countEl) countEl.textContent = totalCount;
+      if (xpEl) xpEl.textContent = totalXp;
+      
+    } catch (err) {
+      console.warn('Error loading referral stats:', err);
+    }
+  }
+
+  function hideReferralSection() {
+    const section = document.getElementById('referralRewardsSection');
+    if (section) section.style.display = 'none';
+  }
+
   async function onReady(){
     loadState();
     await initSupabase(); // if logged in -> overrides state with server xp/level/completed tasks
     await loadTasksFromDB();
     updateHeaderMetrics();
     renderTasks();
+    await loadTasksReferralStats(); // Load referral stats
     unhideView();
+
+    // Listen for ce-auth:state for immediate referral update after login
+    document.addEventListener('ce-auth:state', async (e) => {
+      const authState = e.detail;
+      if (authState?.status === 'authenticated' && authState?.user) {
+        state.auth = { userId: authState.user.id, isAuthenticated: true };
+        await loadTasksReferralStats();
+      } else if (authState?.status === 'anonymous') {
+        hideReferralSection();
+      }
+    });
 
     window.addEventListener('i18n:updated', () => {
       updateHeaderMetrics();
@@ -917,6 +1014,7 @@
           await initSupabase();
           renderTasks();
           updateHeaderMetrics();
+          await loadTasksReferralStats(); // Refresh referral stats
         } else if (event === 'SIGNED_OUT') {
           console.log('📋 Tasks: Auth SIGNED_OUT detected, clearing state...');
           state.auth = { userId: null, isAuthenticated: false };
@@ -926,6 +1024,7 @@
           saveState(); // clear local state
           renderTasks();
           updateHeaderMetrics();
+          hideReferralSection(); // Hide referral section on logout
         }
       });
     }

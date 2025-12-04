@@ -9415,3 +9415,178 @@ body.auth-page[data-navigation="multi-page"] main {
   }
 }
 
+/* =====================================================
+   Referral Rewards Card (Tasks Page)
+   ===================================================== */
+.referral-rewards-card {
+  background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+  border-radius: 16px;
+  padding: 20px 24px;
+  margin-bottom: 24px;
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.referral-rewards-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.referral-rewards-icon {
+  font-size: 2rem;
+  line-height: 1;
+}
+
+.referral-rewards-title h3 {
+  margin: 0 0 4px 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #f1f5f9;
+}
+
+.referral-rewards-title p {
+  margin: 0;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.referral-rewards-stats {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.referral-stat-box {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+}
+
+.referral-stat-box.referral-stat-xp {
+  background: rgba(16, 185, 129, 0.1);
+  border-color: rgba(16, 185, 129, 0.2);
+}
+
+.referral-stat-value {
+  display: block;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  line-height: 1.2;
+}
+
+.referral-stat-xp .referral-stat-value {
+  color: #34d399;
+}
+
+.referral-stat-label {
+  display: block;
+  font-size: 0.75rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-top: 4px;
+}
+
+.referral-link-section {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.referral-link-label {
+  display: block;
+  font-size: 0.8rem;
+  color: #94a3b8;
+  margin-bottom: 8px;
+}
+
+.referral-link-box {
+  display: flex;
+  gap: 8px;
+}
+
+.referral-link-input {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 10px 14px;
+  font-size: 0.85rem;
+  color: #e2e8f0;
+  min-width: 0;
+}
+
+.referral-link-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.btn-copy-ref {
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  padding: 10px 16px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.btn-copy-ref:hover {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+}
+
+.btn-copy-ref.copied {
+  background: #10b981;
+}
+
+/* Mobile adjustments for referral card */
+@media (max-width: 640px) {
+  .referral-rewards-card {
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  
+  .referral-rewards-header {
+    gap: 12px;
+  }
+  
+  .referral-rewards-icon {
+    font-size: 1.5rem;
+  }
+  
+  .referral-rewards-title h3 {
+    font-size: 1rem;
+  }
+  
+  .referral-rewards-stats {
+    gap: 12px;
+  }
+  
+  .referral-stat-box {
+    padding: 12px;
+  }
+  
+  .referral-stat-value {
+    font-size: 1.4rem;
+  }
+  
+  .referral-link-box {
+    flex-direction: column;
+  }
+  
+  .btn-copy-ref {
+    width: 100%;
+    text-align: center;
+  }
+}
+
