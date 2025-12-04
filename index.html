@@ -95,6 +95,23 @@
   
 
   <meta name="ce-auth" content="on" />
+  <!-- Immediate referral capture - must run before any modules -->
+  <script>
+    (function(){
+      try {
+        var ref = new URLSearchParams(window.location.search).get('ref');
+        if (ref && ref.trim()) {
+          var data = {
+            code: ref.trim(),
+            capturedAt: Date.now(),
+            expiresAt: Date.now() + (14 * 24 * 60 * 60 * 1000)
+          };
+          localStorage.setItem('cypruseye_referral_code', JSON.stringify(data));
+          console.log('✅ Referral captured:', ref.trim());
+        }
+      } catch(e) {}
+    })();
+  </script>
   <script type="module" src="js/supabaseClient.js"></script>
   <script type="module" src="js/toast.js"></script>
   <script type="module" src="js/referral.js"></script>

@@ -6,6 +6,29 @@
 const REFERRAL_STORAGE_KEY = 'cypruseye_referral_code';
 const REFERRAL_EXPIRY_DAYS = 14;
 
+// IMMEDIATE CAPTURE - runs as soon as script parses, before anything else can redirect
+(function immediateCapture() {
+  try {
+    const urlParams = new URLSearchParams(window.location.search);
+    const refCode = urlParams.get('ref');
+    
+    if (refCode && refCode.trim()) {
+      const cleanCode = refCode.trim();
+      
+      const referralData = {
+        code: cleanCode,
+        capturedAt: Date.now(),
+        expiresAt: Date.now() + (REFERRAL_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
+      };
+      
+      localStorage.setItem(REFERRAL_STORAGE_KEY, JSON.stringify(referralData));
+      console.log(`✅ [IMMEDIATE] Referral code captured and saved: ${cleanCode}`);
+    }
+  } catch (e) {
+    console.warn('Immediate referral capture failed:', e);
+  }
+})();
+
 /**
  * Capture referral code from URL parameter (?ref=username)
  * Called on every page load
@@ -28,10 +51,14 @@ export function captureReferralFromUrl() {
       localStorage.setItem(REFERRAL_STORAGE_KEY, JSON.stringify(referralData));
       console.log(`✅ Referral code captured: ${cleanCode}`);
       
-      // Clean URL (remove ref parameter)
-      const url = new URL(window.location.href);
-      url.searchParams.delete('ref');
-      window.history.replaceState({}, '', url.toString());
+      // Clean URL (remove ref parameter) - delay to ensure storage completes
+      setTimeout(() => {
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.delete('ref');
+          window.history.replaceState({}, '', url.toString());
+        } catch (e) {}
+      }, 150);
       
       return cleanCode;
     }
