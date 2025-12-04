@@ -7,17 +7,49 @@ const SHARE_TEXT = "🌴 Dołącz do CyprusEye Quest & Travel przez mój link po
 const SHARE_TEXT_EN = "🌴 Join us in the CyprusEye Quest & Travel and explore Cyprus like never before!";
 
 /**
- * Get translation from i18n system
- * Supports both flat keys ("footer.referral.invite") and nested keys
+ * Update translations for footer referral elements
+ * @param {string} forceLang - Optional language code to force (from event)
  */
-function getTranslation(key, fallback) {
+function updateFooterReferralTranslations(forceLang) {
+  const container = document.getElementById('footerReferral');
+  if (!container) {
+    console.log('🌐 Footer referral: container not found, skipping translation update');
+    return;
+  }
+  
+  // Get current language - prefer forceLang, then document.documentElement.lang, then appI18n
+  const currentLang = forceLang || document.documentElement.lang || window.appI18n?.language || 'pl';
+  console.log('🌐 Footer referral: Updating translations for lang =', currentLang);
+  
+  // Update text elements with data-i18n attributes
+  const inviteText = container.querySelector('[data-i18n="footer.referral.invite"]');
+  const copyText = container.querySelector('[data-i18n="footer.referral.copy"]');
+  const fbText = container.querySelector('[data-i18n="footer.referral.facebook"]');
+  
+  const inviteTranslation = getTranslationForLang('footer.referral.invite', currentLang, 'Zaproś znajomych i zdobądź bonusy!');
+  const copyTranslation = getTranslationForLang('footer.referral.copy', currentLang, 'Kopiuj link');
+  const fbTranslation = getTranslationForLang('footer.referral.facebook', currentLang, 'Facebook');
+  
+  console.log('🌐 Footer referral translations:', { lang: currentLang, invite: inviteTranslation, copy: copyTranslation, fb: fbTranslation });
+  
+  if (inviteText) inviteText.textContent = inviteTranslation;
+  if (copyText) copyText.textContent = copyTranslation;
+  if (fbText) fbText.textContent = fbTranslation;
+}
+
+/**
+ * Get translation for specific language
+ */
+function getTranslationForLang(key, lang, fallback) {
   try {
     const i18n = window.appI18n;
     if (i18n && i18n.translations) {
-      const lang = i18n.language || 'pl';
       const langData = i18n.translations[lang];
       
-      if (!langData) return fallback;
+      if (!langData) {
+        console.log('🌐 No translation data for lang:', lang);
+        return fallback;
+      }
       
       // First try: flat key (key with dots as literal string)
       if (typeof langData[key] === 'string') {
@@ -53,26 +85,9 @@ function getTranslation(key, fallback) {
       if (found) return found;
     }
   } catch (e) {
-    console.warn('Footer referral getTranslation error:', e);
+    console.warn('Footer referral getTranslationForLang error:', e);
   }
   return fallback;
-}
-
-/**
- * Update translations for footer referral elements
- */
-function updateFooterReferralTranslations() {
-  const container = document.getElementById('footerReferral');
-  if (!container) return;
-  
-  // Update text elements with data-i18n attributes
-  const inviteText = container.querySelector('[data-i18n="footer.referral.invite"]');
-  const copyText = container.querySelector('[data-i18n="footer.referral.copy"]');
-  const fbText = container.querySelector('[data-i18n="footer.referral.facebook"]');
-  
-  if (inviteText) inviteText.textContent = getTranslation('footer.referral.invite', 'Zaproś znajomych i zdobądź bonusy!');
-  if (copyText) copyText.textContent = getTranslation('footer.referral.copy', 'Kopiuj link');
-  if (fbText) fbText.textContent = getTranslation('footer.referral.facebook', 'Facebook');
 }
 
 /**
@@ -182,7 +197,8 @@ async function copyRefLink(button, link) {
     
     // Show success feedback with translated text
     const originalHTML = button.innerHTML;
-    const copiedText = getTranslation('footer.referral.copied', 'Skopiowano!');
+    const currentLang = document.documentElement.lang || 'pl';
+    const copiedText = getTranslationForLang('footer.referral.copied', currentLang, 'Skopiowano!');
     button.innerHTML = `<span>✓</span> <span>${copiedText}</span>`;
     button.classList.add('btn-success');
     
@@ -285,17 +301,19 @@ if (document.readyState === 'loading') {
  * Setup listener for language changes
  */
 function setupLanguageListener() {
-  // Listen for i18n:updated event (fired when translations are applied)
-  window.addEventListener('i18n:updated', () => {
-    console.log('Footer referral: Language updated, refreshing translations');
-    updateFooterReferralTranslations();
+  // Listen for languageChanged event from languageSwitcher.js (on window)
+  window.addEventListener('languageChanged', (e) => {
+    const lang = e.detail?.language;
+    console.log('🌐 Footer referral: languageChanged event, lang =', lang);
+    updateFooterReferralTranslations(lang);
   });
   
-  // Also register with global language change handler if available
-  if (typeof window.registerLanguageChangeHandler === 'function') {
-    window.registerLanguageChangeHandler((language) => {
-      console.log('Footer referral: Language changed to', language);
-      updateFooterReferralTranslations();
-    });
-  }
+  // Also listen for wakacjecypr:languagechange on document (backup)
+  document.addEventListener('wakacjecypr:languagechange', (e) => {
+    const lang = e.detail?.language;
+    console.log('🌐 Footer referral: wakacjecypr:languagechange event, lang =', lang);
+    updateFooterReferralTranslations(lang);
+  });
+  
+  console.log('✅ Footer referral: Language listeners registered');
 }
