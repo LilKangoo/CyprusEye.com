@@ -2554,75 +2554,150 @@ select#orderStatusFilter:focus {
   letter-spacing: 0.5px;
 }
 
-/* Referral Tree */
+/* Referral Tree Modern */
 .referral-tree-container {
   background: var(--admin-bg-light);
   border-radius: var(--admin-radius);
   padding: 24px;
   min-height: 300px;
   border: 1px solid var(--admin-border);
-  max-height: 600px;
+  max-height: 700px;
   overflow-y: auto;
 }
 
 .tree-item {
-  margin: 2px 0;
+  position: relative;
 }
 
-.tree-node {
+/* Connecting lines */
+.tree-children-container {
+  position: relative;
+  margin-left: 20px; /* Align with toggle/connector */
+  padding-left: 16px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.tree-children-container::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -1px;
+  height: 10px;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.tree-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  background: rgba(255,255,255,0.03);
-  border-radius: 8px;
-  border-left: 3px solid var(--admin-border);
-  transition: all 0.15s ease;
+  padding: 4px 0;
+  transition: background 0.2s;
+  border-radius: 6px;
 }
 
-.tree-node-parent {
+.tree-row:hover .tree-user-card {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.tree-row-parent {
   cursor: pointer;
-  border-left-color: var(--admin-primary);
 }
 
-.tree-node-parent:hover {
-  background: rgba(255,255,255,0.08);
+.tree-connector {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-right: 8px;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 2;
 }
 
-.tree-node-highlight {
-  background: rgba(59, 130, 246, 0.2) !important;
-  border-left-color: #3b82f6 !important;
-}
-
+/* Toggle Button */
 .tree-toggle {
   width: 20px;
   height: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 10px;
-  color: #64748b;
-  flex-shrink: 0;
+  background: var(--admin-bg);
+  border: 1px solid var(--admin-border);
+  border-radius: 4px;
+  color: #94a3b8;
+  font-size: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tree-toggle:hover {
+  border-color: var(--admin-primary);
+  color: var(--admin-primary);
 }
 
 .tree-toggle-active {
-  cursor: pointer;
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
   color: var(--admin-primary);
-  font-size: 12px;
-  transition: transform 0.2s ease;
 }
 
-.tree-toggle-active:hover {
-  color: #60a5fa;
-  transform: scale(1.2);
+/* User Card */
+.tree-content {
+  flex: 1;
+  min-width: 0;
 }
 
-.tree-user-icon {
-  font-size: 18px;
-  flex-shrink: 0;
+.tree-user-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid transparent;
+  border-radius: 8px;
+  transition: all 0.2s ease;
 }
 
-.tree-user-info {
+.tree-row-root .tree-user-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.highlight-match {
+  background: rgba(59, 130, 246, 0.15) !important;
+  border-color: var(--admin-primary) !important;
+  box-shadow: 0 0 0 1px var(--admin-primary);
+}
+
+/* Avatar */
+.tree-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: #1e293b;
+  border: 2px solid rgba(255, 255, 255, 0.05);
+}
+
+.tree-avatar-placeholder {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+  border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+/* User Details */
+.tree-user-details {
   display: flex;
   flex-direction: column;
   gap: 2px;
@@ -2630,67 +2705,65 @@ select#orderStatusFilter:focus {
   min-width: 0;
 }
 
+.tree-user-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .tree-username {
-  color: #f1f5f9;
   font-size: 14px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  color: #f1f5f9;
+  font-weight: 500;
+}
+
+.tree-user-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #64748b;
 }
 
 .tree-email {
-  color: #64748b;
-  font-size: 11px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-.tree-badge {
-  padding: 3px 10px;
-  border-radius: 12px;
-  font-size: 11px;
-  font-weight: 600;
-  flex-shrink: 0;
-}
-
-.tree-badge-success {
-  background: rgba(16, 185, 129, 0.2);
-  color: #34d399;
-}
-
-.tree-badge-neutral {
-  background: rgba(100, 116, 139, 0.2);
-  color: #94a3b8;
-}
-
 .tree-date {
-  color: #64748b;
-  font-size: 11px;
-  flex-shrink: 0;
-  margin-left: 8px;
+  color: #475569;
 }
 
-.tree-children {
-  margin-left: 12px;
-  border-left: 1px dashed rgba(100, 116, 139, 0.3);
-  padding-left: 8px;
-}
-
-/* Status badges for referrals */
-.status-pending {
-  background: rgba(245, 158, 11, 0.2);
-  color: #fbbf24;
-}
-
-.status-active {
-  background: rgba(16, 185, 129, 0.2);
+/* Badges */
+.badge-referrals {
+  background: rgba(16, 185, 129, 0.15);
   color: #34d399;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 10px;
+  font-weight: 600;
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.status-completed, .status-confirmed {
+  background-color: #10b981;
+  box-shadow: 0 0 5px rgba(16, 185, 129, 0.5);
+}
+
+.status-pending {
+  background-color: #f59e0b;
 }
 
 .status-inactive {
-  background: rgba(239, 68, 68, 0.2);
-  color: #f87171;
+  background-color: #ef4444;
 }
 
 /* Action buttons */
