@@ -1,10 +1,28 @@
 /**
  * Footer Referral - CyprusEye
- * Handles referral sharing in footer
+ * Handles referral sharing in footer (only for logged-in users)
  */
 
 const SHARE_TEXT = "🌴 Dołącz do CyprusEye i odkryj najlepsze miejsca na Cyprze! Planuj wakacje, zdobywaj punkty i wygrywaj nagrody!";
 const SHARE_TEXT_EN = "🌴 Join CyprusEye and discover the best places in Cyprus! Plan your vacation, earn points and win prizes!";
+
+/**
+ * Wait for Supabase to be available
+ */
+function waitForSupabase(callback, maxAttempts = 20) {
+  let attempts = 0;
+  const check = () => {
+    attempts++;
+    if (window.getSupabase) {
+      callback();
+    } else if (attempts < maxAttempts) {
+      setTimeout(check, 250);
+    } else {
+      console.log('Footer referral: Supabase not available');
+    }
+  };
+  check();
+}
 
 /**
  * Initialize footer referral on page load
@@ -14,10 +32,15 @@ function initFooterReferral() {
   const copyBtn = document.getElementById('footerCopyRef');
   const fbBtn = document.getElementById('footerShareFb');
   
-  if (!container) return;
+  if (!container) {
+    console.log('Footer referral: container not found');
+    return;
+  }
   
-  // Check if user is logged in
-  checkUserAndShowReferral(container, copyBtn, fbBtn);
+  // Wait for Supabase then check user
+  waitForSupabase(() => {
+    checkUserAndShowReferral(container, copyBtn, fbBtn);
+  });
 }
 
 /**
@@ -25,17 +48,17 @@ function initFooterReferral() {
  */
 async function checkUserAndShowReferral(container, copyBtn, fbBtn) {
   try {
-    const supabase = window.getSupabase ? window.getSupabase() : null;
+    const supabase = window.getSupabase();
     if (!supabase) {
-      container.style.display = 'none';
+      console.log('Footer referral: No supabase client');
       return;
     }
     
     const { data: { user } } = await supabase.auth.getUser();
+    console.log('Footer referral: user =', user ? user.email : 'not logged in');
     
     if (!user) {
-      // Not logged in - hide or show login prompt
-      container.style.display = 'none';
+      // Not logged in - keep hidden
       return;
     }
     
@@ -47,6 +70,7 @@ async function checkUserAndShowReferral(container, copyBtn, fbBtn) {
       .single();
     
     const username = profile?.username;
+    console.log('Footer referral: username =', username);
     
     // Check if username is valid (not UUID)
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(username);
