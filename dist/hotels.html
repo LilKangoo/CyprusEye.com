@@ -784,6 +784,44 @@
       }
     }
 
+    // Prefill form with user data if logged in
+    async function prefillUserData() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        
+        const form = document.getElementById('hotelBookingForm');
+        const nameInput = form.querySelector('[name="name"]');
+        const emailInput = form.querySelector('[name="email"]');
+        const phoneInput = form.querySelector('[name="phone"]');
+        
+        // First try to get profile data
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('display_name, phone')
+          .eq('id', user.id)
+          .single();
+        
+        if (emailInput && user.email) {
+          emailInput.value = user.email;
+        }
+        
+        if (nameInput && profile?.display_name) {
+          nameInput.value = profile.display_name;
+        } else if (nameInput && user.user_metadata?.full_name) {
+          nameInput.value = user.user_metadata.full_name;
+        }
+        
+        if (phoneInput && profile?.phone) {
+          phoneInput.value = profile.phone;
+        } else if (phoneInput && user.user_metadata?.phone) {
+          phoneInput.value = user.user_metadata.phone;
+        }
+      } catch (err) {
+        console.warn('Could not prefill user data:', err);
+      }
+    }
+
     window.openHotelModal = function(idx){
       const list = currentCity==='all'? allHotels : allHotels.filter(h=> (h.city===currentCity));
       const h = list[idx];
@@ -809,10 +847,17 @@
       });
       document.getElementById('modalHotelTitle').textContent = title;
       document.getElementById('modalHotelSubtitle').textContent = h.city || '';
-      document.getElementById('modalHotelDescription').innerHTML = (h.description?.pl||'').replace(/\n/g,'<br/>');
+      const description = window.getHotelDescription 
+        ? window.getHotelDescription(h) 
+        : (h.description?.pl || '');
+      document.getElementById('modalHotelDescription').innerHTML = description.replace(/\n/g,'<br/>');
       renderHotelAmenitiesChips(h);
       document.getElementById('hotelBookingForm').reset();
       document.getElementById('hotelBookingMessage').style.display='none';
+      
+      // Prefill form with user data if logged in
+      prefillUserData();
+      
       // Enforce max persons on inputs
       const maxPersons = Number(h.max_persons||0) || null;
       const adultsEl = document.getElementById('bookingAdults');
@@ -863,9 +908,11 @@
       e.preventDefault();
       const msg = document.getElementById('hotelBookingMessage');
       const btn = e.target.querySelector('.booking-submit');
+      const submitText = t('hotels.booking.submit', 'Zarezerwuj');
+      const sendingText = t('hotels.booking.sending', 'Wysyłanie...');
       try{
         if(!currentHotel) throw new Error('Brak oferty');
-        btn.disabled=true; btn.textContent='Wysyłanie...';
+        btn.disabled=true; btn.textContent=sendingText;
         const fd = new FormData(e.target);
         const a = fd.get('arrival_date');
         const d = fd.get('departure_date');
@@ -875,9 +922,13 @@
         const persons = adults + children;
         const maxPersons = Number(currentHotel.max_persons||0) || null;
         if (maxPersons && persons > maxPersons) {
-          throw new Error(`Maksymalna liczba osób: ${maxPersons}`);
+          throw new Error(t('hotels.price.personLimit', `Maksymalna liczba osób: ${maxPersons}`, { max: maxPersons }));
         }
-        const total = calculateHotelPrice(currentHotel, persons, nights);
+        const priceResult = calculateHotelPrice(currentHotel, persons, nights);
+        
+        // Get current user if logged in
+        const { data: { user } } = await supabase.auth.getUser();
+        
         const payload = {
           hotel_id: currentHotel.id,
           hotel_slug: currentHotel.slug,
@@ -890,23 +941,24 @@
           num_children: children,
           nights,
           notes: fd.get('notes'),
-          total_price: total,
-          status: 'pending'
+          total_price: priceResult.total,
+          status: 'pending',
+          user_id: user?.id || null
         };
         const { data, error } = await supabase.from('hotel_bookings').insert([payload]).select().single();
         if(error) throw error;
         msg.className='booking-message success';
-        msg.textContent='Rezerwacja przyjęta! Skontaktujemy się wkrótce.';
+        msg.textContent=t('hotels.booking.success', 'Rezerwacja przyjęta! Skontaktujemy się wkrótce.');
         msg.style.display='block';
         e.target.reset();
         updateLivePrice();
       }catch(err){
         console.error(err);
         msg.className='booking-message error';
-        msg.textContent= err.message || 'Błąd podczas rezerwacji.';
+        msg.textContent= err.message || t('hotels.booking.error', 'Błąd podczas rezerwacji.');
         msg.style.display='block';
       }finally{
-        btn.disabled=false; btn.textContent='Zarezerwuj';
+        btn.disabled=false; btn.textContent=submitText;
       }
     });
 

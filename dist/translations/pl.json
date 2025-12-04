@@ -3593,7 +3593,10 @@
         "notes": "Uwagi (opcjonalnie)"
       },
       "priceLabel": "Cena",
-      "submit": "Zarezerwuj"
+      "submit": "Zarezerwuj",
+      "sending": "Wysyłanie...",
+      "success": "Rezerwacja przyjęta! Skontaktujemy się wkrótce.",
+      "error": "Błąd podczas rezerwacji."
     },
     "card": {
       "perNight": "/ noc",

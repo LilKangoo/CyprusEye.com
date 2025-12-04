@@ -2601,7 +2601,10 @@
         "notes": "Notes (optional)"
       },
       "priceLabel": "Price",
-      "submit": "Book"
+      "submit": "Book",
+      "sending": "Sending...",
+      "success": "Booking received! We will contact you soon.",
+      "error": "Booking failed."
     },
     "card": {
       "perNight": "/ night",
