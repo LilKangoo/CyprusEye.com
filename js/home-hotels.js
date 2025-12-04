@@ -255,7 +255,8 @@ document.addEventListener('DOMContentLoaded', ()=>{
       const adults = parseInt(fd.get('adults')) || 2;
       const children = parseInt(fd.get('children')) || 0;
       const nights = nightsBetween(arrivalDate, departureDate);
-      const totalPrice = calculateHotelPrice(homeCurrentHotel, adults + children, nights);
+      const priceResult = calculateHotelPrice(homeCurrentHotel, adults + children, nights);
+      const totalPrice = priceResult.total;
       
       const payload = {
         hotel_id: homeCurrentHotel.id,
@@ -268,7 +269,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
         departure_date: departureDate,
         num_adults: adults,
         num_children: children,
-        nights: nights,
+        nights: priceResult.billableNights,
         notes: fd.get('notes'),
         total_price: totalPrice,
         status: 'pending'
@@ -344,22 +345,81 @@ function nightsBetween(a,b){
   return Math.max(1, diff);
 }
 
+// Helper: Znajdź tier po liczbie osób
+function findTierByPersons(tiers, persons) {
+  let rule = tiers.find(r => Number(r.persons) === persons);
+  if (rule) return rule;
+  const lowers = tiers.filter(r => Number(r.persons) <= persons);
+  if (lowers.length) {
+    return lowers.sort((a, b) => Number(b.persons) - Number(a.persons))[0];
+  }
+  return null;
+}
+
+// Helper: Znajdź najlepszy tier dla długości pobytu (flat_per_night)
+function findBestTierByNights(tiers, nights) {
+  const matching = tiers
+    .filter(r => !r.min_nights || Number(r.min_nights) <= nights)
+    .sort((a, b) => (Number(b.min_nights) || 0) - (Number(a.min_nights) || 0));
+  return matching[0] || tiers[0];
+}
+
+// Helper: Znajdź najlepszy tier dla osób I nocy (tiered_by_nights)
+function findBestTierByPersonsAndNights(tiers, persons, nights) {
+  let personTiers = tiers.filter(r => Number(r.persons) === persons);
+  if (!personTiers.length) {
+    const lowers = tiers.filter(r => Number(r.persons) <= persons);
+    if (lowers.length) {
+      const maxPersons = Math.max(...lowers.map(r => Number(r.persons)));
+      personTiers = lowers.filter(r => Number(r.persons) === maxPersons);
+    }
+  }
+  if (!personTiers.length) return null;
+  const matching = personTiers
+    .filter(r => !r.min_nights || Number(r.min_nights) <= nights)
+    .sort((a, b) => (Number(b.min_nights) || 0) - (Number(a.min_nights) || 0));
+  return matching[0] || personTiers[0];
+}
+
 function calculateHotelPrice(h, persons, nights){
+  const model = h.pricing_model || 'per_person_per_night';
   const tiers = h.pricing_tiers?.rules || [];
-  if(!tiers.length) return 0;
+  if(!tiers.length) return { total: 0, pricePerNight: 0, billableNights: nights, tier: null };
+  
   persons = Number(persons)||1;
   nights = Number(nights)||1;
-  let rule = tiers.find(r=>Number(r.persons)===persons);
-  if(!rule){
-    const lowers = tiers.filter(r=>Number(r.persons)<=persons);
-    if(lowers.length) rule = lowers.sort((a,b)=>Number(b.persons)-Number(a.persons))[0];
+  let rule = null;
+  
+  switch (model) {
+    case 'flat_per_night':
+      rule = findBestTierByNights(tiers, nights);
+      break;
+    case 'tiered_by_nights':
+      rule = findBestTierByPersonsAndNights(tiers, persons, nights);
+      break;
+    case 'per_person_per_night':
+    case 'category_per_night':
+    default:
+      rule = findTierByPersons(tiers, persons);
+      break;
   }
-  if(!rule){
-    rule = tiers.sort((a,b)=>Number(a.price_per_night)-Number(b.price_per_night))[0];
+  
+  if (!rule) {
+    rule = tiers.sort((a, b) => Number(a.price_per_night) - Number(b.price_per_night))[0];
   }
-  const minN = Number(rule.min_nights||0);
-  const billNights = minN? Math.max(minN, nights): nights;
-  return billNights * Number(rule.price_per_night||0);
+  
+  const pricePerNight = Number(rule.price_per_night || 0);
+  const minN = Number(rule.min_nights || 0);
+  const billableNights = minN ? Math.max(minN, nights) : nights;
+  const total = billableNights * pricePerNight;
+  
+  return { total, pricePerNight, billableNights, tier: rule };
+}
+
+// Backwards compatibility wrapper
+function calculateHotelPriceSimple(h, persons, nights) {
+  const result = calculateHotelPrice(h, persons, nights);
+  return typeof result === 'object' ? result.total : result;
 }
 
 function updateHotelLivePrice(){
@@ -371,25 +431,43 @@ function updateHotelLivePrice(){
   const d = (form.querySelector('#hotelDepartureDate')||{}).value || '';
   const adults = Number((form.querySelector('#hotelBookingAdults')||{}).value||0);
   const children = Number((form.querySelector('#hotelBookingChildren')||{}).value||0);
-  const persons = adults + children;
+  let persons = adults + children;
   const maxPersons = Number(homeCurrentHotel.max_persons||0) || null;
   const nights = nightsBetween(a,d);
-  let limitedPersons = persons;
   const note = modal ? modal.querySelector('#hotelPriceNote') : null;
   let notes = [];
+  
+  // Limit osób
   if (maxPersons && persons > maxPersons) {
-    limitedPersons = maxPersons;
-    notes.push(`Limit osób dla tego obiektu to ${maxPersons}. Cena policzona dla ${maxPersons} os.`);
+    persons = maxPersons;
+    notes.push(`Limit osób: ${maxPersons}. Cena dla ${maxPersons} os.`);
   }
-  const price = calculateHotelPrice(homeCurrentHotel, limitedPersons, nights);
+  
+  // Oblicz cenę z nowym API
+  const result = calculateHotelPrice(homeCurrentHotel, persons, nights);
   const priceEl = modal ? modal.querySelector('#modalHotelPrice') : null;
-  if (priceEl) priceEl.textContent = `${price.toFixed(2)} €`;
-  const tiers = homeCurrentHotel.pricing_tiers?.rules||[];
-  const match = tiers.find(r=>Number(r.persons)===limitedPersons);
-  if(match && match.min_nights && nights < Number(match.min_nights)){
-    notes.push(`Minimalna liczba nocy dla ${limitedPersons} os. to ${match.min_nights}. Cena naliczona za ${match.min_nights} nocy.`);
+  if (priceEl) priceEl.textContent = `${result.total.toFixed(2)} €`;
+  
+  // Informacja o minimum nocy
+  if (result.tier && result.billableNights > nights) {
+    notes.push(`Min. ${result.tier.min_nights} nocy. Cena za ${result.billableNights} nocy.`);
   }
-  if (note){ if (notes.length){ note.style.display='block'; note.className='booking-message'; note.textContent = notes.join(' ');} else { note.style.display='none'; } }
+  
+  // Informacja o rabacie (dla tiered_by_nights)
+  const model = homeCurrentHotel.pricing_model || 'per_person_per_night';
+  if (model === 'tiered_by_nights' && result.tier?.min_nights && result.tier.min_nights > 1) {
+    notes.push(`Cena: ${result.pricePerNight.toFixed(2)}€/noc (rabat za ${result.tier.min_nights}+ nocy)`);
+  }
+  
+  if (note) {
+    if (notes.length) {
+      note.style.display = 'block';
+      note.className = 'booking-message';
+      note.textContent = notes.join(' ');
+    } else {
+      note.style.display = 'none';
+    }
+  }
 }
 
 window.openHotelModalHome = function(index){

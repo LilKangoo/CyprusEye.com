@@ -145,29 +145,72 @@ function calculateNights(arrival, departure) {
   return Math.max(1, diffDays);
 }
 
-/**
- * Calculate hotel price based on pricing tiers
- * @param {object} hotel - Hotel data with pricing_tiers
- * @param {number} persons - Total number of persons
- * @param {number} nights - Number of nights
- * @returns {number} Total price
- */
-function calculatePrice(hotel, persons, nights) {
-  const tiers = hotel.pricing_tiers?.rules || [];
-  if (!tiers.length) return 0;
-  
-  // Find matching tier for number of persons
+// Helper: Znajdź tier po liczbie osób
+function findTierByPersons(tiers, persons) {
   let rule = tiers.find(r => Number(r.persons) === persons);
-  
-  // If no exact match, find closest lower tier
-  if (!rule) {
-    const lowerTiers = tiers.filter(r => Number(r.persons) <= persons);
-    if (lowerTiers.length) {
-      rule = lowerTiers.sort((a, b) => Number(b.persons) - Number(a.persons))[0];
+  if (rule) return rule;
+  const lowers = tiers.filter(r => Number(r.persons) <= persons);
+  if (lowers.length) {
+    return lowers.sort((a, b) => Number(b.persons) - Number(a.persons))[0];
+  }
+  return null;
+}
+
+// Helper: Znajdź najlepszy tier dla długości pobytu (flat_per_night)
+function findBestTierByNights(tiers, nights) {
+  const matching = tiers
+    .filter(r => !r.min_nights || Number(r.min_nights) <= nights)
+    .sort((a, b) => (Number(b.min_nights) || 0) - (Number(a.min_nights) || 0));
+  return matching[0] || tiers[0];
+}
+
+// Helper: Znajdź najlepszy tier dla osób I nocy (tiered_by_nights)
+function findBestTierByPersonsAndNights(tiers, persons, nights) {
+  let personTiers = tiers.filter(r => Number(r.persons) === persons);
+  if (!personTiers.length) {
+    const lowers = tiers.filter(r => Number(r.persons) <= persons);
+    if (lowers.length) {
+      const maxPersons = Math.max(...lowers.map(r => Number(r.persons)));
+      personTiers = lowers.filter(r => Number(r.persons) === maxPersons);
     }
   }
+  if (!personTiers.length) return null;
+  const matching = personTiers
+    .filter(r => !r.min_nights || Number(r.min_nights) <= nights)
+    .sort((a, b) => (Number(b.min_nights) || 0) - (Number(a.min_nights) || 0));
+  return matching[0] || personTiers[0];
+}
+
+/**
+ * Calculate hotel price based on pricing model and tiers
+ * @param {object} hotel - Hotel data with pricing_model and pricing_tiers
+ * @param {number} persons - Total number of persons
+ * @param {number} nights - Number of nights
+ * @returns {object} { total, pricePerNight, billableNights, tier }
+ */
+function calculatePrice(hotel, persons, nights) {
+  const model = hotel.pricing_model || 'per_person_per_night';
+  const tiers = hotel.pricing_tiers?.rules || [];
+  if (!tiers.length) return { total: 0, pricePerNight: 0, billableNights: nights, tier: null };
   
-  // If still no match, use cheapest tier
+  persons = Number(persons) || 1;
+  nights = Number(nights) || 1;
+  let rule = null;
+  
+  switch (model) {
+    case 'flat_per_night':
+      rule = findBestTierByNights(tiers, nights);
+      break;
+    case 'tiered_by_nights':
+      rule = findBestTierByPersonsAndNights(tiers, persons, nights);
+      break;
+    case 'per_person_per_night':
+    case 'category_per_night':
+    default:
+      rule = findTierByPersons(tiers, persons);
+      break;
+  }
+  
   if (!rule) {
     rule = tiers.sort((a, b) => Number(a.price_per_night) - Number(b.price_per_night))[0];
   }
@@ -175,6 +218,7 @@ function calculatePrice(hotel, persons, nights) {
   const pricePerNight = Number(rule.price_per_night || 0);
   const minNights = Number(rule.min_nights || 0);
   const billableNights = minNights ? Math.max(minNights, nights) : nights;
+  const total = billableNights * pricePerNight;
   
-  return billableNights * pricePerNight;
+  return { total, pricePerNight, billableNights, tier: rule };
 }
