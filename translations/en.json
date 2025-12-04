@@ -2824,7 +2824,11 @@
     },
     "settings": {
       "title": "Account Settings"
-    }
+    },
+    "referral": "Refer a Friend",
+    "referral.desc": "Share your referral link and earn bonuses when friends join CyprusEye.",
+    "referral.copy": "Copy link",
+    "referral.copied": "Copied!"
   },
   "metrics": {
     "activeBookings": "Active Bookings",

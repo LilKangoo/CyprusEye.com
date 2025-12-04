@@ -664,9 +664,67 @@
   <script src="js/i18n.js" defer></script>
   <script src="js/mobile-nav.js" defer></script>
   <script src="js/header-dropdown.js" defer></script>
+  <script type="module" src="js/referral.js"></script>
   
   <!-- Load core logic -->
   <script type="module" src="js/dashboard.js"></script>
+  
+  <!-- Referral link setup -->
+  <script type="module">
+    import { generateReferralLink } from './js/referral.js';
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+      const referralInput = document.getElementById('referralLink');
+      const copyBtn = document.getElementById('copyReferralBtn');
+      
+      if (!referralInput) return;
+      
+      // Wait for user profile to load
+      const waitForProfile = () => new Promise((resolve) => {
+        const check = () => {
+          const profile = window.CE_AUTH?.profile;
+          if (profile?.username) {
+            resolve(profile);
+          } else {
+            setTimeout(check, 200);
+          }
+        };
+        check();
+        // Timeout after 5s
+        setTimeout(() => resolve(null), 5000);
+      });
+      
+      const profile = await waitForProfile();
+      
+      if (profile?.username) {
+        const link = generateReferralLink(profile.username);
+        referralInput.value = link;
+      } else {
+        referralInput.value = 'Zaloguj się, aby zobaczyć link';
+      }
+      
+      // Copy button
+      if (copyBtn) {
+        copyBtn.addEventListener('click', async () => {
+          const link = referralInput.value;
+          if (!link || link.includes('Zaloguj')) return;
+          
+          try {
+            await navigator.clipboard.writeText(link);
+            const originalText = copyBtn.textContent;
+            copyBtn.textContent = '✓ Skopiowano!';
+            copyBtn.classList.add('btn-success');
+            setTimeout(() => {
+              copyBtn.textContent = originalText;
+              copyBtn.classList.remove('btn-success');
+            }, 2000);
+          } catch (err) {
+            console.error('Could not copy:', err);
+          }
+        });
+      }
+    });
+  </script>
 
 </body>
 </html>

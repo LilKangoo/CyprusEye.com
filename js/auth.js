@@ -2,6 +2,7 @@ import { bootAuth, updateAuthUI } from './authUi.js';
 import { showErr, showInfo, showOk } from './authMessages.js';
 import { loadProfileForUser } from './profile.js';
 import { URLS } from './config.js';
+import { processReferralAfterRegistration, getStoredReferralCode } from './referral.js';
 
 const sb = window.getSupabase();
 const ceAuthGlobal = typeof window !== 'undefined' ? (window.CE_AUTH = window.CE_AUTH || {}) : null;
@@ -1114,6 +1115,16 @@ $('#form-register')?.addEventListener('submit', async (event) => {
           await bootAuth();
         } catch (bootError) {
           console.warn('Nie udało się ponownie zainicjalizować bootAuth po rejestracji.', bootError);
+        }
+        
+        // Process referral if exists
+        try {
+          const referralCode = getStoredReferralCode();
+          if (referralCode) {
+            await processReferralAfterRegistration(data.user.id);
+          }
+        } catch (referralError) {
+          console.warn('Nie udało się przetworzyć polecenia:', referralError);
         }
       }
 
