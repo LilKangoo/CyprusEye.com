@@ -898,81 +898,118 @@
 
   // --- Referral Stats Section ---
   async function loadTasksReferralStats() {
+    console.log('🎁 loadTasksReferralStats called');
+    
     const section = document.getElementById('referralRewardsSection');
     const countEl = document.getElementById('tasksReferralCount');
     const xpEl = document.getElementById('tasksReferralXp');
     const linkEl = document.getElementById('tasksReferralLink');
     const copyBtn = document.getElementById('tasksRefCopyBtn');
     
-    // Hide section if not logged in
-    if (!state.auth.isAuthenticated || !sb) {
-      if (section) section.style.display = 'none';
+    if (!section) {
+      console.warn('🎁 Referral section not found in DOM');
       return;
     }
     
-    // Show section for logged in users
-    if (section) section.style.display = 'block';
+    // Hide section if not logged in
+    if (!state.auth.isAuthenticated) {
+      console.log('🎁 User not authenticated, hiding section');
+      section.style.display = 'none';
+      return;
+    }
+    
+    // Check if Supabase is available
+    if (!sb) {
+      // Try to get it again
+      if (typeof window.getSupabase === 'function') {
+        sb = window.getSupabase();
+      }
+      if (!sb) {
+        console.warn('🎁 Supabase not available');
+        section.style.display = 'none';
+        return;
+      }
+    }
+    
+    console.log('🎁 User authenticated, userId:', state.auth.userId);
     
     try {
       // Get user's username for referral link
-      const { data: profile } = await sb
+      const { data: profile, error: profileError } = await sb
         .from('profiles')
-        .select('username')
+        .select('username, name')
         .eq('id', state.auth.userId)
         .single();
       
-      const username = profile?.username;
-      
-      // Check if username is valid (not UUID)
-      const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(username);
-      
-      if (!username || isUUID) {
-        if (section) section.style.display = 'none';
-        return;
+      if (profileError) {
+        console.warn('🎁 Could not load profile:', profileError);
       }
       
+      console.log('🎁 Profile loaded:', profile);
+      
+      // Use username, or name, or part of ID as fallback
+      let refIdentifier = profile?.username || profile?.name || state.auth.userId.split('-')[0];
+      
       // Set referral link
-      const refLink = `https://cypruseye.com/?ref=${encodeURIComponent(username)}`;
+      const refLink = `https://cypruseye.com/?ref=${encodeURIComponent(refIdentifier)}`;
+      console.log('🎁 Referral link:', refLink);
+      
       if (linkEl) linkEl.value = refLink;
       
-      // Setup copy button
+      // Setup copy button (remove old listener first by cloning)
       if (copyBtn) {
-        copyBtn.onclick = async () => {
+        const newCopyBtn = copyBtn.cloneNode(true);
+        copyBtn.parentNode.replaceChild(newCopyBtn, copyBtn);
+        
+        newCopyBtn.addEventListener('click', async () => {
           try {
             await navigator.clipboard.writeText(refLink);
-            const originalText = copyBtn.textContent;
-            copyBtn.textContent = '✓ ' + t('tasks.referral.copied', 'Skopiowano!');
-            copyBtn.classList.add('copied');
+            const originalText = newCopyBtn.textContent;
+            newCopyBtn.textContent = '✓ ' + t('tasks.referral.copied', 'Skopiowano!');
+            newCopyBtn.classList.add('copied');
             setTimeout(() => {
-              copyBtn.textContent = originalText;
-              copyBtn.classList.remove('copied');
+              newCopyBtn.textContent = originalText;
+              newCopyBtn.classList.remove('copied');
             }, 2000);
           } catch (e) {
-            console.warn('Copy failed:', e);
+            console.warn('🎁 Copy failed:', e);
+            // Fallback: select input text
+            if (linkEl) {
+              linkEl.select();
+              document.execCommand('copy');
+            }
           }
-        };
+        });
       }
       
       // Get referral stats
-      const { data: referrals, error } = await sb
+      const { data: referrals, error: refError } = await sb
         .from('referrals')
         .select('id, xp_awarded, status')
         .eq('referrer_id', state.auth.userId);
       
-      if (error) {
-        console.warn('Could not load referral stats:', error);
-        return;
+      if (refError) {
+        console.warn('🎁 Could not load referral stats:', refError);
+        // Still show section with 0 stats
       }
       
       const totalCount = referrals?.length || 0;
       const confirmedReferrals = referrals?.filter(r => r.status === 'confirmed') || [];
       const totalXp = confirmedReferrals.reduce((sum, r) => sum + (r.xp_awarded || 0), 0);
       
+      console.log('🎁 Referral stats - count:', totalCount, 'xp:', totalXp);
+      
       if (countEl) countEl.textContent = totalCount;
       if (xpEl) xpEl.textContent = totalXp;
       
+      // Show section - this is the key line!
+      section.style.display = 'block';
+      console.log('🎁 Section displayed!');
+      
     } catch (err) {
-      console.warn('Error loading referral stats:', err);
+      console.error('🎁 Error loading referral stats:', err);
+      // Still try to show section with default values
+      section.style.display = 'block';
     }
   }
 
