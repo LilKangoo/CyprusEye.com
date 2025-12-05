@@ -316,31 +316,53 @@
 
 .home-carousel-nav[hidden] { display: none !important; }
 
-/* Desktop: grid look */
+/* Home carousel - Universal Horizontal Scroll */
 .home-carousel {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  padding: 4px 4px 12px 4px; /* Extra bottom padding for scrollbar */
+  scroll-behavior: smooth;
 }
 
-/* Mobile: horizontal scroll with snap */
+/* Card sizing for desktop */
+.home-carousel > * {
+  flex: 0 0 340px; /* Fixed width for desktop cards */
+  min-width: 340px;
+  scroll-snap-align: start;
+}
+
+/* Custom scrollbar for desktop */
+.home-carousel::-webkit-scrollbar {
+  height: 6px;
+}
+.home-carousel::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+.home-carousel::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 10px;
+  transition: background 0.2s;
+}
+.home-carousel::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Mobile specific overrides */
 @media (max-width: 900px) {
   .home-carousel-nav { width: 30px; height: 30px; }
   .home-carousel-nav.prev { left: -6px; }
   .home-carousel-nav.next { right: -6px; }
-  .home-carousel {
-    display: flex;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    -webkit-overflow-scrolling: touch;
-    padding: 4px;
+  
+  .home-carousel > * {
+    flex: 0 0 85%; /* Responsive width for mobile */
+    min-width: 85%;
   }
-  .home-carousel > a,
-  .home-carousel > div.trip-home-card,
-  .home-carousel > div.hotel-home-card { /* safety */
-    scroll-snap-align: start;
-    flex: 0 0 85%;
-  }
-  /* Hide native scrollbar */
+  
+  /* Hide scrollbar on mobile for cleaner look */
   .home-carousel::-webkit-scrollbar { display: none; }
   .home-carousel { scrollbar-width: none; }
 }
