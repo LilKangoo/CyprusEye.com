@@ -8940,6 +8940,118 @@ body.tutorial-open {
 }
 
 
+/* --- Shortcuts Grid (Modern Compact Layout) --- */
+.shortcuts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 20px;
+  margin-top: 40px;
+  width: 100%;
+}
+
+.shortcut-compact {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: 24px;
+  background: var(--surface);
+  border-radius: 20px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  text-decoration: none;
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+}
+
+.shortcut-compact:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px -8px rgba(0, 0, 0, 0.08);
+  border-color: var(--primary);
+}
+
+.shortcut-compact:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.shortcut-compact-icon {
+  width: 64px;
+  height: 64px;
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  margin-bottom: 16px;
+  border: 1px solid #e2e8f0;
+  transition: transform 0.2s ease;
+}
+
+.shortcut-compact:hover .shortcut-compact-icon {
+  transform: scale(1.1) rotate(-5deg);
+  background: #fff;
+  border-color: var(--primary-light);
+}
+
+.shortcut-compact h2 {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+  margin: 0 0 8px 0;
+  line-height: 1.3;
+}
+
+.shortcut-compact p {
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Hide old CTA button inside compact card as the whole card is clickable */
+.shortcut-compact .adventure-shortcut-cta {
+  display: none;
+}
+
+/* Mobile Responsiveness */
+@media (max-width: 640px) {
+  .shortcuts-grid {
+    grid-template-columns: 1fr 1fr; /* 2 columns on mobile */
+    gap: 12px;
+    margin-top: 24px;
+  }
+
+  .shortcut-compact {
+    padding: 16px 12px;
+    border-radius: 16px;
+  }
+
+  .shortcut-compact-icon {
+    width: 48px;
+    height: 48px;
+    font-size: 1.5rem;
+    margin-bottom: 12px;
+    border-radius: 12px;
+  }
+
+  .shortcut-compact h2 {
+    font-size: 0.95rem;
+    margin-bottom: 4px;
+  }
+
+  .shortcut-compact p {
+    font-size: 0.75rem;
+    -webkit-line-clamp: 2;
+  }
+}
+
 /* Standalone auth page layout */
 body.auth-page {
   min-height: 100vh;

@@ -2850,5 +2850,33 @@
     "xp": "Experience",
     "level": "Level",
     "visited": "Visited"
+  },
+  "shortcuts": {
+    "packing": {
+      "title": "Packing",
+      "description": "Packing list for the trip",
+      "action": "Open list"
+    },
+    "tasks": {
+      "title": "Tasks",
+      "description": "Your tasks and goals",
+      "action": "Show tasks"
+    },
+    "car": {
+      "title": "Car Rental",
+      "description": "Check rental offers",
+      "action": "View offers"
+    },
+    "coupon": {
+      "title": "Coupon"
+    },
+    "trips": {
+      "title": "Trips",
+      "description": "Browse trips and make a reservation.",
+      "action": "View trips"
+    }
+  },
+  "discovery": {
+    "title": "Attractions to discover"
   }
 }
