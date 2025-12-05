@@ -915,10 +915,10 @@
 }
 
 .standalone-hero {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: clamp(1.6rem, 3vw, 2.5rem);
-  grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
-  align-items: center;
+  align-items: stretch;
 }
 
 .standalone-hero-content {
@@ -997,10 +997,6 @@
 }
 
 @media (max-width: 900px) {
-  .standalone-hero {
-    grid-template-columns: 1fr;
-  }
-
   .standalone-hero-stats {
     grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   }
