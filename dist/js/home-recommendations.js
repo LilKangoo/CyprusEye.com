@@ -19,7 +19,29 @@ let currentCategoryFilter = '';
 document.addEventListener('DOMContentLoaded', () => {
   console.log('🔵 Home Recommendations: Initializing...');
   loadData();
+  setupLanguageListener();
 });
+
+// ============================================================================
+// LANGUAGE CHANGE LISTENER
+// ============================================================================
+function setupLanguageListener() {
+  // Listen for languageChanged event (from languageSwitcher.js)
+  window.addEventListener('languageChanged', (e) => {
+    console.log('🌐 Home recommendations: Language changed to', e.detail?.language);
+    renderCategoryFilters();
+    renderRecommendations();
+  });
+  
+  // Also listen for wakacjecypr:languagechange (backup)
+  document.addEventListener('wakacjecypr:languagechange', (e) => {
+    console.log('🌐 Home recommendations: Language changed (wakacjecypr) to', e.detail?.language);
+    renderCategoryFilters();
+    renderRecommendations();
+  });
+  
+  console.log('✅ Home recommendations: Language listeners registered');
+}
 
 // ============================================================================
 // LOAD DATA

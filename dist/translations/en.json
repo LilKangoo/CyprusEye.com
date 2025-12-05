@@ -2878,5 +2878,29 @@
   },
   "discovery": {
     "title": "Attractions to discover"
+  },
+  "recommendations": {
+    "home": {
+      "title": "✨ Our Recommendations",
+      "subtitle": "Trusted Cyprus partners with exclusive discounts",
+      "filters": {
+        "title": "Filter by category",
+        "clear": "Clear filters"
+      },
+      "loading": "Loading recommendations...",
+      "cta": "View all recommendations →"
+    },
+    "card": {
+      "featured": "Recommended",
+      "details": "View details",
+      "visitSite": "Website",
+      "showCode": "Show code",
+      "openMap": "Open in maps"
+    },
+    "empty": {
+      "title": "No results",
+      "body": "No places found for the selected filters. Try changing the category or clearing filters.",
+      "cta": "Show all places"
+    }
   }
 }
