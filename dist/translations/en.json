@@ -2586,6 +2586,13 @@
     }
   },
   "trips": {
+    "tabs": {
+      "allCities": "All Cities"
+    },
+    "card": {
+      "perHour": "/ hour",
+      "perDay": "/ day"
+    },
     "hero": {
       "heading": "Discover Cyprus",
       "subheading": "Choose a city and explore the best trips"
@@ -2613,6 +2620,18 @@
     }
   },
   "hotels": {
+    "tabs": {
+      "allCities": "All Cities"
+    },
+    "card": {
+      "perNight": "/ night",
+      "from": "from"
+    },
+    "price": {
+      "minNights": "Min. {{min}} nights. Price for {{billable}} nights.",
+      "discount": "Price: €{{price}}/night (discount for {{min}}+ nights)",
+      "personLimit": "Person limit: {{max}}. Price for {{max}} guests."
+    },
     "hero": {
       "heading": "Stays in Cyprus",
       "subheading": "Choose a city and browse the best accommodation offers"

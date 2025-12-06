@@ -179,6 +179,15 @@ function hotelsT(key, fallback) {
   }
 }
 
+// Translation helper with parameter substitution (e.g., {{min}}, {{billable}})
+function hotelsTWithParams(key, fallback, params = {}) {
+  let text = hotelsT(key, fallback);
+  for (const [k, v] of Object.entries(params)) {
+    text = text.replace(new RegExp(`\\{\\{${k}\\}\\}`, 'g'), v);
+  }
+  return text;
+}
+
 function renderHomeHotelsTabs(){
   const tabsWrap = document.getElementById('hotelsHomeTabs');
   if(!tabsWrap) return;
@@ -539,7 +548,10 @@ function updateHotelLivePrice(){
   // Limit osób
   if (maxPersons && persons > maxPersons) {
     persons = maxPersons;
-    notes.push(`Limit osób: ${maxPersons}. Cena dla ${maxPersons} os.`);
+    notes.push(hotelsTWithParams('hotels.price.personLimit',
+      `Limit osób: ${maxPersons}. Cena dla ${maxPersons} os.`,
+      { max: maxPersons }
+    ));
   }
   
   // Oblicz cenę z nowym API
@@ -547,15 +559,21 @@ function updateHotelLivePrice(){
   const priceEl = modal ? modal.querySelector('#modalHotelPrice') : null;
   if (priceEl) priceEl.textContent = `${result.total.toFixed(2)} €`;
   
-  // Informacja o minimum nocy
+  // Informacja o minimum nocy (translated)
   if (result.tier && result.billableNights > nights) {
-    notes.push(`Min. ${result.tier.min_nights} nocy. Cena za ${result.billableNights} nocy.`);
+    notes.push(hotelsTWithParams('hotels.price.minNights', 
+      `Min. ${result.tier.min_nights} nocy. Cena za ${result.billableNights} nocy.`,
+      { min: result.tier.min_nights, billable: result.billableNights }
+    ));
   }
   
-  // Informacja o rabacie (dla tiered_by_nights)
+  // Informacja o rabacie (dla tiered_by_nights) (translated)
   const model = homeCurrentHotel.pricing_model || 'per_person_per_night';
   if (model === 'tiered_by_nights' && result.tier?.min_nights && result.tier.min_nights > 1) {
-    notes.push(`Cena: ${result.pricePerNight.toFixed(2)}€/noc (rabat za ${result.tier.min_nights}+ nocy)`);
+    notes.push(hotelsTWithParams('hotels.price.discount',
+      `Cena: ${result.pricePerNight.toFixed(2)}€/noc (rabat za ${result.tier.min_nights}+ nocy)`,
+      { price: result.pricePerNight.toFixed(2), min: result.tier.min_nights }
+    ));
   }
   
   if (note) {
