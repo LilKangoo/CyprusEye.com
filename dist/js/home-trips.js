@@ -7,13 +7,31 @@ let homeTripsDisplay = [];
 let homeCurrentTrip = null;
 let homeCurrentIndex = null;
 
-// Translation helper for trips
+// Translation helper for trips - reads directly from appI18n.translations
 function tripsT(key, fallback) {
-  if (window.appI18n && typeof window.appI18n.t === 'function') {
-    const result = window.appI18n.t(key);
-    return result !== key ? result : fallback;
+  try {
+    const lang = (window.appI18n && window.appI18n.language) || 
+                 document.documentElement.lang || 'pl';
+    const translations = window.appI18n?.translations?.[lang];
+    if (!translations) return fallback;
+    
+    // Try flat key first (e.g., "trips.tabs.allCities")
+    if (translations[key]) return translations[key];
+    
+    // Try nested path (e.g., trips.tabs.allCities -> translations.trips.tabs.allCities)
+    const parts = key.split('.');
+    let value = translations;
+    for (const part of parts) {
+      if (value && typeof value === 'object' && part in value) {
+        value = value[part];
+      } else {
+        return fallback;
+      }
+    }
+    return typeof value === 'string' ? value : fallback;
+  } catch (e) {
+    return fallback;
   }
-  return fallback;
 }
 
 // Prefill trip booking form from logged-in user session
