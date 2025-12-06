@@ -1157,16 +1157,47 @@
       return Array.from(cities).sort();
     }
 
+    // Translation helper - reads directly from appI18n.translations
+    function t(key, fallback, params = {}) {
+      let text = fallback;
+      try {
+        const lang = (window.appI18n?.language) || document.documentElement.lang || 'pl';
+        const translations = window.appI18n?.translations?.[lang];
+        if (translations) {
+          // Try flat key first (e.g., "trips.tabs.allCities")
+          if (translations[key]) {
+            text = translations[key];
+          } else {
+            // Try nested path (e.g., trips.tabs.allCities -> translations.trips.tabs.allCities)
+            const parts = key.split('.');
+            let value = translations;
+            for (const part of parts) {
+              if (value && typeof value === 'object' && part in value) {
+                value = value[part];
+              } else {
+                value = null;
+                break;
+              }
+            }
+            if (typeof value === 'string') text = value;
+          }
+        }
+      } catch (e) {
+        // Use fallback on error
+      }
+      // Replace params like {{max}}, {{min}}
+      Object.keys(params).forEach(k => {
+        text = text.replace(new RegExp(`{{${k}}}`, 'g'), params[k]);
+      });
+      return text;
+    }
+
     function renderTabs() {
       const cities = getUniqueCities();
       const tabsContainer = document.getElementById('tripsTabs');
       
-      // Get current language for translations
-      const currentLang = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
-      const allCitiesLabel = currentLang === 'en' ? 'All Cities' : 
-                             currentLang === 'el' ? 'Όλες οι πόλεις' :
-                             currentLang === 'he' ? 'כל הערים' : 
-                             'Wszystkie miasta';
+      // Get translated label using t() helper
+      const allCitiesLabel = t('trips.tabs.allCities', 'Wszystkie miasta');
       
       // Create "All Cities" tab + tabs for each city
       const tabs = [`<button class="trips-tab active" data-city="all">${allCitiesLabel}</button>`];
@@ -1557,7 +1588,7 @@
 
     loadTrips();
     
-    // Register language change handler
+    // Register language change handler (legacy method)
     if (typeof window.registerLanguageChangeHandler === 'function') {
       window.registerLanguageChangeHandler((language) => {
         console.log('🚤 Trips Page: Re-rendering for language:', language);
@@ -1568,6 +1599,23 @@
         }
       });
     }
+    
+    // Direct event listeners (backup - more reliable)
+    window.addEventListener('languageChanged', (e) => {
+      console.log('🚤 Trips Page: languageChanged event, re-rendering for:', e.detail?.language);
+      if (allTrips && allTrips.length > 0) {
+        renderTabs();
+        renderTrips();
+      }
+    });
+    
+    document.addEventListener('wakacjecypr:languagechange', (e) => {
+      console.log('🚤 Trips Page: wakacjecypr:languagechange event, re-rendering for:', e.detail?.language);
+      if (allTrips && allTrips.length > 0) {
+        renderTabs();
+        renderTrips();
+      }
+    });
   </script>
   <!-- Core i18n loader -->
   <script src="/js/i18n.js" defer></script>

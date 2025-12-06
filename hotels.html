@@ -559,14 +559,35 @@
       return Array.from(s).sort();
     }
 
-    // Translation helper
+    // Translation helper - reads directly from appI18n.translations
     function t(key, fallback, params = {}) {
-      let text = (window.appI18n && typeof window.appI18n.t === 'function') 
-        ? window.appI18n.t(key) 
-        : fallback;
-      // If translation not found, use fallback
-      if (text === key) text = fallback;
-      // Replace params like {{max}}
+      let text = fallback;
+      try {
+        const lang = (window.appI18n?.language) || document.documentElement.lang || 'pl';
+        const translations = window.appI18n?.translations?.[lang];
+        if (translations) {
+          // Try flat key first (e.g., "hotels.tabs.allCities")
+          if (translations[key]) {
+            text = translations[key];
+          } else {
+            // Try nested path (e.g., hotels.tabs.allCities -> translations.hotels.tabs.allCities)
+            const parts = key.split('.');
+            let value = translations;
+            for (const part of parts) {
+              if (value && typeof value === 'object' && part in value) {
+                value = value[part];
+              } else {
+                value = null;
+                break;
+              }
+            }
+            if (typeof value === 'string') text = value;
+          }
+        }
+      } catch (e) {
+        // Use fallback on error
+      }
+      // Replace params like {{max}}, {{min}}, {{billable}}
       Object.keys(params).forEach(k => {
         text = text.replace(new RegExp(`{{${k}}}`, 'g'), params[k]);
       });
@@ -1029,6 +1050,7 @@
       }
     }
     
+    // Polling fallback (kept for compatibility)
     setInterval(() => {
       const currentLang = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
       if (currentLang !== lastLanguage) {
@@ -1036,6 +1058,19 @@
         onLanguageChange();
       }
     }, 300);
+    
+    // Direct event listeners (more reliable and immediate)
+    window.addEventListener('languageChanged', (e) => {
+      console.log('🏨 Hotels Page: languageChanged event, re-rendering for:', e.detail?.language);
+      lastLanguage = e.detail?.language || 'pl';
+      onLanguageChange();
+    });
+    
+    document.addEventListener('wakacjecypr:languagechange', (e) => {
+      console.log('🏨 Hotels Page: wakacjecypr:languagechange event, re-rendering for:', e.detail?.language);
+      lastLanguage = e.detail?.language || 'pl';
+      onLanguageChange();
+    });
   </script>
   <script src="assets/js/modal-auth.js" defer></script>
 
