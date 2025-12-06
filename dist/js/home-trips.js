@@ -7,6 +7,15 @@ let homeTripsDisplay = [];
 let homeCurrentTrip = null;
 let homeCurrentIndex = null;
 
+// Translation helper for trips
+function tripsT(key, fallback) {
+  if (window.appI18n && typeof window.appI18n.t === 'function') {
+    const result = window.appI18n.t(key);
+    return result !== key ? result : fallback;
+  }
+  return fallback;
+}
+
 // Prefill trip booking form from logged-in user session
 async function prefillTripFormFromSession(form) {
   if (!form) return;
@@ -114,12 +123,8 @@ function renderHomeTripsTabs() {
   const tabsWrap = document.getElementById('tripsHomeTabs');
   if (!tabsWrap) return;
   
-  // Get current language for translations
-  const currentLang = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
-  const allCitiesLabel = currentLang === 'en' ? 'All Cities' : 
-                         currentLang === 'el' ? 'Όλες οι πόλεις' :
-                         currentLang === 'he' ? 'כל הערים' : 
-                         'Wszystkie miasta';
+  // Get translated label using tripsT helper
+  const allCitiesLabel = tripsT('trips.tabs.allCities', 'Wszystkie miasta');
   
   const tabs = [`<button class="trips-home-tab active" data-city="all" style="padding:8px 16px;background:#667eea;color:white;border:none;border-radius:20px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.2s;">${allCitiesLabel}</button>`];
   getTripCities().forEach(city => {
@@ -185,15 +190,17 @@ function renderHomeTrips() {
     // Get price based on pricing model (same as trips.html)
     const pricingModel = trip.pricing_model || 'per_person';
     let priceLabel = '';
+    const perHourLabel = tripsT('trips.card.perHour', '/ godz.');
+    const perDayLabel = tripsT('trips.card.perDay', '/ dzień');
     
     if (pricingModel === 'per_person' && trip.price_per_person) {
       priceLabel = `${Number(trip.price_per_person).toFixed(2)} €`;
     } else if (trip.price_base) {
       priceLabel = `${Number(trip.price_base).toFixed(2)} €`;
     } else if (trip.hourly_rate) {
-      priceLabel = `${Number(trip.hourly_rate).toFixed(2)} € / godz.`;
+      priceLabel = `${Number(trip.hourly_rate).toFixed(2)} € ${perHourLabel}`;
     } else if (trip.daily_rate) {
-      priceLabel = `${Number(trip.daily_rate).toFixed(2)} € / dzień`;
+      priceLabel = `${Number(trip.daily_rate).toFixed(2)} € ${perDayLabel}`;
     }
 
     return `
@@ -305,17 +312,34 @@ document.addEventListener('DOMContentLoaded', function() {
   window.addEventListener('resize', updateArrows);
   updateArrows();
   
-  // Register language change handler
+  // Register language change handler (legacy method)
   if (typeof window.registerLanguageChangeHandler === 'function') {
     window.registerLanguageChangeHandler((language) => {
       console.log('🗺️ Trips: Re-rendering for language:', language);
       if (homeTripsData && homeTripsData.length > 0) {
-        renderHomeTripsTabs(); // Re-render tabs with new language
+        renderHomeTripsTabs();
         renderHomeTrips();
         console.log('✅ Trips re-rendered');
       }
     });
   }
+  
+  // Direct event listeners (backup - more reliable)
+  window.addEventListener('languageChanged', (e) => {
+    console.log('🗺️ Trips: languageChanged event, re-rendering for:', e.detail?.language);
+    if (homeTripsData && homeTripsData.length > 0) {
+      renderHomeTripsTabs();
+      renderHomeTrips();
+    }
+  });
+  
+  document.addEventListener('wakacjecypr:languagechange', (e) => {
+    console.log('🗺️ Trips: wakacjecypr:languagechange event, re-rendering for:', e.detail?.language);
+    if (homeTripsData && homeTripsData.length > 0) {
+      renderHomeTripsTabs();
+      renderHomeTrips();
+    }
+  });
 });
 
 // --- Modal logic identical to /trips ---

@@ -493,6 +493,23 @@
       "next": "Next"
     }
   },
+  "hotels": {
+    "tabs": {
+      "allCities": "All Cities"
+    },
+    "card": {
+      "perNight": "/ night"
+    }
+  },
+  "trips": {
+    "tabs": {
+      "allCities": "All Cities"
+    },
+    "card": {
+      "perHour": "/ hour",
+      "perDay": "/ day"
+    }
+  },
   "services": {
     "title": "Discover Cyprus with us",
     "description": "WakacjeCypr.com are local experts ready to organize unforgettable holidays, private tours, wine tastings and cruises for you.",

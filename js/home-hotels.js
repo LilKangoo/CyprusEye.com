@@ -205,10 +205,11 @@ function renderHomeHotels(){
     }
     let price = '';
     const tiers = h.pricing_tiers?.rules || [];
+    const perNightLabel = hotelsT('hotels.card.perNight', '/ noc');
     if(tiers.length){
       const for2 = tiers.find(r=>Number(r.persons)===2 && r.price_per_night!=null);
       const p = for2? Number(for2.price_per_night): Math.min(...tiers.map(r=>Number(r.price_per_night||Infinity)));
-      if(isFinite(p)) price = `${p.toFixed(2)} € / noc`;
+      if(isFinite(p)) price = `${p.toFixed(2)} € ${perNightLabel}`;
     }
     return `
       <a href="#" onclick="openHotelModalHome(${index}); return false;" class="hotel-home-card" style="position:relative;height:200px;border-radius:12px;overflow:hidden;cursor:pointer;transition:transform .3s,box-shadow .3s;box-shadow:0 4px 6px rgba(0,0,0,.1);text-decoration:none;display:block;"
@@ -387,17 +388,34 @@ document.addEventListener('DOMContentLoaded', ()=>{
   if (lbNext) lbNext.addEventListener('click', ()=> showHotelLightbox(lbIndex+1));
   if (lb) lb.addEventListener('click', (e)=>{ if (e.target === lb) closeHotelLightbox(); });
   
-  // Register language change handler
+  // Register language change handler (legacy method)
   if (typeof window.registerLanguageChangeHandler === 'function') {
     window.registerLanguageChangeHandler((language) => {
       console.log('🏨 Hotels: Re-rendering for language:', language);
       if (homeHotelsData && homeHotelsData.length > 0) {
-        renderHomeHotelsTabs(); // Re-render tabs with new language
+        renderHomeHotelsTabs();
         renderHomeHotels();
         console.log('✅ Hotels re-rendered');
       }
     });
   }
+  
+  // Direct event listeners (backup - more reliable)
+  window.addEventListener('languageChanged', (e) => {
+    console.log('🏨 Hotels: languageChanged event, re-rendering for:', e.detail?.language);
+    if (homeHotelsData && homeHotelsData.length > 0) {
+      renderHomeHotelsTabs();
+      renderHomeHotels();
+    }
+  });
+  
+  document.addEventListener('wakacjecypr:languagechange', (e) => {
+    console.log('🏨 Hotels: wakacjecypr:languagechange event, re-rendering for:', e.detail?.language);
+    if (homeHotelsData && homeHotelsData.length > 0) {
+      renderHomeHotelsTabs();
+      renderHomeHotels();
+    }
+  });
 });
 
 // ----- Modal helpers (1:1 with /hotels) -----
