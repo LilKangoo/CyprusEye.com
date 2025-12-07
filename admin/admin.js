@@ -11486,16 +11486,10 @@ async function loadXpHistory(append = false) {
   const filter = document.getElementById('xpHistoryFilter')?.value || 'all';
   
   try {
+    // First, get XP events (without join)
     let query = client
       .from('user_xp_events')
-      .select(`
-        id,
-        user_id,
-        xp_delta,
-        reason,
-        created_at,
-        profiles:user_id (name, email)
-      `)
+      .select('id, user_id, xp_delta, reason, created_at')
       .order('created_at', { ascending: false })
       .range(
         xpControlState.historyPage * xpControlState.historyLimit,
@@ -11504,9 +11498,9 @@ async function loadXpHistory(append = false) {
     
     // Apply filter
     if (filter === 'poi') {
-      query = query.ilike('reason', 'poi:%');
+      query = query.ilike('reason', '%poi%');
     } else if (filter === 'task') {
-      query = query.ilike('reason', 'task:%');
+      query = query.ilike('reason', '%task%');
     } else if (filter === 'admin') {
       query = query.ilike('reason', '%admin%');
     }
@@ -11515,10 +11509,32 @@ async function loadXpHistory(append = false) {
     
     if (error) throw error;
     
+    // Get unique user IDs
+    const userIds = [...new Set((events || []).map(e => e.user_id).filter(Boolean))];
+    
+    // Fetch profiles for those users
+    let profilesMap = {};
+    if (userIds.length > 0) {
+      const { data: profiles } = await client
+        .from('profiles')
+        .select('id, name, email')
+        .in('id', userIds);
+      
+      if (profiles) {
+        profiles.forEach(p => { profilesMap[p.id] = p; });
+      }
+    }
+    
+    // Merge profile data into events
+    const eventsWithProfiles = (events || []).map(event => ({
+      ...event,
+      profiles: profilesMap[event.user_id] || null
+    }));
+    
     if (!append) {
-      xpControlState.historyData = events || [];
+      xpControlState.historyData = eventsWithProfiles;
     } else {
-      xpControlState.historyData = [...xpControlState.historyData, ...(events || [])];
+      xpControlState.historyData = [...xpControlState.historyData, ...eventsWithProfiles];
     }
     
     renderXpHistory();
