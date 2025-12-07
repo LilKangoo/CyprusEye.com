@@ -223,6 +223,13 @@
           <span>Diagnostics</span>
         </button>
         
+        <button class="admin-nav-item" data-view="xp-control">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+          <span>XP Control</span>
+        </button>
+        
         <button class="admin-nav-item" data-view="settings">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="3"/>
@@ -2065,6 +2072,244 @@
               </tr>
             </tbody>
           </table>
+        </div>
+      </section>
+
+      <!-- XP Control View -->
+      <section class="admin-view" id="viewXp-control" hidden>
+        <header class="admin-view-header">
+          <h2>XP Control</h2>
+          <p class="admin-view-subtitle">Manage experience points system, level progression, and rewards</p>
+        </header>
+
+        <!-- XP Statistics Cards -->
+        <div class="admin-stats-grid" id="xpStatsGrid">
+          <div class="admin-stat-card">
+            <div class="stat-card-icon stat-card-icon-purple">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+              </svg>
+            </div>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total XP Awarded</p>
+              <p class="stat-card-value" id="statTotalXp">-</p>
+            </div>
+          </div>
+
+          <div class="admin-stat-card">
+            <div class="stat-card-icon stat-card-icon-blue">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+              </svg>
+            </div>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Users with XP</p>
+              <p class="stat-card-value" id="statUsersWithXp">-</p>
+            </div>
+          </div>
+
+          <div class="admin-stat-card">
+            <div class="stat-card-icon stat-card-icon-green">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 20V10"/>
+                <path d="M18 20V4"/>
+                <path d="M6 20v-4"/>
+              </svg>
+            </div>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Average XP</p>
+              <p class="stat-card-value" id="statAvgXp">-</p>
+            </div>
+          </div>
+
+          <div class="admin-stat-card">
+            <div class="stat-card-icon stat-card-icon-orange">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M8.21 13.89 7 23l5-3 5 3-1.21-9.12"/>
+                <circle cx="12" cy="8" r="7"/>
+              </svg>
+            </div>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Highest Level</p>
+              <p class="stat-card-value" id="statMaxLevel">-</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- XP Control Tabs -->
+        <div class="admin-tabs" style="margin-top: 24px;">
+          <button class="admin-tab active" data-xp-tab="rewards">⭐ XP Rewards</button>
+          <button class="admin-tab" data-xp-tab="config">⚙️ Configuration</button>
+          <button class="admin-tab" data-xp-tab="users">👥 User XP</button>
+          <button class="admin-tab" data-xp-tab="history">📜 History</button>
+        </div>
+
+        <!-- Tab: XP Rewards (xp_rules) -->
+        <div class="admin-tab-content active" id="xpTabRewards">
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <h3>XP Reward Rules</h3>
+              <button class="btn-primary" id="btnAddXpRule">+ Add Rule</button>
+            </div>
+            <div class="admin-card-body">
+              <p style="color: var(--admin-text-muted); margin-bottom: 16px;">
+                Define how much XP users earn for different actions.
+              </p>
+              <table class="admin-table" id="xpRulesTable">
+                <thead>
+                  <tr>
+                    <th>Event Key</th>
+                    <th>XP Amount</th>
+                    <th>Category</th>
+                    <th>Description</th>
+                    <th>Active</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="xpRulesTableBody">
+                  <tr>
+                    <td colspan="6" style="text-align: center; padding: 24px;">Loading...</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Configuration -->
+        <div class="admin-tab-content" id="xpTabConfig" hidden>
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header">
+              <h3>Level Progression Settings</h3>
+            </div>
+            <div class="admin-card-body">
+              <p style="color: var(--admin-text-muted); margin-bottom: 16px;">
+                Configure how levels are calculated from XP. Current formula: <strong>Level = XP ÷ 1000</strong>
+              </p>
+              
+              <div class="admin-form-grid" style="max-width: 600px;">
+                <label class="admin-form-field">
+                  <span>Level Formula Type</span>
+                  <select id="xpFormulaType" class="form-control">
+                    <option value="simple" selected>Simple (XP ÷ divisor)</option>
+                    <option value="linear">Linear (base + level × increment)</option>
+                    <option value="exponential">Exponential (base × multiplier^level)</option>
+                  </select>
+                </label>
+                
+                <label class="admin-form-field">
+                  <span>Divisor (for Simple formula)</span>
+                  <input type="number" id="xpDivisor" class="form-control" value="1000" min="100" step="100">
+                </label>
+                
+                <label class="admin-form-field">
+                  <span>Maximum Level</span>
+                  <input type="number" id="xpMaxLevel" class="form-control" value="100" min="1" max="1000">
+                </label>
+                
+                <label class="admin-form-field">
+                  <span>Global XP Multiplier</span>
+                  <input type="number" id="xpMultiplier" class="form-control" value="1.0" min="0.1" max="10" step="0.1">
+                  <small style="color: var(--admin-text-muted);">Use for double XP events (2.0 = 2x XP)</small>
+                </label>
+              </div>
+              
+              <div style="margin-top: 24px;">
+                <button class="btn-primary" id="btnSaveXpConfig">💾 Save Configuration</button>
+              </div>
+              
+              <!-- Level Preview Table -->
+              <div style="margin-top: 32px;">
+                <h4 style="margin-bottom: 12px;">Level Preview (first 20 levels)</h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px;" id="levelPreviewGrid">
+                  <!-- Generated dynamically -->
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: User XP -->
+        <div class="admin-tab-content" id="xpTabUsers" hidden>
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header">
+              <h3>User XP Management</h3>
+            </div>
+            <div class="admin-card-body">
+              <p style="color: var(--admin-text-muted); margin-bottom: 16px;">
+                Search and modify user XP directly.
+              </p>
+              
+              <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                <input type="text" id="xpUserSearch" class="form-control" placeholder="Search by email or name..." style="flex: 1; max-width: 400px;">
+                <button class="btn-secondary" id="btnSearchXpUser">🔍 Search</button>
+              </div>
+              
+              <table class="admin-table" id="xpUsersTable">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Email</th>
+                    <th>XP</th>
+                    <th>Level</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="xpUsersTableBody">
+                  <tr>
+                    <td colspan="5" style="text-align: center; padding: 24px; color: var(--admin-text-muted);">
+                      Enter a search term to find users
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: History -->
+        <div class="admin-tab-content" id="xpTabHistory" hidden>
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header">
+              <h3>XP Transaction History</h3>
+            </div>
+            <div class="admin-card-body">
+              <p style="color: var(--admin-text-muted); margin-bottom: 16px;">
+                Recent XP awards and adjustments from <strong>user_xp_events</strong> table.
+              </p>
+              
+              <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                <select id="xpHistoryFilter" class="form-control" style="width: 200px;">
+                  <option value="all">All Events</option>
+                  <option value="poi">POI Visits</option>
+                  <option value="task">Tasks</option>
+                  <option value="admin">Admin Adjustments</option>
+                </select>
+                <button class="btn-secondary" id="btnRefreshXpHistory">🔄 Refresh</button>
+              </div>
+              
+              <table class="admin-table" id="xpHistoryTable">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>User</th>
+                    <th>XP</th>
+                    <th>Reason</th>
+                  </tr>
+                </thead>
+                <tbody id="xpHistoryTableBody">
+                  <tr>
+                    <td colspan="4" style="text-align: center; padding: 24px;">Loading...</td>
+                  </tr>
+                </tbody>
+              </table>
+              
+              <div style="margin-top: 16px; text-align: center;">
+                <button class="btn-secondary" id="btnLoadMoreXpHistory">Load More</button>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

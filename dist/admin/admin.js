@@ -3057,6 +3057,9 @@ function switchView(viewName) {
     case 'diagnostics':
       loadDiagnosticsData();
       break;
+    case 'xp-control':
+      loadXpControlData();
+      break;
   }
 }
 
@@ -10819,3 +10822,749 @@ window.loadReferralSettings = loadReferralSettings;
 window.loadReferralsData = loadReferralsData;
 window.loadReferralStats = loadReferralStats;
 window.loadReferralTree = loadReferralTree;
+
+// =====================================================
+// XP CONTROL MODULE
+// =====================================================
+
+let xpControlState = {
+  rules: [],
+  config: {},
+  historyPage: 0,
+  historyLimit: 50,
+  historyData: [],
+};
+
+// Load all XP Control data
+async function loadXpControlData() {
+  console.log('📊 Loading XP Control data...');
+  
+  try {
+    // Load in parallel
+    await Promise.all([
+      loadXpStatistics(),
+      loadXpRules(),
+      loadXpConfig(),
+    ]);
+    
+    // Setup tab switching
+    setupXpTabs();
+    
+    // Setup event listeners
+    setupXpEventListeners();
+    
+    console.log('✅ XP Control data loaded');
+  } catch (error) {
+    console.error('❌ Failed to load XP Control data:', error);
+    showToast('Failed to load XP Control data', 'error');
+  }
+}
+
+// Load XP statistics
+async function loadXpStatistics() {
+  const client = ensureSupabase();
+  if (!client) return;
+  
+  try {
+    // Get basic stats from profiles
+    const { data: profiles, error } = await client
+      .from('profiles')
+      .select('xp, level')
+      .gt('xp', 0);
+    
+    if (error) throw error;
+    
+    const totalXp = profiles?.reduce((sum, p) => sum + (p.xp || 0), 0) || 0;
+    const usersWithXp = profiles?.length || 0;
+    const avgXp = usersWithXp > 0 ? Math.round(totalXp / usersWithXp) : 0;
+    const maxLevel = profiles?.reduce((max, p) => Math.max(max, p.level || 0), 0) || 0;
+    
+    // Update UI
+    const statTotalXp = document.getElementById('statTotalXp');
+    const statUsersWithXp = document.getElementById('statUsersWithXp');
+    const statAvgXp = document.getElementById('statAvgXp');
+    const statMaxLevel = document.getElementById('statMaxLevel');
+    
+    if (statTotalXp) statTotalXp.textContent = totalXp.toLocaleString();
+    if (statUsersWithXp) statUsersWithXp.textContent = usersWithXp.toLocaleString();
+    if (statAvgXp) statAvgXp.textContent = avgXp.toLocaleString();
+    if (statMaxLevel) statMaxLevel.textContent = maxLevel;
+    
+  } catch (error) {
+    console.error('Failed to load XP statistics:', error);
+  }
+}
+
+// Load XP rules from xp_rules table
+async function loadXpRules() {
+  const client = ensureSupabase();
+  if (!client) return;
+  
+  try {
+    const { data: rules, error } = await client
+      .from('xp_rules')
+      .select('*')
+      .order('event_key');
+    
+    if (error) throw error;
+    
+    xpControlState.rules = rules || [];
+    renderXpRulesTable();
+    
+  } catch (error) {
+    console.error('Failed to load XP rules:', error);
+    const tbody = document.getElementById('xpRulesTableBody');
+    if (tbody) {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #ef4444;">Failed to load rules: ${error.message}</td></tr>`;
+    }
+  }
+}
+
+// Render XP rules table
+function renderXpRulesTable() {
+  const tbody = document.getElementById('xpRulesTableBody');
+  if (!tbody) return;
+  
+  if (!xpControlState.rules.length) {
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; padding: 24px; color: var(--admin-text-muted);">No XP rules found. Add your first rule!</td></tr>`;
+    return;
+  }
+  
+  tbody.innerHTML = xpControlState.rules.map(rule => `
+    <tr data-event-key="${rule.event_key}">
+      <td><code style="background: var(--admin-bg-tertiary); padding: 2px 6px; border-radius: 4px;">${escapeHtml(rule.event_key)}</code></td>
+      <td><strong style="color: var(--admin-accent);">+${rule.xp_delta}</strong> XP</td>
+      <td><span class="badge badge-${getCategoryColor(rule.category)}">${escapeHtml(rule.category || 'general')}</span></td>
+      <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(rule.description || '-')}</td>
+      <td>${rule.is_active !== false ? '<span style="color: #22c55e;">✓ Active</span>' : '<span style="color: #6b7280;">Inactive</span>'}</td>
+      <td>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn-small btn-secondary" onclick="editXpRule('${escapeHtml(rule.event_key)}')">Edit</button>
+          <button class="btn-small btn-danger" onclick="deleteXpRule('${escapeHtml(rule.event_key)}')">Delete</button>
+        </div>
+      </td>
+    </tr>
+  `).join('');
+}
+
+function getCategoryColor(category) {
+  const colors = {
+    'poi': 'blue',
+    'task': 'green',
+    'social': 'purple',
+    'daily': 'orange',
+    'general': 'gray'
+  };
+  return colors[category] || 'gray';
+}
+
+// Load XP config
+async function loadXpConfig() {
+  const client = ensureSupabase();
+  if (!client) return;
+  
+  try {
+    const { data: config, error } = await client
+      .from('xp_config')
+      .select('*');
+    
+    if (error) {
+      // Table might not exist yet - that's OK
+      console.warn('xp_config table not found or empty. Run XP_CONTROL_SETUP.sql first.');
+      return;
+    }
+    
+    // Convert to object
+    xpControlState.config = {};
+    config?.forEach(item => {
+      xpControlState.config[item.key] = item.value;
+    });
+    
+    // Update form fields
+    updateXpConfigForm();
+    updateLevelPreview();
+    
+  } catch (error) {
+    console.error('Failed to load XP config:', error);
+  }
+}
+
+// Update config form with loaded values
+function updateXpConfigForm() {
+  const formula = xpControlState.config.level_formula;
+  const maxLevel = xpControlState.config.max_level;
+  const multiplier = xpControlState.config.xp_multiplier;
+  
+  if (formula) {
+    const formulaType = document.getElementById('xpFormulaType');
+    const divisor = document.getElementById('xpDivisor');
+    if (formulaType && formula.type) formulaType.value = formula.type;
+    if (divisor && formula.divisor) divisor.value = formula.divisor;
+  }
+  
+  if (maxLevel) {
+    const maxLevelInput = document.getElementById('xpMaxLevel');
+    if (maxLevelInput) maxLevelInput.value = maxLevel;
+  }
+  
+  if (multiplier) {
+    const multiplierInput = document.getElementById('xpMultiplier');
+    if (multiplierInput) multiplierInput.value = multiplier;
+  }
+}
+
+// Update level preview grid
+function updateLevelPreview() {
+  const grid = document.getElementById('levelPreviewGrid');
+  if (!grid) return;
+  
+  const divisor = parseInt(document.getElementById('xpDivisor')?.value) || 1000;
+  
+  let html = '';
+  for (let level = 0; level <= 20; level++) {
+    const xpNeeded = level * divisor;
+    html += `
+      <div style="background: var(--admin-bg-tertiary); padding: 8px 12px; border-radius: 6px; text-align: center;">
+        <div style="font-weight: 600; color: var(--admin-accent);">Level ${level}</div>
+        <div style="font-size: 12px; color: var(--admin-text-muted);">${xpNeeded.toLocaleString()} XP</div>
+      </div>
+    `;
+  }
+  grid.innerHTML = html;
+}
+
+// Setup XP tabs
+function setupXpTabs() {
+  const tabs = document.querySelectorAll('[data-xp-tab]');
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      // Update active tab
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      
+      // Show corresponding content
+      const tabName = tab.dataset.xpTab;
+      document.querySelectorAll('.admin-tab-content').forEach(content => {
+        if (content.id === `xpTab${tabName.charAt(0).toUpperCase()}${tabName.slice(1)}`) {
+          content.classList.add('active');
+          content.hidden = false;
+        } else if (content.id.startsWith('xpTab')) {
+          content.classList.remove('active');
+          content.hidden = true;
+        }
+      });
+      
+      // Load tab-specific data
+      if (tabName === 'history') {
+        loadXpHistory();
+      } else if (tabName === 'config') {
+        updateLevelPreview();
+      }
+    });
+  });
+}
+
+// Setup event listeners
+function setupXpEventListeners() {
+  // Add rule button
+  const btnAddRule = document.getElementById('btnAddXpRule');
+  if (btnAddRule) {
+    btnAddRule.addEventListener('click', () => showXpRuleModal());
+  }
+  
+  // Save config button
+  const btnSaveConfig = document.getElementById('btnSaveXpConfig');
+  if (btnSaveConfig) {
+    btnSaveConfig.addEventListener('click', saveXpConfig);
+  }
+  
+  // Formula type change - update preview
+  const formulaType = document.getElementById('xpFormulaType');
+  if (formulaType) {
+    formulaType.addEventListener('change', updateLevelPreview);
+  }
+  
+  // Divisor change - update preview
+  const divisor = document.getElementById('xpDivisor');
+  if (divisor) {
+    divisor.addEventListener('input', updateLevelPreview);
+  }
+  
+  // User search
+  const btnSearchUser = document.getElementById('btnSearchXpUser');
+  const searchInput = document.getElementById('xpUserSearch');
+  if (btnSearchUser) {
+    btnSearchUser.addEventListener('click', searchXpUsers);
+  }
+  if (searchInput) {
+    searchInput.addEventListener('keypress', (e) => {
+      if (e.key === 'Enter') searchXpUsers();
+    });
+  }
+  
+  // History refresh
+  const btnRefreshHistory = document.getElementById('btnRefreshXpHistory');
+  if (btnRefreshHistory) {
+    btnRefreshHistory.addEventListener('click', () => {
+      xpControlState.historyPage = 0;
+      loadXpHistory();
+    });
+  }
+  
+  // Load more history
+  const btnLoadMore = document.getElementById('btnLoadMoreXpHistory');
+  if (btnLoadMore) {
+    btnLoadMore.addEventListener('click', () => {
+      xpControlState.historyPage++;
+      loadXpHistory(true);
+    });
+  }
+  
+  // History filter
+  const historyFilter = document.getElementById('xpHistoryFilter');
+  if (historyFilter) {
+    historyFilter.addEventListener('change', () => {
+      xpControlState.historyPage = 0;
+      loadXpHistory();
+    });
+  }
+}
+
+// Show XP rule modal (add/edit)
+function showXpRuleModal(eventKey = null) {
+  const rule = eventKey ? xpControlState.rules.find(r => r.event_key === eventKey) : null;
+  const isEdit = !!rule;
+  
+  const modal = document.createElement('div');
+  modal.className = 'admin-modal';
+  modal.id = 'xpRuleModal';
+  modal.innerHTML = `
+    <div class="admin-modal-overlay" onclick="closeXpRuleModal()"></div>
+    <div class="admin-modal-content" style="max-width: 500px;">
+      <header class="admin-modal-header">
+        <h3>${isEdit ? 'Edit XP Rule' : 'Add XP Rule'}</h3>
+        <button class="btn-modal-close" onclick="closeXpRuleModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body">
+        <form id="xpRuleForm">
+          <label class="admin-form-field">
+            <span>Event Key *</span>
+            <input type="text" id="ruleEventKey" class="form-control" value="${escapeHtml(rule?.event_key || '')}" ${isEdit ? 'readonly' : ''} placeholder="e.g. complete_quest, upload_photo" required>
+            <small style="color: var(--admin-text-muted);">Unique identifier for this action</small>
+          </label>
+          
+          <label class="admin-form-field">
+            <span>XP Amount *</span>
+            <input type="number" id="ruleXpDelta" class="form-control" value="${rule?.xp_delta || 10}" min="1" max="10000" required>
+          </label>
+          
+          <label class="admin-form-field">
+            <span>Category</span>
+            <select id="ruleCategory" class="form-control">
+              <option value="general" ${rule?.category === 'general' ? 'selected' : ''}>General</option>
+              <option value="poi" ${rule?.category === 'poi' ? 'selected' : ''}>POI</option>
+              <option value="task" ${rule?.category === 'task' ? 'selected' : ''}>Task</option>
+              <option value="social" ${rule?.category === 'social' ? 'selected' : ''}>Social</option>
+              <option value="daily" ${rule?.category === 'daily' ? 'selected' : ''}>Daily</option>
+            </select>
+          </label>
+          
+          <label class="admin-form-field">
+            <span>Description</span>
+            <input type="text" id="ruleDescription" class="form-control" value="${escapeHtml(rule?.description || '')}" placeholder="Brief description of this reward">
+          </label>
+          
+          <label class="admin-form-field" style="flex-direction: row; align-items: center; gap: 8px;">
+            <input type="checkbox" id="ruleIsActive" ${rule?.is_active !== false ? 'checked' : ''}>
+            <span>Active</span>
+          </label>
+          
+          <div style="display: flex; gap: 12px; margin-top: 24px;">
+            <button type="submit" class="btn-primary">${isEdit ? 'Save Changes' : 'Add Rule'}</button>
+            <button type="button" class="btn-secondary" onclick="closeXpRuleModal()">Cancel</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  modal.hidden = false;
+  
+  // Form submit handler
+  document.getElementById('xpRuleForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await saveXpRule();
+  });
+}
+
+// Close XP rule modal
+function closeXpRuleModal() {
+  const modal = document.getElementById('xpRuleModal');
+  if (modal) modal.remove();
+}
+window.closeXpRuleModal = closeXpRuleModal;
+
+// Save XP rule
+async function saveXpRule() {
+  const client = ensureSupabase();
+  if (!client) return;
+  
+  const eventKey = document.getElementById('ruleEventKey').value.trim();
+  const xpDelta = parseInt(document.getElementById('ruleXpDelta').value);
+  const category = document.getElementById('ruleCategory').value;
+  const description = document.getElementById('ruleDescription').value.trim();
+  const isActive = document.getElementById('ruleIsActive').checked;
+  
+  if (!eventKey || !xpDelta) {
+    showToast('Please fill in required fields', 'error');
+    return;
+  }
+  
+  try {
+    // Try to use admin function first
+    const { data, error } = await client.rpc('admin_update_xp_rule', {
+      p_event_key: eventKey,
+      p_xp_delta: xpDelta,
+      p_description: description || null,
+      p_category: category,
+      p_is_active: isActive
+    });
+    
+    if (error) {
+      // Fallback to direct upsert
+      const { error: upsertError } = await client
+        .from('xp_rules')
+        .upsert({
+          event_key: eventKey,
+          xp_delta: xpDelta,
+          description: description || null,
+          category: category,
+          is_active: isActive,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'event_key' });
+      
+      if (upsertError) throw upsertError;
+    }
+    
+    showToast('XP rule saved successfully', 'success');
+    closeXpRuleModal();
+    await loadXpRules();
+    
+  } catch (error) {
+    console.error('Failed to save XP rule:', error);
+    showToast(`Failed to save rule: ${error.message}`, 'error');
+  }
+}
+
+// Edit XP rule
+function editXpRule(eventKey) {
+  showXpRuleModal(eventKey);
+}
+window.editXpRule = editXpRule;
+
+// Delete XP rule
+async function deleteXpRule(eventKey) {
+  if (!confirm(`Delete XP rule "${eventKey}"? This cannot be undone.`)) return;
+  
+  const client = ensureSupabase();
+  if (!client) return;
+  
+  try {
+    const { error } = await client
+      .from('xp_rules')
+      .delete()
+      .eq('event_key', eventKey);
+    
+    if (error) throw error;
+    
+    showToast('XP rule deleted', 'success');
+    await loadXpRules();
+    
+  } catch (error) {
+    console.error('Failed to delete XP rule:', error);
+    showToast(`Failed to delete rule: ${error.message}`, 'error');
+  }
+}
+window.deleteXpRule = deleteXpRule;
+
+// Save XP config
+async function saveXpConfig() {
+  const client = ensureSupabase();
+  if (!client) return;
+  
+  const formulaType = document.getElementById('xpFormulaType').value;
+  const divisor = parseInt(document.getElementById('xpDivisor').value);
+  const maxLevel = parseInt(document.getElementById('xpMaxLevel').value);
+  const multiplier = parseFloat(document.getElementById('xpMultiplier').value);
+  
+  try {
+    // Save each config value
+    const configs = [
+      { key: 'level_formula', value: { type: formulaType, divisor: divisor } },
+      { key: 'max_level', value: maxLevel },
+      { key: 'xp_multiplier', value: multiplier }
+    ];
+    
+    for (const config of configs) {
+      const { error } = await client
+        .from('xp_config')
+        .upsert({
+          key: config.key,
+          value: config.value,
+          updated_at: new Date().toISOString()
+        }, { onConflict: 'key' });
+      
+      if (error) throw error;
+    }
+    
+    showToast('XP configuration saved', 'success');
+    await loadXpConfig();
+    
+  } catch (error) {
+    console.error('Failed to save XP config:', error);
+    showToast(`Failed to save config: ${error.message}. Make sure to run XP_CONTROL_SETUP.sql first.`, 'error');
+  }
+}
+
+// Search users for XP management
+async function searchXpUsers() {
+  const client = ensureSupabase();
+  if (!client) return;
+  
+  const searchTerm = document.getElementById('xpUserSearch').value.trim();
+  if (!searchTerm) {
+    showToast('Enter a search term', 'warning');
+    return;
+  }
+  
+  const tbody = document.getElementById('xpUsersTableBody');
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align: center;">Searching...</td></tr>';
+  
+  try {
+    const { data: users, error } = await client
+      .from('profiles')
+      .select('id, name, email, xp, level')
+      .or(`email.ilike.%${searchTerm}%,name.ilike.%${searchTerm}%`)
+      .limit(50);
+    
+    if (error) throw error;
+    
+    if (!users?.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--admin-text-muted);">No users found</td></tr>';
+      return;
+    }
+    
+    tbody.innerHTML = users.map(user => `
+      <tr>
+        <td>${escapeHtml(user.name || 'Unknown')}</td>
+        <td>${escapeHtml(user.email || '-')}</td>
+        <td><strong>${user.xp || 0}</strong></td>
+        <td>${user.level || 0}</td>
+        <td>
+          <div style="display: flex; gap: 8px;">
+            <button class="btn-small btn-primary" onclick="showAdjustXpModal('${user.id}', '${escapeHtml(user.name || user.email)}', ${user.xp || 0})">Adjust XP</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+    
+  } catch (error) {
+    console.error('Failed to search users:', error);
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #ef4444;">Error: ${error.message}</td></tr>`;
+  }
+}
+
+// Show adjust XP modal
+function showAdjustXpModal(userId, userName, currentXp) {
+  const modal = document.createElement('div');
+  modal.className = 'admin-modal';
+  modal.id = 'adjustXpModal';
+  modal.innerHTML = `
+    <div class="admin-modal-overlay" onclick="closeAdjustXpModal()"></div>
+    <div class="admin-modal-content" style="max-width: 400px;">
+      <header class="admin-modal-header">
+        <h3>Adjust XP for ${escapeHtml(userName)}</h3>
+        <button class="btn-modal-close" onclick="closeAdjustXpModal()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body">
+        <p style="margin-bottom: 16px;">Current XP: <strong>${currentXp}</strong></p>
+        
+        <label class="admin-form-field">
+          <span>XP Change</span>
+          <input type="number" id="adjustXpAmount" class="form-control" placeholder="+100 or -50" required>
+          <small style="color: var(--admin-text-muted);">Use positive number to add, negative to subtract</small>
+        </label>
+        
+        <label class="admin-form-field">
+          <span>Reason</span>
+          <input type="text" id="adjustXpReason" class="form-control" placeholder="e.g. Bug fix, bonus reward" required>
+        </label>
+        
+        <div style="display: flex; gap: 12px; margin-top: 24px;">
+          <button class="btn-primary" onclick="confirmAdjustXp('${userId}')">Apply Change</button>
+          <button class="btn-secondary" onclick="closeAdjustXpModal()">Cancel</button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  document.body.appendChild(modal);
+  modal.hidden = false;
+}
+window.showAdjustXpModal = showAdjustXpModal;
+
+// Close adjust XP modal
+function closeAdjustXpModal() {
+  const modal = document.getElementById('adjustXpModal');
+  if (modal) modal.remove();
+}
+window.closeAdjustXpModal = closeAdjustXpModal;
+
+// Confirm XP adjustment
+async function confirmAdjustXp(userId) {
+  const client = ensureSupabase();
+  if (!client) return;
+  
+  const amount = parseInt(document.getElementById('adjustXpAmount').value);
+  const reason = document.getElementById('adjustXpReason').value.trim();
+  
+  if (!amount || !reason) {
+    showToast('Please fill in all fields', 'error');
+    return;
+  }
+  
+  try {
+    // Use admin_adjust_user_xp function
+    const { data, error } = await client.rpc('admin_adjust_user_xp', {
+      target_user_id: userId,
+      xp_change: amount,
+      reason: reason
+    });
+    
+    if (error) {
+      // Try alternative function signature
+      const { error: altError } = await client.rpc('admin_adjust_user_xp', {
+        target_user_id: userId,
+        delta: amount
+      });
+      
+      if (altError) throw altError;
+    }
+    
+    showToast(`XP adjusted by ${amount > 0 ? '+' : ''}${amount}`, 'success');
+    closeAdjustXpModal();
+    searchXpUsers(); // Refresh search results
+    
+  } catch (error) {
+    console.error('Failed to adjust XP:', error);
+    showToast(`Failed to adjust XP: ${error.message}`, 'error');
+  }
+}
+window.confirmAdjustXp = confirmAdjustXp;
+
+// Load XP history
+async function loadXpHistory(append = false) {
+  const client = ensureSupabase();
+  if (!client) return;
+  
+  const tbody = document.getElementById('xpHistoryTableBody');
+  if (!append) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center;">Loading...</td></tr>';
+  }
+  
+  const filter = document.getElementById('xpHistoryFilter')?.value || 'all';
+  
+  try {
+    let query = client
+      .from('user_xp_events')
+      .select(`
+        id,
+        user_id,
+        xp_delta,
+        reason,
+        created_at,
+        profiles:user_id (name, email)
+      `)
+      .order('created_at', { ascending: false })
+      .range(
+        xpControlState.historyPage * xpControlState.historyLimit,
+        (xpControlState.historyPage + 1) * xpControlState.historyLimit - 1
+      );
+    
+    // Apply filter
+    if (filter === 'poi') {
+      query = query.ilike('reason', 'poi:%');
+    } else if (filter === 'task') {
+      query = query.ilike('reason', 'task:%');
+    } else if (filter === 'admin') {
+      query = query.ilike('reason', '%admin%');
+    }
+    
+    const { data: events, error } = await query;
+    
+    if (error) throw error;
+    
+    if (!append) {
+      xpControlState.historyData = events || [];
+    } else {
+      xpControlState.historyData = [...xpControlState.historyData, ...(events || [])];
+    }
+    
+    renderXpHistory();
+    
+  } catch (error) {
+    console.error('Failed to load XP history:', error);
+    tbody.innerHTML = `<tr><td colspan="4" style="text-align: center; color: #ef4444;">Error: ${error.message}</td></tr>`;
+  }
+}
+
+// Render XP history
+function renderXpHistory() {
+  const tbody = document.getElementById('xpHistoryTableBody');
+  if (!tbody) return;
+  
+  if (!xpControlState.historyData.length) {
+    tbody.innerHTML = '<tr><td colspan="4" style="text-align: center; color: var(--admin-text-muted);">No XP events found</td></tr>';
+    return;
+  }
+  
+  tbody.innerHTML = xpControlState.historyData.map(event => {
+    const date = new Date(event.created_at).toLocaleString();
+    const userName = event.profiles?.name || event.profiles?.email || event.user_id.substring(0, 8);
+    const xpClass = event.xp_delta >= 0 ? 'color: #22c55e;' : 'color: #ef4444;';
+    
+    return `
+      <tr>
+        <td style="white-space: nowrap;">${date}</td>
+        <td>${escapeHtml(userName)}</td>
+        <td style="${xpClass} font-weight: 600;">${event.xp_delta >= 0 ? '+' : ''}${event.xp_delta}</td>
+        <td style="max-width: 300px; overflow: hidden; text-overflow: ellipsis;">${escapeHtml(event.reason || '-')}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+// Helper: escape HTML
+function escapeHtml(str) {
+  if (!str) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+// Export XP Control functions
+window.loadXpControlData = loadXpControlData;
