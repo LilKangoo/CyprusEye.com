@@ -11555,16 +11555,5 @@ function renderXpHistory() {
   }).join('');
 }
 
-// Helper: escape HTML
-function escapeHtml(str) {
-  if (!str) return '';
-  return String(str)
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#039;');
-}
-
 // Export XP Control functions
 window.loadXpControlData = loadXpControlData;
