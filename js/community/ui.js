@@ -97,17 +97,29 @@ async function loadPoisData() {
     
     // Use PLACES_DATA if available (loaded by poi-loader.js from Supabase)
     if (window.PLACES_DATA && Array.isArray(window.PLACES_DATA) && window.PLACES_DATA.length > 0) {
-      // Use full POI objects to preserve i18n fields (name_i18n, description_i18n, badge_i18n)
+      // Map POI exactly like app.js does for consistency
       poisData = window.PLACES_DATA.map(p => ({
-        ...p,  // Keep ALL fields from PLACES_DATA
-        // Ensure lon/lng compatibility
-        lon: p.lng || p.lon,
-        // Add backward compatibility fields
-        name: p.name || p.nameFallback || p.id,
-        description: p.description || p.descriptionFallback || '',
-        badge: p.badge || p.badgeFallback || '',
+        id: p.id,
+        name: p.nameFallback || p.name,
+        nameKey: p.nameKey,
+        nameFallback: p.nameFallback,
+        name_i18n: p.name_i18n,
+        description: p.descriptionFallback || p.description,
+        descriptionKey: p.descriptionKey,
+        descriptionFallback: p.descriptionFallback,
+        description_i18n: p.description_i18n,
+        badge: p.badgeFallback || p.badge,
+        badgeKey: p.badgeKey,
+        badgeFallback: p.badgeFallback,
+        badge_i18n: p.badge_i18n,
+        lat: p.lat,  // Keep as-is from poi-loader (already parsed)
+        lng: p.lng,  // Keep as-is from poi-loader (already parsed)
+        googleMapsUrl: p.googleMapsUrl || p.google_url || `https://maps.google.com/?q=${p.lat},${p.lng}`,
         xp: p.xp || 100,
-        source: p.source || 'supabase'
+        requiredLevel: p.requiredLevel || 1,
+        source: p.source || 'supabase',
+        status: p.status,
+        raw: p.raw
       }));
       console.log(`✅ Loaded ${poisData.length} POIs from PLACES_DATA (${poisData[0]?.source || 'unknown'})`);
       console.log('📍 POI IDs:', poisData.map(p => p.id));
@@ -1561,11 +1573,20 @@ function initPoiMiniMap(poi) {
   
   if (!mapContainer || !poi) return;
   
-  // Check if POI has coordinates
-  const poiLat = poi.lat;
-  const poiLng = poi.lon || poi.lng;
+  // Check if POI has coordinates - use same format as app.js (lat/lng)
+  const poiLat = parseFloat(poi.lat);
+  const poiLng = parseFloat(poi.lng || poi.lon);
   
-  if (!poiLat || !poiLng) {
+  console.log('🗺️ POI coordinates:', {
+    id: poi.id,
+    name: poi.name,
+    lat: poi.lat,
+    lng: poi.lng,
+    lon: poi.lon,
+    parsed: { poiLat, poiLng }
+  });
+  
+  if (!poiLat || !poiLng || isNaN(poiLat) || isNaN(poiLng)) {
     mapContainer.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--color-neutral-500);">Brak danych lokalizacji</div>';
     if (distanceEl) distanceEl.textContent = 'Lokalizacja niedostępna';
     return;
