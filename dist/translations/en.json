@@ -60,6 +60,7 @@
       "error": "Could not get location",
       "you": "Your location",
       "visited": "Visited",
+      "alreadyVisited": "Already visited",
       "loginRequired": "Log in to check in",
       "tooFar": "You're too far from this place. Get closer!",
       "success": "🎉 Checked in! You earned XP.",

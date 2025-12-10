@@ -1720,6 +1720,7 @@
   "community.checkin.error": "Nie można pobrać lokalizacji",
   "community.checkin.you": "Twoja lokalizacja",
   "community.checkin.visited": "Odwiedzone",
+  "community.checkin.alreadyVisited": "Już tu byłeś",
   "community.checkin.loginRequired": "Zaloguj się, aby się zameldować",
   "community.checkin.tooFar": "Jesteś za daleko od miejsca. Podejdź bliżej!",
   "community.checkin.success": "🎉 Zameldowano! Zdobyłeś XP.",

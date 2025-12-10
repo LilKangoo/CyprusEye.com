@@ -1761,6 +1761,8 @@ async function handleModalCheckIn(poi, distance) {
   const statusEl = document.getElementById('modalCheckInStatus');
   const checkInBtn = document.getElementById('modalCheckInBtn');
   
+  console.log('🎯 handleModalCheckIn called:', { poiId: poi?.id, distance, userId: currentUser?.id });
+  
   if (!currentUser) {
     if (statusEl) {
       statusEl.textContent = t('community.checkin.loginRequired', 'Zaloguj się, aby się zameldować');
@@ -1786,31 +1788,54 @@ async function handleModalCheckIn(poi, distance) {
   }
   
   try {
-    // Use existing completeCheckIn from app.js if available
-    if (typeof window.completeCheckIn === 'function') {
-      await window.completeCheckIn(poi);
-    } else {
-      // Fallback: Direct Supabase call
-      const sb = window.getSupabase?.();
-      if (!sb) throw new Error('Supabase not available');
-      
-      // Add to visited POIs
-      const { error } = await sb
-        .from('user_poi_visits')
-        .insert({
-          user_id: currentUser.id,
-          poi_id: poi.id,
-          visited_at: new Date().toISOString()
-        });
-      
-      if (error && error.code !== '23505') { // Ignore duplicate key error
-        throw error;
+    const sb = window.getSupabase?.();
+    if (!sb) throw new Error('Supabase not available');
+    
+    // First check if already visited
+    const { data: existingVisit } = await sb
+      .from('user_poi_visits')
+      .select('id')
+      .eq('user_id', currentUser.id)
+      .eq('poi_id', poi.id)
+      .single();
+    
+    if (existingVisit) {
+      console.log('ℹ️ Already visited:', poi.id);
+      if (statusEl) {
+        statusEl.textContent = t('community.checkin.alreadyVisited', 'Już tu byłeś!');
+        statusEl.className = 'check-in-status info';
       }
-      
-      // Award XP if function available
-      if (typeof window.awardXp === 'function') {
-        window.awardXp(poi.xp || 10);
+      if (checkInBtn) {
+        checkInBtn.classList.add('checked');
+        checkInBtn.disabled = true;
+        checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.alreadyVisited', 'Już tu byłeś') + '</span>';
       }
+      return;
+    }
+    
+    // Insert new visit
+    console.log('📝 Inserting visit record...');
+    const { error } = await sb
+      .from('user_poi_visits')
+      .insert({
+        user_id: currentUser.id,
+        poi_id: poi.id,
+        visited_at: new Date().toISOString()
+      });
+    
+    if (error) {
+      console.error('❌ Supabase error:', error);
+      throw error;
+    }
+    
+    console.log('✅ Visit recorded successfully');
+    
+    // Award XP - try different methods
+    const xpAmount = poi.xp || 100;
+    if (typeof window.awardXp === 'function') {
+      await window.awardXp(xpAmount);
+    } else if (typeof window.addXpToUser === 'function') {
+      await window.addXpToUser(xpAmount, `Check-in: ${poi.name}`);
     }
     
     // Update UI
@@ -1821,7 +1846,8 @@ async function handleModalCheckIn(poi, distance) {
     
     if (checkInBtn) {
       checkInBtn.classList.add('checked');
-      checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.visited', 'Odwiedzone') + '</span>';
+      checkInBtn.disabled = true;
+      checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.alreadyVisited', 'Już tu byłeś') + '</span>';
     }
     
     window.showToast?.(t('community.checkin.success', 'Zameldowano pomyślnie!'), 'success');
@@ -1829,6 +1855,7 @@ async function handleModalCheckIn(poi, distance) {
     
   } catch (error) {
     console.error('❌ Check-in failed:', error);
+    console.error('Error details:', JSON.stringify(error, null, 2));
     
     if (statusEl) {
       statusEl.textContent = t('community.checkin.failed', 'Nie udało się zameldować. Spróbuj ponownie.');
