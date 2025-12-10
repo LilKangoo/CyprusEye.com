@@ -13,6 +13,9 @@ let currentPoiIndex = -1;
 let filteredPoisData = []; // POIs after filtering/sorting
 let currentUser = null;
 let communityMap = null;
+let poiMiniMap = null; // Mini-map in modal
+let userLocationMarker = null;
+let currentUserLocation = null;
 let selectedPhotos = [];
 let isEditMode = false;
 let editingCommentId = null;
@@ -728,6 +731,9 @@ window.openPoiComments = async function(poiId) {
   
   console.log('✅ Modal opened for:', poiName);
 
+  // Initialize mini-map with POI location
+  initPoiMiniMap(poi);
+
   // Load ratings
   await loadAndRenderRating(poiId);
 
@@ -856,6 +862,10 @@ function closeModal() {
   currentPoiId = null;
   currentPoiIndex = -1;
   resetCommentForm();
+  
+  // Cleanup mini-map to prevent memory leaks
+  cleanupPoiMiniMap();
+  
   console.log('✅ Modal closed');
 }
 
@@ -1533,6 +1543,294 @@ function closeLightbox() {
   }
   lightboxPhotos = [];
   currentLightboxIndex = 0;
+}
+
+// ===================================
+// POI MINI-MAP & CHECK-IN
+// ===================================
+
+/**
+ * Initialize mini-map in modal showing POI location and user position
+ */
+function initPoiMiniMap(poi) {
+  const mapContainer = document.getElementById('poiMiniMap');
+  const distanceEl = document.getElementById('poiDistance');
+  const distanceIcon = document.getElementById('poiDistanceIcon');
+  const checkInBtn = document.getElementById('modalCheckInBtn');
+  const statusEl = document.getElementById('modalCheckInStatus');
+  
+  if (!mapContainer || !poi) return;
+  
+  // Check if POI has coordinates
+  const poiLat = poi.lat;
+  const poiLng = poi.lon || poi.lng;
+  
+  if (!poiLat || !poiLng) {
+    mapContainer.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--color-neutral-500);">Brak danych lokalizacji</div>';
+    if (distanceEl) distanceEl.textContent = 'Lokalizacja niedostępna';
+    return;
+  }
+  
+  // Cleanup previous map instance
+  cleanupPoiMiniMap();
+  
+  try {
+    // Create mini-map centered on POI
+    poiMiniMap = L.map('poiMiniMap', {
+      zoomControl: true,
+      scrollWheelZoom: false,
+      dragging: true,
+      tap: false
+    }).setView([poiLat, poiLng], 14);
+    
+    // Add tile layer
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OSM',
+      maxZoom: 18
+    }).addTo(poiMiniMap);
+    
+    // Add POI marker
+    const poiName = window.getPoiName ? window.getPoiName(poi) : poi.name;
+    const poiMarker = L.marker([poiLat, poiLng]).addTo(poiMiniMap);
+    poiMarker.bindPopup(`<strong>${poiName}</strong>`).openPopup();
+    
+    console.log('🗺️ Mini-map initialized for:', poiName);
+    
+    // Get user location
+    getUserLocationForMap(poi, poiLat, poiLng, distanceEl, distanceIcon, checkInBtn, statusEl);
+    
+  } catch (error) {
+    console.error('❌ Error initializing mini-map:', error);
+    mapContainer.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:var(--color-neutral-500);">Nie można załadować mapy</div>';
+  }
+}
+
+/**
+ * Get user's location and update map/distance
+ */
+function getUserLocationForMap(poi, poiLat, poiLng, distanceEl, distanceIcon, checkInBtn, statusEl) {
+  if (!('geolocation' in navigator)) {
+    if (distanceEl) {
+      distanceEl.textContent = t('community.checkin.noGeo', 'Geolokalizacja niedostępna');
+      distanceEl.className = 'poi-distance';
+    }
+    return;
+  }
+  
+  if (distanceEl) {
+    distanceEl.textContent = t('community.checkin.locating', 'Szukam Twojej lokalizacji...');
+  }
+  
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const userLat = position.coords.latitude;
+      const userLng = position.coords.longitude;
+      currentUserLocation = { lat: userLat, lng: userLng };
+      
+      // Calculate distance
+      const distance = haversineDistance(userLat, userLng, poiLat, poiLng);
+      const distanceKm = (distance / 1000).toFixed(2);
+      const isNear = distance <= 500; // 500m radius for check-in
+      
+      // Update distance display
+      if (distanceEl) {
+        if (isNear) {
+          distanceEl.textContent = t('community.checkin.near', `Jesteś ${Math.round(distance)}m od miejsca!`);
+          distanceEl.className = 'poi-distance near';
+          if (distanceIcon) distanceIcon.textContent = '✅';
+        } else {
+          distanceEl.textContent = t('community.checkin.far', `Odległość: ${distanceKm} km`);
+          distanceEl.className = 'poi-distance far';
+          if (distanceIcon) distanceIcon.textContent = '📍';
+        }
+      }
+      
+      // Add user marker to map
+      if (poiMiniMap) {
+        // Create custom user marker
+        const userIcon = L.divIcon({
+          className: 'user-location-marker-container',
+          html: '<div class="user-location-pulse"></div><div class="user-location-marker"></div>',
+          iconSize: [20, 20],
+          iconAnchor: [10, 10]
+        });
+        
+        userLocationMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(poiMiniMap);
+        userLocationMarker.bindPopup(t('community.checkin.you', 'Twoja lokalizacja'));
+        
+        // Fit bounds to show both markers
+        const bounds = L.latLngBounds([
+          [poiLat, poiLng],
+          [userLat, userLng]
+        ]);
+        poiMiniMap.fitBounds(bounds, { padding: [30, 30] });
+      }
+      
+      // Enable/disable check-in button based on distance and auth
+      if (checkInBtn && currentUser) {
+        checkInBtn.disabled = false;
+        checkInBtn.onclick = () => handleModalCheckIn(poi, distance);
+        
+        // Check if already visited
+        if (window.state?.visited?.has(poi.id)) {
+          checkInBtn.disabled = true;
+          checkInBtn.classList.add('checked');
+          checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.visited', 'Odwiedzone') + '</span>';
+        }
+      }
+      
+      console.log(`📍 User location: ${userLat}, ${userLng} - Distance: ${distanceKm}km`);
+    },
+    (error) => {
+      console.warn('Geolocation error:', error);
+      if (distanceEl) {
+        let msg = t('community.checkin.error', 'Nie można pobrać lokalizacji');
+        if (error.code === 1) msg = t('community.checkin.denied', 'Brak zgody na lokalizację');
+        distanceEl.textContent = msg;
+        distanceEl.className = 'poi-distance';
+      }
+    },
+    {
+      enableHighAccuracy: true,
+      timeout: 10000,
+      maximumAge: 60000
+    }
+  );
+}
+
+/**
+ * Calculate distance between two points using Haversine formula
+ */
+function haversineDistance(lat1, lon1, lat2, lon2) {
+  const toRad = (value) => (value * Math.PI) / 180;
+  const R = 6371e3; // Earth radius in meters
+  const φ1 = toRad(lat1);
+  const φ2 = toRad(lat2);
+  const Δφ = toRad(lat2 - lat1);
+  const Δλ = toRad(lon2 - lon1);
+
+  const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
+
+/**
+ * Handle check-in from modal
+ */
+async function handleModalCheckIn(poi, distance) {
+  const statusEl = document.getElementById('modalCheckInStatus');
+  const checkInBtn = document.getElementById('modalCheckInBtn');
+  
+  if (!currentUser) {
+    if (statusEl) {
+      statusEl.textContent = t('community.checkin.loginRequired', 'Zaloguj się, aby się zameldować');
+      statusEl.className = 'check-in-status info';
+    }
+    return;
+  }
+  
+  const radius = 500; // 500m radius
+  
+  if (distance > radius) {
+    if (statusEl) {
+      statusEl.textContent = t('community.checkin.tooFar', 'Jesteś za daleko od miejsca. Podejdź bliżej!');
+      statusEl.className = 'check-in-status error';
+    }
+    return;
+  }
+  
+  // Disable button during check-in
+  if (checkInBtn) {
+    checkInBtn.disabled = true;
+    checkInBtn.innerHTML = '<span class="checkin-icon">⏳</span><span>Melduję...</span>';
+  }
+  
+  try {
+    // Use existing completeCheckIn from app.js if available
+    if (typeof window.completeCheckIn === 'function') {
+      await window.completeCheckIn(poi);
+    } else {
+      // Fallback: Direct Supabase call
+      const sb = window.getSupabase?.();
+      if (!sb) throw new Error('Supabase not available');
+      
+      // Add to visited POIs
+      const { error } = await sb
+        .from('user_poi_visits')
+        .insert({
+          user_id: currentUser.id,
+          poi_id: poi.id,
+          visited_at: new Date().toISOString()
+        });
+      
+      if (error && error.code !== '23505') { // Ignore duplicate key error
+        throw error;
+      }
+      
+      // Award XP if function available
+      if (typeof window.awardXp === 'function') {
+        window.awardXp(poi.xp || 10);
+      }
+    }
+    
+    // Update UI
+    if (statusEl) {
+      statusEl.textContent = t('community.checkin.success', '🎉 Zameldowano! Zdobyłeś XP.');
+      statusEl.className = 'check-in-status success';
+    }
+    
+    if (checkInBtn) {
+      checkInBtn.classList.add('checked');
+      checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.visited', 'Odwiedzone') + '</span>';
+    }
+    
+    window.showToast?.(t('community.checkin.success', 'Zameldowano pomyślnie!'), 'success');
+    console.log('✅ Check-in completed for:', poi.id);
+    
+  } catch (error) {
+    console.error('❌ Check-in failed:', error);
+    
+    if (statusEl) {
+      statusEl.textContent = t('community.checkin.failed', 'Nie udało się zameldować. Spróbuj ponownie.');
+      statusEl.className = 'check-in-status error';
+    }
+    
+    if (checkInBtn) {
+      checkInBtn.disabled = false;
+      checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.button', 'Zamelduj się') + '</span>';
+    }
+  }
+}
+
+/**
+ * Cleanup mini-map to prevent memory leaks
+ */
+function cleanupPoiMiniMap() {
+  if (poiMiniMap) {
+    try {
+      poiMiniMap.remove();
+    } catch (e) {
+      console.warn('Error removing mini-map:', e);
+    }
+    poiMiniMap = null;
+  }
+  userLocationMarker = null;
+  currentUserLocation = null;
+  
+  // Reset status elements
+  const statusEl = document.getElementById('modalCheckInStatus');
+  const distanceEl = document.getElementById('poiDistance');
+  const checkInBtn = document.getElementById('modalCheckInBtn');
+  
+  if (statusEl) statusEl.textContent = '';
+  if (distanceEl) distanceEl.textContent = t('community.checkin.loading', 'Ładowanie lokalizacji...');
+  if (checkInBtn) {
+    checkInBtn.disabled = true;
+    checkInBtn.classList.remove('checked');
+    checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.button', 'Zamelduj się') + '</span>';
+  }
 }
 
 // ===================================

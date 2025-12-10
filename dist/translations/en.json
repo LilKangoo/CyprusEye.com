@@ -49,6 +49,22 @@
       "oneRating": "rating",
       "multipleRatings": "ratings"
     },
+    "checkin": {
+      "button": "Check in",
+      "loading": "Loading location...",
+      "locating": "Finding your location...",
+      "near": "You're close to this place!",
+      "far": "Distance: {{distance}} km",
+      "noGeo": "Geolocation unavailable",
+      "denied": "Location permission denied",
+      "error": "Could not get location",
+      "you": "Your location",
+      "visited": "Visited",
+      "loginRequired": "Log in to check in",
+      "tooFar": "You're too far from this place. Get closer!",
+      "success": "🎉 Checked in! You earned XP.",
+      "failed": "Check-in failed. Please try again."
+    },
     "comments": {
       "loading": "Loading comments...",
       "noComments": "No comments",

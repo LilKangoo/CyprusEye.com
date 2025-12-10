@@ -1636,3 +1636,176 @@ textarea:focus-visible {
     100% { opacity: 0; }
   }
 }
+
+/* ===================================
+   POI MINI MAP & CHECK-IN SECTION
+   =================================== */
+
+.modal-map-section {
+  padding: 0 1.5rem 1rem;
+  border-bottom: 1px solid var(--color-neutral-200);
+}
+
+.poi-mini-map {
+  width: 100%;
+  height: 200px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--color-neutral-100);
+  margin-bottom: 1rem;
+}
+
+.poi-mini-map .leaflet-container {
+  height: 100%;
+  width: 100%;
+  border-radius: 12px;
+}
+
+.poi-location-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.poi-distance-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.distance-icon {
+  font-size: 1.25rem;
+}
+
+.poi-distance {
+  font-size: 0.95rem;
+  color: var(--color-neutral-600);
+}
+
+.poi-distance.near {
+  color: #16a34a;
+  font-weight: 600;
+}
+
+.poi-distance.far {
+  color: var(--color-neutral-500);
+}
+
+.btn-checkin {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1.25rem;
+  background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.25);
+}
+
+.btn-checkin:hover:not(:disabled) {
+  background: linear-gradient(135deg, #15803d 0%, #166534 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);
+}
+
+.btn-checkin:disabled {
+  background: var(--color-neutral-300);
+  color: var(--color-neutral-500);
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.btn-checkin.checked {
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25);
+}
+
+.checkin-icon {
+  font-size: 1.1rem;
+}
+
+.check-in-status {
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  color: var(--color-neutral-600);
+  text-align: center;
+}
+
+.check-in-status.success {
+  color: #16a34a;
+  font-weight: 500;
+}
+
+.check-in-status.error {
+  color: #dc2626;
+}
+
+.check-in-status.info {
+  color: #2563eb;
+}
+
+/* User location marker */
+.user-location-marker {
+  background: #2563eb;
+  border: 3px solid white;
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.5);
+}
+
+.user-location-pulse {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  background: rgba(37, 99, 235, 0.2);
+  border-radius: 50%;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+  0% {
+    transform: translate(-50%, -50%) scale(0.5);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2);
+    opacity: 0;
+  }
+}
+
+/* Mobile adjustments */
+@media (max-width: 600px) {
+  .modal-map-section {
+    padding: 0 1rem 1rem;
+  }
+  
+  .poi-mini-map {
+    height: 180px;
+  }
+  
+  .poi-location-info {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+  
+  .poi-distance-container {
+    justify-content: center;
+  }
+  
+  .btn-checkin {
+    width: 100%;
+    justify-content: center;
+  }
+}

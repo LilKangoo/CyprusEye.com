@@ -353,6 +353,22 @@
       </header>
       
       <div class="comments-modal-content">
+        <!-- POI Location Map & Check-in -->
+        <div class="modal-map-section" id="modalMapSection">
+          <div id="poiMiniMap" class="poi-mini-map"></div>
+          <div class="poi-location-info">
+            <div class="poi-distance-container">
+              <span id="poiDistanceIcon" class="distance-icon">📍</span>
+              <span id="poiDistance" class="poi-distance">Ładowanie lokalizacji...</span>
+            </div>
+            <button id="modalCheckInBtn" class="btn btn-checkin" disabled data-auth-only>
+              <span class="checkin-icon">✓</span>
+              <span data-i18n="community.checkin.button">Zamelduj się</span>
+            </button>
+          </div>
+          <p id="modalCheckInStatus" class="check-in-status"></p>
+        </div>
+
         <!-- Rating Section -->
         <div class="modal-rating-section" id="modalRatingSection">
           <h3 data-i18n="community.rating.title">Oceń to miejsce</h3>
@@ -825,6 +841,10 @@
   </div>
 
   <!-- Scripts -->
+  
+  <!-- Leaflet Map Library -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
   
   <!-- Load POI data first -->
   <script src="js/poi-loader.js"></script>
