@@ -1709,12 +1709,18 @@ function getUserLocationForMap(poi, poiLat, poiLng, distanceEl, distanceIcon, ch
         checkInBtn.disabled = false;
         checkInBtn.onclick = () => handleModalCheckIn(poi, distance);
         
-        // Check if already visited
-        if (window.state?.visited?.has(poi.id)) {
-          checkInBtn.disabled = true;
-          checkInBtn.classList.add('checked');
-          checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.visited', 'Odwiedzone') + '</span>';
-        }
+        // Check if already visited (async)
+        checkIfVisited(poi.id).then(visited => {
+          if (visited) {
+            checkInBtn.disabled = true;
+            checkInBtn.classList.add('checked');
+            checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.alreadyVisited', 'Już tu byłeś') + '</span>';
+            if (statusEl) {
+              statusEl.textContent = t('community.checkin.alreadyVisited', 'Już tu byłeś!');
+              statusEl.className = 'check-in-status info';
+            }
+          }
+        }).catch(() => {});
       }
       
       console.log(`📍 User location: ${userLat}, ${userLng} - Distance: ${distanceKm}km`);
@@ -1755,7 +1761,33 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
 }
 
 /**
- * Handle check-in from modal
+ * Check if user has already visited a POI
+ */
+async function checkIfVisited(poiId) {
+  try {
+    const sb = window.getSupabase?.();
+    if (!sb || !currentUser) return false;
+    
+    // Try to get visited POIs from profile
+    const { data: profile } = await sb
+      .from('profiles')
+      .select('visited_pois')
+      .eq('id', currentUser.id)
+      .single();
+    
+    if (profile?.visited_pois && Array.isArray(profile.visited_pois)) {
+      return profile.visited_pois.includes(poiId);
+    }
+    
+    return false;
+  } catch (error) {
+    console.warn('Could not check visited status:', error);
+    return false;
+  }
+}
+
+/**
+ * Handle check-in from modal - uses RPC award_poi like app.js
  */
 async function handleModalCheckIn(poi, distance) {
   const statusEl = document.getElementById('modalCheckInStatus');
@@ -1791,54 +1823,37 @@ async function handleModalCheckIn(poi, distance) {
     const sb = window.getSupabase?.();
     if (!sb) throw new Error('Supabase not available');
     
-    // First check if already visited
-    const { data: existingVisit } = await sb
-      .from('user_poi_visits')
-      .select('id')
-      .eq('user_id', currentUser.id)
-      .eq('poi_id', poi.id)
-      .single();
-    
-    if (existingVisit) {
+    // Check if already visited
+    const alreadyVisited = await checkIfVisited(poi.id);
+    if (alreadyVisited) {
       console.log('ℹ️ Already visited:', poi.id);
-      if (statusEl) {
-        statusEl.textContent = t('community.checkin.alreadyVisited', 'Już tu byłeś!');
-        statusEl.className = 'check-in-status info';
-      }
-      if (checkInBtn) {
-        checkInBtn.classList.add('checked');
-        checkInBtn.disabled = true;
-        checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.alreadyVisited', 'Już tu byłeś') + '</span>';
-      }
+      markAsVisited(statusEl, checkInBtn);
       return;
     }
     
-    // Insert new visit
-    console.log('📝 Inserting visit record...');
-    const { error } = await sb
-      .from('user_poi_visits')
-      .insert({
-        user_id: currentUser.id,
-        poi_id: poi.id,
-        visited_at: new Date().toISOString()
-      });
+    // Use RPC award_poi - same as app.js
+    console.log('📝 Calling award_poi RPC for:', poi.id);
+    const { data, error } = await sb.rpc('award_poi', { p_poi_id: poi.id });
     
     if (error) {
-      console.error('❌ Supabase error:', error);
+      // Check if error means already visited
+      if (error.message?.includes('already') || error.code === '23505') {
+        console.log('ℹ️ POI already awarded:', poi.id);
+        markAsVisited(statusEl, checkInBtn);
+        return;
+      }
+      console.error('❌ award_poi error:', error);
       throw error;
     }
     
-    console.log('✅ Visit recorded successfully');
+    console.log('✅ award_poi success:', data);
     
-    // Award XP - try different methods
-    const xpAmount = poi.xp || 100;
-    if (typeof window.awardXp === 'function') {
-      await window.awardXp(xpAmount);
-    } else if (typeof window.addXpToUser === 'function') {
-      await window.addXpToUser(xpAmount, `Check-in: ${poi.name}`);
+    // Refresh header stats if function available
+    if (typeof window.refreshHeaderStats === 'function') {
+      try { window.refreshHeaderStats(); } catch (e) { /* ignore */ }
     }
     
-    // Update UI
+    // Update UI - success
     if (statusEl) {
       statusEl.textContent = t('community.checkin.success', '🎉 Zameldowano! Zdobyłeś XP.');
       statusEl.className = 'check-in-status success';
@@ -1855,7 +1870,6 @@ async function handleModalCheckIn(poi, distance) {
     
   } catch (error) {
     console.error('❌ Check-in failed:', error);
-    console.error('Error details:', JSON.stringify(error, null, 2));
     
     if (statusEl) {
       statusEl.textContent = t('community.checkin.failed', 'Nie udało się zameldować. Spróbuj ponownie.');
@@ -1866,6 +1880,21 @@ async function handleModalCheckIn(poi, distance) {
       checkInBtn.disabled = false;
       checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.button', 'Zamelduj się') + '</span>';
     }
+  }
+}
+
+/**
+ * Mark POI as already visited in UI
+ */
+function markAsVisited(statusEl, checkInBtn) {
+  if (statusEl) {
+    statusEl.textContent = t('community.checkin.alreadyVisited', 'Już tu byłeś!');
+    statusEl.className = 'check-in-status info';
+  }
+  if (checkInBtn) {
+    checkInBtn.classList.add('checked');
+    checkInBtn.disabled = true;
+    checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.alreadyVisited', 'Już tu byłeś') + '</span>';
   }
 }
 
