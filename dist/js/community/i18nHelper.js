@@ -6,15 +6,30 @@
 /**
  * Get translation for a given key
  * @param {string} key - Translation key (e.g., 'community.rating.title')
- * @param {Object} params - Optional parameters for interpolation
- * @returns {string} Translated string or key if not found
+ * @param {Object|string} paramsOrFallback - Either params object for interpolation or fallback string
+ * @returns {string} Translated string or fallback/key if not found
  */
-export function t(key, params = {}) {
+export function t(key, paramsOrFallback = {}) {
   const i18n = window.appI18n || {};
   const language = i18n.language || document.documentElement.lang || 'pl';
   const translations = (i18n.translations && i18n.translations[language]) || {};
   
-  let text = translations[key] || key;
+  // Determine if second argument is fallback string or params object
+  let params = {};
+  let fallback = key;
+  
+  if (typeof paramsOrFallback === 'string') {
+    fallback = paramsOrFallback;
+  } else if (paramsOrFallback && typeof paramsOrFallback === 'object') {
+    params = paramsOrFallback;
+  }
+  
+  let text = getNestedTranslation(translations, key);
+  
+  // If not found, use fallback
+  if (text === null || text === undefined) {
+    text = fallback;
+  }
   
   // Simple interpolation for {{param}} syntax
   if (params && typeof text === 'string') {
@@ -25,6 +40,39 @@ export function t(key, params = {}) {
   }
   
   return text;
+}
+
+/**
+ * Get nested translation value using dot notation
+ * @param {Object} translations - Translation object
+ * @param {string} key - Dot-notated key
+ * @returns {string|null} Translation string or null
+ */
+function getNestedTranslation(translations, key) {
+  if (!key || !translations) return null;
+  
+  // Direct lookup for flat keys (like pl.json format)
+  if (Object.prototype.hasOwnProperty.call(translations, key)) {
+    return translations[key];
+  }
+  
+  // Support nested objects via dot notation (like en.json format)
+  if (key.indexOf('.') !== -1) {
+    const parts = key.split('.');
+    let current = translations;
+    
+    for (const part of parts) {
+      if (current && typeof current === 'object' && Object.prototype.hasOwnProperty.call(current, part)) {
+        current = current[part];
+      } else {
+        return null;
+      }
+    }
+    
+    return typeof current === 'string' ? current : null;
+  }
+  
+  return null;
 }
 
 /**

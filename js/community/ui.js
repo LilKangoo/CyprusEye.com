@@ -1635,13 +1635,16 @@ function getUserLocationForMap(poi, poiLat, poiLng, distanceEl, distanceIcon, ch
       // Update distance display
       if (distanceEl) {
         if (isNear) {
-          distanceEl.textContent = t('community.checkin.near', `Jesteś ${Math.round(distance)}m od miejsca!`);
+          // Use meters when close
+          const distanceM = Math.round(distance);
+          distanceEl.textContent = `✅ ${distanceM}m`;
           distanceEl.className = 'poi-distance near';
-          if (distanceIcon) distanceIcon.textContent = '✅';
+          if (distanceIcon) distanceIcon.textContent = '';
         } else {
-          distanceEl.textContent = t('community.checkin.far', `Odległość: ${distanceKm} km`);
+          // Use kilometers when far
+          distanceEl.textContent = `📍 ${distanceKm} km`;
           distanceEl.className = 'poi-distance far';
-          if (distanceIcon) distanceIcon.textContent = '📍';
+          if (distanceIcon) distanceIcon.textContent = '';
         }
       }
       
