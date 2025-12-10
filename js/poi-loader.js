@@ -11,8 +11,10 @@ window.PLACES_DATA_LOADED = false;
 
 /**
  * Czeka na Supabase client
+ * UWAGA: Nazwa zmieniona z waitForSupabase na waitForSupabaseClient
+ * aby uniknąć konfliktu z footer-referral.js
  */
-async function waitForSupabase(maxAttempts = 50) {
+async function waitForSupabaseClient(maxAttempts = 50) {
   console.log('⏳ Czekam na Supabase client...');
   
   for (let i = 0; i < maxAttempts; i++) {
@@ -43,7 +45,7 @@ async function loadPOIsFromSupabase() {
   
   try {
     // Czekaj na Supabase
-    const supabase = await waitForSupabase();
+    const supabase = await waitForSupabaseClient();
     
     if (!supabase) {
       console.error('❌ Brak Supabase client - używam fallback');
