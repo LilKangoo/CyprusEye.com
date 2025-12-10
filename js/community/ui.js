@@ -84,13 +84,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 });
 
 // ===================================
-// LOAD POI DATA
+// LOAD POI DATA (same pattern as app.js)
 // ===================================
 async function loadPoisData() {
+  console.log('📥 Loading POI data for community...');
+  
   try {
-    // Wait for PLACES_DATA to load (from poi-loader.js)
+    // Wait for PLACES_DATA to load (from poi-loader.js) - same as app.js
     let attempts = 0;
-    while ((!Array.isArray(window.PLACES_DATA) || window.PLACES_DATA.length === 0) && attempts < 50) {
+    while (typeof window.PLACES_DATA === 'undefined' && attempts < 50) {
       await new Promise(resolve => setTimeout(resolve, 100));
       attempts++;
     }
@@ -103,57 +105,66 @@ async function loadPoisData() {
         name: p.nameFallback || p.name,
         nameKey: p.nameKey,
         nameFallback: p.nameFallback,
-        name_i18n: p.name_i18n,
         description: p.descriptionFallback || p.description,
         descriptionKey: p.descriptionKey,
         descriptionFallback: p.descriptionFallback,
-        description_i18n: p.description_i18n,
         badge: p.badgeFallback || p.badge,
         badgeKey: p.badgeKey,
         badgeFallback: p.badgeFallback,
-        badge_i18n: p.badge_i18n,
-        lat: p.lat,  // Keep as-is from poi-loader (already parsed)
-        lng: p.lng,  // Keep as-is from poi-loader (already parsed)
+        lat: p.lat,
+        lng: p.lng,
         googleMapsUrl: p.googleMapsUrl || p.google_url || `https://maps.google.com/?q=${p.lat},${p.lng}`,
         xp: p.xp || 100,
         requiredLevel: p.requiredLevel || 1,
-        source: p.source || 'supabase',
-        status: p.status,
-        raw: p.raw
+        source: p.source || 'supabase'
       }));
-      console.log(`✅ Loaded ${poisData.length} POIs from PLACES_DATA (${poisData[0]?.source || 'unknown'})`);
       
-      // Debug: Log Lefkara coordinates to verify they match index.html
-      const lefkara = poisData.find(p => p.id?.includes('lefkara'));
-      if (lefkara) {
-        console.log('🔍 DEBUG Lefkara:', { 
-          id: lefkara.id, 
-          lat: lefkara.lat, 
-          lng: lefkara.lng,
-          fromOriginal: window.PLACES_DATA?.find(p => p.id?.includes('lefkara'))
-        });
-      }
+      console.log(`✅ Loaded ${poisData.length} POIs from PLACES_DATA (${poisData[0]?.source || 'unknown'})`);
+      console.log('📍 POI IDs:', poisData.slice(0, 5).map(p => p.id), '...');
       
       // Listen for updates
       window.addEventListener('poisDataRefreshed', (event) => {
         console.log('🔄 POIs refreshed, reloading...');
         loadPoisData().then(() => {
           renderPoisList();
-          if (communityMap) initMap();
         });
       });
       
-      return;
+      return true;
     }
     
-    // No PLACES_DATA available - show error (don't use outdated pois.json fallback)
-    console.error('❌ No POI data available - PLACES_DATA not loaded');
-    console.warn('Make sure poi-loader.js is loaded before community/ui.js');
-    window.showToast?.('Nie można załadować miejsc', 'error');
+    // Fallback to STATIC_PLACES_DATA (same as poi-loader.js fallback)
+    if (typeof window.STATIC_PLACES_DATA !== 'undefined' && window.STATIC_PLACES_DATA.length > 0) {
+      console.warn('⚠️ PLACES_DATA not available, using STATIC_PLACES_DATA fallback');
+      poisData = window.STATIC_PLACES_DATA.map(p => ({
+        id: p.id,
+        name: p.nameFallback || p.name || p.id,
+        nameKey: p.nameKey,
+        nameFallback: p.nameFallback,
+        description: p.descriptionFallback || p.description || '',
+        descriptionKey: p.descriptionKey,
+        descriptionFallback: p.descriptionFallback,
+        badge: p.badgeFallback || p.badge || '',
+        badgeKey: p.badgeKey,
+        badgeFallback: p.badgeFallback,
+        lat: parseFloat(p.lat) || 0,
+        lng: parseFloat(p.lng || p.lon) || 0,
+        googleMapsUrl: p.googleMapsUrl || `https://maps.google.com/?q=${p.lat},${p.lng || p.lon}`,
+        xp: p.xp || 100,
+        requiredLevel: p.requiredLevel || 1,
+        source: 'static-fallback'
+      }));
+      console.log(`✅ Loaded ${poisData.length} POIs from STATIC_PLACES_DATA (fallback)`);
+      return true;
+    }
+    
+    // No data available
+    console.error('❌ No POI data available - neither PLACES_DATA nor STATIC_PLACES_DATA loaded');
+    return false;
     
   } catch (error) {
     console.error('❌ Error loading POI data:', error);
-    window.showToast?.(t('community.error.loading'), 'error');
+    return false;
   }
 }
 
