@@ -90,12 +90,17 @@ async function loadPoisData() {
   console.log('📥 Loading POI data for community...');
   
   try {
-    // Wait for PLACES_DATA to load (from poi-loader.js) - same as app.js
+    // Wait for PLACES_DATA_LOADED flag (set by poi-loader.js when data is ready)
     let attempts = 0;
-    while (typeof window.PLACES_DATA === 'undefined' && attempts < 50) {
+    while (!window.PLACES_DATA_LOADED && attempts < 100) {
       await new Promise(resolve => setTimeout(resolve, 100));
       attempts++;
+      if (attempts % 20 === 0) {
+        console.log(`⏳ Waiting for POI data... (attempt ${attempts})`);
+      }
     }
+    
+    console.log(`📊 PLACES_DATA status: loaded=${window.PLACES_DATA_LOADED}, count=${window.PLACES_DATA?.length || 0}`);
     
     // Use PLACES_DATA if available (loaded by poi-loader.js from Supabase)
     if (window.PLACES_DATA && Array.isArray(window.PLACES_DATA) && window.PLACES_DATA.length > 0) {
