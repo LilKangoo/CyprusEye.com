@@ -122,8 +122,17 @@ async function loadPoisData() {
         raw: p.raw
       }));
       console.log(`✅ Loaded ${poisData.length} POIs from PLACES_DATA (${poisData[0]?.source || 'unknown'})`);
-      console.log('📍 POI IDs:', poisData.map(p => p.id));
-      console.log('🌍 POIs with i18n:', poisData.filter(p => p.name_i18n).length);
+      
+      // Debug: Log Lefkara coordinates to verify they match index.html
+      const lefkara = poisData.find(p => p.id?.includes('lefkara'));
+      if (lefkara) {
+        console.log('🔍 DEBUG Lefkara:', { 
+          id: lefkara.id, 
+          lat: lefkara.lat, 
+          lng: lefkara.lng,
+          fromOriginal: window.PLACES_DATA?.find(p => p.id?.includes('lefkara'))
+        });
+      }
       
       // Listen for updates
       window.addEventListener('poisDataRefreshed', (event) => {
@@ -137,23 +146,9 @@ async function loadPoisData() {
       return;
     }
     
-    // Fallback to assets/pois.json
-    try {
-      const response = await fetch('/assets/pois.json');
-      if (response.ok) {
-        const data = await response.json();
-        if (Array.isArray(data) && data.length > 0) {
-          poisData = data;
-          console.log(`✅ Loaded ${poisData.length} POIs from pois.json (fallback)`);
-          return;
-        }
-      }
-    } catch (e) {
-      console.warn('Could not load from pois.json:', e);
-    }
-    
-    // If no data available, show error
-    console.error('❌ No POI data available');
+    // No PLACES_DATA available - show error (don't use outdated pois.json fallback)
+    console.error('❌ No POI data available - PLACES_DATA not loaded');
+    console.warn('Make sure poi-loader.js is loaded before community/ui.js');
     window.showToast?.('Nie można załadować miejsc', 'error');
     
   } catch (error) {
@@ -1577,13 +1572,16 @@ function initPoiMiniMap(poi) {
   const poiLat = parseFloat(poi.lat);
   const poiLng = parseFloat(poi.lng || poi.lon);
   
-  console.log('🗺️ POI coordinates:', {
+  console.log('🗺️ POI coordinates for mini-map:', {
     id: poi.id,
     name: poi.name,
-    lat: poi.lat,
-    lng: poi.lng,
-    lon: poi.lon,
-    parsed: { poiLat, poiLng }
+    source: poi.source,
+    rawLat: poi.lat,
+    rawLng: poi.lng,
+    rawLon: poi.lon,
+    parsedLat: poiLat,
+    parsedLng: poiLng,
+    fromPLACES_DATA: window.PLACES_DATA?.find(p => p.id === poi.id)
   });
   
   if (!poiLat || !poiLng || isNaN(poiLat) || isNaN(poiLng)) {
