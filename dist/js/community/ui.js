@@ -1706,21 +1706,22 @@ function getUserLocationForMap(poi, poiLat, poiLng, distanceEl, distanceIcon, ch
       
       // Enable/disable check-in button based on distance and auth
       if (checkInBtn && currentUser) {
-        checkInBtn.disabled = false;
-        checkInBtn.onclick = () => handleModalCheckIn(poi, distance);
+        // Check if already visited (synchronous - uses localStorage)
+        const visited = checkIfVisited(poi.id);
+        console.log(`🔍 Check visited for ${poi.id}:`, visited);
         
-        // Check if already visited (async)
-        checkIfVisited(poi.id).then(visited => {
-          if (visited) {
-            checkInBtn.disabled = true;
-            checkInBtn.classList.add('checked');
-            checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.alreadyVisited', 'Już tu byłeś') + '</span>';
-            if (statusEl) {
-              statusEl.textContent = t('community.checkin.alreadyVisited', 'Już tu byłeś!');
-              statusEl.className = 'check-in-status info';
-            }
+        if (visited) {
+          checkInBtn.disabled = true;
+          checkInBtn.classList.add('checked');
+          checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.alreadyVisited', 'Już tu byłeś') + '</span>';
+          if (statusEl) {
+            statusEl.textContent = t('community.checkin.alreadyVisited', 'Już tu byłeś!');
+            statusEl.className = 'check-in-status info';
           }
-        }).catch(() => {});
+        } else {
+          checkInBtn.disabled = false;
+          checkInBtn.onclick = () => handleModalCheckIn(poi, distance);
+        }
       }
       
       console.log(`📍 User location: ${userLat}, ${userLng} - Distance: ${distanceKm}km`);
@@ -1762,21 +1763,37 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
 
 /**
  * Check if user has already visited a POI
+ * Uses localStorage (same as app.js) since visited data is stored locally
  */
-async function checkIfVisited(poiId) {
+function checkIfVisited(poiId) {
   try {
-    const sb = window.getSupabase?.();
-    if (!sb || !currentUser) return false;
+    // First check window.state from app.js if available
+    if (window.state?.visited?.has?.(poiId)) {
+      return true;
+    }
     
-    // Try to get visited POIs from profile
-    const { data: profile } = await sb
-      .from('profiles')
-      .select('visited_pois')
-      .eq('id', currentUser.id)
-      .single();
+    // Fallback: check localStorage directly
+    const storageKey = 'wakacjecypr_progress';
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      const progress = JSON.parse(saved);
+      if (progress?.visited && Array.isArray(progress.visited)) {
+        return progress.visited.includes(poiId);
+      }
+    }
     
-    if (profile?.visited_pois && Array.isArray(profile.visited_pois)) {
-      return profile.visited_pois.includes(poiId);
+    // Also check user-specific storage
+    const userKey = currentUser?.id;
+    if (userKey) {
+      const accountsKey = 'wakacjecypr_accounts';
+      const accounts = localStorage.getItem(accountsKey);
+      if (accounts) {
+        const parsed = JSON.parse(accounts);
+        const account = parsed?.[userKey];
+        if (account?.progress?.visited && Array.isArray(account.progress.visited)) {
+          return account.progress.visited.includes(poiId);
+        }
+      }
     }
     
     return false;
@@ -1823,10 +1840,9 @@ async function handleModalCheckIn(poi, distance) {
     const sb = window.getSupabase?.();
     if (!sb) throw new Error('Supabase not available');
     
-    // Check if already visited
-    const alreadyVisited = await checkIfVisited(poi.id);
-    if (alreadyVisited) {
-      console.log('ℹ️ Already visited:', poi.id);
+    // Check if already visited (synchronous - uses localStorage)
+    if (checkIfVisited(poi.id)) {
+      console.log('ℹ️ Already visited (from localStorage):', poi.id);
       markAsVisited(statusEl, checkInBtn);
       return;
     }
