@@ -1092,6 +1092,95 @@ function parseRegisterPayload(form) {
   return { email, password, firstName, username };
 }
 
+function detectUiLanguage() {
+  try {
+    const url = new URL(window.location.href);
+    const urlLang = (url.searchParams.get('lang') || '').toLowerCase();
+    if (urlLang === 'pl' || urlLang === 'en') {
+      return urlLang;
+    }
+  } catch (error) {
+  }
+
+  try {
+    const stored = (window.localStorage.getItem('ce_lang') || '').toLowerCase();
+    if (stored === 'pl' || stored === 'en') {
+      return stored;
+    }
+  } catch (error) {
+  }
+
+  const htmlLang = (document.documentElement.lang || '').toLowerCase();
+  if (htmlLang === 'pl' || htmlLang === 'en') {
+    return htmlLang;
+  }
+
+  return 'pl';
+}
+
+function getGoogleButtonFallbackLabel() {
+  return detectUiLanguage() === 'en' ? 'Sign in with Google' : 'Zaloguj przez Google';
+}
+
+function getTranslationEntry(translations, key) {
+  if (!translations || !key) {
+    return null;
+  }
+
+  if (Object.prototype.hasOwnProperty.call(translations, key)) {
+    return translations[key];
+  }
+
+  if (key.indexOf('.') !== -1) {
+    const parts = key.split('.');
+    let current = translations;
+    for (const part of parts) {
+      if (current && typeof current === 'object' && Object.prototype.hasOwnProperty.call(current, part)) {
+        current = current[part];
+      } else {
+        return null;
+      }
+    }
+    return current;
+  }
+
+  return null;
+}
+
+function getI18nString(key, fallback) {
+  const translations = window.appI18n?.translations?.[window.appI18n?.language] || null;
+  const entry = getTranslationEntry(translations, key);
+  if (typeof entry === 'string') {
+    return entry;
+  }
+  if (entry && typeof entry === 'object') {
+    if (typeof entry.text === 'string') {
+      return entry.text;
+    }
+    if (typeof entry.html === 'string') {
+      return entry.html;
+    }
+  }
+  return fallback;
+}
+
+function getGoogleButtonKeys(form) {
+  const isRegister = form?.id === 'form-register';
+  const prefix = isRegister ? 'auth.oauth.google.register' : 'auth.oauth.google.login';
+  return {
+    labelKey: `${prefix}.button`,
+    ariaKey: `${prefix}.aria`,
+    fallbackLabel:
+      detectUiLanguage() === 'en'
+        ? isRegister
+          ? 'Sign up with Google'
+          : 'Sign in with Google'
+        : isRegister
+          ? 'Zarejestruj przez Google'
+          : 'Zaloguj przez Google',
+  };
+}
+
 function ensureGoogleButtons() {
   const forms = Array.from(document.querySelectorAll('form#form-login, form#form-register'));
   forms.forEach((form) => {
@@ -1100,17 +1189,40 @@ function ensureGoogleButtons() {
     }
 
     const provider = 'google';
-    if (form.querySelector(`[data-auth-provider="${provider}"]`)) {
+    const existing = form.querySelector(`[data-auth-provider="${provider}"]`);
+    if (existing instanceof HTMLButtonElement) {
+      const { labelKey, ariaKey, fallbackLabel } = getGoogleButtonKeys(form);
+      const label = existing.querySelector('.btn-google__label');
+      if (label instanceof HTMLElement) {
+        label.dataset.i18n = labelKey;
+        label.textContent = getI18nString(labelKey, fallbackLabel);
+      }
+      existing.dataset.i18nAttrs = `aria-label:${ariaKey}`;
+      existing.setAttribute('aria-label', getI18nString(ariaKey, fallbackLabel));
       return;
     }
 
     const button = document.createElement('button');
     button.type = 'button';
-    button.className = 'btn btn--secondary';
-    button.style.width = '100%';
+    button.className = 'btn btn-google';
     button.dataset.authProvider = provider;
-    button.setAttribute('aria-label', 'Kontynuuj z Google');
-    button.textContent = 'Kontynuuj z Google';
+    const { labelKey, ariaKey, fallbackLabel } = getGoogleButtonKeys(form);
+    button.dataset.i18nAttrs = `aria-label:${ariaKey}`;
+    button.setAttribute('aria-label', getI18nString(ariaKey, fallbackLabel));
+
+    const labelText = getI18nString(labelKey, fallbackLabel);
+    button.innerHTML = `
+      <span class="btn-google__icon" aria-hidden="true">
+        <svg width="20" height="20" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+          <path fill="#EA4335" d="M24 9.5c3.54 0 6.68 1.23 9.17 3.65l6.85-6.85C35.82 2.52 30.28 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.09 17.74 9.5 24 9.5z"/>
+          <path fill="#4285F4" d="M46.98 24.55c0-1.64-.15-3.21-.43-4.73H24v9.03h12.95c-.56 2.96-2.23 5.47-4.74 7.16l7.27 5.64c4.25-3.92 6.5-9.69 6.5-17.1z"/>
+          <path fill="#FBBC05" d="M10.54 28.59c-.48-1.45-.76-2.99-.76-4.59 0-1.6.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.98-6.19z"/>
+          <path fill="#34A853" d="M24 48c6.28 0 11.57-2.08 15.43-5.66l-7.27-5.64c-2.02 1.35-4.6 2.15-8.16 2.15-6.26 0-11.57-3.59-13.46-8.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
+          <path fill="none" d="M0 0h48v48H0z"/>
+        </svg>
+      </span>
+      <span class="btn-google__label" data-i18n="${labelKey}">${labelText}</span>
+    `.trim();
 
     form.prepend(button);
 
@@ -1201,6 +1313,13 @@ function initGoogleOAuthHandlers() {
   }
 
   ensureGoogleButtons();
+
+  document.addEventListener('wakacjecypr:languagechange', () => {
+    ensureGoogleButtons();
+  });
+  window.addEventListener('languageChanged', () => {
+    ensureGoogleButtons();
+  });
 
   document.addEventListener('click', (event) => {
     const target = event.target instanceof Element ? event.target.closest('[data-auth-provider="google"]') : null;

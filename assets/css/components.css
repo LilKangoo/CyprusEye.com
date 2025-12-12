@@ -8834,6 +8834,42 @@ body.tutorial-open {
   color: var(--color-white);
 }
 
+.btn-google {
+  width: 100%;
+  background: #fff;
+  color: var(--color-neutral-900);
+  border: 1px solid var(--color-neutral-300);
+  box-shadow: none;
+  font-weight: 600;
+  justify-content: center;
+  transition: background-color 150ms ease, border-color 150ms ease, transform 150ms ease;
+}
+
+.btn-google:hover {
+  background: var(--color-neutral-50);
+  border-color: var(--color-neutral-400);
+}
+
+.btn-google:active {
+  transform: translateY(1px);
+}
+
+.btn-google:focus-visible {
+  outline: 3px solid rgba(10, 132, 255, 0.35);
+  outline-offset: 2px;
+}
+
+.btn-google__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+
+.btn-google__label {
+  flex: 0 1 auto;
+}
+
 .btn--link {
   background: transparent;
   color: var(--color-accent-600);

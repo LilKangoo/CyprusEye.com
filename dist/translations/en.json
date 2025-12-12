@@ -255,6 +255,12 @@
   "metrics.xp.keepEarning": "Keep earning XP",
   "metrics.badges.label": "Badges",
   "metrics.badges.subtext": "Collected badges",
+  "auth.oauth.google.button": "Sign in with Google",
+  "auth.oauth.google.aria": "Sign in with Google",
+  "auth.oauth.google.login.button": "Sign in with Google",
+  "auth.oauth.google.login.aria": "Sign in with Google",
+  "auth.oauth.google.register.button": "Sign up with Google",
+  "auth.oauth.google.register.aria": "Sign up with Google",
   "auth": {
     "bar": {
       "aria": "Account panel"
