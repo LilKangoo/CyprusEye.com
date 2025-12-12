@@ -9,6 +9,11 @@ const ceAuthGlobal = typeof window !== 'undefined' ? (window.CE_AUTH = window.CE
 const IS_PASSWORD_RESET_CALLBACK =
   typeof window !== 'undefined' && window.location.pathname.startsWith('/auth/callback');
 
+const GOOGLE_OAUTH_REDIRECT = 'https://cypruseye.com/auth/';
+const POST_AUTH_REDIRECT = '/';
+const USERNAME_MIN_LENGTH = 3;
+const USERNAME_MAX_LENGTH = 15;
+
 function createCallbackResetLayout() {
   const body = document.body;
   if (!body) return;
@@ -301,6 +306,178 @@ function stripSupabaseReturnParams(parsed) {
   }
 
   return true;
+}
+
+function getMetadataString(metadata, key) {
+  const value = metadata && typeof metadata === 'object' ? metadata[key] : null;
+  if (typeof value !== 'string') {
+    return '';
+  }
+  return value.trim();
+}
+
+function deriveNameFromUser(user) {
+  const metadata = user?.user_metadata;
+  const candidates = [
+    getMetadataString(metadata, 'name'),
+    getMetadataString(metadata, 'full_name'),
+    getMetadataString(metadata, 'display_name'),
+    getMetadataString(metadata, 'first_name'),
+    getMetadataString(metadata, 'given_name'),
+  ];
+  for (const candidate of candidates) {
+    if (candidate) {
+      return candidate;
+    }
+  }
+  return '';
+}
+
+function normalizeUsernameCandidate(value) {
+  const raw = typeof value === 'string' ? value.trim() : '';
+  if (!raw) {
+    return '';
+  }
+
+  let normalized = raw.toLowerCase();
+  try {
+    normalized = normalized.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
+  } catch (error) {
+  }
+
+  normalized = normalized
+    .replace(/[^a-z0-9_]+/g, '_')
+    .replace(/_+/g, '_')
+    .replace(/^_+/, '')
+    .replace(/_+$/, '');
+
+  if (normalized.length > USERNAME_MAX_LENGTH) {
+    normalized = normalized.slice(0, USERNAME_MAX_LENGTH).replace(/_+$/, '');
+  }
+
+  return normalized;
+}
+
+function escapeLikePattern(value) {
+  const raw = typeof value === 'string' ? value : '';
+  if (!raw) {
+    return '';
+  }
+  return raw.replace(/\\/g, '\\\\').replace(/[%_]/g, (match) => `\\${match}`);
+}
+
+async function fetchProfileByUsername(username, columns) {
+  const normalized = typeof username === 'string' ? username.trim() : '';
+  if (!normalized) {
+    return null;
+  }
+
+  const { data, error } = await sb
+    .from('profiles')
+    .select(columns)
+    .ilike('username', escapeLikePattern(normalized))
+    .limit(1)
+    .maybeSingle();
+  if (error && error.code !== 'PGRST116') {
+    throw error;
+  }
+  return data || null;
+}
+
+async function isUsernameTaken(username) {
+  const normalized = typeof username === 'string' ? username.trim() : '';
+  if (!normalized) {
+    return false;
+  }
+
+  const row = await fetchProfileByUsername(normalized, 'id');
+  return Boolean(row);
+}
+
+async function findAvailableUsername(base, userId) {
+  const cleanedBase = normalizeUsernameCandidate(base);
+  let candidate = cleanedBase;
+  const fallbackSuffix = typeof userId === 'string' ? userId.replace(/-/g, '').slice(-6) : '';
+
+  if (!candidate || candidate.length < USERNAME_MIN_LENGTH) {
+    candidate = normalizeUsernameCandidate(`user_${fallbackSuffix || Math.floor(Math.random() * 100000)}`);
+  }
+
+  if (candidate.length > USERNAME_MAX_LENGTH) {
+    candidate = candidate.slice(0, USERNAME_MAX_LENGTH);
+  }
+
+  if (candidate && !(await isUsernameTaken(candidate))) {
+    return candidate;
+  }
+
+  for (let i = 2; i <= 30; i += 1) {
+    const suffix = `_${i}`;
+    const maxBaseLength = Math.max(USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH - suffix.length);
+    const basePart = (candidate || cleanedBase || 'user').slice(0, maxBaseLength);
+    const trial = normalizeUsernameCandidate(`${basePart}${suffix}`).slice(0, USERNAME_MAX_LENGTH);
+    if (trial.length >= USERNAME_MIN_LENGTH && !(await isUsernameTaken(trial))) {
+      return trial;
+    }
+  }
+
+  const lastResort = normalizeUsernameCandidate(`user_${fallbackSuffix || Date.now()}`);
+  if (lastResort.length >= USERNAME_MIN_LENGTH) {
+    return lastResort.slice(0, USERNAME_MAX_LENGTH);
+  }
+
+  return `user${Math.floor(Math.random() * 100000)}`;
+}
+
+async function ensureProfileNameAndUsername(user) {
+  if (!user?.id) {
+    return null;
+  }
+
+  const { data: profile, error } = await sb
+    .from('profiles')
+    .select('id, email, name, username')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (error && error.code !== 'PGRST116') {
+    throw error;
+  }
+
+  const updates = {};
+  const current = profile || {};
+  const existingName = typeof current.name === 'string' ? current.name.trim() : '';
+  const existingUsername = typeof current.username === 'string' ? current.username.trim() : '';
+  const existingEmail = typeof current.email === 'string' ? current.email.trim() : '';
+  const userEmail = typeof user.email === 'string' ? user.email.trim() : '';
+
+  if (!existingName) {
+    const derived = deriveNameFromUser(user);
+    if (derived) {
+      updates.name = derived;
+    }
+  }
+
+  if (userEmail && userEmail !== existingEmail) {
+    updates.email = userEmail;
+  }
+
+  if (!existingUsername) {
+    const emailBase = userEmail && userEmail.includes('@') ? userEmail.split('@')[0] : '';
+    const base = deriveNameFromUser(user) || emailBase || updates.name || 'user';
+    updates.username = await findAvailableUsername(base, user.id);
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return null;
+  }
+
+  const { error: updateError } = await sb.from('profiles').update(updates).eq('id', user.id);
+  if (updateError) {
+    throw updateError;
+  }
+
+  return updates;
 }
 
 function setDocumentAuthState(state) {
@@ -897,8 +1074,8 @@ function parseRegisterPayload(form) {
   }
 
   // Validate username format
-  if (username.length < 3 || username.length > 20) {
-    showErr('Nazwa użytkownika musi mieć od 3 do 20 znaków.');
+  if (username.length < USERNAME_MIN_LENGTH || username.length > USERNAME_MAX_LENGTH) {
+    showErr(`Nazwa użytkownika musi mieć od ${USERNAME_MIN_LENGTH} do ${USERNAME_MAX_LENGTH} znaków.`);
     return null;
   }
 
@@ -913,6 +1090,137 @@ function parseRegisterPayload(form) {
   }
 
   return { email, password, firstName, username };
+}
+
+function ensureGoogleButtons() {
+  const forms = Array.from(document.querySelectorAll('form#form-login, form#form-register'));
+  forms.forEach((form) => {
+    if (!(form instanceof HTMLFormElement)) {
+      return;
+    }
+
+    const provider = 'google';
+    if (form.querySelector(`[data-auth-provider="${provider}"]`)) {
+      return;
+    }
+
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'btn btn--secondary';
+    button.style.width = '100%';
+    button.dataset.authProvider = provider;
+    button.setAttribute('aria-label', 'Kontynuuj z Google');
+    button.textContent = 'Kontynuuj z Google';
+
+    form.prepend(button);
+
+    if (form.id === 'form-register') {
+      const usernameInput = form.querySelector('input[name="username"]');
+      if (usernameInput instanceof HTMLInputElement) {
+        usernameInput.minLength = USERNAME_MIN_LENGTH;
+        usernameInput.maxLength = USERNAME_MAX_LENGTH;
+        if (usernameInput.placeholder) {
+          usernameInput.placeholder = `${USERNAME_MIN_LENGTH}-${USERNAME_MAX_LENGTH} znaków, litery i cyfry`;
+        }
+      }
+    }
+  });
+}
+
+async function handleGoogleOAuthCallbackIfPresent() {
+  if (typeof window === 'undefined') {
+    return;
+  }
+
+  if (!window.location.pathname.startsWith('/auth') || IS_PASSWORD_RESET_CALLBACK) {
+    return;
+  }
+
+  const parsed = parseSupabaseReturnParams();
+  if (!parsed) {
+    return;
+  }
+
+  const errorValue = (parsed.searchParams.get('error') || parsed.hashParams?.get('error') || '').trim();
+  const errorDescription = (
+    parsed.searchParams.get('error_description') ||
+    parsed.hashParams?.get('error_description') ||
+    ''
+  ).trim();
+  if (errorValue) {
+    showErr(`Nie udało się: ${friendlyErrorMessage(errorDescription || errorValue)}`);
+    stripSupabaseReturnParams(parsed);
+    return;
+  }
+
+  const code = (parsed.searchParams.get('code') || parsed.hashParams?.get('code') || '').trim();
+  if (!code) {
+    return;
+  }
+
+  try {
+    const { data: sessionData } = await sb.auth.getSession();
+    if (!sessionData?.session) {
+      const { error } = await sb.auth.exchangeCodeForSession(window.location.href);
+      if (error) {
+        throw error;
+      }
+    }
+
+    const { data: userData, error: userError } = await sb.auth.getUser();
+    if (userError) {
+      throw userError;
+    }
+    if (userData?.user) {
+      try {
+        await ensureProfileNameAndUsername(userData.user);
+      } catch (profileError) {
+        console.warn('Nie udało się uzupełnić profilu po logowaniu OAuth.', profileError);
+      }
+    }
+
+    await refreshSessionAndProfile();
+    updateAuthUI();
+
+    stripSupabaseReturnParams(parsed);
+    window.location.assign(POST_AUTH_REDIRECT);
+  } catch (error) {
+    const message = friendlyErrorMessage(error?.message || 'Nie udało się zalogować przez Google.');
+    showErr(`Nie udało się: ${message}`);
+    console.warn('Nie udało się obsłużyć callback OAuth.', error);
+    stripSupabaseReturnParams(parsed);
+  }
+}
+
+function initGoogleOAuthHandlers() {
+  if (ceAuthGlobal && ceAuthGlobal.googleOauthInitialized) {
+    return;
+  }
+  if (ceAuthGlobal) {
+    ceAuthGlobal.googleOauthInitialized = true;
+  }
+
+  ensureGoogleButtons();
+
+  document.addEventListener('click', (event) => {
+    const target = event.target instanceof Element ? event.target.closest('[data-auth-provider="google"]') : null;
+    if (!(target instanceof HTMLButtonElement)) {
+      return;
+    }
+    event.preventDefault();
+
+    void withBusy(target, async () => {
+      showInfo('Przekierowanie do Google…');
+      const { error } = await sb.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: GOOGLE_OAUTH_REDIRECT },
+      });
+      if (error) {
+        const message = friendlyErrorMessage(error.message || 'Nie udało się rozpocząć logowania Google.');
+        showErr(`Nie udało się: ${message}`);
+      }
+    });
+  });
 }
 
 export async function refreshSessionAndProfile() {
@@ -983,16 +1291,7 @@ $('#form-login')?.addEventListener('submit', async (event) => {
 
       // If username, look up the email from profiles table
       if (!isEmail) {
-        const { data: profile, error: lookupError } = await sb
-          .from('profiles')
-          .select('email')
-          .ilike('username', emailOrUsername)
-          .maybeSingle();
-
-        if (lookupError && lookupError.code !== 'PGRST116') {
-          throw new Error('Nie udało się sprawdzić nazwy użytkownika.');
-        }
-
+        const profile = await fetchProfileByUsername(emailOrUsername, 'email');
         if (!profile || !profile.email) {
           showErr('Nie znaleziono użytkownika o podanej nazwie.');
           return;
@@ -1069,16 +1368,7 @@ $('#form-register')?.addEventListener('submit', async (event) => {
     showInfo('Tworzenie konta…');
     try {
       // Check if username is already taken
-      const { data: existingUser, error: checkError } = await sb
-        .from('profiles')
-        .select('username')
-        .ilike('username', payload.username)
-        .maybeSingle();
-
-      if (checkError && checkError.code !== 'PGRST116') {
-        throw checkError;
-      }
-
+      const existingUser = await fetchProfileByUsername(payload.username, 'username');
       if (existingUser) {
         showErr('Ta nazwa użytkownika jest już zajęta. Wybierz inną.');
         return;
@@ -1481,6 +1771,8 @@ function initResetPage() {
 }
 
 function handleAuthDomReady() {
+  initGoogleOAuthHandlers();
+  void handleGoogleOAuthCallbackIfPresent();
   handleSupabaseVerificationReturn();
   initResetPage();
 }

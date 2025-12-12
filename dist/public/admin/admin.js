@@ -10376,6 +10376,7 @@ async function loadReferralStats() {
 
 /**
  * Build and render referral tree with expand/collapse functionality
+ * Uses both profiles and referrals tables for accuracy
  */
 let referralTreeData = []; // Store tree data for expand/collapse all
 
@@ -10386,43 +10387,96 @@ async function loadReferralTree() {
 
     const container = document.getElementById('referralTreeContainer');
     if (!container) return;
-    container.innerHTML = '<p class="text-muted">Loading tree...</p>';
+    container.innerHTML = '<p class="text-muted">Loading referral tree data...</p>';
 
-    // Get all profiles with referral data
-    const { data: profiles } = await client
+    // 1. Get all profiles
+    const { data: profiles, error: profilesError } = await client
       .from('profiles')
-      .select('id, username, name, email, referral_count, referred_by, created_at')
-      .order('referral_count', { ascending: false });
+      .select('id, username, name, email, created_at, avatar_url');
+
+    if (profilesError) throw profilesError;
+
+    // 2. Get all referral relationships
+    const { data: referrals, error: referralsError } = await client
+      .from('referrals')
+      .select('referrer_id, referred_id, created_at, status');
+
+    if (referralsError) throw referralsError;
 
     if (!profiles?.length) {
-      container.innerHTML = '<p class="text-muted">No referral data yet</p>';
+      container.innerHTML = '<p class="text-muted">No profiles found</p>';
       return;
     }
 
-    // Build tree structure
+    // Map profiles by ID for easy lookup
     const profileMap = {};
     profiles.forEach(p => { 
       profileMap[p.id] = { 
         ...p, 
         children: [],
-        expanded: false // Start collapsed
+        expanded: false,
+        is_referrer: false,
+        referral_status: null, // Status of being referred
+        referral_date: null    // When they were referred
       }; 
     });
 
-    const rootUsers = [];
-    profiles.forEach(p => {
-      if (p.referred_by && profileMap[p.referred_by]) {
-        profileMap[p.referred_by].children.push(profileMap[p.id]);
-      } else if (!p.referred_by) {
-        // Only show users who have referrals OR have been referred
-        if (p.referral_count > 0) {
-          rootUsers.push(profileMap[p.id]);
+    // Build tree using referrals table
+    const referredIds = new Set(); // Track who has been referred
+
+    if (referrals?.length) {
+      referrals.forEach(ref => {
+        const referrer = profileMap[ref.referrer_id];
+        const referred = profileMap[ref.referred_id];
+
+        if (referrer && referred) {
+          // Add to parent's children
+          referrer.children.push(referred);
+          referrer.is_referrer = true;
+          
+          // Mark child details
+          referred.referral_status = ref.status;
+          referred.referral_date = ref.created_at;
+          
+          // Mark as referred so we don't add to root later
+          referredIds.add(ref.referred_id);
         }
+      });
+    }
+
+    // Identify root users (those who have referrals but were not referred themselves)
+    // OR anyone who has referrals, even if they were referred (they will appear in tree)
+    // BUT for the top level list, we only want those who started the chain OR are isolated
+    
+    // Correction: We want to show the full forest.
+    // Roots are users who are NOT in referredIds.
+    // But we only care about roots that have children (referrers) to avoid cluttering with single users?
+    // User request: "wyswietlali sie uzytkownicy zaproszeni przez innego uzytkownika".
+    // Showing everyone might be too much. Let's show users who have children (referrers) AND are not referred by anyone in the current set.
+    // OR just show everyone who is a root of a referral tree.
+
+    let rootUsers = [];
+    
+    Object.values(profileMap).forEach(p => {
+      // If user is not referred by anyone (is a root) AND has children
+      if (!referredIds.has(p.id) && p.children.length > 0) {
+        rootUsers.push(p);
       }
     });
 
-    // Sort roots by referral count
-    rootUsers.sort((a, b) => (b.referral_count || 0) - (a.referral_count || 0));
+    // Fallback: If user has children but IS referred, they are shown under their parent.
+    // But what if the parent is missing? (shouldn't happen with profileMap)
+    
+    // If no roots found but we have referrals (circular or broken?), just show top referrers
+    if (rootUsers.length === 0 && referrals?.length > 0) {
+      // Fallback to sorting by children count
+      rootUsers = Object.values(profileMap)
+        .filter(p => p.children.length > 0)
+        .sort((a, b) => b.children.length - a.children.length);
+    } else {
+       // Sort roots by children count desc
+       rootUsers.sort((a, b) => b.children.length - a.children.length);
+    }
 
     // Store for expand/collapse all
     referralTreeData = rootUsers;
@@ -10430,7 +10484,11 @@ async function loadReferralTree() {
     // Render function
     function renderTree() {
       if (rootUsers.length === 0) {
-        container.innerHTML = '<p class="text-muted">No referral chains yet</p>';
+        container.innerHTML = `
+          <div class="text-center py-5">
+            <p class="text-muted mb-2">No referral connections found.</p>
+            <small class="text-secondary">Referrals table is empty or no relationships detected.</small>
+          </div>`;
         return;
       }
       container.innerHTML = rootUsers.map(r => renderNode(r, 0)).join('');
@@ -10439,43 +10497,61 @@ async function loadReferralTree() {
 
     // Render single node
     function renderNode(node, level = 0) {
-      const indent = level * 28;
       const hasChildren = node.children?.length > 0;
-      const childCount = countAllDescendants(node);
+      const childCount = node.children.length;
       
       // Toggle icon
       const toggleIcon = hasChildren 
-        ? (node.expanded ? '▼' : '▶') 
-        : '•';
-      
-      // User icon based on referral status
-      const userIcon = hasChildren ? '👑' : '👤';
-      
-      // Badge showing direct referrals
-      const countBadge = node.referral_count > 0 
-        ? `<span class="tree-badge tree-badge-success">${node.referral_count} referrals</span>` 
-        : '<span class="tree-badge tree-badge-neutral">0 referrals</span>';
-      
-      // Format date
-      const joinDate = node.created_at 
-        ? new Date(node.created_at).toLocaleDateString('pl-PL') 
+        ? `<span class="tree-toggle-icon">${node.expanded ? '−' : '+'}</span>` 
         : '';
       
+      // Status badge
+      const statusBadge = node.referral_status 
+        ? `<span class="status-dot status-${node.referral_status}" title="${node.referral_status}"></span>` 
+        : '';
+
+      // Format date
+      const dateStr = node.referral_date || node.created_at;
+      const dateDisplay = dateStr 
+        ? new Date(dateStr).toLocaleDateString('pl-PL') 
+        : '';
+      
+      // Avatar or placeholder
+      const avatarHtml = node.avatar_url 
+        ? `<img src="${node.avatar_url}" class="tree-avatar" alt="av" onerror="this.src='https://ui-avatars.com/api/?name=${node.username}&background=random'"/>`
+        : `<div class="tree-avatar-placeholder">${(node.username || '?').charAt(0).toUpperCase()}</div>`;
+
       let html = `
         <div class="tree-item" data-node-id="${node.id}" data-level="${level}">
-          <div class="tree-node ${hasChildren ? 'tree-node-parent' : ''}" style="padding-left: ${indent + 12}px;">
-            <span class="tree-toggle ${hasChildren ? 'tree-toggle-active' : ''}" data-toggle-id="${node.id}">
-              ${toggleIcon}
-            </span>
-            <span class="tree-user-icon">${userIcon}</span>
-            <div class="tree-user-info">
-              <strong class="tree-username">${node.username || node.name || 'Unknown'}</strong>
-              ${node.email ? `<span class="tree-email">${node.email}</span>` : ''}
+          <div class="tree-row ${hasChildren ? 'tree-row-parent' : ''} ${level === 0 ? 'tree-row-root' : ''}" 
+               style="padding-left: ${level * 24 + 12}px;">
+            
+            <div class="tree-connector">
+               <span class="tree-toggle ${hasChildren ? 'tree-toggle-active' : ''}" data-toggle-id="${node.id}">
+                 ${toggleIcon}
+               </span>
             </div>
-            ${countBadge}
-            ${joinDate ? `<span class="tree-date">${joinDate}</span>` : ''}
+
+            <div class="tree-content">
+              <div class="tree-user-card">
+                ${avatarHtml}
+                <div class="tree-user-details">
+                  <div class="tree-user-header">
+                    <strong class="tree-username">${node.username || node.name || 'Unknown'}</strong>
+                    ${statusBadge}
+                    ${childCount > 0 ? `<span class="badge-referrals">${childCount} refs</span>` : ''}
+                  </div>
+                  <div class="tree-user-meta">
+                    <span class="tree-email">${node.email || 'No email'}</span>
+                    <span class="tree-date">• ${dateDisplay}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="tree-children" data-children-of="${node.id}" style="display: ${node.expanded ? 'block' : 'none'};">
+
+          <div class="tree-children-container" data-children-of="${node.id}" 
+               style="display: ${node.expanded ? 'block' : 'none'};">
             ${hasChildren && node.expanded ? node.children.map(child => renderNode(child, level + 1)).join('') : ''}
           </div>
         </div>
@@ -10484,17 +10560,9 @@ async function loadReferralTree() {
       return html;
     }
 
-    // Count all descendants recursively
-    function countAllDescendants(node) {
-      let count = node.children?.length || 0;
-      node.children?.forEach(child => {
-        count += countAllDescendants(child);
-      });
-      return count;
-    }
-
-    // Attach click listeners for expand/collapse
+    // Attach click listeners
     function attachTreeListeners() {
+      // Toggle buttons
       container.querySelectorAll('.tree-toggle-active').forEach(toggle => {
         toggle.addEventListener('click', function(e) {
           e.stopPropagation();
@@ -10503,10 +10571,10 @@ async function loadReferralTree() {
         });
       });
       
-      // Also allow clicking on the whole node row
-      container.querySelectorAll('.tree-node-parent').forEach(nodeEl => {
-        nodeEl.addEventListener('click', function(e) {
-          if (e.target.classList.contains('tree-toggle-active')) return;
+      // Row clicks
+      container.querySelectorAll('.tree-row-parent').forEach(row => {
+        row.addEventListener('click', function(e) {
+          if (e.target.closest('.tree-toggle')) return; // Don't double trigger
           const item = this.closest('.tree-item');
           const nodeId = item?.getAttribute('data-node-id');
           if (nodeId) toggleNode(nodeId);
@@ -10523,9 +10591,9 @@ async function loadReferralTree() {
       
       // Update DOM
       const childrenContainer = container.querySelector(`[data-children-of="${nodeId}"]`);
-      const toggleEl = container.querySelector(`[data-toggle-id="${nodeId}"]`);
+      const toggleEl = container.querySelector(`[data-toggle-id="${nodeId}"] .tree-toggle-icon`);
       
-      if (childrenContainer && toggleEl) {
+      if (childrenContainer) {
         if (node.expanded) {
           // Render children
           childrenContainer.innerHTML = node.children.map(child => {
@@ -10533,16 +10601,16 @@ async function loadReferralTree() {
             return renderNode(child, level);
           }).join('');
           childrenContainer.style.display = 'block';
-          toggleEl.textContent = '▼';
+          if (toggleEl) toggleEl.textContent = '−';
           attachTreeListeners(); // Re-attach for new elements
         } else {
           childrenContainer.style.display = 'none';
-          toggleEl.textContent = '▶';
+          if (toggleEl) toggleEl.textContent = '+';
         }
       }
     }
 
-    // Find node by ID in tree
+    // Find node helper
     function findNode(nodes, id) {
       for (const node of nodes) {
         if (node.id === id) return node;
@@ -10554,83 +10622,71 @@ async function loadReferralTree() {
       return null;
     }
 
-    // Expand all nodes
+    // Expand/Collapse All helpers
     window.expandAllTreeNodes = function() {
-      function expandAll(nodes) {
-        nodes.forEach(node => {
-          if (node.children?.length) {
-            node.expanded = true;
-            expandAll(node.children);
+      const setExpanded = (nodes, state) => {
+        nodes.forEach(n => {
+          if (n.children.length) {
+            n.expanded = state;
+            setExpanded(n.children, state);
           }
         });
-      }
-      expandAll(rootUsers);
+      };
+      setExpanded(rootUsers, true);
       renderTree();
     };
 
-    // Collapse all nodes
     window.collapseAllTreeNodes = function() {
-      function collapseAll(nodes) {
-        nodes.forEach(node => {
-          node.expanded = false;
-          if (node.children?.length) {
-            collapseAll(node.children);
-          }
+      const setExpanded = (nodes, state) => {
+        nodes.forEach(n => {
+          n.expanded = state;
+          if (n.children.length) setExpanded(n.children, state);
         });
-      }
-      collapseAll(rootUsers);
+      };
+      setExpanded(rootUsers, false);
       renderTree();
     };
-
-    // Search in tree
+    
+    // Search helper
     window.searchInTree = function(query) {
       if (!query?.trim()) {
         renderTree();
         return;
       }
-      
       query = query.toLowerCase().trim();
       
-      // Find matching nodes and their paths
-      function findMatches(nodes, path = []) {
-        let matches = [];
+      // Reset all expanded first? No, keep context.
+      
+      let foundAny = false;
+      // Recursive search and expand path
+      const searchAndExpand = (nodes) => {
+        let hasMatch = false;
         nodes.forEach(node => {
-          const currentPath = [...path, node];
-          const nameMatch = (node.username || node.name || '').toLowerCase().includes(query);
-          const emailMatch = (node.email || '').toLowerCase().includes(query);
+          const match = (node.username || '').toLowerCase().includes(query) || 
+                        (node.email || '').toLowerCase().includes(query);
           
-          if (nameMatch || emailMatch) {
-            matches.push({ node, path: currentPath });
+          let childMatch = false;
+          if (node.children.length) {
+            childMatch = searchAndExpand(node.children);
           }
           
-          if (node.children?.length) {
-            matches = matches.concat(findMatches(node.children, currentPath));
+          if (match || childMatch) {
+            node.expanded = true; // Expand if self matches or child matches
+            hasMatch = true;
+            foundAny = true;
           }
         });
-        return matches;
-      }
+        return hasMatch;
+      };
       
-      const matches = findMatches(rootUsers);
-      
-      if (matches.length === 0) {
-        container.innerHTML = `<p class="text-muted">No users found matching "${query}"</p>`;
-        return;
-      }
-      
-      // Expand paths to matches
-      matches.forEach(({ path }) => {
-        path.forEach(node => {
-          node.expanded = true;
-        });
-      });
-      
+      searchAndExpand(rootUsers);
       renderTree();
       
-      // Highlight matches
+      // Highlight
       setTimeout(() => {
         container.querySelectorAll('.tree-username').forEach(el => {
           if (el.textContent.toLowerCase().includes(query)) {
-            el.closest('.tree-node').classList.add('tree-node-highlight');
+             el.closest('.tree-user-card').classList.add('highlight-match');
           }
         });
       }, 50);
@@ -10639,31 +10695,25 @@ async function loadReferralTree() {
     // Initial render
     renderTree();
 
-    // Connect buttons
+    // Re-bind buttons
     const btnExpandAll = document.getElementById('btnExpandAll');
     const btnCollapseAll = document.getElementById('btnCollapseAll');
     const treeSearch = document.getElementById('treeSearch');
     
-    if (btnExpandAll) {
-      btnExpandAll.onclick = () => window.expandAllTreeNodes();
-    }
-    if (btnCollapseAll) {
-      btnCollapseAll.onclick = () => window.collapseAllTreeNodes();
-    }
+    if (btnExpandAll) btnExpandAll.onclick = () => window.expandAllTreeNodes();
+    if (btnCollapseAll) btnCollapseAll.onclick = () => window.collapseAllTreeNodes();
     if (treeSearch) {
-      let searchTimeout;
+      let t;
       treeSearch.oninput = (e) => {
-        clearTimeout(searchTimeout);
-        searchTimeout = setTimeout(() => {
-          window.searchInTree(e.target.value);
-        }, 300);
+        clearTimeout(t);
+        t = setTimeout(() => window.searchInTree(e.target.value), 300);
       };
     }
 
   } catch (e) {
     console.error('Failed to load referral tree:', e);
     const container = document.getElementById('referralTreeContainer');
-    if (container) container.innerHTML = '<p class="text-danger">Error loading tree</p>';
+    if (container) container.innerHTML = `<p class="text-danger">Error loading tree: ${e.message}</p>`;
   }
 }
 
