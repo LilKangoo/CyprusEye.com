@@ -1,5 +1,6 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { SUPABASE_CONFIG } from './config.js'
+import { initForceRefresh } from './forceRefresh.js'
 
 export const sb = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey, {
   auth: {
@@ -23,4 +24,8 @@ if (typeof window !== 'undefined') {
   if (typeof window.getSupabase !== 'function') {
     window.getSupabase = () => sb
   }
+
+  try {
+    initForceRefresh(sb)
+  } catch (_) {}
 }

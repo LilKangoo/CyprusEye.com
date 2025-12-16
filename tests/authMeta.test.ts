@@ -2,20 +2,18 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 describe('auth meta configuration', () => {
-  const htmlPath = path.join(__dirname, '..', 'auth', 'index.html');
+  const htmlPath = path.join(process.cwd(), 'auth', 'index.html');
   const html = fs.readFileSync(htmlPath, 'utf8');
 
-  it('includes Supabase meta tags', () => {
-    expect(html.includes('meta name="supabase-url"')).toBe(true);
-    expect(html.includes('meta name="supabase-anon"')).toBe(true);
-    expect(html.includes('meta name="supabase-publishable"')).toBe(true);
+  it('includes auth marker meta tag', () => {
+    expect(html.includes('meta name="ce-auth"')).toBe(true);
   });
 
-  it('declares Supabase meta tags before client script', () => {
-    const metaIndex = html.indexOf('<meta name="supabase-url"');
-    const scriptIndex = html.indexOf('<script type="module" src="/js/supabaseClient.js"');
-    expect(metaIndex).toBeGreaterThan(-1);
-    expect(scriptIndex).toBeGreaterThan(-1);
-    expect(metaIndex).toBeLessThan(scriptIndex);
+  it('loads Supabase client script before auth scripts', () => {
+    const supabaseClientIndex = html.indexOf('<script type="module" src="/js/supabaseClient.js"');
+    const authScriptIndex = html.indexOf('<script type="module" src="/js/auth.js"');
+    expect(supabaseClientIndex).toBeGreaterThan(-1);
+    expect(authScriptIndex).toBeGreaterThan(-1);
+    expect(supabaseClientIndex).toBeLessThan(authScriptIndex);
   });
 });

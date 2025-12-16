@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": ".jest-dist",
+    "rootDir": ".",
+    "module": "CommonJS",
+    "target": "ES2020",
+    "types": ["jest", "node"],
+    "declaration": false,
+    "sourceMap": true
+  },
+  "include": ["tests/**/*.test.ts", "lib/geo.ts"],
+  "exclude": ["tests/e2e/**", "node_modules", "dist", "build", ".jest-dist"]
+}

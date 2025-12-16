@@ -35,6 +35,8 @@ let adminState = {
   selectedQuest: null,
 };
 
+const FORCE_REFRESH_ROW_ID = 1;
+
 // =====================================================
 // SUPABASE CLIENT
 // =====================================================
@@ -3113,9 +3115,83 @@ async function loadDashboardData() {
     // Load recent activity
     await loadRecentActivity();
 
+    await loadForceRefreshStatus();
+
   } catch (error) {
     console.error('Failed to load dashboard data:', error);
     showToast('Failed to load dashboard data', 'error');
+  }
+}
+
+async function loadForceRefreshStatus() {
+  try {
+    const client = ensureSupabase();
+    if (!client) return;
+
+    const { data, error } = await client
+      .from('site_settings')
+      .select('force_refresh_version, updated_at')
+      .eq('id', FORCE_REFRESH_ROW_ID)
+      .maybeSingle();
+
+    if (error) {
+      console.error('Failed to load force refresh status:', error);
+      return;
+    }
+
+    const versionEl = document.getElementById('forceRefreshVersion');
+    const updatedEl = document.getElementById('forceRefreshUpdatedAt');
+
+    if (versionEl) {
+      versionEl.textContent = String(data?.force_refresh_version ?? '-');
+    }
+
+    if (updatedEl) {
+      updatedEl.textContent = data?.updated_at ? formatDate(data.updated_at) : '-';
+    }
+  } catch (error) {
+    console.error('Failed to load force refresh status:', error);
+  }
+}
+
+async function handleForceRefreshClick() {
+  const client = ensureSupabase();
+  if (!client) {
+    showToast('Database connection not available', 'error');
+    return;
+  }
+
+  try {
+    const { data: existing, error: existingError } = await client
+      .from('site_settings')
+      .select('force_refresh_version')
+      .eq('id', FORCE_REFRESH_ROW_ID)
+      .maybeSingle();
+
+    if (existingError) throw existingError;
+
+    const currentVersion = Number(existing?.force_refresh_version || 0);
+    const nextVersion = currentVersion + 1;
+
+    const { error } = await client
+      .from('site_settings')
+      .upsert(
+        {
+          id: FORCE_REFRESH_ROW_ID,
+          force_refresh_version: nextVersion,
+          updated_at: new Date().toISOString(),
+          updated_by: adminState.user?.id || null,
+        },
+        { onConflict: 'id' }
+      );
+
+    if (error) throw error;
+
+    showToast('Force refresh triggered', 'success');
+    await loadForceRefreshStatus();
+  } catch (error) {
+    console.error('Force refresh failed:', error);
+    showToast('Force refresh failed', 'error');
   }
 }
 
@@ -7304,6 +7380,18 @@ function initEventListeners() {
   const logoutBtn = $('#btnAdminLogout');
   if (logoutBtn) {
     logoutBtn.addEventListener('click', handleLogout);
+  }
+
+  const forceRefreshBtn = document.getElementById('btnForceRefreshSite');
+  if (forceRefreshBtn) {
+    forceRefreshBtn.addEventListener('click', async () => {
+      forceRefreshBtn.disabled = true;
+      try {
+        await handleForceRefreshClick();
+      } finally {
+        forceRefreshBtn.disabled = false;
+      }
+    });
   }
 
   // Diagnostics Auto-Fix modal

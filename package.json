@@ -7,7 +7,7 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "typecheck": "tsc --noEmit",
-    "test": "jest",
+    "test": "rm -rf .jest-dist && tsc -p tsconfig.jest.json && node -e \"require('node:fs').writeFileSync('.jest-dist/package.json', '{\\\"type\\\":\\\"commonjs\\\"}')\" && jest --config jest.config.cjs",
     "test:e2e": "playwright test",
     "serve": "node server.js",
     "serve:web": "node server.js",

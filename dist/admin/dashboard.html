@@ -330,6 +330,31 @@
           </div>
         </div>
 
+        <div class="admin-section" style="margin-top: 32px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+            <div>
+              <h3>Force Refresh</h3>
+              <p class="admin-view-subtitle" style="margin: 6px 0 0;">Trigger a silent reload for users (on next check)</p>
+            </div>
+            <button class="btn-secondary" id="btnForceRefreshSite" type="button">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 4px;">
+                <path d="M21.5 2v6h-6M2.5 22v-6h6M2 11.5a10 10 0 0 1 18.8-4.3M22 12.5a10 10 0 0 1-18.8 4.2"/>
+              </svg>
+              Force Refresh Now
+            </button>
+          </div>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px;">
+            <div style="background: var(--admin-card-bg); border: 1px solid var(--admin-border); border-radius: 12px; padding: 16px;">
+              <div style="font-size: 13px; color: var(--admin-text-muted); margin-bottom: 8px;">Current version</div>
+              <div style="font-size: 22px; font-weight: 700;" id="forceRefreshVersion">-</div>
+            </div>
+            <div style="background: var(--admin-card-bg); border: 1px solid var(--admin-border); border-radius: 12px; padding: 16px;">
+              <div style="font-size: 13px; color: var(--admin-text-muted); margin-bottom: 8px;">Last updated</div>
+              <div style="font-size: 14px; font-weight: 600;" id="forceRefreshUpdatedAt">-</div>
+            </div>
+          </div>
+        </div>
+
         <!-- All Orders Management Panel -->
         <div class="admin-section" style="margin-top: 32px;">
           <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">

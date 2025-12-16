@@ -5,6 +5,7 @@ node_modules/
 .lighthouseci/
 playwright-report/
 test-results/
+.jest-dist/
 
 # macOS
 .DS_Store

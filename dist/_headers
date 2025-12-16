@@ -26,12 +26,22 @@
 /assets/*
   Cache-Control: public, max-age=31536000, immutable
 
+/assets/css/*
+  ! Cache-Control
+  Cache-Control: public, max-age=0, must-revalidate
+  Content-Type: text/css; charset=utf-8
+
+/assets/js/*
+  ! Cache-Control
+  Cache-Control: public, max-age=0, must-revalidate
+  Content-Type: application/javascript; charset=utf-8
+
 /js/*
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, max-age=0, must-revalidate
   Content-Type: application/javascript; charset=utf-8
 
 /css/*
-  Cache-Control: public, max-age=31536000, immutable
+  Cache-Control: public, max-age=0, must-revalidate
   Content-Type: text/css; charset=utf-8
 
 /translations/*
