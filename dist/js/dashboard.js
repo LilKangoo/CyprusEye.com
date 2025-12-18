@@ -108,7 +108,6 @@ function updateSidebarProfile() {
    const headerLevel = document.getElementById('headerLevelNumber');
    const headerXp = document.getElementById('headerXpPoints');
    const headerXpFill = document.getElementById('headerXpFill');
-   const headerXpText = document.getElementById('headerXpProgressText');
    const headerBadges = document.getElementById('headerBadgesCount');
 
    if (headerAvatar) headerAvatar.src = avatarUrl;
@@ -133,7 +132,6 @@ function updateSidebarProfile() {
       headerXpFill.style.width = `${progress}%`;
       headerXpFill.classList.remove('is-width-zero');
    }
-   if (headerXpText) headerXpText.textContent = `${xp} XP`;
 }
 
 function calculateEstimatedPrice(booking) {

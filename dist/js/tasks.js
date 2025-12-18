@@ -89,7 +89,6 @@
     const xpEl = document.getElementById('headerXpPoints');
     const levelEl = document.getElementById('headerLevelNumber');
     const fillEl = document.getElementById('headerXpFill');
-    const progressText = document.getElementById('headerXpProgressText');
 
     if (levelEl) levelEl.textContent = String(state.level);
     if (xpEl) xpEl.textContent = String(state.xp);
@@ -99,12 +98,6 @@
     if (fillEl) {
       if (pct <= 0) fillEl.classList.add('is-width-zero'); else fillEl.classList.remove('is-width-zero');
       fillEl.style.width = pct + '%';
-    }
-    if (progressText) {
-      progressText.textContent = t('metrics.xp.progress', `${into} / ${XP_PER_LEVEL} XP do kolejnego poziomu`, {
-        current: into,
-        next: XP_PER_LEVEL
-      });
     }
   }
 

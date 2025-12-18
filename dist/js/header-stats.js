@@ -78,10 +78,8 @@
     
     elements = {
       levelNumber: document.getElementById('headerLevelNumber'),
-      levelStatus: document.getElementById('headerLevelStatus'),
       xpPoints: document.getElementById('headerXpPoints'),
       xpFill: document.getElementById('headerXpFill'),
-      xpProgressText: document.getElementById('headerXpProgressText'),
       badgesCount: document.getElementById('headerBadgesCount'),
       profileName: document.querySelector('.profile-name'),
       profileStatus: document.querySelector('.profile-status'),
@@ -134,18 +132,6 @@
         el.xpFill.classList.remove('is-width-zero');
       }
       el.xpFill.style.width = progressPercent + '%';
-    }
-
-    if (el.xpProgressText) {
-      const xpParams = {
-        current: currentLevelXP,
-        target: XP_PER_LEVEL,
-        total: XP_PER_LEVEL,
-        required: XP_PER_LEVEL,
-      };
-      const defaultXpText = `${currentLevelXP} / ${XP_PER_LEVEL} XP`;
-      const xpText = translateHeader('metrics.xp.progressTemplate', xpParams, defaultXpText);
-      el.xpProgressText.textContent = xpText;
     }
 
     // Aktualizuj odznaki

@@ -3479,22 +3479,8 @@ function saveProgress() {
 
 function renderLevelStatus() {
   const levelStatusEl = document.getElementById('levelStatus');
-  const headerLevelStatusEl = document.getElementById('headerLevelStatus');
   if (levelStatusEl) {
     levelStatusEl.textContent = state.levelStatusMessage;
-  }
-  if (headerLevelStatusEl) {
-    const defaultHeaderStatus =
-      state.level > 1
-        ? translate(
-            'metrics.level.defaultStatus.progress',
-            'Kontynuuj odkrywanie, aby zdobywać kolejne nagrody.'
-          )
-        : translate(
-            'metrics.level.defaultStatus.initial',
-            'Zdobądź pierwsze check-iny, aby awansować!'
-          );
-    headerLevelStatusEl.textContent = state.levelStatusMessage || defaultHeaderStatus;
   }
 }
 
@@ -4016,7 +4002,6 @@ function renderProgress() {
   const headerBadgesCountEl = document.getElementById('headerBadgesCount');
   const headerXpFillEl = document.getElementById('headerXpFill');
   const xpProgressTextEl = document.getElementById('xpProgressText');
-  const headerXpProgressTextEl = document.getElementById('headerXpProgressText');
   const achievementsBadgesCountEl = document.getElementById('achievementsBadgesCount');
   const achievementsVisitedCountEl = document.getElementById('achievementsVisitedCount');
 
@@ -4085,9 +4070,6 @@ function renderProgress() {
 
   if (xpProgressTextEl) {
     xpProgressTextEl.textContent = progressMessage;
-  }
-  if (headerXpProgressTextEl) {
-    headerXpProgressTextEl.textContent = progressMessage;
   }
 
   if (badgesListEl) {
