@@ -830,6 +830,16 @@ function createServer() {
       return jsonResponse(res, 200, { status: 'ok' });
     }
 
+    const faviconPath = BASE_PATH === '/' ? '/favicon.ico' : `${BASE_PATH}/favicon.ico`;
+    if ((req.method === 'GET' || req.method === 'HEAD') && (url.pathname === '/favicon.ico' || url.pathname === faviconPath)) {
+      applySecurityHeaders(res);
+      res.writeHead(204, {
+        'Cache-Control': 'public, max-age=86400',
+      });
+      res.end();
+      return;
+    }
+
     const handler = resolveRoute(req.method, url.pathname);
 
     if (handler) {

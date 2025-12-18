@@ -1365,7 +1365,30 @@ export async function refreshSessionAndProfile() {
     }
   }
 
-  const status = session?.user ? 'authenticated' : 'anonymous';
+  let guestState = null;
+  try {
+    guestState = window.CE_STATE?.guest ?? null;
+    if (!guestState?.active) {
+      const rawGuest = window.localStorage.getItem('ce_guest');
+      if (rawGuest) {
+        const parsedGuest = JSON.parse(rawGuest);
+        if (parsedGuest && typeof parsedGuest === 'object') {
+          guestState = {
+            active: Boolean(parsedGuest.active),
+            since: Number.isFinite(parsedGuest.since) ? parsedGuest.since : Date.now(),
+          };
+        }
+      }
+    }
+  } catch {
+    guestState = window.CE_STATE?.guest ?? null;
+  }
+
+  if (!session?.user && guestState?.active) {
+    state.guest = guestState;
+  }
+
+  const status = session?.user ? 'authenticated' : guestState?.active ? 'guest' : 'anonymous';
   setState({ ...state, status });
   persistAuthSession(session, state.profile);
   emitAuthState(window.CE_STATE);

@@ -44,6 +44,15 @@ function readGuestState() {
   return null;
 }
 
+const initialGuestState = readGuestState();
+if (initialGuestState?.active) {
+  const state = (window.CE_STATE = window.CE_STATE || {});
+  if (!state.session) {
+    state.guest = initialGuestState;
+    state.status = 'guest';
+  }
+}
+
 function persistGuestState(state) {
   try {
     if (state) {

@@ -71,6 +71,8 @@ function readPersistedState() {
 
 const state = createEmptyState();
 
+let stubApi = null;
+
 function persistState() {
   const payload = JSON.stringify(state);
   for (const store of STORAGE_TARGETS) {
@@ -217,6 +219,8 @@ function ensureProfile(userId, overrides = {}) {
         : overrides.username_normalized || '',
     xp: overrides.xp ?? 0,
     level: overrides.level ?? 1,
+    avatar_url: overrides.avatar_url ?? null,
+    visited_places: Array.isArray(overrides.visited_places) ? [...overrides.visited_places] : [],
     updated_at: new Date().toISOString(),
   };
   state.profiles[userId] = template;
@@ -268,11 +272,19 @@ function requireSession() {
   return { error: null, user };
 }
 
-function selectProfilesSingle() {
+function selectProfilesSingle(filters = []) {
   const { user, error } = requireSession();
   if (error) {
     return { data: null, error };
   }
+
+  const allowed = Array.isArray(filters)
+    ? filters.every((filter) => filter.column !== 'id' || filter.value === user.id)
+    : true;
+  if (!allowed) {
+    return { data: null, error: { message: 'Permission denied' } };
+  }
+
   const profile = state.profiles[user.id];
   if (!profile) {
     return { data: null, error: { message: 'Profile not found' } };
@@ -398,8 +410,9 @@ export function createClient() {
         return { data: { session: state.currentSession }, error: null };
       },
       async getUser() {
-        if (Array.isArray(stubApi.getUserQueue) && stubApi.getUserQueue.length > 0) {
-          const next = stubApi.getUserQueue.shift();
+        const api = stubApi || globalThis.__supabaseStub || {};
+        if (Array.isArray(api.getUserQueue) && api.getUserQueue.length > 0) {
+          const next = api.getUserQueue.shift();
           if (typeof next === 'function') {
             return await next();
           }
@@ -488,8 +501,9 @@ export function createClient() {
             console.error('supabase stub initial auth handler error', error);
           }
         };
-        if (typeof stubApi.initialSessionEventDelay === 'number' && stubApi.initialSessionEventDelay >= 0) {
-          initialTimer = setTimeout(triggerInitial, stubApi.initialSessionEventDelay);
+        const api = stubApi || globalThis.__supabaseStub || {};
+        if (typeof api.initialSessionEventDelay === 'number' && api.initialSessionEventDelay >= 0) {
+          initialTimer = setTimeout(triggerInitial, api.initialSessionEventDelay);
         } else {
           triggerInitial();
         }
@@ -513,11 +527,20 @@ export function createClient() {
       if (table === 'profiles') {
         return {
           select() {
-            return {
+            const filters = [];
+            const builder = {
+              eq(column, value) {
+                filters.push({ column, value });
+                return builder;
+              },
               async single() {
-                return selectProfilesSingle();
+                return selectProfilesSingle(filters);
+              },
+              async maybeSingle() {
+                return selectProfilesSingle(filters);
               },
             };
+            return builder;
           },
           update(values) {
             const filters = [];
@@ -552,15 +575,47 @@ export function createClient() {
           },
         };
       }
+      // Generic table handler with full chainable API
       return {
-        async select() {
-          return { data: null, error: { message: `Table ${table} not implemented` } };
+        select(columns) {
+          const builder = {
+            eq: (col, val) => builder,
+            neq: (col, val) => builder,
+            gt: (col, val) => builder,
+            gte: (col, val) => builder,
+            lt: (col, val) => builder,
+            lte: (col, val) => builder,
+            like: (col, val) => builder,
+            ilike: (col, val) => builder,
+            is: (col, val) => builder,
+            in: (col, val) => builder,
+            contains: (col, val) => builder,
+            order: (col, opts) => builder,
+            limit: (count) => builder,
+            range: (from, to) => builder,
+            single: async () => ({ data: null, error: null }),
+            maybeSingle: async () => ({ data: null, error: null }),
+            then: (resolve) => resolve({ data: [], error: null }),
+          };
+          return builder;
         },
+        insert: async (rows) => ({ data: rows, error: null }),
+        update: (values) => ({
+          eq: (col, val) => ({
+            select: () => ({
+              single: async () => ({ data: null, error: null }),
+            }),
+          }),
+        }),
+        delete: () => ({
+          eq: (col, val) => ({ then: (resolve) => resolve({ error: null }) }),
+        }),
       };
     },
   };
+}
 
-const stubApi =
+stubApi =
   typeof globalThis.__supabaseStub === 'object' && globalThis.__supabaseStub !== null
     ? globalThis.__supabaseStub
     : {};
@@ -611,5 +666,4 @@ if (typeof stubApi.onReady === 'function') {
   } catch (error) {
     console.error('supabase stub onReady error', error);
   }
-}
 }

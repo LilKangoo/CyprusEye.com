@@ -12,16 +12,25 @@ export const SUPABASE_MODULE_URL = 'https://esm.sh/@supabase/supabase-js@2';
 export const SUPABASE_CDN_URL = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2';
 
 export async function enableSupabaseStub(page: Page) {
-  // Inject stub source directly as an init script
-  // This runs BEFORE any page scripts, including module imports
-  await page.addInitScript(supabaseStubSource);
+  await page.addInitScript(() => {
+    (window as any).__supabaseStub = (window as any).__supabaseStub || {};
+    try {
+      void import('https://esm.sh/@supabase/supabase-js@2');
+    } catch {
+      // ignore
+    }
+  });
   
   // Also intercept network requests as backup
   await page.route('**/*@supabase/supabase-js*', async (route) => {
     await route.fulfill({
       status: 200,
       body: supabaseStubSource,
-      headers: { 'content-type': 'application/javascript' },
+      headers: {
+        'content-type': 'application/javascript; charset=utf-8',
+        'access-control-allow-origin': '*',
+        'access-control-allow-headers': '*',
+      },
     });
   });
 }
@@ -31,8 +40,8 @@ export async function waitForSupabaseStub(page: Page) {
   // Some tests may not need the stub
   try {
     await page.waitForFunction(
-      () => typeof (window as any).__supabaseStub !== 'undefined',
-      { timeout: 2000 }
+      () => typeof (window as any).__supabaseStub?.seedUser === 'function',
+      { timeout: 5000 }
     );
   } catch (error) {
     console.warn('Supabase stub did not load within 2s, continuing anyway...');

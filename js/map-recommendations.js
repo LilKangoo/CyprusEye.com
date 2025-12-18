@@ -23,7 +23,7 @@ async function trackRecommendationView(recId) {
     }]);
     console.log('✅ [map-rec] View tracked:', recId);
   } catch (e) {
-    console.error('[map-rec] Track view error:', e);
+    console.warn('[map-rec] Track view error:', e);
   }
 }
 
@@ -38,7 +38,7 @@ async function trackRecommendationClick(recId, clickType) {
     }]);
     console.log('✅ [map-rec] Click tracked:', recId, clickType);
   } catch (e) {
-    console.error('[map-rec] Track click error:', e);
+    console.warn('[map-rec] Track click error:', e);
   }
 }
 
@@ -91,7 +91,7 @@ async function loadRecommendationsForMap() {
       .not('longitude', 'is', null);
     
     if (error) {
-      console.error('[map-recommendations] Error loading:', error);
+      console.warn('[map-recommendations] Error loading:', error);
       return [];
     }
     
@@ -100,7 +100,7 @@ async function loadRecommendationsForMap() {
     
     return mapRecommendations;
   } catch (error) {
-    console.error('[map-recommendations] Exception:', error);
+    console.warn('[map-recommendations] Exception:', error);
     return [];
   }
 }
@@ -365,7 +365,7 @@ window.openRecommendationDetailModal = function(id) {
           L.marker([rec.latitude, rec.longitude], { icon: greenIcon }).addTo(miniMap);
         }
       } catch (e) {
-        console.error('[map-recommendations] Mini map error:', e);
+        console.warn('[map-recommendations] Mini map error:', e);
       }
     }, 300);
   }

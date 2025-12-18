@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="pl" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://esm.sh https://unpkg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co wss://*.supabase.co https://esm.sh https://unpkg.com; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;" />
+  <meta name="theme-color" content="#2563eb" />
+  <title data-i18n="seo.mediaTrips.title">VIP – CyprusEye</title>
+  <meta name="description" content="VIP wyjazdy indywidualne i ekskluzywne oferty na Cyprze." />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="assets/css/tokens.css" />
+  <link rel="stylesheet" href="assets/css/base.css" />
+  <link rel="stylesheet" href="assets/css/components.css" />
+  <link rel="stylesheet" href="assets/css/header-metrics.css" />
+  <link rel="stylesheet" href="assets/css/mobile.css" />
+  <link rel="stylesheet" href="assets/css/mobile-nav.css" />
+  <link rel="stylesheet" href="assets/css/rtl.css" />
+  <link rel="stylesheet" href="assets/css/language-switcher.css" />
+  <link rel="stylesheet" href="assets/css/language-selector.css" />
+  <link rel="stylesheet" href="assets/css/pages.css" />
+  <link rel="stylesheet" href="css/toast.css" />
+
+  <meta name="ce-auth" content="on" />
+  <script type="module" src="js/supabaseClient.js"></script>
+  <script type="module" src="js/toast.js"></script>
+  <script type="module" src="js/auth.js"></script>
+  <script type="module" src="js/authUi.js"></script>
+</head>
+<body data-navigation="multi-page" data-seo-page="vip">
+  <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+
+  <header class="app-header nav-modern">
+    <div class="nav-modern__top" aria-label="Global header">
+      <div class="brand nav-modern__brand-block">
+        <a href="index.html" class="nav-modern__brand-link" aria-label="CyprusEye Quest home">
+          <img
+            src="assets/cyprus_logo-1000x1054.png"
+            alt="WakacjeCypr.com – logo żółwia z flagą Polski"
+            data-i18n-attrs="alt:header.logoAlt"
+            width="1000"
+            height="1054"
+            loading="eager"
+            fetchpriority="high"
+          />
+          <div class="brand-title" data-i18n="header.brand">
+            <p class="brand-name">CyprusEye Quest &amp; Travel</p>
+          </div>
+        </a>
+      </div>
+
+      <div class="nav-modern__stats nav-modern__stats-lite" data-auth="user-only">
+        <div class="stats-lite__pill">
+          <a href="achievements.html" class="stats-lite__profile" id="profileButton" aria-label="Mój profil">
+            <img
+              id="headerUserAvatar"
+              class="profile-avatar"
+              src="assets/cyprus_logo-1000x1054.png"
+              alt="Avatar"
+              width="48"
+              height="48"
+              loading="eager"
+            />
+            <div class="profile-info">
+              <p class="profile-name">Mój Profil</p>
+              <p class="profile-status">Poziom 1 • 0 odznak</p>
+            </div>
+          </a>
+
+          <div class="stats-lite__panel">
+            <div class="stats-lite__level">
+              <span class="stats-lite__label">LVL</span>
+              <span class="stats-lite__value" id="headerLevelNumber">1</span>
+              <span class="stats-lite__status" id="headerLevelStatus" data-i18n="metrics.level.subtext">Status poziomu</span>
+            </div>
+
+            <div class="stats-lite__xp" role="img" aria-label="Postęp doświadczenia" data-i18n-attrs="aria-label:metrics.xp.aria">
+              <span class="stats-lite__xp-current"><span id="headerXpPoints">0</span> XP</span>
+              <div class="stats-lite__xp-bar">
+                <div class="stats-lite__xp-fill is-width-zero" id="headerXpFill"></div>
+              </div>
+              <span class="stats-lite__xp-target" id="headerXpProgressText" data-i18n="metrics.xp.progress">
+                0 / 150 XP do kolejnego poziomu
+              </span>
+            </div>
+
+            <div class="stats-lite__badges">
+              <span class="stats-lite__label">🏆</span>
+              <span class="stats-lite__value" id="headerBadgesCount">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-modern__top-actions">
+        <div class="nav-modern__auth">
+          <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
+            <button
+              class="nav-modern__login"
+              data-open-auth
+              data-auth="anon-only"
+              data-i18n="header.login"
+              data-i18n-attrs="aria-label:auth.login.aria"
+              aria-label="Zaloguj do konta"
+            >
+              Zaloguj
+            </button>
+            <button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
+          </div>
+          <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
+        </div>
+
+        <button
+          id="sosToggle"
+          class="nav-modern__sos"
+          type="button"
+          aria-haspopup="dialog"
+          aria-controls="sosModal"
+          data-i18n="header.sosToggle"
+        >
+          ⚠️ SOS
+        </button>
+
+        <div class="language-pill-group" data-language-toggle aria-label="Language selector" data-i18n-attrs="aria-label:language.switcher.label">
+          <button type="button" class="language-pill" data-language-pill="pl" aria-pressed="false">PL</button>
+          <button type="button" class="language-pill" data-language-pill="en" aria-pressed="false">EN</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-modern__shell">
+      <div class="nav-modern__bars" data-tour-target="tabs-navigation">
+        <button class="nav-modern__toggle-btn" id="navToggleBtn" aria-expanded="false" aria-controls="navLinksRow" data-i18n="nav.toggle">
+          ☰ Nawigacja
+        </button>
+        <div class="nav-modern__links-row" id="navLinksRow" aria-label="Główna nawigacja i skróty" data-i18n-attrs="aria-label:header.quickActions.aria">
+          <nav class="nav-modern__tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna">
+            <a href="index.html" class="nav-modern__tab" id="headerAdventureTab" data-i18n="nav.adventure">🎯 Przygoda</a>
+            <a href="community.html" class="nav-modern__tab" id="headerPackingTab" data-i18n="nav.community">💬 Społeczność</a>
+            <a href="recommendations.html" class="nav-modern__tab" id="headerRecommendationsTab" data-i18n="nav.recommendations">✨ Polecane</a>
+            <a href="tasks.html" class="nav-modern__tab" id="headerTasksTab" data-i18n="nav.tasks">☑️ Zadania</a>
+            <a href="vip.html" class="nav-modern__tab is-active" id="headerMediaTripsTab" data-i18n="nav.mediaTrips">✨ VIP</a>
+          </nav>
+
+          <div class="nav-modern__chips">
+            <a class="nav-chip" href="packing.html" data-i18n="nav.packing">🎒 Pakowanie</a>
+            <a class="nav-chip" href="kupon.html" data-i18n="header.coupon">🎟️ Kupon</a>
+            <a class="nav-chip" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
+            <a class="nav-chip" href="trips.html" data-i18n="nav.trips">🧭 Wycieczki</a>
+            <a class="nav-chip" href="hotels.html" data-i18n="nav.hotels">🏨 Hotele</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="main-content" class="page-shell">
+    <section class="utility-view app-view" id="vipView">
+      <header class="utility-view-header">
+        <div>
+          <h1 data-i18n="vip.title">VIP</h1>
+          <p data-i18n="vip.subtitle">Ekskluzywne propozycje wyjazdów indywidualnych na Cyprze.</p>
+        </div>
+      </header>
+
+      <div class="page-card" style="padding: 1.25rem; margin: 1rem;">
+        <p data-i18n="vip.placeholder">Ta strona jest w przygotowaniu.</p>
+      </div>
+    </section>
+  </main>
+
+  <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
+
+  <script src="js/i18n.js" defer></script>
+  <script src="js/forms.js" defer></script>
+  <script src="js/seo.js" defer></script>
+  <script src="js/mobile-nav.js" defer></script>
+  <script src="js/header-dropdown.js" defer></script>
+  <script src="js/languageSwitcher.js"></script>
+  <script src="js/languageRefresh.js"></script>
+  <script src="js/header-stats.js?v=1" defer></script>
+  <script src="js/sos.js?v=1" defer></script>
+  <script src="assets/js/modal-auth.js" defer></script>
+  <script type="module" src="assets/js/account-modal.js"></script>
+  <script type="module" src="assets/js/auth-ui.js"></script>
+
+  <div class="sos-modal" id="sosModal" hidden role="dialog" aria-modal="true" aria-labelledby="sosTitle">
+    <div class="sos-dialog">
+      <button class="sos-close" id="sosClose" type="button" aria-label="Zamknij">×</button>
+      <h2 id="sosTitle">SOS</h2>
+      <p data-i18n="sos.description">W razie nagłej sytuacji skontaktuj się z odpowiednimi służbami.</p>
+    </div>
+  </div>
+</body>
+</html>

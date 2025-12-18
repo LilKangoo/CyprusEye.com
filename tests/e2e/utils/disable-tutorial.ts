@@ -7,6 +7,10 @@ import { Page } from '@playwright/test';
 export async function disableTutorial(page: Page) {
   await page.addInitScript(() => {
     window.localStorage.setItem('seenTutorial', 'true');
+    window.localStorage.setItem('ce_lang_selected', 'true');
+    if (!window.localStorage.getItem('ce_lang')) {
+      window.localStorage.setItem('ce_lang', 'pl');
+    }
   });
 }
 
