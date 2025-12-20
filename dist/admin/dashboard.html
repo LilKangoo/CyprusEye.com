@@ -3445,6 +3445,387 @@
     </div>
   </div>
 
+  <!-- Shop Product Form Modal -->
+  <div class="admin-modal" id="shopProductModal" hidden>
+    <div class="admin-modal-overlay" id="shopProductModalOverlay"></div>
+    <div class="admin-modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+      <header class="admin-modal-header">
+        <h3 id="shopProductModalTitle">New Product</h3>
+        <button class="btn-modal-close" id="btnCloseShopProductModal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body">
+        <form id="shopProductForm" novalidate>
+          <input type="hidden" id="shopProductId">
+          
+          <div class="admin-form-grid">
+            <label class="admin-form-field">
+              <span>Product Name *</span>
+              <input type="text" id="shopProductName" required placeholder="e.g. Cyprus Olive Oil">
+            </label>
+            <label class="admin-form-field">
+              <span>SKU</span>
+              <input type="text" id="shopProductSku" placeholder="OLIVE-001">
+            </label>
+          </div>
+
+          <label class="admin-form-field">
+            <span>Description</span>
+            <textarea id="shopProductDescription" rows="3" placeholder="Product description..."></textarea>
+          </label>
+
+          <div class="admin-form-grid">
+            <label class="admin-form-field">
+              <span>Price (€) *</span>
+              <input type="number" id="shopProductPrice" step="0.01" min="0" required placeholder="29.99">
+            </label>
+            <label class="admin-form-field">
+              <span>Compare At Price (€)</span>
+              <input type="number" id="shopProductComparePrice" step="0.01" min="0" placeholder="39.99">
+            </label>
+            <label class="admin-form-field">
+              <span>Cost (€)</span>
+              <input type="number" id="shopProductCost" step="0.01" min="0" placeholder="15.00">
+            </label>
+          </div>
+
+          <div class="admin-form-grid">
+            <label class="admin-form-field">
+              <span>Category</span>
+              <select id="shopProductCategory">
+                <option value="">No Category</option>
+              </select>
+            </label>
+            <label class="admin-form-field">
+              <span>Vendor</span>
+              <select id="shopProductVendor">
+                <option value="">No Vendor</option>
+              </select>
+            </label>
+            <label class="admin-form-field">
+              <span>Status</span>
+              <select id="shopProductStatus">
+                <option value="draft">Draft</option>
+                <option value="active">Active</option>
+                <option value="archived">Archived</option>
+              </select>
+            </label>
+          </div>
+
+          <div class="admin-form-grid">
+            <label class="admin-form-field">
+              <span>Product Type</span>
+              <select id="shopProductType">
+                <option value="physical">Physical</option>
+                <option value="digital">Digital</option>
+                <option value="subscription">Subscription</option>
+                <option value="bundle">Bundle</option>
+              </select>
+            </label>
+            <label class="admin-form-field">
+              <span>Weight (kg)</span>
+              <input type="number" id="shopProductWeight" step="0.01" min="0" placeholder="0.5">
+            </label>
+            <label class="admin-form-field">
+              <span>Tax Class</span>
+              <select id="shopProductTaxClass">
+                <option value="">Default</option>
+              </select>
+            </label>
+          </div>
+
+          <div style="margin: 16px 0; padding: 16px; background: var(--admin-bg); border-radius: 8px;">
+            <h4 style="margin: 0 0 12px; font-size: 14px;">Inventory</h4>
+            <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+              <label style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="shopProductTrackInventory">
+                <span>Track inventory</span>
+              </label>
+              <label style="display: flex; align-items: center; gap: 8px;">
+                <input type="checkbox" id="shopProductAllowBackorder">
+                <span>Allow backorders</span>
+              </label>
+            </div>
+            <div class="admin-form-grid" style="margin-top: 12px;">
+              <label class="admin-form-field">
+                <span>Stock Quantity</span>
+                <input type="number" id="shopProductStock" min="0" value="0">
+              </label>
+              <label class="admin-form-field">
+                <span>Low Stock Threshold</span>
+                <input type="number" id="shopProductLowStock" min="0" value="5">
+              </label>
+            </div>
+          </div>
+
+          <div style="margin: 16px 0; display: flex; gap: 16px; flex-wrap: wrap;">
+            <label style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" id="shopProductFeatured">
+              <span>Featured product</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" id="shopProductRequiresShipping" checked>
+              <span>Requires shipping</span>
+            </label>
+          </div>
+
+          <label class="admin-form-field">
+            <span>Thumbnail URL</span>
+            <input type="url" id="shopProductThumbnail" placeholder="https://...">
+          </label>
+
+          <label class="admin-form-field">
+            <span>Tags (comma separated)</span>
+            <input type="text" id="shopProductTags" placeholder="olive, food, local">
+          </label>
+
+          <div id="shopProductFormError" class="admin-error-message" hidden></div>
+
+          <div class="poi-form-actions" style="margin-top: 20px;">
+            <button type="button" class="btn-secondary" id="shopProductFormCancel">Cancel</button>
+            <button type="submit" class="btn-primary">Save Product</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shop Category Form Modal -->
+  <div class="admin-modal" id="shopCategoryModal" hidden>
+    <div class="admin-modal-overlay" id="shopCategoryModalOverlay"></div>
+    <div class="admin-modal-content" style="max-width: 500px;">
+      <header class="admin-modal-header">
+        <h3 id="shopCategoryModalTitle">New Category</h3>
+        <button class="btn-modal-close" id="btnCloseShopCategoryModal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body">
+        <form id="shopCategoryForm" novalidate>
+          <input type="hidden" id="shopCategoryId">
+          
+          <label class="admin-form-field">
+            <span>Category Name *</span>
+            <input type="text" id="shopCategoryName" required placeholder="e.g. Local Products">
+          </label>
+
+          <label class="admin-form-field">
+            <span>Slug</span>
+            <input type="text" id="shopCategorySlug" placeholder="local-products">
+            <small style="color: var(--admin-text-muted);">Leave empty to auto-generate</small>
+          </label>
+
+          <label class="admin-form-field">
+            <span>Parent Category</span>
+            <select id="shopCategoryParent">
+              <option value="">None (Top Level)</option>
+            </select>
+          </label>
+
+          <label class="admin-form-field">
+            <span>Description</span>
+            <textarea id="shopCategoryDescription" rows="2"></textarea>
+          </label>
+
+          <label class="admin-form-field">
+            <span>Sort Order</span>
+            <input type="number" id="shopCategorySortOrder" min="0" value="0">
+          </label>
+
+          <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
+            <input type="checkbox" id="shopCategoryActive" checked>
+            <span>Active</span>
+          </label>
+
+          <div id="shopCategoryFormError" class="admin-error-message" hidden></div>
+
+          <div class="poi-form-actions" style="margin-top: 20px;">
+            <button type="button" class="btn-secondary" id="shopCategoryFormCancel">Cancel</button>
+            <button type="submit" class="btn-primary">Save Category</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shop Vendor Form Modal -->
+  <div class="admin-modal" id="shopVendorModal" hidden>
+    <div class="admin-modal-overlay" id="shopVendorModalOverlay"></div>
+    <div class="admin-modal-content" style="max-width: 600px;">
+      <header class="admin-modal-header">
+        <h3 id="shopVendorModalTitle">New Vendor</h3>
+        <button class="btn-modal-close" id="btnCloseShopVendorModal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body">
+        <form id="shopVendorForm" novalidate>
+          <input type="hidden" id="shopVendorId">
+          
+          <div class="admin-form-grid">
+            <label class="admin-form-field">
+              <span>Vendor Name *</span>
+              <input type="text" id="shopVendorName" required placeholder="e.g. Cyprus Delights">
+            </label>
+            <label class="admin-form-field">
+              <span>Slug</span>
+              <input type="text" id="shopVendorSlug" placeholder="cyprus-delights">
+            </label>
+          </div>
+
+          <label class="admin-form-field">
+            <span>Description</span>
+            <textarea id="shopVendorDescription" rows="2"></textarea>
+          </label>
+
+          <div class="admin-form-grid">
+            <label class="admin-form-field">
+              <span>Contact Email</span>
+              <input type="email" id="shopVendorEmail" placeholder="vendor@example.com">
+            </label>
+            <label class="admin-form-field">
+              <span>Commission Rate (%)</span>
+              <input type="number" id="shopVendorCommission" min="0" max="100" step="0.1" value="0">
+            </label>
+          </div>
+
+          <label class="admin-form-field">
+            <span>Logo URL</span>
+            <input type="url" id="shopVendorLogo" placeholder="https://...">
+          </label>
+
+          <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
+            <input type="checkbox" id="shopVendorActive" checked>
+            <span>Active</span>
+          </label>
+
+          <div id="shopVendorFormError" class="admin-error-message" hidden></div>
+
+          <div class="poi-form-actions" style="margin-top: 20px;">
+            <button type="button" class="btn-secondary" id="shopVendorFormCancel">Cancel</button>
+            <button type="submit" class="btn-primary">Save Vendor</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shop Discount Form Modal -->
+  <div class="admin-modal" id="shopDiscountModal" hidden>
+    <div class="admin-modal-overlay" id="shopDiscountModalOverlay"></div>
+    <div class="admin-modal-content" style="max-width: 600px;">
+      <header class="admin-modal-header">
+        <h3 id="shopDiscountModalTitle">New Discount</h3>
+        <button class="btn-modal-close" id="btnCloseShopDiscountModal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body">
+        <form id="shopDiscountForm" novalidate>
+          <input type="hidden" id="shopDiscountId">
+          
+          <div class="admin-form-grid">
+            <label class="admin-form-field">
+              <span>Discount Code *</span>
+              <input type="text" id="shopDiscountCode" required placeholder="SUMMER20" style="text-transform: uppercase;">
+            </label>
+            <label class="admin-form-field">
+              <span>Description</span>
+              <input type="text" id="shopDiscountDescription" placeholder="Summer sale 20% off">
+            </label>
+          </div>
+
+          <div class="admin-form-grid">
+            <label class="admin-form-field">
+              <span>Discount Type</span>
+              <select id="shopDiscountType">
+                <option value="percentage">Percentage</option>
+                <option value="fixed">Fixed Amount</option>
+                <option value="free_shipping">Free Shipping</option>
+              </select>
+            </label>
+            <label class="admin-form-field">
+              <span>Value</span>
+              <input type="number" id="shopDiscountValue" step="0.01" min="0" placeholder="20">
+            </label>
+          </div>
+
+          <div class="admin-form-grid">
+            <label class="admin-form-field">
+              <span>Minimum Order (€)</span>
+              <input type="number" id="shopDiscountMinOrder" step="0.01" min="0" placeholder="50">
+            </label>
+            <label class="admin-form-field">
+              <span>Maximum Discount (€)</span>
+              <input type="number" id="shopDiscountMaxDiscount" step="0.01" min="0" placeholder="100">
+            </label>
+          </div>
+
+          <div class="admin-form-grid">
+            <label class="admin-form-field">
+              <span>Usage Limit</span>
+              <input type="number" id="shopDiscountUsageLimit" min="0" placeholder="Unlimited">
+            </label>
+            <label class="admin-form-field">
+              <span>Per User Limit</span>
+              <input type="number" id="shopDiscountPerUserLimit" min="0" value="1">
+            </label>
+          </div>
+
+          <div class="admin-form-grid">
+            <label class="admin-form-field">
+              <span>Start Date</span>
+              <input type="datetime-local" id="shopDiscountStartDate">
+            </label>
+            <label class="admin-form-field">
+              <span>Expiry Date</span>
+              <input type="datetime-local" id="shopDiscountExpiryDate">
+            </label>
+          </div>
+
+          <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
+            <input type="checkbox" id="shopDiscountActive" checked>
+            <span>Active</span>
+          </label>
+
+          <div id="shopDiscountFormError" class="admin-error-message" hidden></div>
+
+          <div class="poi-form-actions" style="margin-top: 20px;">
+            <button type="button" class="btn-secondary" id="shopDiscountFormCancel">Cancel</button>
+            <button type="submit" class="btn-primary">Save Discount</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shop Order Detail Modal -->
+  <div class="admin-modal" id="shopOrderModal" hidden>
+    <div class="admin-modal-overlay" id="shopOrderModalOverlay"></div>
+    <div class="admin-modal-content" style="max-width: 800px; max-height: 90vh; overflow-y: auto;">
+      <header class="admin-modal-header">
+        <h3 id="shopOrderModalTitle">Order Details</h3>
+        <button class="btn-modal-close" id="btnCloseShopOrderModal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body" id="shopOrderModalContent">
+        <p style="text-align: center; color: var(--admin-text-muted);">Loading order details...</p>
+      </div>
+    </div>
+  </div>
+
   <!-- Toast Notifications -->
   <div id="toast-container" class="toast-container"></div>
 

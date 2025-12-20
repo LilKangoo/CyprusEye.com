@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zamówienie złożone - WakacjeCypr</title>
+  <link rel="icon" type="image/png" href="assets/images/favicon.png">
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="stylesheet" href="assets/css/components.css">
+  <style>
+    .success-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 20px;
+      background: linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%);
+    }
+    .success-card {
+      background: white;
+      border-radius: 16px;
+      padding: 48px;
+      max-width: 500px;
+      text-align: center;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+    }
+    .success-icon {
+      width: 80px;
+      height: 80px;
+      background: #22c55e;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 24px;
+      animation: scaleIn 0.5s ease-out;
+    }
+    @keyframes scaleIn {
+      from { transform: scale(0); }
+      to { transform: scale(1); }
+    }
+    .success-icon svg {
+      width: 40px;
+      height: 40px;
+      color: white;
+    }
+    .success-card h1 {
+      font-size: 1.75rem;
+      color: #1f2937;
+      margin: 0 0 12px;
+    }
+    .success-card p {
+      color: #6b7280;
+      margin: 0 0 24px;
+      line-height: 1.6;
+    }
+    .order-number {
+      background: #f3f4f6;
+      padding: 12px 20px;
+      border-radius: 8px;
+      font-family: monospace;
+      font-size: 1.125rem;
+      color: #1f2937;
+      margin-bottom: 32px;
+    }
+    .success-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .btn {
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 0.9375rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: #2563eb;
+      color: white;
+    }
+    .btn-primary:hover {
+      background: #1d4ed8;
+    }
+    .btn-secondary {
+      background: white;
+      color: #374151;
+      border: 1px solid #e5e7eb;
+    }
+    .btn-secondary:hover {
+      background: #f9fafb;
+    }
+  </style>
+</head>
+<body>
+  <main class="success-page">
+    <div class="success-card">
+      <div class="success-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+      </div>
+      <h1>Dziękujemy za zamówienie!</h1>
+      <p>Twoje zamówienie zostało przyjęte i jest przetwarzane. Otrzymasz e-mail z potwierdzeniem i szczegółami dostawy.</p>
+      <div class="order-number" id="orderNumber">
+        Ładowanie numeru zamówienia...
+      </div>
+      <div class="success-actions">
+        <a href="shop.html" class="btn btn-primary">Kontynuuj zakupy</a>
+        <a href="index.html" class="btn btn-secondary">Strona główna</a>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // Try to get order number from URL params
+    const params = new URLSearchParams(window.location.search);
+    const sessionId = params.get('session_id');
+    const orderEl = document.getElementById('orderNumber');
+    
+    if (sessionId) {
+      orderEl.textContent = `Sesja: ${sessionId.slice(-8).toUpperCase()}`;
+    } else {
+      orderEl.textContent = 'Zamówienie potwierdzone';
+    }
+
+    // Clear any remaining cart
+    try {
+      localStorage.removeItem('shop_cart');
+    } catch(e) {}
+  </script>
+</body>
+</html>

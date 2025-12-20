@@ -12228,25 +12228,747 @@ async function saveShopSettings() {
   }
 }
 
-// Placeholder functions for forms (to be implemented)
-function showProductForm(productId = null) {
-  showToast('Product form coming soon', 'info');
+// =====================================================
+// SHOP PRODUCT FORM
+// =====================================================
+
+async function showProductForm(productId = null) {
+  const modal = document.getElementById('shopProductModal');
+  const title = document.getElementById('shopProductModalTitle');
+  const form = document.getElementById('shopProductForm');
+  
+  if (!modal || !form) return;
+  
+  // Reset form
+  form.reset();
+  document.getElementById('shopProductId').value = '';
+  document.getElementById('shopProductFormError').hidden = true;
+  
+  // Load categories and vendors for dropdowns
+  await loadProductFormDropdowns();
+  
+  if (productId) {
+    title.textContent = 'Edit Product';
+    await loadProductData(productId);
+  } else {
+    title.textContent = 'New Product';
+  }
+  
+  modal.hidden = false;
+  setupProductFormListeners();
 }
 
-function showCategoryForm(categoryId = null) {
-  showToast('Category form coming soon', 'info');
+async function loadProductFormDropdowns() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  // Load categories
+  const categorySelect = document.getElementById('shopProductCategory');
+  if (categorySelect) {
+    const { data: categories } = await client.from('shop_categories').select('id, name').eq('is_active', true).order('name');
+    categorySelect.innerHTML = '<option value="">No Category</option>' + 
+      (categories || []).map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+  }
+
+  // Load vendors
+  const vendorSelect = document.getElementById('shopProductVendor');
+  if (vendorSelect) {
+    const { data: vendors } = await client.from('shop_vendors').select('id, name').eq('is_active', true).order('name');
+    vendorSelect.innerHTML = '<option value="">No Vendor</option>' + 
+      (vendors || []).map(v => `<option value="${v.id}">${escapeHtml(v.name)}</option>`).join('');
+  }
+
+  // Load tax classes
+  const taxSelect = document.getElementById('shopProductTaxClass');
+  if (taxSelect) {
+    const { data: taxClasses } = await client.from('shop_tax_classes').select('id, name').order('name');
+    taxSelect.innerHTML = '<option value="">Default</option>' + 
+      (taxClasses || []).map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+  }
 }
 
-function showVendorForm(vendorId = null) {
-  showToast('Vendor form coming soon', 'info');
+async function loadProductData(productId) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { data: product, error } = await client
+      .from('shop_products')
+      .select('*')
+      .eq('id', productId)
+      .single();
+
+    if (error) throw error;
+    if (!product) return;
+
+    document.getElementById('shopProductId').value = product.id;
+    document.getElementById('shopProductName').value = product.name || '';
+    document.getElementById('shopProductSku').value = product.sku || '';
+    document.getElementById('shopProductDescription').value = product.description || '';
+    document.getElementById('shopProductPrice').value = product.price || '';
+    document.getElementById('shopProductComparePrice').value = product.compare_at_price || '';
+    document.getElementById('shopProductCost').value = product.cost_price || '';
+    document.getElementById('shopProductCategory').value = product.category_id || '';
+    document.getElementById('shopProductVendor').value = product.vendor_id || '';
+    document.getElementById('shopProductStatus').value = product.status || 'draft';
+    document.getElementById('shopProductType').value = product.product_type || 'physical';
+    document.getElementById('shopProductWeight').value = product.weight || '';
+    document.getElementById('shopProductTaxClass').value = product.tax_class_id || '';
+    document.getElementById('shopProductTrackInventory').checked = product.track_inventory || false;
+    document.getElementById('shopProductAllowBackorder').checked = product.allow_backorder || false;
+    document.getElementById('shopProductStock').value = product.stock_quantity || 0;
+    document.getElementById('shopProductLowStock').value = product.low_stock_threshold || 5;
+    document.getElementById('shopProductFeatured').checked = product.is_featured || false;
+    document.getElementById('shopProductRequiresShipping').checked = product.requires_shipping !== false;
+    document.getElementById('shopProductThumbnail').value = product.thumbnail_url || '';
+    document.getElementById('shopProductTags').value = (product.tags || []).join(', ');
+
+  } catch (error) {
+    console.error('Failed to load product:', error);
+    showToast('Failed to load product', 'error');
+  }
 }
 
-function showDiscountForm(discountId = null) {
-  showToast('Discount form coming soon', 'info');
+function setupProductFormListeners() {
+  const modal = document.getElementById('shopProductModal');
+  const form = document.getElementById('shopProductForm');
+  const closeBtn = document.getElementById('btnCloseShopProductModal');
+  const cancelBtn = document.getElementById('shopProductFormCancel');
+  const overlay = document.getElementById('shopProductModalOverlay');
+
+  const closeModal = () => { modal.hidden = true; };
+
+  closeBtn.onclick = closeModal;
+  cancelBtn.onclick = closeModal;
+  overlay.onclick = closeModal;
+
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    await saveProduct();
+  };
 }
 
-function viewShopOrder(orderId) {
-  showToast('Order details coming soon', 'info');
+async function saveProduct() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const errorEl = document.getElementById('shopProductFormError');
+  errorEl.hidden = true;
+
+  const productId = document.getElementById('shopProductId').value;
+  const name = document.getElementById('shopProductName').value.trim();
+  const price = parseFloat(document.getElementById('shopProductPrice').value);
+
+  if (!name || isNaN(price)) {
+    errorEl.textContent = 'Name and price are required';
+    errorEl.hidden = false;
+    return;
+  }
+
+  const tagsInput = document.getElementById('shopProductTags').value;
+  const tags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(Boolean) : [];
+
+  const productData = {
+    name,
+    sku: document.getElementById('shopProductSku').value.trim() || null,
+    description: document.getElementById('shopProductDescription').value.trim() || null,
+    price,
+    compare_at_price: parseFloat(document.getElementById('shopProductComparePrice').value) || null,
+    cost_price: parseFloat(document.getElementById('shopProductCost').value) || null,
+    category_id: document.getElementById('shopProductCategory').value || null,
+    vendor_id: document.getElementById('shopProductVendor').value || null,
+    status: document.getElementById('shopProductStatus').value,
+    product_type: document.getElementById('shopProductType').value,
+    weight: parseFloat(document.getElementById('shopProductWeight').value) || null,
+    tax_class_id: document.getElementById('shopProductTaxClass').value || null,
+    track_inventory: document.getElementById('shopProductTrackInventory').checked,
+    allow_backorder: document.getElementById('shopProductAllowBackorder').checked,
+    stock_quantity: parseInt(document.getElementById('shopProductStock').value) || 0,
+    low_stock_threshold: parseInt(document.getElementById('shopProductLowStock').value) || 5,
+    is_featured: document.getElementById('shopProductFeatured').checked,
+    requires_shipping: document.getElementById('shopProductRequiresShipping').checked,
+    thumbnail_url: document.getElementById('shopProductThumbnail').value.trim() || null,
+    tags
+  };
+
+  try {
+    let error;
+    if (productId) {
+      ({ error } = await client.from('shop_products').update(productData).eq('id', productId));
+    } else {
+      ({ error } = await client.from('shop_products').insert(productData));
+    }
+
+    if (error) throw error;
+
+    showToast(productId ? 'Product updated' : 'Product created', 'success');
+    document.getElementById('shopProductModal').hidden = true;
+    await loadShopProducts();
+    await loadShopStats();
+
+  } catch (error) {
+    console.error('Failed to save product:', error);
+    errorEl.textContent = error.message;
+    errorEl.hidden = false;
+  }
+}
+
+// =====================================================
+// SHOP CATEGORY FORM
+// =====================================================
+
+async function showCategoryForm(categoryId = null) {
+  const modal = document.getElementById('shopCategoryModal');
+  const title = document.getElementById('shopCategoryModalTitle');
+  const form = document.getElementById('shopCategoryForm');
+  
+  if (!modal || !form) return;
+  
+  form.reset();
+  document.getElementById('shopCategoryId').value = '';
+  document.getElementById('shopCategoryFormError').hidden = true;
+  
+  await loadCategoryParentDropdown(categoryId);
+  
+  if (categoryId) {
+    title.textContent = 'Edit Category';
+    await loadCategoryData(categoryId);
+  } else {
+    title.textContent = 'New Category';
+  }
+  
+  modal.hidden = false;
+  setupCategoryFormListeners();
+}
+
+async function loadCategoryParentDropdown(excludeId = null) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const select = document.getElementById('shopCategoryParent');
+  if (!select) return;
+
+  let query = client.from('shop_categories').select('id, name').order('name');
+  if (excludeId) query = query.neq('id', excludeId);
+
+  const { data: categories } = await query;
+  select.innerHTML = '<option value="">None (Top Level)</option>' + 
+    (categories || []).map(c => `<option value="${c.id}">${escapeHtml(c.name)}</option>`).join('');
+}
+
+async function loadCategoryData(categoryId) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { data: category, error } = await client
+      .from('shop_categories')
+      .select('*')
+      .eq('id', categoryId)
+      .single();
+
+    if (error) throw error;
+    if (!category) return;
+
+    document.getElementById('shopCategoryId').value = category.id;
+    document.getElementById('shopCategoryName').value = category.name || '';
+    document.getElementById('shopCategorySlug').value = category.slug || '';
+    document.getElementById('shopCategoryParent').value = category.parent_id || '';
+    document.getElementById('shopCategoryDescription').value = category.description || '';
+    document.getElementById('shopCategorySortOrder').value = category.sort_order || 0;
+    document.getElementById('shopCategoryActive').checked = category.is_active !== false;
+
+  } catch (error) {
+    console.error('Failed to load category:', error);
+  }
+}
+
+function setupCategoryFormListeners() {
+  const modal = document.getElementById('shopCategoryModal');
+  const form = document.getElementById('shopCategoryForm');
+  const closeBtn = document.getElementById('btnCloseShopCategoryModal');
+  const cancelBtn = document.getElementById('shopCategoryFormCancel');
+  const overlay = document.getElementById('shopCategoryModalOverlay');
+
+  const closeModal = () => { modal.hidden = true; };
+
+  closeBtn.onclick = closeModal;
+  cancelBtn.onclick = closeModal;
+  overlay.onclick = closeModal;
+
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    await saveCategory();
+  };
+}
+
+async function saveCategory() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const errorEl = document.getElementById('shopCategoryFormError');
+  errorEl.hidden = true;
+
+  const categoryId = document.getElementById('shopCategoryId').value;
+  const name = document.getElementById('shopCategoryName').value.trim();
+
+  if (!name) {
+    errorEl.textContent = 'Category name is required';
+    errorEl.hidden = false;
+    return;
+  }
+
+  const slug = document.getElementById('shopCategorySlug').value.trim() || 
+    name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+  const categoryData = {
+    name,
+    slug,
+    parent_id: document.getElementById('shopCategoryParent').value || null,
+    description: document.getElementById('shopCategoryDescription').value.trim() || null,
+    sort_order: parseInt(document.getElementById('shopCategorySortOrder').value) || 0,
+    is_active: document.getElementById('shopCategoryActive').checked
+  };
+
+  try {
+    let error;
+    if (categoryId) {
+      ({ error } = await client.from('shop_categories').update(categoryData).eq('id', categoryId));
+    } else {
+      ({ error } = await client.from('shop_categories').insert(categoryData));
+    }
+
+    if (error) throw error;
+
+    showToast(categoryId ? 'Category updated' : 'Category created', 'success');
+    document.getElementById('shopCategoryModal').hidden = true;
+    await loadShopCategories();
+
+  } catch (error) {
+    console.error('Failed to save category:', error);
+    errorEl.textContent = error.message;
+    errorEl.hidden = false;
+  }
+}
+
+// =====================================================
+// SHOP VENDOR FORM
+// =====================================================
+
+async function showVendorForm(vendorId = null) {
+  const modal = document.getElementById('shopVendorModal');
+  const title = document.getElementById('shopVendorModalTitle');
+  const form = document.getElementById('shopVendorForm');
+  
+  if (!modal || !form) return;
+  
+  form.reset();
+  document.getElementById('shopVendorId').value = '';
+  document.getElementById('shopVendorFormError').hidden = true;
+  
+  if (vendorId) {
+    title.textContent = 'Edit Vendor';
+    await loadVendorData(vendorId);
+  } else {
+    title.textContent = 'New Vendor';
+  }
+  
+  modal.hidden = false;
+  setupVendorFormListeners();
+}
+
+async function loadVendorData(vendorId) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { data: vendor, error } = await client
+      .from('shop_vendors')
+      .select('*')
+      .eq('id', vendorId)
+      .single();
+
+    if (error) throw error;
+    if (!vendor) return;
+
+    document.getElementById('shopVendorId').value = vendor.id;
+    document.getElementById('shopVendorName').value = vendor.name || '';
+    document.getElementById('shopVendorSlug').value = vendor.slug || '';
+    document.getElementById('shopVendorDescription').value = vendor.description || '';
+    document.getElementById('shopVendorEmail').value = vendor.contact_email || '';
+    document.getElementById('shopVendorCommission').value = vendor.commission_rate || 0;
+    document.getElementById('shopVendorLogo').value = vendor.logo_url || '';
+    document.getElementById('shopVendorActive').checked = vendor.is_active !== false;
+
+  } catch (error) {
+    console.error('Failed to load vendor:', error);
+  }
+}
+
+function setupVendorFormListeners() {
+  const modal = document.getElementById('shopVendorModal');
+  const form = document.getElementById('shopVendorForm');
+  const closeBtn = document.getElementById('btnCloseShopVendorModal');
+  const cancelBtn = document.getElementById('shopVendorFormCancel');
+  const overlay = document.getElementById('shopVendorModalOverlay');
+
+  const closeModal = () => { modal.hidden = true; };
+
+  closeBtn.onclick = closeModal;
+  cancelBtn.onclick = closeModal;
+  overlay.onclick = closeModal;
+
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    await saveVendor();
+  };
+}
+
+async function saveVendor() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const errorEl = document.getElementById('shopVendorFormError');
+  errorEl.hidden = true;
+
+  const vendorId = document.getElementById('shopVendorId').value;
+  const name = document.getElementById('shopVendorName').value.trim();
+
+  if (!name) {
+    errorEl.textContent = 'Vendor name is required';
+    errorEl.hidden = false;
+    return;
+  }
+
+  const slug = document.getElementById('shopVendorSlug').value.trim() || 
+    name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
+  const vendorData = {
+    name,
+    slug,
+    description: document.getElementById('shopVendorDescription').value.trim() || null,
+    contact_email: document.getElementById('shopVendorEmail').value.trim() || null,
+    commission_rate: parseFloat(document.getElementById('shopVendorCommission').value) || 0,
+    logo_url: document.getElementById('shopVendorLogo').value.trim() || null,
+    is_active: document.getElementById('shopVendorActive').checked
+  };
+
+  try {
+    let error;
+    if (vendorId) {
+      ({ error } = await client.from('shop_vendors').update(vendorData).eq('id', vendorId));
+    } else {
+      ({ error } = await client.from('shop_vendors').insert(vendorData));
+    }
+
+    if (error) throw error;
+
+    showToast(vendorId ? 'Vendor updated' : 'Vendor created', 'success');
+    document.getElementById('shopVendorModal').hidden = true;
+    await loadShopVendors();
+
+  } catch (error) {
+    console.error('Failed to save vendor:', error);
+    errorEl.textContent = error.message;
+    errorEl.hidden = false;
+  }
+}
+
+// =====================================================
+// SHOP DISCOUNT FORM
+// =====================================================
+
+async function showDiscountForm(discountId = null) {
+  const modal = document.getElementById('shopDiscountModal');
+  const title = document.getElementById('shopDiscountModalTitle');
+  const form = document.getElementById('shopDiscountForm');
+  
+  if (!modal || !form) return;
+  
+  form.reset();
+  document.getElementById('shopDiscountId').value = '';
+  document.getElementById('shopDiscountFormError').hidden = true;
+  
+  if (discountId) {
+    title.textContent = 'Edit Discount';
+    await loadDiscountData(discountId);
+  } else {
+    title.textContent = 'New Discount';
+  }
+  
+  modal.hidden = false;
+  setupDiscountFormListeners();
+}
+
+async function loadDiscountData(discountId) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { data: discount, error } = await client
+      .from('shop_discounts')
+      .select('*')
+      .eq('id', discountId)
+      .single();
+
+    if (error) throw error;
+    if (!discount) return;
+
+    document.getElementById('shopDiscountId').value = discount.id;
+    document.getElementById('shopDiscountCode').value = discount.code || '';
+    document.getElementById('shopDiscountDescription').value = discount.description || '';
+    document.getElementById('shopDiscountType').value = discount.discount_type || 'percentage';
+    document.getElementById('shopDiscountValue').value = discount.discount_value || '';
+    document.getElementById('shopDiscountMinOrder').value = discount.minimum_order_amount || '';
+    document.getElementById('shopDiscountMaxDiscount').value = discount.maximum_discount_amount || '';
+    document.getElementById('shopDiscountUsageLimit').value = discount.usage_limit || '';
+    document.getElementById('shopDiscountPerUserLimit').value = discount.usage_limit_per_user || 1;
+    document.getElementById('shopDiscountActive').checked = discount.is_active !== false;
+
+    if (discount.starts_at) {
+      document.getElementById('shopDiscountStartDate').value = discount.starts_at.slice(0, 16);
+    }
+    if (discount.expires_at) {
+      document.getElementById('shopDiscountExpiryDate').value = discount.expires_at.slice(0, 16);
+    }
+
+  } catch (error) {
+    console.error('Failed to load discount:', error);
+  }
+}
+
+function setupDiscountFormListeners() {
+  const modal = document.getElementById('shopDiscountModal');
+  const form = document.getElementById('shopDiscountForm');
+  const closeBtn = document.getElementById('btnCloseShopDiscountModal');
+  const cancelBtn = document.getElementById('shopDiscountFormCancel');
+  const overlay = document.getElementById('shopDiscountModalOverlay');
+
+  const closeModal = () => { modal.hidden = true; };
+
+  closeBtn.onclick = closeModal;
+  cancelBtn.onclick = closeModal;
+  overlay.onclick = closeModal;
+
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    await saveDiscount();
+  };
+}
+
+async function saveDiscount() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const errorEl = document.getElementById('shopDiscountFormError');
+  errorEl.hidden = true;
+
+  const discountId = document.getElementById('shopDiscountId').value;
+  const code = document.getElementById('shopDiscountCode').value.trim().toUpperCase();
+
+  if (!code) {
+    errorEl.textContent = 'Discount code is required';
+    errorEl.hidden = false;
+    return;
+  }
+
+  const startDate = document.getElementById('shopDiscountStartDate').value;
+  const expiryDate = document.getElementById('shopDiscountExpiryDate').value;
+
+  const discountData = {
+    code,
+    description: document.getElementById('shopDiscountDescription').value.trim() || null,
+    discount_type: document.getElementById('shopDiscountType').value,
+    discount_value: parseFloat(document.getElementById('shopDiscountValue').value) || 0,
+    minimum_order_amount: parseFloat(document.getElementById('shopDiscountMinOrder').value) || null,
+    maximum_discount_amount: parseFloat(document.getElementById('shopDiscountMaxDiscount').value) || null,
+    usage_limit: parseInt(document.getElementById('shopDiscountUsageLimit').value) || null,
+    usage_limit_per_user: parseInt(document.getElementById('shopDiscountPerUserLimit').value) || 1,
+    starts_at: startDate ? new Date(startDate).toISOString() : null,
+    expires_at: expiryDate ? new Date(expiryDate).toISOString() : null,
+    is_active: document.getElementById('shopDiscountActive').checked
+  };
+
+  try {
+    let error;
+    if (discountId) {
+      ({ error } = await client.from('shop_discounts').update(discountData).eq('id', discountId));
+    } else {
+      ({ error } = await client.from('shop_discounts').insert(discountData));
+    }
+
+    if (error) throw error;
+
+    showToast(discountId ? 'Discount updated' : 'Discount created', 'success');
+    document.getElementById('shopDiscountModal').hidden = true;
+    await loadShopDiscounts();
+
+  } catch (error) {
+    console.error('Failed to save discount:', error);
+    errorEl.textContent = error.message;
+    errorEl.hidden = false;
+  }
+}
+
+// =====================================================
+// SHOP ORDER DETAILS
+// =====================================================
+
+async function viewShopOrder(orderId) {
+  const modal = document.getElementById('shopOrderModal');
+  const title = document.getElementById('shopOrderModalTitle');
+  const content = document.getElementById('shopOrderModalContent');
+  
+  if (!modal) return;
+  
+  content.innerHTML = '<p style="text-align: center;">Loading order details...</p>';
+  modal.hidden = false;
+  
+  setupOrderModalListeners();
+  
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { data: order, error } = await client
+      .from('shop_orders')
+      .select(`
+        *,
+        items:shop_order_items(
+          *,
+          product:shop_products(name, thumbnail_url)
+        )
+      `)
+      .eq('id', orderId)
+      .single();
+
+    if (error) throw error;
+    if (!order) throw new Error('Order not found');
+
+    title.textContent = `Order ${order.order_number}`;
+
+    const statusOptions = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'completed', 'cancelled'];
+    const paymentStatusOptions = ['unpaid', 'pending', 'paid', 'partially_refunded', 'refunded', 'failed'];
+
+    content.innerHTML = `
+      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+        <div>
+          <h4 style="margin: 0 0 12px;">Customer</h4>
+          <p><strong>${escapeHtml(order.customer_name)}</strong></p>
+          <p>${escapeHtml(order.customer_email)}</p>
+          ${order.customer_phone ? `<p>${escapeHtml(order.customer_phone)}</p>` : ''}
+        </div>
+        <div>
+          <h4 style="margin: 0 0 12px;">Shipping Address</h4>
+          ${order.shipping_address ? `
+            <p>${escapeHtml(order.shipping_address.line1 || '')}</p>
+            ${order.shipping_address.line2 ? `<p>${escapeHtml(order.shipping_address.line2)}</p>` : ''}
+            <p>${escapeHtml(order.shipping_address.city || '')}, ${escapeHtml(order.shipping_address.postal_code || '')}</p>
+            <p>${escapeHtml(order.shipping_address.country || '')}</p>
+          ` : '<p style="color: var(--admin-text-muted);">No shipping address</p>'}
+        </div>
+      </div>
+
+      <div style="margin: 24px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+        <div>
+          <label class="admin-form-field">
+            <span>Order Status</span>
+            <select id="orderStatusSelect" class="form-control">
+              ${statusOptions.map(s => `<option value="${s}" ${order.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+            </select>
+          </label>
+        </div>
+        <div>
+          <label class="admin-form-field">
+            <span>Payment Status</span>
+            <select id="orderPaymentStatusSelect" class="form-control">
+              ${paymentStatusOptions.map(s => `<option value="${s}" ${order.payment_status === s ? 'selected' : ''}>${s}</option>`).join('')}
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <h4 style="margin: 24px 0 12px;">Order Items</h4>
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>Product</th>
+            <th>Qty</th>
+            <th>Price</th>
+            <th>Total</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${(order.items || []).map(item => `
+            <tr>
+              <td>
+                <div style="display: flex; align-items: center; gap: 12px;">
+                  ${item.product?.thumbnail_url ? `<img src="${item.product.thumbnail_url}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">` : ''}
+                  <span>${escapeHtml(item.product?.name || item.product_name || 'Unknown')}</span>
+                </div>
+              </td>
+              <td>${item.quantity}</td>
+              <td>€${parseFloat(item.unit_price).toFixed(2)}</td>
+              <td>€${parseFloat(item.total_price).toFixed(2)}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+
+      <div style="margin-top: 24px; text-align: right;">
+        <p>Subtotal: <strong>€${parseFloat(order.subtotal).toFixed(2)}</strong></p>
+        ${order.discount_amount ? `<p>Discount: <strong>-€${parseFloat(order.discount_amount).toFixed(2)}</strong></p>` : ''}
+        ${order.shipping_amount ? `<p>Shipping: <strong>€${parseFloat(order.shipping_amount).toFixed(2)}</strong></p>` : ''}
+        ${order.tax_amount ? `<p>Tax: <strong>€${parseFloat(order.tax_amount).toFixed(2)}</strong></p>` : ''}
+        <p style="font-size: 18px; margin-top: 12px;">Total: <strong>€${parseFloat(order.total).toFixed(2)}</strong></p>
+      </div>
+
+      <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
+        <button class="btn-primary" onclick="updateOrderStatus('${order.id}')">Update Status</button>
+        <button class="btn-secondary" onclick="document.getElementById('shopOrderModal').hidden = true">Close</button>
+      </div>
+    `;
+
+  } catch (error) {
+    console.error('Failed to load order:', error);
+    content.innerHTML = `<p style="color: #ef4444; text-align: center;">Error: ${error.message}</p>`;
+  }
+}
+
+function setupOrderModalListeners() {
+  const modal = document.getElementById('shopOrderModal');
+  const closeBtn = document.getElementById('btnCloseShopOrderModal');
+  const overlay = document.getElementById('shopOrderModalOverlay');
+
+  const closeModal = () => { modal.hidden = true; };
+
+  if (closeBtn) closeBtn.onclick = closeModal;
+  if (overlay) overlay.onclick = closeModal;
+}
+
+async function updateOrderStatus(orderId) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const status = document.getElementById('orderStatusSelect')?.value;
+  const paymentStatus = document.getElementById('orderPaymentStatusSelect')?.value;
+
+  try {
+    const { error } = await client
+      .from('shop_orders')
+      .update({ status, payment_status: paymentStatus })
+      .eq('id', orderId);
+
+    if (error) throw error;
+
+    showToast('Order updated', 'success');
+    document.getElementById('shopOrderModal').hidden = true;
+    await loadShopOrders();
+
+  } catch (error) {
+    console.error('Failed to update order:', error);
+    showToast('Failed to update order', 'error');
+  }
 }
 
 function editShopProduct(productId) {
@@ -12272,3 +12994,8 @@ window.editShopProduct = editShopProduct;
 window.editShopCategory = editShopCategory;
 window.editShopVendor = editShopVendor;
 window.editShopDiscount = editShopDiscount;
+window.updateOrderStatus = updateOrderStatus;
+window.showProductForm = showProductForm;
+window.showCategoryForm = showCategoryForm;
+window.showVendorForm = showVendorForm;
+window.showDiscountForm = showDiscountForm;

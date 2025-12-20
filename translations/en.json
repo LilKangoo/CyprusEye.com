@@ -2961,5 +2961,48 @@
       "body": "No places found for the selected filters. Try changing the category or clearing filters.",
       "cta": "Show all places"
     }
+  },
+  "nav": {
+    "shop": "Shop"
+  },
+  "shop": {
+    "title": "WakacjeCypr Shop",
+    "subtitle": "Discover authentic Cypriot products",
+    "loading": "Loading products...",
+    "no_products": "No products found",
+    "products_found": "products",
+    "filters": {
+      "title": "Filters",
+      "categories": "Categories",
+      "all": "All",
+      "price": "Price",
+      "apply": "Apply",
+      "sort": "Sort by"
+    },
+    "sort": {
+      "newest": "Newest",
+      "price_asc": "Price: Low to High",
+      "price_desc": "Price: High to Low",
+      "name": "Name A-Z"
+    },
+    "product": {
+      "add_to_cart": "Add to cart",
+      "out_of_stock": "Out of stock",
+      "in_stock": "In stock",
+      "quantity": "Quantity"
+    },
+    "cart": {
+      "title": "Cart",
+      "empty": "Your cart is empty",
+      "subtotal": "Subtotal",
+      "checkout": "Proceed to checkout",
+      "remove": "Remove"
+    },
+    "checkout": {
+      "success": "Thank you for your order!",
+      "success_message": "Your order has been received and is being processed.",
+      "continue": "Continue shopping",
+      "error": "Error creating order"
+    }
   }
 }
