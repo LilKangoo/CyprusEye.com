@@ -21,6 +21,8 @@
 /*.ico             /:splat                 200
 
 # HTML pages - serve as-is (MUST come before SPA fallback)
+/shop              /shop.html             301
+/shop/             /shop.html             301
 /*.html            /:splat                 200
 
 # SPA fallback (main app only - NOT admin)

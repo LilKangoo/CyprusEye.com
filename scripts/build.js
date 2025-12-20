@@ -109,6 +109,7 @@ async function copyStaticFiles() {
     const htmlFiles = [
       '404.html',
       'index.html',
+      'shop.html',
       'vip.html',
       'achievements.html',
       'advertise.html',
@@ -138,7 +139,7 @@ async function copyStaticFiles() {
     }
     
     // Kopiuj foldery HTML
-    const htmlDirs = ['auth', 'account', 'reset'];
+    const htmlDirs = ['auth', 'account', 'reset', 'shop'];
     for (const dir of htmlDirs) {
       const src = join(ROOT, dir);
       const dest = join(DIST, dir);

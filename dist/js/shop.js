@@ -28,10 +28,36 @@ let supabase = null;
 // Get current language from localStorage or default to 'pl'
 function getCurrentLang() {
   try {
-    return localStorage.getItem('selectedLanguage') || 'pl';
+    const url = new URL(window.location.href);
+    const urlLang = (url.searchParams.get('lang') || '').toLowerCase();
+    if (urlLang === 'pl' || urlLang === 'en') {
+      return urlLang;
+    }
   } catch (e) {
-    return 'pl';
   }
+
+  try {
+    const candidates = [
+      localStorage.getItem('ce_lang'),
+      localStorage.getItem('cypruseye-language'),
+      localStorage.getItem('selectedLanguage'),
+    ];
+
+    for (const candidate of candidates) {
+      const normalized = (candidate || '').toLowerCase();
+      if (normalized === 'pl' || normalized === 'en') {
+        return normalized;
+      }
+    }
+  } catch (e) {
+  }
+
+  const htmlLang = (document.documentElement.lang || '').toLowerCase();
+  if (htmlLang === 'pl' || htmlLang === 'en') {
+    return htmlLang;
+  }
+
+  return 'pl';
 }
 
 // Get localized field value - returns name_en for 'en', name for 'pl'
@@ -59,11 +85,14 @@ async function init() {
   updateCartUI();
   
   // Listen for language changes
-  window.addEventListener('languageChanged', () => {
+  const handleLanguageUpdate = () => {
     shopState.lang = getCurrentLang();
     renderCategoryFilters();
     renderProducts();
-  });
+  };
+
+  window.addEventListener('languageChanged', handleLanguageUpdate);
+  document.addEventListener('wakacjecypr:languagechange', handleLanguageUpdate);
 }
 
 async function initSupabase() {
