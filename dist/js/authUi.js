@@ -686,7 +686,8 @@ export function waitForAuthReady() {
 export function updateAuthUI() {
   const state = window.CE_STATE || {};
   const isLogged = !!state.session;
-  const documentState = isLogged ? 'authenticated' : 'anonymous';
+  const isGuest = !!state.guest?.active && !isLogged;
+  const documentState = isLogged ? 'authenticated' : isGuest ? 'guest' : 'anonymous';
 
   if (isLogged) {
     updateAuthSuccessOverlayUser(state);
@@ -722,6 +723,7 @@ export function updateAuthUI() {
   updateGroupVisibility('[data-auth=logout]', isLogged);
   updateGroupVisibility('[data-auth=user-only]', isLogged);
   updateGroupVisibility('[data-auth=anon-only]', !isLogged);
+  updateGroupVisibility('[data-auth=guest-only]', isGuest);
 
   const displayName = isLogged ? getDisplayNameFromState(state) : '';
   document.querySelectorAll('[data-auth=user-name]').forEach((element) => {
@@ -912,6 +914,11 @@ document.querySelectorAll('[data-auth=logout]').forEach((el) => {
   el.addEventListener('click', async () => {
     await sb.auth.signOut();
     ceAuth?.persistSession?.(null);
+    try {
+      window.localStorage.removeItem('ce_guest');
+    } catch {
+      // ignore
+    }
     window.CE_STATE = {};
     updateAuthUI();
     

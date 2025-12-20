@@ -70,7 +70,7 @@
       return translationCache.get(language);
     }
 
-    const promise = fetch(`translations/${language}.json`)
+    const promise = fetch(`/translations/${language}.json`)
       .then((response) => {
         if (!response.ok) {
           throw new Error(`Failed to load translations for ${language}`);
@@ -268,7 +268,7 @@
         }
         url.searchParams.set('lang', language);
         // Remove leading slash to use relative paths
-        const relativePath = url.pathname.startsWith('/') ? url.pathname.slice(1) : url.pathname;
+        const relativePath = url.pathname;
         anchor.setAttribute('href', `${relativePath}${url.search}${url.hash}`);
       } catch (error) {
         console.warn('Unable to normalise link for i18n.', href, error);

@@ -230,6 +230,15 @@
           <span>XP Control</span>
         </button>
         
+        <button class="admin-nav-item" data-view="shop">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="9" cy="21" r="1"/>
+            <circle cx="20" cy="21" r="1"/>
+            <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+          </svg>
+          <span>Shop</span>
+        </button>
+        
         <button class="admin-nav-item" data-view="settings">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="12" cy="12" r="3"/>
@@ -2333,6 +2342,314 @@
               <div style="margin-top: 16px; text-align: center;">
                 <button class="btn-secondary" id="btnLoadMoreXpHistory">Load More</button>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Shop View -->
+      <section class="admin-view" id="viewShop" hidden>
+        <header class="admin-view-header">
+          <h2>Shop Management</h2>
+          <p class="admin-view-subtitle">Manage products, orders, vendors, and shop settings</p>
+        </header>
+
+        <!-- Shop Stats Cards -->
+        <div class="admin-stats-grid" id="shopStatsGrid">
+          <div class="admin-stat-card">
+            <div class="stat-card-icon stat-card-icon-green">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+              </svg>
+            </div>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total Revenue</p>
+              <p class="stat-card-value" id="shopStatRevenue">€0</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-icon stat-card-icon-blue">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>
+              </svg>
+            </div>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Total Orders</p>
+              <p class="stat-card-value" id="shopStatOrders">0</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-icon stat-card-icon-purple">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>
+              </svg>
+            </div>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Active Products</p>
+              <p class="stat-card-value" id="shopStatProducts">0</p>
+            </div>
+          </div>
+          <div class="admin-stat-card">
+            <div class="stat-card-icon stat-card-icon-orange">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+              </svg>
+            </div>
+            <div class="stat-card-content">
+              <p class="stat-card-label">Pending Orders</p>
+              <p class="stat-card-value" id="shopStatPending">0</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Shop Tabs -->
+        <div class="admin-tabs" style="margin-top: 24px;">
+          <button class="admin-tab active" data-shop-tab="orders">📦 Orders</button>
+          <button class="admin-tab" data-shop-tab="products">🏷️ Products</button>
+          <button class="admin-tab" data-shop-tab="categories">📁 Categories</button>
+          <button class="admin-tab" data-shop-tab="vendors">🏪 Vendors</button>
+          <button class="admin-tab" data-shop-tab="discounts">🎟️ Discounts</button>
+          <button class="admin-tab" data-shop-tab="shipping">🚚 Shipping</button>
+          <button class="admin-tab" data-shop-tab="settings">⚙️ Settings</button>
+        </div>
+
+        <!-- Tab: Orders -->
+        <div class="admin-tab-content active" id="shopTabOrders">
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <h3>Orders</h3>
+              <div style="display: flex; gap: 8px;">
+                <select id="shopOrderStatusFilter" class="form-control" style="width: 150px;">
+                  <option value="">All Statuses</option>
+                  <option value="pending">Pending</option>
+                  <option value="confirmed">Confirmed</option>
+                  <option value="processing">Processing</option>
+                  <option value="shipped">Shipped</option>
+                  <option value="delivered">Delivered</option>
+                  <option value="completed">Completed</option>
+                  <option value="cancelled">Cancelled</option>
+                  <option value="refunded">Refunded</option>
+                </select>
+                <button class="btn-secondary" id="btnRefreshShopOrders">🔄 Refresh</button>
+              </div>
+            </div>
+            <div class="admin-card-body">
+              <div class="admin-table-container">
+                <table class="admin-table" id="shopOrdersTable">
+                  <thead>
+                    <tr>
+                      <th>Order #</th>
+                      <th>Customer</th>
+                      <th>Items</th>
+                      <th>Total</th>
+                      <th>Status</th>
+                      <th>Payment</th>
+                      <th>Date</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="shopOrdersTableBody">
+                    <tr><td colspan="8" style="text-align: center; padding: 24px;">Loading orders...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Products -->
+        <div class="admin-tab-content" id="shopTabProducts" hidden>
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <h3>Products</h3>
+              <button class="btn-primary" id="btnAddShopProduct">+ Add Product</button>
+            </div>
+            <div class="admin-card-body">
+              <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                <input type="text" id="shopProductSearch" placeholder="Search products..." class="form-control" style="flex: 1;">
+                <select id="shopProductStatusFilter" class="form-control" style="width: 150px;">
+                  <option value="">All Status</option>
+                  <option value="active">Active</option>
+                  <option value="draft">Draft</option>
+                  <option value="archived">Archived</option>
+                </select>
+                <select id="shopProductCategoryFilter" class="form-control" style="width: 150px;">
+                  <option value="">All Categories</option>
+                </select>
+              </div>
+              <div class="admin-table-container">
+                <table class="admin-table" id="shopProductsTable">
+                  <thead>
+                    <tr>
+                      <th style="width: 60px;">Image</th>
+                      <th>Name</th>
+                      <th>SKU</th>
+                      <th>Price</th>
+                      <th>Stock</th>
+                      <th>Category</th>
+                      <th>Status</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="shopProductsTableBody">
+                    <tr><td colspan="8" style="text-align: center; padding: 24px;">Loading products...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Categories -->
+        <div class="admin-tab-content" id="shopTabCategories" hidden>
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <h3>Categories</h3>
+              <button class="btn-primary" id="btnAddShopCategory">+ Add Category</button>
+            </div>
+            <div class="admin-card-body">
+              <div class="admin-table-container">
+                <table class="admin-table" id="shopCategoriesTable">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Slug</th>
+                      <th>Parent</th>
+                      <th>Products</th>
+                      <th>Active</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="shopCategoriesTableBody">
+                    <tr><td colspan="6" style="text-align: center; padding: 24px;">Loading categories...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Vendors -->
+        <div class="admin-tab-content" id="shopTabVendors" hidden>
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <h3>Vendors / Brands</h3>
+              <button class="btn-primary" id="btnAddShopVendor">+ Add Vendor</button>
+            </div>
+            <div class="admin-card-body">
+              <p style="color: var(--admin-text-muted); margin-bottom: 16px;">
+                Manage vendors whose products you sell. You handle all payouts manually.
+              </p>
+              <div class="admin-table-container">
+                <table class="admin-table" id="shopVendorsTable">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Products</th>
+                      <th>Total Sales</th>
+                      <th>Revenue</th>
+                      <th>Commission</th>
+                      <th>Active</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="shopVendorsTableBody">
+                    <tr><td colspan="7" style="text-align: center; padding: 24px;">Loading vendors...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Discounts -->
+        <div class="admin-tab-content" id="shopTabDiscounts" hidden>
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <h3>Discount Codes</h3>
+              <button class="btn-primary" id="btnAddShopDiscount">+ Add Discount</button>
+            </div>
+            <div class="admin-card-body">
+              <div class="admin-table-container">
+                <table class="admin-table" id="shopDiscountsTable">
+                  <thead>
+                    <tr>
+                      <th>Code</th>
+                      <th>Type</th>
+                      <th>Value</th>
+                      <th>Usage</th>
+                      <th>Expires</th>
+                      <th>Active</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="shopDiscountsTableBody">
+                    <tr><td colspan="7" style="text-align: center; padding: 24px;">Loading discounts...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Shipping -->
+        <div class="admin-tab-content" id="shopTabShipping" hidden>
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header">
+              <h3>Shipping Zones & Methods</h3>
+            </div>
+            <div class="admin-card-body">
+              <div id="shopShippingZonesContainer">
+                <p style="text-align: center; padding: 24px;">Loading shipping zones...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Tab: Settings -->
+        <div class="admin-tab-content" id="shopTabSettings" hidden>
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header">
+              <h3>Shop Settings</h3>
+            </div>
+            <div class="admin-card-body">
+              <form id="shopSettingsForm">
+                <div class="admin-form-grid">
+                  <label class="admin-form-field">
+                    <span>Shop Name</span>
+                    <input type="text" id="shopSettingName" placeholder="WakacjeCypr Shop">
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Admin Email</span>
+                    <input type="email" id="shopSettingEmail" placeholder="shop@wakacjecypr.com">
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Order Number Prefix</span>
+                    <input type="text" id="shopSettingOrderPrefix" placeholder="WC">
+                  </label>
+                  <label class="admin-form-field">
+                    <span>XP per Euro</span>
+                    <input type="number" id="shopSettingXpPerEuro" min="0" value="1">
+                  </label>
+                </div>
+                <div style="margin-top: 16px;">
+                  <label style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="shopSettingXpEnabled" checked>
+                    <span>Award XP for purchases</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                    <input type="checkbox" id="shopSettingReviewsEnabled" checked>
+                    <span>Enable product reviews</span>
+                  </label>
+                  <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
+                    <input type="checkbox" id="shopSettingAbandonedCart" checked>
+                    <span>Enable abandoned cart reminders</span>
+                  </label>
+                </div>
+                <div style="margin-top: 24px;">
+                  <button type="submit" class="btn-primary">Save Settings</button>
+                </div>
+              </form>
             </div>
           </div>
         </div>

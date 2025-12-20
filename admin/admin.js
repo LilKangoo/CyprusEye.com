@@ -3062,6 +3062,9 @@ function switchView(viewName) {
     case 'xp-control':
       loadXpControlData();
       break;
+    case 'shop':
+      loadShopData();
+      break;
   }
 }
 
@@ -11661,3 +11664,611 @@ function renderXpHistory() {
 
 // Export XP Control functions
 window.loadXpControlData = loadXpControlData;
+
+// =====================================================
+// SHOP MANAGEMENT
+// =====================================================
+
+const shopState = {
+  orders: [],
+  products: [],
+  categories: [],
+  vendors: [],
+  discounts: [],
+  shippingZones: [],
+  settings: null,
+  currentTab: 'orders'
+};
+
+async function loadShopData() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    // Load shop stats
+    await loadShopStats();
+    
+    // Load data for current tab
+    await loadShopTabData(shopState.currentTab);
+    
+    // Setup tab listeners
+    setupShopTabs();
+    
+  } catch (error) {
+    console.error('Failed to load shop data:', error);
+    showToast('Failed to load shop data', 'error');
+  }
+}
+
+async function loadShopStats() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    // Total revenue (completed orders)
+    const { data: revenueData } = await client
+      .from('shop_orders')
+      .select('total')
+      .in('payment_status', ['paid', 'partially_refunded']);
+    
+    const totalRevenue = revenueData?.reduce((sum, o) => sum + parseFloat(o.total || 0), 0) || 0;
+    const revenueEl = document.getElementById('shopStatRevenue');
+    if (revenueEl) revenueEl.textContent = `€${totalRevenue.toFixed(2)}`;
+
+    // Total orders
+    const { count: ordersCount } = await client
+      .from('shop_orders')
+      .select('*', { count: 'exact', head: true });
+    
+    const ordersEl = document.getElementById('shopStatOrders');
+    if (ordersEl) ordersEl.textContent = ordersCount || 0;
+
+    // Active products
+    const { count: productsCount } = await client
+      .from('shop_products')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'active');
+    
+    const productsEl = document.getElementById('shopStatProducts');
+    if (productsEl) productsEl.textContent = productsCount || 0;
+
+    // Pending orders
+    const { count: pendingCount } = await client
+      .from('shop_orders')
+      .select('*', { count: 'exact', head: true })
+      .in('status', ['pending', 'confirmed', 'processing']);
+    
+    const pendingEl = document.getElementById('shopStatPending');
+    if (pendingEl) pendingEl.textContent = pendingCount || 0;
+
+  } catch (error) {
+    console.error('Failed to load shop stats:', error);
+  }
+}
+
+function setupShopTabs() {
+  const tabs = document.querySelectorAll('[data-shop-tab]');
+  tabs.forEach(tab => {
+    tab.onclick = () => {
+      const tabName = tab.dataset.shopTab;
+      
+      // Update active tab
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      
+      // Show/hide tab content
+      document.querySelectorAll('#viewShop .admin-tab-content').forEach(content => {
+        content.hidden = true;
+        content.classList.remove('active');
+      });
+      
+      const tabContent = document.getElementById(`shopTab${tabName.charAt(0).toUpperCase() + tabName.slice(1)}`);
+      if (tabContent) {
+        tabContent.hidden = false;
+        tabContent.classList.add('active');
+      }
+      
+      shopState.currentTab = tabName;
+      loadShopTabData(tabName);
+    };
+  });
+
+  // Setup other event listeners
+  const refreshBtn = document.getElementById('btnRefreshShopOrders');
+  if (refreshBtn) refreshBtn.onclick = () => loadShopOrders();
+
+  const orderFilter = document.getElementById('shopOrderStatusFilter');
+  if (orderFilter) orderFilter.onchange = () => loadShopOrders();
+
+  const addProductBtn = document.getElementById('btnAddShopProduct');
+  if (addProductBtn) addProductBtn.onclick = () => showProductForm();
+
+  const addCategoryBtn = document.getElementById('btnAddShopCategory');
+  if (addCategoryBtn) addCategoryBtn.onclick = () => showCategoryForm();
+
+  const addVendorBtn = document.getElementById('btnAddShopVendor');
+  if (addVendorBtn) addVendorBtn.onclick = () => showVendorForm();
+
+  const addDiscountBtn = document.getElementById('btnAddShopDiscount');
+  if (addDiscountBtn) addDiscountBtn.onclick = () => showDiscountForm();
+
+  const settingsForm = document.getElementById('shopSettingsForm');
+  if (settingsForm) settingsForm.onsubmit = (e) => { e.preventDefault(); saveShopSettings(); };
+}
+
+async function loadShopTabData(tabName) {
+  switch (tabName) {
+    case 'orders':
+      await loadShopOrders();
+      break;
+    case 'products':
+      await loadShopProducts();
+      break;
+    case 'categories':
+      await loadShopCategories();
+      break;
+    case 'vendors':
+      await loadShopVendors();
+      break;
+    case 'discounts':
+      await loadShopDiscounts();
+      break;
+    case 'shipping':
+      await loadShopShipping();
+      break;
+    case 'settings':
+      await loadShopSettings();
+      break;
+  }
+}
+
+async function loadShopOrders() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const tbody = document.getElementById('shopOrdersTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Loading...</td></tr>';
+
+  try {
+    let query = client
+      .from('shop_orders')
+      .select(`
+        *,
+        items:shop_order_items(count)
+      `)
+      .order('created_at', { ascending: false })
+      .limit(50);
+
+    const statusFilter = document.getElementById('shopOrderStatusFilter')?.value;
+    if (statusFilter) {
+      query = query.eq('status', statusFilter);
+    }
+
+    const { data: orders, error } = await query;
+    if (error) throw error;
+
+    shopState.orders = orders || [];
+
+    if (!orders?.length) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--admin-text-muted);">No orders found</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = orders.map(order => {
+      const statusColors = {
+        pending: '#f59e0b',
+        confirmed: '#3b82f6',
+        processing: '#8b5cf6',
+        shipped: '#06b6d4',
+        delivered: '#10b981',
+        completed: '#22c55e',
+        cancelled: '#6b7280',
+        refunded: '#ef4444',
+        failed: '#dc2626'
+      };
+      const paymentColors = {
+        unpaid: '#f59e0b',
+        pending: '#f59e0b',
+        paid: '#22c55e',
+        partially_refunded: '#f97316',
+        refunded: '#ef4444',
+        failed: '#dc2626'
+      };
+
+      return `
+        <tr>
+          <td><strong>${escapeHtml(order.order_number)}</strong></td>
+          <td>
+            <div>${escapeHtml(order.customer_name)}</div>
+            <small style="color: var(--admin-text-muted);">${escapeHtml(order.customer_email)}</small>
+          </td>
+          <td>${order.items?.[0]?.count || 0}</td>
+          <td><strong>€${parseFloat(order.total).toFixed(2)}</strong></td>
+          <td><span class="badge" style="background: ${statusColors[order.status] || '#6b7280'};">${order.status}</span></td>
+          <td><span class="badge" style="background: ${paymentColors[order.payment_status] || '#6b7280'};">${order.payment_status}</span></td>
+          <td>${new Date(order.created_at).toLocaleDateString()}</td>
+          <td>
+            <button class="btn-small btn-secondary" onclick="viewShopOrder('${order.id}')">View</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+  } catch (error) {
+    console.error('Failed to load orders:', error);
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #ef4444;">Error: ${error.message}</td></tr>`;
+  }
+}
+
+async function loadShopProducts() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const tbody = document.getElementById('shopProductsTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Loading...</td></tr>';
+
+  try {
+    const { data: products, error } = await client
+      .from('shop_products')
+      .select('*, category:shop_categories(name)')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    shopState.products = products || [];
+
+    if (!products?.length) {
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--admin-text-muted);">No products yet. Add your first product!</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = products.map(product => {
+      const thumbnail = product.thumbnail_url || product.images?.[0]?.url || '';
+      const statusColors = { active: '#22c55e', draft: '#f59e0b', archived: '#6b7280' };
+
+      return `
+        <tr>
+          <td>
+            ${thumbnail ? `<img src="${thumbnail}" style="width: 50px; height: 50px; object-fit: cover; border-radius: 4px;">` : '<div style="width: 50px; height: 50px; background: var(--admin-border); border-radius: 4px;"></div>'}
+          </td>
+          <td>
+            <strong>${escapeHtml(product.name)}</strong>
+            ${product.is_featured ? '<span class="badge" style="background: #f59e0b; margin-left: 8px;">Featured</span>' : ''}
+          </td>
+          <td>${escapeHtml(product.sku || '-')}</td>
+          <td><strong>€${parseFloat(product.price).toFixed(2)}</strong></td>
+          <td>${product.track_inventory ? product.stock_quantity : '∞'}</td>
+          <td>${escapeHtml(product.category?.name || '-')}</td>
+          <td><span class="badge" style="background: ${statusColors[product.status]};">${product.status}</span></td>
+          <td>
+            <button class="btn-small btn-secondary" onclick="editShopProduct('${product.id}')">Edit</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+  } catch (error) {
+    console.error('Failed to load products:', error);
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #ef4444;">Error: ${error.message}</td></tr>`;
+  }
+}
+
+async function loadShopCategories() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const tbody = document.getElementById('shopCategoriesTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align: center;">Loading...</td></tr>';
+
+  try {
+    const { data: categories, error } = await client
+      .from('shop_categories')
+      .select('*, parent:shop_categories!parent_id(name)')
+      .order('sort_order', { ascending: true });
+
+    if (error) throw error;
+
+    shopState.categories = categories || [];
+
+    if (!categories?.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--admin-text-muted);">No categories yet</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = categories.map(cat => `
+      <tr>
+        <td><strong>${escapeHtml(cat.name)}</strong></td>
+        <td>${escapeHtml(cat.slug)}</td>
+        <td>${cat.parent?.name || '-'}</td>
+        <td>-</td>
+        <td>${cat.is_active ? '✅' : '❌'}</td>
+        <td>
+          <button class="btn-small btn-secondary" onclick="editShopCategory('${cat.id}')">Edit</button>
+        </td>
+      </tr>
+    `).join('');
+
+  } catch (error) {
+    console.error('Failed to load categories:', error);
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #ef4444;">Error: ${error.message}</td></tr>`;
+  }
+}
+
+async function loadShopVendors() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const tbody = document.getElementById('shopVendorsTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Loading...</td></tr>';
+
+  try {
+    const { data: vendors, error } = await client
+      .from('shop_vendors')
+      .select('*')
+      .order('name', { ascending: true });
+
+    if (error) throw error;
+
+    shopState.vendors = vendors || [];
+
+    if (!vendors?.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--admin-text-muted);">No vendors yet</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = vendors.map(vendor => `
+      <tr>
+        <td><strong>${escapeHtml(vendor.name)}</strong></td>
+        <td>${vendor.total_products || 0}</td>
+        <td>${vendor.total_sales || 0}</td>
+        <td>€${parseFloat(vendor.total_revenue || 0).toFixed(2)}</td>
+        <td>${vendor.commission_rate || 0}%</td>
+        <td>${vendor.is_active ? '✅' : '❌'}</td>
+        <td>
+          <button class="btn-small btn-secondary" onclick="editShopVendor('${vendor.id}')">Edit</button>
+        </td>
+      </tr>
+    `).join('');
+
+  } catch (error) {
+    console.error('Failed to load vendors:', error);
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #ef4444;">Error: ${error.message}</td></tr>`;
+  }
+}
+
+async function loadShopDiscounts() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const tbody = document.getElementById('shopDiscountsTableBody');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Loading...</td></tr>';
+
+  try {
+    const { data: discounts, error } = await client
+      .from('shop_discounts')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+
+    shopState.discounts = discounts || [];
+
+    if (!discounts?.length) {
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--admin-text-muted);">No discounts yet</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = discounts.map(discount => {
+      const valueDisplay = discount.discount_type === 'percentage' 
+        ? `${discount.discount_value}%` 
+        : `€${parseFloat(discount.discount_value).toFixed(2)}`;
+      
+      return `
+        <tr>
+          <td><strong>${escapeHtml(discount.code)}</strong></td>
+          <td>${discount.discount_type}</td>
+          <td>${valueDisplay}</td>
+          <td>${discount.usage_count || 0}${discount.usage_limit ? `/${discount.usage_limit}` : ''}</td>
+          <td>${discount.expires_at ? new Date(discount.expires_at).toLocaleDateString() : 'Never'}</td>
+          <td>${discount.is_active ? '✅' : '❌'}</td>
+          <td>
+            <button class="btn-small btn-secondary" onclick="editShopDiscount('${discount.id}')">Edit</button>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+  } catch (error) {
+    console.error('Failed to load discounts:', error);
+    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #ef4444;">Error: ${error.message}</td></tr>`;
+  }
+}
+
+async function loadShopShipping() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const container = document.getElementById('shopShippingZonesContainer');
+  if (!container) return;
+  container.innerHTML = '<p style="text-align: center;">Loading...</p>';
+
+  try {
+    const { data: zones, error } = await client
+      .from('shop_shipping_zones')
+      .select('*, methods:shop_shipping_methods(*)')
+      .order('sort_order', { ascending: true });
+
+    if (error) throw error;
+
+    shopState.shippingZones = zones || [];
+
+    if (!zones?.length) {
+      container.innerHTML = '<p style="text-align: center; color: var(--admin-text-muted);">No shipping zones configured</p>';
+      return;
+    }
+
+    container.innerHTML = zones.map(zone => `
+      <div class="admin-card" style="margin-bottom: 16px;">
+        <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+          <h4>${escapeHtml(zone.name)} ${zone.name_en ? `(${escapeHtml(zone.name_en)})` : ''}</h4>
+          <span class="badge" style="background: ${zone.is_active ? '#22c55e' : '#6b7280'};">${zone.is_active ? 'Active' : 'Inactive'}</span>
+        </div>
+        <div class="admin-card-body">
+          <p style="color: var(--admin-text-muted); margin-bottom: 12px;">Countries: ${zone.countries?.join(', ') || 'None'}</p>
+          ${zone.methods?.length ? `
+            <table class="admin-table" style="margin-bottom: 0;">
+              <thead>
+                <tr>
+                  <th>Method</th>
+                  <th>Cost</th>
+                  <th>Free Above</th>
+                  <th>Delivery</th>
+                  <th>Active</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${zone.methods.map(method => `
+                  <tr>
+                    <td>${escapeHtml(method.name)}</td>
+                    <td>€${parseFloat(method.cost || 0).toFixed(2)}</td>
+                    <td>${method.free_shipping_threshold ? `€${parseFloat(method.free_shipping_threshold).toFixed(2)}` : '-'}</td>
+                    <td>${method.min_delivery_days || '?'}-${method.max_delivery_days || '?'} days</td>
+                    <td>${method.is_active ? '✅' : '❌'}</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          ` : '<p style="color: var(--admin-text-muted);">No shipping methods</p>'}
+        </div>
+      </div>
+    `).join('');
+
+  } catch (error) {
+    console.error('Failed to load shipping:', error);
+    container.innerHTML = `<p style="text-align: center; color: #ef4444;">Error: ${error.message}</p>`;
+  }
+}
+
+async function loadShopSettings() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { data: settings, error } = await client
+      .from('shop_settings')
+      .select('*')
+      .eq('id', 1)
+      .single();
+
+    if (error && error.code !== 'PGRST116') throw error;
+
+    shopState.settings = settings || {};
+
+    // Populate form
+    const nameEl = document.getElementById('shopSettingName');
+    if (nameEl) nameEl.value = settings?.shop_name || '';
+
+    const emailEl = document.getElementById('shopSettingEmail');
+    if (emailEl) emailEl.value = settings?.admin_notification_email || '';
+
+    const prefixEl = document.getElementById('shopSettingOrderPrefix');
+    if (prefixEl) prefixEl.value = settings?.order_number_prefix || 'WC';
+
+    const xpPerEuroEl = document.getElementById('shopSettingXpPerEuro');
+    if (xpPerEuroEl) xpPerEuroEl.value = settings?.xp_per_euro || 1;
+
+    const xpEnabledEl = document.getElementById('shopSettingXpEnabled');
+    if (xpEnabledEl) xpEnabledEl.checked = settings?.xp_enabled !== false;
+
+    const reviewsEl = document.getElementById('shopSettingReviewsEnabled');
+    if (reviewsEl) reviewsEl.checked = settings?.reviews_enabled !== false;
+
+    const cartEl = document.getElementById('shopSettingAbandonedCart');
+    if (cartEl) cartEl.checked = settings?.abandoned_cart_enabled !== false;
+
+  } catch (error) {
+    console.error('Failed to load shop settings:', error);
+    showToast('Failed to load settings', 'error');
+  }
+}
+
+async function saveShopSettings() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const settings = {
+      id: 1,
+      shop_name: document.getElementById('shopSettingName')?.value || '',
+      admin_notification_email: document.getElementById('shopSettingEmail')?.value || '',
+      order_number_prefix: document.getElementById('shopSettingOrderPrefix')?.value || 'WC',
+      xp_per_euro: parseInt(document.getElementById('shopSettingXpPerEuro')?.value) || 1,
+      xp_enabled: document.getElementById('shopSettingXpEnabled')?.checked ?? true,
+      reviews_enabled: document.getElementById('shopSettingReviewsEnabled')?.checked ?? true,
+      abandoned_cart_enabled: document.getElementById('shopSettingAbandonedCart')?.checked ?? true,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await client
+      .from('shop_settings')
+      .upsert(settings, { onConflict: 'id' });
+
+    if (error) throw error;
+
+    showToast('Shop settings saved', 'success');
+
+  } catch (error) {
+    console.error('Failed to save shop settings:', error);
+    showToast(`Failed to save settings: ${error.message}`, 'error');
+  }
+}
+
+// Placeholder functions for forms (to be implemented)
+function showProductForm(productId = null) {
+  showToast('Product form coming soon', 'info');
+}
+
+function showCategoryForm(categoryId = null) {
+  showToast('Category form coming soon', 'info');
+}
+
+function showVendorForm(vendorId = null) {
+  showToast('Vendor form coming soon', 'info');
+}
+
+function showDiscountForm(discountId = null) {
+  showToast('Discount form coming soon', 'info');
+}
+
+function viewShopOrder(orderId) {
+  showToast('Order details coming soon', 'info');
+}
+
+function editShopProduct(productId) {
+  showProductForm(productId);
+}
+
+function editShopCategory(categoryId) {
+  showCategoryForm(categoryId);
+}
+
+function editShopVendor(vendorId) {
+  showVendorForm(vendorId);
+}
+
+function editShopDiscount(discountId) {
+  showDiscountForm(discountId);
+}
+
+// Export shop functions
+window.loadShopData = loadShopData;
+window.viewShopOrder = viewShopOrder;
+window.editShopProduct = editShopProduct;
+window.editShopCategory = editShopCategory;
+window.editShopVendor = editShopVendor;
+window.editShopDiscount = editShopDiscount;
