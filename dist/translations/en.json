@@ -2992,17 +2992,85 @@
       "quantity": "Quantity"
     },
     "cart": {
-      "title": "Cart",
+      "title": "Shopping Cart",
       "empty": "Your cart is empty",
       "subtotal": "Subtotal",
-      "checkout": "Proceed to checkout",
-      "remove": "Remove"
+      "checkout": "Proceed to Checkout",
+      "remove": "Remove",
+      "aria": "Shopping cart",
+      "shipping_note": "Shipping calculated at checkout",
+      "continue": "Continue Shopping"
     },
     "checkout": {
+      "title": "Checkout",
+      "step1": "Shipping",
+      "step2": "Review",
+      "step3": "Payment",
+      "shipping_info": "Shipping Information",
+      "first_name": "First Name *",
+      "last_name": "Last Name *",
+      "email": "Email *",
+      "phone": "Phone *",
+      "address": "Street Address *",
+      "address2": "Apartment, suite, etc. (optional)",
+      "city": "City *",
+      "postal": "Postal Code *",
+      "country": "Country *",
+      "notes": "Order Notes (optional)",
+      "save_address": "Save this address for future orders",
+      "continue": "Continue to Review →",
+      "review_order": "Review Your Order",
+      "shipping_to": "Shipping To",
+      "order_items": "Order Items",
+      "edit": "Edit",
+      "subtotal": "Subtotal",
+      "shipping": "Shipping",
+      "total": "Total",
+      "back": "← Back",
+      "place_order": "Place Order & Pay",
       "success": "Thank you for your order!",
       "success_message": "Your order has been received and is being processed.",
-      "continue": "Continue shopping",
       "error": "Error creating order"
+    },
+    "pageTitle": "CyprusEye Shop – Traditional Cyprus Products",
+    "hero": {
+      "badge": "Authentic Cyprus",
+      "title": "Traditional Cypriot Products",
+      "subtitle": "Discover the authentic flavors and craftsmanship of Cyprus. From premium olive oil and halloumi to local wines and handmade cosmetics.",
+      "shipping": {
+        "title": "Worldwide Shipping",
+        "desc": "To Cyprus and abroad"
+      },
+      "quality": {
+        "title": "Premium Quality",
+        "desc": "Handpicked local products"
+      },
+      "gift": {
+        "title": "Perfect Gifts",
+        "desc": "Traditional souvenirs"
+      }
+    },
+    "footer": {
+      "about": "About Our Shop",
+      "about_text": "CyprusEye Shop brings you authentic Cypriot products directly from local producers. We carefully select each item to ensure the highest quality and authentic taste of Cyprus.",
+      "shipping_info": "Shipping Information",
+      "ship1": "🇨🇾 Cyprus: 2-3 business days",
+      "ship2": "🇪🇺 EU Countries: 5-7 business days",
+      "ship3": "🌍 Worldwide: 7-14 business days",
+      "contact": "Contact",
+      "rights": "All rights reserved.",
+      "terms": "Terms of Service",
+      "privacy": "Privacy Policy",
+      "returns": "Returns Policy"
     }
+  },
+  "seo": {
+    "shop": {
+      "title": "CyprusEye Shop – Traditional Cyprus Products",
+      "description": "Discover authentic Cypriot products. Olive oil, wine, halloumi, cosmetics and more. Shipping to Cyprus and worldwide."
+    }
+  },
+  "nav": {
+    "shop": "🛍️ Shop"
   }
 }

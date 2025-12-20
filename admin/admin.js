@@ -3562,8 +3562,18 @@ async function viewUserDetails(userId) {
             </div>
           </div>
         </section>
+
+        <section class="user-detail-card user-detail-card--full">
+          <h4 class="user-detail-section-title">🛒 Shop Information</h4>
+          <div id="userShopInfo" class="user-shop-info">
+            <p style="color: var(--admin-text-muted); text-align: center; padding: 20px;">Loading shop data...</p>
+          </div>
+        </section>
       </div>
     `;
+
+    // Load shop info asynchronously
+    loadUserShopInfo(userId);
 
     const accountForm = content.querySelector('#userAccountForm');
     if (accountForm) {
@@ -3800,6 +3810,121 @@ async function handleSetTempPassword(userId, tempPwd) {
     showToast('Temporary password set', 'success');
   } catch (e) {
     showToast('Failed to set temporary password: ' + (e.message || 'Unknown error'), 'error');
+  }
+}
+
+// Load user shop information (addresses and orders)
+async function loadUserShopInfo(userId) {
+  const container = document.getElementById('userShopInfo');
+  if (!container) return;
+  
+  const client = ensureSupabase();
+  if (!client) {
+    container.innerHTML = '<p style="color: #ef4444;">Database connection error</p>';
+    return;
+  }
+  
+  try {
+    // Load addresses and orders in parallel
+    const [addressesRes, ordersRes] = await Promise.all([
+      client.from('shop_addresses').select('*').eq('user_id', userId).order('is_default', { ascending: false }),
+      client.from('shop_orders').select('id, order_number, status, payment_status, total, currency, created_at, items_count, shipping_address').eq('user_id', userId).order('created_at', { ascending: false }).limit(10)
+    ]);
+    
+    const addresses = addressesRes.data || [];
+    const orders = ordersRes.data || [];
+    
+    let html = '<div class="user-shop-sections">';
+    
+    // Addresses section
+    html += '<div class="user-shop-section">';
+    html += '<h5 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">📍 Saved Addresses</h5>';
+    
+    if (addresses.length === 0) {
+      html += '<p style="color: var(--admin-text-muted); font-size: 13px;">No saved addresses</p>';
+    } else {
+      html += '<div class="user-addresses-list">';
+      for (const addr of addresses) {
+        html += `
+          <div class="user-address-card" style="background: var(--admin-bg); padding: 12px; border-radius: 8px; margin-bottom: 8px; font-size: 13px;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
+              <strong>${escapeHtml(addr.first_name || '')} ${escapeHtml(addr.last_name || '')}</strong>
+              ${addr.is_default ? '<span style="background: #22c55e; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Default</span>' : ''}
+            </div>
+            <div style="color: var(--admin-text-muted); line-height: 1.5;">
+              ${escapeHtml(addr.address_line1 || '')}${addr.address_line2 ? ', ' + escapeHtml(addr.address_line2) : ''}<br>
+              ${escapeHtml(addr.city || '')}, ${escapeHtml(addr.postal_code || '')} ${escapeHtml(addr.country || '')}<br>
+              📞 ${escapeHtml(addr.phone || 'N/A')}
+            </div>
+          </div>
+        `;
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+    
+    // Orders section
+    html += '<div class="user-shop-section" style="margin-top: 20px;">';
+    html += '<h5 style="margin: 0 0 12px; font-size: 14px; font-weight: 600;">📦 Recent Orders</h5>';
+    
+    if (orders.length === 0) {
+      html += '<p style="color: var(--admin-text-muted); font-size: 13px;">No orders yet</p>';
+    } else {
+      html += '<div class="user-orders-list">';
+      html += '<table style="width: 100%; font-size: 13px; border-collapse: collapse;">';
+      html += '<thead><tr style="border-bottom: 1px solid var(--admin-border);">';
+      html += '<th style="text-align: left; padding: 8px 4px;">Order</th>';
+      html += '<th style="text-align: left; padding: 8px 4px;">Date</th>';
+      html += '<th style="text-align: left; padding: 8px 4px;">Status</th>';
+      html += '<th style="text-align: left; padding: 8px 4px;">Payment</th>';
+      html += '<th style="text-align: right; padding: 8px 4px;">Total</th>';
+      html += '<th style="text-align: center; padding: 8px 4px;">Action</th>';
+      html += '</tr></thead><tbody>';
+      
+      for (const order of orders) {
+        const statusColors = {
+          pending: '#f59e0b',
+          processing: '#3b82f6',
+          shipped: '#8b5cf6',
+          delivered: '#22c55e',
+          cancelled: '#ef4444'
+        };
+        const paymentColors = {
+          pending: '#f59e0b',
+          paid: '#22c55e',
+          failed: '#ef4444',
+          refunded: '#6b7280'
+        };
+        
+        html += `
+          <tr style="border-bottom: 1px solid var(--admin-border);">
+            <td style="padding: 10px 4px; font-weight: 500;">#${escapeHtml(order.order_number || order.id.slice(0,8).toUpperCase())}</td>
+            <td style="padding: 10px 4px; color: var(--admin-text-muted);">${formatDate(order.created_at)}</td>
+            <td style="padding: 10px 4px;">
+              <span style="background: ${statusColors[order.status] || '#6b7280'}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">${order.status}</span>
+            </td>
+            <td style="padding: 10px 4px;">
+              <span style="background: ${paymentColors[order.payment_status] || '#6b7280'}; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">${order.payment_status}</span>
+            </td>
+            <td style="padding: 10px 4px; text-align: right; font-weight: 600;">€${parseFloat(order.total || 0).toFixed(2)}</td>
+            <td style="padding: 10px 4px; text-align: center;">
+              <button class="btn-secondary" style="padding: 4px 10px; font-size: 12px;" onclick="viewShopOrder('${order.id}')">View</button>
+            </td>
+          </tr>
+        `;
+      }
+      
+      html += '</tbody></table>';
+      html += '</div>';
+    }
+    html += '</div>';
+    
+    html += '</div>';
+    container.innerHTML = html;
+    
+  } catch (error) {
+    console.error('Failed to load user shop info:', error);
+    container.innerHTML = '<p style="color: #ef4444;">Failed to load shop information</p>';
   }
 }
 

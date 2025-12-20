@@ -625,9 +625,11 @@ function closeCart() {
 // CHECKOUT
 // =====================================================
 
+let checkoutUser = null;
+
 async function initiateCheckout() {
   if (!shopState.cart.length) {
-    showToast('Koszyk jest pusty', 'error');
+    showToast(shopState.lang === 'en' ? 'Your cart is empty' : 'Koszyk jest pusty', 'error');
     return;
   }
 
@@ -635,47 +637,329 @@ async function initiateCheckout() {
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) {
-    showToast('Zaloguj się, aby kontynuować', 'warning');
-    // Could redirect to login or show login modal
+    showToast(shopState.lang === 'en' ? 'Please log in to continue' : 'Zaloguj się, aby kontynuować', 'warning');
     return;
   }
 
-  // Call Edge Function to create Stripe checkout session
-  try {
-    const response = await fetch(`${supabase.supabaseUrl}/functions/v1/create-checkout`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-      },
-      body: JSON.stringify({
-        items: shopState.cart.map(item => ({
-          product_id: item.productId,
-          quantity: item.quantity
-        })),
-        success_url: `${window.location.origin}/shop-success.html`,
-        cancel_url: `${window.location.origin}/shop.html`
-      })
-    });
-
-    const data = await response.json();
-
-    if (data.error) {
-      throw new Error(data.error);
-    }
-
-    if (data.url) {
-      // Clear cart before redirecting
-      shopState.cart = [];
-      saveCartToStorage();
-      // Redirect to Stripe Checkout
-      window.location.href = data.url;
-    }
-
-  } catch (error) {
-    console.error('Checkout error:', error);
-    showToast('Błąd podczas tworzenia zamówienia', 'error');
+  checkoutUser = user;
+  
+  // Open checkout modal
+  openCheckoutModal();
+  
+  // Pre-fill user email
+  const emailInput = document.getElementById('checkoutEmail');
+  if (emailInput && user.email) {
+    emailInput.value = user.email;
   }
+  
+  // Try to load saved address
+  await loadSavedAddress(user.id);
+}
+
+async function loadSavedAddress(userId) {
+  try {
+    const { data: address } = await supabase
+      .from('shop_addresses')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('is_default', true)
+      .single();
+    
+    if (address) {
+      // Pre-fill form with saved address
+      document.getElementById('checkoutFirstName').value = address.first_name || '';
+      document.getElementById('checkoutLastName').value = address.last_name || '';
+      document.getElementById('checkoutPhone').value = address.phone || '';
+      document.getElementById('checkoutAddress').value = address.address_line1 || '';
+      document.getElementById('checkoutAddress2').value = address.address_line2 || '';
+      document.getElementById('checkoutCity').value = address.city || '';
+      document.getElementById('checkoutPostal').value = address.postal_code || '';
+      document.getElementById('checkoutCountry').value = address.country || '';
+    }
+  } catch (error) {
+    console.log('No saved address found');
+  }
+}
+
+function openCheckoutModal() {
+  const modal = document.getElementById('checkoutModal');
+  if (modal) {
+    modal.hidden = false;
+    document.body.style.overflow = 'hidden';
+    // Reset to step 1
+    showCheckoutStep(1);
+  }
+}
+
+function closeCheckoutModal() {
+  const modal = document.getElementById('checkoutModal');
+  if (modal) {
+    modal.hidden = true;
+    document.body.style.overflow = '';
+  }
+}
+
+function showCheckoutStep(stepNum) {
+  // Update step indicators
+  document.querySelectorAll('.checkout-step').forEach(step => {
+    const num = parseInt(step.dataset.step);
+    step.classList.remove('is-active', 'is-complete');
+    if (num < stepNum) step.classList.add('is-complete');
+    if (num === stepNum) step.classList.add('is-active');
+  });
+  
+  // Show/hide sections
+  document.getElementById('checkoutStep1').hidden = stepNum !== 1;
+  document.getElementById('checkoutStep2').hidden = stepNum !== 2;
+}
+
+function goToReviewStep() {
+  // Validate step 1 form
+  const form = document.getElementById('checkoutForm');
+  const step1Fields = document.querySelectorAll('#checkoutStep1 [required]');
+  
+  let isValid = true;
+  step1Fields.forEach(field => {
+    if (!field.value.trim()) {
+      field.style.borderColor = '#ef4444';
+      isValid = false;
+    } else {
+      field.style.borderColor = '';
+    }
+  });
+  
+  if (!isValid) {
+    showToast(shopState.lang === 'en' ? 'Please fill in all required fields' : 'Wypełnij wszystkie wymagane pola', 'error');
+    return;
+  }
+  
+  // Populate review section
+  populateReviewSection();
+  showCheckoutStep(2);
+}
+
+function populateReviewSection() {
+  // Shipping address
+  const addressEl = document.getElementById('reviewShippingAddress');
+  if (addressEl) {
+    const firstName = document.getElementById('checkoutFirstName').value;
+    const lastName = document.getElementById('checkoutLastName').value;
+    const address1 = document.getElementById('checkoutAddress').value;
+    const address2 = document.getElementById('checkoutAddress2').value;
+    const city = document.getElementById('checkoutCity').value;
+    const postal = document.getElementById('checkoutPostal').value;
+    const country = document.getElementById('checkoutCountry');
+    const countryName = country.options[country.selectedIndex]?.text || country.value;
+    
+    addressEl.innerHTML = `
+      <strong>${escapeHtml(firstName)} ${escapeHtml(lastName)}</strong><br>
+      ${escapeHtml(address1)}<br>
+      ${address2 ? escapeHtml(address2) + '<br>' : ''}
+      ${escapeHtml(city)}, ${escapeHtml(postal)}<br>
+      ${escapeHtml(countryName)}
+    `;
+  }
+  
+  // Order items
+  const itemsEl = document.getElementById('reviewOrderItems');
+  if (itemsEl) {
+    itemsEl.innerHTML = shopState.cart.map(item => `
+      <div class="review-item">
+        <span class="review-item-name">${escapeHtml(item.name)}</span>
+        <span class="review-item-qty">× ${item.quantity}</span>
+        <span class="review-item-price">€${(item.price * item.quantity).toFixed(2)}</span>
+      </div>
+    `).join('');
+  }
+  
+  // Totals
+  const subtotal = getCartTotal();
+  const shipping = calculateShipping();
+  const total = subtotal + shipping;
+  
+  document.getElementById('reviewSubtotal').textContent = `€${subtotal.toFixed(2)}`;
+  document.getElementById('reviewShipping').textContent = shipping > 0 ? `€${shipping.toFixed(2)}` : (shopState.lang === 'en' ? 'Free' : 'Gratis');
+  document.getElementById('reviewTotal').textContent = `€${total.toFixed(2)}`;
+}
+
+function calculateShipping() {
+  const country = document.getElementById('checkoutCountry')?.value;
+  const subtotal = getCartTotal();
+  
+  // Free shipping over €50 to Cyprus
+  if (country === 'CY' && subtotal >= 50) return 0;
+  
+  // Shipping rates
+  if (country === 'CY') return 5;
+  if (['PL', 'DE', 'GB', 'FR', 'IT', 'ES', 'NL', 'BE', 'AT', 'GR'].includes(country)) return 15;
+  return 25; // Worldwide
+}
+
+async function submitOrder(e) {
+  e.preventDefault();
+  
+  if (!checkoutUser) {
+    showToast(shopState.lang === 'en' ? 'Please log in' : 'Zaloguj się', 'error');
+    return;
+  }
+  
+  const btnSubmit = document.getElementById('btnPlaceOrder');
+  btnSubmit.disabled = true;
+  btnSubmit.textContent = shopState.lang === 'en' ? 'Processing...' : 'Przetwarzanie...';
+  
+  try {
+    // Gather shipping data
+    const shippingData = {
+      user_id: checkoutUser.id,
+      first_name: document.getElementById('checkoutFirstName').value.trim(),
+      last_name: document.getElementById('checkoutLastName').value.trim(),
+      phone: document.getElementById('checkoutPhone').value.trim(),
+      address_line1: document.getElementById('checkoutAddress').value.trim(),
+      address_line2: document.getElementById('checkoutAddress2').value.trim() || null,
+      city: document.getElementById('checkoutCity').value.trim(),
+      postal_code: document.getElementById('checkoutPostal').value.trim(),
+      country: document.getElementById('checkoutCountry').value,
+      is_default: document.getElementById('checkoutSaveAddress').checked
+    };
+    
+    // Save address if checkbox checked
+    if (shippingData.is_default) {
+      await saveShippingAddress(shippingData);
+    }
+    
+    // Calculate totals
+    const subtotal = getCartTotal();
+    const shipping = calculateShipping();
+    const total = subtotal + shipping;
+    
+    // Create order
+    const orderData = {
+      user_id: checkoutUser.id,
+      status: 'pending',
+      payment_status: 'pending',
+      subtotal: subtotal,
+      shipping_cost: shipping,
+      total: total,
+      currency: 'EUR',
+      customer_email: document.getElementById('checkoutEmail').value.trim(),
+      customer_phone: shippingData.phone,
+      shipping_address: {
+        first_name: shippingData.first_name,
+        last_name: shippingData.last_name,
+        address_line1: shippingData.address_line1,
+        address_line2: shippingData.address_line2,
+        city: shippingData.city,
+        postal_code: shippingData.postal_code,
+        country: shippingData.country
+      },
+      notes: document.getElementById('checkoutNotes').value.trim() || null,
+      items_count: shopState.cart.reduce((sum, item) => sum + item.quantity, 0)
+    };
+    
+    const { data: order, error: orderError } = await supabase
+      .from('shop_orders')
+      .insert(orderData)
+      .select()
+      .single();
+    
+    if (orderError) throw orderError;
+    
+    // Create order items
+    const orderItems = shopState.cart.map(item => ({
+      order_id: order.id,
+      product_id: item.productId,
+      product_name: item.name,
+      quantity: item.quantity,
+      unit_price: item.price,
+      total_price: item.price * item.quantity,
+      thumbnail_url: item.thumbnail
+    }));
+    
+    const { error: itemsError } = await supabase
+      .from('shop_order_items')
+      .insert(orderItems);
+    
+    if (itemsError) throw itemsError;
+    
+    // Success!
+    shopState.cart = [];
+    saveCartToStorage();
+    updateCartUI();
+    closeCheckoutModal();
+    closeCart();
+    
+    showToast(shopState.lang === 'en' ? 'Order placed successfully!' : 'Zamówienie złożone pomyślnie!', 'success');
+    
+    // Show success message
+    showOrderSuccess(order.id);
+    
+  } catch (error) {
+    console.error('Order error:', error);
+    showToast(shopState.lang === 'en' ? 'Error placing order' : 'Błąd podczas składania zamówienia', 'error');
+  } finally {
+    btnSubmit.disabled = false;
+    btnSubmit.textContent = shopState.lang === 'en' ? 'Place Order & Pay' : 'Złóż zamówienie';
+  }
+}
+
+async function saveShippingAddress(data) {
+  try {
+    // Check if address exists
+    const { data: existing } = await supabase
+      .from('shop_addresses')
+      .select('id')
+      .eq('user_id', data.user_id)
+      .eq('is_default', true)
+      .single();
+    
+    if (existing) {
+      // Update existing
+      await supabase
+        .from('shop_addresses')
+        .update(data)
+        .eq('id', existing.id);
+    } else {
+      // Insert new
+      await supabase
+        .from('shop_addresses')
+        .insert(data);
+    }
+  } catch (error) {
+    console.error('Failed to save address:', error);
+  }
+}
+
+function showOrderSuccess(orderId) {
+  const msgText = shopState.lang === 'en' 
+    ? `Thank you for your order! Order #${orderId.slice(0, 8).toUpperCase()} has been placed. You will receive a confirmation email shortly.`
+    : `Dziękujemy za zamówienie! Zamówienie #${orderId.slice(0, 8).toUpperCase()} zostało złożone. Wkrótce otrzymasz email z potwierdzeniem.`;
+  
+  // Create success overlay
+  const overlay = document.createElement('div');
+  overlay.className = 'order-success-overlay';
+  overlay.innerHTML = `
+    <div class="order-success-content">
+      <div class="order-success-icon">✓</div>
+      <h2>${shopState.lang === 'en' ? 'Order Confirmed!' : 'Zamówienie potwierdzone!'}</h2>
+      <p>${msgText}</p>
+      <button class="btn btn-primary" onclick="this.closest('.order-success-overlay').remove()">
+        ${shopState.lang === 'en' ? 'Continue Shopping' : 'Kontynuuj zakupy'}
+      </button>
+    </div>
+  `;
+  overlay.style.cssText = `
+    position: fixed; inset: 0; z-index: 9999; background: rgba(0,0,0,0.8);
+    display: flex; align-items: center; justify-content: center; padding: 20px;
+  `;
+  overlay.querySelector('.order-success-content').style.cssText = `
+    background: white; padding: 40px; border-radius: 16px; text-align: center; max-width: 400px;
+  `;
+  overlay.querySelector('.order-success-icon').style.cssText = `
+    width: 80px; height: 80px; background: #22c55e; color: white; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center; font-size: 40px;
+    margin: 0 auto 24px;
+  `;
+  document.body.appendChild(overlay);
 }
 
 // =====================================================
@@ -733,7 +1017,7 @@ function setupEventListeners() {
 
   // Mobile filters toggle
   const btnToggleFilters = document.getElementById('btnToggleFilters');
-  const filtersPanel = document.querySelector('.shop-filters');
+  const filtersPanel = document.getElementById('shopFilters');
   if (btnToggleFilters && filtersPanel) {
     btnToggleFilters.addEventListener('click', () => {
       filtersPanel.classList.toggle('is-open');
@@ -760,6 +1044,53 @@ function setupEventListeners() {
   const btnCheckout = document.getElementById('btnCheckout');
   if (btnCheckout) {
     btnCheckout.addEventListener('click', initiateCheckout);
+  }
+
+  // Continue shopping button
+  const btnContinue = document.getElementById('btnContinueShopping');
+  if (btnContinue) {
+    btnContinue.addEventListener('click', closeCart);
+  }
+
+  // Checkout modal
+  const btnCloseCheckout = document.getElementById('btnCloseCheckout');
+  if (btnCloseCheckout) {
+    btnCloseCheckout.addEventListener('click', closeCheckoutModal);
+  }
+
+  const checkoutOverlay = document.getElementById('checkoutModalOverlay');
+  if (checkoutOverlay) {
+    checkoutOverlay.addEventListener('click', closeCheckoutModal);
+  }
+
+  // Checkout step navigation
+  const btnToStep2 = document.getElementById('btnToStep2');
+  if (btnToStep2) {
+    btnToStep2.addEventListener('click', goToReviewStep);
+  }
+
+  const btnBackToStep1 = document.getElementById('btnBackToStep1');
+  if (btnBackToStep1) {
+    btnBackToStep1.addEventListener('click', () => showCheckoutStep(1));
+  }
+
+  const btnEditAddress = document.getElementById('btnEditAddress');
+  if (btnEditAddress) {
+    btnEditAddress.addEventListener('click', () => showCheckoutStep(1));
+  }
+
+  // Checkout form submission
+  const checkoutForm = document.getElementById('checkoutForm');
+  if (checkoutForm) {
+    checkoutForm.addEventListener('submit', submitOrder);
+  }
+
+  // Close filters on mobile
+  const btnCloseFilters = document.getElementById('btnCloseFilters');
+  if (btnCloseFilters) {
+    btnCloseFilters.addEventListener('click', () => {
+      document.getElementById('shopFilters')?.classList.remove('is-open');
+    });
   }
 
   // Product modal
