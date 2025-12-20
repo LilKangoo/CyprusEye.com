@@ -12641,6 +12641,8 @@ async function showTaxClassForm(classId = null) {
   document.getElementById('taxClassId').value = '';
   document.getElementById('taxClassFormError').hidden = true;
   document.getElementById('taxClassActive').checked = true;
+  taxRatesData = [];
+  
   if (classId) {
     title.textContent = 'Edytuj klasę podatkową';
     const client = ensureSupabase();
@@ -12653,8 +12655,11 @@ async function showTaxClassForm(classId = null) {
       document.getElementById('taxClassDefault').checked = data.is_default || false;
       document.getElementById('taxClassActive').checked = data.is_active !== false;
     }
+    // Load tax rates for this class
+    await loadTaxRatesForClass(classId);
   } else {
     title.textContent = 'Nowa klasa podatkowa';
+    document.getElementById('taxRatesSection').style.display = 'none';
   }
   modal.hidden = false;
   setupGenericFormListeners('shopTaxClassModal', 'shopTaxClassForm', 'btnCloseShopTaxClassModal', 'taxClassFormCancel', 'shopTaxClassModalOverlay', saveTaxClass);
@@ -12666,7 +12671,7 @@ async function saveTaxClass() {
   if (!client) return;
   const errorEl = document.getElementById('taxClassFormError');
   errorEl.hidden = true;
-  const classId = document.getElementById('taxClassId').value;
+  let classId = document.getElementById('taxClassId').value;
   const name = document.getElementById('taxClassName').value.trim();
   if (!name) { errorEl.textContent = 'Nazwa jest wymagana'; errorEl.hidden = false; return; }
   const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
@@ -12679,13 +12684,20 @@ async function saveTaxClass() {
     is_active: document.getElementById('taxClassActive').checked
   };
   try {
-    let error;
+    let error, result;
     if (classId) {
       ({ error } = await client.from('shop_tax_classes').update(data).eq('id', classId));
     } else {
-      ({ error } = await client.from('shop_tax_classes').insert(data));
+      ({ data: result, error } = await client.from('shop_tax_classes').insert(data).select().single());
+      if (result) classId = result.id;
     }
     if (error) throw error;
+    
+    // Save tax rates if we have a class ID
+    if (classId && taxRatesData.length > 0) {
+      await saveTaxRates(classId);
+    }
+    
     showToast(classId ? 'Klasa zaktualizowana' : 'Klasa dodana', 'success');
     document.getElementById('shopTaxClassModal').hidden = true;
     await loadTaxClasses();
@@ -12708,6 +12720,113 @@ async function deleteTaxClass(classId) {
   }
 }
 window.deleteTaxClass = deleteTaxClass;
+
+// Tax Rates Management
+let taxRatesData = [];
+
+async function loadTaxRatesForClass(taxClassId) {
+  const client = ensureSupabase();
+  if (!client) return;
+  
+  const section = document.getElementById('taxRatesSection');
+  const list = document.getElementById('taxRatesList');
+  
+  if (!taxClassId) {
+    section.style.display = 'none';
+    taxRatesData = [];
+    return;
+  }
+  
+  section.style.display = 'block';
+  
+  try {
+    const { data: rates, error } = await client
+      .from('shop_tax_rates')
+      .select('*')
+      .eq('tax_class_id', taxClassId)
+      .order('country');
+    
+    if (error) throw error;
+    taxRatesData = rates || [];
+    renderTaxRatesList();
+  } catch (error) {
+    console.error('Failed to load tax rates:', error);
+    list.innerHTML = '<p style="color: #ef4444;">Błąd ładowania stawek</p>';
+  }
+}
+
+function renderTaxRatesList() {
+  const list = document.getElementById('taxRatesList');
+  if (!list) return;
+  
+  if (!taxRatesData.length) {
+    list.innerHTML = '<p style="color: var(--admin-text-muted); font-size: 13px; text-align: center;">Brak stawek. Dodaj stawkę VAT dla każdego kraju.</p>';
+    return;
+  }
+  
+  list.innerHTML = taxRatesData.map((rate, idx) => `
+    <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px; padding: 8px; background: var(--admin-bg-secondary); border-radius: 6px;">
+      <input type="text" value="${escapeHtml(rate.country || '')}" placeholder="Kraj (np. CY)" 
+        style="width: 60px;" onchange="updateTaxRateField(${idx}, 'country', this.value)">
+      <input type="text" value="${escapeHtml(rate.name || '')}" placeholder="Nazwa (np. VAT Cyprus)" 
+        style="flex: 1;" onchange="updateTaxRateField(${idx}, 'name', this.value)">
+      <input type="number" value="${rate.rate || ''}" placeholder="%" step="0.01" 
+        style="width: 70px;" onchange="updateTaxRateField(${idx}, 'rate', parseFloat(this.value))">
+      <span style="color: var(--admin-text-muted);">%</span>
+      <button type="button" class="btn-icon" onclick="removeTaxRate(${idx})" style="color: #ef4444;">🗑️</button>
+    </div>
+  `).join('');
+}
+
+function addTaxRate() {
+  taxRatesData.push({ country: '', name: '', rate: 0, is_new: true });
+  renderTaxRatesList();
+}
+window.addTaxRate = addTaxRate;
+
+function updateTaxRateField(idx, field, value) {
+  if (taxRatesData[idx]) {
+    taxRatesData[idx][field] = value;
+    taxRatesData[idx].is_modified = true;
+  }
+}
+window.updateTaxRateField = updateTaxRateField;
+
+function removeTaxRate(idx) {
+  if (taxRatesData[idx]) {
+    if (taxRatesData[idx].id) {
+      taxRatesData[idx].is_deleted = true;
+    } else {
+      taxRatesData.splice(idx, 1);
+    }
+    renderTaxRatesList();
+  }
+}
+window.removeTaxRate = removeTaxRate;
+
+async function saveTaxRates(taxClassId) {
+  const client = ensureSupabase();
+  if (!client || !taxClassId) return;
+  
+  for (const rate of taxRatesData) {
+    if (rate.is_deleted && rate.id) {
+      await client.from('shop_tax_rates').delete().eq('id', rate.id);
+    } else if (rate.is_new && !rate.is_deleted) {
+      await client.from('shop_tax_rates').insert({
+        tax_class_id: taxClassId,
+        country: rate.country,
+        name: rate.name,
+        rate: rate.rate
+      });
+    } else if (rate.is_modified && rate.id) {
+      await client.from('shop_tax_rates').update({
+        country: rate.country,
+        name: rate.name,
+        rate: rate.rate
+      }).eq('id', rate.id);
+    }
+  }
+}
 
 // --- CUSTOMER GROUPS ---
 async function loadCustomerGroups() {
@@ -13396,6 +13515,11 @@ async function showProductForm(productId = null) {
   if (thumbPreview) thumbPreview.innerHTML = '';
   if (galleryPreview) galleryPreview.innerHTML = '';
   
+  // Reset variants and relationships
+  productVariantsData = [];
+  const variantsList = document.getElementById('shopProductVariantsList');
+  if (variantsList) variantsList.innerHTML = '<p style="color: var(--admin-text-muted); text-align: center; font-size: 13px;">Zapisz produkt, aby dodać warianty.</p>';
+  
   // Reset to Polish tab
   switchProductLang('pl');
   
@@ -13405,9 +13529,15 @@ async function showProductForm(productId = null) {
   // Load categories and vendors for dropdowns
   await loadProductFormDropdowns();
   
+  // Load related products options
+  await loadRelatedProductsOptions(productId);
+  
   if (productId) {
     title.textContent = 'Edytuj produkt';
     await loadProductData(productId);
+    // Load variants and relationships for existing product
+    await loadProductVariants(productId);
+    await loadProductRelationships(productId);
   } else {
     title.textContent = 'Nowy produkt';
   }
@@ -13601,6 +13731,8 @@ function updateProductFormSections(productType) {
   const digitalSection = document.getElementById('shopProductDigitalSection');
   const subscriptionSection = document.getElementById('shopProductSubscriptionSection');
   const bundleSection = document.getElementById('shopProductBundleSection');
+  const variantsSection = document.getElementById('shopProductVariantsSection');
+  const relatedSection = document.getElementById('shopProductRelatedSection');
   const inventorySection = document.getElementById('shopProductInventorySection');
   const shippingSection = document.getElementById('shopProductShippingSection');
 
@@ -13608,6 +13740,10 @@ function updateProductFormSections(productType) {
   if (digitalSection) digitalSection.style.display = 'none';
   if (subscriptionSection) subscriptionSection.style.display = 'none';
   if (bundleSection) bundleSection.style.display = 'none';
+  if (variantsSection) variantsSection.style.display = 'none';
+  
+  // Always show related products section
+  if (relatedSection) relatedSection.style.display = 'block';
 
   // Show/hide based on product type
   switch (productType) {
@@ -13626,13 +13762,283 @@ function updateProductFormSections(productType) {
       if (shippingSection) shippingSection.style.display = 'block';
       document.getElementById('shopProductRequiresShipping').checked = true;
       break;
-    default: // simple, variable, grouped
+    case 'variable':
+      if (variantsSection) variantsSection.style.display = 'block';
+      if (shippingSection) shippingSection.style.display = 'block';
+      document.getElementById('shopProductRequiresShipping').checked = true;
+      break;
+    default: // simple, grouped
       if (shippingSection) shippingSection.style.display = 'block';
       document.getElementById('shopProductRequiresShipping').checked = true;
       break;
   }
 }
 window.updateProductFormSections = updateProductFormSections;
+
+// =====================================================
+// PRODUCT VARIANTS MANAGEMENT
+// =====================================================
+
+let productVariantsData = [];
+let availableAttributes = [];
+
+async function loadProductVariants(productId) {
+  const client = ensureSupabase();
+  if (!client) return;
+  
+  const list = document.getElementById('shopProductVariantsList');
+  if (!productId) {
+    productVariantsData = [];
+    if (list) list.innerHTML = '<p style="color: var(--admin-text-muted); text-align: center; font-size: 13px;">Zapisz produkt, aby dodać warianty.</p>';
+    return;
+  }
+  
+  try {
+    // Load attributes for dropdown
+    const { data: attrs } = await client.from('shop_attributes').select('id, name, values').eq('is_active', true);
+    availableAttributes = attrs || [];
+    
+    // Load existing variants
+    const { data: variants, error } = await client
+      .from('shop_product_variants')
+      .select('*')
+      .eq('product_id', productId)
+      .order('sort_order');
+    
+    if (error) throw error;
+    productVariantsData = variants || [];
+    renderProductVariantsList();
+  } catch (error) {
+    console.error('Failed to load variants:', error);
+    if (list) list.innerHTML = '<p style="color: #ef4444;">Błąd ładowania wariantów</p>';
+  }
+}
+
+function renderProductVariantsList() {
+  const list = document.getElementById('shopProductVariantsList');
+  if (!list) return;
+  
+  if (!productVariantsData.length) {
+    list.innerHTML = '<p style="color: var(--admin-text-muted); text-align: center; font-size: 13px;">Brak wariantów. Kliknij "Dodaj wariant" aby utworzyć.</p>';
+    return;
+  }
+  
+  list.innerHTML = productVariantsData.filter(v => !v.is_deleted).map((variant, idx) => `
+    <div style="padding: 12px; background: var(--admin-bg-secondary); border-radius: 8px; margin-bottom: 8px;">
+      <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
+        <input type="text" value="${escapeHtml(variant.name || '')}" placeholder="Nazwa wariantu (np. Rozmiar L)" 
+          style="flex: 1; font-weight: 500;" onchange="updateVariantField(${idx}, 'name', this.value)">
+        <button type="button" class="btn-icon" onclick="removeProductVariant(${idx})" style="color: #ef4444;" title="Usuń">🗑️</button>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
+        <div>
+          <label style="font-size: 11px; color: var(--admin-text-muted);">SKU</label>
+          <input type="text" value="${escapeHtml(variant.sku || '')}" placeholder="SKU" 
+            style="width: 100%;" onchange="updateVariantField(${idx}, 'sku', this.value)">
+        </div>
+        <div>
+          <label style="font-size: 11px; color: var(--admin-text-muted);">Cena (€)</label>
+          <input type="number" value="${variant.price || ''}" placeholder="Cena" step="0.01"
+            style="width: 100%;" onchange="updateVariantField(${idx}, 'price', parseFloat(this.value))">
+        </div>
+        <div>
+          <label style="font-size: 11px; color: var(--admin-text-muted);">Stan mag.</label>
+          <input type="number" value="${variant.stock_quantity || 0}" placeholder="Ilość" min="0"
+            style="width: 100%;" onchange="updateVariantField(${idx}, 'stock_quantity', parseInt(this.value))">
+        </div>
+        <div>
+          <label style="font-size: 11px; color: var(--admin-text-muted);">Waga (kg)</label>
+          <input type="number" value="${variant.weight || ''}" placeholder="Waga" step="0.01"
+            style="width: 100%;" onchange="updateVariantField(${idx}, 'weight', parseFloat(this.value))">
+        </div>
+      </div>
+      <div style="margin-top: 8px;">
+        <label style="font-size: 11px; color: var(--admin-text-muted);">Atrybuty (np. rozmiar=L, kolor=czerwony)</label>
+        <input type="text" value="${formatAttributes(variant.attributes)}" placeholder="rozmiar=L, kolor=czerwony" 
+          style="width: 100%;" onchange="updateVariantField(${idx}, 'attributes', parseAttributesInput(this.value))">
+      </div>
+    </div>
+  `).join('');
+}
+
+function formatAttributes(attrs) {
+  if (!attrs || typeof attrs !== 'object') return '';
+  return Object.entries(attrs).map(([k, v]) => `${k}=${v}`).join(', ');
+}
+
+function parseAttributesInput(str) {
+  if (!str) return {};
+  const attrs = {};
+  str.split(',').forEach(pair => {
+    const [key, value] = pair.split('=').map(s => s.trim());
+    if (key && value) attrs[key] = value;
+  });
+  return attrs;
+}
+window.parseAttributesInput = parseAttributesInput;
+
+function addProductVariant() {
+  productVariantsData.push({ 
+    name: '', 
+    sku: '', 
+    price: null, 
+    stock_quantity: 0, 
+    weight: null,
+    attributes: {},
+    is_new: true 
+  });
+  renderProductVariantsList();
+}
+window.addProductVariant = addProductVariant;
+
+function updateVariantField(idx, field, value) {
+  if (productVariantsData[idx]) {
+    productVariantsData[idx][field] = value;
+    productVariantsData[idx].is_modified = true;
+  }
+}
+window.updateVariantField = updateVariantField;
+
+function removeProductVariant(idx) {
+  if (productVariantsData[idx]) {
+    if (productVariantsData[idx].id) {
+      productVariantsData[idx].is_deleted = true;
+    } else {
+      productVariantsData.splice(idx, 1);
+    }
+    renderProductVariantsList();
+  }
+}
+window.removeProductVariant = removeProductVariant;
+
+async function saveProductVariants(productId) {
+  const client = ensureSupabase();
+  if (!client || !productId) return;
+  
+  for (const variant of productVariantsData) {
+    if (variant.is_deleted && variant.id) {
+      await client.from('shop_product_variants').delete().eq('id', variant.id);
+    } else if (variant.is_new && !variant.is_deleted) {
+      await client.from('shop_product_variants').insert({
+        product_id: productId,
+        name: variant.name,
+        sku: variant.sku || null,
+        price: variant.price || null,
+        stock_quantity: variant.stock_quantity || 0,
+        weight: variant.weight || null,
+        attributes: variant.attributes || {}
+      });
+    } else if (variant.is_modified && variant.id) {
+      await client.from('shop_product_variants').update({
+        name: variant.name,
+        sku: variant.sku || null,
+        price: variant.price || null,
+        stock_quantity: variant.stock_quantity || 0,
+        weight: variant.weight || null,
+        attributes: variant.attributes || {}
+      }).eq('id', variant.id);
+    }
+  }
+}
+
+// =====================================================
+// PRODUCT RELATIONSHIPS (Upsell/Cross-sell)
+// =====================================================
+
+async function loadRelatedProductsOptions(excludeId = null) {
+  const client = ensureSupabase();
+  if (!client) return;
+  
+  const upsellSelect = document.getElementById('shopProductUpsell');
+  const crossSellSelect = document.getElementById('shopProductCrossSell');
+  
+  if (!upsellSelect || !crossSellSelect) return;
+  
+  try {
+    let query = client.from('shop_products').select('id, name, price').eq('status', 'active').order('name');
+    if (excludeId) query = query.neq('id', excludeId);
+    
+    const { data: products } = await query;
+    const options = (products || []).map(p => 
+      `<option value="${p.id}">${escapeHtml(p.name)} (€${p.price})</option>`
+    ).join('');
+    
+    upsellSelect.innerHTML = options;
+    crossSellSelect.innerHTML = options;
+  } catch (error) {
+    console.error('Failed to load related products:', error);
+  }
+}
+
+async function loadProductRelationships(productId) {
+  const client = ensureSupabase();
+  if (!client || !productId) return;
+  
+  try {
+    const { data: relationships } = await client
+      .from('shop_product_relationships')
+      .select('related_product_id, relationship_type')
+      .eq('product_id', productId);
+    
+    if (!relationships) return;
+    
+    const upsellSelect = document.getElementById('shopProductUpsell');
+    const crossSellSelect = document.getElementById('shopProductCrossSell');
+    
+    const upsellIds = relationships.filter(r => r.relationship_type === 'upsell').map(r => r.related_product_id);
+    const crossSellIds = relationships.filter(r => r.relationship_type === 'cross_sell').map(r => r.related_product_id);
+    
+    if (upsellSelect) {
+      Array.from(upsellSelect.options).forEach(opt => {
+        opt.selected = upsellIds.includes(opt.value);
+      });
+    }
+    if (crossSellSelect) {
+      Array.from(crossSellSelect.options).forEach(opt => {
+        opt.selected = crossSellIds.includes(opt.value);
+      });
+    }
+  } catch (error) {
+    console.error('Failed to load relationships:', error);
+  }
+}
+
+async function saveProductRelationships(productId) {
+  const client = ensureSupabase();
+  if (!client || !productId) return;
+  
+  const upsellSelect = document.getElementById('shopProductUpsell');
+  const crossSellSelect = document.getElementById('shopProductCrossSell');
+  
+  if (!upsellSelect || !crossSellSelect) return;
+  
+  try {
+    // Delete existing relationships
+    await client.from('shop_product_relationships').delete().eq('product_id', productId);
+    
+    // Insert upsell relationships
+    const upsellIds = Array.from(upsellSelect.selectedOptions).map(opt => opt.value);
+    for (const relatedId of upsellIds) {
+      await client.from('shop_product_relationships').insert({
+        product_id: productId,
+        related_product_id: relatedId,
+        relationship_type: 'upsell'
+      });
+    }
+    
+    // Insert cross-sell relationships
+    const crossSellIds = Array.from(crossSellSelect.selectedOptions).map(opt => opt.value);
+    for (const relatedId of crossSellIds) {
+      await client.from('shop_product_relationships').insert({
+        product_id: productId,
+        related_product_id: relatedId,
+        relationship_type: 'cross_sell'
+      });
+    }
+  } catch (error) {
+    console.error('Failed to save relationships:', error);
+  }
+}
 
 // Product image upload functionality
 function setupProductImageUpload() {
@@ -13855,16 +14261,27 @@ async function saveProduct() {
   }
 
   try {
-    let error;
+    let error, savedProductId = productId, result;
     if (productId) {
       ({ error } = await client.from('shop_products').update(productData).eq('id', productId));
     } else {
-      ({ error } = await client.from('shop_products').insert(productData));
+      ({ data: result, error } = await client.from('shop_products').insert(productData).select().single());
+      if (result) savedProductId = result.id;
     }
 
     if (error) throw error;
 
-    showToast(productId ? 'Product updated' : 'Product created', 'success');
+    // Save variants if product type is variable
+    if (savedProductId && productData.product_type === 'variable') {
+      await saveProductVariants(savedProductId);
+    }
+    
+    // Save product relationships (upsell/cross-sell)
+    if (savedProductId) {
+      await saveProductRelationships(savedProductId);
+    }
+
+    showToast(productId ? 'Produkt zaktualizowany' : 'Produkt utworzony', 'success');
     document.getElementById('shopProductModal').hidden = true;
     await loadShopProducts();
     await loadShopStats();
@@ -14524,7 +14941,7 @@ async function viewShopOrder(orderId) {
   
   if (!modal) return;
   
-  content.innerHTML = '<p style="text-align: center;">Loading order details...</p>';
+  content.innerHTML = '<p style="text-align: center;">Ładowanie zamówienia...</p>';
   modal.hidden = false;
   
   setupOrderModalListeners();
@@ -14546,59 +14963,108 @@ async function viewShopOrder(orderId) {
       .single();
 
     if (error) throw error;
-    if (!order) throw new Error('Order not found');
+    if (!order) throw new Error('Zamówienie nie znalezione');
 
-    title.textContent = `Order ${order.order_number}`;
+    title.textContent = `Zamówienie ${order.order_number}`;
 
-    const statusOptions = ['pending', 'confirmed', 'processing', 'shipped', 'delivered', 'completed', 'cancelled'];
-    const paymentStatusOptions = ['unpaid', 'pending', 'paid', 'partially_refunded', 'refunded', 'failed'];
+    const statusLabels = {
+      pending: '⏳ Oczekujące',
+      confirmed: '✅ Potwierdzone', 
+      processing: '🔄 W realizacji',
+      shipped: '📦 Wysłane',
+      delivered: '✅ Dostarczone',
+      completed: '🎉 Zakończone',
+      cancelled: '❌ Anulowane'
+    };
+    const paymentLabels = {
+      unpaid: '💳 Nieopłacone',
+      pending: '⏳ Oczekuje',
+      paid: '✅ Opłacone',
+      partially_refunded: '↩️ Częściowy zwrot',
+      refunded: '↩️ Zwrócone',
+      failed: '❌ Błąd płatności'
+    };
+    const statusOptions = Object.keys(statusLabels);
+    const paymentStatusOptions = Object.keys(paymentLabels);
 
     content.innerHTML = `
+      <!-- Quick Actions Bar -->
+      <div style="display: flex; gap: 8px; margin-bottom: 20px; padding-bottom: 16px; border-bottom: 1px solid var(--admin-border);">
+        <button class="btn-secondary" onclick="printOrder('${order.id}')" style="font-size: 13px;">🖨️ Drukuj</button>
+        <button class="btn-secondary" onclick="sendOrderEmail('${order.id}')" style="font-size: 13px;">📧 Wyślij email</button>
+        ${order.status === 'shipped' || order.status === 'processing' ? `
+          <button class="btn-secondary" onclick="addTrackingInfo('${order.id}')" style="font-size: 13px;">📍 Dodaj tracking</button>
+        ` : ''}
+        ${order.payment_status === 'paid' ? `
+          <button class="btn-secondary" onclick="initiateRefund('${order.id}')" style="font-size: 13px; color: #ef4444;">↩️ Zwrot</button>
+        ` : ''}
+      </div>
+
       <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
-        <div>
-          <h4 style="margin: 0 0 12px;">Customer</h4>
-          <p><strong>${escapeHtml(order.customer_name)}</strong></p>
-          <p>${escapeHtml(order.customer_email)}</p>
-          ${order.customer_phone ? `<p>${escapeHtml(order.customer_phone)}</p>` : ''}
+        <div style="padding: 16px; background: var(--admin-bg); border-radius: 8px;">
+          <h4 style="margin: 0 0 12px; font-size: 13px; color: var(--admin-text-muted);">👤 Klient</h4>
+          <p style="margin: 0; font-weight: 600;">${escapeHtml(order.customer_name || 'Gość')}</p>
+          <p style="margin: 4px 0;">${escapeHtml(order.customer_email || '-')}</p>
+          ${order.customer_phone ? `<p style="margin: 0;">📞 ${escapeHtml(order.customer_phone)}</p>` : ''}
         </div>
-        <div>
-          <h4 style="margin: 0 0 12px;">Shipping Address</h4>
+        <div style="padding: 16px; background: var(--admin-bg); border-radius: 8px;">
+          <h4 style="margin: 0 0 12px; font-size: 13px; color: var(--admin-text-muted);">📍 Adres dostawy</h4>
           ${order.shipping_address ? `
-            <p>${escapeHtml(order.shipping_address.line1 || '')}</p>
-            ${order.shipping_address.line2 ? `<p>${escapeHtml(order.shipping_address.line2)}</p>` : ''}
-            <p>${escapeHtml(order.shipping_address.city || '')}, ${escapeHtml(order.shipping_address.postal_code || '')}</p>
-            <p>${escapeHtml(order.shipping_address.country || '')}</p>
-          ` : '<p style="color: var(--admin-text-muted);">No shipping address</p>'}
+            <p style="margin: 0;">${escapeHtml(order.shipping_address.line1 || '')}</p>
+            ${order.shipping_address.line2 ? `<p style="margin: 2px 0;">${escapeHtml(order.shipping_address.line2)}</p>` : ''}
+            <p style="margin: 2px 0;">${escapeHtml(order.shipping_address.postal_code || '')} ${escapeHtml(order.shipping_address.city || '')}</p>
+            <p style="margin: 0; font-weight: 500;">${escapeHtml(order.shipping_address.country || '')}</p>
+          ` : '<p style="color: var(--admin-text-muted); margin: 0;">Brak adresu</p>'}
         </div>
       </div>
 
-      <div style="margin: 24px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+      <!-- Tracking Info -->
+      ${order.tracking_number ? `
+        <div style="margin: 16px 0; padding: 12px 16px; background: #dbeafe; border-radius: 8px; display: flex; align-items: center; gap: 12px;">
+          <span style="font-size: 20px;">📦</span>
+          <div>
+            <p style="margin: 0; font-size: 12px; color: #1e40af;">Numer przesyłki</p>
+            <p style="margin: 0; font-weight: 600; color: #1e40af;">${escapeHtml(order.tracking_number)}</p>
+          </div>
+          ${order.tracking_url ? `<a href="${order.tracking_url}" target="_blank" style="margin-left: auto; color: #1e40af;">Śledź →</a>` : ''}
+        </div>
+      ` : ''}
+
+      <div style="margin: 20px 0; display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
         <div>
           <label class="admin-form-field">
-            <span>Order Status</span>
+            <span>Status zamówienia</span>
             <select id="orderStatusSelect" class="form-control">
-              ${statusOptions.map(s => `<option value="${s}" ${order.status === s ? 'selected' : ''}>${s}</option>`).join('')}
+              ${statusOptions.map(s => `<option value="${s}" ${order.status === s ? 'selected' : ''}>${statusLabels[s]}</option>`).join('')}
             </select>
           </label>
         </div>
         <div>
           <label class="admin-form-field">
-            <span>Payment Status</span>
+            <span>Status płatności</span>
             <select id="orderPaymentStatusSelect" class="form-control">
-              ${paymentStatusOptions.map(s => `<option value="${s}" ${order.payment_status === s ? 'selected' : ''}>${s}</option>`).join('')}
+              ${paymentStatusOptions.map(s => `<option value="${s}" ${order.payment_status === s ? 'selected' : ''}>${paymentLabels[s]}</option>`).join('')}
             </select>
           </label>
         </div>
       </div>
 
-      <h4 style="margin: 24px 0 12px;">Order Items</h4>
+      <!-- Order Notes -->
+      <div style="margin-bottom: 20px;">
+        <label class="admin-form-field">
+          <span>Notatki do zamówienia</span>
+          <textarea id="orderNotes" rows="2" placeholder="Wewnętrzne notatki...">${escapeHtml(order.admin_notes || '')}</textarea>
+        </label>
+      </div>
+
+      <h4 style="margin: 16px 0 12px; font-size: 14px;">📦 Produkty</h4>
       <table class="admin-table">
         <thead>
           <tr>
-            <th>Product</th>
-            <th>Qty</th>
-            <th>Price</th>
-            <th>Total</th>
+            <th>Produkt</th>
+            <th style="text-align: center;">Ilość</th>
+            <th style="text-align: right;">Cena</th>
+            <th style="text-align: right;">Razem</th>
           </tr>
         </thead>
         <tbody>
@@ -14606,37 +15072,113 @@ async function viewShopOrder(orderId) {
             <tr>
               <td>
                 <div style="display: flex; align-items: center; gap: 12px;">
-                  ${item.product?.thumbnail_url ? `<img src="${item.product.thumbnail_url}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">` : ''}
-                  <span>${escapeHtml(item.product?.name || item.product_name || 'Unknown')}</span>
+                  ${item.product?.thumbnail_url ? `<img src="${item.product.thumbnail_url}" style="width: 40px; height: 40px; object-fit: cover; border-radius: 4px;">` : '<div style="width: 40px; height: 40px; background: var(--admin-bg); border-radius: 4px;"></div>'}
+                  <div>
+                    <span style="font-weight: 500;">${escapeHtml(item.product?.name || item.product_name || 'Nieznany')}</span>
+                    ${item.variant_name ? `<br><small style="color: var(--admin-text-muted);">${escapeHtml(item.variant_name)}</small>` : ''}
+                  </div>
                 </div>
               </td>
-              <td>${item.quantity}</td>
-              <td>€${parseFloat(item.unit_price).toFixed(2)}</td>
-              <td>€${parseFloat(item.total_price).toFixed(2)}</td>
+              <td style="text-align: center;">${item.quantity}</td>
+              <td style="text-align: right;">€${parseFloat(item.unit_price).toFixed(2)}</td>
+              <td style="text-align: right; font-weight: 500;">€${parseFloat(item.total_price).toFixed(2)}</td>
             </tr>
           `).join('')}
         </tbody>
       </table>
 
-      <div style="margin-top: 24px; text-align: right;">
-        <p>Subtotal: <strong>€${parseFloat(order.subtotal).toFixed(2)}</strong></p>
-        ${order.discount_amount ? `<p>Discount: <strong>-€${parseFloat(order.discount_amount).toFixed(2)}</strong></p>` : ''}
-        ${order.shipping_amount ? `<p>Shipping: <strong>€${parseFloat(order.shipping_amount).toFixed(2)}</strong></p>` : ''}
-        ${order.tax_amount ? `<p>Tax: <strong>€${parseFloat(order.tax_amount).toFixed(2)}</strong></p>` : ''}
-        <p style="font-size: 18px; margin-top: 12px;">Total: <strong>€${parseFloat(order.total).toFixed(2)}</strong></p>
+      <div style="margin-top: 20px; padding: 16px; background: var(--admin-bg); border-radius: 8px;">
+        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+          <span>Produkty:</span>
+          <span>€${parseFloat(order.subtotal).toFixed(2)}</span>
+        </div>
+        ${order.discount_amount ? `
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px; color: #22c55e;">
+            <span>Rabat${order.discount_code ? ` (${order.discount_code})` : ''}:</span>
+            <span>-€${parseFloat(order.discount_amount).toFixed(2)}</span>
+          </div>
+        ` : ''}
+        ${order.shipping_amount ? `
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span>Dostawa:</span>
+            <span>€${parseFloat(order.shipping_amount).toFixed(2)}</span>
+          </div>
+        ` : ''}
+        ${order.tax_amount ? `
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span>VAT:</span>
+            <span>€${parseFloat(order.tax_amount).toFixed(2)}</span>
+          </div>
+        ` : ''}
+        <div style="display: flex; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--admin-border); font-size: 18px; font-weight: 600;">
+          <span>Razem:</span>
+          <span>€${parseFloat(order.total).toFixed(2)}</span>
+        </div>
+      </div>
+
+      <!-- Timeline -->
+      <div style="margin-top: 20px; padding: 16px; background: var(--admin-bg); border-radius: 8px;">
+        <h4 style="margin: 0 0 12px; font-size: 13px; color: var(--admin-text-muted);">📅 Historia</h4>
+        <div style="font-size: 13px;">
+          <p style="margin: 0 0 4px;"><strong>Utworzone:</strong> ${new Date(order.created_at).toLocaleString('pl-PL')}</p>
+          ${order.updated_at !== order.created_at ? `<p style="margin: 0;"><strong>Ostatnia aktualizacja:</strong> ${new Date(order.updated_at).toLocaleString('pl-PL')}</p>` : ''}
+        </div>
       </div>
 
       <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
-        <button class="btn-primary" onclick="updateOrderStatus('${order.id}')">Update Status</button>
-        <button class="btn-secondary" onclick="document.getElementById('shopOrderModal').hidden = true">Close</button>
+        <button class="btn-primary" onclick="updateOrderStatus('${order.id}')">💾 Zapisz zmiany</button>
+        <button class="btn-secondary" onclick="document.getElementById('shopOrderModal').hidden = true">Zamknij</button>
       </div>
     `;
 
   } catch (error) {
     console.error('Failed to load order:', error);
-    content.innerHTML = `<p style="color: #ef4444; text-align: center;">Error: ${error.message}</p>`;
+    content.innerHTML = `<p style="color: #ef4444; text-align: center;">Błąd: ${error.message}</p>`;
   }
 }
+
+// Order quick actions
+function printOrder(orderId) {
+  window.print();
+  showToast('Przygotowuję do druku...', 'info');
+}
+window.printOrder = printOrder;
+
+function sendOrderEmail(orderId) {
+  showToast('Wysyłanie emaila do klienta...', 'info');
+  // TODO: Implement email sending via edge function
+}
+window.sendOrderEmail = sendOrderEmail;
+
+async function addTrackingInfo(orderId) {
+  const trackingNumber = prompt('Podaj numer przesyłki:');
+  if (!trackingNumber) return;
+  
+  const trackingUrl = prompt('Podaj URL do śledzenia (opcjonalnie):');
+  
+  const client = ensureSupabase();
+  if (!client) return;
+  
+  try {
+    await client.from('shop_orders').update({
+      tracking_number: trackingNumber,
+      tracking_url: trackingUrl || null
+    }).eq('id', orderId);
+    
+    showToast('Tracking dodany', 'success');
+    viewShopOrder(orderId); // Refresh
+  } catch (error) {
+    showToast('Błąd: ' + error.message, 'error');
+  }
+}
+window.addTrackingInfo = addTrackingInfo;
+
+function initiateRefund(orderId) {
+  if (!confirm('Czy na pewno chcesz zainicjować zwrot dla tego zamówienia?')) return;
+  showToast('Funkcja zwrotu wymaga integracji z bramką płatności', 'info');
+  // TODO: Implement refund via payment gateway
+}
+window.initiateRefund = initiateRefund;
 
 function setupOrderModalListeners() {
   const modal = document.getElementById('shopOrderModal');
@@ -14655,22 +15197,27 @@ async function updateOrderStatus(orderId) {
 
   const status = document.getElementById('orderStatusSelect')?.value;
   const paymentStatus = document.getElementById('orderPaymentStatusSelect')?.value;
+  const adminNotes = document.getElementById('orderNotes')?.value || '';
 
   try {
     const { error } = await client
       .from('shop_orders')
-      .update({ status, payment_status: paymentStatus })
+      .update({ 
+        status, 
+        payment_status: paymentStatus,
+        admin_notes: adminNotes || null
+      })
       .eq('id', orderId);
 
     if (error) throw error;
 
-    showToast('Order updated', 'success');
+    showToast('Zamówienie zaktualizowane', 'success');
     document.getElementById('shopOrderModal').hidden = true;
     await loadShopOrders();
 
   } catch (error) {
     console.error('Failed to update order:', error);
-    showToast('Failed to update order', 'error');
+    showToast('Błąd aktualizacji zamówienia', 'error');
   }
 }
 

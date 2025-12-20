@@ -4094,6 +4094,16 @@
             </div>
           </div>
 
+          <!-- Variants Section (for Variable products) -->
+          <div id="shopProductVariantsSection" style="margin-bottom: 20px; padding: 16px; background: var(--admin-bg); border-radius: 8px; border-left: 4px solid #f59e0b; display: none;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+              <h4 style="margin: 0; font-size: 14px; color: #f59e0b;">🔀 Warianty produktu</h4>
+              <button type="button" class="btn-secondary" onclick="addProductVariant()" style="font-size: 12px; padding: 4px 10px;">➕ Dodaj wariant</button>
+            </div>
+            <p style="font-size: 12px; color: var(--admin-text-muted); margin: 0 0 12px;">Każdy wariant może mieć własną cenę, SKU i stan magazynowy.</p>
+            <div id="shopProductVariantsList"></div>
+          </div>
+
           <!-- Bundle Section (hidden by default) -->
           <div id="shopProductBundleSection" style="margin-bottom: 20px; padding: 16px; background: var(--admin-bg); border-radius: 8px; border-left: 4px solid #84cc16; display: none;">
             <h4 style="margin: 0 0 12px; font-size: 14px; color: #84cc16;">📦 Skład zestawu (Bundle)</h4>
@@ -4101,6 +4111,19 @@
             <div id="shopProductBundleItems" style="margin-top: 12px;">
               <p style="color: var(--admin-text-muted); text-align: center; padding: 20px;">Zapisz produkt, aby zarządzać składem zestawu.</p>
             </div>
+          </div>
+
+          <!-- Upsell/Cross-sell Section -->
+          <div id="shopProductRelatedSection" style="margin-bottom: 20px; padding: 16px; background: var(--admin-bg); border-radius: 8px; border-left: 4px solid #8b5cf6; display: none;">
+            <h4 style="margin: 0 0 12px; font-size: 14px; color: #8b5cf6;">🔗 Produkty powiązane</h4>
+            <label class="admin-form-field">
+              <span>Upsell <small style="color: var(--admin-text-muted);">- polecane droższe alternatywy</small></span>
+              <select id="shopProductUpsell" multiple style="height: 80px;"></select>
+            </label>
+            <label class="admin-form-field" style="margin-top: 12px;">
+              <span>Cross-sell <small style="color: var(--admin-text-muted);">- produkty komplementarne</small></span>
+              <select id="shopProductCrossSell" multiple style="height: 80px;"></select>
+            </label>
           </div>
 
           <!-- SECTION: Tags & SEO -->
@@ -4849,7 +4872,7 @@
   <!-- Tax Class Form Modal -->
   <div class="admin-modal" id="shopTaxClassModal" hidden>
     <div class="admin-modal-overlay" id="shopTaxClassModalOverlay"></div>
-    <div class="admin-modal-content" style="max-width: 500px;">
+    <div class="admin-modal-content" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
       <header class="admin-modal-header">
         <h3 id="shopTaxClassModalTitle">Nowa klasa podatkowa</h3>
         <button class="btn-modal-close" id="btnCloseShopTaxClassModal">
@@ -4862,15 +4885,15 @@
         <input type="hidden" id="taxClassId">
         <label class="admin-form-field">
           <span>Nazwa (PL) *</span>
-          <input type="text" id="taxClassName" required placeholder="np. Stawka obniżona">
+          <input type="text" id="taxClassName" required placeholder="np. Stawka standardowa VAT">
         </label>
         <label class="admin-form-field">
           <span>Nazwa (EN)</span>
-          <input type="text" id="taxClassNameEn" placeholder="e.g. Reduced Rate">
+          <input type="text" id="taxClassNameEn" placeholder="e.g. Standard VAT Rate">
         </label>
         <label class="admin-form-field">
           <span>Opis</span>
-          <input type="text" id="taxClassDescription" placeholder="np. Dla żywności, książek">
+          <input type="text" id="taxClassDescription" placeholder="np. Standardowa stawka 19% VAT">
         </label>
         <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 12px;">
           <label style="display: flex; align-items: center; gap: 8px;">
@@ -4882,6 +4905,16 @@
             <span>Aktywna</span>
           </label>
         </div>
+
+        <!-- Tax Rates Section -->
+        <div id="taxRatesSection" style="margin-top: 20px; padding: 16px; background: var(--admin-bg); border-radius: 8px; display: none;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+            <h4 style="margin: 0; font-size: 14px;">💵 Stawki VAT per kraj</h4>
+            <button type="button" class="btn-secondary" onclick="addTaxRate()" style="font-size: 12px; padding: 4px 10px;">➕ Dodaj stawkę</button>
+          </div>
+          <div id="taxRatesList"></div>
+        </div>
+
         <div id="taxClassFormError" class="admin-error-message" hidden></div>
         <div class="poi-form-actions" style="margin-top: 20px;">
           <button type="button" class="btn-secondary" id="taxClassFormCancel">Anuluj</button>
