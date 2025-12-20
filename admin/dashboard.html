@@ -3612,18 +3612,92 @@
           <!-- Product Images Section -->
           <div style="margin: 16px 0; padding: 16px; background: var(--admin-bg); border-radius: 8px;">
             <h4 style="margin: 0 0 12px; font-size: 14px;">Zdjęcia produktu</h4>
-            <label class="admin-form-field">
-              <span>Thumbnail URL (główne zdjęcie)</span>
-              <input type="url" id="shopProductThumbnail" placeholder="https://...">
-            </label>
-            <label class="admin-form-field" style="margin-top: 12px;">
-              <span>Dodatkowe zdjęcia (URLs, jeden na linię)</span>
-              <textarea id="shopProductImages" rows="3" placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.jpg"></textarea>
-            </label>
+            
+            <!-- Thumbnail -->
+            <div class="admin-form-field">
+              <span>Główne zdjęcie (thumbnail)</span>
+              <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                <input type="file" id="shopProductThumbnailFile" accept="image/*" style="display: none;">
+                <button type="button" class="btn-secondary" onclick="document.getElementById('shopProductThumbnailFile').click()" style="white-space: nowrap;">
+                  📤 Upload
+                </button>
+                <input type="url" id="shopProductThumbnail" placeholder="lub wklej URL..." style="flex: 1;">
+              </div>
+              <div id="shopProductThumbnailPreview" style="margin-top: 8px;"></div>
+            </div>
+            
+            <!-- Gallery Images -->
+            <div class="admin-form-field" style="margin-top: 16px;">
+              <span>Galeria zdjęć</span>
+              <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+                <input type="file" id="shopProductGalleryFiles" accept="image/*" multiple style="display: none;">
+                <button type="button" class="btn-secondary" onclick="document.getElementById('shopProductGalleryFiles').click()" style="white-space: nowrap;">
+                  📤 Upload wielu
+                </button>
+                <span style="color: var(--admin-text-muted); font-size: 12px;">lub dodaj URLe poniżej</span>
+              </div>
+              <div id="shopProductGalleryPreview" style="display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px;"></div>
+              <textarea id="shopProductImages" rows="2" placeholder="Dodatkowe URLe (jeden na linię)" style="margin-top: 8px;"></textarea>
+            </div>
+            
+            <!-- Video URL -->
             <label class="admin-form-field" style="margin-top: 12px;">
               <span>Video URL (opcjonalnie)</span>
               <input type="url" id="shopProductVideo" placeholder="https://youtube.com/...">
             </label>
+          </div>
+          
+          <!-- Digital Product Section (hidden by default) -->
+          <div id="shopProductDigitalSection" style="margin: 16px 0; padding: 16px; background: var(--admin-bg); border-radius: 8px; display: none;">
+            <h4 style="margin: 0 0 12px; font-size: 14px;">📁 Produkt cyfrowy</h4>
+            <label class="admin-form-field">
+              <span>URL pliku do pobrania</span>
+              <input type="url" id="shopProductDigitalUrl" placeholder="https://...">
+            </label>
+            <label class="admin-form-field" style="margin-top: 8px;">
+              <span>Nazwa pliku</span>
+              <input type="text" id="shopProductDigitalFileName" placeholder="ebook.pdf">
+            </label>
+            <div class="admin-form-grid" style="margin-top: 8px;">
+              <label class="admin-form-field">
+                <span>Limit pobrań</span>
+                <input type="number" id="shopProductDownloadLimit" min="0" placeholder="bez limitu">
+              </label>
+              <label class="admin-form-field">
+                <span>Ważność (dni)</span>
+                <input type="number" id="shopProductDownloadExpiry" min="0" placeholder="bez limitu">
+              </label>
+            </div>
+          </div>
+          
+          <!-- Subscription Section (hidden by default) -->
+          <div id="shopProductSubscriptionSection" style="margin: 16px 0; padding: 16px; background: var(--admin-bg); border-radius: 8px; display: none;">
+            <h4 style="margin: 0 0 12px; font-size: 14px;">🔄 Subskrypcja</h4>
+            <div class="admin-form-grid">
+              <label class="admin-form-field">
+                <span>Okres rozliczeniowy</span>
+                <select id="shopProductSubInterval">
+                  <option value="day">Dziennie</option>
+                  <option value="week">Tygodniowo</option>
+                  <option value="month" selected>Miesięcznie</option>
+                  <option value="year">Rocznie</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Co ile okresów</span>
+                <input type="number" id="shopProductSubIntervalCount" min="1" value="1">
+              </label>
+            </div>
+            <div class="admin-form-grid" style="margin-top: 8px;">
+              <label class="admin-form-field">
+                <span>Dni próbne</span>
+                <input type="number" id="shopProductSubTrialDays" min="0" value="0">
+              </label>
+              <label class="admin-form-field">
+                <span>Opłata początkowa (€)</span>
+                <input type="number" id="shopProductSubSignupFee" step="0.01" min="0" value="0">
+              </label>
+            </div>
           </div>
 
           <label class="admin-form-field">

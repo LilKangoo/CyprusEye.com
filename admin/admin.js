@@ -12291,8 +12291,17 @@ async function showProductForm(productId = null) {
   document.getElementById('shopProductId').value = '';
   document.getElementById('shopProductFormError').hidden = true;
   
+  // Reset image previews
+  const thumbPreview = document.getElementById('shopProductThumbnailPreview');
+  const galleryPreview = document.getElementById('shopProductGalleryPreview');
+  if (thumbPreview) thumbPreview.innerHTML = '';
+  if (galleryPreview) galleryPreview.innerHTML = '';
+  
   // Reset to Polish tab
   switchProductLang('pl');
+  
+  // Reset form sections to default (simple product)
+  updateProductFormSections('simple');
   
   // Load categories and vendors for dropdowns
   await loadProductFormDropdowns();
@@ -12382,6 +12391,48 @@ async function loadProductData(productId) {
     document.getElementById('shopProductImages').value = (product.images || []).join('\n');
     document.getElementById('shopProductVideo').value = product.video_url || '';
     document.getElementById('shopProductTags').value = (product.tags || []).join(', ');
+    
+    // Digital product fields
+    if (document.getElementById('shopProductDigitalUrl')) {
+      document.getElementById('shopProductDigitalUrl').value = product.digital_file_url || '';
+    }
+    if (document.getElementById('shopProductDigitalFileName')) {
+      document.getElementById('shopProductDigitalFileName').value = product.digital_file_name || '';
+    }
+    if (document.getElementById('shopProductDownloadLimit')) {
+      document.getElementById('shopProductDownloadLimit').value = product.download_limit || '';
+    }
+    if (document.getElementById('shopProductDownloadExpiry')) {
+      document.getElementById('shopProductDownloadExpiry').value = product.download_expiry_days || '';
+    }
+    
+    // Subscription fields
+    if (document.getElementById('shopProductSubInterval')) {
+      document.getElementById('shopProductSubInterval').value = product.subscription_interval || 'month';
+    }
+    if (document.getElementById('shopProductSubIntervalCount')) {
+      document.getElementById('shopProductSubIntervalCount').value = product.subscription_interval_count || 1;
+    }
+    if (document.getElementById('shopProductSubTrialDays')) {
+      document.getElementById('shopProductSubTrialDays').value = product.subscription_trial_days || 0;
+    }
+    if (document.getElementById('shopProductSubSignupFee')) {
+      document.getElementById('shopProductSubSignupFee').value = product.subscription_signup_fee || 0;
+    }
+    
+    // Update form sections based on product type
+    updateProductFormSections(product.product_type || 'simple');
+    
+    // Render image previews
+    if (product.thumbnail_url) {
+      const thumbPreview = document.getElementById('shopProductThumbnailPreview');
+      if (thumbPreview) {
+        thumbPreview.innerHTML = `<img src="${product.thumbnail_url}" style="max-width: 150px; max-height: 150px; border-radius: 8px; object-fit: cover;">`;
+      }
+    }
+    if (product.images && product.images.length > 0) {
+      renderGalleryPreview(product.images);
+    }
 
   } catch (error) {
     console.error('Failed to load product:', error);
@@ -12406,7 +12457,182 @@ function setupProductFormListeners() {
     e.preventDefault();
     await saveProduct();
   };
+
+  // Product type change handler
+  const typeSelect = document.getElementById('shopProductType');
+  if (typeSelect) {
+    typeSelect.onchange = () => updateProductFormSections(typeSelect.value);
+  }
+
+  // Image upload handlers
+  setupProductImageUpload();
 }
+
+// Update form sections based on product type
+function updateProductFormSections(productType) {
+  const digitalSection = document.getElementById('shopProductDigitalSection');
+  const subscriptionSection = document.getElementById('shopProductSubscriptionSection');
+  const inventorySection = document.getElementById('shopProductTrackInventory')?.closest('div[style*="padding: 16px"]');
+  const shippingCheckbox = document.getElementById('shopProductRequiresShipping')?.closest('label');
+  const weightField = document.getElementById('shopProductWeight')?.closest('label');
+
+  // Hide all special sections first
+  if (digitalSection) digitalSection.style.display = 'none';
+  if (subscriptionSection) subscriptionSection.style.display = 'none';
+
+  // Show/hide based on product type
+  switch (productType) {
+    case 'digital':
+      if (digitalSection) digitalSection.style.display = 'block';
+      if (shippingCheckbox) shippingCheckbox.style.display = 'none';
+      if (weightField) weightField.style.display = 'none';
+      document.getElementById('shopProductRequiresShipping').checked = false;
+      break;
+    case 'subscription':
+      if (subscriptionSection) subscriptionSection.style.display = 'block';
+      if (shippingCheckbox) shippingCheckbox.style.display = 'none';
+      if (weightField) weightField.style.display = 'none';
+      document.getElementById('shopProductRequiresShipping').checked = false;
+      break;
+    default: // simple, variable, grouped, bundle
+      if (shippingCheckbox) shippingCheckbox.style.display = 'flex';
+      if (weightField) weightField.style.display = 'block';
+      document.getElementById('shopProductRequiresShipping').checked = true;
+      break;
+  }
+}
+
+// Product image upload functionality
+function setupProductImageUpload() {
+  const thumbnailFileInput = document.getElementById('shopProductThumbnailFile');
+  const galleryFileInput = document.getElementById('shopProductGalleryFiles');
+
+  if (thumbnailFileInput) {
+    thumbnailFileInput.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      await uploadProductThumbnail(file);
+    };
+  }
+
+  if (galleryFileInput) {
+    galleryFileInput.onchange = async (e) => {
+      const files = Array.from(e.target.files);
+      if (!files.length) return;
+      await uploadProductGalleryImages(files);
+    };
+  }
+}
+
+async function uploadProductThumbnail(file) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const preview = document.getElementById('shopProductThumbnailPreview');
+  const urlInput = document.getElementById('shopProductThumbnail');
+
+  try {
+    preview.innerHTML = '<span style="color: var(--admin-text-muted);">Uploading...</span>';
+    
+    const compressed = await compressToWebp(file, 800, 800, 0.85);
+    const path = `shop/products/${Date.now()}-thumb.webp`;
+    
+    const { error } = await client.storage.from('poi-photos').upload(path, compressed, {
+      cacheControl: '3600',
+      upsert: false,
+      contentType: 'image/webp'
+    });
+    
+    if (error) throw error;
+    
+    const { data: pub } = client.storage.from('poi-photos').getPublicUrl(path);
+    const url = pub?.publicUrl || '';
+    
+    urlInput.value = url;
+    preview.innerHTML = `<img src="${url}" style="max-width: 150px; max-height: 150px; border-radius: 8px; object-fit: cover;">`;
+    showToast('Thumbnail uploaded', 'success');
+    
+  } catch (err) {
+    console.error('Thumbnail upload failed:', err);
+    preview.innerHTML = `<span style="color: var(--admin-error);">Upload failed: ${err.message}</span>`;
+  }
+}
+
+async function uploadProductGalleryImages(files) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const preview = document.getElementById('shopProductGalleryPreview');
+  const imagesTextarea = document.getElementById('shopProductImages');
+  
+  const existingUrls = imagesTextarea.value.split('\n').filter(u => u.trim());
+  
+  preview.innerHTML = '<span style="color: var(--admin-text-muted);">Uploading images...</span>';
+
+  const uploadedUrls = [];
+  
+  for (const file of files) {
+    try {
+      const compressed = await compressToWebp(file, 1200, 1200, 0.82);
+      const path = `shop/products/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.webp`;
+      
+      const { error } = await client.storage.from('poi-photos').upload(path, compressed, {
+        cacheControl: '3600',
+        upsert: false,
+        contentType: 'image/webp'
+      });
+      
+      if (error) {
+        console.error('Gallery image upload failed:', error);
+        continue;
+      }
+      
+      const { data: pub } = client.storage.from('poi-photos').getPublicUrl(path);
+      if (pub?.publicUrl) {
+        uploadedUrls.push(pub.publicUrl);
+      }
+    } catch (err) {
+      console.error('Gallery image upload failed:', err);
+    }
+  }
+
+  // Update textarea with all URLs
+  const allUrls = [...existingUrls, ...uploadedUrls];
+  imagesTextarea.value = allUrls.join('\n');
+  
+  // Update preview
+  renderGalleryPreview(allUrls);
+  
+  if (uploadedUrls.length > 0) {
+    showToast(`${uploadedUrls.length} image(s) uploaded`, 'success');
+  }
+}
+
+function renderGalleryPreview(urls) {
+  const preview = document.getElementById('shopProductGalleryPreview');
+  if (!preview) return;
+  
+  if (!urls || urls.length === 0) {
+    preview.innerHTML = '';
+    return;
+  }
+  
+  preview.innerHTML = urls.map((url, i) => `
+    <div style="position: relative; display: inline-block;">
+      <img src="${url}" style="width: 80px; height: 80px; border-radius: 4px; object-fit: cover;">
+      <button type="button" onclick="removeGalleryImage(${i})" style="position: absolute; top: -6px; right: -6px; width: 20px; height: 20px; border-radius: 50%; background: var(--admin-error); color: white; border: none; cursor: pointer; font-size: 12px;">×</button>
+    </div>
+  `).join('');
+}
+
+function removeGalleryImage(index) {
+  const textarea = document.getElementById('shopProductImages');
+  const urls = textarea.value.split('\n').filter(u => u.trim());
+  urls.splice(index, 1);
+  textarea.value = urls.join('\n');
+  renderGalleryPreview(urls);
+}
+window.removeGalleryImage = removeGalleryImage;
 
 async function saveProduct() {
   const client = ensureSupabase();
@@ -12459,7 +12685,17 @@ async function saveProduct() {
     thumbnail_url: document.getElementById('shopProductThumbnail').value.trim() || null,
     images: parseImageUrls(document.getElementById('shopProductImages').value),
     video_url: document.getElementById('shopProductVideo').value.trim() || null,
-    tags
+    tags,
+    // Digital product fields
+    digital_file_url: document.getElementById('shopProductDigitalUrl')?.value.trim() || null,
+    digital_file_name: document.getElementById('shopProductDigitalFileName')?.value.trim() || null,
+    download_limit: parseInt(document.getElementById('shopProductDownloadLimit')?.value) || null,
+    download_expiry_days: parseInt(document.getElementById('shopProductDownloadExpiry')?.value) || null,
+    // Subscription fields
+    subscription_interval: document.getElementById('shopProductSubInterval')?.value || null,
+    subscription_interval_count: parseInt(document.getElementById('shopProductSubIntervalCount')?.value) || 1,
+    subscription_trial_days: parseInt(document.getElementById('shopProductSubTrialDays')?.value) || 0,
+    subscription_signup_fee: parseFloat(document.getElementById('shopProductSubSignupFee')?.value) || 0
   };
 
   // Helper function to parse image URLs from textarea
