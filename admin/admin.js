@@ -11943,7 +11943,10 @@ async function loadShopProducts() {
           <td>${escapeHtml(product.category?.name || '-')}</td>
           <td><span class="badge" style="background: ${statusColors[product.status]};">${product.status}</span></td>
           <td>
-            <button class="btn-small btn-secondary" onclick="editShopProduct('${product.id}')">Edit</button>
+            <div style="display: flex; gap: 4px;">
+              <button class="btn-small btn-secondary" onclick="editShopProduct('${product.id}')">Edit</button>
+              <button class="btn-small" style="background: #ef4444; color: white;" onclick="deleteShopProduct('${product.id}', '${escapeHtml(product.name).replace(/'/g, "\\'")}')">🗑️</button>
+            </div>
           </td>
         </tr>
       `;
@@ -11986,7 +11989,10 @@ async function loadShopCategories() {
         <td>-</td>
         <td>${cat.is_active ? '✅' : '❌'}</td>
         <td>
-          <button class="btn-small btn-secondary" onclick="editShopCategory('${cat.id}')">Edit</button>
+          <div style="display: flex; gap: 4px;">
+            <button class="btn-small btn-secondary" onclick="editShopCategory('${cat.id}')">Edit</button>
+            <button class="btn-small" style="background: #ef4444; color: white;" onclick="deleteShopCategory('${cat.id}', '${escapeHtml(cat.name).replace(/'/g, "\\'")}')">🗑️</button>
+          </div>
         </td>
       </tr>
     `).join('');
@@ -12029,7 +12035,10 @@ async function loadShopVendors() {
         <td>${vendor.commission_rate || 0}%</td>
         <td>${vendor.is_active ? '✅' : '❌'}</td>
         <td>
-          <button class="btn-small btn-secondary" onclick="editShopVendor('${vendor.id}')">Edit</button>
+          <div style="display: flex; gap: 4px;">
+            <button class="btn-small btn-secondary" onclick="editShopVendor('${vendor.id}')">Edit</button>
+            <button class="btn-small" style="background: #ef4444; color: white;" onclick="deleteShopVendor('${vendor.id}', '${escapeHtml(vendor.name).replace(/'/g, "\\'")}')">🗑️</button>
+          </div>
         </td>
       </tr>
     `).join('');
@@ -12077,7 +12086,10 @@ async function loadShopDiscounts() {
           <td>${discount.expires_at ? new Date(discount.expires_at).toLocaleDateString() : 'Never'}</td>
           <td>${discount.is_active ? '✅' : '❌'}</td>
           <td>
-            <button class="btn-small btn-secondary" onclick="editShopDiscount('${discount.id}')">Edit</button>
+            <div style="display: flex; gap: 4px;">
+              <button class="btn-small btn-secondary" onclick="editShopDiscount('${discount.id}')">Edit</button>
+              <button class="btn-small" style="background: #ef4444; color: white;" onclick="deleteShopDiscount('${discount.id}', '${escapeHtml(discount.code).replace(/'/g, "\\'")}')">🗑️</button>
+            </div>
           </td>
         </tr>
       `;
@@ -13577,6 +13589,79 @@ function editShopDiscount(discountId) {
   showDiscountForm(discountId);
 }
 
+// Delete functions
+async function deleteShopProduct(productId, productName) {
+  if (!confirm(`Czy na pewno chcesz usunąć produkt "${productName}"?\n\nTa operacja jest nieodwracalna.`)) return;
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { error } = await client.from('shop_products').delete().eq('id', productId);
+    if (error) throw error;
+    showToast('Produkt usunięty', 'success');
+    await loadShopProducts();
+    await loadShopStats();
+  } catch (error) {
+    console.error('Failed to delete product:', error);
+    showToast('Nie udało się usunąć produktu: ' + error.message, 'error');
+  }
+}
+
+async function deleteShopCategory(categoryId, categoryName) {
+  if (!confirm(`Czy na pewno chcesz usunąć kategorię "${categoryName}"?\n\nProdukty w tej kategorii stracą przypisanie.`)) return;
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { error } = await client.from('shop_categories').delete().eq('id', categoryId);
+    if (error) throw error;
+    showToast('Kategoria usunięta', 'success');
+    await loadShopCategories();
+    await loadShopStats();
+  } catch (error) {
+    console.error('Failed to delete category:', error);
+    showToast('Nie udało się usunąć kategorii: ' + error.message, 'error');
+  }
+}
+
+async function deleteShopVendor(vendorId, vendorName) {
+  if (!confirm(`Czy na pewno chcesz usunąć vendora "${vendorName}"?\n\nProdukty tego vendora stracą przypisanie.`)) return;
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { error } = await client.from('shop_vendors').delete().eq('id', vendorId);
+    if (error) throw error;
+    showToast('Vendor usunięty', 'success');
+    await loadShopVendors();
+    await loadShopStats();
+  } catch (error) {
+    console.error('Failed to delete vendor:', error);
+    showToast('Nie udało się usunąć vendora: ' + error.message, 'error');
+  }
+}
+
+async function deleteShopDiscount(discountId, discountCode) {
+  if (!confirm(`Czy na pewno chcesz usunąć kod rabatowy "${discountCode}"?`)) return;
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { error } = await client.from('shop_discounts').delete().eq('id', discountId);
+    if (error) throw error;
+    showToast('Kod rabatowy usunięty', 'success');
+    await loadShopDiscounts();
+    await loadShopStats();
+  } catch (error) {
+    console.error('Failed to delete discount:', error);
+    showToast('Nie udało się usunąć kodu: ' + error.message, 'error');
+  }
+}
+
 // Export shop functions
 window.loadShopData = loadShopData;
 window.viewShopOrder = viewShopOrder;
@@ -13584,6 +13669,10 @@ window.editShopProduct = editShopProduct;
 window.editShopCategory = editShopCategory;
 window.editShopVendor = editShopVendor;
 window.editShopDiscount = editShopDiscount;
+window.deleteShopProduct = deleteShopProduct;
+window.deleteShopCategory = deleteShopCategory;
+window.deleteShopVendor = deleteShopVendor;
+window.deleteShopDiscount = deleteShopDiscount;
 window.updateOrderStatus = updateOrderStatus;
 window.showProductForm = showProductForm;
 window.showCategoryForm = showCategoryForm;
