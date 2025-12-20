@@ -4190,16 +4190,54 @@
           </label>
 
           <!-- Category Image -->
-          <label class="admin-form-field">
+          <div class="admin-form-field">
             <span>Obraz kategorii</span>
-            <input type="url" id="shopCategoryImage" placeholder="https://...">
-            <small style="color: var(--admin-text-muted);">URL obrazu wyświetlanego przy kategorii</small>
+            <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+              <input type="file" id="shopCategoryImageFile" accept="image/*" style="display: none;">
+              <button type="button" class="btn-secondary" onclick="document.getElementById('shopCategoryImageFile').click()" style="white-space: nowrap;">
+                📤 Upload
+              </button>
+              <input type="url" id="shopCategoryImage" placeholder="lub wklej URL..." style="flex: 1;">
+              <button type="button" class="btn-icon" onclick="clearCategoryImage()" title="Usuń obraz" style="color: #ef4444;">🗑️</button>
+            </div>
+            <div id="shopCategoryImagePreview" style="margin-top: 8px;"></div>
+          </div>
+
+          <!-- Icon -->
+          <label class="admin-form-field">
+            <span>Ikona (emoji)</span>
+            <input type="text" id="shopCategoryIcon" placeholder="np. 🛍️ lub 🏖️" maxlength="4">
+            <small style="color: var(--admin-text-muted);">Emoji wyświetlane przy nazwie kategorii</small>
           </label>
 
-          <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
-            <input type="checkbox" id="shopCategoryActive" checked>
-            <span>Aktywna</span>
-          </label>
+          <!-- Visibility Options -->
+          <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 10px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="shopCategoryActive" checked>
+              <span>Aktywna</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="shopCategoryFeatured">
+              <span>⭐ Wyróżniona na stronie głównej</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="shopCategoryShowInMenu" checked>
+              <span>📋 Pokazuj w menu</span>
+            </label>
+          </div>
+
+          <!-- SEO Section -->
+          <div style="margin-top: 16px; padding: 12px; background: var(--admin-bg); border-radius: 8px;">
+            <h4 style="margin: 0 0 12px; font-size: 13px; color: var(--admin-text-muted);">🔍 SEO (opcjonalnie)</h4>
+            <label class="admin-form-field">
+              <span>Meta title</span>
+              <input type="text" id="shopCategoryMetaTitle" placeholder="Tytuł dla wyszukiwarek">
+            </label>
+            <label class="admin-form-field" style="margin-top: 8px;">
+              <span>Meta description</span>
+              <textarea id="shopCategoryMetaDesc" rows="2" placeholder="Opis dla wyszukiwarek (max 160 znaków)"></textarea>
+            </label>
+          </div>
 
           <div id="shopCategoryFormError" class="admin-error-message" hidden></div>
 
@@ -4289,15 +4327,84 @@
             </label>
           </div>
 
-          <label class="admin-form-field">
-            <span>Logo URL</span>
-            <input type="url" id="shopVendorLogo" placeholder="https://...">
-          </label>
+          <!-- Logo -->
+          <div class="admin-form-field">
+            <span>Logo dostawcy</span>
+            <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+              <input type="file" id="shopVendorLogoFile" accept="image/*" style="display: none;">
+              <button type="button" class="btn-secondary" onclick="document.getElementById('shopVendorLogoFile').click()" style="white-space: nowrap;">
+                📤 Upload
+              </button>
+              <input type="url" id="shopVendorLogo" placeholder="lub wklej URL..." style="flex: 1;">
+              <button type="button" class="btn-icon" onclick="clearVendorLogo()" title="Usuń logo" style="color: #ef4444;">🗑️</button>
+            </div>
+            <div id="shopVendorLogoPreview" style="margin-top: 8px;"></div>
+          </div>
 
-          <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
-            <input type="checkbox" id="shopVendorActive" checked>
-            <span>Aktywny</span>
-          </label>
+          <!-- Banner -->
+          <div class="admin-form-field">
+            <span>Banner dostawcy</span>
+            <div style="display: flex; gap: 8px; align-items: center; margin-top: 4px;">
+              <input type="file" id="shopVendorBannerFile" accept="image/*" style="display: none;">
+              <button type="button" class="btn-secondary" onclick="document.getElementById('shopVendorBannerFile').click()" style="white-space: nowrap;">
+                📤 Upload
+              </button>
+              <input type="url" id="shopVendorBanner" placeholder="lub wklej URL..." style="flex: 1;">
+              <button type="button" class="btn-icon" onclick="clearVendorBanner()" title="Usuń banner" style="color: #ef4444;">🗑️</button>
+            </div>
+            <div id="shopVendorBannerPreview" style="margin-top: 8px;"></div>
+            <small style="color: var(--admin-text-muted);">Szeroki baner wyświetlany na stronie vendora (zalecane 1200x300px)</small>
+          </div>
+
+          <!-- Address Section -->
+          <div style="margin-top: 16px; padding: 12px; background: var(--admin-bg); border-radius: 8px;">
+            <h4 style="margin: 0 0 12px; font-size: 13px; color: var(--admin-text-muted);">📍 Adres (opcjonalnie)</h4>
+            <label class="admin-form-field">
+              <span>Osoba kontaktowa</span>
+              <input type="text" id="shopVendorContactName" placeholder="Jan Kowalski">
+            </label>
+            <div class="admin-form-grid" style="margin-top: 8px;">
+              <label class="admin-form-field">
+                <span>Miasto</span>
+                <input type="text" id="shopVendorCity" placeholder="Pafos">
+              </label>
+              <label class="admin-form-field">
+                <span>Adres</span>
+                <input type="text" id="shopVendorAddress" placeholder="ul. Przykładowa 123">
+              </label>
+            </div>
+          </div>
+
+          <!-- Bank Info Section -->
+          <div style="margin-top: 16px; padding: 12px; background: var(--admin-bg); border-radius: 8px;">
+            <h4 style="margin: 0 0 12px; font-size: 13px; color: var(--admin-text-muted);">🏦 Dane bankowe (do wypłat)</h4>
+            <label class="admin-form-field">
+              <span>Nazwa banku</span>
+              <input type="text" id="shopVendorBankName" placeholder="Bank of Cyprus">
+            </label>
+            <div class="admin-form-grid" style="margin-top: 8px;">
+              <label class="admin-form-field">
+                <span>IBAN</span>
+                <input type="text" id="shopVendorIban" placeholder="CY...">
+              </label>
+              <label class="admin-form-field">
+                <span>SWIFT/BIC</span>
+                <input type="text" id="shopVendorSwift" placeholder="BCYPCY2N">
+              </label>
+            </div>
+          </div>
+
+          <!-- Visibility Options -->
+          <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 10px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="shopVendorActive" checked>
+              <span>Aktywny</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="shopVendorFeatured">
+              <span>⭐ Wyróżniony na stronie głównej</span>
+            </label>
+          </div>
 
           <div id="shopVendorFormError" class="admin-error-message" hidden></div>
 
@@ -4408,10 +4515,46 @@
             </label>
           </div>
 
-          <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
-            <input type="checkbox" id="shopDiscountActive" checked>
-            <span>Aktywny</span>
-          </label>
+          <!-- Applies To Section -->
+          <div style="margin-top: 16px; padding: 12px; background: var(--admin-bg); border-radius: 8px;">
+            <h4 style="margin: 0 0 12px; font-size: 13px; color: var(--admin-text-muted);">🎯 Zakres rabatu</h4>
+            <label class="admin-form-field">
+              <span>Zastosuj do</span>
+              <select id="shopDiscountAppliesTo">
+                <option value="all">Wszystkich produktów</option>
+                <option value="products">Wybranych produktów</option>
+                <option value="categories">Wybranych kategorii</option>
+              </select>
+            </label>
+            <label class="admin-form-field" style="margin-top: 8px;">
+              <span>Notatka wewnętrzna</span>
+              <input type="text" id="shopDiscountInternalNote" placeholder="Tylko dla adminów">
+            </label>
+          </div>
+
+          <!-- Advanced Options -->
+          <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 10px;">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="shopDiscountActive" checked>
+              <span>✅ Aktywny</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="shopDiscountFirstPurchase">
+              <span>🆕 Tylko pierwsze zamówienie</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="shopDiscountExcludeSale">
+              <span>🏷️ Wyklucz produkty przecenione</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="shopDiscountStackable">
+              <span>📚 Można łączyć z innymi kodami</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+              <input type="checkbox" id="shopDiscountAutoApply">
+              <span>🔄 Auto-zastosowanie (bez wpisywania kodu)</span>
+            </label>
+          </div>
 
           <div id="shopDiscountFormError" class="admin-error-message" hidden></div>
 

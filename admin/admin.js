@@ -13213,7 +13213,7 @@ async function loadShopSettings() {
 
     shopState.settings = settings || {};
 
-    // Populate form
+    // === GENERAL SETTINGS ===
     const nameEl = document.getElementById('shopSettingName');
     if (nameEl) nameEl.value = settings?.shop_name || '';
 
@@ -13223,21 +13223,58 @@ async function loadShopSettings() {
     const prefixEl = document.getElementById('shopSettingOrderPrefix');
     if (prefixEl) prefixEl.value = settings?.order_number_prefix || 'WC';
 
+    const currencyEl = document.getElementById('shopSettingCurrency');
+    if (currencyEl) currencyEl.value = settings?.currency || 'EUR';
+
+    // === XP & GAMIFICATION ===
     const xpPerEuroEl = document.getElementById('shopSettingXpPerEuro');
     if (xpPerEuroEl) xpPerEuroEl.value = settings?.xp_per_euro || 1;
+
+    const xpPerReviewEl = document.getElementById('shopSettingXpPerReview');
+    if (xpPerReviewEl) xpPerReviewEl.value = settings?.xp_per_review || 50;
 
     const xpEnabledEl = document.getElementById('shopSettingXpEnabled');
     if (xpEnabledEl) xpEnabledEl.checked = settings?.xp_enabled !== false;
 
+    // === REVIEWS ===
     const reviewsEl = document.getElementById('shopSettingReviewsEnabled');
     if (reviewsEl) reviewsEl.checked = settings?.reviews_enabled !== false;
 
-    const cartEl = document.getElementById('shopSettingAbandonedCart');
-    if (cartEl) cartEl.checked = settings?.abandoned_cart_enabled !== false;
+    const reviewsModerationEl = document.getElementById('shopSettingReviewsModeration');
+    if (reviewsModerationEl) reviewsModerationEl.checked = settings?.reviews_moderation === true;
+
+    const reviewsVerifiedEl = document.getElementById('shopSettingReviewsVerifiedOnly');
+    if (reviewsVerifiedEl) reviewsVerifiedEl.checked = settings?.reviews_verified_only === true;
+
+    // === NOTIFICATIONS ===
+    const abandonedCartEl = document.getElementById('shopSettingAbandonedCart');
+    if (abandonedCartEl) abandonedCartEl.checked = settings?.notify_abandoned_cart !== false;
+
+    const orderConfirmEl = document.getElementById('shopSettingOrderConfirmation');
+    if (orderConfirmEl) orderConfirmEl.checked = settings?.notify_order_confirmation !== false;
+
+    const shippingNotifyEl = document.getElementById('shopSettingShippingNotification');
+    if (shippingNotifyEl) shippingNotifyEl.checked = settings?.notify_shipping !== false;
+
+    const reviewReminderEl = document.getElementById('shopSettingReviewReminder');
+    if (reviewReminderEl) reviewReminderEl.checked = settings?.notify_review_reminder === true;
+
+    // === INVENTORY ===
+    const lowStockEl = document.getElementById('shopSettingLowStockThreshold');
+    if (lowStockEl) lowStockEl.value = settings?.low_stock_threshold || 5;
+
+    const cartReservationEl = document.getElementById('shopSettingCartReservation');
+    if (cartReservationEl) cartReservationEl.value = settings?.cart_reservation_minutes || 15;
+
+    const hideOutOfStockEl = document.getElementById('shopSettingHideOutOfStock');
+    if (hideOutOfStockEl) hideOutOfStockEl.checked = settings?.hide_out_of_stock === true;
+
+    const backordersEl = document.getElementById('shopSettingBackorders');
+    if (backordersEl) backordersEl.checked = settings?.allow_backorders === true;
 
   } catch (error) {
     console.error('Failed to load shop settings:', error);
-    showToast('Failed to load settings', 'error');
+    showToast('Błąd ładowania ustawień', 'error');
   }
 }
 
@@ -13248,13 +13285,30 @@ async function saveShopSettings() {
   try {
     const settings = {
       id: 1,
+      // === GENERAL ===
       shop_name: document.getElementById('shopSettingName')?.value || '',
       admin_notification_email: document.getElementById('shopSettingEmail')?.value || '',
       order_number_prefix: document.getElementById('shopSettingOrderPrefix')?.value || 'WC',
+      currency: document.getElementById('shopSettingCurrency')?.value || 'EUR',
+      // === XP & GAMIFICATION ===
       xp_per_euro: parseInt(document.getElementById('shopSettingXpPerEuro')?.value) || 1,
+      xp_per_review: parseInt(document.getElementById('shopSettingXpPerReview')?.value) || 50,
       xp_enabled: document.getElementById('shopSettingXpEnabled')?.checked ?? true,
+      // === REVIEWS ===
       reviews_enabled: document.getElementById('shopSettingReviewsEnabled')?.checked ?? true,
-      abandoned_cart_enabled: document.getElementById('shopSettingAbandonedCart')?.checked ?? true,
+      reviews_moderation: document.getElementById('shopSettingReviewsModeration')?.checked ?? false,
+      reviews_verified_only: document.getElementById('shopSettingReviewsVerifiedOnly')?.checked ?? false,
+      // === NOTIFICATIONS ===
+      notify_abandoned_cart: document.getElementById('shopSettingAbandonedCart')?.checked ?? true,
+      notify_order_confirmation: document.getElementById('shopSettingOrderConfirmation')?.checked ?? true,
+      notify_shipping: document.getElementById('shopSettingShippingNotification')?.checked ?? true,
+      notify_review_reminder: document.getElementById('shopSettingReviewReminder')?.checked ?? false,
+      // === INVENTORY ===
+      low_stock_threshold: parseInt(document.getElementById('shopSettingLowStockThreshold')?.value) || 5,
+      cart_reservation_minutes: parseInt(document.getElementById('shopSettingCartReservation')?.value) || 15,
+      hide_out_of_stock: document.getElementById('shopSettingHideOutOfStock')?.checked ?? false,
+      allow_backorders: document.getElementById('shopSettingBackorders')?.checked ?? false,
+      // Meta
       updated_at: new Date().toISOString()
     };
 
@@ -13264,11 +13318,12 @@ async function saveShopSettings() {
 
     if (error) throw error;
 
-    showToast('Shop settings saved', 'success');
+    shopState.settings = settings;
+    showToast('Ustawienia zapisane', 'success');
 
   } catch (error) {
     console.error('Failed to save shop settings:', error);
-    showToast(`Failed to save settings: ${error.message}`, 'error');
+    showToast(`Błąd zapisu: ${error.message}`, 'error');
   }
 }
 
@@ -13892,13 +13947,40 @@ async function loadCategoryData(categoryId) {
     document.getElementById('shopCategorySlug').value = category.slug || '';
     document.getElementById('shopCategoryParent').value = category.parent_id || '';
     document.getElementById('shopCategorySortOrder').value = category.sort_order || 0;
+    // Image
     document.getElementById('shopCategoryImage').value = category.image_url || '';
+    updateCategoryImagePreview(category.image_url);
+    // Icon & visibility
+    document.getElementById('shopCategoryIcon').value = category.icon || '';
     document.getElementById('shopCategoryActive').checked = category.is_active !== false;
+    document.getElementById('shopCategoryFeatured').checked = category.is_featured === true;
+    document.getElementById('shopCategoryShowInMenu').checked = category.show_in_menu !== false;
+    // SEO
+    document.getElementById('shopCategoryMetaTitle').value = category.meta_title || '';
+    document.getElementById('shopCategoryMetaDesc').value = category.meta_description || '';
 
   } catch (error) {
     console.error('Failed to load category:', error);
   }
 }
+
+function updateCategoryImagePreview(url) {
+  const preview = document.getElementById('shopCategoryImagePreview');
+  if (!preview) return;
+  
+  if (url) {
+    preview.innerHTML = `<img src="${url}" alt="Preview" style="max-width: 120px; max-height: 80px; border-radius: 6px; object-fit: cover;">`;
+  } else {
+    preview.innerHTML = '';
+  }
+}
+
+function clearCategoryImage() {
+  document.getElementById('shopCategoryImage').value = '';
+  document.getElementById('shopCategoryImageFile').value = '';
+  updateCategoryImagePreview('');
+}
+window.clearCategoryImage = clearCategoryImage;
 
 function setupCategoryFormListeners() {
   const modal = document.getElementById('shopCategoryModal');
@@ -13912,6 +13994,43 @@ function setupCategoryFormListeners() {
   closeBtn.onclick = closeModal;
   cancelBtn.onclick = closeModal;
   overlay.onclick = closeModal;
+
+  // Image URL input - update preview on change
+  const imageUrlInput = document.getElementById('shopCategoryImage');
+  if (imageUrlInput) {
+    imageUrlInput.oninput = () => updateCategoryImagePreview(imageUrlInput.value);
+  }
+
+  // Image file upload handler
+  const imageFileInput = document.getElementById('shopCategoryImageFile');
+  if (imageFileInput) {
+    imageFileInput.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      
+      // Upload to Supabase Storage
+      const client = ensureSupabase();
+      if (!client) return;
+      
+      const fileName = `category-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const { data, error } = await client.storage
+        .from('shop-images')
+        .upload(`categories/${fileName}`, file);
+      
+      if (error) {
+        showToast(`Błąd uploadu: ${error.message}`, 'error');
+        return;
+      }
+      
+      // Get public URL
+      const { data: urlData } = client.storage.from('shop-images').getPublicUrl(`categories/${fileName}`);
+      const publicUrl = urlData.publicUrl;
+      
+      document.getElementById('shopCategoryImage').value = publicUrl;
+      updateCategoryImagePreview(publicUrl);
+      showToast('Obraz przesłany', 'success');
+    };
+  }
 
   form.onsubmit = async (e) => {
     e.preventDefault();
@@ -13930,7 +14049,7 @@ async function saveCategory() {
   const name = document.getElementById('shopCategoryName').value.trim();
 
   if (!name) {
-    errorEl.textContent = 'Category name is required';
+    errorEl.textContent = 'Nazwa kategorii jest wymagana';
     errorEl.hidden = false;
     return;
   }
@@ -13947,7 +14066,12 @@ async function saveCategory() {
     parent_id: document.getElementById('shopCategoryParent').value || null,
     sort_order: parseInt(document.getElementById('shopCategorySortOrder').value) || 0,
     image_url: document.getElementById('shopCategoryImage').value.trim() || null,
-    is_active: document.getElementById('shopCategoryActive').checked
+    icon: document.getElementById('shopCategoryIcon').value.trim() || null,
+    is_active: document.getElementById('shopCategoryActive').checked,
+    is_featured: document.getElementById('shopCategoryFeatured').checked,
+    show_in_menu: document.getElementById('shopCategoryShowInMenu').checked,
+    meta_title: document.getElementById('shopCategoryMetaTitle').value.trim() || null,
+    meta_description: document.getElementById('shopCategoryMetaDesc').value.trim() || null
   };
 
   try {
@@ -14027,13 +14151,61 @@ async function loadVendorData(vendorId) {
     document.getElementById('shopVendorPhone').value = vendor.contact_phone || '';
     document.getElementById('shopVendorCommission').value = vendor.commission_rate || 0;
     document.getElementById('shopVendorWebsite').value = vendor.website_url || '';
+    // Logo & Banner
     document.getElementById('shopVendorLogo').value = vendor.logo_url || '';
+    updateVendorLogoPreview(vendor.logo_url);
+    document.getElementById('shopVendorBanner').value = vendor.banner_url || '';
+    updateVendorBannerPreview(vendor.banner_url);
+    // Address
+    document.getElementById('shopVendorContactName').value = vendor.contact_name || '';
+    document.getElementById('shopVendorCity').value = vendor.city || '';
+    document.getElementById('shopVendorAddress').value = vendor.address || '';
+    // Bank info
+    document.getElementById('shopVendorBankName').value = vendor.bank_name || '';
+    document.getElementById('shopVendorIban').value = vendor.bank_iban || '';
+    document.getElementById('shopVendorSwift').value = vendor.bank_swift || '';
+    // Status
     document.getElementById('shopVendorActive').checked = vendor.is_active !== false;
+    document.getElementById('shopVendorFeatured').checked = vendor.is_featured === true;
 
   } catch (error) {
     console.error('Failed to load vendor:', error);
   }
 }
+
+function updateVendorLogoPreview(url) {
+  const preview = document.getElementById('shopVendorLogoPreview');
+  if (!preview) return;
+  if (url) {
+    preview.innerHTML = `<img src="${url}" alt="Logo" style="max-width: 80px; max-height: 80px; border-radius: 6px; object-fit: contain; background: white; padding: 4px;">`;
+  } else {
+    preview.innerHTML = '';
+  }
+}
+
+function updateVendorBannerPreview(url) {
+  const preview = document.getElementById('shopVendorBannerPreview');
+  if (!preview) return;
+  if (url) {
+    preview.innerHTML = `<img src="${url}" alt="Banner" style="max-width: 200px; max-height: 60px; border-radius: 6px; object-fit: cover;">`;
+  } else {
+    preview.innerHTML = '';
+  }
+}
+
+function clearVendorLogo() {
+  document.getElementById('shopVendorLogo').value = '';
+  document.getElementById('shopVendorLogoFile').value = '';
+  updateVendorLogoPreview('');
+}
+window.clearVendorLogo = clearVendorLogo;
+
+function clearVendorBanner() {
+  document.getElementById('shopVendorBanner').value = '';
+  document.getElementById('shopVendorBannerFile').value = '';
+  updateVendorBannerPreview('');
+}
+window.clearVendorBanner = clearVendorBanner;
 
 function setupVendorFormListeners() {
   const modal = document.getElementById('shopVendorModal');
@@ -14047,6 +14219,70 @@ function setupVendorFormListeners() {
   closeBtn.onclick = closeModal;
   cancelBtn.onclick = closeModal;
   overlay.onclick = closeModal;
+
+  // Logo URL input - update preview on change
+  const logoUrlInput = document.getElementById('shopVendorLogo');
+  if (logoUrlInput) {
+    logoUrlInput.oninput = () => updateVendorLogoPreview(logoUrlInput.value);
+  }
+
+  // Banner URL input - update preview on change
+  const bannerUrlInput = document.getElementById('shopVendorBanner');
+  if (bannerUrlInput) {
+    bannerUrlInput.oninput = () => updateVendorBannerPreview(bannerUrlInput.value);
+  }
+
+  // Logo file upload handler
+  const logoFileInput = document.getElementById('shopVendorLogoFile');
+  if (logoFileInput) {
+    logoFileInput.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const client = ensureSupabase();
+      if (!client) return;
+      
+      const fileName = `vendor-logo-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const { data, error } = await client.storage
+        .from('shop-images')
+        .upload(`vendors/${fileName}`, file);
+      
+      if (error) {
+        showToast(`Błąd uploadu: ${error.message}`, 'error');
+        return;
+      }
+      
+      const { data: urlData } = client.storage.from('shop-images').getPublicUrl(`vendors/${fileName}`);
+      document.getElementById('shopVendorLogo').value = urlData.publicUrl;
+      updateVendorLogoPreview(urlData.publicUrl);
+      showToast('Logo przesłane', 'success');
+    };
+  }
+
+  // Banner file upload handler
+  const bannerFileInput = document.getElementById('shopVendorBannerFile');
+  if (bannerFileInput) {
+    bannerFileInput.onchange = async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      const client = ensureSupabase();
+      if (!client) return;
+      
+      const fileName = `vendor-banner-${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.-]/g, '_')}`;
+      const { data, error } = await client.storage
+        .from('shop-images')
+        .upload(`vendors/${fileName}`, file);
+      
+      if (error) {
+        showToast(`Błąd uploadu: ${error.message}`, 'error');
+        return;
+      }
+      
+      const { data: urlData } = client.storage.from('shop-images').getPublicUrl(`vendors/${fileName}`);
+      document.getElementById('shopVendorBanner').value = urlData.publicUrl;
+      updateVendorBannerPreview(urlData.publicUrl);
+      showToast('Banner przesłany', 'success');
+    };
+  }
 
   form.onsubmit = async (e) => {
     e.preventDefault();
@@ -14065,7 +14301,7 @@ async function saveVendor() {
   const name = document.getElementById('shopVendorName').value.trim();
 
   if (!name) {
-    errorEl.textContent = 'Vendor name is required';
+    errorEl.textContent = 'Nazwa dostawcy jest wymagana';
     errorEl.hidden = false;
     return;
   }
@@ -14083,8 +14319,20 @@ async function saveVendor() {
     contact_phone: document.getElementById('shopVendorPhone').value.trim() || null,
     website_url: document.getElementById('shopVendorWebsite').value.trim() || null,
     commission_rate: parseFloat(document.getElementById('shopVendorCommission').value) || 0,
+    // Images
     logo_url: document.getElementById('shopVendorLogo').value.trim() || null,
-    is_active: document.getElementById('shopVendorActive').checked
+    banner_url: document.getElementById('shopVendorBanner').value.trim() || null,
+    // Address
+    contact_name: document.getElementById('shopVendorContactName').value.trim() || null,
+    city: document.getElementById('shopVendorCity').value.trim() || null,
+    address: document.getElementById('shopVendorAddress').value.trim() || null,
+    // Bank info
+    bank_name: document.getElementById('shopVendorBankName').value.trim() || null,
+    bank_iban: document.getElementById('shopVendorIban').value.trim() || null,
+    bank_swift: document.getElementById('shopVendorSwift').value.trim() || null,
+    // Status
+    is_active: document.getElementById('shopVendorActive').checked,
+    is_featured: document.getElementById('shopVendorFeatured').checked
   };
 
   try {
@@ -14097,7 +14345,7 @@ async function saveVendor() {
 
     if (error) throw error;
 
-    showToast(vendorId ? 'Vendor zaktualizowany' : 'Vendor utworzony', 'success');
+    showToast(vendorId ? 'Dostawca zaktualizowany' : 'Dostawca utworzony', 'success');
     document.getElementById('shopVendorModal').hidden = true;
     await loadShopVendors();
 
@@ -14163,7 +14411,14 @@ async function loadDiscountData(discountId) {
     document.getElementById('shopDiscountMaxDiscount').value = discount.maximum_discount_amount || '';
     document.getElementById('shopDiscountUsageLimit').value = discount.usage_limit || '';
     document.getElementById('shopDiscountPerUserLimit').value = discount.usage_limit_per_user || 1;
+    // Advanced options
+    document.getElementById('shopDiscountAppliesTo').value = discount.applies_to || 'all';
+    document.getElementById('shopDiscountInternalNote').value = discount.description_internal || '';
     document.getElementById('shopDiscountActive').checked = discount.is_active !== false;
+    document.getElementById('shopDiscountFirstPurchase').checked = discount.first_purchase_only === true;
+    document.getElementById('shopDiscountExcludeSale').checked = discount.exclude_sale_items === true;
+    document.getElementById('shopDiscountStackable').checked = discount.is_stackable === true;
+    document.getElementById('shopDiscountAutoApply').checked = discount.is_auto_apply === true;
 
     if (discount.starts_at) {
       document.getElementById('shopDiscountStartDate').value = discount.starts_at.slice(0, 16);
@@ -14227,7 +14482,14 @@ async function saveDiscount() {
     usage_limit_per_user: parseInt(document.getElementById('shopDiscountPerUserLimit').value) || 1,
     starts_at: startDate ? new Date(startDate).toISOString() : null,
     expires_at: expiryDate ? new Date(expiryDate).toISOString() : null,
-    is_active: document.getElementById('shopDiscountActive').checked
+    // Advanced options
+    applies_to: document.getElementById('shopDiscountAppliesTo').value || 'all',
+    description_internal: document.getElementById('shopDiscountInternalNote').value.trim() || null,
+    is_active: document.getElementById('shopDiscountActive').checked,
+    first_purchase_only: document.getElementById('shopDiscountFirstPurchase').checked,
+    exclude_sale_items: document.getElementById('shopDiscountExcludeSale').checked,
+    is_stackable: document.getElementById('shopDiscountStackable').checked,
+    is_auto_apply: document.getElementById('shopDiscountAutoApply').checked
   };
 
   try {
@@ -14240,7 +14502,7 @@ async function saveDiscount() {
 
     if (error) throw error;
 
-    showToast(discountId ? 'Discount updated' : 'Discount created', 'success');
+    showToast(discountId ? 'Rabat zaktualizowany' : 'Rabat utworzony', 'success');
     document.getElementById('shopDiscountModal').hidden = true;
     await loadShopDiscounts();
 
