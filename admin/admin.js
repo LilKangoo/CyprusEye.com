@@ -12369,7 +12369,7 @@ async function loadProductData(productId) {
     document.getElementById('shopProductCategory').value = product.category_id || '';
     document.getElementById('shopProductVendor').value = product.vendor_id || '';
     document.getElementById('shopProductStatus').value = product.status || 'draft';
-    document.getElementById('shopProductType').value = product.product_type || 'physical';
+    document.getElementById('shopProductType').value = product.product_type || 'simple';
     document.getElementById('shopProductWeight').value = product.weight || '';
     document.getElementById('shopProductTaxClass').value = product.tax_class_id || '';
     document.getElementById('shopProductTrackInventory').checked = product.track_inventory || false;
@@ -12379,6 +12379,8 @@ async function loadProductData(productId) {
     document.getElementById('shopProductFeatured').checked = product.is_featured || false;
     document.getElementById('shopProductRequiresShipping').checked = !product.is_virtual;
     document.getElementById('shopProductThumbnail').value = product.thumbnail_url || '';
+    document.getElementById('shopProductImages').value = (product.images || []).join('\n');
+    document.getElementById('shopProductVideo').value = product.video_url || '';
     document.getElementById('shopProductTags').value = (product.tags || []).join(', ');
 
   } catch (error) {
@@ -12455,8 +12457,16 @@ async function saveProduct() {
     is_featured: document.getElementById('shopProductFeatured').checked,
     is_virtual: !document.getElementById('shopProductRequiresShipping').checked,
     thumbnail_url: document.getElementById('shopProductThumbnail').value.trim() || null,
+    images: parseImageUrls(document.getElementById('shopProductImages').value),
+    video_url: document.getElementById('shopProductVideo').value.trim() || null,
     tags
   };
+
+  // Helper function to parse image URLs from textarea
+  function parseImageUrls(text) {
+    if (!text) return [];
+    return text.split('\n').map(url => url.trim()).filter(Boolean);
+  }
 
   try {
     let error;

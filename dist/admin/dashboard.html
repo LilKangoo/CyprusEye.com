@@ -3554,10 +3554,12 @@
             <label class="admin-form-field">
               <span>Product Type</span>
               <select id="shopProductType">
-                <option value="physical">Physical</option>
+                <option value="simple">Simple (Physical)</option>
+                <option value="variable">Variable</option>
+                <option value="grouped">Grouped</option>
+                <option value="bundle">Bundle</option>
                 <option value="digital">Digital</option>
                 <option value="subscription">Subscription</option>
-                <option value="bundle">Bundle</option>
               </select>
             </label>
             <label class="admin-form-field">
@@ -3607,10 +3609,22 @@
             </label>
           </div>
 
-          <label class="admin-form-field">
-            <span>Thumbnail URL</span>
-            <input type="url" id="shopProductThumbnail" placeholder="https://...">
-          </label>
+          <!-- Product Images Section -->
+          <div style="margin: 16px 0; padding: 16px; background: var(--admin-bg); border-radius: 8px;">
+            <h4 style="margin: 0 0 12px; font-size: 14px;">Zdjęcia produktu</h4>
+            <label class="admin-form-field">
+              <span>Thumbnail URL (główne zdjęcie)</span>
+              <input type="url" id="shopProductThumbnail" placeholder="https://...">
+            </label>
+            <label class="admin-form-field" style="margin-top: 12px;">
+              <span>Dodatkowe zdjęcia (URLs, jeden na linię)</span>
+              <textarea id="shopProductImages" rows="3" placeholder="https://example.com/image1.jpg&#10;https://example.com/image2.jpg"></textarea>
+            </label>
+            <label class="admin-form-field" style="margin-top: 12px;">
+              <span>Video URL (opcjonalnie)</span>
+              <input type="url" id="shopProductVideo" placeholder="https://youtube.com/...">
+            </label>
+          </div>
 
           <label class="admin-form-field">
             <span>Tags (comma separated)</span>
