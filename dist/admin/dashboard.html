@@ -3990,6 +3990,163 @@
     </div>
   </div>
 
+  <!-- Shipping Method Form Modal -->
+  <div class="admin-modal" id="shopShippingMethodModal" hidden>
+    <div class="admin-modal-overlay" id="shopShippingMethodModalOverlay"></div>
+    <div class="admin-modal-content" style="max-width: 600px; max-height: 90vh; overflow-y: auto;">
+      <header class="admin-modal-header">
+        <h3 id="shopShippingMethodModalTitle">New Shipping Method</h3>
+        <button class="btn-modal-close" id="btnCloseShopShippingMethodModal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <form id="shopShippingMethodForm" class="admin-modal-body">
+        <input type="hidden" id="shippingMethodId">
+        <input type="hidden" id="shippingMethodZoneId">
+        
+        <!-- Language Tabs -->
+        <div class="lang-tabs" style="display: flex; gap: 8px; margin-bottom: 12px; border-bottom: 1px solid var(--admin-border);">
+          <button type="button" class="lang-tab active" data-lang="pl" onclick="switchShippingMethodLang('pl')">🇵🇱 Polski</button>
+          <button type="button" class="lang-tab" data-lang="en" onclick="switchShippingMethodLang('en')">🇬🇧 English</button>
+        </div>
+
+        <!-- Polish Content -->
+        <div id="shippingMethodLangPL" class="lang-content active">
+          <label class="admin-form-field">
+            <span>Nazwa metody (PL) *</span>
+            <input type="text" id="shippingMethodName" required placeholder="Kurier DPD">
+          </label>
+          <label class="admin-form-field" style="margin-top: 8px;">
+            <span>Opis (PL)</span>
+            <input type="text" id="shippingMethodDescription" placeholder="Dostawa w 2-3 dni robocze">
+          </label>
+        </div>
+
+        <!-- English Content -->
+        <div id="shippingMethodLangEN" class="lang-content">
+          <label class="admin-form-field">
+            <span>Method Name (EN)</span>
+            <input type="text" id="shippingMethodNameEn" placeholder="DPD Courier">
+          </label>
+          <label class="admin-form-field" style="margin-top: 8px;">
+            <span>Description (EN)</span>
+            <input type="text" id="shippingMethodDescriptionEn" placeholder="Delivery in 2-3 business days">
+          </label>
+        </div>
+
+        <!-- Method Type & Cost -->
+        <div style="margin: 16px 0; padding: 16px; background: var(--admin-bg); border-radius: 8px;">
+          <h4 style="margin: 0 0 12px; font-size: 14px;">💰 Cennik</h4>
+          <div class="admin-form-grid">
+            <label class="admin-form-field">
+              <span>Typ metody</span>
+              <select id="shippingMethodType" onchange="updateShippingMethodFields()">
+                <option value="flat_rate">Stała stawka</option>
+                <option value="free">Darmowa dostawa</option>
+                <option value="per_weight">Wg wagi</option>
+                <option value="per_item">Za każdy produkt</option>
+              </select>
+            </label>
+            <label class="admin-form-field">
+              <span>Koszt podstawowy (€)</span>
+              <input type="number" id="shippingMethodCost" step="0.01" min="0" value="0">
+            </label>
+          </div>
+          
+          <div id="shippingWeightFields" style="margin-top: 12px; display: none;">
+            <div class="admin-form-grid">
+              <label class="admin-form-field">
+                <span>Koszt za kg (€)</span>
+                <input type="number" id="shippingMethodCostPerKg" step="0.01" min="0" value="0">
+              </label>
+              <label class="admin-form-field">
+                <span>Min. waga (kg)</span>
+                <input type="number" id="shippingMethodMinWeight" step="0.001" min="0">
+              </label>
+            </div>
+            <label class="admin-form-field" style="margin-top: 8px;">
+              <span>Max. waga (kg)</span>
+              <input type="number" id="shippingMethodMaxWeight" step="0.001" min="0">
+            </label>
+          </div>
+          
+          <div id="shippingPerItemFields" style="margin-top: 12px; display: none;">
+            <label class="admin-form-field">
+              <span>Koszt za każdy produkt (€)</span>
+              <input type="number" id="shippingMethodCostPerItem" step="0.01" min="0" value="0">
+            </label>
+          </div>
+          
+          <label class="admin-form-field" style="margin-top: 12px;">
+            <span>Darmowa dostawa od (€)</span>
+            <input type="number" id="shippingMethodFreeThreshold" step="0.01" min="0" placeholder="np. 100">
+          </label>
+        </div>
+
+        <!-- Delivery Time -->
+        <div style="margin: 16px 0; padding: 16px; background: var(--admin-bg); border-radius: 8px;">
+          <h4 style="margin: 0 0 12px; font-size: 14px;">📦 Czas dostawy</h4>
+          <div class="admin-form-grid">
+            <label class="admin-form-field">
+              <span>Min. dni dostawy</span>
+              <input type="number" id="shippingMethodMinDays" min="0" value="1">
+            </label>
+            <label class="admin-form-field">
+              <span>Max. dni dostawy</span>
+              <input type="number" id="shippingMethodMaxDays" min="0" value="3">
+            </label>
+          </div>
+          <label class="admin-form-field" style="margin-top: 8px;">
+            <span>Dni na przygotowanie</span>
+            <input type="number" id="shippingMethodProcessingDays" min="0" value="1">
+          </label>
+        </div>
+
+        <!-- Additional Options -->
+        <div style="margin: 16px 0; padding: 16px; background: var(--admin-bg); border-radius: 8px;">
+          <h4 style="margin: 0 0 12px; font-size: 14px;">⚙️ Dodatkowe opcje</h4>
+          <div style="display: flex; gap: 16px; flex-wrap: wrap;">
+            <label style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" id="shippingMethodRequiresSignature">
+              <span>Wymaga podpisu</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" id="shippingMethodIncludesInsurance">
+              <span>Ubezpieczenie</span>
+            </label>
+            <label style="display: flex; align-items: center; gap: 8px;">
+              <input type="checkbox" id="shippingMethodActive" checked>
+              <span>Aktywna</span>
+            </label>
+          </div>
+          <div class="admin-form-grid" style="margin-top: 12px;">
+            <label class="admin-form-field">
+              <span>Koszt ubezpieczenia (€)</span>
+              <input type="number" id="shippingMethodInsuranceCost" step="0.01" min="0" value="0">
+            </label>
+            <label class="admin-form-field">
+              <span>Kolejność</span>
+              <input type="number" id="shippingMethodSortOrder" min="0" value="0">
+            </label>
+          </div>
+          <label class="admin-form-field" style="margin-top: 8px;">
+            <span>URL szablonu śledzenia</span>
+            <input type="url" id="shippingMethodTrackingUrl" placeholder="https://tracking.dpd.com/?number={tracking_number}">
+          </label>
+        </div>
+
+        <div id="shippingMethodFormError" class="admin-error-message" hidden></div>
+
+        <div class="poi-form-actions" style="margin-top: 20px;">
+          <button type="button" class="btn-secondary" id="shippingMethodFormCancel">Anuluj</button>
+          <button type="submit" class="btn-primary">Zapisz metodę</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <!-- Shop Order Detail Modal -->
   <div class="admin-modal" id="shopOrderModal" hidden>
     <div class="admin-modal-overlay" id="shopOrderModalOverlay"></div>

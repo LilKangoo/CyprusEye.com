@@ -12115,35 +12115,51 @@ async function loadShopShipping() {
     container.innerHTML = zones.map(zone => `
       <div class="admin-card" style="margin-bottom: 16px;">
         <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-          <h4>${escapeHtml(zone.name)} ${zone.name_en ? `(${escapeHtml(zone.name_en)})` : ''}</h4>
-          <span class="badge" style="background: ${zone.is_active ? '#22c55e' : '#6b7280'};">${zone.is_active ? 'Active' : 'Inactive'}</span>
+          <div>
+            <h4 style="margin: 0;">${escapeHtml(zone.name)} ${zone.name_en ? `(${escapeHtml(zone.name_en)})` : ''}</h4>
+            <p style="color: var(--admin-text-muted); margin: 4px 0 0; font-size: 12px;">Countries: ${zone.countries?.join(', ') || 'None'}</p>
+          </div>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span class="badge" style="background: ${zone.is_active ? '#22c55e' : '#6b7280'};">${zone.is_active ? 'ACTIVE' : 'INACTIVE'}</span>
+          </div>
         </div>
         <div class="admin-card-body">
-          <p style="color: var(--admin-text-muted); margin-bottom: 12px;">Countries: ${zone.countries?.join(', ') || 'None'}</p>
           ${zone.methods?.length ? `
-            <table class="admin-table" style="margin-bottom: 0;">
+            <table class="admin-table" style="margin-bottom: 12px;">
               <thead>
                 <tr>
-                  <th>Method</th>
-                  <th>Cost</th>
-                  <th>Free Above</th>
-                  <th>Delivery</th>
-                  <th>Active</th>
+                  <th>Metoda</th>
+                  <th>Typ</th>
+                  <th>Koszt</th>
+                  <th>Darmowa od</th>
+                  <th>Dostawa</th>
+                  <th>Status</th>
+                  <th style="width: 100px;">Akcje</th>
                 </tr>
               </thead>
               <tbody>
-                ${zone.methods.map(method => `
+                ${zone.methods.sort((a, b) => a.sort_order - b.sort_order).map(method => `
                   <tr>
-                    <td>${escapeHtml(method.name)}</td>
-                    <td>€${parseFloat(method.cost || 0).toFixed(2)}</td>
+                    <td><strong>${escapeHtml(method.name)}</strong>${method.description ? `<br><small style="color: var(--admin-text-muted);">${escapeHtml(method.description)}</small>` : ''}</td>
+                    <td>${getMethodTypeLabel(method.method_type)}</td>
+                    <td>€${parseFloat(method.cost || 0).toFixed(2)}${method.cost_per_kg ? ` + €${method.cost_per_kg}/kg` : ''}${method.cost_per_item ? ` + €${method.cost_per_item}/szt` : ''}</td>
                     <td>${method.free_shipping_threshold ? `€${parseFloat(method.free_shipping_threshold).toFixed(2)}` : '-'}</td>
-                    <td>${method.min_delivery_days || '?'}-${method.max_delivery_days || '?'} days</td>
-                    <td>${method.is_active ? '✅' : '❌'}</td>
+                    <td>${method.min_delivery_days || '?'}-${method.max_delivery_days || '?'} dni</td>
+                    <td>${method.is_active ? '<span style="color: #22c55e;">✅ Aktywna</span>' : '<span style="color: #6b7280;">❌ Nieaktywna</span>'}</td>
+                    <td>
+                      <div style="display: flex; gap: 4px;">
+                        <button class="btn-icon" onclick="showShippingMethodForm('${zone.id}', '${method.id}')" title="Edytuj">✏️</button>
+                        <button class="btn-icon" onclick="deleteShippingMethod('${method.id}')" title="Usuń">🗑️</button>
+                      </div>
+                    </td>
                   </tr>
                 `).join('')}
               </tbody>
             </table>
-          ` : '<p style="color: var(--admin-text-muted);">No shipping methods</p>'}
+          ` : '<p style="color: var(--admin-text-muted); margin-bottom: 12px;">Brak metod dostawy dla tej strefy</p>'}
+          <button class="btn-secondary" onclick="showShippingMethodForm('${zone.id}')" style="margin-top: 8px;">
+            ➕ Dodaj metodę dostawy
+          </button>
         </div>
       </div>
     `).join('');
@@ -12153,6 +12169,240 @@ async function loadShopShipping() {
     container.innerHTML = `<p style="text-align: center; color: #ef4444;">Error: ${error.message}</p>`;
   }
 }
+
+function getMethodTypeLabel(type) {
+  const labels = {
+    'flat_rate': 'Stała stawka',
+    'free': 'Darmowa',
+    'per_weight': 'Wg wagi',
+    'per_item': 'Za produkt'
+  };
+  return labels[type] || type;
+}
+
+// =====================================================
+// SHIPPING METHOD FORM
+// =====================================================
+
+function switchShippingMethodLang(lang) {
+  const plDiv = document.getElementById('shippingMethodLangPL');
+  const enDiv = document.getElementById('shippingMethodLangEN');
+  if (plDiv) plDiv.classList.toggle('active', lang === 'pl');
+  if (enDiv) enDiv.classList.toggle('active', lang === 'en');
+  document.querySelectorAll('#shopShippingMethodModal .lang-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.lang === lang);
+  });
+}
+window.switchShippingMethodLang = switchShippingMethodLang;
+
+function updateShippingMethodFields() {
+  const methodType = document.getElementById('shippingMethodType').value;
+  const weightFields = document.getElementById('shippingWeightFields');
+  const perItemFields = document.getElementById('shippingPerItemFields');
+  const costField = document.getElementById('shippingMethodCost');
+
+  if (weightFields) weightFields.style.display = methodType === 'per_weight' ? 'block' : 'none';
+  if (perItemFields) perItemFields.style.display = methodType === 'per_item' ? 'block' : 'none';
+  
+  // For free shipping, set cost to 0 and disable
+  if (costField) {
+    if (methodType === 'free') {
+      costField.value = 0;
+      costField.disabled = true;
+    } else {
+      costField.disabled = false;
+    }
+  }
+}
+window.updateShippingMethodFields = updateShippingMethodFields;
+
+async function showShippingMethodForm(zoneId, methodId = null) {
+  const modal = document.getElementById('shopShippingMethodModal');
+  const title = document.getElementById('shopShippingMethodModalTitle');
+  const form = document.getElementById('shopShippingMethodForm');
+  
+  if (!modal || !form) return;
+  
+  form.reset();
+  document.getElementById('shippingMethodId').value = '';
+  document.getElementById('shippingMethodZoneId').value = zoneId;
+  document.getElementById('shippingMethodFormError').hidden = true;
+  
+  // Reset to Polish tab
+  switchShippingMethodLang('pl');
+  updateShippingMethodFields();
+  
+  // Find zone name for title
+  const zone = shopState.shippingZones.find(z => z.id === zoneId);
+  const zoneName = zone ? zone.name : '';
+  
+  if (methodId) {
+    title.textContent = `Edytuj metodę - ${zoneName}`;
+    await loadShippingMethodData(methodId);
+  } else {
+    title.textContent = `Nowa metoda dostawy - ${zoneName}`;
+    document.getElementById('shippingMethodActive').checked = true;
+  }
+  
+  modal.hidden = false;
+  setupShippingMethodFormListeners();
+}
+window.showShippingMethodForm = showShippingMethodForm;
+
+async function loadShippingMethodData(methodId) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { data: method, error } = await client
+      .from('shop_shipping_methods')
+      .select('*')
+      .eq('id', methodId)
+      .single();
+
+    if (error) throw error;
+    if (!method) return;
+
+    document.getElementById('shippingMethodId').value = method.id;
+    document.getElementById('shippingMethodZoneId').value = method.zone_id;
+    // Polish fields
+    document.getElementById('shippingMethodName').value = method.name || '';
+    document.getElementById('shippingMethodDescription').value = method.description || '';
+    // English fields
+    document.getElementById('shippingMethodNameEn').value = method.name_en || '';
+    document.getElementById('shippingMethodDescriptionEn').value = method.description_en || '';
+    // Pricing
+    document.getElementById('shippingMethodType').value = method.method_type || 'flat_rate';
+    document.getElementById('shippingMethodCost').value = method.cost || 0;
+    document.getElementById('shippingMethodCostPerKg').value = method.cost_per_kg || 0;
+    document.getElementById('shippingMethodMinWeight').value = method.min_weight || '';
+    document.getElementById('shippingMethodMaxWeight').value = method.max_weight || '';
+    document.getElementById('shippingMethodCostPerItem').value = method.cost_per_item || 0;
+    document.getElementById('shippingMethodFreeThreshold').value = method.free_shipping_threshold || '';
+    // Delivery time
+    document.getElementById('shippingMethodMinDays').value = method.min_delivery_days || 1;
+    document.getElementById('shippingMethodMaxDays').value = method.max_delivery_days || 3;
+    document.getElementById('shippingMethodProcessingDays').value = method.processing_days || 1;
+    // Options
+    document.getElementById('shippingMethodRequiresSignature').checked = method.requires_signature || false;
+    document.getElementById('shippingMethodIncludesInsurance').checked = method.includes_insurance || false;
+    document.getElementById('shippingMethodActive').checked = method.is_active !== false;
+    document.getElementById('shippingMethodInsuranceCost').value = method.insurance_cost || 0;
+    document.getElementById('shippingMethodSortOrder').value = method.sort_order || 0;
+    document.getElementById('shippingMethodTrackingUrl').value = method.tracking_url_template || '';
+
+    updateShippingMethodFields();
+
+  } catch (error) {
+    console.error('Failed to load shipping method:', error);
+    showToast('Nie udało się załadować metody', 'error');
+  }
+}
+
+function setupShippingMethodFormListeners() {
+  const modal = document.getElementById('shopShippingMethodModal');
+  const form = document.getElementById('shopShippingMethodForm');
+  const closeBtn = document.getElementById('btnCloseShopShippingMethodModal');
+  const cancelBtn = document.getElementById('shippingMethodFormCancel');
+  const overlay = document.getElementById('shopShippingMethodModalOverlay');
+
+  const closeModal = () => { modal.hidden = true; };
+
+  closeBtn.onclick = closeModal;
+  cancelBtn.onclick = closeModal;
+  overlay.onclick = closeModal;
+
+  form.onsubmit = async (e) => {
+    e.preventDefault();
+    await saveShippingMethod();
+  };
+}
+
+async function saveShippingMethod() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const errorEl = document.getElementById('shippingMethodFormError');
+  errorEl.hidden = true;
+
+  const methodId = document.getElementById('shippingMethodId').value;
+  const zoneId = document.getElementById('shippingMethodZoneId').value;
+  const name = document.getElementById('shippingMethodName').value.trim();
+
+  if (!name || !zoneId) {
+    errorEl.textContent = 'Nazwa metody jest wymagana';
+    errorEl.hidden = false;
+    return;
+  }
+
+  const methodData = {
+    zone_id: zoneId,
+    name,
+    name_en: document.getElementById('shippingMethodNameEn').value.trim() || null,
+    description: document.getElementById('shippingMethodDescription').value.trim() || null,
+    description_en: document.getElementById('shippingMethodDescriptionEn').value.trim() || null,
+    method_type: document.getElementById('shippingMethodType').value,
+    cost: parseFloat(document.getElementById('shippingMethodCost').value) || 0,
+    cost_per_kg: parseFloat(document.getElementById('shippingMethodCostPerKg').value) || 0,
+    min_weight: parseFloat(document.getElementById('shippingMethodMinWeight').value) || null,
+    max_weight: parseFloat(document.getElementById('shippingMethodMaxWeight').value) || null,
+    cost_per_item: parseFloat(document.getElementById('shippingMethodCostPerItem').value) || 0,
+    free_shipping_threshold: parseFloat(document.getElementById('shippingMethodFreeThreshold').value) || null,
+    min_delivery_days: parseInt(document.getElementById('shippingMethodMinDays').value) || 1,
+    max_delivery_days: parseInt(document.getElementById('shippingMethodMaxDays').value) || 3,
+    processing_days: parseInt(document.getElementById('shippingMethodProcessingDays').value) || 1,
+    requires_signature: document.getElementById('shippingMethodRequiresSignature').checked,
+    includes_insurance: document.getElementById('shippingMethodIncludesInsurance').checked,
+    insurance_cost: parseFloat(document.getElementById('shippingMethodInsuranceCost').value) || 0,
+    is_active: document.getElementById('shippingMethodActive').checked,
+    sort_order: parseInt(document.getElementById('shippingMethodSortOrder').value) || 0,
+    tracking_url_template: document.getElementById('shippingMethodTrackingUrl').value.trim() || null
+  };
+
+  try {
+    let error;
+    if (methodId) {
+      ({ error } = await client.from('shop_shipping_methods').update(methodData).eq('id', methodId));
+    } else {
+      ({ error } = await client.from('shop_shipping_methods').insert(methodData));
+    }
+
+    if (error) throw error;
+
+    showToast(methodId ? 'Metoda zaktualizowana' : 'Metoda dodana', 'success');
+    document.getElementById('shopShippingMethodModal').hidden = true;
+    await loadShopShipping();
+
+  } catch (error) {
+    console.error('Failed to save shipping method:', error);
+    errorEl.textContent = error.message;
+    errorEl.hidden = false;
+  }
+}
+
+async function deleteShippingMethod(methodId) {
+  if (!confirm('Czy na pewno chcesz usunąć tę metodę dostawy?')) return;
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { error } = await client
+      .from('shop_shipping_methods')
+      .delete()
+      .eq('id', methodId);
+
+    if (error) throw error;
+
+    showToast('Metoda usunięta', 'success');
+    await loadShopShipping();
+
+  } catch (error) {
+    console.error('Failed to delete shipping method:', error);
+    showToast('Nie udało się usunąć metody: ' + error.message, 'error');
+  }
+}
+window.deleteShippingMethod = deleteShippingMethod;
 
 async function loadShopSettings() {
   const client = ensureSupabase();
