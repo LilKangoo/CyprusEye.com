@@ -1,0 +1,587 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'G-FCSE0876CR');
+</script>
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <!-- Security: Content Security Policy -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co wss://*.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://*.tile.openstreetmap.org; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
+  
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="robots" content="index,follow" />
+  <title data-i18n="seo.shop.title">CyprusEye Shop – Traditional Cyprus Products</title>
+  <meta name="description" content="Discover authentic Cypriot products. Olive oil, wine, halloumi, cosmetics and more. Shipping to Cyprus and worldwide." data-i18n-attrs="content:seo.shop.description" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="CyprusEye Shop – Traditional Cyprus Products" />
+  <meta property="og:description" content="Discover authentic Cypriot products with worldwide shipping." />
+  <meta property="og:url" content="https://www.cypruseye.com/shop.html" />
+  <meta property="og:image" content="https://www.cypruseye.com/assets/cyprus_logo-1000x1054.png" />
+  <meta property="og:locale" content="en_GB" />
+  <meta property="og:locale:alternate" content="pl_PL" />
+  <link rel="canonical" href="https://www.cypruseye.com/shop.html" />
+  <link rel="alternate" hreflang="pl" href="https://www.cypruseye.com/shop.html?lang=pl" />
+  <link rel="alternate" hreflang="en" href="https://www.cypruseye.com/shop.html?lang=en" />
+  <link rel="alternate" hreflang="x-default" href="https://www.cypruseye.com/shop.html" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript>
+    <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  </noscript>
+  <link rel="stylesheet" href="assets/css/tokens.css" />
+  <link rel="stylesheet" href="assets/css/base.css" />
+  <link rel="stylesheet" href="assets/css/components.css" />
+  <link rel="stylesheet" href="assets/css/header-metrics.css" />
+  <link rel="stylesheet" href="assets/css/mobile.css" />
+  <link rel="stylesheet" href="assets/css/mobile-nav.css" />
+  <link rel="stylesheet" href="assets/css/rtl.css" />
+  <link rel="stylesheet" href="assets/css/language-switcher.css" />
+  <link rel="stylesheet" href="assets/css/language-selector.css" />
+  <link rel="stylesheet" href="css/toast.css" />
+  <link rel="stylesheet" href="css/successPopup.css" />
+  <link rel="stylesheet" href="css/modal-ios-fix.css" />
+  <link rel="stylesheet" href="assets/css/shop.css" />
+
+  <meta name="ce-auth" content="on" />
+  <script type="module" src="js/supabaseClient.js"></script>
+  <script type="module" src="js/toast.js"></script>
+  <script type="module" src="js/auth.js"></script>
+  <script type="module" src="js/authUi.js"></script>
+</head>
+<body data-navigation="multi-page" data-seo-page="shop">
+  <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+  <header class="app-header nav-modern">
+      <div class="nav-modern__top" aria-label="Global header">
+        <div class="brand nav-modern__brand-block">
+          <a href="index.html" class="nav-modern__brand-link" aria-label="CyprusEye Quest home">
+            <img
+              src="assets/cyprus_logo-1000x1054.png"
+              alt="WakacjeCypr.com – logo żółwia z flagą Polski"
+              data-i18n-attrs="alt:header.logoAlt"
+              width="1000"
+              height="1054"
+              loading="eager"
+              fetchpriority="high"
+            />
+            <div class="brand-title" data-i18n="header.brand">
+              <p class="brand-name">CyprusEye Quest &amp; Travel</p>
+            </div>
+          </a>
+        </div>
+
+        <div class="nav-modern__stats nav-modern__stats-lite" data-auth="user-only">
+          <div class="stats-lite__pill">
+            <a href="achievements.html" class="stats-lite__profile" id="profileButton" aria-label="Mój profil">
+              <img
+                id="headerUserAvatar"
+                class="profile-avatar"
+                src="assets/cyprus_logo-1000x1054.png"
+                alt="Avatar"
+                width="48"
+                height="48"
+                loading="eager"
+              />
+              <div class="profile-info">
+                <p class="profile-name" data-i18n="header.profile">Mój Profil</p>
+                <p class="profile-status" data-i18n="header.statusPlaceholder">Poziom 1 • 0 odznak</p>
+              </div>
+            </a>
+
+            <div class="stats-lite__panel">
+              <div class="stats-lite__level">
+                <span class="stats-lite__label">LVL</span>
+                <span class="stats-lite__value" id="headerLevelNumber">1</span>
+              </div>
+
+              <div class="stats-lite__xp" role="img" aria-label="Postęp doświadczenia" data-i18n-attrs="aria-label:metrics.xp.aria">
+                <span class="stats-lite__xp-current"><span id="headerXpPoints">0</span> XP</span>
+                <div class="stats-lite__xp-bar">
+                  <div class="stats-lite__xp-fill is-width-zero" id="headerXpFill"></div>
+                </div>
+              </div>
+
+              <div class="stats-lite__badges">
+                <span class="stats-lite__label">🏆</span>
+                <span class="stats-lite__value" id="headerBadgesCount">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="nav-modern__top-actions">
+          <div class="nav-modern__auth">
+            <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
+              <button
+                class="nav-modern__login"
+                data-open-auth
+                data-auth="anon-only"
+                data-tour-target="login-button"
+                data-i18n="header.login"
+                data-i18n-attrs="aria-label:auth.login.aria"
+                aria-label="Zaloguj do konta"
+              >
+                Zaloguj
+              </button>
+              <button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
+            </div>
+            <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
+          </div>
+
+          <!-- Cart Button -->
+          <button class="nav-modern__cart" id="btnOpenCart" type="button" aria-label="Koszyk" data-i18n-attrs="aria-label:shop.cart.aria">
+            🛒 <span class="cart-badge" id="cartCount" hidden>0</span>
+          </button>
+
+          <button
+            id="sosToggle"
+            class="nav-modern__sos"
+            type="button"
+            aria-haspopup="dialog"
+            aria-controls="sosModal"
+            data-i18n="header.sosToggle"
+          >
+            ⚠️ SOS
+          </button>
+
+          <div class="language-pill-group" data-language-toggle aria-label="Language selector" data-i18n-attrs="aria-label:language.switcher.label">
+            <button type="button" class="language-pill" data-language-pill="pl" aria-pressed="false">PL</button>
+            <button type="button" class="language-pill" data-language-pill="en" aria-pressed="false">EN</button>
+          </div>
+        </div>
+      </div>
+    <div class="nav-modern__shell">
+
+      <div class="nav-modern__bars" data-tour-target="tabs-navigation">
+        <button class="nav-modern__toggle-btn" id="navToggleBtn" aria-expanded="false" aria-controls="navLinksRow" data-i18n="nav.toggle">
+          ☰ Nawigacja
+        </button>
+        <div class="nav-modern__links-row" id="navLinksRow" aria-label="Główna nawigacja i skróty" data-i18n-attrs="aria-label:header.quickActions.aria">
+          <nav class="nav-modern__tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna">
+            <a href="index.html" class="nav-modern__tab" id="headerAdventureTab" data-i18n="nav.adventure">
+              🎯 Przygoda
+            </a>
+            <a href="community.html" class="nav-modern__tab" id="headerPackingTab" data-i18n="nav.community">
+              💬 Społeczność
+            </a>
+            <a href="recommendations.html" class="nav-modern__tab" id="headerRecommendationsTab" data-i18n="nav.recommendations">
+              ✨ Polecane
+            </a>
+            <a href="tasks.html" class="nav-modern__tab" id="headerTasksTab" data-i18n="nav.tasks">
+              ☑️ Zadania
+            </a>
+            <a href="shop.html" class="nav-modern__tab is-active" id="headerShopTab" data-i18n="nav.shop">
+              🛍️ Sklep
+            </a>
+          </nav>
+
+          <div class="nav-modern__chips">
+            <a class="nav-chip" href="packing.html" data-i18n="nav.packing">🎒 Pakowanie</a>
+            <a class="nav-chip" href="kupon.html" data-i18n="header.coupon">🎟️ Kupon</a>
+            <a class="nav-chip" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
+            <a class="nav-chip" href="trips.html" data-i18n="nav.trips">🧭 Wycieczki</a>
+            <a class="nav-chip" href="hotels.html" data-i18n="nav.hotels">🏨 Hotele</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main id="main-content" class="shop-page">
+    <h1 class="sr-only" data-i18n="shop.pageTitle">CyprusEye Shop – Traditional Cyprus Products</h1>
+    
+    <!-- Hero Section - Bilingual -->
+    <section class="shop-hero">
+      <div class="shop-hero__bg"></div>
+      <div class="shop-hero__content">
+        <div class="shop-hero__badge">🇨🇾 <span data-i18n="shop.hero.badge">Authentic Cyprus</span></div>
+        <h2 class="shop-hero__title" data-i18n="shop.hero.title">Traditional Cypriot Products</h2>
+        <p class="shop-hero__subtitle" data-i18n="shop.hero.subtitle">
+          Discover the authentic flavors and craftsmanship of Cyprus. From premium olive oil and halloumi to local wines and handmade cosmetics.
+        </p>
+        <div class="shop-hero__shipping">
+          <div class="shipping-badge">
+            <span class="shipping-icon">📦</span>
+            <div class="shipping-info">
+              <strong data-i18n="shop.hero.shipping.title">Worldwide Shipping</strong>
+              <span data-i18n="shop.hero.shipping.desc">To Cyprus and abroad</span>
+            </div>
+          </div>
+          <div class="shipping-badge">
+            <span class="shipping-icon">✓</span>
+            <div class="shipping-info">
+              <strong data-i18n="shop.hero.quality.title">Premium Quality</strong>
+              <span data-i18n="shop.hero.quality.desc">Handpicked local products</span>
+            </div>
+          </div>
+          <div class="shipping-badge">
+            <span class="shipping-icon">🎁</span>
+            <div class="shipping-info">
+              <strong data-i18n="shop.hero.gift.title">Perfect Gifts</strong>
+              <span data-i18n="shop.hero.gift.desc">Traditional souvenirs</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Shop Content -->
+    <div class="shop-content">
+      <!-- Sidebar Filters -->
+      <aside class="shop-filters" id="shopFilters">
+        <div class="shop-filters__header">
+          <h3 data-i18n="shop.filters.title">Filters</h3>
+          <button class="shop-filters__close" id="btnCloseFilters" aria-label="Close filters">✕</button>
+        </div>
+        
+        <div class="filter-section">
+          <h4 data-i18n="shop.filters.categories">Categories</h4>
+          <div id="categoryFilters" class="filter-list">
+            <label class="filter-item">
+              <input type="radio" name="category" value="" checked>
+              <span data-i18n="shop.filters.all">All Products</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="filter-section">
+          <h4 data-i18n="shop.filters.price">Price Range</h4>
+          <div class="price-range">
+            <input type="number" id="priceMin" placeholder="Min €" min="0" class="price-input">
+            <span class="price-separator">—</span>
+            <input type="number" id="priceMax" placeholder="Max €" min="0" class="price-input">
+          </div>
+          <button class="btn btn-sm btn-secondary" id="btnApplyPrice" data-i18n="shop.filters.apply">Apply</button>
+        </div>
+
+        <div class="filter-section">
+          <h4 data-i18n="shop.filters.sort">Sort By</h4>
+          <select id="sortSelect" class="filter-select">
+            <option value="newest" data-i18n="shop.sort.newest">Newest First</option>
+            <option value="price_asc" data-i18n="shop.sort.price_asc">Price: Low to High</option>
+            <option value="price_desc" data-i18n="shop.sort.price_desc">Price: High to Low</option>
+            <option value="name" data-i18n="shop.sort.name">Name A-Z</option>
+            <option value="popular" data-i18n="shop.sort.popular">Most Popular</option>
+          </select>
+        </div>
+
+        <div class="filter-section filter-section--tags">
+          <h4 data-i18n="shop.filters.tags">Popular Tags</h4>
+          <div class="filter-tags" id="filterTags">
+            <button type="button" class="filter-tag" data-tag="olive-oil">🫒 Olive Oil</button>
+            <button type="button" class="filter-tag" data-tag="wine">🍷 Wine</button>
+            <button type="button" class="filter-tag" data-tag="halloumi">🧀 Halloumi</button>
+            <button type="button" class="filter-tag" data-tag="honey">🍯 Honey</button>
+            <button type="button" class="filter-tag" data-tag="cosmetics">💄 Cosmetics</button>
+          </div>
+        </div>
+      </aside>
+
+      <!-- Products Section -->
+      <section class="shop-products">
+        <div class="products-toolbar">
+          <div class="products-info">
+            <span class="products-count"><span id="productsCount">0</span> <span data-i18n="shop.products_found">products</span></span>
+          </div>
+          <div class="products-actions">
+            <button class="btn-filter-toggle" id="btnToggleFilters" aria-label="Toggle filters">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="4" y1="21" x2="4" y2="14"/><line x1="4" y1="10" x2="4" y2="3"/>
+                <line x1="12" y1="21" x2="12" y2="12"/><line x1="12" y1="8" x2="12" y2="3"/>
+                <line x1="20" y1="21" x2="20" y2="16"/><line x1="20" y1="12" x2="20" y2="3"/>
+              </svg>
+              <span data-i18n="shop.filters.title">Filters</span>
+            </button>
+            <div class="view-toggle">
+              <button class="view-btn is-active" data-view="grid" aria-label="Grid view">▦</button>
+              <button class="view-btn" data-view="list" aria-label="List view">☰</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="products-grid" id="productsGrid">
+          <div class="products-loading">
+            <div class="spinner"></div>
+            <p data-i18n="shop.loading">Loading products...</p>
+          </div>
+        </div>
+
+        <div class="products-pagination" id="productsPagination" hidden>
+          <button class="btn-pagination" id="btnPrevPage" disabled aria-label="Previous page">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="15 18 9 12 15 6"/>
+            </svg>
+          </button>
+          <span class="pagination-info" id="paginationInfo">1 / 1</span>
+          <button class="btn-pagination" id="btnNextPage" aria-label="Next page">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="9 18 15 12 9 6"/>
+            </svg>
+          </button>
+        </div>
+      </section>
+    </div>
+  </main>
+
+  <!-- Shopping Cart Sidebar -->
+  <div class="cart-sidebar" id="cartSidebar" hidden>
+    <div class="cart-overlay" id="cartOverlay"></div>
+    <div class="cart-panel">
+      <header class="cart-header">
+        <h2 data-i18n="shop.cart.title">🛒 Shopping Cart</h2>
+        <button class="btn-close-cart" id="btnCloseCart" aria-label="Close cart">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="cart-items" id="cartItems">
+        <p class="cart-empty" data-i18n="shop.cart.empty">Your cart is empty</p>
+      </div>
+      <footer class="cart-footer" id="cartFooter" hidden>
+        <div class="cart-summary">
+          <div class="cart-subtotal">
+            <span data-i18n="shop.cart.subtotal">Subtotal</span>
+            <strong id="cartSubtotal">€0.00</strong>
+          </div>
+          <p class="cart-shipping-note" data-i18n="shop.cart.shipping_note">Shipping calculated at checkout</p>
+        </div>
+        <button class="btn btn-primary btn-checkout" id="btnCheckout" data-i18n="shop.cart.checkout">
+          Proceed to Checkout
+        </button>
+        <button class="btn btn-secondary btn-continue" id="btnContinueShopping" data-i18n="shop.cart.continue">
+          Continue Shopping
+        </button>
+      </footer>
+    </div>
+  </div>
+
+  <!-- Product Quick View Modal -->
+  <div class="modal shop-modal" id="productModal" hidden>
+    <div class="modal-overlay" id="productModalOverlay"></div>
+    <div class="modal-content product-modal-content">
+      <button class="modal-close" id="btnCloseProductModal" aria-label="Close modal">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+      <div id="productModalContent">
+        <!-- Content loaded dynamically -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Checkout Modal -->
+  <div class="modal shop-modal" id="checkoutModal" hidden>
+    <div class="modal-overlay" id="checkoutModalOverlay"></div>
+    <div class="modal-content checkout-modal-content">
+      <button class="modal-close" id="btnCloseCheckout" aria-label="Close checkout">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+      
+      <div class="checkout-content">
+        <h2 class="checkout-title" data-i18n="shop.checkout.title">📦 Checkout</h2>
+        
+        <div class="checkout-steps">
+          <div class="checkout-step is-active" data-step="1">
+            <span class="step-number">1</span>
+            <span class="step-label" data-i18n="shop.checkout.step1">Shipping</span>
+          </div>
+          <div class="checkout-step" data-step="2">
+            <span class="step-number">2</span>
+            <span class="step-label" data-i18n="shop.checkout.step2">Review</span>
+          </div>
+          <div class="checkout-step" data-step="3">
+            <span class="step-number">3</span>
+            <span class="step-label" data-i18n="shop.checkout.step3">Payment</span>
+          </div>
+        </div>
+
+        <form id="checkoutForm" class="checkout-form">
+          <!-- Step 1: Shipping Address -->
+          <div class="checkout-section" id="checkoutStep1">
+            <h3 data-i18n="shop.checkout.shipping_info">Shipping Information</h3>
+            
+            <div class="form-row">
+              <div class="form-field">
+                <label for="checkoutFirstName" data-i18n="shop.checkout.first_name">First Name *</label>
+                <input type="text" id="checkoutFirstName" name="first_name" required>
+              </div>
+              <div class="form-field">
+                <label for="checkoutLastName" data-i18n="shop.checkout.last_name">Last Name *</label>
+                <input type="text" id="checkoutLastName" name="last_name" required>
+              </div>
+            </div>
+            
+            <div class="form-field">
+              <label for="checkoutEmail" data-i18n="shop.checkout.email">Email *</label>
+              <input type="email" id="checkoutEmail" name="email" required>
+            </div>
+            
+            <div class="form-field">
+              <label for="checkoutPhone" data-i18n="shop.checkout.phone">Phone *</label>
+              <input type="tel" id="checkoutPhone" name="phone" required>
+            </div>
+            
+            <div class="form-field">
+              <label for="checkoutAddress" data-i18n="shop.checkout.address">Street Address *</label>
+              <input type="text" id="checkoutAddress" name="address_line1" required placeholder="Street and number">
+            </div>
+            
+            <div class="form-field">
+              <label for="checkoutAddress2" data-i18n="shop.checkout.address2">Apartment, suite, etc. (optional)</label>
+              <input type="text" id="checkoutAddress2" name="address_line2">
+            </div>
+            
+            <div class="form-row">
+              <div class="form-field">
+                <label for="checkoutCity" data-i18n="shop.checkout.city">City *</label>
+                <input type="text" id="checkoutCity" name="city" required>
+              </div>
+              <div class="form-field">
+                <label for="checkoutPostal" data-i18n="shop.checkout.postal">Postal Code *</label>
+                <input type="text" id="checkoutPostal" name="postal_code" required>
+              </div>
+            </div>
+            
+            <div class="form-field">
+              <label for="checkoutCountry" data-i18n="shop.checkout.country">Country *</label>
+              <select id="checkoutCountry" name="country" required>
+                <option value="">-- Select Country --</option>
+                <option value="CY">Cyprus</option>
+                <option value="PL">Poland</option>
+                <option value="GB">United Kingdom</option>
+                <option value="DE">Germany</option>
+                <option value="FR">France</option>
+                <option value="IT">Italy</option>
+                <option value="ES">Spain</option>
+                <option value="NL">Netherlands</option>
+                <option value="BE">Belgium</option>
+                <option value="AT">Austria</option>
+                <option value="GR">Greece</option>
+                <option value="US">United States</option>
+                <option value="CA">Canada</option>
+                <option value="AU">Australia</option>
+              </select>
+            </div>
+            
+            <div class="form-field">
+              <label for="checkoutNotes" data-i18n="shop.checkout.notes">Order Notes (optional)</label>
+              <textarea id="checkoutNotes" name="notes" rows="3" placeholder="Special instructions for delivery..."></textarea>
+            </div>
+            
+            <div class="form-field checkbox-field">
+              <label>
+                <input type="checkbox" id="checkoutSaveAddress" name="save_address" checked>
+                <span data-i18n="shop.checkout.save_address">Save this address for future orders</span>
+              </label>
+            </div>
+            
+            <button type="button" class="btn btn-primary" id="btnToStep2" data-i18n="shop.checkout.continue">
+              Continue to Review →
+            </button>
+          </div>
+
+          <!-- Step 2: Review Order -->
+          <div class="checkout-section" id="checkoutStep2" hidden>
+            <h3 data-i18n="shop.checkout.review_order">Review Your Order</h3>
+            
+            <div class="checkout-review">
+              <div class="review-section">
+                <h4 data-i18n="shop.checkout.shipping_to">Shipping To</h4>
+                <div id="reviewShippingAddress" class="review-address"></div>
+                <button type="button" class="btn-link" id="btnEditAddress" data-i18n="shop.checkout.edit">Edit</button>
+              </div>
+              
+              <div class="review-section">
+                <h4 data-i18n="shop.checkout.order_items">Order Items</h4>
+                <div id="reviewOrderItems" class="review-items"></div>
+              </div>
+              
+              <div class="review-section review-totals">
+                <div class="total-line">
+                  <span data-i18n="shop.checkout.subtotal">Subtotal</span>
+                  <span id="reviewSubtotal">€0.00</span>
+                </div>
+                <div class="total-line">
+                  <span data-i18n="shop.checkout.shipping">Shipping</span>
+                  <span id="reviewShipping">€0.00</span>
+                </div>
+                <div class="total-line total-line--grand">
+                  <span data-i18n="shop.checkout.total">Total</span>
+                  <strong id="reviewTotal">€0.00</strong>
+                </div>
+              </div>
+            </div>
+            
+            <div class="checkout-actions">
+              <button type="button" class="btn btn-secondary" id="btnBackToStep1" data-i18n="shop.checkout.back">
+                ← Back
+              </button>
+              <button type="submit" class="btn btn-primary" id="btnPlaceOrder" data-i18n="shop.checkout.place_order">
+                Place Order & Pay
+              </button>
+            </div>
+          </div>
+        </form>
+        
+        <div id="checkoutMessage" class="checkout-message" hidden></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <footer class="shop-footer">
+    <div class="shop-footer__content">
+      <div class="shop-footer__info">
+        <div class="footer-section">
+          <h4 data-i18n="shop.footer.about">About Our Shop</h4>
+          <p data-i18n="shop.footer.about_text">
+            CyprusEye Shop brings you authentic Cypriot products directly from local producers. 
+            We carefully select each item to ensure the highest quality and authentic taste of Cyprus.
+          </p>
+        </div>
+        <div class="footer-section">
+          <h4 data-i18n="shop.footer.shipping_info">Shipping Information</h4>
+          <ul>
+            <li data-i18n="shop.footer.ship1">🇨🇾 Cyprus: 2-3 business days</li>
+            <li data-i18n="shop.footer.ship2">🇪🇺 EU Countries: 5-7 business days</li>
+            <li data-i18n="shop.footer.ship3">🌍 Worldwide: 7-14 business days</li>
+          </ul>
+        </div>
+        <div class="footer-section">
+          <h4 data-i18n="shop.footer.contact">Contact</h4>
+          <p>📧 shop@cypruseye.com</p>
+          <p>📞 +357 99 123 456</p>
+        </div>
+      </div>
+      <div class="shop-footer__bottom">
+        <p>© 2024 CyprusEye. <span data-i18n="shop.footer.rights">All rights reserved.</span></p>
+        <div class="footer-links">
+          <a href="#" data-i18n="shop.footer.terms">Terms of Service</a>
+          <a href="#" data-i18n="shop.footer.privacy">Privacy Policy</a>
+          <a href="#" data-i18n="shop.footer.returns">Returns Policy</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Scripts -->
+  <script type="module" src="js/i18n.js"></script>
+  <script type="module" src="js/languageSwitcher.js"></script>
+  <script type="module" src="js/mobile-nav.js"></script>
+  <script type="module" src="js/shop.js"></script>
+</body>
+</html>
