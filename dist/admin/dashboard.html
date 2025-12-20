@@ -2512,14 +2512,14 @@
             </div>
             <div class="admin-card-body">
               <div style="display: flex; gap: 12px; margin-bottom: 16px;">
-                <input type="text" id="shopCategorySearch" placeholder="Szukaj kategorii..." class="form-control" style="flex: 1;">
-                <select id="shopCategoryStatusFilter" class="form-control" style="width: 150px;">
-                  <option value="">Wszystkie</option>
+                <input type="text" id="shopCategorySearch" placeholder="Szukaj kategorii..." class="form-control" style="flex: 1;" oninput="renderShopCategories()">
+                <select id="shopCategoryStatusFilter" class="form-control" style="width: 150px;" onchange="renderShopCategories()">
+                  <option value="all">Wszystkie</option>
                   <option value="active">Aktywne</option>
                   <option value="inactive">Nieaktywne</option>
                 </select>
-                <select id="shopCategoryParentFilter" class="form-control" style="width: 180px;">
-                  <option value="">Wszystkie poziomy</option>
+                <select id="shopCategoryParentFilter" class="form-control" style="width: 180px;" onchange="renderShopCategories()">
+                  <option value="all">Wszystkie poziomy</option>
                   <option value="root">Tylko główne</option>
                   <option value="child">Tylko podkategorie</option>
                 </select>
@@ -2559,9 +2559,9 @@
             </div>
             <div class="admin-card-body">
               <div style="display: flex; gap: 12px; margin-bottom: 16px;">
-                <input type="text" id="shopVendorSearch" placeholder="Szukaj dostawcy..." class="form-control" style="flex: 1;">
-                <select id="shopVendorStatusFilter" class="form-control" style="width: 150px;">
-                  <option value="">Wszystkie</option>
+                <input type="text" id="shopVendorSearch" placeholder="Szukaj dostawcy..." class="form-control" style="flex: 1;" oninput="renderShopVendors()">
+                <select id="shopVendorStatusFilter" class="form-control" style="width: 150px;" onchange="renderShopVendors()">
+                  <option value="all">Wszystkie</option>
                   <option value="active">Aktywni</option>
                   <option value="inactive">Nieaktywni</option>
                 </select>
@@ -2602,15 +2602,15 @@
             </div>
             <div class="admin-card-body">
               <div style="display: flex; gap: 12px; margin-bottom: 16px;">
-                <input type="text" id="shopDiscountSearch" placeholder="Szukaj kodu..." class="form-control" style="flex: 1;">
-                <select id="shopDiscountTypeFilter" class="form-control" style="width: 150px;">
-                  <option value="">Wszystkie typy</option>
+                <input type="text" id="shopDiscountSearch" placeholder="Szukaj kodu..." class="form-control" style="flex: 1;" oninput="renderShopDiscounts()">
+                <select id="shopDiscountTypeFilter" class="form-control" style="width: 150px;" onchange="renderShopDiscounts()">
+                  <option value="all">Wszystkie typy</option>
                   <option value="percentage">Procentowe</option>
                   <option value="fixed">Kwotowe</option>
                   <option value="free_shipping">Darmowa wysyłka</option>
                 </select>
-                <select id="shopDiscountStatusFilter" class="form-control" style="width: 150px;">
-                  <option value="">Wszystkie</option>
+                <select id="shopDiscountStatusFilter" class="form-control" style="width: 150px;" onchange="renderShopDiscounts()">
+                  <option value="all">Wszystkie</option>
                   <option value="active">Aktywne</option>
                   <option value="expired">Wygasłe</option>
                   <option value="inactive">Nieaktywne</option>
