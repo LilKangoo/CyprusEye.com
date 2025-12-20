@@ -12232,6 +12232,45 @@ async function saveShopSettings() {
 // SHOP PRODUCT FORM
 // =====================================================
 
+// Language tab switchers for shop forms
+function switchProductLang(lang) {
+  document.getElementById('productLangPL').style.display = lang === 'pl' ? 'block' : 'none';
+  document.getElementById('productLangEN').style.display = lang === 'en' ? 'block' : 'none';
+  document.querySelectorAll('#shopProductModal .lang-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.lang === lang);
+  });
+}
+
+function switchCategoryLang(lang) {
+  document.getElementById('categoryLangPL').style.display = lang === 'pl' ? 'block' : 'none';
+  document.getElementById('categoryLangEN').style.display = lang === 'en' ? 'block' : 'none';
+  document.querySelectorAll('#shopCategoryModal .lang-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.lang === lang);
+  });
+}
+
+function switchVendorLang(lang) {
+  document.getElementById('vendorLangPL').style.display = lang === 'pl' ? 'block' : 'none';
+  document.getElementById('vendorLangEN').style.display = lang === 'en' ? 'block' : 'none';
+  document.querySelectorAll('#shopVendorModal .lang-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.lang === lang);
+  });
+}
+
+function switchDiscountLang(lang) {
+  document.getElementById('discountLangPL').style.display = lang === 'pl' ? 'block' : 'none';
+  document.getElementById('discountLangEN').style.display = lang === 'en' ? 'block' : 'none';
+  document.querySelectorAll('#shopDiscountModal .lang-tab').forEach(tab => {
+    tab.classList.toggle('active', tab.dataset.lang === lang);
+  });
+}
+
+// Export language switchers
+window.switchProductLang = switchProductLang;
+window.switchCategoryLang = switchCategoryLang;
+window.switchVendorLang = switchVendorLang;
+window.switchDiscountLang = switchDiscountLang;
+
 async function showProductForm(productId = null) {
   const modal = document.getElementById('shopProductModal');
   const title = document.getElementById('shopProductModalTitle');
@@ -12244,14 +12283,17 @@ async function showProductForm(productId = null) {
   document.getElementById('shopProductId').value = '';
   document.getElementById('shopProductFormError').hidden = true;
   
+  // Reset to Polish tab
+  switchProductLang('pl');
+  
   // Load categories and vendors for dropdowns
   await loadProductFormDropdowns();
   
   if (productId) {
-    title.textContent = 'Edit Product';
+    title.textContent = 'Edytuj produkt';
     await loadProductData(productId);
   } else {
-    title.textContent = 'New Product';
+    title.textContent = 'Nowy produkt';
   }
   
   modal.hidden = false;
@@ -12302,9 +12344,17 @@ async function loadProductData(productId) {
     if (!product) return;
 
     document.getElementById('shopProductId').value = product.id;
+    // Polish fields
     document.getElementById('shopProductName').value = product.name || '';
-    document.getElementById('shopProductSku').value = product.sku || '';
     document.getElementById('shopProductDescription').value = product.description || '';
+    document.getElementById('shopProductShortDesc').value = product.short_description || '';
+    // English fields
+    document.getElementById('shopProductNameEn').value = product.name_en || '';
+    document.getElementById('shopProductDescriptionEn').value = product.description_en || '';
+    document.getElementById('shopProductShortDescEn').value = product.short_description_en || '';
+    // Common fields
+    document.getElementById('shopProductSku').value = product.sku || '';
+    document.getElementById('shopProductSlug').value = product.slug || '';
     document.getElementById('shopProductPrice').value = product.price || '';
     document.getElementById('shopProductComparePrice').value = product.compare_at_price || '';
     document.getElementById('shopProductCost').value = product.cost_price || '';
@@ -12368,10 +12418,19 @@ async function saveProduct() {
   const tagsInput = document.getElementById('shopProductTags').value;
   const tags = tagsInput ? tagsInput.split(',').map(t => t.trim()).filter(Boolean) : [];
 
+  // Generate slug if not provided
+  const slugInput = document.getElementById('shopProductSlug').value.trim();
+  const slug = slugInput || name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+
   const productData = {
     name,
-    sku: document.getElementById('shopProductSku').value.trim() || null,
+    name_en: document.getElementById('shopProductNameEn').value.trim() || null,
+    slug,
     description: document.getElementById('shopProductDescription').value.trim() || null,
+    description_en: document.getElementById('shopProductDescriptionEn').value.trim() || null,
+    short_description: document.getElementById('shopProductShortDesc').value.trim() || null,
+    short_description_en: document.getElementById('shopProductShortDescEn').value.trim() || null,
+    sku: document.getElementById('shopProductSku').value.trim() || null,
     price,
     compare_at_price: parseFloat(document.getElementById('shopProductComparePrice').value) || null,
     cost_price: parseFloat(document.getElementById('shopProductCost').value) || null,
@@ -12430,11 +12489,14 @@ async function showCategoryForm(categoryId = null) {
   
   await loadCategoryParentDropdown(categoryId);
   
+  // Reset to Polish tab
+  switchCategoryLang('pl');
+  
   if (categoryId) {
-    title.textContent = 'Edit Category';
+    title.textContent = 'Edytuj kategorię';
     await loadCategoryData(categoryId);
   } else {
-    title.textContent = 'New Category';
+    title.textContent = 'Nowa kategoria';
   }
   
   modal.hidden = false;
@@ -12471,10 +12533,15 @@ async function loadCategoryData(categoryId) {
     if (!category) return;
 
     document.getElementById('shopCategoryId').value = category.id;
+    // Polish fields
     document.getElementById('shopCategoryName').value = category.name || '';
+    document.getElementById('shopCategoryDescription').value = category.description || '';
+    // English fields
+    document.getElementById('shopCategoryNameEn').value = category.name_en || '';
+    document.getElementById('shopCategoryDescriptionEn').value = category.description_en || '';
+    // Common fields
     document.getElementById('shopCategorySlug').value = category.slug || '';
     document.getElementById('shopCategoryParent').value = category.parent_id || '';
-    document.getElementById('shopCategoryDescription').value = category.description || '';
     document.getElementById('shopCategorySortOrder').value = category.sort_order || 0;
     document.getElementById('shopCategoryActive').checked = category.is_active !== false;
 
@@ -12523,9 +12590,11 @@ async function saveCategory() {
 
   const categoryData = {
     name,
+    name_en: document.getElementById('shopCategoryNameEn').value.trim() || null,
     slug,
-    parent_id: document.getElementById('shopCategoryParent').value || null,
     description: document.getElementById('shopCategoryDescription').value.trim() || null,
+    description_en: document.getElementById('shopCategoryDescriptionEn').value.trim() || null,
+    parent_id: document.getElementById('shopCategoryParent').value || null,
     sort_order: parseInt(document.getElementById('shopCategorySortOrder').value) || 0,
     is_active: document.getElementById('shopCategoryActive').checked
   };
@@ -12540,7 +12609,7 @@ async function saveCategory() {
 
     if (error) throw error;
 
-    showToast(categoryId ? 'Category updated' : 'Category created', 'success');
+    showToast(categoryId ? 'Kategoria zaktualizowana' : 'Kategoria utworzona', 'success');
     document.getElementById('shopCategoryModal').hidden = true;
     await loadShopCategories();
 
@@ -12566,11 +12635,14 @@ async function showVendorForm(vendorId = null) {
   document.getElementById('shopVendorId').value = '';
   document.getElementById('shopVendorFormError').hidden = true;
   
+  // Reset to Polish tab
+  switchVendorLang('pl');
+  
   if (vendorId) {
-    title.textContent = 'Edit Vendor';
+    title.textContent = 'Edytuj vendora';
     await loadVendorData(vendorId);
   } else {
-    title.textContent = 'New Vendor';
+    title.textContent = 'Nowy vendor';
   }
   
   modal.hidden = false;
@@ -12592,9 +12664,14 @@ async function loadVendorData(vendorId) {
     if (!vendor) return;
 
     document.getElementById('shopVendorId').value = vendor.id;
+    // Polish fields
     document.getElementById('shopVendorName').value = vendor.name || '';
-    document.getElementById('shopVendorSlug').value = vendor.slug || '';
     document.getElementById('shopVendorDescription').value = vendor.description || '';
+    // English fields
+    document.getElementById('shopVendorNameEn').value = vendor.name_en || '';
+    document.getElementById('shopVendorDescriptionEn').value = vendor.description_en || '';
+    // Common fields
+    document.getElementById('shopVendorSlug').value = vendor.slug || '';
     document.getElementById('shopVendorEmail').value = vendor.contact_email || '';
     document.getElementById('shopVendorCommission').value = vendor.commission_rate || 0;
     document.getElementById('shopVendorLogo').value = vendor.logo_url || '';
@@ -12645,8 +12722,10 @@ async function saveVendor() {
 
   const vendorData = {
     name,
+    name_en: document.getElementById('shopVendorNameEn').value.trim() || null,
     slug,
     description: document.getElementById('shopVendorDescription').value.trim() || null,
+    description_en: document.getElementById('shopVendorDescriptionEn').value.trim() || null,
     contact_email: document.getElementById('shopVendorEmail').value.trim() || null,
     commission_rate: parseFloat(document.getElementById('shopVendorCommission').value) || 0,
     logo_url: document.getElementById('shopVendorLogo').value.trim() || null,
@@ -12663,7 +12742,7 @@ async function saveVendor() {
 
     if (error) throw error;
 
-    showToast(vendorId ? 'Vendor updated' : 'Vendor created', 'success');
+    showToast(vendorId ? 'Vendor zaktualizowany' : 'Vendor utworzony', 'success');
     document.getElementById('shopVendorModal').hidden = true;
     await loadShopVendors();
 
@@ -12689,11 +12768,14 @@ async function showDiscountForm(discountId = null) {
   document.getElementById('shopDiscountId').value = '';
   document.getElementById('shopDiscountFormError').hidden = true;
   
+  // Reset to Polish tab
+  switchDiscountLang('pl');
+  
   if (discountId) {
-    title.textContent = 'Edit Discount';
+    title.textContent = 'Edytuj rabat';
     await loadDiscountData(discountId);
   } else {
-    title.textContent = 'New Discount';
+    title.textContent = 'Nowy rabat';
   }
   
   modal.hidden = false;
@@ -12716,7 +12798,10 @@ async function loadDiscountData(discountId) {
 
     document.getElementById('shopDiscountId').value = discount.id;
     document.getElementById('shopDiscountCode').value = discount.code || '';
+    // Polish fields
     document.getElementById('shopDiscountDescription').value = discount.description || '';
+    // English fields
+    document.getElementById('shopDiscountDescriptionEn').value = discount.description_en || '';
     document.getElementById('shopDiscountType').value = discount.discount_type || 'percentage';
     document.getElementById('shopDiscountValue').value = discount.discount_value || '';
     document.getElementById('shopDiscountMinOrder').value = discount.minimum_order_amount || '';
@@ -12778,6 +12863,7 @@ async function saveDiscount() {
   const discountData = {
     code,
     description: document.getElementById('shopDiscountDescription').value.trim() || null,
+    description_en: document.getElementById('shopDiscountDescriptionEn').value.trim() || null,
     discount_type: document.getElementById('shopDiscountType').value,
     discount_value: parseFloat(document.getElementById('shopDiscountValue').value) || 0,
     minimum_order_amount: parseFloat(document.getElementById('shopDiscountMinOrder').value) || null,

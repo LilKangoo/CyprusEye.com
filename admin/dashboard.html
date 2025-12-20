@@ -3461,21 +3461,56 @@
         <form id="shopProductForm" novalidate>
           <input type="hidden" id="shopProductId">
           
-          <div class="admin-form-grid">
+          <!-- Language Tabs -->
+          <div class="lang-tabs" style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--admin-border);">
+            <button type="button" class="lang-tab active" data-lang="pl" onclick="switchProductLang('pl')">🇵🇱 Polski</button>
+            <button type="button" class="lang-tab" data-lang="en" onclick="switchProductLang('en')">🇬🇧 English</button>
+          </div>
+
+          <!-- Polish Content -->
+          <div id="productLangPL" class="lang-content">
             <label class="admin-form-field">
-              <span>Product Name *</span>
-              <input type="text" id="shopProductName" required placeholder="e.g. Cyprus Olive Oil">
+              <span>Nazwa produktu (PL) *</span>
+              <input type="text" id="shopProductName" required placeholder="np. Oliwa z oliwek cypryjska">
             </label>
+            <label class="admin-form-field">
+              <span>Opis (PL)</span>
+              <textarea id="shopProductDescription" rows="3" placeholder="Opis produktu po polsku..."></textarea>
+            </label>
+            <label class="admin-form-field">
+              <span>Krótki opis (PL)</span>
+              <input type="text" id="shopProductShortDesc" placeholder="Krótki opis dla listy produktów">
+            </label>
+          </div>
+
+          <!-- English Content -->
+          <div id="productLangEN" class="lang-content" style="display: none;">
+            <label class="admin-form-field">
+              <span>Product Name (EN) *</span>
+              <input type="text" id="shopProductNameEn" placeholder="e.g. Cyprus Olive Oil">
+            </label>
+            <label class="admin-form-field">
+              <span>Description (EN)</span>
+              <textarea id="shopProductDescriptionEn" rows="3" placeholder="Product description in English..."></textarea>
+            </label>
+            <label class="admin-form-field">
+              <span>Short Description (EN)</span>
+              <input type="text" id="shopProductShortDescEn" placeholder="Short description for product list">
+            </label>
+          </div>
+
+          <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--admin-border);">
+
+          <div class="admin-form-grid">
             <label class="admin-form-field">
               <span>SKU</span>
               <input type="text" id="shopProductSku" placeholder="OLIVE-001">
             </label>
+            <label class="admin-form-field">
+              <span>Slug (URL)</span>
+              <input type="text" id="shopProductSlug" placeholder="cyprus-olive-oil">
+            </label>
           </div>
-
-          <label class="admin-form-field">
-            <span>Description</span>
-            <textarea id="shopProductDescription" rows="3" placeholder="Product description..."></textarea>
-          </label>
 
           <div class="admin-form-grid">
             <label class="admin-form-field">
@@ -3609,44 +3644,66 @@
         <form id="shopCategoryForm" novalidate>
           <input type="hidden" id="shopCategoryId">
           
-          <label class="admin-form-field">
-            <span>Category Name *</span>
-            <input type="text" id="shopCategoryName" required placeholder="e.g. Local Products">
-          </label>
+          <!-- Language Tabs -->
+          <div class="lang-tabs" style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--admin-border);">
+            <button type="button" class="lang-tab active" data-lang="pl" onclick="switchCategoryLang('pl')">🇵🇱 Polski</button>
+            <button type="button" class="lang-tab" data-lang="en" onclick="switchCategoryLang('en')">🇬🇧 English</button>
+          </div>
+
+          <!-- Polish Content -->
+          <div id="categoryLangPL" class="lang-content">
+            <label class="admin-form-field">
+              <span>Nazwa kategorii (PL) *</span>
+              <input type="text" id="shopCategoryName" required placeholder="np. Lokalne produkty">
+            </label>
+            <label class="admin-form-field">
+              <span>Opis (PL)</span>
+              <textarea id="shopCategoryDescription" rows="2" placeholder="Opis kategorii po polsku"></textarea>
+            </label>
+          </div>
+
+          <!-- English Content -->
+          <div id="categoryLangEN" class="lang-content" style="display: none;">
+            <label class="admin-form-field">
+              <span>Category Name (EN)</span>
+              <input type="text" id="shopCategoryNameEn" placeholder="e.g. Local Products">
+            </label>
+            <label class="admin-form-field">
+              <span>Description (EN)</span>
+              <textarea id="shopCategoryDescriptionEn" rows="2" placeholder="Category description in English"></textarea>
+            </label>
+          </div>
+
+          <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--admin-border);">
 
           <label class="admin-form-field">
-            <span>Slug</span>
+            <span>Slug (URL)</span>
             <input type="text" id="shopCategorySlug" placeholder="local-products">
-            <small style="color: var(--admin-text-muted);">Leave empty to auto-generate</small>
+            <small style="color: var(--admin-text-muted);">Zostaw puste, aby wygenerować automatycznie</small>
           </label>
 
           <label class="admin-form-field">
-            <span>Parent Category</span>
+            <span>Kategoria nadrzędna</span>
             <select id="shopCategoryParent">
-              <option value="">None (Top Level)</option>
+              <option value="">Brak (główna)</option>
             </select>
           </label>
 
           <label class="admin-form-field">
-            <span>Description</span>
-            <textarea id="shopCategoryDescription" rows="2"></textarea>
-          </label>
-
-          <label class="admin-form-field">
-            <span>Sort Order</span>
+            <span>Kolejność sortowania</span>
             <input type="number" id="shopCategorySortOrder" min="0" value="0">
           </label>
 
           <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
             <input type="checkbox" id="shopCategoryActive" checked>
-            <span>Active</span>
+            <span>Aktywna</span>
           </label>
 
           <div id="shopCategoryFormError" class="admin-error-message" hidden></div>
 
           <div class="poi-form-actions" style="margin-top: 20px;">
-            <button type="button" class="btn-secondary" id="shopCategoryFormCancel">Cancel</button>
-            <button type="submit" class="btn-primary">Save Category</button>
+            <button type="button" class="btn-secondary" id="shopCategoryFormCancel">Anuluj</button>
+            <button type="submit" class="btn-primary">Zapisz kategorię</button>
           </div>
         </form>
       </div>
@@ -3669,20 +3726,41 @@
         <form id="shopVendorForm" novalidate>
           <input type="hidden" id="shopVendorId">
           
-          <div class="admin-form-grid">
+          <!-- Language Tabs -->
+          <div class="lang-tabs" style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid var(--admin-border);">
+            <button type="button" class="lang-tab active" data-lang="pl" onclick="switchVendorLang('pl')">🇵🇱 Polski</button>
+            <button type="button" class="lang-tab" data-lang="en" onclick="switchVendorLang('en')">🇬🇧 English</button>
+          </div>
+
+          <!-- Polish Content -->
+          <div id="vendorLangPL" class="lang-content">
             <label class="admin-form-field">
-              <span>Vendor Name *</span>
-              <input type="text" id="shopVendorName" required placeholder="e.g. Cyprus Delights">
+              <span>Nazwa vendora (PL) *</span>
+              <input type="text" id="shopVendorName" required placeholder="np. Cypryjskie Smaki">
             </label>
             <label class="admin-form-field">
-              <span>Slug</span>
-              <input type="text" id="shopVendorSlug" placeholder="cyprus-delights">
+              <span>Opis (PL)</span>
+              <textarea id="shopVendorDescription" rows="2" placeholder="Opis vendora po polsku"></textarea>
             </label>
           </div>
 
+          <!-- English Content -->
+          <div id="vendorLangEN" class="lang-content" style="display: none;">
+            <label class="admin-form-field">
+              <span>Vendor Name (EN)</span>
+              <input type="text" id="shopVendorNameEn" placeholder="e.g. Cyprus Delights">
+            </label>
+            <label class="admin-form-field">
+              <span>Description (EN)</span>
+              <textarea id="shopVendorDescriptionEn" rows="2" placeholder="Vendor description in English"></textarea>
+            </label>
+          </div>
+
+          <hr style="margin: 16px 0; border: none; border-top: 1px solid var(--admin-border);">
+
           <label class="admin-form-field">
-            <span>Description</span>
-            <textarea id="shopVendorDescription" rows="2"></textarea>
+            <span>Slug (URL)</span>
+            <input type="text" id="shopVendorSlug" placeholder="cyprus-delights">
           </label>
 
           <div class="admin-form-grid">
@@ -3733,14 +3811,30 @@
         <form id="shopDiscountForm" novalidate>
           <input type="hidden" id="shopDiscountId">
           
-          <div class="admin-form-grid">
+          <label class="admin-form-field">
+            <span>Kod rabatowy *</span>
+            <input type="text" id="shopDiscountCode" required placeholder="SUMMER20" style="text-transform: uppercase;">
+          </label>
+
+          <!-- Language Tabs -->
+          <div class="lang-tabs" style="display: flex; gap: 8px; margin: 16px 0 12px; border-bottom: 1px solid var(--admin-border);">
+            <button type="button" class="lang-tab active" data-lang="pl" onclick="switchDiscountLang('pl')">🇵🇱 Polski</button>
+            <button type="button" class="lang-tab" data-lang="en" onclick="switchDiscountLang('en')">🇬🇧 English</button>
+          </div>
+
+          <!-- Polish Content -->
+          <div id="discountLangPL" class="lang-content">
             <label class="admin-form-field">
-              <span>Discount Code *</span>
-              <input type="text" id="shopDiscountCode" required placeholder="SUMMER20" style="text-transform: uppercase;">
+              <span>Opis (PL)</span>
+              <input type="text" id="shopDiscountDescription" placeholder="Letnia wyprzedaż 20% taniej">
             </label>
+          </div>
+
+          <!-- English Content -->
+          <div id="discountLangEN" class="lang-content" style="display: none;">
             <label class="admin-form-field">
-              <span>Description</span>
-              <input type="text" id="shopDiscountDescription" placeholder="Summer sale 20% off">
+              <span>Description (EN)</span>
+              <input type="text" id="shopDiscountDescriptionEn" placeholder="Summer sale 20% off">
             </label>
           </div>
 

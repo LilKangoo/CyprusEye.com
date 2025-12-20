@@ -18,22 +18,52 @@ const shopState = {
     page: 1,
     perPage: 12,
     total: 0
-  }
+  },
+  lang: 'pl' // Current language
 };
 
 // Supabase client
 let supabase = null;
 
+// Get current language from localStorage or default to 'pl'
+function getCurrentLang() {
+  try {
+    return localStorage.getItem('selectedLanguage') || 'pl';
+  } catch (e) {
+    return 'pl';
+  }
+}
+
+// Get localized field value - returns name_en for 'en', name for 'pl'
+function getLocalizedField(item, fieldName) {
+  const lang = shopState.lang;
+  if (lang === 'en') {
+    const enField = item[`${fieldName}_en`];
+    return enField || item[fieldName] || '';
+  }
+  return item[fieldName] || '';
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
+  // Set current language
+  shopState.lang = getCurrentLang();
+  
   await initSupabase();
   loadCartFromStorage();
   await loadCategories();
   await loadProducts();
   setupEventListeners();
   updateCartUI();
+  
+  // Listen for language changes
+  window.addEventListener('languageChanged', () => {
+    shopState.lang = getCurrentLang();
+    renderCategoryFilters();
+    renderProducts();
+  });
 }
 
 async function initSupabase() {
@@ -72,7 +102,7 @@ async function loadCategories() {
   try {
     const { data: categories, error } = await supabase
       .from('shop_categories')
-      .select('id, name, slug')
+      .select('id, name, name_en, slug')
       .eq('is_active', true)
       .order('sort_order');
 
@@ -98,7 +128,7 @@ function renderCategoryFilters() {
     ${shopState.categories.map(cat => `
       <label class="filter-item">
         <input type="radio" name="category" value="${cat.id}" ${shopState.filters.category === cat.id ? 'checked' : ''}>
-        <span>${escapeHtml(cat.name)}</span>
+        <span>${escapeHtml(getLocalizedField(cat, 'name'))}</span>
       </label>
     `).join('')}
   `;
@@ -124,7 +154,7 @@ async function loadProducts() {
   try {
     let query = supabase
       .from('shop_products')
-      .select('*, category:shop_categories(name, slug)', { count: 'exact' })
+      .select('*, category:shop_categories(name, name_en, slug)', { count: 'exact' })
       .eq('status', 'active');
 
     // Apply filters
@@ -214,15 +244,21 @@ function renderProducts() {
     return;
   }
 
+  const addToCartText = shopState.lang === 'en' ? 'Add to cart' : 'Dodaj do koszyka';
+  const outOfStockText = shopState.lang === 'en' ? 'Out of stock' : 'Brak w magazynie';
+  const featuredText = shopState.lang === 'en' ? 'Featured' : 'Polecane';
+
   grid.innerHTML = shopState.products.map(product => {
     const hasDiscount = product.compare_at_price && product.compare_at_price > product.price;
     const isInStock = !product.track_inventory || product.stock_quantity > 0;
+    const productName = getLocalizedField(product, 'name');
+    const categoryName = product.category ? getLocalizedField(product.category, 'name') : '';
 
     return `
       <article class="product-card" data-product-id="${product.id}">
         <div class="product-card-image">
           ${product.thumbnail_url 
-            ? `<img src="${product.thumbnail_url}" alt="${escapeHtml(product.name)}" loading="lazy">`
+            ? `<img src="${product.thumbnail_url}" alt="${escapeHtml(productName)}" loading="lazy">`
             : `<div class="product-card-placeholder">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
@@ -231,12 +267,12 @@ function renderProducts() {
                 </svg>
               </div>`
           }
-          ${product.is_featured ? '<span class="product-card-badge">Featured</span>' : ''}
+          ${product.is_featured ? `<span class="product-card-badge">${featuredText}</span>` : ''}
           ${hasDiscount ? '<span class="product-card-badge sale">Sale</span>' : ''}
         </div>
         <div class="product-card-content">
-          ${product.category ? `<p class="product-card-category">${escapeHtml(product.category.name)}</p>` : ''}
-          <h3 class="product-card-name">${escapeHtml(product.name)}</h3>
+          ${categoryName ? `<p class="product-card-category">${escapeHtml(categoryName)}</p>` : ''}
+          <h3 class="product-card-name">${escapeHtml(productName)}</h3>
           <div class="product-card-price">
             <span class="current">€${parseFloat(product.price).toFixed(2)}</span>
             ${hasDiscount ? `<span class="original">€${parseFloat(product.compare_at_price).toFixed(2)}</span>` : ''}
@@ -246,7 +282,7 @@ function renderProducts() {
               <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
               <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
             </svg>
-            <span>${isInStock ? 'Dodaj do koszyka' : 'Brak w magazynie'}</span>
+            <span>${isInStock ? addToCartText : outOfStockText}</span>
           </button>
         </div>
       </article>
@@ -320,7 +356,8 @@ async function openProductModal(productId) {
   const product = shopState.products.find(p => p.id === productId);
 
   if (!product) {
-    content.innerHTML = '<p style="text-align: center; padding: 40px;">Produkt nie został znaleziony</p>';
+    const notFoundText = shopState.lang === 'en' ? 'Product not found' : 'Produkt nie został znaleziony';
+    content.innerHTML = `<p style="text-align: center; padding: 40px;">${notFoundText}</p>`;
     return;
   }
 
@@ -328,11 +365,20 @@ async function openProductModal(productId) {
   const isInStock = !product.track_inventory || product.stock_quantity > 0;
   const maxQty = product.track_inventory ? product.stock_quantity : 99;
 
+  // Localized content
+  const productName = getLocalizedField(product, 'name');
+  const productDesc = getLocalizedField(product, 'description');
+  const categoryName = product.category ? getLocalizedField(product.category, 'name') : '';
+  const inStockText = shopState.lang === 'en' ? '✓ In stock' : '✓ W magazynie';
+  const outOfStockText = shopState.lang === 'en' ? '✗ Out of stock' : '✗ Brak w magazynie';
+  const qtyLabel = shopState.lang === 'en' ? 'Quantity:' : 'Ilość:';
+  const addToCartText = shopState.lang === 'en' ? 'Add to cart' : 'Dodaj do koszyka';
+
   content.innerHTML = `
     <div class="product-detail">
       <div class="product-detail-image">
         ${product.thumbnail_url 
-          ? `<img src="${product.thumbnail_url}" alt="${escapeHtml(product.name)}">`
+          ? `<img src="${product.thumbnail_url}" alt="${escapeHtml(productName)}">`
           : `<div class="product-card-placeholder" style="height: 100%; display: flex; align-items: center; justify-content: center;">
               <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
@@ -343,18 +389,18 @@ async function openProductModal(productId) {
         }
       </div>
       <div class="product-detail-info">
-        ${product.category ? `<p class="product-detail-category">${escapeHtml(product.category.name)}</p>` : ''}
-        <h2 class="product-detail-name">${escapeHtml(product.name)}</h2>
+        ${categoryName ? `<p class="product-detail-category">${escapeHtml(categoryName)}</p>` : ''}
+        <h2 class="product-detail-name">${escapeHtml(productName)}</h2>
         <div class="product-detail-price">
           <span class="current">€${parseFloat(product.price).toFixed(2)}</span>
           ${hasDiscount ? `<span class="original">€${parseFloat(product.compare_at_price).toFixed(2)}</span>` : ''}
         </div>
-        ${product.description ? `<p class="product-detail-description">${escapeHtml(product.description)}</p>` : ''}
+        ${productDesc ? `<p class="product-detail-description">${escapeHtml(productDesc)}</p>` : ''}
         <p class="product-detail-stock ${isInStock ? 'in-stock' : 'out-of-stock'}">
-          ${isInStock ? '✓ W magazynie' : '✗ Brak w magazynie'}
+          ${isInStock ? inStockText : outOfStockText}
         </p>
         <div class="product-detail-quantity">
-          <label>Ilość:</label>
+          <label>${qtyLabel}</label>
           <div class="quantity-selector">
             <button type="button" id="btnQtyMinus">−</button>
             <input type="number" id="productQty" value="1" min="1" max="${maxQty}">
@@ -366,7 +412,7 @@ async function openProductModal(productId) {
             <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
             <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
           </svg>
-          <span>${isInStock ? 'Dodaj do koszyka' : 'Brak w magazynie'}</span>
+          <span>${isInStock ? addToCartText : outOfStockText}</span>
         </button>
       </div>
     </div>
