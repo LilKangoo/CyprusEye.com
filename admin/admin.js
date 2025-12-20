@@ -11977,21 +11977,32 @@ async function loadShopCategories() {
     shopState.categories = categories || [];
 
     if (!categories?.length) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--admin-text-muted);">No categories yet</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--admin-text-muted);">Brak kategorii</td></tr>';
       return;
     }
 
     tbody.innerHTML = categories.map(cat => `
       <tr>
-        <td><strong>${escapeHtml(cat.name)}</strong></td>
-        <td>${escapeHtml(cat.slug)}</td>
-        <td>${cat.parent?.name || '-'}</td>
-        <td>-</td>
-        <td>${cat.is_active ? '✅' : '❌'}</td>
+        <td>
+          ${cat.image_url 
+            ? `<img src="${cat.image_url}" alt="" style="width: 40px; height: 40px; object-fit: cover; border-radius: 6px;">` 
+            : `<div style="width: 40px; height: 40px; background: var(--admin-bg-tertiary); border-radius: 6px; display: flex; align-items: center; justify-content: center;">📁</div>`}
+        </td>
+        <td>
+          <strong>${escapeHtml(cat.name)}</strong>
+          ${cat.name_en ? `<br><small style="color: var(--admin-text-muted);">${escapeHtml(cat.name_en)}</small>` : ''}
+        </td>
+        <td><code style="font-size: 11px; background: var(--admin-bg-tertiary); padding: 2px 6px; border-radius: 4px;">${escapeHtml(cat.slug)}</code></td>
+        <td>${cat.parent?.name ? `<span style="color: var(--admin-text-muted);">↳</span> ${escapeHtml(cat.parent.name)}` : '<span style="color: var(--admin-text-muted);">—</span>'}</td>
+        <td style="text-align: center;">${cat.product_count || 0}</td>
+        <td style="text-align: center;">${cat.sort_order || 0}</td>
+        <td>
+          <span class="badge" style="background: ${cat.is_active ? '#22c55e' : '#6b7280'}; font-size: 11px;">${cat.is_active ? 'Aktywna' : 'Ukryta'}</span>
+        </td>
         <td>
           <div style="display: flex; gap: 4px;">
-            <button class="btn-small btn-secondary" onclick="editShopCategory('${cat.id}')">Edit</button>
-            <button class="btn-small" style="background: #ef4444; color: white;" onclick="deleteShopCategory('${cat.id}', '${escapeHtml(cat.name).replace(/'/g, "\\'")}')">🗑️</button>
+            <button class="btn-icon" onclick="editShopCategory('${cat.id}')" title="Edytuj">✏️</button>
+            <button class="btn-icon" onclick="deleteShopCategory('${cat.id}', '${escapeHtml(cat.name).replace(/'/g, "\\'")}')">🗑️</button>
           </div>
         </td>
       </tr>
@@ -11999,7 +12010,7 @@ async function loadShopCategories() {
 
   } catch (error) {
     console.error('Failed to load categories:', error);
-    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #ef4444;">Error: ${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #ef4444;">Błąd: ${error.message}</td></tr>`;
   }
 }
 
@@ -12009,7 +12020,7 @@ async function loadShopVendors() {
 
   const tbody = document.getElementById('shopVendorsTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Loading...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">Ładowanie...</td></tr>';
 
   try {
     const { data: vendors, error } = await client
@@ -12022,22 +12033,33 @@ async function loadShopVendors() {
     shopState.vendors = vendors || [];
 
     if (!vendors?.length) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--admin-text-muted);">No vendors yet</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--admin-text-muted);">Brak dostawców</td></tr>';
       return;
     }
 
     tbody.innerHTML = vendors.map(vendor => `
       <tr>
-        <td><strong>${escapeHtml(vendor.name)}</strong></td>
-        <td>${vendor.total_products || 0}</td>
-        <td>${vendor.total_sales || 0}</td>
-        <td>€${parseFloat(vendor.total_revenue || 0).toFixed(2)}</td>
-        <td>${vendor.commission_rate || 0}%</td>
-        <td>${vendor.is_active ? '✅' : '❌'}</td>
+        <td>
+          ${vendor.logo_url 
+            ? `<img src="${vendor.logo_url}" alt="" style="width: 40px; height: 40px; object-fit: contain; border-radius: 6px; background: white;">` 
+            : `<div style="width: 40px; height: 40px; background: var(--admin-bg-tertiary); border-radius: 6px; display: flex; align-items: center; justify-content: center;">🏪</div>`}
+        </td>
+        <td>
+          <strong>${escapeHtml(vendor.name)}</strong>
+          ${vendor.name_en ? `<br><small style="color: var(--admin-text-muted);">${escapeHtml(vendor.name_en)}</small>` : ''}
+        </td>
+        <td>${vendor.email ? `<a href="mailto:${vendor.email}" style="color: var(--admin-primary);">${escapeHtml(vendor.email)}</a>` : '<span style="color: var(--admin-text-muted);">—</span>'}</td>
+        <td style="text-align: center;">${vendor.total_products || 0}</td>
+        <td style="text-align: center;">${vendor.total_sales || 0}</td>
+        <td style="text-align: right;"><strong>€${parseFloat(vendor.total_revenue || 0).toFixed(2)}</strong></td>
+        <td style="text-align: center;">${vendor.commission_rate || 0}%</td>
+        <td>
+          <span class="badge" style="background: ${vendor.is_active ? '#22c55e' : '#6b7280'}; font-size: 11px;">${vendor.is_active ? 'Aktywny' : 'Nieaktywny'}</span>
+        </td>
         <td>
           <div style="display: flex; gap: 4px;">
-            <button class="btn-small btn-secondary" onclick="editShopVendor('${vendor.id}')">Edit</button>
-            <button class="btn-small" style="background: #ef4444; color: white;" onclick="deleteShopVendor('${vendor.id}', '${escapeHtml(vendor.name).replace(/'/g, "\\'")}')">🗑️</button>
+            <button class="btn-icon" onclick="editShopVendor('${vendor.id}')" title="Edytuj">✏️</button>
+            <button class="btn-icon" onclick="deleteShopVendor('${vendor.id}', '${escapeHtml(vendor.name).replace(/'/g, "\\'")}')">🗑️</button>
           </div>
         </td>
       </tr>
@@ -12045,7 +12067,7 @@ async function loadShopVendors() {
 
   } catch (error) {
     console.error('Failed to load vendors:', error);
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #ef4444;">Error: ${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #ef4444;">Błąd: ${error.message}</td></tr>`;
   }
 }
 
@@ -12055,7 +12077,7 @@ async function loadShopDiscounts() {
 
   const tbody = document.getElementById('shopDiscountsTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="7" style="text-align: center;">Loading...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">Ładowanie...</td></tr>';
 
   try {
     const { data: discounts, error } = await client
@@ -12068,27 +12090,66 @@ async function loadShopDiscounts() {
     shopState.discounts = discounts || [];
 
     if (!discounts?.length) {
-      tbody.innerHTML = '<tr><td colspan="7" style="text-align: center; color: var(--admin-text-muted);">No discounts yet</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--admin-text-muted);">Brak kodów rabatowych</td></tr>';
       return;
     }
 
+    const now = new Date();
     tbody.innerHTML = discounts.map(discount => {
-      const valueDisplay = discount.discount_type === 'percentage' 
-        ? `${discount.discount_value}%` 
-        : `€${parseFloat(discount.discount_value).toFixed(2)}`;
+      const isExpired = discount.expires_at && new Date(discount.expires_at) < now;
+      const isLimitReached = discount.usage_limit && discount.usage_count >= discount.usage_limit;
+      
+      let valueDisplay, typeLabel;
+      switch(discount.discount_type) {
+        case 'percentage':
+          valueDisplay = `<strong style="color: #22c55e;">${discount.discount_value}%</strong>`;
+          typeLabel = 'Procentowy';
+          break;
+        case 'fixed':
+          valueDisplay = `<strong style="color: #22c55e;">€${parseFloat(discount.discount_value).toFixed(2)}</strong>`;
+          typeLabel = 'Kwotowy';
+          break;
+        case 'free_shipping':
+          valueDisplay = '<span style="color: #3b82f6;">🚚 Gratis</span>';
+          typeLabel = 'Darmowa wysyłka';
+          break;
+        default:
+          valueDisplay = discount.discount_value;
+          typeLabel = discount.discount_type;
+      }
+      
+      let statusBadge;
+      if (!discount.is_active) {
+        statusBadge = '<span class="badge" style="background: #6b7280; font-size: 11px;">Nieaktywny</span>';
+      } else if (isExpired) {
+        statusBadge = '<span class="badge" style="background: #ef4444; font-size: 11px;">Wygasł</span>';
+      } else if (isLimitReached) {
+        statusBadge = '<span class="badge" style="background: #f59e0b; font-size: 11px;">Limit</span>';
+      } else {
+        statusBadge = '<span class="badge" style="background: #22c55e; font-size: 11px;">Aktywny</span>';
+      }
+      
+      const validityDisplay = discount.starts_at || discount.expires_at
+        ? `${discount.starts_at ? new Date(discount.starts_at).toLocaleDateString('pl') : '—'} → ${discount.expires_at ? new Date(discount.expires_at).toLocaleDateString('pl') : '∞'}`
+        : '<span style="color: var(--admin-text-muted);">Bezterminowy</span>';
       
       return `
-        <tr>
-          <td><strong>${escapeHtml(discount.code)}</strong></td>
-          <td>${discount.discount_type}</td>
-          <td>${valueDisplay}</td>
-          <td>${discount.usage_count || 0}${discount.usage_limit ? `/${discount.usage_limit}` : ''}</td>
-          <td>${discount.expires_at ? new Date(discount.expires_at).toLocaleDateString() : 'Never'}</td>
-          <td>${discount.is_active ? '✅' : '❌'}</td>
+        <tr style="${isExpired || isLimitReached ? 'opacity: 0.6;' : ''}">
+          <td><code style="font-size: 12px; background: var(--admin-bg-tertiary); padding: 3px 8px; border-radius: 4px; font-weight: bold;">${escapeHtml(discount.code)}</code></td>
+          <td>
+            ${discount.name ? `<strong>${escapeHtml(discount.name)}</strong>` : '<span style="color: var(--admin-text-muted);">—</span>'}
+            ${discount.name_en ? `<br><small style="color: var(--admin-text-muted);">${escapeHtml(discount.name_en)}</small>` : ''}
+          </td>
+          <td>${typeLabel}</td>
+          <td style="text-align: center;">${valueDisplay}</td>
+          <td style="text-align: center;">${discount.usage_count || 0}${discount.usage_limit ? `<span style="color: var(--admin-text-muted);">/${discount.usage_limit}</span>` : ''}</td>
+          <td style="text-align: right;">${discount.min_order_amount ? `€${parseFloat(discount.min_order_amount).toFixed(2)}` : '<span style="color: var(--admin-text-muted);">—</span>'}</td>
+          <td style="font-size: 11px;">${validityDisplay}</td>
+          <td>${statusBadge}</td>
           <td>
             <div style="display: flex; gap: 4px;">
-              <button class="btn-small btn-secondary" onclick="editShopDiscount('${discount.id}')">Edit</button>
-              <button class="btn-small" style="background: #ef4444; color: white;" onclick="deleteShopDiscount('${discount.id}', '${escapeHtml(discount.code).replace(/'/g, "\\'")}')">🗑️</button>
+              <button class="btn-icon" onclick="editShopDiscount('${discount.id}')" title="Edytuj">✏️</button>
+              <button class="btn-icon" onclick="deleteShopDiscount('${discount.id}', '${escapeHtml(discount.code).replace(/'/g, "\\'")}')">🗑️</button>
             </div>
           </td>
         </tr>
@@ -12097,7 +12158,7 @@ async function loadShopDiscounts() {
 
   } catch (error) {
     console.error('Failed to load discounts:', error);
-    tbody.innerHTML = `<tr><td colspan="7" style="text-align: center; color: #ef4444;">Error: ${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #ef4444;">Błąd: ${error.message}</td></tr>`;
   }
 }
 

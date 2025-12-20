@@ -2504,24 +2504,42 @@
         <div class="admin-tab-content" id="shopTabCategories" hidden>
           <div class="admin-card" style="margin-top: 16px;">
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-              <h3>Categories</h3>
-              <button class="btn-primary" id="btnAddShopCategory">+ Add Category</button>
+              <div>
+                <h3>📁 Kategorie produktów</h3>
+                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Organizuj produkty w kategoriach i podkategoriach</p>
+              </div>
+              <button class="btn-primary" id="btnAddShopCategory">➕ Nowa kategoria</button>
             </div>
             <div class="admin-card-body">
+              <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                <input type="text" id="shopCategorySearch" placeholder="Szukaj kategorii..." class="form-control" style="flex: 1;">
+                <select id="shopCategoryStatusFilter" class="form-control" style="width: 150px;">
+                  <option value="">Wszystkie</option>
+                  <option value="active">Aktywne</option>
+                  <option value="inactive">Nieaktywne</option>
+                </select>
+                <select id="shopCategoryParentFilter" class="form-control" style="width: 180px;">
+                  <option value="">Wszystkie poziomy</option>
+                  <option value="root">Tylko główne</option>
+                  <option value="child">Tylko podkategorie</option>
+                </select>
+              </div>
               <div class="admin-table-container">
                 <table class="admin-table" id="shopCategoriesTable">
                   <thead>
                     <tr>
-                      <th>Name</th>
+                      <th style="width: 50px;">Obraz</th>
+                      <th>Nazwa</th>
                       <th>Slug</th>
-                      <th>Parent</th>
-                      <th>Products</th>
-                      <th>Active</th>
-                      <th>Actions</th>
+                      <th>Kategoria nadrzędna</th>
+                      <th style="width: 80px;">Produkty</th>
+                      <th style="width: 80px;">Kolejność</th>
+                      <th style="width: 80px;">Status</th>
+                      <th style="width: 100px;">Akcje</th>
                     </tr>
                   </thead>
                   <tbody id="shopCategoriesTableBody">
-                    <tr><td colspan="6" style="text-align: center; padding: 24px;">Loading categories...</td></tr>
+                    <tr><td colspan="8" style="text-align: center; padding: 24px;">Ładowanie kategorii...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -2533,28 +2551,38 @@
         <div class="admin-tab-content" id="shopTabVendors" hidden>
           <div class="admin-card" style="margin-top: 16px;">
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-              <h3>Vendors / Brands</h3>
-              <button class="btn-primary" id="btnAddShopVendor">+ Add Vendor</button>
+              <div>
+                <h3>🏪 Dostawcy / Marki</h3>
+                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Zarządzaj dostawcami i markami produktów. Wypłaty obsługujesz ręcznie.</p>
+              </div>
+              <button class="btn-primary" id="btnAddShopVendor">➕ Nowy dostawca</button>
             </div>
             <div class="admin-card-body">
-              <p style="color: var(--admin-text-muted); margin-bottom: 16px;">
-                Manage vendors whose products you sell. You handle all payouts manually.
-              </p>
+              <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                <input type="text" id="shopVendorSearch" placeholder="Szukaj dostawcy..." class="form-control" style="flex: 1;">
+                <select id="shopVendorStatusFilter" class="form-control" style="width: 150px;">
+                  <option value="">Wszystkie</option>
+                  <option value="active">Aktywni</option>
+                  <option value="inactive">Nieaktywni</option>
+                </select>
+              </div>
               <div class="admin-table-container">
                 <table class="admin-table" id="shopVendorsTable">
                   <thead>
                     <tr>
-                      <th>Name</th>
-                      <th>Products</th>
-                      <th>Total Sales</th>
-                      <th>Revenue</th>
-                      <th>Commission</th>
-                      <th>Active</th>
-                      <th>Actions</th>
+                      <th style="width: 50px;">Logo</th>
+                      <th>Nazwa</th>
+                      <th>Email</th>
+                      <th style="width: 80px;">Produkty</th>
+                      <th style="width: 100px;">Sprzedaż</th>
+                      <th style="width: 100px;">Przychód</th>
+                      <th style="width: 90px;">Prowizja</th>
+                      <th style="width: 80px;">Status</th>
+                      <th style="width: 100px;">Akcje</th>
                     </tr>
                   </thead>
                   <tbody id="shopVendorsTableBody">
-                    <tr><td colspan="7" style="text-align: center; padding: 24px;">Loading vendors...</td></tr>
+                    <tr><td colspan="9" style="text-align: center; padding: 24px;">Ładowanie dostawców...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -2566,25 +2594,45 @@
         <div class="admin-tab-content" id="shopTabDiscounts" hidden>
           <div class="admin-card" style="margin-top: 16px;">
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-              <h3>Discount Codes</h3>
-              <button class="btn-primary" id="btnAddShopDiscount">+ Add Discount</button>
+              <div>
+                <h3>🎟️ Kody rabatowe</h3>
+                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Twórz kody promocyjne dla klientów. Rabaty procentowe lub kwotowe.</p>
+              </div>
+              <button class="btn-primary" id="btnAddShopDiscount">➕ Nowy kod</button>
             </div>
             <div class="admin-card-body">
+              <div style="display: flex; gap: 12px; margin-bottom: 16px;">
+                <input type="text" id="shopDiscountSearch" placeholder="Szukaj kodu..." class="form-control" style="flex: 1;">
+                <select id="shopDiscountTypeFilter" class="form-control" style="width: 150px;">
+                  <option value="">Wszystkie typy</option>
+                  <option value="percentage">Procentowe</option>
+                  <option value="fixed">Kwotowe</option>
+                  <option value="free_shipping">Darmowa wysyłka</option>
+                </select>
+                <select id="shopDiscountStatusFilter" class="form-control" style="width: 150px;">
+                  <option value="">Wszystkie</option>
+                  <option value="active">Aktywne</option>
+                  <option value="expired">Wygasłe</option>
+                  <option value="inactive">Nieaktywne</option>
+                </select>
+              </div>
               <div class="admin-table-container">
                 <table class="admin-table" id="shopDiscountsTable">
                   <thead>
                     <tr>
-                      <th>Code</th>
-                      <th>Type</th>
-                      <th>Value</th>
-                      <th>Usage</th>
-                      <th>Expires</th>
-                      <th>Active</th>
-                      <th>Actions</th>
+                      <th>Kod</th>
+                      <th>Nazwa</th>
+                      <th>Typ</th>
+                      <th style="width: 100px;">Wartość</th>
+                      <th style="width: 100px;">Użycia</th>
+                      <th style="width: 100px;">Min. kwota</th>
+                      <th style="width: 120px;">Ważność</th>
+                      <th style="width: 80px;">Status</th>
+                      <th style="width: 100px;">Akcje</th>
                     </tr>
                   </thead>
                   <tbody id="shopDiscountsTableBody">
-                    <tr><td colspan="7" style="text-align: center; padding: 24px;">Loading discounts...</td></tr>
+                    <tr><td colspan="9" style="text-align: center; padding: 24px;">Ładowanie kodów...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -2714,48 +2762,186 @@
 
         <!-- Tab: Settings -->
         <div class="admin-tab-content" id="shopTabSettings" hidden>
+          <!-- General Settings -->
           <div class="admin-card" style="margin-top: 16px;">
             <div class="admin-card-header">
-              <h3>Shop Settings</h3>
+              <h3>⚙️ Ustawienia ogólne</h3>
+              <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Podstawowa konfiguracja sklepu</p>
             </div>
             <div class="admin-card-body">
               <form id="shopSettingsForm">
-                <div class="admin-form-grid">
+                <div class="admin-form-grid" style="grid-template-columns: repeat(2, 1fr); gap: 16px;">
                   <label class="admin-form-field">
-                    <span>Shop Name</span>
+                    <span>Nazwa sklepu</span>
                     <input type="text" id="shopSettingName" placeholder="WakacjeCypr Shop">
+                    <small style="color: var(--admin-text-muted);">Wyświetlana w emailach i na fakturach</small>
                   </label>
                   <label class="admin-form-field">
-                    <span>Admin Email</span>
+                    <span>Email administratora</span>
                     <input type="email" id="shopSettingEmail" placeholder="shop@wakacjecypr.com">
+                    <small style="color: var(--admin-text-muted);">Powiadomienia o zamówieniach</small>
                   </label>
                   <label class="admin-form-field">
-                    <span>Order Number Prefix</span>
-                    <input type="text" id="shopSettingOrderPrefix" placeholder="WC">
+                    <span>Prefiks numeru zamówienia</span>
+                    <input type="text" id="shopSettingOrderPrefix" placeholder="WC" maxlength="10">
+                    <small style="color: var(--admin-text-muted);">Np. WC-00001</small>
                   </label>
                   <label class="admin-form-field">
-                    <span>XP per Euro</span>
-                    <input type="number" id="shopSettingXpPerEuro" min="0" value="1">
-                  </label>
-                </div>
-                <div style="margin-top: 16px;">
-                  <label style="display: flex; align-items: center; gap: 8px;">
-                    <input type="checkbox" id="shopSettingXpEnabled" checked>
-                    <span>Award XP for purchases</span>
-                  </label>
-                  <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
-                    <input type="checkbox" id="shopSettingReviewsEnabled" checked>
-                    <span>Enable product reviews</span>
-                  </label>
-                  <label style="display: flex; align-items: center; gap: 8px; margin-top: 8px;">
-                    <input type="checkbox" id="shopSettingAbandonedCart" checked>
-                    <span>Enable abandoned cart reminders</span>
+                    <span>Waluta</span>
+                    <select id="shopSettingCurrency" class="form-control">
+                      <option value="EUR">EUR (€)</option>
+                      <option value="PLN">PLN (zł)</option>
+                      <option value="USD">USD ($)</option>
+                      <option value="GBP">GBP (£)</option>
+                    </select>
                   </label>
                 </div>
                 <div style="margin-top: 24px;">
-                  <button type="submit" class="btn-primary">Save Settings</button>
+                  <button type="submit" class="btn-primary">💾 Zapisz ustawienia</button>
                 </div>
               </form>
+            </div>
+          </div>
+
+          <!-- XP & Gamification -->
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header">
+              <h3>🎮 XP i Gamifikacja</h3>
+              <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Nagradzaj klientów punktami doświadczenia</p>
+            </div>
+            <div class="admin-card-body">
+              <div class="admin-form-grid" style="grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                <label class="admin-form-field">
+                  <span>XP za każde Euro</span>
+                  <input type="number" id="shopSettingXpPerEuro" min="0" value="1">
+                  <small style="color: var(--admin-text-muted);">Ile XP za 1€ zakupów</small>
+                </label>
+                <label class="admin-form-field">
+                  <span>XP za recenzję</span>
+                  <input type="number" id="shopSettingXpPerReview" min="0" value="50">
+                  <small style="color: var(--admin-text-muted);">Bonus za napisanie recenzji</small>
+                </label>
+              </div>
+              <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 12px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                  <input type="checkbox" id="shopSettingXpEnabled" checked style="width: 18px; height: 18px;">
+                  <div>
+                    <span style="font-weight: 500;">Włącz system XP</span>
+                    <small style="display: block; color: var(--admin-text-muted);">Klienci zdobywają XP za zakupy</small>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Reviews & Social -->
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header">
+              <h3>⭐ Recenzje i społeczność</h3>
+              <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Zarządzaj opiniami klientów</p>
+            </div>
+            <div class="admin-card-body">
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                  <input type="checkbox" id="shopSettingReviewsEnabled" checked style="width: 18px; height: 18px;">
+                  <div>
+                    <span style="font-weight: 500;">Włącz recenzje produktów</span>
+                    <small style="display: block; color: var(--admin-text-muted);">Klienci mogą oceniać produkty</small>
+                  </div>
+                </label>
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                  <input type="checkbox" id="shopSettingReviewsModeration" style="width: 18px; height: 18px;">
+                  <div>
+                    <span style="font-weight: 500;">Moderacja recenzji</span>
+                    <small style="display: block; color: var(--admin-text-muted);">Recenzje wymagają zatwierdzenia</small>
+                  </div>
+                </label>
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                  <input type="checkbox" id="shopSettingReviewsVerifiedOnly" style="width: 18px; height: 18px;">
+                  <div>
+                    <span style="font-weight: 500;">Tylko zweryfikowani kupujący</span>
+                    <small style="display: block; color: var(--admin-text-muted);">Tylko klienci którzy kupili produkt</small>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Notifications -->
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header">
+              <h3>📧 Powiadomienia</h3>
+              <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Automatyczne emaile do klientów</p>
+            </div>
+            <div class="admin-card-body">
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                  <input type="checkbox" id="shopSettingAbandonedCart" checked style="width: 18px; height: 18px;">
+                  <div>
+                    <span style="font-weight: 500;">Przypomnienia o porzuconym koszyku</span>
+                    <small style="display: block; color: var(--admin-text-muted);">Email po 24h od porzucenia koszyka</small>
+                  </div>
+                </label>
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                  <input type="checkbox" id="shopSettingOrderConfirmation" checked style="width: 18px; height: 18px;">
+                  <div>
+                    <span style="font-weight: 500;">Potwierdzenie zamówienia</span>
+                    <small style="display: block; color: var(--admin-text-muted);">Email po złożeniu zamówienia</small>
+                  </div>
+                </label>
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                  <input type="checkbox" id="shopSettingShippingNotification" checked style="width: 18px; height: 18px;">
+                  <div>
+                    <span style="font-weight: 500;">Powiadomienie o wysyłce</span>
+                    <small style="display: block; color: var(--admin-text-muted);">Email gdy zamówienie wysłane</small>
+                  </div>
+                </label>
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                  <input type="checkbox" id="shopSettingReviewReminder" style="width: 18px; height: 18px;">
+                  <div>
+                    <span style="font-weight: 500;">Prośba o recenzję</span>
+                    <small style="display: block; color: var(--admin-text-muted);">Email 7 dni po dostarczeniu</small>
+                  </div>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <!-- Inventory -->
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header">
+              <h3>📦 Magazyn</h3>
+              <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Ustawienia zarządzania stanem magazynowym</p>
+            </div>
+            <div class="admin-card-body">
+              <div class="admin-form-grid" style="grid-template-columns: repeat(2, 1fr); gap: 16px;">
+                <label class="admin-form-field">
+                  <span>Próg niskiego stanu</span>
+                  <input type="number" id="shopSettingLowStockThreshold" min="0" value="5">
+                  <small style="color: var(--admin-text-muted);">Alert gdy mniej niż X sztuk</small>
+                </label>
+                <label class="admin-form-field">
+                  <span>Rezerwacja koszyka (min)</span>
+                  <input type="number" id="shopSettingCartReservation" min="0" value="15">
+                  <small style="color: var(--admin-text-muted);">Jak długo rezerwować produkty w koszyku</small>
+                </label>
+              </div>
+              <div style="margin-top: 16px; display: flex; flex-direction: column; gap: 12px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                  <input type="checkbox" id="shopSettingHideOutOfStock" style="width: 18px; height: 18px;">
+                  <div>
+                    <span style="font-weight: 500;">Ukryj niedostępne produkty</span>
+                    <small style="display: block; color: var(--admin-text-muted);">Nie pokazuj produktów z zerowym stanem</small>
+                  </div>
+                </label>
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                  <input type="checkbox" id="shopSettingBackorders" style="width: 18px; height: 18px;">
+                  <div>
+                    <span style="font-weight: 500;">Pozwól na backorder</span>
+                    <small style="display: block; color: var(--admin-text-muted);">Zamówienia na produkty niedostępne</small>
+                  </div>
+                </label>
+              </div>
             </div>
           </div>
         </div>
@@ -3940,9 +4126,9 @@
   <!-- Shop Category Form Modal -->
   <div class="admin-modal" id="shopCategoryModal" hidden>
     <div class="admin-modal-overlay" id="shopCategoryModalOverlay"></div>
-    <div class="admin-modal-content" style="max-width: 500px;">
+    <div class="admin-modal-content" style="max-width: 550px;">
       <header class="admin-modal-header">
-        <h3 id="shopCategoryModalTitle">New Category</h3>
+        <h3 id="shopCategoryModalTitle">Nowa kategoria</h3>
         <button class="btn-modal-close" id="btnCloseShopCategoryModal">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -4003,6 +4189,13 @@
             <input type="number" id="shopCategorySortOrder" min="0" value="0">
           </label>
 
+          <!-- Category Image -->
+          <label class="admin-form-field">
+            <span>Obraz kategorii</span>
+            <input type="url" id="shopCategoryImage" placeholder="https://...">
+            <small style="color: var(--admin-text-muted);">URL obrazu wyświetlanego przy kategorii</small>
+          </label>
+
           <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
             <input type="checkbox" id="shopCategoryActive" checked>
             <span>Aktywna</span>
@@ -4012,7 +4205,7 @@
 
           <div class="poi-form-actions" style="margin-top: 20px;">
             <button type="button" class="btn-secondary" id="shopCategoryFormCancel">Anuluj</button>
-            <button type="submit" class="btn-primary">Zapisz kategorię</button>
+            <button type="submit" class="btn-primary">💾 Zapisz kategorię</button>
           </div>
         </form>
       </div>
@@ -4024,7 +4217,7 @@
     <div class="admin-modal-overlay" id="shopVendorModalOverlay"></div>
     <div class="admin-modal-content" style="max-width: 600px;">
       <header class="admin-modal-header">
-        <h3 id="shopVendorModalTitle">New Vendor</h3>
+        <h3 id="shopVendorModalTitle">Nowy dostawca</h3>
         <button class="btn-modal-close" id="btnCloseShopVendorModal">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -4070,16 +4263,29 @@
           <label class="admin-form-field">
             <span>Slug (URL)</span>
             <input type="text" id="shopVendorSlug" placeholder="cyprus-delights">
+            <small style="color: var(--admin-text-muted);">Zostaw puste, aby wygenerować automatycznie</small>
           </label>
 
           <div class="admin-form-grid">
             <label class="admin-form-field">
-              <span>Contact Email</span>
+              <span>Email kontaktowy</span>
               <input type="email" id="shopVendorEmail" placeholder="vendor@example.com">
             </label>
             <label class="admin-form-field">
-              <span>Commission Rate (%)</span>
+              <span>Telefon</span>
+              <input type="tel" id="shopVendorPhone" placeholder="+48 123 456 789">
+            </label>
+          </div>
+
+          <div class="admin-form-grid">
+            <label class="admin-form-field">
+              <span>Prowizja (%)</span>
               <input type="number" id="shopVendorCommission" min="0" max="100" step="0.1" value="0">
+              <small style="color: var(--admin-text-muted);">Twoja prowizja od sprzedaży</small>
+            </label>
+            <label class="admin-form-field">
+              <span>Strona WWW</span>
+              <input type="url" id="shopVendorWebsite" placeholder="https://...">
             </label>
           </div>
 
@@ -4090,14 +4296,14 @@
 
           <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
             <input type="checkbox" id="shopVendorActive" checked>
-            <span>Active</span>
+            <span>Aktywny</span>
           </label>
 
           <div id="shopVendorFormError" class="admin-error-message" hidden></div>
 
           <div class="poi-form-actions" style="margin-top: 20px;">
-            <button type="button" class="btn-secondary" id="shopVendorFormCancel">Cancel</button>
-            <button type="submit" class="btn-primary">Save Vendor</button>
+            <button type="button" class="btn-secondary" id="shopVendorFormCancel">Anuluj</button>
+            <button type="submit" class="btn-primary">💾 Zapisz dostawcę</button>
           </div>
         </form>
       </div>
@@ -4109,7 +4315,7 @@
     <div class="admin-modal-overlay" id="shopDiscountModalOverlay"></div>
     <div class="admin-modal-content" style="max-width: 600px;">
       <header class="admin-modal-header">
-        <h3 id="shopDiscountModalTitle">New Discount</h3>
+        <h3 id="shopDiscountModalTitle">Nowy kod rabatowy</h3>
         <button class="btn-modal-close" id="btnCloseShopDiscountModal">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
@@ -4149,62 +4355,69 @@
 
           <div class="admin-form-grid">
             <label class="admin-form-field">
-              <span>Discount Type</span>
+              <span>Typ rabatu</span>
               <select id="shopDiscountType">
-                <option value="percentage">Percentage</option>
-                <option value="fixed">Fixed Amount</option>
-                <option value="free_shipping">Free Shipping</option>
+                <option value="percentage">Procentowy (%)</option>
+                <option value="fixed">Kwotowy (€)</option>
+                <option value="free_shipping">Darmowa wysyłka</option>
               </select>
             </label>
             <label class="admin-form-field">
-              <span>Value</span>
+              <span>Wartość</span>
               <input type="number" id="shopDiscountValue" step="0.01" min="0" placeholder="20">
+              <small style="color: var(--admin-text-muted);">% lub € zależnie od typu</small>
             </label>
           </div>
 
           <div class="admin-form-grid">
             <label class="admin-form-field">
-              <span>Minimum Order (€)</span>
-              <input type="number" id="shopDiscountMinOrder" step="0.01" min="0" placeholder="50">
+              <span>Min. wartość zamówienia (€)</span>
+              <input type="number" id="shopDiscountMinOrder" step="0.01" min="0" placeholder="0">
+              <small style="color: var(--admin-text-muted);">Puste = bez minimum</small>
             </label>
             <label class="admin-form-field">
-              <span>Maximum Discount (€)</span>
-              <input type="number" id="shopDiscountMaxDiscount" step="0.01" min="0" placeholder="100">
+              <span>Maks. rabat (€)</span>
+              <input type="number" id="shopDiscountMaxDiscount" step="0.01" min="0" placeholder="">
+              <small style="color: var(--admin-text-muted);">Tylko dla % - puste = bez limitu</small>
             </label>
           </div>
 
           <div class="admin-form-grid">
             <label class="admin-form-field">
-              <span>Usage Limit</span>
-              <input type="number" id="shopDiscountUsageLimit" min="0" placeholder="Unlimited">
+              <span>Limit użyć (ogółem)</span>
+              <input type="number" id="shopDiscountUsageLimit" min="0" placeholder="">
+              <small style="color: var(--admin-text-muted);">Puste = bez limitu</small>
             </label>
             <label class="admin-form-field">
-              <span>Per User Limit</span>
+              <span>Limit na użytkownika</span>
               <input type="number" id="shopDiscountPerUserLimit" min="0" value="1">
+              <small style="color: var(--admin-text-muted);">Ile razy 1 osoba może użyć</small>
             </label>
           </div>
 
           <div class="admin-form-grid">
             <label class="admin-form-field">
-              <span>Start Date</span>
+              <span>Data rozpoczęcia</span>
               <input type="datetime-local" id="shopDiscountStartDate">
+              <small style="color: var(--admin-text-muted);">Puste = od teraz</small>
             </label>
             <label class="admin-form-field">
-              <span>Expiry Date</span>
+              <span>Data wygaśnięcia</span>
               <input type="datetime-local" id="shopDiscountExpiryDate">
+              <small style="color: var(--admin-text-muted);">Puste = bezterminowy</small>
             </label>
           </div>
 
           <label style="display: flex; align-items: center; gap: 8px; margin-top: 12px;">
             <input type="checkbox" id="shopDiscountActive" checked>
-            <span>Active</span>
+            <span>Aktywny</span>
           </label>
 
           <div id="shopDiscountFormError" class="admin-error-message" hidden></div>
 
           <div class="poi-form-actions" style="margin-top: 20px;">
-            <button type="button" class="btn-secondary" id="shopDiscountFormCancel">Cancel</button>
-            <button type="submit" class="btn-primary">Save Discount</button>
+            <button type="button" class="btn-secondary" id="shopDiscountFormCancel">Anuluj</button>
+            <button type="submit" class="btn-primary">💾 Zapisz kod</button>
           </div>
         </form>
       </div>
