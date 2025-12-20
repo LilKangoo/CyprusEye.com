@@ -12129,10 +12129,12 @@ async function loadShopShipping() {
         <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
           <div>
             <h4 style="margin: 0;">${escapeHtml(zone.name)} ${zone.name_en ? `(${escapeHtml(zone.name_en)})` : ''}</h4>
-            <p style="color: var(--admin-text-muted); margin: 4px 0 0; font-size: 12px;">Countries: ${zone.countries?.join(', ') || 'None'}</p>
+            <p style="color: var(--admin-text-muted); margin: 4px 0 0; font-size: 12px;">Kraje: ${zone.countries?.join(', ') || 'Brak'}</p>
           </div>
           <div style="display: flex; gap: 8px; align-items: center;">
-            <span class="badge" style="background: ${zone.is_active ? '#22c55e' : '#6b7280'};">${zone.is_active ? 'ACTIVE' : 'INACTIVE'}</span>
+            <span class="badge" style="background: ${zone.is_active ? '#22c55e' : '#6b7280'};">${zone.is_active ? 'AKTYWNA' : 'NIEAKTYWNA'}</span>
+            <button class="btn-icon" onclick="showShippingZoneForm('${zone.id}')" title="Edytuj strefę">✏️</button>
+            <button class="btn-icon" onclick="deleteShippingZone('${zone.id}')" title="Usuń strefę">🗑️</button>
           </div>
         </div>
         <div class="admin-card-body">
@@ -12176,6 +12178,9 @@ async function loadShopShipping() {
       </div>
     `).join('');
 
+    // Also load shipping extras (classes, tax, etc.)
+    loadShopShippingExtras();
+
   } catch (error) {
     console.error('Failed to load shipping:', error);
     container.innerHTML = `<p style="text-align: center; color: #ef4444;">Error: ${error.message}</p>`;
@@ -12190,6 +12195,623 @@ function getMethodTypeLabel(type) {
     'per_item': 'Za produkt'
   };
   return labels[type] || type;
+}
+
+// =====================================================
+// SHIPPING ZONE CRUD
+// =====================================================
+
+async function showShippingZoneForm(zoneId = null) {
+  const modal = document.getElementById('shopShippingZoneModal');
+  const form = document.getElementById('shopShippingZoneForm');
+  const title = document.getElementById('shopShippingZoneModalTitle');
+  if (!modal || !form) return;
+
+  form.reset();
+  document.getElementById('shippingZoneId').value = '';
+  document.getElementById('shippingZoneFormError').hidden = true;
+
+  if (zoneId) {
+    title.textContent = 'Edytuj strefę wysyłki';
+    await loadShippingZoneData(zoneId);
+  } else {
+    title.textContent = 'Nowa strefa wysyłki';
+    document.getElementById('shippingZoneActive').checked = true;
+  }
+
+  modal.hidden = false;
+  setupShippingZoneFormListeners();
+}
+window.showShippingZoneForm = showShippingZoneForm;
+
+async function loadShippingZoneData(zoneId) {
+  const client = ensureSupabase();
+  if (!client) return;
+  try {
+    const { data: zone, error } = await client.from('shop_shipping_zones').select('*').eq('id', zoneId).single();
+    if (error) throw error;
+    document.getElementById('shippingZoneId').value = zone.id;
+    document.getElementById('shippingZoneName').value = zone.name || '';
+    document.getElementById('shippingZoneNameEn').value = zone.name_en || '';
+    document.getElementById('shippingZoneCountries').value = (zone.countries || []).join(', ');
+    document.getElementById('shippingZoneSortOrder').value = zone.sort_order || 0;
+    document.getElementById('shippingZoneActive').checked = zone.is_active !== false;
+  } catch (error) {
+    console.error('Failed to load zone:', error);
+    showToast('Nie udało się załadować strefy', 'error');
+  }
+}
+
+function setupShippingZoneFormListeners() {
+  const modal = document.getElementById('shopShippingZoneModal');
+  const form = document.getElementById('shopShippingZoneForm');
+  const closeBtn = document.getElementById('btnCloseShopShippingZoneModal');
+  const cancelBtn = document.getElementById('shippingZoneFormCancel');
+  const overlay = document.getElementById('shopShippingZoneModalOverlay');
+  const closeModal = () => { modal.hidden = true; };
+  closeBtn.onclick = closeModal;
+  cancelBtn.onclick = closeModal;
+  overlay.onclick = closeModal;
+  form.onsubmit = async (e) => { e.preventDefault(); await saveShippingZone(); };
+}
+
+async function saveShippingZone() {
+  const client = ensureSupabase();
+  if (!client) return;
+  const errorEl = document.getElementById('shippingZoneFormError');
+  errorEl.hidden = true;
+  const zoneId = document.getElementById('shippingZoneId').value;
+  const name = document.getElementById('shippingZoneName').value.trim();
+  const countriesStr = document.getElementById('shippingZoneCountries').value.trim();
+  if (!name || !countriesStr) {
+    errorEl.textContent = 'Nazwa i kraje są wymagane';
+    errorEl.hidden = false;
+    return;
+  }
+  const countries = countriesStr.split(',').map(c => c.trim().toUpperCase()).filter(Boolean);
+  const zoneData = {
+    name,
+    name_en: document.getElementById('shippingZoneNameEn').value.trim() || null,
+    countries,
+    sort_order: parseInt(document.getElementById('shippingZoneSortOrder').value) || 0,
+    is_active: document.getElementById('shippingZoneActive').checked
+  };
+  try {
+    let error;
+    if (zoneId) {
+      ({ error } = await client.from('shop_shipping_zones').update(zoneData).eq('id', zoneId));
+    } else {
+      ({ error } = await client.from('shop_shipping_zones').insert(zoneData));
+    }
+    if (error) throw error;
+    showToast(zoneId ? 'Strefa zaktualizowana' : 'Strefa dodana', 'success');
+    document.getElementById('shopShippingZoneModal').hidden = true;
+    await loadShopShipping();
+  } catch (error) {
+    console.error('Failed to save zone:', error);
+    errorEl.textContent = error.message;
+    errorEl.hidden = false;
+  }
+}
+
+async function deleteShippingZone(zoneId) {
+  if (!confirm('Czy na pewno chcesz usunąć tę strefę? Wszystkie metody dostawy w tej strefie zostaną usunięte.')) return;
+  const client = ensureSupabase();
+  if (!client) return;
+  try {
+    const { error } = await client.from('shop_shipping_zones').delete().eq('id', zoneId);
+    if (error) throw error;
+    showToast('Strefa usunięta', 'success');
+    await loadShopShipping();
+  } catch (error) {
+    console.error('Failed to delete zone:', error);
+    showToast('Nie udało się usunąć strefy: ' + error.message, 'error');
+  }
+}
+window.deleteShippingZone = deleteShippingZone;
+
+// =====================================================
+// SHIPPING CLASSES, TAX CLASSES, CUSTOMER GROUPS, ATTRIBUTES
+// =====================================================
+
+async function loadShopShippingExtras() {
+  await Promise.all([
+    loadShippingClasses(),
+    loadTaxClasses(),
+    loadCustomerGroups(),
+    loadAttributes()
+  ]);
+}
+
+// --- SHIPPING CLASSES ---
+async function loadShippingClasses() {
+  const client = ensureSupabase();
+  if (!client) return;
+  const tbody = document.getElementById('shopShippingClassesTableBody');
+  if (!tbody) return;
+  try {
+    const { data: classes, error } = await client.from('shop_shipping_classes').select('*').order('sort_order');
+    if (error) throw error;
+    if (!classes?.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--admin-text-muted);">Brak klas wysyłkowych</td></tr>';
+      return;
+    }
+    tbody.innerHTML = classes.map(c => `
+      <tr>
+        <td><strong>${escapeHtml(c.name)}</strong>${c.name_en ? `<br><small style="color: var(--admin-text-muted);">${escapeHtml(c.name_en)}</small>` : ''}</td>
+        <td>€${parseFloat(c.extra_cost || 0).toFixed(2)}</td>
+        <td>€${parseFloat(c.extra_cost_per_kg || 0).toFixed(2)}</td>
+        <td>€${parseFloat(c.handling_fee || 0).toFixed(2)}</td>
+        <td>${c.requires_signature ? '✍️' : ''} ${c.requires_insurance ? '🛡️' : ''}</td>
+        <td>
+          <div style="display: flex; gap: 4px;">
+            <button class="btn-icon" onclick="showShippingClassForm('${c.id}')" title="Edytuj">✏️</button>
+            <button class="btn-icon" onclick="deleteShippingClass('${c.id}')" title="Usuń">🗑️</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  } catch (error) {
+    console.error('Failed to load shipping classes:', error);
+    tbody.innerHTML = `<tr><td colspan="6" style="color: #ef4444;">Error: ${error.message}</td></tr>`;
+  }
+}
+
+async function showShippingClassForm(classId = null) {
+  const modal = document.getElementById('shopShippingClassModal');
+  const form = document.getElementById('shopShippingClassForm');
+  const title = document.getElementById('shopShippingClassModalTitle');
+  if (!modal || !form) return;
+  form.reset();
+  document.getElementById('shippingClassId').value = '';
+  document.getElementById('shippingClassFormError').hidden = true;
+  if (classId) {
+    title.textContent = 'Edytuj klasę wysyłkową';
+    const client = ensureSupabase();
+    const { data } = await client.from('shop_shipping_classes').select('*').eq('id', classId).single();
+    if (data) {
+      document.getElementById('shippingClassId').value = data.id;
+      document.getElementById('shippingClassName').value = data.name || '';
+      document.getElementById('shippingClassNameEn').value = data.name_en || '';
+      document.getElementById('shippingClassDescription').value = data.description || '';
+      document.getElementById('shippingClassExtraCost').value = data.extra_cost || 0;
+      document.getElementById('shippingClassCostPerKg').value = data.extra_cost_per_kg || 0;
+      document.getElementById('shippingClassHandlingFee').value = data.handling_fee || 0;
+      document.getElementById('shippingClassRequiresSignature').checked = data.requires_signature || false;
+      document.getElementById('shippingClassRequiresInsurance').checked = data.requires_insurance || false;
+    }
+  } else {
+    title.textContent = 'Nowa klasa wysyłkowa';
+  }
+  modal.hidden = false;
+  setupGenericFormListeners('shopShippingClassModal', 'shopShippingClassForm', 'btnCloseShopShippingClassModal', 'shippingClassFormCancel', 'shopShippingClassModalOverlay', saveShippingClass);
+}
+window.showShippingClassForm = showShippingClassForm;
+
+async function saveShippingClass() {
+  const client = ensureSupabase();
+  if (!client) return;
+  const errorEl = document.getElementById('shippingClassFormError');
+  errorEl.hidden = true;
+  const classId = document.getElementById('shippingClassId').value;
+  const name = document.getElementById('shippingClassName').value.trim();
+  if (!name) { errorEl.textContent = 'Nazwa jest wymagana'; errorEl.hidden = false; return; }
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const data = {
+    name,
+    name_en: document.getElementById('shippingClassNameEn').value.trim() || null,
+    slug,
+    description: document.getElementById('shippingClassDescription').value.trim() || null,
+    extra_cost: parseFloat(document.getElementById('shippingClassExtraCost').value) || 0,
+    extra_cost_per_kg: parseFloat(document.getElementById('shippingClassCostPerKg').value) || 0,
+    handling_fee: parseFloat(document.getElementById('shippingClassHandlingFee').value) || 0,
+    requires_signature: document.getElementById('shippingClassRequiresSignature').checked,
+    requires_insurance: document.getElementById('shippingClassRequiresInsurance').checked
+  };
+  try {
+    let error;
+    if (classId) {
+      ({ error } = await client.from('shop_shipping_classes').update(data).eq('id', classId));
+    } else {
+      ({ error } = await client.from('shop_shipping_classes').insert(data));
+    }
+    if (error) throw error;
+    showToast(classId ? 'Klasa zaktualizowana' : 'Klasa dodana', 'success');
+    document.getElementById('shopShippingClassModal').hidden = true;
+    await loadShippingClasses();
+  } catch (error) {
+    errorEl.textContent = error.message;
+    errorEl.hidden = false;
+  }
+}
+
+async function deleteShippingClass(classId) {
+  if (!confirm('Czy na pewno chcesz usunąć tę klasę wysyłkową?')) return;
+  const client = ensureSupabase();
+  try {
+    const { error } = await client.from('shop_shipping_classes').delete().eq('id', classId);
+    if (error) throw error;
+    showToast('Klasa usunięta', 'success');
+    await loadShippingClasses();
+  } catch (error) {
+    showToast('Błąd: ' + error.message, 'error');
+  }
+}
+window.deleteShippingClass = deleteShippingClass;
+
+// --- TAX CLASSES ---
+async function loadTaxClasses() {
+  const client = ensureSupabase();
+  if (!client) return;
+  const tbody = document.getElementById('shopTaxClassesTableBody');
+  if (!tbody) return;
+  try {
+    const { data: classes, error } = await client.from('shop_tax_classes').select('*').order('name');
+    if (error) throw error;
+    if (!classes?.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: var(--admin-text-muted);">Brak klas podatkowych</td></tr>';
+      return;
+    }
+    tbody.innerHTML = classes.map(c => `
+      <tr>
+        <td><strong>${escapeHtml(c.name)}</strong>${c.name_en ? `<br><small style="color: var(--admin-text-muted);">${escapeHtml(c.name_en)}</small>` : ''}</td>
+        <td>${escapeHtml(c.description || '-')}</td>
+        <td>${c.is_default ? '✅' : ''}</td>
+        <td>${c.is_active ? '✅' : '❌'}</td>
+        <td>
+          <div style="display: flex; gap: 4px;">
+            <button class="btn-icon" onclick="showTaxClassForm('${c.id}')" title="Edytuj">✏️</button>
+            <button class="btn-icon" onclick="deleteTaxClass('${c.id}')" title="Usuń">🗑️</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  } catch (error) {
+    console.error('Failed to load tax classes:', error);
+    tbody.innerHTML = `<tr><td colspan="5" style="color: #ef4444;">Error: ${error.message}</td></tr>`;
+  }
+}
+
+async function showTaxClassForm(classId = null) {
+  const modal = document.getElementById('shopTaxClassModal');
+  const form = document.getElementById('shopTaxClassForm');
+  const title = document.getElementById('shopTaxClassModalTitle');
+  if (!modal || !form) return;
+  form.reset();
+  document.getElementById('taxClassId').value = '';
+  document.getElementById('taxClassFormError').hidden = true;
+  document.getElementById('taxClassActive').checked = true;
+  if (classId) {
+    title.textContent = 'Edytuj klasę podatkową';
+    const client = ensureSupabase();
+    const { data } = await client.from('shop_tax_classes').select('*').eq('id', classId).single();
+    if (data) {
+      document.getElementById('taxClassId').value = data.id;
+      document.getElementById('taxClassName').value = data.name || '';
+      document.getElementById('taxClassNameEn').value = data.name_en || '';
+      document.getElementById('taxClassDescription').value = data.description || '';
+      document.getElementById('taxClassDefault').checked = data.is_default || false;
+      document.getElementById('taxClassActive').checked = data.is_active !== false;
+    }
+  } else {
+    title.textContent = 'Nowa klasa podatkowa';
+  }
+  modal.hidden = false;
+  setupGenericFormListeners('shopTaxClassModal', 'shopTaxClassForm', 'btnCloseShopTaxClassModal', 'taxClassFormCancel', 'shopTaxClassModalOverlay', saveTaxClass);
+}
+window.showTaxClassForm = showTaxClassForm;
+
+async function saveTaxClass() {
+  const client = ensureSupabase();
+  if (!client) return;
+  const errorEl = document.getElementById('taxClassFormError');
+  errorEl.hidden = true;
+  const classId = document.getElementById('taxClassId').value;
+  const name = document.getElementById('taxClassName').value.trim();
+  if (!name) { errorEl.textContent = 'Nazwa jest wymagana'; errorEl.hidden = false; return; }
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const data = {
+    name,
+    name_en: document.getElementById('taxClassNameEn').value.trim() || null,
+    slug,
+    description: document.getElementById('taxClassDescription').value.trim() || null,
+    is_default: document.getElementById('taxClassDefault').checked,
+    is_active: document.getElementById('taxClassActive').checked
+  };
+  try {
+    let error;
+    if (classId) {
+      ({ error } = await client.from('shop_tax_classes').update(data).eq('id', classId));
+    } else {
+      ({ error } = await client.from('shop_tax_classes').insert(data));
+    }
+    if (error) throw error;
+    showToast(classId ? 'Klasa zaktualizowana' : 'Klasa dodana', 'success');
+    document.getElementById('shopTaxClassModal').hidden = true;
+    await loadTaxClasses();
+  } catch (error) {
+    errorEl.textContent = error.message;
+    errorEl.hidden = false;
+  }
+}
+
+async function deleteTaxClass(classId) {
+  if (!confirm('Czy na pewno chcesz usunąć tę klasę podatkową?')) return;
+  const client = ensureSupabase();
+  try {
+    const { error } = await client.from('shop_tax_classes').delete().eq('id', classId);
+    if (error) throw error;
+    showToast('Klasa usunięta', 'success');
+    await loadTaxClasses();
+  } catch (error) {
+    showToast('Błąd: ' + error.message, 'error');
+  }
+}
+window.deleteTaxClass = deleteTaxClass;
+
+// --- CUSTOMER GROUPS ---
+async function loadCustomerGroups() {
+  const client = ensureSupabase();
+  if (!client) return;
+  const tbody = document.getElementById('shopCustomerGroupsTableBody');
+  if (!tbody) return;
+  try {
+    const { data: groups, error } = await client.from('shop_customer_groups').select('*').order('name');
+    if (error) throw error;
+    if (!groups?.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--admin-text-muted);">Brak grup klientów</td></tr>';
+      return;
+    }
+    tbody.innerHTML = groups.map(g => `
+      <tr>
+        <td><strong>${escapeHtml(g.name)}</strong>${g.name_en ? `<br><small style="color: var(--admin-text-muted);">${escapeHtml(g.name_en)}</small>` : ''}</td>
+        <td>${g.discount_value > 0 ? `${g.discount_value}${g.discount_type === 'percentage' ? '%' : '€'}` : '-'}</td>
+        <td>${g.min_orders || '-'}</td>
+        <td>${g.is_default ? '✅' : ''}</td>
+        <td>${g.is_active ? '✅' : '❌'}</td>
+        <td>
+          <div style="display: flex; gap: 4px;">
+            <button class="btn-icon" onclick="showCustomerGroupForm('${g.id}')" title="Edytuj">✏️</button>
+            <button class="btn-icon" onclick="deleteCustomerGroup('${g.id}')" title="Usuń">🗑️</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  } catch (error) {
+    console.error('Failed to load customer groups:', error);
+    tbody.innerHTML = `<tr><td colspan="6" style="color: #ef4444;">Error: ${error.message}</td></tr>`;
+  }
+}
+
+async function showCustomerGroupForm(groupId = null) {
+  const modal = document.getElementById('shopCustomerGroupModal');
+  const form = document.getElementById('shopCustomerGroupForm');
+  const title = document.getElementById('shopCustomerGroupModalTitle');
+  if (!modal || !form) return;
+  form.reset();
+  document.getElementById('customerGroupId').value = '';
+  document.getElementById('customerGroupFormError').hidden = true;
+  document.getElementById('customerGroupActive').checked = true;
+  if (groupId) {
+    title.textContent = 'Edytuj grupę klientów';
+    const client = ensureSupabase();
+    const { data } = await client.from('shop_customer_groups').select('*').eq('id', groupId).single();
+    if (data) {
+      document.getElementById('customerGroupId').value = data.id;
+      document.getElementById('customerGroupName').value = data.name || '';
+      document.getElementById('customerGroupNameEn').value = data.name_en || '';
+      document.getElementById('customerGroupDescription').value = data.description || '';
+      document.getElementById('customerGroupDiscountType').value = data.discount_type || 'percentage';
+      document.getElementById('customerGroupDiscountValue').value = data.discount_value || 0;
+      document.getElementById('customerGroupMinOrders').value = data.min_orders || '';
+      document.getElementById('customerGroupDefault').checked = data.is_default || false;
+      document.getElementById('customerGroupActive').checked = data.is_active !== false;
+    }
+  } else {
+    title.textContent = 'Nowa grupa klientów';
+  }
+  modal.hidden = false;
+  setupGenericFormListeners('shopCustomerGroupModal', 'shopCustomerGroupForm', 'btnCloseShopCustomerGroupModal', 'customerGroupFormCancel', 'shopCustomerGroupModalOverlay', saveCustomerGroup);
+}
+window.showCustomerGroupForm = showCustomerGroupForm;
+
+async function saveCustomerGroup() {
+  const client = ensureSupabase();
+  if (!client) return;
+  const errorEl = document.getElementById('customerGroupFormError');
+  errorEl.hidden = true;
+  const groupId = document.getElementById('customerGroupId').value;
+  const name = document.getElementById('customerGroupName').value.trim();
+  if (!name) { errorEl.textContent = 'Nazwa jest wymagana'; errorEl.hidden = false; return; }
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const data = {
+    name,
+    name_en: document.getElementById('customerGroupNameEn').value.trim() || null,
+    slug,
+    description: document.getElementById('customerGroupDescription').value.trim() || null,
+    discount_type: document.getElementById('customerGroupDiscountType').value,
+    discount_value: parseFloat(document.getElementById('customerGroupDiscountValue').value) || 0,
+    min_orders: parseInt(document.getElementById('customerGroupMinOrders').value) || null,
+    is_default: document.getElementById('customerGroupDefault').checked,
+    is_active: document.getElementById('customerGroupActive').checked
+  };
+  try {
+    let error;
+    if (groupId) {
+      ({ error } = await client.from('shop_customer_groups').update(data).eq('id', groupId));
+    } else {
+      ({ error } = await client.from('shop_customer_groups').insert(data));
+    }
+    if (error) throw error;
+    showToast(groupId ? 'Grupa zaktualizowana' : 'Grupa dodana', 'success');
+    document.getElementById('shopCustomerGroupModal').hidden = true;
+    await loadCustomerGroups();
+  } catch (error) {
+    errorEl.textContent = error.message;
+    errorEl.hidden = false;
+  }
+}
+
+async function deleteCustomerGroup(groupId) {
+  if (!confirm('Czy na pewno chcesz usunąć tę grupę klientów?')) return;
+  const client = ensureSupabase();
+  try {
+    const { error } = await client.from('shop_customer_groups').delete().eq('id', groupId);
+    if (error) throw error;
+    showToast('Grupa usunięta', 'success');
+    await loadCustomerGroups();
+  } catch (error) {
+    showToast('Błąd: ' + error.message, 'error');
+  }
+}
+window.deleteCustomerGroup = deleteCustomerGroup;
+
+// --- ATTRIBUTES ---
+async function loadAttributes() {
+  const client = ensureSupabase();
+  if (!client) return;
+  const tbody = document.getElementById('shopAttributesTableBody');
+  if (!tbody) return;
+  try {
+    const { data: attrs, error } = await client.from('shop_attributes').select('*, values:shop_attribute_values(id, value)').order('sort_order');
+    if (error) throw error;
+    if (!attrs?.length) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align: center; color: var(--admin-text-muted);">Brak atrybutów</td></tr>';
+      return;
+    }
+    tbody.innerHTML = attrs.map(a => `
+      <tr>
+        <td><strong>${escapeHtml(a.name)}</strong>${a.name_en ? `<br><small style="color: var(--admin-text-muted);">${escapeHtml(a.name_en)}</small>` : ''}</td>
+        <td>${a.type || 'select'}</td>
+        <td>${a.values?.length || 0} wartości</td>
+        <td>${a.is_filterable ? '✅' : '❌'}</td>
+        <td>${a.is_variation ? '✅' : '❌'}</td>
+        <td>
+          <div style="display: flex; gap: 4px;">
+            <button class="btn-icon" onclick="showAttributeForm('${a.id}')" title="Edytuj">✏️</button>
+            <button class="btn-icon" onclick="deleteAttribute('${a.id}')" title="Usuń">🗑️</button>
+          </div>
+        </td>
+      </tr>
+    `).join('');
+  } catch (error) {
+    console.error('Failed to load attributes:', error);
+    tbody.innerHTML = `<tr><td colspan="6" style="color: #ef4444;">Error: ${error.message}</td></tr>`;
+  }
+}
+
+async function showAttributeForm(attrId = null) {
+  const modal = document.getElementById('shopAttributeModal');
+  const form = document.getElementById('shopAttributeForm');
+  const title = document.getElementById('shopAttributeModalTitle');
+  if (!modal || !form) return;
+  form.reset();
+  document.getElementById('attributeId').value = '';
+  document.getElementById('attributeFormError').hidden = true;
+  document.getElementById('attributeFilterable').checked = true;
+  document.getElementById('attributeVariation').checked = true;
+  document.getElementById('attributeVisible').checked = true;
+  if (attrId) {
+    title.textContent = 'Edytuj atrybut';
+    const client = ensureSupabase();
+    const { data } = await client.from('shop_attributes').select('*, values:shop_attribute_values(value)').eq('id', attrId).single();
+    if (data) {
+      document.getElementById('attributeId').value = data.id;
+      document.getElementById('attributeName').value = data.name || '';
+      document.getElementById('attributeNameEn').value = data.name_en || '';
+      document.getElementById('attributeType').value = data.type || 'select';
+      document.getElementById('attributeValues').value = (data.values || []).map(v => v.value).join(', ');
+      document.getElementById('attributeFilterable').checked = data.is_filterable !== false;
+      document.getElementById('attributeVariation').checked = data.is_variation !== false;
+      document.getElementById('attributeVisible').checked = data.is_visible !== false;
+    }
+  } else {
+    title.textContent = 'Nowy atrybut';
+  }
+  modal.hidden = false;
+  setupGenericFormListeners('shopAttributeModal', 'shopAttributeForm', 'btnCloseShopAttributeModal', 'attributeFormCancel', 'shopAttributeModalOverlay', saveAttribute);
+}
+window.showAttributeForm = showAttributeForm;
+
+async function saveAttribute() {
+  const client = ensureSupabase();
+  if (!client) return;
+  const errorEl = document.getElementById('attributeFormError');
+  errorEl.hidden = true;
+  const attrId = document.getElementById('attributeId').value;
+  const name = document.getElementById('attributeName').value.trim();
+  if (!name) { errorEl.textContent = 'Nazwa jest wymagana'; errorEl.hidden = false; return; }
+  const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+  const valuesStr = document.getElementById('attributeValues').value.trim();
+  const values = valuesStr ? valuesStr.split(',').map(v => v.trim()).filter(Boolean) : [];
+  const attrData = {
+    name,
+    name_en: document.getElementById('attributeNameEn').value.trim() || null,
+    slug,
+    type: document.getElementById('attributeType').value,
+    is_filterable: document.getElementById('attributeFilterable').checked,
+    is_variation: document.getElementById('attributeVariation').checked,
+    is_visible: document.getElementById('attributeVisible').checked
+  };
+  try {
+    let error, attrResult;
+    if (attrId) {
+      ({ error } = await client.from('shop_attributes').update(attrData).eq('id', attrId));
+      attrResult = { id: attrId };
+    } else {
+      const { data, error: insErr } = await client.from('shop_attributes').insert(attrData).select('id').single();
+      error = insErr;
+      attrResult = data;
+    }
+    if (error) throw error;
+    // Update values
+    if (attrResult?.id) {
+      await client.from('shop_attribute_values').delete().eq('attribute_id', attrResult.id);
+      if (values.length > 0) {
+        const valueRecords = values.map((v, i) => ({
+          attribute_id: attrResult.id,
+          value: v,
+          slug: v.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, ''),
+          sort_order: i
+        }));
+        await client.from('shop_attribute_values').insert(valueRecords);
+      }
+    }
+    showToast(attrId ? 'Atrybut zaktualizowany' : 'Atrybut dodany', 'success');
+    document.getElementById('shopAttributeModal').hidden = true;
+    await loadAttributes();
+  } catch (error) {
+    errorEl.textContent = error.message;
+    errorEl.hidden = false;
+  }
+}
+
+async function deleteAttribute(attrId) {
+  if (!confirm('Czy na pewno chcesz usunąć ten atrybut? Wszystkie wartości zostaną usunięte.')) return;
+  const client = ensureSupabase();
+  try {
+    const { error } = await client.from('shop_attributes').delete().eq('id', attrId);
+    if (error) throw error;
+    showToast('Atrybut usunięty', 'success');
+    await loadAttributes();
+  } catch (error) {
+    showToast('Błąd: ' + error.message, 'error');
+  }
+}
+window.deleteAttribute = deleteAttribute;
+
+// Generic form listener setup
+function setupGenericFormListeners(modalId, formId, closeBtnId, cancelBtnId, overlayId, saveFunction) {
+  const modal = document.getElementById(modalId);
+  const form = document.getElementById(formId);
+  const closeBtn = document.getElementById(closeBtnId);
+  const cancelBtn = document.getElementById(cancelBtnId);
+  const overlay = document.getElementById(overlayId);
+  const closeModal = () => { modal.hidden = true; };
+  if (closeBtn) closeBtn.onclick = closeModal;
+  if (cancelBtn) cancelBtn.onclick = closeModal;
+  if (overlay) overlay.onclick = closeModal;
+  if (form) form.onsubmit = async (e) => { e.preventDefault(); await saveFunction(); };
 }
 
 // =====================================================
@@ -12602,9 +13224,17 @@ async function loadProductFormDropdowns() {
   // Load tax classes
   const taxSelect = document.getElementById('shopProductTaxClass');
   if (taxSelect) {
-    const { data: taxClasses } = await client.from('shop_tax_classes').select('id, name').order('name');
-    taxSelect.innerHTML = '<option value="">Default</option>' + 
+    const { data: taxClasses } = await client.from('shop_tax_classes').select('id, name').eq('is_active', true).order('name');
+    taxSelect.innerHTML = '<option value="">-- Domyślna --</option>' + 
       (taxClasses || []).map(t => `<option value="${t.id}">${escapeHtml(t.name)}</option>`).join('');
+  }
+
+  // Load shipping classes
+  const shippingClassSelect = document.getElementById('shopProductShippingClass');
+  if (shippingClassSelect) {
+    const { data: shippingClasses } = await client.from('shop_shipping_classes').select('id, name').eq('is_active', true).order('name');
+    shippingClassSelect.innerHTML = '<option value="">-- Standardowa --</option>' + 
+      (shippingClasses || []).map(s => `<option value="${s.id}">${escapeHtml(s.name)}</option>`).join('');
   }
 }
 
@@ -12631,24 +13261,45 @@ async function loadProductData(productId) {
     document.getElementById('shopProductNameEn').value = product.name_en || '';
     document.getElementById('shopProductDescriptionEn').value = product.description_en || '';
     document.getElementById('shopProductShortDescEn').value = product.short_description_en || '';
-    // Common fields
+    // Organization
     document.getElementById('shopProductSku').value = product.sku || '';
     document.getElementById('shopProductSlug').value = product.slug || '';
-    document.getElementById('shopProductPrice').value = product.price || '';
-    document.getElementById('shopProductComparePrice').value = product.compare_at_price || '';
-    document.getElementById('shopProductCost').value = product.cost_price || '';
     document.getElementById('shopProductCategory').value = product.category_id || '';
     document.getElementById('shopProductVendor').value = product.vendor_id || '';
     document.getElementById('shopProductStatus').value = product.status || 'draft';
     document.getElementById('shopProductType').value = product.product_type || 'simple';
-    document.getElementById('shopProductWeight').value = product.weight || '';
+    // Pricing
+    document.getElementById('shopProductPrice').value = product.price || '';
+    document.getElementById('shopProductComparePrice').value = product.compare_at_price || '';
+    document.getElementById('shopProductCost').value = product.cost_price || '';
+    document.getElementById('shopProductSalePrice').value = product.sale_price || '';
+    if (product.sale_start_date) {
+      document.getElementById('shopProductSaleStart').value = product.sale_start_date.slice(0, 16);
+    }
+    if (product.sale_end_date) {
+      document.getElementById('shopProductSaleEnd').value = product.sale_end_date.slice(0, 16);
+    }
     document.getElementById('shopProductTaxClass').value = product.tax_class_id || '';
+    // Inventory
     document.getElementById('shopProductTrackInventory').checked = product.track_inventory || false;
     document.getElementById('shopProductAllowBackorder').checked = product.allow_backorder || false;
     document.getElementById('shopProductStock').value = product.stock_quantity || 0;
     document.getElementById('shopProductLowStock').value = product.low_stock_threshold || 5;
-    document.getElementById('shopProductFeatured').checked = product.is_featured || false;
+    document.getElementById('shopProductMinQty').value = product.min_purchase_quantity || 1;
+    document.getElementById('shopProductMaxQty').value = product.max_purchase_quantity || '';
+    // Shipping
     document.getElementById('shopProductRequiresShipping').checked = !product.is_virtual;
+    document.getElementById('shopProductWeight').value = product.weight || '';
+    document.getElementById('shopProductShippingClass').value = product.shipping_class_id || '';
+    document.getElementById('shopProductLength').value = product.length || '';
+    document.getElementById('shopProductWidth').value = product.width || '';
+    document.getElementById('shopProductHeight').value = product.height || '';
+    // Flags
+    document.getElementById('shopProductFeatured').checked = product.is_featured || false;
+    document.getElementById('shopProductBestseller').checked = product.is_bestseller || false;
+    document.getElementById('shopProductNew').checked = product.is_new || false;
+    document.getElementById('shopProductOnSale').checked = product.is_on_sale || false;
+    // Media
     document.getElementById('shopProductThumbnail').value = product.thumbnail_url || '';
     document.getElementById('shopProductImages').value = (product.images || []).join('\n');
     document.getElementById('shopProductVideo').value = product.video_url || '';
@@ -12734,35 +13385,39 @@ function setupProductFormListeners() {
 function updateProductFormSections(productType) {
   const digitalSection = document.getElementById('shopProductDigitalSection');
   const subscriptionSection = document.getElementById('shopProductSubscriptionSection');
-  const inventorySection = document.getElementById('shopProductTrackInventory')?.closest('div[style*="padding: 16px"]');
-  const shippingCheckbox = document.getElementById('shopProductRequiresShipping')?.closest('label');
-  const weightField = document.getElementById('shopProductWeight')?.closest('label');
+  const bundleSection = document.getElementById('shopProductBundleSection');
+  const inventorySection = document.getElementById('shopProductInventorySection');
+  const shippingSection = document.getElementById('shopProductShippingSection');
 
   // Hide all special sections first
   if (digitalSection) digitalSection.style.display = 'none';
   if (subscriptionSection) subscriptionSection.style.display = 'none';
+  if (bundleSection) bundleSection.style.display = 'none';
 
   // Show/hide based on product type
   switch (productType) {
     case 'digital':
       if (digitalSection) digitalSection.style.display = 'block';
-      if (shippingCheckbox) shippingCheckbox.style.display = 'none';
-      if (weightField) weightField.style.display = 'none';
+      if (shippingSection) shippingSection.style.display = 'none';
       document.getElementById('shopProductRequiresShipping').checked = false;
       break;
     case 'subscription':
       if (subscriptionSection) subscriptionSection.style.display = 'block';
-      if (shippingCheckbox) shippingCheckbox.style.display = 'none';
-      if (weightField) weightField.style.display = 'none';
+      if (shippingSection) shippingSection.style.display = 'none';
       document.getElementById('shopProductRequiresShipping').checked = false;
       break;
-    default: // simple, variable, grouped, bundle
-      if (shippingCheckbox) shippingCheckbox.style.display = 'flex';
-      if (weightField) weightField.style.display = 'block';
+    case 'bundle':
+      if (bundleSection) bundleSection.style.display = 'block';
+      if (shippingSection) shippingSection.style.display = 'block';
+      document.getElementById('shopProductRequiresShipping').checked = true;
+      break;
+    default: // simple, variable, grouped
+      if (shippingSection) shippingSection.style.display = 'block';
       document.getElementById('shopProductRequiresShipping').checked = true;
       break;
   }
 }
+window.updateProductFormSections = updateProductFormSections;
 
 // Product image upload functionality
 function setupProductImageUpload() {
@@ -12928,22 +13583,40 @@ async function saveProduct() {
     description_en: document.getElementById('shopProductDescriptionEn').value.trim() || null,
     short_description: document.getElementById('shopProductShortDesc').value.trim() || null,
     short_description_en: document.getElementById('shopProductShortDescEn').value.trim() || null,
+    // Organization
     sku: document.getElementById('shopProductSku').value.trim() || null,
-    price,
-    compare_at_price: parseFloat(document.getElementById('shopProductComparePrice').value) || null,
-    cost_price: parseFloat(document.getElementById('shopProductCost').value) || null,
     category_id: document.getElementById('shopProductCategory').value || null,
     vendor_id: document.getElementById('shopProductVendor').value || null,
     status: document.getElementById('shopProductStatus').value,
     product_type: document.getElementById('shopProductType').value,
-    weight: parseFloat(document.getElementById('shopProductWeight').value) || null,
+    // Pricing
+    price,
+    compare_at_price: parseFloat(document.getElementById('shopProductComparePrice').value) || null,
+    cost_price: parseFloat(document.getElementById('shopProductCost').value) || null,
+    sale_price: parseFloat(document.getElementById('shopProductSalePrice').value) || null,
+    sale_start_date: document.getElementById('shopProductSaleStart').value || null,
+    sale_end_date: document.getElementById('shopProductSaleEnd').value || null,
     tax_class_id: document.getElementById('shopProductTaxClass').value || null,
+    // Inventory
     track_inventory: document.getElementById('shopProductTrackInventory').checked,
     allow_backorder: document.getElementById('shopProductAllowBackorder').checked,
     stock_quantity: parseInt(document.getElementById('shopProductStock').value) || 0,
     low_stock_threshold: parseInt(document.getElementById('shopProductLowStock').value) || 5,
-    is_featured: document.getElementById('shopProductFeatured').checked,
+    min_purchase_quantity: parseInt(document.getElementById('shopProductMinQty').value) || 1,
+    max_purchase_quantity: parseInt(document.getElementById('shopProductMaxQty').value) || null,
+    // Shipping
     is_virtual: !document.getElementById('shopProductRequiresShipping').checked,
+    weight: parseFloat(document.getElementById('shopProductWeight').value) || null,
+    shipping_class_id: document.getElementById('shopProductShippingClass').value || null,
+    length: parseFloat(document.getElementById('shopProductLength').value) || null,
+    width: parseFloat(document.getElementById('shopProductWidth').value) || null,
+    height: parseFloat(document.getElementById('shopProductHeight').value) || null,
+    // Flags
+    is_featured: document.getElementById('shopProductFeatured').checked,
+    is_bestseller: document.getElementById('shopProductBestseller').checked,
+    is_new: document.getElementById('shopProductNew').checked,
+    is_on_sale: document.getElementById('shopProductOnSale').checked,
+    // Media
     thumbnail_url: document.getElementById('shopProductThumbnail').value.trim() || null,
     images: parseImageUrls(document.getElementById('shopProductImages').value),
     video_url: document.getElementById('shopProductVideo').value.trim() || null,
