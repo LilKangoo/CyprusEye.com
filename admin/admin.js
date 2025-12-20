@@ -12377,7 +12377,7 @@ async function loadProductData(productId) {
     document.getElementById('shopProductStock').value = product.stock_quantity || 0;
     document.getElementById('shopProductLowStock').value = product.low_stock_threshold || 5;
     document.getElementById('shopProductFeatured').checked = product.is_featured || false;
-    document.getElementById('shopProductRequiresShipping').checked = product.requires_shipping !== false;
+    document.getElementById('shopProductRequiresShipping').checked = !product.is_virtual;
     document.getElementById('shopProductThumbnail').value = product.thumbnail_url || '';
     document.getElementById('shopProductTags').value = (product.tags || []).join(', ');
 
@@ -12453,7 +12453,7 @@ async function saveProduct() {
     stock_quantity: parseInt(document.getElementById('shopProductStock').value) || 0,
     low_stock_threshold: parseInt(document.getElementById('shopProductLowStock').value) || 5,
     is_featured: document.getElementById('shopProductFeatured').checked,
-    requires_shipping: document.getElementById('shopProductRequiresShipping').checked,
+    is_virtual: !document.getElementById('shopProductRequiresShipping').checked,
     thumbnail_url: document.getElementById('shopProductThumbnail').value.trim() || null,
     tags
   };
