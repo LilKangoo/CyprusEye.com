@@ -11912,7 +11912,7 @@ async function loadShopProducts() {
   try {
     const { data: products, error } = await client
       .from('shop_products')
-      .select('*, category:shop_categories(name)')
+      .select('*, category:shop_categories(name), vendor:shop_vendors(name)')
       .order('created_at', { ascending: false });
 
     if (error) throw error;
@@ -13794,8 +13794,8 @@ async function loadProductVariants(productId) {
   }
   
   try {
-    // Load attributes for dropdown
-    const { data: attrs } = await client.from('shop_attributes').select('id, name, values').eq('is_active', true);
+    // Load attributes for dropdown (shop_attributes doesn't have is_active column)
+    const { data: attrs } = await client.from('shop_attributes').select('id, name');
     availableAttributes = attrs || [];
     
     // Load existing variants
@@ -13943,6 +13943,7 @@ async function saveProductVariants(productId) {
 
 // =====================================================
 // PRODUCT RELATIONSHIPS (Upsell/Cross-sell)
+// Uses arrays on shop_products: upsell_product_ids, cross_sell_product_ids
 // =====================================================
 
 async function loadRelatedProductsOptions(excludeId = null) {
@@ -13955,7 +13956,8 @@ async function loadRelatedProductsOptions(excludeId = null) {
   if (!upsellSelect || !crossSellSelect) return;
   
   try {
-    let query = client.from('shop_products').select('id, name, price').eq('status', 'active').order('name');
+    // For admin, fetch all products regardless of status
+    let query = client.from('shop_products').select('id, name, price').order('name');
     if (excludeId) query = query.neq('id', excludeId);
     
     const { data: products } = await query;
@@ -13975,18 +13977,20 @@ async function loadProductRelationships(productId) {
   if (!client || !productId) return;
   
   try {
-    const { data: relationships } = await client
-      .from('shop_product_relationships')
-      .select('related_product_id, relationship_type')
-      .eq('product_id', productId);
+    // Get the product's upsell and cross-sell arrays
+    const { data: product } = await client
+      .from('shop_products')
+      .select('upsell_product_ids, cross_sell_product_ids')
+      .eq('id', productId)
+      .single();
     
-    if (!relationships) return;
+    if (!product) return;
     
     const upsellSelect = document.getElementById('shopProductUpsell');
     const crossSellSelect = document.getElementById('shopProductCrossSell');
     
-    const upsellIds = relationships.filter(r => r.relationship_type === 'upsell').map(r => r.related_product_id);
-    const crossSellIds = relationships.filter(r => r.relationship_type === 'cross_sell').map(r => r.related_product_id);
+    const upsellIds = product.upsell_product_ids || [];
+    const crossSellIds = product.cross_sell_product_ids || [];
     
     if (upsellSelect) {
       Array.from(upsellSelect.options).forEach(opt => {
@@ -14003,41 +14007,22 @@ async function loadProductRelationships(productId) {
   }
 }
 
-async function saveProductRelationships(productId) {
-  const client = ensureSupabase();
-  if (!client || !productId) return;
-  
+function getSelectedProductRelationships() {
+  // Get selected IDs from multi-selects (used in saveProduct)
   const upsellSelect = document.getElementById('shopProductUpsell');
   const crossSellSelect = document.getElementById('shopProductCrossSell');
   
-  if (!upsellSelect || !crossSellSelect) return;
-  
-  try {
-    // Delete existing relationships
-    await client.from('shop_product_relationships').delete().eq('product_id', productId);
-    
-    // Insert upsell relationships
-    const upsellIds = Array.from(upsellSelect.selectedOptions).map(opt => opt.value);
-    for (const relatedId of upsellIds) {
-      await client.from('shop_product_relationships').insert({
-        product_id: productId,
-        related_product_id: relatedId,
-        relationship_type: 'upsell'
-      });
-    }
-    
-    // Insert cross-sell relationships
-    const crossSellIds = Array.from(crossSellSelect.selectedOptions).map(opt => opt.value);
-    for (const relatedId of crossSellIds) {
-      await client.from('shop_product_relationships').insert({
-        product_id: productId,
-        related_product_id: relatedId,
-        relationship_type: 'cross_sell'
-      });
-    }
-  } catch (error) {
-    console.error('Failed to save relationships:', error);
-  }
+  return {
+    upsell_product_ids: upsellSelect ? Array.from(upsellSelect.selectedOptions).map(opt => opt.value) : [],
+    cross_sell_product_ids: crossSellSelect ? Array.from(crossSellSelect.selectedOptions).map(opt => opt.value) : []
+  };
+}
+
+// This function is no longer needed as relationships are saved with product
+async function saveProductRelationships(productId) {
+  // Relationships are now saved as part of productData in saveProduct()
+  // This function is kept for backward compatibility but does nothing
+  return;
 }
 
 // Product image upload functionality
@@ -14251,7 +14236,9 @@ async function saveProduct() {
     subscription_interval: document.getElementById('shopProductSubInterval')?.value || null,
     subscription_interval_count: parseInt(document.getElementById('shopProductSubIntervalCount')?.value) || 1,
     subscription_trial_days: parseInt(document.getElementById('shopProductSubTrialDays')?.value) || 0,
-    subscription_signup_fee: parseFloat(document.getElementById('shopProductSubSignupFee')?.value) || 0
+    subscription_signup_fee: parseFloat(document.getElementById('shopProductSubSignupFee')?.value) || 0,
+    // Related products (upsell/cross-sell) - stored as arrays
+    ...getSelectedProductRelationships()
   };
 
   // Helper function to parse image URLs from textarea
@@ -14275,11 +14262,7 @@ async function saveProduct() {
     if (savedProductId && productData.product_type === 'variable') {
       await saveProductVariants(savedProductId);
     }
-    
-    // Save product relationships (upsell/cross-sell)
-    if (savedProductId) {
-      await saveProductRelationships(savedProductId);
-    }
+    // Note: upsell/cross-sell are now saved as arrays directly in productData
 
     showToast(productId ? 'Produkt zaktualizowany' : 'Produkt utworzony', 'success');
     document.getElementById('shopProductModal').hidden = true;

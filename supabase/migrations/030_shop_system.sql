@@ -78,10 +78,12 @@ CREATE TABLE IF NOT EXISTS shop_attributes (
   name_en TEXT,
   slug TEXT UNIQUE NOT NULL,
   type TEXT DEFAULT 'select',
+  values TEXT,
   is_required BOOLEAN DEFAULT false,
   is_visible BOOLEAN DEFAULT true,
   is_variation BOOLEAN DEFAULT true,
   is_filterable BOOLEAN DEFAULT true,
+  is_active BOOLEAN DEFAULT true,
   sort_order INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
