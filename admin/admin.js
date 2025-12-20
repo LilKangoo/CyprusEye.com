@@ -12234,32 +12234,40 @@ async function saveShopSettings() {
 
 // Language tab switchers for shop forms
 function switchProductLang(lang) {
-  document.getElementById('productLangPL').style.display = lang === 'pl' ? 'block' : 'none';
-  document.getElementById('productLangEN').style.display = lang === 'en' ? 'block' : 'none';
+  const plDiv = document.getElementById('productLangPL');
+  const enDiv = document.getElementById('productLangEN');
+  if (plDiv) plDiv.classList.toggle('active', lang === 'pl');
+  if (enDiv) enDiv.classList.toggle('active', lang === 'en');
   document.querySelectorAll('#shopProductModal .lang-tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.lang === lang);
   });
 }
 
 function switchCategoryLang(lang) {
-  document.getElementById('categoryLangPL').style.display = lang === 'pl' ? 'block' : 'none';
-  document.getElementById('categoryLangEN').style.display = lang === 'en' ? 'block' : 'none';
+  const plDiv = document.getElementById('categoryLangPL');
+  const enDiv = document.getElementById('categoryLangEN');
+  if (plDiv) plDiv.classList.toggle('active', lang === 'pl');
+  if (enDiv) enDiv.classList.toggle('active', lang === 'en');
   document.querySelectorAll('#shopCategoryModal .lang-tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.lang === lang);
   });
 }
 
 function switchVendorLang(lang) {
-  document.getElementById('vendorLangPL').style.display = lang === 'pl' ? 'block' : 'none';
-  document.getElementById('vendorLangEN').style.display = lang === 'en' ? 'block' : 'none';
+  const plDiv = document.getElementById('vendorLangPL');
+  const enDiv = document.getElementById('vendorLangEN');
+  if (plDiv) plDiv.classList.toggle('active', lang === 'pl');
+  if (enDiv) enDiv.classList.toggle('active', lang === 'en');
   document.querySelectorAll('#shopVendorModal .lang-tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.lang === lang);
   });
 }
 
 function switchDiscountLang(lang) {
-  document.getElementById('discountLangPL').style.display = lang === 'pl' ? 'block' : 'none';
-  document.getElementById('discountLangEN').style.display = lang === 'en' ? 'block' : 'none';
+  const plDiv = document.getElementById('discountLangPL');
+  const enDiv = document.getElementById('discountLangEN');
+  if (plDiv) plDiv.classList.toggle('active', lang === 'pl');
+  if (enDiv) enDiv.classList.toggle('active', lang === 'en');
   document.querySelectorAll('#shopDiscountModal .lang-tab').forEach(tab => {
     tab.classList.toggle('active', tab.dataset.lang === lang);
   });

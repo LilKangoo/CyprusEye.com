@@ -494,6 +494,7 @@ CREATE TABLE IF NOT EXISTS shop_discounts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   code TEXT UNIQUE NOT NULL,
   description TEXT,
+  description_en TEXT,
   description_internal TEXT,
   discount_type TEXT NOT NULL DEFAULT 'percentage',
   discount_value DECIMAL(10,2) NOT NULL,
