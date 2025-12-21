@@ -691,7 +691,7 @@ async function loadSavedAddress(userId) {
       .from('shop_addresses')
       .select('*')
       .eq('user_id', userId)
-      .eq('is_default', true)
+      .eq('is_default_shipping', true)
       .single();
     
     if (address) {
@@ -699,8 +699,8 @@ async function loadSavedAddress(userId) {
       document.getElementById('checkoutFirstName').value = address.first_name || '';
       document.getElementById('checkoutLastName').value = address.last_name || '';
       document.getElementById('checkoutPhone').value = address.phone || '';
-      document.getElementById('checkoutAddress').value = address.address_line1 || '';
-      document.getElementById('checkoutAddress2').value = address.address_line2 || '';
+      document.getElementById('checkoutAddress').value = address.line1 || '';
+      document.getElementById('checkoutAddress2').value = address.line2 || '';
       document.getElementById('checkoutCity').value = address.city || '';
       document.getElementById('checkoutPostal').value = address.postal_code || '';
       document.getElementById('checkoutCountry').value = address.country || '';
@@ -708,6 +708,18 @@ async function loadSavedAddress(userId) {
   } catch (error) {
     console.log('No saved address found');
   }
+}
+
+async function generateOrderNumber() {
+  try {
+    const { data, error } = await supabase.rpc('shop_generate_order_number');
+    if (!error && data) return data;
+  } catch (e) {
+    // ignore
+  }
+
+  const rand = Math.random().toString(36).slice(2, 8).toUpperCase();
+  return `WC-${Date.now().toString(36).toUpperCase()}-${rand}`;
 }
 
 function openCheckoutModal() {
@@ -724,6 +736,12 @@ function closeCheckoutModal() {
   const modal = document.getElementById('checkoutModal');
   if (modal) {
     modal.hidden = true;
+  }
+
+  const cartSidebar = document.getElementById('cartSidebar');
+  if (cartSidebar && !cartSidebar.hidden) {
+    document.body.style.overflow = 'hidden';
+  } else {
     document.body.style.overflow = '';
   }
 }
@@ -831,6 +849,12 @@ async function submitOrder(e) {
     showToast(shopState.lang === 'en' ? 'Please log in' : 'Zaloguj się', 'error');
     return;
   }
+
+  const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked')?.value || null;
+  if (!paymentMethod) {
+    showToast(shopState.lang === 'en' ? 'Please select a payment method' : 'Wybierz metodę płatności', 'error');
+    return;
+  }
   
   const btnSubmit = document.getElementById('btnPlaceOrder');
   btnSubmit.disabled = true;
@@ -843,16 +867,18 @@ async function submitOrder(e) {
       first_name: document.getElementById('checkoutFirstName').value.trim(),
       last_name: document.getElementById('checkoutLastName').value.trim(),
       phone: document.getElementById('checkoutPhone').value.trim(),
-      address_line1: document.getElementById('checkoutAddress').value.trim(),
-      address_line2: document.getElementById('checkoutAddress2').value.trim() || null,
+      line1: document.getElementById('checkoutAddress').value.trim(),
+      line2: document.getElementById('checkoutAddress2').value.trim() || null,
       city: document.getElementById('checkoutCity').value.trim(),
       postal_code: document.getElementById('checkoutPostal').value.trim(),
       country: document.getElementById('checkoutCountry').value,
-      is_default: document.getElementById('checkoutSaveAddress').checked
+      email: document.getElementById('checkoutEmail').value.trim(),
+      is_default_shipping: document.getElementById('checkoutSaveAddress').checked,
+      is_default_billing: document.getElementById('checkoutSaveAddress').checked
     };
     
     // Save address if checkbox checked
-    if (shippingData.is_default) {
+    if (shippingData.is_default_shipping) {
       await saveShippingAddress(shippingData);
     }
     
@@ -862,27 +888,43 @@ async function submitOrder(e) {
     const total = subtotal + shipping;
     
     // Create order
+    const orderNumber = await generateOrderNumber();
+    const customerNotesRaw = document.getElementById('checkoutNotes').value.trim();
+    const customerNotes = [
+      customerNotesRaw || null,
+      paymentMethod ? `payment_method:${paymentMethod}` : null
+    ].filter(Boolean).join('\n');
+
+    const addressJson = {
+      first_name: shippingData.first_name,
+      last_name: shippingData.last_name,
+      phone: shippingData.phone,
+      email: shippingData.email,
+      line1: shippingData.line1,
+      line2: shippingData.line2,
+      city: shippingData.city,
+      postal_code: shippingData.postal_code,
+      country: shippingData.country
+    };
+
     const orderData = {
+      order_number: orderNumber,
       user_id: checkoutUser.id,
-      status: 'pending',
-      payment_status: 'pending',
+      customer_email: shippingData.email,
+      customer_name: `${shippingData.first_name} ${shippingData.last_name}`.trim(),
+      customer_phone: shippingData.phone,
+      billing_address: addressJson,
+      shipping_address: addressJson,
+      items_subtotal: subtotal,
+      discount_amount: 0,
       subtotal: subtotal,
       shipping_cost: shipping,
+      tax_amount: 0,
       total: total,
       currency: 'EUR',
-      customer_email: document.getElementById('checkoutEmail').value.trim(),
-      customer_phone: shippingData.phone,
-      shipping_address: {
-        first_name: shippingData.first_name,
-        last_name: shippingData.last_name,
-        address_line1: shippingData.address_line1,
-        address_line2: shippingData.address_line2,
-        city: shippingData.city,
-        postal_code: shippingData.postal_code,
-        country: shippingData.country
-      },
-      notes: document.getElementById('checkoutNotes').value.trim() || null,
-      items_count: shopState.cart.reduce((sum, item) => sum + item.quantity, 0)
+      status: 'pending',
+      payment_status: 'pending',
+      customer_notes: customerNotes || null
     };
     
     const { data: order, error: orderError } = await supabase
@@ -898,10 +940,11 @@ async function submitOrder(e) {
       order_id: order.id,
       product_id: item.productId,
       product_name: item.name,
-      quantity: item.quantity,
+      product_image: item.thumbnail || null,
+      original_price: item.price,
       unit_price: item.price,
-      total_price: item.price * item.quantity,
-      thumbnail_url: item.thumbnail
+      quantity: item.quantity,
+      subtotal: item.price * item.quantity
     }));
     
     const { error: itemsError } = await supabase
@@ -920,7 +963,7 @@ async function submitOrder(e) {
     showToast(shopState.lang === 'en' ? 'Order placed successfully!' : 'Zamówienie złożone pomyślnie!', 'success');
     
     // Show success message
-    showOrderSuccess(order.id);
+    showOrderSuccess(order.order_number || order.id);
     
   } catch (error) {
     console.error('Order error:', error);
@@ -938,7 +981,7 @@ async function saveShippingAddress(data) {
       .from('shop_addresses')
       .select('id')
       .eq('user_id', data.user_id)
-      .eq('is_default', true)
+      .eq('is_default_shipping', true)
       .single();
     
     if (existing) {
@@ -1138,6 +1181,7 @@ function setupEventListeners() {
     if (e.key === 'Escape') {
       closeCart();
       closeProductModal();
+      closeCheckoutModal();
     }
   });
 }

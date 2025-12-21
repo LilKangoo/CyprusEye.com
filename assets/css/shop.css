@@ -1031,6 +1031,15 @@
   padding: 0 4px;
 }
 
+#btnOpenCart {
+  position: relative;
+}
+
+#btnOpenCart .cart-count {
+  top: -6px;
+  right: -6px;
+}
+
 /* =====================================================
    DARK MODE
    ===================================================== */
@@ -1576,6 +1585,10 @@
   align-items: center;
   justify-content: center;
   padding: 20px;
+}
+
+.shop-modal[hidden] {
+  display: none !important;
 }
 
 .shop-modal .modal-overlay {

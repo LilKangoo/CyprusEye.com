@@ -254,6 +254,145 @@
     </div>
   </div>
 
+  <div id="checkoutModal" class="shop-modal" hidden>
+    <div class="modal-overlay" id="checkoutModalOverlay"></div>
+    <div class="modal-content checkout-modal-content">
+      <button class="modal-close" id="btnCloseCheckout" aria-label="Zamknij">&times;</button>
+      <div class="checkout-content">
+        <h2 class="checkout-title" data-i18n="shop.checkout.title">Zamówienie</h2>
+        <div class="checkout-steps">
+          <div class="checkout-step is-active" data-step="1">
+            <span class="step-number">1</span>
+            <span class="step-label" data-i18n="shop.checkout.step.address">Dane i dostawa</span>
+          </div>
+          <div class="checkout-step" data-step="2">
+            <span class="step-number">2</span>
+            <span class="step-label" data-i18n="shop.checkout.step.review">Podsumowanie</span>
+          </div>
+        </div>
+
+        <form id="checkoutForm" class="checkout-form" novalidate>
+          <section id="checkoutStep1" class="checkout-section">
+            <div class="form-field">
+              <label for="checkoutEmail" data-i18n="shop.checkout.email">E-mail</label>
+              <input id="checkoutEmail" type="email" autocomplete="email" required />
+            </div>
+
+            <div class="form-row">
+              <div class="form-field">
+                <label for="checkoutFirstName" data-i18n="shop.checkout.firstName">Imię</label>
+                <input id="checkoutFirstName" type="text" autocomplete="given-name" required />
+              </div>
+              <div class="form-field">
+                <label for="checkoutLastName" data-i18n="shop.checkout.lastName">Nazwisko</label>
+                <input id="checkoutLastName" type="text" autocomplete="family-name" required />
+              </div>
+            </div>
+
+            <div class="form-field">
+              <label for="checkoutPhone" data-i18n="shop.checkout.phone">Telefon</label>
+              <input id="checkoutPhone" type="tel" autocomplete="tel" required />
+            </div>
+
+            <div class="form-field">
+              <label for="checkoutAddress" data-i18n="shop.checkout.address1">Adres</label>
+              <input id="checkoutAddress" type="text" autocomplete="address-line1" required />
+            </div>
+
+            <div class="form-field">
+              <label for="checkoutAddress2" data-i18n="shop.checkout.address2">Adres (cd.)</label>
+              <input id="checkoutAddress2" type="text" autocomplete="address-line2" />
+            </div>
+
+            <div class="form-row">
+              <div class="form-field">
+                <label for="checkoutCity" data-i18n="shop.checkout.city">Miasto</label>
+                <input id="checkoutCity" type="text" autocomplete="address-level2" required />
+              </div>
+              <div class="form-field">
+                <label for="checkoutPostal" data-i18n="shop.checkout.postal">Kod pocztowy</label>
+                <input id="checkoutPostal" type="text" autocomplete="postal-code" required />
+              </div>
+            </div>
+
+            <div class="form-field">
+              <label for="checkoutCountry" data-i18n="shop.checkout.country">Kraj</label>
+              <select id="checkoutCountry" required>
+                <option value="CY">Cyprus</option>
+                <option value="PL">Poland</option>
+                <option value="DE">Germany</option>
+                <option value="GB">United Kingdom</option>
+                <option value="FR">France</option>
+                <option value="IT">Italy</option>
+                <option value="ES">Spain</option>
+                <option value="NL">Netherlands</option>
+                <option value="BE">Belgium</option>
+                <option value="AT">Austria</option>
+                <option value="GR">Greece</option>
+                <option value="OTHER">Other</option>
+              </select>
+            </div>
+
+            <div class="form-field checkbox-field">
+              <label for="checkoutSaveAddress">
+                <input id="checkoutSaveAddress" type="checkbox" />
+                <span data-i18n="shop.checkout.saveAddress">Zapisz adres jako domyślny</span>
+              </label>
+            </div>
+
+            <div class="form-field">
+              <label for="checkoutNotes" data-i18n="shop.checkout.notes">Uwagi do zamówienia</label>
+              <textarea id="checkoutNotes" rows="3"></textarea>
+            </div>
+
+            <div class="checkout-actions">
+              <button type="button" class="btn btn-primary" id="btnToStep2" data-i18n="shop.checkout.continue">Dalej</button>
+            </div>
+          </section>
+
+          <section id="checkoutStep2" class="checkout-section" hidden>
+            <div class="checkout-review">
+              <div class="review-section">
+                <h4 data-i18n="shop.checkout.review.shipping">Dostawa</h4>
+                <div id="reviewShippingAddress" class="review-address"></div>
+                <button type="button" class="btn-link" id="btnEditAddress" data-i18n="shop.checkout.edit">Edytuj</button>
+              </div>
+              <div class="review-section">
+                <h4 data-i18n="shop.checkout.review.items">Produkty</h4>
+                <div id="reviewOrderItems" class="review-items"></div>
+              </div>
+              <div class="review-section">
+                <h4 data-i18n="shop.checkout.payment">Płatność</h4>
+                <div class="form-field checkbox-field">
+                  <label>
+                    <input type="radio" name="paymentMethod" value="cod" required />
+                    <span data-i18n="shop.checkout.payment.cod">Płatność przy odbiorze</span>
+                  </label>
+                </div>
+                <div class="form-field checkbox-field">
+                  <label>
+                    <input type="radio" name="paymentMethod" value="bank_transfer" required />
+                    <span data-i18n="shop.checkout.payment.transfer">Przelew bankowy</span>
+                  </label>
+                </div>
+              </div>
+              <div class="review-totals">
+                <div class="total-line"><span data-i18n="shop.checkout.totals.subtotal">Suma produktów</span><span id="reviewSubtotal">€0.00</span></div>
+                <div class="total-line"><span data-i18n="shop.checkout.totals.shipping">Dostawa</span><span id="reviewShipping">€0.00</span></div>
+                <div class="total-line total-line--grand"><strong data-i18n="shop.checkout.totals.total">Razem</strong><strong id="reviewTotal">€0.00</strong></div>
+              </div>
+            </div>
+
+            <div class="checkout-actions">
+              <button type="button" class="btn" id="btnBackToStep1" data-i18n="shop.checkout.back">Wstecz</button>
+              <button type="submit" class="btn btn-primary" id="btnPlaceOrder" data-i18n="shop.checkout.place">Złóż zamówienie</button>
+            </div>
+          </section>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- SOS Modal -->
   <div
     class="sos-modal"
