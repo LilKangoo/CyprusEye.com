@@ -1594,8 +1594,10 @@
 .shop-modal .modal-overlay {
   position: absolute;
   inset: 0;
+  z-index: 0;
   background: rgba(0,0,0,0.6);
   backdrop-filter: blur(4px);
+  pointer-events: auto;
 }
 
 .shop-modal .modal-content {
@@ -1604,6 +1606,7 @@
   background: white;
   border-radius: 16px;
   box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
+  pointer-events: auto;
 }
 
 .shop-modal .modal-close {
@@ -1700,5 +1703,62 @@
     background: #0f172a;
     color: #f1f5f9;
     border-color: #334155;
+  }
+}
+
+/* =====================================================
+   CHECKOUT FORM DARK MODE FIX
+   ===================================================== */
+
+@media (prefers-color-scheme: dark) {
+  .checkout-title,
+  .checkout-content h2,
+  .checkout-content h3,
+  .checkout-content h4 {
+    color: #f1f5f9;
+  }
+
+  .checkout-form label {
+    color: #e2e8f0;
+  }
+
+  .step-label {
+    color: #cbd5e1;
+  }
+
+  .checkout-step.is-active .step-label {
+    color: #f1f5f9;
+  }
+
+  .review-section h4 {
+    color: #94a3b8;
+  }
+
+  .review-address,
+  .review-items {
+    color: #e2e8f0;
+  }
+
+  .total-line {
+    color: #cbd5e1;
+  }
+
+  .total-line--grand,
+  .total-line--grand strong {
+    color: #f1f5f9;
+  }
+
+  .checkout-form input::placeholder,
+  .checkout-form textarea::placeholder {
+    color: #64748b;
+  }
+
+  .checkout-actions .btn {
+    color: #f1f5f9;
+  }
+
+  .checkout-actions .btn-primary {
+    background: var(--primary-color, #2563eb);
+    color: white;
   }
 }
