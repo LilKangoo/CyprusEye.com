@@ -123,8 +123,12 @@ const calculateShippingMetrics = (
   for (const item of items) {
     const product = productsMap[item.product_id];
     const requiresShipping = product
-      ? product.is_virtual === false
-      : item.requires_shipping !== false;
+      ? product.is_virtual === true
+        ? false
+        : true
+      : item.requires_shipping === false
+        ? false
+        : true;
     if (!requiresShipping) continue;
 
     const itemWeight = toNumber(
