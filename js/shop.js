@@ -178,6 +178,11 @@ async function loadShippingZonesAndMethods() {
 function getShippingMethodsForCountry(countryCode) {
   if (!countryCode) return [];
   
+  // When user selects "Other" show every available shipping method
+  if (countryCode === 'OTHER') {
+    return [...shopState.shippingMethods].sort((a, b) => (a.cost || 0) - (b.cost || 0));
+  }
+  
   const euCountries = ['AT','BE','BG','HR','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE'];
   
   return shopState.shippingMethods.filter(method => {
