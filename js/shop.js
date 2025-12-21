@@ -8,6 +8,9 @@ const shopState = {
   products: [],
   categories: [],
   cart: [],
+  shippingZones: [],
+  shippingMethods: [],
+  selectedShippingMethod: null,
   filters: {
     category: '',
     priceMin: null,
@@ -81,6 +84,7 @@ async function init() {
   loadCartFromStorage();
   await loadCategories();
   await loadProducts();
+  await loadShippingZonesAndMethods();
   setupEventListeners();
   updateCartUI();
   
@@ -135,6 +139,128 @@ async function initSupabase() {
   if (window.supabaseJs?.createClient) {
     supabase = window.supabaseJs.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   }
+}
+
+// =====================================================
+// SHIPPING METHODS
+// =====================================================
+
+async function loadShippingZonesAndMethods() {
+  if (!supabase) return;
+  
+  try {
+    // Load zones with their methods
+    const { data: zones, error: zonesError } = await supabase
+      .from('shop_shipping_zones')
+      .select('*, methods:shop_shipping_methods(*)')
+      .eq('is_active', true)
+      .order('sort_order');
+    
+    if (zonesError) throw zonesError;
+    
+    shopState.shippingZones = zones || [];
+    
+    // Flatten all methods
+    shopState.shippingMethods = zones?.flatMap(zone => 
+      (zone.methods || []).filter(m => m.is_active).map(method => ({
+        ...method,
+        zone_name: zone.name,
+        zone_name_en: zone.name_en,
+        zone_countries: zone.countries
+      }))
+    ) || [];
+    
+  } catch (error) {
+    console.error('Failed to load shipping methods:', error);
+  }
+}
+
+function getShippingMethodsForCountry(countryCode) {
+  if (!countryCode) return [];
+  
+  const euCountries = ['AT','BE','BG','HR','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE'];
+  
+  return shopState.shippingMethods.filter(method => {
+    const countries = method.zone_countries || [];
+    // Check if country matches zone
+    if (countries.includes(countryCode)) return true;
+    // Check EU zone
+    if (countries.includes('EU') && euCountries.includes(countryCode)) return true;
+    // Check international (wildcard)
+    if (countries.includes('*')) return true;
+    return false;
+  }).sort((a, b) => (a.cost || 0) - (b.cost || 0));
+}
+
+function updateShippingMethodsDropdown(countryCode) {
+  const select = document.getElementById('checkoutShipping');
+  const infoEl = document.getElementById('shippingMethodInfo');
+  if (!select) return;
+  
+  const methods = getShippingMethodsForCountry(countryCode);
+  const selectText = shopState.lang === 'en' ? 'Select shipping method...' : 'Wybierz metodę wysyłki...';
+  
+  select.innerHTML = `<option value="">${selectText}</option>`;
+  
+  methods.forEach(method => {
+    const name = shopState.lang === 'en' && method.name_en ? method.name_en : method.name;
+    const zoneName = shopState.lang === 'en' && method.zone_name_en ? method.zone_name_en : method.zone_name;
+    const cost = parseFloat(method.cost) || 0;
+    const freeThreshold = method.free_shipping_threshold ? parseFloat(method.free_shipping_threshold) : null;
+    
+    let label = `${name} (${zoneName}) - €${cost.toFixed(2)}`;
+    if (freeThreshold && getCartTotal() >= freeThreshold) {
+      label = `${name} (${zoneName}) - ` + (shopState.lang === 'en' ? 'FREE' : 'GRATIS');
+    }
+    
+    const option = document.createElement('option');
+    option.value = method.id;
+    option.textContent = label;
+    option.dataset.cost = cost;
+    option.dataset.freeThreshold = freeThreshold || '';
+    select.appendChild(option);
+  });
+  
+  // Auto-select first method if only one available
+  if (methods.length === 1) {
+    select.value = methods[0].id;
+    shopState.selectedShippingMethod = methods[0];
+    updateShippingInfo(methods[0]);
+  } else {
+    shopState.selectedShippingMethod = null;
+    if (infoEl) infoEl.textContent = '';
+  }
+}
+
+function updateShippingInfo(method) {
+  const infoEl = document.getElementById('shippingMethodInfo');
+  if (!infoEl || !method) return;
+  
+  const desc = shopState.lang === 'en' && method.description_en ? method.description_en : method.description;
+  let info = desc || '';
+  
+  if (method.min_delivery_days && method.max_delivery_days) {
+    const daysText = shopState.lang === 'en' 
+      ? `Delivery: ${method.min_delivery_days}-${method.max_delivery_days} business days`
+      : `Dostawa: ${method.min_delivery_days}-${method.max_delivery_days} dni roboczych`;
+    info = info ? `${info} • ${daysText}` : daysText;
+  }
+  
+  infoEl.textContent = info;
+}
+
+function calculateShipping() {
+  if (!shopState.selectedShippingMethod) return 0;
+  
+  const method = shopState.selectedShippingMethod;
+  const cost = parseFloat(method.cost) || 0;
+  const freeThreshold = method.free_shipping_threshold ? parseFloat(method.free_shipping_threshold) : null;
+  
+  if (freeThreshold && getCartTotal() >= freeThreshold) {
+    return 0;
+  }
+  
+  return cost;
 }
 
 // =====================================================
@@ -850,6 +976,12 @@ function openCheckoutModal() {
     document.body.style.overflow = 'hidden';
     // Reset to step 1
     showCheckoutStep(1);
+    
+    // Initialize shipping methods based on current country selection
+    const countrySelect = document.getElementById('checkoutCountry');
+    if (countrySelect) {
+      updateShippingMethodsDropdown(countrySelect.value);
+    }
   }
 }
 
@@ -902,6 +1034,13 @@ function goToReviewStep() {
     return;
   }
   
+  // Validate shipping method is selected
+  if (!shopState.selectedShippingMethod) {
+    showToast(shopState.lang === 'en' ? 'Please select a shipping method' : 'Wybierz metodę wysyłki', 'error');
+    document.getElementById('checkoutShipping').style.borderColor = '#ef4444';
+    return;
+  }
+  
   // Populate review section
   populateReviewSection();
   showCheckoutStep(2);
@@ -951,24 +1090,17 @@ function populateReviewSection() {
   document.getElementById('reviewTotal').textContent = `€${total.toFixed(2)}`;
 }
 
-function calculateShipping() {
-  const country = document.getElementById('checkoutCountry')?.value;
-  const subtotal = getCartTotal();
-  
-  // Free shipping over €50 to Cyprus
-  if (country === 'CY' && subtotal >= 50) return 0;
-  
-  // Shipping rates
-  if (country === 'CY') return 5;
-  if (['PL', 'DE', 'GB', 'FR', 'IT', 'ES', 'NL', 'BE', 'AT', 'GR'].includes(country)) return 15;
-  return 25; // Worldwide
-}
-
 async function submitOrder(e) {
   e.preventDefault();
   
   if (!checkoutUser) {
     showToast(shopState.lang === 'en' ? 'Please log in' : 'Zaloguj się', 'error');
+    return;
+  }
+  
+  // Validate shipping method is selected
+  if (!shopState.selectedShippingMethod) {
+    showToast(shopState.lang === 'en' ? 'Please select a shipping method' : 'Wybierz metodę wysyłki', 'error');
     return;
   }
   
@@ -1022,6 +1154,7 @@ async function submitOrder(e) {
         user_id: checkoutUser.id,
         items: items,
         shipping_address: shippingAddress,
+        shipping_method_id: shopState.selectedShippingMethod.id,
         customer_notes: customerNotes,
         success_url: successUrl,
         cancel_url: cancelUrl
@@ -1275,6 +1408,25 @@ function setupEventListeners() {
   const checkoutForm = document.getElementById('checkoutForm');
   if (checkoutForm) {
     checkoutForm.addEventListener('submit', submitOrder);
+  }
+
+  // Country change - update shipping methods
+  const countrySelect = document.getElementById('checkoutCountry');
+  if (countrySelect) {
+    countrySelect.addEventListener('change', () => {
+      updateShippingMethodsDropdown(countrySelect.value);
+    });
+  }
+
+  // Shipping method change
+  const shippingSelect = document.getElementById('checkoutShipping');
+  if (shippingSelect) {
+    shippingSelect.addEventListener('change', () => {
+      const methodId = shippingSelect.value;
+      const method = shopState.shippingMethods.find(m => m.id === methodId);
+      shopState.selectedShippingMethod = method || null;
+      updateShippingInfo(method);
+    });
   }
 
   // Close filters on mobile

@@ -1828,3 +1828,17 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.3);
   }
 }
+
+/* Shipping method field hint */
+.field-hint {
+  font-size: 0.8125rem;
+  color: #64748b;
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+@media (prefers-color-scheme: dark) {
+  .field-hint {
+    color: #94a3b8;
+  }
+}
