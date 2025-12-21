@@ -726,6 +726,7 @@ function openCheckoutModal() {
   const modal = document.getElementById('checkoutModal');
   if (modal) {
     modal.hidden = false;
+    modal.style.display = 'flex';
     document.body.style.overflow = 'hidden';
     // Reset to step 1
     showCheckoutStep(1);
@@ -736,6 +737,7 @@ function closeCheckoutModal() {
   const modal = document.getElementById('checkoutModal');
   if (modal) {
     modal.hidden = true;
+    modal.style.display = 'none';
   }
 
   const cartSidebar = document.getElementById('cartSidebar');
