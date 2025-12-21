@@ -1815,14 +1815,16 @@
 /* Payment method icons */
 .payment-icon {
   height: 32px;
-  width: auto;
-  border-radius: 4px;
+  width: 50px;
+  border-radius: 6px;
   background: white;
-  padding: 4px 8px;
+  padding: 2px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 @media (prefers-color-scheme: dark) {
   .payment-icon {
     background: #f8fafc;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
   }
 }

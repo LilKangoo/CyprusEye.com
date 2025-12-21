@@ -87,15 +87,28 @@ async function init() {
   // Handle checkout return status
   handleCheckoutReturn();
   
+  // Sync cart with Supabase for logged-in users
+  await syncCartWithSupabase();
+  
   // Listen for language changes
   const handleLanguageUpdate = () => {
     shopState.lang = getCurrentLang();
     renderCategoryFilters();
     renderProducts();
+    renderCartItems(); // Re-render cart with new translations
   };
 
   window.addEventListener('languageChanged', handleLanguageUpdate);
   document.addEventListener('wakacjecypr:languagechange', handleLanguageUpdate);
+  
+  // Listen for auth state changes to sync cart
+  if (supabase) {
+    supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' && session?.user) {
+        await syncCartWithSupabase();
+      }
+    });
+  }
 }
 
 async function initSupabase() {
@@ -507,8 +520,108 @@ function loadCartFromStorage() {
 function saveCartToStorage() {
   try {
     localStorage.setItem('shop_cart', JSON.stringify(shopState.cart));
+    // Also sync to Supabase if user is logged in
+    syncCartToSupabase();
   } catch (e) {
     console.error('Failed to save cart:', e);
+  }
+}
+
+async function syncCartWithSupabase() {
+  if (!supabase) return;
+  
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
+    // Load cart from Supabase
+    const { data: dbCart } = await supabase
+      .from('shop_carts')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+    
+    if (dbCart) {
+      const { data: items } = await supabase
+        .from('shop_cart_items')
+        .select('product_id, quantity, shop_products(id, name, price, thumbnail_url)')
+        .eq('cart_id', dbCart.id);
+      
+      if (items && items.length > 0) {
+        // Merge with local cart - prefer Supabase data
+        const supabaseCart = items.map(item => ({
+          productId: item.product_id,
+          name: item.shop_products?.name || '',
+          price: parseFloat(item.shop_products?.price || 0),
+          thumbnail: item.shop_products?.thumbnail_url || null,
+          quantity: item.quantity
+        })).filter(item => item.name);
+        
+        // Merge: Supabase items take precedence, but keep local items not in Supabase
+        const mergedCart = [...supabaseCart];
+        shopState.cart.forEach(localItem => {
+          if (!mergedCart.find(i => i.productId === localItem.productId)) {
+            mergedCart.push(localItem);
+          }
+        });
+        
+        shopState.cart = mergedCart;
+        localStorage.setItem('shop_cart', JSON.stringify(shopState.cart));
+        updateCartUI();
+      }
+    } else if (shopState.cart.length > 0) {
+      // Create cart in Supabase with local items
+      await syncCartToSupabase();
+    }
+  } catch (error) {
+    console.error('Failed to sync cart with Supabase:', error);
+  }
+}
+
+async function syncCartToSupabase() {
+  if (!supabase) return;
+  
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    
+    // Get or create cart
+    let { data: cart } = await supabase
+      .from('shop_carts')
+      .select('id')
+      .eq('user_id', user.id)
+      .single();
+    
+    if (!cart) {
+      const { data: newCart } = await supabase
+        .from('shop_carts')
+        .insert({ user_id: user.id })
+        .select('id')
+        .single();
+      cart = newCart;
+    }
+    
+    if (!cart) return;
+    
+    // Clear existing items and insert new ones
+    await supabase
+      .from('shop_cart_items')
+      .delete()
+      .eq('cart_id', cart.id);
+    
+    if (shopState.cart.length > 0) {
+      const items = shopState.cart.map(item => ({
+        cart_id: cart.id,
+        product_id: item.productId,
+        quantity: item.quantity
+      }));
+      
+      await supabase
+        .from('shop_cart_items')
+        .insert(items);
+    }
+  } catch (error) {
+    console.error('Failed to sync cart to Supabase:', error);
   }
 }
 
@@ -582,8 +695,12 @@ function renderCartItems() {
 
   if (!itemsContainer) return;
 
+  // Get translated text
+  const emptyText = shopState.lang === 'en' ? 'Your cart is empty' : 'Twój koszyk jest pusty';
+  const removeText = shopState.lang === 'en' ? 'Remove' : 'Usuń';
+
   if (!shopState.cart.length) {
-    itemsContainer.innerHTML = '<p class="cart-empty" data-i18n="shop.cart.empty">Twój koszyk jest pusty</p>';
+    itemsContainer.innerHTML = `<p class="cart-empty">${emptyText}</p>`;
     if (footer) footer.hidden = true;
     return;
   }
@@ -606,7 +723,7 @@ function renderCartItems() {
           <span>${item.quantity}</span>
           <button class="btn-qty-plus" data-product-id="${item.productId}">+</button>
         </div>
-        <button class="btn-remove-item" data-product-id="${item.productId}">Usuń</button>
+        <button class="btn-remove-item" data-product-id="${item.productId}">${removeText}</button>
       </div>
     </div>
   `).join('');
