@@ -10,6 +10,9 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
+const CHECKOUT_FUNCTION_VERSION = "2025-12-21-1";
+const isDebugEnabled = (): boolean => Deno.env.get("CHECKOUT_DEBUG") === "true";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
@@ -310,6 +313,14 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const body: CheckoutRequest = await req.json();
 
+    const debug = isDebugEnabled();
+    if (debug) {
+      console.log("[create-checkout] version:", CHECKOUT_FUNCTION_VERSION);
+      console.log("[create-checkout] shipping_method_id:", body.shipping_method_id);
+      console.log("[create-checkout] items:", body.items?.length || 0);
+      console.log("[create-checkout] client_quote_totalCost:", (body as any)?.shipping_details?.quote?.totalCost);
+    }
+
     const { data: user, error: userError } = await supabase
       .from("profiles")
       .select("id, email, name")
@@ -390,6 +401,7 @@ serve(async (req) => {
 
     let shippingQuote: ShippingQuote | null = null;
     let shippingMethodRecord: any = null;
+    let serverShippingCost: number | null = null;
     if (body.shipping_method_id) {
       const { data: shippingMethod } = await supabase
         .from("shop_shipping_methods")
@@ -432,11 +444,19 @@ serve(async (req) => {
         );
       }
 
-      const serverShippingCost = shippingQuote.totalCost;
+      serverShippingCost = shippingQuote.totalCost;
       if (clientQuoteCost !== null && clientQuoteCost > serverShippingCost) {
         shippingCost = clientQuoteCost;
       } else {
         shippingCost = serverShippingCost;
+      }
+
+      if (debug) {
+        console.log("[create-checkout] metrics.server:", shippingMetrics);
+        console.log("[create-checkout] metrics.merged:", mergedShippingMetrics);
+        console.log("[create-checkout] shipping.server_cost:", serverShippingCost);
+        console.log("[create-checkout] shipping.client_cost:", clientQuoteCost);
+        console.log("[create-checkout] shipping.final_cost:", shippingCost);
       }
 
       if (shippingCost > 0) {
@@ -587,10 +607,23 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({
+        function_version: CHECKOUT_FUNCTION_VERSION,
         session_id: session.id,
         session_url: session.url,
         order_id: order.id,
         order_number: orderNumber,
+        ...(debug
+          ? {
+              debug: {
+                subtotal,
+                discountAmount,
+                shippingCost,
+                serverShippingCost,
+                clientQuoteCost,
+                mergedShippingMetrics,
+              },
+            }
+          : {}),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
