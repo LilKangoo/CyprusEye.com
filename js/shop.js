@@ -242,16 +242,43 @@ function updateShippingInfo(method) {
   if (!infoEl || !method) return;
   
   const desc = shopState.lang === 'en' && method.description_en ? method.description_en : method.description;
-  let info = desc || '';
+  const infoParts = [];
   
-  if (method.min_delivery_days && method.max_delivery_days) {
-    const daysText = shopState.lang === 'en' 
-      ? `Delivery: ${method.min_delivery_days}-${method.max_delivery_days} business days`
-      : `Dostawa: ${method.min_delivery_days}-${method.max_delivery_days} dni roboczych`;
-    info = info ? `${info} • ${daysText}` : daysText;
+  if (desc) {
+    infoParts.push(desc);
   }
   
-  infoEl.textContent = info;
+  if (method.processing_days) {
+    const prepText = shopState.lang === 'en'
+      ? `Preparation & dispatch: up to ${method.processing_days} ${method.processing_days === 1 ? 'day' : 'days'}`
+      : `Przygotowanie i nadanie: do ${method.processing_days} dni`;
+    infoParts.push(prepText);
+  }
+  
+  const minDelivery = method.min_delivery_days ? Number(method.min_delivery_days) : null;
+  const maxDelivery = method.max_delivery_days ? Number(method.max_delivery_days) : null;
+  
+  if (minDelivery || maxDelivery) {
+    let deliveryText = '';
+    if (shopState.lang === 'en') {
+      if (minDelivery && maxDelivery) {
+        deliveryText = `Delivery: ${minDelivery}-${maxDelivery} business days`;
+      } else {
+        const days = minDelivery || maxDelivery;
+        deliveryText = `Delivery: ~${days} business days`;
+      }
+    } else {
+      if (minDelivery && maxDelivery) {
+        deliveryText = `Dostawa: ${minDelivery}-${maxDelivery} dni roboczych`;
+      } else {
+        const days = minDelivery || maxDelivery;
+        deliveryText = `Dostawa: ok. ${days} dni roboczych`;
+      }
+    }
+    infoParts.push(deliveryText);
+  }
+  
+  infoEl.textContent = infoParts.join(' • ');
 }
 
 function calculateShipping() {
