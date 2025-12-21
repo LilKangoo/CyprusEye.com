@@ -1811,3 +1811,18 @@
     filter: brightness(1.2);
   }
 }
+
+/* Payment method icons */
+.payment-icon {
+  height: 32px;
+  width: auto;
+  border-radius: 4px;
+  background: white;
+  padding: 4px 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .payment-icon {
+    background: #f8fafc;
+  }
+}
