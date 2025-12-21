@@ -80,7 +80,7 @@ interface CheckoutRequest {
   };
 }
 
-const DEFAULT_CLASS_KEY = "__NO_CLASS__";
+const DEFAULT_CLASS_KEY = "__no_class__";
 
 const toNumber = (value: unknown): number => {
   if (value === null || value === undefined || value === "") return 0;
@@ -376,6 +376,18 @@ serve(async (req) => {
       body.shipping_details?.metrics
     );
 
+    const clientQuote = body.shipping_details?.quote || null;
+    const clientQuoteCost =
+      clientQuote && typeof clientQuote === "object"
+        ? roundCurrency(
+            toNumber(
+              (clientQuote as any).totalCost ??
+                (clientQuote as any).total_cost ??
+                0
+            )
+          )
+        : null;
+
     let shippingQuote: ShippingQuote | null = null;
     let shippingMethodRecord: any = null;
     if (body.shipping_method_id) {
@@ -420,7 +432,12 @@ serve(async (req) => {
         );
       }
 
-      shippingCost = shippingQuote.totalCost;
+      const serverShippingCost = shippingQuote.totalCost;
+      if (clientQuoteCost !== null && clientQuoteCost > serverShippingCost) {
+        shippingCost = clientQuoteCost;
+      } else {
+        shippingCost = serverShippingCost;
+      }
 
       if (shippingCost > 0) {
         lineItems.push({
@@ -436,13 +453,14 @@ serve(async (req) => {
       }
     }
 
-    const originalQuote =
-      body.shipping_details?.quote || shippingQuote || null;
+    const originalQuote = clientQuote || shippingQuote || null;
     const storedShippingDetails = {
       metrics: mergedShippingMetrics,
+      total_cost: shippingCost,
       ...(originalQuote
         ? { quote: { ...originalQuote, totalCost: shippingCost } }
         : {}),
+      ...(shippingQuote ? { server_quote: shippingQuote } : {}),
     };
 
     let stripeDiscounts: Stripe.Checkout.SessionCreateParams.Discount[] = [];
