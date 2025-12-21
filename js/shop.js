@@ -244,7 +244,8 @@ function updateShippingInfo(method) {
   const desc = shopState.lang === 'en' && method.description_en ? method.description_en : method.description;
   const infoParts = [];
   
-  if (desc) {
+  // Only show description if it does not start with deprecated prefixes like "dostawa"
+  if (desc && !/^dostawa/i.test(desc.trim())) {
     infoParts.push(desc);
   }
   
