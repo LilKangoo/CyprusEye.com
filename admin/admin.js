@@ -7030,6 +7030,87 @@ function escapeHtml(value) {
     });
 }
 
+function formatCurrencyEUR(value) {
+  const num = Number(value);
+  return `€${Number.isFinite(num) ? num.toFixed(2) : '0.00'}`;
+}
+
+const SHIPPING_COMPONENT_LABELS = {
+  base: 'Opłata podstawowa',
+  per_weight: 'Dopłata wagowa',
+  per_item: 'Dopłata za sztukę',
+  insurance: 'Ubezpieczenie przesyłki',
+  free_shipping: 'Darmowa wysyłka'
+};
+
+function buildShippingComponentsList(details) {
+  const quote = details?.quote;
+  if (!quote || !Array.isArray(quote.components) || !quote.components.length) {
+    return '';
+  }
+
+  const items = [];
+  quote.components.forEach((component) => {
+    if (component.type === 'class' && Array.isArray(component.items)) {
+      component.items.forEach((item) => {
+        if (!item || typeof item.amount !== 'number' || !item.amount) return;
+        const labelBase = item.label || item.className || item.classId;
+        const label = labelBase ? `Klasa: ${labelBase}` : 'Dopłata klasowa';
+        items.push(`
+          <li style="display:flex;justify-content:space-between;gap:12px;">
+            <span>${escapeHtml(label)}</span>
+            <span>${formatCurrencyEUR(item.amount)}</span>
+          </li>
+        `);
+      });
+      return;
+    }
+
+    if (typeof component.amount !== 'number') return;
+    const label = SHIPPING_COMPONENT_LABELS[component.type] || 'Opłata dodatkowa';
+    items.push(`
+      <li style="display:flex;justify-content:space-between;gap:12px;">
+        <span>${escapeHtml(label)}</span>
+        <span>${formatCurrencyEUR(component.amount)}</span>
+      </li>
+    `);
+  });
+
+  if (!items.length) return '';
+  return `
+    <ul style="margin:8px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:6px;">
+      ${items.join('')}
+    </ul>
+  `;
+}
+
+function renderOrderShippingInfo(order) {
+  if (!order) return '';
+  const details = order.shipping_details || null;
+  const hasDetails = Boolean(details && (details.quote || details.metrics));
+  const shippingCost = Number(order.shipping_cost);
+  const hasCost = Number.isFinite(shippingCost) && shippingCost >= 0;
+  if (!order.shipping_method_name && !hasDetails && !hasCost) {
+    return '';
+  }
+
+  const totalWeight = details?.metrics?.totalWeight;
+  const weightBlock = typeof totalWeight === 'number'
+    ? `<p style="margin:2px 0;color:var(--admin-text-muted);">Waga: ${totalWeight.toFixed(2)} kg</p>`
+    : '';
+  const breakdownList = hasDetails ? buildShippingComponentsList(details) : '';
+
+  return `
+    <div style="padding: 16px; background: var(--admin-bg); border-radius: 8px;">
+      <h4 style="margin: 0 0 12px; font-size: 13px; color: var(--admin-text-muted);">🚚 Dostawa</h4>
+      <p style="margin:0;font-weight:600;">${escapeHtml(order.shipping_method_name || 'Metoda nieznana')}</p>
+      ${hasCost ? `<p style="margin:2px 0 6px;">Koszt: <strong>${formatCurrencyEUR(shippingCost)}</strong></p>` : ''}
+      ${weightBlock}
+      ${breakdownList}
+    </div>
+  `;
+}
+
 // =====================================================
 // EVENT LISTENERS
 // =====================================================
@@ -15108,7 +15189,7 @@ async function viewShopOrder(orderId) {
         ` : ''}
       </div>
 
-      <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px;">
+      <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 24px;">
         <div style="padding: 16px; background: var(--admin-bg); border-radius: 8px;">
           <h4 style="margin: 0 0 12px; font-size: 13px; color: var(--admin-text-muted);">👤 Klient</h4>
           <p style="margin: 0; font-weight: 600;">${escapeHtml(order.customer_name || 'Gość')}</p>
@@ -15124,6 +15205,7 @@ async function viewShopOrder(orderId) {
             <p style="margin: 0; font-weight: 500;">${escapeHtml(order.shipping_address.country || '')}</p>
           ` : '<p style="color: var(--admin-text-muted); margin: 0;">Brak adresu</p>'}
         </div>
+        ${renderOrderShippingInfo(order)}
       </div>
 
       <!-- Tracking Info -->
@@ -15176,7 +15258,14 @@ async function viewShopOrder(orderId) {
           </tr>
         </thead>
         <tbody>
-          ${(order.items || []).map(item => `
+          ${(order.items || []).map(item => {
+            const unitPrice = Number(item.unit_price) || 0;
+            const quantity = Number(item.quantity) || 0;
+            const rowTotal = Number(
+              item.subtotal ??
+              (Number(item.unit_price) || 0) * quantity
+            ) || 0;
+            return `
             <tr>
               <td>
                 <div style="display: flex; align-items: center; gap: 12px;">
@@ -15187,40 +15276,41 @@ async function viewShopOrder(orderId) {
                   </div>
                 </div>
               </td>
-              <td style="text-align: center;">${item.quantity}</td>
-              <td style="text-align: right;">€${parseFloat(item.unit_price).toFixed(2)}</td>
-              <td style="text-align: right; font-weight: 500;">€${parseFloat(item.total_price).toFixed(2)}</td>
+              <td style="text-align: center;">${quantity}</td>
+              <td style="text-align: right;">${formatCurrencyEUR(unitPrice)}</td>
+              <td style="text-align: right; font-weight: 500;">${formatCurrencyEUR(rowTotal)}</td>
             </tr>
-          `).join('')}
+          `;
+          }).join('')}
         </tbody>
       </table>
 
       <div style="margin-top: 20px; padding: 16px; background: var(--admin-bg); border-radius: 8px;">
         <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
           <span>Produkty:</span>
-          <span>€${parseFloat(order.subtotal).toFixed(2)}</span>
+          <span>${formatCurrencyEUR(order.subtotal)}</span>
         </div>
         ${order.discount_amount ? `
           <div style="display: flex; justify-content: space-between; margin-bottom: 8px; color: #22c55e;">
             <span>Rabat${order.discount_code ? ` (${order.discount_code})` : ''}:</span>
-            <span>-€${parseFloat(order.discount_amount).toFixed(2)}</span>
+            <span>-${formatCurrencyEUR(order.discount_amount)}</span>
           </div>
         ` : ''}
-        ${order.shipping_amount ? `
+        ${order.shipping_cost ? `
           <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
             <span>Dostawa:</span>
-            <span>€${parseFloat(order.shipping_amount).toFixed(2)}</span>
+            <span>${formatCurrencyEUR(order.shipping_cost)}</span>
           </div>
         ` : ''}
         ${order.tax_amount ? `
           <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
             <span>VAT:</span>
-            <span>€${parseFloat(order.tax_amount).toFixed(2)}</span>
+            <span>${formatCurrencyEUR(order.tax_amount)}</span>
           </div>
         ` : ''}
-        <div style="display: flex; justify-content: space-between; padding-top: 12px; border-top: 1px solid var(--admin-border); font-size: 18px; font-weight: 600;">
+        <div style="display: flex; justify-between; padding-top: 12px; border-top: 1px solid var(--admin-border); font-size: 18px; font-weight: 600;">
           <span>Razem:</span>
-          <span>€${parseFloat(order.total).toFixed(2)}</span>
+          <span>${formatCurrencyEUR(order.total)}</span>
         </div>
       </div>
 

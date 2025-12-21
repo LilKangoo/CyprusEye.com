@@ -104,6 +104,63 @@ const parseJsonField = <T>(value: unknown, fallback: T): T => {
   return fallback;
 };
 
+const normalizeClassKey = (classId?: string | null): string =>
+  classId && typeof classId === "string" && classId.trim()
+    ? classId
+    : DEFAULT_CLASS_KEY;
+
+const mergeShippingMetrics = (
+  serverMetrics: ShippingMetrics,
+  requestMetrics?: ShippingMetrics | null
+): ShippingMetrics => {
+  if (!requestMetrics) {
+    return serverMetrics;
+  }
+
+  const mergedClassTotals: Record<string, { quantity: number; weight: number }> =
+    {};
+
+  // Start with server metrics
+  Object.entries(serverMetrics.classTotals || {}).forEach(([classId, data]) => {
+    mergedClassTotals[classId] = {
+      quantity: toNumber(data.quantity),
+      weight: toNumber(data.weight),
+    };
+  });
+
+  // Merge in client metrics, taking the max to avoid undercharging
+  Object.entries(requestMetrics.classTotals || {}).forEach(([classId, data]) => {
+    const key = normalizeClassKey(classId);
+    if (!mergedClassTotals[key]) {
+      mergedClassTotals[key] = { quantity: 0, weight: 0 };
+    }
+    mergedClassTotals[key].quantity = Math.max(
+      mergedClassTotals[key].quantity,
+      toNumber((data as any)?.quantity)
+    );
+    mergedClassTotals[key].weight = Math.max(
+      mergedClassTotals[key].weight,
+      toNumber((data as any)?.weight)
+    );
+  });
+
+  return {
+    totalItems: Math.max(
+      toNumber(serverMetrics.totalItems),
+      toNumber(requestMetrics.totalItems)
+    ),
+    totalWeight: Math.max(
+      toNumber(serverMetrics.totalWeight),
+      toNumber(requestMetrics.totalWeight)
+    ),
+    subtotal: Math.max(
+      toNumber(serverMetrics.subtotal),
+      toNumber(requestMetrics.subtotal)
+    ),
+    classTotals: mergedClassTotals,
+  };
+};
+
 type ProductShippingInfo = {
   id: string;
   weight: number | null;
@@ -314,6 +371,10 @@ serve(async (req) => {
     }
 
     const shippingMetrics = calculateShippingMetrics(body.items, productsMap);
+    const mergedShippingMetrics = mergeShippingMetrics(
+      shippingMetrics,
+      body.shipping_details?.metrics
+    );
 
     let shippingQuote: ShippingQuote | null = null;
     let shippingMethodRecord: any = null;
@@ -343,7 +404,7 @@ serve(async (req) => {
 
       shippingQuote = calculateShippingCost(
         shippingMethod,
-        shippingMetrics,
+        mergedShippingMetrics,
         subtotal,
         shippingClassesMap
       );
@@ -374,6 +435,15 @@ serve(async (req) => {
         });
       }
     }
+
+    const originalQuote =
+      body.shipping_details?.quote || shippingQuote || null;
+    const storedShippingDetails = {
+      metrics: mergedShippingMetrics,
+      ...(originalQuote
+        ? { quote: { ...originalQuote, totalCost: shippingCost } }
+        : {}),
+    };
 
     let stripeDiscounts: Stripe.Checkout.SessionCreateParams.Discount[] = [];
 
@@ -437,6 +507,7 @@ serve(async (req) => {
         total: total,
         shipping_method_id: body.shipping_method_id,
         shipping_method_name: shippingMethodRecord?.name || null,
+        shipping_details: storedShippingDetails,
         customer_notes: body.customer_notes,
         status: "pending",
         payment_status: "unpaid",
