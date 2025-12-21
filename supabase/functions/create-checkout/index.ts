@@ -32,6 +32,7 @@ interface CartItem {
 interface ShippingMetrics {
   totalItems: number;
   totalWeight: number;
+  subtotal: number;
   classTotals: Record<string, { quantity: number; weight: number }>;
 }
 
@@ -117,6 +118,7 @@ const calculateShippingMetrics = (
   const metrics: ShippingMetrics = {
     totalItems: 0,
     totalWeight: 0,
+    subtotal: 0,
     classTotals: {},
   };
 
@@ -139,6 +141,7 @@ const calculateShippingMetrics = (
 
     metrics.totalItems += qty;
     metrics.totalWeight += itemWeight * qty;
+    metrics.subtotal += (item.unit_price || 0) * qty;
 
     const mapKey = classId || DEFAULT_CLASS_KEY;
     if (!metrics.classTotals[mapKey]) {
@@ -224,7 +227,9 @@ const calculateShippingCost = (
   }
 
   const freeThreshold = toNumber(shippingMethod.free_shipping_threshold);
-  if (freeThreshold && orderSubtotal >= freeThreshold) {
+  const subtotalForThreshold =
+    typeof metrics.subtotal === "number" ? metrics.subtotal : orderSubtotal;
+  if (freeThreshold && subtotalForThreshold >= freeThreshold) {
     return {
       totalCost: 0,
       totalWeight: metrics.totalWeight,
