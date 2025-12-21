@@ -363,17 +363,11 @@
               </div>
               <div class="review-section">
                 <h4 data-i18n="shop.checkout.payment">Płatność</h4>
-                <div class="form-field checkbox-field">
-                  <label>
-                    <input type="radio" name="paymentMethod" value="cod" required />
-                    <span data-i18n="shop.checkout.payment.cod">Płatność przy odbiorze</span>
-                  </label>
-                </div>
-                <div class="form-field checkbox-field">
-                  <label>
-                    <input type="radio" name="paymentMethod" value="bank_transfer" required />
-                    <span data-i18n="shop.checkout.payment.transfer">Przelew bankowy</span>
-                  </label>
+                <p class="payment-info" data-i18n="shop.checkout.payment.stripe.info">
+                  Płatność obsługiwana przez Stripe - akceptujemy karty, Apple Pay, Google Pay i inne metody.
+                </p>
+                <div class="stripe-payment-methods">
+                  <img src="https://cdn.brandfolder.io/KGT2DTA4/at/rvgw5pc69nhq9wkh7rw8ckv/Powered_by_Stripe_-_blurple.svg" alt="Powered by Stripe" class="stripe-badge" />
                 </div>
               </div>
               <div class="review-totals">
@@ -384,8 +378,8 @@
             </div>
 
             <div class="checkout-actions">
-              <button type="button" class="btn" id="btnBackToStep1" data-i18n="shop.checkout.back">Wstecz</button>
-              <button type="submit" class="btn btn-primary" id="btnPlaceOrder" data-i18n="shop.checkout.place">Złóż zamówienie</button>
+              <button type="button" class="btn" id="btnBackToStep1" data-i18n="shop.checkout.back">← Wstecz</button>
+              <button type="submit" class="btn btn-primary btn-stripe" id="btnPlaceOrder" data-i18n="shop.checkout.pay">Zapłać przez Stripe</button>
             </div>
           </section>
         </form>

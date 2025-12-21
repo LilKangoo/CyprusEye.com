@@ -1762,3 +1762,52 @@
     color: white;
   }
 }
+
+/* Fix secondary button contrast in dark mode */
+@media (prefers-color-scheme: dark) {
+  .checkout-actions .btn:not(.btn-primary) {
+    background: #334155;
+    color: #f1f5f9;
+    border: 1px solid #475569;
+  }
+
+  .checkout-actions .btn:not(.btn-primary):hover {
+    background: #475569;
+  }
+}
+
+/* Stripe payment section */
+.payment-info {
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  margin-bottom: 16px;
+}
+
+.stripe-payment-methods {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.stripe-badge {
+  height: 28px;
+  width: auto;
+}
+
+.btn-stripe {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .payment-info {
+    color: #cbd5e1;
+  }
+  
+  .stripe-badge {
+    filter: brightness(1.2);
+  }
+}

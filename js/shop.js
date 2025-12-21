@@ -84,6 +84,9 @@ async function init() {
   setupEventListeners();
   updateCartUI();
   
+  // Handle checkout return status
+  handleCheckoutReturn();
+  
   // Listen for language changes
   const handleLanguageUpdate = () => {
     shopState.lang = getCurrentLang();
@@ -851,128 +854,126 @@ async function submitOrder(e) {
     showToast(shopState.lang === 'en' ? 'Please log in' : 'Zaloguj się', 'error');
     return;
   }
-
-  const paymentMethod = document.querySelector('input[name="paymentMethod"]:checked')?.value || null;
-  if (!paymentMethod) {
-    showToast(shopState.lang === 'en' ? 'Please select a payment method' : 'Wybierz metodę płatności', 'error');
-    return;
-  }
   
   const btnSubmit = document.getElementById('btnPlaceOrder');
   btnSubmit.disabled = true;
-  btnSubmit.textContent = shopState.lang === 'en' ? 'Processing...' : 'Przetwarzanie...';
+  btnSubmit.textContent = shopState.lang === 'en' ? 'Redirecting to payment...' : 'Przekierowanie do płatności...';
   
   try {
     // Gather shipping data
-    const shippingData = {
-      user_id: checkoutUser.id,
+    const shippingAddress = {
       first_name: document.getElementById('checkoutFirstName').value.trim(),
       last_name: document.getElementById('checkoutLastName').value.trim(),
       phone: document.getElementById('checkoutPhone').value.trim(),
       line1: document.getElementById('checkoutAddress').value.trim(),
-      line2: document.getElementById('checkoutAddress2').value.trim() || null,
+      line2: document.getElementById('checkoutAddress2').value.trim() || undefined,
       city: document.getElementById('checkoutCity').value.trim(),
       postal_code: document.getElementById('checkoutPostal').value.trim(),
-      country: document.getElementById('checkoutCountry').value,
-      email: document.getElementById('checkoutEmail').value.trim(),
-      is_default_shipping: document.getElementById('checkoutSaveAddress').checked,
-      is_default_billing: document.getElementById('checkoutSaveAddress').checked
+      country: document.getElementById('checkoutCountry').value
     };
     
     // Save address if checkbox checked
-    if (shippingData.is_default_shipping) {
-      await saveShippingAddress(shippingData);
+    if (document.getElementById('checkoutSaveAddress').checked) {
+      await saveShippingAddress({
+        user_id: checkoutUser.id,
+        ...shippingAddress,
+        email: document.getElementById('checkoutEmail').value.trim(),
+        is_default_shipping: true,
+        is_default_billing: true
+      });
     }
     
-    // Calculate totals
-    const subtotal = getCartTotal();
-    const shipping = calculateShipping();
-    const total = subtotal + shipping;
-    
-    // Create order
-    const orderNumber = await generateOrderNumber();
-    const customerNotesRaw = document.getElementById('checkoutNotes').value.trim();
-    const customerNotes = [
-      customerNotesRaw || null,
-      paymentMethod ? `payment_method:${paymentMethod}` : null
-    ].filter(Boolean).join('\n');
-
-    const addressJson = {
-      first_name: shippingData.first_name,
-      last_name: shippingData.last_name,
-      phone: shippingData.phone,
-      email: shippingData.email,
-      line1: shippingData.line1,
-      line2: shippingData.line2,
-      city: shippingData.city,
-      postal_code: shippingData.postal_code,
-      country: shippingData.country
-    };
-
-    const orderData = {
-      order_number: orderNumber,
-      user_id: checkoutUser.id,
-      customer_email: shippingData.email,
-      customer_name: `${shippingData.first_name} ${shippingData.last_name}`.trim(),
-      customer_phone: shippingData.phone,
-      billing_address: addressJson,
-      shipping_address: addressJson,
-      items_subtotal: subtotal,
-      discount_amount: 0,
-      subtotal: subtotal,
-      shipping_cost: shipping,
-      tax_amount: 0,
-      total: total,
-      currency: 'EUR',
-      status: 'pending',
-      payment_status: 'pending',
-      customer_notes: customerNotes || null
-    };
-    
-    const { data: order, error: orderError } = await supabase
-      .from('shop_orders')
-      .insert(orderData)
-      .select()
-      .single();
-    
-    if (orderError) throw orderError;
-    
-    // Create order items
-    const orderItems = shopState.cart.map(item => ({
-      order_id: order.id,
+    // Prepare cart items for Stripe checkout
+    const items = shopState.cart.map(item => ({
       product_id: item.productId,
-      product_name: item.name,
-      product_image: item.thumbnail || null,
-      original_price: item.price,
-      unit_price: item.price,
       quantity: item.quantity,
-      subtotal: item.price * item.quantity
+      product_name: item.name,
+      unit_price: item.price,
+      image_url: item.thumbnail || undefined
     }));
+
+    const customerNotes = document.getElementById('checkoutNotes').value.trim() || undefined;
     
-    const { error: itemsError } = await supabase
-      .from('shop_order_items')
-      .insert(orderItems);
+    // Get current page URL for success/cancel redirects
+    const baseUrl = window.location.origin;
+    const successUrl = `${baseUrl}/shop.html?checkout=success`;
+    const cancelUrl = `${baseUrl}/shop.html?checkout=cancelled`;
+
+    // Call Stripe checkout edge function
+    const { data, error } = await supabase.functions.invoke('create-checkout', {
+      body: {
+        user_id: checkoutUser.id,
+        items: items,
+        shipping_address: shippingAddress,
+        customer_notes: customerNotes,
+        success_url: successUrl,
+        cancel_url: cancelUrl
+      }
+    });
+
+    if (error) throw error;
     
-    if (itemsError) throw itemsError;
+    if (data?.session_url) {
+      // Clear cart before redirecting
+      shopState.cart = [];
+      saveCartToStorage();
+      
+      // Redirect to Stripe Checkout
+      window.location.href = data.session_url;
+    } else {
+      throw new Error('No checkout URL returned');
+    }
     
-    // Success!
+  } catch (error) {
+    console.error('Checkout error:', error);
+    showToast(shopState.lang === 'en' ? 'Error starting payment' : 'Błąd podczas uruchamiania płatności', 'error');
+    btnSubmit.disabled = false;
+    btnSubmit.textContent = shopState.lang === 'en' ? 'Pay with Stripe' : 'Zapłać przez Stripe';
+  }
+}
+
+function handleCheckoutReturn() {
+  const params = new URLSearchParams(window.location.search);
+  const checkoutStatus = params.get('checkout');
+  
+  if (checkoutStatus === 'success') {
+    // Clear any remaining cart items
     shopState.cart = [];
     saveCartToStorage();
     updateCartUI();
-    closeCheckoutModal();
-    closeCart();
-    
-    showToast(shopState.lang === 'en' ? 'Order placed successfully!' : 'Zamówienie złożone pomyślnie!', 'success');
     
     // Show success message
-    showOrderSuccess(order.order_number || order.id);
+    setTimeout(() => {
+      showToast(
+        shopState.lang === 'en' 
+          ? 'Payment successful! Your order is being processed.' 
+          : 'Płatność zakończona sukcesem! Twoje zamówienie jest przetwarzane.',
+        'success'
+      );
+    }, 500);
     
-  } catch (error) {
-    console.error('Order error:', error);
-    showToast(shopState.lang === 'en' ? 'Error placing order' : 'Błąd podczas składania zamówienia', 'error');
-  } finally {
-    btnSubmit.disabled = false;
-    btnSubmit.textContent = shopState.lang === 'en' ? 'Place Order & Pay' : 'Złóż zamówienie';
+    // Clean URL
+    const url = new URL(window.location);
+    url.searchParams.delete('checkout');
+    url.searchParams.delete('order_id');
+    url.searchParams.delete('session_id');
+    window.history.replaceState({}, '', url);
+  } else if (checkoutStatus === 'cancelled') {
+    // Show cancelled message
+    setTimeout(() => {
+      showToast(
+        shopState.lang === 'en' 
+          ? 'Payment was cancelled. Your cart items are still saved.' 
+          : 'Płatność została anulowana. Produkty w koszyku zostały zachowane.',
+        'warning'
+      );
+    }, 500);
+    
+    // Clean URL
+    const url = new URL(window.location);
+    url.searchParams.delete('checkout');
+    url.searchParams.delete('order_id');
+    window.history.replaceState({}, '', url);
   }
 }
 
