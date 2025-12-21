@@ -213,6 +213,7 @@ function updateShippingMethodsDropdown(countryCode) {
   select.innerHTML = `<option value="">${selectText}</option>`;
   shopState.selectedShippingMethod = null;
   shopState.shippingQuote = null;
+  renderShippingBreakdown('shippingMethodBreakdown', null);
   
   const metrics = getCartShippingMetrics();
   const availableOptions = [];
@@ -244,6 +245,7 @@ function updateShippingMethodsDropdown(countryCode) {
       select.setCustomValidity('');
     }
     updateShippingInfo(chosen.method);
+    renderShippingBreakdown('shippingMethodBreakdown', chosen.quote.error ? null : chosen.quote);
   } else {
     select.value = '';
     shopState.selectedShippingMethod = null;
@@ -259,6 +261,7 @@ function updateShippingMethodsDropdown(countryCode) {
         : 'Skontaktuj się z nami w sprawie dostawy.';
       infoEl.classList.add('error');
     }
+    renderShippingBreakdown('shippingMethodBreakdown', null);
   }
   
   // Auto-select first method if only one available
@@ -272,8 +275,15 @@ function updateShippingMethodsDropdown(countryCode) {
 
 function updateShippingInfo(method) {
   const infoEl = document.getElementById('shippingMethodInfo');
-  if (!infoEl || !method) return;
+  if (!infoEl) return;
   
+  if (!method) {
+    infoEl.textContent = '';
+    infoEl.classList.remove('error');
+    renderShippingBreakdown('shippingMethodBreakdown', null);
+    return;
+  }
+
   const desc = shopState.lang === 'en' && method.description_en ? method.description_en : method.description;
   const infoParts = [];
 
@@ -344,9 +354,133 @@ function updateShippingInfo(method) {
   }
   
   infoEl.textContent = infoParts.join(' • ');
+  renderShippingBreakdown('shippingMethodBreakdown', quote);
 }
 
 const DEFAULT_SHIPPING_CLASS_KEY = '__no_class__';
+
+function formatCurrency(amount = 0) {
+  return `€${(amount || 0).toFixed(2)}`;
+}
+
+function getShippingClassName(classId) {
+  const cls = shopState.shippingClassesMap[classId];
+  if (!cls) {
+    return shopState.lang === 'en' ? 'Shipping class' : 'Klasa wysyłki';
+  }
+  if (shopState.lang === 'en' && cls.name_en) {
+    return cls.name_en;
+  }
+  return cls.name || (shopState.lang === 'en' ? 'Shipping class' : 'Klasa wysyłki');
+}
+
+function getShippingComponentRows(quote) {
+  if (!quote || !Array.isArray(quote.components)) return [];
+  const rows = [];
+  const t = (key) => {
+    const dict = {
+      base: { en: 'Base rate', pl: 'Opłata podstawowa' },
+      perWeight: { en: 'Weight surcharge', pl: 'Dopłata wagowa' },
+      perItem: { en: 'Per-item surcharge', pl: 'Dopłata za sztukę' },
+      insurance: { en: 'Shipping insurance', pl: 'Ubezpieczenie przesyłki' },
+      class: { en: 'Class surcharge', pl: 'Dopłata za klasę' },
+      free: { en: 'Free shipping threshold reached', pl: 'Próg darmowej dostawy osiągnięty' },
+      pending: { en: 'Shipping cost applied', pl: 'Koszt dostawy' }
+    };
+    const lang = shopState.lang === 'en' ? 'en' : 'pl';
+    return dict[key]?.[lang] || dict[key]?.en || key;
+  };
+
+  quote.components.forEach((component) => {
+    const amount = typeof component.amount === 'number' ? component.amount : null;
+    switch (component.type) {
+      case 'base':
+        if (amount) rows.push({ label: t('base'), amount });
+        break;
+      case 'per_weight':
+        if (amount) rows.push({ label: t('perWeight'), amount });
+        break;
+      case 'per_item':
+        if (amount) rows.push({ label: t('perItem'), amount });
+        break;
+      case 'insurance':
+        if (amount) rows.push({ label: t('insurance'), amount });
+        break;
+      case 'class':
+        (component.items || []).forEach((item) => {
+          if (typeof item.amount !== 'number' || !item.amount) return;
+          const name = getShippingClassName(item.classId);
+          rows.push({
+            label: `${t('class')}: ${name}`,
+            amount: item.amount
+          });
+        });
+        break;
+      case 'free_shipping':
+        rows.push({ label: t('free'), amount: 0 });
+        break;
+      default:
+        if (amount) rows.push({ label: t('pending'), amount });
+    }
+  });
+
+  return rows;
+}
+
+function renderShippingBreakdown(containerOrId, quote) {
+  const container = typeof containerOrId === 'string'
+    ? document.getElementById(containerOrId)
+    : containerOrId;
+  if (!container) return;
+
+  if (!quote) {
+    container.innerHTML = '';
+    container.classList.add('is-hidden');
+    container.classList.remove('error');
+    return;
+  }
+
+  container.classList.remove('is-hidden');
+  container.classList.toggle('error', Boolean(quote.error));
+
+  if (quote.error) {
+    const errorText = quote.error === 'overMaxWeight'
+      ? (shopState.lang === 'en'
+          ? `Package exceeds maximum weight (${quote.limit || 0} kg)`
+          : `Przesyłka przekracza maksymalną wagę (${quote.limit || 0} kg)`)
+      : (shopState.lang === 'en'
+          ? 'Shipping unavailable for this selection'
+          : 'Metoda dostawy niedostępna');
+    container.innerHTML = `<p>${errorText}</p>`;
+    return;
+  }
+
+  if (quote.freeShipping) {
+    const text = shopState.lang === 'en'
+      ? 'Free shipping threshold reached'
+      : 'Osiągnięto próg darmowej dostawy';
+    container.innerHTML = `<p>${text}</p>`;
+    return;
+  }
+
+  const rows = getShippingComponentRows(quote);
+  if (!rows.length) {
+    const text = shopState.lang === 'en'
+      ? `Shipping cost: ${formatCurrency(quote.totalCost)}`
+      : `Koszt dostawy: ${formatCurrency(quote.totalCost)}`;
+    container.innerHTML = `<p>${text}</p>`;
+    return;
+  }
+
+  const listItems = rows.map(row => (
+    `<li class="component-item">
+      <span class="component-label">${row.label}</span>
+      <span class="component-amount">${formatCurrency(row.amount)}</span>
+    </li>`
+  )).join('');
+
+  container.innerHTML = `<ul class="component-list">${listItems}</ul>`;
+}
 
 function toNumber(value) {
   if (value === null || value === undefined || value === '') return 0;
@@ -537,6 +671,8 @@ function recalculateShippingQuote() {
     if (select) select.setCustomValidity('');
     updateShippingInfo(null);
     updateShippingTotalsUI();
+    renderShippingBreakdown('shippingMethodBreakdown', null);
+    renderShippingBreakdown('reviewShippingBreakdown', null);
     return;
   }
   
@@ -545,6 +681,7 @@ function recalculateShippingQuote() {
   updateShippingInfo(shopState.selectedShippingMethod);
   updateShippingTotalsUI();
   refreshShippingOptionPricing();
+  renderShippingBreakdown('reviewShippingBreakdown', quote.error ? null : quote);
   
   if (select) {
     if (quote.error) {
@@ -582,14 +719,27 @@ function updateShippingTotalsUI() {
   const total = subtotal + shipping;
   const reviewSubtotalEl = document.getElementById('reviewSubtotal');
   const reviewShippingEl = document.getElementById('reviewShipping');
+  const reviewTotalEl = document.getElementById('reviewTotal');
   
-  document.getElementById('reviewSubtotal').textContent = `€${subtotal.toFixed(2)}`;
-  if (shopState.shippingQuote?.error) {
-    document.getElementById('reviewShipping').textContent = shopState.lang === 'en' ? 'N/A' : 'Brak';
-  } else {
-    document.getElementById('reviewShipping').textContent = shipping > 0 ? `€${shipping.toFixed(2)}` : (shopState.lang === 'en' ? 'Free' : 'Gratis');
+  if (reviewSubtotalEl) reviewSubtotalEl.textContent = `€${subtotal.toFixed(2)}`;
+  if (reviewShippingEl) {
+    if (shopState.shippingQuote?.error) {
+      reviewShippingEl.textContent = shopState.lang === 'en' ? 'N/A' : 'Brak';
+    } else if (shipping === 0) {
+      reviewShippingEl.textContent = shopState.lang === 'en' ? 'Free' : 'Gratis';
+    } else {
+      reviewShippingEl.textContent = `€${shipping.toFixed(2)}`;
+    }
   }
-  document.getElementById('reviewTotal').textContent = `€${total.toFixed(2)}`;
+  if (reviewTotalEl) reviewTotalEl.textContent = `€${total.toFixed(2)}`;
+  renderShippingBreakdown(
+    'reviewShippingBreakdown',
+    shopState.shippingQuote && !shopState.shippingQuote.error
+      ? shopState.shippingQuote
+      : shopState.shippingQuote?.error
+        ? shopState.shippingQuote
+        : null
+  );
 }
 
 function calculateShipping() {
@@ -1485,13 +1635,7 @@ function populateReviewSection() {
   }
   
   // Totals
-  const subtotal = getCartTotal();
-  const shipping = calculateShipping();
-  const total = subtotal + shipping;
-  
-  document.getElementById('reviewSubtotal').textContent = `€${subtotal.toFixed(2)}`;
-  document.getElementById('reviewShipping').textContent = shipping > 0 ? `€${shipping.toFixed(2)}` : (shopState.lang === 'en' ? 'Free' : 'Gratis');
-  document.getElementById('reviewTotal').textContent = `€${total.toFixed(2)}`;
+  updateShippingTotalsUI();
 }
 
 async function submitOrder(e) {
