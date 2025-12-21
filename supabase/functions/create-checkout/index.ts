@@ -24,6 +24,24 @@ interface CartItem {
   variant_name?: string;
   unit_price: number;
   image_url?: string;
+  weight?: number;
+  shipping_class_id?: string | null;
+  requires_shipping?: boolean;
+}
+
+interface ShippingMetrics {
+  totalItems: number;
+  totalWeight: number;
+  classTotals: Record<string, { quantity: number; weight: number }>;
+}
+
+interface ShippingQuote {
+  totalCost: number;
+  totalWeight: number;
+  freeShipping: boolean;
+  error?: string;
+  reason?: string;
+  limit?: number;
 }
 
 interface CheckoutRequest {
@@ -55,7 +73,167 @@ interface CheckoutRequest {
   customer_notes?: string;
   success_url: string;
   cancel_url: string;
+  shipping_details?: {
+    metrics?: ShippingMetrics;
+    quote?: ShippingQuote;
+  };
 }
+
+const DEFAULT_CLASS_KEY = "__NO_CLASS__";
+
+const toNumber = (value: unknown): number => {
+  if (value === null || value === undefined || value === "") return 0;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+};
+
+const roundCurrency = (value: number): number =>
+  Math.round((value + Number.EPSILON) * 100) / 100;
+
+const parseJsonField = <T>(value: unknown, fallback: T): T => {
+  if (!value) return fallback;
+  if (typeof value === "object") return value as T;
+  if (typeof value === "string") {
+    try {
+      return JSON.parse(value) as T;
+    } catch (_e) {
+      return fallback;
+    }
+  }
+  return fallback;
+};
+
+type ProductShippingInfo = {
+  id: string;
+  weight: number | null;
+  shipping_class_id: string | null;
+  is_virtual: boolean | null;
+};
+
+const calculateShippingMetrics = (
+  items: CartItem[],
+  productsMap: Record<string, ProductShippingInfo>
+): ShippingMetrics => {
+  const metrics: ShippingMetrics = {
+    totalItems: 0,
+    totalWeight: 0,
+    classTotals: {},
+  };
+
+  for (const item of items) {
+    const product = productsMap[item.product_id];
+    const requiresShipping = product
+      ? product.is_virtual === false
+      : item.requires_shipping !== false;
+    if (!requiresShipping) continue;
+
+    const itemWeight = toNumber(
+      product?.weight ?? item.weight ?? 0
+    );
+    const classId = product?.shipping_class_id ?? item.shipping_class_id ?? null;
+    const qty = item.quantity || 0;
+
+    metrics.totalItems += qty;
+    metrics.totalWeight += itemWeight * qty;
+
+    const mapKey = classId || DEFAULT_CLASS_KEY;
+    if (!metrics.classTotals[mapKey]) {
+      metrics.classTotals[mapKey] = { quantity: 0, weight: 0 };
+    }
+    metrics.classTotals[mapKey].quantity += qty;
+    metrics.classTotals[mapKey].weight += itemWeight * qty;
+  }
+
+  return metrics;
+};
+
+const calculateShippingCost = (
+  shippingMethod: any,
+  metrics: ShippingMetrics,
+  orderSubtotal: number,
+  shippingClassesMap: Record<string, any>
+): ShippingQuote => {
+  if (!metrics.totalItems) {
+    return {
+      totalCost: 0,
+      totalWeight: 0,
+      freeShipping: true,
+    };
+  }
+
+  const minWeight = toNumber(shippingMethod.min_weight);
+  const maxWeight = toNumber(shippingMethod.max_weight);
+  if (maxWeight && metrics.totalWeight > maxWeight) {
+    return {
+      totalCost: 0,
+      totalWeight: metrics.totalWeight,
+      freeShipping: false,
+      error: "over_max_weight",
+      limit: maxWeight,
+    };
+  }
+
+  const methodType = shippingMethod.method_type || "flat_rate";
+  const perKgRate = toNumber(shippingMethod.cost_per_kg);
+  const perItemRate = toNumber(shippingMethod.cost_per_item);
+  const baseCost = toNumber(shippingMethod.cost);
+  const effectiveWeight = Math.max(metrics.totalWeight, minWeight);
+  let totalCost = 0;
+
+  if (baseCost) {
+    totalCost += baseCost;
+  }
+
+  if (methodType === "per_weight" || perKgRate > 0) {
+    totalCost += roundCurrency(effectiveWeight * perKgRate);
+  }
+
+  if (methodType === "per_item" || perItemRate > 0) {
+    totalCost += roundCurrency(metrics.totalItems * perItemRate);
+  }
+
+  const classCostsConfig = parseJsonField<Record<string, any>>(
+    shippingMethod.class_costs,
+    {}
+  );
+  Object.entries(metrics.classTotals).forEach(([classId, data]) => {
+    if (classId === DEFAULT_CLASS_KEY) return;
+    const cls = shippingClassesMap[classId];
+    let classCost = 0;
+    if (cls) {
+      classCost += toNumber(cls.extra_cost);
+      classCost += data.weight * toNumber(cls.extra_cost_per_kg);
+      classCost += toNumber(cls.handling_fee);
+    }
+    if (classCostsConfig[classId]) {
+      classCost += toNumber(classCostsConfig[classId].extra_cost);
+      classCost += data.weight * toNumber(classCostsConfig[classId].extra_cost_per_kg);
+      classCost += toNumber(classCostsConfig[classId].handling_fee);
+    }
+    if (classCost) {
+      totalCost += roundCurrency(classCost);
+    }
+  });
+
+  if (shippingMethod.includes_insurance && toNumber(shippingMethod.insurance_cost) > 0) {
+    totalCost += roundCurrency(toNumber(shippingMethod.insurance_cost));
+  }
+
+  const freeThreshold = toNumber(shippingMethod.free_shipping_threshold);
+  if (freeThreshold && orderSubtotal >= freeThreshold) {
+    return {
+      totalCost: 0,
+      totalWeight: metrics.totalWeight,
+      freeShipping: true,
+    };
+  }
+
+  return {
+    totalCost: roundCurrency(totalCost),
+    totalWeight: metrics.totalWeight,
+    freeShipping: false,
+  };
+};
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -107,6 +285,29 @@ serve(async (req) => {
       });
     }
 
+    const productIds = Array.from(
+      new Set(body.items.map((item) => item.product_id).filter(Boolean))
+    );
+
+    let productsMap: Record<string, ProductShippingInfo> = {};
+    if (productIds.length > 0) {
+      const { data: productsData } = await supabase
+        .from("shop_products")
+        .select("id, weight, shipping_class_id, is_virtual")
+        .in("id", productIds);
+
+      if (productsData) {
+        productsMap = productsData.reduce((acc, product) => {
+          acc[product.id] = product;
+          return acc;
+        }, {} as Record<string, ProductShippingInfo>);
+      }
+    }
+
+    const shippingMetrics = calculateShippingMetrics(body.items, productsMap);
+
+    let shippingQuote: ShippingQuote | null = null;
+    let shippingMethodRecord: any = null;
     if (body.shipping_method_id) {
       const { data: shippingMethod } = await supabase
         .from("shop_shipping_methods")
@@ -114,25 +315,54 @@ serve(async (req) => {
         .eq("id", body.shipping_method_id)
         .single();
 
-      if (shippingMethod) {
-        shippingCost = Number(shippingMethod.cost) || 0;
+      if (!shippingMethod) {
+        return new Response(
+          JSON.stringify({ error: "Shipping method not found" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      shippingMethodRecord = shippingMethod;
 
-        if (shippingMethod.free_shipping_threshold && subtotal >= shippingMethod.free_shipping_threshold) {
-          shippingCost = 0;
-        }
+      const { data: shippingClasses } = await supabase
+        .from("shop_shipping_classes")
+        .select("id, extra_cost, extra_cost_per_kg, handling_fee");
 
-        if (shippingCost > 0) {
-          lineItems.push({
-            price_data: {
-              currency: "eur",
-              product_data: {
-                name: `Shipping: ${shippingMethod.name}`,
-              },
-              unit_amount: Math.round(shippingCost * 100),
+      const shippingClassesMap = (shippingClasses || []).reduce((acc, cls) => {
+        acc[cls.id] = cls;
+        return acc;
+      }, {} as Record<string, any>);
+
+      shippingQuote = calculateShippingCost(
+        shippingMethod,
+        shippingMetrics,
+        subtotal,
+        shippingClassesMap
+      );
+
+      if (shippingQuote.error) {
+        const message =
+          shippingQuote.error === "over_max_weight"
+            ? `Package exceeds maximum allowed weight (${shippingQuote.limit} kg) for this shipping method`
+            : "Shipping method unavailable for this order";
+        return new Response(
+          JSON.stringify({ error: message }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      shippingCost = shippingQuote.totalCost;
+
+      if (shippingCost > 0) {
+        lineItems.push({
+          price_data: {
+            currency: "eur",
+            product_data: {
+              name: `Shipping: ${shippingMethod.name}`,
             },
-            quantity: 1,
-          });
-        }
+            unit_amount: Math.round(shippingCost * 100),
+          },
+          quantity: 1,
+        });
       }
     }
 
@@ -197,6 +427,7 @@ serve(async (req) => {
         discount_id: discountId,
         total: total,
         shipping_method_id: body.shipping_method_id,
+        shipping_method_name: shippingMethodRecord?.name || null,
         customer_notes: body.customer_notes,
         status: "pending",
         payment_status: "unpaid",

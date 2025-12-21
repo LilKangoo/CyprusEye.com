@@ -10,7 +10,10 @@ const shopState = {
   cart: [],
   shippingZones: [],
   shippingMethods: [],
+  shippingClasses: [],
+  shippingClassesMap: {},
   selectedShippingMethod: null,
+  shippingQuote: null,
   filters: {
     category: '',
     priceMin: null,
@@ -85,6 +88,7 @@ async function init() {
   await loadCategories();
   await loadProducts();
   await loadShippingZonesAndMethods();
+  await loadShippingClasses();
   setupEventListeners();
   updateCartUI();
   
@@ -202,39 +206,68 @@ function updateShippingMethodsDropdown(countryCode) {
   const infoEl = document.getElementById('shippingMethodInfo');
   if (!select) return;
   
+  const previousSelection = shopState.selectedShippingMethod?.id || null;
   const methods = getShippingMethodsForCountry(countryCode);
   const selectText = shopState.lang === 'en' ? 'Select shipping method...' : 'Wybierz metodę wysyłki...';
   
   select.innerHTML = `<option value="">${selectText}</option>`;
+  shopState.selectedShippingMethod = null;
+  shopState.shippingQuote = null;
   
+  const metrics = getCartShippingMetrics();
+  const availableOptions = [];
+
   methods.forEach(method => {
-    const name = shopState.lang === 'en' && method.name_en ? method.name_en : method.name;
     const zoneName = shopState.lang === 'en' && method.zone_name_en ? method.zone_name_en : method.zone_name;
-    const cost = parseFloat(method.cost) || 0;
-    const freeThreshold = method.free_shipping_threshold ? parseFloat(method.free_shipping_threshold) : null;
-    
-    let label = `${name} (${zoneName}) - €${cost.toFixed(2)}`;
-    if (freeThreshold && getCartTotal() >= freeThreshold) {
-      label = `${name} (${zoneName}) - ` + (shopState.lang === 'en' ? 'FREE' : 'GRATIS');
-    }
-    
+    const quote = calculateShippingQuoteForMethod(method, metrics);
     const option = document.createElement('option');
     option.value = method.id;
-    option.textContent = label;
-    option.dataset.cost = cost;
-    option.dataset.freeThreshold = freeThreshold || '';
+    option.textContent = buildShippingOptionLabel(method, zoneName, quote);
+    option.disabled = Boolean(quote.error);
+    option.dataset.cost = quote.error ? '' : quote.totalCost;
+    option.dataset.quoteStatus = quote.error ? 'error' : 'ok';
     select.appendChild(option);
+    availableOptions.push({ method, quote, option });
   });
+
+  const firstAvailable = availableOptions.find(entry => !entry.quote.error);
+  const preferred = availableOptions.find(entry => !entry.quote.error && entry.method.id === previousSelection);
+
+  const chosen = preferred || firstAvailable || null;
+  if (chosen) {
+    select.value = chosen.method.id;
+    shopState.selectedShippingMethod = chosen.method;
+    shopState.shippingQuote = chosen.quote.error ? null : chosen.quote;
+    if (chosen.quote.error) {
+      select.setCustomValidity(shopState.lang === 'en' ? 'Shipping unavailable' : 'Dostawa niedostępna');
+    } else {
+      select.setCustomValidity('');
+    }
+    updateShippingInfo(chosen.method);
+  } else {
+    select.value = '';
+    shopState.selectedShippingMethod = null;
+    shopState.shippingQuote = null;
+    if (select.options.length === 1) {
+      select.options[0].textContent = shopState.lang === 'en'
+        ? 'No shipping options for this country'
+        : 'Brak metod wysyłki dla tego kraju';
+    }
+    if (infoEl) {
+      infoEl.textContent = shopState.lang === 'en'
+        ? 'Please contact support for shipping options.'
+        : 'Skontaktuj się z nami w sprawie dostawy.';
+      infoEl.classList.add('error');
+    }
+  }
   
   // Auto-select first method if only one available
-  if (methods.length === 1) {
+  if (!chosen && methods.length === 1) {
     select.value = methods[0].id;
-    shopState.selectedShippingMethod = methods[0];
-    updateShippingInfo(methods[0]);
-  } else {
-    shopState.selectedShippingMethod = null;
-    if (infoEl) infoEl.textContent = '';
   }
+
+  refreshShippingOptionPricing();
+  recalculateShippingQuote();
 }
 
 function updateShippingInfo(method) {
@@ -243,7 +276,11 @@ function updateShippingInfo(method) {
   
   const desc = shopState.lang === 'en' && method.description_en ? method.description_en : method.description;
   const infoParts = [];
-  
+
+  const quote = shopState.shippingQuote && shopState.shippingQuote.methodId === method.id
+    ? shopState.shippingQuote
+    : null;
+
   // Only show description if it does not start with deprecated prefixes like "dostawa"
   if (desc && !/^dostawa/i.test(desc.trim())) {
     infoParts.push(desc);
@@ -279,7 +316,280 @@ function updateShippingInfo(method) {
     infoParts.push(deliveryText);
   }
   
+  if (quote) {
+    const weightText = shopState.lang === 'en'
+      ? `Total weight: ${quote.totalWeight?.toFixed(2) || 0} kg`
+      : `Łączna waga: ${(quote.totalWeight?.toFixed(2) || 0)} kg`;
+    infoParts.push(weightText);
+
+    if (quote.freeShipping) {
+      infoParts.push(shopState.lang === 'en' ? 'Free shipping threshold reached' : 'Próg darmowej dostawy osiągnięty');
+    }
+
+    if (quote.error) {
+      const errorText = quote.error === 'overMaxWeight'
+        ? (shopState.lang === 'en'
+            ? `Package exceeds max weight (${quote.limit} kg)`
+            : `Przesyłka przekracza maksymalną wagę (${quote.limit} kg)`)
+        : (shopState.lang === 'en'
+            ? 'Shipping not available'
+            : 'Dostawa niedostępna');
+      infoParts.push(errorText);
+      infoEl.classList.add('error');
+    } else {
+      infoEl.classList.remove('error');
+    }
+  } else {
+    infoEl.classList.remove('error');
+  }
+  
   infoEl.textContent = infoParts.join(' • ');
+}
+
+const DEFAULT_SHIPPING_CLASS_KEY = '__no_class__';
+
+function toNumber(value) {
+  if (value === null || value === undefined || value === '') return 0;
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function roundCurrency(value) {
+  return Math.round((value + Number.EPSILON) * 100) / 100;
+}
+
+function parseClassCosts(value) {
+  if (!value) return {};
+  if (typeof value === 'object') return value;
+  try {
+    return JSON.parse(value);
+  } catch (e) {
+    return {};
+  }
+}
+
+function getCartShippingMetrics() {
+  const metrics = {
+    totalItems: 0,
+    totalWeight: 0,
+    subtotal: 0,
+    classTotals: {}
+  };
+  
+  shopState.cart
+    .filter(item => item.requiresShipping !== false)
+    .forEach(item => {
+      const qty = item.quantity || 0;
+      const weight = toNumber(item.weight) || 0;
+      metrics.totalItems += qty;
+      metrics.totalWeight += weight * qty;
+      metrics.subtotal += (item.price || 0) * qty;
+      const classId = item.shippingClassId || DEFAULT_SHIPPING_CLASS_KEY;
+      if (!metrics.classTotals[classId]) {
+        metrics.classTotals[classId] = { quantity: 0, weight: 0 };
+      }
+      metrics.classTotals[classId].quantity += qty;
+      metrics.classTotals[classId].weight += weight * qty;
+    });
+  
+  return metrics;
+}
+
+function buildShippingComponentsLabel(type, amount) {
+  switch (type) {
+    case 'per_weight':
+      return shopState.lang === 'en'
+        ? `Weight-based: €${amount.toFixed(2)}`
+        : `Za wagę: €${amount.toFixed(2)}`;
+    case 'per_item':
+      return shopState.lang === 'en'
+        ? `Per item: €${amount.toFixed(2)}`
+        : `Za sztukę: €${amount.toFixed(2)}`;
+    default:
+      return `€${amount.toFixed(2)}`;
+  }
+}
+
+function calculateShippingQuoteForMethod(method, sharedMetrics = null) {
+  const metrics = sharedMetrics || getCartShippingMetrics();
+  const result = {
+    methodId: method.id,
+    methodName: method.name,
+    totalItems: metrics.totalItems,
+    totalWeight: roundCurrency(metrics.totalWeight || 0),
+    components: [],
+    classBreakdown: metrics.classTotals,
+    freeShipping: false,
+    error: null,
+    limit: null,
+    totalCost: 0
+  };
+  
+  if (metrics.totalItems === 0) {
+    result.totalCost = 0;
+    return result;
+  }
+  
+  const minWeight = toNumber(method.min_weight);
+  const maxWeight = toNumber(method.max_weight);
+  
+  if (maxWeight && metrics.totalWeight > maxWeight) {
+    result.error = 'overMaxWeight';
+    result.limit = maxWeight;
+    return result;
+  }
+  
+  let cost = 0;
+  const baseCost = toNumber(method.cost);
+  if (baseCost) {
+    cost += baseCost;
+    result.components.push({ type: 'base', amount: roundCurrency(baseCost) });
+  }
+  
+  const methodType = method.method_type || 'flat_rate';
+  const perKgRate = toNumber(method.cost_per_kg);
+  const perItemRate = toNumber(method.cost_per_item);
+  const effectiveWeight = Math.max(metrics.totalWeight, minWeight);
+  
+  if (methodType === 'per_weight' || perKgRate > 0) {
+    const perWeightCost = roundCurrency(effectiveWeight * perKgRate);
+    if (perWeightCost) {
+      cost += perWeightCost;
+      result.components.push({ type: 'per_weight', amount: perWeightCost });
+    }
+  }
+  
+  if (methodType === 'per_item' || perItemRate > 0) {
+    const perItemCost = roundCurrency(metrics.totalItems * perItemRate);
+    if (perItemCost) {
+      cost += perItemCost;
+      result.components.push({ type: 'per_item', amount: perItemCost });
+    }
+  }
+  
+  // Class-based extras
+  const classCostsConfig = parseClassCosts(method.class_costs);
+  const classComponents = [];
+  Object.entries(metrics.classTotals).forEach(([classId, data]) => {
+    if (classId === DEFAULT_SHIPPING_CLASS_KEY) return;
+    const clsData = shopState.shippingClassesMap[classId];
+    let classCost = 0;
+    if (clsData) {
+      classCost += toNumber(clsData.extra_cost);
+      classCost += data.weight * toNumber(clsData.extra_cost_per_kg);
+      classCost += toNumber(clsData.handling_fee);
+    }
+    if (classCostsConfig[classId]) {
+      const override = classCostsConfig[classId];
+      classCost += toNumber(override.extra_cost);
+      classCost += data.weight * toNumber(override.extra_cost_per_kg);
+      classCost += toNumber(override.handling_fee);
+    }
+    if (classCost) {
+      classCost = roundCurrency(classCost);
+      classComponents.push({ classId, amount: classCost });
+      cost += classCost;
+    }
+  });
+  
+  if (classComponents.length) {
+    result.components.push({ type: 'class', items: classComponents });
+  }
+  
+  // Insurance
+  if (method.includes_insurance && toNumber(method.insurance_cost) > 0) {
+    const insuranceCost = roundCurrency(toNumber(method.insurance_cost));
+    cost += insuranceCost;
+    result.components.push({ type: 'insurance', amount: insuranceCost });
+  }
+  
+  // Free shipping threshold
+  const freeThreshold = toNumber(method.free_shipping_threshold);
+  if (freeThreshold && metrics.subtotal >= freeThreshold) {
+    result.freeShipping = true;
+    result.totalCost = 0;
+    result.components = [{ type: 'free_shipping', amount: 0 }];
+    return result;
+  }
+  
+  result.totalCost = roundCurrency(cost);
+  return result;
+}
+
+function buildShippingOptionLabel(method, zoneName, quote) {
+  const methodName = shopState.lang === 'en' && method.name_en ? method.name_en : method.name;
+  const zoneLabel = zoneName ? `(${zoneName})` : '';
+  let priceLabel = '';
+  if (quote.error) {
+    priceLabel = shopState.lang === 'en' ? 'Not available' : 'Niedostępna';
+  } else if (quote.totalCost === 0) {
+    priceLabel = shopState.lang === 'en' ? 'FREE' : 'GRATIS';
+  } else {
+    priceLabel = `€${quote.totalCost.toFixed(2)}`;
+  }
+  return `${methodName} ${zoneLabel} - ${priceLabel}`.trim();
+}
+
+function recalculateShippingQuote() {
+  const select = document.getElementById('checkoutShipping');
+  if (!shopState.selectedShippingMethod) {
+    shopState.shippingQuote = null;
+    if (select) select.setCustomValidity('');
+    updateShippingInfo(null);
+    updateShippingTotalsUI();
+    return;
+  }
+  
+  const quote = calculateShippingQuoteForMethod(shopState.selectedShippingMethod);
+  shopState.shippingQuote = quote;
+  updateShippingInfo(shopState.selectedShippingMethod);
+  updateShippingTotalsUI();
+  refreshShippingOptionPricing();
+  
+  if (select) {
+    if (quote.error) {
+      select.setCustomValidity(shopState.lang === 'en' ? 'Shipping unavailable for this selection' : 'Ta metoda dostawy jest niedostępna');
+    } else {
+      select.setCustomValidity('');
+    }
+  }
+}
+
+function refreshShippingOptionPricing() {
+  const select = document.getElementById('checkoutShipping');
+  if (!select) return;
+  const metrics = getCartShippingMetrics();
+  Array.from(select.options).forEach(option => {
+    if (!option.value) return;
+    const method = shopState.shippingMethods.find(m => m.id === option.value);
+    if (!method) return;
+    const quote = calculateShippingQuoteForMethod(method, metrics);
+    option.dataset.cost = quote.error ? '' : quote.totalCost;
+    option.disabled = Boolean(quote.error);
+    option.textContent = buildShippingOptionLabel(
+      method,
+      shopState.lang === 'en' && method.zone_name_en ? method.zone_name_en : method.zone_name,
+      quote
+    );
+  });
+}
+
+function updateShippingTotalsUI() {
+  const subtotal = getCartTotal();
+  const shipping = shopState.shippingQuote && !shopState.shippingQuote.error
+    ? shopState.shippingQuote.totalCost
+    : 0;
+  const total = subtotal + shipping;
+  const reviewSubtotalEl = document.getElementById('reviewSubtotal');
+  const reviewShippingEl = document.getElementById('reviewShipping');
+  
+  document.getElementById('reviewSubtotal').textContent = `€${subtotal.toFixed(2)}`;
+  if (shopState.shippingQuote?.error) {
+    document.getElementById('reviewShipping').textContent = shopState.lang === 'en' ? 'N/A' : 'Brak';
+  } else {
+    document.getElementById('reviewShipping').textContent = shipping > 0 ? `€${shipping.toFixed(2)}` : (shopState.lang === 'en' ? 'Free' : 'Gratis');
+  }
+  document.getElementById('reviewTotal').textContent = `€${total.toFixed(2)}`;
 }
 
 function calculateShipping() {
@@ -299,6 +609,28 @@ function calculateShipping() {
 // =====================================================
 // PRODUCTS
 // =====================================================
+
+async function loadShippingClasses() {
+  if (!supabase) return;
+  
+  try {
+    const { data: classes, error } = await supabase
+      .from('shop_shipping_classes')
+      .select('*')
+      .order('sort_order');
+    
+    if (error) throw error;
+    
+    shopState.shippingClasses = classes || [];
+    shopState.shippingClassesMap = (classes || []).reduce((acc, cls) => {
+      acc[cls.id] = cls;
+      return acc;
+    }, {});
+    
+  } catch (error) {
+    console.error('Failed to load shipping classes:', error);
+  }
+}
 
 async function loadCategories() {
   if (!supabase) return;
@@ -668,7 +1000,21 @@ function loadCartFromStorage() {
   try {
     const saved = localStorage.getItem('shop_cart');
     if (saved) {
-      shopState.cart = JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed)) {
+        shopState.cart = parsed.map(item => ({
+          productId: item.productId,
+          name: item.name || '',
+          price: parseFloat(item.price) || 0,
+          thumbnail: item.thumbnail || null,
+          quantity: parseInt(item.quantity, 10) > 0 ? parseInt(item.quantity, 10) : 1,
+          weight: toNumber(item.weight),
+          shippingClassId: item.shippingClassId || item.shipping_class_id || null,
+          requiresShipping: item.requiresShipping !== undefined ? item.requiresShipping : true
+        }));
+      } else {
+        shopState.cart = [];
+      }
     }
   } catch (e) {
     console.error('Failed to load cart:', e);
@@ -681,6 +1027,10 @@ function saveCartToStorage() {
     localStorage.setItem('shop_cart', JSON.stringify(shopState.cart));
     // Also sync to Supabase if user is logged in
     syncCartToSupabase();
+    // Recalculate shipping quote when cart changes
+    if (shopState.selectedShippingMethod) {
+      recalculateShippingQuote();
+    }
   } catch (e) {
     console.error('Failed to save cart:', e);
   }
@@ -703,7 +1053,7 @@ async function syncCartWithSupabase() {
     if (dbCart) {
       const { data: items } = await supabase
         .from('shop_cart_items')
-        .select('product_id, quantity, shop_products(id, name, price, thumbnail_url)')
+        .select('product_id, quantity, shop_products(id, name, price, thumbnail_url, weight, shipping_class_id, is_virtual)')
         .eq('cart_id', dbCart.id);
       
       if (items && items.length > 0) {
@@ -713,7 +1063,10 @@ async function syncCartWithSupabase() {
           name: item.shop_products?.name || '',
           price: parseFloat(item.shop_products?.price || 0),
           thumbnail: item.shop_products?.thumbnail_url || null,
-          quantity: item.quantity
+          quantity: item.quantity,
+          weight: parseFloat(item.shop_products?.weight || 0) || 0,
+          shippingClassId: item.shop_products?.shipping_class_id || null,
+          requiresShipping: item.shop_products?.is_virtual ? false : true
         })).filter(item => item.name);
         
         // Merge: Supabase items take precedence, but keep local items not in Supabase
@@ -789,16 +1142,27 @@ function addToCart(productId, quantity = 1) {
   if (!product) return;
 
   const existingItem = shopState.cart.find(item => item.productId === productId);
+  const weight = typeof product.weight === 'number' ? product.weight : parseFloat(product.weight) || 0;
+  const shippingClassId = product.shipping_class_id || product.shippingClassId || null;
+  const requiresShipping = product.is_virtual ? false : true;
 
   if (existingItem) {
     existingItem.quantity += quantity;
+    // Update mutable fields in case product details changed
+    existingItem.price = parseFloat(product.price);
+    existingItem.weight = weight;
+    existingItem.shippingClassId = shippingClassId;
+    existingItem.requiresShipping = requiresShipping;
   } else {
     shopState.cart.push({
       productId: product.id,
       name: product.name,
       price: parseFloat(product.price),
       thumbnail: product.thumbnail_url,
-      quantity
+      quantity,
+      weight,
+      shippingClassId,
+      requiresShipping
     });
   }
 
@@ -1073,6 +1437,13 @@ function goToReviewStep() {
     document.getElementById('checkoutShipping').style.borderColor = '#ef4444';
     return;
   }
+
+  // Recalculate shipping quote before reviewing
+  recalculateShippingQuote();
+  if (!shopState.shippingQuote || shopState.shippingQuote.error) {
+    showToast(shopState.lang === 'en' ? 'Selected shipping is unavailable' : 'Wybrana metoda dostawy jest niedostępna', 'error');
+    return;
+  }
   
   // Populate review section
   populateReviewSection();
@@ -1142,6 +1513,19 @@ async function submitOrder(e) {
   btnSubmit.textContent = shopState.lang === 'en' ? 'Redirecting to payment...' : 'Przekierowanie do płatności...';
   
   try {
+    const shippingMetrics = getCartShippingMetrics();
+    let shippingQuote = shopState.shippingQuote;
+    if (!shippingQuote || shippingQuote.methodId !== shopState.selectedShippingMethod.id) {
+      shippingQuote = calculateShippingQuoteForMethod(shopState.selectedShippingMethod);
+    }
+    
+    if (!shippingQuote || shippingQuote.error) {
+      showToast(shopState.lang === 'en' ? 'Selected shipping is unavailable' : 'Wybrana metoda dostawy jest niedostępna', 'error');
+      btnSubmit.disabled = false;
+      btnSubmit.textContent = shopState.lang === 'en' ? 'Place Order & Pay' : 'Złóż zamówienie';
+      return;
+    }
+    
     // Gather shipping data
     const shippingAddress = {
       first_name: document.getElementById('checkoutFirstName').value.trim(),
@@ -1171,7 +1555,10 @@ async function submitOrder(e) {
       quantity: item.quantity,
       product_name: item.name,
       unit_price: item.price,
-      image_url: item.thumbnail || undefined
+      image_url: item.thumbnail || undefined,
+      weight: item.weight || 0,
+      shipping_class_id: item.shippingClassId || null,
+      requires_shipping: item.requiresShipping !== false
     }));
 
     const customerNotes = document.getElementById('checkoutNotes').value.trim() || undefined;
@@ -1188,6 +1575,10 @@ async function submitOrder(e) {
         items: items,
         shipping_address: shippingAddress,
         shipping_method_id: shopState.selectedShippingMethod.id,
+        shipping_details: {
+          metrics: shippingMetrics,
+          quote: shippingQuote
+        },
         customer_notes: customerNotes,
         success_url: successUrl,
         cancel_url: cancelUrl
@@ -1458,7 +1849,13 @@ function setupEventListeners() {
       const methodId = shippingSelect.value;
       const method = shopState.shippingMethods.find(m => m.id === methodId);
       shopState.selectedShippingMethod = method || null;
+      if (method) {
+        shopState.shippingQuote = calculateShippingQuoteForMethod(method);
+      } else {
+        shopState.shippingQuote = null;
+      }
       updateShippingInfo(method);
+      updateShippingTotalsUI();
     });
   }
 
