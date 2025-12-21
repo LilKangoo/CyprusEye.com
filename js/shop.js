@@ -31,6 +31,31 @@ const shopState = {
 // Supabase client
 let supabase = null;
 
+function isCheckoutUiDebugEnabled() {
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('debugCheckout') === '1') {
+      return true;
+    }
+  } catch (e) {
+  }
+
+  try {
+    return localStorage.getItem('checkout_debug_ui') === 'true';
+  } catch (e) {
+    return false;
+  }
+}
+
+function persistCheckoutDebugSnapshot(payload, response) {
+  try {
+    localStorage.setItem('last_checkout_payload', JSON.stringify(payload));
+    localStorage.setItem('last_checkout_response', JSON.stringify(response));
+    localStorage.setItem('last_checkout_saved_at', new Date().toISOString());
+  } catch (e) {
+  }
+}
+
 // Get current language from localStorage or default to 'pl'
 function getCurrentLang() {
   try {
@@ -1318,7 +1343,7 @@ function addToCart(productId, quantity = 1) {
 
   saveCartToStorage();
   updateCartUI();
-  showToast('Dodano do koszyka');
+  showToast(`Dodano do koszyka: ${product.name} × ${quantity}`, 'success');
 }
 
 function removeFromCart(productId) {
@@ -1459,7 +1484,7 @@ async function initiateCheckout() {
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) {
-    showToast(shopState.lang === 'en' ? 'Please log in to continue' : 'Zaloguj się, aby kontynuować', 'warning');
+    showToast(shopState.lang === 'en' ? 'Please log in' : 'Zaloguj się', 'warning');
     return;
   }
 
@@ -1712,24 +1737,35 @@ async function submitOrder(e) {
     const successUrl = `${baseUrl}/shop.html?checkout=success`;
     const cancelUrl = `${baseUrl}/shop.html?checkout=cancelled`;
 
+    const checkoutPayload = {
+      user_id: checkoutUser.id,
+      items: items,
+      shipping_address: shippingAddress,
+      shipping_method_id: shopState.selectedShippingMethod.id,
+      shipping_details: {
+        metrics: shippingMetrics,
+        quote: shippingQuote
+      },
+      customer_notes: customerNotes,
+      success_url: successUrl,
+      cancel_url: cancelUrl
+    };
+
     // Call Stripe checkout edge function
     const { data, error } = await supabase.functions.invoke('create-checkout', {
-      body: {
-        user_id: checkoutUser.id,
-        items: items,
-        shipping_address: shippingAddress,
-        shipping_method_id: shopState.selectedShippingMethod.id,
-        shipping_details: {
-          metrics: shippingMetrics,
-          quote: shippingQuote
-        },
-        customer_notes: customerNotes,
-        success_url: successUrl,
-        cancel_url: cancelUrl
-      }
+      body: checkoutPayload
     });
 
     if (error) throw error;
+
+    persistCheckoutDebugSnapshot(checkoutPayload, data);
+    if (isCheckoutUiDebugEnabled()) {
+      const fv = data?.function_version ? `fv=${data.function_version}` : 'fv=?';
+      const totals = (data && typeof data === 'object')
+        ? `subtotal=€${Number(data.items_subtotal || 0).toFixed(2)} shipping=€${Number(data.shipping_cost || 0).toFixed(2)} total=€${Number(data.order_total || 0).toFixed(2)}`
+        : '';
+      showToast(`Checkout debug zapisany (${fv}) ${totals}`.trim(), 'info');
+    }
     
     if (data?.session_url) {
       // Clear cart before redirecting

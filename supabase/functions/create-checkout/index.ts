@@ -32,6 +32,11 @@ interface CartItem {
   requires_shipping?: boolean;
 }
 
+type VariantShippingInfo = {
+  id: string;
+  weight: number | null;
+};
+
 interface ShippingMetrics {
   totalItems: number;
   totalWeight: number;
@@ -173,7 +178,8 @@ type ProductShippingInfo = {
 
 const calculateShippingMetrics = (
   items: CartItem[],
-  productsMap: Record<string, ProductShippingInfo>
+  productsMap: Record<string, ProductShippingInfo>,
+  variantsMap: Record<string, VariantShippingInfo>
 ): ShippingMetrics => {
   const metrics: ShippingMetrics = {
     totalItems: 0,
@@ -184,6 +190,7 @@ const calculateShippingMetrics = (
 
   for (const item of items) {
     const product = productsMap[item.product_id];
+    const variant = item.variant_id ? variantsMap[item.variant_id] : undefined;
     const requiresShipping = product
       ? product.is_virtual === true
         ? false
@@ -194,7 +201,7 @@ const calculateShippingMetrics = (
     if (!requiresShipping) continue;
 
     const itemWeight = toNumber(
-      product?.weight ?? item.weight ?? 0
+      variant?.weight ?? product?.weight ?? item.weight ?? 0
     );
     const classId = product?.shipping_class_id ?? item.shipping_class_id ?? null;
     const qty = item.quantity || 0;
@@ -381,7 +388,26 @@ serve(async (req) => {
       }
     }
 
-    const shippingMetrics = calculateShippingMetrics(body.items, productsMap);
+    const variantIds = Array.from(
+      new Set(body.items.map((item) => item.variant_id).filter(Boolean))
+    ) as string[];
+
+    let variantsMap: Record<string, VariantShippingInfo> = {};
+    if (variantIds.length > 0) {
+      const { data: variantsData } = await supabase
+        .from("shop_product_variants")
+        .select("id, weight")
+        .in("id", variantIds);
+
+      if (variantsData) {
+        variantsMap = variantsData.reduce((acc, variant) => {
+          acc[variant.id] = variant;
+          return acc;
+        }, {} as Record<string, VariantShippingInfo>);
+      }
+    }
+
+    const shippingMetrics = calculateShippingMetrics(body.items, productsMap, variantsMap);
     const mergedShippingMetrics = mergeShippingMetrics(
       shippingMetrics,
       body.shipping_details?.metrics
@@ -612,6 +638,10 @@ serve(async (req) => {
         session_url: session.url,
         order_id: order.id,
         order_number: orderNumber,
+        items_subtotal: subtotal,
+        shipping_cost: shippingCost,
+        discount_amount: discountAmount,
+        order_total: total,
         ...(debug
           ? {
               debug: {
