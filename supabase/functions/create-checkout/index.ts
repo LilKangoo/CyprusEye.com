@@ -676,8 +676,15 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("Checkout error:", error);
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    console.error("Error stack:", errorStack);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: errorMessage,
+        function_version: CHECKOUT_FUNCTION_VERSION,
+        debug_stack: errorStack?.split('\n').slice(0, 5).join('\n')
+      }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   }
