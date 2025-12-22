@@ -10,7 +10,7 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const CHECKOUT_FUNCTION_VERSION = "2025-12-22-6";
+const CHECKOUT_FUNCTION_VERSION = "2025-12-22-7";
 const isDebugEnabled = (): boolean => Deno.env.get("CHECKOUT_DEBUG") === "true";
 
 const corsHeaders = {
@@ -180,6 +180,8 @@ type ProductRecord = ProductShippingInfo & {
   name: string;
   status: string;
   product_type: string;
+  vendor_id: string | null;
+  category_id: string | null;
   price: number;
   sale_price: number | null;
   sale_start_date: string | null;
@@ -426,6 +428,7 @@ serve(async (req) => {
     let shippingCost = 0;
     let discountAmount = 0;
     let discountId: string | null = null;
+    let appliedDiscountCode: string | null = null;
 
     const productIds = Array.from(new Set(body.items.map((item) => item.product_id).filter(Boolean)));
     const variantIds = Array.from(new Set(body.items.map((item) => item.variant_id).filter(Boolean))) as string[];
@@ -434,7 +437,7 @@ serve(async (req) => {
     const { data: productsData, error: productsError } = await supabase
       .from("shop_products")
       .select(
-        "id, name, status, product_type, price, sale_price, sale_start_date, sale_end_date, tax_class_id, track_inventory, stock_quantity, allow_backorder, min_purchase_quantity, max_purchase_quantity, weight, shipping_class_id, is_virtual"
+        "id, name, status, product_type, vendor_id, category_id, price, sale_price, sale_start_date, sale_end_date, tax_class_id, track_inventory, stock_quantity, allow_backorder, min_purchase_quantity, max_purchase_quantity, weight, shipping_class_id, is_virtual"
       )
       .in("id", productIds);
 
@@ -797,46 +800,448 @@ serve(async (req) => {
 
         if ((!startsAt || now >= startsAt) && (!expiresAt || now < expiresAt)) {
           if (!discount.usage_limit || discount.usage_count < discount.usage_limit) {
-            if (discount.discount_type === "free_shipping") {
-              discountAmount = 0;
-              shippingCost = 0;
-            } else if (discount.discount_type === "percentage") {
-              discountAmount = (subtotal * discount.discount_value) / 100;
+            const minOrderAmount = toNumber(discount.minimum_order_amount);
+            const maxOrderAmount = toNumber(discount.maximum_order_amount);
+            if (minOrderAmount > 0 && subtotal < minOrderAmount) {
+              // not eligible
+            } else if (maxOrderAmount > 0 && subtotal > maxOrderAmount) {
+              // not eligible
             } else {
-              discountAmount = Math.min(discount.discount_value, subtotal);
-            }
+              const allowedUsers = Array.isArray(discount.user_ids) ? discount.user_ids : [];
+              if (allowedUsers.length > 0 && !allowedUsers.includes(body.user_id)) {
+                // not eligible
+              } else {
+                if (discount.first_purchase_only === true) {
+                  stage = "discount_first_purchase";
+                  const prevOrders = await supabase
+                    .from("shop_orders")
+                    .select("id")
+                    .eq("user_id", body.user_id)
+                    .in("payment_status", ["paid", "partially_refunded", "refunded"])
+                    .limit(1);
+                  if (prevOrders.data && prevOrders.data.length > 0) {
+                    // not eligible
+                  } else {
+                    // continue
+                  }
+                  if (prevOrders.data && prevOrders.data.length > 0) {
+                    // stop
+                  } else {
+                    // continue
+                    const perUserLimit = Math.max(0, Math.trunc(toNumber(discount.usage_limit_per_user || 0)));
+                    if (perUserLimit > 0) {
+                      stage = "discount_usage_user";
+                      const usage = await supabase
+                        .from("shop_discount_usage")
+                        .select("id", { count: "exact", head: true })
+                        .eq("discount_id", discount.id)
+                        .eq("user_id", body.user_id);
+                      const usedCount = typeof usage.count === "number" ? usage.count : 0;
+                      if (usedCount >= perUserLimit) {
+                        // not eligible
+                      } else {
+                        // continue
+                        const appliesTo = String(discount.applies_to || "all");
+                        const applicableProductIds = Array.isArray(discount.applicable_product_ids)
+                          ? discount.applicable_product_ids
+                          : [];
+                        const applicableCategoryIds = Array.isArray(discount.applicable_category_ids)
+                          ? discount.applicable_category_ids
+                          : [];
+                        const applicableVendorIds = Array.isArray(discount.applicable_vendor_ids)
+                          ? discount.applicable_vendor_ids
+                          : [];
+                        const excludeProductIds = Array.isArray(discount.exclude_product_ids)
+                          ? discount.exclude_product_ids
+                          : [];
+                        const excludeCategoryIds = Array.isArray(discount.exclude_category_ids)
+                          ? discount.exclude_category_ids
+                          : [];
 
-            if (discount.maximum_discount_amount) {
-              discountAmount = Math.min(discountAmount, discount.maximum_discount_amount);
-            }
+                        let eligibleSubtotal = 0;
+                        for (const item of resolvedItems) {
+                          const p = productsMap[item.product_id];
+                          if (!p) continue;
 
-            discountAmount = roundCurrency(Math.max(0, discountAmount));
-            // Stripe coupons require amount_off >= 1 (in minor currency unit)
-            if (discountAmount < 0.01) {
-              discountAmount = 0;
-            }
+                          if (excludeProductIds.includes(p.id)) continue;
+                          if (p.category_id && excludeCategoryIds.includes(p.category_id)) continue;
 
-            discountId = discount.id;
+                          if (discount.exclude_sale_items === true) {
+                            const saleItem = (() => {
+                              if (!p.sale_price) return false;
+                              if (!p.sale_start_date && !p.sale_end_date) return true;
+                              if (p.sale_start_date && nowIso < p.sale_start_date) return false;
+                              if (p.sale_end_date && nowIso >= p.sale_end_date) return false;
+                              return true;
+                            })();
+                            if (saleItem) continue;
+                          }
 
-            if (discount.stripe_promotion_code_id) {
-              stripeDiscounts = [{ promotion_code: discount.stripe_promotion_code_id }];
-            } else if (discount.stripe_coupon_id) {
-              stripeDiscounts = [{ coupon: discount.stripe_coupon_id }];
-            } else if (discountAmount >= 0.01) {
-              stage = "discount_create_coupon";
-              const coupon = await stripe.coupons.create({
-                duration: "once",
-                currency: "eur",
-                amount_off: Math.round(discountAmount * 100),
-                max_redemptions: 1,
-                name: `${discount.code}-${orderNumber}`,
-                metadata: {
-                  discount_id: discount.id,
-                  discount_code: discount.code,
-                  user_id: body.user_id,
-                },
-              });
-              stripeDiscounts = [{ coupon: coupon.id }];
+                          let eligible = true;
+                          if (appliesTo === "products") {
+                            eligible = applicableProductIds.includes(p.id);
+                          } else if (appliesTo === "categories") {
+                            eligible = !!p.category_id && applicableCategoryIds.includes(p.category_id);
+                          } else if (appliesTo === "vendors") {
+                            eligible = !!p.vendor_id && applicableVendorIds.includes(p.vendor_id);
+                          }
+
+                          if (!eligible) continue;
+                          eligibleSubtotal += (item.unit_price || 0) * (item.quantity || 0);
+                        }
+
+                        const type = String(discount.discount_type || "percentage");
+                        if (type === "free_shipping") {
+                          appliedDiscountCode = discount.code;
+                          discountId = discount.id;
+                          discountAmount = 0;
+                          shippingCost = 0;
+                        } else if (eligibleSubtotal > 0) {
+                          if (type === "percentage") {
+                            discountAmount = (eligibleSubtotal * toNumber(discount.discount_value)) / 100;
+                          } else {
+                            discountAmount = Math.min(toNumber(discount.discount_value), eligibleSubtotal);
+                          }
+
+                          if (discount.maximum_discount_amount) {
+                            discountAmount = Math.min(discountAmount, toNumber(discount.maximum_discount_amount));
+                          }
+
+                          discountAmount = roundCurrency(Math.max(0, discountAmount));
+                          if (discountAmount < 0.01) {
+                            discountAmount = 0;
+                          }
+
+                          if (discountAmount >= 0.01) {
+                            appliedDiscountCode = discount.code;
+                            discountId = discount.id;
+                            if (discount.stripe_promotion_code_id) {
+                              stripeDiscounts = [{ promotion_code: discount.stripe_promotion_code_id }];
+                            } else if (discount.stripe_coupon_id) {
+                              stripeDiscounts = [{ coupon: discount.stripe_coupon_id }];
+                            } else {
+                              stage = "discount_create_coupon";
+                              const coupon = await stripe.coupons.create({
+                                duration: "once",
+                                currency: "eur",
+                                amount_off: Math.round(discountAmount * 100),
+                                max_redemptions: 1,
+                                name: `${discount.code}-${orderNumber}`,
+                                metadata: {
+                                  discount_id: discount.id,
+                                  discount_code: discount.code,
+                                  user_id: body.user_id,
+                                },
+                              });
+                              stripeDiscounts = [{ coupon: coupon.id }];
+                            }
+                          }
+                        }
+                      }
+                    } else {
+                      const appliesTo = String(discount.applies_to || "all");
+                      const applicableProductIds = Array.isArray(discount.applicable_product_ids)
+                        ? discount.applicable_product_ids
+                        : [];
+                      const applicableCategoryIds = Array.isArray(discount.applicable_category_ids)
+                        ? discount.applicable_category_ids
+                        : [];
+                      const applicableVendorIds = Array.isArray(discount.applicable_vendor_ids)
+                        ? discount.applicable_vendor_ids
+                        : [];
+                      const excludeProductIds = Array.isArray(discount.exclude_product_ids)
+                        ? discount.exclude_product_ids
+                        : [];
+                      const excludeCategoryIds = Array.isArray(discount.exclude_category_ids)
+                        ? discount.exclude_category_ids
+                        : [];
+
+                      let eligibleSubtotal = 0;
+                      for (const item of resolvedItems) {
+                        const p = productsMap[item.product_id];
+                        if (!p) continue;
+                        if (excludeProductIds.includes(p.id)) continue;
+                        if (p.category_id && excludeCategoryIds.includes(p.category_id)) continue;
+                        if (discount.exclude_sale_items === true) {
+                          const saleItem = (() => {
+                            if (!p.sale_price) return false;
+                            if (!p.sale_start_date && !p.sale_end_date) return true;
+                            if (p.sale_start_date && nowIso < p.sale_start_date) return false;
+                            if (p.sale_end_date && nowIso >= p.sale_end_date) return false;
+                            return true;
+                          })();
+                          if (saleItem) continue;
+                        }
+
+                        let eligible = true;
+                        if (appliesTo === "products") {
+                          eligible = applicableProductIds.includes(p.id);
+                        } else if (appliesTo === "categories") {
+                          eligible = !!p.category_id && applicableCategoryIds.includes(p.category_id);
+                        } else if (appliesTo === "vendors") {
+                          eligible = !!p.vendor_id && applicableVendorIds.includes(p.vendor_id);
+                        }
+
+                        if (!eligible) continue;
+                        eligibleSubtotal += (item.unit_price || 0) * (item.quantity || 0);
+                      }
+
+                      const type = String(discount.discount_type || "percentage");
+                      if (type === "free_shipping") {
+                        appliedDiscountCode = discount.code;
+                        discountId = discount.id;
+                        discountAmount = 0;
+                        shippingCost = 0;
+                      } else if (eligibleSubtotal > 0) {
+                        if (type === "percentage") {
+                          discountAmount = (eligibleSubtotal * toNumber(discount.discount_value)) / 100;
+                        } else {
+                          discountAmount = Math.min(toNumber(discount.discount_value), eligibleSubtotal);
+                        }
+
+                        if (discount.maximum_discount_amount) {
+                          discountAmount = Math.min(discountAmount, toNumber(discount.maximum_discount_amount));
+                        }
+
+                        discountAmount = roundCurrency(Math.max(0, discountAmount));
+                        if (discountAmount < 0.01) {
+                          discountAmount = 0;
+                        }
+
+                        if (discountAmount >= 0.01) {
+                          appliedDiscountCode = discount.code;
+                          discountId = discount.id;
+                          if (discount.stripe_promotion_code_id) {
+                            stripeDiscounts = [{ promotion_code: discount.stripe_promotion_code_id }];
+                          } else if (discount.stripe_coupon_id) {
+                            stripeDiscounts = [{ coupon: discount.stripe_coupon_id }];
+                          } else {
+                            stage = "discount_create_coupon";
+                            const coupon = await stripe.coupons.create({
+                              duration: "once",
+                              currency: "eur",
+                              amount_off: Math.round(discountAmount * 100),
+                              max_redemptions: 1,
+                              name: `${discount.code}-${orderNumber}`,
+                              metadata: {
+                                discount_id: discount.id,
+                                discount_code: discount.code,
+                                user_id: body.user_id,
+                              },
+                            });
+                            stripeDiscounts = [{ coupon: coupon.id }];
+                          }
+                        }
+                      }
+                    }
+                  }
+                } else {
+                  const perUserLimit = Math.max(0, Math.trunc(toNumber(discount.usage_limit_per_user || 0)));
+                  if (perUserLimit > 0) {
+                    stage = "discount_usage_user";
+                    const usage = await supabase
+                      .from("shop_discount_usage")
+                      .select("id", { count: "exact", head: true })
+                      .eq("discount_id", discount.id)
+                      .eq("user_id", body.user_id);
+                    const usedCount = typeof usage.count === "number" ? usage.count : 0;
+                    if (usedCount >= perUserLimit) {
+                      // not eligible
+                    } else {
+                      // continue
+                    }
+                    if (usedCount >= perUserLimit) {
+                      // stop
+                    } else {
+                      const appliesTo = String(discount.applies_to || "all");
+                      const applicableProductIds = Array.isArray(discount.applicable_product_ids)
+                        ? discount.applicable_product_ids
+                        : [];
+                      const applicableCategoryIds = Array.isArray(discount.applicable_category_ids)
+                        ? discount.applicable_category_ids
+                        : [];
+                      const applicableVendorIds = Array.isArray(discount.applicable_vendor_ids)
+                        ? discount.applicable_vendor_ids
+                        : [];
+                      const excludeProductIds = Array.isArray(discount.exclude_product_ids)
+                        ? discount.exclude_product_ids
+                        : [];
+                      const excludeCategoryIds = Array.isArray(discount.exclude_category_ids)
+                        ? discount.exclude_category_ids
+                        : [];
+
+                      let eligibleSubtotal = 0;
+                      for (const item of resolvedItems) {
+                        const p = productsMap[item.product_id];
+                        if (!p) continue;
+                        if (excludeProductIds.includes(p.id)) continue;
+                        if (p.category_id && excludeCategoryIds.includes(p.category_id)) continue;
+                        if (discount.exclude_sale_items === true) {
+                          const saleItem = (() => {
+                            if (!p.sale_price) return false;
+                            if (!p.sale_start_date && !p.sale_end_date) return true;
+                            if (p.sale_start_date && nowIso < p.sale_start_date) return false;
+                            if (p.sale_end_date && nowIso >= p.sale_end_date) return false;
+                            return true;
+                          })();
+                          if (saleItem) continue;
+                        }
+                        let eligible = true;
+                        if (appliesTo === "products") {
+                          eligible = applicableProductIds.includes(p.id);
+                        } else if (appliesTo === "categories") {
+                          eligible = !!p.category_id && applicableCategoryIds.includes(p.category_id);
+                        } else if (appliesTo === "vendors") {
+                          eligible = !!p.vendor_id && applicableVendorIds.includes(p.vendor_id);
+                        }
+                        if (!eligible) continue;
+                        eligibleSubtotal += (item.unit_price || 0) * (item.quantity || 0);
+                      }
+
+                      const type = String(discount.discount_type || "percentage");
+                      if (type === "free_shipping") {
+                        appliedDiscountCode = discount.code;
+                        discountId = discount.id;
+                        discountAmount = 0;
+                        shippingCost = 0;
+                      } else if (eligibleSubtotal > 0) {
+                        if (type === "percentage") {
+                          discountAmount = (eligibleSubtotal * toNumber(discount.discount_value)) / 100;
+                        } else {
+                          discountAmount = Math.min(toNumber(discount.discount_value), eligibleSubtotal);
+                        }
+
+                        if (discount.maximum_discount_amount) {
+                          discountAmount = Math.min(discountAmount, toNumber(discount.maximum_discount_amount));
+                        }
+
+                        discountAmount = roundCurrency(Math.max(0, discountAmount));
+                        if (discountAmount < 0.01) {
+                          discountAmount = 0;
+                        }
+
+                        if (discountAmount >= 0.01) {
+                          appliedDiscountCode = discount.code;
+                          discountId = discount.id;
+                          if (discount.stripe_promotion_code_id) {
+                            stripeDiscounts = [{ promotion_code: discount.stripe_promotion_code_id }];
+                          } else if (discount.stripe_coupon_id) {
+                            stripeDiscounts = [{ coupon: discount.stripe_coupon_id }];
+                          } else {
+                            stage = "discount_create_coupon";
+                            const coupon = await stripe.coupons.create({
+                              duration: "once",
+                              currency: "eur",
+                              amount_off: Math.round(discountAmount * 100),
+                              max_redemptions: 1,
+                              name: `${discount.code}-${orderNumber}`,
+                              metadata: {
+                                discount_id: discount.id,
+                                discount_code: discount.code,
+                                user_id: body.user_id,
+                              },
+                            });
+                            stripeDiscounts = [{ coupon: coupon.id }];
+                          }
+                        }
+                      }
+                    }
+                  } else {
+                    const appliesTo = String(discount.applies_to || "all");
+                    const applicableProductIds = Array.isArray(discount.applicable_product_ids)
+                      ? discount.applicable_product_ids
+                      : [];
+                    const applicableCategoryIds = Array.isArray(discount.applicable_category_ids)
+                      ? discount.applicable_category_ids
+                      : [];
+                    const applicableVendorIds = Array.isArray(discount.applicable_vendor_ids)
+                      ? discount.applicable_vendor_ids
+                      : [];
+                    const excludeProductIds = Array.isArray(discount.exclude_product_ids)
+                      ? discount.exclude_product_ids
+                      : [];
+                    const excludeCategoryIds = Array.isArray(discount.exclude_category_ids)
+                      ? discount.exclude_category_ids
+                      : [];
+
+                    let eligibleSubtotal = 0;
+                    for (const item of resolvedItems) {
+                      const p = productsMap[item.product_id];
+                      if (!p) continue;
+                      if (excludeProductIds.includes(p.id)) continue;
+                      if (p.category_id && excludeCategoryIds.includes(p.category_id)) continue;
+                      if (discount.exclude_sale_items === true) {
+                        const saleItem = (() => {
+                          if (!p.sale_price) return false;
+                          if (!p.sale_start_date && !p.sale_end_date) return true;
+                          if (p.sale_start_date && nowIso < p.sale_start_date) return false;
+                          if (p.sale_end_date && nowIso >= p.sale_end_date) return false;
+                          return true;
+                        })();
+                        if (saleItem) continue;
+                      }
+                      let eligible = true;
+                      if (appliesTo === "products") {
+                        eligible = applicableProductIds.includes(p.id);
+                      } else if (appliesTo === "categories") {
+                        eligible = !!p.category_id && applicableCategoryIds.includes(p.category_id);
+                      } else if (appliesTo === "vendors") {
+                        eligible = !!p.vendor_id && applicableVendorIds.includes(p.vendor_id);
+                      }
+                      if (!eligible) continue;
+                      eligibleSubtotal += (item.unit_price || 0) * (item.quantity || 0);
+                    }
+
+                    const type = String(discount.discount_type || "percentage");
+                    if (type === "free_shipping") {
+                      appliedDiscountCode = discount.code;
+                      discountId = discount.id;
+                      discountAmount = 0;
+                      shippingCost = 0;
+                    } else if (eligibleSubtotal > 0) {
+                      if (type === "percentage") {
+                        discountAmount = (eligibleSubtotal * toNumber(discount.discount_value)) / 100;
+                      } else {
+                        discountAmount = Math.min(toNumber(discount.discount_value), eligibleSubtotal);
+                      }
+
+                      if (discount.maximum_discount_amount) {
+                        discountAmount = Math.min(discountAmount, toNumber(discount.maximum_discount_amount));
+                      }
+
+                      discountAmount = roundCurrency(Math.max(0, discountAmount));
+                      if (discountAmount < 0.01) {
+                        discountAmount = 0;
+                      }
+
+                      if (discountAmount >= 0.01) {
+                        appliedDiscountCode = discount.code;
+                        discountId = discount.id;
+                        if (discount.stripe_promotion_code_id) {
+                          stripeDiscounts = [{ promotion_code: discount.stripe_promotion_code_id }];
+                        } else if (discount.stripe_coupon_id) {
+                          stripeDiscounts = [{ coupon: discount.stripe_coupon_id }];
+                        } else {
+                          stage = "discount_create_coupon";
+                          const coupon = await stripe.coupons.create({
+                            duration: "once",
+                            currency: "eur",
+                            amount_off: Math.round(discountAmount * 100),
+                            max_redemptions: 1,
+                            name: `${discount.code}-${orderNumber}`,
+                            metadata: {
+                              discount_id: discount.id,
+                              discount_code: discount.code,
+                              user_id: body.user_id,
+                            },
+                          });
+                          stripeDiscounts = [{ coupon: coupon.id }];
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
         }
@@ -883,7 +1288,7 @@ serve(async (req) => {
       subtotal: subtotal,
       shipping_cost: shippingCost,
       discount_amount: discountAmount,
-      discount_code: body.discount_code,
+      discount_code: appliedDiscountCode,
       discount_id: discountId,
       total: total,
       shipping_method_id: shippingRequired ? body.shipping_method_id : null,
@@ -981,6 +1386,7 @@ serve(async (req) => {
         items_subtotal: String(roundCurrency(subtotal)),
         shipping_cost: String(roundCurrency(shippingCost)),
         discount_amount: String(roundCurrency(discountAmount)),
+        discount_code: appliedDiscountCode || "",
         order_total: String(roundCurrency(total)),
       },
       ...(stripeDiscounts.length > 0 && { discounts: stripeDiscounts }),

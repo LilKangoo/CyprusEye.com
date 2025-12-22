@@ -149,6 +149,41 @@ async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.S
     await supabase.rpc("shop_award_xp", { p_order_id: order.id });
   }
 
+  if (order.discount_id && order.user_id) {
+    const discountAmount = Number(order.discount_amount || 0) || 0;
+    try {
+      const { error: usageError } = await supabase
+        .from("shop_discount_usage")
+        .insert({
+          discount_id: order.discount_id,
+          order_id: order.id,
+          user_id: order.user_id,
+          discount_amount: discountAmount,
+        });
+
+      const usageErrorCode = (usageError as any)?.code;
+      if (usageError && usageErrorCode !== "23505") {
+        console.error("Failed to insert discount usage:", usageError);
+      }
+
+      if (!usageError) {
+        try {
+          await supabase
+            .from("shop_discounts")
+            .update({
+              usage_count: supabase.sql`usage_count + 1`,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", order.discount_id);
+        } catch (e) {
+          console.error("Failed to increment discount usage_count:", e);
+        }
+      }
+    } catch (e) {
+      console.error("Discount usage tracking error:", e);
+    }
+  }
+
   await updateInventory(supabase, order.id);
 
   const { data: cartData } = await supabase
@@ -159,6 +194,7 @@ async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.S
 
   if (cartData) {
     await supabase.from("shop_cart_items").delete().eq("cart_id", cartData.id);
+    await supabase.from("shop_carts").update({ discount_code: null }).eq("id", cartData.id);
   }
 
   console.log("Order confirmed and XP awarded:", order.id);

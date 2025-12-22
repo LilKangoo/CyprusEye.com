@@ -9,6 +9,8 @@ const shopState = {
   categories: [],
   cart: [],
   productVariants: {},
+  discountCode: null,
+  discountPreview: null,
   shippingZones: [],
   shippingMethods: [],
   shippingClasses: [],
@@ -111,12 +113,15 @@ async function init() {
   
   await initSupabase();
   loadCartFromStorage();
+  loadDiscountCodeFromStorage();
   await loadCategories();
   await loadProducts();
   await loadShippingZonesAndMethods();
   await loadShippingClasses();
   setupEventListeners();
   updateCartUI();
+  await refreshDiscountPreview();
+  updateShippingTotalsUI();
   
   // Handle checkout return status
   handleCheckoutReturn();
@@ -130,6 +135,7 @@ async function init() {
     renderCategoryFilters();
     renderProducts();
     renderCartItems(); // Re-render cart with new translations
+    refreshDiscountPreview().then(() => updateShippingTotalsUI());
   };
 
   window.addEventListener('languageChanged', handleLanguageUpdate);
@@ -742,19 +748,33 @@ function updateShippingTotalsUI() {
   const shipping = shopState.shippingQuote && !shopState.shippingQuote.error
     ? shopState.shippingQuote.totalCost
     : 0;
-  const total = subtotal + shipping;
+  const preview = shopState.discountPreview && shopState.discountPreview.valid ? shopState.discountPreview : null;
+  const discountAmount = preview && preview.discountAmount ? preview.discountAmount : 0;
+  const effectiveShipping = preview && preview.freeShipping ? 0 : shipping;
+  const total = Math.max(0, subtotal + effectiveShipping - discountAmount);
   const reviewSubtotalEl = document.getElementById('reviewSubtotal');
   const reviewShippingEl = document.getElementById('reviewShipping');
+  const reviewDiscountRow = document.getElementById('reviewDiscountRow');
+  const reviewDiscountEl = document.getElementById('reviewDiscount');
   const reviewTotalEl = document.getElementById('reviewTotal');
   
   if (reviewSubtotalEl) reviewSubtotalEl.textContent = `€${subtotal.toFixed(2)}`;
   if (reviewShippingEl) {
     if (shopState.shippingQuote?.error) {
       reviewShippingEl.textContent = shopState.lang === 'en' ? 'N/A' : 'Brak';
-    } else if (shipping === 0) {
+    } else if (effectiveShipping === 0) {
       reviewShippingEl.textContent = shopState.lang === 'en' ? 'Free' : 'Gratis';
     } else {
-      reviewShippingEl.textContent = `€${shipping.toFixed(2)}`;
+      reviewShippingEl.textContent = `€${effectiveShipping.toFixed(2)}`;
+    }
+  }
+  if (reviewDiscountRow && reviewDiscountEl) {
+    if (discountAmount > 0) {
+      reviewDiscountRow.hidden = false;
+      reviewDiscountEl.textContent = `-€${discountAmount.toFixed(2)}`;
+    } else {
+      reviewDiscountRow.hidden = true;
+      reviewDiscountEl.textContent = '-€0.00';
     }
   }
   if (reviewTotalEl) reviewTotalEl.textContent = `€${total.toFixed(2)}`;
@@ -1354,6 +1374,210 @@ function loadCartFromStorage() {
   }
 }
 
+function loadDiscountCodeFromStorage() {
+  try {
+    const raw = localStorage.getItem('shop_discount_code');
+    shopState.discountCode = raw ? String(raw).trim().toUpperCase() : null;
+  } catch (e) {
+    shopState.discountCode = null;
+  }
+}
+
+function saveDiscountCodeToStorage() {
+  try {
+    if (shopState.discountCode) {
+      localStorage.setItem('shop_discount_code', String(shopState.discountCode));
+    } else {
+      localStorage.removeItem('shop_discount_code');
+    }
+  } catch (e) {
+  }
+}
+
+function clearDiscountCode() {
+  shopState.discountCode = null;
+  shopState.discountPreview = null;
+  saveDiscountCodeToStorage();
+}
+
+function getDiscountCodeNormalized(input) {
+  if (!input) return null;
+  const code = String(input).trim().toUpperCase();
+  return code ? code : null;
+}
+
+async function applyDiscountCode(codeInput) {
+  const code = getDiscountCodeNormalized(codeInput);
+  if (!code) {
+    clearDiscountCode();
+    await refreshDiscountPreview();
+    updateShippingTotalsUI();
+    return;
+  }
+
+  shopState.discountCode = code;
+  saveDiscountCodeToStorage();
+  await refreshDiscountPreview();
+  updateShippingTotalsUI();
+
+  try {
+    await syncCartToSupabase();
+  } catch (e) {
+  }
+}
+
+function updateDiscountUiControls() {
+  const input = document.getElementById('checkoutDiscountCode');
+  const btnApply = document.getElementById('btnApplyDiscount');
+  const btnClear = document.getElementById('btnClearDiscount');
+  if (input) {
+    input.value = shopState.discountCode || '';
+  }
+  if (btnClear) {
+    btnClear.hidden = !shopState.discountCode;
+  }
+  if (btnApply) {
+    btnApply.disabled = false;
+  }
+}
+
+async function refreshDiscountPreview() {
+  const infoEl = document.getElementById('discountInfo');
+  shopState.discountPreview = null;
+  updateDiscountUiControls();
+
+  if (!shopState.discountCode) {
+    if (infoEl) infoEl.textContent = '';
+    return;
+  }
+
+  if (!supabase) {
+    if (infoEl) {
+      infoEl.textContent = shopState.lang === 'en'
+        ? 'Discount code will be validated at checkout.'
+        : 'Kod rabatowy zostanie zweryfikowany przy płatności.';
+    }
+    return;
+  }
+
+  try {
+    const { data: discount, error } = await supabase
+      .from('shop_discounts')
+      .select('*')
+      .eq('code', shopState.discountCode)
+      .eq('is_active', true)
+      .single();
+
+    if (error || !discount) {
+      shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'not_found' };
+      if (infoEl) {
+        infoEl.textContent = shopState.lang === 'en' ? 'Invalid discount code.' : 'Nieprawidłowy kod rabatowy.';
+      }
+      return;
+    }
+
+    const now = new Date();
+    const startsAt = discount.starts_at ? new Date(discount.starts_at) : null;
+    const expiresAt = discount.expires_at ? new Date(discount.expires_at) : null;
+    if ((startsAt && now < startsAt) || (expiresAt && now >= expiresAt)) {
+      shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'expired' };
+      if (infoEl) {
+        infoEl.textContent = shopState.lang === 'en' ? 'Discount code is expired.' : 'Kod rabatowy wygasł.';
+      }
+      return;
+    }
+
+    if (discount.usage_limit && discount.usage_count >= discount.usage_limit) {
+      shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'limit' };
+      if (infoEl) {
+        infoEl.textContent = shopState.lang === 'en' ? 'Discount code limit reached.' : 'Limit użyć kodu został wyczerpany.';
+      }
+      return;
+    }
+
+    const subtotal = getCartTotal();
+    if (discount.minimum_order_amount && subtotal < parseFloat(discount.minimum_order_amount)) {
+      shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'min_order' };
+      if (infoEl) {
+        infoEl.textContent = shopState.lang === 'en'
+          ? `Minimum order: €${parseFloat(discount.minimum_order_amount).toFixed(2)}`
+          : `Minimalna wartość zamówienia: €${parseFloat(discount.minimum_order_amount).toFixed(2)}`;
+      }
+      return;
+    }
+
+    let eligibleSubtotal = 0;
+    const appliesTo = discount.applies_to || 'all';
+    const applicableProducts = Array.isArray(discount.applicable_product_ids) ? discount.applicable_product_ids : [];
+    const applicableCategories = Array.isArray(discount.applicable_category_ids) ? discount.applicable_category_ids : [];
+    const applicableVendors = Array.isArray(discount.applicable_vendor_ids) ? discount.applicable_vendor_ids : [];
+    const excludeProducts = Array.isArray(discount.exclude_product_ids) ? discount.exclude_product_ids : [];
+    const excludeCategories = Array.isArray(discount.exclude_category_ids) ? discount.exclude_category_ids : [];
+
+    shopState.cart.forEach(item => {
+      const product = shopState.products.find(p => p.id === item.productId);
+      if (!product) return;
+
+      if (excludeProducts.includes(item.productId)) return;
+      if (product.category_id && excludeCategories.includes(product.category_id)) return;
+
+      let eligible = true;
+      if (appliesTo === 'products') {
+        eligible = applicableProducts.includes(item.productId);
+      } else if (appliesTo === 'categories') {
+        eligible = product.category_id ? applicableCategories.includes(product.category_id) : false;
+      } else if (appliesTo === 'vendors') {
+        eligible = product.vendor_id ? applicableVendors.includes(product.vendor_id) : false;
+      }
+
+      if (!eligible) return;
+      eligibleSubtotal += (item.price * item.quantity);
+    });
+
+    let discountAmount = 0;
+    let freeShipping = false;
+    const type = discount.discount_type || 'percentage';
+    const value = parseFloat(discount.discount_value || 0);
+
+    if (type === 'free_shipping') {
+      freeShipping = true;
+    } else if (type === 'percentage') {
+      discountAmount = (eligibleSubtotal * value) / 100;
+    } else {
+      discountAmount = Math.min(value, eligibleSubtotal);
+    }
+
+    if (discount.maximum_discount_amount) {
+      discountAmount = Math.min(discountAmount, parseFloat(discount.maximum_discount_amount));
+    }
+
+    discountAmount = Math.max(0, Math.round((discountAmount + Number.EPSILON) * 100) / 100);
+
+    shopState.discountPreview = {
+      code: shopState.discountCode,
+      valid: true,
+      type,
+      freeShipping,
+      discountAmount,
+      description: (shopState.lang === 'en' && discount.description_en) ? discount.description_en : discount.description
+    };
+
+    if (infoEl) {
+      const desc = shopState.discountPreview.description;
+      infoEl.textContent = desc
+        ? `${shopState.discountCode} — ${desc}`
+        : (shopState.lang === 'en' ? 'Discount code applied.' : 'Kod rabatowy zastosowany.');
+    }
+  } catch (e) {
+    shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'error' };
+    if (infoEl) {
+      infoEl.textContent = shopState.lang === 'en'
+        ? 'Unable to validate discount code right now.'
+        : 'Nie udało się zweryfikować kodu rabatowego.';
+    }
+  }
+}
+
 function saveCartToStorage() {
   try {
     localStorage.setItem('shop_cart', JSON.stringify(shopState.cart));
@@ -1362,6 +1586,12 @@ function saveCartToStorage() {
     // Recalculate shipping quote when cart changes
     if (shopState.selectedShippingMethod) {
       recalculateShippingQuote();
+    }
+    if (shopState.discountCode) {
+      refreshDiscountPreview().then(() => updateShippingTotalsUI());
+    } else {
+      shopState.discountPreview = null;
+      updateShippingTotalsUI();
     }
   } catch (e) {
     console.error('Failed to save cart:', e);
@@ -1378,11 +1608,13 @@ async function syncCartWithSupabase() {
     // Load cart from Supabase
     const { data: dbCart } = await supabase
       .from('shop_carts')
-      .select('id')
+      .select('id, discount_code')
       .eq('user_id', user.id)
       .single();
     
     if (dbCart) {
+      shopState.discountCode = dbCart.discount_code ? String(dbCart.discount_code).trim().toUpperCase() : (shopState.discountCode || null);
+      saveDiscountCodeToStorage();
       const { data: items } = await supabase
         .from('shop_cart_items')
         .select('product_id, variant_id, quantity, shop_products(id, name, price, thumbnail_url, weight, shipping_class_id, is_virtual), variant:shop_product_variants(id, name, price, weight, image_url)')
@@ -1415,6 +1647,9 @@ async function syncCartWithSupabase() {
         localStorage.setItem('shop_cart', JSON.stringify(shopState.cart));
         updateCartUI();
       }
+
+      await refreshDiscountPreview();
+      updateShippingTotalsUI();
     } else if (shopState.cart.length > 0) {
       // Create cart in Supabase with local items
       await syncCartToSupabase();
@@ -1441,13 +1676,18 @@ async function syncCartToSupabase() {
     if (!cart) {
       const { data: newCart } = await supabase
         .from('shop_carts')
-        .insert({ user_id: user.id })
+        .insert({ user_id: user.id, discount_code: shopState.discountCode || null })
         .select('id')
         .single();
       cart = newCart;
     }
     
     if (!cart) return;
+
+    await supabase
+      .from('shop_carts')
+      .update({ discount_code: shopState.discountCode || null })
+      .eq('id', cart.id);
     
     // Clear existing items and insert new ones
     await supabase
@@ -1728,6 +1968,7 @@ function openCheckoutModal() {
     document.body.style.overflow = 'hidden';
     // Reset to step 1
     showCheckoutStep(1);
+    updateDiscountUiControls();
     
     // Initialize shipping methods based on current country selection
     const countrySelect = document.getElementById('checkoutCountry');
@@ -1766,7 +2007,7 @@ function showCheckoutStep(stepNum) {
   document.getElementById('checkoutStep2').hidden = stepNum !== 2;
 }
 
-function goToReviewStep() {
+async function goToReviewStep() {
   // Validate step 1 form
   const form = document.getElementById('checkoutForm');
   const step1Fields = document.querySelectorAll('#checkoutStep1 [required]');
@@ -1801,6 +2042,7 @@ function goToReviewStep() {
   }
   
   // Populate review section
+  await refreshDiscountPreview();
   populateReviewSection();
   showCheckoutStep(2);
 }
@@ -1923,6 +2165,7 @@ async function submitOrder(e) {
     const checkoutPayload = {
       user_id: checkoutUser.id,
       items: items,
+      discount_code: shopState.discountCode || undefined,
       shipping_address: shippingAddress,
       shipping_method_id: shopState.selectedShippingMethod.id,
       shipping_details: {
@@ -1958,6 +2201,7 @@ async function submitOrder(e) {
     if (data?.session_url) {
       // Clear cart before redirecting
       shopState.cart = [];
+      clearDiscountCode();
       saveCartToStorage();
       
       // Redirect to Stripe Checkout
@@ -2207,6 +2451,40 @@ function setupEventListeners() {
   const checkoutForm = document.getElementById('checkoutForm');
   if (checkoutForm) {
     checkoutForm.addEventListener('submit', submitOrder);
+  }
+
+  // Discount code
+  const discountInput = document.getElementById('checkoutDiscountCode');
+  const btnApplyDiscount = document.getElementById('btnApplyDiscount');
+  const btnClearDiscount = document.getElementById('btnClearDiscount');
+
+  if (btnApplyDiscount) {
+    btnApplyDiscount.addEventListener('click', async () => {
+      const code = discountInput ? discountInput.value : '';
+      await applyDiscountCode(code);
+    });
+  }
+
+  if (btnClearDiscount) {
+    btnClearDiscount.addEventListener('click', async () => {
+      clearDiscountCode();
+      if (discountInput) discountInput.value = '';
+      await refreshDiscountPreview();
+      updateShippingTotalsUI();
+      try {
+        await syncCartToSupabase();
+      } catch (e) {
+      }
+    });
+  }
+
+  if (discountInput) {
+    discountInput.addEventListener('keydown', async (ev) => {
+      if (ev.key === 'Enter') {
+        ev.preventDefault();
+        await applyDiscountCode(discountInput.value);
+      }
+    });
   }
 
   // Country change - update shipping methods
