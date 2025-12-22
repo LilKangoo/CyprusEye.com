@@ -31,6 +31,31 @@ const shopState = {
 // Supabase client
 let supabase = null;
 
+// Debug helpers
+function isCheckoutUiDebugEnabled() {
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('debugCheckout') === '1') {
+      return true;
+    }
+  } catch (e) {
+  }
+  try {
+    return localStorage.getItem('checkout_debug_ui') === 'true';
+  } catch (e) {
+    return false;
+  }
+}
+
+function persistCheckoutDebugSnapshot(payload, response) {
+  try {
+    localStorage.setItem('last_checkout_payload', JSON.stringify(payload));
+    localStorage.setItem('last_checkout_response', JSON.stringify(response));
+    localStorage.setItem('last_checkout_saved_at', new Date().toISOString());
+  } catch (e) {
+  }
+}
+
 // Get current language from localStorage or default to 'pl'
 function getCurrentLang() {
   try {
@@ -1713,24 +1738,33 @@ async function submitOrder(e) {
     const successUrl = `${baseUrl}/shop.html?checkout=success`;
     const cancelUrl = `${baseUrl}/shop.html?checkout=cancelled`;
 
+    const checkoutPayload = {
+      user_id: checkoutUser.id,
+      items: items,
+      shipping_address: shippingAddress,
+      shipping_method_id: shopState.selectedShippingMethod.id,
+      shipping_details: {
+        metrics: shippingMetrics,
+        quote: shippingQuote
+      },
+      customer_notes: customerNotes,
+      success_url: successUrl,
+      cancel_url: cancelUrl
+    };
+    
+    // Debug: log shipping details being sent
+    console.log('[checkout] shippingQuote:', shippingQuote);
+    console.log('[checkout] shippingQuote.totalCost:', shippingQuote?.totalCost);
+    console.log('[checkout] shippingMetrics:', shippingMetrics);
+
     // Call Stripe checkout edge function
     const { data, error } = await supabase.functions.invoke('create-checkout', {
-      body: {
-        user_id: checkoutUser.id,
-        items: items,
-        shipping_address: shippingAddress,
-        shipping_method_id: shopState.selectedShippingMethod.id,
-        shipping_details: {
-          metrics: shippingMetrics,
-          quote: shippingQuote
-        },
-        customer_notes: customerNotes,
-        success_url: successUrl,
-        cancel_url: cancelUrl
-      }
+      body: checkoutPayload
     });
 
     if (error) throw error;
+    
+    persistCheckoutDebugSnapshot(checkoutPayload, data);
     
     if (data?.session_url) {
       // Clear cart before redirecting

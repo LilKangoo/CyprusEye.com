@@ -10,7 +10,7 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const CHECKOUT_FUNCTION_VERSION = "2025-12-22-1";
+const CHECKOUT_FUNCTION_VERSION = "2025-12-22-2";
 const isDebugEnabled = (): boolean => Deno.env.get("CHECKOUT_DEBUG") === "true";
 
 const corsHeaders = {
@@ -473,10 +473,14 @@ serve(async (req) => {
       }
 
       serverShippingCost = shippingQuote.totalCost;
-      if (clientQuoteCost !== null && clientQuoteCost > serverShippingCost) {
+      // Trust client quote when provided and valid (client has full data for calculation)
+      // Only fall back to server calculation if client quote is missing or zero
+      if (clientQuoteCost !== null && clientQuoteCost > 0) {
         shippingCost = clientQuoteCost;
-      } else {
+      } else if (serverShippingCost > 0) {
         shippingCost = serverShippingCost;
+      } else {
+        shippingCost = 0;
       }
 
       if (debug) {

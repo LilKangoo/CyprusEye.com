@@ -1751,6 +1751,11 @@ async function submitOrder(e) {
       success_url: successUrl,
       cancel_url: cancelUrl
     };
+    
+    // Debug: log shipping details being sent
+    console.log('[checkout] shippingQuote:', shippingQuote);
+    console.log('[checkout] shippingQuote.totalCost:', shippingQuote?.totalCost);
+    console.log('[checkout] shippingMetrics:', shippingMetrics);
 
     // Call Stripe checkout edge function
     const { data, error } = await supabase.functions.invoke('create-checkout', {
