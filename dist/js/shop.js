@@ -167,6 +167,18 @@ function getCartItemTaxRate(cartItem) {
   return Math.max(0, toNumber(rate));
 }
 
+function isProductInActiveSaleWindow(product, nowIso) {
+  if (!product) return false;
+  const salePrice = toNumber(product.sale_price);
+  if (!(salePrice > 0)) return false;
+  const start = product.sale_start_date ? String(product.sale_start_date) : '';
+  const end = product.sale_end_date ? String(product.sale_end_date) : '';
+  if (!start && !end) return true;
+  if (start && nowIso < start) return false;
+  if (end && nowIso >= end) return false;
+  return true;
+}
+
 function getCartItemGrossUnitPrice(cartItem) {
   const settings = shopState.taxSettings || { taxEnabled: false, taxIncludedInPrice: true };
   const basePrice = toNumber(cartItem.price);
@@ -929,6 +941,9 @@ function updateShippingTotalsUI() {
   const reviewDiscountEl = document.getElementById('reviewDiscount');
   const reviewTotalEl = document.getElementById('reviewTotal');
   const vatTotal = computeVatPreview(preview);
+  const hasTaxableItems = shopState.taxSettings?.taxEnabled
+    ? shopState.cart.some(item => getCartItemTaxRate(item) > 0)
+    : false;
   
   if (reviewSubtotalEl) reviewSubtotalEl.textContent = `€${subtotal.toFixed(2)}`;
   if (reviewShippingEl) {
@@ -941,7 +956,7 @@ function updateShippingTotalsUI() {
     }
   }
   if (reviewVatRow && reviewVatEl) {
-    if (vatTotal > 0) {
+    if (hasTaxableItems && vatTotal > 0) {
       reviewVatRow.hidden = false;
       reviewVatEl.textContent = `€${vatTotal.toFixed(2)}`;
     } else {
@@ -1642,12 +1657,17 @@ async function refreshDiscountPreview() {
   }
 
   try {
-    const { data: discount, error } = await supabase
+    const { data: auth } = await supabase.auth.getUser();
+    const authedUser = auth?.user || null;
+
+    const { data: discountRows, error } = await supabase
       .from('shop_discounts')
       .select('*')
-      .eq('code', shopState.discountCode)
+      .ilike('code', shopState.discountCode)
       .eq('is_active', true)
-      .single();
+      .limit(1);
+
+    const discount = Array.isArray(discountRows) ? discountRows[0] : null;
 
     if (error || !discount) {
       shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'not_found' };
@@ -1658,6 +1678,7 @@ async function refreshDiscountPreview() {
     }
 
     const now = new Date();
+    const nowIso = now.toISOString();
     const startsAt = discount.starts_at ? new Date(discount.starts_at) : null;
     const expiresAt = discount.expires_at ? new Date(discount.expires_at) : null;
     if ((startsAt && now < startsAt) || (expiresAt && now >= expiresAt)) {
@@ -1687,18 +1708,108 @@ async function refreshDiscountPreview() {
       return;
     }
 
+    if (discount.maximum_order_amount && subtotal > parseFloat(discount.maximum_order_amount)) {
+      shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'max_order' };
+      if (infoEl) {
+        infoEl.textContent = shopState.lang === 'en'
+          ? `Maximum order: €${parseFloat(discount.maximum_order_amount).toFixed(2)}`
+          : `Maksymalna wartość zamówienia: €${parseFloat(discount.maximum_order_amount).toFixed(2)}`;
+      }
+      return;
+    }
+
+    const allowedUsers = Array.isArray(discount.user_ids) ? discount.user_ids : [];
+    if (allowedUsers.length > 0) {
+      if (!authedUser) {
+        shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'auth_required' };
+        if (infoEl) {
+          infoEl.textContent = shopState.lang === 'en'
+            ? 'Please log in to use this discount code.'
+            : 'Zaloguj się, aby użyć tego kodu rabatowego.';
+        }
+        return;
+      }
+      if (!allowedUsers.includes(authedUser.id)) {
+        shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'not_allowed' };
+        if (infoEl) {
+          infoEl.textContent = shopState.lang === 'en'
+            ? 'This discount code is not available for your account.'
+            : 'Ten kod rabatowy nie jest dostępny dla Twojego konta.';
+        }
+        return;
+      }
+    }
+
+    if (discount.first_purchase_only === true) {
+      if (!authedUser) {
+        shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'auth_required' };
+        if (infoEl) {
+          infoEl.textContent = shopState.lang === 'en'
+            ? 'Please log in to use this discount code.'
+            : 'Zaloguj się, aby użyć tego kodu rabatowego.';
+        }
+        return;
+      }
+
+      const { count: paidCount } = await supabase
+        .from('shop_orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', authedUser.id)
+        .in('payment_status', ['paid', 'partially_refunded', 'refunded'])
+        .limit(1);
+
+      if (typeof paidCount === 'number' && paidCount > 0) {
+        shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'first_purchase_only' };
+        if (infoEl) {
+          infoEl.textContent = shopState.lang === 'en'
+            ? 'This discount code is only valid for your first order.'
+            : 'Ten kod rabatowy jest ważny tylko na pierwsze zamówienie.';
+        }
+        return;
+      }
+    }
+
+    const perUserLimit = Math.max(0, parseInt(discount.usage_limit_per_user, 10) || 0);
+    if (perUserLimit > 0 && authedUser && discount.id) {
+      const { count: usedCount } = await supabase
+        .from('shop_orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', authedUser.id)
+        .eq('discount_id', discount.id)
+        .in('payment_status', ['paid', 'partially_refunded', 'refunded'])
+        .limit(perUserLimit);
+
+      if (typeof usedCount === 'number' && usedCount >= perUserLimit) {
+        shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'per_user_limit' };
+        if (infoEl) {
+          infoEl.textContent = shopState.lang === 'en'
+            ? 'You have already used this discount code.'
+            : 'Ten kod rabatowy został już użyty na Twoim koncie.';
+        }
+        return;
+      }
+    }
+
     let eligibleSubtotal = 0;
     const eligibleMask = new Array(shopState.cart.length).fill(false);
-    const appliesTo = discount.applies_to || 'all';
     const applicableProducts = Array.isArray(discount.applicable_product_ids) ? discount.applicable_product_ids : [];
     const applicableCategories = Array.isArray(discount.applicable_category_ids) ? discount.applicable_category_ids : [];
     const applicableVendors = Array.isArray(discount.applicable_vendor_ids) ? discount.applicable_vendor_ids : [];
+    let appliesTo = discount.applies_to || 'all';
+    if (appliesTo === 'products' && applicableProducts.length === 0) appliesTo = 'all';
+    if (appliesTo === 'categories' && applicableCategories.length === 0) appliesTo = 'all';
+    if (appliesTo === 'vendors' && applicableVendors.length === 0) appliesTo = 'all';
     const excludeProducts = Array.isArray(discount.exclude_product_ids) ? discount.exclude_product_ids : [];
     const excludeCategories = Array.isArray(discount.exclude_category_ids) ? discount.exclude_category_ids : [];
 
     shopState.cart.forEach((item, idx) => {
       const product = shopState.products.find(p => p.id === item.productId);
       if (!product) return;
+
+      if (discount.exclude_sale_items === true) {
+        const saleItem = isProductInActiveSaleWindow(product, nowIso);
+        if (saleItem) return;
+      }
 
       if (excludeProducts.includes(item.productId)) return;
       if (product.category_id && excludeCategories.includes(product.category_id)) return;
@@ -1725,10 +1836,22 @@ async function refreshDiscountPreview() {
 
     if (type === 'free_shipping') {
       freeShipping = true;
-    } else if (type === 'percentage') {
-      discountAmount = (eligibleSubtotal * value) / 100;
     } else {
-      discountAmount = Math.min(value, eligibleSubtotal);
+      if (eligibleSubtotal <= 0) {
+        shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'not_applicable' };
+        if (infoEl) {
+          infoEl.textContent = shopState.lang === 'en'
+            ? 'This discount code does not apply to items in your cart.'
+            : 'Ten kod rabatowy nie dotyczy produktów w koszyku.';
+        }
+        return;
+      }
+
+      if (type === 'percentage') {
+        discountAmount = (eligibleSubtotal * value) / 100;
+      } else {
+        discountAmount = Math.min(value, eligibleSubtotal);
+      }
     }
 
     if (discount.maximum_discount_amount) {
