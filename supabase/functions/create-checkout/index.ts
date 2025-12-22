@@ -10,7 +10,7 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const CHECKOUT_FUNCTION_VERSION = "2025-12-22-4";
+const CHECKOUT_FUNCTION_VERSION = "2025-12-22-6";
 const isDebugEnabled = (): boolean => Deno.env.get("CHECKOUT_DEBUG") === "true";
 
 const corsHeaders = {
@@ -407,6 +407,14 @@ serve(async (req) => {
       );
     }
 
+    const customerEmail = user.email || authedUser.email;
+    if (!customerEmail) {
+      return new Response(
+        JSON.stringify({ error: "Missing customer email" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     stage = "order_number";
     const { data: orderNumberRaw } = await supabase.rpc("shop_generate_order_number");
     const orderNumber =
@@ -432,7 +440,17 @@ serve(async (req) => {
 
     if (productsError) {
       return new Response(
-        JSON.stringify({ error: "Failed to load products" }),
+        JSON.stringify({
+          error: "Failed to load products",
+          function_version: CHECKOUT_FUNCTION_VERSION,
+          stage,
+          supabase_error: {
+            message: productsError.message,
+            details: (productsError as any).details,
+            hint: (productsError as any).hint,
+            code: (productsError as any).code,
+          },
+        }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -455,7 +473,17 @@ serve(async (req) => {
 
       if (variantsError) {
         return new Response(
-          JSON.stringify({ error: "Failed to load variants" }),
+          JSON.stringify({
+            error: "Failed to load variants",
+            function_version: CHECKOUT_FUNCTION_VERSION,
+            stage,
+            supabase_error: {
+              message: variantsError.message,
+              details: (variantsError as any).details,
+              hint: (variantsError as any).hint,
+              code: (variantsError as any).code,
+            },
+          }),
           { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
@@ -843,37 +871,73 @@ serve(async (req) => {
     const billingAddress = body.billing_address || body.shipping_address;
 
     stage = "insert_order";
-    const { data: order, error: orderError } = await supabase
+    const baseOrderInsert = {
+      order_number: orderNumber,
+      user_id: body.user_id,
+      customer_email: customerEmail,
+      customer_name: `${body.shipping_address.first_name} ${body.shipping_address.last_name}`,
+      customer_phone: body.shipping_address.phone,
+      shipping_address: body.shipping_address,
+      billing_address: billingAddress,
+      items_subtotal: subtotal,
+      subtotal: subtotal,
+      shipping_cost: shippingCost,
+      discount_amount: discountAmount,
+      discount_code: body.discount_code,
+      discount_id: discountId,
+      total: total,
+      shipping_method_id: shippingRequired ? body.shipping_method_id : null,
+      shipping_method_name: shippingRequired ? (shippingMethodRecord?.name || null) : null,
+      shipping_details: storedShippingDetails,
+      customer_notes: body.customer_notes,
+      status: "pending",
+      payment_status: "unpaid",
+    };
+
+    let { data: order, error: orderError } = await supabase
       .from("shop_orders")
-      .insert({
-        order_number: orderNumber,
-        user_id: body.user_id,
-        customer_email: user.email,
-        customer_name: `${body.shipping_address.first_name} ${body.shipping_address.last_name}`,
-        customer_phone: body.shipping_address.phone,
-        shipping_address: body.shipping_address,
-        billing_address: billingAddress,
-        items_subtotal: subtotal,
-        subtotal: subtotal,
-        shipping_cost: shippingCost,
-        discount_amount: discountAmount,
-        discount_code: body.discount_code,
-        discount_id: discountId,
-        total: total,
-        shipping_method_id: shippingRequired ? body.shipping_method_id : null,
-        shipping_method_name: shippingRequired ? (shippingMethodRecord?.name || null) : null,
-        shipping_details: storedShippingDetails,
-        customer_notes: body.customer_notes,
-        status: "pending",
-        payment_status: "unpaid",
-      })
+      .insert(baseOrderInsert)
       .select()
       .single();
+
+    const orderErrorCode = (orderError as any)?.code;
+    const orderErrorMessage = (orderError as any)?.message;
+    const shouldRetryWithoutShippingDetails =
+      !!orderError &&
+      (
+        orderErrorCode === "42703" ||
+        orderErrorCode === "PGRST204" ||
+        (typeof orderErrorMessage === "string" && orderErrorMessage.includes("shipping_details"))
+      );
+
+    if ((orderError || !order) && shouldRetryWithoutShippingDetails) {
+      stage = "insert_order_retry";
+      const { shipping_details: _drop, ...withoutShippingDetails } = baseOrderInsert as any;
+      const retry = await supabase
+        .from("shop_orders")
+        .insert(withoutShippingDetails)
+        .select()
+        .single();
+      order = retry.data as any;
+      orderError = retry.error as any;
+    }
 
     if (orderError || !order) {
       console.error("Error creating order:", orderError);
       return new Response(
-        JSON.stringify({ error: "Failed to create order" }),
+        JSON.stringify({
+          error: "Failed to create order",
+          function_version: CHECKOUT_FUNCTION_VERSION,
+          stage,
+          supabase_error: orderError
+            ? {
+                message: orderError.message,
+                details: (orderError as any).details,
+                hint: (orderError as any).hint,
+                code: (orderError as any).code,
+              }
+            : null,
+        }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
@@ -907,7 +971,7 @@ serve(async (req) => {
       line_items: lineItems,
       success_url: `${body.success_url}?order_id=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${body.cancel_url}?order_id=${order.id}`,
-      customer_email: user.email,
+      customer_email: customerEmail,
       client_reference_id: order.id,
       metadata: {
         order_id: order.id,
