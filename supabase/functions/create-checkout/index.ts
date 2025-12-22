@@ -10,7 +10,7 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const CHECKOUT_FUNCTION_VERSION = "2025-12-21-1";
+const CHECKOUT_FUNCTION_VERSION = "2025-12-22-1";
 const isDebugEnabled = (): boolean => Deno.env.get("CHECKOUT_DEBUG") === "true";
 
 const corsHeaders = {
@@ -200,8 +200,10 @@ const calculateShippingMetrics = (
         : true;
     if (!requiresShipping) continue;
 
-    const itemWeight = toNumber(
-      variant?.weight ?? product?.weight ?? item.weight ?? 0
+    const itemWeight = Math.max(
+      toNumber(variant?.weight),
+      toNumber(product?.weight),
+      toNumber(item.weight)
     );
     const classId = product?.shipping_class_id ?? item.shipping_class_id ?? null;
     const qty = item.quantity || 0;
@@ -620,6 +622,11 @@ serve(async (req) => {
         order_id: order.id,
         order_number: orderNumber,
         user_id: body.user_id,
+        function_version: CHECKOUT_FUNCTION_VERSION,
+        items_subtotal: String(roundCurrency(subtotal)),
+        shipping_cost: String(roundCurrency(shippingCost)),
+        discount_amount: String(roundCurrency(discountAmount)),
+        order_total: String(roundCurrency(total)),
       },
       ...(stripeDiscounts.length > 0 && { discounts: stripeDiscounts }),
     };
@@ -655,7 +662,13 @@ serve(async (req) => {
             }
           : {}),
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      {
+        headers: {
+          ...corsHeaders,
+          "Content-Type": "application/json",
+          "x-function-version": CHECKOUT_FUNCTION_VERSION,
+        },
+      }
     );
   } catch (error) {
     console.error("Checkout error:", error);
