@@ -39,6 +39,34 @@
   transform: scale(0.9) translateY(-20px);
   transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   cursor: default;
+  position: relative;
+}
+
+.booking-popup-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 40px;
+  height: 40px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(17, 24, 39, 0.06);
+  color: #111827;
+  font-size: 28px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.booking-popup-close:hover {
+  background: rgba(17, 24, 39, 0.10);
+}
+
+.booking-popup-close:focus-visible {
+  outline: 2px solid rgba(15, 111, 255, 0.7);
+  outline-offset: 2px;
 }
 
 .booking-popup-overlay.active .booking-popup {
@@ -119,6 +147,14 @@
     padding: 28px 20px;
     width: calc(100% - 32px);
     max-width: 340px;
+  }
+
+  .booking-popup-close {
+    top: 8px;
+    right: 8px;
+    width: 36px;
+    height: 36px;
+    font-size: 26px;
   }
   
   .booking-popup-icon {

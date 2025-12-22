@@ -305,7 +305,7 @@ async function init() {
   updateShippingTotalsUI();
   
   // Handle checkout return status
-  handleCheckoutReturn();
+  await handleCheckoutReturn();
   
   // Sync cart with Supabase for logged-in users
   await syncCartWithSupabase();
@@ -2066,7 +2066,12 @@ function addToCart(productId, quantity = 1, variantId = null, variantName = null
   saveCartToStorage();
   updateCartUI();
   const variantLabel = variantName ? ` (${variantName})` : '';
-  showToast(`Dodano do koszyka: ${product.name}${variantLabel} × ${quantity}`, 'success');
+  showToast(
+    shopState.lang === 'en'
+      ? `Added to cart: ${product.name}${variantLabel} × ${quantity}`
+      : `Dodano do koszyka: ${product.name}${variantLabel} × ${quantity}`,
+    'success'
+  );
 }
 
 function removeFromCart(productId, variantId = null) {
@@ -2477,10 +2482,34 @@ async function submitOrder(e) {
 
     const customerNotes = document.getElementById('checkoutNotes').value.trim() || undefined;
     
-    // Get current page URL for success/cancel redirects
-    const baseUrl = window.location.origin;
-    const successUrl = `${baseUrl}/shop.html?checkout=success`;
-    const cancelUrl = `${baseUrl}/shop.html?checkout=cancelled`;
+    // Get current page URL for success/cancel redirects (works for /szop rewrites and preserves lang)
+    const successUrl = (() => {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('checkout', 'success');
+        url.searchParams.delete('order_id');
+        url.searchParams.delete('session_id');
+        url.hash = '';
+        return `${url.origin}${url.pathname}${url.search}`;
+      } catch (e) {
+        const baseUrl = window.location.origin;
+        return `${baseUrl}/shop.html?checkout=success`;
+      }
+    })();
+
+    const cancelUrl = (() => {
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('checkout', 'cancelled');
+        url.searchParams.delete('order_id');
+        url.searchParams.delete('session_id');
+        url.hash = '';
+        return `${url.origin}${url.pathname}${url.search}`;
+      } catch (e) {
+        const baseUrl = window.location.origin;
+        return `${baseUrl}/shop.html?checkout=cancelled`;
+      }
+    })();
 
     const checkoutPayload = {
       user_id: checkoutUser.id,
@@ -2519,11 +2548,6 @@ async function submitOrder(e) {
     }
     
     if (data?.session_url) {
-      // Clear cart before redirecting
-      shopState.cart = [];
-      clearDiscountCode();
-      saveCartToStorage();
-      
       // Redirect to Stripe Checkout
       redirectInitiated = true;
       window.location.href = data.session_url;
@@ -2545,48 +2569,144 @@ async function submitOrder(e) {
   }
 }
 
-function handleCheckoutReturn() {
-  const params = new URLSearchParams(window.location.search);
-  const checkoutStatus = params.get('checkout');
-  
-  if (checkoutStatus === 'success') {
-    // Clear any remaining cart items
-    shopState.cart = [];
-    saveCartToStorage();
-    updateCartUI();
-    
-    // Show success message
-    setTimeout(() => {
-      showToast(
-        shopState.lang === 'en' 
-          ? 'Payment successful! Your order is being processed.' 
-          : 'Płatność zakończona sukcesem! Twoje zamówienie jest przetwarzane.',
-        'success'
-      );
-    }, 500);
-    
-    // Clean URL
-    const url = new URL(window.location);
+function showCheckoutPopup(type, message) {
+  const title = (() => {
+    if (type === 'success') return shopState.lang === 'en' ? 'Payment successful' : 'Płatność zakończona sukcesem';
+    if (type === 'error') return shopState.lang === 'en' ? 'Payment not completed' : 'Płatność nie została zakończona';
+    return shopState.lang === 'en' ? 'Payment status' : 'Status płatności';
+  })();
+
+  const successPopup = window.showSuccessPopup;
+  const errorPopup = window.showErrorPopup;
+  if (type === 'success' && typeof successPopup === 'function') {
+    successPopup(title, message);
+    return;
+  }
+  if (type === 'error' && typeof errorPopup === 'function') {
+    errorPopup(title, message);
+    return;
+  }
+
+  const toastType = type === 'error' ? 'error' : type === 'success' ? 'success' : 'info';
+  showToast(message, toastType);
+}
+
+async function clearCartInSupabaseForUser(userId) {
+  if (!supabase || !userId) return;
+  try {
+    const { data: cart } = await supabase
+      .from('shop_carts')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+
+    if (!cart?.id) return;
+
+    await supabase
+      .from('shop_cart_items')
+      .delete()
+      .eq('cart_id', cart.id);
+
+    await supabase
+      .from('shop_carts')
+      .update({ discount_code: null })
+      .eq('id', cart.id);
+  } catch (e) {
+  }
+}
+
+function cleanCheckoutParamsFromUrl() {
+  try {
+    const url = new URL(window.location.href);
     url.searchParams.delete('checkout');
     url.searchParams.delete('order_id');
     url.searchParams.delete('session_id');
     window.history.replaceState({}, '', url);
+  } catch (e) {
+  }
+}
+
+async function handleCheckoutReturn() {
+  const params = new URLSearchParams(window.location.search);
+  const rawCheckoutStatus = String(params.get('checkout') || '').trim();
+  const checkoutStatus = rawCheckoutStatus.split('?')[0];
+  const orderId = params.get('order_id');
+  
+  if (checkoutStatus === 'success') {
+    let isPaid = false;
+
+    const checkPaidStatus = async () => {
+      if (!supabase || !orderId) return false;
+      const { data: auth } = await supabase.auth.getUser();
+      const user = auth?.user || null;
+      if (!user) return false;
+
+      const { data: orderRow } = await supabase
+        .from('shop_orders')
+        .select('payment_status')
+        .eq('id', orderId)
+        .maybeSingle();
+      const status = String(orderRow?.payment_status || '').toLowerCase();
+      return status === 'paid' || status === 'partially_refunded' || status === 'refunded';
+    };
+
+    try {
+      // Webhook update can be slightly delayed; poll briefly before deciding.
+      for (let attempt = 0; attempt < 6; attempt++) {
+        isPaid = await checkPaidStatus();
+        if (isPaid) break;
+        await new Promise(r => setTimeout(r, 900));
+      }
+    } catch (e) {
+      isPaid = false;
+    }
+
+    if (isPaid) {
+      try {
+        const { data: auth } = await supabase.auth.getUser();
+        const user = auth?.user || null;
+        if (user) {
+          await clearCartInSupabaseForUser(user.id);
+        }
+      } catch (e) {
+      }
+
+      shopState.cart = [];
+      clearDiscountCode();
+      saveCartToStorage();
+      updateCartUI();
+
+      setTimeout(() => {
+        showCheckoutPopup(
+          'success',
+          shopState.lang === 'en'
+            ? 'Your payment was completed successfully. Thank you!'
+            : 'Twoja płatność została zakończona pomyślnie. Dziękujemy!'
+        );
+      }, 250);
+    } else {
+      setTimeout(() => {
+        showCheckoutPopup(
+          'error',
+          shopState.lang === 'en'
+            ? 'We could not confirm the payment. If you still need to pay, please try again.'
+            : 'Nie udało się potwierdzić płatności. Jeśli nadal masz do zapłaty, spróbuj ponownie.'
+        );
+      }, 250);
+    }
+
+    cleanCheckoutParamsFromUrl();
   } else if (checkoutStatus === 'cancelled') {
-    // Show cancelled message
     setTimeout(() => {
-      showToast(
-        shopState.lang === 'en' 
-          ? 'Payment was cancelled. Your cart items are still saved.' 
-          : 'Płatność została anulowana. Produkty w koszyku zostały zachowane.',
-        'warning'
+      showCheckoutPopup(
+        'error',
+        shopState.lang === 'en'
+          ? 'Payment was cancelled. Your cart items are still saved.'
+          : 'Płatność została anulowana. Produkty w koszyku zostały zachowane.'
       );
-    }, 500);
-    
-    // Clean URL
-    const url = new URL(window.location);
-    url.searchParams.delete('checkout');
-    url.searchParams.delete('order_id');
-    window.history.replaceState({}, '', url);
+    }, 250);
+
+    cleanCheckoutParamsFromUrl();
   }
 }
 

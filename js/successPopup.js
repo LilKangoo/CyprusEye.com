@@ -20,7 +20,8 @@ function showPopup(title, message, type) {
   overlay.className = `booking-popup-overlay ${type}`;
   
   overlay.innerHTML = `
-    <div class="booking-popup">
+    <div class="booking-popup" role="dialog" aria-modal="true">
+      <button type="button" class="booking-popup-close" aria-label="Close">×</button>
       <div class="booking-popup-icon">
         ${type === 'success' ? '✓' : '✕'}
       </div>
@@ -30,21 +31,40 @@ function showPopup(title, message, type) {
   `;
   
   document.body.appendChild(overlay);
-  
+
+  const closePopup = () => {
+    if (!overlay || !overlay.isConnected) return;
+    overlay.classList.remove('active');
+    setTimeout(() => {
+      if (overlay && overlay.isConnected) overlay.remove();
+    }, 300);
+    document.removeEventListener('keydown', onKeyDown);
+  };
+
+  const onKeyDown = (e) => {
+    if (e && e.key === 'Escape') {
+      closePopup();
+    }
+  };
+
   // Animate in
   setTimeout(() => overlay.classList.add('active'), 10);
-  
-  // Auto close after 3 seconds
-  setTimeout(() => {
-    overlay.classList.remove('active');
-    setTimeout(() => overlay.remove(), 300);
-  }, 3000);
-  
-  // Click to close
-  overlay.addEventListener('click', () => {
-    overlay.classList.remove('active');
-    setTimeout(() => overlay.remove(), 300);
-  });
+
+  // Click outside / close button
+  overlay.addEventListener('click', closePopup);
+  const popupEl = overlay.querySelector('.booking-popup');
+  if (popupEl) {
+    popupEl.addEventListener('click', (e) => e.stopPropagation());
+  }
+  const closeBtn = overlay.querySelector('.booking-popup-close');
+  if (closeBtn) {
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closePopup();
+    });
+  }
+
+  document.addEventListener('keydown', onKeyDown);
 }
 
 function clearFormValidation(form) {
