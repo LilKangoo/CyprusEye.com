@@ -1529,12 +1529,37 @@ serve(async (req) => {
       note: "Order created, awaiting payment",
     });
 
+    const buildRedirectUrl = (raw: string, extra: Record<string, string>) => {
+      try {
+        const url = new URL(raw);
+        Object.entries(extra).forEach(([k, v]) => {
+          if (!v) return;
+          url.searchParams.set(k, v);
+        });
+        return url.toString();
+      } catch (e) {
+        // Fallback: best-effort string concat
+        const hasQuery = raw.includes("?");
+        const qp = Object.entries(extra)
+          .filter(([_, v]) => Boolean(v))
+          .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
+          .join("&");
+        if (!qp) return raw;
+        return `${raw}${hasQuery ? "&" : "?"}${qp}`;
+      }
+    };
+
     const sessionParams: Stripe.Checkout.SessionCreateParams = {
       payment_method_types: ["card"],
       mode: "payment",
       line_items: lineItems,
-      success_url: `${body.success_url}?order_id=${order.id}&session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${body.cancel_url}?order_id=${order.id}`,
+      success_url: buildRedirectUrl(String(body.success_url || ""), {
+        order_id: order.id,
+        session_id: "{CHECKOUT_SESSION_ID}",
+      }),
+      cancel_url: buildRedirectUrl(String(body.cancel_url || ""), {
+        order_id: order.id,
+      }),
       customer_email: customerEmail,
       client_reference_id: order.id,
       metadata: {
