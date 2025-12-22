@@ -176,6 +176,30 @@ type ProductShippingInfo = {
   is_virtual: boolean | null;
 };
 
+type ProductRecord = ProductShippingInfo & {
+  name: string;
+  status: string;
+  product_type: string;
+  price: number;
+  sale_price: number | null;
+  sale_start_date: string | null;
+  sale_end_date: string | null;
+  tax_class_id: string | null;
+  track_inventory: boolean | null;
+  stock_quantity: number | null;
+  allow_backorder: boolean | null;
+  min_purchase_quantity: number | null;
+  max_purchase_quantity: number | null;
+};
+
+type VariantRecord = VariantShippingInfo & {
+  product_id: string;
+  name: string | null;
+  price: number | null;
+  stock_quantity: number | null;
+  is_active: boolean | null;
+};
+
 const calculateShippingMetrics = (
   items: CartItem[],
   productsMap: Record<string, ProductShippingInfo>,
@@ -322,6 +346,42 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
     const body: CheckoutRequest = await req.json();
 
+    const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
+    const token = authHeader && authHeader.toLowerCase().startsWith("bearer ")
+      ? authHeader.slice(7).trim()
+      : null;
+
+    if (!token) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const { data: authData, error: authError } = await supabase.auth.getUser(token);
+    const authedUser = authData?.user;
+
+    if (authError || !authedUser) {
+      return new Response(
+        JSON.stringify({ error: "Unauthorized" }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!body.user_id || authedUser.id !== body.user_id) {
+      return new Response(
+        JSON.stringify({ error: "Forbidden" }),
+        { status: 403, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (!body.items || !Array.isArray(body.items) || body.items.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "No items" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     const debug = isDebugEnabled();
     if (debug) {
       console.log("[create-checkout] version:", CHECKOUT_FUNCTION_VERSION);
@@ -333,7 +393,7 @@ serve(async (req) => {
     const { data: user, error: userError } = await supabase
       .from("profiles")
       .select("id, email, name")
-      .eq("id", body.user_id)
+      .eq("id", authedUser.id)
       .single();
 
     if (userError || !user) {
@@ -343,73 +403,241 @@ serve(async (req) => {
       );
     }
 
-    const { data: orderNumber } = await supabase.rpc("shop_generate_order_number");
+    const { data: orderNumberRaw } = await supabase.rpc("shop_generate_order_number");
+    const orderNumber =
+      typeof orderNumberRaw === "string" && orderNumberRaw.trim()
+        ? orderNumberRaw
+        : `WC-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`;
 
     let subtotal = 0;
     let shippingCost = 0;
     let discountAmount = 0;
     let discountId: string | null = null;
 
-    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
+    const productIds = Array.from(new Set(body.items.map((item) => item.product_id).filter(Boolean)));
+    const variantIds = Array.from(new Set(body.items.map((item) => item.variant_id).filter(Boolean))) as string[];
 
+    const { data: productsData, error: productsError } = await supabase
+      .from("shop_products")
+      .select(
+        "id, name, status, product_type, price, sale_price, sale_start_date, sale_end_date, tax_class_id, track_inventory, stock_quantity, allow_backorder, min_purchase_quantity, max_purchase_quantity, weight, shipping_class_id, is_virtual"
+      )
+      .in("id", productIds);
+
+    if (productsError) {
+      return new Response(
+        JSON.stringify({ error: "Failed to load products" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    const productsMap: Record<string, ProductRecord> = (productsData || []).reduce(
+      (acc: Record<string, ProductRecord>, p: ProductRecord) => {
+        acc[p.id] = p;
+        return acc;
+      },
+      {} as Record<string, ProductRecord>
+    );
+
+    let variantsMap: Record<string, VariantRecord> = {};
+    if (variantIds.length > 0) {
+      const { data: variantsData, error: variantsError } = await supabase
+        .from("shop_product_variants")
+        .select("id, product_id, name, price, weight, stock_quantity, is_active")
+        .in("id", variantIds);
+
+      if (variantsError) {
+        return new Response(
+          JSON.stringify({ error: "Failed to load variants" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      variantsMap = (variantsData || []).reduce(
+        (acc: Record<string, VariantRecord>, v: VariantRecord) => {
+          acc[v.id] = v;
+          return acc;
+        },
+        {} as Record<string, VariantRecord>
+      );
+    }
+
+    let hasSubscription = false;
+    let hasNonSubscription = false;
+
+    const resolvedItems: CartItem[] = [];
+    const productLineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
+
+    const nowIso = new Date().toISOString();
     for (const item of body.items) {
-      const itemTotal = item.unit_price * item.quantity;
-      subtotal += itemTotal;
+      const quantity = Math.max(0, Math.trunc(toNumber(item.quantity)));
+      if (!item.product_id || quantity <= 0) {
+        return new Response(
+          JSON.stringify({ error: "Invalid cart item" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
-      lineItems.push({
+      const product = productsMap[item.product_id];
+      if (!product) {
+        return new Response(
+          JSON.stringify({ error: "Product not found" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (product.status !== "active") {
+        return new Response(
+          JSON.stringify({ error: "Product not available" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (product.product_type === "subscription") {
+        hasSubscription = true;
+      } else {
+        hasNonSubscription = true;
+      }
+
+      if (hasSubscription && hasNonSubscription) {
+        return new Response(
+          JSON.stringify({ error: "Subscription items must be purchased separately" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      if (product.product_type === "subscription") {
+        return new Response(
+          JSON.stringify({ error: "Subscription items must be purchased via subscription checkout" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const minQty = Math.max(1, Math.trunc(toNumber(product.min_purchase_quantity || 1)));
+      const maxQty = product.max_purchase_quantity ? Math.trunc(toNumber(product.max_purchase_quantity)) : null;
+      if (quantity < minQty) {
+        return new Response(
+          JSON.stringify({ error: "Quantity below minimum" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+      if (maxQty && quantity > maxQty) {
+        return new Response(
+          JSON.stringify({ error: "Quantity above maximum" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      let variant: VariantRecord | null = null;
+      if (item.variant_id) {
+        const v = variantsMap[item.variant_id];
+        if (!v || v.product_id !== product.id || v.is_active === false) {
+          return new Response(
+            JSON.stringify({ error: "Variant not available" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+        variant = v;
+      }
+
+      if (product.track_inventory) {
+        const availableStock = variant
+          ? Math.trunc(toNumber(variant.stock_quantity))
+          : Math.trunc(toNumber(product.stock_quantity));
+        const allowBackorder = product.allow_backorder === true;
+        if (!allowBackorder && quantity > availableStock) {
+          return new Response(
+            JSON.stringify({ error: "Insufficient stock" }),
+            { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        }
+      }
+
+      const inSaleWindow = (() => {
+        if (!product.sale_price) return false;
+        if (!product.sale_start_date && !product.sale_end_date) return true;
+        if (product.sale_start_date && nowIso < product.sale_start_date) return false;
+        if (product.sale_end_date && nowIso >= product.sale_end_date) return false;
+        return true;
+      })();
+
+      const baseProductPrice = inSaleWindow && product.sale_price !== null
+        ? toNumber(product.sale_price)
+        : toNumber(product.price);
+
+      const unitPrice = variant && variant.price !== null
+        ? toNumber(variant.price)
+        : baseProductPrice;
+
+      const resolvedProductName = product.name;
+      const resolvedVariantName = variant?.name || null;
+
+      const resolvedWeight = Math.max(
+        toNumber(variant?.weight),
+        toNumber(product.weight),
+        toNumber(item.weight)
+      );
+
+      const resolvedShippingClassId = product.shipping_class_id ?? item.shipping_class_id ?? null;
+      const requiresShipping = product.is_virtual === true ? false : true;
+
+      resolvedItems.push({
+        product_id: product.id,
+        variant_id: variant?.id,
+        quantity,
+        product_name: resolvedProductName,
+        variant_name: resolvedVariantName || undefined,
+        unit_price: unitPrice,
+        image_url: item.image_url,
+        weight: resolvedWeight,
+        shipping_class_id: resolvedShippingClassId,
+        requires_shipping: requiresShipping,
+      });
+
+      subtotal += unitPrice * quantity;
+
+      productLineItems.push({
         price_data: {
           currency: "eur",
           product_data: {
-            name: item.variant_name 
-              ? `${item.product_name} - ${item.variant_name}` 
-              : item.product_name,
+            name: resolvedVariantName
+              ? `${resolvedProductName} - ${resolvedVariantName}`
+              : resolvedProductName,
             images: item.image_url ? [item.image_url] : undefined,
           },
-          unit_amount: Math.round(item.unit_price * 100),
+          unit_amount: Math.round(unitPrice * 100),
         },
-        quantity: item.quantity,
+        quantity,
       });
     }
 
-    const productIds = Array.from(
-      new Set(body.items.map((item) => item.product_id).filter(Boolean))
+    const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [...productLineItems];
+
+    const productsShippingMap: Record<string, ProductShippingInfo> = Object.values(productsMap).reduce(
+      (acc: Record<string, ProductShippingInfo>, p: ProductRecord) => {
+        acc[p.id] = {
+          id: p.id,
+          weight: p.weight,
+          shipping_class_id: p.shipping_class_id,
+          is_virtual: p.is_virtual,
+        };
+        return acc;
+      },
+      {} as Record<string, ProductShippingInfo>
     );
 
-    let productsMap: Record<string, ProductShippingInfo> = {};
-    if (productIds.length > 0) {
-      const { data: productsData } = await supabase
-        .from("shop_products")
-        .select("id, weight, shipping_class_id, is_virtual")
-        .in("id", productIds);
+    const variantsShippingMap: Record<string, VariantShippingInfo> = Object.values(variantsMap).reduce(
+      (acc: Record<string, VariantShippingInfo>, v: VariantRecord) => {
+        acc[v.id] = {
+          id: v.id,
+          weight: v.weight,
+        };
+        return acc;
+      },
+      {} as Record<string, VariantShippingInfo>
+    );
 
-      if (productsData) {
-        productsMap = productsData.reduce((acc, product) => {
-          acc[product.id] = product;
-          return acc;
-        }, {} as Record<string, ProductShippingInfo>);
-      }
-    }
-
-    const variantIds = Array.from(
-      new Set(body.items.map((item) => item.variant_id).filter(Boolean))
-    ) as string[];
-
-    let variantsMap: Record<string, VariantShippingInfo> = {};
-    if (variantIds.length > 0) {
-      const { data: variantsData } = await supabase
-        .from("shop_product_variants")
-        .select("id, weight")
-        .in("id", variantIds);
-
-      if (variantsData) {
-        variantsMap = variantsData.reduce((acc, variant) => {
-          acc[variant.id] = variant;
-          return acc;
-        }, {} as Record<string, VariantShippingInfo>);
-      }
-    }
-
-    const shippingMetrics = calculateShippingMetrics(body.items, productsMap, variantsMap);
+    const shippingMetrics = calculateShippingMetrics(resolvedItems, productsShippingMap, variantsShippingMap);
     const mergedShippingMetrics = mergeShippingMetrics(
       shippingMetrics,
       body.shipping_details?.metrics
@@ -430,7 +658,16 @@ serve(async (req) => {
     let shippingQuote: ShippingQuote | null = null;
     let shippingMethodRecord: any = null;
     let serverShippingCost: number | null = null;
-    if (body.shipping_method_id) {
+    const shippingRequired = shippingMetrics.totalItems > 0;
+
+    if (shippingRequired && !body.shipping_method_id) {
+      return new Response(
+        JSON.stringify({ error: "Shipping method required" }),
+        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    if (shippingRequired && body.shipping_method_id) {
       const { data: shippingMethod } = await supabase
         .from("shop_shipping_methods")
         .select("*, zone:shop_shipping_zones(*)")
@@ -444,6 +681,25 @@ serve(async (req) => {
         );
       }
       shippingMethodRecord = shippingMethod;
+
+      if (shippingMethod.is_active === false || shippingMethod.zone?.is_active === false) {
+        return new Response(
+          JSON.stringify({ error: "Shipping method unavailable" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      const shipCountry = String(body.shipping_address?.country || "").toUpperCase();
+      const zoneCountries: string[] = Array.isArray(shippingMethod.zone?.countries)
+        ? shippingMethod.zone.countries
+        : [];
+      const zoneAllowsCountry = zoneCountries.includes("*") || zoneCountries.some((c) => String(c).toUpperCase() === shipCountry);
+      if (!zoneAllowsCountry) {
+        return new Response(
+          JSON.stringify({ error: "Shipping method unavailable for this country" }),
+          { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
 
       const { data: shippingClasses } = await supabase
         .from("shop_shipping_classes")
@@ -473,15 +729,7 @@ serve(async (req) => {
       }
 
       serverShippingCost = shippingQuote.totalCost;
-      // Trust client quote when provided and valid (client has full data for calculation)
-      // Only fall back to server calculation if client quote is missing or zero
-      if (clientQuoteCost !== null && clientQuoteCost > 0) {
-        shippingCost = clientQuoteCost;
-      } else if (serverShippingCost > 0) {
-        shippingCost = serverShippingCost;
-      } else {
-        shippingCost = 0;
-      }
+      shippingCost = serverShippingCost > 0 ? serverShippingCost : 0;
 
       if (debug) {
         console.log("[create-checkout] metrics.server:", shippingMetrics);
@@ -491,29 +739,7 @@ serve(async (req) => {
         console.log("[create-checkout] shipping.final_cost:", shippingCost);
       }
 
-      if (shippingCost > 0) {
-        lineItems.push({
-          price_data: {
-            currency: "eur",
-            product_data: {
-              name: `Shipping: ${shippingMethod.name}`,
-            },
-            unit_amount: Math.round(shippingCost * 100),
-          },
-          quantity: 1,
-        });
-      }
     }
-
-    const originalQuote = clientQuote || shippingQuote || null;
-    const storedShippingDetails = {
-      metrics: mergedShippingMetrics,
-      total_cost: shippingCost,
-      ...(originalQuote
-        ? { quote: { ...originalQuote, totalCost: shippingCost } }
-        : {}),
-      ...(shippingQuote ? { server_quote: shippingQuote } : {}),
-    };
 
     let stripeDiscounts: Stripe.Checkout.SessionCreateParams.Discount[] = [];
 
@@ -532,7 +758,10 @@ serve(async (req) => {
 
         if ((!startsAt || now >= startsAt) && (!expiresAt || now < expiresAt)) {
           if (!discount.usage_limit || discount.usage_count < discount.usage_limit) {
-            if (discount.discount_type === "percentage") {
+            if (discount.discount_type === "free_shipping") {
+              discountAmount = 0;
+              shippingCost = 0;
+            } else if (discount.discount_type === "percentage") {
               discountAmount = (subtotal * discount.discount_value) / 100;
             } else {
               discountAmount = Math.min(discount.discount_value, subtotal);
@@ -548,11 +777,48 @@ serve(async (req) => {
               stripeDiscounts = [{ promotion_code: discount.stripe_promotion_code_id }];
             } else if (discount.stripe_coupon_id) {
               stripeDiscounts = [{ coupon: discount.stripe_coupon_id }];
+            } else if (discountAmount > 0) {
+              const coupon = await stripe.coupons.create({
+                duration: "once",
+                currency: "eur",
+                amount_off: Math.round(roundCurrency(discountAmount) * 100),
+                max_redemptions: 1,
+                name: `${discount.code}-${orderNumber}`,
+                metadata: {
+                  discount_id: discount.id,
+                  discount_code: discount.code,
+                  user_id: body.user_id,
+                },
+              });
+              stripeDiscounts = [{ coupon: coupon.id }];
             }
           }
         }
       }
     }
+
+    if (shippingRequired && shippingMethodRecord && shippingCost > 0) {
+      lineItems.push({
+        price_data: {
+          currency: "eur",
+          product_data: {
+            name: `Shipping: ${shippingMethodRecord.name}`,
+          },
+          unit_amount: Math.round(shippingCost * 100),
+        },
+        quantity: 1,
+      });
+    }
+
+    const originalQuote = clientQuote || shippingQuote || null;
+    const storedShippingDetails = {
+      metrics: mergedShippingMetrics,
+      total_cost: shippingCost,
+      ...(originalQuote
+        ? { quote: { ...originalQuote, totalCost: shippingCost } }
+        : {}),
+      ...(shippingQuote ? { server_quote: shippingQuote } : {}),
+    };
 
     const total = subtotal + shippingCost - discountAmount;
 
@@ -575,8 +841,8 @@ serve(async (req) => {
         discount_code: body.discount_code,
         discount_id: discountId,
         total: total,
-        shipping_method_id: body.shipping_method_id,
-        shipping_method_name: shippingMethodRecord?.name || null,
+        shipping_method_id: shippingRequired ? body.shipping_method_id : null,
+        shipping_method_name: shippingRequired ? (shippingMethodRecord?.name || null) : null,
         shipping_details: storedShippingDetails,
         customer_notes: body.customer_notes,
         status: "pending",
@@ -593,7 +859,7 @@ serve(async (req) => {
       );
     }
 
-    const orderItems = body.items.map((item) => ({
+    const orderItems = resolvedItems.map((item) => ({
       order_id: order.id,
       product_id: item.product_id,
       variant_id: item.variant_id || null,
