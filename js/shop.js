@@ -8,6 +8,7 @@ const shopState = {
   products: [],
   categories: [],
   cart: [],
+  productVariants: {},
   shippingZones: [],
   shippingMethods: [],
   shippingClasses: [],
@@ -1014,7 +1015,12 @@ function renderProducts() {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const productId = btn.dataset.productId;
-      addToCart(productId);
+      const product = shopState.products.find(p => p.id === productId);
+      if (product && product.product_type === 'variable') {
+        openProductModal(productId);
+      } else {
+        addToCart(productId);
+      }
     });
   });
 }
@@ -1072,9 +1078,29 @@ async function openProductModal(productId) {
     return;
   }
 
-  const hasDiscount = product.compare_at_price && product.compare_at_price > product.price;
-  const isInStock = !product.track_inventory || product.stock_quantity > 0;
-  const maxQty = product.track_inventory ? product.stock_quantity : 99;
+  const variants = product.product_type === 'variable'
+    ? await loadProductVariants(productId)
+    : [];
+  const selectedVariant = variants.find(v => v.is_default) || variants[0] || null;
+
+  const basePrice = parseFloat(product.price);
+  const baseCompareAt = product.compare_at_price ? parseFloat(product.compare_at_price) : null;
+
+  const selectedPrice = selectedVariant && selectedVariant.price !== null && selectedVariant.price !== undefined
+    ? parseFloat(selectedVariant.price)
+    : basePrice;
+  const selectedCompareAt = selectedVariant && selectedVariant.compare_at_price !== null && selectedVariant.compare_at_price !== undefined
+    ? parseFloat(selectedVariant.compare_at_price)
+    : baseCompareAt;
+
+  const hasDiscount = selectedCompareAt && selectedCompareAt > selectedPrice;
+  const selectedStockQty = selectedVariant
+    ? (typeof selectedVariant.stock_quantity === 'number'
+        ? selectedVariant.stock_quantity
+        : parseInt(selectedVariant.stock_quantity, 10) || 0)
+    : (typeof product.stock_quantity === 'number' ? product.stock_quantity : parseInt(product.stock_quantity, 10) || 0);
+  const isInStock = !product.track_inventory || selectedStockQty > 0;
+  const maxQty = product.track_inventory ? Math.max(0, selectedStockQty) : 99;
 
   // Localized content
   const productName = getLocalizedField(product, 'name');
@@ -1084,12 +1110,23 @@ async function openProductModal(productId) {
   const outOfStockText = shopState.lang === 'en' ? '✗ Out of stock' : '✗ Brak w magazynie';
   const qtyLabel = shopState.lang === 'en' ? 'Quantity:' : 'Ilość:';
   const addToCartText = shopState.lang === 'en' ? 'Add to cart' : 'Dodaj do koszyka';
+  const variantLabel = shopState.lang === 'en' ? 'Variant:' : 'Wariant:';
+  const missingVariantsText = shopState.lang === 'en'
+    ? 'Variants are not available for this product yet.'
+    : 'Warianty dla tego produktu nie są jeszcze dostępne.';
+
+  const variantOptions = variants.map(v => {
+    const vp = v.price !== null && v.price !== undefined ? parseFloat(v.price) : basePrice;
+    const label = `${v.name}${vp !== basePrice ? ` - €${vp.toFixed(2)}` : ''}`;
+    const selected = selectedVariant && v.id === selectedVariant.id ? 'selected' : '';
+    return `<option value="${v.id}" ${selected}>${escapeHtml(label)}</option>`;
+  }).join('');
 
   content.innerHTML = `
     <div class="product-detail">
-      <div class="product-detail-image">
-        ${product.thumbnail_url 
-          ? `<img src="${product.thumbnail_url}" alt="${escapeHtml(productName)}">`
+      <div class="product-detail-image" id="productModalImage">
+        ${(selectedVariant?.image_url || product.thumbnail_url)
+          ? `<img src="${selectedVariant?.image_url || product.thumbnail_url}" alt="${escapeHtml(productName)}">`
           : `<div class="product-card-placeholder" style="height: 100%; display: flex; align-items: center; justify-content: center;">
               <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
                 <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
@@ -1103,22 +1140,36 @@ async function openProductModal(productId) {
         ${categoryName ? `<p class="product-detail-category">${escapeHtml(categoryName)}</p>` : ''}
         <h2 class="product-detail-name">${escapeHtml(productName)}</h2>
         <div class="product-detail-price">
-          <span class="current">€${parseFloat(product.price).toFixed(2)}</span>
-          ${hasDiscount ? `<span class="original">€${parseFloat(product.compare_at_price).toFixed(2)}</span>` : ''}
+          <span class="current" id="productModalPriceCurrent">€${selectedPrice.toFixed(2)}</span>
+          ${hasDiscount ? `<span class="original" id="productModalPriceOriginal">€${(selectedCompareAt || 0).toFixed(2)}</span>` : '<span class="original" id="productModalPriceOriginal" style="display:none"></span>'}
         </div>
         ${productDesc ? `<p class="product-detail-description">${escapeHtml(productDesc)}</p>` : ''}
-        <p class="product-detail-stock ${isInStock ? 'in-stock' : 'out-of-stock'}">
+        ${product.product_type === 'variable' && variants.length === 0
+          ? `<p class="product-detail-stock out-of-stock">${missingVariantsText}</p>`
+          : ''
+        }
+        <p class="product-detail-stock ${isInStock ? 'in-stock' : 'out-of-stock'}" id="productModalStock">
           ${isInStock ? inStockText : outOfStockText}
         </p>
+        ${variants.length > 0 ? `
+          <div class="product-detail-quantity">
+            <label>${variantLabel}</label>
+            <div class="quantity-selector" style="gap: 12px;">
+              <select id="productVariantSelect" style="width: 100%; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.12); background: rgba(0,0,0,0.18); color: inherit;">
+                ${variantOptions}
+              </select>
+            </div>
+          </div>
+        ` : ''}
         <div class="product-detail-quantity">
           <label>${qtyLabel}</label>
           <div class="quantity-selector">
             <button type="button" id="btnQtyMinus">−</button>
-            <input type="number" id="productQty" value="1" min="1" max="${maxQty}">
+            <input type="number" id="productQty" value="1" min="1" max="${Math.max(1, maxQty)}">
             <button type="button" id="btnQtyPlus">+</button>
           </div>
         </div>
-        <button class="btn-add-to-cart-large" id="btnAddToCartModal" ${!isInStock ? 'disabled' : ''} data-product-id="${product.id}">
+        <button class="btn-add-to-cart-large" id="btnAddToCartModal" ${(product.product_type === 'variable' && variants.length === 0) || !isInStock ? 'disabled' : ''} data-product-id="${product.id}">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/>
             <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
@@ -1133,6 +1184,7 @@ async function openProductModal(productId) {
   const qtyInput = document.getElementById('productQty');
   const minusBtn = document.getElementById('btnQtyMinus');
   const plusBtn = document.getElementById('btnQtyPlus');
+  const addBtn = document.getElementById('btnAddToCartModal');
 
   if (minusBtn && qtyInput) {
     minusBtn.onclick = () => {
@@ -1144,18 +1196,121 @@ async function openProductModal(productId) {
   if (plusBtn && qtyInput) {
     plusBtn.onclick = () => {
       const val = parseInt(qtyInput.value) || 1;
-      if (val < maxQty) qtyInput.value = val + 1;
+      const max = parseInt(qtyInput.max, 10) || maxQty;
+      if (val < max) qtyInput.value = val + 1;
     };
   }
 
+  const variantSelect = document.getElementById('productVariantSelect');
+  const priceCurrentEl = document.getElementById('productModalPriceCurrent');
+  const priceOriginalEl = document.getElementById('productModalPriceOriginal');
+  const stockEl = document.getElementById('productModalStock');
+  const imageEl = document.getElementById('productModalImage');
+
+  const getSelectedVariant = () => {
+    const vid = variantSelect && variantSelect.value ? variantSelect.value : null;
+    if (!vid) return null;
+    return variants.find(v => v.id === vid) || null;
+  };
+
+  const updateVariantUi = () => {
+    const v = getSelectedVariant() || selectedVariant;
+    const vPrice = v && v.price !== null && v.price !== undefined ? parseFloat(v.price) : basePrice;
+    const vCompare = v && v.compare_at_price !== null && v.compare_at_price !== undefined
+      ? parseFloat(v.compare_at_price)
+      : baseCompareAt;
+    const vHasDiscount = vCompare && vCompare > vPrice;
+    const vStockQty = v
+      ? (typeof v.stock_quantity === 'number' ? v.stock_quantity : parseInt(v.stock_quantity, 10) || 0)
+      : selectedStockQty;
+    const vInStock = !product.track_inventory || vStockQty > 0;
+    const vMaxQty = product.track_inventory ? Math.max(0, vStockQty) : 99;
+
+    if (priceCurrentEl) priceCurrentEl.textContent = `€${vPrice.toFixed(2)}`;
+    if (priceOriginalEl) {
+      if (vHasDiscount) {
+        priceOriginalEl.style.display = '';
+        priceOriginalEl.textContent = `€${(vCompare || 0).toFixed(2)}`;
+      } else {
+        priceOriginalEl.style.display = 'none';
+        priceOriginalEl.textContent = '';
+      }
+    }
+
+    if (stockEl) {
+      stockEl.classList.toggle('in-stock', vInStock);
+      stockEl.classList.toggle('out-of-stock', !vInStock);
+      stockEl.textContent = vInStock ? inStockText : outOfStockText;
+    }
+
+    if (qtyInput) {
+      qtyInput.max = String(Math.max(1, vMaxQty));
+      const currentQty = parseInt(qtyInput.value, 10) || 1;
+      if (product.track_inventory && vMaxQty > 0 && currentQty > vMaxQty) {
+        qtyInput.value = String(vMaxQty);
+      }
+      if (product.track_inventory && vMaxQty === 0) {
+        qtyInput.value = '1';
+      }
+    }
+
+    if (imageEl) {
+      const newUrl = v?.image_url || product.thumbnail_url || null;
+      if (newUrl) {
+        imageEl.innerHTML = `<img src="${newUrl}" alt="${escapeHtml(productName)}">`;
+      }
+    }
+
+    if (addBtn) {
+      addBtn.disabled = !vInStock || (product.product_type === 'variable' && variants.length === 0);
+    }
+  };
+
+  if (variantSelect) {
+    variantSelect.addEventListener('change', () => {
+      updateVariantUi();
+    });
+  }
+
+  updateVariantUi();
+
   // Add to cart button
-  const addBtn = document.getElementById('btnAddToCartModal');
   if (addBtn) {
     addBtn.onclick = () => {
       const qty = parseInt(qtyInput?.value) || 1;
-      addToCart(product.id, qty);
+      const v = getSelectedVariant();
+      const vPrice = v && v.price !== null && v.price !== undefined ? parseFloat(v.price) : basePrice;
+      const vWeight = v && v.weight !== null && v.weight !== undefined
+        ? parseFloat(v.weight)
+        : (typeof product.weight === 'number' ? product.weight : parseFloat(product.weight) || 0);
+      const vImage = v?.image_url || product.thumbnail_url || null;
+      addToCart(product.id, qty, v?.id || null, v?.name || null, vPrice, vWeight, vImage);
       closeProductModal();
     };
+  }
+}
+
+async function loadProductVariants(productId) {
+  if (!supabase) return [];
+  if (shopState.productVariants[productId]) {
+    return shopState.productVariants[productId];
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from('shop_product_variants')
+      .select('id, product_id, name, price, compare_at_price, stock_quantity, weight, image_url, attributes, is_default, is_active, sort_order')
+      .eq('product_id', productId)
+      .eq('is_active', true)
+      .order('sort_order');
+
+    if (error) throw error;
+    shopState.productVariants[productId] = data || [];
+    return shopState.productVariants[productId];
+  } catch (error) {
+    console.error('Failed to load variants:', error);
+    shopState.productVariants[productId] = [];
+    return [];
   }
 }
 
@@ -1179,7 +1334,9 @@ function loadCartFromStorage() {
       if (Array.isArray(parsed)) {
         shopState.cart = parsed.map(item => ({
           productId: item.productId,
+          variantId: item.variantId || item.variant_id || null,
           name: item.name || '',
+          variantName: item.variantName || item.variant_name || null,
           price: parseFloat(item.price) || 0,
           thumbnail: item.thumbnail || null,
           quantity: parseInt(item.quantity, 10) > 0 ? parseInt(item.quantity, 10) : 1,
@@ -1228,18 +1385,20 @@ async function syncCartWithSupabase() {
     if (dbCart) {
       const { data: items } = await supabase
         .from('shop_cart_items')
-        .select('product_id, quantity, shop_products(id, name, price, thumbnail_url, weight, shipping_class_id, is_virtual)')
+        .select('product_id, variant_id, quantity, shop_products(id, name, price, thumbnail_url, weight, shipping_class_id, is_virtual), variant:shop_product_variants(id, name, price, weight, image_url)')
         .eq('cart_id', dbCart.id);
       
       if (items && items.length > 0) {
         // Merge with local cart - prefer Supabase data
         const supabaseCart = items.map(item => ({
           productId: item.product_id,
+          variantId: item.variant_id || null,
           name: item.shop_products?.name || '',
-          price: parseFloat(item.shop_products?.price || 0),
-          thumbnail: item.shop_products?.thumbnail_url || null,
+          variantName: item.variant?.name || null,
+          price: parseFloat((item.variant?.price ?? item.shop_products?.price) || 0),
+          thumbnail: item.variant?.image_url || item.shop_products?.thumbnail_url || null,
           quantity: item.quantity,
-          weight: parseFloat(item.shop_products?.weight || 0) || 0,
+          weight: parseFloat((item.variant?.weight ?? item.shop_products?.weight) || 0) || 0,
           shippingClassId: item.shop_products?.shipping_class_id || null,
           requiresShipping: item.shop_products?.is_virtual ? false : true
         })).filter(item => item.name);
@@ -1247,7 +1406,7 @@ async function syncCartWithSupabase() {
         // Merge: Supabase items take precedence, but keep local items not in Supabase
         const mergedCart = [...supabaseCart];
         shopState.cart.forEach(localItem => {
-          if (!mergedCart.find(i => i.productId === localItem.productId)) {
+          if (!mergedCart.find(i => i.productId === localItem.productId && (i.variantId || null) === (localItem.variantId || null))) {
             mergedCart.push(localItem);
           }
         });
@@ -1300,6 +1459,7 @@ async function syncCartToSupabase() {
       const items = shopState.cart.map(item => ({
         cart_id: cart.id,
         product_id: item.productId,
+        variant_id: item.variantId || null,
         quantity: item.quantity
       }));
       
@@ -1312,28 +1472,42 @@ async function syncCartToSupabase() {
   }
 }
 
-function addToCart(productId, quantity = 1) {
+function addToCart(productId, quantity = 1, variantId = null, variantName = null, priceOverride = null, weightOverride = null, imageOverride = null) {
   const product = shopState.products.find(p => p.id === productId);
   if (!product) return;
 
-  const existingItem = shopState.cart.find(item => item.productId === productId);
-  const weight = typeof product.weight === 'number' ? product.weight : parseFloat(product.weight) || 0;
+  const normalizedVariantId = variantId || null;
+  const existingItem = shopState.cart.find(item => item.productId === productId && (item.variantId || null) === normalizedVariantId);
+
+  const weight = typeof weightOverride === 'number'
+    ? weightOverride
+    : (typeof product.weight === 'number' ? product.weight : parseFloat(product.weight) || 0);
   const shippingClassId = product.shipping_class_id || product.shippingClassId || null;
   const requiresShipping = product.is_virtual ? false : true;
+  const price = typeof priceOverride === 'number' ? priceOverride : parseFloat(product.price);
+  const thumbnail = imageOverride !== null && imageOverride !== undefined
+    ? imageOverride
+    : product.thumbnail_url;
 
   if (existingItem) {
     existingItem.quantity += quantity;
     // Update mutable fields in case product details changed
-    existingItem.price = parseFloat(product.price);
+    existingItem.price = price;
     existingItem.weight = weight;
     existingItem.shippingClassId = shippingClassId;
     existingItem.requiresShipping = requiresShipping;
+    existingItem.variantName = variantName || existingItem.variantName || null;
+    if (thumbnail !== undefined) {
+      existingItem.thumbnail = thumbnail;
+    }
   } else {
     shopState.cart.push({
       productId: product.id,
+      variantId: normalizedVariantId,
       name: product.name,
-      price: parseFloat(product.price),
-      thumbnail: product.thumbnail_url,
+      variantName: variantName || null,
+      price: price,
+      thumbnail: thumbnail || null,
       quantity,
       weight,
       shippingClassId,
@@ -1343,20 +1517,23 @@ function addToCart(productId, quantity = 1) {
 
   saveCartToStorage();
   updateCartUI();
-  showToast(`Dodano do koszyka: ${product.name} × ${quantity}`, 'success');
+  const variantLabel = variantName ? ` (${variantName})` : '';
+  showToast(`Dodano do koszyka: ${product.name}${variantLabel} × ${quantity}`, 'success');
 }
 
-function removeFromCart(productId) {
-  shopState.cart = shopState.cart.filter(item => item.productId !== productId);
+function removeFromCart(productId, variantId = null) {
+  const normalizedVariantId = variantId || null;
+  shopState.cart = shopState.cart.filter(item => !(item.productId === productId && (item.variantId || null) === normalizedVariantId));
   saveCartToStorage();
   updateCartUI();
 }
 
-function updateCartItemQuantity(productId, quantity) {
-  const item = shopState.cart.find(item => item.productId === productId);
+function updateCartItemQuantity(productId, variantId, quantity) {
+  const normalizedVariantId = variantId || null;
+  const item = shopState.cart.find(item => item.productId === productId && (item.variantId || null) === normalizedVariantId);
   if (item) {
     if (quantity <= 0) {
-      removeFromCart(productId);
+      removeFromCart(productId, normalizedVariantId);
     } else {
       item.quantity = quantity;
       saveCartToStorage();
@@ -1406,7 +1583,7 @@ function renderCartItems() {
   if (footer) footer.hidden = false;
 
   itemsContainer.innerHTML = shopState.cart.map(item => `
-    <div class="cart-item" data-product-id="${item.productId}">
+    <div class="cart-item" data-product-id="${item.productId}" data-variant-id="${item.variantId || ''}">
       <div class="cart-item-image">
         ${item.thumbnail 
           ? `<img src="${item.thumbnail}" alt="${escapeHtml(item.name)}">`
@@ -1415,13 +1592,14 @@ function renderCartItems() {
       </div>
       <div class="cart-item-details">
         <h4 class="cart-item-name">${escapeHtml(item.name)}</h4>
+        ${item.variantName ? `<p class="cart-item-price" style="opacity:.85; margin-top:-6px;">${escapeHtml(item.variantName)}</p>` : ''}
         <p class="cart-item-price">€${item.price.toFixed(2)}</p>
         <div class="cart-item-quantity">
-          <button class="btn-qty-minus" data-product-id="${item.productId}">−</button>
+          <button class="btn-qty-minus" data-product-id="${item.productId}" data-variant-id="${item.variantId || ''}">−</button>
           <span>${item.quantity}</span>
-          <button class="btn-qty-plus" data-product-id="${item.productId}">+</button>
+          <button class="btn-qty-plus" data-product-id="${item.productId}" data-variant-id="${item.variantId || ''}">+</button>
         </div>
-        <button class="btn-remove-item" data-product-id="${item.productId}">${removeText}</button>
+        <button class="btn-remove-item" data-product-id="${item.productId}" data-variant-id="${item.variantId || ''}">${removeText}</button>
       </div>
     </div>
   `).join('');
@@ -1434,21 +1612,23 @@ function renderCartItems() {
   itemsContainer.querySelectorAll('.btn-qty-minus').forEach(btn => {
     btn.onclick = () => {
       const id = btn.dataset.productId;
-      const item = shopState.cart.find(i => i.productId === id);
-      if (item) updateCartItemQuantity(id, item.quantity - 1);
+      const vid = btn.dataset.variantId || null;
+      const item = shopState.cart.find(i => i.productId === id && (i.variantId || null) === (vid || null));
+      if (item) updateCartItemQuantity(id, vid, item.quantity - 1);
     };
   });
 
   itemsContainer.querySelectorAll('.btn-qty-plus').forEach(btn => {
     btn.onclick = () => {
       const id = btn.dataset.productId;
-      const item = shopState.cart.find(i => i.productId === id);
-      if (item) updateCartItemQuantity(id, item.quantity + 1);
+      const vid = btn.dataset.variantId || null;
+      const item = shopState.cart.find(i => i.productId === id && (i.variantId || null) === (vid || null));
+      if (item) updateCartItemQuantity(id, vid, item.quantity + 1);
     };
   });
 
   itemsContainer.querySelectorAll('.btn-remove-item').forEach(btn => {
-    btn.onclick = () => removeFromCart(btn.dataset.productId);
+    btn.onclick = () => removeFromCart(btn.dataset.productId, btn.dataset.variantId || null);
   });
 }
 
@@ -1652,7 +1832,7 @@ function populateReviewSection() {
   if (itemsEl) {
     itemsEl.innerHTML = shopState.cart.map(item => `
       <div class="review-item">
-        <span class="review-item-name">${escapeHtml(item.name)}</span>
+        <span class="review-item-name">${escapeHtml(item.name)}${item.variantName ? ` <small style="opacity:.8">(${escapeHtml(item.variantName)})</small>` : ''}</span>
         <span class="review-item-qty">× ${item.quantity}</span>
         <span class="review-item-price">€${(item.price * item.quantity).toFixed(2)}</span>
       </div>
@@ -1722,8 +1902,10 @@ async function submitOrder(e) {
     // Prepare cart items for Stripe checkout
     const items = shopState.cart.map(item => ({
       product_id: item.productId,
+      variant_id: item.variantId || undefined,
       quantity: item.quantity,
       product_name: item.name,
+      variant_name: item.variantName || undefined,
       unit_price: item.price,
       image_url: item.thumbnail || undefined,
       weight: item.weight || 0,
