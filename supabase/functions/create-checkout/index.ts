@@ -10,7 +10,7 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const CHECKOUT_FUNCTION_VERSION = "2025-12-22-2";
+const CHECKOUT_FUNCTION_VERSION = "2025-12-22-4";
 const isDebugEnabled = (): boolean => Deno.env.get("CHECKOUT_DEBUG") === "true";
 
 const corsHeaders = {
@@ -342,10 +342,13 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  let stage = "init";
   try {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    stage = "parse_body";
     const body: CheckoutRequest = await req.json();
 
+    stage = "auth";
     const authHeader = req.headers.get("authorization") || req.headers.get("Authorization");
     const token = authHeader && authHeader.toLowerCase().startsWith("bearer ")
       ? authHeader.slice(7).trim()
@@ -390,6 +393,7 @@ serve(async (req) => {
       console.log("[create-checkout] client_quote_totalCost:", (body as any)?.shipping_details?.quote?.totalCost);
     }
 
+    stage = "load_profile";
     const { data: user, error: userError } = await supabase
       .from("profiles")
       .select("id, email, name")
@@ -403,6 +407,7 @@ serve(async (req) => {
       );
     }
 
+    stage = "order_number";
     const { data: orderNumberRaw } = await supabase.rpc("shop_generate_order_number");
     const orderNumber =
       typeof orderNumberRaw === "string" && orderNumberRaw.trim()
@@ -417,6 +422,7 @@ serve(async (req) => {
     const productIds = Array.from(new Set(body.items.map((item) => item.product_id).filter(Boolean)));
     const variantIds = Array.from(new Set(body.items.map((item) => item.variant_id).filter(Boolean))) as string[];
 
+    stage = "load_products";
     const { data: productsData, error: productsError } = await supabase
       .from("shop_products")
       .select(
@@ -441,6 +447,7 @@ serve(async (req) => {
 
     let variantsMap: Record<string, VariantRecord> = {};
     if (variantIds.length > 0) {
+      stage = "load_variants";
       const { data: variantsData, error: variantsError } = await supabase
         .from("shop_product_variants")
         .select("id, product_id, name, price, weight, stock_quantity, is_active")
@@ -468,6 +475,7 @@ serve(async (req) => {
     const resolvedItems: CartItem[] = [];
     const productLineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
 
+    stage = "resolve_items";
     const nowIso = new Date().toISOString();
     for (const item of body.items) {
       const quantity = Math.max(0, Math.trunc(toNumber(item.quantity)));
@@ -637,6 +645,7 @@ serve(async (req) => {
       {} as Record<string, VariantShippingInfo>
     );
 
+    stage = "shipping_metrics";
     const shippingMetrics = calculateShippingMetrics(resolvedItems, productsShippingMap, variantsShippingMap);
     const mergedShippingMetrics = mergeShippingMetrics(
       shippingMetrics,
@@ -668,6 +677,7 @@ serve(async (req) => {
     }
 
     if (shippingRequired && body.shipping_method_id) {
+      stage = "shipping_method";
       const { data: shippingMethod } = await supabase
         .from("shop_shipping_methods")
         .select("*, zone:shop_shipping_zones(*)")
@@ -744,6 +754,7 @@ serve(async (req) => {
     let stripeDiscounts: Stripe.Checkout.SessionCreateParams.Discount[] = [];
 
     if (body.discount_code) {
+      stage = "discount";
       const { data: discount } = await supabase
         .from("shop_discounts")
         .select("*")
@@ -771,17 +782,24 @@ serve(async (req) => {
               discountAmount = Math.min(discountAmount, discount.maximum_discount_amount);
             }
 
+            discountAmount = roundCurrency(Math.max(0, discountAmount));
+            // Stripe coupons require amount_off >= 1 (in minor currency unit)
+            if (discountAmount < 0.01) {
+              discountAmount = 0;
+            }
+
             discountId = discount.id;
 
             if (discount.stripe_promotion_code_id) {
               stripeDiscounts = [{ promotion_code: discount.stripe_promotion_code_id }];
             } else if (discount.stripe_coupon_id) {
               stripeDiscounts = [{ coupon: discount.stripe_coupon_id }];
-            } else if (discountAmount > 0) {
+            } else if (discountAmount >= 0.01) {
+              stage = "discount_create_coupon";
               const coupon = await stripe.coupons.create({
                 duration: "once",
                 currency: "eur",
-                amount_off: Math.round(roundCurrency(discountAmount) * 100),
+                amount_off: Math.round(discountAmount * 100),
                 max_redemptions: 1,
                 name: `${discount.code}-${orderNumber}`,
                 metadata: {
@@ -820,10 +838,11 @@ serve(async (req) => {
       ...(shippingQuote ? { server_quote: shippingQuote } : {}),
     };
 
-    const total = subtotal + shippingCost - discountAmount;
+    const total = Math.max(0, roundCurrency(subtotal + shippingCost - discountAmount));
 
     const billingAddress = body.billing_address || body.shipping_address;
 
+    stage = "insert_order";
     const { data: order, error: orderError } = await supabase
       .from("shop_orders")
       .insert({
@@ -872,8 +891,10 @@ serve(async (req) => {
       subtotal: item.unit_price * item.quantity,
     }));
 
+    stage = "insert_order_items";
     await supabase.from("shop_order_items").insert(orderItems);
 
+    stage = "insert_order_history";
     await supabase.from("shop_order_history").insert({
       order_id: order.id,
       to_status: "pending",
@@ -901,8 +922,10 @@ serve(async (req) => {
       ...(stripeDiscounts.length > 0 && { discounts: stripeDiscounts }),
     };
 
+    stage = "stripe_create_session";
     const session = await stripe.checkout.sessions.create(sessionParams);
 
+    stage = "update_order_session_id";
     await supabase
       .from("shop_orders")
       .update({ stripe_checkout_session_id: session.id })
@@ -949,6 +972,7 @@ serve(async (req) => {
       JSON.stringify({ 
         error: errorMessage,
         function_version: CHECKOUT_FUNCTION_VERSION,
+        stage: (typeof stage === "string" ? stage : "unknown"),
         debug_stack: errorStack?.split('\n').slice(0, 5).join('\n')
       }),
       { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
