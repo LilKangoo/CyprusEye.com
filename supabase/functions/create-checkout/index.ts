@@ -10,7 +10,7 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const CHECKOUT_FUNCTION_VERSION = "2025-12-22-8";
+const CHECKOUT_FUNCTION_VERSION = "2025-12-22-9";
 const isDebugEnabled = (): boolean => Deno.env.get("CHECKOUT_DEBUG") === "true";
 
 const corsHeaders = {
@@ -141,7 +141,7 @@ const computeDiscountEligibility = (
   productsMap: Record<string, ProductRecord>,
   nowIso: string
 ): { eligibleSubtotal: number; eligibleMask: boolean[] } => {
-  const appliesTo = String(discount?.applies_to || "all");
+  let appliesTo = String(discount?.applies_to || "all");
   const applicableProductIds = Array.isArray(discount?.applicable_product_ids)
     ? discount.applicable_product_ids
     : [];
@@ -151,6 +151,9 @@ const computeDiscountEligibility = (
   const applicableVendorIds = Array.isArray(discount?.applicable_vendor_ids)
     ? discount.applicable_vendor_ids
     : [];
+  if (appliesTo === "products" && applicableProductIds.length === 0) appliesTo = "all";
+  if (appliesTo === "categories" && applicableCategoryIds.length === 0) appliesTo = "all";
+  if (appliesTo === "vendors" && applicableVendorIds.length === 0) appliesTo = "all";
   const excludeProductIds = Array.isArray(discount?.exclude_product_ids)
     ? discount.exclude_product_ids
     : [];
@@ -1020,12 +1023,15 @@ serve(async (req) => {
 
     if (body.discount_code) {
       stage = "discount";
-      const { data: discount } = await supabase
+      const discountCodeInput = String(body.discount_code || "").trim();
+      const { data: discountRows } = await supabase
         .from("shop_discounts")
         .select("*")
-        .eq("code", body.discount_code.toUpperCase())
+        .ilike("code", discountCodeInput)
         .eq("is_active", true)
-        .single();
+        .limit(1);
+
+      const discount = Array.isArray(discountRows) ? discountRows[0] : null;
 
       if (discount) {
         const now = new Date();
@@ -1209,50 +1215,14 @@ serve(async (req) => {
                     if (usedCount >= perUserLimit) {
                       // stop
                     } else {
-                      const appliesTo = String(discount.applies_to || "all");
-                      const applicableProductIds = Array.isArray(discount.applicable_product_ids)
-                        ? discount.applicable_product_ids
-                        : [];
-                      const applicableCategoryIds = Array.isArray(discount.applicable_category_ids)
-                        ? discount.applicable_category_ids
-                        : [];
-                      const applicableVendorIds = Array.isArray(discount.applicable_vendor_ids)
-                        ? discount.applicable_vendor_ids
-                        : [];
-                      const excludeProductIds = Array.isArray(discount.exclude_product_ids)
-                        ? discount.exclude_product_ids
-                        : [];
-                      const excludeCategoryIds = Array.isArray(discount.exclude_category_ids)
-                        ? discount.exclude_category_ids
-                        : [];
-
-                      let eligibleSubtotal = 0;
-                      for (const item of resolvedItems) {
-                        const p = productsMap[item.product_id];
-                        if (!p) continue;
-                        if (excludeProductIds.includes(p.id)) continue;
-                        if (p.category_id && excludeCategoryIds.includes(p.category_id)) continue;
-                        if (discount.exclude_sale_items === true) {
-                          const saleItem = (() => {
-                            if (!p.sale_price) return false;
-                            if (!p.sale_start_date && !p.sale_end_date) return true;
-                            if (p.sale_start_date && nowIso < p.sale_start_date) return false;
-                            if (p.sale_end_date && nowIso >= p.sale_end_date) return false;
-                            return true;
-                          })();
-                          if (saleItem) continue;
-                        }
-                        let eligible = true;
-                        if (appliesTo === "products") {
-                          eligible = applicableProductIds.includes(p.id);
-                        } else if (appliesTo === "categories") {
-                          eligible = !!p.category_id && applicableCategoryIds.includes(p.category_id);
-                        } else if (appliesTo === "vendors") {
-                          eligible = !!p.vendor_id && applicableVendorIds.includes(p.vendor_id);
-                        }
-                        if (!eligible) continue;
-                        eligibleSubtotal += (item.unit_price || 0) * (item.quantity || 0);
-                      }
+                      const eligibility = computeDiscountEligibility(
+                        discount,
+                        resolvedItems,
+                        productsMap,
+                        nowIso
+                      );
+                      const eligibleSubtotal = eligibility.eligibleSubtotal;
+                      discountEligibleMask = eligibility.eligibleMask;
 
                       const type = String(discount.discount_type || "percentage");
                       if (type === "free_shipping") {
@@ -1303,50 +1273,14 @@ serve(async (req) => {
                       }
                     }
                   } else {
-                    const appliesTo = String(discount.applies_to || "all");
-                    const applicableProductIds = Array.isArray(discount.applicable_product_ids)
-                      ? discount.applicable_product_ids
-                      : [];
-                    const applicableCategoryIds = Array.isArray(discount.applicable_category_ids)
-                      ? discount.applicable_category_ids
-                      : [];
-                    const applicableVendorIds = Array.isArray(discount.applicable_vendor_ids)
-                      ? discount.applicable_vendor_ids
-                      : [];
-                    const excludeProductIds = Array.isArray(discount.exclude_product_ids)
-                      ? discount.exclude_product_ids
-                      : [];
-                    const excludeCategoryIds = Array.isArray(discount.exclude_category_ids)
-                      ? discount.exclude_category_ids
-                      : [];
-
-                    let eligibleSubtotal = 0;
-                    for (const item of resolvedItems) {
-                      const p = productsMap[item.product_id];
-                      if (!p) continue;
-                      if (excludeProductIds.includes(p.id)) continue;
-                      if (p.category_id && excludeCategoryIds.includes(p.category_id)) continue;
-                      if (discount.exclude_sale_items === true) {
-                        const saleItem = (() => {
-                          if (!p.sale_price) return false;
-                          if (!p.sale_start_date && !p.sale_end_date) return true;
-                          if (p.sale_start_date && nowIso < p.sale_start_date) return false;
-                          if (p.sale_end_date && nowIso >= p.sale_end_date) return false;
-                          return true;
-                        })();
-                        if (saleItem) continue;
-                      }
-                      let eligible = true;
-                      if (appliesTo === "products") {
-                        eligible = applicableProductIds.includes(p.id);
-                      } else if (appliesTo === "categories") {
-                        eligible = !!p.category_id && applicableCategoryIds.includes(p.category_id);
-                      } else if (appliesTo === "vendors") {
-                        eligible = !!p.vendor_id && applicableVendorIds.includes(p.vendor_id);
-                      }
-                      if (!eligible) continue;
-                      eligibleSubtotal += (item.unit_price || 0) * (item.quantity || 0);
-                    }
+                    const eligibility = computeDiscountEligibility(
+                      discount,
+                      resolvedItems,
+                      productsMap,
+                      nowIso
+                    );
+                    const eligibleSubtotal = eligibility.eligibleSubtotal;
+                    discountEligibleMask = eligibility.eligibleMask;
 
                     const type = String(discount.discount_type || "percentage");
                     if (type === "free_shipping") {
