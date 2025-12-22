@@ -31,7 +31,6 @@ const shopState = {
 // Supabase client
 let supabase = null;
 
-// Debug helpers
 function isCheckoutUiDebugEnabled() {
   try {
     const url = new URL(window.location.href);
@@ -40,6 +39,7 @@ function isCheckoutUiDebugEnabled() {
     }
   } catch (e) {
   }
+
   try {
     return localStorage.getItem('checkout_debug_ui') === 'true';
   } catch (e) {
@@ -1343,7 +1343,7 @@ function addToCart(productId, quantity = 1) {
 
   saveCartToStorage();
   updateCartUI();
-  showToast('Dodano do koszyka');
+  showToast(`Dodano do koszyka: ${product.name} × ${quantity}`, 'success');
 }
 
 function removeFromCart(productId) {
@@ -1484,7 +1484,7 @@ async function initiateCheckout() {
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) {
-    showToast(shopState.lang === 'en' ? 'Please log in to continue' : 'Zaloguj się, aby kontynuować', 'warning');
+    showToast(shopState.lang === 'en' ? 'Please log in' : 'Zaloguj się', 'warning');
     return;
   }
 
@@ -1763,8 +1763,15 @@ async function submitOrder(e) {
     });
 
     if (error) throw error;
-    
+
     persistCheckoutDebugSnapshot(checkoutPayload, data);
+    if (isCheckoutUiDebugEnabled()) {
+      const fv = data?.function_version ? `fv=${data.function_version}` : 'fv=?';
+      const totals = (data && typeof data === 'object')
+        ? `subtotal=€${Number(data.items_subtotal || 0).toFixed(2)} shipping=€${Number(data.shipping_cost || 0).toFixed(2)} total=€${Number(data.order_total || 0).toFixed(2)}`
+        : '';
+      showToast(`Checkout debug zapisany (${fv}) ${totals}`.trim(), 'info');
+    }
     
     if (data?.session_url) {
       // Clear cart before redirecting
