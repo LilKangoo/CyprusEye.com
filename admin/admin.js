@@ -12970,18 +12970,22 @@ function renderTaxRatesList() {
     return;
   }
   
-  list.innerHTML = taxRatesData.map((rate, idx) => `
+  list.innerHTML = taxRatesData.map((rate, idx) => {
+    const rawRate = Number(rate.rate) || 0;
+    const displayRate = rawRate > 1 ? rawRate : (rawRate * 100);
+    return `
     <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px; padding: 8px; background: var(--admin-bg-secondary); border-radius: 6px;">
       <input type="text" value="${escapeHtml(rate.country || '')}" placeholder="Kraj (np. CY)" 
         style="width: 60px;" onchange="updateTaxRateField(${idx}, 'country', this.value)">
       <input type="text" value="${escapeHtml(rate.name || '')}" placeholder="Nazwa (np. VAT Cyprus)" 
         style="flex: 1;" onchange="updateTaxRateField(${idx}, 'name', this.value)">
-      <input type="number" value="${rate.rate || ''}" placeholder="%" step="0.01" 
+      <input type="number" value="${Number.isFinite(displayRate) ? displayRate : ''}" placeholder="%" step="0.01" 
         style="width: 70px;" onchange="updateTaxRateField(${idx}, 'rate', parseFloat(this.value))">
       <span style="color: var(--admin-text-muted);">%</span>
       <button type="button" class="btn-icon" onclick="removeTaxRate(${idx})" style="color: #ef4444;">🗑️</button>
     </div>
-  `).join('');
+  `;
+  }).join('');
 }
 
 function addTaxRate() {
@@ -13015,6 +13019,8 @@ async function saveTaxRates(taxClassId) {
   if (!client || !taxClassId) return;
   
   for (const rate of taxRatesData) {
+    const rawRate = parseFloat(rate.rate) || 0;
+    const normalizedRate = rawRate > 1 ? (rawRate / 100) : rawRate;
     if (rate.is_deleted && rate.id) {
       await client.from('shop_tax_rates').delete().eq('id', rate.id);
     } else if (rate.is_new && !rate.is_deleted) {
@@ -13022,13 +13028,13 @@ async function saveTaxRates(taxClassId) {
         tax_class_id: taxClassId,
         country: rate.country,
         name: rate.name,
-        rate: rate.rate
+        rate: normalizedRate
       });
     } else if (rate.is_modified && rate.id) {
       await client.from('shop_tax_rates').update({
         country: rate.country,
         name: rate.name,
-        rate: rate.rate
+        rate: normalizedRate
       }).eq('id', rate.id);
     }
   }
@@ -13549,7 +13555,16 @@ async function loadShopSettings() {
     if (prefixEl) prefixEl.value = settings?.order_number_prefix || 'WC';
 
     const currencyEl = document.getElementById('shopSettingCurrency');
-    if (currencyEl) currencyEl.value = settings?.currency || 'EUR';
+    if (currencyEl) currencyEl.value = settings?.default_currency || settings?.currency || 'EUR';
+
+    const taxEnabledEl = document.getElementById('shopSettingTaxEnabled');
+    if (taxEnabledEl) taxEnabledEl.checked = settings?.tax_enabled === true;
+
+    const taxIncludedEl = document.getElementById('shopSettingTaxIncludedInPrice');
+    if (taxIncludedEl) taxIncludedEl.checked = settings?.tax_included_in_price !== false;
+
+    const taxBasedOnEl = document.getElementById('shopSettingTaxBasedOn');
+    if (taxBasedOnEl) taxBasedOnEl.value = settings?.tax_based_on || 'shipping';
 
     // === XP & GAMIFICATION ===
     const xpPerEuroEl = document.getElementById('shopSettingXpPerEuro');
@@ -13586,10 +13601,10 @@ async function loadShopSettings() {
 
     // === INVENTORY ===
     const lowStockEl = document.getElementById('shopSettingLowStockThreshold');
-    if (lowStockEl) lowStockEl.value = settings?.low_stock_threshold || 5;
+    if (lowStockEl) lowStockEl.value = settings?.low_stock_threshold_default || settings?.low_stock_threshold || 5;
 
     const cartReservationEl = document.getElementById('shopSettingCartReservation');
-    if (cartReservationEl) cartReservationEl.value = settings?.cart_reservation_minutes || 15;
+    if (cartReservationEl) cartReservationEl.value = settings?.reserve_stock_minutes || settings?.cart_reservation_minutes || 15;
 
     const hideOutOfStockEl = document.getElementById('shopSettingHideOutOfStock');
     if (hideOutOfStockEl) hideOutOfStockEl.checked = settings?.hide_out_of_stock === true;
@@ -13608,42 +13623,69 @@ async function saveShopSettings() {
   if (!client) return;
 
   try {
-    const settings = {
+    const payload = {
       id: 1,
       // === GENERAL ===
       shop_name: document.getElementById('shopSettingName')?.value || '',
       admin_notification_email: document.getElementById('shopSettingEmail')?.value || '',
       order_number_prefix: document.getElementById('shopSettingOrderPrefix')?.value || 'WC',
-      currency: document.getElementById('shopSettingCurrency')?.value || 'EUR',
+      default_currency: document.getElementById('shopSettingCurrency')?.value || 'EUR',
+      // === TAX ===
+      tax_enabled: document.getElementById('shopSettingTaxEnabled')?.checked ?? false,
+      tax_included_in_price: document.getElementById('shopSettingTaxIncludedInPrice')?.checked ?? true,
+      tax_based_on: document.getElementById('shopSettingTaxBasedOn')?.value || 'shipping',
       // === XP & GAMIFICATION ===
       xp_per_euro: parseInt(document.getElementById('shopSettingXpPerEuro')?.value) || 1,
-      xp_per_review: parseInt(document.getElementById('shopSettingXpPerReview')?.value) || 50,
       xp_enabled: document.getElementById('shopSettingXpEnabled')?.checked ?? true,
       // === REVIEWS ===
       reviews_enabled: document.getElementById('shopSettingReviewsEnabled')?.checked ?? true,
-      reviews_moderation: document.getElementById('shopSettingReviewsModeration')?.checked ?? false,
-      reviews_verified_only: document.getElementById('shopSettingReviewsVerifiedOnly')?.checked ?? false,
+      reviews_require_approval: document.getElementById('shopSettingReviewsModeration')?.checked ?? true,
+      reviews_require_purchase: document.getElementById('shopSettingReviewsVerifiedOnly')?.checked ?? false,
       // === NOTIFICATIONS ===
-      notify_abandoned_cart: document.getElementById('shopSettingAbandonedCart')?.checked ?? true,
-      notify_order_confirmation: document.getElementById('shopSettingOrderConfirmation')?.checked ?? true,
-      notify_shipping: document.getElementById('shopSettingShippingNotification')?.checked ?? true,
-      notify_review_reminder: document.getElementById('shopSettingReviewReminder')?.checked ?? false,
+      abandoned_cart_enabled: document.getElementById('shopSettingAbandonedCart')?.checked ?? true,
       // === INVENTORY ===
-      low_stock_threshold: parseInt(document.getElementById('shopSettingLowStockThreshold')?.value) || 5,
-      cart_reservation_minutes: parseInt(document.getElementById('shopSettingCartReservation')?.value) || 15,
-      hide_out_of_stock: document.getElementById('shopSettingHideOutOfStock')?.checked ?? false,
-      allow_backorders: document.getElementById('shopSettingBackorders')?.checked ?? false,
+      low_stock_threshold_default: parseInt(document.getElementById('shopSettingLowStockThreshold')?.value) || 5,
+      reserve_stock_minutes: parseInt(document.getElementById('shopSettingCartReservation')?.value) || 15,
       // Meta
       updated_at: new Date().toISOString()
     };
 
-    const { error } = await client
+    let { error } = await client
       .from('shop_settings')
-      .upsert(settings, { onConflict: 'id' });
+      .upsert(payload, { onConflict: 'id' });
+
+    const errorCode = error?.code;
+    const errorMessage = error?.message;
+    const shouldRetryWithoutNewColumns =
+      !!error &&
+      (
+        errorCode === '42703' ||
+        errorCode === 'PGRST204' ||
+        (typeof errorMessage === 'string' &&
+          (errorMessage.includes('default_currency') ||
+            errorMessage.includes('reserve_stock_minutes') ||
+            errorMessage.includes('low_stock_threshold_default') ||
+            errorMessage.includes('tax_enabled') ||
+            errorMessage.includes('tax_included_in_price') ||
+            errorMessage.includes('tax_based_on')))
+      );
+
+    if (shouldRetryWithoutNewColumns) {
+      const fallback = {
+        id: 1,
+        shop_name: payload.shop_name,
+        admin_notification_email: payload.admin_notification_email,
+        order_number_prefix: payload.order_number_prefix,
+        updated_at: payload.updated_at
+      };
+      ({ error } = await client
+        .from('shop_settings')
+        .upsert(fallback, { onConflict: 'id' }));
+    }
 
     if (error) throw error;
 
-    shopState.settings = settings;
+    shopState.settings = payload;
     showToast('Ustawienia zapisane', 'success');
 
   } catch (error) {
@@ -13831,6 +13873,9 @@ async function loadProductData(productId) {
       document.getElementById('shopProductSaleEnd').value = product.sale_end_date.slice(0, 16);
     }
     document.getElementById('shopProductTaxClass').value = product.tax_class_id || '';
+    if (document.getElementById('shopProductTaxPriceMode')) {
+      document.getElementById('shopProductTaxPriceMode').value = product.tax_price_mode || 'inherit';
+    }
     // Inventory
     document.getElementById('shopProductTrackInventory').checked = product.track_inventory || false;
     document.getElementById('shopProductAllowBackorder').checked = product.allow_backorder || false;
@@ -14409,6 +14454,7 @@ async function saveProduct() {
     sale_start_date: document.getElementById('shopProductSaleStart').value || null,
     sale_end_date: document.getElementById('shopProductSaleEnd').value || null,
     tax_class_id: document.getElementById('shopProductTaxClass').value || null,
+    tax_price_mode: document.getElementById('shopProductTaxPriceMode')?.value || 'inherit',
     // Inventory
     track_inventory: document.getElementById('shopProductTrackInventory').checked,
     allow_backorder: document.getElementById('shopProductAllowBackorder').checked,

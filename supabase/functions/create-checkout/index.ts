@@ -10,7 +10,7 @@ const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-const CHECKOUT_FUNCTION_VERSION = "2025-12-22-7";
+const CHECKOUT_FUNCTION_VERSION = "2025-12-22-8";
 const isDebugEnabled = (): boolean => Deno.env.get("CHECKOUT_DEBUG") === "true";
 
 const corsHeaders = {
@@ -30,6 +30,15 @@ interface CartItem {
   weight?: number;
   shipping_class_id?: string | null;
   requires_shipping?: boolean;
+}
+
+interface ResolvedItem extends CartItem {
+  unit_price_base: number;
+  unit_price_gross: number;
+  tax_class_id: string | null;
+  tax_class: string | null;
+  tax_rate: number;
+  tax_price_mode: string;
 }
 
 type VariantShippingInfo = {
@@ -98,6 +107,96 @@ const toNumber = (value: unknown): number => {
 
 const roundCurrency = (value: number): number =>
   Math.round((value + Number.EPSILON) * 100) / 100;
+
+const allocateProportionalDiscount = (amount: number, weights: number[]): number[] => {
+  const safeAmount = roundCurrency(Math.max(0, toNumber(amount)));
+  const totalWeight = weights.reduce((sum, w) => sum + Math.max(0, toNumber(w)), 0);
+  if (!safeAmount || !totalWeight) {
+    return weights.map(() => 0);
+  }
+
+  const allocations = weights.map((w) => {
+    const weight = Math.max(0, toNumber(w));
+    if (!weight) return 0;
+    return roundCurrency((safeAmount * weight) / totalWeight);
+  });
+
+  const allocatedSum = roundCurrency(allocations.reduce((sum, v) => sum + v, 0));
+  const diff = roundCurrency(safeAmount - allocatedSum);
+  if (diff !== 0) {
+    for (let i = allocations.length - 1; i >= 0; i -= 1) {
+      if (Math.max(0, toNumber(weights[i])) > 0) {
+        allocations[i] = roundCurrency(Math.max(0, allocations[i] + diff));
+        break;
+      }
+    }
+  }
+
+  return allocations;
+};
+
+const computeDiscountEligibility = (
+  discount: any,
+  resolvedItems: ResolvedItem[],
+  productsMap: Record<string, ProductRecord>,
+  nowIso: string
+): { eligibleSubtotal: number; eligibleMask: boolean[] } => {
+  const appliesTo = String(discount?.applies_to || "all");
+  const applicableProductIds = Array.isArray(discount?.applicable_product_ids)
+    ? discount.applicable_product_ids
+    : [];
+  const applicableCategoryIds = Array.isArray(discount?.applicable_category_ids)
+    ? discount.applicable_category_ids
+    : [];
+  const applicableVendorIds = Array.isArray(discount?.applicable_vendor_ids)
+    ? discount.applicable_vendor_ids
+    : [];
+  const excludeProductIds = Array.isArray(discount?.exclude_product_ids)
+    ? discount.exclude_product_ids
+    : [];
+  const excludeCategoryIds = Array.isArray(discount?.exclude_category_ids)
+    ? discount.exclude_category_ids
+    : [];
+
+  const eligibleMask = resolvedItems.map(() => false);
+  let eligibleSubtotal = 0;
+
+  resolvedItems.forEach((item, idx) => {
+    const p = productsMap[item.product_id];
+    if (!p) return;
+    if (excludeProductIds.includes(p.id)) return;
+    if (p.category_id && excludeCategoryIds.includes(p.category_id)) return;
+
+    if (discount?.exclude_sale_items === true) {
+      const saleItem = (() => {
+        if (!p.sale_price) return false;
+        if (!p.sale_start_date && !p.sale_end_date) return true;
+        if (p.sale_start_date && nowIso < p.sale_start_date) return false;
+        if (p.sale_end_date && nowIso >= p.sale_end_date) return false;
+        return true;
+      })();
+      if (saleItem) return;
+    }
+
+    let eligible = true;
+    if (appliesTo === "products") {
+      eligible = applicableProductIds.includes(p.id);
+    } else if (appliesTo === "categories") {
+      eligible = !!p.category_id && applicableCategoryIds.includes(p.category_id);
+    } else if (appliesTo === "vendors") {
+      eligible = !!p.vendor_id && applicableVendorIds.includes(p.vendor_id);
+    }
+
+    if (!eligible) return;
+    eligibleMask[idx] = true;
+    eligibleSubtotal += (toNumber(item.unit_price_gross) || 0) * (toNumber(item.quantity) || 0);
+  });
+
+  return {
+    eligibleSubtotal: roundCurrency(eligibleSubtotal),
+    eligibleMask,
+  };
+};
 
 const parseJsonField = <T>(value: unknown, fallback: T): T => {
   if (!value) return fallback;
@@ -187,6 +286,7 @@ type ProductRecord = ProductShippingInfo & {
   sale_start_date: string | null;
   sale_end_date: string | null;
   tax_class_id: string | null;
+  tax_price_mode?: string | null;
   track_inventory: boolean | null;
   stock_quantity: number | null;
   allow_backorder: boolean | null;
@@ -430,16 +530,52 @@ serve(async (req) => {
     let discountId: string | null = null;
     let appliedDiscountCode: string | null = null;
 
+    let discountEligibleMask: boolean[] = [];
+
+    let taxEnabled = false;
+    let taxIncludedInPriceGlobal = true;
+    let taxBasedOn: string = "shipping";
+    let taxCountry: string = "";
+    const taxRatesByClass: Record<string, { rate: number; name: string | null }> = {};
+    const taxClassLabelById: Record<string, string> = {};
+
     const productIds = Array.from(new Set(body.items.map((item) => item.product_id).filter(Boolean)));
     const variantIds = Array.from(new Set(body.items.map((item) => item.variant_id).filter(Boolean))) as string[];
 
     stage = "load_products";
-    const { data: productsData, error: productsError } = await supabase
-      .from("shop_products")
-      .select(
-        "id, name, status, product_type, vendor_id, category_id, price, sale_price, sale_start_date, sale_end_date, tax_class_id, track_inventory, stock_quantity, allow_backorder, min_purchase_quantity, max_purchase_quantity, weight, shipping_class_id, is_virtual"
-      )
-      .in("id", productIds);
+    const productsSelectBase =
+      "id, name, status, product_type, vendor_id, category_id, price, sale_price, sale_start_date, sale_end_date, tax_class_id, track_inventory, stock_quantity, allow_backorder, min_purchase_quantity, max_purchase_quantity, weight, shipping_class_id, is_virtual";
+    const productsSelectWithTaxMode = `${productsSelectBase}, tax_price_mode`;
+
+    let productsData: ProductRecord[] | null = null;
+    let productsError: any = null;
+    {
+      const primary = await supabase
+        .from("shop_products")
+        .select(productsSelectWithTaxMode)
+        .in("id", productIds);
+      productsData = primary.data as any;
+      productsError = primary.error as any;
+
+      const productsErrorCode = productsError?.code;
+      const productsErrorMessage = productsError?.message;
+      const shouldRetryWithoutTaxMode =
+        !!productsError &&
+        (
+          productsErrorCode === "42703" ||
+          productsErrorCode === "PGRST204" ||
+          (typeof productsErrorMessage === "string" &&
+            productsErrorMessage.includes("tax_price_mode"))
+        );
+      if (shouldRetryWithoutTaxMode) {
+        const retry = await supabase
+          .from("shop_products")
+          .select(productsSelectBase)
+          .in("id", productIds);
+        productsData = retry.data as any;
+        productsError = retry.error as any;
+      }
+    }
 
     if (productsError) {
       return new Response(
@@ -465,6 +601,76 @@ serve(async (req) => {
       },
       {} as Record<string, ProductRecord>
     );
+
+    stage = "tax_settings";
+    {
+      const { data: settings, error: settingsError } = await supabase
+        .from("shop_settings")
+        .select("tax_enabled, tax_included_in_price, tax_based_on")
+        .eq("id", 1)
+        .single();
+
+      if (settingsError && (settingsError as any)?.code !== "PGRST116") {
+        return new Response(
+          JSON.stringify({ error: "Failed to load tax settings" }),
+          { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      taxEnabled = settings?.tax_enabled === true;
+      taxIncludedInPriceGlobal = settings?.tax_included_in_price !== false;
+      taxBasedOn = typeof settings?.tax_based_on === "string" && settings.tax_based_on
+        ? settings.tax_based_on
+        : "shipping";
+
+      const billingAddress = body.billing_address || body.shipping_address;
+      const rawCountry = taxBasedOn === "billing"
+        ? billingAddress?.country
+        : body.shipping_address?.country;
+      taxCountry = String(rawCountry || "").toUpperCase();
+    }
+
+    if (taxEnabled && taxCountry) {
+      stage = "tax_rates";
+      const classIds = Array.from(
+        new Set(
+          (productsData || [])
+            .map((p) => p.tax_class_id)
+            .filter(Boolean)
+        )
+      ) as string[];
+
+      if (classIds.length > 0) {
+        const { data: taxRates } = await supabase
+          .from("shop_tax_rates")
+          .select("tax_class_id, rate, name, priority")
+          .in("tax_class_id", classIds)
+          .eq("country", taxCountry)
+          .order("priority", { ascending: true });
+
+        (taxRates || []).forEach((row: any) => {
+          const classId = String(row.tax_class_id || "");
+          if (!classId || taxRatesByClass[classId]) return;
+          const rawRate = Math.max(0, toNumber(row.rate));
+          const normalizedRate = rawRate > 1 ? rawRate / 100 : rawRate;
+          taxRatesByClass[classId] = {
+            rate: normalizedRate,
+            name: row.name ? String(row.name) : null,
+          };
+        });
+
+        const { data: taxClasses } = await supabase
+          .from("shop_tax_classes")
+          .select("id, slug, name")
+          .in("id", classIds);
+        (taxClasses || []).forEach((row: any) => {
+          const classId = String(row.id || "");
+          if (!classId) return;
+          const label = row.slug ? String(row.slug) : row.name ? String(row.name) : classId;
+          taxClassLabelById[classId] = label;
+        });
+      }
+    }
 
     let variantsMap: Record<string, VariantRecord> = {};
     if (variantIds.length > 0) {
@@ -503,7 +709,7 @@ serve(async (req) => {
     let hasSubscription = false;
     let hasNonSubscription = false;
 
-    const resolvedItems: CartItem[] = [];
+    const resolvedItems: ResolvedItem[] = [];
     const productLineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
 
     stage = "resolve_items";
@@ -620,20 +826,48 @@ serve(async (req) => {
       const resolvedShippingClassId = product.shipping_class_id ?? item.shipping_class_id ?? null;
       const requiresShipping = product.is_virtual === true ? false : true;
 
+      const taxClassId = product.tax_class_id ? String(product.tax_class_id) : null;
+      const taxRate = taxEnabled && taxClassId && taxRatesByClass[taxClassId]
+        ? Math.max(0, toNumber(taxRatesByClass[taxClassId].rate))
+        : 0;
+      const productTaxModeRaw =
+        typeof (product as any).tax_price_mode === "string" && String((product as any).tax_price_mode).trim()
+          ? String((product as any).tax_price_mode).trim()
+          : "inherit";
+      const productTaxMode = ["inherit", "net", "gross"].includes(productTaxModeRaw)
+        ? productTaxModeRaw
+        : "inherit";
+      const treatAsGross = productTaxMode === "gross"
+        ? true
+        : productTaxMode === "net"
+          ? false
+          : taxIncludedInPriceGlobal;
+
+      const unitPriceGross =
+        taxEnabled && taxRate > 0 && !treatAsGross
+          ? roundCurrency(unitPrice * (1 + taxRate))
+          : unitPrice;
+
       resolvedItems.push({
         product_id: product.id,
         variant_id: variant?.id,
         quantity,
         product_name: resolvedProductName,
         variant_name: resolvedVariantName || undefined,
-        unit_price: unitPrice,
+        unit_price: unitPriceGross,
         image_url: item.image_url,
         weight: resolvedWeight,
         shipping_class_id: resolvedShippingClassId,
         requires_shipping: requiresShipping,
+        unit_price_base: unitPrice,
+        unit_price_gross: unitPriceGross,
+        tax_class_id: taxClassId,
+        tax_class: taxClassId ? (taxClassLabelById[taxClassId] || taxClassId) : null,
+        tax_rate: taxRate,
+        tax_price_mode: productTaxMode,
       });
 
-      subtotal += unitPrice * quantity;
+      subtotal += unitPriceGross * quantity;
 
       productLineItems.push({
         price_data: {
@@ -644,7 +878,7 @@ serve(async (req) => {
               : resolvedProductName,
             images: item.image_url ? [item.image_url] : undefined,
           },
-          unit_amount: Math.round(unitPrice * 100),
+          unit_amount: Math.round(unitPriceGross * 100),
         },
         quantity,
       });
@@ -841,54 +1075,14 @@ serve(async (req) => {
                         // not eligible
                       } else {
                         // continue
-                        const appliesTo = String(discount.applies_to || "all");
-                        const applicableProductIds = Array.isArray(discount.applicable_product_ids)
-                          ? discount.applicable_product_ids
-                          : [];
-                        const applicableCategoryIds = Array.isArray(discount.applicable_category_ids)
-                          ? discount.applicable_category_ids
-                          : [];
-                        const applicableVendorIds = Array.isArray(discount.applicable_vendor_ids)
-                          ? discount.applicable_vendor_ids
-                          : [];
-                        const excludeProductIds = Array.isArray(discount.exclude_product_ids)
-                          ? discount.exclude_product_ids
-                          : [];
-                        const excludeCategoryIds = Array.isArray(discount.exclude_category_ids)
-                          ? discount.exclude_category_ids
-                          : [];
-
-                        let eligibleSubtotal = 0;
-                        for (const item of resolvedItems) {
-                          const p = productsMap[item.product_id];
-                          if (!p) continue;
-
-                          if (excludeProductIds.includes(p.id)) continue;
-                          if (p.category_id && excludeCategoryIds.includes(p.category_id)) continue;
-
-                          if (discount.exclude_sale_items === true) {
-                            const saleItem = (() => {
-                              if (!p.sale_price) return false;
-                              if (!p.sale_start_date && !p.sale_end_date) return true;
-                              if (p.sale_start_date && nowIso < p.sale_start_date) return false;
-                              if (p.sale_end_date && nowIso >= p.sale_end_date) return false;
-                              return true;
-                            })();
-                            if (saleItem) continue;
-                          }
-
-                          let eligible = true;
-                          if (appliesTo === "products") {
-                            eligible = applicableProductIds.includes(p.id);
-                          } else if (appliesTo === "categories") {
-                            eligible = !!p.category_id && applicableCategoryIds.includes(p.category_id);
-                          } else if (appliesTo === "vendors") {
-                            eligible = !!p.vendor_id && applicableVendorIds.includes(p.vendor_id);
-                          }
-
-                          if (!eligible) continue;
-                          eligibleSubtotal += (item.unit_price || 0) * (item.quantity || 0);
-                        }
+                        const eligibility = computeDiscountEligibility(
+                          discount,
+                          resolvedItems,
+                          productsMap,
+                          nowIso
+                        );
+                        const eligibleSubtotal = eligibility.eligibleSubtotal;
+                        discountEligibleMask = eligibility.eligibleMask;
 
                         const type = String(discount.discount_type || "percentage");
                         if (type === "free_shipping") {
@@ -939,52 +1133,14 @@ serve(async (req) => {
                         }
                       }
                     } else {
-                      const appliesTo = String(discount.applies_to || "all");
-                      const applicableProductIds = Array.isArray(discount.applicable_product_ids)
-                        ? discount.applicable_product_ids
-                        : [];
-                      const applicableCategoryIds = Array.isArray(discount.applicable_category_ids)
-                        ? discount.applicable_category_ids
-                        : [];
-                      const applicableVendorIds = Array.isArray(discount.applicable_vendor_ids)
-                        ? discount.applicable_vendor_ids
-                        : [];
-                      const excludeProductIds = Array.isArray(discount.exclude_product_ids)
-                        ? discount.exclude_product_ids
-                        : [];
-                      const excludeCategoryIds = Array.isArray(discount.exclude_category_ids)
-                        ? discount.exclude_category_ids
-                        : [];
-
-                      let eligibleSubtotal = 0;
-                      for (const item of resolvedItems) {
-                        const p = productsMap[item.product_id];
-                        if (!p) continue;
-                        if (excludeProductIds.includes(p.id)) continue;
-                        if (p.category_id && excludeCategoryIds.includes(p.category_id)) continue;
-                        if (discount.exclude_sale_items === true) {
-                          const saleItem = (() => {
-                            if (!p.sale_price) return false;
-                            if (!p.sale_start_date && !p.sale_end_date) return true;
-                            if (p.sale_start_date && nowIso < p.sale_start_date) return false;
-                            if (p.sale_end_date && nowIso >= p.sale_end_date) return false;
-                            return true;
-                          })();
-                          if (saleItem) continue;
-                        }
-
-                        let eligible = true;
-                        if (appliesTo === "products") {
-                          eligible = applicableProductIds.includes(p.id);
-                        } else if (appliesTo === "categories") {
-                          eligible = !!p.category_id && applicableCategoryIds.includes(p.category_id);
-                        } else if (appliesTo === "vendors") {
-                          eligible = !!p.vendor_id && applicableVendorIds.includes(p.vendor_id);
-                        }
-
-                        if (!eligible) continue;
-                        eligibleSubtotal += (item.unit_price || 0) * (item.quantity || 0);
-                      }
+                      const eligibility = computeDiscountEligibility(
+                        discount,
+                        resolvedItems,
+                        productsMap,
+                        nowIso
+                      );
+                      const eligibleSubtotal = eligibility.eligibleSubtotal;
+                      discountEligibleMask = eligibility.eligibleMask;
 
                       const type = String(discount.discount_type || "percentage");
                       if (type === "free_shipping") {
@@ -1271,6 +1427,80 @@ serve(async (req) => {
       ...(shippingQuote ? { server_quote: shippingQuote } : {}),
     };
 
+    stage = "tax_calculation";
+    const itemLineTotals = resolvedItems.map((item) =>
+      roundCurrency(toNumber(item.unit_price_gross) * toNumber(item.quantity))
+    );
+    const eligibleWeights = itemLineTotals.map((value, idx) =>
+      discountEligibleMask && discountEligibleMask[idx] ? value : 0
+    );
+    const itemDiscounts = allocateProportionalDiscount(discountAmount, eligibleWeights);
+
+    let taxAmount = 0;
+    const taxBreakdownMap: Record<
+      string,
+      { tax_class: string | null; tax_rate: number; taxable_amount: number; tax_amount: number }
+    > = {};
+
+    const computedOrderItems = resolvedItems.map((item, idx) => {
+      const lineGross = itemLineTotals[idx] || 0;
+      const lineDiscount = itemDiscounts[idx] || 0;
+      const discountedGross = roundCurrency(Math.max(0, lineGross - lineDiscount));
+      const rate = Math.max(0, toNumber(item.tax_rate));
+      const itemTax = taxEnabled && rate > 0
+        ? roundCurrency(discountedGross - discountedGross / (1 + rate))
+        : 0;
+      const itemNet = taxEnabled && rate > 0
+        ? roundCurrency(discountedGross / (1 + rate))
+        : discountedGross;
+
+      taxAmount += itemTax;
+
+      if (taxEnabled && rate > 0 && itemTax > 0) {
+        const key = `${item.tax_class || item.tax_class_id || "__no_class__"}:${rate.toFixed(4)}`;
+        if (!taxBreakdownMap[key]) {
+          taxBreakdownMap[key] = {
+            tax_class: item.tax_class,
+            tax_rate: rate,
+            taxable_amount: 0,
+            tax_amount: 0,
+          };
+        }
+        taxBreakdownMap[key].taxable_amount = roundCurrency(
+          taxBreakdownMap[key].taxable_amount + itemNet
+        );
+        taxBreakdownMap[key].tax_amount = roundCurrency(
+          taxBreakdownMap[key].tax_amount + itemTax
+        );
+      }
+
+      return {
+        order_id: "__pending__",
+        product_id: item.product_id,
+        variant_id: item.variant_id || null,
+        product_name: item.product_name,
+        variant_name: item.variant_name || null,
+        product_image: item.image_url,
+        original_price: roundCurrency(toNumber(item.unit_price_base)),
+        unit_price: roundCurrency(toNumber(item.unit_price_gross)),
+        quantity: item.quantity,
+        subtotal: lineGross,
+        tax_class: item.tax_class,
+        tax_rate: rate,
+        tax_amount: itemTax,
+      };
+    });
+
+    taxAmount = roundCurrency(taxAmount);
+    const taxBreakdown = taxEnabled
+      ? {
+          based_on: taxBasedOn,
+          country: taxCountry,
+          discount_allocated_to_items: roundCurrency(discountAmount),
+          lines: Object.values(taxBreakdownMap),
+        }
+      : null;
+
     const total = Math.max(0, roundCurrency(subtotal + shippingCost - discountAmount));
 
     const billingAddress = body.billing_address || body.shipping_address;
@@ -1287,6 +1517,9 @@ serve(async (req) => {
       items_subtotal: subtotal,
       subtotal: subtotal,
       shipping_cost: shippingCost,
+      shipping_tax: 0,
+      tax_amount: taxAmount,
+      tax_breakdown: taxBreakdown,
       discount_amount: discountAmount,
       discount_code: appliedDiscountCode,
       discount_id: discountId,
@@ -1347,17 +1580,9 @@ serve(async (req) => {
       );
     }
 
-    const orderItems = resolvedItems.map((item) => ({
+    const orderItems = computedOrderItems.map((item) => ({
+      ...item,
       order_id: order.id,
-      product_id: item.product_id,
-      variant_id: item.variant_id || null,
-      product_name: item.product_name,
-      variant_name: item.variant_name || null,
-      product_image: item.image_url,
-      original_price: item.unit_price,
-      unit_price: item.unit_price,
-      quantity: item.quantity,
-      subtotal: item.unit_price * item.quantity,
     }));
 
     stage = "insert_order_items";
@@ -1387,6 +1612,7 @@ serve(async (req) => {
         shipping_cost: String(roundCurrency(shippingCost)),
         discount_amount: String(roundCurrency(discountAmount)),
         discount_code: appliedDiscountCode || "",
+        tax_amount: String(roundCurrency(taxAmount)),
         order_total: String(roundCurrency(total)),
       },
       ...(stripeDiscounts.length > 0 && { discounts: stripeDiscounts }),
@@ -1411,6 +1637,7 @@ serve(async (req) => {
         items_subtotal: subtotal,
         shipping_cost: shippingCost,
         discount_amount: discountAmount,
+        tax_amount: taxAmount,
         order_total: total,
         ...(debug
           ? {
@@ -1421,6 +1648,8 @@ serve(async (req) => {
                 serverShippingCost,
                 clientQuoteCost,
                 mergedShippingMetrics,
+                taxAmount,
+                taxBreakdown,
               },
             }
           : {}),

@@ -11,6 +11,12 @@ const shopState = {
   productVariants: {},
   discountCode: null,
   discountPreview: null,
+  taxSettings: {
+    taxEnabled: false,
+    taxIncludedInPrice: true,
+    taxBasedOn: 'shipping'
+  },
+  taxRatesByClass: {},
   shippingZones: [],
   shippingMethods: [],
   shippingClasses: [],
@@ -57,6 +63,167 @@ function persistCheckoutDebugSnapshot(payload, response) {
     localStorage.setItem('last_checkout_saved_at', new Date().toISOString());
   } catch (e) {
   }
+}
+
+async function loadTaxSettings() {
+  if (!supabase) return;
+  try {
+    const { data, error } = await supabase.rpc('shop_get_public_tax_settings');
+    if (error) throw error;
+    const row = Array.isArray(data) ? data[0] : data;
+    shopState.taxSettings = {
+      taxEnabled: row?.tax_enabled === true,
+      taxIncludedInPrice: row?.tax_included_in_price !== false,
+      taxBasedOn: row?.tax_based_on || 'shipping'
+    };
+  } catch (e) {
+    shopState.taxSettings = {
+      taxEnabled: false,
+      taxIncludedInPrice: true,
+      taxBasedOn: 'shipping'
+    };
+  }
+}
+
+async function refreshTaxRatesFromUi() {
+  const countrySelect = document.getElementById('checkoutCountry');
+  const country = countrySelect ? (countrySelect.value || '').toUpperCase() : '';
+  await loadTaxRatesForCountry(country);
+}
+
+async function loadTaxRatesForCountry(country) {
+  if (!supabase) return;
+  if (!country || !shopState.taxSettings?.taxEnabled) {
+    shopState.taxRatesByClass = {};
+    return;
+  }
+
+  try {
+    const classIds = Array.from(
+      new Set(
+        shopState.products
+          .map(p => p.tax_class_id)
+          .filter(Boolean)
+      )
+    );
+
+    if (!classIds.length) {
+      shopState.taxRatesByClass = {};
+      return;
+    }
+
+    const { data, error } = await supabase
+      .from('shop_tax_rates')
+      .select('tax_class_id, rate, priority')
+      .eq('country', country)
+      .in('tax_class_id', classIds)
+      .order('priority', { ascending: true });
+
+    if (error) throw error;
+
+    const map = {};
+    (data || []).forEach(row => {
+      const id = row.tax_class_id;
+      if (!id || map[id]) return;
+      const rawRate = Math.max(0, toNumber(row.rate));
+      map[id] = rawRate > 1 ? (rawRate / 100) : rawRate;
+    });
+    shopState.taxRatesByClass = map;
+  } catch (e) {
+    shopState.taxRatesByClass = {};
+  }
+}
+
+function allocateProportionalDiscount(amount, weights) {
+  const safeAmount = roundCurrency(Math.max(0, toNumber(amount)));
+  const totalWeight = (weights || []).reduce((sum, w) => sum + Math.max(0, toNumber(w)), 0);
+  if (!safeAmount || !totalWeight) return (weights || []).map(() => 0);
+
+  const allocations = (weights || []).map(w => {
+    const weight = Math.max(0, toNumber(w));
+    if (!weight) return 0;
+    return roundCurrency((safeAmount * weight) / totalWeight);
+  });
+
+  const allocatedSum = roundCurrency(allocations.reduce((sum, v) => sum + v, 0));
+  const diff = roundCurrency(safeAmount - allocatedSum);
+  if (diff !== 0) {
+    for (let i = allocations.length - 1; i >= 0; i--) {
+      if (Math.max(0, toNumber(weights[i])) > 0) {
+        allocations[i] = roundCurrency(Math.max(0, allocations[i] + diff));
+        break;
+      }
+    }
+  }
+
+  return allocations;
+}
+
+function getCartItemTaxRate(cartItem) {
+  const product = shopState.products.find(p => p.id === cartItem.productId);
+  const taxClassId = product?.tax_class_id || null;
+  if (!shopState.taxSettings?.taxEnabled || !taxClassId) return 0;
+  const rate = shopState.taxRatesByClass ? shopState.taxRatesByClass[taxClassId] : 0;
+  return Math.max(0, toNumber(rate));
+}
+
+function getCartItemGrossUnitPrice(cartItem) {
+  const settings = shopState.taxSettings || { taxEnabled: false, taxIncludedInPrice: true };
+  const basePrice = toNumber(cartItem.price);
+  if (!settings.taxEnabled) return basePrice;
+
+  const product = shopState.products.find(p => p.id === cartItem.productId);
+  const taxRate = getCartItemTaxRate(cartItem);
+  if (!taxRate) return basePrice;
+
+  const rawMode = typeof product?.tax_price_mode === 'string' ? (product.tax_price_mode || '').trim() : '';
+  const mode = rawMode === 'gross' || rawMode === 'net' || rawMode === 'inherit' ? rawMode : 'inherit';
+  const treatAsGross = mode === 'gross'
+    ? true
+    : mode === 'net'
+      ? false
+      : settings.taxIncludedInPrice !== false;
+
+  if (treatAsGross) return basePrice;
+  return roundCurrency(basePrice * (1 + taxRate));
+}
+
+function getCartTotalGross() {
+  return shopState.cart.reduce((sum, item) => {
+    const grossUnit = getCartItemGrossUnitPrice(item);
+    return sum + (grossUnit * (item.quantity || 0));
+  }, 0);
+}
+
+function computeVatPreview(preview) {
+  if (!shopState.taxSettings?.taxEnabled) return 0;
+
+  const discountAmount = preview && preview.valid && preview.discountAmount ? preview.discountAmount : 0;
+  const eligibleMask = Array.isArray(preview?.eligibleMask) ? preview.eligibleMask : [];
+  const weights = shopState.cart.map((item, idx) => {
+    const grossUnit = getCartItemGrossUnitPrice(item);
+    const lineGross = roundCurrency(grossUnit * (item.quantity || 0));
+    const eligible = eligibleMask.length ? eligibleMask[idx] === true : true;
+    return eligible ? lineGross : 0;
+  });
+
+  const allocations = allocateProportionalDiscount(discountAmount, weights);
+
+  let vatTotal = 0;
+  shopState.cart.forEach((item, idx) => {
+    const rate = getCartItemTaxRate(item);
+    if (!rate) return;
+
+    const grossUnit = getCartItemGrossUnitPrice(item);
+    const lineGross = roundCurrency(grossUnit * (item.quantity || 0));
+    const lineDiscount = roundCurrency(Math.max(0, toNumber(allocations[idx])));
+    const grossAfterDiscount = roundCurrency(Math.max(0, lineGross - lineDiscount));
+    const netAfterDiscount = roundCurrency(grossAfterDiscount / (1 + rate));
+    const lineVat = roundCurrency(Math.max(0, grossAfterDiscount - netAfterDiscount));
+    vatTotal = roundCurrency(vatTotal + lineVat);
+  });
+
+  return vatTotal;
 }
 
 // Get current language from localStorage or default to 'pl'
@@ -112,10 +279,12 @@ async function init() {
   shopState.lang = getCurrentLang();
   
   await initSupabase();
+  await loadTaxSettings();
   loadCartFromStorage();
   loadDiscountCodeFromStorage();
   await loadCategories();
   await loadProducts();
+  await refreshTaxRatesFromUi();
   await loadShippingZonesAndMethods();
   await loadShippingClasses();
   setupEventListeners();
@@ -549,7 +718,7 @@ function getCartShippingMetrics() {
       const weight = toNumber(item.weight) || 0;
       metrics.totalItems += qty;
       metrics.totalWeight += weight * qty;
-      metrics.subtotal += (item.price || 0) * qty;
+      metrics.subtotal += getCartItemGrossUnitPrice(item) * qty;
       const classId = item.shippingClassId || DEFAULT_SHIPPING_CLASS_KEY;
       if (!metrics.classTotals[classId]) {
         metrics.classTotals[classId] = { quantity: 0, weight: 0 };
@@ -744,7 +913,7 @@ function refreshShippingOptionPricing() {
 }
 
 function updateShippingTotalsUI() {
-  const subtotal = getCartTotal();
+  const subtotal = getCartTotalGross();
   const shipping = shopState.shippingQuote && !shopState.shippingQuote.error
     ? shopState.shippingQuote.totalCost
     : 0;
@@ -754,9 +923,12 @@ function updateShippingTotalsUI() {
   const total = Math.max(0, subtotal + effectiveShipping - discountAmount);
   const reviewSubtotalEl = document.getElementById('reviewSubtotal');
   const reviewShippingEl = document.getElementById('reviewShipping');
+  const reviewVatRow = document.getElementById('reviewVatRow');
+  const reviewVatEl = document.getElementById('reviewVat');
   const reviewDiscountRow = document.getElementById('reviewDiscountRow');
   const reviewDiscountEl = document.getElementById('reviewDiscount');
   const reviewTotalEl = document.getElementById('reviewTotal');
+  const vatTotal = computeVatPreview(preview);
   
   if (reviewSubtotalEl) reviewSubtotalEl.textContent = `€${subtotal.toFixed(2)}`;
   if (reviewShippingEl) {
@@ -766,6 +938,15 @@ function updateShippingTotalsUI() {
       reviewShippingEl.textContent = shopState.lang === 'en' ? 'Free' : 'Gratis';
     } else {
       reviewShippingEl.textContent = `€${effectiveShipping.toFixed(2)}`;
+    }
+  }
+  if (reviewVatRow && reviewVatEl) {
+    if (vatTotal > 0) {
+      reviewVatRow.hidden = false;
+      reviewVatEl.textContent = `€${vatTotal.toFixed(2)}`;
+    } else {
+      reviewVatRow.hidden = true;
+      reviewVatEl.textContent = '€0.00';
     }
   }
   if (reviewDiscountRow && reviewDiscountEl) {
@@ -1495,7 +1676,7 @@ async function refreshDiscountPreview() {
       return;
     }
 
-    const subtotal = getCartTotal();
+    const subtotal = getCartTotalGross();
     if (discount.minimum_order_amount && subtotal < parseFloat(discount.minimum_order_amount)) {
       shopState.discountPreview = { code: shopState.discountCode, valid: false, reason: 'min_order' };
       if (infoEl) {
@@ -1507,6 +1688,7 @@ async function refreshDiscountPreview() {
     }
 
     let eligibleSubtotal = 0;
+    const eligibleMask = new Array(shopState.cart.length).fill(false);
     const appliesTo = discount.applies_to || 'all';
     const applicableProducts = Array.isArray(discount.applicable_product_ids) ? discount.applicable_product_ids : [];
     const applicableCategories = Array.isArray(discount.applicable_category_ids) ? discount.applicable_category_ids : [];
@@ -1514,7 +1696,7 @@ async function refreshDiscountPreview() {
     const excludeProducts = Array.isArray(discount.exclude_product_ids) ? discount.exclude_product_ids : [];
     const excludeCategories = Array.isArray(discount.exclude_category_ids) ? discount.exclude_category_ids : [];
 
-    shopState.cart.forEach(item => {
+    shopState.cart.forEach((item, idx) => {
       const product = shopState.products.find(p => p.id === item.productId);
       if (!product) return;
 
@@ -1531,7 +1713,9 @@ async function refreshDiscountPreview() {
       }
 
       if (!eligible) return;
-      eligibleSubtotal += (item.price * item.quantity);
+      eligibleMask[idx] = true;
+      const grossUnit = getCartItemGrossUnitPrice(item);
+      eligibleSubtotal += (grossUnit * item.quantity);
     });
 
     let discountAmount = 0;
@@ -1559,6 +1743,7 @@ async function refreshDiscountPreview() {
       type,
       freeShipping,
       discountAmount,
+      eligibleMask,
       description: (shopState.lang === 'en' && discount.description_en) ? discount.description_en : discount.description
     };
 
@@ -1783,7 +1968,7 @@ function updateCartItemQuantity(productId, variantId, quantity) {
 }
 
 function getCartTotal() {
-  return shopState.cart.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  return getCartTotalGross();
 }
 
 function getCartItemCount() {
@@ -1833,7 +2018,7 @@ function renderCartItems() {
       <div class="cart-item-details">
         <h4 class="cart-item-name">${escapeHtml(item.name)}</h4>
         ${item.variantName ? `<p class="cart-item-price" style="opacity:.85; margin-top:-6px;">${escapeHtml(item.variantName)}</p>` : ''}
-        <p class="cart-item-price">€${item.price.toFixed(2)}</p>
+        <p class="cart-item-price">€${getCartItemGrossUnitPrice(item).toFixed(2)}</p>
         <div class="cart-item-quantity">
           <button class="btn-qty-minus" data-product-id="${item.productId}" data-variant-id="${item.variantId || ''}">−</button>
           <span>${item.quantity}</span>
@@ -1942,6 +2127,12 @@ async function loadSavedAddress(userId) {
       document.getElementById('checkoutCity').value = address.city || '';
       document.getElementById('checkoutPostal').value = address.postal_code || '';
       document.getElementById('checkoutCountry').value = address.country || '';
+
+      // Refresh shipping + VAT after programmatic country update
+      await refreshTaxRatesFromUi();
+      updateShippingMethodsDropdown(address.country || '');
+      await refreshDiscountPreview();
+      updateShippingTotalsUI();
     }
   } catch (error) {
     console.log('No saved address found');
@@ -1973,7 +2164,13 @@ function openCheckoutModal() {
     // Initialize shipping methods based on current country selection
     const countrySelect = document.getElementById('checkoutCountry');
     if (countrySelect) {
-      updateShippingMethodsDropdown(countrySelect.value);
+      refreshTaxRatesFromUi()
+        .then(() => {
+          updateShippingMethodsDropdown(countrySelect.value);
+        })
+        .then(() => refreshDiscountPreview())
+        .then(() => updateShippingTotalsUI())
+        .catch(() => {});
     }
   }
 }
@@ -2076,7 +2273,7 @@ function populateReviewSection() {
       <div class="review-item">
         <span class="review-item-name">${escapeHtml(item.name)}${item.variantName ? ` <small style="opacity:.8">(${escapeHtml(item.variantName)})</small>` : ''}</span>
         <span class="review-item-qty">× ${item.quantity}</span>
-        <span class="review-item-price">€${(item.price * item.quantity).toFixed(2)}</span>
+        <span class="review-item-price">€${(getCartItemGrossUnitPrice(item) * item.quantity).toFixed(2)}</span>
       </div>
     `).join('');
   }
@@ -2490,8 +2687,11 @@ function setupEventListeners() {
   // Country change - update shipping methods
   const countrySelect = document.getElementById('checkoutCountry');
   if (countrySelect) {
-    countrySelect.addEventListener('change', () => {
+    countrySelect.addEventListener('change', async () => {
+      await refreshTaxRatesFromUi();
       updateShippingMethodsDropdown(countrySelect.value);
+      await refreshDiscountPreview();
+      updateShippingTotalsUI();
     });
   }
 

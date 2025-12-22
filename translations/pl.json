@@ -3995,6 +3995,7 @@
   "shop.checkout.clear_discount": "Usuń",
   "shop.checkout.totals.subtotal": "Suma produktów",
   "shop.checkout.totals.shipping": "Dostawa",
+  "shop.checkout.totals.vat": "VAT",
   "shop.checkout.totals.discount": "Rabat",
   "shop.checkout.totals.total": "Razem",
   "shop.checkout.back": "← Wstecz",

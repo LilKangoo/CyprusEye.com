@@ -168,13 +168,24 @@ async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.S
 
       if (!usageError) {
         try {
-          await supabase
+          const { data: d, error: readErr } = await supabase
             .from("shop_discounts")
-            .update({
-              usage_count: supabase.sql`usage_count + 1`,
-              updated_at: new Date().toISOString(),
-            })
-            .eq("id", order.discount_id);
+            .select("usage_count")
+            .eq("id", order.discount_id)
+            .single();
+
+          if (readErr) {
+            console.error("Failed to load discount usage_count:", readErr);
+          } else {
+            const currentCount = Number((d as any)?.usage_count || 0) || 0;
+            const { error: updateErr } = await supabase
+              .from("shop_discounts")
+              .update({ usage_count: currentCount + 1, updated_at: new Date().toISOString() })
+              .eq("id", order.discount_id);
+            if (updateErr) {
+              console.error("Failed to update discount usage_count:", updateErr);
+            }
+          }
         } catch (e) {
           console.error("Failed to increment discount usage_count:", e);
         }

@@ -36,7 +36,7 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20251222"></script>
+  <script type="module" src="/admin/admin.js?v=20251222_1"></script>
 </head>
 <body data-admin-panel="true">
   
@@ -2803,6 +2803,38 @@
             </div>
           </div>
 
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header">
+              <h3>🧾 VAT</h3>
+              <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Ustawienia podatku VAT per kraj i per produkt</p>
+            </div>
+            <div class="admin-card-body">
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                  <input type="checkbox" id="shopSettingTaxEnabled" style="width: 18px; height: 18px;">
+                  <div>
+                    <span style="font-weight: 500;">Włącz VAT</span>
+                    <small style="display: block; color: var(--admin-text-muted);">Jeśli wyłączone, VAT nie będzie naliczany i nie będzie pokazywany w checkout</small>
+                  </div>
+                </label>
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                  <input type="checkbox" id="shopSettingTaxIncludedInPrice" style="width: 18px; height: 18px;" checked>
+                  <div>
+                    <span style="font-weight: 500;">Ceny zawierają VAT (domyślnie)</span>
+                    <small style="display: block; color: var(--admin-text-muted);">Per produkt można nadpisać (net/gross)</small>
+                  </div>
+                </label>
+                <label class="admin-form-field" style="max-width: 320px;">
+                  <span>VAT liczony na podstawie</span>
+                  <select id="shopSettingTaxBasedOn" class="form-control">
+                    <option value="shipping">Adres dostawy</option>
+                    <option value="billing">Adres płatnika</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+          </div>
+
           <!-- XP & Gamification -->
           <div class="admin-card" style="margin-top: 16px;">
             <div class="admin-card-header">
@@ -3890,6 +3922,14 @@
                 <span>Klasa podatkowa <small style="color: var(--admin-text-muted);">- stawka VAT</small></span>
                 <select id="shopProductTaxClass">
                   <option value="">-- Domyślna --</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Tryb ceny VAT <small style="color: var(--admin-text-muted);">- net/gross</small></span>
+                <select id="shopProductTaxPriceMode" class="form-control">
+                  <option value="inherit">Domyślnie (z ustawień VAT)</option>
+                  <option value="gross">Cena brutto (z VAT)</option>
+                  <option value="net">Cena netto (bez VAT)</option>
                 </select>
               </label>
             </div>

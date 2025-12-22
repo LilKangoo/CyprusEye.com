@@ -3032,6 +3032,7 @@
       "totals": {
         "subtotal": "Items subtotal",
         "shipping": "Shipping",
+        "vat": "VAT",
         "discount": "Discount",
         "total": "Total"
       },
