@@ -1680,6 +1680,7 @@ async function submitOrder(e) {
   const btnSubmit = document.getElementById('btnPlaceOrder');
   btnSubmit.disabled = true;
   btnSubmit.textContent = shopState.lang === 'en' ? 'Redirecting to payment...' : 'Przekierowanie do płatności...';
+  let redirectInitiated = false;
   
   try {
     const shippingMetrics = getCartShippingMetrics();
@@ -1773,6 +1774,7 @@ async function submitOrder(e) {
       saveCartToStorage();
       
       // Redirect to Stripe Checkout
+      redirectInitiated = true;
       window.location.href = data.session_url;
     } else {
       throw new Error('No checkout URL returned');
@@ -1780,9 +1782,15 @@ async function submitOrder(e) {
     
   } catch (error) {
     console.error('Checkout error:', error);
-    showToast(shopState.lang === 'en' ? 'Error starting payment' : 'Błąd podczas uruchamiania płatności', 'error');
-    btnSubmit.disabled = false;
-    btnSubmit.textContent = shopState.lang === 'en' ? 'Pay with Stripe' : 'Zapłać przez Stripe';
+    try {
+      showToast(shopState.lang === 'en' ? 'Error starting payment' : 'Błąd podczas uruchamiania płatności', 'error');
+    } catch (e) {
+    }
+  } finally {
+    if (!redirectInitiated) {
+      btnSubmit.disabled = false;
+      btnSubmit.textContent = shopState.lang === 'en' ? 'Pay with Stripe' : 'Zapłać przez Stripe';
+    }
   }
 }
 
@@ -2081,8 +2089,9 @@ function escapeHtml(text) {
 
 function showToast(message, type = 'success') {
   // Use existing toast system if available
-  if (window.showToast) {
-    window.showToast(message, type);
+  const externalToast = window.showToast;
+  if (typeof externalToast === 'function' && externalToast !== showToast) {
+    externalToast(message, type);
     return;
   }
 
@@ -2096,7 +2105,7 @@ function showToast(message, type = 'success') {
     left: 50%;
     transform: translateX(-50%);
     padding: 12px 24px;
-    background: ${type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : '#22c55e'};
+    background: ${type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : type === 'info' ? '#3b82f6' : '#22c55e'};
     color: white;
     border-radius: 8px;
     font-size: 14px;
