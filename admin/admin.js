@@ -10017,10 +10017,15 @@ async function loadAllOrders() {
     console.log('Loading all orders from all categories...');
 
     // Fetch all bookings in parallel
-    const [carsResult, tripsResult, hotelsResult] = await Promise.all([
+    const [carsResult, tripsResult, hotelsResult, shopResult] = await Promise.all([
       client.from('car_bookings').select('*').order('created_at', { ascending: false }).limit(200),
       client.from('trip_bookings').select('*').order('created_at', { ascending: false }).limit(200),
-      client.from('hotel_bookings').select('*').order('created_at', { ascending: false }).limit(200)
+      client.from('hotel_bookings').select('*').order('created_at', { ascending: false }).limit(200),
+      client
+        .from('shop_orders')
+        .select('id, order_number, created_at, total, currency, status, payment_status, customer_name, customer_email, customer_phone, shipping_address')
+        .order('created_at', { ascending: false })
+        .limit(200)
     ]);
 
     // Process car bookings
@@ -10061,16 +10066,37 @@ async function loadAllOrders() {
       viewFunction: 'viewHotelBookingDetails'
     }));
 
+    // Process shop orders
+    const shopOrders = (shopResult.data || []).map(order => ({
+      ...order,
+      category: 'shop',
+      categoryLabel: 'Shop',
+      categoryIcon: '🛍️',
+      categoryColor: '#f97316',
+      customer_name: order.customer_name || 'N/A',
+      customer_email: order.customer_email || '',
+      customer_phone: order.customer_phone || '',
+      total_price: order.total,
+      displayName: order.order_number || 'N/A',
+      viewFunction: 'viewShopOrder'
+    }));
+
     // Combine all orders
-    allOrdersCache = [...carBookings, ...tripBookings, ...hotelBookings];
+    allOrdersCache = [...carBookings, ...tripBookings, ...hotelBookings, ...shopOrders];
 
     // Sort: pending/confirmed first, then by created_at descending
     allOrdersCache.sort((a, b) => {
       const statusPriority = {
-        'pending': 1,
-        'confirmed': 2,
-        'completed': 3,
-        'cancelled': 4
+        pending: 1,
+        confirmed: 2,
+        processing: 3,
+        shipped: 4,
+        delivered: 5,
+        completed: 6,
+        on_hold: 7,
+        refunded: 8,
+        cancelled: 9,
+        failed: 10
       };
       
       const aPriority = statusPriority[a.status] || 99;
