@@ -26,6 +26,12 @@ const shopState = {
     ts: 0,
     ttlMs: 8000
   },
+  facetCounts: {
+    categories: {},
+    key: null,
+    ts: 0,
+    ttlMs: 6000
+  },
   cart: [],
   productVariants: {},
   discountCode: null,
@@ -76,6 +82,64 @@ function isCheckoutUiDebugEnabled() {
     return localStorage.getItem('checkout_debug_ui') === 'true';
   } catch (e) {
     return false;
+  }
+}
+
+async function loadFacetCounts() {
+  if (!supabase) return;
+
+  const cacheKey = (() => {
+    return JSON.stringify({
+      q: String(shopState.filters.search || '').trim(),
+      lang: shopState.lang,
+      stock: shopState.filters.inStock === true,
+      sale: shopState.filters.onSale === true,
+      min: shopState.filters.priceMin !== null ? shopState.filters.priceMin : null,
+      max: shopState.filters.priceMax !== null ? shopState.filters.priceMax : null
+    });
+  })();
+
+  try {
+    const now = Date.now();
+    if (
+      shopState.facetCounts.key === cacheKey &&
+      shopState.facetCounts.categories &&
+      (now - shopState.facetCounts.ts) < shopState.facetCounts.ttlMs
+    ) {
+      return;
+    }
+  } catch (e) {
+  }
+
+  try {
+    const q = String(shopState.filters.search || '').trim();
+    const { data, error } = await supabase.rpc('shop_get_category_counts', {
+      p_search: q || null,
+      p_lang: shopState.lang,
+      p_in_stock: shopState.filters.inStock === true,
+      p_on_sale: shopState.filters.onSale === true,
+      p_price_min: shopState.filters.priceMin !== null ? shopState.filters.priceMin : null,
+      p_price_max: shopState.filters.priceMax !== null ? shopState.filters.priceMax : null
+    });
+
+    if (error) throw error;
+
+    const map = {};
+    (data || []).forEach(row => {
+      const id = row?.category_id ? String(row.category_id) : '';
+      if (!id) return;
+      const raw = row?.product_count;
+      const num = typeof raw === 'string' ? parseInt(raw, 10) : Number(raw);
+      map[id] = Number.isFinite(num) ? num : 0;
+    });
+
+    shopState.facetCounts.categories = map;
+    shopState.facetCounts.key = cacheKey;
+    shopState.facetCounts.ts = Date.now();
+  } catch (e) {
+    shopState.facetCounts.categories = {};
+    shopState.facetCounts.key = cacheKey;
+    shopState.facetCounts.ts = Date.now();
   }
 }
 
@@ -380,6 +444,9 @@ function scheduleLoadProducts() {
   shopState.filterDebounce.timer = window.setTimeout(() => {
     shopState.filterDebounce.timer = null;
     loadProducts();
+    loadFacetCounts().then(() => {
+      renderCategoryFilters();
+    });
   }, shopState.filterDebounce.delayMs);
 }
 
@@ -465,7 +532,13 @@ function setActiveCategoryId(categoryId) {
 
   renderCategoryFilters();
   renderBreadcrumbs();
-  loadPriceBounds().then(() => applyFilterUiState());
+  Promise.all([
+    loadPriceBounds(),
+    loadFacetCounts()
+  ]).then(() => {
+    applyFilterUiState();
+    renderCategoryFilters();
+  });
   loadProducts();
 }
 
@@ -735,6 +808,7 @@ async function init() {
   await loadCategories();
   renderBreadcrumbs();
   await loadPriceBounds();
+  await loadFacetCounts();
   applyFilterUiState();
   await loadProducts();
   await refreshTaxRatesFromUi();
@@ -751,7 +825,9 @@ async function init() {
   // Listen for language changes
   const handleLanguageUpdate = () => {
     shopState.lang = getCurrentLang();
-    renderCategoryFilters();
+    loadFacetCounts().then(() => {
+      renderCategoryFilters();
+    });
     renderBreadcrumbs();
     renderProducts();
     renderCartItems(); // Re-render cart with new translations
@@ -1525,12 +1601,16 @@ function renderCategoryFilters() {
       const label = escapeHtml(getLocalizedField(cat, 'name'));
       const iconHtml = icon ? `<span class="filter-item__icon">${escapeHtml(icon)}</span>` : '';
       const id = String(cat.id);
+      const rawCount = shopState.facetCounts?.categories ? shopState.facetCounts.categories[id] : undefined;
+      const countNum = typeof rawCount === 'string' ? parseInt(rawCount, 10) : Number(rawCount);
+      const countHtml = Number.isFinite(countNum) ? `<span class="filter-item__count">${countNum}</span>` : '';
       const hasChildren = (shopState.categoryIndex?.childrenByParent?.[id] || []).length > 0;
       const checked = selectedId && selectedId === id;
       return `
       <label class="filter-item${hasChildren ? ' filter-item--parent' : ''}" style="--cat-indent:${Number.isFinite(level) ? level : 0}">
         <input type="radio" name="category" value="${escapeHtml(id)}" ${checked ? 'checked' : ''}>
         <span class="filter-item__label">${iconHtml}${label}</span>
+        ${countHtml}
       </label>
     `;
     }).join('')}
@@ -3376,7 +3456,13 @@ function setupEventListeners() {
       shopState.filters.inStock = chkInStock.checked === true;
       shopState.pagination.page = 1;
       syncFiltersToUrl();
-      loadPriceBounds().then(() => applyFilterUiState());
+      Promise.all([
+        loadPriceBounds(),
+        loadFacetCounts()
+      ]).then(() => {
+        applyFilterUiState();
+        renderCategoryFilters();
+      });
       loadProducts();
     });
   }
@@ -3388,7 +3474,13 @@ function setupEventListeners() {
       shopState.filters.onSale = chkOnSale.checked === true;
       shopState.pagination.page = 1;
       syncFiltersToUrl();
-      loadPriceBounds().then(() => applyFilterUiState());
+      Promise.all([
+        loadPriceBounds(),
+        loadFacetCounts()
+      ]).then(() => {
+        applyFilterUiState();
+        renderCategoryFilters();
+      });
       loadProducts();
     });
   }
@@ -3421,6 +3513,9 @@ function setupEventListeners() {
       shopState.pagination.page = 1;
       syncFiltersToUrl();
       applyFilterUiState();
+      loadFacetCounts().then(() => {
+        renderCategoryFilters();
+      });
       loadProducts();
     });
   }
@@ -3450,8 +3545,10 @@ function setupEventListeners() {
       resetFilters({ keepCategory: false });
       await loadCategories();
       await loadPriceBounds();
+      await loadFacetCounts();
       applyFilterUiState();
       renderBreadcrumbs();
+      renderCategoryFilters();
       loadProducts();
     });
   }
