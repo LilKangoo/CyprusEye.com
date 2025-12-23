@@ -3390,6 +3390,158 @@ async function viewUserDetails(userId) {
     const usernameEscaped = escapeHtml(profile.username || '');
     const nameEscaped = escapeHtml(profile.name || '');
 
+    let shopAddresses = [];
+    let shopOrders = [];
+
+    try {
+      const [addressesResult, ordersResult] = await Promise.all([
+        client
+          .from('shop_addresses')
+          .select('*')
+          .eq('user_id', userId)
+          .order('is_default_shipping', { ascending: false })
+          .order('updated_at', { ascending: false }),
+        client
+          .from('shop_orders')
+          .select('id, order_number, created_at, total, currency, status, payment_status, shipping_address')
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false })
+          .limit(25),
+      ]);
+
+      if (!addressesResult.error && Array.isArray(addressesResult.data)) {
+        shopAddresses = addressesResult.data;
+      }
+      if (!ordersResult.error && Array.isArray(ordersResult.data)) {
+        shopOrders = ordersResult.data;
+      }
+    } catch (e) {
+    }
+
+    const formatMoney = (value, currency = 'EUR') => {
+      const num = Number(value) || 0;
+      if (currency === 'EUR') {
+        if (typeof formatCurrencyEUR === 'function') {
+          try {
+            return formatCurrencyEUR(num);
+          } catch (e) {
+          }
+        }
+        return `€${num.toFixed(2)}`;
+      }
+      return `${num.toFixed(2)} ${escapeHtml(String(currency || ''))}`;
+    };
+
+    const normalizeAddressObject = (raw) => {
+      if (!raw) return null;
+      if (typeof raw === 'string') {
+        try {
+          return JSON.parse(raw);
+        } catch (e) {
+          return null;
+        }
+      }
+      if (typeof raw === 'object') return raw;
+      return null;
+    };
+
+    const latestOrder = shopOrders[0] || null;
+    const latestShippingAddress = normalizeAddressObject(latestOrder?.shipping_address) || null;
+
+    const renderInlineAddress = (address) => {
+      if (!address) {
+        return '<p class="user-detail-hint">No shipping address captured.</p>';
+      }
+      const line1 = escapeHtml(address.line1 || address.address || '');
+      const line2 = escapeHtml(address.line2 || '');
+      const city = escapeHtml(address.city || '');
+      const postal = escapeHtml(address.postal_code || address.postalCode || '');
+      const country = escapeHtml(address.country || '');
+      const name = escapeHtml(address.name || address.full_name || address.fullName || '');
+      const phone = escapeHtml(address.phone || '');
+      return `
+        <div style="font-size: 13px; line-height: 1.45;">
+          ${name ? `<div style="font-weight: 600;">${name}</div>` : ''}
+          ${line1 ? `<div>${line1}</div>` : ''}
+          ${line2 ? `<div>${line2}</div>` : ''}
+          ${(postal || city) ? `<div>${postal} ${city}</div>` : ''}
+          ${country ? `<div style="font-weight: 500;">${country}</div>` : ''}
+          ${phone ? `<div style="color: var(--admin-text-muted); margin-top: 6px;">${phone}</div>` : ''}
+        </div>
+      `;
+    };
+
+    const shopAddressesHtml = shopAddresses.length
+      ? `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px;">
+          ${shopAddresses.map((addr) => {
+            const header = `${escapeHtml(addr.first_name || '')} ${escapeHtml(addr.last_name || '')}`.trim() || 'Address';
+            const isDefault = addr.is_default_shipping ? '<span class="badge badge-success" style="margin-left: 8px;">Default</span>' : '';
+            const line1 = escapeHtml(addr.line1 || '');
+            const line2 = escapeHtml(addr.line2 || '');
+            const city = escapeHtml(addr.city || '');
+            const postal = escapeHtml(addr.postal_code || '');
+            const country = escapeHtml(addr.country || '');
+            const phone = escapeHtml(addr.phone || '');
+            return `
+              <div style="padding: 12px; background: var(--admin-bg); border-radius: 8px;">
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 8px;">
+                  <div style="font-weight: 600;">${header}${isDefault}</div>
+                </div>
+                <div style="font-size: 13px; line-height: 1.45;">
+                  ${line1 ? `<div>${line1}</div>` : ''}
+                  ${line2 ? `<div>${line2}</div>` : ''}
+                  ${(postal || city) ? `<div>${postal} ${city}</div>` : ''}
+                  ${country ? `<div style="font-weight: 500;">${country}</div>` : ''}
+                  ${phone ? `<div style="color: var(--admin-text-muted); margin-top: 6px;">${phone}</div>` : ''}
+                </div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `
+      : '<p class="user-detail-hint">No saved shop addresses.</p>';
+
+    const shopOrdersHtml = shopOrders.length
+      ? `
+        <div class="admin-table-container" style="margin-top: 10px;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Order #</th>
+                <th>Date</th>
+                <th>Status</th>
+                <th>Payment</th>
+                <th style="text-align: right;">Total</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${shopOrders.map((order) => {
+                const number = escapeHtml(order.order_number || '');
+                const created = order.created_at ? new Date(order.created_at).toLocaleString('pl-PL') : '';
+                const status = escapeHtml(order.status || '');
+                const payment = escapeHtml(order.payment_status || '');
+                const total = formatMoney(order.total, order.currency || 'EUR');
+                return `
+                  <tr>
+                    <td><strong>${number}</strong></td>
+                    <td>${escapeHtml(created)}</td>
+                    <td>${status}</td>
+                    <td>${payment}</td>
+                    <td style="text-align: right;"><strong>${total}</strong></td>
+                    <td style="text-align: right;">
+                      <button class="btn-small btn-secondary" onclick="viewShopOrder('${order.id}')">View</button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `
+      : '<p class="user-detail-hint">No shop orders found.</p>';
+
     content.innerHTML = `
       <div class="user-detail-grid">
         <section class="user-detail-card user-detail-card--full">
@@ -3430,6 +3582,24 @@ async function viewUserDetails(userId) {
               <dd>${formattedLastSignIn}</dd>
             </div>
           </dl>
+        </section>
+
+        <section class="user-detail-card user-detail-card--full">
+          <h4 class="user-detail-section-title">Shop</h4>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px;">
+            <div style="padding: 12px; background: var(--admin-bg); border-radius: 8px;">
+              <h5 style="margin: 0 0 8px; font-size: 13px; color: var(--admin-text-muted);">Latest shipping address (from last order)</h5>
+              ${renderInlineAddress(latestShippingAddress)}
+            </div>
+            <div style="padding: 12px; background: var(--admin-bg); border-radius: 8px;">
+              <h5 style="margin: 0 0 8px; font-size: 13px; color: var(--admin-text-muted);">Saved shop addresses</h5>
+              ${shopAddressesHtml}
+            </div>
+          </div>
+          <div style="margin-top: 16px;">
+            <h5 style="margin: 0 0 8px; font-size: 13px; color: var(--admin-text-muted);">Orders</h5>
+            ${shopOrdersHtml}
+          </div>
         </section>
 
         <section class="user-detail-card">
