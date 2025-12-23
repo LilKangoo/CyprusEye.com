@@ -3091,6 +3091,112 @@
     }
   },
   "nav": {
-    "shop": "🛍️ Shop"
+    "shop": "🛍️ Shop",
+    "toggle": "☰ Navigation",
+    "adventure": "🎯 Adventure",
+    "packing": "🎒 Packing",
+    "tasks": "✅ Tasks",
+    "recommendations": "✨ Recommended",
+    "community": "💬 Community",
+    "trips": "🧭 Trips",
+    "hotels": "🏨 Hotels"
+  },
+  "common": {
+    "close": "Close"
+  },
+  "shop": {
+    "title": "CyprusEye Shop",
+    "subtitle": "Discover authentic Cypriot products",
+    "loading": "Loading products...",
+    "no_products": "No products found",
+    "products_found": "products",
+    "filters": {
+      "title": "Filters",
+      "search": "Search",
+      "searchPlaceholder": "Search...",
+      "categories": "Categories",
+      "all": "All",
+      "availability": "Availability",
+      "inStock": "In stock only",
+      "onSale": "On sale",
+      "price": "Price",
+      "priceMin": "From",
+      "priceMax": "To",
+      "apply": "Apply",
+      "reset": "Reset filters",
+      "sort": "Sort by",
+      "tags": "Popular tags",
+      "close": "Close filters"
+    },
+    "sort": {
+      "newest": "Newest",
+      "price_asc": "Price: low to high",
+      "price_desc": "Price: high to low",
+      "name": "Name A-Z",
+      "popular": "Most popular"
+    },
+    "product": {
+      "add_to_cart": "Add to cart",
+      "out_of_stock": "Out of stock",
+      "in_stock": "In stock",
+      "quantity": "Quantity"
+    },
+    "cart": {
+      "title": "Shopping Cart",
+      "empty": "Your cart is empty",
+      "subtotal": "Subtotal",
+      "checkout": "Proceed to checkout",
+      "remove": "Remove",
+      "aria": "Shopping cart",
+      "shipping_note": "Shipping calculated at checkout",
+      "close": "Close cart"
+    },
+    "checkout": {
+      "title": "Checkout",
+      "step": {
+        "address": "Shipping details",
+        "review": "Review order"
+      },
+      "email": "Email",
+      "firstName": "First name",
+      "lastName": "Last name",
+      "phone": "Phone",
+      "address1": "Address",
+      "address2": "Address (cont.)",
+      "city": "City",
+      "postal": "Postal code",
+      "country": "Country",
+      "shippingMethod": "Shipping method",
+      "selectShipping": "Select shipping method...",
+      "saveAddress": "Save as default address",
+      "notes": "Order notes",
+      "continue": "Continue",
+      "back": "← Back",
+      "pay": "Pay with Stripe",
+      "edit": "Edit",
+      "review": {
+        "shipping": "Shipping",
+        "items": "Items"
+      },
+      "payment": "Payment",
+      "payment.stripe.info": "Payment processed by Stripe - we accept cards, Apple Pay, Google Pay and other methods.",
+      "discount_code": "Discount code",
+      "apply_discount": "Apply",
+      "clear_discount": "Remove",
+      "totals": {
+        "subtotal": "Subtotal",
+        "shipping": "Shipping",
+        "vat": "VAT",
+        "discount": "Discount",
+        "total": "Total"
+      },
+      "success": "Thank you for your order!",
+      "success_message": "Your order has been received and is being processed.",
+      "error": "Error creating order"
+    },
+    "pagination": {
+      "previous": "Previous",
+      "next": "Next"
+    }
   }
 }

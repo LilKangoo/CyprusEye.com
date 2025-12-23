@@ -3362,6 +3362,7 @@
       }
     },
     "common": {
+      "close": "Zamknij",
       "pricePerDay": "{{price}} / dzień",
       "seats": "{{count}} miejsc",
       "daysLabel": "dni",

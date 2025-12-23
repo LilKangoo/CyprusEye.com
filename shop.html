@@ -180,7 +180,7 @@
             ⚠️ SOS
           </button>
 
-          <button id="btnOpenCart" class="btn btn-sm" type="button" aria-label="Koszyk">
+          <button id="btnOpenCart" class="btn btn-sm" type="button" aria-label="Koszyk" data-i18n-attrs="aria-label:shop.cart.aria">
             🛒 <span id="cartCount" class="cart-count" hidden>0</span>
           </button>
 
@@ -237,7 +237,7 @@
         <aside class="shop-filters" id="shopFilters" aria-label="Filters">
           <div class="shop-filters__header">
             <h2 class="shop-filters__title" data-i18n="shop.filters.title">Filtry</h2>
-            <button type="button" class="shop-filters__close" id="btnCloseFilters" aria-label="Close filters">×</button>
+            <button type="button" class="shop-filters__close" id="btnCloseFilters" aria-label="Close filters" data-i18n-attrs="aria-label:shop.filters.close">×</button>
           </div>
 
           <div class="shop-filter-block">
@@ -330,9 +330,9 @@
           </div>
 
           <div id="productsPagination" class="shop-pagination" hidden>
-            <button type="button" class="btn btn-sm" id="btnPrevPage" aria-label="Previous">←</button>
+            <button type="button" class="btn btn-sm" id="btnPrevPage" aria-label="Previous" data-i18n-attrs="aria-label:shop.pagination.previous">←</button>
             <span id="paginationInfo" class="shop-pagination__info">1 / 1</span>
-            <button type="button" class="btn btn-sm" id="btnNextPage" aria-label="Next">→</button>
+            <button type="button" class="btn btn-sm" id="btnNextPage" aria-label="Next" data-i18n-attrs="aria-label:shop.pagination.next">→</button>
           </div>
         </section>
       </div>
@@ -343,7 +343,7 @@
   <div id="productModal" class="modal-overlay" hidden>
     <div class="modal-backdrop" id="productModalOverlay"></div>
     <div class="modal-container product-modal">
-      <button class="modal-close" id="btnCloseProductModal" aria-label="Zamknij">&times;</button>
+      <button class="modal-close" id="btnCloseProductModal" aria-label="Zamknij" data-i18n-attrs="aria-label:common.close">&times;</button>
       <div id="productModalContent" class="product-modal-content">
         <!-- Product details loaded dynamically -->
       </div>
@@ -356,7 +356,7 @@
     <div class="cart-sidebar-content">
       <div class="cart-sidebar-header">
         <h2 data-i18n="shop.cart.title">Koszyk</h2>
-        <button class="cart-sidebar-close" id="btnCloseCart" aria-label="Zamknij koszyk">&times;</button>
+        <button class="cart-sidebar-close" id="btnCloseCart" aria-label="Zamknij koszyk" data-i18n-attrs="aria-label:shop.cart.close">&times;</button>
       </div>
       <div class="cart-sidebar-items" id="cartItems">
         <!-- Cart items loaded dynamically -->
@@ -376,7 +376,7 @@
   <div id="checkoutModal" class="shop-modal" hidden style="display: none;">
     <div class="modal-overlay" id="checkoutModalOverlay"></div>
     <div class="modal-content checkout-modal-content">
-      <button class="modal-close" id="btnCloseCheckout" aria-label="Zamknij">&times;</button>
+      <button class="modal-close" id="btnCloseCheckout" aria-label="Zamknij" data-i18n-attrs="aria-label:common.close">&times;</button>
       <div class="checkout-content">
         <h2 class="checkout-title" data-i18n="shop.checkout.title">Zamówienie</h2>
         <div class="checkout-steps">
