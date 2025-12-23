@@ -7,6 +7,11 @@
 const shopState = {
   products: [],
   categories: [],
+  categoryIndex: {
+    byId: {},
+    childrenByParent: {}
+  },
+  pendingCategorySlug: null,
   cart: [],
   productVariants: {},
   discountCode: null,
@@ -290,6 +295,7 @@ document.addEventListener('DOMContentLoaded', init);
 async function init() {
   // Set current language
   shopState.lang = getCurrentLang();
+  shopState.pendingCategorySlug = getUrlCategorySlug();
   
   await initSupabase();
   loadCartFromStorage();
@@ -299,6 +305,7 @@ async function init() {
 
   await loadTaxSettings();
   await loadCategories();
+  renderBreadcrumbs();
   await loadProducts();
   await refreshTaxRatesFromUi();
   await loadShippingZonesAndMethods();
@@ -315,6 +322,7 @@ async function init() {
   const handleLanguageUpdate = () => {
     shopState.lang = getCurrentLang();
     renderCategoryFilters();
+    renderBreadcrumbs();
     renderProducts();
     renderCartItems(); // Re-render cart with new translations
     refreshDiscountPreview().then(() => updateShippingTotalsUI());
