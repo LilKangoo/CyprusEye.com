@@ -125,14 +125,20 @@
   margin-bottom: 8px;
 }
 
+.shop-check span {
+  font-size: 0.95rem;
+  color: rgba(15, 23, 42, 0.9);
+}
+
 .shop-check input[type="checkbox"] {
   width: 18px;
   height: 18px;
+  flex-shrink: 0;
   accent-color: #2563eb;
 }
 
 .shop-price-slider {
-  padding: 10px 10px;
+  padding: 12px 10px;
   border-radius: 14px;
   border: 1px solid rgba(148, 163, 184, 0.28);
   background: rgba(248, 250, 252, 0.75);
@@ -140,20 +146,72 @@
 }
 
 .shop-price-slider__inputs {
-  display: grid;
-  gap: 10px;
+  position: relative;
+  height: 24px;
+  display: flex;
+  align-items: center;
 }
 
 .shop-price-slider input[type="range"] {
+  position: absolute;
+  left: 0;
+  right: 0;
   width: 100%;
+  pointer-events: none;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  height: 6px;
+}
+
+.shop-price-slider input[type="range"]::-webkit-slider-thumb {
+  pointer-events: auto;
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #2563eb;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.shop-price-slider input[type="range"]::-moz-range-thumb {
+  pointer-events: auto;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #2563eb;
+  cursor: pointer;
+  border: 2px solid white;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+}
+
+.shop-price-slider input[type="range"]:first-child {
+  z-index: 1;
+}
+
+.shop-price-slider input[type="range"]:last-child {
+  z-index: 2;
+}
+
+.shop-price-slider__track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 6px;
+  background: rgba(148, 163, 184, 0.35);
+  border-radius: 3px;
 }
 
 .shop-price-slider__labels {
   display: flex;
   justify-content: space-between;
-  margin-top: 8px;
+  margin-top: 12px;
   font-size: 0.85rem;
-  color: rgba(15, 23, 42, 0.7);
+  font-weight: 600;
+  color: rgba(15, 23, 42, 0.8);
 }
 
 .filter-item {
@@ -196,6 +254,10 @@
   justify-content: center;
 }
 
+.shop-price-filter {
+  overflow: hidden;
+}
+
 .shop-price-filter__row {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -207,18 +269,24 @@
   display: flex;
   flex-direction: column;
   gap: 6px;
+  min-width: 0;
 }
 
 .shop-price-filter__label {
   font-size: 0.8rem;
+  font-weight: 600;
   color: rgba(15, 23, 42, 0.7);
 }
 
-.shop-price-filter input {
-  padding: 10px 12px;
+.shop-price-filter input[type="number"] {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 10px;
   border-radius: 12px;
   border: 1px solid rgba(148, 163, 184, 0.35);
   background: white;
+  font-size: 0.95rem;
+  box-sizing: border-box;
 }
 
 .shop-toolbar {
@@ -379,7 +447,15 @@
     border-color: rgba(148, 163, 184, 0.2);
   }
 
+  .shop-check span {
+    color: rgba(248, 250, 252, 0.92);
+  }
+
   .shop-price-slider__labels {
+    color: rgba(226, 232, 240, 0.85);
+  }
+
+  .shop-price-filter__label {
     color: rgba(226, 232, 240, 0.78);
   }
 

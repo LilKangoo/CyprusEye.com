@@ -256,8 +256,9 @@
             <div class="shop-price-filter">
               <div class="shop-price-slider">
                 <div class="shop-price-slider__inputs">
-                  <input id="priceRangeMin" type="range" />
-                  <input id="priceRangeMax" type="range" />
+                  <div class="shop-price-slider__track"></div>
+                  <input id="priceRangeMin" type="range" min="0" max="1000" value="0" />
+                  <input id="priceRangeMax" type="range" min="0" max="1000" value="1000" />
                 </div>
                 <div class="shop-price-slider__labels">
                   <span id="priceRangeMinLabel">€0</span>
