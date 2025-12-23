@@ -2106,21 +2106,27 @@
   position: absolute;
   top: 16px;
   right: 16px;
-  width: 40px;
-  height: 40px;
-  background: var(--bg-secondary, #f3f4f6);
-  border: none;
+  width: 44px;
+  height: 44px;
+  background: #ffffff;
+  border: 2px solid #e5e7eb;
   border-radius: 50%;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 10;
-  transition: background 0.2s;
+  transition: all 0.2s ease;
+  color: #1f2937;
+  font-size: 1.5rem;
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.15);
 }
 
 .shop-modal .modal-close:hover {
-  background: var(--border-color, #e5e7eb);
+  background: #f3f4f6;
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
 }
 
 /* =====================================================
