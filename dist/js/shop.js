@@ -742,6 +742,15 @@ async function init() {
   await loadShippingClasses();
   setupEventListeners();
   updateCartUI();
+  try {
+    const url = new URL(window.location.href);
+    if (url.searchParams.get('openCart') === '1') {
+      openCart();
+      url.searchParams.delete('openCart');
+      window.history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
+    }
+  } catch (e) {
+  }
   await refreshDiscountPreview();
   updateShippingTotalsUI();
   
@@ -2389,9 +2398,11 @@ async function refreshDiscountPreview() {
 function saveCartToStorage() {
   try {
     localStorage.setItem('shop_cart', JSON.stringify(shopState.cart));
+    window.dispatchEvent(new Event('shop:cart-updated'));
     // Also sync to Supabase if user is logged in
     syncCartToSupabase();
     // Recalculate shipping quote when cart changes
+    shopState.shippingQuote = null;
     if (shopState.selectedShippingMethod) {
       recalculateShippingQuote();
     }

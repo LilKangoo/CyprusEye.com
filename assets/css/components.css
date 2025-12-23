@@ -1853,6 +1853,32 @@ textarea:focus-visible {
   box-shadow: none;
 }
 
+#btnOpenCart {
+  position: relative;
+}
+
+.cart-count {
+  position: absolute;
+  top: 0;
+  right: 0;
+  min-width: 18px;
+  height: 18px;
+  background: #ef4444;
+  color: white;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 4px;
+}
+
+#btnOpenCart .cart-count {
+  top: -6px;
+  right: -6px;
+}
+
 .nav-modern__bars {
   display: flex;
   flex-direction: column;
@@ -2384,6 +2410,75 @@ textarea:focus-visible {
 
   .nav-modern__links-row {
     gap: 0.25rem;
+  }
+}
+
+@media (max-width: 900px) {
+  .nav-modern__top-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 0.4rem;
+    row-gap: 0.5rem;
+    width: 100%;
+  }
+
+  .language-pill-group {
+    grid-column: 1 / -1;
+    grid-row: 1 / 2;
+  }
+
+  .nav-modern__sos {
+    grid-column: 1 / 2;
+    grid-row: 2 / 3;
+    min-width: 0;
+    padding: 0.5rem 0.4rem !important;
+    font-size: 0.75rem !important;
+  }
+
+  .nav-modern__auth {
+    grid-column: 2 / 3;
+    grid-row: 2 / 3;
+    min-width: 0;
+    display: flex !important;
+    justify-content: center;
+  }
+
+  .nav-modern__auth .nav-modern__login:not([hidden]),
+  .nav-modern__auth .btn.btn-sm:not([hidden]) {
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+    padding: 0.5rem 0.25rem !important;
+    font-size: 0.65rem !important;
+    white-space: nowrap;
+    overflow: visible !important;
+    text-overflow: clip !important;
+    border-radius: 10px !important;
+    height: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  #btnOpenCart {
+    grid-column: 3 / 4;
+    grid-row: 2 / 3;
+    height: 44px;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    font-size: 1.1rem;
+    border-radius: 12px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    min-width: 0;
+  }
+
+  #btnOpenCart .cart-count {
+    top: -4px;
+    right: -4px;
   }
 }
 
