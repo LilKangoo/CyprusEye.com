@@ -2966,7 +2966,7 @@
     "shop": "Shop"
   },
   "shop": {
-    "title": "WakacjeCypr Shop",
+    "title": "CyprusEye Shop",
     "subtitle": "Discover authentic Cypriot products",
     "loading": "Loading products...",
     "no_products": "No products found",
@@ -2976,6 +2976,8 @@
       "categories": "Categories",
       "all": "All",
       "price": "Price",
+      "priceMin": "From",
+      "priceMax": "To",
       "apply": "Apply",
       "sort": "Sort by"
     },

@@ -1060,10 +1060,12 @@ function renderCategoryFilters() {
   const container = document.getElementById('categoryFilters');
   if (!container) return;
 
+  const allLabel = shopState.lang === 'en' ? 'All' : 'Wszystkie';
+
   container.innerHTML = `
     <label class="filter-item">
       <input type="radio" name="category" value="" ${!shopState.filters.category ? 'checked' : ''}>
-      <span data-i18n="shop.filters.all">Wszystkie</span>
+      <span class="filter-item__label">${escapeHtml(allLabel)}</span>
     </label>
     ${shopState.categories.map(cat => {
       const icon = (cat.icon || '').trim();
@@ -1153,11 +1155,12 @@ async function loadProducts() {
 
 function showProductsLoading() {
   const grid = document.getElementById('productsGrid');
+  const loadingText = shopState.lang === 'en' ? 'Loading products...' : 'Ładowanie produktów...';
   if (grid) {
     grid.innerHTML = `
       <div class="products-loading">
         <div class="spinner"></div>
-        <p data-i18n="shop.loading">Ładowanie produktów...</p>
+        <p>${escapeHtml(loadingText)}</p>
       </div>
     `;
   }
@@ -1181,9 +1184,10 @@ function renderProducts() {
   if (!grid) return;
 
   if (!shopState.products.length) {
+    const emptyText = shopState.lang === 'en' ? 'No products found' : 'Nie znaleziono produktów';
     grid.innerHTML = `
       <div class="products-empty">
-        <p data-i18n="shop.no_products">Nie znaleziono produktów</p>
+        <p>${escapeHtml(emptyText)}</p>
       </div>
     `;
     return;

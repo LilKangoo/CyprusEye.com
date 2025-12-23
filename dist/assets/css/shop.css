@@ -231,6 +231,69 @@
   color: rgba(15, 23, 42, 0.72);
 }
 
+#btnToggleFilters {
+  flex: 0 0 auto;
+  width: auto;
+  white-space: nowrap;
+}
+
+@media (min-width: 901px) {
+  #btnToggleFilters {
+    display: none;
+  }
+}
+
+.shop-pagination .btn {
+  flex: 0 0 auto;
+  width: auto;
+  min-width: 56px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .shop-filters {
+    background: rgba(15, 23, 42, 0.92);
+    border-color: rgba(148, 163, 184, 0.18);
+  }
+
+  .shop-filters__title {
+    color: #f8fafc;
+  }
+
+  .shop-filter-block__title,
+  .shop-price-filter__label,
+  .shop-toolbar__sort-label,
+  .shop-toolbar__count,
+  .shop-pagination__info {
+    color: rgba(226, 232, 240, 0.78);
+  }
+
+  .filter-item {
+    background: rgba(30, 41, 59, 0.85);
+    border-color: rgba(148, 163, 184, 0.2);
+  }
+
+  .filter-item:hover {
+    background: rgba(51, 65, 85, 0.85);
+    border-color: rgba(59, 130, 246, 0.45);
+  }
+
+  .filter-item__label {
+    color: rgba(248, 250, 252, 0.92);
+  }
+
+  .shop-price-filter input,
+  .shop-toolbar__sort-select {
+    background: rgba(15, 23, 42, 0.85);
+    color: #f8fafc;
+    border-color: rgba(148, 163, 184, 0.22);
+  }
+
+  .shop-toolbar {
+    background: rgba(15, 23, 42, 0.92);
+    border-color: rgba(148, 163, 184, 0.18);
+  }
+}
+
  /* Products Grid */
  .shop-grid {
    display: grid;
