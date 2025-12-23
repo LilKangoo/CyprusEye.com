@@ -1824,6 +1824,14 @@ textarea:focus-visible {
   gap: 0.5rem;
 }
 
+/* Ensure hidden elements stay hidden inside flex containers */
+.nav-modern__auth [hidden],
+.nav-modern__auth .hidden,
+.auth-actions-inline [hidden],
+.auth-actions-inline .hidden {
+  display: none !important;
+}
+
 .nav-modern__auth .nav-modern__login {
   border-radius: 16px;
   padding: 0.65rem 1.6rem;

@@ -4,8 +4,6 @@ html{scroll-behavior:smooth}
 body{margin:0;font-family:var(--font-family-base);font-size:var(--font-size-body);line-height:var(--line-height-body);color:var(--color-neutral-900);background:var(--color-neutral-100)}
 .hidden{display:none!important}
 [hidden]{display:none!important}
-[data-auth="logout"]{display:none}
-[data-auth="logout"]:not([hidden]){display:inline-flex}
 .auth-actions{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
 .auth-actions .btn{padding:.6rem 1rem;border-radius:10px;border:0;font-weight:600}
 .auth-actions .auth-badge{font-size:.95rem;opacity:.9}

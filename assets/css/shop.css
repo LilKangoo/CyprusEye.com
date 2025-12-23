@@ -2496,8 +2496,16 @@
     justify-content: center;
   }
 
-  .shop-page .nav-modern__auth .nav-modern__login,
-  .shop-page .nav-modern__auth .btn.btn-sm {
+  /* Hide elements with hidden attribute - must override flex */
+  .shop-page .nav-modern__auth [hidden],
+  .shop-page .nav-modern__auth .hidden,
+  .shop-page .auth-actions-inline [hidden],
+  .shop-page .auth-actions-inline .hidden {
+    display: none !important;
+  }
+
+  .shop-page .nav-modern__auth .nav-modern__login:not([hidden]),
+  .shop-page .nav-modern__auth .btn.btn-sm:not([hidden]) {
     width: 100% !important;
     min-width: 0 !important;
     max-width: 100% !important;
