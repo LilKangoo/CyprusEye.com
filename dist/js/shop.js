@@ -20,6 +20,12 @@ const shopState = {
     timer: null,
     delayMs: 280
   },
+  priceBoundsCache: {
+    key: null,
+    value: null,
+    ts: 0,
+    ttlMs: 8000
+  },
   cart: [],
   productVariants: {},
   discountCode: null,
@@ -465,47 +471,96 @@ function setActiveCategoryId(categoryId) {
 
 async function loadPriceBounds() {
   if (!supabase) return;
+
+  const cacheKey = (() => {
+    const ids = shopState.filters.category ? getDescendantCategoryIds(shopState.filters.category) : [];
+    return JSON.stringify({
+      ids,
+      q: String(shopState.filters.search || '').trim(),
+      lang: shopState.lang,
+      stock: shopState.filters.inStock === true,
+      sale: shopState.filters.onSale === true
+    });
+  })();
+
   try {
-    let base = supabase
-      .from('shop_products')
-      .select('price')
-      .eq('status', 'active');
-
-    if (shopState.filters.category) {
-      const ids = getDescendantCategoryIds(shopState.filters.category);
-      if (ids.length) base = base.in('category_id', ids);
-      else base = base.eq('category_id', shopState.filters.category);
+    const now = Date.now();
+    if (
+      shopState.priceBoundsCache.key === cacheKey &&
+      shopState.priceBoundsCache.value &&
+      (now - shopState.priceBoundsCache.ts) < shopState.priceBoundsCache.ttlMs
+    ) {
+      shopState.priceBounds = { ...shopState.priceBoundsCache.value };
+      return;
     }
-
-    const search = String(shopState.filters.search || '').trim();
-    if (search) {
-      const pattern = `%${search.replace(/[%_]/g, '')}%`;
-      if (shopState.lang === 'en') {
-        base = base.ilike('name_en', pattern);
-      } else {
-        base = base.ilike('name', pattern);
-      }
-    }
-
-    if (shopState.filters.inStock) {
-      base = base.or('track_inventory.eq.false,stock_quantity.gt.0');
-    }
-
-    if (shopState.filters.onSale) {
-      base = base.gt('compare_at_price', 0);
-    }
-
-    const { data: minRow } = await base.order('price', { ascending: true }).limit(1);
-    const { data: maxRow } = await base.order('price', { ascending: false }).limit(1);
-
-    const min = minRow && minRow[0] ? toNumber(minRow[0].price) : 0;
-    const max = maxRow && maxRow[0] ? toNumber(maxRow[0].price) : 0;
-    shopState.priceBounds = {
-      min: Math.max(0, min),
-      max: Math.max(0, max)
-    };
   } catch (e) {
-    shopState.priceBounds = { min: 0, max: 0 };
+  }
+
+  try {
+    const categoryIds = shopState.filters.category ? getDescendantCategoryIds(shopState.filters.category) : [];
+    const q = String(shopState.filters.search || '').trim();
+
+    const { data, error } = await supabase.rpc('shop_get_price_bounds', {
+      p_category_ids: categoryIds.length ? categoryIds : null,
+      p_search: q || null,
+      p_lang: shopState.lang,
+      p_in_stock: shopState.filters.inStock === true,
+      p_on_sale: shopState.filters.onSale === true
+    });
+
+    if (error) throw error;
+
+    const row = Array.isArray(data) ? data[0] : data;
+    const min = row ? toNumber(row.min_price) : 0;
+    const max = row ? toNumber(row.max_price) : 0;
+    shopState.priceBounds = { min: Math.max(0, min), max: Math.max(0, max) };
+
+    try {
+      shopState.priceBoundsCache.key = cacheKey;
+      shopState.priceBoundsCache.value = { ...shopState.priceBounds };
+      shopState.priceBoundsCache.ts = Date.now();
+    } catch (e) {
+    }
+  } catch (e) {
+    // Fallback to previous min/max queries
+    try {
+      let base = supabase
+        .from('shop_products')
+        .select('price')
+        .eq('status', 'active');
+
+      if (shopState.filters.category) {
+        const ids = getDescendantCategoryIds(shopState.filters.category);
+        if (ids.length) base = base.in('category_id', ids);
+        else base = base.eq('category_id', shopState.filters.category);
+      }
+
+      const search = String(shopState.filters.search || '').trim();
+      if (search) {
+        const pattern = `%${search.replace(/[%_]/g, '')}%`;
+        if (shopState.lang === 'en') {
+          base = base.ilike('name_en', pattern);
+        } else {
+          base = base.ilike('name', pattern);
+        }
+      }
+
+      if (shopState.filters.inStock) {
+        base = base.or('track_inventory.eq.false,stock_quantity.gt.0');
+      }
+
+      if (shopState.filters.onSale) {
+        base = base.gt('compare_at_price', 0);
+      }
+
+      const { data: minRow } = await base.order('price', { ascending: true }).limit(1);
+      const { data: maxRow } = await base.order('price', { ascending: false }).limit(1);
+      const min = minRow && minRow[0] ? toNumber(minRow[0].price) : 0;
+      const max = maxRow && maxRow[0] ? toNumber(maxRow[0].price) : 0;
+      shopState.priceBounds = { min: Math.max(0, min), max: Math.max(0, max) };
+    } catch (fallbackError) {
+      shopState.priceBounds = { min: 0, max: 0 };
+    }
   }
 }
 
