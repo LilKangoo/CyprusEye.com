@@ -1803,9 +1803,7 @@ async function openProductModal(productId) {
     return;
   }
 
-  const variants = product.product_type === 'variable'
-    ? await loadProductVariants(productId)
-    : [];
+  const variants = await loadProductVariants(productId);
   const selectedVariant = variants.find(v => v.is_default) || variants[0] || null;
 
   const basePrice = parseFloat(product.price);
@@ -1840,9 +1838,25 @@ async function openProductModal(productId) {
     ? 'Variants are not available for this product yet.'
     : 'Warianty dla tego produktu nie są jeszcze dostępne.';
 
+  const buildVariantLabel = (variant) => {
+    const rawName = variant && typeof variant.name === 'string' ? variant.name.trim() : '';
+    const attrs = variant && variant.attributes && typeof variant.attributes === 'object' ? variant.attributes : null;
+    const attrParts = attrs
+      ? Object.entries(attrs)
+          .filter(([k, v]) => k && v !== undefined && v !== null && String(v).trim() !== '')
+          .map(([k, v]) => `${k}:${String(v).trim()}`)
+      : [];
+    const attrsLabel = attrParts.join(', ');
+    if (rawName && attrsLabel) return `${rawName} (${attrsLabel})`;
+    if (rawName) return rawName;
+    if (attrsLabel) return attrsLabel;
+    return shopState.lang === 'en' ? 'Variant' : 'Wariant';
+  };
+
   const variantOptions = variants.map(v => {
     const vp = v.price !== null && v.price !== undefined ? parseFloat(v.price) : basePrice;
-    const label = `${v.name}${vp !== basePrice ? ` - €${vp.toFixed(2)}` : ''}`;
+    const baseLabel = buildVariantLabel(v);
+    const label = `${baseLabel}${vp !== basePrice ? ` - €${vp.toFixed(2)}` : ''}`;
     const selected = selectedVariant && v.id === selectedVariant.id ? 'selected' : '';
     return `<option value="${v.id}" ${selected}>${escapeHtml(label)}</option>`;
   }).join('');
@@ -2009,7 +2023,8 @@ async function openProductModal(productId) {
         ? parseFloat(v.weight)
         : (typeof product.weight === 'number' ? product.weight : parseFloat(product.weight) || 0);
       const vImage = v?.image_url || product.thumbnail_url || null;
-      addToCart(product.id, qty, v?.id || null, v?.name || null, vPrice, vWeight, vImage);
+      const vName = v ? buildVariantLabel(v) : null;
+      addToCart(product.id, qty, v?.id || null, vName, vPrice, vWeight, vImage);
       closeProductModal();
     };
   }
@@ -2022,16 +2037,29 @@ async function loadProductVariants(productId) {
   }
 
   try {
-    const { data, error } = await supabase
-      .from('shop_product_variants')
-      .select('id, product_id, name, price, compare_at_price, stock_quantity, weight, image_url, attributes, is_default, is_active, sort_order')
-      .eq('product_id', productId)
-      .eq('is_active', true)
-      .order('sort_order');
+    try {
+      const { data, error } = await supabase
+        .from('shop_product_variants')
+        .select('id, product_id, name, price, compare_at_price, stock_quantity, weight, image_url, attributes, is_default, is_active, sort_order')
+        .eq('product_id', productId)
+        .or('is_active.is.null,is_active.eq.true')
+        .order('sort_order');
 
-    if (error) throw error;
-    shopState.productVariants[productId] = data || [];
-    return shopState.productVariants[productId];
+      if (error) throw error;
+      const active = (data || []).filter(v => v.is_active !== false);
+      shopState.productVariants[productId] = active;
+      return shopState.productVariants[productId];
+    } catch (innerError) {
+      const { data, error } = await supabase
+        .from('shop_product_variants')
+        .select('id, product_id, name, price, compare_at_price, stock_quantity, weight, image_url, attributes, is_default, sort_order')
+        .eq('product_id', productId)
+        .order('sort_order');
+
+      if (error) throw error;
+      shopState.productVariants[productId] = data || [];
+      return shopState.productVariants[productId];
+    }
   } catch (error) {
     console.error('Failed to load variants:', error);
     shopState.productVariants[productId] = [];
