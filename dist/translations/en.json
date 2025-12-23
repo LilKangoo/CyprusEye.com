@@ -2973,12 +2973,18 @@
     "products_found": "products",
     "filters": {
       "title": "Filters",
+      "search": "Search",
+      "searchPlaceholder": "Search...",
       "categories": "Categories",
       "all": "All",
+      "availability": "Availability",
+      "inStock": "In stock only",
+      "onSale": "On sale",
       "price": "Price",
       "priceMin": "From",
       "priceMax": "To",
       "apply": "Apply",
+      "reset": "Reset filters",
       "sort": "Sort by"
     },
     "sort": {

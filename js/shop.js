@@ -477,6 +477,24 @@ async function loadPriceBounds() {
       else base = base.eq('category_id', shopState.filters.category);
     }
 
+    const search = String(shopState.filters.search || '').trim();
+    if (search) {
+      const pattern = `%${search.replace(/[%_]/g, '')}%`;
+      if (shopState.lang === 'en') {
+        base = base.ilike('name_en', pattern);
+      } else {
+        base = base.ilike('name', pattern);
+      }
+    }
+
+    if (shopState.filters.inStock) {
+      base = base.or('track_inventory.eq.false,stock_quantity.gt.0');
+    }
+
+    if (shopState.filters.onSale) {
+      base = base.gt('compare_at_price', 0);
+    }
+
     const { data: minRow } = await base.order('price', { ascending: true }).limit(1);
     const { data: maxRow } = await base.order('price', { ascending: false }).limit(1);
 
@@ -489,6 +507,44 @@ async function loadPriceBounds() {
   } catch (e) {
     shopState.priceBounds = { min: 0, max: 0 };
   }
+}
+
+function setPriceFilters({ min, max, normalizeToBounds = true } = {}) {
+  const boundsMin = Math.floor(toNumber(shopState.priceBounds?.min));
+  const boundsMax = Math.ceil(toNumber(shopState.priceBounds?.max));
+  const safeBoundsMax = boundsMax > boundsMin ? boundsMax : boundsMin + 1;
+
+  const minNum = Number.isFinite(min) ? min : null;
+  const maxNum = Number.isFinite(max) ? max : null;
+
+  let chosenMin = minNum;
+  let chosenMax = maxNum;
+  if (chosenMin !== null && chosenMin < boundsMin) chosenMin = boundsMin;
+  if (chosenMax !== null && chosenMax > safeBoundsMax) chosenMax = safeBoundsMax;
+  if (chosenMin !== null && chosenMax !== null && chosenMin > chosenMax) chosenMin = chosenMax;
+
+  if (normalizeToBounds) {
+    shopState.filters.priceMin = chosenMin !== null && chosenMin > boundsMin ? chosenMin : null;
+    shopState.filters.priceMax = chosenMax !== null && chosenMax < safeBoundsMax ? chosenMax : null;
+  } else {
+    shopState.filters.priceMin = chosenMin;
+    shopState.filters.priceMax = chosenMax;
+  }
+}
+
+function resetFilters({ keepCategory = false } = {}) {
+  if (!keepCategory) {
+    shopState.filters.category = '';
+    setUrlCategorySlug('');
+  }
+  shopState.filters.search = '';
+  shopState.filters.inStock = false;
+  shopState.filters.onSale = false;
+  shopState.filters.priceMin = null;
+  shopState.filters.priceMax = null;
+  shopState.filters.sort = 'newest';
+  shopState.pagination.page = 1;
+  syncFiltersToUrl();
 }
 
 function applyFilterUiState() {
@@ -3244,6 +3300,44 @@ function showOrderSuccess(orderId) {
 // =====================================================
 
 function setupEventListeners() {
+  // Search
+  const searchInput = document.getElementById('shopSearch');
+  if (searchInput) {
+    searchInput.value = shopState.filters.search || '';
+    searchInput.addEventListener('input', () => {
+      shopState.filters.search = String(searchInput.value || '').trim();
+      shopState.pagination.page = 1;
+      syncFiltersToUrl();
+      loadPriceBounds().then(() => applyFilterUiState());
+      scheduleLoadProducts();
+    });
+  }
+
+  // Availability
+  const chkInStock = document.getElementById('filterInStock');
+  if (chkInStock) {
+    chkInStock.checked = shopState.filters.inStock === true;
+    chkInStock.addEventListener('change', () => {
+      shopState.filters.inStock = chkInStock.checked === true;
+      shopState.pagination.page = 1;
+      syncFiltersToUrl();
+      loadPriceBounds().then(() => applyFilterUiState());
+      loadProducts();
+    });
+  }
+
+  const chkOnSale = document.getElementById('filterOnSale');
+  if (chkOnSale) {
+    chkOnSale.checked = shopState.filters.onSale === true;
+    chkOnSale.addEventListener('change', () => {
+      shopState.filters.onSale = chkOnSale.checked === true;
+      shopState.pagination.page = 1;
+      syncFiltersToUrl();
+      loadPriceBounds().then(() => applyFilterUiState());
+      loadProducts();
+    });
+  }
+
   // Sort select
   const sortSelect = document.getElementById('sortSelect');
   if (sortSelect) {
@@ -3251,6 +3345,7 @@ function setupEventListeners() {
     sortSelect.addEventListener('change', () => {
       shopState.filters.sort = sortSelect.value;
       shopState.pagination.page = 1;
+      syncFiltersToUrl();
       loadProducts();
     });
   }
@@ -3261,9 +3356,47 @@ function setupEventListeners() {
     btnApplyPrice.addEventListener('click', () => {
       const min = document.getElementById('priceMin')?.value;
       const max = document.getElementById('priceMax')?.value;
-      shopState.filters.priceMin = min ? parseFloat(min) : null;
-      shopState.filters.priceMax = max ? parseFloat(max) : null;
+      const minNum = min !== null && min !== '' ? parseFloat(min) : null;
+      const maxNum = max !== null && max !== '' ? parseFloat(max) : null;
+      setPriceFilters({
+        min: Number.isFinite(minNum) ? minNum : null,
+        max: Number.isFinite(maxNum) ? maxNum : null,
+        normalizeToBounds: true
+      });
       shopState.pagination.page = 1;
+      syncFiltersToUrl();
+      applyFilterUiState();
+      loadProducts();
+    });
+  }
+
+  // Price range slider
+  const rangeMin = document.getElementById('priceRangeMin');
+  const rangeMax = document.getElementById('priceRangeMax');
+  if (rangeMin && rangeMax) {
+    const handleSliderChange = () => {
+      const rawMin = toNumber(rangeMin.value);
+      const rawMax = toNumber(rangeMax.value);
+      const clamped = clampPriceRange(rawMin, rawMax);
+      setPriceFilters({ min: clamped.min, max: clamped.max, normalizeToBounds: true });
+      shopState.pagination.page = 1;
+      syncFiltersToUrl();
+      applyFilterUiState();
+      scheduleLoadProducts();
+    };
+    rangeMin.addEventListener('input', handleSliderChange);
+    rangeMax.addEventListener('input', handleSliderChange);
+  }
+
+  // Reset filters
+  const btnResetFilters = document.getElementById('btnResetFilters');
+  if (btnResetFilters) {
+    btnResetFilters.addEventListener('click', async () => {
+      resetFilters({ keepCategory: false });
+      await loadCategories();
+      await loadPriceBounds();
+      applyFilterUiState();
+      renderBreadcrumbs();
       loadProducts();
     });
   }
