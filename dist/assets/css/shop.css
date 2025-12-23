@@ -58,6 +58,8 @@
   box-shadow: 0 4px 12px rgba(15, 23, 42, 0.06);
   padding: 18px 16px;
   border: 1px solid rgba(148, 163, 184, 0.25);
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 @media (max-width: 900px) {
@@ -72,10 +74,38 @@
     z-index: 14000;
     border-radius: 18px 0 0 18px;
     padding: 18px 16px;
+    overflow-y: auto;
+    overflow-x: hidden;
   }
 
   .shop-filters.is-open {
     transform: translateX(0);
+  }
+
+  .shop-filter-block {
+    max-width: 100%;
+  }
+
+  .shop-price-filter,
+  .shop-price-slider,
+  .shop-price-filter__row {
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .shop-price-slider__inputs {
+    max-width: 100%;
+  }
+
+  .shop-price-filter input[type="number"] {
+    max-width: 100%;
+  }
+
+  #btnApplyPrice,
+  #btnResetFilters {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
   }
 }
 
