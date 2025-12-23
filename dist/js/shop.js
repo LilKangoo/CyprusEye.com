@@ -7,6 +7,11 @@
 const shopState = {
   products: [],
   categories: [],
+  categoryIndex: {
+    byId: {},
+    childrenByParent: {}
+  },
+  pendingCategorySlug: null,
   cart: [],
   productVariants: {},
   discountCode: null,
@@ -284,12 +289,157 @@ function getLocalizedField(item, fieldName) {
   return item[fieldName] || '';
 }
 
+function getUrlCategorySlug() {
+  try {
+    const url = new URL(window.location.href);
+    const slug = String(url.searchParams.get('cat') || '').trim();
+    return slug || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function setUrlCategorySlug(slug) {
+  try {
+    const url = new URL(window.location.href);
+    const normalized = String(slug || '').trim();
+    if (normalized) {
+      url.searchParams.set('cat', normalized);
+    } else {
+      url.searchParams.delete('cat');
+    }
+    window.history.replaceState({}, '', url);
+  } catch (e) {
+  }
+}
+
+function rebuildCategoryIndex() {
+  const byId = {};
+  const childrenByParent = {};
+
+  (shopState.categories || []).forEach(cat => {
+    if (!cat?.id) return;
+    byId[String(cat.id)] = cat;
+  });
+
+  (shopState.categories || []).forEach(cat => {
+    if (!cat?.id) return;
+    const parentKey = cat.parent_id ? String(cat.parent_id) : '';
+    if (!childrenByParent[parentKey]) childrenByParent[parentKey] = [];
+    childrenByParent[parentKey].push(cat);
+  });
+
+  shopState.categoryIndex = { byId, childrenByParent };
+}
+
+function getCategoryTreeRows(parentId = null, level = 0, visited = null) {
+  const safeVisited = visited || new Set();
+  const parentKey = parentId ? String(parentId) : '';
+  const children = (shopState.categoryIndex?.childrenByParent?.[parentKey] || []);
+
+  const rows = [];
+  children.forEach(cat => {
+    const id = String(cat.id);
+    if (safeVisited.has(id)) return;
+    safeVisited.add(id);
+    rows.push({ cat, level });
+    rows.push(...getCategoryTreeRows(id, level + 1, safeVisited));
+  });
+  return rows;
+}
+
+function getDescendantCategoryIds(categoryId) {
+  const start = String(categoryId || '');
+  if (!start) return [];
+  const ids = [];
+  const stack = [start];
+  const visited = new Set();
+
+  while (stack.length) {
+    const current = String(stack.pop());
+    if (!current || visited.has(current)) continue;
+    visited.add(current);
+    ids.push(current);
+    const children = shopState.categoryIndex?.childrenByParent?.[current] || [];
+    children.forEach(child => {
+      if (child?.id) stack.push(String(child.id));
+    });
+  }
+
+  return ids;
+}
+
+function setActiveCategoryId(categoryId) {
+  shopState.filters.category = categoryId ? String(categoryId) : '';
+  shopState.pagination.page = 1;
+
+  const selected = shopState.filters.category
+    ? shopState.categoryIndex?.byId?.[String(shopState.filters.category)]
+    : null;
+  setUrlCategorySlug(selected?.slug || '');
+
+  renderCategoryFilters();
+  renderBreadcrumbs();
+  loadProducts();
+}
+
+function getCategoryBreadcrumbTrail(categoryId) {
+  const id = String(categoryId || '');
+  const byId = shopState.categoryIndex?.byId || {};
+  const trail = [];
+  const visited = new Set();
+
+  let current = byId[id];
+  while (current && current.id) {
+    const currentId = String(current.id);
+    if (visited.has(currentId)) break;
+    visited.add(currentId);
+    trail.unshift(current);
+    if (!current.parent_id) break;
+    current = byId[String(current.parent_id)];
+  }
+
+  return trail;
+}
+
+function renderBreadcrumbs() {
+  const container = document.getElementById('shopBreadcrumbs');
+  if (!container) return;
+
+  if (!shopState.filters.category) {
+    container.hidden = true;
+    container.innerHTML = '';
+    return;
+  }
+
+  const allLabel = shopState.lang === 'en' ? 'All' : 'Wszystkie';
+  const trail = getCategoryBreadcrumbTrail(shopState.filters.category);
+
+  container.hidden = false;
+  container.innerHTML = `
+    <a href="#" class="shop-breadcrumbs__link" data-cat="">${escapeHtml(allLabel)}</a>
+    ${trail.map(cat => {
+      const name = getLocalizedField(cat, 'name');
+      return ` <span class="shop-breadcrumbs__sep">/</span> <a href="#" class="shop-breadcrumbs__link" data-cat="${escapeHtml(String(cat.id))}">${escapeHtml(name)}</a>`;
+    }).join('')}
+  `;
+
+  container.querySelectorAll('a[data-cat]').forEach(link => {
+    link.addEventListener('click', (e) => {
+      e.preventDefault();
+      const targetId = String(link.getAttribute('data-cat') || '');
+      setActiveCategoryId(targetId);
+    });
+  });
+}
+
 // Initialize
 document.addEventListener('DOMContentLoaded', init);
 
 async function init() {
   // Set current language
   shopState.lang = getCurrentLang();
+  shopState.pendingCategorySlug = getUrlCategorySlug();
   
   await initSupabase();
   loadCartFromStorage();
@@ -299,6 +449,7 @@ async function init() {
 
   await loadTaxSettings();
   await loadCategories();
+  renderBreadcrumbs();
   await loadProducts();
   await refreshTaxRatesFromUi();
   await loadShippingZonesAndMethods();
@@ -315,6 +466,7 @@ async function init() {
   const handleLanguageUpdate = () => {
     shopState.lang = getCurrentLang();
     renderCategoryFilters();
+    renderBreadcrumbs();
     renderProducts();
     renderCartItems(); // Re-render cart with new translations
     refreshDiscountPreview().then(() => updateShippingTotalsUI());
@@ -1041,6 +1193,17 @@ async function loadCategories() {
 
     shopState.categories = categories || [];
 
+    rebuildCategoryIndex();
+
+    if (!shopState.filters.category && shopState.pendingCategorySlug) {
+      const slug = String(shopState.pendingCategorySlug || '').trim();
+      const match = shopState.categories.find(cat => String(cat.slug || '').trim() === slug);
+      if (match?.id) {
+        shopState.filters.category = String(match.id);
+      }
+      shopState.pendingCategorySlug = null;
+    }
+
     if (
       shopState.filters.category &&
       !shopState.categories.some(cat => String(cat.id) === String(shopState.filters.category))
@@ -1050,6 +1213,7 @@ async function loadCategories() {
     }
 
     renderCategoryFilters();
+    renderBreadcrumbs();
 
   } catch (error) {
     console.error('Failed to load categories:', error);
@@ -1062,18 +1226,24 @@ function renderCategoryFilters() {
 
   const allLabel = shopState.lang === 'en' ? 'All' : 'Wszystkie';
 
+  const selectedId = shopState.filters.category ? String(shopState.filters.category) : '';
+  const rows = getCategoryTreeRows(null, 0, new Set());
+
   container.innerHTML = `
     <label class="filter-item">
       <input type="radio" name="category" value="" ${!shopState.filters.category ? 'checked' : ''}>
       <span class="filter-item__label">${escapeHtml(allLabel)}</span>
     </label>
-    ${shopState.categories.map(cat => {
+    ${rows.map(({ cat, level }) => {
       const icon = (cat.icon || '').trim();
       const label = escapeHtml(getLocalizedField(cat, 'name'));
       const iconHtml = icon ? `<span class="filter-item__icon">${escapeHtml(icon)}</span>` : '';
+      const id = String(cat.id);
+      const hasChildren = (shopState.categoryIndex?.childrenByParent?.[id] || []).length > 0;
+      const checked = selectedId && selectedId === id;
       return `
-      <label class="filter-item">
-        <input type="radio" name="category" value="${cat.id}" ${shopState.filters.category === cat.id ? 'checked' : ''}>
+      <label class="filter-item${hasChildren ? ' filter-item--parent' : ''}" style="--cat-indent:${Number.isFinite(level) ? level : 0}">
+        <input type="radio" name="category" value="${escapeHtml(id)}" ${checked ? 'checked' : ''}>
         <span class="filter-item__label">${iconHtml}${label}</span>
       </label>
     `;
@@ -1083,9 +1253,8 @@ function renderCategoryFilters() {
   // Add event listeners
   container.querySelectorAll('input[name="category"]').forEach(input => {
     input.addEventListener('change', () => {
-      shopState.filters.category = input.value;
-      shopState.pagination.page = 1;
-      loadProducts();
+      setActiveCategoryId(input.value);
+      document.getElementById('shopFilters')?.classList.remove('is-open');
     });
   });
 }
@@ -1106,7 +1275,12 @@ async function loadProducts() {
 
     // Apply filters
     if (shopState.filters.category) {
-      query = query.eq('category_id', shopState.filters.category);
+      const ids = getDescendantCategoryIds(shopState.filters.category);
+      if (ids.length) {
+        query = query.in('category_id', ids);
+      } else {
+        query = query.eq('category_id', shopState.filters.category);
+      }
     }
 
     if (shopState.filters.priceMin !== null) {
