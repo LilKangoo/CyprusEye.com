@@ -1031,13 +1031,24 @@ async function loadCategories() {
   try {
     const { data: categories, error } = await supabase
       .from('shop_categories')
-      .select('id, name, name_en, slug')
+      .select('id, name, name_en, slug, parent_id, sort_order, icon, image_url, show_in_menu')
       .eq('is_active', true)
-      .order('sort_order');
+      .eq('show_in_menu', true)
+      .order('sort_order')
+      .order('name');
 
     if (error) throw error;
 
     shopState.categories = categories || [];
+
+    if (
+      shopState.filters.category &&
+      !shopState.categories.some(cat => String(cat.id) === String(shopState.filters.category))
+    ) {
+      shopState.filters.category = '';
+      shopState.pagination.page = 1;
+    }
+
     renderCategoryFilters();
 
   } catch (error) {
@@ -1054,12 +1065,17 @@ function renderCategoryFilters() {
       <input type="radio" name="category" value="" ${!shopState.filters.category ? 'checked' : ''}>
       <span data-i18n="shop.filters.all">Wszystkie</span>
     </label>
-    ${shopState.categories.map(cat => `
+    ${shopState.categories.map(cat => {
+      const icon = (cat.icon || '').trim();
+      const label = escapeHtml(getLocalizedField(cat, 'name'));
+      const iconHtml = icon ? `<span class="filter-item__icon">${escapeHtml(icon)}</span>` : '';
+      return `
       <label class="filter-item">
         <input type="radio" name="category" value="${cat.id}" ${shopState.filters.category === cat.id ? 'checked' : ''}>
-        <span>${escapeHtml(getLocalizedField(cat, 'name'))}</span>
+        <span class="filter-item__label">${iconHtml}${label}</span>
       </label>
-    `).join('')}
+    `;
+    }).join('')}
   `;
 
   // Add event listeners

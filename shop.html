@@ -213,9 +213,67 @@
     <div class="shop-container">
       <h1 class="shop-title" data-i18n="shop.title">Sklep CyprusEye</h1>
       <p class="shop-subtitle" data-i18n="shop.subtitle">Tradycyjne produkty cypryjskie</p>
-      
-      <div class="shop-grid" id="productsGrid">
-        <p class="shop-loading" data-i18n="shop.loading">Ładowanie produktów...</p>
+
+      <div class="shop-layout">
+        <aside class="shop-filters" id="shopFilters" aria-label="Filters">
+          <div class="shop-filters__header">
+            <h2 class="shop-filters__title" data-i18n="shop.filters.title">Filtry</h2>
+            <button type="button" class="shop-filters__close" id="btnCloseFilters" aria-label="Close filters">×</button>
+          </div>
+
+          <div class="shop-filter-block">
+            <h3 class="shop-filter-block__title" data-i18n="shop.filters.categories">Kategorie</h3>
+            <div id="categoryFilters" class="shop-filter-options"></div>
+          </div>
+
+          <div class="shop-filter-block">
+            <h3 class="shop-filter-block__title" data-i18n="shop.filters.price">Cena</h3>
+            <div class="shop-price-filter">
+              <div class="shop-price-filter__row">
+                <label class="shop-price-filter__field">
+                  <span class="shop-price-filter__label" data-i18n="shop.filters.priceMin">Od</span>
+                  <input id="priceMin" type="number" inputmode="decimal" placeholder="0" />
+                </label>
+                <label class="shop-price-filter__field">
+                  <span class="shop-price-filter__label" data-i18n="shop.filters.priceMax">Do</span>
+                  <input id="priceMax" type="number" inputmode="decimal" placeholder="999" />
+                </label>
+              </div>
+              <button type="button" class="btn btn-sm btn-primary" id="btnApplyPrice" data-i18n="shop.filters.apply">Zastosuj</button>
+            </div>
+          </div>
+        </aside>
+
+        <section class="shop-results">
+          <div class="shop-toolbar">
+            <button type="button" class="btn btn-sm" id="btnToggleFilters" data-i18n="shop.filters.open">Filtry</button>
+            <div class="shop-toolbar__meta">
+              <span class="shop-toolbar__count">
+                <span id="productsCount">0</span>
+                <span data-i18n="shop.filters.countSuffix">produktów</span>
+              </span>
+            </div>
+            <div class="shop-toolbar__sort">
+              <label class="shop-toolbar__sort-label" for="sortSelect" data-i18n="shop.filters.sort">Sortowanie</label>
+              <select id="sortSelect" class="shop-toolbar__sort-select">
+                <option value="newest" data-i18n="shop.sort.newest">Najnowsze</option>
+                <option value="price_asc" data-i18n="shop.sort.priceAsc">Cena: rosnąco</option>
+                <option value="price_desc" data-i18n="shop.sort.priceDesc">Cena: malejąco</option>
+                <option value="name" data-i18n="shop.sort.name">Nazwa</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="shop-grid" id="productsGrid">
+            <p class="shop-loading" data-i18n="shop.loading">Ładowanie produktów...</p>
+          </div>
+
+          <div id="productsPagination" class="shop-pagination" hidden>
+            <button type="button" class="btn btn-sm" id="btnPrevPage" aria-label="Previous">←</button>
+            <span id="paginationInfo" class="shop-pagination__info">1 / 1</span>
+            <button type="button" class="btn btn-sm" id="btnNextPage" aria-label="Next">→</button>
+          </div>
+        </section>
       </div>
     </div>
   </main>
