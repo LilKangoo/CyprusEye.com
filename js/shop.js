@@ -291,9 +291,12 @@ async function init() {
   shopState.lang = getCurrentLang();
   
   await initSupabase();
-  await loadTaxSettings();
   loadCartFromStorage();
   loadDiscountCodeFromStorage();
+
+  await handleCheckoutReturn();
+
+  await loadTaxSettings();
   await loadCategories();
   await loadProducts();
   await refreshTaxRatesFromUi();
@@ -303,9 +306,6 @@ async function init() {
   updateCartUI();
   await refreshDiscountPreview();
   updateShippingTotalsUI();
-  
-  // Handle checkout return status
-  await handleCheckoutReturn();
   
   // Sync cart with Supabase for logged-in users
   await syncCartWithSupabase();
@@ -2217,7 +2217,7 @@ async function initiateCheckout() {
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) {
-    showToast(shopState.lang === 'en' ? 'Please log in' : 'Zaloguj się', 'warning');
+    showToast(shopState.lang === 'en' ? 'Please log in' : 'Zaloguj się', 'error');
     return;
   }
 
@@ -2626,87 +2626,129 @@ function cleanCheckoutParamsFromUrl() {
   }
 }
 
+function showCheckoutProcessingOverlay(title, message) {
+  try {
+    const existing = document.getElementById('checkoutProcessingOverlay');
+    if (existing) {
+      const titleEl = existing.querySelector('.checkout-processing-title');
+      const msgEl = existing.querySelector('.checkout-processing-text');
+      if (titleEl) titleEl.textContent = title;
+      if (msgEl) msgEl.textContent = message;
+      return;
+    }
+
+    const overlay = document.createElement('div');
+    overlay.id = 'checkoutProcessingOverlay';
+    overlay.className = 'checkout-processing-overlay';
+    overlay.setAttribute('role', 'status');
+    overlay.setAttribute('aria-live', 'polite');
+    overlay.innerHTML = `
+      <div class="checkout-processing-card">
+        <div class="checkout-processing-spinner" aria-hidden="true"></div>
+        <h3 class="checkout-processing-title">${escapeHtml(title)}</h3>
+        <p class="checkout-processing-text">${escapeHtml(message)}</p>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+  } catch (e) {
+  }
+}
+
+function hideCheckoutProcessingOverlay() {
+  try {
+    const existing = document.getElementById('checkoutProcessingOverlay');
+    if (existing) existing.remove();
+  } catch (e) {
+  }
+}
+
 async function handleCheckoutReturn() {
   const params = new URLSearchParams(window.location.search);
   const rawCheckoutStatus = String(params.get('checkout') || '').trim();
   const checkoutStatus = rawCheckoutStatus.split('?')[0];
   const orderId = params.get('order_id');
-  
-  if (checkoutStatus === 'success') {
-    let isPaid = false;
 
-    const checkPaidStatus = async () => {
-      if (!supabase || !orderId) return false;
-      const { data: auth } = await supabase.auth.getUser();
-      const user = auth?.user || null;
-      if (!user) return false;
+  if (checkoutStatus !== 'success' && checkoutStatus !== 'cancelled') {
+    return;
+  }
 
-      const { data: orderRow } = await supabase
-        .from('shop_orders')
-        .select('payment_status')
-        .eq('id', orderId)
-        .maybeSingle();
-      const status = String(orderRow?.payment_status || '').toLowerCase();
-      return status === 'paid' || status === 'partially_refunded' || status === 'refunded';
-    };
+  const overlayTitle = shopState.lang === 'en' ? 'Checking payment status…' : 'Sprawdzamy status płatności…';
+  const overlayMessage = shopState.lang === 'en'
+    ? 'Please wait a moment. We are confirming your payment with Stripe.'
+    : 'Poczekaj chwilę. Potwierdzamy płatność w systemie Stripe.';
 
-    try {
-      // Webhook update can be slightly delayed; poll briefly before deciding.
-      for (let attempt = 0; attempt < 6; attempt++) {
-        isPaid = await checkPaidStatus();
-        if (isPaid) break;
-        await new Promise(r => setTimeout(r, 900));
-      }
-    } catch (e) {
-      isPaid = false;
-    }
+  showCheckoutProcessingOverlay(overlayTitle, overlayMessage);
 
-    if (isPaid) {
-      try {
+  try {
+    if (checkoutStatus === 'success') {
+      let isPaid = false;
+
+      const checkPaidStatus = async () => {
+        if (!supabase || !orderId) return false;
         const { data: auth } = await supabase.auth.getUser();
         const user = auth?.user || null;
-        if (user) {
-          await clearCartInSupabaseForUser(user.id);
+        if (!user) return false;
+
+        const { data: orderRow } = await supabase
+          .from('shop_orders')
+          .select('payment_status')
+          .eq('id', orderId)
+          .maybeSingle();
+        const status = String(orderRow?.payment_status || '').toLowerCase();
+        return status === 'paid' || status === 'partially_refunded' || status === 'refunded';
+      };
+
+      try {
+        for (let attempt = 0; attempt < 8; attempt++) {
+          isPaid = await checkPaidStatus();
+          if (isPaid) break;
+          await new Promise(r => setTimeout(r, 750));
         }
       } catch (e) {
+        isPaid = false;
       }
 
-      shopState.cart = [];
-      clearDiscountCode();
-      saveCartToStorage();
-      updateCartUI();
+      if (isPaid) {
+        try {
+          const { data: auth } = await supabase.auth.getUser();
+          const user = auth?.user || null;
+          if (user) {
+            await clearCartInSupabaseForUser(user.id);
+          }
+        } catch (e) {
+        }
 
-      setTimeout(() => {
+        shopState.cart = [];
+        clearDiscountCode();
+        saveCartToStorage();
+        updateCartUI();
+
         showCheckoutPopup(
           'success',
           shopState.lang === 'en'
             ? 'Your payment was completed successfully. Thank you!'
             : 'Twoja płatność została zakończona pomyślnie. Dziękujemy!'
         );
-      }, 250);
-    } else {
-      setTimeout(() => {
-        showCheckoutPopup(
-          'error',
-          shopState.lang === 'en'
-            ? 'We could not confirm the payment. If you still need to pay, please try again.'
-            : 'Nie udało się potwierdzić płatności. Jeśli nadal masz do zapłaty, spróbuj ponownie.'
-        );
-      }, 250);
-    }
+      } else {
+        const msg = shopState.lang === 'en'
+          ? "We couldn't confirm your payment yet. Please check your bank account to see if the charge went through. If it didn't, try again. If it did, but you don't see a confirmation, please contact us. Your cart is still saved."
+          : 'Nie udało się jeszcze potwierdzić płatności. Sprawdź proszę konto / aplikację bankową, czy środki zostały pobrane. Jeśli nie — spróbuj ponownie. Jeśli tak, a nie widzisz potwierdzenia, skontaktuj się z nami. Koszyk został zachowany.';
+        showCheckoutPopup('error', msg);
+      }
 
-    cleanCheckoutParamsFromUrl();
-  } else if (checkoutStatus === 'cancelled') {
-    setTimeout(() => {
+      cleanCheckoutParamsFromUrl();
+    } else if (checkoutStatus === 'cancelled') {
       showCheckoutPopup(
         'error',
         shopState.lang === 'en'
           ? 'Payment was cancelled. Your cart items are still saved.'
           : 'Płatność została anulowana. Produkty w koszyku zostały zachowane.'
       );
-    }, 250);
 
-    cleanCheckoutParamsFromUrl();
+      cleanCheckoutParamsFromUrl();
+    }
+  } finally {
+    hideCheckoutProcessingOverlay();
   }
 }
 
@@ -2995,38 +3037,34 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function showToast(message, type = 'success') {
-  // Use existing toast system if available
-  const externalToast = window.showToast;
-  if (typeof externalToast === 'function' && externalToast !== showToast) {
-    externalToast(message, type);
-    return;
+function showToast(message, type = 'success', ttl = 3500) {
+  try {
+    const toastApi = window.Toast && typeof window.Toast.show === 'function' ? window.Toast.show : null;
+    if (toastApi) {
+      const normalizedType = type === 'error' ? 'error' : (type === 'info' || type === 'warning') ? 'info' : 'success';
+      toastApi(message, normalizedType, ttl);
+      return;
+    }
+  } catch (e) {
   }
 
-  // Simple fallback toast
+  const normalizedMessage = typeof message === 'string' ? message.trim() : '';
+  if (!normalizedMessage) return;
+
+  const normalizedType = type === 'error' ? 'error' : (type === 'info' || type === 'warning') ? 'info' : 'success';
   const toast = document.createElement('div');
-  toast.className = `toast toast-${type}`;
-  toast.textContent = message;
-  toast.style.cssText = `
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 12px 24px;
-    background: ${type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : type === 'info' ? '#3b82f6' : '#22c55e'};
-    color: white;
-    border-radius: 8px;
-    font-size: 14px;
-    z-index: 9999;
-    animation: fadeInUp 0.3s;
-  `;
+  toast.className = `ce-toast ce-toast--${normalizedType}`;
+  toast.textContent = normalizedMessage;
+  toast.setAttribute('role', normalizedType === 'error' ? 'alert' : 'status');
+  toast.setAttribute('aria-live', normalizedType === 'error' ? 'assertive' : 'polite');
+  toast.style.zIndex = '16000';
 
   document.body.appendChild(toast);
-
-  setTimeout(() => {
-    toast.style.animation = 'fadeOut 0.3s forwards';
-    setTimeout(() => toast.remove(), 300);
-  }, 3000);
+  const timer = window.setTimeout(() => toast.remove(), Number.isFinite(ttl) ? ttl : 3500);
+  toast.addEventListener('click', () => {
+    window.clearTimeout(timer);
+    toast.remove();
+  });
 }
 
 // Export for global access
