@@ -52,10 +52,6 @@ function showPopup(title, message, type) {
 
   // Click outside / close button
   overlay.addEventListener('click', closePopup);
-  const popupEl = overlay.querySelector('.booking-popup');
-  if (popupEl) {
-    popupEl.addEventListener('click', (e) => e.stopPropagation());
-  }
   const closeBtn = overlay.querySelector('.booking-popup-close');
   if (closeBtn) {
     closeBtn.addEventListener('click', (e) => {
