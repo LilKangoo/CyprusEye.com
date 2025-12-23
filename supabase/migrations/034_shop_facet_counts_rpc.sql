@@ -16,7 +16,8 @@ LANGUAGE sql
 STABLE
 SET search_path = public
 AS $$
-  WITH filtered_products AS (
+  WITH RECURSIVE
+  filtered_products AS (
     SELECT p.id, p.category_id
     FROM public.shop_products p
     WHERE p.status = 'active'
