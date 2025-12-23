@@ -12,6 +12,14 @@ const shopState = {
     childrenByParent: {}
   },
   pendingCategorySlug: null,
+  priceBounds: {
+    min: 0,
+    max: 0
+  },
+  filterDebounce: {
+    timer: null,
+    delayMs: 280
+  },
   cart: [],
   productVariants: {},
   discountCode: null,
@@ -30,6 +38,9 @@ const shopState = {
   shippingQuote: null,
   filters: {
     category: '',
+    search: '',
+    inStock: false,
+    onSale: false,
     priceMin: null,
     priceMax: null,
     sort: 'newest'
@@ -299,6 +310,73 @@ function getUrlCategorySlug() {
   }
 }
 
+function hydrateFiltersFromUrl() {
+  try {
+    const url = new URL(window.location.href);
+    const q = String(url.searchParams.get('q') || '').trim();
+    const min = url.searchParams.get('min');
+    const max = url.searchParams.get('max');
+    const stock = String(url.searchParams.get('stock') || '').trim();
+    const sale = String(url.searchParams.get('sale') || '').trim();
+    const sort = String(url.searchParams.get('sort') || '').trim();
+
+    shopState.filters.search = q;
+
+    const minNum = min !== null && min !== '' ? parseFloat(min) : null;
+    const maxNum = max !== null && max !== '' ? parseFloat(max) : null;
+    shopState.filters.priceMin = Number.isFinite(minNum) ? minNum : null;
+    shopState.filters.priceMax = Number.isFinite(maxNum) ? maxNum : null;
+
+    shopState.filters.inStock = stock === '1' || stock.toLowerCase() === 'true';
+    shopState.filters.onSale = sale === '1' || sale.toLowerCase() === 'true';
+
+    const allowedSort = new Set(['newest', 'price_asc', 'price_desc', 'name']);
+    if (allowedSort.has(sort)) {
+      shopState.filters.sort = sort;
+    }
+  } catch (e) {
+  }
+}
+
+function syncFiltersToUrl() {
+  try {
+    const url = new URL(window.location.href);
+    const q = String(shopState.filters.search || '').trim();
+    if (q) url.searchParams.set('q', q); else url.searchParams.delete('q');
+
+    if (shopState.filters.priceMin !== null && Number.isFinite(shopState.filters.priceMin)) {
+      url.searchParams.set('min', String(shopState.filters.priceMin));
+    } else {
+      url.searchParams.delete('min');
+    }
+
+    if (shopState.filters.priceMax !== null && Number.isFinite(shopState.filters.priceMax)) {
+      url.searchParams.set('max', String(shopState.filters.priceMax));
+    } else {
+      url.searchParams.delete('max');
+    }
+
+    if (shopState.filters.inStock) url.searchParams.set('stock', '1'); else url.searchParams.delete('stock');
+    if (shopState.filters.onSale) url.searchParams.set('sale', '1'); else url.searchParams.delete('sale');
+
+    const sort = String(shopState.filters.sort || '').trim();
+    if (sort && sort !== 'newest') url.searchParams.set('sort', sort); else url.searchParams.delete('sort');
+
+    window.history.replaceState({}, '', url);
+  } catch (e) {
+  }
+}
+
+function scheduleLoadProducts() {
+  if (shopState.filterDebounce.timer) {
+    window.clearTimeout(shopState.filterDebounce.timer);
+  }
+  shopState.filterDebounce.timer = window.setTimeout(() => {
+    shopState.filterDebounce.timer = null;
+    loadProducts();
+  }, shopState.filterDebounce.delayMs);
+}
+
 function setUrlCategorySlug(slug) {
   try {
     const url = new URL(window.location.href);
@@ -377,10 +455,104 @@ function setActiveCategoryId(categoryId) {
     ? shopState.categoryIndex?.byId?.[String(shopState.filters.category)]
     : null;
   setUrlCategorySlug(selected?.slug || '');
+  syncFiltersToUrl();
 
   renderCategoryFilters();
   renderBreadcrumbs();
+  loadPriceBounds().then(() => applyFilterUiState());
   loadProducts();
+}
+
+async function loadPriceBounds() {
+  if (!supabase) return;
+  try {
+    let base = supabase
+      .from('shop_products')
+      .select('price')
+      .eq('status', 'active');
+
+    if (shopState.filters.category) {
+      const ids = getDescendantCategoryIds(shopState.filters.category);
+      if (ids.length) base = base.in('category_id', ids);
+      else base = base.eq('category_id', shopState.filters.category);
+    }
+
+    const { data: minRow } = await base.order('price', { ascending: true }).limit(1);
+    const { data: maxRow } = await base.order('price', { ascending: false }).limit(1);
+
+    const min = minRow && minRow[0] ? toNumber(minRow[0].price) : 0;
+    const max = maxRow && maxRow[0] ? toNumber(maxRow[0].price) : 0;
+    shopState.priceBounds = {
+      min: Math.max(0, min),
+      max: Math.max(0, max)
+    };
+  } catch (e) {
+    shopState.priceBounds = { min: 0, max: 0 };
+  }
+}
+
+function applyFilterUiState() {
+  try {
+    const sortSelect = document.getElementById('sortSelect');
+    if (sortSelect) sortSelect.value = shopState.filters.sort;
+
+    const search = document.getElementById('shopSearch');
+    if (search) search.value = shopState.filters.search || '';
+
+    const inStock = document.getElementById('filterInStock');
+    if (inStock) inStock.checked = shopState.filters.inStock === true;
+    const onSale = document.getElementById('filterOnSale');
+    if (onSale) onSale.checked = shopState.filters.onSale === true;
+
+    const minInput = document.getElementById('priceMin');
+    const maxInput = document.getElementById('priceMax');
+    if (minInput) minInput.value = shopState.filters.priceMin !== null ? String(shopState.filters.priceMin) : '';
+    if (maxInput) maxInput.value = shopState.filters.priceMax !== null ? String(shopState.filters.priceMax) : '';
+
+    syncPriceSliderWithState();
+  } catch (e) {
+  }
+}
+
+function clampPriceRange(minVal, maxVal) {
+  const boundsMin = toNumber(shopState.priceBounds?.min);
+  const boundsMax = toNumber(shopState.priceBounds?.max);
+  let min = Number.isFinite(minVal) ? minVal : boundsMin;
+  let max = Number.isFinite(maxVal) ? maxVal : boundsMax;
+  if (boundsMax > 0) {
+    min = Math.max(boundsMin, Math.min(min, boundsMax));
+    max = Math.max(boundsMin, Math.min(max, boundsMax));
+  }
+  if (min > max) min = max;
+  return { min, max };
+}
+
+function syncPriceSliderWithState() {
+  const rangeMin = document.getElementById('priceRangeMin');
+  const rangeMax = document.getElementById('priceRangeMax');
+  const minLabel = document.getElementById('priceRangeMinLabel');
+  const maxLabel = document.getElementById('priceRangeMaxLabel');
+  if (!rangeMin || !rangeMax) return;
+
+  const boundsMin = Math.floor(toNumber(shopState.priceBounds?.min));
+  const boundsMax = Math.ceil(toNumber(shopState.priceBounds?.max));
+  const safeBoundsMax = boundsMax > boundsMin ? boundsMax : boundsMin + 1;
+
+  rangeMin.min = String(boundsMin);
+  rangeMin.max = String(safeBoundsMax);
+  rangeMin.step = '1';
+  rangeMax.min = String(boundsMin);
+  rangeMax.max = String(safeBoundsMax);
+  rangeMax.step = '1';
+
+  const desiredMin = shopState.filters.priceMin !== null ? Math.floor(toNumber(shopState.filters.priceMin)) : boundsMin;
+  const desiredMax = shopState.filters.priceMax !== null ? Math.ceil(toNumber(shopState.filters.priceMax)) : safeBoundsMax;
+  const clamped = clampPriceRange(desiredMin, desiredMax);
+
+  rangeMin.value = String(Math.floor(clamped.min));
+  rangeMax.value = String(Math.ceil(clamped.max));
+  if (minLabel) minLabel.textContent = `€${Math.floor(clamped.min)}`;
+  if (maxLabel) maxLabel.textContent = `€${Math.ceil(clamped.max)}`;
 }
 
 function getCategoryBreadcrumbTrail(categoryId) {
@@ -440,6 +612,7 @@ async function init() {
   // Set current language
   shopState.lang = getCurrentLang();
   shopState.pendingCategorySlug = getUrlCategorySlug();
+  hydrateFiltersFromUrl();
   
   await initSupabase();
   loadCartFromStorage();
@@ -450,6 +623,8 @@ async function init() {
   await loadTaxSettings();
   await loadCategories();
   renderBreadcrumbs();
+  await loadPriceBounds();
+  applyFilterUiState();
   await loadProducts();
   await refreshTaxRatesFromUi();
   await loadShippingZonesAndMethods();
@@ -1283,6 +1458,24 @@ async function loadProducts() {
       }
     }
 
+    const search = String(shopState.filters.search || '').trim();
+    if (search) {
+      const pattern = `%${search.replace(/[%_]/g, '')}%`;
+      if (shopState.lang === 'en') {
+        query = query.ilike('name_en', pattern);
+      } else {
+        query = query.ilike('name', pattern);
+      }
+    }
+
+    if (shopState.filters.inStock) {
+      query = query.or('track_inventory.eq.false,stock_quantity.gt.0');
+    }
+
+    if (shopState.filters.onSale) {
+      query = query.gt('compare_at_price', 0);
+    }
+
     if (shopState.filters.priceMin !== null) {
       query = query.gte('price', shopState.filters.priceMin);
     }
@@ -1370,6 +1563,7 @@ function renderProducts() {
   const addToCartText = shopState.lang === 'en' ? 'Add to cart' : 'Dodaj do koszyka';
   const outOfStockText = shopState.lang === 'en' ? 'Out of stock' : 'Brak w magazynie';
   const featuredText = shopState.lang === 'en' ? 'Featured' : 'Polecane';
+  const saleText = shopState.lang === 'en' ? 'Sale' : 'Promocja';
 
   grid.innerHTML = shopState.products.map(product => {
     const hasDiscount = product.compare_at_price && product.compare_at_price > product.price;
@@ -1391,7 +1585,7 @@ function renderProducts() {
               </div>`
           }
           ${product.is_featured ? `<span class="product-card-badge">${featuredText}</span>` : ''}
-          ${hasDiscount ? '<span class="product-card-badge sale">Sale</span>' : ''}
+          ${hasDiscount ? `<span class="product-card-badge sale">${saleText}</span>` : ''}
         </div>
         <div class="product-card-content">
           ${categoryName ? `<p class="product-card-category">${escapeHtml(categoryName)}</p>` : ''}

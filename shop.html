@@ -222,13 +222,48 @@
           </div>
 
           <div class="shop-filter-block">
+            <h3 class="shop-filter-block__title" data-i18n="shop.filters.search">Szukaj</h3>
+            <input
+              id="shopSearch"
+              class="shop-search-input"
+              type="search"
+              autocomplete="off"
+              inputmode="search"
+              placeholder="Szukaj..."
+              data-i18n-attrs="placeholder:shop.filters.searchPlaceholder"
+            />
+          </div>
+
+          <div class="shop-filter-block">
             <h3 class="shop-filter-block__title" data-i18n="shop.filters.categories">Kategorie</h3>
             <div id="categoryFilters" class="shop-filter-options"></div>
           </div>
 
           <div class="shop-filter-block">
+            <h3 class="shop-filter-block__title" data-i18n="shop.filters.availability">Dostępność</h3>
+            <label class="shop-check">
+              <input id="filterInStock" type="checkbox" />
+              <span data-i18n="shop.filters.inStock">Tylko dostępne</span>
+            </label>
+            <label class="shop-check">
+              <input id="filterOnSale" type="checkbox" />
+              <span data-i18n="shop.filters.onSale">Promocje</span>
+            </label>
+          </div>
+
+          <div class="shop-filter-block">
             <h3 class="shop-filter-block__title" data-i18n="shop.filters.price">Cena</h3>
             <div class="shop-price-filter">
+              <div class="shop-price-slider">
+                <div class="shop-price-slider__inputs">
+                  <input id="priceRangeMin" type="range" />
+                  <input id="priceRangeMax" type="range" />
+                </div>
+                <div class="shop-price-slider__labels">
+                  <span id="priceRangeMinLabel">€0</span>
+                  <span id="priceRangeMaxLabel">€0</span>
+                </div>
+              </div>
               <div class="shop-price-filter__row">
                 <label class="shop-price-filter__field">
                   <span class="shop-price-filter__label" data-i18n="shop.filters.priceMin">Od</span>
@@ -241,6 +276,10 @@
               </div>
               <button type="button" class="btn btn-sm btn-primary" id="btnApplyPrice" data-i18n="shop.filters.apply">Zastosuj</button>
             </div>
+          </div>
+
+          <div class="shop-filter-block">
+            <button type="button" class="btn btn-sm" id="btnResetFilters" data-i18n="shop.filters.reset">Resetuj filtry</button>
           </div>
         </aside>
 
