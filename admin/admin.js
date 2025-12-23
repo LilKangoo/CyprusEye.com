@@ -85,6 +85,44 @@ function showElement(element) {
   }
 }
 
+async function deleteShopOrder(orderId, orderNumber, paymentStatus) {
+  const normalizedPaymentStatus = String(paymentStatus || '').toLowerCase();
+  const isPaidLike = ['paid', 'partially_refunded', 'refunded'].includes(normalizedPaymentStatus);
+
+  const warning = isPaidLike
+    ? `UWAGA: Zamówienie ma status płatności: ${normalizedPaymentStatus}.\n\nJeśli płatność przeszła, usunięcie może utrudnić późniejsze wyjaśnienia.\n\nCzy na pewno chcesz usunąć zamówienie ${orderNumber}?\n\nTa operacja jest nieodwracalna.`
+    : `Czy na pewno chcesz usunąć zamówienie ${orderNumber}?\n\nTa operacja jest nieodwracalna.`;
+
+  if (!confirm(warning)) return;
+
+  const typed = prompt(`Aby potwierdzić, wpisz dokładnie numer zamówienia: ${orderNumber}`);
+  if (String(typed || '').trim() !== String(orderNumber || '').trim()) {
+    showToast('Anulowano usuwanie (nieprawidłowe potwierdzenie).', 'info');
+    return;
+  }
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { error } = await client
+      .from('shop_orders')
+      .delete()
+      .eq('id', orderId);
+
+    if (error) throw error;
+
+    showToast('Zamówienie usunięte', 'success');
+    const modal = document.getElementById('shopOrderModal');
+    if (modal) modal.hidden = true;
+    await loadShopOrders();
+    await loadShopStats();
+  } catch (error) {
+    console.error('Failed to delete order:', error);
+    showToast('Nie udało się usunąć zamówienia: ' + error.message, 'error');
+  }
+}
+
 // =====================================================
 // TRIP BOOKINGS MODULE
 // =====================================================
@@ -15370,6 +15408,7 @@ async function viewShopOrder(orderId) {
       </div>
 
       <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
+        <button class="btn-secondary" onclick="deleteShopOrder('${order.id}', '${escapeHtml(order.order_number).replace(/'/g, "\\'")}', '${escapeHtml(order.payment_status || '').replace(/'/g, "\\'")}')" style="background: #ef4444; color: white;">🗑️ Usuń</button>
         <button class="btn-primary" onclick="updateOrderStatus('${order.id}')">💾 Zapisz zmiany</button>
         <button class="btn-secondary" onclick="document.getElementById('shopOrderModal').hidden = true">Zamknij</button>
       </div>
@@ -15566,6 +15605,7 @@ window.deleteShopCategory = deleteShopCategory;
 window.deleteShopVendor = deleteShopVendor;
 window.deleteShopDiscount = deleteShopDiscount;
 window.updateOrderStatus = updateOrderStatus;
+window.deleteShopOrder = deleteShopOrder;
 window.showProductForm = showProductForm;
 window.showCategoryForm = showCategoryForm;
 window.showVendorForm = showVendorForm;

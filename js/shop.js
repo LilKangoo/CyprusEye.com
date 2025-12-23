@@ -34,7 +34,8 @@ const shopState = {
     perPage: 12,
     total: 0
   },
-  lang: 'pl' // Current language
+  lang: 'pl', // Current language
+  pendingCheckoutAfterLogin: false
 };
 
 // Supabase client
@@ -2207,17 +2208,55 @@ function closeCart() {
 
 let checkoutUser = null;
 
+function openAuthModalForCheckout() {
+  try {
+    const controller = window.__authModalController;
+    if (controller && typeof controller.open === 'function') {
+      controller.setActiveTab?.('login', { focus: false });
+      controller.open('login');
+      return true;
+    }
+  } catch (e) {
+  }
+  return false;
+}
+
+function setupCheckoutPostLoginHandler() {
+  if (setupCheckoutPostLoginHandler._installed) return;
+  setupCheckoutPostLoginHandler._installed = true;
+
+  document.addEventListener('ce-auth:post-login', async () => {
+    if (!shopState.pendingCheckoutAfterLogin) return;
+    shopState.pendingCheckoutAfterLogin = false;
+    try {
+      await initiateCheckout();
+    } catch (e) {
+    }
+  });
+}
+
 async function initiateCheckout() {
   if (!shopState.cart.length) {
     showToast(shopState.lang === 'en' ? 'Your cart is empty' : 'Koszyk jest pusty', 'error');
     return;
   }
 
+  setupCheckoutPostLoginHandler();
+
   // Check if user is logged in
   const { data: { user } } = await supabase.auth.getUser();
   
   if (!user) {
-    showToast(shopState.lang === 'en' ? 'Please log in' : 'Zaloguj się', 'error');
+    shopState.pendingCheckoutAfterLogin = true;
+
+    const infoMsg = shopState.lang === 'en'
+      ? 'To proceed to checkout, please log in or create an account.'
+      : 'Aby przejść do płatności, zaloguj się lub załóż konto.';
+
+    const opened = openAuthModalForCheckout();
+    if (!opened) {
+      showToast(infoMsg, 'info');
+    }
     return;
   }
 
