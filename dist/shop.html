@@ -66,8 +66,27 @@
   <link rel="stylesheet" href="assets/css/shop.css" />
 
   <meta name="ce-auth" content="on" />
+  <!-- Immediate referral capture - must run before any modules -->
+  <script>
+    (function(){
+      try {
+        var ref = new URLSearchParams(window.location.search).get('ref');
+        if (ref && ref.trim()) {
+          var data = {
+            code: ref.trim(),
+            capturedAt: Date.now(),
+            expiresAt: Date.now() + (14 * 24 * 60 * 60 * 1000)
+          };
+          localStorage.setItem('cypruseye_referral_code', JSON.stringify(data));
+          console.log('✅ Referral captured:', ref.trim());
+        }
+      } catch(e) {}
+    })();
+  </script>
   <script type="module" src="js/supabaseClient.js"></script>
   <script type="module" src="js/toast.js"></script>
+  <script type="module" src="js/referral.js"></script>
+  <script src="js/footer-referral.js" defer></script>
   <script type="module" src="js/auth.js"></script>
   <script type="module" src="js/authUi.js"></script>
 </head>
@@ -784,6 +803,23 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Footer Referral -->
+  <div class="footer-referral" id="footerReferral" style="display:none;">
+    <p class="footer-referral-text">
+      <span style="font-size:1.25rem;">🎁</span>
+      <span data-i18n="footer.referral.invite">Zaproś znajomych i zdobądź bonusy!</span>
+    </p>
+    <div class="footer-referral-actions">
+      <button class="btn-ref btn-copy" id="footerCopyRef">
+        <span>📋</span> <span data-i18n="footer.referral.copy">Kopiuj link</span>
+      </button>
+      <button class="btn-ref btn-facebook" id="footerShareFb">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        <span data-i18n="footer.referral.facebook">Facebook</span>
+      </button>
     </div>
   </div>
 

@@ -2431,3 +2431,52 @@
     border-top-color: rgba(59, 130, 246, 0.95);
   }
 }
+
+/* =====================================================
+   SHOP PAGE MOBILE HEADER FIX - Cart in same row as SOS/Login
+   ===================================================== */
+@media (max-width: 900px) {
+  .shop-page .nav-modern__top-actions {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr 1fr;
+    grid-template-rows: auto auto;
+    column-gap: 0.5rem;
+    row-gap: 0.5rem;
+    width: 100%;
+  }
+
+  .shop-page .language-pill-group {
+    grid-column: 1 / -1;
+    grid-row: 1 / 2;
+  }
+
+  .shop-page .nav-modern__sos {
+    grid-column: 1 / 2;
+    grid-row: 2 / 3;
+  }
+
+  .shop-page .nav-modern__auth {
+    grid-column: 2 / 3;
+    grid-row: 2 / 3;
+  }
+
+  .shop-page #btnOpenCart {
+    grid-column: 3 / 4;
+    grid-row: 2 / 3;
+    height: 44px;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+    padding: 0.5rem;
+    font-size: 1.1rem;
+    border-radius: 12px;
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+  }
+
+  .shop-page #btnOpenCart .cart-count {
+    position: absolute;
+    top: -4px;
+    right: -4px;
+  }
+}
