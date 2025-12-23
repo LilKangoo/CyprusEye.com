@@ -2440,7 +2440,7 @@
     display: grid !important;
     grid-template-columns: 1fr 1fr 1fr;
     grid-template-rows: auto auto;
-    column-gap: 0.5rem;
+    column-gap: 0.4rem;
     row-gap: 0.5rem;
     width: 100%;
   }
@@ -2453,11 +2453,28 @@
   .shop-page .nav-modern__sos {
     grid-column: 1 / 2;
     grid-row: 2 / 3;
+    min-width: 0;
+    padding: 0.5rem 0.4rem !important;
+    font-size: 0.75rem !important;
   }
 
   .shop-page .nav-modern__auth {
     grid-column: 2 / 3;
     grid-row: 2 / 3;
+    min-width: 0;
+    display: flex !important;
+    justify-content: center;
+  }
+
+  .shop-page .nav-modern__auth .nav-modern__login,
+  .shop-page .nav-modern__auth .btn.btn-sm {
+    width: 100% !important;
+    min-width: 0 !important;
+    padding: 0.5rem 0.3rem !important;
+    font-size: 0.7rem !important;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .shop-page #btnOpenCart {
@@ -2472,6 +2489,7 @@
     border-radius: 12px;
     background: #f1f5f9;
     border: 1px solid #e2e8f0;
+    min-width: 0;
   }
 
   .shop-page #btnOpenCart .cart-count {
@@ -2479,4 +2497,34 @@
     top: -4px;
     right: -4px;
   }
+}
+
+/* =====================================================
+   CART SIDEBAR DARK THEME FIX - White text for readability
+   ===================================================== */
+.cart-sidebar-content {
+  background: #1e293b;
+  color: #f8fafc;
+}
+
+.cart-sidebar-header h2 {
+  color: #ffffff !important;
+}
+
+.cart-sidebar-close {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+}
+
+.cart-sidebar-close:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+.cart-empty {
+  color: #cbd5e1 !important;
+}
+
+.cart-sidebar-footer {
+  background: #0f172a;
+  color: #f8fafc;
 }

@@ -255,6 +255,7 @@
   "metrics.xp.keepEarning": "Keep earning XP",
   "metrics.badges.label": "Badges",
   "metrics.badges.subtext": "Collected badges",
+  "nav.shop": "🛍️ Shop",
   "auth.oauth.google.button": "Sign in with Google",
   "auth.oauth.google.aria": "Sign in with Google",
   "auth.oauth.google.login.button": "Sign in with Google",
