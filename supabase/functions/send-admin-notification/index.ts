@@ -82,9 +82,10 @@ function buildMailTransport() {
   const host = Deno.env.get("SMTP_HOST");
   if (!host) return null;
 
-  const port = Number.parseInt(Deno.env.get("SMTP_PORT") || "", 10);
+  const portEnv = (Deno.env.get("SMTP_PORT") || "").trim();
+  const portParsed = portEnv ? Number.parseInt(portEnv, 10) : Number.NaN;
   const secureEnv = Deno.env.get("SMTP_SECURE");
-  const secure = secureEnv ? secureEnv === "true" : port === 465;
+  const secure = secureEnv ? secureEnv === "true" : (Number.isFinite(portParsed) ? portParsed === 465 : true);
 
   const user = Deno.env.get("SMTP_USER") || "";
   const pass = Deno.env.get("SMTP_PASS") || "";
@@ -94,8 +95,10 @@ function buildMailTransport() {
     secure,
   };
 
-  if (Number.isFinite(port)) {
-    transportConfig.port = port;
+  if (Number.isFinite(portParsed)) {
+    transportConfig.port = portParsed;
+  } else {
+    transportConfig.port = secure ? 465 : 587;
   }
 
   if (user && pass) {
@@ -136,6 +139,8 @@ function buildGenericEmail({
 
   const link = buildAdminPanelLink(category, recordId);
 
+  const items = Array.isArray((record as any)?.items) ? ((record as any).items as any[]) : [];
+
   const textLines: string[] = [
     `Typ: ${category}`,
     `Zdarzenie: ${event}`,
@@ -150,8 +155,20 @@ function buildGenericEmail({
   textLines.push("", "Szczegóły:");
   for (const [k, v] of Object.entries(record || {})) {
     if (v === null || v === undefined || v === "") continue;
+    if (k === "items") continue;
     if (typeof v === "object") continue;
     textLines.push(`${k}: ${String(v)}`);
+  }
+
+  if (items.length) {
+    textLines.push("", "Pozycje:");
+    for (const item of items) {
+      const qty = item?.quantity ?? "";
+      const name = item?.product_name ?? "";
+      const variant = item?.variant_name ? ` (${item.variant_name})` : "";
+      const subtotal = item?.subtotal ?? "";
+      textLines.push(`- ${qty} x ${name}${variant} = ${subtotal}`.trim());
+    }
   }
 
   const htmlParts: string[] = [
@@ -170,10 +187,24 @@ function buildGenericEmail({
   htmlParts.push("<ul>");
   for (const [k, v] of Object.entries(record || {})) {
     if (v === null || v === undefined || v === "") continue;
+    if (k === "items") continue;
     if (typeof v === "object") continue;
     htmlParts.push(`<li><strong>${escapeHtml(k)}:</strong> ${escapeHtml(v)}</li>`);
   }
   htmlParts.push("</ul>");
+
+  if (items.length) {
+    htmlParts.push("<p><strong>Pozycje:</strong></p>");
+    htmlParts.push("<ul>");
+    for (const item of items) {
+      const qty = item?.quantity ?? "";
+      const name = item?.product_name ?? "";
+      const variant = item?.variant_name ? ` (${item.variant_name})` : "";
+      const subtotal = item?.subtotal ?? "";
+      htmlParts.push(`<li>${escapeHtml(`${qty} x ${name}${variant} = ${subtotal}`)}</li>`);
+    }
+    htmlParts.push("</ul>");
+  }
 
   return { subject, text: textLines.join("\n"), html: htmlParts.join("") };
 }

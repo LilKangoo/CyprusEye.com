@@ -15,6 +15,24 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
 };
 
+ function getFunctionsBaseUrl(): string {
+   const explicit = (Deno.env.get("SUPABASE_FUNCTIONS_URL") || "").trim();
+   if (explicit) return explicit.replace(/\/$/, "");
+
+   const supabaseUrlRaw = (Deno.env.get("SUPABASE_URL") || "").trim();
+   if (!supabaseUrlRaw) return "";
+
+   try {
+     const url = new URL(supabaseUrlRaw);
+     const host = url.hostname;
+     const projectRef = host.split(".")[0] || "";
+     if (!projectRef) return "";
+     return `https://${projectRef}.functions.supabase.co`;
+   } catch (_e) {
+     return "";
+   }
+ }
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -198,7 +216,7 @@ async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.S
   await updateInventory(supabase, order.id);
 
   try {
-    const fnUrl = Deno.env.get("SUPABASE_FUNCTIONS_URL") || "";
+    const fnUrl = getFunctionsBaseUrl();
     const secret = Deno.env.get("ADMIN_NOTIFY_SECRET") || "";
     if (fnUrl && secret) {
       await fetch(`${fnUrl.replace(/\/$/, "")}/send-admin-notification`, {
@@ -210,7 +228,7 @@ async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.S
         body: JSON.stringify({ category: "shop", event: "paid", record_id: order.id }),
       });
     } else {
-      console.log("Admin notify skipped (missing SUPABASE_FUNCTIONS_URL or ADMIN_NOTIFY_SECRET)");
+      console.log("Admin notify skipped (missing functions base URL or ADMIN_NOTIFY_SECRET)");
     }
   } catch (e) {
     console.error("Admin notify failed:", e);
