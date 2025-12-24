@@ -3861,14 +3861,17 @@
             <div class="admin-form-grid">
               <label class="admin-form-field">
                 <span>Typ produktu * <small style="color: var(--admin-text-muted);">- określa funkcjonalność</small></span>
-                <select id="shopProductType" onchange="updateProductFormSections(this.value)">
-                  <option value="simple">🛒 Simple - zwykły produkt fizyczny</option>
-                  <option value="variable">🔀 Variable - z wariantami (rozmiar, kolor)</option>
-                  <option value="bundle">📦 Bundle - zestaw produktów</option>
-                  <option value="grouped">👥 Grouped - produkty powiązane</option>
-                  <option value="digital">💾 Digital - do pobrania (ebook, plik)</option>
-                  <option value="subscription">🔄 Subscription - subskrypcja cykliczna</option>
-                </select>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                  <select id="shopProductType" onchange="updateProductFormSections(this.value)" style="flex: 1;">
+                    <option value="simple">🛒 Simple - zwykły produkt fizyczny</option>
+                    <option value="variable">🔀 Variable - z wariantami (rozmiar, kolor)</option>
+                    <option value="bundle">📦 Bundle - zestaw produktów</option>
+                    <option value="grouped">👥 Grouped - produkty powiązane</option>
+                    <option value="digital">💾 Digital - do pobrania (ebook, plik)</option>
+                    <option value="subscription">🔄 Subscription - subskrypcja cykliczna</option>
+                  </select>
+                  <button type="button" class="btn-secondary" onclick="addProductVariant()" style="white-space: nowrap; font-size: 12px; padding: 4px 10px;">➕ Wariant</button>
+                </div>
               </label>
               <label class="admin-form-field">
                 <span>Status <small style="color: var(--admin-text-muted);">- widoczność w sklepie</small></span>

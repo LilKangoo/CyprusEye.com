@@ -14000,7 +14000,7 @@ async function showProductForm(productId = null) {
   // Reset variants and relationships
   productVariantsData = [];
   const variantsList = document.getElementById('shopProductVariantsList');
-  if (variantsList) variantsList.innerHTML = '<p style="color: var(--admin-text-muted); text-align: center; font-size: 13px;">Zapisz produkt, aby dodać warianty.</p>';
+  if (variantsList) variantsList.innerHTML = '<p style="color: var(--admin-text-muted); text-align: center; font-size: 13px;">Brak wariantów. Kliknij "Dodaj wariant" aby utworzyć.</p>';
   
   // Reset to Polish tab
   switchProductLang('pl');
@@ -14027,6 +14027,27 @@ async function showProductForm(productId = null) {
   modal.hidden = false;
   setupProductFormListeners();
 }
+
+function hasNonDeletedVariants() {
+  return (productVariantsData || []).some(v => v && !v.is_deleted);
+}
+
+function hasVariantChanges() {
+  return (productVariantsData || []).some(v => v && (v.is_new || v.is_modified || v.is_deleted));
+}
+
+function enableProductVariantsUI() {
+  const typeSelect = document.getElementById('shopProductType');
+  if (typeSelect && typeSelect.value !== 'variable') {
+    typeSelect.value = 'variable';
+  }
+  updateProductFormSections('variable');
+  const variantsSection = document.getElementById('shopProductVariantsSection');
+  if (variantsSection) {
+    variantsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+window.enableProductVariantsUI = enableProductVariantsUI;
 
 async function loadProductFormDropdowns() {
   const client = ensureSupabase();
@@ -14274,7 +14295,7 @@ async function loadProductVariants(productId) {
   const list = document.getElementById('shopProductVariantsList');
   if (!productId) {
     productVariantsData = [];
-    if (list) list.innerHTML = '<p style="color: var(--admin-text-muted); text-align: center; font-size: 13px;">Zapisz produkt, aby dodać warianty.</p>';
+    if (list) list.innerHTML = '<p style="color: var(--admin-text-muted); text-align: center; font-size: 13px;">Brak wariantów. Kliknij "Dodaj wariant" aby utworzyć.</p>';
     return;
   }
   
@@ -14292,6 +14313,11 @@ async function loadProductVariants(productId) {
     
     if (error) throw error;
     productVariantsData = variants || [];
+
+    if (productVariantsData.length) {
+      enableProductVariantsUI();
+    }
+
     renderProductVariantsList();
   } catch (error) {
     console.error('Failed to load variants:', error);
@@ -14313,6 +14339,14 @@ function renderProductVariantsList() {
       <div style="display: flex; gap: 8px; align-items: center; margin-bottom: 8px;">
         <input type="text" value="${escapeHtml(variant.name || '')}" placeholder="Nazwa wariantu (np. Rozmiar L)" 
           style="flex: 1; font-weight: 500;" onchange="updateVariantField(${idx}, 'name', this.value)">
+        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--admin-text-muted); white-space: nowrap;">
+          <input type="radio" name="shopDefaultVariant" ${variant.is_default ? 'checked' : ''} onchange="setDefaultVariant(${idx})">
+          Domyślny
+        </label>
+        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: var(--admin-text-muted); white-space: nowrap;">
+          <input type="checkbox" ${variant.is_active === false ? '' : 'checked'} onchange="updateVariantField(${idx}, 'is_active', this.checked)">
+          Aktywny
+        </label>
         <button type="button" class="btn-icon" onclick="removeProductVariant(${idx})" style="color: #ef4444;" title="Usuń">🗑️</button>
       </div>
       <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px;">
@@ -14323,18 +14357,35 @@ function renderProductVariantsList() {
         </div>
         <div>
           <label style="font-size: 11px; color: var(--admin-text-muted);">Cena (€)</label>
-          <input type="number" value="${variant.price || ''}" placeholder="Cena" step="0.01"
-            style="width: 100%;" onchange="updateVariantField(${idx}, 'price', parseFloat(this.value))">
+          <input type="number" value="${variant.price !== null && variant.price !== undefined ? variant.price : ''}" placeholder="Cena" step="0.01"
+            style="width: 100%;" onchange="updateVariantField(${idx}, 'price', parseNullableNumber(this.value))">
+        </div>
+        <div>
+          <label style="font-size: 11px; color: var(--admin-text-muted);">Było (€)</label>
+          <input type="number" value="${variant.compare_at_price !== null && variant.compare_at_price !== undefined ? variant.compare_at_price : ''}" placeholder="Cena porównawcza" step="0.01"
+            style="width: 100%;" onchange="updateVariantField(${idx}, 'compare_at_price', parseNullableNumber(this.value))">
         </div>
         <div>
           <label style="font-size: 11px; color: var(--admin-text-muted);">Stan mag.</label>
-          <input type="number" value="${variant.stock_quantity || 0}" placeholder="Ilość" min="0"
-            style="width: 100%;" onchange="updateVariantField(${idx}, 'stock_quantity', parseInt(this.value))">
+          <input type="number" value="${variant.stock_quantity !== null && variant.stock_quantity !== undefined ? variant.stock_quantity : 0}" placeholder="Ilość" min="0"
+            style="width: 100%;" onchange="updateVariantField(${idx}, 'stock_quantity', parseNullableInt(this.value, 0))">
         </div>
+      </div>
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px;">
         <div>
           <label style="font-size: 11px; color: var(--admin-text-muted);">Waga (kg)</label>
-          <input type="number" value="${variant.weight || ''}" placeholder="Waga" step="0.01"
-            style="width: 100%;" onchange="updateVariantField(${idx}, 'weight', parseFloat(this.value))">
+          <input type="number" value="${variant.weight !== null && variant.weight !== undefined ? variant.weight : ''}" placeholder="Waga" step="0.01"
+            style="width: 100%;" onchange="updateVariantField(${idx}, 'weight', parseNullableNumber(this.value))">
+        </div>
+        <div>
+          <label style="font-size: 11px; color: var(--admin-text-muted);">Kolejność</label>
+          <input type="number" value="${variant.sort_order !== null && variant.sort_order !== undefined ? variant.sort_order : idx}" placeholder="0" step="1" min="0"
+            style="width: 100%;" onchange="updateVariantField(${idx}, 'sort_order', parseNullableInt(this.value, idx))">
+        </div>
+        <div>
+          <label style="font-size: 11px; color: var(--admin-text-muted);">URL obrazka</label>
+          <input type="url" value="${escapeHtml(variant.image_url || '')}" placeholder="https://..."
+            style="width: 100%;" onchange="updateVariantField(${idx}, 'image_url', this.value)">
         </div>
       </div>
       <div style="margin-top: 8px;">
@@ -14345,6 +14396,30 @@ function renderProductVariantsList() {
     </div>
   `).join('');
 }
+
+function parseNullableNumber(value) {
+  const v = typeof value === 'string' ? value.trim() : value;
+  if (v === '' || v === null || v === undefined) return null;
+  const n = parseFloat(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function parseNullableInt(value, fallback = null) {
+  const v = typeof value === 'string' ? value.trim() : value;
+  if (v === '' || v === null || v === undefined) return fallback;
+  const n = parseInt(v, 10);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function setDefaultVariant(idx) {
+  (productVariantsData || []).forEach((v, i) => {
+    if (!v || v.is_deleted) return;
+    v.is_default = i === idx;
+    v.is_modified = true;
+  });
+  renderProductVariantsList();
+}
+window.setDefaultVariant = setDefaultVariant;
 
 function formatAttributes(attrs) {
   if (!attrs || typeof attrs !== 'object') return '';
@@ -14363,13 +14438,19 @@ function parseAttributesInput(str) {
 window.parseAttributesInput = parseAttributesInput;
 
 function addProductVariant() {
+  enableProductVariantsUI();
   productVariantsData.push({ 
     name: '', 
     sku: '', 
     price: null, 
+    compare_at_price: null,
     stock_quantity: 0, 
     weight: null,
+    image_url: null,
     attributes: {},
+    is_active: true,
+    is_default: !hasNonDeletedVariants(),
+    sort_order: (productVariantsData || []).length,
     is_new: true 
   });
   renderProductVariantsList();
@@ -14399,6 +14480,26 @@ window.removeProductVariant = removeProductVariant;
 async function saveProductVariants(productId) {
   const client = ensureSupabase();
   if (!client || !productId) return;
+
+  const activeNonDeleted = (productVariantsData || []).filter(v => v && !v.is_deleted);
+  if (activeNonDeleted.length) {
+    const defaults = activeNonDeleted.filter(v => v.is_default);
+    if (!defaults.length) {
+      activeNonDeleted[0].is_default = true;
+      activeNonDeleted[0].is_modified = true;
+    } else if (defaults.length > 1) {
+      let seen = false;
+      activeNonDeleted.forEach(v => {
+        if (!v.is_default) return;
+        if (!seen) {
+          seen = true;
+          return;
+        }
+        v.is_default = false;
+        v.is_modified = true;
+      });
+    }
+  }
   
   for (const variant of productVariantsData) {
     if (variant.is_deleted && variant.id) {
@@ -14408,18 +14509,28 @@ async function saveProductVariants(productId) {
         product_id: productId,
         name: variant.name,
         sku: variant.sku || null,
-        price: variant.price || null,
-        stock_quantity: variant.stock_quantity || 0,
-        weight: variant.weight || null,
+        price: variant.price !== null && variant.price !== undefined && !Number.isNaN(variant.price) ? variant.price : null,
+        compare_at_price: variant.compare_at_price !== null && variant.compare_at_price !== undefined && !Number.isNaN(variant.compare_at_price) ? variant.compare_at_price : null,
+        stock_quantity: Number.isFinite(variant.stock_quantity) ? variant.stock_quantity : 0,
+        weight: variant.weight !== null && variant.weight !== undefined && !Number.isNaN(variant.weight) ? variant.weight : null,
+        image_url: (variant.image_url || '').trim() || null,
+        is_default: !!variant.is_default,
+        is_active: variant.is_active !== false,
+        sort_order: Number.isFinite(variant.sort_order) ? variant.sort_order : 0,
         attributes: variant.attributes || {}
       });
     } else if (variant.is_modified && variant.id) {
       await client.from('shop_product_variants').update({
         name: variant.name,
         sku: variant.sku || null,
-        price: variant.price || null,
-        stock_quantity: variant.stock_quantity || 0,
-        weight: variant.weight || null,
+        price: variant.price !== null && variant.price !== undefined && !Number.isNaN(variant.price) ? variant.price : null,
+        compare_at_price: variant.compare_at_price !== null && variant.compare_at_price !== undefined && !Number.isNaN(variant.compare_at_price) ? variant.compare_at_price : null,
+        stock_quantity: Number.isFinite(variant.stock_quantity) ? variant.stock_quantity : 0,
+        weight: variant.weight !== null && variant.weight !== undefined && !Number.isNaN(variant.weight) ? variant.weight : null,
+        image_url: (variant.image_url || '').trim() || null,
+        is_default: !!variant.is_default,
+        is_active: variant.is_active !== false,
+        sort_order: Number.isFinite(variant.sort_order) ? variant.sort_order : 0,
         attributes: variant.attributes || {}
       }).eq('id', variant.id);
     }
@@ -14727,6 +14838,13 @@ async function saveProduct() {
     ...getSelectedProductRelationships()
   };
 
+  if (hasNonDeletedVariants() && productData.product_type !== 'variable') {
+    productData.product_type = 'variable';
+    const typeSelect = document.getElementById('shopProductType');
+    if (typeSelect) typeSelect.value = 'variable';
+    updateProductFormSections('variable');
+  }
+
   // Helper function to parse image URLs from textarea
   function parseImageUrls(text) {
     if (!text) return [];
@@ -14744,8 +14862,8 @@ async function saveProduct() {
 
     if (error) throw error;
 
-    // Save variants if product type is variable
-    if (savedProductId && productData.product_type === 'variable') {
+    // Save variants if any changes exist (also covers create flow before product has an id)
+    if (savedProductId && (productData.product_type === 'variable' || hasVariantChanges())) {
       await saveProductVariants(savedProductId);
     }
     // Note: upsell/cross-sell are now saved as arrays directly in productData
