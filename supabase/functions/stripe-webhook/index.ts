@@ -44,7 +44,11 @@ serve(async (req) => {
   }
 
   const body = await req.text();
-  const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET")!;
+  const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+  if (!webhookSecret) {
+    console.error("Missing STRIPE_WEBHOOK_SECRET");
+    return new Response("Missing STRIPE_WEBHOOK_SECRET", { status: 500 });
+  }
 
   let event: Stripe.Event;
   try {
@@ -123,14 +127,46 @@ serve(async (req) => {
 async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.Session) {
   console.log("Checkout completed:", session.id);
 
-  const { data: order, error: findError } = await supabase
+  let order: any = null;
+
+  const primary = await supabase
     .from("shop_orders")
     .select("*")
     .eq("stripe_checkout_session_id", session.id)
     .single();
 
-  if (findError || !order) {
-    console.error("Order not found for session:", session.id);
+  if (primary.data) {
+    order = primary.data;
+  } else if (primary.error && (primary.error as any)?.code !== "PGRST116") {
+    console.error("Error finding order by session id:", primary.error);
+    return;
+  }
+
+  if (!order) {
+    const metaOrderId = (session.metadata as any)?.order_id;
+    const fallbackOrderId = (metaOrderId || session.client_reference_id || "") as string;
+    if (fallbackOrderId) {
+      const fallback = await supabase
+        .from("shop_orders")
+        .select("*")
+        .eq("id", fallbackOrderId)
+        .single();
+
+      if (fallback.data) {
+        order = fallback.data;
+      } else if (fallback.error && (fallback.error as any)?.code !== "PGRST116") {
+        console.error("Error finding order by id fallback:", fallback.error);
+        return;
+      }
+    }
+  }
+
+  if (!order) {
+    console.error("Order not found for session:", {
+      session_id: session.id,
+      client_reference_id: session.client_reference_id,
+      metadata_order_id: (session.metadata as any)?.order_id,
+    });
     return;
   }
 
@@ -139,6 +175,7 @@ async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.S
     .update({
       status: "confirmed",
       payment_status: "paid",
+      stripe_checkout_session_id: session.id,
       stripe_payment_intent_id: session.payment_intent,
       stripe_customer_id: session.customer,
       paid_at: new Date().toISOString(),
@@ -219,7 +256,8 @@ async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.S
     const fnUrl = getFunctionsBaseUrl();
     const secret = Deno.env.get("ADMIN_NOTIFY_SECRET") || "";
     if (fnUrl && secret) {
-      await fetch(`${fnUrl.replace(/\/$/, "")}/send-admin-notification`, {
+      const notifyUrl = `${fnUrl.replace(/\/$/, "")}/send-admin-notification`;
+      const resp = await fetch(notifyUrl, {
         method: "POST",
         headers: {
           "content-type": "application/json",
@@ -227,6 +265,18 @@ async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.S
         },
         body: JSON.stringify({ category: "shop", event: "paid", record_id: order.id }),
       });
+
+      if (!resp.ok) {
+        const respText = await resp.text().catch(() => "");
+        console.error("Admin notify failed:", {
+          status: resp.status,
+          url: notifyUrl,
+          body: respText,
+        });
+      } else {
+        const respText = await resp.text().catch(() => "");
+        console.log("Admin notify ok:", { status: resp.status, url: notifyUrl, body: respText });
+      }
     } else {
       console.log("Admin notify skipped (missing functions base URL or ADMIN_NOTIFY_SECRET)");
     }
