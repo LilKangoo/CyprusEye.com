@@ -2995,8 +2995,23 @@
           <h2>Settings</h2>
           <p class="admin-view-subtitle">Configure admin panel settings</p>
         </header>
-        <div class="admin-placeholder">
-          <p>Settings coming soon...</p>
+        <div class="admin-card" style="max-width: 720px;">
+          <div class="admin-card-header">
+            <h3>🔔 Powiadomienia e-mail</h3>
+            <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Email admina do powiadomień o nowych rezerwacjach (auta/hotele/wycieczki) oraz opłaconych zamówieniach w sklepie</p>
+          </div>
+          <div class="admin-card-body">
+            <form id="adminNotificationSettingsForm">
+              <label class="admin-form-field">
+                <span>Email(e) administratora</span>
+                <input type="text" id="adminNotificationEmail" placeholder="admin@twojadomena.com">
+                <small style="color: var(--admin-text-muted);">Możesz podać kilka adresów, rozdzielając je przecinkami.</small>
+              </label>
+              <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
+                <button type="submit" class="btn btn-primary">Zapisz</button>
+              </div>
+            </form>
+          </div>
         </div>
       </section>
 

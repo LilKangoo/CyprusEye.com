@@ -3103,6 +3103,9 @@ function switchView(viewName) {
     case 'shop':
       loadShopData();
       break;
+    case 'settings':
+      loadAdminNotificationSettings();
+      break;
   }
 }
 
@@ -7435,6 +7438,14 @@ function initEventListeners() {
       }
     });
   });
+
+  const adminNotificationForm = document.getElementById('adminNotificationSettingsForm');
+  if (adminNotificationForm) {
+    adminNotificationForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      saveAdminNotificationSettings();
+    });
+  }
 
   // Users pagination
   const usersPrevBtn = $('#btnUsersPrev');
@@ -13924,6 +13935,55 @@ async function saveShopSettings() {
 
   } catch (error) {
     console.error('Failed to save shop settings:', error);
+    showToast(`Błąd zapisu: ${error.message}`, 'error');
+  }
+}
+
+async function loadAdminNotificationSettings() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const emailEl = document.getElementById('adminNotificationEmail');
+  if (emailEl) emailEl.value = '';
+
+  try {
+    const { data: settings, error } = await client
+      .from('shop_settings')
+      .select('admin_notification_email')
+      .eq('id', 1)
+      .single();
+
+    if (error) throw error;
+
+    if (emailEl) emailEl.value = settings?.admin_notification_email || '';
+  } catch (error) {
+    console.error('Failed to load admin notification settings:', error);
+    showToast('Błąd ładowania ustawień', 'error');
+  }
+}
+
+async function saveAdminNotificationSettings() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const emailValue = document.getElementById('adminNotificationEmail')?.value || '';
+
+    const payload = {
+      id: 1,
+      admin_notification_email: emailValue,
+      updated_at: new Date().toISOString()
+    };
+
+    const { error } = await client
+      .from('shop_settings')
+      .upsert(payload, { onConflict: 'id' });
+
+    if (error) throw error;
+
+    showToast('Ustawienia zapisane', 'success');
+  } catch (error) {
+    console.error('Failed to save admin notification settings:', error);
     showToast(`Błąd zapisu: ${error.message}`, 'error');
   }
 }

@@ -197,6 +197,25 @@ async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.S
 
   await updateInventory(supabase, order.id);
 
+  try {
+    const fnUrl = Deno.env.get("SUPABASE_FUNCTIONS_URL") || "";
+    const secret = Deno.env.get("ADMIN_NOTIFY_SECRET") || "";
+    if (fnUrl && secret) {
+      await fetch(`${fnUrl.replace(/\/$/, "")}/send-admin-notification`, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-admin-notify-secret": secret,
+        },
+        body: JSON.stringify({ category: "shop", event: "paid", record_id: order.id }),
+      });
+    } else {
+      console.log("Admin notify skipped (missing SUPABASE_FUNCTIONS_URL or ADMIN_NOTIFY_SECRET)");
+    }
+  } catch (e) {
+    console.error("Admin notify failed:", e);
+  }
+
   const { data: cartData } = await supabase
     .from("shop_carts")
     .select("id")
