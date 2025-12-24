@@ -250,8 +250,6 @@ async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.S
     }
   }
 
-  await updateInventory(supabase, order.id);
-
   try {
     const fnUrl = getFunctionsBaseUrl();
     const secret = Deno.env.get("ADMIN_NOTIFY_SECRET") || "";
@@ -284,15 +282,25 @@ async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.S
     console.error("Admin notify failed:", e);
   }
 
-  const { data: cartData } = await supabase
-    .from("shop_carts")
-    .select("id")
-    .eq("user_id", order.user_id)
-    .single();
+  try {
+    await updateInventory(supabase, order.id);
+  } catch (e) {
+    console.error("Inventory update failed:", e);
+  }
 
-  if (cartData) {
-    await supabase.from("shop_cart_items").delete().eq("cart_id", cartData.id);
-    await supabase.from("shop_carts").update({ discount_code: null }).eq("id", cartData.id);
+  try {
+    const { data: cartData } = await supabase
+      .from("shop_carts")
+      .select("id")
+      .eq("user_id", order.user_id)
+      .single();
+
+    if (cartData) {
+      await supabase.from("shop_cart_items").delete().eq("cart_id", cartData.id);
+      await supabase.from("shop_carts").update({ discount_code: null }).eq("id", cartData.id);
+    }
+  } catch (e) {
+    console.error("Cart cleanup failed:", e);
   }
 
   console.log("Order confirmed and XP awarded:", order.id);
@@ -484,18 +492,54 @@ async function updateInventory(supabase: any, orderId: string) {
 
   for (const item of items) {
     if (item.variant_id) {
-      await supabase.rpc("decrement_variant_stock", {
-        p_variant_id: item.variant_id,
-        p_quantity: item.quantity,
-      });
+      const { data: variantRow, error: variantErr } = await supabase
+        .from("shop_product_variants")
+        .select("stock_quantity")
+        .eq("id", item.variant_id)
+        .single();
+
+      if (variantErr) {
+        console.error("Failed to load variant for stock decrement:", variantErr);
+        continue;
+      }
+
+      const currentStock = Number((variantRow as any)?.stock_quantity || 0) || 0;
+      const nextStock = Math.max(0, currentStock - Number(item.quantity || 0));
+
+      const { error: variantUpdateErr } = await supabase
+        .from("shop_product_variants")
+        .update({ stock_quantity: nextStock })
+        .eq("id", item.variant_id);
+
+      if (variantUpdateErr) {
+        console.error("Failed to decrement variant stock:", variantUpdateErr);
+      }
     } else if (item.product_id) {
-      await supabase
+      const { data: productRow, error: productErr } = await supabase
         .from("shop_products")
-        .update({
-          stock_quantity: supabase.sql`stock_quantity - ${item.quantity}`,
-          total_sold: supabase.sql`total_sold + ${item.quantity}`,
-        })
+        .select("stock_quantity, total_sold")
+        .eq("id", item.product_id)
+        .single();
+
+      if (productErr) {
+        console.error("Failed to load product for stock decrement:", productErr);
+        continue;
+      }
+
+      const currentStock = Number((productRow as any)?.stock_quantity || 0) || 0;
+      const currentSold = Number((productRow as any)?.total_sold || 0) || 0;
+      const qty = Number(item.quantity || 0) || 0;
+      const nextStock = Math.max(0, currentStock - qty);
+      const nextSold = currentSold + qty;
+
+      const { error: productUpdateErr } = await supabase
+        .from("shop_products")
+        .update({ stock_quantity: nextStock, total_sold: nextSold })
         .eq("id", item.product_id);
+
+      if (productUpdateErr) {
+        console.error("Failed to decrement product stock:", productUpdateErr);
+      }
     }
   }
 }
@@ -510,19 +554,53 @@ async function restoreInventory(supabase: any, orderId: string) {
 
   for (const item of items) {
     if (item.variant_id) {
-      await supabase
+      const { data: variantRow, error: variantErr } = await supabase
         .from("shop_product_variants")
-        .update({
-          stock_quantity: supabase.sql`stock_quantity + ${item.quantity}`,
-        })
+        .select("stock_quantity")
+        .eq("id", item.variant_id)
+        .single();
+
+      if (variantErr) {
+        console.error("Failed to load variant for stock restore:", variantErr);
+        continue;
+      }
+
+      const currentStock = Number((variantRow as any)?.stock_quantity || 0) || 0;
+      const qty = Number(item.quantity || 0) || 0;
+      const nextStock = currentStock + qty;
+
+      const { error: variantUpdateErr } = await supabase
+        .from("shop_product_variants")
+        .update({ stock_quantity: nextStock })
         .eq("id", item.variant_id);
+
+      if (variantUpdateErr) {
+        console.error("Failed to restore variant stock:", variantUpdateErr);
+      }
     } else if (item.product_id) {
-      await supabase
+      const { data: productRow, error: productErr } = await supabase
         .from("shop_products")
-        .update({
-          stock_quantity: supabase.sql`stock_quantity + ${item.quantity}`,
-        })
+        .select("stock_quantity")
+        .eq("id", item.product_id)
+        .single();
+
+      if (productErr) {
+        console.error("Failed to load product for stock restore:", productErr);
+        continue;
+      }
+
+      const currentStock = Number((productRow as any)?.stock_quantity || 0) || 0;
+      const qty = Number(item.quantity || 0) || 0;
+      const nextStock = currentStock + qty;
+
+      const { error: productUpdateErr } = await supabase
+        .from("shop_products")
+        .update({ stock_quantity: nextStock })
         .eq("id", item.product_id);
+
+      if (productUpdateErr) {
+        console.error("Failed to restore product stock:", productUpdateErr);
+      }
     }
   }
 }
