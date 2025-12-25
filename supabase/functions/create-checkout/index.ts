@@ -1562,6 +1562,13 @@ serve(async (req) => {
       }),
       customer_email: customerEmail,
       client_reference_id: order.id,
+      payment_intent_data: {
+        metadata: {
+          order_id: order.id,
+          order_number: orderNumber,
+          user_id: body.user_id,
+        },
+      },
       metadata: {
         order_id: order.id,
         order_number: orderNumber,

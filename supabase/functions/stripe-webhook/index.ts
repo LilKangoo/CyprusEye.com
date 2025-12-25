@@ -15,6 +15,16 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
 };
 
+function getStripeId(value: unknown): string | null {
+  if (!value) return null;
+  if (typeof value === "string") return value;
+  if (typeof value === "object" && value !== null && "id" in value) {
+    const id = (value as any).id;
+    return typeof id === "string" ? id : null;
+  }
+  return null;
+}
+
  function getFunctionsBaseUrl(): string {
    const explicit = (Deno.env.get("SUPABASE_FUNCTIONS_URL") || "").trim();
    if (explicit) return explicit.replace(/\/$/, "");
@@ -170,41 +180,73 @@ async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.S
     return;
   }
 
-  const { error: updateError } = await supabase
+  const fromStatus = order.status;
+  const nowIso = new Date().toISOString();
+  const paymentIntentId = getStripeId(session.payment_intent);
+  const customerId = getStripeId(session.customer);
+
+  const firstConfirmAttempt = await supabase
     .from("shop_orders")
     .update({
       status: "confirmed",
       payment_status: "paid",
       stripe_checkout_session_id: session.id,
-      stripe_payment_intent_id: session.payment_intent,
-      stripe_customer_id: session.customer,
-      paid_at: new Date().toISOString(),
-      confirmed_at: new Date().toISOString(),
+      stripe_payment_intent_id: paymentIntentId,
+      stripe_customer_id: customerId,
+      paid_at: nowIso,
+      confirmed_at: nowIso,
     })
-    .eq("id", order.id);
+    .eq("id", order.id)
+    .is("confirmed_at", null)
+    .select("id")
+    .maybeSingle();
 
-  if (updateError) {
-    console.error("Error updating order:", updateError);
+  if (firstConfirmAttempt.error) {
+    console.error("Error confirming order (first attempt):", firstConfirmAttempt.error);
     return;
   }
 
-  await supabase.from("shop_order_history").insert({
-    order_id: order.id,
-    from_status: order.status,
-    to_status: "confirmed",
-    note: "Payment completed via Stripe",
-  });
+  const isFirstConfirm = !!firstConfirmAttempt.data;
 
-  const { data: settings } = await supabase
-    .from("shop_settings")
-    .select("xp_enabled, xp_award_on")
-    .single();
+  if (!isFirstConfirm) {
+    const { error: updateError } = await supabase
+      .from("shop_orders")
+      .update({
+        status: "confirmed",
+        payment_status: "paid",
+        stripe_checkout_session_id: session.id,
+        stripe_payment_intent_id: paymentIntentId,
+        stripe_customer_id: customerId,
+      })
+      .eq("id", order.id);
 
-  if (settings?.xp_enabled && settings?.xp_award_on === "payment") {
-    await supabase.rpc("shop_award_xp", { p_order_id: order.id });
+    if (updateError) {
+      console.error("Error updating order:", updateError);
+      return;
+    }
   }
 
-  if (order.discount_id && order.user_id) {
+  if (isFirstConfirm) {
+    await supabase.from("shop_order_history").insert({
+      order_id: order.id,
+      from_status: fromStatus,
+      to_status: "confirmed",
+      note: "Payment completed via Stripe",
+    });
+  }
+
+  if (isFirstConfirm) {
+    const { data: settings } = await supabase
+      .from("shop_settings")
+      .select("xp_enabled, xp_award_on")
+      .single();
+
+    if (settings?.xp_enabled && settings?.xp_award_on === "payment") {
+      await supabase.rpc("shop_award_xp", { p_order_id: order.id });
+    }
+  }
+
+  if (isFirstConfirm && order.discount_id && order.user_id) {
     const discountAmount = Number(order.discount_amount || 0) || 0;
     try {
       const { error: usageError } = await supabase
@@ -250,57 +292,29 @@ async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.S
     }
   }
 
-  try {
-    const fnUrl = getFunctionsBaseUrl();
-    const secret = Deno.env.get("ADMIN_NOTIFY_SECRET") || "";
-    if (fnUrl && secret) {
-      const notifyUrl = `${fnUrl.replace(/\/$/, "")}/send-admin-notification`;
-      const resp = await fetch(notifyUrl, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-admin-notify-secret": secret,
-        },
-        body: JSON.stringify({ category: "shop", event: "paid", record_id: order.id }),
-      });
+  if (isFirstConfirm) {
+    try {
+      await updateInventory(supabase, order.id);
+    } catch (e) {
+      console.error("Inventory update failed:", e);
+    }
+  }
 
-      if (!resp.ok) {
-        const respText = await resp.text().catch(() => "");
-        console.error("Admin notify failed:", {
-          status: resp.status,
-          url: notifyUrl,
-          body: respText,
-        });
-      } else {
-        const respText = await resp.text().catch(() => "");
-        console.log("Admin notify ok:", { status: resp.status, url: notifyUrl, body: respText });
+  if (isFirstConfirm) {
+    try {
+      const { data: cartData } = await supabase
+        .from("shop_carts")
+        .select("id")
+        .eq("user_id", order.user_id)
+        .single();
+
+      if (cartData) {
+        await supabase.from("shop_cart_items").delete().eq("cart_id", cartData.id);
+        await supabase.from("shop_carts").update({ discount_code: null }).eq("id", cartData.id);
       }
-    } else {
-      console.log("Admin notify skipped (missing functions base URL or ADMIN_NOTIFY_SECRET)");
+    } catch (e) {
+      console.error("Cart cleanup failed:", e);
     }
-  } catch (e) {
-    console.error("Admin notify failed:", e);
-  }
-
-  try {
-    await updateInventory(supabase, order.id);
-  } catch (e) {
-    console.error("Inventory update failed:", e);
-  }
-
-  try {
-    const { data: cartData } = await supabase
-      .from("shop_carts")
-      .select("id")
-      .eq("user_id", order.user_id)
-      .single();
-
-    if (cartData) {
-      await supabase.from("shop_cart_items").delete().eq("cart_id", cartData.id);
-      await supabase.from("shop_carts").update({ discount_code: null }).eq("id", cartData.id);
-    }
-  } catch (e) {
-    console.error("Cart cleanup failed:", e);
   }
 
   console.log("Order confirmed and XP awarded:", order.id);
@@ -339,20 +353,162 @@ async function handleCheckoutExpired(supabase: any, session: Stripe.Checkout.Ses
 async function handlePaymentSucceeded(supabase: any, paymentIntent: Stripe.PaymentIntent) {
   console.log("Payment succeeded:", paymentIntent.id);
 
-  const { data: order } = await supabase
-    .from("shop_orders")
-    .select("id, payment_status")
-    .eq("stripe_payment_intent_id", paymentIntent.id)
-    .single();
+  let order: any = null;
 
-  if (order && order.payment_status !== "paid") {
-    await supabase
+  const primary = await supabase
+    .from("shop_orders")
+    .select("*")
+    .eq("stripe_payment_intent_id", paymentIntent.id)
+    .maybeSingle();
+
+  if (primary.data) {
+    order = primary.data;
+  } else if ((paymentIntent.metadata as any)?.order_id) {
+    const orderId = String((paymentIntent.metadata as any).order_id || "");
+    if (orderId) {
+      const fallback = await supabase
+        .from("shop_orders")
+        .select("*")
+        .eq("id", orderId)
+        .maybeSingle();
+      if (fallback.data) order = fallback.data;
+    }
+  }
+
+  if (!order) {
+    console.error("Order not found for payment_intent:", {
+      payment_intent_id: paymentIntent.id,
+      metadata_order_id: (paymentIntent.metadata as any)?.order_id,
+    });
+    return;
+  }
+
+  const fromStatus = order.status;
+  const nowIso = new Date().toISOString();
+  const customerId = getStripeId(paymentIntent.customer);
+
+  const firstConfirmAttempt = await supabase
+    .from("shop_orders")
+    .update({
+      status: "confirmed",
+      payment_status: "paid",
+      stripe_payment_intent_id: paymentIntent.id,
+      stripe_customer_id: customerId,
+      paid_at: nowIso,
+      confirmed_at: nowIso,
+    })
+    .eq("id", order.id)
+    .is("confirmed_at", null)
+    .select("id")
+    .maybeSingle();
+
+  if (firstConfirmAttempt.error) {
+    console.error("Error confirming order from payment_intent.succeeded (first attempt):", firstConfirmAttempt.error);
+    return;
+  }
+
+  const isFirstConfirm = !!firstConfirmAttempt.data;
+
+  if (!isFirstConfirm) {
+    const { error: updateErr } = await supabase
       .from("shop_orders")
       .update({
+        status: "confirmed",
         payment_status: "paid",
-        paid_at: new Date().toISOString(),
+        stripe_payment_intent_id: paymentIntent.id,
+        stripe_customer_id: customerId,
       })
       .eq("id", order.id);
+
+    if (updateErr) {
+      console.error("Error updating order from payment_intent.succeeded:", updateErr);
+      return;
+    }
+  }
+
+  if (isFirstConfirm) {
+    await supabase.from("shop_order_history").insert({
+      order_id: order.id,
+      from_status: fromStatus,
+      to_status: "confirmed",
+      note: "Payment completed via Stripe (payment_intent.succeeded)",
+    });
+
+    const { data: settings } = await supabase
+      .from("shop_settings")
+      .select("xp_enabled, xp_award_on")
+      .single();
+
+    if (settings?.xp_enabled && settings?.xp_award_on === "payment") {
+      await supabase.rpc("shop_award_xp", { p_order_id: order.id });
+    }
+
+    if (order.discount_id && order.user_id) {
+      const discountAmount = Number(order.discount_amount || 0) || 0;
+      try {
+        const { error: usageError } = await supabase
+          .from("shop_discount_usage")
+          .insert({
+            discount_id: order.discount_id,
+            order_id: order.id,
+            user_id: order.user_id,
+            discount_amount: discountAmount,
+          });
+
+        const usageErrorCode = (usageError as any)?.code;
+        if (usageError && usageErrorCode !== "23505") {
+          console.error("Failed to insert discount usage:", usageError);
+        }
+
+        if (!usageError) {
+          try {
+            const { data: d, error: readErr } = await supabase
+              .from("shop_discounts")
+              .select("usage_count")
+              .eq("id", order.discount_id)
+              .single();
+
+            if (readErr) {
+              console.error("Failed to load discount usage_count:", readErr);
+            } else {
+              const currentCount = Number((d as any)?.usage_count || 0) || 0;
+              const { error: updateErr } = await supabase
+                .from("shop_discounts")
+                .update({ usage_count: currentCount + 1, updated_at: new Date().toISOString() })
+                .eq("id", order.discount_id);
+              if (updateErr) {
+                console.error("Failed to update discount usage_count:", updateErr);
+              }
+            }
+          } catch (e) {
+            console.error("Failed to increment discount usage_count:", e);
+          }
+        }
+      } catch (e) {
+        console.error("Discount usage tracking error:", e);
+      }
+    }
+
+    try {
+      await updateInventory(supabase, order.id);
+    } catch (e) {
+      console.error("Inventory update failed:", e);
+    }
+
+    try {
+      const { data: cartData } = await supabase
+        .from("shop_carts")
+        .select("id")
+        .eq("user_id", order.user_id)
+        .single();
+
+      if (cartData) {
+        await supabase.from("shop_cart_items").delete().eq("cart_id", cartData.id);
+        await supabase.from("shop_carts").update({ discount_code: null }).eq("id", cartData.id);
+      }
+    } catch (e) {
+      console.error("Cart cleanup failed:", e);
+    }
   }
 }
 
@@ -361,11 +517,16 @@ async function handlePaymentFailed(supabase: any, paymentIntent: Stripe.PaymentI
 
   const { data: order } = await supabase
     .from("shop_orders")
-    .select("id, status")
+    .select("id, status, payment_status, confirmed_at")
     .eq("stripe_payment_intent_id", paymentIntent.id)
     .single();
 
   if (order) {
+    if ((order as any).confirmed_at || (order as any).payment_status === "paid") {
+      console.log("Ignoring payment_failed for already paid/confirmed order:", (order as any).id);
+      return;
+    }
+
     await supabase
       .from("shop_orders")
       .update({

@@ -57,7 +57,7 @@ function escapeHtml(value: unknown): string {
 
 function normalizeCategory(category: string | undefined | null): Category | null {
   const c = (category || "").toLowerCase();
-  if (c === "shop") return "shop";
+  if (c === "shop" || c === "shop_orders" || c === "shop_order_history") return "shop";
   if (c === "car" || c === "cars" || c === "car_bookings") return "cars";
   if (c === "hotel" || c === "hotels" || c === "hotel_bookings") return "hotels";
   if (c === "trip" || c === "trips" || c === "trip_bookings") return "trips";
@@ -295,7 +295,19 @@ serve(async (req) => {
     });
   }
 
-  const recordId = body.record_id || (body.record && typeof (body.record as any).id === "string" ? ((body.record as any).id as string) : "");
+  const tableLower = String(body.table || "").toLowerCase();
+  const historyRecordId =
+    tableLower === "shop_order_history" && body.record && typeof (body.record as any).id === "string"
+      ? ((body.record as any).id as string)
+      : "";
+
+  const recordIdFromBody = body.record_id || (body.record && typeof (body.record as any).id === "string" ? ((body.record as any).id as string) : "");
+  const recordIdFromHistoryOrderId =
+    tableLower === "shop_order_history" && body.record && typeof (body.record as any).order_id === "string"
+      ? ((body.record as any).order_id as string)
+      : "";
+
+  const recordId = recordIdFromHistoryOrderId || recordIdFromBody;
   if (!recordId) {
     return new Response(JSON.stringify({ error: "Missing record_id" }), {
       status: 400,
@@ -303,9 +315,55 @@ serve(async (req) => {
     });
   }
 
-  const event = body.event || (body.type && body.type.toUpperCase() === "INSERT" ? "created" : "created");
+  let event = body.event || (body.type && body.type.toUpperCase() === "INSERT" ? "created" : "created");
+
+  if (tableLower === "shop_order_history") {
+    const toStatus = String((body.record as any)?.to_status || "").toLowerCase();
+    const alreadySent = Boolean((body.record as any)?.notification_sent);
+
+    if (alreadySent) {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "already_sent" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    if (toStatus !== "confirmed") {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "not_confirmed" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    event = "paid";
+  }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+  if (categoryFromBody === "shop" && event === "paid") {
+    try {
+      const { data: sentRow, error: sentErr } = await supabase
+        .from("shop_order_history")
+        .select("id")
+        .eq("order_id", recordId)
+        .eq("to_status", "confirmed")
+        .eq("notification_sent", true)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (sentErr) {
+        console.error("Failed to check shop_order_history.notification_sent:", sentErr);
+      } else if (sentRow) {
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "already_sent" }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+    } catch (e) {
+      console.error("Failed to check shop notification idempotency:", e);
+    }
+  }
 
   const adminNotificationEmailRaw = await getAdminNotificationEmails(supabase);
   const recipients = parseRecipients(adminNotificationEmailRaw);
@@ -368,6 +426,45 @@ serve(async (req) => {
         },
       );
     });
+
+    if (tableLower === "shop_order_history" && historyRecordId) {
+      try {
+        const { error: markErr } = await supabase
+          .from("shop_order_history")
+          .update({ notification_sent: true, notification_sent_at: new Date().toISOString() })
+          .eq("id", historyRecordId);
+        if (markErr) {
+          console.error("Failed to mark shop_order_history.notification_sent:", markErr);
+        }
+      } catch (e) {
+        console.error("Failed to mark shop_order_history.notification_sent:", e);
+      }
+    } else if (categoryFromBody === "shop" && event === "paid") {
+      try {
+        const { data: latestRow, error: latestErr } = await supabase
+          .from("shop_order_history")
+          .select("id, notification_sent")
+          .eq("order_id", recordId)
+          .eq("to_status", "confirmed")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latestErr) {
+          console.error("Failed to load latest confirmed shop_order_history row:", latestErr);
+        } else if (latestRow && !(latestRow as any).notification_sent) {
+          const { error: markErr } = await supabase
+            .from("shop_order_history")
+            .update({ notification_sent: true, notification_sent_at: new Date().toISOString() })
+            .eq("id", (latestRow as any).id);
+          if (markErr) {
+            console.error("Failed to mark latest shop_order_history.notification_sent:", markErr);
+          }
+        }
+      } catch (e) {
+        console.error("Failed to mark latest shop_order_history.notification_sent:", e);
+      }
+    }
 
     return new Response(JSON.stringify({ ok: true }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
