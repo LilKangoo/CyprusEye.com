@@ -28,8 +28,11 @@ function getStripeId(value: unknown): string | null {
 }
 
  function getFunctionsBaseUrl(): string {
-   const explicit = (Deno.env.get("SUPABASE_FUNCTIONS_URL") || "").trim();
+   const explicit = (Deno.env.get("FUNCTIONS_BASE_URL") || "").trim();
    if (explicit) return explicit.replace(/\/$/, "");
+
+   const legacy = (Deno.env.get("SUPABASE_FUNCTIONS_URL") || "").trim();
+   if (legacy) return legacy.replace(/\/$/, "");
 
    const supabaseUrlRaw = (Deno.env.get("SUPABASE_URL") || "").trim();
    if (!supabaseUrlRaw) return "";
