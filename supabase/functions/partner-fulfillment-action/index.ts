@@ -165,6 +165,7 @@ serve(async (req) => {
 
   const partnerId = (fulfillment as any).partner_id as string | null;
   const orderId = String((fulfillment as any).order_id || "");
+  const fulfillmentStatus = String((fulfillment as any).status || "");
   if (!partnerId) {
     return new Response(JSON.stringify({ error: "Fulfillment has no partner assigned" }), {
       status: 400,
@@ -187,11 +188,53 @@ serve(async (req) => {
     });
   }
 
+  const { data: partner, error: partnerErr } = await supabase
+    .from("partners")
+    .select("status")
+    .eq("id", partnerId)
+    .maybeSingle();
+
+  if (partnerErr) {
+    console.error("Failed to load partner:", partnerErr);
+    return new Response(JSON.stringify({ error: "Partner lookup failed" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  if ((partner as any)?.status === "suspended") {
+    return new Response(JSON.stringify({ error: "Partner suspended" }), {
+      status: 403,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  if (fulfillmentStatus !== "pending_acceptance") {
+    if (action === "accept" && fulfillmentStatus === "accepted") {
+      return new Response(
+        JSON.stringify({ ok: true, skipped: true, reason: "already_accepted", data: { order_id: orderId, fulfillment_id: fulfillmentId, partner_id: partnerId, all_accepted: false } }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    if (action === "reject" && fulfillmentStatus === "rejected") {
+      return new Response(
+        JSON.stringify({ ok: true, skipped: true, reason: "already_rejected", data: { order_id: orderId, fulfillment_id: fulfillmentId, partner_id: partnerId } }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    return new Response(JSON.stringify({ error: `Invalid fulfillment status: ${fulfillmentStatus}` }), {
+      status: 409,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
   try {
     if (action === "accept") {
       const nowIso = new Date().toISOString();
 
-      const { error: updErr } = await supabase
+      const { data: updRows, error: updErr } = await supabase
         .from("shop_order_fulfillments")
         .update({
           status: "accepted",
@@ -202,11 +245,20 @@ serve(async (req) => {
           rejected_reason: null,
           contact_revealed_at: nowIso,
         })
-        .eq("id", fulfillmentId);
+        .eq("id", fulfillmentId)
+        .eq("status", "pending_acceptance")
+        .select("id, status");
 
       if (updErr) {
         return new Response(JSON.stringify({ error: updErr.message || "accept_failed" }), {
           status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (!Array.isArray(updRows) || updRows.length === 0) {
+        return new Response(JSON.stringify({ ok: true, skipped: true, reason: "status_changed" }), {
+          status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
       }
@@ -225,6 +277,10 @@ serve(async (req) => {
         .from("shop_order_fulfillments")
         .select("partner_id, status")
         .eq("order_id", orderId);
+
+      if (listErr) {
+        console.error("Failed to list fulfillments for acceptance check:", listErr);
+      }
 
       const rows = Array.isArray(allRows) ? allRows : [];
       const partnerRows = rows.filter((r: any) => r?.partner_id);
@@ -250,7 +306,7 @@ serve(async (req) => {
     const reason = typeof body.reason === "string" ? body.reason : "";
 
     const nowIso = new Date().toISOString();
-    const { error: rejErr } = await supabase
+    const { data: rejRows, error: rejErr } = await supabase
       .from("shop_order_fulfillments")
       .update({
         status: "rejected",
@@ -258,11 +314,20 @@ serve(async (req) => {
         rejected_by: userId,
         rejected_reason: reason || null,
       })
-      .eq("id", fulfillmentId);
+      .eq("id", fulfillmentId)
+      .eq("status", "pending_acceptance")
+      .select("id, status");
 
     if (rejErr) {
       return new Response(JSON.stringify({ error: rejErr.message || "reject_failed" }), {
         status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!Array.isArray(rejRows) || rejRows.length === 0) {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "status_changed" }), {
+        status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }

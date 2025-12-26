@@ -110,6 +110,7 @@ async function copyStaticFiles() {
       '404.html',
       'index.html',
       'shop.html',
+      'partners.html',
       'vip.html',
       'achievements.html',
       'advertise.html',
@@ -222,6 +223,7 @@ async function generateSitemap() {
         urls.push(...(await walk(nextAbs, nextRel)));
       } else if (e.isFile() && name.endsWith('.html')) {
         if (/^404\.html$/i.test(name)) continue;
+        if (/^partners\.html$/i.test(name)) continue;
         if (/^(TEST_|test-|debug-|STANDARD_|simple-test)/i.test(name)) continue;
         if (/sos-modal-fragment/i.test(name)) continue;
         urls.push(`/${nextRel}`);

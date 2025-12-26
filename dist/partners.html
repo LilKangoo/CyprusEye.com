@@ -1,0 +1,575 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-FCSE0876CR');
+  </script>
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co wss://*.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://*.tile.openstreetmap.org; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
+
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="robots" content="noindex,nofollow" />
+
+  <title>CyprusEye Partners</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    rel="preload"
+    as="style"
+    href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+  />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+    media="print"
+    onload="this.media='all'"
+  />
+  <noscript>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </noscript>
+
+  <link rel="stylesheet" href="assets/css/tokens.css" />
+  <link rel="stylesheet" href="assets/css/base.css" />
+  <link rel="stylesheet" href="assets/css/components.css" />
+  <link rel="stylesheet" href="assets/css/header-metrics.css" />
+  <link rel="stylesheet" href="assets/css/mobile.css" />
+  <link rel="stylesheet" href="assets/css/mobile-nav.css" />
+  <link rel="stylesheet" href="assets/css/rtl.css" />
+  <link rel="stylesheet" href="assets/css/language-switcher.css" />
+  <link rel="stylesheet" href="assets/css/language-selector.css" />
+  <link rel="stylesheet" href="css/toast.css" />
+  <link rel="stylesheet" href="css/modal-ios-fix.css" />
+
+  <meta name="ce-auth" content="on" />
+
+  <script type="module" src="js/supabaseClient.js"></script>
+  <script type="module" src="js/toast.js"></script>
+  <script type="module" src="js/auth.js"></script>
+  <script type="module" src="js/authUi.js"></script>
+
+  <style>
+    .partners-page main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 72px; }
+    .partner-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px; }
+    .partner-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 1024px) { .partner-grid { grid-template-columns: 1.2fr 0.8fr; } }
+
+    .partner-toolbar { display:flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .partner-toolbar select, .partner-toolbar input { height: 38px; border-radius: 10px; border: 1px solid var(--border); padding: 0 10px; background: var(--surface); color: var(--text); }
+
+    .partner-tabs { display:flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+    .partner-tab { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 999px; padding: 8px 14px; font-weight: 600; cursor: pointer; }
+    .partner-tab.is-active { background: var(--primary); border-color: var(--primary); color: white; }
+
+    .partner-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    .partner-table th, .partner-table td { border-bottom: 1px solid var(--border); padding: 10px 8px; text-align: left; font-size: 14px; vertical-align: top; }
+    .partner-table th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+    .badge { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding: 4px 10px; font-size: 12px; font-weight: 700; color: white; }
+
+    .btn-row { display:flex; gap: 8px; flex-wrap: wrap; }
+    .btn-sm { border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: 13px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+    .btn-sm.primary { background: var(--primary); border-color: var(--primary); color: white; }
+    .btn-sm.danger { background: #ef4444; border-color: #ef4444; color: white; }
+
+    .muted { color: var(--muted); }
+    .small { font-size: 12px; }
+
+    .partner-kpi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .partner-kpi .kpi { border: 1px solid var(--border); background: var(--surface); border-radius: 14px; padding: 12px; }
+    .partner-kpi .kpi .label { color: var(--muted); font-size: 12px; }
+    .partner-kpi .kpi .value { font-size: 22px; font-weight: 800; margin-top: 4px; }
+
+    .partner-warning { border: 1px solid #f59e0b; background: rgba(245, 158, 11, 0.12); color: var(--text); border-radius: 14px; padding: 12px; }
+
+    .partner-contact { border: 1px solid var(--border); border-radius: 14px; padding: 10px; background: rgba(99, 102, 241, 0.06); }
+    .partner-contact strong { display:block; margin-bottom: 4px; }
+
+    .partner-form { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 12px; }
+    @media (min-width: 860px) { .partner-form { grid-template-columns: 1fr 1fr 1fr 1fr; } }
+    .partner-form label { font-size: 12px; color: var(--muted); font-weight: 600; }
+    .partner-form input, .partner-form select { width: 100%; height: 38px; border-radius: 10px; border: 1px solid var(--border); padding: 0 10px; background: var(--surface); color: var(--text); }
+    .partner-form textarea { width: 100%; border-radius: 10px; border: 1px solid var(--border); padding: 10px; background: var(--surface); color: var(--text); min-height: 38px; }
+  </style>
+</head>
+
+<body data-navigation="multi-page" class="partners-page">
+  <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+
+  <header class="app-header nav-modern">
+    <div class="nav-modern__top" aria-label="Global header">
+      <div class="brand nav-modern__brand-block">
+        <a href="index.html" class="nav-modern__brand-link" aria-label="CyprusEye Quest home">
+          <img
+            src="assets/cyprus_logo-1000x1054.png"
+            alt="CyprusEye logo"
+            width="1000"
+            height="1054"
+            loading="eager"
+            fetchpriority="high"
+          />
+          <div class="brand-title">
+            <p class="brand-name">CyprusEye Quest &amp; Travel</p>
+          </div>
+        </a>
+      </div>
+
+      <div class="nav-modern__stats nav-modern__stats-lite" data-auth="user-only">
+        <div class="stats-lite__pill">
+          <a href="achievements.html" class="stats-lite__profile" id="profileButton" aria-label="Mój profil">
+            <img
+              id="headerUserAvatar"
+              class="profile-avatar"
+              src="assets/cyprus_logo-1000x1054.png"
+              alt="Avatar"
+              width="48"
+              height="48"
+              loading="eager"
+            />
+            <div class="profile-info">
+              <p class="profile-name">Mój Profil</p>
+              <p class="profile-status">Poziom 1 • 0 odznak</p>
+            </div>
+          </a>
+
+          <div class="stats-lite__panel">
+            <div class="stats-lite__level">
+              <span class="stats-lite__label">LVL</span>
+              <span class="stats-lite__value" id="headerLevelNumber">1</span>
+            </div>
+
+            <div class="stats-lite__xp" role="img" aria-label="Postęp doświadczenia">
+              <span class="stats-lite__xp-current"><span id="headerXpPoints">0</span> XP</span>
+              <div class="stats-lite__xp-bar">
+                <div class="stats-lite__xp-fill is-width-zero" id="headerXpFill"></div>
+              </div>
+            </div>
+
+            <div class="stats-lite__badges">
+              <span class="stats-lite__label">🏆</span>
+              <span class="stats-lite__value" id="headerBadgesCount">0</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-modern__top-actions">
+        <div class="nav-modern__auth">
+          <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
+            <button
+              class="nav-modern__login"
+              data-open-auth
+              data-auth="anon-only"
+              data-auth-target="login"
+              aria-label="Zaloguj do konta"
+            >
+              Zaloguj
+            </button>
+            <button class="btn btn-sm" data-auth="logout" aria-label="Wyloguj z konta" hidden>Wyloguj</button>
+          </div>
+          <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" hidden>Łączenie...</div>
+        </div>
+
+        <div class="language-pill-group" data-language-toggle aria-label="Language selector">
+          <button type="button" class="language-pill" data-language-pill="pl" aria-pressed="false">PL</button>
+          <button type="button" class="language-pill" data-language-pill="en" aria-pressed="false">EN</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="nav-modern__shell">
+      <div class="nav-modern__bars">
+        <button class="nav-modern__toggle-btn" id="navToggleBtn" aria-expanded="false" aria-controls="navLinksRow">☰ Nawigacja</button>
+        <div class="nav-modern__links-row" id="navLinksRow" aria-label="Główna nawigacja i skróty">
+          <nav class="nav-modern__tabs" role="tablist" aria-label="Nawigacja główna">
+            <a href="index.html" class="nav-modern__tab">🎯 Przygoda</a>
+            <a href="community.html" class="nav-modern__tab">💬 Społeczność</a>
+            <a href="recommendations.html" class="nav-modern__tab">✨ Polecane</a>
+            <a href="tasks.html" class="nav-modern__tab">☑️ Zadania</a>
+            <a href="shop.html" class="nav-modern__tab">🛍️ Sklep</a>
+            <a href="partners.html" class="nav-modern__tab is-active">🤝 Partner</a>
+          </nav>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <h1 style="margin: 0 0 8px; font-size: 28px;">Partner Portal</h1>
+    <p class="muted" style="margin-top: 0;">Zarządzaj potwierdzeniami zamówień i kalendarzem dostępności.</p>
+
+    <div id="partnerPortalWarning" class="partner-warning" hidden></div>
+
+    <div id="partnerPortalLoginPrompt" class="partner-card" hidden>
+      <h2 style="margin: 0 0 8px;">Zaloguj się</h2>
+      <p class="muted" style="margin-top: 0;">Aby korzystać z panelu partnera musisz być zalogowany.</p>
+      <div class="btn-row">
+        <button id="btnPartnerOpenLogin" class="btn-sm primary" type="button">Otwórz logowanie</button>
+      </div>
+    </div>
+
+    <div id="partnerPortalNoPartner" class="partner-card" hidden>
+      <h2 style="margin: 0 0 8px;">Brak dostępu partnera</h2>
+      <p class="muted" style="margin-top: 0;">Twoje konto nie jest przypisane do żadnego partnera. Skontaktuj się z administracją.</p>
+    </div>
+
+    <div id="partnerPortalApp" class="partner-grid" hidden>
+      <section class="partner-card">
+        <div class="partner-toolbar">
+          <strong>Partner:</strong>
+          <select id="partnerSelect"></select>
+          <button id="btnPartnerRefresh" class="btn-sm" type="button">Odśwież</button>
+        </div>
+
+        <div id="partnerSuspendedInfo" class="partner-warning" style="margin-top: 12px;" hidden></div>
+
+        <div class="partner-tabs">
+          <button id="partnerTabBtnFulfillments" class="partner-tab is-active" type="button" data-tab="fulfillments">Fulfillments</button>
+          <button id="partnerTabBtnCalendar" class="partner-tab" type="button" data-tab="calendar">Calendar</button>
+        </div>
+
+        <div id="partnerTabFulfillments" style="margin-top: 10px;">
+          <div class="partner-kpi" style="margin-top: 10px;">
+            <div class="kpi"><div class="label">Pending</div><div class="value" id="kpiPending">0</div></div>
+            <div class="kpi"><div class="label">Accepted</div><div class="value" id="kpiAccepted">0</div></div>
+            <div class="kpi"><div class="label">Rejected</div><div class="value" id="kpiRejected">0</div></div>
+          </div>
+
+          <div class="muted small" id="fulfillmentsHint" style="margin-top: 10px;"></div>
+
+          <table class="partner-table" aria-label="Fulfillments">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Status</th>
+                <th>SLA</th>
+                <th>Items</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="fulfillmentsTableBody">
+              <tr><td colspan="5" class="muted" style="padding: 16px 8px;">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div id="partnerTabCalendar" style="margin-top: 10px;" hidden>
+          <h3 style="margin: 10px 0 0;">Availability blocks</h3>
+          <p class="muted" style="margin-top: 6px;">Dodaj blokadę dostępności dla zasobu (np. Shop vendor, car, trip, hotel).</p>
+
+          <form id="partnerBlockForm" class="partner-form">
+            <div>
+              <label for="blockResourceType">Resource type</label>
+              <select id="blockResourceType" required>
+                <option value="shop">shop</option>
+                <option value="cars">cars</option>
+                <option value="trips">trips</option>
+                <option value="hotels">hotels</option>
+              </select>
+            </div>
+            <div>
+              <label for="blockResourceId">Resource ID (UUID)</label>
+              <input id="blockResourceId" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" required />
+            </div>
+            <div>
+              <label for="blockStart">Start</label>
+              <input id="blockStart" type="date" required />
+            </div>
+            <div>
+              <label for="blockEnd">End</label>
+              <input id="blockEnd" type="date" required />
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <label for="blockNote">Note</label>
+              <textarea id="blockNote" placeholder="Optional"></textarea>
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <button id="btnCreateBlock" class="btn-sm primary" type="submit">Add block</button>
+            </div>
+          </form>
+
+          <table class="partner-table" aria-label="Availability blocks">
+            <thead>
+              <tr>
+                <th>Resource</th>
+                <th>Dates</th>
+                <th>Note</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="blocksTableBody">
+              <tr><td colspan="4" class="muted" style="padding: 16px 8px;">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <aside class="partner-card">
+        <h2 style="margin: 0 0 8px;">Status</h2>
+        <div id="partnerPortalStatus" class="muted">Loading…</div>
+        <div style="height: 12px;"></div>
+
+        <h3 style="margin: 0 0 8px;">Tips</h3>
+        <div class="muted small" style="display: grid; gap: 8px;">
+          <div>Akceptacja ujawnia dane kontaktowe klienta (email/telefon/adres) dla tego fulfillmentu.</div>
+          <div>Po odrzuceniu administrator dostaje alert i decyzja o zwrocie jest po stronie administracji.</div>
+          <div>Jeśli upłynie SLA i nie zaakceptujesz, admin dostanie automatyczne przypomnienie.</div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
+
+  <script src="js/i18n.js" defer></script>
+  <script src="js/forms.js" defer></script>
+  <script src="js/seo.js" defer></script>
+  <script src="js/mobile-nav.js" defer></script>
+  <script src="js/header-dropdown.js" defer></script>
+  <script src="js/languageSwitcher.js"></script>
+  <script src="js/languageRefresh.js"></script>
+  <script src="js/header-stats.js?v=1" defer></script>
+  <script src="assets/js/modal-auth.js" defer></script>
+  <script src="js/partners.js" defer></script>
+
+  <div
+    id="auth-modal"
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="auth-title"
+    aria-hidden="true"
+  >
+    <div class="modal__dialog" tabindex="-1" role="document">
+      <button
+        class="modal__close"
+        type="button"
+        aria-label="Zamknij"
+        data-close
+        data-i18n-attrs="aria-label:auth.close.label"
+      >
+        ×
+      </button>
+      <h2 id="auth-title" data-i18n="auth.title">Dołącz do przygody</h2>
+      <p class="auth-intro" data-i18n="auth.intro">Zaloguj się, utwórz konto lub graj jako gość.</p>
+      <div class="auth-modal__content" data-auth-view-root>
+        <div data-auth="login">
+          <div role="presentation">
+            <div class="auth-modal__tabs" role="tablist">
+              <button
+                type="button"
+                class="auth-modal__tab is-active"
+                role="tab"
+                id="authTabLogin"
+                aria-selected="true"
+                aria-controls="authPanelLogin"
+                data-auth-tab="login"
+                data-i18n="auth.tab.login"
+              >
+                Logowanie
+              </button>
+              <button
+                type="button"
+                class="auth-modal__tab"
+                role="tab"
+                id="authTabRegister"
+                aria-selected="false"
+                aria-controls="authPanelRegister"
+                data-auth-tab="register"
+                data-i18n="auth.tab.register"
+                tabindex="-1"
+              >
+                Rejestracja
+              </button>
+            </div>
+            <div class="auth-modal__panels">
+              <section
+                id="authPanelLogin"
+                class="auth-modal__panel is-active"
+                role="tabpanel"
+                aria-labelledby="authTabLogin"
+                data-auth="login"
+                data-auth-panel="login"
+              >
+                <form id="form-login" class="auth-form" novalidate data-ce-auth-handler="supabase">
+                  <label for="loginEmail" data-i18n="auth.login.username">Email lub nazwa użytkownika</label>
+                  <input
+                    id="loginEmail"
+                    name="email"
+                    type="text"
+                    autocomplete="username"
+                    required
+                    aria-label="Email lub nazwa użytkownika"
+                    data-i18n-attrs="aria-label:auth.login.username,placeholder:auth.login.username"
+                    placeholder="Email lub nazwa użytkownika"
+                  />
+                  <label for="loginPassword" data-i18n="auth.password">Hasło</label>
+                  <input
+                    id="loginPassword"
+                    name="password"
+                    type="password"
+                    autocomplete="current-password"
+                    required
+                    aria-label="Hasło"
+                    data-i18n-attrs="aria-label:auth.password"
+                  />
+                  <div class="auth-form__actions">
+                    <button
+                      type="submit"
+                      class="btn btn--primary"
+                      data-i18n="auth.login.button"
+                      data-i18n-attrs="aria-label:auth.login.button"
+                      aria-label="Zaloguj się"
+                    >
+                      Zaloguj się
+                    </button>
+                    <button
+                      type="button"
+                      class="auth-form__link"
+                      id="loginForgotPassword"
+                      data-i18n="auth.reset.button"
+                      data-i18n-attrs="aria-label:auth.reset.button"
+                      aria-label="🔑 Resetuj hasło"
+                    >
+                      🔑 Resetuj hasło
+                    </button>
+                  </div>
+                  <div data-auth="message" aria-live="polite"></div>
+                  <p class="auth-form__meta" id="authResendVerification" hidden>
+                    Nie otrzymałeś wiadomości z potwierdzeniem?
+                    <button type="button" class="auth-form__link" id="btn-resend-verification">
+                      Wyślij ponownie link weryfikacyjny
+                    </button>
+                  </p>
+                </form>
+              </section>
+
+              <section
+                id="authPanelRegister"
+                class="auth-modal__panel"
+                role="tabpanel"
+                aria-labelledby="authTabRegister"
+                data-auth="register"
+                data-auth-panel="register"
+                hidden
+              >
+                <form
+                  id="form-register"
+                  class="auth-form"
+                  novalidate
+                  data-auth="register"
+                  data-ce-auth-handler="supabase"
+                >
+                  <label for="registerFirstName" data-i18n="auth.firstName">Imię</label>
+                  <input
+                    id="registerFirstName"
+                    name="firstName"
+                    type="text"
+                    autocomplete="given-name"
+                    maxlength="60"
+                    required
+                    aria-label="Imię"
+                    data-i18n-attrs="aria-label:auth.firstName"
+                  />
+                  <label for="registerUsername" data-i18n="auth.username">Nazwa użytkownika</label>
+                  <input
+                    id="registerUsername"
+                    name="username"
+                    type="text"
+                    autocomplete="username"
+                    minlength="3"
+                    maxlength="20"
+                    pattern="[a-zA-Z0-9_]+"
+                    required
+                    aria-label="Nazwa użytkownika"
+                    data-i18n-attrs="aria-label:auth.username,placeholder:auth.username.hint"
+                    placeholder="3-20 znaków, litery i cyfry"
+                  />
+                  <label for="registerEmail" data-i18n="auth.email">Adres e-mail</label>
+                  <input
+                    id="registerEmail"
+                    name="email"
+                    type="email"
+                    autocomplete="email"
+                    required
+                    aria-label="Adres e-mail"
+                    data-i18n-attrs="aria-label:auth.email"
+                  />
+                  <label for="registerPassword" data-i18n="auth.password">Hasło</label>
+                  <input
+                    id="registerPassword"
+                    name="password"
+                    type="password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required
+                    aria-label="Hasło"
+                    data-i18n-attrs="aria-label:auth.password"
+                  />
+                  <label for="registerPasswordConfirm" data-i18n="auth.confirmPassword">Powtórz hasło</label>
+                  <input
+                    id="registerPasswordConfirm"
+                    name="passwordConfirm"
+                    type="password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    aria-label="Powtórz hasło"
+                    data-i18n-attrs="aria-label:auth.confirmPassword"
+                  />
+                  <div data-auth="message" aria-live="polite"></div>
+                  <p class="form-hint" data-i18n="auth.register.hint">
+                    Po rejestracji sprawdź skrzynkę e-mail, aby potwierdzić konto.
+                  </p>
+                  <button
+                    type="submit"
+                    class="btn btn--primary"
+                    data-i18n="auth.register.button"
+                    data-i18n-attrs="aria-label:auth.register.button"
+                    aria-label="Utwórz konto"
+                  >
+                    Utwórz konto
+                  </button>
+                </form>
+              </section>
+            </div>
+
+            <dialog id="resetPasswordDialog" class="auth-reset-dialog">
+              <form id="form-reset-password" class="auth-form" novalidate>
+                <header class="auth-reset-dialog__header">
+                  <h2 data-i18n="auth.reset.title">Resetuj hasło</h2>
+                  <button
+                    type="button"
+                    class="auth-form__link"
+                    id="btn-reset-close"
+                    data-i18n-attrs="aria-label:auth.reset.close"
+                    aria-label="Zamknij"
+                  >
+                    ✖
+                  </button>
+                </header>
+                <p data-i18n="auth.reset.description">Podaj adres e-mail powiązany z kontem, a wyślemy link do zmiany hasła.</p>
+                <label for="resetEmail" data-i18n="auth.reset.emailLabel">Adres e-mail</label>
+                <input id="resetEmail" name="email" type="email" autocomplete="email" required />
+                <div class="auth-form__actions">
+                  <button type="submit" class="btn btn--primary">Wyślij link resetujący</button>
+                  <button type="button" class="auth-form__link" id="btn-reset-cancel">Anuluj</button>
+                </div>
+              </form>
+            </dialog>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
