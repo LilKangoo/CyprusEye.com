@@ -91,12 +91,17 @@ const partnersState = {
   fulfillmentStatsByPartnerId: {}
 };
 
+const partnersAdminState = {
+  vendors: [],
+  vendorsById: {},
+};
+
 async function loadPartnersData() {
   const client = ensureSupabase();
   if (!client) return;
 
   const tbody = document.getElementById('partnersTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 24px;">Loading partners...</td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 24px;">Loading partners...</td></tr>';
 
   try {
     const { data: partners, error: partnersError } = await client
@@ -152,7 +157,7 @@ async function loadPartnersData() {
   } catch (error) {
     console.error('Failed to load partners:', error);
     const tbodyErr = document.getElementById('partnersTableBody');
-    if (tbodyErr) tbodyErr.innerHTML = `<tr><td colspan="8" style="text-align:center; color:#ef4444; padding: 24px;">Error: ${escapeHtml(error.message || 'Failed to load')}</td></tr>`;
+    if (tbodyErr) tbodyErr.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#ef4444; padding: 24px;">Error: ${escapeHtml(error.message || 'Failed to load')}</td></tr>`;
   }
 }
 
@@ -173,7 +178,7 @@ function renderPartnersTable() {
   });
 
   if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 24px; color: var(--admin-text-muted);">No partners found</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 24px; color: var(--admin-text-muted);">No partners found</td></tr>';
     return;
   }
 
@@ -193,10 +198,426 @@ function renderPartnersTable() {
         <td>${stats.pending}</td>
         <td>${stats.rejected}</td>
         <td>${stats.accepted}</td>
+        <td style="text-align: right;">
+          <div style="display: inline-flex; gap: 6px;">
+            <button class="btn-small btn-secondary" onclick="editPartner('${p.id}')">Edit</button>
+            <button class="btn-small btn-secondary" onclick="managePartnerUsers('${p.id}')">Users</button>
+          </div>
+        </td>
       </tr>
     `;
   }).join('');
 }
+
+async function loadPartnerFormVendors() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const { data, error } = await client
+    .from('shop_vendors')
+    .select('id, name')
+    .order('name', { ascending: true })
+    .limit(1000);
+
+  if (error) {
+    console.error('Failed to load vendors:', error);
+    partnersAdminState.vendors = [];
+    partnersAdminState.vendorsById = {};
+    return;
+  }
+
+  partnersAdminState.vendors = data || [];
+  partnersAdminState.vendorsById = {};
+  (partnersAdminState.vendors || []).forEach(v => {
+    partnersAdminState.vendorsById[v.id] = v;
+  });
+}
+
+function fillPartnerVendorSelect(selectedVendorId) {
+  const select = document.getElementById('partnerFormVendor');
+  if (!select) return;
+
+  const current = selectedVendorId || select.value || '';
+
+  const options = (partnersAdminState.vendors || []).map(v => {
+    return `<option value="${v.id}">${escapeHtml(v.name)}</option>`;
+  }).join('');
+
+  select.innerHTML = `<option value="">—</option>${options}`;
+  select.value = current || '';
+}
+
+function setPartnerFormValue(id, value) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.value = value ?? '';
+}
+
+function setPartnerFormChecked(id, checked) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.checked = Boolean(checked);
+}
+
+function closePartnerForm() {
+  const modal = document.getElementById('partnerFormModal');
+  hideElement(modal);
+}
+
+async function openPartnerForm(partnerId = null) {
+  const modal = document.getElementById('partnerFormModal');
+  const title = document.getElementById('partnerFormTitle');
+  const form = document.getElementById('partnerForm');
+  if (!modal || !form) return;
+
+  form.reset();
+  setPartnerFormValue('partnerFormId', '');
+
+  await loadPartnerFormVendors();
+  fillPartnerVendorSelect('');
+
+  const nameInput = document.getElementById('partnerFormName');
+  const slugInput = document.getElementById('partnerFormSlug');
+  if (nameInput && slugInput) {
+    nameInput.oninput = () => {
+      const currentSlug = String(slugInput.value || '').trim();
+      if (!currentSlug) {
+        slugInput.value = slugify(nameInput.value || '');
+      }
+    };
+  }
+
+  if (partnerId) {
+    if (title) title.textContent = 'Edit partner';
+
+    const client = ensureSupabase();
+    if (!client) return;
+
+    const { data: partner, error } = await client
+      .from('partners')
+      .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts')
+      .eq('id', partnerId)
+      .single();
+
+    if (error) {
+      showToast(error.message || 'Failed to load partner', 'error');
+      return;
+    }
+
+    setPartnerFormValue('partnerFormId', partner.id);
+    setPartnerFormValue('partnerFormName', partner.name || '');
+    setPartnerFormValue('partnerFormSlug', partner.slug || '');
+    setPartnerFormValue('partnerFormStatus', partner.status || 'active');
+    fillPartnerVendorSelect(partner.shop_vendor_id || '');
+
+    setPartnerFormChecked('partnerFormCanManageShop', partner.can_manage_shop);
+    setPartnerFormChecked('partnerFormCanManageCars', partner.can_manage_cars);
+    setPartnerFormChecked('partnerFormCanManageTrips', partner.can_manage_trips);
+    setPartnerFormChecked('partnerFormCanManageHotels', partner.can_manage_hotels);
+    setPartnerFormChecked('partnerFormCanCreateOffers', partner.can_create_offers);
+    setPartnerFormChecked('partnerFormCanViewStats', partner.can_view_stats);
+    setPartnerFormChecked('partnerFormCanViewPayouts', partner.can_view_payouts);
+  } else {
+    if (title) title.textContent = 'New partner';
+    setPartnerFormValue('partnerFormStatus', 'active');
+    setPartnerFormChecked('partnerFormCanViewStats', true);
+  }
+
+  showElement(modal);
+}
+
+async function savePartnerFromForm() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const partnerId = String(document.getElementById('partnerFormId')?.value || '').trim();
+  const name = String(document.getElementById('partnerFormName')?.value || '').trim();
+  const slugRaw = String(document.getElementById('partnerFormSlug')?.value || '').trim();
+  const status = String(document.getElementById('partnerFormStatus')?.value || 'active').trim();
+  const vendorId = String(document.getElementById('partnerFormVendor')?.value || '').trim();
+
+  if (!name) {
+    showToast('Partner name is required', 'error');
+    return;
+  }
+
+  const slug = slugRaw || slugify(name);
+  if (!slug) {
+    showToast('Partner slug is required', 'error');
+    return;
+  }
+
+  const payload = {
+    name,
+    slug,
+    status,
+    shop_vendor_id: vendorId || null,
+    can_manage_shop: Boolean(document.getElementById('partnerFormCanManageShop')?.checked),
+    can_manage_cars: Boolean(document.getElementById('partnerFormCanManageCars')?.checked),
+    can_manage_trips: Boolean(document.getElementById('partnerFormCanManageTrips')?.checked),
+    can_manage_hotels: Boolean(document.getElementById('partnerFormCanManageHotels')?.checked),
+    can_create_offers: Boolean(document.getElementById('partnerFormCanCreateOffers')?.checked),
+    can_view_stats: Boolean(document.getElementById('partnerFormCanViewStats')?.checked),
+    can_view_payouts: Boolean(document.getElementById('partnerFormCanViewPayouts')?.checked),
+  };
+
+  try {
+    if (partnerId) {
+      const { error } = await client.from('partners').update(payload).eq('id', partnerId);
+      if (error) throw error;
+      showToast('Partner updated', 'success');
+    } else {
+      const { error } = await client.from('partners').insert(payload);
+      if (error) throw error;
+      showToast('Partner created', 'success');
+    }
+
+    closePartnerForm();
+    await loadPartnersData();
+  } catch (error) {
+    showToast(error.message || 'Failed to save partner', 'error');
+  }
+}
+
+function closePartnerUsersModal() {
+  const modal = document.getElementById('partnerUsersModal');
+  hideElement(modal);
+}
+
+async function loadPartnerUsers(partnerId) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const tbody = document.getElementById('partnerUsersTableBody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 24px;">Loading...</td></tr>';
+
+  try {
+    const { data, error } = await client
+      .from('partner_users')
+      .select('id, user_id, role, created_at')
+      .eq('partner_id', partnerId)
+      .order('created_at', { ascending: false })
+      .limit(500);
+
+    if (error) throw error;
+
+    const rows = Array.isArray(data) ? data : [];
+    if (!rows.length) {
+      if (tbody) tbody.innerHTML = '<tr><td colspan="3" style="text-align:center; padding: 24px; color: var(--admin-text-muted);">No users assigned</td></tr>';
+      return;
+    }
+
+    if (tbody) {
+      tbody.innerHTML = rows.map(r => {
+        return `
+          <tr>
+            <td><code>${escapeHtml(String(r.user_id || ''))}</code></td>
+            <td>${escapeHtml(String(r.role || ''))}</td>
+            <td style="text-align: right;">
+              <button class="btn-small btn-secondary" onclick="removePartnerUser('${r.id}', '${partnerId}')">Remove</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+  } catch (error) {
+    if (tbody) tbody.innerHTML = `<tr><td colspan="3" style="text-align:center; padding: 24px; color:#ef4444;">${escapeHtml(error.message || 'Failed to load')}</td></tr>`;
+  }
+}
+
+async function openPartnerUsersModal(partnerId) {
+  const modal = document.getElementById('partnerUsersModal');
+  const title = document.getElementById('partnerUsersTitle');
+  const hiddenId = document.getElementById('partnerUsersPartnerId');
+  if (!modal || !hiddenId) return;
+
+  const partner = (partnersState.partners || []).find(p => p.id === partnerId) || null;
+  if (title) title.textContent = partner ? `Partner users – ${partner.name}` : 'Partner users';
+
+  hiddenId.value = partnerId;
+  showElement(modal);
+  await loadPartnerUsers(partnerId);
+}
+
+async function addPartnerUserFromModal() {
+  const partnerId = String(document.getElementById('partnerUsersPartnerId')?.value || '').trim();
+  const userId = String(document.getElementById('partnerUsersUserId')?.value || '').trim();
+  const role = String(document.getElementById('partnerUsersRole')?.value || 'staff').trim();
+  if (!partnerId) return;
+  if (!userId) {
+    showToast('User ID is required', 'error');
+    return;
+  }
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { error } = await client.from('partner_users').insert({ partner_id: partnerId, user_id: userId, role });
+    if (error) throw error;
+    showToast('User added to partner', 'success');
+    const input = document.getElementById('partnerUsersUserId');
+    if (input) input.value = '';
+    await loadPartnerUsers(partnerId);
+    await loadPartnersData();
+  } catch (error) {
+    showToast(error.message || 'Failed to add user', 'error');
+  }
+}
+
+async function removePartnerUserById(partnerUserId, partnerId) {
+  const ok = confirm('Remove this user from partner?');
+  if (!ok) return;
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { error } = await client.from('partner_users').delete().eq('id', partnerUserId);
+    if (error) throw error;
+    showToast('User removed', 'success');
+    await loadPartnerUsers(partnerId);
+    await loadPartnersData();
+  } catch (error) {
+    showToast(error.message || 'Failed to remove user', 'error');
+  }
+}
+
+async function renderUserPartnerAccess(userId) {
+  const content = document.getElementById('userDetailContent');
+  if (!content) return;
+  const grid = content.querySelector('.user-detail-grid');
+  if (!grid) return;
+
+  let card = content.querySelector('#userPartnerAccessCard');
+  if (!card) {
+    grid.insertAdjacentHTML('beforeend', `
+      <section class="user-detail-card user-detail-card--full" id="userPartnerAccessCard">
+        <h4 class="user-detail-section-title">Partners</h4>
+        <div id="userPartnerAccessBody"><p class="user-detail-hint">Loading...</p></div>
+      </section>
+    `);
+    card = content.querySelector('#userPartnerAccessCard');
+  }
+
+  const body = content.querySelector('#userPartnerAccessBody');
+  if (!body) return;
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const [partnersRes, membershipsRes] = await Promise.all([
+      client.from('partners').select('id, name').order('name', { ascending: true }).limit(1000),
+      client.from('partner_users').select('id, partner_id, role, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(500),
+    ]);
+
+    if (partnersRes.error) throw partnersRes.error;
+    if (membershipsRes.error) throw membershipsRes.error;
+
+    const partners = Array.isArray(partnersRes.data) ? partnersRes.data : [];
+    const partnersById = {};
+    partners.forEach(p => { partnersById[p.id] = p; });
+
+    const memberships = Array.isArray(membershipsRes.data) ? membershipsRes.data : [];
+
+    const options = partners.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+
+    const listHtml = memberships.length
+      ? `<div class="admin-table-container" style="margin-top: 10px;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Partner</th>
+                <th>Role</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${memberships.map(m => {
+                const partnerName = partnersById[m.partner_id]?.name || String(m.partner_id || '').slice(0, 8);
+                return `
+                  <tr>
+                    <td>${escapeHtml(partnerName)}</td>
+                    <td>${escapeHtml(String(m.role || ''))}</td>
+                    <td style="text-align: right;">
+                      <button class="btn-small btn-secondary" onclick="removeUserFromPartner('${m.id}', '${userId}')">Remove</button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`
+      : '<p class="user-detail-hint">No partner access.</p>';
+
+    body.innerHTML = `
+      <div class="admin-form-grid" style="grid-template-columns: 1fr 160px 140px; gap: 10px; align-items: end;">
+        <label class="admin-form-field" style="margin: 0;">
+          <span>Partner</span>
+          <select id="userPartnerSelect"><option value="">—</option>${options}</select>
+        </label>
+        <label class="admin-form-field" style="margin: 0;">
+          <span>Role</span>
+          <select id="userPartnerRole">
+            <option value="staff">Staff</option>
+            <option value="owner">Owner</option>
+          </select>
+        </label>
+        <button class="btn btn-primary" type="button" onclick="addUserToPartner('${userId}')">Add</button>
+      </div>
+      ${listHtml}
+    `;
+  } catch (error) {
+    body.innerHTML = `<p class="user-detail-hint" style="color:#ef4444;">${escapeHtml(error.message || 'Failed to load')}</p>`;
+  }
+}
+
+async function addUserToPartnerFromUserModal(userId) {
+  const partnerId = String(document.getElementById('userPartnerSelect')?.value || '').trim();
+  const role = String(document.getElementById('userPartnerRole')?.value || 'staff').trim();
+  if (!partnerId) {
+    showToast('Select partner', 'error');
+    return;
+  }
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { error } = await client.from('partner_users').insert({ partner_id: partnerId, user_id: userId, role });
+    if (error) throw error;
+    showToast('Partner access granted', 'success');
+    await renderUserPartnerAccess(userId);
+    await loadPartnersData();
+  } catch (error) {
+    showToast(error.message || 'Failed to grant access', 'error');
+  }
+}
+
+async function removeUserFromPartnerFromUserModal(partnerUserId, userId) {
+  const ok = confirm('Remove partner access?');
+  if (!ok) return;
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { error } = await client.from('partner_users').delete().eq('id', partnerUserId);
+    if (error) throw error;
+    showToast('Partner access removed', 'success');
+    await renderUserPartnerAccess(userId);
+    await loadPartnersData();
+  } catch (error) {
+    showToast(error.message || 'Failed to remove access', 'error');
+  }
+}
+
+window.editPartner = (partnerId) => openPartnerForm(partnerId);
+window.managePartnerUsers = (partnerId) => openPartnerUsersModal(partnerId);
+window.removePartnerUser = (partnerUserId, partnerId) => removePartnerUserById(partnerUserId, partnerId);
+window.addUserToPartner = (userId) => addUserToPartnerFromUserModal(userId);
+window.removeUserFromPartner = (partnerUserId, userId) => removeUserFromPartnerFromUserModal(partnerUserId, userId);
 
 const calendarsState = {
   partnersById: {},
@@ -4000,6 +4421,8 @@ async function viewUserDetails(userId) {
 
     showElement(modal);
 
+    await renderUserPartnerAccess(userId);
+
   } catch (error) {
     console.error('Failed to load user details:', error);
     showToast('Failed to load user details', 'error');
@@ -7684,6 +8107,9 @@ function initEventListeners() {
   const refreshPartnersBtn = document.getElementById('btnRefreshPartners');
   if (refreshPartnersBtn) refreshPartnersBtn.addEventListener('click', () => loadPartnersData());
 
+  const addPartnerBtn = document.getElementById('btnAddPartner');
+  if (addPartnerBtn) addPartnerBtn.addEventListener('click', () => openPartnerForm(null));
+
   const partnersSearch = document.getElementById('partnersSearch');
   if (partnersSearch) partnersSearch.addEventListener('input', () => renderPartnersTable());
 
@@ -7692,6 +8118,32 @@ function initEventListeners() {
 
   const refreshCalendarsBtn = document.getElementById('btnRefreshCalendars');
   if (refreshCalendarsBtn) refreshCalendarsBtn.addEventListener('click', () => loadAdminCalendarsData());
+
+  const partnerForm = document.getElementById('partnerForm');
+  if (partnerForm) {
+    partnerForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      savePartnerFromForm();
+    });
+  }
+
+  const partnerFormClose = document.getElementById('btnClosePartnerForm');
+  if (partnerFormClose) partnerFormClose.addEventListener('click', () => closePartnerForm());
+
+  const partnerFormCancel = document.getElementById('btnCancelPartnerForm');
+  if (partnerFormCancel) partnerFormCancel.addEventListener('click', () => closePartnerForm());
+
+  const partnerFormOverlay = document.getElementById('partnerFormModalOverlay');
+  if (partnerFormOverlay) partnerFormOverlay.addEventListener('click', () => closePartnerForm());
+
+  const partnerUsersClose = document.getElementById('btnClosePartnerUsers');
+  if (partnerUsersClose) partnerUsersClose.addEventListener('click', () => closePartnerUsersModal());
+
+  const partnerUsersOverlay = document.getElementById('partnerUsersModalOverlay');
+  if (partnerUsersOverlay) partnerUsersOverlay.addEventListener('click', () => closePartnerUsersModal());
+
+  const addPartnerUserBtn = document.getElementById('btnAddPartnerUser');
+  if (addPartnerUserBtn) addPartnerUserBtn.addEventListener('click', () => addPartnerUserFromModal());
 
   const calendarsPartnerFilter = document.getElementById('calendarsPartnerFilter');
   if (calendarsPartnerFilter) calendarsPartnerFilter.addEventListener('change', () => renderCalendarsTable());

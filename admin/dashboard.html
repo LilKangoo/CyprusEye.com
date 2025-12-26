@@ -3023,6 +3023,7 @@
           <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
             <h3>Partner list</h3>
             <div style="display: flex; gap: 8px;">
+              <button class="btn btn-primary" id="btnAddPartner">+ Add partner</button>
               <input id="partnersSearch" class="form-control" type="text" placeholder="Search partners..." style="width: 240px;" />
               <select id="partnersStatusFilter" class="form-control" style="width: 160px;">
                 <option value="">All statuses</option>
@@ -3045,10 +3046,11 @@
                     <th>Pending</th>
                     <th>Rejected</th>
                     <th>Accepted</th>
+                    <th style="text-align: right;">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="partnersTableBody">
-                  <tr><td colspan="8" style="text-align:center; padding: 24px;">Loading partners...</td></tr>
+                  <tr><td colspan="9" style="text-align:center; padding: 24px;">Loading partners...</td></tr>
                 </tbody>
               </table>
             </div>
@@ -3265,6 +3267,116 @@
       </header>
       <div class="admin-modal-body" id="userDetailContent">
         <p>Loading user details...</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="admin-modal" id="partnerFormModal" hidden>
+    <div class="admin-modal-overlay" id="partnerFormModalOverlay"></div>
+    <div class="admin-modal-content" style="max-width: 760px;">
+      <header class="admin-modal-header">
+        <h3 id="partnerFormTitle">Partner</h3>
+        <button class="btn-modal-close" id="btnClosePartnerForm">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body">
+        <form id="partnerForm" class="admin-form" novalidate>
+          <input type="hidden" id="partnerFormId" />
+          <div class="admin-form-grid" style="grid-template-columns: repeat(2, 1fr); gap: 16px;">
+            <label class="admin-form-field">
+              <span>Name</span>
+              <input type="text" id="partnerFormName" required />
+            </label>
+            <label class="admin-form-field">
+              <span>Slug</span>
+              <input type="text" id="partnerFormSlug" required />
+              <small style="color: var(--admin-text-muted);">Unique. Auto-generated from name if empty.</small>
+            </label>
+            <label class="admin-form-field">
+              <span>Status</span>
+              <select id="partnerFormStatus">
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+              </select>
+            </label>
+            <label class="admin-form-field">
+              <span>Shop vendor</span>
+              <select id="partnerFormVendor">
+                <option value="">—</option>
+              </select>
+            </label>
+          </div>
+
+          <div style="margin-top: 16px;">
+            <h4 style="margin: 0 0 10px; font-size: 13px; color: var(--admin-text-muted);">Permissions</h4>
+            <div class="admin-form-grid" style="grid-template-columns: repeat(2, 1fr); gap: 12px;">
+              <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanManageShop" /><span>Can manage shop</span></label>
+              <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanManageCars" /><span>Can manage cars</span></label>
+              <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanManageTrips" /><span>Can manage trips</span></label>
+              <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanManageHotels" /><span>Can manage hotels</span></label>
+              <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanCreateOffers" /><span>Can create offers</span></label>
+              <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanViewStats" /><span>Can view stats</span></label>
+              <label class="admin-checkbox"><input type="checkbox" id="partnerFormCanViewPayouts" /><span>Can view payouts</span></label>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px;">
+            <button type="button" class="btn btn-secondary" id="btnCancelPartnerForm">Cancel</button>
+            <button type="submit" class="btn btn-primary" id="btnSavePartner">Save</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="admin-modal" id="partnerUsersModal" hidden>
+    <div class="admin-modal-overlay" id="partnerUsersModalOverlay"></div>
+    <div class="admin-modal-content" style="max-width: 760px;">
+      <header class="admin-modal-header">
+        <h3 id="partnerUsersTitle">Partner users</h3>
+        <button class="btn-modal-close" id="btnClosePartnerUsers">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body">
+        <input type="hidden" id="partnerUsersPartnerId" />
+
+        <div class="admin-form-grid" style="grid-template-columns: 1fr 160px 140px; gap: 10px; align-items: end;">
+          <label class="admin-form-field" style="margin: 0;">
+            <span>User ID</span>
+            <input type="text" id="partnerUsersUserId" placeholder="UUID" />
+          </label>
+          <label class="admin-form-field" style="margin: 0;">
+            <span>Role</span>
+            <select id="partnerUsersRole">
+              <option value="staff">Staff</option>
+              <option value="owner">Owner</option>
+            </select>
+          </label>
+          <button class="btn btn-primary" type="button" id="btnAddPartnerUser">Add user</button>
+        </div>
+
+        <div class="admin-table-container" style="margin-top: 16px;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>User</th>
+                <th>Role</th>
+                <th style="text-align: right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="partnerUsersTableBody">
+              <tr><td colspan="3" style="text-align:center; padding: 24px;">Loading...</td></tr>
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   </div>
