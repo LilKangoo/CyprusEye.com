@@ -1,0 +1,39 @@
+name: Partner SLA Alerts
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  sla_alert:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call partner-sla-alert function
+        shell: bash
+        env:
+          SUPABASE_FUNCTIONS_BASE_URL: ${{ secrets.SUPABASE_FUNCTIONS_BASE_URL }}
+          SLA_ALERT_SECRET: ${{ secrets.SLA_ALERT_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SUPABASE_FUNCTIONS_BASE_URL:-}" ]; then
+            echo "Missing secret SUPABASE_FUNCTIONS_BASE_URL"
+            exit 1
+          fi
+
+          URL="${SUPABASE_FUNCTIONS_BASE_URL%/}/partner-sla-alert"
+
+          echo "Calling: $URL"
+
+          if [ -n "${SLA_ALERT_SECRET:-}" ]; then
+            curl -sS -X POST "$URL" \
+              -H "Content-Type: application/json" \
+              -H "x-sla-alert-secret: ${SLA_ALERT_SECRET}" \
+              -d "{}"
+          else
+            curl -sS -X POST "$URL" \
+              -H "Content-Type: application/json" \
+              -d "{}"
+          fi

@@ -3264,7 +3264,7 @@ async function handleCheckoutReturn() {
         if (!supabase || !orderId) return false;
         const { data: auth } = await supabase.auth.getUser();
         const user = auth?.user || null;
-        if (!user) return false;
+        if (!user) return null;
 
         const { data: orderRow } = await supabase
           .from('shop_orders')
@@ -3276,10 +3276,13 @@ async function handleCheckoutReturn() {
       };
 
       try {
-        for (let attempt = 0; attempt < 8; attempt++) {
-          isPaid = await checkPaidStatus();
-          if (isPaid) break;
-          await new Promise(r => setTimeout(r, 750));
+        for (let attempt = 0; attempt < 30; attempt++) {
+          const result = await checkPaidStatus();
+          if (result === true) {
+            isPaid = true;
+            break;
+          }
+          await new Promise(r => setTimeout(r, 1000));
         }
       } catch (e) {
         isPaid = false;
