@@ -3845,17 +3845,25 @@ async function checkAdminAccess() {
     console.log('Profile loaded:', profile);
     console.log('is_admin flag:', profile?.is_admin);
 
-    if (!profile || !profile.is_admin) {
-      console.log('❌ User profile does not have admin flag');
-      showAccessDenied();
-      return false;
+    if (!profile) {
+      console.log('⚠️ No profile row found; continuing because user ID is whitelisted');
+    } else if (!profile.is_admin) {
+      console.log('⚠️ Profile is_admin is false; continuing because user ID is whitelisted');
+    } else {
+      console.log('✅ Admin flag confirmed!');
     }
 
-    console.log('✅ Admin flag confirmed!');
-    adminState.profile = profile;
+    const profileSafe = profile || {
+      id: session.user.id,
+      email: session.user.email,
+      username: session.user.email,
+      is_admin: true,
+    };
+
+    adminState.profile = profileSafe;
     adminState.isAdmin = true;
 
-    console.log('✅✅✅ Admin access GRANTED:', profile.username || profile.email);
+    console.log('✅✅✅ Admin access GRANTED:', profileSafe.username || profileSafe.email);
     console.log('=== checkAdminAccess END - SUCCESS ===');
     showAdminPanel();
     return true;
