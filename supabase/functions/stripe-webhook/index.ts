@@ -619,6 +619,9 @@ async function handlePaymentSucceeded(supabase: any, paymentIntent: Stripe.Payme
     } catch (e) {
       console.error("Cart cleanup failed:", e);
     }
+
+    await activatePartnerFulfillments({ supabase, order, nowIso });
+    await sendCustomerPaymentReceivedEmail({ orderId: String(order.id) });
   }
 }
 

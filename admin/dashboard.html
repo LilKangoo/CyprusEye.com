@@ -238,6 +238,26 @@
           </svg>
           <span>Shop</span>
         </button>
+
+        <button class="admin-nav-item" data-view="partners">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <path d="M22 21v-2a4 4 0 0 0-3-3.87"/>
+            <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+          </svg>
+          <span>Partners</span>
+        </button>
+
+        <button class="admin-nav-item" data-view="calendars">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <span>Calendars</span>
+        </button>
         
         <button class="admin-nav-item" data-view="settings">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2454,12 +2474,13 @@
                       <th>Total</th>
                       <th>Status</th>
                       <th>Payment</th>
+                      <th>Partner</th>
                       <th>Date</th>
                       <th>Actions</th>
                     </tr>
                   </thead>
                   <tbody id="shopOrdersTableBody">
-                    <tr><td colspan="8" style="text-align: center; padding: 24px;">Loading orders...</td></tr>
+                    <tr><td colspan="9" style="text-align: center; padding: 24px;">Loading orders...</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -2984,6 +3005,100 @@
                   </div>
                 </label>
               </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Partners View -->
+      <section class="admin-view" id="viewPartners" hidden>
+        <header class="admin-view-header">
+          <div>
+            <h2>Partners</h2>
+            <p class="admin-view-subtitle">Manage partner accounts and monitor fulfillments</p>
+          </div>
+        </header>
+
+        <div class="admin-card" style="margin-top: 16px;">
+          <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>Partner list</h3>
+            <div style="display: flex; gap: 8px;">
+              <input id="partnersSearch" class="form-control" type="text" placeholder="Search partners..." style="width: 240px;" />
+              <select id="partnersStatusFilter" class="form-control" style="width: 160px;">
+                <option value="">All statuses</option>
+                <option value="active">Active</option>
+                <option value="suspended">Suspended</option>
+              </select>
+              <button class="btn-secondary" id="btnRefreshPartners">🔄 Refresh</button>
+            </div>
+          </div>
+          <div class="admin-card-body">
+            <div class="admin-table-container">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Slug</th>
+                    <th>Status</th>
+                    <th>Vendor</th>
+                    <th>Users</th>
+                    <th>Pending</th>
+                    <th>Rejected</th>
+                    <th>Accepted</th>
+                  </tr>
+                </thead>
+                <tbody id="partnersTableBody">
+                  <tr><td colspan="8" style="text-align:center; padding: 24px;">Loading partners...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Calendars View -->
+      <section class="admin-view" id="viewCalendars" hidden>
+        <header class="admin-view-header">
+          <div>
+            <h2>Calendars</h2>
+            <p class="admin-view-subtitle">Admin view of partner availability blocks</p>
+          </div>
+        </header>
+
+        <div class="admin-card" style="margin-top: 16px;">
+          <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+            <h3>Availability blocks</h3>
+            <div style="display: flex; gap: 8px;">
+              <select id="calendarsPartnerFilter" class="form-control" style="width: 220px;">
+                <option value="">All partners</option>
+              </select>
+              <select id="calendarsResourceTypeFilter" class="form-control" style="width: 180px;">
+                <option value="">All resource types</option>
+                <option value="shop">Shop</option>
+                <option value="cars">Cars</option>
+                <option value="trips">Trips</option>
+                <option value="hotels">Hotels</option>
+              </select>
+              <button class="btn-secondary" id="btnRefreshCalendars">🔄 Refresh</button>
+            </div>
+          </div>
+          <div class="admin-card-body">
+            <div class="admin-table-container">
+              <table class="admin-table">
+                <thead>
+                  <tr>
+                    <th>Partner</th>
+                    <th>Resource type</th>
+                    <th>Resource ID</th>
+                    <th>Start</th>
+                    <th>End</th>
+                    <th>Note</th>
+                  </tr>
+                </thead>
+                <tbody id="calendarsTableBody">
+                  <tr><td colspan="6" style="text-align:center; padding: 24px;">Loading availability...</td></tr>
+                </tbody>
+              </table>
             </div>
           </div>
         </div>

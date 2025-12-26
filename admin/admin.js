@@ -85,6 +85,205 @@ function showElement(element) {
   }
 }
 
+const partnersState = {
+  partners: [],
+  partnerUsersCountByPartnerId: {},
+  fulfillmentStatsByPartnerId: {}
+};
+
+async function loadPartnersData() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const tbody = document.getElementById('partnersTableBody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 24px;">Loading partners...</td></tr>';
+
+  try {
+    const { data: partners, error: partnersError } = await client
+      .from('partners')
+      .select('id, name, slug, status, shop_vendor_id, vendor:shop_vendors(name)')
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (partnersError) throw partnersError;
+
+    partnersState.partners = partners || [];
+
+    const partnerIds = (partnersState.partners || []).map(p => p.id).filter(Boolean);
+
+    partnersState.partnerUsersCountByPartnerId = {};
+    if (partnerIds.length) {
+      const { data: partnerUsers } = await client
+        .from('partner_users')
+        .select('partner_id')
+        .in('partner_id', partnerIds)
+        .limit(1000);
+
+      (partnerUsers || []).forEach(pu => {
+        const pid = pu.partner_id;
+        partnersState.partnerUsersCountByPartnerId[pid] = (partnersState.partnerUsersCountByPartnerId[pid] || 0) + 1;
+      });
+    }
+
+    partnersState.fulfillmentStatsByPartnerId = {};
+    if (partnerIds.length) {
+      const { data: fulfillments } = await client
+        .from('shop_order_fulfillments')
+        .select('partner_id, status, created_at')
+        .in('partner_id', partnerIds)
+        .in('status', ['pending_acceptance', 'accepted', 'rejected'])
+        .order('created_at', { ascending: false })
+        .limit(1000);
+
+      (fulfillments || []).forEach(f => {
+        const pid = f.partner_id;
+        if (!pid) return;
+        if (!partnersState.fulfillmentStatsByPartnerId[pid]) {
+          partnersState.fulfillmentStatsByPartnerId[pid] = { pending: 0, accepted: 0, rejected: 0 };
+        }
+        const status = String(f.status || '');
+        if (status === 'pending_acceptance') partnersState.fulfillmentStatsByPartnerId[pid].pending += 1;
+        if (status === 'accepted') partnersState.fulfillmentStatsByPartnerId[pid].accepted += 1;
+        if (status === 'rejected') partnersState.fulfillmentStatsByPartnerId[pid].rejected += 1;
+      });
+    }
+
+    renderPartnersTable();
+  } catch (error) {
+    console.error('Failed to load partners:', error);
+    const tbodyErr = document.getElementById('partnersTableBody');
+    if (tbodyErr) tbodyErr.innerHTML = `<tr><td colspan="8" style="text-align:center; color:#ef4444; padding: 24px;">Error: ${escapeHtml(error.message || 'Failed to load')}</td></tr>`;
+  }
+}
+
+function renderPartnersTable() {
+  const tbody = document.getElementById('partnersTableBody');
+  if (!tbody) return;
+
+  const searchTerm = (document.getElementById('partnersSearch')?.value || '').toLowerCase().trim();
+  const statusFilter = document.getElementById('partnersStatusFilter')?.value || '';
+
+  const partners = Array.isArray(partnersState.partners) ? partnersState.partners : [];
+  const filtered = partners.filter(p => {
+    const matchesStatus = !statusFilter || p.status === statusFilter;
+    const matchesSearch = !searchTerm ||
+      String(p.name || '').toLowerCase().includes(searchTerm) ||
+      String(p.slug || '').toLowerCase().includes(searchTerm);
+    return matchesStatus && matchesSearch;
+  });
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding: 24px; color: var(--admin-text-muted);">No partners found</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(p => {
+    const usersCount = partnersState.partnerUsersCountByPartnerId[p.id] || 0;
+    const stats = partnersState.fulfillmentStatsByPartnerId[p.id] || { pending: 0, accepted: 0, rejected: 0 };
+    const statusColor = p.status === 'active' ? '#22c55e' : '#ef4444';
+    const vendorName = (p.vendor && p.vendor.name) ? p.vendor.name : (p.shop_vendor_id ? String(p.shop_vendor_id).slice(0, 8) : '—');
+
+    return `
+      <tr>
+        <td><strong>${escapeHtml(p.name)}</strong></td>
+        <td><code>${escapeHtml(p.slug)}</code></td>
+        <td><span class="badge" style="background: ${statusColor};">${escapeHtml(p.status)}</span></td>
+        <td>${escapeHtml(vendorName)}</td>
+        <td>${usersCount}</td>
+        <td>${stats.pending}</td>
+        <td>${stats.rejected}</td>
+        <td>${stats.accepted}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+const calendarsState = {
+  partnersById: {},
+  partners: [],
+  blocks: []
+};
+
+async function loadAdminCalendarsData() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const tbody = document.getElementById('calendarsTableBody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 24px;">Loading availability...</td></tr>';
+
+  try {
+    const { data: partners, error: partnersError } = await client
+      .from('partners')
+      .select('id, name')
+      .order('name', { ascending: true })
+      .limit(500);
+
+    if (partnersError) throw partnersError;
+    calendarsState.partners = partners || [];
+    calendarsState.partnersById = {};
+    calendarsState.partners.forEach(p => {
+      calendarsState.partnersById[p.id] = p;
+    });
+
+    const partnerFilter = document.getElementById('calendarsPartnerFilter');
+    if (partnerFilter) {
+      const existing = partnerFilter.value;
+      partnerFilter.innerHTML = '<option value="">All partners</option>' + calendarsState.partners.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
+      if (existing) partnerFilter.value = existing;
+    }
+
+    const { data: blocks, error: blocksError } = await client
+      .from('partner_availability_blocks')
+      .select('id, partner_id, resource_type, resource_id, start_date, end_date, note, created_at')
+      .order('start_date', { ascending: false })
+      .limit(300);
+
+    if (blocksError) throw blocksError;
+
+    calendarsState.blocks = blocks || [];
+
+    renderCalendarsTable();
+  } catch (error) {
+    console.error('Failed to load calendars:', error);
+    const tbodyErr = document.getElementById('calendarsTableBody');
+    if (tbodyErr) tbodyErr.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#ef4444; padding: 24px;">Error: ${escapeHtml(error.message || 'Failed to load')}</td></tr>`;
+  }
+}
+
+function renderCalendarsTable() {
+  const tbody = document.getElementById('calendarsTableBody');
+  if (!tbody) return;
+
+  const partnerIdFilter = document.getElementById('calendarsPartnerFilter')?.value || '';
+  const resourceTypeFilter = document.getElementById('calendarsResourceTypeFilter')?.value || '';
+
+  const blocks = Array.isArray(calendarsState.blocks) ? calendarsState.blocks : [];
+  const filtered = blocks.filter(b => {
+    const matchesPartner = !partnerIdFilter || b.partner_id === partnerIdFilter;
+    const matchesType = !resourceTypeFilter || b.resource_type === resourceTypeFilter;
+    return matchesPartner && matchesType;
+  });
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--admin-text-muted);">No availability blocks found</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map(b => {
+    const partnerName = calendarsState.partnersById[b.partner_id]?.name || (b.partner_id ? String(b.partner_id).slice(0, 8) : '—');
+    return `
+      <tr>
+        <td>${escapeHtml(partnerName)}</td>
+        <td>${escapeHtml(b.resource_type || '')}</td>
+        <td><code>${escapeHtml(String(b.resource_id || ''))}</code></td>
+        <td style="white-space: nowrap;">${escapeHtml(String(b.start_date || ''))}</td>
+        <td style="white-space: nowrap;">${escapeHtml(String(b.end_date || ''))}</td>
+        <td>${escapeHtml(b.note || '')}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
 async function deleteShopOrder(orderId, orderNumber, paymentStatus) {
   const normalizedPaymentStatus = String(paymentStatus || '').toLowerCase();
   const isPaidLike = ['paid', 'partially_refunded', 'refunded'].includes(normalizedPaymentStatus);
@@ -3102,6 +3301,12 @@ function switchView(viewName) {
       break;
     case 'shop':
       loadShopData();
+      break;
+    case 'partners':
+      loadPartnersData();
+      break;
+    case 'calendars':
+      loadAdminCalendarsData();
       break;
     case 'settings':
       loadAdminNotificationSettings();
@@ -7475,6 +7680,24 @@ function initEventListeners() {
       }
     });
   });
+
+  const refreshPartnersBtn = document.getElementById('btnRefreshPartners');
+  if (refreshPartnersBtn) refreshPartnersBtn.addEventListener('click', () => loadPartnersData());
+
+  const partnersSearch = document.getElementById('partnersSearch');
+  if (partnersSearch) partnersSearch.addEventListener('input', () => renderPartnersTable());
+
+  const partnersStatusFilter = document.getElementById('partnersStatusFilter');
+  if (partnersStatusFilter) partnersStatusFilter.addEventListener('change', () => renderPartnersTable());
+
+  const refreshCalendarsBtn = document.getElementById('btnRefreshCalendars');
+  if (refreshCalendarsBtn) refreshCalendarsBtn.addEventListener('click', () => loadAdminCalendarsData());
+
+  const calendarsPartnerFilter = document.getElementById('calendarsPartnerFilter');
+  if (calendarsPartnerFilter) calendarsPartnerFilter.addEventListener('change', () => renderCalendarsTable());
+
+  const calendarsResourceTypeFilter = document.getElementById('calendarsResourceTypeFilter');
+  if (calendarsResourceTypeFilter) calendarsResourceTypeFilter.addEventListener('change', () => renderCalendarsTable());
 
   const adminNotificationForm = document.getElementById('adminNotificationSettingsForm');
   if (adminNotificationForm) {
@@ -12326,7 +12549,7 @@ async function loadShopOrders() {
 
   const tbody = document.getElementById('shopOrdersTableBody');
   if (!tbody) return;
-  tbody.innerHTML = '<tr><td colspan="8" style="text-align: center;">Loading...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="9" style="text-align: center;">Loading...</td></tr>';
 
   try {
     let query = client
@@ -12349,7 +12572,7 @@ async function loadShopOrders() {
     shopState.orders = orders || [];
 
     if (!orders?.length) {
-      tbody.innerHTML = '<tr><td colspan="8" style="text-align: center; color: var(--admin-text-muted);">No orders found</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="9" style="text-align: center; color: var(--admin-text-muted);">No orders found</td></tr>';
       return;
     }
 
@@ -12374,6 +12597,21 @@ async function loadShopOrders() {
         failed: '#dc2626'
       };
 
+      const partnerStatus = (order.partner_acceptance_status || 'none');
+      const partnerLabel = partnerStatus === 'pending'
+        ? '⏳ pending'
+        : partnerStatus === 'accepted'
+          ? '✅ accepted'
+          : partnerStatus === 'rejected'
+            ? '❌ rejected'
+            : '—';
+      const partnerColors = {
+        none: '#6b7280',
+        pending: '#f59e0b',
+        accepted: '#22c55e',
+        rejected: '#ef4444'
+      };
+
       return `
         <tr>
           <td><strong>${escapeHtml(order.order_number)}</strong></td>
@@ -12385,6 +12623,7 @@ async function loadShopOrders() {
           <td><strong>€${parseFloat(order.total).toFixed(2)}</strong></td>
           <td><span class="badge" style="background: ${statusColors[order.status] || '#6b7280'};">${order.status}</span></td>
           <td><span class="badge" style="background: ${paymentColors[order.payment_status] || '#6b7280'};">${order.payment_status}</span></td>
+          <td><span class="badge" style="background: ${partnerColors[partnerStatus] || '#6b7280'};">${partnerLabel}</span></td>
           <td>${new Date(order.created_at).toLocaleDateString()}</td>
           <td>
             <button class="btn-small btn-secondary" onclick="viewShopOrder('${order.id}')">View</button>
@@ -12395,7 +12634,7 @@ async function loadShopOrders() {
 
   } catch (error) {
     console.error('Failed to load orders:', error);
-    tbody.innerHTML = `<tr><td colspan="8" style="text-align: center; color: #ef4444;">Error: ${error.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align: center; color: #ef4444;">Error: ${error.message}</td></tr>`;
   }
 }
 
@@ -15659,6 +15898,86 @@ async function viewShopOrder(orderId) {
     if (error) throw error;
     if (!order) throw new Error('Zamówienie nie znalezione');
 
+    let fulfillments = [];
+    try {
+      const { data: fData, error: fError } = await client
+        .from('shop_order_fulfillments')
+        .select('id, status, partner_id, vendor_id, sla_deadline_at, accepted_at, rejected_at, rejected_reason, contact_revealed_at, partner:partners(name), vendor:shop_vendors(name)')
+        .eq('order_id', orderId)
+        .order('created_at', { ascending: true });
+
+      if (!fError) {
+        fulfillments = fData || [];
+      }
+    } catch (_e) {
+      fulfillments = [];
+    }
+
+    const partnerAcceptanceStatus = (order.partner_acceptance_status || 'none');
+    const partnerAcceptanceLabel = partnerAcceptanceStatus === 'pending'
+      ? '⏳ pending'
+      : partnerAcceptanceStatus === 'accepted'
+        ? '✅ accepted'
+        : partnerAcceptanceStatus === 'rejected'
+          ? '❌ rejected'
+          : '—';
+    const partnerAcceptanceColors = {
+      none: '#6b7280',
+      pending: '#f59e0b',
+      accepted: '#22c55e',
+      rejected: '#ef4444'
+    };
+
+    const fulfillmentsHtml = (() => {
+      if (!Array.isArray(fulfillments) || !fulfillments.length) {
+        return '<p style="color: var(--admin-text-muted); margin: 0;">No partner fulfillments for this order.</p>';
+      }
+
+      const rows = fulfillments.map(f => {
+        const status = String(f.status || '');
+        const badgeColor = status === 'pending_acceptance'
+          ? '#f59e0b'
+          : status === 'accepted'
+            ? '#22c55e'
+            : status === 'rejected'
+              ? '#ef4444'
+              : '#6b7280';
+        const partnerName = (f.partner && f.partner.name) ? f.partner.name : (f.vendor && f.vendor.name) ? f.vendor.name : (f.partner_id ? String(f.partner_id).slice(0, 8) : '—');
+        const deadline = f.sla_deadline_at ? new Date(f.sla_deadline_at).toLocaleString('pl-PL') : '—';
+        const acceptedAt = f.accepted_at ? new Date(f.accepted_at).toLocaleString('pl-PL') : '—';
+        const rejectedAt = f.rejected_at ? new Date(f.rejected_at).toLocaleString('pl-PL') : '—';
+
+        return `
+          <tr>
+            <td>${escapeHtml(partnerName)}</td>
+            <td><span class="badge" style="background: ${badgeColor};">${escapeHtml(status)}</span></td>
+            <td style="white-space: nowrap;">${escapeHtml(deadline)}</td>
+            <td style="white-space: nowrap;">${escapeHtml(acceptedAt)}</td>
+            <td style="white-space: nowrap;">${escapeHtml(rejectedAt)}</td>
+            <td>${escapeHtml(f.rejected_reason || '')}</td>
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <table class="admin-table" style="margin-top: 12px;">
+          <thead>
+            <tr>
+              <th>Partner</th>
+              <th>Status</th>
+              <th>SLA deadline</th>
+              <th>Accepted at</th>
+              <th>Rejected at</th>
+              <th>Reason</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows}
+          </tbody>
+        </table>
+      `;
+    })();
+
     title.textContent = `Zamówienie ${order.order_number}`;
 
     const statusLabels = {
@@ -15741,6 +16060,19 @@ async function viewShopOrder(orderId) {
               ${paymentStatusOptions.map(s => `<option value="${s}" ${order.payment_status === s ? 'selected' : ''}>${paymentLabels[s]}</option>`).join('')}
             </select>
           </label>
+        </div>
+      </div>
+
+      <div style="margin: 12px 0 20px; padding: 16px; background: var(--admin-bg); border-radius: 8px;">
+        <h4 style="margin: 0 0 10px; font-size: 13px; color: var(--admin-text-muted);">🤝 Partner acceptance</h4>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <span class="badge" style="background: ${partnerAcceptanceColors[partnerAcceptanceStatus] || '#6b7280'};">${escapeHtml(partnerAcceptanceLabel)}</span>
+          <small style="color: var(--admin-text-muted);">
+            ${order.partner_acceptance_updated_at ? `updated: ${new Date(order.partner_acceptance_updated_at).toLocaleString('pl-PL')}` : ''}
+          </small>
+        </div>
+        <div style="margin-top: 12px;">
+          ${fulfillmentsHtml}
         </div>
       </div>
 
