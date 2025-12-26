@@ -622,8 +622,284 @@ window.removeUserFromPartner = (partnerUserId, userId) => removeUserFromPartnerF
 const calendarsState = {
   partnersById: {},
   partners: [],
-  blocks: []
+  blocks: [],
+  monthValue: '',
+  monthBlocks: [],
+  monthBusyRanges: [],
 };
+
+function getMonthValue(date = new Date()) {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  return `${y}-${m}`;
+}
+
+function monthToStartEnd(monthValue) {
+  const mv = String(monthValue || '').trim();
+  const [yStr, mStr] = mv.split('-');
+  const y = Number(yStr);
+  const m = Number(mStr);
+  if (!Number.isFinite(y) || !Number.isFinite(m) || m < 1 || m > 12) {
+    const fallback = getMonthValue();
+    return monthToStartEnd(fallback);
+  }
+  const start = new Date(Date.UTC(y, m - 1, 1, 12, 0, 0));
+  const end = new Date(Date.UTC(y, m, 0, 12, 0, 0));
+  const startIso = start.toISOString().slice(0, 10);
+  const endIso = end.toISOString().slice(0, 10);
+  return { start, end, startIso, endIso };
+}
+
+function addMonths(monthValue, delta) {
+  const mv = String(monthValue || '').trim();
+  const [yStr, mStr] = mv.split('-');
+  const y = Number(yStr);
+  const m = Number(mStr);
+  const base = (Number.isFinite(y) && Number.isFinite(m)) ? new Date(Date.UTC(y, m - 1, 1, 12, 0, 0)) : new Date();
+  base.setUTCMonth(base.getUTCMonth() + Number(delta || 0));
+  return getMonthValue(new Date(Date.UTC(base.getUTCFullYear(), base.getUTCMonth(), 1, 12, 0, 0)));
+}
+
+function setCalendarsMonthInput(value) {
+  const input = document.getElementById('calendarsMonthInput');
+  if (!input) return;
+  const next = value || getMonthValue();
+  input.value = next;
+  calendarsState.monthValue = next;
+}
+
+function ensureCalendarsMonthInput() {
+  const input = document.getElementById('calendarsMonthInput');
+  if (!input) return;
+  if (!input.value) {
+    setCalendarsMonthInput(getMonthValue());
+  } else {
+    calendarsState.monthValue = input.value;
+  }
+}
+
+async function loadCalendarsResourceOptions() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const type = String(document.getElementById('calendarsResourceTypeFilter')?.value || '').trim();
+  const select = document.getElementById('calendarsResourceIdFilter');
+  if (!select) return;
+
+  if (!type) {
+    select.innerHTML = '<option value="">Select resource</option>';
+    return;
+  }
+
+  try {
+    let rows = [];
+    if (type === 'cars') {
+      const { data, error } = await client
+        .from('car_offers')
+        .select('id, car_model, car_type, location')
+        .order('updated_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      rows = (data || []).map(r => ({
+        id: r.id,
+        label: `${r.car_model || r.car_type || 'Car'} (${r.location || ''})`.trim()
+      }));
+    } else if (type === 'trips') {
+      const { data, error } = await client
+        .from('trips')
+        .select('id, slug, title, start_city')
+        .order('updated_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      rows = (data || []).map(r => {
+        const title = (r.title && (r.title.pl || r.title.en)) || r.slug || r.id;
+        const city = r.start_city ? ` — ${r.start_city}` : '';
+        return { id: r.id, label: `${title}${city}` };
+      });
+    } else if (type === 'hotels') {
+      const { data, error } = await client
+        .from('hotels')
+        .select('id, slug, title, city')
+        .order('updated_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      rows = (data || []).map(r => {
+        const title = (r.title && (r.title.pl || r.title.en)) || r.slug || r.id;
+        const city = r.city ? ` — ${r.city}` : '';
+        return { id: r.id, label: `${title}${city}` };
+      });
+    } else if (type === 'shop') {
+      const { data, error } = await client
+        .from('shop_products')
+        .select('id, name, slug, status')
+        .order('updated_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      rows = (data || []).map(r => ({ id: r.id, label: r.name || r.slug || r.id }));
+    }
+
+    const existing = select.value;
+    select.innerHTML = '<option value="">Select resource</option>' + rows
+      .map(r => `<option value="${r.id}">${escapeHtml(r.label)}</option>`)
+      .join('');
+
+    if (existing) select.value = existing;
+  } catch (error) {
+    console.error('Failed to load resource options:', error);
+    select.innerHTML = '<option value="">Select resource</option>';
+  }
+}
+
+function dateRangeOverlapsMonth(startIso, endIso, monthStartIso, monthEndIso) {
+  if (!startIso || !endIso) return false;
+  return String(startIso) <= String(monthEndIso) && String(endIso) >= String(monthStartIso);
+}
+
+function isBusyOnDay(dayIso, blocks, ranges) {
+  const d = String(dayIso);
+  const bb = Array.isArray(blocks) ? blocks : [];
+  const rr = Array.isArray(ranges) ? ranges : [];
+  return bb.some(b => String(b.start_date) <= d && String(b.end_date) >= d)
+    || rr.some(r => String(r.start_date) <= d && String(r.end_date) >= d);
+}
+
+async function loadCalendarsMonthData() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const partnerId = String(document.getElementById('calendarsPartnerFilter')?.value || '').trim();
+  const type = String(document.getElementById('calendarsResourceTypeFilter')?.value || '').trim();
+  const resourceId = String(document.getElementById('calendarsResourceIdFilter')?.value || '').trim();
+  ensureCalendarsMonthInput();
+  const monthValue = calendarsState.monthValue || getMonthValue();
+  const { startIso, endIso } = monthToStartEnd(monthValue);
+
+  calendarsState.monthBlocks = [];
+  calendarsState.monthBusyRanges = [];
+
+  if (!type || !resourceId) {
+    renderCalendarsMonthGrid();
+    return;
+  }
+
+  try {
+    let blocksQuery = client
+      .from('partner_availability_blocks')
+      .select('id, partner_id, resource_type, resource_id, start_date, end_date, note')
+      .eq('resource_type', type)
+      .eq('resource_id', resourceId)
+      .lte('start_date', endIso)
+      .gte('end_date', startIso)
+      .limit(500);
+
+    if (partnerId) {
+      blocksQuery = blocksQuery.eq('partner_id', partnerId);
+    }
+
+    const { data: monthBlocks, error: blocksError } = await blocksQuery;
+    if (blocksError) throw blocksError;
+    calendarsState.monthBlocks = monthBlocks || [];
+
+    const ranges = [];
+    if (type === 'cars') {
+      const { data, error } = await client
+        .from('car_bookings')
+        .select('pickup_date, return_date, status')
+        .eq('offer_id', resourceId)
+        .neq('status', 'cancelled')
+        .lte('pickup_date', endIso)
+        .gte('return_date', startIso)
+        .limit(500);
+      if (error) throw error;
+      (data || []).forEach(r => {
+        if (!r.pickup_date || !r.return_date) return;
+        ranges.push({ start_date: r.pickup_date, end_date: r.return_date });
+      });
+    }
+
+    if (type === 'hotels') {
+      const { data, error } = await client
+        .from('hotel_bookings')
+        .select('arrival_date, departure_date, status')
+        .eq('hotel_id', resourceId)
+        .neq('status', 'cancelled')
+        .lte('arrival_date', endIso)
+        .gte('departure_date', startIso)
+        .limit(500);
+      if (error) throw error;
+      (data || []).forEach(r => {
+        if (!r.arrival_date || !r.departure_date) return;
+        ranges.push({ start_date: r.arrival_date, end_date: r.departure_date });
+      });
+    }
+
+    if (type === 'trips') {
+      const { data, error } = await client
+        .from('trip_bookings')
+        .select('trip_date, arrival_date, status')
+        .eq('trip_id', resourceId)
+        .neq('status', 'cancelled')
+        .gte('arrival_date', startIso)
+        .lte('arrival_date', endIso)
+        .limit(500);
+      if (error) throw error;
+      (data || []).forEach(r => {
+        const d = r.trip_date || r.arrival_date;
+        if (!d) return;
+        ranges.push({ start_date: d, end_date: d });
+      });
+    }
+
+    calendarsState.monthBusyRanges = ranges;
+    renderCalendarsMonthGrid();
+  } catch (error) {
+    console.error('Failed to load month data:', error);
+    renderCalendarsMonthGrid();
+  }
+}
+
+function renderCalendarsMonthGrid() {
+  const grid = document.getElementById('calendarsMonthGrid');
+  if (!grid) return;
+
+  const type = String(document.getElementById('calendarsResourceTypeFilter')?.value || '').trim();
+  const resourceId = String(document.getElementById('calendarsResourceIdFilter')?.value || '').trim();
+  ensureCalendarsMonthInput();
+  const monthValue = calendarsState.monthValue || getMonthValue();
+  const { start, end, startIso, endIso } = monthToStartEnd(monthValue);
+
+  if (!type || !resourceId) {
+    grid.innerHTML = '<div style="grid-column: 1 / -1; color: var(--admin-text-muted); padding: 10px;">Select resource type + resource to view calendar</div>';
+    return;
+  }
+
+  const blocks = (calendarsState.monthBlocks || []).filter(b => b.resource_type === type && String(b.resource_id) === resourceId && dateRangeOverlapsMonth(b.start_date, b.end_date, startIso, endIso));
+  const ranges = calendarsState.monthBusyRanges || [];
+
+  const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  const headerHtml = dayNames.map(d => `<div style="padding: 8px 6px; font-size: 12px; text-align:center; color: var(--admin-text-muted);">${d}</div>`).join('');
+
+  const firstDow = (start.getUTCDay() + 6) % 7;
+  const blanks = Array.from({ length: firstDow }).map(() => `<div style="height: 44px;"></div>`).join('');
+
+  const days = [];
+  const todayIso = new Date().toISOString().slice(0, 10);
+  for (let day = 1; day <= end.getUTCDate(); day += 1) {
+    const dt = new Date(Date.UTC(start.getUTCFullYear(), start.getUTCMonth(), day, 12, 0, 0));
+    const iso = dt.toISOString().slice(0, 10);
+    const busy = isBusyOnDay(iso, blocks, ranges);
+    const bg = busy ? 'rgba(107,114,128,0.35)' : 'rgba(34,197,94,0.20)';
+    const border = busy ? 'rgba(107,114,128,0.60)' : 'rgba(34,197,94,0.55)';
+    const outline = iso === todayIso ? '0 0 0 2px rgba(59,130,246,0.65) inset' : 'none';
+    days.push(`
+      <div style="height: 44px; border-radius: 8px; background:${bg}; border: 1px solid ${border}; display:flex; align-items:center; justify-content:center; font-weight: 600; box-shadow: ${outline};">
+        ${day}
+      </div>
+    `);
+  }
+
+  grid.innerHTML = headerHtml + blanks + days.join('');
+}
 
 async function loadAdminCalendarsData() {
   const client = ensureSupabase();
@@ -664,6 +940,9 @@ async function loadAdminCalendarsData() {
     calendarsState.blocks = blocks || [];
 
     renderCalendarsTable();
+    ensureCalendarsMonthInput();
+    await loadCalendarsResourceOptions();
+    await loadCalendarsMonthData();
   } catch (error) {
     console.error('Failed to load calendars:', error);
     const tbodyErr = document.getElementById('calendarsTableBody');
@@ -8146,10 +8425,55 @@ function initEventListeners() {
   if (addPartnerUserBtn) addPartnerUserBtn.addEventListener('click', () => addPartnerUserFromModal());
 
   const calendarsPartnerFilter = document.getElementById('calendarsPartnerFilter');
-  if (calendarsPartnerFilter) calendarsPartnerFilter.addEventListener('change', () => renderCalendarsTable());
+  if (calendarsPartnerFilter) {
+    calendarsPartnerFilter.addEventListener('change', () => {
+      renderCalendarsTable();
+      loadCalendarsMonthData();
+    });
+  }
 
   const calendarsResourceTypeFilter = document.getElementById('calendarsResourceTypeFilter');
-  if (calendarsResourceTypeFilter) calendarsResourceTypeFilter.addEventListener('change', () => renderCalendarsTable());
+  if (calendarsResourceTypeFilter) {
+    calendarsResourceTypeFilter.addEventListener('change', () => {
+      renderCalendarsTable();
+      const select = document.getElementById('calendarsResourceIdFilter');
+      if (select) select.value = '';
+      loadCalendarsResourceOptions().then(() => loadCalendarsMonthData());
+    });
+  }
+
+  const calendarsResourceIdFilter = document.getElementById('calendarsResourceIdFilter');
+  if (calendarsResourceIdFilter) {
+    calendarsResourceIdFilter.addEventListener('change', () => {
+      loadCalendarsMonthData();
+    });
+  }
+
+  const calendarsMonthInput = document.getElementById('calendarsMonthInput');
+  if (calendarsMonthInput) {
+    calendarsMonthInput.addEventListener('change', () => {
+      calendarsState.monthValue = calendarsMonthInput.value;
+      loadCalendarsMonthData();
+    });
+  }
+
+  const calendarsPrevMonthBtn = document.getElementById('btnCalendarsPrevMonth');
+  if (calendarsPrevMonthBtn) {
+    calendarsPrevMonthBtn.addEventListener('click', () => {
+      ensureCalendarsMonthInput();
+      setCalendarsMonthInput(addMonths(calendarsState.monthValue || getMonthValue(), -1));
+      loadCalendarsMonthData();
+    });
+  }
+
+  const calendarsNextMonthBtn = document.getElementById('btnCalendarsNextMonth');
+  if (calendarsNextMonthBtn) {
+    calendarsNextMonthBtn.addEventListener('click', () => {
+      ensureCalendarsMonthInput();
+      setCalendarsMonthInput(addMonths(calendarsState.monthValue || getMonthValue(), 1));
+      loadCalendarsMonthData();
+    });
+  }
 
   const adminNotificationForm = document.getElementById('adminNotificationSettingsForm');
   if (adminNotificationForm) {

@@ -36,7 +36,7 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20251223_1"></script>
+  <script type="module" src="/admin/admin.js?v=20251226_1"></script>
 </head>
 <body data-admin-panel="true">
   
@@ -3101,6 +3101,22 @@
                   <tr><td colspan="6" style="text-align:center; padding: 24px;">Loading availability...</td></tr>
                 </tbody>
               </table>
+            </div>
+
+            <div style="margin-top: 18px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.08);">
+              <div style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px;">
+                <select id="calendarsResourceIdFilter" class="form-control" style="min-width: 280px;">
+                  <option value="">Select resource</option>
+                </select>
+                <button class="btn-secondary" id="btnCalendarsPrevMonth" type="button">◀</button>
+                <input id="calendarsMonthInput" class="form-control" type="month" style="width: 170px;" />
+                <button class="btn-secondary" id="btnCalendarsNextMonth" type="button">▶</button>
+              </div>
+              <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px; color: var(--admin-text-muted); font-size: 12px;">
+                <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#22c55e;"></span>Free</span>
+                <span style="display: inline-flex; align-items: center; gap: 6px;"><span style="display:inline-block;width:12px;height:12px;border-radius:3px;background:#6b7280;"></span>Busy</span>
+              </div>
+              <div id="calendarsMonthGrid" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 8px;"></div>
             </div>
           </div>
         </div>
