@@ -4,10 +4,12 @@ import nodemailer from "npm:nodemailer@6.9.11";
 
 type Category = "shop" | "cars" | "hotels" | "trips";
 
+type AdminEvent = "created" | "paid" | "partner_rejected" | "partner_sla";
+
 type AdminNotificationRequest = {
   category?: Category;
   record_id?: string;
-  event?: "created" | "paid";
+  event?: AdminEvent;
   // Supabase Database Webhook payload shape
   type?: string;
   table?: string;
@@ -125,17 +127,25 @@ function buildGenericEmail({
   record,
 }: {
   category: Category;
-  event: string;
+  event: AdminEvent;
   recordId: string;
   record: Record<string, unknown>;
 }): { subject: string; text: string; html: string } {
   const ts = new Date().toISOString();
   const label = category.toUpperCase();
 
-  const subject =
-    category === "shop" && event === "paid"
-      ? `[${label}] Nowe opłacone zamówienie ${recordId}`
-      : `[${label}] Nowa rezerwacja ${recordId}`;
+  const subject = (() => {
+    if (category === "shop" && event === "paid") {
+      return `[${label}] Nowe opłacone zamówienie ${recordId}`;
+    }
+    if (category === "shop" && event === "partner_rejected") {
+      return `[${label}] Partner odrzucił zamówienie ${recordId}`;
+    }
+    if (category === "shop" && event === "partner_sla") {
+      return `[${label}] Partner nie zaakceptował na czas (SLA) ${recordId}`;
+    }
+    return `[${label}] Nowa rezerwacja ${recordId}`;
+  })();
 
   const link = buildAdminPanelLink(category, recordId);
 

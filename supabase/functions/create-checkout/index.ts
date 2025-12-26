@@ -39,6 +39,8 @@ interface ResolvedItem extends CartItem {
   tax_class: string | null;
   tax_rate: number;
   tax_price_mode: string;
+  vendor_id?: string | null;
+  vendor_name?: string | null;
 }
 
 type VariantShippingInfo = {
@@ -304,6 +306,150 @@ type VariantRecord = VariantShippingInfo & {
   stock_quantity: number | null;
   is_active: boolean | null;
 };
+
+async function tryCreateOrderFulfillments(params: {
+  supabase: any;
+  orderId: string;
+  orderNumber?: string | null;
+  orderCreatedAt?: string | null;
+  orderTotal: number;
+  orderItemsSubtotal: number;
+}) {
+  const { supabase, orderId, orderNumber, orderCreatedAt, orderTotal, orderItemsSubtotal } = params;
+
+  try {
+    const { data: items, error: itemsError } = await supabase
+      .from("shop_order_items")
+      .select("id, vendor_id, vendor_name, product_name, variant_name, quantity, unit_price, subtotal")
+      .eq("order_id", orderId);
+
+    if (itemsError) {
+      console.error("[create-checkout] failed to read order items for fulfillments:", itemsError);
+      return;
+    }
+
+    const rows = Array.isArray(items) ? items : [];
+    if (!rows.length) return;
+
+    const groups = new Map<
+      string,
+      {
+        vendor_id: string | null;
+        vendor_name: string | null;
+        items: any[];
+      }
+    >();
+
+    for (const row of rows) {
+      const vendorId = typeof row.vendor_id === "string" ? row.vendor_id : null;
+      const key = vendorId || "__no_vendor__";
+      if (!groups.has(key)) {
+        groups.set(key, {
+          vendor_id: vendorId,
+          vendor_name: (row.vendor_name as any) ?? null,
+          items: [],
+        });
+      }
+      groups.get(key)!.items.push(row);
+    }
+
+    const vendorIds = Array.from(
+      new Set(Array.from(groups.values()).map((g) => g.vendor_id).filter(Boolean))
+    ) as string[];
+
+    const partnersByVendorId = new Map<string, string>();
+    if (vendorIds.length) {
+      try {
+        const { data: partnerRows, error: partnerErr } = await supabase
+          .from("partners")
+          .select("id, shop_vendor_id, status")
+          .in("shop_vendor_id", vendorIds);
+
+        if (partnerErr) {
+          console.warn("[create-checkout] partners table not available or query failed:", partnerErr);
+        } else {
+          for (const p of Array.isArray(partnerRows) ? partnerRows : []) {
+            const vId = typeof (p as any).shop_vendor_id === "string" ? (p as any).shop_vendor_id : null;
+            const pId = typeof (p as any).id === "string" ? (p as any).id : null;
+            const status = String((p as any).status || "").toLowerCase();
+            if (vId && pId && status !== "suspended") {
+              partnersByVendorId.set(vId, pId);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn("[create-checkout] partners lookup failed:", e);
+      }
+    }
+
+    const fulfillmentsToInsert = Array.from(groups.values()).map((g) => {
+      const groupSubtotal = roundCurrency(
+        (g.items || []).reduce((sum, it) => sum + toNumber((it as any).subtotal), 0)
+      );
+
+      const ratio = orderItemsSubtotal > 0 ? groupSubtotal / orderItemsSubtotal : 0;
+      const allocated = roundCurrency(Math.max(0, orderTotal * ratio));
+
+      const vendorId = g.vendor_id;
+      const partnerId = vendorId ? partnersByVendorId.get(vendorId) || null : null;
+
+      return {
+        order_id: orderId,
+        order_number: orderNumber,
+        order_created_at: orderCreatedAt,
+        partner_id: partnerId,
+        vendor_id: vendorId,
+        status: "awaiting_payment",
+        subtotal: groupSubtotal,
+        total_allocated: allocated,
+      };
+    });
+
+    const { data: insertedFulfillments, error: insertFulfillmentsError } = await supabase
+      .from("shop_order_fulfillments")
+      .insert(fulfillmentsToInsert)
+      .select("id, vendor_id, partner_id")
+      .throwOnError();
+
+    const fulfillmentByVendorKey = new Map<string, string>();
+    for (const f of Array.isArray(insertedFulfillments) ? insertedFulfillments : []) {
+      const vendorId = typeof (f as any).vendor_id === "string" ? (f as any).vendor_id : null;
+      const key = vendorId || "__no_vendor__";
+      const id = typeof (f as any).id === "string" ? (f as any).id : null;
+      if (id) fulfillmentByVendorKey.set(key, id);
+    }
+
+    const fulfillmentItemsToInsert: any[] = [];
+    for (const g of groups.values()) {
+      const key = g.vendor_id || "__no_vendor__";
+      const fulfillmentId = fulfillmentByVendorKey.get(key);
+      if (!fulfillmentId) continue;
+
+      for (const it of g.items) {
+        fulfillmentItemsToInsert.push({
+          fulfillment_id: fulfillmentId,
+          order_item_id: (it as any).id,
+          product_name: (it as any).product_name,
+          variant_name: (it as any).variant_name,
+          quantity: (it as any).quantity,
+          unit_price: (it as any).unit_price,
+          subtotal: (it as any).subtotal,
+        });
+      }
+    }
+
+    if (fulfillmentItemsToInsert.length) {
+      const { error: insertItemsError } = await supabase
+        .from("shop_order_fulfillment_items")
+        .insert(fulfillmentItemsToInsert);
+      if (insertItemsError) {
+        console.error("[create-checkout] failed to insert fulfillment items:", insertItemsError);
+      }
+    }
+  } catch (e) {
+    console.warn("[create-checkout] fulfillments creation skipped (likely missing migration):", e);
+  }
+}
 
 const calculateShippingMetrics = (
   items: CartItem[],
@@ -605,6 +751,32 @@ serve(async (req) => {
       {} as Record<string, ProductRecord>
     );
 
+    stage = "load_vendors";
+    const vendorsNameById: Record<string, string> = {};
+    {
+      const vendorIds = Array.from(
+        new Set((productsData || []).map((p) => p.vendor_id).filter(Boolean))
+      ) as string[];
+      if (vendorIds.length) {
+        try {
+          const { data: vendors, error: vendorsError } = await supabase
+            .from("shop_vendors")
+            .select("id, name")
+            .in("id", vendorIds);
+
+          if (vendorsError) {
+            console.error("[create-checkout] failed to load vendors:", vendorsError);
+          } else {
+            (vendors || []).forEach((v: any) => {
+              if (v?.id && v?.name) vendorsNameById[String(v.id)] = String(v.name);
+            });
+          }
+        } catch (e) {
+          console.error("[create-checkout] failed to load vendors:", e);
+        }
+      }
+    }
+
     stage = "tax_settings";
     {
       const { data: settings, error: settingsError } = await supabase
@@ -868,6 +1040,8 @@ serve(async (req) => {
         tax_class: taxClassId ? (taxClassLabelById[taxClassId] || taxClassId) : null,
         tax_rate: taxRate,
         tax_price_mode: productTaxMode,
+        vendor_id: product.vendor_id,
+        vendor_name: product.vendor_id ? (vendorsNameById[String(product.vendor_id)] || null) : null,
       });
 
       subtotal += unitPriceGross * quantity;
@@ -1414,6 +1588,8 @@ serve(async (req) => {
         variant_id: item.variant_id || null,
         product_name: item.product_name,
         variant_name: item.variant_name || null,
+        vendor_id: item.vendor_id ?? null,
+        vendor_name: item.vendor_name ?? null,
         product_image: item.image_url,
         original_price: roundCurrency(toNumber(item.unit_price_base)),
         unit_price: roundCurrency(toNumber(item.unit_price_gross)),
@@ -1521,6 +1697,16 @@ serve(async (req) => {
 
     stage = "insert_order_items";
     await supabase.from("shop_order_items").insert(orderItems);
+
+    stage = "create_partner_fulfillments";
+    await tryCreateOrderFulfillments({
+      supabase,
+      orderId: order.id,
+      orderNumber: (order as any).order_number ?? null,
+      orderCreatedAt: (order as any).created_at ?? null,
+      orderTotal: total,
+      orderItemsSubtotal: subtotal,
+    });
 
     stage = "insert_order_history";
     await supabase.from("shop_order_history").insert({

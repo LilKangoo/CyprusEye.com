@@ -15,6 +15,8 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, stripe-signature",
 };
 
+const SLA_ACCEPT_HOURS = 4;
+
 function getStripeId(value: unknown): string | null {
   if (!value) return null;
   if (typeof value === "string") return value;
@@ -42,6 +44,109 @@ function getStripeId(value: unknown): string | null {
      return "";
    }
  }
+
+async function activatePartnerFulfillments(params: {
+  supabase: any;
+  order: any;
+  nowIso: string;
+}) {
+  const { supabase, order, nowIso } = params;
+
+  try {
+    const orderId = String(order?.id || "");
+    if (!orderId) return;
+
+    const { data: fulfillments, error: fErr } = await supabase
+      .from("shop_order_fulfillments")
+      .select("id, status")
+      .eq("order_id", orderId);
+
+    if (fErr) {
+      console.warn("[stripe-webhook] fulfillments read skipped:", fErr);
+      return;
+    }
+
+    const rows = Array.isArray(fulfillments) ? fulfillments : [];
+    if (!rows.length) {
+      // No fulfillments (likely migration not applied or single-vendor legacy). Don't block order.
+      await supabase
+        .from("shop_orders")
+        .update({ partner_acceptance_status: "none", partner_acceptance_updated_at: nowIso })
+        .eq("id", orderId);
+      return;
+    }
+
+    const deadline = new Date(Date.now() + SLA_ACCEPT_HOURS * 60 * 60 * 1000).toISOString();
+
+    const { error: updErr } = await supabase
+      .from("shop_order_fulfillments")
+      .update({
+        status: "pending_acceptance",
+        sla_deadline_at: deadline,
+      })
+      .eq("order_id", orderId)
+      .eq("status", "awaiting_payment");
+
+    if (updErr) {
+      console.warn("[stripe-webhook] fulfillments update skipped:", updErr);
+    }
+
+    // Store contact snapshots for PII gating (best-effort, ignore duplicates)
+    for (const f of rows) {
+      const fulfillmentId = String((f as any)?.id || "");
+      if (!fulfillmentId) continue;
+
+      try {
+        const { error: contactErr } = await supabase
+          .from("shop_order_fulfillment_contacts")
+          .insert({
+            fulfillment_id: fulfillmentId,
+            customer_name: order.customer_name ?? null,
+            customer_email: order.customer_email ?? null,
+            customer_phone: order.customer_phone ?? null,
+            shipping_address: order.shipping_address ?? null,
+            billing_address: order.billing_address ?? null,
+          });
+
+        const code = (contactErr as any)?.code;
+        if (contactErr && code !== "23505") {
+          console.warn("[stripe-webhook] fulfillment contact insert failed:", contactErr);
+        }
+      } catch (e) {
+        console.warn("[stripe-webhook] fulfillment contact insert error:", e);
+      }
+    }
+
+    await supabase
+      .from("shop_orders")
+      .update({ partner_acceptance_status: "pending", partner_acceptance_updated_at: nowIso })
+      .eq("id", orderId);
+  } catch (e) {
+    console.warn("[stripe-webhook] activatePartnerFulfillments skipped:", e);
+  }
+}
+
+async function sendCustomerPaymentReceivedEmail(params: { orderId: string }) {
+  const { orderId } = params;
+  const base = getFunctionsBaseUrl();
+  if (!base) return;
+
+  const secret = (Deno.env.get("CUSTOMER_NOTIFY_SECRET") || "").trim();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (secret) headers["x-customer-notify-secret"] = secret;
+
+  try {
+    await fetch(`${base}/send-customer-notification`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ order_id: orderId, type: "payment_received" }),
+    });
+  } catch (e) {
+    console.warn("[stripe-webhook] customer email call failed:", e);
+  }
+}
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
@@ -315,6 +420,11 @@ async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.S
     } catch (e) {
       console.error("Cart cleanup failed:", e);
     }
+  }
+
+  if (isFirstConfirm) {
+    await activatePartnerFulfillments({ supabase, order, nowIso });
+    await sendCustomerPaymentReceivedEmail({ orderId: String(order.id) });
   }
 
   console.log("Order confirmed and XP awarded:", order.id);

@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "noEmit": true,
+    "strict": false,
+    "noResolve": true,
+    "skipLibCheck": true
+  },
+  "include": ["./**/*.ts", "./deno-globals.d.ts"],
+  "exclude": ["../migrations/**"]
+}
