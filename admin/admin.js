@@ -5434,11 +5434,48 @@ async function updateBookingStatus(bookingId, newStatus) {
   }
 }
 
+async function deleteCarBooking(bookingId) {
+  if (!bookingId) return;
+
+  const confirmed = confirm('Are you sure you want to delete this booking? This action cannot be undone.');
+  if (!confirmed) return;
+
+  const typed = prompt('Type DELETE to confirm deletion:');
+  if (typed !== 'DELETE') {
+    showToast('Deletion cancelled', 'info');
+    return;
+  }
+
+  try {
+    const client = ensureSupabase();
+    if (!client) {
+      showToast('Database connection not available', 'error');
+      return;
+    }
+
+    const { error } = await client
+      .from('car_bookings')
+      .delete()
+      .eq('id', bookingId);
+
+    if (error) throw error;
+
+    showToast('Booking deleted successfully', 'success');
+    const modal = $('#bookingDetailsModal');
+    if (modal) modal.hidden = true;
+    await loadCarsData();
+  } catch (e) {
+    console.error('Failed to delete booking:', e);
+    showToast('Failed to delete booking: ' + (e.message || 'Unknown error'), 'error');
+  }
+}
+
 // Make functions global for onclick handlers
 window.viewCarBookingDetails = viewCarBookingDetails;
 window.loadCarsData = loadCarsData;
 window.openEditBooking = openEditBooking;
 window.updateBookingStatus = updateBookingStatus;
+window.deleteCarBooking = deleteCarBooking;
 
 // =====================================================
 // FLEET MANAGEMENT
@@ -7731,6 +7768,16 @@ function initEventListeners() {
         console.error('Failed to cancel booking:', e);
         showToast('Failed to cancel booking', 'error');
       }
+    });
+  }
+
+  const btnDeleteBooking = $('#btnDeleteBooking');
+  if (btnDeleteBooking) {
+    btnDeleteBooking.addEventListener('click', async () => {
+      const modal = $('#bookingDetailsModal');
+      const bookingId = modal?.dataset?.bookingId;
+      if (!bookingId) return;
+      await deleteCarBooking(bookingId);
     });
   }
 
