@@ -259,6 +259,19 @@ function setPartnerFormChecked(id, checked) {
   el.checked = Boolean(checked);
 }
 
+function setPartnerFormCarsLocations(locs) {
+  const p = Array.isArray(locs) ? locs : [];
+  setPartnerFormChecked('partnerFormCarsLocPaphos', p.includes('paphos'));
+  setPartnerFormChecked('partnerFormCarsLocLarnaca', p.includes('larnaca'));
+}
+
+function getPartnerFormCarsLocations() {
+  const locs = [];
+  if (Boolean(document.getElementById('partnerFormCarsLocPaphos')?.checked)) locs.push('paphos');
+  if (Boolean(document.getElementById('partnerFormCarsLocLarnaca')?.checked)) locs.push('larnaca');
+  return locs;
+}
+
 function closePartnerForm() {
   const modal = document.getElementById('partnerFormModal');
   hideElement(modal);
@@ -293,11 +306,22 @@ async function openPartnerForm(partnerId = null) {
     const client = ensureSupabase();
     if (!client) return;
 
-    const { data: partner, error } = await client
+    let partner = null;
+    let error = null;
+
+    ({ data: partner, error } = await client
       .from('partners')
-      .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts')
+      .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts, cars_locations')
       .eq('id', partnerId)
-      .single();
+      .single());
+
+    if (error && /cars_locations/i.test(String(error.message || ''))) {
+      ({ data: partner, error } = await client
+        .from('partners')
+        .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts')
+        .eq('id', partnerId)
+        .single());
+    }
 
     if (error) {
       showToast(error.message || 'Failed to load partner', 'error');
@@ -317,10 +341,14 @@ async function openPartnerForm(partnerId = null) {
     setPartnerFormChecked('partnerFormCanCreateOffers', partner.can_create_offers);
     setPartnerFormChecked('partnerFormCanViewStats', partner.can_view_stats);
     setPartnerFormChecked('partnerFormCanViewPayouts', partner.can_view_payouts);
+
+    setPartnerFormCarsLocations(partner.cars_locations);
   } else {
     if (title) title.textContent = 'New partner';
     setPartnerFormValue('partnerFormStatus', 'active');
     setPartnerFormChecked('partnerFormCanViewStats', true);
+
+    setPartnerFormCarsLocations([]);
   }
 
   showElement(modal);
@@ -359,6 +387,7 @@ async function savePartnerFromForm() {
     can_create_offers: Boolean(document.getElementById('partnerFormCanCreateOffers')?.checked),
     can_view_stats: Boolean(document.getElementById('partnerFormCanViewStats')?.checked),
     can_view_payouts: Boolean(document.getElementById('partnerFormCanViewPayouts')?.checked),
+    cars_locations: getPartnerFormCarsLocations(),
   };
 
   try {

@@ -138,6 +138,8 @@ DROP POLICY IF EXISTS "Authenticated users can view all hotels" ON public.hotels
 DROP POLICY IF EXISTS "Admins can insert hotels" ON public.hotels;
 DROP POLICY IF EXISTS "Admins can update hotels" ON public.hotels;
 DROP POLICY IF EXISTS "Admins can delete hotels" ON public.hotels;
+DROP POLICY IF EXISTS hotels_authenticated_select ON public.hotels;
+DROP POLICY IF EXISTS hotels_admin_all ON public.hotels;
 DROP POLICY IF EXISTS hotels_partner_insert ON public.hotels;
 DROP POLICY IF EXISTS hotels_partner_update ON public.hotels;
 DROP POLICY IF EXISTS hotels_partner_delete ON public.hotels;
@@ -226,6 +228,8 @@ DROP POLICY IF EXISTS "Authenticated users can view all trips" ON public.trips;
 DROP POLICY IF EXISTS "Admins can insert trips" ON public.trips;
 DROP POLICY IF EXISTS "Admins can update trips" ON public.trips;
 DROP POLICY IF EXISTS "Admins can delete trips" ON public.trips;
+DROP POLICY IF EXISTS trips_authenticated_select ON public.trips;
+DROP POLICY IF EXISTS trips_admin_all ON public.trips;
 DROP POLICY IF EXISTS trips_partner_insert ON public.trips;
 DROP POLICY IF EXISTS trips_partner_update ON public.trips;
 DROP POLICY IF EXISTS trips_partner_delete ON public.trips;
