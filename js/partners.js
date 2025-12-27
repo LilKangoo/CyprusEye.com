@@ -783,15 +783,41 @@
     const t = String(resourceType || '').trim();
     if (!t) return [];
 
-    const { data, error } = await state.sb
-      .from('partner_resources')
-      .select('resource_id')
-      .eq('partner_id', state.selectedPartnerId)
-      .eq('resource_type', t)
-      .limit(500);
+    try {
+      const { data, error } = await state.sb
+        .from('partner_resources')
+        .select('resource_id')
+        .eq('partner_id', state.selectedPartnerId)
+        .eq('resource_type', t)
+        .limit(500);
 
-    if (error) throw error;
-    return (data || []).map(r => r.resource_id).filter(Boolean);
+      if (error) throw error;
+      return (data || []).map(r => r.resource_id).filter(Boolean);
+    } catch (_e) {
+      return [];
+    }
+  }
+
+  function blockResourceIdsForType(resourceType) {
+    const t = String(resourceType || '').trim();
+    if (!t) return [];
+    const ids = new Set();
+    (state.blocks || []).forEach((b) => {
+      if (!b) return;
+      if (String(b.resource_type || '') !== t) return;
+      if (!b.resource_id) return;
+      ids.add(String(b.resource_id));
+    });
+    return Array.from(ids);
+  }
+
+  function fallbackLabelForResource(type, id) {
+    const prefix = String(id || '').slice(0, 8);
+    if (type === 'cars') return `Car (${prefix})`;
+    if (type === 'trips') return `Trip (${prefix})`;
+    if (type === 'hotels') return `Hotel (${prefix})`;
+    if (type === 'shop') return `Shop (${prefix})`;
+    return `Resource (${prefix})`;
   }
 
   async function loadCalendarResourcesForType(resourceType) {
@@ -801,24 +827,31 @@
 
     if (type === 'shop') {
       const vendorId = partner.shop_vendor_id;
-      if (!vendorId) return [];
-
-      const rows = [{ id: vendorId, label: 'All shop products (vendor)' }];
+      const rows = vendorId ? [{ id: vendorId, label: 'All shop products (vendor)' }] : [];
       try {
-        const { data, error } = await state.sb
-          .from('shop_products')
-          .select('id, name, slug, status')
-          .eq('vendor_id', vendorId)
-          .order('updated_at', { ascending: false })
-          .limit(500);
+        if (vendorId) {
+          const { data, error } = await state.sb
+            .from('shop_products')
+            .select('id, name, slug, status')
+            .eq('vendor_id', vendorId)
+            .order('updated_at', { ascending: false })
+            .limit(500);
 
-        if (error) throw error;
-        (data || []).forEach((r) => {
-          if (!r?.id) return;
-          rows.push({ id: r.id, label: r.name || r.slug || r.id });
-        });
+          if (error) throw error;
+          (data || []).forEach((r) => {
+            if (!r?.id) return;
+            rows.push({ id: r.id, label: r.name || r.slug || r.id });
+          });
+        }
       } catch (_e) {
       }
+
+      const fromBlocks = blockResourceIdsForType('shop');
+      fromBlocks.forEach((id) => {
+        if (!id) return;
+        if (!rows.some(r => String(r.id) === String(id))) rows.push({ id, label: fallbackLabelForResource('shop', id) });
+      });
+
       return rows;
     }
 
@@ -882,6 +915,12 @@
         } catch (_e) {}
       }
 
+      const fromBlocks = blockResourceIdsForType('cars');
+      fromBlocks.forEach((id) => {
+        if (!id) return;
+        if (!rowsMap.has(id)) rowsMap.set(id, { id, label: fallbackLabelForResource('cars', id) });
+      });
+
       return Array.from(rowsMap.values());
     }
 
@@ -928,6 +967,12 @@
         }
       }
 
+      const fromBlocks = blockResourceIdsForType('trips');
+      fromBlocks.forEach((id) => {
+        if (!id) return;
+        if (!rowsMap.has(id)) rowsMap.set(id, { id, label: fallbackLabelForResource('trips', id) });
+      });
+
       return Array.from(rowsMap.values());
     }
 
@@ -973,6 +1018,12 @@
           });
         }
       }
+
+      const fromBlocks = blockResourceIdsForType('hotels');
+      fromBlocks.forEach((id) => {
+        if (!id) return;
+        if (!rowsMap.has(id)) rowsMap.set(id, { id, label: fallbackLabelForResource('hotels', id) });
+      });
 
       return Array.from(rowsMap.values());
     }
@@ -1084,12 +1135,22 @@
     const canTrips = Boolean(partner?.can_manage_trips);
     const canHotels = Boolean(partner?.can_manage_hotels);
 
+    const blockTypes = new Set();
+    (state.blocks || []).forEach((b) => {
+      if (!b?.resource_type) return;
+      blockTypes.add(String(b.resource_type));
+    });
+
     const prev = String(select.value || '').trim();
     const allowed = [];
     if (canShop) allowed.push('shop');
     if (canCars) allowed.push('cars');
     if (canTrips) allowed.push('trips');
     if (canHotels) allowed.push('hotels');
+
+    ['shop', 'cars', 'trips', 'hotels'].forEach((t) => {
+      if (blockTypes.has(t) && !allowed.includes(t)) allowed.push(t);
+    });
 
     const opts = [];
     if (allowed.includes('shop')) opts.push('<option value="shop">shop</option>');
@@ -1145,11 +1206,32 @@
     setText(els.status, 'Loading availability…');
 
     try {
-      await loadCalendarResourceOptions();
-      ensureCalendarMonthInput();
-      await loadCalendarMonthData();
       await loadBlocks();
       renderBlocksTable();
+
+      syncResourceTypeOptions();
+
+      await loadCalendarResourceOptions();
+
+      const type = String(els.blockResourceType?.value || '').trim();
+      const rowsForType = state.calendar.resourcesByType?.[type] || [];
+      if (!rowsForType.length) {
+        const preferredTypes = ['shop', 'cars', 'trips', 'hotels'];
+        const allowed = preferredTypes.filter(t => {
+          return Array.from(els.blockResourceType?.options || []).some(o => String(o.value) === t);
+        });
+
+        for (const t of allowed) {
+          const blockIds = blockResourceIdsForType(t);
+          if (!blockIds.length) continue;
+          els.blockResourceType.value = t;
+          await loadCalendarResourceOptions();
+          break;
+        }
+      }
+
+      ensureCalendarMonthInput();
+      await loadCalendarMonthData();
       setText(els.status, `Loaded ${state.blocks.length} blocks.`);
     } catch (error) {
       console.error(error);
@@ -1320,6 +1402,8 @@
     }
 
     els.blockResourceType?.addEventListener('change', async () => {
+      await loadBlocks();
+      syncResourceTypeOptions();
       await loadCalendarResourceOptions();
       await loadCalendarMonthData();
     });

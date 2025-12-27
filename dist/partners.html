@@ -265,9 +265,9 @@
 
         <div id="partnerTabCalendar" style="margin-top: 10px;" hidden>
           <h3 style="margin: 10px 0 0;">Availability blocks</h3>
-          <p class="muted" style="margin-top: 6px;">Dodaj blokadę dostępności dla zasobu (np. Shop vendor, car, trip, hotel).</p>
+          <p class="muted" style="margin-top: 6px;">Wybierz zasób i oznacz dni jako niedostępne (domyślnie wszystkie dni są dostępne).</p>
 
-          <form id="partnerBlockForm" class="partner-form">
+          <div class="partner-form" style="margin-bottom: 12px;">
             <div>
               <label for="blockResourceType">Resource type</label>
               <select id="blockResourceType" required>
@@ -278,8 +278,29 @@
               </select>
             </div>
             <div>
-              <label for="blockResourceId">Resource ID (UUID)</label>
-              <input id="blockResourceId" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx" required />
+              <label for="blockResourceId">Resource</label>
+              <select id="blockResourceId" required>
+                <option value="">Select resource</option>
+              </select>
+            </div>
+            <div>
+              <label for="partnerCalendarMonthInput">Month</label>
+              <div class="btn-row" style="justify-content:flex-start; gap: 8px;">
+                <button id="partnerCalendarPrevMonth" class="btn-sm" type="button">◀</button>
+                <input id="partnerCalendarMonthInput" type="month" />
+                <button id="partnerCalendarNextMonth" class="btn-sm" type="button">▶</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="muted small" style="margin: 0 0 8px;">Legenda: <span style="display:inline-block; width: 10px; height: 10px; border-radius:3px; background: rgba(34,197,94,0.25); border: 1px solid rgba(34,197,94,0.55);"></span> available, <span style="display:inline-block; width: 10px; height: 10px; border-radius:3px; background: rgba(107,114,128,0.35); border: 1px solid rgba(107,114,128,0.60);"></span> busy</div>
+          <div id="partnerCalendarMonthGrid" style="display:grid; grid-template-columns: repeat(7, 1fr); gap: 8px;"></div>
+
+          <div style="height: 12px;"></div>
+
+          <form id="partnerBlockForm" class="partner-form">
+            <div style="grid-column: 1 / -1;">
+              <div class="muted small" style="margin-bottom: 6px;">Opcjonalnie: dodaj blokadę jako zakres dat.</div>
             </div>
             <div>
               <label for="blockStart">Start</label>
@@ -340,7 +361,7 @@
   <script src="js/languageRefresh.js"></script>
   <script src="js/header-stats.js?v=1" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
-  <script src="js/partners.js" defer></script>
+  <script src="js/partners.js?v=2" defer></script>
 
   <div
     id="auth-modal"
