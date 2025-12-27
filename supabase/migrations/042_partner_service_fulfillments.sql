@@ -186,6 +186,69 @@ BEGIN
 END;
 $$;
 
+ CREATE OR REPLACE FUNCTION public.match_car_offer_id(
+   p_location TEXT,
+   p_car_model TEXT
+ )
+ RETURNS UUID
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path = public
+ AS $$
+ DECLARE
+   loc TEXT;
+   model_txt TEXT;
+   is_jsonb BOOLEAN;
+   oid UUID;
+ BEGIN
+   loc := LOWER(NULLIF(BTRIM(COALESCE(p_location, '')), ''));
+   model_txt := NULLIF(BTRIM(COALESCE(p_car_model, '')), '');
+   IF loc IS NULL OR model_txt IS NULL THEN
+     RETURN NULL;
+   END IF;
+
+   SELECT (c.data_type = 'jsonb')
+   INTO is_jsonb
+   FROM information_schema.columns c
+   WHERE c.table_schema = 'public'
+     AND c.table_name = 'car_offers'
+     AND c.column_name = 'car_model'
+   LIMIT 1;
+
+   IF COALESCE(is_jsonb, FALSE) THEN
+     SELECT co.id
+     INTO oid
+     FROM public.car_offers co
+     WHERE LOWER(COALESCE(co.location, '')) = loc
+       AND LOWER(
+         COALESCE(
+           NULLIF(co.car_model->>'pl', ''),
+           NULLIF(co.car_model->>'en', ''),
+           NULLIF(co.car_model->>'el', ''),
+           NULLIF(co.car_model->>'he', ''),
+           CASE
+             WHEN jsonb_typeof(co.car_model) = 'string' THEN trim(both '"' from co.car_model::text)
+             ELSE NULL
+           END,
+           ''
+         )
+       ) = LOWER(model_txt)
+     LIMIT 1;
+   ELSE
+     EXECUTE
+       'SELECT co.id
+        FROM public.car_offers co
+        WHERE LOWER(COALESCE(co.location, '''')) = LOWER($1)
+          AND LOWER(COALESCE(co.car_model, '''')) = LOWER($2)
+        LIMIT 1'
+     INTO oid
+     USING loc, model_txt;
+   END IF;
+
+   RETURN oid;
+ END;
+ $$;
+
 CREATE OR REPLACE FUNCTION public.try_numeric(p_text TEXT)
 RETURNS NUMERIC
 LANGUAGE plpgsql
@@ -654,12 +717,7 @@ BEGIN
   matched_offer_id := NULL;
   car_model_txt := NULLIF(j->>'car_model', '');
   IF offer_uuid IS NULL AND car_model_txt IS NOT NULL AND LOWER(loc) IN ('paphos','larnaca') THEN
-    SELECT co.id
-    INTO matched_offer_id
-    FROM public.car_offers co
-    WHERE LOWER(COALESCE(co.car_model, '')) = LOWER(car_model_txt)
-      AND LOWER(COALESCE(co.location, '')) = LOWER(loc)
-    LIMIT 1;
+    matched_offer_id := public.match_car_offer_id(loc, car_model_txt);
     offer_uuid := COALESCE(offer_uuid, matched_offer_id);
   END IF;
 
@@ -935,11 +993,7 @@ BEGIN
         COALESCE(cb.created_at, NOW())
       FROM public.car_bookings cb
       LEFT JOIN LATERAL (
-        SELECT co.id AS matched_offer_id
-        FROM public.car_offers co
-        WHERE LOWER(COALESCE(co.car_model, '')) = LOWER(COALESCE(cb.car_model, ''))
-          AND LOWER(COALESCE(co.location, '')) = LOWER(COALESCE(cb.location, ''))
-        LIMIT 1
+        SELECT public.match_car_offer_id(cb.location, cb.car_model) AS matched_offer_id
       ) mo ON TRUE
       WHERE COALESCE(
           public.partner_service_fulfillment_partner_id_for_resource('cars', mo.matched_offer_id),
