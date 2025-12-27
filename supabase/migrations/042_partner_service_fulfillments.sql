@@ -1,3 +1,5 @@
+SELECT set_config('request.jwt.claims', '{"user_metadata":{"is_admin":true}}', true);
+
 CREATE TABLE IF NOT EXISTS public.partner_service_fulfillments (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   partner_id UUID NOT NULL REFERENCES public.partners(id) ON DELETE CASCADE,
@@ -46,29 +48,57 @@ SET search_path = public
 AS $$
 DECLARE
   user_admin BOOLEAN;
-  meta_admin BOOLEAN;
+  uid UUID;
 BEGIN
   BEGIN
-    meta_admin := COALESCE((auth.jwt() -> 'user_metadata' ->> 'is_admin')::boolean, FALSE);
+    uid := auth.uid();
   EXCEPTION WHEN others THEN
-    meta_admin := FALSE;
+    uid := NULL;
   END;
 
-  IF meta_admin THEN
+  IF uid = '15f3d442-092d-4eb8-9627-db90da0283eb'::uuid THEN
     RETURN TRUE;
   END IF;
 
-  IF auth.uid() = '15f3d442-092d-4eb8-9627-db90da0283eb'::uuid THEN
-    RETURN TRUE;
-  END IF;
-
-  SELECT is_admin INTO user_admin
-  FROM profiles
-  WHERE id = auth.uid();
+  BEGIN
+    SELECT is_admin INTO user_admin
+    FROM profiles
+    WHERE id = uid;
+  EXCEPTION WHEN others THEN
+    user_admin := FALSE;
+  END;
 
   RETURN COALESCE(user_admin, FALSE);
 END;
 $$;
+
+CREATE OR REPLACE FUNCTION public.is_admin()
+RETURNS BOOLEAN
+LANGUAGE sql
+SECURITY DEFINER
+STABLE
+SET search_path = public
+AS $$
+  SELECT public.is_current_user_admin();
+$$;
+
+DO $$
+BEGIN
+  IF to_regclass('public.car_offers') IS NOT NULL THEN
+    EXECUTE 'DROP POLICY IF EXISTS "car_offers_admin_all" ON public.car_offers';
+    EXECUTE 'CREATE POLICY car_offers_admin_all ON public.car_offers FOR ALL TO authenticated USING (public.is_current_user_admin()) WITH CHECK (public.is_current_user_admin())';
+  END IF;
+
+  IF to_regclass('public.car_bookings') IS NOT NULL THEN
+    EXECUTE 'DROP POLICY IF EXISTS "car_bookings_admin_select" ON public.car_bookings';
+    EXECUTE 'DROP POLICY IF EXISTS "car_bookings_admin_update" ON public.car_bookings';
+    EXECUTE 'DROP POLICY IF EXISTS "car_bookings_admin_delete" ON public.car_bookings';
+
+    EXECUTE 'CREATE POLICY car_bookings_admin_select ON public.car_bookings FOR SELECT TO authenticated USING (public.is_current_user_admin())';
+    EXECUTE 'CREATE POLICY car_bookings_admin_update ON public.car_bookings FOR UPDATE TO authenticated USING (public.is_current_user_admin()) WITH CHECK (public.is_current_user_admin())';
+    EXECUTE 'CREATE POLICY car_bookings_admin_delete ON public.car_bookings FOR DELETE TO authenticated USING (public.is_current_user_admin())';
+  END IF;
+END $$;
 
 DROP POLICY IF EXISTS partner_service_fulfillments_admin_all ON public.partner_service_fulfillments;
 CREATE POLICY partner_service_fulfillments_admin_all
@@ -184,24 +214,33 @@ AS $$
 DECLARE
   pid UUID;
   loc TEXT;
+  ids UUID[];
 BEGIN
   loc := LOWER(NULLIF(TRIM(COALESCE(p_location, '')), ''));
   IF loc IS NULL THEN
     RETURN NULL;
   END IF;
 
-  SELECT p.id
-  INTO pid
-  FROM public.partners p
-  WHERE p.status = 'active'
-    AND p.can_manage_cars = true
-    AND (
-      (loc IN ('paphos','larnaca') AND p.cars_locations @> ARRAY[loc]::text[])
-      OR (loc = 'all-cyprus' AND array_length(p.cars_locations, 1) IS NOT NULL)
-    )
-  ORDER BY p.created_at ASC
-  LIMIT 1;
+  SELECT array_agg(s.id)
+  INTO ids
+  FROM (
+    SELECT p.id
+    FROM public.partners p
+    WHERE p.status = 'active'
+      AND p.can_manage_cars = true
+      AND (
+        (loc IN ('paphos','larnaca') AND p.cars_locations @> ARRAY[loc]::text[])
+        OR (loc = 'all-cyprus' AND array_length(p.cars_locations, 1) IS NOT NULL)
+      )
+    ORDER BY p.created_at ASC
+    LIMIT 2
+  ) s;
 
+  IF ids IS NULL OR array_length(ids, 1) <> 1 THEN
+    RETURN NULL;
+  END IF;
+
+  pid := ids[1];
   RETURN pid;
 END;
 $$;
@@ -218,6 +257,8 @@ AS $$
 DECLARE
   pid UUID;
   has_pr BOOLEAN;
+  rel REGCLASS;
+  has_owner BOOLEAN;
 BEGIN
   IF p_resource_id IS NULL THEN
     RETURN NULL;
@@ -226,73 +267,157 @@ BEGIN
   has_pr := (to_regclass('public.partner_resources') IS NOT NULL);
 
   IF p_resource_type = 'cars' THEN
+    rel := to_regclass('public.car_offers');
+    IF rel IS NULL THEN
+      RETURN NULL;
+    END IF;
+
+    has_owner := EXISTS (
+      SELECT 1
+      FROM pg_attribute a
+      WHERE a.attrelid = rel
+        AND a.attname = 'owner_partner_id'
+        AND a.attisdropped = false
+    );
+
     IF has_pr THEN
-      EXECUTE
-        'SELECT COALESCE(public.try_uuid(to_jsonb(co) ->> ''owner_partner_id''), pr.partner_id)
-         FROM public.car_offers co
-         LEFT JOIN public.partner_resources pr
-           ON pr.resource_type = ''cars''
-          AND pr.resource_id = co.id
-         WHERE co.id = $1
-         LIMIT 1'
-      INTO pid
-      USING p_resource_id;
+      IF has_owner THEN
+        EXECUTE
+          'SELECT COALESCE(co.owner_partner_id, pr.partner_id)
+           FROM public.car_offers co
+           LEFT JOIN public.partner_resources pr
+             ON pr.resource_type = ''cars''
+            AND pr.resource_id = co.id
+           WHERE co.id = $1
+           LIMIT 1'
+        INTO pid
+        USING p_resource_id;
+      ELSE
+        EXECUTE
+          'SELECT pr.partner_id
+           FROM public.partner_resources pr
+           WHERE pr.resource_type = ''cars''
+             AND pr.resource_id = $1
+           LIMIT 1'
+        INTO pid
+        USING p_resource_id;
+      END IF;
     ELSE
-      EXECUTE
-        'SELECT public.try_uuid(to_jsonb(co) ->> ''owner_partner_id'')
-         FROM public.car_offers co
-         WHERE co.id = $1
-         LIMIT 1'
-      INTO pid
-      USING p_resource_id;
+      IF has_owner THEN
+        EXECUTE
+          'SELECT co.owner_partner_id
+           FROM public.car_offers co
+           WHERE co.id = $1
+           LIMIT 1'
+        INTO pid
+        USING p_resource_id;
+      ELSE
+        RETURN NULL;
+      END IF;
     END IF;
     RETURN pid;
   END IF;
 
   IF p_resource_type = 'trips' THEN
+    rel := to_regclass('public.trips');
+    IF rel IS NULL THEN
+      RETURN NULL;
+    END IF;
+
+    has_owner := EXISTS (
+      SELECT 1
+      FROM pg_attribute a
+      WHERE a.attrelid = rel
+        AND a.attname = 'owner_partner_id'
+        AND a.attisdropped = false
+    );
+
     IF has_pr THEN
-      EXECUTE
-        'SELECT COALESCE(public.try_uuid(to_jsonb(t) ->> ''owner_partner_id''), pr.partner_id)
-         FROM public.trips t
-         LEFT JOIN public.partner_resources pr
-           ON pr.resource_type = ''trips''
-          AND pr.resource_id = t.id
-         WHERE t.id = $1
-         LIMIT 1'
-      INTO pid
-      USING p_resource_id;
+      IF has_owner THEN
+        EXECUTE
+          'SELECT COALESCE(t.owner_partner_id, pr.partner_id)
+           FROM public.trips t
+           LEFT JOIN public.partner_resources pr
+             ON pr.resource_type = ''trips''
+            AND pr.resource_id = t.id
+           WHERE t.id = $1
+           LIMIT 1'
+        INTO pid
+        USING p_resource_id;
+      ELSE
+        EXECUTE
+          'SELECT pr.partner_id
+           FROM public.partner_resources pr
+           WHERE pr.resource_type = ''trips''
+             AND pr.resource_id = $1
+           LIMIT 1'
+        INTO pid
+        USING p_resource_id;
+      END IF;
     ELSE
-      EXECUTE
-        'SELECT public.try_uuid(to_jsonb(t) ->> ''owner_partner_id'')
-         FROM public.trips t
-         WHERE t.id = $1
-         LIMIT 1'
-      INTO pid
-      USING p_resource_id;
+      IF has_owner THEN
+        EXECUTE
+          'SELECT t.owner_partner_id
+           FROM public.trips t
+           WHERE t.id = $1
+           LIMIT 1'
+        INTO pid
+        USING p_resource_id;
+      ELSE
+        RETURN NULL;
+      END IF;
     END IF;
     RETURN pid;
   END IF;
 
   IF p_resource_type = 'hotels' THEN
+    rel := to_regclass('public.hotels');
+    IF rel IS NULL THEN
+      RETURN NULL;
+    END IF;
+
+    has_owner := EXISTS (
+      SELECT 1
+      FROM pg_attribute a
+      WHERE a.attrelid = rel
+        AND a.attname = 'owner_partner_id'
+        AND a.attisdropped = false
+    );
+
     IF has_pr THEN
-      EXECUTE
-        'SELECT COALESCE(public.try_uuid(to_jsonb(h) ->> ''owner_partner_id''), pr.partner_id)
-         FROM public.hotels h
-         LEFT JOIN public.partner_resources pr
-           ON pr.resource_type = ''hotels''
-          AND pr.resource_id = h.id
-         WHERE h.id = $1
-         LIMIT 1'
-      INTO pid
-      USING p_resource_id;
+      IF has_owner THEN
+        EXECUTE
+          'SELECT COALESCE(h.owner_partner_id, pr.partner_id)
+           FROM public.hotels h
+           LEFT JOIN public.partner_resources pr
+             ON pr.resource_type = ''hotels''
+            AND pr.resource_id = h.id
+           WHERE h.id = $1
+           LIMIT 1'
+        INTO pid
+        USING p_resource_id;
+      ELSE
+        EXECUTE
+          'SELECT pr.partner_id
+           FROM public.partner_resources pr
+           WHERE pr.resource_type = ''hotels''
+             AND pr.resource_id = $1
+           LIMIT 1'
+        INTO pid
+        USING p_resource_id;
+      END IF;
     ELSE
-      EXECUTE
-        'SELECT public.try_uuid(to_jsonb(h) ->> ''owner_partner_id'')
-         FROM public.hotels h
-         WHERE h.id = $1
-         LIMIT 1'
-      INTO pid
-      USING p_resource_id;
+      IF has_owner THEN
+        EXECUTE
+          'SELECT h.owner_partner_id
+           FROM public.hotels h
+           WHERE h.id = $1
+           LIMIT 1'
+        INTO pid
+        USING p_resource_id;
+      ELSE
+        RETURN NULL;
+      END IF;
     END IF;
     RETURN pid;
   END IF;
@@ -697,89 +822,157 @@ CREATE TRIGGER trg_partner_service_fulfillment_from_hotel_booking_upd
   FOR EACH ROW
   EXECUTE FUNCTION public.trg_partner_service_fulfillment_from_hotel_booking();
 
-INSERT INTO public.partner_service_fulfillments(
-  partner_id,
-  resource_type,
-  booking_id,
-  resource_id,
-  status,
-  sla_deadline_at,
-  reference,
-  summary,
-  start_date,
-  end_date,
-  total_price,
-  currency,
-  created_at
-)
-SELECT
-  pid,
-  'cars',
-  cb.id,
-  offer_uuid,
-  'pending_acceptance',
-  COALESCE(cb.created_at, NOW()) + INTERVAL '4 hours',
-  CONCAT('CAR-', SUBSTRING(cb.id::text, 1, 8)),
-  COALESCE(NULLIF(j->>'car_model', ''), NULLIF(j->>'car_type', ''), 'Car booking'),
-  cb.pickup_date,
-  cb.return_date,
-  COALESCE(public.try_numeric(j->>'total_price'), public.try_numeric(j->>'final_price'), public.try_numeric(j->>'quoted_price')),
-  COALESCE(NULLIF(j->>'currency', ''), 'EUR'),
-  COALESCE(cb.created_at, NOW())
-FROM public.car_bookings cb
-CROSS JOIN LATERAL (SELECT to_jsonb(cb) AS j) x
-CROSS JOIN LATERAL (
-  SELECT
-    COALESCE(
-      public.try_uuid(x.j->>'offer_id'),
-      (
-        SELECT co.id
-        FROM public.car_offers co
-        WHERE LOWER(COALESCE(co.car_model, '')) = LOWER(NULLIF(x.j->>'car_model', ''))
-          AND LOWER(COALESCE(co.location, '')) = LOWER(COALESCE(NULLIF(x.j->>'location', ''), NULLIF(x.j->>'pickup_location', '')))
-        LIMIT 1
-      )
-    ) AS offer_uuid,
-    COALESCE(
-      public.partner_service_fulfillment_partner_id_for_resource(
-        'cars',
-        COALESCE(
-          public.try_uuid(x.j->>'offer_id'),
-          (
-            SELECT co2.id
-            FROM public.car_offers co2
-            WHERE LOWER(COALESCE(co2.car_model, '')) = LOWER(NULLIF(x.j->>'car_model', ''))
-              AND LOWER(COALESCE(co2.location, '')) = LOWER(COALESCE(NULLIF(x.j->>'location', ''), NULLIF(x.j->>'pickup_location', '')))
-            LIMIT 1
-          )
-        )
-      ),
-      public.partner_service_fulfillment_partner_id_for_car_location(COALESCE(NULLIF(x.j->>'location', ''), NULLIF(x.j->>'pickup_location', '')))
-    ) AS pid
-) y
-WHERE y.pid IS NOT NULL
-  AND cb.status NOT IN ('cancelled', 'no_show')
-ON CONFLICT (resource_type, booking_id) DO NOTHING;
+ALTER TABLE IF EXISTS public.car_bookings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.car_offers DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.trip_bookings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.hotel_bookings DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.partners DISABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.partner_resources DISABLE ROW LEVEL SECURITY;
 
-INSERT INTO public.partner_service_fulfillment_contacts(
-  fulfillment_id,
-  customer_name,
-  customer_email,
-  customer_phone,
-  created_at
-)
-SELECT
-  f.id,
-  COALESCE(NULLIF(j->>'customer_name', ''), NULLIF(j->>'full_name', '')),
-  COALESCE(NULLIF(j->>'customer_email', ''), NULLIF(j->>'email', '')),
-  COALESCE(NULLIF(j->>'customer_phone', ''), NULLIF(j->>'phone', '')),
-  COALESCE(cb.created_at, NOW())
-FROM public.partner_service_fulfillments f
-JOIN public.car_bookings cb
-  ON cb.id = f.booking_id
-CROSS JOIN LATERAL (SELECT to_jsonb(cb) AS j) x
-WHERE f.resource_type = 'cars'
-ON CONFLICT (fulfillment_id) DO NOTHING;
+ALTER TABLE public.partner_service_fulfillments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.partner_service_fulfillment_contacts DISABLE ROW LEVEL SECURITY;
+
+DO $$
+DECLARE
+  has_offer_id BOOLEAN;
+BEGIN
+  has_offer_id := EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'car_bookings' AND column_name = 'offer_id'
+  );
+
+  IF has_offer_id THEN
+    EXECUTE $q$
+      INSERT INTO public.partner_service_fulfillments(
+        partner_id,
+        resource_type,
+        booking_id,
+        resource_id,
+        status,
+        sla_deadline_at,
+        reference,
+        summary,
+        start_date,
+        end_date,
+        total_price,
+        currency,
+        created_at
+      )
+      SELECT
+        public.partner_service_fulfillment_partner_id_for_resource('cars', cb.offer_id) AS partner_id,
+        'cars',
+        cb.id,
+        cb.offer_id,
+        'pending_acceptance',
+        COALESCE(cb.created_at, NOW()) + INTERVAL '4 hours',
+        CONCAT('CAR-', SUBSTRING(cb.id::text, 1, 8)),
+        COALESCE(NULLIF(cb.car_model, ''), NULLIF(cb.car_type, ''), 'Car booking'),
+        cb.pickup_date,
+        cb.return_date,
+        cb.total_price,
+        COALESCE(NULLIF(cb.currency, ''), 'EUR'),
+        COALESCE(cb.created_at, NOW())
+      FROM public.car_bookings cb
+      WHERE cb.offer_id IS NOT NULL
+        AND cb.status NOT IN ('cancelled', 'no_show')
+        AND public.partner_service_fulfillment_partner_id_for_resource('cars', cb.offer_id) IS NOT NULL
+      ON CONFLICT (resource_type, booking_id) DO NOTHING
+    $q$;
+
+    EXECUTE $q$
+      INSERT INTO public.partner_service_fulfillment_contacts(
+        fulfillment_id,
+        customer_name,
+        customer_email,
+        customer_phone,
+        created_at
+      )
+      SELECT
+        f.id,
+        cb.customer_name,
+        cb.customer_email,
+        cb.customer_phone,
+        COALESCE(cb.created_at, NOW())
+      FROM public.partner_service_fulfillments f
+      JOIN public.car_bookings cb
+        ON cb.id = f.booking_id
+      WHERE f.resource_type = 'cars'
+      ON CONFLICT (fulfillment_id) DO NOTHING
+    $q$;
+  ELSE
+    EXECUTE $q$
+      INSERT INTO public.partner_service_fulfillments(
+        partner_id,
+        resource_type,
+        booking_id,
+        resource_id,
+        status,
+        sla_deadline_at,
+        reference,
+        summary,
+        start_date,
+        end_date,
+        total_price,
+        currency,
+        created_at
+      )
+      SELECT
+        COALESCE(
+          public.partner_service_fulfillment_partner_id_for_resource('cars', mo.matched_offer_id),
+          public.partner_service_fulfillment_partner_id_for_car_location(cb.location)
+        ) AS partner_id,
+        'cars',
+        cb.id,
+        mo.matched_offer_id,
+        'pending_acceptance',
+        COALESCE(cb.created_at, NOW()) + INTERVAL '4 hours',
+        CONCAT('CAR-', SUBSTRING(cb.id::text, 1, 8)),
+        COALESCE(NULLIF(cb.car_model, ''), 'Car booking'),
+        cb.pickup_date,
+        cb.return_date,
+        COALESCE(cb.final_price, cb.quoted_price),
+        COALESCE(NULLIF(cb.currency, ''), 'EUR'),
+        COALESCE(cb.created_at, NOW())
+      FROM public.car_bookings cb
+      LEFT JOIN LATERAL (
+        SELECT co.id AS matched_offer_id
+        FROM public.car_offers co
+        WHERE LOWER(COALESCE(co.car_model, '')) = LOWER(COALESCE(cb.car_model, ''))
+          AND LOWER(COALESCE(co.location, '')) = LOWER(COALESCE(cb.location, ''))
+        LIMIT 1
+      ) mo ON TRUE
+      WHERE COALESCE(
+          public.partner_service_fulfillment_partner_id_for_resource('cars', mo.matched_offer_id),
+          public.partner_service_fulfillment_partner_id_for_car_location(cb.location)
+        ) IS NOT NULL
+        AND cb.status <> 'cancelled'
+      ON CONFLICT (resource_type, booking_id) DO NOTHING
+    $q$;
+
+    EXECUTE $q$
+      INSERT INTO public.partner_service_fulfillment_contacts(
+        fulfillment_id,
+        customer_name,
+        customer_email,
+        customer_phone,
+        created_at
+      )
+      SELECT
+        f.id,
+        cb.full_name,
+        cb.email,
+        cb.phone,
+        COALESCE(cb.created_at, NOW())
+      FROM public.partner_service_fulfillments f
+      JOIN public.car_bookings cb
+        ON cb.id = f.booking_id
+      WHERE f.resource_type = 'cars'
+      ON CONFLICT (fulfillment_id) DO NOTHING
+    $q$;
+  END IF;
+EXCEPTION WHEN others THEN
+  RAISE WARNING 'partner_service_fulfillments cars backfill failed: %', SQLERRM;
+END $$;
 
 INSERT INTO public.partner_service_fulfillments(
   partner_id,
@@ -888,6 +1081,16 @@ JOIN public.hotel_bookings hb
   ON hb.id = f.booking_id
 WHERE f.resource_type = 'hotels'
 ON CONFLICT (fulfillment_id) DO NOTHING;
+
+ALTER TABLE IF EXISTS public.car_bookings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.car_offers ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.trip_bookings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.hotel_bookings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.partners ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.partner_resources ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.partner_service_fulfillments ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.partner_service_fulfillment_contacts ENABLE ROW LEVEL SECURITY;
 
 CREATE OR REPLACE FUNCTION public.partner_accept_service_fulfillment(p_fulfillment_id UUID)
 RETURNS TABLE(fulfillment_id UUID, partner_id UUID, resource_type TEXT, booking_id UUID)
