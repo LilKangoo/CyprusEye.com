@@ -729,19 +729,55 @@ async function loadCalendarsResourceOptions() {
         .order('updated_at', { ascending: false })
         .limit(500);
       if (error) throw error;
+
+      const normalizeI18n = (value) => {
+        if (!value) return '';
+        if (typeof value === 'string') return value;
+        if (typeof value === 'object') return value.pl || value.en || value.el || value.he || '';
+        return '';
+      };
+
       rows = (data || []).map(r => ({
         id: r.id,
-        label: `${r.car_model || r.car_type || 'Car'} (${r.location || ''})`.trim()
+        label: `${normalizeI18n(r.car_model) || normalizeI18n(r.car_type) || 'Car'} (${r.location || ''})`.trim()
       }));
     } else if (type === 'trips') {
-      const { data, error } = await client
-        .from('trips')
-        .select('id, slug, title, start_city')
-        .order('updated_at', { ascending: false })
-        .limit(500);
-      if (error) throw error;
+      const normalizeI18n = (value) => {
+        if (!value) return '';
+        if (typeof value === 'string') return value;
+        if (typeof value === 'object') return value.pl || value.en || value.el || value.he || '';
+        return '';
+      };
+
+      async function selectTrips() {
+        const attempts = [
+          { select: 'id, slug, title, start_city', order: 'updated_at' },
+          { select: 'id, slug, title, start_city', order: 'created_at' },
+          { select: 'id, slug, title', order: 'updated_at' },
+          { select: 'id, slug, title', order: 'created_at' },
+        ];
+
+        let lastError = null;
+        for (const attempt of attempts) {
+          try {
+            const { data, error } = await client
+              .from('trips')
+              .select(attempt.select)
+              .order(attempt.order, { ascending: false })
+              .limit(500);
+            if (error) throw error;
+            return data || [];
+          } catch (e) {
+            lastError = e;
+          }
+        }
+        if (lastError) throw lastError;
+        return [];
+      }
+
+      const data = await selectTrips();
       rows = (data || []).map(r => {
-        const title = (r.title && (r.title.pl || r.title.en)) || r.slug || r.id;
+        const title = normalizeI18n(r.title) || r.slug || r.id;
         const city = r.start_city ? ` — ${r.start_city}` : '';
         return { id: r.id, label: `${title}${city}` };
       });

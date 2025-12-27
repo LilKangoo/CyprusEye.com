@@ -774,7 +774,7 @@
   function normalizeTitleJson(value) {
     if (!value) return '';
     if (typeof value === 'string') return value;
-    if (typeof value === 'object') return value.pl || value.en || '';
+    if (typeof value === 'object') return value.pl || value.en || value.el || value.he || '';
     return '';
   }
 
@@ -869,7 +869,7 @@
         if (error) throw error;
         (data || []).forEach((r) => {
           if (!r?.id) return;
-          const label = `${r.car_model || r.car_type || 'Car'}${r.location ? ` (${r.location})` : ''}`.trim();
+          const label = `${normalizeTitleJson(r.car_model) || normalizeTitleJson(r.car_type) || 'Car'}${r.location ? ` (${r.location})` : ''}`.trim();
           rowsMap.set(r.id, { id: r.id, label });
         });
       } catch (_e) {}
@@ -885,7 +885,7 @@
           if (error) throw error;
           (data || []).forEach((r) => {
             if (!r?.id) return;
-            const label = `${r.car_model || r.car_type || 'Car'}${r.location ? ` (${r.location})` : ''}`.trim();
+            const label = `${normalizeTitleJson(r.car_model) || normalizeTitleJson(r.car_type) || 'Car'}${r.location ? ` (${r.location})` : ''}`.trim();
             rowsMap.set(r.id, { id: r.id, label });
           });
         } catch (_e) {
@@ -909,7 +909,7 @@
           if (error) throw error;
           (data || []).forEach((r) => {
             if (!r?.id) return;
-            const label = `${r.car_model || r.car_type || 'Car'}${r.location ? ` (${r.location})` : ''}`.trim();
+            const label = `${normalizeTitleJson(r.car_model) || normalizeTitleJson(r.car_type) || 'Car'}${r.location ? ` (${r.location})` : ''}`.trim();
             rowsMap.set(r.id, { id: r.id, label });
           });
         } catch (_e) {}
@@ -928,14 +928,41 @@
       const assignedIds = await loadPartnerResourceIdsForType('trips');
       const rowsMap = new Map();
 
+      async function selectTrips(opts) {
+        const ownerId = opts?.ownerId || null;
+        const ids = Array.isArray(opts?.ids) ? opts.ids.filter(Boolean) : [];
+        const limit = Number(opts?.limit || 500);
+
+        const attempts = [
+          { select: 'id, slug, title, start_city', order: 'updated_at' },
+          { select: 'id, slug, title, start_city', order: 'created_at' },
+          { select: 'id, slug, title', order: 'updated_at' },
+          { select: 'id, slug, title', order: 'created_at' },
+        ];
+
+        let lastError = null;
+        for (const attempt of attempts) {
+          try {
+            let q = state.sb
+              .from('trips')
+              .select(attempt.select)
+              .order(attempt.order, { ascending: false })
+              .limit(limit);
+            if (ownerId) q = q.eq('owner_partner_id', ownerId);
+            if (ids.length) q = q.in('id', ids);
+            const { data, error } = await q;
+            if (error) throw error;
+            return data || [];
+          } catch (e) {
+            lastError = e;
+          }
+        }
+        if (lastError) throw lastError;
+        return [];
+      }
+
       try {
-        const { data, error } = await state.sb
-          .from('trips')
-          .select('id, slug, title, start_city')
-          .eq('owner_partner_id', partner.id)
-          .order('updated_at', { ascending: false })
-          .limit(500);
-        if (error) throw error;
+        const data = await selectTrips({ ownerId: partner.id });
         (data || []).forEach((r) => {
           if (!r?.id) return;
           const title = normalizeTitleJson(r.title) || r.slug || r.id;
@@ -946,13 +973,7 @@
 
       if (assignedIds.length) {
         try {
-          const { data, error } = await state.sb
-            .from('trips')
-            .select('id, slug, title, start_city')
-            .in('id', assignedIds)
-            .order('updated_at', { ascending: false })
-            .limit(500);
-          if (error) throw error;
+          const data = await selectTrips({ ids: assignedIds });
           (data || []).forEach((r) => {
             if (!r?.id) return;
             const title = normalizeTitleJson(r.title) || r.slug || r.id;
@@ -965,6 +986,18 @@
             if (!rowsMap.has(id)) rowsMap.set(id, { id, label: `Trip (${String(id).slice(0, 8)})` });
           });
         }
+      }
+
+      if (!rowsMap.size && partner?.can_manage_trips) {
+        try {
+          const data = await selectTrips({});
+          (data || []).forEach((r) => {
+            if (!r?.id) return;
+            const title = normalizeTitleJson(r.title) || r.slug || r.id;
+            const city = r.start_city ? ` — ${r.start_city}` : '';
+            if (!rowsMap.has(r.id)) rowsMap.set(r.id, { id: r.id, label: `${title}${city}` });
+          });
+        } catch (_e) {}
       }
 
       const fromBlocks = blockResourceIdsForType('trips');
