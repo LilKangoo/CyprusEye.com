@@ -357,6 +357,17 @@
     }
   }
 
+  function formatDate(value) {
+    if (!value) return '—';
+    try {
+      const raw = String(value);
+      const iso = raw.length === 10 ? `${raw}T00:00:00` : raw;
+      return new Date(iso).toLocaleDateString('pl-PL');
+    } catch (_e) {
+      return String(value);
+    }
+  }
+
   function formatSla(deadlineIso) {
     if (!deadlineIso) return '—';
     const deadline = new Date(deadlineIso);
@@ -545,27 +556,52 @@
   async function loadFulfillments() {
     if (!state.selectedPartnerId) return;
 
-    const { data, error } = await state.sb
-      .from('shop_order_fulfillments')
-      .select('id, order_id, order_number, status, sla_deadline_at, accepted_at, rejected_at, rejected_reason, contact_revealed_at, created_at, subtotal, total_allocated')
-      .eq('partner_id', state.selectedPartnerId)
-      .order('created_at', { ascending: false })
-      .limit(80);
+    const [shopRes, serviceRes] = await Promise.all([
+      state.sb
+        .from('shop_order_fulfillments')
+        .select('id, order_id, order_number, status, sla_deadline_at, accepted_at, rejected_at, rejected_reason, contact_revealed_at, created_at, subtotal, total_allocated')
+        .eq('partner_id', state.selectedPartnerId)
+        .order('created_at', { ascending: false })
+        .limit(80),
+      state.sb
+        .from('partner_service_fulfillments')
+        .select('id, partner_id, resource_type, booking_id, resource_id, status, sla_deadline_at, accepted_at, rejected_at, rejected_reason, contact_revealed_at, created_at, reference, summary, start_date, end_date, total_price, currency')
+        .eq('partner_id', state.selectedPartnerId)
+        .order('created_at', { ascending: false })
+        .limit(80),
+    ]);
 
-    if (error) throw error;
+    if (shopRes.error) throw shopRes.error;
+    if (serviceRes.error) throw serviceRes.error;
 
-    state.fulfillments = Array.isArray(data) ? data : [];
+    const shopRows = (Array.isArray(shopRes.data) ? shopRes.data : []).map((f) => ({ ...f, __source: 'shop' }));
+    const serviceRows = (Array.isArray(serviceRes.data) ? serviceRes.data : []).map((f) => ({ ...f, __source: 'service' }));
 
-    const ids = state.fulfillments.map((f) => f.id).filter(Boolean);
+    const merged = shopRows
+      .concat(serviceRows)
+      .sort((a, b) => {
+        const at = a?.created_at ? new Date(a.created_at).getTime() : 0;
+        const bt = b?.created_at ? new Date(b.created_at).getTime() : 0;
+        return bt - at;
+      })
+      .slice(0, 80);
+
+    state.fulfillments = merged;
+
+    const shopIds = merged.filter((f) => f && f.__source === 'shop').map((f) => f.id).filter(Boolean);
+    const serviceIds = merged.filter((f) => f && f.__source === 'service').map((f) => f.id).filter(Boolean);
+
     state.itemsByFulfillmentId = {};
     state.contactsByFulfillmentId = {};
 
-    if (ids.length) {
-      const { data: items } = await state.sb
+    if (shopIds.length) {
+      const { data: items, error: itemsErr } = await state.sb
         .from('shop_order_fulfillment_items')
         .select('fulfillment_id, product_name, variant_name, quantity')
-        .in('fulfillment_id', ids)
+        .in('fulfillment_id', shopIds)
         .limit(500);
+
+      if (itemsErr) throw itemsErr;
 
       (items || []).forEach((it) => {
         const fid = it.fulfillment_id;
@@ -573,25 +609,48 @@
         if (!state.itemsByFulfillmentId[fid]) state.itemsByFulfillmentId[fid] = [];
         state.itemsByFulfillmentId[fid].push(it);
       });
+    }
 
-      const acceptedIds = state.fulfillments
-        .filter((f) => String(f.status) === 'accepted')
-        .map((f) => f.id)
-        .filter(Boolean);
+    const acceptedShopIds = merged
+      .filter((f) => f && f.__source === 'shop' && String(f.status) === 'accepted')
+      .map((f) => f.id)
+      .filter(Boolean);
 
-      if (acceptedIds.length) {
-        const { data: contacts } = await state.sb
-          .from('shop_order_fulfillment_contacts')
-          .select('fulfillment_id, customer_name, customer_email, customer_phone, shipping_address')
-          .in('fulfillment_id', acceptedIds)
-          .limit(200);
+    const acceptedServiceIds = merged
+      .filter((f) => f && f.__source === 'service' && String(f.status) === 'accepted')
+      .map((f) => f.id)
+      .filter(Boolean);
 
-        (contacts || []).forEach((c) => {
-          const fid = c.fulfillment_id;
-          if (!fid) return;
-          state.contactsByFulfillmentId[fid] = c;
-        });
-      }
+    if (acceptedShopIds.length) {
+      const { data: contacts, error: contactsErr } = await state.sb
+        .from('shop_order_fulfillment_contacts')
+        .select('fulfillment_id, customer_name, customer_email, customer_phone, shipping_address')
+        .in('fulfillment_id', acceptedShopIds)
+        .limit(200);
+
+      if (contactsErr) throw contactsErr;
+
+      (contacts || []).forEach((c) => {
+        const fid = c.fulfillment_id;
+        if (!fid) return;
+        state.contactsByFulfillmentId[fid] = c;
+      });
+    }
+
+    if (acceptedServiceIds.length) {
+      const { data: contacts, error: contactsErr } = await state.sb
+        .from('partner_service_fulfillment_contacts')
+        .select('fulfillment_id, customer_name, customer_email, customer_phone')
+        .in('fulfillment_id', acceptedServiceIds)
+        .limit(200);
+
+      if (contactsErr) throw contactsErr;
+
+      (contacts || []).forEach((c) => {
+        const fid = c.fulfillment_id;
+        if (!fid) return;
+        state.contactsByFulfillmentId[fid] = c;
+      });
     }
   }
 
@@ -623,6 +682,25 @@
     return data;
   }
 
+  async function callServiceFulfillmentAction(fulfillmentId, action, reason) {
+    if (!state.sb) throw new Error('Supabase client not available');
+
+    if (action === 'accept') {
+      const { data, error } = await state.sb.rpc('partner_accept_service_fulfillment', {
+        p_fulfillment_id: fulfillmentId,
+      });
+      if (error) throw new Error(error.message || 'Request failed');
+      return data;
+    }
+
+    const { data, error } = await state.sb.rpc('partner_reject_service_fulfillment', {
+      p_fulfillment_id: fulfillmentId,
+      p_reason: reason || null,
+    });
+    if (error) throw new Error(error.message || 'Request failed');
+    return data;
+  }
+
   function renderFulfillmentsTable() {
     if (!els.fulfillmentsBody) return;
 
@@ -636,11 +714,26 @@
 
     const rowsHtml = state.fulfillments
       .map((f) => {
+        const source = String(f.__source || 'shop');
+        const isShop = source === 'shop';
         const id = f.id;
-        const items = state.itemsByFulfillmentId[id] || [];
+        const items = isShop ? (state.itemsByFulfillmentId[id] || []) : [];
         const contact = state.contactsByFulfillmentId[id] || null;
 
         const itemsSummary = (() => {
+          if (!isShop) {
+            const typeLabel = f.resource_type ? String(f.resource_type) : 'service';
+            const summary = f.summary ? String(f.summary) : 'Booking';
+            const dates = f.start_date && f.end_date ? `${formatDate(f.start_date)} → ${formatDate(f.end_date)}` : '';
+            const price = f.total_price != null ? `${Number(f.total_price).toFixed(2)} ${String(f.currency || 'EUR')}` : '';
+            const meta = [dates, price].filter(Boolean).join(' · ');
+            return `
+              <div class="small"><strong>${escapeHtml(typeLabel)}</strong></div>
+              <div class="small">${escapeHtml(summary)}</div>
+              ${meta ? `<div class="muted small">${escapeHtml(meta)}</div>` : ''}
+            `;
+          }
+
           if (!items.length) return '<span class="muted">—</span>';
           const parts = items.slice(0, 2).map((it) => {
             const name = it.product_name || 'Product';
@@ -657,7 +750,7 @@
           const name = contact.customer_name || '';
           const email = contact.customer_email || '';
           const phone = contact.customer_phone || '';
-          const address = contact.shipping_address && typeof contact.shipping_address === 'object'
+          const address = isShop && contact.shipping_address && typeof contact.shipping_address === 'object'
             ? contact.shipping_address
             : null;
           const addressLine = address
@@ -675,7 +768,13 @@
           `;
         })();
 
-        const orderLabel = f.order_number ? escapeHtml(f.order_number) : escapeHtml(String(f.order_id || '').slice(0, 8));
+        const orderLabel = (() => {
+          if (isShop) {
+            return f.order_number ? escapeHtml(f.order_number) : escapeHtml(String(f.order_id || '').slice(0, 8));
+          }
+          if (f.reference) return escapeHtml(String(f.reference));
+          return escapeHtml(String(f.booking_id || '').slice(0, 8));
+        })();
         const sla = String(f.status) === 'pending_acceptance' ? formatSla(f.sla_deadline_at) : f.sla_deadline_at ? formatDateTime(f.sla_deadline_at) : '—';
 
         const actionsHtml = (() => {
@@ -694,8 +793,8 @@
 
           return `
             <div class="btn-row">
-              <button class="btn-sm primary" type="button" data-action="accept" data-id="${escapeHtml(id)}" ${disabledAttr}>Accept</button>
-              <button class="btn-sm danger" type="button" data-action="reject" data-id="${escapeHtml(id)}" ${disabledAttr}>Reject</button>
+              <button class="btn-sm primary" type="button" data-action="accept" data-source="${escapeHtml(source)}" data-id="${escapeHtml(id)}" ${disabledAttr}>Accept</button>
+              <button class="btn-sm danger" type="button" data-action="reject" data-source="${escapeHtml(source)}" data-id="${escapeHtml(id)}" ${disabledAttr}>Reject</button>
             </div>
           `;
         })();
@@ -731,6 +830,7 @@
       btn.addEventListener('click', async () => {
         const action = btn.getAttribute('data-action');
         const fulfillmentId = btn.getAttribute('data-id');
+        const source = btn.getAttribute('data-source') || 'shop';
         if (!action || !fulfillmentId) return;
 
         try {
@@ -738,12 +838,20 @@
             const reason = prompt('Podaj powód odrzucenia (opcjonalnie):') || '';
             if (!confirm('Czy na pewno chcesz odrzucić ten fulfillment?')) return;
             btn.disabled = true;
-            await callFulfillmentAction(fulfillmentId, 'reject', reason);
+            if (source === 'service') {
+              await callServiceFulfillmentAction(fulfillmentId, 'reject', reason);
+            } else {
+              await callFulfillmentAction(fulfillmentId, 'reject', reason);
+            }
             showToast('Fulfillment rejected', 'success');
           } else {
             if (!confirm('Akceptacja ujawni kontakt klienta. Czy kontynuować?')) return;
             btn.disabled = true;
-            await callFulfillmentAction(fulfillmentId, 'accept');
+            if (source === 'service') {
+              await callServiceFulfillmentAction(fulfillmentId, 'accept');
+            } else {
+              await callFulfillmentAction(fulfillmentId, 'accept');
+            }
             showToast('Fulfillment accepted', 'success');
           }
 
