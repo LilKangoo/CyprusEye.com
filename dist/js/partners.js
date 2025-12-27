@@ -175,51 +175,21 @@
       const ranges = [];
       if (type === 'cars') {
         try {
-          let rows = [];
-          {
-            const { data, error } = await state.sb
-              .from('car_bookings')
-              .select('pickup_date, return_date, status')
-              .eq('offer_id', resourceId)
-              .neq('status', 'cancelled')
-              .lte('pickup_date', endIso)
-              .gte('return_date', startIso)
-              .limit(500);
-            if (error) throw error;
-            rows = data || [];
-          }
-          (rows || []).forEach((r) => {
-            if (!r.pickup_date || !r.return_date) return;
-            ranges.push({ start_date: r.pickup_date, end_date: r.return_date });
+          const { data, error } = await state.sb
+            .from('partner_service_fulfillments')
+            .select('start_date, end_date, status')
+            .eq('resource_type', 'cars')
+            .eq('resource_id', resourceId)
+            .in('status', ['pending_acceptance', 'accepted'])
+            .lte('start_date', endIso)
+            .gte('end_date', startIso)
+            .limit(500);
+          if (error) throw error;
+          (data || []).forEach((r) => {
+            if (!r.start_date || !r.end_date) return;
+            ranges.push({ start_date: r.start_date, end_date: r.end_date });
           });
-        } catch (_e) {
-          try {
-            const { data: offer, error: offerError } = await state.sb
-              .from('car_offers')
-              .select('car_model, location')
-              .eq('id', resourceId)
-              .single();
-            if (offerError) throw offerError;
-
-            let q = state.sb
-              .from('car_bookings')
-              .select('pickup_date, return_date, status')
-              .neq('status', 'cancelled')
-              .lte('pickup_date', endIso)
-              .gte('return_date', startIso)
-              .limit(500);
-            if (offer?.location) q = q.eq('location', offer.location);
-            if (offer?.car_model) q = q.eq('car_model', offer.car_model);
-
-            const { data, error } = await q;
-            if (error) throw error;
-
-            (data || []).forEach((r) => {
-              if (!r.pickup_date || !r.return_date) return;
-              ranges.push({ start_date: r.pickup_date, end_date: r.return_date });
-            });
-          } catch (_e2) {}
-        }
+        } catch (_e) {}
       }
 
       if (type === 'hotels') {

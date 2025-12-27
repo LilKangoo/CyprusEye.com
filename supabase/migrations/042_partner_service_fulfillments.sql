@@ -924,11 +924,19 @@ BEGIN
         'pending_acceptance',
         COALESCE(cb.created_at, NOW()) + INTERVAL '4 hours',
         CONCAT('CAR-', SUBSTRING(cb.id::text, 1, 8)),
-        COALESCE(NULLIF(cb.car_model, ''), NULLIF(cb.car_type, ''), 'Car booking'),
+        COALESCE(
+          NULLIF(to_jsonb(cb)->>'car_model', ''),
+          NULLIF(to_jsonb(cb)->>'car_type', ''),
+          'Car booking'
+        ),
         cb.pickup_date,
         cb.return_date,
-        cb.total_price,
-        COALESCE(NULLIF(cb.currency, ''), 'EUR'),
+        COALESCE(
+          public.try_numeric(to_jsonb(cb)->>'total_price'),
+          public.try_numeric(to_jsonb(cb)->>'final_price'),
+          public.try_numeric(to_jsonb(cb)->>'quoted_price')
+        ),
+        COALESCE(NULLIF(to_jsonb(cb)->>'currency', ''), 'EUR'),
         COALESCE(cb.created_at, NOW())
       FROM public.car_bookings cb
       WHERE cb.offer_id IS NOT NULL
@@ -988,8 +996,12 @@ BEGIN
         COALESCE(NULLIF(cb.car_model, ''), 'Car booking'),
         cb.pickup_date,
         cb.return_date,
-        COALESCE(cb.final_price, cb.quoted_price),
-        COALESCE(NULLIF(cb.currency, ''), 'EUR'),
+        COALESCE(
+          public.try_numeric(to_jsonb(cb)->>'final_price'),
+          public.try_numeric(to_jsonb(cb)->>'quoted_price'),
+          public.try_numeric(to_jsonb(cb)->>'total_price')
+        ),
+        COALESCE(NULLIF(to_jsonb(cb)->>'currency', ''), 'EUR'),
         COALESCE(cb.created_at, NOW())
       FROM public.car_bookings cb
       LEFT JOIN LATERAL (
