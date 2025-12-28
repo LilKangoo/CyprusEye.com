@@ -41,6 +41,8 @@
     blockForm: null,
     blockResourceType: null,
     blockResourceId: null,
+    resourceTypePanels: null,
+    resourcePanels: null,
     calendarMonthInput: null,
     calendarPrevMonth: null,
     calendarNextMonth: null,
@@ -75,6 +77,20 @@
   function setHidden(el, hidden) {
     if (!el) return;
     el.hidden = !!hidden;
+  }
+
+  function hideSelectForPanels(selectEl) {
+    if (!selectEl) return;
+    selectEl.style.display = 'none';
+  }
+
+  function labelForResourceType(type) {
+    const t = String(type || '').trim();
+    if (t === 'shop') return 'Products';
+    if (t === 'cars') return 'Cars';
+    if (t === 'trips') return 'Trips';
+    if (t === 'hotels') return 'Hotels';
+    return t;
   }
 
   function getMonthValue(date = new Date()) {
@@ -1206,10 +1222,79 @@
       if (rows.length) {
         select.value = rows[0].id;
       }
+
+      renderResourcePanels();
     } catch (error) {
       console.error(error);
       setHtml(select, '<option value="">Select resource</option>');
     }
+  }
+
+  function renderResourceTypePanels() {
+    if (!els.resourceTypePanels || !els.blockResourceType) return;
+
+    const options = Array.from(els.blockResourceType.options || []).map((o) => {
+      return { value: String(o.value || '').trim(), label: String(o.textContent || o.value || '').trim() };
+    }).filter((o) => o.value);
+
+    const current = String(els.blockResourceType.value || '').trim();
+
+    const html = options.map((o) => {
+      const active = o.value === current;
+      const bg = active ? 'rgba(59,130,246,0.18)' : 'rgba(255,255,255,0.06)';
+      const border = active ? 'rgba(59,130,246,0.65)' : 'rgba(255,255,255,0.14)';
+      return `<button type="button" data-rt="${escapeHtml(o.value)}" style="padding: 8px 10px; border-radius: 10px; border: 1px solid ${border}; background:${bg}; color: inherit; cursor:pointer; font-weight: 600;">${escapeHtml(labelForResourceType(o.value))}</button>`;
+    }).join('');
+
+    setHtml(els.resourceTypePanels, html || '<div class="muted small">No resource types.</div>');
+
+    els.resourceTypePanels.querySelectorAll('button[data-rt]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const next = btn.getAttribute('data-rt') || '';
+        if (!next) return;
+        if (String(els.blockResourceType.value || '') === next) return;
+        els.blockResourceType.value = next;
+
+        await loadBlocks();
+        syncResourceTypeOptions();
+        renderResourceTypePanels();
+        await loadCalendarResourceOptions();
+        await loadCalendarMonthData();
+      });
+    });
+  }
+
+  function renderResourcePanels() {
+    if (!els.resourcePanels || !els.blockResourceType || !els.blockResourceId) return;
+    const type = String(els.blockResourceType.value || '').trim();
+    const rows = state.calendar.resourcesByType?.[type] || [];
+    const current = String(els.blockResourceId.value || '').trim();
+
+    const html = (rows || []).map((r) => {
+      const id = String(r?.id || '').trim();
+      if (!id) return '';
+      const label = String(r?.label || '').trim() || fallbackLabelForResource(type, id);
+      const active = id === current;
+      const bg = active ? 'rgba(34,197,94,0.18)' : 'rgba(255,255,255,0.06)';
+      const border = active ? 'rgba(34,197,94,0.65)' : 'rgba(255,255,255,0.14)';
+      return `<button type="button" data-rid="${escapeHtml(id)}" style="text-align:left; padding: 10px 10px; border-radius: 12px; border: 1px solid ${border}; background:${bg}; color: inherit; cursor:pointer;">
+        <div style="font-weight:700;">${escapeHtml(label)}</div>
+        <div class="muted small" style="margin-top:4px;"><code>${escapeHtml(id.slice(0, 8))}</code></div>
+      </button>`;
+    }).filter(Boolean).join('');
+
+    setHtml(els.resourcePanels, html || '<div class="muted small" style="padding: 8px 4px;">No resources.</div>');
+
+    els.resourcePanels.querySelectorAll('button[data-rid]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const rid = btn.getAttribute('data-rid') || '';
+        if (!rid) return;
+        if (String(els.blockResourceId.value || '') === rid) return;
+        els.blockResourceId.value = rid;
+        renderResourcePanels();
+        await loadCalendarMonthData();
+      });
+    });
   }
 
   function renderBlocksTable() {
@@ -1352,6 +1437,8 @@
       renderBlocksTable();
 
       syncResourceTypeOptions();
+
+      renderResourceTypePanels();
 
       await loadCalendarResourceOptions();
 
@@ -1546,11 +1633,13 @@
     els.blockResourceType?.addEventListener('change', async () => {
       await loadBlocks();
       syncResourceTypeOptions();
+      renderResourceTypePanels();
       await loadCalendarResourceOptions();
       await loadCalendarMonthData();
     });
 
     els.blockResourceId?.addEventListener('change', async () => {
+      renderResourcePanels();
       await loadCalendarMonthData();
     });
 
@@ -1606,6 +1695,8 @@
     els.blockForm = $('partnerBlockForm');
     els.blockResourceType = $('blockResourceType');
     els.blockResourceId = $('blockResourceId');
+    els.resourceTypePanels = $('partnerResourceTypePanels');
+    els.resourcePanels = $('partnerResourcePanels');
     els.calendarMonthInput = $('partnerCalendarMonthInput');
     els.calendarPrevMonth = $('partnerCalendarPrevMonth');
     els.calendarNextMonth = $('partnerCalendarNextMonth');
@@ -1617,6 +1708,9 @@
 
   async function init() {
     cacheEls();
+
+    hideSelectForPanels(els.blockResourceType);
+    hideSelectForPanels(els.blockResourceId);
 
     state.sb = typeof window.getSupabase === 'function' ? window.getSupabase() : window.supabase;
 

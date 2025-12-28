@@ -87,9 +87,62 @@ function showElement(element) {
 
 const partnersState = {
   partners: [],
+  partnersById: {},
   partnerUsersCountByPartnerId: {},
   fulfillmentStatsByPartnerId: {}
 };
+
+let adminPartnerAuditChannel = null;
+
+let partnersAutoRefreshTimer = null;
+
+function initAdminPartnerRealtime() {
+  const client = ensureSupabase();
+  if (!client) return;
+  if (typeof client.channel !== 'function') return;
+  if (adminPartnerAuditChannel) return;
+
+  try {
+    adminPartnerAuditChannel = client
+      .channel('admin-partner-audit')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'partner_audit_log' },
+        (payload) => {
+          const row = payload?.new || {};
+          const action = String(row.action || '');
+          if (action !== 'fulfillment_accepted' && action !== 'fulfillment_rejected') return;
+
+          const pid = row.partner_id;
+          const partnerName = partnersState.partnersById?.[pid]?.name || (pid ? String(pid).slice(0, 8) : 'partner');
+          const verb = action === 'fulfillment_accepted' ? 'accepted' : 'rejected';
+          const et = String(row.entity_type || '').toLowerCase();
+          const kind = et.includes('service') ? 'service' : (et.includes('shop') ? 'shop' : '');
+          const label = kind ? ` ${kind}` : '';
+          showToast(`Partner ${partnerName} ${verb} a${label} fulfillment`, 'info');
+
+          if (adminState.currentView === 'partners') {
+            loadPartnersData();
+          }
+        },
+      )
+      .subscribe();
+  } catch (e) {
+    console.warn('Failed to init partner realtime:', e);
+  }
+}
+
+function ensurePartnersAutoRefresh() {
+  if (partnersAutoRefreshTimer) return;
+
+  partnersAutoRefreshTimer = setInterval(() => {
+    try {
+      if (adminState.currentView !== 'partners') return;
+      loadPartnersData();
+    } catch (_e) {
+    }
+  }, 30000);
+}
 
 const partnersAdminState = {
   vendors: [],
@@ -113,6 +166,10 @@ async function loadPartnersData() {
     if (partnersError) throw partnersError;
 
     partnersState.partners = partners || [];
+    partnersState.partnersById = {};
+    (partnersState.partners || []).forEach((p) => {
+      if (p?.id) partnersState.partnersById[p.id] = p;
+    });
 
     const partnerIds = (partnersState.partners || []).map(p => p.id).filter(Boolean);
 
@@ -132,6 +189,22 @@ async function loadPartnersData() {
 
     partnersState.fulfillmentStatsByPartnerId = {};
     if (partnerIds.length) {
+      const ensureBucket = (pid) => {
+        if (!pid) return;
+        if (!partnersState.fulfillmentStatsByPartnerId[pid]) {
+          partnersState.fulfillmentStatsByPartnerId[pid] = { pending: 0, accepted: 0, rejected: 0 };
+        }
+      };
+
+      const applyStatus = (pid, statusRaw) => {
+        if (!pid) return;
+        ensureBucket(pid);
+        const status = String(statusRaw || '');
+        if (status === 'pending_acceptance') partnersState.fulfillmentStatsByPartnerId[pid].pending += 1;
+        if (status === 'accepted') partnersState.fulfillmentStatsByPartnerId[pid].accepted += 1;
+        if (status === 'rejected') partnersState.fulfillmentStatsByPartnerId[pid].rejected += 1;
+      };
+
       const { data: fulfillments } = await client
         .from('shop_order_fulfillments')
         .select('partner_id, status, created_at')
@@ -140,17 +213,24 @@ async function loadPartnersData() {
         .order('created_at', { ascending: false })
         .limit(1000);
 
-      (fulfillments || []).forEach(f => {
-        const pid = f.partner_id;
-        if (!pid) return;
-        if (!partnersState.fulfillmentStatsByPartnerId[pid]) {
-          partnersState.fulfillmentStatsByPartnerId[pid] = { pending: 0, accepted: 0, rejected: 0 };
-        }
-        const status = String(f.status || '');
-        if (status === 'pending_acceptance') partnersState.fulfillmentStatsByPartnerId[pid].pending += 1;
-        if (status === 'accepted') partnersState.fulfillmentStatsByPartnerId[pid].accepted += 1;
-        if (status === 'rejected') partnersState.fulfillmentStatsByPartnerId[pid].rejected += 1;
+      (fulfillments || []).forEach((f) => {
+        applyStatus(f?.partner_id, f?.status);
       });
+
+      try {
+        const { data: serviceFulfillments } = await client
+          .from('partner_service_fulfillments')
+          .select('partner_id, status, created_at')
+          .in('partner_id', partnerIds)
+          .in('status', ['pending_acceptance', 'accepted', 'rejected'])
+          .order('created_at', { ascending: false })
+          .limit(2000);
+
+        (serviceFulfillments || []).forEach((f) => {
+          applyStatus(f?.partner_id, f?.status);
+        });
+      } catch (_e) {
+      }
     }
 
     renderPartnersTable();
@@ -11013,6 +11093,9 @@ async function initAdminPanel() {
       
       // Show admin panel and hide loading
       showAdminPanel();
+
+      initAdminPartnerRealtime();
+      ensurePartnersAutoRefresh();
     }
   } catch (error) {
     console.error('Error loading session:', error);

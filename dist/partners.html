@@ -270,6 +270,7 @@
           <div class="partner-form" style="margin-bottom: 12px;">
             <div>
               <label for="blockResourceType">Resource type</label>
+              <div id="partnerResourceTypePanels" style="display:flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 2px;"></div>
               <select id="blockResourceType" required>
                 <option value="shop">shop</option>
                 <option value="cars">cars</option>
@@ -279,6 +280,7 @@
             </div>
             <div>
               <label for="blockResourceId">Resource</label>
+              <div id="partnerResourcePanels" style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: 240px; overflow: auto; padding: 6px 2px;"></div>
               <select id="blockResourceId" required>
                 <option value="">Select resource</option>
               </select>
@@ -361,7 +363,7 @@
   <script src="js/languageRefresh.js"></script>
   <script src="js/header-stats.js?v=1" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
-  <script src="js/partners.js?v=5" defer></script>
+  <script src="js/partners.js?v=6" defer></script>
 
   <div
     id="auth-modal"
