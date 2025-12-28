@@ -268,7 +268,10 @@ const partnersState = {
   partners: [],
   partnersById: {},
   partnerUsersCountByPartnerId: {},
-  fulfillmentStatsByPartnerId: {}
+  fulfillmentStatsByPartnerId: {},
+  acceptedByPartnerId: {},
+  acceptedLoadingByPartnerId: {},
+  expandedAcceptedPartnerId: null,
 };
 
 let adminPartnerAuditChannel = null;
@@ -449,6 +452,70 @@ function renderPartnersTable() {
     const statusColor = p.status === 'active' ? '#22c55e' : '#ef4444';
     const vendorName = (p.vendor && p.vendor.name) ? p.vendor.name : (p.shop_vendor_id ? String(p.shop_vendor_id).slice(0, 8) : '—');
 
+    const isExpanded = partnersState.expandedAcceptedPartnerId === p.id;
+    const acceptedLoading = Boolean(partnersState.acceptedLoadingByPartnerId?.[p.id]);
+    const acceptedRows = Array.isArray(partnersState.acceptedByPartnerId?.[p.id]) ? partnersState.acceptedByPartnerId[p.id] : [];
+
+    const acceptedHtml = (() => {
+      if (!isExpanded) return '';
+
+      if (acceptedLoading) {
+        return '<div style="padding: 10px 0; color: var(--admin-text-muted);">Loading accepted fulfillments…</div>';
+      }
+
+      if (!acceptedRows.length) {
+        return '<div style="padding: 10px 0; color: var(--admin-text-muted);">No accepted fulfillments.</div>';
+      }
+
+      const rowsHtml = acceptedRows.map((row) => {
+        const acceptedAt = row.accepted_at ? escapeHtml(formatDateTimeValue(row.accepted_at)) : '—';
+        const label = escapeHtml(row.label || '—');
+        const ref = escapeHtml(row.reference || '—');
+        const customerName = escapeHtml(row.customer_name || '');
+        const customerEmail = escapeHtml(row.customer_email || '');
+        const customerPhone = escapeHtml(row.customer_phone || '');
+        const customerHtml = (customerName || customerEmail || customerPhone)
+          ? `${customerName ? `<div><strong>${customerName}</strong></div>` : ''}${customerEmail ? `<div><a href="mailto:${encodeURIComponent(row.customer_email)}">${customerEmail}</a></div>` : ''}${customerPhone ? `<div><a href="tel:${encodeURIComponent(row.customer_phone)}">${customerPhone}</a></div>` : ''}`
+          : '—';
+
+        const price = row.price != null ? escapeHtml(formatMoney(row.price, row.currency)) : '—';
+        const revealed = row.contact_revealed_at ? escapeHtml(formatDateTimeValue(row.contact_revealed_at)) : '—';
+        return `
+          <tr>
+            <td style="white-space: nowrap;">${acceptedAt}</td>
+            <td>${label}</td>
+            <td><code>${ref}</code></td>
+            <td>${customerHtml}</td>
+            <td style="white-space: nowrap;">${price}</td>
+            <td style="white-space: nowrap;">${revealed}</td>
+          </tr>
+        `;
+      }).join('');
+
+      return `
+        <div style="margin-top: 6px;">
+          <div style="font-weight: 600; margin: 0 0 10px;">Accepted fulfillments</div>
+          <div class="admin-table-container" style="margin:0;">
+            <table class="admin-table" style="margin:0;">
+              <thead>
+                <tr>
+                  <th>Accepted</th>
+                  <th>Type</th>
+                  <th>Reference</th>
+                  <th>Customer</th>
+                  <th>Price</th>
+                  <th>Contact revealed</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rowsHtml}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      `;
+    })();
+
     return `
       <tr>
         <td><strong>${escapeHtml(p.name)}</strong></td>
@@ -460,15 +527,174 @@ function renderPartnersTable() {
         <td>${stats.rejected}</td>
         <td>${stats.accepted}</td>
         <td style="text-align: right;">
-          <div style="display: inline-flex; gap: 6px;">
+          <div style="display: inline-flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
             <button class="btn-small btn-secondary" onclick="editPartner('${p.id}')">Edit</button>
             <button class="btn-small btn-secondary" onclick="managePartnerUsers('${p.id}')">Users</button>
+            <button class="btn-small btn-secondary" onclick="togglePartnerAccepted('${p.id}')">${isExpanded ? 'Hide accepted' : 'Show accepted'}</button>
           </div>
         </td>
       </tr>
+      ${isExpanded ? `<tr><td colspan="9" style="padding: 12px 14px; background: rgba(255,255,255,0.03);">${acceptedHtml}</td></tr>` : ''}
     `;
   }).join('');
 }
+
+function formatDateTimeValue(value) {
+  if (!value) return '—';
+  try {
+    return new Date(value).toLocaleString();
+  } catch (_e) {
+    return String(value);
+  }
+}
+
+function formatMoney(value, currency) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return '—';
+  const cur = String(currency || 'EUR');
+  if (cur.toUpperCase() === 'EUR') return `€${num.toFixed(2)}`;
+  return `${num.toFixed(2)} ${cur}`;
+}
+
+async function loadAcceptedFulfillmentsForPartner(partnerId) {
+  const client = ensureSupabase();
+  if (!client) return [];
+
+  const pid = String(partnerId || '').trim();
+  if (!pid) return [];
+
+  const [shopRes, serviceRes] = await Promise.all([
+    client
+      .from('shop_order_fulfillments')
+      .select('id, order_id, order_number, status, accepted_at, contact_revealed_at, subtotal, total_allocated')
+      .eq('partner_id', pid)
+      .eq('status', 'accepted')
+      .order('accepted_at', { ascending: false })
+      .limit(200),
+    client
+      .from('partner_service_fulfillments')
+      .select('id, resource_type, booking_id, resource_id, status, accepted_at, contact_revealed_at, total_price, currency, start_date, end_date, reference, summary')
+      .eq('partner_id', pid)
+      .eq('status', 'accepted')
+      .order('accepted_at', { ascending: false })
+      .limit(200),
+  ]);
+
+  const shop = shopRes?.data || [];
+  const service = serviceRes?.data || [];
+
+  const shopIds = shop.map(r => r.id).filter(Boolean);
+  const serviceIds = service.map(r => r.id).filter(Boolean);
+
+  const [shopContactsRes, serviceContactsRes] = await Promise.all([
+    shopIds.length
+      ? client
+        .from('shop_order_fulfillment_contacts')
+        .select('fulfillment_id, customer_name, customer_email, customer_phone')
+        .in('fulfillment_id', shopIds)
+        .limit(1000)
+      : Promise.resolve({ data: [] }),
+    serviceIds.length
+      ? client
+        .from('partner_service_fulfillment_contacts')
+        .select('fulfillment_id, customer_name, customer_email, customer_phone')
+        .in('fulfillment_id', serviceIds)
+        .limit(1000)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const shopContactsById = {};
+  (shopContactsRes?.data || []).forEach((c) => {
+    if (c?.fulfillment_id) shopContactsById[c.fulfillment_id] = c;
+  });
+  const serviceContactsById = {};
+  (serviceContactsRes?.data || []).forEach((c) => {
+    if (c?.fulfillment_id) serviceContactsById[c.fulfillment_id] = c;
+  });
+
+  const normalized = [];
+
+  shop.forEach((f) => {
+    const contact = shopContactsById[f.id] || {};
+    const reference = f.order_number || (f.order_id ? String(f.order_id).slice(0, 8) : String(f.id).slice(0, 8));
+    const price = f.total_allocated != null ? Number(f.total_allocated) : (f.subtotal != null ? Number(f.subtotal) : null);
+    normalized.push({
+      id: f.id,
+      source: 'shop',
+      label: 'shop',
+      reference,
+      accepted_at: f.accepted_at,
+      contact_revealed_at: f.contact_revealed_at,
+      price,
+      currency: 'EUR',
+      customer_name: contact.customer_name || '',
+      customer_email: contact.customer_email || '',
+      customer_phone: contact.customer_phone || '',
+    });
+  });
+
+  service.forEach((f) => {
+    const contact = serviceContactsById[f.id] || {};
+    const reference = f.reference || (f.booking_id ? String(f.booking_id).slice(0, 8) : String(f.id).slice(0, 8));
+    const label = f.resource_type ? String(f.resource_type) : 'service';
+    normalized.push({
+      id: f.id,
+      source: 'service',
+      label,
+      reference,
+      accepted_at: f.accepted_at,
+      contact_revealed_at: f.contact_revealed_at,
+      price: f.total_price,
+      currency: f.currency || 'EUR',
+      customer_name: contact.customer_name || '',
+      customer_email: contact.customer_email || '',
+      customer_phone: contact.customer_phone || '',
+    });
+  });
+
+  normalized.sort((a, b) => {
+    const aa = a.accepted_at ? new Date(a.accepted_at).getTime() : 0;
+    const bb = b.accepted_at ? new Date(b.accepted_at).getTime() : 0;
+    return bb - aa;
+  });
+
+  return normalized;
+}
+
+async function togglePartnerAccepted(partnerId) {
+  const pid = String(partnerId || '').trim();
+  if (!pid) return;
+
+  if (partnersState.expandedAcceptedPartnerId === pid) {
+    partnersState.expandedAcceptedPartnerId = null;
+    renderPartnersTable();
+    return;
+  }
+
+  partnersState.expandedAcceptedPartnerId = pid;
+  renderPartnersTable();
+
+  if (Array.isArray(partnersState.acceptedByPartnerId?.[pid])) return;
+
+  partnersState.acceptedLoadingByPartnerId[pid] = true;
+  renderPartnersTable();
+
+  try {
+    const rows = await loadAcceptedFulfillmentsForPartner(pid);
+    partnersState.acceptedByPartnerId[pid] = rows;
+  } catch (e) {
+    console.error('Failed to load accepted fulfillments:', e);
+    partnersState.acceptedByPartnerId[pid] = [];
+    showToast(e.message || 'Failed to load accepted fulfillments', 'error');
+  } finally {
+    partnersState.acceptedLoadingByPartnerId[pid] = false;
+    if (partnersState.expandedAcceptedPartnerId === pid) {
+      renderPartnersTable();
+    }
+  }
+}
+
+window.togglePartnerAccepted = (partnerId) => togglePartnerAccepted(partnerId);
 
 async function loadPartnerFormVendors() {
   const client = ensureSupabase();
