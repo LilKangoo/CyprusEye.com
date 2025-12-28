@@ -333,6 +333,589 @@ const partnersAdminState = {
   vendorsById: {},
 };
 
+const partnerAssignmentsState = {
+  bound: false,
+  activeTab: 'cars',
+  partnerId: null,
+  partnerVendorId: null,
+  rows: [],
+  rowsByType: { cars: [], trips: [], hotels: [], shop: [] },
+  resourceDetails: { cars: {}, trips: {}, hotels: {}, shop: {} },
+  shopVendorProducts: [],
+  searchResults: { cars: [], trips: [], hotels: [], shop: [] },
+  searchTimers: { cars: null, trips: null, hotels: null, shop: null },
+};
+
+function normalizeTitleJson(value) {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') return value.pl || value.en || value.el || value.he || '';
+  return '';
+}
+
+function capitalize(value) {
+  const v = String(value || '');
+  return v ? v.charAt(0).toUpperCase() + v.slice(1) : '';
+}
+
+function setPartnerAssignmentsHint(text) {
+  const el = document.getElementById('partnerAssignmentsHint');
+  if (!el) return;
+  el.textContent = text || '';
+}
+
+function setPartnerAssignShopModeText(text) {
+  const el = document.getElementById('partnerAssignShopMode');
+  if (!el) return;
+  el.textContent = text || '';
+}
+
+function partnerAssignTbodyId(type) {
+  const t = String(type || '').trim();
+  return `partnerAssignList${capitalize(t)}`;
+}
+
+function clearPartnerAssignTable(type, colspan) {
+  const t = String(type || '').trim();
+  const tbody = document.getElementById(partnerAssignTbodyId(t));
+  if (!tbody) return;
+  const span = Number(colspan || 3) || 3;
+  tbody.innerHTML = `<tr><td colspan="${span}" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>`;
+}
+
+function partnerAssignFieldId(kind, type) {
+  const t = capitalize(String(type || '').trim());
+  if (kind === 'search') return `partnerAssignSearch${t}`;
+  if (kind === 'select') return `partnerAssignSelect${t}`;
+  if (kind === 'add') return `btnPartnerAssignAdd${t}`;
+  return '';
+}
+
+function partnerAssignShopControlsEnabled(enabled) {
+  const wrap = document.getElementById('partnerAssignShopControls');
+  if (!wrap) return;
+  wrap.querySelectorAll('input, select, button').forEach((el) => {
+    el.disabled = !enabled;
+  });
+}
+
+function setPartnerAssignActiveTab(nextTab) {
+  const tab = String(nextTab || '').trim();
+  if (!tab) return;
+  partnerAssignmentsState.activeTab = tab;
+
+  const tabs = document.getElementById('partnerAssignTabButtons');
+  if (tabs) {
+    tabs.querySelectorAll('button[data-partner-assign-tab]').forEach((btn) => {
+      const t = String(btn.getAttribute('data-partner-assign-tab') || '').trim();
+      const active = t === tab;
+      btn.style.background = active ? 'rgba(59,130,246,0.18)' : '';
+      btn.style.borderColor = active ? 'rgba(59,130,246,0.65)' : '';
+      btn.style.fontWeight = active ? '700' : '';
+    });
+  }
+
+  const panels = document.getElementById('partnerAssignPanels');
+  if (panels) {
+    panels.querySelectorAll('[data-partner-assign-panel]').forEach((panel) => {
+      const t = String(panel.getAttribute('data-partner-assign-panel') || '').trim();
+      panel.style.display = t === tab ? '' : 'none';
+    });
+  }
+}
+
+function setPartnerAssignSelectOptions(type, rows) {
+  const selectId = partnerAssignFieldId('select', type);
+  const select = selectId ? document.getElementById(selectId) : null;
+  if (!select) return;
+  const options = (rows || []).map((r) => {
+    const id = r?.id ? String(r.id) : '';
+    const label = r?.label ? String(r.label) : id;
+    return `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`;
+  });
+  select.innerHTML = `<option value="">—</option>${options.join('')}`;
+  select.value = '';
+}
+
+async function loadPartnerAssignments(partnerId) {
+  const client = ensureSupabase();
+  if (!client) return;
+  const pid = String(partnerId || '').trim();
+  if (!pid) return;
+
+  partnerAssignmentsState.rows = [];
+  partnerAssignmentsState.rowsByType = { cars: [], trips: [], hotels: [], shop: [] };
+  partnerAssignmentsState.resourceDetails = { cars: {}, trips: {}, hotels: {}, shop: {} };
+
+  const { data, error } = await client
+    .from('partner_resources')
+    .select('id, resource_type, resource_id, created_at')
+    .eq('partner_id', pid)
+    .limit(2000);
+  if (error) throw error;
+
+  const rows = (data || []).filter(Boolean).map((r) => {
+    return {
+      id: r.id,
+      resource_type: String(r.resource_type || '').trim(),
+      resource_id: r.resource_id,
+      created_at: r.created_at,
+    };
+  }).filter((r) => r.resource_type && r.resource_id);
+
+  partnerAssignmentsState.rows = rows;
+  ['cars', 'trips', 'hotels', 'shop'].forEach((t) => {
+    partnerAssignmentsState.rowsByType[t] = rows.filter((r) => r.resource_type === t);
+  });
+
+  const idsForType = (t) => Array.from(new Set((partnerAssignmentsState.rowsByType[t] || []).map((r) => r.resource_id).filter(Boolean)));
+  const [carsIds, tripIds, hotelIds, shopIds] = ['cars', 'trips', 'hotels', 'shop'].map(idsForType);
+
+  if (carsIds.length) {
+    try {
+      const { data: rr, error: ee } = await client
+        .from('car_offers')
+        .select('id, car_model, car_type, location')
+        .in('id', carsIds)
+        .limit(500);
+      if (ee) throw ee;
+      (rr || []).forEach((r) => {
+        if (r?.id) partnerAssignmentsState.resourceDetails.cars[r.id] = r;
+      });
+    } catch (_e) {}
+  }
+
+  if (tripIds.length) {
+    try {
+      const attempts = [
+        { select: 'id, slug, title, start_city', order: 'updated_at' },
+        { select: 'id, slug, title, start_city', order: 'created_at' },
+        { select: 'id, slug, title', order: 'updated_at' },
+        { select: 'id, slug, title', order: 'created_at' },
+      ];
+      for (const attempt of attempts) {
+        try {
+          const { data: rr, error: ee } = await client
+            .from('trips')
+            .select(attempt.select)
+            .in('id', tripIds)
+            .order(attempt.order, { ascending: false })
+            .limit(500);
+          if (ee) throw ee;
+          (rr || []).forEach((r) => {
+            if (r?.id) partnerAssignmentsState.resourceDetails.trips[r.id] = r;
+          });
+          break;
+        } catch (_inner) {
+        }
+      }
+    } catch (_e) {}
+  }
+
+  if (hotelIds.length) {
+    try {
+      const { data: rr, error: ee } = await client
+        .from('hotels')
+        .select('id, slug, title, city')
+        .in('id', hotelIds)
+        .order('updated_at', { ascending: false })
+        .limit(500);
+      if (ee) throw ee;
+      (rr || []).forEach((r) => {
+        if (r?.id) partnerAssignmentsState.resourceDetails.hotels[r.id] = r;
+      });
+    } catch (_e) {}
+  }
+
+  if (shopIds.length) {
+    try {
+      const { data: rr, error: ee } = await client
+        .from('shop_products')
+        .select('id, name, slug, status')
+        .in('id', shopIds)
+        .order('updated_at', { ascending: false })
+        .limit(500);
+      if (ee) throw ee;
+      (rr || []).forEach((r) => {
+        if (r?.id) partnerAssignmentsState.resourceDetails.shop[r.id] = r;
+      });
+    } catch (_e) {}
+  }
+}
+
+function renderPartnerAssignmentsHint() {
+  const cars = (partnerAssignmentsState.rowsByType.cars || []).length;
+  const trips = (partnerAssignmentsState.rowsByType.trips || []).length;
+  const hotels = (partnerAssignmentsState.rowsByType.hotels || []).length;
+  const shop = (partnerAssignmentsState.rowsByType.shop || []).length;
+  setPartnerAssignmentsHint(`Assigned: cars ${cars}, trips ${trips}, hotels ${hotels}, shop ${shop}`);
+}
+
+function renderPartnerAssignmentsTables() {
+  ['cars', 'trips', 'hotels'].forEach((t) => {
+    renderPartnerAssignmentsTable(t);
+  });
+  renderPartnerAssignmentsShop();
+  renderPartnerAssignmentsHint();
+}
+
+function renderPartnerAssignmentsTable(type) {
+  const t = String(type || '').trim();
+  const tbody = document.getElementById(partnerAssignTbodyId(t));
+  if (!tbody) return;
+
+  const rows = partnerAssignmentsState.rowsByType?.[t] || [];
+  if (!rows.length) {
+    clearPartnerAssignTable(t, 3);
+    return;
+  }
+
+  const details = partnerAssignmentsState.resourceDetails?.[t] || {};
+
+  tbody.innerHTML = rows.map((r) => {
+    const rid = r.resource_id;
+    const d = rid ? details[rid] : null;
+
+    if (t === 'cars') {
+      const title = d ? (normalizeTitleJson(d.car_model) || normalizeTitleJson(d.car_type) || String(rid).slice(0, 8)) : String(rid).slice(0, 8);
+      const loc = d?.location ? String(d.location) : '—';
+      return `
+        <tr>
+          <td>${escapeHtml(title)}</td>
+          <td>${escapeHtml(loc)}</td>
+          <td style="text-align: right;"><button class="btn-small btn-secondary" onclick="removePartnerResourceAssignment('${escapeHtml(t)}','${escapeHtml(String(rid))}')">Remove</button></td>
+        </tr>
+      `;
+    }
+
+    if (t === 'trips') {
+      const title = d ? (normalizeTitleJson(d.title) || d.slug || String(rid).slice(0, 8)) : String(rid).slice(0, 8);
+      const city = d?.start_city ? String(d.start_city) : '—';
+      return `
+        <tr>
+          <td>${escapeHtml(title)}</td>
+          <td>${escapeHtml(city)}</td>
+          <td style="text-align: right;"><button class="btn-small btn-secondary" onclick="removePartnerResourceAssignment('${escapeHtml(t)}','${escapeHtml(String(rid))}')">Remove</button></td>
+        </tr>
+      `;
+    }
+
+    if (t === 'hotels') {
+      const title = d ? (normalizeTitleJson(d.title) || d.slug || String(rid).slice(0, 8)) : String(rid).slice(0, 8);
+      const city = d?.city ? String(d.city) : '—';
+      return `
+        <tr>
+          <td>${escapeHtml(title)}</td>
+          <td>${escapeHtml(city)}</td>
+          <td style="text-align: right;"><button class="btn-small btn-secondary" onclick="removePartnerResourceAssignment('${escapeHtml(t)}','${escapeHtml(String(rid))}')">Remove</button></td>
+        </tr>
+      `;
+    }
+
+    if (t === 'shop') {
+      const label = d ? (d.name || d.slug || String(rid).slice(0, 8)) : String(rid).slice(0, 8);
+      const status = d?.status ? String(d.status) : '—';
+      return `
+        <tr>
+          <td>${escapeHtml(label)}</td>
+          <td>${escapeHtml(status)}</td>
+          <td style="text-align: right;"><button class="btn-small btn-secondary" onclick="removePartnerResourceAssignment('${escapeHtml(t)}','${escapeHtml(String(rid))}')">Remove</button></td>
+        </tr>
+      `;
+    }
+
+    return '';
+  }).join('');
+}
+
+function renderPartnerAssignmentsShop() {
+  const tbody = document.getElementById(partnerAssignTbodyId('shop'));
+  if (!tbody) return;
+
+  const vendorId = String(partnerAssignmentsState.partnerVendorId || '').trim();
+  if (vendorId) {
+    partnerAssignShopControlsEnabled(false);
+    const assignedCount = (partnerAssignmentsState.rowsByType.shop || []).length;
+    setPartnerAssignShopModeText(assignedCount ? `Vendor mode. (Ignoring ${assignedCount} assigned products)` : 'Vendor mode. Products are linked by vendor.');
+    const products = Array.isArray(partnerAssignmentsState.shopVendorProducts) ? partnerAssignmentsState.shopVendorProducts : [];
+    if (!products.length) {
+      clearPartnerAssignTable('shop', 3);
+      return;
+    }
+    tbody.innerHTML = products.map((p) => {
+      const label = p?.name || p?.slug || (p?.id ? String(p.id).slice(0, 8) : '—');
+      const status = p?.status ? String(p.status) : '—';
+      return `
+        <tr>
+          <td>${escapeHtml(label)}</td>
+          <td>${escapeHtml(status)}</td>
+          <td style="text-align:right;">—</td>
+        </tr>
+      `;
+    }).join('');
+    return;
+  }
+
+  partnerAssignShopControlsEnabled(true);
+  setPartnerAssignShopModeText('Partner mode. Assign individual products.');
+  renderPartnerAssignmentsTable('shop');
+}
+
+async function loadShopVendorProducts(vendorId) {
+  const client = ensureSupabase();
+  if (!client) return;
+  const vid = String(vendorId || '').trim();
+  if (!vid) {
+    partnerAssignmentsState.shopVendorProducts = [];
+    return;
+  }
+  try {
+    const { data, error } = await client
+      .from('shop_products')
+      .select('id, name, slug, status')
+      .eq('vendor_id', vid)
+      .order('updated_at', { ascending: false })
+      .limit(500);
+    if (error) throw error;
+    partnerAssignmentsState.shopVendorProducts = data || [];
+  } catch (_e) {
+    partnerAssignmentsState.shopVendorProducts = [];
+  }
+}
+
+async function refreshPartnerAssignments() {
+  const pid = String(partnerAssignmentsState.partnerId || '').trim();
+
+  ['cars', 'trips', 'hotels', 'shop'].forEach((t) => {
+    clearPartnerAssignTable(t, 3);
+    setPartnerAssignSelectOptions(t, []);
+  });
+
+  if (!pid) {
+    setPartnerAssignmentsHint('Save partner first to manage assigned resources.');
+    setPartnerAssignShopModeText('');
+    partnerAssignShopControlsEnabled(false);
+    return;
+  }
+
+  await loadPartnerAssignments(pid);
+  await loadShopVendorProducts(partnerAssignmentsState.partnerVendorId);
+  renderPartnerAssignmentsTables();
+
+  ['cars', 'trips', 'hotels', 'shop'].forEach((t) => {
+    schedulePartnerAssignSearch(t);
+  });
+}
+
+async function removePartnerResourceAssignment(type, resourceId) {
+  const client = ensureSupabase();
+  if (!client) return;
+  const pid = String(partnerAssignmentsState.partnerId || '').trim();
+  const t = String(type || '').trim();
+  const rid = String(resourceId || '').trim();
+  if (!pid || !t || !rid) return;
+
+  try {
+    const { error } = await client
+      .from('partner_resources')
+      .delete()
+      .eq('partner_id', pid)
+      .eq('resource_type', t)
+      .eq('resource_id', rid);
+    if (error) throw error;
+    showToast('Assignment removed', 'success');
+    await refreshPartnerAssignments();
+  } catch (e) {
+    console.error(e);
+    showToast(e.message || 'Failed to remove assignment', 'error');
+  }
+}
+
+window.removePartnerResourceAssignment = (type, resourceId) => removePartnerResourceAssignment(type, resourceId);
+
+async function addPartnerResourceAssignment(type) {
+  const client = ensureSupabase();
+  if (!client) return;
+  const pid = String(partnerAssignmentsState.partnerId || '').trim();
+  const t = String(type || '').trim();
+  if (!pid || !t) return;
+  if (t === 'shop' && String(partnerAssignmentsState.partnerVendorId || '').trim()) return;
+
+  const selectId = partnerAssignFieldId('select', t);
+  const select = selectId ? document.getElementById(selectId) : null;
+  const rid = String(select?.value || '').trim();
+  if (!rid) {
+    showToast('Select a resource first', 'error');
+    return;
+  }
+
+  try {
+    const { error } = await client
+      .from('partner_resources')
+      .insert({ partner_id: pid, resource_type: t, resource_id: rid });
+    if (error) throw error;
+    showToast('Resource assigned', 'success');
+    await refreshPartnerAssignments();
+  } catch (e) {
+    console.error(e);
+    const msg = String(e?.message || 'Failed to assign resource');
+    showToast(msg, 'error');
+  }
+}
+
+async function searchPartnerResources(type, term) {
+  const client = ensureSupabase();
+  if (!client) return [];
+  const t = String(type || '').trim();
+  const q = String(term || '').toLowerCase().trim();
+
+  if (t === 'shop' && String(partnerAssignmentsState.partnerVendorId || '').trim()) {
+    return [];
+  }
+
+  if (t === 'cars') {
+    try {
+      const { data, error } = await client
+        .from('car_offers')
+        .select('id, car_model, car_type, location')
+        .order('updated_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      const rows = (data || []).map((r) => {
+        const label = `${normalizeTitleJson(r.car_model) || normalizeTitleJson(r.car_type) || 'Car'}${r.location ? ` (${r.location})` : ''}`.trim();
+        return { id: r.id, label, raw: r };
+      });
+      if (!q) return rows.slice(0, 50);
+      return rows.filter((r) => String(r.label || '').toLowerCase().includes(q)).slice(0, 50);
+    } catch (_e) {
+      return [];
+    }
+  }
+
+  if (t === 'trips') {
+    const attempts = [
+      { select: 'id, slug, title, start_city', order: 'updated_at' },
+      { select: 'id, slug, title, start_city', order: 'created_at' },
+      { select: 'id, slug, title', order: 'updated_at' },
+      { select: 'id, slug, title', order: 'created_at' },
+    ];
+    for (const attempt of attempts) {
+      try {
+        const { data, error } = await client
+          .from('trips')
+          .select(attempt.select)
+          .order(attempt.order, { ascending: false })
+          .limit(500);
+        if (error) throw error;
+        const rows = (data || []).map((r) => {
+          const title = normalizeTitleJson(r.title) || r.slug || String(r.id).slice(0, 8);
+          const city = r.start_city ? ` — ${r.start_city}` : '';
+          return { id: r.id, label: `${title}${city}` };
+        });
+        if (!q) return rows.slice(0, 50);
+        return rows.filter((r) => String(r.label || '').toLowerCase().includes(q)).slice(0, 50);
+      } catch (_e) {
+      }
+    }
+    return [];
+  }
+
+  if (t === 'hotels') {
+    try {
+      const { data, error } = await client
+        .from('hotels')
+        .select('id, slug, title, city')
+        .order('updated_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      const rows = (data || []).map((r) => {
+        const title = normalizeTitleJson(r.title) || r.slug || String(r.id).slice(0, 8);
+        const city = r.city ? ` — ${r.city}` : '';
+        return { id: r.id, label: `${title}${city}` };
+      });
+      if (!q) return rows.slice(0, 50);
+      return rows.filter((r) => String(r.label || '').toLowerCase().includes(q)).slice(0, 50);
+    } catch (_e) {
+      return [];
+    }
+  }
+
+  if (t === 'shop') {
+    try {
+      const { data, error } = await client
+        .from('shop_products')
+        .select('id, name, slug, status')
+        .order('updated_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      const rows = (data || []).map((r) => {
+        const label = r.name || r.slug || String(r.id).slice(0, 8);
+        return { id: r.id, label };
+      });
+      if (!q) return rows.slice(0, 50);
+      return rows.filter((r) => String(r.label || '').toLowerCase().includes(q)).slice(0, 50);
+    } catch (_e) {
+      return [];
+    }
+  }
+
+  return [];
+}
+
+function schedulePartnerAssignSearch(type) {
+  const t = String(type || '').trim();
+  const searchId = partnerAssignFieldId('search', t);
+  const input = searchId ? document.getElementById(searchId) : null;
+  if (!input) return;
+  const term = String(input.value || '');
+
+  if (partnerAssignmentsState.searchTimers[t]) {
+    clearTimeout(partnerAssignmentsState.searchTimers[t]);
+  }
+
+  partnerAssignmentsState.searchTimers[t] = setTimeout(async () => {
+    partnerAssignmentsState.searchTimers[t] = null;
+    try {
+      const rows = await searchPartnerResources(t, term);
+      partnerAssignmentsState.searchResults[t] = rows;
+      setPartnerAssignSelectOptions(t, rows);
+    } catch (_e) {
+      setPartnerAssignSelectOptions(t, []);
+    }
+  }, 250);
+}
+
+function bindPartnerAssignmentsUi() {
+  if (partnerAssignmentsState.bound) return;
+  partnerAssignmentsState.bound = true;
+
+  const tabs = document.getElementById('partnerAssignTabButtons');
+  if (tabs) {
+    tabs.querySelectorAll('button[data-partner-assign-tab]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tab = btn.getAttribute('data-partner-assign-tab');
+        if (tab) setPartnerAssignActiveTab(tab);
+      });
+    });
+  }
+
+  ['cars', 'trips', 'hotels', 'shop'].forEach((t) => {
+    const searchId = partnerAssignFieldId('search', t);
+    const input = searchId ? document.getElementById(searchId) : null;
+    if (input) {
+      input.addEventListener('input', () => schedulePartnerAssignSearch(t));
+    }
+
+    const addId = partnerAssignFieldId('add', t);
+    const addBtn = addId ? document.getElementById(addId) : null;
+    if (addBtn) {
+      addBtn.addEventListener('click', () => addPartnerResourceAssignment(t));
+    }
+  });
+
+  setPartnerAssignActiveTab(partnerAssignmentsState.activeTab || 'cars');
+}
+
 async function loadPartnersData() {
   const client = ensureSupabase();
   if (!client) return;
@@ -762,6 +1345,11 @@ function getPartnerFormCarsLocations() {
 function closePartnerForm() {
   const modal = document.getElementById('partnerFormModal');
   hideElement(modal);
+
+  partnerAssignmentsState.partnerId = null;
+  partnerAssignmentsState.partnerVendorId = null;
+  setPartnerAssignmentsHint('');
+  setPartnerAssignShopModeText('');
 }
 
 async function openPartnerForm(partnerId = null) {
@@ -830,15 +1418,28 @@ async function openPartnerForm(partnerId = null) {
     setPartnerFormChecked('partnerFormCanViewPayouts', partner.can_view_payouts);
 
     setPartnerFormCarsLocations(partner.cars_locations);
+
+    partnerAssignmentsState.partnerId = partner.id;
+    partnerAssignmentsState.partnerVendorId = partner.shop_vendor_id || null;
   } else {
     if (title) title.textContent = 'New partner';
     setPartnerFormValue('partnerFormStatus', 'active');
     setPartnerFormChecked('partnerFormCanViewStats', true);
 
     setPartnerFormCarsLocations([]);
+
+    partnerAssignmentsState.partnerId = null;
+    partnerAssignmentsState.partnerVendorId = null;
   }
 
   showElement(modal);
+
+  bindPartnerAssignmentsUi();
+  setPartnerAssignActiveTab(partnerAssignmentsState.activeTab || 'cars');
+  try {
+    await refreshPartnerAssignments();
+  } catch (_e) {
+  }
 }
 
 async function savePartnerFromForm() {
@@ -883,9 +1484,21 @@ async function savePartnerFromForm() {
       if (error) throw error;
       showToast('Partner updated', 'success');
     } else {
-      const { error } = await client.from('partners').insert(payload);
+      const { data: inserted, error } = await client.from('partners').insert(payload).select('id').single();
       if (error) throw error;
+      if (inserted?.id) {
+        const hidden = document.getElementById('partnerFormId');
+        if (hidden) hidden.value = inserted.id;
+      }
       showToast('Partner created', 'success');
+    }
+
+    const effectivePartnerId = String(document.getElementById('partnerFormId')?.value || partnerId || '').trim();
+    partnerAssignmentsState.partnerId = effectivePartnerId || null;
+    partnerAssignmentsState.partnerVendorId = vendorId || null;
+    try {
+      await refreshPartnerAssignments();
+    } catch (_e) {
     }
 
     closePartnerForm();
@@ -9003,6 +9616,18 @@ function initEventListeners() {
 
   const partnerFormOverlay = document.getElementById('partnerFormModalOverlay');
   if (partnerFormOverlay) partnerFormOverlay.addEventListener('click', () => closePartnerForm());
+
+  const partnerVendorSelect = document.getElementById('partnerFormVendor');
+  if (partnerVendorSelect) {
+    partnerVendorSelect.addEventListener('change', async () => {
+      const vendorId = String(partnerVendorSelect.value || '').trim();
+      partnerAssignmentsState.partnerVendorId = vendorId || null;
+      try {
+        await refreshPartnerAssignments();
+      } catch (_e) {
+      }
+    });
+  }
 
   const partnerUsersClose = document.getElementById('btnClosePartnerUsers');
   if (partnerUsersClose) partnerUsersClose.addEventListener('click', () => closePartnerUsersModal());
