@@ -2292,6 +2292,17 @@ async function deleteShopOrder(orderId, orderNumber, paymentStatus) {
   if (!client) return;
 
   try {
+    const { data: orderRow, error: orderLoadError } = await client
+      .from('shop_orders')
+      .select('id, order_source')
+      .eq('id', orderId)
+      .single();
+    if (orderLoadError) throw orderLoadError;
+    if (!orderRow || String(orderRow.order_source || '') !== 'admin') {
+      showToast('Delete allowed only for admin-created orders', 'error');
+      return;
+    }
+
     const { error } = await client
       .from('shop_orders')
       .delete()
@@ -2472,7 +2483,6 @@ async function viewTripBookingDetails(bookingId) {
       return;
     }
 
-    // Show modal
     const modal = $('#tripBookingDetailsModal');
     const content = $('#tripBookingDetailsContent');
     if (!modal || !content) {
@@ -2480,20 +2490,19 @@ async function viewTripBookingDetails(bookingId) {
       return;
     }
 
-    // Format dates
     const tripDate = booking.trip_date ? new Date(booking.trip_date).toLocaleDateString('en-GB') : 'Not set';
     const arrivalDate = booking.arrival_date ? new Date(booking.arrival_date).toLocaleDateString('en-GB') : 'N/A';
     const departureDate = booking.departure_date ? new Date(booking.departure_date).toLocaleDateString('en-GB') : 'N/A';
     const createdAt = booking.created_at ? new Date(booking.created_at).toLocaleString('en-GB') : 'N/A';
 
-    // Status badge
+    const canDelete = String(booking.source || '') === 'admin';
+
     const statusClass = 
       booking.status === 'confirmed' ? 'badge-success' :
       booking.status === 'pending' ? 'badge-warning' :
       booking.status === 'cancelled' ? 'badge-danger' :
       booking.status === 'completed' ? 'badge-success' : 'badge';
 
-    // Build content HTML
     content.innerHTML = `
       <div style="display: grid; gap: 24px;">
         <!-- Header Info -->
@@ -2595,6 +2604,7 @@ async function viewTripBookingDetails(bookingId) {
           >
             Close
           </button>
+          ${canDelete ? `
           <button 
             type="button" 
             class="btn-danger"
@@ -2603,6 +2613,7 @@ async function viewTripBookingDetails(bookingId) {
           >
             🗑️ Delete Booking
           </button>
+          ` : ''}
         </div>
       </div>
     `;
@@ -2676,6 +2687,37 @@ async function deleteTripBooking(bookingId) {
     if (!client) {
       showToast('Database connection not available', 'error');
       return;
+    }
+
+    let bookingRow = null;
+    try {
+      const res = await client
+        .from('trip_bookings')
+        .select('id, source')
+        .eq('id', bookingId)
+        .single();
+      if (res.error) throw res.error;
+      bookingRow = res.data;
+    } catch (e) {
+      if (/column\s+"source"\s+does\s+not\s+exist/i.test(String(e.message || ''))) {
+        showToast('DB not upgraded: trip_bookings.source missing (run migrations).', 'error');
+        return;
+      }
+      throw e;
+    }
+
+    if (!bookingRow || String(bookingRow.source || '') !== 'admin') {
+      showToast('Delete allowed only for admin-created bookings', 'error');
+      return;
+    }
+
+    try {
+      await client
+        .from('partner_service_fulfillments')
+        .delete()
+        .eq('resource_type', 'trips')
+        .eq('booking_id', bookingId);
+    } catch (_e) {
     }
 
     const { error } = await client
@@ -2768,6 +2810,7 @@ async function loadTripsAdminData() {
           <td style="display:flex;gap:8px;">
             <button class="btn-primary" onclick="editTrip('${t.id}')">Edit</button>
             <a class="btn-secondary" href="/trip.html?slug=${encodeURIComponent(t.slug)}" target="_blank">Preview</a>
+            <button class="btn-danger" onclick="deleteTripResource('${t.id}', '${escapeHtml(String(title)).replace(/'/g, "\\'")}')">Delete</button>
           </td>
         </tr>
       `;
@@ -4135,6 +4178,7 @@ async function loadHotelsAdminData() {
           <td style="display:flex;gap:8px;">
             <button class="btn-primary" onclick="editHotel('${h.id}')">Edit</button>
             <a class="btn-secondary" href="/hotel.html?slug=${encodeURIComponent(h.slug)}" target="_blank">Preview</a>
+            <button class="btn-danger" onclick="deleteHotelResource('${h.id}', '${escapeHtml(String(title)).replace(/'/g, "\\'")}')">Delete</button>
           </td>
         </tr>
       `;
@@ -4842,7 +4886,7 @@ async function viewHotelBookingDetails(bookingId) {
 
         <div style="display: flex; gap: 12px;">
           <button type="button" class="btn-secondary" onclick="document.getElementById('hotelBookingDetailsModal').hidden=true" style="flex: 1;">Close</button>
-          <button type="button" class="btn-danger" onclick="deleteHotelBooking('${booking.id}')" style="flex: 1;">🗑️ Delete Booking</button>
+          ${canDelete ? `<button type="button" class="btn-danger" onclick="deleteHotelBooking('${booking.id}')" style="flex: 1;">🗑️ Delete Booking</button>` : ''}
         </div>
       </div>
     `;
@@ -4901,6 +4945,38 @@ async function deleteHotelBooking(bookingId) {
       showToast('Database connection not available', 'error');
       return;
     }
+
+    let bookingRow = null;
+    try {
+      const res = await client
+        .from('hotel_bookings')
+        .select('id, source')
+        .eq('id', bookingId)
+        .single();
+      if (res.error) throw res.error;
+      bookingRow = res.data;
+    } catch (e) {
+      if (/column\s+"source"\s+does\s+not\s+exist/i.test(String(e.message || ''))) {
+        showToast('DB not upgraded: hotel_bookings.source missing (run migrations).', 'error');
+        return;
+      }
+      throw e;
+    }
+
+    if (!bookingRow || String(bookingRow.source || '') !== 'admin') {
+      showToast('Delete allowed only for admin-created bookings', 'error');
+      return;
+    }
+
+    try {
+      await client
+        .from('partner_service_fulfillments')
+        .delete()
+        .eq('resource_type', 'hotels')
+        .eq('booking_id', bookingId);
+    } catch (_e) {
+    }
+
     const { error } = await client
       .from('hotel_bookings')
       .delete()
@@ -4923,6 +4999,64 @@ window.viewHotelBookingDetails = viewHotelBookingDetails;
 window.moveHotelOrder = moveHotelOrder;
 window.updateHotelBookingStatus = updateHotelBookingStatus;
 window.deleteHotelBooking = deleteHotelBooking;
+
+async function deletePartnerResourcesFor(resourceType, resourceId) {
+  const client = ensureSupabase();
+  if (!client) return;
+  try {
+    await client
+      .from('partner_resources')
+      .delete()
+      .eq('resource_type', resourceType)
+      .eq('resource_id', resourceId);
+  } catch (_e) {
+  }
+}
+
+async function deleteTripResource(tripId, label) {
+  if (!confirm(`Are you sure you want to delete trip "${label}"?\n\nThis action cannot be undone.`)) return;
+  const typed = prompt('Type DELETE to confirm deletion:');
+  if (typed !== 'DELETE') {
+    showToast('Deletion cancelled', 'info');
+    return;
+  }
+  const client = ensureSupabase();
+  if (!client) return;
+  try {
+    await deletePartnerResourcesFor('trips', tripId);
+    const { error } = await client.from('trips').delete().eq('id', tripId);
+    if (error) throw error;
+    showToast('Trip deleted', 'success');
+    await loadTripsAdminData();
+  } catch (e) {
+    console.error('Failed to delete trip:', e);
+    showToast('Failed to delete trip: ' + (e.message || 'Unknown error'), 'error');
+  }
+}
+
+async function deleteHotelResource(hotelId, label) {
+  if (!confirm(`Are you sure you want to delete hotel "${label}"?\n\nThis action cannot be undone.`)) return;
+  const typed = prompt('Type DELETE to confirm deletion:');
+  if (typed !== 'DELETE') {
+    showToast('Deletion cancelled', 'info');
+    return;
+  }
+  const client = ensureSupabase();
+  if (!client) return;
+  try {
+    await deletePartnerResourcesFor('hotels', hotelId);
+    const { error } = await client.from('hotels').delete().eq('id', hotelId);
+    if (error) throw error;
+    showToast('Hotel deleted', 'success');
+    await loadHotelsAdminData();
+  } catch (e) {
+    console.error('Failed to delete hotel:', e);
+    showToast('Failed to delete hotel: ' + (e.message || 'Unknown error'), 'error');
+  }
+}
+
+window.deleteTripResource = deleteTripResource;
+window.deleteHotelResource = deleteHotelResource;
 
 function addPricingTierRow(tbodyId, tier) {
   const tbody = document.getElementById(tbodyId);
@@ -7019,6 +7153,11 @@ async function viewCarBookingDetails(bookingId) {
       return;
     }
 
+    const deleteBtn = document.getElementById('btnDeleteBooking');
+    if (deleteBtn) {
+      deleteBtn.hidden = String(booking.source || '') !== 'admin';
+    }
+
     // Show modal
     const modal = $('#bookingDetailsModal');
     const content = $('#bookingDetailsContent');
@@ -7673,6 +7812,26 @@ async function deleteCarBooking(bookingId) {
       return;
     }
 
+    const { data: bookingRow, error: bookingLoadError } = await client
+      .from('car_bookings')
+      .select('id, source')
+      .eq('id', bookingId)
+      .single();
+    if (bookingLoadError) throw bookingLoadError;
+    if (!bookingRow || String(bookingRow.source || '') !== 'admin') {
+      showToast('Delete allowed only for admin-created bookings', 'error');
+      return;
+    }
+
+    try {
+      await client
+        .from('partner_service_fulfillments')
+        .delete()
+        .eq('resource_type', 'cars')
+        .eq('booking_id', bookingId);
+    } catch (_e) {
+    }
+
     const { error } = await client
       .from('car_bookings')
       .delete()
@@ -7939,6 +8098,20 @@ async function deleteFleetCar(carId, carModel) {
   try {
     const client = ensureSupabase();
     if (!client) throw new Error('Database connection not available');
+
+    try {
+      await deletePartnerResourcesFor('cars', carId);
+    } catch (_e) {
+    }
+
+    try {
+      await client
+        .from('partner_service_fulfillments')
+        .delete()
+        .eq('resource_type', 'cars')
+        .eq('resource_id', carId);
+    } catch (_e) {
+    }
 
     const { error } = await client
       .from('car_offers')
@@ -18285,7 +18458,7 @@ async function viewShopOrder(orderId) {
       </div>
 
       <div style="margin-top: 24px; display: flex; gap: 12px; justify-content: flex-end;">
-        <button class="btn-secondary" onclick="deleteShopOrder('${order.id}', '${escapeHtml(order.order_number).replace(/'/g, "\\'")}', '${escapeHtml(order.payment_status || '').replace(/'/g, "\\'")}')" style="background: #ef4444; color: white;">🗑️ Usuń</button>
+        ${String(order.order_source || '') === 'admin' ? `<button class="btn-secondary" onclick="deleteShopOrder('${order.id}', '${escapeHtml(order.order_number).replace(/'/g, "\\'")}', '${escapeHtml(order.payment_status || '').replace(/'/g, "\\'")}')" style="background: #ef4444; color: white;">🗑️ Usuń</button>` : ''}
         <button class="btn-primary" onclick="updateOrderStatus('${order.id}')">💾 Zapisz zmiany</button>
         <button class="btn-secondary" onclick="document.getElementById('shopOrderModal').hidden = true">Zamknij</button>
       </div>
@@ -18405,6 +18578,7 @@ async function deleteShopProduct(productId, productName) {
   if (!client) return;
 
   try {
+    await deletePartnerResourcesFor('shop', productId);
     const { error } = await client.from('shop_products').delete().eq('id', productId);
     if (error) throw error;
     showToast('Produkt usunięty', 'success');

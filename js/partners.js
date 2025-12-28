@@ -651,17 +651,28 @@
         .limit(limit),
       state.sb
         .from('partner_service_fulfillments')
-        .select('id, partner_id, resource_type, booking_id, resource_id, status, sla_deadline_at, accepted_at, rejected_at, rejected_reason, contact_revealed_at, created_at, reference, summary, start_date, end_date, total_price, currency')
+        .select('id, partner_id, resource_type, booking_id, resource_id, status, sla_deadline_at, accepted_at, rejected_at, rejected_reason, contact_revealed_at, created_at, reference, summary, start_date, end_date, total_price, currency, details')
         .eq('partner_id', state.selectedPartnerId)
         .order('created_at', { ascending: false })
         .limit(limit),
     ]);
 
     if (shopRes.error) throw shopRes.error;
-    if (serviceRes.error) throw serviceRes.error;
+
+    let resolvedServiceRes = serviceRes;
+    if (resolvedServiceRes.error && /details/i.test(String(resolvedServiceRes.error.message || ''))) {
+      resolvedServiceRes = await state.sb
+        .from('partner_service_fulfillments')
+        .select('id, partner_id, resource_type, booking_id, resource_id, status, sla_deadline_at, accepted_at, rejected_at, rejected_reason, contact_revealed_at, created_at, reference, summary, start_date, end_date, total_price, currency')
+        .eq('partner_id', state.selectedPartnerId)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+    }
+
+    if (resolvedServiceRes.error) throw resolvedServiceRes.error;
 
     const shopRows = (Array.isArray(shopRes.data) ? shopRes.data : []).map((f) => ({ ...f, __source: 'shop' }));
-    const serviceRows = (Array.isArray(serviceRes.data) ? serviceRes.data : []).map((f) => ({ ...f, __source: 'service' }));
+    const serviceRows = (Array.isArray(resolvedServiceRes.data) ? resolvedServiceRes.data : []).map((f) => ({ ...f, __source: 'service' }));
 
     const merged = shopRows
       .concat(serviceRows)
@@ -854,16 +865,47 @@
         const items = isShop ? (state.itemsByFulfillmentId[id] || []) : [];
         const contact = state.contactsByFulfillmentId[id] || null;
 
+        const durationDays = (() => {
+          if (isShop) return null;
+          if (String(f.resource_type || '') !== 'cars') return null;
+          const d = (f.details && typeof f.details === 'object')
+            ? (f.details.duration_days ?? f.details.durationDays ?? f.details.duration)
+            : null;
+          const dn = d != null ? Number(d) : null;
+          if (dn != null && Number.isFinite(dn)) return dn;
+          if (f.start_date && f.end_date) {
+            try {
+              const start = new Date(`${String(f.start_date).slice(0, 10)}T00:00:00`);
+              const end = new Date(`${String(f.end_date).slice(0, 10)}T00:00:00`);
+              const days = Math.round((end.getTime() - start.getTime()) / 86400000);
+              return Number.isFinite(days) ? Math.max(days, 0) : null;
+            } catch (_e) {
+              return null;
+            }
+          }
+          return null;
+        })();
+
         const datesHtml = (() => {
           if (isShop) return '<span class="muted">—</span>';
           if (f.start_date && f.end_date) {
-            return `<div class="small">${escapeHtml(`${formatDate(f.start_date)} → ${formatDate(f.end_date)}`)}</div>`;
+            const durationHtml = (durationDays != null)
+              ? `<div class="muted small">Duration: ${escapeHtml(String(durationDays))} day(s)</div>`
+              : '';
+            return `<div class="small">${escapeHtml(`${formatDate(f.start_date)} → ${formatDate(f.end_date)}`)}</div>${durationHtml}`;
           }
           return '<span class="muted">—</span>';
         })();
 
         const priceHtml = (() => {
           if (!isShop) {
+            if (String(f.resource_type || '') === 'cars' && f.total_price != null) {
+              const val = escapeHtml(formatMoney(f.total_price, f.currency || 'EUR'));
+              return `
+                <div class="muted small">Suggested Total</div>
+                <div class="small" style="margin-top:6px; padding:8px 10px; border-radius:10px; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:#fff; font-weight:700; display:inline-block;">${val}</div>
+              `;
+            }
             return f.total_price != null
               ? `<span class="small">${escapeHtml(formatMoney(f.total_price, f.currency || 'EUR'))}</span>`
               : '<span class="muted">—</span>';
