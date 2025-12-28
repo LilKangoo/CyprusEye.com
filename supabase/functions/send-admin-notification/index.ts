@@ -138,11 +138,13 @@ function buildGenericEmail({
     if (category === "shop" && event === "paid") {
       return `[${label}] Nowe opłacone zamówienie ${recordId}`;
     }
-    if (category === "shop" && event === "partner_rejected") {
-      return `[${label}] Partner odrzucił zamówienie ${recordId}`;
+    if (event === "partner_rejected") {
+      const what = category === "shop" ? "zamówienie" : "rezerwację";
+      return `[${label}] Partner odrzucił ${what} ${recordId}`;
     }
-    if (category === "shop" && event === "partner_sla") {
-      return `[${label}] Partner nie zaakceptował na czas (SLA) ${recordId}`;
+    if (event === "partner_sla") {
+      const what = category === "shop" ? "zamówienie" : "rezerwację";
+      return `[${label}] Partner nie zaakceptował na czas (SLA) ${what} ${recordId}`;
     }
     return `[${label}] Nowa rezerwacja ${recordId}`;
   })();

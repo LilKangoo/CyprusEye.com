@@ -100,6 +100,9 @@
     .partner-form label { font-size: 12px; color: var(--muted); font-weight: 600; }
     .partner-form input, .partner-form select { width: 100%; height: 38px; border-radius: 10px; border: 1px solid var(--border); padding: 0 10px; background: var(--surface); color: var(--text); }
     .partner-form textarea { width: 100%; border-radius: 10px; border: 1px solid var(--border); padding: 10px; background: var(--surface); color: var(--text); min-height: 38px; }
+
+    .partner-calendar-filters { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 12px; margin-bottom: 12px; }
+    .partner-resource-panels { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; padding: 6px 2px; }
   </style>
 </head>
 
@@ -267,7 +270,7 @@
           <h3 style="margin: 10px 0 0;">Availability blocks</h3>
           <p class="muted" style="margin-top: 6px;">Wybierz zasób i oznacz dni jako niedostępne (domyślnie wszystkie dni są dostępne).</p>
 
-          <div class="partner-form" style="margin-bottom: 12px;">
+          <div class="partner-calendar-filters">
             <div>
               <label for="blockResourceType">Resource type</label>
               <div id="partnerResourceTypePanels" style="display:flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 2px;"></div>
@@ -280,7 +283,7 @@
             </div>
             <div>
               <label for="blockResourceId">Resource</label>
-              <div id="partnerResourcePanels" style="display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; max-height: 240px; overflow: auto; padding: 6px 2px;"></div>
+              <div id="partnerResourcePanels" class="partner-resource-panels"></div>
               <select id="blockResourceId" required>
                 <option value="">Select resource</option>
               </select>

@@ -37,6 +37,43 @@ function getFunctionsBaseUrl(): string {
   } catch (_e) {
     return "";
   }
+
+}
+
+async function sendAdminAlertOnServiceReject(params: {
+  category: "cars" | "trips" | "hotels";
+  bookingId: string;
+  fulfillmentId: string;
+  reason?: string | null;
+}) {
+  const base = getFunctionsBaseUrl();
+  if (!base) return;
+
+  const secret = (Deno.env.get("ADMIN_NOTIFY_SECRET") || "").trim();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (secret) headers["x-admin-notify-secret"] = secret;
+
+  const payload = {
+    category: params.category,
+    record_id: params.bookingId,
+    event: "partner_rejected",
+    record: {
+      id: params.bookingId,
+      note: `Partner rejected service fulfillment ${params.fulfillmentId}${params.reason ? `: ${params.reason}` : ""}`,
+    },
+  };
+
+  try {
+    await fetch(`${base}/send-admin-notification`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(payload),
+    });
+  } catch (_e) {
+    // best-effort
+  }
 }
 
 function extractBearerToken(req: Request): string | null {
@@ -152,22 +189,52 @@ serve(async (req) => {
 
   const userId = authData.user.id;
 
-  // Load fulfillment
-  const { data: fulfillment, error: fErr } = await supabase
-    .from("shop_order_fulfillments")
-    .select("id, order_id, partner_id, status")
-    .eq("id", fulfillmentId)
-    .single();
+  let kind: "shop" | "service" = "shop";
+  let fulfillment: any = null;
+  let partnerId: string | null = null;
+  let orderId = "";
+  let bookingId = "";
+  let serviceCategory: "cars" | "trips" | "hotels" | "" = "";
 
-  if (fErr || !fulfillment) {
+  {
+    const { data, error } = await supabase
+      .from("shop_order_fulfillments")
+      .select("id, order_id, partner_id, status")
+      .eq("id", fulfillmentId)
+      .maybeSingle();
+    if (!error && data) {
+      kind = "shop";
+      fulfillment = data;
+      partnerId = (data as any).partner_id as string | null;
+      orderId = String((data as any).order_id || "");
+    }
+  }
+
+  if (!fulfillment) {
+    const { data, error } = await supabase
+      .from("partner_service_fulfillments")
+      .select("id, partner_id, status, booking_id, resource_type")
+      .eq("id", fulfillmentId)
+      .maybeSingle();
+    if (!error && data) {
+      kind = "service";
+      fulfillment = data;
+      partnerId = (data as any).partner_id as string | null;
+      bookingId = String((data as any).booking_id || "");
+      const rt = String((data as any).resource_type || "").toLowerCase();
+      if (rt === "cars" || rt === "car") serviceCategory = "cars";
+      if (rt === "trips" || rt === "trip") serviceCategory = "trips";
+      if (rt === "hotels" || rt === "hotel") serviceCategory = "hotels";
+    }
+  }
+
+  if (!fulfillment) {
     return new Response(JSON.stringify({ error: "Fulfillment not found" }), {
       status: 404,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 
-  const partnerId = (fulfillment as any).partner_id as string | null;
-  const orderId = String((fulfillment as any).order_id || "");
   const fulfillmentStatus = String((fulfillment as any).status || "");
   if (!partnerId) {
     return new Response(JSON.stringify({ error: "Fulfillment has no partner assigned" }), {
@@ -215,14 +282,14 @@ serve(async (req) => {
   if (fulfillmentStatus !== "pending_acceptance") {
     if (action === "accept" && fulfillmentStatus === "accepted") {
       return new Response(
-        JSON.stringify({ ok: true, skipped: true, reason: "already_accepted", data: { order_id: orderId, fulfillment_id: fulfillmentId, partner_id: partnerId, all_accepted: false } }),
+        JSON.stringify({ ok: true, skipped: true, reason: "already_accepted", data: { order_id: orderId || null, booking_id: bookingId || null, fulfillment_id: fulfillmentId, partner_id: partnerId, all_accepted: false } }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
     if (action === "reject" && fulfillmentStatus === "rejected") {
       return new Response(
-        JSON.stringify({ ok: true, skipped: true, reason: "already_rejected", data: { order_id: orderId, fulfillment_id: fulfillmentId, partner_id: partnerId } }),
+        JSON.stringify({ ok: true, skipped: true, reason: "already_rejected", data: { order_id: orderId || null, booking_id: bookingId || null, fulfillment_id: fulfillmentId, partner_id: partnerId } }),
         { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
@@ -238,7 +305,7 @@ serve(async (req) => {
       const nowIso = new Date().toISOString();
 
       const { data: updRows, error: updErr } = await supabase
-        .from("shop_order_fulfillments")
+        .from(kind === "shop" ? "shop_order_fulfillments" : "partner_service_fulfillments")
         .update({
           status: "accepted",
           accepted_at: nowIso,
@@ -270,10 +337,17 @@ serve(async (req) => {
         partner_id: partnerId,
         actor_user_id: userId,
         action: "fulfillment_accepted",
-        entity_type: "shop_order_fulfillment",
+        entity_type: kind === "shop" ? "shop_order_fulfillment" : "service_fulfillment",
         entity_id: fulfillmentId,
-        metadata: { order_id: orderId },
+        metadata: kind === "shop" ? { order_id: orderId } : { booking_id: bookingId, resource_type: serviceCategory },
       });
+
+      if (kind === "service") {
+        return new Response(JSON.stringify({ ok: true, data: { booking_id: bookingId, fulfillment_id: fulfillmentId, partner_id: partnerId } }), {
+          status: 200,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
 
       // Compute order-level acceptance
       const { data: allRows, error: listErr } = await supabase
@@ -310,7 +384,7 @@ serve(async (req) => {
 
     const nowIso = new Date().toISOString();
     const { data: rejRows, error: rejErr } = await supabase
-      .from("shop_order_fulfillments")
+      .from(kind === "shop" ? "shop_order_fulfillments" : "partner_service_fulfillments")
       .update({
         status: "rejected",
         rejected_at: nowIso,
@@ -339,21 +413,30 @@ serve(async (req) => {
       partner_id: partnerId,
       actor_user_id: userId,
       action: "fulfillment_rejected",
-      entity_type: "shop_order_fulfillment",
+      entity_type: kind === "shop" ? "shop_order_fulfillment" : "service_fulfillment",
       entity_id: fulfillmentId,
-      metadata: { order_id: orderId, reason },
+      metadata: kind === "shop" ? { order_id: orderId, reason } : { booking_id: bookingId, resource_type: serviceCategory, reason },
     });
 
-    await supabase
-      .from("shop_orders")
-      .update({ partner_acceptance_status: "rejected", partner_acceptance_updated_at: nowIso })
-      .eq("id", orderId);
+    if (kind === "shop") {
+      await supabase
+        .from("shop_orders")
+        .update({ partner_acceptance_status: "rejected", partner_acceptance_updated_at: nowIso })
+        .eq("id", orderId);
 
-    if (orderId) {
-      await sendAdminAlertOnReject({ orderId, fulfillmentId, reason: reason || null });
+      if (orderId) {
+        await sendAdminAlertOnReject({ orderId, fulfillmentId, reason: reason || null });
+      }
+    } else if (bookingId && (serviceCategory === "cars" || serviceCategory === "trips" || serviceCategory === "hotels")) {
+      await sendAdminAlertOnServiceReject({
+        category: serviceCategory,
+        bookingId,
+        fulfillmentId,
+        reason: reason || null,
+      });
     }
 
-    return new Response(JSON.stringify({ ok: true, data: { order_id: orderId, fulfillment_id: fulfillmentId, partner_id: partnerId } }), {
+    return new Response(JSON.stringify({ ok: true, data: { order_id: orderId || null, booking_id: bookingId || null, fulfillment_id: fulfillmentId, partner_id: partnerId } }), {
       status: 200,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

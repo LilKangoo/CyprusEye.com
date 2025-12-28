@@ -694,28 +694,14 @@
       body: { fulfillment_id: fulfillmentId, action, reason: reason || undefined },
     });
     if (error) {
-      throw new Error(error.message || 'Request failed');
+      const msg = error.message || 'Request failed';
+      throw new Error(msg);
     }
     return data;
   }
 
   async function callServiceFulfillmentAction(fulfillmentId, action, reason) {
-    if (!state.sb) throw new Error('Supabase client not available');
-
-    if (action === 'accept') {
-      const { data, error } = await state.sb.rpc('partner_accept_service_fulfillment', {
-        p_fulfillment_id: fulfillmentId,
-      });
-      if (error) throw new Error(error.message || 'Request failed');
-      return data;
-    }
-
-    const { data, error } = await state.sb.rpc('partner_reject_service_fulfillment', {
-      p_fulfillment_id: fulfillmentId,
-      p_reason: reason || null,
-    });
-    if (error) throw new Error(error.message || 'Request failed');
-    return data;
+    return callFulfillmentAction(fulfillmentId, action, reason);
   }
 
   function renderFulfillmentsTable() {
