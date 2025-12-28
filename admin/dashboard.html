@@ -3074,7 +3074,7 @@
               <select id="calendarsPartnerFilter" class="form-control" style="width: 220px;">
                 <option value="">All partners</option>
               </select>
-              <select id="calendarsResourceTypeFilter" class="form-control" style="width: 180px;">
+              <select id="calendarsResourceTypeFilter" class="form-control" style="width: 180px;" hidden>
                 <option value="">All resource types</option>
                 <option value="shop">Shop</option>
                 <option value="cars">Cars</option>
@@ -3085,14 +3085,25 @@
             </div>
           </div>
           <div class="admin-card-body">
-            <form id="calendarsCreateBlockForm" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; align-items: end; margin-bottom: 16px;">
-              <label class="admin-form-field" style="margin: 0;">
+            <div style="display:flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px;">
+              <div style="min-width: 220px;">
+                <div style="font-size: 12px; color: var(--admin-text-muted); margin-bottom: 6px;">Resource type</div>
+                <div id="adminCalendarsResourceTypePanels" style="display:flex; gap: 8px; flex-wrap: wrap;"></div>
+              </div>
+              <div style="flex: 1 1 340px; min-width: 260px;">
+                <div style="font-size: 12px; color: var(--admin-text-muted); margin-bottom: 6px;">Resource</div>
+                <div id="adminCalendarsResourcePanels" style="display:flex; gap: 8px; flex-wrap: wrap;"></div>
+              </div>
+            </div>
+
+            <form id="calendarsCreateBlockForm" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; align-items: end; margin-bottom: 16px;">
+              <label class="admin-form-field" style="margin: 0;" hidden>
                 <span>Partner</span>
                 <select id="calendarsCreatePartner" class="form-control" required>
                   <option value="">Select partner</option>
                 </select>
               </label>
-              <label class="admin-form-field" style="margin: 0;">
+              <label class="admin-form-field" style="margin: 0;" hidden>
                 <span>Type</span>
                 <select id="calendarsCreateType" class="form-control" required>
                   <option value="">Select type</option>
@@ -3102,7 +3113,7 @@
                   <option value="hotels">Hotels</option>
                 </select>
               </label>
-              <label class="admin-form-field" style="margin: 0;">
+              <label class="admin-form-field" style="margin: 0;" hidden>
                 <span>Resource</span>
                 <select id="calendarsCreateResource" class="form-control" required>
                   <option value="">Select resource</option>

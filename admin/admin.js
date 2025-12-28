@@ -136,6 +136,109 @@ async function loadCalendarsCreateResourceOptions() {
   }
 }
 
+function renderAdminCalendarsResourceTypePanels() {
+  const root = document.getElementById('adminCalendarsResourceTypePanels');
+  if (!root) return;
+
+  const current = String(document.getElementById('calendarsResourceTypeFilter')?.value || '').trim();
+  const items = [
+    { id: '', label: 'All' },
+    { id: 'shop', label: 'Shop' },
+    { id: 'cars', label: 'Cars' },
+    { id: 'trips', label: 'Trips' },
+    { id: 'hotels', label: 'Hotels' },
+  ];
+
+  root.innerHTML = items.map((it) => {
+    const active = String(it.id) === current;
+    const style = active
+      ? 'background: rgba(59,130,246,0.18); border-color: rgba(59,130,246,0.65); font-weight: 700;'
+      : '';
+    return `<button type="button" class="btn-small btn-secondary" data-admin-cal-type="${escapeHtml(String(it.id))}" style="${style}">${escapeHtml(it.label)}</button>`;
+  }).join('');
+
+  root.querySelectorAll('button[data-admin-cal-type]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const type = String(btn.getAttribute('data-admin-cal-type') || '').trim();
+      const typeSelect = document.getElementById('calendarsResourceTypeFilter');
+      const resourceSelect = document.getElementById('calendarsResourceIdFilter');
+      if (typeSelect) typeSelect.value = type;
+      if (resourceSelect) resourceSelect.value = '';
+      renderAdminCalendarsResourceTypePanels();
+      await loadCalendarsResourceOptions();
+      renderAdminCalendarsResourcePanels();
+      syncAdminCalendarsCreateFields();
+      renderCalendarsTable();
+      await loadCalendarsMonthData();
+    });
+  });
+}
+
+function renderAdminCalendarsResourcePanels() {
+  const root = document.getElementById('adminCalendarsResourcePanels');
+  if (!root) return;
+
+  const type = String(document.getElementById('calendarsResourceTypeFilter')?.value || '').trim();
+  const resourceId = String(document.getElementById('calendarsResourceIdFilter')?.value || '').trim();
+
+  if (!type) {
+    root.innerHTML = '<div style="color: var(--admin-text-muted); padding: 6px 0;">Select resource type</div>';
+    return;
+  }
+
+  const rows = Array.isArray(calendarsState.resourcesByType?.[type]) ? calendarsState.resourcesByType[type] : [];
+  if (!rows.length) {
+    root.innerHTML = '<div style="color: var(--admin-text-muted); padding: 6px 0;">No resources loaded</div>';
+    return;
+  }
+
+  const maxTiles = 60;
+  const tiles = rows.slice(0, maxTiles);
+  const extra = rows.length - tiles.length;
+
+  root.innerHTML = tiles.map((r) => {
+    const id = r?.id ? String(r.id) : '';
+    const label = r?.label ? String(r.label) : id;
+    const active = id && resourceId && id === resourceId;
+    const style = active
+      ? 'background: rgba(59,130,246,0.18); border-color: rgba(59,130,246,0.65); font-weight: 700;'
+      : '';
+    return `<button type="button" class="btn-small btn-secondary" data-admin-cal-resource="${escapeHtml(id)}" style="${style}">${escapeHtml(label)}</button>`;
+  }).join('') + (extra > 0 ? `<div style="padding: 6px 0; color: var(--admin-text-muted); font-size: 12px;">+${extra} more (use dropdown)</div>` : '');
+
+  root.querySelectorAll('button[data-admin-cal-resource]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = String(btn.getAttribute('data-admin-cal-resource') || '').trim();
+      const resourceSelect = document.getElementById('calendarsResourceIdFilter');
+      if (resourceSelect) resourceSelect.value = id;
+      renderAdminCalendarsResourcePanels();
+      syncAdminCalendarsCreateFields();
+      await loadCalendarsMonthData();
+    });
+  });
+}
+
+function syncAdminCalendarsCreateFields() {
+  const partnerFilter = document.getElementById('calendarsPartnerFilter');
+  const typeSelect = document.getElementById('calendarsResourceTypeFilter');
+  const resourceSelect = document.getElementById('calendarsResourceIdFilter');
+
+  const createPartner = document.getElementById('calendarsCreatePartner');
+  const createType = document.getElementById('calendarsCreateType');
+  const createResource = document.getElementById('calendarsCreateResource');
+
+  if (createPartner && partnerFilter) createPartner.value = String(partnerFilter.value || '');
+  if (createType && typeSelect) createType.value = String(typeSelect.value || '');
+
+  if (createType) {
+    loadCalendarsCreateResourceOptions().then(() => {
+      if (createResource && resourceSelect) {
+        createResource.value = String(resourceSelect.value || '');
+      }
+    });
+  }
+}
+
 function initAdminCalendarsRealtime() {
   const client = ensureSupabase();
   if (!client) return;
@@ -1910,6 +2013,10 @@ async function loadCalendarsResourceOptions() {
       .join('');
 
     if (existing) select.value = existing;
+
+    calendarsState.resourcesByType[type] = rows;
+    renderAdminCalendarsResourcePanels();
+    syncAdminCalendarsCreateFields();
   } catch (error) {
     console.error('Failed to load resource options:', error);
     select.innerHTML = '<option value="">Select resource</option>';
@@ -2109,8 +2216,10 @@ async function loadAdminCalendarsData() {
 
     renderCalendarsTable();
     ensureCalendarsMonthInput();
+    renderAdminCalendarsResourceTypePanels();
     await loadCalendarsResourceOptions();
     await loadCalendarsCreateResourceOptions();
+    syncAdminCalendarsCreateFields();
     await loadCalendarsMonthData();
   } catch (error) {
     console.error('Failed to load calendars:', error);
@@ -7296,17 +7405,34 @@ async function viewCarBookingDetails(bookingId) {
           const client = ensureSupabase();
           if (!client) throw new Error('Database connection not available');
 
-          const { error } = await client
-            .from('car_bookings')
-            .update({ 
-              quoted_price: quotedPrice,
-              final_price: finalPrice,
-              admin_notes: adminNotes,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', bookingId);
+          const pricingTotal = finalPrice ?? quotedPrice;
+          const baseUpdate = {
+            quoted_price: quotedPrice,
+            final_price: finalPrice,
+            total_price: typeof pricingTotal === 'number' ? pricingTotal : null,
+            admin_notes: adminNotes,
+            updated_at: new Date().toISOString(),
+          };
 
-          if (error) throw error;
+          let updateError = null;
+          for (let i = 0; i < 4; i += 1) {
+            const { error } = await client
+              .from('car_bookings')
+              .update(baseUpdate)
+              .eq('id', bookingId);
+            updateError = error;
+            if (!updateError) break;
+
+            const msg = String(updateError.message || '');
+            const m = msg.match(/column\s+([a-zA-Z0-9_]+)\s+does not exist/i);
+            if (!m || !m[1]) break;
+
+            const unknownCol = m[1];
+            if (!(unknownCol in baseUpdate)) break;
+            delete baseUpdate[unknownCol];
+          }
+
+          if (updateError) throw updateError;
 
           showToast('Pricing and notes saved successfully!', 'success');
           await loadCarsData(); // Refresh table
@@ -9641,6 +9767,7 @@ function initEventListeners() {
   const calendarsPartnerFilter = document.getElementById('calendarsPartnerFilter');
   if (calendarsPartnerFilter) {
     calendarsPartnerFilter.addEventListener('change', () => {
+      syncAdminCalendarsCreateFields();
       renderCalendarsTable();
       loadCalendarsMonthData();
     });
@@ -9652,6 +9779,7 @@ function initEventListeners() {
       renderCalendarsTable();
       const select = document.getElementById('calendarsResourceIdFilter');
       if (select) select.value = '';
+      renderAdminCalendarsResourceTypePanels();
       loadCalendarsResourceOptions().then(() => loadCalendarsMonthData());
     });
   }
@@ -9659,6 +9787,8 @@ function initEventListeners() {
   const calendarsResourceIdFilter = document.getElementById('calendarsResourceIdFilter');
   if (calendarsResourceIdFilter) {
     calendarsResourceIdFilter.addEventListener('change', () => {
+      renderAdminCalendarsResourcePanels();
+      syncAdminCalendarsCreateFields();
       loadCalendarsMonthData();
     });
   }

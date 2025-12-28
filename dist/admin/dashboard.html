@@ -3074,7 +3074,7 @@
               <select id="calendarsPartnerFilter" class="form-control" style="width: 220px;">
                 <option value="">All partners</option>
               </select>
-              <select id="calendarsResourceTypeFilter" class="form-control" style="width: 180px;">
+              <select id="calendarsResourceTypeFilter" class="form-control" style="width: 180px;" hidden>
                 <option value="">All resource types</option>
                 <option value="shop">Shop</option>
                 <option value="cars">Cars</option>
@@ -3085,14 +3085,25 @@
             </div>
           </div>
           <div class="admin-card-body">
-            <form id="calendarsCreateBlockForm" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; align-items: end; margin-bottom: 16px;">
-              <label class="admin-form-field" style="margin: 0;">
+            <div style="display:flex; gap: 10px; flex-wrap: wrap; align-items: center; margin-bottom: 12px;">
+              <div style="min-width: 220px;">
+                <div style="font-size: 12px; color: var(--admin-text-muted); margin-bottom: 6px;">Resource type</div>
+                <div id="adminCalendarsResourceTypePanels" style="display:flex; gap: 8px; flex-wrap: wrap;"></div>
+              </div>
+              <div style="flex: 1 1 340px; min-width: 260px;">
+                <div style="font-size: 12px; color: var(--admin-text-muted); margin-bottom: 6px;">Resource</div>
+                <div id="adminCalendarsResourcePanels" style="display:flex; gap: 8px; flex-wrap: wrap;"></div>
+              </div>
+            </div>
+
+            <form id="calendarsCreateBlockForm" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; align-items: end; margin-bottom: 16px;">
+              <label class="admin-form-field" style="margin: 0;" hidden>
                 <span>Partner</span>
                 <select id="calendarsCreatePartner" class="form-control" required>
                   <option value="">Select partner</option>
                 </select>
               </label>
-              <label class="admin-form-field" style="margin: 0;">
+              <label class="admin-form-field" style="margin: 0;" hidden>
                 <span>Type</span>
                 <select id="calendarsCreateType" class="form-control" required>
                   <option value="">Select type</option>
@@ -3102,7 +3113,7 @@
                   <option value="hotels">Hotels</option>
                 </select>
               </label>
-              <label class="admin-form-field" style="margin: 0;">
+              <label class="admin-form-field" style="margin: 0;" hidden>
                 <span>Resource</span>
                 <select id="calendarsCreateResource" class="form-control" required>
                   <option value="">Select resource</option>
@@ -3386,6 +3397,132 @@
               <label class="admin-checkbox"><input type="checkbox" id="partnerFormCarsLocLarnaca" /><span>Larnaca</span></label>
             </div>
             <small style="color: var(--admin-text-muted);">Select 1 or 2 locations. Used to show car offers in Partner Portal.</small>
+          </div>
+
+          <div style="margin-top: 18px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.08);">
+            <h4 style="margin: 0 0 8px; font-size: 13px; color: var(--admin-text-muted);">Assigned resources</h4>
+            <div id="partnerAssignmentsHint" style="color: var(--admin-text-muted); font-size: 12px; margin-bottom: 10px;"></div>
+            <div id="partnerAssignTabButtons" style="display:flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px;">
+              <button type="button" class="btn-small btn-secondary" data-partner-assign-tab="cars">Cars</button>
+              <button type="button" class="btn-small btn-secondary" data-partner-assign-tab="trips">Trips</button>
+              <button type="button" class="btn-small btn-secondary" data-partner-assign-tab="hotels">Hotels</button>
+              <button type="button" class="btn-small btn-secondary" data-partner-assign-tab="shop">Shop products</button>
+            </div>
+
+            <div id="partnerAssignPanels">
+              <div data-partner-assign-panel="cars" style="display:none;">
+                <div class="admin-form-grid" style="grid-template-columns: 1fr 240px 120px; gap: 10px; align-items: end;">
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Search</span>
+                    <input id="partnerAssignSearchCars" type="text" placeholder="e.g. Kia, Paphos" />
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Result</span>
+                    <select id="partnerAssignSelectCars" class="form-control"></select>
+                  </label>
+                  <button type="button" class="btn btn-primary" id="btnPartnerAssignAddCars">Add</button>
+                </div>
+                <div class="admin-table-container" style="margin-top: 12px;">
+                  <table class="admin-table" style="margin:0;">
+                    <thead>
+                      <tr>
+                        <th>Car offer</th>
+                        <th style="width: 180px;">Location</th>
+                        <th style="width: 120px; text-align: right;">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="partnerAssignListCars">
+                      <tr><td colspan="3" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div data-partner-assign-panel="trips" style="display:none;">
+                <div class="admin-form-grid" style="grid-template-columns: 1fr 240px 120px; gap: 10px; align-items: end;">
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Search</span>
+                    <input id="partnerAssignSearchTrips" type="text" placeholder="e.g. boat, ayia napa" />
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Result</span>
+                    <select id="partnerAssignSelectTrips" class="form-control"></select>
+                  </label>
+                  <button type="button" class="btn btn-primary" id="btnPartnerAssignAddTrips">Add</button>
+                </div>
+                <div class="admin-table-container" style="margin-top: 12px;">
+                  <table class="admin-table" style="margin:0;">
+                    <thead>
+                      <tr>
+                        <th>Trip</th>
+                        <th style="width: 220px;">Start city</th>
+                        <th style="width: 120px; text-align: right;">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="partnerAssignListTrips">
+                      <tr><td colspan="3" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div data-partner-assign-panel="hotels" style="display:none;">
+                <div class="admin-form-grid" style="grid-template-columns: 1fr 240px 120px; gap: 10px; align-items: end;">
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Search</span>
+                    <input id="partnerAssignSearchHotels" type="text" placeholder="e.g. limassol, resort" />
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Result</span>
+                    <select id="partnerAssignSelectHotels" class="form-control"></select>
+                  </label>
+                  <button type="button" class="btn btn-primary" id="btnPartnerAssignAddHotels">Add</button>
+                </div>
+                <div class="admin-table-container" style="margin-top: 12px;">
+                  <table class="admin-table" style="margin:0;">
+                    <thead>
+                      <tr>
+                        <th>Hotel</th>
+                        <th style="width: 220px;">City</th>
+                        <th style="width: 120px; text-align: right;">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="partnerAssignListHotels">
+                      <tr><td colspan="3" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div data-partner-assign-panel="shop" style="display:none;">
+                <div id="partnerAssignShopMode" style="color: var(--admin-text-muted); font-size: 12px; margin-bottom: 10px;"></div>
+                <div class="admin-form-grid" id="partnerAssignShopControls" style="grid-template-columns: 1fr 240px 120px; gap: 10px; align-items: end;">
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Search</span>
+                    <input id="partnerAssignSearchShop" type="text" placeholder="e.g. t-shirt" />
+                  </label>
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Result</span>
+                    <select id="partnerAssignSelectShop" class="form-control"></select>
+                  </label>
+                  <button type="button" class="btn btn-primary" id="btnPartnerAssignAddShop">Add</button>
+                </div>
+                <div class="admin-table-container" style="margin-top: 12px;">
+                  <table class="admin-table" style="margin:0;">
+                    <thead>
+                      <tr>
+                        <th>Product</th>
+                        <th style="width: 160px;">Status</th>
+                        <th style="width: 120px; text-align: right;">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody id="partnerAssignListShop">
+                      <tr><td colspan="3" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           </div>
 
           <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px;">
