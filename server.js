@@ -167,6 +167,32 @@ async function sendContactNotification(entry) {
   });
 }
 
+async function sendAdminNotificationEmail(params) {
+  const to = Array.isArray(params?.to) ? params.to : typeof params?.to === 'string' ? [params.to] : [];
+  const subject = typeof params?.subject === 'string' ? params.subject : '';
+  const text = typeof params?.text === 'string' ? params.text : '';
+  const html = typeof params?.html === 'string' ? params.html : '';
+
+  if (!to.length || !subject || (!text && !html)) {
+    throw new Error('Invalid admin notification payload');
+  }
+
+  const transport = getMailTransport();
+  if (!transport) {
+    console.warn('Powiadomienie admina nie zostało wysłane – brak konfiguracji SMTP.');
+    console.log(`\n===== Symulowana wiadomość e-mail (admin relay) =====\nDo: ${to.join(', ')}\nTemat: ${subject}\n\n${text}\n===== Koniec wiadomości =====\n`);
+    return;
+  }
+
+  await transport.sendMail({
+    from: SMTP_FROM,
+    to: to.join(','),
+    subject,
+    text,
+    html,
+  });
+}
+
 async function ensureSpreadsheetFile() {
   await fs.mkdir(DATA_DIR_PATH, { recursive: true });
   try {
@@ -174,6 +200,25 @@ async function ensureSpreadsheetFile() {
   } catch (error) {
     const header = 'id,email,name,createdAt,updatedAt\n';
     await fs.writeFile(SPREADSHEET_FILE_PATH, header, 'utf-8');
+  }
+}
+
+async function handleAdminNotificationRelay(req, res) {
+  try {
+    const required = (process.env.ADMIN_NOTIFY_SECRET || '').trim();
+    if (required) {
+      const provided = (req.headers['x-admin-notify-secret'] || '').toString().trim();
+      if (!provided || provided !== required) {
+        return jsonResponse(res, 401, { error: 'Unauthorized' });
+      }
+    }
+
+    const body = await parseRequestBody(req);
+    await sendAdminNotificationEmail(body);
+    return jsonResponse(res, 200, { ok: true });
+  } catch (error) {
+    console.error('Błąd podczas wysyłki powiadomienia admina:', error);
+    return jsonResponse(res, 500, { error: error?.message || 'Email send failed' });
   }
 }
 
@@ -517,6 +562,7 @@ const routes = {
   'GET /api/community/journal/stream': handleCommunityJournalStream,
   'POST /api/forms/coupon-search': handleCouponSearchForm,
   'POST /api/forms/contact': handleContactForm,
+  'POST /api/notifications/admin': handleAdminNotificationRelay,
 };
 
 const journalStreamClients = new Set();

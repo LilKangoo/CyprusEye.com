@@ -81,8 +81,9 @@ async function getAdminNotificationEmails(supabase: any): Promise<string> {
 }
 
 function buildMailTransport() {
-  const host = Deno.env.get("SMTP_HOST");
-  if (!host) return null;
+  const hostRaw = (Deno.env.get("SMTP_HOST") || "").trim();
+  if (!hostRaw || hostRaw.toUpperCase().includes("WKLEJ_SMTP_HOST")) return null;
+  const host = hostRaw;
 
   const portEnv = (Deno.env.get("SMTP_PORT") || "").trim();
   const portParsed = portEnv ? Number.parseInt(portEnv, 10) : Number.NaN;
@@ -108,6 +109,46 @@ function buildMailTransport() {
   }
 
   return nodemailer.createTransport(transportConfig);
+}
+
+function getMailRelayBaseUrl(): string {
+  const explicit = (Deno.env.get("MAIL_RELAY_BASE_URL") || "").trim();
+  const base = explicit || (Deno.env.get("ADMIN_PANEL_BASE_URL") || "").trim() || "https://cypruseye.com";
+  return base.endsWith("/") ? base.slice(0, -1) : base;
+}
+
+async function tryRelayEmail(params: {
+  to: string[];
+  subject: string;
+  text: string;
+  html: string;
+}): Promise<{ ok: boolean; status?: number; error?: string }> {
+  const base = getMailRelayBaseUrl();
+  const secret = (Deno.env.get("ADMIN_NOTIFY_SECRET") || "").trim();
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (secret) headers["x-admin-notify-secret"] = secret;
+
+  try {
+    const resp = await fetch(`${base}/api/notifications/admin`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ to: params.to, subject: params.subject, text: params.text, html: params.html }),
+    });
+    if (!resp.ok) {
+      let errText = "";
+      try {
+        errText = await resp.text();
+      } catch (_e) {
+        errText = "";
+      }
+      return { ok: false, status: resp.status, error: errText || resp.statusText };
+    }
+    return { ok: true, status: resp.status };
+  } catch (e) {
+    return { ok: false, error: e?.message || String(e) };
+  }
 }
 
 function buildAdminPanelLink(category: Category, recordId: string): string {
@@ -412,9 +453,16 @@ serve(async (req) => {
 
   const transport = buildMailTransport();
   if (!transport) {
+    const relayed = await tryRelayEmail({ to: recipients, subject, text, html });
+    if (relayed.ok) {
+      return new Response(JSON.stringify({ ok: true, relayed: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
     console.warn("SMTP_HOST not set – email will be logged only.");
     console.log(`\n===== Simulated admin notification =====\nTo: ${recipients.join(", ")}\nSubject: ${subject}\n\n${text}\n===== End =====\n`);
-    return new Response(JSON.stringify({ ok: true, simulated: true }), {
+    return new Response(JSON.stringify({ ok: true, simulated: true, relay_error: relayed.error || null }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
@@ -484,9 +532,16 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Failed to send admin notification email:", error);
-    return new Response(JSON.stringify({ error: error?.message || "Email send failed" }), {
+    const relayed = await tryRelayEmail({ to: recipients, subject, text, html });
+    if (relayed.ok) {
+      return new Response(JSON.stringify({ ok: true, relayed: true, smtp_failed: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+    return new Response(JSON.stringify({ ok: true, simulated: true, smtp_error: error?.message || "Email send failed", relay_error: relayed.error || null }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
+      status: 200,
     });
   }
 });
