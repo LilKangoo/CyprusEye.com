@@ -18,6 +18,9 @@
     },
   };
 
+  let blocksRealtimeChannel = null;
+  let blocksRealtimeTimer = null;
+
   const els = {
     warning: null,
     loginPrompt: null,
@@ -77,6 +80,62 @@
   function setHidden(el, hidden) {
     if (!el) return;
     el.hidden = !!hidden;
+  }
+
+  function stopBlocksRealtime() {
+    if (!blocksRealtimeChannel || !state.sb) return;
+    try {
+      if (typeof state.sb.removeChannel === 'function') {
+        state.sb.removeChannel(blocksRealtimeChannel);
+      } else if (typeof blocksRealtimeChannel.unsubscribe === 'function') {
+        blocksRealtimeChannel.unsubscribe();
+      }
+    } catch (_e) {
+    }
+    blocksRealtimeChannel = null;
+  }
+
+  function scheduleBlocksRealtimeRefresh() {
+    if (blocksRealtimeTimer) {
+      clearTimeout(blocksRealtimeTimer);
+    }
+    blocksRealtimeTimer = setTimeout(async () => {
+      blocksRealtimeTimer = null;
+      try {
+        if (!state.selectedPartnerId) return;
+        if (!els.tabCalendar?.hidden) {
+          await refreshCalendar();
+        } else {
+          await loadBlocks();
+          syncResourceTypeOptions();
+        }
+      } catch (_e) {
+      }
+    }, 350);
+  }
+
+  function startBlocksRealtime() {
+    stopBlocksRealtime();
+    if (!state.sb || typeof state.sb.channel !== 'function') return;
+    if (!state.selectedPartnerId) return;
+
+    try {
+      blocksRealtimeChannel = state.sb
+        .channel(`partner-blocks-${String(state.selectedPartnerId).slice(0, 8)}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'partner_availability_blocks' },
+          (payload) => {
+            const row = payload?.new || payload?.old || null;
+            if (!row) return;
+            if (String(row.partner_id || '') !== String(state.selectedPartnerId)) return;
+            scheduleBlocksRealtimeRefresh();
+          }
+        )
+        .subscribe();
+    } catch (_e) {
+      blocksRealtimeChannel = null;
+    }
   }
 
   function hideSelectForPanels(selectEl) {
@@ -1453,6 +1512,8 @@
       setPersistedPartnerId(state.selectedPartnerId);
     }
 
+    startBlocksRealtime();
+
     renderSuspendedInfo();
 
     syncResourceTypeOptions();
@@ -1628,6 +1689,9 @@
       state.sb.auth.onAuthStateChange((_event, session) => {
         state.session = session;
         state.user = session?.user || null;
+        if (!session) {
+          stopBlocksRealtime();
+        }
         bootstrapPortal();
       });
     }
