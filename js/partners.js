@@ -969,14 +969,15 @@
     if (type === 'cars') {
       const assignedIds = await loadPartnerResourceIdsForType('cars');
       const rowsMap = new Map();
+      const locs = Array.isArray(partner.cars_locations) ? partner.cars_locations.filter(Boolean) : [];
 
       try {
-        const { data, error } = await state.sb
+        let q = state.sb
           .from('car_offers')
           .select('id, car_model, car_type, location')
-          .eq('owner_partner_id', partner.id)
-          .order('updated_at', { ascending: false })
-          .limit(500);
+          .eq('owner_partner_id', partner.id);
+        if (locs.length) q = q.in('location', locs);
+        const { data, error } = await q.order('updated_at', { ascending: false }).limit(500);
         if (error) throw error;
         (data || []).forEach((r) => {
           if (!r?.id) return;
@@ -987,12 +988,12 @@
 
       if (assignedIds.length) {
         try {
-          const { data, error } = await state.sb
+          let q = state.sb
             .from('car_offers')
             .select('id, car_model, car_type, location')
-            .in('id', assignedIds)
-            .order('updated_at', { ascending: false })
-            .limit(500);
+            .in('id', assignedIds);
+          if (locs.length) q = q.in('location', locs);
+          const { data, error } = await q.order('updated_at', { ascending: false }).limit(500);
           if (error) throw error;
           (data || []).forEach((r) => {
             if (!r?.id) return;
@@ -1005,25 +1006,6 @@
             if (!rowsMap.has(id)) rowsMap.set(id, { id, label: `Car (${String(id).slice(0, 8)})` });
           });
         }
-      }
-
-      const locs = Array.isArray(partner.cars_locations) ? partner.cars_locations.filter(Boolean) : [];
-      if (locs.length) {
-        try {
-          const { data, error } = await state.sb
-            .from('car_offers')
-            .select('id, car_model, car_type, location')
-            .in('location', locs)
-            .eq('is_published', true)
-            .order('updated_at', { ascending: false })
-            .limit(500);
-          if (error) throw error;
-          (data || []).forEach((r) => {
-            if (!r?.id) return;
-            const label = `${normalizeTitleJson(r.car_model) || normalizeTitleJson(r.car_type) || 'Car'}${r.location ? ` (${r.location})` : ''}`.trim();
-            rowsMap.set(r.id, { id: r.id, label });
-          });
-        } catch (_e) {}
       }
 
       const fromBlocks = blockResourceIdsForType('cars');
@@ -1097,18 +1079,6 @@
             if (!rowsMap.has(id)) rowsMap.set(id, { id, label: `Trip (${String(id).slice(0, 8)})` });
           });
         }
-      }
-
-      if (!rowsMap.size && partner?.can_manage_trips) {
-        try {
-          const data = await selectTrips({});
-          (data || []).forEach((r) => {
-            if (!r?.id) return;
-            const title = normalizeTitleJson(r.title) || r.slug || r.id;
-            const city = r.start_city ? ` — ${r.start_city}` : '';
-            if (!rowsMap.has(r.id)) rowsMap.set(r.id, { id: r.id, label: `${title}${city}` });
-          });
-        } catch (_e) {}
       }
 
       const fromBlocks = blockResourceIdsForType('trips');
@@ -1360,10 +1330,6 @@
     if (canCars) allowed.push('cars');
     if (canTrips) allowed.push('trips');
     if (canHotels) allowed.push('hotels');
-
-    ['shop', 'cars', 'trips', 'hotels'].forEach((t) => {
-      if (blockTypes.has(t) && !allowed.includes(t)) allowed.push(t);
-    });
 
     const opts = [];
     if (allowed.includes('shop')) opts.push('<option value="shop">shop</option>');
