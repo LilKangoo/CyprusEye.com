@@ -307,6 +307,10 @@ async function handleReservationSubmit(event) {
     if (submitBtn) submitBtn.disabled = true;
     if (errorDiv) errorDiv.hidden = true;
     
+    const resCarSelect = document.getElementById('res_car');
+    const selectedResCarOpt = resCarSelect && resCarSelect.selectedOptions ? resCarSelect.selectedOptions[0] : null;
+    const offerId = selectedResCarOpt?.dataset?.offerId || null;
+
     // Build data object with only essential fields
     const data = {
       // Personal info (REQUIRED)
@@ -316,6 +320,7 @@ async function handleReservationSubmit(event) {
       
       // Rental details (REQUIRED)
       car_model: formData.get('car'),
+      offer_id: offerId || undefined,
       pickup_date: formData.get('pickup_date'),
       pickup_time: formData.get('pickup_time') || '10:00',
       pickup_location: formData.get('pickup_location'),

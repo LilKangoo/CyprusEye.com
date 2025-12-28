@@ -127,7 +127,7 @@ function renderFleet() {
             ${features.slice(0, 3).map(f => `<li>✓ ${escapeHtml(f)}</li>`).join('')}
           </ul>
         ` : ''}
-        <button type="button" class="btn btn-secondary secondary" data-select-car="${escapeHtml(carModelName)}">${reserveLabel}</button>
+        <button type="button" class="btn btn-secondary secondary" data-select-car="${escapeHtml(carModelName)}" data-select-car-offer-id="${escapeHtml(car.id)}">${reserveLabel}</button>
       </article>
     `;
   }).join('');
@@ -151,7 +151,7 @@ function updateCalculatorOptions() {
     const seats = car.max_passengers || 5;
     const carModelName = window.getCarName ? window.getCarName(car) : car.car_model;
     const seatsLabel = currentLang === 'en' ? (seats === 1 ? 'seat' : 'seats') : 'os.';
-    return `<option value="${escapeHtml(carModelName)}">${escapeHtml(carModelName)} — ${transmission} • ${seats} ${seatsLabel}</option>`;
+    return `<option value="${escapeHtml(carModelName)}" data-offer-id="${escapeHtml(car.id)}">${escapeHtml(carModelName)} — ${transmission} • ${seats} ${seatsLabel}</option>`;
   }).join('');
 
   // Update calculator select
@@ -353,13 +353,33 @@ function attachCarSelectButtons() {
   document.querySelectorAll('[data-select-car]').forEach((button) => {
     button.addEventListener('click', () => {
       const carName = button.getAttribute('data-select-car');
+      const offerId = button.getAttribute('data-select-car-offer-id');
       const pfoSelect = document.getElementById('car');
       const lcaSelect = document.getElementById('rentalCarSelect');
+      const resSelect = document.getElementById('res_car');
+
+      const setSelectByOfferId = (selectEl) => {
+        if (!selectEl || !offerId) return false;
+        const opts = Array.from(selectEl.options || []);
+        const match = opts.find((opt) => String(opt?.dataset?.offerId || '') === String(offerId));
+        if (!match) return false;
+        selectEl.value = match.value;
+        return true;
+      };
+
+      const setSelectByModel = (selectEl) => {
+        if (!selectEl || !carName) return;
+        selectEl.value = carName;
+      };
+
       if (pfoSelect && carName) {
-        pfoSelect.value = carName;
+        if (!setSelectByOfferId(pfoSelect)) setSelectByModel(pfoSelect);
       }
       if (lcaSelect && carName) {
-        lcaSelect.value = carName;
+        if (!setSelectByOfferId(lcaSelect)) setSelectByModel(lcaSelect);
+      }
+      if (resSelect && carName) {
+        if (!setSelectByOfferId(resSelect)) setSelectByModel(resSelect);
       }
       window.calculatePrice();
       const calculatorBlock = document.getElementById('carRentalCalculatorBlock');
