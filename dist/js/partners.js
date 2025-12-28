@@ -18,6 +18,9 @@
     },
   };
 
+  let blocksRealtimeChannel = null;
+  let blocksRealtimeTimer = null;
+
   const els = {
     warning: null,
     loginPrompt: null,
@@ -77,6 +80,62 @@
   function setHidden(el, hidden) {
     if (!el) return;
     el.hidden = !!hidden;
+  }
+
+  function stopBlocksRealtime() {
+    if (!blocksRealtimeChannel || !state.sb) return;
+    try {
+      if (typeof state.sb.removeChannel === 'function') {
+        state.sb.removeChannel(blocksRealtimeChannel);
+      } else if (typeof blocksRealtimeChannel.unsubscribe === 'function') {
+        blocksRealtimeChannel.unsubscribe();
+      }
+    } catch (_e) {
+    }
+    blocksRealtimeChannel = null;
+  }
+
+  function scheduleBlocksRealtimeRefresh() {
+    if (blocksRealtimeTimer) {
+      clearTimeout(blocksRealtimeTimer);
+    }
+    blocksRealtimeTimer = setTimeout(async () => {
+      blocksRealtimeTimer = null;
+      try {
+        if (!state.selectedPartnerId) return;
+        if (!els.tabCalendar?.hidden) {
+          await refreshCalendar();
+        } else {
+          await loadBlocks();
+          syncResourceTypeOptions();
+        }
+      } catch (_e) {
+      }
+    }, 350);
+  }
+
+  function startBlocksRealtime() {
+    stopBlocksRealtime();
+    if (!state.sb || typeof state.sb.channel !== 'function') return;
+    if (!state.selectedPartnerId) return;
+
+    try {
+      blocksRealtimeChannel = state.sb
+        .channel(`partner-blocks-${String(state.selectedPartnerId).slice(0, 8)}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'partner_availability_blocks' },
+          (payload) => {
+            const row = payload?.new || payload?.old || null;
+            if (!row) return;
+            if (String(row.partner_id || '') !== String(state.selectedPartnerId)) return;
+            scheduleBlocksRealtimeRefresh();
+          }
+        )
+        .subscribe();
+    } catch (_e) {
+      blocksRealtimeChannel = null;
+    }
   }
 
   function hideSelectForPanels(selectEl) {
@@ -385,6 +444,14 @@
     }
   }
 
+  function formatMoney(value, currency) {
+    const num = Number(value);
+    if (!Number.isFinite(num)) return '—';
+    const cur = String(currency || 'EUR').toUpperCase();
+    if (cur === 'EUR') return `${num.toFixed(2)} EUR`;
+    return `${num.toFixed(2)} ${cur}`;
+  }
+
   function formatSla(deadlineIso) {
     if (!deadlineIso) return '—';
     const deadline = new Date(deadlineIso);
@@ -573,19 +640,21 @@
   async function loadFulfillments() {
     if (!state.selectedPartnerId) return;
 
+    const limit = 200;
+
     const [shopRes, serviceRes] = await Promise.all([
       state.sb
         .from('shop_order_fulfillments')
         .select('id, order_id, order_number, status, sla_deadline_at, accepted_at, rejected_at, rejected_reason, contact_revealed_at, created_at, subtotal, total_allocated')
         .eq('partner_id', state.selectedPartnerId)
         .order('created_at', { ascending: false })
-        .limit(80),
+        .limit(limit),
       state.sb
         .from('partner_service_fulfillments')
         .select('id, partner_id, resource_type, booking_id, resource_id, status, sla_deadline_at, accepted_at, rejected_at, rejected_reason, contact_revealed_at, created_at, reference, summary, start_date, end_date, total_price, currency')
         .eq('partner_id', state.selectedPartnerId)
         .order('created_at', { ascending: false })
-        .limit(80),
+        .limit(limit),
     ]);
 
     if (shopRes.error) throw shopRes.error;
@@ -600,8 +669,70 @@
         const at = a?.created_at ? new Date(a.created_at).getTime() : 0;
         const bt = b?.created_at ? new Date(b.created_at).getTime() : 0;
         return bt - at;
-      })
-      .slice(0, 80);
+      });
+
+    const serviceOnly = merged.filter((f) => f && f.__source === 'service');
+    const tripIds = Array.from(new Set(
+      serviceOnly
+        .filter((f) => String(f.resource_type || '') === 'trips' && f.resource_id)
+        .map((f) => f.resource_id)
+        .filter(Boolean)
+    ));
+    const hotelIds = Array.from(new Set(
+      serviceOnly
+        .filter((f) => String(f.resource_type || '') === 'hotels' && f.resource_id)
+        .map((f) => f.resource_id)
+        .filter(Boolean)
+    ));
+
+    const tripById = {};
+    const hotelById = {};
+
+    if (tripIds.length) {
+      try {
+        const { data, error } = await state.sb
+          .from('trips')
+          .select('id, slug, title, start_city')
+          .in('id', tripIds)
+          .limit(500);
+        if (error) throw error;
+        (data || []).forEach((r) => {
+          if (!r?.id) return;
+          const title = normalizeTitleJson(r.title) || r.slug || String(r.id).slice(0, 8);
+          const city = r.start_city ? ` — ${r.start_city}` : '';
+          tripById[r.id] = `${title}${city}`;
+        });
+      } catch (_e) {}
+    }
+
+    if (hotelIds.length) {
+      try {
+        const { data, error } = await state.sb
+          .from('hotels')
+          .select('id, slug, title, city')
+          .in('id', hotelIds)
+          .limit(500);
+        if (error) throw error;
+        (data || []).forEach((r) => {
+          if (!r?.id) return;
+          const title = normalizeTitleJson(r.title) || r.slug || String(r.id).slice(0, 8);
+          const city = r.city ? ` — ${r.city}` : '';
+          hotelById[r.id] = `${title}${city}`;
+        });
+      } catch (_e) {}
+    }
+
+    if (tripIds.length || hotelIds.length) {
+      merged.forEach((f) => {
+        if (!f || f.__source !== 'service') return;
+        if (String(f.resource_type || '') === 'trips' && f.resource_id && tripById[f.resource_id]) {
+          f.summary = tripById[f.resource_id];
+        }
+        if (String(f.resource_type || '') === 'hotels' && f.resource_id && hotelById[f.resource_id]) {
+          f.summary = hotelById[f.resource_id];
+        }
+      });
+    }
 
     state.fulfillments = merged;
 
@@ -708,7 +839,7 @@
     if (!els.fulfillmentsBody) return;
 
     if (!state.fulfillments.length) {
-      setHtml(els.fulfillmentsBody, '<tr><td colspan="5" class="muted" style="padding: 16px 8px;">No fulfillments found.</td></tr>');
+      setHtml(els.fulfillmentsBody, '<tr><td colspan="6" class="muted" style="padding: 16px 8px;">No fulfillments found.</td></tr>');
       return;
     }
 
@@ -723,21 +854,43 @@
         const items = isShop ? (state.itemsByFulfillmentId[id] || []) : [];
         const contact = state.contactsByFulfillmentId[id] || null;
 
+        const datesHtml = (() => {
+          if (isShop) return '<span class="muted">—</span>';
+          if (f.start_date && f.end_date) {
+            return `<div class="small">${escapeHtml(`${formatDate(f.start_date)} → ${formatDate(f.end_date)}`)}</div>`;
+          }
+          return '<span class="muted">—</span>';
+        })();
+
+        const priceHtml = (() => {
+          if (!isShop) {
+            return f.total_price != null
+              ? `<span class="small">${escapeHtml(formatMoney(f.total_price, f.currency || 'EUR'))}</span>`
+              : '<span class="muted">—</span>';
+          }
+
+          const allocated = f.total_allocated != null ? Number(f.total_allocated) : null;
+          const subtotal = f.subtotal != null ? Number(f.subtotal) : null;
+          const value = (allocated != null && Number.isFinite(allocated))
+            ? allocated
+            : ((subtotal != null && Number.isFinite(subtotal)) ? subtotal : null);
+          return value != null
+            ? `<span class="small">${escapeHtml(formatMoney(value, 'EUR'))}</span>`
+            : '<span class="muted">—</span>';
+        })();
+
         const itemsSummary = (() => {
           if (!isShop) {
             const typeLabel = f.resource_type ? String(f.resource_type) : 'service';
             const summary = f.summary ? String(f.summary) : 'Booking';
-            const dates = f.start_date && f.end_date ? `${formatDate(f.start_date)} → ${formatDate(f.end_date)}` : '';
-            const price = f.total_price != null ? `${Number(f.total_price).toFixed(2)} ${String(f.currency || 'EUR')}` : '';
-            const meta = [dates, price].filter(Boolean).join(' · ');
             return `
               <div class="small"><strong>${escapeHtml(typeLabel)}</strong></div>
               <div class="small">${escapeHtml(summary)}</div>
-              ${meta ? `<div class="muted small">${escapeHtml(meta)}</div>` : ''}
             `;
           }
 
           if (!items.length) return '<span class="muted">—</span>';
+
           const parts = items.slice(0, 2).map((it) => {
             const name = it.product_name || 'Product';
             const variant = it.variant_name ? ` (${it.variant_name})` : '';
@@ -745,7 +898,8 @@
             return `${escapeHtml(name)}${escapeHtml(variant)} × ${qty}`;
           });
           const more = items.length > 2 ? ` +${items.length - 2} more` : '';
-          return `${parts.join('<br/>')}${more ? `<div class="muted small">${escapeHtml(more)}</div>` : ''}`;
+          const moreHtml = more ? `<div class="muted small">${escapeHtml(more)}</div>` : '';
+          return `${parts.join('<br/>')}${moreHtml}`;
         })();
 
         const contactHtml = (() => {
@@ -778,13 +932,12 @@
           if (f.reference) return escapeHtml(String(f.reference));
           return escapeHtml(String(f.booking_id || '').slice(0, 8));
         })();
-        const sla = String(f.status) === 'pending_acceptance' ? formatSla(f.sla_deadline_at) : f.sla_deadline_at ? formatDateTime(f.sla_deadline_at) : '—';
 
         const actionsHtml = (() => {
           const st = String(f.status || '');
           if (st !== 'pending_acceptance') {
             if (st === 'accepted' && f.contact_revealed_at) {
-              return `<div class="muted small">Contact revealed: ${escapeHtml(formatDateTime(f.contact_revealed_at))}</div>`;
+              return '<div class="muted small">Contact revealed</div>';
             }
             if (st === 'rejected' && f.rejected_reason) {
               return `<div class="muted small">Reason: ${escapeHtml(f.rejected_reason)}</div>`;
@@ -810,13 +963,14 @@
           <tr>
             <td>
               <strong>${orderLabel}</strong>
-              <div class="muted small">Created: ${escapeHtml(formatDateTime(f.created_at))}</div>
+              <div class="muted small">Created: ${escapeHtml(formatDate(f.created_at))}</div>
             </td>
             <td>
               ${statusBadge(f.status)}
               ${rejectedInfo}
             </td>
-            <td class="small">${escapeHtml(sla)}</td>
+            <td>${datesHtml}</td>
+            <td>${priceHtml}</td>
             <td>
               ${itemsSummary}
               ${contactHtml}
@@ -1324,12 +1478,30 @@
       blockTypes.add(String(b.resource_type));
     });
 
+    const fulfillmentTypes = new Set();
+    (state.fulfillments || []).forEach((f) => {
+      const src = String(f?.__source || '');
+      if (src === 'shop') {
+        fulfillmentTypes.add('shop');
+        return;
+      }
+      const t = String(f?.resource_type || '').trim();
+      if (t) fulfillmentTypes.add(t);
+    });
+
     const prev = String(select.value || '').trim();
     const allowed = [];
     if (canShop) allowed.push('shop');
     if (canCars) allowed.push('cars');
     if (canTrips) allowed.push('trips');
     if (canHotels) allowed.push('hotels');
+
+    Array.from(blockTypes).forEach((t) => {
+      if (!allowed.includes(t)) allowed.push(t);
+    });
+    Array.from(fulfillmentTypes).forEach((t) => {
+      if (!allowed.includes(t)) allowed.push(t);
+    });
 
     const opts = [];
     if (allowed.includes('shop')) opts.push('<option value="shop">shop</option>');
@@ -1355,6 +1527,7 @@
 
     try {
       await loadFulfillments();
+      syncResourceTypeOptions();
       updateKpis();
       renderFulfillmentsTable();
       setText(els.status, `Loaded ${state.fulfillments.length} fulfillments.`);
@@ -1440,6 +1613,8 @@
     if (state.selectedPartnerId) {
       setPersistedPartnerId(state.selectedPartnerId);
     }
+
+    startBlocksRealtime();
 
     renderSuspendedInfo();
 
@@ -1616,6 +1791,9 @@
       state.sb.auth.onAuthStateChange((_event, session) => {
         state.session = session;
         state.user = session?.user || null;
+        if (!session) {
+          stopBlocksRealtime();
+        }
         bootstrapPortal();
       });
     }

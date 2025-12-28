@@ -122,13 +122,14 @@ function populateFromCalculator() {
     // Direct pass-through of city ID from calculator (larnaca, nicosia, ayia-napa, protaras, limassol, paphos)
     document.getElementById('res_pickup_location').value = calcPickupLocLca;
   } else if (calcAirportPickupPfo) {
-    // Fallback for Paphos calculator checkbox
-    document.getElementById('res_pickup_location').value = pageLocation === 'larnaca' ? 'larnaca' : 'paphos';
+    // Paphos calculator checkbox means airport pickup
+    document.getElementById('res_pickup_location').value = pageLocation === 'larnaca' ? 'larnaca' : 'airport_pfo';
   }
   if (calcReturnLocLca) {
     document.getElementById('res_return_location').value = calcReturnLocLca;
   } else if (calcAirportReturnPfo) {
-    document.getElementById('res_return_location').value = pageLocation === 'larnaca' ? 'larnaca' : 'paphos';
+    // Paphos calculator checkbox means airport return
+    document.getElementById('res_return_location').value = pageLocation === 'larnaca' ? 'larnaca' : 'airport_pfo';
   }
 
   // Insurance
@@ -164,9 +165,14 @@ function calculateEstimatedPrice() {
     return;
   }
 
-  // Show estimated price message
-  document.getElementById('estimatedPrice').textContent = 
-    `Szacunkowy czas wynajmu: ${days} dni. Ostateczną cenę otrzymasz po potwierdzeniu dostępności.`;
+  const quote = window.CE_CAR_PRICE_QUOTE;
+  if (quote && typeof quote.total === 'number' && quote.total > 0) {
+    document.getElementById('estimatedPrice').textContent = `Cena z kalkulatora: ${quote.total.toFixed(2)} ${quote.currency || 'EUR'} (czas: ${days} dni)`;
+    return;
+  }
+
+  // Fallback message when quote not available
+  document.getElementById('estimatedPrice').textContent = `Szacunkowy czas wynajmu: ${days} dni. Ostateczną cenę otrzymasz po potwierdzeniu dostępności.`;
 }
 
 // Validation messages in multiple languages
@@ -310,6 +316,9 @@ async function handleReservationSubmit(event) {
     const resCarSelect = document.getElementById('res_car');
     const selectedResCarOpt = resCarSelect && resCarSelect.selectedOptions ? resCarSelect.selectedOptions[0] : null;
     const offerId = selectedResCarOpt?.dataset?.offerId || null;
+    const quote = window.CE_CAR_PRICE_QUOTE && typeof window.CE_CAR_PRICE_QUOTE === 'object'
+      ? window.CE_CAR_PRICE_QUOTE
+      : null;
 
     // Build data object with only essential fields
     const data = {
@@ -333,6 +342,20 @@ async function handleReservationSubmit(event) {
       status: 'pending',
       source: (document.body?.dataset?.carLocation || '').toLowerCase() === 'paphos' ? 'website_autopfo' : 'website_car_rental'
     };
+
+    if (quote && typeof quote.total === 'number' && quote.total > 0) {
+      data.quoted_price = quote.total;
+      data.total_price = quote.total;
+      data.currency = quote.currency || 'EUR';
+
+      const b = quote.breakdown || {};
+      if (typeof b.pickupFee === 'number') data.pickup_location_fee = b.pickupFee;
+      if (typeof b.returnFee === 'number') data.return_location_fee = b.returnFee;
+      if (typeof b.insuranceCost === 'number') data.insurance_cost = b.insuranceCost;
+      if (typeof b.youngDriverCost === 'number') data.young_driver_cost = b.youngDriverCost;
+      if (typeof b.youngDriverCost === 'number' && b.youngDriverCost > 0) data.young_driver_fee = true;
+      if (typeof b.insuranceCost === 'number' && b.insuranceCost > 0) data.insurance_added = true;
+    }
     
     // Add optional fields only if they have values
     const country = formData.get('country');
@@ -366,12 +389,33 @@ async function handleReservationSubmit(event) {
     console.log('Supabase client:', supabase);
     console.log('Data keys:', Object.keys(data));
 
-    // Save to Supabase
-    const { data: booking, error } = await supabase
-      .from('car_bookings')
-      .insert([data])
-      .select()
-      .single();
+    async function insertCarBooking(payload) {
+      return supabase
+        .from('car_bookings')
+        .insert([payload])
+        .select()
+        .single();
+    }
+
+    // Save to Supabase (retry by removing only unknown columns reported by the API)
+    let booking = null;
+    let error = null;
+    let attemptPayload = { ...data };
+    const maxRetries = 12;
+
+    for (let i = 0; i <= maxRetries; i += 1) {
+      ({ data: booking, error } = await insertCarBooking(attemptPayload));
+      if (!error) break;
+
+      const msg = String(error.message || '');
+      const m = msg.match(/column\s+([a-zA-Z0-9_]+)\s+does not exist/i);
+      if (!m || !m[1]) break;
+
+      const unknownCol = m[1];
+      if (!(unknownCol in attemptPayload)) break;
+
+      delete attemptPayload[unknownCol];
+    }
     
     console.log('Insert result - booking:', booking);
     console.log('Insert result - error:', error);

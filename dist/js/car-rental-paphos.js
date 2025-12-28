@@ -47,6 +47,9 @@ async function loadPaphosFleet() {
       }
     });
 
+    window.CE_CAR_PRICING = pricing;
+    window.CE_CAR_LOCATION = pageLocation;
+
     // Render fleet
     renderFleet();
     updateCalculatorOptions();
@@ -246,6 +249,22 @@ window.calculatePrice = function() {
 
     totalPrice += pickupFee + returnFee + insuranceCost;
 
+    window.CE_CAR_PRICE_QUOTE = {
+      total: Number(totalPrice.toFixed(2)),
+      currency: 'EUR',
+      breakdown: {
+        location: loc,
+        days,
+        basePrice: Number(basePrice.toFixed(2)),
+        dailyRate: Number((dailyRate || 0).toFixed(2)),
+        pickupFee,
+        returnFee,
+        insuranceCost,
+        youngDriverCost: 0,
+        car,
+      },
+    };
+
     document.getElementById("total_price").innerHTML = "Całkowita cena wynajmu: " + totalPrice + "€";
     if (days === 3) document.getElementById("days_price").innerHTML = "Cena pakietu na 3 dni: " + basePrice + "€";
     else {
@@ -323,6 +342,24 @@ window.calculatePrice = function() {
   const youngDriverCost = youngDriver ? 10 * days : 0;
 
   const totalPrice = basePrice + pickupFee + returnFee + insuranceCost + youngDriverCost;
+
+  window.CE_CAR_PRICE_QUOTE = {
+    total: Number(totalPrice.toFixed(2)),
+    currency: 'EUR',
+    breakdown: {
+      location: loc,
+      days,
+      basePrice: Number(basePrice.toFixed(2)),
+      dailyRate: Number((dailyRate || 0).toFixed(2)),
+      pickupFee,
+      returnFee,
+      insuranceCost,
+      youngDriverCost,
+      car,
+      pickupLoc,
+      returnLoc,
+    },
+  };
 
   const resultEl = document.getElementById('carRentalResult');
   const breakdownEl = document.getElementById('carRentalBreakdown');
