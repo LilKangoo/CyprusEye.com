@@ -46,6 +46,7 @@ function getSupabaseClient() {
   if (typeof window.getSupabase === 'function') {
     return window.getSupabase();
   }
+
   if (window.sb) {
     return window.sb;
   }
@@ -53,6 +54,184 @@ function getSupabaseClient() {
     return window.__SB__;
   }
   return null;
+}
+
+async function loadCalendarsCreateResourceOptions() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const type = String(document.getElementById('calendarsCreateType')?.value || '').trim();
+  const select = document.getElementById('calendarsCreateResource');
+  if (!select) return;
+
+  if (!type) {
+    select.innerHTML = '<option value="">Select resource</option>';
+    return;
+  }
+
+  try {
+    const normalizeI18n = (value) => {
+      if (!value) return '';
+      if (typeof value === 'string') return value;
+      if (typeof value === 'object') return value.pl || value.en || value.el || value.he || '';
+      return '';
+    };
+
+    let rows = [];
+    if (type === 'cars') {
+      const { data, error } = await client
+        .from('car_offers')
+        .select('id, car_model, car_type, location')
+        .order('updated_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      rows = (data || []).map(r => {
+        const title = normalizeI18n(r.car_model) || normalizeI18n(r.car_type) || 'Car';
+        const loc = r.location ? ` (${r.location})` : '';
+        return { id: r.id, label: `${title}${loc}` };
+      });
+    } else if (type === 'trips') {
+      const { data, error } = await client
+        .from('trips')
+        .select('id, slug, title, start_city')
+        .order('updated_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      rows = (data || []).map(r => {
+        const title = normalizeI18n(r.title) || r.slug || r.id;
+        const city = r.start_city ? ` — ${r.start_city}` : '';
+        return { id: r.id, label: `${title}${city}` };
+      });
+    } else if (type === 'hotels') {
+      const { data, error } = await client
+        .from('hotels')
+        .select('id, slug, title, city')
+        .order('updated_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      rows = (data || []).map(r => {
+        const title = normalizeI18n(r.title) || r.slug || r.id;
+        const city = r.city ? ` — ${r.city}` : '';
+        return { id: r.id, label: `${title}${city}` };
+      });
+    } else if (type === 'shop') {
+      const { data, error } = await client
+        .from('shop_products')
+        .select('id, name, slug, status')
+        .order('updated_at', { ascending: false })
+        .limit(500);
+      if (error) throw error;
+      rows = (data || []).map(r => ({ id: r.id, label: r.name || r.slug || r.id }));
+    }
+
+    calendarsState.resourcesByType[type] = rows;
+    const existing = select.value;
+    select.innerHTML = '<option value="">Select resource</option>' + rows
+      .map(r => `<option value="${r.id}">${escapeHtml(r.label)}</option>`)
+      .join('');
+    if (existing) select.value = existing;
+  } catch (error) {
+    console.error('Failed to load create resource options:', error);
+    select.innerHTML = '<option value="">Select resource</option>';
+  }
+}
+
+function initAdminCalendarsRealtime() {
+  const client = ensureSupabase();
+  if (!client) return;
+  if (typeof client.channel !== 'function') return;
+  if (adminCalendarsRealtimeChannel) return;
+
+  try {
+    adminCalendarsRealtimeChannel = client
+      .channel('admin-calendars-blocks')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'partner_availability_blocks' },
+        () => {
+          try {
+            if (adminState.currentView !== 'calendars') return;
+            loadAdminCalendarsData();
+          } catch (_e) {
+          }
+        },
+      )
+      .subscribe();
+  } catch (e) {
+    console.warn('Failed to init calendars realtime:', e);
+  }
+}
+
+function fillCalendarsCreatePartnerSelect() {
+  const select = document.getElementById('calendarsCreatePartner');
+  if (!select) return;
+
+  const existing = select.value;
+  select.innerHTML = '<option value="">Select partner</option>' + (calendarsState.partners || [])
+    .map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`)
+    .join('');
+  if (existing) select.value = existing;
+}
+
+async function createAvailabilityBlockFromAdminForm() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const partnerId = String(document.getElementById('calendarsCreatePartner')?.value || '').trim();
+  const type = String(document.getElementById('calendarsCreateType')?.value || '').trim();
+  const resourceId = String(document.getElementById('calendarsCreateResource')?.value || '').trim();
+  const start = String(document.getElementById('calendarsCreateStart')?.value || '').trim();
+  const end = String(document.getElementById('calendarsCreateEnd')?.value || '').trim();
+  const note = String(document.getElementById('calendarsCreateNote')?.value || '').trim();
+
+  if (!partnerId || !type || !resourceId || !start || !end) {
+    showToast('Wypełnij partner/type/resource/start/end', 'error');
+    return;
+  }
+
+  try {
+    const payload = {
+      partner_id: partnerId,
+      resource_type: type,
+      resource_id: resourceId,
+      start_date: start,
+      end_date: end,
+      note: note || null,
+      created_by: adminState.user?.id || null,
+    };
+    const { error } = await client
+      .from('partner_availability_blocks')
+      .insert(payload);
+    if (error) throw error;
+
+    showToast('Block created', 'success');
+    const noteInput = document.getElementById('calendarsCreateNote');
+    if (noteInput) noteInput.value = '';
+    await loadAdminCalendarsData();
+  } catch (error) {
+    console.error('Failed to create block:', error);
+    showToast(error.message || 'Failed to create block', 'error');
+  }
+}
+
+async function deleteAvailabilityBlockAdmin(blockId) {
+  const client = ensureSupabase();
+  if (!client) return;
+  if (!blockId) return;
+  if (!confirm('Delete this availability block?')) return;
+
+  try {
+    const { error } = await client
+      .from('partner_availability_blocks')
+      .delete()
+      .eq('id', blockId);
+    if (error) throw error;
+    showToast('Block deleted', 'success');
+    await loadAdminCalendarsData();
+  } catch (error) {
+    console.error('Failed to delete block:', error);
+    showToast(error.message || 'Failed to delete block', 'error');
+  }
 }
 
 // Helper to ensure Supabase is available
@@ -93,6 +272,8 @@ const partnersState = {
 };
 
 let adminPartnerAuditChannel = null;
+
+let adminCalendarsRealtimeChannel = null;
 
 let partnersAutoRefreshTimer = null;
 
@@ -732,6 +913,7 @@ const calendarsState = {
   partnersById: {},
   partners: [],
   blocks: [],
+  resourcesByType: { shop: [], cars: [], trips: [], hotels: [] },
   monthValue: '',
   monthBlocks: [],
   monthBusyRanges: [],
@@ -1051,7 +1233,7 @@ async function loadAdminCalendarsData() {
   if (!client) return;
 
   const tbody = document.getElementById('calendarsTableBody');
-  if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 24px;">Loading availability...</td></tr>';
+  if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 24px;">Loading availability...</td></tr>';
 
   try {
     const { data: partners, error: partnersError } = await client
@@ -1066,6 +1248,8 @@ async function loadAdminCalendarsData() {
     calendarsState.partners.forEach(p => {
       calendarsState.partnersById[p.id] = p;
     });
+
+    fillCalendarsCreatePartnerSelect();
 
     const partnerFilter = document.getElementById('calendarsPartnerFilter');
     if (partnerFilter) {
@@ -1087,11 +1271,12 @@ async function loadAdminCalendarsData() {
     renderCalendarsTable();
     ensureCalendarsMonthInput();
     await loadCalendarsResourceOptions();
+    await loadCalendarsCreateResourceOptions();
     await loadCalendarsMonthData();
   } catch (error) {
     console.error('Failed to load calendars:', error);
     const tbodyErr = document.getElementById('calendarsTableBody');
-    if (tbodyErr) tbodyErr.innerHTML = `<tr><td colspan="6" style="text-align:center; color:#ef4444; padding: 24px;">Error: ${escapeHtml(error.message || 'Failed to load')}</td></tr>`;
+    if (tbodyErr) tbodyErr.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#ef4444; padding: 24px;">Error: ${escapeHtml(error.message || 'Failed to load')}</td></tr>`;
   }
 }
 
@@ -1110,7 +1295,7 @@ function renderCalendarsTable() {
   });
 
   if (!filtered.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 24px; color: var(--admin-text-muted);">No availability blocks found</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 24px; color: var(--admin-text-muted);">No availability blocks found</td></tr>';
     return;
   }
 
@@ -1124,9 +1309,19 @@ function renderCalendarsTable() {
         <td style="white-space: nowrap;">${escapeHtml(String(b.start_date || ''))}</td>
         <td style="white-space: nowrap;">${escapeHtml(String(b.end_date || ''))}</td>
         <td>${escapeHtml(b.note || '')}</td>
+        <td style="text-align: right;">
+          <button class="btn-small btn-danger" type="button" data-cal-del="${escapeHtml(String(b.id))}">Delete</button>
+        </td>
       </tr>
     `;
   }).join('');
+
+  tbody.querySelectorAll('button[data-cal-del]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.getAttribute('data-cal-del');
+      deleteAvailabilityBlockAdmin(id);
+    });
+  });
 }
 
 async function deleteShopOrder(orderId, orderNumber, paymentStatus) {
@@ -8551,6 +8746,21 @@ function initEventListeners() {
   const refreshCalendarsBtn = document.getElementById('btnRefreshCalendars');
   if (refreshCalendarsBtn) refreshCalendarsBtn.addEventListener('click', () => loadAdminCalendarsData());
 
+  const calendarsCreateType = document.getElementById('calendarsCreateType');
+  if (calendarsCreateType) {
+    calendarsCreateType.addEventListener('change', () => {
+      loadCalendarsCreateResourceOptions();
+    });
+  }
+
+  const calendarsCreateForm = document.getElementById('calendarsCreateBlockForm');
+  if (calendarsCreateForm) {
+    calendarsCreateForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      createAvailabilityBlockFromAdminForm();
+    });
+  }
+
   const partnerForm = document.getElementById('partnerForm');
   if (partnerForm) {
     partnerForm.addEventListener('submit', (e) => {
@@ -11095,6 +11305,7 @@ async function initAdminPanel() {
       showAdminPanel();
 
       initAdminPartnerRealtime();
+      initAdminCalendarsRealtime();
       ensurePartnersAutoRefresh();
     }
   } catch (error) {

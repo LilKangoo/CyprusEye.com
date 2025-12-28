@@ -738,6 +738,16 @@
           }
 
           if (!items.length) return '<span class="muted">—</span>';
+
+          const shopPrice = (() => {
+            const allocated = f.total_allocated != null ? Number(f.total_allocated) : null;
+            const subtotal = f.subtotal != null ? Number(f.subtotal) : null;
+            const value = (allocated != null && Number.isFinite(allocated))
+              ? allocated
+              : ((subtotal != null && Number.isFinite(subtotal)) ? subtotal : null);
+            return value != null ? `${value.toFixed(2)} EUR` : '';
+          })();
+
           const parts = items.slice(0, 2).map((it) => {
             const name = it.product_name || 'Product';
             const variant = it.variant_name ? ` (${it.variant_name})` : '';
@@ -745,7 +755,9 @@
             return `${escapeHtml(name)}${escapeHtml(variant)} × ${qty}`;
           });
           const more = items.length > 2 ? ` +${items.length - 2} more` : '';
-          return `${parts.join('<br/>')}${more ? `<div class="muted small">${escapeHtml(more)}</div>` : ''}`;
+          const moreHtml = more ? `<div class="muted small">${escapeHtml(more)}</div>` : '';
+          const priceHtml = shopPrice ? `<div class="muted small">${escapeHtml(shopPrice)}</div>` : '';
+          return `${parts.join('<br/>')}${moreHtml}${priceHtml}`;
         })();
 
         const contactHtml = (() => {

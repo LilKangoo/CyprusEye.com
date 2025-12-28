@@ -3085,6 +3085,44 @@
             </div>
           </div>
           <div class="admin-card-body">
+            <form id="calendarsCreateBlockForm" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; align-items: end; margin-bottom: 16px;">
+              <label class="admin-form-field" style="margin: 0;">
+                <span>Partner</span>
+                <select id="calendarsCreatePartner" class="form-control" required>
+                  <option value="">Select partner</option>
+                </select>
+              </label>
+              <label class="admin-form-field" style="margin: 0;">
+                <span>Type</span>
+                <select id="calendarsCreateType" class="form-control" required>
+                  <option value="">Select type</option>
+                  <option value="shop">Shop</option>
+                  <option value="cars">Cars</option>
+                  <option value="trips">Trips</option>
+                  <option value="hotels">Hotels</option>
+                </select>
+              </label>
+              <label class="admin-form-field" style="margin: 0;">
+                <span>Resource</span>
+                <select id="calendarsCreateResource" class="form-control" required>
+                  <option value="">Select resource</option>
+                </select>
+              </label>
+              <label class="admin-form-field" style="margin: 0;">
+                <span>Start</span>
+                <input id="calendarsCreateStart" class="form-control" type="date" required />
+              </label>
+              <label class="admin-form-field" style="margin: 0;">
+                <span>End</span>
+                <input id="calendarsCreateEnd" class="form-control" type="date" required />
+              </label>
+              <label class="admin-form-field" style="grid-column: 1 / -2; margin: 0;">
+                <span>Note</span>
+                <input id="calendarsCreateNote" class="form-control" type="text" placeholder="Optional" />
+              </label>
+              <button class="btn btn-primary" type="submit" style="height: 42px;">Add block</button>
+            </form>
+
             <div class="admin-table-container">
               <table class="admin-table">
                 <thead>
@@ -3095,10 +3133,11 @@
                     <th>Start</th>
                     <th>End</th>
                     <th>Note</th>
+                    <th style="text-align: right;">Actions</th>
                   </tr>
                 </thead>
                 <tbody id="calendarsTableBody">
-                  <tr><td colspan="6" style="text-align:center; padding: 24px;">Loading availability...</td></tr>
+                  <tr><td colspan="7" style="text-align:center; padding: 24px;">Loading availability...</td></tr>
                 </tbody>
               </table>
             </div>
