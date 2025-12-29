@@ -409,6 +409,11 @@ async function handleReservationSubmit(event) {
       if (!error) break;
 
       const msg = String(error.message || '');
+
+      if (error.code === '42501' || /row-level security/i.test(msg) || /permission denied/i.test(msg)) {
+        break;
+      }
+
       const m = msg.match(/column\s+([a-zA-Z0-9_]+)\s+does not exist/i)
         || msg.match(/Could not find the '([a-zA-Z0-9_]+)' column/i)
         || msg.match(/Could not find the \"([a-zA-Z0-9_]+)\" column/i);
