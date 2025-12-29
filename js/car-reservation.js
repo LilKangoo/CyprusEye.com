@@ -320,6 +320,8 @@ async function handleReservationSubmit(event) {
       ? window.CE_CAR_PRICE_QUOTE
       : null;
 
+    const pageLocation = (document.body?.dataset?.carLocation || (location?.href?.includes('autopfo') ? 'paphos' : 'larnaca')).toLowerCase();
+
     // Build data object with only essential fields
     const data = {
       // Personal info (REQUIRED)
@@ -338,15 +340,14 @@ async function handleReservationSubmit(event) {
       return_location: formData.get('return_location'),
       
       // Metadata
-      location: (document.body?.dataset?.carLocation || (location?.href?.includes('autopfo') ? 'paphos' : 'larnaca')).toLowerCase(),
+      location: pageLocation,
       status: 'pending',
-      source: (document.body?.dataset?.carLocation || '').toLowerCase() === 'paphos' ? 'website_autopfo' : 'website_car_rental'
+      source: pageLocation === 'paphos' ? 'website_autopfo' : 'website_car_rental'
     };
 
     if (quote && typeof quote.total === 'number' && quote.total > 0) {
       data.quoted_price = quote.total;
       data.total_price = quote.total;
-      data.currency = quote.currency || 'EUR';
 
       const b = quote.breakdown || {};
       if (typeof b.pickupFee === 'number') data.pickup_location_fee = b.pickupFee;
@@ -408,7 +409,9 @@ async function handleReservationSubmit(event) {
       if (!error) break;
 
       const msg = String(error.message || '');
-      const m = msg.match(/column\s+([a-zA-Z0-9_]+)\s+does not exist/i);
+      const m = msg.match(/column\s+([a-zA-Z0-9_]+)\s+does not exist/i)
+        || msg.match(/Could not find the '([a-zA-Z0-9_]+)' column/i)
+        || msg.match(/Could not find the \"([a-zA-Z0-9_]+)\" column/i);
       if (!m || !m[1]) break;
 
       const unknownCol = m[1];
