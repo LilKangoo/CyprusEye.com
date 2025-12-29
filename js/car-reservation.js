@@ -342,7 +342,7 @@ async function handleReservationSubmit(event) {
       // Metadata
       location: pageLocation,
       status: 'pending',
-      source: pageLocation === 'paphos' ? 'website_autopfo' : 'website_car_rental'
+      source: pageLocation === 'paphos' ? 'website_autopfo' : 'website_autolca'
     };
 
     if (quote && typeof quote.total === 'number' && quote.total > 0) {
