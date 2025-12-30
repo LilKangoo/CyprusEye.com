@@ -393,9 +393,7 @@ async function handleReservationSubmit(event) {
     async function insertCarBooking(payload) {
       return supabase
         .from('car_bookings')
-        .insert([payload])
-        .select()
-        .single();
+        .insert([payload]);
     }
 
     // Save to Supabase (retry by removing only unknown columns reported by the API)
@@ -436,7 +434,10 @@ async function handleReservationSubmit(event) {
     console.log('Booking created:', booking);
 
     // Show success message
-    showSuccessMessage(booking);
+    showSuccessMessage({
+      id: booking?.id,
+      email: booking?.email || data.email || data.customer_email,
+    });
     
     // Show visible confirmation
     const confirmDiv = document.getElementById('formSubmitConfirmation');
@@ -475,15 +476,18 @@ function showSuccessMessage(booking) {
   const successDiv = document.getElementById('reservationSuccess');
   if (!successDiv) return;
 
+  const bookingIdShort = booking?.id ? String(booking.id).slice(0, 8) : '--------';
+  const bookingEmail = booking?.email ? String(booking.email) : '';
+
   successDiv.innerHTML = `
     <div style="background: #10b981; color: white; padding: 20px; border-radius: 8px; margin-top: 16px;">
       <h4 style="margin: 0 0 8px; font-size: 18px;">✅ Rezerwacja wysłana!</h4>
       <p style="margin: 0; opacity: 0.9;">
-        Numer rezerwacji: <strong>#${booking.id.slice(0, 8)}</strong><br>
+        Numer rezerwacji: <strong>#${bookingIdShort}</strong><br>
         Skontaktujemy się z Tobą w ciągu 24h, aby potwierdzić dostępność i przesłać umowę.
       </p>
       <p style="margin: 12px 0 0; font-size: 14px; opacity: 0.8;">
-        Sprawdź email: <strong>${booking.email}</strong>
+        Sprawdź email: <strong>${bookingEmail}</strong>
       </p>
     </div>
   `;
