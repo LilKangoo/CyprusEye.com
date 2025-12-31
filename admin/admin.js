@@ -7155,7 +7155,7 @@ async function viewCarBookingDetails(bookingId) {
 
     const deleteBtn = document.getElementById('btnDeleteBooking');
     if (deleteBtn) {
-      deleteBtn.hidden = String(booking.source || '') !== 'admin';
+      deleteBtn.hidden = false;
     }
 
     // Show modal
@@ -7812,16 +7812,12 @@ async function deleteCarBooking(bookingId) {
       return;
     }
 
-    const { data: bookingRow, error: bookingLoadError } = await client
+    const { error: bookingLoadError } = await client
       .from('car_bookings')
-      .select('id, source')
+      .select('id')
       .eq('id', bookingId)
       .single();
     if (bookingLoadError) throw bookingLoadError;
-    if (!bookingRow || String(bookingRow.source || '') !== 'admin') {
-      showToast('Delete allowed only for admin-created bookings', 'error');
-      return;
-    }
 
     try {
       await client

@@ -80,6 +80,13 @@ async function getAdminNotificationEmails(supabase: any): Promise<string> {
   return (data as any)?.admin_notification_email || "";
 }
 
+function resolveRecipients(category: Category, raw: string): string[] {
+  const recipients = parseRecipients(raw);
+  if (recipients.length) return recipients;
+  if (category === "cars") return ["contact@wakacjecypr.com"];
+  return [];
+}
+
 function buildMailTransport() {
   const hostRaw = (Deno.env.get("SMTP_HOST") || "").trim();
   if (!hostRaw || hostRaw.toUpperCase().includes("WKLEJ_SMTP_HOST")) return null;
@@ -419,7 +426,7 @@ serve(async (req) => {
   }
 
   const adminNotificationEmailRaw = await getAdminNotificationEmails(supabase);
-  const recipients = parseRecipients(adminNotificationEmailRaw);
+  const recipients = resolveRecipients(categoryFromBody, adminNotificationEmailRaw);
 
   if (!recipients.length) {
     return new Response(JSON.stringify({ ok: true, skipped: true, reason: "no_admin_notification_email" }), {

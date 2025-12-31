@@ -5035,6 +5035,15 @@ async function deleteCarBooking(bookingId) {
       return;
     }
 
+    try {
+      await client
+        .from('partner_service_fulfillments')
+        .delete()
+        .eq('resource_type', 'cars')
+        .eq('booking_id', bookingId);
+    } catch (_e) {
+    }
+
     const { error } = await client
       .from('car_bookings')
       .delete()
