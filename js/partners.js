@@ -1210,6 +1210,39 @@
         if (!rowsMap.has(id)) rowsMap.set(id, { id, label: fallbackLabelForResource('cars', id) });
       });
 
+      if (!rowsMap.size) {
+        try {
+          let q = state.sb
+            .from('car_offers')
+            .select('id, car_model, car_type, location')
+            .eq('is_published', true);
+          if (locs.length) q = q.in('location', locs);
+          const { data, error } = await q.order('updated_at', { ascending: false }).limit(500);
+          if (error) throw error;
+          (data || []).forEach((r) => {
+            if (!r?.id) return;
+            const label = `${normalizeTitleJson(r.car_model) || normalizeTitleJson(r.car_type) || 'Car'}${r.location ? ` (${r.location})` : ''}`.trim();
+            rowsMap.set(r.id, { id: r.id, label });
+          });
+        } catch (e) {
+          try {
+            const msg = String(e?.message || '');
+            if (!/is_published/i.test(msg)) throw e;
+            let q = state.sb
+              .from('car_offers')
+              .select('id, car_model, car_type, location');
+            if (locs.length) q = q.in('location', locs);
+            const { data, error } = await q.order('updated_at', { ascending: false }).limit(500);
+            if (error) throw error;
+            (data || []).forEach((r) => {
+              if (!r?.id) return;
+              const label = `${normalizeTitleJson(r.car_model) || normalizeTitleJson(r.car_type) || 'Car'}${r.location ? ` (${r.location})` : ''}`.trim();
+              rowsMap.set(r.id, { id: r.id, label });
+            });
+          } catch (_e2) {}
+        }
+      }
+
       return Array.from(rowsMap.values());
     }
 

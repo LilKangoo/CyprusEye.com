@@ -11,6 +11,7 @@ DECLARE
   pid UUID;
   loc TEXT;
   has_resource_fn BOOLEAN;
+  has_loc_fn BOOLEAN;
 BEGIN
   loc := LOWER(NULLIF(TRIM(COALESCE(p_location, '')), ''));
 
@@ -35,11 +36,15 @@ BEGIN
   END IF;
 
   has_resource_fn := (to_regprocedure('public.partner_service_fulfillment_partner_id_for_resource(text,uuid)') IS NOT NULL);
+  has_loc_fn := (to_regprocedure('public.partner_service_fulfillment_partner_id_for_car_location(text)') IS NOT NULL);
 
-  IF has_resource_fn THEN
+  pid := NULL;
+  IF p_offer_id IS NOT NULL AND has_resource_fn THEN
     pid := public.partner_service_fulfillment_partner_id_for_resource('cars', p_offer_id);
-  ELSE
-    pid := NULL;
+  END IF;
+
+  IF pid IS NULL AND has_loc_fn THEN
+    pid := public.partner_service_fulfillment_partner_id_for_car_location(loc);
   END IF;
 
   IF pid IS NULL THEN
