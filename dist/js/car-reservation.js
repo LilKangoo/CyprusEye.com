@@ -322,6 +322,105 @@ async function handleReservationSubmit(event) {
 
     const pageLocation = (document.body?.dataset?.carLocation || (location?.href?.includes('autopfo') ? 'paphos' : 'larnaca')).toLowerCase();
 
+    const computedQuote = (() => {
+      try {
+        if (quote && typeof quote.total === 'number' && quote.total > 0) return quote;
+
+        const pricing = window.CE_CAR_PRICING && typeof window.CE_CAR_PRICING === 'object'
+          ? window.CE_CAR_PRICING
+          : null;
+        if (!pricing) return null;
+
+        const carModel = String(formData.get('car') || '').trim();
+        if (!carModel) return null;
+        const carPricing = pricing[carModel];
+        if (!Array.isArray(carPricing) || carPricing.length < 4) return null;
+
+        const pickupDateStr = String(formData.get('pickup_date') || '').trim();
+        const returnDateStr = String(formData.get('return_date') || '').trim();
+        const pickupTimeStr = String(formData.get('pickup_time') || '10:00').trim();
+        const returnTimeStr = String(formData.get('return_time') || '10:00').trim();
+        if (!pickupDateStr || !returnDateStr) return null;
+
+        const pickupDate = new Date(`${pickupDateStr}T${pickupTimeStr}`);
+        const returnDate = new Date(`${returnDateStr}T${returnTimeStr}`);
+        if (Number.isNaN(pickupDate.getTime()) || Number.isNaN(returnDate.getTime())) return null;
+
+        const hours = (returnDate.getTime() - pickupDate.getTime()) / 36e5;
+        const days = Math.ceil(hours / 24);
+        if (!Number.isFinite(days) || days < 3) return null;
+
+        let basePrice = 0;
+        let dailyRate = 0;
+        if (days === 3) {
+          basePrice = Number(carPricing[0]) || 0;
+        } else if (days >= 4 && days <= 6) {
+          dailyRate = Number(carPricing[1]) || 0;
+          basePrice = dailyRate * days;
+        } else if (days >= 7 && days <= 10) {
+          dailyRate = Number(carPricing[2]) || 0;
+          basePrice = dailyRate * days;
+        } else {
+          dailyRate = Number(carPricing[3]) || 0;
+          basePrice = dailyRate * days;
+        }
+
+        const pickupLoc = String(formData.get('pickup_location') || '').trim();
+        const returnLoc = String(formData.get('return_location') || '').trim();
+
+        let pickupFee = 0;
+        let returnFee = 0;
+        if (pageLocation === 'paphos') {
+          const airportFeesApplicable = days < 7;
+          pickupFee = pickupLoc === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
+          returnFee = returnLoc === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
+        } else {
+          const feeFor = (city) => {
+            switch (city) {
+              case 'nicosia':
+              case 'ayia-napa':
+                return 15;
+              case 'protaras':
+              case 'limassol':
+                return 20;
+              case 'paphos':
+                return 40;
+              default:
+                return 0;
+            }
+          };
+          pickupFee = feeFor(pickupLoc);
+          returnFee = feeFor(returnLoc);
+        }
+
+        const insuranceChecked = String(formData.get('insurance') || '') === 'on';
+        const youngDriverChecked = String(formData.get('young_driver') || '') === 'on';
+
+        const insuranceCost = insuranceChecked ? 17 * days : 0;
+        const youngDriverCost = youngDriverChecked ? 10 * days : 0;
+        const total = basePrice + pickupFee + returnFee + insuranceCost + youngDriverCost;
+        if (!Number.isFinite(total) || total <= 0) return null;
+
+        return {
+          total: Number(total.toFixed(2)),
+          currency: 'EUR',
+          breakdown: {
+            location: pageLocation,
+            days,
+            basePrice: Number(basePrice.toFixed(2)),
+            dailyRate: Number((dailyRate || 0).toFixed(2)),
+            pickupFee,
+            returnFee,
+            insuranceCost,
+            youngDriverCost,
+            car: carModel,
+          },
+        };
+      } catch (_e) {
+        return null;
+      }
+    })();
+
     // Build data object with only essential fields
     const data = {
       // Personal info (REQUIRED)
@@ -345,11 +444,12 @@ async function handleReservationSubmit(event) {
       source: pageLocation === 'paphos' ? 'website_autopfo' : 'website_autolca'
     };
 
-    if (quote && typeof quote.total === 'number' && quote.total > 0) {
-      data.quoted_price = quote.total;
-      data.total_price = quote.total;
+    if (computedQuote && typeof computedQuote.total === 'number' && computedQuote.total > 0) {
+      data.quoted_price = computedQuote.total;
+      data.total_price = computedQuote.total;
+      data.currency = computedQuote.currency || 'EUR';
 
-      const b = quote.breakdown || {};
+      const b = computedQuote.breakdown || {};
       if (typeof b.pickupFee === 'number') data.pickup_location_fee = b.pickupFee;
       if (typeof b.returnFee === 'number') data.return_location_fee = b.returnFee;
       if (typeof b.insuranceCost === 'number') data.insurance_cost = b.insuranceCost;
