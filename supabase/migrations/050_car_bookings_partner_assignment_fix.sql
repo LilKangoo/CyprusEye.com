@@ -12,6 +12,7 @@ DECLARE
   loc TEXT;
   has_resource_fn BOOLEAN;
   has_loc_fn BOOLEAN;
+  loc_pid UUID;
 BEGIN
   loc := LOWER(NULLIF(TRIM(COALESCE(p_location, '')), ''));
 
@@ -43,25 +44,28 @@ BEGIN
     pid := public.partner_service_fulfillment_partner_id_for_resource('cars', p_offer_id);
   END IF;
 
-  IF pid IS NULL AND has_loc_fn THEN
-    pid := public.partner_service_fulfillment_partner_id_for_car_location(loc);
+  IF pid IS NOT NULL THEN
+    SELECT p.id
+    INTO pid
+    FROM public.partners p
+    WHERE p.id = pid
+      AND p.status = 'active'
+      AND p.can_manage_cars = true
+      AND (
+        (loc IN ('paphos','larnaca') AND p.cars_locations @> ARRAY[loc]::text[])
+        OR (loc = 'all-cyprus' AND array_length(p.cars_locations, 1) IS NOT NULL)
+      )
+    LIMIT 1;
+  END IF;
+
+  loc_pid := NULL;
+  IF has_loc_fn THEN
+    loc_pid := public.partner_service_fulfillment_partner_id_for_car_location(loc);
   END IF;
 
   IF pid IS NULL THEN
-    RETURN NULL;
+    pid := loc_pid;
   END IF;
-
-  SELECT p.id
-  INTO pid
-  FROM public.partners p
-  WHERE p.id = pid
-    AND p.status = 'active'
-    AND p.can_manage_cars = true
-    AND (
-      (loc IN ('paphos','larnaca') AND p.cars_locations @> ARRAY[loc]::text[])
-      OR (loc = 'all-cyprus' AND array_length(p.cars_locations, 1) IS NOT NULL)
-    )
-  LIMIT 1;
 
   RETURN pid;
 END;
