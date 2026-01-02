@@ -174,6 +174,9 @@ async function copyStaticFiles() {
     if (existsSync(join(ROOT, 'robots.txt'))) {
       await cp(join(ROOT, 'robots.txt'), join(DIST, 'robots.txt'));
     }
+    if (existsSync(join(ROOT, 'ads.txt'))) {
+      await cp(join(ROOT, 'ads.txt'), join(DIST, 'ads.txt'));
+    }
     if (existsSync(join(ROOT, 'sitemap.xml'))) {
       await cp(join(ROOT, 'sitemap.xml'), join(DIST, 'sitemap.xml'));
     }

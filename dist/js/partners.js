@@ -138,6 +138,37 @@
     }
   }
 
+  async function refreshSelectedPartnerRecord() {
+    if (!state.selectedPartnerId) return;
+
+    try {
+      let partners = null;
+      let pErr = null;
+
+      ({ data: partners, error: pErr } = await state.sb
+        .from('partners')
+        .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, cars_locations')
+        .eq('id', state.selectedPartnerId)
+        .limit(1));
+
+      if (pErr && /cars_locations/i.test(String(pErr.message || ''))) {
+        ({ data: partners, error: pErr } = await state.sb
+          .from('partners')
+          .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels')
+          .eq('id', state.selectedPartnerId)
+          .limit(1));
+      }
+
+      if (pErr) throw pErr;
+
+      const row = Array.isArray(partners) ? partners[0] : null;
+      if (row?.id) {
+        state.partnersById[row.id] = row;
+      }
+    } catch (_e) {
+    }
+  }
+
   function hideSelectForPanels(selectEl) {
     if (!selectEl) return;
     selectEl.style.display = 'none';
@@ -682,7 +713,57 @@
         return bt - at;
       });
 
-    const serviceOnly = merged.filter((f) => f && f.__source === 'service');
+    const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
+    const allowedCarLocsRaw = Array.isArray(partner?.cars_locations) ? partner.cars_locations : [];
+    const allowedCarLocs = allowedCarLocsRaw
+      .map((l) => normalizeCarLocation(l) || String(l || '').trim().toLowerCase())
+      .filter((l) => l === 'paphos' || l === 'larnaca');
+
+    const serviceCarRows = merged.filter((f) => {
+      if (!f || f.__source !== 'service') return false;
+      return String(f.resource_type || '') === 'cars';
+    });
+
+    const carOfferIds = Array.from(new Set(
+      serviceCarRows
+        .map((f) => f.resource_id)
+        .filter(Boolean)
+        .map((id) => String(id))
+    ));
+
+    const carOfferLocationById = {};
+
+    if (carOfferIds.length) {
+      try {
+        const { data, error } = await state.sb
+          .from('car_offers')
+          .select('id, location')
+          .in('id', carOfferIds)
+          .limit(500);
+        if (error) throw error;
+        (data || []).forEach((r) => {
+          if (!r?.id) return;
+          const loc = normalizeCarLocation(r.location);
+          if (loc) carOfferLocationById[String(r.id)] = loc;
+        });
+      } catch (_e) {}
+    }
+
+    const filteredMerged = merged.filter((f) => {
+      if (!f) return false;
+      if (f.__source !== 'service') return true;
+      if (String(f.resource_type || '') !== 'cars') return true;
+
+      if (!partner?.can_manage_cars) return false;
+      if (!allowedCarLocs.length) return true;
+
+      const offerLoc = f.resource_id ? carOfferLocationById[String(f.resource_id)] : null;
+      const loc = offerLoc || carLocationFromFulfillmentDetails(f.details);
+      if (!loc) return false;
+      return allowedCarLocs.includes(loc);
+    });
+
+    const serviceOnly = filteredMerged.filter((f) => f && f.__source === 'service');
     const tripIds = Array.from(new Set(
       serviceOnly
         .filter((f) => String(f.resource_type || '') === 'trips' && f.resource_id)
@@ -734,7 +815,7 @@
     }
 
     if (tripIds.length || hotelIds.length) {
-      merged.forEach((f) => {
+      filteredMerged.forEach((f) => {
         if (!f || f.__source !== 'service') return;
         if (String(f.resource_type || '') === 'trips' && f.resource_id && tripById[f.resource_id]) {
           f.summary = tripById[f.resource_id];
@@ -745,10 +826,10 @@
       });
     }
 
-    state.fulfillments = merged;
+    state.fulfillments = filteredMerged;
 
-    const shopIds = merged.filter((f) => f && f.__source === 'shop').map((f) => f.id).filter(Boolean);
-    const serviceIds = merged.filter((f) => f && f.__source === 'service').map((f) => f.id).filter(Boolean);
+    const shopIds = filteredMerged.filter((f) => f && f.__source === 'shop').map((f) => f.id).filter(Boolean);
+    const serviceIds = filteredMerged.filter((f) => f && f.__source === 'service').map((f) => f.id).filter(Boolean);
 
     state.itemsByFulfillmentId = {};
     state.contactsByFulfillmentId = {};
@@ -770,12 +851,12 @@
       });
     }
 
-    const acceptedShopIds = merged
+    const acceptedShopIds = filteredMerged
       .filter((f) => f && f.__source === 'shop' && String(f.status) === 'accepted')
       .map((f) => f.id)
       .filter(Boolean);
 
-    const acceptedServiceIds = merged
+    const acceptedServiceIds = filteredMerged
       .filter((f) => f && f.__source === 'service' && String(f.status) === 'accepted')
       .map((f) => f.id)
       .filter(Boolean);
@@ -1103,6 +1184,20 @@
     } catch (_e) {
       return [];
     }
+  }
+
+  function normalizeCarLocation(value) {
+    const v = value == null ? '' : String(value).trim().toLowerCase();
+    if (!v) return null;
+    if (v === 'paphos' || v === 'larnaca') return v;
+    if (v === 'airport_pfo' || v === 'pfo' || v === 'paphos_airport') return 'paphos';
+    if (v === 'airport_lca' || v === 'lca' || v === 'larnaca_airport') return 'larnaca';
+    return null;
+  }
+
+  function carLocationFromFulfillmentDetails(details) {
+    if (!details || typeof details !== 'object') return null;
+    return normalizeCarLocation(details.pickup_location || details.pickupLocation || details.location);
   }
 
   function blockResourceIdsForType(resourceType) {
@@ -1601,6 +1696,7 @@
     setText(els.status, 'Loading fulfillments…');
 
     try {
+      await refreshSelectedPartnerRecord();
       await loadFulfillments();
       syncResourceTypeOptions();
       updateKpis();

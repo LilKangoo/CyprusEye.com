@@ -304,7 +304,7 @@ async function handleReservationSubmit(event) {
     showValidationErrors(validationErrors);
     return;
   }
-  
+
   // Clear any previous validation errors
   document.querySelectorAll('.field-error').forEach(el => el.remove());
   document.querySelectorAll('.input-error').forEach(el => el.classList.remove('input-error'));
