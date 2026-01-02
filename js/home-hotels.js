@@ -369,9 +369,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
       // Insert to Supabase (same as trips)
       const { error } = await supabase
         .from('hotel_bookings')
-        .insert([payload])
-        .select()
-        .single();
+        .insert([payload]);
       
       if (error) throw error;
       

@@ -372,10 +372,10 @@
         notes: payload.note,
         total_price: total,
         status: 'pending'
-      }]).select().single();
+      }]);
       if(res.error){ $('#bookMsg').style.color='#a00'; $('#bookMsg').textContent=res.error.message; return; }
       $('#bookMsg').style.color='#0a0';
-      $('#bookMsg').textContent = `Rezerwacja przyjęta. Suma: ${Number(res.data.total_price||0).toFixed(2)} €`;
+      $('#bookMsg').textContent = `Rezerwacja przyjęta. Suma: ${Number(total||0).toFixed(2)} €`;
       f.reset(); updateLive();
     }
 

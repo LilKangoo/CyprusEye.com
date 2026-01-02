@@ -992,7 +992,7 @@
           status: 'pending',
           user_id: user?.id || null
         };
-        const { data, error } = await supabase.from('hotel_bookings').insert([payload]).select().single();
+        const { error } = await supabase.from('hotel_bookings').insert([payload]);
         if(error) throw error;
         msg.className='booking-message success';
         msg.textContent=t('hotels.booking.success', 'Rezerwacja przyjęta! Skontaktujemy się wkrótce.');
