@@ -719,6 +719,9 @@
       .map((l) => normalizeCarLocation(l) || String(l || '').trim().toLowerCase())
       .filter((l) => l === 'paphos' || l === 'larnaca');
 
+    const assignedTripIds = await loadPartnerResourceIdsForType('trips');
+    const assignedTripIdSet = new Set((assignedTripIds || []).map((id) => String(id)));
+
     const serviceCarRows = merged.filter((f) => {
       if (!f || f.__source !== 'service') return false;
       return String(f.resource_type || '') === 'cars';
@@ -752,15 +755,27 @@
     const filteredMerged = merged.filter((f) => {
       if (!f) return false;
       if (f.__source !== 'service') return true;
-      if (String(f.resource_type || '') !== 'cars') return true;
 
-      if (!partner?.can_manage_cars) return false;
-      if (!allowedCarLocs.length) return true;
+      const rt = String(f.resource_type || '');
 
-      const offerLoc = f.resource_id ? carOfferLocationById[String(f.resource_id)] : null;
-      const loc = offerLoc || carLocationFromFulfillmentDetails(f.details);
-      if (!loc) return false;
-      return allowedCarLocs.includes(loc);
+      if (rt === 'cars') {
+        if (!partner?.can_manage_cars) return false;
+        if (!allowedCarLocs.length) return true;
+
+        const offerLoc = f.resource_id ? carOfferLocationById[String(f.resource_id)] : null;
+        const loc = offerLoc || carLocationFromFulfillmentDetails(f.details);
+        if (!loc) return false;
+        return allowedCarLocs.includes(loc);
+      }
+
+      if (rt === 'trips') {
+        if (!partner?.can_manage_trips) return false;
+        if (!assignedTripIdSet.size) return true;
+        if (!f.resource_id) return false;
+        return assignedTripIdSet.has(String(f.resource_id));
+      }
+
+      return true;
     });
 
     const serviceOnly = filteredMerged.filter((f) => f && f.__source === 'service');
@@ -1378,15 +1393,17 @@
         return [];
       }
 
-      try {
-        const data = await selectTrips({ ownerId: partner.id });
-        (data || []).forEach((r) => {
-          if (!r?.id) return;
-          const title = normalizeTitleJson(r.title) || r.slug || r.id;
-          const city = r.start_city ? ` — ${r.start_city}` : '';
-          rowsMap.set(r.id, { id: r.id, label: `${title}${city}` });
-        });
-      } catch (_e) {}
+      if (!assignedIds.length) {
+        try {
+          const data = await selectTrips({ ownerId: partner.id });
+          (data || []).forEach((r) => {
+            if (!r?.id) return;
+            const title = normalizeTitleJson(r.title) || r.slug || r.id;
+            const city = r.start_city ? ` — ${r.start_city}` : '';
+            rowsMap.set(r.id, { id: r.id, label: `${title}${city}` });
+          });
+        } catch (_e) {}
+      }
 
       if (assignedIds.length) {
         try {

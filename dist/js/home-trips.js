@@ -561,7 +561,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
     try{
       if (btn){ btn.disabled = true; btn.textContent = 'Wysyłanie...'; }
       const { supabase } = await import('/js/supabaseClient.js');
-      const { error } = await supabase.from('trip_bookings').insert([payload]).select().single();
+      const { error } = await supabase.from('trip_bookings').insert([payload]);
       if (error) throw error;
       
       // Success - show beautiful popup (same as hotels)

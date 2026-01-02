@@ -1533,11 +1533,9 @@
         if (!supabase) throw new Error('Database not available');
         
         // Insert booking into database
-        const { data, error } = await supabase
+        const { error } = await supabase
           .from('trip_bookings')
-          .insert([bookingData])
-          .select()
-          .single();
+          .insert([bookingData]);
         
         if (error) throw error;
         
