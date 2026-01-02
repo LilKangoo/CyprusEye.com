@@ -2477,6 +2477,11 @@ async function loadHotelBookingsData() {
             <button class="btn-secondary" onclick="viewHotelBookingDetails('${booking.id}')" title="View details">
               View
             </button>
+            ${adminState && adminState.isAdmin ? `
+            <button class="btn-danger" onclick="deleteHotelBooking('${booking.id}')" title="Delete booking" style="margin-left: 8px;">
+              Delete
+            </button>
+            ` : ''}
           </td>
         </tr>
       `;
@@ -2530,6 +2535,7 @@ async function viewHotelBookingDetails(bookingId) {
     const arrivalDate = booking.arrival_date ? new Date(booking.arrival_date).toLocaleDateString('en-GB') : 'N/A';
     const departureDate = booking.departure_date ? new Date(booking.departure_date).toLocaleDateString('en-GB') : 'N/A';
     const createdAt = booking.created_at ? new Date(booking.created_at).toLocaleString('en-GB') : 'N/A';
+    const canDelete = !!(adminState && adminState.isAdmin);
     const statusClass = 
       booking.status === 'confirmed' ? 'badge-success' :
       booking.status === 'pending' ? 'badge-warning' :
@@ -2668,11 +2674,25 @@ async function deleteHotelBooking(bookingId) {
   if (!confirm('Are you sure you want to delete this booking? This action cannot be undone.')) {
     return;
   }
+  const typed = prompt('Type DELETE to confirm deletion:');
+  if (typed !== 'DELETE') {
+    showToast('Deletion cancelled', 'info');
+    return;
+  }
   try {
     const client = ensureSupabase();
     if (!client) {
       showToast('Database connection not available', 'error');
       return;
+    }
+
+    try {
+      await client
+        .from('partner_service_fulfillments')
+        .delete()
+        .eq('resource_type', 'hotels')
+        .eq('booking_id', bookingId);
+    } catch (_e) {
     }
     const { error } = await client
       .from('hotel_bookings')
