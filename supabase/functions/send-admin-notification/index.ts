@@ -344,10 +344,17 @@ serve(async (req) => {
     return new Response("Method not allowed", { status: 405, headers: corsHeaders });
   }
 
-  const secretRequired = Deno.env.get("ADMIN_NOTIFY_SECRET") || "";
+  const secretRequired = (Deno.env.get("ADMIN_NOTIFY_SECRET") || "").trim();
   if (secretRequired) {
-    const providedSecret = req.headers.get("x-admin-notify-secret") || new URL(req.url).searchParams.get("secret") || "";
+    const providedSecret = (
+      req.headers.get("x-admin-notify-secret") || new URL(req.url).searchParams.get("secret") || ""
+    ).trim();
     if (!providedSecret || providedSecret !== secretRequired) {
+      console.warn("Unauthorized admin notification request", {
+        hasHeader: Boolean(req.headers.get("x-admin-notify-secret")),
+        providedLength: providedSecret.length,
+        requiredLength: secretRequired.length,
+      });
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
