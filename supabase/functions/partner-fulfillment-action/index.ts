@@ -40,6 +40,20 @@ function getFunctionsBaseUrl(): string {
 
 }
 
+async function getAdminNotifySecret(supabase: any): Promise<string> {
+  const { data, error } = await supabase
+    .from("shop_settings")
+    .select("admin_notify_secret")
+    .eq("id", 1)
+    .single();
+
+  if (error) {
+    return "";
+  }
+
+  return String((data as any)?.admin_notify_secret || "").trim();
+}
+
 async function sendAdminAlertOnServiceReject(params: {
   category: "cars" | "trips" | "hotels";
   bookingId: string;
@@ -49,11 +63,15 @@ async function sendAdminAlertOnServiceReject(params: {
   const base = getFunctionsBaseUrl();
   if (!base) return;
 
-  const secret = (Deno.env.get("ADMIN_NOTIFY_SECRET") || "").trim();
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const dbSecret = await getAdminNotifySecret(supabase);
+  const secret = (dbSecret || (Deno.env.get("ADMIN_NOTIFY_SECRET") || "")).trim();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
   if (secret) headers["x-admin-notify-secret"] = secret;
+
+  const url = `${base}/send-admin-notification${secret ? `?secret=${encodeURIComponent(secret)}` : ""}`;
 
   const payload = {
     category: params.category,
@@ -66,7 +84,7 @@ async function sendAdminAlertOnServiceReject(params: {
   };
 
   try {
-    await fetch(`${base}/send-admin-notification`, {
+    await fetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify(payload),
@@ -92,11 +110,15 @@ async function sendAdminAlertOnReject(params: {
   const base = getFunctionsBaseUrl();
   if (!base) return;
 
-  const secret = (Deno.env.get("ADMIN_NOTIFY_SECRET") || "").trim();
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const dbSecret = await getAdminNotifySecret(supabase);
+  const secret = (dbSecret || (Deno.env.get("ADMIN_NOTIFY_SECRET") || "")).trim();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
   if (secret) headers["x-admin-notify-secret"] = secret;
+
+  const url = `${base}/send-admin-notification${secret ? `?secret=${encodeURIComponent(secret)}` : ""}`;
 
   const payload = {
     category: "shop",
@@ -109,7 +131,7 @@ async function sendAdminAlertOnReject(params: {
   };
 
   try {
-    await fetch(`${base}/send-admin-notification`, {
+    await fetch(url, {
       method: "POST",
       headers,
       body: JSON.stringify(payload),

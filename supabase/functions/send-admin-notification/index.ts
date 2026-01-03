@@ -93,6 +93,21 @@ async function getAdminNotificationEmails(supabase: any): Promise<string> {
   return [dbValue, envFallback].filter(Boolean).join(",");
 }
 
+async function getAdminNotifySecret(supabase: any): Promise<string> {
+  const { data, error } = await supabase
+    .from("shop_settings")
+    .select("admin_notify_secret")
+    .eq("id", 1)
+    .single();
+
+  if (error) {
+    console.error("Failed to load shop_settings.admin_notify_secret:", error);
+    return "";
+  }
+
+  return String((data as any)?.admin_notify_secret || "").trim();
+}
+
 function resolveRecipients(category: Category, raw: string): string[] {
   const recipients = parseRecipients(raw);
   if (recipients.length) return recipients;
@@ -147,9 +162,10 @@ async function tryRelayEmail(params: {
   subject: string;
   text: string;
   html: string;
+  secret?: string;
 }): Promise<{ ok: boolean; status?: number; error?: string }> {
   const base = getMailRelayBaseUrl();
-  const secret = (Deno.env.get("ADMIN_NOTIFY_SECRET") || "").trim();
+  const secret = String(params.secret || (Deno.env.get("ADMIN_NOTIFY_SECRET") || "")).trim();
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
   };
@@ -344,16 +360,25 @@ serve(async (req) => {
     return new Response("Method not allowed", { status: 405, headers: corsHeaders });
   }
 
-  const secretRequired = (Deno.env.get("ADMIN_NOTIFY_SECRET") || "").trim();
+  const providedSecret = (
+    req.headers.get("x-admin-notify-secret") || new URL(req.url).searchParams.get("secret") || ""
+  ).trim();
+  const hasQuerySecret = Boolean(new URL(req.url).searchParams.get("secret"));
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const dbSecret = await getAdminNotifySecret(supabase);
+  const envSecret = (Deno.env.get("ADMIN_NOTIFY_SECRET") || "").trim();
+  const secretRequired = (dbSecret || envSecret).trim();
   if (secretRequired) {
-    const providedSecret = (
-      req.headers.get("x-admin-notify-secret") || new URL(req.url).searchParams.get("secret") || ""
-    ).trim();
     if (!providedSecret || providedSecret !== secretRequired) {
       console.warn("Unauthorized admin notification request", {
         hasHeader: Boolean(req.headers.get("x-admin-notify-secret")),
+        hasQuery: hasQuerySecret,
         providedLength: providedSecret.length,
         requiredLength: secretRequired.length,
+        requiredSource: dbSecret ? "db" : envSecret ? "env" : "none",
+        dbLength: dbSecret.length,
+        envLength: envSecret.length,
       });
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
         status: 401,
@@ -423,8 +448,6 @@ serve(async (req) => {
     event = "paid";
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
   if (categoryFromBody === "shop" && event === "paid") {
     try {
       const { data: sentRow, error: sentErr } = await supabase
@@ -489,7 +512,7 @@ serve(async (req) => {
 
   const transport = buildMailTransport();
   if (!transport) {
-    const relayed = await tryRelayEmail({ to: recipients, subject, text, html });
+    const relayed = await tryRelayEmail({ to: recipients, subject, text, html, secret: secretRequired });
     if (relayed.ok) {
       if (tableLower === "shop_order_history" && historyRecordId) {
         try {
