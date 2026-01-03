@@ -1,0 +1,39 @@
+name: Admin Notifications Worker
+
+'on':
+  schedule:
+    - cron: "*/2 * * * *"
+  workflow_dispatch:
+
+jobs:
+  process_admin_notifications:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Call process-admin-notifications function
+        shell: bash
+        env:
+          SUPABASE_FUNCTIONS_BASE_URL: ${{ secrets.SUPABASE_FUNCTIONS_BASE_URL }}
+          ADMIN_NOTIFY_WORKER_SECRET: ${{ secrets.ADMIN_NOTIFY_WORKER_SECRET }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${SUPABASE_FUNCTIONS_BASE_URL:-}" ]; then
+            echo "Missing secret SUPABASE_FUNCTIONS_BASE_URL"
+            exit 1
+          fi
+
+          URL="${SUPABASE_FUNCTIONS_BASE_URL%/}/process-admin-notifications?limit=25"
+
+          echo "Calling: $URL"
+
+          if [ -n "${ADMIN_NOTIFY_WORKER_SECRET:-}" ]; then
+            curl -sS -X POST "$URL" \
+              -H "Content-Type: application/json" \
+              -H "x-admin-notify-worker-secret: ${ADMIN_NOTIFY_WORKER_SECRET}" \
+              -d "{}"
+          else
+            curl -sS -X POST "$URL" \
+              -H "Content-Type: application/json" \
+              -d "{}"
+          fi
