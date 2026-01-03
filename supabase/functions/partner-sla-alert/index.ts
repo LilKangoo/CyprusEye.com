@@ -10,60 +10,23 @@ const corsHeaders = {
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 
-function getFunctionsBaseUrl(): string {
-  const explicit = (Deno.env.get("FUNCTIONS_BASE_URL") || "").trim();
-  if (explicit) return explicit.replace(/\/$/, "");
-
-  const legacy = (Deno.env.get("SUPABASE_FUNCTIONS_URL") || "").trim();
-  if (legacy) return legacy.replace(/\/$/, "");
-
-  const supabaseUrlRaw = (Deno.env.get("SUPABASE_URL") || "").trim();
-  if (!supabaseUrlRaw) return "";
-
-  try {
-    const url = new URL(supabaseUrlRaw);
-    const host = url.hostname;
-    const projectRef = host.split(".")[0] || "";
-    if (!projectRef) return "";
-    return `https://${projectRef}.functions.supabase.co`;
-  } catch (_e) {
-    return "";
-  }
-}
-
-async function getAdminNotifySecret(supabase: any): Promise<string> {
-  const { data, error } = await supabase
-    .from("shop_settings")
-    .select("admin_notify_secret")
-    .eq("id", 1)
-    .single();
-
-  if (error) {
-    return "";
-  }
-
-  return String((data as any)?.admin_notify_secret || "").trim();
-}
-
-async function notifyAdminSla(orderId: string) {
-  const base = getFunctionsBaseUrl();
-  if (!base) return;
-
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  const dbSecret = await getAdminNotifySecret(supabase);
-  const secret = (dbSecret || (Deno.env.get("ADMIN_NOTIFY_SECRET") || "")).trim();
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
+async function enqueueAdminSla(supabase: any, orderId: string) {
+  const payload = {
+    category: "shop",
+    record_id: orderId,
+    event: "partner_sla",
+    table: "shop_orders",
+    record: { id: orderId },
   };
-  if (secret) headers["x-admin-notify-secret"] = secret;
-
-  const url = `${base}/send-admin-notification${secret ? `?secret=${encodeURIComponent(secret)}` : ""}`;
 
   try {
-    await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ category: "shop", record_id: orderId, event: "partner_sla" }),
+    await supabase.rpc("enqueue_admin_notification", {
+      p_category: "shop",
+      p_event: "partner_sla",
+      p_record_id: orderId,
+      p_table_name: "shop_orders",
+      p_payload: payload,
+      p_dedupe_key: `shop_partner_sla:${orderId}`,
     });
   } catch (_e) {
     // best-effort
@@ -128,7 +91,7 @@ serve(async (req) => {
     }
 
     for (const orderId of orderIds) {
-      await notifyAdminSla(orderId);
+      await enqueueAdminSla(supabase, orderId);
     }
 
     return new Response(JSON.stringify({ ok: true, processed: rows.length, orders: orderIds.length }), {

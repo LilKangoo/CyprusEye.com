@@ -40,43 +40,28 @@ function getFunctionsBaseUrl(): string {
 
 }
 
-async function getAdminNotifySecret(supabase: any): Promise<string> {
-  const { data, error } = await supabase
-    .from("shop_settings")
-    .select("admin_notify_secret")
-    .eq("id", 1)
-    .single();
-
-  if (error) {
-    return "";
-  }
-
-  return String((data as any)?.admin_notify_secret || "").trim();
+function getServiceTableName(category: "cars" | "trips" | "hotels"): string {
+  if (category === "cars") return "car_bookings";
+  if (category === "trips") return "trip_bookings";
+  return "hotel_bookings";
 }
 
-async function sendAdminAlertOnServiceReject(params: {
-  category: "cars" | "trips" | "hotels";
-  bookingId: string;
-  fulfillmentId: string;
-  reason?: string | null;
-}) {
-  const base = getFunctionsBaseUrl();
-  if (!base) return;
-
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  const dbSecret = await getAdminNotifySecret(supabase);
-  const secret = (dbSecret || (Deno.env.get("ADMIN_NOTIFY_SECRET") || "")).trim();
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (secret) headers["x-admin-notify-secret"] = secret;
-
-  const url = `${base}/send-admin-notification${secret ? `?secret=${encodeURIComponent(secret)}` : ""}`;
+async function enqueueAdminAlertOnServiceReject(
+  supabase: any,
+  params: {
+    category: "cars" | "trips" | "hotels";
+    bookingId: string;
+    fulfillmentId: string;
+    reason?: string | null;
+  },
+) {
+  const tableName = getServiceTableName(params.category);
 
   const payload = {
     category: params.category,
     record_id: params.bookingId,
     event: "partner_rejected",
+    table: tableName,
     record: {
       id: params.bookingId,
       note: `Partner rejected service fulfillment ${params.fulfillmentId}${params.reason ? `: ${params.reason}` : ""}`,
@@ -84,10 +69,13 @@ async function sendAdminAlertOnServiceReject(params: {
   };
 
   try {
-    await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
+    await supabase.rpc("enqueue_admin_notification", {
+      p_category: params.category,
+      p_event: "partner_rejected",
+      p_record_id: params.bookingId,
+      p_table_name: tableName,
+      p_payload: payload,
+      p_dedupe_key: `${params.category}_partner_rejected:${params.bookingId}:${params.fulfillmentId}`,
     });
   } catch (_e) {
     // best-effort
@@ -102,28 +90,16 @@ function extractBearerToken(req: Request): string | null {
   return token || null;
 }
 
-async function sendAdminAlertOnReject(params: {
+async function sendAdminAlertOnReject(supabase: any, params: {
   orderId: string;
   fulfillmentId: string;
   reason?: string | null;
 }) {
-  const base = getFunctionsBaseUrl();
-  if (!base) return;
-
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
-  const dbSecret = await getAdminNotifySecret(supabase);
-  const secret = (dbSecret || (Deno.env.get("ADMIN_NOTIFY_SECRET") || "")).trim();
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (secret) headers["x-admin-notify-secret"] = secret;
-
-  const url = `${base}/send-admin-notification${secret ? `?secret=${encodeURIComponent(secret)}` : ""}`;
-
   const payload = {
     category: "shop",
     record_id: params.orderId,
     event: "partner_rejected",
+    table: "shop_orders",
     record: {
       id: params.orderId,
       note: `Partner rejected fulfillment ${params.fulfillmentId}${params.reason ? `: ${params.reason}` : ""}`,
@@ -131,10 +107,13 @@ async function sendAdminAlertOnReject(params: {
   };
 
   try {
-    await fetch(url, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(payload),
+    await supabase.rpc("enqueue_admin_notification", {
+      p_category: "shop",
+      p_event: "partner_rejected",
+      p_record_id: params.orderId,
+      p_table_name: "shop_orders",
+      p_payload: payload,
+      p_dedupe_key: `shop_partner_rejected:${params.orderId}:${params.fulfillmentId}`,
     });
   } catch (_e) {
     // best-effort
@@ -447,10 +426,10 @@ serve(async (req) => {
         .eq("id", orderId);
 
       if (orderId) {
-        await sendAdminAlertOnReject({ orderId, fulfillmentId, reason: reason || null });
+        await sendAdminAlertOnReject(supabase, { orderId, fulfillmentId, reason: reason || null });
       }
     } else if (bookingId && (serviceCategory === "cars" || serviceCategory === "trips" || serviceCategory === "hotels")) {
-      await sendAdminAlertOnServiceReject({
+      await enqueueAdminAlertOnServiceReject(supabase, {
         category: serviceCategory,
         bookingId,
         fulfillmentId,

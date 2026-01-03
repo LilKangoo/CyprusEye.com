@@ -1,0 +1,198 @@
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
+
+type JobRow = {
+  id: string;
+  created_at: string;
+  updated_at: string;
+  category: string;
+  event: string;
+  record_id: string;
+  table_name: string | null;
+  dedupe_key: string | null;
+  payload: Record<string, unknown>;
+  status: string;
+  attempts: number;
+  last_error: string | null;
+  next_attempt_at: string;
+  processed_at: string | null;
+};
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-admin-notify-worker-secret",
+  "Access-Control-Allow-Methods": "POST, OPTIONS",
+};
+
+const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+
+function getFunctionsBaseUrl(): string {
+  const explicit = (Deno.env.get("FUNCTIONS_BASE_URL") || "").trim();
+  if (explicit) return explicit.replace(/\/$/, "");
+
+  const legacy = (Deno.env.get("SUPABASE_FUNCTIONS_URL") || "").trim();
+  if (legacy) return legacy.replace(/\/$/, "");
+
+  const supabaseUrlRaw = (Deno.env.get("SUPABASE_URL") || "").trim();
+  if (!supabaseUrlRaw) return "";
+
+  try {
+    const url = new URL(supabaseUrlRaw);
+    const host = url.hostname;
+    const projectRef = host.split(".")[0] || "";
+    if (!projectRef) return "";
+    return `https://${projectRef}.functions.supabase.co`;
+  } catch (_e) {
+    return "";
+  }
+}
+
+function computeRetrySeconds(attempts: number): number {
+  const a = Number.isFinite(attempts) ? attempts : 1;
+  const secs = 60 * Math.pow(2, Math.max(0, a - 1));
+  return Math.min(Math.max(10, Math.floor(secs)), 60 * 60);
+}
+
+async function getAdminNotifySecret(supabase: any): Promise<string> {
+  const { data, error } = await supabase
+    .from("shop_settings")
+    .select("admin_notify_secret")
+    .eq("id", 1)
+    .single();
+
+  if (error) return "";
+  return String((data as any)?.admin_notify_secret || "").trim();
+}
+
+async function callSendAdminNotification(params: {
+  base: string;
+  secret: string;
+  payload: Record<string, unknown>;
+}): Promise<{ ok: boolean; status: number; bodyText: string }>
+{
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+  };
+  if (params.secret) headers["x-admin-notify-secret"] = params.secret;
+
+  const url = `${params.base}/send-admin-notification${
+    params.secret ? `?secret=${encodeURIComponent(params.secret)}` : ""
+  }`;
+
+  const resp = await fetch(url, {
+    method: "POST",
+    headers,
+    body: JSON.stringify(params.payload || {}),
+  });
+
+  let bodyText = "";
+  try {
+    bodyText = await resp.text();
+  } catch (_e) {
+    bodyText = "";
+  }
+
+  return { ok: resp.ok, status: resp.status, bodyText };
+}
+
+serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
+  }
+
+  if (req.method !== "POST") {
+    return new Response("Method not allowed", { status: 405, headers: corsHeaders });
+  }
+
+  const requiredWorkerSecret = (Deno.env.get("ADMIN_NOTIFY_WORKER_SECRET") || "").trim();
+  if (requiredWorkerSecret) {
+    const provided = (req.headers.get("x-admin-notify-worker-secret") || new URL(req.url).searchParams.get("secret") || "").trim();
+    if (!provided || provided !== requiredWorkerSecret) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }
+
+  const limitParam = new URL(req.url).searchParams.get("limit");
+  const limit = Math.max(1, Math.min(50, Number(limitParam || "10") || 10));
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const base = getFunctionsBaseUrl();
+  if (!base) {
+    return new Response(JSON.stringify({ ok: false, error: "Unable to determine functions base URL" }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const dbSecret = await getAdminNotifySecret(supabase);
+  const secret = (dbSecret || (Deno.env.get("ADMIN_NOTIFY_SECRET") || "")).trim();
+
+  const { data: jobs, error: claimError } = await supabase.rpc("claim_admin_notification_jobs", {
+    p_limit: limit,
+  });
+
+  if (claimError) {
+    return new Response(JSON.stringify({ ok: false, error: claimError.message }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  const rows = (Array.isArray(jobs) ? jobs : []) as JobRow[];
+  if (!rows.length) {
+    return new Response(JSON.stringify({ ok: true, claimed: 0, processed: 0 }), {
+      status: 200,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  let processed = 0;
+  let sent = 0;
+  let failed = 0;
+
+  for (const job of rows) {
+    processed += 1;
+
+    try {
+      const payload = (job?.payload && typeof job.payload === "object") ? (job.payload as Record<string, unknown>) : {};
+      const result = await callSendAdminNotification({ base, secret, payload });
+
+      if (result.ok || result.status === 200) {
+        await supabase.rpc("complete_admin_notification_job", {
+          p_id: job.id,
+          p_ok: true,
+          p_error: null,
+          p_retry_seconds: 60,
+        });
+        sent += 1;
+      } else {
+        const retrySeconds = computeRetrySeconds(job.attempts || 1);
+        await supabase.rpc("complete_admin_notification_job", {
+          p_id: job.id,
+          p_ok: false,
+          p_error: `send-admin-notification failed (${result.status}): ${result.bodyText || ""}`.slice(0, 1000),
+          p_retry_seconds: retrySeconds,
+        });
+        failed += 1;
+      }
+    } catch (e) {
+      const retrySeconds = computeRetrySeconds(job.attempts || 1);
+      await supabase.rpc("complete_admin_notification_job", {
+        p_id: job.id,
+        p_ok: false,
+        p_error: (e instanceof Error ? e.message : String(e)).slice(0, 1000),
+        p_retry_seconds: retrySeconds,
+      });
+      failed += 1;
+    }
+  }
+
+  return new Response(JSON.stringify({ ok: true, claimed: rows.length, processed, sent, failed }), {
+    status: 200,
+    headers: { ...corsHeaders, "Content-Type": "application/json" },
+  });
+});
