@@ -75,15 +75,28 @@ async function getAdminNotificationEmails(supabase: any): Promise<string> {
 
   if (error) {
     console.error("Failed to load shop_settings.admin_notification_email:", error);
-    return "";
+    const envFallback = ((
+      Deno.env.get("ADMIN_NOTIFICATION_EMAILS") ||
+      Deno.env.get("ADMIN_NOTIFICATION_EMAIL") ||
+      ""
+    ) as string).trim();
+    return envFallback;
   }
-  return (data as any)?.admin_notification_email || "";
+
+  const dbValue = ((data as any)?.admin_notification_email || "") as string;
+  const envFallback = ((
+    Deno.env.get("ADMIN_NOTIFICATION_EMAILS") ||
+    Deno.env.get("ADMIN_NOTIFICATION_EMAIL") ||
+    ""
+  ) as string).trim();
+
+  return [dbValue, envFallback].filter(Boolean).join(",");
 }
 
 function resolveRecipients(category: Category, raw: string): string[] {
   const recipients = parseRecipients(raw);
   if (recipients.length) return recipients;
-  if (category === "cars") return ["contact@wakacjecypr.com"];
+  if (category === "cars") return ["kontakt@wakacjecypr.com"];
   return [];
 }
 
@@ -121,7 +134,12 @@ function buildMailTransport() {
 function getMailRelayBaseUrl(): string {
   const explicit = (Deno.env.get("MAIL_RELAY_BASE_URL") || "").trim();
   const base = explicit || (Deno.env.get("ADMIN_PANEL_BASE_URL") || "").trim() || "https://cypruseye.com";
-  return base.endsWith("/") ? base.slice(0, -1) : base;
+  const trimmed = base.endsWith("/") ? base.slice(0, -1) : base;
+  try {
+    return new URL(trimmed).origin;
+  } catch (_e) {
+    return trimmed;
+  }
 }
 
 async function tryRelayEmail(params: {
@@ -429,6 +447,10 @@ serve(async (req) => {
   const recipients = resolveRecipients(categoryFromBody, adminNotificationEmailRaw);
 
   if (!recipients.length) {
+    console.warn(
+      "Admin notification skipped: no recipients configured",
+      JSON.stringify({ category: categoryFromBody, record_id: recordId, admin_notification_email: adminNotificationEmailRaw || null }),
+    );
     return new Response(JSON.stringify({ ok: true, skipped: true, reason: "no_admin_notification_email" }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
@@ -462,6 +484,19 @@ serve(async (req) => {
   if (!transport) {
     const relayed = await tryRelayEmail({ to: recipients, subject, text, html });
     if (relayed.ok) {
+      if (tableLower === "shop_order_history" && historyRecordId) {
+        try {
+          const { error: markErr } = await supabase
+            .from("shop_order_history")
+            .update({ notification_sent: true, notification_sent_at: new Date().toISOString() })
+            .eq("id", historyRecordId);
+          if (markErr) {
+            console.error("Failed to mark shop_order_history.notification_sent (relay):", markErr);
+          }
+        } catch (e) {
+          console.error("Failed to mark shop_order_history.notification_sent (relay):", e);
+        }
+      }
       return new Response(JSON.stringify({ ok: true, relayed: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
