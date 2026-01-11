@@ -83,7 +83,8 @@ async function callSendAdminNotification(params: {
   payload: Record<string, unknown>;
 }): Promise<{ ok: boolean; status: number; bodyText: string }>
 {
-  const anonKey = normalizeApiKey(Deno.env.get("SUPABASE_ANON_KEY") || "");
+  const explicitKey = normalizeApiKey(Deno.env.get("FUNCTIONS_API_KEY") || "");
+  const anonKey = explicitKey || normalizeApiKey(Deno.env.get("SUPABASE_ANON_KEY") || "");
   const serviceKey = normalizeApiKey(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "");
 
   function buildHeaders(strategy: "anon" | "service" | "mixed"): Record<string, string> {
@@ -103,7 +104,6 @@ async function callSendAdminNotification(params: {
         headers["apikey"] = serviceKey;
       }
     } else {
-      // Some gateways accept only anon in `apikey` but allow service JWT in Authorization.
       if (serviceKey) headers["Authorization"] = `Bearer ${serviceKey}`;
       if (anonKey) headers["apikey"] = anonKey;
       if (!headers["Authorization"] && anonKey) headers["Authorization"] = `Bearer ${anonKey}`;
