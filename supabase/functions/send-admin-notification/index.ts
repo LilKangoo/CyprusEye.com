@@ -146,6 +146,261 @@ function formatMoney(amount: unknown, currency: unknown): string {
   }
 }
 
+function formatTime(value: unknown): string {
+  const raw = valueToString(value);
+  if (!raw) return "";
+  const match = raw.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return raw;
+  const hh = String(match[1] || "").padStart(2, "0");
+  const mm = String(match[2] || "").padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+const NOISE_FIELDS = new Set([
+  "updated_at",
+  "updatedAt",
+  "quoted_price",
+  "quotedPrice",
+  "notification_sent",
+  "notificationSent",
+  "items",
+]);
+
+function isNoiseField(key: string): boolean {
+  if (!key) return true;
+  if (NOISE_FIELDS.has(key)) return true;
+  const lower = key.toLowerCase();
+  if (lower === "updated_at" || lower === "quoted_price") return true;
+  return false;
+}
+
+function formatRecordValueForEmail(params: {
+  key: string;
+  value: unknown;
+  record: Record<string, unknown>;
+}): string {
+  const { key, value, record } = params;
+  if (value === null || value === undefined) return "";
+
+  const currency = getField(record, ["currency", "currency_code"]);
+  const lower = key.toLowerCase();
+
+  if (
+    lower === "total" ||
+    lower === "total_price" ||
+    lower === "amount_total" ||
+    lower === "grand_total" ||
+    lower === "total_amount" ||
+    lower === "price_total" ||
+    lower === "subtotal" ||
+    lower === "unit_price"
+  ) {
+    return formatMoney(value, currency) || valueToString(value);
+  }
+
+  if (
+    lower === "pickup_date" ||
+    lower === "return_date" ||
+    lower === "start_date" ||
+    lower === "end_date" ||
+    lower === "from_date" ||
+    lower === "to_date" ||
+    lower === "date_from" ||
+    lower === "date_to" ||
+    lower === "trip_date" ||
+    lower === "check_in" ||
+    lower === "check_out" ||
+    lower === "checkin" ||
+    lower === "checkout"
+  ) {
+    return formatDate(value) || valueToString(value);
+  }
+
+  if (lower === "pickup_time" || lower === "return_time" || lower === "checkin_time" || lower === "checkout_time") {
+    return formatTime(value) || valueToString(value);
+  }
+
+  if (lower.endsWith("_at") || lower === "createdat" || lower === "created_at") {
+    return formatDateTime(value) || valueToString(value);
+  }
+
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value);
+    } catch (_e) {
+      return valueToString(value);
+    }
+  }
+
+  return valueToString(value);
+}
+
+function buildFormDataRows(category: Category, record: Record<string, unknown>): Array<{ label: string; value: string }> {
+  const priorityKeysByCategory: Record<Category, string[]> = {
+    cars: [
+      "car_model",
+      "car",
+      "vehicle",
+      "offer_id",
+      "location",
+      "pickup_location",
+      "pick_up_location",
+      "pickup_place",
+      "return_location",
+      "dropoff_location",
+      "drop_off_location",
+      "dropoff_place",
+      "pickup_date",
+      "start_date",
+      "from_date",
+      "date_from",
+      "pickup_time",
+      "return_date",
+      "end_date",
+      "to_date",
+      "date_to",
+      "return_time",
+      "total_price",
+      "total",
+      "currency",
+      "child_seats",
+      "young_driver",
+      "full_insurance",
+      "num_passengers",
+      "country",
+      "source",
+      "status",
+    ],
+    trips: [
+      "trip_name",
+      "trip_title",
+      "title",
+      "service_name",
+      "trip_date",
+      "date",
+      "people",
+      "guests",
+      "adults",
+      "participants",
+      "persons",
+      "pickup_location",
+      "pick_up_location",
+      "hotel",
+      "pickup_place",
+      "total_price",
+      "total",
+      "currency",
+      "country",
+      "source",
+      "status",
+    ],
+    hotels: [
+      "hotel_name",
+      "hotel",
+      "name_hotel",
+      "property_name",
+      "check_in",
+      "checkin",
+      "check_out",
+      "checkout",
+      "guests",
+      "people",
+      "adults",
+      "persons",
+      "rooms",
+      "room_type",
+      "meal_plan",
+      "total_price",
+      "total",
+      "currency",
+      "country",
+      "source",
+      "status",
+    ],
+    shop: [
+      "order_number",
+      "status",
+      "payment_status",
+      "total",
+      "amount_total",
+      "grand_total",
+      "total_amount",
+      "currency",
+      "currency_code",
+      "shipping_name",
+      "shipping_email",
+      "shipping_phone",
+      "shipping_address",
+      "shipping_city",
+      "shipping_postal_code",
+      "shipping_country",
+      "billing_name",
+      "billing_email",
+      "billing_phone",
+      "billing_address",
+      "billing_city",
+      "billing_postal_code",
+      "billing_country",
+      "source",
+    ],
+  };
+
+  const preferredLabels: Record<string, string> = {
+    car_model: "Car",
+    pickup_location: "Pick-up",
+    pick_up_location: "Pick-up",
+    pickup_place: "Pick-up",
+    dropoff_location: "Drop-off",
+    drop_off_location: "Drop-off",
+    dropoff_place: "Drop-off",
+    return_location: "Drop-off",
+    start_date: "From",
+    end_date: "To",
+    pickup_date: "From",
+    return_date: "To",
+    total_price: "Total",
+  };
+
+  const used = new Set<string>();
+  const usedLabels = new Set<string>();
+  const rows: Array<{ label: string; value: string }> = [];
+
+  const priorityKeys = priorityKeysByCategory[category] || [];
+  for (const key of priorityKeys) {
+    if (isNoiseField(key)) continue;
+    if (!(key in record)) continue;
+    const formatted = formatRecordValueForEmail({ key, value: (record as any)[key], record });
+    const value = String(formatted || "").trim();
+    if (!value) continue;
+    const label = preferredLabels[key] || labelForField(key);
+    if (label && usedLabels.has(label)) continue;
+    used.add(key);
+    if (label) usedLabels.add(label);
+    rows.push({ label, value });
+  }
+
+  const otherKeys = Object.keys(record)
+    .filter((k) => !used.has(k))
+    .filter((k) => !isNoiseField(k))
+    .filter((k) => {
+      const v = (record as any)[k];
+      const s = formatRecordValueForEmail({ key: k, value: v, record });
+      return Boolean(String(s || "").trim());
+    })
+    .sort((a, b) => a.localeCompare(b));
+
+  for (const key of otherKeys) {
+    const value = String(formatRecordValueForEmail({ key, value: (record as any)[key], record }) || "").trim();
+    if (!value) continue;
+    const label = preferredLabels[key] || labelForField(key);
+    if (label && usedLabels.has(label)) continue;
+    if (label) usedLabels.add(label);
+    rows.push({ label, value });
+  }
+
+  return rows;
+}
+
 function labelForField(key: string): string {
   const normalized = key
     .replace(/_+/g, " ")
@@ -418,10 +673,12 @@ function renderHtmlEmail(params: {
       { label: "Customer", value: getField(record, ["customer_name", "full_name", "name"]) },
       { label: "Email", value: email },
       { label: "Phone", value: phone },
+      { label: "Car", value: getField(record, ["car_model", "car", "vehicle", "model"]) },
       { label: "Pick-up", value: getField(record, ["pickup_location", "pick_up_location", "pickup_place"]) },
-      { label: "Drop-off", value: getField(record, ["dropoff_location", "drop_off_location", "dropoff_place"]) },
+      { label: "Drop-off", value: getField(record, ["return_location", "dropoff_location", "drop_off_location", "dropoff_place"]) },
       { label: "From", value: formatDate(getField(record, ["start_date", "pickup_date", "from_date", "date_from"])) },
       { label: "To", value: formatDate(getField(record, ["end_date", "return_date", "to_date", "date_to"])) },
+      { label: "Total", value: formatMoney(getField(record, ["total_price", "total", "amount_total", "grand_total", "total_amount", "price_total"]), currency) },
     ],
     trips: [
       { label: "Customer", value: getField(record, ["customer_name", "full_name", "name"]) },
@@ -431,6 +688,7 @@ function renderHtmlEmail(params: {
       { label: "Date", value: formatDate(getField(record, ["trip_date", "date", "start_date"])) },
       { label: "People", value: getField(record, ["people", "guests", "adults", "participants", "persons"]) },
       { label: "Pick-up", value: getField(record, ["pickup_location", "pick_up_location", "hotel", "pickup_place"]) },
+      { label: "Total", value: formatMoney(getField(record, ["total_price", "total", "amount_total", "grand_total", "total_amount", "price_total"]), currency) },
     ],
     hotels: [
       { label: "Customer", value: getField(record, ["customer_name", "full_name", "name"]) },
@@ -440,6 +698,7 @@ function renderHtmlEmail(params: {
       { label: "Check-in", value: formatDate(getField(record, ["check_in", "checkin", "start_date", "date_from"])) },
       { label: "Check-out", value: formatDate(getField(record, ["check_out", "checkout", "end_date", "date_to"])) },
       { label: "Guests", value: getField(record, ["guests", "people", "adults", "persons"]) },
+      { label: "Total", value: formatMoney(getField(record, ["total_price", "total", "amount_total", "grand_total", "total_amount", "price_total"]), currency) },
     ],
     shop: [
       { label: "Customer", value: getField(record, ["customer_name", "full_name", "name"]) },
@@ -476,6 +735,30 @@ function renderHtmlEmail(params: {
   if (notes) extraDetails.push({ label: "Notes", value: notes });
 
   const detailRows = buildKeyValueRows(record, extraDetails);
+
+  const formDataRows = buildFormDataRows(category, record).filter((r) => {
+    const labelLower = String(r.label || "").toLowerCase();
+    if (!labelLower) return false;
+    if (labelLower === "category" || labelLower === "event" || labelLower === "record id" || labelLower === "created") return false;
+    if (labelLower === "id" || labelLower === "created at") return false;
+    if (labelLower === "admin panel" || labelLower === "notes") return false;
+    return true;
+  });
+
+  const htmlFormDataTable = formDataRows.length
+    ? `
+      <table style="width:100%; border-collapse:collapse; margin: 0;">
+        ${formDataRows
+          .map(
+            (r) =>
+              `<tr>
+                <td style="padding:8px 10px; border:1px solid #e5e7eb; width: 34%; background:#f9fafb;"><strong>${escapeHtml(r.label)}</strong></td>
+                <td style="padding:8px 10px; border:1px solid #e5e7eb;">${escapeHtml(r.value)}</td>
+              </tr>`,
+          )
+          .join("")}
+      </table>`
+    : "";
 
   const htmlSummaryTable = summaryRows.length
     ? `
@@ -538,6 +821,7 @@ function renderHtmlEmail(params: {
 
     ${htmlSummaryTable ? `<h3 style="margin:18px 0 8px; font-size:16px;">Summary</h3>${htmlSummaryTable}` : ""}
     ${htmlItems}
+    ${htmlFormDataTable ? `<h3 style="margin:18px 0 8px; font-size:16px;">Form data</h3>${htmlFormDataTable}` : ""}
     ${htmlDetailsTable ? `<h3 style="margin:18px 0 8px; font-size:16px;">Details</h3>${htmlDetailsTable}` : ""}
   </div>`;
 
@@ -557,6 +841,12 @@ function renderHtmlEmail(params: {
   if (category === "shop" && itemsRows.length) {
     textLines.push("Items:");
     for (const r of itemsRows) textLines.push(`- ${r.line}${r.subtotal ? ` — ${r.subtotal}` : ""}`);
+    textLines.push("");
+  }
+
+  if (formDataRows.length) {
+    textLines.push("Form data:");
+    for (const r of formDataRows) textLines.push(`- ${r.label}: ${r.value}`);
     textLines.push("");
   }
 
