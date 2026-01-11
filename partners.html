@@ -14,7 +14,7 @@
 
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co wss://*.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://*.tile.openstreetmap.org; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
 
-  <meta name="theme-color" content="#2563eb" />
+  <meta name="theme-color" content="#dc2626" />
   <meta name="robots" content="noindex,nofollow" />
 
   <title>CyprusEye Partners</title>
@@ -42,6 +42,7 @@
   <link rel="stylesheet" href="assets/css/tokens.css" />
   <link rel="stylesheet" href="assets/css/base.css" />
   <link rel="stylesheet" href="assets/css/components.css" />
+  <link rel="stylesheet" href="admin/admin.css" />
   <link rel="stylesheet" href="assets/css/header-metrics.css" />
   <link rel="stylesheet" href="assets/css/mobile.css" />
   <link rel="stylesheet" href="assets/css/mobile-nav.css" />
@@ -59,17 +60,16 @@
   <script type="module" src="js/authUi.js"></script>
 
   <style>
-    .partners-page main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 72px; }
-    .partner-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px; }
+    .partner-card { background: var(--admin-bg-light); border: 1px solid var(--admin-border); border-radius: var(--admin-radius); padding: 18px; box-shadow: var(--admin-shadow); }
     .partner-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
     @media (min-width: 1024px) { .partner-grid { grid-template-columns: 1.2fr 0.8fr; } }
 
     .partner-toolbar { display:flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .partner-toolbar select, .partner-toolbar input { height: 38px; border-radius: 10px; border: 1px solid var(--border); padding: 0 10px; background: var(--surface); color: var(--text); }
+    .partner-toolbar select, .partner-toolbar input { height: 38px; border-radius: 10px; border: 1px solid var(--admin-border); padding: 0 10px; background: var(--admin-bg); color: var(--admin-text); }
 
     .partner-tabs { display:flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
-    .partner-tab { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 999px; padding: 8px 14px; font-weight: 600; cursor: pointer; }
-    .partner-tab.is-active { background: var(--primary); border-color: var(--primary); color: white; }
+    .partner-tab { border: 1px solid var(--admin-border); background: transparent; color: var(--admin-text); border-radius: 999px; padding: 8px 14px; font-weight: 600; cursor: pointer; }
+    .partner-tab.is-active { background: var(--admin-primary); border-color: var(--admin-primary); color: white; }
 
     .partner-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
     .partner-table th, .partner-table td { border-bottom: 1px solid var(--border); padding: 10px 8px; text-align: left; font-size: 14px; vertical-align: top; }
@@ -78,136 +78,159 @@
     .badge { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding: 4px 10px; font-size: 12px; font-weight: 700; color: white; }
 
     .btn-row { display:flex; gap: 8px; flex-wrap: wrap; }
-    .btn-sm { border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: 13px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
-    .btn-sm.primary { background: var(--primary); border-color: var(--primary); color: white; }
-    .btn-sm.danger { background: #ef4444; border-color: #ef4444; color: white; }
+    .btn-sm { border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: 13px; border: 1px solid var(--admin-border); background: transparent; color: var(--admin-text); cursor: pointer; }
+    .btn-sm.primary { background: var(--admin-primary); border-color: var(--admin-primary); color: white; }
+    .btn-sm.danger { background: var(--admin-danger); border-color: var(--admin-danger); color: white; }
 
-    .muted { color: var(--muted); }
+    .muted { color: var(--admin-text-muted); }
     .small { font-size: 12px; }
 
     .partner-kpi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .partner-kpi .kpi { border: 1px solid var(--border); background: var(--surface); border-radius: 14px; padding: 12px; }
-    .partner-kpi .kpi .label { color: var(--muted); font-size: 12px; }
+    .partner-kpi .kpi { border: 1px solid var(--admin-border); background: rgba(255, 255, 255, 0.02); border-radius: 14px; padding: 12px; }
+    .partner-kpi .kpi .label { color: var(--admin-text-muted); font-size: 12px; }
     .partner-kpi .kpi .value { font-size: 22px; font-weight: 800; margin-top: 4px; }
 
-    .partner-warning { border: 1px solid #f59e0b; background: rgba(245, 158, 11, 0.12); color: var(--text); border-radius: 14px; padding: 12px; }
+    .partner-warning { border: 1px solid var(--admin-warning); background: rgba(245, 158, 11, 0.12); color: var(--admin-text); border-radius: 14px; padding: 12px; }
 
-    .partner-contact { border: 1px solid var(--border); border-radius: 14px; padding: 10px; background: rgba(99, 102, 241, 0.06); }
+    .partner-contact { border: 1px solid var(--admin-border); border-radius: 14px; padding: 10px; background: rgba(59, 130, 246, 0.08); }
     .partner-contact strong { display:block; margin-bottom: 4px; }
 
     .partner-form { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 12px; }
     @media (min-width: 860px) { .partner-form { grid-template-columns: 1fr 1fr 1fr 1fr; } }
-    .partner-form label { font-size: 12px; color: var(--muted); font-weight: 600; }
-    .partner-form input, .partner-form select { width: 100%; height: 38px; border-radius: 10px; border: 1px solid var(--border); padding: 0 10px; background: var(--surface); color: var(--text); }
-    .partner-form textarea { width: 100%; border-radius: 10px; border: 1px solid var(--border); padding: 10px; background: var(--surface); color: var(--text); min-height: 38px; }
+    .partner-form label { font-size: 12px; color: var(--admin-text-muted); font-weight: 600; }
+    .partner-form input, .partner-form select { width: 100%; height: 38px; border-radius: 10px; border: 1px solid var(--admin-border); padding: 0 10px; background: var(--admin-bg); color: var(--admin-text); }
+    .partner-form textarea { width: 100%; border-radius: 10px; border: 1px solid var(--admin-border); padding: 10px; background: var(--admin-bg); color: var(--admin-text); min-height: 38px; }
 
     .partner-calendar-filters { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 12px; margin-bottom: 12px; }
     .partner-resource-panels { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; padding: 6px 2px; }
   </style>
 </head>
 
-<body data-navigation="multi-page" class="partners-page">
+ <body data-admin-panel="true" data-navigation="multi-page" class="partners-page">
   <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
 
-  <header class="app-header nav-modern">
-    <div class="nav-modern__top" aria-label="Global header">
-      <div class="brand nav-modern__brand-block">
-        <a href="index.html" class="nav-modern__brand-link" aria-label="CyprusEye Quest home">
-          <img
-            src="assets/cyprus_logo-1000x1054.png"
-            alt="CyprusEye logo"
-            width="1000"
-            height="1054"
-            loading="eager"
-            fetchpriority="high"
-          />
-          <div class="brand-title">
-            <p class="brand-name">CyprusEye Quest &amp; Travel</p>
-          </div>
-        </a>
-      </div>
+  <header class="admin-header">
+    <div class="admin-header-content">
+      <div class="admin-header-left">
+        <button
+          type="button"
+          class="admin-menu-toggle"
+          id="adminMenuToggle"
+          aria-label="Toggle navigation menu"
+          aria-controls="adminSidebar"
+          aria-expanded="false"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
 
-      <div class="nav-modern__stats nav-modern__stats-lite" data-auth="user-only">
-        <div class="stats-lite__pill">
-          <a href="achievements.html" class="stats-lite__profile" id="profileButton" aria-label="Mój profil">
-            <img
-              id="headerUserAvatar"
-              class="profile-avatar"
-              src="assets/cyprus_logo-1000x1054.png"
-              alt="Avatar"
-              width="48"
-              height="48"
-              loading="eager"
-            />
-            <div class="profile-info">
-              <p class="profile-name">Mój Profil</p>
-              <p class="profile-status">Poziom 1 • 0 odznak</p>
-            </div>
-          </a>
+        <h1 class="admin-title">
+          <svg class="admin-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          CyprusEye Partners
+        </h1>
 
-          <div class="stats-lite__panel">
-            <div class="stats-lite__level">
-              <span class="stats-lite__label">LVL</span>
-              <span class="stats-lite__value" id="headerLevelNumber">1</span>
-            </div>
-
-            <div class="stats-lite__xp" role="img" aria-label="Postęp doświadczenia">
-              <span class="stats-lite__xp-current"><span id="headerXpPoints">0</span> XP</span>
-              <div class="stats-lite__xp-bar">
-                <div class="stats-lite__xp-fill is-width-zero" id="headerXpFill"></div>
-              </div>
-            </div>
-
-            <div class="stats-lite__badges">
-              <span class="stats-lite__label">🏆</span>
-              <span class="stats-lite__value" id="headerBadgesCount">0</span>
-            </div>
-          </div>
+        <div class="admin-breadcrumb" id="partnerBreadcrumb">
+          <span>Partner Portal</span>
         </div>
       </div>
 
-      <div class="nav-modern__top-actions">
-        <div class="nav-modern__auth">
-          <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
-            <button
-              class="nav-modern__login"
-              data-open-auth
-              data-auth="anon-only"
-              data-auth-target="login"
-              aria-label="Zaloguj do konta"
-            >
-              Zaloguj
-            </button>
-            <button class="btn btn-sm" data-auth="logout" aria-label="Wyloguj z konta" hidden>Wyloguj</button>
-          </div>
-          <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" hidden>Łączenie...</div>
+      <div class="admin-header-right">
+        <div class="admin-user-info" id="partnerUserInfo">
+          <span class="admin-user-name" id="partnerUserName">Loading...</span>
+          <span class="admin-user-role">Partner</span>
         </div>
 
-        <div class="language-pill-group" data-language-toggle aria-label="Language selector">
-          <button type="button" class="language-pill" data-language-pill="pl" aria-pressed="false">PL</button>
-          <button type="button" class="language-pill" data-language-pill="en" aria-pressed="false">EN</button>
+        <div id="auth-actions" style="display:flex; align-items:center; gap: 10px;" aria-live="polite">
+          <button
+            class="btn-secondary"
+            type="button"
+            data-open-auth
+            data-auth="anon-only"
+            data-auth-target="login"
+            aria-label="Zaloguj do konta"
+          >
+            Zaloguj
+          </button>
+          <button class="btn-admin-logout" data-auth="logout" aria-label="Wyloguj z konta" hidden>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
         </div>
-      </div>
-    </div>
 
-    <div class="nav-modern__shell">
-      <div class="nav-modern__bars">
-        <button class="nav-modern__toggle-btn" id="navToggleBtn" aria-expanded="false" aria-controls="navLinksRow">☰ Nawigacja</button>
-        <div class="nav-modern__links-row" id="navLinksRow" aria-label="Główna nawigacja i skróty">
-          <nav class="nav-modern__tabs" role="tablist" aria-label="Nawigacja główna">
-            <a href="index.html" class="nav-modern__tab">🎯 Przygoda</a>
-            <a href="community.html" class="nav-modern__tab">💬 Społeczność</a>
-            <a href="recommendations.html" class="nav-modern__tab">✨ Polecane</a>
-            <a href="tasks.html" class="nav-modern__tab">☑️ Zadania</a>
-            <a href="shop.html" class="nav-modern__tab">🛍️ Sklep</a>
-            <a href="partners.html" class="nav-modern__tab is-active">🤝 Partner</a>
-          </nav>
-        </div>
+        <div data-auth="spinner" aria-live="polite" hidden>Łączenie...</div>
       </div>
     </div>
   </header>
 
-  <main>
+  <div class="admin-sidebar-overlay" id="adminSidebarOverlay" hidden></div>
+
+  <div class="admin-container" id="partnerAdminContainer">
+    <aside class="admin-sidebar" id="adminSidebar">
+      <nav class="admin-nav" id="partnerSidebarNav">
+        <button class="admin-nav-item active" type="button" data-partner-nav="fulfillments" data-partner-category="all" id="partnerNavAll">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"/>
+            <rect x="14" y="3" width="7" height="7"/>
+            <rect x="14" y="14" width="7" height="7"/>
+            <rect x="3" y="14" width="7" height="7"/>
+          </svg>
+          <span>All</span>
+        </button>
+
+        <button class="admin-nav-item" type="button" data-partner-nav="fulfillments" data-partner-category="shop" id="partnerNavShop" hidden>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 2l1.5 7h9L18 2"/>
+            <path d="M6 9h12l-1 13H7L6 9z"/>
+          </svg>
+          <span>Shop</span>
+        </button>
+
+        <button class="admin-nav-item" type="button" data-partner-nav="fulfillments" data-partner-category="cars" id="partnerNavCars" hidden>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 17h14v2H5v-2zM3 11l2.5-5h13L21 11"/>
+            <path d="M3 11v6h18v-6M3 11h18"/>
+            <circle cx="7.5" cy="15.5" r="1.5"/>
+            <circle cx="16.5" cy="15.5" r="1.5"/>
+          </svg>
+          <span>Cars</span>
+        </button>
+
+        <button class="admin-nav-item" type="button" data-partner-nav="fulfillments" data-partner-category="trips" id="partnerNavTrips" hidden>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 11l9-9 9 9v9a2 2 0 0 1-2 2h-5v-7H10v7H5a2 2 0 0 1-2-2v-9z"/>
+          </svg>
+          <span>Trips</span>
+        </button>
+
+        <button class="admin-nav-item" type="button" data-partner-nav="fulfillments" data-partner-category="hotels" id="partnerNavHotels" hidden>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 21V8a2 2 0 0 1 2-2h3V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2h3a2 2 0 0 1 2 2v13"/>
+            <path d="M6 21v-6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v6"/>
+          </svg>
+          <span>Hotels</span>
+        </button>
+
+        <button class="admin-nav-item" type="button" data-partner-nav="calendar" id="partnerNavCalendar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <span>Availability</span>
+        </button>
+      </nav>
+    </aside>
+
+    <main class="admin-main">
     <h1 style="margin: 0 0 8px; font-size: 28px;">Partner Portal</h1>
     <p class="muted" style="margin-top: 0;">Zarządzaj potwierdzeniami zamówień i kalendarzem dostępności.</p>
 
@@ -250,7 +273,8 @@
 
           <div class="muted small" id="fulfillmentsHint" style="margin-top: 10px;"></div>
 
-          <table class="partner-table" aria-label="Fulfillments">
+          <div class="admin-table-container" aria-label="Fulfillments">
+          <table class="admin-table">
             <thead>
               <tr>
                 <th>Order</th>
@@ -265,6 +289,7 @@
               <tr><td colspan="6" class="muted" style="padding: 16px 8px;">Loading…</td></tr>
             </tbody>
           </table>
+          </div>
         </div>
 
         <div id="partnerTabCalendar" style="margin-top: 10px;" hidden>
@@ -325,7 +350,8 @@
             </div>
           </form>
 
-          <table class="partner-table" aria-label="Availability blocks">
+          <div class="admin-table-container" aria-label="Availability blocks">
+          <table class="admin-table">
             <thead>
               <tr>
                 <th>Resource</th>
@@ -338,6 +364,7 @@
               <tr><td colspan="4" class="muted" style="padding: 16px 8px;">Loading…</td></tr>
             </tbody>
           </table>
+          </div>
         </div>
       </section>
 
@@ -354,20 +381,14 @@
         </div>
       </aside>
     </div>
-  </main>
+    </main>
+  </div>
 
   <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
 
   <script src="js/i18n.js" defer></script>
-  <script src="js/forms.js" defer></script>
-  <script src="js/seo.js" defer></script>
-  <script src="js/mobile-nav.js" defer></script>
-  <script src="js/header-dropdown.js" defer></script>
-  <script src="js/languageSwitcher.js"></script>
-  <script src="js/languageRefresh.js"></script>
-  <script src="js/header-stats.js?v=1" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
-  <script src="js/partners.js?v=11" defer></script>
+  <script src="js/partners.js?v=12" defer></script>
 
   <div
     id="auth-modal"

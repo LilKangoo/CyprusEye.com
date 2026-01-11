@@ -14,7 +14,7 @@
 
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co wss://*.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://*.tile.openstreetmap.org; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
 
-  <meta name="theme-color" content="#2563eb" />
+  <meta name="theme-color" content="#dc2626" />
   <meta name="robots" content="noindex,nofollow" />
 
   <title>CyprusEye Partners</title>
@@ -42,6 +42,7 @@
   <link rel="stylesheet" href="assets/css/tokens.css" />
   <link rel="stylesheet" href="assets/css/base.css" />
   <link rel="stylesheet" href="assets/css/components.css" />
+  <link rel="stylesheet" href="admin/admin.css" />
   <link rel="stylesheet" href="assets/css/header-metrics.css" />
   <link rel="stylesheet" href="assets/css/mobile.css" />
   <link rel="stylesheet" href="assets/css/mobile-nav.css" />
@@ -59,17 +60,16 @@
   <script type="module" src="js/authUi.js"></script>
 
   <style>
-    .partners-page main { max-width: 1180px; margin: 0 auto; padding: 24px 16px 72px; }
-    .partner-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px; }
+    .partner-card { background: var(--admin-bg-light); border: 1px solid var(--admin-border); border-radius: var(--admin-radius); padding: 18px; box-shadow: var(--admin-shadow); }
     .partner-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
     @media (min-width: 1024px) { .partner-grid { grid-template-columns: 1.2fr 0.8fr; } }
 
     .partner-toolbar { display:flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .partner-toolbar select, .partner-toolbar input { height: 38px; border-radius: 10px; border: 1px solid var(--border); padding: 0 10px; background: var(--surface); color: var(--text); }
+    .partner-toolbar select, .partner-toolbar input { height: 38px; border-radius: 10px; border: 1px solid var(--admin-border); padding: 0 10px; background: var(--admin-bg); color: var(--admin-text); }
 
     .partner-tabs { display:flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
-    .partner-tab { border: 1px solid var(--border); background: var(--surface); color: var(--text); border-radius: 999px; padding: 8px 14px; font-weight: 600; cursor: pointer; }
-    .partner-tab.is-active { background: var(--primary); border-color: var(--primary); color: white; }
+    .partner-tab { border: 1px solid var(--admin-border); background: transparent; color: var(--admin-text); border-radius: 999px; padding: 8px 14px; font-weight: 600; cursor: pointer; }
+    .partner-tab.is-active { background: var(--admin-primary); border-color: var(--admin-primary); color: white; }
 
     .partner-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
     .partner-table th, .partner-table td { border-bottom: 1px solid var(--border); padding: 10px 8px; text-align: left; font-size: 14px; vertical-align: top; }
@@ -78,35 +78,35 @@
     .badge { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding: 4px 10px; font-size: 12px; font-weight: 700; color: white; }
 
     .btn-row { display:flex; gap: 8px; flex-wrap: wrap; }
-    .btn-sm { border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: 13px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
-    .btn-sm.primary { background: var(--primary); border-color: var(--primary); color: white; }
-    .btn-sm.danger { background: #ef4444; border-color: #ef4444; color: white; }
+    .btn-sm { border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: 13px; border: 1px solid var(--admin-border); background: transparent; color: var(--admin-text); cursor: pointer; }
+    .btn-sm.primary { background: var(--admin-primary); border-color: var(--admin-primary); color: white; }
+    .btn-sm.danger { background: var(--admin-danger); border-color: var(--admin-danger); color: white; }
 
-    .muted { color: var(--muted); }
+    .muted { color: var(--admin-text-muted); }
     .small { font-size: 12px; }
 
     .partner-kpi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
-    .partner-kpi .kpi { border: 1px solid var(--border); background: var(--surface); border-radius: 14px; padding: 12px; }
-    .partner-kpi .kpi .label { color: var(--muted); font-size: 12px; }
+    .partner-kpi .kpi { border: 1px solid var(--admin-border); background: rgba(255, 255, 255, 0.02); border-radius: 14px; padding: 12px; }
+    .partner-kpi .kpi .label { color: var(--admin-text-muted); font-size: 12px; }
     .partner-kpi .kpi .value { font-size: 22px; font-weight: 800; margin-top: 4px; }
 
-    .partner-warning { border: 1px solid #f59e0b; background: rgba(245, 158, 11, 0.12); color: var(--text); border-radius: 14px; padding: 12px; }
+    .partner-warning { border: 1px solid var(--admin-warning); background: rgba(245, 158, 11, 0.12); color: var(--admin-text); border-radius: 14px; padding: 12px; }
 
-    .partner-contact { border: 1px solid var(--border); border-radius: 14px; padding: 10px; background: rgba(99, 102, 241, 0.06); }
+    .partner-contact { border: 1px solid var(--admin-border); border-radius: 14px; padding: 10px; background: rgba(59, 130, 246, 0.08); }
     .partner-contact strong { display:block; margin-bottom: 4px; }
 
     .partner-form { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 12px; }
     @media (min-width: 860px) { .partner-form { grid-template-columns: 1fr 1fr 1fr 1fr; } }
-    .partner-form label { font-size: 12px; color: var(--muted); font-weight: 600; }
-    .partner-form input, .partner-form select { width: 100%; height: 38px; border-radius: 10px; border: 1px solid var(--border); padding: 0 10px; background: var(--surface); color: var(--text); }
-    .partner-form textarea { width: 100%; border-radius: 10px; border: 1px solid var(--border); padding: 10px; background: var(--surface); color: var(--text); min-height: 38px; }
+    .partner-form label { font-size: 12px; color: var(--admin-text-muted); font-weight: 600; }
+    .partner-form input, .partner-form select { width: 100%; height: 38px; border-radius: 10px; border: 1px solid var(--admin-border); padding: 0 10px; background: var(--admin-bg); color: var(--admin-text); }
+    .partner-form textarea { width: 100%; border-radius: 10px; border: 1px solid var(--admin-border); padding: 10px; background: var(--admin-bg); color: var(--admin-text); min-height: 38px; }
 
     .partner-calendar-filters { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 12px; margin-bottom: 12px; }
     .partner-resource-panels { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; padding: 6px 2px; }
   </style>
 </head>
 
-<body data-navigation="multi-page" class="partners-page">
+<body data-admin-panel="true" data-navigation="multi-page" class="partners-page">
   <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
 
   <header class="app-header nav-modern">

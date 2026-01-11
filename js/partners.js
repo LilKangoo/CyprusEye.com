@@ -6,6 +6,7 @@
     memberships: [],
     partnersById: {},
     selectedPartnerId: null,
+    selectedCategory: 'all',
     fulfillments: [],
     itemsByFulfillmentId: {},
     contactsByFulfillmentId: {},
@@ -53,6 +54,19 @@
     blockStart: null,
     blockEnd: null,
     blockNote: null,
+
+    adminMenuToggle: null,
+    adminSidebar: null,
+    adminSidebarOverlay: null,
+    partnerSidebarNav: null,
+    partnerNavAll: null,
+    partnerNavShop: null,
+    partnerNavCars: null,
+    partnerNavTrips: null,
+    partnerNavHotels: null,
+    partnerNavCalendar: null,
+    partnerUserName: null,
+    partnerBreadcrumb: null,
   };
 
   function $(id) {
@@ -80,6 +94,148 @@
   function setHidden(el, hidden) {
     if (!el) return;
     el.hidden = !!hidden;
+  }
+
+  function openSidebar() {
+    if (!els.adminSidebar) return;
+    els.adminSidebar.classList.add('is-open');
+    if (els.adminSidebarOverlay) {
+      els.adminSidebarOverlay.hidden = false;
+      els.adminSidebarOverlay.classList.add('is-active');
+    }
+    document.body.classList.add('admin-sidebar-open');
+    if (els.adminMenuToggle) {
+      els.adminMenuToggle.setAttribute('aria-expanded', 'true');
+    }
+  }
+
+  function closeSidebar() {
+    if (!els.adminSidebar) return;
+    els.adminSidebar.classList.remove('is-open');
+    if (els.adminSidebarOverlay) {
+      els.adminSidebarOverlay.classList.remove('is-active');
+      els.adminSidebarOverlay.hidden = true;
+    }
+    document.body.classList.remove('admin-sidebar-open');
+    if (els.adminMenuToggle) {
+      els.adminMenuToggle.setAttribute('aria-expanded', 'false');
+    }
+  }
+
+  function toggleSidebar() {
+    if (!els.adminSidebar) return;
+    const isOpen = els.adminSidebar.classList.contains('is-open');
+    if (isOpen) closeSidebar();
+    else openSidebar();
+  }
+
+  function categoryLabel(category) {
+    const c = String(category || '').trim();
+    if (c === 'shop') return 'Shop';
+    if (c === 'cars') return 'Cars';
+    if (c === 'trips') return 'Trips';
+    if (c === 'hotels') return 'Hotels';
+    return 'All';
+  }
+
+  function filteredFulfillmentsForSelectedCategory() {
+    const cat = String(state.selectedCategory || 'all');
+    return (state.fulfillments || []).filter((f) => {
+      if (cat === 'all') return true;
+      if (!f) return false;
+      if (cat === 'shop') return String(f.__source || '') === 'shop';
+      if (String(f.__source || '') === 'shop') return false;
+      return String(f.resource_type || '') === cat;
+    });
+  }
+
+  function showTabOnly(tab) {
+    const isFulfillments = tab === 'fulfillments';
+    els.tabBtnFulfillments?.classList.toggle('is-active', isFulfillments);
+    els.tabBtnCalendar?.classList.toggle('is-active', !isFulfillments);
+    setHidden(els.tabFulfillments, !isFulfillments);
+    setHidden(els.tabCalendar, isFulfillments);
+  }
+
+  function updateSidebarCategoryVisibility() {
+    const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
+    const hasShopFulfillments = (state.fulfillments || []).some((f) => f && String(f.__source || '') === 'shop');
+    const canShop = Boolean(partner?.can_manage_shop && (partner?.shop_vendor_id || hasShopFulfillments));
+    const canCars = Boolean(partner?.can_manage_cars);
+    const canTrips = Boolean(partner?.can_manage_trips);
+    const canHotels = Boolean(partner?.can_manage_hotels);
+
+    setHidden(els.partnerNavShop, !canShop);
+    setHidden(els.partnerNavCars, !canCars);
+    setHidden(els.partnerNavTrips, !canTrips);
+    setHidden(els.partnerNavHotels, !canHotels);
+
+    const allowed = new Set(['all', 'shop', 'cars', 'trips', 'hotels']);
+    if (!canShop) allowed.delete('shop');
+    if (!canCars) allowed.delete('cars');
+    if (!canTrips) allowed.delete('trips');
+    if (!canHotels) allowed.delete('hotels');
+
+    if (!allowed.has(String(state.selectedCategory || 'all'))) {
+      state.selectedCategory = 'all';
+    }
+  }
+
+  function navToCategory(category) {
+    const next = category || 'all';
+    state.selectedCategory = next;
+
+    updateSidebarCategoryVisibility();
+
+    const buttons = [
+      els.partnerNavAll,
+      els.partnerNavShop,
+      els.partnerNavCars,
+      els.partnerNavTrips,
+      els.partnerNavHotels,
+      els.partnerNavCalendar,
+    ].filter(Boolean);
+    buttons.forEach((btn) => {
+      const btnCat = btn.getAttribute('data-partner-category') || '';
+      const isActive = (btn.getAttribute('data-partner-nav') === 'calendar')
+        ? false
+        : (String(btnCat || '') === String(next || ''));
+      btn.classList.toggle('active', isActive);
+    });
+
+    if (els.partnerBreadcrumb) {
+      const crumb = els.partnerBreadcrumb.querySelector('span');
+      if (crumb) crumb.textContent = `Partner Portal — ${categoryLabel(next)}`;
+    }
+
+    showTabOnly('fulfillments');
+    if (!state.fulfillments?.length) {
+      refreshFulfillments();
+    } else {
+      updateKpis();
+      renderFulfillmentsTable();
+    }
+    closeSidebar();
+  }
+
+  function navToCalendar() {
+    const buttons = [
+      els.partnerNavAll,
+      els.partnerNavShop,
+      els.partnerNavCars,
+      els.partnerNavTrips,
+      els.partnerNavHotels,
+      els.partnerNavCalendar,
+    ].filter(Boolean);
+    buttons.forEach((btn) => btn.classList.toggle('active', btn === els.partnerNavCalendar));
+
+    if (els.partnerBreadcrumb) {
+      const crumb = els.partnerBreadcrumb.querySelector('span');
+      if (crumb) crumb.textContent = 'Partner Portal — Availability';
+    }
+
+    setActiveTab('calendar');
+    closeSidebar();
   }
 
   function stopBlocksRealtime() {
@@ -910,7 +1066,7 @@
   }
 
   function updateKpis() {
-    const rows = state.fulfillments || [];
+    const rows = filteredFulfillmentsForSelectedCategory();
     const pending = rows.filter((f) => String(f.status) === 'pending_acceptance').length;
     const accepted = rows.filter((f) => String(f.status) === 'accepted').length;
     const rejected = rows.filter((f) => String(f.status) === 'rejected').length;
@@ -945,7 +1101,9 @@
   function renderFulfillmentsTable() {
     if (!els.fulfillmentsBody) return;
 
-    if (!state.fulfillments.length) {
+    const filtered = filteredFulfillmentsForSelectedCategory();
+
+    if (!filtered.length) {
       setHtml(els.fulfillmentsBody, '<tr><td colspan="6" class="muted" style="padding: 16px 8px;">No fulfillments found.</td></tr>');
       return;
     }
@@ -953,7 +1111,7 @@
     const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
     const isSuspended = partner && partner.status === 'suspended';
 
-    const rowsHtml = state.fulfillments
+    const rowsHtml = filtered
       .map((f) => {
         const source = String(f.__source || 'shop');
         const isShop = source === 'shop';
@@ -1087,8 +1245,8 @@
 
           return `
             <div class="btn-row">
-              <button class="btn-sm primary" type="button" data-action="accept" data-source="${escapeHtml(source)}" data-id="${escapeHtml(id)}" ${disabledAttr}>Accept</button>
-              <button class="btn-sm danger" type="button" data-action="reject" data-source="${escapeHtml(source)}" data-id="${escapeHtml(id)}" ${disabledAttr}>Reject</button>
+              <button class="btn-action btn-success" type="button" data-action="accept" data-source="${escapeHtml(source)}" data-id="${escapeHtml(id)}" ${disabledAttr}>Accept</button>
+              <button class="btn-action btn-danger" type="button" data-action="reject" data-source="${escapeHtml(source)}" data-id="${escapeHtml(id)}" ${disabledAttr}>Reject</button>
             </div>
           `;
         })();
@@ -1614,7 +1772,7 @@
             <td class="small">${escapeHtml(String(b.start_date))} → ${escapeHtml(String(b.end_date))}</td>
             <td>${note}</td>
             <td style="text-align:right;">
-              <button class="btn-sm danger" type="button" data-delete-block="${escapeHtml(b.id)}">Delete</button>
+              <button class="btn-action btn-danger" type="button" data-delete-block="${escapeHtml(b.id)}">Delete</button>
             </td>
           </tr>
         `;
@@ -1716,6 +1874,7 @@
       await refreshSelectedPartnerRecord();
       await loadFulfillments();
       syncResourceTypeOptions();
+      updateSidebarCategoryVisibility();
       updateKpis();
       renderFulfillmentsTable();
       setText(els.status, `Loaded ${state.fulfillments.length} fulfillments.`);
@@ -1808,6 +1967,8 @@
 
     syncResourceTypeOptions();
 
+    updateSidebarCategoryVisibility();
+
     const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
     if (partner && els.blockResourceType && els.blockResourceId) {
       if (els.blockResourceType.value === 'shop' && !els.blockResourceId.value && partner.shop_vendor_id) {
@@ -1845,7 +2006,13 @@
       setHidden(els.app, true);
       setHidden(els.noPartner, true);
       setText(els.status, 'Not logged in.');
+      if (els.partnerUserName) els.partnerUserName.textContent = 'Not logged in';
       return;
+    }
+
+    if (els.partnerUserName) {
+      const name = state.user?.email || state.user?.id || 'Partner';
+      els.partnerUserName.textContent = name;
     }
 
     setHidden(els.loginPrompt, true);
@@ -1874,6 +2041,7 @@
     renderSuspendedInfo();
 
     syncResourceTypeOptions();
+    updateSidebarCategoryVisibility();
     ensureCalendarMonthInput();
 
     const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
@@ -1901,6 +2069,22 @@
 
     els.tabBtnFulfillments?.addEventListener('click', () => setActiveTab('fulfillments'));
     els.tabBtnCalendar?.addEventListener('click', () => setActiveTab('calendar'));
+
+    els.adminMenuToggle?.addEventListener('click', (e) => {
+      e.preventDefault();
+      toggleSidebar();
+    });
+
+    els.adminSidebarOverlay?.addEventListener('click', () => {
+      closeSidebar();
+    });
+
+    els.partnerNavAll?.addEventListener('click', () => navToCategory('all'));
+    els.partnerNavShop?.addEventListener('click', () => navToCategory('shop'));
+    els.partnerNavCars?.addEventListener('click', () => navToCategory('cars'));
+    els.partnerNavTrips?.addEventListener('click', () => navToCategory('trips'));
+    els.partnerNavHotels?.addEventListener('click', () => navToCategory('hotels'));
+    els.partnerNavCalendar?.addEventListener('click', () => navToCalendar());
 
     if (els.blockForm) {
       els.blockForm.addEventListener('submit', async (e) => {
@@ -2022,6 +2206,19 @@
     els.blockStart = $('blockStart');
     els.blockEnd = $('blockEnd');
     els.blockNote = $('blockNote');
+
+    els.adminMenuToggle = $('adminMenuToggle');
+    els.adminSidebar = $('adminSidebar');
+    els.adminSidebarOverlay = $('adminSidebarOverlay');
+    els.partnerSidebarNav = $('partnerSidebarNav');
+    els.partnerNavAll = $('partnerNavAll');
+    els.partnerNavShop = $('partnerNavShop');
+    els.partnerNavCars = $('partnerNavCars');
+    els.partnerNavTrips = $('partnerNavTrips');
+    els.partnerNavHotels = $('partnerNavHotels');
+    els.partnerNavCalendar = $('partnerNavCalendar');
+    els.partnerUserName = $('partnerUserName');
+    els.partnerBreadcrumb = $('partnerBreadcrumb');
   }
 
   async function init() {
