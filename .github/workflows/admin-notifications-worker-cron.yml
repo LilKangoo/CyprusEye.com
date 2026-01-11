@@ -13,13 +13,19 @@ jobs:
       - name: Call process-admin-notifications function
         shell: bash
         env:
-          SUPABASE_FUNCTIONS_BASE_URL: ${{ secrets.SUPABASE_FUNCTIONS_BASE_URL }}
-          ADMIN_NOTIFY_WORKER_SECRET: ${{ secrets.ADMIN_NOTIFY_WORKER_SECRET }}
+          SUPABASE_FUNCTIONS_BASE_URL: "${{ secrets.SUPABASE_FUNCTIONS_BASE_URL }}"
+          SUPABASE_ANON_KEY: "${{ secrets.SUPABASE_ANON_KEY }}"
+          ADMIN_NOTIFY_WORKER_SECRET: "${{ secrets.ADMIN_NOTIFY_WORKER_SECRET }}"
         run: |
           set -euo pipefail
 
           if [ -z "${SUPABASE_FUNCTIONS_BASE_URL:-}" ]; then
             echo "Missing secret SUPABASE_FUNCTIONS_BASE_URL"
+            exit 1
+          fi
+
+          if [ -z "${SUPABASE_ANON_KEY:-}" ]; then
+            echo "Missing secret SUPABASE_ANON_KEY"
             exit 1
           fi
 
@@ -30,10 +36,14 @@ jobs:
           if [ -n "${ADMIN_NOTIFY_WORKER_SECRET:-}" ]; then
             curl -sS -X POST "$URL" \
               -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+              -H "apikey: ${SUPABASE_ANON_KEY}" \
               -H "x-admin-notify-worker-secret: ${ADMIN_NOTIFY_WORKER_SECRET}" \
               -d "{}"
           else
             curl -sS -X POST "$URL" \
               -H "Content-Type: application/json" \
+              -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
+              -H "apikey: ${SUPABASE_ANON_KEY}" \
               -d "{}"
           fi

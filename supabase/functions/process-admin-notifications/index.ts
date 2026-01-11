@@ -24,8 +24,8 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const supabaseUrl = (Deno.env.get("SUPABASE_URL") || "").trim();
+const supabaseServiceKey = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "").trim();
 
 function getFunctionsBaseUrl(): string {
   const explicit = (Deno.env.get("FUNCTIONS_BASE_URL") || "").trim();
@@ -76,6 +76,12 @@ async function callSendAdminNotification(params: {
   };
   if (params.secret) headers["x-admin-notify-secret"] = params.secret;
 
+  const apiKey = (Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "").trim();
+  if (apiKey) {
+    headers["Authorization"] = `Bearer ${apiKey}`;
+    headers["apikey"] = apiKey;
+  }
+
   const url = `${params.base}/send-admin-notification${
     params.secret ? `?secret=${encodeURIComponent(params.secret)}` : ""
   }`;
@@ -118,6 +124,20 @@ serve(async (req) => {
 
   const limitParam = new URL(req.url).searchParams.get("limit");
   const limit = Math.max(1, Math.min(50, Number(limitParam || "10") || 10));
+
+  if (!supabaseUrl) {
+    return new Response(JSON.stringify({ ok: false, error: "Missing SUPABASE_URL" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
+
+  if (!supabaseServiceKey) {
+    return new Response(JSON.stringify({ ok: false, error: "Missing SUPABASE_SERVICE_ROLE_KEY" }), {
+      status: 500,
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
+  }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
   const base = getFunctionsBaseUrl();
