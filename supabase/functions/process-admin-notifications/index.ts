@@ -61,9 +61,9 @@ function normalizeApiKey(raw: string | undefined | null): string {
     (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
     (trimmed.startsWith("'") && trimmed.endsWith("'"))
   ) {
-    return trimmed.slice(1, -1).trim();
+    return trimmed.slice(1, -1).trim().replace(/\s+/g, "");
   }
-  return trimmed;
+  return trimmed.replace(/\s+/g, "");
 }
 
 async function getAdminNotifySecret(supabase: any): Promise<string> {
@@ -83,37 +83,79 @@ async function callSendAdminNotification(params: {
   payload: Record<string, unknown>;
 }): Promise<{ ok: boolean; status: number; bodyText: string }>
 {
-  const headers: Record<string, string> = {
-    "Content-Type": "application/json",
-  };
-  if (params.secret) headers["x-admin-notify-secret"] = params.secret;
+  const anonKey = normalizeApiKey(Deno.env.get("SUPABASE_ANON_KEY") || "");
+  const serviceKey = normalizeApiKey(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "");
 
-  const apiKey = normalizeApiKey(
-    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "",
-  );
-  if (apiKey) {
-    headers["Authorization"] = `Bearer ${apiKey}`;
-    headers["apikey"] = apiKey;
+  function buildHeaders(strategy: "anon" | "service" | "mixed"): Record<string, string> {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+    };
+    if (params.secret) headers["x-admin-notify-secret"] = params.secret;
+
+    if (strategy === "anon") {
+      if (anonKey) {
+        headers["Authorization"] = `Bearer ${anonKey}`;
+        headers["apikey"] = anonKey;
+      }
+    } else if (strategy === "service") {
+      if (serviceKey) {
+        headers["Authorization"] = `Bearer ${serviceKey}`;
+        headers["apikey"] = serviceKey;
+      }
+    } else {
+      // Some gateways accept only anon in `apikey` but allow service JWT in Authorization.
+      if (serviceKey) headers["Authorization"] = `Bearer ${serviceKey}`;
+      if (anonKey) headers["apikey"] = anonKey;
+      if (!headers["Authorization"] && anonKey) headers["Authorization"] = `Bearer ${anonKey}`;
+      if (!headers["apikey"] && serviceKey) headers["apikey"] = serviceKey;
+    }
+
+    return headers;
   }
 
-  const url = `${params.base}/send-admin-notification${
-    params.secret ? `?secret=${encodeURIComponent(params.secret)}` : ""
-  }`;
+  async function doFetch(headers: Record<string, string>) {
+    const url = `${params.base}/send-admin-notification${
+      params.secret ? `?secret=${encodeURIComponent(params.secret)}` : ""
+    }`;
 
-  const resp = await fetch(url, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(params.payload || {}),
-  });
+    const resp = await fetch(url, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(params.payload || {}),
+    });
 
-  let bodyText = "";
-  try {
-    bodyText = await resp.text();
-  } catch (_e) {
-    bodyText = "";
+    let bodyText = "";
+    try {
+      bodyText = await resp.text();
+    } catch (_e) {
+      bodyText = "";
+    }
+
+    return { ok: resp.ok, status: resp.status, bodyText };
   }
 
-  return { ok: resp.ok, status: resp.status, bodyText };
+  function shouldRetryGateway401(result: { ok: boolean; status: number; bodyText: string }): boolean {
+    if (result.ok) return false;
+    if (result.status !== 401) return false;
+    const body = (result.bodyText || "").toLowerCase();
+    return body.includes("missing authorization header") || body.includes("invalid") || body.includes('"code":401');
+  }
+
+  // First try: anon headers (matches GitHub Actions pattern)
+  let result = await doFetch(buildHeaders("anon"));
+
+  // If gateway rejects with 401, try alternate combinations.
+  if (shouldRetryGateway401(result)) {
+    // Second try: mixed (apikey=anon, authorization=service)
+    result = await doFetch(buildHeaders("mixed"));
+  }
+
+  if (shouldRetryGateway401(result)) {
+    // Third try: service headers
+    result = await doFetch(buildHeaders("service"));
+  }
+
+  return result;
 }
 
 serve(async (req) => {
