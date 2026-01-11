@@ -57,6 +57,86 @@ function escapeHtml(value: unknown): string {
   });
 }
 
+function valueToString(value: unknown): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value.trim();
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  if (typeof value === "boolean") return value ? "Yes" : "No";
+  return String(value).trim();
+}
+
+function getField(record: Record<string, unknown>, keys: string[]): string {
+  for (const key of keys) {
+    const v = (record as any)?.[key];
+    const s = valueToString(v);
+    if (s) return s;
+  }
+  return "";
+}
+
+function formatDateTime(value: unknown): string {
+  const raw = valueToString(value);
+  if (!raw) return "";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return raw;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  const hh = String(d.getHours()).padStart(2, "0");
+  const mm = String(d.getMinutes()).padStart(2, "0");
+  return `${y}-${m}-${day} ${hh}:${mm}`;
+}
+
+function formatDate(value: unknown): string {
+  const raw = valueToString(value);
+  if (!raw) return "";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return raw;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function normalizeMoney(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  const s = valueToString(value);
+  if (!s) return null;
+  const n = Number(s.replace(/[^0-9.,-]/g, "").replace(",", "."));
+  return Number.isFinite(n) ? n : null;
+}
+
+function formatMoney(amount: unknown, currency: unknown): string {
+  const n = normalizeMoney(amount);
+  if (n === null) return "";
+  const cur = valueToString(currency) || "EUR";
+  try {
+    return new Intl.NumberFormat("en-GB", { style: "currency", currency: cur }).format(n);
+  } catch (_e) {
+    return `${n.toFixed(2)} ${cur}`;
+  }
+}
+
+function labelForField(key: string): string {
+  const normalized = key
+    .replace(/_+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!normalized) return "";
+  return normalized
+    .split(" ")
+    .map((p) => (p ? p[0].toUpperCase() + p.slice(1) : p))
+    .join(" ");
+}
+
+function toTitle(value: string): string {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/(^|\s|_)([a-z])/g, (_m, sep, chr) => `${sep}${String(chr).toUpperCase()}`)
+    .replace(/_/g, " ")
+    .trim();
+}
+
 function normalizeCategory(category: string | undefined | null): Category | null {
   const c = (category || "").toLowerCase();
   if (c === "shop" || c === "shop_orders" || c === "shop_order_history") return "shop";
@@ -202,6 +282,264 @@ function buildAdminPanelLink(category: Category, recordId: string): string {
   return `${normalizedBase}/admin/dashboard.html#${encodeURIComponent(view)}:${encodeURIComponent(recordId)}`;
 }
 
+function eventLabel(event: AdminEvent): string {
+  if (event === "paid") return "Paid";
+  if (event === "partner_rejected") return "Partner Rejected";
+  if (event === "partner_sla") return "Partner SLA";
+  return "New";
+}
+
+function buildSubject(params: {
+  category: Category;
+  event: AdminEvent;
+  recordId: string;
+  record: Record<string, unknown>;
+}): string {
+  const label = params.category.toUpperCase();
+  const customerName = getField(params.record, [
+    "customer_name",
+    "full_name",
+    "name",
+    "first_name",
+    "last_name",
+  ]);
+
+  const categoryMeta = (() => {
+    if (params.category === "cars") {
+      const from = formatDate(getField(params.record, ["start_date", "pickup_date", "from_date", "date_from"]));
+      const to = formatDate(getField(params.record, ["end_date", "return_date", "to_date", "date_to"]));
+      const datePart = [from, to].filter(Boolean).join(" → ");
+      return { what: "booking", name: "", date: datePart };
+    }
+    if (params.category === "trips") {
+      const tripName = getField(params.record, ["trip_name", "trip_title", "title", "service_name"]);
+      const date = formatDate(getField(params.record, ["trip_date", "date", "start_date"]));
+      return { what: "booking", name: tripName, date };
+    }
+    if (params.category === "hotels") {
+      const hotelName = getField(params.record, ["hotel_name", "hotel", "name_hotel", "property_name"]);
+      const checkIn = formatDate(getField(params.record, ["check_in", "checkin", "start_date", "date_from"]));
+      const checkOut = formatDate(getField(params.record, ["check_out", "checkout", "end_date", "date_to"]));
+      const datePart = [checkIn, checkOut].filter(Boolean).join(" → ");
+      return { what: "booking", name: hotelName, date: datePart };
+    }
+    return { what: params.category === "shop" ? "order" : "booking", name: "", date: "" };
+  })();
+
+  if (params.category === "shop" && params.event === "paid") {
+    const amount =
+      formatMoney(
+        getField(params.record, ["total", "amount_total", "grand_total", "total_amount", "price_total"]),
+        getField(params.record, ["currency", "currency_code"]),
+      ) || "";
+    const parts = [`[${label}] Paid order #${params.recordId}`];
+    if (amount) parts.push(amount);
+    if (customerName) parts.push(customerName);
+    return parts.join(" — ");
+  }
+
+  if (params.event === "partner_rejected") {
+    const parts = [`[${label}] Partner rejected #${params.recordId}`];
+    if (categoryMeta.name) parts.push(categoryMeta.name);
+    if (categoryMeta.date) parts.push(categoryMeta.date);
+    return parts.join(" — ");
+  }
+  if (params.event === "partner_sla") {
+    const parts = [`[${label}] SLA: no partner response #${params.recordId}`];
+    if (categoryMeta.name) parts.push(categoryMeta.name);
+    if (categoryMeta.date) parts.push(categoryMeta.date);
+    return parts.join(" — ");
+  }
+
+  const parts = [`[${label}] New ${categoryMeta.what} #${params.recordId}`];
+  if (categoryMeta.name) parts.push(categoryMeta.name);
+  if (categoryMeta.date) parts.push(categoryMeta.date);
+  if (customerName) parts.push(customerName);
+  return parts.join(" — ");
+}
+
+function buildKeyValueRows(record: Record<string, unknown>, items: Array<{ label: string; value: string }>) {
+  const rows = items
+    .map((it) => ({ label: String(it.label || "").trim(), value: String(it.value || "").trim() }))
+    .filter((it) => it.label && it.value);
+  return rows;
+}
+
+function renderHtmlEmail(params: {
+  category: Category;
+  event: AdminEvent;
+  recordId: string;
+  record: Record<string, unknown>;
+  link: string;
+  createdAtIso: string;
+}): { html: string; text: string } {
+  const { category, event, recordId, record, link } = params;
+
+  const email = getField(record, ["email", "customer_email", "contact_email"]);
+  const phone = getField(record, ["phone", "customer_phone", "contact_phone", "phone_number"]);
+  const notes = getField(record, ["notes", "note", "message", "customer_notes", "special_requests", "additional_info"]);
+
+  const currency = getField(record, ["currency", "currency_code"]);
+  const total = formatMoney(getField(record, ["total", "amount_total", "grand_total", "total_amount", "price_total"]), currency);
+
+  const createdAt = formatDateTime(params.createdAtIso);
+
+  const summaryItemsByCategory: Record<Category, Array<{ label: string; value: string }>> = {
+    cars: [
+      { label: "Customer", value: getField(record, ["customer_name", "full_name", "name"]) },
+      { label: "Email", value: email },
+      { label: "Phone", value: phone },
+      { label: "Pick-up", value: getField(record, ["pickup_location", "pick_up_location", "pickup_place"]) },
+      { label: "Drop-off", value: getField(record, ["dropoff_location", "drop_off_location", "dropoff_place"]) },
+      { label: "From", value: formatDate(getField(record, ["start_date", "pickup_date", "from_date", "date_from"])) },
+      { label: "To", value: formatDate(getField(record, ["end_date", "return_date", "to_date", "date_to"])) },
+    ],
+    trips: [
+      { label: "Customer", value: getField(record, ["customer_name", "full_name", "name"]) },
+      { label: "Email", value: email },
+      { label: "Phone", value: phone },
+      { label: "Trip", value: getField(record, ["trip_name", "trip_title", "title", "service_name"]) },
+      { label: "Date", value: formatDate(getField(record, ["trip_date", "date", "start_date"])) },
+      { label: "People", value: getField(record, ["people", "guests", "adults", "participants", "persons"]) },
+      { label: "Pick-up", value: getField(record, ["pickup_location", "pick_up_location", "hotel", "pickup_place"]) },
+    ],
+    hotels: [
+      { label: "Customer", value: getField(record, ["customer_name", "full_name", "name"]) },
+      { label: "Email", value: email },
+      { label: "Phone", value: phone },
+      { label: "Hotel", value: getField(record, ["hotel_name", "hotel", "name_hotel", "property_name"]) },
+      { label: "Check-in", value: formatDate(getField(record, ["check_in", "checkin", "start_date", "date_from"])) },
+      { label: "Check-out", value: formatDate(getField(record, ["check_out", "checkout", "end_date", "date_to"])) },
+      { label: "Guests", value: getField(record, ["guests", "people", "adults", "persons"]) },
+    ],
+    shop: [
+      { label: "Customer", value: getField(record, ["customer_name", "full_name", "name"]) },
+      { label: "Email", value: email },
+      { label: "Phone", value: phone },
+      { label: "Order number", value: getField(record, ["order_number"]) },
+      { label: "Total", value: total },
+      { label: "Currency", value: currency },
+    ],
+  };
+
+  const summaryRows = buildKeyValueRows(record, summaryItemsByCategory[category] || []);
+
+  const items = Array.isArray((record as any)?.items) ? ((record as any).items as any[]) : [];
+  const itemsRows = items
+    .map((item) => {
+      const qty = valueToString(item?.quantity);
+      const name = valueToString(item?.product_name) || valueToString(item?.name);
+      const variant = valueToString(item?.variant_name);
+      const subtotal = valueToString(item?.subtotal);
+      const line = [qty ? `${qty}×` : "", name, variant ? `(${variant})` : ""].filter(Boolean).join(" ").trim();
+      return { line, subtotal };
+    })
+    .filter((r) => r.line);
+
+  const extraDetails: Array<{ label: string; value: string }> = [];
+  const eventInfo = eventLabel(event);
+  extraDetails.push({ label: "Category", value: toTitle(category) });
+  extraDetails.push({ label: "Event", value: eventInfo });
+  extraDetails.push({ label: "Record ID", value: recordId });
+  extraDetails.push({ label: "Created", value: createdAt });
+
+  if (link) extraDetails.push({ label: "Admin panel", value: link });
+  if (notes) extraDetails.push({ label: "Notes", value: notes });
+
+  const detailRows = buildKeyValueRows(record, extraDetails);
+
+  const htmlSummaryTable = summaryRows.length
+    ? `
+      <table style="width:100%; border-collapse:collapse; margin: 0;">
+        ${summaryRows
+          .map(
+            (r) =>
+              `<tr>
+                <td style="padding:8px 10px; border:1px solid #e5e7eb; width: 34%; background:#f9fafb;"><strong>${escapeHtml(r.label)}</strong></td>
+                <td style="padding:8px 10px; border:1px solid #e5e7eb;">${escapeHtml(r.value)}</td>
+              </tr>`,
+          )
+          .join("")}
+      </table>`
+    : "";
+
+  const htmlDetailsTable = detailRows.length
+    ? `
+      <table style="width:100%; border-collapse:collapse; margin: 0;">
+        ${detailRows
+          .map(
+            (r) =>
+              `<tr>
+                <td style="padding:8px 10px; border:1px solid #e5e7eb; width: 34%; background:#f9fafb;"><strong>${escapeHtml(r.label)}</strong></td>
+                <td style="padding:8px 10px; border:1px solid #e5e7eb;">${r.label === "Admin panel" ? `<a href="${escapeHtml(r.value)}">${escapeHtml(r.value)}</a>` : escapeHtml(r.value)}</td>
+              </tr>`,
+          )
+          .join("")}
+      </table>`
+    : "";
+
+  const htmlItems = category === "shop" && itemsRows.length
+    ? `
+      <h3 style="margin:18px 0 8px; font-size:16px;">Items</h3>
+      <table style="width:100%; border-collapse:collapse; margin: 0;">
+        ${itemsRows
+          .map(
+            (r) =>
+              `<tr>
+                <td style="padding:8px 10px; border:1px solid #e5e7eb;">${escapeHtml(r.line)}</td>
+                <td style="padding:8px 10px; border:1px solid #e5e7eb; width: 28%; text-align:right;">${escapeHtml(r.subtotal)}</td>
+              </tr>`,
+          )
+          .join("")}
+      </table>`
+    : "";
+
+  const cta = link
+    ? `<a href="${escapeHtml(link)}" style="display:inline-block; padding:10px 14px; background:#111827; color:#ffffff; text-decoration:none; border-radius:6px; font-weight:600;">Open in admin</a>`
+    : "";
+
+  const html = `
+  <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, \"Apple Color Emoji\", \"Segoe UI Emoji\"; color:#111827; line-height:1.45;">
+    <div style="margin:0 0 14px;">
+      <div style="font-size:13px; color:#6b7280; margin-bottom:6px;">${escapeHtml(eventLabel(event))} • ${escapeHtml(toTitle(category))}</div>
+      <div style="font-size:20px; font-weight:800; margin:0;">${escapeHtml(toTitle(category))} — ${escapeHtml(eventLabel(event))}</div>
+      <div style="font-size:13px; color:#6b7280; margin-top:6px;">Record #${escapeHtml(recordId)} • ${escapeHtml(createdAt)}</div>
+      ${cta ? `<div style="margin-top:12px;">${cta}</div>` : ""}
+    </div>
+
+    ${htmlSummaryTable ? `<h3 style="margin:18px 0 8px; font-size:16px;">Summary</h3>${htmlSummaryTable}` : ""}
+    ${htmlItems}
+    ${htmlDetailsTable ? `<h3 style="margin:18px 0 8px; font-size:16px;">Details</h3>${htmlDetailsTable}` : ""}
+  </div>`;
+
+  const textLines: string[] = [];
+  textLines.push(`${toTitle(category)} — ${eventLabel(event)}`);
+  textLines.push(`Record #${recordId}`);
+  if (createdAt) textLines.push(`Created: ${createdAt}`);
+  if (link) textLines.push(`Admin: ${link}`);
+  textLines.push("");
+
+  if (summaryRows.length) {
+    textLines.push("Summary:");
+    for (const r of summaryRows) textLines.push(`- ${r.label}: ${r.value}`);
+    textLines.push("");
+  }
+
+  if (category === "shop" && itemsRows.length) {
+    textLines.push("Items:");
+    for (const r of itemsRows) textLines.push(`- ${r.line}${r.subtotal ? ` — ${r.subtotal}` : ""}`);
+    textLines.push("");
+  }
+
+  if (detailRows.length) {
+    textLines.push("Details:");
+    for (const r of detailRows) textLines.push(`- ${r.label}: ${r.value}`);
+    textLines.push("");
+  }
+
+  return { html, text: textLines.join("\n") };
+}
+
 function buildGenericEmail({
   category,
   event,
@@ -213,94 +551,20 @@ function buildGenericEmail({
   recordId: string;
   record: Record<string, unknown>;
 }): { subject: string; text: string; html: string } {
-  const ts = new Date().toISOString();
-  const label = category.toUpperCase();
-
-  const subject = (() => {
-    if (category === "shop" && event === "paid") {
-      return `[${label}] Nowe opłacone zamówienie ${recordId}`;
-    }
-    if (event === "partner_rejected") {
-      const what = category === "shop" ? "zamówienie" : "rezerwację";
-      return `[${label}] Partner odrzucił ${what} ${recordId}`;
-    }
-    if (event === "partner_sla") {
-      const what = category === "shop" ? "zamówienie" : "rezerwację";
-      return `[${label}] Partner nie zaakceptował na czas (SLA) ${what} ${recordId}`;
-    }
-    return `[${label}] Nowa rezerwacja ${recordId}`;
-  })();
-
+  const subject = buildSubject({ category, event, recordId, record });
   const link = buildAdminPanelLink(category, recordId);
-
-  const items = Array.isArray((record as any)?.items) ? ((record as any).items as any[]) : [];
-
-  const textLines: string[] = [
-    `Typ: ${category}`,
-    `Zdarzenie: ${event}`,
-    `ID: ${recordId}`,
-    `Czas: ${ts}`,
-  ];
-
-  if (link) {
-    textLines.push("", `Panel admina: ${link}`);
-  }
-
-  textLines.push("", "Szczegóły:");
-  for (const [k, v] of Object.entries(record || {})) {
-    if (v === null || v === undefined || v === "") continue;
-    if (k === "items") continue;
-    if (typeof v === "object") continue;
-    textLines.push(`${k}: ${String(v)}`);
-  }
-
-  if (items.length) {
-    textLines.push("", "Pozycje:");
-    for (const item of items) {
-      const qty = item?.quantity ?? "";
-      const name = item?.product_name ?? "";
-      const variant = item?.variant_name ? ` (${item.variant_name})` : "";
-      const subtotal = item?.subtotal ?? "";
-      textLines.push(`- ${qty} x ${name}${variant} = ${subtotal}`.trim());
-    }
-  }
-
-  const htmlParts: string[] = [
-    `<p><strong>Typ:</strong> ${escapeHtml(category)}</p>`,
-    `<p><strong>Zdarzenie:</strong> ${escapeHtml(event)}</p>`,
-    `<p><strong>ID:</strong> ${escapeHtml(recordId)}</p>`,
-    `<p><strong>Czas:</strong> ${escapeHtml(ts)}</p>`,
-  ];
-
-  if (link) {
-    htmlParts.push(`<p><strong>Panel admina:</strong> <a href="${escapeHtml(link)}">${escapeHtml(link)}</a></p>`);
-  }
-
-  htmlParts.push("<hr />");
-  htmlParts.push("<p><strong>Szczegóły:</strong></p>");
-  htmlParts.push("<ul>");
-  for (const [k, v] of Object.entries(record || {})) {
-    if (v === null || v === undefined || v === "") continue;
-    if (k === "items") continue;
-    if (typeof v === "object") continue;
-    htmlParts.push(`<li><strong>${escapeHtml(k)}:</strong> ${escapeHtml(v)}</li>`);
-  }
-  htmlParts.push("</ul>");
-
-  if (items.length) {
-    htmlParts.push("<p><strong>Pozycje:</strong></p>");
-    htmlParts.push("<ul>");
-    for (const item of items) {
-      const qty = item?.quantity ?? "";
-      const name = item?.product_name ?? "";
-      const variant = item?.variant_name ? ` (${item.variant_name})` : "";
-      const subtotal = item?.subtotal ?? "";
-      htmlParts.push(`<li>${escapeHtml(`${qty} x ${name}${variant} = ${subtotal}`)}</li>`);
-    }
-    htmlParts.push("</ul>");
-  }
-
-  return { subject, text: textLines.join("\n"), html: htmlParts.join("") };
+  const createdAtIso =
+    getField(record, ["created_at", "createdAt", "inserted_at", "submitted_at", "timestamp"]) ||
+    new Date().toISOString();
+  const rendered = renderHtmlEmail({
+    category,
+    event,
+    recordId,
+    record,
+    link,
+    createdAtIso,
+  });
+  return { subject, text: rendered.text, html: rendered.html };
 }
 
 async function loadCategoryRecord(
