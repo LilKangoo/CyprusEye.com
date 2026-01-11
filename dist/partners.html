@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-FCSE0876CR');
+  </script>
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co wss://*.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://*.tile.openstreetmap.org; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
+
+  <meta name="theme-color" content="#dc2626" />
+  <meta name="robots" content="noindex,nofollow" />
+
+  <title>CyprusEye Partners</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    rel="preload"
+    as="style"
+    href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+  />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+    media="print"
+    onload="this.media='all'"
+  />
+  <noscript>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+  </noscript>
+
+  <link rel="stylesheet" href="assets/css/tokens.css" />
+  <link rel="stylesheet" href="assets/css/base.css" />
+  <link rel="stylesheet" href="assets/css/components.css" />
+  <link rel="stylesheet" href="admin/admin.css" />
+  <link rel="stylesheet" href="assets/css/header-metrics.css" />
+  <link rel="stylesheet" href="assets/css/mobile.css" />
+  <link rel="stylesheet" href="assets/css/mobile-nav.css" />
+  <link rel="stylesheet" href="assets/css/rtl.css" />
+  <link rel="stylesheet" href="assets/css/language-switcher.css" />
+  <link rel="stylesheet" href="assets/css/language-selector.css" />
+  <link rel="stylesheet" href="css/toast.css" />
+  <link rel="stylesheet" href="css/modal-ios-fix.css" />
+
+  <meta name="ce-auth" content="on" />
+
+  <script type="module" src="js/supabaseClient.js"></script>
+  <script type="module" src="js/toast.js"></script>
+  <script type="module" src="js/auth.js"></script>
+  <script type="module" src="js/authUi.js"></script>
+
+  <style>
+    .partner-card { background: var(--admin-bg-light); border: 1px solid var(--admin-border); border-radius: var(--admin-radius); padding: 18px; box-shadow: var(--admin-shadow); }
+    .partner-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
+    @media (min-width: 1024px) { .partner-grid { grid-template-columns: 1.2fr 0.8fr; } }
+
+    .partner-toolbar { display:flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .partner-toolbar select, .partner-toolbar input { height: 38px; border-radius: 10px; border: 1px solid var(--admin-border); padding: 0 10px; background: var(--admin-bg); color: var(--admin-text); }
+
+    .partner-tabs { display:flex; gap: 8px; margin-top: 14px; flex-wrap: wrap; }
+    .partner-tab { border: 1px solid var(--admin-border); background: transparent; color: var(--admin-text); border-radius: 999px; padding: 8px 14px; font-weight: 600; cursor: pointer; }
+    .partner-tab.is-active { background: var(--admin-primary); border-color: var(--admin-primary); color: white; }
+
+    .partner-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+    .partner-table th, .partner-table td { border-bottom: 1px solid var(--border); padding: 10px 8px; text-align: left; font-size: 14px; vertical-align: top; }
+    .partner-table th { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; }
+
+    .badge { display:inline-flex; align-items:center; gap:6px; border-radius:999px; padding: 4px 10px; font-size: 12px; font-weight: 700; color: white; }
+
+    .btn-row { display:flex; gap: 8px; flex-wrap: wrap; }
+    .btn-sm { border-radius: 10px; padding: 8px 10px; font-weight: 700; font-size: 13px; border: 1px solid var(--admin-border); background: transparent; color: var(--admin-text); cursor: pointer; }
+    .btn-sm.primary { background: var(--admin-primary); border-color: var(--admin-primary); color: white; }
+    .btn-sm.danger { background: var(--admin-danger); border-color: var(--admin-danger); color: white; }
+
+    .muted { color: var(--admin-text-muted); }
+    .small { font-size: 12px; }
+
+    .partner-kpi { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+    .partner-kpi .kpi { border: 1px solid var(--admin-border); background: rgba(255, 255, 255, 0.02); border-radius: 14px; padding: 12px; }
+    .partner-kpi .kpi .label { color: var(--admin-text-muted); font-size: 12px; }
+    .partner-kpi .kpi .value { font-size: 22px; font-weight: 800; margin-top: 4px; }
+
+    .partner-warning { border: 1px solid var(--admin-warning); background: rgba(245, 158, 11, 0.12); color: var(--admin-text); border-radius: 14px; padding: 12px; }
+
+    .partner-contact { border: 1px solid var(--admin-border); border-radius: 14px; padding: 10px; background: rgba(59, 130, 246, 0.08); }
+    .partner-contact strong { display:block; margin-bottom: 4px; }
+
+    .partner-form { display: grid; grid-template-columns: 1fr; gap: 10px; margin-top: 12px; }
+    @media (min-width: 860px) { .partner-form { grid-template-columns: 1fr 1fr 1fr 1fr; } }
+    .partner-form label { font-size: 12px; color: var(--admin-text-muted); font-weight: 600; }
+    .partner-form input, .partner-form select { width: 100%; height: 38px; border-radius: 10px; border: 1px solid var(--admin-border); padding: 0 10px; background: var(--admin-bg); color: var(--admin-text); }
+    .partner-form textarea { width: 100%; border-radius: 10px; border: 1px solid var(--admin-border); padding: 10px; background: var(--admin-bg); color: var(--admin-text); min-height: 38px; }
+
+    .partner-calendar-filters { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 12px; margin-bottom: 12px; }
+    .partner-resource-panels { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; padding: 6px 2px; }
+  </style>
+</head>
+
+ <body data-admin-panel="true" data-navigation="multi-page" class="partners-page">
+  <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+
+  <header class="admin-header">
+    <div class="admin-header-content">
+      <div class="admin-header-left">
+        <button
+          type="button"
+          class="admin-menu-toggle"
+          id="adminMenuToggle"
+          aria-label="Toggle navigation menu"
+          aria-controls="adminSidebar"
+          aria-expanded="false"
+        >
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="3" y1="6" x2="21" y2="6" />
+            <line x1="3" y1="12" x2="21" y2="12" />
+            <line x1="3" y1="18" x2="21" y2="18" />
+          </svg>
+        </button>
+
+        <h1 class="admin-title">
+          <svg class="admin-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          CyprusEye Partners
+        </h1>
+
+        <div class="admin-breadcrumb" id="partnerBreadcrumb">
+          <span>Partner Portal</span>
+        </div>
+      </div>
+
+      <div class="admin-header-right">
+        <div class="admin-user-info" id="partnerUserInfo">
+          <span class="admin-user-name" id="partnerUserName">Loading...</span>
+          <span class="admin-user-role">Partner</span>
+        </div>
+
+        <div id="auth-actions" style="display:flex; align-items:center; gap: 10px;" aria-live="polite">
+          <button
+            class="btn-secondary"
+            type="button"
+            data-open-auth
+            data-auth="anon-only"
+            data-auth-target="login"
+            aria-label="Zaloguj do konta"
+          >
+            Zaloguj
+          </button>
+          <button class="btn-admin-logout" data-auth="logout" aria-label="Wyloguj z konta" hidden>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+              <polyline points="16 17 21 12 16 7"/>
+              <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+          </button>
+        </div>
+
+        <div data-auth="spinner" aria-live="polite" hidden>Łączenie...</div>
+      </div>
+    </div>
+  </header>
+
+  <div class="admin-sidebar-overlay" id="adminSidebarOverlay" hidden></div>
+
+  <div class="admin-container" id="partnerAdminContainer">
+    <aside class="admin-sidebar" id="adminSidebar">
+      <nav class="admin-nav" id="partnerSidebarNav">
+        <button class="admin-nav-item active" type="button" data-partner-nav="fulfillments" data-partner-category="all" id="partnerNavAll">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="7" height="7"/>
+            <rect x="14" y="3" width="7" height="7"/>
+            <rect x="14" y="14" width="7" height="7"/>
+            <rect x="3" y="14" width="7" height="7"/>
+          </svg>
+          <span>All</span>
+        </button>
+
+        <button class="admin-nav-item" type="button" data-partner-nav="fulfillments" data-partner-category="shop" id="partnerNavShop" hidden>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 2l1.5 7h9L18 2"/>
+            <path d="M6 9h12l-1 13H7L6 9z"/>
+          </svg>
+          <span>Shop</span>
+        </button>
+
+        <button class="admin-nav-item" type="button" data-partner-nav="fulfillments" data-partner-category="cars" id="partnerNavCars" hidden>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M5 17h14v2H5v-2zM3 11l2.5-5h13L21 11"/>
+            <path d="M3 11v6h18v-6M3 11h18"/>
+            <circle cx="7.5" cy="15.5" r="1.5"/>
+            <circle cx="16.5" cy="15.5" r="1.5"/>
+          </svg>
+          <span>Cars</span>
+        </button>
+
+        <button class="admin-nav-item" type="button" data-partner-nav="fulfillments" data-partner-category="trips" id="partnerNavTrips" hidden>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 11l9-9 9 9v9a2 2 0 0 1-2 2h-5v-7H10v7H5a2 2 0 0 1-2-2v-9z"/>
+          </svg>
+          <span>Trips</span>
+        </button>
+
+        <button class="admin-nav-item" type="button" data-partner-nav="fulfillments" data-partner-category="hotels" id="partnerNavHotels" hidden>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 21V8a2 2 0 0 1 2-2h3V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2h3a2 2 0 0 1 2 2v13"/>
+            <path d="M6 21v-6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v6"/>
+          </svg>
+          <span>Hotels</span>
+        </button>
+
+        <button class="admin-nav-item" type="button" data-partner-nav="calendar" id="partnerNavCalendar">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <span>Availability</span>
+        </button>
+      </nav>
+    </aside>
+
+    <main class="admin-main">
+    <h1 style="margin: 0 0 8px; font-size: 28px;">Partner Portal</h1>
+    <p class="muted" style="margin-top: 0;">Zarządzaj potwierdzeniami zamówień i kalendarzem dostępności.</p>
+
+    <div id="partnerPortalWarning" class="partner-warning" hidden></div>
+
+    <div id="partnerPortalLoginPrompt" class="partner-card" hidden>
+      <h2 style="margin: 0 0 8px;">Zaloguj się</h2>
+      <p class="muted" style="margin-top: 0;">Aby korzystać z panelu partnera musisz być zalogowany.</p>
+      <div class="btn-row">
+        <button id="btnPartnerOpenLogin" class="btn-sm primary" type="button">Otwórz logowanie</button>
+      </div>
+    </div>
+
+    <div id="partnerPortalNoPartner" class="partner-card" hidden>
+      <h2 style="margin: 0 0 8px;">Brak dostępu partnera</h2>
+      <p class="muted" style="margin-top: 0;">Twoje konto nie jest przypisane do żadnego partnera. Skontaktuj się z administracją.</p>
+    </div>
+
+    <div id="partnerPortalApp" class="partner-grid" hidden>
+      <section class="partner-card">
+        <div class="partner-toolbar">
+          <strong>Partner:</strong>
+          <select id="partnerSelect"></select>
+          <button id="btnPartnerRefresh" class="btn-sm" type="button">Odśwież</button>
+        </div>
+
+        <div id="partnerSuspendedInfo" class="partner-warning" style="margin-top: 12px;" hidden></div>
+
+        <div class="partner-tabs">
+          <button id="partnerTabBtnFulfillments" class="partner-tab is-active" type="button" data-tab="fulfillments">Fulfillments</button>
+          <button id="partnerTabBtnCalendar" class="partner-tab" type="button" data-tab="calendar">Calendar</button>
+        </div>
+
+        <div id="partnerTabFulfillments" style="margin-top: 10px;">
+          <div class="partner-kpi" style="margin-top: 10px;">
+            <div class="kpi"><div class="label">Pending</div><div class="value" id="kpiPending">0</div></div>
+            <div class="kpi"><div class="label">Accepted</div><div class="value" id="kpiAccepted">0</div></div>
+            <div class="kpi"><div class="label">Rejected</div><div class="value" id="kpiRejected">0</div></div>
+          </div>
+
+          <div class="muted small" id="fulfillmentsHint" style="margin-top: 10px;"></div>
+
+          <div class="admin-table-container" aria-label="Fulfillments">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Order</th>
+                <th>Status</th>
+                <th>Dates</th>
+                <th>Price</th>
+                <th>Items</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="fulfillmentsTableBody">
+              <tr><td colspan="6" class="muted" style="padding: 16px 8px;">Loading…</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+
+        <div id="partnerTabCalendar" style="margin-top: 10px;" hidden>
+          <h3 style="margin: 10px 0 0;">Availability blocks</h3>
+          <p class="muted" style="margin-top: 6px;">Wybierz zasób i oznacz dni jako niedostępne (domyślnie wszystkie dni są dostępne).</p>
+
+          <div class="partner-calendar-filters">
+            <div>
+              <label for="blockResourceType">Resource type</label>
+              <div id="partnerResourceTypePanels" style="display:flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 2px;"></div>
+              <select id="blockResourceType" required>
+                <option value="shop">shop</option>
+                <option value="cars">cars</option>
+                <option value="trips">trips</option>
+                <option value="hotels">hotels</option>
+              </select>
+            </div>
+            <div>
+              <label for="blockResourceId">Resource</label>
+              <div id="partnerResourcePanels" class="partner-resource-panels"></div>
+              <select id="blockResourceId" required>
+                <option value="">Select resource</option>
+              </select>
+            </div>
+            <div>
+              <label for="partnerCalendarMonthInput">Month</label>
+              <div class="btn-row" style="justify-content:flex-start; gap: 8px;">
+                <button id="partnerCalendarPrevMonth" class="btn-sm" type="button">◀</button>
+                <input id="partnerCalendarMonthInput" type="month" />
+                <button id="partnerCalendarNextMonth" class="btn-sm" type="button">▶</button>
+              </div>
+            </div>
+          </div>
+
+          <div class="muted small" style="margin: 0 0 8px;">Legenda: <span style="display:inline-block; width: 10px; height: 10px; border-radius:3px; background: rgba(34,197,94,0.25); border: 1px solid rgba(34,197,94,0.55);"></span> available, <span style="display:inline-block; width: 10px; height: 10px; border-radius:3px; background: rgba(107,114,128,0.35); border: 1px solid rgba(107,114,128,0.60);"></span> busy</div>
+          <div id="partnerCalendarMonthGrid" style="display:grid; grid-template-columns: repeat(7, 1fr); gap: 8px;"></div>
+
+          <div style="height: 12px;"></div>
+
+          <form id="partnerBlockForm" class="partner-form">
+            <div style="grid-column: 1 / -1;">
+              <div class="muted small" style="margin-bottom: 6px;">Opcjonalnie: dodaj blokadę jako zakres dat.</div>
+            </div>
+            <div>
+              <label for="blockStart">Start</label>
+              <input id="blockStart" type="date" required />
+            </div>
+            <div>
+              <label for="blockEnd">End</label>
+              <input id="blockEnd" type="date" required />
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <label for="blockNote">Note</label>
+              <textarea id="blockNote" placeholder="Optional"></textarea>
+            </div>
+            <div style="grid-column: 1 / -1;">
+              <button id="btnCreateBlock" class="btn-sm primary" type="submit">Add block</button>
+            </div>
+          </form>
+
+          <div class="admin-table-container" aria-label="Availability blocks">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Resource</th>
+                <th>Dates</th>
+                <th>Note</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="blocksTableBody">
+              <tr><td colspan="4" class="muted" style="padding: 16px 8px;">Loading…</td></tr>
+            </tbody>
+          </table>
+          </div>
+        </div>
+      </section>
+
+      <aside class="partner-card">
+        <h2 style="margin: 0 0 8px;">Status</h2>
+        <div id="partnerPortalStatus" class="muted">Loading…</div>
+        <div style="height: 12px;"></div>
+
+        <h3 style="margin: 0 0 8px;">Tips</h3>
+        <div class="muted small" style="display: grid; gap: 8px;">
+          <div>Akceptacja ujawnia dane kontaktowe klienta (email/telefon/adres) dla tego fulfillmentu.</div>
+          <div>Po odrzuceniu administrator dostaje alert i decyzja o zwrocie jest po stronie administracji.</div>
+          <div>Jeśli upłynie SLA i nie zaakceptujesz, admin dostanie automatyczne przypomnienie.</div>
+        </div>
+      </aside>
+    </div>
+    </main>
+  </div>
+
+  <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
+
+  <script src="js/i18n.js" defer></script>
+  <script src="assets/js/modal-auth.js" defer></script>
+  <script src="js/partners.js?v=12" defer></script>
+
+  <div
+    id="auth-modal"
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="auth-title"
+    aria-hidden="true"
+  >
+    <div class="modal__dialog" tabindex="-1" role="document">
+      <button
+        class="modal__close"
+        type="button"
+        aria-label="Zamknij"
+        data-close
+        data-i18n-attrs="aria-label:auth.close.label"
+      >
+        ×
+      </button>
+      <h2 id="auth-title" data-i18n="auth.title">Dołącz do przygody</h2>
+      <p class="auth-intro" data-i18n="auth.intro">Zaloguj się, utwórz konto lub graj jako gość.</p>
+      <div class="auth-modal__content" data-auth-view-root>
+        <div data-auth="login">
+          <div role="presentation">
+            <div class="auth-modal__tabs" role="tablist">
+              <button
+                type="button"
+                class="auth-modal__tab is-active"
+                role="tab"
+                id="authTabLogin"
+                aria-selected="true"
+                aria-controls="authPanelLogin"
+                data-auth-tab="login"
+                data-i18n="auth.tab.login"
+              >
+                Logowanie
+              </button>
+              <button
+                type="button"
+                class="auth-modal__tab"
+                role="tab"
+                id="authTabRegister"
+                aria-selected="false"
+                aria-controls="authPanelRegister"
+                data-auth-tab="register"
+                data-i18n="auth.tab.register"
+                tabindex="-1"
+              >
+                Rejestracja
+              </button>
+            </div>
+            <div class="auth-modal__panels">
+              <section
+                id="authPanelLogin"
+                class="auth-modal__panel is-active"
+                role="tabpanel"
+                aria-labelledby="authTabLogin"
+                data-auth="login"
+                data-auth-panel="login"
+              >
+                <form id="form-login" class="auth-form" novalidate data-ce-auth-handler="supabase">
+                  <label for="loginEmail" data-i18n="auth.login.username">Email lub nazwa użytkownika</label>
+                  <input
+                    id="loginEmail"
+                    name="email"
+                    type="text"
+                    autocomplete="username"
+                    required
+                    aria-label="Email lub nazwa użytkownika"
+                    data-i18n-attrs="aria-label:auth.login.username,placeholder:auth.login.username"
+                    placeholder="Email lub nazwa użytkownika"
+                  />
+                  <label for="loginPassword" data-i18n="auth.password">Hasło</label>
+                  <input
+                    id="loginPassword"
+                    name="password"
+                    type="password"
+                    autocomplete="current-password"
+                    required
+                    aria-label="Hasło"
+                    data-i18n-attrs="aria-label:auth.password"
+                  />
+                  <div class="auth-form__actions">
+                    <button
+                      type="submit"
+                      class="btn btn--primary"
+                      data-i18n="auth.login.button"
+                      data-i18n-attrs="aria-label:auth.login.button"
+                      aria-label="Zaloguj się"
+                    >
+                      Zaloguj się
+                    </button>
+                    <button
+                      type="button"
+                      class="auth-form__link"
+                      id="loginForgotPassword"
+                      data-i18n="auth.reset.button"
+                      data-i18n-attrs="aria-label:auth.reset.button"
+                      aria-label="🔑 Resetuj hasło"
+                    >
+                      🔑 Resetuj hasło
+                    </button>
+                  </div>
+                  <div data-auth="message" aria-live="polite"></div>
+                  <p class="auth-form__meta" id="authResendVerification" hidden>
+                    Nie otrzymałeś wiadomości z potwierdzeniem?
+                    <button type="button" class="auth-form__link" id="btn-resend-verification">
+                      Wyślij ponownie link weryfikacyjny
+                    </button>
+                  </p>
+                </form>
+              </section>
+
+              <section
+                id="authPanelRegister"
+                class="auth-modal__panel"
+                role="tabpanel"
+                aria-labelledby="authTabRegister"
+                data-auth="register"
+                data-auth-panel="register"
+                hidden
+              >
+                <form
+                  id="form-register"
+                  class="auth-form"
+                  novalidate
+                  data-auth="register"
+                  data-ce-auth-handler="supabase"
+                >
+                  <label for="registerFirstName" data-i18n="auth.firstName">Imię</label>
+                  <input
+                    id="registerFirstName"
+                    name="firstName"
+                    type="text"
+                    autocomplete="given-name"
+                    maxlength="60"
+                    required
+                    aria-label="Imię"
+                    data-i18n-attrs="aria-label:auth.firstName"
+                  />
+                  <label for="registerUsername" data-i18n="auth.username">Nazwa użytkownika</label>
+                  <input
+                    id="registerUsername"
+                    name="username"
+                    type="text"
+                    autocomplete="username"
+                    minlength="3"
+                    maxlength="20"
+                    pattern="[a-zA-Z0-9_]+"
+                    required
+                    aria-label="Nazwa użytkownika"
+                    data-i18n-attrs="aria-label:auth.username,placeholder:auth.username.hint"
+                    placeholder="3-20 znaków, litery i cyfry"
+                  />
+                  <label for="registerEmail" data-i18n="auth.email">Adres e-mail</label>
+                  <input
+                    id="registerEmail"
+                    name="email"
+                    type="email"
+                    autocomplete="email"
+                    required
+                    aria-label="Adres e-mail"
+                    data-i18n-attrs="aria-label:auth.email"
+                  />
+                  <label for="registerPassword" data-i18n="auth.password">Hasło</label>
+                  <input
+                    id="registerPassword"
+                    name="password"
+                    type="password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required
+                    aria-label="Hasło"
+                    data-i18n-attrs="aria-label:auth.password"
+                  />
+                  <label for="registerPasswordConfirm" data-i18n="auth.confirmPassword">Powtórz hasło</label>
+                  <input
+                    id="registerPasswordConfirm"
+                    name="passwordConfirm"
+                    type="password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    aria-label="Powtórz hasło"
+                    data-i18n-attrs="aria-label:auth.confirmPassword"
+                  />
+                  <div data-auth="message" aria-live="polite"></div>
+                  <p class="form-hint" data-i18n="auth.register.hint">
+                    Po rejestracji sprawdź skrzynkę e-mail, aby potwierdzić konto.
+                  </p>
+                  <button
+                    type="submit"
+                    class="btn btn--primary"
+                    data-i18n="auth.register.button"
+                    data-i18n-attrs="aria-label:auth.register.button"
+                    aria-label="Utwórz konto"
+                  >
+                    Utwórz konto
+                  </button>
+                </form>
+              </section>
+            </div>
+
+            <dialog id="resetPasswordDialog" class="auth-reset-dialog">
+              <form id="form-reset-password" class="auth-form" novalidate>
+                <header class="auth-reset-dialog__header">
+                  <h2 data-i18n="auth.reset.title">Resetuj hasło</h2>
+                  <button
+                    type="button"
+                    class="auth-form__link"
+                    id="btn-reset-close"
+                    data-i18n-attrs="aria-label:auth.reset.close"
+                    aria-label="Zamknij"
+                  >
+                    ✖
+                  </button>
+                </header>
+                <p data-i18n="auth.reset.description">Podaj adres e-mail powiązany z kontem, a wyślemy link do zmiany hasła.</p>
+                <label for="resetEmail" data-i18n="auth.reset.emailLabel">Adres e-mail</label>
+                <input id="resetEmail" name="email" type="email" autocomplete="email" required />
+                <div class="auth-form__actions">
+                  <button type="submit" class="btn btn--primary">Wyślij link resetujący</button>
+                  <button type="button" class="auth-form__link" id="btn-reset-cancel">Anuluj</button>
+                </div>
+              </form>
+            </dialog>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

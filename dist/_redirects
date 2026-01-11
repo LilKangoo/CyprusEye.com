@@ -1,0 +1,29 @@
+# Cloudflare Pages Redirects
+# https://developers.cloudflare.com/pages/configuration/redirects/
+
+# Admin panel - MUST come before SPA fallback
+/admin/*           /admin/:splat           200
+
+# Passthrough static assets (do not rewrite to index.html)
+/assets/*          /assets/:splat          200
+/js/*              /js/:splat              200
+/css/*             /css/:splat             200
+/translations/*    /translations/:splat    200
+/*.js              /:splat                 200
+/*.css             /:splat                 200
+/*.map             /:splat                 200
+/*.json            /:splat                 200
+/*.png             /:splat                 200
+/*.jpg             /:splat                 200
+/*.jpeg            /:splat                 200
+/*.svg             /:splat                 200
+/*.webp            /:splat                 200
+/*.ico             /:splat                 200
+
+# HTML pages - serve as-is (MUST come before SPA fallback)
+/shop              /shop.html             301
+/shop/             /shop.html             301
+/*.html            /:splat                 200
+
+# SPA fallback (main app only - NOT admin)
+/*                 /index.html             200

@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <script>(function(){try{var r=new URLSearchParams(location.search).get('ref');if(r&&r.trim()){localStorage.setItem('cypruseye_referral_code',JSON.stringify({code:r.trim(),capturedAt:Date.now(),expiresAt:Date.now()+12096e5}))}}catch(e){}})();</script>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-FCSE0876CR');
+  </script>
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  
+  <!-- Security: Content Security Policy -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co wss://*.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://*.tile.openstreetmap.org; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;">
+  
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="robots" content="noindex,follow" />
+  <title>Terms of Service - CyprusEye Quest</title>
+  
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
+  
+  <link rel="stylesheet" href="assets/css/tokens.css" />
+  <link rel="stylesheet" href="assets/css/base.css" />
+  <link rel="stylesheet" href="assets/css/components.css" />
+  <link rel="stylesheet" href="assets/css/header-metrics.css" />
+  <link rel="stylesheet" href="assets/css/mobile.css" />
+  <link rel="stylesheet" href="assets/css/mobile-nav.css" />
+  <link rel="stylesheet" href="assets/css/rtl.css" />
+  <link rel="stylesheet" href="assets/css/language-switcher.css" />
+  <link rel="stylesheet" href="assets/css/language-selector.css" />
+  <link rel="stylesheet" href="css/toast.css" />
+  <link rel="stylesheet" href="assets/css/legal.css" />
+  
+  <meta name="ce-auth" content="on" />
+  <script type="module" src="js/supabaseClient.js"></script>
+  <script type="module" src="js/toast.js"></script>
+  <script type="module" src="js/auth.js"></script>
+  <script type="module" src="js/authUi.js"></script>
+  <script src="js/footer-referral.js" defer></script>
+</head>
+<body data-navigation="multi-page" data-seo-page="terms">
+  <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+  
+  <header class="app-header nav-modern">
+      <div class="nav-modern__top" aria-label="Global header">
+        <div class="brand nav-modern__brand-block">
+          <a href="index.html" class="nav-modern__brand-link" aria-label="CyprusEye Quest home">
+            <img
+              src="assets/cyprus_logo-1000x1054.png"
+              alt="WakacjeCypr.com – logo żółwia z flagą Polski"
+              data-i18n-attrs="alt:header.logoAlt"
+              width="1000"
+              height="1054"
+              loading="eager"
+              fetchpriority="high"
+            />
+            <div class="brand-title" data-i18n="header.brand">
+              <p class="brand-name">CyprusEye Quest &amp; Travel</p>
+            </div>
+          </a>
+        </div>
+
+        <div class="nav-modern__stats nav-modern__stats-lite" data-auth="user-only">
+          <div class="stats-lite__pill">
+            <a href="achievements.html" class="stats-lite__profile" id="profileButton" aria-label="Mój profil">
+              <img
+                id="headerUserAvatar"
+                class="profile-avatar"
+                src="assets/cyprus_logo-1000x1054.png"
+                alt="Avatar"
+                width="48"
+                height="48"
+                loading="eager"
+              />
+              <div class="profile-info">
+                <p class="profile-name">Mój Profil</p>
+                <p class="profile-status">Poziom 1 • 0 odznak</p>
+              </div>
+            </a>
+
+            <div class="stats-lite__panel">
+              <div class="stats-lite__level">
+                <span class="stats-lite__label">LVL</span>
+                <span class="stats-lite__value" id="headerLevelNumber">1</span>
+                
+              </div>
+
+              <div class="stats-lite__xp" role="img" aria-label="Postęp doświadczenia" data-i18n-attrs="aria-label:metrics.xp.aria">
+                <span class="stats-lite__xp-current"><span id="headerXpPoints">0</span> XP</span>
+                <div class="stats-lite__xp-bar">
+                  <div class="stats-lite__xp-fill is-width-zero" id="headerXpFill"></div>
+                </div>
+                
+                  
+                </span>
+              </div>
+
+              <div class="stats-lite__badges">
+                <span class="stats-lite__label">🏆</span>
+                <span class="stats-lite__value" id="headerBadgesCount">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="nav-modern__top-actions">
+          <div class="nav-modern__auth">
+            <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
+              <button
+                class="nav-modern__login"
+                data-open-auth
+                data-auth="anon-only"
+                data-tour-target="login-button"
+                data-i18n="header.login"
+                data-i18n-attrs="aria-label:auth.login.aria"
+                aria-label="Zaloguj do konta"
+              >
+                Zaloguj
+              </button>
+<button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta" hidden>Wyloguj</button>
+            </div>
+            <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
+          </div>
+
+          <button
+            id="sosToggle"
+            class="nav-modern__sos"
+            type="button"
+            aria-haspopup="dialog"
+            aria-controls="sosModal"
+            data-i18n="header.sosToggle"
+          >
+            ⚠️ SOS
+          </button>
+
+          <div class="language-pill-group" data-language-toggle aria-label="Language selector" data-i18n-attrs="aria-label:language.switcher.label">
+            <button type="button" class="language-pill" data-language-pill="pl" aria-pressed="false">PL</button>
+            <button type="button" class="language-pill" data-language-pill="en" aria-pressed="false">EN</button>
+            <!-- <button type="button" class="language-pill" data-language-pill="el" aria-pressed="false">EL</button> -->
+            <!-- <button type="button" class="language-pill" data-language-pill="he" aria-pressed="false">HE</button> -->
+          </div>
+        </div>
+      </div>
+    <div class="nav-modern__shell">
+
+      <div class="nav-modern__bars" data-tour-target="tabs-navigation">
+        <button class="nav-modern__toggle-btn" id="navToggleBtn" aria-expanded="false" aria-controls="navLinksRow" data-i18n="nav.toggle">
+          ☰ Nawigacja
+        </button>
+        <div class="nav-modern__links-row" id="navLinksRow" aria-label="Główna nawigacja i skróty" data-i18n-attrs="aria-label:header.quickActions.aria">
+          <nav class="nav-modern__tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna">
+            <a href="index.html" class="nav-modern__tab" id="headerAdventureTab" data-i18n="nav.adventure">
+              🎯 Przygoda
+            </a>
+            <a href="community.html" class="nav-modern__tab" id="headerPackingTab" data-i18n="nav.community">
+              💬 Społeczność
+            </a>
+            <a href="recommendations.html" class="nav-modern__tab" id="headerRecommendationsTab" data-i18n="nav.recommendations">
+              ✨ Polecane
+            </a>
+            <a href="tasks.html" class="nav-modern__tab" id="headerTasksTab" data-i18n="nav.tasks">
+              ☑️ Zadania
+            </a>
+            <a href="shop.html" class="nav-modern__tab" id="headerShopTab" data-i18n="nav.shop">
+              🛍️ Sklep
+            </a>
+          </nav>
+
+          <div class="nav-modern__chips">
+            <a class="nav-chip" href="packing.html" data-i18n="nav.packing">🎒 Pakowanie</a>
+            <a class="nav-chip" href="kupon.html" data-i18n="header.coupon">🎟️ Kupon</a>
+            <a class="nav-chip" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
+            <a class="nav-chip" href="trips.html" data-i18n="nav.trips">🧭 Wycieczki</a>
+            <a class="nav-chip" href="hotels.html" data-i18n="nav.hotels">🏨 Hotele</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main class="legal-main">
+    <div class="legal-container">
+      <h1 class="legal-title">Terms of Service</h1>
+      <p class="legal-date" data-i18n="legal.updated">Last updated: November 2024</p>
+      
+      <div id="terms-content" class="legal-content">
+        
+        <h2>1. ACCEPTANCE OF TERMS</h2>
+        <p>LilKangooMedia LTD welcomes you. LilKangooMedia LTD provides the CyprusEye.com Services (defined below) to you subject to the following Terms of Service ("TOS"), which may be updated by us from time to time without notice to you.</p>
+        <p>By accessing and using the CyprusEye.com Services, you accept and agree to be bound by the terms and provisions of the TOS. In addition, when using particular CyprusEye.com owned or operated services, you and LilKangooMedia LTD shall be subject to any posted guidelines or rules applicable to such services, which may be posted and modified from time to time. All such guidelines or rules (including but not limited to our Privacy Policy) are hereby incorporated by reference into the TOS.</p>
+
+        <h2>2. DESCRIPTION OF SERVICES AND GAME FEATURES</h2>
+        <p>CyprusEye.com is a hybrid platform combining a travel guide with an interactive gamified experience ("CyprusEye Quest"). The services include connection to travel providers, location-based challenges, experience points (XP) tracking, virtual achievements, and community features (collectively the "CyprusEye.com Services").</p>
+        <p>CyprusEye.com acts as an intermediary platform for bookings and is not responsible for the quality, safety, or legality of the services offered by third-party providers. Users are advised to perform due diligence prior to engaging with any service provider.</p>
+
+        <h2>2A. CYPRUSEYE SHOP (E-COMMERCE) TERMS</h2>
+        <p>This section applies when you purchase products or services offered in the CyprusEye Shop (the "Shop") through CyprusEye.com. In case of any conflict between this section and other provisions of these TOS, this section shall prevail for Shop transactions.</p>
+
+        <h3>2A.1 Seller information</h3>
+        <p>The Shop is operated by:</p>
+        <ul>
+          <li><strong>Seller:</strong> LilKangooMedia LTD</li>
+        </ul>
+
+        <h3>2A.2 Products, descriptions, and availability</h3>
+        <p>Product images, descriptions, and specifications are provided for informational purposes. We may update product details at any time. Availability is not guaranteed; items may be withdrawn or changed without notice.</p>
+
+        <h3>2A.3 Order process and contract formation</h3>
+        <p>Placing an order in the Shop constitutes an offer to purchase. A binding contract is formed when we confirm acceptance of your order (e.g., by sending an order confirmation email and/or by dispatching the goods). We reserve the right to refuse or cancel orders (including for suspected fraud, pricing errors, stock issues, or violation of these TOS).</p>
+
+        <h3>2A.4 Prices, currency, taxes, and customs</h3>
+        <p>Unless stated otherwise, prices are shown in EUR. Prices may exclude or include VAT depending on the product and the destination rules displayed during checkout. For international deliveries, you may be responsible for import duties, customs fees, and local taxes imposed by the destination country. These charges are not included in our prices and are your responsibility.</p>
+
+        <h3>2A.5 Payments and payment processing (Stripe)</h3>
+        <p>Payments are processed by third-party payment providers (including Stripe). We do not store full payment card details. Your payment may be subject to additional verification and fraud-prevention checks. By completing payment, you agree to the payment provider’s terms and policies in addition to these TOS.</p>
+
+        <h3>2A.6 Shipping, delivery, and risk of loss</h3>
+        <p>Delivery times are estimates and may vary due to carrier delays, customs processing, or events beyond our control. Title and risk of loss for physical goods pass to you upon delivery to the address provided in your order (or earlier if mandatory law in your jurisdiction provides otherwise).</p>
+        <p>You are responsible for providing accurate delivery information. If delivery fails due to incorrect information or repeated unsuccessful delivery attempts, additional costs may apply.</p>
+
+        <h3>2A.7 No-returns policy (subject to mandatory law)</h3>
+        <p>To the maximum extent permitted by applicable law, <strong>we do not offer voluntary returns or exchanges</strong>. This means that, except where required by mandatory consumer protection laws or where the product is defective/non-conforming, purchases are final.</p>
+        <p><strong>Important:</strong> If you are a consumer located in the European Union/EEA/United Kingdom, you may have statutory rights, including (in many cases) a <strong>14-day right of withdrawal</strong> for distance contracts, subject to legal exceptions. Nothing in these TOS is intended to limit any mandatory rights you may have under applicable consumer laws.</p>
+
+        <h3>2A.8 Withdrawal exceptions / non-returnable items</h3>
+        <p>Where permitted by law, the right of withdrawal does not apply (or may be lost) for certain categories of goods and services, including, for example:</p>
+        <ul>
+          <li>Goods made to your specifications or clearly personalised.</li>
+          <li>Sealed goods that are not suitable for return due to health protection or hygiene reasons, if unsealed after delivery.</li>
+          <li>Goods liable to deteriorate or expire rapidly (e.g., certain food products).</li>
+          <li>Digital content not supplied on a tangible medium, if performance has begun with your prior express consent and acknowledgement that you lose your right of withdrawal once performance begins.</li>
+          <li>Services fully performed with your prior express consent and acknowledgement that you lose your right of withdrawal once the service is fully performed.</li>
+          <li>Donations or voluntary contributions (where applicable) are non-refundable unless mandatory law requires otherwise.</li>
+        </ul>
+
+        <h3>2A.9 Defective or non-conforming products (legal warranty)</h3>
+        <p>If a product you receive is defective, damaged on arrival, or does not conform to the contract, you may have legal rights to remedies such as repair, replacement, price reduction, or refund under applicable law (including mandatory EU consumer sales guarantees where applicable). Please contact us promptly with your order number and evidence (e.g., photos) so we can assess and propose an appropriate remedy.</p>
+
+        <h3>2A.10 Chargebacks and payment disputes</h3>
+        <p>If you believe a payment was made in error or is unauthorised, please contact us before initiating a chargeback so we can investigate. We reserve the right to suspend accounts and/or refuse future orders in cases of abusive chargebacks or suspected fraud.</p>
+
+        <h3>2A.11 Promotions and discount codes</h3>
+        <p>Discount codes may be limited by time, usage, minimum basket value, eligible products, or other conditions. We may withdraw or modify promotions at any time, subject to mandatory law.</p>
+
+        <h3>2A.12 Customer support</h3>
+        <p>For Shop-related questions (orders, shipping, issues), contact: <a href="mailto:kontakt@wakacjecypr.com">kontakt@wakacjecypr.com</a>.</p>
+
+        <h2>3. PHYSICAL SAFETY AND ASSUMPTION OF RISK (CRITICAL)</h2>
+        <p><strong>PLEASE READ CAREFULLY:</strong> The CyprusEye Quest game encourages users to visit physical locations in the real world. You explicitly acknowledge and agree that:</p>
+        <ul>
+            <li>Your movement, travel, and interaction with real-world environments while using the App is entirely at your own risk.</li>
+            <li>You are solely responsible for your safety and the safety of those around you. You must pay attention to your surroundings, traffic, obstacles, pedestrians, and changing weather conditions at all times.</li>
+            <li>You agree strictly not to trespass on private property or enter areas that are closed, dangerous, or prohibited while attempting to complete Quests or earn XP.</li>
+            <li>LilKangooMedia LTD shall not be liable for any physical injury, death, property damage, or other harm resulting from your physical activities while using the CyprusEye.com Services.</li>
+        </ul>
+
+        <h2>4. VIRTUAL ITEMS, XP, AND ACHIEVEMENTS</h2>
+        <p>The Service includes virtual elements such as Experience Points (XP), Levels, Badges, and virtual rewards ("Virtual Items"). You acknowledge that:</p>
+        <ul>
+            <li>Virtual Items have no cash value and cannot be redeemed for real money, goods, or other items of monetary value from LilKangooMedia LTD or any other party.</li>
+            <li>You do not own the Virtual Items; you strictly hold a limited, revocable license to use them within the Service.</li>
+            <li>LilKangooMedia LTD reserves the right to modify, delete, or reset Virtual Items and game progress at any time, with or without notice, for any reason (e.g., balancing the game, fixing bugs, or enforcing rules).</li>
+        </ul>
+
+        <h2>5. FAIR PLAY AND ANTI-CHEAT</h2>
+        <p>To maintain the integrity of the CyprusEye Quest experience, you agree NOT to:</p>
+        <ul>
+            <li>Use any techniques to alter or falsify a device's location (GPS Spoofing).</li>
+            <li>Use automation software (bots), emulators, or third-party software to modify the Service or game progress.</li>
+            <li>Access the Services in an unauthorized manner (including using modified or unofficial client software).</li>
+            <li>Share accounts or sell/trade game progress to other individuals.</li>
+        </ul>
+        <p>Violation of these Fair Play rules will result in immediate termination of your account and forfeiture of all XP and achievements.</p>
+
+        <h2>6. USER GENERATED CONTENT</h2>
+        <p>When you upload content (photos, reviews, comments, community posts) to CyprusEye.com, you grant LilKangooMedia LTD a worldwide, non-exclusive, royalty-free, perpetual, irrevocable, and fully sublicensable right to use, reproduce, modify, adapt, publish, translate, create derivative works from, distribute, and display such content in any media (including marketing materials and social media) throughout the world.</p>
+        <p>You represent and warrant that you own or otherwise control all of the rights to the content that you post; that the content is accurate; and that use of the content you supply does not violate this policy and will not cause injury to any person or entity.</p>
+
+        <h2>7. SPECIAL ADMONITIONS FOR INTERNATIONAL USE</h2>
+        <p>Various countries may have different laws and regulations regarding the services offered through CyprusEye.com. Your engagement with these services is done entirely at your own risk, and it is your responsibility to ensure compliance with the laws and regulations of the country in which you are based.</p>
+
+        <h2>8. INDEMNITY</h2>
+        <p>You agree to indemnify and hold LilKangooMedia LTD and its subsidiaries, affiliates, officers, agents, employees, partners, and licensors harmless from any claim or demand, including reasonable attorneys' fees, made by any third party due to or arising out of content you use, submit, post, transmit, modify, or otherwise make available through the CyprusEye.com Services, your use of the CyprusEye.com Services, your connection to the CyprusEye.com Services, your violation of the TOS, or your violation of any rights of another.</p>
+
+        <h2>9. NO COMMERCIAL REUSE</h2>
+        <p>You agree not to reproduce, duplicate, copy, sell, trade, resell or exploit for any commercial purposes, any portion or use of, or access to, the CyprusEye.com Services (including content, trademarks, and advertisements).</p>
+
+        <h2>10. MODIFICATIONS TO SERVICES</h2>
+        <p>LilKangooMedia LTD reserves the right at any time and from time to time to modify or discontinue, temporarily or permanently, the CyprusEye.com Services (or any part thereof) with or without notice. You agree that LilKangooMedia LTD shall not be liable to you or to any third party for any modification, suspension, or discontinuance of the CyprusEye.com Services.</p>
+
+        <h2>11. TERMINATION</h2>
+        <p>You agree that LilKangooMedia LTD, in its sole discretion, may terminate your use of the CyprusEye.com Services for any reason, including, without limitation, for lack of use, cheating, GPS spoofing, or if LilKangooMedia LTD believes that you have violated the letter or spirit of the TOS. LilKangooMedia LTD may immediately deactivate or delete your account and all related information/files and bar any further access to such files or the Services.</p>
+
+        <h2>12. COPYRIGHT AND TRADEMARK NOTICES</h2>
+        <p>All content included in or made available through the CyprusEye.com Services, such as text, graphics, logos, images, and software is the property of LilKangooMedia LTD or its content suppliers and is protected by European and Cypriot copyright and trademark laws.</p>
+
+        <h2>13. DISCLAIMER OF WARRANTIES</h2>
+        <p>The CyprusEye.com Services are provided on an "as is" and "as available" basis. LilKangooMedia LTD makes no representations or warranties of any kind, express or implied, regarding the operation of the services, game mechanics, accuracy of location data, or the information/content included.</p>
+
+        <h2>14. GOVERNING LAW</h2>
+        <p>These TOS and your use of the CyprusEye.com Services shall be governed by and construed in accordance with the laws of the Republic of Cyprus, together with any mandatory consumer protection laws that apply to you (including, where applicable, mandatory EU consumer protection rules), without giving effect to any principles of conflicts of law that would exclude such mandatory protections.</p>
+
+        <h2>15. LIMITATION OF LIABILITY</h2>
+        <p>In no event shall LilKangooMedia LTD be liable for any indirect, incidental, special, consequential, or punitive damages, including loss of profits, data, use, goodwill, or other intangible losses, resulting from (i) your access to or use of the Services; (ii) any conduct of any third party; (iii) any physical accidents or injuries occurring during the use of location-based features.</p>
+
+        <h2>16. CONTACT INFORMATION</h2>
+        <p>If you have any questions about these TOS or the CyprusEye.com Services, please contact LilKangooMedia LTD at <a href="mailto:kontakt@wakacjecypr.com">kontakt@wakacjecypr.com</a>.</p>
+
+        <h2>17. SEVERABILITY & ENTIRE AGREEMENT</h2>
+        <p>If any provision of these TOS is found to be invalid, the remaining provisions shall remain in full force and effect. These TOS constitute the entire agreement between you and LilKangooMedia LTD.</p>
+
+        <h2>18. DISPUTE RESOLUTION</h2>
+        <p>If you are a consumer, nothing in these TOS limits your right to bring claims in the courts of your country of residence where such rights are granted by mandatory law. For other users, disputes arising out of or relating to these TOS or the CyprusEye.com Services shall be subject to the competent courts of the Republic of Cyprus, unless mandatory law provides otherwise.</p>
+        <p>Where applicable, you may also use the EU Online Dispute Resolution (ODR) platform: <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener">https://ec.europa.eu/consumers/odr</a>.</p>
+        
+        <hr style="margin: 40px 0; border: 0; border-top: 1px solid #e5e7eb;" />
+
+        <h1>PRIVACY POLICY</h1>
+        <p>CyprusEye.com a side project of LilKangooMedia ("Company," "we," or "us") respects the privacy of our users and is committed to protecting it. This Privacy Policy applies to information that we collect through our website, www.cypruseye.com (the "Website").</p>
+        
+        <h3>1. Information We Collect</h3>
+        <p>We may collect the following types of information from you when you use the Website:</p>
+        <ul>
+          <li><strong>Personal information:</strong> Name, email address, phone number.</li>
+          <li><strong>Location Data:</strong> Precise geolocation data (GPS) is collected when you use the "Quest" features to verify your presence at a location.</li>
+          <li><strong>Log & Usage information:</strong> IP address, browser type, pages viewed, game progress, XP earned.</li>
+        </ul>
+
+        <h3>2. Information Use and Sharing</h3>
+        <p>We use the information to provide the game experience, verify quest completion, maintain leaderboards, and improve the Website.</p>
+
+        <h3>3. Booking and Payments</h3>
+        <p>All booking payments made through CyprusEye.com or via affiliated partners are final and non-refundable. By completing a booking or payment, you acknowledge and agree that no refunds, cancellations, or changes will be issued once the transaction has been confirmed.</p>
+        <p>In exceptional cases (such as force majeure or provider cancellation), any potential compensation will be handled directly by the respective third-party provider according to their individual terms and policies.</p>
+
+        <h3>4. User Rights & Contact</h3>
+        <p>You have the right to access, rectify and delete your personal data. Contact us at <a href="mailto:kontakt@wakacjecypr.com">kontakt@wakacjecypr.com</a>.</p>
+
+        <h3>5. Changes to this Policy</h3>
+        <p>We may revise this policy from time to time. Updates will be posted here.</p>
+        <p><strong>This Privacy Policy is effective as of 01.01.2025</strong></p>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer Referral -->
+  <div class="footer-referral" id="footerReferral" style="display:none;">
+    <p class="footer-referral-text">
+      <span style="font-size:1.25rem;">🎁</span>
+      <span data-i18n="footer.referral.invite">Zaproś znajomych i zdobądź bonusy!</span>
+    </p>
+    <div class="footer-referral-actions">
+      <button class="btn-ref btn-copy" id="footerCopyRef">
+        <span>📋</span> <span data-i18n="footer.referral.copy">Kopiuj link</span>
+      </button>
+      <button class="btn-ref btn-facebook" id="footerShareFb">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        <span data-i18n="footer.referral.facebook">Facebook</span>
+      </button>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <div class="footer-content">
+      <a href="terms.html" class="footer-link" data-i18n="legal.termsLink">Terms of Service</a>
+    </div>
+  </footer>
+
+  <!-- Auth Modal -->
+  <div
+    id="auth-modal"
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="auth-title"
+    aria-hidden="true"
+  >
+    <div class="modal__dialog" tabindex="-1" role="document">
+      <button
+        class="modal__close"
+        type="button"
+        aria-label="Zamknij"
+        data-close
+        data-i18n-attrs="aria-label:auth.close.label"
+      >
+        ×
+      </button>
+      <h2 id="auth-title" data-i18n="auth.title">Dołącz do przygody</h2>
+      <p class="auth-intro" data-i18n="auth.intro">Zaloguj się, utwórz konto lub graj jako gość.</p>
+      <div class="auth-modal__content" data-auth-view-root>
+        <div data-auth="login">
+          <div role="presentation">
+            <div class="auth-modal__tabs" role="tablist">
+              <button
+                type="button"
+                class="auth-modal__tab is-active"
+                role="tab"
+                id="authTabLogin"
+                aria-selected="true"
+              >
+                Zaloguj
+              </button>
+              <button
+                type="button"
+                class="auth-modal__tab"
+                role="tab"
+                id="authTabRegister"
+                aria-selected="false"
+              >
+                Rejestracja
+              </button>
+            </div>
+          </div>
+          <!-- Auth logic handled by authUi.js -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
+
+  <script src="js/languageSelector.js" defer></script>
+  <script src="js/i18n.js" defer></script>
+  <script src="js/mobile-nav.js" defer></script>
+  <script src="js/header-dropdown.js" defer></script>
+  
+  <!-- Leaflet - załaduj bezpośrednio jako fallback (dla spójności nagłówka) -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+
+</body>
+</html>

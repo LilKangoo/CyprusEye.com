@@ -1,0 +1,1147 @@
+<!DOCTYPE html>
+<html lang="pl" dir="ltr">
+<head>
+  <script>(function(){try{var r=new URLSearchParams(location.search).get('ref');if(r&&r.trim()){localStorage.setItem('cypruseye_referral_code',JSON.stringify({code:r.trim(),capturedAt:Date.now(),expiresAt:Date.now()+12096e5}))}}catch(e){}})();</script>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://esm.sh https://unpkg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co wss://*.supabase.co https://esm.sh https://unpkg.com; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;" />
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="robots" content="index,follow" />
+  <title>Hotele – CyprusEye</title>
+  <meta name="description" content="Przeglądaj zakwaterowania i rezerwuj online.">
+  <meta property="og:title" content="Hotele – CyprusEye" />
+  <meta property="og:description" content="Przeglądaj zakwaterowania i rezerwuj online." />
+  <meta property="og:url" content="https://www.cypruseye.com/hotels.html" />
+  <meta property="og:image" content="https://www.cypruseye.com/assets/cyprus_logo-1000x1054.png" />
+  <link rel="icon" href="/assets/cyprus_logo-1000x1054.png" type="image/png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <link rel="stylesheet" href="/assets/css/components.css" />
+  <link rel="stylesheet" href="/assets/css/header-metrics.css" />
+  <link rel="stylesheet" href="/assets/css/language-switcher.css" />
+  <link rel="stylesheet" href="/assets/css/language-selector.css" />
+  <link rel="stylesheet" href="/assets/css/mobile.css" />
+  <link rel="stylesheet" href="/assets/css/mobile-nav.css" />
+  <link rel="stylesheet" href="/css/toast.css" />
+  <style>
+    .trips-hero{padding:40px 20px;background:linear-gradient(135deg,#059669 0%,#10b981 100%);color:#fff;text-align:center}
+    .trips-hero h1{font-size:2.5rem;margin:0 0 12px;font-weight:700}
+    .trips-container{max-width:1400px;margin:0 auto;padding:40px 20px;overflow-x:hidden}
+    .trips-tabs{display:flex;gap:16px;margin-bottom:32px;border-bottom:2px solid #e5e7eb;overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none;justify-content:center}
+    .trips-tabs::-webkit-scrollbar{display:none}
+    .trips-tab{padding:12px 24px;font-weight:600;color:#6b7280;background:none;border:none;border-bottom:3px solid transparent;cursor:pointer;transition:.2s;white-space:nowrap;flex-shrink:0}
+    .trips-tab:hover{color:#374151}
+    .trips-tab.active{color:#059669;border-bottom-color:#059669}
+    
+    /* Modern Grid Layout matching /trips */
+    .city-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr); /* Default desktop: 4 columns */
+      gap: 24px;
+      padding-bottom: 40px;
+    }
+    
+    @media (max-width: 1200px) {
+      .city-grid {
+        grid-template-columns: repeat(3, 1fr); /* Laptop: 3 columns */
+      }
+    }
+    
+    @media (max-width: 900px) {
+      .city-grid {
+        grid-template-columns: repeat(2, 1fr); /* Tablet: 2 columns */
+      }
+    }
+    
+    @media (max-width: 600px) {
+      .city-grid {
+        grid-template-columns: 1fr; /* Mobile: 1 column */
+      }
+    }
+
+    .city-card{
+      position:relative;
+      height:380px;
+      border-radius:20px;
+      overflow:hidden;
+      cursor:pointer;
+      transition:all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+      box-shadow:0 10px 30px rgba(0,0,0,0.08);
+      background:#f3f4f6;
+      width: 100%; /* Ensure card doesn't overflow cell */
+    }
+    .city-card:hover{
+      transform:translateY(-8px);
+      box-shadow:0 20px 40px rgba(0,0,0,0.15);
+    }
+    .city-card-image{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      transition:transform 0.6s ease;
+    }
+    .city-card:hover .city-card-image{
+      transform:scale(1.05);
+    }
+    .city-card-overlay{
+      position:absolute;
+      bottom:0;
+      left:0;
+      right:0;
+      padding:32px 24px;
+      background:linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0.5) 60%, transparent 100%);
+      color:white;
+      display:flex;
+      flex-direction:column;
+      justify-content:flex-end;
+    }
+    .city-card-title{
+      font-size:1.5rem;
+      font-weight:800;
+      margin:0 0 8px;
+      line-height:1.2;
+      text-shadow:0 2px 4px rgba(0,0,0,0.3);
+    }
+    .city-card-count{
+      font-size:0.95rem;
+      font-weight:500;
+      opacity:1;
+      color:rgba(255,255,255,0.9);
+      display:flex;
+      align-items:center;
+      gap:6px;
+    }
+
+    /* Modal overlay identical to trips */
+    .trip-modal{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:9999;padding:20px;overflow-y:auto}
+    .trip-modal.active{display:flex}
+    .trip-modal-content{background:#fff;border-radius:24px;max-width:900px;width:100%;max-height:90vh;overflow-y:auto;position:relative;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+    .trip-modal-image{width:100%;height:300px;object-fit:cover;border-radius:24px 24px 0 0}
+    .trip-modal-header{padding:32px;border-bottom:1px solid #e5e7eb}
+    .trip-modal-close{position:absolute;top:16px;right:16px;width:40px;height:40px;border-radius:50%;border:none;background:#fff;cursor:pointer;font-size:1.5rem;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.15);z-index:10;transition:.2s}
+    .trip-modal-close:hover{background:#f3f4f6;transform:scale(1.1)}
+    .trip-modal-title{font-size:2rem;font-weight:700;margin:0 0 12px;color:#111827}
+    .trip-modal-body{padding:32px}
+    .trip-section{margin-bottom:32px}
+    .trip-section-title{font-size:1.25rem;font-weight:600;margin:0 0 16px;color:#374151}
+    .trip-description{font-size:1rem;line-height:1.6;color:#4b5563}
+    .trip-price-box{background:linear-gradient(135deg,#059669 0%,#10b981 100%);color:#fff;padding:24px;border-radius:16px;margin-bottom:24px}
+    .trip-price-label{font-size:.9rem;opacity:.9;margin:0 0 8px}
+    .trip-price-value{font-size:2rem;font-weight:700;margin:0}
+    .booking-form{display:grid;gap:20px}
+    .form-row{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+    .form-field{display:flex;flex-direction:column;gap:8px}
+    .form-field input,.form-field textarea{padding:12px 16px;border:2px solid #e5e7eb;border-radius:12px;font-size:1rem;transition:.2s;font-family:inherit}
+    .form-field input:focus,.form-field textarea:focus{outline:none;border-color:#059669;box-shadow:0 0 0 3px rgba(5,150,105,.1)}
+    .booking-submit{background:linear-gradient(135deg,#059669 0%,#10b981 100%);color:#fff;border:none;padding:16px 32px;border-radius:12px;font-size:1.1rem;font-weight:600;cursor:pointer;transition:.3s;box-shadow:0 4px 12px rgba(5,150,105,.4)}
+    .booking-submit:hover{transform:translateY(-2px);box-shadow:0 6px 20px rgba(5,150,105,.5)}
+    .booking-message{padding:16px;border-radius:12px;margin-top:16px;font-weight:500;text-align:center}
+    .booking-message.success{background:#d1fae5;color:#065f46}
+    .booking-message.error{background:#fee2e2;color:#991b1b}
+
+    .gallery-thumbs{display:flex;gap:8px;padding:12px 16px 0 16px;overflow-x:auto}
+    .gallery-thumbs img{width:80px;height:80px;object-fit:cover;border-radius:8px;cursor:pointer;border:2px solid transparent}
+    .gallery-thumbs img.active{border-color:#059669}
+
+    /* Fullscreen lightbox */
+    .lightbox{position:fixed;inset:0;background:rgba(0,0,0,.9);display:none;align-items:center;justify-content:center;z-index:10000}
+    .lightbox.active{display:flex}
+    .lightbox-content{position:relative;width:100%;height:100%;display:flex;align-items:center;justify-content:center}
+    .lightbox-img{max-width:95vw;max-height:95vh;object-fit:contain;border-radius:8px;box-shadow:0 20px 60px rgba(0,0,0,.4)}
+    .lightbox-close{position:absolute;top:16px;right:16px;width:44px;height:44px;border-radius:50%;border:none;background:#fff;color:#111;cursor:pointer;font-size:1.4rem;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 8px rgba(0,0,0,.3)}
+    .lightbox-arrow{position:absolute;top:50%;transform:translateY(-50%);width:48px;height:48px;border-radius:50%;border:none;background:rgba(255,255,255,.9);color:#111;cursor:pointer;font-size:1.4rem;display:flex;align-items:center;justify-content:center}
+    .lightbox-prev{left:16px}
+    .lightbox-next{right:16px}
+
+    @media (max-width:768px){
+      .trips-hero h1{font-size:1.5rem;margin:0 0 8px}
+      .trips-hero{padding:24px 20px}
+      .trips-container{padding:16px 16px 100px 16px;max-width:100%}
+      .trip-modal-image{height:200px}
+      .trip-modal-header{padding:20px}
+      .trip-modal-body{padding:20px}
+      .trip-modal-title{font-size:1.5rem}
+      .form-row{grid-template-columns:1fr}
+    }
+
+    /* Header and layout fixes */
+    .app-header { 
+      position: relative; 
+      z-index: 900; 
+    }
+    
+    main { 
+      position: relative;
+      z-index: 1;
+    }
+
+    /* Reset body/html to normal flow */
+    html, body { 
+      margin: 0; 
+      padding: 0; 
+    }
+  </style>
+
+  <meta name="ce-auth" content="on" />
+  <script type="module" src="/js/supabaseClient.js"></script>
+  <script type="module" src="/js/toast.js"></script>
+  <script type="module" src="/js/auth.js"></script>
+  <script type="module" src="/js/authUi.js"></script>
+  <script src="/js/footer-referral.js" defer></script>
+</head>
+<body data-navigation="multi-page" data-seo-page="hotels">
+    <header class="app-header nav-modern">
+      <div class="nav-modern__top" aria-label="Global header">
+        <div class="brand nav-modern__brand-block">
+          <a href="index.html" class="nav-modern__brand-link" aria-label="CyprusEye Quest home">
+            <img
+              src="assets/cyprus_logo-1000x1054.png"
+              alt="WakacjeCypr.com – logo żółwia z flagą Polski"
+              data-i18n-attrs="alt:header.logoAlt"
+              width="1000"
+              height="1054"
+              loading="eager"
+              fetchpriority="high"
+            />
+            <div class="brand-title" data-i18n="header.brand">
+              <p class="brand-name">CyprusEye Quest &amp; Travel</p>
+            </div>
+          </a>
+        </div>
+
+        <div class="nav-modern__stats nav-modern__stats-lite" data-auth="user-only">
+          <div class="stats-lite__pill">
+            <a href="achievements.html" class="stats-lite__profile" id="profileButton" aria-label="Mój profil">
+              <img
+                id="headerUserAvatar"
+                class="profile-avatar"
+                src="assets/cyprus_logo-1000x1054.png"
+                alt="Avatar"
+                width="48"
+                height="48"
+                loading="eager"
+              />
+              <div class="profile-info">
+                <p class="profile-name">Mój Profil</p>
+                <p class="profile-status">Poziom 1 • 0 odznak</p>
+              </div>
+            </a>
+
+            <div class="stats-lite__panel">
+              <div class="stats-lite__level">
+                <span class="stats-lite__label">LVL</span>
+                <span class="stats-lite__value" id="headerLevelNumber">1</span>
+                
+              </div>
+
+              <div class="stats-lite__xp" role="img" aria-label="Postęp doświadczenia" data-i18n-attrs="aria-label:metrics.xp.aria">
+                <span class="stats-lite__xp-current"><span id="headerXpPoints">0</span> XP</span>
+                <div class="stats-lite__xp-bar">
+                  <div class="stats-lite__xp-fill is-width-zero" id="headerXpFill"></div>
+                </div>
+                
+                  
+                </span>
+              </div>
+
+              <div class="stats-lite__badges">
+                <span class="stats-lite__label">🏆</span>
+                <span class="stats-lite__value" id="headerBadgesCount">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="nav-modern__top-actions">
+          <div class="nav-modern__auth">
+            <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
+              <button
+                class="nav-modern__login"
+                data-open-auth
+                data-auth="anon-only"
+                data-tour-target="login-button"
+                data-i18n="header.login"
+                data-i18n-attrs="aria-label:auth.login.aria"
+                aria-label="Zaloguj do konta"
+              >
+                Zaloguj
+              </button>
+<button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta" hidden>Wyloguj</button>
+            </div>
+            <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
+          </div>
+
+          <button
+            id="sosToggle"
+            class="nav-modern__sos"
+            type="button"
+            aria-haspopup="dialog"
+            aria-controls="sosModal"
+            data-i18n="header.sosToggle"
+          >
+            ⚠️ SOS
+          </button>
+
+          <div class="language-pill-group" data-language-toggle aria-label="Language selector" data-i18n-attrs="aria-label:language.switcher.label">
+            <button type="button" class="language-pill" data-language-pill="pl" aria-pressed="false">PL</button>
+            <button type="button" class="language-pill" data-language-pill="en" aria-pressed="false">EN</button>
+            <!-- <button type="button" class="language-pill" data-language-pill="el" aria-pressed="false">EL</button> -->
+            <!-- <button type="button" class="language-pill" data-language-pill="he" aria-pressed="false">HE</button> -->
+          </div>
+        </div>
+      </div>
+    <div class="nav-modern__shell">
+
+      <div class="nav-modern__bars" data-tour-target="tabs-navigation">
+        <button class="nav-modern__toggle-btn" id="navToggleBtn" aria-expanded="false" aria-controls="navLinksRow" data-i18n="nav.toggle">
+          ☰ Nawigacja
+        </button>
+        <div class="nav-modern__links-row" id="navLinksRow" aria-label="Główna nawigacja i skróty" data-i18n-attrs="aria-label:header.quickActions.aria">
+          <nav class="nav-modern__tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna">
+            <a href="index.html" class="nav-modern__tab is-active" id="headerAdventureTab" data-i18n="nav.adventure">
+              🎯 Przygoda
+            </a>
+            <a href="community.html" class="nav-modern__tab" id="headerPackingTab" data-i18n="nav.community">
+              💬 Społeczność
+            </a>
+            <a href="recommendations.html" class="nav-modern__tab" id="headerRecommendationsTab" data-i18n="nav.recommendations">
+              ✨ Polecane
+            </a>
+            <a href="tasks.html" class="nav-modern__tab" id="headerTasksTab" data-i18n="nav.tasks">
+              ☑️ Zadania
+            </a>
+            <a href="shop.html" class="nav-modern__tab" id="headerShopTab" data-i18n="nav.shop">
+              🛍️ Sklep
+            </a>
+          </nav>
+
+          <div class="nav-modern__chips">
+            <a class="nav-chip" href="packing.html" data-i18n="nav.packing">🎒 Pakowanie</a>
+            <a class="nav-chip" href="kupon.html" data-i18n="header.coupon">🎟️ Kupon</a>
+            <a class="nav-chip" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
+            <a class="nav-chip" href="trips.html" data-i18n="nav.trips">🧭 Wycieczki</a>
+            <a class="nav-chip" href="hotels.html" data-i18n="nav.hotels">🏨 Hotele</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <main id="main-content">
+    <section class="trips-hero">
+	      <h1 data-i18n="hotels.hero.heading">Stays in Cyprus</h1>
+	      <p data-i18n="hotels.hero.subheading">Choose a city and browse the best accommodation offers</p>
+    </section>
+
+    <section class="trips-container">
+      <div class="trips-tabs" id="tripsTabs"></div>
+      <div class="city-grid" id="cityGrid"></div>
+    </section>
+
+    <div class="trip-modal" id="hotelModal">
+      <div class="trip-modal-content">
+        <button class="trip-modal-close" onclick="closeHotelModal()">✕</button>
+        <img class="trip-modal-image" id="modalHotelImage" src="" alt="Hotel" />
+        <div id="modalHotelThumbs" class="gallery-thumbs"></div>
+        <div class="trip-modal-header">
+          <h2 class="trip-modal-title" id="modalHotelTitle">Hotel</h2>
+          <p class="trip-modal-subtitle" id="modalHotelSubtitle">Miasto</p>
+        </div>
+        <div class="trip-modal-body">
+          <div class="trip-section">
+            <h3 class="trip-section-title" data-i18n="hotels.modal.descriptionTitle">Opis</h3>
+            <div class="trip-description" id="modalHotelDescription"></div>
+            <div class="hotel-amenities-chips" id="hotelAmenitiesChips" style="display:none;"></div>
+          </div>
+
+          <div class="trip-section">
+            <h3 class="trip-section-title" data-i18n="hotels.modal.bookingTitle">Rezerwacja</h3>
+            <form class="booking-form" id="hotelBookingForm">
+              <div class="form-row">
+                <div class="form-field">
+                  <label data-i18n="hotels.booking.fields.name">Imię i nazwisko *</label>
+                  <input name="name" required />
+                </div>
+                <div class="form-field">
+                  <label data-i18n="hotels.booking.fields.email">Email *</label>
+                  <input type="email" name="email" required />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-field">
+                  <label data-i18n="hotels.booking.fields.phone">Telefon</label>
+                  <input name="phone" />
+                </div>
+                <div class="form-field">
+                  <label data-i18n="hotels.booking.fields.arrivalDate">Data przyjazdu *</label>
+                  <input type="date" name="arrival_date" id="arrivalDate" required />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-field">
+                  <label data-i18n="hotels.booking.fields.departureDate">Data wyjazdu *</label>
+                  <input type="date" name="departure_date" id="departureDate" required />
+                </div>
+                <div class="form-field">
+                  <label data-i18n="hotels.booking.fields.adults">Dorośli</label>
+                  <input type="number" name="adults" id="bookingAdults" min="1" value="2" />
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-field">
+                  <label data-i18n="hotels.booking.fields.children">Dzieci</label>
+                  <input type="number" name="children" id="bookingChildren" min="0" value="0" />
+                </div>
+              </div>
+              <div class="form-field">
+                <label data-i18n="hotels.booking.fields.notes">Uwagi (opcjonalnie)</label>
+                <textarea name="notes"></textarea>
+              </div>
+
+              <div class="trip-price-box">
+                <p class="trip-price-label" data-i18n="hotels.booking.priceLabel">Cena</p>
+                <p class="trip-price-value" id="modalHotelPrice">—</p>
+              </div>
+              <div id="hotelPriceNote" class="booking-message" style="display:none"></div>
+
+              <button type="submit" class="booking-submit" data-i18n="hotels.booking.submit">Zarezerwuj</button>
+              <div id="hotelBookingMessage" class="booking-message" style="display:none;"></div>
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer Referral -->
+  <div class="footer-referral" id="footerReferral" style="display:none;">
+    <p class="footer-referral-text">
+      <span style="font-size:1.25rem;">🎁</span>
+      <span data-i18n="footer.referral.invite">Zaproś znajomych i zdobądź bonusy!</span>
+    </p>
+    <div class="footer-referral-actions">
+      <button class="btn-ref btn-copy" id="footerCopyRef">
+        <span>📋</span> <span data-i18n="footer.referral.copy">Kopiuj link</span>
+      </button>
+      <button class="btn-ref btn-facebook" id="footerShareFb">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        <span data-i18n="footer.referral.facebook">Facebook</span>
+      </button>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <p>© <span data-current-year></span> WakacjeCypr.com</p>
+    <div class="footer-links" style="margin-bottom: 8px;">
+       <a href="terms.html" class="footer-link" data-i18n="legal.termsLink">Terms of Service</a>
+    </div>
+  </footer>
+
+  <!-- Fullscreen Lightbox Markup -->
+  <div class="lightbox" id="imgLightbox">
+    <div class="lightbox-content" id="lightboxContent">
+      <img id="lbImg" class="lightbox-img" alt="Podgląd zdjęcia" />
+      <button
+        id="lbClose"
+        class="lightbox-close"
+        type="button"
+        aria-label="Zamknij"
+        data-i18n="lightbox.close"
+        data-i18n-attrs="aria-label:lightbox.close"
+      >
+        ✕
+      </button>
+      <button
+        id="lbPrev"
+        class="lightbox-arrow lightbox-prev"
+        type="button"
+        aria-label="Poprzednie"
+        data-i18n="lightbox.prev"
+        data-i18n-attrs="aria-label:lightbox.prev"
+      >
+        ‹
+      </button>
+      <button
+        id="lbNext"
+        class="lightbox-arrow lightbox-next"
+        type="button"
+        aria-label="Następne"
+        data-i18n="lightbox.next"
+        data-i18n-attrs="aria-label:lightbox.next"
+      >
+        ›
+      </button>
+    </div>
+  </div>
+
+  <!-- Header scripts for consistency with index -->
+  <script src="/js/languageSwitcher.js"></script>
+  <script src="/js/languageSelector.js" defer></script>
+  <script src="/js/i18n.js" defer></script>
+  <script src="/js/header-stats.js" defer></script>
+  <script src="/js/seo.js" defer></script>
+  <script src="/js/mobile-nav.js" defer></script>
+  <script src="/js/header-dropdown.js" defer></script>
+
+  <script type="module">
+    import { supabase } from '/js/supabaseClient.js';
+
+    let allHotels = [];
+    let currentCity = 'all';
+    let currentHotel = null;
+    let hotelAmenitiesMap = {};
+
+    // Load amenities for display
+    async function loadHotelAmenitiesForDisplay() {
+      try {
+        const { data } = await supabase
+          .from('hotel_amenities')
+          .select('code, icon, name_en, name_pl, is_popular')
+          .eq('is_active', true);
+        
+        if (data) {
+          data.forEach(a => { hotelAmenitiesMap[a.code] = a; });
+          console.log('✅ Hotel amenities loaded:', Object.keys(hotelAmenitiesMap).length);
+        }
+      } catch (e) {
+        console.warn('Failed to load amenities:', e);
+      }
+    }
+
+    function renderHotelAmenitiesChips(hotel) {
+      const container = document.getElementById('hotelAmenitiesChips');
+      if (!container) return;
+      
+      const amenities = Array.isArray(hotel.amenities) ? hotel.amenities : [];
+      if (!amenities.length) {
+        container.innerHTML = '';
+        container.style.display = 'none';
+        return;
+      }
+      
+      const lang = (window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl') || 'pl';
+      
+      const popularFirst = amenities
+        .map(code => hotelAmenitiesMap[code])
+        .filter(Boolean)
+        .sort((a, b) => (b.is_popular ? 1 : 0) - (a.is_popular ? 1 : 0))
+        .slice(0, 8);
+      
+      if (!popularFirst.length) {
+        container.innerHTML = '';
+        container.style.display = 'none';
+        return;
+      }
+      
+      container.style.display = 'flex';
+      container.innerHTML = popularFirst.map(a => {
+        const name = lang === 'en' ? a.name_en : (a.name_pl || a.name_en);
+        return `<span class="amenity-chip">${a.icon} ${name}</span>`;
+      }).join('');
+    }
+
+    // Dynamic spacing under header (accounts for multi-row actions and tabs)
+    function applyHeaderGap(){
+      const header = document.querySelector('.app-header');
+      if(!header) return;
+      const h = header.getBoundingClientRect().height;
+      // base 16px + small fraction of header height to keep visual air when header wraps
+      const gap = Math.max(16, Math.min(48, Math.round(16 + h*0.08)));
+      document.documentElement.style.setProperty('--header-gap', gap + 'px');
+    }
+    window.addEventListener('resize', applyHeaderGap, { passive:true });
+    document.addEventListener('DOMContentLoaded', applyHeaderGap);
+
+    function getCities(){
+      const s = new Set();
+      allHotels.forEach(h=>{ if(h.city) s.add(h.city) });
+      return Array.from(s).sort();
+    }
+
+    // Translation helper - reads directly from appI18n.translations
+    function t(key, fallback, params = {}) {
+      let text = fallback;
+      try {
+        const lang = (window.appI18n?.language) || document.documentElement.lang || 'pl';
+        const translations = window.appI18n?.translations?.[lang];
+        if (translations) {
+          // Try flat key first (e.g., "hotels.tabs.allCities")
+          if (translations[key]) {
+            text = translations[key];
+          } else {
+            // Try nested path (e.g., hotels.tabs.allCities -> translations.hotels.tabs.allCities)
+            const parts = key.split('.');
+            let value = translations;
+            for (const part of parts) {
+              if (value && typeof value === 'object' && part in value) {
+                value = value[part];
+              } else {
+                value = null;
+                break;
+              }
+            }
+            if (typeof value === 'string') text = value;
+          }
+        }
+      } catch (e) {
+        // Use fallback on error
+      }
+      // Replace params like {{max}}, {{min}}, {{billable}}
+      Object.keys(params).forEach(k => {
+        text = text.replace(new RegExp(`{{${k}}}`, 'g'), params[k]);
+      });
+      return text;
+    }
+
+    function renderTabs(){
+      const allLabel = t('hotels.tabs.allCities', 'Wszystkie miasta');
+      const activeCity = currentCity;
+      const tabs = [`<button class="trips-tab ${activeCity === 'all' ? 'active' : ''}" data-city="all">${allLabel}</button>`];
+      getCities().forEach(c => {
+        tabs.push(`<button class="trips-tab ${activeCity === c ? 'active' : ''}" data-city="${c}">${c}</button>`);
+      });
+      const wrap = document.getElementById('tripsTabs');
+      wrap.innerHTML = tabs.join('');
+      wrap.querySelectorAll('.trips-tab').forEach(btn=>{
+        btn.addEventListener('click',()=>{
+          wrap.querySelectorAll('.trips-tab').forEach(b=>b.classList.remove('active'));
+          btn.classList.add('active');
+          currentCity = btn.dataset.city;
+          renderHotels();
+        });
+      });
+    }
+
+    // Lightbox logic (guarded by element existence)
+    let lbIndex = 0;
+    function getModalPhotos(){
+      return Array.isArray(currentHotel?.photos) ? currentHotel.photos : [];
+    }
+    function currentPhotoIndex(){
+      const src = document.getElementById('modalHotelImage').src;
+      const arr = getModalPhotos();
+      const i = arr.findIndex(u=>src.includes(u));
+      return i>=0? i: 0;
+    }
+    function showLightbox(i){
+      const arr = getModalPhotos();
+      if(!arr.length) return;
+      lbIndex = (i+arr.length)%arr.length;
+      const img = document.getElementById('lbImg');
+      if(img) img.src = arr[lbIndex];
+    }
+    function openLightbox(i){
+      if(!currentHotel) return;
+      const lb = document.getElementById('imgLightbox');
+      if(!lb) return;
+      lb.classList.add('active');
+      showLightbox(typeof i==='number'? i : currentPhotoIndex());
+      document.addEventListener('keydown', onLbKey);
+    }
+    function closeLightbox(){
+      const lb = document.getElementById('imgLightbox');
+      if(!lb) return;
+      lb.classList.remove('active');
+      document.removeEventListener('keydown', onLbKey);
+    }
+    function onLbKey(e){
+      if(e.key==='Escape') return closeLightbox();
+      if(e.key==='ArrowRight') return showLightbox(lbIndex+1);
+      if(e.key==='ArrowLeft') return showLightbox(lbIndex-1);
+    }
+    // Bind only if elements exist
+    (function bindLightbox(){
+      const lb = document.getElementById('imgLightbox');
+      const content = document.getElementById('lightboxContent');
+      const closeBtn = document.getElementById('lbClose');
+      const nextBtn = document.getElementById('lbNext');
+      const prevBtn = document.getElementById('lbPrev');
+      if(!lb || !content || !closeBtn || !nextBtn || !prevBtn) return;
+      closeBtn.addEventListener('click', closeLightbox);
+      nextBtn.addEventListener('click', ()=>showLightbox(lbIndex+1));
+      prevBtn.addEventListener('click', ()=>showLightbox(lbIndex-1));
+      lb.addEventListener('click', (e)=>{ if(e.target.id==='imgLightbox') closeLightbox(); });
+      // touch swipe
+      let sx=null, sy=null;
+      content.addEventListener('touchstart', (e)=>{ const t=e.changedTouches[0]; sx=t.clientX; sy=t.clientY; }, {passive:true});
+      content.addEventListener('touchend', (e)=>{
+        if(sx==null) return; const t=e.changedTouches[0];
+        const dx = t.clientX - sx; const dy = t.clientY - sy; sx=sy=null;
+        if(Math.abs(dx)>60 && Math.abs(dy)<80){ if(dx<0) showLightbox(lbIndex+1); else showLightbox(lbIndex-1); }
+      }, {passive:true});
+    })();
+
+    function priceSummary(h){
+      const tiers = h.pricing_tiers?.rules || [];
+      if(!tiers.length) return '';
+      const for2 = tiers.find(r=>Number(r.persons)===2 && r.price_per_night!=null);
+      const p = for2? Number(for2.price_per_night): Math.min(...tiers.map(r=>Number(r.price_per_night||Infinity)));
+      const perNight = t('hotels.card.perNight', '/ noc');
+      return isFinite(p)? `${p.toFixed(2)} € ${perNight}` : '';
+    }
+
+    function renderHotels(){
+      const grid = document.getElementById('cityGrid');
+      const list = currentCity==='all'? allHotels : allHotels.filter(h=> (h.city===currentCity));
+      const emptyText = t('hotels.empty', 'Brak ofert');
+      if(!list.length){ grid.innerHTML = `<p style="text-align:center;color:#6b7280;">${emptyText}</p>`; return; }
+      grid.innerHTML = list.map((h,idx)=>{
+        const title = window.getHotelName ? window.getHotelName(h) : (h.title?.pl || h.title?.en || h.slug);
+        const image = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png';
+        const price = priceSummary(h);
+        return `
+          <div class="city-card" onclick="openHotelModal(${idx})">
+            <img class="city-card-image" src="${image}" alt="${title}" loading="lazy" />
+            <div class="city-card-overlay">
+              <h3 style="margin:0 0 4px">${title}</h3>
+              <p style="margin:0;opacity:.9">${h.city||''} ${price? '• '+price: ''}</p>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function nightsBetween(a,b){
+      if(!a||!b) return 1;
+      const da=new Date(a), db=new Date(b);
+      const diff = Math.round((db - da)/(1000*60*60*24));
+      return Math.max(1, diff);
+    }
+
+    // Helper: Znajdź tier po liczbie osób
+    function findTierByPersons(tiers, persons) {
+      let rule = tiers.find(r => Number(r.persons) === persons);
+      if (rule) return rule;
+      const lowers = tiers.filter(r => Number(r.persons) <= persons);
+      if (lowers.length) {
+        return lowers.sort((a, b) => Number(b.persons) - Number(a.persons))[0];
+      }
+      return null;
+    }
+
+    // Helper: Znajdź najlepszy tier dla długości pobytu (flat_per_night)
+    function findBestTierByNights(tiers, nights) {
+      const matching = tiers
+        .filter(r => !r.min_nights || Number(r.min_nights) <= nights)
+        .sort((a, b) => (Number(b.min_nights) || 0) - (Number(a.min_nights) || 0));
+      return matching[0] || tiers[0];
+    }
+
+    // Helper: Znajdź najlepszy tier dla osób I nocy (tiered_by_nights)
+    function findBestTierByPersonsAndNights(tiers, persons, nights) {
+      let personTiers = tiers.filter(r => Number(r.persons) === persons);
+      if (!personTiers.length) {
+        const lowers = tiers.filter(r => Number(r.persons) <= persons);
+        if (lowers.length) {
+          const maxPersons = Math.max(...lowers.map(r => Number(r.persons)));
+          personTiers = lowers.filter(r => Number(r.persons) === maxPersons);
+        }
+      }
+      if (!personTiers.length) return null;
+      const matching = personTiers
+        .filter(r => !r.min_nights || Number(r.min_nights) <= nights)
+        .sort((a, b) => (Number(b.min_nights) || 0) - (Number(a.min_nights) || 0));
+      return matching[0] || personTiers[0];
+    }
+
+    function calculateHotelPrice(h, persons, nights){
+      const model = h.pricing_model || 'per_person_per_night';
+      const tiers = h.pricing_tiers?.rules || [];
+      if(!tiers.length) return { total: 0, pricePerNight: 0, billableNights: nights, tier: null };
+      
+      persons = Number(persons)||1;
+      nights = Number(nights)||1;
+      let rule = null;
+      
+      switch (model) {
+        case 'flat_per_night':
+          rule = findBestTierByNights(tiers, nights);
+          break;
+        case 'tiered_by_nights':
+          rule = findBestTierByPersonsAndNights(tiers, persons, nights);
+          break;
+        case 'per_person_per_night':
+        case 'category_per_night':
+        default:
+          rule = findTierByPersons(tiers, persons);
+          break;
+      }
+      
+      if (!rule) {
+        rule = tiers.sort((a, b) => Number(a.price_per_night) - Number(b.price_per_night))[0];
+      }
+      
+      const pricePerNight = Number(rule.price_per_night || 0);
+      const minN = Number(rule.min_nights || 0);
+      const billableNights = minN ? Math.max(minN, nights) : nights;
+      const total = billableNights * pricePerNight;
+      
+      return { total, pricePerNight, billableNights, tier: rule };
+    }
+
+    function updateLivePrice(){
+      if(!currentHotel) return;
+      const a = document.getElementById('arrivalDate').value;
+      const d = document.getElementById('departureDate').value;
+      const adults = Number(document.getElementById('bookingAdults').value||0);
+      const children = Number(document.getElementById('bookingChildren').value||0);
+      let persons = adults + children;
+      const maxPersons = Number(currentHotel.max_persons||0) || null;
+      const nights = nightsBetween(a,d);
+      const note = document.getElementById('hotelPriceNote');
+      let notes = [];
+      
+      // Limit osób
+      if (maxPersons && persons > maxPersons) {
+        persons = maxPersons;
+        notes.push(t('hotels.price.personLimit', `Limit osób: ${maxPersons}. Cena dla ${maxPersons} os.`, { max: maxPersons }));
+      }
+      
+      // Oblicz cenę z nowym API
+      const result = calculateHotelPrice(currentHotel, persons, nights);
+      document.getElementById('modalHotelPrice').textContent = `${result.total.toFixed(2)} €`;
+      
+      // Informacja o minimum nocy
+      if (result.tier && result.billableNights > nights) {
+        notes.push(t('hotels.price.minNights', `Min. ${result.tier.min_nights} nocy. Cena za ${result.billableNights} nocy.`, 
+          { min: result.tier.min_nights, billable: result.billableNights }));
+      }
+      
+      // Informacja o rabacie (dla tiered_by_nights)
+      const model = currentHotel.pricing_model || 'per_person_per_night';
+      if (model === 'tiered_by_nights' && result.tier?.min_nights && result.tier.min_nights > 1) {
+        notes.push(t('hotels.price.discount', `Cena: ${result.pricePerNight.toFixed(2)}€/noc (rabat za ${result.tier.min_nights}+ nocy)`,
+          { price: result.pricePerNight.toFixed(2), min: result.tier.min_nights }));
+      }
+      
+      if (notes.length) {
+        note.style.display = 'block';
+        note.className = 'booking-message';
+        note.textContent = notes.join(' ');
+      } else {
+        note.style.display = 'none';
+      }
+    }
+
+    // Prefill form with user data if logged in
+    async function prefillUserData() {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        
+        const form = document.getElementById('hotelBookingForm');
+        const nameInput = form.querySelector('[name="name"]');
+        const emailInput = form.querySelector('[name="email"]');
+        const phoneInput = form.querySelector('[name="phone"]');
+        
+        // First try to get profile data
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('display_name, phone')
+          .eq('id', user.id)
+          .single();
+        
+        if (emailInput && user.email) {
+          emailInput.value = user.email;
+        }
+        
+        if (nameInput && profile?.display_name) {
+          nameInput.value = profile.display_name;
+        } else if (nameInput && user.user_metadata?.full_name) {
+          nameInput.value = user.user_metadata.full_name;
+        }
+        
+        if (phoneInput && profile?.phone) {
+          phoneInput.value = profile.phone;
+        } else if (phoneInput && user.user_metadata?.phone) {
+          phoneInput.value = user.user_metadata.phone;
+        }
+      } catch (err) {
+        console.warn('Could not prefill user data:', err);
+      }
+    }
+
+    window.openHotelModal = function(idx){
+      const list = currentCity==='all'? allHotels : allHotels.filter(h=> (h.city===currentCity));
+      const h = list[idx];
+      if(!h) return;
+      currentHotel = h;
+      const title = window.getHotelName ? window.getHotelName(h) : (h.title?.pl || h.title?.en || h.slug);
+      const image = h.cover_image_url || (Array.isArray(h.photos)&&h.photos[0]) || '/assets/cyprus_logo-1000x1054.png';
+      const imgEl = document.getElementById('modalHotelImage');
+      imgEl.src = image;
+      // click main image to open lightbox
+      imgEl.onclick = () => openLightbox();
+      const thumbsWrap = document.getElementById('modalHotelThumbs');
+      const photos = Array.isArray(h.photos)? h.photos: [];
+      thumbsWrap.innerHTML = photos.map((u,i)=>`<img src="${u}" alt="miniatura" class="${i===0?'active':''}" data-src="${u}" />`).join('');
+      thumbsWrap.querySelectorAll('img').forEach(el=>{
+        el.addEventListener('click', ()=>{
+          thumbsWrap.querySelectorAll('img').forEach(t=>t.classList.remove('active'));
+          el.classList.add('active');
+          imgEl.src = el.dataset.src;
+          // also allow opening from thumb via double click
+          el.ondblclick = () => openLightbox();
+        });
+      });
+      document.getElementById('modalHotelTitle').textContent = title;
+      document.getElementById('modalHotelSubtitle').textContent = h.city || '';
+      const description = window.getHotelDescription 
+        ? window.getHotelDescription(h) 
+        : (h.description?.pl || '');
+      document.getElementById('modalHotelDescription').innerHTML = description.replace(/\n/g,'<br/>');
+      renderHotelAmenitiesChips(h);
+      document.getElementById('hotelBookingForm').reset();
+      document.getElementById('hotelBookingMessage').style.display='none';
+      
+      // Prefill form with user data if logged in
+      prefillUserData();
+      
+      // Enforce max persons on inputs
+      const maxPersons = Number(h.max_persons||0) || null;
+      const adultsEl = document.getElementById('bookingAdults');
+      const childrenEl = document.getElementById('bookingChildren');
+      if (maxPersons){
+        adultsEl.max = String(maxPersons);
+        childrenEl.max = String(Math.max(0, maxPersons-1));
+      } else {
+        adultsEl.removeAttribute('max');
+        childrenEl.removeAttribute('max');
+      }
+      updateLivePrice();
+      const modalEl = document.getElementById('hotelModal');
+      modalEl.classList.add('active');
+      document.body.style.overflow = 'hidden';
+    }
+
+    window.closeHotelModal = function(){
+      const modalEl = document.getElementById('hotelModal');
+      modalEl.classList.remove('active');
+      document.body.style.overflow = '';
+      currentHotel = null;
+    }
+
+    // Close modal on backdrop click (like trips)
+    document.getElementById('hotelModal').addEventListener('click', function(e){ if(e.target === this) closeHotelModal(); });
+
+    // Add comprehensive event listeners
+    const addAllEvents = (id, isDate = false) => {
+      const element = document.getElementById(id);
+      if (!element) return;
+      element.addEventListener('input', updateLivePrice);
+      element.addEventListener('change', updateLivePrice);
+      if (!isDate) {
+        // For number inputs, also handle click (spinner buttons) and keyup
+        element.addEventListener('click', updateLivePrice);
+        element.addEventListener('keyup', updateLivePrice);
+      }
+    };
+    
+    addAllEvents('arrivalDate', true);
+    addAllEvents('departureDate', true);
+    addAllEvents('bookingAdults', false);
+    addAllEvents('bookingChildren', false);
+    
+
+    document.getElementById('hotelBookingForm').addEventListener('submit', async (e)=>{
+      e.preventDefault();
+      const msg = document.getElementById('hotelBookingMessage');
+      const btn = e.target.querySelector('.booking-submit');
+      const submitText = t('hotels.booking.submit', 'Zarezerwuj');
+      const sendingText = t('hotels.booking.sending', 'Wysyłanie...');
+      try{
+        if(!currentHotel) throw new Error('Brak oferty');
+        btn.disabled=true; btn.textContent=sendingText;
+        const fd = new FormData(e.target);
+        const a = fd.get('arrival_date');
+        const d = fd.get('departure_date');
+        const nights = nightsBetween(a,d);
+        const adults = Number(fd.get('adults')||0);
+        const children = Number(fd.get('children')||0);
+        const persons = adults + children;
+        const maxPersons = Number(currentHotel.max_persons||0) || null;
+        if (maxPersons && persons > maxPersons) {
+          throw new Error(t('hotels.price.personLimit', `Maksymalna liczba osób: ${maxPersons}`, { max: maxPersons }));
+        }
+        const priceResult = calculateHotelPrice(currentHotel, persons, nights);
+        
+        // Get current user if logged in
+        const { data: { user } } = await supabase.auth.getUser();
+        
+        // Get hotel name for display (store as JSON for i18n)
+        const hotelTitle = currentHotel.title || {};
+        
+        const payload = {
+          hotel_id: currentHotel.id,
+          hotel_slug: currentHotel.slug,
+          hotel_name: hotelTitle,
+          customer_name: fd.get('name'),
+          customer_email: fd.get('email'),
+          customer_phone: fd.get('phone'),
+          arrival_date: a,
+          departure_date: d,
+          num_adults: adults,
+          num_children: children,
+          nights,
+          notes: fd.get('notes'),
+          total_price: priceResult.total,
+          status: 'pending',
+          user_id: user?.id || null
+        };
+        const { error } = await supabase.from('hotel_bookings').insert([payload]);
+        if(error) throw error;
+        msg.className='booking-message success';
+        msg.textContent=t('hotels.booking.success', 'Rezerwacja przyjęta! Skontaktujemy się wkrótce.');
+        msg.style.display='block';
+        e.target.reset();
+        updateLivePrice();
+      }catch(err){
+        console.error(err);
+        msg.className='booking-message error';
+        msg.textContent= err.message || t('hotels.booking.error', 'Błąd podczas rezerwacji.');
+        msg.style.display='block';
+      }finally{
+        btn.disabled=false; btn.textContent=submitText;
+      }
+    });
+
+    (async function init(){
+      const { data, error } = await supabase
+        .from('hotels')
+        .select('*')
+        .eq('is_published', true)
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false });
+      if(error){ console.error(error); return; }
+      allHotels = data || [];
+      await loadHotelAmenitiesForDisplay();
+      renderTabs();
+      renderHotels();
+    })();
+
+    // Listen for language changes and re-render everything
+    let lastLanguage = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
+    
+    function onLanguageChange() {
+      console.log('🌐 Language changed, re-rendering...');
+      renderTabs();
+      renderHotels();
+      
+      // Re-render modal description and amenities if open
+      if (currentHotel && !document.getElementById('hotelModal').hidden) {
+        const description = window.getHotelDescription 
+          ? window.getHotelDescription(currentHotel) 
+          : (currentHotel.description?.pl || '');
+        document.getElementById('modalHotelDescription').innerHTML = description.replace(/\n/g,'<br/>');
+        
+        const title = window.getHotelName 
+          ? window.getHotelName(currentHotel) 
+          : (currentHotel.title?.pl || currentHotel.slug);
+        document.getElementById('modalHotelTitle').textContent = title;
+        
+        renderHotelAmenitiesChips(currentHotel);
+        updateLivePrice();
+      }
+      
+      // Apply i18n translations to static elements
+      if (typeof window.applyTranslations === 'function') {
+        window.applyTranslations();
+      }
+    }
+    
+    // Polling fallback (kept for compatibility)
+    setInterval(() => {
+      const currentLang = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
+      if (currentLang !== lastLanguage) {
+        lastLanguage = currentLang;
+        onLanguageChange();
+      }
+    }, 300);
+    
+    // Direct event listeners (more reliable and immediate)
+    window.addEventListener('languageChanged', (e) => {
+      console.log('🏨 Hotels Page: languageChanged event, re-rendering for:', e.detail?.language);
+      lastLanguage = e.detail?.language || 'pl';
+      onLanguageChange();
+    });
+    
+    document.addEventListener('wakacjecypr:languagechange', (e) => {
+      console.log('🏨 Hotels Page: wakacjecypr:languagechange event, re-rendering for:', e.detail?.language);
+      lastLanguage = e.detail?.language || 'pl';
+      onLanguageChange();
+    });
+  </script>
+  <script src="assets/js/modal-auth.js" defer></script>
+
+  <!-- Auth Modal -->
+  <div id="auth-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="auth-title" aria-hidden="true">
+    <div class="modal__dialog" tabindex="-1" role="document">
+      <button class="modal__close" type="button" aria-label="Zamknij" data-close data-i18n-attrs="aria-label:auth.close.label">×</button>
+      <h2 id="auth-title" data-i18n="auth.title">Dołącz do przygody</h2>
+      <p class="auth-intro" data-i18n="auth.intro">Zaloguj się, utwórz konto lub graj jako gość.</p>
+      <div class="auth-modal__content" data-auth-view-root>
+        <div data-auth="login">
+          <div role="presentation">
+            <div class="auth-modal__tabs" role="tablist">
+              <button type="button" class="auth-modal__tab is-active" role="tab" id="authTabLogin" aria-selected="true" aria-controls="authPanelLogin" data-auth-tab="login" data-i18n="auth.tab.login">Logowanie</button>
+              <button type="button" class="auth-modal__tab" role="tab" id="authTabRegister" aria-selected="false" aria-controls="authPanelRegister" data-auth-tab="register" data-i18n="auth.tab.register" tabindex="-1">Rejestracja</button>
+            </div>
+            <div class="auth-modal__panels">
+              <section id="authPanelLogin" class="auth-modal__panel is-active" role="tabpanel" aria-labelledby="authTabLogin" data-auth="login" data-auth-panel="login">
+                <form id="form-login" class="auth-form" novalidate data-ce-auth-handler="supabase">
+                  <label for="loginEmail" data-i18n="auth.login.username">Email lub nazwa użytkownika</label>
+                  <input id="loginEmail" name="email" type="text" autocomplete="username" required aria-label="Email lub nazwa użytkownika" placeholder="Email lub nazwa użytkownika" />
+                  <label for="loginPassword" data-i18n="auth.password">Hasło</label>
+                  <input id="loginPassword" name="password" type="password" autocomplete="current-password" required aria-label="Hasło" />
+                  <div class="auth-form__actions">
+                    <button type="submit" class="btn btn--primary" data-i18n="auth.login.button" aria-label="Zaloguj się">Zaloguj się</button>
+                    <button type="button" class="auth-form__link" id="loginForgotPassword" data-i18n="auth.reset.button" aria-label="🔑 Resetuj hasło">🔑 Resetuj hasło</button>
+                  </div>
+                  <div data-auth="message" aria-live="polite"></div>
+                </form>
+              </section>
+              <section id="authPanelRegister" class="auth-modal__panel" role="tabpanel" aria-labelledby="authTabRegister" data-auth="login" data-auth-panel="register" hidden>
+                <form id="form-register" class="auth-form" novalidate data-auth="register" data-ce-auth-handler="supabase">
+                  <label for="registerFirstName" data-i18n="auth.firstName">Imię</label>
+                  <input id="registerFirstName" name="firstName" type="text" autocomplete="given-name" maxlength="60" required aria-label="Imię" />
+                  <label for="registerUsername" data-i18n="auth.username">Nazwa użytkownika</label>
+                  <input id="registerUsername" name="username" type="text" autocomplete="username" minlength="3" maxlength="20" pattern="[a-zA-Z0-9_]+" required aria-label="Nazwa użytkownika" placeholder="3-20 znaków, litery i cyfry" />
+                  <label for="registerEmail" data-i18n="auth.email">Adres e-mail</label>
+                  <input id="registerEmail" name="email" type="email" autocomplete="email" required aria-label="Adres e-mail" />
+                  <label for="registerPassword" data-i18n="auth.password">Hasło</label>
+                  <input id="registerPassword" name="password" type="password" autocomplete="new-password" minlength="8" required aria-label="Hasło" />
+                  <label for="registerPasswordConfirm" data-i18n="auth.confirmPassword">Powtórz hasło</label>
+                  <input id="registerPasswordConfirm" name="passwordConfirm" type="password" autocomplete="new-password" minlength="8" aria-label="Powtórz hasło" />
+                  <div data-auth="message" aria-live="polite"></div>
+                  <p class="form-hint" data-i18n="auth.register.hint">Po rejestracji sprawdź skrzynkę e-mail, aby potwierdzić konto.</p>
+                  <button type="submit" class="btn btn--primary" data-i18n="auth.register.button" aria-label="Utwórz konto">Utwórz konto</button>
+                </form>
+              </section>
+            </div>
+            <dialog id="resetPasswordDialog" class="auth-reset-dialog">
+              <form id="form-reset-password" class="auth-form" novalidate>
+                <header class="auth-reset-dialog__header">
+                  <h2 data-i18n="auth.reset.title">Resetuj hasło</h2>
+                  <button type="button" class="auth-form__link" id="btn-reset-close" aria-label="Zamknij">✖</button>
+                </header>
+                <p data-i18n="auth.reset.description">Podaj adres e-mail powiązany z kontem, a wyślemy link do zmiany hasła.</p>
+                <label for="resetEmail" data-i18n="auth.reset.emailLabel">Adres e-mail</label>
+                <input id="resetEmail" name="email" type="email" autocomplete="email" required />
+                <div class="auth-form__actions">
+                  <button type="submit" class="btn btn--primary">Wyślij link resetujący</button>
+                  <button type="button" class="auth-form__link" id="btn-reset-cancel">Anuluj</button>
+                </div>
+              </form>
+            </dialog>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</body>
+</html>

@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="pl" dir="ltr">
+<head>
+  <script>(function(){try{var r=new URLSearchParams(location.search).get('ref');if(r&&r.trim()){localStorage.setItem('cypruseye_referral_code',JSON.stringify({code:r.trim(),capturedAt:Date.now(),expiresAt:Date.now()+12096e5}))}}catch(e){}})();</script>
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);} 
+    gtag('js', new Date());
+    gtag('config', 'G-FCSE0876CR');
+  </script>
+
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Security: Content Security Policy (skopiowane z index.html) -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://cdn.jsdelivr.net https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co wss://*.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://*.tile.openstreetmap.org; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;" />
+
+  <meta name="theme-color" content="#2563eb" />
+  <meta name="robots" content="index,follow" />
+  <title>Rekomendacje – CyprusEye Quest</title>
+  <meta name="description" content="Odkryj nasze sprawdzone rekomendacje – najlepsze miejsca, restauracje, hotele i atrakcje na Cyprze z ekskluzywnymi zniżkami." />
+  <link rel="canonical" href="https://www.cypruseye.com/recommendations.html" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" />
+  <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" media="print" onload="this.media='all'" />
+  <noscript>
+    <link href="https://fonts.googleapis.com/css2?family=Jost:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+  </noscript>
+
+  <!-- Global styles takie jak w index.html -->
+  <link rel="stylesheet" href="assets/css/tokens.css" />
+  <link rel="stylesheet" href="assets/css/base.css" />
+  <link rel="stylesheet" href="assets/css/components.css" />
+  <link rel="stylesheet" href="assets/css/header-metrics.css" />
+  <link rel="stylesheet" href="assets/css/mobile.css" />
+  <link rel="stylesheet" href="assets/css/mobile-nav.css" />
+  <link rel="stylesheet" href="assets/css/rtl.css" />
+  <link rel="stylesheet" href="assets/css/language-switcher.css" />
+  <link rel="stylesheet" href="assets/css/language-selector.css" />
+  <link rel="stylesheet" href="css/toast.css" />
+  <link rel="stylesheet" href="assets/css/recommendations.css" />
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin data-leaflet-resource="style" />
+
+  <meta name="ce-auth" content="on" />
+  <script type="module" src="/js/supabaseClient.js"></script>
+  <script type="module" src="/js/toast.js"></script>
+  <script type="module" src="/js/auth.js"></script>
+  <script type="module" src="/js/authUi.js"></script>
+  <script src="/js/footer-referral.js" defer></script>
+</head>
+<body data-navigation="multi-page" data-seo-page="recommendations">
+  <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+
+  <!-- HEADER: taki sam układ jak w index.html, tylko aktywna zakładka Rekomendacje -->
+    <header class="app-header nav-modern">
+      <div class="nav-modern__top" aria-label="Global header">
+        <div class="brand nav-modern__brand-block">
+          <a href="index.html" class="nav-modern__brand-link" aria-label="CyprusEye Quest home">
+            <img
+              src="assets/cyprus_logo-1000x1054.png"
+              alt="WakacjeCypr.com – logo żółwia z flagą Polski"
+              data-i18n-attrs="alt:header.logoAlt"
+              width="1000"
+              height="1054"
+              loading="eager"
+              fetchpriority="high"
+            />
+            <div class="brand-title" data-i18n="header.brand">
+              <p class="brand-name">CyprusEye Quest &amp; Travel</p>
+            </div>
+          </a>
+        </div>
+
+        <div class="nav-modern__stats nav-modern__stats-lite" data-auth="user-only">
+          <div class="stats-lite__pill">
+            <a href="achievements.html" class="stats-lite__profile" id="profileButton" aria-label="Mój profil">
+              <img
+                id="headerUserAvatar"
+                class="profile-avatar"
+                src="assets/cyprus_logo-1000x1054.png"
+                alt="Avatar"
+                width="48"
+                height="48"
+                loading="eager"
+              />
+              <div class="profile-info">
+                <p class="profile-name">Mój Profil</p>
+                <p class="profile-status">Poziom 1 • 0 odznak</p>
+              </div>
+            </a>
+
+            <div class="stats-lite__panel">
+              <div class="stats-lite__level">
+                <span class="stats-lite__label">LVL</span>
+                <span class="stats-lite__value" id="headerLevelNumber">1</span>
+                
+              </div>
+
+              <div class="stats-lite__xp" role="img" aria-label="Postęp doświadczenia" data-i18n-attrs="aria-label:metrics.xp.aria">
+                <span class="stats-lite__xp-current"><span id="headerXpPoints">0</span> XP</span>
+                <div class="stats-lite__xp-bar">
+                  <div class="stats-lite__xp-fill is-width-zero" id="headerXpFill"></div>
+                </div>
+                
+                  
+                </span>
+              </div>
+
+              <div class="stats-lite__badges">
+                <span class="stats-lite__label">🏆</span>
+                <span class="stats-lite__value" id="headerBadgesCount">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="nav-modern__top-actions">
+          <div class="nav-modern__auth">
+            <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
+              <button
+                class="nav-modern__login"
+                data-open-auth
+                data-auth="anon-only"
+                data-tour-target="login-button"
+                data-i18n="header.login"
+                data-i18n-attrs="aria-label:auth.login.aria"
+                aria-label="Zaloguj do konta"
+              >
+                Zaloguj
+              </button>
+<button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta">Wyloguj</button>
+            </div>
+            <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
+          </div>
+
+          <button
+            id="sosToggle"
+            class="nav-modern__sos"
+            type="button"
+            aria-haspopup="dialog"
+            aria-controls="sosModal"
+            data-i18n="header.sosToggle"
+          >
+            ⚠️ SOS
+          </button>
+
+          <div class="language-pill-group" data-language-toggle aria-label="Language selector" data-i18n-attrs="aria-label:language.switcher.label">
+            <button type="button" class="language-pill" data-language-pill="pl" aria-pressed="false">PL</button>
+            <button type="button" class="language-pill" data-language-pill="en" aria-pressed="false">EN</button>
+            <!-- <button type="button" class="language-pill" data-language-pill="el" aria-pressed="false">EL</button> -->
+            <!-- <button type="button" class="language-pill" data-language-pill="he" aria-pressed="false">HE</button> -->
+          </div>
+        </div>
+      </div>
+    <div class="nav-modern__shell">
+
+      <div class="nav-modern__bars" data-tour-target="tabs-navigation">
+        <button class="nav-modern__toggle-btn" id="navToggleBtn" aria-expanded="false" aria-controls="navLinksRow" data-i18n="nav.toggle">
+          ☰ Nawigacja
+        </button>
+        <div class="nav-modern__links-row" id="navLinksRow" aria-label="Główna nawigacja i skróty" data-i18n-attrs="aria-label:header.quickActions.aria">
+          <nav class="nav-modern__tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna">
+            <a href="index.html" class="nav-modern__tab" id="headerAdventureTab" data-i18n="nav.adventure">
+              🎯 Przygoda
+            </a>
+            <a href="community.html" class="nav-modern__tab" id="headerPackingTab" data-i18n="nav.community">
+              💬 Społeczność
+            </a>
+            <a href="recommendations.html" class="nav-modern__tab is-active" id="headerRecommendationsTab" data-i18n="nav.recommendations">
+              ✨ Polecane
+            </a>
+            <a href="tasks.html" class="nav-modern__tab" id="headerTasksTab" data-i18n="nav.tasks">
+              ☑️ Zadania
+            </a>
+            <a href="shop.html" class="nav-modern__tab" id="headerShopTab" data-i18n="nav.shop">
+              🛍️ Sklep
+            </a>
+          </nav>
+
+          <div class="nav-modern__chips">
+            <a class="nav-chip" href="packing.html" data-i18n="nav.packing">🎒 Pakowanie</a>
+            <a class="nav-chip" href="kupon.html" data-i18n="header.coupon">🎟️ Kupon</a>
+            <a class="nav-chip" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
+            <a class="nav-chip" href="trips.html" data-i18n="nav.trips">🧭 Wycieczki</a>
+            <a class="nav-chip" href="hotels.html" data-i18n="nav.hotels">🏨 Hotele</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- PANEL POWIADOMIEŃ (jak w index) -->
+  <div id="notificationsPanel" class="notifications-panel" hidden aria-live="polite">
+    <div class="notifications-panel-header">
+      <h3 data-i18n="notifications.title">Powiadomienia</h3>
+      <div class="notifications-panel-actions">
+        <button type="button" class="ghost" id="notificationsMarkAll" data-i18n="notifications.markAll">Oznacz wszystkie jako przeczytane</button>
+        <button type="button" class="ghost notifications-close" id="notificationsClose" aria-label="Zamknij powiadomienia" data-i18n="notifications.close">✕</button>
+      </div>
+    </div>
+    <p id="notificationsPanelEmpty" class="notifications-empty" data-i18n="notifications.empty">Zaloguj się, aby zobaczyć swoje powiadomienia.</p>
+  </div>
+
+  <!-- GŁÓWNA CZĘŚĆ STRONY REKOMENDACJI -->
+  <main class="recommendations-main" data-page="recommendations">
+    <!-- Hero (Minimal) -->
+    <section class="recommendations-hero">
+      <div class="hero-content">
+        <h1 data-i18n="recommendations.hero.title">✨ Nasze Rekomendacje</h1>
+        <p class="hero-subtitle" data-i18n="recommendations.hero.subtitle">Sprawdzone miejsca, które kochamy na Cyprze – z ekskluzywnymi zniżkami i bonusami dla Ciebie.</p>
+      </div>
+    </section>
+
+    <!-- Filtry kategorii (Minimal Sticky Bar) -->
+    <section class="recommendations-filters" aria-label="Filtry kategorii" data-i18n-attrs="aria-label:recommendations.filters.aria">
+      <div class="filters-container">
+        <div class="filters-header" style="display:none;"> <!-- Ukrywamy nagłówek filtrów w minimalu, jest oczywisty -->
+          <h2 data-i18n="recommendations.filters.title">Wybierz kategorię</h2>
+          <button id="clearFilters" class="btn-text" type="button" style="display:none" data-i18n="recommendations.filters.clear">Wyczyść filtry</button>
+        </div>
+        <div id="categoriesFilters" class="filters-grid" aria-live="polite">
+          <!-- Dynamiczne przyciski kategorii z js/recommendations.js -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Lista rekomendacji -->
+    <section class="recommendations-section" aria-label="Lista rekomendowanych miejsc">
+      <div id="loadingState" class="loading-state">
+        <div class="loading-spinner" aria-hidden="true"></div>
+        <p data-i18n="recommendations.loading">Ładowanie rekomendacji...</p>
+      </div>
+
+      <div id="recommendationsGrid" class="recommendations-grid" aria-live="polite">
+        <!-- Karty rekomendacji będą generowane w js/recommendations.js -->
+      </div>
+
+      <div id="emptyState" class="empty-state" style="display:none">
+        <div class="empty-state-icon">🔍</div>
+        <h3 data-i18n="recommendations.empty.title">Brak wyników</h3>
+        <p data-i18n="recommendations.empty.body">Nie znaleźliśmy miejsc dla wybranych filtrów. Spróbuj zmienić kategorię lub wyczyścić filtry.</p>
+        <button type="button" class="btn" onclick="clearFilters()" data-i18n="recommendations.empty.cta">Pokaż wszystkie miejsca</button>
+      </div>
+    </section>
+
+    <!-- Modal szczegółów rekomendacji -->
+    <div id="detailModal" class="recommendation-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle">
+      <div class="modal-overlay" onclick="closeDetailModal()"></div>
+      <div class="modal-content">
+        <button class="modal-close" type="button" aria-label="Zamknij" onclick="closeDetailModal()">✕</button>
+        <div id="modalDetails" class="modal-body">
+          <!-- Zawartość modalu wypełnia js/recommendations.js (openDetailModal) -->
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer Referral -->
+  <div class="footer-referral" id="footerReferral" style="display:none;">
+    <p class="footer-referral-text">
+      <span style="font-size:1.25rem;">🎁</span>
+      <span data-i18n="footer.referral.invite">Zaproś znajomych i zdobądź bonusy!</span>
+    </p>
+    <div class="footer-referral-actions">
+      <button class="btn-ref btn-copy" id="footerCopyRef">
+        <span>📋</span> <span data-i18n="footer.referral.copy">Kopiuj link</span>
+      </button>
+      <button class="btn-ref btn-facebook" id="footerShareFb">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        <span data-i18n="footer.referral.facebook">Facebook</span>
+      </button>
+    </div>
+  </div>
+
+  <footer class="app-footer">
+    <p data-i18n="footer.app">© <span data-current-year></span> WakacjeCypr.com</p>
+    <div class="footer-links" style="margin-bottom: 8px;">
+       <a href="terms.html" class="footer-link" data-i18n="legal.termsLink">Terms of Service</a>
+    </div>
+  </footer>
+
+  <!-- Auth Modal (dokładnie taki sam jak w index.html) -->
+  <div
+    id="auth-modal"
+    class="modal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="auth-title"
+    aria-hidden="true"
+  >
+    <div class="modal__dialog" tabindex="-1" role="document">
+      <button
+        class="modal__close"
+        type="button"
+        aria-label="Zamknij"
+        data-close
+        data-i18n-attrs="aria-label:auth.close.label"
+      >
+        ×
+      </button>
+      <h2 id="auth-title" data-i18n="auth.title">Dołącz do przygody</h2>
+      <p class="auth-intro" data-i18n="auth.intro">Zaloguj się, utwórz konto lub graj jako gość.</p>
+      <div class="auth-modal__content" data-auth-view-root>
+        <div data-auth="login">
+          <div role="presentation">
+            <div class="auth-modal__tabs" role="tablist">
+              <button
+                type="button"
+                class="auth-modal__tab is-active"
+                role="tab"
+                id="authTabLogin"
+                aria-selected="true"
+                aria-controls="authPanelLogin"
+                data-auth-tab="login"
+                data-i18n="auth.tab.login"
+              >
+                Logowanie
+              </button>
+              <button
+                type="button"
+                class="auth-modal__tab"
+                role="tab"
+                id="authTabRegister"
+                aria-selected="false"
+                aria-controls="authPanelRegister"
+                data-auth-tab="register"
+                data-i18n="auth.tab.register"
+                tabindex="-1"
+              >
+                Rejestracja
+              </button>
+              
+            </div>
+            <div class="auth-modal__panels">
+              <section
+                id="authPanelLogin"
+                class="auth-modal__panel is-active"
+                role="tabpanel"
+                aria-labelledby="authTabLogin"
+                data-auth="login"
+                data-auth-panel="login"
+              >
+                <form id="form-login" class="auth-form" novalidate data-ce-auth-handler="supabase">
+                  <label for="loginEmail" data-i18n="auth.login.username">Email lub nazwa użytkownika</label>
+                  <input
+                    id="loginEmail"
+                    name="email"
+                    type="text"
+                    autocomplete="username"
+                    required
+                    aria-label="Email lub nazwa użytkownika"
+                    data-i18n-attrs="aria-label:auth.login.username,placeholder:auth.login.username"
+                    placeholder="Email lub nazwa użytkownika"
+                  />
+                  <label for="loginPassword" data-i18n="auth.password">Hasło</label>
+                  <input
+                    id="loginPassword"
+                    name="password"
+                    type="password"
+                    autocomplete="current-password"
+                    required
+                    aria-label="Hasło"
+                    data-i18n-attrs="aria-label:auth.password"
+                  />
+                  <div class="auth-form__actions">
+                    <button
+                      type="submit"
+                      class="btn btn--primary"
+                      data-i18n="auth.login.button"
+                      data-i18n-attrs="aria-label:auth.login.button"
+                      aria-label="Zaloguj się"
+                    >
+                      Zaloguj się
+                    </button>
+                    <button
+                      type="button"
+                      class="auth-form__link"
+                      id="loginForgotPassword"
+                      data-i18n="auth.reset.button"
+                      data-i18n-attrs="aria-label:auth.reset.button"
+                      aria-label="🔑 Resetuj hasło"
+                    >
+                      🔑 Resetuj hasło
+                    </button>
+                  </div>
+                  <div data-auth="message" aria-live="polite"></div>
+                  <p class="auth-form__meta" id="authResendVerification" hidden>
+                    Nie otrzymałeś wiadomości z potwierdzeniem?
+                    <button type="button" class="auth-form__link" id="btn-resend-verification">
+                      Wyślij ponownie link weryfikacyjny
+                    </button>
+                  </p>
+                </form>
+              </section>
+              <section
+                id="authPanelRegister"
+                class="auth-modal__panel"
+                role="tabpanel"
+                aria-labelledby="authTabRegister"
+                data-auth="login"
+                data-auth-panel="register"
+                hidden
+              >
+                <form
+                  id="form-register"
+                  class="auth-form"
+                  novalidate
+                  data-auth="register"
+                  data-ce-auth-handler="supabase"
+                >
+                  <label for="registerFirstName" data-i18n="auth.firstName">Imię</label>
+                  <input
+                    id="registerFirstName"
+                    name="firstName"
+                    type="text"
+                    autocomplete="given-name"
+                    maxlength="60"
+                    required
+                    aria-label="Imię"
+                    data-i18n-attrs="aria-label:auth.firstName"
+                  />
+                  <label for="registerUsername" data-i18n="auth.username">Nazwa użytkownika</label>
+                  <input
+                    id="registerUsername"
+                    name="username"
+                    type="text"
+                    autocomplete="username"
+                    minlength="3"
+                    maxlength="20"
+                    pattern="[a-zA-Z0-9_]+"
+                    required
+                    aria-label="Nazwa użytkownika"
+                    data-i18n-attrs="aria-label:auth.username,placeholder:auth.username.hint"
+                    placeholder="3-20 znaków, litery i cyfry"
+                  />
+                  <label for="registerEmail" data-i18n="auth.email">Adres e-mail</label>
+                  <input
+                    id="registerEmail"
+                    name="email"
+                    type="email"
+                    autocomplete="email"
+                    required
+                    aria-label="Adres e-mail"
+                    data-i18n-attrs="aria-label:auth.email"
+                  />
+                  <label for="registerPassword" data-i18n="auth.password">Hasło</label>
+                  <input
+                    id="registerPassword"
+                    name="password"
+                    type="password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    required
+                    aria-label="Hasło"
+                    data-i18n-attrs="aria-label:auth.password"
+                  />
+                  <label for="registerPasswordConfirm" data-i18n="auth.confirmPassword">Powtórz hasło</label>
+                  <input
+                    id="registerPasswordConfirm"
+                    name="passwordConfirm"
+                    type="password"
+                    autocomplete="new-password"
+                    minlength="8"
+                    aria-label="Powtórz hasło"
+                    data-i18n-attrs="aria-label:auth.confirmPassword"
+                  />
+                  <div data-auth="message" aria-live="polite"></div>
+                  <p class="form-hint" data-i18n="auth.register.hint">
+                    Po rejestracji sprawdź skrzynkę e-mail, aby potwierdzić konto.
+                  </p>
+                  <button
+                    type="submit"
+                    class="btn btn--primary"
+                    data-i18n="auth.register.button"
+                    data-i18n-attrs="aria-label:auth.register.button"
+                    aria-label="Utwórz konto"
+                  >
+                    Utwórz konto
+                  </button>
+                </form>
+              </section>
+              
+            </div>
+            <dialog id="resetPasswordDialog" class="auth-reset-dialog">
+              <form id="form-reset-password" class="auth-form" novalidate>
+                <header class="auth-reset-dialog__header">
+                  <h2 data-i18n="auth.reset.title">Resetuj hasło</h2>
+                  <button type="button" class="auth-form__link" id="btn-reset-close" data-i18n="auth.reset.close" data-i18n-attrs="aria-label:auth.reset.close" aria-label="Zamknij">✖</button>
+                </header>
+                <p data-i18n="auth.reset.description">Podaj adres e-mail powiązany z kontem, a wyślemy link do zmiany hasła.</p>
+                <label for="resetEmail" data-i18n="auth.reset.emailLabel">Adres e-mail</label>
+                <input id="resetEmail" name="email" type="email" autocomplete="email" required />
+                <div class="auth-form__actions">
+                  <button type="submit" class="btn btn--primary" data-i18n="auth.reset.submit">Wyślij link resetujący</button>
+                  <button type="button" class="auth-form__link" id="btn-reset-cancel" data-i18n="auth.reset.cancel">Anuluj</button>
+                </div>
+              </form>
+            </dialog>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin data-leaflet-resource="script"></script>
+  <script type="module" src="/js/recommendations.js"></script>
+  
+  <!-- Header & language system -->
+  <script src="/js/languageSwitcher.js"></script>
+  <script src="/js/languageSelector.js" defer></script>
+  <script src="/js/i18n.js" defer></script>
+  <script src="/js/header-stats.js" defer></script>
+  <script src="/js/seo.js" defer></script>
+  <script src="/js/mobile-nav.js" defer></script>
+  <script src="/js/header-dropdown.js" defer></script>
+  
+  <!-- Auth modal controller and UI handlers (same order as index.html) -->
+  <script src="/assets/js/modal-auth.js" defer></script>
+  <script type="module" src="/assets/js/auth-ui.js"></script>
+</body>
+</html>

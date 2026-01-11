@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Wycieczka • CyprusEye</title>
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <link rel="stylesheet" href="/assets/css/components.css" />
+  <link rel="icon" href="/assets/cyprus_logo-1000x1054.png" />
+  <style>
+    .trip-hero{display:grid;grid-template-columns:320px 1fr;gap:16px;align-items:start}
+    .trip-hero img{width:100%;height:220px;object-fit:cover;border-radius:12px}
+    .trip-badge{display:inline-block;background:#eef;border:1px solid #ccd;padding:4px 8px;border-radius:6px;color:#334}
+    .form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+    .form-grid label{display:grid;gap:6px}
+    .price-live{font-size:20px;font-weight:700;margin-top:8px}
+    @media (max-width:760px){.trip-hero{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header style="padding:16px;display:flex;align-items:center;justify-content:space-between;">
+    <a href="/trips.html" class="btn-secondary">← Wycieczki</a>
+    <a href="/" class="btn-primary">Strona główna</a>
+  </header>
+
+  <main style="padding:16px;max-width:1000px;margin:0 auto;">
+    <div id="viewLoading">Ładowanie...</div>
+    <section id="viewTrip" hidden>
+      <div class="trip-hero">
+        <div id="imgWrap"></div>
+        <div>
+          <h1 id="tTitle">Wycieczka</h1>
+          <p id="tSub" class="trip-badge"></p>
+          <div id="tDesc" style="margin-top:8px;color:#334;line-height:1.5"></div>
+        </div>
+      </div>
+
+      <section class="card" style="margin-top:16px;">
+        <div class="card-body">
+          <h3>Rezerwacja</h3>
+          <form id="bookForm" class="form-grid">
+            <label>Imię i nazwisko<input name="name" required /></label>
+            <label>Email<input name="email" type="email" required /></label>
+            <label>Telefon<input name="phone" /></label>
+            <label>Data rozpoczęcia<input name="start_date" type="date" /></label>
+
+            <div id="modelFields"></div>
+
+            <label style="grid-column:1/-1">
+              Uwagi (opcjonalnie)
+              <textarea name="note" rows="2"></textarea>
+            </label>
+
+            <div style="grid-column:1/-1;display:flex;gap:8px;align-items:center;">
+              <div id="priceLive" class="price-live">Cena: —</div>
+              <button class="btn-primary" type="submit" id="btnBook">Zarezerwuj</button>
+            </div>
+          </form>
+          <div id="bookMsg" style="margin-top:8px;color:#0a0"></div>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script>
+    const $ = (s,r=document)=>r.querySelector(s);
+
+    const params = new URLSearchParams(location.search);
+    const slug = params.get('slug');
+    let trip = null;
+
+    function badgeFor(t){
+      if (t.display_mode === 'custom_label' && t.display_label) return t.display_label;
+      if (t.display_mode === 'per_hour') return 'za godzinę';
+      if (t.display_mode === 'per_person') return 'za osobę';
+      if (t.display_mode === 'from_price') return 'od ceny';
+      // auto
+      if (t.pricing_model === 'per_hour') return 'za godzinę';
+      if (t.pricing_model === 'per_person') return 'za osobę';
+      return '';
+    }
+
+    function calcTotal(t, input){
+      const adults = Number(input.adults||1)||1;
+      const children = Number(input.children||0)||0;
+      const hours = Number(input.hours||0)||0;
+      const days = Number(input.days||1)||1;
+      const addons = Number(input.addons||0)||0;
+      const childF = 1; // można zmienić później
+      if (t.pricing_model === 'per_person'){
+        const ppl = adults + childF*children;
+        return (Number(t.price_per_person)||0) * ppl + addons;
+      }
+      if (t.pricing_model === 'base_plus_extra'){
+        const base = Number(t.price_base)||0;
+        const inc = Number(t.included_people)||0;
+        const extra = Math.max(0, adults + childF*children - inc);
+        return base + extra * (Number(t.price_extra_person)||0) + addons;
+      }
+      if (t.pricing_model === 'per_hour'){
+        const minH = Number(t.min_hours)||1;
+        const bill = Math.max(minH, hours||0);
+        return bill * (Number(t.price_base)||0) + addons;
+      }
+      if (t.pricing_model === 'per_day'){
+        const bill = Math.max(1, days||1);
+        return bill * (Number(t.price_base)||0) + addons;
+      }
+      return Number(t.price_base)||0;
+    }
+
+    function renderModelFields(){
+      const c = $('#modelFields');
+      if (!trip) return;
+      if (trip.pricing_model === 'per_person' || trip.pricing_model === 'base_plus_extra'){
+        c.innerHTML = `
+          <label>Liczba dorosłych<input name="adults" type="number" min="1" value="1" required /></label>
+          <label>Dzieci<input name="children" type="number" min="0" value="0" /></label>
+        `;
+      } else if (trip.pricing_model === 'per_hour'){
+        c.innerHTML = `
+          <label>Liczba godzin<input name="hours" type="number" min="${trip.min_hours||1}" value="${trip.min_hours||1}" required /></label>
+        `;
+      } else if (trip.pricing_model === 'per_day'){
+        c.innerHTML = `
+          <label>Liczba dni<input name="days" type="number" min="1" value="1" required /></label>
+        `;
+      } else {
+        c.innerHTML = '';
+      }
+    }
+
+    function updateLivePrice(){
+      if (!trip) return;
+      const f = $('#bookForm');
+      const payload = Object.fromEntries(new FormData(f).entries());
+      const total = calcTotal(trip, payload);
+      $('#priceLive').textContent = `Cena: ${total.toFixed(2)} €`;
+    }
+
+    async function loadTrip(){
+      if (!slug){ $('#viewLoading').textContent='Brak parametru slug'; return; }
+      
+      try {
+        const { supabase } = await import('/js/supabaseClient.js');
+        if (!supabase) throw new Error('Supabase client not available');
+        
+        const { data, error } = await supabase
+          .from('trips')
+          .select('*')
+          .eq('slug', slug)
+          .eq('is_published', true)
+          .single();
+        
+        if (error) throw error;
+        if (!data) throw new Error('Trip not found');
+        
+        trip = data;
+      } catch (err) {
+        console.error('Failed to load trip:', err);
+        $('#viewLoading').textContent = 'Nie znaleziono wycieczki';
+        return;
+      }
+      $('#viewLoading').hidden = true;
+      $('#viewTrip').hidden = false;
+
+      if (trip.cover_image_url){ $('#imgWrap').innerHTML = `<img src="${trip.cover_image_url}" alt="${trip.title?.pl||trip.slug}">`; }
+      $('#tTitle').textContent = trip.title?.pl || trip.title?.en || trip.slug;
+      $('#tSub').textContent = [trip.start_city, badgeFor(trip)].filter(Boolean).join(' • ');
+      const desc = (trip.description?.pl || '').replace(/\n/g,'<br/>');
+      $('#tDesc').innerHTML = desc;
+
+      renderModelFields();
+      updateLivePrice();
+
+      $('#bookForm').addEventListener('input', (e)=>{
+        if(['adults','children','hours','days','addons'].includes(e.target.name)) updateLivePrice();
+      });
+      $('#bookForm').addEventListener('submit', submitBooking);
+    }
+
+    async function submitBooking(e){
+      e.preventDefault();
+      $('#bookMsg').textContent = '';
+      const f = $('#bookForm');
+      const payload = Object.fromEntries(new FormData(f).entries());
+      // server policzy cenę weryfikacyjnie
+      const res = await fetch(`/trips/${encodeURIComponent(slug)}/book`,{
+        method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({
+          name: payload.name,
+          email: payload.email,
+          phone: payload.phone,
+          start_date: payload.start_date||null,
+          adults: payload.adults? Number(payload.adults): undefined,
+          children: payload.children? Number(payload.children): undefined,
+          hours: payload.hours? Number(payload.hours): undefined,
+          days: payload.days? Number(payload.days): undefined,
+        })
+      });
+      const data = await res.json().catch(()=>({}));
+      if (!res.ok){
+        $('#bookMsg').style.color = '#a00';
+        $('#bookMsg').textContent = data?.error || 'Nie udało się złożyć rezerwacji';
+        return;
+      }
+      $('#bookMsg').style.color = '#0a0';
+      $('#bookMsg').textContent = `Rezerwacja przyjęta. Suma: ${Number(data.price_total||0).toFixed(2)} €`;
+      f.reset();
+      renderModelFields();
+      updateLivePrice();
+    }
+
+    loadTrip();
+  </script>
+</body>
+</html>
