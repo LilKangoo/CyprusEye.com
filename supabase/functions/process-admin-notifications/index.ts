@@ -54,6 +54,18 @@ function computeRetrySeconds(attempts: number): number {
   return Math.min(Math.max(10, Math.floor(secs)), 60 * 60);
 }
 
+function normalizeApiKey(raw: string | undefined | null): string {
+  const trimmed = String(raw || "").trim();
+  if (!trimmed) return "";
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
 async function getAdminNotifySecret(supabase: any): Promise<string> {
   const { data, error } = await supabase
     .from("shop_settings")
@@ -76,7 +88,9 @@ async function callSendAdminNotification(params: {
   };
   if (params.secret) headers["x-admin-notify-secret"] = params.secret;
 
-  const apiKey = (Deno.env.get("SUPABASE_ANON_KEY") || Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "").trim();
+  const apiKey = normalizeApiKey(
+    Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || Deno.env.get("SUPABASE_ANON_KEY") || "",
+  );
   if (apiKey) {
     headers["Authorization"] = `Bearer ${apiKey}`;
     headers["apikey"] = apiKey;
