@@ -347,6 +347,7 @@ function buildFormDataRows(category: Category, record: Record<string, unknown>):
 
   const preferredLabels: Record<string, string> = {
     car_model: "Car",
+    offer_id: "Offer ID",
     pickup_location: "Pick-up",
     pick_up_location: "Pick-up",
     pickup_place: "Pick-up",
@@ -590,10 +591,11 @@ function buildSubject(params: {
 
   const categoryMeta = (() => {
     if (params.category === "cars") {
+      const carName = getField(params.record, ["car_model", "car", "vehicle", "model"]);
       const from = formatDate(getField(params.record, ["start_date", "pickup_date", "from_date", "date_from"]));
       const to = formatDate(getField(params.record, ["end_date", "return_date", "to_date", "date_to"]));
       const datePart = [from, to].filter(Boolean).join(" → ");
-      return { what: "booking", name: "", date: datePart };
+      return { what: "booking", name: carName, date: datePart };
     }
     if (params.category === "trips") {
       const tripName = getField(params.record, ["trip_name", "trip_title", "title", "service_name"]);
@@ -616,8 +618,13 @@ function buildSubject(params: {
         getField(params.record, ["total", "amount_total", "grand_total", "total_amount", "price_total"]),
         getField(params.record, ["currency", "currency_code"]),
       ) || "";
+    const items = Array.isArray((params.record as any)?.items) ? ((params.record as any).items as any[]) : [];
+    const firstItemName = items.length
+      ? (valueToString(items[0]?.product_name) || valueToString(items[0]?.name) || "")
+      : "";
     const parts = [`[${label}] Paid order #${params.recordId}`];
     if (amount) parts.push(amount);
+    if (firstItemName) parts.push(firstItemName);
     if (customerName) parts.push(customerName);
     return parts.join(" — ");
   }
@@ -674,6 +681,7 @@ function renderHtmlEmail(params: {
       { label: "Email", value: email },
       { label: "Phone", value: phone },
       { label: "Car", value: getField(record, ["car_model", "car", "vehicle", "model"]) },
+      { label: "Offer ID", value: getField(record, ["offer_id"]) },
       { label: "Pick-up", value: getField(record, ["pickup_location", "pick_up_location", "pickup_place"]) },
       { label: "Drop-off", value: getField(record, ["return_location", "dropoff_location", "drop_off_location", "dropoff_place"]) },
       { label: "From", value: formatDate(getField(record, ["start_date", "pickup_date", "from_date", "date_from"])) },
