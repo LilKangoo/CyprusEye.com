@@ -74,28 +74,57 @@ function getField(record: Record<string, unknown>, keys: string[]): string {
   return "";
 }
 
-function formatDateTime(value: unknown): string {
+const CYPRUS_TIMEZONE = "Asia/Nicosia";
+
+function formatInCyprus(value: unknown, mode: "date" | "datetime"): string {
   const raw = valueToString(value);
   if (!raw) return "";
   const d = new Date(raw);
   if (Number.isNaN(d.getTime())) return raw;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  const hh = String(d.getHours()).padStart(2, "0");
-  const mm = String(d.getMinutes()).padStart(2, "0");
-  return `${y}-${m}-${day} ${hh}:${mm}`;
+
+  try {
+    const parts = new Intl.DateTimeFormat("en-GB", {
+      timeZone: CYPRUS_TIMEZONE,
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      ...(mode === "datetime"
+        ? {
+          hour: "2-digit",
+          minute: "2-digit",
+          hourCycle: "h23" as const,
+        }
+        : {}),
+    }).formatToParts(d);
+
+    const byType: Record<string, string> = {};
+    for (const p of parts) {
+      if (p.type && p.value) byType[p.type] = p.value;
+    }
+
+    const y = byType.year || "";
+    const m = byType.month || "";
+    const day = byType.day || "";
+    if (!y || !m || !day) return raw;
+
+    if (mode === "date") {
+      return `${y}-${m}-${day}`;
+    }
+
+    const hh = byType.hour || "00";
+    const mm = byType.minute || "00";
+    return `${y}-${m}-${day} ${hh}:${mm}`;
+  } catch (_e) {
+    return raw;
+  }
+}
+
+function formatDateTime(value: unknown): string {
+  return formatInCyprus(value, "datetime");
 }
 
 function formatDate(value: unknown): string {
-  const raw = valueToString(value);
-  if (!raw) return "";
-  const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return raw;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return formatInCyprus(value, "date");
 }
 
 function normalizeMoney(value: unknown): number | null {
