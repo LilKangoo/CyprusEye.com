@@ -196,13 +196,16 @@ function renderAdminCalendarsResourcePanels() {
   const tiles = rows.slice(0, maxTiles);
   const extra = rows.length - tiles.length;
 
+  const selected = calendarsState.bulkMode ? ensureCalendarsSelectedSetForType(type) : new Set();
+
   root.innerHTML = tiles.map((r) => {
     const id = r?.id ? String(r.id) : '';
     const label = r?.label ? String(r.label) : id;
     const active = id && resourceId && id === resourceId;
+    const isSelected = calendarsState.bulkMode && id && selected.has(id);
     const style = active
       ? 'background: rgba(59,130,246,0.18); border-color: rgba(59,130,246,0.65); font-weight: 700;'
-      : '';
+      : (isSelected ? 'background: rgba(34,197,94,0.14); border-color: rgba(34,197,94,0.55); font-weight: 700;' : '');
     return `<button type="button" class="btn-small btn-secondary" data-admin-cal-resource="${escapeHtml(id)}" style="${style}">${escapeHtml(label)}</button>`;
   }).join('') + (extra > 0 ? `<div style="padding: 6px 0; color: var(--admin-text-muted); font-size: 12px;">+${extra} more (use dropdown)</div>` : '');
 
@@ -211,6 +214,14 @@ function renderAdminCalendarsResourcePanels() {
       const id = String(btn.getAttribute('data-admin-cal-resource') || '').trim();
       const resourceSelect = document.getElementById('calendarsResourceIdFilter');
       if (resourceSelect) resourceSelect.value = id;
+
+      if (calendarsState.bulkMode && type && id) {
+        const set = ensureCalendarsSelectedSetForType(type);
+        if (set.has(id)) set.delete(id);
+        else set.add(id);
+        updateAdminCalendarsSelectionSummary();
+      }
+
       renderAdminCalendarsResourcePanels();
       syncAdminCalendarsCreateFields();
       await loadCalendarsMonthData();
@@ -286,6 +297,29 @@ async function createAvailabilityBlockFromAdminForm() {
   const start = String(document.getElementById('calendarsCreateStart')?.value || '').trim();
   const end = String(document.getElementById('calendarsCreateEnd')?.value || '').trim();
   const note = String(document.getElementById('calendarsCreateNote')?.value || '').trim();
+
+  if (calendarsState.bulkMode) {
+    if (!partnerId || !start || !end) {
+      showToast('Wypełnij partner/start/end', 'error');
+      return;
+    }
+    const targets = await getAdminCalendarsTargets();
+    if (!targets.length) {
+      showToast('No target resources selected', 'error');
+      return;
+    }
+
+    try {
+      await createRangeBlocksForTargetsAdmin(partnerId, start, end, note, targets);
+      const noteInput = document.getElementById('calendarsCreateNote');
+      if (noteInput) noteInput.value = '';
+      await loadAdminCalendarsData();
+    } catch (error) {
+      console.error('Failed to create blocks:', error);
+      showToast(error.message || 'Failed to create blocks', 'error');
+    }
+    return;
+  }
 
   if (!partnerId || !type || !resourceId || !start || !end) {
     showToast('Wypełnij partner/type/resource/start/end', 'error');
@@ -1856,10 +1890,307 @@ const calendarsState = {
   partners: [],
   blocks: [],
   resourcesByType: { shop: [], cars: [], trips: [], hotels: [] },
+  bulkMode: false,
+  selectedByType: {
+    shop: new Set(),
+    cars: new Set(),
+    trips: new Set(),
+    hotels: new Set(),
+  },
   monthValue: '',
   monthBlocks: [],
   monthBusyRanges: [],
 };
+
+function calendarsAvailabilityTypes() {
+  return ['shop', 'cars', 'trips', 'hotels'];
+}
+
+function isCalendarsAvailabilityType(value) {
+  return calendarsAvailabilityTypes().includes(String(value || '').trim());
+}
+
+function ensureCalendarsSelectedSetForType(type) {
+  const t = String(type || '').trim();
+  if (!isCalendarsAvailabilityType(t)) return new Set();
+  if (!calendarsState.selectedByType[t] || !(calendarsState.selectedByType[t] instanceof Set)) {
+    calendarsState.selectedByType[t] = new Set();
+  }
+  return calendarsState.selectedByType[t];
+}
+
+function clearCalendarsSelectionsAll() {
+  calendarsAvailabilityTypes().forEach((t) => {
+    ensureCalendarsSelectedSetForType(t).clear();
+  });
+}
+
+function updateAdminCalendarsSelectionSummary() {
+  const el = document.getElementById('adminCalendarsSelectionSummary');
+  if (!el) return;
+
+  const bulk = Boolean(calendarsState.bulkMode);
+  if (!bulk) {
+    el.textContent = '';
+    return;
+  }
+
+  const parts = [];
+  let total = 0;
+  calendarsAvailabilityTypes().forEach((t) => {
+    const count = ensureCalendarsSelectedSetForType(t).size;
+    if (!count) return;
+    parts.push(`${t}: ${count}`);
+    total += count;
+  });
+
+  const sel = parts.length ? parts.join(', ') : 'none';
+  el.textContent = `Selected: ${sel} (total ${total}).`;
+}
+
+function setAdminCalendarsBulkMode(enabled) {
+  calendarsState.bulkMode = Boolean(enabled);
+  const checkbox = document.getElementById('adminCalendarsBulkMode');
+  if (checkbox) checkbox.checked = calendarsState.bulkMode;
+
+  if (calendarsState.bulkMode) {
+    const currentType = String(document.getElementById('calendarsResourceTypeFilter')?.value || '').trim();
+    const currentId = String(document.getElementById('calendarsResourceIdFilter')?.value || '').trim();
+    if (currentType && currentId) {
+      ensureCalendarsSelectedSetForType(currentType).add(currentId);
+    }
+  }
+
+  const disabled = !calendarsState.bulkMode;
+  const btnSelectAll = document.getElementById('btnAdminCalendarsSelectAllType');
+  const btnClearAll = document.getElementById('btnAdminCalendarsClearAll');
+  if (btnSelectAll) btnSelectAll.disabled = disabled;
+  if (btnClearAll) btnClearAll.disabled = disabled;
+
+  updateAdminCalendarsSelectionSummary();
+  renderAdminCalendarsResourcePanels();
+}
+
+async function adminCalendarsSelectAllCurrentType() {
+  const type = String(document.getElementById('calendarsResourceTypeFilter')?.value || '').trim();
+  if (!type) {
+    showToast('Select resource type', 'error');
+    return;
+  }
+
+  try {
+    const existing = Array.isArray(calendarsState.resourcesByType?.[type]) ? calendarsState.resourcesByType[type] : [];
+    if (!existing.length) {
+      await loadCalendarsResourceOptions();
+    }
+
+    const rows = Array.isArray(calendarsState.resourcesByType?.[type]) ? calendarsState.resourcesByType[type] : [];
+    const set = ensureCalendarsSelectedSetForType(type);
+    rows.forEach((r) => {
+      const id = r?.id ? String(r.id) : '';
+      if (!id) return;
+      set.add(id);
+    });
+    updateAdminCalendarsSelectionSummary();
+    renderAdminCalendarsResourcePanels();
+  } catch (error) {
+    console.error('Select all type failed:', error);
+    showToast(error.message || 'Select all failed', 'error');
+  }
+}
+
+function adminCalendarsClearAllSelections() {
+  clearCalendarsSelectionsAll();
+  updateAdminCalendarsSelectionSummary();
+  renderAdminCalendarsResourcePanels();
+}
+
+function chunkArray(input, size) {
+  const arr = Array.isArray(input) ? input : [];
+  const s = Math.max(1, Number(size || 0) || 50);
+  const out = [];
+  for (let i = 0; i < arr.length; i += s) out.push(arr.slice(i, i + s));
+  return out;
+}
+
+async function getAdminCalendarsTargets() {
+  const currentType = String(document.getElementById('calendarsResourceTypeFilter')?.value || '').trim();
+  const currentId = String(document.getElementById('calendarsResourceIdFilter')?.value || '').trim();
+
+  if (!calendarsState.bulkMode) {
+    return (currentType && currentId) ? [{ resource_type: currentType, resource_id: currentId }] : [];
+  }
+
+  const targets = [];
+  calendarsAvailabilityTypes().forEach((t) => {
+    const set = ensureCalendarsSelectedSetForType(t);
+    Array.from(set).forEach((id) => {
+      if (!id) return;
+      targets.push({ resource_type: t, resource_id: String(id) });
+    });
+  });
+
+  const dedup = new Map();
+  targets.forEach((t) => {
+    const rt = String(t.resource_type || '').trim();
+    const rid = String(t.resource_id || '').trim();
+    if (!rt || !rid) return;
+    dedup.set(`${rt}:${rid}`, { resource_type: rt, resource_id: rid });
+  });
+  return Array.from(dedup.values());
+}
+
+async function bulkDeleteBlocksByIdsAdmin(ids) {
+  const client = ensureSupabase();
+  if (!client) return;
+  const list = Array.isArray(ids) ? ids.filter(Boolean).map(String) : [];
+  if (!list.length) return;
+  for (const chunk of chunkArray(list, 50)) {
+    const { error } = await client
+      .from('partner_availability_blocks')
+      .delete()
+      .in('id', chunk);
+    if (error) throw error;
+  }
+}
+
+async function bulkInsertBlocksAdmin(payloads) {
+  const client = ensureSupabase();
+  if (!client) return;
+  const list = Array.isArray(payloads) ? payloads : [];
+  if (!list.length) return;
+  for (const chunk of chunkArray(list, 50)) {
+    const { error } = await client
+      .from('partner_availability_blocks')
+      .insert(chunk);
+    if (error) throw error;
+  }
+}
+
+async function toggleSingleDayBlocksForTargetsAdmin(partnerId, dayIso, targets) {
+  const client = ensureSupabase();
+  if (!client) return;
+  const pid = String(partnerId || '').trim();
+  const day = String(dayIso || '').trim();
+  const list = Array.isArray(targets) ? targets : [];
+  if (!pid || !day || !list.length) return;
+
+  const byType = {};
+  list.forEach((t) => {
+    const rt = String(t.resource_type || '').trim();
+    const rid = String(t.resource_id || '').trim();
+    if (!rt || !rid) return;
+    if (!byType[rt]) byType[rt] = new Set();
+    byType[rt].add(rid);
+  });
+
+  const existingByKey = new Map();
+  for (const rt of Object.keys(byType)) {
+    const ids = Array.from(byType[rt]);
+    for (const chunk of chunkArray(ids, 50)) {
+      const { data, error } = await client
+        .from('partner_availability_blocks')
+        .select('id, resource_type, resource_id, start_date, end_date')
+        .eq('partner_id', pid)
+        .eq('resource_type', rt)
+        .in('resource_id', chunk)
+        .eq('start_date', day)
+        .eq('end_date', day)
+        .limit(500);
+      if (error) throw error;
+      (data || []).forEach((b) => {
+        if (!b?.id || !b?.resource_type || !b?.resource_id) return;
+        existingByKey.set(`${String(b.resource_type)}:${String(b.resource_id)}`, b);
+      });
+    }
+  }
+
+  const keys = list.map(t => `${String(t.resource_type)}:${String(t.resource_id)}`);
+  const existingKeys = keys.filter(k => existingByKey.has(k));
+  const shouldUnblockAll = existingKeys.length === keys.length;
+
+  if (shouldUnblockAll) {
+    const idsToDelete = existingKeys.map(k => existingByKey.get(k)?.id).filter(Boolean);
+    await bulkDeleteBlocksByIdsAdmin(idsToDelete);
+    showToast(list.length > 1 ? `Day unblocked (${list.length} resources)` : 'Day unblocked', 'success');
+    return;
+  }
+
+  const payloads = [];
+  list.forEach((t) => {
+    const key = `${String(t.resource_type)}:${String(t.resource_id)}`;
+    if (existingByKey.has(key)) return;
+    payloads.push({
+      partner_id: pid,
+      resource_type: t.resource_type,
+      resource_id: t.resource_id,
+      start_date: day,
+      end_date: day,
+      note: null,
+      created_by: adminState.user?.id || null,
+    });
+  });
+  await bulkInsertBlocksAdmin(payloads);
+  showToast(list.length > 1 ? `Day blocked (${payloads.length} resources)` : 'Day blocked', 'success');
+}
+
+async function createRangeBlocksForTargetsAdmin(partnerId, startDate, endDate, note, targets) {
+  const client = ensureSupabase();
+  if (!client) return;
+  const pid = String(partnerId || '').trim();
+  const start = String(startDate || '').trim();
+  const end = String(endDate || '').trim();
+  const list = Array.isArray(targets) ? targets : [];
+  if (!pid || !start || !end || !list.length) return;
+
+  const byType = {};
+  list.forEach((t) => {
+    const rt = String(t.resource_type || '').trim();
+    const rid = String(t.resource_id || '').trim();
+    if (!rt || !rid) return;
+    if (!byType[rt]) byType[rt] = new Set();
+    byType[rt].add(rid);
+  });
+
+  const existingByKey = new Set();
+  for (const rt of Object.keys(byType)) {
+    const ids = Array.from(byType[rt]);
+    for (const chunk of chunkArray(ids, 50)) {
+      const { data, error } = await client
+        .from('partner_availability_blocks')
+        .select('id, resource_type, resource_id, start_date, end_date')
+        .eq('partner_id', pid)
+        .eq('resource_type', rt)
+        .in('resource_id', chunk)
+        .eq('start_date', start)
+        .eq('end_date', end)
+        .limit(500);
+      if (error) throw error;
+      (data || []).forEach((b) => {
+        if (!b?.resource_type || !b?.resource_id) return;
+        existingByKey.add(`${String(b.resource_type)}:${String(b.resource_id)}`);
+      });
+    }
+  }
+
+  const payloads = [];
+  list.forEach((t) => {
+    const key = `${String(t.resource_type)}:${String(t.resource_id)}`;
+    if (existingByKey.has(key)) return;
+    payloads.push({
+      partner_id: pid,
+      resource_type: t.resource_type,
+      resource_id: t.resource_id,
+      start_date: start,
+      end_date: end,
+      note: note || null,
+      created_by: adminState.user?.id || null,
+    });
+  });
+
+  await bulkInsertBlocksAdmin(payloads);
+  showToast(payloads.length > 1 ? `Blocks created (${payloads.length} resources)` : 'Block created', 'success');
+}
 
 function getMonthValue(date = new Date()) {
   const y = date.getFullYear();
@@ -2165,13 +2496,95 @@ function renderCalendarsMonthGrid() {
     const border = busy ? 'rgba(107,114,128,0.60)' : 'rgba(34,197,94,0.55)';
     const outline = iso === todayIso ? '0 0 0 2px rgba(59,130,246,0.65) inset' : 'none';
     days.push(`
-      <div style="height: 44px; border-radius: 8px; background:${bg}; border: 1px solid ${border}; display:flex; align-items:center; justify-content:center; font-weight: 600; box-shadow: ${outline};">
-        ${day}
-      </div>
+      <button
+        type="button"
+        data-day="${escapeHtml(iso)}"
+        style="height: 44px; border-radius: 8px; background:${bg}; border: 1px solid ${border}; display:flex; align-items:center; justify-content:center; font-weight: 600; box-shadow: ${outline}; cursor:pointer;"
+        title="${escapeHtml(iso)}"
+      >${day}</button>
     `);
   }
 
   grid.innerHTML = headerHtml + blanks + days.join('');
+
+  grid.querySelectorAll('button[data-day]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const dayIso = btn.getAttribute('data-day');
+      if (!dayIso) return;
+      await toggleAdminCalendarsSingleDayBlock(dayIso);
+    });
+  });
+}
+
+async function toggleAdminCalendarsSingleDayBlock(dayIso) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const partnerId = String(document.getElementById('calendarsPartnerFilter')?.value || '').trim();
+  const type = String(document.getElementById('calendarsResourceTypeFilter')?.value || '').trim();
+  const resourceId = String(document.getElementById('calendarsResourceIdFilter')?.value || '').trim();
+  const day = String(dayIso || '').trim();
+
+  if (!partnerId) {
+    showToast('Select partner', 'error');
+    return;
+  }
+  if (!type) {
+    showToast('Please select a resource', 'error');
+    return;
+  }
+  if (!day) return;
+
+  try {
+    if (calendarsState.bulkMode) {
+      const targets = await getAdminCalendarsTargets();
+      if (!targets.length) {
+        showToast('No target resources selected', 'error');
+        return;
+      }
+      await toggleSingleDayBlocksForTargetsAdmin(partnerId, day, targets);
+      await loadAdminCalendarsData();
+      return;
+    }
+
+    if (!resourceId) {
+      showToast('Please select a resource', 'error');
+      return;
+    }
+
+    const existing = (calendarsState.monthBlocks || [])
+      .find(b => String(b.start_date) === String(day) && String(b.end_date) === String(day) && String(b.resource_id) === String(resourceId) && String(b.resource_type) === String(type));
+
+    if (existing?.id) {
+      const { error } = await client
+        .from('partner_availability_blocks')
+        .delete()
+        .eq('id', existing.id)
+        .eq('partner_id', partnerId);
+      if (error) throw error;
+      showToast('Day unblocked', 'success');
+    } else {
+      const payload = {
+        partner_id: partnerId,
+        resource_type: type,
+        resource_id: resourceId,
+        start_date: day,
+        end_date: day,
+        note: null,
+        created_by: adminState.user?.id || null,
+      };
+      const { error } = await client
+        .from('partner_availability_blocks')
+        .insert(payload);
+      if (error) throw error;
+      showToast('Day blocked', 'success');
+    }
+
+    await loadAdminCalendarsData();
+  } catch (error) {
+    console.error(error);
+    showToast(`Error: ${error.message || 'Update failed'}`, 'error');
+  }
 }
 
 async function loadAdminCalendarsData() {
@@ -9938,6 +10351,10 @@ function initEventListeners() {
       const select = document.getElementById('calendarsResourceIdFilter');
       if (select) select.value = '';
       renderAdminCalendarsResourceTypePanels();
+      if (calendarsState.bulkMode) {
+        updateAdminCalendarsSelectionSummary();
+        renderAdminCalendarsResourcePanels();
+      }
       loadCalendarsResourceOptions().then(() => loadCalendarsMonthData());
     });
   }
@@ -9945,10 +10362,45 @@ function initEventListeners() {
   const calendarsResourceIdFilter = document.getElementById('calendarsResourceIdFilter');
   if (calendarsResourceIdFilter) {
     calendarsResourceIdFilter.addEventListener('change', () => {
+      if (calendarsState.bulkMode) {
+        const type = String(document.getElementById('calendarsResourceTypeFilter')?.value || '').trim();
+        const resourceId = String(document.getElementById('calendarsResourceIdFilter')?.value || '').trim();
+        if (type && resourceId) {
+          ensureCalendarsSelectedSetForType(type).add(resourceId);
+        }
+        updateAdminCalendarsSelectionSummary();
+      }
       renderAdminCalendarsResourcePanels();
       syncAdminCalendarsCreateFields();
       loadCalendarsMonthData();
     });
+  }
+
+  const adminCalendarsBulkMode = document.getElementById('adminCalendarsBulkMode');
+  if (adminCalendarsBulkMode) {
+    adminCalendarsBulkMode.addEventListener('change', () => {
+      setAdminCalendarsBulkMode(Boolean(adminCalendarsBulkMode.checked));
+    });
+  }
+
+  const btnAdminCalendarsSelectAllType = document.getElementById('btnAdminCalendarsSelectAllType');
+  if (btnAdminCalendarsSelectAllType) {
+    btnAdminCalendarsSelectAllType.addEventListener('click', async () => {
+      if (!calendarsState.bulkMode) return;
+      await adminCalendarsSelectAllCurrentType();
+    });
+  }
+
+  const btnAdminCalendarsClearAll = document.getElementById('btnAdminCalendarsClearAll');
+  if (btnAdminCalendarsClearAll) {
+    btnAdminCalendarsClearAll.addEventListener('click', () => {
+      if (!calendarsState.bulkMode) return;
+      adminCalendarsClearAllSelections();
+    });
+  }
+
+  if (adminCalendarsBulkMode) {
+    setAdminCalendarsBulkMode(Boolean(adminCalendarsBulkMode.checked));
   }
 
   const calendarsMonthInput = document.getElementById('calendarsMonthInput');

@@ -36,7 +36,7 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260102_1"></script>
+  <script type="module" src="/admin/admin.js?v=20260112_1"></script>
 </head>
 <body data-admin-panel="true">
   
@@ -3094,6 +3094,20 @@
                 <div style="font-size: 12px; color: var(--admin-text-muted); margin-bottom: 6px;">Resource</div>
                 <div id="adminCalendarsResourcePanels" style="display:flex; gap: 8px; flex-wrap: wrap;"></div>
               </div>
+            </div>
+
+            <div class="admin-card" style="padding: 12px; margin: 0 0 16px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap: 10px; flex-wrap: wrap;">
+                <label style="display:flex; gap: 10px; align-items:center; font-weight: 700;">
+                  <input id="adminCalendarsBulkMode" type="checkbox" />
+                  <span>Bulk apply</span>
+                </label>
+              </div>
+              <div style="display:flex; gap: 8px; flex-wrap: wrap; align-items:center; margin-top: 10px;">
+                <button id="btnAdminCalendarsSelectAllType" class="btn-secondary" type="button">Select all (type)</button>
+                <button id="btnAdminCalendarsClearAll" class="btn-secondary" type="button">Clear all</button>
+              </div>
+              <div id="adminCalendarsSelectionSummary" style="margin-top: 8px; color: var(--admin-text-muted); font-size: 12px;"></div>
             </div>
 
             <form id="calendarsCreateBlockForm" style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; align-items: end; margin-bottom: 16px;">
