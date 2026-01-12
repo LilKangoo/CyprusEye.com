@@ -152,6 +152,22 @@
       </div>
 
       <div class="admin-header-right">
+        <div id="partnerReferralWidget" style="display:flex; align-items:center; gap: 10px;" hidden>
+          <div style="display:flex; flex-direction:column; align-items:flex-end; line-height:1.1;">
+            <span class="admin-user-role">Invited</span>
+            <span class="admin-user-name" id="partnerReferralCount">0</span>
+          </div>
+          <input
+            id="partnerReferralLink"
+            type="text"
+            readonly
+            value=""
+            aria-label="Referral link"
+            style="width: min(44vw, 360px); height: 36px; border-radius: 10px; border: 1px solid var(--admin-border); padding: 0 10px; background: var(--admin-bg); color: var(--admin-text);"
+          />
+          <button id="btnPartnerCopyReferralLink" class="btn-secondary" type="button">Copy link</button>
+        </div>
+
         <div class="admin-user-info" id="partnerUserInfo">
           <span class="admin-user-name" id="partnerUserName">Loading...</span>
           <span class="admin-user-role">Partner</span>
@@ -239,159 +255,257 @@
           </svg>
           <span>Availability</span>
         </button>
+
+        <button class="admin-nav-item" type="button" data-partner-nav="profile" id="partnerNavProfile">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+          <span>Profile</span>
+        </button>
       </nav>
     </aside>
 
     <main class="admin-main">
-    <h1 style="margin: 0 0 8px; font-size: 28px;">Partner Portal</h1>
-    <p class="muted" style="margin-top: 0;">Manage order confirmations and availability.</p>
+    <div id="partnerPortalView">
+      <h1 style="margin: 0 0 8px; font-size: 28px;">Partner Portal</h1>
+      <p class="muted" style="margin-top: 0;">Manage order confirmations and availability.</p>
 
-    <div id="partnerPortalWarning" class="partner-warning" hidden></div>
+      <div id="partnerPortalWarning" class="partner-warning" hidden></div>
 
-    <div id="partnerPortalLoginPrompt" class="partner-card" hidden>
-      <h2 style="margin: 0 0 8px;">Log in</h2>
-      <p class="muted" style="margin-top: 0;">You must be logged in to use the partner portal.</p>
-      <div class="btn-row">
-        <button id="btnPartnerOpenLogin" class="btn-sm primary" type="button">Open login</button>
+      <div id="partnerPortalLoginPrompt" class="partner-card" hidden>
+        <h2 style="margin: 0 0 8px;">Log in</h2>
+        <p class="muted" style="margin-top: 0;">You must be logged in to use the partner portal.</p>
+        <div class="btn-row">
+          <button id="btnPartnerOpenLogin" class="btn-sm primary" type="button">Open login</button>
+        </div>
+      </div>
+
+      <div id="partnerPortalNoPartner" class="partner-card" hidden>
+        <h2 style="margin: 0 0 8px;">No partner access</h2>
+        <p class="muted" style="margin-top: 0;">Your account is not assigned to any partner. Contact support.</p>
+      </div>
+
+      <div id="partnerPortalApp" class="partner-grid" hidden>
+        <section class="partner-card">
+          <div class="partner-toolbar">
+            <strong>Partner:</strong>
+            <select id="partnerSelect"></select>
+            <button id="btnPartnerRefresh" class="btn-sm" type="button">Refresh</button>
+          </div>
+
+          <div id="partnerSuspendedInfo" class="partner-warning" style="margin-top: 12px;" hidden></div>
+
+          <div class="partner-tabs">
+            <button id="partnerTabBtnFulfillments" class="partner-tab is-active" type="button" data-tab="fulfillments">Fulfillments</button>
+            <button id="partnerTabBtnCalendar" class="partner-tab" type="button" data-tab="calendar">Calendar</button>
+          </div>
+
+          <div id="partnerTabFulfillments" style="margin-top: 10px;">
+            <div class="partner-kpi" style="margin-top: 10px;">
+              <div class="kpi"><div class="label">Pending</div><div class="value" id="kpiPending">0</div></div>
+              <div class="kpi"><div class="label">Accepted</div><div class="value" id="kpiAccepted">0</div></div>
+              <div class="kpi"><div class="label">Rejected</div><div class="value" id="kpiRejected">0</div></div>
+            </div>
+
+            <div class="muted small" id="fulfillmentsHint" style="margin-top: 10px;"></div>
+
+            <div class="admin-table-container" aria-label="Fulfillments">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Order</th>
+                  <th>Status</th>
+                  <th>Dates</th>
+                  <th>Price</th>
+                  <th>Items</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="fulfillmentsTableBody">
+                <tr><td colspan="6" class="muted" style="padding: 16px 8px;">Loading…</td></tr>
+              </tbody>
+            </table>
+            </div>
+          </div>
+
+          <div id="partnerTabCalendar" style="margin-top: 10px;" hidden>
+            <h3 style="margin: 10px 0 0;">Availability blocks</h3>
+            <p class="muted" style="margin-top: 6px;">Select a resource and mark days as unavailable.</p>
+
+            <div class="partner-calendar-filters">
+              <div>
+                <label for="blockResourceType">Resource type</label>
+                <div id="partnerResourceTypePanels" style="display:flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 2px;"></div>
+                <select id="blockResourceType" required>
+                  <option value="shop">shop</option>
+                  <option value="cars">cars</option>
+                  <option value="trips">trips</option>
+                  <option value="hotels">hotels</option>
+                </select>
+              </div>
+              <div>
+                <label for="blockResourceId">Resource</label>
+                <div id="partnerResourcePanels" class="partner-resource-panels"></div>
+                <select id="blockResourceId" required>
+                  <option value="">Select resource</option>
+                </select>
+              </div>
+              <div>
+                <label for="partnerCalendarMonthInput">Month</label>
+                <div class="btn-row" style="justify-content:flex-start; gap: 8px;">
+                  <button id="partnerCalendarPrevMonth" class="btn-sm" type="button">◀</button>
+                  <input id="partnerCalendarMonthInput" type="month" />
+                  <button id="partnerCalendarNextMonth" class="btn-sm" type="button">▶</button>
+                </div>
+              </div>
+            </div>
+
+            <div class="muted small" style="margin: 0 0 8px;">Legend: <span style="display:inline-block; width: 10px; height: 10px; border-radius:3px; background: rgba(34,197,94,0.25); border: 1px solid rgba(34,197,94,0.55);"></span> available, <span style="display:inline-block; width: 10px; height: 10px; border-radius:3px; background: rgba(107,114,128,0.35); border: 1px solid rgba(107,114,128,0.60);"></span> busy</div>
+            <div id="partnerCalendarMonthGrid" style="display:grid; grid-template-columns: repeat(7, 1fr); gap: 8px;"></div>
+
+            <div style="height: 12px;"></div>
+
+            <form id="partnerBlockForm" class="partner-form">
+              <div style="grid-column: 1 / -1;">
+                <div class="muted small" style="margin-bottom: 6px;">Optional: add an unavailability block as a date range.</div>
+              </div>
+              <div>
+                <label for="blockStart">Start</label>
+                <input id="blockStart" type="date" required />
+              </div>
+              <div>
+                <label for="blockEnd">End</label>
+                <input id="blockEnd" type="date" required />
+              </div>
+              <div style="grid-column: 1 / -1;">
+                <label for="blockNote">Note</label>
+                <textarea id="blockNote" placeholder="Optional"></textarea>
+              </div>
+              <div style="grid-column: 1 / -1;">
+                <button id="btnCreateBlock" class="btn-sm primary" type="submit">Add block</button>
+              </div>
+            </form>
+
+            <div class="admin-table-container" aria-label="Availability blocks">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Resource</th>
+                  <th>Dates</th>
+                  <th>Note</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="blocksTableBody">
+                <tr><td colspan="4" class="muted" style="padding: 16px 8px;">Loading…</td></tr>
+              </tbody>
+            </table>
+            </div>
+          </div>
+        </section>
+
+        <aside class="partner-card">
+          <h2 style="margin: 0 0 8px;">Status</h2>
+          <div id="partnerPortalStatus" class="muted">Loading…</div>
+          <div style="height: 12px;"></div>
+
+          <h3 style="margin: 0 0 8px;">Tips</h3>
+          <div class="muted small" style="display: grid; gap: 8px;">
+            <div>Accepting reveals the customer's contact details (email/phone/address) for this fulfillment.</div>
+            <div>After rejection, an admin is notified and any refund decision is handled by the administration.</div>
+            <div>If the SLA passes without acceptance, admins may receive automatic reminders.</div>
+          </div>
+        </aside>
       </div>
     </div>
 
-    <div id="partnerPortalNoPartner" class="partner-card" hidden>
-      <h2 style="margin: 0 0 8px;">No partner access</h2>
-      <p class="muted" style="margin-top: 0;">Your account is not assigned to any partner. Contact support.</p>
-    </div>
+    <div id="partnerProfileView" hidden>
+      <h1 style="margin: 0 0 8px; font-size: 28px;">Profile settings</h1>
+      <p class="muted" style="margin-top: 0;">Manage your account details.</p>
 
-    <div id="partnerPortalApp" class="partner-grid" hidden>
-      <section class="partner-card">
-        <div class="partner-toolbar">
-          <strong>Partner:</strong>
-          <select id="partnerSelect"></select>
-          <button id="btnPartnerRefresh" class="btn-sm" type="button">Refresh</button>
-        </div>
+      <div id="partnerProfileMessage" class="muted" style="margin: 10px 0 0;"></div>
 
-        <div id="partnerSuspendedInfo" class="partner-warning" style="margin-top: 12px;" hidden></div>
+      <div style="height: 14px;"></div>
 
-        <div class="partner-tabs">
-          <button id="partnerTabBtnFulfillments" class="partner-tab is-active" type="button" data-tab="fulfillments">Fulfillments</button>
-          <button id="partnerTabBtnCalendar" class="partner-tab" type="button" data-tab="calendar">Calendar</button>
-        </div>
+      <section class="partner-card" style="max-width: 860px;">
+        <h2 style="margin: 0 0 12px;">Account</h2>
 
-        <div id="partnerTabFulfillments" style="margin-top: 10px;">
-          <div class="partner-kpi" style="margin-top: 10px;">
-            <div class="kpi"><div class="label">Pending</div><div class="value" id="kpiPending">0</div></div>
-            <div class="kpi"><div class="label">Accepted</div><div class="value" id="kpiAccepted">0</div></div>
-            <div class="kpi"><div class="label">Rejected</div><div class="value" id="kpiRejected">0</div></div>
+        <div style="display:grid; gap: 12px;">
+          <div>
+            <div class="muted small">Email</div>
+            <div id="partnerProfileEmailDisplay" style="font-weight: 700;">—</div>
           </div>
-
-          <div class="muted small" id="fulfillmentsHint" style="margin-top: 10px;"></div>
-
-          <div class="admin-table-container" aria-label="Fulfillments">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th>Order</th>
-                <th>Status</th>
-                <th>Dates</th>
-                <th>Price</th>
-                <th>Items</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody id="fulfillmentsTableBody">
-              <tr><td colspan="6" class="muted" style="padding: 16px 8px;">Loading…</td></tr>
-            </tbody>
-          </table>
+          <div>
+            <div class="muted small">Username</div>
+            <div id="partnerProfileUsernameDisplay" style="font-weight: 700;">—</div>
+          </div>
+          <div>
+            <div class="muted small">Name</div>
+            <div id="partnerProfileNameDisplay" style="font-weight: 700;">—</div>
           </div>
         </div>
 
-        <div id="partnerTabCalendar" style="margin-top: 10px;" hidden>
-          <h3 style="margin: 10px 0 0;">Availability blocks</h3>
-          <p class="muted" style="margin-top: 6px;">Select a resource and mark days as unavailable.</p>
+        <div style="height: 18px;"></div>
 
-          <div class="partner-calendar-filters">
-            <div>
-              <label for="blockResourceType">Resource type</label>
-              <div id="partnerResourceTypePanels" style="display:flex; gap: 8px; flex-wrap: wrap; margin: 6px 0 2px;"></div>
-              <select id="blockResourceType" required>
-                <option value="shop">shop</option>
-                <option value="cars">cars</option>
-                <option value="trips">trips</option>
-                <option value="hotels">hotels</option>
-              </select>
-            </div>
-            <div>
-              <label for="blockResourceId">Resource</label>
-              <div id="partnerResourcePanels" class="partner-resource-panels"></div>
-              <select id="blockResourceId" required>
-                <option value="">Select resource</option>
-              </select>
-            </div>
-            <div>
-              <label for="partnerCalendarMonthInput">Month</label>
-              <div class="btn-row" style="justify-content:flex-start; gap: 8px;">
-                <button id="partnerCalendarPrevMonth" class="btn-sm" type="button">◀</button>
-                <input id="partnerCalendarMonthInput" type="month" />
-                <button id="partnerCalendarNextMonth" class="btn-sm" type="button">▶</button>
-              </div>
-            </div>
+        <form id="partnerProfileNameForm" class="partner-form" style="grid-template-columns: 1fr 1fr;">
+          <div style="grid-column: 1 / -1; font-weight: 800;">Update name</div>
+          <div style="grid-column: 1 / -1;">
+            <label for="partnerProfileNameInput">Name</label>
+            <input id="partnerProfileNameInput" type="text" autocomplete="name" />
           </div>
-
-          <div class="muted small" style="margin: 0 0 8px;">Legend: <span style="display:inline-block; width: 10px; height: 10px; border-radius:3px; background: rgba(34,197,94,0.25); border: 1px solid rgba(34,197,94,0.55);"></span> available, <span style="display:inline-block; width: 10px; height: 10px; border-radius:3px; background: rgba(107,114,128,0.35); border: 1px solid rgba(107,114,128,0.60);"></span> busy</div>
-          <div id="partnerCalendarMonthGrid" style="display:grid; grid-template-columns: repeat(7, 1fr); gap: 8px;"></div>
-
-          <div style="height: 12px;"></div>
-
-          <form id="partnerBlockForm" class="partner-form">
-            <div style="grid-column: 1 / -1;">
-              <div class="muted small" style="margin-bottom: 6px;">Optional: add an unavailability block as a date range.</div>
-            </div>
-            <div>
-              <label for="blockStart">Start</label>
-              <input id="blockStart" type="date" required />
-            </div>
-            <div>
-              <label for="blockEnd">End</label>
-              <input id="blockEnd" type="date" required />
-            </div>
-            <div style="grid-column: 1 / -1;">
-              <label for="blockNote">Note</label>
-              <textarea id="blockNote" placeholder="Optional"></textarea>
-            </div>
-            <div style="grid-column: 1 / -1;">
-              <button id="btnCreateBlock" class="btn-sm primary" type="submit">Add block</button>
-            </div>
-          </form>
-
-          <div class="admin-table-container" aria-label="Availability blocks">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th>Resource</th>
-                <th>Dates</th>
-                <th>Note</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="blocksTableBody">
-              <tr><td colspan="4" class="muted" style="padding: 16px 8px;">Loading…</td></tr>
-            </tbody>
-          </table>
+          <div style="grid-column: 1 / -1;">
+            <button class="btn-sm primary" type="submit">Save name</button>
           </div>
-        </div>
-      </section>
+        </form>
 
-      <aside class="partner-card">
-        <h2 style="margin: 0 0 8px;">Status</h2>
-        <div id="partnerPortalStatus" class="muted">Loading…</div>
         <div style="height: 12px;"></div>
 
-        <h3 style="margin: 0 0 8px;">Tips</h3>
-        <div class="muted small" style="display: grid; gap: 8px;">
-          <div>Accepting reveals the customer's contact details (email/phone/address) for this fulfillment.</div>
-          <div>After rejection, an admin is notified and any refund decision is handled by the administration.</div>
-          <div>If the SLA passes without acceptance, admins may receive automatic reminders.</div>
-        </div>
-      </aside>
+        <form id="partnerProfileUsernameForm" class="partner-form" style="grid-template-columns: 1fr 1fr;">
+          <div style="grid-column: 1 / -1; font-weight: 800;">Update username</div>
+          <div style="grid-column: 1 / -1;">
+            <label for="partnerProfileUsernameInput">Username</label>
+            <input id="partnerProfileUsernameInput" type="text" autocomplete="username" />
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <button class="btn-sm primary" type="submit">Save username</button>
+          </div>
+        </form>
+
+        <div style="height: 12px;"></div>
+
+        <form id="partnerProfileEmailForm" class="partner-form" style="grid-template-columns: 1fr 1fr;">
+          <div style="grid-column: 1 / -1; font-weight: 800;">Update email</div>
+          <div style="grid-column: 1 / -1;">
+            <label for="partnerProfileEmailInput">Email</label>
+            <input id="partnerProfileEmailInput" type="email" autocomplete="email" />
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <button class="btn-sm primary" type="submit">Save email</button>
+          </div>
+        </form>
+
+        <div style="height: 12px;"></div>
+
+        <form id="partnerProfilePasswordForm" class="partner-form" style="grid-template-columns: 1fr 1fr;">
+          <div style="grid-column: 1 / -1; font-weight: 800;">Change password</div>
+          <div style="grid-column: 1 / -1;">
+            <label for="partnerProfilePasswordCurrent">Current password</label>
+            <input id="partnerProfilePasswordCurrent" type="password" autocomplete="current-password" />
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <label for="partnerProfilePasswordNew">New password</label>
+            <input id="partnerProfilePasswordNew" type="password" autocomplete="new-password" />
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <label for="partnerProfilePasswordConfirm">Confirm new password</label>
+            <input id="partnerProfilePasswordConfirm" type="password" autocomplete="new-password" />
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <button class="btn-sm primary" type="submit">Update password</button>
+          </div>
+        </form>
+      </section>
     </div>
     </main>
   </div>
@@ -400,7 +514,7 @@
 
   <script src="js/i18n.js" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
-  <script src="js/partners.js?v=13" defer></script>
+  <script src="js/partners.js?v=14" defer></script>
 
   <div
     id="auth-modal"

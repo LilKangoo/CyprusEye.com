@@ -3,6 +3,7 @@
     sb: null,
     session: null,
     user: null,
+    profile: null,
     memberships: [],
     partnersById: {},
     selectedPartnerId: null,
@@ -65,9 +66,35 @@
     partnerNavTrips: null,
     partnerNavHotels: null,
     partnerNavCalendar: null,
+    partnerNavProfile: null,
     partnerUserName: null,
     partnerBreadcrumb: null,
+
+    partnerPortalView: null,
+    partnerProfileView: null,
+
+    partnerReferralWidget: null,
+    partnerReferralCount: null,
+    partnerReferralLink: null,
+    btnPartnerCopyReferralLink: null,
+
+    partnerProfileMessage: null,
+    partnerProfileEmailDisplay: null,
+    partnerProfileUsernameDisplay: null,
+    partnerProfileNameDisplay: null,
+    partnerProfileNameForm: null,
+    partnerProfileNameInput: null,
+    partnerProfileUsernameForm: null,
+    partnerProfileUsernameInput: null,
+    partnerProfileEmailForm: null,
+    partnerProfileEmailInput: null,
+    partnerProfilePasswordForm: null,
+    partnerProfilePasswordCurrent: null,
+    partnerProfilePasswordNew: null,
+    partnerProfilePasswordConfirm: null,
   };
+
+  const USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])$/i;
 
   function $(id) {
     return document.getElementById(id);
@@ -94,6 +121,118 @@
   function setHidden(el, hidden) {
     if (!el) return;
     el.hidden = !!hidden;
+  }
+
+  function isUuid(value) {
+    const v = String(value || '').trim();
+    if (!v) return false;
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+  }
+
+  function buildReferralLink(username) {
+    const u = String(username || '').trim();
+    if (!u) return '';
+    const baseUrl = (typeof window !== 'undefined' && window.location && window.location.origin)
+      ? window.location.origin
+      : 'https://cypruseye.com';
+    return `${baseUrl}/?ref=${encodeURIComponent(u)}`;
+  }
+
+  function setProfileMessage(text) {
+    if (!els.partnerProfileMessage) return;
+    els.partnerProfileMessage.textContent = text || '';
+  }
+
+  function setMainView(view) {
+    const isProfile = view === 'profile';
+    setHidden(els.partnerPortalView, isProfile);
+    setHidden(els.partnerProfileView, !isProfile);
+  }
+
+  function setSidebarActive(targetBtn) {
+    const btns = [
+      els.partnerNavAll,
+      els.partnerNavShop,
+      els.partnerNavCars,
+      els.partnerNavTrips,
+      els.partnerNavHotels,
+      els.partnerNavCalendar,
+      els.partnerNavProfile,
+    ].filter(Boolean);
+    btns.forEach((b) => b.classList.toggle('active', b === targetBtn));
+  }
+
+  async function loadMyProfile() {
+    if (!state.sb || !state.user?.id) return null;
+
+    try {
+      const { data, error } = await state.sb
+        .from('profiles')
+        .select('id,email,name,username')
+        .eq('id', state.user.id)
+        .maybeSingle();
+      if (error) throw error;
+      state.profile = data || null;
+      return state.profile;
+    } catch (_e) {
+      state.profile = null;
+      return null;
+    }
+  }
+
+  function renderProfileSettings() {
+    const email = state.user?.email || state.profile?.email || '—';
+    const username = state.profile?.username || '—';
+    const name = state.profile?.name || '—';
+
+    setText(els.partnerProfileEmailDisplay, email);
+    setText(els.partnerProfileUsernameDisplay, username);
+    setText(els.partnerProfileNameDisplay, name);
+
+    if (els.partnerProfileNameInput) {
+      els.partnerProfileNameInput.value = state.profile?.name ? String(state.profile.name) : '';
+    }
+    if (els.partnerProfileUsernameInput) {
+      els.partnerProfileUsernameInput.value = state.profile?.username ? String(state.profile.username) : '';
+    }
+    if (els.partnerProfileEmailInput) {
+      els.partnerProfileEmailInput.value = state.user?.email ? String(state.user.email) : '';
+    }
+  }
+
+  async function refreshReferralWidget() {
+    if (!state.sb || !state.user?.id) {
+      setHidden(els.partnerReferralWidget, true);
+      return;
+    }
+
+    const ensureVisible = () => {
+      if (els.partnerReferralWidget) els.partnerReferralWidget.hidden = false;
+    };
+
+    ensureVisible();
+
+    try {
+      const { count, error } = await state.sb
+        .from('referrals')
+        .select('id', { count: 'exact', head: true })
+        .eq('referrer_id', state.user.id)
+        .limit(1);
+      if (error) throw error;
+      setText(els.partnerReferralCount, String(count || 0));
+    } catch (_e) {
+      setText(els.partnerReferralCount, '0');
+    }
+
+    const username = String(state.profile?.username || '').trim();
+    const canUse = username && !isUuid(username);
+    const link = canUse ? buildReferralLink(username) : 'Set your username to enable referral link';
+    if (els.partnerReferralLink) {
+      els.partnerReferralLink.value = link;
+    }
+    if (els.btnPartnerCopyReferralLink) {
+      els.btnPartnerCopyReferralLink.disabled = !canUse;
+    }
   }
 
   function openSidebar() {
@@ -187,21 +326,17 @@
 
     updateSidebarCategoryVisibility();
 
-    const buttons = [
-      els.partnerNavAll,
-      els.partnerNavShop,
-      els.partnerNavCars,
-      els.partnerNavTrips,
-      els.partnerNavHotels,
-      els.partnerNavCalendar,
-    ].filter(Boolean);
-    buttons.forEach((btn) => {
-      const btnCat = btn.getAttribute('data-partner-category') || '';
-      const isActive = (btn.getAttribute('data-partner-nav') === 'calendar')
-        ? false
-        : (String(btnCat || '') === String(next || ''));
-      btn.classList.toggle('active', isActive);
-    });
+    setMainView('portal');
+
+    const btnFor = (cat) => {
+      if (cat === 'all') return els.partnerNavAll;
+      if (cat === 'shop') return els.partnerNavShop;
+      if (cat === 'cars') return els.partnerNavCars;
+      if (cat === 'trips') return els.partnerNavTrips;
+      if (cat === 'hotels') return els.partnerNavHotels;
+      return els.partnerNavAll;
+    };
+    setSidebarActive(btnFor(next));
 
     if (els.partnerBreadcrumb) {
       const crumb = els.partnerBreadcrumb.querySelector('span');
@@ -219,15 +354,8 @@
   }
 
   function navToCalendar() {
-    const buttons = [
-      els.partnerNavAll,
-      els.partnerNavShop,
-      els.partnerNavCars,
-      els.partnerNavTrips,
-      els.partnerNavHotels,
-      els.partnerNavCalendar,
-    ].filter(Boolean);
-    buttons.forEach((btn) => btn.classList.toggle('active', btn === els.partnerNavCalendar));
+    setMainView('portal');
+    setSidebarActive(els.partnerNavCalendar);
 
     if (els.partnerBreadcrumb) {
       const crumb = els.partnerBreadcrumb.querySelector('span');
@@ -235,6 +363,30 @@
     }
 
     setActiveTab('calendar');
+    closeSidebar();
+  }
+
+  async function navToProfile() {
+    if (!state.session || !state.user) {
+      showToast('Please log in to manage your profile.', 'error');
+      openAuthModal('login');
+      return;
+    }
+
+    setMainView('profile');
+    setSidebarActive(els.partnerNavProfile);
+
+    if (els.partnerBreadcrumb) {
+      const crumb = els.partnerBreadcrumb.querySelector('span');
+      if (crumb) crumb.textContent = 'Profile';
+    }
+
+    setProfileMessage('');
+
+    await loadMyProfile();
+    renderProfileSettings();
+    await refreshReferralWidget();
+
     closeSidebar();
   }
 
@@ -1983,10 +2135,7 @@
     showWarning('');
 
     if (!state.sb) {
-      showWarning('Supabase client not available.');
-      setHidden(els.loginPrompt, true);
-      setHidden(els.app, true);
-      setHidden(els.noPartner, true);
+      showWarning('Supabase not available.');
       return;
     }
 
@@ -1995,18 +2144,25 @@
     } catch (error) {
       console.error(error);
       showWarning('Session error.');
-      setHidden(els.loginPrompt, false);
-      setHidden(els.app, true);
-      setHidden(els.noPartner, true);
-      return;
-    }
 
-    if (!state.session || !state.user) {
+      setMainView('portal');
       setHidden(els.loginPrompt, false);
       setHidden(els.app, true);
       setHidden(els.noPartner, true);
       setText(els.status, 'Not logged in.');
       if (els.partnerUserName) els.partnerUserName.textContent = 'Not logged in';
+      setHidden(els.partnerReferralWidget, true);
+      return;
+    }
+
+    if (!state.session || !state.user) {
+      setMainView('portal');
+      setHidden(els.loginPrompt, false);
+      setHidden(els.app, true);
+      setHidden(els.noPartner, true);
+      setText(els.status, 'Not logged in.');
+      if (els.partnerUserName) els.partnerUserName.textContent = 'Not logged in';
+      setHidden(els.partnerReferralWidget, true);
       return;
     }
 
@@ -2014,6 +2170,10 @@
       const name = state.user?.email || state.user?.id || 'Partner';
       els.partnerUserName.textContent = name;
     }
+
+    await loadMyProfile();
+    renderProfileSettings();
+    await refreshReferralWidget();
 
     setHidden(els.loginPrompt, true);
 
@@ -2085,6 +2245,153 @@
     els.partnerNavTrips?.addEventListener('click', () => navToCategory('trips'));
     els.partnerNavHotels?.addEventListener('click', () => navToCategory('hotels'));
     els.partnerNavCalendar?.addEventListener('click', () => navToCalendar());
+    els.partnerNavProfile?.addEventListener('click', () => navToProfile());
+
+    els.btnPartnerCopyReferralLink?.addEventListener('click', async () => {
+      const link = String(els.partnerReferralLink?.value || '').trim();
+      if (!link || link.toLowerCase().includes('set your username')) {
+        showToast('Set your username to enable referral link.', 'error');
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(link);
+        showToast('Referral link copied', 'success');
+      } catch (error) {
+        console.error(error);
+        showToast('Failed to copy referral link', 'error');
+      }
+    });
+
+    els.partnerProfileNameForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!state.sb || !state.user?.id) return;
+      const next = String(els.partnerProfileNameInput?.value || '').trim();
+      try {
+        const { error } = await state.sb.from('profiles').update({ name: next || null }).eq('id', state.user.id);
+        if (error) throw error;
+        try {
+          await state.sb.auth.updateUser({ data: { name: next || null } });
+        } catch (_e) {
+        }
+        await loadMyProfile();
+        renderProfileSettings();
+        showToast('Name updated', 'success');
+      } catch (error) {
+        console.error(error);
+        showToast(`Error: ${error.message || 'Update failed'}`, 'error');
+      }
+    });
+
+    els.partnerProfileUsernameForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!state.sb || !state.user?.id) return;
+      const next = String(els.partnerProfileUsernameInput?.value || '').trim();
+      if (!next || !USERNAME_PATTERN.test(next)) {
+        showToast('Invalid username. Use 3-30 chars: letters, digits, dot, underscore or dash.', 'error');
+        return;
+      }
+
+      try {
+        const payloads = [
+          { username: next, username_normalized: next.toLowerCase() },
+          { username: next },
+        ];
+
+        let updated = false;
+        for (const payload of payloads) {
+          const { error } = await state.sb.from('profiles').update(payload).eq('id', state.user.id);
+          if (!error) {
+            updated = true;
+            break;
+          }
+          const msg = String(error.message || '').toLowerCase();
+          const det = String(error.details || '').toLowerCase();
+          const hint = `${msg} ${det}`;
+          if ('username_normalized' in payload && hint.includes('username_normalized')) {
+            continue;
+          }
+          throw error;
+        }
+
+        if (!updated) {
+          throw new Error('Update failed');
+        }
+
+        try {
+          await state.sb.auth.updateUser({ data: { username: next } });
+        } catch (_e) {
+        }
+
+        await loadMyProfile();
+        renderProfileSettings();
+        await refreshReferralWidget();
+        showToast('Username updated', 'success');
+      } catch (error) {
+        console.error(error);
+        showToast(`Error: ${error.message || 'Update failed'}`, 'error');
+      }
+    });
+
+    els.partnerProfileEmailForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!state.sb) return;
+      const next = String(els.partnerProfileEmailInput?.value || '').trim();
+      if (!next || !next.includes('@')) {
+        showToast('Please enter a valid email address', 'error');
+        return;
+      }
+      try {
+        const { error } = await state.sb.auth.updateUser({ email: next });
+        if (error) throw error;
+        showToast('Email update requested. Check your inbox.', 'success');
+      } catch (error) {
+        console.error(error);
+        showToast(`Error: ${error.message || 'Update failed'}`, 'error');
+      }
+    });
+
+    els.partnerProfilePasswordForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!state.sb) return;
+      const currentPassword = String(els.partnerProfilePasswordCurrent?.value || '');
+      const newPassword = String(els.partnerProfilePasswordNew?.value || '');
+      const confirmPassword = String(els.partnerProfilePasswordConfirm?.value || '');
+
+      if (!currentPassword || !newPassword || !confirmPassword) {
+        showToast('Please fill in all password fields', 'error');
+        return;
+      }
+      if (newPassword.length < 8) {
+        showToast('New password must be at least 8 characters', 'error');
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        showToast('Passwords do not match', 'error');
+        return;
+      }
+
+      try {
+        const email = state.user?.email;
+        if (!email) {
+          throw new Error('Missing account email');
+        }
+
+        const { error: reauthError } = await state.sb.auth.signInWithPassword({
+          email,
+          password: currentPassword,
+        });
+        if (reauthError) throw reauthError;
+
+        const { error } = await state.sb.auth.updateUser({ password: newPassword });
+        if (error) throw error;
+
+        if (els.partnerProfilePasswordForm) els.partnerProfilePasswordForm.reset();
+        showToast('Password updated', 'success');
+      } catch (error) {
+        console.error(error);
+        showToast(`Error: ${error.message || 'Update failed'}`, 'error');
+      }
+    });
 
     if (els.blockForm) {
       els.blockForm.addEventListener('submit', async (e) => {
@@ -2217,8 +2524,32 @@
     els.partnerNavTrips = $('partnerNavTrips');
     els.partnerNavHotels = $('partnerNavHotels');
     els.partnerNavCalendar = $('partnerNavCalendar');
+    els.partnerNavProfile = $('partnerNavProfile');
     els.partnerUserName = $('partnerUserName');
     els.partnerBreadcrumb = $('partnerBreadcrumb');
+
+    els.partnerPortalView = $('partnerPortalView');
+    els.partnerProfileView = $('partnerProfileView');
+
+    els.partnerReferralWidget = $('partnerReferralWidget');
+    els.partnerReferralCount = $('partnerReferralCount');
+    els.partnerReferralLink = $('partnerReferralLink');
+    els.btnPartnerCopyReferralLink = $('btnPartnerCopyReferralLink');
+
+    els.partnerProfileMessage = $('partnerProfileMessage');
+    els.partnerProfileEmailDisplay = $('partnerProfileEmailDisplay');
+    els.partnerProfileUsernameDisplay = $('partnerProfileUsernameDisplay');
+    els.partnerProfileNameDisplay = $('partnerProfileNameDisplay');
+    els.partnerProfileNameForm = $('partnerProfileNameForm');
+    els.partnerProfileNameInput = $('partnerProfileNameInput');
+    els.partnerProfileUsernameForm = $('partnerProfileUsernameForm');
+    els.partnerProfileUsernameInput = $('partnerProfileUsernameInput');
+    els.partnerProfileEmailForm = $('partnerProfileEmailForm');
+    els.partnerProfileEmailInput = $('partnerProfileEmailInput');
+    els.partnerProfilePasswordForm = $('partnerProfilePasswordForm');
+    els.partnerProfilePasswordCurrent = $('partnerProfilePasswordCurrent');
+    els.partnerProfilePasswordNew = $('partnerProfilePasswordNew');
+    els.partnerProfilePasswordConfirm = $('partnerProfilePasswordConfirm');
   }
 
   async function init() {
