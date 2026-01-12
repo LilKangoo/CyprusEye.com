@@ -47,8 +47,6 @@
   <link rel="stylesheet" href="assets/css/mobile.css" />
   <link rel="stylesheet" href="assets/css/mobile-nav.css" />
   <link rel="stylesheet" href="assets/css/rtl.css" />
-  <link rel="stylesheet" href="assets/css/language-switcher.css" />
-  <link rel="stylesheet" href="assets/css/language-selector.css" />
   <link rel="stylesheet" href="css/toast.css" />
   <link rel="stylesheet" href="css/modal-ios-fix.css" />
 
@@ -60,6 +58,20 @@
   <script type="module" src="js/authUi.js"></script>
 
   <style>
+    .partners-page main.admin-main {
+      background: transparent;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      backdrop-filter: none;
+      max-width: none;
+      gap: 0;
+    }
+
+    .partners-page main.admin-main::before {
+      content: none;
+    }
+
     .partner-card { background: var(--admin-bg-light); border: 1px solid var(--admin-border); border-radius: var(--admin-radius); padding: 18px; box-shadow: var(--admin-shadow); }
     .partner-grid { display: grid; grid-template-columns: 1fr; gap: 16px; }
     @media (min-width: 1024px) { .partner-grid { grid-template-columns: 1.2fr 0.8fr; } }
@@ -106,7 +118,7 @@
   </style>
 </head>
 
- <body data-admin-panel="true" data-navigation="multi-page" class="partners-page">
+ <body data-admin-panel="true" data-navigation="multi-page" data-force-language="en" data-disable-language-switcher="true" class="partners-page">
   <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
 
   <header class="admin-header">
@@ -152,11 +164,11 @@
             data-open-auth
             data-auth="anon-only"
             data-auth-target="login"
-            aria-label="Zaloguj do konta"
+            aria-label="Log in"
           >
-            Zaloguj
+            Log in
           </button>
-          <button class="btn-admin-logout" data-auth="logout" aria-label="Wyloguj z konta" hidden>
+          <button class="btn-admin-logout" data-auth="logout" aria-label="Log out" hidden>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
               <polyline points="16 17 21 12 16 7"/>
@@ -165,7 +177,7 @@
           </button>
         </div>
 
-        <div data-auth="spinner" aria-live="polite" hidden>Łączenie...</div>
+        <div data-auth="spinner" aria-live="polite" hidden>Connecting...</div>
       </div>
     </div>
   </header>
@@ -232,21 +244,21 @@
 
     <main class="admin-main">
     <h1 style="margin: 0 0 8px; font-size: 28px;">Partner Portal</h1>
-    <p class="muted" style="margin-top: 0;">Zarządzaj potwierdzeniami zamówień i kalendarzem dostępności.</p>
+    <p class="muted" style="margin-top: 0;">Manage order confirmations and availability.</p>
 
     <div id="partnerPortalWarning" class="partner-warning" hidden></div>
 
     <div id="partnerPortalLoginPrompt" class="partner-card" hidden>
-      <h2 style="margin: 0 0 8px;">Zaloguj się</h2>
-      <p class="muted" style="margin-top: 0;">Aby korzystać z panelu partnera musisz być zalogowany.</p>
+      <h2 style="margin: 0 0 8px;">Log in</h2>
+      <p class="muted" style="margin-top: 0;">You must be logged in to use the partner portal.</p>
       <div class="btn-row">
-        <button id="btnPartnerOpenLogin" class="btn-sm primary" type="button">Otwórz logowanie</button>
+        <button id="btnPartnerOpenLogin" class="btn-sm primary" type="button">Open login</button>
       </div>
     </div>
 
     <div id="partnerPortalNoPartner" class="partner-card" hidden>
-      <h2 style="margin: 0 0 8px;">Brak dostępu partnera</h2>
-      <p class="muted" style="margin-top: 0;">Twoje konto nie jest przypisane do żadnego partnera. Skontaktuj się z administracją.</p>
+      <h2 style="margin: 0 0 8px;">No partner access</h2>
+      <p class="muted" style="margin-top: 0;">Your account is not assigned to any partner. Contact support.</p>
     </div>
 
     <div id="partnerPortalApp" class="partner-grid" hidden>
@@ -254,7 +266,7 @@
         <div class="partner-toolbar">
           <strong>Partner:</strong>
           <select id="partnerSelect"></select>
-          <button id="btnPartnerRefresh" class="btn-sm" type="button">Odśwież</button>
+          <button id="btnPartnerRefresh" class="btn-sm" type="button">Refresh</button>
         </div>
 
         <div id="partnerSuspendedInfo" class="partner-warning" style="margin-top: 12px;" hidden></div>
@@ -294,7 +306,7 @@
 
         <div id="partnerTabCalendar" style="margin-top: 10px;" hidden>
           <h3 style="margin: 10px 0 0;">Availability blocks</h3>
-          <p class="muted" style="margin-top: 6px;">Wybierz zasób i oznacz dni jako niedostępne (domyślnie wszystkie dni są dostępne).</p>
+          <p class="muted" style="margin-top: 6px;">Select a resource and mark days as unavailable.</p>
 
           <div class="partner-calendar-filters">
             <div>
@@ -324,14 +336,14 @@
             </div>
           </div>
 
-          <div class="muted small" style="margin: 0 0 8px;">Legenda: <span style="display:inline-block; width: 10px; height: 10px; border-radius:3px; background: rgba(34,197,94,0.25); border: 1px solid rgba(34,197,94,0.55);"></span> available, <span style="display:inline-block; width: 10px; height: 10px; border-radius:3px; background: rgba(107,114,128,0.35); border: 1px solid rgba(107,114,128,0.60);"></span> busy</div>
+          <div class="muted small" style="margin: 0 0 8px;">Legend: <span style="display:inline-block; width: 10px; height: 10px; border-radius:3px; background: rgba(34,197,94,0.25); border: 1px solid rgba(34,197,94,0.55);"></span> available, <span style="display:inline-block; width: 10px; height: 10px; border-radius:3px; background: rgba(107,114,128,0.35); border: 1px solid rgba(107,114,128,0.60);"></span> busy</div>
           <div id="partnerCalendarMonthGrid" style="display:grid; grid-template-columns: repeat(7, 1fr); gap: 8px;"></div>
 
           <div style="height: 12px;"></div>
 
           <form id="partnerBlockForm" class="partner-form">
             <div style="grid-column: 1 / -1;">
-              <div class="muted small" style="margin-bottom: 6px;">Opcjonalnie: dodaj blokadę jako zakres dat.</div>
+              <div class="muted small" style="margin-bottom: 6px;">Optional: add an unavailability block as a date range.</div>
             </div>
             <div>
               <label for="blockStart">Start</label>
@@ -375,9 +387,9 @@
 
         <h3 style="margin: 0 0 8px;">Tips</h3>
         <div class="muted small" style="display: grid; gap: 8px;">
-          <div>Akceptacja ujawnia dane kontaktowe klienta (email/telefon/adres) dla tego fulfillmentu.</div>
-          <div>Po odrzuceniu administrator dostaje alert i decyzja o zwrocie jest po stronie administracji.</div>
-          <div>Jeśli upłynie SLA i nie zaakceptujesz, admin dostanie automatyczne przypomnienie.</div>
+          <div>Accepting reveals the customer's contact details (email/phone/address) for this fulfillment.</div>
+          <div>After rejection, an admin is notified and any refund decision is handled by the administration.</div>
+          <div>If the SLA passes without acceptance, admins may receive automatic reminders.</div>
         </div>
       </aside>
     </div>
@@ -388,7 +400,7 @@
 
   <script src="js/i18n.js" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
-  <script src="js/partners.js?v=12" defer></script>
+  <script src="js/partners.js?v=13" defer></script>
 
   <div
     id="auth-modal"
@@ -402,14 +414,14 @@
       <button
         class="modal__close"
         type="button"
-        aria-label="Zamknij"
+        aria-label="Close"
         data-close
         data-i18n-attrs="aria-label:auth.close.label"
       >
         ×
       </button>
-      <h2 id="auth-title" data-i18n="auth.title">Dołącz do przygody</h2>
-      <p class="auth-intro" data-i18n="auth.intro">Zaloguj się, utwórz konto lub graj jako gość.</p>
+      <h2 id="auth-title" data-i18n="auth.title">Join the adventure</h2>
+      <p class="auth-intro" data-i18n="auth.intro">Log in, create an account, or continue as a guest.</p>
       <div class="auth-modal__content" data-auth-view-root>
         <div data-auth="login">
           <div role="presentation">
@@ -424,7 +436,7 @@
                 data-auth-tab="login"
                 data-i18n="auth.tab.login"
               >
-                Logowanie
+                Login
               </button>
               <button
                 type="button"
@@ -437,7 +449,7 @@
                 data-i18n="auth.tab.register"
                 tabindex="-1"
               >
-                Rejestracja
+                Register
               </button>
             </div>
             <div class="auth-modal__panels">
@@ -450,25 +462,25 @@
                 data-auth-panel="login"
               >
                 <form id="form-login" class="auth-form" novalidate data-ce-auth-handler="supabase">
-                  <label for="loginEmail" data-i18n="auth.login.username">Email lub nazwa użytkownika</label>
+                  <label for="loginEmail" data-i18n="auth.login.username">Email or username</label>
                   <input
                     id="loginEmail"
                     name="email"
                     type="text"
                     autocomplete="username"
                     required
-                    aria-label="Email lub nazwa użytkownika"
+                    aria-label="Email or username"
                     data-i18n-attrs="aria-label:auth.login.username,placeholder:auth.login.username"
-                    placeholder="Email lub nazwa użytkownika"
+                    placeholder="Email or username"
                   />
-                  <label for="loginPassword" data-i18n="auth.password">Hasło</label>
+                  <label for="loginPassword" data-i18n="auth.password">Password</label>
                   <input
                     id="loginPassword"
                     name="password"
                     type="password"
                     autocomplete="current-password"
                     required
-                    aria-label="Hasło"
+                    aria-label="Password"
                     data-i18n-attrs="aria-label:auth.password"
                   />
                   <div class="auth-form__actions">
@@ -477,9 +489,9 @@
                       class="btn btn--primary"
                       data-i18n="auth.login.button"
                       data-i18n-attrs="aria-label:auth.login.button"
-                      aria-label="Zaloguj się"
+                      aria-label="Log in"
                     >
-                      Zaloguj się
+                      Log in
                     </button>
                     <button
                       type="button"
@@ -487,16 +499,16 @@
                       id="loginForgotPassword"
                       data-i18n="auth.reset.button"
                       data-i18n-attrs="aria-label:auth.reset.button"
-                      aria-label="🔑 Resetuj hasło"
+                      aria-label="Reset password"
                     >
-                      🔑 Resetuj hasło
+                      Reset password
                     </button>
                   </div>
                   <div data-auth="message" aria-live="polite"></div>
                   <p class="auth-form__meta" id="authResendVerification" hidden>
-                    Nie otrzymałeś wiadomości z potwierdzeniem?
+                    Didn't receive a verification email?
                     <button type="button" class="auth-form__link" id="btn-resend-verification">
-                      Wyślij ponownie link weryfikacyjny
+                      Resend verification link
                     </button>
                   </p>
                 </form>
@@ -518,7 +530,7 @@
                   data-auth="register"
                   data-ce-auth-handler="supabase"
                 >
-                  <label for="registerFirstName" data-i18n="auth.firstName">Imię</label>
+                  <label for="registerFirstName" data-i18n="auth.firstName">First name</label>
                   <input
                     id="registerFirstName"
                     name="firstName"
@@ -526,10 +538,10 @@
                     autocomplete="given-name"
                     maxlength="60"
                     required
-                    aria-label="Imię"
+                    aria-label="First name"
                     data-i18n-attrs="aria-label:auth.firstName"
                   />
-                  <label for="registerUsername" data-i18n="auth.username">Nazwa użytkownika</label>
+                  <label for="registerUsername" data-i18n="auth.username">Username</label>
                   <input
                     id="registerUsername"
                     name="username"
@@ -539,21 +551,21 @@
                     maxlength="20"
                     pattern="[a-zA-Z0-9_]+"
                     required
-                    aria-label="Nazwa użytkownika"
+                    aria-label="Username"
                     data-i18n-attrs="aria-label:auth.username,placeholder:auth.username.hint"
-                    placeholder="3-20 znaków, litery i cyfry"
+                    placeholder="3-20 characters, letters and digits"
                   />
-                  <label for="registerEmail" data-i18n="auth.email">Adres e-mail</label>
+                  <label for="registerEmail" data-i18n="auth.email">Email address</label>
                   <input
                     id="registerEmail"
                     name="email"
                     type="email"
                     autocomplete="email"
                     required
-                    aria-label="Adres e-mail"
+                    aria-label="Email address"
                     data-i18n-attrs="aria-label:auth.email"
                   />
-                  <label for="registerPassword" data-i18n="auth.password">Hasło</label>
+                  <label for="registerPassword" data-i18n="auth.password">Password</label>
                   <input
                     id="registerPassword"
                     name="password"
@@ -561,31 +573,31 @@
                     autocomplete="new-password"
                     minlength="8"
                     required
-                    aria-label="Hasło"
+                    aria-label="Password"
                     data-i18n-attrs="aria-label:auth.password"
                   />
-                  <label for="registerPasswordConfirm" data-i18n="auth.confirmPassword">Powtórz hasło</label>
+                  <label for="registerPasswordConfirm" data-i18n="auth.confirmPassword">Confirm password</label>
                   <input
                     id="registerPasswordConfirm"
                     name="passwordConfirm"
                     type="password"
                     autocomplete="new-password"
                     minlength="8"
-                    aria-label="Powtórz hasło"
+                    aria-label="Confirm password"
                     data-i18n-attrs="aria-label:auth.confirmPassword"
                   />
                   <div data-auth="message" aria-live="polite"></div>
                   <p class="form-hint" data-i18n="auth.register.hint">
-                    Po rejestracji sprawdź skrzynkę e-mail, aby potwierdzić konto.
+                    After registration, check your email to confirm your account.
                   </p>
                   <button
                     type="submit"
                     class="btn btn--primary"
                     data-i18n="auth.register.button"
                     data-i18n-attrs="aria-label:auth.register.button"
-                    aria-label="Utwórz konto"
+                    aria-label="Create account"
                   >
-                    Utwórz konto
+                    Create account
                   </button>
                 </form>
               </section>
@@ -594,23 +606,23 @@
             <dialog id="resetPasswordDialog" class="auth-reset-dialog">
               <form id="form-reset-password" class="auth-form" novalidate>
                 <header class="auth-reset-dialog__header">
-                  <h2 data-i18n="auth.reset.title">Resetuj hasło</h2>
+                  <h2 data-i18n="auth.reset.title">Reset password</h2>
                   <button
                     type="button"
                     class="auth-form__link"
                     id="btn-reset-close"
                     data-i18n-attrs="aria-label:auth.reset.close"
-                    aria-label="Zamknij"
+                    aria-label="Close"
                   >
                     ✖
                   </button>
                 </header>
-                <p data-i18n="auth.reset.description">Podaj adres e-mail powiązany z kontem, a wyślemy link do zmiany hasła.</p>
-                <label for="resetEmail" data-i18n="auth.reset.emailLabel">Adres e-mail</label>
+                <p data-i18n="auth.reset.description">Enter the email address linked to your account and we’ll send you a reset link.</p>
+                <label for="resetEmail" data-i18n="auth.reset.emailLabel">Email address</label>
                 <input id="resetEmail" name="email" type="email" autocomplete="email" required />
                 <div class="auth-form__actions">
-                  <button type="submit" class="btn btn--primary">Wyślij link resetujący</button>
-                  <button type="button" class="auth-form__link" id="btn-reset-cancel">Anuluj</button>
+                  <button type="submit" class="btn btn--primary">Send reset link</button>
+                  <button type="button" class="auth-form__link" id="btn-reset-cancel">Cancel</button>
                 </div>
               </form>
             </dialog>

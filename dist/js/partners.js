@@ -561,7 +561,7 @@
     const type = String(els.blockResourceType?.value || '').trim();
     const resourceId = String(els.blockResourceId?.value || '').trim();
     if (!type || !resourceId) {
-      showToast('Wybierz zasób', 'error');
+      showToast('Please select a resource', 'error');
       return;
     }
 
@@ -597,7 +597,7 @@
       await refreshCalendar();
     } catch (error) {
       console.error(error);
-      showToast(`Błąd: ${error.message || 'Update failed'}`, 'error');
+      showToast(`Error: ${error.message || 'Update failed'}`, 'error');
     }
   }
 
@@ -614,7 +614,7 @@
   function formatDateTime(value) {
     if (!value) return '—';
     try {
-      return new Date(value).toLocaleString('pl-PL');
+      return new Date(value).toLocaleString('en-US');
     } catch (_e) {
       return String(value);
     }
@@ -625,7 +625,7 @@
     try {
       const raw = String(value);
       const iso = raw.length === 10 ? `${raw}T00:00:00` : raw;
-      return new Date(iso).toLocaleDateString('pl-PL');
+      return new Date(iso).toLocaleDateString('en-US');
     } catch (_e) {
       return String(value);
     }
@@ -691,15 +691,15 @@
     } catch (_e) {}
   }
 
-  function showWarning(text) {
+  function showWarning(message) {
     if (!els.warning) return;
-    if (!text) {
+    if (!message) {
       els.warning.hidden = true;
       els.warning.textContent = '';
       return;
     }
     els.warning.hidden = false;
-    els.warning.textContent = text;
+    els.warning.textContent = message;
   }
 
   async function openAuthModal(tab) {
@@ -816,7 +816,7 @@
 
     if (partner && partner.status === 'suspended') {
       els.suspendedInfo.hidden = false;
-      els.suspendedInfo.textContent = 'Ten partner jest zawieszony. Skontaktuj się z administracją.';
+      els.suspendedInfo.textContent = 'This partner is suspended. Please contact support.';
       return;
     }
 
@@ -1077,8 +1077,8 @@
 
     if (els.fulfillmentsHint) {
       const hint = pending > 0
-        ? `Masz ${pending} fulfillmentów do akceptacji. Akceptacja ujawnia kontakt klienta.`
-        : 'Brak fulfillmentów do akceptacji.';
+        ? `You have ${pending} fulfillment(s) awaiting acceptance. Accepting reveals customer contact details.`
+        : 'No fulfillments awaiting acceptance.';
       els.fulfillmentsHint.textContent = hint;
     }
   }
@@ -1288,8 +1288,8 @@
 
         try {
           if (action === 'reject') {
-            const reason = prompt('Podaj powód odrzucenia (opcjonalnie):') || '';
-            if (!confirm('Czy na pewno chcesz odrzucić ten fulfillment?')) return;
+            const reason = prompt('Provide a rejection reason (optional):') || '';
+            if (!confirm('Are you sure you want to reject this fulfillment?')) return;
             btn.disabled = true;
             if (source === 'service') {
               await callServiceFulfillmentAction(fulfillmentId, 'reject', reason);
@@ -1298,7 +1298,7 @@
             }
             showToast('Fulfillment rejected', 'success');
           } else {
-            if (!confirm('Akceptacja ujawni kontakt klienta. Czy kontynuować?')) return;
+            if (!confirm('Accepting will reveal customer contact details. Continue?')) return;
             btn.disabled = true;
             if (source === 'service') {
               await callServiceFulfillmentAction(fulfillmentId, 'accept');
@@ -1311,7 +1311,7 @@
           await refreshFulfillments();
         } catch (error) {
           console.error(error);
-          showToast(`Błąd: ${error.message || 'Action failed'}`, 'error');
+          showToast(`Error: ${error.message || 'Action failed'}`, 'error');
           btn.disabled = false;
         }
       });
@@ -1800,7 +1800,7 @@
           await refreshCalendar();
         } catch (error) {
           console.error(error);
-          showToast(`Błąd: ${error.message || 'Delete failed'}`, 'error');
+          showToast(`Error: ${error.message || 'Delete failed'}`, 'error');
           btn.disabled = false;
         }
       });
@@ -1881,7 +1881,7 @@
     } catch (error) {
       console.error(error);
       setText(els.status, 'Failed to load fulfillments.');
-      showToast(`Błąd: ${error.message || 'Failed to load fulfillments'}`, 'error');
+      showToast(`Error: ${error.message || 'Failed to load fulfillments'}`, 'error');
     }
   }
 
@@ -1896,7 +1896,7 @@
     } catch (error) {
       console.error(error);
       setText(els.status, 'Failed to load availability.');
-      showToast(`Błąd: ${error.message || 'Failed to load availability'}`, 'error');
+      showToast(`Error: ${error.message || 'Failed to load availability'}`, 'error');
     }
   }
 
@@ -1937,7 +1937,7 @@
     } catch (error) {
       console.error(error);
       setText(els.status, 'Failed to load availability.');
-      showToast(`Błąd: ${error.message || 'Failed to load availability'}`, 'error');
+      showToast(`Error: ${error.message || 'Failed to load availability'}`, 'error');
     }
   }
 
@@ -1994,7 +1994,7 @@
       await ensureSession();
     } catch (error) {
       console.error(error);
-      showWarning('Błąd sesji.');
+      showWarning('Session error.');
       setHidden(els.loginPrompt, false);
       setHidden(els.app, true);
       setHidden(els.noPartner, true);
@@ -2021,7 +2021,7 @@
       await loadMemberships();
     } catch (error) {
       console.error(error);
-      showWarning(`Nie udało się wczytać partnera: ${error.message || 'Error'}`);
+      showWarning(`Failed to load partner: ${error.message || 'Error'}`);
       setHidden(els.app, true);
       setHidden(els.noPartner, true);
       return;
@@ -2099,7 +2099,7 @@
         const note = (els.blockNote?.value || '').trim();
 
         if (!resourceType || !resourceId || !startDate || !endDate) {
-          showToast('Uzupełnij wszystkie wymagane pola', 'error');
+          showToast('Please fill in all required fields', 'error');
           return;
         }
 
@@ -2124,7 +2124,7 @@
           await refreshCalendar();
         } catch (error) {
           console.error(error);
-          showToast(`Błąd: ${error.message || 'Create failed'}`, 'error');
+          showToast(`Error: ${error.message || 'Create failed'}`, 'error');
         }
       });
     }

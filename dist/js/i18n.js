@@ -35,6 +35,11 @@
   }
 
   function detectLanguage() {
+    const forced = (document.body?.dataset?.forceLanguage || '').toLowerCase();
+    if (forced && Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, forced)) {
+      return forced;
+    }
+
     const url = new URL(window.location.href);
     const urlLang = (url.searchParams.get('lang') || '').toLowerCase();
     if (urlLang && Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, urlLang)) {
@@ -393,6 +398,15 @@
   }
 
   function ensureLanguageSwitcher(language) {
+    const disableSwitcher = String(document.body?.dataset?.disableLanguageSwitcher || '') === 'true';
+    if (disableSwitcher) {
+      const existing = document.querySelector('.language-switcher');
+      if (existing && existing.parentNode) {
+        existing.parentNode.removeChild(existing);
+      }
+      return;
+    }
+
     const hasInlineSwitcher = document.querySelector('[data-language-toggle]');
     if (hasInlineSwitcher) {
       initLanguagePills();
@@ -653,7 +667,10 @@
       ? detected
       : DEFAULT_LANGUAGE;
 
-    setLanguage(language, { persist: true, updateUrl: true });
+    const forced = (document.body?.dataset?.forceLanguage || '').toLowerCase();
+    const isForced = forced && Object.prototype.hasOwnProperty.call(SUPPORTED_LANGUAGES, forced);
+
+    setLanguage(language, { persist: !isForced, updateUrl: !isForced });
   }
 
   appI18n.setLanguage = setLanguage;
