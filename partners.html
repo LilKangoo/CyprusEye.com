@@ -102,6 +102,8 @@
     .partner-kpi .kpi .label { color: var(--admin-text-muted); font-size: 12px; }
     .partner-kpi .kpi .value { font-size: 22px; font-weight: 800; margin-top: 4px; }
 
+    .partner-kpi-4 { grid-template-columns: repeat(4, 1fr); }
+
     .partner-warning { border: 1px solid var(--admin-warning); background: rgba(245, 158, 11, 0.12); color: var(--admin-text); border-radius: 14px; padding: 12px; }
 
     .partner-contact { border: 1px solid var(--admin-border); border-radius: 14px; padding: 10px; background: rgba(59, 130, 246, 0.08); }
@@ -115,6 +117,17 @@
 
     .partner-calendar-filters { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 12px; margin-bottom: 12px; }
     .partner-resource-panels { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; padding: 6px 2px; }
+
+    @media (max-width: 640px) {
+      .partners-page #partnerReferralWidget { display: none !important; }
+
+      .partner-kpi { grid-template-columns: 1fr; }
+      .partner-kpi-4 { grid-template-columns: 1fr; }
+      .partner-toolbar { width: 100%; }
+      .partner-toolbar select { width: 100%; }
+      .partner-toolbar input { width: 100%; }
+      .partner-toolbar button { width: 100%; }
+    }
   </style>
 </head>
 
@@ -263,6 +276,14 @@
           </svg>
           <span>Profile</span>
         </button>
+
+        <button class="admin-nav-item" type="button" data-partner-nav="referrals" id="partnerNavReferrals">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+          <span>Referrals</span>
+        </button>
       </nav>
     </aside>
 
@@ -272,6 +293,22 @@
       <p class="muted" style="margin-top: 0;">Manage order confirmations and availability.</p>
 
       <div id="partnerPortalWarning" class="partner-warning" hidden></div>
+
+      <div id="partnerReferralSummary" class="partner-card" hidden>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap: 10px; flex-wrap: wrap;">
+          <div style="display:flex; flex-direction:column; gap: 2px;">
+            <div class="muted small">Invited</div>
+            <div style="font-size: 22px; font-weight: 800;" id="partnerReferralCountSummary">0</div>
+          </div>
+          <div style="flex: 1; min-width: 220px;">
+            <div class="muted small">Your referral link</div>
+            <input id="partnerReferralLinkSummary" type="text" readonly value="" aria-label="Referral link" />
+          </div>
+          <div style="display:flex; align-items:flex-end;">
+            <button id="btnPartnerCopyReferralLinkSummary" class="btn-sm primary" type="button">Copy link</button>
+          </div>
+        </div>
+      </div>
 
       <div id="partnerPortalLoginPrompt" class="partner-card" hidden>
         <h2 style="margin: 0 0 8px;">Log in</h2>
@@ -507,6 +544,44 @@
         </form>
       </section>
     </div>
+
+    <div id="partnerReferralsView" hidden>
+      <h1 style="margin: 0 0 8px; font-size: 28px;">Referrals</h1>
+      <p class="muted" style="margin-top: 0;">Share your referral link and track invited users.</p>
+
+      <section class="partner-card" style="max-width: 980px;">
+        <h2 style="margin: 0 0 12px;">Your link</h2>
+        <div class="partner-toolbar" style="margin-top: 10px;">
+          <input id="partnerReferralLinkLarge" type="text" readonly value="" aria-label="Referral link" />
+          <button id="btnPartnerCopyReferralLinkLarge" class="btn-sm primary" type="button">Copy link</button>
+        </div>
+        <div class="muted small" style="margin-top: 8px;">Use this link to invite users. You can see your invited users and their referrals below.</div>
+
+        <div style="height: 14px;"></div>
+
+        <div class="partner-kpi partner-kpi-4">
+          <div class="kpi"><div class="label">Direct invited</div><div class="value" id="partnerReferralStatDirect">0</div></div>
+          <div class="kpi"><div class="label">Total in tree</div><div class="value" id="partnerReferralStatTotal">0</div></div>
+          <div class="kpi"><div class="label">Confirmed</div><div class="value" id="partnerReferralStatConfirmed">0</div></div>
+          <div class="kpi"><div class="label">Pending</div><div class="value" id="partnerReferralStatPending">0</div></div>
+        </div>
+      </section>
+
+      <div style="height: 16px;"></div>
+
+      <section class="partner-card" style="max-width: 980px;">
+        <h2 style="margin: 0 0 12px;">Referral tree</h2>
+        <div class="partner-toolbar" style="margin-top: 10px;">
+          <input id="partnerReferralTreeSearch" type="text" placeholder="Find user in tree..." />
+          <button id="btnPartnerReferralExpandAll" class="btn-sm" type="button">Expand all</button>
+          <button id="btnPartnerReferralCollapseAll" class="btn-sm" type="button">Collapse all</button>
+        </div>
+        <div style="height: 12px;"></div>
+        <div id="partnerReferralTreeContainer" class="referral-tree-container">
+          <p class="muted">Loading referral tree...</p>
+        </div>
+      </section>
+    </div>
     </main>
   </div>
 
@@ -514,7 +589,7 @@
 
   <script src="js/i18n.js" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
-  <script src="js/partners.js?v=14" defer></script>
+  <script src="js/partners.js?v=15" defer></script>
 
   <div
     id="auth-modal"

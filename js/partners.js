@@ -23,6 +23,9 @@
   let blocksRealtimeChannel = null;
   let blocksRealtimeTimer = null;
 
+  let referralTreeRoot = null;
+  let referralTreeQuery = '';
+
   const els = {
     warning: null,
     loginPrompt: null,
@@ -67,16 +70,37 @@
     partnerNavHotels: null,
     partnerNavCalendar: null,
     partnerNavProfile: null,
+    partnerNavReferrals: null,
     partnerUserName: null,
     partnerBreadcrumb: null,
 
     partnerPortalView: null,
     partnerProfileView: null,
 
+    partnerReferralsView: null,
+
     partnerReferralWidget: null,
     partnerReferralCount: null,
     partnerReferralLink: null,
     btnPartnerCopyReferralLink: null,
+
+    partnerReferralSummary: null,
+    partnerReferralCountSummary: null,
+    partnerReferralLinkSummary: null,
+    btnPartnerCopyReferralLinkSummary: null,
+
+    partnerReferralLinkLarge: null,
+    btnPartnerCopyReferralLinkLarge: null,
+
+    partnerReferralStatDirect: null,
+    partnerReferralStatTotal: null,
+    partnerReferralStatConfirmed: null,
+    partnerReferralStatPending: null,
+
+    partnerReferralTreeContainer: null,
+    partnerReferralTreeSearch: null,
+    btnPartnerReferralExpandAll: null,
+    btnPartnerReferralCollapseAll: null,
 
     partnerProfileMessage: null,
     partnerProfileEmailDisplay: null,
@@ -123,6 +147,34 @@
     el.hidden = !!hidden;
   }
 
+  async function copyTextToClipboard(text) {
+    const value = String(text || '').trim();
+    if (!value) return false;
+
+    try {
+      if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(value);
+        return true;
+      }
+    } catch (_e) {
+    }
+
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = value;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return !!ok;
+    } catch (_e) {
+      return false;
+    }
+  }
+
   function isUuid(value) {
     const v = String(value || '').trim();
     if (!v) return false;
@@ -145,8 +197,12 @@
 
   function setMainView(view) {
     const isProfile = view === 'profile';
-    setHidden(els.partnerPortalView, isProfile);
+    const isReferrals = view === 'referrals';
+    const isPortal = !isProfile && !isReferrals;
+
+    setHidden(els.partnerPortalView, !isPortal);
     setHidden(els.partnerProfileView, !isProfile);
+    setHidden(els.partnerReferralsView, !isReferrals);
   }
 
   function setSidebarActive(targetBtn) {
@@ -158,6 +214,7 @@
       els.partnerNavHotels,
       els.partnerNavCalendar,
       els.partnerNavProfile,
+      els.partnerNavReferrals,
     ].filter(Boolean);
     btns.forEach((b) => b.classList.toggle('active', b === targetBtn));
   }
@@ -203,11 +260,13 @@
   async function refreshReferralWidget() {
     if (!state.sb || !state.user?.id) {
       setHidden(els.partnerReferralWidget, true);
+      setHidden(els.partnerReferralSummary, true);
       return;
     }
 
     const ensureVisible = () => {
       if (els.partnerReferralWidget) els.partnerReferralWidget.hidden = false;
+      if (els.partnerReferralSummary) els.partnerReferralSummary.hidden = false;
     };
 
     ensureVisible();
@@ -219,9 +278,12 @@
         .eq('referrer_id', state.user.id)
         .limit(1);
       if (error) throw error;
-      setText(els.partnerReferralCount, String(count || 0));
+      const c = String(count || 0);
+      setText(els.partnerReferralCount, c);
+      setText(els.partnerReferralCountSummary, c);
     } catch (_e) {
       setText(els.partnerReferralCount, '0');
+      setText(els.partnerReferralCountSummary, '0');
     }
 
     const username = String(state.profile?.username || '').trim();
@@ -230,8 +292,20 @@
     if (els.partnerReferralLink) {
       els.partnerReferralLink.value = link;
     }
+    if (els.partnerReferralLinkSummary) {
+      els.partnerReferralLinkSummary.value = link;
+    }
+    if (els.partnerReferralLinkLarge) {
+      els.partnerReferralLinkLarge.value = link;
+    }
     if (els.btnPartnerCopyReferralLink) {
       els.btnPartnerCopyReferralLink.disabled = !canUse;
+    }
+    if (els.btnPartnerCopyReferralLinkSummary) {
+      els.btnPartnerCopyReferralLinkSummary.disabled = !canUse;
+    }
+    if (els.btnPartnerCopyReferralLinkLarge) {
+      els.btnPartnerCopyReferralLinkLarge.disabled = !canUse;
     }
   }
 
@@ -351,6 +425,345 @@
       renderFulfillmentsTable();
     }
     closeSidebar();
+  }
+
+  async function navToReferrals() {
+    if (!state.session || !state.user) {
+      showToast('Please log in to view referrals.', 'error');
+      openAuthModal('login');
+      return;
+    }
+
+    referralTreeQuery = '';
+    if (els.partnerReferralTreeSearch) {
+      els.partnerReferralTreeSearch.value = '';
+    }
+
+    setMainView('referrals');
+    setSidebarActive(els.partnerNavReferrals);
+
+    if (els.partnerBreadcrumb) {
+      const crumb = els.partnerBreadcrumb.querySelector('span');
+      if (crumb) crumb.textContent = 'Partner Portal — Referrals';
+    }
+
+    await refreshReferralWidget();
+
+    try {
+      await refreshReferralStatsAndTree();
+    } catch (e) {
+      console.error(e);
+    }
+    closeSidebar();
+  }
+
+  function setAllReferralTreeExpanded(expanded) {
+    const walk = (node) => {
+      if (!node) return;
+      node.expanded = !!expanded;
+      (node.children || []).forEach(walk);
+    };
+    walk(referralTreeRoot);
+  }
+
+  function renderReferralTree() {
+    if (!els.partnerReferralTreeContainer) return;
+
+    const q = String(referralTreeQuery || '').trim().toLowerCase();
+
+    const matches = (node) => {
+      if (!q) return true;
+      const hay = `${node.username || ''} ${node.name || ''} ${node.email || ''}`.toLowerCase();
+      return hay.includes(q);
+    };
+
+    const subtreeMatches = (node) => {
+      if (!node) return false;
+      if (matches(node)) return true;
+      return (node.children || []).some(subtreeMatches);
+    };
+
+    const renderNode = (node, isRoot) => {
+      if (!node) return '';
+      if (q && !subtreeMatches(node)) return '';
+
+      const hasChildren = (node.children || []).length > 0;
+      const expanded = q ? true : !!node.expanded;
+
+      const toggleHtml = hasChildren
+        ? `<div class="tree-toggle tree-toggle-active" data-toggle-id="${escapeHtml(node.id)}">${expanded ? '−' : '+'}</div>`
+        : `<div class="tree-toggle" style="opacity:0; pointer-events:none;">+</div>`;
+
+      const avatarUrl = node.avatar_url ? escapeHtml(node.avatar_url) : '';
+      const avatarHtml = avatarUrl
+        ? `<img src="${avatarUrl}" class="tree-avatar" alt="av" onerror="this.style.display='none'"/>`
+        : `<div class="tree-avatar-placeholder">${escapeHtml(String(node.username || '?').charAt(0).toUpperCase())}</div>`;
+
+      const childCount = (node.children || []).length;
+      const status = node.referral_status ? String(node.referral_status) : '';
+      const statusDot = status
+        ? `<span class="status-dot status-${escapeHtml(status)}" title="${escapeHtml(status)}"></span>`
+        : '';
+
+      const dateStr = node.referral_date || node.created_at;
+      let dateDisplay = '';
+      try {
+        dateDisplay = dateStr ? new Date(dateStr).toLocaleDateString('en-GB') : '';
+      } catch (_e) {
+        dateDisplay = '';
+      }
+
+      const rowClass = `tree-row${hasChildren ? ' tree-row-parent' : ''}${isRoot ? ' tree-row-root' : ''}`;
+      const childrenHtml = hasChildren && expanded
+        ? `<div class="tree-children-container" data-children-of="${escapeHtml(node.id)}">${(node.children || []).map((c) => renderNode(c, false)).join('')}</div>`
+        : (hasChildren ? `<div class="tree-children-container" data-children-of="${escapeHtml(node.id)}" style="display:none;"></div>` : '');
+
+      const username = escapeHtml(node.username || 'Unknown');
+      const email = escapeHtml(node.email || '—');
+      const name = escapeHtml(node.name || '');
+      const metaName = name ? `<span class="tree-email">${name}</span>` : `<span class="tree-email">${email}</span>`;
+      const metaDate = dateDisplay ? `<span class="tree-date">• ${escapeHtml(dateDisplay)}</span>` : '';
+
+      return `
+        <div class="tree-item" data-node-id="${escapeHtml(node.id)}">
+          <div class="${rowClass}">
+            <div class="tree-connector">${toggleHtml}</div>
+            <div class="tree-content">
+              <div class="tree-user-card">
+                ${avatarHtml}
+                <div class="tree-user-details">
+                  <div class="tree-user-header">
+                    <strong class="tree-username">${username}</strong>
+                    ${statusDot}
+                    ${childCount ? `<span class="badge-referrals">${escapeHtml(String(childCount))} refs</span>` : ''}
+                  </div>
+                  <div class="tree-user-meta">
+                    ${metaName}
+                    ${metaDate}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          ${childrenHtml}
+        </div>
+      `;
+    };
+
+    if (!referralTreeRoot) {
+      els.partnerReferralTreeContainer.innerHTML = '<p class="muted">Loading referral tree...</p>';
+      return;
+    }
+
+    if (!(referralTreeRoot.children || []).length) {
+      els.partnerReferralTreeContainer.innerHTML = '<p class="muted">No invited users yet.</p>';
+      return;
+    }
+
+    els.partnerReferralTreeContainer.innerHTML = renderNode(referralTreeRoot, true);
+
+    els.partnerReferralTreeContainer.querySelectorAll('[data-toggle-id]').forEach((el) => {
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const id = el.getAttribute('data-toggle-id');
+        if (!id) return;
+
+        const findNode = (node) => {
+          if (!node) return null;
+          if (String(node.id) === String(id)) return node;
+          for (const c of node.children || []) {
+            const found = findNode(c);
+            if (found) return found;
+          }
+          return null;
+        };
+
+        const node = findNode(referralTreeRoot);
+        if (!node) return;
+        node.expanded = !node.expanded;
+        renderReferralTree();
+      });
+    });
+  }
+
+  async function refreshReferralStatsAndTree() {
+    if (!state.sb || !state.user?.id) return;
+
+    setText(els.partnerReferralStatDirect, '0');
+    setText(els.partnerReferralStatTotal, '0');
+    setText(els.partnerReferralStatConfirmed, '0');
+    setText(els.partnerReferralStatPending, '0');
+    if (els.partnerReferralTreeContainer) {
+      els.partnerReferralTreeContainer.innerHTML = '<p class="muted">Loading referral tree...</p>';
+    }
+
+    const userId = state.user.id;
+    const MAX_DEPTH = 4;
+    const MAX_NODES = 400;
+    const IN_CHUNK = 80;
+
+    const chunk = (arr, size) => {
+      const out = [];
+      for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+      return out;
+    };
+
+    const fetchEdgesForReferrers = async (referrerIds) => {
+      const ids = (referrerIds || []).filter(Boolean);
+      if (!ids.length) return [];
+
+      const rows = [];
+      for (const part of chunk(ids, IN_CHUNK)) {
+        const { data, error } = await state.sb
+          .from('referrals')
+          .select('referrer_id,referred_id,status,created_at')
+          .in('referrer_id', part);
+        if (error) throw error;
+        (data || []).forEach((r) => rows.push(r));
+      }
+      return rows;
+    };
+
+    const fetchProfilesByIds = async (ids) => {
+      const result = {};
+      const clean = (ids || []).filter(Boolean);
+      if (!clean.length) return result;
+
+      for (const part of chunk(clean, IN_CHUNK)) {
+        const { data, error } = await state.sb
+          .from('profiles')
+          .select('id,username,name,email,created_at,avatar_url')
+          .in('id', part);
+        if (error) throw error;
+        (data || []).forEach((p) => {
+          if (p?.id) result[p.id] = p;
+        });
+      }
+      return result;
+    };
+
+    let edges = [];
+    const visited = new Set([userId]);
+
+    try {
+      const queriedReferrers = new Set();
+      let frontier = [userId];
+      let depth = 0;
+
+      while (frontier.length && depth < MAX_DEPTH && visited.size < MAX_NODES) {
+        const toQuery = frontier.filter((id) => id && !queriedReferrers.has(id));
+        if (!toQuery.length) break;
+
+        toQuery.forEach((id) => queriedReferrers.add(id));
+
+        const rows = await fetchEdgesForReferrers(toQuery);
+        if (!rows.length) break;
+
+        const nextFrontier = new Set();
+        rows.forEach((r) => {
+          if (!r?.referrer_id || !r?.referred_id) return;
+          edges.push(r);
+          if (!visited.has(r.referred_id) && visited.size < MAX_NODES) {
+            visited.add(r.referred_id);
+            nextFrontier.add(r.referred_id);
+          }
+        });
+
+        frontier = Array.from(nextFrontier);
+        depth += 1;
+      }
+    } catch (e) {
+      try {
+        const { data, error } = await state.sb
+          .from('referrals')
+          .select('referrer_id,referred_id,status,created_at')
+          .eq('referrer_id', userId)
+          .limit(MAX_NODES);
+        if (error) throw error;
+        edges = data || [];
+        (edges || []).forEach((r) => {
+          if (r?.referred_id) visited.add(r.referred_id);
+        });
+      } catch (e2) {
+        console.error(e);
+        console.error(e2);
+        referralTreeRoot = { id: userId, username: (state.profile?.username || state.user?.email || 'You'), name: '', email: '', created_at: '', avatar_url: '', children: [], expanded: true, referral_status: null, referral_date: null };
+        if (els.partnerReferralTreeContainer) {
+          els.partnerReferralTreeContainer.innerHTML = '<p class="muted">Unable to load referral tree.</p>';
+        }
+        return;
+      }
+    }
+
+    const uniqueDirect = new Set(edges.filter((e) => String(e.referrer_id) === String(userId)).map((e) => e.referred_id));
+    const directInvited = uniqueDirect.size;
+    const totalInTree = Math.max(0, visited.size - 1);
+    const confirmed = edges.filter((e) => ['confirmed', 'completed'].includes(String(e.status || '').toLowerCase())).length;
+    const pending = edges.filter((e) => String(e.status || '').toLowerCase() === 'pending').length;
+
+    setText(els.partnerReferralStatDirect, String(directInvited));
+    setText(els.partnerReferralStatTotal, String(totalInTree));
+    setText(els.partnerReferralStatConfirmed, String(confirmed));
+    setText(els.partnerReferralStatPending, String(pending));
+
+    let profileMap = {};
+    try {
+      profileMap = await fetchProfilesByIds(Array.from(visited));
+    } catch (e) {
+      console.error(e);
+      profileMap = {};
+    }
+
+    const nodeById = {};
+    const ensureNode = (id) => {
+      if (!id) return null;
+      if (nodeById[id]) return nodeById[id];
+
+      const p = profileMap[id] || {};
+      const fallback = id === userId
+        ? (state.profile?.username || state.user?.email || 'You')
+        : `${String(id).slice(0, 8)}…`;
+
+      nodeById[id] = {
+        id,
+        username: p.username || fallback,
+        name: p.name || '',
+        email: p.email || '',
+        created_at: p.created_at || '',
+        avatar_url: p.avatar_url || '',
+        children: [],
+        expanded: true,
+        referral_status: null,
+        referral_date: null,
+      };
+
+      return nodeById[id];
+    };
+
+    const root = ensureNode(userId);
+    edges.forEach((r) => {
+      const parent = ensureNode(r?.referrer_id);
+      const child = ensureNode(r?.referred_id);
+      if (!parent || !child) return;
+
+      child.referral_status = r?.status || null;
+      child.referral_date = r?.created_at || null;
+
+      if (!parent.children.some((c) => String(c.id) === String(child.id))) {
+        parent.children.push(child);
+      }
+    });
+
+    const sortChildren = (node) => {
+      if (!node) return;
+      node.children = (node.children || []).sort((a, b) => String(a.username || '').localeCompare(String(b.username || '')));
+      node.children.forEach(sortChildren);
+    };
+    sortChildren(root);
+
+    referralTreeRoot = root;
+    renderReferralTree();
   }
 
   function navToCalendar() {
@@ -2163,6 +2576,7 @@
       setText(els.status, 'Not logged in.');
       if (els.partnerUserName) els.partnerUserName.textContent = 'Not logged in';
       setHidden(els.partnerReferralWidget, true);
+      setHidden(els.partnerReferralSummary, true);
       return;
     }
 
@@ -2246,20 +2660,49 @@
     els.partnerNavHotels?.addEventListener('click', () => navToCategory('hotels'));
     els.partnerNavCalendar?.addEventListener('click', () => navToCalendar());
     els.partnerNavProfile?.addEventListener('click', () => navToProfile());
+    els.partnerNavReferrals?.addEventListener('click', () => navToReferrals());
 
-    els.btnPartnerCopyReferralLink?.addEventListener('click', async () => {
-      const link = String(els.partnerReferralLink?.value || '').trim();
+    const handleCopyReferral = async (value) => {
+      const link = String(value || '').trim();
       if (!link || link.toLowerCase().includes('set your username')) {
         showToast('Set your username to enable referral link.', 'error');
         return;
       }
       try {
-        await navigator.clipboard.writeText(link);
+        const ok = await copyTextToClipboard(link);
+        if (!ok) throw new Error('Copy failed');
         showToast('Referral link copied', 'success');
       } catch (error) {
         console.error(error);
         showToast('Failed to copy referral link', 'error');
       }
+    };
+
+    els.btnPartnerCopyReferralLink?.addEventListener('click', async () => {
+      await handleCopyReferral(els.partnerReferralLink?.value);
+    });
+
+    els.btnPartnerCopyReferralLinkSummary?.addEventListener('click', async () => {
+      await handleCopyReferral(els.partnerReferralLinkSummary?.value);
+    });
+
+    els.btnPartnerCopyReferralLinkLarge?.addEventListener('click', async () => {
+      await handleCopyReferral(els.partnerReferralLinkLarge?.value);
+    });
+
+    els.partnerReferralTreeSearch?.addEventListener('input', () => {
+      referralTreeQuery = String(els.partnerReferralTreeSearch?.value || '');
+      renderReferralTree();
+    });
+
+    els.btnPartnerReferralExpandAll?.addEventListener('click', () => {
+      setAllReferralTreeExpanded(true);
+      renderReferralTree();
+    });
+
+    els.btnPartnerReferralCollapseAll?.addEventListener('click', () => {
+      setAllReferralTreeExpanded(false);
+      renderReferralTree();
     });
 
     els.partnerProfileNameForm?.addEventListener('submit', async (e) => {
@@ -2525,16 +2968,36 @@
     els.partnerNavHotels = $('partnerNavHotels');
     els.partnerNavCalendar = $('partnerNavCalendar');
     els.partnerNavProfile = $('partnerNavProfile');
+    els.partnerNavReferrals = $('partnerNavReferrals');
     els.partnerUserName = $('partnerUserName');
     els.partnerBreadcrumb = $('partnerBreadcrumb');
 
     els.partnerPortalView = $('partnerPortalView');
     els.partnerProfileView = $('partnerProfileView');
+    els.partnerReferralsView = $('partnerReferralsView');
 
     els.partnerReferralWidget = $('partnerReferralWidget');
     els.partnerReferralCount = $('partnerReferralCount');
     els.partnerReferralLink = $('partnerReferralLink');
     els.btnPartnerCopyReferralLink = $('btnPartnerCopyReferralLink');
+
+    els.partnerReferralSummary = $('partnerReferralSummary');
+    els.partnerReferralCountSummary = $('partnerReferralCountSummary');
+    els.partnerReferralLinkSummary = $('partnerReferralLinkSummary');
+    els.btnPartnerCopyReferralLinkSummary = $('btnPartnerCopyReferralLinkSummary');
+
+    els.partnerReferralLinkLarge = $('partnerReferralLinkLarge');
+    els.btnPartnerCopyReferralLinkLarge = $('btnPartnerCopyReferralLinkLarge');
+
+    els.partnerReferralStatDirect = $('partnerReferralStatDirect');
+    els.partnerReferralStatTotal = $('partnerReferralStatTotal');
+    els.partnerReferralStatConfirmed = $('partnerReferralStatConfirmed');
+    els.partnerReferralStatPending = $('partnerReferralStatPending');
+
+    els.partnerReferralTreeContainer = $('partnerReferralTreeContainer');
+    els.partnerReferralTreeSearch = $('partnerReferralTreeSearch');
+    els.btnPartnerReferralExpandAll = $('btnPartnerReferralExpandAll');
+    els.btnPartnerReferralCollapseAll = $('btnPartnerReferralCollapseAll');
 
     els.partnerProfileMessage = $('partnerProfileMessage');
     els.partnerProfileEmailDisplay = $('partnerProfileEmailDisplay');
