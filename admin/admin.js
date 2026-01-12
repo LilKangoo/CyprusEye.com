@@ -2367,6 +2367,95 @@ function isBusyOnDay(dayIso, blocks, ranges) {
     || rr.some(r => String(r.start_date) <= d && String(r.end_date) >= d);
 }
 
+async function resolvePartnerIdForCalendarsResource(client, resourceType, resourceId) {
+  if (!client) return null;
+  const type = String(resourceType || '').trim();
+  const rid = String(resourceId || '').trim();
+  if (!type || !rid) return null;
+
+  try {
+    const { data, error } = await client
+      .from('partner_resources')
+      .select('partner_id')
+      .eq('resource_type', type)
+      .eq('resource_id', rid)
+      .limit(1)
+      .maybeSingle();
+    if (!error && data?.partner_id) return data.partner_id;
+  } catch (_e) {}
+
+  if (type === 'shop') {
+    try {
+      const { data, error } = await client
+        .from('shop_products')
+        .select('vendor_id')
+        .eq('id', rid)
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      const vendorId = data?.vendor_id;
+      if (!vendorId) return null;
+      const res = await client
+        .from('partners')
+        .select('id')
+        .eq('shop_vendor_id', vendorId)
+        .limit(1)
+        .maybeSingle();
+      if (res.error) throw res.error;
+      return res.data?.id || null;
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  if (type === 'cars') {
+    try {
+      const { data, error } = await client
+        .from('car_offers')
+        .select('owner_partner_id')
+        .eq('id', rid)
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.owner_partner_id || null;
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  if (type === 'trips') {
+    try {
+      const { data, error } = await client
+        .from('trips')
+        .select('owner_partner_id')
+        .eq('id', rid)
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.owner_partner_id || null;
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  if (type === 'hotels') {
+    try {
+      const { data, error } = await client
+        .from('hotels')
+        .select('owner_partner_id')
+        .eq('id', rid)
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data?.owner_partner_id || null;
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  return null;
+}
+
 async function loadCalendarsMonthData() {
   const client = ensureSupabase();
   if (!client) return;
@@ -2525,10 +2614,6 @@ async function toggleAdminCalendarsSingleDayBlock(dayIso) {
   const resourceId = String(document.getElementById('calendarsResourceIdFilter')?.value || '').trim();
   const day = String(dayIso || '').trim();
 
-  if (!partnerId) {
-    showToast('Select partner', 'error');
-    return;
-  }
   if (!type) {
     showToast('Please select a resource', 'error');
     return;
@@ -2536,36 +2621,54 @@ async function toggleAdminCalendarsSingleDayBlock(dayIso) {
   if (!day) return;
 
   try {
+    let effectivePartnerId = partnerId;
+
+    if (calendarsState.bulkMode && !effectivePartnerId) {
+      showToast('Select partner', 'error');
+      return;
+    }
+
+    if (!calendarsState.bulkMode) {
+      if (!resourceId) {
+        showToast('Please select a resource', 'error');
+        return;
+      }
+
+      if (!effectivePartnerId) {
+        effectivePartnerId = await resolvePartnerIdForCalendarsResource(client, type, resourceId);
+      }
+    }
+
+    if (!effectivePartnerId) {
+      showToast('Select partner', 'error');
+      return;
+    }
+
     if (calendarsState.bulkMode) {
       const targets = await getAdminCalendarsTargets();
       if (!targets.length) {
         showToast('No target resources selected', 'error');
         return;
       }
-      await toggleSingleDayBlocksForTargetsAdmin(partnerId, day, targets);
+      await toggleSingleDayBlocksForTargetsAdmin(effectivePartnerId, day, targets);
       await loadAdminCalendarsData();
       return;
     }
 
-    if (!resourceId) {
-      showToast('Please select a resource', 'error');
-      return;
-    }
-
     const existing = (calendarsState.monthBlocks || [])
-      .find(b => String(b.start_date) === String(day) && String(b.end_date) === String(day) && String(b.resource_id) === String(resourceId) && String(b.resource_type) === String(type));
+      .find(b => String(b.start_date) === String(day) && String(b.end_date) === String(day) && String(b.resource_id) === String(resourceId) && String(b.resource_type) === String(type) && String(b.partner_id) === String(effectivePartnerId));
 
     if (existing?.id) {
       const { error } = await client
         .from('partner_availability_blocks')
         .delete()
         .eq('id', existing.id)
-        .eq('partner_id', partnerId);
+        .eq('partner_id', effectivePartnerId);
       if (error) throw error;
       showToast('Day unblocked', 'success');
     } else {
       const payload = {
-        partner_id: partnerId,
+        partner_id: effectivePartnerId,
         resource_type: type,
         resource_id: resourceId,
         start_date: day,
