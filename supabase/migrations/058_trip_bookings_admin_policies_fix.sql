@@ -26,7 +26,7 @@ BEGIN
     ON public.trip_bookings
     FOR SELECT
     TO authenticated
-    USING (customer_email = (SELECT email FROM auth.users WHERE id = auth.uid()))
+    USING (lower(customer_email) = lower(coalesce(auth.jwt() ->> 'email', '')))
   $policy$;
 
   -- Recreate admin policies (prefer central helper used elsewhere)

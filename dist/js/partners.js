@@ -1312,18 +1312,18 @@
       if (type === 'trips') {
         try {
           const { data, error } = await state.sb
-            .from('trip_bookings')
-            .select('trip_date, arrival_date, status, trip_id')
-            .eq('trip_id', resourceId)
-            .neq('status', 'cancelled')
-            .gte('arrival_date', startIso)
-            .lte('arrival_date', endIso)
+            .from('partner_service_fulfillments')
+            .select('start_date, end_date, status')
+            .eq('resource_type', 'trips')
+            .eq('resource_id', resourceId)
+            .in('status', ['pending_acceptance', 'accepted'])
+            .lte('start_date', endIso)
+            .gte('end_date', startIso)
             .limit(500);
           if (error) throw error;
           (data || []).forEach((r) => {
-            const d = r.trip_date || r.arrival_date;
-            if (!d) return;
-            ranges.push({ start_date: d, end_date: d });
+            if (!r.start_date || !r.end_date) return;
+            ranges.push({ start_date: r.start_date, end_date: r.end_date });
           });
         } catch (_e) {}
       }
@@ -1480,6 +1480,17 @@
       const raw = String(value);
       const iso = raw.length === 10 ? `${raw}T00:00:00` : raw;
       return new Date(iso).toLocaleDateString('en-US');
+    } catch (_e) {
+      return String(value);
+    }
+  }
+
+  function formatDateDmy(value) {
+    if (!value) return '—';
+    try {
+      const raw = String(value);
+      const iso = raw.length === 10 ? `${raw}T00:00:00` : raw;
+      return new Date(iso).toLocaleDateString('en-GB');
     } catch (_e) {
       return String(value);
     }
@@ -2003,6 +2014,33 @@
 
         const datesHtml = (() => {
           if (isShop) return '<span class="muted">—</span>';
+
+          if (String(f.resource_type || '') === 'trips') {
+            const details = (f.details && typeof f.details === 'object') ? f.details : null;
+            const preferred = details?.preferred_date || details?.preferredDate || details?.trip_date || details?.tripDate || null;
+            const arrival = details?.arrival_date || details?.arrivalDate || null;
+            const departure = details?.departure_date || details?.departureDate || null;
+            const adults = details?.num_adults ?? details?.numAdults ?? null;
+            const children = details?.num_children ?? details?.numChildren ?? null;
+
+            const preferredHtml = preferred
+              ? `<div class="small"><strong>Preferred Date:</strong> ${escapeHtml(formatDateDmy(preferred))}</div>`
+              : '';
+
+            const stayHtml = (arrival || departure)
+              ? `<div class="small"><strong>Stay on Cyprus:</strong> ${escapeHtml(`${formatDateDmy(arrival)} → ${formatDateDmy(departure)}`)}</div>`
+              : (f.start_date && f.end_date)
+                ? `<div class="small">${escapeHtml(`${formatDate(f.start_date)} → ${formatDate(f.end_date)}`)}</div>`
+                : '';
+
+            const participantsHtml = (adults != null || children != null)
+              ? `<div class="small"><strong>Participants:</strong> ${escapeHtml(`${Number(adults || 0)} adult(s), ${Number(children || 0)} child(ren)`)}</div>`
+              : '';
+
+            const parts = [preferredHtml, stayHtml, participantsHtml].filter(Boolean).join('');
+            return parts || '<span class="muted">—</span>';
+          }
+
           if (f.start_date && f.end_date) {
             const durationHtml = (durationDays != null)
               ? `<div class="muted small">Duration: ${escapeHtml(String(durationDays))} day(s)</div>`
