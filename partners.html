@@ -500,6 +500,20 @@
               </div>
             </div>
 
+            <div class="partner-card" style="padding: 12px; margin-top: 12px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap: 10px; flex-wrap: wrap;">
+                <label style="display:flex; gap: 10px; align-items:center; font-weight: 700;">
+                  <input id="partnerAvailabilityBulkMode" type="checkbox" />
+                  <span>Bulk apply</span>
+                </label>
+              </div>
+              <div class="btn-row" style="justify-content:flex-start; margin-top: 10px;">
+                <button id="btnPartnerAvailabilitySelectAllType" class="btn-sm" type="button">Select all (type)</button>
+                <button id="btnPartnerAvailabilityClearAll" class="btn-sm" type="button">Clear all</button>
+              </div>
+              <div id="partnerAvailabilitySelectionSummary" class="muted small" style="margin-top: 8px;"></div>
+            </div>
+
             <div class="muted small" style="margin: 0 0 8px;">Legend: <span style="display:inline-block; width: 10px; height: 10px; border-radius:3px; background: rgba(34,197,94,0.25); border: 1px solid rgba(34,197,94,0.55);"></span> available, <span style="display:inline-block; width: 10px; height: 10px; border-radius:3px; background: rgba(107,114,128,0.35); border: 1px solid rgba(107,114,128,0.60);"></span> busy</div>
             <div id="partnerCalendarMonthGrid" style="display:grid; grid-template-columns: repeat(7, 1fr); gap: 8px;"></div>
 
@@ -663,9 +677,6 @@
 
         <div class="partner-kpi partner-kpi-4">
           <div class="kpi"><div class="label">Direct invited</div><div class="value" id="partnerReferralStatDirect">0</div></div>
-          <div class="kpi"><div class="label">Total in tree</div><div class="value" id="partnerReferralStatTotal">0</div></div>
-          <div class="kpi"><div class="label">Confirmed</div><div class="value" id="partnerReferralStatConfirmed">0</div></div>
-          <div class="kpi"><div class="label">Pending</div><div class="value" id="partnerReferralStatPending">0</div></div>
         </div>
       </section>
 
@@ -691,7 +702,7 @@
 
   <script src="js/i18n.js" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
-  <script src="js/partners.js?v=15" defer></script>
+  <script src="js/partners.js?v=16" defer></script>
 
   <div
     id="auth-modal"

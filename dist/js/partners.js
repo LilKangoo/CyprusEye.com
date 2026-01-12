@@ -18,6 +18,15 @@
       monthBlocks: [],
       monthBusyRanges: [],
     },
+    availability: {
+      bulkMode: false,
+      selectedByType: {
+        shop: new Set(),
+        cars: new Set(),
+        trips: new Set(),
+        hotels: new Set(),
+      },
+    },
   };
 
   let blocksRealtimeChannel = null;
@@ -55,6 +64,11 @@
     blockStart: null,
     blockEnd: null,
     blockNote: null,
+
+    availabilityBulkMode: null,
+    btnAvailabilitySelectAllType: null,
+    btnAvailabilityClearAll: null,
+    availabilitySelectionSummary: null,
 
     adminMenuToggle: null,
     adminSidebar: null,
@@ -556,6 +570,277 @@
       || rr.some(r => String(r.start_date) <= d && String(r.end_date) >= d);
   }
 
+  function chunkArray(input, size) {
+    const arr = Array.isArray(input) ? input : [];
+    const s = Math.max(1, Number(size || 0) || 50);
+    const out = [];
+    for (let i = 0; i < arr.length; i += s) out.push(arr.slice(i, i + s));
+    return out;
+  }
+
+  function availabilityTypes() {
+    return ['shop', 'cars', 'trips', 'hotels'];
+  }
+
+  function isAvailabilityType(value) {
+    return availabilityTypes().includes(String(value || '').trim());
+  }
+
+  function ensureSelectedSetForType(type) {
+    const t = String(type || '').trim();
+    if (!isAvailabilityType(t)) return new Set();
+    if (!state.availability.selectedByType[t] || !(state.availability.selectedByType[t] instanceof Set)) {
+      state.availability.selectedByType[t] = new Set();
+    }
+    return state.availability.selectedByType[t];
+  }
+
+  function clearAvailabilitySelectionsForType(type) {
+    const set = ensureSelectedSetForType(type);
+    set.clear();
+  }
+
+  function clearAvailabilitySelectionsAll() {
+    availabilityTypes().forEach((t) => clearAvailabilitySelectionsForType(t));
+  }
+
+  function updateAvailabilitySelectionSummary() {
+    if (!els.availabilitySelectionSummary) return;
+
+    const bulk = Boolean(state.availability.bulkMode);
+    if (!bulk) {
+      els.availabilitySelectionSummary.textContent = '';
+      return;
+    }
+
+    const parts = [];
+    let total = 0;
+    availabilityTypes().forEach((t) => {
+      const count = ensureSelectedSetForType(t).size;
+      if (!count) return;
+      parts.push(`${t}: ${count}`);
+      total += count;
+    });
+
+    const sel = parts.length ? parts.join(', ') : 'none';
+    els.availabilitySelectionSummary.textContent = `Selected: ${sel} (total ${total}).`;
+  }
+
+  function setAvailabilityBulkMode(enabled) {
+    state.availability.bulkMode = Boolean(enabled);
+    if (els.availabilityBulkMode) els.availabilityBulkMode.checked = state.availability.bulkMode;
+
+    if (state.availability.bulkMode) {
+      const currentType = String(els.blockResourceType?.value || '').trim();
+      const currentId = String(els.blockResourceId?.value || '').trim();
+      if (currentType && currentId) {
+        ensureSelectedSetForType(currentType).add(currentId);
+      }
+    }
+
+    const disabled = !state.availability.bulkMode;
+    if (els.btnAvailabilitySelectAllType) els.btnAvailabilitySelectAllType.disabled = disabled;
+    if (els.btnAvailabilityClearAll) els.btnAvailabilityClearAll.disabled = disabled;
+
+    updateAvailabilitySelectionSummary();
+    renderResourcePanels();
+  }
+
+  function allowedAvailabilityTypes() {
+    const opts = Array.from(els.blockResourceType?.options || []).map(o => String(o.value || '').trim()).filter(Boolean);
+    const allowed = opts.filter(isAvailabilityType);
+    return allowed.length ? allowed : availabilityTypes();
+  }
+
+  async function ensureResourcesLoadedForType(type) {
+    const t = String(type || '').trim();
+    if (!isAvailabilityType(t)) return [];
+    const existing = state.calendar.resourcesByType?.[t];
+    if (Array.isArray(existing) && existing.length) return existing;
+    try {
+      const rows = await loadCalendarResourcesForType(t);
+      state.calendar.resourcesByType[t] = rows;
+      return rows;
+    } catch (_e) {
+      state.calendar.resourcesByType[t] = [];
+      return [];
+    }
+  }
+
+  async function getAvailabilityTargets() {
+    const currentType = String(els.blockResourceType?.value || '').trim();
+    const currentId = String(els.blockResourceId?.value || '').trim();
+
+    if (!state.selectedPartnerId) return [];
+
+    if (!state.availability.bulkMode) {
+      return (currentType && currentId) ? [{ resource_type: currentType, resource_id: currentId }] : [];
+    }
+
+    const targets = [];
+    availabilityTypes().forEach((t) => {
+      const set = ensureSelectedSetForType(t);
+      Array.from(set).forEach((id) => {
+        if (!id) return;
+        targets.push({ resource_type: t, resource_id: String(id) });
+      });
+    });
+
+    const dedup = new Map();
+    targets.forEach((t) => {
+      const rt = String(t.resource_type || '').trim();
+      const rid = String(t.resource_id || '').trim();
+      if (!rt || !rid) return;
+      dedup.set(`${rt}:${rid}`, { resource_type: rt, resource_id: rid });
+    });
+    return Array.from(dedup.values());
+  }
+
+  async function bulkDeleteBlocksByIds(ids) {
+    const list = Array.isArray(ids) ? ids.filter(Boolean).map(String) : [];
+    if (!list.length) return;
+    for (const chunk of chunkArray(list, 50)) {
+      const { error } = await state.sb
+        .from('partner_availability_blocks')
+        .delete()
+        .in('id', chunk)
+        .eq('partner_id', state.selectedPartnerId);
+      if (error) throw error;
+    }
+  }
+
+  async function bulkInsertBlocks(payloads) {
+    const list = Array.isArray(payloads) ? payloads : [];
+    if (!list.length) return;
+    for (const chunk of chunkArray(list, 50)) {
+      const { error } = await state.sb
+        .from('partner_availability_blocks')
+        .insert(chunk);
+      if (error) throw error;
+    }
+  }
+
+  async function toggleSingleDayBlocksForTargets(dayIso, targets) {
+    if (!state.selectedPartnerId) return;
+    const day = String(dayIso || '').trim();
+    const list = Array.isArray(targets) ? targets : [];
+    if (!day || !list.length) return;
+
+    const byType = {};
+    list.forEach((t) => {
+      const rt = String(t.resource_type || '').trim();
+      const rid = String(t.resource_id || '').trim();
+      if (!rt || !rid) return;
+      if (!byType[rt]) byType[rt] = new Set();
+      byType[rt].add(rid);
+    });
+
+    const existingByKey = new Map();
+    for (const rt of Object.keys(byType)) {
+      const ids = Array.from(byType[rt]);
+      for (const chunk of chunkArray(ids, 50)) {
+        const { data, error } = await state.sb
+          .from('partner_availability_blocks')
+          .select('id, resource_type, resource_id, start_date, end_date')
+          .eq('partner_id', state.selectedPartnerId)
+          .eq('resource_type', rt)
+          .in('resource_id', chunk)
+          .eq('start_date', day)
+          .eq('end_date', day)
+          .limit(500);
+        if (error) throw error;
+        (data || []).forEach((b) => {
+          if (!b?.id || !b?.resource_type || !b?.resource_id) return;
+          existingByKey.set(`${String(b.resource_type)}:${String(b.resource_id)}`, b);
+        });
+      }
+    }
+
+    const keys = list.map(t => `${String(t.resource_type)}:${String(t.resource_id)}`);
+    const existingKeys = keys.filter(k => existingByKey.has(k));
+    const shouldUnblockAll = existingKeys.length === keys.length;
+
+    if (shouldUnblockAll) {
+      const idsToDelete = existingKeys.map(k => existingByKey.get(k)?.id).filter(Boolean);
+      await bulkDeleteBlocksByIds(idsToDelete);
+      showToast(list.length > 1 ? `Day unblocked (${list.length} resources)` : 'Day unblocked', 'success');
+      return;
+    }
+
+    const payloads = [];
+    list.forEach((t) => {
+      const key = `${String(t.resource_type)}:${String(t.resource_id)}`;
+      if (existingByKey.has(key)) return;
+      payloads.push({
+        partner_id: state.selectedPartnerId,
+        resource_type: t.resource_type,
+        resource_id: t.resource_id,
+        start_date: day,
+        end_date: day,
+        note: null,
+        created_by: state.user?.id || null,
+      });
+    });
+    await bulkInsertBlocks(payloads);
+    showToast(list.length > 1 ? `Day blocked (${payloads.length} resources)` : 'Day blocked', 'success');
+  }
+
+  async function createRangeBlocksForTargets(startDate, endDate, note, targets) {
+    if (!state.selectedPartnerId) return;
+    const start = String(startDate || '').trim();
+    const end = String(endDate || '').trim();
+    const list = Array.isArray(targets) ? targets : [];
+    if (!start || !end || !list.length) return;
+
+    const byType = {};
+    list.forEach((t) => {
+      const rt = String(t.resource_type || '').trim();
+      const rid = String(t.resource_id || '').trim();
+      if (!rt || !rid) return;
+      if (!byType[rt]) byType[rt] = new Set();
+      byType[rt].add(rid);
+    });
+
+    const existingByKey = new Set();
+    for (const rt of Object.keys(byType)) {
+      const ids = Array.from(byType[rt]);
+      for (const chunk of chunkArray(ids, 50)) {
+        const { data, error } = await state.sb
+          .from('partner_availability_blocks')
+          .select('id, resource_type, resource_id, start_date, end_date')
+          .eq('partner_id', state.selectedPartnerId)
+          .eq('resource_type', rt)
+          .in('resource_id', chunk)
+          .eq('start_date', start)
+          .eq('end_date', end)
+          .limit(500);
+        if (error) throw error;
+        (data || []).forEach((b) => {
+          if (!b?.resource_type || !b?.resource_id) return;
+          existingByKey.add(`${String(b.resource_type)}:${String(b.resource_id)}`);
+        });
+      }
+    }
+
+    const payloads = [];
+    list.forEach((t) => {
+      const key = `${String(t.resource_type)}:${String(t.resource_id)}`;
+      if (existingByKey.has(key)) return;
+      payloads.push({
+        partner_id: state.selectedPartnerId,
+        resource_type: t.resource_type,
+        resource_id: t.resource_id,
+        start_date: start,
+        end_date: end,
+        note: note || null,
+        created_by: state.user?.id || null,
+      });
+    });
+
+    await bulkInsertBlocks(payloads);
+    showToast(payloads.length > 1 ? `Blocks created (${payloads.length} resources)` : 'Block created', 'success');
+  }
+
   async function loadCalendarMonthData() {
     if (!els.calendarMonthGrid) return;
 
@@ -712,12 +997,29 @@
     if (!state.selectedPartnerId) return;
     const type = String(els.blockResourceType?.value || '').trim();
     const resourceId = String(els.blockResourceId?.value || '').trim();
-    if (!type || !resourceId) {
+ 
+    if (!type) {
       showToast('Please select a resource', 'error');
       return;
     }
 
     try {
+      if (state.availability.bulkMode) {
+        const targets = await getAvailabilityTargets();
+        if (!targets.length) {
+          showToast('No target resources selected', 'error');
+          return;
+        }
+        await toggleSingleDayBlocksForTargets(dayIso, targets);
+        await refreshCalendar();
+        return;
+      }
+
+      if (!resourceId) {
+        showToast('Please select a resource', 'error');
+        return;
+      }
+
       const existing = (state.calendar.monthBlocks || [])
         .find(b => String(b.start_date) === String(dayIso) && String(b.end_date) === String(dayIso) && String(b.resource_id) === String(resourceId) && String(b.resource_type) === String(type));
 
@@ -1022,7 +1324,8 @@
       });
 
     const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
-    const allowedCarLocsRaw = Array.isArray(partner?.cars_locations) ? partner.cars_locations : [];
+    const hasCarsLocations = Array.isArray(partner?.cars_locations);
+    const allowedCarLocsRaw = hasCarsLocations ? partner.cars_locations : [];
     const allowedCarLocs = allowedCarLocsRaw
       .map((l) => normalizeCarLocation(l) || String(l || '').trim().toLowerCase())
       .filter((l) => l === 'paphos' || l === 'larnaca');
@@ -1068,10 +1371,16 @@
 
       if (rt === 'cars') {
         if (!partner?.can_manage_cars) return false;
+        if (hasCarsLocations && !allowedCarLocs.length) return false;
         if (!allowedCarLocs.length) return true;
 
-        const offerLoc = f.resource_id ? carOfferLocationById[String(f.resource_id)] : null;
-        const loc = offerLoc || carLocationFromFulfillmentDetails(f.details);
+        if (f.resource_id) {
+          const offerLoc = carOfferLocationById[String(f.resource_id)] || null;
+          if (!offerLoc) return false;
+          return allowedCarLocs.includes(offerLoc);
+        }
+
+        const loc = carLocationFromFulfillmentDetails(f.details);
         if (!loc) return false;
         return allowedCarLocs.includes(loc);
       }
@@ -1830,7 +2139,12 @@
         select.value = rows[0].id;
       }
 
+      if (state.availability.bulkMode && type && select.value) {
+        ensureSelectedSetForType(type).add(String(select.value));
+      }
+
       renderResourcePanels();
+      updateAvailabilitySelectionSummary();
     } catch (error) {
       console.error(error);
       setHtml(select, '<option value="">Select resource</option>');
@@ -1877,16 +2191,32 @@
     const rows = state.calendar.resourcesByType?.[type] || [];
     const current = String(els.blockResourceId.value || '').trim();
 
+    const bulk = Boolean(state.availability.bulkMode);
+    const selectedSet = bulk ? ensureSelectedSetForType(type) : null;
+
     const html = (rows || []).map((r) => {
       const id = String(r?.id || '').trim();
       if (!id) return '';
       const label = String(r?.label || '').trim() || fallbackLabelForResource(type, id);
-      const active = id === current;
-      const bg = active ? 'rgba(34,197,94,0.18)' : 'rgba(255,255,255,0.06)';
-      const border = active ? 'rgba(34,197,94,0.65)' : 'rgba(255,255,255,0.14)';
+
+      const isCurrent = id === current;
+      const isSelected = bulk && selectedSet && selectedSet.has(id);
+
+      const bg = isCurrent
+        ? 'rgba(34,197,94,0.18)'
+        : (isSelected ? 'rgba(59,130,246,0.18)' : 'rgba(255,255,255,0.06)');
+      const border = isCurrent
+        ? 'rgba(34,197,94,0.65)'
+        : (isSelected ? 'rgba(59,130,246,0.65)' : 'rgba(255,255,255,0.14)');
+
+      const badge = bulk && isSelected
+        ? '<div class="muted small" style="margin-top:6px; font-weight:700; color: rgba(59,130,246,0.95);">Selected</div>'
+        : (isCurrent ? '<div class="muted small" style="margin-top:6px; font-weight:700; color: rgba(34,197,94,0.95);">Current</div>' : '');
+
       return `<button type="button" data-rid="${escapeHtml(id)}" style="text-align:left; padding: 10px 10px; border-radius: 12px; border: 1px solid ${border}; background:${bg}; color: inherit; cursor:pointer;">
         <div style="font-weight:700;">${escapeHtml(label)}</div>
         <div class="muted small" style="margin-top:4px;"><code>${escapeHtml(id.slice(0, 8))}</code></div>
+        ${badge}
       </button>`;
     }).filter(Boolean).join('');
 
@@ -1896,12 +2226,30 @@
       btn.addEventListener('click', async () => {
         const rid = btn.getAttribute('data-rid') || '';
         if (!rid) return;
-        if (String(els.blockResourceId.value || '') === rid) return;
-        els.blockResourceId.value = rid;
+
+        if (bulk) {
+          const set = ensureSelectedSetForType(type);
+          if (set.has(rid)) {
+            set.delete(rid);
+          } else {
+            set.add(rid);
+          }
+          updateAvailabilitySelectionSummary();
+        }
+
+        const shouldReload = String(els.blockResourceId.value || '') !== rid;
+        if (shouldReload) {
+          els.blockResourceId.value = rid;
+        }
+
         renderResourcePanels();
-        await loadCalendarMonthData();
+        if (shouldReload) {
+          await loadCalendarMonthData();
+        }
       });
     });
+
+    updateAvailabilitySelectionSummary();
   }
 
   function renderBlocksTable() {
@@ -2113,6 +2461,9 @@
       setPersistedPartnerId(state.selectedPartnerId);
     }
 
+    clearAvailabilitySelectionsAll();
+    updateAvailabilitySelectionSummary();
+
     startBlocksRealtime();
 
     renderSuspendedInfo();
@@ -2246,6 +2597,35 @@
     els.partnerNavHotels?.addEventListener('click', () => navToCategory('hotels'));
     els.partnerNavCalendar?.addEventListener('click', () => navToCalendar());
     els.partnerNavProfile?.addEventListener('click', () => navToProfile());
+
+    els.availabilityBulkMode?.addEventListener('change', async () => {
+      setAvailabilityBulkMode(Boolean(els.availabilityBulkMode?.checked));
+      await loadCalendarMonthData();
+    });
+
+    els.btnAvailabilitySelectAllType?.addEventListener('click', async () => {
+      const type = String(els.blockResourceType?.value || '').trim();
+      if (!type) return;
+      try {
+        const rows = await ensureResourcesLoadedForType(type);
+        const set = ensureSelectedSetForType(type);
+        (rows || []).forEach((r) => {
+          if (!r?.id) return;
+          set.add(String(r.id));
+        });
+        updateAvailabilitySelectionSummary();
+        renderResourcePanels();
+      } catch (error) {
+        console.error(error);
+        showToast(`Error: ${error.message || 'Failed to select all'}`, 'error');
+      }
+    });
+
+    els.btnAvailabilityClearAll?.addEventListener('click', () => {
+      clearAvailabilitySelectionsAll();
+      updateAvailabilitySelectionSummary();
+      renderResourcePanels();
+    });
 
     els.btnPartnerCopyReferralLink?.addEventListener('click', async () => {
       const link = String(els.partnerReferralLink?.value || '').trim();
@@ -2405,12 +2785,29 @@
         const endDate = els.blockEnd?.value || '';
         const note = (els.blockNote?.value || '').trim();
 
-        if (!resourceType || !resourceId || !startDate || !endDate) {
+        if (!resourceType || !startDate || !endDate) {
           showToast('Please fill in all required fields', 'error');
           return;
         }
 
         try {
+          if (state.availability.bulkMode) {
+            const targets = await getAvailabilityTargets();
+            if (!targets.length) {
+              showToast('No target resources selected', 'error');
+              return;
+            }
+            await createRangeBlocksForTargets(startDate, endDate, note, targets);
+            if (els.blockNote) els.blockNote.value = '';
+            await refreshCalendar();
+            return;
+          }
+
+          if (!resourceId) {
+            showToast('Please fill in all required fields', 'error');
+            return;
+          }
+
           const payload = {
             partner_id: state.selectedPartnerId,
             resource_type: resourceType,
@@ -2445,6 +2842,14 @@
     });
 
     els.blockResourceId?.addEventListener('change', async () => {
+      if (state.availability.bulkMode) {
+        const type = String(els.blockResourceType?.value || '').trim();
+        const resourceId = String(els.blockResourceId?.value || '').trim();
+        if (type && resourceId) {
+          ensureSelectedSetForType(type).add(resourceId);
+        }
+        updateAvailabilitySelectionSummary();
+      }
       renderResourcePanels();
       await loadCalendarMonthData();
     });
@@ -2514,6 +2919,11 @@
     els.blockEnd = $('blockEnd');
     els.blockNote = $('blockNote');
 
+    els.availabilityBulkMode = $('partnerAvailabilityBulkMode');
+    els.btnAvailabilitySelectAllType = $('btnPartnerAvailabilitySelectAllType');
+    els.btnAvailabilityClearAll = $('btnPartnerAvailabilityClearAll');
+    els.availabilitySelectionSummary = $('partnerAvailabilitySelectionSummary');
+
     els.adminMenuToggle = $('adminMenuToggle');
     els.adminSidebar = $('adminSidebar');
     els.adminSidebarOverlay = $('adminSidebarOverlay');
@@ -2557,6 +2967,7 @@
 
     hideSelectForPanels(els.blockResourceType);
     hideSelectForPanels(els.blockResourceId);
+    setAvailabilityBulkMode(state.availability.bulkMode);
 
     state.sb = typeof window.getSupabase === 'function' ? window.getSupabase() : window.supabase;
 
