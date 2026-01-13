@@ -1970,6 +1970,61 @@
     return callFulfillmentAction(fulfillmentId, action, reason);
   }
 
+  function getFulfillmentFocusIdFromHash() {
+    const raw = String(window.location?.hash || '');
+    if (!raw) return null;
+    const h = raw.startsWith('#') ? raw.slice(1) : raw;
+    const prefix = 'fulfillments:';
+    if (!h.toLowerCase().startsWith(prefix)) return null;
+    const rest = h.slice(prefix.length);
+    const decoded = (() => {
+      try {
+        return decodeURIComponent(rest);
+      } catch (_e) {
+        return rest;
+      }
+    })();
+    const id = String(decoded || '').trim();
+    return id || null;
+  }
+
+  function clearFulfillmentHighlights() {
+    if (!els.fulfillmentsBody) return;
+    els.fulfillmentsBody.querySelectorAll('tr[data-fulfillment-id]').forEach((tr) => {
+      tr.style.boxShadow = '';
+      tr.style.background = '';
+    });
+  }
+
+  function focusFulfillmentRowFromHash() {
+    const fid = getFulfillmentFocusIdFromHash();
+    if (!fid) return;
+    if (!els.fulfillmentsBody) return;
+
+    const rows = Array.from(els.fulfillmentsBody.querySelectorAll('tr[data-fulfillment-id]'));
+    const row = rows.find((tr) => String(tr.getAttribute('data-fulfillment-id') || '') === String(fid));
+    if (!row) return;
+
+    clearFulfillmentHighlights();
+
+    row.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.55)';
+    row.style.background = 'rgba(37, 99, 235, 0.08)';
+
+    try {
+      row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    } catch (_e) {
+      try {
+        row.scrollIntoView(true);
+      } catch (_e2) {}
+    }
+
+    setTimeout(() => {
+      if (!row.isConnected) return;
+      row.style.boxShadow = '';
+      row.style.background = '';
+    }, 6000);
+  }
+
   function renderFulfillmentsTable() {
     if (!els.fulfillmentsBody) return;
 
@@ -2155,7 +2210,7 @@
           : '';
 
         return `
-          <tr>
+          <tr data-fulfillment-id="${escapeHtml(id)}">
             <td>
               <strong>${orderLabel}</strong>
               <div class="muted small">Created: ${escapeHtml(formatDate(f.created_at))}</div>
@@ -2215,6 +2270,8 @@
         }
       });
     });
+
+    focusFulfillmentRowFromHash();
   }
 
   async function loadBlocks() {
@@ -3019,6 +3076,16 @@
 
     els.tabBtnFulfillments?.addEventListener('click', () => setActiveTab('fulfillments'));
     els.tabBtnCalendar?.addEventListener('click', () => setActiveTab('calendar'));
+
+    window.addEventListener('hashchange', () => {
+      const fid = getFulfillmentFocusIdFromHash();
+      if (!fid) return;
+      if (!els.tabBtnFulfillments?.classList.contains('is-active')) {
+        setActiveTab('fulfillments');
+        return;
+      }
+      focusFulfillmentRowFromHash();
+    });
 
     els.adminMenuToggle?.addEventListener('click', (e) => {
       e.preventDefault();

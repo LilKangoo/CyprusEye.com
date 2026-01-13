@@ -37,7 +37,72 @@ function getFunctionsBaseUrl(): string {
   } catch (_e) {
     return "";
   }
+}
 
+async function sendAdminAlertOnAccept(supabase: any, params: {
+  orderId: string;
+  fulfillmentId: string;
+  partnerId: string;
+  allAccepted: boolean;
+}) {
+  const payload = {
+    category: "shop",
+    record_id: params.orderId,
+    event: "partner_accepted",
+    table: "shop_orders",
+    fulfillment_id: params.fulfillmentId,
+    partner_id: params.partnerId,
+    all_accepted: params.allAccepted,
+    note: `Partner accepted fulfillment ${params.fulfillmentId}`,
+  };
+
+  try {
+    await supabase.rpc("enqueue_admin_notification", {
+      p_category: "shop",
+      p_event: "partner_accepted",
+      p_record_id: params.orderId,
+      p_table_name: "shop_orders",
+      p_payload: payload,
+      p_dedupe_key: `shop_partner_accepted:${params.orderId}:${params.fulfillmentId}`,
+    });
+  } catch (_e) {
+    // best-effort
+  }
+}
+
+async function enqueueAdminAlertOnServiceAccept(
+  supabase: any,
+  params: {
+    category: "cars" | "trips" | "hotels";
+    bookingId: string;
+    fulfillmentId: string;
+    partnerId: string;
+  },
+) {
+  const tableName = getServiceTableName(params.category);
+
+  const payload = {
+    category: params.category,
+    record_id: params.bookingId,
+    event: "partner_accepted",
+    table: tableName,
+    fulfillment_id: params.fulfillmentId,
+    partner_id: params.partnerId,
+    note: `Partner accepted service fulfillment ${params.fulfillmentId}`,
+  };
+
+  try {
+    await supabase.rpc("enqueue_admin_notification", {
+      p_category: params.category,
+      p_event: "partner_accepted",
+      p_record_id: params.bookingId,
+      p_table_name: tableName,
+      p_payload: payload,
+      p_dedupe_key: `${params.category}_partner_accepted:${params.bookingId}:${params.fulfillmentId}`,
+    });
+  } catch (_e) {
+    // best-effort
+  }
 }
 
 function getServiceTableName(category: "cars" | "trips" | "hotels"): string {
@@ -344,6 +409,14 @@ serve(async (req) => {
       });
 
       if (kind === "service") {
+        if (bookingId && (serviceCategory === "cars" || serviceCategory === "trips" || serviceCategory === "hotels")) {
+          await enqueueAdminAlertOnServiceAccept(supabase, {
+            category: serviceCategory,
+            bookingId,
+            fulfillmentId,
+            partnerId,
+          });
+        }
         return new Response(JSON.stringify({ ok: true, data: { booking_id: bookingId, fulfillment_id: fulfillmentId, partner_id: partnerId } }), {
           status: 200,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -373,6 +446,10 @@ serve(async (req) => {
 
       if (allAccepted) {
         await sendCustomerConfirmedEmail(orderId);
+      }
+
+      if (orderId) {
+        await sendAdminAlertOnAccept(supabase, { orderId, fulfillmentId, partnerId, allAccepted });
       }
 
       return new Response(JSON.stringify({ ok: true, data: { order_id: orderId, fulfillment_id: fulfillmentId, partner_id: partnerId, all_accepted: allAccepted } }), {

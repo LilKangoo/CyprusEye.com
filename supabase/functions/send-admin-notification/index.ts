@@ -4,7 +4,7 @@ import nodemailer from "npm:nodemailer@6.9.11";
 
 type Category = "shop" | "cars" | "hotels" | "trips";
 
-type AdminEvent = "created" | "paid" | "partner_rejected" | "partner_sla";
+type AdminEvent = "created" | "paid" | "partner_rejected" | "partner_sla" | "partner_accepted" | "partner_pending_acceptance";
 
 type AdminNotificationRequest = {
   category?: Category;
@@ -567,10 +567,21 @@ function buildAdminPanelLink(category: Category, recordId: string): string {
   return `${normalizedBase}/admin/dashboard.html#${encodeURIComponent(view)}:${encodeURIComponent(recordId)}`;
 }
 
+function buildPartnerPanelLink(fulfillmentId?: string): string {
+  const base = getMailRelayBaseUrl();
+  const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
+  const baseUrl = `${normalizedBase}/partners.html`;
+  const fid = String(fulfillmentId || "").trim();
+  if (!fid) return baseUrl;
+  return `${baseUrl}#fulfillments:${encodeURIComponent(fid)}`;
+}
+
 function eventLabel(event: AdminEvent): string {
   if (event === "paid") return "Paid";
   if (event === "partner_rejected") return "Partner Rejected";
   if (event === "partner_sla") return "Partner SLA";
+  if (event === "partner_accepted") return "Partner Accepted";
+  if (event === "partner_pending_acceptance") return "Pending acceptance";
   return "New";
 }
 
@@ -581,6 +592,22 @@ function buildSubject(params: {
   record: Record<string, unknown>;
 }): string {
   const label = params.category.toUpperCase();
+  if (params.event === "partner_pending_acceptance") {
+    const reference = getField(params.record, ["reference", "order_number", "orderNumber"]);
+    const service = getField(params.record, ["summary", "car_model", "trip_name", "hotel_name"]);
+    const parts = [`[${label}] Action required`];
+    if (reference) parts.push(reference);
+    if (service) parts.push(service);
+    return parts.join(" — ");
+  }
+
+  if (params.event === "partner_accepted") {
+    const parts = [`[${label}] Partner accepted #${params.recordId}`];
+    const service = getField(params.record, ["car_model", "trip_name", "trip_title", "hotel_name", "hotel", "order_number"]);
+    if (service) parts.push(service);
+    return parts.join(" — ");
+  }
+
   const customerName = getField(params.record, [
     "customer_name",
     "full_name",
@@ -647,6 +674,192 @@ function buildSubject(params: {
   if (categoryMeta.date) parts.push(categoryMeta.date);
   if (customerName) parts.push(customerName);
   return parts.join(" — ");
+}
+
+async function getPartnerNotificationEmails(supabase: any, partnerId: string): Promise<string[]> {
+  const pid = String(partnerId || "").trim();
+  if (!pid) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from("partners")
+      .select("notification_email, email")
+      .eq("id", pid)
+      .maybeSingle();
+    if (!error) {
+      const fromPartner = parseRecipients(String((data as any)?.notification_email || ""));
+      if (fromPartner.length) return fromPartner;
+
+      const fromEmail = parseRecipients(String((data as any)?.email || ""));
+      if (fromEmail.length) return fromEmail;
+    }
+  } catch (_e) {}
+
+  try {
+    const { data, error } = await supabase
+      .from("partner_users")
+      .select("user_id")
+      .eq("partner_id", pid)
+      .limit(50);
+    if (error) throw error;
+    const userIds = (Array.isArray(data) ? data : []).map((r: any) => r?.user_id).filter(Boolean);
+    if (!userIds.length) return [];
+
+    const { data: profs, error: pErr } = await supabase
+      .from("profiles")
+      .select("email")
+      .in("id", userIds)
+      .limit(50);
+    if (pErr) throw pErr;
+
+    const emails = (Array.isArray(profs) ? profs : []).map((r: any) => String(r?.email || "").trim()).filter(Boolean);
+    return parseRecipients(emails.join(","));
+  } catch (_e) {
+    return [];
+  }
+}
+
+function renderPartnerPendingEmail(params: {
+  category: Category;
+  fulfillmentId: string;
+  record: Record<string, unknown>;
+}): { html: string; text: string } {
+  const { category, fulfillmentId, record } = params;
+
+  const createdAtIso =
+    getField(record, ["created_at", "createdAt", "inserted_at", "submitted_at", "timestamp"]) ||
+    new Date().toISOString();
+  const createdAt = formatDateTime(createdAtIso);
+  const partnerLink = buildPartnerPanelLink(fulfillmentId);
+
+  const reference = getField(record, ["reference", "order_number", "orderNumber"]);
+  const summary = getField(record, ["summary"]) || getField(record, ["resource_type"]);
+  const currency = getField(record, ["currency", "currency_code"]) || "EUR";
+
+  const dateBlock = (() => {
+    if (category === "trips") {
+      const details = (record as any)?.details && typeof (record as any)?.details === "object" ? ((record as any).details as any) : null;
+      const preferred = details?.preferred_date || details?.preferredDate || details?.trip_date || details?.tripDate || null;
+      const arrival = details?.arrival_date || details?.arrivalDate || null;
+      const departure = details?.departure_date || details?.departureDate || null;
+      const adults = details?.num_adults ?? details?.numAdults ?? null;
+      const children = details?.num_children ?? details?.numChildren ?? null;
+
+      const parts: Array<{ label: string; value: string }> = [];
+      if (preferred) parts.push({ label: "Preferred date", value: formatDate(preferred) || valueToString(preferred) });
+      if (arrival || departure) {
+        parts.push({
+          label: "Stay on Cyprus",
+          value: [formatDate(arrival) || valueToString(arrival), formatDate(departure) || valueToString(departure)].filter(Boolean).join(" → "),
+        });
+      }
+      if (adults != null || children != null) {
+        parts.push({
+          label: "Participants",
+          value: `${Number(adults || 0)} adult(s), ${Number(children || 0)} child(ren)`,
+        });
+      }
+      return parts;
+    }
+
+    const from = formatDate(getField(record, ["start_date", "pickup_date", "from_date", "date_from"]));
+    const to = formatDate(getField(record, ["end_date", "return_date", "to_date", "date_to"]));
+    const datePart = [from, to].filter(Boolean).join(" → ");
+    return datePart ? [{ label: "Dates", value: datePart }] : [];
+  })();
+
+  const price = (() => {
+    if (category === "shop") {
+      const allocated = getField(record, ["total_allocated"]);
+      const subtotal = getField(record, ["subtotal"]);
+      const value = allocated || subtotal;
+      return value ? formatMoney(value, currency) || valueToString(value) : "";
+    }
+    const total = getField(record, ["total_price", "total", "amount_total", "grand_total", "total_amount", "price_total"]);
+    return total ? formatMoney(total, currency) || valueToString(total) : "";
+  })();
+
+  const items = Array.isArray((record as any)?.items) ? ((record as any).items as any[]) : [];
+  const itemsLines = items
+    .map((it) => {
+      const qty = valueToString(it?.quantity);
+      const name = valueToString(it?.product_name) || valueToString(it?.name);
+      const variant = valueToString(it?.variant_name);
+      const line = [qty ? `${qty}×` : "", name, variant ? `(${variant})` : ""].filter(Boolean).join(" ").trim();
+      return line;
+    })
+    .filter(Boolean);
+
+  const rows: Array<{ label: string; value: string }> = [];
+  rows.push({ label: "Category", value: toTitle(category) });
+  if (reference) rows.push({ label: "Reference", value: reference });
+  if (summary) rows.push({ label: "Details", value: summary });
+  if (createdAt) rows.push({ label: "Created", value: createdAt });
+  for (const r of dateBlock) rows.push(r);
+  if (price) rows.push({ label: "Price", value: price });
+  rows.push({ label: "Partner panel", value: partnerLink });
+  rows.push({ label: "Fulfillment ID", value: fulfillmentId });
+
+  const htmlTable = `
+    <table style="width:100%; border-collapse:collapse; margin: 0;">
+      ${rows
+        .map(
+          (r) =>
+            `<tr>
+              <td style="padding:8px 10px; border:1px solid #e5e7eb; width: 34%; background:#f9fafb;"><strong>${escapeHtml(r.label)}</strong></td>
+              <td style="padding:8px 10px; border:1px solid #e5e7eb;">${r.label === "Partner panel" ? `<a href="${escapeHtml(r.value)}">${escapeHtml(r.value)}</a>` : escapeHtml(r.value)}</td>
+            </tr>`,
+        )
+        .join("")}
+    </table>`;
+
+  const itemsHtml = itemsLines.length
+    ? `
+      <h3 style="margin:18px 0 8px; font-size:16px;">Items</h3>
+      <table style="width:100%; border-collapse:collapse; margin: 0;">
+        ${itemsLines
+          .map(
+            (line) =>
+              `<tr>
+                <td style="padding:8px 10px; border:1px solid #e5e7eb;">${escapeHtml(line)}</td>
+              </tr>`,
+          )
+          .join("")}
+      </table>`
+    : "";
+
+  const cta = `<a href="${escapeHtml(partnerLink)}" style="display:inline-block; padding:10px 14px; background:#111827; color:#ffffff; text-decoration:none; border-radius:6px; font-weight:600;">Open Partner Panel</a>`;
+
+  const html = `
+    <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, \"Apple Color Emoji\", \"Segoe UI Emoji\"; color:#111827; line-height:1.45;">
+      <div style="margin:0 0 14px;">
+        <div style="font-size:13px; color:#6b7280; margin-bottom:6px;">${escapeHtml(toTitle(category))} • ${escapeHtml(eventLabel("partner_pending_acceptance"))}</div>
+        <div style="font-size:20px; font-weight:800; margin:0;">New ${escapeHtml(toTitle(category))} requires your confirmation</div>
+        <div style="font-size:13px; color:#6b7280; margin-top:6px;">${escapeHtml(createdAt)}</div>
+        <div style="margin-top:12px;">${cta}</div>
+      </div>
+
+      <h3 style="margin:18px 0 8px; font-size:16px;">Summary</h3>
+      ${htmlTable}
+      ${itemsHtml}
+    </div>`;
+
+  const textLines: string[] = [];
+  textLines.push(`New ${toTitle(category)} requires your confirmation`);
+  if (reference) textLines.push(`Reference: ${reference}`);
+  if (summary) textLines.push(`Details: ${summary}`);
+  if (createdAt) textLines.push(`Created: ${createdAt}`);
+  for (const r of dateBlock) textLines.push(`${r.label}: ${r.value}`);
+  if (price) textLines.push(`Price: ${price}`);
+  if (itemsLines.length) {
+    textLines.push("");
+    textLines.push("Items:");
+    for (const line of itemsLines) textLines.push(`- ${line}`);
+  }
+  textLines.push("");
+  textLines.push(`Partner panel: ${partnerLink}`);
+  textLines.push(`Fulfillment ID: ${fulfillmentId}`);
+  return { html, text: textLines.join("\n") };
 }
 
 function buildKeyValueRows(record: Record<string, unknown>, items: Array<{ label: string; value: string }>) {
@@ -1064,6 +1277,125 @@ serve(async (req) => {
     }
   }
 
+  let record: Record<string, unknown> | null = null;
+  if (body.record && typeof body.record === "object" && body.record !== null) {
+    record = body.record as Record<string, unknown>;
+  }
+
+  if (event === "partner_pending_acceptance") {
+    if (!record) {
+      if (tableLower === "partner_service_fulfillments") {
+        const { data, error } = await supabase
+          .from("partner_service_fulfillments")
+          .select("*")
+          .eq("id", recordId)
+          .maybeSingle();
+        if (!error && data) record = data as any;
+      } else if (tableLower === "shop_order_fulfillments") {
+        const { data, error } = await supabase
+          .from("shop_order_fulfillments")
+          .select("*")
+          .eq("id", recordId)
+          .maybeSingle();
+        if (!error && data) record = data as any;
+      }
+    }
+
+    if (!record) {
+      return new Response(JSON.stringify({ error: "Record not found" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404,
+      });
+    }
+
+    if (categoryFromBody === "shop") {
+      try {
+        const { data: items, error: itemsErr } = await supabase
+          .from("shop_order_fulfillment_items")
+          .select("fulfillment_id, product_name, variant_name, quantity")
+          .eq("fulfillment_id", recordId)
+          .limit(200);
+        if (!itemsErr && Array.isArray(items)) {
+          (record as any).items = items;
+        }
+      } catch (_e) {}
+    }
+
+    const partnerId = getField(record, ["partner_id", "partnerId"]);
+    const recipients = await getPartnerNotificationEmails(supabase, partnerId);
+    if (!recipients.length) {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "no_partner_notification_email" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    const { subject } = buildGenericEmail({
+      category: categoryFromBody,
+      event,
+      recordId,
+      record,
+    });
+    const rendered = renderPartnerPendingEmail({ category: categoryFromBody, fulfillmentId: recordId, record });
+    const html = rendered.html;
+    const text = rendered.text;
+
+    const transport = buildMailTransport();
+    if (!transport) {
+      const relayed = await tryRelayEmail({ to: recipients, subject, text, html, secret: secretRequired });
+      if (relayed.ok) {
+        return new Response(JSON.stringify({ ok: true, relayed: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+      console.warn("SMTP_HOST not set – email will be logged only.");
+      console.log(`\n===== Simulated partner notification =====\nTo: ${recipients.join(", ")}\nSubject: ${subject}\n\n${text}\n===== End =====\n`);
+      return new Response(JSON.stringify({ ok: true, simulated: true, relay_error: relayed.error || null }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    const from = Deno.env.get("SMTP_FROM") || "WakacjeCypr <no-reply@wakacjecypr.com>";
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        transport.sendMail(
+          {
+            from,
+            to: recipients.join(","),
+            subject,
+            text,
+            html,
+          },
+          (error: any) => {
+            if (error) return reject(error);
+            resolve();
+          },
+        );
+      });
+
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    } catch (error) {
+      console.error("Failed to send partner notification email:", error);
+      const relayed = await tryRelayEmail({ to: recipients, subject, text, html });
+      if (relayed.ok) {
+        return new Response(JSON.stringify({ ok: true, relayed: true, smtp_failed: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+      return new Response(JSON.stringify({ ok: true, simulated: true, smtp_error: error?.message || "Email send failed", relay_error: relayed.error || null }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+  }
+
   const adminNotificationEmailRaw = await getAdminNotificationEmails(supabase);
   const recipients = resolveRecipients(categoryFromBody, adminNotificationEmailRaw);
 
@@ -1078,11 +1410,6 @@ serve(async (req) => {
     });
   }
 
-  let record: Record<string, unknown> | null = null;
-  if (body.record && typeof body.record === "object" && body.record !== null) {
-    record = body.record as Record<string, unknown>;
-  }
-
   if (!record) {
     record = await loadCategoryRecord(supabase, categoryFromBody, recordId);
   }
@@ -1093,6 +1420,15 @@ serve(async (req) => {
       status: 404,
     });
   }
+
+  const extraFulfillmentId = typeof (body as any)?.fulfillment_id === "string" ? (body as any).fulfillment_id : "";
+  const extraPartnerId = typeof (body as any)?.partner_id === "string" ? (body as any).partner_id : "";
+  const extraAllAccepted = (body as any)?.all_accepted;
+  const extraNote = typeof (body as any)?.note === "string" ? (body as any).note : "";
+  if (extraFulfillmentId) (record as any).fulfillment_id = extraFulfillmentId;
+  if (extraPartnerId) (record as any).partner_id = extraPartnerId;
+  if (extraAllAccepted !== undefined) (record as any).all_accepted = extraAllAccepted;
+  if (extraNote) (record as any).note = extraNote;
 
   const { subject, text, html } = buildGenericEmail({
     category: categoryFromBody,
