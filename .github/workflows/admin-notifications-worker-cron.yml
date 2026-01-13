@@ -34,14 +34,14 @@ jobs:
           echo "Calling: $URL"
 
           if [ -n "${ADMIN_NOTIFY_WORKER_SECRET:-}" ]; then
-            curl -sS -X POST "$URL" \
+            curl -sS --fail-with-body -X POST "$URL" \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
               -H "apikey: ${SUPABASE_ANON_KEY}" \
               -H "x-admin-notify-worker-secret: ${ADMIN_NOTIFY_WORKER_SECRET}" \
               -d "{}"
           else
-            curl -sS -X POST "$URL" \
+            curl -sS --fail-with-body -X POST "$URL" \
               -H "Content-Type: application/json" \
               -H "Authorization: Bearer ${SUPABASE_ANON_KEY}" \
               -H "apikey: ${SUPABASE_ANON_KEY}" \

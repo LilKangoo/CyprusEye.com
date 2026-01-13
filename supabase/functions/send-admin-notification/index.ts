@@ -4,7 +4,14 @@ import nodemailer from "npm:nodemailer@6.9.11";
 
 type Category = "shop" | "cars" | "hotels" | "trips";
 
-type AdminEvent = "created" | "paid" | "partner_rejected" | "partner_sla" | "partner_accepted" | "partner_pending_acceptance";
+type AdminEvent =
+  | "created"
+  | "paid"
+  | "partner_rejected"
+  | "partner_sla"
+  | "partner_accepted"
+  | "partner_pending_acceptance"
+  | "customer_received";
 
 type AdminNotificationRequest = {
   category?: Category;
@@ -24,6 +31,7 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const CUSTOMER_HOMEPAGE_URL = "https://cypruseye.com";
 
 function parseRecipients(raw: string): string[] {
   const parts = (raw || "")
@@ -163,6 +171,7 @@ const NOISE_FIELDS = new Set([
   "quotedPrice",
   "notification_sent",
   "notificationSent",
+  "customer_received_email_sent_at",
   "items",
 ]);
 
@@ -582,6 +591,7 @@ function eventLabel(event: AdminEvent): string {
   if (event === "partner_sla") return "Partner SLA";
   if (event === "partner_accepted") return "Partner Accepted";
   if (event === "partner_pending_acceptance") return "Pending acceptance";
+  if (event === "customer_received") return "Customer confirmation";
   return "New";
 }
 
@@ -604,6 +614,23 @@ function buildSubject(params: {
   if (params.event === "partner_accepted") {
     const parts = [`[${label}] Partner accepted #${params.recordId}`];
     const service = getField(params.record, ["car_model", "trip_name", "trip_title", "hotel_name", "hotel", "order_number"]);
+    if (service) parts.push(service);
+    return parts.join(" — ");
+  }
+
+  if (params.event === "customer_received") {
+    const parts = [`[${label}] Customer confirmation #${params.recordId}`];
+    const service = getField(params.record, [
+      "car_model",
+      "trip_name",
+      "trip_title",
+      "title",
+      "trip_slug",
+      "hotel_name",
+      "hotel",
+      "hotel_slug",
+      "order_number",
+    ]);
     if (service) parts.push(service);
     return parts.join(" — ");
   }
@@ -674,6 +701,245 @@ function buildSubject(params: {
   if (categoryMeta.date) parts.push(categoryMeta.date);
   if (customerName) parts.push(customerName);
   return parts.join(" — ");
+}
+
+function resolveCustomerRecipients(category: Category, record: Record<string, unknown>): string[] {
+  if (category === "cars") return parseRecipients(getField(record, ["email"]));
+  if (category === "shop") return parseRecipients(getField(record, ["customer_email"]));
+  if (category === "trips") return parseRecipients(getField(record, ["customer_email"]));
+  if (category === "hotels") return parseRecipients(getField(record, ["customer_email"]));
+  return [];
+}
+
+function buildCustomerReceivedSubject(params: {
+  category: Category;
+  recordId: string;
+  record: Record<string, unknown>;
+}): string {
+  const label = params.category.toUpperCase();
+  const name = (() => {
+    if (params.category === "cars") return getField(params.record, ["car_model", "vehicle", "car"]);
+    if (params.category === "trips") return getField(params.record, ["trip_name", "trip_title", "title", "trip_slug"]);
+    if (params.category === "hotels") return getField(params.record, ["hotel_name", "hotel", "hotel_slug"]);
+    if (params.category === "shop") return getField(params.record, ["order_number"]);
+    return "";
+  })();
+  const parts = [`[${label}] We received your request`];
+  if (name) parts.push(name);
+  parts.push(`#${params.recordId}`);
+  return parts.join(" — ");
+}
+
+function renderCustomerReceivedEmail(params: {
+  category: Category;
+  recordId: string;
+  record: Record<string, unknown>;
+}): { subject: string; html: string; text: string } {
+  const { category, recordId, record } = params;
+
+  const createdAtIso = getField(record, ["created_at", "createdAt"]) || new Date().toISOString();
+  const createdAt = formatDateTime(createdAtIso);
+  const customerName = getField(record, ["customer_name", "full_name", "name", "customerName"]);
+
+  const greeting = customerName ? `Hi ${customerName},` : "Hello,";
+  const receivedWhat = category === "shop" ? "order" : "booking request";
+
+  const currency = getField(record, ["currency", "currency_code"]) || "EUR";
+
+  const summaryRows = (() => {
+    if (category === "cars") {
+      return buildKeyValueRows(record, [
+        { label: "Reference", value: recordId },
+        { label: "Car", value: getField(record, ["car_model", "vehicle", "car"]) },
+        {
+          label: "Pick-up",
+          value: [
+            formatDate(getField(record, ["pickup_date"])),
+            formatTime(getField(record, ["pickup_time"])),
+            getField(record, ["pickup_location"]),
+            getField(record, ["pickup_address"]),
+          ]
+            .filter(Boolean)
+            .join(" • "),
+        },
+        {
+          label: "Return",
+          value: [
+            formatDate(getField(record, ["return_date"])),
+            formatTime(getField(record, ["return_time"])),
+            getField(record, ["return_location"]),
+            getField(record, ["return_address"]),
+          ]
+            .filter(Boolean)
+            .join(" • "),
+        },
+        { label: "Passengers", value: getField(record, ["num_passengers"]) },
+        { label: "Child seats", value: getField(record, ["child_seats"]) },
+        { label: "Flight number", value: getField(record, ["flight_number"]) },
+      ]);
+    }
+
+    if (category === "trips") {
+      return buildKeyValueRows(record, [
+        { label: "Reference", value: recordId },
+        { label: "Trip", value: getField(record, ["trip_name", "trip_title", "title", "trip_slug"]) },
+        { label: "Preferred date", value: formatDate(getField(record, ["trip_date"])) },
+        {
+          label: "Stay on Cyprus",
+          value: [
+            formatDate(getField(record, ["arrival_date"])),
+            formatDate(getField(record, ["departure_date"])),
+          ]
+            .filter(Boolean)
+            .join(" → "),
+        },
+        {
+          label: "Participants",
+          value: [
+            getField(record, ["num_adults"]) ? `${getField(record, ["num_adults"]) } adult(s)` : "",
+            getField(record, ["num_children"]) ? `${getField(record, ["num_children"]) } child(ren)` : "",
+          ]
+            .filter(Boolean)
+            .join(", "),
+        },
+      ]);
+    }
+
+    if (category === "hotels") {
+      return buildKeyValueRows(record, [
+        { label: "Reference", value: recordId },
+        { label: "Hotel", value: getField(record, ["hotel_name", "hotel", "hotel_slug"]) },
+        { label: "Check-in", value: formatDate(getField(record, ["arrival_date"])) },
+        { label: "Check-out", value: formatDate(getField(record, ["departure_date"])) },
+        {
+          label: "Guests",
+          value: [
+            getField(record, ["num_adults"]) ? `${getField(record, ["num_adults"]) } adult(s)` : "",
+            getField(record, ["num_children"]) ? `${getField(record, ["num_children"]) } child(ren)` : "",
+          ]
+            .filter(Boolean)
+            .join(", "),
+        },
+      ]);
+    }
+
+    const total =
+      formatMoney(getField(record, ["total", "amount_total", "grand_total", "total_amount", "price_total"]), currency) || "";
+    return buildKeyValueRows(record, [
+      { label: "Order number", value: getField(record, ["order_number"]) || recordId },
+      { label: "Total", value: total },
+      { label: "Currency", value: currency },
+    ]);
+  })();
+
+  const summaryTable = summaryRows.length
+    ? `
+      <table style="width:100%; border-collapse:collapse; margin: 0;">
+        ${summaryRows
+          .map(
+            (r) =>
+              `<tr>
+                <td style="padding:8px 10px; border:1px solid #e5e7eb; width: 34%; background:#f9fafb;"><strong>${escapeHtml(r.label)}</strong></td>
+                <td style="padding:8px 10px; border:1px solid #e5e7eb;">${escapeHtml(r.value)}</td>
+              </tr>`,
+          )
+          .join("")}
+      </table>`
+    : "";
+
+  const items = Array.isArray((record as any)?.items) ? ((record as any).items as any[]) : [];
+  const itemsLines = items
+    .map((item) => {
+      const qty = valueToString(item?.quantity);
+      const name = valueToString(item?.product_name) || valueToString(item?.name);
+      const variant = valueToString(item?.variant_name);
+      const line = [qty ? `${qty}×` : "", name, variant ? `(${variant})` : ""].filter(Boolean).join(" ").trim();
+      return line;
+    })
+    .filter(Boolean);
+
+  const itemsBlock = category === "shop" && itemsLines.length
+    ? `
+      <h3 style="margin:18px 0 8px; font-size:16px;">Items</h3>
+      <table style="width:100%; border-collapse:collapse; margin: 0;">
+        ${itemsLines
+          .map(
+            (line) =>
+              `<tr>
+                <td style="padding:8px 10px; border:1px solid #e5e7eb;">${escapeHtml(line)}</td>
+              </tr>`,
+          )
+          .join("")}
+      </table>`
+    : "";
+
+  const cta = `<a href="${escapeHtml(CUSTOMER_HOMEPAGE_URL)}" style="display:inline-block; padding:10px 14px; background:#111827; color:#ffffff; text-decoration:none; border-radius:6px; font-weight:600;">Return to CyprusEye.com</a>`;
+
+  const subject = buildCustomerReceivedSubject({ category, recordId, record });
+
+  const html = `
+    <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, \"Apple Color Emoji\", \"Segoe UI Emoji\"; color:#111827; line-height:1.45;">
+      <div style="margin:0 0 14px;">
+        <div style="font-size:13px; color:#6b7280; margin-bottom:6px;">CyprusEye.com • Confirmation</div>
+        <div style="font-size:20px; font-weight:800; margin:0;">We received your ${escapeHtml(receivedWhat)}</div>
+        <div style="font-size:13px; color:#6b7280; margin-top:6px;">${escapeHtml(createdAt)}</div>
+      </div>
+
+      <div style="font-size:14px; margin: 14px 0 0;">
+        <div style="margin:0 0 10px;">${escapeHtml(greeting)}</div>
+        <div style="margin:0 0 10px;">Thank you for your message. Your request has been received and is now in our system.</div>
+        <div style="margin:0 0 10px;">We will get back to you shortly with confirmation and next steps.</div>
+      </div>
+
+      ${summaryTable ? `<h3 style="margin:18px 0 8px; font-size:16px;">Summary</h3>${summaryTable}` : ""}
+      ${itemsBlock}
+
+      <div style="margin-top:18px;">${cta}</div>
+      <div style="font-size:12px; color:#6b7280; margin-top:14px;">If you didn’t make this request, please ignore this email.</div>
+    </div>`;
+
+  const textLines: string[] = [];
+  textLines.push(`We received your ${receivedWhat}`);
+  if (createdAt) textLines.push(`Created: ${createdAt}`);
+  textLines.push("");
+  textLines.push(greeting);
+  textLines.push("Thank you for your message. Your request has been received and is now in our system.");
+  textLines.push("We will get back to you shortly with confirmation and next steps.");
+  textLines.push("");
+  if (summaryRows.length) {
+    textLines.push("Summary:");
+    for (const r of summaryRows) textLines.push(`- ${r.label}: ${r.value}`);
+    textLines.push("");
+  }
+  if (category === "shop" && itemsLines.length) {
+    textLines.push("Items:");
+    for (const line of itemsLines) textLines.push(`- ${line}`);
+    textLines.push("");
+  }
+  textLines.push(`Return to CyprusEye.com: ${CUSTOMER_HOMEPAGE_URL}`);
+
+  return { subject, html, text: textLines.join("\n") };
+}
+
+async function markCustomerReceivedSentAt(supabase: any, category: Category, recordId: string) {
+  const table = category === "cars"
+    ? "car_bookings"
+    : category === "trips"
+    ? "trip_bookings"
+    : category === "hotels"
+    ? "hotel_bookings"
+    : "shop_orders";
+
+  try {
+    const { error } = await supabase
+      .from(table)
+      .update({ customer_received_email_sent_at: new Date().toISOString() })
+      .eq("id", recordId)
+      .is("customer_received_email_sent_at", null);
+    if (error) console.error("Failed to mark customer_received_email_sent_at:", error);
+  } catch (e) {
+    console.error("Failed to mark customer_received_email_sent_at:", e);
+  }
 }
 
 async function getPartnerNotificationEmails(supabase: any, partnerId: string): Promise<string[]> {
@@ -1393,6 +1659,101 @@ serve(async (req) => {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
+    }
+  }
+
+  if (event === "customer_received") {
+    record = await loadCategoryRecord(supabase, categoryFromBody, recordId);
+
+    if (!record) {
+      return new Response(JSON.stringify({ error: "Record not found" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404,
+      });
+    }
+
+    const alreadySent = Boolean((record as any)?.customer_received_email_sent_at);
+    if (alreadySent) {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "already_sent" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    const customerRecipients = resolveCustomerRecipients(categoryFromBody, record);
+    if (!customerRecipients.length) {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "no_customer_email" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    const rendered = renderCustomerReceivedEmail({ category: categoryFromBody, recordId, record });
+    const subject = rendered.subject;
+    const html = rendered.html;
+    const text = rendered.text;
+
+    const transport = buildMailTransport();
+    if (!transport) {
+      const relayed = await tryRelayEmail({ to: customerRecipients, subject, text, html, secret: secretRequired });
+      if (relayed.ok) {
+        await markCustomerReceivedSentAt(supabase, categoryFromBody, recordId);
+        return new Response(JSON.stringify({ ok: true, relayed: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+      console.warn("SMTP_HOST not set – email will be logged only.");
+      console.log(
+        `\n===== Simulated customer confirmation =====\nTo: ${customerRecipients.join(", ")}\nSubject: ${subject}\n\n${text}\n===== End =====\n`,
+      );
+      return new Response(JSON.stringify({ ok: true, simulated: true, relay_error: relayed.error || null }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    const from = Deno.env.get("SMTP_FROM") || "WakacjeCypr <no-reply@wakacjecypr.com>";
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        transport.sendMail(
+          {
+            from,
+            to: customerRecipients.join(","),
+            subject,
+            text,
+            html,
+          },
+          (error: any) => {
+            if (error) return reject(error);
+            resolve();
+          },
+        );
+      });
+
+      await markCustomerReceivedSentAt(supabase, categoryFromBody, recordId);
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    } catch (error) {
+      console.error("Failed to send customer confirmation email:", error);
+      const relayed = await tryRelayEmail({ to: customerRecipients, subject, text, html, secret: secretRequired });
+      if (relayed.ok) {
+        await markCustomerReceivedSentAt(supabase, categoryFromBody, recordId);
+        return new Response(JSON.stringify({ ok: true, relayed: true, smtp_failed: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+      return new Response(
+        JSON.stringify({ ok: true, simulated: true, smtp_error: error?.message || "Email send failed", relay_error: relayed.error || null }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        },
+      );
     }
   }
 
