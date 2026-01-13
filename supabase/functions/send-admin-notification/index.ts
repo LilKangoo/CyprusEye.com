@@ -32,6 +32,7 @@ const corsHeaders = {
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const CUSTOMER_HOMEPAGE_URL = "https://cypruseye.com";
+const BRAND_LOGO_URL = "https://cypruseye.com/assets/cyprus_logo-1000x1054.png";
 
 function parseRecipients(raw: string): string[] {
   const parts = (raw || "")
@@ -70,6 +71,63 @@ function valueToString(value: unknown): string {
   if (typeof value === "string") return value.trim();
   if (typeof value === "number" && Number.isFinite(value)) return String(value);
   if (typeof value === "boolean") return value ? "Yes" : "No";
+  if (value instanceof Date) return value.toISOString();
+  if (typeof value === "object") {
+    try {
+      if (Array.isArray(value)) {
+        return value.map((v) => valueToString(v)).filter(Boolean).join(", ").trim();
+      }
+
+      const obj = value as Record<string, unknown>;
+      const pick = (keys: string[]): string => {
+        for (const key of keys) {
+          const v = obj?.[key];
+          if (v === null || v === undefined) continue;
+          if (key === "title") {
+            if (typeof v === "string") {
+              const s = v.trim();
+              if (s) return s;
+            }
+            if (typeof v === "object") {
+              const en = valueToString((v as any)?.en);
+              if (en) return en;
+              const pl = valueToString((v as any)?.pl);
+              if (pl) return pl;
+            }
+          }
+          const s = valueToString(v);
+          if (s) return s;
+        }
+        return "";
+      };
+
+      const best = pick([
+        "trip_name",
+        "trip_title",
+        "hotel_name",
+        "car_model",
+        "service_name",
+        "name",
+        "full_name",
+        "title",
+        "hotel_slug",
+        "trip_slug",
+        "slug",
+        "reference",
+        "order_number",
+        "id",
+      ]);
+      if (best) return best;
+
+      const raw = JSON.stringify(value);
+      if (raw && raw !== "{}" && raw !== "[]") {
+        return raw.length > 200 ? `${raw.slice(0, 197)}...` : raw;
+      }
+    } catch (_e) {
+      return "";
+    }
+    return "";
+  }
   return String(value).trim();
 }
 
@@ -80,6 +138,14 @@ function getField(record: Record<string, unknown>, keys: string[]): string {
     if (s) return s;
   }
   return "";
+}
+
+function buildFromHeader(rawFrom: string): string {
+  const raw = String(rawFrom || "").trim();
+  const match = raw.match(/^.*<([^>]+)>\s*$/);
+  const email = String(match ? match[1] : raw).trim();
+  const finalEmail = email || "no-reply@wakacjecypr.com";
+  return `CyprusEye.com <${finalEmail}>`;
 }
 
 const CYPRUS_TIMEZONE = "Asia/Nicosia";
@@ -720,7 +786,7 @@ function buildCustomerReceivedSubject(params: {
   const name = (() => {
     if (params.category === "cars") return getField(params.record, ["car_model", "vehicle", "car"]);
     if (params.category === "trips") return getField(params.record, ["trip_name", "trip_title", "title", "trip_slug"]);
-    if (params.category === "hotels") return getField(params.record, ["hotel_name", "hotel", "hotel_slug"]);
+    if (params.category === "hotels") return getField(params.record, ["hotel_name", "hotel_slug", "hotel"]);
     if (params.category === "shop") return getField(params.record, ["order_number"]);
     return "";
   })();
@@ -808,7 +874,7 @@ function renderCustomerReceivedEmail(params: {
     if (category === "hotels") {
       return buildKeyValueRows(record, [
         { label: "Reference", value: recordId },
-        { label: "Hotel", value: getField(record, ["hotel_name", "hotel", "hotel_slug"]) },
+        { label: "Hotel", value: getField(record, ["hotel_name", "hotel_slug", "hotel"]) },
         { label: "Check-in", value: formatDate(getField(record, ["arrival_date"])) },
         { label: "Check-out", value: formatDate(getField(record, ["departure_date"])) },
         {
@@ -877,10 +943,20 @@ function renderCustomerReceivedEmail(params: {
 
   const subject = buildCustomerReceivedSubject({ category, recordId, record });
 
+  const brandHeader = `
+      <table role="presentation" style="width:100%; border-collapse:collapse; margin: 0 0 14px;">
+        <tr>
+          <td style="padding:0; vertical-align:middle;">
+            <img src="${escapeHtml(BRAND_LOGO_URL)}" alt="CyprusEye.com" width="120" style="display:block; max-width:120px; height:auto; border:0; outline:none; text-decoration:none;" />
+          </td>
+          <td style="padding:0; text-align:right; vertical-align:middle; font-size:13px; color:#6b7280;">CyprusEye.com • Confirmation</td>
+        </tr>
+      </table>`;
+
   const html = `
     <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, \"Apple Color Emoji\", \"Segoe UI Emoji\"; color:#111827; line-height:1.45;">
       <div style="margin:0 0 14px;">
-        <div style="font-size:13px; color:#6b7280; margin-bottom:6px;">CyprusEye.com • Confirmation</div>
+        ${brandHeader}
         <div style="font-size:20px; font-weight:800; margin:0;">We received your ${escapeHtml(receivedWhat)}</div>
         <div style="font-size:13px; color:#6b7280; margin-top:6px;">${escapeHtml(createdAt)}</div>
       </div>
@@ -1096,9 +1172,22 @@ function renderPartnerPendingEmail(params: {
 
   const cta = `<a href="${escapeHtml(partnerLink)}" style="display:inline-block; padding:10px 14px; background:#111827; color:#ffffff; text-decoration:none; border-radius:6px; font-weight:600;">Open Partner Panel</a>`;
 
+  const brandHeader = `
+      <table role="presentation" style="width:100%; border-collapse:collapse; margin: 0 0 14px;">
+        <tr>
+          <td style="padding:0; vertical-align:middle;">
+            <a href="${escapeHtml(CUSTOMER_HOMEPAGE_URL)}" style="text-decoration:none;">
+              <img src="${escapeHtml(BRAND_LOGO_URL)}" alt="CyprusEye.com" width="120" style="display:block; max-width:120px; height:auto; border:0; outline:none; text-decoration:none;" />
+            </a>
+          </td>
+          <td style="padding:0; text-align:right; vertical-align:middle; font-size:13px; color:#6b7280;">CyprusEye.com</td>
+        </tr>
+      </table>`;
+
   const html = `
     <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, \"Apple Color Emoji\", \"Segoe UI Emoji\"; color:#111827; line-height:1.45;">
       <div style="margin:0 0 14px;">
+        ${brandHeader}
         <div style="font-size:13px; color:#6b7280; margin-bottom:6px;">${escapeHtml(toTitle(category))} • ${escapeHtml(eventLabel("partner_pending_acceptance"))}</div>
         <div style="font-size:20px; font-weight:800; margin:0;">New ${escapeHtml(toTitle(category))} requires your confirmation</div>
         <div style="font-size:13px; color:#6b7280; margin-top:6px;">${escapeHtml(createdAt)}</div>
@@ -1297,9 +1386,22 @@ function renderHtmlEmail(params: {
     ? `<a href="${escapeHtml(link)}" style="display:inline-block; padding:10px 14px; background:#111827; color:#ffffff; text-decoration:none; border-radius:6px; font-weight:600;">Open in admin</a>`
     : "";
 
+  const brandHeader = `
+      <table role="presentation" style="width:100%; border-collapse:collapse; margin: 0 0 14px;">
+        <tr>
+          <td style="padding:0; vertical-align:middle;">
+            <a href="${escapeHtml(CUSTOMER_HOMEPAGE_URL)}" style="text-decoration:none;">
+              <img src="${escapeHtml(BRAND_LOGO_URL)}" alt="CyprusEye.com" width="120" style="display:block; max-width:120px; height:auto; border:0; outline:none; text-decoration:none;" />
+            </a>
+          </td>
+          <td style="padding:0; text-align:right; vertical-align:middle; font-size:13px; color:#6b7280;">CyprusEye.com</td>
+        </tr>
+      </table>`;
+
   const html = `
   <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, \"Apple Color Emoji\", \"Segoe UI Emoji\"; color:#111827; line-height:1.45;">
     <div style="margin:0 0 14px;">
+      ${brandHeader}
       <div style="font-size:13px; color:#6b7280; margin-bottom:6px;">${escapeHtml(eventLabel(event))} • ${escapeHtml(toTitle(category))}</div>
       <div style="font-size:20px; font-weight:800; margin:0;">${escapeHtml(toTitle(category))} — ${escapeHtml(eventLabel(event))}</div>
       <div style="font-size:13px; color:#6b7280; margin-top:6px;">Record #${escapeHtml(recordId)} • ${escapeHtml(createdAt)}</div>
@@ -1657,7 +1759,7 @@ serve(async (req) => {
       });
     }
 
-    const from = Deno.env.get("SMTP_FROM") || "CyprusEye <no-reply@wakacjecypr.com>";
+    const from = buildFromHeader(Deno.env.get("SMTP_FROM") || "no-reply@wakacjecypr.com");
 
     try {
       await new Promise<void>((resolve, reject) => {
@@ -1751,7 +1853,7 @@ serve(async (req) => {
       });
     }
 
-    const from = Deno.env.get("SMTP_FROM") || "CyprusEye <no-reply@wakacjecypr.com>";
+    const from = buildFromHeader(Deno.env.get("SMTP_FROM") || "no-reply@wakacjecypr.com");
 
     try {
       await new Promise<void>((resolve, reject) => {
@@ -1866,7 +1968,7 @@ serve(async (req) => {
     });
   }
 
-  const from = Deno.env.get("SMTP_FROM") || "CyprusEye <no-reply@wakacjecypr.com>";
+  const from = buildFromHeader(Deno.env.get("SMTP_FROM") || "no-reply@wakacjecypr.com");
 
   try {
     await new Promise<void>((resolve, reject) => {
