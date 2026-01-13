@@ -1421,6 +1421,40 @@ async function loadCategoryRecord(
   return null;
 }
 
+async function hydrateTripNameForEmail(supabase: any, record: Record<string, unknown>): Promise<void> {
+  const tripId = getField(record, ["trip_id", "tripId"]);
+  if (!tripId) return;
+
+  try {
+    const { data, error } = await supabase
+      .from("trips")
+      .select("id, slug, title")
+      .eq("id", tripId)
+      .maybeSingle();
+    if (error || !data) return;
+
+    const titleRaw = (data as any)?.title;
+    const titleEn = (() => {
+      if (titleRaw && typeof titleRaw === "object") {
+        const en = String((titleRaw as any)?.en || "").trim();
+        if (en) return en;
+        const pl = String((titleRaw as any)?.pl || "").trim();
+        if (pl) return pl;
+      }
+      return String(titleRaw || "").trim();
+    })();
+
+    const fallback = String((data as any)?.slug || "").trim();
+    const finalName = titleEn || fallback;
+    if (!finalName) return;
+
+    (record as any).trip_name = finalName;
+    (record as any).trip_title = finalName;
+  } catch (_e) {
+    return;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response("ok", { headers: corsHeaders });
@@ -1623,7 +1657,7 @@ serve(async (req) => {
       });
     }
 
-    const from = Deno.env.get("SMTP_FROM") || "WakacjeCypr <no-reply@wakacjecypr.com>";
+    const from = Deno.env.get("SMTP_FROM") || "CyprusEye <no-reply@wakacjecypr.com>";
 
     try {
       await new Promise<void>((resolve, reject) => {
@@ -1672,6 +1706,10 @@ serve(async (req) => {
       });
     }
 
+    if (categoryFromBody === "trips") {
+      await hydrateTripNameForEmail(supabase, record);
+    }
+
     const alreadySent = Boolean((record as any)?.customer_received_email_sent_at);
     if (alreadySent) {
       return new Response(JSON.stringify({ ok: true, skipped: true, reason: "already_sent" }), {
@@ -1713,7 +1751,7 @@ serve(async (req) => {
       });
     }
 
-    const from = Deno.env.get("SMTP_FROM") || "WakacjeCypr <no-reply@wakacjecypr.com>";
+    const from = Deno.env.get("SMTP_FROM") || "CyprusEye <no-reply@wakacjecypr.com>";
 
     try {
       await new Promise<void>((resolve, reject) => {
@@ -1828,7 +1866,7 @@ serve(async (req) => {
     });
   }
 
-  const from = Deno.env.get("SMTP_FROM") || "WakacjeCypr <no-reply@wakacjecypr.com>";
+  const from = Deno.env.get("SMTP_FROM") || "CyprusEye <no-reply@wakacjecypr.com>";
 
   try {
     await new Promise<void>((resolve, reject) => {
