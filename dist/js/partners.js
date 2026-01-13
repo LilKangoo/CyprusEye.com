@@ -1894,21 +1894,21 @@
       });
     }
 
-    const acceptedShopIds = filteredMerged
-      .filter((f) => f && f.__source === 'shop' && String(f.status) === 'accepted')
+    const revealableShopIds = filteredMerged
+      .filter((f) => f && f.__source === 'shop' && f.contact_revealed_at)
       .map((f) => f.id)
       .filter(Boolean);
 
-    const acceptedServiceIds = filteredMerged
-      .filter((f) => f && f.__source === 'service' && String(f.status) === 'accepted')
+    const revealableServiceIds = filteredMerged
+      .filter((f) => f && f.__source === 'service' && f.contact_revealed_at)
       .map((f) => f.id)
       .filter(Boolean);
 
-    if (acceptedShopIds.length) {
+    if (revealableShopIds.length) {
       const { data: contacts, error: contactsErr } = await state.sb
         .from('shop_order_fulfillment_contacts')
         .select('fulfillment_id, customer_name, customer_email, customer_phone, shipping_address')
-        .in('fulfillment_id', acceptedShopIds)
+        .in('fulfillment_id', revealableShopIds)
         .limit(200);
 
       if (contactsErr) throw contactsErr;
@@ -1920,11 +1920,11 @@
       });
     }
 
-    if (acceptedServiceIds.length) {
+    if (revealableServiceIds.length) {
       const { data: contacts, error: contactsErr } = await state.sb
         .from('partner_service_fulfillment_contacts')
         .select('fulfillment_id, customer_name, customer_email, customer_phone')
-        .in('fulfillment_id', acceptedServiceIds)
+        .in('fulfillment_id', revealableServiceIds)
         .limit(200);
 
       if (contactsErr) throw contactsErr;
@@ -1940,6 +1940,7 @@
   function updateKpis() {
     const rows = filteredFulfillmentsForSelectedCategory();
     const pending = rows.filter((f) => String(f.status) === 'pending_acceptance').length;
+    const awaiting = rows.filter((f) => String(f.status) === 'awaiting_payment').length;
     const accepted = rows.filter((f) => String(f.status) === 'accepted').length;
     const rejected = rows.filter((f) => String(f.status) === 'rejected').length;
 
@@ -1949,8 +1950,10 @@
 
     if (els.fulfillmentsHint) {
       const hint = pending > 0
-        ? `You have ${pending} fulfillment(s) awaiting acceptance. Accepting reveals customer contact details.`
-        : 'No fulfillments awaiting acceptance.';
+        ? `You have ${pending} fulfillment(s) awaiting acceptance.`
+        : awaiting > 0
+          ? `You have ${awaiting} fulfillment(s) awaiting payment confirmation.`
+          : 'No fulfillments awaiting acceptance.';
       els.fulfillmentsHint.textContent = hint;
     }
   }
@@ -2197,7 +2200,7 @@
             }
             showToast('Fulfillment rejected', 'success');
           } else {
-            if (!confirm('Accepting will reveal customer contact details. Continue?')) return;
+            if (!confirm('Accepting will request a customer deposit payment. Contact details will be revealed after payment confirmation. Continue?')) return;
             btn.disabled = true;
             if (source === 'service') {
               await callServiceFulfillmentAction(fulfillmentId, 'accept');

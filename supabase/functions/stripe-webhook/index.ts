@@ -17,6 +17,140 @@ const corsHeaders = {
 
 const SLA_ACCEPT_HOURS = 4;
 
+function normalizeServiceType(value: unknown): "cars" | "trips" | "hotels" | null {
+  const v = String(value || "").trim().toLowerCase();
+  if (v === "cars" || v === "car") return "cars";
+  if (v === "trips" || v === "trip") return "trips";
+  if (v === "hotels" || v === "hotel") return "hotels";
+  return null;
+}
+
+function serviceTableName(rt: "cars" | "trips" | "hotels"): string {
+  if (rt === "cars") return "car_bookings";
+  if (rt === "trips") return "trip_bookings";
+  return "hotel_bookings";
+}
+
+async function enqueuePartnerDepositPaidEmail(supabase: any, params: {
+  depositRequestId: string;
+  partnerId: string;
+  resourceType: "cars" | "trips" | "hotels";
+  bookingId: string;
+  fulfillmentId: string;
+}) {
+  const tableName = serviceTableName(params.resourceType);
+  const payload = {
+    category: params.resourceType,
+    record_id: params.bookingId,
+    event: "partner_deposit_paid",
+    table: tableName,
+    deposit_request_id: params.depositRequestId,
+    fulfillment_id: params.fulfillmentId,
+    partner_id: params.partnerId,
+  };
+
+  try {
+    await supabase.rpc("enqueue_admin_notification", {
+      p_category: params.resourceType,
+      p_event: "partner_deposit_paid",
+      p_record_id: params.bookingId,
+      p_table_name: tableName,
+      p_payload: payload,
+      p_dedupe_key: `deposit_partner_paid:${params.depositRequestId}`,
+    });
+  } catch (_e) {
+    // best-effort
+  }
+}
+
+async function handleDepositCheckoutCompleted(supabase: any, session: Stripe.Checkout.Session) {
+  const depositRequestId = String((session.metadata as any)?.deposit_request_id || session.client_reference_id || "").trim();
+  if (!depositRequestId) return;
+
+  const nowIso = new Date().toISOString();
+  const paymentIntentId = getStripeId(session.payment_intent);
+
+  const { data: dep, error: depErr } = await supabase
+    .from("service_deposit_requests")
+    .select("*")
+    .eq("id", depositRequestId)
+    .maybeSingle();
+
+  if (depErr || !dep) {
+    console.warn("[stripe-webhook] deposit request not found:", { depositRequestId, depErr });
+    return;
+  }
+
+  const resourceType = normalizeServiceType((dep as any).resource_type);
+  const bookingId = String((dep as any).booking_id || "").trim();
+  const partnerId = String((dep as any).partner_id || "").trim();
+  const fulfillmentId = String((dep as any).fulfillment_id || "").trim();
+  const amount = Number((dep as any).amount || 0) || 0;
+  const currency = String((dep as any).currency || "EUR").trim() || "EUR";
+
+  if (!resourceType || !bookingId || !partnerId || !fulfillmentId) {
+    console.warn("[stripe-webhook] deposit request missing refs:", { depositRequestId, resourceType, bookingId, partnerId, fulfillmentId });
+    return;
+  }
+
+  await supabase
+    .from("service_deposit_requests")
+    .update({
+      status: "paid",
+      paid_at: nowIso,
+      stripe_checkout_session_id: session.id,
+      stripe_payment_intent_id: paymentIntentId,
+    })
+    .eq("id", depositRequestId)
+    .neq("status", "paid");
+
+  await supabase
+    .from("partner_service_fulfillments")
+    .update({
+      status: "accepted",
+      contact_revealed_at: nowIso,
+      updated_at: nowIso,
+    })
+    .eq("id", fulfillmentId)
+    .is("contact_revealed_at", null);
+
+  const table = serviceTableName(resourceType);
+  await supabase
+    .from(table)
+    .update({
+      deposit_paid_at: nowIso,
+      deposit_amount: amount,
+      deposit_currency: currency,
+    })
+    .eq("id", bookingId)
+    .is("deposit_paid_at", null);
+
+  await enqueuePartnerDepositPaidEmail(supabase, {
+    depositRequestId,
+    partnerId,
+    resourceType,
+    bookingId,
+    fulfillmentId,
+  });
+}
+
+async function handleDepositCheckoutExpired(supabase: any, session: Stripe.Checkout.Session) {
+  const depositRequestId = String((session.metadata as any)?.deposit_request_id || session.client_reference_id || "").trim();
+  if (!depositRequestId) return;
+
+  const nowIso = new Date().toISOString();
+
+  try {
+    await supabase
+      .from("service_deposit_requests")
+      .update({ status: "expired", updated_at: nowIso })
+      .eq("id", depositRequestId)
+      .eq("status", "pending");
+  } catch (_e) {
+    // best-effort
+  }
+}
+
 function getStripeId(value: unknown): string | null {
   if (!value) return null;
   if (typeof value === "string") return value;
@@ -245,6 +379,12 @@ serve(async (req) => {
 async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.Session) {
   console.log("Checkout completed:", session.id);
 
+  const depositRequestId = String((session.metadata as any)?.deposit_request_id || "").trim();
+  if (depositRequestId) {
+    await handleDepositCheckoutCompleted(supabase, session);
+    return;
+  }
+
   let order: any = null;
 
   const primary = await supabase
@@ -435,6 +575,12 @@ async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.S
 
 async function handleCheckoutExpired(supabase: any, session: Stripe.Checkout.Session) {
   console.log("Checkout expired:", session.id);
+
+  const depositRequestId = String((session.metadata as any)?.deposit_request_id || "").trim();
+  if (depositRequestId) {
+    await handleDepositCheckoutExpired(supabase, session);
+    return;
+  }
 
   const { data: order } = await supabase
     .from("shop_orders")
