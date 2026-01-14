@@ -122,6 +122,17 @@ async function loadDepositStatusFromDb(lang) {
   const supabase = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey)
 
   try {
+    // Prefer RPC because service_deposit_requests is protected by RLS (anon cannot SELECT).
+    try {
+      const { data: rpcData, error: rpcErr } = await supabase.rpc('get_service_deposit_status', { p_id: depId })
+      if (!rpcErr) {
+        const row = Array.isArray(rpcData) ? rpcData[0] : rpcData
+        return row || null
+      }
+    } catch (_e) {
+      // fallback below
+    }
+
     const { data, error } = await supabase
       .from('service_deposit_requests')
       .select('id,status,paid_at,amount,currency,fulfillment_reference,fulfillment_summary,resource_type,booking_id')
@@ -142,7 +153,7 @@ function applyResultUi(lang, result, dbStatus) {
   const effective = (() => {
     if (dbStatus === 'paid') return 'success'
     if (result === 'cancel') return 'cancel'
-    if (result === 'success') return 'success'
+    if (result === 'success') return 'pending'
     return 'pending'
   })()
 

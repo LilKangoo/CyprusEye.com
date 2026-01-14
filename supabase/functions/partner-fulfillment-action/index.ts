@@ -127,8 +127,8 @@ function buildDepositRedirectUrl(params: {
   url.searchParams.set("currency", String(params.currency || "EUR"));
   if (params.reference) url.searchParams.set("reference", String(params.reference));
   if (params.summary) url.searchParams.set("summary", String(params.summary));
-  url.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
-  return `${url.origin}${url.pathname}${url.search}`;
+  const base = `${url.origin}${url.pathname}${url.search}`;
+  return `${base}${base.includes("?") ? "&" : "?"}session_id={CHECKOUT_SESSION_ID}`;
 }
 
 async function enqueueCustomerDepositEmail(supabase: any, params: {

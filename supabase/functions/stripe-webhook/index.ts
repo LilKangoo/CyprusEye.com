@@ -488,6 +488,30 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  if (req.method === "GET" || req.method === "HEAD") {
+    const hasStripeSecretKey = Boolean((Deno.env.get("STRIPE_SECRET_KEY") || "").trim());
+    const hasWebhookSecret = Boolean((Deno.env.get("STRIPE_WEBHOOK_SECRET") || "").trim());
+    const hasSupabaseUrl = Boolean((Deno.env.get("SUPABASE_URL") || "").trim());
+    const hasServiceRoleKey = Boolean((Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "").trim());
+
+    return new Response(
+      JSON.stringify({
+        ok: true,
+        service: "stripe-webhook",
+        env: {
+          hasStripeSecretKey,
+          hasWebhookSecret,
+          hasSupabaseUrl,
+          hasServiceRoleKey,
+        },
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      },
+    );
+  }
+
   const signature = req.headers.get("stripe-signature");
   if (!signature) {
     return new Response("No signature", { status: 400 });
