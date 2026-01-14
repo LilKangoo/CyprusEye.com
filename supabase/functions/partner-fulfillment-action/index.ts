@@ -67,7 +67,12 @@ async function isDepositEnabled(supabase: any): Promise<boolean> {
 async function loadDepositRule(
   supabase: any,
   params: { resource_type: "cars" | "trips" | "hotels"; resource_id?: string | null },
-): Promise<{ mode: "per_day" | "per_person" | "flat"; amount: number; currency: string; include_children: boolean } | null> {
+): Promise<{
+  mode: "per_day" | "per_person" | "flat" | "percent_total";
+  amount: number;
+  currency: string;
+  include_children: boolean;
+} | null> {
   const rt = params.resource_type;
   const rid = String(params.resource_id || "").trim();
 
@@ -84,7 +89,7 @@ async function loadDepositRule(
       const amount = Number((overrideRow as any).amount || 0);
       const currency = String((overrideRow as any).currency || "EUR").trim() || "EUR";
       const includeChildren = Boolean((overrideRow as any).include_children);
-      if (mode === "per_day" || mode === "per_person" || mode === "flat") {
+      if (mode === "per_day" || mode === "per_person" || mode === "flat" || mode === "percent_total") {
         return { mode, amount, currency, include_children: includeChildren };
       }
     }
@@ -101,7 +106,7 @@ async function loadDepositRule(
   const amount = Number((ruleRow as any).amount || 0);
   const currency = String((ruleRow as any).currency || "EUR").trim() || "EUR";
   const includeChildren = Boolean((ruleRow as any).include_children);
-  if (mode !== "per_day" && mode !== "per_person" && mode !== "flat") return null;
+  if (mode !== "per_day" && mode !== "per_person" && mode !== "flat" && mode !== "percent_total") return null;
   return { mode, amount, currency, include_children: includeChildren };
 }
 
@@ -361,26 +366,38 @@ async function createDepositCheckoutForServiceFulfillment(params: {
     throw new Error("Deposit rule not configured");
   }
 
-  const multiplier = (() => {
-    if (rule.mode === "flat") return 1;
-    if (rule.mode === "per_day") {
-      const start = fulfillment?.start_date;
-      const end = fulfillment?.end_date;
-      return diffDays(start, end);
+  const depositAmount = (() => {
+    if (rule.mode === "percent_total") {
+      const total = Number((fulfillment as any)?.total_price || 0);
+      const pct = Number(rule.amount || 0);
+      if (!(total > 0)) throw new Error("Fulfillment total price missing for percent_total deposit");
+      if (!(pct > 0)) throw new Error("Deposit percent is 0");
+      return clampMoney((total * pct) / 100);
     }
-    const details = fulfillment?.details && typeof fulfillment.details === "object" ? fulfillment.details : null;
-    const adults = details?.num_adults ?? details?.numAdults ?? 0;
-    const children = details?.num_children ?? details?.numChildren ?? 0;
-    const people = Number(adults || 0) + Number(rule.include_children ? (children || 0) : 0);
-    return Math.max(1, Number.isFinite(people) ? people : 1);
-  })();
 
-  const depositAmount = clampMoney(Number(rule.amount || 0) * multiplier);
+    const multiplier = (() => {
+      if (rule.mode === "flat") return 1;
+      if (rule.mode === "per_day") {
+        const start = fulfillment?.start_date;
+        const end = fulfillment?.end_date;
+        return diffDays(start, end);
+      }
+      const details = fulfillment?.details && typeof fulfillment.details === "object" ? fulfillment.details : null;
+      const adults = details?.num_adults ?? details?.numAdults ?? 0;
+      const children = details?.num_children ?? details?.numChildren ?? 0;
+      const people = Number(adults || 0) + Number(rule.include_children ? (children || 0) : 0);
+      return Math.max(1, Number.isFinite(people) ? people : 1);
+    })();
+
+    return clampMoney(Number(rule.amount || 0) * multiplier);
+  })();
   if (!(depositAmount > 0)) {
     throw new Error("Deposit amount is 0");
   }
 
-  const currency = String(rule.currency || "EUR").trim() || "EUR";
+  const currency = (rule.mode === "percent_total"
+    ? String((fulfillment as any)?.currency || rule.currency || "EUR").trim() || "EUR"
+    : String(rule.currency || "EUR").trim() || "EUR");
   const fulfillmentReference = fulfillment?.reference ? String(fulfillment.reference) : null;
   const fulfillmentSummary = fulfillment?.summary ? String(fulfillment.summary) : null;
 

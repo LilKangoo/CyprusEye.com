@@ -411,6 +411,16 @@ const partnersState = {
   expandedAcceptedPartnerId: null,
 };
 
+const partnersUiState = {
+  activeTab: 'list',
+  depositLoadedOnce: false,
+  depositOverrideSearchTimer: null,
+  depositOverrideSearchResults: [],
+  depositOverrides: [],
+  depositOverrideLabels: {},
+  depositRequests: [],
+};
+
 let adminPartnerAuditChannel = null;
 
 let adminCalendarsRealtimeChannel = null;
@@ -1415,6 +1425,540 @@ async function togglePartnerAccepted(partnerId) {
 }
 
 window.togglePartnerAccepted = (partnerId) => togglePartnerAccepted(partnerId);
+
+function setPartnersActiveTab(tabName) {
+  const next = String(tabName || '').trim() || 'list';
+  partnersUiState.activeTab = next;
+
+  document.querySelectorAll('[data-partners-tab]').forEach((btn) => {
+    const t = String(btn.getAttribute('data-partners-tab') || '').trim();
+    btn.classList.toggle('active', t === next);
+  });
+
+  const listEl = document.getElementById('partnersTabList');
+  const emailsEl = document.getElementById('partnersTabEmails');
+
+  if (listEl) {
+    listEl.hidden = next !== 'list';
+    listEl.classList.toggle('active', next === 'list');
+  }
+  if (emailsEl) {
+    emailsEl.hidden = next !== 'emails';
+    emailsEl.classList.toggle('active', next === 'emails');
+  }
+
+  if (next === 'emails') {
+    loadPartnersDepositAdminData();
+  }
+}
+
+async function loadPartnersDepositAdminData(force = false) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  if (partnersUiState.depositLoadedOnce && !force) return;
+  partnersUiState.depositLoadedOnce = true;
+
+  await Promise.all([
+    loadDepositSettings(),
+    loadDefaultDepositRules(),
+    loadDepositOverrides(),
+    loadDepositRequests(),
+  ]);
+}
+
+async function loadDepositSettings() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { data, error } = await client
+      .from('email_settings')
+      .select('id, deposit_enabled')
+      .eq('id', 1)
+      .maybeSingle();
+
+    if (error) throw error;
+    const toggle = document.getElementById('depositEnabledToggle');
+    if (toggle) toggle.checked = Boolean(data?.deposit_enabled);
+  } catch (e) {
+    console.error('Failed to load deposit settings:', e);
+    showToast(e.message || 'Failed to load deposit settings', 'error');
+  }
+}
+
+async function saveDepositSettings() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const toggle = document.getElementById('depositEnabledToggle');
+  const enabled = Boolean(toggle?.checked);
+
+  try {
+    const { error } = await client
+      .from('email_settings')
+      .upsert({ id: 1, deposit_enabled: enabled }, { onConflict: 'id' });
+    if (error) throw error;
+    showToast('Saved deposit settings', 'success');
+  } catch (e) {
+    console.error('Failed to save deposit settings:', e);
+    showToast(e.message || 'Failed to save deposit settings', 'error');
+  }
+}
+
+function getDepositRuleInputs(type) {
+  const t = String(type || '').trim();
+  const up = t.charAt(0).toUpperCase() + t.slice(1);
+  return {
+    mode: document.getElementById(`depositRuleMode${up}`),
+    amount: document.getElementById(`depositRuleAmount${up}`),
+    currency: document.getElementById(`depositRuleCurrency${up}`),
+    includeChildren: document.getElementById(`depositRuleIncludeChildren${up}`),
+    enabled: document.getElementById(`depositRuleEnabled${up}`),
+  };
+}
+
+async function loadDefaultDepositRules() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { data, error } = await client
+      .from('service_deposit_rules')
+      .select('resource_type, mode, amount, currency, include_children, enabled')
+      .in('resource_type', ['cars', 'trips', 'hotels']);
+
+    if (error) throw error;
+    const rows = Array.isArray(data) ? data : [];
+    const byType = {};
+    rows.forEach((r) => {
+      if (r?.resource_type) byType[r.resource_type] = r;
+    });
+
+    ['cars', 'trips', 'hotels'].forEach((t) => {
+      const row = byType[t] || {};
+      const inputs = getDepositRuleInputs(t);
+      if (inputs.mode) inputs.mode.value = row.mode || 'flat';
+      if (inputs.amount) inputs.amount.value = row.amount != null ? Number(row.amount) : '';
+      if (inputs.currency) inputs.currency.value = row.currency || 'EUR';
+      if (inputs.includeChildren) inputs.includeChildren.checked = Boolean(row.include_children);
+      if (inputs.enabled) inputs.enabled.checked = Boolean(row.enabled);
+    });
+  } catch (e) {
+    console.error('Failed to load deposit rules:', e);
+    showToast(e.message || 'Failed to load deposit rules', 'error');
+  }
+}
+
+async function saveDefaultDepositRules() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const rows = ['cars', 'trips', 'hotels'].map((t) => {
+      const inputs = getDepositRuleInputs(t);
+      const mode = String(inputs.mode?.value || '').trim();
+      const amount = Number(inputs.amount?.value || 0);
+      const currency = String(inputs.currency?.value || 'EUR').trim() || 'EUR';
+      const includeChildren = Boolean(inputs.includeChildren?.checked);
+      const enabled = Boolean(inputs.enabled?.checked);
+      return {
+        resource_type: t,
+        mode,
+        amount,
+        currency,
+        include_children: includeChildren,
+        enabled,
+      };
+    });
+
+    const bad = rows.find((r) => {
+      if (!r.mode) return true;
+      if (!Number.isFinite(Number(r.amount))) return true;
+      if (!r.enabled) return false;
+      if (!(Number(r.amount) > 0)) return true;
+      if (r.mode === 'percent_total' && !(Number(r.amount) <= 100)) return true;
+      return false;
+    });
+    if (bad) throw new Error('Invalid deposit rule');
+
+    const { error } = await client
+      .from('service_deposit_rules')
+      .upsert(rows, { onConflict: 'resource_type' });
+    if (error) throw error;
+    showToast('Saved deposit rules', 'success');
+  } catch (e) {
+    console.error('Failed to save deposit rules:', e);
+    showToast(e.message || 'Failed to save deposit rules', 'error');
+  }
+}
+
+function normalizeI18nTitle(value) {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') return value.pl || value.en || value.el || value.he || '';
+  return '';
+}
+
+async function loadDepositOverrides() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const tbody = document.getElementById('depositOverridesTableBody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 24px;">Loading...</td></tr>';
+
+  try {
+    const { data, error } = await client
+      .from('service_deposit_overrides')
+      .select('id, resource_type, resource_id, mode, amount, currency, include_children, enabled, updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(300);
+
+    if (error) throw error;
+    partnersUiState.depositOverrides = Array.isArray(data) ? data : [];
+    partnersUiState.depositOverrideLabels = {};
+
+    const idsByType = { cars: [], trips: [], hotels: [] };
+    partnersUiState.depositOverrides.forEach((r) => {
+      const t = String(r.resource_type || '').trim();
+      const id = r.resource_id;
+      if (t && id && idsByType[t]) idsByType[t].push(id);
+    });
+
+    const [carsRes, tripsRes, hotelsRes] = await Promise.all([
+      idsByType.cars.length
+        ? client.from('car_offers').select('id, car_model, car_type, location').in('id', idsByType.cars)
+        : Promise.resolve({ data: [] }),
+      idsByType.trips.length
+        ? client.from('trips').select('id, slug, title, start_city').in('id', idsByType.trips)
+        : Promise.resolve({ data: [] }),
+      idsByType.hotels.length
+        ? client.from('hotels').select('id, slug, title, city').in('id', idsByType.hotels)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+    (carsRes.data || []).forEach((r) => {
+      const title = normalizeI18nTitle(r.car_model) || normalizeI18nTitle(r.car_type) || 'Car';
+      const loc = r.location ? ` (${r.location})` : '';
+      partnersUiState.depositOverrideLabels[`cars:${r.id}`] = `${title}${loc}`;
+    });
+    (tripsRes.data || []).forEach((r) => {
+      const title = normalizeI18nTitle(r.title) || r.slug || String(r.id).slice(0, 8);
+      const city = r.start_city ? ` — ${r.start_city}` : '';
+      partnersUiState.depositOverrideLabels[`trips:${r.id}`] = `${title}${city}`;
+    });
+    (hotelsRes.data || []).forEach((r) => {
+      const title = normalizeI18nTitle(r.title) || r.slug || String(r.id).slice(0, 8);
+      const city = r.city ? ` — ${r.city}` : '';
+      partnersUiState.depositOverrideLabels[`hotels:${r.id}`] = `${title}${city}`;
+    });
+
+    renderDepositOverridesTable();
+  } catch (e) {
+    console.error('Failed to load deposit overrides:', e);
+    if (tbody) tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; color:#ef4444; padding: 24px;">Error: ${escapeHtml(e.message || 'Failed to load')}</td></tr>`;
+  }
+}
+
+function renderDepositOverridesTable() {
+  const tbody = document.getElementById('depositOverridesTableBody');
+  if (!tbody) return;
+
+  const rows = Array.isArray(partnersUiState.depositOverrides) ? partnersUiState.depositOverrides : [];
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 24px; color: var(--admin-text-muted);">—</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map((r) => {
+    const type = String(r.resource_type || '').trim();
+    const rid = r.resource_id ? String(r.resource_id) : '';
+    const label = partnersUiState.depositOverrideLabels[`${type}:${rid}`] || rid.slice(0, 8);
+    const enabled = Boolean(r.enabled);
+    const mode = String(r.mode || '');
+    const amount = Number(r.amount || 0);
+    const currency = String(r.currency || 'EUR');
+    const amtLabel = currency.toUpperCase() === 'EUR' ? `€${amount.toFixed(2)}` : `${amount.toFixed(2)} ${currency}`;
+    return `
+      <tr>
+        <td>${escapeHtml(type)}</td>
+        <td>${escapeHtml(label)}</td>
+        <td><code>${escapeHtml(mode)}</code></td>
+        <td style="text-align: right;">${escapeHtml(amtLabel)}</td>
+        <td>${escapeHtml(currency)}</td>
+        <td>${enabled ? '<span class="badge" style="background:#22c55e;">enabled</span>' : '<span class="badge" style="background:#6b7280;">disabled</span>'}</td>
+        <td style="text-align: right;">
+          <button class="btn-small btn-secondary" onclick="deleteDepositOverride('${escapeHtml(String(r.id))}')">Delete</button>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function deleteDepositOverride(overrideId) {
+  const client = ensureSupabase();
+  if (!client) return;
+  const id = String(overrideId || '').trim();
+  if (!id) return;
+  if (!confirm('Delete this override?')) return;
+
+  try {
+    const { error } = await client
+      .from('service_deposit_overrides')
+      .delete()
+      .eq('id', id);
+    if (error) throw error;
+    showToast('Override deleted', 'success');
+    await loadDepositOverrides();
+  } catch (e) {
+    console.error('Failed to delete override:', e);
+    showToast(e.message || 'Failed to delete override', 'error');
+  }
+}
+
+window.deleteDepositOverride = (id) => deleteDepositOverride(id);
+
+function setDepositOverrideSelectOptions(rows) {
+  const select = document.getElementById('depositOverrideResourceSelect');
+  if (!select) return;
+  const options = (rows || []).map((r) => {
+    const id = r?.id ? String(r.id) : '';
+    const label = r?.label ? String(r.label) : id;
+    return `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`;
+  });
+  select.innerHTML = `<option value="">—</option>${options.join('')}`;
+}
+
+function applySelectedOverrideToForm() {
+  const type = String(document.getElementById('depositOverrideType')?.value || '').trim();
+  const rid = String(document.getElementById('depositOverrideResourceSelect')?.value || '').trim();
+  if (!type || !rid) return;
+
+  const row = (partnersUiState.depositOverrides || []).find((o) => String(o.resource_type || '').trim() === type && String(o.resource_id || '') === rid);
+  if (!row) return;
+
+  const mode = document.getElementById('depositOverrideMode');
+  const amount = document.getElementById('depositOverrideAmount');
+  const currency = document.getElementById('depositOverrideCurrency');
+  const includeChildren = document.getElementById('depositOverrideIncludeChildren');
+  const enabled = document.getElementById('depositOverrideEnabled');
+
+  if (mode) mode.value = row.mode || 'flat';
+  if (amount) amount.value = row.amount != null ? Number(row.amount) : '';
+  if (currency) currency.value = row.currency || 'EUR';
+  if (includeChildren) includeChildren.checked = Boolean(row.include_children);
+  if (enabled) enabled.checked = Boolean(row.enabled);
+}
+
+function scheduleDepositOverrideSearch() {
+  if (partnersUiState.depositOverrideSearchTimer) {
+    clearTimeout(partnersUiState.depositOverrideSearchTimer);
+  }
+
+  partnersUiState.depositOverrideSearchTimer = setTimeout(async () => {
+    partnersUiState.depositOverrideSearchTimer = null;
+    const type = String(document.getElementById('depositOverrideType')?.value || '').trim();
+    const term = String(document.getElementById('depositOverrideSearch')?.value || '');
+    try {
+      const rows = await searchPartnerResources(type, term);
+      partnersUiState.depositOverrideSearchResults = rows;
+      setDepositOverrideSelectOptions(rows);
+    } catch (_e) {
+      setDepositOverrideSelectOptions([]);
+    }
+  }, 250);
+}
+
+async function saveDepositOverride() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const resourceType = String(document.getElementById('depositOverrideType')?.value || '').trim();
+  const resourceId = String(document.getElementById('depositOverrideResourceSelect')?.value || '').trim();
+  const mode = String(document.getElementById('depositOverrideMode')?.value || '').trim();
+  const amount = Number(document.getElementById('depositOverrideAmount')?.value || 0);
+  const currency = String(document.getElementById('depositOverrideCurrency')?.value || 'EUR').trim() || 'EUR';
+  const includeChildren = Boolean(document.getElementById('depositOverrideIncludeChildren')?.checked);
+  const enabled = Boolean(document.getElementById('depositOverrideEnabled')?.checked);
+
+  if (!resourceType || !resourceId) {
+    showToast('Select a resource', 'error');
+    return;
+  }
+
+  if (enabled) {
+    if (!Number.isFinite(amount) || !(amount > 0)) {
+      showToast('Invalid amount', 'error');
+      return;
+    }
+    if (mode === 'percent_total' && !(amount <= 100)) {
+      showToast('Percent must be <= 100', 'error');
+      return;
+    }
+  }
+
+  try {
+    const payload = {
+      resource_type: resourceType,
+      resource_id: resourceId,
+      mode,
+      amount,
+      currency,
+      include_children: includeChildren,
+      enabled,
+    };
+
+    const { error } = await client
+      .from('service_deposit_overrides')
+      .upsert(payload, { onConflict: 'resource_type,resource_id' });
+    if (error) throw error;
+
+    showToast('Override saved', 'success');
+    await loadDepositOverrides();
+  } catch (e) {
+    console.error('Failed to save override:', e);
+    showToast(e.message || 'Failed to save override', 'error');
+  }
+}
+
+async function loadDepositRequests() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const tbody = document.getElementById('depositRequestsTableBody');
+  if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 24px;">Loading...</td></tr>';
+
+  try {
+    const { data, error } = await client
+      .from('service_deposit_requests')
+      .select('id, resource_type, booking_id, fulfillment_reference, customer_name, customer_email, customer_phone, amount, currency, status, paid_at, created_at, stripe_checkout_session_id, checkout_url')
+      .order('created_at', { ascending: false })
+      .limit(500);
+
+    if (error) throw error;
+    partnersUiState.depositRequests = Array.isArray(data) ? data : [];
+    renderDepositRequestsTable();
+  } catch (e) {
+    console.error('Failed to load deposit requests:', e);
+    if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; color:#ef4444; padding: 24px;">Error: ${escapeHtml(e.message || 'Failed to load')}</td></tr>`;
+  }
+}
+
+function depositStatusBadge(status) {
+  const s = String(status || '');
+  if (s === 'paid') return '<span class="badge" style="background:#22c55e;">paid</span>';
+  if (s === 'pending') return '<span class="badge" style="background:#f59e0b;">pending</span>';
+  if (s === 'expired') return '<span class="badge" style="background:#6b7280;">expired</span>';
+  if (s === 'cancelled') return '<span class="badge" style="background:#ef4444;">cancelled</span>';
+  return `<span class="badge" style="background:#6b7280;">${escapeHtml(s || 'unknown')}</span>`;
+}
+
+function renderDepositRequestsTable() {
+  const tbody = document.getElementById('depositRequestsTableBody');
+  if (!tbody) return;
+
+  const statusFilter = String(document.getElementById('depositRequestsStatus')?.value || '').trim();
+  const q = String(document.getElementById('depositRequestsSearch')?.value || '').toLowerCase().trim();
+
+  const rows = Array.isArray(partnersUiState.depositRequests) ? partnersUiState.depositRequests : [];
+  const filtered = rows.filter((r) => {
+    if (statusFilter && String(r.status || '') !== statusFilter) return false;
+    if (!q) return true;
+
+    const hay = [
+      r.id,
+      r.booking_id,
+      r.fulfillment_reference,
+      r.customer_email,
+      r.customer_name,
+      r.customer_phone,
+      r.stripe_checkout_session_id,
+    ].map(v => String(v || '').toLowerCase());
+    return hay.some(v => v.includes(q));
+  });
+
+  if (!filtered.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 24px; color: var(--admin-text-muted);">—</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = filtered.map((r) => {
+    const created = r.created_at ? escapeHtml(formatDateTimeValue(r.created_at)) : '—';
+    const type = escapeHtml(String(r.resource_type || ''));
+    const ref = escapeHtml(String(r.fulfillment_reference || '').trim() || String(r.booking_id || '').slice(0, 8));
+    const customer = (() => {
+      const name = String(r.customer_name || '').trim();
+      const email = String(r.customer_email || '').trim();
+      const phone = String(r.customer_phone || '').trim();
+      const parts = [];
+      if (name) parts.push(`<div><strong>${escapeHtml(name)}</strong></div>`);
+      if (email) parts.push(`<div><a href="mailto:${encodeURIComponent(email)}">${escapeHtml(email)}</a></div>`);
+      if (phone) parts.push(`<div><a href="tel:${encodeURIComponent(phone)}">${escapeHtml(phone)}</a></div>`);
+      return parts.length ? parts.join('') : '—';
+    })();
+
+    const amount = Number(r.amount || 0);
+    const currency = String(r.currency || 'EUR');
+    const amountLabel = currency.toUpperCase() === 'EUR' ? `€${amount.toFixed(2)}` : `${amount.toFixed(2)} ${currency}`;
+
+    const paidAt = r.paid_at ? escapeHtml(formatDateTimeValue(r.paid_at)) : '—';
+    const session = String(r.stripe_checkout_session_id || '').trim();
+    const sessionLabel = session ? `<code>${escapeHtml(session.slice(0, 16))}…</code>` : '—';
+
+    const checkoutUrl = String(r.checkout_url || '').trim();
+    const actions = (() => {
+      const btns = [];
+      if (checkoutUrl) {
+        btns.push(`<button class="btn-small btn-secondary" onclick="openDepositCheckout('${escapeHtml(String(r.id))}')">Open</button>`);
+        btns.push(`<button class="btn-small btn-secondary" onclick="copyDepositCheckout('${escapeHtml(String(r.id))}')">Copy link</button>`);
+      }
+      return btns.join(' ');
+    })();
+
+    return `
+      <tr>
+        <td style="white-space: nowrap;">${created}</td>
+        <td>${type}</td>
+        <td><code>${ref}</code></td>
+        <td>${customer}</td>
+        <td style="text-align: right; white-space: nowrap;">${escapeHtml(amountLabel)}</td>
+        <td>${depositStatusBadge(r.status)}</td>
+        <td style="white-space: nowrap;">${paidAt}</td>
+        <td>${sessionLabel}</td>
+        <td style="text-align: right; white-space: nowrap;">${actions}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function openDepositCheckout(depositRequestId) {
+  const id = String(depositRequestId || '').trim();
+  if (!id) return;
+  const row = (partnersUiState.depositRequests || []).find(r => String(r.id || '') === id);
+  const url = String(row?.checkout_url || '').trim();
+  if (!url) return;
+  window.open(url, '_blank', 'noopener');
+}
+
+async function copyDepositCheckout(depositRequestId) {
+  const id = String(depositRequestId || '').trim();
+  if (!id) return;
+  const row = (partnersUiState.depositRequests || []).find(r => String(r.id || '') === id);
+  const url = String(row?.checkout_url || '').trim();
+  if (!url) return;
+
+  try {
+    if (navigator && navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(url);
+      showToast('Copied', 'success');
+    }
+  } catch {
+    showToast('Failed to copy', 'error');
+  }
+}
+
+window.openDepositCheckout = (id) => openDepositCheckout(id);
+window.copyDepositCheckout = (id) => copyDepositCheckout(id);
 
 async function loadPartnerFormVendors() {
   const client = ensureSupabase();
@@ -5938,6 +6482,7 @@ function switchView(viewName) {
       loadShopData();
       break;
     case 'partners':
+      setPartnersActiveTab(partnersUiState.activeTab || 'list');
       loadPartnersData();
       break;
     case 'calendars':
@@ -10381,6 +10926,71 @@ function initEventListeners() {
 
   const partnersStatusFilter = document.getElementById('partnersStatusFilter');
   if (partnersStatusFilter) partnersStatusFilter.addEventListener('change', () => renderPartnersTable());
+
+  document.querySelectorAll('[data-partners-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tab = String(btn.getAttribute('data-partners-tab') || '').trim();
+      if (!tab) return;
+      setPartnersActiveTab(tab);
+    });
+  });
+
+  const btnRefreshDepositSettings = document.getElementById('btnRefreshDepositSettings');
+  if (btnRefreshDepositSettings) {
+    btnRefreshDepositSettings.addEventListener('click', () => loadDepositSettings());
+  }
+  const btnSaveDepositSettings = document.getElementById('btnSaveDepositSettings');
+  if (btnSaveDepositSettings) {
+    btnSaveDepositSettings.addEventListener('click', () => saveDepositSettings());
+  }
+
+  const btnSaveDepositRules = document.getElementById('btnSaveDepositRules');
+  if (btnSaveDepositRules) {
+    btnSaveDepositRules.addEventListener('click', () => saveDefaultDepositRules());
+  }
+
+  const btnRefreshDepositOverrides = document.getElementById('btnRefreshDepositOverrides');
+  if (btnRefreshDepositOverrides) {
+    btnRefreshDepositOverrides.addEventListener('click', () => loadDepositOverrides());
+  }
+
+  const depositOverrideType = document.getElementById('depositOverrideType');
+  if (depositOverrideType) {
+    depositOverrideType.addEventListener('change', () => {
+      scheduleDepositOverrideSearch();
+      applySelectedOverrideToForm();
+    });
+  }
+
+  const depositOverrideSearch = document.getElementById('depositOverrideSearch');
+  if (depositOverrideSearch) {
+    depositOverrideSearch.addEventListener('input', () => scheduleDepositOverrideSearch());
+  }
+
+  const depositOverrideResourceSelect = document.getElementById('depositOverrideResourceSelect');
+  if (depositOverrideResourceSelect) {
+    depositOverrideResourceSelect.addEventListener('change', () => applySelectedOverrideToForm());
+  }
+
+  const btnSaveDepositOverride = document.getElementById('btnSaveDepositOverride');
+  if (btnSaveDepositOverride) {
+    btnSaveDepositOverride.addEventListener('click', () => saveDepositOverride());
+  }
+
+  const btnRefreshDepositRequests = document.getElementById('btnRefreshDepositRequests');
+  if (btnRefreshDepositRequests) {
+    btnRefreshDepositRequests.addEventListener('click', () => loadDepositRequests());
+  }
+
+  const depositRequestsStatus = document.getElementById('depositRequestsStatus');
+  if (depositRequestsStatus) {
+    depositRequestsStatus.addEventListener('change', () => renderDepositRequestsTable());
+  }
+
+  const depositRequestsSearch = document.getElementById('depositRequestsSearch');
+  if (depositRequestsSearch) {
+    depositRequestsSearch.addEventListener('input', () => renderDepositRequestsTable());
+  }
 
   const refreshCalendarsBtn = document.getElementById('btnRefreshCalendars');
   if (refreshCalendarsBtn) refreshCalendarsBtn.addEventListener('click', () => loadAdminCalendarsData());
