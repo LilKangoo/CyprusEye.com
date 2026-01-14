@@ -406,9 +406,9 @@ const partnersState = {
   partnersById: {},
   partnerUsersCountByPartnerId: {},
   fulfillmentStatsByPartnerId: {},
-  acceptedByPartnerId: {},
-  acceptedLoadingByPartnerId: {},
-  expandedAcceptedPartnerId: null,
+  servicesByPartnerId: {},
+  servicesLoadingByPartnerId: {},
+  expandedServicesPartnerId: null,
 };
 
 const partnersUiState = {
@@ -1182,59 +1182,96 @@ function renderPartnersTable() {
     const statusColor = p.status === 'active' ? '#22c55e' : '#ef4444';
     const vendorName = (p.vendor && p.vendor.name) ? p.vendor.name : (p.shop_vendor_id ? String(p.shop_vendor_id).slice(0, 8) : '—');
 
-    const isExpanded = partnersState.expandedAcceptedPartnerId === p.id;
-    const acceptedLoading = Boolean(partnersState.acceptedLoadingByPartnerId?.[p.id]);
-    const acceptedRows = Array.isArray(partnersState.acceptedByPartnerId?.[p.id]) ? partnersState.acceptedByPartnerId[p.id] : [];
+    const isExpanded = partnersState.expandedServicesPartnerId === p.id;
+    const servicesLoading = Boolean(partnersState.servicesLoadingByPartnerId?.[p.id]);
+    const serviceRows = Array.isArray(partnersState.servicesByPartnerId?.[p.id]) ? partnersState.servicesByPartnerId[p.id] : [];
 
-    const acceptedHtml = (() => {
+    const servicesHtml = (() => {
       if (!isExpanded) return '';
 
-      if (acceptedLoading) {
-        return '<div style="padding: 10px 0; color: var(--admin-text-muted);">Loading accepted fulfillments…</div>';
+      if (servicesLoading) {
+        return '<div style="padding: 10px 0; color: var(--admin-text-muted);">Loading services…</div>';
       }
 
-      if (!acceptedRows.length) {
-        return '<div style="padding: 10px 0; color: var(--admin-text-muted);">No accepted fulfillments.</div>';
+      if (!serviceRows.length) {
+        return '<div style="padding: 10px 0; color: var(--admin-text-muted);">No services.</div>';
       }
 
-      const rowsHtml = acceptedRows.map((row) => {
-        const acceptedAt = row.accepted_at ? escapeHtml(formatDateTimeValue(row.accepted_at)) : '—';
+      const rowsHtml = serviceRows.map((row) => {
+        const createdAt = row.created_at ? escapeHtml(formatDateTimeValue(row.created_at)) : '—';
         const label = escapeHtml(row.label || '—');
         const ref = escapeHtml(row.reference || '—');
+        const summary = escapeHtml(row.summary || '—');
+        const status = String(row.status || '');
+        const statusBg = status === 'accepted'
+          ? 'rgba(34,197,94,0.18)'
+          : status === 'rejected'
+            ? 'rgba(239,68,68,0.18)'
+            : status === 'awaiting_payment'
+              ? 'rgba(245,158,11,0.18)'
+              : 'rgba(59,130,246,0.18)';
+        const statusBorder = status === 'accepted'
+          ? 'rgba(34,197,94,0.65)'
+          : status === 'rejected'
+            ? 'rgba(239,68,68,0.65)'
+            : status === 'awaiting_payment'
+              ? 'rgba(245,158,11,0.65)'
+              : 'rgba(59,130,246,0.65)';
+        const statusHtml = `<span style="display:inline-block; padding: 2px 8px; border-radius: 999px; border: 1px solid ${statusBorder}; background:${statusBg}; font-weight: 700; font-size: 12px;">${escapeHtml(status || '—')}</span>`;
+
         const customerName = escapeHtml(row.customer_name || '');
         const customerEmail = escapeHtml(row.customer_email || '');
         const customerPhone = escapeHtml(row.customer_phone || '');
         const customerHtml = (customerName || customerEmail || customerPhone)
-          ? `${customerName ? `<div><strong>${customerName}</strong></div>` : ''}${customerEmail ? `<div><a href="mailto:${encodeURIComponent(row.customer_email)}">${customerEmail}</a></div>` : ''}${customerPhone ? `<div><a href="tel:${encodeURIComponent(row.customer_phone)}">${customerPhone}</a></div>` : ''}`
+          ? `${customerName ? `<div><strong>${customerName}</strong></div>` : ''}${customerEmail ? `<div><a href="mailto:${encodeURIComponent(String(row.customer_email || ''))}">${customerEmail}</a></div>` : ''}${customerPhone ? `<div><a href="tel:${encodeURIComponent(String(row.customer_phone || ''))}">${customerPhone}</a></div>` : ''}`
+          : '—';
+
+        const dates = (row.start_date || row.end_date)
+          ? `${escapeHtml(String(row.start_date || '').slice(0, 10) || '—')} → ${escapeHtml(String(row.end_date || '').slice(0, 10) || '—')}`
           : '—';
 
         const price = row.price != null ? escapeHtml(formatMoney(row.price, row.currency)) : '—';
         const revealed = row.contact_revealed_at ? escapeHtml(formatDateTimeValue(row.contact_revealed_at)) : '—';
+
+        const actionsHtml = status === 'pending_acceptance'
+          ? `<div style="display:inline-flex; gap: 6px; flex-wrap: wrap; justify-content:flex-end;">
+              <button class="btn-small btn-secondary" onclick="adminServiceFulfillmentAction('${escapeHtml(p.id)}','${escapeHtml(row.id)}','accept')">Accept</button>
+              <button class="btn-small btn-secondary" onclick="adminServiceFulfillmentAction('${escapeHtml(p.id)}','${escapeHtml(row.id)}','reject')">Reject</button>
+            </div>`
+          : '—';
         return `
           <tr>
-            <td style="white-space: nowrap;">${acceptedAt}</td>
+            <td style="white-space: nowrap;">${createdAt}</td>
+            <td style="white-space: nowrap;">${statusHtml}</td>
             <td>${label}</td>
             <td><code>${ref}</code></td>
+            <td>${summary}</td>
+            <td style="white-space: nowrap;">${dates}</td>
             <td>${customerHtml}</td>
             <td style="white-space: nowrap;">${price}</td>
             <td style="white-space: nowrap;">${revealed}</td>
+            <td style="text-align: right; white-space: nowrap;">${actionsHtml}</td>
           </tr>
         `;
       }).join('');
 
       return `
         <div style="margin-top: 6px;">
-          <div style="font-weight: 600; margin: 0 0 10px;">Accepted fulfillments</div>
+          <div style="font-weight: 600; margin: 0 0 10px;">Services</div>
           <div class="admin-table-container" style="margin:0;">
             <table class="admin-table" style="margin:0;">
               <thead>
                 <tr>
-                  <th>Accepted</th>
+                  <th>Created</th>
+                  <th>Status</th>
                   <th>Type</th>
                   <th>Reference</th>
+                  <th>Summary</th>
+                  <th>Dates</th>
                   <th>Customer</th>
                   <th>Price</th>
                   <th>Contact revealed</th>
+                  <th style="text-align:right;">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1260,11 +1297,11 @@ function renderPartnersTable() {
           <div style="display: inline-flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end;">
             <button class="btn-small btn-secondary" onclick="editPartner('${p.id}')">Edit</button>
             <button class="btn-small btn-secondary" onclick="managePartnerUsers('${p.id}')">Users</button>
-            <button class="btn-small btn-secondary" onclick="togglePartnerAccepted('${p.id}')">${isExpanded ? 'Hide accepted' : 'Show accepted'}</button>
+            <button class="btn-small btn-secondary" onclick="togglePartnerServices('${p.id}')">${isExpanded ? 'Hide services' : 'Show services'}</button>
           </div>
         </td>
       </tr>
-      ${isExpanded ? `<tr><td colspan="9" style="padding: 12px 14px; background: rgba(255,255,255,0.03);">${acceptedHtml}</td></tr>` : ''}
+      ${isExpanded ? `<tr><td colspan="9" style="padding: 12px 14px; background: rgba(255,255,255,0.03);">${servicesHtml}</td></tr>` : ''}
     `;
   }).join('');
 }
@@ -1286,57 +1323,33 @@ function formatMoney(value, currency) {
   return `${num.toFixed(2)} ${cur}`;
 }
 
-async function loadAcceptedFulfillmentsForPartner(partnerId) {
+async function loadServiceFulfillmentsForPartner(partnerId) {
   const client = ensureSupabase();
   if (!client) return [];
 
   const pid = String(partnerId || '').trim();
   if (!pid) return [];
 
-  const [shopRes, serviceRes] = await Promise.all([
-    client
-      .from('shop_order_fulfillments')
-      .select('id, order_id, order_number, status, accepted_at, contact_revealed_at, subtotal, total_allocated')
-      .eq('partner_id', pid)
-      .eq('status', 'accepted')
-      .order('accepted_at', { ascending: false })
-      .limit(200),
-    client
-      .from('partner_service_fulfillments')
-      .select('id, resource_type, booking_id, resource_id, status, accepted_at, contact_revealed_at, total_price, currency, start_date, end_date, reference, summary')
-      .eq('partner_id', pid)
-      .eq('status', 'accepted')
-      .order('accepted_at', { ascending: false })
-      .limit(200),
-  ]);
+  const { data: serviceRows, error: serviceErr } = await client
+    .from('partner_service_fulfillments')
+    .select('id, resource_type, booking_id, resource_id, status, created_at, accepted_at, contact_revealed_at, rejected_reason, total_price, currency, start_date, end_date, reference, summary')
+    .eq('partner_id', pid)
+    .in('status', ['pending_acceptance', 'awaiting_payment', 'accepted', 'rejected', 'expired'])
+    .order('created_at', { ascending: false })
+    .limit(300);
+  if (serviceErr) throw serviceErr;
 
-  const shop = shopRes?.data || [];
-  const service = serviceRes?.data || [];
-
-  const shopIds = shop.map(r => r.id).filter(Boolean);
+  const service = serviceRows || [];
   const serviceIds = service.map(r => r.id).filter(Boolean);
 
-  const [shopContactsRes, serviceContactsRes] = await Promise.all([
-    shopIds.length
-      ? client
-        .from('shop_order_fulfillment_contacts')
-        .select('fulfillment_id, customer_name, customer_email, customer_phone')
-        .in('fulfillment_id', shopIds)
-        .limit(1000)
-      : Promise.resolve({ data: [] }),
-    serviceIds.length
-      ? client
-        .from('partner_service_fulfillment_contacts')
-        .select('fulfillment_id, customer_name, customer_email, customer_phone')
-        .in('fulfillment_id', serviceIds)
-        .limit(1000)
-      : Promise.resolve({ data: [] }),
-  ]);
+  const serviceContactsRes = serviceIds.length
+    ? await client
+      .from('partner_service_fulfillment_contacts')
+      .select('fulfillment_id, customer_name, customer_email, customer_phone')
+      .in('fulfillment_id', serviceIds)
+      .limit(1000)
+    : { data: [] };
 
-  const shopContactsById = {};
-  (shopContactsRes?.data || []).forEach((c) => {
-    if (c?.fulfillment_id) shopContactsById[c.fulfillment_id] = c;
-  });
   const serviceContactsById = {};
   (serviceContactsRes?.data || []).forEach((c) => {
     if (c?.fulfillment_id) serviceContactsById[c.fulfillment_id] = c;
@@ -1344,36 +1357,21 @@ async function loadAcceptedFulfillmentsForPartner(partnerId) {
 
   const normalized = [];
 
-  shop.forEach((f) => {
-    const contact = shopContactsById[f.id] || {};
-    const reference = f.order_number || (f.order_id ? String(f.order_id).slice(0, 8) : String(f.id).slice(0, 8));
-    const price = f.total_allocated != null ? Number(f.total_allocated) : (f.subtotal != null ? Number(f.subtotal) : null);
-    normalized.push({
-      id: f.id,
-      source: 'shop',
-      label: 'shop',
-      reference,
-      accepted_at: f.accepted_at,
-      contact_revealed_at: f.contact_revealed_at,
-      price,
-      currency: 'EUR',
-      customer_name: contact.customer_name || '',
-      customer_email: contact.customer_email || '',
-      customer_phone: contact.customer_phone || '',
-    });
-  });
-
   service.forEach((f) => {
     const contact = serviceContactsById[f.id] || {};
     const reference = f.reference || (f.booking_id ? String(f.booking_id).slice(0, 8) : String(f.id).slice(0, 8));
     const label = f.resource_type ? String(f.resource_type) : 'service';
     normalized.push({
       id: f.id,
-      source: 'service',
       label,
       reference,
+      summary: f.summary || '',
+      status: f.status,
+      created_at: f.created_at,
       accepted_at: f.accepted_at,
       contact_revealed_at: f.contact_revealed_at,
+      start_date: f.start_date,
+      end_date: f.end_date,
       price: f.total_price,
       currency: f.currency || 'EUR',
       customer_name: contact.customer_name || '',
@@ -1382,49 +1380,91 @@ async function loadAcceptedFulfillmentsForPartner(partnerId) {
     });
   });
 
-  normalized.sort((a, b) => {
-    const aa = a.accepted_at ? new Date(a.accepted_at).getTime() : 0;
-    const bb = b.accepted_at ? new Date(b.accepted_at).getTime() : 0;
-    return bb - aa;
-  });
-
   return normalized;
 }
 
-async function togglePartnerAccepted(partnerId) {
+async function togglePartnerServices(partnerId) {
   const pid = String(partnerId || '').trim();
   if (!pid) return;
 
-  if (partnersState.expandedAcceptedPartnerId === pid) {
-    partnersState.expandedAcceptedPartnerId = null;
+  if (partnersState.expandedServicesPartnerId === pid) {
+    partnersState.expandedServicesPartnerId = null;
     renderPartnersTable();
     return;
   }
 
-  partnersState.expandedAcceptedPartnerId = pid;
+  partnersState.expandedServicesPartnerId = pid;
   renderPartnersTable();
 
-  if (Array.isArray(partnersState.acceptedByPartnerId?.[pid])) return;
+  if (Array.isArray(partnersState.servicesByPartnerId?.[pid])) return;
 
-  partnersState.acceptedLoadingByPartnerId[pid] = true;
+  partnersState.servicesLoadingByPartnerId[pid] = true;
   renderPartnersTable();
 
   try {
-    const rows = await loadAcceptedFulfillmentsForPartner(pid);
-    partnersState.acceptedByPartnerId[pid] = rows;
+    const rows = await loadServiceFulfillmentsForPartner(pid);
+    partnersState.servicesByPartnerId[pid] = rows;
   } catch (e) {
-    console.error('Failed to load accepted fulfillments:', e);
-    partnersState.acceptedByPartnerId[pid] = [];
-    showToast(e.message || 'Failed to load accepted fulfillments', 'error');
+    console.error('Failed to load partner services:', e);
+    partnersState.servicesByPartnerId[pid] = [];
+    showToast(e.message || 'Failed to load partner services', 'error');
   } finally {
-    partnersState.acceptedLoadingByPartnerId[pid] = false;
-    if (partnersState.expandedAcceptedPartnerId === pid) {
+    partnersState.servicesLoadingByPartnerId[pid] = false;
+    if (partnersState.expandedServicesPartnerId === pid) {
       renderPartnersTable();
     }
   }
 }
 
-window.togglePartnerAccepted = (partnerId) => togglePartnerAccepted(partnerId);
+async function adminServiceFulfillmentAction(partnerId, fulfillmentId, action) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const pid = String(partnerId || '').trim();
+  const fid = String(fulfillmentId || '').trim();
+  const act = String(action || '').trim();
+  if (!pid || !fid) return;
+  if (act !== 'accept' && act !== 'reject') return;
+
+  let reason = '';
+  if (act === 'reject') {
+    const input = prompt('Reject reason (optional):', '');
+    if (input === null) return;
+    reason = String(input || '');
+  } else {
+    if (!confirm('Accept this fulfillment?')) return;
+  }
+
+  try {
+    if (!client.functions || typeof client.functions.invoke !== 'function') {
+      throw new Error('Supabase functions client not available');
+    }
+
+    const { data, error } = await client.functions.invoke('partner-fulfillment-action', {
+      body: { fulfillment_id: fid, action: act, reason: reason || undefined },
+    });
+    if (error) throw error;
+
+    showToast(act === 'accept' ? 'Fulfillment accepted' : 'Fulfillment rejected', 'success');
+
+    partnersState.servicesByPartnerId[pid] = null;
+    partnersState.servicesLoadingByPartnerId[pid] = true;
+    renderPartnersTable();
+
+    const rows = await loadServiceFulfillmentsForPartner(pid);
+    partnersState.servicesByPartnerId[pid] = rows;
+    partnersState.servicesLoadingByPartnerId[pid] = false;
+    renderPartnersTable();
+  } catch (e) {
+    console.error('Failed to perform fulfillment action:', e);
+    showToast(e.message || 'Failed to perform action', 'error');
+    partnersState.servicesLoadingByPartnerId[pid] = false;
+    renderPartnersTable();
+  }
+}
+
+window.togglePartnerServices = (partnerId) => togglePartnerServices(partnerId);
+window.adminServiceFulfillmentAction = (partnerId, fulfillmentId, action) => adminServiceFulfillmentAction(partnerId, fulfillmentId, action);
 
 function setPartnersActiveTab(tabName) {
   const next = String(tabName || '').trim() || 'list';
