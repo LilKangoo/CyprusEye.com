@@ -1241,16 +1241,16 @@ function renderPartnersTable() {
           : '—';
         return `
           <tr>
-            <td style="white-space: nowrap;">${createdAt}</td>
-            <td style="white-space: nowrap;">${statusHtml}</td>
-            <td>${label}</td>
-            <td><code>${ref}</code></td>
-            <td>${summary}</td>
-            <td style="white-space: nowrap;">${dates}</td>
-            <td>${customerHtml}</td>
-            <td style="white-space: nowrap;">${price}</td>
-            <td style="white-space: nowrap;">${revealed}</td>
-            <td style="text-align: right; white-space: nowrap;">${actionsHtml}</td>
+            <td data-label="Created" style="white-space: nowrap;">${createdAt}</td>
+            <td data-label="Status" style="white-space: nowrap;">${statusHtml}</td>
+            <td data-label="Type">${label}</td>
+            <td data-label="Reference"><code>${ref}</code></td>
+            <td data-label="Summary">${summary}</td>
+            <td data-label="Dates" style="white-space: nowrap;">${dates}</td>
+            <td data-label="Customer">${customerHtml}</td>
+            <td data-label="Price" style="white-space: nowrap;">${price}</td>
+            <td data-label="Contact revealed" style="white-space: nowrap;">${revealed}</td>
+            <td data-label="Actions" style="text-align: right; white-space: nowrap;">${actionsHtml}</td>
           </tr>
         `;
       }).join('');
@@ -1259,7 +1259,7 @@ function renderPartnersTable() {
         <div style="margin-top: 6px;">
           <div style="font-weight: 600; margin: 0 0 10px;">Services</div>
           <div class="admin-table-container" style="margin:0;">
-            <table class="admin-table" style="margin:0;">
+            <table class="admin-table admin-table-stack" style="margin:0;">
               <thead>
                 <tr>
                   <th>Created</th>

@@ -581,12 +581,83 @@ body[data-admin-panel="true"].admin-sidebar-open {
   background: var(--admin-bg-light);
   border: 1px solid var(--admin-border);
   border-radius: var(--admin-radius);
-  overflow: hidden;
+  max-width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  -webkit-overflow-scrolling: touch;
 }
 
 .admin-table {
   width: 100%;
   border-collapse: collapse;
+}
+
+.admin-table td {
+  vertical-align: top;
+}
+
+@media (max-width: 1024px) {
+  .admin-table-container.admin-table-container-stack {
+    overflow-x: hidden;
+  }
+
+  .admin-table.admin-table-stack {
+    min-width: 0;
+  }
+
+  .admin-table.admin-table-stack thead {
+    display: none;
+  }
+
+  .admin-table.admin-table-stack,
+  .admin-table.admin-table-stack tbody,
+  .admin-table.admin-table-stack tr,
+  .admin-table.admin-table-stack td {
+    display: block;
+    width: 100%;
+  }
+
+  .admin-table.admin-table-stack tr {
+    border-bottom: 1px solid var(--admin-border);
+    padding: 10px 12px;
+  }
+
+  .admin-table.admin-table-stack tbody tr:hover {
+    background: rgba(255, 255, 255, 0.02);
+  }
+
+  .admin-table.admin-table-stack td {
+    border-bottom: none;
+    padding: 8px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .admin-table.admin-table-stack td::before {
+    content: attr(data-label);
+    flex: 0 0 44%;
+    max-width: 44%;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--admin-text-muted);
+    word-break: break-word;
+  }
+
+  .admin-table.admin-table-stack td > * {
+    flex: 1 1 auto;
+    min-width: 0;
+  }
+
+  .admin-table.admin-table-stack td,
+  .admin-table.admin-table-stack td a,
+  .admin-table.admin-table-stack td code {
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
 }
 
 .admin-table thead {
@@ -1847,7 +1918,7 @@ body[data-admin-panel="true"].admin-sidebar-open {
     overflow-x: auto;
   }
 
-  .admin-table {
+  .admin-table:not(.admin-table-stack) {
     min-width: 600px;
   }
 
