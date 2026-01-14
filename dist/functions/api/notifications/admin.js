@@ -54,16 +54,16 @@ export async function onRequest(context) {
     });
   }
 
-  const rawFrom = String(env?.SMTP_FROM || env?.MAIL_FROM || 'WakacjeCypr <no-reply@wakacjecypr.com>').trim();
+  const rawFrom = String(env?.SMTP_FROM || env?.MAIL_FROM || 'CyprusEye.com <no-reply@wakacjecypr.com>').trim();
   const match = rawFrom.match(/^(.*)<([^>]+)>\s*$/);
-  const fromName = match ? match[1].trim().replace(/^"|"$/g, '') : '';
   const fromEmail = match ? match[2].trim() : rawFrom;
+  const fromName = 'CyprusEye.com';
 
   const payload = {
     personalizations: [{ to: to.map((email) => ({ email })) }],
     from: {
       email: fromEmail,
-      ...(fromName ? { name: fromName } : {}),
+      name: fromName,
     },
     subject,
     content: [
