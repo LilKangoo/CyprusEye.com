@@ -3019,40 +3019,275 @@
           </div>
         </header>
 
-        <div class="admin-card" style="margin-top: 16px;">
-          <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-            <h3>Partner list</h3>
-            <div style="display: flex; gap: 8px;">
-              <button class="btn btn-primary" id="btnAddPartner">+ Add partner</button>
-              <input id="partnersSearch" class="form-control" type="text" placeholder="Search partners..." style="width: 240px;" />
-              <select id="partnersStatusFilter" class="form-control" style="width: 160px;">
-                <option value="">All statuses</option>
-                <option value="active">Active</option>
-                <option value="suspended">Suspended</option>
-              </select>
-              <button class="btn-secondary" id="btnRefreshPartners">🔄 Refresh</button>
+        <div class="admin-tabs" style="margin-top: 24px;">
+          <button class="admin-tab active" data-partners-tab="list">👥 Partners</button>
+          <button class="admin-tab" data-partners-tab="emails">📧 Emails</button>
+        </div>
+
+        <div class="admin-tab-content active" id="partnersTabList">
+
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <h3>Partner list</h3>
+              <div style="display: flex; gap: 8px;">
+                <button class="btn btn-primary" id="btnAddPartner">+ Add partner</button>
+                <input id="partnersSearch" class="form-control" type="text" placeholder="Search partners..." style="width: 240px;" />
+                <select id="partnersStatusFilter" class="form-control" style="width: 160px;">
+                  <option value="">All statuses</option>
+                  <option value="active">Active</option>
+                  <option value="suspended">Suspended</option>
+                </select>
+                <button class="btn-secondary" id="btnRefreshPartners">🔄 Refresh</button>
+              </div>
+            </div>
+            <div class="admin-card-body">
+              <div class="admin-table-container">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Name</th>
+                      <th>Slug</th>
+                      <th>Status</th>
+                      <th>Vendor</th>
+                      <th>Users</th>
+                      <th>Pending</th>
+                      <th>Rejected</th>
+                      <th>Accepted</th>
+                      <th style="text-align: right;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="partnersTableBody">
+                    <tr><td colspan="9" style="text-align:center; padding: 24px;">Loading partners...</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
-          <div class="admin-card-body">
-            <div class="admin-table-container">
-              <table class="admin-table">
-                <thead>
-                  <tr>
-                    <th>Name</th>
-                    <th>Slug</th>
-                    <th>Status</th>
-                    <th>Vendor</th>
-                    <th>Users</th>
-                    <th>Pending</th>
-                    <th>Rejected</th>
-                    <th>Accepted</th>
-                    <th style="text-align: right;">Actions</th>
-                  </tr>
-                </thead>
-                <tbody id="partnersTableBody">
-                  <tr><td colspan="9" style="text-align:center; padding: 24px;">Loading partners...</td></tr>
-                </tbody>
-              </table>
+        </div>
+
+        <div class="admin-tab-content" id="partnersTabEmails" hidden>
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h3>Deposit settings</h3>
+                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Control whether deposits are required and configure deposit rules</p>
+              </div>
+              <button class="btn-secondary" id="btnRefreshDepositSettings">🔄 Refresh</button>
+            </div>
+            <div class="admin-card-body">
+              <div style="display: flex; flex-direction: column; gap: 12px;">
+                <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                  <input type="checkbox" id="depositEnabledToggle" style="width: 18px; height: 18px;">
+                  <div>
+                    <span style="font-weight: 500;">Require deposit before revealing customer contact</span>
+                    <small style="display: block; color: var(--admin-text-muted);">If disabled, partner acceptance immediately reveals contact and sets fulfillment to accepted</small>
+                  </div>
+                </label>
+                <div style="display: flex; justify-content: flex-end;">
+                  <button class="btn btn-primary" id="btnSaveDepositSettings">💾 Save</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h3>Default deposit rules</h3>
+                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Default rules used when no override is set for a specific resource</p>
+              </div>
+              <button class="btn btn-primary" id="btnSaveDepositRules">💾 Save rules</button>
+            </div>
+            <div class="admin-card-body">
+              <div class="admin-form-grid" style="grid-template-columns: 140px 1fr 140px 140px 160px 120px; gap: 10px; align-items: end;">
+                <div style="font-size: 12px; color: var(--admin-text-muted);">Type</div>
+                <div style="font-size: 12px; color: var(--admin-text-muted);">Mode</div>
+                <div style="font-size: 12px; color: var(--admin-text-muted);">Amount</div>
+                <div style="font-size: 12px; color: var(--admin-text-muted);">Currency</div>
+                <div style="font-size: 12px; color: var(--admin-text-muted);">Include children</div>
+                <div style="font-size: 12px; color: var(--admin-text-muted);">Enabled</div>
+
+                <div style="font-weight: 600;">Cars</div>
+                <select id="depositRuleModeCars" class="form-control">
+                  <option value="per_day">Per day</option>
+                  <option value="per_person">Per person</option>
+                  <option value="flat">Flat</option>
+                  <option value="percent_total">Percent of total</option>
+                </select>
+                <input id="depositRuleAmountCars" type="number" step="0.01" min="0" class="form-control" />
+                <input id="depositRuleCurrencyCars" type="text" class="form-control" value="EUR" />
+                <label style="display:flex; align-items:center; gap: 8px;">
+                  <input id="depositRuleIncludeChildrenCars" type="checkbox" style="width: 18px; height: 18px;" />
+                  <span style="font-size: 13px;">Include</span>
+                </label>
+                <label style="display:flex; align-items:center; gap: 8px;">
+                  <input id="depositRuleEnabledCars" type="checkbox" style="width: 18px; height: 18px;" />
+                  <span style="font-size: 13px;">Enabled</span>
+                </label>
+
+                <div style="font-weight: 600;">Trips</div>
+                <select id="depositRuleModeTrips" class="form-control">
+                  <option value="per_day">Per day</option>
+                  <option value="per_person">Per person</option>
+                  <option value="flat">Flat</option>
+                  <option value="percent_total">Percent of total</option>
+                </select>
+                <input id="depositRuleAmountTrips" type="number" step="0.01" min="0" class="form-control" />
+                <input id="depositRuleCurrencyTrips" type="text" class="form-control" value="EUR" />
+                <label style="display:flex; align-items:center; gap: 8px;">
+                  <input id="depositRuleIncludeChildrenTrips" type="checkbox" style="width: 18px; height: 18px;" />
+                  <span style="font-size: 13px;">Include</span>
+                </label>
+                <label style="display:flex; align-items:center; gap: 8px;">
+                  <input id="depositRuleEnabledTrips" type="checkbox" style="width: 18px; height: 18px;" />
+                  <span style="font-size: 13px;">Enabled</span>
+                </label>
+
+                <div style="font-weight: 600;">Hotels</div>
+                <select id="depositRuleModeHotels" class="form-control">
+                  <option value="per_day">Per day</option>
+                  <option value="per_person">Per person</option>
+                  <option value="flat">Flat</option>
+                  <option value="percent_total">Percent of total</option>
+                </select>
+                <input id="depositRuleAmountHotels" type="number" step="0.01" min="0" class="form-control" />
+                <input id="depositRuleCurrencyHotels" type="text" class="form-control" value="EUR" />
+                <label style="display:flex; align-items:center; gap: 8px;">
+                  <input id="depositRuleIncludeChildrenHotels" type="checkbox" style="width: 18px; height: 18px;" />
+                  <span style="font-size: 13px;">Include</span>
+                </label>
+                <label style="display:flex; align-items:center; gap: 8px;">
+                  <input id="depositRuleEnabledHotels" type="checkbox" style="width: 18px; height: 18px;" />
+                  <span style="font-size: 13px;">Enabled</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h3>Deposit overrides</h3>
+                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Override deposit rule for a specific car offer / trip / hotel</p>
+              </div>
+              <button class="btn-secondary" id="btnRefreshDepositOverrides">🔄 Refresh</button>
+            </div>
+            <div class="admin-card-body">
+              <div class="admin-form-grid" style="grid-template-columns: 160px 1fr 260px; gap: 10px; align-items: end;">
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Type</span>
+                  <select id="depositOverrideType" class="form-control">
+                    <option value="cars">Cars</option>
+                    <option value="trips">Trips</option>
+                    <option value="hotels">Hotels</option>
+                  </select>
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Search resource</span>
+                  <input id="depositOverrideSearch" type="text" placeholder="e.g. boat, ayia napa" class="form-control" />
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Resource</span>
+                  <select id="depositOverrideResourceSelect" class="form-control"></select>
+                </label>
+              </div>
+
+              <div class="admin-form-grid" style="grid-template-columns: 1fr 140px 140px 160px 120px 140px; gap: 10px; align-items: end; margin-top: 12px;">
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Mode</span>
+                  <select id="depositOverrideMode" class="form-control">
+                    <option value="per_day">Per day</option>
+                    <option value="per_person">Per person</option>
+                    <option value="flat">Flat</option>
+                    <option value="percent_total">Percent of total</option>
+                  </select>
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Amount</span>
+                  <input id="depositOverrideAmount" type="number" step="0.01" min="0" class="form-control" />
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Currency</span>
+                  <input id="depositOverrideCurrency" type="text" class="form-control" value="EUR" />
+                </label>
+                <label style="display:flex; align-items:center; gap: 8px;">
+                  <input id="depositOverrideIncludeChildren" type="checkbox" style="width: 18px; height: 18px;" />
+                  <span style="font-size: 13px;">Include children</span>
+                </label>
+                <label style="display:flex; align-items:center; gap: 8px;">
+                  <input id="depositOverrideEnabled" type="checkbox" style="width: 18px; height: 18px;" checked />
+                  <span style="font-size: 13px;">Enabled</span>
+                </label>
+                <button class="btn btn-primary" id="btnSaveDepositOverride" type="button">💾 Save override</button>
+              </div>
+
+              <div class="admin-table-container" style="margin-top: 16px;">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Type</th>
+                      <th>Resource</th>
+                      <th>Mode</th>
+                      <th style="text-align: right;">Amount</th>
+                      <th>Currency</th>
+                      <th>Enabled</th>
+                      <th style="text-align: right;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="depositOverridesTableBody">
+                    <tr><td colspan="7" style="text-align:center; padding: 24px; color: var(--admin-text-muted);">—</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h3>Deposit requests</h3>
+                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Review created payment links and paid/pending statuses</p>
+              </div>
+              <button class="btn-secondary" id="btnRefreshDepositRequests">🔄 Refresh</button>
+            </div>
+            <div class="admin-card-body">
+              <div style="display:flex; gap: 12px; flex-wrap: wrap; align-items: end; margin-bottom: 12px;">
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Status</span>
+                  <select id="depositRequestsStatus" class="form-control" style="min-width: 180px;">
+                    <option value="">All</option>
+                    <option value="pending">Pending</option>
+                    <option value="paid">Paid</option>
+                    <option value="expired">Expired</option>
+                    <option value="cancelled">Cancelled</option>
+                  </select>
+                </label>
+                <label class="admin-form-field" style="margin: 0; flex: 1; min-width: 260px;">
+                  <span>Search</span>
+                  <input id="depositRequestsSearch" class="form-control" type="text" placeholder="booking id, session id, email" />
+                </label>
+              </div>
+
+              <div class="admin-table-container">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Created</th>
+                      <th>Type</th>
+                      <th>Reference</th>
+                      <th>Customer</th>
+                      <th style="text-align: right;">Amount</th>
+                      <th>Status</th>
+                      <th>Paid at</th>
+                      <th>Stripe session</th>
+                      <th style="text-align: right;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="depositRequestsTableBody">
+                    <tr><td colspan="9" style="text-align:center; padding: 24px; color: var(--admin-text-muted);">—</td></tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         </div>

@@ -66,15 +66,19 @@ alter table public.bookings enable row level security;
 alter table public.payments enable row level security;
 
 -- Policies: cars public select
-create policy if not exists cars_select_public on public.cars for select using (true);
+drop policy if exists cars_select_public on public.cars;
+create policy cars_select_public on public.cars for select using (true);
 
 -- Policies: bookings
 -- Public insert allowed (no read). Admin full access.
-create policy if not exists bookings_insert_public on public.bookings for insert with check (true);
-create policy if not exists bookings_all_admin on public.bookings for all using (public.is_admin()) with check (public.is_admin());
+drop policy if exists bookings_insert_public on public.bookings;
+create policy bookings_insert_public on public.bookings for insert with check (true);
+drop policy if exists bookings_all_admin on public.bookings;
+create policy bookings_all_admin on public.bookings for all using (public.is_admin()) with check (public.is_admin());
 
 -- Policies: payments admin only
-create policy if not exists payments_all_admin on public.payments for all using (public.is_admin()) with check (public.is_admin());
+drop policy if exists payments_all_admin on public.payments;
+create policy payments_all_admin on public.payments for all using (public.is_admin()) with check (public.is_admin());
 
 -- Triggers updated_at
 create or replace function public.set_updated_at() returns trigger language plpgsql as $$
