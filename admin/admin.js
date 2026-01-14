@@ -1258,8 +1258,8 @@ function renderPartnersTable() {
       return `
         <div style="margin-top: 6px;">
           <div style="font-weight: 600; margin: 0 0 10px;">Services</div>
-          <div class="admin-table-container" style="margin:0;">
-            <table class="admin-table admin-table-stack" style="margin:0;">
+          <div class="admin-table-container" style="margin:0;" aria-label="Partner Services">
+            <table class="admin-table" style="margin:0;">
               <thead>
                 <tr>
                   <th>Created</th>
