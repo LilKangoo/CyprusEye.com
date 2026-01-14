@@ -108,6 +108,7 @@ async function copyStaticFiles() {
     // Kopiuj HTML files
     const htmlFiles = [
       '404.html',
+      'deposit.html',
       'index.html',
       'shop.html',
       'partners.html',

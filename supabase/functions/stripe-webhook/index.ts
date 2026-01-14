@@ -31,6 +31,43 @@ function serviceTableName(rt: "cars" | "trips" | "hotels"): string {
   return "hotel_bookings";
 }
 
+function looksLikeUuid(value: string): boolean {
+  const v = String(value || "").trim();
+  if (!v) return false;
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+}
+
+async function resolveDepositRequestIdFromSession(supabase: any, session: Stripe.Checkout.Session): Promise<string> {
+  const metaId = String((session.metadata as any)?.deposit_request_id || "").trim();
+  if (metaId) return metaId;
+
+  const cr = String((session.client_reference_id as any) || "").trim();
+  if (looksLikeUuid(cr)) {
+    try {
+      const { data: byId } = await supabase
+        .from("service_deposit_requests")
+        .select("id")
+        .eq("id", cr)
+        .maybeSingle();
+      if (byId && (byId as any).id) return String((byId as any).id);
+    } catch (_e) {}
+  }
+
+  const sid = String(session.id || "").trim();
+  if (sid) {
+    try {
+      const { data: bySession } = await supabase
+        .from("service_deposit_requests")
+        .select("id")
+        .eq("stripe_checkout_session_id", sid)
+        .maybeSingle();
+      if (bySession && (bySession as any).id) return String((bySession as any).id);
+    } catch (_e) {}
+  }
+
+  return "";
+}
+
 async function enqueuePartnerDepositPaidEmail(supabase: any, params: {
   depositRequestId: string;
   partnerId: string;
@@ -63,8 +100,153 @@ async function enqueuePartnerDepositPaidEmail(supabase: any, params: {
   }
 }
 
-async function handleDepositCheckoutCompleted(supabase: any, session: Stripe.Checkout.Session) {
-  const depositRequestId = String((session.metadata as any)?.deposit_request_id || session.client_reference_id || "").trim();
+async function enqueueCustomerDepositPaidEmail(supabase: any, params: {
+  depositRequestId: string;
+  resourceType: "cars" | "trips" | "hotels";
+  bookingId: string;
+}) {
+  const tableName = serviceTableName(params.resourceType);
+  const payload = {
+    category: params.resourceType,
+    record_id: params.bookingId,
+    event: "customer_deposit_paid",
+    table: tableName,
+    deposit_request_id: params.depositRequestId,
+  };
+
+  try {
+    await supabase.rpc("enqueue_admin_notification", {
+      p_category: params.resourceType,
+      p_event: "customer_deposit_paid",
+      p_record_id: params.bookingId,
+      p_table_name: tableName,
+      p_payload: payload,
+      p_dedupe_key: `deposit_customer_paid:${params.depositRequestId}`,
+    });
+  } catch (_e) {
+    // best-effort
+  }
+}
+
+async function enqueueAdminDepositPaidEmail(supabase: any, params: {
+  depositRequestId: string;
+  resourceType: "cars" | "trips" | "hotels";
+  bookingId: string;
+  fulfillmentId: string;
+  partnerId: string;
+}) {
+  const tableName = serviceTableName(params.resourceType);
+  const payload = {
+    category: params.resourceType,
+    record_id: params.bookingId,
+    event: "deposit_paid",
+    table: tableName,
+    deposit_request_id: params.depositRequestId,
+    fulfillment_id: params.fulfillmentId,
+    partner_id: params.partnerId,
+  };
+
+  try {
+    await supabase.rpc("enqueue_admin_notification", {
+      p_category: params.resourceType,
+      p_event: "deposit_paid",
+      p_record_id: params.bookingId,
+      p_table_name: tableName,
+      p_payload: payload,
+      p_dedupe_key: `deposit_admin_paid:${params.depositRequestId}`,
+    });
+  } catch (_e) {
+    // best-effort
+  }
+}
+
+async function handleDepositPaymentIntentSucceeded(supabase: any, paymentIntent: Stripe.PaymentIntent, depositRequestId: string) {
+  const nowIso = new Date().toISOString();
+  const pid = String(paymentIntent.id || "").trim();
+  const id = String(depositRequestId || "").trim();
+  if (!id) return;
+
+  const { data: dep, error: depErr } = await supabase
+    .from("service_deposit_requests")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (depErr || !dep) {
+    console.warn("[stripe-webhook] deposit request not found for payment_intent:", { depositRequestId: id, payment_intent_id: pid, depErr });
+    return;
+  }
+
+  const resourceType = normalizeServiceType((dep as any).resource_type);
+  const bookingId = String((dep as any).booking_id || "").trim();
+  const partnerId = String((dep as any).partner_id || "").trim();
+  const fulfillmentId = String((dep as any).fulfillment_id || "").trim();
+  const amount = Number((dep as any).amount || 0) || 0;
+  const currency = String((dep as any).currency || "EUR").trim() || "EUR";
+
+  if (!resourceType || !bookingId || !partnerId || !fulfillmentId) {
+    console.warn("[stripe-webhook] deposit request missing refs (payment_intent):", { depositRequestId: id, resourceType, bookingId, partnerId, fulfillmentId });
+    return;
+  }
+
+  await supabase
+    .from("service_deposit_requests")
+    .update({
+      status: "paid",
+      paid_at: nowIso,
+      stripe_payment_intent_id: pid || null,
+    })
+    .eq("id", id)
+    .neq("status", "paid");
+
+  await supabase
+    .from("partner_service_fulfillments")
+    .update({
+      status: "accepted",
+      contact_revealed_at: nowIso,
+      updated_at: nowIso,
+    })
+    .eq("id", fulfillmentId)
+    .is("contact_revealed_at", null);
+
+  const table = serviceTableName(resourceType);
+  await supabase
+    .from(table)
+    .update({
+      deposit_paid_at: nowIso,
+      deposit_amount: amount,
+      deposit_currency: currency,
+    })
+    .eq("id", bookingId)
+    .is("deposit_paid_at", null);
+
+  await enqueuePartnerDepositPaidEmail(supabase, {
+    depositRequestId: id,
+    partnerId,
+    resourceType,
+    bookingId,
+    fulfillmentId,
+  });
+
+  await enqueueAdminDepositPaidEmail(supabase, {
+    depositRequestId: id,
+    resourceType,
+    bookingId,
+    fulfillmentId,
+    partnerId,
+  });
+
+  await enqueueCustomerDepositPaidEmail(supabase, {
+    depositRequestId: id,
+    resourceType,
+    bookingId,
+  });
+}
+
+async function handleDepositCheckoutCompleted(supabase: any, session: Stripe.Checkout.Session, depositRequestIdOverride?: string) {
+  const depositRequestId = String(
+    depositRequestIdOverride || (session.metadata as any)?.deposit_request_id || session.client_reference_id || "",
+  ).trim();
   if (!depositRequestId) return;
 
   const nowIso = new Date().toISOString();
@@ -132,10 +314,26 @@ async function handleDepositCheckoutCompleted(supabase: any, session: Stripe.Che
     bookingId,
     fulfillmentId,
   });
+
+  await enqueueAdminDepositPaidEmail(supabase, {
+    depositRequestId,
+    resourceType,
+    bookingId,
+    fulfillmentId,
+    partnerId,
+  });
+
+  await enqueueCustomerDepositPaidEmail(supabase, {
+    depositRequestId,
+    resourceType,
+    bookingId,
+  });
 }
 
-async function handleDepositCheckoutExpired(supabase: any, session: Stripe.Checkout.Session) {
-  const depositRequestId = String((session.metadata as any)?.deposit_request_id || session.client_reference_id || "").trim();
+async function handleDepositCheckoutExpired(supabase: any, session: Stripe.Checkout.Session, depositRequestIdOverride?: string) {
+  const depositRequestId = String(
+    depositRequestIdOverride || (session.metadata as any)?.deposit_request_id || session.client_reference_id || "",
+  ).trim();
   if (!depositRequestId) return;
 
   const nowIso = new Date().toISOString();
@@ -379,9 +577,10 @@ serve(async (req) => {
 async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.Session) {
   console.log("Checkout completed:", session.id);
 
-  const depositRequestId = String((session.metadata as any)?.deposit_request_id || "").trim();
+  const depositRequestId = await resolveDepositRequestIdFromSession(supabase, session);
   if (depositRequestId) {
-    await handleDepositCheckoutCompleted(supabase, session);
+    console.log("[stripe-webhook] deposit checkout detected", { session_id: session.id, deposit_request_id: depositRequestId });
+    await handleDepositCheckoutCompleted(supabase, session, depositRequestId);
     return;
   }
 
@@ -576,9 +775,10 @@ async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.S
 async function handleCheckoutExpired(supabase: any, session: Stripe.Checkout.Session) {
   console.log("Checkout expired:", session.id);
 
-  const depositRequestId = String((session.metadata as any)?.deposit_request_id || "").trim();
+  const depositRequestId = await resolveDepositRequestIdFromSession(supabase, session);
   if (depositRequestId) {
-    await handleDepositCheckoutExpired(supabase, session);
+    console.log("[stripe-webhook] deposit checkout expired detected", { session_id: session.id, deposit_request_id: depositRequestId });
+    await handleDepositCheckoutExpired(supabase, session, depositRequestId);
     return;
   }
 
@@ -611,6 +811,12 @@ async function handleCheckoutExpired(supabase: any, session: Stripe.Checkout.Ses
 
 async function handlePaymentSucceeded(supabase: any, paymentIntent: Stripe.PaymentIntent) {
   console.log("Payment succeeded:", paymentIntent.id);
+
+  const depId = String((paymentIntent.metadata as any)?.deposit_request_id || "").trim();
+  if (depId) {
+    await handleDepositPaymentIntentSucceeded(supabase, paymentIntent, depId);
+    return;
+  }
 
   let order: any = null;
 

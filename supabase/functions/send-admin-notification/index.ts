@@ -7,12 +7,14 @@ type Category = "shop" | "cars" | "hotels" | "trips";
 type AdminEvent =
   | "created"
   | "paid"
+  | "deposit_paid"
   | "partner_rejected"
   | "partner_sla"
   | "partner_accepted"
   | "partner_pending_acceptance"
   | "customer_received"
   | "customer_deposit_requested"
+  | "customer_deposit_paid"
   | "partner_deposit_paid";
 
 type AdminNotificationRequest = {
@@ -46,6 +48,87 @@ function parseRecipients(raw: string): string[] {
 
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return unique.filter((email) => emailRegex.test(email));
+}
+
+function renderCustomerDepositPaidEmail(params: {
+  deposit: Record<string, unknown>;
+}): { subject: string; html: string; text: string } {
+  const deposit = params.deposit;
+  const lang = normalizeDepositLang((deposit as any)?.lang);
+  const amount = Number((deposit as any)?.amount || 0) || 0;
+  const currency = String((deposit as any)?.currency || "EUR").trim() || "EUR";
+  const reference = String((deposit as any)?.fulfillment_reference || "").trim();
+  const summary = String((deposit as any)?.fulfillment_summary || "").trim();
+  const paidAtIso = String((deposit as any)?.paid_at || new Date().toISOString());
+  const paidAt = formatDateTime(paidAtIso);
+
+  const subject = (() => {
+    const cat = normalizeServiceCategory((deposit as any)?.resource_type);
+    const label = cat ? cat.toUpperCase() : "SERVICE";
+    const parts = [`[${label}] Deposit paid`];
+    if (summary) parts.push(summary);
+    if (reference) parts.push(reference);
+    return parts.join(" — ");
+  })();
+
+  const intro = lang === "pl"
+    ? "Dziękujemy. Płatność depozytu została potwierdzona. Partner skontaktuje się z Tobą na podany numer telefonu."
+    : "Thank you. Your deposit payment has been confirmed. The partner will contact you using the phone number you provided.";
+
+  const brandHeader = `
+      <table role="presentation" style="width:100%; border-collapse:collapse; margin: 0 0 14px;">
+        <tr>
+          <td style="padding:0; vertical-align:middle;">
+            <img src="${escapeHtml(BRAND_LOGO_URL)}" alt="CyprusEye.com" width="120" style="display:block; max-width:120px; height:auto; border:0; outline:none; text-decoration:none;" />
+          </td>
+          <td style="padding:0; text-align:right; vertical-align:middle; font-size:13px; color:#6b7280;">CyprusEye.com • Deposit</td>
+        </tr>
+      </table>`;
+
+  const summaryRows = buildKeyValueRows(deposit, [
+    { label: "Reference", value: reference },
+    { label: "Service", value: summary },
+    { label: "Deposit", value: formatMoney(amount, currency) },
+    { label: "Paid at", value: paidAt },
+  ]);
+
+  const summaryTable = summaryRows.length
+    ? `
+      <table style="width:100%; border-collapse:collapse; margin: 0;">
+        ${summaryRows
+          .map(
+            (r) =>
+              `<tr>
+                <td style="padding:8px 10px; border:1px solid #e5e7eb; width: 34%; background:#f9fafb;"><strong>${escapeHtml(r.label)}</strong></td>
+                <td style="padding:8px 10px; border:1px solid #e5e7eb;">${escapeHtml(r.value)}</td>
+              </tr>`,
+          )
+          .join("")}
+      </table>`
+    : "";
+
+  const html = `
+    <div style="font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, \"Apple Color Emoji\", \"Segoe UI Emoji\"; color:#111827; line-height:1.45;">
+      <div style="margin:0 0 14px;">
+        ${brandHeader}
+        <div style="font-size:20px; font-weight:800; margin:0;">${escapeHtml(lang === "pl" ? "Depozyt opłacony" : "Deposit paid")}</div>
+        <div style="font-size:13px; color:#6b7280; margin-top:6px;">${escapeHtml(paidAt)}</div>
+      </div>
+      <div style="font-size:14px; margin: 14px 0 0;">${escapeHtml(intro)}</div>
+      ${summaryTable ? `<h3 style="margin:18px 0 8px; font-size:16px;">${escapeHtml(lang === "pl" ? "Podsumowanie" : "Summary")}</h3>${summaryTable}` : ""}
+      <div style="font-size:12px; color:#6b7280; margin-top:14px;">${escapeHtml(lang === "pl" ? "W razie pytań odpowiadaj na tę wiadomość." : "If you have any questions, reply to this email.")}</div>
+    </div>`;
+
+  const textLines: string[] = [];
+  textLines.push(lang === "pl" ? "Depozyt opłacony" : "Deposit paid");
+  if (paidAt) textLines.push(`Paid at: ${paidAt}`);
+  textLines.push("");
+  textLines.push(intro);
+  textLines.push("");
+  if (summary) textLines.push(`Service: ${summary}`);
+  if (reference) textLines.push(`Reference: ${reference}`);
+  textLines.push(`Deposit: ${formatMoney(amount, currency)}`);
+  return { subject, html, text: textLines.join("\n") };
 }
 
 function renderCustomerDepositRequestedEmail(params: {
@@ -885,12 +968,14 @@ function buildPartnerPanelLink(fulfillmentId?: string): string {
 
 function eventLabel(event: AdminEvent): string {
   if (event === "paid") return "Paid";
+  if (event === "deposit_paid") return "Deposit paid";
   if (event === "partner_rejected") return "Partner Rejected";
   if (event === "partner_sla") return "Partner SLA";
   if (event === "partner_accepted") return "Partner Accepted";
   if (event === "partner_pending_acceptance") return "Pending acceptance";
   if (event === "customer_received") return "Customer confirmation";
   if (event === "customer_deposit_requested") return "Deposit payment requested";
+  if (event === "customer_deposit_paid") return "Deposit paid";
   if (event === "partner_deposit_paid") return "Deposit paid";
   return "New";
 }
@@ -2280,6 +2365,110 @@ serve(async (req) => {
       const relayed = await tryRelayEmail({ to: recipients, subject, text, html, secret: secretRequired });
       if (relayed.ok) {
         await markDepositPartnerEmailSentAt(supabase, depositRequestId);
+        return new Response(JSON.stringify({ ok: true, relayed: true, smtp_failed: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+      return new Response(
+        JSON.stringify({ ok: true, simulated: true, smtp_error: error?.message || "Email send failed", relay_error: relayed.error || null }),
+        {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        },
+      );
+    }
+  }
+
+  if (event === "customer_deposit_paid") {
+    const depositRequestId = String((body as any)?.deposit_request_id || (body as any)?.depositRequestId || "").trim();
+    if (!depositRequestId) {
+      return new Response(JSON.stringify({ error: "Missing deposit_request_id" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const { data: dep, error: depErr } = await supabase
+      .from("service_deposit_requests")
+      .select("*")
+      .eq("id", depositRequestId)
+      .maybeSingle();
+
+    if (depErr || !dep) {
+      return new Response(JSON.stringify({ error: "Deposit request not found" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 404,
+      });
+    }
+
+    const depStatus = String((dep as any)?.status || "").trim().toLowerCase();
+    if (depStatus !== "paid") {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: `status_${depStatus || "unknown"}` }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    const customerRecipients = parseRecipients(String((dep as any)?.customer_email || ""));
+    if (!customerRecipients.length) {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "no_customer_email" }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    const rendered = renderCustomerDepositPaidEmail({ deposit: dep as any });
+    const subject = rendered.subject;
+    const html = rendered.html;
+    const text = rendered.text;
+
+    const transport = buildMailTransport();
+    if (!transport) {
+      const relayed = await tryRelayEmail({ to: customerRecipients, subject, text, html, secret: secretRequired });
+      if (relayed.ok) {
+        return new Response(JSON.stringify({ ok: true, relayed: true }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          status: 200,
+        });
+      }
+      console.warn("SMTP_HOST not set – email will be logged only.");
+      console.log(
+        `\n===== Simulated customer deposit paid =====\nTo: ${customerRecipients.join(", ")}\nSubject: ${subject}\n\n${text}\n===== End =====\n`,
+      );
+      return new Response(JSON.stringify({ ok: true, simulated: true, relay_error: relayed.error || null }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
+    const from = buildFromHeader(Deno.env.get("SMTP_FROM") || "no-reply@wakacjecypr.com");
+
+    try {
+      await new Promise<void>((resolve, reject) => {
+        transport.sendMail(
+          {
+            from,
+            to: customerRecipients.join(","),
+            subject,
+            text,
+            html,
+          },
+          (error: any) => {
+            if (error) return reject(error);
+            resolve();
+          },
+        );
+      });
+
+      return new Response(JSON.stringify({ ok: true }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    } catch (error) {
+      console.error("Failed to send customer deposit paid email:", error);
+      const relayed = await tryRelayEmail({ to: customerRecipients, subject, text, html, secret: secretRequired });
+      if (relayed.ok) {
         return new Response(JSON.stringify({ ok: true, relayed: true, smtp_failed: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,

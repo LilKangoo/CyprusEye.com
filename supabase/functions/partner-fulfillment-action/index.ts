@@ -105,10 +105,29 @@ async function loadDepositRule(
   return { mode, amount, currency, include_children: includeChildren };
 }
 
-function buildDepositRedirectUrl(params: { lang: "pl" | "en"; result: "success" | "cancel" }): string {
+function buildDepositRedirectUrl(params: {
+  lang: "pl" | "en";
+  result: "success" | "cancel";
+  depositRequestId: string;
+  category: "cars" | "trips" | "hotels";
+  bookingId: string;
+  amount: number;
+  currency: string;
+  reference?: string | null;
+  summary?: string | null;
+}): string {
   const url = new URL(CUSTOMER_HOMEPAGE_URL);
+  url.pathname = "/deposit.html";
   url.searchParams.set("deposit", params.result);
   url.searchParams.set("lang", params.lang);
+  url.searchParams.set("deposit_request_id", params.depositRequestId);
+  url.searchParams.set("category", params.category);
+  url.searchParams.set("booking_id", params.bookingId);
+  url.searchParams.set("amount", String(params.amount));
+  url.searchParams.set("currency", String(params.currency || "EUR"));
+  if (params.reference) url.searchParams.set("reference", String(params.reference));
+  if (params.summary) url.searchParams.set("summary", String(params.summary));
+  url.searchParams.set("session_id", "{CHECKOUT_SESSION_ID}");
   return `${url.origin}${url.pathname}${url.search}`;
 }
 
@@ -426,10 +445,39 @@ async function createDepositCheckoutForServiceFulfillment(params: {
         quantity: 1,
       },
     ],
-    success_url: buildDepositRedirectUrl({ lang, result: "success" }),
-    cancel_url: buildDepositRedirectUrl({ lang, result: "cancel" }),
+    success_url: buildDepositRedirectUrl({
+      lang,
+      result: "success",
+      depositRequestId,
+      category,
+      bookingId,
+      amount: depositAmount,
+      currency,
+      reference: fulfillmentReference,
+      summary: fulfillmentSummary,
+    }),
+    cancel_url: buildDepositRedirectUrl({
+      lang,
+      result: "cancel",
+      depositRequestId,
+      category,
+      bookingId,
+      amount: depositAmount,
+      currency,
+      reference: fulfillmentReference,
+      summary: fulfillmentSummary,
+    }),
     customer_email: customerEmail,
     client_reference_id: depositRequestId,
+    payment_intent_data: {
+      metadata: {
+        deposit_request_id: depositRequestId,
+        fulfillment_id: fulfillmentId,
+        partner_id: partnerId,
+        resource_type: category,
+        booking_id: bookingId,
+      },
+    },
     metadata: {
       deposit_request_id: depositRequestId,
       fulfillment_id: fulfillmentId,

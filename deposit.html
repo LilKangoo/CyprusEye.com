@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <meta name="theme-color" content="#111827" />
+  <meta name="robots" content="noindex,nofollow" />
+
+  <title>Deposit payment</title>
+  <link rel="icon" href="/assets/cyprus_logo-1000x1054.png" type="image/png" />
+
+  <link rel="stylesheet" href="/assets/css/tokens.css?v=20260114" />
+  <link rel="stylesheet" href="/assets/css/base.css?v=20260114" />
+
+  <style>
+    body { background: #0b1220; color: #e5e7eb; }
+    .wrap { min-height: 100vh; display:flex; align-items:center; justify-content:center; padding: 36px 16px; }
+    .card { width: 100%; max-width: 720px; background: rgba(17,24,39,0.85); border: 1px solid rgba(255,255,255,0.08); border-radius: 18px; padding: 22px; box-shadow: 0 22px 60px rgba(0,0,0,0.35); }
+    .header { display:flex; gap: 14px; align-items:center; justify-content:space-between; flex-wrap: wrap; }
+    .brand { display:flex; gap: 12px; align-items:center; }
+    .brand img { width: 42px; height: 42px; object-fit: contain; }
+    .brand .title { font-weight: 900; font-size: 18px; letter-spacing: 0.2px; }
+    .badge { display:inline-flex; align-items:center; gap: 8px; padding: 8px 12px; border-radius: 999px; font-weight: 800; font-size: 12px; letter-spacing: 0.02em; border: 1px solid rgba(255,255,255,0.10); }
+    .badge.success { background: rgba(34,197,94,0.16); color: #bbf7d0; }
+    .badge.cancel { background: rgba(245,158,11,0.16); color: #fde68a; }
+    .badge.pending { background: rgba(59,130,246,0.16); color: #bfdbfe; }
+
+    h1 { margin: 16px 0 8px; font-size: 26px; line-height: 1.2; }
+    p { margin: 0 0 10px; color: rgba(229,231,235,0.86); }
+
+    .grid { display:grid; grid-template-columns: 1fr; gap: 12px; margin-top: 16px; }
+    @media (min-width: 720px) { .grid { grid-template-columns: 1fr 1fr; } }
+
+    .box { border: 1px solid rgba(255,255,255,0.08); border-radius: 14px; padding: 12px; background: rgba(255,255,255,0.03); }
+    .box .label { font-size: 12px; color: rgba(229,231,235,0.62); font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 6px; }
+    .box .value { font-size: 14px; color: rgba(229,231,235,0.92); word-break: break-word; }
+
+    .actions { display:flex; gap: 10px; flex-wrap: wrap; margin-top: 18px; }
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap: 8px; padding: 10px 14px; border-radius: 12px; font-weight: 800; border: 1px solid rgba(255,255,255,0.10); text-decoration:none; cursor:pointer; }
+    .btn.primary { background: #2563eb; border-color: #2563eb; color: white; }
+    .btn.ghost { background: transparent; color: rgba(229,231,235,0.92); }
+
+    .muted { font-size: 12px; color: rgba(229,231,235,0.62); margin-top: 12px; }
+  </style>
+
+  <script type="module" src="/js/deposit.js?v=20260114"></script>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card" aria-live="polite">
+      <div class="header">
+        <div class="brand">
+          <img src="/assets/cyprus_logo-1000x1054.png" alt="CyprusEye.com" />
+          <div class="title">CyprusEye.com</div>
+        </div>
+        <div id="depositBadge" class="badge pending">Deposit</div>
+      </div>
+
+      <h1 id="depositTitle">Payment status</h1>
+      <p id="depositMessage"></p>
+
+      <div class="grid" id="depositDetails">
+        <div class="box">
+          <div class="label" id="labelReference">Reference</div>
+          <div class="value" id="valueReference">—</div>
+        </div>
+        <div class="box">
+          <div class="label" id="labelService">Service</div>
+          <div class="value" id="valueService">—</div>
+        </div>
+        <div class="box">
+          <div class="label" id="labelAmount">Amount</div>
+          <div class="value" id="valueAmount">—</div>
+        </div>
+        <div class="box">
+          <div class="label" id="labelCategory">Category</div>
+          <div class="value" id="valueCategory">—</div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <a class="btn primary" href="/index.html" id="btnHome">Home</a>
+        <a class="btn ghost" href="/" id="btnHomeAlt">cypruseye.com</a>
+      </div>
+
+      <div class="muted" id="depositFooter"></div>
+    </section>
+  </main>
+</body>
+</html>
