@@ -1872,6 +1872,151 @@ body[data-admin-panel="true"].admin-sidebar-open {
   }
 }
 
+.muted {
+  color: var(--admin-text-muted);
+}
+
+.small {
+  font-size: 12px;
+}
+
+.btn-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.partner-contact {
+  border: 1px solid var(--admin-border);
+  border-radius: 14px;
+  padding: 10px;
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.partner-contact strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+@media (max-width: 1024px) {
+  .admin-table-container[aria-label="Partner list"],
+  .admin-table-container[aria-label="Partner Services"] {
+    overflow: visible;
+    border: none;
+    background: transparent;
+  }
+
+  .admin-table-container[aria-label="Partner list"] .admin-table,
+  .admin-table-container[aria-label="Partner Services"] .admin-table {
+    min-width: 0;
+  }
+
+  .admin-table-container[aria-label="Partner list"] .admin-table thead,
+  .admin-table-container[aria-label="Partner Services"] .admin-table thead {
+    display: none;
+  }
+
+  .admin-table-container[aria-label="Partner list"] .admin-table,
+  .admin-table-container[aria-label="Partner list"] .admin-table tbody,
+  .admin-table-container[aria-label="Partner list"] .admin-table tr,
+  .admin-table-container[aria-label="Partner list"] .admin-table td,
+  .admin-table-container[aria-label="Partner Services"] .admin-table,
+  .admin-table-container[aria-label="Partner Services"] .admin-table tbody,
+  .admin-table-container[aria-label="Partner Services"] .admin-table tr,
+  .admin-table-container[aria-label="Partner Services"] .admin-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .admin-table-container[aria-label="Partner list"] .admin-table tr,
+  .admin-table-container[aria-label="Partner Services"] .admin-table tr {
+    border: 1px solid var(--admin-border);
+    background: var(--admin-bg-light);
+    border-radius: 14px;
+    overflow: hidden;
+    margin: 0 0 12px;
+  }
+
+  .admin-table-container[aria-label="Partner list"] .admin-table td,
+  .admin-table-container[aria-label="Partner Services"] .admin-table td {
+    border-bottom: 1px solid var(--admin-border);
+    padding: 10px 12px;
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    justify-items: end;
+    text-align: right;
+    white-space: normal !important;
+  }
+
+  .admin-table-container[aria-label="Partner list"] .admin-table td:last-child,
+  .admin-table-container[aria-label="Partner Services"] .admin-table td:last-child {
+    border-bottom: none;
+  }
+
+  .admin-table-container[aria-label="Partner list"] .admin-table td::before,
+  .admin-table-container[aria-label="Partner Services"] .admin-table td::before {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--admin-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .admin-table-container[aria-label="Partner list"] .admin-table td:nth-of-type(1)::before { content: "Name"; }
+  .admin-table-container[aria-label="Partner list"] .admin-table td:nth-of-type(2)::before { content: "Slug"; }
+  .admin-table-container[aria-label="Partner list"] .admin-table td:nth-of-type(3)::before { content: "Status"; }
+  .admin-table-container[aria-label="Partner list"] .admin-table td:nth-of-type(4)::before { content: "Vendor"; }
+  .admin-table-container[aria-label="Partner list"] .admin-table td:nth-of-type(5)::before { content: "Users"; }
+  .admin-table-container[aria-label="Partner list"] .admin-table td:nth-of-type(6)::before { content: "Pending"; }
+  .admin-table-container[aria-label="Partner list"] .admin-table td:nth-of-type(7)::before { content: "Rejected"; }
+  .admin-table-container[aria-label="Partner list"] .admin-table td:nth-of-type(8)::before { content: "Accepted"; }
+  .admin-table-container[aria-label="Partner list"] .admin-table td:nth-of-type(9)::before { content: "Actions"; }
+
+  .admin-table-container[aria-label="Partner Services"] .admin-table td:nth-of-type(1)::before { content: "Order"; }
+  .admin-table-container[aria-label="Partner Services"] .admin-table td:nth-of-type(2)::before { content: "Status"; }
+  .admin-table-container[aria-label="Partner Services"] .admin-table td:nth-of-type(3)::before { content: "Dates"; }
+  .admin-table-container[aria-label="Partner Services"] .admin-table td:nth-of-type(4)::before { content: "Price"; }
+  .admin-table-container[aria-label="Partner Services"] .admin-table td:nth-of-type(5)::before { content: "Items"; }
+  .admin-table-container[aria-label="Partner Services"] .admin-table td:nth-of-type(6)::before { content: "Actions"; }
+
+  .admin-table-container[aria-label="Partner list"] .admin-table td > *,
+  .admin-table-container[aria-label="Partner Services"] .admin-table td > * {
+    min-width: 0;
+    justify-self: end;
+    text-align: right;
+  }
+
+  .admin-table-container[aria-label="Partner list"] .admin-table td[colspan] {
+    display: block;
+  }
+
+  .admin-table-container[aria-label="Partner list"] .admin-table td[colspan]::before {
+    content: none;
+    display: none;
+  }
+
+  .admin-table-container[aria-label="Partner Services"] .admin-table td:nth-of-type(6) {
+    display: block;
+  }
+
+  .admin-table-container[aria-label="Partner Services"] .admin-table td:nth-of-type(6)::before {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .admin-table-container[aria-label="Partner Services"] .admin-table td:nth-of-type(6) .btn-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .admin-table-container[aria-label="Partner Services"] .admin-table td:nth-of-type(6) .btn-action {
+    width: 100%;
+  }
+}
+
 /* =====================================================
    ALL ORDERS PANEL - UNIFIED ORDERS MANAGEMENT
    ===================================================== */

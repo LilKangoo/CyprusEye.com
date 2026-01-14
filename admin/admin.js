@@ -1223,34 +1223,94 @@ function renderPartnersTable() {
         const customerEmail = escapeHtml(row.customer_email || '');
         const customerPhone = escapeHtml(row.customer_phone || '');
         const customerHtml = (customerName || customerEmail || customerPhone)
-          ? `${customerName ? `<div><strong>${customerName}</strong></div>` : ''}${customerEmail ? `<div><a href="mailto:${encodeURIComponent(String(row.customer_email || ''))}">${customerEmail}</a></div>` : ''}${customerPhone ? `<div><a href="tel:${encodeURIComponent(String(row.customer_phone || ''))}">${customerPhone}</a></div>` : ''}`
-          : '—';
+          ? `
+              <div class="partner-contact" style="margin-top: 10px;">
+                <strong>Contact</strong>
+                ${customerName ? `<div class="small">${customerName}</div>` : ''}
+                ${customerEmail ? `<div class="small"><a href="mailto:${encodeURIComponent(String(row.customer_email || ''))}">${customerEmail}</a></div>` : ''}
+                ${customerPhone ? `<div class="small"><a href="tel:${encodeURIComponent(String(row.customer_phone || ''))}">${customerPhone}</a></div>` : ''}
+                ${row.contact_revealed_at ? `<div class="small muted">Revealed: ${escapeHtml(formatDateTimeValue(row.contact_revealed_at))}</div>` : ''}
+              </div>
+            `
+          : '';
 
-        const dates = (row.start_date || row.end_date)
-          ? `${escapeHtml(String(row.start_date || '').slice(0, 10) || '—')} → ${escapeHtml(String(row.end_date || '').slice(0, 10) || '—')}`
-          : '—';
+        const durationDays = (() => {
+          const t = String(row.resource_type || row.label || '').trim();
+          if (t !== 'cars' && t !== 'hotels') return null;
+          if (!row.start_date || !row.end_date) return null;
+          try {
+            const start = new Date(`${String(row.start_date).slice(0, 10)}T00:00:00`);
+            const end = new Date(`${String(row.end_date).slice(0, 10)}T00:00:00`);
+            const days = Math.round((end.getTime() - start.getTime()) / 86400000);
+            return Number.isFinite(days) ? Math.max(days, 0) : null;
+          } catch (_e) {
+            return null;
+          }
+        })();
 
-        const price = row.price != null ? escapeHtml(formatMoney(row.price, row.currency)) : '—';
-        const revealed = row.contact_revealed_at ? escapeHtml(formatDateTimeValue(row.contact_revealed_at)) : '—';
+        const datesHtml = (() => {
+          if (row.start_date || row.end_date) {
+            const start = escapeHtml(String(row.start_date || '').slice(0, 10) || '—');
+            const end = escapeHtml(String(row.end_date || '').slice(0, 10) || '—');
+            const duration = durationDays != null ? `<div class="muted small">Duration: ${escapeHtml(String(durationDays))} day(s)</div>` : '';
+            return `<div class="small">${start} → ${end}</div>${duration}`;
+          }
+          return '<span class="muted">—</span>';
+        })();
 
-        const actionsHtml = status === 'pending_acceptance'
-          ? `<div style="display:inline-flex; gap: 6px; flex-wrap: wrap; justify-content:flex-end;">
-              <button class="btn-small btn-secondary" onclick="adminServiceFulfillmentAction('${escapeHtml(p.id)}','${escapeHtml(row.id)}','accept')">Accept</button>
-              <button class="btn-small btn-secondary" onclick="adminServiceFulfillmentAction('${escapeHtml(p.id)}','${escapeHtml(row.id)}','reject')">Reject</button>
-            </div>`
-          : '—';
+        const priceHtml = (() => {
+          if (row.price == null) return '<span class="muted">—</span>';
+          const val = escapeHtml(formatMoney(row.price, row.currency));
+          const t = String(row.resource_type || row.label || '').trim();
+          if (t === 'cars') {
+            return `
+              <div class="muted small">Suggested Total</div>
+              <div class="small" style="margin-top:6px; padding:8px 10px; border-radius:10px; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:#fff; font-weight:700; display:inline-block;">${val}</div>
+            `;
+          }
+          return `<span class="small">${val}</span>`;
+        })();
+
+        const itemsHtml = (() => {
+          const typeLabel = row.resource_type ? String(row.resource_type) : (row.label || 'service');
+          const parts = [
+            `<div class="small"><strong>${escapeHtml(typeLabel)}</strong></div>`,
+            `<div class="small">${summary}</div>`,
+            customerHtml,
+          ].filter(Boolean).join('');
+          return parts || '<span class="muted">—</span>';
+        })();
+
+        const actionsHtml = (() => {
+          const st = String(row.status || '');
+          if (st === 'pending_acceptance') {
+            return `
+              <div class="btn-row">
+                <button class="btn-action btn-success" type="button" onclick="adminServiceFulfillmentAction('${escapeHtml(p.id)}','${escapeHtml(row.id)}','accept')">Accept</button>
+                <button class="btn-action btn-danger" type="button" onclick="adminServiceFulfillmentAction('${escapeHtml(p.id)}','${escapeHtml(row.id)}','reject')">Reject</button>
+              </div>
+            `;
+          }
+          if (st === 'accepted' && row.contact_revealed_at) {
+            return '<div class="muted small">Contact revealed</div>';
+          }
+          if (st === 'rejected' && row.rejected_reason) {
+            return `<div class="muted small">Reason: ${escapeHtml(String(row.rejected_reason))}</div>`;
+          }
+          return '<div class="muted">—</div>';
+        })();
+
         return `
           <tr>
-            <td data-label="Created" style="white-space: nowrap;">${createdAt}</td>
-            <td data-label="Status" style="white-space: nowrap;">${statusHtml}</td>
-            <td data-label="Type">${label}</td>
-            <td data-label="Reference"><code>${ref}</code></td>
-            <td data-label="Summary">${summary}</td>
-            <td data-label="Dates" style="white-space: nowrap;">${dates}</td>
-            <td data-label="Customer">${customerHtml}</td>
-            <td data-label="Price" style="white-space: nowrap;">${price}</td>
-            <td data-label="Contact revealed" style="white-space: nowrap;">${revealed}</td>
-            <td data-label="Actions" style="text-align: right; white-space: nowrap;">${actionsHtml}</td>
+            <td>
+              <strong><code>${ref}</code></strong>
+              <div class="muted small">Created: ${createdAt}</div>
+            </td>
+            <td>${statusHtml}</td>
+            <td>${datesHtml}</td>
+            <td>${priceHtml}</td>
+            <td>${itemsHtml}</td>
+            <td>${actionsHtml}</td>
           </tr>
         `;
       }).join('');
@@ -1262,16 +1322,12 @@ function renderPartnersTable() {
             <table class="admin-table" style="margin:0;">
               <thead>
                 <tr>
-                  <th>Created</th>
+                  <th>Order</th>
                   <th>Status</th>
-                  <th>Type</th>
-                  <th>Reference</th>
-                  <th>Summary</th>
                   <th>Dates</th>
-                  <th>Customer</th>
                   <th>Price</th>
-                  <th>Contact revealed</th>
-                  <th style="text-align:right;">Actions</th>
+                  <th>Items</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -1363,6 +1419,7 @@ async function loadServiceFulfillmentsForPartner(partnerId) {
     const label = f.resource_type ? String(f.resource_type) : 'service';
     normalized.push({
       id: f.id,
+      resource_type: f.resource_type,
       label,
       reference,
       summary: f.summary || '',
@@ -1370,6 +1427,7 @@ async function loadServiceFulfillmentsForPartner(partnerId) {
       created_at: f.created_at,
       accepted_at: f.accepted_at,
       contact_revealed_at: f.contact_revealed_at,
+      rejected_reason: f.rejected_reason,
       start_date: f.start_date,
       end_date: f.end_date,
       price: f.total_price,
