@@ -2,12 +2,14 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import Stripe from "https://esm.sh/stripe@13.6.0?target=deno";
 
-type Action = "accept" | "reject";
+type Action = "accept" | "reject" | "mark_paid";
 
 type PartnerFulfillmentActionRequest = {
   fulfillment_id?: string;
   action?: Action;
   reason?: string;
+  stripe_payment_intent_id?: string;
+  stripe_checkout_session_id?: string;
 };
 
 const corsHeaders = {
@@ -275,6 +277,91 @@ function getServiceTableName(category: "cars" | "trips" | "hotels"): string {
   if (category === "cars") return "car_bookings";
   if (category === "trips") return "trip_bookings";
   return "hotel_bookings";
+}
+
+function normalizeServiceCategory(value: unknown): "cars" | "trips" | "hotels" | null {
+  const v = String(value || "").trim().toLowerCase();
+  if (v === "cars" || v === "car") return "cars";
+  if (v === "trips" || v === "trip") return "trips";
+  if (v === "hotels" || v === "hotel") return "hotels";
+  return null;
+}
+
+async function enqueueDepositPaidEmails(supabase: any, params: {
+  depositRequestId: string;
+  category: "cars" | "trips" | "hotels";
+  bookingId: string;
+  partnerId: string;
+  fulfillmentId: string;
+}) {
+  const tableName = getServiceTableName(params.category);
+
+  const partnerPayload = {
+    category: params.category,
+    record_id: params.bookingId,
+    event: "partner_deposit_paid",
+    table: tableName,
+    deposit_request_id: params.depositRequestId,
+    fulfillment_id: params.fulfillmentId,
+    partner_id: params.partnerId,
+  };
+
+  const adminPayload = {
+    category: params.category,
+    record_id: params.bookingId,
+    event: "deposit_paid",
+    table: tableName,
+    deposit_request_id: params.depositRequestId,
+    fulfillment_id: params.fulfillmentId,
+    partner_id: params.partnerId,
+  };
+
+  const customerPayload = {
+    category: params.category,
+    record_id: params.bookingId,
+    event: "customer_deposit_paid",
+    table: tableName,
+    deposit_request_id: params.depositRequestId,
+  };
+
+  try {
+    await supabase.rpc("enqueue_admin_notification", {
+      p_category: params.category,
+      p_event: "partner_deposit_paid",
+      p_record_id: params.bookingId,
+      p_table_name: tableName,
+      p_payload: partnerPayload,
+      p_dedupe_key: `deposit_partner_paid:${params.depositRequestId}`,
+    });
+  } catch (_e) {
+    // best-effort
+  }
+
+  try {
+    await supabase.rpc("enqueue_admin_notification", {
+      p_category: params.category,
+      p_event: "deposit_paid",
+      p_record_id: params.bookingId,
+      p_table_name: tableName,
+      p_payload: adminPayload,
+      p_dedupe_key: `deposit_admin_paid:${params.depositRequestId}`,
+    });
+  } catch (_e) {
+    // best-effort
+  }
+
+  try {
+    await supabase.rpc("enqueue_admin_notification", {
+      p_category: params.category,
+      p_event: "customer_deposit_paid",
+      p_record_id: params.bookingId,
+      p_table_name: tableName,
+      p_payload: customerPayload,
+      p_dedupe_key: `deposit_customer_paid:${params.depositRequestId}`,
+    });
+  } catch (_e) {
+    // best-effort
+  }
 }
 
 async function enqueueAdminAlertOnServiceReject(
@@ -624,7 +711,7 @@ serve(async (req) => {
 
   const fulfillmentId = typeof body.fulfillment_id === "string" ? body.fulfillment_id : "";
   const action = body.action;
-  if (!fulfillmentId || (action !== "accept" && action !== "reject")) {
+  if (!fulfillmentId || (action !== "accept" && action !== "reject" && action !== "mark_paid")) {
     return new Response(JSON.stringify({ error: "Missing fulfillment_id or invalid action" }), {
       status: 400,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -739,6 +826,95 @@ serve(async (req) => {
   }
 
   if (fulfillmentStatus !== "pending_acceptance") {
+    if (action === "mark_paid") {
+      if (!callerIsAdmin) {
+        return new Response(JSON.stringify({ error: "Forbidden" }), {
+          status: 403,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      if (kind !== "service") {
+        return new Response(JSON.stringify({ error: "mark_paid only supported for service fulfillments" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const nowIso = new Date().toISOString();
+
+      const { data: depRow, error: depErr } = await supabase
+        .from("service_deposit_requests")
+        .select("id, status, booking_id, partner_id, resource_type, amount, currency")
+        .eq("fulfillment_id", fulfillmentId)
+        .maybeSingle();
+
+      if (depErr || !depRow) {
+        return new Response(JSON.stringify({ error: "Deposit request not found for fulfillment" }), {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const depositRequestId = String((depRow as any).id || "").trim();
+      const depositBookingId = String((depRow as any).booking_id || bookingId || "").trim();
+      const depositPartnerId = String((depRow as any).partner_id || partnerId || "").trim();
+      const depCategory = normalizeServiceCategory((depRow as any).resource_type || serviceCategory);
+      if (!depositRequestId || !depositBookingId || !depositPartnerId || !depCategory) {
+        return new Response(JSON.stringify({ error: "Deposit request missing required refs" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      const paymentIntentId = typeof body.stripe_payment_intent_id === "string" ? body.stripe_payment_intent_id.trim() : "";
+      const sessionId = typeof body.stripe_checkout_session_id === "string" ? body.stripe_checkout_session_id.trim() : "";
+
+      await supabase
+        .from("service_deposit_requests")
+        .update({
+          status: "paid",
+          paid_at: nowIso,
+          stripe_payment_intent_id: paymentIntentId || null,
+          stripe_checkout_session_id: sessionId || null,
+        })
+        .eq("id", depositRequestId)
+        .neq("status", "paid");
+
+      await supabase
+        .from("partner_service_fulfillments")
+        .update({
+          status: "accepted",
+          contact_revealed_at: nowIso,
+          updated_at: nowIso,
+        })
+        .eq("id", fulfillmentId)
+        .is("contact_revealed_at", null);
+
+      const table = getServiceTableName(depCategory);
+      await supabase
+        .from(table)
+        .update({
+          deposit_paid_at: nowIso,
+          deposit_amount: Number((depRow as any).amount || 0) || 0,
+          deposit_currency: String((depRow as any).currency || "EUR").trim() || "EUR",
+        })
+        .eq("id", depositBookingId)
+        .is("deposit_paid_at", null);
+
+      await enqueueDepositPaidEmails(supabase, {
+        depositRequestId,
+        category: depCategory,
+        bookingId: depositBookingId,
+        partnerId: depositPartnerId,
+        fulfillmentId,
+      });
+
+      return new Response(
+        JSON.stringify({ ok: true, data: { booking_id: depositBookingId, fulfillment_id: fulfillmentId, deposit_request_id: depositRequestId } }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     if (action === "accept" && (fulfillmentStatus === "accepted" || (kind === "service" && fulfillmentStatus === "awaiting_payment"))) {
       let deposit: any = null;
 

@@ -1291,6 +1291,13 @@ function renderPartnersTable() {
               </div>
             `;
           }
+          if (st === 'awaiting_payment') {
+            return `
+              <div class="btn-row">
+                <button class="btn-action btn-warning" type="button" onclick="adminServiceFulfillmentAction('${escapeHtml(p.id)}','${escapeHtml(row.id)}','mark_paid')">Mark paid</button>
+              </div>
+            `;
+          }
           if (st === 'accepted' && row.contact_revealed_at) {
             return '<div class="muted small">Contact revealed</div>';
           }
@@ -1482,10 +1489,21 @@ async function adminServiceFulfillmentAction(partnerId, fulfillmentId, action) {
   const fid = String(fulfillmentId || '').trim();
   const act = String(action || '').trim();
   if (!pid || !fid) return;
-  if (act !== 'accept' && act !== 'reject') return;
+  if (act !== 'accept' && act !== 'reject' && act !== 'mark_paid') return;
 
   let reason = '';
-  if (act === 'reject') {
+  let stripePaymentIntentId = '';
+  let stripeCheckoutSessionId = '';
+
+  if (act === 'mark_paid') {
+    if (!confirm('Mark this deposit as PAID and reveal customer contact details?\n\nUse ONLY if you have confirmed the payment in Stripe (webhook failed).')) return;
+    const pi = prompt('Stripe PaymentIntent ID (optional):', '');
+    if (pi === null) return;
+    stripePaymentIntentId = String(pi || '').trim();
+    const cs = prompt('Stripe Checkout Session ID (optional):', '');
+    if (cs === null) return;
+    stripeCheckoutSessionId = String(cs || '').trim();
+  } else if (act === 'reject') {
     const input = prompt('Reject reason (optional):', '');
     if (input === null) return;
     reason = String(input || '');
@@ -1499,11 +1517,24 @@ async function adminServiceFulfillmentAction(partnerId, fulfillmentId, action) {
     }
 
     const { data, error } = await client.functions.invoke('partner-fulfillment-action', {
-      body: { fulfillment_id: fid, action: act, reason: reason || undefined },
+      body: {
+        fulfillment_id: fid,
+        action: act,
+        reason: reason || undefined,
+        stripe_payment_intent_id: stripePaymentIntentId || undefined,
+        stripe_checkout_session_id: stripeCheckoutSessionId || undefined,
+      },
     });
     if (error) throw error;
 
-    showToast(act === 'accept' ? 'Fulfillment accepted' : 'Fulfillment rejected', 'success');
+    showToast(
+      act === 'accept'
+        ? 'Fulfillment accepted'
+        : act === 'reject'
+          ? 'Fulfillment rejected'
+          : 'Marked as paid',
+      'success'
+    );
 
     partnersState.servicesByPartnerId[pid] = null;
     partnersState.servicesLoadingByPartnerId[pid] = true;

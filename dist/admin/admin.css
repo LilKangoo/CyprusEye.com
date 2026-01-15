@@ -2926,6 +2926,11 @@ select#orderStatusFilter:focus {
   color: white;
 }
 
+.btn-action.btn-warning {
+  background: #f59e0b;
+  color: #111827;
+}
+
 .btn-action.btn-danger {
   background: var(--admin-danger);
   color: white;
