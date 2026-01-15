@@ -82,15 +82,8 @@
     partnerAnalOrdersAwaiting: null,
     partnerAnalOrdersTotal: null,
     partnerAnalPartnerEarnings: null,
-    partnerAnalDeposits: null,
-    partnerAnalGross: null,
     partnerAnalInvited: null,
     partnerAnalHint: null,
-
-    partnerTopCars: null,
-    partnerTopTrips: null,
-    partnerTopHotels: null,
-    partnerTopShop: null,
 
     adminMenuToggle: null,
     adminSidebar: null,
@@ -175,7 +168,7 @@
       analyticsRealtimeTimer = null;
       try {
         if (!state.selectedPartnerId) return;
-        if (!els.tabCalendar?.hidden) {
+        if (!els.tabFulfillments?.hidden && String(state.selectedCategory || 'all') === 'all' && !els.partnerAnalyticsCard?.hidden) {
           await refreshPartnerAnalytics();
         }
       } catch (_e) {
@@ -228,6 +221,14 @@
   function setHidden(el, hidden) {
     if (!el) return;
     el.hidden = !!hidden;
+  }
+
+  function updateAnalyticsCardVisibility() {
+    const inPortal = Boolean(els.partnerPortalView && !els.partnerPortalView.hidden);
+    const inFulfillmentsTab = Boolean(els.tabFulfillments && !els.tabFulfillments.hidden);
+    const isAll = String(state.selectedCategory || 'all') === 'all';
+    const canShow = inPortal && inFulfillmentsTab && Boolean(state.session && state.user && state.selectedPartnerId) && isAll;
+    setHidden(els.partnerAnalyticsCard, !canShow);
   }
 
   async function copyTextToClipboard(text) {
@@ -286,6 +287,8 @@
     setHidden(els.partnerPortalView, !isPortal);
     setHidden(els.partnerProfileView, !isProfile);
     setHidden(els.partnerReferralsView, !isReferrals);
+
+    updateAnalyticsCardVisibility();
   }
 
   function setSidebarActive(targetBtn) {
@@ -482,6 +485,7 @@
     state.selectedCategory = next;
 
     updateSidebarCategoryVisibility();
+    updateAnalyticsCardVisibility();
 
     setMainView('portal');
 
@@ -506,6 +510,10 @@
     } else {
       updateKpis();
       renderFulfillmentsTable();
+      if (!els.partnerAnalyticsCard?.hidden) {
+        startAnalyticsRealtime();
+        refreshPartnerAnalytics();
+      }
     }
     closeSidebar();
   }
@@ -2084,17 +2092,18 @@
   async function refreshPartnerAnalytics() {
     if (!state.sb || !state.selectedPartnerId) return;
     if (!els.partnerAnalyticsCard) return;
+    if (String(state.selectedCategory || 'all') !== 'all') return;
+    if (els.partnerAnalyticsCard.hidden) return;
 
     const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
     const hasShopFulfillments = (state.fulfillments || []).some((f) => f && String(f.__source || '') === 'shop');
     const canShop = Boolean(partner?.can_manage_shop && (partner?.shop_vendor_id || hasShopFulfillments));
-    const canCars = Boolean(partner?.can_manage_cars);
-    const canTrips = Boolean(partner?.can_manage_trips);
-    const canHotels = Boolean(partner?.can_manage_hotels);
 
-    try {
-      await loadFulfillments();
-    } catch (_e) {
+    if (!state.fulfillments?.length) {
+      try {
+        await loadFulfillments();
+      } catch (_e) {
+      }
     }
 
     const rows = Array.isArray(state.fulfillments) ? state.fulfillments : [];
@@ -2133,14 +2142,7 @@
       invitedCount = 0;
     }
 
-    let grossAccepted = 0;
-    let depositsTotal = 0;
     let partnerEarnings = 0;
-
-    const topCars = {};
-    const topTrips = {};
-    const topHotels = {};
-    const topShop = {};
 
     rows.forEach((f) => {
       const st = String(f?.status || '').trim();
@@ -2155,63 +2157,25 @@
         const gross = toNum(f?.total_price);
         const deposit = toNum(depositByFid[String(f?.id)] || 0);
         const payout = Math.max(0, gross - deposit);
-        grossAccepted += gross;
-        depositsTotal += deposit;
         partnerEarnings += payout;
-
-        const t = String(f?.resource_type || '').trim();
-        const label = String(f?.summary || f?.reference || '').trim() || `${String(f?.id || '').slice(0, 8).toUpperCase()}`;
-        const map = t === 'cars' ? topCars : (t === 'trips' ? topTrips : (t === 'hotels' ? topHotels : null));
-        if (map) {
-          if (!map[label]) map[label] = { label, count: 0, gross: 0, partner: 0 };
-          map[label].count += 1;
-          map[label].gross += gross;
-          map[label].partner += payout;
-        }
         return;
       }
 
       const gross = toNum(f?.subtotal);
       const payout = toNum(f?.total_allocated);
-      grossAccepted += gross;
       partnerEarnings += payout;
-
-      const items = state.itemsByFulfillmentId?.[f?.id] || [];
-      const ratio = gross > 0 ? (payout / gross) : 0;
-      (items || []).forEach((it) => {
-        const label = String(it?.product_name || 'Product').trim() || 'Product';
-        const qty = Math.max(1, Math.floor(toNum(it?.quantity) || 1));
-        const itemGross = (() => {
-          const s = toNum(it?.subtotal);
-          if (s > 0) return s;
-          const unit = toNum(it?.unit_price);
-          return unit > 0 ? unit * qty : 0;
-        })();
-        const itemPartner = itemGross * (Number.isFinite(ratio) ? ratio : 0);
-        if (!topShop[label]) topShop[label] = { label, count: 0, gross: 0, partner: 0 };
-        topShop[label].count += qty;
-        topShop[label].gross += itemGross;
-        topShop[label].partner += itemPartner;
-      });
     });
 
     setText(els.partnerAnalOrdersTotal, String(counts.total));
     setText(els.partnerAnalOrdersPending, String(counts.pending));
     setText(els.partnerAnalOrdersAwaiting, String(counts.awaiting));
     setText(els.partnerAnalOrdersAccepted, String(counts.accepted));
-    setText(els.partnerAnalGross, formatMoney(grossAccepted, 'EUR'));
-    setText(els.partnerAnalDeposits, formatMoney(depositsTotal, 'EUR'));
     setText(els.partnerAnalPartnerEarnings, formatMoney(partnerEarnings, 'EUR'));
     setText(els.partnerAnalInvited, String(invitedCount || 0));
 
     if (els.partnerAnalHint) {
-      els.partnerAnalHint.textContent = 'Partner earnings = gross - deposit (services) + allocation (shop).';
+      els.partnerAnalHint.textContent = 'Partner earnings shown for accepted orders only.';
     }
-
-    setTopContainer(els.partnerTopCars, (canCars && Object.keys(topCars).length) ? `<h4 style="margin: 0 0 6px;">Top cars</h4>${renderTopTable('Cars', computeTopFromMap(topCars))}` : '');
-    setTopContainer(els.partnerTopTrips, (canTrips && Object.keys(topTrips).length) ? `<h4 style="margin: 14px 0 6px;">Top trips</h4>${renderTopTable('Trips', computeTopFromMap(topTrips))}` : '');
-    setTopContainer(els.partnerTopHotels, (canHotels && Object.keys(topHotels).length) ? `<h4 style="margin: 14px 0 6px;">Top hotels</h4>${renderTopTable('Hotels', computeTopFromMap(topHotels))}` : '');
-    setTopContainer(els.partnerTopShop, (canShop && Object.keys(topShop).length) ? `<h4 style="margin: 14px 0 6px;">Top shop products</h4>${renderTopTable('Shop', computeTopFromMap(topShop))}` : '');
   }
 
   async function callFulfillmentAction(fulfillmentId, action, reason) {
@@ -3129,8 +3093,13 @@
       await loadFulfillments();
       syncResourceTypeOptions();
       updateSidebarCategoryVisibility();
+      updateAnalyticsCardVisibility();
       updateKpis();
       renderFulfillmentsTable();
+      if (!els.partnerAnalyticsCard?.hidden) {
+        startAnalyticsRealtime();
+        await refreshPartnerAnalytics();
+      }
       setText(els.status, `Loaded ${state.fulfillments.length} fulfillments.`);
     } catch (error) {
       console.error(error);
@@ -3187,9 +3156,6 @@
 
       ensureCalendarMonthInput();
       await loadCalendarMonthData();
-
-      startAnalyticsRealtime();
-      await refreshPartnerAnalytics();
       setText(els.status, `Loaded ${state.blocks.length} blocks.`);
     } catch (error) {
       console.error(error);
@@ -3204,6 +3170,8 @@
     els.tabBtnCalendar?.classList.toggle('is-active', !isFulfillments);
     setHidden(els.tabFulfillments, !isFulfillments);
     setHidden(els.tabCalendar, isFulfillments);
+
+    updateAnalyticsCardVisibility();
 
     if (isFulfillments) {
       refreshFulfillments();
@@ -3730,15 +3698,8 @@
     els.partnerAnalOrdersAwaiting = $('partnerAnalOrdersAwaiting');
     els.partnerAnalOrdersTotal = $('partnerAnalOrdersTotal');
     els.partnerAnalPartnerEarnings = $('partnerAnalPartnerEarnings');
-    els.partnerAnalDeposits = $('partnerAnalDeposits');
-    els.partnerAnalGross = $('partnerAnalGross');
     els.partnerAnalInvited = $('partnerAnalInvited');
     els.partnerAnalHint = $('partnerAnalHint');
-
-    els.partnerTopCars = $('partnerTopCars');
-    els.partnerTopTrips = $('partnerTopTrips');
-    els.partnerTopHotels = $('partnerTopHotels');
-    els.partnerTopShop = $('partnerTopShop');
 
     els.adminMenuToggle = $('adminMenuToggle');
     els.adminSidebar = $('adminSidebar');
