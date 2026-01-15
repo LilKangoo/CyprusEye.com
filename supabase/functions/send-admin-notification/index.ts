@@ -2085,7 +2085,7 @@ serve(async (req) => {
       }
       console.warn("SMTP_HOST not set – email will be logged only.");
       console.log(`\n===== Simulated partner notification =====\nTo: ${recipients.join(", ")}\nSubject: ${subject}\n\n${text}\n===== End =====\n`);
-      return new Response(JSON.stringify({ ok: true, simulated: true, relay_error: relayed.error || null }), {
+      return new Response(JSON.stringify({ ok: false, simulated: true, relay_error: relayed.error || null }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
@@ -2116,14 +2116,14 @@ serve(async (req) => {
       });
     } catch (error) {
       console.error("Failed to send partner notification email:", error);
-      const relayed = await tryRelayEmail({ to: recipients, subject, text, html });
+      const relayed = await tryRelayEmail({ to: recipients, subject, text, html, secret: secretRequired });
       if (relayed.ok) {
         return new Response(JSON.stringify({ ok: true, relayed: true, smtp_failed: true }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
         });
       }
-      return new Response(JSON.stringify({ ok: true, simulated: true, smtp_error: error?.message || "Email send failed", relay_error: relayed.error || null }), {
+      return new Response(JSON.stringify({ ok: false, simulated: true, smtp_error: (error as any)?.message || "Email send failed", relay_error: relayed.error || null }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
@@ -2203,7 +2203,7 @@ serve(async (req) => {
       console.log(
         `\n===== Simulated customer deposit request =====\nTo: ${customerRecipients.join(", ")}\nSubject: ${subject}\n\n${text}\n===== End =====\n`,
       );
-      return new Response(JSON.stringify({ ok: true, simulated: true, relay_error: relayed.error || null }), {
+      return new Response(JSON.stringify({ ok: false, simulated: true, relay_error: relayed.error || null }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
@@ -2244,7 +2244,7 @@ serve(async (req) => {
         });
       }
       return new Response(
-        JSON.stringify({ ok: true, simulated: true, smtp_error: error?.message || "Email send failed", relay_error: relayed.error || null }),
+        JSON.stringify({ ok: false, simulated: true, smtp_error: (error as any)?.message || "Email send failed", relay_error: relayed.error || null }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
@@ -2330,7 +2330,7 @@ serve(async (req) => {
       }
       console.warn("SMTP_HOST not set – email will be logged only.");
       console.log(`\n===== Simulated partner deposit paid =====\nTo: ${recipients.join(", ")}\nSubject: ${subject}\n\n${text}\n===== End =====\n`);
-      return new Response(JSON.stringify({ ok: true, simulated: true, relay_error: relayed.error || null }), {
+      return new Response(JSON.stringify({ ok: false, simulated: true, relay_error: relayed.error || null }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
@@ -2371,7 +2371,7 @@ serve(async (req) => {
         });
       }
       return new Response(
-        JSON.stringify({ ok: true, simulated: true, smtp_error: error?.message || "Email send failed", relay_error: relayed.error || null }),
+        JSON.stringify({ ok: false, simulated: true, smtp_error: (error as any)?.message || "Email send failed", relay_error: relayed.error || null }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
@@ -2436,7 +2436,7 @@ serve(async (req) => {
       console.log(
         `\n===== Simulated customer deposit paid =====\nTo: ${customerRecipients.join(", ")}\nSubject: ${subject}\n\n${text}\n===== End =====\n`,
       );
-      return new Response(JSON.stringify({ ok: true, simulated: true, relay_error: relayed.error || null }), {
+      return new Response(JSON.stringify({ ok: false, simulated: true, relay_error: relayed.error || null }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
@@ -2475,7 +2475,7 @@ serve(async (req) => {
         });
       }
       return new Response(
-        JSON.stringify({ ok: true, simulated: true, smtp_error: error?.message || "Email send failed", relay_error: relayed.error || null }),
+        JSON.stringify({ ok: false, simulated: true, smtp_error: (error as any)?.message || "Email send failed", relay_error: relayed.error || null }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
@@ -2533,7 +2533,7 @@ serve(async (req) => {
       console.log(
         `\n===== Simulated customer confirmation =====\nTo: ${customerRecipients.join(", ")}\nSubject: ${subject}\n\n${text}\n===== End =====\n`,
       );
-      return new Response(JSON.stringify({ ok: true, simulated: true, relay_error: relayed.error || null }), {
+      return new Response(JSON.stringify({ ok: false, simulated: true, relay_error: relayed.error || null }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
@@ -2574,7 +2574,7 @@ serve(async (req) => {
         });
       }
       return new Response(
-        JSON.stringify({ ok: true, simulated: true, smtp_error: error?.message || "Email send failed", relay_error: relayed.error || null }),
+        JSON.stringify({ ok: false, simulated: true, smtp_error: (error as any)?.message || "Email send failed", relay_error: relayed.error || null }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
@@ -2648,7 +2648,7 @@ serve(async (req) => {
     }
     console.warn("SMTP_HOST not set – email will be logged only.");
     console.log(`\n===== Simulated admin notification =====\nTo: ${recipients.join(", ")}\nSubject: ${subject}\n\n${text}\n===== End =====\n`);
-    return new Response(JSON.stringify({ ok: true, simulated: true, relay_error: relayed.error || null }), {
+    return new Response(JSON.stringify({ ok: false, simulated: true, relay_error: relayed.error || null }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
@@ -2718,14 +2718,14 @@ serve(async (req) => {
     });
   } catch (error) {
     console.error("Failed to send admin notification email:", error);
-    const relayed = await tryRelayEmail({ to: recipients, subject, text, html });
+    const relayed = await tryRelayEmail({ to: recipients, subject, text, html, secret: secretRequired });
     if (relayed.ok) {
       return new Response(JSON.stringify({ ok: true, relayed: true, smtp_failed: true }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
     }
-    return new Response(JSON.stringify({ ok: true, simulated: true, smtp_error: error?.message || "Email send failed", relay_error: relayed.error || null }), {
+    return new Response(JSON.stringify({ ok: false, simulated: true, smtp_error: (error as any)?.message || "Email send failed", relay_error: relayed.error || null }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

@@ -4,12 +4,16 @@ import Stripe from "https://esm.sh/stripe@13.6.0?target=deno";
 
 type Action = "accept" | "reject" | "mark_paid";
 
+const PARTNER_FULFILLMENT_ACTION_VERSION = "2026-01-15-2";
+
 type PartnerFulfillmentActionRequest = {
   fulfillment_id?: string;
   action?: Action;
   reason?: string;
   stripe_payment_intent_id?: string;
   stripe_checkout_session_id?: string;
+  force_emails?: boolean;
+  email_dedupe_suffix?: string;
 };
 
 const corsHeaders = {
@@ -293,8 +297,12 @@ async function enqueueDepositPaidEmails(supabase: any, params: {
   bookingId: string;
   partnerId: string;
   fulfillmentId: string;
+  dedupeSuffix?: string;
 }) {
   const tableName = getServiceTableName(params.category);
+
+  const suffixRaw = String(params.dedupeSuffix || "").trim();
+  const suffix = suffixRaw ? `:${suffixRaw.slice(0, 80)}` : "";
 
   const partnerPayload = {
     category: params.category,
@@ -331,7 +339,7 @@ async function enqueueDepositPaidEmails(supabase: any, params: {
       p_record_id: params.bookingId,
       p_table_name: tableName,
       p_payload: partnerPayload,
-      p_dedupe_key: `deposit_partner_paid:${params.depositRequestId}`,
+      p_dedupe_key: `deposit_partner_paid:${params.depositRequestId}${suffix}`,
     });
   } catch (_e) {
     // best-effort
@@ -344,7 +352,7 @@ async function enqueueDepositPaidEmails(supabase: any, params: {
       p_record_id: params.bookingId,
       p_table_name: tableName,
       p_payload: adminPayload,
-      p_dedupe_key: `deposit_admin_paid:${params.depositRequestId}`,
+      p_dedupe_key: `deposit_admin_paid:${params.depositRequestId}${suffix}`,
     });
   } catch (_e) {
     // best-effort
@@ -357,7 +365,7 @@ async function enqueueDepositPaidEmails(supabase: any, params: {
       p_record_id: params.bookingId,
       p_table_name: tableName,
       p_payload: customerPayload,
-      p_dedupe_key: `deposit_customer_paid:${params.depositRequestId}`,
+      p_dedupe_key: `deposit_customer_paid:${params.depositRequestId}${suffix}`,
     });
   } catch (_e) {
     // best-effort
@@ -687,6 +695,13 @@ serve(async (req) => {
     return new Response("ok", { headers: corsHeaders });
   }
 
+  if (req.method === "GET" || req.method === "HEAD") {
+    return new Response(
+      JSON.stringify({ ok: true, service: "partner-fulfillment-action", version: PARTNER_FULFILLMENT_ACTION_VERSION }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
+  }
+
   if (req.method !== "POST") {
     return new Response("Method not allowed", { status: 405, headers: corsHeaders });
   }
@@ -712,10 +727,21 @@ serve(async (req) => {
   const fulfillmentId = typeof body.fulfillment_id === "string" ? body.fulfillment_id : "";
   const action = body.action;
   if (!fulfillmentId || (action !== "accept" && action !== "reject" && action !== "mark_paid")) {
-    return new Response(JSON.stringify({ error: "Missing fulfillment_id or invalid action" }), {
-      status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        version: PARTNER_FULFILLMENT_ACTION_VERSION,
+        error: "Missing fulfillment_id or invalid action",
+        received: {
+          fulfillment_id: fulfillmentId || null,
+          action: action ?? null,
+        },
+      }),
+      {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      },
+    );
   }
 
   const supabase = createClient(supabaseUrl, supabaseServiceKey);
@@ -869,6 +895,11 @@ serve(async (req) => {
       const paymentIntentId = typeof body.stripe_payment_intent_id === "string" ? body.stripe_payment_intent_id.trim() : "";
       const sessionId = typeof body.stripe_checkout_session_id === "string" ? body.stripe_checkout_session_id.trim() : "";
 
+      const forceEmails = Boolean((body as any).force_emails) || Boolean(String((body as any).email_dedupe_suffix || "").trim());
+      const dedupeSuffix = forceEmails
+        ? (String((body as any).email_dedupe_suffix || "").trim() || `force_${new Date().toISOString()}`)
+        : undefined;
+
       await supabase
         .from("service_deposit_requests")
         .update({
@@ -887,8 +918,7 @@ serve(async (req) => {
           contact_revealed_at: nowIso,
           updated_at: nowIso,
         })
-        .eq("id", fulfillmentId)
-        .is("contact_revealed_at", null);
+        .eq("id", fulfillmentId);
 
       const table = getServiceTableName(depCategory);
       await supabase
@@ -907,6 +937,7 @@ serve(async (req) => {
         bookingId: depositBookingId,
         partnerId: depositPartnerId,
         fulfillmentId,
+        dedupeSuffix,
       });
 
       return new Response(

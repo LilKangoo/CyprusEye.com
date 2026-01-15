@@ -1494,6 +1494,8 @@ async function adminServiceFulfillmentAction(partnerId, fulfillmentId, action) {
   let reason = '';
   let stripePaymentIntentId = '';
   let stripeCheckoutSessionId = '';
+  let forceEmails = false;
+  let emailDedupeSuffix = '';
 
   if (act === 'mark_paid') {
     if (!confirm('Mark this deposit as PAID and reveal customer contact details?\n\nUse ONLY if you have confirmed the payment in Stripe (webhook failed).')) return;
@@ -1503,6 +1505,13 @@ async function adminServiceFulfillmentAction(partnerId, fulfillmentId, action) {
     const cs = prompt('Stripe Checkout Session ID (optional):', '');
     if (cs === null) return;
     stripeCheckoutSessionId = String(cs || '').trim();
+
+    forceEmails = confirm('Force re-enqueue deposit paid emails?\n\nUse if emails were not sent (worker/cron issue). This will enqueue new jobs safely.');
+    if (forceEmails) {
+      const suffix = prompt('Optional email dedupe suffix (leave empty for auto):', '');
+      if (suffix === null) return;
+      emailDedupeSuffix = String(suffix || '').trim() || `admin_force_${Date.now()}`;
+    }
   } else if (act === 'reject') {
     const input = prompt('Reject reason (optional):', '');
     if (input === null) return;
@@ -1523,6 +1532,8 @@ async function adminServiceFulfillmentAction(partnerId, fulfillmentId, action) {
         reason: reason || undefined,
         stripe_payment_intent_id: stripePaymentIntentId || undefined,
         stripe_checkout_session_id: stripeCheckoutSessionId || undefined,
+        force_emails: act === 'mark_paid' ? (forceEmails || undefined) : undefined,
+        email_dedupe_suffix: act === 'mark_paid' ? (emailDedupeSuffix || undefined) : undefined,
       },
     });
     if (error) throw error;

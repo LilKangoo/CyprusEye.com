@@ -66,6 +66,26 @@ function normalizeApiKey(raw: string | undefined | null): string {
   return trimmed.replace(/\s+/g, "");
 }
 
+function tryParseJson(text: string): any | null {
+  const t = String(text || "").trim();
+  if (!t) return null;
+  if (!(t.startsWith("{") || t.startsWith("["))) return null;
+  try {
+    return JSON.parse(t);
+  } catch (_e) {
+    return null;
+  }
+}
+
+function isLogicalOk(result: { ok: boolean; status: number; bodyText: string }): boolean {
+  if (!result.ok) return false;
+  const parsed = tryParseJson(result.bodyText);
+  if (!parsed || typeof parsed !== "object") return true;
+  if (Object.prototype.hasOwnProperty.call(parsed, "ok") && (parsed as any).ok === false) return false;
+  if (Object.prototype.hasOwnProperty.call(parsed, "error") && (parsed as any).error) return false;
+  return true;
+}
+
 async function getAdminNotifySecret(supabase: any): Promise<string> {
   const { data, error } = await supabase
     .from("shop_settings")
@@ -237,7 +257,7 @@ serve(async (req) => {
       const payload = (job?.payload && typeof job.payload === "object") ? (job.payload as Record<string, unknown>) : {};
       const result = await callSendAdminNotification({ base, secret, payload });
 
-      if (result.ok || result.status === 200) {
+      if (isLogicalOk(result)) {
         await supabase.rpc("complete_admin_notification_job", {
           p_id: job.id,
           p_ok: true,
