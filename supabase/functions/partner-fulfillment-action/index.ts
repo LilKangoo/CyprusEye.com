@@ -91,7 +91,7 @@ async function loadDepositRule(
   supabase: any,
   params: { resource_type: "cars" | "trips" | "hotels"; resource_id?: string | null },
 ): Promise<{
-  mode: "per_day" | "per_person" | "flat" | "percent_total";
+  mode: "per_day" | "per_hour" | "per_person" | "flat" | "percent_total";
   amount: number;
   currency: string;
   include_children: boolean;
@@ -112,7 +112,7 @@ async function loadDepositRule(
       const amount = Number((overrideRow as any).amount || 0);
       const currency = String((overrideRow as any).currency || "EUR").trim() || "EUR";
       const includeChildren = Boolean((overrideRow as any).include_children);
-      if (mode === "per_day" || mode === "per_person" || mode === "flat" || mode === "percent_total") {
+      if (mode === "per_day" || mode === "per_hour" || mode === "per_person" || mode === "flat" || mode === "percent_total") {
         return { mode, amount, currency, include_children: includeChildren };
       }
     }
@@ -129,7 +129,7 @@ async function loadDepositRule(
   const amount = Number((ruleRow as any).amount || 0);
   const currency = String((ruleRow as any).currency || "EUR").trim() || "EUR";
   const includeChildren = Boolean((ruleRow as any).include_children);
-  if (mode !== "per_day" && mode !== "per_person" && mode !== "flat" && mode !== "percent_total") return null;
+  if (mode !== "per_day" && mode !== "per_hour" && mode !== "per_person" && mode !== "flat" && mode !== "percent_total") return null;
   return { mode, amount, currency, include_children: includeChildren };
 }
 
@@ -478,31 +478,50 @@ async function createDepositCheckoutForServiceFulfillment(params: {
     throw new Error("Deposit rule not configured");
   }
 
-  const depositAmount = (() => {
-    if (rule.mode === "percent_total") {
-      const total = Number((fulfillment as any)?.total_price || 0);
-      const pct = Number(rule.amount || 0);
-      if (!(total > 0)) throw new Error("Fulfillment total price missing for percent_total deposit");
-      if (!(pct > 0)) throw new Error("Deposit percent is 0");
-      return clampMoney((total * pct) / 100);
-    }
-
-    const multiplier = (() => {
-      if (rule.mode === "flat") return 1;
-      if (rule.mode === "per_day") {
-        const start = fulfillment?.start_date;
-        const end = fulfillment?.end_date;
-        return diffDays(start, end);
+  let depositAmount = 0;
+  if (rule.mode === "percent_total") {
+    const total = Number((fulfillment as any)?.total_price || 0);
+    const pct = Number(rule.amount || 0);
+    if (!(total > 0)) throw new Error("Fulfillment total price missing for percent_total deposit");
+    if (!(pct > 0)) throw new Error("Deposit percent is 0");
+    depositAmount = clampMoney((total * pct) / 100);
+  } else {
+    let multiplier = 1;
+    if (rule.mode === "flat") {
+      multiplier = 1;
+    } else if (rule.mode === "per_day") {
+      const start = fulfillment?.start_date;
+      const end = fulfillment?.end_date;
+      multiplier = diffDays(start, end);
+    } else if (rule.mode === "per_hour") {
+      if (category !== "trips") throw new Error("per_hour deposit only supported for trips");
+      let hours = 0;
+      try {
+        const { data: bookingRow } = await supabase
+          .from("trip_bookings")
+          .select("num_hours")
+          .eq("id", bookingId)
+          .maybeSingle();
+        hours = Number((bookingRow as any)?.num_hours || 0);
+      } catch (_e) {
+        hours = 0;
       }
+      if (!(hours > 0)) {
+        const details = fulfillment?.details && typeof fulfillment.details === "object" ? fulfillment.details : null;
+        const raw = details?.num_hours ?? details?.numHours ?? details?.hours ?? 0;
+        hours = Number(raw || 0);
+      }
+      multiplier = Math.max(1, Number.isFinite(hours) ? Math.round(hours) : 1);
+    } else {
       const details = fulfillment?.details && typeof fulfillment.details === "object" ? fulfillment.details : null;
       const adults = details?.num_adults ?? details?.numAdults ?? 0;
       const children = details?.num_children ?? details?.numChildren ?? 0;
       const people = Number(adults || 0) + Number(rule.include_children ? (children || 0) : 0);
-      return Math.max(1, Number.isFinite(people) ? people : 1);
-    })();
+      multiplier = Math.max(1, Number.isFinite(people) ? people : 1);
+    }
 
-    return clampMoney(Number(rule.amount || 0) * multiplier);
-  })();
+    depositAmount = clampMoney(Number(rule.amount || 0) * multiplier);
+  }
   if (!(depositAmount > 0)) {
     throw new Error("Deposit amount is 0");
   }

@@ -1872,6 +1872,7 @@ function setDepositOverrideSelectOptions(rows) {
 function applySelectedOverrideToForm() {
   const type = String(document.getElementById('depositOverrideType')?.value || '').trim();
   const rid = String(document.getElementById('depositOverrideResourceSelect')?.value || '').trim();
+  updateDepositOverrideModeOptions(type);
   if (!type || !rid) return;
 
   const row = (partnersUiState.depositOverrides || []).find((o) => String(o.resource_type || '').trim() === type && String(o.resource_id || '') === rid);
@@ -1888,6 +1889,24 @@ function applySelectedOverrideToForm() {
   if (currency) currency.value = row.currency || 'EUR';
   if (includeChildren) includeChildren.checked = Boolean(row.include_children);
   if (enabled) enabled.checked = Boolean(row.enabled);
+
+  updateDepositOverrideModeOptions(type);
+}
+
+function updateDepositOverrideModeOptions(resourceType) {
+  const type = String(resourceType || '').trim();
+  const modeEl = document.getElementById('depositOverrideMode');
+  if (!modeEl) return;
+
+  const perHourOpt = Array.from(modeEl.options || []).find((o) => String(o.value || '') === 'per_hour');
+  if (perHourOpt) {
+    perHourOpt.hidden = type !== 'trips';
+    perHourOpt.disabled = type !== 'trips';
+  }
+
+  if (type !== 'trips' && String(modeEl.value || '') === 'per_hour') {
+    modeEl.value = 'per_day';
+  }
 }
 
 function scheduleDepositOverrideSearch() {
@@ -1929,6 +1948,10 @@ async function saveDepositOverride() {
   if (enabled) {
     if (!Number.isFinite(amount) || !(amount > 0)) {
       showToast('Invalid amount', 'error');
+      return;
+    }
+    if (mode === 'per_hour' && resourceType !== 'trips') {
+      showToast('Per hour is supported only for Trips', 'error');
       return;
     }
     if (mode === 'percent_total' && !(amount <= 100)) {
@@ -11097,9 +11120,12 @@ function initEventListeners() {
   const depositOverrideType = document.getElementById('depositOverrideType');
   if (depositOverrideType) {
     depositOverrideType.addEventListener('change', () => {
+      updateDepositOverrideModeOptions(String(depositOverrideType.value || '').trim());
       scheduleDepositOverrideSearch();
       applySelectedOverrideToForm();
     });
+
+    updateDepositOverrideModeOptions(String(depositOverrideType.value || '').trim());
   }
 
   const depositOverrideSearch = document.getElementById('depositOverrideSearch');
