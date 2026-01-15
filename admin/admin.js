@@ -427,6 +427,10 @@ let adminCalendarsRealtimeChannel = null;
 
 let partnersAutoRefreshTimer = null;
 
+let adminDashboardOrdersChannel = null;
+
+let dashboardAutoRefreshTimer = null;
+
 function initAdminPartnerRealtime() {
   const client = ensureSupabase();
   if (!client) return;
@@ -470,6 +474,56 @@ function ensurePartnersAutoRefresh() {
     try {
       if (adminState.currentView !== 'partners') return;
       loadPartnersData();
+    } catch (_e) {
+    }
+  }, 30000);
+}
+
+function initAdminDashboardRealtime() {
+  const client = ensureSupabase();
+  if (!client) return;
+  if (typeof client.channel !== 'function') return;
+  if (adminDashboardOrdersChannel) return;
+
+  try {
+    adminDashboardOrdersChannel = client
+      .channel('admin-dashboard-orders')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'partner_service_fulfillments' },
+        () => {
+          if (adminState.currentView !== 'dashboard') return;
+          loadAllOrders({ silent: true });
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'service_deposit_requests' },
+        () => {
+          if (adminState.currentView !== 'dashboard') return;
+          loadAllOrders({ silent: true });
+        },
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'shop_orders' },
+        () => {
+          if (adminState.currentView !== 'dashboard') return;
+          loadAllOrders({ silent: true });
+        },
+      )
+      .subscribe();
+  } catch (e) {
+    console.warn('Failed to init dashboard realtime:', e);
+  }
+}
+
+function ensureDashboardAutoRefresh() {
+  if (dashboardAutoRefreshTimer) return;
+  dashboardAutoRefreshTimer = setInterval(() => {
+    try {
+      if (adminState.currentView !== 'dashboard') return;
+      loadAllOrders({ silent: true });
     } catch (_e) {
     }
   }, 30000);
@@ -1555,6 +1609,10 @@ async function adminServiceFulfillmentAction(partnerId, fulfillmentId, action) {
     partnersState.servicesByPartnerId[pid] = rows;
     partnersState.servicesLoadingByPartnerId[pid] = false;
     renderPartnersTable();
+
+    if (adminState.currentView === 'dashboard') {
+      await loadAllOrders({ silent: true });
+    }
   } catch (e) {
     console.error('Failed to perform fulfillment action:', e);
     showToast(e.message || 'Failed to perform action', 'error');
@@ -1563,8 +1621,86 @@ async function adminServiceFulfillmentAction(partnerId, fulfillmentId, action) {
   }
 }
 
+async function adminServiceFulfillmentActionForBooking(category, bookingId, fulfillmentId, action) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const cat = String(category || '').trim();
+  const bid = String(bookingId || '').trim();
+  const fid = String(fulfillmentId || '').trim();
+  const act = String(action || '').trim();
+  if (!fid || !act) return;
+  if (act !== 'accept' && act !== 'reject' && act !== 'mark_paid') return;
+
+  let reason = '';
+  let stripePaymentIntentId = '';
+  let stripeCheckoutSessionId = '';
+  let forceEmails = false;
+  let emailDedupeSuffix = '';
+
+  if (act === 'mark_paid') {
+    if (!confirm('Mark this deposit as PAID and reveal customer contact details?\n\nUse ONLY if you have confirmed the payment in Stripe (webhook failed).')) return;
+    const pi = prompt('Stripe PaymentIntent ID (optional):', '');
+    if (pi === null) return;
+    stripePaymentIntentId = String(pi || '').trim();
+    const cs = prompt('Stripe Checkout Session ID (optional):', '');
+    if (cs === null) return;
+    stripeCheckoutSessionId = String(cs || '').trim();
+
+    forceEmails = confirm('Force re-enqueue deposit paid emails?\n\nUse if emails were not sent (worker/cron issue). This will enqueue new jobs safely.');
+    if (forceEmails) {
+      const suffix = prompt('Optional email dedupe suffix (leave empty for auto):', '');
+      if (suffix === null) return;
+      emailDedupeSuffix = String(suffix || '').trim() || `admin_force_${Date.now()}`;
+    }
+  } else if (act === 'reject') {
+    const input = prompt('Reject reason (optional):', '');
+    if (input === null) return;
+    reason = String(input || '');
+  } else {
+    if (!confirm('Accept this fulfillment?')) return;
+  }
+
+  try {
+    if (!client.functions || typeof client.functions.invoke !== 'function') {
+      throw new Error('Supabase functions client not available');
+    }
+
+    const { error } = await client.functions.invoke('partner-fulfillment-action', {
+      body: {
+        fulfillment_id: fid,
+        action: act,
+        reason: reason || undefined,
+        stripe_payment_intent_id: stripePaymentIntentId || undefined,
+        stripe_checkout_session_id: stripeCheckoutSessionId || undefined,
+        force_emails: act === 'mark_paid' ? (forceEmails || undefined) : undefined,
+        email_dedupe_suffix: act === 'mark_paid' ? (emailDedupeSuffix || undefined) : undefined,
+      },
+    });
+    if (error) throw error;
+
+    showToast(
+      act === 'accept'
+        ? 'Fulfillment accepted'
+        : act === 'reject'
+          ? 'Fulfillment rejected'
+          : 'Marked as paid',
+      'success'
+    );
+
+    await loadAllOrders({ silent: true });
+    if (cat === 'cars') await viewCarBookingDetails(bid);
+    if (cat === 'trips') await viewTripBookingDetails(bid);
+    if (cat === 'hotels') await viewHotelBookingDetails(bid);
+  } catch (e) {
+    console.error('Failed to perform fulfillment action:', e);
+    showToast(e.message || 'Failed to perform action', 'error');
+  }
+}
+
 window.togglePartnerServices = (partnerId) => togglePartnerServices(partnerId);
 window.adminServiceFulfillmentAction = (partnerId, fulfillmentId, action) => adminServiceFulfillmentAction(partnerId, fulfillmentId, action);
+window.adminServiceFulfillmentActionForBooking = (category, bookingId, fulfillmentId, action) => adminServiceFulfillmentActionForBooking(category, bookingId, fulfillmentId, action);
 
 function setPartnersActiveTab(tabName) {
   const next = String(tabName || '').trim() || 'list';
@@ -3718,6 +3854,83 @@ async function viewTripBookingDetails(bookingId) {
     const departureDate = booking.departure_date ? new Date(booking.departure_date).toLocaleDateString('en-GB') : 'N/A';
     const createdAt = booking.created_at ? new Date(booking.created_at).toLocaleString('en-GB') : 'N/A';
 
+    let fulfillment = null;
+    try {
+      const { data: fRow } = await client
+        .from('partner_service_fulfillments')
+        .select('id, status, contact_revealed_at, rejected_reason, partner_id, created_at')
+        .eq('resource_type', 'trips')
+        .eq('booking_id', bookingId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      fulfillment = fRow || null;
+    } catch (_e) {
+    }
+
+    const fulfillmentStatus = String(fulfillment?.status || '').trim();
+    const fulfillmentPillClass =
+      fulfillmentStatus === 'accepted' ? 'badge-success' :
+      fulfillmentStatus === 'rejected' ? 'badge-danger' :
+      fulfillmentStatus === 'awaiting_payment' ? 'badge-warning' :
+      fulfillmentStatus === 'pending_acceptance' ? 'badge-warning' : 'badge';
+
+    const fulfillmentActions = (() => {
+      if (!fulfillment || !fulfillment.id) return '';
+      if (fulfillmentStatus === 'pending_acceptance') {
+        return `
+          <div style="display:flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+            <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('trips','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','accept')">Accept</button>
+            <button type="button" class="btn-danger" onclick="adminServiceFulfillmentActionForBooking('trips','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','reject')">Reject</button>
+          </div>
+        `;
+      }
+      if (fulfillmentStatus === 'awaiting_payment') {
+        return `
+          <div style="display:flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+            <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('trips','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','mark_paid')">Mark paid</button>
+          </div>
+        `;
+      }
+      return '';
+    })();
+
+    const fulfillmentHtml = (() => {
+      if (!fulfillment || !fulfillment.id) {
+        return `
+          <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
+            <div style="display:flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap;">
+              <div>
+                <h4 style="margin: 0; font-size: 14px; font-weight: 600;">Partner Fulfillment</h4>
+                <div style="margin-top: 6px; font-size: 12px; color: var(--admin-text-muted);">No linked fulfillment found for this booking.</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      const extra = fulfillmentStatus === 'rejected' && fulfillment.rejected_reason
+        ? `<div style="margin-top: 6px; font-size: 12px; color: var(--admin-text-muted);">Reason: ${escapeHtml(String(fulfillment.rejected_reason))}</div>`
+        : (fulfillmentStatus === 'accepted' && fulfillment.contact_revealed_at
+          ? `<div style="margin-top: 6px; font-size: 12px; color: var(--admin-text-muted);">Contact revealed</div>`
+          : '');
+
+      return `
+        <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
+          <div style="display:flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap;">
+            <div>
+              <h4 style="margin: 0; font-size: 14px; font-weight: 600;">Partner Fulfillment</h4>
+              <div style="margin-top: 6px;">
+                <span class="badge ${fulfillmentPillClass}">${escapeHtml(fulfillmentStatus || 'unknown')}</span>
+              </div>
+              ${extra}
+            </div>
+            ${fulfillmentActions}
+          </div>
+        </div>
+      `;
+    })();
+
     const canDelete = String(booking.source || '') === 'admin';
 
     const statusClass = 
@@ -3817,6 +4030,8 @@ async function viewTripBookingDetails(bookingId) {
           </div>
         </div>
 
+        ${fulfillmentHtml}
+
         <!-- Actions -->
         <div style="display: flex; gap: 12px;">
           <button 
@@ -3880,6 +4095,7 @@ async function updateTripBookingStatus(bookingId, newStatus) {
 
     showToast(`Status updated to: ${newStatus}`, 'success');
     await loadTripBookingsData(); // Refresh table
+    await loadAllOrders({ silent: true });
     
     // Update badge in modal
     const badge = document.querySelector('#tripBookingDetailsModal .badge');
@@ -3953,6 +4169,7 @@ async function deleteTripBooking(bookingId) {
     showToast('Booking deleted successfully', 'success');
     document.getElementById('tripBookingDetailsModal').hidden = true;
     await loadTripBookingsData(); // Refresh table
+    await loadAllOrders({ silent: true });
 
   } catch (e) {
     console.error('Failed to delete booking:', e);
@@ -6029,6 +6246,83 @@ async function viewHotelBookingDetails(bookingId) {
     const arrivalDate = booking.arrival_date ? new Date(booking.arrival_date).toLocaleDateString('en-GB') : 'N/A';
     const departureDate = booking.departure_date ? new Date(booking.departure_date).toLocaleDateString('en-GB') : 'N/A';
     const createdAt = booking.created_at ? new Date(booking.created_at).toLocaleString('en-GB') : 'N/A';
+
+    let fulfillment = null;
+    try {
+      const { data: fRow } = await client
+        .from('partner_service_fulfillments')
+        .select('id, status, contact_revealed_at, rejected_reason, partner_id, created_at')
+        .eq('resource_type', 'hotels')
+        .eq('booking_id', bookingId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      fulfillment = fRow || null;
+    } catch (_e) {
+    }
+
+    const fulfillmentStatus = String(fulfillment?.status || '').trim();
+    const fulfillmentPillClass =
+      fulfillmentStatus === 'accepted' ? 'badge-success' :
+      fulfillmentStatus === 'rejected' ? 'badge-danger' :
+      fulfillmentStatus === 'awaiting_payment' ? 'badge-warning' :
+      fulfillmentStatus === 'pending_acceptance' ? 'badge-warning' : 'badge';
+
+    const fulfillmentActions = (() => {
+      if (!fulfillment || !fulfillment.id) return '';
+      if (fulfillmentStatus === 'pending_acceptance') {
+        return `
+          <div style="display:flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+            <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('hotels','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','accept')">Accept</button>
+            <button type="button" class="btn-danger" onclick="adminServiceFulfillmentActionForBooking('hotels','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','reject')">Reject</button>
+          </div>
+        `;
+      }
+      if (fulfillmentStatus === 'awaiting_payment') {
+        return `
+          <div style="display:flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+            <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('hotels','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','mark_paid')">Mark paid</button>
+          </div>
+        `;
+      }
+      return '';
+    })();
+
+    const fulfillmentHtml = (() => {
+      if (!fulfillment || !fulfillment.id) {
+        return `
+          <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
+            <div style="display:flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap;">
+              <div>
+                <h4 style="margin: 0; font-size: 14px; font-weight: 600;">Partner Fulfillment</h4>
+                <div style="margin-top: 6px; font-size: 12px; color: var(--admin-text-muted);">No linked fulfillment found for this booking.</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      const extra = fulfillmentStatus === 'rejected' && fulfillment.rejected_reason
+        ? `<div style="margin-top: 6px; font-size: 12px; color: var(--admin-text-muted);">Reason: ${escapeHtml(String(fulfillment.rejected_reason))}</div>`
+        : (fulfillmentStatus === 'accepted' && fulfillment.contact_revealed_at
+          ? `<div style="margin-top: 6px; font-size: 12px; color: var(--admin-text-muted);">Contact revealed</div>`
+          : '');
+
+      return `
+        <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
+          <div style="display:flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap;">
+            <div>
+              <h4 style="margin: 0; font-size: 14px; font-weight: 600;">Partner Fulfillment</h4>
+              <div style="margin-top: 6px;">
+                <span class="badge ${fulfillmentPillClass}">${escapeHtml(fulfillmentStatus || 'unknown')}</span>
+              </div>
+              ${extra}
+            </div>
+            ${fulfillmentActions}
+          </div>
+        </div>
+      `;
+    })();
     const canDelete = !!(adminState && adminState.isAdmin);
     const statusClass = 
       booking.status === 'confirmed' ? 'badge-success' :
@@ -6113,6 +6407,8 @@ async function viewHotelBookingDetails(bookingId) {
           </div>
         </div>
 
+        ${fulfillmentHtml}
+
         <div style="display: flex; gap: 12px;">
           <button type="button" class="btn-secondary" onclick="document.getElementById('hotelBookingDetailsModal').hidden=true" style="flex: 1;">Close</button>
           ${canDelete ? `<button type="button" class="btn-danger" onclick="deleteHotelBooking('${booking.id}')" style="flex: 1;">🗑️ Delete Booking</button>` : ''}
@@ -6147,6 +6443,7 @@ async function updateHotelBookingStatus(bookingId, newStatus) {
     if (error) throw error;
     showToast(`Status updated to: ${newStatus}`, 'success');
     await loadHotelBookingsData();
+    await loadAllOrders({ silent: true });
 
     const badge = document.querySelector('#hotelBookingDetailsModal .badge');
     if (badge) {
@@ -6197,6 +6494,7 @@ async function deleteHotelBooking(bookingId) {
     showToast('Booking deleted successfully', 'success');
     document.getElementById('hotelBookingDetailsModal').hidden = true;
     await loadHotelBookingsData();
+    await loadAllOrders({ silent: true });
   } catch (e) {
     console.error('Failed to delete booking:', e);
     showToast('Failed to delete booking: ' + e.message, 'error');
@@ -6600,6 +6898,7 @@ function switchView(viewName) {
   switch (viewName) {
     case 'dashboard':
       loadDashboardData();
+      loadAllOrders({ silent: true });
       break;
     case 'users':
       loadUsersData();
@@ -8469,6 +8768,83 @@ async function viewCarBookingDetails(bookingId) {
       booking.status === 'pending' ? 'badge-warning' :
       booking.status === 'cancelled' ? 'badge-danger' : 'badge';
 
+    let fulfillment = null;
+    try {
+      const { data: fRow } = await client
+        .from('partner_service_fulfillments')
+        .select('id, status, contact_revealed_at, rejected_reason, partner_id, created_at')
+        .eq('resource_type', 'cars')
+        .eq('booking_id', bookingId)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      fulfillment = fRow || null;
+    } catch (_e) {
+    }
+
+    const fulfillmentStatus = String(fulfillment?.status || '').trim();
+    const fulfillmentPillClass =
+      fulfillmentStatus === 'accepted' ? 'badge-success' :
+      fulfillmentStatus === 'rejected' ? 'badge-danger' :
+      fulfillmentStatus === 'awaiting_payment' ? 'badge-warning' :
+      fulfillmentStatus === 'pending_acceptance' ? 'badge-warning' : 'badge';
+
+    const fulfillmentActions = (() => {
+      if (!fulfillment || !fulfillment.id) return '';
+      if (fulfillmentStatus === 'pending_acceptance') {
+        return `
+          <div style="display:flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+            <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('cars','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','accept')">Accept</button>
+            <button type="button" class="btn-danger" onclick="adminServiceFulfillmentActionForBooking('cars','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','reject')">Reject</button>
+          </div>
+        `;
+      }
+      if (fulfillmentStatus === 'awaiting_payment') {
+        return `
+          <div style="display:flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end;">
+            <button type="button" class="btn-secondary" onclick="adminServiceFulfillmentActionForBooking('cars','${escapeHtml(booking.id)}','${escapeHtml(fulfillment.id)}','mark_paid')">Mark paid</button>
+          </div>
+        `;
+      }
+      return '';
+    })();
+
+    const fulfillmentHtml = (() => {
+      if (!fulfillment || !fulfillment.id) {
+        return `
+          <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
+            <div style="display:flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap;">
+              <div>
+                <h4 style="margin: 0; font-size: 14px; font-weight: 600;">Partner Fulfillment</h4>
+                <div style="margin-top: 6px; font-size: 12px; color: var(--admin-text-muted);">No linked fulfillment found for this booking.</div>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      const extra = fulfillmentStatus === 'rejected' && fulfillment.rejected_reason
+        ? `<div style="margin-top: 6px; font-size: 12px; color: var(--admin-text-muted);">Reason: ${escapeHtml(String(fulfillment.rejected_reason))}</div>`
+        : (fulfillmentStatus === 'accepted' && fulfillment.contact_revealed_at
+          ? `<div style="margin-top: 6px; font-size: 12px; color: var(--admin-text-muted);">Contact revealed</div>`
+          : '');
+
+      return `
+        <div style="background: var(--admin-bg-secondary); padding: 16px; border-radius: 8px;">
+          <div style="display:flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap;">
+            <div>
+              <h4 style="margin: 0; font-size: 14px; font-weight: 600;">Partner Fulfillment</h4>
+              <div style="margin-top: 6px;">
+                <span class="badge ${fulfillmentPillClass}">${escapeHtml(fulfillmentStatus || 'unknown')}</span>
+              </div>
+              ${extra}
+            </div>
+            ${fulfillmentActions}
+          </div>
+        </div>
+      `;
+    })();
+
     // Build content HTML
     content.innerHTML = `
       <div style="display: grid; gap: 24px;">
@@ -8492,6 +8868,8 @@ async function viewCarBookingDetails(bookingId) {
             </div>
           </div>
         </div>
+
+        ${fulfillmentHtml}
 
         <!-- Customer Information -->
         <div>
@@ -8993,6 +9371,7 @@ async function updateBookingStatus(bookingId, newStatus) {
 
     // Reload data
     await loadCarsData();
+    await loadAllOrders({ silent: true });
 
     // Refresh modal if still open
     const modal = $('#bookingDetailsModal');
@@ -9052,6 +9431,7 @@ async function deleteCarBooking(bookingId) {
     const modal = $('#bookingDetailsModal');
     if (modal) modal.hidden = true;
     await loadCarsData();
+    await loadAllOrders({ silent: true });
   } catch (e) {
     console.error('Failed to delete booking:', e);
     showToast('Failed to delete booking: ' + (e.message || 'Unknown error'), 'error');
@@ -13777,6 +14157,9 @@ async function initAdminPanel() {
       initAdminPartnerRealtime();
       initAdminCalendarsRealtime();
       ensurePartnersAutoRefresh();
+
+      initAdminDashboardRealtime();
+      ensureDashboardAutoRefresh();
     }
   } catch (error) {
     console.error('Error loading session:', error);
@@ -13897,10 +14280,24 @@ document.addEventListener('DOMContentLoaded', function() {
 let allOrdersCache = [];
 let filteredOrders = [];
 
+function getAllOrdersNormalizedStatus(order) {
+  if (!order) return '';
+  const fs = String(order.fulfillment_status || '').trim();
+  if (fs) {
+    if (fs === 'pending_acceptance') return 'pending';
+    if (fs === 'awaiting_payment') return 'pending';
+    if (fs === 'accepted') return 'confirmed';
+    if (fs === 'rejected') return 'cancelled';
+    if (fs === 'expired') return 'cancelled';
+    return fs;
+  }
+  return String(order.status || '').trim();
+}
+
 /**
  * Load all orders from car_bookings, trip_bookings, and hotel_bookings
  */
-async function loadAllOrders() {
+async function loadAllOrders(opts = {}) {
   try {
     const client = ensureSupabase();
     if (!client) {
@@ -13922,8 +14319,38 @@ async function loadAllOrders() {
         .limit(200)
     ]);
 
+    const carIds = (carsResult.data || []).map((b) => b && b.id).filter(Boolean);
+    const tripIds = (tripsResult.data || []).map((b) => b && b.id).filter(Boolean);
+    const hotelIds = (hotelsResult.data || []).map((b) => b && b.id).filter(Boolean);
+    const serviceBookingIds = [...carIds, ...tripIds, ...hotelIds];
+
+    const fulfillmentByKey = {};
+    if (serviceBookingIds.length) {
+      try {
+        const { data: fData, error: fErr } = await client
+          .from('partner_service_fulfillments')
+          .select('id, resource_type, booking_id, status, partner_id, contact_revealed_at, rejected_reason, created_at')
+          .in('resource_type', ['cars', 'trips', 'hotels'])
+          .in('booking_id', serviceBookingIds)
+          .order('created_at', { ascending: false })
+          .limit(2000);
+        if (!fErr && Array.isArray(fData)) {
+          fData.forEach((f) => {
+            const rt = String(f.resource_type || '').trim();
+            const bid = String(f.booking_id || '').trim();
+            if (!rt || !bid) return;
+            const k = `${rt}:${bid}`;
+            if (!fulfillmentByKey[k]) fulfillmentByKey[k] = f;
+          });
+        }
+      } catch (_e) {
+      }
+    }
+
     // Process car bookings
-    const carBookings = (carsResult.data || []).map(booking => ({
+    const carBookings = (carsResult.data || []).map(booking => {
+      const f = fulfillmentByKey[`cars:${String(booking?.id || '')}`] || null;
+      return ({
       ...booking,
       category: 'cars',
       categoryLabel: 'Car Rental',
@@ -13935,30 +14362,43 @@ async function loadAllOrders() {
       customer_phone: booking.phone || booking.customer_phone || '',
       dropoff_date: booking.return_date || booking.dropoff_date,
       displayName: `${booking.car_model || booking.car_type || 'N/A'} - ${booking.pickup_location || 'N/A'}`,
-      viewFunction: 'viewCarBookingDetails'
-    }));
+      viewFunction: 'viewCarBookingDetails',
+      fulfillment_id: f ? f.id : null,
+      fulfillment_status: f ? f.status : null,
+    });
+    });
 
     // Process trip bookings
-    const tripBookings = (tripsResult.data || []).map(booking => ({
+    const tripBookings = (tripsResult.data || []).map(booking => {
+      const f = fulfillmentByKey[`trips:${String(booking?.id || '')}`] || null;
+      return ({
       ...booking,
       category: 'trips',
       categoryLabel: 'Trip',
       categoryIcon: '🎯',
       categoryColor: '#10b981',
       displayName: booking.trip_slug || 'N/A',
-      viewFunction: 'viewTripBookingDetails'
-    }));
+      viewFunction: 'viewTripBookingDetails',
+      fulfillment_id: f ? f.id : null,
+      fulfillment_status: f ? f.status : null,
+    });
+    });
 
     // Process hotel bookings
-    const hotelBookings = (hotelsResult.data || []).map(booking => ({
+    const hotelBookings = (hotelsResult.data || []).map(booking => {
+      const f = fulfillmentByKey[`hotels:${String(booking?.id || '')}`] || null;
+      return ({
       ...booking,
       category: 'hotels',
       categoryLabel: 'Hotel',
       categoryIcon: '🏨',
       categoryColor: '#8b5cf6',
       displayName: booking.hotel_slug || 'N/A',
-      viewFunction: 'viewHotelBookingDetails'
-    }));
+      viewFunction: 'viewHotelBookingDetails',
+      fulfillment_id: f ? f.id : null,
+      fulfillment_status: f ? f.status : null,
+    });
+    });
 
     // Process shop orders
     const shopOrders = (shopResult.data || []).map(order => ({
@@ -13993,8 +14433,10 @@ async function loadAllOrders() {
         failed: 10
       };
       
-      const aPriority = statusPriority[a.status] || 99;
-      const bPriority = statusPriority[b.status] || 99;
+      const aStatus = getAllOrdersNormalizedStatus(a);
+      const bStatus = getAllOrdersNormalizedStatus(b);
+      const aPriority = statusPriority[aStatus] || 99;
+      const bPriority = statusPriority[bStatus] || 99;
       
       if (aPriority !== bPriority) {
         return aPriority - bPriority;
@@ -14012,7 +14454,9 @@ async function loadAllOrders() {
     // Apply filters and render
     applyOrderFilters();
 
-    showToast(`Loaded ${allOrdersCache.length} orders successfully`, 'success');
+    if (!opts || !opts.silent) {
+      showToast(`Loaded ${allOrdersCache.length} orders successfully`, 'success');
+    }
 
   } catch (error) {
     console.error('Failed to load all orders:', error);
@@ -14035,19 +14479,26 @@ async function loadAllOrders() {
  * Update statistics for all orders panel
  */
 function updateAllOrdersStats() {
-  const carsPending = allOrdersCache.filter(o => o.category === 'cars' && o.status === 'pending').length;
-  const tripsPending = allOrdersCache.filter(o => o.category === 'trips' && o.status === 'pending').length;
-  const hotelsPending = allOrdersCache.filter(o => o.category === 'hotels' && o.status === 'pending').length;
+  const isPending = (o) => {
+    const s = getAllOrdersNormalizedStatus(o);
+    return s === 'pending';
+  };
+  const carsPending = allOrdersCache.filter(o => o.category === 'cars' && isPending(o)).length;
+  const tripsPending = allOrdersCache.filter(o => o.category === 'trips' && isPending(o)).length;
+  const hotelsPending = allOrdersCache.filter(o => o.category === 'hotels' && isPending(o)).length;
+  const shopPending = allOrdersCache.filter(o => o.category === 'shop' && isPending(o)).length;
   const totalOrders = allOrdersCache.length;
 
   const statCarsPendingEl = $('#statCarsPending');
   const statTripsPendingEl = $('#statTripsPending');
   const statHotelsPendingEl = $('#statHotelsPending');
+  const statShopPendingEl = $('#statShopPending');
   const statTotalOrdersEl = $('#statTotalOrders');
 
   if (statCarsPendingEl) statCarsPendingEl.textContent = carsPending;
   if (statTripsPendingEl) statTripsPendingEl.textContent = tripsPending;
   if (statHotelsPendingEl) statHotelsPendingEl.textContent = hotelsPending;
+  if (statShopPendingEl) statShopPendingEl.textContent = shopPending;
   if (statTotalOrdersEl) statTotalOrdersEl.textContent = totalOrders;
 }
 
@@ -14060,7 +14511,7 @@ function applyOrderFilters() {
 
   filteredOrders = allOrdersCache.filter(order => {
     const matchCategory = categoryFilter === 'all' || order.category === categoryFilter;
-    const matchStatus = statusFilter === 'all' || order.status === statusFilter;
+    const matchStatus = statusFilter === 'all' || getAllOrdersNormalizedStatus(order) === statusFilter;
     return matchCategory && matchStatus;
   });
 
@@ -14086,11 +14537,12 @@ function renderAllOrdersTable() {
   }
 
   tableBody.innerHTML = filteredOrders.map(order => {
+    const effectiveStatus = getAllOrdersNormalizedStatus(order);
     const statusClass = 
-      order.status === 'confirmed' ? 'badge-success' :
-      order.status === 'completed' ? 'badge-success' :
-      order.status === 'pending' ? 'badge-warning' :
-      order.status === 'cancelled' ? 'badge-danger' : 'badge';
+      effectiveStatus === 'confirmed' ? 'badge-success' :
+      effectiveStatus === 'completed' ? 'badge-success' :
+      effectiveStatus === 'pending' ? 'badge-warning' :
+      effectiveStatus === 'cancelled' ? 'badge-danger' : 'badge';
 
     // Format dates based on category
     let dateInfo = '';
@@ -14110,8 +14562,12 @@ function renderAllOrdersTable() {
     const createdAt = order.created_at ? new Date(order.created_at).toLocaleDateString('en-GB') : 'N/A';
     const createdTime = order.created_at ? new Date(order.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : '';
 
+    const statusDetail = order.fulfillment_status && String(order.fulfillment_status || '') !== String(order.status || '')
+      ? `<div style="font-size: 10px; color: var(--admin-text-muted); margin-top: 3px;">${escapeHtml(String(order.fulfillment_status))}</div>`
+      : '';
+
     return `
-      <tr style="${order.status === 'completed' || order.status === 'cancelled' ? 'opacity: 0.6;' : ''}">
+      <tr style="${effectiveStatus === 'completed' || effectiveStatus === 'cancelled' ? 'opacity: 0.6;' : ''}">
         <td>
           <div style="display: flex; align-items: center; gap: 6px;">
             <span style="font-size: 18px;">${order.categoryIcon}</span>
@@ -14137,8 +14593,9 @@ function renderAllOrdersTable() {
         </td>
         <td>
           <span class="badge ${statusClass}">
-            ${(order.status || 'unknown').toUpperCase()}
+            ${(effectiveStatus || 'unknown').toUpperCase()}
           </span>
+          ${statusDetail}
         </td>
         <td style="font-weight: 600; color: var(--admin-success); font-size: 14px;">
           €${Number(order.total_price || order.quoted_price || order.final_price || 0).toFixed(2)}
