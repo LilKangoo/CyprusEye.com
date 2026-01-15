@@ -32,6 +32,9 @@
   let blocksRealtimeChannel = null;
   let blocksRealtimeTimer = null;
 
+  let analyticsRealtimeChannel = null;
+  let analyticsRealtimeTimer = null;
+
   let referralTreeRoot = null;
   let referralTreeQuery = '';
 
@@ -72,6 +75,22 @@
     btnAvailabilitySelectAllType: null,
     btnAvailabilityClearAll: null,
     availabilitySelectionSummary: null,
+
+    partnerAnalyticsCard: null,
+    partnerAnalOrdersAccepted: null,
+    partnerAnalOrdersPending: null,
+    partnerAnalOrdersAwaiting: null,
+    partnerAnalOrdersTotal: null,
+    partnerAnalPartnerEarnings: null,
+    partnerAnalDeposits: null,
+    partnerAnalGross: null,
+    partnerAnalInvited: null,
+    partnerAnalHint: null,
+
+    partnerTopCars: null,
+    partnerTopTrips: null,
+    partnerTopHotels: null,
+    partnerTopShop: null,
 
     adminMenuToggle: null,
     adminSidebar: null,
@@ -133,6 +152,59 @@
 
   function $(id) {
     return document.getElementById(id);
+  }
+
+  function stopAnalyticsRealtime() {
+    if (!analyticsRealtimeChannel || !state.sb) return;
+    try {
+      if (typeof state.sb.removeChannel === 'function') {
+        state.sb.removeChannel(analyticsRealtimeChannel);
+      } else if (typeof analyticsRealtimeChannel.unsubscribe === 'function') {
+        analyticsRealtimeChannel.unsubscribe();
+      }
+    } catch (_e) {
+    }
+    analyticsRealtimeChannel = null;
+  }
+
+  function scheduleAnalyticsRealtimeRefresh() {
+    if (analyticsRealtimeTimer) {
+      clearTimeout(analyticsRealtimeTimer);
+    }
+    analyticsRealtimeTimer = setTimeout(async () => {
+      analyticsRealtimeTimer = null;
+      try {
+        if (!state.selectedPartnerId) return;
+        if (!els.tabCalendar?.hidden) {
+          await refreshPartnerAnalytics();
+        }
+      } catch (_e) {
+      }
+    }, 350);
+  }
+
+  function startAnalyticsRealtime() {
+    stopAnalyticsRealtime();
+    if (!state.sb || typeof state.sb.channel !== 'function') return;
+    if (!state.selectedPartnerId) return;
+
+    try {
+      analyticsRealtimeChannel = state.sb
+        .channel(`partner-analytics-${String(state.selectedPartnerId).slice(0, 8)}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'partner_service_fulfillments', filter: `partner_id=eq.${state.selectedPartnerId}` },
+          () => scheduleAnalyticsRealtimeRefresh()
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'shop_order_fulfillments', filter: `partner_id=eq.${state.selectedPartnerId}` },
+          () => scheduleAnalyticsRealtimeRefresh()
+        )
+        .subscribe();
+    } catch (_e) {
+      analyticsRealtimeChannel = null;
+    }
   }
 
   function showToast(message, type) {
@@ -1880,7 +1952,7 @@
     if (shopIds.length) {
       const { data: items, error: itemsErr } = await state.sb
         .from('shop_order_fulfillment_items')
-        .select('fulfillment_id, product_name, variant_name, quantity')
+        .select('fulfillment_id, product_name, variant_name, quantity, unit_price, subtotal')
         .in('fulfillment_id', shopIds)
         .limit(500);
 
@@ -1956,6 +2028,190 @@
           : 'No fulfillments awaiting acceptance.';
       els.fulfillmentsHint.textContent = hint;
     }
+  }
+
+  function toNum(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function setTopContainer(el, html) {
+    if (!el) return;
+    if (!html) {
+      el.hidden = true;
+      el.innerHTML = '';
+      return;
+    }
+    el.hidden = false;
+    el.innerHTML = html;
+  }
+
+  function renderTopTable(title, rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    return `
+      <div class="admin-table-container" style="margin-top: 10px;">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>${escapeHtml(title)}</th>
+              <th style="text-align:right;">Qty</th>
+              <th style="text-align:right;">Partner</th>
+              <th style="text-align:right;">Gross</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${list.length ? list.map((r) => `
+              <tr>
+                <td>${escapeHtml(r.label || '—')}</td>
+                <td style="text-align:right;">${Number(r.count || 0)}</td>
+                <td style="text-align:right;"><strong>${escapeHtml(formatMoney(r.partner || 0, 'EUR'))}</strong></td>
+                <td style="text-align:right;">${escapeHtml(formatMoney(r.gross || 0, 'EUR'))}</td>
+              </tr>
+            `).join('') : '<tr><td colspan="4" class="muted" style="padding: 12px 8px;">No data</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function computeTopFromMap(mapObj) {
+    const rows = Object.values(mapObj || {});
+    return rows
+      .sort((a, b) => (toNum(b.partner) - toNum(a.partner)) || (toNum(b.gross) - toNum(a.gross)) || (toNum(b.count) - toNum(a.count)))
+      .slice(0, 8);
+  }
+
+  async function refreshPartnerAnalytics() {
+    if (!state.sb || !state.selectedPartnerId) return;
+    if (!els.partnerAnalyticsCard) return;
+
+    const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
+    const hasShopFulfillments = (state.fulfillments || []).some((f) => f && String(f.__source || '') === 'shop');
+    const canShop = Boolean(partner?.can_manage_shop && (partner?.shop_vendor_id || hasShopFulfillments));
+    const canCars = Boolean(partner?.can_manage_cars);
+    const canTrips = Boolean(partner?.can_manage_trips);
+    const canHotels = Boolean(partner?.can_manage_hotels);
+
+    try {
+      await loadFulfillments();
+    } catch (_e) {
+    }
+
+    const rows = Array.isArray(state.fulfillments) ? state.fulfillments : [];
+
+    const counts = {
+      total: rows.length,
+      pending: 0,
+      awaiting: 0,
+      accepted: 0,
+    };
+
+    const depositByFid = {};
+    try {
+      const { data, error } = await state.sb.rpc('partner_get_service_deposit_amounts', {
+        p_partner_id: state.selectedPartnerId,
+      });
+      if (!error) {
+        (data || []).forEach((r) => {
+          const fid = r?.fulfillment_id;
+          if (!fid) return;
+          depositByFid[String(fid)] = toNum(r?.amount);
+        });
+      }
+    } catch (_e) {
+    }
+
+    let invitedCount = 0;
+    try {
+      const { count, error } = await state.sb
+        .from('referrals')
+        .select('referred_id', { count: 'exact', head: true })
+        .eq('referrer_id', state.user?.id || '')
+        .limit(1);
+      if (!error) invitedCount = Number(count || 0);
+    } catch (_e) {
+      invitedCount = 0;
+    }
+
+    let grossAccepted = 0;
+    let depositsTotal = 0;
+    let partnerEarnings = 0;
+
+    const topCars = {};
+    const topTrips = {};
+    const topHotels = {};
+    const topShop = {};
+
+    rows.forEach((f) => {
+      const st = String(f?.status || '').trim();
+      if (st === 'pending_acceptance') counts.pending += 1;
+      if (st === 'awaiting_payment') counts.awaiting += 1;
+      if (st === 'accepted') counts.accepted += 1;
+      if (st !== 'accepted') return;
+
+      const src = String(f?.__source || 'shop');
+
+      if (src === 'service') {
+        const gross = toNum(f?.total_price);
+        const deposit = toNum(depositByFid[String(f?.id)] || 0);
+        const payout = Math.max(0, gross - deposit);
+        grossAccepted += gross;
+        depositsTotal += deposit;
+        partnerEarnings += payout;
+
+        const t = String(f?.resource_type || '').trim();
+        const label = String(f?.summary || f?.reference || '').trim() || `${String(f?.id || '').slice(0, 8).toUpperCase()}`;
+        const map = t === 'cars' ? topCars : (t === 'trips' ? topTrips : (t === 'hotels' ? topHotels : null));
+        if (map) {
+          if (!map[label]) map[label] = { label, count: 0, gross: 0, partner: 0 };
+          map[label].count += 1;
+          map[label].gross += gross;
+          map[label].partner += payout;
+        }
+        return;
+      }
+
+      const gross = toNum(f?.subtotal);
+      const payout = toNum(f?.total_allocated);
+      grossAccepted += gross;
+      partnerEarnings += payout;
+
+      const items = state.itemsByFulfillmentId?.[f?.id] || [];
+      const ratio = gross > 0 ? (payout / gross) : 0;
+      (items || []).forEach((it) => {
+        const label = String(it?.product_name || 'Product').trim() || 'Product';
+        const qty = Math.max(1, Math.floor(toNum(it?.quantity) || 1));
+        const itemGross = (() => {
+          const s = toNum(it?.subtotal);
+          if (s > 0) return s;
+          const unit = toNum(it?.unit_price);
+          return unit > 0 ? unit * qty : 0;
+        })();
+        const itemPartner = itemGross * (Number.isFinite(ratio) ? ratio : 0);
+        if (!topShop[label]) topShop[label] = { label, count: 0, gross: 0, partner: 0 };
+        topShop[label].count += qty;
+        topShop[label].gross += itemGross;
+        topShop[label].partner += itemPartner;
+      });
+    });
+
+    setText(els.partnerAnalOrdersTotal, String(counts.total));
+    setText(els.partnerAnalOrdersPending, String(counts.pending));
+    setText(els.partnerAnalOrdersAwaiting, String(counts.awaiting));
+    setText(els.partnerAnalOrdersAccepted, String(counts.accepted));
+    setText(els.partnerAnalGross, formatMoney(grossAccepted, 'EUR'));
+    setText(els.partnerAnalDeposits, formatMoney(depositsTotal, 'EUR'));
+    setText(els.partnerAnalPartnerEarnings, formatMoney(partnerEarnings, 'EUR'));
+    setText(els.partnerAnalInvited, String(invitedCount || 0));
+
+    if (els.partnerAnalHint) {
+      els.partnerAnalHint.textContent = 'Partner earnings = gross - deposit (services) + allocation (shop).';
+    }
+
+    setTopContainer(els.partnerTopCars, (canCars && Object.keys(topCars).length) ? `<h4 style="margin: 0 0 6px;">Top cars</h4>${renderTopTable('Cars', computeTopFromMap(topCars))}` : '');
+    setTopContainer(els.partnerTopTrips, (canTrips && Object.keys(topTrips).length) ? `<h4 style="margin: 14px 0 6px;">Top trips</h4>${renderTopTable('Trips', computeTopFromMap(topTrips))}` : '');
+    setTopContainer(els.partnerTopHotels, (canHotels && Object.keys(topHotels).length) ? `<h4 style="margin: 14px 0 6px;">Top hotels</h4>${renderTopTable('Hotels', computeTopFromMap(topHotels))}` : '');
+    setTopContainer(els.partnerTopShop, (canShop && Object.keys(topShop).length) ? `<h4 style="margin: 14px 0 6px;">Top shop products</h4>${renderTopTable('Shop', computeTopFromMap(topShop))}` : '');
   }
 
   async function callFulfillmentAction(fulfillmentId, action, reason) {
@@ -2931,6 +3187,9 @@
 
       ensureCalendarMonthInput();
       await loadCalendarMonthData();
+
+      startAnalyticsRealtime();
+      await refreshPartnerAnalytics();
       setText(els.status, `Loaded ${state.blocks.length} blocks.`);
     } catch (error) {
       console.error(error);
@@ -2963,6 +3222,7 @@
     updateAvailabilitySelectionSummary();
 
     startBlocksRealtime();
+    startAnalyticsRealtime();
 
     renderSuspendedInfo();
 
@@ -3415,10 +3675,12 @@
         state.user = session?.user || null;
         if (!session) {
           stopBlocksRealtime();
+          stopAnalyticsRealtime();
         }
         bootstrapPortal();
       });
     }
+
   }
 
   function cacheEls() {
@@ -3461,6 +3723,22 @@
     els.btnAvailabilitySelectAllType = $('btnPartnerAvailabilitySelectAllType');
     els.btnAvailabilityClearAll = $('btnPartnerAvailabilityClearAll');
     els.availabilitySelectionSummary = $('partnerAvailabilitySelectionSummary');
+
+    els.partnerAnalyticsCard = $('partnerAnalyticsCard');
+    els.partnerAnalOrdersAccepted = $('partnerAnalOrdersAccepted');
+    els.partnerAnalOrdersPending = $('partnerAnalOrdersPending');
+    els.partnerAnalOrdersAwaiting = $('partnerAnalOrdersAwaiting');
+    els.partnerAnalOrdersTotal = $('partnerAnalOrdersTotal');
+    els.partnerAnalPartnerEarnings = $('partnerAnalPartnerEarnings');
+    els.partnerAnalDeposits = $('partnerAnalDeposits');
+    els.partnerAnalGross = $('partnerAnalGross');
+    els.partnerAnalInvited = $('partnerAnalInvited');
+    els.partnerAnalHint = $('partnerAnalHint');
+
+    els.partnerTopCars = $('partnerTopCars');
+    els.partnerTopTrips = $('partnerTopTrips');
+    els.partnerTopHotels = $('partnerTopHotels');
+    els.partnerTopShop = $('partnerTopShop');
 
     els.adminMenuToggle = $('adminMenuToggle');
     els.adminSidebar = $('adminSidebar');
