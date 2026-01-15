@@ -13713,6 +13713,312 @@ async function handleCommentEditSubmit(event) {
   }
 }
 
+async function buildOrdersAnalyticsSection(client) {
+  const toNum = (v) => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : 0;
+  };
+  const safe = (v) => String(v ?? '').trim();
+  const fmtMoney = (v) => (typeof formatMoney === 'function' ? formatMoney(v, 'EUR') : `€${toNum(v).toFixed(2)}`);
+
+  let service = [];
+  try {
+    const { data } = await client
+      .from('partner_service_fulfillments')
+      .select('id, partner_id, resource_type, booking_id, status, total_price, currency, created_at, summary, reference')
+      .order('created_at', { ascending: false })
+      .limit(2000);
+    service = data || [];
+  } catch (_e) {
+    service = [];
+  }
+
+  const serviceCounts = { total: service.length, pending: 0, awaiting: 0, accepted: 0, rejected: 0, expired: 0 };
+  const serviceTotals = { gross: 0, deposit: 0, partner: 0 };
+
+  const fids = service.map((r) => r?.id).filter(Boolean);
+  const depositByFid = {};
+
+  if (fids.length) {
+    const chunks = typeof chunkArray === 'function' ? chunkArray(fids, 200) : [fids];
+    for (const ids of chunks) {
+      try {
+        const { data } = await client
+          .from('service_deposit_requests')
+          .select('fulfillment_id, amount, status, paid_at')
+          .in('fulfillment_id', ids)
+          .limit(2000);
+        (data || []).forEach((r) => {
+          const paid = r?.status === 'paid' || !!r?.paid_at;
+          if (r?.fulfillment_id) depositByFid[r.fulfillment_id] = paid ? toNum(r?.amount) : 0;
+        });
+      } catch (_e) {
+      }
+    }
+  }
+
+  const partnerAgg = {};
+  const bumpPartner = (partnerId, delta) => {
+    const pid = safe(partnerId);
+    if (!pid) return;
+    if (!partnerAgg[pid]) partnerAgg[pid] = { orders: 0, gross: 0, our: 0, partner: 0 };
+    partnerAgg[pid].orders += delta.orders || 0;
+    partnerAgg[pid].gross += delta.gross || 0;
+    partnerAgg[pid].our += delta.our || 0;
+    partnerAgg[pid].partner += delta.partner || 0;
+  };
+
+  const topByType = { cars: {}, trips: {}, hotels: {} };
+  const bumpTop = (type, label, gross, deposit, partner) => {
+    const t = safe(type);
+    if (!topByType[t]) return;
+    const key = safe(label) || '—';
+    if (!topByType[t][key]) topByType[t][key] = { label: key, count: 0, gross: 0, our: 0, partner: 0 };
+    topByType[t][key].count += 1;
+    topByType[t][key].gross += gross;
+    topByType[t][key].our += deposit;
+    topByType[t][key].partner += partner;
+  };
+
+  service.forEach((f) => {
+    const st = safe(f?.status);
+    if (st === 'pending_acceptance') serviceCounts.pending += 1;
+    if (st === 'awaiting_payment') serviceCounts.awaiting += 1;
+    if (st === 'accepted') serviceCounts.accepted += 1;
+    if (st === 'rejected') serviceCounts.rejected += 1;
+    if (st === 'expired') serviceCounts.expired += 1;
+
+    if (st !== 'accepted') return;
+    const gross = toNum(f?.total_price);
+    const deposit = toNum(depositByFid[f?.id] || 0);
+    const partner = Math.max(0, gross - deposit);
+    serviceTotals.gross += gross;
+    serviceTotals.deposit += deposit;
+    serviceTotals.partner += partner;
+    bumpPartner(f?.partner_id, { orders: 1, gross, our: deposit, partner });
+    const label = safe(f?.summary) || safe(f?.reference) || safe(f?.booking_id).slice(0, 8).toUpperCase();
+    bumpTop(f?.resource_type, label, gross, deposit, partner);
+  });
+
+  let shop = [];
+  let shopPaid = new Set();
+  try {
+    const { data } = await client
+      .from('shop_orders')
+      .select('id, payment_status, paid_at')
+      .order('created_at', { ascending: false })
+      .limit(2000);
+    (data || []).forEach((o) => {
+      if (o?.id && (o?.payment_status === 'paid' || !!o?.paid_at)) shopPaid.add(o.id);
+    });
+  } catch (_e) {
+    shopPaid = new Set();
+  }
+
+  try {
+    const { data } = await client
+      .from('shop_order_fulfillments')
+      .select('id, order_id, partner_id, status, subtotal, total_allocated, created_at')
+      .order('created_at', { ascending: false })
+      .limit(2000);
+    shop = data || [];
+  } catch (_e) {
+    shop = [];
+  }
+
+  const shopCounts = { total: shop.length, pending: 0, awaiting: 0, accepted: 0, rejected: 0, expired: 0 };
+  const shopTotals = { gross: 0, margin: 0, partner: 0 };
+
+  shop.forEach((f) => {
+    const st = safe(f?.status);
+    if (st === 'pending_acceptance') shopCounts.pending += 1;
+    if (st === 'awaiting_payment') shopCounts.awaiting += 1;
+    if (st === 'accepted') shopCounts.accepted += 1;
+    if (st === 'rejected') shopCounts.rejected += 1;
+    if (st === 'expired') shopCounts.expired += 1;
+
+    if (st !== 'accepted') return;
+    if (f?.order_id && shopPaid.size && !shopPaid.has(f.order_id)) return;
+    const gross = toNum(f?.subtotal);
+    const partner = toNum(f?.total_allocated);
+    const margin = Math.max(0, gross - partner);
+    shopTotals.gross += gross;
+    shopTotals.partner += partner;
+    shopTotals.margin += margin;
+    bumpPartner(f?.partner_id, { orders: 1, gross, our: margin, partner });
+  });
+
+  let topShop = [];
+  try {
+    const orderIds = Array.from(shopPaid).filter(Boolean);
+    if (orderIds.length) {
+      const chunks = typeof chunkArray === 'function' ? chunkArray(orderIds, 200) : [orderIds];
+      const grouped = {};
+      for (const ids of chunks) {
+        const { data } = await client
+          .from('shop_order_items')
+          .select('product_name, quantity, subtotal')
+          .in('order_id', ids)
+          .limit(5000);
+        (data || []).forEach((it) => {
+          const label = safe(it?.product_name) || '—';
+          const qty = Math.max(1, Math.floor(toNum(it?.quantity) || 1));
+          const gross = toNum(it?.subtotal);
+          if (!grouped[label]) grouped[label] = { label, count: 0, gross: 0 };
+          grouped[label].count += qty;
+          grouped[label].gross += gross;
+        });
+      }
+      topShop = Object.values(grouped)
+        .sort((a, b) => (b.gross || 0) - (a.gross || 0))
+        .slice(0, 10);
+    }
+  } catch (_e) {
+    topShop = [];
+  }
+
+  let partnersById = {};
+  try {
+    const ids = Object.keys(partnerAgg);
+    if (ids.length) {
+      const chunks = typeof chunkArray === 'function' ? chunkArray(ids, 200) : [ids];
+      for (const chunkIds of chunks) {
+        const { data } = await client.from('partners').select('id, name, slug').in('id', chunkIds).limit(1000);
+        (data || []).forEach((p) => {
+          if (p?.id) partnersById[p.id] = p;
+        });
+      }
+    }
+  } catch (_e) {
+    partnersById = {};
+  }
+
+  const partnerRows = Object.entries(partnerAgg)
+    .map(([pid, v]) => {
+      const p = partnersById[pid] || {};
+      const label = safe(p?.name) || safe(p?.slug) || pid.slice(0, 8).toUpperCase();
+      return { partner_id: pid, label, ...v };
+    })
+    .sort((a, b) => (b.gross || 0) - (a.gross || 0))
+    .slice(0, 50);
+
+  const topList = (obj) => Object.values(obj).sort((a, b) => (b.gross || 0) - (a.gross || 0)).slice(0, 10);
+  const topCars = topList(topByType.cars || {});
+  const topTrips = topList(topByType.trips || {});
+  const topHotels = topList(topByType.hotels || {});
+
+  const totalOrders = serviceCounts.total + shopCounts.total;
+  const pendingOrders = serviceCounts.pending + shopCounts.pending;
+  const awaitingOrders = serviceCounts.awaiting + shopCounts.awaiting;
+  const acceptedOrders = serviceCounts.accepted + shopCounts.accepted;
+  const grossTotal = serviceTotals.gross + shopTotals.gross;
+  const ourTotal = serviceTotals.deposit + shopTotals.margin;
+  const partnerTotal = serviceTotals.partner + shopTotals.partner;
+
+  const renderTopTable = (title, rows) => `
+    <div class="admin-table-container" style="margin-top: 10px;">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>${escapeHtml(title)}</th>
+            <th style="text-align:right;">Ilość</th>
+            <th style="text-align:right;">Brutto</th>
+            <th style="text-align:right;">Nasz zysk</th>
+            <th style="text-align:right;">Partner</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.length ? rows.map((r) => `
+            <tr>
+              <td>${escapeHtml(r.label || '—')}</td>
+              <td style="text-align:right;">${r.count || 0}</td>
+              <td style="text-align:right;"><strong>${fmtMoney(r.gross || 0)}</strong></td>
+              <td style="text-align:right;">${fmtMoney(r.our || 0)}</td>
+              <td style="text-align:right;">${fmtMoney(r.partner || 0)}</td>
+            </tr>
+          `).join('') : '<tr><td colspan="5" class="table-loading">Brak danych</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  const renderShopTopTable = (rows) => `
+    <div class="admin-table-container" style="margin-top: 10px;">
+      <table class="admin-table">
+        <thead>
+          <tr>
+            <th>${escapeHtml('Produkty (Shop)')}</th>
+            <th style="text-align:right;">Ilość</th>
+            <th style="text-align:right;">Brutto</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.length ? rows.map((r) => `
+            <tr>
+              <td>${escapeHtml(r.label || '—')}</td>
+              <td style="text-align:right;">${r.count || 0}</td>
+              <td style="text-align:right;"><strong>${fmtMoney(r.gross || 0)}</strong></td>
+            </tr>
+          `).join('') : '<tr><td colspan="3" class="table-loading">Brak danych</td></tr>'}
+        </tbody>
+      </table>
+    </div>
+  `;
+
+  return `
+    <div class="admin-section" style="margin-bottom: 28px;">
+      <h2 style="margin-bottom: 6px;">Zamówienia i zarobki</h2>
+      <p class="admin-view-subtitle" style="margin-top: 0;">Nasz zysk = deposit (usługi) + marża (shop). Partner = pełna cena - deposit (usługi) + alokacja (shop).</p>
+
+      <div class="admin-stats-grid" style="margin-bottom:24px;">
+        <div class="admin-stat-card"><div class="stat-card-content"><p class="stat-card-label">Wszystkie zamówienia</p><p class="stat-card-value">${totalOrders}</p><p class="stat-card-change">Cars/Trips/Hotels + Shop</p></div></div>
+        <div class="admin-stat-card"><div class="stat-card-content"><p class="stat-card-label">Czeka na zatwierdzenie</p><p class="stat-card-value">${pendingOrders}</p><p class="stat-card-change">pending_acceptance</p></div></div>
+        <div class="admin-stat-card"><div class="stat-card-content"><p class="stat-card-label">Czeka na wpłatę</p><p class="stat-card-value">${awaitingOrders}</p><p class="stat-card-change">awaiting_payment</p></div></div>
+        <div class="admin-stat-card"><div class="stat-card-content"><p class="stat-card-label">Zaakceptowane</p><p class="stat-card-value">${acceptedOrders}</p><p class="stat-card-change">accepted</p></div></div>
+        <div class="admin-stat-card"><div class="stat-card-content"><p class="stat-card-label">Sprzedaż (brutto)</p><p class="stat-card-value">${fmtMoney(grossTotal)}</p><p class="stat-card-change">Tylko zaakceptowane</p></div></div>
+        <div class="admin-stat-card"><div class="stat-card-content"><p class="stat-card-label">Nasz zysk</p><p class="stat-card-value">${fmtMoney(ourTotal)}</p><p class="stat-card-change">deposit + marża</p></div></div>
+        <div class="admin-stat-card"><div class="stat-card-content"><p class="stat-card-label">Zysk partnerów</p><p class="stat-card-value">${fmtMoney(partnerTotal)}</p><p class="stat-card-change">payout</p></div></div>
+      </div>
+
+      <div class="admin-section" style="margin-top: 18px;">
+        <h3>Partnerzy: zarobki</h3>
+        <div class="admin-table-container">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Partner</th>
+                <th style="text-align:right;">Zamówienia (zaakceptowane)</th>
+                <th style="text-align:right;">Sprzedaż (brutto)</th>
+                <th style="text-align:right;">Nasz zysk</th>
+                <th style="text-align:right;">Zysk partnera</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${partnerRows.length ? partnerRows.map((p) => `
+                <tr>
+                  <td>${escapeHtml(p.label)}</td>
+                  <td style="text-align:right;">${p.orders || 0}</td>
+                  <td style="text-align:right;"><strong>${fmtMoney(p.gross || 0)}</strong></td>
+                  <td style="text-align:right;">${fmtMoney(p.our || 0)}</td>
+                  <td style="text-align:right;">${fmtMoney(p.partner || 0)}</td>
+                </tr>
+              `).join('') : '<tr><td colspan="5" class="table-loading">Brak danych</td></tr>'}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="admin-section" style="margin-top: 18px;">
+        <h3>Najlepiej sprzedające się (zaakceptowane)</h3>
+        ${renderTopTable('Auta', topCars)}
+        ${renderTopTable('Wycieczki', topTrips)}
+        ${renderTopTable('Hotele', topHotels)}
+        ${topShop.length ? renderShopTopTable(topShop) : ''}
+      </div>
+    </div>
+  `;
+}
+
 // Get Analytics Data
 async function loadAnalytics() {
   try {
@@ -13722,6 +14028,8 @@ async function loadAnalytics() {
       return;
     }
     
+    const ordersSectionHtml = await buildOrdersAnalyticsSection(client);
+
     // Get content stats
     const { data: contentStats, error: statsError } = await client.rpc('admin_get_content_stats');
     
@@ -13738,6 +14046,7 @@ async function loadAnalytics() {
     const analyticsEl = $('#analyticsContent');
     if (analyticsEl && contentStats) {
       analyticsEl.innerHTML = `
+        ${ordersSectionHtml}
         <!-- Engagement & activity -->
         <div class="admin-stats-grid" style="margin-bottom:24px;">
           <div class="admin-stat-card">
