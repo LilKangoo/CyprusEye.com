@@ -137,6 +137,17 @@ export async function processReferralAfterRegistration(newUserId) {
       console.warn('Supabase not available for referral processing');
       return null;
     }
+
+    try {
+      const { data: sessionData } = await sb.auth.getSession();
+      const sessionUserId = sessionData?.session?.user?.id;
+      if (!sessionUserId) {
+        console.log('ℹ️ No auth session yet, deferring referral processing');
+        return null;
+      }
+    } catch (_e) {
+      return null;
+    }
     
     // Wait for the profile to be created by the database trigger
     console.log('⏳ Waiting for profile to be created...');
@@ -147,6 +158,21 @@ export async function processReferralAfterRegistration(newUserId) {
       return null;
     }
     console.log('✅ Profile found, processing referral...');
+
+    try {
+      const { data: existingProfile, error: existingProfileError } = await sb
+        .from('profiles')
+        .select('id, referred_by')
+        .eq('id', newUserId)
+        .maybeSingle();
+
+      if (!existingProfileError && existingProfile?.referred_by) {
+        console.log('ℹ️ User already has referred_by set, skipping referral link');
+        clearStoredReferralCode();
+        return null;
+      }
+    } catch (_e) {
+    }
     
     // Find referrer by username
     const { data: referrer, error: referrerError } = await sb
@@ -185,10 +211,17 @@ export async function processReferralAfterRegistration(newUserId) {
     }
     
     // Update new user's profile with referred_by
-    await sb
-      .from('profiles')
-      .update({ referred_by: referrer.id })
-      .eq('id', newUserId);
+    try {
+      const { error: updateError } = await sb
+        .from('profiles')
+        .update({ referred_by: referrer.id })
+        .eq('id', newUserId);
+      if (updateError) {
+        console.warn('Could not set referred_by on profile:', updateError);
+      }
+    } catch (updateErr) {
+      console.warn('Could not set referred_by on profile:', updateErr);
+    }
     
     console.log(`✅ Referral processed: ${referralCode} -> new user`);
     clearStoredReferralCode();

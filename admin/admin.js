@@ -1787,6 +1787,8 @@ async function loadPartnersAffiliateAdminData(force = false) {
     loadAffiliateSettings(),
     loadAffiliateOverrides(),
     loadAffiliatePayoutAdminData(),
+    loadAffiliateLedgerAdminData(),
+    loadAffiliateUnattributedDepositsAdminData(),
   ]);
 }
 
@@ -2034,6 +2036,344 @@ function fillAffiliatePayoutPartnerSelect() {
   select.innerHTML = `<option value="">—</option>${rows.map(p => `<option value="${escapeHtml(String(p.id))}">${escapeHtml(String(p.name || p.slug || String(p.id).slice(0, 8)))}</option>`).join('')}`;
   if (current) select.value = current;
 }
+
+function fillAffiliateLedgerPartnerSelect() {
+  const select = document.getElementById('affiliateLedgerPartnerSelect');
+  if (!select) return;
+
+  const current = String(select.value || '').trim();
+  const partners = Array.isArray(partnersState.partners) ? partnersState.partners : [];
+  const rows = partners.slice().sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')));
+
+  select.innerHTML = `<option value="">—</option>${rows.map(p => `<option value="${escapeHtml(String(p.id))}">${escapeHtml(String(p.name || p.slug || String(p.id).slice(0, 8)))}</option>`).join('')}`;
+  if (current) select.value = current;
+}
+
+async function loadAffiliateLedgerAdminData(force = false) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const select = document.getElementById('affiliateLedgerPartnerSelect');
+  const tbody = document.getElementById('affiliateLedgerTableBody');
+  if (!select || !tbody) return;
+
+  fillAffiliateLedgerPartnerSelect();
+
+  if (!String(select.value || '').trim()) {
+    const payoutSelect = document.getElementById('affiliatePayoutPartnerSelect');
+    const payoutSelected = String(payoutSelect?.value || '').trim();
+    if (payoutSelected) {
+      select.value = payoutSelected;
+    } else {
+      const first = (Array.isArray(partnersState.partners) ? partnersState.partners : [])[0];
+      if (first?.id) select.value = String(first.id);
+    }
+  }
+
+  await refreshAffiliateLedgerPartnerData({ force });
+}
+
+async function refreshAffiliateLedgerPartnerData({ force = false } = {}) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const select = document.getElementById('affiliateLedgerPartnerSelect');
+  const tbody = document.getElementById('affiliateLedgerTableBody');
+  if (!select || !tbody) return;
+
+  const partnerId = String(select.value || '').trim();
+  if (!partnerId) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 18px;">Loading…</td></tr>';
+
+  try {
+    const { data: events, error } = await client
+      .from('affiliate_commission_events')
+      .select('id, partner_id, deposit_request_id, level, referrer_user_id, referred_user_id, resource_type, booking_id, fulfillment_id, deposit_paid_at, deposit_amount, commission_bps, commission_amount, currency, payout_id, created_at')
+      .eq('partner_id', partnerId)
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (error) throw error;
+
+    const rows = Array.isArray(events) ? events : [];
+    const userIds = [...new Set(rows.flatMap((r) => [r.referrer_user_id, r.referred_user_id]).filter(Boolean).map(String))];
+    let profilesById = {};
+
+    if (userIds.length) {
+      const { data: profiles, error: profilesError } = await client
+        .from('profiles')
+        .select('id, username, email, name')
+        .in('id', userIds);
+      if (!profilesError && Array.isArray(profiles)) {
+        profilesById = profiles.reduce((acc, p) => {
+          acc[String(p.id)] = p;
+          return acc;
+        }, {});
+      }
+    }
+
+    renderAffiliateLedgerTable(rows, profilesById);
+  } catch (e) {
+    console.error('Failed to load affiliate ledger:', e);
+    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 18px; color:#ef4444;">${escapeHtml(e.message || 'Failed to load')}</td></tr>`;
+  }
+}
+
+function renderAffiliateLedgerTable(rows, profilesById) {
+  const tbody = document.getElementById('affiliateLedgerTableBody');
+  if (!tbody) return;
+
+  const list = Array.isArray(rows) ? rows : [];
+  const profiles = profilesById && typeof profilesById === 'object' ? profilesById : {};
+
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">No events</td></tr>';
+    return;
+  }
+
+  const fmtMoney = (value, currency = 'EUR') => {
+    const num = Number(value) || 0;
+    if (currency === 'EUR') {
+      if (typeof formatCurrencyEUR === 'function') {
+        try {
+          return formatCurrencyEUR(num);
+        } catch (_e) {
+        }
+      }
+      return `€${num.toFixed(2)}`;
+    }
+    return `${num.toFixed(2)} ${String(currency || '')}`;
+  };
+
+  const displayUser = (id) => {
+    const key = String(id || '').trim();
+    if (!key) return '—';
+    const p = profiles[key];
+    const label = p?.username || p?.email || p?.name;
+    return label ? escapeHtml(String(label)) : `<code>${escapeHtml(key.slice(0, 8))}</code>`;
+  };
+
+  const renderActions = (row) => {
+    const bookingId = escapeHtml(String(row.booking_id || ''));
+    const type = String(row.resource_type || '');
+
+    let bookingAction = '';
+    if (type === 'cars') {
+      bookingAction = `<button class="btn-small btn-secondary" type="button" onclick="viewCarBookingDetails('${bookingId}')">Booking</button>`;
+    } else if (type === 'trips') {
+      bookingAction = `<button class="btn-small btn-secondary" type="button" onclick="viewTripBookingDetails('${bookingId}')">Booking</button>`;
+    } else if (type === 'hotels') {
+      bookingAction = `<button class="btn-small btn-secondary" type="button" onclick="viewHotelBookingDetails('${bookingId}')">Booking</button>`;
+    }
+
+    const depositId = escapeHtml(String(row.deposit_request_id || ''));
+    const linkDeposit = depositId
+      ? `<button class="btn-small btn-secondary" type="button" onclick="selectAffiliateAttributionDeposit('${depositId}')">Deposit</button>`
+      : '';
+
+    const actions = [bookingAction, linkDeposit].filter(Boolean).join(' ');
+    return actions || '<span class="muted">—</span>';
+  };
+
+  tbody.innerHTML = list.map((r) => {
+    const paidAt = r.deposit_paid_at ? escapeHtml(formatDateTimeValue(r.deposit_paid_at)) : '—';
+    const level = escapeHtml(String(r.level || ''));
+    const referrer = displayUser(r.referrer_user_id);
+    const referred = displayUser(r.referred_user_id);
+    const type = escapeHtml(String(r.resource_type || ''));
+    const deposit = escapeHtml(fmtMoney(r.deposit_amount, r.currency || 'EUR'));
+    const commission = escapeHtml(fmtMoney(r.commission_amount, r.currency || 'EUR'));
+    const status = r.payout_id ? 'paid' : 'unpaid';
+    const actions = renderActions(r);
+
+    return `
+      <tr>
+        <td>${paidAt}</td>
+        <td>${level}</td>
+        <td>${referrer}</td>
+        <td>${referred}</td>
+        <td>${type}</td>
+        <td style="text-align:right;">${deposit}</td>
+        <td style="text-align:right;">${commission}</td>
+        <td>${escapeHtml(status)}</td>
+        <td style="text-align:right;">${actions}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function loadAffiliateUnattributedDepositsAdminData(force = false) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const tbody = document.getElementById('affiliateUnattributedTableBody');
+  if (!tbody) return;
+
+  await refreshAffiliateUnattributedDeposits({ force });
+}
+
+async function refreshAffiliateUnattributedDeposits({ force = false } = {}) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const tbody = document.getElementById('affiliateUnattributedTableBody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px;">Loading…</td></tr>';
+
+  try {
+    const { data: deposits, error } = await client
+      .from('service_deposit_requests')
+      .select('id, status, amount, currency, resource_type, booking_id, fulfillment_id, partner_id, customer_email, customer_name, paid_at, created_at')
+      .eq('status', 'paid')
+      .order('paid_at', { ascending: false })
+      .limit(200);
+    if (error) throw error;
+
+    const depRows = Array.isArray(deposits) ? deposits : [];
+    const depIds = depRows.map((d) => d?.id).filter(Boolean);
+    let hasEvents = {};
+
+    if (depIds.length) {
+      const { data: events, error: eventsError } = await client
+        .from('affiliate_commission_events')
+        .select('deposit_request_id')
+        .in('deposit_request_id', depIds)
+        .limit(5000);
+      if (!eventsError && Array.isArray(events)) {
+        hasEvents = events.reduce((acc, ev) => {
+          const id = String(ev.deposit_request_id || '');
+          if (id) acc[id] = true;
+          return acc;
+        }, {});
+      }
+    }
+
+    const unattributed = depRows.filter((d) => !hasEvents[String(d.id || '')]);
+    renderAffiliateUnattributedDepositsTable(unattributed);
+  } catch (e) {
+    console.error('Failed to load unattributed deposits:', e);
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 18px; color:#ef4444;">${escapeHtml(e.message || 'Failed to load')}</td></tr>`;
+  }
+}
+
+function renderAffiliateUnattributedDepositsTable(rows) {
+  const tbody = document.getElementById('affiliateUnattributedTableBody');
+  if (!tbody) return;
+
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">No unattributed deposits 🎉</td></tr>';
+    return;
+  }
+
+  const fmtMoney = (value, currency = 'EUR') => {
+    const num = Number(value) || 0;
+    if (currency === 'EUR') {
+      if (typeof formatCurrencyEUR === 'function') {
+        try {
+          return formatCurrencyEUR(num);
+        } catch (_e) {
+        }
+      }
+      return `€${num.toFixed(2)}`;
+    }
+    return `${num.toFixed(2)} ${String(currency || '')}`;
+  };
+
+  tbody.innerHTML = list.map((d) => {
+    const id = escapeHtml(String(d.id || ''));
+    const paidAt = d.paid_at ? escapeHtml(formatDateTimeValue(d.paid_at)) : '—';
+    const type = escapeHtml(String(d.resource_type || ''));
+    const bookingId = escapeHtml(String(d.booking_id || ''));
+    const customer = escapeHtml(String(d.customer_email || d.customer_name || '—'));
+    const amount = escapeHtml(fmtMoney(d.amount, d.currency || 'EUR'));
+
+    let bookingAction = '';
+    if (String(d.resource_type) === 'cars') {
+      bookingAction = `<button class="btn-small btn-secondary" type="button" onclick="viewCarBookingDetails('${bookingId}')">Booking</button>`;
+    } else if (String(d.resource_type) === 'trips') {
+      bookingAction = `<button class="btn-small btn-secondary" type="button" onclick="viewTripBookingDetails('${bookingId}')">Booking</button>`;
+    } else if (String(d.resource_type) === 'hotels') {
+      bookingAction = `<button class="btn-small btn-secondary" type="button" onclick="viewHotelBookingDetails('${bookingId}')">Booking</button>`;
+    }
+
+    const selectAction = `<button class="btn-small btn-primary" type="button" onclick="selectAffiliateAttributionDeposit('${id}')">Use</button>`;
+
+    return `
+      <tr>
+        <td>${paidAt}</td>
+        <td>${type || '—'}</td>
+        <td><code>${bookingId ? bookingId.slice(0, 8) : ''}</code></td>
+        <td>${customer}</td>
+        <td style="text-align:right;">${amount}</td>
+        <td style="text-align:right;">${selectAction} ${bookingAction || ''}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function clearAffiliateAttributionForm() {
+  const depId = document.getElementById('affiliateAttributionDepositId');
+  const payerId = document.getElementById('affiliateAttributionPayerUserId');
+  const refId = document.getElementById('affiliateAttributionReferrerUserId');
+  const partnerId = document.getElementById('affiliateAttributionPartnerId');
+  if (depId) depId.value = '';
+  if (payerId) payerId.value = '';
+  if (refId) refId.value = '';
+  if (partnerId) partnerId.value = '';
+}
+
+async function applyAffiliateAttributionFromForm() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const depId = String(document.getElementById('affiliateAttributionDepositId')?.value || '').trim();
+  if (!depId) {
+    showToast('Deposit request ID is required', 'error');
+    return;
+  }
+
+  const payerUserId = String(document.getElementById('affiliateAttributionPayerUserId')?.value || '').trim() || null;
+  const referrerUserId = String(document.getElementById('affiliateAttributionReferrerUserId')?.value || '').trim() || null;
+  const partnerId = String(document.getElementById('affiliateAttributionPartnerId')?.value || '').trim() || null;
+
+  const ok = confirm('Create missing affiliate commission events for this deposit?');
+  if (!ok) return;
+
+  try {
+    const { data, error } = await client.rpc('affiliate_admin_recompute_commissions_for_deposit', {
+      p_deposit_request_id: depId,
+      p_force_referrer_user_id: referrerUserId,
+      p_force_payer_user_id: payerUserId,
+      p_force_partner_id: partnerId,
+    });
+    if (error) throw error;
+
+    if (data?.ok) {
+      showToast(`Affiliate attribution applied (inserted: ${data.inserted || 0})`, 'success');
+    } else {
+      showToast(`Attribution not applied: ${data?.reason || 'unknown'}`, 'error');
+    }
+
+    await Promise.all([
+      refreshAffiliateUnattributedDeposits({ force: true }),
+      refreshAffiliateLedgerPartnerData({ force: true }),
+      refreshAffiliatePayoutPartnerData({ force: true }),
+    ]);
+  } catch (e) {
+    console.error('Failed to apply affiliate attribution:', e);
+    showToast(e.message || 'Failed to apply attribution', 'error');
+  }
+}
+
+window.selectAffiliateAttributionDeposit = (depositId) => {
+  const depId = document.getElementById('affiliateAttributionDepositId');
+  if (depId) depId.value = String(depositId || '').trim();
+};
 
 async function loadAffiliatePayoutAdminData(force = false) {
   const client = ensureSupabase();
@@ -7746,6 +8086,11 @@ async function viewUserDetails(userId) {
 
     let shopAddresses = [];
     let shopOrders = [];
+    let carBookings = [];
+    let tripBookings = [];
+    let hotelBookings = [];
+    let depositRequests = [];
+    let commissionEventsByDepositId = {};
 
     try {
       const [addressesResult, ordersResult] = await Promise.all([
@@ -7770,6 +8115,72 @@ async function viewUserDetails(userId) {
         shopOrders = ordersResult.data;
       }
     } catch (e) {
+    }
+
+    try {
+      const normalizedEmail = String(authEmail || '').trim().toLowerCase();
+      if (normalizedEmail) {
+        const [carsResult, tripsResult, hotelsResult, depositsResult] = await Promise.all([
+          client
+            .from('car_bookings')
+            .select('id, created_at, full_name, email, car_model, location, pickup_date, return_date, status, quoted_price, final_price, currency')
+            .ilike('email', normalizedEmail)
+            .order('created_at', { ascending: false })
+            .limit(25),
+          client
+            .from('trip_bookings')
+            .select('id, created_at, customer_name, customer_email, trip_slug, arrival_date, departure_date, status, total_price')
+            .ilike('customer_email', normalizedEmail)
+            .order('created_at', { ascending: false })
+            .limit(25),
+          client
+            .from('hotel_bookings')
+            .select('id, created_at, customer_name, customer_email, hotel_slug, arrival_date, departure_date, status, total_price')
+            .ilike('customer_email', normalizedEmail)
+            .order('created_at', { ascending: false })
+            .limit(25),
+          client
+            .from('service_deposit_requests')
+            .select('id, status, amount, currency, resource_type, booking_id, fulfillment_id, partner_id, customer_email, customer_name, paid_at, created_at')
+            .ilike('customer_email', normalizedEmail)
+            .order('created_at', { ascending: false })
+            .limit(50),
+        ]);
+
+        if (!carsResult.error && Array.isArray(carsResult.data)) {
+          carBookings = carsResult.data;
+        }
+        if (!tripsResult.error && Array.isArray(tripsResult.data)) {
+          tripBookings = tripsResult.data;
+        }
+        if (!hotelsResult.error && Array.isArray(hotelsResult.data)) {
+          hotelBookings = hotelsResult.data;
+        }
+        if (!depositsResult.error && Array.isArray(depositsResult.data)) {
+          depositRequests = depositsResult.data;
+        }
+
+        const depositIds = depositRequests.map((d) => d?.id).filter(Boolean);
+        if (depositIds.length) {
+          const { data: commissionEvents, error: commissionEventsError } = await client
+            .from('affiliate_commission_events')
+            .select('deposit_request_id, level, commission_amount, currency, payout_id, partner_id')
+            .in('deposit_request_id', depositIds)
+            .order('created_at', { ascending: false })
+            .limit(500);
+
+          if (!commissionEventsError && Array.isArray(commissionEvents)) {
+            commissionEventsByDepositId = commissionEvents.reduce((acc, ev) => {
+              const id = String(ev.deposit_request_id || '');
+              if (!id) return acc;
+              acc[id] = acc[id] || [];
+              acc[id].push(ev);
+              return acc;
+            }, {});
+          }
+        }
+      }
+    } catch (_e) {
     }
 
     const formatMoney = (value, currency = 'EUR') => {
@@ -7896,6 +8307,215 @@ async function viewUserDetails(userId) {
       `
       : '<p class="user-detail-hint">No shop orders found.</p>';
 
+    const formatBookingDate = (value) => {
+      if (!value) return '';
+      const d = new Date(value);
+      if (Number.isNaN(d.getTime())) return escapeHtml(String(value));
+      return escapeHtml(d.toLocaleDateString('pl-PL'));
+    };
+
+    const renderServiceBookingsTable = (rows, kind) => {
+      const list = Array.isArray(rows) ? rows : [];
+      if (!list.length) {
+        return '<p class="user-detail-hint">No bookings found.</p>';
+      }
+
+      if (kind === 'cars') {
+        return `
+          <div class="admin-table-container" style="margin-top: 10px;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Created</th>
+                  <th>Car</th>
+                  <th>Pickup</th>
+                  <th>Return</th>
+                  <th>Status</th>
+                  <th style="text-align:right;">Price</th>
+                  <th style="text-align:right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${list.map((b) => {
+                  const created = b.created_at ? escapeHtml(formatDate(b.created_at)) : '—';
+                  const car = escapeHtml(b.car_model || '');
+                  const pickup = formatBookingDate(b.pickup_date);
+                  const ret = formatBookingDate(b.return_date);
+                  const status = escapeHtml(b.status || '');
+                  const price = b.final_price ?? b.quoted_price;
+                  const priceLabel = price == null ? '—' : escapeHtml(formatMoney(price, b.currency || 'EUR'));
+                  const id = escapeHtml(String(b.id || ''));
+                  return `
+                    <tr>
+                      <td>${created}</td>
+                      <td>${car}</td>
+                      <td>${pickup || '—'}</td>
+                      <td>${ret || '—'}</td>
+                      <td>${status || '—'}</td>
+                      <td style="text-align:right;">${priceLabel}</td>
+                      <td style="text-align:right;">
+                        <button class="btn-small btn-secondary" onclick="viewCarBookingDetails('${id}')">View</button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      if (kind === 'trips') {
+        return `
+          <div class="admin-table-container" style="margin-top: 10px;">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Created</th>
+                  <th>Trip</th>
+                  <th>Arrival</th>
+                  <th>Departure</th>
+                  <th>Status</th>
+                  <th style="text-align:right;">Total</th>
+                  <th style="text-align:right;">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${list.map((b) => {
+                  const created = b.created_at ? escapeHtml(formatDate(b.created_at)) : '—';
+                  const trip = escapeHtml(b.trip_slug || '');
+                  const arrival = formatBookingDate(b.arrival_date);
+                  const departure = formatBookingDate(b.departure_date);
+                  const status = escapeHtml(b.status || '');
+                  const total = b.total_price == null ? '—' : escapeHtml(formatMoney(b.total_price, 'EUR'));
+                  const id = escapeHtml(String(b.id || ''));
+                  return `
+                    <tr>
+                      <td>${created}</td>
+                      <td>${trip || '—'}</td>
+                      <td>${arrival || '—'}</td>
+                      <td>${departure || '—'}</td>
+                      <td>${status || '—'}</td>
+                      <td style="text-align:right;">${total}</td>
+                      <td style="text-align:right;">
+                        <button class="btn-small btn-secondary" onclick="viewTripBookingDetails('${id}')">View</button>
+                      </td>
+                    </tr>
+                  `;
+                }).join('')}
+              </tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="admin-table-container" style="margin-top: 10px;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Created</th>
+                <th>Hotel</th>
+                <th>Arrival</th>
+                <th>Departure</th>
+                <th>Status</th>
+                <th style="text-align:right;">Total</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${list.map((b) => {
+                const created = b.created_at ? escapeHtml(formatDate(b.created_at)) : '—';
+                const hotel = escapeHtml(b.hotel_slug || '');
+                const arrival = formatBookingDate(b.arrival_date);
+                const departure = formatBookingDate(b.departure_date);
+                const status = escapeHtml(b.status || '');
+                const total = b.total_price == null ? '—' : escapeHtml(formatMoney(b.total_price, 'EUR'));
+                const id = escapeHtml(String(b.id || ''));
+                return `
+                  <tr>
+                    <td>${created}</td>
+                    <td>${hotel || '—'}</td>
+                    <td>${arrival || '—'}</td>
+                    <td>${departure || '—'}</td>
+                    <td>${status || '—'}</td>
+                    <td style="text-align:right;">${total}</td>
+                    <td style="text-align:right;">
+                      <button class="btn-small btn-secondary" onclick="viewHotelBookingDetails('${id}')">View</button>
+                    </td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    };
+
+    const serviceDepositsHtml = (() => {
+      const rows = Array.isArray(depositRequests) ? depositRequests : [];
+      if (!rows.length) {
+        return '<p class="user-detail-hint">No service deposits found.</p>';
+      }
+
+      return `
+        <div class="admin-table-container" style="margin-top: 10px;">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Created</th>
+                <th>Paid at</th>
+                <th>Status</th>
+                <th>Type</th>
+                <th>Booking</th>
+                <th style="text-align:right;">Amount</th>
+                <th style="text-align:right;">Affiliate</th>
+                <th style="text-align:right;">Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${rows.map((d) => {
+                const created = d.created_at ? escapeHtml(formatDate(d.created_at)) : '—';
+                const paidAt = d.paid_at ? escapeHtml(formatDate(d.paid_at)) : '—';
+                const status = escapeHtml(d.status || '');
+                const type = escapeHtml(d.resource_type || '');
+                const bookingId = escapeHtml(String(d.booking_id || ''));
+                const amount = escapeHtml(formatMoney(d.amount, d.currency || 'EUR'));
+
+                const evs = commissionEventsByDepositId[String(d.id || '')] || [];
+                const totalCommission = evs.reduce((sum, ev) => sum + (Number(ev?.commission_amount) || 0), 0);
+                const commissionLabel = evs.length
+                  ? `${evs.length} lvl · ${escapeHtml(formatMoney(totalCommission, d.currency || 'EUR'))}`
+                  : '—';
+
+                let bookingAction = '<span class="muted">—</span>';
+                if (String(d.resource_type) === 'cars') {
+                  bookingAction = `<button class="btn-small btn-secondary" onclick="viewCarBookingDetails('${bookingId}')">View</button>`;
+                } else if (String(d.resource_type) === 'trips') {
+                  bookingAction = `<button class="btn-small btn-secondary" onclick="viewTripBookingDetails('${bookingId}')">View</button>`;
+                } else if (String(d.resource_type) === 'hotels') {
+                  bookingAction = `<button class="btn-small btn-secondary" onclick="viewHotelBookingDetails('${bookingId}')">View</button>`;
+                }
+
+                return `
+                  <tr>
+                    <td>${created}</td>
+                    <td>${paidAt}</td>
+                    <td>${status || '—'}</td>
+                    <td>${type || '—'}</td>
+                    <td><code>${bookingId ? bookingId.slice(0, 8) : ''}</code></td>
+                    <td style="text-align:right;">${amount}</td>
+                    <td style="text-align:right;">${commissionLabel}</td>
+                    <td style="text-align:right;">${bookingAction}</td>
+                  </tr>
+                `;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>
+      `;
+    })();
+
     content.innerHTML = `
       <div class="user-detail-grid">
         <section class="user-detail-card user-detail-card--full">
@@ -7936,6 +8556,28 @@ async function viewUserDetails(userId) {
               <dd>${formattedLastSignIn}</dd>
             </div>
           </dl>
+        </section>
+
+        <section class="user-detail-card user-detail-card--full">
+          <h4 class="user-detail-section-title">Services (bookings & deposits)</h4>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
+            <div style="padding: 12px; background: var(--admin-bg); border-radius: 8px;">
+              <h5 style="margin: 0 0 8px; font-size: 13px; color: var(--admin-text-muted);">Service deposits</h5>
+              ${serviceDepositsHtml}
+            </div>
+            <div style="padding: 12px; background: var(--admin-bg); border-radius: 8px;">
+              <h5 style="margin: 0 0 8px; font-size: 13px; color: var(--admin-text-muted);">Car bookings</h5>
+              ${renderServiceBookingsTable(carBookings, 'cars')}
+            </div>
+            <div style="padding: 12px; background: var(--admin-bg); border-radius: 8px;">
+              <h5 style="margin: 0 0 8px; font-size: 13px; color: var(--admin-text-muted);">Trip bookings</h5>
+              ${renderServiceBookingsTable(tripBookings, 'trips')}
+            </div>
+            <div style="padding: 12px; background: var(--admin-bg); border-radius: 8px;">
+              <h5 style="margin: 0 0 8px; font-size: 13px; color: var(--admin-text-muted);">Hotel bookings</h5>
+              ${renderServiceBookingsTable(hotelBookings, 'hotels')}
+            </div>
+          </div>
         </section>
 
         <section class="user-detail-card user-detail-card--full">
@@ -12014,6 +12656,40 @@ function initEventListeners() {
   const btnAffiliateCreatePayout = document.getElementById('btnAffiliateCreatePayout');
   if (btnAffiliateCreatePayout) {
     btnAffiliateCreatePayout.addEventListener('click', () => createAffiliatePayout());
+  }
+
+  const btnRefreshAffiliateLedger = document.getElementById('btnRefreshAffiliateLedger');
+  if (btnRefreshAffiliateLedger) {
+    btnRefreshAffiliateLedger.addEventListener('click', () => loadAffiliateLedgerAdminData(true));
+  }
+  const affiliateLedgerPartnerSelect = document.getElementById('affiliateLedgerPartnerSelect');
+  if (affiliateLedgerPartnerSelect) {
+    affiliateLedgerPartnerSelect.addEventListener('change', () => refreshAffiliateLedgerPartnerData({ force: true }));
+  }
+  const btnAffiliateLedgerViewBalance = document.getElementById('btnAffiliateLedgerViewBalance');
+  if (btnAffiliateLedgerViewBalance) {
+    btnAffiliateLedgerViewBalance.addEventListener('click', () => {
+      const payoutSelect = document.getElementById('affiliatePayoutPartnerSelect');
+      const ledgerSelect = document.getElementById('affiliateLedgerPartnerSelect');
+      const ledgerPartnerId = String(ledgerSelect?.value || '').trim();
+      if (payoutSelect && ledgerPartnerId) {
+        payoutSelect.value = ledgerPartnerId;
+      }
+      refreshAffiliatePayoutPartnerData({ force: true });
+    });
+  }
+
+  const btnRefreshAffiliateUnattributed = document.getElementById('btnRefreshAffiliateUnattributed');
+  if (btnRefreshAffiliateUnattributed) {
+    btnRefreshAffiliateUnattributed.addEventListener('click', () => loadAffiliateUnattributedDepositsAdminData(true));
+  }
+  const btnClearAffiliateAttribution = document.getElementById('btnClearAffiliateAttribution');
+  if (btnClearAffiliateAttribution) {
+    btnClearAffiliateAttribution.addEventListener('click', () => clearAffiliateAttributionForm());
+  }
+  const btnApplyAffiliateAttribution = document.getElementById('btnApplyAffiliateAttribution');
+  if (btnApplyAffiliateAttribution) {
+    btnApplyAffiliateAttribution.addEventListener('click', () => applyAffiliateAttributionFromForm());
   }
 
   const btnRefreshDepositSettings = document.getElementById('btnRefreshDepositSettings');

@@ -3425,6 +3425,100 @@
               </div>
             </div>
           </div>
+
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h3>Affiliate earnings (events)</h3>
+                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Ledger of commission events used to calculate payouts.</p>
+              </div>
+              <button class="btn-secondary" id="btnRefreshAffiliateLedger" type="button">🔄 Refresh</button>
+            </div>
+            <div class="admin-card-body">
+              <div class="admin-form-grid" style="grid-template-columns: 1fr 1fr; gap: 10px; align-items: end;">
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Partner</span>
+                  <select id="affiliateLedgerPartnerSelect" class="form-control"></select>
+                </label>
+                <div style="display:flex; justify-content:flex-end; gap: 8px;">
+                  <button class="btn-secondary" id="btnAffiliateLedgerViewBalance" type="button">📊 Balance</button>
+                </div>
+              </div>
+
+              <div class="admin-table-container" style="margin-top: 12px;">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Paid at</th>
+                      <th>Level</th>
+                      <th>Referrer</th>
+                      <th>Referred</th>
+                      <th>Type</th>
+                      <th style="text-align:right;">Deposit</th>
+                      <th style="text-align:right;">Commission</th>
+                      <th>Status</th>
+                      <th style="text-align:right;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="affiliateLedgerTableBody">
+                    <tr><td colspan="9" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h3>Unattributed deposits</h3>
+                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Paid deposits that did not generate affiliate commission events.</p>
+              </div>
+              <button class="btn-secondary" id="btnRefreshAffiliateUnattributed" type="button">🔄 Refresh</button>
+            </div>
+            <div class="admin-card-body">
+              <div class="admin-form-grid" style="grid-template-columns: 1fr 1fr 1fr 1fr 220px; gap: 10px; align-items: end;">
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Deposit request ID</span>
+                  <input id="affiliateAttributionDepositId" type="text" class="form-control" placeholder="UUID" />
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Force payer user ID (optional)</span>
+                  <input id="affiliateAttributionPayerUserId" type="text" class="form-control" placeholder="UUID" />
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Force referrer user ID (optional)</span>
+                  <input id="affiliateAttributionReferrerUserId" type="text" class="form-control" placeholder="UUID" />
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Force partner ID (optional)</span>
+                  <input id="affiliateAttributionPartnerId" type="text" class="form-control" placeholder="UUID" />
+                </label>
+                <div style="display:flex; justify-content:flex-end; gap: 8px;">
+                  <button class="btn-secondary" id="btnClearAffiliateAttribution" type="button">Clear</button>
+                  <button class="btn btn-primary" id="btnApplyAffiliateAttribution" type="button">✅ Apply</button>
+                </div>
+              </div>
+
+              <div class="admin-table-container" style="margin-top: 12px;">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Paid at</th>
+                      <th>Type</th>
+                      <th>Booking</th>
+                      <th>Customer</th>
+                      <th style="text-align:right;">Amount</th>
+                      <th style="text-align:right;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="affiliateUnattributedTableBody">
+                    <tr><td colspan="6" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

@@ -1553,7 +1553,14 @@ $('#form-register')?.addEventListener('submit', async (event) => {
         try {
           const referralCode = getStoredReferralCode();
           if (referralCode) {
-            await processReferralAfterRegistration(data.user.id);
+            try {
+              const { data: sessionData } = await sb.auth.getSession();
+              const sessionUserId = sessionData?.session?.user?.id;
+              if (sessionUserId) {
+                await processReferralAfterRegistration(data.user.id);
+              }
+            } catch (_e) {
+            }
           }
         } catch (referralError) {
           console.warn('Nie udało się przetworzyć polecenia:', referralError);
