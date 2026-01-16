@@ -401,6 +401,34 @@ function showElement(element) {
   }
 }
 
+function isSchemaCacheError(err) {
+  const code = String(err?.code || '');
+  const msg = String(err?.message || '');
+  return code.startsWith('PGRST') && /schema cache/i.test(msg);
+}
+
+function isMissingColumnError(err, columnName) {
+  const code = String(err?.code || '');
+  const msg = String(err?.message || '');
+  const col = String(columnName || '').trim();
+  if (!col) return false;
+  return (
+    code === '42703'
+    || (code.startsWith('PGRST') && /column/i.test(msg))
+    || /column .* does not exist/i.test(msg)
+    || /Could not find the '.*' column/i.test(msg)
+  ) && msg.toLowerCase().includes(col.toLowerCase());
+}
+
+function stripAffiliatePartnerPayload(payload) {
+  const next = { ...(payload || {}) };
+  delete next.affiliate_enabled;
+  delete next.affiliate_level1_bps_override;
+  delete next.affiliate_level2_bps_override;
+  delete next.affiliate_level3_bps_override;
+  return next;
+}
+
 const partnersState = {
   partners: [],
   partnersById: {},
@@ -1205,6 +1233,14 @@ async function loadPartnersData() {
     }
 
     renderPartnersTable();
+
+    try {
+      fillAffiliatePayoutPartnerSelect();
+      if (String(partnersUiState.activeTab || '') === 'affiliate') {
+        loadAffiliatePayoutAdminData(true);
+      }
+    } catch (_e) {
+    }
   } catch (error) {
     console.error('Failed to load partners:', error);
     const tbodyErr = document.getElementById('partnersTableBody');
@@ -1750,6 +1786,7 @@ async function loadPartnersAffiliateAdminData(force = false) {
   await Promise.all([
     loadAffiliateSettings(),
     loadAffiliateOverrides(),
+    loadAffiliatePayoutAdminData(),
   ]);
 }
 
@@ -1789,7 +1826,11 @@ async function loadAffiliateSettings() {
     if (thr) thr.value = data?.payout_threshold ?? '';
   } catch (e) {
     console.error('Failed to load affiliate settings:', e);
-    showToast(e.message || 'Failed to load affiliate settings', 'error');
+    if (isSchemaCacheError(e)) {
+      showToast('Affiliate settings table not available yet (apply migration 068_affiliate_referral_earnings.sql and refresh).', 'error');
+    } else {
+      showToast(e.message || 'Failed to load affiliate settings', 'error');
+    }
   }
 }
 
@@ -1836,7 +1877,11 @@ async function saveAffiliateSettings() {
     await loadAffiliateSettings();
   } catch (e) {
     console.error('Failed to save affiliate settings:', e);
-    showToast(e.message || 'Failed to save affiliate settings', 'error');
+    if (isSchemaCacheError(e)) {
+      showToast('Affiliate settings table not available yet (apply migration 068_affiliate_referral_earnings.sql and refresh).', 'error');
+    } else {
+      showToast(e.message || 'Failed to save affiliate settings', 'error');
+    }
   }
 }
 
@@ -1856,7 +1901,11 @@ async function loadAffiliateOverrides() {
     renderAffiliateOverridesTable();
   } catch (e) {
     console.error('Failed to load affiliate overrides:', e);
-    showToast(e.message || 'Failed to load affiliate overrides', 'error');
+    if (isSchemaCacheError(e)) {
+      showToast('Affiliate overrides table not available yet (apply migration 068_affiliate_referral_earnings.sql and refresh).', 'error');
+    } else {
+      showToast(e.message || 'Failed to load affiliate overrides', 'error');
+    }
   }
 }
 
@@ -1973,6 +2022,177 @@ window.editAffiliateOverride = (userId) => {
 };
 
 window.deleteAffiliateOverride = (userId) => deleteAffiliateOverrideByUserId(userId);
+
+function fillAffiliatePayoutPartnerSelect() {
+  const select = document.getElementById('affiliatePayoutPartnerSelect');
+  if (!select) return;
+
+  const current = String(select.value || '').trim();
+  const partners = Array.isArray(partnersState.partners) ? partnersState.partners : [];
+  const rows = partners.slice().sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')));
+
+  select.innerHTML = `<option value="">—</option>${rows.map(p => `<option value="${escapeHtml(String(p.id))}">${escapeHtml(String(p.name || p.slug || String(p.id).slice(0, 8)))}</option>`).join('')}`;
+  if (current) select.value = current;
+}
+
+async function loadAffiliatePayoutAdminData(force = false) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const select = document.getElementById('affiliatePayoutPartnerSelect');
+  const balanceEl = document.getElementById('affiliatePayoutBalance');
+  const tbody = document.getElementById('affiliatePayoutsTableBody');
+  if (!select || !balanceEl || !tbody) return;
+
+  fillAffiliatePayoutPartnerSelect();
+  if (!String(select.value || '').trim()) {
+    const first = (Array.isArray(partnersState.partners) ? partnersState.partners : [])[0];
+    if (first?.id) select.value = String(first.id);
+  }
+
+  await refreshAffiliatePayoutPartnerData({ force });
+}
+
+async function refreshAffiliatePayoutPartnerData({ force = false } = {}) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const select = document.getElementById('affiliatePayoutPartnerSelect');
+  const balanceEl = document.getElementById('affiliatePayoutBalance');
+  const tbody = document.getElementById('affiliatePayoutsTableBody');
+  if (!select || !balanceEl || !tbody) return;
+
+  const partnerId = String(select.value || '').trim();
+  if (!partnerId) {
+    balanceEl.textContent = '—';
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 18px;">Loading…</td></tr>';
+  balanceEl.textContent = 'Loading…';
+
+  try {
+    const [{ data: balanceData, error: balanceErr }, { data: payoutsData, error: payoutsErr }] = await Promise.all([
+      client.rpc('affiliate_get_partner_balance', { p_partner_id: partnerId }),
+      client
+        .from('affiliate_payouts')
+        .select('id, amount, currency, status, created_at, paid_at')
+        .eq('partner_id', partnerId)
+        .order('created_at', { ascending: false })
+        .limit(50),
+    ]);
+
+    if (balanceErr) throw balanceErr;
+    if (payoutsErr) throw payoutsErr;
+
+    const row = Array.isArray(balanceData) ? balanceData[0] : balanceData;
+    const unpaid = row?.unpaid_total ?? 0;
+    const paid = row?.paid_total ?? 0;
+    const thr = row?.payout_threshold ?? 0;
+    const cur = row?.currency || 'EUR';
+
+    balanceEl.textContent = `Unpaid: ${formatMoney(unpaid, cur)} · Paid: ${formatMoney(paid, cur)} · Threshold: ${formatMoney(thr, cur)}`;
+    renderAffiliatePayoutsTable(Array.isArray(payoutsData) ? payoutsData : []);
+  } catch (e) {
+    console.error('Failed to load affiliate payouts:', e);
+    balanceEl.textContent = '—';
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 18px; color:#ef4444;">${escapeHtml(e.message || 'Failed to load')}</td></tr>`;
+  }
+}
+
+function renderAffiliatePayoutsTable(rows) {
+  const tbody = document.getElementById('affiliatePayoutsTableBody');
+  if (!tbody) return;
+
+  const data = Array.isArray(rows) ? rows : [];
+  if (!data.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">No payouts</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = data.map((r) => {
+    const id = escapeHtml(String(r.id || ''));
+    const created = r.created_at ? escapeHtml(formatDateTimeValue(r.created_at)) : '—';
+    const paidAt = r.paid_at ? escapeHtml(formatDateTimeValue(r.paid_at)) : '—';
+    const cur = String(r.currency || 'EUR');
+    const amt = formatMoney(r.amount, cur);
+    const status = escapeHtml(String(r.status || ''));
+    const canMarkPaid = String(r.status || '') === 'pending';
+
+    const actions = canMarkPaid
+      ? `<button class="btn-small btn-success" type="button" onclick="markAffiliatePayoutPaid('${id}')">Mark paid</button>`
+      : '<span class="muted">—</span>';
+
+    return `
+      <tr>
+        <td>${created}</td>
+        <td style="text-align:right;">${escapeHtml(amt)}</td>
+        <td>${status || '—'}</td>
+        <td>${paidAt}</td>
+        <td style="text-align:right;">${actions}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function createAffiliatePayout() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const select = document.getElementById('affiliatePayoutPartnerSelect');
+  const markPaid = Boolean(document.getElementById('affiliatePayoutMarkPaid')?.checked);
+  const partnerId = String(select?.value || '').trim();
+  if (!partnerId) {
+    showToast('Select partner first', 'error');
+    return;
+  }
+
+  const ok = confirm(markPaid ? 'Create payout and mark as paid?' : 'Create payout?');
+  if (!ok) return;
+
+  try {
+    const { data, error } = await client.rpc('affiliate_admin_create_payout', {
+      p_partner_id: partnerId,
+      p_mark_paid: markPaid,
+    });
+    if (error) throw error;
+    if (!data) throw new Error('Failed to create payout');
+    showToast('Payout created', 'success');
+    await refreshAffiliatePayoutPartnerData({ force: true });
+  } catch (e) {
+    console.error('Failed to create payout:', e);
+    const msg = String(e?.message || '');
+    if (/threshold_not_met/i.test(msg)) {
+      showToast('Threshold not met yet', 'error');
+    } else {
+      showToast(e.message || 'Failed to create payout', 'error');
+    }
+  }
+}
+
+async function markAffiliatePayoutPaid(payoutId) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const id = String(payoutId || '').trim();
+  if (!id) return;
+
+  const ok = confirm('Mark this payout as paid?');
+  if (!ok) return;
+
+  try {
+    const { error } = await client.rpc('affiliate_admin_mark_payout_paid', { p_payout_id: id });
+    if (error) throw error;
+    showToast('Payout marked as paid', 'success');
+    await refreshAffiliatePayoutPartnerData({ force: true });
+  } catch (e) {
+    console.error('Failed to mark payout paid:', e);
+    showToast(e.message || 'Failed to mark payout paid', 'error');
+  }
+}
+
+window.markAffiliatePayoutPaid = (payoutId) => markAffiliatePayoutPaid(payoutId);
 
 async function loadPartnersDepositAdminData(force = false) {
   const client = ensureSupabase();
@@ -2610,18 +2830,39 @@ async function openPartnerForm(partnerId = null) {
     let partner = null;
     let error = null;
 
+    const selectFull = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts, cars_locations, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override';
+    const selectNoCars = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override';
+    const selectBase = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts, cars_locations';
+    const selectBaseNoCars = 'id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts';
+
     ({ data: partner, error } = await client
       .from('partners')
-      .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts, cars_locations, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override')
+      .select(selectFull)
       .eq('id', partnerId)
       .single());
 
     if (error && /cars_locations/i.test(String(error.message || ''))) {
       ({ data: partner, error } = await client
         .from('partners')
-        .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override')
+        .select(selectNoCars)
         .eq('id', partnerId)
         .single());
+    }
+
+    if (error && (/affiliate_/i.test(String(error.message || '')) || isMissingColumnError(error, 'affiliate_enabled'))) {
+      ({ data: partner, error } = await client
+        .from('partners')
+        .select(selectBase)
+        .eq('id', partnerId)
+        .single());
+
+      if (error && /cars_locations/i.test(String(error.message || ''))) {
+        ({ data: partner, error } = await client
+          .from('partners')
+          .select(selectBaseNoCars)
+          .eq('id', partnerId)
+          .single());
+      }
     }
 
     if (error) {
@@ -2715,11 +2956,19 @@ async function savePartnerFromForm() {
 
   try {
     if (partnerId) {
-      const { error } = await client.from('partners').update(payload).eq('id', partnerId);
+      let { error } = await client.from('partners').update(payload).eq('id', partnerId);
+      if (error && (/affiliate_/i.test(String(error.message || '')) || isMissingColumnError(error, 'affiliate_enabled'))) {
+        const fallbackPayload = stripAffiliatePartnerPayload(payload);
+        ({ error } = await client.from('partners').update(fallbackPayload).eq('id', partnerId));
+      }
       if (error) throw error;
       showToast('Partner updated', 'success');
     } else {
-      const { data: inserted, error } = await client.from('partners').insert(payload).select('id').single();
+      let { data: inserted, error } = await client.from('partners').insert(payload).select('id').single();
+      if (error && (/affiliate_/i.test(String(error.message || '')) || isMissingColumnError(error, 'affiliate_enabled'))) {
+        const fallbackPayload = stripAffiliatePartnerPayload(payload);
+        ({ data: inserted, error } = await client.from('partners').insert(fallbackPayload).select('id').single());
+      }
       if (error) throw error;
       if (inserted?.id) {
         const hidden = document.getElementById('partnerFormId');
@@ -11752,6 +12001,19 @@ function initEventListeners() {
   const btnSaveAffiliateOverride = document.getElementById('btnSaveAffiliateOverride');
   if (btnSaveAffiliateOverride) {
     btnSaveAffiliateOverride.addEventListener('click', () => saveAffiliateOverride());
+  }
+
+  const btnRefreshAffiliatePayouts = document.getElementById('btnRefreshAffiliatePayouts');
+  if (btnRefreshAffiliatePayouts) {
+    btnRefreshAffiliatePayouts.addEventListener('click', () => loadAffiliatePayoutAdminData(true));
+  }
+  const affiliatePayoutPartnerSelect = document.getElementById('affiliatePayoutPartnerSelect');
+  if (affiliatePayoutPartnerSelect) {
+    affiliatePayoutPartnerSelect.addEventListener('change', () => refreshAffiliatePayoutPartnerData({ force: true }));
+  }
+  const btnAffiliateCreatePayout = document.getElementById('btnAffiliateCreatePayout');
+  if (btnAffiliateCreatePayout) {
+    btnAffiliateCreatePayout.addEventListener('click', () => createAffiliatePayout());
   }
 
   const btnRefreshDepositSettings = document.getElementById('btnRefreshDepositSettings');

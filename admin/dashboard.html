@@ -3381,6 +3381,50 @@
               </div>
             </div>
           </div>
+
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h3>Affiliate payouts</h3>
+                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Review balances and create/mark payouts for partners.</p>
+              </div>
+              <button class="btn-secondary" id="btnRefreshAffiliatePayouts" type="button">🔄 Refresh</button>
+            </div>
+            <div class="admin-card-body">
+              <div class="admin-form-grid" style="grid-template-columns: 1fr 180px 220px; gap: 10px; align-items: end;">
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Partner</span>
+                  <select id="affiliatePayoutPartnerSelect" class="form-control"></select>
+                </label>
+                <label style="display:flex; align-items:center; gap: 10px; cursor: pointer; justify-content:flex-start; padding-bottom: 10px;">
+                  <input type="checkbox" id="affiliatePayoutMarkPaid" style="width: 18px; height: 18px;">
+                  <span style="font-size: 13px;">Mark paid immediately</span>
+                </label>
+                <div style="display:flex; justify-content:flex-end; gap: 8px;">
+                  <button class="btn btn-primary" id="btnAffiliateCreatePayout" type="button">💸 Create payout</button>
+                </div>
+              </div>
+
+              <div id="affiliatePayoutBalance" style="margin-top: 10px; color: var(--admin-text-muted); font-size: 13px;">—</div>
+
+              <div class="admin-table-container" style="margin-top: 12px;">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Created</th>
+                      <th style="text-align:right;">Amount</th>
+                      <th>Status</th>
+                      <th>Paid at</th>
+                      <th style="text-align:right;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="affiliatePayoutsTableBody">
+                    <tr><td colspan="5" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 
