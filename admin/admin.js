@@ -414,11 +414,14 @@ const partnersState = {
 const partnersUiState = {
   activeTab: 'list',
   depositLoadedOnce: false,
+  affiliateLoadedOnce: false,
   depositOverrideSearchTimer: null,
   depositOverrideSearchResults: [],
   depositOverrides: [],
   depositOverrideLabels: {},
   depositRequests: [],
+  affiliateSettings: null,
+  affiliateOverrides: [],
 };
 
 let adminPartnerAuditChannel = null;
@@ -1713,6 +1716,7 @@ function setPartnersActiveTab(tabName) {
 
   const listEl = document.getElementById('partnersTabList');
   const emailsEl = document.getElementById('partnersTabEmails');
+  const affiliateEl = document.getElementById('partnersTabAffiliate');
 
   if (listEl) {
     listEl.hidden = next !== 'list';
@@ -1722,11 +1726,253 @@ function setPartnersActiveTab(tabName) {
     emailsEl.hidden = next !== 'emails';
     emailsEl.classList.toggle('active', next === 'emails');
   }
+  if (affiliateEl) {
+    affiliateEl.hidden = next !== 'affiliate';
+    affiliateEl.classList.toggle('active', next === 'affiliate');
+  }
 
   if (next === 'emails') {
     loadPartnersDepositAdminData();
   }
+
+  if (next === 'affiliate') {
+    loadPartnersAffiliateAdminData();
+  }
 }
+
+async function loadPartnersAffiliateAdminData(force = false) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  if (partnersUiState.affiliateLoadedOnce && !force) return;
+  partnersUiState.affiliateLoadedOnce = true;
+
+  await Promise.all([
+    loadAffiliateSettings(),
+    loadAffiliateOverrides(),
+  ]);
+}
+
+function bpsToPercent(bps) {
+  const n = Number(bps);
+  if (!Number.isFinite(n)) return '';
+  return (n / 100).toFixed(2);
+}
+
+function percentToBps(percent) {
+  const n = Number(percent);
+  if (!Number.isFinite(n)) return null;
+  return Math.round(n * 100);
+}
+
+async function loadAffiliateSettings() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { data, error } = await client
+      .from('affiliate_program_settings')
+      .select('id, level1_bps_default, level2_bps_default, level3_bps_default, payout_threshold, currency')
+      .eq('id', 1)
+      .maybeSingle();
+    if (error) throw error;
+
+    partnersUiState.affiliateSettings = data || null;
+
+    const l1 = document.getElementById('affiliateLevel1Percent');
+    const l2 = document.getElementById('affiliateLevel2Percent');
+    const l3 = document.getElementById('affiliateLevel3Percent');
+    const thr = document.getElementById('affiliatePayoutThreshold');
+    if (l1) l1.value = data ? bpsToPercent(data.level1_bps_default) : '';
+    if (l2) l2.value = data ? bpsToPercent(data.level2_bps_default) : '';
+    if (l3) l3.value = data ? bpsToPercent(data.level3_bps_default) : '';
+    if (thr) thr.value = data?.payout_threshold ?? '';
+  } catch (e) {
+    console.error('Failed to load affiliate settings:', e);
+    showToast(e.message || 'Failed to load affiliate settings', 'error');
+  }
+}
+
+async function saveAffiliateSettings() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const l1 = document.getElementById('affiliateLevel1Percent');
+  const l2 = document.getElementById('affiliateLevel2Percent');
+  const l3 = document.getElementById('affiliateLevel3Percent');
+  const thr = document.getElementById('affiliatePayoutThreshold');
+
+  try {
+    const existing = partnersUiState.affiliateSettings || null;
+    const rawL1 = String(l1?.value ?? '').trim();
+    const rawL2 = String(l2?.value ?? '').trim();
+    const rawL3 = String(l3?.value ?? '').trim();
+    const rawThr = String(thr?.value ?? '').trim();
+
+    const level1Bps = rawL1 ? percentToBps(rawL1) : null;
+    const level2Bps = rawL2 ? percentToBps(rawL2) : null;
+    const level3Bps = rawL3 ? percentToBps(rawL3) : null;
+
+    if (rawL1 && level1Bps == null) throw new Error('Invalid Level 1 %');
+    if (rawL2 && level2Bps == null) throw new Error('Invalid Level 2 %');
+    if (rawL3 && level3Bps == null) throw new Error('Invalid Level 3 %');
+
+    const payoutThreshold = rawThr ? Number(rawThr) : null;
+    if (rawThr && !Number.isFinite(payoutThreshold)) throw new Error('Invalid payout threshold');
+
+    const payload = {
+      id: 1,
+      level1_bps_default: rawL1 ? level1Bps : (existing?.level1_bps_default ?? 500),
+      level2_bps_default: rawL2 ? level2Bps : (existing?.level2_bps_default ?? 100),
+      level3_bps_default: rawL3 ? level3Bps : (existing?.level3_bps_default ?? 50),
+      payout_threshold: rawThr ? payoutThreshold : (existing?.payout_threshold ?? 70),
+    };
+
+    const { error } = await client
+      .from('affiliate_program_settings')
+      .upsert(payload, { onConflict: 'id' });
+    if (error) throw error;
+    showToast('Saved affiliate settings', 'success');
+    await loadAffiliateSettings();
+  } catch (e) {
+    console.error('Failed to save affiliate settings:', e);
+    showToast(e.message || 'Failed to save affiliate settings', 'error');
+  }
+}
+
+async function loadAffiliateOverrides() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { data, error } = await client
+      .from('affiliate_referrer_overrides')
+      .select('referrer_user_id, level1_bps_override, level2_bps_override, level3_bps_override, updated_at')
+      .order('updated_at', { ascending: false })
+      .limit(200);
+    if (error) throw error;
+
+    partnersUiState.affiliateOverrides = Array.isArray(data) ? data : [];
+    renderAffiliateOverridesTable();
+  } catch (e) {
+    console.error('Failed to load affiliate overrides:', e);
+    showToast(e.message || 'Failed to load affiliate overrides', 'error');
+  }
+}
+
+function renderAffiliateOverridesTable() {
+  const tbody = document.getElementById('affiliateOverridesTableBody');
+  if (!tbody) return;
+
+  const rows = Array.isArray(partnersUiState.affiliateOverrides) ? partnersUiState.affiliateOverrides : [];
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">No overrides</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = rows.map((r) => {
+    const uid = escapeHtml(String(r.referrer_user_id || ''));
+    const l1 = r.level1_bps_override == null ? '—' : `${bpsToPercent(r.level1_bps_override)}%`;
+    const l2 = r.level2_bps_override == null ? '—' : `${bpsToPercent(r.level2_bps_override)}%`;
+    const l3 = r.level3_bps_override == null ? '—' : `${bpsToPercent(r.level3_bps_override)}%`;
+    return `
+      <tr>
+        <td><code>${uid}</code></td>
+        <td style="text-align:right;">${escapeHtml(String(l1))}</td>
+        <td style="text-align:right;">${escapeHtml(String(l2))}</td>
+        <td style="text-align:right;">${escapeHtml(String(l3))}</td>
+        <td style="text-align:right;">
+          <div class="btn-row" style="justify-content:flex-end;">
+            <button class="btn-small btn-secondary" onclick="editAffiliateOverride('${uid}')">Edit</button>
+            <button class="btn-small btn-danger" onclick="deleteAffiliateOverride('${uid}')">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function clearAffiliateOverrideForm() {
+  const userId = document.getElementById('affiliateOverrideUserId');
+  const l1 = document.getElementById('affiliateOverrideL1');
+  const l2 = document.getElementById('affiliateOverrideL2');
+  const l3 = document.getElementById('affiliateOverrideL3');
+  if (userId) userId.value = '';
+  if (l1) l1.value = '';
+  if (l2) l2.value = '';
+  if (l3) l3.value = '';
+}
+
+async function saveAffiliateOverride() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const userId = String(document.getElementById('affiliateOverrideUserId')?.value || '').trim();
+  if (!userId) {
+    showToast('Referrer user ID is required', 'error');
+    return;
+  }
+
+  const l1 = document.getElementById('affiliateOverrideL1');
+  const l2 = document.getElementById('affiliateOverrideL2');
+  const l3 = document.getElementById('affiliateOverrideL3');
+
+  const payload = {
+    referrer_user_id: userId,
+    level1_bps_override: l1?.value ? percentToBps(l1.value) : null,
+    level2_bps_override: l2?.value ? percentToBps(l2.value) : null,
+    level3_bps_override: l3?.value ? percentToBps(l3.value) : null,
+  };
+
+  try {
+    const { error } = await client
+      .from('affiliate_referrer_overrides')
+      .upsert(payload, { onConflict: 'referrer_user_id' });
+    if (error) throw error;
+    showToast('Saved override', 'success');
+    clearAffiliateOverrideForm();
+    await loadAffiliateOverrides();
+  } catch (e) {
+    console.error('Failed to save override:', e);
+    showToast(e.message || 'Failed to save override', 'error');
+  }
+}
+
+async function deleteAffiliateOverrideByUserId(userId) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const ok = confirm('Delete this override?');
+  if (!ok) return;
+
+  try {
+    const { error } = await client
+      .from('affiliate_referrer_overrides')
+      .delete()
+      .eq('referrer_user_id', userId);
+    if (error) throw error;
+    showToast('Override deleted', 'success');
+    await loadAffiliateOverrides();
+  } catch (e) {
+    console.error('Failed to delete override:', e);
+    showToast(e.message || 'Failed to delete override', 'error');
+  }
+}
+
+window.editAffiliateOverride = (userId) => {
+  const row = (partnersUiState.affiliateOverrides || []).find(r => String(r.referrer_user_id) === String(userId));
+  if (!row) return;
+  const uid = document.getElementById('affiliateOverrideUserId');
+  const l1 = document.getElementById('affiliateOverrideL1');
+  const l2 = document.getElementById('affiliateOverrideL2');
+  const l3 = document.getElementById('affiliateOverrideL3');
+  if (uid) uid.value = row.referrer_user_id || '';
+  if (l1) l1.value = row.level1_bps_override == null ? '' : bpsToPercent(row.level1_bps_override);
+  if (l2) l2.value = row.level2_bps_override == null ? '' : bpsToPercent(row.level2_bps_override);
+  if (l3) l3.value = row.level3_bps_override == null ? '' : bpsToPercent(row.level3_bps_override);
+};
+
+window.deleteAffiliateOverride = (userId) => deleteAffiliateOverrideByUserId(userId);
 
 async function loadPartnersDepositAdminData(force = false) {
   const client = ensureSupabase();
@@ -2366,14 +2612,14 @@ async function openPartnerForm(partnerId = null) {
 
     ({ data: partner, error } = await client
       .from('partners')
-      .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts, cars_locations')
+      .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts, cars_locations, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override')
       .eq('id', partnerId)
       .single());
 
     if (error && /cars_locations/i.test(String(error.message || ''))) {
       ({ data: partner, error } = await client
         .from('partners')
-        .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts')
+        .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, can_create_offers, can_view_stats, can_view_payouts, affiliate_enabled, affiliate_level1_bps_override, affiliate_level2_bps_override, affiliate_level3_bps_override')
         .eq('id', partnerId)
         .single());
     }
@@ -2398,6 +2644,11 @@ async function openPartnerForm(partnerId = null) {
     setPartnerFormChecked('partnerFormCanViewPayouts', partner.can_view_payouts);
 
     setPartnerFormCarsLocations(partner.cars_locations);
+
+    setPartnerFormChecked('partnerFormAffiliateEnabled', partner.affiliate_enabled);
+    setPartnerFormValue('partnerFormAffiliateL1', partner.affiliate_level1_bps_override == null ? '' : bpsToPercent(partner.affiliate_level1_bps_override));
+    setPartnerFormValue('partnerFormAffiliateL2', partner.affiliate_level2_bps_override == null ? '' : bpsToPercent(partner.affiliate_level2_bps_override));
+    setPartnerFormValue('partnerFormAffiliateL3', partner.affiliate_level3_bps_override == null ? '' : bpsToPercent(partner.affiliate_level3_bps_override));
 
     partnerAssignmentsState.partnerId = partner.id;
     partnerAssignmentsState.partnerVendorId = partner.shop_vendor_id || null;
@@ -2456,6 +2707,10 @@ async function savePartnerFromForm() {
     can_view_stats: Boolean(document.getElementById('partnerFormCanViewStats')?.checked),
     can_view_payouts: Boolean(document.getElementById('partnerFormCanViewPayouts')?.checked),
     cars_locations: getPartnerFormCarsLocations(),
+    affiliate_enabled: Boolean(document.getElementById('partnerFormAffiliateEnabled')?.checked),
+    affiliate_level1_bps_override: document.getElementById('partnerFormAffiliateL1')?.value ? percentToBps(document.getElementById('partnerFormAffiliateL1').value) : null,
+    affiliate_level2_bps_override: document.getElementById('partnerFormAffiliateL2')?.value ? percentToBps(document.getElementById('partnerFormAffiliateL2').value) : null,
+    affiliate_level3_bps_override: document.getElementById('partnerFormAffiliateL3')?.value ? percentToBps(document.getElementById('partnerFormAffiliateL3').value) : null,
   };
 
   try {
@@ -11477,6 +11732,27 @@ function initEventListeners() {
       setPartnersActiveTab(tab);
     });
   });
+
+  const btnRefreshAffiliateSettings = document.getElementById('btnRefreshAffiliateSettings');
+  if (btnRefreshAffiliateSettings) {
+    btnRefreshAffiliateSettings.addEventListener('click', () => loadAffiliateSettings());
+  }
+  const btnSaveAffiliateSettings = document.getElementById('btnSaveAffiliateSettings');
+  if (btnSaveAffiliateSettings) {
+    btnSaveAffiliateSettings.addEventListener('click', () => saveAffiliateSettings());
+  }
+  const btnRefreshAffiliateOverrides = document.getElementById('btnRefreshAffiliateOverrides');
+  if (btnRefreshAffiliateOverrides) {
+    btnRefreshAffiliateOverrides.addEventListener('click', () => loadAffiliateOverrides());
+  }
+  const btnClearAffiliateOverride = document.getElementById('btnClearAffiliateOverride');
+  if (btnClearAffiliateOverride) {
+    btnClearAffiliateOverride.addEventListener('click', () => clearAffiliateOverrideForm());
+  }
+  const btnSaveAffiliateOverride = document.getElementById('btnSaveAffiliateOverride');
+  if (btnSaveAffiliateOverride) {
+    btnSaveAffiliateOverride.addEventListener('click', () => saveAffiliateOverride());
+  }
 
   const btnRefreshDepositSettings = document.getElementById('btnRefreshDepositSettings');
   if (btnRefreshDepositSettings) {

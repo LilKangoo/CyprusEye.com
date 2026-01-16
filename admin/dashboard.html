@@ -3022,6 +3022,7 @@
         <div class="admin-tabs" style="margin-top: 24px;">
           <button class="admin-tab active" data-partners-tab="list">👥 Partners</button>
           <button class="admin-tab" data-partners-tab="emails">📧 Emails</button>
+          <button class="admin-tab" data-partners-tab="affiliate">💸 Affiliate</button>
         </div>
 
         <div class="admin-tab-content active" id="partnersTabList">
@@ -3287,6 +3288,94 @@
                   </thead>
                   <tbody id="depositRequestsTableBody">
                     <tr><td colspan="9" style="text-align:center; padding: 24px; color: var(--admin-text-muted);">—</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="admin-tab-content" id="partnersTabAffiliate" hidden>
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h3>Affiliate program settings</h3>
+                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Default commission rates for referral levels (L1/L2/L3) and payout threshold</p>
+              </div>
+              <button class="btn-secondary" id="btnRefreshAffiliateSettings" type="button">🔄 Refresh</button>
+            </div>
+            <div class="admin-card-body">
+              <div class="admin-form-grid" style="grid-template-columns: 160px 160px 160px 160px 1fr; gap: 10px; align-items: end;">
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Level 1 %</span>
+                  <input id="affiliateLevel1Percent" type="number" step="0.01" min="0" class="form-control" />
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Level 2 %</span>
+                  <input id="affiliateLevel2Percent" type="number" step="0.01" min="0" class="form-control" />
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Level 3 %</span>
+                  <input id="affiliateLevel3Percent" type="number" step="0.01" min="0" class="form-control" />
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Payout threshold (€)</span>
+                  <input id="affiliatePayoutThreshold" type="number" step="0.01" min="0" class="form-control" />
+                </label>
+                <div style="display:flex; justify-content:flex-end;">
+                  <button class="btn btn-primary" id="btnSaveAffiliateSettings" type="button">💾 Save</button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h3>Referrer promotions (overrides)</h3>
+                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Override commission % for a specific user (promotion). Applies per level.</p>
+              </div>
+              <button class="btn-secondary" id="btnRefreshAffiliateOverrides" type="button">🔄 Refresh</button>
+            </div>
+            <div class="admin-card-body">
+              <div class="admin-form-grid" style="grid-template-columns: 1fr 140px 140px 140px 1fr; gap: 10px; align-items: end;">
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Referrer user ID</span>
+                  <input id="affiliateOverrideUserId" type="text" class="form-control" placeholder="UUID" />
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>L1 %</span>
+                  <input id="affiliateOverrideL1" type="number" step="0.01" min="0" class="form-control" />
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>L2 %</span>
+                  <input id="affiliateOverrideL2" type="number" step="0.01" min="0" class="form-control" />
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>L3 %</span>
+                  <input id="affiliateOverrideL3" type="number" step="0.01" min="0" class="form-control" />
+                </label>
+                <div style="display:flex; justify-content:flex-end; gap: 8px;">
+                  <button class="btn-secondary" id="btnClearAffiliateOverride" type="button">Clear</button>
+                  <button class="btn btn-primary" id="btnSaveAffiliateOverride" type="button">💾 Save override</button>
+                </div>
+              </div>
+
+              <div style="height: 12px;"></div>
+
+              <div class="admin-table-container">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Referrer user</th>
+                      <th style="text-align:right;">L1 %</th>
+                      <th style="text-align:right;">L2 %</th>
+                      <th style="text-align:right;">L3 %</th>
+                      <th style="text-align:right;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="affiliateOverridesTableBody">
+                    <tr><td colspan="5" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -3648,6 +3737,28 @@
               <label class="admin-checkbox"><input type="checkbox" id="partnerFormCarsLocLarnaca" /><span>Larnaca</span></label>
             </div>
             <small style="color: var(--admin-text-muted);">Select 1 or 2 locations. Used to show car offers in Partner Portal.</small>
+          </div>
+
+          <div style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.08);">
+            <h4 style="margin: 0 0 10px; font-size: 13px; color: var(--admin-text-muted);">Affiliate (RefLink earnings)</h4>
+            <div class="admin-form-grid" style="grid-template-columns: repeat(2, 1fr); gap: 12px;">
+              <label class="admin-checkbox"><input type="checkbox" id="partnerFormAffiliateEnabled" /><span>Enable affiliate earnings</span></label>
+            </div>
+            <div style="height: 10px;"></div>
+            <div class="admin-form-grid" style="grid-template-columns: repeat(3, 1fr); gap: 12px;">
+              <label class="admin-form-field" style="margin: 0;">
+                <span>Level 1 % override</span>
+                <input id="partnerFormAffiliateL1" type="number" step="0.01" min="0" class="form-control" />
+              </label>
+              <label class="admin-form-field" style="margin: 0;">
+                <span>Level 2 % override</span>
+                <input id="partnerFormAffiliateL2" type="number" step="0.01" min="0" class="form-control" />
+              </label>
+              <label class="admin-form-field" style="margin: 0;">
+                <span>Level 3 % override</span>
+                <input id="partnerFormAffiliateL3" type="number" step="0.01" min="0" class="form-control" />
+              </label>
+            </div>
           </div>
 
           <div style="margin-top: 18px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.08);">
