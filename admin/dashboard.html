@@ -36,7 +36,7 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260117_1"></script>
+  <script type="module" src="/admin/admin.js?v=20260117_3"></script>
 </head>
 <body data-admin-panel="true">
   
@@ -3508,6 +3508,10 @@
                   <label class="admin-form-field" style="margin: 0;">
                     <span>Payer user override (only if customer email can’t be matched)</span>
                     <select id="affiliateAttributionPayerUserId" class="form-control"></select>
+                  </label>
+                  <label style="display:flex; align-items:center; gap: 10px; cursor: pointer; justify-content:flex-start; padding-bottom: 6px;">
+                    <input type="checkbox" id="affiliateAttributionReplaceExisting" style="width: 18px; height: 18px;">
+                    <span style="font-size: 13px;">Replace existing events (only if unpaid)</span>
                   </label>
                 </div>
               </details>

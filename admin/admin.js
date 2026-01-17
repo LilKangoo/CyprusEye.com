@@ -2282,6 +2282,24 @@ async function refreshAffiliateLedgerPartnerData({ force = false } = {}) {
     if (error) throw error;
 
     const rows = Array.isArray(events) ? events : [];
+    const payoutIds = Array.from(new Set(rows.map((r) => r?.payout_id).filter(Boolean).map(String)));
+    let payoutStatusById = {};
+    if (payoutIds.length) {
+      try {
+        const { data: payouts, error: payoutsErr } = await client
+          .from('affiliate_payouts')
+          .select('id, status')
+          .in('id', payoutIds)
+          .limit(5000);
+        if (!payoutsErr && Array.isArray(payouts)) {
+          payoutStatusById = payouts.reduce((acc, p) => {
+            acc[String(p.id)] = String(p.status || '');
+            return acc;
+          }, {});
+        }
+      } catch (_e) {
+      }
+    }
     const userIds = [...new Set(rows.flatMap((r) => [r.referrer_user_id, r.referred_user_id]).filter(Boolean).map(String))];
     let profilesById = {};
 
@@ -2298,19 +2316,20 @@ async function refreshAffiliateLedgerPartnerData({ force = false } = {}) {
       }
     }
 
-    renderAffiliateLedgerTable(rows, profilesById);
+    renderAffiliateLedgerTable(rows, profilesById, payoutStatusById);
   } catch (e) {
     console.error('Failed to load affiliate ledger:', e);
     tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 18px; color:#ef4444;">${escapeHtml(e.message || 'Failed to load')}</td></tr>`;
   }
 }
 
-function renderAffiliateLedgerTable(rows, profilesById) {
+function renderAffiliateLedgerTable(rows, profilesById, payoutStatusById) {
   const tbody = document.getElementById('affiliateLedgerTableBody');
   if (!tbody) return;
 
   const list = Array.isArray(rows) ? rows : [];
   const profiles = profilesById && typeof profilesById === 'object' ? profilesById : {};
+  const payoutStatuses = payoutStatusById && typeof payoutStatusById === 'object' ? payoutStatusById : {};
 
   if (!list.length) {
     tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">No events</td></tr>';
@@ -2357,7 +2376,11 @@ function renderAffiliateLedgerTable(rows, profilesById) {
       ? `<button class="btn-small btn-secondary" type="button" onclick="selectAffiliateAttributionDeposit('${depositId}')">Deposit</button>`
       : '';
 
-    const actions = [bookingAction, linkDeposit].filter(Boolean).join(' ');
+    const reassignAction = depositId
+      ? `<button class="btn-small btn-warning" type="button" onclick="startAffiliateReassign('${depositId}')">Reassign</button>`
+      : '';
+
+    const actions = [bookingAction, linkDeposit, reassignAction].filter(Boolean).join(' ');
     return actions || '<span class="muted">—</span>';
   };
 
@@ -2370,7 +2393,12 @@ function renderAffiliateLedgerTable(rows, profilesById) {
     const type = escapeHtml(String(r.resource_type || ''));
     const deposit = escapeHtml(fmtMoney(r.deposit_amount, r.currency || 'EUR'));
     const commission = escapeHtml(fmtMoney(r.commission_amount, r.currency || 'EUR'));
-    const status = r.payout_id ? 'paid' : 'unpaid';
+    let status = 'unpaid';
+    if (r.payout_id) {
+      const ps = payoutStatuses[String(r.payout_id)] || '';
+      if (ps === 'paid') status = 'paid';
+      else status = 'in_payout';
+    }
     const actions = renderActions(r);
 
     return `
@@ -2506,10 +2534,12 @@ function clearAffiliateAttributionForm() {
   const payerId = document.getElementById('affiliateAttributionPayerUserId');
   const refId = document.getElementById('affiliateAttributionReferrerUserId');
   const partnerId = document.getElementById('affiliateAttributionPartnerId');
+  const replace = document.getElementById('affiliateAttributionReplaceExisting');
   if (depId) depId.value = '';
   if (payerId) payerId.value = '';
   if (refId) refId.value = '';
   if (partnerId) partnerId.value = '';
+  if (replace) replace.checked = false;
 }
 
 async function applyAffiliateAttributionFromForm() {
@@ -2525,6 +2555,7 @@ async function applyAffiliateAttributionFromForm() {
   const payerUserId = String(document.getElementById('affiliateAttributionPayerUserId')?.value || '').trim() || null;
   let referrerUserId = String(document.getElementById('affiliateAttributionReferrerUserId')?.value || '').trim() || null;
   let partnerId = String(document.getElementById('affiliateAttributionPartnerId')?.value || '').trim() || null;
+  const replaceExisting = Boolean(document.getElementById('affiliateAttributionReplaceExisting')?.checked);
 
   if (!referrerUserId && partnerId) {
     const pool = partnersUiState.affiliateEligibleUsersByPartnerId?.[String(partnerId)] || [];
@@ -2539,11 +2570,18 @@ async function applyAffiliateAttributionFromForm() {
     return;
   }
 
-  const ok = confirm('Create missing affiliate commission events for this deposit?');
+  const ok = confirm(replaceExisting
+    ? 'Replace existing unpaid affiliate events for this deposit and recompute?'
+    : 'Create missing affiliate commission events for this deposit?'
+  );
   if (!ok) return;
 
   try {
-    const { data, error } = await client.rpc('affiliate_admin_recompute_commissions_for_deposit', {
+    const rpcName = replaceExisting
+      ? 'affiliate_admin_reset_commissions_for_deposit'
+      : 'affiliate_admin_recompute_commissions_for_deposit';
+
+    const { data, error } = await client.rpc(rpcName, {
       p_deposit_request_id: depId,
       p_force_referrer_user_id: referrerUserId,
       p_force_payer_user_id: payerUserId,
@@ -2551,10 +2589,23 @@ async function applyAffiliateAttributionFromForm() {
     });
     if (error) throw error;
 
-    if (data?.ok) {
-      showToast(`Affiliate attribution applied (inserted: ${data.inserted || 0})`, 'success');
+    if (replaceExisting) {
+      if (data?.ok) {
+        const inner = data?.result || {};
+        if (inner?.ok) {
+          showToast(`Affiliate attribution replaced (inserted: ${inner.inserted || 0})`, 'success');
+        } else {
+          showToast(`Attribution not applied: ${inner?.reason || 'unknown'}`, 'error');
+        }
+      } else {
+        showToast(`Reset not allowed: ${data?.reason || 'unknown'}`, 'error');
+      }
     } else {
-      showToast(`Attribution not applied: ${data?.reason || 'unknown'}`, 'error');
+      if (data?.ok) {
+        showToast(`Affiliate attribution applied (inserted: ${data.inserted || 0})`, 'success');
+      } else {
+        showToast(`Attribution not applied: ${data?.reason || 'unknown'}`, 'error');
+      }
     }
 
     await Promise.all([
@@ -2571,6 +2622,15 @@ async function applyAffiliateAttributionFromForm() {
 window.selectAffiliateAttributionDeposit = (depositId) => {
   const depId = document.getElementById('affiliateAttributionDepositId');
   if (depId) depId.value = String(depositId || '').trim();
+};
+
+window.startAffiliateReassign = (depositId) => {
+  const dep = String(depositId || '').trim();
+  if (!dep) return;
+  const depEl = document.getElementById('affiliateAttributionDepositId');
+  if (depEl) depEl.value = dep;
+  const replace = document.getElementById('affiliateAttributionReplaceExisting');
+  if (replace) replace.checked = true;
 };
 
 async function loadUserAffiliateReferralOptions(userId, currentReferredBy) {
@@ -2745,26 +2805,35 @@ async function refreshAffiliatePayoutPartnerData({ force = false } = {}) {
   balanceEl.textContent = 'Loading…';
 
   try {
-    const [{ data: balanceData, error: balanceErr }, { data: payoutsData, error: payoutsErr }] = await Promise.all([
-      client.rpc('affiliate_get_partner_balance', { p_partner_id: partnerId }),
-      client
-        .from('affiliate_payouts')
-        .select('id, partner_id, amount, currency, status, created_at, paid_at')
-        .eq('partner_id', partnerId)
-        .order('created_at', { ascending: false })
-        .limit(50),
-    ]);
+    const payoutsPromise = client
+      .from('affiliate_payouts')
+      .select('id, partner_id, amount, currency, status, created_at, paid_at')
+      .eq('partner_id', partnerId)
+      .order('created_at', { ascending: false })
+      .limit(50);
 
-    if (balanceErr) throw balanceErr;
+    let balanceData;
+    try {
+      const { data: bd, error: be } = await client.rpc('affiliate_get_partner_balance_v2', { p_partner_id: partnerId });
+      if (be) throw be;
+      balanceData = bd;
+    } catch (_e) {
+      const { data: bd, error: be } = await client.rpc('affiliate_get_partner_balance', { p_partner_id: partnerId });
+      if (be) throw be;
+      balanceData = bd;
+    }
+
+    const { data: payoutsData, error: payoutsErr } = await payoutsPromise;
     if (payoutsErr) throw payoutsErr;
 
     const row = Array.isArray(balanceData) ? balanceData[0] : balanceData;
     const unpaid = row?.unpaid_total ?? 0;
+    const pending = row?.pending_total ?? 0;
     const paid = row?.paid_total ?? 0;
     const thr = row?.payout_threshold ?? 0;
     const cur = row?.currency || 'EUR';
 
-    balanceEl.textContent = `Unpaid: ${formatMoney(unpaid, cur)} · Paid: ${formatMoney(paid, cur)} · Threshold: ${formatMoney(thr, cur)}`;
+    balanceEl.textContent = `Unpaid: ${formatMoney(unpaid, cur)} · In payout: ${formatMoney(pending, cur)} · Paid: ${formatMoney(paid, cur)} · Threshold: ${formatMoney(thr, cur)}`;
     renderAffiliatePayoutsTable(Array.isArray(payoutsData) ? payoutsData : []);
   } catch (e) {
     console.error('Failed to load affiliate payouts:', e);
@@ -2792,10 +2861,14 @@ function renderAffiliatePayoutsTable(rows) {
     const amt = formatMoney(r.amount, cur);
     const status = escapeHtml(String(r.status || ''));
     const canMarkPaid = String(r.status || '') === 'pending';
+    const canUndoPaid = String(r.status || '') === 'paid';
 
     const actions = canMarkPaid
       ? `<button class="btn-small btn-success" type="button" onclick="markAffiliatePayoutPaid('${id}')">Mark paid</button>`
-      : '<span class="muted">—</span>';
+      : (canUndoPaid
+        ? `<button class="btn-small btn-warning" type="button" onclick="unmarkAffiliatePayoutPaid('${id}')">Undo paid</button>`
+        : '<span class="muted">—</span>'
+      );
 
     return `
       <tr>
@@ -2866,7 +2939,33 @@ async function markAffiliatePayoutPaid(payoutId) {
   }
 }
 
+async function unmarkAffiliatePayoutPaid(payoutId) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const id = String(payoutId || '').trim();
+  if (!id) return;
+
+  const ok = confirm('Undo paid status for this payout?');
+  if (!ok) return;
+
+  try {
+    const { error } = await client.rpc('affiliate_admin_unmark_payout_paid', { p_payout_id: id });
+    if (error) throw error;
+    showToast('Payout set to pending', 'success');
+
+    await Promise.all([
+      refreshAffiliatePayoutPartnerData({ force: true }),
+      refreshAffiliateLedgerPartnerData({ force: true }),
+    ]);
+  } catch (e) {
+    console.error('Failed to undo payout paid:', e);
+    showToast(e.message || 'Failed to undo payout', 'error');
+  }
+}
+
 window.markAffiliatePayoutPaid = (payoutId) => markAffiliatePayoutPaid(payoutId);
+window.unmarkAffiliatePayoutPaid = (payoutId) => unmarkAffiliatePayoutPaid(payoutId);
 
 async function loadPartnersDepositAdminData(force = false) {
   const client = ensureSupabase();
@@ -8371,6 +8470,70 @@ async function loadRecentActivity() {
 // USERS MANAGEMENT
 // =====================================================
 
+async function getUsersPartnerAffiliateFlags(client, userIds) {
+  const flagsByUserId = {};
+  const ids = Array.isArray(userIds) ? userIds.filter(Boolean) : [];
+  ids.forEach((id) => {
+    flagsByUserId[id] = { is_partner: false, is_affiliate: false };
+  });
+
+  if (!client || ids.length === 0) return flagsByUserId;
+
+  let membershipsRes;
+  try {
+    membershipsRes = await client
+      .from('partner_users')
+      .select('user_id, partner_id')
+      .in('user_id', ids)
+      .limit(5000);
+  } catch (_e) {
+    return flagsByUserId;
+  }
+
+  if (membershipsRes?.error) {
+    return flagsByUserId;
+  }
+
+  const memberships = Array.isArray(membershipsRes.data) ? membershipsRes.data : [];
+  const partnerIds = Array.from(new Set(memberships.map((m) => m.partner_id).filter(Boolean)));
+
+  const partnersById = {};
+  if (partnerIds.length > 0) {
+    let partnersRes = await client
+      .from('partners')
+      .select('id, affiliate_enabled')
+      .in('id', partnerIds)
+      .limit(5000);
+
+    if (partnersRes.error && (isMissingColumnError(partnersRes.error, 'affiliate_enabled') || /affiliate_enabled/i.test(String(partnersRes.error.message || '')))) {
+      partnersRes = await client
+        .from('partners')
+        .select('id')
+        .in('id', partnerIds)
+        .limit(5000);
+    }
+
+    if (!partnersRes.error) {
+      (partnersRes.data || []).forEach((p) => {
+        partnersById[p.id] = p;
+      });
+    }
+  }
+
+  memberships.forEach((m) => {
+    const uid = m.user_id;
+    if (!uid) return;
+    if (!flagsByUserId[uid]) flagsByUserId[uid] = { is_partner: false, is_affiliate: false };
+    flagsByUserId[uid].is_partner = true;
+    const p = partnersById[m.partner_id];
+    if (p && p.affiliate_enabled === true) {
+      flagsByUserId[uid].is_affiliate = true;
+    }
+  });
+
+  return flagsByUserId;
+}
+
 async function loadUsersData(page = 1) {
   try {
     const client = ensureSupabase();
@@ -8399,11 +8562,19 @@ async function loadUsersData(page = 1) {
       return;
     }
 
-    tableBody.innerHTML = users.map(user => `
+    const flagsByUserId = await getUsersPartnerAffiliateFlags(client, users.map((u) => u.id));
+    const usersWithFlags = users.map((u) => ({
+      ...u,
+      ...(flagsByUserId[u.id] || { is_partner: false, is_affiliate: false }),
+    }));
+
+    tableBody.innerHTML = usersWithFlags.map(user => `
       <tr>
         <td>
           ${user.username || 'N/A'}
           ${user.is_admin ? '<span class="badge badge-admin">ADMIN</span>' : ''}
+          ${user.is_partner ? '<span class="badge badge-partner">PARTNER</span>' : ''}
+          ${user.is_affiliate ? '<span class="badge badge-affiliate">AFFILIATE</span>' : ''}
           ${!user.is_admin && user.is_moderator ? '<span class="badge">MODERATOR</span>' : ''}
         </td>
         <td>${user.email || 'N/A'}</td>
@@ -13784,11 +13955,20 @@ async function searchUsers(query) {
       return;
     }
 
-    tableBody.innerHTML = users.map(user => `
+    const flagsByUserId = await getUsersPartnerAffiliateFlags(client, users.map((u) => u.id));
+    const usersWithFlags = users.map((u) => ({
+      ...u,
+      ...(flagsByUserId[u.id] || { is_partner: false, is_affiliate: false }),
+    }));
+
+    tableBody.innerHTML = usersWithFlags.map(user => `
       <tr>
         <td>
           ${user.username || 'N/A'}
           ${user.is_admin ? '<span class="badge badge-admin">ADMIN</span>' : ''}
+          ${user.is_partner ? '<span class="badge badge-partner">PARTNER</span>' : ''}
+          ${user.is_affiliate ? '<span class="badge badge-affiliate">AFFILIATE</span>' : ''}
+          ${!user.is_admin && user.is_moderator ? '<span class="badge">MODERATOR</span>' : ''}
         </td>
         <td>${user.email || 'N/A'}</td>
         <td>${user.level || 0}</td>

@@ -124,7 +124,22 @@ CREATE TABLE IF NOT EXISTS car_bookings (
 );
 
 -- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_car_bookings_customer_email ON car_bookings(customer_email);
+DO $$
+BEGIN
+  ALTER TABLE public.car_bookings
+  ADD COLUMN IF NOT EXISTS customer_email text;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'car_bookings'
+      AND column_name = 'customer_email'
+  ) THEN
+    EXECUTE 'CREATE INDEX IF NOT EXISTS idx_car_bookings_customer_email ON public.car_bookings(customer_email)';
+  END IF;
+END;
+$$;
 CREATE INDEX IF NOT EXISTS idx_car_bookings_status ON car_bookings(status);
 CREATE INDEX IF NOT EXISTS idx_car_bookings_pickup_date ON car_bookings(pickup_date);
 CREATE INDEX IF NOT EXISTS idx_car_bookings_location ON car_bookings(pickup_location, return_location);
