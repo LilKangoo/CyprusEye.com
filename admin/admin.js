@@ -3794,10 +3794,16 @@ async function renderUserPartnerAccess(userId) {
   if (!client) return;
 
   try {
-    const [partnersRes, membershipsRes] = await Promise.all([
-      client.from('partners').select('id, name').order('name', { ascending: true }).limit(1000),
+    let partnersRes;
+    let membershipsRes;
+    [partnersRes, membershipsRes] = await Promise.all([
+      client.from('partners').select('id, name, affiliate_enabled').order('name', { ascending: true }).limit(1000),
       client.from('partner_users').select('id, partner_id, role, created_at').eq('user_id', userId).order('created_at', { ascending: false }).limit(500),
     ]);
+
+    if (partnersRes.error && (isMissingColumnError(partnersRes.error, 'affiliate_enabled') || /affiliate_enabled/i.test(String(partnersRes.error.message || '')))) {
+      partnersRes = await client.from('partners').select('id, name').order('name', { ascending: true }).limit(1000);
+    }
 
     if (partnersRes.error) throw partnersRes.error;
     if (membershipsRes.error) throw membershipsRes.error;
@@ -3807,6 +3813,11 @@ async function renderUserPartnerAccess(userId) {
     partners.forEach(p => { partnersById[p.id] = p; });
 
     const memberships = Array.isArray(membershipsRes.data) ? membershipsRes.data : [];
+
+    const hasAffiliateMembership = memberships.some((m) => {
+      const p = partnersById[m.partner_id];
+      return Boolean(p && p.affiliate_enabled);
+    });
 
     const options = partners.map(p => `<option value="${p.id}">${escapeHtml(p.name)}</option>`).join('');
 
@@ -3860,10 +3871,43 @@ async function renderUserPartnerAccess(userId) {
         </label>
         <button class="btn btn-primary" type="button" onclick="addUserToPartner('${userId}')">Add</button>
       </div>
+      <div style="margin-top: 10px; display:flex; justify-content:flex-end; gap: 10px;">
+        <button class="btn-secondary" type="button" onclick="enableAffiliateOnlyUser('${userId}')" ${hasAffiliateMembership ? 'disabled' : ''}>
+          Enable affiliate-only
+        </button>
+      </div>
       ${listHtml}
     `;
   } catch (error) {
     body.innerHTML = `<p class="user-detail-hint" style="color:#ef4444;">${escapeHtml(error.message || 'Failed to load')}</p>`;
+  }
+}
+
+async function enableAffiliateOnlyUserFromUserModal(userId) {
+  const ok = confirm('Enable affiliate-only for this user? This will create an affiliate partner and grant owner access.');
+  if (!ok) return;
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { data, error } = await client.rpc('admin_enable_affiliate_only_user', {
+      target_user_id: userId,
+    });
+    if (error) throw error;
+
+    const partnerId = String(data || '').trim();
+    showToast(partnerId ? `Affiliate-only enabled (${partnerId.slice(0, 8)})` : 'Affiliate-only enabled', 'success');
+
+    partnersUiState.affiliateEligibleLoadedOnce = false;
+    await Promise.all([
+      renderUserPartnerAccess(userId),
+      loadPartnersData(),
+      loadAffiliateEligibleUsers(true),
+    ]);
+  } catch (e) {
+    console.error('Failed to enable affiliate-only:', e);
+    showToast(e.message || 'Failed to enable affiliate-only', 'error');
   }
 }
 
@@ -3926,6 +3970,7 @@ window.managePartnerUsers = (partnerId) => openPartnerUsersModal(partnerId);
 window.removePartnerUser = (partnerUserId, partnerId) => removePartnerUserById(partnerUserId, partnerId);
 window.addUserToPartner = (userId) => addUserToPartnerFromUserModal(userId);
 window.removeUserFromPartner = (partnerUserId, userId) => removeUserFromPartnerFromUserModal(partnerUserId, userId);
+window.enableAffiliateOnlyUser = (userId) => enableAffiliateOnlyUserFromUserModal(userId);
 
 const calendarsState = {
   partnersById: {},

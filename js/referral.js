@@ -4,7 +4,7 @@
  */
 
 const REFERRAL_STORAGE_KEY = 'cypruseye_referral_code';
-const REFERRAL_EXPIRY_DAYS = 14;
+const REFERRAL_EXPIRY_DAYS = 30;
 
 // IMMEDIATE CAPTURE - runs as soon as script parses, before anything else can redirect
 (function immediateCapture() {
@@ -13,6 +13,17 @@ const REFERRAL_EXPIRY_DAYS = 14;
     const refCode = urlParams.get('ref');
     
     if (refCode && refCode.trim()) {
+      const existingRaw = localStorage.getItem(REFERRAL_STORAGE_KEY);
+      if (existingRaw) {
+        try {
+          const existing = JSON.parse(existingRaw);
+          if (existing?.expiresAt && Date.now() <= existing.expiresAt && existing?.code) {
+            return;
+          }
+        } catch (_e) {
+        }
+      }
+
       const cleanCode = refCode.trim();
       
       const referralData = {
