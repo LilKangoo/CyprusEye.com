@@ -443,6 +443,12 @@ const partnersUiState = {
   activeTab: 'list',
   depositLoadedOnce: false,
   affiliateLoadedOnce: false,
+  affiliateEligibleLoadedOnce: false,
+  affiliateEligibleUsers: [],
+  affiliateEligibleUsersById: {},
+  affiliateEligibleMemberships: [],
+  affiliateEligiblePartners: [],
+  affiliateEligibleUsersByPartnerId: {},
   depositOverrideSearchTimer: null,
   depositOverrideSearchResults: [],
   depositOverrides: [],
@@ -1156,11 +1162,21 @@ async function loadPartnersData() {
   if (tbody) tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 24px;">Loading partners...</td></tr>';
 
   try {
-    const { data: partners, error: partnersError } = await client
+    let partners = null;
+    let partnersError = null;
+    ({ data: partners, error: partnersError } = await client
       .from('partners')
-      .select('id, name, slug, status, shop_vendor_id, vendor:shop_vendors(name)')
+      .select('id, name, slug, status, shop_vendor_id, affiliate_enabled, vendor:shop_vendors(name)')
       .order('created_at', { ascending: false })
-      .limit(200);
+      .limit(200));
+
+    if (partnersError && (isMissingColumnError(partnersError, 'affiliate_enabled') || /affiliate_enabled/i.test(String(partnersError.message || '')))) {
+      ({ data: partners, error: partnersError } = await client
+        .from('partners')
+        .select('id, name, slug, status, shop_vendor_id, vendor:shop_vendors(name)')
+        .order('created_at', { ascending: false })
+        .limit(200));
+    }
 
     if (partnersError) throw partnersError;
 
@@ -1789,6 +1805,7 @@ async function loadPartnersAffiliateAdminData(force = false) {
     loadAffiliatePayoutAdminData(),
     loadAffiliateLedgerAdminData(),
     loadAffiliateUnattributedDepositsAdminData(),
+    loadAffiliateEligibleUsers(),
   ]);
 }
 
@@ -2034,6 +2051,156 @@ function fillAffiliatePayoutPartnerSelect() {
   const rows = partners.slice().sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')));
 
   select.innerHTML = `<option value="">—</option>${rows.map(p => `<option value="${escapeHtml(String(p.id))}">${escapeHtml(String(p.name || p.slug || String(p.id).slice(0, 8)))}</option>`).join('')}`;
+  if (current) select.value = current;
+}
+
+async function loadAffiliateEligibleUsers(force = false) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  if (partnersUiState.affiliateEligibleLoadedOnce && !force) {
+    try {
+      fillAffiliateAttributionReferrerSelect();
+      fillAffiliateAttributionPayerSelect();
+      fillAffiliateAttributionPartnerSelect();
+    } catch (_e) {
+    }
+    return;
+  }
+  partnersUiState.affiliateEligibleLoadedOnce = true;
+
+  try {
+    const { data: affiliatePartners, error: partnersError } = await client
+      .from('partners')
+      .select('id, name, slug, status, affiliate_enabled')
+      .eq('affiliate_enabled', true)
+      .order('name', { ascending: true })
+      .limit(1000);
+    if (partnersError) throw partnersError;
+
+    const partners = (affiliatePartners || []).filter((p) => String(p.status || '') === 'active' || !p.status);
+    partnersUiState.affiliateEligiblePartners = partners;
+
+    const partnerIds = partners.map((p) => p.id).filter(Boolean);
+    if (!partnerIds.length) {
+      partnersUiState.affiliateEligibleMemberships = [];
+      partnersUiState.affiliateEligibleUsers = [];
+      partnersUiState.affiliateEligibleUsersById = {};
+      partnersUiState.affiliateEligibleUsersByPartnerId = {};
+      fillAffiliateAttributionReferrerSelect();
+      fillAffiliateAttributionPayerSelect();
+      fillAffiliateAttributionPartnerSelect();
+      return;
+    }
+
+    const { data: memberships, error: membershipsError } = await client
+      .from('partner_users')
+      .select('partner_id, user_id, role, created_at')
+      .in('partner_id', partnerIds)
+      .order('created_at', { ascending: true })
+      .limit(5000);
+    if (membershipsError) throw membershipsError;
+
+    const cleanedMemberships = Array.isArray(memberships) ? memberships.filter((m) => m?.user_id && m?.partner_id) : [];
+    partnersUiState.affiliateEligibleMemberships = cleanedMemberships;
+
+    const userIds = [...new Set(cleanedMemberships.map((m) => String(m.user_id)))];
+    let profilesById = {};
+    if (userIds.length) {
+      const { data: profiles, error: profilesError } = await client
+        .from('profiles')
+        .select('id, username, email, name')
+        .in('id', userIds)
+        .limit(5000);
+      if (profilesError) throw profilesError;
+      profilesById = (profiles || []).reduce((acc, p) => {
+        acc[String(p.id)] = p;
+        return acc;
+      }, {});
+    }
+
+    const partnersById = (partnersUiState.affiliateEligiblePartners || []).reduce((acc, p) => {
+      acc[String(p.id)] = p;
+      return acc;
+    }, {});
+
+    const byPartnerId = {};
+    cleanedMemberships.forEach((m) => {
+      const pid = String(m.partner_id);
+      const uid = String(m.user_id);
+      if (!byPartnerId[pid]) byPartnerId[pid] = [];
+      byPartnerId[pid].push({ ...m, _uid: uid, _pid: pid });
+    });
+
+    Object.keys(byPartnerId).forEach((pid) => {
+      byPartnerId[pid].sort((a, b) => {
+        const aOwner = a.role === 'owner' ? 1 : 0;
+        const bOwner = b.role === 'owner' ? 1 : 0;
+        if (aOwner !== bOwner) return bOwner - aOwner;
+        return String(a.created_at || '').localeCompare(String(b.created_at || ''));
+      });
+    });
+
+    const uniqueUsers = userIds.map((uid) => {
+      const p = profilesById[uid] || {};
+      const labelBase = p.username || p.email || p.name || uid.slice(0, 8);
+
+      const membershipsForUser = cleanedMemberships.filter((m) => String(m.user_id) === uid);
+      const partnerNames = membershipsForUser
+        .map((m) => partnersById[String(m.partner_id)]?.name)
+        .filter(Boolean);
+      const partnerLabel = partnerNames.length ? ` — ${partnerNames.slice(0, 2).join(', ')}${partnerNames.length > 2 ? ` +${partnerNames.length - 2}` : ''}` : '';
+
+      return {
+        id: uid,
+        label: String(labelBase) + partnerLabel,
+        username: p.username || null,
+        email: p.email || null,
+        name: p.name || null,
+      };
+    });
+
+    uniqueUsers.sort((a, b) => String(a.label || '').localeCompare(String(b.label || '')));
+
+    partnersUiState.affiliateEligibleUsers = uniqueUsers;
+    partnersUiState.affiliateEligibleUsersById = uniqueUsers.reduce((acc, u) => {
+      acc[String(u.id)] = u;
+      return acc;
+    }, {});
+    partnersUiState.affiliateEligibleUsersByPartnerId = byPartnerId;
+
+    fillAffiliateAttributionReferrerSelect();
+    fillAffiliateAttributionPayerSelect();
+    fillAffiliateAttributionPartnerSelect();
+  } catch (e) {
+    console.error('Failed to load affiliate eligible users:', e);
+  }
+}
+
+function fillAffiliateAttributionReferrerSelect() {
+  const select = document.getElementById('affiliateAttributionReferrerUserId');
+  if (!select) return;
+  const current = String(select.value || '').trim();
+  const rows = Array.isArray(partnersUiState.affiliateEligibleUsers) ? partnersUiState.affiliateEligibleUsers : [];
+  select.innerHTML = `<option value="">Select affiliate user</option>${rows.map((u) => `<option value="${escapeHtml(String(u.id))}">${escapeHtml(String(u.label || String(u.id).slice(0, 8)))}</option>`).join('')}`;
+  if (current) select.value = current;
+}
+
+function fillAffiliateAttributionPayerSelect() {
+  const select = document.getElementById('affiliateAttributionPayerUserId');
+  if (!select) return;
+  const current = String(select.value || '').trim();
+  const rows = Array.isArray(partnersUiState.affiliateEligibleUsers) ? partnersUiState.affiliateEligibleUsers : [];
+  select.innerHTML = `<option value="">Auto-detect by customer email</option>${rows.map((u) => `<option value="${escapeHtml(String(u.id))}">${escapeHtml(String(u.label || String(u.id).slice(0, 8)))}</option>`).join('')}`;
+  if (current) select.value = current;
+}
+
+function fillAffiliateAttributionPartnerSelect() {
+  const select = document.getElementById('affiliateAttributionPartnerId');
+  if (!select) return;
+  const current = String(select.value || '').trim();
+  const rows = Array.isArray(partnersUiState.affiliateEligiblePartners) ? partnersUiState.affiliateEligiblePartners : [];
+  select.innerHTML = `<option value="">Auto (from affiliate user)</option>${rows.map((p) => `<option value="${escapeHtml(String(p.id))}">${escapeHtml(String(p.name || p.slug || String(p.id).slice(0, 8)))}</option>`).join('')}`;
   if (current) select.value = current;
 }
 
@@ -2338,8 +2505,21 @@ async function applyAffiliateAttributionFromForm() {
   }
 
   const payerUserId = String(document.getElementById('affiliateAttributionPayerUserId')?.value || '').trim() || null;
-  const referrerUserId = String(document.getElementById('affiliateAttributionReferrerUserId')?.value || '').trim() || null;
-  const partnerId = String(document.getElementById('affiliateAttributionPartnerId')?.value || '').trim() || null;
+  let referrerUserId = String(document.getElementById('affiliateAttributionReferrerUserId')?.value || '').trim() || null;
+  let partnerId = String(document.getElementById('affiliateAttributionPartnerId')?.value || '').trim() || null;
+
+  if (!referrerUserId && partnerId) {
+    const pool = partnersUiState.affiliateEligibleUsersByPartnerId?.[String(partnerId)] || [];
+    const best = pool.find((m) => String(m.role || '') === 'owner') || pool[0] || null;
+    if (best?.user_id) {
+      referrerUserId = String(best.user_id);
+    }
+  }
+
+  if (!referrerUserId && !partnerId) {
+    showToast('Select affiliate user or partner', 'error');
+    return;
+  }
 
   const ok = confirm('Create missing affiliate commission events for this deposit?');
   if (!ok) return;
@@ -2374,6 +2554,76 @@ window.selectAffiliateAttributionDeposit = (depositId) => {
   const depId = document.getElementById('affiliateAttributionDepositId');
   if (depId) depId.value = String(depositId || '').trim();
 };
+
+async function loadUserAffiliateReferralOptions(userId, currentReferredBy) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    await loadAffiliateEligibleUsers();
+  } catch (_e) {
+  }
+
+  const select = document.getElementById('userReferralReferrerSelect');
+  const currentLabelEl = document.getElementById('userReferralCurrent');
+  if (!select) return;
+
+  const rows = Array.isArray(partnersUiState.affiliateEligibleUsers) ? partnersUiState.affiliateEligibleUsers : [];
+  const current = String(currentReferredBy || '').trim();
+
+  select.innerHTML = `<option value="">—</option>${rows.map((u) => `<option value="${escapeHtml(String(u.id))}">${escapeHtml(String(u.label || String(u.id).slice(0, 8)))}</option>`).join('')}`;
+
+  if (current) {
+    select.value = current;
+  }
+
+  if (currentLabelEl) {
+    const known = partnersUiState.affiliateEligibleUsersById?.[current] || null;
+    if (known) {
+      currentLabelEl.textContent = String(known.label || '—');
+    } else if (current) {
+      try {
+        const { data: refProfile } = await client
+          .from('profiles')
+          .select('id, username, email, name')
+          .eq('id', current)
+          .maybeSingle();
+        const label = refProfile?.username || refProfile?.email || refProfile?.name || current.slice(0, 8);
+        currentLabelEl.textContent = String(label);
+      } catch (_e) {
+        currentLabelEl.textContent = current.slice(0, 8);
+      }
+    } else {
+      currentLabelEl.textContent = '—';
+    }
+  }
+}
+
+async function setUserReferredBy(userId, referrerUserId) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { error } = await client.rpc('admin_set_user_referred_by', {
+      target_user_id: userId,
+      new_referred_by: referrerUserId || null,
+    });
+    if (error) throw error;
+    showToast('Affiliate referral updated', 'success');
+    const currentLabelEl = document.getElementById('userReferralCurrent');
+    if (currentLabelEl) {
+      if (!referrerUserId) {
+        currentLabelEl.textContent = '—';
+      } else {
+        const known = partnersUiState.affiliateEligibleUsersById?.[String(referrerUserId)] || null;
+        currentLabelEl.textContent = String(known?.label || String(referrerUserId).slice(0, 8));
+      }
+    }
+  } catch (e) {
+    console.error('Failed to update referred_by:', e);
+    showToast(e.message || 'Failed to update referral', 'error');
+  }
+}
 
 async function loadAffiliatePayoutAdminData(force = false) {
   const client = ensureSupabase();
@@ -8559,6 +8809,22 @@ async function viewUserDetails(userId) {
         </section>
 
         <section class="user-detail-card user-detail-card--full">
+          <h4 class="user-detail-section-title">Affiliate / Referral</h4>
+          <div class="admin-form-grid" style="grid-template-columns: 1fr 240px; gap: 10px; align-items: end;">
+            <label class="admin-form-field" style="margin: 0;">
+              <span>Referrer (affiliate user)</span>
+              <select id="userReferralReferrerSelect" class="form-control"></select>
+              <div style="margin-top: 6px; font-size: 12px; color: var(--admin-text-muted);">Current: <span id="userReferralCurrent">—</span></div>
+            </label>
+            <div style="display:flex; justify-content:flex-end; gap: 8px;">
+              <button class="btn-secondary" id="btnUserReferralClear" type="button">Clear</button>
+              <button class="btn btn-primary" id="btnUserReferralApply" type="button">Save</button>
+            </div>
+          </div>
+          <p class="user-detail-hint" style="margin-top: 8px;">This sets <code>profiles.referred_by</code> via admin RPC.</p>
+        </section>
+
+        <section class="user-detail-card user-detail-card--full">
           <h4 class="user-detail-section-title">Services (bookings & deposits)</h4>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
             <div style="padding: 12px; background: var(--admin-bg); border-radius: 8px;">
@@ -8787,6 +9053,33 @@ async function viewUserDetails(userId) {
     }
 
     showElement(modal);
+
+    try {
+      await loadUserAffiliateReferralOptions(userId, profile.referred_by);
+
+      const referralSelect = document.getElementById('userReferralReferrerSelect');
+      const btnApply = document.getElementById('btnUserReferralApply');
+      const btnClear = document.getElementById('btnUserReferralClear');
+
+      if (btnApply) {
+        btnApply.onclick = async () => {
+          const nextReferrer = String(referralSelect?.value || '').trim() || null;
+          const ok = confirm('Set this user\'s referrer (affiliate)?');
+          if (!ok) return;
+          await setUserReferredBy(userId, nextReferrer);
+        };
+      }
+
+      if (btnClear) {
+        btnClear.onclick = async () => {
+          const ok = confirm('Clear this user\'s referrer (affiliate)?');
+          if (!ok) return;
+          if (referralSelect) referralSelect.value = '';
+          await setUserReferredBy(userId, null);
+        };
+      }
+    } catch (_e) {
+    }
 
     await renderUserPartnerAccess(userId);
 

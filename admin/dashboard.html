@@ -3477,28 +3477,34 @@
               <button class="btn-secondary" id="btnRefreshAffiliateUnattributed" type="button">🔄 Refresh</button>
             </div>
             <div class="admin-card-body">
-              <div class="admin-form-grid" style="grid-template-columns: 1fr 1fr 1fr 1fr 220px; gap: 10px; align-items: end;">
+              <div class="admin-form-grid" style="grid-template-columns: 1fr 1fr 1fr 220px; gap: 10px; align-items: end;">
                 <label class="admin-form-field" style="margin: 0;">
                   <span>Deposit request ID</span>
                   <input id="affiliateAttributionDepositId" type="text" class="form-control" placeholder="UUID" />
                 </label>
                 <label class="admin-form-field" style="margin: 0;">
-                  <span>Force payer user ID (optional)</span>
-                  <input id="affiliateAttributionPayerUserId" type="text" class="form-control" placeholder="UUID" />
+                  <span>Attach to affiliate user</span>
+                  <select id="affiliateAttributionReferrerUserId" class="form-control"></select>
                 </label>
                 <label class="admin-form-field" style="margin: 0;">
-                  <span>Force referrer user ID (optional)</span>
-                  <input id="affiliateAttributionReferrerUserId" type="text" class="form-control" placeholder="UUID" />
-                </label>
-                <label class="admin-form-field" style="margin: 0;">
-                  <span>Force partner ID (optional)</span>
-                  <input id="affiliateAttributionPartnerId" type="text" class="form-control" placeholder="UUID" />
+                  <span>Partner override (optional)</span>
+                  <select id="affiliateAttributionPartnerId" class="form-control"></select>
                 </label>
                 <div style="display:flex; justify-content:flex-end; gap: 8px;">
                   <button class="btn-secondary" id="btnClearAffiliateAttribution" type="button">Clear</button>
                   <button class="btn btn-primary" id="btnApplyAffiliateAttribution" type="button">✅ Apply</button>
                 </div>
               </div>
+
+              <details style="margin-top: 10px;">
+                <summary style="cursor: pointer; color: var(--admin-text-muted); font-size: 13px;">Advanced</summary>
+                <div class="admin-form-grid" style="grid-template-columns: 1fr; gap: 10px; align-items: end; margin-top: 10px;">
+                  <label class="admin-form-field" style="margin: 0;">
+                    <span>Payer user override (only if customer email can’t be matched)</span>
+                    <select id="affiliateAttributionPayerUserId" class="form-control"></select>
+                  </label>
+                </div>
+              </details>
 
               <div class="admin-table-container" style="margin-top: 12px;">
                 <table class="admin-table">
