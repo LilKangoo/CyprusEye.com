@@ -1823,6 +1823,10 @@ body[data-admin-panel="true"].admin-sidebar-open {
     padding: 0 16px;
   }
 
+  .admin-form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
   .admin-title {
     font-size: 16px;
   }
