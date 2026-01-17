@@ -3411,6 +3411,7 @@
                 <table class="admin-table">
                   <thead>
                     <tr>
+                      <th>Partner</th>
                       <th>Created</th>
                       <th style="text-align:right;">Amount</th>
                       <th>Status</th>
@@ -3419,7 +3420,7 @@
                     </tr>
                   </thead>
                   <tbody id="affiliatePayoutsTableBody">
-                    <tr><td colspan="5" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
+                    <tr><td colspan="6" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
                   </tbody>
                 </table>
               </div>
@@ -3435,10 +3436,14 @@
               <button class="btn-secondary" id="btnRefreshAffiliateLedger" type="button">🔄 Refresh</button>
             </div>
             <div class="admin-card-body">
-              <div class="admin-form-grid" style="grid-template-columns: 1fr 1fr; gap: 10px; align-items: end;">
+              <div class="admin-form-grid" style="grid-template-columns: 1fr 1fr 180px; gap: 10px; align-items: end;">
                 <label class="admin-form-field" style="margin: 0;">
                   <span>Partner</span>
                   <select id="affiliateLedgerPartnerSelect" class="form-control"></select>
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Affiliate user</span>
+                  <select id="affiliateLedgerReferrerSelect" class="form-control"></select>
                 </label>
                 <div style="display:flex; justify-content:flex-end; gap: 8px;">
                   <button class="btn-secondary" id="btnAffiliateLedgerViewBalance" type="button">📊 Balance</button>
@@ -3450,6 +3455,7 @@
                   <thead>
                     <tr>
                       <th>Paid at</th>
+                      <th>Partner</th>
                       <th>Level</th>
                       <th>Referrer</th>
                       <th>Referred</th>
@@ -3461,7 +3467,7 @@
                     </tr>
                   </thead>
                   <tbody id="affiliateLedgerTableBody">
-                    <tr><td colspan="9" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
+                    <tr><td colspan="10" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
                   </tbody>
                 </table>
               </div>

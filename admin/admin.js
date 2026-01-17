@@ -2063,6 +2063,7 @@ async function loadAffiliateEligibleUsers(force = false) {
       fillAffiliateAttributionReferrerSelect();
       fillAffiliateAttributionPayerSelect();
       fillAffiliateAttributionPartnerSelect();
+      fillAffiliateLedgerReferrerSelect();
     } catch (_e) {
     }
     return;
@@ -2172,6 +2173,7 @@ async function loadAffiliateEligibleUsers(force = false) {
     fillAffiliateAttributionReferrerSelect();
     fillAffiliateAttributionPayerSelect();
     fillAffiliateAttributionPartnerSelect();
+    fillAffiliateLedgerReferrerSelect();
   } catch (e) {
     console.error('Failed to load affiliate eligible users:', e);
   }
@@ -2225,6 +2227,8 @@ async function loadAffiliateLedgerAdminData(force = false) {
   if (!select || !tbody) return;
 
   fillAffiliateLedgerPartnerSelect();
+  setAffiliatePartnerSelectAllOption(select, 'All partners');
+  fillAffiliateLedgerReferrerSelect();
 
   if (!String(select.value || '').trim()) {
     const payoutSelect = document.getElementById('affiliatePayoutPartnerSelect');
@@ -2250,19 +2254,31 @@ async function refreshAffiliateLedgerPartnerData({ force = false } = {}) {
 
   const partnerId = String(select.value || '').trim();
   if (!partnerId) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>';
     return;
   }
 
-  tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 18px;">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 18px;">Loading…</td></tr>';
+
+  const referrerSelect = document.getElementById('affiliateLedgerReferrerSelect');
+  const referrerUserId = String(referrerSelect?.value || '').trim();
 
   try {
-    const { data: events, error } = await client
+    let q = client
       .from('affiliate_commission_events')
       .select('id, partner_id, deposit_request_id, level, referrer_user_id, referred_user_id, resource_type, booking_id, fulfillment_id, deposit_paid_at, deposit_amount, commission_bps, commission_amount, currency, payout_id, created_at')
-      .eq('partner_id', partnerId)
       .order('created_at', { ascending: false })
       .limit(200);
+
+    if (partnerId !== '__all__') {
+      q = q.eq('partner_id', partnerId);
+    }
+
+    if (referrerUserId) {
+      q = q.eq('referrer_user_id', referrerUserId);
+    }
+
+    const { data: events, error } = await q;
     if (error) throw error;
 
     const rows = Array.isArray(events) ? events : [];
@@ -2285,7 +2301,7 @@ async function refreshAffiliateLedgerPartnerData({ force = false } = {}) {
     renderAffiliateLedgerTable(rows, profilesById);
   } catch (e) {
     console.error('Failed to load affiliate ledger:', e);
-    tbody.innerHTML = `<tr><td colspan="9" style="text-align:center; padding: 18px; color:#ef4444;">${escapeHtml(e.message || 'Failed to load')}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="10" style="text-align:center; padding: 18px; color:#ef4444;">${escapeHtml(e.message || 'Failed to load')}</td></tr>`;
   }
 }
 
@@ -2297,7 +2313,7 @@ function renderAffiliateLedgerTable(rows, profilesById) {
   const profiles = profilesById && typeof profilesById === 'object' ? profilesById : {};
 
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="9" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">No events</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">No events</td></tr>';
     return;
   }
 
@@ -2347,6 +2363,7 @@ function renderAffiliateLedgerTable(rows, profilesById) {
 
   tbody.innerHTML = list.map((r) => {
     const paidAt = r.deposit_paid_at ? escapeHtml(formatDateTimeValue(r.deposit_paid_at)) : '—';
+    const partnerLabel = escapeHtml(getPartnerLabel(r.partner_id));
     const level = escapeHtml(String(r.level || ''));
     const referrer = displayUser(r.referrer_user_id);
     const referred = displayUser(r.referred_user_id);
@@ -2359,6 +2376,7 @@ function renderAffiliateLedgerTable(rows, profilesById) {
     return `
       <tr>
         <td>${paidAt}</td>
+        <td>${partnerLabel}</td>
         <td>${level}</td>
         <td>${referrer}</td>
         <td>${referred}</td>
@@ -2610,6 +2628,15 @@ async function setUserReferredBy(userId, referrerUserId) {
     });
     if (error) throw error;
     showToast('Affiliate referral updated', 'success');
+
+    if (adminState.currentView === 'referrals') {
+      try {
+        await loadReferralsData();
+        await loadReferralStats();
+      } catch (_e) {
+      }
+    }
+
     const currentLabelEl = document.getElementById('userReferralCurrent');
     if (currentLabelEl) {
       if (!referrerUserId) {
@@ -2625,6 +2652,41 @@ async function setUserReferredBy(userId, referrerUserId) {
   }
 }
 
+function getPartnerLabel(partnerId) {
+  const id = String(partnerId || '').trim();
+  if (!id) return '—';
+  const partners = Array.isArray(partnersState.partners) ? partnersState.partners : [];
+  const p = partners.find((x) => String(x?.id || '') === id) || null;
+  const label = p?.name || p?.slug;
+  return label ? String(label) : id.slice(0, 8);
+}
+
+function fillAffiliateLedgerReferrerSelect() {
+  const select = document.getElementById('affiliateLedgerReferrerSelect');
+  if (!select) return;
+
+  const current = String(select.value || '').trim();
+  const rows = Array.isArray(partnersUiState.affiliateEligibleUsers) ? partnersUiState.affiliateEligibleUsers : [];
+  select.innerHTML = `<option value="">All affiliates</option>${rows.map((u) => `<option value="${escapeHtml(String(u.id))}">${escapeHtml(String(u.label || String(u.id).slice(0, 8)))}</option>`).join('')}`;
+  if (current) select.value = current;
+}
+
+function setAffiliatePartnerSelectAllOption(selectEl, label) {
+  const select = selectEl;
+  if (!select) return;
+  const first = select.querySelector('option');
+  const current = String(select.value || '').trim();
+  const desiredLabel = String(label || 'All partners');
+
+  if (first && String(first.value || '') === '__all__') {
+    first.textContent = desiredLabel;
+  } else {
+    select.insertAdjacentHTML('afterbegin', `<option value="__all__">${escapeHtml(desiredLabel)}</option>`);
+  }
+
+  if (current === '__all__') select.value = '__all__';
+}
+
 async function loadAffiliatePayoutAdminData(force = false) {
   const client = ensureSupabase();
   if (!client) return;
@@ -2635,9 +2697,9 @@ async function loadAffiliatePayoutAdminData(force = false) {
   if (!select || !balanceEl || !tbody) return;
 
   fillAffiliatePayoutPartnerSelect();
+  setAffiliatePartnerSelectAllOption(select, 'All partners');
   if (!String(select.value || '').trim()) {
-    const first = (Array.isArray(partnersState.partners) ? partnersState.partners : [])[0];
-    if (first?.id) select.value = String(first.id);
+    select.value = '__all__';
   }
 
   await refreshAffiliatePayoutPartnerData({ force });
@@ -2655,11 +2717,31 @@ async function refreshAffiliatePayoutPartnerData({ force = false } = {}) {
   const partnerId = String(select.value || '').trim();
   if (!partnerId) {
     balanceEl.textContent = '—';
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>';
     return;
   }
 
-  tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 18px;">Loading…</td></tr>';
+  if (partnerId === '__all__') {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px;">Loading…</td></tr>';
+    balanceEl.textContent = '—';
+
+    try {
+      const { data: payoutsData, error: payoutsErr } = await client
+        .from('affiliate_payouts')
+        .select('id, partner_id, amount, currency, status, created_at, paid_at')
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (payoutsErr) throw payoutsErr;
+      renderAffiliatePayoutsTable(Array.isArray(payoutsData) ? payoutsData : []);
+    } catch (e) {
+      console.error('Failed to load affiliate payouts:', e);
+      balanceEl.textContent = '—';
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 18px; color:#ef4444;">${escapeHtml(e.message || 'Failed to load')}</td></tr>`;
+    }
+    return;
+  }
+
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px;">Loading…</td></tr>';
   balanceEl.textContent = 'Loading…';
 
   try {
@@ -2667,7 +2749,7 @@ async function refreshAffiliatePayoutPartnerData({ force = false } = {}) {
       client.rpc('affiliate_get_partner_balance', { p_partner_id: partnerId }),
       client
         .from('affiliate_payouts')
-        .select('id, amount, currency, status, created_at, paid_at')
+        .select('id, partner_id, amount, currency, status, created_at, paid_at')
         .eq('partner_id', partnerId)
         .order('created_at', { ascending: false })
         .limit(50),
@@ -2687,7 +2769,7 @@ async function refreshAffiliatePayoutPartnerData({ force = false } = {}) {
   } catch (e) {
     console.error('Failed to load affiliate payouts:', e);
     balanceEl.textContent = '—';
-    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center; padding: 18px; color:#ef4444;">${escapeHtml(e.message || 'Failed to load')}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 18px; color:#ef4444;">${escapeHtml(e.message || 'Failed to load')}</td></tr>`;
   }
 }
 
@@ -2697,12 +2779,13 @@ function renderAffiliatePayoutsTable(rows) {
 
   const data = Array.isArray(rows) ? rows : [];
   if (!data.length) {
-    tbody.innerHTML = '<tr><td colspan="5" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">No payouts</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">No payouts</td></tr>';
     return;
   }
 
   tbody.innerHTML = data.map((r) => {
     const id = escapeHtml(String(r.id || ''));
+    const partnerLabel = escapeHtml(getPartnerLabel(r.partner_id));
     const created = r.created_at ? escapeHtml(formatDateTimeValue(r.created_at)) : '—';
     const paidAt = r.paid_at ? escapeHtml(formatDateTimeValue(r.paid_at)) : '—';
     const cur = String(r.currency || 'EUR');
@@ -2716,6 +2799,7 @@ function renderAffiliatePayoutsTable(rows) {
 
     return `
       <tr>
+        <td>${partnerLabel}</td>
         <td>${created}</td>
         <td style="text-align:right;">${escapeHtml(amt)}</td>
         <td>${status || '—'}</td>
@@ -2733,7 +2817,7 @@ async function createAffiliatePayout() {
   const select = document.getElementById('affiliatePayoutPartnerSelect');
   const markPaid = Boolean(document.getElementById('affiliatePayoutMarkPaid')?.checked);
   const partnerId = String(select?.value || '').trim();
-  if (!partnerId) {
+  if (!partnerId || partnerId === '__all__') {
     showToast('Select partner first', 'error');
     return;
   }
@@ -3755,7 +3839,7 @@ async function renderUserPartnerAccess(userId) {
       : '<p class="user-detail-hint">No partner access.</p>';
 
     body.innerHTML = `
-      <div class="admin-form-grid" style="grid-template-columns: 1fr 160px 140px; gap: 10px; align-items: end;">
+      <div class="admin-form-grid" style="grid-template-columns: 1fr 160px 180px 140px; gap: 10px; align-items: end;">
         <label class="admin-form-field" style="margin: 0;">
           <span>Partner</span>
           <select id="userPartnerSelect"><option value="">—</option>${options}</select>
@@ -3765,6 +3849,13 @@ async function renderUserPartnerAccess(userId) {
           <select id="userPartnerRole">
             <option value="staff">Staff</option>
             <option value="owner">Owner</option>
+          </select>
+        </label>
+        <label class="admin-form-field" style="margin: 0;">
+          <span>Affiliate</span>
+          <select id="userPartnerAffiliateMode">
+            <option value="">No change</option>
+            <option value="enable">Enable</option>
           </select>
         </label>
         <button class="btn btn-primary" type="button" onclick="addUserToPartner('${userId}')">Add</button>
@@ -3784,10 +3875,24 @@ async function addUserToPartnerFromUserModal(userId) {
     return;
   }
 
+  const affiliateMode = String(document.getElementById('userPartnerAffiliateMode')?.value || '').trim();
+
   const client = ensureSupabase();
   if (!client) return;
 
   try {
+    if (affiliateMode === 'enable') {
+      let { error: affiliateErr } = await client
+        .from('partners')
+        .update({ affiliate_enabled: true })
+        .eq('id', partnerId);
+
+      if (affiliateErr && (isMissingColumnError(affiliateErr, 'affiliate_enabled') || /affiliate_enabled/i.test(String(affiliateErr.message || '')))) {
+        affiliateErr = null;
+      }
+      if (affiliateErr) throw affiliateErr;
+    }
+
     const { error } = await client.from('partner_users').insert({ partner_id: partnerId, user_id: userId, role });
     if (error) throw error;
     showToast('Partner access granted', 'success');
@@ -12958,6 +13063,10 @@ function initEventListeners() {
   const affiliateLedgerPartnerSelect = document.getElementById('affiliateLedgerPartnerSelect');
   if (affiliateLedgerPartnerSelect) {
     affiliateLedgerPartnerSelect.addEventListener('change', () => refreshAffiliateLedgerPartnerData({ force: true }));
+  }
+  const affiliateLedgerReferrerSelect = document.getElementById('affiliateLedgerReferrerSelect');
+  if (affiliateLedgerReferrerSelect) {
+    affiliateLedgerReferrerSelect.addEventListener('change', () => refreshAffiliateLedgerPartnerData({ force: true }));
   }
   const btnAffiliateLedgerViewBalance = document.getElementById('btnAffiliateLedgerViewBalance');
   if (btnAffiliateLedgerViewBalance) {
