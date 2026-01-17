@@ -9,17 +9,23 @@
 -- 1. DROP OLD POLICIES (if they exist)
 -- =====================================================
 
--- Drop old car_offers policies if they exist
-DROP POLICY IF EXISTS "Anyone can view available car offers" ON car_offers;
-DROP POLICY IF EXISTS "Authenticated users can view all offers" ON car_offers;
-DROP POLICY IF EXISTS "Admins can manage car offers" ON car_offers;
+DO $$
+BEGIN
+  IF to_regclass('public.car_offers') IS NOT NULL THEN
+    EXECUTE 'DROP POLICY IF EXISTS "Anyone can view available car offers" ON public.car_offers';
+    EXECUTE 'DROP POLICY IF EXISTS "Authenticated users can view all offers" ON public.car_offers';
+    EXECUTE 'DROP POLICY IF EXISTS "Admins can manage car offers" ON public.car_offers';
+  END IF;
 
--- Drop old car_bookings policies if they exist
-DROP POLICY IF EXISTS "Users can view own bookings" ON car_bookings;
-DROP POLICY IF EXISTS "Admins can view all bookings" ON car_bookings;
-DROP POLICY IF EXISTS "Anyone can create bookings" ON car_bookings;
-DROP POLICY IF EXISTS "Admins can update bookings" ON car_bookings;
-DROP POLICY IF EXISTS "Admins can delete bookings" ON car_bookings;
+  IF to_regclass('public.car_bookings') IS NOT NULL THEN
+    EXECUTE 'DROP POLICY IF EXISTS "Users can view own bookings" ON public.car_bookings';
+    EXECUTE 'DROP POLICY IF EXISTS "Admins can view all bookings" ON public.car_bookings';
+    EXECUTE 'DROP POLICY IF EXISTS "Anyone can create bookings" ON public.car_bookings';
+    EXECUTE 'DROP POLICY IF EXISTS "Admins can update bookings" ON public.car_bookings';
+    EXECUTE 'DROP POLICY IF EXISTS "Admins can delete bookings" ON public.car_bookings';
+  END IF;
+END;
+$$;
 
 -- =====================================================
 -- 2. CREATE OR UPDATE car_offers TABLE
@@ -99,6 +105,93 @@ CREATE TABLE IF NOT EXISTS car_bookings (
   CONSTRAINT valid_dates CHECK (return_date >= pickup_date)
 );
 
+DO $$
+BEGIN
+  IF to_regclass('public.car_bookings') IS NOT NULL THEN
+    ALTER TABLE public.car_bookings ADD COLUMN IF NOT EXISTS offer_id uuid;
+    ALTER TABLE public.car_bookings ADD COLUMN IF NOT EXISTS customer_email text;
+    ALTER TABLE public.car_bookings ADD COLUMN IF NOT EXISTS total_price numeric(10,2);
+    ALTER TABLE public.car_bookings ADD COLUMN IF NOT EXISTS payment_status text;
+    ALTER TABLE public.car_bookings ALTER COLUMN payment_status SET DEFAULT 'unpaid';
+    UPDATE public.car_bookings SET payment_status = COALESCE(payment_status, 'unpaid') WHERE payment_status IS NULL;
+
+    IF NOT EXISTS (
+      SELECT 1
+      FROM pg_constraint
+      WHERE conrelid = 'public.car_bookings'::regclass
+        AND conname = 'car_bookings_payment_status_check'
+    ) THEN
+      ALTER TABLE public.car_bookings
+      ADD CONSTRAINT car_bookings_payment_status_check
+      CHECK (payment_status IN ('unpaid', 'partial', 'paid', 'refunded'));
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'car_bookings'
+        AND column_name = 'email'
+    ) THEN
+      EXECUTE 'UPDATE public.car_bookings SET customer_email = COALESCE(customer_email, email) WHERE customer_email IS NULL';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'car_bookings'
+        AND column_name = 'quoted_price'
+    ) THEN
+      EXECUTE 'UPDATE public.car_bookings SET total_price = COALESCE(total_price, final_price, quoted_price) WHERE total_price IS NULL';
+    END IF;
+  END IF;
+END;
+$$;
+
+DO $$
+BEGIN
+  IF to_regclass('public.car_bookings') IS NOT NULL THEN
+    ALTER TABLE public.car_bookings
+      ADD COLUMN IF NOT EXISTS offer_id uuid;
+
+    ALTER TABLE public.car_bookings
+      ADD COLUMN IF NOT EXISTS customer_email text;
+
+    ALTER TABLE public.car_bookings
+      ADD COLUMN IF NOT EXISTS payment_status text DEFAULT 'unpaid'
+      CHECK (payment_status IN ('unpaid', 'partial', 'paid', 'refunded'));
+
+    ALTER TABLE public.car_bookings
+      ADD COLUMN IF NOT EXISTS total_price numeric(10,2);
+
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'car_bookings'
+        AND column_name = 'email'
+    ) THEN
+      EXECUTE 'UPDATE public.car_bookings SET customer_email = COALESCE(customer_email, email) WHERE customer_email IS NULL';
+    END IF;
+
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'car_bookings'
+        AND column_name = 'quoted_price'
+    ) THEN
+      EXECUTE 'UPDATE public.car_bookings SET total_price = COALESCE(total_price, final_price, quoted_price) WHERE total_price IS NULL';
+    END IF;
+
+    UPDATE public.car_bookings
+    SET payment_status = COALESCE(payment_status, 'unpaid')
+    WHERE payment_status IS NULL;
+  END IF;
+END;
+$$;
+
 -- Create indexes
 DO $$
 BEGIN
@@ -154,6 +247,10 @@ ALTER TABLE car_offers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE car_bookings ENABLE ROW LEVEL SECURITY;
 
 -- Car Offers Policies
+DROP POLICY IF EXISTS "car_offers_public_select" ON car_offers;
+DROP POLICY IF EXISTS "car_offers_authenticated_select" ON car_offers;
+DROP POLICY IF EXISTS "car_offers_admin_all" ON car_offers;
+
 CREATE POLICY "car_offers_public_select"
   ON car_offers FOR SELECT
   USING (is_available = true);
@@ -175,6 +272,12 @@ CREATE POLICY "car_offers_admin_all"
   );
 
 -- Car Bookings Policies
+DROP POLICY IF EXISTS "car_bookings_own_select" ON car_bookings;
+DROP POLICY IF EXISTS "car_bookings_admin_select" ON car_bookings;
+DROP POLICY IF EXISTS "car_bookings_anon_insert" ON car_bookings;
+DROP POLICY IF EXISTS "car_bookings_admin_update" ON car_bookings;
+DROP POLICY IF EXISTS "car_bookings_admin_delete" ON car_bookings;
+
 CREATE POLICY "car_bookings_own_select"
   ON car_bookings FOR SELECT
   TO authenticated

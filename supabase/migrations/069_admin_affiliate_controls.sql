@@ -27,13 +27,28 @@ BEGIN
   WHERE id = target_user_id;
 
   IF to_regclass('public.admin_activity_log') IS NOT NULL THEN
-    INSERT INTO public.admin_activity_log(actor_id, target_user_id, action, details)
-    VALUES (
-      auth.uid(),
-      target_user_id,
-      'set_referred_by',
-      jsonb_build_object('referred_by', new_referred_by)
-    );
+    IF EXISTS (
+      SELECT 1
+      FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'admin_activity_log'
+        AND column_name = 'target_user_id'
+    ) THEN
+      INSERT INTO public.admin_activity_log(actor_id, target_user_id, action, details)
+      VALUES (
+        auth.uid(),
+        target_user_id,
+        'set_referred_by',
+        jsonb_build_object('referred_by', new_referred_by)
+      );
+    ELSE
+      INSERT INTO public.admin_activity_log(actor_id, action, details)
+      VALUES (
+        auth.uid(),
+        'set_referred_by',
+        jsonb_build_object('referred_by', new_referred_by)
+      );
+    END IF;
   END IF;
 END;
 $$;

@@ -1,7 +1,3 @@
--- =====================================================
--- Admin affiliate undo controls
--- =====================================================
-
 CREATE OR REPLACE FUNCTION public.affiliate_get_partner_balance_v2(p_partner_id uuid)
 RETURNS TABLE(
   partner_id uuid,

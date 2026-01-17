@@ -127,7 +127,67 @@ CREATE TABLE IF NOT EXISTS car_bookings (
 DO $$
 BEGIN
   ALTER TABLE public.car_bookings
+  ADD COLUMN IF NOT EXISTS offer_id uuid;
+
+  ALTER TABLE public.car_bookings
   ADD COLUMN IF NOT EXISTS customer_email text;
+
+  ALTER TABLE public.car_bookings
+  ADD COLUMN IF NOT EXISTS customer_name text;
+
+  ALTER TABLE public.car_bookings
+  ADD COLUMN IF NOT EXISTS total_price numeric(10,2);
+
+  ALTER TABLE public.car_bookings
+  ADD COLUMN IF NOT EXISTS payment_status text;
+
+  ALTER TABLE public.car_bookings
+  ALTER COLUMN payment_status SET DEFAULT 'unpaid';
+
+  UPDATE public.car_bookings
+  SET payment_status = COALESCE(payment_status, 'unpaid')
+  WHERE payment_status IS NULL;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conrelid = 'public.car_bookings'::regclass
+      AND conname = 'car_bookings_payment_status_check'
+  ) THEN
+    ALTER TABLE public.car_bookings
+    ADD CONSTRAINT car_bookings_payment_status_check
+    CHECK (payment_status IN ('unpaid', 'partial', 'paid', 'refunded'));
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'car_bookings'
+      AND column_name = 'email'
+  ) THEN
+    EXECUTE 'UPDATE public.car_bookings SET customer_email = COALESCE(customer_email, email) WHERE customer_email IS NULL';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'car_bookings'
+      AND column_name = 'full_name'
+  ) THEN
+    EXECUTE 'UPDATE public.car_bookings SET customer_name = COALESCE(customer_name, full_name) WHERE customer_name IS NULL';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'car_bookings'
+      AND column_name = 'quoted_price'
+  ) THEN
+    EXECUTE 'UPDATE public.car_bookings SET total_price = COALESCE(total_price, final_price, quoted_price) WHERE total_price IS NULL';
+  END IF;
 
   IF EXISTS (
     SELECT 1
