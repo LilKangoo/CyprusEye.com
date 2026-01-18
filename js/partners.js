@@ -9,6 +9,7 @@
     selectedPartnerId: null,
     selectedCategory: 'all',
     fulfillments: [],
+    lastFulfillmentsDebug: null,
     itemsByFulfillmentId: {},
     contactsByFulfillmentId: {},
     blocks: [],
@@ -1803,10 +1804,14 @@
 
     if (resolvedServiceRes.error) throw resolvedServiceRes.error;
 
-    const shopRows = (Array.isArray(shopRes.data) ? shopRes.data : []).map((f) => ({ ...f, __source: 'shop' }));
-    const serviceRows = (Array.isArray(resolvedServiceRes.data) ? resolvedServiceRes.data : [])
-      .filter((f) => String(f?.status || '').trim() !== 'closed')
-      .map((f) => ({ ...f, __source: 'service' }));
+    const rawShopRows = Array.isArray(shopRes.data) ? shopRes.data : [];
+    const rawServiceRows = Array.isArray(resolvedServiceRes.data) ? resolvedServiceRes.data : [];
+
+    const shopRows = rawShopRows.map((f) => ({ ...f, __source: 'shop' }));
+
+    const serviceRowsNotClosed = rawServiceRows.filter((f) => String(f?.status || '').trim() !== 'closed');
+    const closedHidden = rawServiceRows.length - serviceRowsNotClosed.length;
+    const serviceRows = serviceRowsNotClosed.map((f) => ({ ...f, __source: 'service' }));
 
     const merged = shopRows
       .concat(serviceRows)
@@ -1887,6 +1892,15 @@
 
       return true;
     });
+
+    state.lastFulfillmentsDebug = {
+      partner_id: state.selectedPartnerId,
+      raw_shop: rawShopRows.length,
+      raw_service: rawServiceRows.length,
+      hidden_closed: closedHidden,
+      merged_total: merged.length,
+      filtered_total: filteredMerged.length,
+    };
 
     const serviceOnly = filteredMerged.filter((f) => f && f.__source === 'service');
     const tripIds = Array.from(new Set(
@@ -2285,7 +2299,11 @@
     const filtered = filteredFulfillmentsForSelectedCategory();
 
     if (!filtered.length) {
-      setHtml(els.fulfillmentsBody, '<tr><td colspan="6" class="muted" style="padding: 16px 8px;">No fulfillments found.</td></tr>');
+      const dbg = state.lastFulfillmentsDebug;
+      const dbgHtml = dbg
+        ? `<div class="small muted" style="margin-top: 6px;">Debug: shop ${Number(dbg.raw_shop || 0)}, service ${Number(dbg.raw_service || 0)}, hidden_closed ${Number(dbg.hidden_closed || 0)}, after_filters ${Number(dbg.filtered_total || 0)}</div>`
+        : '';
+      setHtml(els.fulfillmentsBody, `<tr><td colspan="6" class="muted" style="padding: 16px 8px;">No fulfillments found.${dbgHtml}</td></tr>`);
       return;
     }
 
@@ -3126,6 +3144,7 @@
 
   async function refreshFulfillments() {
     if (!state.selectedPartnerId) return;
+    showWarning('');
     setText(els.status, 'Loading fulfillments…');
 
     try {
@@ -3144,6 +3163,7 @@
     } catch (error) {
       console.error(error);
       setText(els.status, 'Failed to load fulfillments.');
+      showWarning(`Failed to load fulfillments: ${error.message || 'Unknown error'}`);
       showToast(`Error: ${error.message || 'Failed to load fulfillments'}`, 'error');
     }
   }

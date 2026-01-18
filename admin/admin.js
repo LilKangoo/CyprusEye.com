@@ -860,7 +860,10 @@ function renderPartnerAssignmentsTable(type) {
         <tr>
           <td>${escapeHtml(title)}</td>
           <td>${escapeHtml(city)}</td>
-          <td style="text-align: right;"><button class="btn-small btn-secondary" onclick="removePartnerResourceAssignment('${escapeHtml(t)}','${escapeHtml(String(rid))}')">Remove</button></td>
+          <td style="text-align: right; white-space: nowrap;">
+            <button class="btn-small btn-secondary" onclick="backfillPartnerResourceFulfillments('${escapeHtml(t)}','${escapeHtml(String(rid))}')">Backfill</button>
+            <button class="btn-small btn-secondary" onclick="removePartnerResourceAssignment('${escapeHtml(t)}','${escapeHtml(String(rid))}')">Remove</button>
+          </td>
         </tr>
       `;
     }
@@ -872,7 +875,10 @@ function renderPartnerAssignmentsTable(type) {
         <tr>
           <td>${escapeHtml(title)}</td>
           <td>${escapeHtml(city)}</td>
-          <td style="text-align: right;"><button class="btn-small btn-secondary" onclick="removePartnerResourceAssignment('${escapeHtml(t)}','${escapeHtml(String(rid))}')">Remove</button></td>
+          <td style="text-align: right; white-space: nowrap;">
+            <button class="btn-small btn-secondary" onclick="backfillPartnerResourceFulfillments('${escapeHtml(t)}','${escapeHtml(String(rid))}')">Backfill</button>
+            <button class="btn-small btn-secondary" onclick="removePartnerResourceAssignment('${escapeHtml(t)}','${escapeHtml(String(rid))}')">Remove</button>
+          </td>
         </tr>
       `;
     }
@@ -998,6 +1004,31 @@ async function removePartnerResourceAssignment(type, resourceId) {
 
 window.removePartnerResourceAssignment = (type, resourceId) => removePartnerResourceAssignment(type, resourceId);
 
+async function backfillPartnerResourceFulfillments(type, resourceId) {
+  const client = ensureSupabase();
+  if (!client) return;
+  const t = String(type || '').trim();
+  const rid = String(resourceId || '').trim();
+  if (!rid) return;
+  if (t !== 'trips' && t !== 'hotels') return;
+
+  try {
+    const { data, error } = await client.rpc('admin_backfill_partner_service_fulfillments_for_resource', {
+      p_resource_type: t,
+      p_resource_id: rid,
+    });
+    if (error) throw error;
+    const n = Number(data || 0);
+    const cnt = Number.isFinite(n) ? n : 0;
+    showToast(`Backfilled ${cnt} booking(s)`, 'success');
+  } catch (e) {
+    console.error(e);
+    showToast(e.message || 'Backfill failed', 'error');
+  }
+}
+
+window.backfillPartnerResourceFulfillments = (type, resourceId) => backfillPartnerResourceFulfillments(type, resourceId);
+
 async function addPartnerResourceAssignment(type) {
   const client = ensureSupabase();
   if (!client) return;
@@ -1019,7 +1050,26 @@ async function addPartnerResourceAssignment(type) {
       .from('partner_resources')
       .insert({ partner_id: pid, resource_type: t, resource_id: rid });
     if (error) throw error;
-    showToast('Resource assigned', 'success');
+
+    let backfilled = null;
+    if (t === 'trips' || t === 'hotels') {
+      try {
+        const { data, error: backfillError } = await client.rpc('admin_backfill_partner_service_fulfillments_for_resource', {
+          p_resource_type: t,
+          p_resource_id: rid,
+        });
+        if (!backfillError) {
+          const n = Number(data || 0);
+          if (Number.isFinite(n)) backfilled = n;
+        }
+      } catch (_e) {
+      }
+    }
+
+    const msg = (backfilled != null && backfilled > 0)
+      ? `Resource assigned (backfilled ${backfilled} booking(s))`
+      : 'Resource assigned';
+    showToast(msg, 'success');
     await refreshPartnerAssignments();
   } catch (e) {
     console.error(e);
