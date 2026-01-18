@@ -32,7 +32,7 @@ BEGIN
   LIMIT 1;
 
   IF existing_active IS NOT NULL THEN
-    NEW.status := 'expired';
+    NEW.status := 'closed';
     NEW.updated_at := now();
   END IF;
 
@@ -57,7 +57,7 @@ WITH active AS (
     AND status IN ('awaiting_payment', 'accepted')
 )
 UPDATE public.partner_service_fulfillments f
-SET status = 'expired',
+SET status = 'closed',
     updated_at = now()
 FROM active a
 WHERE f.resource_type = a.resource_type

@@ -1804,7 +1804,9 @@
     if (resolvedServiceRes.error) throw resolvedServiceRes.error;
 
     const shopRows = (Array.isArray(shopRes.data) ? shopRes.data : []).map((f) => ({ ...f, __source: 'shop' }));
-    const serviceRows = (Array.isArray(resolvedServiceRes.data) ? resolvedServiceRes.data : []).map((f) => ({ ...f, __source: 'service' }));
+    const serviceRows = (Array.isArray(resolvedServiceRes.data) ? resolvedServiceRes.data : [])
+      .filter((f) => String(f?.status || '').trim() !== 'closed')
+      .map((f) => ({ ...f, __source: 'service' }));
 
     const merged = shopRows
       .concat(serviceRows)
@@ -2442,7 +2444,7 @@
               return '<div class="muted small">Contact revealed</div>';
             }
             if (st === 'expired') {
-              return '<div class="muted small">Claimed by another partner</div>';
+              return '<div class="muted small">Deposit expired</div>';
             }
             if (st === 'rejected' && f.rejected_reason) {
               return `<div class="muted small">Reason: ${escapeHtml(f.rejected_reason)}</div>`;

@@ -45,7 +45,7 @@ BEGIN
 
   ALTER TABLE public.partner_service_fulfillments
     ADD CONSTRAINT partner_service_fulfillments_status_check
-    CHECK (status IN ('pending_acceptance','awaiting_payment','accepted','rejected','expired'));
+    CHECK (status IN ('pending_acceptance','awaiting_payment','accepted','rejected','expired','closed'));
 
   WITH ranked AS (
     SELECT
@@ -59,7 +59,7 @@ BEGIN
       AND status IN ('awaiting_payment','accepted')
   )
   UPDATE public.partner_service_fulfillments f
-  SET status = 'expired',
+  SET status = 'closed',
       updated_at = now()
   FROM ranked r
   WHERE f.id = r.id
@@ -824,8 +824,8 @@ END $$;
    LIMIT 1;
 
    IF existing_active IS NOT NULL THEN
-     -- Someone already claimed this booking; convert this update into an expiration.
-     NEW.status := 'expired';
+     -- Someone already claimed this booking; convert this update into a closed state.
+     NEW.status := 'closed';
      NEW.updated_at := now();
      NEW.accepted_at := OLD.accepted_at;
      NEW.accepted_by := OLD.accepted_by;
@@ -843,7 +843,7 @@ END $$;
      FOR UPDATE SKIP LOCKED
    )
    UPDATE public.partner_service_fulfillments f
-   SET status = 'expired',
+   SET status = 'closed',
        updated_at = now()
    FROM to_expire e
    WHERE f.id = e.id;

@@ -1538,7 +1538,7 @@ async function loadServiceFulfillmentsForPartner(partnerId) {
     .limit(300);
   if (serviceErr) throw serviceErr;
 
-  const service = serviceRows || [];
+  const service = (serviceRows || []).filter(r => String(r?.status || '').trim() !== 'closed');
   const serviceIds = service.map(r => r.id).filter(Boolean);
 
   const serviceContactsRes = serviceIds.length
@@ -16456,6 +16456,7 @@ function getAllOrdersNormalizedStatus(order) {
     if (fs === 'accepted') return 'confirmed';
     if (fs === 'rejected') return 'cancelled';
     if (fs === 'expired') return 'cancelled';
+    if (fs === 'closed') return 'pending';
     return fs;
   }
   return String(order.status || '').trim();
@@ -16469,6 +16470,7 @@ function compareServiceFulfillmentRows(a, b) {
     if (s === 'pending_acceptance') return 30;
     if (s === 'rejected') return 20;
     if (s === 'expired') return 10;
+    if (s === 'closed') return 1;
     if (!s) return 0;
     return 5;
   };

@@ -871,6 +871,18 @@ serve(async (req) => {
   }
 
   if (fulfillmentStatus !== "pending_acceptance") {
+    if (action === "accept" && fulfillmentStatus === "closed") {
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          skipped: true,
+          reason: "already_claimed",
+          data: { booking_id: bookingId || null, fulfillment_id: fulfillmentId, partner_id: partnerId },
+        }),
+        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
     if (action === "mark_paid") {
       if (!callerIsAdmin) {
         return new Response(JSON.stringify({ error: "Forbidden" }), {
@@ -1076,7 +1088,7 @@ serve(async (req) => {
       }
 
       const updatedStatus = String((updRows as any)?.[0]?.status || "").trim();
-      if (kind === "service" && updatedStatus === "expired") {
+      if (kind === "service" && updatedStatus === "closed") {
         return new Response(
           JSON.stringify({
             ok: true,
