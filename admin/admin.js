@@ -8192,6 +8192,7 @@ function showAdminPanel() {
   
   // Load initial data
   loadDashboardData();
+  loadAllOrders({ silent: true });
 }
 
 function updateAdminHeader() {
