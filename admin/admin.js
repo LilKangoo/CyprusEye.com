@@ -5199,15 +5199,14 @@ async function viewTripBookingDetails(bookingId) {
 
     let fulfillment = null;
     try {
-      const { data: fRow } = await client
+      const { data: fRows } = await client
         .from('partner_service_fulfillments')
         .select('id, status, contact_revealed_at, rejected_reason, partner_id, created_at')
         .eq('resource_type', 'trips')
         .eq('booking_id', bookingId)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      fulfillment = fRow || null;
+        .limit(50);
+      fulfillment = pickBestServiceFulfillment(fRows || []) || null;
     } catch (_e) {
     }
 
@@ -7592,15 +7591,14 @@ async function viewHotelBookingDetails(bookingId) {
 
     let fulfillment = null;
     try {
-      const { data: fRow } = await client
+      const { data: fRows } = await client
         .from('partner_service_fulfillments')
         .select('id, status, contact_revealed_at, rejected_reason, partner_id, created_at')
         .eq('resource_type', 'hotels')
         .eq('booking_id', bookingId)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      fulfillment = fRow || null;
+        .limit(50);
+      fulfillment = pickBestServiceFulfillment(fRows || []) || null;
     } catch (_e) {
     }
 
@@ -10530,15 +10528,14 @@ async function viewCarBookingDetails(bookingId) {
 
     let fulfillment = null;
     try {
-      const { data: fRow } = await client
+      const { data: fRows } = await client
         .from('partner_service_fulfillments')
         .select('id, status, contact_revealed_at, rejected_reason, partner_id, created_at')
         .eq('resource_type', 'cars')
         .eq('booking_id', bookingId)
         .order('created_at', { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      fulfillment = fRow || null;
+        .limit(50);
+      fulfillment = pickBestServiceFulfillment(fRows || []) || null;
     } catch (_e) {
     }
 
@@ -16432,8 +16429,10 @@ let filteredOrders = [];
 
 function getAllOrdersNormalizedStatus(order) {
   if (!order) return '';
-  const fs = String(order.fulfillment_status || '').trim();
-  if (fs) {
+  const cat = String(order.category || '').trim();
+  if (cat === 'cars' || cat === 'trips' || cat === 'hotels') {
+    const fs = String(order.fulfillment_status || '').trim();
+    if (!fs) return String(order.status || '').trim();
     if (fs === 'pending_acceptance') return 'pending';
     if (fs === 'awaiting_payment') return 'pending';
     if (fs === 'accepted') return 'confirmed';
@@ -16442,6 +16441,43 @@ function getAllOrdersNormalizedStatus(order) {
     return fs;
   }
   return String(order.status || '').trim();
+}
+
+function compareServiceFulfillmentRows(a, b) {
+  const statusRank = (row) => {
+    const s = String(row?.status || '').trim();
+    if (s === 'accepted') return 50;
+    if (s === 'awaiting_payment') return 40;
+    if (s === 'pending_acceptance') return 30;
+    if (s === 'rejected') return 20;
+    if (s === 'expired') return 10;
+    if (!s) return 0;
+    return 5;
+  };
+
+  const ra = statusRank(a);
+  const rb = statusRank(b);
+  if (ra !== rb) return ra - rb;
+
+  const ta = Date.parse(a?.created_at || '') || 0;
+  const tb = Date.parse(b?.created_at || '') || 0;
+  if (ta !== tb) return ta - tb;
+
+  return String(a?.id || '').localeCompare(String(b?.id || ''));
+}
+
+function pickBestServiceFulfillment(rows) {
+  if (!Array.isArray(rows) || !rows.length) return null;
+  let best = null;
+  rows.forEach((r) => {
+    if (!r) return;
+    if (!best) {
+      best = r;
+      return;
+    }
+    if (compareServiceFulfillmentRows(r, best) > 0) best = r;
+  });
+  return best;
 }
 
 /**
@@ -16490,7 +16526,11 @@ async function loadAllOrders(opts = {}) {
             const bid = String(f.booking_id || '').trim();
             if (!rt || !bid) return;
             const k = `${rt}:${bid}`;
-            if (!fulfillmentByKey[k]) fulfillmentByKey[k] = f;
+            if (!fulfillmentByKey[k]) {
+              fulfillmentByKey[k] = f;
+              return;
+            }
+            if (compareServiceFulfillmentRows(f, fulfillmentByKey[k]) > 0) fulfillmentByKey[k] = f;
           });
         }
       } catch (_e) {
