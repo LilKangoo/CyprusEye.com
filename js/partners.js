@@ -36,6 +36,8 @@
   let analyticsRealtimeChannel = null;
   let analyticsRealtimeTimer = null;
 
+  let fulfillmentsRealtimeTimer = null;
+
   let referralTreeRoot = null;
   let referralTreeQuery = '';
 
@@ -177,6 +179,24 @@
     }, 350);
   }
 
+  function scheduleFulfillmentsRealtimeRefresh() {
+    if (fulfillmentsRealtimeTimer) {
+      clearTimeout(fulfillmentsRealtimeTimer);
+    }
+    fulfillmentsRealtimeTimer = setTimeout(async () => {
+      fulfillmentsRealtimeTimer = null;
+      try {
+        if (!state.selectedPartnerId) return;
+        if (els.tabFulfillments?.hidden) return;
+        await loadFulfillments();
+        updateSidebarCategoryVisibility();
+        updateKpis();
+        renderFulfillmentsTable();
+      } catch (_e) {
+      }
+    }, 350);
+  }
+
   function startAnalyticsRealtime() {
     stopAnalyticsRealtime();
     if (!state.sb || typeof state.sb.channel !== 'function') return;
@@ -188,12 +208,18 @@
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'partner_service_fulfillments', filter: `partner_id=eq.${state.selectedPartnerId}` },
-          () => scheduleAnalyticsRealtimeRefresh()
+          () => {
+            scheduleAnalyticsRealtimeRefresh();
+            scheduleFulfillmentsRealtimeRefresh();
+          }
         )
         .on(
           'postgres_changes',
           { event: '*', schema: 'public', table: 'shop_order_fulfillments', filter: `partner_id=eq.${state.selectedPartnerId}` },
-          () => scheduleAnalyticsRealtimeRefresh()
+          () => {
+            scheduleAnalyticsRealtimeRefresh();
+            scheduleFulfillmentsRealtimeRefresh();
+          }
         )
         .subscribe();
     } catch (_e) {
@@ -1605,6 +1631,7 @@
       accepted: '#22c55e',
       rejected: '#ef4444',
       expired: '#ef4444',
+      closed: '#6b7280',
     };
     const label = s === 'pending_acceptance'
       ? '⏳ pending'
@@ -1614,6 +1641,8 @@
           ? '❌ rejected'
           : s === 'awaiting_payment'
             ? '💳 awaiting'
+            : s === 'closed'
+              ? '🔒 closed'
             : s ? s : '—';
     const color = colors[s] || '#6b7280';
     return `<span class="badge" style="background:${color};">${escapeHtml(label)}</span>`;
@@ -1809,9 +1838,8 @@
 
     const shopRows = rawShopRows.map((f) => ({ ...f, __source: 'shop' }));
 
-    const serviceRowsNotClosed = rawServiceRows.filter((f) => String(f?.status || '').trim() !== 'closed');
-    const closedHidden = rawServiceRows.length - serviceRowsNotClosed.length;
-    const serviceRows = serviceRowsNotClosed.map((f) => ({ ...f, __source: 'service' }));
+    const closedCount = rawServiceRows.filter((f) => String(f?.status || '').trim() === 'closed').length;
+    const serviceRows = rawServiceRows.map((f) => ({ ...f, __source: 'service' }));
 
     const merged = shopRows
       .concat(serviceRows)
@@ -1897,7 +1925,7 @@
       partner_id: state.selectedPartnerId,
       raw_shop: rawShopRows.length,
       raw_service: rawServiceRows.length,
-      hidden_closed: closedHidden,
+      closed: closedCount,
       merged_total: merged.length,
       filtered_total: filteredMerged.length,
     };
@@ -2301,7 +2329,7 @@
     if (!filtered.length) {
       const dbg = state.lastFulfillmentsDebug;
       const dbgHtml = dbg
-        ? `<div class="small muted" style="margin-top: 6px;">Debug: shop ${Number(dbg.raw_shop || 0)}, service ${Number(dbg.raw_service || 0)}, hidden_closed ${Number(dbg.hidden_closed || 0)}, after_filters ${Number(dbg.filtered_total || 0)}</div>`
+        ? `<div class="small muted" style="margin-top: 6px;">Debug: shop ${Number(dbg.raw_shop || 0)}, service ${Number(dbg.raw_service || 0)}, closed ${Number(dbg.closed || 0)}, after_filters ${Number(dbg.filtered_total || 0)}</div>`
         : '';
       setHtml(els.fulfillmentsBody, `<tr><td colspan="6" class="muted" style="padding: 16px 8px;">No fulfillments found.${dbgHtml}</td></tr>`);
       return;
@@ -2457,6 +2485,9 @@
 
         const actionsHtml = (() => {
           const st = String(f.status || '');
+          if (st === 'closed') {
+            return '<div class="muted small">Accepted by another partner</div>';
+          }
           if (st !== 'pending_acceptance') {
             if (st === 'accepted' && f.contact_revealed_at) {
               return '<div class="muted small">Contact revealed</div>';

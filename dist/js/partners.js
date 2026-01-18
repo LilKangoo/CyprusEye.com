@@ -32,6 +32,12 @@
   let blocksRealtimeChannel = null;
   let blocksRealtimeTimer = null;
 
+  let analyticsRealtimeChannel = null;
+  let analyticsRealtimeTimer = null;
+
+  let fulfillmentsRealtimeChannel = null;
+  let fulfillmentsRealtimeTimer = null;
+
   let referralTreeRoot = null;
   let referralTreeQuery = '';
 
@@ -818,6 +824,19 @@
     blocksRealtimeChannel = null;
   }
 
+  function stopFulfillmentsRealtime() {
+    if (!fulfillmentsRealtimeChannel || !state.sb) return;
+    try {
+      if (typeof state.sb.removeChannel === 'function') {
+        state.sb.removeChannel(fulfillmentsRealtimeChannel);
+      } else if (typeof fulfillmentsRealtimeChannel.unsubscribe === 'function') {
+        fulfillmentsRealtimeChannel.unsubscribe();
+      }
+    } catch (_e) {
+    }
+    fulfillmentsRealtimeChannel = null;
+  }
+
   function scheduleBlocksRealtimeRefresh() {
     if (blocksRealtimeTimer) {
       clearTimeout(blocksRealtimeTimer);
@@ -832,6 +851,21 @@
           await loadBlocks();
           syncResourceTypeOptions();
         }
+      } catch (_e) {
+      }
+    }, 350);
+  }
+
+  function scheduleFulfillmentsRealtimeRefresh() {
+    if (fulfillmentsRealtimeTimer) {
+      clearTimeout(fulfillmentsRealtimeTimer);
+    }
+    fulfillmentsRealtimeTimer = setTimeout(async () => {
+      fulfillmentsRealtimeTimer = null;
+      try {
+        if (!state.selectedPartnerId) return;
+        if (els.tabFulfillments?.hidden) return;
+        await refreshFulfillments();
       } catch (_e) {
       }
     }, 350);
@@ -858,6 +892,30 @@
         .subscribe();
     } catch (_e) {
       blocksRealtimeChannel = null;
+    }
+  }
+
+  function startFulfillmentsRealtime() {
+    stopFulfillmentsRealtime();
+    if (!state.sb || typeof state.sb.channel !== 'function') return;
+    if (!state.selectedPartnerId) return;
+
+    try {
+      fulfillmentsRealtimeChannel = state.sb
+        .channel(`partner-fulfillments-${String(state.selectedPartnerId).slice(0, 8)}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'partner_service_fulfillments', filter: `partner_id=eq.${state.selectedPartnerId}` },
+          () => scheduleFulfillmentsRealtimeRefresh()
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'shop_order_fulfillments', filter: `partner_id=eq.${state.selectedPartnerId}` },
+          () => scheduleFulfillmentsRealtimeRefresh()
+        )
+        .subscribe();
+    } catch (_e) {
+      fulfillmentsRealtimeChannel = null;
     }
   }
 
@@ -1524,6 +1582,7 @@
       accepted: '#22c55e',
       rejected: '#ef4444',
       expired: '#ef4444',
+      closed: '#6b7280',
     };
     const label = s === 'pending_acceptance'
       ? '⏳ pending'
@@ -1533,6 +1592,8 @@
           ? '❌ rejected'
           : s === 'awaiting_payment'
             ? '💳 awaiting'
+            : s === 'closed'
+              ? '🔒 closed'
             : s ? s : '—';
     const color = colors[s] || '#6b7280';
     return `<span class="badge" style="background:${color};">${escapeHtml(label)}</span>`;
@@ -1973,6 +2034,32 @@
     return callFulfillmentAction(fulfillmentId, action, reason);
   }
 
+  function messageForFulfillmentAction(action, result) {
+    const act = String(action || '').trim();
+    const ok = Boolean(result && typeof result === 'object' && result.ok !== false);
+    const skipped = Boolean(result && typeof result === 'object' && result.skipped);
+    const reason = result && typeof result === 'object' ? String(result.reason || '').trim() : '';
+    const nextStatus = result && typeof result === 'object' && result.data && typeof result.data === 'object'
+      ? String(result.data.status || '').trim()
+      : '';
+
+    if (!ok) {
+      return act === 'reject' ? 'Failed to reject fulfillment' : 'Failed to accept fulfillment';
+    }
+
+    if (skipped) {
+      if (reason === 'already_claimed') return 'This order was already accepted by another partner.';
+      if (reason === 'already_accepted') return 'This fulfillment is already accepted.';
+      if (reason === 'already_rejected') return 'This fulfillment is already rejected.';
+      if (reason === 'status_changed') return 'This fulfillment status changed. Please refresh.';
+      return 'No changes were applied.';
+    }
+
+    if (act === 'reject') return 'Fulfillment rejected';
+    if (nextStatus === 'awaiting_payment') return 'Accepted. Awaiting deposit payment.';
+    return 'Fulfillment accepted';
+  }
+
   function getFulfillmentFocusIdFromHash() {
     const raw = String(window.location?.hash || '');
     if (!raw) return null;
@@ -2188,9 +2275,15 @@
 
         const actionsHtml = (() => {
           const st = String(f.status || '');
+          if (st === 'closed') {
+            return '<div class="muted small">Accepted by another partner</div>';
+          }
           if (st !== 'pending_acceptance') {
             if (st === 'accepted' && f.contact_revealed_at) {
               return '<div class="muted small">Contact revealed</div>';
+            }
+            if (st === 'expired') {
+              return '<div class="muted small">Deposit expired</div>';
             }
             if (st === 'rejected' && f.rejected_reason) {
               return `<div class="muted small">Reason: ${escapeHtml(f.rejected_reason)}</div>`;
@@ -2248,21 +2341,27 @@
             const reason = prompt('Provide a rejection reason (optional):') || '';
             if (!confirm('Are you sure you want to reject this fulfillment?')) return;
             btn.disabled = true;
+            let result = null;
             if (source === 'service') {
-              await callServiceFulfillmentAction(fulfillmentId, 'reject', reason);
+              result = await callServiceFulfillmentAction(fulfillmentId, 'reject', reason);
             } else {
-              await callFulfillmentAction(fulfillmentId, 'reject', reason);
+              result = await callFulfillmentAction(fulfillmentId, 'reject', reason);
             }
-            showToast('Fulfillment rejected', 'success');
+            const msg = messageForFulfillmentAction('reject', result);
+            const tone = result && typeof result === 'object' && result.skipped ? 'info' : 'success';
+            showToast(msg, tone);
           } else {
             if (!confirm('Accepting will request a customer deposit payment. Contact details will be revealed after payment confirmation. Continue?')) return;
             btn.disabled = true;
+            let result = null;
             if (source === 'service') {
-              await callServiceFulfillmentAction(fulfillmentId, 'accept');
+              result = await callServiceFulfillmentAction(fulfillmentId, 'accept');
             } else {
-              await callFulfillmentAction(fulfillmentId, 'accept');
+              result = await callFulfillmentAction(fulfillmentId, 'accept');
             }
-            showToast('Fulfillment accepted', 'success');
+            const msg = messageForFulfillmentAction('accept', result);
+            const tone = result && typeof result === 'object' && result.skipped ? 'info' : 'success';
+            showToast(msg, tone);
           }
 
           await refreshFulfillments();
@@ -2963,6 +3062,7 @@
     updateAvailabilitySelectionSummary();
 
     startBlocksRealtime();
+    startFulfillmentsRealtime();
 
     renderSuspendedInfo();
 
@@ -3415,6 +3515,7 @@
         state.user = session?.user || null;
         if (!session) {
           stopBlocksRealtime();
+          stopFulfillmentsRealtime();
         }
         bootstrapPortal();
       });
