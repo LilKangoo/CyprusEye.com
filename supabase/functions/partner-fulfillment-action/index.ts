@@ -1075,6 +1075,19 @@ serve(async (req) => {
         });
       }
 
+      const updatedStatus = String((updRows as any)?.[0]?.status || "").trim();
+      if (kind === "service" && updatedStatus === "expired") {
+        return new Response(
+          JSON.stringify({
+            ok: true,
+            skipped: true,
+            reason: "already_claimed",
+            data: { booking_id: bookingId || null, fulfillment_id: fulfillmentId, partner_id: partnerId },
+          }),
+          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        );
+      }
+
       await supabase.from("partner_audit_log").insert({
         partner_id: partnerId,
         actor_user_id: userId,
