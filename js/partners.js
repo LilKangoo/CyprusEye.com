@@ -2193,6 +2193,35 @@
     return callFulfillmentAction(fulfillmentId, action, reason);
   }
 
+  function messageForFulfillmentAction(action, result) {
+    const act = String(action || '').trim();
+    const ok = Boolean(result && typeof result === 'object' && result.ok !== false);
+    const skipped = Boolean(result && typeof result === 'object' && result.skipped);
+    const reason = result && typeof result === 'object' ? String(result.reason || '').trim() : '';
+    const nextStatus = result && typeof result === 'object' && result.data && typeof result.data === 'object'
+      ? String(result.data.status || '').trim()
+      : '';
+
+    if (!ok) {
+      return act === 'reject' ? 'Failed to reject fulfillment' : 'Failed to accept fulfillment';
+    }
+
+    if (skipped) {
+      if (reason === 'already_claimed') return 'This order was already accepted by another partner.';
+      if (reason === 'already_accepted') return 'This fulfillment is already accepted.';
+      if (reason === 'already_rejected') return 'This fulfillment is already rejected.';
+      if (reason === 'status_changed') return 'This fulfillment status changed. Please refresh.';
+      return 'No changes were applied.';
+    }
+
+    if (act === 'reject') return 'Fulfillment rejected';
+
+    if (nextStatus === 'awaiting_payment') {
+      return 'Accepted. Awaiting deposit payment.';
+    }
+    return 'Fulfillment accepted';
+  }
+
   function getFulfillmentFocusIdFromHash() {
     const raw = String(window.location?.hash || '');
     if (!raw) return null;
@@ -2412,6 +2441,9 @@
             if (st === 'accepted' && f.contact_revealed_at) {
               return '<div class="muted small">Contact revealed</div>';
             }
+            if (st === 'expired') {
+              return '<div class="muted small">Claimed by another partner</div>';
+            }
             if (st === 'rejected' && f.rejected_reason) {
               return `<div class="muted small">Reason: ${escapeHtml(f.rejected_reason)}</div>`;
             }
@@ -2468,21 +2500,27 @@
             const reason = prompt('Provide a rejection reason (optional):') || '';
             if (!confirm('Are you sure you want to reject this fulfillment?')) return;
             btn.disabled = true;
+            let result = null;
             if (source === 'service') {
-              await callServiceFulfillmentAction(fulfillmentId, 'reject', reason);
+              result = await callServiceFulfillmentAction(fulfillmentId, 'reject', reason);
             } else {
-              await callFulfillmentAction(fulfillmentId, 'reject', reason);
+              result = await callFulfillmentAction(fulfillmentId, 'reject', reason);
             }
-            showToast('Fulfillment rejected', 'success');
+            const msg = messageForFulfillmentAction('reject', result);
+            const tone = result && typeof result === 'object' && result.skipped ? 'info' : 'success';
+            showToast(msg, tone);
           } else {
             if (!confirm('Accepting will request a customer deposit payment. Contact details will be revealed after payment confirmation. Continue?')) return;
             btn.disabled = true;
+            let result = null;
             if (source === 'service') {
-              await callServiceFulfillmentAction(fulfillmentId, 'accept');
+              result = await callServiceFulfillmentAction(fulfillmentId, 'accept');
             } else {
-              await callFulfillmentAction(fulfillmentId, 'accept');
+              result = await callFulfillmentAction(fulfillmentId, 'accept');
             }
-            showToast('Fulfillment accepted', 'success');
+            const msg = messageForFulfillmentAction('accept', result);
+            const tone = result && typeof result === 'object' && result.skipped ? 'info' : 'success';
+            showToast(msg, tone);
           }
 
           await refreshFulfillments();

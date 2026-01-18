@@ -136,6 +136,33 @@ async function loadCalendarsCreateResourceOptions() {
   }
 }
 
+function messageForServiceFulfillmentAction(action, result) {
+  const act = String(action || '').trim();
+  const ok = Boolean(result && typeof result === 'object' && result.ok !== false);
+  const skipped = Boolean(result && typeof result === 'object' && result.skipped);
+  const reason = result && typeof result === 'object' ? String(result.reason || '').trim() : '';
+  const nextStatus = result && typeof result === 'object' && result.data && typeof result.data === 'object'
+    ? String(result.data.status || '').trim()
+    : '';
+
+  if (!ok) {
+    return act === 'reject' ? 'Failed to reject fulfillment' : act === 'mark_paid' ? 'Failed to mark paid' : 'Failed to accept fulfillment';
+  }
+
+  if (skipped) {
+    if (reason === 'already_claimed') return 'This order was already accepted by another partner.';
+    if (reason === 'already_accepted') return 'This fulfillment is already accepted.';
+    if (reason === 'already_rejected') return 'This fulfillment is already rejected.';
+    if (reason === 'status_changed') return 'This fulfillment status changed. Please refresh.';
+    return 'No changes were applied.';
+  }
+
+  if (act === 'reject') return 'Fulfillment rejected';
+  if (act === 'mark_paid') return 'Marked as paid';
+  if (nextStatus === 'awaiting_payment') return 'Accepted. Awaiting deposit payment.';
+  return 'Fulfillment accepted';
+}
+
 function renderAdminCalendarsResourceTypePanels() {
   const root = document.getElementById('adminCalendarsResourceTypePanels');
   if (!root) return;
@@ -1647,14 +1674,9 @@ async function adminServiceFulfillmentAction(partnerId, fulfillmentId, action) {
     });
     if (error) throw error;
 
-    showToast(
-      act === 'accept'
-        ? 'Fulfillment accepted'
-        : act === 'reject'
-          ? 'Fulfillment rejected'
-          : 'Marked as paid',
-      'success'
-    );
+    const msg = messageForServiceFulfillmentAction(act, data);
+    const tone = data && typeof data === 'object' && data.skipped ? 'info' : 'success';
+    showToast(msg, tone);
 
     partnersState.servicesByPartnerId[pid] = null;
     partnersState.servicesLoadingByPartnerId[pid] = true;
@@ -1721,7 +1743,7 @@ async function adminServiceFulfillmentActionForBooking(category, bookingId, fulf
       throw new Error('Supabase functions client not available');
     }
 
-    const { error } = await client.functions.invoke('partner-fulfillment-action', {
+    const { data, error } = await client.functions.invoke('partner-fulfillment-action', {
       body: {
         fulfillment_id: fid,
         action: act,
@@ -1734,14 +1756,9 @@ async function adminServiceFulfillmentActionForBooking(category, bookingId, fulf
     });
     if (error) throw error;
 
-    showToast(
-      act === 'accept'
-        ? 'Fulfillment accepted'
-        : act === 'reject'
-          ? 'Fulfillment rejected'
-          : 'Marked as paid',
-      'success'
-    );
+    const msg = messageForServiceFulfillmentAction(act, data);
+    const tone = data && typeof data === 'object' && data.skipped ? 'info' : 'success';
+    showToast(msg, tone);
 
     await loadAllOrders({ silent: true });
     if (cat === 'cars') await viewCarBookingDetails(bid);
