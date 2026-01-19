@@ -46,6 +46,8 @@
     loginPrompt: null,
     btnOpenLogin: null,
     noPartner: null,
+    servicesCard: null,
+    servicesTipsCard: null,
     app: null,
     status: null,
     partnerSelect: null,
@@ -129,6 +131,16 @@
     btnPartnerAffiliateCashout: null,
     partnerAffiliateCashoutHint: null,
     partnerAffiliateEarningsBody: null,
+
+    partnerAffiliateSummaryCard: null,
+    partnerAffiliateSummaryUnpaid: null,
+    partnerAffiliateSummaryPending: null,
+    partnerAffiliateSummaryPaid: null,
+    partnerAffiliateSummaryThreshold: null,
+    partnerAffiliateSummaryProgressText: null,
+    partnerAffiliateSummaryProgressBar: null,
+    btnPartnerAffiliateSummaryCashout: null,
+    partnerAffiliateSummaryCashoutHint: null,
 
     partnerProfileMessage: null,
     partnerProfileEmailDisplay: null,
@@ -328,6 +340,108 @@
     }
   }
 
+  async function refreshAffiliateSummaryCard() {
+    if (!els.partnerAffiliateSummaryCard) return;
+    if (!state.sb || !state.user?.id) {
+      els.partnerAffiliateSummaryCard.hidden = true;
+      return;
+    }
+    if (!state.selectedPartnerId) {
+      els.partnerAffiliateSummaryCard.hidden = true;
+      return;
+    }
+
+    const { affiliateEnabled } = getSelectedPartnerCapabilities();
+    if (!affiliateEnabled) {
+      els.partnerAffiliateSummaryCard.hidden = true;
+      return;
+    }
+
+    const setMoney = (el, value, cur) => {
+      if (!el) return;
+      el.textContent = formatMoney(value, cur);
+    };
+
+    let balanceRow = null;
+    try {
+      let data = null;
+      try {
+        const res = await state.sb.rpc('affiliate_get_referrer_balance_v1', { p_partner_id: state.selectedPartnerId });
+        if (res.error) throw res.error;
+        data = res.data;
+      } catch (_e) {
+        try {
+          const res = await state.sb.rpc('affiliate_get_partner_balance_v2', { p_partner_id: state.selectedPartnerId });
+          if (res.error) throw res.error;
+          data = res.data;
+        } catch (_e2) {
+          const res = await state.sb.rpc('affiliate_get_partner_balance', { p_partner_id: state.selectedPartnerId });
+          if (res.error) throw res.error;
+          data = res.data;
+        }
+      }
+      balanceRow = Array.isArray(data) ? data[0] : data;
+    } catch (e) {
+      console.error(e);
+      if (els.partnerAffiliateSummaryProgressText) els.partnerAffiliateSummaryProgressText.textContent = 'Failed to load affiliate balance.';
+      if (els.btnPartnerAffiliateSummaryCashout) els.btnPartnerAffiliateSummaryCashout.disabled = true;
+      return;
+    }
+
+    const unpaid = Number(balanceRow?.unpaid_total || 0) || 0;
+    const pending = Number(balanceRow?.pending_total || 0) || 0;
+    const paid = Number(balanceRow?.paid_total || 0) || 0;
+    const threshold = Number(balanceRow?.payout_threshold || 0) || 0;
+    const cur = String(balanceRow?.currency || 'EUR') || 'EUR';
+
+    setMoney(els.partnerAffiliateSummaryUnpaid, unpaid, cur);
+    setMoney(els.partnerAffiliateSummaryPending, pending, cur);
+    setMoney(els.partnerAffiliateSummaryPaid, paid, cur);
+    setMoney(els.partnerAffiliateSummaryThreshold, threshold, cur);
+
+    const pct = threshold > 0 ? Math.min(100, Math.max(0, (unpaid / threshold) * 100)) : 0;
+    if (els.partnerAffiliateSummaryProgressBar) {
+      els.partnerAffiliateSummaryProgressBar.style.width = `${pct.toFixed(0)}%`;
+    }
+
+    if (els.partnerAffiliateSummaryProgressText) {
+      els.partnerAffiliateSummaryProgressText.textContent = `Progress: ${formatMoney(unpaid, cur)} / ${formatMoney(threshold, cur)}`;
+    }
+
+    let hasPendingCashoutRequest = false;
+    try {
+      const { data: reqs } = await state.sb
+        .from('affiliate_cashout_requests')
+        .select('id, status, created_at')
+        .eq('partner_id', state.selectedPartnerId)
+        .eq('requested_by', state.user.id)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      hasPendingCashoutRequest = Array.isArray(reqs) && reqs.length > 0;
+    } catch (_e) {
+    }
+
+    const canCashout = threshold > 0 && unpaid >= threshold && pending <= 0 && !hasPendingCashoutRequest;
+    if (els.btnPartnerAffiliateSummaryCashout) {
+      els.btnPartnerAffiliateSummaryCashout.disabled = !canCashout;
+    }
+
+    if (els.partnerAffiliateSummaryCashoutHint) {
+      if (hasPendingCashoutRequest) {
+        els.partnerAffiliateSummaryCashoutHint.textContent = 'Cash out request pending admin review.';
+      } else if (pending > 0) {
+        els.partnerAffiliateSummaryCashoutHint.textContent = 'A payout is already in progress.';
+      } else if (threshold > 0 && unpaid < threshold) {
+        els.partnerAffiliateSummaryCashoutHint.textContent = `Cash out available at ${formatMoney(threshold, cur)}.`;
+      } else if (canCashout) {
+        els.partnerAffiliateSummaryCashoutHint.textContent = 'You can request a cash out now.';
+      } else {
+        els.partnerAffiliateSummaryCashoutHint.textContent = '';
+      }
+    }
+  }
+
   function showToast(message, type) {
     if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
       window.showToast(message, type || 'info');
@@ -349,6 +463,31 @@
   function setHidden(el, hidden) {
     if (!el) return;
     el.hidden = !!hidden;
+  }
+
+  function getSelectedPartnerCapabilities() {
+    const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
+    const hasAnyServicePermission = Boolean(partner?.can_manage_shop || partner?.can_manage_cars || partner?.can_manage_trips || partner?.can_manage_hotels);
+    const affiliateEnabled = Boolean(partner?.affiliate_enabled);
+    const isAffiliateOnly = Boolean(affiliateEnabled && !hasAnyServicePermission);
+    return { partner, hasAnyServicePermission, affiliateEnabled, isAffiliateOnly };
+  }
+
+  function updateServiceSectionVisibility() {
+    const { isAffiliateOnly } = getSelectedPartnerCapabilities();
+    setHidden(els.servicesCard, isAffiliateOnly);
+    setHidden(els.servicesTipsCard, isAffiliateOnly);
+    setHidden(els.partnerNavCalendar, isAffiliateOnly);
+  }
+
+  function updateAffiliateSummaryCardVisibility() {
+    const inPortal = Boolean(els.partnerPortalView && !els.partnerPortalView.hidden);
+    const inFulfillmentsTab = Boolean(els.tabFulfillments && !els.tabFulfillments.hidden);
+    const isAll = String(state.selectedCategory || 'all') === 'all';
+    const { affiliateEnabled, isAffiliateOnly } = getSelectedPartnerCapabilities();
+    const tabOk = isAffiliateOnly ? true : inFulfillmentsTab;
+    const canShow = inPortal && tabOk && isAll && affiliateEnabled && Boolean(state.session && state.user && state.selectedPartnerId);
+    setHidden(els.partnerAffiliateSummaryCard, !canShow);
   }
 
   async function copyTextToClipboard(text) {
@@ -407,6 +546,9 @@
     setHidden(els.partnerPortalView, !isPortal);
     setHidden(els.partnerProfileView, !isProfile);
     setHidden(els.partnerReferralsView, !isReferrals);
+
+    updateAffiliateSummaryCardVisibility();
+    updateServiceSectionVisibility();
   }
 
   function setSidebarActive(targetBtn) {
@@ -582,6 +724,20 @@
     const canTrips = Boolean(partner?.can_manage_trips);
     const canHotels = Boolean(partner?.can_manage_hotels);
 
+    const { isAffiliateOnly } = getSelectedPartnerCapabilities();
+    if (isAffiliateOnly) {
+      setHidden(els.partnerNavShop, true);
+      setHidden(els.partnerNavCars, true);
+      setHidden(els.partnerNavTrips, true);
+      setHidden(els.partnerNavHotels, true);
+      if (String(state.selectedCategory || 'all') !== 'all') {
+        state.selectedCategory = 'all';
+      }
+      updateServiceSectionVisibility();
+      updateAffiliateSummaryCardVisibility();
+      return;
+    }
+
     setHidden(els.partnerNavShop, !canShop);
     setHidden(els.partnerNavCars, !canCars);
     setHidden(els.partnerNavTrips, !canTrips);
@@ -596,6 +752,9 @@
     if (!allowed.has(String(state.selectedCategory || 'all'))) {
       state.selectedCategory = 'all';
     }
+
+    updateServiceSectionVisibility();
+    updateAffiliateSummaryCardVisibility();
   }
 
   function navToCategory(category) {
@@ -603,6 +762,8 @@
     state.selectedCategory = next;
 
     updateSidebarCategoryVisibility();
+    updateAffiliateSummaryCardVisibility();
+    updateServiceSectionVisibility();
 
     setMainView('portal');
 
@@ -622,6 +783,12 @@
     }
 
     showTabOnly('fulfillments');
+    if (String(state.selectedCategory || 'all') === 'all') {
+      try {
+        refreshAffiliateSummaryCard();
+      } catch (_e) {
+      }
+    }
     if (!state.fulfillments?.length) {
       refreshFulfillments();
     } else {
@@ -968,6 +1135,11 @@
   }
 
   function navToCalendar() {
+    const { isAffiliateOnly } = getSelectedPartnerCapabilities();
+    if (isAffiliateOnly) {
+      navToCategory('all');
+      return;
+    }
     setMainView('portal');
     setSidebarActive(els.partnerNavCalendar);
 
@@ -3165,8 +3337,16 @@
       await loadFulfillments();
       syncResourceTypeOptions();
       updateSidebarCategoryVisibility();
+      updateAffiliateSummaryCardVisibility();
+      updateServiceSectionVisibility();
       updateKpis();
       renderFulfillmentsTable();
+      if (String(state.selectedCategory || 'all') === 'all') {
+        try {
+          await refreshAffiliateSummaryCard();
+        } catch (_e) {
+        }
+      }
       setText(els.status, `Loaded ${state.fulfillments.length} fulfillments.`);
     } catch (error) {
       console.error(error);
@@ -3238,6 +3418,16 @@
     setHidden(els.tabFulfillments, !isFulfillments);
     setHidden(els.tabCalendar, isFulfillments);
 
+    updateAffiliateSummaryCardVisibility();
+    updateServiceSectionVisibility();
+
+    if (isFulfillments && String(state.selectedCategory || 'all') === 'all') {
+      try {
+        refreshAffiliateSummaryCard();
+      } catch (_e) {
+      }
+    }
+
     if (isFulfillments) {
       refreshFulfillments();
     } else {
@@ -3262,6 +3452,8 @@
     syncResourceTypeOptions();
 
     updateSidebarCategoryVisibility();
+    updateAffiliateSummaryCardVisibility();
+    updateServiceSectionVisibility();
 
     const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
     if (partner && els.blockResourceType && els.blockResourceId) {
@@ -3345,6 +3537,8 @@
 
     syncResourceTypeOptions();
     updateSidebarCategoryVisibility();
+    updateAffiliateSummaryCardVisibility();
+    updateServiceSectionVisibility();
     ensureCalendarMonthInput();
 
     const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
@@ -3356,6 +3550,11 @@
 
     setActiveTab('fulfillments');
     setText(els.status, 'Ready.');
+
+    try {
+      await refreshAffiliateSummaryCard();
+    } catch (_e) {
+    }
   }
 
   function attachEventListeners() {
@@ -3483,10 +3682,29 @@
         if (!data) throw new Error('Cash out request failed');
         showToast('Cash out requested. Admin has been notified.', 'success');
         await refreshAffiliatePanel();
+        await refreshAffiliateSummaryCard();
       } catch (error) {
         console.error(error);
         showToast(`Error: ${error.message || 'Cash out failed'}`, 'error');
         els.btnPartnerAffiliateCashout.disabled = false;
+      }
+    });
+
+    els.btnPartnerAffiliateSummaryCashout?.addEventListener('click', async () => {
+      if (!state.sb || !state.selectedPartnerId) return;
+      if (!confirm('Request a cash out? Admin will be notified and will contact you.')) return;
+      try {
+        els.btnPartnerAffiliateSummaryCashout.disabled = true;
+        const { data, error } = await state.sb.rpc('affiliate_request_cashout', { p_partner_id: state.selectedPartnerId });
+        if (error) throw error;
+        if (!data) throw new Error('Cash out request failed');
+        showToast('Cash out requested. Admin has been notified.', 'success');
+        await refreshAffiliatePanel();
+        await refreshAffiliateSummaryCard();
+      } catch (error) {
+        console.error(error);
+        showToast(`Error: ${error.message || 'Cash out failed'}`, 'error');
+        els.btnPartnerAffiliateSummaryCashout.disabled = false;
       }
     });
 
@@ -3737,6 +3955,8 @@
     els.loginPrompt = $('partnerPortalLoginPrompt');
     els.btnOpenLogin = $('btnPartnerOpenLogin');
     els.noPartner = $('partnerPortalNoPartner');
+    els.servicesCard = $('partnerServicesCard');
+    els.servicesTipsCard = $('partnerServicesTipsCard');
     els.app = $('partnerPortalApp');
     els.status = $('partnerPortalStatus');
     els.partnerSelect = $('partnerSelect');
@@ -3822,6 +4042,16 @@
     els.btnPartnerAffiliateCashout = $('btnPartnerAffiliateCashout');
     els.partnerAffiliateCashoutHint = $('partnerAffiliateCashoutHint');
     els.partnerAffiliateEarningsBody = $('partnerAffiliateEarningsBody');
+
+    els.partnerAffiliateSummaryCard = $('partnerAffiliateSummaryCard');
+    els.partnerAffiliateSummaryUnpaid = $('partnerAffiliateSummaryUnpaid');
+    els.partnerAffiliateSummaryPending = $('partnerAffiliateSummaryPending');
+    els.partnerAffiliateSummaryPaid = $('partnerAffiliateSummaryPaid');
+    els.partnerAffiliateSummaryThreshold = $('partnerAffiliateSummaryThreshold');
+    els.partnerAffiliateSummaryProgressText = $('partnerAffiliateSummaryProgressText');
+    els.partnerAffiliateSummaryProgressBar = $('partnerAffiliateSummaryProgressBar');
+    els.btnPartnerAffiliateSummaryCashout = $('btnPartnerAffiliateSummaryCashout');
+    els.partnerAffiliateSummaryCashoutHint = $('partnerAffiliateSummaryCashoutHint');
 
     els.partnerProfileMessage = $('partnerProfileMessage');
     els.partnerProfileEmailDisplay = $('partnerProfileEmailDisplay');

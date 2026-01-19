@@ -412,6 +412,33 @@
         </div>
       </div>
 
+      <div class="partner-card" id="partnerAffiliateSummaryCard" style="padding: 12px; margin-top: 12px;" hidden>
+        <h3 style="margin: 0 0 10px;">Affiliate earnings</h3>
+        <p class="muted" style="margin-top: 0;">Your commission earnings from referred users (services only).</p>
+
+        <div class="partner-kpi partner-kpi-4">
+          <div class="kpi"><div class="label">Unpaid</div><div class="value" id="partnerAffiliateSummaryUnpaid">—</div></div>
+          <div class="kpi"><div class="label">In payout</div><div class="value" id="partnerAffiliateSummaryPending">—</div></div>
+          <div class="kpi"><div class="label">Paid</div><div class="value" id="partnerAffiliateSummaryPaid">—</div></div>
+          <div class="kpi"><div class="label">Threshold</div><div class="value" id="partnerAffiliateSummaryThreshold">—</div></div>
+        </div>
+
+        <div style="height: 12px;"></div>
+
+        <div style="display:flex; align-items:flex-end; justify-content:space-between; gap: 12px; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 240px;">
+            <div id="partnerAffiliateSummaryProgressText" class="muted small" style="margin-bottom: 6px;">—</div>
+            <div style="height: 10px; background: rgba(229,231,235,1); border-radius: 999px; overflow: hidden;">
+              <div id="partnerAffiliateSummaryProgressBar" style="height: 100%; width: 0%; background: linear-gradient(135deg,#22c55e 0%,#16a34a 100%);"></div>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction: column; align-items:flex-end; gap: 6px;">
+            <button id="btnPartnerAffiliateSummaryCashout" class="btn-sm primary" type="button" disabled>Cash out</button>
+            <div id="partnerAffiliateSummaryCashoutHint" class="muted small" style="text-align:right;"></div>
+          </div>
+        </div>
+      </div>
+
       <div id="partnerPortalLoginPrompt" class="partner-card" hidden>
         <h2 style="margin: 0 0 8px;">Log in</h2>
         <p class="muted" style="margin-top: 0;">You must be logged in to use the partner portal.</p>
@@ -426,7 +453,7 @@
       </div>
 
       <div id="partnerPortalApp" class="partner-grid" hidden>
-        <section class="partner-card">
+        <section class="partner-card" id="partnerServicesCard">
           <div class="partner-toolbar">
             <strong>Partner:</strong>
             <select id="partnerSelect"></select>
@@ -558,7 +585,7 @@
           </div>
         </section>
 
-        <aside class="partner-card">
+        <aside class="partner-card" id="partnerServicesTipsCard">
           <h2 style="margin: 0 0 8px;">Status</h2>
           <div id="partnerPortalStatus" class="muted">Loading…</div>
           <div style="height: 12px;"></div>
