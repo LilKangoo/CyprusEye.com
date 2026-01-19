@@ -700,6 +700,36 @@
             <button class="btn-sm primary" type="submit">Update password</button>
           </div>
         </form>
+
+        <div style="height: 12px;"></div>
+
+        <form id="partnerProfilePayoutForm" class="partner-form" style="grid-template-columns: 1fr 1fr;">
+          <div style="grid-column: 1 / -1; font-weight: 800;">Payout details (bank transfer)</div>
+          <div id="partnerProfilePayoutPartnerName" class="muted small" style="grid-column: 1 / -1;">—</div>
+          <div style="grid-column: 1 / -1;">
+            <label for="partnerProfilePayoutAccountHolder">Account holder name</label>
+            <input id="partnerProfilePayoutAccountHolder" type="text" autocomplete="name" />
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <label for="partnerProfilePayoutBankName">Bank name</label>
+            <input id="partnerProfilePayoutBankName" type="text" />
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <label for="partnerProfilePayoutIban">IBAN</label>
+            <input id="partnerProfilePayoutIban" type="text" autocapitalize="characters" />
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <label for="partnerProfilePayoutBic">BIC / SWIFT</label>
+            <input id="partnerProfilePayoutBic" type="text" autocapitalize="characters" />
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <label for="partnerProfilePayoutNotes">Notes</label>
+            <textarea id="partnerProfilePayoutNotes" rows="3"></textarea>
+          </div>
+          <div style="grid-column: 1 / -1;">
+            <button class="btn-sm primary" type="submit">Save payout details</button>
+          </div>
+        </form>
       </section>
     </div>
 
@@ -792,7 +822,7 @@
 
   <script src="js/i18n.js" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
-  <script src="js/partners.js?v=25" defer></script>
+  <script src="js/partners.js?v=26" defer></script>
 
   <div
     id="auth-modal"

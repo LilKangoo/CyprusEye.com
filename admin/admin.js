@@ -136,6 +136,77 @@ async function loadCalendarsCreateResourceOptions() {
   }
 }
 
+async function renderPartnerFormPayoutDetails(partnerId) {
+  const form = document.getElementById('partnerForm');
+  if (!form) return;
+
+  const anchor = document.getElementById('partnerAssignmentsHint')?.parentElement || null;
+  let card = document.getElementById('partnerFormPayoutDetailsCard');
+  if (!card) {
+    const html = `
+      <div id="partnerFormPayoutDetailsCard" style="margin-top: 16px; padding-top: 16px; border-top: 1px solid rgba(255,255,255,0.08);">
+        <h4 style="margin: 0 0 8px; font-size: 13px; color: var(--admin-text-muted);">Payout details (bank transfer)</h4>
+        <div id="partnerFormPayoutDetailsBody" style="color: var(--admin-text); font-size: 13px;"><div style="color: var(--admin-text-muted);">Loading...</div></div>
+      </div>
+    `;
+    if (anchor) {
+      anchor.insertAdjacentHTML('beforebegin', html);
+    } else {
+      form.insertAdjacentHTML('beforeend', html);
+    }
+    card = document.getElementById('partnerFormPayoutDetailsCard');
+  }
+
+  const body = document.getElementById('partnerFormPayoutDetailsBody');
+  if (!body) return;
+
+  const pid = String(partnerId || '').trim();
+  if (!pid) {
+    body.innerHTML = '<div style="color: var(--admin-text-muted);">Save partner first to add payout details.</div>';
+    return;
+  }
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  try {
+    const { data, error } = await client
+      .from('partner_payout_details')
+      .select('partner_id, account_holder_name, bank_name, iban, bic, notes, updated_at')
+      .eq('partner_id', pid)
+      .maybeSingle();
+    if (error) throw error;
+
+    const row = data || null;
+    if (!row) {
+      body.innerHTML = '<div style="color: var(--admin-text-muted);">No payout details saved.</div>';
+      return;
+    }
+
+    const updatedAt = row.updated_at ? escapeHtml(formatDate(row.updated_at)) : '';
+    const items = [
+      { k: 'Account holder', v: row.account_holder_name },
+      { k: 'Bank name', v: row.bank_name },
+      { k: 'IBAN', v: row.iban },
+      { k: 'BIC/SWIFT', v: row.bic },
+      { k: 'Notes', v: row.notes },
+    ];
+
+    body.innerHTML = `
+      <div style="display:grid; gap: 6px;">
+        ${updatedAt ? `<div style="color: var(--admin-text-muted); font-size: 12px;">Updated: ${updatedAt}</div>` : ''}
+        ${items.map(it => {
+          const value = it.v == null ? '' : String(it.v);
+          return `<div style="display:grid; grid-template-columns: 140px 1fr; gap: 10px;"><div style="color: var(--admin-text-muted);">${escapeHtml(it.k)}</div><div style="font-weight: 600;">${value ? escapeHtml(value) : '—'}</div></div>`;
+        }).join('')}
+      </div>
+    `;
+  } catch (e) {
+    const msg = String(e?.message || 'Failed to load payout details');
+    body.innerHTML = `<div style="color:#ef4444;">${escapeHtml(msg)}</div>`;
+  }
+}
+
 function messageForServiceFulfillmentAction(action, result) {
   const act = String(action || '').trim();
   const ok = Boolean(result && typeof result === 'object' && result.ok !== false);
@@ -3746,6 +3817,11 @@ async function openPartnerForm(partnerId = null) {
 
   showElement(modal);
 
+  try {
+    await renderPartnerFormPayoutDetails(partnerId);
+  } catch (_e) {
+  }
+
   bindPartnerAssignmentsUi();
   setPartnerAssignActiveTab(partnerAssignmentsState.activeTab || 'cars');
   try {
@@ -4049,6 +4125,122 @@ async function renderUserPartnerAccess(userId) {
   }
 }
 
+async function renderUserPartnerPayoutDetails(userId) {
+  const content = document.getElementById('userDetailContent');
+  if (!content) return;
+  const grid = content.querySelector('.user-detail-grid');
+  if (!grid) return;
+
+  let card = content.querySelector('#userPartnerPayoutDetailsCard');
+  if (!card) {
+    grid.insertAdjacentHTML('beforeend', `
+      <section class="user-detail-card user-detail-card--full" id="userPartnerPayoutDetailsCard">
+        <h4 class="user-detail-section-title">Partner payout details</h4>
+        <div id="userPartnerPayoutDetailsBody"><p class="user-detail-hint">Loading...</p></div>
+      </section>
+    `);
+    card = content.querySelector('#userPartnerPayoutDetailsCard');
+  }
+
+  const body = content.querySelector('#userPartnerPayoutDetailsBody');
+  if (!body) return;
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  body.innerHTML = '<p class="user-detail-hint">Loading...</p>';
+
+  try {
+    const { data: memberships, error: membershipsError } = await client
+      .from('partner_users')
+      .select('partner_id, role, created_at')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(500);
+    if (membershipsError) throw membershipsError;
+
+    const ms = Array.isArray(memberships) ? memberships : [];
+    const partnerIds = [...new Set(ms.map((m) => String(m.partner_id || '')).filter(Boolean))];
+    if (!partnerIds.length) {
+      body.innerHTML = '<p class="user-detail-hint">No partner access.</p>';
+      return;
+    }
+
+    const [partnersRes, payoutsRes] = await Promise.all([
+      client.from('partners').select('id, name').in('id', partnerIds).limit(1000),
+      client.from('partner_payout_details').select('partner_id, account_holder_name, bank_name, iban, bic, notes, updated_at').in('partner_id', partnerIds).limit(1000),
+    ]);
+
+    if (partnersRes.error) throw partnersRes.error;
+    if (payoutsRes.error) throw payoutsRes.error;
+
+    const partners = Array.isArray(partnersRes.data) ? partnersRes.data : [];
+    const partnerNameById = {};
+    partners.forEach((p) => {
+      if (!p?.id) return;
+      partnerNameById[String(p.id)] = String(p.name || String(p.id).slice(0, 8));
+    });
+
+    const payoutRows = Array.isArray(payoutsRes.data) ? payoutsRes.data : [];
+    const payoutByPartnerId = {};
+    payoutRows.forEach((r) => {
+      if (!r?.partner_id) return;
+      payoutByPartnerId[String(r.partner_id)] = r;
+    });
+
+    const rows = ms.map((m) => {
+      const pid = String(m.partner_id || '');
+      const payout = payoutByPartnerId[pid] || null;
+      return {
+        partnerId: pid,
+        partnerName: partnerNameById[pid] || (pid ? pid.slice(0, 8) : '—'),
+        role: String(m.role || ''),
+        payout,
+      };
+    });
+
+    body.innerHTML = `
+      <div class="admin-table-container" style="margin-top: 10px;">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>Partner</th>
+              <th>Role</th>
+              <th>Account holder</th>
+              <th>Bank</th>
+              <th>IBAN</th>
+              <th>BIC</th>
+              <th>Notes</th>
+              <th>Updated</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((r) => {
+              const p = r.payout || {};
+              const updated = p.updated_at ? escapeHtml(formatDate(p.updated_at)) : '—';
+              return `
+                <tr>
+                  <td>${escapeHtml(r.partnerName)}</td>
+                  <td>${escapeHtml(r.role || '—')}</td>
+                  <td>${escapeHtml(p.account_holder_name || '—')}</td>
+                  <td>${escapeHtml(p.bank_name || '—')}</td>
+                  <td><code>${escapeHtml(p.iban || '—')}</code></td>
+                  <td><code>${escapeHtml(p.bic || '—')}</code></td>
+                  <td>${escapeHtml(p.notes || '—')}</td>
+                  <td>${updated}</td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  } catch (error) {
+    const msg = String(error?.message || 'Failed to load payout details');
+    body.innerHTML = `<p class="user-detail-hint" style="color:#ef4444;">${escapeHtml(msg)}</p>`;
+  }
+}
+
 async function enableAffiliateOnlyUserFromUserModal(userId) {
   const ok = confirm('Enable affiliate-only for this user? This will create an affiliate partner and grant owner access.');
   if (!ok) return;
@@ -4068,6 +4260,7 @@ async function enableAffiliateOnlyUserFromUserModal(userId) {
     partnersUiState.affiliateEligibleLoadedOnce = false;
     await Promise.all([
       renderUserPartnerAccess(userId),
+      renderUserPartnerPayoutDetails(userId),
       loadPartnersData(),
       loadAffiliateEligibleUsers(true),
     ]);
@@ -4107,6 +4300,7 @@ async function addUserToPartnerFromUserModal(userId) {
     if (error) throw error;
     showToast('Partner access granted', 'success');
     await renderUserPartnerAccess(userId);
+    await renderUserPartnerPayoutDetails(userId);
     await loadPartnersData();
   } catch (error) {
     showToast(error.message || 'Failed to grant access', 'error');
@@ -4125,6 +4319,7 @@ async function removeUserFromPartnerFromUserModal(partnerUserId, userId) {
     if (error) throw error;
     showToast('Partner access removed', 'success');
     await renderUserPartnerAccess(userId);
+    await renderUserPartnerPayoutDetails(userId);
     await loadPartnersData();
   } catch (error) {
     showToast(error.message || 'Failed to remove access', 'error');
@@ -9469,6 +9664,11 @@ async function viewUserDetails(userId) {
     }
 
     await renderUserPartnerAccess(userId);
+
+    try {
+      await renderUserPartnerPayoutDetails(userId);
+    } catch (_e) {
+    }
 
   } catch (error) {
     console.error('Failed to load user details:', error);

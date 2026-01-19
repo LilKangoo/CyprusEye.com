@@ -165,6 +165,14 @@
     partnerProfilePasswordCurrent: null,
     partnerProfilePasswordNew: null,
     partnerProfilePasswordConfirm: null,
+
+    partnerProfilePayoutForm: null,
+    partnerProfilePayoutPartnerName: null,
+    partnerProfilePayoutAccountHolder: null,
+    partnerProfilePayoutBankName: null,
+    partnerProfilePayoutIban: null,
+    partnerProfilePayoutBic: null,
+    partnerProfilePayoutNotes: null,
   };
 
   const USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])$/i;
@@ -702,6 +710,45 @@
     if (els.partnerProfileEmailInput) {
       els.partnerProfileEmailInput.value = state.user?.email ? String(state.user.email) : '';
     }
+
+    if (els.partnerProfilePayoutPartnerName) {
+      const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
+      const label = partner?.name ? `Partner: ${String(partner.name)}` : (state.selectedPartnerId ? `Partner: ${String(state.selectedPartnerId).slice(0, 8)}` : 'Partner: —');
+      els.partnerProfilePayoutPartnerName.textContent = label;
+    }
+
+    if (els.partnerProfilePayoutForm) {
+      const pid = String(state.selectedPartnerId || '').trim();
+      const canEdit = pid && Array.isArray(state.memberships) && state.memberships.some((m) => String(m?.partner_id || '') === pid && String(m?.role || '') === 'owner');
+      Array.from(els.partnerProfilePayoutForm.querySelectorAll('input, textarea, button')).forEach((el) => {
+        el.disabled = !canEdit;
+      });
+    }
+  }
+
+  async function loadPartnerPayoutDetails() {
+    if (!state.sb || !state.user?.id) return null;
+    if (!state.selectedPartnerId) return null;
+
+    try {
+      const { data, error } = await state.sb
+        .from('partner_payout_details')
+        .select('partner_id, account_holder_name, bank_name, iban, bic, notes, updated_at')
+        .eq('partner_id', state.selectedPartnerId)
+        .maybeSingle();
+      if (error) throw error;
+      return data || null;
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  function renderPartnerPayoutDetails(row) {
+    if (els.partnerProfilePayoutAccountHolder) els.partnerProfilePayoutAccountHolder.value = row?.account_holder_name || '';
+    if (els.partnerProfilePayoutBankName) els.partnerProfilePayoutBankName.value = row?.bank_name || '';
+    if (els.partnerProfilePayoutIban) els.partnerProfilePayoutIban.value = row?.iban || '';
+    if (els.partnerProfilePayoutBic) els.partnerProfilePayoutBic.value = row?.bic || '';
+    if (els.partnerProfilePayoutNotes) els.partnerProfilePayoutNotes.value = row?.notes || '';
   }
 
   async function refreshReferralWidget() {
@@ -1279,6 +1326,11 @@
 
     await loadMyProfile();
     renderProfileSettings();
+    try {
+      const payout = await loadPartnerPayoutDetails();
+      renderPartnerPayoutDetails(payout);
+    } catch (_e) {
+    }
     await refreshReferralWidget();
 
     closeSidebar();
@@ -3680,6 +3732,15 @@
     updateAffiliateSummaryCardVisibility();
     updateServiceSectionVisibility();
 
+    if (els.partnerProfileView && !els.partnerProfileView.hidden) {
+      try {
+        renderProfileSettings();
+        const payout = await loadPartnerPayoutDetails();
+        renderPartnerPayoutDetails(payout);
+      } catch (_e) {
+      }
+    }
+
     const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
     if (partner && els.blockResourceType && els.blockResourceId) {
       if (els.blockResourceType.value === 'shop' && !els.blockResourceId.value && partner.shop_vendor_id) {
@@ -3950,6 +4011,42 @@
       } catch (error) {
         console.error(error);
         showToast(`Error: ${error.message || 'Update failed'}`, 'error');
+      }
+    });
+
+    els.partnerProfilePayoutForm?.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      if (!state.sb || !state.user?.id) return;
+      if (!state.selectedPartnerId) {
+        showToast('Select partner first.', 'error');
+        return;
+      }
+
+      const pid = String(state.selectedPartnerId || '').trim();
+      const canEdit = pid && Array.isArray(state.memberships) && state.memberships.some((m) => String(m?.partner_id || '') === pid && String(m?.role || '') === 'owner');
+      if (!canEdit) {
+        showToast('Only partner owner can edit payout details.', 'error');
+        return;
+      }
+
+      const payload = {
+        partner_id: state.selectedPartnerId,
+        account_holder_name: String(els.partnerProfilePayoutAccountHolder?.value || '').trim() || null,
+        bank_name: String(els.partnerProfilePayoutBankName?.value || '').trim() || null,
+        iban: String(els.partnerProfilePayoutIban?.value || '').trim() || null,
+        bic: String(els.partnerProfilePayoutBic?.value || '').trim() || null,
+        notes: String(els.partnerProfilePayoutNotes?.value || '').trim() || null,
+      };
+
+      try {
+        const { error } = await state.sb
+          .from('partner_payout_details')
+          .upsert(payload, { onConflict: 'partner_id' });
+        if (error) throw error;
+        showToast('Payout details saved.', 'success');
+      } catch (error) {
+        console.error(error);
+        showToast(`Error: ${error.message || 'Save failed'}`, 'error');
       }
     });
 
@@ -4302,6 +4399,14 @@
     els.partnerProfilePasswordCurrent = $('partnerProfilePasswordCurrent');
     els.partnerProfilePasswordNew = $('partnerProfilePasswordNew');
     els.partnerProfilePasswordConfirm = $('partnerProfilePasswordConfirm');
+
+    els.partnerProfilePayoutForm = $('partnerProfilePayoutForm');
+    els.partnerProfilePayoutPartnerName = $('partnerProfilePayoutPartnerName');
+    els.partnerProfilePayoutAccountHolder = $('partnerProfilePayoutAccountHolder');
+    els.partnerProfilePayoutBankName = $('partnerProfilePayoutBankName');
+    els.partnerProfilePayoutIban = $('partnerProfilePayoutIban');
+    els.partnerProfilePayoutBic = $('partnerProfilePayoutBic');
+    els.partnerProfilePayoutNotes = $('partnerProfilePayoutNotes');
   }
 
   async function init() {
