@@ -194,13 +194,19 @@
     try {
       let data = null;
       try {
-        const res = await state.sb.rpc('affiliate_get_partner_balance_v2', { p_partner_id: state.selectedPartnerId });
+        const res = await state.sb.rpc('affiliate_get_referrer_balance_v1', { p_partner_id: state.selectedPartnerId });
         if (res.error) throw res.error;
         data = res.data;
       } catch (_e) {
-        const res = await state.sb.rpc('affiliate_get_partner_balance', { p_partner_id: state.selectedPartnerId });
-        if (res.error) throw res.error;
-        data = res.data;
+        try {
+          const res = await state.sb.rpc('affiliate_get_partner_balance_v2', { p_partner_id: state.selectedPartnerId });
+          if (res.error) throw res.error;
+          data = res.data;
+        } catch (_e2) {
+          const res = await state.sb.rpc('affiliate_get_partner_balance', { p_partner_id: state.selectedPartnerId });
+          if (res.error) throw res.error;
+          data = res.data;
+        }
       }
       balanceRow = Array.isArray(data) ? data[0] : data;
     } catch (e) {
@@ -236,6 +242,7 @@
         .from('affiliate_cashout_requests')
         .select('id, status, created_at')
         .eq('partner_id', state.selectedPartnerId)
+        .eq('requested_by', state.user.id)
         .eq('status', 'pending')
         .order('created_at', { ascending: false })
         .limit(1);
@@ -267,6 +274,7 @@
         .from('affiliate_commission_events')
         .select('id, partner_id, level, resource_type, booking_id, fulfillment_id, commission_amount, currency, payout_id, created_at')
         .eq('partner_id', state.selectedPartnerId)
+        .eq('referrer_user_id', state.user.id)
         .order('created_at', { ascending: false })
         .limit(200);
       if (error) throw error;
