@@ -2,7 +2,7 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import nodemailer from "npm:nodemailer@6.9.11";
 
-type Category = "shop" | "cars" | "hotels" | "trips";
+type Category = "shop" | "cars" | "hotels" | "trips" | "partners";
 
 type AdminEvent =
   | "created"
@@ -15,7 +15,8 @@ type AdminEvent =
   | "customer_received"
   | "customer_deposit_requested"
   | "customer_deposit_paid"
-  | "partner_deposit_paid";
+  | "partner_deposit_paid"
+  | "affiliate_cashout_requested";
 
 type AdminNotificationRequest = {
   category?: Category;
@@ -709,7 +710,9 @@ function buildFormDataRows(category: Category, record: Record<string, unknown>):
     ],
     shop: [
       "order_number",
-      "status",
+      "customer_name",
+      "customer_email",
+      "customer_phone",
       "payment_status",
       "total",
       "amount_total",
@@ -732,6 +735,18 @@ function buildFormDataRows(category: Category, record: Record<string, unknown>):
       "billing_postal_code",
       "billing_country",
       "source",
+    ],
+    partners: [
+      "partner_name",
+      "partner_id",
+      "requested_amount",
+      "currency",
+      "threshold",
+      "threshold_at_request",
+      "payout_threshold",
+      "requested_by",
+      "status",
+      "created_at",
     ],
   };
 
@@ -818,6 +833,7 @@ function normalizeCategory(category: string | undefined | null): Category | null
   if (c === "car" || c === "cars" || c === "car_bookings") return "cars";
   if (c === "hotel" || c === "hotels" || c === "hotel_bookings") return "hotels";
   if (c === "trip" || c === "trips" || c === "trip_bookings") return "trips";
+  if (c === "partners" || c === "partner" || c === "affiliate_cashout_requests") return "partners";
   return null;
 }
 
@@ -953,6 +969,10 @@ function buildAdminPanelLink(category: Category, recordId: string): string {
 
   const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
 
+  if (category === "partners") {
+    return `${normalizedBase}/admin/dashboard.html#partners`;
+  }
+
   const view = category === "shop" ? "shop" : category;
   return `${normalizedBase}/admin/dashboard.html#${encodeURIComponent(view)}:${encodeURIComponent(recordId)}`;
 }
@@ -977,6 +997,7 @@ function eventLabel(event: AdminEvent): string {
   if (event === "customer_deposit_requested") return "Deposit payment requested";
   if (event === "customer_deposit_paid") return "Deposit paid";
   if (event === "partner_deposit_paid") return "Deposit paid";
+  if (event === "affiliate_cashout_requested") return "Affiliate cashout requested";
   return "New";
 }
 
@@ -1000,6 +1021,19 @@ function buildSubject(params: {
   record: Record<string, unknown>;
 }): string {
   const label = params.category.toUpperCase();
+
+  if (params.event === "affiliate_cashout_requested") {
+    const partnerName = getField(params.record, ["partner_name", "partner", "partnerName", "name"]);
+    const amount = formatMoney(
+      getField(params.record, ["requested_amount", "amount", "requestedAmount"]),
+      getField(params.record, ["currency"]),
+    );
+    const parts = [`[${label}] Affiliate cashout requested`];
+    if (partnerName) parts.push(String(partnerName));
+    if (amount) parts.push(String(amount));
+    return parts.join(" — ");
+  }
+
   if (params.event === "partner_pending_acceptance") {
     const reference = getField(params.record, ["reference", "order_number", "orderNumber"]);
     const service = getField(params.record, ["summary", "car_model", "trip_name", "hotel_name"]);
@@ -1616,6 +1650,13 @@ function renderHtmlEmail(params: {
       { label: "Total", value: total },
       { label: "Currency", value: currency },
     ],
+    partners: [
+      { label: "Partner", value: getField(record, ["partner_name", "partner", "partnerName", "name"]) },
+      { label: "Partner ID", value: getField(record, ["partner_id", "partnerId"]) },
+      { label: "Requested", value: formatMoney(getField(record, ["requested_amount", "amount", "requestedAmount"]), getField(record, ["currency"])) },
+      { label: "Threshold", value: formatMoney(getField(record, ["threshold", "threshold_at_request", "payout_threshold"]), getField(record, ["currency"])) },
+      { label: "Requested by", value: getField(record, ["requested_by", "requestedBy"]) },
+    ],
   };
 
   const summaryRows = buildKeyValueRows(record, summaryItemsByCategory[category] || []);
@@ -1847,6 +1888,19 @@ async function loadCategoryRecord(
     const { data, error } = await supabase.from("trip_bookings").select("*").eq("id", recordId).single();
     if (error) {
       console.error("Failed to load trip booking:", error);
+      return null;
+    }
+    return data as any;
+  }
+
+  if (category === "partners") {
+    const { data, error } = await supabase
+      .from("affiliate_cashout_requests")
+      .select("*")
+      .eq("id", recordId)
+      .maybeSingle();
+    if (error || !data) {
+      if (error) console.error("Failed to load affiliate cashout request:", error);
       return null;
     }
     return data as any;

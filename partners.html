@@ -697,6 +697,54 @@
 
       <div style="height: 16px;"></div>
 
+      <section id="partnerAffiliateCard" class="partner-card" style="max-width: 980px;" hidden>
+        <h2 style="margin: 0 0 12px;">Affiliate earnings</h2>
+        <p class="muted" style="margin-top: 0;">Your commission earnings from referred users (services only).</p>
+
+        <div class="partner-kpi partner-kpi-4">
+          <div class="kpi"><div class="label">Unpaid</div><div class="value" id="partnerAffiliateUnpaid">—</div></div>
+          <div class="kpi"><div class="label">In payout</div><div class="value" id="partnerAffiliatePending">—</div></div>
+          <div class="kpi"><div class="label">Paid</div><div class="value" id="partnerAffiliatePaid">—</div></div>
+          <div class="kpi"><div class="label">Threshold</div><div class="value" id="partnerAffiliateThreshold">—</div></div>
+        </div>
+
+        <div style="height: 12px;"></div>
+
+        <div style="display:flex; align-items:flex-end; justify-content:space-between; gap: 12px; flex-wrap: wrap;">
+          <div style="flex: 1; min-width: 240px;">
+            <div id="partnerAffiliateProgressText" class="muted small" style="margin-bottom: 6px;">—</div>
+            <div style="height: 10px; background: rgba(229,231,235,1); border-radius: 999px; overflow: hidden;">
+              <div id="partnerAffiliateProgressBar" style="height: 100%; width: 0%; background: linear-gradient(135deg,#22c55e 0%,#16a34a 100%);"></div>
+            </div>
+          </div>
+          <div style="display:flex; flex-direction: column; align-items:flex-end; gap: 6px;">
+            <button id="btnPartnerAffiliateCashout" class="btn-sm primary" type="button" disabled>Cash out</button>
+            <div id="partnerAffiliateCashoutHint" class="muted small" style="text-align:right;"></div>
+          </div>
+        </div>
+
+        <div style="height: 12px;"></div>
+
+        <div class="admin-table-container" aria-label="Affiliate earnings">
+          <table class="admin-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Service</th>
+                <th>Level</th>
+                <th>Status</th>
+                <th style="text-align:right;">Commission</th>
+              </tr>
+            </thead>
+            <tbody id="partnerAffiliateEarningsBody">
+              <tr><td colspan="5" class="muted" style="padding: 16px 8px;">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <div style="height: 16px;"></div>
+
       <section class="partner-card" style="max-width: 980px;">
         <h2 style="margin: 0 0 12px;">Referral tree</h2>
         <div class="partner-toolbar" style="margin-top: 10px;">
@@ -717,7 +765,7 @@
 
   <script src="js/i18n.js" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
-  <script src="js/partners.js?v=23" defer></script>
+  <script src="js/partners.js?v=24" defer></script>
 
   <div
     id="auth-modal"

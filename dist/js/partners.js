@@ -119,6 +119,17 @@
     btnPartnerReferralExpandAll: null,
     btnPartnerReferralCollapseAll: null,
 
+    partnerAffiliateCard: null,
+    partnerAffiliateUnpaid: null,
+    partnerAffiliatePending: null,
+    partnerAffiliatePaid: null,
+    partnerAffiliateThreshold: null,
+    partnerAffiliateProgressText: null,
+    partnerAffiliateProgressBar: null,
+    btnPartnerAffiliateCashout: null,
+    partnerAffiliateCashoutHint: null,
+    partnerAffiliateEarningsBody: null,
+
     partnerProfileMessage: null,
     partnerProfileEmailDisplay: null,
     partnerProfileUsernameDisplay: null,
@@ -139,6 +150,174 @@
 
   function $(id) {
     return document.getElementById(id);
+  }
+
+  async function refreshAffiliatePanel() {
+    if (!els.partnerAffiliateCard) return;
+    if (!state.sb || !state.user?.id) {
+      els.partnerAffiliateCard.hidden = true;
+      return;
+    }
+    if (!state.selectedPartnerId) {
+      els.partnerAffiliateCard.hidden = true;
+      return;
+    }
+
+    const partner = state.partnersById[state.selectedPartnerId] || null;
+    const enabled = Boolean(partner && partner.affiliate_enabled);
+    if (!enabled) {
+      els.partnerAffiliateCard.hidden = true;
+      return;
+    }
+
+    els.partnerAffiliateCard.hidden = false;
+
+    const setMoney = (el, value, cur) => {
+      if (!el) return;
+      el.textContent = formatMoney(value, cur);
+    };
+
+    if (els.partnerAffiliateEarningsBody) {
+      setHtml(els.partnerAffiliateEarningsBody, '<tr><td colspan="5" class="muted" style="padding: 16px 8px;">Loading…</td></tr>');
+    }
+
+    let balanceRow = null;
+    try {
+      let data = null;
+      try {
+        const res = await state.sb.rpc('affiliate_get_partner_balance_v2', { p_partner_id: state.selectedPartnerId });
+        if (res.error) throw res.error;
+        data = res.data;
+      } catch (_e) {
+        const res = await state.sb.rpc('affiliate_get_partner_balance', { p_partner_id: state.selectedPartnerId });
+        if (res.error) throw res.error;
+        data = res.data;
+      }
+      balanceRow = Array.isArray(data) ? data[0] : data;
+    } catch (e) {
+      console.error(e);
+      if (els.partnerAffiliateProgressText) els.partnerAffiliateProgressText.textContent = 'Failed to load affiliate balance.';
+      if (els.btnPartnerAffiliateCashout) els.btnPartnerAffiliateCashout.disabled = true;
+      return;
+    }
+
+    const unpaid = Number(balanceRow?.unpaid_total || 0) || 0;
+    const pending = Number(balanceRow?.pending_total || 0) || 0;
+    const paid = Number(balanceRow?.paid_total || 0) || 0;
+    const threshold = Number(balanceRow?.payout_threshold || 0) || 0;
+    const cur = String(balanceRow?.currency || 'EUR') || 'EUR';
+
+    setMoney(els.partnerAffiliateUnpaid, unpaid, cur);
+    setMoney(els.partnerAffiliatePending, pending, cur);
+    setMoney(els.partnerAffiliatePaid, paid, cur);
+    setMoney(els.partnerAffiliateThreshold, threshold, cur);
+
+    const pct = threshold > 0 ? Math.min(100, Math.max(0, (unpaid / threshold) * 100)) : 0;
+    if (els.partnerAffiliateProgressBar) {
+      els.partnerAffiliateProgressBar.style.width = `${pct.toFixed(0)}%`;
+    }
+
+    if (els.partnerAffiliateProgressText) {
+      els.partnerAffiliateProgressText.textContent = `Progress: ${formatMoney(unpaid, cur)} / ${formatMoney(threshold, cur)}`;
+    }
+
+    let hasPendingCashoutRequest = false;
+    try {
+      const { data: reqs } = await state.sb
+        .from('affiliate_cashout_requests')
+        .select('id, status, created_at')
+        .eq('partner_id', state.selectedPartnerId)
+        .eq('status', 'pending')
+        .order('created_at', { ascending: false })
+        .limit(1);
+      hasPendingCashoutRequest = Array.isArray(reqs) && reqs.length > 0;
+    } catch (_e) {
+    }
+
+    const canCashout = threshold > 0 && unpaid >= threshold && pending <= 0 && !hasPendingCashoutRequest;
+    if (els.btnPartnerAffiliateCashout) {
+      els.btnPartnerAffiliateCashout.disabled = !canCashout;
+    }
+
+    if (els.partnerAffiliateCashoutHint) {
+      if (hasPendingCashoutRequest) {
+        els.partnerAffiliateCashoutHint.textContent = 'Cash out request pending admin review.';
+      } else if (pending > 0) {
+        els.partnerAffiliateCashoutHint.textContent = 'A payout is already in progress.';
+      } else if (threshold > 0 && unpaid < threshold) {
+        els.partnerAffiliateCashoutHint.textContent = `Cash out available at ${formatMoney(threshold, cur)}.`;
+      } else if (canCashout) {
+        els.partnerAffiliateCashoutHint.textContent = 'You can request a cash out now.';
+      } else {
+        els.partnerAffiliateCashoutHint.textContent = '';
+      }
+    }
+
+    try {
+      const { data: events, error } = await state.sb
+        .from('affiliate_commission_events')
+        .select('id, partner_id, level, resource_type, booking_id, fulfillment_id, commission_amount, currency, payout_id, created_at')
+        .eq('partner_id', state.selectedPartnerId)
+        .order('created_at', { ascending: false })
+        .limit(200);
+      if (error) throw error;
+
+      const rows = Array.isArray(events) ? events : [];
+      const payoutIds = Array.from(new Set(rows.map((r) => r.payout_id).filter(Boolean).map((id) => String(id))));
+      const payoutStatusById = {};
+      if (payoutIds.length) {
+        try {
+          const { data: payouts, error: pe } = await state.sb
+            .from('affiliate_payouts')
+            .select('id, status')
+            .in('id', payoutIds)
+            .limit(500);
+          if (pe) throw pe;
+          (payouts || []).forEach((p) => {
+            if (!p?.id) return;
+            payoutStatusById[String(p.id)] = String(p.status || '');
+          });
+        } catch (_e) {
+        }
+      }
+
+      const bodyHtml = (() => {
+        if (!els.partnerAffiliateEarningsBody) return '';
+        if (!rows.length) {
+          return '<tr><td colspan="5" class="muted" style="padding: 16px 8px;">No earnings yet.</td></tr>';
+        }
+
+        return rows.map((r) => {
+          const created = r.created_at ? formatDateDmy(String(r.created_at)) : '—';
+          const rt = String(r.resource_type || '').toUpperCase();
+          const bid = r.booking_id ? String(r.booking_id).slice(0, 8) : '';
+          const service = rt ? `${rt} ${bid ? `#${bid}` : ''}`.trim() : (bid ? `#${bid}` : '—');
+          const lvl = r.level != null ? `L${String(r.level)}` : '—';
+          const pid = r.payout_id ? String(r.payout_id) : '';
+          const payoutStatus = pid ? (payoutStatusById[pid] || 'pending') : '';
+          const st = pid ? (payoutStatus === 'paid' ? 'paid' : (payoutStatus === 'cancelled' ? 'cancelled' : 'in payout')) : 'unpaid';
+          const commission = formatMoney(r.commission_amount, r.currency || cur);
+          return `
+            <tr>
+              <td>${escapeHtml(created)}</td>
+              <td>${escapeHtml(service)}</td>
+              <td>${escapeHtml(lvl)}</td>
+              <td>${escapeHtml(st)}</td>
+              <td style="text-align:right;">${escapeHtml(commission)}</td>
+            </tr>
+          `;
+        }).join('');
+      })();
+
+      if (els.partnerAffiliateEarningsBody) {
+        setHtml(els.partnerAffiliateEarningsBody, bodyHtml);
+      }
+    } catch (e) {
+      console.error(e);
+      if (els.partnerAffiliateEarningsBody) {
+        setHtml(els.partnerAffiliateEarningsBody, '<tr><td colspan="5" class="muted" style="padding: 16px 8px;">Failed to load earnings.</td></tr>');
+      }
+    }
   }
 
   function showToast(message, type) {
@@ -465,6 +644,12 @@
     }
 
     await refreshReferralWidget();
+
+    try {
+      await refreshAffiliatePanel();
+    } catch (e) {
+      console.error(e);
+    }
 
     try {
       await refreshReferralStatsAndTree();
@@ -928,11 +1113,11 @@
 
       ({ data: partners, error: pErr } = await state.sb
         .from('partners')
-        .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, cars_locations')
+        .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, cars_locations, affiliate_enabled')
         .eq('id', state.selectedPartnerId)
         .limit(1));
 
-      if (pErr && /cars_locations/i.test(String(pErr.message || ''))) {
+      if (pErr && (/cars_locations/i.test(String(pErr.message || '')) || /affiliate_enabled/i.test(String(pErr.message || '')))) {
         ({ data: partners, error: pErr } = await state.sb
           .from('partners')
           .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels')
@@ -1688,11 +1873,11 @@
 
       ({ data: partners, error: pErr } = await state.sb
         .from('partners')
-        .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, cars_locations')
+        .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels, cars_locations, affiliate_enabled')
         .in('id', partnerIds)
         .limit(50));
 
-      if (pErr && /cars_locations/i.test(String(pErr.message || ''))) {
+      if (pErr && (/cars_locations/i.test(String(pErr.message || '')) || /affiliate_enabled/i.test(String(pErr.message || '')))) {
         ({ data: partners, error: pErr } = await state.sb
           .from('partners')
           .select('id, name, slug, status, shop_vendor_id, can_manage_shop, can_manage_cars, can_manage_trips, can_manage_hotels')
@@ -3280,6 +3465,23 @@
       renderReferralTree();
     });
 
+    els.btnPartnerAffiliateCashout?.addEventListener('click', async () => {
+      if (!state.sb || !state.selectedPartnerId) return;
+      if (!confirm('Request a cash out? Admin will be notified and will contact you.')) return;
+      try {
+        els.btnPartnerAffiliateCashout.disabled = true;
+        const { data, error } = await state.sb.rpc('affiliate_request_cashout', { p_partner_id: state.selectedPartnerId });
+        if (error) throw error;
+        if (!data) throw new Error('Cash out request failed');
+        showToast('Cash out requested. Admin has been notified.', 'success');
+        await refreshAffiliatePanel();
+      } catch (error) {
+        console.error(error);
+        showToast(`Error: ${error.message || 'Cash out failed'}`, 'error');
+        els.btnPartnerAffiliateCashout.disabled = false;
+      }
+    });
+
     els.partnerProfileNameForm?.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (!state.sb || !state.user?.id) return;
@@ -3601,6 +3803,17 @@
     els.partnerReferralTreeSearch = $('partnerReferralTreeSearch');
     els.btnPartnerReferralExpandAll = $('btnPartnerReferralExpandAll');
     els.btnPartnerReferralCollapseAll = $('btnPartnerReferralCollapseAll');
+
+    els.partnerAffiliateCard = $('partnerAffiliateCard');
+    els.partnerAffiliateUnpaid = $('partnerAffiliateUnpaid');
+    els.partnerAffiliatePending = $('partnerAffiliatePending');
+    els.partnerAffiliatePaid = $('partnerAffiliatePaid');
+    els.partnerAffiliateThreshold = $('partnerAffiliateThreshold');
+    els.partnerAffiliateProgressText = $('partnerAffiliateProgressText');
+    els.partnerAffiliateProgressBar = $('partnerAffiliateProgressBar');
+    els.btnPartnerAffiliateCashout = $('btnPartnerAffiliateCashout');
+    els.partnerAffiliateCashoutHint = $('partnerAffiliateCashoutHint');
+    els.partnerAffiliateEarningsBody = $('partnerAffiliateEarningsBody');
 
     els.partnerProfileMessage = $('partnerProfileMessage');
     els.partnerProfileEmailDisplay = $('partnerProfileEmailDisplay');
