@@ -9,6 +9,7 @@
     selectedPartnerId: null,
     selectedCategory: 'all',
     fulfillments: [],
+    lastFulfillmentsDebug: null,
     itemsByFulfillmentId: {},
     contactsByFulfillmentId: {},
     blocks: [],
@@ -35,7 +36,6 @@
   let analyticsRealtimeChannel = null;
   let analyticsRealtimeTimer = null;
 
-  let fulfillmentsRealtimeChannel = null;
   let fulfillmentsRealtimeTimer = null;
 
   let referralTreeRoot = null;
@@ -80,6 +80,15 @@
     btnAvailabilitySelectAllType: null,
     btnAvailabilityClearAll: null,
     availabilitySelectionSummary: null,
+
+    partnerAnalyticsCard: null,
+    partnerAnalOrdersAccepted: null,
+    partnerAnalOrdersPending: null,
+    partnerAnalOrdersAwaiting: null,
+    partnerAnalOrdersTotal: null,
+    partnerAnalPartnerEarnings: null,
+    partnerAnalInvited: null,
+    partnerAnalHint: null,
 
     adminMenuToggle: null,
     adminSidebar: null,
@@ -450,6 +459,83 @@
     }
   }
 
+  function stopAnalyticsRealtime() {
+    if (!analyticsRealtimeChannel || !state.sb) return;
+    try {
+      if (typeof state.sb.removeChannel === 'function') {
+        state.sb.removeChannel(analyticsRealtimeChannel);
+      } else if (typeof analyticsRealtimeChannel.unsubscribe === 'function') {
+        analyticsRealtimeChannel.unsubscribe();
+      }
+    } catch (_e) {
+    }
+    analyticsRealtimeChannel = null;
+  }
+
+  function scheduleAnalyticsRealtimeRefresh() {
+    if (analyticsRealtimeTimer) {
+      clearTimeout(analyticsRealtimeTimer);
+    }
+    analyticsRealtimeTimer = setTimeout(async () => {
+      analyticsRealtimeTimer = null;
+      try {
+        if (!state.selectedPartnerId) return;
+        if (!els.tabFulfillments?.hidden && String(state.selectedCategory || 'all') === 'all' && !els.partnerAnalyticsCard?.hidden) {
+          await refreshPartnerAnalytics();
+        }
+      } catch (_e) {
+      }
+    }, 350);
+  }
+
+  function scheduleFulfillmentsRealtimeRefresh() {
+    if (fulfillmentsRealtimeTimer) {
+      clearTimeout(fulfillmentsRealtimeTimer);
+    }
+    fulfillmentsRealtimeTimer = setTimeout(async () => {
+      fulfillmentsRealtimeTimer = null;
+      try {
+        if (!state.selectedPartnerId) return;
+        if (els.tabFulfillments?.hidden) return;
+        await loadFulfillments();
+        updateSidebarCategoryVisibility();
+        updateKpis();
+        renderFulfillmentsTable();
+      } catch (_e) {
+      }
+    }, 350);
+  }
+
+  function startAnalyticsRealtime() {
+    stopAnalyticsRealtime();
+    if (!state.sb || typeof state.sb.channel !== 'function') return;
+    if (!state.selectedPartnerId) return;
+
+    try {
+      analyticsRealtimeChannel = state.sb
+        .channel(`partner-analytics-${String(state.selectedPartnerId).slice(0, 8)}`)
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'partner_service_fulfillments', filter: `partner_id=eq.${state.selectedPartnerId}` },
+          () => {
+            scheduleAnalyticsRealtimeRefresh();
+            scheduleFulfillmentsRealtimeRefresh();
+          }
+        )
+        .on(
+          'postgres_changes',
+          { event: '*', schema: 'public', table: 'shop_order_fulfillments', filter: `partner_id=eq.${state.selectedPartnerId}` },
+          () => {
+            scheduleAnalyticsRealtimeRefresh();
+            scheduleFulfillmentsRealtimeRefresh();
+          }
+        )
+        .subscribe();
+    } catch (_e) {
+      analyticsRealtimeChannel = null;
+    }
+  }
+
   function showToast(message, type) {
     if (typeof window !== 'undefined' && typeof window.showToast === 'function') {
       window.showToast(message, type || 'info');
@@ -475,10 +561,15 @@
 
   function getSelectedPartnerCapabilities() {
     const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
+    const hasShopFulfillments = (state.fulfillments || []).some((f) => f && String(f.__source || '') === 'shop');
+    const canShop = Boolean(partner?.can_manage_shop && (partner?.shop_vendor_id || hasShopFulfillments));
+    const canCars = Boolean(partner?.can_manage_cars);
+    const canTrips = Boolean(partner?.can_manage_trips);
+    const canHotels = Boolean(partner?.can_manage_hotels);
     const hasAnyServicePermission = Boolean(partner?.can_manage_shop || partner?.can_manage_cars || partner?.can_manage_trips || partner?.can_manage_hotels);
     const affiliateEnabled = Boolean(partner?.affiliate_enabled);
     const isAffiliateOnly = Boolean(affiliateEnabled && !hasAnyServicePermission);
-    return { partner, hasAnyServicePermission, affiliateEnabled, isAffiliateOnly };
+    return { partner, canShop, canCars, canTrips, canHotels, hasAnyServicePermission, affiliateEnabled, isAffiliateOnly };
   }
 
   function updateServiceSectionVisibility() {
@@ -490,12 +581,21 @@
 
   function updateAffiliateSummaryCardVisibility() {
     const inPortal = Boolean(els.partnerPortalView && !els.partnerPortalView.hidden);
-    const inFulfillmentsTab = Boolean(els.tabFulfillments && !els.tabFulfillments.hidden);
     const isAll = String(state.selectedCategory || 'all') === 'all';
+    const inFulfillmentsTab = Boolean(els.tabFulfillments && !els.tabFulfillments.hidden);
     const { affiliateEnabled, isAffiliateOnly } = getSelectedPartnerCapabilities();
     const tabOk = isAffiliateOnly ? true : inFulfillmentsTab;
     const canShow = inPortal && tabOk && isAll && affiliateEnabled && Boolean(state.session && state.user && state.selectedPartnerId);
     setHidden(els.partnerAffiliateSummaryCard, !canShow);
+  }
+
+  function updateAnalyticsCardVisibility() {
+    const inPortal = Boolean(els.partnerPortalView && !els.partnerPortalView.hidden);
+    const inFulfillmentsTab = Boolean(els.tabFulfillments && !els.tabFulfillments.hidden);
+    const isAll = String(state.selectedCategory || 'all') === 'all';
+    const { hasAnyServicePermission } = getSelectedPartnerCapabilities();
+    const canShow = inPortal && inFulfillmentsTab && Boolean(state.session && state.user && state.selectedPartnerId) && isAll && hasAnyServicePermission;
+    setHidden(els.partnerAnalyticsCard, !canShow);
   }
 
   async function copyTextToClipboard(text) {
@@ -555,6 +655,7 @@
     setHidden(els.partnerProfileView, !isProfile);
     setHidden(els.partnerReferralsView, !isReferrals);
 
+    updateAnalyticsCardVisibility();
     updateAffiliateSummaryCardVisibility();
     updateServiceSectionVisibility();
   }
@@ -781,6 +882,7 @@
         state.selectedCategory = 'all';
       }
       updateServiceSectionVisibility();
+      updateAnalyticsCardVisibility();
       updateAffiliateSummaryCardVisibility();
       return;
     }
@@ -801,6 +903,7 @@
     }
 
     updateServiceSectionVisibility();
+    updateAnalyticsCardVisibility();
     updateAffiliateSummaryCardVisibility();
   }
 
@@ -809,6 +912,7 @@
     state.selectedCategory = next;
 
     updateSidebarCategoryVisibility();
+    updateAnalyticsCardVisibility();
     updateAffiliateSummaryCardVisibility();
     updateServiceSectionVisibility();
 
@@ -841,6 +945,10 @@
     } else {
       updateKpis();
       renderFulfillmentsTable();
+      if (!els.partnerAnalyticsCard?.hidden) {
+        startAnalyticsRealtime();
+        refreshPartnerAnalytics();
+      }
     }
     closeSidebar();
   }
@@ -1241,19 +1349,6 @@
     blocksRealtimeChannel = null;
   }
 
-  function stopFulfillmentsRealtime() {
-    if (!fulfillmentsRealtimeChannel || !state.sb) return;
-    try {
-      if (typeof state.sb.removeChannel === 'function') {
-        state.sb.removeChannel(fulfillmentsRealtimeChannel);
-      } else if (typeof fulfillmentsRealtimeChannel.unsubscribe === 'function') {
-        fulfillmentsRealtimeChannel.unsubscribe();
-      }
-    } catch (_e) {
-    }
-    fulfillmentsRealtimeChannel = null;
-  }
-
   function scheduleBlocksRealtimeRefresh() {
     if (blocksRealtimeTimer) {
       clearTimeout(blocksRealtimeTimer);
@@ -1268,21 +1363,6 @@
           await loadBlocks();
           syncResourceTypeOptions();
         }
-      } catch (_e) {
-      }
-    }, 350);
-  }
-
-  function scheduleFulfillmentsRealtimeRefresh() {
-    if (fulfillmentsRealtimeTimer) {
-      clearTimeout(fulfillmentsRealtimeTimer);
-    }
-    fulfillmentsRealtimeTimer = setTimeout(async () => {
-      fulfillmentsRealtimeTimer = null;
-      try {
-        if (!state.selectedPartnerId) return;
-        if (els.tabFulfillments?.hidden) return;
-        await refreshFulfillments();
       } catch (_e) {
       }
     }, 350);
@@ -1309,30 +1389,6 @@
         .subscribe();
     } catch (_e) {
       blocksRealtimeChannel = null;
-    }
-  }
-
-  function startFulfillmentsRealtime() {
-    stopFulfillmentsRealtime();
-    if (!state.sb || typeof state.sb.channel !== 'function') return;
-    if (!state.selectedPartnerId) return;
-
-    try {
-      fulfillmentsRealtimeChannel = state.sb
-        .channel(`partner-fulfillments-${String(state.selectedPartnerId).slice(0, 8)}`)
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'partner_service_fulfillments', filter: `partner_id=eq.${state.selectedPartnerId}` },
-          () => scheduleFulfillmentsRealtimeRefresh()
-        )
-        .on(
-          'postgres_changes',
-          { event: '*', schema: 'public', table: 'shop_order_fulfillments', filter: `partner_id=eq.${state.selectedPartnerId}` },
-          () => scheduleFulfillmentsRealtimeRefresh()
-        )
-        .subscribe();
-    } catch (_e) {
-      fulfillmentsRealtimeChannel = null;
     }
   }
 
@@ -2201,8 +2257,13 @@
 
     if (resolvedServiceRes.error) throw resolvedServiceRes.error;
 
-    const shopRows = (Array.isArray(shopRes.data) ? shopRes.data : []).map((f) => ({ ...f, __source: 'shop' }));
-    const serviceRows = (Array.isArray(resolvedServiceRes.data) ? resolvedServiceRes.data : []).map((f) => ({ ...f, __source: 'service' }));
+    const rawShopRows = Array.isArray(shopRes.data) ? shopRes.data : [];
+    const rawServiceRows = Array.isArray(resolvedServiceRes.data) ? resolvedServiceRes.data : [];
+
+    const shopRows = rawShopRows.map((f) => ({ ...f, __source: 'shop' }));
+
+    const closedCount = rawServiceRows.filter((f) => String(f?.status || '').trim() === 'closed').length;
+    const serviceRows = rawServiceRows.map((f) => ({ ...f, __source: 'service' }));
 
     const merged = shopRows
       .concat(serviceRows)
@@ -2284,6 +2345,15 @@
       return true;
     });
 
+    state.lastFulfillmentsDebug = {
+      partner_id: state.selectedPartnerId,
+      raw_shop: rawShopRows.length,
+      raw_service: rawServiceRows.length,
+      closed: closedCount,
+      merged_total: merged.length,
+      filtered_total: filteredMerged.length,
+    };
+
     const serviceOnly = filteredMerged.filter((f) => f && f.__source === 'service');
     const tripIds = Array.from(new Set(
       serviceOnly
@@ -2358,7 +2428,7 @@
     if (shopIds.length) {
       const { data: items, error: itemsErr } = await state.sb
         .from('shop_order_fulfillment_items')
-        .select('fulfillment_id, product_name, variant_name, quantity')
+        .select('fulfillment_id, product_name, variant_name, quantity, unit_price, subtotal')
         .in('fulfillment_id', shopIds)
         .limit(500);
 
@@ -2436,6 +2506,146 @@
     }
   }
 
+  function toNum(value) {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : 0;
+  }
+
+  function setTopContainer(el, html) {
+    if (!el) return;
+    if (!html) {
+      el.hidden = true;
+      el.innerHTML = '';
+      return;
+    }
+    el.hidden = false;
+    el.innerHTML = html;
+  }
+
+  function renderTopTable(title, rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    return `
+      <div class="admin-table-container" style="margin-top: 10px;">
+        <table class="admin-table">
+          <thead>
+            <tr>
+              <th>${escapeHtml(title)}</th>
+              <th style="text-align:right;">Qty</th>
+              <th style="text-align:right;">Partner</th>
+              <th style="text-align:right;">Gross</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${list.length ? list.map((r) => `
+              <tr>
+                <td>${escapeHtml(r.label || '—')}</td>
+                <td style="text-align:right;">${Number(r.count || 0)}</td>
+                <td style="text-align:right;"><strong>${escapeHtml(formatMoney(r.partner || 0, 'EUR'))}</strong></td>
+                <td style="text-align:right;">${escapeHtml(formatMoney(r.gross || 0, 'EUR'))}</td>
+              </tr>
+            `).join('') : '<tr><td colspan="4" class="muted" style="padding: 12px 8px;">No data</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  function computeTopFromMap(mapObj) {
+    const rows = Object.values(mapObj || {});
+    return rows
+      .sort((a, b) => (toNum(b.partner) - toNum(a.partner)) || (toNum(b.gross) - toNum(a.gross)) || (toNum(b.count) - toNum(a.count)))
+      .slice(0, 8);
+  }
+
+  async function refreshPartnerAnalytics() {
+    if (!state.sb || !state.selectedPartnerId) return;
+    if (!els.partnerAnalyticsCard) return;
+    if (String(state.selectedCategory || 'all') !== 'all') return;
+    if (els.partnerAnalyticsCard.hidden) return;
+
+    const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
+    const hasShopFulfillments = (state.fulfillments || []).some((f) => f && String(f.__source || '') === 'shop');
+    const canShop = Boolean(partner?.can_manage_shop && (partner?.shop_vendor_id || hasShopFulfillments));
+
+    if (!state.fulfillments?.length) {
+      try {
+        await loadFulfillments();
+      } catch (_e) {
+      }
+    }
+
+    const rows = Array.isArray(state.fulfillments) ? state.fulfillments : [];
+
+    const counts = {
+      total: rows.length,
+      pending: 0,
+      awaiting: 0,
+      accepted: 0,
+    };
+
+    const depositByFid = {};
+    try {
+      const { data, error } = await state.sb.rpc('partner_get_service_deposit_amounts', {
+        p_partner_id: state.selectedPartnerId,
+      });
+      if (!error) {
+        (data || []).forEach((r) => {
+          const fid = r?.fulfillment_id;
+          if (!fid) return;
+          depositByFid[String(fid)] = toNum(r?.amount);
+        });
+      }
+    } catch (_e) {
+    }
+
+    let invitedCount = 0;
+    try {
+      const { count, error } = await state.sb
+        .from('referrals')
+        .select('referred_id', { count: 'exact', head: true })
+        .eq('referrer_id', state.user?.id || '')
+        .limit(1);
+      if (!error) invitedCount = Number(count || 0);
+    } catch (_e) {
+      invitedCount = 0;
+    }
+
+    let partnerEarnings = 0;
+
+    rows.forEach((f) => {
+      const st = String(f?.status || '').trim();
+      if (st === 'pending_acceptance') counts.pending += 1;
+      if (st === 'awaiting_payment') counts.awaiting += 1;
+      if (st === 'accepted') counts.accepted += 1;
+      if (st !== 'accepted') return;
+
+      const src = String(f?.__source || 'shop');
+
+      if (src === 'service') {
+        const gross = toNum(f?.total_price);
+        const deposit = toNum(depositByFid[String(f?.id)] || 0);
+        const payout = Math.max(0, gross - deposit);
+        partnerEarnings += payout;
+        return;
+      }
+
+      const gross = toNum(f?.subtotal);
+      const payout = toNum(f?.total_allocated);
+      partnerEarnings += payout;
+    });
+
+    setText(els.partnerAnalOrdersTotal, String(counts.total));
+    setText(els.partnerAnalOrdersPending, String(counts.pending));
+    setText(els.partnerAnalOrdersAwaiting, String(counts.awaiting));
+    setText(els.partnerAnalOrdersAccepted, String(counts.accepted));
+    setText(els.partnerAnalPartnerEarnings, formatMoney(partnerEarnings, 'EUR'));
+    setText(els.partnerAnalInvited, String(invitedCount || 0));
+
+    if (els.partnerAnalHint) {
+      els.partnerAnalHint.textContent = 'Partner earnings shown for accepted orders only.';
+    }
+  }
+
   async function callFulfillmentAction(fulfillmentId, action, reason) {
     const { data, error } = await state.sb.functions.invoke('partner-fulfillment-action', {
       body: { fulfillment_id: fulfillmentId, action, reason: reason || undefined },
@@ -2473,7 +2683,10 @@
     }
 
     if (act === 'reject') return 'Fulfillment rejected';
-    if (nextStatus === 'awaiting_payment') return 'Accepted. Awaiting deposit payment.';
+
+    if (nextStatus === 'awaiting_payment') {
+      return 'Accepted. Awaiting deposit payment.';
+    }
     return 'Fulfillment accepted';
   }
 
@@ -2538,7 +2751,11 @@
     const filtered = filteredFulfillmentsForSelectedCategory();
 
     if (!filtered.length) {
-      setHtml(els.fulfillmentsBody, '<tr><td colspan="6" class="muted" style="padding: 16px 8px;">No fulfillments found.</td></tr>');
+      const dbg = state.lastFulfillmentsDebug;
+      const dbgHtml = dbg
+        ? `<div class="small muted" style="margin-top: 6px;">Debug: shop ${Number(dbg.raw_shop || 0)}, service ${Number(dbg.raw_service || 0)}, closed ${Number(dbg.closed || 0)}, after_filters ${Number(dbg.filtered_total || 0)}</div>`
+        : '';
+      setHtml(els.fulfillmentsBody, `<tr><td colspan="6" class="muted" style="padding: 16px 8px;">No fulfillments found.${dbgHtml}</td></tr>`);
       return;
     }
 
@@ -3382,6 +3599,7 @@
 
   async function refreshFulfillments() {
     if (!state.selectedPartnerId) return;
+    showWarning('');
     setText(els.status, 'Loading fulfillments…');
 
     try {
@@ -3389,10 +3607,15 @@
       await loadFulfillments();
       syncResourceTypeOptions();
       updateSidebarCategoryVisibility();
+      updateAnalyticsCardVisibility();
       updateAffiliateSummaryCardVisibility();
       updateServiceSectionVisibility();
       updateKpis();
       renderFulfillmentsTable();
+      if (!els.partnerAnalyticsCard?.hidden) {
+        startAnalyticsRealtime();
+        await refreshPartnerAnalytics();
+      }
       if (String(state.selectedCategory || 'all') === 'all') {
         try {
           await refreshAffiliateSummaryCard();
@@ -3403,6 +3626,7 @@
     } catch (error) {
       console.error(error);
       setText(els.status, 'Failed to load fulfillments.');
+      showWarning(`Failed to load fulfillments: ${error.message || 'Unknown error'}`);
       showToast(`Error: ${error.message || 'Failed to load fulfillments'}`, 'error');
     }
   }
@@ -3470,6 +3694,7 @@
     setHidden(els.tabFulfillments, !isFulfillments);
     setHidden(els.tabCalendar, isFulfillments);
 
+    updateAnalyticsCardVisibility();
     updateAffiliateSummaryCardVisibility();
     updateServiceSectionVisibility();
 
@@ -3497,7 +3722,7 @@
     updateAvailabilitySelectionSummary();
 
     startBlocksRealtime();
-    startFulfillmentsRealtime();
+    startAnalyticsRealtime();
 
     renderSuspendedInfo();
 
@@ -4040,11 +4265,12 @@
         state.user = session?.user || null;
         if (!session) {
           stopBlocksRealtime();
-          stopFulfillmentsRealtime();
+          stopAnalyticsRealtime();
         }
         bootstrapPortal();
       });
     }
+
   }
 
   function cacheEls() {
@@ -4089,6 +4315,15 @@
     els.btnAvailabilitySelectAllType = $('btnPartnerAvailabilitySelectAllType');
     els.btnAvailabilityClearAll = $('btnPartnerAvailabilityClearAll');
     els.availabilitySelectionSummary = $('partnerAvailabilitySelectionSummary');
+
+    els.partnerAnalyticsCard = $('partnerAnalyticsCard');
+    els.partnerAnalOrdersAccepted = $('partnerAnalOrdersAccepted');
+    els.partnerAnalOrdersPending = $('partnerAnalOrdersPending');
+    els.partnerAnalOrdersAwaiting = $('partnerAnalOrdersAwaiting');
+    els.partnerAnalOrdersTotal = $('partnerAnalOrdersTotal');
+    els.partnerAnalPartnerEarnings = $('partnerAnalPartnerEarnings');
+    els.partnerAnalInvited = $('partnerAnalInvited');
+    els.partnerAnalHint = $('partnerAnalHint');
 
     els.adminMenuToggle = $('adminMenuToggle');
     els.adminSidebar = $('adminSidebar');

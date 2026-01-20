@@ -36,7 +36,7 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260119_1"></script>
+  <script type="module" src="/admin/admin.js?v=20260119_2"></script>
 </head>
 <body data-admin-panel="true">
   
@@ -3376,6 +3376,82 @@
                   </thead>
                   <tbody id="affiliateOverridesTableBody">
                     <tr><td colspan="5" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h3>Affiliate payout overview</h3>
+                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Quick view of unpaid/pending/paid balances by partner.</p>
+              </div>
+              <button class="btn-secondary" id="btnRefreshAffiliatePayoutOverview" type="button">🔄 Refresh</button>
+            </div>
+            <div class="admin-card-body">
+              <div class="admin-table-container">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Partner</th>
+                      <th style="text-align:right;">Unpaid</th>
+                      <th style="text-align:right;">In payout</th>
+                      <th style="text-align:right;">Paid</th>
+                      <th style="text-align:right;">Threshold</th>
+                      <th style="text-align:right;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="affiliatePayoutOverviewTableBody">
+                    <tr><td colspan="6" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-card" id="affiliateAdjustmentsCard" style="margin-top: 16px;">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
+                <h3>Affiliate adjustments (bonus / deduction)</h3>
+                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Manual adjustments are included in balances and payouts.</p>
+              </div>
+              <button class="btn-secondary" id="btnRefreshAffiliateAdjustments" type="button">🔄 Refresh</button>
+            </div>
+            <div class="admin-card-body">
+              <div class="admin-form-grid" style="grid-template-columns: 1fr 180px 1fr 220px; gap: 10px; align-items: end;">
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Partner</span>
+                  <select id="affiliateAdjustmentsPartnerSelect" class="form-control"></select>
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Amount</span>
+                  <input id="affiliateAdjustmentAmount" type="number" step="0.01" class="form-control" placeholder="+10.00 or -10.00" />
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Reason (optional)</span>
+                  <input id="affiliateAdjustmentReason" type="text" class="form-control" placeholder="Bonus / correction" />
+                </label>
+                <div style="display:flex; justify-content:flex-end; gap: 8px;">
+                  <button class="btn btn-primary" id="btnCreateAffiliateAdjustment" type="button">➕ Add adjustment</button>
+                </div>
+              </div>
+
+              <div class="admin-table-container" style="margin-top: 12px;">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Created</th>
+                      <th>Partner</th>
+                      <th style="text-align:right;">Amount</th>
+                      <th>Reason</th>
+                      <th>Status</th>
+                      <th>Payout</th>
+                    </tr>
+                  </thead>
+                  <tbody id="affiliateAdjustmentsTableBody">
+                    <tr><td colspan="6" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
                   </tbody>
                 </table>
               </div>

@@ -412,6 +412,27 @@
         </div>
       </div>
 
+      <div class="partner-card" id="partnerAnalyticsCard" style="padding: 12px; margin-top: 12px;" hidden>
+        <h3 style="margin: 0 0 10px;">Analytics</h3>
+
+        <div class="partner-kpi">
+          <div class="kpi"><div class="label">Orders (accepted)</div><div class="value" id="partnerAnalOrdersAccepted">0</div></div>
+          <div class="kpi"><div class="label">Orders (pending)</div><div class="value" id="partnerAnalOrdersPending">0</div></div>
+          <div class="kpi"><div class="label">Orders (awaiting payment)</div><div class="value" id="partnerAnalOrdersAwaiting">0</div></div>
+        </div>
+
+        <div style="height: 10px;"></div>
+
+        <div class="partner-kpi">
+          <div class="kpi"><div class="label">Orders (total)</div><div class="value" id="partnerAnalOrdersTotal">0</div></div>
+          <div class="kpi"><div class="label">Partner earnings</div><div class="value" id="partnerAnalPartnerEarnings">€0.00</div></div>
+          <div class="kpi"><div class="label">Invited</div><div class="value" id="partnerAnalInvited">0</div></div>
+        </div>
+
+        <div style="height: 12px;"></div>
+        <div class="muted small" id="partnerAnalHint"></div>
+      </div>
+
       <div class="partner-card" id="partnerAffiliateSummaryCard" style="padding: 12px; margin-top: 12px;" hidden>
         <h3 style="margin: 0 0 10px;">Affiliate earnings</h3>
         <p class="muted" style="margin-top: 0;">Your commission earnings from referred users (services only).</p>
@@ -468,12 +489,6 @@
           </div>
 
           <div id="partnerTabFulfillments" style="margin-top: 10px;">
-            <div class="partner-kpi" style="margin-top: 10px;">
-              <div class="kpi"><div class="label">Pending</div><div class="value" id="kpiPending">0</div></div>
-              <div class="kpi"><div class="label">Accepted</div><div class="value" id="kpiAccepted">0</div></div>
-              <div class="kpi"><div class="label">Rejected</div><div class="value" id="kpiRejected">0</div></div>
-            </div>
-
             <div class="muted small" id="fulfillmentsHint" style="margin-top: 10px;"></div>
 
             <div class="admin-table-container" aria-label="Fulfillments">

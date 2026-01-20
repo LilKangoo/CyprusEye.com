@@ -802,6 +802,13 @@ body[data-admin-panel="true"].admin-sidebar-open {
   color: var(--admin-primary);
 }
 
+.btn-small {
+  padding: 6px 10px;
+  font-size: 12px;
+  line-height: 1;
+  border-radius: 6px;
+}
+
 /* Modal */
 .admin-modal {
   position: fixed;
@@ -1093,6 +1100,16 @@ body[data-admin-panel="true"].admin-sidebar-open {
 .badge-admin {
   background: rgba(220, 38, 38, 0.1);
   color: #dc2626;
+}
+
+.badge-partner {
+  background: rgba(59, 130, 246, 0.12);
+  color: #60a5fa;
+}
+
+.badge-affiliate {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
 }
 
 /* Responsive */
@@ -1821,6 +1838,10 @@ body[data-admin-panel="true"].admin-sidebar-open {
 @media (max-width: 640px) {
   .admin-header-content {
     padding: 0 16px;
+  }
+
+  .admin-form-grid {
+    grid-template-columns: 1fr !important;
   }
 
   .admin-title {
@@ -2631,6 +2652,26 @@ select#orderStatusFilter:focus {
 .btn-danger:hover {
   background: #dc2626 !important;
   color: white !important;
+}
+
+.btn-success {
+  background: var(--admin-success);
+  border: none;
+  color: white;
+}
+
+.btn-success:hover {
+  opacity: 0.9;
+}
+
+.btn-warning {
+  background: #f59e0b;
+  border: none;
+  color: #111827;
+}
+
+.btn-warning:hover {
+  opacity: 0.9;
 }
 
 /* =====================================================

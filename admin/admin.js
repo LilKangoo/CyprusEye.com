@@ -542,11 +542,15 @@ const partnersUiState = {
   depositLoadedOnce: false,
   affiliateLoadedOnce: false,
   affiliateEligibleLoadedOnce: false,
+  affiliatePayoutOverviewLoadedOnce: false,
+  affiliateAdjustmentsLoadedOnce: false,
   affiliateEligibleUsers: [],
   affiliateEligibleUsersById: {},
   affiliateEligibleMemberships: [],
   affiliateEligiblePartners: [],
   affiliateEligibleUsersByPartnerId: {},
+  affiliatePayoutOverviewRows: [],
+  affiliateAdjustmentsRows: [],
   depositOverrideSearchTimer: null,
   depositOverrideSearchResults: [],
   depositOverrides: [],
@@ -1940,6 +1944,8 @@ async function loadPartnersAffiliateAdminData(force = false) {
   await Promise.all([
     loadAffiliateSettings(),
     loadAffiliateOverrides(),
+    loadAffiliatePayoutOverviewAdminData(),
+    loadAffiliateAdjustmentsAdminData(),
     loadAffiliatePayoutAdminData(),
     loadAffiliateLedgerAdminData(),
     loadAffiliateUnattributedDepositsAdminData(),
@@ -2883,6 +2889,292 @@ function setAffiliatePartnerSelectAllOption(selectEl, label) {
   }
 
   if (current === '__all__') select.value = '__all__';
+}
+
+async function loadAffiliatePayoutOverviewAdminData(force = false) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const tbody = document.getElementById('affiliatePayoutOverviewTableBody');
+  if (!tbody) return;
+
+  if (partnersUiState.affiliatePayoutOverviewLoadedOnce && !force) return;
+  partnersUiState.affiliatePayoutOverviewLoadedOnce = true;
+
+  await refreshAffiliatePayoutOverview({ force });
+}
+
+async function refreshAffiliatePayoutOverview({ force = false } = {}) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const tbody = document.getElementById('affiliatePayoutOverviewTableBody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px;">Loading…</td></tr>';
+
+  try {
+    const { data, error } = await client.rpc('affiliate_admin_get_partner_balances_v1');
+    if (error) throw error;
+    const rows = Array.isArray(data) ? data : [];
+    partnersUiState.affiliatePayoutOverviewRows = rows;
+    renderAffiliatePayoutOverviewTable(rows);
+  } catch (e) {
+    console.error('Failed to load affiliate payout overview:', e);
+    if (isSchemaCacheError(e)) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px; color:#ef4444;">Payout overview RPC not available yet (apply migrations and refresh).</td></tr>';
+    } else {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 18px; color:#ef4444;">${escapeHtml(e.message || 'Failed to load')}</td></tr>`;
+    }
+  }
+}
+
+function renderAffiliatePayoutOverviewTable(rows) {
+  const tbody = document.getElementById('affiliatePayoutOverviewTableBody');
+  if (!tbody) return;
+
+  const list = Array.isArray(rows) ? rows : [];
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">No partners</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = list.map((r) => {
+    const pid = String(r.partner_id || '').trim();
+    const partner = escapeHtml(String(r.partner_name || getPartnerLabel(pid) || (pid ? pid.slice(0, 8) : '—')));
+    const cur = String(r.currency || 'EUR');
+    const unpaid = Number(r.unpaid_total || 0) || 0;
+    const pending = Number(r.pending_total || 0) || 0;
+    const paid = Number(r.paid_total || 0) || 0;
+    const thr = Number(r.payout_threshold || 0) || 0;
+
+    const thrMet = thr > 0 && unpaid >= thr;
+    const canCreate = thrMet && pending <= 0.0001;
+
+    const openBtn = pid
+      ? `<button class="btn-small btn-secondary" type="button" onclick="selectAffiliatePayoutPartner('${escapeHtml(pid)}')">Open</button>`
+      : '<span class="muted">—</span>';
+
+    const createBtn = canCreate && pid
+      ? ` <button class="btn-small btn-primary" type="button" onclick="createAffiliatePayoutFromOverview('${escapeHtml(pid)}')">Create payout</button>`
+      : '';
+
+    const actions = `${openBtn}${createBtn}`;
+
+    return `
+      <tr>
+        <td>${partner}</td>
+        <td style="text-align:right; font-weight:${thrMet ? '800' : '600'};">${escapeHtml(formatMoney(unpaid, cur))}</td>
+        <td style="text-align:right;">${escapeHtml(formatMoney(pending, cur))}</td>
+        <td style="text-align:right;">${escapeHtml(formatMoney(paid, cur))}</td>
+        <td style="text-align:right;">${escapeHtml(formatMoney(thr, cur))}</td>
+        <td style="text-align:right;">${actions}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function selectAffiliatePayoutPartner(partnerId) {
+  const pid = String(partnerId || '').trim();
+  if (!pid) return;
+  const select = document.getElementById('affiliatePayoutPartnerSelect');
+  if (select) select.value = pid;
+  refreshAffiliatePayoutPartnerData({ force: true });
+}
+
+async function createAffiliatePayoutFromOverview(partnerId) {
+  selectAffiliatePayoutPartner(partnerId);
+  await createAffiliatePayout();
+}
+
+window.selectAffiliatePayoutPartner = (partnerId) => selectAffiliatePayoutPartner(partnerId);
+window.createAffiliatePayoutFromOverview = (partnerId) => createAffiliatePayoutFromOverview(partnerId);
+
+function fillAffiliateAdjustmentsPartnerSelect() {
+  const select = document.getElementById('affiliateAdjustmentsPartnerSelect');
+  if (!select) return;
+
+  const current = String(select.value || '').trim();
+  const partners = Array.isArray(partnersState.partners) ? partnersState.partners : [];
+  const rows = partners.slice().sort((a, b) => String(a?.name || '').localeCompare(String(b?.name || '')));
+
+  select.innerHTML = `<option value="">—</option>${rows.map(p => `<option value="${escapeHtml(String(p.id))}">${escapeHtml(String(p.name || p.slug || String(p.id).slice(0, 8)))}</option>`).join('')}`;
+  if (current) select.value = current;
+}
+
+async function loadAffiliateAdjustmentsAdminData(force = false) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const select = document.getElementById('affiliateAdjustmentsPartnerSelect');
+  const tbody = document.getElementById('affiliateAdjustmentsTableBody');
+  if (!select || !tbody) return;
+
+  fillAffiliateAdjustmentsPartnerSelect();
+  setAffiliatePartnerSelectAllOption(select, 'All partners');
+  if (!String(select.value || '').trim()) {
+    select.value = '__all__';
+  }
+
+  if (partnersUiState.affiliateAdjustmentsLoadedOnce && !force) return;
+  partnersUiState.affiliateAdjustmentsLoadedOnce = true;
+
+  await refreshAffiliateAdjustmentsPartnerData({ force });
+}
+
+async function refreshAffiliateAdjustmentsPartnerData({ force = false } = {}) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const select = document.getElementById('affiliateAdjustmentsPartnerSelect');
+  const tbody = document.getElementById('affiliateAdjustmentsTableBody');
+  if (!select || !tbody) return;
+
+  const partnerId = String(select.value || '').trim();
+  if (!partnerId) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px;">Loading…</td></tr>';
+
+  try {
+    let q = client
+      .from('affiliate_adjustments')
+      .select('id, partner_id, amount, currency, reason, created_at, payout_id')
+      .order('created_at', { ascending: false })
+      .limit(200);
+
+    if (partnerId !== '__all__') {
+      q = q.eq('partner_id', partnerId);
+    }
+
+    const { data, error } = await q;
+    if (error) throw error;
+
+    const rows = Array.isArray(data) ? data : [];
+    partnersUiState.affiliateAdjustmentsRows = rows;
+
+    const payoutIds = Array.from(new Set(rows.map((r) => r?.payout_id).filter(Boolean).map(String)));
+    let payoutStatusById = {};
+    if (payoutIds.length) {
+      const { data: payouts, error: payoutsErr } = await client
+        .from('affiliate_payouts')
+        .select('id, status')
+        .in('id', payoutIds)
+        .limit(5000);
+      if (payoutsErr) throw payoutsErr;
+      payoutStatusById = (Array.isArray(payouts) ? payouts : []).reduce((acc, p) => {
+        acc[String(p.id)] = String(p.status || '');
+        return acc;
+      }, {});
+    }
+
+    renderAffiliateAdjustmentsTable(rows, payoutStatusById);
+  } catch (e) {
+    console.error('Failed to load affiliate adjustments:', e);
+    if (isSchemaCacheError(e)) {
+      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px; color:#ef4444;">Adjustments table not available yet (apply migrations and refresh).</td></tr>';
+    } else {
+      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 18px; color:#ef4444;">${escapeHtml(e.message || 'Failed to load')}</td></tr>`;
+    }
+  }
+}
+
+function renderAffiliateAdjustmentsTable(rows, payoutStatusById) {
+  const tbody = document.getElementById('affiliateAdjustmentsTableBody');
+  if (!tbody) return;
+
+  const list = Array.isArray(rows) ? rows : [];
+  const payoutStatuses = payoutStatusById && typeof payoutStatusById === 'object' ? payoutStatusById : {};
+
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">No adjustments</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = list.map((r) => {
+    const created = r.created_at ? escapeHtml(formatDateTimeValue(r.created_at)) : '—';
+    const partnerLabel = escapeHtml(getPartnerLabel(r.partner_id));
+    const cur = String(r.currency || 'EUR');
+    const amtNum = Number(r.amount || 0) || 0;
+    const amt = escapeHtml(formatMoney(amtNum, cur));
+    const reason = escapeHtml(String(r.reason || '')) || '—';
+    const payoutId = String(r.payout_id || '').trim();
+    let status = 'unpaid';
+    if (payoutId) {
+      const ps = payoutStatuses[payoutId] || '';
+      status = ps === 'paid' ? 'paid' : 'in_payout';
+    }
+    const payoutCell = payoutId ? `<code>${escapeHtml(payoutId.slice(0, 8))}</code>` : '—';
+    const color = amtNum < 0 ? '#ef4444' : (amtNum > 0 ? '#22c55e' : '');
+    const amountCell = color ? `<span style="color:${color}; font-weight:700;">${amt}</span>` : amt;
+
+    return `
+      <tr>
+        <td>${created}</td>
+        <td>${partnerLabel}</td>
+        <td style="text-align:right;">${amountCell}</td>
+        <td>${reason}</td>
+        <td>${escapeHtml(status)}</td>
+        <td>${payoutCell}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function createAffiliateAdjustmentFromForm() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const select = document.getElementById('affiliateAdjustmentsPartnerSelect');
+  const partnerId = String(select?.value || '').trim();
+  if (!partnerId || partnerId === '__all__') {
+    showToast('Select partner first', 'error');
+    return;
+  }
+
+  const amountEl = document.getElementById('affiliateAdjustmentAmount');
+  const reasonEl = document.getElementById('affiliateAdjustmentReason');
+  const amountRaw = String(amountEl?.value ?? '').trim();
+  const amount = Number(amountRaw);
+
+  if (!amountRaw || !Number.isFinite(amount) || Math.abs(amount) < 0.0001) {
+    showToast('Enter a non-zero amount', 'error');
+    return;
+  }
+
+  const reason = String(reasonEl?.value ?? '').trim();
+  const ok = confirm('Create this adjustment?');
+  if (!ok) return;
+
+  try {
+    const { error } = await client.rpc('affiliate_admin_create_adjustment', {
+      p_partner_id: partnerId,
+      p_amount: amount,
+      p_reason: reason || null,
+    });
+    if (error) throw error;
+
+    if (amountEl) amountEl.value = '';
+    if (reasonEl) reasonEl.value = '';
+
+    showToast('Adjustment created', 'success');
+
+    await Promise.all([
+      refreshAffiliateAdjustmentsPartnerData({ force: true }),
+      refreshAffiliatePayoutOverview({ force: true }),
+      refreshAffiliatePayoutPartnerData({ force: true }),
+      refreshAffiliateLedgerPartnerData({ force: true }),
+    ]);
+  } catch (e) {
+    console.error('Failed to create affiliate adjustment:', e);
+    if (isSchemaCacheError(e)) {
+      showToast('Adjustments RPC not available yet (apply migrations and refresh).', 'error');
+    } else {
+      showToast(e.message || 'Failed to create adjustment', 'error');
+    }
+  }
 }
 
 async function loadAffiliatePayoutAdminData(force = false) {
@@ -13522,6 +13814,26 @@ function initEventListeners() {
   const btnSaveAffiliateOverride = document.getElementById('btnSaveAffiliateOverride');
   if (btnSaveAffiliateOverride) {
     btnSaveAffiliateOverride.addEventListener('click', () => saveAffiliateOverride());
+  }
+
+  const btnRefreshAffiliatePayoutOverview = document.getElementById('btnRefreshAffiliatePayoutOverview');
+  if (btnRefreshAffiliatePayoutOverview) {
+    btnRefreshAffiliatePayoutOverview.addEventListener('click', () => refreshAffiliatePayoutOverview({ force: true }));
+  }
+
+  const btnRefreshAffiliateAdjustments = document.getElementById('btnRefreshAffiliateAdjustments');
+  if (btnRefreshAffiliateAdjustments) {
+    btnRefreshAffiliateAdjustments.addEventListener('click', () => loadAffiliateAdjustmentsAdminData(true));
+  }
+
+  const affiliateAdjustmentsPartnerSelect = document.getElementById('affiliateAdjustmentsPartnerSelect');
+  if (affiliateAdjustmentsPartnerSelect) {
+    affiliateAdjustmentsPartnerSelect.addEventListener('change', () => refreshAffiliateAdjustmentsPartnerData({ force: true }));
+  }
+
+  const btnCreateAffiliateAdjustment = document.getElementById('btnCreateAffiliateAdjustment');
+  if (btnCreateAffiliateAdjustment) {
+    btnCreateAffiliateAdjustment.addEventListener('click', () => createAffiliateAdjustmentFromForm());
   }
 
   const btnRefreshAffiliatePayouts = document.getElementById('btnRefreshAffiliatePayouts');
