@@ -15731,7 +15731,7 @@ async function handlePoiFormSubmit(event) {
         lat: latitude,
         lng: longitude,
         xp: xp || 100,
-        badge: badge || category || 'Explorer',  // badge column
+        badge: category || badge || 'Explorer',  // badge column
         required_level: 1,  // default level
         status: status,
         radius: radius || DEFAULT_POI_RADIUS,
@@ -15786,7 +15786,8 @@ async function handlePoiFormSubmit(event) {
         status: status,
         radius: radius || DEFAULT_POI_RADIUS,
         google_url: googleUrl || null,
-        badge: badge || category || null,
+        badge: category || badge || null,
+        category: category,
         tags: tags,
       };
       
@@ -15805,6 +15806,17 @@ async function handlePoiFormSubmit(event) {
 
       if (res.error && isMissingColumnError(res.error, 'tags')) {
         const fallback = { ...updateData };
+        delete fallback.tags;
+        res = await client
+          .from('pois')
+          .update(fallback)
+          .eq('id', poiId)
+          .select('id');
+      }
+
+      if (res.error && isMissingColumnError(res.error, 'category')) {
+        const fallback = { ...updateData };
+        delete fallback.category;
         delete fallback.tags;
         res = await client
           .from('pois')
