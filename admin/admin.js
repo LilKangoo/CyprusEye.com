@@ -15530,7 +15530,10 @@ function openPoiForm(poiId = null) {
   const descriptionInput = $('#poiDescription');
 
   if (nameInput) nameInput.value = poi?.name || '';
-  if (slugInput) slugInput.value = poi?.slug || '';
+  if (slugInput) {
+    slugInput.value = poi?.slug || '';
+    slugInput.disabled = Boolean(poi);
+  }
   if (categoryInput) categoryInput.value = poi?.category || '';
   if (statusInput) statusInput.value = poi?.status || 'published';
   if (latitudeInput) latitudeInput.value = poi?.latitude ?? '';
@@ -15673,6 +15676,21 @@ async function handlePoiFormSubmit(event) {
 
     const slug = slugInput || slugify(name);
 
+    if (adminState.poiFormMode === 'edit' && adminState.selectedPoi) {
+      const currentId = String(adminState.selectedPoi.id || '').trim();
+      if (slugInput && currentId && slugInput !== currentId) {
+        if (errorEl) {
+          errorEl.textContent = 'Slug cannot be changed for existing POIs. Create a new POI instead.';
+          showElement(errorEl);
+        }
+        if (submitBtn) {
+          submitBtn.disabled = false;
+          submitBtn.textContent = 'Save Changes';
+        }
+        return;
+      }
+    }
+
     if (!name || Number.isNaN(latitude) || Number.isNaN(longitude)) {
       if (errorEl) {
         errorEl.textContent = 'Name, latitude and longitude are required.';
@@ -15768,6 +15786,8 @@ async function handlePoiFormSubmit(event) {
         status: status,
         radius: radius || DEFAULT_POI_RADIUS,
         google_url: googleUrl || null,
+        badge: badge || category || null,
+        tags: tags,
       };
       
       // Add i18n fields if available
@@ -15777,12 +15797,39 @@ async function handlePoiFormSubmit(event) {
         if (badgeI18n) updateData.badge_i18n = badgeI18n;
       }
 
-      const { error } = await client
+      let res = await client
         .from('pois')
         .update(updateData)
-        .eq('id', poiId);
+        .eq('id', poiId)
+        .select('id');
 
-      if (error) throw error;
+      if (res.error && isMissingColumnError(res.error, 'tags')) {
+        const fallback = { ...updateData };
+        delete fallback.tags;
+        res = await client
+          .from('pois')
+          .update(fallback)
+          .eq('id', poiId)
+          .select('id');
+      }
+
+      if (res.error && isMissingColumnError(res.error, 'badge')) {
+        const fallback = { ...updateData };
+        delete fallback.badge;
+        delete fallback.tags;
+        res = await client
+          .from('pois')
+          .update(fallback)
+          .eq('id', poiId)
+          .select('id');
+      }
+
+      if (res.error) throw res.error;
+
+      const updatedRows = Array.isArray(res.data) ? res.data : [];
+      if (!updatedRows.length) {
+        throw new Error('POI update was not applied (0 rows). Check POIs RLS/policies for admins.');
+      }
 
       showToast('POI updated successfully', 'success');
     }
