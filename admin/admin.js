@@ -544,6 +544,7 @@ const partnersUiState = {
   affiliateEligibleLoadedOnce: false,
   affiliatePayoutOverviewLoadedOnce: false,
   affiliateAdjustmentsLoadedOnce: false,
+  affiliateCashoutRequestsLoadedOnce: false,
   affiliateEligibleUsers: [],
   affiliateEligibleUsersById: {},
   affiliateEligibleMemberships: [],
@@ -551,6 +552,7 @@ const partnersUiState = {
   affiliateEligibleUsersByPartnerId: {},
   affiliatePayoutOverviewRows: [],
   affiliateAdjustmentsRows: [],
+  affiliateCashoutRequestsRows: [],
   depositOverrideSearchTimer: null,
   depositOverrideSearchResults: [],
   depositOverrides: [],
@@ -1944,6 +1946,7 @@ async function loadPartnersAffiliateAdminData(force = false) {
   await Promise.all([
     loadAffiliateSettings(),
     loadAffiliateOverrides(),
+    loadAffiliateCashoutRequestsAdminData(),
     loadAffiliatePayoutOverviewAdminData(),
     loadAffiliateAdjustmentsAdminData(),
     loadAffiliatePayoutAdminData(),
@@ -2891,6 +2894,153 @@ function setAffiliatePartnerSelectAllOption(selectEl, label) {
   if (current === '__all__') select.value = '__all__';
 }
 
+async function loadAffiliateCashoutRequestsAdminData(force = false) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const tbody = document.getElementById('affiliateCashoutRequestsTableBody');
+  if (!tbody) return;
+
+  if (partnersUiState.affiliateCashoutRequestsLoadedOnce && !force) return;
+  partnersUiState.affiliateCashoutRequestsLoadedOnce = true;
+
+  await refreshAffiliateCashoutRequests({ force });
+}
+
+async function refreshAffiliateCashoutRequests({ force = false } = {}) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const tbody = document.getElementById('affiliateCashoutRequestsTableBody');
+  if (!tbody) return;
+
+  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px;">Loading…</td></tr>';
+
+  try {
+    const { data, error } = await client
+      .from('affiliate_cashout_requests')
+      .select('id, partner_id, requested_by, requested_amount, currency, status, created_at')
+      .order('created_at', { ascending: false })
+      .limit(200);
+    if (error) throw error;
+
+    const rows = Array.isArray(data) ? data : [];
+    rows.sort((a, b) => {
+      const ap = String(a?.status || '') === 'pending' ? 0 : 1;
+      const bp = String(b?.status || '') === 'pending' ? 0 : 1;
+      if (ap !== bp) return ap - bp;
+      return String(b?.created_at || '').localeCompare(String(a?.created_at || ''));
+    });
+    partnersUiState.affiliateCashoutRequestsRows = rows;
+
+    const userIds = Array.from(new Set(rows.map(r => String(r?.requested_by || '')).filter(Boolean)));
+    let profilesById = {};
+    if (userIds.length) {
+      const { data: profs, error: profErr } = await client
+        .from('profiles')
+        .select('id, username, email, name')
+        .in('id', userIds)
+        .limit(5000);
+      if (profErr) throw profErr;
+      profilesById = (Array.isArray(profs) ? profs : []).reduce((acc, p) => {
+        acc[String(p.id)] = p;
+        return acc;
+      }, {});
+    }
+
+    const pendingCount = rows.filter(r => String(r?.status || '') === 'pending').length;
+    if (pendingCount > 0 && !partnersUiState.affiliateCashoutRequestsToastShown) {
+      partnersUiState.affiliateCashoutRequestsToastShown = true;
+      showToast(`Pending cashout requests: ${pendingCount}`, 'info');
+    }
+
+    renderAffiliateCashoutRequestsTable(rows, profilesById);
+  } catch (e) {
+    console.error('Failed to load affiliate cashout requests:', e);
+    tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 18px; color:#ef4444;">${escapeHtml(e.message || 'Failed to load')}</td></tr>`;
+  }
+}
+
+function renderAffiliateCashoutRequestsTable(rows, profilesById) {
+  const tbody = document.getElementById('affiliateCashoutRequestsTableBody');
+  if (!tbody) return;
+
+  const list = Array.isArray(rows) ? rows : [];
+  const profiles = profilesById && typeof profilesById === 'object' ? profilesById : {};
+
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">No requests</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = list.map((r) => {
+    const rid = String(r.id || '').trim();
+    const created = r.created_at ? escapeHtml(formatDateTimeValue(r.created_at)) : '—';
+    const pid = String(r.partner_id || '').trim();
+    const partnerLabel = escapeHtml(getPartnerLabel(pid));
+    const cur = String(r.currency || 'EUR');
+    const amtNum = Number(r.requested_amount || 0) || 0;
+    const amount = escapeHtml(formatMoney(amtNum, cur));
+    const rawStatus = String(r.status || '').trim();
+    const status = escapeHtml(rawStatus) || '—';
+    const uid = String(r.requested_by || '').trim();
+    const p = uid ? (profiles[uid] || {}) : {};
+    const reqBy = uid ? escapeHtml(p.username || p.email || p.name || uid.slice(0, 8)) : '—';
+
+    const openBtn = pid
+      ? `<button class="btn-small btn-secondary" type="button" data-action="affiliate-cashout-open" data-partner-id="${escapeHtml(pid)}">Open</button>`
+      : '<span class="muted">—</span>';
+
+    const approveBtn = rawStatus === 'pending' && rid
+      ? ` <button class="btn-small btn-primary" type="button" data-action="affiliate-cashout-approve" data-request-id="${escapeHtml(rid)}">Approve</button>`
+      : '';
+
+    const rejectBtn = rawStatus === 'pending' && rid
+      ? ` <button class="btn-small btn-secondary btn-danger" type="button" data-action="affiliate-cashout-reject" data-request-id="${escapeHtml(rid)}">Reject</button>`
+      : '';
+
+    return `
+      <tr>
+        <td>${created}</td>
+        <td>${partnerLabel}</td>
+        <td style="text-align:right;">${amount}</td>
+        <td>${reqBy}</td>
+        <td>${status}</td>
+        <td style="text-align:right;">${openBtn}${approveBtn}${rejectBtn}</td>
+      </tr>
+    `;
+  }).join('');
+}
+
+async function updateAffiliateCashoutRequestStatus(requestId, status) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const rid = String(requestId || '').trim();
+  const st = String(status || '').trim();
+  if (!rid) return;
+  if (!['approved', 'rejected'].includes(st)) return;
+
+  const ok = confirm(`Set cashout request to ${st}?`);
+  if (!ok) return;
+
+  const note = String(prompt('Admin notes (optional):', '') || '').trim();
+
+  try {
+    const { error } = await client
+      .from('affiliate_cashout_requests')
+      .update({ status: st, admin_notes: note || null })
+      .eq('id', rid);
+    if (error) throw error;
+
+    showToast('Cashout request updated', 'success');
+    await refreshAffiliateCashoutRequests({ force: true });
+  } catch (e) {
+    console.error('Failed to update cashout request:', e);
+    showToast(String(e?.message || 'Failed to update cashout request'), 'error');
+  }
+}
+
 async function loadAffiliatePayoutOverviewAdminData(force = false) {
   const client = ensureSupabase();
   if (!client) return;
@@ -2952,11 +3102,11 @@ function renderAffiliatePayoutOverviewTable(rows) {
     const canCreate = thrMet && pending <= 0.0001;
 
     const openBtn = pid
-      ? `<button class="btn-small btn-secondary" type="button" onclick="selectAffiliatePayoutPartner('${escapeHtml(pid)}')">Open</button>`
+      ? `<button class="btn-small btn-secondary" type="button" data-action="affiliate-overview-open" data-partner-id="${escapeHtml(pid)}">Open</button>`
       : '<span class="muted">—</span>';
 
     const createBtn = canCreate && pid
-      ? ` <button class="btn-small btn-primary" type="button" onclick="createAffiliatePayoutFromOverview('${escapeHtml(pid)}')">Create payout</button>`
+      ? ` <button class="btn-small btn-primary" type="button" data-action="affiliate-overview-create-payout" data-partner-id="${escapeHtml(pid)}">Create payout</button>`
       : '';
 
     const actions = `${openBtn}${createBtn}`;
@@ -3032,11 +3182,11 @@ async function refreshAffiliateAdjustmentsPartnerData({ force = false } = {}) {
 
   const partnerId = String(select.value || '').trim();
   if (!partnerId) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>';
     return;
   }
 
-  tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px;">Loading…</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 18px;">Loading…</td></tr>';
 
   try {
     let q = client
@@ -3074,9 +3224,9 @@ async function refreshAffiliateAdjustmentsPartnerData({ force = false } = {}) {
   } catch (e) {
     console.error('Failed to load affiliate adjustments:', e);
     if (isSchemaCacheError(e)) {
-      tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px; color:#ef4444;">Adjustments table not available yet (apply migrations and refresh).</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 18px; color:#ef4444;">Adjustments table not available yet (apply migrations and refresh).</td></tr>';
     } else {
-      tbody.innerHTML = `<tr><td colspan="6" style="text-align:center; padding: 18px; color:#ef4444;">${escapeHtml(e.message || 'Failed to load')}</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7" style="text-align:center; padding: 18px; color:#ef4444;">${escapeHtml(e.message || 'Failed to load')}</td></tr>`;
     }
   }
 }
@@ -3089,7 +3239,7 @@ function renderAffiliateAdjustmentsTable(rows, payoutStatusById) {
   const payoutStatuses = payoutStatusById && typeof payoutStatusById === 'object' ? payoutStatusById : {};
 
   if (!list.length) {
-    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">No adjustments</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="7" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">No adjustments</td></tr>';
     return;
   }
 
@@ -3110,6 +3260,10 @@ function renderAffiliateAdjustmentsTable(rows, payoutStatusById) {
     const color = amtNum < 0 ? '#ef4444' : (amtNum > 0 ? '#22c55e' : '');
     const amountCell = color ? `<span style="color:${color}; font-weight:700;">${amt}</span>` : amt;
 
+    const deleteBtn = !payoutId
+      ? `<button class="btn-small btn-secondary btn-danger" type="button" data-action="affiliate-adjustment-delete" data-adjustment-id="${escapeHtml(String(r.id))}">Delete</button>`
+      : '<span class="muted">—</span>';
+
     return `
       <tr>
         <td>${created}</td>
@@ -3118,9 +3272,51 @@ function renderAffiliateAdjustmentsTable(rows, payoutStatusById) {
         <td>${reason}</td>
         <td>${escapeHtml(status)}</td>
         <td>${payoutCell}</td>
+        <td style="text-align:right;">${deleteBtn}</td>
       </tr>
     `;
   }).join('');
+}
+
+async function deleteAffiliateAdjustmentById(adjustmentId) {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const aid = String(adjustmentId || '').trim();
+  if (!aid) return;
+
+  const row = Array.isArray(partnersUiState.affiliateAdjustmentsRows)
+    ? partnersUiState.affiliateAdjustmentsRows.find(r => String(r?.id || '') === aid)
+    : null;
+
+  if (row && row.payout_id) {
+    showToast('Cannot delete: adjustment already attached to a payout', 'error');
+    return;
+  }
+
+  const ok = confirm('Delete this adjustment?');
+  if (!ok) return;
+
+  try {
+    let q = client.from('affiliate_adjustments').delete().eq('id', aid);
+    if (q && typeof q.is === 'function') {
+      q = q.is('payout_id', null);
+    }
+
+    const { error } = await q;
+    if (error) throw error;
+
+    showToast('Adjustment deleted', 'success');
+
+    await Promise.all([
+      refreshAffiliateAdjustmentsPartnerData({ force: true }),
+      refreshAffiliatePayoutOverview({ force: true }),
+      refreshAffiliatePayoutPartnerData({ force: true }),
+    ]);
+  } catch (e) {
+    console.error('Failed to delete adjustment:', e);
+    showToast(String(e?.message || 'Failed to delete adjustment'), 'error');
+  }
 }
 
 async function createAffiliateAdjustmentFromForm() {
@@ -13826,6 +14022,11 @@ function initEventListeners() {
     btnRefreshAffiliateAdjustments.addEventListener('click', () => loadAffiliateAdjustmentsAdminData(true));
   }
 
+  const btnRefreshAffiliateCashoutRequests = document.getElementById('btnRefreshAffiliateCashoutRequests');
+  if (btnRefreshAffiliateCashoutRequests) {
+    btnRefreshAffiliateCashoutRequests.addEventListener('click', () => loadAffiliateCashoutRequestsAdminData(true));
+  }
+
   const affiliateAdjustmentsPartnerSelect = document.getElementById('affiliateAdjustmentsPartnerSelect');
   if (affiliateAdjustmentsPartnerSelect) {
     affiliateAdjustmentsPartnerSelect.addEventListener('change', () => refreshAffiliateAdjustmentsPartnerData({ force: true }));
@@ -13835,6 +14036,52 @@ function initEventListeners() {
   if (btnCreateAffiliateAdjustment) {
     btnCreateAffiliateAdjustment.addEventListener('click', () => createAffiliateAdjustmentFromForm());
   }
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target && typeof e.target.closest === 'function'
+      ? e.target.closest('button[data-action]')
+      : null;
+    if (!btn) return;
+
+    const action = String(btn.getAttribute('data-action') || '').trim();
+    if (!action) return;
+
+    if (action === 'affiliate-overview-open') {
+      const pid = String(btn.getAttribute('data-partner-id') || '').trim();
+      if (pid) selectAffiliatePayoutPartner(pid);
+      return;
+    }
+
+    if (action === 'affiliate-overview-create-payout') {
+      const pid = String(btn.getAttribute('data-partner-id') || '').trim();
+      if (pid) createAffiliatePayoutFromOverview(pid);
+      return;
+    }
+
+    if (action === 'affiliate-adjustment-delete') {
+      const aid = String(btn.getAttribute('data-adjustment-id') || '').trim();
+      if (aid) deleteAffiliateAdjustmentById(aid);
+      return;
+    }
+
+    if (action === 'affiliate-cashout-open') {
+      const pid = String(btn.getAttribute('data-partner-id') || '').trim();
+      if (pid) selectAffiliatePayoutPartner(pid);
+      return;
+    }
+
+    if (action === 'affiliate-cashout-approve') {
+      const rid = String(btn.getAttribute('data-request-id') || '').trim();
+      if (rid) updateAffiliateCashoutRequestStatus(rid, 'approved');
+      return;
+    }
+
+    if (action === 'affiliate-cashout-reject') {
+      const rid = String(btn.getAttribute('data-request-id') || '').trim();
+      if (rid) updateAffiliateCashoutRequestStatus(rid, 'rejected');
+      return;
+    }
+  });
 
   const btnRefreshAffiliatePayouts = document.getElementById('btnRefreshAffiliatePayouts');
   if (btnRefreshAffiliatePayouts) {

@@ -36,7 +36,7 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260119_2"></script>
+  <script type="module" src="/admin/admin.js?v=20260120_1"></script>
 </head>
 <body data-admin-panel="true">
   
@@ -3385,6 +3385,35 @@
           <div class="admin-card" style="margin-top: 16px;">
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
               <div>
+                <h3>Affiliate cashout requests</h3>
+                <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Pending cashout requests submitted by partners.</p>
+              </div>
+              <button class="btn-secondary" id="btnRefreshAffiliateCashoutRequests" type="button">🔄 Refresh</button>
+            </div>
+            <div class="admin-card-body">
+              <div class="admin-table-container">
+                <table class="admin-table">
+                  <thead>
+                    <tr>
+                      <th>Created</th>
+                      <th>Partner</th>
+                      <th style="text-align:right;">Amount</th>
+                      <th>Requested by</th>
+                      <th>Status</th>
+                      <th style="text-align:right;">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody id="affiliateCashoutRequestsTableBody">
+                    <tr><td colspan="6" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="admin-card" style="margin-top: 16px;">
+            <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
+              <div>
                 <h3>Affiliate payout overview</h3>
                 <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Quick view of unpaid/pending/paid balances by partner.</p>
               </div>
@@ -3448,10 +3477,11 @@
                       <th>Reason</th>
                       <th>Status</th>
                       <th>Payout</th>
+                      <th style="text-align:right;">Actions</th>
                     </tr>
                   </thead>
                   <tbody id="affiliateAdjustmentsTableBody">
-                    <tr><td colspan="6" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
+                    <tr><td colspan="7" style="text-align:center; padding: 18px; color: var(--admin-text-muted);">—</td></tr>
                   </tbody>
                 </table>
               </div>
