@@ -230,12 +230,138 @@
         width: 100%;
       }
     }
+
+    .partners-page #auth-modal.partners-auth-modal {
+      background: linear-gradient(135deg, #0f1419 0%, #1a1f2e 100%);
+    }
+
+    .partners-page #auth-modal.partners-auth-modal .modal__dialog {
+      width: 100%;
+      max-width: 420px;
+      background: #1a1f2e;
+      border: 1px solid #2d3748;
+      border-radius: 12px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+      color: #ffffff;
+    }
+
+    .partners-page #auth-modal.partners-auth-modal .modal__close,
+    .partners-page #auth-modal.partners-auth-modal .auth-modal__tabs {
+      display: none;
+    }
+
+    .partners-page #auth-modal.partners-auth-modal .partners-login-icon {
+      display: block;
+      margin: 0 auto 16px;
+      stroke: #dc2626;
+    }
+
+    .partners-page #auth-modal.partners-auth-modal #auth-title,
+    .partners-page #auth-modal.partners-auth-modal .auth-intro {
+      text-align: center;
+    }
+
+    .partners-page #auth-modal.partners-auth-modal .auth-intro {
+      color: #9ca3af;
+      font-size: 14px;
+      margin: 0 0 16px;
+    }
+
+    .partners-page #auth-modal.partners-auth-modal .auth-form label {
+      color: #9ca3af;
+      font-weight: 500;
+      font-size: 14px;
+    }
+
+    .partners-page #auth-modal.partners-auth-modal .auth-form input {
+      background: #0f1419;
+      border: 1px solid #2d3748;
+      border-radius: 8px;
+      color: #ffffff;
+      width: 100%;
+      padding: 12px 16px;
+      font-size: 15px;
+      margin-bottom: 20px;
+    }
+
+    .partners-page #auth-modal.partners-auth-modal .auth-form input:focus-visible {
+      outline: none;
+      border-color: #dc2626;
+      box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+    }
+
+    .partners-page #auth-modal.partners-auth-modal .btn-google {
+      border-radius: 8px;
+      margin-bottom: 16px;
+    }
+
+    .partners-page #auth-modal.partners-auth-modal .btn.btn--primary {
+      width: 100%;
+      padding: 14px;
+      background: #dc2626;
+      border: none;
+      border-radius: 8px;
+      font-size: 15px;
+      font-weight: 600;
+    }
+
+    .partners-page #auth-modal.partners-auth-modal .btn.btn--primary:hover:not(:disabled) {
+      background: #b91c1c;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+    }
+
+    .partners-page #auth-modal.partners-auth-modal .auth-form__actions {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .partners-page #auth-modal.partners-auth-modal .auth-form__link {
+      justify-content: center;
+      color: #9ca3af;
+    }
+
+    .partners-page #auth-modal.partners-auth-modal .auth-form__link:hover,
+    .partners-page #auth-modal.partners-auth-modal .auth-form__link:focus-visible {
+      color: #ffffff;
+    }
+
+    .partners-page #auth-modal.partners-auth-modal #authMessage.auth-message {
+      min-height: 0;
+      margin: 0 0 16px;
+      font-weight: 500;
+      color: #9ca3af;
+    }
+
+    .partners-page #auth-modal.partners-auth-modal #authMessage.auth-message:empty {
+      display: none;
+    }
+
+    .partners-page #auth-modal.partners-auth-modal #authMessage.auth-message[data-tone='error'] {
+      display: block;
+      color: #fca5a5;
+      background: rgba(239, 68, 68, 0.1);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+
+    .partners-page #auth-modal.partners-auth-modal #authMessage.auth-message[data-tone='success'] {
+      display: block;
+      color: #86efac;
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      border-radius: 10px;
+      padding: 10px 12px;
+    }
+
   </style>
-</head>
+ </head>
 
  <body data-admin-panel="true" data-navigation="multi-page" data-force-language="en" data-disable-language-switcher="true" class="partners-page">
-  <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
-
+ 
   <header class="admin-header">
     <div class="admin-header-content">
       <div class="admin-header-left">
@@ -826,7 +952,7 @@
 
   <div
     id="auth-modal"
-    class="modal"
+    class="modal partners-auth-modal"
     role="dialog"
     aria-modal="true"
     aria-labelledby="auth-title"
@@ -842,8 +968,12 @@
       >
         ×
       </button>
+      <svg class="partners-login-icon" width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+        <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+      </svg>
       <h2 id="auth-title">CyprusEye Partners</h2>
       <p class="auth-intro">Sign in to access the partner portal.</p>
+      <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
       <div class="auth-modal__content" data-auth-view-root>
         <div data-auth="login">
           <div role="presentation">
