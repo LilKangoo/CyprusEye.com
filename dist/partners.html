@@ -290,16 +290,19 @@
 
         <div id="auth-actions" style="display:flex; align-items:center; gap: 10px;" aria-live="polite">
           <button
+            id="btnPartnerHeaderLogin"
             class="btn-secondary"
             type="button"
             data-open-auth
-            data-auth="anon-only"
+            data-auth="login"
+            data-auth-login-mode="modal"
+            data-auth-redirect="/auth/"
             data-auth-target="login"
             aria-label="Log in"
           >
             Log in
           </button>
-          <button class="btn-admin-logout" data-auth="logout" aria-label="Log out" hidden>
+          <button class="btn-admin-logout" data-auth="logout" data-auth-redirect="" aria-label="Log out" hidden>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
               <polyline points="16 17 21 12 16 7"/>
@@ -463,9 +466,6 @@
       <div id="partnerPortalLoginPrompt" class="partner-card" hidden>
         <h2 style="margin: 0 0 8px;">Log in</h2>
         <p class="muted" style="margin-top: 0;">You must be logged in to use the partner portal.</p>
-        <div class="btn-row">
-          <button id="btnPartnerOpenLogin" class="btn-sm primary" type="button">Open login</button>
-        </div>
       </div>
 
       <div id="partnerPortalNoPartner" class="partner-card" hidden>
@@ -822,7 +822,7 @@
 
   <script src="js/i18n.js" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
-  <script src="js/partners.js?v=26" defer></script>
+  <script src="js/partners.js?v=27" defer></script>
 
   <div
     id="auth-modal"
@@ -842,8 +842,8 @@
       >
         ×
       </button>
-      <h2 id="auth-title" data-i18n="auth.title">Join the adventure</h2>
-      <p class="auth-intro" data-i18n="auth.intro">Log in, create an account, or continue as a guest.</p>
+      <h2 id="auth-title">CyprusEye Partners</h2>
+      <p class="auth-intro">Sign in to access the partner portal.</p>
       <div class="auth-modal__content" data-auth-view-root>
         <div data-auth="login">
           <div role="presentation">

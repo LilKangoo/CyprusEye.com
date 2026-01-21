@@ -45,6 +45,7 @@
     warning: null,
     loginPrompt: null,
     btnOpenLogin: null,
+    btnHeaderLogin: null,
     noPartner: null,
     servicesCard: null,
     servicesTipsCard: null,
@@ -2133,6 +2134,10 @@
     }
   }
 
+  function openLogin() {
+    openAuthModal('login');
+  }
+
   async function ensureSession() {
     const { data, error } = await state.sb.auth.getSession();
     if (error) throw error;
@@ -3784,6 +3789,8 @@
       if (els.partnerUserName) els.partnerUserName.textContent = 'Not logged in';
       setHidden(els.partnerReferralWidget, true);
       setHidden(els.partnerReferralSummary, true);
+      // Ensure the login modal is the primary UX entrypoint
+      openLogin();
       return;
     }
 
@@ -3844,7 +3851,8 @@
   }
 
   function attachEventListeners() {
-    els.btnOpenLogin?.addEventListener('click', () => openAuthModal('login'));
+    els.btnOpenLogin?.addEventListener('click', openLogin);
+    els.btnHeaderLogin?.addEventListener('click', openLogin);
 
     els.btnRefresh?.addEventListener('click', async () => {
       await bootstrapPortal();
@@ -4277,6 +4285,7 @@
     els.warning = $('partnerPortalWarning');
     els.loginPrompt = $('partnerPortalLoginPrompt');
     els.btnOpenLogin = $('btnPartnerOpenLogin');
+    els.btnHeaderLogin = $('btnPartnerHeaderLogin');
     els.noPartner = $('partnerPortalNoPartner');
     els.servicesCard = $('partnerServicesCard');
     els.servicesTipsCard = $('partnerServicesTipsCard');
