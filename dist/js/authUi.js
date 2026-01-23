@@ -4,6 +4,24 @@ import { getStoredReferralCode, processReferralAfterRegistration } from './refer
 
 // Guest mode removed
 
+function detectUiLanguage() {
+  const forced = (document.body?.dataset?.forceLanguage || '').toLowerCase();
+  if (forced) return forced;
+
+  const docLang = (document.documentElement?.lang || '').toLowerCase();
+  if (docLang) return docLang;
+
+  const navLang = (navigator.language || '').toLowerCase();
+  if (navLang) return navLang;
+
+  return 'en';
+}
+
+function t(en, pl) {
+  const lang = detectUiLanguage();
+  return lang.startsWith('pl') ? pl : en;
+}
+
 const sb = window.getSupabase();
 const ceAuth = typeof window !== 'undefined' && window.CE_AUTH ? window.CE_AUTH : null;
 
@@ -43,11 +61,11 @@ function sanitizeAuthError(detail) {
       : '';
 
   if (!raw) {
-    return 'Spróbuj ponownie później.';
+    return t('Please try again later.', 'Spróbuj ponownie później.');
   }
 
   if (/https?:\/\//i.test(raw) || /stack/i.test(raw) || raw.includes('\n')) {
-    return 'Spróbuj ponownie później.';
+    return t('Please try again later.', 'Spróbuj ponownie później.');
   }
 
   if (raw.length > 160) {
@@ -139,16 +157,16 @@ function toggleVisibility(element, visible) {
 
 const AUTH_CONFIRMATION_TEMPLATE = `
   <div class="auth-confirmation__badge" aria-hidden="true">✅</div>
-  <h2 class="auth-confirmation__title" data-i18n="auth.confirmation.title">Zalogowano pomyślnie!</h2>
+  <h2 class="auth-confirmation__title" data-i18n="auth.confirmation.title">${t('Signed in successfully!', 'Zalogowano pomyślnie!')}</h2>
   <p class="auth-confirmation__user">
-    <span data-i18n="auth.confirmation.userLabel">Zalogowany jako</span>
+    <span data-i18n="auth.confirmation.userLabel">${t('Signed in as', 'Zalogowany jako')}</span>
     <strong data-auth="user-name"></strong>
   </p>
   <p class="auth-confirmation__message" data-i18n="auth.confirmation.info">
-    Możesz teraz korzystać z wszystkich funkcji WakacjeCypr Quest.
+    ${t('You can now use all features of WakacjeCypr Quest.', 'Możesz teraz korzystać z wszystkich funkcji WakacjeCypr Quest.')}
   </p>
   <p class="auth-confirmation__hint" data-i18n="auth.confirmation.dismissHint">
-    Kliknij gdziekolwiek, aby zamknąć to powiadomienie.
+    ${t('Click anywhere to dismiss this message.', 'Kliknij gdziekolwiek, aby zamknąć to powiadomienie.')}
   </p>
 `;
 
@@ -163,17 +181,17 @@ const AUTH_SUCCESS_OVERLAY_TEMPLATE = `
   >
     <div class="auth-success-overlay__badge" aria-hidden="true">✅</div>
     <h2 class="auth-success-overlay__title" data-i18n="auth.confirmation.title">
-      Zalogowano pomyślnie!
+      ${t('Signed in successfully!', 'Zalogowano pomyślnie!')}
     </h2>
     <p class="auth-success-overlay__user">
-      <span data-i18n="auth.confirmation.userLabel">Zalogowany jako</span>
+      <span data-i18n="auth.confirmation.userLabel">${t('Signed in as', 'Zalogowany jako')}</span>
       <strong data-auth-success-name></strong>
     </p>
     <p class="auth-success-overlay__message" data-i18n="auth.confirmation.info">
-      Możesz teraz korzystać z wszystkich funkcji WakacjeCypr Quest.
+      ${t('You can now use all features of WakacjeCypr Quest.', 'Możesz teraz korzystać z wszystkich funkcji WakacjeCypr Quest.')}
     </p>
     <p class="auth-success-overlay__hint" data-i18n="auth.confirmation.dismissHint">
-      Kliknij gdziekolwiek, aby zamknąć to powiadomienie.
+      ${t('Click anywhere to dismiss this message.', 'Kliknij gdziekolwiek, aby zamknąć to powiadomienie.')}
     </p>
   </div>
 `;
@@ -580,7 +598,9 @@ async function loadAuthSession() {
     state.session = null;
     state.profile = null;
     state.authError = new Error('OFFLINE');
-    showErr('Nie udało się: Brak internetu. Spróbuj ponownie.');
+    showErr(
+      `${t('Failed', 'Nie udało się')}: ${t('No internet connection. Please try again.', 'Brak internetu. Spróbuj ponownie.')}`,
+    );
     updateAuthUI();
     ceAuth?.updateSession?.(null, { reason: 'load-auth-session', status: 'offline' });
     return { session: null, shouldReset: true };
@@ -662,11 +682,11 @@ export function bootAuth() {
       const state = (window.CE_STATE = window.CE_STATE || {});
       state.authError = error;
       const message = offline
-        ? 'Brak internetu. Spróbuj ponownie.'
+        ? t('No internet connection. Please try again.', 'Brak internetu. Spróbuj ponownie.')
         : error?.message === 'AUTH_TIMEOUT'
-        ? 'Problem z połączeniem logowania.'
+        ? t('Sign-in connection problem.', 'Problem z połączeniem logowania.')
         : sanitizeAuthError(error);
-      showErr(`Nie udało się: ${message}`);
+      showErr(`${t('Failed', 'Nie udało się')}: ${message}`);
       updateAuthUI();
       shouldReset = true;
       throw error;

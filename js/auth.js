@@ -25,18 +25,21 @@ function createCallbackResetLayout() {
   container.className = 'auth-page__container';
   container.innerHTML = `
     <header class="auth-page__header">
-      <h1 class="auth-page__title">Ustaw nowe hasło</h1>
+      <h1 class="auth-page__title">${t('Set a new password', 'Ustaw nowe hasło')}</h1>
       <p class="auth-page__subtitle">
-        Wpisz nowe hasło, aby zakończyć proces odzyskiwania konta.
+        ${t(
+          'Enter a new password to finish the account recovery process.',
+          'Wpisz nowe hasło, aby zakończyć proces odzyskiwania konta.',
+        )}
       </p>
     </header>
     <main class="auth-page__content">
       <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
       <form id="form-password-update" class="auth-form" novalidate>
         <p id="resetMessage" class="auth-message" role="status" aria-live="polite">
-          Sprawdzamy link odzyskiwania…
+          ${t('Checking recovery link…', 'Sprawdzamy link odzyskiwania…')}
         </p>
-        <label for="resetNewPassword">Nowe hasło</label>
+        <label for="resetNewPassword">${t('New password', 'Nowe hasło')}</label>
         <input
           id="resetNewPassword"
           name="password"
@@ -45,7 +48,7 @@ function createCallbackResetLayout() {
           minlength="8"
           autocomplete="new-password"
         />
-        <label for="resetNewPasswordConfirm">Powtórz hasło</label>
+        <label for="resetNewPasswordConfirm">${t('Confirm password', 'Powtórz hasło')}</label>
         <input
           id="resetNewPasswordConfirm"
           name="passwordConfirm"
@@ -55,9 +58,9 @@ function createCallbackResetLayout() {
           autocomplete="new-password"
         />
         <div class="auth-form__actions">
-          <button type="submit" class="btn btn--primary">Zapisz nowe hasło</button>
+          <button type="submit" class="btn btn--primary">${t('Save new password', 'Zapisz nowe hasło')}</button>
           <button type="button" class="auth-form__link" id="resetBackToAuth">
-            Wróć do logowania
+            ${t('Back to sign in', 'Wróć do logowania')}
           </button>
         </div>
       </form>
@@ -107,7 +110,7 @@ async function applyCallbackSessionFromHash() {
 }
 
 async function ensureCallbackRecoverySession() {
-  setCallbackMessage('Sprawdzamy link odzyskiwania…', 'info');
+  setCallbackMessage(t('Checking recovery link…', 'Sprawdzamy link odzyskiwania…'), 'info');
   setCallbackFormDisabled(true);
 
   try {
@@ -118,15 +121,21 @@ async function ensureCallbackRecoverySession() {
     }
     const session = data?.session;
     if (!session?.user) {
-      setCallbackMessage('Link odzyskiwania jest nieprawidłowy lub wygasł.', 'error');
+      setCallbackMessage(
+        t('The recovery link is invalid or has expired.', 'Link odzyskiwania jest nieprawidłowy lub wygasł.'),
+        'error',
+      );
       return false;
     }
     setCallbackFormDisabled(false);
-    setCallbackMessage('Wprowadź nowe hasło dla swojego konta.', 'info');
+    setCallbackMessage(t('Enter a new password for your account.', 'Wprowadź nowe hasło dla swojego konta.'), 'info');
     return true;
   } catch (error) {
     console.error('Nie udało się zweryfikować linku resetu hasła.', error);
-    setCallbackMessage(`Błąd: ${error.message || 'Nie udało się zweryfikować linku.'}`, 'error');
+    setCallbackMessage(
+      `${t('Error', 'Błąd')}: ${error.message || t('Could not verify the link.', 'Nie udało się zweryfikować linku.')}`,
+      'error',
+    );
     return false;
   }
 }
@@ -142,31 +151,37 @@ async function handleCallbackPasswordUpdate(event) {
   const confirm = form.passwordConfirm?.value || '';
 
   if (!password || password.length < 8) {
-    setCallbackMessage('Hasło musi mieć co najmniej 8 znaków.', 'error');
+    setCallbackMessage(t('Password must be at least 8 characters.', 'Hasło musi mieć co najmniej 8 znaków.'), 'error');
     return;
   }
 
   if (password !== confirm) {
-    setCallbackMessage('Hasła nie są identyczne.', 'error');
+    setCallbackMessage(t('Passwords do not match.', 'Hasła nie są identyczne.'), 'error');
     return;
   }
 
   setCallbackFormDisabled(true);
-  setCallbackMessage('Zapisujemy nowe hasło…', 'info');
+  setCallbackMessage(t('Saving new password…', 'Zapisujemy nowe hasło…'), 'info');
 
   try {
     const { error } = await sb.auth.updateUser({ password });
     if (error) {
       throw error;
     }
-    setCallbackMessage('Hasło zostało zaktualizowane. Przenosimy na stronę główną…', 'success');
+    setCallbackMessage(
+      t('Password updated. Redirecting to home…', 'Hasło zostało zaktualizowane. Przenosimy na stronę główną…'),
+      'success',
+    );
     window.setTimeout(() => {
       window.location.assign('/');
     }, 800);
   } catch (error) {
     console.error('Nie udało się zaktualizować hasła.', error);
     setCallbackFormDisabled(false);
-    setCallbackMessage(`Błąd: ${error.message || 'Nie udało się zapisać nowego hasła.'}`, 'error');
+    setCallbackMessage(
+      `${t('Error', 'Błąd')}: ${error.message || t('Could not save the new password.', 'Nie udało się zapisać nowego hasła.')}`,
+      'error',
+    );
   }
 }
 
@@ -932,7 +947,7 @@ function showResendVerification(email) {
 async function requestPasswordReset(email) {
   const normalized = email?.trim();
   if (!normalized) {
-    throw new Error('Nieprawidłowy adres e-mail resetu hasła.');
+    throw new Error(t('Invalid email address for password reset.', 'Nieprawidłowy adres e-mail resetu hasła.'));
   }
 
   return sb.auth.resetPasswordForEmail(normalized, {
@@ -976,13 +991,13 @@ function setFormBusy(form, busy) {
 }
 
 function friendlyErrorMessage(message) {
-  const fallback = 'Spróbuj ponownie później.';
+  const fallback = t('Please try again later.', 'Spróbuj ponownie później.');
   const map = {
-    'Invalid login credentials': 'Błędny e-mail lub hasło.',
-    'Email not confirmed': 'Potwierdź e-mail przed logowaniem.',
-    'User already registered': 'Ten adres e-mail jest już zarejestrowany.',
-    'Invalid email': 'Podaj poprawny e-mail.',
-    'Reset password token has expired or is invalid': 'Link resetujący wygasł. Poproś o nowy.',
+    'Invalid login credentials': t('Incorrect email or password.', 'Błędny e-mail lub hasło.'),
+    'Email not confirmed': t('Please confirm your email before signing in.', 'Potwierdź e-mail przed logowaniem.'),
+    'User already registered': t('This email address is already registered.', 'Ten adres e-mail jest już zarejestrowany.'),
+    'Invalid email': t('Please enter a valid email address.', 'Podaj poprawny e-mail.'),
+    'Reset password token has expired or is invalid': t('The reset link has expired. Please request a new one.', 'Link resetujący wygasł. Poproś o nowy.'),
   };
 
   const raw = typeof message === 'string' ? message.trim() : '';
@@ -1008,7 +1023,7 @@ async function handleAuth(result, okMsg, redirectHint) {
   const { error } = result || {};
   if (error) {
     const message = friendlyErrorMessage(error.message || '');
-    showErr(`Nie udało się: ${message}`);
+    showErr(`${t('Failed', 'Nie udało się')}: ${message}`);
     return { success: false, error };
   }
 
@@ -1018,8 +1033,10 @@ async function handleAuth(result, okMsg, redirectHint) {
     await refreshSessionAndProfile();
     updateAuthUI();
   } catch (refreshError) {
-    const message = friendlyErrorMessage(refreshError?.message || 'Odświeżenie sesji po logowaniu.');
-    showErr(`Nie udało się: ${message}`);
+    const message = friendlyErrorMessage(
+      refreshError?.message || t('Session refresh after sign-in.', 'Odświeżenie sesji po logowaniu.'),
+    );
+    showErr(`${t('Failed', 'Nie udało się')}: ${message}`);
     console.warn('Nie udało się odświeżyć sesji po logowaniu.', refreshError);
   }
 
@@ -1054,38 +1071,48 @@ function parseRegisterPayload(form) {
   const confirm = form.passwordConfirm?.value || '';
 
   if (!email) {
-    showErr('Podaj poprawny e-mail.');
+    showErr(t('Please enter a valid email address.', 'Podaj poprawny e-mail.'));
     return null;
   }
 
   if (!password) {
-    showErr('Podaj hasło.');
+    showErr(t('Please enter your password.', 'Podaj hasło.'));
     return null;
   }
 
   if (!firstName) {
-    showErr('Podaj imię, aby utworzyć konto.');
+    showErr(t('Please enter your first name to create an account.', 'Podaj imię, aby utworzyć konto.'));
     return null;
   }
 
   if (!username) {
-    showErr('Podaj nazwę użytkownika.');
+    showErr(t('Please choose a username.', 'Podaj nazwę użytkownika.'));
     return null;
   }
 
   // Validate username format
   if (username.length < USERNAME_MIN_LENGTH || username.length > USERNAME_MAX_LENGTH) {
-    showErr(`Nazwa użytkownika musi mieć od ${USERNAME_MIN_LENGTH} do ${USERNAME_MAX_LENGTH} znaków.`);
+    showErr(
+      t(
+        `Username must be between ${USERNAME_MIN_LENGTH} and ${USERNAME_MAX_LENGTH} characters.`,
+        `Nazwa użytkownika musi mieć od ${USERNAME_MIN_LENGTH} do ${USERNAME_MAX_LENGTH} znaków.`,
+      ),
+    );
     return null;
   }
 
   if (!/^[a-zA-Z0-9_]+$/.test(username)) {
-    showErr('Nazwa użytkownika może zawierać tylko litery, cyfry i znak podkreślenia.');
+    showErr(
+      t(
+        'Username can contain only letters, numbers and underscores.',
+        'Nazwa użytkownika może zawierać tylko litery, cyfry i znak podkreślenia.',
+      ),
+    );
     return null;
   }
 
   if (confirm && confirm !== password) {
-    showErr('Hasła nie są identyczne.');
+    showErr(t('Passwords do not match.', 'Hasła nie są identyczne.'));
     return null;
   }
 
@@ -1093,6 +1120,13 @@ function parseRegisterPayload(form) {
 }
 
 function detectUiLanguage() {
+  const forced = (
+    document.body && document.body.dataset ? (document.body.dataset.forceLanguage || '') : ''
+  ).toLowerCase();
+  if (forced === 'pl' || forced === 'en') {
+    return forced;
+  }
+
   try {
     const url = new URL(window.location.href);
     const urlLang = (url.searchParams.get('lang') || '').toLowerCase();
@@ -1116,6 +1150,10 @@ function detectUiLanguage() {
   }
 
   return 'pl';
+}
+
+function t(en, pl) {
+  return detectUiLanguage() === 'en' ? en : pl;
 }
 
 function getGoogleButtonFallbackLabel() {
@@ -1232,7 +1270,10 @@ function ensureGoogleButtons() {
         usernameInput.minLength = USERNAME_MIN_LENGTH;
         usernameInput.maxLength = USERNAME_MAX_LENGTH;
         if (usernameInput.placeholder) {
-          usernameInput.placeholder = `${USERNAME_MIN_LENGTH}-${USERNAME_MAX_LENGTH} znaków, litery i cyfry`;
+          usernameInput.placeholder = t(
+            `${USERNAME_MIN_LENGTH}-${USERNAME_MAX_LENGTH} characters, letters and numbers`,
+            `${USERNAME_MIN_LENGTH}-${USERNAME_MAX_LENGTH} znaków, litery i cyfry`,
+          );
         }
       }
     }
@@ -1260,7 +1301,7 @@ async function handleGoogleOAuthCallbackIfPresent() {
     ''
   ).trim();
   if (errorValue) {
-    showErr(`Nie udało się: ${friendlyErrorMessage(errorDescription || errorValue)}`);
+    showErr(`${t('Failed', 'Nie udało się')}: ${friendlyErrorMessage(errorDescription || errorValue)}`);
     stripSupabaseReturnParams(parsed);
     return;
   }
@@ -1297,8 +1338,8 @@ async function handleGoogleOAuthCallbackIfPresent() {
     stripSupabaseReturnParams(parsed);
     window.location.assign(POST_AUTH_REDIRECT);
   } catch (error) {
-    const message = friendlyErrorMessage(error?.message || 'Nie udało się zalogować przez Google.');
-    showErr(`Nie udało się: ${message}`);
+    const message = friendlyErrorMessage(error?.message || t('Could not sign in with Google.', 'Nie udało się zalogować przez Google.'));
+    showErr(`${t('Failed', 'Nie udało się')}: ${message}`);
     console.warn('Nie udało się obsłużyć callback OAuth.', error);
     stripSupabaseReturnParams(parsed);
   }
@@ -1329,14 +1370,16 @@ function initGoogleOAuthHandlers() {
     event.preventDefault();
 
     void withBusy(target, async () => {
-      showInfo('Przekierowanie do Google…');
+      showInfo(t('Redirecting to Google…', 'Przekierowanie do Google…'));
       const { error } = await sb.auth.signInWithOAuth({
         provider: 'google',
         options: { redirectTo: GOOGLE_OAUTH_REDIRECT },
       });
       if (error) {
-        const message = friendlyErrorMessage(error.message || 'Nie udało się rozpocząć logowania Google.');
-        showErr(`Nie udało się: ${message}`);
+        const message = friendlyErrorMessage(
+          error.message || t('Could not start Google sign-in.', 'Nie udało się rozpocząć logowania Google.'),
+        );
+        showErr(`${t('Failed', 'Nie udało się')}: ${message}`);
       }
     });
   });
@@ -1407,12 +1450,12 @@ $('#form-login')?.addEventListener('submit', async (event) => {
   const emailOrUsername = form.email?.value?.trim() || '';
   const password = form.password?.value || '';
   if (!emailOrUsername) {
-    showErr('Podaj adres e-mail lub nazwę użytkownika.');
+    showErr(t('Please enter your email or username.', 'Podaj adres e-mail lub nazwę użytkownika.'));
     return;
   }
 
   if (!password) {
-    showErr('Podaj hasło.');
+    showErr(t('Please enter your password.', 'Podaj hasło.'));
     return;
   }
 
@@ -1425,7 +1468,7 @@ $('#form-login')?.addEventListener('submit', async (event) => {
 
   await withBusy(submitButton, async () => {
     setFormBusy(form, true);
-    showInfo('Łączenie z logowaniem…');
+    showInfo(t('Signing in…', 'Łączenie z logowaniem…'));
     try {
       // Determine if input is email or username
       const isEmail = emailOrUsername.includes('@');
@@ -1435,7 +1478,7 @@ $('#form-login')?.addEventListener('submit', async (event) => {
       if (!isEmail) {
         const profile = await fetchProfileByUsername(emailOrUsername, 'email');
         if (!profile || !profile.email) {
-          showErr('Nie znaleziono użytkownika o podanej nazwie.');
+          showErr(t('No user found with that username.', 'Nie znaleziono użytkownika o podanej nazwie.'));
           return;
         }
 
@@ -1447,15 +1490,15 @@ $('#form-login')?.addEventListener('submit', async (event) => {
       const { data, error } = await sb.auth.signInWithPassword({ email: loginEmail, password });
       const outcome = await handleAuth(
         { data, error },
-        'Zalogowano.',
+        t('Signed in.', 'Zalogowano.'),
         submitButton?.dataset?.authRedirect || form.dataset?.authRedirect || '/account/',
       );
       if (!outcome?.success && error?.message === 'Email not confirmed') {
         showResendVerification(loginEmail);
       }
     } catch (error) {
-      const message = friendlyErrorMessage(error?.message || 'Nie udało się zalogować.');
-      showErr(`Nie udało się: ${message}`);
+      const message = friendlyErrorMessage(error?.message || t('Could not sign in.', 'Nie udało się zalogować.'));
+      showErr(`${t('Failed', 'Nie udało się')}: ${message}`);
       if (error?.message === 'Email not confirmed') {
         showResendVerification(lastAuthEmail);
       }
@@ -1507,12 +1550,17 @@ $('#form-register')?.addEventListener('submit', async (event) => {
 
   await withBusy(submitButton, async () => {
     setFormBusy(form, true);
-    showInfo('Tworzenie konta…');
+    showInfo(t('Creating account…', 'Tworzenie konta…'));
     try {
       // Check if username is already taken
       const existingUser = await fetchProfileByUsername(payload.username, 'username');
       if (existingUser) {
-        showErr('Ta nazwa użytkownika jest już zajęta. Wybierz inną.');
+        showErr(
+          t(
+            'That username is already taken. Please choose another.',
+            'Ta nazwa użytkownika jest już zajęta. Wybierz inną.',
+          ),
+        );
         return;
       }
 
@@ -1529,7 +1577,7 @@ $('#form-register')?.addEventListener('submit', async (event) => {
       });
       if (error) {
         const message = friendlyErrorMessage(error.message);
-        showErr(`Nie udało się: ${message}`);
+        showErr(`${t('Failed', 'Nie udało się')}: ${message}`);
         if (error.message === 'Email not confirmed') {
           showResendVerification(payload.email);
         }
@@ -1567,10 +1615,12 @@ $('#form-register')?.addEventListener('submit', async (event) => {
         }
       }
 
-      showOk('E-mail potwierdzający wysłany.');
+      showOk(t('Verification email sent.', 'E-mail potwierdzający wysłany.'));
     } catch (error) {
-      const message = friendlyErrorMessage(error?.message || 'Wystąpił błąd rejestracji.');
-      showErr(`Nie udało się: ${message}`);
+      const message = friendlyErrorMessage(
+        error?.message || t('Registration error occurred.', 'Wystąpił błąd rejestracji.'),
+      );
+      showErr(`${t('Failed', 'Nie udało się')}: ${message}`);
       if (error?.message === 'Email not confirmed') {
         showResendVerification(payload.email);
       }
@@ -1647,7 +1697,7 @@ $('#form-reset-password')?.addEventListener('submit', async (event) => {
 
   const email = form.email?.value?.trim() || '';
   if (!email) {
-    showErr('Podaj poprawny e-mail.');
+    showErr(t('Please enter a valid email address.', 'Podaj poprawny e-mail.'));
     return;
   }
 
@@ -1660,13 +1710,15 @@ $('#form-reset-password')?.addEventListener('submit', async (event) => {
     setFormBusy(form, true);
     try {
       await requestPasswordReset(email);
-      showOk('Sprawdź skrzynkę – link do resetu wysłany.');
+      showOk(t('Check your inbox — a reset link has been sent.', 'Sprawdź skrzynkę – link do resetu wysłany.'));
       lastAuthEmail = email;
       const dialog = $('#resetPasswordDialog');
       closeResetDialog(dialog);
     } catch (error) {
-      const message = friendlyErrorMessage(error?.message || 'Nie udało się wysłać resetu hasła.');
-      showErr(`Nie udało się: ${message}`);
+      const message = friendlyErrorMessage(
+        error?.message || t('Could not send password reset email.', 'Nie udało się wysłać resetu hasła.'),
+      );
+      showErr(`${t('Failed', 'Nie udało się')}: ${message}`);
     } finally {
       setFormBusy(form, false);
     }
@@ -1680,18 +1732,20 @@ $('#btn-resend-verification')?.addEventListener('click', async (event) => {
   const redirect =
     button instanceof HTMLButtonElement && button.dataset.redirect ? button.dataset.redirect : VERIFICATION_REDIRECT;
   if (!email) {
-    showErr('Podaj poprawny e-mail.');
+    showErr(t('Please enter a valid email address.', 'Podaj poprawny e-mail.'));
     return;
   }
 
   await withBusy(button instanceof HTMLButtonElement ? button : null, async () => {
     try {
       await sb.auth.resend({ type: 'signup', email, options: { emailRedirectTo: redirect } });
-      showOk('E-mail potwierdzający wysłany.');
+      showOk(t('Verification email sent.', 'E-mail potwierdzający wysłany.'));
       hideResendVerification();
     } catch (error) {
-      const message = friendlyErrorMessage(error?.message || 'Nie udało się wysłać linku potwierdzającego.');
-      showErr(`Nie udało się: ${message}`);
+      const message = friendlyErrorMessage(
+        error?.message || t('Could not send confirmation link.', 'Nie udało się wysłać linku potwierdzającego.'),
+      );
+      showErr(`${t('Failed', 'Nie udało się')}: ${message}`);
     }
   });
 });
@@ -1702,7 +1756,7 @@ function handleSupabaseVerificationReturn() {
     return;
   }
 
-  showOk('E-mail potwierdzony. Możesz się zalogować.', 6500);
+  showOk(t('Email confirmed. You can sign in.', 'E-mail potwierdzony. Możesz się zalogować.'), 6500);
   stripSupabaseReturnParams(parsed);
 }
 
@@ -1716,8 +1770,10 @@ function handleSupabaseRecoveryReturn(onDetected) {
     try {
       onDetected(parsed);
     } catch (error) {
-      const message = friendlyErrorMessage(error?.message || 'Błąd podczas obsługi resetu Supabase.');
-      showErr(`Nie udało się: ${message}`);
+      const message = friendlyErrorMessage(
+        error?.message || t('Error while handling Supabase password reset.', 'Błąd podczas obsługi resetu Supabase.'),
+      );
+      showErr(`${t('Failed', 'Nie udało się')}: ${message}`);
       console.warn('Błąd podczas obsługi resetu Supabase.', error);
     }
   }
@@ -1739,8 +1795,8 @@ function initResetPage() {
   const confirmField = form.querySelector('input[name="newPasswordConfirm"]');
   const passwordSection = form.querySelector('[data-reset-section="password"]');
   const submitButton = form.querySelector('button[type="submit"]');
-  const defaultSubmitLabel = submitButton?.textContent?.trim() || 'Wyślij link resetujący';
-  const recoverySubmitLabel = submitButton?.dataset?.resetLabel?.trim() || 'Ustaw nowe hasło';
+  const defaultSubmitLabel = submitButton?.textContent?.trim() || t('Send reset link', 'Wyślij link resetujący');
+  const recoverySubmitLabel = submitButton?.dataset?.resetLabel?.trim() || t('Set a new password', 'Ustaw nowe hasło');
 
   let hasRecoverySession = false;
 
@@ -1803,7 +1859,7 @@ function initResetPage() {
     }
 
     if (announce && hasRecoverySession && !messageEl.textContent) {
-      setResetMessage('Link potwierdzony. Ustaw nowe hasło.', 'info');
+      setResetMessage(t('Link confirmed. Set a new password.', 'Link potwierdzony. Ustaw nowe hasło.'), 'info');
     }
   }
 
@@ -1825,7 +1881,7 @@ function initResetPage() {
 
   handleSupabaseRecoveryReturn(() => {
     if (!messageEl.textContent) {
-      setResetMessage('Link potwierdzony. Ustaw nowe hasło.', 'info');
+      setResetMessage(t('Link confirmed. Set a new password.', 'Link potwierdzony. Ustaw nowe hasło.'), 'info');
     }
   });
 
@@ -1862,24 +1918,30 @@ function initResetPage() {
       try {
         if (recoveryActive) {
           if (!newPassword || newPassword.length < 6) {
-            setResetMessage('Podaj nowe hasło (min. 6 znaków).', 'error');
+            setResetMessage(t('Enter a new password (min. 6 characters).', 'Podaj nowe hasło (min. 6 znaków).'), 'error');
             return;
           }
 
           if (newPassword !== confirmPassword) {
-            setResetMessage('Hasła nie są identyczne.', 'error');
+            setResetMessage(t('Passwords do not match.', 'Hasła nie są identyczne.'), 'error');
             return;
           }
 
-          setResetMessage('Aktualizowanie hasła…', 'info');
+          setResetMessage(t('Updating password…', 'Aktualizowanie hasła…'), 'info');
           const { error } = await sb.auth.updateUser({ password: newPassword });
 
           if (error) {
-            setResetMessage(friendlyErrorMessage(error.message || 'Nie udało się zaktualizować hasła.'), 'error');
+            setResetMessage(
+              friendlyErrorMessage(error.message || t('Could not update password.', 'Nie udało się zaktualizować hasła.')),
+              'error',
+            );
             return;
           }
 
-          setResetMessage('Hasło zostało zaktualizowane. Możesz się zalogować.', 'success');
+          setResetMessage(
+            t('Password updated. You can sign in now.', 'Hasło zostało zaktualizowane. Możesz się zalogować.'),
+            'success',
+          );
 
           if (passwordField instanceof HTMLInputElement) {
             passwordField.value = '';
@@ -1900,17 +1962,23 @@ function initResetPage() {
         }
 
         if (!email) {
-          setResetMessage('Podaj adres e-mail, aby zresetować hasło.', 'error');
+          setResetMessage(t('Enter your email to reset your password.', 'Podaj adres e-mail, aby zresetować hasło.'), 'error');
           return;
         }
 
-        setResetMessage('Wysyłanie linku resetującego…', 'info');
+        setResetMessage(t('Sending reset link…', 'Wysyłanie linku resetującego…'), 'info');
         try {
           await requestPasswordReset(email);
           lastAuthEmail = email;
-          setResetMessage('Sprawdź skrzynkę e-mail i postępuj zgodnie z instrukcjami.', 'success');
+          setResetMessage(
+            t('Check your inbox and follow the instructions.', 'Sprawdź skrzynkę e-mail i postępuj zgodnie z instrukcjami.'),
+            'success',
+          );
         } catch (error) {
-          setResetMessage(friendlyErrorMessage(error.message || 'Nie udało się wysłać resetu hasła.'), 'error');
+          setResetMessage(
+            friendlyErrorMessage(error.message || t('Could not send password reset email.', 'Nie udało się wysłać resetu hasła.')),
+            'error',
+          );
         }
       } finally {
         setFormBusy(form, false);
