@@ -1738,7 +1738,11 @@ $('#btn-resend-verification')?.addEventListener('click', async (event) => {
 
   await withBusy(button instanceof HTMLButtonElement ? button : null, async () => {
     try {
-      await sb.auth.resend({ type: 'signup', email, options: { emailRedirectTo: redirect } });
+      const { error } = await sb.auth.resend({ type: 'signup', email, options: { emailRedirectTo: redirect } });
+      if (error) {
+        throw error;
+      }
+
       showOk(t('Verification email sent.', 'E-mail potwierdzający wysłany.'));
       hideResendVerification();
     } catch (error) {
