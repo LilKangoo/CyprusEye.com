@@ -1653,10 +1653,18 @@
   "carRental.page.reservation.successMessage": "Your reservation form has been sent successfully.",
   "carRental.page.footer": "© <span data-current-year></span> WakacjeCypr.com • Car rental in Cyprus with Polish support.",
   "carRental.common.pricePerDay": "{{price}} / day",
+  "carRental.common.priceFromPerDay": "From {{price}} / day",
   "carRental.common.seats": "{{count}} seats",
   "carRental.common.daysLabel": "days",
   "carRental.common.includedMessage.template": "Included in the price: {{items}}.",
   "carRental.common.reserveCar": "Reserve this car",
+  "carRental.common.transmission.automatic": "Automatic",
+  "carRental.common.transmission.manual": "Manual",
+  "carRental.common.fuel.petrol95": "95 fuel",
+  "carRental.common.fuel.diesel": "Diesel",
+  "carRental.common.fuel.hybrid": "Hybrid",
+  "carRental.common.fuel.electric": "Electric",
+  "carRental.page.fleet.empty": "No cars available: {{city}}",
   "carRental.calculator.errors.selectCar": "Choose a car model from the list.",
   "carRental.calculator.errors.fillDates": "Fill in pickup and return dates.",
   "carRental.calculator.errors.invalidDates": "Please select valid dates and times.",
@@ -1664,12 +1672,28 @@
   "carRental.calculator.errors.minimumDays": "The minimum rental period is {{days}} {{daysLabel}}.",
   "carRental.calculator.errors.selectLocations": "Choose pickup and return locations.",
   "carRental.calculator.breakdown.base": "Base",
+  "carRental.calculator.breakdown.package3": "3-day package: {{total}}",
+  "carRental.calculator.breakdown.tiered": "{{rate}} × {{days}} {{daysLabel}} = {{total}}",
   "carRental.calculator.breakdown.pickupWithFee": "Pickup: {{location}} +{{price}}",
   "carRental.calculator.breakdown.pickupIncluded": "Pickup: {{location}} – included",
   "carRental.calculator.breakdown.returnWithFee": "Return: {{location}} +{{price}}",
   "carRental.calculator.breakdown.returnIncluded": "Return: {{location}} – included",
   "carRental.calculator.breakdown.fullInsurance": "Full insurance: {{pricePerDay}} × {{days}} {{daysLabel}} = {{total}}",
   "carRental.calculator.breakdown.youngDriver": "Young driver: {{pricePerDay}} × {{days}} {{daysLabel}} = {{total}}",
+  "carRental.locations.larnaca.label": "Larnaca (free)",
+  "carRental.locations.larnaca.short": "Larnaca",
+  "carRental.locations.nicosia.label": "Nicosia (+€15)",
+  "carRental.locations.nicosia.short": "Nicosia",
+  "carRental.locations.ayia-napa.label": "Ayia Napa (+€15)",
+  "carRental.locations.ayia-napa.short": "Ayia Napa",
+  "carRental.locations.protaras.label": "Protaras (+€20)",
+  "carRental.locations.protaras.short": "Protaras",
+  "carRental.locations.limassol.label": "Limassol (+€20)",
+  "carRental.locations.limassol.short": "Limassol",
+  "carRental.locations.paphos.label": "Paphos (+€40)",
+  "carRental.locations.paphos.short": "Paphos",
+  "carRental.locations.paphos-airport.label": "Paphos Airport (free)",
+  "carRental.locations.paphos-airport.short": "Paphos Airport",
   "nav": {
     "adventure": "🎯 Adventure",
     "community": "💬 Community",
@@ -2385,7 +2409,17 @@
         }
       },
       "details": {
-        "aria": "Terms, extras, and requirements"
+        "aria": "Terms, extras, and requirements",
+        "pricesTitle": "Prices | Fleet | Extras",
+        "noDeposit": "No deposit",
+        "freeChildSeats": "Free child seats",
+        "freeTransfer": "Free transfer to the airport or hotel for bookings over 7 days",
+        "airportPickupFee": "Airport pickup one-off €10 (for rentals under 7 days)",
+        "airportReturnFee": "Airport return one-off €10 (for rentals under 7 days)",
+        "fullInsurance": "Full insurance +€17/day",
+        "requirementsNote": "*Driving licence held for at least 3 years and age 25+",
+        "supportTitle": "Support and assistance",
+        "supportBody": "Our 24/7 team will help you with the booking and, after signing the contract, stays available for the whole rental period."
       },
       "included": {
         "title": "Included as standard",
@@ -2405,8 +2439,20 @@
       "grid": {
         "aria": "Full fleet"
       },
+      "fleetGrid": {
+        "title": "Paphos fleet",
+        "description": "Automatic and manual gearboxes, air conditioning as standard. Prices updated regularly.",
+        "badge": "From €30/day",
+        "loading": "Loading Paphos fleet..."
+      },
       "tools": {
         "aria": "Calculator and reservation"
+      },
+      "sos": {
+        "callUs": "Call us",
+        "whatsappDetail": "Immediate help",
+        "ambulance": "Ambulance",
+        "fireBrigade": "Fire brigade"
       },
       "calculator": {
         "title": "Rental calculator",
@@ -2503,6 +2549,10 @@
         "successMessage": "Your reservation form has been sent successfully."
       },
       "footer": "© <span data-current-year></span> HolidayCyprus.com • Car rental with Polish support in Cyprus."
+    },
+    "footer": {
+      "hours": "Hours: Mon–Fri 10:00–23:00; Sat–Sun 10:00–18:00",
+      "contactLabel": "Contact:"
     },
     "calculator": {
       "form": {

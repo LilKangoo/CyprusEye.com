@@ -229,8 +229,7 @@
             <p class="standalone-hero-badge" data-i18n="carRentalPfo.page.hero.badge">Paphos • Bez depozytu • Polska obsługa 24/7</p>
             <h1 id="standaloneHeroTitle" data-i18n="carRentalPfo.page.hero.title">Wynajmij auto Paphos – Wynajmij Dzisiaj</h1>
             <p data-i18n="carRentalPfo.page.hero.description">
-              Za każdy dzień wynajmu auta u nas dajemy <strong>1€ na konserwację żółwi 🐢</strong><br>
-              Dbamy o konserwację Cypru z waszą pomocą! Odbierz auto na lotnisku PFO lub pod swoim hotelem.
+              Poznaj flotę samochodów dostępnych w Pafos, odbierz auto na lotnisku PFO lub pod swoim hotelem, a przy krótszych wynajmach dolicz tylko symboliczne opłaty lotniskowe. Kalkulator poniżej pokaże finalny koszt z wszystkimi dodatkami.
             </p>
             <div class="standalone-hero-actions">
               <a class="btn btn-primary primary" href="#carRentalSection" data-i18n="carRentalPfo.page.hero.ctaFleet">Zobacz flotę</a>
@@ -312,22 +311,21 @@
             data-i18n-attrs="aria-label:carRentalPfo.page.details.aria"
           >
             <article>
-              <h3>Prices | Fleet | Extras</h3>
+              <h3 data-i18n="carRentalPfo.page.details.pricesTitle">Prices | Fleet | Extras</h3>
               <ul>
-                <li><strong>No deposit</strong></li>
-                <li><strong>Free child seats</strong></li>
-                <li><strong>Free transfer to the airport or hotel</strong> for bookings over 7 days</li>
-                <li>Airport pickup one-off <strong>€10</strong> (for rentals under 7 days)</li>
-                <li>Airport return one-off <strong>€10</strong> (for rentals under 7 days)</li>
-                <li>Full insurance <strong>+€17/day</strong></li>
-                <li style="margin-top: 8px; color: #64748b;">*Driving licence held for at least 3 years and age 25+</li>
+                <li><strong data-i18n="carRentalPfo.page.details.noDeposit">No deposit</strong></li>
+                <li><strong data-i18n="carRentalPfo.page.details.freeChildSeats">Free child seats</strong></li>
+                <li data-i18n="carRentalPfo.page.details.freeTransfer">Free transfer to the airport or hotel for bookings over 7 days</li>
+                <li data-i18n="carRentalPfo.page.details.airportPickupFee">Airport pickup one-off €10 (for rentals under 7 days)</li>
+                <li data-i18n="carRentalPfo.page.details.airportReturnFee">Airport return one-off €10 (for rentals under 7 days)</li>
+                <li data-i18n="carRentalPfo.page.details.fullInsurance">Full insurance +€17/day</li>
+                <li style="margin-top: 8px; color: #64748b;" data-i18n="carRentalPfo.page.details.requirementsNote">*Driving licence held for at least 3 years and age 25+</li>
               </ul>
             </article>
             <article>
-              <h3>Support and assistance</h3>
-              <p>
-                Our 24/7 team will help you with the booking and, after signing the contract, stays available for
-                the whole rental period.
+              <h3 data-i18n="carRentalPfo.page.details.supportTitle">Support and assistance</h3>
+              <p data-i18n="carRentalPfo.page.details.supportBody">
+                Our 24/7 team will help you with the booking and, after signing the contract, stays available for the whole rental period.
               </p>
             </article>
           </section>
@@ -342,15 +340,15 @@
             <article class="auto-category">
               <header class="auto-category-header">
                 <div class="auto-category-title">
-                  <h3>Paphos fleet</h3>
-                  <p>Automatic and manual gearboxes, air conditioning as standard. Prices updated regularly.</p>
+                  <h3 data-i18n="carRentalPfo.page.fleetGrid.title">Paphos fleet</h3>
+                  <p data-i18n="carRentalPfo.page.fleetGrid.description">Automatic and manual gearboxes, air conditioning as standard. Prices updated regularly.</p>
                 </div>
-                <span class="auto-category-badge">From €30/day</span>
+                <span class="auto-category-badge" data-i18n="carRentalPfo.page.fleetGrid.badge">From €30/day</span>
               </header>
               <div class="auto-category-grid" id="paphosCarsGrid">
                 <!-- Cars will be loaded dynamically from database -->
                 <div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;">
-                  <p>Loading Paphos fleet...</p>
+                  <p data-i18n="carRentalPfo.page.fleetGrid.loading">Loading Paphos fleet...</p>
                 </div>
               </div>
             </article>
@@ -658,10 +656,10 @@
       </main>
 
       <footer class="standalone-footer">
-        <p>© <span data-current-year></span> WakacjeCypr.com • Car rental with Polish support in Cyprus.</p>
-        <p>Hours: Mon–Fri 10:00–23:00; Sat–Sun 10:00–18:00</p>
+        <p data-i18n="carRentalPfo.page.footer">© <span data-current-year></span> WakacjeCypr.com • Wynajem aut z polską obsługą na Cyprze.</p>
+        <p data-i18n="carRentalPfo.footer.hours">Godziny: pon.–pt. 10:00–23:00; sob.–nd. 10:00–18:00</p>
         <p>
-          Contact: <a href="tel:+35799005924">+357 99 005 924</a> •
+          <span data-i18n="carRentalPfo.footer.contactLabel">Kontakt:</span> <a href="tel:+35799005924">+357 99 005 924</a> •
           <a href="https://wa.me/48534073861" target="_blank" rel="noopener">WhatsApp</a>
         </p>
       </footer>
@@ -670,28 +668,28 @@
   <div class="sos-modal" id="sosModal" role="dialog" aria-labelledby="sosTitle" aria-modal="true" hidden>
     <div class="sos-dialog">
       <header class="sos-header">
-        <h2 id="sosTitle">🚨 SOS</h2>
-        <button id="sosClose" class="sos-close" aria-label="Close">✕</button>
+        <h2 id="sosTitle" data-i18n="sos.title">SOS</h2>
+        <button id="sosClose" class="sos-close" aria-label="Close" data-i18n="sos.close" data-i18n-attrs="aria-label:sos.close.attributes.aria-label">✕</button>
       </header>
       <div class="sos-grid">
         <a href="tel:+357 99 005 924" class="sos-card">
           <span class="sos-icon">📞</span>
-          <span class="sos-label">Call us</span>
+          <span class="sos-label" data-i18n="carRentalPfo.page.sos.callUs">Call us</span>
           <span class="sos-detail">+357 99 005 924</span>
         </a>
         <a href="https://wa.me/48534073861" target="_blank" rel="noopener" class="sos-card">
           <span class="sos-icon">💬</span>
           <span class="sos-label">WhatsApp</span>
-          <span class="sos-detail">Immediate help</span>
+          <span class="sos-detail" data-i18n="carRentalPfo.page.sos.whatsappDetail">Immediate help</span>
         </a>
         <a href="tel:112" class="sos-card sos-card-emergency">
           <span class="sos-icon">🚑</span>
-          <span class="sos-label">Ambulance</span>
+          <span class="sos-label" data-i18n="carRentalPfo.page.sos.ambulance">Ambulance</span>
           <span class="sos-detail">112</span>
         </a>
         <a href="tel:199" class="sos-card sos-card-emergency">
           <span class="sos-icon">🚒</span>
-          <span class="sos-label">Fire brigade</span>
+          <span class="sos-label" data-i18n="carRentalPfo.page.sos.fireBrigade">Fire brigade</span>
           <span class="sos-detail">199</span>
         </a>
       </div>

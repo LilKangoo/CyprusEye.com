@@ -4,6 +4,62 @@ import { supabase } from './supabaseClient.js';
 let paphosFleet = [];
 let pricing = {};
 
+function getI18nLanguage() {
+  const fromApp = (window.appI18n?.language || '').toLowerCase();
+  if (fromApp) return fromApp;
+  const fromGlobal = (typeof window.getCurrentLanguage === 'function' ? window.getCurrentLanguage() : '').toLowerCase();
+  return fromGlobal || 'pl';
+}
+
+function getI18nTranslations() {
+  const lang = getI18nLanguage();
+  const pack = window.appI18n?.translations?.[lang];
+  return pack && typeof pack === 'object' ? pack : {};
+}
+
+function getI18nEntry(translations, key) {
+  if (!key || !translations) return null;
+  if (Object.prototype.hasOwnProperty.call(translations, key)) {
+    return translations[key];
+  }
+  if (key.indexOf('.') === -1) return null;
+  const parts = key.split('.');
+  let current = translations;
+  for (const part of parts) {
+    if (current && typeof current === 'object' && Object.prototype.hasOwnProperty.call(current, part)) {
+      current = current[part];
+    } else {
+      return null;
+    }
+  }
+  return current;
+}
+
+function getI18nString(key) {
+  const translations = getI18nTranslations();
+  const entry = getI18nEntry(translations, key);
+  if (typeof entry === 'string') return entry;
+  if (entry && typeof entry === 'object') {
+    if (typeof entry.text === 'string') return entry.text;
+    if (typeof entry.html === 'string') return entry.html;
+  }
+  return null;
+}
+
+function applyReplacements(template, replacements) {
+  if (!template || !replacements) return template;
+  return template.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, token) => {
+    if (!Object.prototype.hasOwnProperty.call(replacements, token)) return '';
+    return String(replacements[token]);
+  });
+}
+
+function i18n(key, replacements, fallback = '') {
+  const template = getI18nString(key);
+  const base = typeof template === 'string' ? template : fallback;
+  return applyReplacements(base, replacements);
+}
+
 function getPageLocation() {
   const loc = (document.body?.dataset?.carLocation || '').toLowerCase();
   return loc === 'larnaca' ? 'larnaca' : 'paphos';
@@ -76,24 +132,22 @@ function renderFleet() {
   }
   
   if (paphosFleet.length === 0) {
-    const cityLabel = getPageLocation() === 'larnaca' ? 'Larnace' : 'Paphos';
-    grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;"><p>Brak dostępnych samochodów w ${cityLabel}</p></div>`;
+    const cityLabel = i18n(`carRental.locations.${loc}.short`, null, loc);
+    const message = i18n('carRental.page.fleet.empty', { city: cityLabel }, `Brak dostępnych samochodów: ${cityLabel}`);
+    grid.innerHTML = `<div style="grid-column: 1/-1; text-align: center; padding: 40px; color: #64748b;"><p>${escapeHtml(message)}</p></div>`;
     return;
   }
 
   grid.innerHTML = paphosFleet.map(car => {
     // Get translated features using i18n helper
     const features = window.getCarFeatures ? window.getCarFeatures(car) : (Array.isArray(car.features) ? car.features : []);
-    
-    // Get current language for translations
-    const currentLang = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
-    
-    // Translate transmission
-    const transmission = car.transmission === 'automatic' 
-      ? (currentLang === 'en' ? 'Automatic' : currentLang === 'pl' ? 'Automat' : 'Automatic')
-      : (currentLang === 'en' ? 'Manual' : currentLang === 'pl' ? 'Manual' : 'Manual');
+
+    const transmission = car.transmission === 'automatic'
+      ? i18n('carRental.common.transmission.automatic', null, 'Automat')
+      : i18n('carRental.common.transmission.manual', null, 'Manual');
     
     const seats = car.max_passengers || 5;
+    const seatsText = i18n('carRental.common.seats', { count: seats }, `${seats} miejsc`);
     
     // Calculate display price (use 10+ days rate as "from" price)
     const fromPrice = car.price_10plus_days || car.price_per_day || 30;
@@ -104,25 +158,34 @@ function renderFleet() {
     // Get image or use placeholder
     const imageUrl = car.image_url || 'https://placehold.co/400x250/1e293b/ffffff?text=' + encodeURIComponent(carModelName);
 
-    // Translate labels
-    const fromLabel = currentLang === 'en' ? 'From' : 'Od';
-    const perDayLabel = currentLang === 'en' ? '/day' : '/dzień';
-    const reserveLabel = currentLang === 'en' ? 'Reserve this car' : 'Zarezerwuj to auto';
+    const priceLabel = i18n('carRental.common.priceFromPerDay', { price: `${fromPrice}€` }, `Od ${fromPrice}€ / dzień`);
+    const reserveLabel = i18n('carRental.common.reserveCar', null, 'Zarezerwuj to auto');
+
+    const fuelKey = car.fuel_type === 'petrol'
+      ? 'carRental.common.fuel.petrol95'
+      : car.fuel_type === 'diesel'
+        ? 'carRental.common.fuel.diesel'
+        : car.fuel_type === 'hybrid'
+          ? 'carRental.common.fuel.hybrid'
+          : car.fuel_type === 'electric'
+            ? 'carRental.common.fuel.electric'
+            : '';
+    const fuelText = fuelKey ? i18n(fuelKey, null, car.fuel_type) : (car.fuel_type || '');
     
     return `
       <article class="card auto-card">
         ${car.image_url ? `<img src="${escapeHtml(car.image_url)}" alt="${escapeHtml(carModelName)}" class="auto-card-image" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0;">` : ''}
         <header class="auto-card-header">
-          <span class="auto-card-price">${fromLabel} ${fromPrice}€${perDayLabel}</span>
+          <span class="auto-card-price">${escapeHtml(priceLabel)}</span>
           <div class="auto-card-title">
-            <h3>${escapeHtml(carModelName)}<span>${transmission} • ${seats} os. • AC</span></h3>
+            <h3>${escapeHtml(carModelName)}<span>${escapeHtml(transmission)} • ${escapeHtml(seatsText)} • AC</span></h3>
           </div>
         </header>
         <ul class="auto-card-specs">
-          <li>${transmission}</li>
-          <li>${seats} ${currentLang === 'en' ? (seats === 1 ? 'seat' : 'seats') : (seats === 1 ? 'osoba' : seats < 5 ? 'osoby' : 'osób')}</li>
+          <li>${escapeHtml(transmission)}</li>
+          <li>${escapeHtml(seatsText)}</li>
           <li>AC</li>
-          <li>${car.fuel_type === 'petrol' ? (currentLang === 'en' ? 'Petrol 95' : 'Paliwo 95') : car.fuel_type === 'diesel' ? 'Diesel' : car.fuel_type}</li>
+          <li>${escapeHtml(fuelText)}</li>
         </ul>
         ${window.getCarDescription ? `<p class="auto-card-note">${escapeHtml(window.getCarDescription(car))}</p>` : (car.description ? `<p class="auto-card-note">${escapeHtml(car.description)}</p>` : '')}
         ${features.length > 0 ? `
@@ -147,14 +210,13 @@ function updateCalculatorOptions() {
   if (paphosFleet.length === 0) return;
 
   const optionsHTML = paphosFleet.map(car => {
-    const currentLang = window.getCurrentLanguage ? window.getCurrentLanguage() : 'pl';
-    const transmission = car.transmission === 'automatic' 
-      ? (currentLang === 'en' ? 'Automatic' : 'Automat')
-      : (currentLang === 'en' ? 'Manual' : 'Manual');
+    const transmission = car.transmission === 'automatic'
+      ? i18n('carRental.common.transmission.automatic', null, 'Automat')
+      : i18n('carRental.common.transmission.manual', null, 'Manual');
     const seats = car.max_passengers || 5;
     const carModelName = window.getCarName ? window.getCarName(car) : car.car_model;
-    const seatsLabel = currentLang === 'en' ? (seats === 1 ? 'seat' : 'seats') : 'os.';
-    return `<option value="${escapeHtml(carModelName)}" data-offer-id="${escapeHtml(car.id)}">${escapeHtml(carModelName)} — ${transmission} • ${seats} ${seatsLabel}</option>`;
+    const seatsText = i18n('carRental.common.seats', { count: seats }, `${seats} miejsc`);
+    return `<option value="${escapeHtml(carModelName)}" data-offer-id="${escapeHtml(car.id)}">${escapeHtml(carModelName)} — ${escapeHtml(transmission)} • ${escapeHtml(seatsText)}</option>`;
   }).join('');
 
   // Update calculator select
@@ -172,14 +234,32 @@ function updateCalculatorOptions() {
   const returnSelect = document.getElementById('returnLocation');
   if (pickupSelect && returnSelect) {
     const locationOptions = [
-      { id: 'larnaca', label: 'Larnaka (bez opłaty)', fee: 0 },
-      { id: 'nicosia', label: 'Nikozja (+15€)', fee: 15 },
-      { id: 'ayia-napa', label: 'Ayia Napa (+15€)', fee: 15 },
-      { id: 'protaras', label: 'Protaras (+20€)', fee: 20 },
-      { id: 'limassol', label: 'Limassol (+20€)', fee: 20 },
-      { id: 'paphos', label: 'Pafos (+40€)', fee: 40 },
+      { id: 'larnaca', fee: 0 },
+      { id: 'nicosia', fee: 15 },
+      { id: 'ayia-napa', fee: 15 },
+      { id: 'protaras', fee: 20 },
+      { id: 'limassol', fee: 20 },
+      { id: 'paphos', fee: 40 },
     ];
-    const locHTML = locationOptions.map(opt => `<option value="${opt.id}">${opt.label}</option>`).join('');
+    const locHTML = locationOptions
+      .map((opt) => {
+        const fallback = opt.id === 'larnaca'
+          ? 'Larnaka (bez opłaty)'
+          : opt.id === 'nicosia'
+            ? 'Nikozja (+15€)'
+            : opt.id === 'ayia-napa'
+              ? 'Ayia Napa (+15€)'
+              : opt.id === 'protaras'
+                ? 'Protaras (+20€)'
+                : opt.id === 'limassol'
+                  ? 'Limassol (+20€)'
+                  : opt.id === 'paphos'
+                    ? 'Pafos (+40€)'
+                    : opt.id;
+        const label = i18n(`carRental.locations.${opt.id}.label`, null, fallback);
+        return `<option value="${escapeHtml(opt.id)}">${escapeHtml(label)}</option>`;
+      })
+      .join('');
     pickupSelect.innerHTML = locHTML;
     returnSelect.innerHTML = locHTML;
   }
@@ -224,16 +304,23 @@ window.calculatePrice = function() {
     const returnDate = new Date(returnDateStr + 'T' + returnTimeStr);
 
     if (isNaN(pickupDate.getTime()) || isNaN(returnDate.getTime())) {
-      alert("Proszę wybrać poprawne daty i godziny.");
+      alert(i18n('carRental.calculator.errors.invalidDates', null, 'Proszę wybrać poprawne daty i godziny.'));
       return;
     }
 
     const hours = (returnDate - pickupDate) / 36e5;
     const days = Math.ceil(hours / 24);
-    if (days < 3) { alert("Minimalny czas wynajmu to 3 dni"); return; }
+    if (days < 3) {
+      const daysLabel = i18n('carRental.common.daysLabel', null, 'dni');
+      alert(i18n('carRental.calculator.errors.minimumDays', { days: 3, daysLabel }, 'Minimalny czas wynajmu to 3 dni'));
+      return;
+    }
 
     const carPricing = pricing[car];
-    if (!carPricing) { alert("Proszę wybrać auto z listy"); return; }
+    if (!carPricing) {
+      alert(i18n('carRental.calculator.errors.selectCar', null, 'Proszę wybrać auto z listy'));
+      return;
+    }
 
     let basePrice = 0, dailyRate = 0;
     if (days === 3) basePrice = carPricing[0];
@@ -265,19 +352,63 @@ window.calculatePrice = function() {
       },
     };
 
-    document.getElementById("total_price").innerHTML = "Całkowita cena wynajmu: " + totalPrice + "€";
-    if (days === 3) document.getElementById("days_price").innerHTML = "Cena pakietu na 3 dni: " + basePrice + "€";
-    else {
-      const rateText = dailyRate ? " (" + dailyRate + "€/dzień)" : "";
-      document.getElementById("days_price").innerHTML = "Cena za " + days + " dni" + rateText + ": " + basePrice + "€";
+    const totalEl = document.getElementById('total_price');
+    if (totalEl) {
+      totalEl.textContent = i18n('carRental.calculator.total', { price: `${totalPrice}€` }, `Całkowita cena wynajmu: ${totalPrice}€`);
     }
 
-    let breakdown = [];
-    if (pickupFee > 0) breakdown.push(`Odbiór lotnisko: ${pickupFee}€`);
-    if (returnFee > 0) breakdown.push(`Zwrot lotnisko: ${returnFee}€`);
-    if (insuranceCost > 0) breakdown.push(`Ubezpieczenie AC: ${insuranceCost}€`);
-    if (breakdown.length > 0) {
-      document.getElementById("days_price").innerHTML += `<br><small style="color: #64748b;">${breakdown.join(' | ')}</small>`;
+    const daysEl = document.getElementById('days_price');
+    if (daysEl) {
+      const daysLabel = i18n('carRental.common.daysLabel', null, 'dni');
+      const rateText = dailyRate
+        ? i18n('carRental.common.pricePerDay', { price: `${dailyRate}€` }, `${dailyRate}€/dzień`)
+        : '';
+
+      const baseLine = days === 3
+        ? i18n('carRental.calculator.breakdown.package3', { total: `${basePrice}€` }, `Pakiet 3 dni: ${basePrice}€`)
+        : i18n(
+          'carRental.calculator.breakdown.tiered',
+          { rate: rateText, days, daysLabel, total: `${basePrice}€` },
+          `${dailyRate}€ × ${days} ${daysLabel} = ${basePrice}€`
+        );
+
+      const breakdownLines = [];
+
+      const airportLabel = i18n('carRental.locations.paphos-airport.short', null, 'Paphos Airport');
+      if (pickupFee > 0) {
+        breakdownLines.push(
+          i18n(
+            'carRental.calculator.breakdown.pickupWithFee',
+            { location: airportLabel, price: `${pickupFee}€` },
+            `Odbiór: ${airportLabel} +${pickupFee}€`
+          )
+        );
+      }
+      if (returnFee > 0) {
+        breakdownLines.push(
+          i18n(
+            'carRental.calculator.breakdown.returnWithFee',
+            { location: airportLabel, price: `${returnFee}€` },
+            `Zwrot: ${airportLabel} +${returnFee}€`
+          )
+        );
+      }
+      if (insuranceCost > 0) {
+        const insurancePerDay = i18n('carRental.common.pricePerDay', { price: '17€' }, '17€/dzień');
+        breakdownLines.push(
+          i18n(
+            'carRental.calculator.breakdown.fullInsurance',
+            { pricePerDay: insurancePerDay, days, daysLabel, total: `${insuranceCost}€` },
+            `Ubezpieczenie: ${insurancePerDay} × ${days} ${daysLabel} = ${insuranceCost}€`
+          )
+        );
+      }
+
+      if (breakdownLines.length > 0) {
+        daysEl.innerHTML = `${escapeHtml(baseLine)}<br><small style="color: #64748b;">${breakdownLines.map(escapeHtml).join(' | ')}</small>`;
+      } else {
+        daysEl.textContent = baseLine;
+      }
     }
     return;
   }
@@ -299,19 +430,20 @@ window.calculatePrice = function() {
   const pickupDate = new Date(pickupDateStr + 'T' + pickupTimeStr);
   const returnDate = new Date(returnDateStr + 'T' + returnTimeStr);
   if (isNaN(pickupDate.getTime()) || isNaN(returnDate.getTime())) {
-    setCalculatorMessage('Proszę wybrać poprawne daty i godziny.', true);
+    setCalculatorMessage(i18n('carRental.calculator.errors.invalidDates', null, 'Proszę wybrać poprawne daty i godziny.'), true);
     return;
   }
   const hours = (returnDate - pickupDate) / 36e5;
   const days = Math.ceil(hours / 24);
   if (days < 3) {
-    setCalculatorMessage('Minimalny czas wynajmu to 3 dni', true);
+    const daysLabel = i18n('carRental.common.daysLabel', null, 'dni');
+    setCalculatorMessage(i18n('carRental.calculator.errors.minimumDays', { days: 3, daysLabel }, 'Minimalny czas wynajmu to 3 dni'), true);
     return;
   }
 
   const carPricing = pricing[car];
   if (!carPricing) {
-    setCalculatorMessage('Proszę wybrać auto z listy', true);
+    setCalculatorMessage(i18n('carRental.calculator.errors.selectCar', null, 'Proszę wybrać auto z listy'), true);
     return;
   }
 
@@ -365,16 +497,62 @@ window.calculatePrice = function() {
   const breakdownEl = document.getElementById('carRentalBreakdown');
   const messageEl = document.getElementById('carRentalMessage');
 
-  if (resultEl) resultEl.textContent = `Całkowita cena wynajmu: ${totalPrice}€`;
+  if (resultEl) {
+    resultEl.textContent = i18n('carRental.calculator.total', { price: `${totalPrice}€` }, `Całkowita cena wynajmu: ${totalPrice}€`);
+  }
 
   const parts = [];
-  if (days === 3) parts.push(`Pakiet 3 dni: ${basePrice}€`);
-  else parts.push(`Cena za ${days} dni${dailyRate ? ` (${dailyRate}€/dzień)` : ''}: ${basePrice}€`);
-  if (pickupFee) parts.push(`Odbiór poza Larnaką: ${pickupFee}€`);
-  if (returnFee) parts.push(`Zwrot poza Larnaką: ${returnFee}€`);
-  if (insuranceCost) parts.push(`Ubezpieczenie AC: ${insuranceCost}€`);
-  if (youngDriverCost) parts.push(`Młody kierowca: ${youngDriverCost}€`);
-  if (breakdownEl) breakdownEl.innerHTML = parts.map(p => `<div>${p}</div>`).join('');
+  const daysLabel = i18n('carRental.common.daysLabel', null, 'dni');
+  const rateText = dailyRate
+    ? i18n('carRental.common.pricePerDay', { price: `${dailyRate}€` }, `${dailyRate}€/dzień`)
+    : '';
+
+  if (days === 3) {
+    parts.push(i18n('carRental.calculator.breakdown.package3', { total: `${basePrice}€` }, `Pakiet 3 dni: ${basePrice}€`));
+  } else {
+    parts.push(
+      i18n(
+        'carRental.calculator.breakdown.tiered',
+        { rate: rateText, days, daysLabel, total: `${basePrice}€` },
+        `${dailyRate}€ × ${days} ${daysLabel} = ${basePrice}€`
+      )
+    );
+  }
+
+  const pickupLabel = i18n(`carRental.locations.${pickupLoc}.short`, null, pickupLoc);
+  const returnLabel = i18n(`carRental.locations.${returnLoc}.short`, null, returnLoc);
+  if (pickupFee) {
+    parts.push(i18n('carRental.calculator.breakdown.pickupWithFee', { location: pickupLabel, price: `${pickupFee}€` }, `Odbiór: ${pickupLabel} +${pickupFee}€`));
+  } else {
+    parts.push(i18n('carRental.calculator.breakdown.pickupIncluded', { location: pickupLabel }, `Odbiór: ${pickupLabel} – w cenie`));
+  }
+  if (returnFee) {
+    parts.push(i18n('carRental.calculator.breakdown.returnWithFee', { location: returnLabel, price: `${returnFee}€` }, `Zwrot: ${returnLabel} +${returnFee}€`));
+  } else {
+    parts.push(i18n('carRental.calculator.breakdown.returnIncluded', { location: returnLabel }, `Zwrot: ${returnLabel} – w cenie`));
+  }
+
+  if (insuranceCost) {
+    const insurancePerDay = i18n('carRental.common.pricePerDay', { price: '17€' }, '17€/dzień');
+    parts.push(
+      i18n(
+        'carRental.calculator.breakdown.fullInsurance',
+        { pricePerDay: insurancePerDay, days, daysLabel, total: `${insuranceCost}€` },
+        `Ubezpieczenie: ${insurancePerDay} × ${days} ${daysLabel} = ${insuranceCost}€`
+      )
+    );
+  }
+  if (youngDriverCost) {
+    const youngDriverPerDay = i18n('carRental.common.pricePerDay', { price: '10€' }, '10€/dzień');
+    parts.push(
+      i18n(
+        'carRental.calculator.breakdown.youngDriver',
+        { pricePerDay: youngDriverPerDay, days, daysLabel, total: `${youngDriverCost}€` },
+        `Młody kierowca: ${youngDriverPerDay} × ${days} ${daysLabel} = ${youngDriverCost}€`
+      )
+    );
+  }
+  if (breakdownEl) breakdownEl.innerHTML = parts.map(p => `<div>${escapeHtml(p)}</div>`).join('');
   if (messageEl) { messageEl.textContent = ''; messageEl.classList.remove('is-error'); }
 };
 
