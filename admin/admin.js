@@ -9400,6 +9400,8 @@ async function viewUserDetails(userId) {
     const statusBadgeClass = bannedUntil ? 'badge-danger' : 'badge-success';
     const formattedJoined = authData.created_at ? formatDate(authData.created_at) : 'Unknown';
     const formattedLastSignIn = authData.last_sign_in_at ? formatDate(authData.last_sign_in_at) : 'Never';
+    const emailConfirmedAt = authData.email_confirmed_at || authData.confirmed_at;
+    const formattedEmailConfirmedAt = emailConfirmedAt ? formatDate(emailConfirmedAt) : 'Not confirmed';
     const emailEscaped = escapeHtml(authEmail);
     const usernameEscaped = escapeHtml(profile.username || '');
     const nameEscaped = escapeHtml(profile.name || '');
@@ -9875,6 +9877,10 @@ async function viewUserDetails(userId) {
               <dt>Last sign in</dt>
               <dd>${formattedLastSignIn}</dd>
             </div>
+            <div>
+              <dt>Email confirmed at</dt>
+              <dd>${formattedEmailConfirmedAt}</dd>
+            </div>
           </dl>
         </section>
 
@@ -10003,6 +10009,7 @@ async function viewUserDetails(userId) {
             <div class="user-detail-inline-actions">
               <button class="btn-secondary" type="button" onclick="handleSendPasswordReset('${userId}')">Send reset link</button>
               <button class="btn-secondary" type="button" onclick="handleSendMagicLink('${userId}')">Send magic link</button>
+              <button class="btn-secondary" type="button" onclick="handleResendVerificationEmail('${userId}')">Resend verification email</button>
               <input class="admin-inline-input" type="text" placeholder="Temporary password" oninput="this.dataset.pwd=this.value" />
               <button class="btn-secondary" type="button" onclick="handleSetTempPassword('${userId}', this.previousElementSibling.dataset.pwd||'')">Set temporary</button>
             </div>
@@ -10279,6 +10286,17 @@ async function handleUserAccountSubmit(event, userId) {
     showToast('Applying account updates...', 'info');
     await apiRequest(`/users/${userId}/account`, { method: 'POST', body: JSON.stringify(payload) });
 
+    if (payload.require_email_update === true && originalEmailFlag === false) {
+      try {
+        await apiRequest(`/users/${userId}/verification`, {
+          method: 'POST',
+          body: JSON.stringify({ action: 'resend_signup' }),
+        });
+        showToast('Verification email resent', 'success');
+      } catch (_e) {
+      }
+    }
+
     showToast('Account settings updated', 'success');
 
     if (adminState.currentView === 'users') {
@@ -10367,6 +10385,18 @@ async function handleSendMagicLink(userId) {
     }
   } catch (e) {
     showToast('Failed to generate magic link: ' + (e.message || 'Unknown error'), 'error');
+  }
+}
+
+async function handleResendVerificationEmail(userId) {
+  try {
+    await apiRequest(`/users/${userId}/verification`, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'resend_signup' }),
+    });
+    showToast('Verification email resent', 'success');
+  } catch (e) {
+    showToast('Failed to resend verification email: ' + (e.message || 'Unknown error'), 'error');
   }
 }
  
@@ -10511,6 +10541,7 @@ window.handleUserBanToggle = handleUserBanToggle;
 window.handleUserBanForm = handleUserBanForm;
 window.handleSendPasswordReset = handleSendPasswordReset;
 window.handleSendMagicLink = handleSendMagicLink;
+window.handleResendVerificationEmail = handleResendVerificationEmail;
 window.handleSetTempPassword = handleSetTempPassword;
 window.handleSetXpLevel = handleSetXpLevel;
 
