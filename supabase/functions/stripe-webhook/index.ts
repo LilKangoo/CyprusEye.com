@@ -2,13 +2,25 @@ import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@13.6.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
-  apiVersion: "2023-10-16",
-  httpClient: Stripe.createFetchHttpClient(),
-});
+function readEnv(name: string): string {
+  return String(Deno.env.get(name) || "").trim();
+}
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+function requireEnv(name: string): string {
+  const value = readEnv(name);
+  if (!value) throw new Error(`Missing ${name}`);
+  return value;
+}
+
+let stripeClient: Stripe | null = null;
+function getStripeClient(): Stripe {
+  if (stripeClient) return stripeClient;
+  stripeClient = new Stripe(requireEnv("STRIPE_SECRET_KEY"), {
+    apiVersion: "2023-10-16",
+    httpClient: Stripe.createFetchHttpClient(),
+  });
+  return stripeClient;
+}
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -489,10 +501,10 @@ serve(async (req) => {
   }
 
   if (req.method === "GET" || req.method === "HEAD") {
-    const hasStripeSecretKey = Boolean((Deno.env.get("STRIPE_SECRET_KEY") || "").trim());
-    const hasWebhookSecret = Boolean((Deno.env.get("STRIPE_WEBHOOK_SECRET") || "").trim());
-    const hasSupabaseUrl = Boolean((Deno.env.get("SUPABASE_URL") || "").trim());
-    const hasServiceRoleKey = Boolean((Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "").trim());
+    const hasStripeSecretKey = Boolean(readEnv("STRIPE_SECRET_KEY"));
+    const hasWebhookSecret = Boolean(readEnv("STRIPE_WEBHOOK_SECRET"));
+    const hasSupabaseUrl = Boolean(readEnv("SUPABASE_URL"));
+    const hasServiceRoleKey = Boolean(readEnv("SUPABASE_SERVICE_ROLE_KEY"));
 
     return new Response(
       JSON.stringify({
@@ -518,21 +530,40 @@ serve(async (req) => {
   }
 
   const body = await req.text();
-  const webhookSecret = Deno.env.get("STRIPE_WEBHOOK_SECRET");
+  const stripeSecretKey = readEnv("STRIPE_SECRET_KEY");
+  if (!stripeSecretKey) {
+    return new Response(
+      JSON.stringify({ ok: false, error: "Missing STRIPE_SECRET_KEY" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 },
+    );
+  }
+
+  const webhookSecret = readEnv("STRIPE_WEBHOOK_SECRET");
   if (!webhookSecret) {
-    console.error("Missing STRIPE_WEBHOOK_SECRET");
-    return new Response("Missing STRIPE_WEBHOOK_SECRET", { status: 500 });
+    return new Response(
+      JSON.stringify({ ok: false, error: "Missing STRIPE_WEBHOOK_SECRET" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 },
+    );
   }
 
   let event: Stripe.Event;
   try {
-    event = await stripe.webhooks.constructEventAsync(body, signature, webhookSecret);
+    event = await getStripeClient().webhooks.constructEventAsync(body, signature, webhookSecret);
   } catch (err) {
     console.error("Webhook signature verification failed:", err);
     return new Response(`Webhook Error: ${err.message}`, { status: 400 });
   }
 
-  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  let supabase: any;
+  try {
+    supabase = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_SERVICE_ROLE_KEY"));
+  } catch (e) {
+    console.error("Missing Supabase env for webhook:", e);
+    return new Response(
+      JSON.stringify({ ok: false, error: e?.message || "Missing Supabase env" }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 },
+    );
+  }
 
   console.log(`Processing event: ${event.type}`);
 
