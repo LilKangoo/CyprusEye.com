@@ -1,15 +1,26 @@
 <!DOCTYPE html>
 <html lang="en" dir="ltr">
   <head>
+    <script>(function(){try{var r=new URLSearchParams(location.search).get('ref');if(r&&r.trim()){localStorage.setItem('cypruseye_referral_code',JSON.stringify({code:r.trim(),capturedAt:Date.now(),expiresAt:Date.now()+12096e5}))}}catch(e){}})();</script>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-FCSE0876CR"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+      gtag('config', 'G-FCSE0876CR');
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://esm.sh https://unpkg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://*.tile.openstreetmap.org https://esm.sh; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co wss://*.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://esm.sh https://*.esm.sh https://unpkg.com https://*.tile.openstreetmap.org; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;" />
     <meta name="theme-color" content="#2563eb" />
     <meta name="robots" content="index,follow" />
     <title>CyprusEye – Trip Planner</title>
     <link rel="stylesheet" href="assets/css/tokens.css" />
     <link rel="stylesheet" href="assets/css/base.css" />
     <link rel="stylesheet" href="assets/css/components.css" />
+    <link rel="stylesheet" href="assets/css/rtl.css" />
+    <link rel="stylesheet" href="assets/css/language-switcher.css" />
+    <link rel="stylesheet" href="assets/css/language-selector.css" />
     <link rel="stylesheet" href="assets/css/mobile.css" />
     <link rel="stylesheet" href="assets/css/mobile-nav.css" />
     <link rel="stylesheet" href="/css/toast.css" />
@@ -21,6 +32,136 @@
   </head>
   <body data-navigation="multi-page" data-seo-page="plan">
     <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+
+    <header class="app-header nav-modern">
+      <div class="nav-modern__top" aria-label="Global header">
+        <div class="brand nav-modern__brand-block">
+          <a href="index.html" class="nav-modern__brand-link" aria-label="CyprusEye Quest home">
+            <img
+              src="assets/cyprus_logo-1000x1054.png"
+              alt="WakacjeCypr.com – logo żółwia z flagą Polski"
+              data-i18n-attrs="alt:header.logoAlt"
+              width="1000"
+              height="1054"
+              loading="eager"
+              fetchpriority="high"
+            />
+            <div class="brand-title" data-i18n="header.brand">
+              <p class="brand-name">CyprusEye Quest &amp; Travel</p>
+            </div>
+          </a>
+        </div>
+
+        <div class="nav-modern__stats nav-modern__stats-lite" data-auth="user-only">
+          <div class="stats-lite__pill">
+            <a href="achievements.html" class="stats-lite__profile" id="profileButton" aria-label="Mój profil">
+              <img
+                id="headerUserAvatar"
+                class="profile-avatar"
+                src="assets/cyprus_logo-1000x1054.png"
+                alt="Avatar"
+                width="48"
+                height="48"
+                loading="eager"
+              />
+              <div class="profile-info">
+                <p class="profile-name">Mój Profil</p>
+                <p class="profile-status">Poziom 1 • 0 odznak</p>
+              </div>
+            </a>
+
+            <div class="stats-lite__panel">
+              <div class="stats-lite__level">
+                <span class="stats-lite__label">LVL</span>
+                <span class="stats-lite__value" id="headerLevelNumber">1</span>
+              </div>
+
+              <div class="stats-lite__xp" role="img" aria-label="Postęp doświadczenia" data-i18n-attrs="aria-label:metrics.xp.aria">
+                <span class="stats-lite__xp-current"><span id="headerXpPoints">0</span> XP</span>
+                <div class="stats-lite__xp-bar">
+                  <div class="stats-lite__xp-fill is-width-zero" id="headerXpFill"></div>
+                </div>
+              </div>
+
+              <div class="stats-lite__badges">
+                <span class="stats-lite__label">🏆</span>
+                <span class="stats-lite__value" id="headerBadgesCount">0</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="nav-modern__top-actions">
+          <div class="nav-modern__auth">
+            <div id="auth-actions" class="auth-actions-inline" aria-live="polite">
+              <button
+                class="nav-modern__login"
+                data-open-auth
+                data-auth="anon-only"
+                data-tour-target="login-button"
+                data-i18n="header.login"
+                data-i18n-attrs="aria-label:auth.login.aria"
+                aria-label="Zaloguj do konta"
+              >
+                Zaloguj
+              </button>
+              <button class="btn btn-sm" data-auth="logout" data-i18n="header.logout" data-i18n-attrs="aria-label:auth.logout.aria" aria-label="Wyloguj z konta" hidden>Wyloguj</button>
+            </div>
+            <div data-auth="spinner" class="auth-spinner-inline" aria-live="polite" data-i18n="auth.status.spinner" hidden>Łączenie...</div>
+          </div>
+
+          <button
+            id="sosToggle"
+            class="nav-modern__sos"
+            type="button"
+            aria-haspopup="dialog"
+            aria-controls="sosModal"
+            data-i18n="header.sosToggle"
+          >
+            ⚠️ SOS
+          </button>
+
+          <div class="language-pill-group" data-language-toggle aria-label="Language selector" data-i18n-attrs="aria-label:language.switcher.label">
+            <button type="button" class="language-pill" data-language-pill="pl" aria-pressed="false">PL</button>
+            <button type="button" class="language-pill" data-language-pill="en" aria-pressed="false">EN</button>
+          </div>
+        </div>
+      </div>
+      <div class="nav-modern__shell">
+        <div class="nav-modern__bars" data-tour-target="tabs-navigation">
+          <button class="nav-modern__toggle-btn" id="navToggleBtn" aria-expanded="false" aria-controls="navLinksRow" data-i18n="nav.toggle">
+            ☰ Nawigacja
+          </button>
+          <div class="nav-modern__links-row" id="navLinksRow" aria-label="Główna nawigacja i skróty" data-i18n-attrs="aria-label:header.quickActions.aria">
+            <nav class="nav-modern__tabs" role="tablist" data-i18n-attrs="aria-label:header.tabs.aria" aria-label="Nawigacja główna">
+              <a href="index.html" class="nav-modern__tab is-active" id="headerAdventureTab" data-i18n="nav.adventure">
+                🎯 Przygoda
+              </a>
+              <a href="community.html" class="nav-modern__tab" id="headerPackingTab" data-i18n="nav.community">
+                💬 Społeczność
+              </a>
+              <a href="recommendations.html" class="nav-modern__tab" id="headerRecommendationsTab" data-i18n="nav.recommendations">
+                ✨ Polecane
+              </a>
+              <a href="tasks.html" class="nav-modern__tab" id="headerTasksTab" data-i18n="nav.tasks">
+                ☑️ Zadania
+              </a>
+              <a href="shop.html" class="nav-modern__tab" id="headerShopTab" data-i18n="nav.shop">
+                🛍️ Sklep
+              </a>
+            </nav>
+
+            <div class="nav-modern__chips">
+              <a class="nav-chip" href="packing.html" data-i18n="nav.packing">🎒 Pakowanie</a>
+              <a class="nav-chip" href="kupon.html" data-i18n="header.coupon">🎟️ Kupon</a>
+              <a class="nav-chip" href="car-rental-landing.html" data-i18n="header.carRentalLink">🚗 Wynajem auta</a>
+              <a class="nav-chip" href="trips.html" data-i18n="nav.trips">🧭 Wycieczki</a>
+              <a class="nav-chip" href="hotels.html" data-i18n="nav.hotels">🏨 Hotele</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </header>
 
     <main id="main-content" class="standalone-main">
       <section class="card surface-card" style="margin: 1rem;" data-auth="anon-only">
@@ -116,6 +257,7 @@
                   </label>
                   <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
                     <button id="planSaveBtn" class="btn btn-primary primary" type="button">Save changes</button>
+                    <button id="planRegenDaysBtn" class="btn" type="button">Regenerate days</button>
                     <span id="planSaveStatus" style="color: #64748b; font-size: 14px;"></span>
                   </div>
                 </div>
@@ -131,7 +273,53 @@
       </section>
     </main>
 
-    <script type="module" src="/js/plan.js?v=20260126"></script>
+    <footer class="standalone-footer">
+      <p>
+        © <span data-current-year></span> WakacjeCypr.com • Trip planner.
+      </p>
+    </footer>
+
+    <div class="sos-modal" id="sosModal" role="dialog" aria-labelledby="sosTitle" aria-modal="true" hidden>
+      <div class="sos-dialog">
+        <header class="sos-header">
+          <h2 id="sosTitle">🚨 SOS</h2>
+          <button id="sosClose" class="sos-close" aria-label="Zamknij">✕</button>
+        </header>
+        <div class="sos-grid">
+          <a href="tel:+357 99 005 924" class="sos-card">
+            <span class="sos-icon">📞</span>
+            <span class="sos-label">Zadzwoń do nas</span>
+            <span class="sos-detail">+357 99 005 924</span>
+          </a>
+          <a href="https://wa.me/48534073861" target="_blank" rel="noopener" class="sos-card">
+            <span class="sos-icon">💬</span>
+            <span class="sos-label">WhatsApp</span>
+            <span class="sos-detail">Natychmiastowa pomoc</span>
+          </a>
+          <a href="tel:112" class="sos-card sos-card-emergency">
+            <span class="sos-icon">🚑</span>
+            <span class="sos-label">Pogotowie</span>
+            <span class="sos-detail">112</span>
+          </a>
+          <a href="tel:199" class="sos-card sos-card-emergency">
+            <span class="sos-icon">🚒</span>
+            <span class="sos-label">Straż pożarna</span>
+            <span class="sos-detail">199</span>
+          </a>
+        </div>
+      </div>
+    </div>
+
+    <script src="js/i18n.js" defer></script>
+    <script src="js/forms.js" defer></script>
+    <script src="js/seo.js" defer></script>
+    <script src="js/mobile-nav.js" defer></script>
+    <script src="js/header-dropdown.js" defer></script>
+    <script src="js/sos.js?v=1" defer></script>
+    <script src="js/header-stats.js?v=1" defer></script>
+    <script src="js/languageSwitcher.js" defer></script>
+    <script src="js/languageRefresh.js" defer></script>
+    <script type="module" src="/js/plan.js?v=20260126b"></script>
     <script src="assets/js/modal-auth.js" defer></script>
 
     <div id="auth-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="auth-title" aria-hidden="true">
