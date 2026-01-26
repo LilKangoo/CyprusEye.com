@@ -257,6 +257,16 @@
                     <label for="planEditPeople">People</label>
                     <input id="planEditPeople" type="number" min="1" step="1" inputmode="numeric" />
                   </div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <div style="display: grid; gap: 0.25rem;">
+                      <label for="planEditAdults">Adults</label>
+                      <input id="planEditAdults" type="number" min="0" step="1" inputmode="numeric" />
+                    </div>
+                    <div style="display: grid; gap: 0.25rem;">
+                      <label for="planEditChildren">Children</label>
+                      <input id="planEditChildren" type="number" min="0" step="1" inputmode="numeric" />
+                    </div>
+                  </div>
                   <label style="display: flex; gap: 0.5rem; align-items: center;">
                     <input id="planEditIncludeNorth" type="checkbox" />
                     Include North Cyprus
@@ -282,6 +292,17 @@
               <div class="card" style="padding: 1rem;">
                 <h3 style="margin: 0 0 0.75rem; font-size: 16px;">Days</h3>
                 <div id="planDays" style="display: grid; gap: 0.5rem;"></div>
+              </div>
+
+              <div class="card" style="padding: 1rem;">
+                <h3 style="margin: 0 0 0.75rem; font-size: 16px;">Cost summary</h3>
+                <div id="planCostSummary" style="display:grid; gap:0.5rem; color:#0f172a;">
+                  <div style="color:#64748b;">Select a plan and add services to see totals.</div>
+                </div>
+                <div style="margin-top:0.75rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                  <button id="planRequestBookingBtn" class="btn btn-primary primary" type="button">Request booking for all</button>
+                  <span id="planRequestBookingStatus" style="color:#64748b; font-size: 14px;"></span>
+                </div>
               </div>
             </div>
           </section>

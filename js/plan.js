@@ -25,6 +25,9 @@ const detailsWrapEl = () => el('planDetails');
 const daysEl = () => el('planDays');
 const catalogDaySelectEl = () => el('planCatalogDaySelect');
 const catalogEl = () => el('planCatalog');
+const costSummaryEl = () => el('planCostSummary');
+const requestBookingBtnEl = () => el('planRequestBookingBtn');
+const requestBookingStatusEl = () => el('planRequestBookingStatus');
 
 const saveStatusEl = () => el('planSaveStatus');
 
@@ -83,6 +86,46 @@ function setStatus(targetEl, msg, type) {
   } else {
     delete targetEl.dataset.tone;
   }
+}
+
+function formatMoney(amount, currency = 'EUR') {
+  const a = Number(amount || 0);
+  const c = String(currency || 'EUR').toUpperCase();
+  if (!Number.isFinite(a)) return `${c} 0.00`;
+  try {
+    return new Intl.NumberFormat(undefined, { style: 'currency', currency: c }).format(a);
+  } catch (_) {
+    return `${c} ${a.toFixed(2)}`;
+  }
+}
+
+function partyStorageKey(planId) {
+  return planId ? `ce_plan_party_${planId}` : 'ce_plan_party_';
+}
+
+function getPartyForPlan(plan) {
+  const planId = plan?.id ? String(plan.id) : '';
+  const people = Math.max(1, Number(plan?.people_count || 1) || 1);
+  if (!planId) return { adults: people, children: 0 };
+
+  try {
+    const raw = localStorage.getItem(partyStorageKey(planId));
+    const parsed = raw ? JSON.parse(raw) : null;
+    const a = Math.max(0, Number(parsed?.adults || 0) || 0);
+    const c = Math.max(0, Number(parsed?.children || 0) || 0);
+    if (a + c > 0) return { adults: a, children: c };
+  } catch (_) {}
+
+  return { adults: people, children: 0 };
+}
+
+function savePartyForPlan(planId, party) {
+  if (!planId) return;
+  const a = Math.max(0, Number(party?.adults || 0) || 0);
+  const c = Math.max(0, Number(party?.children || 0) || 0);
+  try {
+    localStorage.setItem(partyStorageKey(String(planId)), JSON.stringify({ adults: a, children: c }));
+  } catch (_) {}
 }
 
 function parseHashPlanId() {
@@ -218,6 +261,241 @@ function getCarTitle(car) {
 function getPoiTitle(poi) {
   const name = pickI18nValue(poi?.name_i18n, poi?.name || 'POI');
   return name || 'POI';
+}
+
+function calcTripTotal(trip, { adults = 1, children = 0, hours = 1, days = 1 } = {}) {
+  adults = Number(adults || 0) || 0;
+  children = Number(children || 0) || 0;
+  hours = Number(hours || 0) || 0;
+  days = Number(days || 0) || 0;
+
+  const pm = trip?.pricing_model || 'per_person';
+  if (pm === 'per_person') {
+    const per = Number(trip?.price_per_person || 0) || 0;
+    return per * (adults + children);
+  }
+  if (pm === 'base_plus_extra') {
+    const base = Number(trip?.price_base || 0) || 0;
+    const included = Number(trip?.included_people || 0) || 0;
+    const extra = Number(trip?.price_extra_person || 0) || 0;
+    const totalPeople = adults + children;
+    const extraPeople = Math.max(0, totalPeople - included);
+    return base + extraPeople * extra;
+  }
+  if (pm === 'per_hour') {
+    const hourly = Number(trip?.price_base || trip?.hourly_rate || 0) || 0;
+    const minH = Number(trip?.min_hours || 1) || 1;
+    const billable = Math.max(minH, hours || 0);
+    return billable * hourly;
+  }
+  if (pm === 'per_day') {
+    const daily = Number(trip?.price_base || trip?.daily_rate || 0) || 0;
+    const billableDays = Math.max(1, days || 0);
+    return billableDays * daily;
+  }
+  return Number(trip?.price_base || 0) || Number(trip?.price_per_person || 0) || 0;
+}
+
+function calculateHotelPrice(hotel, persons, nights) {
+  const model = hotel?.pricing_model || 'per_person_per_night';
+  const tiers = hotel?.pricing_tiers?.rules || [];
+  if (!tiers.length) return { total: 0, pricePerNight: 0, billableNights: nights, tier: null };
+
+  persons = Number(persons) || 1;
+  nights = Number(nights) || 1;
+
+  const findTierByPersons = () => {
+    let rule = tiers.find((r) => Number(r.persons) === persons);
+    if (rule) return rule;
+    const lowers = tiers.filter((r) => Number(r.persons) <= persons);
+    if (lowers.length) {
+      return lowers.sort((a, b) => Number(b.persons) - Number(a.persons))[0];
+    }
+    return null;
+  };
+
+  const findBestTierByNights = () => {
+    const matching = tiers
+      .filter((r) => !r.min_nights || Number(r.min_nights) <= nights)
+      .sort((a, b) => (Number(b.min_nights) || 0) - (Number(a.min_nights) || 0));
+    return matching[0] || tiers[0];
+  };
+
+  const findBestTierByPersonsAndNights = () => {
+    let personTiers = tiers.filter((r) => Number(r.persons) === persons);
+    if (!personTiers.length) {
+      const lowers = tiers.filter((r) => Number(r.persons) <= persons);
+      if (lowers.length) {
+        const maxPersons = Math.max(...lowers.map((r) => Number(r.persons)));
+        personTiers = lowers.filter((r) => Number(r.persons) === maxPersons);
+      }
+    }
+    if (!personTiers.length) return null;
+    const matching = personTiers
+      .filter((r) => !r.min_nights || Number(r.min_nights) <= nights)
+      .sort((a, b) => (Number(b.min_nights) || 0) - (Number(a.min_nights) || 0));
+    return matching[0] || personTiers[0];
+  };
+
+  let rule = null;
+  switch (model) {
+    case 'flat_per_night':
+      rule = findBestTierByNights();
+      break;
+    case 'tiered_by_nights':
+      rule = findBestTierByPersonsAndNights();
+      break;
+    case 'per_person_per_night':
+    case 'category_per_night':
+    default:
+      rule = findTierByPersons();
+      break;
+  }
+
+  if (!rule) {
+    rule = tiers.sort((a, b) => Number(a.price_per_night) - Number(b.price_per_night))[0];
+  }
+
+  const pricePerNight = Number(rule.price_per_night || 0);
+  const minNights = Number(rule.min_nights || 0);
+  const billableNights = minNights ? Math.max(minNights, nights) : nights;
+  const total = billableNights * pricePerNight;
+  return { total, pricePerNight, billableNights, tier: rule };
+}
+
+function calcCarTotal(carOffer, { location, days } = {}) {
+  const loc = String(location || carOffer?.location || '').toLowerCase();
+  const d = Math.max(1, Number(days || 0) || 1);
+  const billableDays = Math.max(3, d);
+
+  if (loc === 'paphos') {
+    const p3 = Number(carOffer?.price_3days || 0) || 0;
+    if (billableDays === 3 && p3 > 0) return p3;
+
+    let rate = Number(carOffer?.price_4_6days || 0) || 0;
+    if (billableDays >= 7 && billableDays <= 10) rate = Number(carOffer?.price_7_10days || 0) || rate;
+    if (billableDays >= 10) rate = Number(carOffer?.price_10plus_days || 0) || rate;
+    if (!rate) rate = Number(carOffer?.price_per_day || 0) || 0;
+    return (Number(rate) || 0) * billableDays;
+  }
+
+  const perDay =
+    Number(carOffer?.price_per_day || 0) ||
+    Number(carOffer?.price_10plus_days || 0) ||
+    Number(carOffer?.price_7_10days || 0) ||
+    Number(carOffer?.price_4_6days || 0) ||
+    0;
+  return perDay * billableDays;
+}
+
+function getHotelMinPricePerNight(hotel) {
+  const rules = hotel?.pricing_tiers?.rules || [];
+  if (!rules.length) return null;
+  let min = Infinity;
+  rules.forEach((r) => {
+    const p = Number(r?.price_per_night);
+    if (Number.isFinite(p) && p < min) min = p;
+  });
+  return Number.isFinite(min) ? min : null;
+}
+
+function getCarFromPricePerDay(carOffer) {
+  const loc = String(carOffer?.location || '').toLowerCase();
+  if (loc === 'paphos') {
+    const from = Number(carOffer?.price_10plus_days || carOffer?.price_per_day || 0) || 0;
+    return from || null;
+  }
+  const from =
+    Number(carOffer?.price_per_day || 0) ||
+    Number(carOffer?.price_10plus_days || 0) ||
+    Number(carOffer?.price_7_10days || 0) ||
+    Number(carOffer?.price_4_6days || 0) ||
+    null;
+  return from;
+}
+
+function computePlanCostSummary() {
+  const currency = (currentPlan?.currency || 'EUR').toUpperCase();
+  const party = getPartyForPlan(currentPlan);
+  const people = Math.max(1, Number(currentPlan?.people_count || (party.adults + party.children) || 1) || 1);
+
+  let tripsTotal = 0;
+  let hotelsTotal = 0;
+  let carsTotal = 0;
+
+  const byRange = new Map();
+  const allItems = [];
+  dayItemsByDayId.forEach((items) => {
+    (Array.isArray(items) ? items : []).forEach((it) => {
+      if (!it || !it.item_type || it.item_type === 'note' || it.item_type === 'poi') return;
+      allItems.push(it);
+    });
+  });
+
+  allItems.forEach((it) => {
+    const d = it?.data && typeof it.data === 'object' ? it.data : {};
+    const rangeId = d.range_id ? String(d.range_id) : '';
+    if (rangeId) {
+      if (!byRange.has(rangeId)) byRange.set(rangeId, it);
+      return;
+    }
+
+    if (it.item_type === 'trip') {
+      const ref = catalogData.trips.find((t) => String(t?.id) === String(it.ref_id)) || null;
+      tripsTotal += calcTripTotal(ref || {}, { adults: party.adults, children: party.children, hours: 1, days: 1 });
+    }
+  });
+
+  byRange.forEach((it) => {
+    const d = it?.data && typeof it.data === 'object' ? it.data : {};
+    const start = Number(d.range_start_day_index || 0) || 0;
+    const end = Number(d.range_end_day_index || 0) || 0;
+    const days = start > 0 && end > 0 ? Math.max(1, Math.abs(end - start) + 1) : 1;
+
+    if (it.item_type === 'hotel') {
+      const ref = catalogData.hotels.find((h) => String(h?.id) === String(it.ref_id)) || null;
+      const nights = Math.max(1, days - 1);
+      const res = calculateHotelPrice(ref || {}, people, nights);
+      hotelsTotal += Number(res.total || 0) || 0;
+      return;
+    }
+
+    if (it.item_type === 'car') {
+      const ref = catalogData.cars.find((c) => String(c?.id) === String(it.ref_id)) || null;
+      carsTotal += calcCarTotal(ref || {}, { location: ref?.location, days });
+    }
+  });
+
+  const total = tripsTotal + hotelsTotal + carsTotal;
+  return {
+    currency,
+    people,
+    tripsTotal,
+    hotelsTotal,
+    carsTotal,
+    total,
+  };
+}
+
+function renderPlanCostSummary() {
+  const wrap = costSummaryEl();
+  if (!wrap) return;
+  if (!currentPlan?.id) {
+    wrap.innerHTML = '<div style="color:#64748b;">Select a plan and add services to see totals.</div>';
+    return;
+  }
+
+  const s = computePlanCostSummary();
+  wrap.innerHTML = `
+    <div style="display:flex; justify-content:space-between; gap:0.75rem;"><span style="color:#64748b;">Trips</span><strong>${escapeHtml(formatMoney(s.tripsTotal, s.currency))}</strong></div>
+    <div style="display:flex; justify-content:space-between; gap:0.75rem;"><span style="color:#64748b;">Cars</span><strong>${escapeHtml(formatMoney(s.carsTotal, s.currency))}</strong></div>
+    <div style="display:flex; justify-content:space-between; gap:0.75rem;"><span style="color:#64748b;">Accommodation</span><strong>${escapeHtml(formatMoney(s.hotelsTotal, s.currency))}</strong></div>
+    <div style="border-top:1px solid #e2e8f0; margin-top:0.25rem; padding-top:0.5rem; display:flex; justify-content:space-between; gap:0.75rem;">
+      <span style="color:#0f172a; font-weight:700;">Total</span>
+      <span style="color:#0f172a; font-weight:800;">${escapeHtml(formatMoney(s.total, s.currency))}</span>
+    </div>
+    <div style="color:#64748b; font-size:12px;">People: ${escapeHtml(String(s.people))}. Hotels: nights = (range days − 1). Cars: minimum 3 days.</div>
+  `;
 }
 
 function getCarLink(car) {
@@ -479,9 +757,9 @@ function renderServiceCatalog() {
       .map((t) => {
         const title = getTripTitle(t);
         const city = t?.start_city || '';
-        const ppl = Number(currentPlan?.people_count || 0);
-        const base = t?.price_per_person != null ? Number(t.price_per_person) : null;
-        const price = base != null ? `${(ppl > 0 ? base * ppl : base).toFixed(2)} €${ppl > 0 ? ` (${ppl}×)` : ''}` : '';
+        const party = getPartyForPlan(currentPlan);
+        const total = calcTripTotal(t, { adults: party.adults, children: party.children, hours: 1, days: 1 });
+        const price = total ? `${Number(total).toFixed(2)} €` : '';
         const slug = t?.slug || '';
         const url = slug ? `trip.html?slug=${encodeURIComponent(slug)}` : 'trips.html';
         return { id: t?.id, title, subtitle: city, price, url, lat: null, lng: null };
@@ -493,9 +771,11 @@ function renderServiceCatalog() {
       .map((h) => {
         const title = getHotelTitle(h);
         const city = getHotelCity(h);
+        const min = getHotelMinPricePerNight(h);
+        const price = min != null ? `${Number(min).toFixed(2)} € / night` : '';
         const slug = h?.slug || '';
         const url = slug ? `hotel.html?slug=${encodeURIComponent(slug)}` : 'hotels.html';
-        return { id: h?.id, title, subtitle: city, price: '', url, lat: null, lng: null };
+        return { id: h?.id, title, subtitle: city, price, url, lat: null, lng: null };
       })
       .filter((x) => (ctx.city ? (!x.subtitle || cityMatches(x.subtitle, ctx.city)) : true))
       .filter((x) => matches(`${x.title} ${x.subtitle}`));
@@ -506,7 +786,9 @@ function renderServiceCatalog() {
         const location = c?.location || '';
         const url = getCarLink(c);
         const north = c?.north_allowed ? 'north ok' : '';
-        return { id: c?.id, title, subtitle: [location, north].filter(Boolean).join(' • '), location, price: '', url, lat: null, lng: null };
+        const from = getCarFromPricePerDay(c);
+        const price = from != null ? `From ${Number(from).toFixed(0)}€ / day` : '';
+        return { id: c?.id, title, subtitle: [location, north].filter(Boolean).join(' • '), location, price, url, lat: null, lng: null };
       })
       .filter((x) => {
         if (ctx.includeNorth) {
@@ -1117,6 +1399,8 @@ async function loadPlanDays(planId) {
       }
     });
   });
+
+  renderPlanCostSummary();
 }
 
 async function regeneratePlanDays() {
@@ -1261,6 +1545,8 @@ function renderPlanDetails(plan) {
   const endEl = el('planEditEnd');
   const includeNorthEl = el('planEditIncludeNorth');
   const peopleEl = el('planEditPeople');
+  const adultsEl = el('planEditAdults');
+  const childrenEl = el('planEditChildren');
 
   if (titleEl instanceof HTMLInputElement) titleEl.value = plan.title || '';
   if (baseCityEl instanceof HTMLInputElement) baseCityEl.value = plan.base_city || '';
@@ -1269,7 +1555,45 @@ function renderPlanDetails(plan) {
   if (includeNorthEl instanceof HTMLInputElement) includeNorthEl.checked = !!plan.include_north;
   if (peopleEl instanceof HTMLInputElement) peopleEl.value = plan.people_count != null ? String(plan.people_count) : '1';
 
+  const party = getPartyForPlan(plan);
+  if (adultsEl instanceof HTMLInputElement) adultsEl.value = String(party.adults ?? 0);
+  if (childrenEl instanceof HTMLInputElement) childrenEl.value = String(party.children ?? 0);
+
+  if (!peopleEl?.dataset?.partyWired) {
+    if (peopleEl instanceof HTMLInputElement && adultsEl instanceof HTMLInputElement && childrenEl instanceof HTMLInputElement) {
+      const syncFromAdultsChildren = () => {
+        if (!currentPlan?.id) return;
+        const a = Math.max(0, Math.floor(Number(adultsEl.value || 0) || 0));
+        const c = Math.max(0, Math.floor(Number(childrenEl.value || 0) || 0));
+        const sum = Math.max(1, a + c);
+        peopleEl.value = String(sum);
+        savePartyForPlan(currentPlan.id, { adults: a, children: c });
+        renderPlanCostSummary();
+        renderServiceCatalog();
+      };
+
+      const syncFromPeople = () => {
+        if (!currentPlan?.id) return;
+        const p = Math.max(1, Math.floor(Number(peopleEl.value || 0) || 1));
+        const a = Math.max(0, Math.min(p, Math.floor(Number(adultsEl.value || 0) || 0)));
+        const c = Math.max(0, p - a);
+        adultsEl.value = String(a);
+        childrenEl.value = String(c);
+        savePartyForPlan(currentPlan.id, { adults: a, children: c });
+        renderPlanCostSummary();
+        renderServiceCatalog();
+      };
+
+      adultsEl.addEventListener('input', syncFromAdultsChildren);
+      childrenEl.addEventListener('input', syncFromAdultsChildren);
+      peopleEl.addEventListener('input', syncFromPeople);
+      peopleEl.dataset.partyWired = '1';
+    }
+  }
+
   setStatus(saveStatusEl(), '', null);
+
+  renderPlanCostSummary();
 }
 
 async function handleCreatePlan(event) {
@@ -1376,6 +1700,8 @@ async function handleSavePlan() {
   const endEl = el('planEditEnd');
   const includeNorthEl = el('planEditIncludeNorth');
   const peopleEl = el('planEditPeople');
+  const adultsEl = el('planEditAdults');
+  const childrenEl = el('planEditChildren');
 
   const title = titleEl instanceof HTMLInputElement ? titleEl.value.trim() : '';
   const baseCity = baseCityEl instanceof HTMLInputElement ? baseCityEl.value.trim() : '';
@@ -1384,6 +1710,15 @@ async function handleSavePlan() {
   const includeNorth = includeNorthEl instanceof HTMLInputElement ? includeNorthEl.checked : false;
   const peopleCount = peopleEl instanceof HTMLInputElement ? Number(peopleEl.value || 0) : 0;
   const cleanPeople = Number.isFinite(peopleCount) && peopleCount > 0 ? Math.floor(peopleCount) : 1;
+
+  if (adultsEl instanceof HTMLInputElement && childrenEl instanceof HTMLInputElement) {
+    const aRaw = Math.max(0, Math.floor(Number(adultsEl.value || 0) || 0));
+    const cRaw = Math.max(0, Math.floor(Number(childrenEl.value || 0) || 0));
+    const sum = aRaw + cRaw;
+    const a = sum > 0 ? aRaw : cleanPeople;
+    const c = sum > 0 ? cRaw : 0;
+    savePartyForPlan(currentPlan.id, { adults: a, children: c });
+  }
 
   const daysCount = startDate && endDate ? daysBetweenInclusive(startDate, endDate) : null;
   if ((startDate && endDate) && !daysCount) {
@@ -1430,6 +1765,7 @@ async function handleSavePlan() {
   await loadPlans({ selectId: currentPlan.id });
   await loadPlanDays(currentPlan.id);
   renderServiceCatalog();
+  renderPlanCostSummary();
 }
 
 async function handleDeletePlan() {
@@ -1497,6 +1833,17 @@ function wireEvents() {
   const delBtn = el('planDeleteBtn');
   if (delBtn instanceof HTMLButtonElement) {
     delBtn.addEventListener('click', handleDeletePlan);
+  }
+
+  const reqBtn = requestBookingBtnEl();
+  if (reqBtn instanceof HTMLButtonElement && !reqBtn.dataset.wired) {
+    reqBtn.addEventListener('click', () => {
+      if (!currentPlan?.id) return;
+      const s = computePlanCostSummary();
+      setStatus(requestBookingStatusEl(), `Collected: Trips ${formatMoney(s.tripsTotal, s.currency)}, Cars ${formatMoney(s.carsTotal, s.currency)}, Hotels ${formatMoney(s.hotelsTotal, s.currency)}.`, 'info');
+      showToast('Request booking: summary prepared (next step: one form submission).', 'info');
+    });
+    reqBtn.dataset.wired = '1';
   }
 
   window.addEventListener('hashchange', async () => {
