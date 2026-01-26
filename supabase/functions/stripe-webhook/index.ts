@@ -1,5 +1,4 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import Stripe from "https://esm.sh/stripe@13.6.0?target=deno";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 function readEnv(name: string): string {
@@ -12,14 +11,90 @@ function requireEnv(name: string): string {
   return value;
 }
 
-let stripeClient: Stripe | null = null;
-function getStripeClient(): Stripe {
-  if (stripeClient) return stripeClient;
-  stripeClient = new Stripe(requireEnv("STRIPE_SECRET_KEY"), {
-    apiVersion: "2023-10-16",
-    httpClient: Stripe.createFetchHttpClient(),
+type StripeEvent = {
+  id?: string;
+  type: string;
+  data: { object: any };
+};
+
+function parseStripeSignature(header: string): { timestamp: string; v1: string[] } | null {
+  const parts = String(header || "")
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
+  const kv: Record<string, string[]> = {};
+  for (const p of parts) {
+    const idx = p.indexOf("=");
+    if (idx <= 0) continue;
+    const k = p.slice(0, idx).trim();
+    const v = p.slice(idx + 1).trim();
+    if (!k || !v) continue;
+    (kv[k] ||= []).push(v);
+  }
+  const timestamp = (kv["t"] || [""])[0] || "";
+  const v1 = kv["v1"] || [];
+  if (!timestamp || v1.length === 0) return null;
+  return { timestamp, v1 };
+}
+
+function hexToBytes(hex: string): Uint8Array {
+  const clean = String(hex || "").trim().toLowerCase();
+  const out = new Uint8Array(Math.floor(clean.length / 2));
+  for (let i = 0; i < out.length; i++) {
+    out[i] = parseInt(clean.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+}
+
+function timingSafeEqual(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a[i] ^ b[i];
+  return diff === 0;
+}
+
+async function computeStripeSignature(secret: string, payload: string): Promise<string> {
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(secret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(payload));
+  const bytes = new Uint8Array(sig);
+  return Array.from(bytes)
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+async function verifyStripeWebhook(params: {
+  body: string;
+  signatureHeader: string;
+  webhookSecret: string;
+}): Promise<StripeEvent> {
+  const parsed = parseStripeSignature(params.signatureHeader);
+  if (!parsed) throw new Error("Invalid Stripe-Signature header");
+
+  const signedPayload = `${parsed.timestamp}.${params.body}`;
+  const expectedHex = await computeStripeSignature(params.webhookSecret, signedPayload);
+  const expectedBytes = hexToBytes(expectedHex);
+
+  const ok = parsed.v1.some((candidate) => {
+    try {
+      return timingSafeEqual(hexToBytes(candidate), expectedBytes);
+    } catch (_e) {
+      return false;
+    }
   });
-  return stripeClient;
+
+  if (!ok) throw new Error("Webhook signature verification failed");
+
+  const evt = JSON.parse(params.body || "{}");
+  if (!evt || typeof evt !== "object" || typeof evt.type !== "string") {
+    throw new Error("Invalid Stripe event JSON");
+  }
+  return evt as StripeEvent;
 }
 
 const corsHeaders = {
@@ -49,7 +124,7 @@ function looksLikeUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 }
 
-async function resolveDepositRequestIdFromSession(supabase: any, session: Stripe.Checkout.Session): Promise<string> {
+async function resolveDepositRequestIdFromSession(supabase: any, session: any): Promise<string> {
   const metaId = String((session.metadata as any)?.deposit_request_id || "").trim();
   if (metaId) return metaId;
 
@@ -172,7 +247,7 @@ async function enqueueAdminDepositPaidEmail(supabase: any, params: {
   }
 }
 
-async function handleDepositPaymentIntentSucceeded(supabase: any, paymentIntent: Stripe.PaymentIntent, depositRequestId: string) {
+async function handleDepositPaymentIntentSucceeded(supabase: any, paymentIntent: any, depositRequestId: string) {
   const nowIso = new Date().toISOString();
   const pid = String(paymentIntent.id || "").trim();
   const id = String(depositRequestId || "").trim();
@@ -255,14 +330,14 @@ async function handleDepositPaymentIntentSucceeded(supabase: any, paymentIntent:
   });
 }
 
-async function handleDepositCheckoutCompleted(supabase: any, session: Stripe.Checkout.Session, depositRequestIdOverride?: string) {
+async function handleDepositCheckoutCompleted(supabase: any, session: any, depositRequestIdOverride?: string) {
   const depositRequestId = String(
     depositRequestIdOverride || (session.metadata as any)?.deposit_request_id || session.client_reference_id || "",
   ).trim();
   if (!depositRequestId) return;
 
   const nowIso = new Date().toISOString();
-  const paymentIntentId = getStripeId(session.payment_intent);
+  const paymentIntentId = String(session.payment_intent?.id || "").trim();
 
   const { data: dep, error: depErr } = await supabase
     .from("service_deposit_requests")
@@ -342,7 +417,7 @@ async function handleDepositCheckoutCompleted(supabase: any, session: Stripe.Che
   });
 }
 
-async function handleDepositCheckoutExpired(supabase: any, session: Stripe.Checkout.Session, depositRequestIdOverride?: string) {
+async function handleDepositCheckoutExpired(supabase: any, session: any, depositRequestIdOverride?: string) {
   const depositRequestId = String(
     depositRequestIdOverride || (session.metadata as any)?.deposit_request_id || session.client_reference_id || "",
   ).trim();
@@ -546,12 +621,12 @@ serve(async (req) => {
     );
   }
 
-  let event: Stripe.Event;
+  let event: StripeEvent;
   try {
-    event = await getStripeClient().webhooks.constructEventAsync(body, signature, webhookSecret);
-  } catch (err) {
+    event = await verifyStripeWebhook({ body, signatureHeader: signature, webhookSecret });
+  } catch (err: any) {
     console.error("Webhook signature verification failed:", err);
-    return new Response(`Webhook Error: ${err.message}`, { status: 400 });
+    return new Response(`Webhook Error: ${err?.message || "signature verification failed"}`, { status: 400 });
   }
 
   let supabase: any;
@@ -570,44 +645,44 @@ serve(async (req) => {
   try {
     switch (event.type) {
       case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
+        const session = event.data.object as any;
         await handleCheckoutCompleted(supabase, session);
         break;
       }
 
       case "checkout.session.expired": {
-        const session = event.data.object as Stripe.Checkout.Session;
+        const session = event.data.object as any;
         await handleCheckoutExpired(supabase, session);
         break;
       }
 
       case "payment_intent.succeeded": {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        const paymentIntent = event.data.object as any;
         await handlePaymentSucceeded(supabase, paymentIntent);
         break;
       }
 
       case "payment_intent.payment_failed": {
-        const paymentIntent = event.data.object as Stripe.PaymentIntent;
+        const paymentIntent = event.data.object as any;
         await handlePaymentFailed(supabase, paymentIntent);
         break;
       }
 
       case "customer.subscription.created":
       case "customer.subscription.updated": {
-        const subscription = event.data.object as Stripe.Subscription;
+        const subscription = event.data.object as any;
         await handleSubscriptionUpdate(supabase, subscription);
         break;
       }
 
       case "customer.subscription.deleted": {
-        const subscription = event.data.object as Stripe.Subscription;
+        const subscription = event.data.object as any;
         await handleSubscriptionDeleted(supabase, subscription);
         break;
       }
 
       case "charge.refunded": {
-        const charge = event.data.object as Stripe.Charge;
+        const charge = event.data.object as any;
         await handleChargeRefunded(supabase, charge);
         break;
       }
@@ -629,7 +704,7 @@ serve(async (req) => {
   }
 });
 
-async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.Session) {
+async function handleCheckoutCompleted(supabase: any, session: any) {
   console.log("Checkout completed:", session.id);
 
   const depositRequestId = await resolveDepositRequestIdFromSession(supabase, session);
@@ -827,7 +902,7 @@ async function handleCheckoutCompleted(supabase: any, session: Stripe.Checkout.S
   console.log("Order confirmed and XP awarded:", order.id);
 }
 
-async function handleCheckoutExpired(supabase: any, session: Stripe.Checkout.Session) {
+async function handleCheckoutExpired(supabase: any, session: any) {
   console.log("Checkout expired:", session.id);
 
   const depositRequestId = await resolveDepositRequestIdFromSession(supabase, session);
@@ -864,7 +939,7 @@ async function handleCheckoutExpired(supabase: any, session: Stripe.Checkout.Ses
   }
 }
 
-async function handlePaymentSucceeded(supabase: any, paymentIntent: Stripe.PaymentIntent) {
+async function handlePaymentSucceeded(supabase: any, paymentIntent: any) {
   console.log("Payment succeeded:", paymentIntent.id);
 
   const depId = String((paymentIntent.metadata as any)?.deposit_request_id || "").trim();
@@ -1035,7 +1110,7 @@ async function handlePaymentSucceeded(supabase: any, paymentIntent: Stripe.Payme
   }
 }
 
-async function handlePaymentFailed(supabase: any, paymentIntent: Stripe.PaymentIntent) {
+async function handlePaymentFailed(supabase: any, paymentIntent: any) {
   console.log("Payment failed:", paymentIntent.id);
 
   const { data: order } = await supabase
@@ -1067,7 +1142,7 @@ async function handlePaymentFailed(supabase: any, paymentIntent: Stripe.PaymentI
   }
 }
 
-async function handleSubscriptionUpdate(supabase: any, subscription: Stripe.Subscription) {
+async function handleSubscriptionUpdate(supabase: any, subscription: any) {
   console.log("Subscription updated:", subscription.id);
 
   const { data: existingSub } = await supabase
@@ -1113,7 +1188,7 @@ async function handleSubscriptionUpdate(supabase: any, subscription: Stripe.Subs
   }
 }
 
-async function handleSubscriptionDeleted(supabase: any, subscription: Stripe.Subscription) {
+async function handleSubscriptionDeleted(supabase: any, subscription: any) {
   console.log("Subscription deleted:", subscription.id);
 
   await supabase
@@ -1126,7 +1201,7 @@ async function handleSubscriptionDeleted(supabase: any, subscription: Stripe.Sub
     .eq("stripe_subscription_id", subscription.id);
 }
 
-async function handleChargeRefunded(supabase: any, charge: Stripe.Charge) {
+async function handleChargeRefunded(supabase: any, charge: any) {
   console.log("Charge refunded:", charge.id);
 
   const { data: order } = await supabase
