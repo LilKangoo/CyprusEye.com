@@ -175,6 +175,19 @@ function getHotelTitle(hotel) {
   return hotel?.title?.pl || hotel?.title?.en || hotel?.title || hotel?.slug || 'Hotel';
 }
 
+function getHotelCity(hotel) {
+  if (!hotel || typeof hotel !== 'object') return '';
+  return (
+    hotel.city ||
+    hotel.location ||
+    hotel.town ||
+    hotel.area ||
+    hotel.destination ||
+    (hotel.address && typeof hotel.address === 'object' ? hotel.address.city : '') ||
+    ''
+  );
+}
+
 function getCarTitle(car) {
   if (typeof window.getCarName === 'function') return window.getCarName(car);
   return car?.car_model || car?.car_type || 'Car';
@@ -375,7 +388,7 @@ function renderServiceCatalog() {
     list = catalogData.hotels
       .map((h) => {
         const title = getHotelTitle(h);
-        const city = h?.city || '';
+        const city = getHotelCity(h);
         const slug = h?.slug || '';
         const url = slug ? `hotel.html?slug=${encodeURIComponent(slug)}` : 'hotels.html';
         return { id: h?.id, title, subtitle: city, price: '', url };
@@ -814,13 +827,19 @@ async function loadPlanDays(planId) {
             <strong>${escapeHtml(label)}</strong>
             <span style="color:#64748b;">${escapeHtml(city)}</span>
           </div>
+          <div style="margin-top:0.5rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+            <button type="button" class="btn btn-sm" data-day-quick-add="trip" data-day-id="${d.id}">Add trip</button>
+            <button type="button" class="btn btn-sm" data-day-quick-add="hotel" data-day-id="${d.id}">Add hotel</button>
+            <button type="button" class="btn btn-sm" data-day-quick-add="car" data-day-id="${d.id}">Add car</button>
+            <button type="button" class="btn btn-sm" data-day-quick-add="pois" data-day-id="${d.id}">Add places</button>
+          </div>
           <div style="margin-top:0.5rem; display:grid; gap:0.5rem;">
             <div style="display:grid; gap:0.25rem;">
               <label style="font-size:12px; color:#64748b;" for="dayCity_${d.id}">City</label>
               <input id="dayCity_${d.id}" type="text" value="${escapeHtml(city)}" data-day-city="${d.id}" placeholder="City" list="ceCityOptions" />
             </div>
             <div style="display:grid; gap:0.25rem;">
-              <label style="font-size:12px; color:#64748b;" for="dayNotes_${d.id}">Notes</label>
+              <label style="font-size:12px; color:#64748b;" for="dayNotes_${d.id}">Day notes</label>
               <textarea id="dayNotes_${d.id}" rows="2" data-day-notes="${d.id}" placeholder="Notes">${escapeHtml(notes)}</textarea>
             </div>
             <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
@@ -828,14 +847,7 @@ async function loadPlanDays(planId) {
               <span style="color:#64748b; font-size:12px;" data-day-status="${d.id}"></span>
             </div>
             ${servicesHtml}
-            <div style="border-top: 1px solid #e2e8f0; padding-top:0.5rem;">
-              <div style="font-size:12px; color:#64748b; margin-bottom:0.25rem;">Day notes</div>
-              <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-                <input type="text" data-day-note-input="${d.id}" placeholder="Add a note…" style="flex:1 1 220px;" />
-                <button type="button" class="btn btn-sm" data-day-note-add="${d.id}">Add</button>
-              </div>
-              ${itemsHtml}
-            </div>
+            ${itemsHtml}
           </div>
         </div>
       `;
@@ -878,16 +890,22 @@ async function loadPlanDays(planId) {
     });
   });
 
-  container.querySelectorAll('[data-day-note-add]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const dayId = btn.getAttribute('data-day-note-add');
-      if (!dayId) return;
-      const input = container.querySelector(`[data-day-note-input="${dayId}"]`);
-      const text = input instanceof HTMLInputElement ? input.value : '';
-      const created = await addDayNoteItem(dayId, text);
-      if (created) {
-        if (input instanceof HTMLInputElement) input.value = '';
-        await loadPlanDays(planId);
+  container.querySelectorAll('[data-day-quick-add]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const dayId = btn.getAttribute('data-day-id');
+      const tab = btn.getAttribute('data-day-quick-add');
+      if (!dayId || !tab) return;
+
+      const daySel = catalogDaySelectEl();
+      if (daySel instanceof HTMLSelectElement) {
+        daySel.value = dayId;
+      }
+      catalogActiveTab = tab;
+      renderServiceCatalog();
+
+      const catWrap = catalogEl();
+      if (catWrap && typeof catWrap.scrollIntoView === 'function') {
+        catWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
     });
   });
