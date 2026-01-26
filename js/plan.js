@@ -1,6 +1,19 @@
 import { showToast } from './toast.js';
 
-const sb = typeof window !== 'undefined' && typeof window.getSupabase === 'function' ? window.getSupabase() : null;
+let sb = typeof window !== 'undefined' && typeof window.getSupabase === 'function' ? window.getSupabase() : null;
+
+async function ensureSupabase({ timeoutMs = 5000, stepMs = 100 } = {}) {
+  if (sb) return sb;
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (typeof window !== 'undefined' && typeof window.getSupabase === 'function') {
+      sb = window.getSupabase();
+      if (sb) return sb;
+    }
+    await new Promise((r) => setTimeout(r, stepMs));
+  }
+  return null;
+}
 
 const el = (id) => document.getElementById(id);
 
@@ -1245,7 +1258,12 @@ function wireEvents() {
 }
 
 async function init() {
-  if (!sb) return;
+  const ok = await ensureSupabase();
+  if (!ok) {
+    setStatus(createStatusEl(), 'Supabase not ready. Please refresh the page.', 'error');
+    setStatus(saveStatusEl(), 'Supabase not ready. Please refresh the page.', 'error');
+    return;
+  }
 
   setCurrentYear();
 
