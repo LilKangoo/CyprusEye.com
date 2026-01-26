@@ -71,12 +71,34 @@ async function loadPaphosFleet() {
     const pageLocation = getPageLocation();
     console.log(`Loading ${pageLocation} fleet from database...`);
 
-    const { data: cars, error } = await supabase
-      .from('car_offers')
-      .select('*')
-      .eq('location', pageLocation)
-      .eq('is_available', true)
-      .order('sort_order', { ascending: true });
+    const requireNorthAllowed = pageLocation === 'larnaca';
+
+    async function fetchFleet(withNorthAllowed) {
+      let q = supabase
+        .from('car_offers')
+        .select('*')
+        .eq('location', pageLocation)
+        .eq('is_available', true);
+
+      if (withNorthAllowed) {
+        q = q.eq('north_allowed', requireNorthAllowed);
+      }
+
+      return q.order('sort_order', { ascending: true });
+    }
+
+    let { data: cars, error } = await fetchFleet(true);
+
+    if (error) {
+      const msg = String(error.message || '');
+      const missingNorthAllowed =
+        /north_allowed/i.test(msg)
+        && (/does not exist/i.test(msg) || /could not find/i.test(msg));
+
+      if (missingNorthAllowed) {
+        ({ data: cars, error } = await fetchFleet(false));
+      }
+    }
 
     if (error) {
       console.error('Error loading fleet:', error);

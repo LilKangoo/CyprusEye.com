@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://www.googletagmanager.com https://esm.sh https://unpkg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://www.google-analytics.com https://region1.google-analytics.com https://*.tile.openstreetmap.org https://esm.sh; frame-src 'self' https://docs.google.com; object-src 'none'; base-uri 'self'; form-action 'self'; upgrade-insecure-requests;" />
+    <meta name="theme-color" content="#2563eb" />
+    <meta name="robots" content="index,follow" />
+    <title>CyprusEye – Trip Planner</title>
+    <link rel="stylesheet" href="assets/css/tokens.css" />
+    <link rel="stylesheet" href="assets/css/base.css" />
+    <link rel="stylesheet" href="assets/css/components.css" />
+    <link rel="stylesheet" href="assets/css/mobile.css" />
+    <link rel="stylesheet" href="assets/css/mobile-nav.css" />
+    <link rel="stylesheet" href="/css/toast.css" />
+    <meta name="ce-auth" content="on" />
+    <script type="module" src="/js/supabaseClient.js"></script>
+    <script type="module" src="/js/toast.js"></script>
+    <script type="module" src="/js/auth.js"></script>
+    <script type="module" src="/js/authUi.js"></script>
+  </head>
+  <body data-navigation="multi-page" data-seo-page="plan">
+    <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
+
+    <main id="main-content" class="standalone-main">
+      <section class="card surface-card" style="margin: 1rem;" data-auth="anon-only">
+        <h1 style="margin-top: 0;">Trip Planner</h1>
+        <p style="color: #475569;">Log in to create and manage your trip plans.</p>
+        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+          <button class="btn btn-primary primary" type="button" data-open-auth data-auth-target="login">Log in</button>
+          <button class="btn" type="button" data-open-auth data-auth-target="register">Create account</button>
+          <a class="btn ghost" href="/index.html">Back to app</a>
+        </div>
+      </section>
+
+      <section class="card surface-card" style="margin: 1rem; padding: 0; overflow: hidden;" data-auth="user-only">
+        <div style="display: flex; gap: 0; flex-wrap: wrap;">
+          <aside style="flex: 1 1 320px; min-width: 280px; border-right: 1px solid #e2e8f0; padding: 1rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem;">
+              <h1 style="margin: 0; font-size: 20px;">Trip Planner</h1>
+              <a class="btn ghost" href="/index.html">Back</a>
+            </div>
+
+            <form id="planCreateForm" style="display: grid; gap: 0.75rem; margin-bottom: 1rem;">
+              <div style="display: grid; gap: 0.25rem;">
+                <label for="planTitle">Title</label>
+                <input id="planTitle" name="title" type="text" maxlength="120" placeholder="e.g. Cyprus in 7 days" />
+              </div>
+
+              <div style="display: grid; gap: 0.25rem;">
+                <label for="planBaseCity">Base city</label>
+                <input id="planBaseCity" name="base_city" type="text" maxlength="80" placeholder="e.g. Paphos" />
+              </div>
+
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                <div style="display: grid; gap: 0.25rem;">
+                  <label for="planStart">Start date</label>
+                  <input id="planStart" name="start_date" type="date" />
+                </div>
+                <div style="display: grid; gap: 0.25rem;">
+                  <label for="planEnd">End date</label>
+                  <input id="planEnd" name="end_date" type="date" />
+                </div>
+              </div>
+
+              <label style="display: flex; gap: 0.5rem; align-items: center;">
+                <input id="planIncludeNorth" name="include_north" type="checkbox" />
+                Include North Cyprus
+              </label>
+
+              <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+                <button class="btn btn-primary primary" type="submit">Create plan</button>
+                <span id="planCreateStatus" style="color: #64748b; font-size: 14px;"></span>
+              </div>
+            </form>
+
+            <h2 style="margin: 0 0 0.5rem; font-size: 16px;">Your plans</h2>
+            <div id="planList" style="display: grid; gap: 0.5rem;"></div>
+          </aside>
+
+          <section style="flex: 2 1 420px; min-width: 320px; padding: 1rem;">
+            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
+              <h2 style="margin: 0; font-size: 18px;">Plan details</h2>
+              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                <button id="planRefreshBtn" class="btn" type="button">Refresh</button>
+                <button id="planDeleteBtn" class="btn" type="button" style="border-color: #ef4444; color: #ef4444;">Delete</button>
+              </div>
+            </div>
+
+            <div id="planEmptyState" style="margin-top: 1rem; color: #64748b;">Select a plan from the list to see details.</div>
+
+            <div id="planDetails" hidden style="margin-top: 1rem; display: grid; gap: 1rem;">
+              <div class="card" style="padding: 1rem;">
+                <div style="display: grid; gap: 0.5rem;">
+                  <div style="display: grid; gap: 0.25rem;">
+                    <label for="planEditTitle">Title</label>
+                    <input id="planEditTitle" type="text" maxlength="120" />
+                  </div>
+                  <div style="display: grid; gap: 0.25rem;">
+                    <label for="planEditBaseCity">Base city</label>
+                    <input id="planEditBaseCity" type="text" maxlength="80" />
+                  </div>
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <div style="display: grid; gap: 0.25rem;">
+                      <label for="planEditStart">Start date</label>
+                      <input id="planEditStart" type="date" />
+                    </div>
+                    <div style="display: grid; gap: 0.25rem;">
+                      <label for="planEditEnd">End date</label>
+                      <input id="planEditEnd" type="date" />
+                    </div>
+                  </div>
+                  <label style="display: flex; gap: 0.5rem; align-items: center;">
+                    <input id="planEditIncludeNorth" type="checkbox" />
+                    Include North Cyprus
+                  </label>
+                  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+                    <button id="planSaveBtn" class="btn btn-primary primary" type="button">Save changes</button>
+                    <span id="planSaveStatus" style="color: #64748b; font-size: 14px;"></span>
+                  </div>
+                </div>
+              </div>
+
+              <div class="card" style="padding: 1rem;">
+                <h3 style="margin: 0 0 0.75rem; font-size: 16px;">Days</h3>
+                <div id="planDays" style="display: grid; gap: 0.5rem;"></div>
+              </div>
+            </div>
+          </section>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/js/plan.js?v=20260126"></script>
+    <script src="assets/js/modal-auth.js" defer></script>
+
+    <div id="auth-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="auth-title" aria-hidden="true">
+      <div class="modal__dialog" tabindex="-1" role="document">
+        <button class="modal__close" type="button" aria-label="Zamknij" data-close data-i18n-attrs="aria-label:auth.close.label">×</button>
+        <h2 id="auth-title" data-i18n="auth.title">Dołącz do przygody</h2>
+        <p class="auth-intro" data-i18n="auth.intro">Zaloguj się, utwórz konto lub graj jako gość.</p>
+        <div class="auth-modal__content" data-auth-view-root>
+          <div data-auth="login">
+            <div role="presentation">
+              <div class="auth-modal__tabs" role="tablist">
+                <button type="button" class="auth-modal__tab is-active" role="tab" id="authTabLogin" aria-selected="true" aria-controls="authPanelLogin" data-auth-tab="login" data-i18n="auth.tab.login">Logowanie</button>
+                <button type="button" class="auth-modal__tab" role="tab" id="authTabRegister" aria-selected="false" aria-controls="authPanelRegister" data-auth-tab="register" data-i18n="auth.tab.register" tabindex="-1">Rejestracja</button>
+              </div>
+              <div class="auth-modal__panels">
+                <section id="authPanelLogin" class="auth-modal__panel is-active" role="tabpanel" aria-labelledby="authTabLogin" data-auth="login" data-auth-panel="login">
+                  <form id="form-login" class="auth-form" novalidate data-ce-auth-handler="supabase">
+                    <label for="loginEmail" data-i18n="auth.login.username">Email lub nazwa użytkownika</label>
+                    <input id="loginEmail" name="email" type="text" autocomplete="username" required aria-label="Email lub nazwa użytkownika" placeholder="Email lub nazwa użytkownika" />
+                    <label for="loginPassword" data-i18n="auth.password">Hasło</label>
+                    <input id="loginPassword" name="password" type="password" autocomplete="current-password" required aria-label="Hasło" />
+                    <div class="auth-form__actions">
+                      <button type="submit" class="btn btn--primary" data-i18n="auth.login.button" aria-label="Zaloguj się">Zaloguj się</button>
+                      <button type="button" class="auth-form__link" id="loginForgotPassword" data-i18n="auth.reset.button" aria-label="🔑 Resetuj hasło">🔑 Resetuj hasło</button>
+                    </div>
+                    <div data-auth="message" aria-live="polite"></div>
+                  </form>
+                </section>
+                <section id="authPanelRegister" class="auth-modal__panel" role="tabpanel" aria-labelledby="authTabRegister" data-auth="login" data-auth-panel="register" hidden>
+                  <form id="form-register" class="auth-form" novalidate data-auth="register" data-ce-auth-handler="supabase">
+                    <label for="registerFirstName" data-i18n="auth.firstName">Imię</label>
+                    <input id="registerFirstName" name="firstName" type="text" autocomplete="given-name" maxlength="60" required aria-label="Imię" />
+                    <label for="registerUsername" data-i18n="auth.username">Nazwa użytkownika</label>
+                    <input id="registerUsername" name="username" type="text" autocomplete="username" minlength="3" maxlength="20" pattern="[a-zA-Z0-9_]+" required aria-label="Nazwa użytkownika" placeholder="3-20 znaków, litery i cyfry" />
+                    <label for="registerEmail" data-i18n="auth.email">Adres e-mail</label>
+                    <input id="registerEmail" name="email" type="email" autocomplete="email" required aria-label="Adres e-mail" />
+                    <label for="registerPassword" data-i18n="auth.password">Hasło</label>
+                    <input id="registerPassword" name="password" type="password" autocomplete="new-password" minlength="8" required aria-label="Hasło" />
+                    <label for="registerPasswordConfirm" data-i18n="auth.confirmPassword">Powtórz hasło</label>
+                    <input id="registerPasswordConfirm" name="passwordConfirm" type="password" autocomplete="new-password" minlength="8" aria-label="Powtórz hasło" />
+                    <div data-auth="message" aria-live="polite"></div>
+                    <p class="form-hint" data-i18n="auth.register.hint">Po rejestracji sprawdź skrzynkę e-mail, aby potwierdzić konto.</p>
+                    <button type="submit" class="btn btn--primary" data-i18n="auth.register.button" aria-label="Utwórz konto">Utwórz konto</button>
+                  </form>
+                </section>
+              </div>
+              <dialog id="resetPasswordDialog" class="auth-reset-dialog">
+                <form id="form-reset-password" class="auth-form" novalidate>
+                  <header class="auth-reset-dialog__header">
+                    <h2 data-i18n="auth.reset.title">Resetuj hasło</h2>
+                    <button type="button" class="auth-form__link" id="btn-reset-close" aria-label="Zamknij">✖</button>
+                  </header>
+                  <p data-i18n="auth.reset.description">Podaj adres e-mail powiązany z kontem, a wyślemy link do zmiany hasła.</p>
+                  <label for="resetEmail" data-i18n="auth.reset.emailLabel">Adres e-mail</label>
+                  <input id="resetEmail" name="email" type="email" autocomplete="email" required />
+                  <div class="auth-form__actions">
+                    <button type="submit" class="btn btn--primary">Wyślij link resetujący</button>
+                    <button type="button" class="auth-form__link" id="btn-reset-cancel">Anuluj</button>
+                  </div>
+                </form>
+              </dialog>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>
