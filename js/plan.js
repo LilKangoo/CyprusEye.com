@@ -15,6 +15,11 @@ async function ensureSupabase({ timeoutMs = 5000, stepMs = 100 } = {}) {
   return null;
 }
 
+function formHasCars(fd) {
+  const has = String(fd.get('has_cars') || '').trim();
+  return !!has;
+}
+
 const el = (id) => document.getElementById(id);
 
 const planListEl = () => el('planList');
@@ -1802,6 +1807,592 @@ function escapeHtml(unsafe) {
     .replace(/'/g, '&#039;');
 }
 
+function bookingDialogEl() {
+  return el('planBookingDialog');
+}
+function bookingFormEl() {
+  return el('planBookingForm');
+}
+function bookingFormBodyEl() {
+  return el('planBookingFormBody');
+}
+function bookingFormStatusEl() {
+  return el('planBookingFormStatus');
+}
+function bookingCloseBtnEl() {
+  return el('planBookingCloseBtn');
+}
+function bookingSubmitBtnEl() {
+  return el('planBookingSubmitBtn');
+}
+
+function plannerCustomerStorageKey() {
+  return 'ce_plan_booking_customer_v1';
+}
+
+function getSavedPlannerCustomer() {
+  try {
+    const raw = localStorage.getItem(plannerCustomerStorageKey());
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed || typeof parsed !== 'object') return null;
+    return {
+      name: String(parsed.name || '').trim(),
+      email: String(parsed.email || '').trim(),
+      phone: String(parsed.phone || '').trim(),
+      country: String(parsed.country || '').trim(),
+    };
+  } catch (_) {
+    return null;
+  }
+}
+
+function savePlannerCustomer(customer) {
+  const payload = {
+    name: String(customer?.name || '').trim(),
+    email: String(customer?.email || '').trim(),
+    phone: String(customer?.phone || '').trim(),
+    country: String(customer?.country || '').trim(),
+    savedAt: Date.now(),
+  };
+  try {
+    localStorage.setItem(plannerCustomerStorageKey(), JSON.stringify(payload));
+  } catch (_) {}
+}
+
+async function getPrefillCustomerFromSession() {
+  const saved = getSavedPlannerCustomer();
+  let sessionEmail = '';
+  try {
+    if (sb?.auth?.getUser) {
+      const res = await sb.auth.getUser();
+      sessionEmail = String(res?.data?.user?.email || '').trim();
+    }
+  } catch (_) {}
+
+  return {
+    name: saved?.name || '',
+    email: saved?.email || sessionEmail || '',
+    phone: saved?.phone || '',
+    country: saved?.country || '',
+  };
+}
+
+function wirePlannerBookingDynamicAddressRequirements() {
+  const body = bookingFormBodyEl();
+  if (!body) return;
+
+  const update = () => {
+    const carsCountEl = body.querySelector('input[name="count_cars"]');
+    const count = Math.max(0, Math.floor(Number(carsCountEl?.value || 0) || 0));
+    for (let i = 0; i < count; i += 1) {
+      const pickupSel = body.querySelector(`select[name="car_pickup_location_${i}"]`);
+      const returnSel = body.querySelector(`select[name="car_return_location_${i}"]`);
+      const pickupAddr = body.querySelector(`input[name="car_pickup_address_${i}"]`);
+      const returnAddr = body.querySelector(`input[name="car_return_address_${i}"]`);
+
+      const pickupVal = String(pickupSel?.value || '');
+      const returnVal = String(returnSel?.value || '');
+      const pickupNeeds = pickupVal === 'hotel' || pickupVal === 'other';
+      const returnNeeds = returnVal === 'hotel' || returnVal === 'other';
+
+      if (pickupAddr instanceof HTMLInputElement) pickupAddr.required = pickupNeeds;
+      if (returnAddr instanceof HTMLInputElement) returnAddr.required = returnNeeds;
+    }
+  };
+
+  body.addEventListener('change', (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLElement)) return;
+    if (t.matches('select[name^="car_pickup_location_"]') || t.matches('select[name^="car_return_location_"]')) {
+      update();
+    }
+  });
+  update();
+}
+
+function buildDayIndexToDateMap() {
+  const m = new Map();
+  planDaysById.forEach((d) => {
+    const idx = Number(d?.day_index || 0) || 0;
+    const date = d?.date ? String(d.date) : '';
+    if (idx > 0 && date) m.set(idx, date);
+  });
+  return m;
+}
+
+function getSelectedServicesForBooking() {
+  const all = [];
+  dayItemsByDayId.forEach((items) => {
+    (Array.isArray(items) ? items : []).forEach((it) => {
+      if (!it || !it.item_type || it.item_type === 'note' || it.item_type === 'poi') return;
+      all.push(it);
+    });
+  });
+
+  const dayById = new Map();
+  planDaysById.forEach((d) => dayById.set(String(d.id), d));
+  const dayIndexToDate = buildDayIndexToDateMap();
+
+  const byRange = new Map();
+  const trips = [];
+
+  all.forEach((it) => {
+    const d = it?.data && typeof it.data === 'object' ? it.data : {};
+    const rangeId = d.range_id ? String(d.range_id) : '';
+    if (rangeId) {
+      if (!byRange.has(rangeId)) byRange.set(rangeId, it);
+      return;
+    }
+    if (it.item_type === 'trip') {
+      const day = dayById.get(String(it.plan_day_id)) || null;
+      const date = day?.date ? String(day.date) : '';
+      const ref = catalogData.trips.find((t) => String(t?.id) === String(it.ref_id)) || null;
+      trips.push({ item: it, day, date, trip: ref });
+    }
+  });
+
+  const hotels = [];
+  const cars = [];
+
+  byRange.forEach((it) => {
+    const d = it?.data && typeof it.data === 'object' ? it.data : {};
+    const startIdx = Number(d.range_start_day_index || 0) || 0;
+    const endIdx = Number(d.range_end_day_index || 0) || 0;
+    const startDate = startIdx > 0 ? (dayIndexToDate.get(startIdx) || '') : '';
+    const endDate = endIdx > 0 ? (dayIndexToDate.get(endIdx) || '') : '';
+
+    if (it.item_type === 'hotel') {
+      const ref = catalogData.hotels.find((h) => String(h?.id) === String(it.ref_id)) || null;
+      hotels.push({ item: it, startIdx, endIdx, startDate, endDate, hotel: ref });
+      return;
+    }
+    if (it.item_type === 'car') {
+      const ref = catalogData.cars.find((c) => String(c?.id) === String(it.ref_id)) || null;
+      cars.push({ item: it, startIdx, endIdx, startDate, endDate, car: ref });
+    }
+  });
+
+  return { trips, hotels, cars };
+}
+
+async function renderPlannerBookingForm() {
+  const body = bookingFormBodyEl();
+  if (!body) return;
+  if (!currentPlan?.id) {
+    body.innerHTML = '<div style="color:#64748b;">Select a plan first.</div>';
+    return;
+  }
+
+  const selected = getSelectedServicesForBooking();
+  const party = getPartyForPlan(currentPlan);
+
+  const customer = await getPrefillCustomerFromSession();
+
+  const hasTrips = selected.trips.length > 0;
+  const hasHotels = selected.hotels.length > 0;
+  const hasCars = selected.cars.length > 0;
+
+  if (!hasTrips && !hasHotels && !hasCars) {
+    body.innerHTML = '<div style="color:#64748b;">Add at least one service to your plan to request booking.</div>';
+    return;
+  }
+
+  const tripRows = selected.trips
+    .map((x, i) => {
+      const t = x.trip || {};
+      const title = x.item?.data?.title || getTripTitle(t) || 'Trip';
+      const date = x.date || '';
+      const pm = t?.pricing_model || 'per_person';
+      const showHours = pm === 'per_hour';
+      const showDays = pm === 'per_day';
+      return `
+        <div class="card" style="padding:0.75rem; border:1px solid #e2e8f0;">
+          <div style="font-weight:700;">${escapeHtml(title)}</div>
+          <div style="color:#64748b; font-size:12px;">${escapeHtml(date ? `Date: ${date}` : 'Date: (set in plan day)')}</div>
+          <input type="hidden" name="trip_ref_id_${i}" value="${escapeHtml(t?.id || x.item?.ref_id || '')}" />
+          <input type="hidden" name="trip_date_${i}" value="${escapeHtml(date)}" />
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.5rem;">
+            <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+              Adults
+              <input type="number" name="trip_adults_${i}" min="0" step="1" value="${escapeHtml(String(party.adults || 0))}" />
+            </label>
+            <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+              Children
+              <input type="number" name="trip_children_${i}" min="0" step="1" value="${escapeHtml(String(party.children || 0))}" />
+            </label>
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.5rem;">
+            <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a; ${showHours ? '' : 'opacity:0.6;'}">
+              Hours
+              <input type="number" name="trip_hours_${i}" min="1" step="1" value="1" ${showHours ? '' : 'disabled'} />
+            </label>
+            <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a; ${showDays ? '' : 'opacity:0.6;'}">
+              Days
+              <input type="number" name="trip_days_${i}" min="1" step="1" value="1" ${showDays ? '' : 'disabled'} />
+            </label>
+          </div>
+          <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a; margin-top:0.5rem;">
+            Notes
+            <textarea name="trip_notes_${i}" rows="2" placeholder="Additional info"></textarea>
+          </label>
+        </div>
+      `;
+    })
+    .join('');
+
+  const hotelRows = selected.hotels
+    .map((x, i) => {
+      const h = x.hotel || {};
+      const title = x.item?.data?.title || (window.getHotelName ? window.getHotelName(h) : (h?.title?.pl || h?.title?.en || h?.slug)) || 'Hotel';
+      const arrival = x.startDate || '';
+      const departure = x.endDate || '';
+      return `
+        <div class="card" style="padding:0.75rem; border:1px solid #e2e8f0;">
+          <div style="font-weight:700;">${escapeHtml(title)}</div>
+          <div style="color:#64748b; font-size:12px;">${escapeHtml(arrival && departure ? `Dates: ${arrival} → ${departure}` : 'Dates: (set via range in plan)')}</div>
+          <input type="hidden" name="hotel_ref_id_${i}" value="${escapeHtml(h?.id || x.item?.ref_id || '')}" />
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.5rem;">
+            <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+              Arrival
+              <input type="date" name="hotel_arrival_${i}" value="${escapeHtml(arrival)}" required />
+            </label>
+            <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+              Departure
+              <input type="date" name="hotel_departure_${i}" value="${escapeHtml(departure)}" required />
+            </label>
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.5rem;">
+            <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+              Adults
+              <input type="number" name="hotel_adults_${i}" min="0" step="1" value="${escapeHtml(String(party.adults || 0))}" />
+            </label>
+            <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+              Children
+              <input type="number" name="hotel_children_${i}" min="0" step="1" value="${escapeHtml(String(party.children || 0))}" />
+            </label>
+          </div>
+          <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a; margin-top:0.5rem;">
+            Notes
+            <textarea name="hotel_notes_${i}" rows="2" placeholder="Preferences, questions..."></textarea>
+          </label>
+        </div>
+      `;
+    })
+    .join('');
+
+  const carRows = selected.cars
+    .map((x, i) => {
+      const c = x.car || {};
+      const title = x.item?.data?.title || c?.car_model || c?.car_type || 'Car';
+      const pickup = x.startDate || '';
+      const ret = x.endDate || '';
+      const loc = String(c?.location || '').toLowerCase() || 'paphos';
+      const people = Math.max(1, Number(currentPlan?.people_count || 1) || 1);
+      return `
+        <div class="card" style="padding:0.75rem; border:1px solid #e2e8f0;">
+          <div style="font-weight:700;">${escapeHtml(title)}${loc ? ` <span style="color:#64748b; font-weight:400;">(${escapeHtml(loc)})</span>` : ''}</div>
+          <input type="hidden" name="car_ref_id_${i}" value="${escapeHtml(c?.id || x.item?.ref_id || '')}" />
+          <input type="hidden" name="car_location_${i}" value="${escapeHtml(loc)}" />
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.5rem;">
+            <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+              Pickup date
+              <input type="date" name="car_pickup_date_${i}" value="${escapeHtml(pickup)}" required />
+            </label>
+            <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+              Return date
+              <input type="date" name="car_return_date_${i}" value="${escapeHtml(ret)}" required />
+            </label>
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.5rem;">
+            <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+              Pickup time
+              <input type="time" name="car_pickup_time_${i}" value="10:00" />
+            </label>
+            <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+              Return time
+              <input type="time" name="car_return_time_${i}" value="10:00" />
+            </label>
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.5rem;">
+            <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+              Pickup location
+              <select name="car_pickup_location_${i}">
+                <option value="airport_pfo">Airport</option>
+                <option value="hotel">Hotel</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+            <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+              Return location
+              <select name="car_return_location_${i}">
+                <option value="airport_pfo">Airport</option>
+                <option value="hotel">Hotel</option>
+                <option value="other">Other</option>
+              </select>
+            </label>
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.5rem;">
+            <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+              Pickup address (optional)
+              <input type="text" name="car_pickup_address_${i}" />
+            </label>
+            <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+              Return address (optional)
+              <input type="text" name="car_return_address_${i}" />
+            </label>
+          </div>
+          <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 0.5rem;">
+            <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+              Passengers
+              <input type="number" name="car_num_passengers_${i}" min="1" step="1" value="${escapeHtml(String(people))}" />
+            </label>
+            <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+              Child seats
+              <input type="number" name="car_child_seats_${i}" min="0" step="1" value="0" />
+            </label>
+          </div>
+          <label style="display:flex; gap:0.5rem; align-items:center; margin-top:0.5rem;">
+            <input type="checkbox" name="car_full_insurance_${i}" />
+            Full insurance
+          </label>
+          <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a; margin-top:0.5rem;">
+            Flight number (optional)
+            <input type="text" name="car_flight_number_${i}" />
+          </label>
+          <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a; margin-top:0.5rem;">
+            Special requests
+            <textarea name="car_special_requests_${i}" rows="2"></textarea>
+          </label>
+        </div>
+      `;
+    })
+    .join('');
+
+  body.innerHTML = `
+    <div class="card" style="padding: 0.75rem; border:1px solid #e2e8f0;">
+      <div style="font-weight:700; margin-bottom:0.5rem;">Customer</div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+        <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+          Full name
+          <input name="customer_name" required value="${escapeHtml(customer.name)}" />
+        </label>
+        <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+          Email
+          <input name="customer_email" type="email" required value="${escapeHtml(customer.email)}" />
+        </label>
+      </div>
+      <div style="display:grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top:0.5rem;">
+        <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+          Phone
+          <input name="customer_phone" required value="${escapeHtml(customer.phone)}" />
+        </label>
+        <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
+          Country (for car booking)
+          <input name="customer_country" value="${escapeHtml(customer.country)}" />
+        </label>
+      </div>
+    </div>
+    ${hasTrips ? `<div style="font-weight:800;">Trips</div>${tripRows}` : ''}
+    ${hasHotels ? `<div style="font-weight:800;">Accommodation</div>${hotelRows}` : ''}
+    ${hasCars ? `<div style="font-weight:800;">Cars</div>${carRows}` : ''}
+    <input type="hidden" name="has_trips" value="${hasTrips ? '1' : ''}" />
+    <input type="hidden" name="has_hotels" value="${hasHotels ? '1' : ''}" />
+    <input type="hidden" name="has_cars" value="${hasCars ? '1' : ''}" />
+    <input type="hidden" name="count_trips" value="${escapeHtml(String(selected.trips.length))}" />
+    <input type="hidden" name="count_hotels" value="${escapeHtml(String(selected.hotels.length))}" />
+    <input type="hidden" name="count_cars" value="${escapeHtml(String(selected.cars.length))}" />
+  `;
+}
+
+async function submitPlannerBookingForm(event) {
+  event.preventDefault();
+  if (!sb || !currentPlan?.id) return;
+
+  const form = bookingFormEl();
+  if (!(form instanceof HTMLFormElement)) return;
+
+  const fd = new FormData(form);
+  const statusEl = bookingFormStatusEl();
+  const btn = bookingSubmitBtnEl();
+  setStatus(statusEl, '', null);
+
+  const customerName = String(fd.get('customer_name') || '').trim();
+  const customerEmail = String(fd.get('customer_email') || '').trim();
+  const customerPhone = String(fd.get('customer_phone') || '').trim();
+  const customerCountry = String(fd.get('customer_country') || '').trim();
+  const hasCars = formHasCars(fd);
+
+  if (!customerName || !customerEmail || !customerPhone) {
+    setStatus(statusEl, 'Please fill in customer name, email and phone.', 'error');
+    return;
+  }
+  if (hasCars && !customerCountry) {
+    setStatus(statusEl, 'Country is required for car booking requests.', 'error');
+    return;
+  }
+
+  savePlannerCustomer({ name: customerName, email: customerEmail, phone: customerPhone, country: customerCountry });
+
+  const user = await getCurrentUser();
+  const createdBy = user?.id || null;
+
+  const selected = getSelectedServicesForBooking();
+
+  if (btn instanceof HTMLButtonElement) {
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+  }
+
+  try {
+    const tripRows = [];
+    selected.trips.forEach((x, i) => {
+      const t = x.trip || {};
+      const tripId = String(fd.get(`trip_ref_id_${i}`) || t?.id || x.item?.ref_id || '').trim();
+      const tripDate = String(fd.get(`trip_date_${i}`) || x.date || '').trim();
+      const adults = Math.max(0, Math.floor(Number(fd.get(`trip_adults_${i}`) || 0) || 0));
+      const children = Math.max(0, Math.floor(Number(fd.get(`trip_children_${i}`) || 0) || 0));
+      const hours = Math.max(1, Math.floor(Number(fd.get(`trip_hours_${i}`) || 1) || 1));
+      const days = Math.max(1, Math.floor(Number(fd.get(`trip_days_${i}`) || 1) || 1));
+      const notes = String(fd.get(`trip_notes_${i}`) || '').trim();
+
+      const total = calcTripTotal(t, { adults, children, hours, days });
+      tripRows.push({
+        trip_id: tripId || null,
+        trip_slug: t?.slug || null,
+        customer_name: customerName,
+        customer_email: customerEmail,
+        customer_phone: customerPhone || null,
+        trip_date: tripDate || null,
+        arrival_date: tripDate || null,
+        departure_date: tripDate || null,
+        num_adults: adults,
+        num_children: children,
+        num_hours: hours,
+        num_days: days,
+        notes: notes || null,
+        total_price: Number(total || 0) || 0,
+        status: 'pending',
+        plan_id: currentPlan.id,
+        source: 'planner',
+        created_by: createdBy,
+        user_id: createdBy,
+      });
+    });
+
+    const hotelRows = [];
+    selected.hotels.forEach((x, i) => {
+      const h = x.hotel || {};
+      const hotelId = String(fd.get(`hotel_ref_id_${i}`) || h?.id || x.item?.ref_id || '').trim();
+      const arrival = String(fd.get(`hotel_arrival_${i}`) || x.startDate || '').trim();
+      const departure = String(fd.get(`hotel_departure_${i}`) || x.endDate || '').trim();
+      const adults = Math.max(0, Math.floor(Number(fd.get(`hotel_adults_${i}`) || 0) || 0));
+      const children = Math.max(0, Math.floor(Number(fd.get(`hotel_children_${i}`) || 0) || 0));
+      const notes = String(fd.get(`hotel_notes_${i}`) || '').trim();
+
+      const nights = Math.max(1, nightsBetween(arrival, departure));
+      const persons = adults + children;
+      const res = calculateHotelPrice(h, Math.max(1, persons), nights);
+      const total = Number(res?.total || 0) || 0;
+
+      hotelRows.push({
+        hotel_id: hotelId || null,
+        category_id: h?.category_id || null,
+        hotel_slug: h?.slug || null,
+        customer_name: customerName,
+        customer_email: customerEmail,
+        customer_phone: customerPhone || null,
+        arrival_date: arrival,
+        departure_date: departure,
+        num_adults: adults,
+        num_children: children,
+        nights,
+        notes: notes || null,
+        total_price: total,
+        status: 'pending',
+        plan_id: currentPlan.id,
+        source: 'planner',
+        created_by: createdBy,
+        user_id: createdBy,
+      });
+    });
+
+    const carRows = [];
+    selected.cars.forEach((x, i) => {
+      const c = x.car || {};
+      const pickupDate = String(fd.get(`car_pickup_date_${i}`) || x.startDate || '').trim();
+      const returnDate = String(fd.get(`car_return_date_${i}`) || x.endDate || '').trim();
+      const pickupTime = String(fd.get(`car_pickup_time_${i}`) || '10:00').trim() || '10:00';
+      const returnTime = String(fd.get(`car_return_time_${i}`) || '10:00').trim() || '10:00';
+      const pickupLoc = String(fd.get(`car_pickup_location_${i}`) || 'airport_pfo').trim() || 'airport_pfo';
+      const returnLoc = String(fd.get(`car_return_location_${i}`) || 'airport_pfo').trim() || 'airport_pfo';
+      const pickupAddr = String(fd.get(`car_pickup_address_${i}`) || '').trim();
+      const returnAddr = String(fd.get(`car_return_address_${i}`) || '').trim();
+      const passengers = Math.max(1, Math.floor(Number(fd.get(`car_num_passengers_${i}`) || 1) || 1));
+      const childSeats = Math.max(0, Math.floor(Number(fd.get(`car_child_seats_${i}`) || 0) || 0));
+      const fullInsurance = String(fd.get(`car_full_insurance_${i}`) || '') === 'on';
+      const flightNumber = String(fd.get(`car_flight_number_${i}`) || '').trim();
+      const special = String(fd.get(`car_special_requests_${i}`) || '').trim();
+      const loc = String(fd.get(`car_location_${i}`) || c?.location || 'paphos').toLowerCase() || 'paphos';
+
+      const carModel = String(c?.car_model || c?.car_type || x.item?.data?.title || '').trim() || 'Car';
+
+      carRows.push({
+        full_name: customerName,
+        email: customerEmail,
+        phone: customerPhone,
+        country: customerCountry,
+        car_model: carModel,
+        location: loc,
+        pickup_date: pickupDate,
+        pickup_time: pickupTime,
+        pickup_location: pickupLoc,
+        pickup_address: pickupAddr || null,
+        return_date: returnDate,
+        return_time: returnTime,
+        return_location: returnLoc,
+        return_address: returnAddr || null,
+        num_passengers: passengers,
+        child_seats: childSeats,
+        full_insurance: fullInsurance,
+        flight_number: flightNumber || null,
+        special_requests: special || null,
+        status: 'pending',
+        source: 'planner',
+        plan_id: currentPlan.id,
+        created_by: createdBy,
+        currency: (currentPlan?.currency || 'EUR').toUpperCase(),
+      });
+    });
+
+    if (tripRows.length) {
+      const { error } = await sb.from('trip_bookings').insert(tripRows);
+      if (error) throw error;
+    }
+    if (hotelRows.length) {
+      const { error } = await sb.from('hotel_bookings').insert(hotelRows);
+      if (error) throw error;
+    }
+    if (carRows.length) {
+      const { error } = await sb.from('car_bookings').insert(carRows);
+      if (error) throw error;
+    }
+
+    setStatus(statusEl, 'Request sent. We will contact you shortly.', 'success');
+    showToast('Booking request sent.', 'success');
+    const dialog = bookingDialogEl();
+    if (dialog && typeof dialog.close === 'function') dialog.close();
+  } catch (e) {
+    console.error('Planner booking submit failed', e);
+    setStatus(statusEl, e?.message || 'Failed to send request.', 'error');
+    showToast(e?.message || 'Failed to send request.', 'error');
+  } finally {
+    if (btn instanceof HTMLButtonElement) {
+      btn.disabled = false;
+      btn.textContent = 'Send request';
+    }
+  }
+}
+
 function wireEvents() {
   const form = el('planCreateForm');
   if (form instanceof HTMLFormElement) {
@@ -1837,13 +2428,36 @@ function wireEvents() {
 
   const reqBtn = requestBookingBtnEl();
   if (reqBtn instanceof HTMLButtonElement && !reqBtn.dataset.wired) {
-    reqBtn.addEventListener('click', () => {
+    reqBtn.addEventListener('click', async () => {
       if (!currentPlan?.id) return;
-      const s = computePlanCostSummary();
-      setStatus(requestBookingStatusEl(), `Collected: Trips ${formatMoney(s.tripsTotal, s.currency)}, Cars ${formatMoney(s.carsTotal, s.currency)}, Hotels ${formatMoney(s.hotelsTotal, s.currency)}.`, 'info');
-      showToast('Request booking: summary prepared (next step: one form submission).', 'info');
+      const dialog = bookingDialogEl();
+      if (!dialog || typeof dialog.showModal !== 'function') {
+        const s = computePlanCostSummary();
+        setStatus(requestBookingStatusEl(), `Collected: Trips ${formatMoney(s.tripsTotal, s.currency)}, Cars ${formatMoney(s.carsTotal, s.currency)}, Hotels ${formatMoney(s.hotelsTotal, s.currency)}.`, 'info');
+        showToast('Booking form unavailable in this browser.', 'info');
+        return;
+      }
+      await renderPlannerBookingForm();
+      wirePlannerBookingDynamicAddressRequirements();
+      setStatus(bookingFormStatusEl(), '', null);
+      dialog.showModal();
     });
     reqBtn.dataset.wired = '1';
+  }
+
+  const closeBtn = bookingCloseBtnEl();
+  if (closeBtn instanceof HTMLButtonElement && !closeBtn.dataset.wired) {
+    closeBtn.addEventListener('click', () => {
+      const dialog = bookingDialogEl();
+      if (dialog && typeof dialog.close === 'function') dialog.close();
+    });
+    closeBtn.dataset.wired = '1';
+  }
+
+  const bookingForm = bookingFormEl();
+  if (bookingForm instanceof HTMLFormElement && !bookingForm.dataset.wired) {
+    bookingForm.addEventListener('submit', submitPlannerBookingForm);
+    bookingForm.dataset.wired = '1';
   }
 
   window.addEventListener('hashchange', async () => {
@@ -1853,6 +2467,7 @@ function wireEvents() {
     }
   });
 }
+
 
 async function init() {
   const ok = await ensureSupabase();
