@@ -353,6 +353,14 @@ function renderServiceCatalog() {
 
   const ctx = getCatalogContext();
 
+  const dayOptions = Array.from(planDaysById.values())
+    .sort((a, b) => Number(a?.day_index || 0) - Number(b?.day_index || 0))
+    .map((d) => {
+      const label = d?.date ? `Day ${d.day_index} · ${d.date}` : `Day ${d.day_index}`;
+      return `<option value="${escapeHtml(d.id)}">${escapeHtml(label)}</option>`;
+    })
+    .join('');
+
   const tabBtn = (key, label) => {
     const isActive = catalogActiveTab === key;
     return `<button type="button" class="btn ${isActive ? 'btn-primary primary' : ''}" data-catalog-tab="${key}">${escapeHtml(label)}</button>`;
@@ -430,6 +438,11 @@ function renderServiceCatalog() {
           .map((x) => {
             const addAttr = `data-catalog-add="1" data-item-type="${catalogActiveTab.slice(0, -1)}" data-ref-id="${escapeHtml(x.id || '')}" data-title="${escapeHtml(x.title || '')}" data-subtitle="${escapeHtml(x.subtitle || '')}" data-url="${escapeHtml(x.url || '')}" data-price="${escapeHtml(x.price || '')}"`;
             const link = x.url ? `<a href="${escapeHtml(x.url)}" target="_blank" rel="noopener" class="btn btn-sm">Open</a>` : '';
+            const daySel = dayOptions
+              ? `<select data-catalog-add-day="1" class="btn btn-sm" style="max-width: 220px;">
+                  ${dayOptions}
+                </select>`
+              : '';
             return `
               <div class="card" style="padding:0.75rem; border:1px solid #e2e8f0; display:flex; gap:0.75rem; align-items:flex-start; justify-content:space-between;">
                 <div style="min-width:0;">
@@ -439,6 +452,7 @@ function renderServiceCatalog() {
                 </div>
                 <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
                   ${link}
+                  ${daySel}
                   <button type="button" class="btn btn-sm btn-primary primary" ${addAttr}>Add</button>
                 </div>
               </div>
@@ -490,7 +504,9 @@ function renderServiceCatalog() {
 
   wrap.querySelectorAll('[data-catalog-add]').forEach((btn) => {
     btn.addEventListener('click', async () => {
-      const dayId = getCatalogSelectedDayId();
+      const row = btn.closest('.card');
+      const rowDaySel = row ? row.querySelector('[data-catalog-add-day]') : null;
+      const dayId = rowDaySel instanceof HTMLSelectElement ? rowDaySel.value : getCatalogSelectedDayId();
       const type = btn.getAttribute('data-item-type');
       const refId = btn.getAttribute('data-ref-id') || null;
       const title = btn.getAttribute('data-title') || '';
