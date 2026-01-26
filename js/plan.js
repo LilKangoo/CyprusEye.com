@@ -10,11 +10,22 @@ const createStatusEl = () => el('planCreateStatus');
 const emptyStateEl = () => el('planEmptyState');
 const detailsWrapEl = () => el('planDetails');
 const daysEl = () => el('planDays');
+const catalogDaySelectEl = () => el('planCatalogDaySelect');
+const catalogEl = () => el('planCatalog');
 
 const saveStatusEl = () => el('planSaveStatus');
 
 let currentPlan = null;
 let dayItemsByDayId = new Map();
+let catalogActiveTab = 'trips';
+let catalogSearch = '';
+let catalogData = {
+  trips: [],
+  hotels: [],
+  cars: [],
+  pois: [],
+};
+let catalogLoadedForPlanId = null;
 
 function formatPlanLabel(plan) {
   const title = (plan?.title || '').trim() || 'Untitled plan';
@@ -70,6 +81,336 @@ function addDays(dateStr, offsetDays) {
   d.setDate(d.getDate() + offsetDays);
   const iso = d.toISOString().slice(0, 10);
   return iso;
+}
+
+function currentLang() {
+  const lang = (window.appI18n && window.appI18n.language) || document.documentElement.lang || 'pl';
+  return String(lang || 'pl');
+}
+
+function pickI18nValue(i18nObj, fallback) {
+  if (!i18nObj || typeof i18nObj !== 'object') return fallback || '';
+  const lang = currentLang();
+  return i18nObj[lang] || i18nObj.en || i18nObj.pl || fallback || '';
+}
+
+function getTripTitle(trip) {
+  if (typeof window.getTripName === 'function') return window.getTripName(trip);
+  return trip?.title?.pl || trip?.title?.en || trip?.title || trip?.slug || 'Trip';
+}
+
+function getHotelTitle(hotel) {
+  if (typeof window.getHotelName === 'function') return window.getHotelName(hotel);
+  return hotel?.title?.pl || hotel?.title?.en || hotel?.title || hotel?.slug || 'Hotel';
+}
+
+function getCarTitle(car) {
+  if (typeof window.getCarName === 'function') return window.getCarName(car);
+  return car?.car_model || car?.car_type || 'Car';
+}
+
+function getPoiTitle(poi) {
+  const name = pickI18nValue(poi?.name_i18n, poi?.name || 'POI');
+  return name || 'POI';
+}
+
+function getCarLink(car) {
+  const location = String(car?.location || '').toLowerCase();
+  if (location === 'paphos') return 'autopfo.html';
+  if (location === 'larnaca') return 'car-rental.html';
+  return 'car-rental-landing.html';
+}
+
+function getServiceTypeLabel(type) {
+  if (type === 'trip') return 'Trip';
+  if (type === 'hotel') return 'Hotel';
+  if (type === 'car') return 'Car';
+  if (type === 'poi') return 'POI';
+  return type || 'Item';
+}
+
+async function loadServiceCatalog(planId) {
+  if (!sb) return;
+  if (!planId) {
+    const wrap = catalogEl();
+    if (wrap) wrap.innerHTML = '';
+    catalogLoadedForPlanId = null;
+    return;
+  }
+
+  if (catalogLoadedForPlanId === planId && (catalogData.trips.length || catalogData.hotels.length || catalogData.cars.length || catalogData.pois.length)) {
+    renderServiceCatalog();
+    return;
+  }
+
+  const wrap = catalogEl();
+  if (wrap) {
+    wrap.innerHTML = '<div style="color:#64748b;">Loading services…</div>';
+  }
+
+  const loadTrips = async () => {
+    let res = await sb
+      .from('trips')
+      .select('*')
+      .eq('is_published', true)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false })
+      .range(0, 99);
+    if (res?.error && String(res.error.message || '').toLowerCase().includes('sort_order')) {
+      res = await sb
+        .from('trips')
+        .select('*')
+        .eq('is_published', true)
+        .order('created_at', { ascending: false })
+        .range(0, 99);
+    }
+    return res;
+  };
+
+  const loadHotels = async () => {
+    let res = await sb
+      .from('hotels')
+      .select('*')
+      .eq('is_published', true)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false })
+      .range(0, 99);
+    if (res?.error && String(res.error.message || '').toLowerCase().includes('sort_order')) {
+      res = await sb
+        .from('hotels')
+        .select('*')
+        .eq('is_published', true)
+        .order('created_at', { ascending: false })
+        .range(0, 99);
+    }
+    return res;
+  };
+
+  const loadCars = async () => {
+    let res = await sb
+      .from('car_offers')
+      .select('*')
+      .eq('is_available', true)
+      .order('sort_order', { ascending: true })
+      .order('created_at', { ascending: false })
+      .range(0, 99);
+    if (res?.error && String(res.error.message || '').toLowerCase().includes('sort_order')) {
+      res = await sb
+        .from('car_offers')
+        .select('*')
+        .eq('is_available', true)
+        .order('created_at', { ascending: false })
+        .range(0, 99);
+    }
+    return res;
+  };
+
+  const [tripsRes, hotelsRes, carsRes, poisRes] = await Promise.all([
+    loadTrips(),
+    loadHotels(),
+    loadCars(),
+    sb.from('pois').select('*').eq('status', 'published').order('created_at', { ascending: false }).range(0, 199),
+  ]);
+
+  if (tripsRes.error) console.warn('Failed to load trips catalog', tripsRes.error);
+  if (hotelsRes.error) console.warn('Failed to load hotels catalog', hotelsRes.error);
+  if (carsRes.error) console.warn('Failed to load cars catalog', carsRes.error);
+  if (poisRes.error) console.warn('Failed to load POI catalog', poisRes.error);
+
+  catalogData = {
+    trips: Array.isArray(tripsRes.data) ? tripsRes.data : [],
+    hotels: Array.isArray(hotelsRes.data) ? hotelsRes.data : [],
+    cars: Array.isArray(carsRes.data) ? carsRes.data : [],
+    pois: Array.isArray(poisRes.data) ? poisRes.data : [],
+  };
+  catalogLoadedForPlanId = planId;
+  renderServiceCatalog();
+}
+
+function getCatalogSelectedDayId() {
+  const sel = catalogDaySelectEl();
+  return sel instanceof HTMLSelectElement ? sel.value : '';
+}
+
+async function addServiceItemToDay({ dayId, itemType, refId, data }) {
+  if (!sb) return;
+  if (!dayId) {
+    showToast('Select a day first.', 'info');
+    return;
+  }
+  if (!itemType) return;
+
+  const payload = {
+    plan_day_id: dayId,
+    item_type: itemType,
+    ref_id: refId || null,
+    data: data && typeof data === 'object' ? data : null,
+    sort_order: Math.floor(Date.now() / 1000),
+  };
+
+  const { error } = await sb
+    .from('user_plan_items')
+    .insert([payload]);
+
+  if (error) {
+    console.error('Failed to add service item', error);
+    showToast(error.message || 'Failed to add item', 'error');
+    return;
+  }
+
+  await loadPlanDays(currentPlan?.id);
+}
+
+function renderServiceCatalog() {
+  const wrap = catalogEl();
+  if (!wrap) return;
+
+  const tabBtn = (key, label) => {
+    const isActive = catalogActiveTab === key;
+    return `<button type="button" class="btn ${isActive ? 'btn-primary primary' : ''}" data-catalog-tab="${key}">${escapeHtml(label)}</button>`;
+  };
+
+  const counts = {
+    trips: catalogData.trips.length,
+    hotels: catalogData.hotels.length,
+    cars: catalogData.cars.length,
+    pois: catalogData.pois.length,
+  };
+
+  const q = catalogSearch.trim().toLowerCase();
+  const matches = (text) => {
+    if (!q) return true;
+    return String(text || '').toLowerCase().includes(q);
+  };
+
+  let list = [];
+  if (catalogActiveTab === 'trips') {
+    list = catalogData.trips
+      .map((t) => {
+        const title = getTripTitle(t);
+        const city = t?.start_city || '';
+        const price = t?.price_per_person != null ? `${Number(t.price_per_person).toFixed(2)} €` : '';
+        const slug = t?.slug || '';
+        const url = slug ? `trip.html?slug=${encodeURIComponent(slug)}` : 'trips.html';
+        return { id: t?.id, title, subtitle: city, price, url };
+      })
+      .filter((x) => matches(`${x.title} ${x.subtitle}`));
+  } else if (catalogActiveTab === 'hotels') {
+    list = catalogData.hotels
+      .map((h) => {
+        const title = getHotelTitle(h);
+        const city = h?.city || '';
+        const slug = h?.slug || '';
+        const url = slug ? `hotel.html?slug=${encodeURIComponent(slug)}` : 'hotels.html';
+        return { id: h?.id, title, subtitle: city, price: '', url };
+      })
+      .filter((x) => matches(`${x.title} ${x.subtitle}`));
+  } else if (catalogActiveTab === 'cars') {
+    list = catalogData.cars
+      .map((c) => {
+        const title = getCarTitle(c);
+        const subtitle = c?.location || '';
+        const url = getCarLink(c);
+        const north = c?.north_allowed ? 'north ok' : '';
+        return { id: c?.id, title, subtitle: [subtitle, north].filter(Boolean).join(' • '), price: '', url };
+      })
+      .filter((x) => matches(`${x.title} ${x.subtitle}`));
+  } else if (catalogActiveTab === 'pois') {
+    list = catalogData.pois
+      .map((p) => {
+        const title = getPoiTitle(p);
+        const url = p?.google_url || p?.google_maps_url || (p?.lat != null && p?.lng != null ? `https://www.google.com/maps?q=${p.lat},${p.lng}` : '');
+        return { id: p?.id, title, subtitle: '', price: '', url };
+      })
+      .filter((x) => matches(`${x.title}`));
+  }
+
+  const rowsHtml = list.length
+    ? `<div style="display:grid; gap:0.5rem;">
+        ${list
+          .slice(0, 100)
+          .map((x) => {
+            const addAttr = `data-catalog-add="1" data-item-type="${catalogActiveTab.slice(0, -1)}" data-ref-id="${escapeHtml(x.id || '')}" data-title="${escapeHtml(x.title || '')}" data-subtitle="${escapeHtml(x.subtitle || '')}" data-url="${escapeHtml(x.url || '')}" data-price="${escapeHtml(x.price || '')}"`;
+            const link = x.url ? `<a href="${escapeHtml(x.url)}" target="_blank" rel="noopener" class="btn btn-sm">Open</a>` : '';
+            return `
+              <div class="card" style="padding:0.75rem; border:1px solid #e2e8f0; display:flex; gap:0.75rem; align-items:flex-start; justify-content:space-between;">
+                <div style="min-width:0;">
+                  <div style="font-weight:600;">${escapeHtml(x.title)}</div>
+                  ${x.subtitle ? `<div style=\"color:#64748b; font-size:12px;\">${escapeHtml(x.subtitle)}</div>` : ''}
+                  ${x.price ? `<div style=\"color:#0f172a; font-size:12px;\">${escapeHtml(x.price)}</div>` : ''}
+                </div>
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
+                  ${link}
+                  <button type="button" class="btn btn-sm btn-primary primary" ${addAttr}>Add</button>
+                </div>
+              </div>
+            `;
+          })
+          .join('')}
+      </div>`
+    : '<div style="color:#64748b;">No services found.</div>';
+
+  wrap.innerHTML = `
+    <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+      ${tabBtn('trips', `Trips (${counts.trips})`)}
+      ${tabBtn('hotels', `Hotels (${counts.hotels})`)}
+      ${tabBtn('cars', `Cars (${counts.cars})`)}
+      ${tabBtn('pois', `POIs (${counts.pois})`)}
+      <div style="flex:1 1 200px;"></div>
+      <input id="planCatalogSearch" type="text" value="${escapeHtml(catalogSearch)}" placeholder="Search…" style="max-width:280px;" />
+      <button type="button" class="btn" data-catalog-refresh="1">Refresh</button>
+    </div>
+    <div style="margin-top:0.75rem;">
+      ${rowsHtml}
+    </div>
+  `;
+
+  wrap.querySelectorAll('[data-catalog-tab]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const tab = btn.getAttribute('data-catalog-tab');
+      if (!tab) return;
+      catalogActiveTab = tab;
+      renderServiceCatalog();
+    });
+  });
+
+  const searchEl = wrap.querySelector('#planCatalogSearch');
+  if (searchEl instanceof HTMLInputElement) {
+    searchEl.addEventListener('input', () => {
+      catalogSearch = searchEl.value;
+      renderServiceCatalog();
+    });
+  }
+
+  wrap.querySelectorAll('[data-catalog-refresh]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      catalogLoadedForPlanId = null;
+      await loadServiceCatalog(currentPlan?.id);
+    });
+  });
+
+  wrap.querySelectorAll('[data-catalog-add]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const dayId = getCatalogSelectedDayId();
+      const type = btn.getAttribute('data-item-type');
+      const refId = btn.getAttribute('data-ref-id') || null;
+      const title = btn.getAttribute('data-title') || '';
+      const subtitle = btn.getAttribute('data-subtitle') || '';
+      const url = btn.getAttribute('data-url') || '';
+      const price = btn.getAttribute('data-price') || '';
+      await addServiceItemToDay({
+        dayId,
+        itemType: type,
+        refId,
+        data: {
+          title,
+          subtitle,
+          url,
+          price,
+        },
+      });
+    });
+  });
 }
 
 function setCurrentYear() {
@@ -263,6 +604,7 @@ async function selectPlanById(id, { skipListReload = false } = {}) {
   currentPlan = data;
   renderPlanDetails(currentPlan);
   await loadPlanDays(currentPlan.id);
+  await loadServiceCatalog(currentPlan.id);
 
   if (!skipListReload) {
     await loadPlans({ selectId: currentPlan.id });
@@ -288,6 +630,23 @@ async function loadPlanDays(planId) {
   const container = daysEl();
   if (!container) return;
 
+  const daySel = catalogDaySelectEl();
+  if (daySel instanceof HTMLSelectElement) {
+    if (!rows.length) {
+      daySel.innerHTML = '';
+    } else {
+      const existingValue = daySel.value;
+      daySel.innerHTML = rows
+        .map((d) => {
+          const label = d.date ? `Day ${d.day_index} · ${d.date}` : `Day ${d.day_index}`;
+          return `<option value="${d.id}">${escapeHtml(label)}</option>`;
+        })
+        .join('');
+      const hasExisting = rows.some((d) => d.id === existingValue);
+      daySel.value = hasExisting ? existingValue : rows[0].id;
+    }
+  }
+
   if (!rows.length) {
     container.innerHTML = '<div style="color:#64748b;">No days generated yet.</div>';
     return;
@@ -303,6 +662,40 @@ async function loadPlanDays(planId) {
       const notes = (d.notes || '').trim();
       const items = Array.isArray(dayItemsByDayId.get(d.id)) ? dayItemsByDayId.get(d.id) : [];
       const noteItems = items.filter((it) => it && it.item_type === 'note');
+      const serviceItems = items.filter((it) => it && it.item_type && it.item_type !== 'note');
+      const servicesHtml = serviceItems.length
+        ? `
+          <div style="border-top: 1px solid #e2e8f0; padding-top:0.5rem;">
+            <div style="font-size:12px; color:#64748b; margin-bottom:0.25rem;">Services</div>
+            <div style="display:grid; gap:0.5rem;">
+              ${serviceItems
+                .map((it) => {
+                  const t = getServiceTypeLabel(it.item_type);
+                  const title = it?.data && typeof it.data === 'object' ? String(it.data.title || '') : '';
+                  const subtitle = it?.data && typeof it.data === 'object' ? String(it.data.subtitle || '') : '';
+                  const url = it?.data && typeof it.data === 'object' ? String(it.data.url || '') : '';
+                  const price = it?.data && typeof it.data === 'object' ? String(it.data.price || '') : '';
+                  const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">Open</a>` : '';
+                  return `
+                    <div style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
+                      <div style="flex:1 1 auto; min-width:0;">
+                        <div style="font-size:12px; color:#64748b;">${escapeHtml(t)}</div>
+                        <div style="color:#0f172a; font-weight:600;">${escapeHtml(title)}</div>
+                        ${subtitle ? `<div style=\"color:#64748b; font-size:12px;\">${escapeHtml(subtitle)}</div>` : ''}
+                        ${price ? `<div style=\"color:#0f172a; font-size:12px;\">${escapeHtml(price)}</div>` : ''}
+                      </div>
+                      <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
+                        ${link}
+                        <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" aria-label="Delete">✕</button>
+                      </div>
+                    </div>
+                  `;
+                })
+                .join('')}
+            </div>
+          </div>
+        `
+        : '';
       const itemsHtml = noteItems.length
         ? `
           <div style="margin-top:0.5rem; display:grid; gap:0.5rem;">
@@ -339,6 +732,7 @@ async function loadPlanDays(planId) {
               <button type="button" class="btn btn-sm" data-day-save="${d.id}">Save day</button>
               <span style="color:#64748b; font-size:12px;" data-day-status="${d.id}"></span>
             </div>
+            ${servicesHtml}
             <div style="border-top: 1px solid #e2e8f0; padding-top:0.5rem;">
               <div style="font-size:12px; color:#64748b; margin-bottom:0.25rem;">Day notes</div>
               <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
@@ -524,6 +918,10 @@ function renderPlanDetails(plan) {
   if (!plan) {
     if (wrap) wrap.hidden = true;
     if (empty) empty.hidden = false;
+    const cat = catalogEl();
+    if (cat) cat.innerHTML = '';
+    const daySel = catalogDaySelectEl();
+    if (daySel instanceof HTMLSelectElement) daySel.innerHTML = '';
     return;
   }
 

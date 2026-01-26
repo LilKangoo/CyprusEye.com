@@ -267,6 +267,17 @@
                 <h3 style="margin: 0 0 0.75rem; font-size: 16px;">Days</h3>
                 <div id="planDays" style="display: grid; gap: 0.5rem;"></div>
               </div>
+
+              <div class="card" style="padding: 1rem;">
+                <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; align-items:center;">
+                  <h3 style="margin: 0; font-size: 16px;">Services</h3>
+                  <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                    <span style="color:#64748b; font-size: 12px;">Add to day:</span>
+                    <select id="planCatalogDaySelect"></select>
+                  </div>
+                </div>
+                <div id="planCatalog" style="margin-top: 0.75rem;"></div>
+              </div>
             </div>
           </section>
         </div>
@@ -319,7 +330,7 @@
     <script src="js/header-stats.js?v=1" defer></script>
     <script src="js/languageSwitcher.js" defer></script>
     <script src="js/languageRefresh.js" defer></script>
-    <script type="module" src="/js/plan.js?v=20260126b"></script>
+    <script type="module" src="/js/plan.js?v=20260126c"></script>
     <script src="assets/js/modal-auth.js" defer></script>
 
     <div id="auth-modal" class="modal" role="dialog" aria-modal="true" aria-labelledby="auth-title" aria-hidden="true">
