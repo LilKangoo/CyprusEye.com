@@ -177,15 +177,30 @@ function getHotelTitle(hotel) {
 
 function getHotelCity(hotel) {
   if (!hotel || typeof hotel !== 'object') return '';
-  return (
+  const raw =
+    hotel.city_i18n ||
+    hotel.location_i18n ||
+    hotel.town_i18n ||
+    hotel.area_i18n ||
+    hotel.destination_i18n ||
     hotel.city ||
     hotel.location ||
     hotel.town ||
     hotel.area ||
     hotel.destination ||
     (hotel.address && typeof hotel.address === 'object' ? hotel.address.city : '') ||
-    ''
-  );
+    '';
+
+  if (raw && typeof raw === 'object') {
+    const picked = pickI18nValue(raw, '');
+    return String(picked || '').trim();
+  }
+  return String(raw || '').trim();
+}
+
+function isUuid(v) {
+  const s = String(v || '').trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(s);
 }
 
 function getCarTitle(car) {
@@ -326,11 +341,17 @@ async function addServiceItemToDay({ dayId, itemType, refId, data }) {
   }
   if (!itemType) return;
 
+  const safeRefId = isUuid(refId) ? String(refId) : null;
+  const payloadData = data && typeof data === 'object' ? { ...data } : null;
+  if (payloadData && safeRefId === null && refId != null && String(refId).trim()) {
+    payloadData.source_id = String(refId);
+  }
+
   const payload = {
     plan_day_id: dayId,
     item_type: itemType,
-    ref_id: refId || null,
-    data: data && typeof data === 'object' ? data : null,
+    ref_id: safeRefId,
+    data: payloadData,
     sort_order: Math.floor(Date.now() / 1000),
   };
 
