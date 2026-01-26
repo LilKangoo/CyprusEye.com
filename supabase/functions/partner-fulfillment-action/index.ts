@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
-import Stripe from "https://esm.sh/stripe@13.6.0?target=deno";
 
 type Action = "accept" | "reject" | "mark_paid";
 
@@ -24,13 +23,95 @@ const corsHeaders = {
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const stripeSecretKey = (Deno.env.get("STRIPE_SECRET_KEY") || "").trim();
 
 const CUSTOMER_HOMEPAGE_URL = "https://cypruseye.com";
 
-const stripe = new Stripe(Deno.env.get("STRIPE_SECRET_KEY")!, {
-  apiVersion: "2023-10-16",
-  httpClient: Stripe.createFetchHttpClient(),
-});
+function encodeStripeForm(obj: Record<string, unknown>): string {
+  const out: string[] = [];
+  const push = (k: string, v: unknown) => {
+    if (v === undefined) return;
+    if (v === null) return;
+    out.push(`${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`);
+  };
+  const walk = (prefix: string, value: unknown) => {
+    if (value === undefined || value === null) return;
+    if (Array.isArray(value)) {
+      value.forEach((item, i) => walk(`${prefix}[${i}]`, item));
+      return;
+    }
+    if (typeof value === "object") {
+      for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+        walk(`${prefix}[${k}]`, v);
+      }
+      return;
+    }
+    push(prefix, value);
+  };
+  for (const [k, v] of Object.entries(obj)) walk(k, v);
+  return out.join("&");
+}
+
+async function stripeCreateCheckoutSession(params: {
+  currency: string;
+  amount: number;
+  productName: string;
+  successUrl: string;
+  cancelUrl: string;
+  customerEmail: string;
+  clientReferenceId: string;
+  metadata: Record<string, string>;
+}): Promise<{ id: string; url: string }> {
+  if (!stripeSecretKey) {
+    throw new Error("Missing STRIPE_SECRET_KEY");
+  }
+
+  const form = encodeStripeForm({
+    mode: "payment",
+    "payment_method_types[0]": "card",
+    success_url: params.successUrl,
+    cancel_url: params.cancelUrl,
+    customer_email: params.customerEmail,
+    client_reference_id: params.clientReferenceId,
+    line_items: [
+      {
+        price_data: {
+          currency: String(params.currency || "EUR").toLowerCase(),
+          product_data: { name: params.productName },
+          unit_amount: Math.round(Number(params.amount || 0) * 100),
+        },
+        quantity: 1,
+      },
+    ],
+    payment_intent_data: { metadata: params.metadata },
+    metadata: params.metadata,
+  });
+
+  const res = await fetch("https://api.stripe.com/v1/checkout/sessions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${stripeSecretKey}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
+    body: form,
+  });
+
+  const text = await res.text();
+  if (!res.ok) {
+    throw new Error(`Stripe error ${res.status}: ${text.slice(0, 500)}`);
+  }
+
+  let json: any = null;
+  try {
+    json = JSON.parse(text);
+  } catch (_e) {
+    json = null;
+  }
+  const id = String(json?.id || "").trim();
+  const url = String(json?.url || "").trim();
+  if (!id || !url) throw new Error("Stripe session missing id/url");
+  return { id, url };
+}
 
 function normalizeLang(value: unknown): "pl" | "en" {
   const v = String(value || "").trim().toLowerCase();
@@ -576,63 +657,46 @@ async function createDepositCheckoutForServiceFulfillment(params: {
     throw new Error("Failed to create deposit request");
   }
 
-  const session = await stripe.checkout.sessions.create({
-    payment_method_types: ["card"],
-    mode: "payment",
-    line_items: [
-      {
-        price_data: {
-          currency: String(currency).toLowerCase(),
-          product_data: {
-            name: fulfillmentSummary
-              ? `Deposit: ${fulfillmentSummary}`
-              : `Deposit payment`,
-          },
-          unit_amount: Math.round(depositAmount * 100),
-        },
-        quantity: 1,
-      },
-    ],
-    success_url: buildDepositRedirectUrl({
-      lang,
-      result: "success",
-      depositRequestId,
-      category,
-      bookingId,
-      amount: depositAmount,
-      currency,
-      reference: fulfillmentReference,
-      summary: fulfillmentSummary,
-    }),
-    cancel_url: buildDepositRedirectUrl({
-      lang,
-      result: "cancel",
-      depositRequestId,
-      category,
-      bookingId,
-      amount: depositAmount,
-      currency,
-      reference: fulfillmentReference,
-      summary: fulfillmentSummary,
-    }),
-    customer_email: customerEmail,
-    client_reference_id: depositRequestId,
-    payment_intent_data: {
-      metadata: {
-        deposit_request_id: depositRequestId,
-        fulfillment_id: fulfillmentId,
-        partner_id: partnerId,
-        resource_type: category,
-        booking_id: bookingId,
-      },
-    },
-    metadata: {
-      deposit_request_id: depositRequestId,
-      fulfillment_id: fulfillmentId,
-      partner_id: partnerId,
-      resource_type: category,
-      booking_id: bookingId,
-    },
+  const successUrl = buildDepositRedirectUrl({
+    lang,
+    result: "success",
+    depositRequestId,
+    category,
+    bookingId,
+    amount: depositAmount,
+    currency,
+    reference: fulfillmentReference,
+    summary: fulfillmentSummary,
+  });
+  const cancelUrl = buildDepositRedirectUrl({
+    lang,
+    result: "cancel",
+    depositRequestId,
+    category,
+    bookingId,
+    amount: depositAmount,
+    currency,
+    reference: fulfillmentReference,
+    summary: fulfillmentSummary,
+  });
+
+  const metadata: Record<string, string> = {
+    deposit_request_id: depositRequestId,
+    fulfillment_id: fulfillmentId,
+    partner_id: partnerId,
+    resource_type: category,
+    booking_id: bookingId,
+  };
+
+  const session = await stripeCreateCheckoutSession({
+    currency,
+    amount: depositAmount,
+    productName: fulfillmentSummary ? `Deposit: ${fulfillmentSummary}` : "Deposit payment",
+    successUrl,
+    cancelUrl,
+    customerEmail,
+    clientReferenceId: depositRequestId,
+    metadata,
   });
 
   const sessionId = String(session.id || "").trim();
