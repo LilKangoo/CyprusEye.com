@@ -17,6 +17,7 @@ const saveStatusEl = () => el('planSaveStatus');
 
 let currentPlan = null;
 let dayItemsByDayId = new Map();
+let planDaysById = new Map();
 let catalogActiveTab = 'trips';
 let catalogSearch = '';
 let catalogData = {
@@ -92,6 +93,44 @@ function pickI18nValue(i18nObj, fallback) {
   if (!i18nObj || typeof i18nObj !== 'object') return fallback || '';
   const lang = currentLang();
   return i18nObj[lang] || i18nObj.en || i18nObj.pl || fallback || '';
+}
+
+function normalizeStr(v) {
+  return String(v || '')
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ');
+}
+
+function cityMatches(a, b) {
+  const aa = normalizeStr(a);
+  const bb = normalizeStr(b);
+  if (!aa || !bb) return false;
+  return aa === bb || aa.includes(bb) || bb.includes(aa);
+}
+
+function cityToCarLocation(city) {
+  const c = normalizeStr(city);
+  if (!c) return null;
+  if (c.includes('paphos') || c.includes('pafos') || c.includes('πάφος')) return 'paphos';
+  if (c.includes('larnaca') || c.includes('larnaka') || c.includes('lάρνακα')) return 'larnaca';
+  if (c.includes('ayia napa') || c.includes('agia napa') || c.includes('napa')) return 'larnaca';
+  if (c.includes('protaras') || c.includes('paralimni')) return 'larnaca';
+  return null;
+}
+
+function getCatalogContext() {
+  const selectedDayId = getCatalogSelectedDayId();
+  const day = selectedDayId ? planDaysById.get(selectedDayId) : null;
+  const city = (day?.city || currentPlan?.base_city || '').trim();
+  const includeNorth = !!currentPlan?.include_north;
+  const carLocation = cityToCarLocation(city) || cityToCarLocation(currentPlan?.base_city);
+  return {
+    selectedDayId,
+    city,
+    includeNorth,
+    carLocation,
+  };
 }
 
 function getTripTitle(trip) {
@@ -265,6 +304,8 @@ function renderServiceCatalog() {
   const wrap = catalogEl();
   if (!wrap) return;
 
+  const ctx = getCatalogContext();
+
   const tabBtn = (key, label) => {
     const isActive = catalogActiveTab === key;
     return `<button type="button" class="btn ${isActive ? 'btn-primary primary' : ''}" data-catalog-tab="${key}">${escapeHtml(label)}</button>`;
@@ -294,6 +335,7 @@ function renderServiceCatalog() {
         const url = slug ? `trip.html?slug=${encodeURIComponent(slug)}` : 'trips.html';
         return { id: t?.id, title, subtitle: city, price, url };
       })
+      .filter((x) => (ctx.city ? cityMatches(x.subtitle, ctx.city) : true))
       .filter((x) => matches(`${x.title} ${x.subtitle}`));
   } else if (catalogActiveTab === 'hotels') {
     list = catalogData.hotels
@@ -304,6 +346,7 @@ function renderServiceCatalog() {
         const url = slug ? `hotel.html?slug=${encodeURIComponent(slug)}` : 'hotels.html';
         return { id: h?.id, title, subtitle: city, price: '', url };
       })
+      .filter((x) => (ctx.city ? cityMatches(x.subtitle, ctx.city) : true))
       .filter((x) => matches(`${x.title} ${x.subtitle}`));
   } else if (catalogActiveTab === 'cars') {
     list = catalogData.cars
@@ -314,6 +357,14 @@ function renderServiceCatalog() {
         const north = c?.north_allowed ? 'north ok' : '';
         return { id: c?.id, title, subtitle: [subtitle, north].filter(Boolean).join(' • '), price: '', url };
       })
+      .filter((x) => {
+        if (ctx.includeNorth) {
+          const ref = catalogData.cars.find((c) => String(c?.id) === String(x.id));
+          if (ref && ref.north_allowed === false) return false;
+        }
+        return true;
+      })
+      .filter((x) => (ctx.carLocation ? cityMatches(x.subtitle, ctx.carLocation) : true))
       .filter((x) => matches(`${x.title} ${x.subtitle}`));
   } else if (catalogActiveTab === 'pois') {
     list = catalogData.pois
@@ -357,6 +408,7 @@ function renderServiceCatalog() {
       ${tabBtn('cars', `Cars (${counts.cars})`)}
       ${tabBtn('pois', `POIs (${counts.pois})`)}
       <div style="flex:1 1 200px;"></div>
+      <span style="color:#64748b; font-size:12px;">${escapeHtml(ctx.city || 'All cities')}${ctx.includeNorth ? ' • north' : ''}</span>
       <input id="planCatalogSearch" type="text" value="${escapeHtml(catalogSearch)}" placeholder="Search…" style="max-width:280px;" />
       <button type="button" class="btn" data-catalog-refresh="1">Refresh</button>
     </div>
@@ -630,6 +682,8 @@ async function loadPlanDays(planId) {
   const container = daysEl();
   if (!container) return;
 
+  planDaysById = new Map(rows.map((d) => [d.id, d]));
+
   const daySel = catalogDaySelectEl();
   if (daySel instanceof HTMLSelectElement) {
     if (!rows.length) {
@@ -644,6 +698,13 @@ async function loadPlanDays(planId) {
         .join('');
       const hasExisting = rows.some((d) => d.id === existingValue);
       daySel.value = hasExisting ? existingValue : rows[0].id;
+    }
+
+    if (!daySel.dataset.wired) {
+      daySel.addEventListener('change', () => {
+        renderServiceCatalog();
+      });
+      daySel.dataset.wired = '1';
     }
   }
 
@@ -763,6 +824,9 @@ async function loadPlanDays(planId) {
       const updated = await updateDayField(dayId, { city: city || null, notes: notes || null });
       if (updated) {
         if (statusEl instanceof HTMLElement) statusEl.textContent = 'Saved.';
+        const prev = planDaysById.get(dayId) || {};
+        planDaysById.set(dayId, { ...prev, ...updated });
+        renderServiceCatalog();
       } else {
         if (statusEl instanceof HTMLElement) statusEl.textContent = 'Error.';
       }
@@ -894,6 +958,8 @@ async function regeneratePlanDays() {
   }
 
   await loadPlans({ selectId: currentPlan.id });
+  await loadPlanDays(currentPlan.id);
+  renderServiceCatalog();
   setStatus(saveStatusEl(), 'Days regenerated.', 'success');
 }
 
@@ -922,6 +988,7 @@ function renderPlanDetails(plan) {
     if (cat) cat.innerHTML = '';
     const daySel = catalogDaySelectEl();
     if (daySel instanceof HTMLSelectElement) daySel.innerHTML = '';
+    planDaysById = new Map();
     return;
   }
 
@@ -1078,6 +1145,7 @@ async function handleSavePlan() {
   setStatus(saveStatusEl(), 'Saved.', 'success');
   await loadPlans({ selectId: currentPlan.id });
   await loadPlanDays(currentPlan.id);
+  renderServiceCatalog();
 }
 
 async function handleDeletePlan() {
