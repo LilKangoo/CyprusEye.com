@@ -15,6 +15,20 @@ async function ensureSupabase({ timeoutMs = 5000, stepMs = 100 } = {}) {
   return null;
 }
 
+async function waitForAuthReadySafe({ timeoutMs = 4500 } = {}) {
+  try {
+    const fn = typeof window !== 'undefined' ? window.waitForAuthReady : null;
+    if (typeof fn !== 'function') return null;
+
+    const timeout = new Promise((resolve) => {
+      window.setTimeout(() => resolve(null), timeoutMs);
+    });
+    return await Promise.race([Promise.resolve(fn()), timeout]);
+  } catch (_) {
+    return null;
+  }
+}
+
 function formHasCars(fd) {
   const has = String(fd.get('has_cars') || '').trim();
   return !!has;
@@ -149,9 +163,19 @@ function setHashPlanId(id) {
 
 async function getCurrentUser() {
   if (!sb) return null;
-  const { data, error } = await sb.auth.getSession();
-  if (error) return null;
-  return data?.session?.user || null;
+
+  await waitForAuthReadySafe();
+  try {
+    const stateUser = window?.CE_STATE?.session?.user || null;
+    if (stateUser) return stateUser;
+  } catch (_) {}
+
+  for (let i = 0; i < 6; i += 1) {
+    const { data, error } = await sb.auth.getSession();
+    if (!error && data?.session?.user) return data.session.user;
+    await new Promise((r) => setTimeout(r, 120));
+  }
+  return null;
 }
 
 function daysBetweenInclusive(startDate, endDate) {
@@ -1863,6 +1887,7 @@ async function getPrefillCustomerFromSession() {
   const saved = getSavedPlannerCustomer();
   let sessionEmail = '';
   try {
+    await waitForAuthReadySafe();
     if (sb?.auth?.getUser) {
       const res = await sb.auth.getUser();
       sessionEmail = String(res?.data?.user?.email || '').trim();
@@ -2080,6 +2105,8 @@ async function renderPlannerBookingForm() {
     })
     .join('');
 
+  const defaultAirport = cityToCarLocation(currentPlan?.base_city) === 'larnaca' ? 'airport_lca' : 'airport_pfo';
+
   const carRows = selected.cars
     .map((x, i) => {
       const c = x.car || {};
@@ -2117,7 +2144,8 @@ async function renderPlannerBookingForm() {
             <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
               Pickup location
               <select name="car_pickup_location_${i}">
-                <option value="airport_pfo">Airport</option>
+                <option value="airport_pfo" ${defaultAirport === 'airport_pfo' ? 'selected' : ''}>Airport (PFO)</option>
+                <option value="airport_lca" ${defaultAirport === 'airport_lca' ? 'selected' : ''}>Airport (LCA)</option>
                 <option value="hotel">Hotel</option>
                 <option value="other">Other</option>
               </select>
@@ -2125,7 +2153,8 @@ async function renderPlannerBookingForm() {
             <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
               Return location
               <select name="car_return_location_${i}">
-                <option value="airport_pfo">Airport</option>
+                <option value="airport_pfo" ${defaultAirport === 'airport_pfo' ? 'selected' : ''}>Airport (PFO)</option>
+                <option value="airport_lca" ${defaultAirport === 'airport_lca' ? 'selected' : ''}>Airport (LCA)</option>
                 <option value="hotel">Hotel</option>
                 <option value="other">Other</option>
               </select>
@@ -2186,11 +2215,12 @@ async function renderPlannerBookingForm() {
           Phone
           <input name="customer_phone" required value="${escapeHtml(customer.phone)}" />
         </label>
-        <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">
-          Country (for car booking)
-          <input name="customer_country" value="${escapeHtml(customer.country)}" />
-        </label>
+        ${hasCars ? `<label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a;">Country (for car booking)<input name="customer_country" required value="${escapeHtml(customer.country)}" /></label>` : '<span></span>'}
       </div>
+      <label style="display:grid; gap:0.25rem; font-size:12px; color:#0f172a; margin-top:0.5rem;">
+        Notes for our team (applies to all)
+        <textarea name="customer_global_notes" rows="2" placeholder="Anything important about your trip..."></textarea>
+      </label>
     </div>
     ${hasTrips ? `<div style="font-weight:800;">Trips</div>${tripRows}` : ''}
     ${hasHotels ? `<div style="font-weight:800;">Accommodation</div>${hotelRows}` : ''}
@@ -2221,6 +2251,7 @@ async function submitPlannerBookingForm(event) {
   const customerPhone = String(fd.get('customer_phone') || '').trim();
   const customerCountry = String(fd.get('customer_country') || '').trim();
   const hasCars = formHasCars(fd);
+  const globalNotes = String(fd.get('customer_global_notes') || '').trim();
 
   if (!customerName || !customerEmail || !customerPhone) {
     setStatus(statusEl, 'Please fill in customer name, email and phone.', 'error');
@@ -2254,6 +2285,7 @@ async function submitPlannerBookingForm(event) {
       const hours = Math.max(1, Math.floor(Number(fd.get(`trip_hours_${i}`) || 1) || 1));
       const days = Math.max(1, Math.floor(Number(fd.get(`trip_days_${i}`) || 1) || 1));
       const notes = String(fd.get(`trip_notes_${i}`) || '').trim();
+      const mergedNotes = [notes, globalNotes].filter(Boolean).join('\n');
 
       const total = calcTripTotal(t, { adults, children, hours, days });
       tripRows.push({
@@ -2269,7 +2301,7 @@ async function submitPlannerBookingForm(event) {
         num_children: children,
         num_hours: hours,
         num_days: days,
-        notes: notes || null,
+        notes: mergedNotes || null,
         total_price: Number(total || 0) || 0,
         status: 'pending',
         plan_id: currentPlan.id,
@@ -2288,6 +2320,7 @@ async function submitPlannerBookingForm(event) {
       const adults = Math.max(0, Math.floor(Number(fd.get(`hotel_adults_${i}`) || 0) || 0));
       const children = Math.max(0, Math.floor(Number(fd.get(`hotel_children_${i}`) || 0) || 0));
       const notes = String(fd.get(`hotel_notes_${i}`) || '').trim();
+      const mergedNotes = [notes, globalNotes].filter(Boolean).join('\n');
 
       const nights = Math.max(1, nightsBetween(arrival, departure));
       const persons = adults + children;
@@ -2306,7 +2339,7 @@ async function submitPlannerBookingForm(event) {
         num_adults: adults,
         num_children: children,
         nights,
-        notes: notes || null,
+        notes: mergedNotes || null,
         total_price: total,
         status: 'pending',
         plan_id: currentPlan.id,
@@ -2317,14 +2350,15 @@ async function submitPlannerBookingForm(event) {
     });
 
     const carRows = [];
+    const defaultAirport = cityToCarLocation(currentPlan?.base_city) === 'larnaca' ? 'airport_lca' : 'airport_pfo';
     selected.cars.forEach((x, i) => {
       const c = x.car || {};
       const pickupDate = String(fd.get(`car_pickup_date_${i}`) || x.startDate || '').trim();
       const returnDate = String(fd.get(`car_return_date_${i}`) || x.endDate || '').trim();
       const pickupTime = String(fd.get(`car_pickup_time_${i}`) || '10:00').trim() || '10:00';
       const returnTime = String(fd.get(`car_return_time_${i}`) || '10:00').trim() || '10:00';
-      const pickupLoc = String(fd.get(`car_pickup_location_${i}`) || 'airport_pfo').trim() || 'airport_pfo';
-      const returnLoc = String(fd.get(`car_return_location_${i}`) || 'airport_pfo').trim() || 'airport_pfo';
+      const pickupLoc = String(fd.get(`car_pickup_location_${i}`) || defaultAirport).trim() || defaultAirport;
+      const returnLoc = String(fd.get(`car_return_location_${i}`) || defaultAirport).trim() || defaultAirport;
       const pickupAddr = String(fd.get(`car_pickup_address_${i}`) || '').trim();
       const returnAddr = String(fd.get(`car_return_address_${i}`) || '').trim();
       const passengers = Math.max(1, Math.floor(Number(fd.get(`car_num_passengers_${i}`) || 1) || 1));
@@ -2332,6 +2366,7 @@ async function submitPlannerBookingForm(event) {
       const fullInsurance = String(fd.get(`car_full_insurance_${i}`) || '') === 'on';
       const flightNumber = String(fd.get(`car_flight_number_${i}`) || '').trim();
       const special = String(fd.get(`car_special_requests_${i}`) || '').trim();
+      const mergedSpecial = [special, globalNotes].filter(Boolean).join('\n');
       const loc = String(fd.get(`car_location_${i}`) || c?.location || 'paphos').toLowerCase() || 'paphos';
 
       const carModel = String(c?.car_model || c?.car_type || x.item?.data?.title || '').trim() || 'Car';
@@ -2355,7 +2390,7 @@ async function submitPlannerBookingForm(event) {
         child_seats: childSeats,
         full_insurance: fullInsurance,
         flight_number: flightNumber || null,
-        special_requests: special || null,
+        special_requests: mergedSpecial || null,
         status: 'pending',
         source: 'planner',
         plan_id: currentPlan.id,
