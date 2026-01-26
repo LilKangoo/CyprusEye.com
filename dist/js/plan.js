@@ -213,9 +213,21 @@ function normalizeStr(v) {
     .replace(/\s+/g, ' ');
 }
 
+function cityKey(v) {
+  const s = normalizeStr(v);
+  if (!s) return '';
+  if (s.includes('paphos') || s.includes('pafos') || s.includes('πάφος')) return 'paphos';
+  if (s.includes('larnaca') || s.includes('larnaka') || s.includes('λάρνακα') || s.includes('lάρνακα')) return 'larnaca';
+  if (s.includes('limassol') || s.includes('lemesos') || s.includes('lemessos') || s.includes('λιμεσός')) return 'limassol';
+  if (s.includes('nicosia') || s.includes('lefkosia') || s.includes('λευκωσία')) return 'nicosia';
+  if (s.includes('ayia napa') || s.includes('agia napa') || s.includes('napa')) return 'ayia napa';
+  if (s.includes('protaras') || s.includes('paralimni')) return 'protaras';
+  return s;
+}
+
 function cityMatches(a, b) {
-  const aa = normalizeStr(a);
-  const bb = normalizeStr(b);
+  const aa = cityKey(a);
+  const bb = cityKey(b);
   if (!aa || !bb) return false;
   return aa === bb || aa.includes(bb) || bb.includes(aa);
 }
