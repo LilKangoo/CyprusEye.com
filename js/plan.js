@@ -369,7 +369,7 @@ function renderServiceCatalog() {
         const url = slug ? `trip.html?slug=${encodeURIComponent(slug)}` : 'trips.html';
         return { id: t?.id, title, subtitle: city, price, url };
       })
-      .filter((x) => (ctx.city ? cityMatches(x.subtitle, ctx.city) : true))
+      .filter((x) => (ctx.city ? (!x.subtitle || cityMatches(x.subtitle, ctx.city)) : true))
       .filter((x) => matches(`${x.title} ${x.subtitle}`));
   } else if (catalogActiveTab === 'hotels') {
     list = catalogData.hotels
@@ -380,16 +380,16 @@ function renderServiceCatalog() {
         const url = slug ? `hotel.html?slug=${encodeURIComponent(slug)}` : 'hotels.html';
         return { id: h?.id, title, subtitle: city, price: '', url };
       })
-      .filter((x) => (ctx.city ? cityMatches(x.subtitle, ctx.city) : true))
+      .filter((x) => (ctx.city ? (!x.subtitle || cityMatches(x.subtitle, ctx.city)) : true))
       .filter((x) => matches(`${x.title} ${x.subtitle}`));
   } else if (catalogActiveTab === 'cars') {
     list = catalogData.cars
       .map((c) => {
         const title = getCarTitle(c);
-        const subtitle = c?.location || '';
+        const location = c?.location || '';
         const url = getCarLink(c);
         const north = c?.north_allowed ? 'north ok' : '';
-        return { id: c?.id, title, subtitle: [subtitle, north].filter(Boolean).join(' • '), price: '', url };
+        return { id: c?.id, title, subtitle: [location, north].filter(Boolean).join(' • '), location, price: '', url };
       })
       .filter((x) => {
         if (ctx.includeNorth) {
@@ -398,7 +398,7 @@ function renderServiceCatalog() {
         }
         return true;
       })
-      .filter((x) => (ctx.carLocation ? cityMatches(x.subtitle, ctx.carLocation) : true))
+      .filter((x) => (ctx.carLocation ? cityMatches(x.location, ctx.carLocation) : true))
       .filter((x) => matches(`${x.title} ${x.subtitle}`));
   } else if (catalogActiveTab === 'pois') {
     list = catalogData.pois
@@ -440,7 +440,7 @@ function renderServiceCatalog() {
       ${tabBtn('trips', `Trips (${counts.trips})`)}
       ${tabBtn('hotels', `Hotels (${counts.hotels})`)}
       ${tabBtn('cars', `Cars (${counts.cars})`)}
-      ${tabBtn('pois', `POIs (${counts.pois})`)}
+      ${tabBtn('pois', `Places to see (${counts.pois})`)}
       <div style="flex:1 1 200px;"></div>
       <span style="color:#64748b; font-size:12px;">${escapeHtml(ctx.city || 'All cities')}${ctx.includeNorth ? ' • north' : ''}</span>
       <input id="planCatalogSearch" type="text" value="${escapeHtml(catalogSearch)}" placeholder="Search…" style="max-width:280px;" />
@@ -817,7 +817,7 @@ async function loadPlanDays(planId) {
           <div style="margin-top:0.5rem; display:grid; gap:0.5rem;">
             <div style="display:grid; gap:0.25rem;">
               <label style="font-size:12px; color:#64748b;" for="dayCity_${d.id}">City</label>
-              <input id="dayCity_${d.id}" type="text" value="${escapeHtml(city)}" data-day-city="${d.id}" placeholder="City" />
+              <input id="dayCity_${d.id}" type="text" value="${escapeHtml(city)}" data-day-city="${d.id}" placeholder="City" list="ceCityOptions" />
             </div>
             <div style="display:grid; gap:0.25rem;">
               <label style="font-size:12px; color:#64748b;" for="dayNotes_${d.id}">Notes</label>
@@ -864,6 +864,17 @@ async function loadPlanDays(planId) {
       } else {
         if (statusEl instanceof HTMLElement) statusEl.textContent = 'Error.';
       }
+    });
+  });
+
+  container.querySelectorAll('[data-day-city]').forEach((input) => {
+    if (!(input instanceof HTMLInputElement)) return;
+    input.addEventListener('input', () => {
+      const dayId = input.getAttribute('data-day-city');
+      if (!dayId) return;
+      const prev = planDaysById.get(dayId) || {};
+      planDaysById.set(dayId, { ...prev, city: input.value.trim() || null });
+      renderServiceCatalog();
     });
   });
 

@@ -190,7 +190,7 @@
 
               <div style="display: grid; gap: 0.25rem;">
                 <label for="planBaseCity">Base city</label>
-                <input id="planBaseCity" name="base_city" type="text" maxlength="80" placeholder="e.g. Paphos" />
+                <input id="planBaseCity" name="base_city" type="text" maxlength="80" placeholder="e.g. Paphos" list="ceCityOptions" />
               </div>
 
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
@@ -239,7 +239,7 @@
                   </div>
                   <div style="display: grid; gap: 0.25rem;">
                     <label for="planEditBaseCity">Base city</label>
-                    <input id="planEditBaseCity" type="text" maxlength="80" />
+                    <input id="planEditBaseCity" type="text" maxlength="80" list="ceCityOptions" />
                   </div>
                   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
                     <div style="display: grid; gap: 0.25rem;">
@@ -264,13 +264,8 @@
               </div>
 
               <div class="card" style="padding: 1rem;">
-                <h3 style="margin: 0 0 0.75rem; font-size: 16px;">Days</h3>
-                <div id="planDays" style="display: grid; gap: 0.5rem;"></div>
-              </div>
-
-              <div class="card" style="padding: 1rem;">
                 <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; align-items:center;">
-                  <h3 style="margin: 0; font-size: 16px;">Services</h3>
+                  <h3 style="margin: 0; font-size: 16px;">Add to your plan</h3>
                   <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
                     <span style="color:#64748b; font-size: 12px;">Add to day:</span>
                     <select id="planCatalogDaySelect"></select>
@@ -278,11 +273,25 @@
                 </div>
                 <div id="planCatalog" style="margin-top: 0.75rem;"></div>
               </div>
+
+              <div class="card" style="padding: 1rem;">
+                <h3 style="margin: 0 0 0.75rem; font-size: 16px;">Days</h3>
+                <div id="planDays" style="display: grid; gap: 0.5rem;"></div>
+              </div>
             </div>
           </section>
         </div>
       </section>
     </main>
+
+    <datalist id="ceCityOptions">
+      <option value="Larnaca"></option>
+      <option value="Paphos"></option>
+      <option value="Limassol"></option>
+      <option value="Nicosia"></option>
+      <option value="Ayia Napa"></option>
+      <option value="Protaras"></option>
+    </datalist>
 
     <footer class="standalone-footer">
       <p>
