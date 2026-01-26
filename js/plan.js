@@ -1088,6 +1088,43 @@ async function addDayNoteItem(planDayId, text) {
   return data;
 }
 
+async function updatePlanItemData(itemId, nextData) {
+  if (!sb || !itemId) return null;
+  const safe = nextData && typeof nextData === 'object' ? nextData : {};
+  const { data, error } = await sb
+    .from('user_plan_items')
+    .update({ data: safe })
+    .eq('id', itemId)
+    .select('id,plan_day_id,item_type,ref_id,data,sort_order,estimated_price,currency,created_at')
+    .single();
+
+  if (error) {
+    console.error('Failed to update plan item', error);
+    showToast(error.message || 'Failed to update item', 'error');
+    return null;
+  }
+  return data;
+}
+
+function parseTimeToMinutes(t) {
+  const s = String(t || '').trim();
+  const m = s.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m) return null;
+  const hh = Math.max(0, Math.min(23, Number(m[1])));
+  const mm = Math.max(0, Math.min(59, Number(m[2])));
+  if (!Number.isFinite(hh) || !Number.isFinite(mm)) return null;
+  return hh * 60 + mm;
+}
+
+function formatPoiTimeLabel(it) {
+  const d = it?.data && typeof it.data === 'object' ? it.data : {};
+  const start = String(d.start_time || '').trim();
+  const end = String(d.end_time || '').trim();
+  if (start && end) return `${start}–${end}`;
+  if (start) return start;
+  return '';
+}
+
 async function deleteDayItem(itemId) {
   if (!sb || !itemId) return false;
   const { error } = await sb
@@ -1266,12 +1303,13 @@ async function loadPlanDays(planId) {
       const noteItems = items.filter((it) => it && it.item_type === 'note');
       const serviceItems = items.filter((it) => it && it.item_type && it.item_type !== 'note');
       const poiItems = serviceItems.filter((it) => it && it.item_type === 'poi');
+      const nonPoiServiceItems = serviceItems.filter((it) => it && it.item_type && it.item_type !== 'poi');
       const servicesHtml = serviceItems.length
         ? `
           <div style="border-top: 1px solid #e2e8f0; padding-top:0.5rem;">
             <div style="font-size:12px; color:#64748b; margin-bottom:0.25rem;">Services</div>
             <div style="display:grid; gap:0.5rem;">
-              ${serviceItems
+              ${nonPoiServiceItems
                 .map((it) => {
                   const t = getServiceTypeLabel(it.item_type);
                   const title = it?.data && typeof it.data === 'object' ? String(it.data.title || '') : '';
@@ -1302,6 +1340,62 @@ async function loadPlanDays(planId) {
             </div>
           </div>
         `
+        : '';
+
+      const poiHtml = poiItems.length
+        ? (() => {
+          const sorted = [...poiItems].sort((a, b) => {
+            const am = parseTimeToMinutes(a?.data?.start_time);
+            const bm = parseTimeToMinutes(b?.data?.start_time);
+            if (am == null && bm == null) return 0;
+            if (am == null) return 1;
+            if (bm == null) return -1;
+            return am - bm;
+          });
+
+          return `
+            <div style="border-top: 1px solid #e2e8f0; padding-top:0.5rem;">
+              <div style="font-size:12px; color:#64748b; margin-bottom:0.25rem;">Places (schedule)</div>
+              <div style="display:grid; gap:0.5rem;">
+                ${sorted
+                  .map((it) => {
+                    const title = it?.data && typeof it.data === 'object' ? String(it.data.title || '') : '';
+                    const url = it?.data && typeof it.data === 'object' ? String(it.data.url || '') : '';
+                    const timeLabel = formatPoiTimeLabel(it);
+                    const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">Open</a>` : '';
+                    const startV = it?.data && typeof it.data === 'object' ? String(it.data.start_time || '') : '';
+                    const endV = it?.data && typeof it.data === 'object' ? String(it.data.end_time || '') : '';
+                    return `
+                      <div style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
+                        <div style="flex:1 1 auto; min-width:0;">
+                          <div style="display:flex; gap:0.5rem; align-items:baseline; flex-wrap:wrap;">
+                            <div style="color:#0f172a; font-weight:600;">${escapeHtml(title || 'Place')}</div>
+                            ${timeLabel ? `<div style=\"color:#64748b; font-size:12px;\">${escapeHtml(timeLabel)}</div>` : ''}
+                          </div>
+                          <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.25rem;">
+                            <label style="display:flex; gap:0.25rem; align-items:center; font-size:12px; color:#0f172a;">
+                              Start
+                              <input type="time" value="${escapeHtml(startV)}" data-poi-time-start="${it.id}" style="max-width:120px;" />
+                            </label>
+                            <label style="display:flex; gap:0.25rem; align-items:center; font-size:12px; color:#0f172a;">
+                              End
+                              <input type="time" value="${escapeHtml(endV)}" data-poi-time-end="${it.id}" style="max-width:120px;" />
+                            </label>
+                            <button type="button" class="btn btn-sm" data-poi-time-save="${it.id}">Save time</button>
+                          </div>
+                        </div>
+                        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
+                          ${link}
+                          <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" aria-label="Delete">✕</button>
+                        </div>
+                      </div>
+                    `;
+                  })
+                  .join('')}
+              </div>
+            </div>
+          `;
+        })()
         : '';
       const itemsHtml = noteItems.length
         ? `
@@ -1346,6 +1440,7 @@ async function loadPlanDays(planId) {
               <span style="color:#64748b; font-size:12px;" data-day-status="${d.id}"></span>
             </div>
             ${servicesHtml}
+            ${poiHtml}
             <div id="dayMap_${d.id}" style="height: 180px; border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; display:none;"></div>
             ${itemsHtml}
           </div>
@@ -1424,6 +1519,34 @@ async function loadPlanDays(planId) {
       const rangeId = btn.getAttribute('data-range-id');
       const ok = rangeId ? await deleteRangeItems(rangeId) : await deleteDayItem(itemId);
       if (ok) {
+        await loadPlanDays(planId);
+      }
+    });
+  });
+
+  container.querySelectorAll('[data-poi-time-save]').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const itemId = btn.getAttribute('data-poi-time-save');
+      if (!itemId) return;
+      const startEl = container.querySelector(`[data-poi-time-start="${itemId}"]`);
+      const endEl = container.querySelector(`[data-poi-time-end="${itemId}"]`);
+      const start = startEl instanceof HTMLInputElement ? startEl.value.trim() : '';
+      const end = endEl instanceof HTMLInputElement ? endEl.value.trim() : '';
+
+      const dayId = rows.find((r) => {
+        const its = Array.isArray(dayItemsByDayId.get(r.id)) ? dayItemsByDayId.get(r.id) : [];
+        return its.some((it) => String(it?.id) === String(itemId));
+      })?.id;
+      if (!dayId) return;
+
+      const items = Array.isArray(dayItemsByDayId.get(dayId)) ? dayItemsByDayId.get(dayId) : [];
+      const target = items.find((it) => String(it?.id) === String(itemId));
+      if (!target) return;
+      const prevData = target?.data && typeof target.data === 'object' ? target.data : {};
+
+      const nextData = { ...prevData, start_time: start || null, end_time: end || null };
+      const updated = await updatePlanItemData(itemId, nextData);
+      if (updated) {
         await loadPlanDays(planId);
       }
     });
