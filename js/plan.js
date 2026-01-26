@@ -828,18 +828,21 @@ function renderServiceCatalog() {
       .filter((x) => (ctx.city ? (!x.subtitle || cityMatches(x.subtitle, ctx.city)) : true))
       .filter((x) => matches(`${x.title} ${x.subtitle}`));
   } else if (catalogActiveTab === 'hotels') {
-    list = catalogData.hotels
-      .map((h) => {
-        const title = getHotelTitle(h);
-        const city = getHotelCity(h);
-        const min = getHotelMinPricePerNight(h);
-        const price = min != null ? `${Number(min).toFixed(2)} € / night` : '';
-        const slug = h?.slug || '';
-        const url = slug ? `hotel.html?slug=${encodeURIComponent(slug)}` : 'hotels.html';
-        return { id: h?.id, title, subtitle: city, price, url, lat: null, lng: null };
-      })
-      .filter((x) => (ctx.city ? (!x.subtitle || cityMatches(x.subtitle, ctx.city)) : true))
-      .filter((x) => matches(`${x.title} ${x.subtitle}`));
+    const baseHotels = catalogData.hotels.map((h) => {
+      const title = getHotelTitle(h);
+      const city = getHotelCity(h);
+      const min = getHotelMinPricePerNight(h);
+      const price = min != null ? `${Number(min).toFixed(2)} € / night` : '';
+      const slug = h?.slug || '';
+      const url = slug ? `hotel.html?slug=${encodeURIComponent(slug)}` : 'hotels.html';
+      return { id: h?.id, title, subtitle: city, price, url, lat: null, lng: null };
+    });
+
+    const byCity = ctx.city ? baseHotels.filter((x) => (!x.subtitle ? true : cityMatches(x.subtitle, ctx.city))) : baseHotels;
+    list = byCity.filter((x) => matches(`${x.title} ${x.subtitle}`));
+    if (ctx.city && list.length === 0 && baseHotels.length) {
+      list = baseHotels.filter((x) => matches(`${x.title} ${x.subtitle}`));
+    }
   } else if (catalogActiveTab === 'cars') {
     list = catalogData.cars
       .map((c) => {
