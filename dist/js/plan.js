@@ -680,6 +680,9 @@ async function addServiceItemToDay({ dayId, itemType, refId, data }) {
   }
 
   await loadPlanDays(currentPlan?.id);
+
+  const label = getServiceTypeLabel(itemType);
+  showToast(`${label} added to your plan.`, 'success');
 }
 
 async function addServiceRangeToDays({ startDayId, endDayId, itemType, refId, data }) {
@@ -735,6 +738,9 @@ async function addServiceRangeToDays({ startDayId, endDayId, itemType, refId, da
   }
 
   await loadPlanDays(currentPlan?.id);
+
+  const label = getServiceTypeLabel(itemType);
+  showToast(`${label} added to your plan (Day ${min}–Day ${max}).`, 'success');
 }
 
 async function deleteRangeItems(rangeId) {
