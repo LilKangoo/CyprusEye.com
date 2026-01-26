@@ -29,6 +29,8 @@
     <script type="module" src="/js/toast.js"></script>
     <script type="module" src="/js/auth.js"></script>
     <script type="module" src="/js/authUi.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
   </head>
   <body data-navigation="multi-page" data-seo-page="plan">
     <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
@@ -250,6 +252,10 @@
                       <label for="planEditEnd">End date</label>
                       <input id="planEditEnd" type="date" />
                     </div>
+                  </div>
+                  <div style="display: grid; gap: 0.25rem;">
+                    <label for="planEditPeople">People</label>
+                    <input id="planEditPeople" type="number" min="1" step="1" inputmode="numeric" />
                   </div>
                   <label style="display: flex; gap: 0.5rem; align-items: center;">
                     <input id="planEditIncludeNorth" type="checkbox" />

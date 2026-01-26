@@ -42,6 +42,13 @@ let catalogData = {
 let catalogLoadedForPlanId = null;
 let catalogLangWired = false;
 
+function safeUuid() {
+  try {
+    if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+  } catch (_) {}
+  return `r_${Date.now()}_${Math.random().toString(16).slice(2)}`;
+}
+
 async function waitForPlacesData({ timeoutMs = 1200, stepMs = 100 } = {}) {
   const start = Date.now();
   while (Date.now() - start < timeoutMs) {
@@ -224,7 +231,7 @@ function getServiceTypeLabel(type) {
   if (type === 'trip') return 'Trip';
   if (type === 'hotel') return 'Hotel';
   if (type === 'car') return 'Car';
-  if (type === 'poi') return 'POI';
+  if (type === 'poi') return 'Place';
   return type || 'Item';
 }
 
@@ -368,6 +375,72 @@ async function addServiceItemToDay({ dayId, itemType, refId, data }) {
   await loadPlanDays(currentPlan?.id);
 }
 
+async function addServiceRangeToDays({ startDayId, endDayId, itemType, refId, data }) {
+  if (!sb) return;
+  if (!startDayId || !endDayId) {
+    showToast('Select start and end day.', 'info');
+    return;
+  }
+  if (!itemType) return;
+
+  const start = planDaysById.get(startDayId);
+  const end = planDaysById.get(endDayId);
+  const startIndex = start?.day_index;
+  const endIndex = end?.day_index;
+  if (!start || !end || !Number.isFinite(Number(startIndex)) || !Number.isFinite(Number(endIndex))) {
+    showToast('Invalid day range.', 'error');
+    return;
+  }
+
+  const min = Math.min(Number(startIndex), Number(endIndex));
+  const max = Math.max(Number(startIndex), Number(endIndex));
+  const days = Array.from(planDaysById.values()).filter((d) => Number(d?.day_index) >= min && Number(d?.day_index) <= max);
+  if (!days.length) {
+    showToast('Invalid day range.', 'error');
+    return;
+  }
+
+  const rangeId = safeUuid();
+  const safeRefId = isUuid(refId) ? String(refId) : null;
+  const baseData = data && typeof data === 'object' ? { ...data } : {};
+  if (safeRefId === null && refId != null && String(refId).trim()) {
+    baseData.source_id = String(refId);
+  }
+  baseData.range_id = rangeId;
+  baseData.range_start_day_id = startDayId;
+  baseData.range_end_day_id = endDayId;
+  baseData.range_start_day_index = min;
+  baseData.range_end_day_index = max;
+
+  const payloads = days.map((d) => ({
+    plan_day_id: d.id,
+    item_type: itemType,
+    ref_id: safeRefId,
+    data: { ...baseData },
+    sort_order: Math.floor(Date.now() / 1000),
+  }));
+
+  const { error } = await sb.from('user_plan_items').insert(payloads);
+  if (error) {
+    console.error('Failed to add range items', error);
+    showToast(error.message || 'Failed to add range', 'error');
+    return;
+  }
+
+  await loadPlanDays(currentPlan?.id);
+}
+
+async function deleteRangeItems(rangeId) {
+  if (!sb || !rangeId) return false;
+  const { error } = await sb.from('user_plan_items').delete().contains('data', { range_id: rangeId });
+  if (error) {
+    console.error('Failed to delete range', error);
+    showToast(error.message || 'Failed to delete range', 'error');
+    return false;
+  }
+  return true;
+}
+
 function renderServiceCatalog() {
   const wrap = catalogEl();
   if (!wrap) return;
@@ -406,10 +479,12 @@ function renderServiceCatalog() {
       .map((t) => {
         const title = getTripTitle(t);
         const city = t?.start_city || '';
-        const price = t?.price_per_person != null ? `${Number(t.price_per_person).toFixed(2)} €` : '';
+        const ppl = Number(currentPlan?.people_count || 0);
+        const base = t?.price_per_person != null ? Number(t.price_per_person) : null;
+        const price = base != null ? `${(ppl > 0 ? base * ppl : base).toFixed(2)} €${ppl > 0 ? ` (${ppl}×)` : ''}` : '';
         const slug = t?.slug || '';
         const url = slug ? `trip.html?slug=${encodeURIComponent(slug)}` : 'trips.html';
-        return { id: t?.id, title, subtitle: city, price, url };
+        return { id: t?.id, title, subtitle: city, price, url, lat: null, lng: null };
       })
       .filter((x) => (ctx.city ? (!x.subtitle || cityMatches(x.subtitle, ctx.city)) : true))
       .filter((x) => matches(`${x.title} ${x.subtitle}`));
@@ -420,7 +495,7 @@ function renderServiceCatalog() {
         const city = getHotelCity(h);
         const slug = h?.slug || '';
         const url = slug ? `hotel.html?slug=${encodeURIComponent(slug)}` : 'hotels.html';
-        return { id: h?.id, title, subtitle: city, price: '', url };
+        return { id: h?.id, title, subtitle: city, price: '', url, lat: null, lng: null };
       })
       .filter((x) => (ctx.city ? (!x.subtitle || cityMatches(x.subtitle, ctx.city)) : true))
       .filter((x) => matches(`${x.title} ${x.subtitle}`));
@@ -431,7 +506,7 @@ function renderServiceCatalog() {
         const location = c?.location || '';
         const url = getCarLink(c);
         const north = c?.north_allowed ? 'north ok' : '';
-        return { id: c?.id, title, subtitle: [location, north].filter(Boolean).join(' • '), location, price: '', url };
+        return { id: c?.id, title, subtitle: [location, north].filter(Boolean).join(' • '), location, price: '', url, lat: null, lng: null };
       })
       .filter((x) => {
         if (ctx.includeNorth) {
@@ -447,7 +522,7 @@ function renderServiceCatalog() {
       .map((p) => {
         const title = getPoiTitle(p);
         const url = p?.google_url || p?.google_maps_url || (p?.lat != null && p?.lng != null ? `https://www.google.com/maps?q=${p.lat},${p.lng}` : '');
-        return { id: p?.id, title, subtitle: '', price: '', url };
+        return { id: p?.id, title, subtitle: '', price: '', url, lat: p?.lat ?? null, lng: p?.lng ?? null };
       })
       .filter((x) => matches(`${x.title}`));
   }
@@ -458,11 +533,14 @@ function renderServiceCatalog() {
           .slice(0, 100)
           .map((x) => {
             const addAttr = `data-catalog-add="1" data-item-type="${catalogActiveTab.slice(0, -1)}" data-ref-id="${escapeHtml(x.id || '')}" data-title="${escapeHtml(x.title || '')}" data-subtitle="${escapeHtml(x.subtitle || '')}" data-url="${escapeHtml(x.url || '')}" data-price="${escapeHtml(x.price || '')}"`;
+            const poiAttrs = x.lat != null && x.lng != null ? ` data-lat="${escapeHtml(String(x.lat))}" data-lng="${escapeHtml(String(x.lng))}"` : '';
             const link = x.url ? `<a href="${escapeHtml(x.url)}" target="_blank" rel="noopener" class="btn btn-sm">Open</a>` : '';
+            const isRange = catalogActiveTab === 'hotels' || catalogActiveTab === 'cars';
             const daySel = dayOptions
-              ? `<select data-catalog-add-day="1" class="btn btn-sm" style="max-width: 220px;">
-                  ${dayOptions}
-                </select>`
+              ? (isRange
+                ? `<select data-catalog-range-start="1" class="btn btn-sm" style="max-width: 220px;">${dayOptions}</select>
+                   <select data-catalog-range-end="1" class="btn btn-sm" style="max-width: 220px;">${dayOptions}</select>`
+                : `<select data-catalog-add-day="1" class="btn btn-sm" style="max-width: 220px;">${dayOptions}</select>`)
               : '';
             return `
               <div class="card" style="padding:0.75rem; border:1px solid #e2e8f0; display:flex; gap:0.75rem; align-items:flex-start; justify-content:space-between;">
@@ -474,7 +552,7 @@ function renderServiceCatalog() {
                 <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
                   ${link}
                   ${daySel}
-                  <button type="button" class="btn btn-sm btn-primary primary" ${addAttr}>Add</button>
+                  <button type="button" class="btn btn-sm btn-primary primary" ${addAttr}${poiAttrs}>${isRange ? 'Add range' : 'Add'}</button>
                 </div>
               </div>
             `;
@@ -526,6 +604,8 @@ function renderServiceCatalog() {
   wrap.querySelectorAll('[data-catalog-add]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const row = btn.closest('.card');
+      const startSel = row ? row.querySelector('[data-catalog-range-start]') : null;
+      const endSel = row ? row.querySelector('[data-catalog-range-end]') : null;
       const rowDaySel = row ? row.querySelector('[data-catalog-add-day]') : null;
       const dayId = rowDaySel instanceof HTMLSelectElement ? rowDaySel.value : getCatalogSelectedDayId();
       const type = btn.getAttribute('data-item-type');
@@ -534,19 +614,85 @@ function renderServiceCatalog() {
       const subtitle = btn.getAttribute('data-subtitle') || '';
       const url = btn.getAttribute('data-url') || '';
       const price = btn.getAttribute('data-price') || '';
-      await addServiceItemToDay({
-        dayId,
-        itemType: type,
-        refId,
-        data: {
-          title,
-          subtitle,
-          url,
-          price,
-        },
-      });
+      const latAttr = btn.getAttribute('data-lat');
+      const lngAttr = btn.getAttribute('data-lng');
+      const lat = latAttr != null && latAttr !== '' ? Number(latAttr) : null;
+      const lng = lngAttr != null && lngAttr !== '' ? Number(lngAttr) : null;
+      const baseData = { title, subtitle, url, price };
+      if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        baseData.lat = lat;
+        baseData.lng = lng;
+      }
+
+      if ((type === 'hotel' || type === 'car') && startSel instanceof HTMLSelectElement && endSel instanceof HTMLSelectElement) {
+        await addServiceRangeToDays({
+          startDayId: startSel.value,
+          endDayId: endSel.value,
+          itemType: type,
+          refId,
+          data: baseData,
+        });
+        return;
+      }
+
+      await addServiceItemToDay({ dayId, itemType: type, refId, data: baseData });
     });
   });
+}
+
+function getPoiLatLngForItem(it) {
+  const d = it?.data && typeof it.data === 'object' ? it.data : null;
+  const lat = d && d.lat != null ? Number(d.lat) : null;
+  const lng = d && d.lng != null ? Number(d.lng) : null;
+  if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+
+  const sourceId = d && d.source_id != null ? String(d.source_id) : null;
+  const refId = it?.ref_id != null ? String(it.ref_id) : null;
+  const match = catalogData.pois.find((p) => String(p?.id) === String(refId || sourceId));
+  if (match && match.lat != null && match.lng != null) {
+    const ml = Number(match.lat);
+    const mg = Number(match.lng);
+    if (Number.isFinite(ml) && Number.isFinite(mg)) return { lat: ml, lng: mg };
+  }
+  return null;
+}
+
+function renderDayMap(dayId, poiItems) {
+  try {
+    if (typeof L === 'undefined') return;
+  } catch (_) {
+    return;
+  }
+
+  const elMap = document.getElementById(`dayMap_${dayId}`);
+  if (!(elMap instanceof HTMLElement)) return;
+
+  const points = (poiItems || []).map(getPoiLatLngForItem).filter(Boolean);
+  if (!points.length) {
+    elMap.style.display = 'none';
+    return;
+  }
+  elMap.style.display = 'block';
+
+  if (elMap.dataset.inited === '1') return;
+  elMap.dataset.inited = '1';
+
+  const first = points[0];
+  const map = L.map(elMap, { zoomControl: true, attributionControl: true }).setView([first.lat, first.lng], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; OpenStreetMap',
+  }).addTo(map);
+
+  const bounds = [];
+  for (const p of points) {
+    const m = L.marker([p.lat, p.lng]).addTo(map);
+    bounds.push([p.lat, p.lng]);
+    void m;
+  }
+  if (bounds.length > 1) {
+    map.fitBounds(bounds, { padding: [20, 20] });
+  }
 }
 
 function setCurrentYear() {
@@ -808,6 +954,7 @@ async function loadPlanDays(planId) {
       const items = Array.isArray(dayItemsByDayId.get(d.id)) ? dayItemsByDayId.get(d.id) : [];
       const noteItems = items.filter((it) => it && it.item_type === 'note');
       const serviceItems = items.filter((it) => it && it.item_type && it.item_type !== 'note');
+      const poiItems = serviceItems.filter((it) => it && it.item_type === 'poi');
       const servicesHtml = serviceItems.length
         ? `
           <div style="border-top: 1px solid #e2e8f0; padding-top:0.5rem;">
@@ -820,18 +967,22 @@ async function loadPlanDays(planId) {
                   const subtitle = it?.data && typeof it.data === 'object' ? String(it.data.subtitle || '') : '';
                   const url = it?.data && typeof it.data === 'object' ? String(it.data.url || '') : '';
                   const price = it?.data && typeof it.data === 'object' ? String(it.data.price || '') : '';
+                  const rangeStart = it?.data && typeof it.data === 'object' ? Number(it.data.range_start_day_index || 0) : 0;
+                  const rangeEnd = it?.data && typeof it.data === 'object' ? Number(it.data.range_end_day_index || 0) : 0;
+                  const rangeId = it?.data && typeof it.data === 'object' ? String(it.data.range_id || '') : '';
+                  const rangeBadge = rangeId && rangeStart > 0 && rangeEnd > 0 ? ` (Day ${rangeStart}–Day ${rangeEnd})` : '';
                   const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">Open</a>` : '';
                   return `
                     <div style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
                       <div style="flex:1 1 auto; min-width:0;">
                         <div style="font-size:12px; color:#64748b;">${escapeHtml(t)}</div>
-                        <div style="color:#0f172a; font-weight:600;">${escapeHtml(title)}</div>
+                        <div style="color:#0f172a; font-weight:600;">${escapeHtml(title)}${escapeHtml(rangeBadge)}</div>
                         ${subtitle ? `<div style=\"color:#64748b; font-size:12px;\">${escapeHtml(subtitle)}</div>` : ''}
                         ${price ? `<div style=\"color:#0f172a; font-size:12px;\">${escapeHtml(price)}</div>` : ''}
                       </div>
                       <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
                         ${link}
-                        <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" aria-label="Delete">✕</button>
+                        <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" data-range-id="${escapeHtml(rangeId)}" aria-label="Delete">✕</button>
                       </div>
                     </div>
                   `;
@@ -884,12 +1035,20 @@ async function loadPlanDays(planId) {
               <span style="color:#64748b; font-size:12px;" data-day-status="${d.id}"></span>
             </div>
             ${servicesHtml}
+            <div id="dayMap_${d.id}" style="height: 180px; border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; display:none;"></div>
             ${itemsHtml}
           </div>
         </div>
       `;
     })
     .join('');
+
+  rows.forEach((d) => {
+    const items = Array.isArray(dayItemsByDayId.get(d.id)) ? dayItemsByDayId.get(d.id) : [];
+    const serviceItems = items.filter((it) => it && it.item_type && it.item_type !== 'note');
+    const poiItems = serviceItems.filter((it) => it && it.item_type === 'poi');
+    renderDayMap(d.id, poiItems);
+  });
 
   container.querySelectorAll('[data-day-save]').forEach((btn) => {
     btn.addEventListener('click', async () => {
@@ -951,7 +1110,8 @@ async function loadPlanDays(planId) {
     btn.addEventListener('click', async () => {
       const itemId = btn.getAttribute('data-day-item-delete');
       if (!itemId) return;
-      const ok = await deleteDayItem(itemId);
+      const rangeId = btn.getAttribute('data-range-id');
+      const ok = rangeId ? await deleteRangeItems(rangeId) : await deleteDayItem(itemId);
       if (ok) {
         await loadPlanDays(planId);
       }
@@ -1100,12 +1260,14 @@ function renderPlanDetails(plan) {
   const startEl = el('planEditStart');
   const endEl = el('planEditEnd');
   const includeNorthEl = el('planEditIncludeNorth');
+  const peopleEl = el('planEditPeople');
 
   if (titleEl instanceof HTMLInputElement) titleEl.value = plan.title || '';
   if (baseCityEl instanceof HTMLInputElement) baseCityEl.value = plan.base_city || '';
   if (startEl instanceof HTMLInputElement) startEl.value = plan.start_date || '';
   if (endEl instanceof HTMLInputElement) endEl.value = plan.end_date || '';
   if (includeNorthEl instanceof HTMLInputElement) includeNorthEl.checked = !!plan.include_north;
+  if (peopleEl instanceof HTMLInputElement) peopleEl.value = plan.people_count != null ? String(plan.people_count) : '1';
 
   setStatus(saveStatusEl(), '', null);
 }
@@ -1146,13 +1308,23 @@ async function handleCreatePlan(event) {
     days_count: daysCount || null,
     include_north: includeNorth,
     currency: 'EUR',
+    people_count: 1,
   };
 
-  const { data: created, error } = await sb
-    .from('user_plans')
-    .insert([payload])
-    .select('*')
-    .single();
+  let created = null;
+  let error = null;
+  {
+    const res = await sb.from('user_plans').insert([payload]).select('*').single();
+    created = res.data;
+    error = res.error;
+  }
+  if (error && String(error.message || '').toLowerCase().includes('people_count')) {
+    const payload2 = { ...payload };
+    delete payload2.people_count;
+    const res2 = await sb.from('user_plans').insert([payload2]).select('*').single();
+    created = res2.data;
+    error = res2.error;
+  }
 
   if (error) {
     console.error('Failed to create plan', error);
@@ -1203,12 +1375,15 @@ async function handleSavePlan() {
   const startEl = el('planEditStart');
   const endEl = el('planEditEnd');
   const includeNorthEl = el('planEditIncludeNorth');
+  const peopleEl = el('planEditPeople');
 
   const title = titleEl instanceof HTMLInputElement ? titleEl.value.trim() : '';
   const baseCity = baseCityEl instanceof HTMLInputElement ? baseCityEl.value.trim() : '';
   const startDate = startEl instanceof HTMLInputElement ? startEl.value.trim() : '';
   const endDate = endEl instanceof HTMLInputElement ? endEl.value.trim() : '';
   const includeNorth = includeNorthEl instanceof HTMLInputElement ? includeNorthEl.checked : false;
+  const peopleCount = peopleEl instanceof HTMLInputElement ? Number(peopleEl.value || 0) : 0;
+  const cleanPeople = Number.isFinite(peopleCount) && peopleCount > 0 ? Math.floor(peopleCount) : 1;
 
   const daysCount = startDate && endDate ? daysBetweenInclusive(startDate, endDate) : null;
   if ((startDate && endDate) && !daysCount) {
@@ -1225,14 +1400,23 @@ async function handleSavePlan() {
     end_date: endDate || null,
     days_count: daysCount || null,
     include_north: includeNorth,
+    people_count: cleanPeople,
   };
 
-  const { data: updated, error } = await sb
-    .from('user_plans')
-    .update(patch)
-    .eq('id', currentPlan.id)
-    .select('*')
-    .single();
+  let updated = null;
+  let error = null;
+  {
+    const res = await sb.from('user_plans').update(patch).eq('id', currentPlan.id).select('*').single();
+    updated = res.data;
+    error = res.error;
+  }
+  if (error && String(error.message || '').toLowerCase().includes('people_count')) {
+    const patch2 = { ...patch };
+    delete patch2.people_count;
+    const res2 = await sb.from('user_plans').update(patch2).eq('id', currentPlan.id).select('*').single();
+    updated = res2.data;
+    error = res2.error;
+  }
 
   if (error) {
     console.error('Failed to save plan', error);
