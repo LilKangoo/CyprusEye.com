@@ -603,6 +603,20 @@ async function loadServiceCatalog(planId) {
         .order('created_at', { ascending: false })
         .range(0, 99);
     }
+    const errMsg = String(res?.error?.message || '').toLowerCase();
+    const missingPublished = res?.error && (errMsg.includes('is_published') || errMsg.includes('column') || errMsg.includes('does not exist'));
+    if (missingPublished || (!res?.error && Array.isArray(res?.data) && res.data.length === 0)) {
+      let alt = await sb
+        .from('hotels')
+        .select('*')
+        .order('sort_order', { ascending: true })
+        .order('created_at', { ascending: false })
+        .range(0, 99);
+      if (alt?.error && String(alt.error.message || '').toLowerCase().includes('sort_order')) {
+        alt = await sb.from('hotels').select('*').order('created_at', { ascending: false }).range(0, 99);
+      }
+      if (!alt?.error && Array.isArray(alt?.data)) res = alt;
+    }
     return res;
   };
 
