@@ -15,11 +15,16 @@ type PartnerFulfillmentActionRequest = {
   email_dedupe_suffix?: string;
 };
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, x-supabase-client-info, x-supabase-client-platform, x-supabase-client-runtime, x-supabase-client-runtime-version, apikey, content-type",
-  "Access-Control-Allow-Methods": "POST, OPTIONS",
-};
+function buildCorsHeaders(req: Request): Record<string, string> {
+  const requested = String(req.headers.get("access-control-request-headers") || "").trim();
+  const allowHeaders = requested || "authorization, x-client-info, apikey, content-type";
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Headers": allowHeaders,
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Vary": "Origin, Access-Control-Request-Headers",
+  };
+}
 
 const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -775,25 +780,25 @@ async function sendCustomerConfirmedEmail(orderId: string) {
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
+    return new Response("ok", { headers: buildCorsHeaders(req) });
   }
 
   if (req.method === "GET" || req.method === "HEAD") {
     return new Response(
       JSON.stringify({ ok: true, service: "partner-fulfillment-action", version: PARTNER_FULFILLMENT_ACTION_VERSION }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      { status: 200, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } },
     );
   }
 
   if (req.method !== "POST") {
-    return new Response("Method not allowed", { status: 405, headers: corsHeaders });
+    return new Response("Method not allowed", { status: 405, headers: buildCorsHeaders(req) });
   }
 
   const token = extractBearerToken(req);
   if (!token) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
     });
   }
 
@@ -803,7 +808,7 @@ serve(async (req) => {
   } catch (_e) {
     return new Response(JSON.stringify({ error: "Invalid JSON" }), {
       status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
     });
   }
 
@@ -822,7 +827,7 @@ serve(async (req) => {
       }),
       {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
       },
     );
   }
@@ -834,7 +839,7 @@ serve(async (req) => {
   if (authError || !authData?.user) {
     return new Response(JSON.stringify({ error: "Unauthorized" }), {
       status: 401,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
     });
   }
 
@@ -884,7 +889,7 @@ serve(async (req) => {
   if (!fulfillment) {
     return new Response(JSON.stringify({ error: "Fulfillment not found" }), {
       status: 404,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
     });
   }
 
@@ -892,7 +897,7 @@ serve(async (req) => {
   if (!partnerId) {
     return new Response(JSON.stringify({ error: "Fulfillment has no partner assigned" }), {
       status: 400,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
     });
   }
 
@@ -908,7 +913,7 @@ serve(async (req) => {
     if (mErr || !membership) {
       return new Response(JSON.stringify({ error: "Forbidden" }), {
         status: 403,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
   }
@@ -923,14 +928,14 @@ serve(async (req) => {
     console.error("Failed to load partner:", partnerErr);
     return new Response(JSON.stringify({ error: "Partner lookup failed" }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
     });
   }
 
   if (!callerIsAdmin && (partner as any)?.status === "suspended") {
     return new Response(JSON.stringify({ error: "Partner suspended" }), {
       status: 403,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
     });
   }
 
@@ -943,7 +948,7 @@ serve(async (req) => {
           reason: "already_claimed",
           data: { booking_id: bookingId || null, fulfillment_id: fulfillmentId, partner_id: partnerId },
         }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 200, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } },
       );
     }
 
@@ -951,13 +956,13 @@ serve(async (req) => {
       if (!callerIsAdmin) {
         return new Response(JSON.stringify({ error: "Forbidden" }), {
           status: 403,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
         });
       }
       if (kind !== "service") {
         return new Response(JSON.stringify({ error: "mark_paid only supported for service fulfillments" }), {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
         });
       }
 
@@ -972,7 +977,7 @@ serve(async (req) => {
       if (depErr || !depRow) {
         return new Response(JSON.stringify({ error: "Deposit request not found for fulfillment" }), {
           status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
         });
       }
 
@@ -983,7 +988,7 @@ serve(async (req) => {
       if (!depositRequestId || !depositBookingId || !depositPartnerId || !depCategory) {
         return new Response(JSON.stringify({ error: "Deposit request missing required refs" }), {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
         });
       }
 
@@ -1037,7 +1042,7 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ ok: true, data: { booking_id: depositBookingId, fulfillment_id: fulfillmentId, deposit_request_id: depositRequestId } }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 200, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } },
       );
     }
 
@@ -1086,20 +1091,20 @@ serve(async (req) => {
       }
       return new Response(
         JSON.stringify({ ok: true, skipped: true, reason: "already_accepted", data: { order_id: orderId || null, booking_id: bookingId || null, fulfillment_id: fulfillmentId, partner_id: partnerId, all_accepted: false, deposit } }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 200, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } },
       );
     }
 
     if (action === "reject" && fulfillmentStatus === "rejected") {
       return new Response(
         JSON.stringify({ ok: true, skipped: true, reason: "already_rejected", data: { order_id: orderId || null, booking_id: bookingId || null, fulfillment_id: fulfillmentId, partner_id: partnerId } }),
-        { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+        { status: 200, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } },
       );
     }
 
     return new Response(JSON.stringify({ error: `Invalid fulfillment status: ${fulfillmentStatus}` }), {
       status: 409,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
     });
   }
 
@@ -1140,14 +1145,14 @@ serve(async (req) => {
       if (updErr) {
         return new Response(JSON.stringify({ error: updErr.message || "accept_failed" }), {
           status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
         });
       }
 
       if (!Array.isArray(updRows) || updRows.length === 0) {
         return new Response(JSON.stringify({ ok: true, skipped: true, reason: "status_changed" }), {
           status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
         });
       }
 
@@ -1160,7 +1165,7 @@ serve(async (req) => {
             reason: "already_claimed",
             data: { booking_id: bookingId || null, fulfillment_id: fulfillmentId, partner_id: partnerId },
           }),
-          { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+          { status: 200, headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" } },
         );
       }
 
@@ -1202,7 +1207,7 @@ serve(async (req) => {
         }
         return new Response(JSON.stringify({ ok: true, data: { booking_id: bookingId, fulfillment_id: fulfillmentId, partner_id: partnerId, deposit } }), {
           status: 200,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
+          headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
         });
       }
 
@@ -1237,7 +1242,7 @@ serve(async (req) => {
 
       return new Response(JSON.stringify({ ok: true, data: { order_id: orderId, fulfillment_id: fulfillmentId, partner_id: partnerId, all_accepted: allAccepted } }), {
         status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -1259,14 +1264,14 @@ serve(async (req) => {
     if (rejErr) {
       return new Response(JSON.stringify({ error: rejErr.message || "reject_failed" }), {
         status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
     if (!Array.isArray(rejRows) || rejRows.length === 0) {
       return new Response(JSON.stringify({ ok: true, skipped: true, reason: "status_changed" }), {
         status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
       });
     }
 
@@ -1299,13 +1304,13 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({ ok: true, data: { order_id: orderId || null, booking_id: bookingId || null, fulfillment_id: fulfillmentId, partner_id: partnerId } }), {
       status: 200,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
     });
   } catch (e) {
     console.error("Partner fulfillment action error:", e);
     return new Response(JSON.stringify({ error: e instanceof Error ? e.message : String(e) }), {
       status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      headers: { ...buildCorsHeaders(req), "Content-Type": "application/json" },
     });
   }
 });
