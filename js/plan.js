@@ -27,6 +27,25 @@ let catalogData = {
   pois: [],
 };
 let catalogLoadedForPlanId = null;
+let catalogLangWired = false;
+
+async function waitForPlacesData({ timeoutMs = 1200, stepMs = 100 } = {}) {
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    if (Array.isArray(window.PLACES_DATA) && window.PLACES_DATA.length) return true;
+    if (window.PLACES_DATA_LOADED === true) return Array.isArray(window.PLACES_DATA) && window.PLACES_DATA.length;
+    await new Promise((r) => setTimeout(r, stepMs));
+  }
+  return Array.isArray(window.PLACES_DATA) && window.PLACES_DATA.length;
+}
+
+async function loadPoisForCatalog() {
+  const ok = await waitForPlacesData({ timeoutMs: 1500, stepMs: 150 });
+  if (ok) return { data: window.PLACES_DATA, error: null };
+
+  if (!sb) return { data: [], error: null };
+  return sb.from('pois').select('*').eq('status', 'published').order('created_at', { ascending: false }).range(0, 199);
+}
 
 function formatPlanLabel(plan) {
   const title = (plan?.title || '').trim() || 'Untitled plan';
@@ -187,6 +206,13 @@ async function loadServiceCatalog(planId) {
     wrap.innerHTML = '<div style="color:#64748b;">Loading services…</div>';
   }
 
+  if (!catalogLangWired) {
+    window.addEventListener('languageChanged', () => {
+      renderServiceCatalog();
+    });
+    catalogLangWired = true;
+  }
+
   const loadTrips = async () => {
     let res = await sb
       .from('trips')
@@ -244,12 +270,7 @@ async function loadServiceCatalog(planId) {
     return res;
   };
 
-  const [tripsRes, hotelsRes, carsRes, poisRes] = await Promise.all([
-    loadTrips(),
-    loadHotels(),
-    loadCars(),
-    sb.from('pois').select('*').eq('status', 'published').order('created_at', { ascending: false }).range(0, 199),
-  ]);
+  const [tripsRes, hotelsRes, carsRes, poisRes] = await Promise.all([loadTrips(), loadHotels(), loadCars(), loadPoisForCatalog()]);
 
   if (tripsRes.error) console.warn('Failed to load trips catalog', tripsRes.error);
   if (hotelsRes.error) console.warn('Failed to load hotels catalog', hotelsRes.error);
