@@ -133,7 +133,7 @@ function diffDays(start: unknown, end: unknown): number {
   try {
     const s = new Date(`${String(start).slice(0, 10)}T00:00:00`);
     const e = new Date(`${String(end).slice(0, 10)}T00:00:00`);
-    const raw = Math.round((e.getTime() - s.getTime()) / 86400000);
+    const raw = Math.ceil((e.getTime() - s.getTime()) / 86400000);
     if (!Number.isFinite(raw)) return 1;
     return Math.max(1, raw);
   } catch (_e) {
@@ -579,6 +579,9 @@ async function createDepositCheckoutForServiceFulfillment(params: {
       const start = fulfillment?.start_date;
       const end = fulfillment?.end_date;
       multiplier = diffDays(start, end);
+      if (category === "cars") {
+        multiplier = Math.max(3, multiplier);
+      }
     } else if (rule.mode === "per_hour") {
       if (category !== "trips") throw new Error("per_hour deposit only supported for trips");
       let hours = 0;

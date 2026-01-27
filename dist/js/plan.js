@@ -134,6 +134,8 @@ async function emailPlanToUser() {
     showToast('Select a plan first.', 'info');
     return;
   }
+
+  await waitForAuthReadySafe();
   try {
     const btn = el('planEmailBtn');
     if (btn instanceof HTMLButtonElement) {
@@ -151,7 +153,12 @@ async function emailPlanToUser() {
     }
   } catch (e) {
     console.error('Failed to send plan email', e);
-    showToast(e?.message || 'Failed to send email.', 'error');
+    const msg = String(e?.message || '').toLowerCase();
+    if (msg.includes('failed to fetch') || msg.includes('cors') || msg.includes('functions')) {
+      showToast('Email function is not available (Edge Function not deployed or blocked).', 'error');
+    } else {
+      showToast(e?.message || 'Failed to send email.', 'error');
+    }
   } finally {
     const btn = el('planEmailBtn');
     if (btn instanceof HTMLButtonElement) {
@@ -305,6 +312,27 @@ function setHashPlanId(id) {
     return;
   }
   window.location.hash = `plan:${id}`;
+}
+
+const LAST_SELECTED_PLAN_KEY = 'ce_last_selected_plan_id_v1';
+
+function getLastSelectedPlanId() {
+  try {
+    const v = localStorage.getItem(LAST_SELECTED_PLAN_KEY);
+    return v && isUuid(v) ? v : null;
+  } catch (_) {
+    return null;
+  }
+}
+
+function setLastSelectedPlanId(id) {
+  try {
+    if (!id) {
+      localStorage.removeItem(LAST_SELECTED_PLAN_KEY);
+      return;
+    }
+    localStorage.setItem(LAST_SELECTED_PLAN_KEY, String(id));
+  } catch (_) {}
 }
 
 async function getCurrentUser() {
@@ -1428,6 +1456,8 @@ async function selectPlanById(id, { skipListReload = false } = {}) {
   renderPlanDetails(currentPlan);
   await loadPlanDays(currentPlan.id);
   await loadServiceCatalog(currentPlan.id);
+
+  setLastSelectedPlanId(currentPlan.id);
 
   if (!skipListReload) {
     await loadPlans({ selectId: currentPlan.id });
@@ -2863,18 +2893,32 @@ async function init() {
   wireEvents();
 
   try {
-    sb.auth.onAuthStateChange(async () => {
-      currentPlan = null;
-      renderPlanDetails(null);
-      await loadPlans();
+    sb.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT' || !session) {
+        currentPlan = null;
+        renderPlanDetails(null);
+        setLastSelectedPlanId(null);
+        await loadPlans();
+        return;
+      }
+
+      if (currentPlan?.id) {
+        return;
+      }
+
+      const desired = parseHashPlanId() || getLastSelectedPlanId();
+      if (desired) {
+        await selectPlanById(desired, { skipListReload: true });
+      }
+      await loadPlans({ selectId: desired || null });
     });
   } catch (_) {}
 
   await loadPlans();
 
-  const hashId = parseHashPlanId();
-  if (hashId) {
-    await selectPlanById(hashId);
+  const desiredId = parseHashPlanId() || getLastSelectedPlanId();
+  if (desiredId) {
+    await selectPlanById(desiredId);
   }
 }
 
