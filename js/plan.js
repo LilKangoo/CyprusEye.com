@@ -88,6 +88,8 @@ function buildPlanPrintHtml(model) {
     .filter(Boolean)
     .join(' • ');
 
+  const brandLogoUrl = 'https://cypruseye.com/assets/cyprus_logo-1000x1054.png';
+
   const daysHtml = (model?.days || [])
     .map((d) => {
       const head = `Day ${escapeHtml(String(d.dayIndex || ''))}${d.date ? ` · ${escapeHtml(d.date)}` : ''}${d.city ? ` · ${escapeHtml(d.city)}` : ''}`;
@@ -131,6 +133,7 @@ function buildPlanPrintHtml(model) {
         .hgroup h1{margin:0; font-size:22px; letter-spacing:-0.02em;}
         .hgroup .sub{margin-top:6px; color:var(--muted); font-size:12px;}
         .badge{display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--muted);}
+        .logo{height:34px; width:auto; display:block;}
         .day{border:1px solid var(--border); border-radius:14px; padding:14px 14px; margin:12px 0; break-inside:avoid;}
         .day h2{margin:0 0 10px; font-size:14px;}
         .day-notes{color:var(--muted); font-size:12px; margin-bottom:10px;}
@@ -154,7 +157,10 @@ function buildPlanPrintHtml(model) {
             <div class="sub">${escapeHtml(subtitle)}</div>
             <div class="sub">${escapeHtml(partyLine)}</div>
           </div>
-          <div class="badge">Generated: ${escapeHtml(new Date().toISOString().slice(0, 10))}</div>
+          <div style="display:grid; gap:8px; justify-items:end;">
+            <img class="logo" src="${escapeHtml(brandLogoUrl)}" alt="CyprusEye" />
+            <div class="badge">Generated: ${escapeHtml(new Date().toISOString().slice(0, 10))}</div>
+          </div>
         </header>
         ${daysHtml || ''}
       </div>

@@ -630,6 +630,23 @@ async function loadAuthSession() {
     console.warn('Nie udało się przywrócić sesji z custom storage:', error);
   }
 
+  try {
+    const snapshotSession = persistedSnapshot?.session;
+    const token = typeof snapshotSession?.access_token === 'string' ? snapshotSession.access_token.trim() : '';
+    const refresh = typeof snapshotSession?.refresh_token === 'string' ? snapshotSession.refresh_token.trim() : '';
+    if (token && refresh) {
+      const { data: currentSessionData } = await sb.auth.getSession();
+      if (!currentSessionData?.session) {
+        const { data: setData } = await sb.auth.setSession({ access_token: token, refresh_token: refresh });
+        if (setData?.session) {
+          persistedSnapshot = { ...(persistedSnapshot || {}), session: setData.session };
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('[auth-ui] Nie udało się zsynchronizować sesji Supabase z custom storage:', error);
+  }
+
   const sessionPromise = sb.auth.getSession().then((result) => result?.data?.session || null);
 
   const onceAuthEvent = new Promise((resolve) => {
