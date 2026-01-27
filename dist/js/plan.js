@@ -874,31 +874,43 @@ function renderServiceCatalog() {
   }
 
   const rowsHtml = list.length
-    ? `<div style="display:grid; gap:0.5rem;">
+    ? `<div class="ce-catalog-grid">
         ${list
-          .slice(0, 100)
+          .slice(0, 120)
           .map((x) => {
             const addAttr = `data-catalog-add="1" data-item-type="${catalogActiveTab.slice(0, -1)}" data-ref-id="${escapeHtml(x.id || '')}" data-title="${escapeHtml(x.title || '')}" data-subtitle="${escapeHtml(x.subtitle || '')}" data-url="${escapeHtml(x.url || '')}" data-price="${escapeHtml(x.price || '')}"`;
             const poiAttrs = x.lat != null && x.lng != null ? ` data-lat="${escapeHtml(String(x.lat))}" data-lng="${escapeHtml(String(x.lng))}"` : '';
-            const link = x.url ? `<a href="${escapeHtml(x.url)}" target="_blank" rel="noopener" class="btn btn-sm">Open</a>` : '';
+            const link = x.url ? `<a href="${escapeHtml(x.url)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">Open</a>` : '';
             const isRange = catalogActiveTab === 'hotels' || catalogActiveTab === 'cars';
+
             const daySel = dayOptions
               ? (isRange
-                ? `<select data-catalog-range-start="1" class="btn btn-sm" style="max-width: 220px;">${dayOptions}</select>
-                   <select data-catalog-range-end="1" class="btn btn-sm" style="max-width: 220px;">${dayOptions}</select>`
-                : `<select data-catalog-add-day="1" class="btn btn-sm" style="max-width: 220px;">${dayOptions}</select>`)
+                ? `<details class="ce-catalog-days">
+                     <summary>Days</summary>
+                     <div class="ce-catalog-days__inner">
+                       <select data-catalog-range-start="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
+                       <select data-catalog-range-end="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
+                     </div>
+                   </details>`
+                : `<details class="ce-catalog-days">
+                     <summary>Add to day</summary>
+                     <div class="ce-catalog-days__inner">
+                       <select data-catalog-add-day="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
+                     </div>
+                   </details>`)
               : '';
+
             return `
-              <div class="card" style="padding:0.75rem; border:1px solid #e2e8f0; display:flex; gap:0.75rem; align-items:flex-start; justify-content:space-between;">
-                <div style="min-width:0;">
-                  <div style="font-weight:600;">${escapeHtml(x.title)}</div>
-                  ${x.subtitle ? `<div style=\"color:#64748b; font-size:12px;\">${escapeHtml(x.subtitle)}</div>` : ''}
-                  ${x.price ? `<div style=\"color:#0f172a; font-size:12px;\">${escapeHtml(x.price)}</div>` : ''}
+              <div class="card ce-catalog-tile" style="padding:0.65rem; border:1px solid #e2e8f0;">
+                <div class="ce-catalog-title">${escapeHtml(x.title)}</div>
+                <div class="ce-catalog-meta">
+                  ${x.subtitle ? `<span class=\"ce-catalog-sub\">${escapeHtml(x.subtitle)}</span>` : ''}
+                  ${x.price ? `<span class=\"ce-catalog-price\">${escapeHtml(x.price)}</span>` : ''}
                 </div>
-                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
+                <div class="ce-catalog-actions">
                   ${link}
                   ${daySel}
-                  <button type="button" class="btn btn-sm btn-primary primary" ${addAttr}${poiAttrs}>${isRange ? 'Add range' : 'Add'}</button>
+                  <button type="button" class="btn btn-sm btn-primary primary ce-catalog-add" ${addAttr}${poiAttrs}>${isRange ? 'Add range' : 'Add'}</button>
                 </div>
               </div>
             `;
@@ -918,7 +930,7 @@ function renderServiceCatalog() {
       <input id="planCatalogSearch" type="text" value="${escapeHtml(catalogSearch)}" placeholder="Search…" style="max-width:280px;" />
       <button type="button" class="btn" data-catalog-refresh="1">Refresh</button>
     </div>
-    <div style="margin-top:0.75rem;">
+    <div class="ce-catalog-results" style="margin-top:0.75rem;">
       ${rowsHtml}
     </div>
   `;
