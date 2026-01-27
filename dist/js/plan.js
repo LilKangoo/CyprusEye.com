@@ -1816,6 +1816,13 @@ async function handleCreatePlan(event) {
   const endDate = String(new FormData(form).get('end_date') || '').trim();
   const includeNorth = String(new FormData(form).get('include_north') || '') === 'on';
 
+  const aRaw = Math.max(0, Math.floor(Number(new FormData(form).get('adults') || 0) || 0));
+  const cRaw = Math.max(0, Math.floor(Number(new FormData(form).get('children') || 0) || 0));
+  const sum = aRaw + cRaw;
+  const createAdults = sum > 0 ? aRaw : 1;
+  const createChildren = sum > 0 ? cRaw : 0;
+  const createPeople = Math.max(1, createAdults + createChildren);
+
   const daysCount = startDate && endDate ? daysBetweenInclusive(startDate, endDate) : null;
   if ((startDate && endDate) && !daysCount) {
     setStatus(createStatusEl(), 'Invalid dates.', 'error');
@@ -1831,7 +1838,7 @@ async function handleCreatePlan(event) {
     days_count: daysCount || null,
     include_north: includeNorth,
     currency: 'EUR',
-    people_count: 1,
+    people_count: createPeople,
   };
 
   let created = null;
@@ -1875,6 +1882,10 @@ async function handleCreatePlan(event) {
     if (dayErr) {
       console.warn('Failed to create plan days', dayErr);
     }
+  }
+
+  if (created?.id) {
+    savePartyForPlan(created.id, { adults: createAdults, children: createChildren });
   }
 
   setStatus(createStatusEl(), 'Created.', 'success');
