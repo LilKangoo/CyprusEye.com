@@ -15,6 +15,150 @@ async function ensureSupabase({ timeoutMs = 5000, stepMs = 100 } = {}) {
   return null;
 }
 
+function buildPlanExportModel() {
+  const plan = currentPlan;
+  if (!plan || !plan.id) return null;
+  const days = Array.from(planDaysById.values())
+    .slice()
+    .sort((a, b) => Number(a?.day_index || 0) - Number(b?.day_index || 0));
+
+  const labelForType = (t) => {
+    if (t === 'trip') return 'Trip';
+    if (t === 'hotel') return 'Hotel';
+    if (t === 'car') return 'Car';
+    if (t === 'poi') return 'Place to see';
+    if (t === 'note') return 'Note';
+    return String(t || 'Item');
+  };
+
+  const dayModels = days.map((d) => {
+    const items = Array.isArray(dayItemsByDayId.get(d.id)) ? dayItemsByDayId.get(d.id) : [];
+    const rows = (items || [])
+      .filter(Boolean)
+      .sort((a, b) => Number(a?.sort_order || 0) - Number(b?.sort_order || 0))
+      .map((it) => {
+        const data = it?.data && typeof it.data === 'object' ? it.data : {};
+        const title = String(data?.title || data?.name || it?.title || '').trim();
+        const subtitle = String(data?.subtitle || '').trim();
+        const price = String(data?.price || '').trim();
+        const url = String(data?.url || '').trim();
+        const notes = String(data?.notes || it?.notes || '').trim();
+        return {
+          type: labelForType(it?.item_type),
+          rawType: String(it?.item_type || ''),
+          title: title || labelForType(it?.item_type),
+          subtitle,
+          price,
+          url,
+          notes,
+        };
+      });
+    return {
+      dayIndex: Number(d?.day_index || 0) || 0,
+      date: d?.date ? String(d.date) : '',
+      city: d?.city ? String(d.city) : '',
+      notes: d?.notes ? String(d.notes) : '',
+      items: rows,
+    };
+  });
+
+  const party = getPartyForPlan(plan);
+  const people = Math.max(1, Number(plan?.people_count || (party.adults + party.children) || 1) || 1);
+
+  return {
+    plan: {
+      id: String(plan.id),
+      title: String(plan?.title || '').trim(),
+      baseCity: String(plan?.base_city || '').trim(),
+      startDate: String(plan?.start_date || '').trim(),
+      endDate: String(plan?.end_date || '').trim(),
+      includeNorth: !!plan?.include_north,
+      people,
+      adults: Math.max(0, Number(party.adults || 0) || 0),
+      children: Math.max(0, Number(party.children || 0) || 0),
+    },
+    days: dayModels,
+  };
+}
+
+function buildPlanPrintHtml(model) {
+  const p = model?.plan || {};
+  const title = p.title || 'Trip plan';
+  const subtitle = [p.baseCity ? `Base: ${p.baseCity}` : '', p.startDate ? `${p.startDate} → ${p.endDate || ''}`.trim() : '']
+    .filter(Boolean)
+    .join(' • ');
+
+  const daysHtml = (model?.days || [])
+    .map((d) => {
+      const head = `Day ${escapeHtml(String(d.dayIndex || ''))}${d.date ? ` · ${escapeHtml(d.date)}` : ''}${d.city ? ` · ${escapeHtml(d.city)}` : ''}`;
+      const items = (d.items || [])
+        .map((it) => {
+          const meta = [it.type, it.subtitle, it.price].filter(Boolean).join(' • ');
+          const link = it.url ? `<div class="meta"><a href="${escapeHtml(it.url)}" target="_blank" rel="noopener">${escapeHtml(it.url)}</a></div>` : '';
+          const notes = it.notes ? `<div class="meta">${escapeHtml(it.notes)}</div>` : '';
+          return `<div class="row">\n            <div class="name">${escapeHtml(it.title || '')}</div>\n            ${meta ? `<div class="meta">${escapeHtml(meta)}</div>` : ''}\n            ${link}\n            ${notes}\n          </div>`;
+        })
+        .join('');
+
+      const dayNotes = d.notes ? `<div class="day-notes">${escapeHtml(d.notes)}</div>` : '';
+      return `<section class="day">\n        <h2>${head}</h2>\n        ${dayNotes}\n        ${items || '<div class="empty">No items.</div>'}\n      </section>`;
+    })
+    .join('');
+
+  const partyLine = `People: ${escapeHtml(String(p.people || 1))}${Number(p.adults) || Number(p.children) ? ` (Adults ${escapeHtml(String(p.adults))}, Children ${escapeHtml(String(p.children))})` : ''}`;
+
+  return `<!doctype html>\n  <html>\n    <head>\n      <meta charset="utf-8" />\n      <meta name="viewport" content="width=device-width, initial-scale=1" />\n      <title>${escapeHtml(title)}</title>\n      <style>\n        :root{--fg:#0f172a;--muted:#475569;--border:#e2e8f0;--bg:#ffffff;}\n        *{box-sizing:border-box;}\n        body{margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial; color:var(--fg); background:var(--bg);}\n        .wrap{max-width:920px; margin:0 auto; padding:28px;}\n        header{display:flex; gap:12px; align-items:flex-start; justify-content:space-between; border-bottom:1px solid var(--border); padding-bottom:16px; margin-bottom:18px;}\n        .hgroup h1{margin:0; font-size:22px; letter-spacing:-0.02em;}\n        .hgroup .sub{margin-top:6px; color:var(--muted); font-size:12px;}\n        .badge{display:inline-flex; align-items:center; gap:6px; font-size:12px; color:var(--muted);}\n        .day{border:1px solid var(--border); border-radius:14px; padding:14px 14px; margin:12px 0; break-inside:avoid;}\n        .day h2{margin:0 0 10px; font-size:14px;}\n        .day-notes{color:var(--muted); font-size:12px; margin-bottom:10px;}\n        .row{padding:10px 10px; border:1px solid var(--border); border-radius:12px; margin:8px 0;}\n        .name{font-weight:700; font-size:13px;}\n        .meta{color:var(--muted); font-size:12px; margin-top:4px; word-break:break-word;}\n        .empty{color:var(--muted); font-size:12px; padding:8px 0;}\n        a{color:#2563eb; text-decoration:none;}\n        @media print{\n          .wrap{padding:0;}\n          header{border:none; margin-bottom:12px; padding-bottom:0;}\n          .day{page-break-inside:avoid;}\n        }\n      </style>\n    </head>\n    <body>\n      <div class="wrap">\n        <header>\n          <div class="hgroup">\n            <h1>${escapeHtml(title)}</h1>\n            <div class="sub">${escapeHtml(subtitle)}</div>\n            <div class="sub">${escapeHtml(partyLine)}</div>\n          </div>\n          <div class="badge">Generated: ${escapeHtml(new Date().toISOString().slice(0, 10))}</div>\n        </header>\n        ${daysHtml || ''}\n      </div>\n      <script>window.addEventListener('load', () => { setTimeout(() => { try { window.print(); } catch(e){} }, 120); });</script>\n    </body>\n  </html>`;
+}
+
+function downloadPlanPdf() {
+  const model = buildPlanExportModel();
+  if (!model) {
+    showToast('Select a plan first.', 'info');
+    return;
+  }
+  const html = buildPlanPrintHtml(model);
+  const w = window.open('', '_blank');
+  if (!w) {
+    showToast('Popup blocked. Allow popups to download PDF.', 'error');
+    return;
+  }
+  w.document.open();
+  w.document.write(html);
+  w.document.close();
+}
+
+async function emailPlanToUser() {
+  if (!sb || !currentPlan?.id) {
+    showToast('Select a plan first.', 'info');
+    return;
+  }
+  try {
+    const btn = el('planEmailBtn');
+    if (btn instanceof HTMLButtonElement) {
+      btn.disabled = true;
+      btn.textContent = 'Sending…';
+    }
+    const { data, error } = await sb.functions.invoke('send-plan-email', {
+      body: { plan_id: String(currentPlan.id) },
+    });
+    if (error) throw error;
+    if (data?.simulated) {
+      showToast('Email simulated (SMTP not configured).', 'info');
+    } else {
+      showToast('Plan emailed to your address.', 'success');
+    }
+  } catch (e) {
+    console.error('Failed to send plan email', e);
+    showToast(e?.message || 'Failed to send email.', 'error');
+  } finally {
+    const btn = el('planEmailBtn');
+    if (btn instanceof HTMLButtonElement) {
+      btn.disabled = false;
+      btn.textContent = 'Email plan';
+    }
+  }
+}
+
 async function waitForAuthReadySafe({ timeoutMs = 4500 } = {}) {
   try {
     const fn = typeof window !== 'undefined' ? window.waitForAuthReady : null;
@@ -1712,6 +1856,8 @@ function renderPlanDetails(plan) {
 
   const delBtn = el('planDeleteBtn');
   const refreshBtn = el('planRefreshBtn');
+  const pdfBtn = el('planPdfBtn');
+  const emailBtn = el('planEmailBtn');
   const saveBtn = el('planSaveBtn');
 
   if (delBtn instanceof HTMLButtonElement) {
@@ -1719,6 +1865,12 @@ function renderPlanDetails(plan) {
   }
   if (refreshBtn instanceof HTMLButtonElement) {
     refreshBtn.disabled = !plan;
+  }
+  if (pdfBtn instanceof HTMLButtonElement) {
+    pdfBtn.disabled = !plan;
+  }
+  if (emailBtn instanceof HTMLButtonElement) {
+    emailBtn.disabled = !plan;
   }
   if (saveBtn instanceof HTMLButtonElement) {
     saveBtn.disabled = !plan;
@@ -2640,6 +2792,18 @@ function wireEvents() {
   const delBtn = el('planDeleteBtn');
   if (delBtn instanceof HTMLButtonElement) {
     delBtn.addEventListener('click', handleDeletePlan);
+  }
+
+  const pdfBtn = el('planPdfBtn');
+  if (pdfBtn instanceof HTMLButtonElement && !pdfBtn.dataset.wired) {
+    pdfBtn.addEventListener('click', () => downloadPlanPdf());
+    pdfBtn.dataset.wired = '1';
+  }
+
+  const emailBtn = el('planEmailBtn');
+  if (emailBtn instanceof HTMLButtonElement && !emailBtn.dataset.wired) {
+    emailBtn.addEventListener('click', () => emailPlanToUser());
+    emailBtn.dataset.wired = '1';
   }
 
   const reqBtn = requestBookingBtnEl();
