@@ -38,3 +38,6 @@ enable_confirmations = true
 
 [functions.stripe-webhook]
 verify_jwt = false
+
+[functions.send-plan-email]
+verify_jwt = false

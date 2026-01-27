@@ -668,7 +668,16 @@ async function loadAuthSession() {
     }, 1500);
   });
 
-  const session = await withTimeout(Promise.race([sessionPromise, onceAuthEvent]));
+  let session = null;
+  try {
+    session = await withTimeout(Promise.race([sessionPromise, onceAuthEvent]));
+  } catch (error) {
+    if (error?.message === 'AUTH_TIMEOUT') {
+      session = null;
+    } else {
+      throw error;
+    }
+  }
   
   // Jeśli znaleźliśmy sesję, użyj jej; jeśli nie, użyj persisted snapshot
   const finalSession = session || persistedSnapshot?.session || null;
