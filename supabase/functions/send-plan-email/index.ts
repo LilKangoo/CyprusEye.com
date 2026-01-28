@@ -89,6 +89,14 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
 }
 
+function formatTimeRangeLabel(data: any): string {
+  const start = String(data?.start_time || "").trim();
+  const end = String(data?.end_time || "").trim();
+  if (start && end) return `${start}–${end}`;
+  if (start) return start;
+  return "";
+}
+
 function buildPlanEmailHtml(params: {
   recipientEmail: string;
   plan: any;
@@ -139,7 +147,8 @@ function buildPlanEmailHtml(params: {
             const url = String(data?.url || "").trim();
             const notes = String(data?.notes || "").trim();
 
-            const meta = [type, subtitle].filter(Boolean).join(" • ");
+            const timeLabel = formatTimeRangeLabel(data);
+            const meta = [timeLabel, type, subtitle].filter(Boolean).join(" • ");
 
             return `
               <tr>

@@ -22,6 +22,15 @@ function buildPlanExportModel() {
     .slice()
     .sort((a, b) => Number(a?.day_index || 0) - Number(b?.day_index || 0));
 
+  const formatTimeRangeLabel = (data) => {
+    const d = data && typeof data === 'object' ? data : {};
+    const start = String(d.start_time || '').trim();
+    const end = String(d.end_time || '').trim();
+    if (start && end) return `${start}–${end}`;
+    if (start) return start;
+    return '';
+  };
+
   const labelForType = (t) => {
     if (t === 'trip') return 'Trip';
     if (t === 'hotel') return 'Hotel';
@@ -43,10 +52,12 @@ function buildPlanExportModel() {
         const price = String(data?.price || '').trim();
         const url = String(data?.url || '').trim();
         const notes = String(data?.notes || it?.notes || '').trim();
+        const timeLabel = formatTimeRangeLabel(data);
         return {
           type: labelForType(it?.item_type),
           rawType: String(it?.item_type || ''),
           title: title || labelForType(it?.item_type),
+          timeLabel,
           subtitle,
           price,
           url,
@@ -95,7 +106,7 @@ function buildPlanPrintHtml(model) {
       const head = `Day ${escapeHtml(String(d.dayIndex || ''))}${d.date ? ` · ${escapeHtml(d.date)}` : ''}${d.city ? ` · ${escapeHtml(d.city)}` : ''}`;
       const items = (d.items || [])
         .map((it) => {
-          const meta = [it.type, it.subtitle, it.price].filter(Boolean).join(' • ');
+          const meta = [it.timeLabel, it.type, it.subtitle, it.price].filter(Boolean).join(' • ');
           const link = it.url ? `<div class="meta"><a href="${escapeHtml(it.url)}" target="_blank" rel="noopener">${escapeHtml(it.url)}</a></div>` : '';
           const notes = it.notes ? `<div class="meta">${escapeHtml(it.notes)}</div>` : '';
           return `<div class="row">
