@@ -269,16 +269,55 @@ serve(async (req) => {
       .eq("id", planId)
       .maybeSingle();
 
-    if (planError || !plan) {
-      console.warn("[send-plan-email] plan lookup failed", {
+    if (planError) {
+      console.warn("[send-plan-email] plan lookup error", {
         plan_id: planId,
         user_id: user.id,
         plan_error: planError?.message || null,
+        plan_code: (planError as any)?.code || null,
+        plan_details: (planError as any)?.details || null,
       });
-      return new Response(JSON.stringify({ error: "Plan not found", plan_id: planId }), {
-        status: 404,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      return new Response(
+        JSON.stringify({
+          error: "Failed to load plan",
+          plan_id: planId,
+          plan_error: planError.message || String(planError),
+          plan_code: (planError as any)?.code || null,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    if (!plan) {
+      const { data: samplePlans, error: sampleError } = await supabase
+        .from("user_plans")
+        .select("id")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      console.warn("[send-plan-email] plan not found", {
+        plan_id: planId,
+        user_id: user.id,
+        sample_count: Array.isArray(samplePlans) ? samplePlans.length : null,
+        sample_error: sampleError?.message || null,
       });
+
+      return new Response(
+        JSON.stringify({
+          error: "Plan not found",
+          plan_id: planId,
+          user_id: user.id,
+          user_plans_sample: Array.isArray(samplePlans) ? samplePlans.map((p) => p.id) : null,
+        }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
     }
 
     if (String(plan.user_id) !== String(user.id)) {
