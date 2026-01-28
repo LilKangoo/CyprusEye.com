@@ -245,28 +245,7 @@ serve(async (req) => {
       });
     }
 
-    const requestHost = (req.headers.get("host") || req.headers.get(":authority") || "").trim();
-    const inferredSupabaseUrl = requestHost ? `https://${requestHost}` : "";
     const normalizedEnvUrl = envSupabaseUrl.replace(/\/+$/, "");
-    const normalizedInferredUrl = inferredSupabaseUrl.replace(/\/+$/, "");
-    if (normalizedInferredUrl && normalizedEnvUrl && normalizedInferredUrl !== normalizedEnvUrl) {
-      console.error("[send-plan-email] SUPABASE_URL mismatch", {
-        envSupabaseUrl: normalizedEnvUrl,
-        inferredSupabaseUrl: normalizedInferredUrl,
-      });
-      return new Response(
-        JSON.stringify({
-          error: "SUPABASE_URL mismatch",
-          envSupabaseUrl: normalizedEnvUrl,
-          inferredSupabaseUrl: normalizedInferredUrl,
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
-    }
-
     const supabase = createClient(normalizedEnvUrl, supabaseServiceKey);
 
     const { data: authData, error: authError } = await supabase.auth.getUser(token);
