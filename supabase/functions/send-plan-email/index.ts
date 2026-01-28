@@ -75,6 +75,22 @@ function extractBearerToken(req: Request): string | null {
   return token || null;
 }
 
+function normalizePlanId(value: unknown): string {
+  const raw = String(value || "").trim();
+  if (!raw) return "";
+  if (raw.startsWith("plan:")) {
+    return raw.slice(5).trim();
+  }
+  if (raw.startsWith("#plan:")) {
+    return raw.slice(6).trim();
+  }
+  return raw;
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function buildPlanEmailHtml(params: {
   recipientEmail: string;
   plan: any;
@@ -207,9 +223,16 @@ serve(async (req) => {
     }
 
     const body: SendPlanEmailRequest = await req.json();
-    const planId = String(body?.plan_id || "").trim();
+    const planId = normalizePlanId(body?.plan_id);
     if (!planId) {
       return new Response(JSON.stringify({ error: "plan_id is required" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    if (!isUuid(planId)) {
+      return new Response(JSON.stringify({ error: "plan_id must be a UUID", plan_id: planId }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -226,6 +249,12 @@ serve(async (req) => {
       });
     }
 
+    console.log("[send-plan-email] request", {
+      plan_id: planId,
+      user_id: user.id,
+      has_email: Boolean(user.email),
+    });
+
     const recipientEmail = String(user.email || "").trim();
     if (!recipientEmail) {
       return new Response(JSON.stringify({ error: "User email not available" }), {
@@ -236,12 +265,17 @@ serve(async (req) => {
 
     const { data: plan, error: planError } = await supabase
       .from("user_plans")
-      .select("id,user_id,title,start_date,end_date,base_city,include_north,people_count,currency")
+      .select("id,user_id,title,start_date,end_date,base_city,include_north,currency")
       .eq("id", planId)
       .maybeSingle();
 
     if (planError || !plan) {
-      return new Response(JSON.stringify({ error: "Plan not found" }), {
+      console.warn("[send-plan-email] plan lookup failed", {
+        plan_id: planId,
+        user_id: user.id,
+        plan_error: planError?.message || null,
+      });
+      return new Response(JSON.stringify({ error: "Plan not found", plan_id: planId }), {
         status: 404,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
