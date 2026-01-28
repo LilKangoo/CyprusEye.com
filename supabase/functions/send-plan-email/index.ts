@@ -12,8 +12,6 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const CUSTOMER_HOMEPAGE_URL = "https://cypruseye.com";
 const BRAND_LOGO_URL = "https://cypruseye.com/assets/cyprus_logo-1000x1054.png";
 
@@ -238,7 +236,38 @@ serve(async (req) => {
       });
     }
 
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const envSupabaseUrl = (Deno.env.get("SUPABASE_URL") || "").trim();
+    const supabaseServiceKey = (Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "").trim();
+    if (!envSupabaseUrl || !supabaseServiceKey) {
+      return new Response(JSON.stringify({ error: "Supabase env not configured" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const requestHost = (req.headers.get("host") || req.headers.get(":authority") || "").trim();
+    const inferredSupabaseUrl = requestHost ? `https://${requestHost}` : "";
+    const normalizedEnvUrl = envSupabaseUrl.replace(/\/+$/, "");
+    const normalizedInferredUrl = inferredSupabaseUrl.replace(/\/+$/, "");
+    if (normalizedInferredUrl && normalizedEnvUrl && normalizedInferredUrl !== normalizedEnvUrl) {
+      console.error("[send-plan-email] SUPABASE_URL mismatch", {
+        envSupabaseUrl: normalizedEnvUrl,
+        inferredSupabaseUrl: normalizedInferredUrl,
+      });
+      return new Response(
+        JSON.stringify({
+          error: "SUPABASE_URL mismatch",
+          envSupabaseUrl: normalizedEnvUrl,
+          inferredSupabaseUrl: normalizedInferredUrl,
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const supabase = createClient(normalizedEnvUrl, supabaseServiceKey);
 
     const { data: authData, error: authError } = await supabase.auth.getUser(token);
     const user = authData?.user;
