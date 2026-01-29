@@ -3901,7 +3901,9 @@
     }
   },
   "header.profile": "Mój Profil",
+  "header.profileLabel": "Mój Profil",
   "header.statusPlaceholder": "Poziom 1 • 0 odznak",
+  "metrics.level.abbrev": "LVL",
   "account.profile.heading": "Twój profil",
   "account.profile.desc": "Podstawowe informacje o koncie i postępy w przygodzie.",
   "account.profile.changeAvatar": "📷 Zmień zdjęcie",

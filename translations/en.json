@@ -2,6 +2,10 @@
   "community": {
     "tagline": "Share your Cyprus experiences",
     "backToHome": "← Back to game",
+    "rsvp": {
+      "go": "I'm in",
+      "no": "Not this time"
+    },
     "hero": {
       "title": "💬 Community - Places in Cyprus",
       "description": "Browse comments and photos from other travelers. Share your experiences from visited places!"
@@ -133,6 +137,8 @@
     "accountSettings": "⚙️ Account settings",
     "logout": "Log out",
     "logoAlt": "HolidayCyprus.com – turtle logo with the Polish flag",
+    "profileLabel": "My Profile",
+    "statusPlaceholder": "Level 1 • 0 badges",
     "coupon": "Coupon",
     "couponAria": "Open coupon page",
     "quickActions": {
@@ -218,6 +224,7 @@
     "landmark": "LANDMARK"
   },
   "metrics.level.label": "Level",
+  "metrics.level.abbrev": "LVL",
   "metrics.level.subtext": "Level status",
   "metrics.level.defaultStatus.initial": "Start",
   "metrics.level.defaultStatus.progress": "In progress",
@@ -1153,6 +1160,11 @@
         "detailsLink": "Browse video packages"
       }
     }
+  },
+  "hero": {
+    "subtitle": "Explore Cyprus with our interactive adventure app",
+    "download": "Download",
+    "start": "Start"
   },
   "account": {
     "title": "Account settings",
