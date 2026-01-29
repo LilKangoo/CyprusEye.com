@@ -262,6 +262,9 @@
   "auth.oauth.google.login.aria": "Sign in with Google",
   "auth.oauth.google.register.button": "Sign up with Google",
   "auth.oauth.google.register.aria": "Sign up with Google",
+  "auth.username.placeholder": "3-20 characters, letters and numbers",
+  "auth.reset.submitRequest": "Send reset link",
+  "auth.reset.cancel": "Cancel",
   "auth": {
     "bar": {
       "aria": "Account panel"
@@ -515,23 +518,6 @@
     "carousel": {
       "prev": "Previous",
       "next": "Next"
-    }
-  },
-  "hotels": {
-    "tabs": {
-      "allCities": "All Cities"
-    },
-    "card": {
-      "perNight": "/ night"
-    }
-  },
-  "trips": {
-    "tabs": {
-      "allCities": "All Cities"
-    },
-    "card": {
-      "perHour": "/ hour",
-      "perDay": "/ day"
     }
   },
   "services": {
@@ -1487,7 +1473,9 @@
     "card": {
       "featured": "Recommended",
       "details": "View details",
-      "visitSite": "Visit website"
+      "visitSite": "Visit website",
+      "showCode": "Show code",
+      "openMap": "Open in maps"
     },
     "modal": {
       "openMap": "Open in maps",
@@ -1695,6 +1683,7 @@
   "carRental.locations.paphos-airport.label": "Paphos Airport (free)",
   "carRental.locations.paphos-airport.short": "Paphos Airport",
   "nav": {
+    "shop": "🛍️ Shop",
     "adventure": "🎯 Adventure",
     "community": "💬 Community",
     "recommendations": "✨ Recommendations",
@@ -1719,6 +1708,9 @@
       "title": "🚗 Cyprus car rental",
       "description": "See the fleet, compare prices, and reserve a car in the dedicated section.",
       "action": "Go to car rental"
+    },
+    "coupon": {
+      "title": "Coupon"
     },
     "trips": {
       "title": "🧭 Trips",
@@ -2731,18 +2723,9 @@
       "success": "Booking received! We will contact you soon.",
       "error": "Booking failed."
     },
-    "card": {
-      "perNight": "/ night",
-      "from": "from"
-    },
-    "tabs": {
-      "allCities": "All cities"
-    },
     "empty": "No offers available",
-    "price": {
-      "personLimit": "Person limit: {{max}}. Price for {{max}} guests.",
-      "minNights": "Min. {{min}} nights. Price for {{billable}} nights.",
-      "discount": "Price: €{{price}}/night (discount for {{min}}+ nights)"
+    "tabs": {
+      "allCities": "All Cities"
     }
   },
   "notFound": {
@@ -2961,61 +2944,6 @@
     "level": "Level",
     "visited": "Visited"
   },
-  "shortcuts": {
-    "packing": {
-      "title": "Packing",
-      "description": "Packing list for the trip",
-      "action": "Open list"
-    },
-    "tasks": {
-      "title": "Tasks",
-      "description": "Your tasks and goals",
-      "action": "Show tasks"
-    },
-    "car": {
-      "title": "Car Rental",
-      "description": "Check rental offers",
-      "action": "View offers"
-    },
-    "coupon": {
-      "title": "Coupon"
-    },
-    "trips": {
-      "title": "Trips",
-      "description": "Browse trips and make a reservation.",
-      "action": "View trips"
-    }
-  },
-  "discovery": {
-    "title": "Attractions to discover"
-  },
-  "recommendations": {
-    "home": {
-      "title": "✨ Our Recommendations",
-      "subtitle": "Trusted Cyprus partners with exclusive discounts",
-      "filters": {
-        "title": "Filter by category",
-        "clear": "Clear filters"
-      },
-      "loading": "Loading recommendations...",
-      "cta": "View all recommendations →"
-    },
-    "card": {
-      "featured": "Recommended",
-      "details": "View details",
-      "visitSite": "Website",
-      "showCode": "Show code",
-      "openMap": "Open in maps"
-    },
-    "empty": {
-      "title": "No results",
-      "body": "No places found for the selected filters. Try changing the category or clearing filters.",
-      "cta": "Show all places"
-    }
-  },
-  "nav": {
-    "shop": "Shop"
-  },
   "shop": {
     "title": "CyprusEye Shop",
     "subtitle": "Discover authentic Cypriot products",
@@ -3134,120 +3062,8 @@
       "returns": "Returns Policy"
     }
   },
-  "seo": {
-    "shop": {
-      "title": "CyprusEye Shop – Traditional Cyprus Products",
-      "description": "Discover authentic Cypriot products. Olive oil, wine, halloumi, cosmetics and more. Shipping to Cyprus and worldwide."
-    }
-  },
-  "nav": {
-    "shop": "🛍️ Shop",
-    "toggle": "☰ Navigation",
-    "adventure": "🎯 Adventure",
-    "packing": "🎒 Packing",
-    "tasks": "✅ Tasks",
-    "recommendations": "✨ Recommended",
-    "community": "💬 Community",
-    "trips": "🧭 Trips",
-    "hotels": "🏨 Hotels"
-  },
   "common": {
     "close": "Close"
-  },
-  "shop": {
-    "title": "CyprusEye Shop",
-    "subtitle": "Discover authentic Cypriot products",
-    "loading": "Loading products...",
-    "no_products": "No products found",
-    "products_found": "products",
-    "filters": {
-      "title": "Filters",
-      "search": "Search",
-      "searchPlaceholder": "Search...",
-      "categories": "Categories",
-      "all": "All",
-      "availability": "Availability",
-      "inStock": "In stock only",
-      "onSale": "On sale",
-      "price": "Price",
-      "priceMin": "From",
-      "priceMax": "To",
-      "apply": "Apply",
-      "reset": "Reset filters",
-      "sort": "Sort by",
-      "tags": "Popular tags",
-      "close": "Close filters"
-    },
-    "sort": {
-      "newest": "Newest",
-      "price_asc": "Price: low to high",
-      "price_desc": "Price: high to low",
-      "name": "Name A-Z",
-      "popular": "Most popular"
-    },
-    "product": {
-      "add_to_cart": "Add to cart",
-      "out_of_stock": "Out of stock",
-      "in_stock": "In stock",
-      "quantity": "Quantity"
-    },
-    "cart": {
-      "title": "Shopping Cart",
-      "empty": "Your cart is empty",
-      "subtotal": "Subtotal",
-      "checkout": "Proceed to checkout",
-      "remove": "Remove",
-      "aria": "Shopping cart",
-      "shipping_note": "Shipping calculated at checkout",
-      "close": "Close cart"
-    },
-    "checkout": {
-      "title": "Checkout",
-      "step": {
-        "address": "Shipping details",
-        "review": "Review order"
-      },
-      "email": "Email",
-      "firstName": "First name",
-      "lastName": "Last name",
-      "phone": "Phone",
-      "address1": "Address",
-      "address2": "Address (cont.)",
-      "city": "City",
-      "postal": "Postal code",
-      "country": "Country",
-      "shippingMethod": "Shipping method",
-      "selectShipping": "Select shipping method...",
-      "saveAddress": "Save as default address",
-      "notes": "Order notes",
-      "continue": "Continue",
-      "back": "← Back",
-      "pay": "Pay with Stripe",
-      "edit": "Edit",
-      "review": {
-        "shipping": "Shipping",
-        "items": "Items"
-      },
-      "payment": "Payment",
-      "payment.stripe.info": "Payment processed by Stripe - we accept cards, Apple Pay, Google Pay and other methods.",
-      "discount_code": "Discount code",
-      "apply_discount": "Apply",
-      "clear_discount": "Remove",
-      "totals": {
-        "subtotal": "Subtotal",
-        "shipping": "Shipping",
-        "vat": "VAT",
-        "discount": "Discount",
-        "total": "Total"
-      },
-      "success": "Thank you for your order!",
-      "success_message": "Your order has been received and is being processed.",
-      "error": "Error creating order"
-    },
-    "pagination": {
-      "previous": "Previous",
-      "next": "Next"
-    }
   },
   "plan": {
     "hero": {
@@ -3353,7 +3169,9 @@
       },
       "common": {
         "open": "Open",
-        "delete": "Delete"
+        "delete": "Delete",
+        "moreInfo": "More info",
+        "day": "Day"
       },
       "plans": {
         "empty": "No plans yet. Create your first plan above."
@@ -3362,6 +3180,8 @@
         "sending": "Sending…"
       },
       "catalog": {
+        "loadingServices": "Loading services…",
+        "northOk": "north ok",
         "days": "Days",
         "add": "Add",
         "addRange": "Add range",
@@ -3384,10 +3204,23 @@
         "peopleLinePrefix": "People",
         "note": "Hotels: nights = (range days − 1). Cars: minimum 3 days."
       },
+      "pricing": {
+        "from": "From",
+        "perDay": "/ day",
+        "perNight": "/ night"
+      },
       "days": {
         "noDays": "No days generated yet.",
         "services": "Services",
         "placesSchedule": "Places (schedule)",
+        "addTrip": "Add trip",
+        "addHotel": "Add hotel",
+        "addCar": "Add car",
+        "addPlaces": "Add places",
+        "city": "City",
+        "dayNotes": "Day notes",
+        "notesPlaceholder": "Notes",
+        "saveDay": "Save day",
         "start": "Start",
         "end": "End",
         "saveTime": "Save time",
@@ -3446,6 +3279,7 @@
         "supabaseNotReady": "Supabase not ready. Please refresh the page."
       },
       "booking": {
+        "collectedPrefix": "Collected:",
         "requestSent": "Request sent. We will contact you shortly."
       }
     },

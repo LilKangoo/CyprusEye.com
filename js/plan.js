@@ -582,6 +582,19 @@ function getPoiDescription(poi) {
   return pickI18nValue(poi?.description_i18n, poi?.description || '');
 }
 
+function getServiceImageUrl(type, obj) {
+  try {
+    const photos = obj && Array.isArray(obj.photos) ? obj.photos : null;
+    const gallery = obj && Array.isArray(obj.gallery) ? obj.gallery : null;
+    const direct = obj && (obj.cover_image_url || obj.image_url || obj.thumbnail_url || obj.main_image_url || obj.featured_image_url || obj.photo_url || obj.image || obj.cover || obj.thumbnail);
+    const arrFirst = (photos && photos[0]) || (gallery && gallery[0]) || null;
+    const val = direct || arrFirst;
+    return val ? String(val) : '';
+  } catch (_) {
+    return '';
+  }
+}
+
 function calcTripTotal(trip, { adults = 1, children = 0, hours = 1, days = 1 } = {}) {
   adults = Number(adults || 0) || 0;
   children = Number(children || 0) || 0;
@@ -848,7 +861,7 @@ async function loadServiceCatalog(planId) {
 
   const wrap = catalogEl();
   if (wrap) {
-    wrap.innerHTML = '<div style="color:#64748b;">Loading services…</div>';
+    wrap.innerHTML = `<div style="color:#64748b;">${escapeHtml(t('plan.ui.catalog.loadingServices', 'Loading services…'))}</div>`;
   }
 
   if (!catalogLangWired) {
@@ -1067,7 +1080,8 @@ function renderServiceCatalog() {
   const dayOptions = Array.from(planDaysById.values())
     .sort((a, b) => Number(a?.day_index || 0) - Number(b?.day_index || 0))
     .map((d) => {
-      const label = d?.date ? `Day ${d.day_index} · ${d.date}` : `Day ${d.day_index}`;
+      const dayWord = t('plan.ui.common.day', 'Day');
+      const label = d?.date ? `${dayWord} ${d.day_index} · ${d.date}` : `${dayWord} ${d.day_index}`;
       return `<option value="${escapeHtml(d.id)}">${escapeHtml(label)}</option>`;
     })
     .join('');
@@ -1097,12 +1111,13 @@ function renderServiceCatalog() {
         const title = getTripTitle(t);
         const city = t?.start_city || '';
         const description = pickI18nValue(t?.description_i18n, t?.description || '');
+        const image = getServiceImageUrl('trip', t);
         const party = getPartyForPlan(currentPlan);
         const total = calcTripTotal(t, { adults: party.adults, children: party.children, hours: 1, days: 1 });
         const price = total ? `${Number(total).toFixed(2)} €` : '';
         const slug = t?.slug || '';
         const url = slug ? `trip.html?slug=${encodeURIComponent(slug)}` : 'trips.html';
-        return { id: t?.id, title, subtitle: city, description, price, url, lat: null, lng: null };
+        return { id: t?.id, title, subtitle: city, description, price, url, image, lat: null, lng: null };
       })
       .filter((x) => {
         if (!ctx.city) return true;
@@ -1116,11 +1131,12 @@ function renderServiceCatalog() {
       const title = getHotelTitle(h);
       const city = getHotelCity(h);
       const description = pickI18nValue(h?.description_i18n, h?.description || '');
+      const image = getServiceImageUrl('hotel', h);
       const min = getHotelMinPricePerNight(h);
-      const price = min != null ? `${Number(min).toFixed(2)} € / night` : '';
+      const price = min != null ? `${Number(min).toFixed(2)} € ${t('plan.ui.pricing.perNight', '/ night')}` : '';
       const slug = h?.slug || '';
       const url = slug ? `hotel.html?slug=${encodeURIComponent(slug)}` : 'hotels.html';
-      return { id: h?.id, title, subtitle: city, description, price, url, lat: null, lng: null };
+      return { id: h?.id, title, subtitle: city, description, price, url, image, lat: null, lng: null };
     });
 
     const byCity = ctx.city ? baseHotels.filter((x) => (!x.subtitle ? true : cityMatches(x.subtitle, ctx.city))) : baseHotels;
@@ -1135,10 +1151,11 @@ function renderServiceCatalog() {
         const location = c?.location || '';
         const url = getCarLink(c);
         const description = getCarDescription(c);
-        const north = c?.north_allowed ? 'north ok' : '';
+        const image = getServiceImageUrl('car', c);
+        const north = c?.north_allowed ? t('plan.ui.catalog.northOk', 'north ok') : '';
         const from = getCarFromPricePerDay(c);
-        const price = from != null ? `From ${Number(from).toFixed(0)}€ / day` : '';
-        return { id: c?.id, title, subtitle: [location, north].filter(Boolean).join(' • '), description, location, price, url, lat: null, lng: null };
+        const price = from != null ? `${t('plan.ui.pricing.from', 'From')} ${Number(from).toFixed(0)}€ ${t('plan.ui.pricing.perDay', '/ day')}` : '';
+        return { id: c?.id, title, subtitle: [location, north].filter(Boolean).join(' • '), description, location, price, url, image, lat: null, lng: null };
       })
       .filter((x) => {
         if (ctx.includeNorth) {
@@ -1154,8 +1171,9 @@ function renderServiceCatalog() {
       .map((p) => {
         const title = getPoiTitle(p);
         const description = getPoiDescription(p);
+        const image = getServiceImageUrl('poi', p);
         const url = p?.google_url || p?.google_maps_url || (p?.lat != null && p?.lng != null ? `https://www.google.com/maps?q=${p.lat},${p.lng}` : '');
-        return { id: p?.id, title, subtitle: description || '', description, price: '', url, lat: p?.lat ?? null, lng: p?.lng ?? null };
+        return { id: p?.id, title, subtitle: description || '', description, price: '', url, image, lat: p?.lat ?? null, lng: p?.lng ?? null };
       })
       .filter((x) => matches(`${x.title}`));
   }
@@ -1165,10 +1183,12 @@ function renderServiceCatalog() {
         ${list
           .slice(0, 120)
           .map((x) => {
-            const addAttr = `data-catalog-add="1" data-item-type="${catalogActiveTab.slice(0, -1)}" data-ref-id="${escapeHtml(x.id || '')}" data-title="${escapeHtml(x.title || '')}" data-subtitle="${escapeHtml(x.subtitle || '')}" data-description="${escapeHtml(x.description || '')}" data-url="${escapeHtml(x.url || '')}" data-price="${escapeHtml(x.price || '')}"`;
+            const addAttr = `data-catalog-add="1" data-item-type="${catalogActiveTab.slice(0, -1)}" data-ref-id="${escapeHtml(x.id || '')}" data-title="${escapeHtml(x.title || '')}" data-subtitle="${escapeHtml(x.subtitle || '')}" data-description="${escapeHtml(x.description || '')}" data-url="${escapeHtml(x.url || '')}" data-price="${escapeHtml(x.price || '')}" data-image="${escapeHtml(x.image || '')}"`;
             const poiAttrs = x.lat != null && x.lng != null ? ` data-lat="${escapeHtml(String(x.lat))}" data-lng="${escapeHtml(String(x.lng))}"` : '';
             const link = x.url ? `<a href="${escapeHtml(x.url)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
             const isRange = catalogActiveTab === 'hotels' || catalogActiveTab === 'cars';
+            const img = x.image ? `<a href="${escapeHtml(x.image)}" target="_blank" rel="noopener"><img src="${escapeHtml(x.image)}" alt="" loading="lazy" style="width:100%; height:120px; object-fit:cover; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:0.5rem;" /></a>` : '';
+            const more = x.description ? `<details style="margin-top:0.5rem;"><summary style="cursor:pointer; color:#2563eb; font-size:12px;">${escapeHtml(t('plan.ui.common.moreInfo', 'More info'))}</summary><div style="color:#475569; font-size:12px; margin-top:0.25rem;">${escapeHtml(x.description)}</div></details>` : '';
 
             const daySel = dayOptions
               ? (isRange
@@ -1189,11 +1209,13 @@ function renderServiceCatalog() {
 
             return `
               <div class="card ce-catalog-tile" style="padding:0.65rem; border:1px solid #e2e8f0;">
+                ${img}
                 <div class="ce-catalog-title">${escapeHtml(x.title)}</div>
                 <div class="ce-catalog-meta">
                   ${x.subtitle ? `<span class=\"ce-catalog-sub\">${escapeHtml(x.subtitle)}</span>` : ''}
                   ${x.price ? `<span class=\"ce-catalog-price\">${escapeHtml(x.price)}</span>` : ''}
                 </div>
+                ${more}
                 <div class="ce-catalog-actions">
                   ${link}
                   ${daySel}
@@ -1260,11 +1282,12 @@ function renderServiceCatalog() {
       const description = btn.getAttribute('data-description') || '';
       const url = btn.getAttribute('data-url') || '';
       const price = btn.getAttribute('data-price') || '';
+      const image = btn.getAttribute('data-image') || '';
       const latAttr = btn.getAttribute('data-lat');
       const lngAttr = btn.getAttribute('data-lng');
       const lat = latAttr != null && latAttr !== '' ? Number(latAttr) : null;
       const lng = lngAttr != null && lngAttr !== '' ? Number(lngAttr) : null;
-      const baseData = { title, subtitle, description, url, price };
+      const baseData = { title, subtitle, description, url, price, image };
       if (Number.isFinite(lat) && Number.isFinite(lng)) {
         baseData.lat = lat;
         baseData.lng = lng;
@@ -1607,7 +1630,8 @@ async function loadPlanDays(planId) {
       const existingValue = daySel.value;
       daySel.innerHTML = rows
         .map((d) => {
-          const label = d.date ? `Day ${d.day_index} · ${d.date}` : `Day ${d.day_index}`;
+          const dayWord = t('plan.ui.common.day', 'Day');
+          const label = d.date ? `${dayWord} ${d.day_index} · ${d.date}` : `${dayWord} ${d.day_index}`;
           return `<option value="${d.id}">${escapeHtml(label)}</option>`;
         })
         .join('');
@@ -1633,7 +1657,8 @@ async function loadPlanDays(planId) {
 
   container.innerHTML = rows
     .map((d) => {
-      const label = d.date ? `Day ${d.day_index} · ${d.date}` : `Day ${d.day_index}`;
+      const dayWord = t('plan.ui.common.day', 'Day');
+      const label = d.date ? `${dayWord} ${d.day_index} · ${d.date}` : `${dayWord} ${d.day_index}`;
       const city = (d.city || '').trim();
       const notes = (d.notes || '').trim();
       const items = Array.isArray(dayItemsByDayId.get(d.id)) ? dayItemsByDayId.get(d.id) : [];
@@ -1654,13 +1679,16 @@ async function loadPlanDays(planId) {
                   const description = it?.data && typeof it.data === 'object' ? String(it.data.description || '') : '';
                   const url = it?.data && typeof it.data === 'object' ? String(it.data.url || '') : '';
                   const price = it?.data && typeof it.data === 'object' ? String(it.data.price || '') : '';
+                  const image = it?.data && typeof it.data === 'object' ? String(it.data.image || '') : '';
                   const rangeStart = it?.data && typeof it.data === 'object' ? Number(it.data.range_start_day_index || 0) : 0;
                   const rangeEnd = it?.data && typeof it.data === 'object' ? Number(it.data.range_end_day_index || 0) : 0;
                   const rangeId = it?.data && typeof it.data === 'object' ? String(it.data.range_id || '') : '';
                   const rangeBadge = rangeId && rangeStart > 0 && rangeEnd > 0 ? ` (${escapeHtml(t('plan.print.day', 'Day'))} ${rangeStart}–${escapeHtml(t('plan.print.day', 'Day'))} ${rangeEnd})` : '';
                   const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
+                  const thumb = image ? `<a href="${escapeHtml(image)}" target="_blank" rel="noopener"><img src="${escapeHtml(image)}" alt="" loading="lazy" style="width:64px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0;" /></a>` : '';
                   return `
                     <div style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
+                      ${thumb ? `<div style="flex:0 0 auto;">${thumb}</div>` : ''}
                       <div style="flex:1 1 auto; min-width:0;">
                         <div style="font-size:12px; color:#64748b;">${escapeHtml(typeLabel)}</div>
                         <div style="color:#0f172a; font-weight:600;">${escapeHtml(title)}${escapeHtml(rangeBadge)}</div>
@@ -1701,12 +1729,15 @@ async function loadPlanDays(planId) {
                     const title = it?.data && typeof it.data === 'object' ? String(it.data.title || '') : '';
                     const description = it?.data && typeof it.data === 'object' ? String(it.data.description || '') : '';
                     const url = it?.data && typeof it.data === 'object' ? String(it.data.url || '') : '';
+                    const image = it?.data && typeof it.data === 'object' ? String(it.data.image || '') : '';
                     const timeLabel = formatPoiTimeLabel(it);
                     const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
+                    const thumb = image ? `<a href="${escapeHtml(image)}" target="_blank" rel="noopener"><img src="${escapeHtml(image)}" alt="" loading="lazy" style="width:64px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0;" /></a>` : '';
                     const startV = it?.data && typeof it.data === 'object' ? String(it.data.start_time || '') : '';
                     const endV = it?.data && typeof it.data === 'object' ? String(it.data.end_time || '') : '';
                     return `
                       <div style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
+                        ${thumb ? `<div style="flex:0 0 auto;">${thumb}</div>` : ''}
                         <div style="flex:1 1 auto; min-width:0;">
                           <div style="display:flex; gap:0.5rem; align-items:baseline; flex-wrap:wrap;">
                             <div style="color:#0f172a; font-weight:600;">${escapeHtml(title || t('plan.ui.days.placeFallback', 'Place'))}</div>
@@ -2966,7 +2997,8 @@ function wireEvents() {
       const dialog = bookingDialogEl();
       if (!dialog || typeof dialog.showModal !== 'function') {
         const s = computePlanCostSummary();
-        setStatus(requestBookingStatusEl(), `Collected: Trips ${formatMoney(s.tripsTotal, s.currency)}, Cars ${formatMoney(s.carsTotal, s.currency)}, Hotels ${formatMoney(s.hotelsTotal, s.currency)}.`, 'info');
+        const msg = `${t('plan.ui.booking.collectedPrefix', 'Collected:')} ${t('plan.ui.cost.trips', 'Trips')} ${formatMoney(s.tripsTotal, s.currency)}, ${t('plan.ui.cost.cars', 'Cars')} ${formatMoney(s.carsTotal, s.currency)}, ${t('plan.ui.cost.accommodation', 'Hotels')} ${formatMoney(s.hotelsTotal, s.currency)}.`;
+        setStatus(requestBookingStatusEl(), msg, 'info');
         showToast(t('plan.ui.toast.bookingFormUnavailable', 'Booking form unavailable in this browser.'), 'info');
         return;
       }
