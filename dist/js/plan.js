@@ -47,11 +47,12 @@ function buildPlanExportModel() {
       .sort((a, b) => Number(a?.sort_order || 0) - Number(b?.sort_order || 0))
       .map((it) => {
         const data = it?.data && typeof it.data === 'object' ? it.data : {};
-        const title = String(data?.title || data?.name || it?.title || '').trim();
-        const subtitle = String(data?.subtitle || '').trim();
-        const description = String(data?.description || '').trim();
-        const price = String(data?.price || '').trim();
-        const url = String(data?.url || '').trim();
+        const resolved = resolveItemDisplay(it);
+        const title = String(resolved?.title || data?.name || it?.title || '').trim();
+        const subtitle = String(resolved?.subtitle || '').trim();
+        const description = String(resolved?.description || '').trim();
+        const price = String(resolved?.price || '').trim();
+        const url = String(resolved?.url || '').trim();
         const notes = String(data?.notes || it?.notes || '').trim();
         const timeLabel = formatTimeRangeLabel(data);
         return {
@@ -537,6 +538,98 @@ function getPoiTitle(poi) {
 
 function getPoiDescription(poi) {
   return pickI18nValue(poi?.description_i18n, poi?.description || '');
+}
+
+function getItemSourceRef(it) {
+  if (!it) return null;
+  const refId = it?.ref_id != null ? String(it.ref_id) : '';
+  if (refId) return refId;
+  const d = it?.data && typeof it.data === 'object' ? it.data : null;
+  const sourceId = d && d.source_id != null ? String(d.source_id) : '';
+  return sourceId || null;
+}
+
+function resolveCatalogEntryForItem(it) {
+  const itemType = String(it?.item_type || '').trim();
+  const ref = getItemSourceRef(it);
+  if (!ref) return null;
+
+  if (itemType === 'trip') return catalogData.trips.find((x) => String(x?.id) === ref) || null;
+  if (itemType === 'hotel') return catalogData.hotels.find((x) => String(x?.id) === ref) || null;
+  if (itemType === 'car') return catalogData.cars.find((x) => String(x?.id) === ref) || null;
+  if (itemType === 'poi') return catalogData.pois.find((x) => String(x?.id) === ref) || null;
+  return null;
+}
+
+function resolveItemDisplay(it) {
+  const d = it?.data && typeof it.data === 'object' ? it.data : {};
+  const itemType = String(it?.item_type || '').trim();
+  const src = resolveCatalogEntryForItem(it);
+
+  if (itemType === 'trip' && src) {
+    return {
+      title: getTripTitle(src),
+      subtitle: String(src?.start_city || '').trim(),
+      description: pickI18nValue(src?.description_i18n, src?.description || ''),
+      url: d.url ? String(d.url) : (src?.slug ? `trip.html?slug=${encodeURIComponent(String(src.slug))}` : ''),
+      price: String(d.price || '').trim(),
+      image: String(d.image || getServiceImageUrl('trip', src) || '').trim(),
+    };
+  }
+
+  if (itemType === 'hotel' && src) {
+    const min = getHotelMinPricePerNight(src);
+    const priceFallback = min != null ? `${Number(min).toFixed(2)} € ${t('plan.ui.pricing.perNight', '/ night')}` : '';
+    const slug = src?.slug ? String(src.slug) : '';
+    const urlFallback = slug ? `hotel.html?slug=${encodeURIComponent(slug)}` : 'hotels.html';
+    return {
+      title: getHotelTitle(src),
+      subtitle: getHotelCity(src),
+      description: pickI18nValue(src?.description_i18n, src?.description || ''),
+      url: String(d.url || urlFallback).trim(),
+      price: String(d.price || priceFallback).trim(),
+      image: String(d.image || getServiceImageUrl('hotel', src) || '').trim(),
+    };
+  }
+
+  if (itemType === 'car' && src) {
+    const location = String(src?.location || '').trim();
+    const north = src?.north_allowed ? t('plan.ui.catalog.northOk', 'north ok') : '';
+    const from = getCarFromPricePerDay(src);
+    const priceFallback = from != null ? `${t('plan.ui.pricing.from', 'From')} ${Number(from).toFixed(0)}€ ${t('plan.ui.pricing.perDay', '/ day')}` : '';
+    return {
+      title: getCarTitle(src),
+      subtitle: [location, north].filter(Boolean).join(' • '),
+      description: getCarDescription(src),
+      url: String(d.url || getCarLink(src) || '').trim(),
+      price: String(d.price || priceFallback).trim(),
+      image: String(d.image || getServiceImageUrl('car', src) || '').trim(),
+    };
+  }
+
+  if (itemType === 'poi' && src) {
+    const urlFallback =
+      src?.google_url ||
+      src?.google_maps_url ||
+      (src?.lat != null && src?.lng != null ? `https://www.google.com/maps?q=${src.lat},${src.lng}` : '');
+    return {
+      title: getPoiTitle(src),
+      subtitle: '',
+      description: getPoiDescription(src),
+      url: String(d.url || urlFallback || '').trim(),
+      price: String(d.price || '').trim(),
+      image: String(d.image || getServiceImageUrl('poi', src) || '').trim(),
+    };
+  }
+
+  return {
+    title: String(d.title || '').trim(),
+    subtitle: String(d.subtitle || '').trim(),
+    description: String(d.description || '').trim(),
+    url: String(d.url || '').trim(),
+    price: String(d.price || '').trim(),
+    image: String(d.image || '').trim(),
+  };
 }
 
 function getServiceImageUrl(type, obj) {
@@ -1501,7 +1594,7 @@ async function loadPlans({ selectId } = {}) {
   }
 }
 
-async function loadPlan(planId) {
+async function loadPlanDays(planId) {
   if (!sb || !planId) return;
 
   const { data, error } = await sb
@@ -1574,12 +1667,13 @@ async function loadPlan(planId) {
               ${nonPoiServiceItems
                 .map((it) => {
                   const typeLabel = getServiceTypeLabel(it.item_type);
-                  const title = it?.data && typeof it.data === 'object' ? String(it.data.title || '') : '';
-                  const subtitle = it?.data && typeof it.data === 'object' ? String(it.data.subtitle || '') : '';
-                  const description = it?.data && typeof it.data === 'object' ? String(it.data.description || '') : '';
-                  const url = it?.data && typeof it.data === 'object' ? String(it.data.url || '') : '';
-                  const price = it?.data && typeof it.data === 'object' ? String(it.data.price || '') : '';
-                  const image = it?.data && typeof it.data === 'object' ? String(it.data.image || '') : '';
+                  const resolved = resolveItemDisplay(it);
+                  const title = String(resolved?.title || '');
+                  const subtitle = String(resolved?.subtitle || '');
+                  const description = String(resolved?.description || '');
+                  const url = String(resolved?.url || '');
+                  const price = String(resolved?.price || '');
+                  const image = String(resolved?.image || '');
                   const rangeStart = it?.data && typeof it.data === 'object' ? Number(it.data.range_start_day_index || 0) : 0;
                   const rangeEnd = it?.data && typeof it.data === 'object' ? Number(it.data.range_end_day_index || 0) : 0;
                   const rangeId = it?.data && typeof it.data === 'object' ? String(it.data.range_id || '') : '';
@@ -1626,10 +1720,11 @@ async function loadPlan(planId) {
               <div style="display:grid; gap:0.5rem;">
                 ${sorted
                   .map((it) => {
-                    const title = it?.data && typeof it.data === 'object' ? String(it.data.title || '') : '';
-                    const description = it?.data && typeof it.data === 'object' ? String(it.data.description || '') : '';
-                    const url = it?.data && typeof it.data === 'object' ? String(it.data.url || '') : '';
-                    const image = it?.data && typeof it.data === 'object' ? String(it.data.image || '') : '';
+                    const resolved = resolveItemDisplay(it);
+                    const title = String(resolved?.title || '');
+                    const description = String(resolved?.description || '');
+                    const url = String(resolved?.url || '');
+                    const image = String(resolved?.image || '');
                     const timeLabel = formatPoiTimeLabel(it);
                     const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
                     const thumb = image ? `<a href="${escapeHtml(image)}" target="_blank" rel="noopener"><img src="${escapeHtml(image)}" alt="" loading="lazy" style="width:64px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0;" /></a>` : '';
@@ -1825,6 +1920,21 @@ async function loadPlan(planId) {
   });
 
   renderPlanCostSummary();
+}
+
+let dayLangWired = false;
+
+function wireDayLanguageRefresh() {
+  if (dayLangWired) return;
+  document.addEventListener('wakacjecypr:languagechange', async () => {
+    if (!currentPlan?.id) return;
+    try {
+      await loadPlanDays(currentPlan.id);
+    } catch (e) {
+      console.warn('Failed to refresh plan days after language change', e);
+    }
+  });
+  dayLangWired = true;
 }
 
 async function regeneratePlanDays() {
@@ -2941,6 +3051,7 @@ async function init() {
   setCurrentYear();
 
   wireEvents();
+  wireDayLanguageRefresh();
 
   try {
     sb.auth.onAuthStateChange(async (event, session) => {
