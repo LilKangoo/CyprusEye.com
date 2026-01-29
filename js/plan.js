@@ -1648,7 +1648,7 @@ async function loadPlanDays(planId) {
             <div style="display:grid; gap:0.5rem;">
               ${nonPoiServiceItems
                 .map((it) => {
-                  const t = getServiceTypeLabel(it.item_type);
+                  const typeLabel = getServiceTypeLabel(it.item_type);
                   const title = it?.data && typeof it.data === 'object' ? String(it.data.title || '') : '';
                   const subtitle = it?.data && typeof it.data === 'object' ? String(it.data.subtitle || '') : '';
                   const description = it?.data && typeof it.data === 'object' ? String(it.data.description || '') : '';
@@ -1662,7 +1662,7 @@ async function loadPlanDays(planId) {
                   return `
                     <div style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
                       <div style="flex:1 1 auto; min-width:0;">
-                        <div style="font-size:12px; color:#64748b;">${escapeHtml(t)}</div>
+                        <div style="font-size:12px; color:#64748b;">${escapeHtml(typeLabel)}</div>
                         <div style="color:#0f172a; font-weight:600;">${escapeHtml(title)}${escapeHtml(rangeBadge)}</div>
                         ${subtitle ? `<div style=\"color:#64748b; font-size:12px;\">${escapeHtml(subtitle)}</div>` : ''}
                         ${description ? `<div style=\"color:#475569; font-size:12px;\">${escapeHtml(description)}</div>` : ''}
