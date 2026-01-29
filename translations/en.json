@@ -3248,5 +3248,100 @@
       "previous": "Previous",
       "next": "Next"
     }
+  },
+  "plan": {
+    "hero": {
+      "title": "Trip Planner",
+      "subtitle": "Log in to create and manage your trip plans.",
+      "login": "Log in",
+      "register": "Create account",
+      "backToApp": "Back to app"
+    },
+    "sidebar": {
+      "title": "Trip Planner",
+      "back": "Back",
+      "yourPlans": "Your plans"
+    },
+    "form": {
+      "title": {
+        "label": "Title",
+        "placeholder": "e.g. Cyprus in 7 days"
+      },
+      "baseCity": {
+        "label": "Base city",
+        "placeholder": "e.g. Paphos"
+      },
+      "startDate": {
+        "label": "Start date"
+      },
+      "endDate": {
+        "label": "End date"
+      },
+      "adults": {
+        "label": "Adults"
+      },
+      "children": {
+        "label": "Children"
+      },
+      "includeNorth": "Include North Cyprus",
+      "create": "Create plan"
+    },
+    "details": {
+      "title": "Plan details",
+      "empty": "Select a plan from the list to see details."
+    },
+    "actions": {
+      "refresh": "Refresh",
+      "pdf": "Download PDF",
+      "email": "Email plan",
+      "delete": "Delete"
+    },
+    "edit": {
+      "title": {
+        "label": "Title"
+      },
+      "baseCity": {
+        "label": "Base city"
+      },
+      "startDate": {
+        "label": "Start date"
+      },
+      "endDate": {
+        "label": "End date"
+      },
+      "people": {
+        "label": "People"
+      },
+      "adults": {
+        "label": "Adults"
+      },
+      "children": {
+        "label": "Children"
+      },
+      "includeNorth": "Include North Cyprus",
+      "save": "Save changes",
+      "regenDays": "Regenerate days"
+    },
+    "catalog": {
+      "addToDay": "Add to day:"
+    },
+    "days": {
+      "title": "Days"
+    },
+    "cost": {
+      "title": "Cost summary",
+      "empty": "Select a plan and add services to see totals."
+    },
+    "booking": {
+      "requestAll": "Request booking for all",
+      "dialog": {
+        "title": "Request booking",
+        "close": "Close",
+        "submit": "Send request"
+      }
+    },
+    "footer": {
+      "label": "Trip planner."
+    }
   }
 }

@@ -51,7 +51,15 @@
       return stored;
     }
 
-    return DEFAULT_LANGUAGE;
+    try {
+      const nav = String(navigator?.language || '').toLowerCase();
+      if (nav.startsWith('pl')) {
+        return 'pl';
+      }
+      return 'en';
+    } catch (_) {
+      return DEFAULT_LANGUAGE;
+    }
   }
 
   function persistLanguage(language) {

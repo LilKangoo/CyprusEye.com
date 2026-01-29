@@ -267,14 +267,38 @@
       </div>
     </header>
 
+    <div id="notificationsPanel" class="notifications-panel" hidden aria-live="polite">
+      <div class="notifications-panel-header">
+        <h3 data-i18n="notifications.title">Powiadomienia</h3>
+        <div class="notifications-panel-actions">
+          <button type="button" class="ghost" id="notificationsMarkAll" data-i18n="notifications.markAll">
+            Oznacz wszystkie jako przeczytane
+          </button>
+          <button
+            type="button"
+            class="ghost notifications-close"
+            id="notificationsClose"
+            aria-label="Zamknij powiadomienia"
+            data-i18n="notifications.close"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+      <p id="notificationsPanelEmpty" class="notifications-empty" data-i18n="notifications.empty">
+        Zaloguj się, aby zobaczyć swoje powiadomienia.
+      </p>
+      <ul id="notificationsPanelList" class="notifications-list" role="list"></ul>
+    </div>
+
     <main id="main-content" class="standalone-main">
       <section class="card surface-card planner-hero" style="margin: 1rem;" data-auth="anon-only">
-        <h1 style="margin-top: 0;">Trip Planner</h1>
-        <p style="color: #475569;">Log in to create and manage your trip plans.</p>
+        <h1 style="margin-top: 0;" data-i18n="plan.hero.title">Trip Planner</h1>
+        <p style="color: #475569;" data-i18n="plan.hero.subtitle">Log in to create and manage your trip plans.</p>
         <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-          <button class="btn btn-primary primary" type="button" data-open-auth data-auth-target="login">Log in</button>
-          <button class="btn" type="button" data-open-auth data-auth-target="register">Create account</button>
-          <a class="btn ghost" href="/index.html">Back to app</a>
+          <button class="btn btn-primary primary" type="button" data-open-auth data-auth-target="login" data-i18n="plan.hero.login">Log in</button>
+          <button class="btn" type="button" data-open-auth data-auth-target="register" data-i18n="plan.hero.register">Create account</button>
+          <a class="btn ghost" href="/index.html" data-i18n="plan.hero.backToApp">Back to app</a>
         </div>
       </section>
 
@@ -282,113 +306,113 @@
         <div style="display: flex; gap: 0; flex-wrap: wrap;">
           <aside class="planner-sidebar" style="flex: 1 1 320px; min-width: 280px; border-right: 1px solid #e2e8f0; padding: 1rem;">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem;">
-              <h1 style="margin: 0; font-size: 20px;">Trip Planner</h1>
-              <a class="btn ghost" href="/index.html">Back</a>
+              <h1 style="margin: 0; font-size: 20px;" data-i18n="plan.sidebar.title">Trip Planner</h1>
+              <a class="btn ghost" href="/index.html" data-i18n="plan.sidebar.back">Back</a>
             </div>
 
             <form id="planCreateForm" style="display: grid; gap: 0.75rem; margin-bottom: 1rem;">
               <div style="display: grid; gap: 0.25rem;">
-                <label for="planTitle">Title</label>
-                <input id="planTitle" name="title" type="text" maxlength="120" placeholder="e.g. Cyprus in 7 days" />
+                <label for="planTitle" data-i18n="plan.form.title.label">Title</label>
+                <input id="planTitle" name="title" type="text" maxlength="120" placeholder="e.g. Cyprus in 7 days" data-i18n-attrs="placeholder:plan.form.title.placeholder" />
               </div>
 
               <div style="display: grid; gap: 0.25rem;">
-                <label for="planBaseCity">Base city</label>
-                <input id="planBaseCity" name="base_city" type="text" maxlength="80" placeholder="e.g. Paphos" list="ceCityOptions" />
+                <label for="planBaseCity" data-i18n="plan.form.baseCity.label">Base city</label>
+                <input id="planBaseCity" name="base_city" type="text" maxlength="80" placeholder="e.g. Paphos" list="ceCityOptions" data-i18n-attrs="placeholder:plan.form.baseCity.placeholder" />
               </div>
 
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
                 <div style="display: grid; gap: 0.25rem;">
-                  <label for="planStart">Start date</label>
+                  <label for="planStart" data-i18n="plan.form.startDate.label">Start date</label>
                   <input id="planStart" name="start_date" type="date" />
                 </div>
                 <div style="display: grid; gap: 0.25rem;">
-                  <label for="planEnd">End date</label>
+                  <label for="planEnd" data-i18n="plan.form.endDate.label">End date</label>
                   <input id="planEnd" name="end_date" type="date" />
                 </div>
               </div>
 
               <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
                 <div style="display: grid; gap: 0.25rem;">
-                  <label for="planAdults">Adults</label>
+                  <label for="planAdults" data-i18n="plan.form.adults.label">Adults</label>
                   <input id="planAdults" name="adults" type="number" min="0" step="1" inputmode="numeric" value="1" />
                 </div>
                 <div style="display: grid; gap: 0.25rem;">
-                  <label for="planChildren">Children</label>
+                  <label for="planChildren" data-i18n="plan.form.children.label">Children</label>
                   <input id="planChildren" name="children" type="number" min="0" step="1" inputmode="numeric" value="0" />
                 </div>
               </div>
 
               <label style="display: flex; gap: 0.5rem; align-items: center;">
                 <input id="planIncludeNorth" name="include_north" type="checkbox" />
-                Include North Cyprus
+                <span data-i18n="plan.form.includeNorth">Include North Cyprus</span>
               </label>
 
               <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
-                <button class="btn btn-primary primary" type="submit">Create plan</button>
+                <button class="btn btn-primary primary" type="submit" data-i18n="plan.form.create">Create plan</button>
                 <span id="planCreateStatus" style="color: #64748b; font-size: 14px;"></span>
               </div>
             </form>
 
-            <h2 style="margin: 0 0 0.5rem; font-size: 16px;">Your plans</h2>
+            <h2 style="margin: 0 0 0.5rem; font-size: 16px;" data-i18n="plan.sidebar.yourPlans">Your plans</h2>
             <div id="planList" style="display: grid; gap: 0.5rem;"></div>
           </aside>
 
           <section class="planner-content" style="flex: 2 1 420px; min-width: 320px; padding: 1rem;">
             <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
-              <h2 style="margin: 0; font-size: 18px;">Plan details</h2>
+              <h2 style="margin: 0; font-size: 18px;" data-i18n="plan.details.title">Plan details</h2>
               <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                <button id="planRefreshBtn" class="btn" type="button">Refresh</button>
-                <button id="planPdfBtn" class="btn" type="button">Download PDF</button>
-                <button id="planEmailBtn" class="btn" type="button">Email plan</button>
-                <button id="planDeleteBtn" class="btn" type="button" style="border-color: #ef4444; color: #ef4444;">Delete</button>
+                <button id="planRefreshBtn" class="btn" type="button" data-i18n="plan.actions.refresh">Refresh</button>
+                <button id="planPdfBtn" class="btn" type="button" data-i18n="plan.actions.pdf">Download PDF</button>
+                <button id="planEmailBtn" class="btn" type="button" data-i18n="plan.actions.email">Email plan</button>
+                <button id="planDeleteBtn" class="btn" type="button" style="border-color: #ef4444; color: #ef4444;" data-i18n="plan.actions.delete">Delete</button>
               </div>
             </div>
 
-            <div id="planEmptyState" style="margin-top: 1rem; color: #64748b;">Select a plan from the list to see details.</div>
+            <div id="planEmptyState" style="margin-top: 1rem; color: #64748b;" data-i18n="plan.details.empty">Select a plan from the list to see details.</div>
 
             <div id="planDetails" hidden style="margin-top: 1rem; display: grid; gap: 1rem;">
               <div class="card" style="padding: 1rem;">
                 <div style="display: grid; gap: 0.5rem;">
                   <div style="display: grid; gap: 0.25rem;">
-                    <label for="planEditTitle">Title</label>
+                    <label for="planEditTitle" data-i18n="plan.edit.title.label">Title</label>
                     <input id="planEditTitle" type="text" maxlength="120" />
                   </div>
                   <div style="display: grid; gap: 0.25rem;">
-                    <label for="planEditBaseCity">Base city</label>
+                    <label for="planEditBaseCity" data-i18n="plan.edit.baseCity.label">Base city</label>
                     <input id="planEditBaseCity" type="text" maxlength="80" list="ceCityOptions" />
                   </div>
                   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
                     <div style="display: grid; gap: 0.25rem;">
-                      <label for="planEditStart">Start date</label>
+                      <label for="planEditStart" data-i18n="plan.edit.startDate.label">Start date</label>
                       <input id="planEditStart" type="date" />
                     </div>
                     <div style="display: grid; gap: 0.25rem;">
-                      <label for="planEditEnd">End date</label>
+                      <label for="planEditEnd" data-i18n="plan.edit.endDate.label">End date</label>
                       <input id="planEditEnd" type="date" />
                     </div>
                   </div>
                   <div style="display: grid; gap: 0.25rem;">
-                    <label for="planEditPeople">People</label>
+                    <label for="planEditPeople" data-i18n="plan.edit.people.label">People</label>
                     <input id="planEditPeople" type="number" min="1" step="1" inputmode="numeric" />
                   </div>
                   <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
                     <div style="display: grid; gap: 0.25rem;">
-                      <label for="planEditAdults">Adults</label>
+                      <label for="planEditAdults" data-i18n="plan.edit.adults.label">Adults</label>
                       <input id="planEditAdults" type="number" min="0" step="1" inputmode="numeric" />
                     </div>
                     <div style="display: grid; gap: 0.25rem;">
-                      <label for="planEditChildren">Children</label>
+                      <label for="planEditChildren" data-i18n="plan.edit.children.label">Children</label>
                       <input id="planEditChildren" type="number" min="0" step="1" inputmode="numeric" />
                     </div>
                   </div>
                   <label style="display: flex; gap: 0.5rem; align-items: center;">
                     <input id="planEditIncludeNorth" type="checkbox" />
-                    Include North Cyprus
+                    <span data-i18n="plan.edit.includeNorth">Include North Cyprus</span>
                   </label>
                   <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
-                    <button id="planSaveBtn" class="btn btn-primary primary" type="button">Save changes</button>
-                    <button id="planRegenDaysBtn" class="btn" type="button">Regenerate days</button>
+                    <button id="planSaveBtn" class="btn btn-primary primary" type="button" data-i18n="plan.edit.save">Save changes</button>
+                    <button id="planRegenDaysBtn" class="btn" type="button" data-i18n="plan.edit.regenDays">Regenerate days</button>
                     <span id="planSaveStatus" style="color: #64748b; font-size: 14px;"></span>
                   </div>
                 </div>
@@ -397,7 +421,7 @@
               <div class="card" style="padding: 1rem;">
                 <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; align-items:center;">
                   <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-                    <span style="color:#64748b; font-size: 12px;">Add to day:</span>
+                    <span style="color:#64748b; font-size: 12px;" data-i18n="plan.catalog.addToDay">Add to day:</span>
                     <select id="planCatalogDaySelect"></select>
                   </div>
                 </div>
@@ -405,17 +429,17 @@
               </div>
 
               <div class="card" style="padding: 1rem;">
-                <h3 style="margin: 0 0 0.75rem; font-size: 16px;">Days</h3>
+                <h3 style="margin: 0 0 0.75rem; font-size: 16px;" data-i18n="plan.days.title">Days</h3>
                 <div id="planDays" style="display: grid; gap: 0.5rem;"></div>
               </div>
 
               <div class="card" style="padding: 1rem;">
-                <h3 style="margin: 0 0 0.75rem; font-size: 16px;">Cost summary</h3>
+                <h3 style="margin: 0 0 0.75rem; font-size: 16px;" data-i18n="plan.cost.title">Cost summary</h3>
                 <div id="planCostSummary" style="display:grid; gap:0.5rem; color:#0f172a;">
-                  <div style="color:#64748b;">Select a plan and add services to see totals.</div>
+                  <div style="color:#64748b;" data-i18n="plan.cost.empty">Select a plan and add services to see totals.</div>
                 </div>
                 <div style="margin-top:0.75rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-                  <button id="planRequestBookingBtn" class="btn btn-primary primary" type="button">Request booking for all</button>
+                  <button id="planRequestBookingBtn" class="btn btn-primary primary" type="button" data-i18n="plan.booking.requestAll">Request booking for all</button>
                   <span id="planRequestBookingStatus" style="color:#64748b; font-size: 14px;"></span>
                 </div>
               </div>
@@ -436,7 +460,7 @@
 
     <footer class="standalone-footer">
       <p>
-        © <span data-current-year></span> WakacjeCypr.com • Trip planner.
+        © <span data-current-year></span> WakacjeCypr.com • <span data-i18n="plan.footer.label">Trip planner.</span>
       </p>
     </footer>
 
@@ -471,6 +495,7 @@
       </div>
     </div>
 
+    <script src="js/languageSelector.js" defer></script>
     <script src="js/i18n.js" defer></script>
     <script src="js/forms.js" defer></script>
     <script src="js/seo.js" defer></script>
@@ -487,13 +512,13 @@
     <dialog id="planBookingDialog" style="border:none; border-radius: 16px; padding:0; width:min(720px, 92vw);">
       <form id="planBookingForm" method="dialog" style="padding: 1rem; display:grid; gap: 0.75rem;">
         <div style="display:flex; justify-content:space-between; gap:0.75rem; align-items:center;">
-          <h2 style="margin:0; font-size: 18px;">Request booking</h2>
-          <button id="planBookingCloseBtn" class="btn btn-sm" type="button">Close</button>
+          <h2 style="margin:0; font-size: 18px;" data-i18n="plan.booking.dialog.title">Request booking</h2>
+          <button id="planBookingCloseBtn" class="btn btn-sm" type="button" data-i18n="plan.booking.dialog.close">Close</button>
         </div>
         <div id="planBookingFormBody" style="display:grid; gap: 1rem;"></div>
         <p id="planBookingFormStatus" style="margin:0; color:#64748b; font-size: 14px;"></p>
         <div style="display:flex; gap: 0.75rem; flex-wrap: wrap; align-items:center; justify-content:flex-end;">
-          <button id="planBookingSubmitBtn" class="btn btn-primary primary" type="submit">Send request</button>
+          <button id="planBookingSubmitBtn" class="btn btn-primary primary" type="submit" data-i18n="plan.booking.dialog.submit">Send request</button>
         </div>
       </form>
     </dialog>
