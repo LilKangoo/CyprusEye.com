@@ -1759,6 +1759,13 @@
         "aria-label": "Close SOS"
       }
     },
+    "quick": {
+      "callUs": "Call us",
+      "whatsapp": "WhatsApp",
+      "whatsappDetail": "Immediate help",
+      "ambulance": "Ambulance",
+      "fireBrigade": "Fire brigade"
+    },
     "emergency": {
       "title": "🚑 Emergency numbers in Cyprus",
       "eu": {
@@ -2723,10 +2730,7 @@
       "success": "Booking received! We will contact you soon.",
       "error": "Booking failed."
     },
-    "empty": "No offers available",
-    "tabs": {
-      "allCities": "All Cities"
-    }
+    "empty": "No offers available"
   },
   "notFound": {
     "badge": "Error 404",

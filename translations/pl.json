@@ -729,6 +729,11 @@
       "aria-label": "Zamknij panel SOS"
     }
   },
+  "sos.quick.callUs": "Zadzwoń do nas",
+  "sos.quick.whatsapp": "WhatsApp",
+  "sos.quick.whatsappDetail": "Natychmiastowa pomoc",
+  "sos.quick.ambulance": "Pogotowie",
+  "sos.quick.fireBrigade": "Straż pożarna",
   "sos.emergency.title": "🚑 Numery alarmowe na Cyprze",
   "sos.emergency.eu": {
     "html": "Uniwersalny numer alarmowy UE (policja, pogotowie, straż pożarna). <a href=\"tel:112\">Zadzwoń teraz</a>"
