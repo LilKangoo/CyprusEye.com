@@ -31,13 +31,13 @@ function buildPlanExportModel() {
     return '';
   };
 
-  const labelForType = (t) => {
-    if (t === 'trip') return 'Trip';
-    if (t === 'hotel') return 'Hotel';
-    if (t === 'car') return 'Car';
-    if (t === 'poi') return 'Place to see';
-    if (t === 'note') return 'Note';
-    return String(t || 'Item');
+  const labelForType = (type) => {
+    if (type === 'trip') return t('plan.ui.itemType.trip', 'Trip');
+    if (type === 'hotel') return t('plan.ui.itemType.hotel', 'Hotel');
+    if (type === 'car') return t('plan.ui.itemType.car', 'Car');
+    if (type === 'poi') return t('plan.ui.itemType.poi', 'Place to see');
+    if (type === 'note') return t('plan.ui.itemType.note', 'Note');
+    return t('plan.ui.itemType.item', 'Item');
   };
 
   const dayModels = days.map((d) => {
@@ -49,6 +49,7 @@ function buildPlanExportModel() {
         const data = it?.data && typeof it.data === 'object' ? it.data : {};
         const title = String(data?.title || data?.name || it?.title || '').trim();
         const subtitle = String(data?.subtitle || '').trim();
+        const description = String(data?.description || '').trim();
         const price = String(data?.price || '').trim();
         const url = String(data?.url || '').trim();
         const notes = String(data?.notes || it?.notes || '').trim();
@@ -59,6 +60,7 @@ function buildPlanExportModel() {
           title: title || labelForType(it?.item_type),
           timeLabel,
           subtitle,
+          description,
           price,
           url,
           notes,
@@ -94,8 +96,8 @@ function buildPlanExportModel() {
 
 function buildPlanPrintHtml(model) {
   const p = model?.plan || {};
-  const title = p.title || 'Trip plan';
-  const subtitle = [p.baseCity ? `Base: ${p.baseCity}` : '', p.startDate ? `${p.startDate} → ${p.endDate || ''}`.trim() : '']
+  const title = p.title || t('plan.print.title', 'Trip plan');
+  const subtitle = [p.baseCity ? `${t('plan.print.base', 'Base')}: ${p.baseCity}` : '', p.startDate ? `${p.startDate} → ${p.endDate || ''}`.trim() : '']
     .filter(Boolean)
     .join(' • ');
 
@@ -103,15 +105,17 @@ function buildPlanPrintHtml(model) {
 
   const daysHtml = (model?.days || [])
     .map((d) => {
-      const head = `Day ${escapeHtml(String(d.dayIndex || ''))}${d.date ? ` · ${escapeHtml(d.date)}` : ''}${d.city ? ` · ${escapeHtml(d.city)}` : ''}`;
+      const head = `${escapeHtml(t('plan.print.day', 'Day'))} ${escapeHtml(String(d.dayIndex || ''))}${d.date ? ` · ${escapeHtml(d.date)}` : ''}${d.city ? ` · ${escapeHtml(d.city)}` : ''}`;
       const items = (d.items || [])
         .map((it) => {
           const meta = [it.timeLabel, it.type, it.subtitle, it.price].filter(Boolean).join(' • ');
           const link = it.url ? `<div class="meta"><a href="${escapeHtml(it.url)}" target="_blank" rel="noopener">${escapeHtml(it.url)}</a></div>` : '';
+          const desc = it.description ? `<div class="meta">${escapeHtml(it.description)}</div>` : '';
           const notes = it.notes ? `<div class="meta">${escapeHtml(it.notes)}</div>` : '';
           return `<div class="row">
             <div class="name">${escapeHtml(it.title || '')}</div>
             ${meta ? `<div class="meta">${escapeHtml(meta)}</div>` : ''}
+            ${desc}
             ${link}
             ${notes}
           </div>`;
@@ -122,12 +126,12 @@ function buildPlanPrintHtml(model) {
       return `<section class="day">
         <h2>${head}</h2>
         ${dayNotes}
-        ${items || '<div class="empty">No items.</div>'}
+        ${items || `<div class="empty">${escapeHtml(t('plan.print.noItems', 'No items.'))}</div>`}
       </section>`;
     })
     .join('');
 
-  const partyLine = `People: ${escapeHtml(String(p.people || 1))}${Number(p.adults) || Number(p.children) ? ` (Adults ${escapeHtml(String(p.adults))}, Children ${escapeHtml(String(p.children))})` : ''}`;
+  const partyLine = `${escapeHtml(t('plan.print.people', 'People'))}: ${escapeHtml(String(p.people || 1))}${Number(p.adults) || Number(p.children) ? ` (${escapeHtml(t('plan.print.adults', 'Adults'))} ${escapeHtml(String(p.adults))}, ${escapeHtml(t('plan.print.children', 'Children'))} ${escapeHtml(String(p.children))})` : ''}`;
 
   return `<!doctype html>
   <html>
@@ -170,7 +174,7 @@ function buildPlanPrintHtml(model) {
           </div>
           <div style="display:grid; gap:8px; justify-items:end;">
             <img class="logo" src="${escapeHtml(brandLogoUrl)}" alt="CyprusEye" />
-            <div class="badge">Generated: ${escapeHtml(new Date().toISOString().slice(0, 10))}</div>
+            <div class="badge">${escapeHtml(t('plan.print.generated', 'Generated'))}: ${escapeHtml(new Date().toISOString().slice(0, 10))}</div>
           </div>
         </header>
         ${daysHtml || ''}
@@ -183,13 +187,13 @@ function buildPlanPrintHtml(model) {
 function downloadPlanPdf() {
   const model = buildPlanExportModel();
   if (!model) {
-    showToast('Select a plan first.', 'info');
+    showToast(t('plan.ui.toast.selectPlanFirst', 'Select a plan first.'), 'info');
     return;
   }
   const html = buildPlanPrintHtml(model);
   const w = window.open('', '_blank');
   if (!w) {
-    showToast('Popup blocked. Allow popups to download PDF.', 'error');
+    showToast(t('plan.ui.toast.popupBlocked', 'Popup blocked. Allow popups to download PDF.'), 'error');
     return;
   }
   w.document.open();
@@ -199,7 +203,7 @@ function downloadPlanPdf() {
 
 async function emailPlanToUser() {
   if (!sb || !currentPlan?.id) {
-    showToast('Select a plan first.', 'info');
+    showToast(t('plan.ui.toast.selectPlanFirst', 'Select a plan first.'), 'info');
     return;
   }
 
@@ -208,30 +212,30 @@ async function emailPlanToUser() {
     const btn = el('planEmailBtn');
     if (btn instanceof HTMLButtonElement) {
       btn.disabled = true;
-      btn.textContent = 'Sending…';
+      btn.textContent = t('plan.ui.email.sending', 'Sending…');
     }
     const { data, error } = await sb.functions.invoke('send-plan-email', {
-      body: { plan_id: String(currentPlan.id) },
+      body: { plan_id: String(currentPlan.id), lang: currentLang() },
     });
     if (error) throw error;
     if (data?.simulated) {
-      showToast('Email simulated (SMTP not configured).', 'info');
+      showToast(t('plan.ui.toast.emailSimulated', 'Email simulated (SMTP not configured).'), 'info');
     } else {
-      showToast('Plan emailed to your address.', 'success');
+      showToast(t('plan.ui.toast.emailSent', 'Plan emailed to your address.'), 'success');
     }
   } catch (e) {
     console.error('Failed to send plan email', e);
     const msg = String(e?.message || '').toLowerCase();
     if (msg.includes('failed to fetch') || msg.includes('cors') || msg.includes('functions')) {
-      showToast('Email function is not available (Edge Function not deployed or blocked).', 'error');
+      showToast(t('plan.ui.toast.emailFunctionUnavailable', 'Email function is not available (Edge Function not deployed or blocked).'), 'error');
     } else {
-      showToast(e?.message || 'Failed to send email.', 'error');
+      showToast(e?.message || t('plan.ui.toast.emailFailed', 'Failed to send email.'), 'error');
     }
   } finally {
     const btn = el('planEmailBtn');
     if (btn instanceof HTMLButtonElement) {
       btn.disabled = false;
-      btn.textContent = 'Email plan';
+      btn.textContent = t('plan.actions.email', 'Email plan');
     }
   }
 }
@@ -442,6 +446,24 @@ function currentLang() {
   return String(lang || 'pl');
 }
 
+function t(key, fallback) {
+  const lang = currentLang();
+  const dict = window.appI18n && window.appI18n.translations ? window.appI18n.translations[lang] : null;
+  if (!dict || typeof dict !== 'object') return fallback;
+
+  if (key && typeof dict[key] === 'string') {
+    return dict[key];
+  }
+
+  const parts = String(key || '').split('.').filter(Boolean);
+  let cur = dict;
+  for (const p of parts) {
+    if (!cur || typeof cur !== 'object') return fallback;
+    cur = cur[p];
+  }
+  return typeof cur === 'string' ? cur : fallback;
+}
+
 function pickI18nValue(i18nObj, fallback) {
   if (!i18nObj || typeof i18nObj !== 'object') return fallback || '';
   const lang = currentLang();
@@ -474,6 +496,12 @@ function cityMatches(a, b) {
   return aa === bb || aa.includes(bb) || bb.includes(aa);
 }
 
+function isAllCitiesLabel(v) {
+  const s = normalizeStr(v);
+  if (!s) return false;
+  return s === 'all cities' || s === 'all city' || s === 'wszystkie miasta';
+}
+
 function cityToCarLocation(city) {
   const c = normalizeStr(city);
   if (!c) return null;
@@ -500,12 +528,12 @@ function getCatalogContext() {
 
 function getTripTitle(trip) {
   if (typeof window.getTripName === 'function') return window.getTripName(trip);
-  return trip?.title?.pl || trip?.title?.en || trip?.title || trip?.slug || 'Trip';
+  return trip?.title?.pl || trip?.title?.en || trip?.title || trip?.slug || t('plan.ui.itemType.trip', 'Trip');
 }
 
 function getHotelTitle(hotel) {
   if (typeof window.getHotelName === 'function') return window.getHotelName(hotel);
-  return hotel?.title?.pl || hotel?.title?.en || hotel?.title || hotel?.slug || 'Hotel';
+  return hotel?.title?.pl || hotel?.title?.en || hotel?.title || hotel?.slug || t('plan.ui.itemType.hotel', 'Hotel');
 }
 
 function getHotelCity(hotel) {
@@ -538,12 +566,20 @@ function isUuid(v) {
 
 function getCarTitle(car) {
   if (typeof window.getCarName === 'function') return window.getCarName(car);
-  return car?.car_model || car?.car_type || 'Car';
+  return car?.car_model || car?.car_type || t('plan.ui.itemType.car', 'Car');
+}
+
+function getCarDescription(car) {
+  return pickI18nValue(car?.description_i18n, car?.description || '');
 }
 
 function getPoiTitle(poi) {
-  const name = pickI18nValue(poi?.name_i18n, poi?.name || 'POI');
-  return name || 'POI';
+  const name = pickI18nValue(poi?.name_i18n, poi?.name || t('plan.ui.itemType.poiShort', 'POI'));
+  return name || t('plan.ui.itemType.poiShort', 'POI');
+}
+
+function getPoiDescription(poi) {
+  return pickI18nValue(poi?.description_i18n, poi?.description || '');
 }
 
 function calcTripTotal(trip, { adults = 1, children = 0, hours = 1, days = 1 } = {}) {
@@ -764,20 +800,20 @@ function renderPlanCostSummary() {
   const wrap = costSummaryEl();
   if (!wrap) return;
   if (!currentPlan?.id) {
-    wrap.innerHTML = '<div style="color:#64748b;">Select a plan and add services to see totals.</div>';
+    wrap.innerHTML = `<div style="color:#64748b;">${escapeHtml(t('plan.cost.empty', 'Select a plan and add services to see totals.'))}</div>`;
     return;
   }
 
   const s = computePlanCostSummary();
   wrap.innerHTML = `
-    <div style="display:flex; justify-content:space-between; gap:0.75rem;"><span style="color:#64748b;">Trips</span><strong>${escapeHtml(formatMoney(s.tripsTotal, s.currency))}</strong></div>
-    <div style="display:flex; justify-content:space-between; gap:0.75rem;"><span style="color:#64748b;">Cars</span><strong>${escapeHtml(formatMoney(s.carsTotal, s.currency))}</strong></div>
-    <div style="display:flex; justify-content:space-between; gap:0.75rem;"><span style="color:#64748b;">Accommodation</span><strong>${escapeHtml(formatMoney(s.hotelsTotal, s.currency))}</strong></div>
+    <div style="display:flex; justify-content:space-between; gap:0.75rem;"><span style="color:#64748b;">${escapeHtml(t('plan.ui.cost.trips', 'Trips'))}</span><strong>${escapeHtml(formatMoney(s.tripsTotal, s.currency))}</strong></div>
+    <div style="display:flex; justify-content:space-between; gap:0.75rem;"><span style="color:#64748b;">${escapeHtml(t('plan.ui.cost.cars', 'Cars'))}</span><strong>${escapeHtml(formatMoney(s.carsTotal, s.currency))}</strong></div>
+    <div style="display:flex; justify-content:space-between; gap:0.75rem;"><span style="color:#64748b;">${escapeHtml(t('plan.ui.cost.accommodation', 'Accommodation'))}</span><strong>${escapeHtml(formatMoney(s.hotelsTotal, s.currency))}</strong></div>
     <div style="border-top:1px solid #e2e8f0; margin-top:0.25rem; padding-top:0.5rem; display:flex; justify-content:space-between; gap:0.75rem;">
-      <span style="color:#0f172a; font-weight:700;">Total</span>
+      <span style="color:#0f172a; font-weight:700;">${escapeHtml(t('plan.ui.cost.total', 'Total'))}</span>
       <span style="color:#0f172a; font-weight:800;">${escapeHtml(formatMoney(s.total, s.currency))}</span>
     </div>
-    <div style="color:#64748b; font-size:12px;">People: ${escapeHtml(String(s.people))}. Hotels: nights = (range days − 1). Cars: minimum 3 days.</div>
+    <div style="color:#64748b; font-size:12px;">${escapeHtml(t('plan.ui.cost.peopleLinePrefix', 'People'))}: ${escapeHtml(String(s.people))}. ${escapeHtml(t('plan.ui.cost.note', 'Hotels: nights = (range days − 1). Cars: minimum 3 days.'))}</div>
   `;
 }
 
@@ -789,11 +825,11 @@ function getCarLink(car) {
 }
 
 function getServiceTypeLabel(type) {
-  if (type === 'trip') return 'Trip';
-  if (type === 'hotel') return 'Hotel';
-  if (type === 'car') return 'Car';
-  if (type === 'poi') return 'Place';
-  return type || 'Item';
+  if (type === 'trip') return t('plan.ui.itemType.trip', 'Trip');
+  if (type === 'hotel') return t('plan.ui.itemType.hotel', 'Hotel');
+  if (type === 'car') return t('plan.ui.itemType.car', 'Car');
+  if (type === 'poi') return t('plan.ui.itemType.place', 'Place');
+  return t('plan.ui.itemType.item', 'Item');
 }
 
 async function loadServiceCatalog(planId) {
@@ -816,7 +852,7 @@ async function loadServiceCatalog(planId) {
   }
 
   if (!catalogLangWired) {
-    window.addEventListener('languageChanged', () => {
+    document.addEventListener('wakacjecypr:languagechange', () => {
       renderServiceCatalog();
     });
     catalogLangWired = true;
@@ -918,7 +954,7 @@ function getCatalogSelectedDayId() {
 async function addServiceItemToDay({ dayId, itemType, refId, data }) {
   if (!sb) return;
   if (!dayId) {
-    showToast('Select a day first.', 'info');
+    showToast(t('plan.ui.toast.selectDayFirst', 'Select a day first.'), 'info');
     return;
   }
   if (!itemType) return;
@@ -943,20 +979,20 @@ async function addServiceItemToDay({ dayId, itemType, refId, data }) {
 
   if (error) {
     console.error('Failed to add service item', error);
-    showToast(error.message || 'Failed to add item', 'error');
+    showToast(error.message || t('plan.ui.toast.failedToAddItem', 'Failed to add item'), 'error');
     return;
   }
 
   await loadPlanDays(currentPlan?.id);
 
   const label = getServiceTypeLabel(itemType);
-  showToast(`${label} added to your plan.`, 'success');
+  showToast(`${label} ${t('plan.ui.toast.addedToPlan', 'added to your plan.')}`, 'success');
 }
 
 async function addServiceRangeToDays({ startDayId, endDayId, itemType, refId, data }) {
   if (!sb) return;
   if (!startDayId || !endDayId) {
-    showToast('Select start and end day.', 'info');
+    showToast(t('plan.ui.toast.selectStartEndDay', 'Select start and end day.'), 'info');
     return;
   }
   if (!itemType) return;
@@ -966,7 +1002,7 @@ async function addServiceRangeToDays({ startDayId, endDayId, itemType, refId, da
   const startIndex = start?.day_index;
   const endIndex = end?.day_index;
   if (!start || !end || !Number.isFinite(Number(startIndex)) || !Number.isFinite(Number(endIndex))) {
-    showToast('Invalid day range.', 'error');
+    showToast(t('plan.ui.toast.invalidDayRange', 'Invalid day range.'), 'error');
     return;
   }
 
@@ -974,7 +1010,7 @@ async function addServiceRangeToDays({ startDayId, endDayId, itemType, refId, da
   const max = Math.max(Number(startIndex), Number(endIndex));
   const days = Array.from(planDaysById.values()).filter((d) => Number(d?.day_index) >= min && Number(d?.day_index) <= max);
   if (!days.length) {
-    showToast('Invalid day range.', 'error');
+    showToast(t('plan.ui.toast.invalidDayRange', 'Invalid day range.'), 'error');
     return;
   }
 
@@ -1001,14 +1037,14 @@ async function addServiceRangeToDays({ startDayId, endDayId, itemType, refId, da
   const { error } = await sb.from('user_plan_items').insert(payloads);
   if (error) {
     console.error('Failed to add range items', error);
-    showToast(error.message || 'Failed to add range', 'error');
+    showToast(error.message || t('plan.ui.toast.failedToAddRange', 'Failed to add range'), 'error');
     return;
   }
 
   await loadPlanDays(currentPlan?.id);
 
   const label = getServiceTypeLabel(itemType);
-  showToast(`${label} added to your plan (Day ${min}–Day ${max}).`, 'success');
+  showToast(`${label} ${t('plan.ui.toast.addedToPlanRangePrefix', 'added to your plan (Day')} ${min}–${max}).`, 'success');
 }
 
 async function deleteRangeItems(rangeId) {
@@ -1016,7 +1052,7 @@ async function deleteRangeItems(rangeId) {
   const { error } = await sb.from('user_plan_items').delete().contains('data', { range_id: rangeId });
   if (error) {
     console.error('Failed to delete range', error);
-    showToast(error.message || 'Failed to delete range', 'error');
+    showToast(error.message || t('plan.ui.toast.failedToDeleteRange', 'Failed to delete range'), 'error');
     return false;
   }
   return true;
@@ -1060,24 +1096,31 @@ function renderServiceCatalog() {
       .map((t) => {
         const title = getTripTitle(t);
         const city = t?.start_city || '';
+        const description = pickI18nValue(t?.description_i18n, t?.description || '');
         const party = getPartyForPlan(currentPlan);
         const total = calcTripTotal(t, { adults: party.adults, children: party.children, hours: 1, days: 1 });
         const price = total ? `${Number(total).toFixed(2)} €` : '';
         const slug = t?.slug || '';
         const url = slug ? `trip.html?slug=${encodeURIComponent(slug)}` : 'trips.html';
-        return { id: t?.id, title, subtitle: city, price, url, lat: null, lng: null };
+        return { id: t?.id, title, subtitle: city, description, price, url, lat: null, lng: null };
       })
-      .filter((x) => (ctx.city ? (!x.subtitle || cityMatches(x.subtitle, ctx.city)) : true))
+      .filter((x) => {
+        if (!ctx.city) return true;
+        if (!x.subtitle) return true;
+        if (isAllCitiesLabel(x.subtitle)) return true;
+        return cityMatches(x.subtitle, ctx.city);
+      })
       .filter((x) => matches(`${x.title} ${x.subtitle}`));
   } else if (catalogActiveTab === 'hotels') {
     const baseHotels = catalogData.hotels.map((h) => {
       const title = getHotelTitle(h);
       const city = getHotelCity(h);
+      const description = pickI18nValue(h?.description_i18n, h?.description || '');
       const min = getHotelMinPricePerNight(h);
       const price = min != null ? `${Number(min).toFixed(2)} € / night` : '';
       const slug = h?.slug || '';
       const url = slug ? `hotel.html?slug=${encodeURIComponent(slug)}` : 'hotels.html';
-      return { id: h?.id, title, subtitle: city, price, url, lat: null, lng: null };
+      return { id: h?.id, title, subtitle: city, description, price, url, lat: null, lng: null };
     });
 
     const byCity = ctx.city ? baseHotels.filter((x) => (!x.subtitle ? true : cityMatches(x.subtitle, ctx.city))) : baseHotels;
@@ -1091,10 +1134,11 @@ function renderServiceCatalog() {
         const title = getCarTitle(c);
         const location = c?.location || '';
         const url = getCarLink(c);
+        const description = getCarDescription(c);
         const north = c?.north_allowed ? 'north ok' : '';
         const from = getCarFromPricePerDay(c);
         const price = from != null ? `From ${Number(from).toFixed(0)}€ / day` : '';
-        return { id: c?.id, title, subtitle: [location, north].filter(Boolean).join(' • '), location, price, url, lat: null, lng: null };
+        return { id: c?.id, title, subtitle: [location, north].filter(Boolean).join(' • '), description, location, price, url, lat: null, lng: null };
       })
       .filter((x) => {
         if (ctx.includeNorth) {
@@ -1109,8 +1153,9 @@ function renderServiceCatalog() {
     list = catalogData.pois
       .map((p) => {
         const title = getPoiTitle(p);
+        const description = getPoiDescription(p);
         const url = p?.google_url || p?.google_maps_url || (p?.lat != null && p?.lng != null ? `https://www.google.com/maps?q=${p.lat},${p.lng}` : '');
-        return { id: p?.id, title, subtitle: '', price: '', url, lat: p?.lat ?? null, lng: p?.lng ?? null };
+        return { id: p?.id, title, subtitle: description || '', description, price: '', url, lat: p?.lat ?? null, lng: p?.lng ?? null };
       })
       .filter((x) => matches(`${x.title}`));
   }
@@ -1120,22 +1165,22 @@ function renderServiceCatalog() {
         ${list
           .slice(0, 120)
           .map((x) => {
-            const addAttr = `data-catalog-add="1" data-item-type="${catalogActiveTab.slice(0, -1)}" data-ref-id="${escapeHtml(x.id || '')}" data-title="${escapeHtml(x.title || '')}" data-subtitle="${escapeHtml(x.subtitle || '')}" data-url="${escapeHtml(x.url || '')}" data-price="${escapeHtml(x.price || '')}"`;
+            const addAttr = `data-catalog-add="1" data-item-type="${catalogActiveTab.slice(0, -1)}" data-ref-id="${escapeHtml(x.id || '')}" data-title="${escapeHtml(x.title || '')}" data-subtitle="${escapeHtml(x.subtitle || '')}" data-description="${escapeHtml(x.description || '')}" data-url="${escapeHtml(x.url || '')}" data-price="${escapeHtml(x.price || '')}"`;
             const poiAttrs = x.lat != null && x.lng != null ? ` data-lat="${escapeHtml(String(x.lat))}" data-lng="${escapeHtml(String(x.lng))}"` : '';
-            const link = x.url ? `<a href="${escapeHtml(x.url)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">Open</a>` : '';
+            const link = x.url ? `<a href="${escapeHtml(x.url)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
             const isRange = catalogActiveTab === 'hotels' || catalogActiveTab === 'cars';
 
             const daySel = dayOptions
               ? (isRange
                 ? `<details class="ce-catalog-days">
-                     <summary>Days</summary>
+                     <summary>${escapeHtml(t('plan.ui.catalog.days', 'Days'))}</summary>
                      <div class="ce-catalog-days__inner">
                        <select data-catalog-range-start="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
                        <select data-catalog-range-end="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
                      </div>
                    </details>`
                 : `<details class="ce-catalog-days">
-                     <summary>Add to day</summary>
+                     <summary>${escapeHtml(t('plan.catalog.addToDay', 'Add to day'))}</summary>
                      <div class="ce-catalog-days__inner">
                        <select data-catalog-add-day="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
                      </div>
@@ -1152,25 +1197,25 @@ function renderServiceCatalog() {
                 <div class="ce-catalog-actions">
                   ${link}
                   ${daySel}
-                  <button type="button" class="btn btn-sm btn-primary primary ce-catalog-add" ${addAttr}${poiAttrs}>${isRange ? 'Add range' : 'Add'}</button>
+                  <button type="button" class="btn btn-sm btn-primary primary ce-catalog-add" ${addAttr}${poiAttrs}>${isRange ? escapeHtml(t('plan.ui.catalog.addRange', 'Add range')) : escapeHtml(t('plan.ui.catalog.add', 'Add'))}</button>
                 </div>
               </div>
             `;
           })
           .join('')}
       </div>`
-    : '<div style="color:#64748b;">No services found.</div>';
+    : `<div style="color:#64748b;">${escapeHtml(t('plan.ui.catalog.noServices', 'No services found.'))}</div>`;
 
   wrap.innerHTML = `
     <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-      ${tabBtn('trips', `Trips (${counts.trips})`)}
-      ${tabBtn('hotels', `Hotels (${counts.hotels})`)}
-      ${tabBtn('cars', `Cars (${counts.cars})`)}
-      ${tabBtn('pois', `Places to see (${counts.pois})`)}
+      ${tabBtn('trips', `${t('plan.ui.catalog.tabs.trips', 'Trips')} (${counts.trips})`)}
+      ${tabBtn('hotels', `${t('plan.ui.catalog.tabs.hotels', 'Hotels')} (${counts.hotels})`)}
+      ${tabBtn('cars', `${t('plan.ui.catalog.tabs.cars', 'Cars')} (${counts.cars})`)}
+      ${tabBtn('pois', `${t('plan.ui.catalog.tabs.pois', 'Places to see')} (${counts.pois})`)}
       <div style="flex:1 1 200px;"></div>
-      <span style="color:#64748b; font-size:12px;">${escapeHtml(ctx.city || 'All cities')}${ctx.includeNorth ? ' • north' : ''}</span>
-      <input id="planCatalogSearch" type="text" value="${escapeHtml(catalogSearch)}" placeholder="Search…" style="max-width:280px;" />
-      <button type="button" class="btn" data-catalog-refresh="1">Refresh</button>
+      <span style="color:#64748b; font-size:12px;">${escapeHtml(ctx.city || t('plan.ui.catalog.allCities', 'All cities'))}${ctx.includeNorth ? ` • ${escapeHtml(t('plan.ui.catalog.north', 'north'))}` : ''}</span>
+      <input id="planCatalogSearch" type="text" value="${escapeHtml(catalogSearch)}" placeholder="${escapeHtml(t('plan.ui.catalog.searchPlaceholder', 'Search…'))}" style="max-width:280px;" />
+      <button type="button" class="btn" data-catalog-refresh="1">${escapeHtml(t('plan.actions.refresh', 'Refresh'))}</button>
     </div>
     <div class="ce-catalog-results" style="margin-top:0.75rem;">
       ${rowsHtml}
@@ -1212,13 +1257,14 @@ function renderServiceCatalog() {
       const refId = btn.getAttribute('data-ref-id') || null;
       const title = btn.getAttribute('data-title') || '';
       const subtitle = btn.getAttribute('data-subtitle') || '';
+      const description = btn.getAttribute('data-description') || '';
       const url = btn.getAttribute('data-url') || '';
       const price = btn.getAttribute('data-price') || '';
       const latAttr = btn.getAttribute('data-lat');
       const lngAttr = btn.getAttribute('data-lng');
       const lat = latAttr != null && latAttr !== '' ? Number(latAttr) : null;
       const lng = lngAttr != null && lngAttr !== '' ? Number(lngAttr) : null;
-      const baseData = { title, subtitle, url, price };
+      const baseData = { title, subtitle, description, url, price };
       if (Number.isFinite(lat) && Number.isFinite(lng)) {
         baseData.lat = lat;
         baseData.lng = lng;
@@ -1318,7 +1364,7 @@ async function fetchPlanItemsForDays(dayIds) {
 
   if (error) {
     console.error('Failed to load plan items', error);
-    showToast(error.message || 'Failed to load plan items', 'error');
+    showToast(error.message || t('plan.ui.toast.failedToLoadPlanItems', 'Failed to load plan items'), 'error');
     return new Map();
   }
 
@@ -1344,7 +1390,7 @@ async function updateDayField(dayId, patch) {
 
   if (error) {
     console.error('Failed to update day', error);
-    showToast(error.message || 'Failed to update day', 'error');
+    showToast(error.message || t('plan.ui.toast.failedToUpdateDay', 'Failed to update day'), 'error');
     return null;
   }
 
@@ -1371,7 +1417,7 @@ async function addDayNoteItem(planDayId, text) {
 
   if (error) {
     console.error('Failed to add note item', error);
-    showToast(error.message || 'Failed to add note', 'error');
+    showToast(error.message || t('plan.ui.toast.failedToAddNote', 'Failed to add note'), 'error');
     return null;
   }
   return data;
@@ -1389,7 +1435,7 @@ async function updatePlanItemData(itemId, nextData) {
 
   if (error) {
     console.error('Failed to update plan item', error);
-    showToast(error.message || 'Failed to update item', 'error');
+    showToast(error.message || t('plan.ui.toast.failedToUpdateItem', 'Failed to update item'), 'error');
     return null;
   }
   return data;
@@ -1423,7 +1469,7 @@ async function deleteDayItem(itemId) {
 
   if (error) {
     console.error('Failed to delete item', error);
-    showToast(error.message || 'Failed to delete item', 'error');
+    showToast(error.message || t('plan.ui.toast.failedToDeleteItem', 'Failed to delete item'), 'error');
     return false;
   }
   return true;
@@ -1447,7 +1493,7 @@ async function loadPlans({ selectId } = {}) {
 
   if (error) {
     console.error('Failed to load plans', error);
-    showToast(error.message || 'Failed to load plans', 'error');
+    showToast(error.message || t('plan.ui.toast.failedToLoadPlans', 'Failed to load plans'), 'error');
     return;
   }
 
@@ -1455,7 +1501,7 @@ async function loadPlans({ selectId } = {}) {
   const list = planListEl();
   if (list) {
     if (!plans.length) {
-      list.innerHTML = '<div style="color:#64748b;">No plans yet. Create your first plan above.</div>';
+      list.innerHTML = `<div style="color:#64748b;">${escapeHtml(t('plan.ui.plans.empty', 'No plans yet. Create your first plan above.'))}</div>`;
     } else {
       list.innerHTML = plans
         .map((plan) => {
@@ -1509,7 +1555,7 @@ async function selectPlanById(id, { skipListReload = false } = {}) {
 
   if (error) {
     console.error('Failed to load plan', error);
-    showToast(error.message || 'Failed to load plan', 'error');
+    showToast(error.message || t('plan.ui.toast.failedToLoadPlan', 'Failed to load plan'), 'error');
     return;
   }
 
@@ -1543,7 +1589,7 @@ async function loadPlanDays(planId) {
 
   if (error) {
     console.error('Failed to load plan days', error);
-    showToast(error.message || 'Failed to load plan days', 'error');
+    showToast(error.message || t('plan.ui.toast.failedToLoadPlanDays', 'Failed to load plan days'), 'error');
     return;
   }
 
@@ -1578,7 +1624,7 @@ async function loadPlanDays(planId) {
   }
 
   if (!rows.length) {
-    container.innerHTML = '<div style="color:#64748b;">No days generated yet.</div>';
+    container.innerHTML = `<div style="color:#64748b;">${escapeHtml(t('plan.ui.days.noDays', 'No days generated yet.'))}</div>`;
     return;
   }
 
@@ -1598,31 +1644,33 @@ async function loadPlanDays(planId) {
       const servicesHtml = serviceItems.length
         ? `
           <div style="border-top: 1px solid #e2e8f0; padding-top:0.5rem;">
-            <div style="font-size:12px; color:#64748b; margin-bottom:0.25rem;">Services</div>
+            <div style="font-size:12px; color:#64748b; margin-bottom:0.25rem;">${escapeHtml(t('plan.ui.days.services', 'Services'))}</div>
             <div style="display:grid; gap:0.5rem;">
               ${nonPoiServiceItems
                 .map((it) => {
                   const t = getServiceTypeLabel(it.item_type);
                   const title = it?.data && typeof it.data === 'object' ? String(it.data.title || '') : '';
                   const subtitle = it?.data && typeof it.data === 'object' ? String(it.data.subtitle || '') : '';
+                  const description = it?.data && typeof it.data === 'object' ? String(it.data.description || '') : '';
                   const url = it?.data && typeof it.data === 'object' ? String(it.data.url || '') : '';
                   const price = it?.data && typeof it.data === 'object' ? String(it.data.price || '') : '';
                   const rangeStart = it?.data && typeof it.data === 'object' ? Number(it.data.range_start_day_index || 0) : 0;
                   const rangeEnd = it?.data && typeof it.data === 'object' ? Number(it.data.range_end_day_index || 0) : 0;
                   const rangeId = it?.data && typeof it.data === 'object' ? String(it.data.range_id || '') : '';
-                  const rangeBadge = rangeId && rangeStart > 0 && rangeEnd > 0 ? ` (Day ${rangeStart}–Day ${rangeEnd})` : '';
-                  const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">Open</a>` : '';
+                  const rangeBadge = rangeId && rangeStart > 0 && rangeEnd > 0 ? ` (${escapeHtml(t('plan.print.day', 'Day'))} ${rangeStart}–${escapeHtml(t('plan.print.day', 'Day'))} ${rangeEnd})` : '';
+                  const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
                   return `
                     <div style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
                       <div style="flex:1 1 auto; min-width:0;">
                         <div style="font-size:12px; color:#64748b;">${escapeHtml(t)}</div>
                         <div style="color:#0f172a; font-weight:600;">${escapeHtml(title)}${escapeHtml(rangeBadge)}</div>
                         ${subtitle ? `<div style=\"color:#64748b; font-size:12px;\">${escapeHtml(subtitle)}</div>` : ''}
+                        ${description ? `<div style=\"color:#475569; font-size:12px;\">${escapeHtml(description)}</div>` : ''}
                         ${price ? `<div style=\"color:#0f172a; font-size:12px;\">${escapeHtml(price)}</div>` : ''}
                       </div>
                       <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
                         ${link}
-                        <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" data-range-id="${escapeHtml(rangeId)}" aria-label="Delete">✕</button>
+                        <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" data-range-id="${escapeHtml(rangeId)}" aria-label="${escapeHtml(t('plan.ui.common.delete', 'Delete'))}">✕</button>
                       </div>
                     </div>
                   `;
@@ -1646,38 +1694,40 @@ async function loadPlanDays(planId) {
 
           return `
             <div style="border-top: 1px solid #e2e8f0; padding-top:0.5rem;">
-              <div style="font-size:12px; color:#64748b; margin-bottom:0.25rem;">Places (schedule)</div>
+              <div style="font-size:12px; color:#64748b; margin-bottom:0.25rem;">${escapeHtml(t('plan.ui.days.placesSchedule', 'Places (schedule)'))}</div>
               <div style="display:grid; gap:0.5rem;">
                 ${sorted
                   .map((it) => {
                     const title = it?.data && typeof it.data === 'object' ? String(it.data.title || '') : '';
+                    const description = it?.data && typeof it.data === 'object' ? String(it.data.description || '') : '';
                     const url = it?.data && typeof it.data === 'object' ? String(it.data.url || '') : '';
                     const timeLabel = formatPoiTimeLabel(it);
-                    const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">Open</a>` : '';
+                    const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
                     const startV = it?.data && typeof it.data === 'object' ? String(it.data.start_time || '') : '';
                     const endV = it?.data && typeof it.data === 'object' ? String(it.data.end_time || '') : '';
                     return `
                       <div style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
                         <div style="flex:1 1 auto; min-width:0;">
                           <div style="display:flex; gap:0.5rem; align-items:baseline; flex-wrap:wrap;">
-                            <div style="color:#0f172a; font-weight:600;">${escapeHtml(title || 'Place')}</div>
+                            <div style="color:#0f172a; font-weight:600;">${escapeHtml(title || t('plan.ui.days.placeFallback', 'Place'))}</div>
                             ${timeLabel ? `<div style=\"color:#64748b; font-size:12px;\">${escapeHtml(timeLabel)}</div>` : ''}
                           </div>
+                          ${description ? `<div style=\"color:#475569; font-size:12px; margin-top:0.25rem;\">${escapeHtml(description)}</div>` : ''}
                           <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.25rem;">
                             <label style="display:flex; gap:0.25rem; align-items:center; font-size:12px; color:#0f172a;">
-                              Start
+                              ${escapeHtml(t('plan.ui.days.start', 'Start'))}
                               <input type="time" value="${escapeHtml(startV)}" data-poi-time-start="${it.id}" style="max-width:120px;" />
                             </label>
                             <label style="display:flex; gap:0.25rem; align-items:center; font-size:12px; color:#0f172a;">
-                              End
+                              ${escapeHtml(t('plan.ui.days.end', 'End'))}
                               <input type="time" value="${escapeHtml(endV)}" data-poi-time-end="${it.id}" style="max-width:120px;" />
                             </label>
-                            <button type="button" class="btn btn-sm" data-poi-time-save="${it.id}">Save time</button>
+                            <button type="button" class="btn btn-sm" data-poi-time-save="${it.id}">${escapeHtml(t('plan.ui.days.saveTime', 'Save time'))}</button>
                           </div>
                         </div>
                         <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
                           ${link}
-                          <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" aria-label="Delete">✕</button>
+                          <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" aria-label="${escapeHtml(t('plan.ui.common.delete', 'Delete'))}">✕</button>
                         </div>
                       </div>
                     `;
@@ -1697,7 +1747,7 @@ async function loadPlanDays(planId) {
                 return `
                   <div style="display:flex; gap:0.5rem; align-items:flex-start;">
                     <div style="flex:1 1 auto; color:#475569;">${escapeHtml(text)}</div>
-                    <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" aria-label="Delete">✕</button>
+                    <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" aria-label="${escapeHtml(t('plan.ui.common.delete', 'Delete'))}">✕</button>
                   </div>
                 `;
               })
@@ -1712,22 +1762,22 @@ async function loadPlanDays(planId) {
             <span style="color:#64748b;">${escapeHtml(city)}</span>
           </div>
           <div style="margin-top:0.5rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-            <button type="button" class="btn btn-sm" data-day-quick-add="trip" data-day-id="${d.id}">Add trip</button>
-            <button type="button" class="btn btn-sm" data-day-quick-add="hotel" data-day-id="${d.id}">Add hotel</button>
-            <button type="button" class="btn btn-sm" data-day-quick-add="car" data-day-id="${d.id}">Add car</button>
-            <button type="button" class="btn btn-sm" data-day-quick-add="pois" data-day-id="${d.id}">Add places</button>
+            <button type="button" class="btn btn-sm" data-day-quick-add="trip" data-day-id="${d.id}">${escapeHtml(t('plan.ui.days.addTrip', 'Add trip'))}</button>
+            <button type="button" class="btn btn-sm" data-day-quick-add="hotel" data-day-id="${d.id}">${escapeHtml(t('plan.ui.days.addHotel', 'Add hotel'))}</button>
+            <button type="button" class="btn btn-sm" data-day-quick-add="car" data-day-id="${d.id}">${escapeHtml(t('plan.ui.days.addCar', 'Add car'))}</button>
+            <button type="button" class="btn btn-sm" data-day-quick-add="pois" data-day-id="${d.id}">${escapeHtml(t('plan.ui.days.addPlaces', 'Add places'))}</button>
           </div>
           <div style="margin-top:0.5rem; display:grid; gap:0.5rem;">
             <div style="display:grid; gap:0.25rem;">
-              <label style="font-size:12px; color:#64748b;" for="dayCity_${d.id}">City</label>
-              <input id="dayCity_${d.id}" type="text" value="${escapeHtml(city)}" data-day-city="${d.id}" placeholder="City" list="ceCityOptions" />
+              <label style="font-size:12px; color:#64748b;" for="dayCity_${d.id}">${escapeHtml(t('plan.ui.days.city', 'City'))}</label>
+              <input id="dayCity_${d.id}" type="text" value="${escapeHtml(city)}" data-day-city="${d.id}" placeholder="${escapeHtml(t('plan.ui.days.city', 'City'))}" list="ceCityOptions" />
             </div>
             <div style="display:grid; gap:0.25rem;">
-              <label style="font-size:12px; color:#64748b;" for="dayNotes_${d.id}">Day notes</label>
-              <textarea id="dayNotes_${d.id}" rows="2" data-day-notes="${d.id}" placeholder="Notes">${escapeHtml(notes)}</textarea>
+              <label style="font-size:12px; color:#64748b;" for="dayNotes_${d.id}">${escapeHtml(t('plan.ui.days.dayNotes', 'Day notes'))}</label>
+              <textarea id="dayNotes_${d.id}" rows="2" data-day-notes="${d.id}" placeholder="${escapeHtml(t('plan.ui.days.notesPlaceholder', 'Notes'))}">${escapeHtml(notes)}</textarea>
             </div>
             <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-              <button type="button" class="btn btn-sm" data-day-save="${d.id}">Save day</button>
+              <button type="button" class="btn btn-sm" data-day-save="${d.id}">${escapeHtml(t('plan.ui.days.saveDay', 'Save day'))}</button>
               <span style="color:#64748b; font-size:12px;" data-day-status="${d.id}"></span>
             </div>
             ${servicesHtml}
@@ -1759,15 +1809,15 @@ async function loadPlanDays(planId) {
       const city = cityInput instanceof HTMLInputElement ? cityInput.value.trim() : '';
       const notes = notesInput instanceof HTMLTextAreaElement ? notesInput.value.trim() : '';
 
-      if (statusEl instanceof HTMLElement) statusEl.textContent = 'Saving…';
+      if (statusEl instanceof HTMLElement) statusEl.textContent = t('plan.ui.status.saving', 'Saving…');
       const updated = await updateDayField(dayId, { city: city || null, notes: notes || null });
       if (updated) {
-        if (statusEl instanceof HTMLElement) statusEl.textContent = 'Saved.';
+        if (statusEl instanceof HTMLElement) statusEl.textContent = t('plan.ui.status.saved', 'Saved.');
         const prev = planDaysById.get(dayId) || {};
         planDaysById.set(dayId, { ...prev, ...updated });
         renderServiceCatalog();
       } else {
-        if (statusEl instanceof HTMLElement) statusEl.textContent = 'Error.';
+        if (statusEl instanceof HTMLElement) statusEl.textContent = t('plan.ui.status.error', 'Error.');
       }
     });
   });
@@ -1858,20 +1908,20 @@ async function regeneratePlanDays() {
   const baseCity = baseCityEl instanceof HTMLInputElement ? baseCityEl.value.trim() : '';
 
   if (!startDate || !endDate) {
-    showToast('Set start and end date first.', 'info');
+    showToast(t('plan.ui.toast.setStartEndDateFirst', 'Set start and end date first.'), 'info');
     return;
   }
 
   const daysCount = daysBetweenInclusive(startDate, endDate);
   if (!daysCount) {
-    showToast('Invalid dates.', 'error');
+    showToast(t('plan.ui.toast.invalidDates', 'Invalid dates.'), 'error');
     return;
   }
 
-  const sure = window.confirm('Regenerate days? This will remove existing days and their items.');
+  const sure = window.confirm(t('plan.ui.confirm.regenerateDays', 'Regenerate days? This will remove existing days and their items.'));
   if (!sure) return;
 
-  setStatus(saveStatusEl(), 'Regenerating…', 'info');
+  setStatus(saveStatusEl(), t('plan.ui.status.regenerating', 'Regenerating…'), 'info');
 
   const { data: existing, error: loadErr } = await sb
     .from('user_plan_days')
@@ -1880,7 +1930,7 @@ async function regeneratePlanDays() {
 
   if (loadErr) {
     console.error('Failed to load existing days', loadErr);
-    setStatus(saveStatusEl(), loadErr.message || 'Failed to load days', 'error');
+    setStatus(saveStatusEl(), loadErr.message || t('plan.ui.toast.failedToLoadDays', 'Failed to load days'), 'error');
     return;
   }
 
@@ -1903,7 +1953,7 @@ async function regeneratePlanDays() {
 
     if (daysDelErr) {
       console.error('Failed to delete existing days', daysDelErr);
-      setStatus(saveStatusEl(), daysDelErr.message || 'Failed to delete days', 'error');
+      setStatus(saveStatusEl(), daysDelErr.message || t('plan.ui.toast.failedToDeleteDays', 'Failed to delete days'), 'error');
       return;
     }
   }
@@ -1926,7 +1976,7 @@ async function regeneratePlanDays() {
 
   if (insertErr) {
     console.error('Failed to regenerate days', insertErr);
-    setStatus(saveStatusEl(), insertErr.message || 'Failed to regenerate', 'error');
+    setStatus(saveStatusEl(), insertErr.message || t('plan.ui.toast.failedToRegenerate', 'Failed to regenerate'), 'error');
     return;
   }
 
@@ -1947,7 +1997,7 @@ async function regeneratePlanDays() {
   await loadPlans({ selectId: currentPlan.id });
   await loadPlanDays(currentPlan.id);
   renderServiceCatalog();
-  setStatus(saveStatusEl(), 'Days regenerated.', 'success');
+  setStatus(saveStatusEl(), t('plan.ui.status.daysRegenerated', 'Days regenerated.'), 'success');
 }
 
 function renderPlanDetails(plan) {
@@ -2049,18 +2099,21 @@ function renderPlanDetails(plan) {
 
 async function handleCreatePlan(event) {
   event.preventDefault();
-  if (!sb) return;
+  if (!sb) {
+    showToast(t('plan.ui.toast.supabaseNotReady', 'Supabase is not ready.'), 'info');
+    return;
+  }
 
   const user = await getCurrentUser();
   if (!user) {
-    showToast('Please log in first.', 'info');
+    showToast(t('plan.ui.toast.loginFirst', 'Please log in first.'), 'info');
     return;
   }
 
   const form = el('planCreateForm');
   if (!(form instanceof HTMLFormElement)) return;
 
-  setStatus(createStatusEl(), 'Creating…', 'info');
+  setStatus(createStatusEl(), t('plan.ui.status.creating', 'Creating…'), 'info');
 
   const title = String(new FormData(form).get('title') || '').trim();
   const baseCity = String(new FormData(form).get('base_city') || '').trim();
@@ -2077,7 +2130,7 @@ async function handleCreatePlan(event) {
 
   const daysCount = startDate && endDate ? daysBetweenInclusive(startDate, endDate) : null;
   if ((startDate && endDate) && !daysCount) {
-    setStatus(createStatusEl(), 'Invalid dates.', 'error');
+    setStatus(createStatusEl(), t('plan.ui.toast.invalidDates', 'Invalid dates.'), 'error');
     return;
   }
 
@@ -2110,8 +2163,8 @@ async function handleCreatePlan(event) {
 
   if (error) {
     console.error('Failed to create plan', error);
-    setStatus(createStatusEl(), error.message || 'Failed to create plan', 'error');
-    showToast(error.message || 'Failed to create plan', 'error');
+    setStatus(createStatusEl(), error.message || t('plan.ui.toast.failedToCreatePlan', 'Failed to create plan'), 'error');
+    showToast(error.message || t('plan.ui.toast.failedToCreatePlan', 'Failed to create plan'), 'error');
     return;
   }
 
@@ -2140,7 +2193,7 @@ async function handleCreatePlan(event) {
     savePartyForPlan(created.id, { adults: createAdults, children: createChildren });
   }
 
-  setStatus(createStatusEl(), 'Created.', 'success');
+  setStatus(createStatusEl(), t('plan.ui.status.created', 'Created.'), 'success');
   form.reset();
 
   if (created?.id) {
@@ -2184,11 +2237,11 @@ async function handleSavePlan() {
 
   const daysCount = startDate && endDate ? daysBetweenInclusive(startDate, endDate) : null;
   if ((startDate && endDate) && !daysCount) {
-    setStatus(saveStatusEl(), 'Invalid dates.', 'error');
+    setStatus(saveStatusEl(), t('plan.ui.toast.invalidDates', 'Invalid dates.'), 'error');
     return;
   }
 
-  setStatus(saveStatusEl(), 'Saving…', 'info');
+  setStatus(saveStatusEl(), t('plan.ui.status.saving', 'Saving…'), 'info');
 
   const patch = {
     title: title || null,
@@ -2217,13 +2270,13 @@ async function handleSavePlan() {
 
   if (error) {
     console.error('Failed to save plan', error);
-    setStatus(saveStatusEl(), error.message || 'Failed to save', 'error');
-    showToast(error.message || 'Failed to save', 'error');
+    setStatus(saveStatusEl(), error.message || t('plan.ui.toast.failedToSave', 'Failed to save'), 'error');
+    showToast(error.message || t('plan.ui.toast.failedToSave', 'Failed to save'), 'error');
     return;
   }
 
   currentPlan = updated || currentPlan;
-  setStatus(saveStatusEl(), 'Saved.', 'success');
+  setStatus(saveStatusEl(), t('plan.ui.status.saved', 'Saved.'), 'success');
   await loadPlans({ selectId: currentPlan.id });
   await loadPlanDays(currentPlan.id);
   renderServiceCatalog();
@@ -2232,7 +2285,7 @@ async function handleSavePlan() {
 
 async function handleDeletePlan() {
   if (!sb || !currentPlan?.id) return;
-  const sure = window.confirm('Delete this plan? This cannot be undone.');
+  const sure = window.confirm(t('plan.ui.confirm.deletePlan', 'Delete this plan? This cannot be undone.'));
   if (!sure) return;
 
   const { error } = await sb
@@ -2242,11 +2295,11 @@ async function handleDeletePlan() {
 
   if (error) {
     console.error('Failed to delete plan', error);
-    showToast(error.message || 'Failed to delete plan', 'error');
+    showToast(error.message || t('plan.ui.toast.failedToDeletePlan', 'Failed to delete plan'), 'error');
     return;
   }
 
-  showToast('Plan deleted.', 'success');
+  showToast(t('plan.ui.toast.planDeleted', 'Plan deleted.'), 'success');
   currentPlan = null;
   setHashPlanId(null);
   renderPlanDetails(null);
@@ -2845,18 +2898,18 @@ async function submitPlannerBookingForm(event) {
       if (error) throw error;
     }
 
-    setStatus(statusEl, 'Request sent. We will contact you shortly.', 'success');
-    showToast('Booking request sent.', 'success');
+    setStatus(statusEl, t('plan.ui.booking.requestSent', 'Request sent. We will contact you shortly.'), 'success');
+    showToast(t('plan.ui.toast.bookingRequestSent', 'Booking request sent.'), 'success');
     const dialog = bookingDialogEl();
     if (dialog && typeof dialog.close === 'function') dialog.close();
   } catch (e) {
     console.error('Planner booking submit failed', e);
-    setStatus(statusEl, e?.message || 'Failed to send request.', 'error');
-    showToast(e?.message || 'Failed to send request.', 'error');
+    setStatus(statusEl, e?.message || t('plan.ui.toast.failedToSendRequest', 'Failed to send request.'), 'error');
+    showToast(e?.message || t('plan.ui.toast.failedToSendRequest', 'Failed to send request.'), 'error');
   } finally {
     if (btn instanceof HTMLButtonElement) {
       btn.disabled = false;
-      btn.textContent = 'Send request';
+      btn.textContent = t('plan.booking.dialog.submit', 'Send request');
     }
   }
 }
@@ -2914,7 +2967,7 @@ function wireEvents() {
       if (!dialog || typeof dialog.showModal !== 'function') {
         const s = computePlanCostSummary();
         setStatus(requestBookingStatusEl(), `Collected: Trips ${formatMoney(s.tripsTotal, s.currency)}, Cars ${formatMoney(s.carsTotal, s.currency)}, Hotels ${formatMoney(s.hotelsTotal, s.currency)}.`, 'info');
-        showToast('Booking form unavailable in this browser.', 'info');
+        showToast(t('plan.ui.toast.bookingFormUnavailable', 'Booking form unavailable in this browser.'), 'info');
         return;
       }
       await renderPlannerBookingForm();
@@ -2952,8 +3005,8 @@ function wireEvents() {
 async function init() {
   const ok = await ensureSupabase();
   if (!ok) {
-    setStatus(createStatusEl(), 'Supabase not ready. Please refresh the page.', 'error');
-    setStatus(saveStatusEl(), 'Supabase not ready. Please refresh the page.', 'error');
+    setStatus(createStatusEl(), t('plan.ui.toast.supabaseNotReady', 'Supabase not ready. Please refresh the page.'), 'error');
+    setStatus(saveStatusEl(), t('plan.ui.toast.supabaseNotReady', 'Supabase not ready. Please refresh the page.'), 'error');
     return;
   }
 

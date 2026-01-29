@@ -3340,8 +3340,127 @@
         "submit": "Send request"
       }
     },
+    "ui": {
+      "itemType": {
+        "trip": "Trip",
+        "hotel": "Hotel",
+        "car": "Car",
+        "poi": "Place to see",
+        "poiShort": "POI",
+        "place": "Place",
+        "note": "Note",
+        "item": "Item"
+      },
+      "common": {
+        "open": "Open",
+        "delete": "Delete"
+      },
+      "plans": {
+        "empty": "No plans yet. Create your first plan above."
+      },
+      "email": {
+        "sending": "Sending…"
+      },
+      "catalog": {
+        "days": "Days",
+        "add": "Add",
+        "addRange": "Add range",
+        "noServices": "No services found.",
+        "allCities": "All cities",
+        "north": "north",
+        "searchPlaceholder": "Search…",
+        "tabs": {
+          "trips": "Trips",
+          "hotels": "Hotels",
+          "cars": "Cars",
+          "pois": "Places to see"
+        }
+      },
+      "cost": {
+        "trips": "Trips",
+        "cars": "Cars",
+        "accommodation": "Accommodation",
+        "total": "Total",
+        "peopleLinePrefix": "People",
+        "note": "Hotels: nights = (range days − 1). Cars: minimum 3 days."
+      },
+      "days": {
+        "noDays": "No days generated yet.",
+        "services": "Services",
+        "placesSchedule": "Places (schedule)",
+        "start": "Start",
+        "end": "End",
+        "saveTime": "Save time",
+        "placeFallback": "Place"
+      },
+      "status": {
+        "saving": "Saving…",
+        "saved": "Saved.",
+        "error": "Error.",
+        "regenerating": "Regenerating…",
+        "creating": "Creating…",
+        "daysRegenerated": "Days regenerated.",
+        "created": "Created."
+      },
+      "confirm": {
+        "regenerateDays": "Regenerate days? This will remove existing days and their items.",
+        "deletePlan": "Delete this plan? This cannot be undone."
+      },
+      "toast": {
+        "selectPlanFirst": "Select a plan first.",
+        "popupBlocked": "Popup blocked. Allow popups to download PDF.",
+        "setStartEndDateFirst": "Set start and end date first.",
+        "invalidDates": "Invalid dates.",
+        "loginFirst": "Please log in first.",
+        "planDeleted": "Plan deleted.",
+        "emailSimulated": "Email simulated (SMTP not configured).",
+        "emailSent": "Plan emailed to your address.",
+        "emailFunctionUnavailable": "Email function is not available (Edge Function not deployed or blocked).",
+        "emailFailed": "Failed to send email.",
+        "selectDayFirst": "Select a day first.",
+        "failedToAddItem": "Failed to add item",
+        "addedToPlan": "added to your plan.",
+        "selectStartEndDay": "Select start and end day.",
+        "invalidDayRange": "Invalid day range.",
+        "failedToAddRange": "Failed to add range",
+        "addedToPlanRangePrefix": "added to your plan (Day",
+        "failedToDeleteRange": "Failed to delete range",
+        "failedToLoadPlanItems": "Failed to load plan items",
+        "failedToUpdateDay": "Failed to update day",
+        "failedToAddNote": "Failed to add note",
+        "failedToUpdateItem": "Failed to update item",
+        "failedToDeleteItem": "Failed to delete item",
+        "failedToLoadPlans": "Failed to load plans",
+        "failedToLoadPlan": "Failed to load plan",
+        "failedToLoadPlanDays": "Failed to load plan days",
+        "failedToLoadDays": "Failed to load days",
+        "failedToDeleteDays": "Failed to delete days",
+        "failedToDeleteDayItems": "Failed to delete day items",
+        "failedToRegenerate": "Failed to regenerate",
+        "failedToCreatePlan": "Failed to create plan",
+        "failedToSave": "Failed to save",
+        "failedToDeletePlan": "Failed to delete plan",
+        "bookingRequestSent": "Booking request sent.",
+        "failedToSendRequest": "Failed to send request.",
+        "bookingFormUnavailable": "Booking form unavailable in this browser.",
+        "supabaseNotReady": "Supabase not ready. Please refresh the page."
+      },
+      "booking": {
+        "requestSent": "Request sent. We will contact you shortly."
+      }
+    },
     "footer": {
       "label": "Trip planner."
+    },
+    "print": {
+      "title": "Trip plan",
+      "base": "Base",
+      "day": "Day",
+      "noItems": "No items.",
+      "people": "People",
+      "adults": "Adults",
+      "children": "Children",
+      "generated": "Generated"
     }
   }
 }
