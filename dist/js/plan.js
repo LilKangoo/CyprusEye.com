@@ -1944,7 +1944,7 @@ function renderServiceCatalog() {
                   const line = x.subtitle ? `${prefix} ${x.subtitle}` : '';
                   return line ? `<div class="ce-catalog-preview">${escapeHtml(line)}</div>` : '';
                 })()
-                : (x.description ? `<div class="ce-catalog-preview">${escapeHtml(x.description)}</div>` : '');
+                : (catalogActiveTab === 'hotels' ? '' : (x.description ? `<div class="ce-catalog-preview">${escapeHtml(x.description)}</div>` : ''));
             const more = raw ? renderExpandablePanel({ panelId, type: catalogActiveTab.slice(0, -1), src: raw, resolved: x }) : '';
 
             const daySel = dayOptions
