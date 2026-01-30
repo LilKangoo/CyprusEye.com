@@ -4117,6 +4117,7 @@
   "plan.ui.common.delete": "Usuń",
   "plan.ui.common.moreInfo": "Więcej informacji",
   "plan.ui.common.day": "Dzień",
+  "plan.ui.poi.areaPrefix": "Okolice:",
   "plan.ui.plans.empty": "Brak planów. Utwórz swój pierwszy plan powyżej.",
   "plan.ui.email.sending": "Wysyłanie…",
   "plan.ui.catalog.loadingServices": "Ładowanie usług…",

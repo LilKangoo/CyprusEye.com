@@ -1791,7 +1791,11 @@ function renderServiceCatalog() {
             const panelId = `ceCatDetail_${catalogActiveTab}_${String(x.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
             const preview =
               catalogActiveTab === 'pois'
-                ? (x.subtitle ? `<div class="ce-catalog-preview">${escapeHtml(x.subtitle)}</div>` : '')
+                ? (() => {
+                  const prefix = t('plan.ui.poi.areaPrefix', 'Area Of:');
+                  const line = x.subtitle ? `${prefix} ${x.subtitle}` : '';
+                  return line ? `<div class="ce-catalog-preview">${escapeHtml(line)}</div>` : '';
+                })()
                 : (x.description ? `<div class="ce-catalog-preview">${escapeHtml(x.description)}</div>` : '');
             const more = raw ? renderExpandablePanel({ panelId, type: catalogActiveTab.slice(0, -1), src: raw, resolved: x }) : '';
 

@@ -3183,6 +3183,9 @@
         "note": "Note",
         "item": "Item"
       },
+      "poi": {
+        "areaPrefix": "Area Of:"
+      },
       "common": {
         "open": "Open",
         "delete": "Delete",
