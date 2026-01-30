@@ -898,6 +898,21 @@ function getHotelTitle(hotel) {
   return hotel?.title?.pl || hotel?.title?.en || hotel?.title || hotel?.slug || t('plan.ui.itemType.hotel', 'Hotel');
 }
 
+function getHotelDescriptionText(hotel) {
+  if (!hotel || typeof hotel !== 'object') return '';
+  if (typeof window.getHotelDescription === 'function') {
+    const d = window.getHotelDescription(hotel);
+    if (d && String(d).trim()) return String(d);
+  }
+  const descObj = hotel.description_i18n || hotel.description;
+  if (descObj && typeof descObj === 'object') {
+    const d = pickI18nValue(descObj, '');
+    if (d && String(d).trim()) return String(d);
+  }
+  if (typeof hotel.description === 'string') return hotel.description;
+  return '';
+}
+
 function getHotelCity(hotel) {
   if (!hotel || typeof hotel !== 'object') return '';
   const raw =
@@ -999,7 +1014,7 @@ function resolveItemDisplay(it) {
     return {
       title: getHotelTitle(src),
       subtitle: getHotelCity(src),
-      description: pickI18nValue(src?.description_i18n, src?.description || ''),
+      description: getHotelDescriptionText(src),
       url: String(d.url || urlFallback).trim(),
       price: String(d.price || priceFallback).trim(),
       image: String(d.image || getServiceImageUrl('hotel', src) || '').trim(),
@@ -1194,6 +1209,30 @@ function wireCeLightboxDelegation() {
   document.addEventListener('click', (e) => {
     const t = e.target;
     if (!(t instanceof HTMLElement)) return;
+
+    const coverBtn = t.closest('[data-ce-lightbox-urls]');
+    if (coverBtn instanceof HTMLElement) {
+      const rawUrls = coverBtn.getAttribute('data-ce-lightbox-urls') || '';
+      if (rawUrls) {
+        try {
+          const decoded = decodeURIComponent(rawUrls);
+          const urls = JSON.parse(decoded);
+          const idx = Number(coverBtn.getAttribute('data-ce-lightbox-index') || 0) || 0;
+          if (Array.isArray(urls) && urls.length) {
+            ceLightboxState = { urls: urls.map((u) => String(u || '')).filter(Boolean), index: Math.max(0, Math.min(idx, urls.length - 1)) };
+            const lb = ensureCeLightbox();
+            if (!lb) return;
+            document.body.classList.add('ce-lightbox-open');
+            lb.hidden = false;
+            if (typeof lb.__ceShow === 'function') lb.__ceShow();
+            return;
+          }
+        } catch (_) {
+          // ignore
+        }
+      }
+    }
+
     const btn = t.closest('[data-ce-gallery-item]');
     if (!(btn instanceof HTMLElement)) return;
     const gallery = btn.closest('.ce-detail-gallery');
@@ -1873,7 +1912,7 @@ function renderServiceCatalog() {
     const baseHotels = catalogData.hotels.map((h) => {
       const title = getHotelTitle(h);
       const city = getHotelCity(h);
-      const description = pickI18nValue(h?.description_i18n, h?.description || '');
+      const description = getHotelDescriptionText(h);
       const image = getServiceImageUrl('hotel', h);
       const min = getHotelMinPricePerNight(h);
       const price = min != null ? `${Number(min).toFixed(2)} € ${t('plan.ui.pricing.perNight', '/ night')}` : '';
@@ -1932,8 +1971,14 @@ function renderServiceCatalog() {
             const poiAttrs = x.lat != null && x.lng != null ? ` data-lat="${escapeHtml(String(x.lat))}" data-lng="${escapeHtml(String(x.lng))}"` : '';
             const link = x.url ? `<a href="${escapeHtml(x.url)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
             const isRange = catalogActiveTab === 'hotels' || catalogActiveTab === 'cars';
-            const img = x.image ? `<a href="${escapeHtml(x.image)}" target="_blank" rel="noopener"><img src="${escapeHtml(x.image)}" alt="" loading="lazy" style="width:100%; height:120px; object-fit:cover; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:0.5rem;" /></a>` : '';
             const raw = x.raw && typeof x.raw === 'object' ? x.raw : null;
+            const imgUrls = raw ? getServiceImageUrls(catalogActiveTab.slice(0, -1), raw) : (x.image ? [x.image] : []);
+            const imgUrlsAttr = imgUrls.length ? escapeHtml(encodeURIComponent(JSON.stringify(imgUrls))) : '';
+            const img = x.image
+              ? `<button type="button" class="ce-catalog-cover" data-ce-lightbox-urls="${imgUrlsAttr}" data-ce-lightbox-index="0" style="display:block; width:100%; padding:0; border:0; background:transparent; margin-bottom:0.5rem; cursor:pointer;">
+                   <img src="${escapeHtml(x.image)}" alt="" loading="lazy" style="width:100%; height:120px; object-fit:cover; border-radius:10px; border:1px solid #e2e8f0;" />
+                 </button>`
+              : '';
             const panelId = `ceCatDetail_${catalogActiveTab}_${String(x.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
             const preview =
               catalogActiveTab === 'pois'
