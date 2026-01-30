@@ -1054,13 +1054,121 @@ function renderGalleryHtml(urls, { alt = '' } = {}) {
       ${list
         .map(
           (u) =>
-            `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" class="ce-detail-gallery__item"><img src="${escapeHtml(
+            `<button type="button" class="ce-detail-gallery__item" data-ce-gallery-item="1"><img src="${escapeHtml(
               u
-            )}" alt="${escapeHtml(alt)}" loading="lazy" /></a>`
+            )}" alt="${escapeHtml(alt)}" loading="lazy" /></button>`
         )
         .join('')}
     </div>
   `;
+}
+
+let ceLightboxState = { urls: [], index: 0 };
+
+function ensureCeLightbox() {
+  if (typeof document === 'undefined') return null;
+  let root = document.getElementById('ceLightbox');
+  if (root) return root;
+  root = document.createElement('div');
+  root.id = 'ceLightbox';
+  root.hidden = true;
+  root.innerHTML = `
+    <div class="ce-lightbox__backdrop" data-ce-lightbox-close="1"></div>
+    <div class="ce-lightbox__panel" role="dialog" aria-modal="true">
+      <button type="button" class="ce-lightbox__close" aria-label="Close" data-ce-lightbox-close="1">×</button>
+      <button type="button" class="ce-lightbox__nav ce-lightbox__prev" aria-label="Previous" data-ce-lightbox-prev="1">‹</button>
+      <button type="button" class="ce-lightbox__nav ce-lightbox__next" aria-label="Next" data-ce-lightbox-next="1">›</button>
+      <img class="ce-lightbox__img" alt="" />
+    </div>
+  `;
+  document.body.appendChild(root);
+
+  const close = () => {
+    root.hidden = true;
+    document.body.classList.remove('ce-lightbox-open');
+  };
+  const show = () => {
+    const img = root.querySelector('.ce-lightbox__img');
+    if (!(img instanceof HTMLImageElement)) return;
+    const u = ceLightboxState.urls[ceLightboxState.index] || '';
+    img.src = u;
+  };
+
+  root.addEventListener('click', (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLElement)) return;
+    if (t.closest('[data-ce-lightbox-close]')) {
+      close();
+      return;
+    }
+    if (t.closest('[data-ce-lightbox-prev]')) {
+      if (ceLightboxState.urls.length) {
+        ceLightboxState.index = (ceLightboxState.index - 1 + ceLightboxState.urls.length) % ceLightboxState.urls.length;
+        show();
+      }
+      return;
+    }
+    if (t.closest('[data-ce-lightbox-next]')) {
+      if (ceLightboxState.urls.length) {
+        ceLightboxState.index = (ceLightboxState.index + 1) % ceLightboxState.urls.length;
+        show();
+      }
+      return;
+    }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (root.hidden) return;
+    if (e.key === 'Escape') {
+      close();
+      return;
+    }
+    if (e.key === 'ArrowLeft') {
+      if (ceLightboxState.urls.length) {
+        ceLightboxState.index = (ceLightboxState.index - 1 + ceLightboxState.urls.length) % ceLightboxState.urls.length;
+        show();
+      }
+      return;
+    }
+    if (e.key === 'ArrowRight') {
+      if (ceLightboxState.urls.length) {
+        ceLightboxState.index = (ceLightboxState.index + 1) % ceLightboxState.urls.length;
+        show();
+      }
+    }
+  });
+
+  root.__ceShow = show;
+  return root;
+}
+
+let ceLightboxWired = false;
+
+function wireCeLightboxDelegation() {
+  if (ceLightboxWired) return;
+  ceLightboxWired = true;
+
+  document.addEventListener('click', (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLElement)) return;
+    const btn = t.closest('[data-ce-gallery-item]');
+    if (!(btn instanceof HTMLElement)) return;
+    const gallery = btn.closest('.ce-detail-gallery');
+    if (!(gallery instanceof HTMLElement)) return;
+    const imgs = Array.from(gallery.querySelectorAll('img'));
+    const urls = imgs.map((im) => (im instanceof HTMLImageElement ? im.currentSrc || im.src : '')).filter(Boolean);
+    if (!urls.length) return;
+    const clickedImg = btn.querySelector('img');
+    const clickedSrc = clickedImg instanceof HTMLImageElement ? (clickedImg.currentSrc || clickedImg.src) : '';
+    let idx = clickedSrc ? urls.indexOf(clickedSrc) : -1;
+    if (idx < 0) idx = 0;
+    ceLightboxState = { urls, index: idx };
+    const lb = ensureCeLightbox();
+    if (!lb) return;
+    document.body.classList.add('ce-lightbox-open');
+    lb.hidden = false;
+    if (typeof lb.__ceShow === 'function') lb.__ceShow();
+  });
 }
 
 function renderDetailsHtml(type, src, resolved) {
@@ -1114,20 +1222,6 @@ function renderDetailsHtml(type, src, resolved) {
   }
 
   if (safeType === 'hotel') {
-    const tiers = s?.pricing_tiers?.rules;
-    const tierLines = Array.isArray(tiers)
-      ? tiers
-          .slice(0, 12)
-          .map((r) => {
-            const persons = r?.persons != null ? `${r.persons}` : '';
-            const minNights = r?.min_nights != null ? `${r.min_nights}` : '';
-            const ppn = r?.price_per_night != null ? `${Number(r.price_per_night).toFixed(2)} €` : '';
-            const parts = [persons ? `${persons} ${t('plan.ui.details.persons', 'persons')}` : '', minNights ? `${t('plan.ui.details.minNights', 'min')} ${minNights}` : '', ppn].filter(Boolean);
-            return parts.length ? `<li>${escapeHtml(parts.join(' • '))}</li>` : '';
-          })
-          .filter(Boolean)
-      : [];
-
     return `
       ${gallery}
       ${desc ? `<div class="ce-detail-desc">${escapeHtml(desc)}</div>` : ''}
@@ -1138,7 +1232,6 @@ function renderDetailsHtml(type, src, resolved) {
         ${kv(t('plan.ui.details.checkIn', 'Check-in'), s.checkin_time || s.check_in)}
         ${kv(t('plan.ui.details.checkOut', 'Check-out'), s.checkout_time || s.check_out)}
       </div>
-      ${tierLines.length ? `<div class="ce-detail-section"><div class="ce-detail-section__title">${escapeHtml(t('plan.ui.details.pricing', 'Pricing'))}</div><ul class="ce-detail-list">${tierLines.join('')}</ul></div>` : ''}
     `;
   }
 
@@ -1954,6 +2047,28 @@ function renderServiceCatalog() {
       const icon = btn.querySelector('.ce-expand-btn__icon');
       if (icon instanceof HTMLElement) icon.textContent = isHidden ? '−' : '+';
     });
+  });
+
+  wrap.addEventListener('click', (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLElement)) return;
+    const btn = t.closest('[data-ce-gallery-item]');
+    if (!(btn instanceof HTMLElement)) return;
+    const gallery = btn.closest('.ce-detail-gallery');
+    if (!(gallery instanceof HTMLElement)) return;
+    const imgs = Array.from(gallery.querySelectorAll('img'));
+    const urls = imgs.map((im) => (im instanceof HTMLImageElement ? im.currentSrc || im.src : '')).filter(Boolean);
+    if (!urls.length) return;
+    const clickedImg = btn.querySelector('img');
+    const clickedSrc = clickedImg instanceof HTMLImageElement ? (clickedImg.currentSrc || clickedImg.src) : '';
+    let idx = clickedSrc ? urls.indexOf(clickedSrc) : -1;
+    if (idx < 0) idx = 0;
+    ceLightboxState = { urls, index: idx };
+    const lb = ensureCeLightbox();
+    if (!lb) return;
+    document.body.classList.add('ce-lightbox-open');
+    lb.hidden = false;
+    if (typeof lb.__ceShow === 'function') lb.__ceShow();
   });
 }
 
@@ -3706,6 +3821,7 @@ function wireEvents() {
 
 
 async function init() {
+  wireCeLightboxDelegation();
   const ok = await ensureSupabase();
   if (!ok) {
     setStatus(createStatusEl(), t('plan.ui.toast.supabaseNotReady', 'Supabase not ready. Please refresh the page.'), 'error');
