@@ -3258,6 +3258,9 @@
         "regenerateDays": "Regenerate days? This will remove existing days and their items.",
         "deletePlan": "Delete this plan? This cannot be undone."
       },
+      "details": {
+        "descriptionTitle": "Description"
+      },
       "toast": {
         "selectPlanFirst": "Select a plan first.",
         "popupBlocked": "Popup blocked. Allow popups to download PDF.",

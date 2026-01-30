@@ -4137,6 +4137,7 @@
   "plan.ui.details.price": "Cena",
   "plan.ui.details.included": "W cenie",
   "plan.ui.details.notIncluded": "Nie zawiera",
+  "plan.ui.details.descriptionTitle": "Opis",
   "plan.ui.details.category": "Kategoria",
   "plan.ui.details.coordinates": "Współrzędne",
   "plan.ui.plans.empty": "Brak planów. Utwórz swój pierwszy plan powyżej.",

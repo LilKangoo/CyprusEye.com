@@ -247,6 +247,49 @@ let catalogData = {
 let catalogLoadedForPlanId = null;
 let catalogLangWired = false;
 
+let hotelAmenitiesMap = {};
+let hotelAmenitiesLoaded = false;
+
+async function loadHotelAmenitiesForDisplay() {
+  if (!sb || hotelAmenitiesLoaded) return;
+  hotelAmenitiesLoaded = true;
+  try {
+    const { data } = await sb
+      .from('hotel_amenities')
+      .select('code, icon, name_en, name_pl, is_popular')
+      .eq('is_active', true);
+    if (Array.isArray(data)) {
+      const next = {};
+      data.forEach((a) => {
+        if (a && a.code) next[String(a.code)] = a;
+      });
+      hotelAmenitiesMap = next;
+    }
+  } catch (e) {
+    console.warn('Failed to load hotel amenities', e);
+  }
+}
+
+function renderHotelAmenitiesChips(hotel) {
+  const amenities = Array.isArray(hotel?.amenities) ? hotel.amenities : [];
+  if (!amenities.length) return '';
+  const lang = currentLang();
+  const items = amenities
+    .map((code) => hotelAmenitiesMap[String(code)] || null)
+    .filter(Boolean)
+    .sort((a, b) => (b.is_popular ? 1 : 0) - (a.is_popular ? 1 : 0))
+    .slice(0, 12);
+  if (!items.length) return '';
+  return `<div class="ce-hotel-amenities">${items
+    .map((a) => {
+      const name = lang === 'en' ? a.name_en : (a.name_pl || a.name_en);
+      const label = `${a.icon || ''} ${name || ''}`.trim();
+      return label ? `<span class="ce-detail-chip">${escapeHtml(label)}</span>` : '';
+    })
+    .filter(Boolean)
+    .join('')}</div>`;
+}
+
 function renderPlanDaysUi(planId, rows) {
   const container = daysEl();
   if (!container) return;
@@ -1178,16 +1221,18 @@ function renderDetailsHtml(type, src, resolved) {
   }
 
   if (safeType === 'hotel') {
+    const city = getHotelCity(s);
+    const descTitle = t('plan.ui.details.descriptionTitle', 'Description');
+    const descHtml = desc ? escapeHtml(desc).replace(/\n/g, '<br/>') : '';
+    const amenitiesHtml = renderHotelAmenitiesChips(s);
     return `
       ${gallery}
-      ${desc ? `<div class="ce-detail-desc">${escapeHtml(desc)}</div>` : ''}
-      <div class="ce-detail-grid">
-        ${kv(t('plan.ui.details.city', 'City'), getHotelCity(s))}
-        ${kv(t('plan.ui.details.fromPrice', 'From'), r.price)}
-        ${kv(t('plan.ui.details.address', 'Address'), s.address || s.location_address)}
-        ${kv(t('plan.ui.details.checkIn', 'Check-in'), s.checkin_time || s.check_in)}
-        ${kv(t('plan.ui.details.checkOut', 'Check-out'), s.checkout_time || s.check_out)}
+      <div class="ce-hotel-head">
+        ${title ? `<div class="ce-hotel-title">${escapeHtml(title)}</div>` : ''}
+        ${city ? `<div class="ce-hotel-city">${escapeHtml(city)}</div>` : ''}
       </div>
+      ${descHtml ? `<div class="ce-hotel-section"><div class="ce-hotel-section__title">${escapeHtml(descTitle)}</div><div class="ce-detail-desc">${descHtml}</div></div>` : ''}
+      ${amenitiesHtml}
     `;
   }
 
@@ -1491,7 +1536,7 @@ function getServiceTypeLabel(type) {
 }
 
 async function loadServiceCatalog(planId) {
-  if (!sb) return;
+  if (!sb || !planId) return;
   if (!planId) {
     const wrap = catalogEl();
     if (wrap) wrap.innerHTML = '';
