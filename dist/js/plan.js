@@ -849,12 +849,22 @@ function getCarDescription(car) {
 }
 
 function getPoiTitle(poi) {
-  const name = pickI18nValue(poi?.name_i18n, poi?.name || t('plan.ui.itemType.poiShort', 'POI'));
+  const raw = poi && typeof poi === 'object' && poi.raw && typeof poi.raw === 'object' ? poi.raw : null;
+  const name = pickI18nValue((raw && raw.name_i18n) || poi?.name_i18n, (raw && raw.name) || poi?.name || t('plan.ui.itemType.poiShort', 'POI'));
   return name || t('plan.ui.itemType.poiShort', 'POI');
 }
 
 function getPoiDescription(poi) {
-  return pickI18nValue(poi?.description_i18n, poi?.description || '');
+  const raw = poi && typeof poi === 'object' && poi.raw && typeof poi.raw === 'object' ? poi.raw : null;
+  return pickI18nValue((raw && raw.description_i18n) || poi?.description_i18n, (raw && raw.description) || poi?.description || '');
+}
+
+function getPoiCategory(poi) {
+  const raw = poi && typeof poi === 'object' && poi.raw && typeof poi.raw === 'object' ? poi.raw : null;
+  const val =
+    pickI18nValue((raw && raw.category_i18n) || poi?.category_i18n, (raw && raw.category) || poi?.category || '') ||
+    String((raw && (raw.area || raw.region || raw.city_area)) || poi?.area || poi?.region || '').trim();
+  return String(val || '').trim();
 }
 
 function getItemSourceRef(it) {
@@ -1108,9 +1118,11 @@ function renderDetailsHtml(type, src, resolved) {
     `;
   }
 
+  const poiCategory = getPoiCategory(s);
   return `
     ${gallery}
     ${desc ? `<div class="ce-detail-desc">${escapeHtml(desc)}</div>` : ''}
+    ${poiCategory ? kv(t('plan.ui.details.category', 'Category'), poiCategory) : ''}
     ${s?.lat != null && s?.lng != null ? kv(t('plan.ui.details.coordinates', 'Coordinates'), `${s.lat}, ${s.lng}`) : ''}
   `;
 }
@@ -1714,9 +1726,10 @@ function renderServiceCatalog() {
       .map((p) => {
         const title = getPoiTitle(p);
         const description = getPoiDescription(p);
+        const category = getPoiCategory(p);
         const image = getServiceImageUrl('poi', p);
         const url = p?.google_url || p?.google_maps_url || (p?.lat != null && p?.lng != null ? `https://www.google.com/maps?q=${p.lat},${p.lng}` : '');
-        return { id: p?.id, title, subtitle: '', description, price: '', url, image, lat: p?.lat ?? null, lng: p?.lng ?? null, raw: p };
+        return { id: p?.id, title, subtitle: category, description, price: '', url, image, lat: p?.lat ?? null, lng: p?.lng ?? null, raw: p };
       })
       .filter((x) => matches(`${x.title}`));
   }
@@ -1733,7 +1746,10 @@ function renderServiceCatalog() {
             const img = x.image ? `<a href="${escapeHtml(x.image)}" target="_blank" rel="noopener"><img src="${escapeHtml(x.image)}" alt="" loading="lazy" style="width:100%; height:120px; object-fit:cover; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:0.5rem;" /></a>` : '';
             const raw = x.raw && typeof x.raw === 'object' ? x.raw : null;
             const panelId = `ceCatDetail_${catalogActiveTab}_${String(x.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
-            const preview = x.description ? `<div class="ce-catalog-preview">${escapeHtml(x.description)}</div>` : '';
+            const preview =
+              catalogActiveTab === 'pois'
+                ? (x.subtitle ? `<div class="ce-catalog-preview">${escapeHtml(x.subtitle)}</div>` : '')
+                : (x.description ? `<div class="ce-catalog-preview">${escapeHtml(x.description)}</div>` : '');
             const more = raw ? renderExpandablePanel({ panelId, type: catalogActiveTab.slice(0, -1), src: raw, resolved: x }) : '';
 
             const daySel = dayOptions
