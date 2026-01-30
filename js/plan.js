@@ -326,12 +326,16 @@ function renderPlanDaysUi(planId, rows) {
                   const url = String(resolved?.url || '');
                   const price = String(resolved?.price || '');
                   const image = String(resolved?.image || '');
+                  const src = resolveCatalogEntryForItem(it);
+                  const panelId = `ceDayDetail_${String(it.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
                   const rangeStart = it?.data && typeof it.data === 'object' ? Number(it.data.range_start_day_index || 0) : 0;
                   const rangeEnd = it?.data && typeof it.data === 'object' ? Number(it.data.range_end_day_index || 0) : 0;
                   const rangeId = it?.data && typeof it.data === 'object' ? String(it.data.range_id || '') : '';
                   const rangeBadge = rangeId && rangeStart > 0 && rangeEnd > 0 ? ` (${escapeHtml(t('plan.print.day', 'Day'))} ${rangeStart}–${escapeHtml(t('plan.print.day', 'Day'))} ${rangeEnd})` : '';
                   const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
                   const thumb = image ? `<a href="${escapeHtml(image)}" target="_blank" rel="noopener"><img src="${escapeHtml(image)}" alt="" loading="lazy" style="width:64px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0;" /></a>` : '';
+                  const preview = description ? `<div style=\"color:#475569; font-size:12px;\">${escapeHtml(description)}</div>` : '';
+                  const more = src ? renderExpandablePanel({ panelId, type: it.item_type, src, resolved }) : '';
                   return `
                     <div style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
                       ${thumb ? `<div style="flex:0 0 auto;">${thumb}</div>` : ''}
@@ -339,7 +343,8 @@ function renderPlanDaysUi(planId, rows) {
                         <div style="font-size:12px; color:#64748b;">${escapeHtml(typeLabel)}</div>
                         <div style="color:#0f172a; font-weight:600;">${escapeHtml(title)}${escapeHtml(rangeBadge)}</div>
                         ${subtitle ? `<div style=\"color:#64748b; font-size:12px;\">${escapeHtml(subtitle)}</div>` : ''}
-                        ${description ? `<div style=\"color:#475569; font-size:12px;\">${escapeHtml(description)}</div>` : ''}
+                        ${preview}
+                        ${more}
                         ${price ? `<div style=\"color:#0f172a; font-size:12px;\">${escapeHtml(price)}</div>` : ''}
                       </div>
                       <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
@@ -377,11 +382,15 @@ function renderPlanDaysUi(planId, rows) {
                     const description = String(resolved?.description || '');
                     const url = String(resolved?.url || '');
                     const image = String(resolved?.image || '');
+                    const src = resolveCatalogEntryForItem(it);
+                    const panelId = `ceDayPoiDetail_${String(it.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
                     const timeLabel = formatPoiTimeLabel(it);
                     const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
                     const thumb = image ? `<a href="${escapeHtml(image)}" target="_blank" rel="noopener"><img src="${escapeHtml(image)}" alt="" loading="lazy" style="width:64px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0;" /></a>` : '';
                     const startV = it?.data && typeof it.data === 'object' ? String(it.data.start_time || '') : '';
                     const endV = it?.data && typeof it.data === 'object' ? String(it.data.end_time || '') : '';
+                    const preview = description ? `<div style=\"color:#475569; font-size:12px; margin-top:0.25rem;\">${escapeHtml(description)}</div>` : '';
+                    const more = src ? renderExpandablePanel({ panelId, type: 'poi', src, resolved }) : '';
                     return `
                       <div style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
                         ${thumb ? `<div style="flex:0 0 auto;">${thumb}</div>` : ''}
@@ -390,7 +399,8 @@ function renderPlanDaysUi(planId, rows) {
                             <div style="color:#0f172a; font-weight:600;">${escapeHtml(title || t('plan.ui.days.placeFallback', 'Place'))}</div>
                             ${timeLabel ? `<div style=\"color:#64748b; font-size:12px;\">${escapeHtml(timeLabel)}</div>` : ''}
                           </div>
-                          ${description ? `<div style=\"color:#475569; font-size:12px; margin-top:0.25rem;\">${escapeHtml(description)}</div>` : ''}
+                          ${preview}
+                          ${more}
                           <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.25rem;">
                             <label style="display:flex; gap:0.25rem; align-items:center; font-size:12px; color:#0f172a;">
                               ${escapeHtml(t('plan.ui.days.start', 'Start'))}
@@ -542,6 +552,35 @@ function renderPlanDaysUi(planId, rows) {
       if (ok) {
         await loadPlanDays(planId);
       }
+    });
+  });
+
+  // Expand / collapse details panels (modern UI)
+  container.querySelectorAll('[data-expand-toggle]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-expand-toggle');
+      if (!target) return;
+      const panel = container.querySelector(`#${CSS.escape(target)}`);
+      if (!(panel instanceof HTMLElement)) return;
+      const isHidden = panel.hasAttribute('hidden');
+      if (isHidden) {
+        panel.removeAttribute('hidden');
+        panel.style.maxHeight = '0px';
+        panel.offsetHeight;
+        const inner = panel.querySelector('.ce-expand-panel__inner');
+        const h = inner instanceof HTMLElement ? inner.scrollHeight : panel.scrollHeight;
+        panel.style.maxHeight = `${Math.min(1200, Math.max(120, h))}px`;
+      } else {
+        panel.style.maxHeight = `${panel.scrollHeight}px`;
+        panel.offsetHeight;
+        panel.style.maxHeight = '0px';
+        window.setTimeout(() => {
+          panel.setAttribute('hidden', '');
+        }, 180);
+      }
+      btn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+      const icon = btn.querySelector('.ce-expand-btn__icon');
+      if (icon instanceof HTMLElement) icon.textContent = isHidden ? '−' : '+';
     });
   });
 
@@ -965,6 +1004,180 @@ function getServiceImageUrl(type, obj) {
   } catch (_) {
     return '';
   }
+}
+
+function getServiceImageUrls(type, obj) {
+  try {
+    const urls = [];
+    const direct = obj && (obj.cover_image_url || obj.main_image_url || obj.featured_image_url || obj.image_url || obj.thumbnail_url || obj.photo_url || obj.image || obj.cover || obj.thumbnail);
+    if (direct) urls.push(String(direct));
+
+    const photos = obj && Array.isArray(obj.photos) ? obj.photos : null;
+    const gallery = obj && Array.isArray(obj.gallery) ? obj.gallery : null;
+    const extras = (photos || []).concat(gallery || []);
+    extras.forEach((u) => {
+      if (!u) return;
+      urls.push(String(u));
+    });
+
+    const seen = new Set();
+    return urls
+      .map((u) => String(u).trim())
+      .filter(Boolean)
+      .filter((u) => {
+        const key = u;
+        if (seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      })
+      .slice(0, 12);
+  } catch (_) {
+    return [];
+  }
+}
+
+function renderGalleryHtml(urls, { alt = '' } = {}) {
+  const list = Array.isArray(urls) ? urls.filter(Boolean) : [];
+  if (!list.length) return '';
+  return `
+    <div class="ce-detail-gallery" role="group" aria-label="Gallery">
+      ${list
+        .map(
+          (u) =>
+            `<a href="${escapeHtml(u)}" target="_blank" rel="noopener" class="ce-detail-gallery__item"><img src="${escapeHtml(
+              u
+            )}" alt="${escapeHtml(alt)}" loading="lazy" /></a>`
+        )
+        .join('')}
+    </div>
+  `;
+}
+
+function renderDetailsHtml(type, src, resolved) {
+  const safeType = String(type || '').trim();
+  const s = src && typeof src === 'object' ? src : {};
+  const r = resolved && typeof resolved === 'object' ? resolved : {};
+  const title = String(r.title || '').trim();
+  const desc = String(r.description || '').trim();
+
+  const kv = (label, value) => {
+    const v = String(value || '').trim();
+    if (!v) return '';
+    return `<div class="ce-detail-row"><div class="ce-detail-row__k">${escapeHtml(label)}</div><div class="ce-detail-row__v">${escapeHtml(v)}</div></div>`;
+  };
+
+  const list = (label, arr) => {
+    const items = Array.isArray(arr) ? arr.map((x) => String(x || '').trim()).filter(Boolean) : [];
+    if (!items.length) return '';
+    return `
+      <div class="ce-detail-row">
+        <div class="ce-detail-row__k">${escapeHtml(label)}</div>
+        <div class="ce-detail-row__v">
+          <div class="ce-detail-chips">${items.map((x) => `<span class="ce-detail-chip">${escapeHtml(x)}</span>`).join('')}</div>
+        </div>
+      </div>
+    `;
+  };
+
+  const images = getServiceImageUrls(safeType, s);
+  const gallery = renderGalleryHtml(images, { alt: title });
+
+  if (safeType === 'car') {
+    const features = (typeof window !== 'undefined' && typeof window.getCarFeatures === 'function') ? window.getCarFeatures(s) : (Array.isArray(s.features) ? s.features : []);
+    const model = (typeof window !== 'undefined' && typeof window.getCarName === 'function') ? window.getCarName(s) : String(s.car_model || '');
+    const carType = (typeof window !== 'undefined' && typeof window.getCarType === 'function') ? window.getCarType(s) : String(s.car_type || '');
+    return `
+      ${gallery}
+      ${desc ? `<div class="ce-detail-desc">${escapeHtml(desc)}</div>` : ''}
+      <div class="ce-detail-grid">
+        ${kv(t('plan.ui.details.location', 'Location'), s.location)}
+        ${kv(t('plan.ui.details.fromPrice', 'From'), r.price)}
+        ${kv(t('plan.ui.details.model', 'Model'), model)}
+        ${kv(t('plan.ui.details.type', 'Type'), carType)}
+        ${kv(t('plan.ui.details.deposit', 'Deposit'), s.deposit)}
+        ${kv(t('plan.ui.details.transmission', 'Transmission'), s.transmission || s.gearbox)}
+        ${kv(t('plan.ui.details.fuel', 'Fuel'), s.fuel)}
+        ${kv(t('plan.ui.details.seats', 'Seats'), s.seats)}
+      </div>
+      ${list(t('plan.ui.details.features', 'Features'), features)}
+    `;
+  }
+
+  if (safeType === 'hotel') {
+    const tiers = s?.pricing_tiers?.rules;
+    const tierLines = Array.isArray(tiers)
+      ? tiers
+          .slice(0, 12)
+          .map((r) => {
+            const persons = r?.persons != null ? `${r.persons}` : '';
+            const minNights = r?.min_nights != null ? `${r.min_nights}` : '';
+            const ppn = r?.price_per_night != null ? `${Number(r.price_per_night).toFixed(2)} €` : '';
+            const parts = [persons ? `${persons} ${t('plan.ui.details.persons', 'persons')}` : '', minNights ? `${t('plan.ui.details.minNights', 'min')} ${minNights}` : '', ppn].filter(Boolean);
+            return parts.length ? `<li>${escapeHtml(parts.join(' • '))}</li>` : '';
+          })
+          .filter(Boolean)
+      : [];
+
+    return `
+      ${gallery}
+      ${desc ? `<div class="ce-detail-desc">${escapeHtml(desc)}</div>` : ''}
+      <div class="ce-detail-grid">
+        ${kv(t('plan.ui.details.city', 'City'), getHotelCity(s))}
+        ${kv(t('plan.ui.details.fromPrice', 'From'), r.price)}
+        ${kv(t('plan.ui.details.address', 'Address'), s.address || s.location_address)}
+        ${kv(t('plan.ui.details.checkIn', 'Check-in'), s.checkin_time || s.check_in)}
+        ${kv(t('plan.ui.details.checkOut', 'Check-out'), s.checkout_time || s.check_out)}
+      </div>
+      ${tierLines.length ? `<div class="ce-detail-section"><div class="ce-detail-section__title">${escapeHtml(t('plan.ui.details.pricing', 'Pricing'))}</div><ul class="ce-detail-list">${tierLines.join('')}</ul></div>` : ''}
+    `;
+  }
+
+  if (safeType === 'trip') {
+    const duration = s.duration || s.duration_hours || s.duration_label;
+    const startCity = s.start_city || s.city;
+    const pm = s.pricing_model || '';
+    const includes = s.includes || s.included || s.inclusions;
+    const excludes = s.excludes || s.not_included || s.exclusions;
+    return `
+      ${gallery}
+      ${desc ? `<div class="ce-detail-desc">${escapeHtml(desc)}</div>` : ''}
+      <div class="ce-detail-grid">
+        ${kv(t('plan.ui.details.startCity', 'Start city'), startCity)}
+        ${kv(t('plan.ui.details.duration', 'Duration'), duration)}
+        ${kv(t('plan.ui.details.pricingModel', 'Pricing model'), pm)}
+        ${kv(t('plan.ui.details.price', 'Price'), r.price)}
+      </div>
+      ${typeof includes === 'string' && includes.trim() ? `<div class="ce-detail-section"><div class="ce-detail-section__title">${escapeHtml(t('plan.ui.details.included', 'Included'))}</div><div class="ce-detail-desc">${escapeHtml(includes)}</div></div>` : ''}
+      ${typeof excludes === 'string' && excludes.trim() ? `<div class="ce-detail-section"><div class="ce-detail-section__title">${escapeHtml(t('plan.ui.details.notIncluded', 'Not included'))}</div><div class="ce-detail-desc">${escapeHtml(excludes)}</div></div>` : ''}
+    `;
+  }
+
+  // POI + fallback
+  return `
+    ${gallery}
+    ${desc ? `<div class="ce-detail-desc">${escapeHtml(desc)}</div>` : ''}
+    ${s?.lat != null && s?.lng != null ? kv(t('plan.ui.details.coordinates', 'Coordinates'), `${s.lat}, ${s.lng}`) : ''}
+  `;
+}
+
+function renderExpandablePanel({ panelId, type, src, resolved }) {
+  const pid = String(panelId || '').trim();
+  if (!pid) return '';
+  const content = renderDetailsHtml(type, src, resolved);
+  if (!String(content || '').trim()) return '';
+  return `
+    <div class="ce-expand" data-expand-wrap="1">
+      <button type="button" class="ce-expand-btn" data-expand-toggle="${escapeHtml(pid)}" aria-expanded="false">
+        <span>${escapeHtml(t('plan.ui.common.moreInfo', 'More info'))}</span>
+        <span class="ce-expand-btn__icon" aria-hidden="true">+</span>
+      </button>
+      <div id="${escapeHtml(pid)}" class="ce-expand-panel" hidden>
+        <div class="ce-expand-panel__inner">
+          ${content}
+        </div>
+      </div>
+    </div>
+  `;
 }
 
 function calcTripTotal(trip, { adults = 1, children = 0, hours = 1, days = 1 } = {}) {
@@ -1489,7 +1702,7 @@ function renderServiceCatalog() {
         const price = total ? `${Number(total).toFixed(2)} €` : '';
         const slug = t?.slug || '';
         const url = slug ? `trip.html?slug=${encodeURIComponent(slug)}` : 'trips.html';
-        return { id: t?.id, title, subtitle: city, description, price, url, image, lat: null, lng: null };
+        return { id: t?.id, title, subtitle: city, description, price, url, image, lat: null, lng: null, raw: t };
       })
       .filter((x) => {
         if (!ctx.city) return true;
@@ -1508,7 +1721,7 @@ function renderServiceCatalog() {
       const price = min != null ? `${Number(min).toFixed(2)} € ${t('plan.ui.pricing.perNight', '/ night')}` : '';
       const slug = h?.slug || '';
       const url = slug ? `hotel.html?slug=${encodeURIComponent(slug)}` : 'hotels.html';
-      return { id: h?.id, title, subtitle: city, description, price, url, image, lat: null, lng: null };
+      return { id: h?.id, title, subtitle: city, description, price, url, image, lat: null, lng: null, raw: h };
     });
 
     const byCity = ctx.city ? baseHotels.filter((x) => (!x.subtitle ? true : cityMatches(x.subtitle, ctx.city))) : baseHotels;
@@ -1527,7 +1740,7 @@ function renderServiceCatalog() {
         const north = c?.north_allowed ? t('plan.ui.catalog.northOk', 'north ok') : '';
         const from = getCarFromPricePerDay(c);
         const price = from != null ? `${t('plan.ui.pricing.from', 'From')} ${Number(from).toFixed(0)}€ ${t('plan.ui.pricing.perDay', '/ day')}` : '';
-        return { id: c?.id, title, subtitle: [location, north].filter(Boolean).join(' • '), description, location, price, url, image, lat: null, lng: null };
+        return { id: c?.id, title, subtitle: [location, north].filter(Boolean).join(' • '), description, location, price, url, image, lat: null, lng: null, raw: c };
       })
       .filter((x) => {
         if (ctx.includeNorth) {
@@ -1545,7 +1758,8 @@ function renderServiceCatalog() {
         const description = getPoiDescription(p);
         const image = getServiceImageUrl('poi', p);
         const url = p?.google_url || p?.google_maps_url || (p?.lat != null && p?.lng != null ? `https://www.google.com/maps?q=${p.lat},${p.lng}` : '');
-        return { id: p?.id, title, subtitle: description || '', description, price: '', url, image, lat: p?.lat ?? null, lng: p?.lng ?? null };
+        // Avoid showing description twice: keep it only for preview + details panel.
+        return { id: p?.id, title, subtitle: '', description, price: '', url, image, lat: p?.lat ?? null, lng: p?.lng ?? null, raw: p };
       })
       .filter((x) => matches(`${x.title}`));
   }
@@ -1560,7 +1774,10 @@ function renderServiceCatalog() {
             const link = x.url ? `<a href="${escapeHtml(x.url)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
             const isRange = catalogActiveTab === 'hotels' || catalogActiveTab === 'cars';
             const img = x.image ? `<a href="${escapeHtml(x.image)}" target="_blank" rel="noopener"><img src="${escapeHtml(x.image)}" alt="" loading="lazy" style="width:100%; height:120px; object-fit:cover; border-radius:10px; border:1px solid #e2e8f0; margin-bottom:0.5rem;" /></a>` : '';
-            const more = x.description ? `<details style="margin-top:0.5rem;"><summary style="cursor:pointer; color:#2563eb; font-size:12px;">${escapeHtml(t('plan.ui.common.moreInfo', 'More info'))}</summary><div style="color:#475569; font-size:12px; margin-top:0.25rem;">${escapeHtml(x.description)}</div></details>` : '';
+            const raw = x.raw && typeof x.raw === 'object' ? x.raw : null;
+            const panelId = `ceCatDetail_${catalogActiveTab}_${String(x.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
+            const preview = x.description ? `<div class="ce-catalog-preview">${escapeHtml(x.description)}</div>` : '';
+            const more = raw ? renderExpandablePanel({ panelId, type: catalogActiveTab.slice(0, -1), src: raw, resolved: x }) : '';
 
             const daySel = dayOptions
               ? (isRange
@@ -1587,6 +1804,7 @@ function renderServiceCatalog() {
                   ${x.subtitle ? `<span class=\"ce-catalog-sub\">${escapeHtml(x.subtitle)}</span>` : ''}
                   ${x.price ? `<span class=\"ce-catalog-price\">${escapeHtml(x.price)}</span>` : ''}
                 </div>
+                ${preview}
                 ${more}
                 <div class="ce-catalog-actions">
                   ${link}
@@ -1677,6 +1895,35 @@ function renderServiceCatalog() {
       }
 
       await addServiceItemToDay({ dayId, itemType: type, refId, data: baseData });
+    });
+  });
+
+  // Expand / collapse details panels (modern UI)
+  wrap.querySelectorAll('[data-expand-toggle]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const target = btn.getAttribute('data-expand-toggle');
+      if (!target) return;
+      const panel = wrap.querySelector(`#${CSS.escape(target)}`);
+      if (!(panel instanceof HTMLElement)) return;
+      const isHidden = panel.hasAttribute('hidden');
+      if (isHidden) {
+        panel.removeAttribute('hidden');
+        panel.style.maxHeight = '0px';
+        panel.offsetHeight;
+        const inner = panel.querySelector('.ce-expand-panel__inner');
+        const h = inner instanceof HTMLElement ? inner.scrollHeight : panel.scrollHeight;
+        panel.style.maxHeight = `${Math.min(1200, Math.max(120, h))}px`;
+      } else {
+        panel.style.maxHeight = `${panel.scrollHeight}px`;
+        panel.offsetHeight;
+        panel.style.maxHeight = '0px';
+        window.setTimeout(() => {
+          panel.setAttribute('hidden', '');
+        }, 180);
+      }
+      btn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
+      const icon = btn.querySelector('.ce-expand-btn__icon');
+      if (icon instanceof HTMLElement) icon.textContent = isHidden ? '−' : '+';
     });
   });
 }
