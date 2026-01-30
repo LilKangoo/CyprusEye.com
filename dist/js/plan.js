@@ -1417,8 +1417,16 @@ async function loadServiceCatalog(planId) {
   }
 
   if (!catalogLangWired) {
+    let raf = 0;
     document.addEventListener('wakacjecypr:languagechange', () => {
-      renderServiceCatalog();
+      if (raf) cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        renderServiceCatalog();
+      });
+      setTimeout(() => {
+        if (!raf) renderServiceCatalog();
+      }, 80);
     });
     catalogLangWired = true;
   }
@@ -1773,12 +1781,13 @@ function renderServiceCatalog() {
                    </details>`)
               : '';
 
+            const showSubtitleMeta = catalogActiveTab !== 'pois';
             return `
               <div class="card ce-catalog-tile" style="padding:0.65rem; border:1px solid #e2e8f0;">
                 ${img}
                 <div class="ce-catalog-title">${escapeHtml(x.title)}</div>
                 <div class="ce-catalog-meta">
-                  ${x.subtitle ? `<span class=\"ce-catalog-sub\">${escapeHtml(x.subtitle)}</span>` : ''}
+                  ${showSubtitleMeta && x.subtitle ? `<span class=\"ce-catalog-sub\">${escapeHtml(x.subtitle)}</span>` : ''}
                   ${x.price ? `<span class=\"ce-catalog-price\">${escapeHtml(x.price)}</span>` : ''}
                 </div>
                 ${preview}
