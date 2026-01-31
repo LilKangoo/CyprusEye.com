@@ -1007,6 +1007,7 @@ document.querySelectorAll('[data-auth=logout]').forEach((el) => {
 
 if (typeof window !== 'undefined') {
   window.bootAuth = bootAuth;
+  window.waitForAuthReady = waitForAuthReady;
   window.updateAuthUI = updateAuthUI;
   
   // Automatyczna inicjalizacja przy załadowaniu strony
