@@ -2106,13 +2106,18 @@ function renderServiceCatalog() {
                          <div data-car-range-days style="font-size:12px; color:#64748b;"></div>
                        </div>
                      </div>`
-                  : `<details class="ce-catalog-days">
-                       <summary>${escapeHtml(t('plan.ui.catalog.days', 'Days'))}</summary>
-                       <div class="ce-catalog-days__inner">
-                         <select data-catalog-range-start="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
-                         <select data-catalog-range-end="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
+                  : `<div class="ce-catalog-days" data-hotel-range="1" hidden>
+                       <div class="ce-catalog-days__inner" style="display:grid; gap:0.5rem;">
+                         <label style="display:grid; gap:0.25rem; font-size:12px; color:#64748b;">
+                           ${escapeHtml(t('plan.ui.catalog.checkInDay', 'Dzień zameldowania'))}
+                           <select data-catalog-range-start="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
+                         </label>
+                         <label style="display:grid; gap:0.25rem; font-size:12px; color:#64748b;">
+                           ${escapeHtml(t('plan.ui.catalog.checkOutDay', 'Dzień wymeldowania'))}
+                           <select data-catalog-range-end="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
+                         </label>
                        </div>
-                     </details>`)
+                     </div>`)
                 : `<details class="ce-catalog-days">
                      <summary>${escapeHtml(t('plan.catalog.addToDay', 'Add to day'))}</summary>
                      <div class="ce-catalog-days__inner">
@@ -2235,6 +2240,15 @@ function renderServiceCatalog() {
         }
       }
 
+      if (type === 'hotel') {
+        const rangeWrap = row ? row.querySelector('[data-hotel-range]') : null;
+        if (rangeWrap instanceof HTMLElement && rangeWrap.hasAttribute('hidden')) {
+          rangeWrap.removeAttribute('hidden');
+          btn.textContent = t('plan.ui.catalog.confirmRange', 'Potwierdź zakres');
+          return;
+        }
+      }
+
       if ((type === 'hotel' || type === 'car') && startSel instanceof HTMLSelectElement && endSel instanceof HTMLSelectElement) {
         await addServiceRangeToDays({
           startDayId: startSel.value,
@@ -2246,6 +2260,14 @@ function renderServiceCatalog() {
 
         if (type === 'car') {
           const rangeWrap = row ? row.querySelector('[data-car-range]') : null;
+          if (rangeWrap instanceof HTMLElement) {
+            rangeWrap.setAttribute('hidden', '');
+          }
+          btn.textContent = t('plan.ui.catalog.addRange', 'Dodaj zakres');
+        }
+
+        if (type === 'hotel') {
+          const rangeWrap = row ? row.querySelector('[data-hotel-range]') : null;
           if (rangeWrap instanceof HTMLElement) {
             rangeWrap.setAttribute('hidden', '');
           }

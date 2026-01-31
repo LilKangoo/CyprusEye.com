@@ -4054,6 +4054,8 @@
   "plan.ui.catalog.confirmRange": "Potwierdź zakres",
   "plan.ui.catalog.pickupDay": "Dzień odbioru",
   "plan.ui.catalog.dropoffDay": "Dzień zwrotu",
+  "plan.ui.catalog.checkInDay": "Dzień zameldowania",
+  "plan.ui.catalog.checkOutDay": "Dzień wymeldowania",
   "plan.ui.catalog.daysCount": "dni",
   "seo.shop.title": "Sklep CyprusEye – Tradycyjne Produkty z Cypru",
   "seo.shop.description": "Odkryj autentyczne produkty cypryjskie. Oliwa z oliwek, wino, halloumi, kosmetyki i więcej. Wysyłka na Cypr i cały świat."

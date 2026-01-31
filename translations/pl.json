@@ -4150,6 +4150,8 @@
   "plan.ui.catalog.confirmRange": "Potwierdź zakres",
   "plan.ui.catalog.pickupDay": "Dzień odbioru",
   "plan.ui.catalog.dropoffDay": "Dzień zwrotu",
+  "plan.ui.catalog.checkInDay": "Dzień zameldowania",
+  "plan.ui.catalog.checkOutDay": "Dzień wymeldowania",
   "plan.ui.catalog.daysCount": "dni",
   "plan.ui.catalog.noServices": "Nie znaleziono usług.",
   "plan.ui.catalog.allCities": "Wszystkie miasta",
