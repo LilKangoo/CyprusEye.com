@@ -110,6 +110,24 @@ function transformPOI(dbPoi) {
   const name = getTranslation(dbPoi.name_i18n, dbPoi.name || 'Unnamed Place');
   const description = getTranslation(dbPoi.description_i18n, dbPoi.description || '');
   const badge = getTranslation(dbPoi.badge_i18n, dbPoi.badge || 'Explorer');
+
+  let photos = dbPoi.photos || [];
+  if (typeof photos === 'string') {
+    try {
+      photos = JSON.parse(photos);
+    } catch (_) {
+      photos = [];
+    }
+  }
+  photos = Array.isArray(photos) ? photos.map((u) => String(u || '').trim()).filter(Boolean).slice(0, 12) : [];
+
+  const mainImageUrl = (
+    dbPoi.main_image_url
+    || dbPoi.image_url
+    || dbPoi.cover_image_url
+    || (photos.length ? photos[0] : '')
+    || ''
+  );
   
   return {
     id: dbPoi.id,
@@ -129,6 +147,8 @@ function transformPOI(dbPoi) {
     // Backwards-compatible aliases commonly used around the site
     googleMapsUrl: dbPoi.google_url || dbPoi.google_maps_url || `https://www.google.com/maps?q=${dbPoi.lat},${dbPoi.lng}`,
     googleMapsURL: dbPoi.google_url || dbPoi.google_maps_url || `https://www.google.com/maps?q=${dbPoi.lat},${dbPoi.lng}`,
+    main_image_url: mainImageUrl,
+    photos: photos,
     xp: parseInt(dbPoi.xp) || 100,
     requiredLevel: parseInt(dbPoi.required_level) || 1,
     source: 'supabase',
