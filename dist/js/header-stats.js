@@ -254,6 +254,33 @@
   async function init() {
     console.log('🔄 Inicjalizacja Header Stats...');
 
+    const waitForAuthReady = async () => {
+      try {
+        const fn = typeof window.waitForAuthReady === 'function' ? window.waitForAuthReady : null;
+        if (!fn) return;
+        await Promise.race([
+          Promise.resolve().then(() => fn()),
+          new Promise((resolve) => setTimeout(resolve, 4500)),
+        ]);
+      } catch (_) {
+      }
+    };
+
+    const refreshStatsWithRetry = async ({ attempts: max = 16, stepMs = 250 } = {}) => {
+      for (let i = 0; i < max; i += 1) {
+        const stats = await fetchUserStats();
+        if (stats) {
+          updateHeaderStats(stats);
+          if (stats.userId) {
+            subscribeProfileRealtime(stats.userId);
+          }
+          return true;
+        }
+        await new Promise((r) => setTimeout(r, stepMs));
+      }
+      return false;
+    };
+
     // Poczekaj na załadowanie Supabase
     let attempts = 0;
     const maxAttempts = 50; // 5 sekund (50 × 100ms)
@@ -283,14 +310,8 @@
       return;
     }
 
-    // Pobierz i zaktualizuj statystyki
-    const stats = await fetchUserStats();
-    if (stats) {
-      updateHeaderStats(stats);
-      if (stats.userId) {
-        subscribeProfileRealtime(stats.userId);
-      }
-    }
+    await waitForAuthReady();
+    await refreshStatsWithRetry();
 
     // Nasłuchuj zmian sesji
     try {
@@ -298,15 +319,13 @@
       sb.auth.onAuthStateChange(async (event, session) => {
         console.log('🔄 Zmiana stanu autoryzacji:', event);
         
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
           const userId = session && session.user ? session.user.id : null;
           if (userId) {
             subscribeProfileRealtime(userId);
           }
-          const stats = await fetchUserStats();
-          if (stats) {
-            updateHeaderStats(stats);
-          }
+          await waitForAuthReady();
+          await refreshStatsWithRetry({ attempts: 8, stepMs: 200 });
         } else if (event === 'SIGNED_OUT') {
           if (profileChannel && typeof profileChannel.unsubscribe === 'function') {
             try {
