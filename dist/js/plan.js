@@ -324,7 +324,6 @@ const createStatusEl = () => el('planCreateStatus');
 const emptyStateEl = () => el('planEmptyState');
 const detailsWrapEl = () => el('planDetails');
 const daysEl = () => el('planDays');
-const catalogDaySelectEl = () => el('planCatalogDaySelect');
 const catalogEl = () => el('planCatalog');
 const costSummaryEl = () => el('planCostSummary');
 const requestBookingBtnEl = () => el('planRequestBookingBtn');
@@ -345,6 +344,8 @@ let catalogData = {
 };
 let catalogLoadedForPlanId = null;
 let catalogLangWired = false;
+
+let lastSelectedDayIdForCatalog = '';
 
 let hotelAmenitiesMap = {};
 let hotelAmenitiesLoaded = false;
@@ -628,10 +629,7 @@ function renderPlanDaysUi(planId, rows) {
       const tab = btn.getAttribute('data-day-quick-add');
       if (!dayId || !tab) return;
 
-      const daySel = catalogDaySelectEl();
-      if (daySel instanceof HTMLSelectElement) {
-        daySel.value = dayId;
-      }
+      lastSelectedDayIdForCatalog = dayId;
       catalogActiveTab = tab;
       renderServiceCatalog();
 
@@ -1843,9 +1841,10 @@ async function loadServiceCatalog(planId) {
   renderServiceCatalog();
 }
 
-function getCatalogSelectedDayId() {
-  const sel = catalogDaySelectEl();
-  return sel instanceof HTMLSelectElement ? sel.value : '';
+function ensureCatalogDaySelectionDefaults() {
+  if (lastSelectedDayIdForCatalog && planDaysById.has(lastSelectedDayIdForCatalog)) return;
+  const first = Array.from(planDaysById.keys())[0] || '';
+  lastSelectedDayIdForCatalog = first;
 }
 
 async function addServiceItemToDay({ dayId, itemType, refId, data }) {
@@ -2198,278 +2197,300 @@ function renderServiceCatalog() {
   }
 
   const rowsHtml = list.length
-    ? `<div class="ce-catalog-grid">
-        ${list
-          .slice(0, 120)
-          .map((x) => {
-            const itemType = catalogActiveTab === 'recommendations' ? 'recommendation' : catalogActiveTab.slice(0, -1);
-            const addAttr = `data-catalog-add="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(x.id || '')}" data-title="${escapeHtml(x.title || '')}" data-subtitle="${escapeHtml(x.subtitle || '')}" data-description="${escapeHtml(x.description || '')}" data-url="${escapeHtml(x.url || '')}" data-price="${escapeHtml(x.price || '')}" data-image="${escapeHtml(x.image || '')}"`;
-            const poiAttrs = x.lat != null && x.lng != null ? ` data-lat="${escapeHtml(String(x.lat))}" data-lng="${escapeHtml(String(x.lng))}"` : '';
-            const isRange = catalogActiveTab === 'hotels' || catalogActiveTab === 'cars';
-            const link = x.url ? `<a href="${escapeHtml(x.url)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
+  ? `<div class="ce-catalog-grid">
+      ${list
+        .slice(0, 120)
+        .map((x) => {
+          const itemType = catalogActiveTab === 'recommendations' ? 'recommendation' : catalogActiveTab.slice(0, -1);
+          const addAttr = `data-catalog-add="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(x.id || '')}" data-title="${escapeHtml(x.title || '')}" data-subtitle="${escapeHtml(x.subtitle || '')}" data-description="${escapeHtml(x.description || '')}" data-url="${escapeHtml(x.url || '')}" data-price="${escapeHtml(x.price || '')}" data-image="${escapeHtml(x.image || '')}"`;
+          const poiAttrs = x.lat != null && x.lng != null ? ` data-lat="${escapeHtml(String(x.lat))}" data-lng="${escapeHtml(String(x.lng))}"` : '';
+          const isRange = catalogActiveTab === 'hotels' || catalogActiveTab === 'cars';
+          const link = x.url ? `<a href="${escapeHtml(x.url)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
 
-            const daySel = dayOptions
-              ? (isRange
-                ? (catalogActiveTab === 'cars'
-                  ? `<div class="ce-catalog-days" data-car-range="1" hidden>
-                       <div class="ce-catalog-days__inner" style="display:grid; gap:0.5rem;">
-                         <label style="display:grid; gap:0.25rem; font-size:12px; color:#64748b;">
-                           ${escapeHtml(t('plan.ui.catalog.pickupDay', 'Dzień odbioru'))}
-                           <select data-catalog-range-start="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
-                         </label>
-                         <label style="display:grid; gap:0.25rem; font-size:12px; color:#64748b;">
-                           ${escapeHtml(t('plan.ui.catalog.dropoffDay', 'Dzień zwrotu'))}
-                           <select data-catalog-range-end="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
-                         </label>
-                         <div data-car-range-days style="font-size:12px; color:#64748b;"></div>
-                       </div>
-                     </div>`
-                  : `<div class="ce-catalog-days" data-hotel-range="1" hidden>
-                       <div class="ce-catalog-days__inner" style="display:grid; gap:0.5rem;">
-                         <label style="display:grid; gap:0.25rem; font-size:12px; color:#64748b;">
-                           ${escapeHtml(t('plan.ui.catalog.checkInDay', 'Dzień zameldowania'))}
-                           <select data-catalog-range-start="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
-                         </label>
-                         <label style="display:grid; gap:0.25rem; font-size:12px; color:#64748b;">
-                           ${escapeHtml(t('plan.ui.catalog.checkOutDay', 'Dzień wymeldowania'))}
-                           <select data-catalog-range-end="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
-                         </label>
-                       </div>
-                     </div>`)
-                : `<details class="ce-catalog-days">
-                     <summary>${escapeHtml(t('plan.catalog.addToDay', 'Add to day'))}</summary>
-                     <div class="ce-catalog-days__inner">
-                       <select data-catalog-add-day="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
+          const dayPickWrap = isRange
+            ? (catalogActiveTab === 'cars'
+                ? `<div class="ce-catalog-days" data-car-range="1" hidden>
+                     <div class="ce-catalog-days__inner" style="display:grid; gap:0.5rem;">
+                       <label style="display:grid; gap:0.25rem; font-size:12px; color:#64748b;">
+                         ${escapeHtml(t('plan.ui.catalog.pickupDay', 'Dzień odbioru'))}
+                         <select data-catalog-range-start="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
+                       </label>
+                       <label style="display:grid; gap:0.25rem; font-size:12px; color:#64748b;">
+                         ${escapeHtml(t('plan.ui.catalog.dropoffDay', 'Dzień zwrotu'))}
+                         <select data-catalog-range-end="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
+                       </label>
+                       <div data-car-range-days style="font-size:12px; color:#64748b;"></div>
                      </div>
-                   </details>`)
+                   </div>`
+                : `<div class="ce-catalog-days" data-hotel-range="1" hidden>
+                     <div class="ce-catalog-days__inner" style="display:grid; gap:0.5rem;">
+                       <label style="display:grid; gap:0.25rem; font-size:12px; color:#64748b;">
+                         ${escapeHtml(t('plan.ui.catalog.checkInDay', 'Dzień zameldowania'))}
+                         <select data-catalog-range-start="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
+                       </label>
+                       <label style="display:grid; gap:0.25rem; font-size:12px; color:#64748b;">
+                         ${escapeHtml(t('plan.ui.catalog.checkOutDay', 'Dzień wymeldowania'))}
+                         <select data-catalog-range-end="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
+                       </label>
+                     </div>
+                   </div>`)
+            : `<div class="ce-catalog-days" data-item-day-pick="1" hidden>
+                 <div class="ce-catalog-days__inner" style="display:grid; gap:0.25rem;">
+                   <label style="display:grid; gap:0.25rem; font-size:12px; color:#64748b;">
+                     ${escapeHtml(t('plan.catalog.addToDay', 'Add to day'))}
+                     <select data-catalog-add-day="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
+                   </label>
+                 </div>
+               </div>`;
+
+          const addLabel = isRange
+            ? escapeHtml(t('plan.ui.catalog.addRange', 'Dodaj zakres'))
+            : escapeHtml(t('plan.ui.catalog.add', 'Add'));
+
+          if (catalogActiveTab === 'recommendations') {
+            const lang = currentLang();
+            const isPolish = lang === 'pl';
+            const raw = x.raw && typeof x.raw === 'object' ? x.raw : {};
+            const promo = String(raw?.promo_code || '').trim();
+            const discount = String(raw?.__discount || '').trim();
+            const showCodeLabel = t('plan.ui.recommendations.showCode', isPolish ? 'Pokaż kod' : 'Show code');
+
+            const mapsLabel = t('plan.ui.recommendations.openMaps', isPolish ? 'Otwórz w mapach' : 'Open in maps');
+            const mapsUrl = String(raw?.google_url || '').trim();
+            const mapsBtn = mapsUrl
+              ? `<a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">${escapeHtml(mapsLabel)}</a>`
               : '';
 
-            const addLabel = isRange
-              ? escapeHtml(t('plan.ui.catalog.addRange', 'Dodaj zakres'))
-              : escapeHtml(t('plan.ui.catalog.add', 'Add'));
-
-            if (catalogActiveTab === 'recommendations') {
-              const lang = currentLang();
-              const isPolish = lang === 'pl';
-              const raw = x.raw && typeof x.raw === 'object' ? x.raw : {};
-              const promo = String(raw?.promo_code || '').trim();
-              const discount = String(raw?.__discount || '').trim();
-              const showCodeLabel = t('plan.ui.recommendations.showCode', isPolish ? 'Pokaż kod' : 'Show code');
-
-              const mapsLabel = t('plan.ui.recommendations.openMaps', isPolish ? 'Otwórz w mapach' : 'Open in maps');
-              const mapsUrl = String(raw?.google_url || '').trim();
-              const mapsBtn = mapsUrl
-                ? `<a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">${escapeHtml(mapsLabel)}</a>`
-                : '';
-
-              const promoHtml = promo && discount
-                ? `
-                  <div class="rec-card-promo" data-rec-card="1" style="margin-top: 10px;">
-                    <div class="rec-card-promo-label">${escapeHtml(discount)}</div>
-                    <div class="rec-card-promo-code" data-rec-promo-code="1" data-visible="0"></div>
-                    <button type="button" class="rec-btn rec-btn-secondary" data-rec-promo-btn="${escapeHtml(promo)}">${escapeHtml(showCodeLabel)}</button>
-                  </div>
-                `
-                : '';
-
-              const description = String(x.description || '').trim();
-              const descHtml = description ? `<div class="ce-catalog-preview">${escapeHtml(description)}</div>` : '';
-
-              const img = x.image
-                ? `<img src="${escapeHtml(x.image)}" alt="" loading="lazy" class="rec-card-image" style="width:100%; height:120px; object-fit:cover; border-radius:10px; border:1px solid #e2e8f0; margin-bottom: 0.5rem;" />`
-                : '';
-
-              return `
-                <div class="card ce-catalog-tile" style="padding:0.65rem; border:1px solid #e2e8f0;" data-rec-card="1">
-                  ${img}
-                  <div class="ce-catalog-title">${escapeHtml(x.title)}</div>
-                  <div class="ce-catalog-meta">
-                    ${x.subtitle ? `<span class=\"ce-catalog-sub\">${escapeHtml(x.subtitle)}</span>` : ''}
-                  </div>
-                  ${descHtml}
-                  ${promoHtml}
-                  <div class="ce-catalog-actions">
-                    ${mapsBtn}
-                    ${link}
-                    ${daySel}
-                    <button type="button" class="btn btn-sm btn-primary primary ce-catalog-add" ${addAttr}${poiAttrs}>${addLabel}</button>
-                  </div>
+            const promoHtml = promo && discount
+              ? `
+                <div class="rec-card-promo" data-rec-card="1" style="margin-top: 10px;">
+                  <div class="rec-card-promo-label">${escapeHtml(discount)}</div>
+                  <div class="rec-card-promo-code" data-rec-promo-code="1" data-visible="0"></div>
+                  <button type="button" class="rec-btn rec-btn-secondary" data-rec-promo-btn="${escapeHtml(promo)}">${escapeHtml(showCodeLabel)}</button>
                 </div>
-              `;
-            }
-
-            const raw = x.raw && typeof x.raw === 'object' ? x.raw : null;
-            const imgUrls = raw ? getServiceImageUrls(itemType, raw) : (x.image ? [x.image] : []);
-            const imgUrlsAttr = imgUrls.length ? escapeHtml(encodeURIComponent(JSON.stringify(imgUrls))) : '';
-            const img = x.image
-              ? `<button type="button" class="ce-catalog-cover" data-ce-lightbox-urls="${imgUrlsAttr}" data-ce-lightbox-index="0" style="display:block; width:100%; padding:0; border:0; background:transparent; margin-bottom:0.5rem; cursor:pointer;">
-                   <img src="${escapeHtml(x.image)}" alt="" loading="lazy" style="width:100%; height:120px; object-fit:cover; border-radius:10px; border:1px solid #e2e8f0;" />
-                 </button>`
+              `
               : '';
-            const panelId = `ceCatDetail_${catalogActiveTab}_${String(x.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
-            const preview =
-              catalogActiveTab === 'pois'
-                ? (() => {
-                  const prefix = t('plan.ui.poi.areaPrefix', 'Area Of:');
-                  const line = x.subtitle ? `${prefix} ${x.subtitle}` : '';
-                  return line ? `<div class="ce-catalog-preview">${escapeHtml(line)}</div>` : '';
-                })()
-                : ((catalogActiveTab === 'hotels' || catalogActiveTab === 'trips') ? '' : (x.description ? `<div class="ce-catalog-preview">${escapeHtml(x.description)}</div>` : ''));
-            const more = raw ? renderExpandablePanel({ panelId, type: itemType, src: raw, resolved: x }) : '';
-            const showSubtitleMeta = catalogActiveTab !== 'pois';
+
+            const description = String(x.description || '').trim();
+            const descHtml = description ? `<div class="ce-catalog-preview">${escapeHtml(description)}</div>` : '';
+
+            const img = x.image
+              ? `<img src="${escapeHtml(x.image)}" alt="" loading="lazy" class="rec-card-image" style="width:100%; height:120px; object-fit:cover; border-radius:10px; border:1px solid #e2e8f0; margin-bottom: 0.5rem;" />`
+              : '';
 
             return `
-              <div class="card ce-catalog-tile" style="padding:0.65rem; border:1px solid #e2e8f0;">
+              <div class="card ce-catalog-tile" style="padding:0.65rem; border:1px solid #e2e8f0;" data-rec-card="1">
                 ${img}
                 <div class="ce-catalog-title">${escapeHtml(x.title)}</div>
                 <div class="ce-catalog-meta">
-                  ${showSubtitleMeta && x.subtitle ? `<span class=\"ce-catalog-sub\">${escapeHtml(x.subtitle)}</span>` : ''}
-                  ${x.price ? `<span class=\"ce-catalog-price\">${escapeHtml(x.price)}</span>` : ''}
+                  ${x.subtitle ? `<span class=\"ce-catalog-sub\">${escapeHtml(x.subtitle)}</span>` : ''}
                 </div>
-                ${preview}
-                ${more}
+                ${descHtml}
+                ${promoHtml}
                 <div class="ce-catalog-actions">
+                  ${mapsBtn}
                   ${link}
-                  ${daySel}
+                  ${dayPickWrap}
                   <button type="button" class="btn btn-sm btn-primary primary ce-catalog-add" ${addAttr}${poiAttrs}>${addLabel}</button>
                 </div>
               </div>
             `;
-          })
-          .join('')}
-      </div>`
-    : `<div style="color:#64748b;">${escapeHtml(t('plan.ui.catalog.noServices', 'No services found.'))}</div>`;
+          }
 
-  wrap.innerHTML = `
-    <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-      ${tabBtn('trips', `${t('plan.ui.catalog.tabs.trips', 'Trips')} (${counts.trips})`)}
-      ${tabBtn('hotels', `${t('plan.ui.catalog.tabs.hotels', 'Hotels')} (${counts.hotels})`)}
-      ${tabBtn('cars', `${t('plan.ui.catalog.tabs.cars', 'Cars')} (${counts.cars})`)}
-      ${tabBtn('pois', `${t('plan.ui.catalog.tabs.pois', 'Places to see')} (${counts.pois})`)}
-      <div style="flex:1 1 200px;"></div>
-      <span style="color:#64748b; font-size:12px;">${escapeHtml(ctx.city || t('plan.ui.catalog.allCities', 'All cities'))}${ctx.includeNorth ? ` • ${escapeHtml(t('plan.ui.catalog.north', 'north'))}` : ''}</span>
-      <input id="planCatalogSearch" type="text" value="${escapeHtml(catalogSearch)}" placeholder="${escapeHtml(t('plan.ui.catalog.searchPlaceholder', 'Search…'))}" style="max-width:280px;" />
-      <button type="button" class="btn" data-catalog-refresh="1">${escapeHtml(t('plan.actions.refresh', 'Refresh'))}</button>
-    </div>
-    <div class="ce-catalog-results" style="margin-top:0.75rem;">
-      ${rowsHtml}
-    </div>
-  `;
+          const raw = x.raw && typeof x.raw === 'object' ? x.raw : null;
+          const imgUrls = raw ? getServiceImageUrls(itemType, raw) : (x.image ? [x.image] : []);
+          const imgUrlsAttr = imgUrls.length ? escapeHtml(encodeURIComponent(JSON.stringify(imgUrls))) : '';
+          const img = x.image
+            ? `<button type="button" class="ce-catalog-cover" data-ce-lightbox-urls="${imgUrlsAttr}" data-ce-lightbox-index="0" style="display:block; width:100%; padding:0; border:0; background:transparent; margin-bottom:0.5rem; cursor:pointer;">
+                 <img src="${escapeHtml(x.image)}" alt="" loading="lazy" style="width:100%; height:120px; object-fit:cover; border-radius:10px; border:1px solid #e2e8f0;" />
+               </button>`
+            : '';
+          const panelId = `ceCatDetail_${catalogActiveTab}_${String(x.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
+          const preview =
+            catalogActiveTab === 'pois'
+              ? (() => {
+                  const prefix = t('plan.ui.poi.areaPrefix', 'Area Of:');
+                  const line = x.subtitle ? `${prefix} ${x.subtitle}` : '';
+                  return line ? `<div class="ce-catalog-preview">${escapeHtml(line)}</div>` : '';
+                })()
+              : ((catalogActiveTab === 'hotels' || catalogActiveTab === 'trips') ? '' : (x.description ? `<div class="ce-catalog-preview">${escapeHtml(x.description)}</div>` : ''));
+          const more = raw ? renderExpandablePanel({ panelId, type: itemType, src: raw, resolved: x }) : '';
+          const showSubtitleMeta = catalogActiveTab !== 'pois';
 
-  wrap.querySelectorAll('[data-catalog-tab]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      const tab = btn.getAttribute('data-catalog-tab');
-      if (!tab) return;
-      catalogActiveTab = tab;
-      renderServiceCatalog();
-    });
+          return `
+            <div class="card ce-catalog-tile" style="padding:0.65rem; border:1px solid #e2e8f0;">
+              ${img}
+              <div class="ce-catalog-title">${escapeHtml(x.title)}</div>
+              <div class="ce-catalog-meta">
+                ${showSubtitleMeta && x.subtitle ? `<span class=\"ce-catalog-sub\">${escapeHtml(x.subtitle)}</span>` : ''}
+                ${x.price ? `<span class=\"ce-catalog-price\">${escapeHtml(x.price)}</span>` : ''}
+              </div>
+              ${preview}
+              ${more}
+              <div class="ce-catalog-actions">
+                ${link}
+                ${dayPickWrap}
+                <button type="button" class="btn btn-sm btn-primary primary ce-catalog-add" ${addAttr}${poiAttrs}>${addLabel}</button>
+              </div>
+            </div>
+          `;
+        })
+        .join('')}
+    </div>`
+  : `<div style="color:#64748b;">${escapeHtml(t('plan.ui.catalog.noServices', 'No services found.'))}</div>`;
+
+wrap.innerHTML = `
+  <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+    ${tabBtn('trips', `${t('plan.ui.catalog.tabs.trips', 'Trips')} (${counts.trips})`)}
+    ${tabBtn('hotels', `${t('plan.ui.catalog.tabs.hotels', 'Hotels')} (${counts.hotels})`)}
+    ${tabBtn('cars', `${t('plan.ui.catalog.tabs.cars', 'Cars')} (${counts.cars})`)}
+    ${tabBtn('pois', `${t('plan.ui.catalog.tabs.pois', 'Places to see')} (${counts.pois})`)}
+    <div style="flex:1 1 200px;"></div>
+    <span style="color:#64748b; font-size:12px;">${escapeHtml(ctx.city || t('plan.ui.catalog.allCities', 'All cities'))}${ctx.includeNorth ? ` • ${escapeHtml(t('plan.ui.catalog.north', 'north'))}` : ''}</span>
+    <input id="planCatalogSearch" type="text" value="${escapeHtml(catalogSearch)}" placeholder="${escapeHtml(t('plan.ui.catalog.searchPlaceholder', 'Search…'))}" style="max-width:280px;" />
+    <button type="button" class="btn" data-catalog-refresh="1">${escapeHtml(t('plan.actions.refresh', 'Refresh'))}</button>
+  </div>
+  <div class="ce-catalog-results" style="margin-top:0.75rem;">
+    ${rowsHtml}
+  </div>
+`;
+
+wrap.querySelectorAll('[data-catalog-tab]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const tab = btn.getAttribute('data-catalog-tab');
+    if (!tab) return;
+    catalogActiveTab = tab;
+    renderServiceCatalog();
   });
+});
 
-  const searchEl = wrap.querySelector('#planCatalogSearch');
-  if (searchEl instanceof HTMLInputElement) {
-    searchEl.addEventListener('input', () => {
-      catalogSearch = searchEl.value;
-      renderServiceCatalog();
-    });
-  }
+const searchEl = wrap.querySelector('#planCatalogSearch');
+if (searchEl instanceof HTMLInputElement) {
+  searchEl.addEventListener('input', () => {
+    catalogSearch = searchEl.value;
+    renderServiceCatalog();
+  });
+}
 
-  if (hadSearchFocus) {
-    const next = wrap.querySelector('#planCatalogSearch');
-    if (next instanceof HTMLInputElement) {
-      try {
-        next.focus();
-        if (caretStart != null && caretEnd != null) {
-          next.setSelectionRange(caretStart, caretEnd);
-        }
-      } catch (_) {
+if (hadSearchFocus) {
+  const next = wrap.querySelector('#planCatalogSearch');
+  if (next instanceof HTMLInputElement) {
+    try {
+      next.focus();
+      if (caretStart != null && caretEnd != null) {
+        next.setSelectionRange(caretStart, caretEnd);
       }
+    } catch (_) {
     }
   }
+}
 
-  wrap.querySelectorAll('[data-catalog-refresh]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      catalogLoadedForPlanId = null;
-      await loadServiceCatalog(currentPlan?.id);
-    });
+wrap.querySelectorAll('[data-catalog-refresh]').forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    catalogLoadedForPlanId = null;
+    await loadServiceCatalog(currentPlan?.id);
   });
+});
 
-  wrap.querySelectorAll('[data-catalog-add]').forEach((btn) => {
-    btn.addEventListener('click', async () => {
-      const row = btn.closest('.card');
-      const startSel = row ? row.querySelector('[data-catalog-range-start]') : null;
-      const endSel = row ? row.querySelector('[data-catalog-range-end]') : null;
-      const rowDaySel = row ? row.querySelector('[data-catalog-add-day]') : null;
-      const dayId = rowDaySel instanceof HTMLSelectElement ? rowDaySel.value : getCatalogSelectedDayId();
-      const type = btn.getAttribute('data-item-type');
-      const refId = btn.getAttribute('data-ref-id') || null;
-      const title = btn.getAttribute('data-title') || '';
-      const subtitle = btn.getAttribute('data-subtitle') || '';
-      const description = btn.getAttribute('data-description') || '';
-      const url = btn.getAttribute('data-url') || '';
-      const price = btn.getAttribute('data-price') || '';
-      const image = btn.getAttribute('data-image') || '';
-      const latAttr = btn.getAttribute('data-lat');
-      const lngAttr = btn.getAttribute('data-lng');
-      const lat = latAttr != null && latAttr !== '' ? Number(latAttr) : null;
-      const lng = lngAttr != null && lngAttr !== '' ? Number(lngAttr) : null;
-      const baseData = { title, subtitle, description, url, price, image };
-      if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        baseData.lat = lat;
-        baseData.lng = lng;
+wrap.querySelectorAll('[data-catalog-add]').forEach((btn) => {
+  btn.addEventListener('click', async () => {
+    const row = btn.closest('.card');
+    const startSel = row ? row.querySelector('[data-catalog-range-start]') : null;
+    const endSel = row ? row.querySelector('[data-catalog-range-end]') : null;
+    const rowDaySel = row ? row.querySelector('[data-catalog-add-day]') : null;
+    const type = btn.getAttribute('data-item-type');
+
+    const isRange = type === 'hotel' || type === 'car';
+    const dayPickWrap = row ? row.querySelector('[data-item-day-pick]') : null;
+    if (!isRange) {
+      if (dayPickWrap instanceof HTMLElement && dayPickWrap.hasAttribute('hidden')) {
+        dayPickWrap.removeAttribute('hidden');
+        btn.textContent = t('plan.ui.catalog.confirmAdd', 'Potwierdź dodanie');
+        return;
       }
+    }
+
+    const dayId = rowDaySel instanceof HTMLSelectElement ? rowDaySel.value : (lastSelectedDayIdForCatalog || '');
+    if (rowDaySel instanceof HTMLSelectElement) {
+      lastSelectedDayIdForCatalog = rowDaySel.value;
+    }
+    const refId = btn.getAttribute('data-ref-id') || null;
+    const title = btn.getAttribute('data-title') || '';
+    const subtitle = btn.getAttribute('data-subtitle') || '';
+    const description = btn.getAttribute('data-description') || '';
+    const url = btn.getAttribute('data-url') || '';
+    const price = btn.getAttribute('data-price') || '';
+    const image = btn.getAttribute('data-image') || '';
+    const latAttr = btn.getAttribute('data-lat');
+    const lngAttr = btn.getAttribute('data-lng');
+    const lat = latAttr != null && latAttr !== '' ? Number(latAttr) : null;
+    const lng = lngAttr != null && lngAttr !== '' ? Number(lngAttr) : null;
+    const baseData = { title, subtitle, description, url, price, image };
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      baseData.lat = lat;
+      baseData.lng = lng;
+    }
+
+    if (type === 'car') {
+      const rangeWrap = row ? row.querySelector('[data-car-range]') : null;
+      if (rangeWrap instanceof HTMLElement && rangeWrap.hasAttribute('hidden')) {
+        rangeWrap.removeAttribute('hidden');
+        btn.textContent = t('plan.ui.catalog.confirmRange', 'Potwierdź zakres');
+        return;
+      }
+    }
+
+    if (type === 'hotel') {
+      const rangeWrap = row ? row.querySelector('[data-hotel-range]') : null;
+      if (rangeWrap instanceof HTMLElement && rangeWrap.hasAttribute('hidden')) {
+        rangeWrap.removeAttribute('hidden');
+        btn.textContent = t('plan.ui.catalog.confirmRange', 'Potwierdź zakres');
+        return;
+      }
+    }
+
+    if ((type === 'hotel' || type === 'car') && startSel instanceof HTMLSelectElement && endSel instanceof HTMLSelectElement) {
+      await addServiceRangeToDays({
+        startDayId: startSel.value,
+        endDayId: endSel.value,
+        itemType: type,
+        refId,
+        data: baseData,
+      });
 
       if (type === 'car') {
         const rangeWrap = row ? row.querySelector('[data-car-range]') : null;
-        if (rangeWrap instanceof HTMLElement && rangeWrap.hasAttribute('hidden')) {
-          rangeWrap.removeAttribute('hidden');
-          btn.textContent = t('plan.ui.catalog.confirmRange', 'Potwierdź zakres');
-          return;
+        if (rangeWrap instanceof HTMLElement) {
+          rangeWrap.setAttribute('hidden', '');
         }
+        btn.textContent = t('plan.ui.catalog.addRange', 'Dodaj zakres');
       }
 
       if (type === 'hotel') {
         const rangeWrap = row ? row.querySelector('[data-hotel-range]') : null;
-        if (rangeWrap instanceof HTMLElement && rangeWrap.hasAttribute('hidden')) {
-          rangeWrap.removeAttribute('hidden');
-          btn.textContent = t('plan.ui.catalog.confirmRange', 'Potwierdź zakres');
-          return;
+        if (rangeWrap instanceof HTMLElement) {
+          rangeWrap.setAttribute('hidden', '');
         }
+        btn.textContent = t('plan.ui.catalog.addRange', 'Dodaj zakres');
       }
+      return;
+    }
 
-      if ((type === 'hotel' || type === 'car') && startSel instanceof HTMLSelectElement && endSel instanceof HTMLSelectElement) {
-        await addServiceRangeToDays({
-          startDayId: startSel.value,
-          endDayId: endSel.value,
-          itemType: type,
-          refId,
-          data: baseData,
-        });
+    await addServiceItemToDay({ dayId, itemType: type, refId, data: baseData });
 
-        if (type === 'car') {
-          const rangeWrap = row ? row.querySelector('[data-car-range]') : null;
-          if (rangeWrap instanceof HTMLElement) {
-            rangeWrap.setAttribute('hidden', '');
-          }
-          btn.textContent = t('plan.ui.catalog.addRange', 'Dodaj zakres');
-        }
-
-        if (type === 'hotel') {
-          const rangeWrap = row ? row.querySelector('[data-hotel-range]') : null;
-          if (rangeWrap instanceof HTMLElement) {
-            rangeWrap.setAttribute('hidden', '');
-          }
-          btn.textContent = t('plan.ui.catalog.addRange', 'Dodaj zakres');
-        }
-        return;
+    if (!isRange) {
+      if (dayPickWrap instanceof HTMLElement) {
+        dayPickWrap.setAttribute('hidden', '');
       }
-
-      await addServiceItemToDay({ dayId, itemType: type, refId, data: baseData });
-    });
+      btn.textContent = t('plan.ui.catalog.add', 'Add');
+    }
   });
+
+});
 
   // Cars: make rental range selection obvious and enforce min 3 days in the UI.
   if (catalogActiveTab === 'cars') {
-    const selectedDayId = getCatalogSelectedDayId();
+    const selectedDayId = lastSelectedDayIdForCatalog || '';
     wrap.querySelectorAll('.card').forEach((card) => {
       if (!(card instanceof HTMLElement)) return;
       const addBtn = card.querySelector('[data-catalog-add]');
@@ -2842,30 +2863,7 @@ async function loadPlanDays(planId) {
 
   planDaysById = new Map(rows.map((d) => [d.id, d]));
 
-  const daySel = catalogDaySelectEl();
-  if (daySel instanceof HTMLSelectElement) {
-    if (!rows.length) {
-      daySel.innerHTML = '';
-    } else {
-      const existingValue = daySel.value;
-      daySel.innerHTML = rows
-        .map((d) => {
-          const dayWord = t('plan.ui.common.day', 'Day');
-          const label = d.date ? `${dayWord} ${d.day_index} · ${d.date}` : `${dayWord} ${d.day_index}`;
-          return `<option value="${d.id}">${escapeHtml(label)}</option>`;
-        })
-        .join('');
-      const hasExisting = rows.some((d) => d.id === existingValue);
-      daySel.value = hasExisting ? existingValue : rows[0].id;
-    }
-
-    if (!daySel.dataset.wired) {
-      daySel.addEventListener('change', () => {
-        renderServiceCatalog();
-      });
-      daySel.dataset.wired = '1';
-    }
-  }
+  ensureCatalogDaySelectionDefaults();
 
   if (!rows.length) {
     container.innerHTML = `<div style="color:#64748b;">${escapeHtml(t('plan.ui.days.noDays', 'No days generated yet.'))}</div>`;
@@ -2958,8 +2956,6 @@ async function loadPlanDays(planId) {
                     const timeLabel = formatPoiTimeLabel(it);
                     const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
                     const thumb = image ? `<a href="${escapeHtml(image)}" target="_blank" rel="noopener"><img src="${escapeHtml(image)}" alt="" loading="lazy" style="width:64px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0;" /></a>` : '';
-                    const startV = it?.data && typeof it.data === 'object' ? String(it.data.start_time || '') : '';
-                    const endV = it?.data && typeof it.data === 'object' ? String(it.data.end_time || '') : '';
                     return `
                       <div style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
                         ${thumb ? `<div style="flex:0 0 auto;">${thumb}</div>` : ''}
@@ -2972,11 +2968,11 @@ async function loadPlanDays(planId) {
                           <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top:0.25rem;">
                             <label style="display:flex; gap:0.25rem; align-items:center; font-size:12px; color:#0f172a;">
                               ${escapeHtml(t('plan.ui.days.start', 'Start'))}
-                              <input type="time" value="${escapeHtml(startV)}" data-poi-time-start="${it.id}" style="max-width:120px;" />
+                              <input type="time" value="${escapeHtml(String(it?.data?.start_time || ''))}" data-poi-time-start="${it.id}" style="max-width:120px;" />
                             </label>
                             <label style="display:flex; gap:0.25rem; align-items:center; font-size:12px; color:#0f172a;">
                               ${escapeHtml(t('plan.ui.days.end', 'End'))}
-                              <input type="time" value="${escapeHtml(endV)}" data-poi-time-end="${it.id}" style="max-width:120px;" />
+                              <input type="time" value="${escapeHtml(String(it?.data?.end_time || ''))}" data-poi-time-end="${it.id}" style="max-width:120px;" />
                             </label>
                             <button type="button" class="btn btn-sm" data-poi-time-save="${it.id}">${escapeHtml(t('plan.ui.days.saveTime', 'Save time'))}</button>
                           </div>
@@ -3095,10 +3091,7 @@ async function loadPlanDays(planId) {
       const tab = btn.getAttribute('data-day-quick-add');
       if (!dayId || !tab) return;
 
-      const daySel = catalogDaySelectEl();
-      if (daySel instanceof HTMLSelectElement) {
-        daySel.value = dayId;
-      }
+      lastSelectedDayIdForCatalog = dayId;
       catalogActiveTab = tab;
       renderServiceCatalog();
 
@@ -3305,8 +3298,6 @@ function renderPlanDetails(plan) {
     if (empty) empty.hidden = false;
     const cat = catalogEl();
     if (cat) cat.innerHTML = '';
-    const daySel = catalogDaySelectEl();
-    if (daySel instanceof HTMLSelectElement) daySel.innerHTML = '';
     planDaysById = new Map();
     return;
   }
