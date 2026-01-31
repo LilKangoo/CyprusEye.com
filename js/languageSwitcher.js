@@ -17,17 +17,17 @@ const LANGUAGE_STORAGE_KEY = 'cypruseye-language';
  * Get the current language from localStorage or detect from browser
  */
 function getCurrentLanguage() {
-  // Check localStorage first
-  const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
-  if (stored && SUPPORTED_LANGUAGES[stored]) {
-    return stored;
-  }
-
   // Check URL parameter
   const urlParams = new URLSearchParams(window.location.search);
   const langParam = urlParams.get('lang');
   if (langParam && SUPPORTED_LANGUAGES[langParam]) {
     return langParam;
+  }
+
+  // Check localStorage
+  const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
+  if (stored && SUPPORTED_LANGUAGES[stored]) {
+    return stored;
   }
 
   // Detect from browser language
