@@ -7764,6 +7764,16 @@ function normalizePoi(rawPoi, source = 'supabase') {
       : null)
   );
 
+  const mainImageUrl = (
+    rawPoi.main_image_url
+    || data.main_image_url
+    || rawPoi.image_url
+    || data.image_url
+    || rawPoi.cover_image_url
+    || data.cover_image_url
+    || null
+  );
+
   return {
     id,
     uuid: isUuid(id) ? id : (isUuid(rawPoi.uuid) ? rawPoi.uuid : (isUuid(data.id) ? data.id : null)),
@@ -7780,6 +7790,7 @@ function normalizePoi(rawPoi, source = 'supabase') {
     status,
     tags,
     google_url: googleUrl,
+    main_image_url: mainImageUrl,
     // i18n fields
     name_i18n: rawPoi.name_i18n || null,
     description_i18n: rawPoi.description_i18n || null,
@@ -8190,6 +8201,7 @@ function openPoiForm(poiId = null) {
   const radiusInput = $('#poiRadius');
   const xpInput = $('#poiXP');
   const googleUrlInput = $('#poiGoogleUrl');
+  const mainImageUrlInput = $('#poiMainImageUrl');
   const tagsInput = $('#poiTags');
   const descriptionInput = $('#poiDescription');
 
@@ -8202,6 +8214,7 @@ function openPoiForm(poiId = null) {
   if (radiusInput) radiusInput.value = poi?.radius ?? '';
   if (xpInput) xpInput.value = poi?.xp ?? '';
   if (googleUrlInput) googleUrlInput.value = poi?.google_url || '';
+  if (mainImageUrlInput) mainImageUrlInput.value = poi?.main_image_url || '';
   if (tagsInput) tagsInput.value = poi?.tags?.join(', ') ?? '';
   if (descriptionInput) descriptionInput.value = poi?.description || '';
 
@@ -8332,6 +8345,7 @@ async function handlePoiFormSubmit(event) {
     const xpValue = formData.get('xp');
     const xp = xpValue ? parseInt(xpValue, 10) : null;
     const googleUrl = (formData.get('google_url') || '').toString().trim();
+    const mainImageUrl = (formData.get('main_image_url') || '').toString().trim();
     const tagsValue = (formData.get('tags') || '').toString().trim();
     const tags = tagsValue ? tagsValue.split(',').map(tag => tag.trim()).filter(Boolean) : [];
 
@@ -8366,6 +8380,7 @@ async function handlePoiFormSubmit(event) {
       xp: xp || 100,
       tags,
       ...(googleUrl ? { google_url: googleUrl } : {}),
+      ...(mainImageUrl ? { main_image_url: mainImageUrl } : {}),
     };
 
     if (adminState.poiFormMode === 'create') {
@@ -8382,6 +8397,7 @@ async function handlePoiFormSubmit(event) {
         status: status,
         radius: radius || DEFAULT_POI_RADIUS,
         google_url: googleUrl || null,
+        main_image_url: mainImageUrl || null,
       };
       
       // Add i18n fields if available
@@ -8432,6 +8448,7 @@ async function handlePoiFormSubmit(event) {
         status: status,
         radius: radius || DEFAULT_POI_RADIUS,
         google_url: googleUrl || null,
+        main_image_url: mainImageUrl || null,
       };
       
       // Add i18n fields if available
