@@ -758,7 +758,8 @@ function addDays(dateStr, offsetDays) {
 }
 
 function currentLang() {
-  const lang = (window.appI18n && window.appI18n.language) || document.documentElement.lang || 'pl';
+  const viaSwitcher = typeof window.getCurrentLanguage === 'function' ? window.getCurrentLanguage() : '';
+  const lang = viaSwitcher || document.documentElement.lang || (window.appI18n && window.appI18n.language) || 'pl';
   return String(lang || 'pl');
 }
 

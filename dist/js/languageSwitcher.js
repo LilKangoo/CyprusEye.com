@@ -505,9 +505,12 @@ window.getTripName = getTripName;
 window.getTripDescription = getTripDescription;
 window.getTripTranslatedField = getTripTranslatedField;
 
+// Make current language getter globally accessible
+window.getCurrentLanguage = getCurrentLanguage;
+
 /**
  * Get a translated field from a quest/task object based on current language
- * @param {Object} quest - Quest/Task object
+ * @param {Object} quest - Quest/Task object with i18n fields
  * @param {string} fieldName - Field to translate (e.g., 'title', 'description')
  * @returns {string} Translated value
  */
