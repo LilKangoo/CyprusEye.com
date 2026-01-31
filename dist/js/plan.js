@@ -415,6 +415,7 @@ function renderPlanDaysUi(planId, rows) {
       const serviceItems = items.filter((it) => it && it.item_type && it.item_type !== 'note');
       const poiItems = serviceItems.filter((it) => it && it.item_type === 'poi');
       const nonPoiServiceItems = serviceItems.filter((it) => it && it.item_type && it.item_type !== 'poi');
+      const mapItems = serviceItems.filter((it) => it && (it.item_type === 'poi' || it.item_type === 'recommendation'));
       const servicesHtml = serviceItems.length
         ? `
           <div style="border-top: 1px solid #e2e8f0; padding-top:0.5rem;">
@@ -438,7 +439,7 @@ function renderPlanDaysUi(planId, rows) {
                   const rangeBadge = rangeId && rangeStart > 0 && rangeEnd > 0 ? ` (${escapeHtml(t('plan.print.day', 'Day'))} ${rangeStart}–${escapeHtml(t('plan.print.day', 'Day'))} ${rangeEnd})` : '';
                   const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
                   const thumb = image ? `<a href="${escapeHtml(image)}" target="_blank" rel="noopener"><img src="${escapeHtml(image)}" alt="" loading="lazy" style="width:64px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0;" /></a>` : '';
-                  const preview = (it.item_type === 'hotel' || it.item_type === 'trip') ? '' : (description ? `<div style=\"color:#475569; font-size:12px;\">${escapeHtml(description)}</div>` : '');
+                  const preview = (it.item_type === 'hotel' || it.item_type === 'trip' || it.item_type === 'recommendation') ? '' : (description ? `<div style=\"color:#475569; font-size:12px;\">${escapeHtml(description)}</div>` : '');
                   const more = src ? renderExpandablePanel({ panelId, type: it.item_type, src, resolved }) : '';
                   return `
                     <div style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
@@ -587,8 +588,8 @@ function renderPlanDaysUi(planId, rows) {
   safeRows.forEach((d) => {
     const items = Array.isArray(dayItemsByDayId.get(d.id)) ? dayItemsByDayId.get(d.id) : [];
     const serviceItems = items.filter((it) => it && it.item_type && it.item_type !== 'note');
-    const poiItems = serviceItems.filter((it) => it && it.item_type === 'poi');
-    renderDayMap(d.id, poiItems);
+    const mapItems = serviceItems.filter((it) => it && (it.item_type === 'poi' || it.item_type === 'recommendation'));
+    renderDayMap(d.id, mapItems);
   });
 
   container.querySelectorAll('[data-day-save]').forEach((btn) => {
@@ -1172,6 +1173,40 @@ function resolveItemDisplay(it) {
     };
   }
 
+  if (itemType === 'recommendation' && src) {
+    const lang = currentLang();
+    const isPolish = lang === 'pl';
+    const title = isPolish ? (src?.title_pl || src?.title_en || '') : (src?.title_en || src?.title_pl || '');
+    const description = isPolish
+      ? (src?.description_pl || src?.description_en || '')
+      : (src?.description_en || src?.description_pl || '');
+
+    const discountText = isPolish
+      ? (src?.discount_text_pl || src?.discount_text_en || '')
+      : (src?.discount_text_en || src?.discount_text_pl || '');
+
+    const lat = src?.latitude != null ? Number(src.latitude) : (src?.lat != null ? Number(src.lat) : null);
+    const lng = src?.longitude != null ? Number(src.longitude) : (src?.lng != null ? Number(src.lng) : null);
+    const mapsFallback = Number.isFinite(lat) && Number.isFinite(lng) ? `https://www.google.com/maps?q=${lat},${lng}` : '';
+    const mapsUrl = String(src?.google_url || src?.google_maps_url || mapsFallback || '').trim();
+    const websiteUrl = String(src?.website_url || src?.url || '').trim();
+    const url = String(d.url || mapsUrl || websiteUrl || '').trim();
+
+    const cat = src?.recommendation_categories && typeof src.recommendation_categories === 'object' ? src.recommendation_categories : {};
+    const catName = isPolish ? (cat?.name_pl || cat?.name_en || '') : (cat?.name_en || cat?.name_pl || '');
+    const catIcon = cat?.icon || '📍';
+    const subtitle = [catIcon, catName].filter(Boolean).join(' ').trim();
+
+    return {
+      title: String(title || '').trim(),
+      subtitle: subtitle,
+      description: String(description || '').trim(),
+      url,
+      price: String(discountText || d.price || '').trim(),
+      image: String(d.image || getServiceImageUrl('recommendation', src) || '').trim(),
+    };
+  }
+
   return {
     title: String(d.title || '').trim(),
     subtitle: String(d.subtitle || '').trim(),
@@ -1467,20 +1502,21 @@ function renderDetailsHtml(type, src, resolved) {
     const isPolish = lang === 'pl';
     const rawPromo = String(s?.promo_code || '').trim();
     const discountText = isPolish
-      ? String(s?.discount_text_pl || s?.discount_text_en || '').trim()
-      : String(s?.discount_text_en || s?.discount_text_pl || '').trim();
+      ? (s?.discount_text_pl || s?.discount_text_en || '')
+      : (s?.discount_text_en || s?.discount_text_pl || '');
 
     const cat = s?.recommendation_categories && typeof s.recommendation_categories === 'object' ? s.recommendation_categories : {};
     const catName = isPolish
-      ? String(cat?.name_pl || cat?.name_en || '').trim()
-      : String(cat?.name_en || cat?.name_pl || '').trim();
+      ? (cat?.name_pl || cat?.name_en || '')
+      : (cat?.name_en || cat?.name_pl || '');
     const catIcon = String(cat?.icon || '').trim();
     const catLabel = [catIcon, catName].filter(Boolean).join(' ').trim();
 
-    const mapsUrl = String(s?.google_url || '').trim();
-    const websiteUrl = String(s?.website_url || r?.url || '').trim();
     const lat = s?.latitude != null ? Number(s.latitude) : (s?.lat != null ? Number(s.lat) : null);
     const lng = s?.longitude != null ? Number(s.longitude) : (s?.lng != null ? Number(s.lng) : null);
+    const mapsFallback = Number.isFinite(lat) && Number.isFinite(lng) ? `https://www.google.com/maps?q=${lat},${lng}` : '';
+    const mapsUrl = String(s?.google_url || s?.google_maps_url || mapsFallback || '').trim();
+    const websiteUrl = String(s?.website_url || r?.url || '').trim();
 
     const showCodeLabel = t('plan.ui.recommendations.showCode', isPolish ? 'Pokaż kod' : 'Show code');
     const mapsLabel = t('plan.ui.recommendations.openMaps', isPolish ? 'Otwórz w mapach' : 'Open in maps');
@@ -2018,8 +2054,7 @@ async function addServiceItemToDay({ dayId, itemType, refId, data }) {
 }
 
 async function addServiceRangeToDays({ startDayId, endDayId, itemType, refId, data }) {
-  if (!sb) return;
-  if (!startDayId || !endDayId) {
+  if (!sb || !startDayId || !endDayId) {
     showToast(t('plan.ui.toast.selectStartEndDay', 'Select start and end day.'), 'info');
     return;
   }
@@ -2216,7 +2251,7 @@ function renderServiceCatalog() {
         const total = calcTripTotal(t, { adults: party.adults, children: party.children, hours: 1, days: 1 });
         const price = total ? `${Number(total).toFixed(2)} €` : '';
         const slug = t?.slug || '';
-        const url = slug ? `trip.html?slug=${encodeURIComponent(slug)}` : 'trips.html';
+        const url = slug ? `trip.html?slug=${encodeURIComponent(String(slug))}` : 'trips.html';
         return { id: t?.id, title, subtitle: city, description, price, url, image, lat: null, lng: null, raw: t };
       })
       .filter((x) => {
@@ -3019,6 +3054,7 @@ async function loadPlanDays(planId) {
       const serviceItems = items.filter((it) => it && it.item_type && it.item_type !== 'note');
       const poiItems = serviceItems.filter((it) => it && it.item_type === 'poi');
       const nonPoiServiceItems = serviceItems.filter((it) => it && it.item_type && it.item_type !== 'poi');
+      const mapItems = serviceItems.filter((it) => it && (it.item_type === 'poi' || it.item_type === 'recommendation'));
       const servicesHtml = serviceItems.length
         ? `
           <div style="border-top: 1px solid #e2e8f0; padding-top:0.5rem;">
@@ -3034,6 +3070,8 @@ async function loadPlanDays(planId) {
                   const url = String(resolved?.url || '');
                   const price = String(resolved?.price || '');
                   const image = String(resolved?.image || '');
+                  const src = resolveCatalogEntryForItem(it);
+                  const panelId = `ceDayDetail_${String(it.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
                   const rangeStart = it?.data && typeof it.data === 'object' ? Number(it.data.range_start_day_index || 0) : 0;
                   const rangeEnd = it?.data && typeof it.data === 'object' ? Number(it.data.range_end_day_index || 0) : 0;
                   const rangeId = it?.data && typeof it.data === 'object' ? String(it.data.range_id || '') : '';
@@ -3085,6 +3123,8 @@ async function loadPlanDays(planId) {
                     const description = String(resolved?.description || '');
                     const url = String(resolved?.url || '');
                     const image = String(resolved?.image || '');
+                    const src = resolveCatalogEntryForItem(it);
+                    const panelId = `ceDayPoiDetail_${String(it.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
                     const timeLabel = formatPoiTimeLabel(it);
                     const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
                     const thumb = image ? `<a href="${escapeHtml(image)}" target="_blank" rel="noopener"><img src="${escapeHtml(image)}" alt="" loading="lazy" style="width:64px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0;" /></a>` : '';
@@ -3122,6 +3162,7 @@ async function loadPlanDays(planId) {
           `;
         })()
         : '';
+
       const itemsHtml = noteItems.length
         ? `
           <div style="margin-top:0.5rem; display:grid; gap:0.5rem;">
@@ -3139,6 +3180,7 @@ async function loadPlanDays(planId) {
           </div>
         `
         : '';
+
       return `
         <div class="card" style="padding: 0.75rem; border: 1px solid #e2e8f0;">
           <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap;">
@@ -3176,9 +3218,8 @@ async function loadPlanDays(planId) {
 
   rows.forEach((d) => {
     const items = Array.isArray(dayItemsByDayId.get(d.id)) ? dayItemsByDayId.get(d.id) : [];
-    const serviceItems = items.filter((it) => it && it.item_type && it.item_type !== 'note');
-    const poiItems = serviceItems.filter((it) => it && it.item_type === 'poi');
-    renderDayMap(d.id, poiItems);
+    const mapItems = items.filter((it) => it && (it.item_type === 'poi' || it.item_type === 'recommendation'));
+    renderDayMap(d.id, mapItems);
   });
 
   container.querySelectorAll('[data-day-save]').forEach((btn) => {
