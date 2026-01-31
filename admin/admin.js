@@ -7371,6 +7371,182 @@ window.addNewAmenity = addNewAmenity;
 // HOTEL PHOTO MANAGER
 // =====================================================
 
+// =====================================================
+// POI PHOTO MANAGER
+// =====================================================
+
+let poiPhotosState = {
+  photos: [],
+  coverUrl: '',
+};
+
+function renderPoiPhotoManager() {
+  const container = document.getElementById('poiPhotosManager');
+  const countEl = document.getElementById('poiPhotosCount');
+  const coverImg = document.getElementById('poiCoverPreviewImg');
+  const coverUrlInput = document.getElementById('poiMainImageUrl');
+  if (countEl) countEl.textContent = String(poiPhotosState.photos.length);
+  if (coverImg) {
+    coverImg.src = poiPhotosState.coverUrl || '';
+    coverImg.style.display = poiPhotosState.coverUrl ? 'block' : 'none';
+  }
+  if (coverUrlInput) {
+    coverUrlInput.value = poiPhotosState.coverUrl || '';
+  }
+  if (!container) return;
+  if (!poiPhotosState.photos.length) {
+    container.innerHTML = '';
+    return;
+  }
+  container.innerHTML = poiPhotosState.photos
+    .map((url, index) => {
+      const isCover = url === poiPhotosState.coverUrl;
+      return `
+        <div class="photo-item ${isCover ? 'is-cover' : ''}" data-index="${index}">
+          <img src="${escapeHtml(url)}" alt="Photo ${index + 1}" loading="lazy">
+          <div class="photo-actions">
+            <button type="button" onclick="movePoiPhoto(${index}, -1)" ${index === 0 ? 'disabled' : ''} title="Move left">◀</button>
+            <button type="button" onclick="movePoiPhoto(${index}, 1)" ${index === poiPhotosState.photos.length - 1 ? 'disabled' : ''} title="Move right">▶</button>
+            <button type="button" class="btn-cover" onclick="setPoiAsCoverImage(${index})" title="Set as cover">⭐</button>
+            <button type="button" class="btn-delete" onclick="deletePoiPhoto(${index})" title="Delete">✕</button>
+          </div>
+        </div>
+      `;
+    })
+    .join('');
+}
+
+function movePoiPhoto(index, direction) {
+  const newIndex = index + direction;
+  if (newIndex < 0 || newIndex >= poiPhotosState.photos.length) return;
+  const tmp = poiPhotosState.photos[index];
+  poiPhotosState.photos[index] = poiPhotosState.photos[newIndex];
+  poiPhotosState.photos[newIndex] = tmp;
+  renderPoiPhotoManager();
+}
+
+function deletePoiPhoto(index) {
+  const deletedUrl = poiPhotosState.photos[index];
+  poiPhotosState.photos.splice(index, 1);
+  if (deletedUrl === poiPhotosState.coverUrl) {
+    poiPhotosState.coverUrl = poiPhotosState.photos[0] || '';
+  }
+  renderPoiPhotoManager();
+}
+
+function setPoiAsCoverImage(index) {
+  poiPhotosState.coverUrl = poiPhotosState.photos[index] || '';
+  const mainInput = document.getElementById('poiMainImageUrl');
+  if (mainInput) mainInput.value = poiPhotosState.coverUrl;
+  renderPoiPhotoManager();
+  showToast('Cover image updated', 'success');
+}
+
+function removePoiCoverImage() {
+  poiPhotosState.coverUrl = '';
+  const mainInput = document.getElementById('poiMainImageUrl');
+  if (mainInput) mainInput.value = '';
+  renderPoiPhotoManager();
+}
+
+async function uploadPoiImage(file, poiSlug, kind) {
+  if (!file || !file.type || !file.type.startsWith('image/')) return '';
+  const client = ensureSupabase();
+  if (!client) throw new Error('Database connection not available');
+  const compressed = await compressToWebp(file, 1920, 1080, 0.82);
+  const safeSlug = String(poiSlug || 'poi').trim() || 'poi';
+  const suffix = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+  const path = `pois/${safeSlug}/${kind}-${suffix}.webp`;
+  const { error } = await client.storage.from('poi-photos').upload(path, compressed, {
+    cacheControl: '3600',
+    upsert: false,
+    contentType: 'image/webp',
+  });
+  if (error) throw error;
+  const { data: pub } = client.storage.from('poi-photos').getPublicUrl(path);
+  return pub?.publicUrl || '';
+}
+
+async function handlePoiCoverFileUpload(file, poiSlug) {
+  try {
+    const url = await uploadPoiImage(file, poiSlug, 'cover');
+    if (url) {
+      poiPhotosState.coverUrl = url;
+      if (!poiPhotosState.photos.includes(url)) poiPhotosState.photos.unshift(url);
+      renderPoiPhotoManager();
+    }
+  } catch (e) {
+    console.error('POI cover upload failed:', e);
+    showToast('Failed to upload cover image', 'error');
+  }
+}
+
+async function handlePoiPhotosUpload(files, poiSlug) {
+  const maxPhotos = 10;
+  const available = maxPhotos - poiPhotosState.photos.length;
+  if (available <= 0) {
+    showToast('Maximum 10 photos allowed', 'warning');
+    return;
+  }
+  const list = Array.from(files || []).slice(0, available);
+  if (!list.length) return;
+  try {
+    for (const f of list) {
+      if (!f || !f.type || !f.type.startsWith('image/')) continue;
+      const url = await uploadPoiImage(f, poiSlug, 'photo');
+      if (url) {
+        poiPhotosState.photos.push(url);
+        if (!poiPhotosState.coverUrl) poiPhotosState.coverUrl = url;
+      }
+    }
+    renderPoiPhotoManager();
+    showToast(`${list.length} photo(s) uploaded`, 'success');
+  } catch (e) {
+    console.error('POI photos upload failed:', e);
+    showToast('Failed to upload photos', 'error');
+  }
+}
+
+function setupPoiPhotoManagerBindings(poiSlug) {
+  const coverFileInput = document.getElementById('poiCoverFile');
+  const photosAddInput = document.getElementById('poiPhotosAdd');
+  const mainUrlInput = document.getElementById('poiMainImageUrl');
+  if (coverFileInput) {
+    coverFileInput.onchange = async () => {
+      const file = coverFileInput.files?.[0];
+      if (file) {
+        showToast('Uploading cover...', 'info');
+        await handlePoiCoverFileUpload(file, poiSlug);
+      }
+      coverFileInput.value = '';
+    };
+  }
+  if (photosAddInput) {
+    photosAddInput.onchange = async () => {
+      const files = photosAddInput.files;
+      if (files?.length) {
+        showToast('Uploading photos...', 'info');
+        await handlePoiPhotosUpload(files, poiSlug);
+      }
+      photosAddInput.value = '';
+    };
+  }
+  if (mainUrlInput) {
+    mainUrlInput.oninput = () => {
+      poiPhotosState.coverUrl = (mainUrlInput.value || '').trim();
+      if (poiPhotosState.coverUrl && !poiPhotosState.photos.includes(poiPhotosState.coverUrl)) {
+        poiPhotosState.photos.unshift(poiPhotosState.coverUrl);
+      }
+      renderPoiPhotoManager();
+    };
+  }
+}
+
+window.movePoiPhoto = movePoiPhoto;
+window.deletePoiPhoto = deletePoiPhoto;
+window.setPoiAsCoverImage = setPoiAsCoverImage;
+window.removePoiCoverImage = removePoiCoverImage;
+
 // Local state for photo management
 let editHotelPhotosState = {
   photos: [],
@@ -15131,6 +15307,26 @@ function normalizePoi(rawPoi, source = 'supabase') {
       : null)
   );
 
+  const mainImageUrl = (
+    rawPoi.main_image_url
+    || data.main_image_url
+    || rawPoi.image_url
+    || data.image_url
+    || rawPoi.cover_image_url
+    || data.cover_image_url
+    || null
+  );
+
+  let photos = rawPoi.photos ?? data.photos ?? [];
+  if (typeof photos === 'string') {
+    try {
+      photos = JSON.parse(photos);
+    } catch (_) {
+      photos = [];
+    }
+  }
+  photos = Array.isArray(photos) ? photos.map((u) => String(u || '').trim()).filter(Boolean).slice(0, 10) : [];
+
   return {
     id,
     uuid: isUuid(id) ? id : (isUuid(rawPoi.uuid) ? rawPoi.uuid : (isUuid(data.id) ? data.id : null)),
@@ -15147,6 +15343,8 @@ function normalizePoi(rawPoi, source = 'supabase') {
     status,
     tags,
     google_url: googleUrl,
+    main_image_url: mainImageUrl,
+    photos,
     // i18n fields
     name_i18n: rawPoi.name_i18n || null,
     description_i18n: rawPoi.description_i18n || null,
@@ -15557,6 +15755,7 @@ function openPoiForm(poiId = null) {
   const radiusInput = $('#poiRadius');
   const xpInput = $('#poiXP');
   const googleUrlInput = $('#poiGoogleUrl');
+  const mainImageUrlInput = $('#poiMainImageUrl');
   const tagsInput = $('#poiTags');
   const descriptionInput = $('#poiDescription');
 
@@ -15572,8 +15771,15 @@ function openPoiForm(poiId = null) {
   if (radiusInput) radiusInput.value = poi?.radius ?? '';
   if (xpInput) xpInput.value = poi?.xp ?? '';
   if (googleUrlInput) googleUrlInput.value = poi?.google_url || '';
+  if (mainImageUrlInput) mainImageUrlInput.value = poi?.main_image_url || '';
   if (tagsInput) tagsInput.value = poi?.tags?.join(', ') ?? '';
   if (descriptionInput) descriptionInput.value = poi?.description || '';
+
+  poiPhotosState.photos = Array.isArray(poi?.photos) ? poi.photos.slice() : [];
+  poiPhotosState.coverUrl = (poi?.main_image_url || poiPhotosState.photos[0] || '').trim();
+  const slugForUploads = String(poi?.slug || poi?.id || `poi-${Date.now()}`);
+  setupPoiPhotoManagerBindings(slugForUploads);
+  renderPoiPhotoManager();
 
   const warning = $('#poiFormWarning');
   const warningText = $('#poiFormWarningText');
@@ -15702,6 +15908,7 @@ async function handlePoiFormSubmit(event) {
     const xpValue = formData.get('xp');
     const xp = xpValue ? parseInt(xpValue, 10) : null;
     const googleUrl = (formData.get('google_url') || '').toString().trim();
+    const mainImageUrl = (formData.get('main_image_url') || '').toString().trim();
     const tagsValue = (formData.get('tags') || '').toString().trim();
     const tags = tagsValue ? tagsValue.split(',').map(tag => tag.trim()).filter(Boolean) : [];
 
@@ -15751,6 +15958,7 @@ async function handlePoiFormSubmit(event) {
       xp: xp || 100,
       tags,
       ...(googleUrl ? { google_url: googleUrl } : {}),
+      ...(mainImageUrl ? { main_image_url: mainImageUrl } : {}),
     };
 
     if (adminState.poiFormMode === 'create') {
@@ -15767,6 +15975,8 @@ async function handlePoiFormSubmit(event) {
         status: status,
         radius: radius || DEFAULT_POI_RADIUS,
         google_url: googleUrl || null,
+        main_image_url: mainImageUrl || null,
+        photos: Array.isArray(poiPhotosState.photos) ? poiPhotosState.photos.slice(0, 10) : [],
       };
       
       // Add i18n fields if available
@@ -15817,6 +16027,8 @@ async function handlePoiFormSubmit(event) {
         status: status,
         radius: radius || DEFAULT_POI_RADIUS,
         google_url: googleUrl || null,
+        main_image_url: mainImageUrl || null,
+        photos: Array.isArray(poiPhotosState.photos) ? poiPhotosState.photos.slice(0, 10) : [],
         badge: category || badge || null,
         category: category,
         tags: tags,
@@ -15838,6 +16050,27 @@ async function handlePoiFormSubmit(event) {
       if (res.error && isMissingColumnError(res.error, 'tags')) {
         const fallback = { ...updateData };
         delete fallback.tags;
+        res = await client
+          .from('pois')
+          .update(fallback)
+          .eq('id', poiId)
+          .select('id');
+      }
+
+      if (res.error && isMissingColumnError(res.error, 'photos')) {
+        const fallback = { ...updateData };
+        delete fallback.photos;
+        res = await client
+          .from('pois')
+          .update(fallback)
+          .eq('id', poiId)
+          .select('id');
+      }
+
+      if (res.error && isMissingColumnError(res.error, 'main_image_url')) {
+        const fallback = { ...updateData };
+        delete fallback.main_image_url;
+        delete fallback.photos;
         res = await client
           .from('pois')
           .update(fallback)

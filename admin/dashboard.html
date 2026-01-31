@@ -3903,9 +3903,45 @@
               <input type="url" id="poiGoogleUrl" name="google_url" placeholder="https://maps.app.goo.gl/..." />
             </label>
             <label class="admin-form-field">
+              <span>Main image URL</span>
+              <input type="url" id="poiMainImageUrl" name="main_image_url" placeholder="https://..." />
+            </label>
+            <label class="admin-form-field">
               <span>Tags</span>
               <input type="text" id="poiTags" name="tags" placeholder="Comma separated" />
             </label>
+          </div>
+
+          <div class="admin-card" style="margin-top:12px;">
+            <div class="admin-card-body">
+              <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px;">
+                <div style="font-weight:600;">Photos</div>
+                <div style="color:var(--admin-text-muted); font-size:12px;">(<span id="poiPhotosCount">0</span>/10)</div>
+              </div>
+
+              <div style="display:flex; gap:12px; flex-wrap:wrap; align-items:flex-start;">
+                <div style="flex:1 1 220px; min-width:220px;">
+                  <label class="admin-form-field" style="margin:0;">
+                    <span>Upload cover image</span>
+                    <input type="file" id="poiCoverFile" accept="image/*" />
+                  </label>
+                  <div style="margin-top:8px; display:flex; gap:10px; align-items:center;">
+                    <img id="poiCoverPreviewImg" src="" alt="" style="width:110px; height:72px; object-fit:cover; border-radius:8px; border:1px solid var(--admin-border); display:none;" />
+                    <button type="button" class="btn-secondary" onclick="removePoiCoverImage()">Remove cover</button>
+                  </div>
+                </div>
+
+                <div style="flex:1 1 220px; min-width:220px;">
+                  <label class="admin-form-field" style="margin:0;">
+                    <span>Add photos to gallery</span>
+                    <input type="file" id="poiPhotosAdd" accept="image/*" multiple />
+                  </label>
+                  <div style="color:var(--admin-text-muted); font-size:12px; margin-top:6px;">Uploads are converted to WebP and stored in Supabase Storage.</div>
+                </div>
+              </div>
+
+              <div id="poiPhotosManager" style="margin-top:12px;"></div>
+            </div>
           </div>
           
           <div class="poi-form-error" id="poiFormError" hidden></div>
