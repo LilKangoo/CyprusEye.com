@@ -728,6 +728,25 @@ function renderPlanDaysUi(planId, rows) {
     });
   });
 
+  // Promo code reveal (login-gated) for recommendation cards inside day panels
+  container.querySelectorAll('[data-rec-promo-btn]').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const promo = btn.getAttribute('data-rec-promo-btn') || '';
+      if (!promo) return;
+      const card = btn.closest('[data-rec-card]');
+      const codeEl = card ? card.querySelector('[data-rec-promo-code]') : null;
+      if (!(codeEl instanceof HTMLElement)) return;
+      if (codeEl.dataset.visible === '1') return;
+
+      await ensureLoggedInForPromo(() => {
+        codeEl.textContent = promo;
+        codeEl.dataset.visible = '1';
+      });
+    });
+  });
+
   container.querySelectorAll('[data-poi-time-save]').forEach((btn) => {
     btn.addEventListener('click', async () => {
       const itemId = btn.getAttribute('data-poi-time-save');
@@ -1480,6 +1499,57 @@ function renderDetailsHtml(type, src, resolved) {
       </div>
       ${typeof includes === 'string' && includes.trim() ? `<div class="ce-detail-section"><div class="ce-detail-section__title">${escapeHtml(t('plan.ui.details.included', 'Included'))}</div><div class="ce-detail-desc">${escapeHtml(includes)}</div></div>` : ''}
       ${typeof excludes === 'string' && excludes.trim() ? `<div class="ce-detail-section"><div class="ce-detail-section__title">${escapeHtml(t('plan.ui.details.notIncluded', 'Not included'))}</div><div class="ce-detail-desc">${escapeHtml(excludes)}</div></div>` : ''}
+    `;
+  }
+
+  if (safeType === 'recommendation') {
+    const lang = currentLang();
+    const isPolish = lang === 'pl';
+    const rawPromo = String(s?.promo_code || '').trim();
+    const discountText = isPolish
+      ? String(s?.discount_text_pl || s?.discount_text_en || '').trim()
+      : String(s?.discount_text_en || s?.discount_text_pl || '').trim();
+
+    const cat = s?.recommendation_categories && typeof s.recommendation_categories === 'object' ? s.recommendation_categories : {};
+    const catName = isPolish
+      ? String(cat?.name_pl || cat?.name_en || '').trim()
+      : String(cat?.name_en || cat?.name_pl || '').trim();
+    const catIcon = String(cat?.icon || '').trim();
+    const catLabel = [catIcon, catName].filter(Boolean).join(' ').trim();
+
+    const mapsUrl = String(s?.google_url || '').trim();
+    const websiteUrl = String(s?.website_url || r?.url || '').trim();
+    const lat = s?.latitude != null ? Number(s.latitude) : (s?.lat != null ? Number(s.lat) : null);
+    const lng = s?.longitude != null ? Number(s.longitude) : (s?.lng != null ? Number(s.lng) : null);
+
+    const showCodeLabel = t('plan.ui.recommendations.showCode', isPolish ? 'Pokaż kod' : 'Show code');
+    const mapsLabel = t('plan.ui.recommendations.openMaps', isPolish ? 'Otwórz w mapach' : 'Open in maps');
+    const openLabel = t('plan.ui.common.open', 'Open');
+
+    const promoHtml = rawPromo && discountText
+      ? `
+        <div class="rec-card-promo" data-rec-card="1" style="margin-top: 10px;">
+          <div class="rec-card-promo-label">${escapeHtml(discountText)}</div>
+          <div class="rec-card-promo-code" data-rec-promo-code="1" data-visible="0"></div>
+          <button type="button" class="rec-btn rec-btn-secondary" data-rec-promo-btn="${escapeHtml(rawPromo)}">${escapeHtml(showCodeLabel)}</button>
+        </div>
+      `
+      : '';
+
+    const links = `
+      <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top: 10px;">
+        ${mapsUrl ? `<a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">${escapeHtml(mapsLabel)}</a>` : ''}
+        ${websiteUrl ? `<a href="${escapeHtml(websiteUrl)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">${escapeHtml(openLabel)}</a>` : ''}
+      </div>
+    `;
+
+    return `
+      ${gallery}
+      ${desc ? `<div class="ce-detail-desc">${escapeHtml(desc)}</div>` : ''}
+      ${catLabel ? kv(t('plan.ui.details.category', 'Category'), catLabel) : ''}
+      ${Number.isFinite(lat) && Number.isFinite(lng) ? kv(t('plan.ui.details.coordinates', 'Coordinates'), `${lat}, ${lng}`) : ''}
+      ${promoHtml}
+      ${links}
     `;
   }
 
