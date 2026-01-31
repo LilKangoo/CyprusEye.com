@@ -3191,6 +3191,19 @@
       "in_stock": "In stock",
       "quantity": "Quantity"
     },
+    "plan": {
+      "ui": {
+        "catalog": {
+          "tabs": {
+            "recommendations": "Recommendations"
+          }
+        },
+        "recommendations": {
+          "showCode": "Show code",
+          "openMaps": "Open in maps"
+        }
+      }
+    },
     "cart": {
       "title": "Shopping Cart",
       "empty": "Your cart is empty",

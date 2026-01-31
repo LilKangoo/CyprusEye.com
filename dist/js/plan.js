@@ -15,6 +15,27 @@ async function ensureSupabase({ timeoutMs = 5000, stepMs = 100 } = {}) {
   return null;
 }
 
+function getRecommendationLatLngForItem(it) {
+  const d = it?.data && typeof it.data === 'object' ? it.data : null;
+  const lat = d && d.lat != null ? Number(d.lat) : null;
+  const lng = d && d.lng != null ? Number(d.lng) : null;
+  if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+
+  const sourceId = d && d.source_id != null ? String(d.source_id) : null;
+  const refId = it?.ref_id != null ? String(it.ref_id) : null;
+  const match = catalogData.recommendations.find((r) => String(r?.id) === String(refId || sourceId));
+  const ml = match && match.latitude != null ? Number(match.latitude) : null;
+  const mg = match && match.longitude != null ? Number(match.longitude) : null;
+  if (Number.isFinite(ml) && Number.isFinite(mg)) return { lat: ml, lng: mg };
+  return null;
+}
+
+function getMapLatLngForItem(it) {
+  const type = String(it?.item_type || '').trim();
+  if (type === 'recommendation') return getRecommendationLatLngForItem(it);
+  return getPoiLatLngForItem(it);
+}
+
 async function ensureSupabaseSessionFromPersistedSnapshot({ timeoutMs = 5000, stepMs = 150 } = {}) {
   const client = sb || (typeof window !== 'undefined' && typeof window.getSupabase === 'function' ? window.getSupabase() : null);
   if (!client?.auth?.getSession || !client?.auth?.setSession) {
@@ -2000,6 +2021,58 @@ function renderServiceCatalog() {
     return String(text || '').toLowerCase().includes(q);
   };
 
+  const renderRecommendationsFilters = () => {
+    if (catalogActiveTab !== 'recommendations') return '';
+    const cats = Array.isArray(catalogData.recommendationCategories) ? catalogData.recommendationCategories : [];
+    const recs = Array.isArray(catalogData.recommendations) ? catalogData.recommendations : [];
+    if (!cats.length || !recs.length) return '';
+
+    const lang = currentLang();
+    const isPolish = lang === 'pl';
+    const active = String(recommendationsCategoryFilter || '');
+
+    const items = cats
+      .map((c) => {
+        const id = c?.id;
+        if (!id) return null;
+        const count = recs.filter((r) => String(r?.category_id) === String(id)).length;
+        if (!count) return null;
+        const name = isPolish ? (c?.name_pl || c?.name_en || '') : (c?.name_en || c?.name_pl || '');
+        return { id: String(id), icon: c?.icon || '📍', name, count };
+      })
+      .filter(Boolean);
+
+    if (!items.length) return '';
+
+    const clearLabel = t('recommendations.home.filters.clear', 'Wyczyść filtry');
+    const titleLabel = t('recommendations.home.filters.title', 'Wybierz kategorię');
+
+    return `
+      <div class="filters-container" style="background: white; border-radius: 16px; padding: 14px 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.06); margin: 14px 0 18px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; margin-bottom: 10px;">
+          <div style="font-size: 14px; font-weight: 700; color:#111827;">${escapeHtml(titleLabel)}</div>
+          <button type="button" class="btn-text" data-rec-clear="1" style="${active ? '' : 'display:none;'} background:none; border:none; color:#667eea; font-weight:600; cursor:pointer; font-size: 13px; padding: 6px 10px; border-radius: 8px;">
+            ${escapeHtml(clearLabel)}
+          </button>
+        </div>
+        <div class="filters-grid" id="planRecommendationsCategories" style="display:flex; flex-wrap:wrap; gap:8px;">
+          ${items
+            .map((c) => {
+              const isActive = active && active === c.id;
+              return `
+                <button type="button" class="filter-btn ${isActive ? 'active' : ''}" data-rec-cat="${escapeHtml(c.id)}">
+                  <span class="filter-icon">${escapeHtml(String(c.icon || '📍'))}</span>
+                  <span class="filter-label">${escapeHtml(String(c.name || ''))}</span>
+                  <span class="filter-count">${escapeHtml(String(c.count || 0))}</span>
+                </button>
+              `;
+            })
+            .join('')}
+        </div>
+      </div>
+    `;
+  };
+
   let list = [];
   if (catalogActiveTab === 'trips') {
     list = catalogData.trips
@@ -2073,6 +2146,55 @@ function renderServiceCatalog() {
         return { id: p?.id, title, subtitle: category, description, price: '', url, image, lat: p?.lat ?? null, lng: p?.lng ?? null, raw: p };
       })
       .filter((x) => matches(`${x.title}`));
+  } else if (catalogActiveTab === 'recommendations') {
+    const lang = currentLang();
+    const isPolish = lang === 'pl';
+    const activeCat = String(recommendationsCategoryFilter || '');
+    const catLookup = new Map();
+    (Array.isArray(catalogData.recommendationCategories) ? catalogData.recommendationCategories : []).forEach((c) => {
+      if (c && c.id != null) catLookup.set(String(c.id), c);
+    });
+
+    list = (Array.isArray(catalogData.recommendations) ? catalogData.recommendations : [])
+      .filter((r) => {
+        if (!activeCat) return true;
+        return String(r?.category_id) === activeCat;
+      })
+      .map((r) => {
+        const cat = catLookup.get(String(r?.category_id || '')) || r?.recommendation_categories || {};
+        const catName = isPolish ? (cat?.name_pl || cat?.name_en || '') : (cat?.name_en || cat?.name_pl || '');
+        const catIcon = cat?.icon || '📍';
+        const title = isPolish ? (r?.title_pl || r?.title_en || '') : (r?.title_en || r?.title_pl || '');
+        const descriptionFull = isPolish ? (r?.description_pl || r?.description_en || '') : (r?.description_en || r?.description_pl || '');
+        const description = String(descriptionFull || '').trim();
+        const subtitle = [catIcon, catName].filter(Boolean).join(' ').trim();
+        const image = String(r?.image_url || '').trim();
+        const url = String(r?.website_url || r?.google_url || '').trim();
+        const lat = r?.latitude != null ? Number(r.latitude) : null;
+        const lng = r?.longitude != null ? Number(r.longitude) : null;
+
+        const discount = isPolish
+          ? (r?.discount_text_pl || r?.discount_text_en || '')
+          : (r?.discount_text_en || r?.discount_text_pl || '');
+
+        return {
+          id: r?.id,
+          title: String(title || '').trim(),
+          subtitle,
+          description,
+          price: '',
+          url,
+          image,
+          lat: Number.isFinite(lat) ? lat : null,
+          lng: Number.isFinite(lng) ? lng : null,
+          raw: {
+            ...r,
+            recommendation_categories: cat,
+            __discount: discount,
+          },
+        };
+      })
+      .filter((x) => matches(`${x.title} ${x.subtitle} ${x.description}`));
   }
 
   const rowsHtml = list.length
@@ -2080,28 +2202,11 @@ function renderServiceCatalog() {
         ${list
           .slice(0, 120)
           .map((x) => {
-            const addAttr = `data-catalog-add="1" data-item-type="${catalogActiveTab.slice(0, -1)}" data-ref-id="${escapeHtml(x.id || '')}" data-title="${escapeHtml(x.title || '')}" data-subtitle="${escapeHtml(x.subtitle || '')}" data-description="${escapeHtml(x.description || '')}" data-url="${escapeHtml(x.url || '')}" data-price="${escapeHtml(x.price || '')}" data-image="${escapeHtml(x.image || '')}"`;
+            const itemType = catalogActiveTab === 'recommendations' ? 'recommendation' : catalogActiveTab.slice(0, -1);
+            const addAttr = `data-catalog-add="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(x.id || '')}" data-title="${escapeHtml(x.title || '')}" data-subtitle="${escapeHtml(x.subtitle || '')}" data-description="${escapeHtml(x.description || '')}" data-url="${escapeHtml(x.url || '')}" data-price="${escapeHtml(x.price || '')}" data-image="${escapeHtml(x.image || '')}"`;
             const poiAttrs = x.lat != null && x.lng != null ? ` data-lat="${escapeHtml(String(x.lat))}" data-lng="${escapeHtml(String(x.lng))}"` : '';
-            const link = x.url ? `<a href="${escapeHtml(x.url)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
             const isRange = catalogActiveTab === 'hotels' || catalogActiveTab === 'cars';
-            const raw = x.raw && typeof x.raw === 'object' ? x.raw : null;
-            const imgUrls = raw ? getServiceImageUrls(catalogActiveTab.slice(0, -1), raw) : (x.image ? [x.image] : []);
-            const imgUrlsAttr = imgUrls.length ? escapeHtml(encodeURIComponent(JSON.stringify(imgUrls))) : '';
-            const img = x.image
-              ? `<button type="button" class="ce-catalog-cover" data-ce-lightbox-urls="${imgUrlsAttr}" data-ce-lightbox-index="0" style="display:block; width:100%; padding:0; border:0; background:transparent; margin-bottom:0.5rem; cursor:pointer;">
-                   <img src="${escapeHtml(x.image)}" alt="" loading="lazy" style="width:100%; height:120px; object-fit:cover; border-radius:10px; border:1px solid #e2e8f0;" />
-                 </button>`
-              : '';
-            const panelId = `ceCatDetail_${catalogActiveTab}_${String(x.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
-            const preview =
-              catalogActiveTab === 'pois'
-                ? (() => {
-                  const prefix = t('plan.ui.poi.areaPrefix', 'Area Of:');
-                  const line = x.subtitle ? `${prefix} ${x.subtitle}` : '';
-                  return line ? `<div class="ce-catalog-preview">${escapeHtml(line)}</div>` : '';
-                })()
-                : ((catalogActiveTab === 'hotels' || catalogActiveTab === 'trips') ? '' : (x.description ? `<div class="ce-catalog-preview">${escapeHtml(x.description)}</div>` : ''));
-            const more = raw ? renderExpandablePanel({ panelId, type: catalogActiveTab.slice(0, -1), src: raw, resolved: x }) : '';
+            const link = x.url ? `<a href="${escapeHtml(x.url)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
 
             const daySel = dayOptions
               ? (isRange
@@ -2139,10 +2244,79 @@ function renderServiceCatalog() {
                    </details>`)
               : '';
 
-            const showSubtitleMeta = catalogActiveTab !== 'pois';
             const addLabel = isRange
               ? escapeHtml(t('plan.ui.catalog.addRange', 'Dodaj zakres'))
               : escapeHtml(t('plan.ui.catalog.add', 'Add'));
+
+            if (catalogActiveTab === 'recommendations') {
+              const lang = currentLang();
+              const isPolish = lang === 'pl';
+              const raw = x.raw && typeof x.raw === 'object' ? x.raw : {};
+              const promo = String(raw?.promo_code || '').trim();
+              const discount = String(raw?.__discount || '').trim();
+              const showCodeLabel = t('plan.ui.recommendations.showCode', isPolish ? 'Pokaż kod' : 'Show code');
+
+              const mapsLabel = t('plan.ui.recommendations.openMaps', isPolish ? 'Otwórz w mapach' : 'Open in maps');
+              const mapsUrl = String(raw?.google_url || '').trim();
+              const mapsBtn = mapsUrl
+                ? `<a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">${escapeHtml(mapsLabel)}</a>`
+                : '';
+
+              const promoHtml = promo && discount
+                ? `
+                  <div class="rec-card-promo" data-rec-card="1" style="margin-top: 10px;">
+                    <div class="rec-card-promo-label">${escapeHtml(discount)}</div>
+                    <div class="rec-card-promo-code" data-rec-promo-code="1" data-visible="0"></div>
+                    <button type="button" class="rec-btn rec-btn-secondary" data-rec-promo-btn="${escapeHtml(promo)}">${escapeHtml(showCodeLabel)}</button>
+                  </div>
+                `
+                : '';
+
+              const description = String(x.description || '').trim();
+              const descHtml = description ? `<div class="ce-catalog-preview">${escapeHtml(description)}</div>` : '';
+
+              const img = x.image
+                ? `<img src="${escapeHtml(x.image)}" alt="" loading="lazy" class="rec-card-image" style="width:100%; height:120px; object-fit:cover; border-radius:10px; border:1px solid #e2e8f0; margin-bottom: 0.5rem;" />`
+                : '';
+
+              return `
+                <div class="card ce-catalog-tile" style="padding:0.65rem; border:1px solid #e2e8f0;" data-rec-card="1">
+                  ${img}
+                  <div class="ce-catalog-title">${escapeHtml(x.title)}</div>
+                  <div class="ce-catalog-meta">
+                    ${x.subtitle ? `<span class=\"ce-catalog-sub\">${escapeHtml(x.subtitle)}</span>` : ''}
+                  </div>
+                  ${descHtml}
+                  ${promoHtml}
+                  <div class="ce-catalog-actions">
+                    ${mapsBtn}
+                    ${link}
+                    ${daySel}
+                    <button type="button" class="btn btn-sm btn-primary primary ce-catalog-add" ${addAttr}${poiAttrs}>${addLabel}</button>
+                  </div>
+                </div>
+              `;
+            }
+
+            const raw = x.raw && typeof x.raw === 'object' ? x.raw : null;
+            const imgUrls = raw ? getServiceImageUrls(itemType, raw) : (x.image ? [x.image] : []);
+            const imgUrlsAttr = imgUrls.length ? escapeHtml(encodeURIComponent(JSON.stringify(imgUrls))) : '';
+            const img = x.image
+              ? `<button type="button" class="ce-catalog-cover" data-ce-lightbox-urls="${imgUrlsAttr}" data-ce-lightbox-index="0" style="display:block; width:100%; padding:0; border:0; background:transparent; margin-bottom:0.5rem; cursor:pointer;">
+                   <img src="${escapeHtml(x.image)}" alt="" loading="lazy" style="width:100%; height:120px; object-fit:cover; border-radius:10px; border:1px solid #e2e8f0;" />
+                 </button>`
+              : '';
+            const panelId = `ceCatDetail_${catalogActiveTab}_${String(x.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
+            const preview =
+              catalogActiveTab === 'pois'
+                ? (() => {
+                  const prefix = t('plan.ui.poi.areaPrefix', 'Area Of:');
+                  const line = x.subtitle ? `${prefix} ${x.subtitle}` : '';
+                  return line ? `<div class="ce-catalog-preview">${escapeHtml(line)}</div>` : '';
+                })()
+                : ((catalogActiveTab === 'hotels' || catalogActiveTab === 'trips') ? '' : (x.description ? `<div class="ce-catalog-preview">${escapeHtml(x.description)}</div>` : ''));
+            const more = raw ? renderExpandablePanel({ panelId, type: itemType, src: raw, resolved: x }) : '';
+            const showSubtitleMeta = catalogActiveTab !== 'pois';
 
             return `
               <div class="card ce-catalog-tile" style="padding:0.65rem; border:1px solid #e2e8f0;">

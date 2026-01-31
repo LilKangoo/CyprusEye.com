@@ -3212,8 +3212,13 @@
           "trips": "Trips",
           "hotels": "Hotels",
           "cars": "Cars",
+          "recommendations": "Recommendations",
           "pois": "Places to see"
         }
+      },
+      "recommendations": {
+        "showCode": "Show code",
+        "openMaps": "Open in maps"
       },
       "cost": {
         "trips": "Trips",
