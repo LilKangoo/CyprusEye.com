@@ -1916,6 +1916,13 @@ async function addServiceRangeToDays({ startDayId, endDayId, itemType, refId, da
 
   const min = Math.min(Number(startIndex), Number(endIndex));
   const max = Math.max(Number(startIndex), Number(endIndex));
+  if (itemType === 'car') {
+    const rangeDays = Math.max(1, Math.abs(max - min) + 1);
+    if (rangeDays < 3) {
+      showToast(t('plan.ui.toast.carMinimumDays', 'Cars: minimum rental is 3 days.'), 'info');
+      return;
+    }
+  }
   const days = Array.from(planDaysById.values()).filter((d) => Number(d?.day_index) >= min && Number(d?.day_index) <= max);
   if (!days.length) {
     showToast(t('plan.ui.toast.invalidDayRange', 'Invalid day range.'), 'error');
@@ -1985,6 +1992,24 @@ function renderServiceCatalog() {
       return `<option value="${escapeHtml(d.id)}">${escapeHtml(label)}</option>`;
     })
     .join('');
+
+  const getDayIndexById = (id) => {
+    try {
+      const d = id ? planDaysById.get(id) : null;
+      return d && d.day_index != null ? Number(d.day_index) : null;
+    } catch (_) {
+      return null;
+    }
+  };
+
+  const getDayIdByIndex = (idx) => {
+    const want = Number(idx);
+    if (!Number.isFinite(want)) return null;
+    for (const d of planDaysById.values()) {
+      if (Number(d?.day_index) === want) return d?.id || null;
+    }
+    return null;
+  };
 
   const tabBtn = (key, label) => {
     const isActive = catalogActiveTab === key;
@@ -2110,13 +2135,28 @@ function renderServiceCatalog() {
 
             const daySel = dayOptions
               ? (isRange
-                ? `<details class="ce-catalog-days">
-                     <summary>${escapeHtml(t('plan.ui.catalog.days', 'Days'))}</summary>
-                     <div class="ce-catalog-days__inner">
-                       <select data-catalog-range-start="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
-                       <select data-catalog-range-end="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
-                     </div>
-                   </details>`
+                ? (catalogActiveTab === 'cars'
+                  ? `<details class="ce-catalog-days" data-car-range="1">
+                       <summary>${escapeHtml(t('plan.ui.catalog.rentalRange', 'Rental range'))}</summary>
+                       <div class="ce-catalog-days__inner" style="display:grid; gap:0.5rem;">
+                         <label style="display:grid; gap:0.25rem; font-size:12px; color:#64748b;">
+                           ${escapeHtml(t('plan.ui.catalog.pickupDay', 'Pickup day'))}
+                           <select data-catalog-range-start="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
+                         </label>
+                         <label style="display:grid; gap:0.25rem; font-size:12px; color:#64748b;">
+                           ${escapeHtml(t('plan.ui.catalog.dropoffDay', 'Drop-off day'))}
+                           <select data-catalog-range-end="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
+                         </label>
+                         <div data-car-range-days style="font-size:12px; color:#64748b;"></div>
+                       </div>
+                     </details>`
+                  : `<details class="ce-catalog-days">
+                       <summary>${escapeHtml(t('plan.ui.catalog.days', 'Days'))}</summary>
+                       <div class="ce-catalog-days__inner">
+                         <select data-catalog-range-start="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
+                         <select data-catalog-range-end="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
+                       </div>
+                     </details>`)
                 : `<details class="ce-catalog-days">
                      <summary>${escapeHtml(t('plan.catalog.addToDay', 'Add to day'))}</summary>
                      <div class="ce-catalog-days__inner">
@@ -2240,6 +2280,65 @@ function renderServiceCatalog() {
       await addServiceItemToDay({ dayId, itemType: type, refId, data: baseData });
     });
   });
+
+  // Cars: make rental range selection obvious and enforce min 3 days in the UI.
+  if (catalogActiveTab === 'cars') {
+    const selectedDayId = getCatalogSelectedDayId();
+    wrap.querySelectorAll('.card').forEach((card) => {
+      if (!(card instanceof HTMLElement)) return;
+      const addBtn = card.querySelector('[data-catalog-add]');
+      const type = addBtn instanceof HTMLElement ? addBtn.getAttribute('data-item-type') : null;
+      if (type !== 'car') return;
+
+      const startSel = card.querySelector('[data-catalog-range-start]');
+      const endSel = card.querySelector('[data-catalog-range-end]');
+      if (!(startSel instanceof HTMLSelectElement) || !(endSel instanceof HTMLSelectElement)) return;
+
+      const daysLabelEl = card.querySelector('[data-car-range-days]');
+
+      const setDaysLabel = () => {
+        const sIdx = getDayIndexById(startSel.value);
+        const eIdx = getDayIndexById(endSel.value);
+        if (!Number.isFinite(sIdx) || !Number.isFinite(eIdx)) {
+          if (daysLabelEl instanceof HTMLElement) daysLabelEl.textContent = '';
+          return;
+        }
+        const min = Math.min(sIdx, eIdx);
+        const max = Math.max(sIdx, eIdx);
+        const d = Math.max(1, Math.abs(max - min) + 1);
+        if (daysLabelEl instanceof HTMLElement) {
+          const word = t('plan.ui.catalog.daysCount', 'days');
+          daysLabelEl.textContent = `${d} ${word} (min 3)`;
+        }
+      };
+
+      const ensureMin3 = () => {
+        const sIdx = getDayIndexById(startSel.value);
+        if (!Number.isFinite(sIdx)) return;
+        const desiredEnd = getDayIdByIndex(sIdx + 2) || endSel.value;
+        const eIdx = getDayIndexById(endSel.value);
+        if (!Number.isFinite(eIdx) || Math.abs(Number(eIdx) - Number(sIdx)) + 1 < 3) {
+          if (desiredEnd) endSel.value = desiredEnd;
+        }
+        setDaysLabel();
+      };
+
+      // Default start = selected day; default end = start+2 (3 days) when possible.
+      if (selectedDayId && startSel.value !== selectedDayId) {
+        startSel.value = selectedDayId;
+      }
+      ensureMin3();
+
+      if (!startSel.dataset.wiredMin3) {
+        startSel.addEventListener('change', () => ensureMin3());
+        startSel.dataset.wiredMin3 = '1';
+      }
+      if (!endSel.dataset.wiredMin3) {
+        endSel.addEventListener('change', () => ensureMin3());
+        endSel.dataset.wiredMin3 = '1';
+      }
+    });
+  }
 
   // Expand / collapse details panels (modern UI)
   wrap.querySelectorAll('[data-expand-toggle]').forEach((btn) => {
