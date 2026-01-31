@@ -2418,7 +2418,15 @@ async function deleteDayItem(itemId) {
 async function loadPlans({ selectId } = {}) {
   if (!sb) return;
 
-  const user = await getCurrentUser();
+  let user = await getCurrentUser();
+  if (!user) {
+    // After refresh Supabase can briefly report no user while restoring INITIAL_SESSION.
+    for (let i = 0; i < 10; i += 1) {
+      await new Promise((r) => setTimeout(r, 200));
+      user = await getCurrentUser();
+      if (user) break;
+    }
+  }
   if (!user) {
     if (planListEl()) planListEl().innerHTML = '';
     currentPlan = null;
@@ -3990,10 +3998,21 @@ async function init() {
 
   try {
     sb.auth.onAuthStateChange(async (event, session) => {
-      if (event === 'SIGNED_OUT' || !session) {
+      if (event === 'SIGNED_OUT') {
         currentPlan = null;
         renderPlanDetails(null);
         setLastSelectedPlanId(null);
+        await loadPlans();
+        return;
+      }
+
+      if (event === 'INITIAL_SESSION' && !session) {
+        const desired = parseHashPlanId() || getLastSelectedPlanId();
+        await loadPlans({ selectId: desired || null });
+        return;
+      }
+
+      if (!session) {
         await loadPlans();
         return;
       }
