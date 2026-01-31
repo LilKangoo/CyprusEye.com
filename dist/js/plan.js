@@ -2093,20 +2093,19 @@ function renderServiceCatalog() {
             const daySel = dayOptions
               ? (isRange
                 ? (catalogActiveTab === 'cars'
-                  ? `<details class="ce-catalog-days" data-car-range="1">
-                       <summary>${escapeHtml(t('plan.ui.catalog.rentalRange', 'Rental range'))}</summary>
+                  ? `<div class="ce-catalog-days" data-car-range="1" hidden>
                        <div class="ce-catalog-days__inner" style="display:grid; gap:0.5rem;">
                          <label style="display:grid; gap:0.25rem; font-size:12px; color:#64748b;">
-                           ${escapeHtml(t('plan.ui.catalog.pickupDay', 'Pickup day'))}
+                           ${escapeHtml(t('plan.ui.catalog.pickupDay', 'Dzień odbioru'))}
                            <select data-catalog-range-start="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
                          </label>
                          <label style="display:grid; gap:0.25rem; font-size:12px; color:#64748b;">
-                           ${escapeHtml(t('plan.ui.catalog.dropoffDay', 'Drop-off day'))}
+                           ${escapeHtml(t('plan.ui.catalog.dropoffDay', 'Dzień zwrotu'))}
                            <select data-catalog-range-end="1" class="btn btn-sm ce-catalog-select">${dayOptions}</select>
                          </label>
                          <div data-car-range-days style="font-size:12px; color:#64748b;"></div>
                        </div>
-                     </details>`
+                     </div>`
                   : `<details class="ce-catalog-days">
                        <summary>${escapeHtml(t('plan.ui.catalog.days', 'Days'))}</summary>
                        <div class="ce-catalog-days__inner">
@@ -2123,6 +2122,10 @@ function renderServiceCatalog() {
               : '';
 
             const showSubtitleMeta = catalogActiveTab !== 'pois';
+            const addLabel = isRange
+              ? escapeHtml(t('plan.ui.catalog.addRange', 'Dodaj zakres'))
+              : escapeHtml(t('plan.ui.catalog.add', 'Add'));
+
             return `
               <div class="card ce-catalog-tile" style="padding:0.65rem; border:1px solid #e2e8f0;">
                 ${img}
@@ -2136,7 +2139,7 @@ function renderServiceCatalog() {
                 <div class="ce-catalog-actions">
                   ${link}
                   ${daySel}
-                  <button type="button" class="btn btn-sm btn-primary primary ce-catalog-add" ${addAttr}${poiAttrs}>${isRange ? escapeHtml(t('plan.ui.catalog.addRange', 'Add range')) : escapeHtml(t('plan.ui.catalog.add', 'Add'))}</button>
+                  <button type="button" class="btn btn-sm btn-primary primary ce-catalog-add" ${addAttr}${poiAttrs}>${addLabel}</button>
                 </div>
               </div>
             `;
@@ -2223,6 +2226,15 @@ function renderServiceCatalog() {
         baseData.lng = lng;
       }
 
+      if (type === 'car') {
+        const rangeWrap = row ? row.querySelector('[data-car-range]') : null;
+        if (rangeWrap instanceof HTMLElement && rangeWrap.hasAttribute('hidden')) {
+          rangeWrap.removeAttribute('hidden');
+          btn.textContent = t('plan.ui.catalog.confirmRange', 'Potwierdź zakres');
+          return;
+        }
+      }
+
       if ((type === 'hotel' || type === 'car') && startSel instanceof HTMLSelectElement && endSel instanceof HTMLSelectElement) {
         await addServiceRangeToDays({
           startDayId: startSel.value,
@@ -2231,6 +2243,14 @@ function renderServiceCatalog() {
           refId,
           data: baseData,
         });
+
+        if (type === 'car') {
+          const rangeWrap = row ? row.querySelector('[data-car-range]') : null;
+          if (rangeWrap instanceof HTMLElement) {
+            rangeWrap.setAttribute('hidden', '');
+          }
+          btn.textContent = t('plan.ui.catalog.addRange', 'Dodaj zakres');
+        }
         return;
       }
 
@@ -2264,7 +2284,7 @@ function renderServiceCatalog() {
         const max = Math.max(sIdx, eIdx);
         const d = Math.max(1, Math.abs(max - min) + 1);
         if (daysLabelEl instanceof HTMLElement) {
-          const word = t('plan.ui.catalog.daysCount', 'days');
+          const word = t('plan.ui.catalog.daysCount', 'dni');
           daysLabelEl.textContent = `${d} ${word} (min 3)`;
         }
       };
