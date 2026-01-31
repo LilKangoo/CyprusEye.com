@@ -241,6 +241,32 @@ async function emailPlanToUser() {
   }
 }
 
+async function waitForSupabaseUser({ timeoutMs = 15000, stepMs = 250 } = {}) {
+  const start = Date.now();
+
+  try {
+    await waitForAuthReadySafe({ timeoutMs: Math.min(7000, timeoutMs) });
+  } catch (_) {}
+
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const stateUser = window?.CE_STATE?.session?.user || null;
+      if (stateUser) return stateUser;
+    } catch (_) {}
+
+    try {
+      if (sb?.auth?.getSession) {
+        const { data, error } = await sb.auth.getSession();
+        if (!error && data?.session?.user) return data.session.user;
+      }
+    } catch (_) {}
+
+    await new Promise((r) => setTimeout(r, stepMs));
+  }
+
+  return null;
+}
+
 async function waitForAuthReadySafe({ timeoutMs = 4500 } = {}) {
   try {
     const fn = typeof window !== 'undefined' ? window.waitForAuthReady : null;
@@ -770,18 +796,7 @@ function setLastSelectedPlanId(id) {
 async function getCurrentUser() {
   if (!sb) return null;
 
-  await waitForAuthReadySafe();
-  try {
-    const stateUser = window?.CE_STATE?.session?.user || null;
-    if (stateUser) return stateUser;
-  } catch (_) {}
-
-  for (let i = 0; i < 6; i += 1) {
-    const { data, error } = await sb.auth.getSession();
-    if (!error && data?.session?.user) return data.session.user;
-    await new Promise((r) => setTimeout(r, 120));
-  }
-  return null;
+  return await waitForSupabaseUser();
 }
 
 function daysBetweenInclusive(startDate, endDate) {

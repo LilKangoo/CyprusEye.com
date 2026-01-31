@@ -69,6 +69,39 @@
     return typeof fallback === 'string' ? fallback : '';
   }
 
+  async function waitForSupabaseUser({ timeoutMs = 15000, stepMs = 250 } = {}) {
+    const start = Date.now();
+
+    try {
+      const fn = typeof window.waitForAuthReady === 'function' ? window.waitForAuthReady : null;
+      if (fn) {
+        await Promise.race([
+          Promise.resolve().then(() => fn()),
+          new Promise((resolve) => setTimeout(resolve, Math.min(7000, timeoutMs))),
+        ]);
+      }
+    } catch (_) {}
+
+    while (Date.now() - start < timeoutMs) {
+      try {
+        const stateUser = window?.CE_STATE?.session?.user || null;
+        if (stateUser) return stateUser;
+      } catch (_) {}
+
+      try {
+        const sb = typeof window.getSupabase === 'function' ? window.getSupabase() : null;
+        if (sb?.auth?.getSession) {
+          const { data, error } = await sb.auth.getSession();
+          if (!error && data?.session?.user) return data.session.user;
+        }
+      } catch (_) {}
+
+      await new Promise((r) => setTimeout(r, stepMs));
+    }
+
+    return null;
+  }
+
   // Cache elementów DOM
   let elements = null;
   let profileChannel = null;
@@ -171,8 +204,21 @@
         return null;
       }
 
-      const { data: { user } } = await sb.auth.getUser();
-      
+      let user = null;
+      try {
+        const { data, error } = await sb.auth.getSession();
+        if (!error && data?.session?.user) {
+          user = data.session.user;
+        }
+      } catch (_) {}
+
+      if (!user) {
+        try {
+          const res = await sb.auth.getUser();
+          user = res?.data?.user || null;
+        } catch (_) {}
+      }
+
       if (!user) {
         console.log('ℹ️ Użytkownik niezalogowany');
         return null;
@@ -266,7 +312,12 @@
       }
     };
 
-    const refreshStatsWithRetry = async ({ attempts: max = 16, stepMs = 250 } = {}) => {
+    const refreshStatsWithRetry = async ({ attempts: max = 16, stepMs = 250, userTimeoutMs = 15000 } = {}) => {
+      const user = await waitForSupabaseUser({ timeoutMs: userTimeoutMs, stepMs });
+      if (!user) {
+        return false;
+      }
+
       for (let i = 0; i < max; i += 1) {
         const stats = await fetchUserStats();
         if (stats) {
@@ -311,7 +362,7 @@
     }
 
     await waitForAuthReady();
-    await refreshStatsWithRetry();
+    await refreshStatsWithRetry({ userTimeoutMs: 15000 });
 
     // Nasłuchuj zmian sesji
     try {
@@ -325,7 +376,7 @@
             subscribeProfileRealtime(userId);
           }
           await waitForAuthReady();
-          await refreshStatsWithRetry({ attempts: 8, stepMs: 200 });
+          await refreshStatsWithRetry({ attempts: 8, stepMs: 200, userTimeoutMs: 15000 });
         } else if (event === 'SIGNED_OUT') {
           if (profileChannel && typeof profileChannel.unsubscribe === 'function') {
             try {
