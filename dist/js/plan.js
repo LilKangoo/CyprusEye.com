@@ -334,7 +334,7 @@ function renderPlanDaysUi(planId, rows) {
                   const rangeBadge = rangeId && rangeStart > 0 && rangeEnd > 0 ? ` (${escapeHtml(t('plan.print.day', 'Day'))} ${rangeStart}–${escapeHtml(t('plan.print.day', 'Day'))} ${rangeEnd})` : '';
                   const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
                   const thumb = image ? `<a href="${escapeHtml(image)}" target="_blank" rel="noopener"><img src="${escapeHtml(image)}" alt="" loading="lazy" style="width:64px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0;" /></a>` : '';
-                  const preview = (it.item_type === 'hotel') ? '' : (description ? `<div style=\"color:#475569; font-size:12px;\">${escapeHtml(description)}</div>` : '');
+                  const preview = (it.item_type === 'hotel' || it.item_type === 'trip') ? '' : (description ? `<div style=\"color:#475569; font-size:12px;\">${escapeHtml(description)}</div>` : '');
                   const more = src ? renderExpandablePanel({ panelId, type: it.item_type, src, resolved }) : '';
                   return `
                     <div style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
@@ -849,6 +849,21 @@ function getTripTitle(trip) {
   return trip?.title?.pl || trip?.title?.en || trip?.title || trip?.slug || t('plan.ui.itemType.trip', 'Trip');
 }
 
+function getTripDescriptionText(trip) {
+  if (!trip || typeof trip !== 'object') return '';
+  if (typeof window.getTripDescription === 'function') {
+    const d = window.getTripDescription(trip);
+    if (d && String(d).trim()) return String(d);
+  }
+  const descObj = trip.description_i18n || trip.description;
+  if (descObj && typeof descObj === 'object') {
+    const d = pickI18nValue(descObj, '');
+    if (d && String(d).trim()) return String(d);
+  }
+  if (typeof trip.description === 'string') return trip.description;
+  return '';
+}
+
 function getHotelTitle(hotel) {
   if (typeof window.getHotelName === 'function') return window.getHotelName(hotel);
   return hotel?.title?.pl || hotel?.title?.en || hotel?.title || hotel?.slug || t('plan.ui.itemType.hotel', 'Hotel');
@@ -955,7 +970,7 @@ function resolveItemDisplay(it) {
     return {
       title: getTripTitle(src),
       subtitle: String(src?.start_city || '').trim(),
-      description: pickI18nValue(src?.description_i18n, src?.description || ''),
+      description: getTripDescriptionText(src),
       url: d.url ? String(d.url) : (src?.slug ? `trip.html?slug=${encodeURIComponent(String(src.slug))}` : ''),
       price: String(d.price || '').trim(),
       image: String(d.image || getServiceImageUrl('trip', src) || '').trim(),
@@ -1850,7 +1865,7 @@ function renderServiceCatalog() {
       .map((t) => {
         const title = getTripTitle(t);
         const city = t?.start_city || '';
-        const description = pickI18nValue(t?.description_i18n, t?.description || '');
+        const description = getTripDescriptionText(t);
         const image = getServiceImageUrl('trip', t);
         const party = getPartyForPlan(currentPlan);
         const total = calcTripTotal(t, { adults: party.adults, children: party.children, hours: 1, days: 1 });
@@ -2446,7 +2461,7 @@ async function loadPlanDays(planId) {
                         <div style="font-size:12px; color:#64748b;">${escapeHtml(typeLabel)}</div>
                         <div style="color:#0f172a; font-weight:600;">${escapeHtml(title)}${escapeHtml(rangeBadge)}</div>
                         ${subtitle ? `<div style=\"color:#64748b; font-size:12px;\">${escapeHtml(subtitle)}</div>` : ''}
-                        ${it.item_type === 'hotel' ? '' : (description ? `<div style=\"color:#475569; font-size:12px;\">${escapeHtml(description)}</div>` : '')}
+                        ${(it.item_type === 'hotel' || it.item_type === 'trip') ? '' : (description ? `<div style=\"color:#475569; font-size:12px;\">${escapeHtml(description)}</div>` : '')}
                         ${price ? `<div style=\"color:#0f172a; font-size:12px;\">${escapeHtml(price)}</div>` : ''}
                       </div>
                       <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
