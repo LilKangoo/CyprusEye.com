@@ -64,7 +64,11 @@ function buildShopUrlWithOpenCart() {
     }
   }
   if (lang) url.searchParams.set('lang', lang);
-  url.searchParams.set('openCart', '1');
+
+  const seoPage = (document.body && document.body.dataset) ? document.body.dataset.seoPage : null;
+  if (!seoPage || String(seoPage).toLowerCase() !== 'plan') {
+    url.searchParams.set('openCart', '1');
+  }
   return url;
 }
 
