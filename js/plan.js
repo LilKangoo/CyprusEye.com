@@ -1108,20 +1108,29 @@ function resolveItemDisplay(it) {
   const itemType = String(it?.item_type || '').trim();
   const src = resolveCatalogEntryForItem(it);
 
+  const currency = (currentPlan?.currency || 'EUR').toUpperCase();
+  const party = getPartyForPlan(currentPlan);
+  const people = Math.max(1, Number(currentPlan?.people_count || (party.adults + party.children) || 1) || 1);
+  const rangeStart = Number(d.range_start_day_index || 0) || 0;
+  const rangeEnd = Number(d.range_end_day_index || 0) || 0;
+  const rangeDays = rangeStart > 0 && rangeEnd > 0 ? Math.max(1, Math.abs(rangeEnd - rangeStart) + 1) : 1;
+
   if (itemType === 'trip' && src) {
+    const total = calcTripTotal(src, { adults: party.adults, children: party.children, hours: 1, days: 1 });
     return {
       title: getTripTitle(src),
       subtitle: String(src?.start_city || '').trim(),
       description: getTripDescriptionText(src),
       url: d.url ? String(d.url) : (src?.slug ? `trip.html?slug=${encodeURIComponent(String(src.slug))}` : ''),
-      price: String(d.price || '').trim(),
+      price: total ? String(formatMoney(total, currency)).trim() : '',
       image: String(d.image || getServiceImageUrl('trip', src) || '').trim(),
     };
   }
 
   if (itemType === 'hotel' && src) {
-    const min = getHotelMinPricePerNight(src);
-    const priceFallback = min != null ? `${Number(min).toFixed(2)} € ${t('plan.ui.pricing.perNight', '/ night')}` : '';
+    const nights = Math.max(1, rangeDays - 1);
+    const res = calculateHotelPrice(src || {}, people, nights);
+    const total = Number(res?.total || 0) || 0;
     const slug = src?.slug ? String(src.slug) : '';
     const urlFallback = slug ? `hotel.html?slug=${encodeURIComponent(slug)}` : 'hotels.html';
     return {
@@ -1129,7 +1138,7 @@ function resolveItemDisplay(it) {
       subtitle: getHotelCity(src),
       description: getHotelDescriptionText(src),
       url: String(d.url || urlFallback).trim(),
-      price: String(d.price || priceFallback).trim(),
+      price: total ? String(formatMoney(total, currency)).trim() : '',
       image: String(d.image || getServiceImageUrl('hotel', src) || '').trim(),
     };
   }
@@ -1137,14 +1146,16 @@ function resolveItemDisplay(it) {
   if (itemType === 'car' && src) {
     const location = String(src?.location || '').trim();
     const north = src?.north_allowed ? t('plan.ui.catalog.northOk', 'north ok') : '';
+    const total = calcCarTotal(src || {}, { location: src?.location, days: rangeDays });
+    const computed = total ? String(formatMoney(total, currency)).trim() : '';
     const from = getCarFromPricePerDay(src);
-    const priceFallback = from != null ? `${t('plan.ui.pricing.from', 'From')} ${Number(from).toFixed(0)}€ ${t('plan.ui.pricing.perDay', '/ day')}` : '';
+    const fromOnly = from != null ? `${Number(from).toFixed(0)}€ ${t('plan.ui.pricing.perDay', '/ day')}` : '';
     return {
       title: getCarTitle(src),
       subtitle: [location, north].filter(Boolean).join(' • '),
       description: getCarDescription(src),
       url: String(d.url || getCarLink(src) || '').trim(),
-      price: String(d.price || priceFallback).trim(),
+      price: String(computed || d.price || fromOnly).trim(),
       image: String(d.image || getServiceImageUrl('car', src) || '').trim(),
     };
   }
@@ -1399,12 +1410,14 @@ function renderDetailsHtml(type, src, resolved) {
     const features = (typeof window !== 'undefined' && typeof window.getCarFeatures === 'function') ? window.getCarFeatures(s) : (Array.isArray(s.features) ? s.features : []);
     const model = (typeof window !== 'undefined' && typeof window.getCarName === 'function') ? window.getCarName(s) : String(s.car_model || '');
     const carType = (typeof window !== 'undefined' && typeof window.getCarType === 'function') ? window.getCarType(s) : String(s.car_type || '');
+    const from = getCarFromPricePerDay(s);
+    const fromText = from != null ? `${Number(from).toFixed(0)}€ ${t('plan.ui.pricing.perDay', '/ day')}` : '';
     return `
       ${gallery}
       ${desc ? `<div class="ce-detail-desc">${escapeHtml(desc)}</div>` : ''}
       <div class="ce-detail-grid">
         ${kv(t('plan.ui.details.location', 'Location'), s.location)}
-        ${kv(t('plan.ui.details.fromPrice', 'From'), r.price)}
+        ${kv(t('plan.ui.details.fromPrice', 'From'), fromText)}
         ${kv(t('plan.ui.details.model', 'Model'), model)}
         ${kv(t('plan.ui.details.type', 'Type'), carType)}
         ${kv(t('plan.ui.details.deposit', 'Deposit'), s.deposit)}
@@ -2058,7 +2071,7 @@ function renderServiceCatalog() {
       const description = getHotelDescriptionText(h);
       const image = getServiceImageUrl('hotel', h);
       const min = getHotelMinPricePerNight(h);
-      const price = min != null ? `${Number(min).toFixed(2)} € ${t('plan.ui.pricing.perNight', '/ night')}` : '';
+      const price = min != null ? `${t('plan.ui.pricing.from', 'From')}: ${Number(min).toFixed(2)} € ${t('plan.ui.pricing.perNight', '/ night')}` : '';
       const slug = h?.slug || '';
       const url = slug ? `hotel.html?slug=${encodeURIComponent(slug)}` : 'hotels.html';
       return { id: h?.id, title, subtitle: city, description, price, url, image, lat: null, lng: null, raw: h };
@@ -2079,7 +2092,7 @@ function renderServiceCatalog() {
         const image = getServiceImageUrl('car', c);
         const north = c?.north_allowed ? t('plan.ui.catalog.northOk', 'north ok') : '';
         const from = getCarFromPricePerDay(c);
-        const price = from != null ? `${t('plan.ui.pricing.from', 'From')} ${Number(from).toFixed(0)}€ ${t('plan.ui.pricing.perDay', '/ day')}` : '';
+        const price = from != null ? `${t('plan.ui.pricing.from', 'From')}: ${Number(from).toFixed(0)}€ ${t('plan.ui.pricing.perDay', '/ day')}` : '';
         return { id: c?.id, title, subtitle: [location, north].filter(Boolean).join(' • '), description, location, price, url, image, lat: null, lng: null, raw: c };
       })
       .filter((x) => {
