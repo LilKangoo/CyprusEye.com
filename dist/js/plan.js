@@ -345,6 +345,7 @@ let dayItemsByDayId = new Map();
 let planDaysById = new Map();
 let catalogActiveTab = 'trips';
 let catalogSearch = '';
+let recommendationsCategoryFilter = '';
 let catalogLoadedForPlanId = null;
 let catalogLangWired = false;
 
@@ -1723,7 +1724,6 @@ function getServiceTypeLabel(type) {
 }
 
 async function loadServiceCatalog(planId) {
-  if (!sb || !planId) return;
   if (!planId) {
     const wrap = catalogEl();
     if (wrap) wrap.innerHTML = '';
@@ -1731,7 +1731,21 @@ async function loadServiceCatalog(planId) {
     return;
   }
 
-  if (catalogLoadedForPlanId === planId && (catalogData.trips.length || catalogData.hotels.length || catalogData.cars.length || catalogData.pois.length)) {
+  if (!sb) {
+    sb = await ensureSupabase();
+  }
+  if (!sb) {
+    const wrap = catalogEl();
+    if (wrap) {
+      wrap.innerHTML = `<div style="color:#ef4444;">${escapeHtml(t('plan.ui.catalog.failedToLoad', 'Failed to load services.'))}</div>`;
+    }
+    return;
+  }
+
+  if (
+    catalogLoadedForPlanId === planId &&
+    (catalogData.trips.length || catalogData.hotels.length || catalogData.cars.length || catalogData.pois.length || catalogData.recommendations.length)
+  ) {
     renderServiceCatalog();
     return;
   }
@@ -1827,21 +1841,67 @@ async function loadServiceCatalog(planId) {
     return res;
   };
 
-  const [tripsRes, hotelsRes, carsRes, poisRes] = await Promise.all([loadTrips(), loadHotels(), loadCars(), loadPoisForCatalog()]);
-
-  if (tripsRes.error) console.warn('Failed to load trips catalog', tripsRes.error);
-  if (hotelsRes.error) console.warn('Failed to load hotels catalog', hotelsRes.error);
-  if (carsRes.error) console.warn('Failed to load cars catalog', carsRes.error);
-  if (poisRes.error) console.warn('Failed to load POI catalog', poisRes.error);
-
-  catalogData = {
-    trips: Array.isArray(tripsRes.data) ? tripsRes.data : [],
-    hotels: Array.isArray(hotelsRes.data) ? hotelsRes.data : [],
-    cars: Array.isArray(carsRes.data) ? carsRes.data : [],
-    pois: Array.isArray(poisRes.data) ? poisRes.data : [],
+  const loadRecommendationCategories = async () => {
+    try {
+      return await sb
+        .from('recommendation_categories')
+        .select('*')
+        .eq('active', true)
+        .order('display_order', { ascending: true });
+    } catch (e) {
+      return { data: [], error: e };
+    }
   };
-  catalogLoadedForPlanId = planId;
-  renderServiceCatalog();
+
+  const loadRecommendations = async () => {
+    try {
+      return await sb
+        .from('recommendations')
+        .select('*, recommendation_categories(name_pl, name_en, icon, color)')
+        .eq('active', true)
+        .order('featured', { ascending: false })
+        .order('display_order', { ascending: true })
+        .order('created_at', { ascending: false })
+        .range(0, 99);
+    } catch (e) {
+      return { data: [], error: e };
+    }
+  };
+
+  try {
+    const [tripsRes, hotelsRes, carsRes, poisRes, recCatsRes, recsRes] = await Promise.all([
+      loadTrips(),
+      loadHotels(),
+      loadCars(),
+      loadPoisForCatalog(),
+      loadRecommendationCategories(),
+      loadRecommendations(),
+    ]);
+
+    if (tripsRes.error) console.warn('Failed to load trips catalog', tripsRes.error);
+    if (hotelsRes.error) console.warn('Failed to load hotels catalog', hotelsRes.error);
+    if (carsRes.error) console.warn('Failed to load cars catalog', carsRes.error);
+    if (poisRes.error) console.warn('Failed to load POI catalog', poisRes.error);
+    if (recCatsRes.error) console.warn('Failed to load recommendation categories', recCatsRes.error);
+    if (recsRes.error) console.warn('Failed to load recommendations', recsRes.error);
+
+    catalogData = {
+      trips: Array.isArray(tripsRes.data) ? tripsRes.data : [],
+      hotels: Array.isArray(hotelsRes.data) ? hotelsRes.data : [],
+      cars: Array.isArray(carsRes.data) ? carsRes.data : [],
+      pois: Array.isArray(poisRes.data) ? poisRes.data : [],
+      recommendations: Array.isArray(recsRes.data) ? recsRes.data : [],
+      recommendationCategories: Array.isArray(recCatsRes.data) ? recCatsRes.data : [],
+    };
+    catalogLoadedForPlanId = planId;
+    renderServiceCatalog();
+  } catch (e) {
+    console.error('Failed to load services catalog', e);
+    const wrap = catalogEl();
+    if (wrap) {
+      wrap.innerHTML = `<div style="color:#ef4444;">${escapeHtml(t('plan.ui.catalog.failedToLoad', 'Failed to load services.'))}</div>`;
+    }
+  }
 }
 
 function ensureCatalogDaySelectionDefaults() {
