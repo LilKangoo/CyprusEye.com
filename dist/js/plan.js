@@ -1861,6 +1861,11 @@ function renderServiceCatalog() {
   const wrap = catalogEl();
   if (!wrap) return;
 
+  const active = typeof document !== 'undefined' ? document.activeElement : null;
+  const hadSearchFocus = active instanceof HTMLInputElement && active.id === 'planCatalogSearch';
+  const caretStart = hadSearchFocus ? active.selectionStart : null;
+  const caretEnd = hadSearchFocus ? active.selectionEnd : null;
+
   const ctx = getCatalogContext();
 
   const dayOptions = Array.from(planDaysById.values())
@@ -2064,6 +2069,19 @@ function renderServiceCatalog() {
       catalogSearch = searchEl.value;
       renderServiceCatalog();
     });
+  }
+
+  if (hadSearchFocus) {
+    const next = wrap.querySelector('#planCatalogSearch');
+    if (next instanceof HTMLInputElement) {
+      try {
+        next.focus();
+        if (caretStart != null && caretEnd != null) {
+          next.setSelectionRange(caretStart, caretEnd);
+        }
+      } catch (_) {
+      }
+    }
   }
 
   wrap.querySelectorAll('[data-catalog-refresh]').forEach((btn) => {
