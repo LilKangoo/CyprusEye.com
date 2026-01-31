@@ -2,6 +2,15 @@ import { showToast } from './toast.js';
 
 let sb = typeof window !== 'undefined' && typeof window.getSupabase === 'function' ? window.getSupabase() : null;
 
+let catalogData = {
+  trips: [],
+  hotels: [],
+  cars: [],
+  pois: [],
+  recommendations: [],
+  recommendationCategories: [],
+};
+
 async function ensureSupabase({ timeoutMs = 5000, stepMs = 100 } = {}) {
   if (sb) return sb;
   const start = Date.now();
@@ -13,27 +22,6 @@ async function ensureSupabase({ timeoutMs = 5000, stepMs = 100 } = {}) {
     await new Promise((r) => setTimeout(r, stepMs));
   }
   return null;
-}
-
-function getRecommendationLatLngForItem(it) {
-  const d = it?.data && typeof it.data === 'object' ? it.data : null;
-  const lat = d && d.lat != null ? Number(d.lat) : null;
-  const lng = d && d.lng != null ? Number(d.lng) : null;
-  if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
-
-  const sourceId = d && d.source_id != null ? String(d.source_id) : null;
-  const refId = it?.ref_id != null ? String(it.ref_id) : null;
-  const match = catalogData.recommendations.find((r) => String(r?.id) === String(refId || sourceId));
-  const ml = match && match.latitude != null ? Number(match.latitude) : null;
-  const mg = match && match.longitude != null ? Number(match.longitude) : null;
-  if (Number.isFinite(ml) && Number.isFinite(mg)) return { lat: ml, lng: mg };
-  return null;
-}
-
-function getMapLatLngForItem(it) {
-  const type = String(it?.item_type || '').trim();
-  if (type === 'recommendation') return getRecommendationLatLngForItem(it);
-  return getPoiLatLngForItem(it);
 }
 
 async function ensureSupabaseSessionFromPersistedSnapshot({ timeoutMs = 5000, stepMs = 150 } = {}) {
@@ -86,6 +74,27 @@ async function ensureSupabaseSessionFromPersistedSnapshot({ timeoutMs = 5000, st
   }
 
   return false;
+}
+
+function getRecommendationLatLngForItem(it) {
+  const d = it?.data && typeof it.data === 'object' ? it.data : null;
+  const lat = d && d.lat != null ? Number(d.lat) : null;
+  const lng = d && d.lng != null ? Number(d.lng) : null;
+  if (Number.isFinite(lat) && Number.isFinite(lng)) return { lat, lng };
+
+  const sourceId = d && d.source_id != null ? String(d.source_id) : null;
+  const refId = it?.ref_id != null ? String(it.ref_id) : null;
+  const match = catalogData.recommendations.find((r) => String(r?.id) === String(refId || sourceId));
+  const ml = match && match.latitude != null ? Number(match.latitude) : null;
+  const mg = match && match.longitude != null ? Number(match.longitude) : null;
+  if (Number.isFinite(ml) && Number.isFinite(mg)) return { lat: ml, lng: mg };
+  return null;
+}
+
+function getMapLatLngForItem(it) {
+  const type = String(it?.item_type || '').trim();
+  if (type === 'recommendation') return getRecommendationLatLngForItem(it);
+  return getPoiLatLngForItem(it);
 }
 
 function buildPlanExportModel() {

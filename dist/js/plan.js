@@ -2,6 +2,15 @@ import { showToast } from './toast.js';
 
 let sb = typeof window !== 'undefined' && typeof window.getSupabase === 'function' ? window.getSupabase() : null;
 
+let catalogData = {
+  trips: [],
+  hotels: [],
+  cars: [],
+  pois: [],
+  recommendations: [],
+  recommendationCategories: [],
+};
+
 async function ensureSupabase({ timeoutMs = 5000, stepMs = 100 } = {}) {
   if (sb) return sb;
   const start = Date.now();
@@ -336,12 +345,6 @@ let dayItemsByDayId = new Map();
 let planDaysById = new Map();
 let catalogActiveTab = 'trips';
 let catalogSearch = '';
-let catalogData = {
-  trips: [],
-  hotels: [],
-  cars: [],
-  pois: [],
-};
 let catalogLoadedForPlanId = null;
 let catalogLangWired = false;
 
