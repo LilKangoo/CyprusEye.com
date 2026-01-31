@@ -113,6 +113,30 @@ const withTimeout = (promise, ms = 4000) => {
   ]);
 };
 
+async function loadProfileWithRetry(user) {
+  if (!user?.id) {
+    return null;
+  }
+
+  try {
+    return await withTimeout(loadProfileForUser(user), 7000);
+  } catch (error) {
+    if (error?.message !== 'AUTH_TIMEOUT') {
+      throw error;
+    }
+  }
+
+  try {
+    return await withTimeout(loadProfileForUser(user), 12000);
+  } catch (error) {
+    if (error?.message !== 'AUTH_TIMEOUT') {
+      throw error;
+    }
+  }
+
+  return null;
+}
+
 // Guest mode removed - function no longer needed
 
 // Guest mode removed - function no longer needed
@@ -547,7 +571,7 @@ async function applySession(session, detail = {}) {
 
   if (session?.user?.id) {
     try {
-      const profile = await withTimeout(loadProfileForUser(session.user), 3000);
+      const profile = await loadProfileWithRetry(session.user);
       state.profile = profile || null;
     } catch (profileError) {
       console.warn('Nie udało się pobrać profilu użytkownika.', profileError);
