@@ -15,6 +15,58 @@ async function ensureSupabase({ timeoutMs = 5000, stepMs = 100 } = {}) {
   return null;
 }
 
+async function ensureSupabaseSessionFromPersistedSnapshot({ timeoutMs = 5000, stepMs = 150 } = {}) {
+  const client = sb || (typeof window !== 'undefined' && typeof window.getSupabase === 'function' ? window.getSupabase() : null);
+  if (!client?.auth?.getSession || !client?.auth?.setSession) {
+    return false;
+  }
+
+  try {
+    const current = await client.auth.getSession();
+    if (current?.data?.session) {
+      return true;
+    }
+  } catch (_) {}
+
+  const ceAuth = typeof window !== 'undefined' ? window.CE_AUTH : null;
+  if (!ceAuth || typeof ceAuth.readPersistedSession !== 'function') {
+    return false;
+  }
+
+  let snapshot = null;
+  try {
+    snapshot = ceAuth.readPersistedSession();
+  } catch (_) {
+    snapshot = null;
+  }
+
+  const snapSession = snapshot?.session;
+  const access_token = typeof snapSession?.access_token === 'string' ? snapSession.access_token.trim() : '';
+  const refresh_token = typeof snapSession?.refresh_token === 'string' ? snapSession.refresh_token.trim() : '';
+  if (!access_token || !refresh_token) {
+    return false;
+  }
+
+  try {
+    await client.auth.setSession({ access_token, refresh_token });
+  } catch (_) {
+    return false;
+  }
+
+  const start = Date.now();
+  while (Date.now() - start < timeoutMs) {
+    try {
+      const { data } = await client.auth.getSession();
+      if (data?.session) {
+        return true;
+      }
+    } catch (_) {}
+    await new Promise((r) => setTimeout(r, stepMs));
+  }
+
+  return false;
+}
+
 function buildPlanExportModel() {
   const plan = currentPlan;
   if (!plan || !plan.id) return null;
@@ -2363,6 +2415,10 @@ async function deletePlanItem(itemId) {
 async function loadPlans({ selectId } = {}) {
   if (!sb) return;
 
+  try {
+    await ensureSupabaseSessionFromPersistedSnapshot({ timeoutMs: 4000 });
+  } catch (_) {}
+
   let user = await getCurrentUser();
   if (!user) {
     // After refresh Supabase can briefly report no user while restoring INITIAL_SESSION.
@@ -3897,6 +3953,13 @@ async function init() {
     setStatus(saveStatusEl(), t('plan.ui.toast.supabaseNotReady', 'Supabase not ready. Please refresh the page.'), 'error');
     return;
   }
+
+  try {
+    await waitForAuthReadySafe({ timeoutMs: 7000 });
+  } catch (_) {}
+  try {
+    await ensureSupabaseSessionFromPersistedSnapshot({ timeoutMs: 7000 });
+  } catch (_) {}
 
   setCurrentYear();
 
