@@ -852,16 +852,45 @@ function getTripTitle(trip) {
 
 function getTripDescriptionText(trip) {
   if (!trip || typeof trip !== 'object') return '';
+  const parseI18nString = (maybeJsonStr) => {
+    if (typeof maybeJsonStr !== 'string') return null;
+    const s = String(maybeJsonStr || '').trim();
+    if (!s) return null;
+    if (!(s.startsWith('{') || s.startsWith('['))) return null;
+    try {
+      const parsed = JSON.parse(s);
+      if (parsed && typeof parsed === 'object') return parsed;
+    } catch (_) {}
+    return null;
+  };
   if (typeof window.getTripDescription === 'function') {
     const d = window.getTripDescription(trip);
-    if (d && String(d).trim()) return String(d);
+    if (d && String(d).trim()) {
+      const parsed = parseI18nString(d);
+      if (parsed && typeof parsed === 'object') {
+        const picked = pickI18nValue(parsed, '');
+        if (picked && String(picked).trim()) return String(picked);
+      }
+      return String(d);
+    }
   }
-  const descObj = trip.description_i18n || trip.description;
+  const descObjRaw = trip.description_i18n || trip.description;
+  const descObj =
+    (descObjRaw && typeof descObjRaw === 'object')
+      ? descObjRaw
+      : parseI18nString(descObjRaw);
   if (descObj && typeof descObj === 'object') {
     const d = pickI18nValue(descObj, '');
     if (d && String(d).trim()) return String(d);
   }
-  if (typeof trip.description === 'string') return trip.description;
+  if (typeof trip.description === 'string') {
+    const parsed = parseI18nString(trip.description);
+    if (parsed && typeof parsed === 'object') {
+      const d = pickI18nValue(parsed, '');
+      if (d && String(d).trim()) return String(d);
+    }
+    return trip.description;
+  }
   return '';
 }
 
