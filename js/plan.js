@@ -1322,16 +1322,16 @@ function renderDetailsHtml(type, src, resolved) {
   if (safeType === 'trip') {
     const duration = s.duration || s.duration_hours || s.duration_label;
     const startCity = s.start_city || s.city;
-    const pm = s.pricing_model || '';
     const includes = s.includes || s.included || s.inclusions;
     const excludes = s.excludes || s.not_included || s.exclusions;
+    const descTitle = t('plan.ui.details.descriptionTitle', 'Description');
+    const descHtml = desc ? escapeHtml(desc).replace(/\n/g, '<br/>') : '';
     return `
       ${gallery}
-      ${desc ? `<div class="ce-detail-desc">${escapeHtml(desc)}</div>` : ''}
+      ${descHtml ? `<div class="ce-detail-section"><div class="ce-detail-section__title">${escapeHtml(descTitle)}</div><div class="ce-detail-desc">${descHtml}</div></div>` : ''}
       <div class="ce-detail-grid">
         ${kv(t('plan.ui.details.startCity', 'Start city'), startCity)}
         ${kv(t('plan.ui.details.duration', 'Duration'), duration)}
-        ${kv(t('plan.ui.details.pricingModel', 'Pricing model'), pm)}
         ${kv(t('plan.ui.details.price', 'Price'), r.price)}
       </div>
       ${typeof includes === 'string' && includes.trim() ? `<div class="ce-detail-section"><div class="ce-detail-section__title">${escapeHtml(t('plan.ui.details.included', 'Included'))}</div><div class="ce-detail-desc">${escapeHtml(includes)}</div></div>` : ''}
@@ -1987,7 +1987,7 @@ function renderServiceCatalog() {
                   const line = x.subtitle ? `${prefix} ${x.subtitle}` : '';
                   return line ? `<div class="ce-catalog-preview">${escapeHtml(line)}</div>` : '';
                 })()
-                : (catalogActiveTab === 'hotels' ? '' : (x.description ? `<div class="ce-catalog-preview">${escapeHtml(x.description)}</div>` : ''));
+                : ((catalogActiveTab === 'hotels' || catalogActiveTab === 'trips') ? '' : (x.description ? `<div class="ce-catalog-preview">${escapeHtml(x.description)}</div>` : ''));
             const more = raw ? renderExpandablePanel({ panelId, type: catalogActiveTab.slice(0, -1), src: raw, resolved: x }) : '';
 
             const daySel = dayOptions
