@@ -442,9 +442,9 @@ function renderPlanDaysUi(planId, rows) {
                   const preview = (it.item_type === 'hotel' || it.item_type === 'trip' || it.item_type === 'recommendation') ? '' : (description ? `<div style=\"color:#475569; font-size:12px;\">${escapeHtml(description)}</div>` : '');
                   const more = src ? renderExpandablePanel({ panelId, type: it.item_type, src, resolved }) : '';
                   return `
-                    <div style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
+                    <div class="ce-day-item-row" style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
                       ${thumb ? `<div style="flex:0 0 auto;">${thumb}</div>` : ''}
-                      <div style="flex:1 1 auto; min-width:0;">
+                      <div class="ce-day-item-main" style="flex:1 1 auto; min-width:0;">
                         <div style="font-size:12px; color:#64748b;">${escapeHtml(typeLabel)}</div>
                         <div style="color:#0f172a; font-weight:600;">${escapeHtml(title)}${escapeHtml(rangeBadge)}</div>
                         ${subtitle ? `<div style=\"color:#64748b; font-size:12px;\">${escapeHtml(subtitle)}</div>` : ''}
@@ -452,7 +452,7 @@ function renderPlanDaysUi(planId, rows) {
                         ${more}
                         ${price ? `<div style=\"color:#0f172a; font-size:12px;\">${escapeHtml(price)}</div>` : ''}
                       </div>
-                      <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
+                      <div class="ce-day-item-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
                         ${link}
                         <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" data-range-id="${escapeHtml(rangeId)}" aria-label="${escapeHtml(t('plan.ui.common.delete', 'Delete'))}">✕</button>
                       </div>
@@ -497,9 +497,9 @@ function renderPlanDaysUi(planId, rows) {
                     const preview = description ? `<div style=\"color:#475569; font-size:12px; margin-top:0.25rem;\">${escapeHtml(description)}</div>` : '';
                     const more = src ? renderExpandablePanel({ panelId, type: 'poi', src, resolved }) : '';
                     return `
-                      <div style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
+                      <div class="ce-day-item-row ce-day-item-row--poi" style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
                         ${thumb ? `<div style="flex:0 0 auto;">${thumb}</div>` : ''}
-                        <div style="flex:1 1 auto; min-width:0;">
+                        <div class="ce-day-item-main" style="flex:1 1 auto; min-width:0;">
                           <div style="display:flex; gap:0.5rem; align-items:baseline; flex-wrap:wrap;">
                             <div style="color:#0f172a; font-weight:600;">${escapeHtml(title || t('plan.ui.days.placeFallback', 'Place'))}</div>
                             ${timeLabel ? `<div style=\"color:#64748b; font-size:12px;\">${escapeHtml(timeLabel)}</div>` : ''}
@@ -518,7 +518,7 @@ function renderPlanDaysUi(planId, rows) {
                             <button type="button" class="btn btn-sm" data-poi-time-save="${it.id}">${escapeHtml(t('plan.ui.days.saveTime', 'Save time'))}</button>
                           </div>
                         </div>
-                        <div style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
+                        <div class="ce-day-item-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
                           ${link}
                           <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" aria-label="${escapeHtml(t('plan.ui.common.delete', 'Delete'))}">✕</button>
                         </div>
@@ -666,16 +666,25 @@ function renderPlanDaysUi(planId, rows) {
       const isHidden = panel.hasAttribute('hidden');
       if (isHidden) {
         panel.removeAttribute('hidden');
+        panel.classList.add('ce-expand-panel--open');
         panel.style.maxHeight = '0px';
         panel.offsetHeight;
         const inner = panel.querySelector('.ce-expand-panel__inner');
         const h = inner instanceof HTMLElement ? inner.scrollHeight : panel.scrollHeight;
-        panel.style.maxHeight = `${Math.min(1200, Math.max(120, h))}px`;
+        panel.style.maxHeight = `${Math.max(120, h)}px`;
+        window.setTimeout(() => {
+          if (panel.classList.contains('ce-expand-panel--open')) {
+            panel.style.maxHeight = 'none';
+          }
+        }, 220);
       } else {
-        panel.style.maxHeight = `${panel.scrollHeight}px`;
+        const inner = panel.querySelector('.ce-expand-panel__inner');
+        const h = inner instanceof HTMLElement ? inner.scrollHeight : panel.scrollHeight;
+        panel.style.maxHeight = `${Math.max(120, h)}px`;
         panel.offsetHeight;
         panel.style.maxHeight = '0px';
         window.setTimeout(() => {
+          panel.classList.remove('ce-expand-panel--open');
           panel.setAttribute('hidden', '');
         }, 180);
       }
@@ -2723,16 +2732,25 @@ wrap.querySelectorAll('[data-catalog-add]').forEach((btn) => {
       const isHidden = panel.hasAttribute('hidden');
       if (isHidden) {
         panel.removeAttribute('hidden');
+        panel.classList.add('ce-expand-panel--open');
         panel.style.maxHeight = '0px';
         panel.offsetHeight;
         const inner = panel.querySelector('.ce-expand-panel__inner');
         const h = inner instanceof HTMLElement ? inner.scrollHeight : panel.scrollHeight;
-        panel.style.maxHeight = `${Math.min(1200, Math.max(120, h))}px`;
+        panel.style.maxHeight = `${Math.max(120, h)}px`;
+        window.setTimeout(() => {
+          if (panel.classList.contains('ce-expand-panel--open')) {
+            panel.style.maxHeight = 'none';
+          }
+        }, 220);
       } else {
-        panel.style.maxHeight = `${panel.scrollHeight}px`;
+        const inner = panel.querySelector('.ce-expand-panel__inner');
+        const h = inner instanceof HTMLElement ? inner.scrollHeight : panel.scrollHeight;
+        panel.style.maxHeight = `${Math.max(120, h)}px`;
         panel.offsetHeight;
         panel.style.maxHeight = '0px';
         window.setTimeout(() => {
+          panel.classList.remove('ce-expand-panel--open');
           panel.setAttribute('hidden', '');
         }, 180);
       }

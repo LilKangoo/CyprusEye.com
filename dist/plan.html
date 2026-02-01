@@ -118,6 +118,7 @@
         max-height:0px;
         transition:max-height .18s ease;
       }
+      body[data-seo-page="plan"] .ce-expand-panel.ce-expand-panel--open{overflow:visible;}
       body[data-seo-page="plan"] .ce-expand-panel__inner{
         margin-top:0.35rem;
         padding:0.6rem;
@@ -212,6 +213,14 @@
         body[data-seo-page="plan"] .ce-catalog-grid{grid-template-columns:1fr;}
         body[data-seo-page="plan"] .ce-catalog-actions{justify-content:space-between;}
         body[data-seo-page="plan"] .ce-catalog-days{flex:1 1 100%;}
+
+        body[data-seo-page="plan"] .ce-day-item-row{flex-direction:column; align-items:stretch;}
+        body[data-seo-page="plan"] .ce-day-item-actions{width:100%; justify-content:stretch;}
+        body[data-seo-page="plan"] .ce-day-item-actions .btn{flex:1 1 auto;}
+        body[data-seo-page="plan"] .ce-day-item-actions .btn.btn-sm{width:100%;}
+        body[data-seo-page="plan"] .ce-expand-btn{font-size:13px; padding:0.6rem 0.7rem;}
+        body[data-seo-page="plan"] .ce-expand-panel__inner{padding:0.75rem;}
+        body[data-seo-page="plan"] .ce-detail-gallery__item img{width:120px; height:84px;}
       }
     </style>
     <meta name="ce-auth" content="on" />
@@ -678,7 +687,7 @@
     <script src="js/poi-loader.js" defer></script>
     <script src="js/languageSwitcher.js"></script>
     <script src="js/languageRefresh.js"></script>
-    <script type="module" src="/js/plan.js?v=20260201c"></script>
+    <script type="module" src="/js/plan.js?v=20260201d"></script>
     <script src="assets/js/modal-auth.js" defer></script>
 
     <dialog id="planBookingDialog" style="border:none; border-radius: 16px; padding:0; width:min(720px, 92vw);">
