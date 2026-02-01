@@ -3157,7 +3157,8 @@ function renderServiceCatalog() {
 
   const renderCatalogTopFilters = () => {
     const { total } = getSavedTotals();
-    const savedLabel = t('plan.ui.catalog.savedOnly', 'Zapisane');
+    const isPolish = currentLang() === 'pl';
+    const savedLabel = t('plan.ui.catalog.savedOnly', isPolish ? 'Zapisane' : 'Saved');
     const on = catalogActiveTab === 'saved' && catalogSavedOnly;
     const savedBtn = `<button type="button" class="btn ${on ? 'btn-primary primary' : ''}" data-catalog-saved-only="1">${escapeHtml(`${savedLabel} (${total})`)}</button>`;
     return `<div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-top:0.5rem;">${savedBtn}</div>`;
@@ -3578,7 +3579,9 @@ function renderServiceCatalog() {
 
               const saved = isCatalogItemSaved({ itemType, refId: x.id });
               const star = saved ? '★' : '☆';
-              const saveLabel = saved ? t('plan.ui.catalog.unsave', 'Zapisane') : t('plan.ui.catalog.save', 'Zapisz');
+              const saveLabel = saved
+                ? t('plan.ui.catalog.unsave', isPolish ? 'Zapisane' : 'Saved')
+                : t('plan.ui.catalog.save', isPolish ? 'Zapisz' : 'Save');
               const saveBtnStyle = saved ? 'background:#22c55e; border-color:#16a34a; color:#fff;' : '';
               const saveBtn = `<button type="button" class="btn btn-sm" style="${saveBtnStyle}" data-catalog-save="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(String(x.id || ''))}">${escapeHtml(saveLabel)} ${star}</button>`;
               const savedStyle = saved ? 'background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.35);' : '';
@@ -3625,7 +3628,10 @@ function renderServiceCatalog() {
 
             const saved = isCatalogItemSaved({ itemType, refId: x.id });
             const star = saved ? '★' : '☆';
-            const saveLabel = saved ? t('plan.ui.catalog.unsave', 'Zapisane') : t('plan.ui.catalog.save', 'Zapisz');
+            const isPolishSave = currentLang() === 'pl';
+            const saveLabel = saved
+              ? t('plan.ui.catalog.unsave', isPolishSave ? 'Zapisane' : 'Saved')
+              : t('plan.ui.catalog.save', isPolishSave ? 'Zapisz' : 'Save');
             const saveBtnStyle = saved ? 'background:#22c55e; border-color:#16a34a; color:#fff;' : '';
             const saveBtn = `<button type="button" class="btn btn-sm" style="${saveBtnStyle}" data-catalog-save="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(String(x.id || ''))}">${escapeHtml(saveLabel)} ${star}</button>`;
             const savedStyle = saved ? 'background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.35);' : '';
@@ -3875,9 +3881,10 @@ function renderServiceCatalog() {
       const refId = btn.getAttribute('data-ref-id') || '';
       toggleCatalogItemSaved({ itemType: type, refId });
       const nowSaved = isCatalogItemSaved({ itemType: type, refId });
+      const isPolish = currentLang() === 'pl';
       const msg = nowSaved
-        ? t('plan.ui.catalog.savedToast', 'Zapisano')
-        : t('plan.ui.catalog.unsavedToast', 'Usunięto z zapisanych');
+        ? t('plan.ui.catalog.savedToast', isPolish ? 'Zapisano' : 'Saved')
+        : t('plan.ui.catalog.unsavedToast', isPolish ? 'Usunięto z zapisanych' : 'Removed from saved');
       showToast(msg, 'success');
       renderServiceCatalog();
     }, { passive: false });
