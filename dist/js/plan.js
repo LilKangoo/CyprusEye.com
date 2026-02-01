@@ -3579,7 +3579,8 @@ function renderServiceCatalog() {
               const saved = isCatalogItemSaved({ itemType, refId: x.id });
               const star = saved ? '★' : '☆';
               const saveLabel = saved ? t('plan.ui.catalog.unsave', 'Zapisane') : t('plan.ui.catalog.save', 'Zapisz');
-              const saveBtn = `<button type="button" class="btn btn-sm ${saved ? 'btn-primary primary' : ''}" data-catalog-save="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(String(x.id || ''))}">${escapeHtml(saveLabel)} ${star}</button>`;
+              const saveBtnStyle = saved ? 'background:#22c55e; border-color:#16a34a; color:#fff;' : '';
+              const saveBtn = `<button type="button" class="btn btn-sm" style="${saveBtnStyle}" data-catalog-save="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(String(x.id || ''))}">${escapeHtml(saveLabel)} ${star}</button>`;
               const savedStyle = saved ? 'background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.35);' : '';
 
               return `
@@ -3625,7 +3626,8 @@ function renderServiceCatalog() {
             const saved = isCatalogItemSaved({ itemType, refId: x.id });
             const star = saved ? '★' : '☆';
             const saveLabel = saved ? t('plan.ui.catalog.unsave', 'Zapisane') : t('plan.ui.catalog.save', 'Zapisz');
-            const saveBtn = `<button type="button" class="btn btn-sm ${saved ? 'btn-primary primary' : ''}" data-catalog-save="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(String(x.id || ''))}">${escapeHtml(saveLabel)} ${star}</button>`;
+            const saveBtnStyle = saved ? 'background:#22c55e; border-color:#16a34a; color:#fff;' : '';
+            const saveBtn = `<button type="button" class="btn btn-sm" style="${saveBtnStyle}" data-catalog-save="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(String(x.id || ''))}">${escapeHtml(saveLabel)} ${star}</button>`;
             const savedStyle = saved ? 'background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.35);' : '';
 
             const price = String(x.price || '').trim();
