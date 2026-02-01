@@ -3168,7 +3168,7 @@ function renderServiceCatalog() {
     if (catalogActiveTab !== 'recommendations') return '';
     const cats = Array.isArray(catalogData.recommendationCategories) ? catalogData.recommendationCategories : [];
     const recs = Array.isArray(catalogData.recommendations) ? catalogData.recommendations : [];
-    if (!cats.length || !recs.length) return '';
+    if (!cats.length) return '';
 
     const lang = currentLang();
     const isPolish = lang === 'pl';
@@ -3179,7 +3179,6 @@ function renderServiceCatalog() {
         const id = c?.id;
         if (!id) return null;
         const count = recs.filter((r) => String(r?.category_id) === String(id)).length;
-        if (!count) return null;
         const name = isPolish ? (c?.name_pl || c?.name_en || '') : (c?.name_en || c?.name_pl || '');
         return { id: String(id), icon: c?.icon || '📍', name, count };
       })
@@ -3886,13 +3885,28 @@ function renderDayMap(dayId, poiItems) {
 
   if (elMap.dataset.inited === '1') return;
   elMap.dataset.inited = '1';
+  try {
+    elMap.style.touchAction = 'pan-y';
+  } catch (_) {}
 
   const first = points[0];
-  const map = L.map(elMap, { zoomControl: true, attributionControl: true }).setView([first.lat, first.lng], 11);
+  const map = L.map(elMap, {
+    zoomControl: true,
+    attributionControl: true,
+    scrollWheelZoom: false,
+    dragging: !(L?.Browser && L.Browser.mobile),
+    tap: false,
+  }).setView([first.lat, first.lng], 11);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
     attribution: '&copy; OpenStreetMap',
   }).addTo(map);
+
+  try {
+    map.on('click', () => {
+      openDayMapOverlay(dayId, poiItems);
+    });
+  } catch (_) {}
 
   const bounds = [];
   for (const p of points) {
