@@ -487,7 +487,7 @@ function renderPlanDaysUi(planId, rows) {
         ? `
           <div style="border-top: 1px solid #e2e8f0; padding-top:0.5rem;">
             <div style="font-size:12px; color:#64748b; margin-bottom:0.25rem;">${escapeHtml(t('plan.ui.days.services', 'Services'))}</div>
-            <div style="display:grid; gap:0.5rem;">
+            <div class="ce-day-dnd-list" data-day-dnd-list="services" data-day-id="${escapeHtml(String(d.id || ''))}" style="display:grid; gap:0.5rem;">
               ${nonPoiServiceItems
                 .map((it) => {
                   const typeLabel = getServiceTypeLabel(it.item_type);
@@ -510,7 +510,7 @@ function renderPlanDaysUi(planId, rows) {
                   const more = src ? renderExpandablePanel({ panelId, type: it.item_type, src, resolved, open: isPanelOpen }) : '';
                   const qa = quickActionsHtml(it, src, resolved);
                   return `
-                    <div class="ce-day-item-row" style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
+                    <div class="ce-day-item-row" draggable="true" data-dnd-item-id="${escapeHtml(String(it.id || ''))}" data-dnd-day-id="${escapeHtml(String(d.id || ''))}" data-dnd-kind="services" style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
                       ${thumb ? `<div style="flex:0 0 auto;">${thumb}</div>` : ''}
                       <div class="ce-day-item-main" style="flex:1 1 auto; min-width:0;">
                         <div style="font-size:12px; color:#64748b;">${escapeHtml(typeLabel)}</div>
@@ -559,7 +559,7 @@ function renderPlanDaysUi(planId, rows) {
                     const more = src ? renderExpandablePanel({ panelId, type: 'poi', src, resolved, open: isPanelOpen }) : '';
                     const qa = quickActionsHtml(it, src, resolved);
                     return `
-                      <div class="ce-day-item-row ce-day-item-row--poi" style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
+                      <div class="ce-day-item-row ce-day-item-row--poi" draggable="true" data-dnd-item-id="${escapeHtml(String(it.id || ''))}" data-dnd-day-id="${escapeHtml(String(d.id || ''))}" data-dnd-kind="pois" style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
                         ${thumb ? `<div style="flex:0 0 auto;">${thumb}</div>` : ''}
                         <div class="ce-day-item-main" style="flex:1 1 auto; min-width:0;">
                           <div style="display:flex; gap:0.5rem; align-items:baseline; flex-wrap:wrap;">
@@ -1231,6 +1231,25 @@ function openDayMapOverlay(dayId, items) {
     return '•';
   };
 
+  const persistMapPointsOrder = async (nextPoints) => {
+    if (!sb || !dayId) return false;
+    const ids = Array.isArray(nextPoints) ? nextPoints.map((p) => String(p?.id || '').trim()).filter(Boolean) : [];
+    if (!ids.length) return true;
+    const base = 1500000;
+    const payloads = ids.map((id, idx) => ({ id, plan_day_id: dayId, sort_order: base + idx * 10 }));
+    try {
+      const { error } = await sb.from('user_plan_items').upsert(payloads);
+      if (error) {
+        showToast(error.message || t('plan.ui.toast.failedToUpdateItem', 'Failed to update item'), 'error');
+        return false;
+      }
+      return true;
+    } catch (e) {
+      showToast(String(e?.message || e || t('plan.ui.toast.failedToUpdateItem', 'Failed to update item')), 'error');
+      return false;
+    }
+  };
+
   listEl.innerHTML = `
     <div class="ce-map-ov__list-head">${escapeHtml(t('plan.ui.days.points', 'Points'))}</div>
     <div class="ce-map-ov__list-items">
@@ -1242,6 +1261,10 @@ function openDayMapOverlay(dayId, items) {
               <span class="ce-map-ov__row-num">${escapeHtml(String(num))}</span>
               <span class="ce-map-ov__row-ico" aria-hidden="true">${escapeHtml(rowIcon(p.type))}</span>
               <span class="ce-map-ov__row-title">${escapeHtml(p.title)}</span>
+              <span class="ce-map-ov__row-move" style="margin-left:auto; display:flex; gap:0.25rem;">
+                <button type="button" class="btn btn-sm" data-ce-map-ov-move="up" data-ce-map-ov-idx="${escapeHtml(String(idx))}" aria-label="${escapeHtml(t('plan.ui.common.moveUp', 'Move up'))}">↑</button>
+                <button type="button" class="btn btn-sm" data-ce-map-ov-move="down" data-ce-map-ov-idx="${escapeHtml(String(idx))}" aria-label="${escapeHtml(t('plan.ui.common.moveDown', 'Move down'))}">↓</button>
+              </span>
             </button>
           `;
         })
@@ -1252,6 +1275,30 @@ function openDayMapOverlay(dayId, items) {
   const onFocusClick = (e) => {
     const t = e.target;
     if (!(t instanceof HTMLElement)) return;
+    const mv = t.closest('[data-ce-map-ov-move]');
+    if (mv instanceof HTMLElement) {
+      e.preventDefault();
+      e.stopPropagation();
+      const dir = String(mv.getAttribute('data-ce-map-ov-move') || '').trim();
+      const idx = Number(mv.getAttribute('data-ce-map-ov-idx'));
+      if (!Number.isFinite(idx)) return;
+      const next = points.slice();
+      const to = dir === 'up' ? idx - 1 : idx + 1;
+      if (to < 0 || to >= next.length) return;
+      const tmp = next[idx];
+      next[idx] = next[to];
+      next[to] = tmp;
+      (async () => {
+        const ok = await persistMapPointsOrder(next);
+        if (!ok) return;
+        await loadPlanDays(currentPlan?.id);
+        const refreshed = Array.isArray(dayItemsByDayId.get(dayId)) ? dayItemsByDayId.get(dayId) : [];
+        const refreshedServices = refreshed.filter((it) => it && it.item_type && it.item_type !== 'note');
+        const refreshedMapItems = refreshedServices.filter((it) => it && (it.item_type === 'poi' || it.item_type === 'recommendation'));
+        openDayMapOverlay(dayId, refreshedMapItems);
+      })();
+      return;
+    }
     const btn = t.closest('[data-ce-map-ov-focus]');
     if (!(btn instanceof HTMLElement)) return;
     const i = Number(btn.getAttribute('data-ce-map-ov-focus'));
