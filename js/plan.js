@@ -548,7 +548,6 @@ function renderPlanDaysUi(planId, rows) {
                   const rangeEnd = it?.data && typeof it.data === 'object' ? Number(it.data.range_end_day_index || 0) : 0;
                   const rangeId = it?.data && typeof it.data === 'object' ? String(it.data.range_id || '') : '';
                   const rangeBadge = rangeId && rangeStart > 0 && rangeEnd > 0 ? ` (${escapeHtml(t('plan.print.day', 'Day'))} ${rangeStart}–${escapeHtml(t('plan.print.day', 'Day'))} ${rangeEnd})` : '';
-                  const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
                   const thumb = image ? `<a href="${escapeHtml(image)}" target="_blank" rel="noopener"><img src="${escapeHtml(image)}" alt="" loading="lazy" style="width:64px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0;" /></a>` : '';
                   const preview = (it.item_type === 'hotel' || it.item_type === 'trip' || it.item_type === 'recommendation') ? '' : (description ? `<div style=\"color:#475569; font-size:12px;\">${escapeHtml(description)}</div>` : '');
                   const more = src ? renderExpandablePanel({ panelId, type: it.item_type, src, resolved, open: isPanelOpen }) : '';
@@ -567,7 +566,6 @@ function renderPlanDaysUi(planId, rows) {
                       <div class="ce-day-item-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
                         <span class="ce-dnd-handle" aria-hidden="true">≡</span>
                         ${qa}
-                        ${link}
                         <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" data-range-id="${escapeHtml(rangeId)}" aria-label="${escapeHtml(t('plan.ui.common.delete', 'Delete'))}">✕</button>
                       </div>
                     </div>
@@ -597,7 +595,6 @@ function renderPlanDaysUi(planId, rows) {
                     const panelId = `ceDayPoiDetail_${String(it.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
                     const isPanelOpen = !!expandedState[panelId];
                     const timeLabel = formatPoiTimeLabel(it);
-                    const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
                     const thumb = image ? `<a href="${escapeHtml(image)}" target="_blank" rel="noopener"><img src="${escapeHtml(image)}" alt="" loading="lazy" style="width:64px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0;" /></a>` : '';
                     const startV = it?.data && typeof it.data === 'object' ? String(it.data.start_time || '') : '';
                     const endV = it?.data && typeof it.data === 'object' ? String(it.data.end_time || '') : '';
@@ -629,7 +626,6 @@ function renderPlanDaysUi(planId, rows) {
                         <div class="ce-day-item-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
                           <span class="ce-dnd-handle" aria-hidden="true">≡</span>
                           ${qa}
-                          ${link}
                           <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" aria-label="${escapeHtml(t('plan.ui.common.delete', 'Delete'))}">✕</button>
                         </div>
                       </div>
@@ -1022,9 +1018,14 @@ function wireTouchDndHandle({ container, row, handle }) {
   };
 
   const findListAtPoint = (x, y) => {
-    const el = document.elementFromPoint(x, y);
-    if (!(el instanceof HTMLElement)) return null;
-    return el.closest('[data-day-dnd-list]');
+    try {
+      if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+      const el = document.elementFromPoint(x, y);
+      if (!(el instanceof HTMLElement)) return null;
+      return el.closest('[data-day-dnd-list]');
+    } catch (_) {
+      return null;
+    }
   };
 
   const move = (x, y) => {
@@ -1034,18 +1035,24 @@ function wireTouchDndHandle({ container, row, handle }) {
     const kind = String(list.getAttribute('data-day-dnd-list') || '').trim();
     if (!kind || kind !== cePlanDndState.kind) return;
 
-    const targetRow = (document.elementFromPoint(x, y) instanceof HTMLElement)
-      ? document.elementFromPoint(x, y).closest('[data-dnd-item-id]')
-      : null;
+    let at = null;
+    try {
+      at = document.elementFromPoint(x, y);
+    } catch (_) {
+      at = null;
+    }
+    const targetRow = (at instanceof HTMLElement) ? at.closest('[data-dnd-item-id]') : null;
     if (!(targetRow instanceof HTMLElement) || targetRow === row) {
       if (row.parentElement === list) list.appendChild(row);
       else list.appendChild(row);
       return;
     }
-    const rect = targetRow.getBoundingClientRect();
-    const before = y < rect.top + rect.height / 2;
-    if (before) list.insertBefore(row, targetRow);
-    else list.insertBefore(row, targetRow.nextSibling);
+    try {
+      const rect = targetRow.getBoundingClientRect();
+      const before = y < rect.top + rect.height / 2;
+      if (before) list.insertBefore(row, targetRow);
+      else list.insertBefore(row, targetRow.nextSibling);
+    } catch (_) {}
   };
 
   const end = async (x, y) => {
