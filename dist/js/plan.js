@@ -634,6 +634,7 @@ function renderPlanDaysUi(planId, rows) {
             <button type="button" class="btn btn-sm" data-day-quick-add="hotel" data-day-id="${d.id}">${escapeHtml(t('plan.ui.days.addHotel', 'Add hotel'))}</button>
             <button type="button" class="btn btn-sm" data-day-quick-add="car" data-day-id="${d.id}">${escapeHtml(t('plan.ui.days.addCar', 'Add car'))}</button>
             <button type="button" class="btn btn-sm" data-day-quick-add="pois" data-day-id="${d.id}">${escapeHtml(t('plan.ui.days.addPlaces', 'Add places'))}</button>
+            <button type="button" class="btn btn-sm" data-day-map-open="${d.id}">🗺️ ${escapeHtml(t('plan.ui.days.map', 'Map'))}</button>
           </div>
           <div style="margin-top:0.5rem; display:grid; gap:0.5rem;">
             <div style="display:grid; gap:0.25rem;">
@@ -823,6 +824,266 @@ function renderPlanDaysUi(planId, rows) {
   });
 
   renderPlanCostSummary();
+
+  container.querySelectorAll('[data-day-map-open]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const dayId = btn.getAttribute('data-day-map-open');
+      if (!dayId) return;
+      const items = Array.isArray(dayItemsByDayId.get(dayId)) ? dayItemsByDayId.get(dayId) : [];
+      const serviceItems = items.filter((it) => it && it.item_type && it.item_type !== 'note');
+      const mapItems = serviceItems.filter((it) => it && (it.item_type === 'poi' || it.item_type === 'recommendation'));
+      openDayMapOverlay(dayId, mapItems);
+    });
+  });
+}
+
+let ceDayMapOverlayState = { map: null, markers: [], watchId: null, userMarker: null, lastUserLatLng: null };
+
+function ensureDayMapOverlay() {
+  if (typeof document === 'undefined') return null;
+  let root = document.getElementById('ceDayMapOverlay');
+  if (root) return root;
+  root = document.createElement('div');
+  root.id = 'ceDayMapOverlay';
+  root.hidden = true;
+  root.innerHTML = `
+    <div class="ce-map-ov__backdrop" data-ce-map-ov-close="1"></div>
+    <div class="ce-map-ov__panel" role="dialog" aria-modal="true">
+      <div class="ce-map-ov__top">
+        <div class="ce-map-ov__title" data-ce-map-ov-title="1"></div>
+        <div class="ce-map-ov__actions">
+          <button type="button" class="btn btn-sm" data-ce-map-ov-locate="1">📍</button>
+          <button type="button" class="btn btn-sm" data-ce-map-ov-recenter="1">🎯</button>
+          <button type="button" class="btn btn-sm" data-ce-map-ov-close="1">✕</button>
+        </div>
+      </div>
+      <div class="ce-map-ov__body">
+        <div class="ce-map-ov__map" id="ceDayMapOverlayMap"></div>
+        <div class="ce-map-ov__list" id="ceDayMapOverlayList"></div>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(root);
+  return root;
+}
+
+function closeDayMapOverlay() {
+  const root = document.getElementById('ceDayMapOverlay');
+  if (!(root instanceof HTMLElement)) return;
+  root.hidden = true;
+  document.body.classList.remove('ce-map-ov-open');
+  if (ceDayMapOverlayState.watchId != null && typeof navigator !== 'undefined' && navigator.geolocation) {
+    try {
+      navigator.geolocation.clearWatch(ceDayMapOverlayState.watchId);
+    } catch (_) {
+    }
+  }
+  ceDayMapOverlayState.watchId = null;
+}
+
+function openDayMapOverlay(dayId, items) {
+  const root = ensureDayMapOverlay();
+  if (!(root instanceof HTMLElement)) return;
+
+  const titleEl = root.querySelector('[data-ce-map-ov-title]');
+  const dayModel = planDaysById.get(dayId) || {};
+  const dayWord = t('plan.ui.common.day', 'Day');
+  const label = dayModel?.date ? `${dayWord} ${dayModel?.day_index} · ${dayModel?.date}` : `${dayWord} ${dayModel?.day_index || ''}`.trim();
+  if (titleEl instanceof HTMLElement) titleEl.textContent = label;
+
+  root.hidden = false;
+  document.body.classList.add('ce-map-ov-open');
+
+  const mapEl = root.querySelector('#ceDayMapOverlayMap');
+  const listEl = root.querySelector('#ceDayMapOverlayList');
+  if (!(mapEl instanceof HTMLElement) || !(listEl instanceof HTMLElement)) return;
+
+  const points = (items || [])
+    .map((it) => {
+      const ll = getMapLatLngForItem(it);
+      if (!ll) return null;
+      const resolved = resolveItemDisplay(it);
+      const type = String(it?.item_type || '').trim();
+      const title = String(resolved?.title || '').trim() || (type === 'poi' ? t('plan.ui.days.placeFallback', 'Place') : t('plan.ui.common.item', 'Item'));
+      return { id: String(it?.id || ''), type, title, lat: ll.lat, lng: ll.lng };
+    })
+    .filter(Boolean);
+
+  if (!points.length) {
+    listEl.innerHTML = `<div style="color:#64748b; padding:0.75rem;">${escapeHtml(t('plan.ui.days.noMapPoints', 'No map points for this day.'))}</div>`;
+    return;
+  }
+
+  const first = points[0];
+  const ensureMap = () => {
+    try {
+      if (typeof L === 'undefined') return null;
+    } catch (_) {
+      return null;
+    }
+    if (ceDayMapOverlayState.map) return ceDayMapOverlayState.map;
+    const map = L.map(mapEl, { zoomControl: true, attributionControl: true });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap',
+    }).addTo(map);
+    ceDayMapOverlayState.map = map;
+    return map;
+  };
+
+  const map = ensureMap();
+  if (!map) return;
+  map.setView([first.lat, first.lng], 12);
+  window.setTimeout(() => {
+    try {
+      map.invalidateSize();
+    } catch (_) {
+    }
+  }, 120);
+
+  for (const m of ceDayMapOverlayState.markers) {
+    try {
+      map.removeLayer(m);
+    } catch (_) {
+    }
+  }
+  ceDayMapOverlayState.markers = [];
+
+  const bounds = [];
+  points.forEach((p, idx) => {
+    const num = idx + 1;
+    const icon = L.divIcon({
+      className: 'ce-map-ov__pin',
+      html: `<div class="ce-map-ov__pin-inner">${num}</div>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
+    });
+    const marker = L.marker([p.lat, p.lng], { icon }).addTo(map);
+    marker.bindPopup(escapeHtml(p.title));
+    ceDayMapOverlayState.markers.push(marker);
+    bounds.push([p.lat, p.lng]);
+  });
+  if (bounds.length > 1) {
+    try {
+      map.fitBounds(bounds, { padding: [30, 30] });
+    } catch (_) {
+    }
+  }
+
+  const rowIcon = (type) => {
+    if (type === 'poi') return '📌';
+    if (type === 'recommendation') return '⭐';
+    return '•';
+  };
+
+  listEl.innerHTML = `
+    <div class="ce-map-ov__list-head">${escapeHtml(t('plan.ui.days.points', 'Points'))}</div>
+    <div class="ce-map-ov__list-items">
+      ${points
+        .map((p, idx) => {
+          const num = idx + 1;
+          return `
+            <button type="button" class="ce-map-ov__row" data-ce-map-ov-focus="${escapeHtml(String(idx))}">
+              <span class="ce-map-ov__row-num">${escapeHtml(String(num))}</span>
+              <span class="ce-map-ov__row-ico" aria-hidden="true">${escapeHtml(rowIcon(p.type))}</span>
+              <span class="ce-map-ov__row-title">${escapeHtml(p.title)}</span>
+            </button>
+          `;
+        })
+        .join('')}
+    </div>
+  `;
+
+  const onFocusClick = (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLElement)) return;
+    const btn = t.closest('[data-ce-map-ov-focus]');
+    if (!(btn instanceof HTMLElement)) return;
+    const i = Number(btn.getAttribute('data-ce-map-ov-focus'));
+    if (!Number.isFinite(i) || i < 0 || i >= points.length) return;
+    const p = points[i];
+    try {
+      map.setView([p.lat, p.lng], Math.max(14, map.getZoom() || 14), { animate: true });
+      const marker = ceDayMapOverlayState.markers[i];
+      if (marker) marker.openPopup();
+    } catch (_) {
+    }
+  };
+  listEl.onclick = onFocusClick;
+
+  const closeBtns = root.querySelectorAll('[data-ce-map-ov-close]');
+  closeBtns.forEach((b) => {
+    b.onclick = () => closeDayMapOverlay();
+  });
+
+  const recenterBtn = root.querySelector('[data-ce-map-ov-recenter]');
+  if (recenterBtn instanceof HTMLElement) {
+    recenterBtn.onclick = () => {
+      try {
+        if (bounds.length > 1) map.fitBounds(bounds, { padding: [30, 30] });
+        else map.setView([first.lat, first.lng], 13, { animate: true });
+      } catch (_) {
+      }
+    };
+  }
+
+  const locateBtn = root.querySelector('[data-ce-map-ov-locate]');
+  if (locateBtn instanceof HTMLElement) {
+    locateBtn.onclick = () => {
+      startUserLocationWatch(map);
+      if (ceDayMapOverlayState.lastUserLatLng) {
+        const u = ceDayMapOverlayState.lastUserLatLng;
+        try {
+          map.setView([u.lat, u.lng], Math.max(15, map.getZoom() || 15), { animate: true });
+        } catch (_) {
+        }
+      }
+    };
+  }
+}
+
+function startUserLocationWatch(map) {
+  if (!map) return;
+  if (ceDayMapOverlayState.watchId != null) return;
+  if (typeof navigator === 'undefined' || !navigator.geolocation) return;
+
+  const icon = (typeof L !== 'undefined')
+    ? L.divIcon({
+      className: 'ce-map-ov__me',
+      html: `<div class="ce-map-ov__me-avatar">🧭</div>`,
+      iconSize: [34, 34],
+      iconAnchor: [17, 17],
+    })
+    : null;
+
+  const ensureMarker = (lat, lng) => {
+    ceDayMapOverlayState.lastUserLatLng = { lat, lng };
+    if (!icon) return;
+    if (!ceDayMapOverlayState.userMarker) {
+      ceDayMapOverlayState.userMarker = L.marker([lat, lng], { icon }).addTo(map);
+      return;
+    }
+    try {
+      ceDayMapOverlayState.userMarker.setLatLng([lat, lng]);
+    } catch (_) {
+    }
+  };
+
+  try {
+    const id = navigator.geolocation.watchPosition(
+      (pos) => {
+        const lat = pos?.coords?.latitude;
+        const lng = pos?.coords?.longitude;
+        if (typeof lat !== 'number' || typeof lng !== 'number') return;
+        ensureMarker(lat, lng);
+      },
+      () => {
+      },
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 12000 }
+    );
+    ceDayMapOverlayState.watchId = id;
+  } catch (_) {
+  }
 }
 
 function safeUuid() {
