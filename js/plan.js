@@ -389,6 +389,8 @@ let planDaysById = new Map();
 let catalogActiveTab = 'trips';
 let catalogSearch = '';
 let recommendationsCategoryFilter = '';
+let catalogSavedOnly = false;
+let recommendationsDiscountOnly = false;
 let catalogLoadedForPlanId = null;
 let catalogLangWired = false;
 
@@ -396,6 +398,63 @@ let lastSelectedDayIdForCatalog = '';
 
 let hotelAmenitiesMap = {};
 let hotelAmenitiesLoaded = false;
+
+function savedCatalogStorageKey() {
+  let uid = '';
+  try {
+    uid = String(window?.CE_STATE?.session?.user?.id || '').trim();
+  } catch (_) {
+    uid = '';
+  }
+  if (!uid) uid = 'anon';
+  return `ce_plan_catalog_saved_v1_${uid}`;
+}
+
+function loadSavedCatalogMap() {
+  try {
+    const raw = localStorage.getItem(savedCatalogStorageKey());
+    const parsed = raw ? JSON.parse(raw) : null;
+    if (!parsed || typeof parsed !== 'object') return {};
+    return parsed;
+  } catch (_) {
+    return {};
+  }
+}
+
+function saveSavedCatalogMap(map) {
+  try {
+    localStorage.setItem(savedCatalogStorageKey(), JSON.stringify(map || {}));
+  } catch (_) {}
+}
+
+function isCatalogItemSaved({ itemType, refId }) {
+  const type = String(itemType || '').trim();
+  const id = String(refId || '').trim();
+  if (!type || !id) return false;
+  const m = loadSavedCatalogMap();
+  const arr = Array.isArray(m[type]) ? m[type] : [];
+  return arr.includes(id);
+}
+
+function toggleCatalogItemSaved({ itemType, refId }) {
+  const type = String(itemType || '').trim();
+  const id = String(refId || '').trim();
+  if (!type || !id) return false;
+  const m = loadSavedCatalogMap();
+  const arr = Array.isArray(m[type]) ? m[type].slice() : [];
+  const idx = arr.indexOf(id);
+  let nextSaved = false;
+  if (idx >= 0) {
+    arr.splice(idx, 1);
+    nextSaved = false;
+  } else {
+    arr.push(id);
+    nextSaved = true;
+  }
+  m[type] = arr;
+  saveSavedCatalogMap(m);
+  return nextSaved;
+}
 
 async function loadHotelAmenitiesForDisplay() {
   if (!sb || hotelAmenitiesLoaded) return;
@@ -726,6 +785,17 @@ function renderPlanDaysUi(planId, rows) {
       } else {
         if (statusEl instanceof HTMLElement) statusEl.textContent = t('plan.ui.status.error', 'Error.');
       }
+    });
+  });
+
+  wrap.querySelectorAll('[data-catalog-save]').forEach((btn) => {
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const type = btn.getAttribute('data-item-type') || '';
+      const refId = btn.getAttribute('data-ref-id') || '';
+      toggleCatalogItemSaved({ itemType: type, refId });
+      renderServiceCatalog();
     });
   });
 
@@ -3088,6 +3158,12 @@ function renderServiceCatalog() {
     return String(text || '').toLowerCase().includes(q);
   };
 
+  const renderCatalogTopFilters = () => {
+    const savedLabel = t('plan.ui.catalog.savedOnly', 'Saved');
+    const savedBtn = `<button type="button" class="btn ${catalogSavedOnly ? 'btn-primary primary' : ''}" data-catalog-saved-only="1">${escapeHtml(savedLabel)}</button>`;
+    return `<div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-top:0.5rem;">${savedBtn}</div>`;
+  };
+
   const renderRecommendationsFilters = () => {
     if (catalogActiveTab !== 'recommendations') return '';
     const cats = Array.isArray(catalogData.recommendationCategories) ? catalogData.recommendationCategories : [];
@@ -3113,14 +3189,18 @@ function renderServiceCatalog() {
 
     const clearLabel = t('recommendations.home.filters.clear', 'Wyczyść filtry');
     const titleLabel = t('recommendations.home.filters.title', 'Wybierz kategorię');
+    const discountOnlyLabel = t('plan.ui.recommendations.discountOnly', 'Discount only');
 
     return `
       <div class="filters-container" style="background: white; border-radius: 16px; padding: 14px 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.06); margin: 14px 0 18px;">
         <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; margin-bottom: 10px;">
           <div style="font-size: 14px; font-weight: 700; color:#111827;">${escapeHtml(titleLabel)}</div>
-          <button type="button" class="btn-text" data-rec-clear="1" style="${active ? '' : 'display:none;'} background:none; border:none; color:#667eea; font-weight:600; cursor:pointer; font-size: 13px; padding: 6px 10px; border-radius: 8px;">
-            ${escapeHtml(clearLabel)}
-          </button>
+          <div style="display:flex; gap:0.5rem; align-items:center;">
+            <button type="button" class="btn ${recommendationsDiscountOnly ? 'btn-primary primary' : ''}" data-rec-discount-only="1">${escapeHtml(discountOnlyLabel)}</button>
+            <button type="button" class="btn-text" data-rec-clear="1" style="${active || recommendationsDiscountOnly ? '' : 'display:none;'} background:none; border:none; color:#667eea; font-weight:600; cursor:pointer; font-size: 13px; padding: 6px 10px; border-radius: 8px;">
+              ${escapeHtml(clearLabel)}
+            </button>
+          </div>
         </div>
         <div class="filters-grid" id="planRecommendationsCategories" style="display:flex; flex-wrap:wrap; gap:8px;">
           ${items
@@ -3228,6 +3308,15 @@ function renderServiceCatalog() {
         if (!activeCat) return true;
         return String(r?.category_id) === activeCat;
       })
+      .filter((r) => {
+        if (!recommendationsDiscountOnly) return true;
+        const lang = currentLang();
+        const isPolish = lang === 'pl';
+        const discount = isPolish
+          ? (r?.discount_text_pl || r?.discount_text_en || '')
+          : (r?.discount_text_en || r?.discount_text_pl || '');
+        return !!String(discount || '').trim();
+      })
       .map((r) => {
         const cat = catLookup.get(String(r?.category_id || '')) || r?.recommendation_categories || {};
         const catName = isPolish ? (cat?.name_pl || cat?.name_en || '') : (cat?.name_en || cat?.name_pl || '');
@@ -3263,6 +3352,13 @@ function renderServiceCatalog() {
         };
       })
       .filter((x) => matches(`${x.title} ${x.subtitle} ${x.description}`));
+  }
+
+  if (catalogSavedOnly) {
+    list = list.filter((x) => {
+      const type = catalogActiveTab === 'recommendations' ? 'recommendation' : catalogActiveTab.slice(0, -1);
+      return isCatalogItemSaved({ itemType: type, refId: x?.id });
+    });
   }
 
   const rowsHtml = list.length
@@ -3345,6 +3441,10 @@ function renderServiceCatalog() {
                 ? `<img src="${escapeHtml(x.image)}" alt="" loading="lazy" class="rec-card-image" style="width:100%; height:120px; object-fit:cover; border-radius:10px; border:1px solid #e2e8f0; margin-bottom: 0.5rem;" />`
                 : '';
 
+              const saved = isCatalogItemSaved({ itemType, refId: x.id });
+              const saveLabel = saved ? t('plan.ui.catalog.unsave', 'Saved') : t('plan.ui.catalog.save', 'Save');
+              const saveBtn = `<button type="button" class="btn btn-sm ${saved ? 'btn-primary primary' : ''}" data-catalog-save="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(String(x.id || ''))}">${escapeHtml(saveLabel)} ★</button>`;
+
               return `
                 <div class="card ce-catalog-tile" style="padding:0.65rem; border:1px solid #e2e8f0;" data-rec-card="1">
                   ${img}
@@ -3358,6 +3458,7 @@ function renderServiceCatalog() {
                     ${mapsBtn}
                     ${link}
                     ${dayPickWrap}
+                    ${saveBtn}
                     <button type="button" class="btn btn-sm btn-primary primary ce-catalog-add" ${addAttr}${poiAttrs}>${addLabel}</button>
                   </div>
                 </div>
@@ -3384,6 +3485,15 @@ function renderServiceCatalog() {
             const more = raw ? renderExpandablePanel({ panelId, type: itemType, src: raw, resolved: x }) : '';
             const showSubtitleMeta = catalogActiveTab !== 'pois';
 
+            const saved = isCatalogItemSaved({ itemType, refId: x.id });
+            const saveLabel = saved ? t('plan.ui.catalog.unsave', 'Saved') : t('plan.ui.catalog.save', 'Save');
+            const saveBtn = `<button type="button" class="btn btn-sm ${saved ? 'btn-primary primary' : ''}" data-catalog-save="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(String(x.id || ''))}">${escapeHtml(saveLabel)} ★</button>`;
+
+            const price = String(x.price || '').trim();
+            const priceHtml = price
+              ? `<div style="font-size:12px; color:#64748b;">${escapeHtml(isRange ? `${t('plan.ui.catalog.from', 'From')} ${price}` : price)}</div>`
+              : '';
+
             return `
               <div class="card ce-catalog-tile" style="padding:0.65rem; border:1px solid #e2e8f0;">
                 ${img}
@@ -3394,8 +3504,9 @@ function renderServiceCatalog() {
                 </div>
                 ${preview}
                 ${more}
-                <div class="ce-catalog-actions">
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; justify-content:flex-end;">
                   ${link}
+                  ${saveBtn}
                   ${dayPickWrap}
                   <button type="button" class="btn btn-sm btn-primary primary ce-catalog-add" ${addAttr}${poiAttrs}>${addLabel}</button>
                 </div>
@@ -3407,6 +3518,7 @@ function renderServiceCatalog() {
     : `<div style="color:#64748b;">${escapeHtml(t('plan.ui.catalog.noServices', 'No services found.'))}</div>`;
 
   const recFiltersHtml = renderRecommendationsFilters();
+  const topFiltersHtml = renderCatalogTopFilters();
 
   wrap.innerHTML = `
     <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
@@ -3420,6 +3532,7 @@ function renderServiceCatalog() {
       <input id="planCatalogSearch" type="text" value="${escapeHtml(catalogSearch)}" placeholder="${escapeHtml(t('plan.ui.catalog.searchPlaceholder', 'Search…'))}" style="max-width:280px;" />
       <button type="button" class="btn" data-catalog-refresh="1">${escapeHtml(t('plan.actions.refresh', 'Refresh'))}</button>
     </div>
+    ${topFiltersHtml}
     <div class="ce-catalog-results" style="margin-top:0.75rem;">
       ${recFiltersHtml}
       ${rowsHtml}
@@ -3451,9 +3564,26 @@ function renderServiceCatalog() {
     if (clearBtn instanceof HTMLElement) {
       clearBtn.addEventListener('click', () => {
         recommendationsCategoryFilter = '';
+        recommendationsDiscountOnly = false;
         renderServiceCatalog();
       });
     }
+
+    const discBtn = wrap.querySelector('[data-rec-discount-only]');
+    if (discBtn instanceof HTMLElement) {
+      discBtn.addEventListener('click', () => {
+        recommendationsDiscountOnly = !recommendationsDiscountOnly;
+        renderServiceCatalog();
+      });
+    }
+  }
+
+  const savedOnlyBtn = wrap.querySelector('[data-catalog-saved-only]');
+  if (savedOnlyBtn instanceof HTMLElement) {
+    savedOnlyBtn.addEventListener('click', () => {
+      catalogSavedOnly = !catalogSavedOnly;
+      renderServiceCatalog();
+    });
   }
 
   const searchEl = wrap.querySelector('#planCatalogSearch');
