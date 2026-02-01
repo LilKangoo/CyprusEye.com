@@ -211,8 +211,12 @@
         body[data-seo-page="plan"] .ce-detail-row{grid-template-columns:minmax(72px, 92px) minmax(0, 1fr); gap:0.45rem;}
         body[data-seo-page="plan"] .ce-detail-row__k{font-size:10px;}
         body[data-seo-page="plan"] .ce-detail-row__v{font-size:12px; overflow-wrap:break-word; word-break:normal;}
-        body[data-seo-page="plan"] .ce-detail-chips{display:grid; grid-template-columns:repeat(2, minmax(0, 1fr));}
-        body[data-seo-page="plan"] .ce-detail-chip{font-size:10px; padding:0.18rem 0.4rem; text-align:center;}
+        body[data-seo-page="plan"] .ce-detail-chips{display:grid; grid-template-columns:1fr; gap:0.3rem;}
+        body[data-seo-page="plan"] .ce-detail-chip{font-size:11px; padding:0.35rem 0.55rem; text-align:left; border-radius:12px; background:rgba(241,245,249,.8);}
+        body[data-seo-page="plan"] .ce-detail-row__v .ce-detail-chips,
+        body[data-seo-page="plan"] .ce-detail-row__v .ce-detail-chip{overflow-wrap:normal; word-break:normal; hyphens:none;}
+
+        body[data-seo-page="plan"] .ce-detail-row__v .ce-detail-chip{border-color:rgba(148,163,184,.45);}
 
         body[data-seo-page="plan"] .planner-sidebar,
         body[data-seo-page="plan"] .planner-content{min-width:0 !important;}
@@ -243,6 +247,12 @@
         body[data-seo-page="plan"] .ce-expand-btn{font-size:13px; padding:0.6rem 0.7rem;}
         body[data-seo-page="plan"] .ce-expand-panel__inner{padding:0.75rem;}
         body[data-seo-page="plan"] .ce-detail-gallery__item img{width:120px; height:84px;}
+      }
+
+      @media (max-width: 420px){
+        body[data-seo-page="plan"] .planner-shell{margin:0 !important; border-radius:0; border-left:none; border-right:none;}
+        body[data-seo-page="plan"] .planner-sidebar,
+        body[data-seo-page="plan"] .planner-content{padding:.65rem !important;}
       }
     </style>
     <meta name="ce-auth" content="on" />
