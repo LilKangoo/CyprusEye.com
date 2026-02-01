@@ -530,7 +530,7 @@ function renderPlanDaysUi(planId, rows) {
         ? `
           <div style="border-top: 1px solid #e2e8f0; padding-top:0.5rem;">
             <div style="font-size:12px; color:#64748b; margin-bottom:0.25rem;">${escapeHtml(t('plan.ui.days.services', 'Services'))}</div>
-            <div style="display:grid; gap:0.5rem;">
+            <div class="ce-day-dnd-list" data-day-dnd-list="services" data-day-id="${escapeHtml(String(d.id || ''))}" style="display:grid; gap:0.5rem;">
               ${nonPoiServiceItems
                 .map((it) => {
                   const typeLabel = getServiceTypeLabel(it.item_type);
@@ -554,7 +554,7 @@ function renderPlanDaysUi(planId, rows) {
                   const more = src ? renderExpandablePanel({ panelId, type: it.item_type, src, resolved, open: isPanelOpen }) : '';
                   const qa = quickActionsHtml(it, src, resolved);
                   return `
-                    <div class="ce-day-item-row" style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
+                    <div class="ce-day-item-row" draggable="true" data-dnd-item-id="${escapeHtml(String(it.id || ''))}" data-dnd-day-id="${escapeHtml(String(d.id || ''))}" data-dnd-kind="services" style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
                       ${thumb ? `<div style="flex:0 0 auto;">${thumb}</div>` : ''}
                       <div class="ce-day-item-main" style="flex:1 1 auto; min-width:0;">
                         <div style="font-size:12px; color:#64748b;">${escapeHtml(typeLabel)}</div>
@@ -565,6 +565,7 @@ function renderPlanDaysUi(planId, rows) {
                         ${price ? `<div style=\"color:#0f172a; font-size:12px;\">${escapeHtml(price)}</div>` : ''}
                       </div>
                       <div class="ce-day-item-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
+                        <span class="ce-dnd-handle" aria-hidden="true">≡</span>
                         ${qa}
                         ${link}
                         <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" data-range-id="${escapeHtml(rangeId)}" aria-label="${escapeHtml(t('plan.ui.common.delete', 'Delete'))}">✕</button>
@@ -580,19 +581,11 @@ function renderPlanDaysUi(planId, rows) {
 
       const poiHtml = poiItems.length
         ? (() => {
-          const sorted = [...poiItems].sort((a, b) => {
-            const am = parseTimeToMinutes(a?.data?.start_time);
-            const bm = parseTimeToMinutes(b?.data?.start_time);
-            if (am == null && bm == null) return 0;
-            if (am == null) return 1;
-            if (bm == null) return -1;
-            return am - bm;
-          });
-
+          const sorted = [...poiItems];
           return `
             <div style="border-top: 1px solid #e2e8f0; padding-top:0.5rem;">
               <div style="font-size:12px; color:#64748b; margin-bottom:0.25rem;">${escapeHtml(t('plan.ui.days.placesSchedule', 'Places (schedule)'))}</div>
-              <div style="display:grid; gap:0.5rem;">
+              <div class="ce-day-dnd-list" data-day-dnd-list="pois" data-day-id="${escapeHtml(String(d.id || ''))}" style="display:grid; gap:0.5rem;">
                 ${sorted
                   .map((it) => {
                     const resolved = resolveItemDisplay(it);
@@ -612,7 +605,7 @@ function renderPlanDaysUi(planId, rows) {
                     const more = src ? renderExpandablePanel({ panelId, type: 'poi', src, resolved, open: isPanelOpen }) : '';
                     const qa = quickActionsHtml(it, src, resolved);
                     return `
-                      <div class="ce-day-item-row ce-day-item-row--poi" style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
+                      <div class="ce-day-item-row ce-day-item-row--poi" draggable="true" data-dnd-item-id="${escapeHtml(String(it.id || ''))}" data-dnd-day-id="${escapeHtml(String(d.id || ''))}" data-dnd-kind="pois" style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
                         ${thumb ? `<div style="flex:0 0 auto;">${thumb}</div>` : ''}
                         <div class="ce-day-item-main" style="flex:1 1 auto; min-width:0;">
                           <div style="display:flex; gap:0.5rem; align-items:baseline; flex-wrap:wrap;">
@@ -634,6 +627,7 @@ function renderPlanDaysUi(planId, rows) {
                           </div>
                         </div>
                         <div class="ce-day-item-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
+                          <span class="ce-dnd-handle" aria-hidden="true">≡</span>
                           ${qa}
                           ${link}
                           <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" aria-label="${escapeHtml(t('plan.ui.common.delete', 'Delete'))}">✕</button>
@@ -650,12 +644,13 @@ function renderPlanDaysUi(planId, rows) {
 
       const itemsHtml = noteItems.length
         ? `
-          <div style="margin-top:0.5rem; display:grid; gap:0.5rem;">
+          <div class="ce-day-dnd-list" data-day-dnd-list="notes" data-day-id="${escapeHtml(String(d.id || ''))}" style="margin-top:0.5rem; display:grid; gap:0.5rem;">
             ${noteItems
               .map((it) => {
                 const text = it?.data && typeof it.data === 'object' ? String(it.data.text || '').trim() : '';
                 return `
-                  <div style="display:flex; gap:0.5rem; align-items:flex-start;">
+                  <div class="ce-day-item-row ce-day-item-row--note" draggable="true" data-dnd-item-id="${escapeHtml(String(it.id || ''))}" data-dnd-day-id="${escapeHtml(String(d.id || ''))}" data-dnd-kind="notes" style="display:flex; gap:0.5rem; align-items:flex-start;">
+                    <span class="ce-dnd-handle" aria-hidden="true" style="margin-top:2px;">≡</span>
                     <div style="flex:1 1 auto; color:#475569;">${escapeHtml(text)}</div>
                     <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" aria-label="${escapeHtml(t('plan.ui.common.delete', 'Delete'))}">✕</button>
                   </div>
@@ -880,9 +875,252 @@ function renderPlanDaysUi(planId, rows) {
       openDayMapOverlay(dayId, mapItems);
     });
   });
+
+  wirePlanItemsDragDrop(container);
 }
 
-let ceDayMapOverlayState = { map: null, markers: [], watchId: null, userMarker: null, lastUserLatLng: null };
+let cePlanDndState = { draggingId: '', fromDayId: '', kind: '', el: null };
+
+function dndSortBase(kind) {
+  if (kind === 'notes') return 0;
+  if (kind === 'services') return 1000000;
+  if (kind === 'pois') return 2000000;
+  return 1000000;
+}
+
+async function persistDndListOrder({ dayId, kind, listEl }) {
+  if (!sb || !dayId || !(listEl instanceof HTMLElement)) return false;
+  const rows = Array.from(listEl.querySelectorAll('[data-dnd-item-id]'));
+  const ids = rows
+    .map((r) => (r instanceof HTMLElement ? String(r.getAttribute('data-dnd-item-id') || '').trim() : ''))
+    .filter(Boolean);
+  const base = dndSortBase(kind);
+  const payloads = ids.map((id, idx) => ({ id, plan_day_id: dayId, sort_order: base + idx * 10 }));
+  if (!payloads.length) return true;
+  try {
+    const { error } = await sb.from('user_plan_items').upsert(payloads);
+    if (error) {
+      showToast(error.message || t('plan.ui.toast.failedToUpdateItem', 'Failed to update item'), 'error');
+      return false;
+    }
+    return true;
+  } catch (e) {
+    showToast(String(e?.message || e || t('plan.ui.toast.failedToUpdateItem', 'Failed to update item')), 'error');
+    return false;
+  }
+}
+
+function wirePlanItemsDragDrop(container) {
+  if (!(container instanceof HTMLElement)) return;
+
+  container.querySelectorAll('[data-dnd-item-id]').forEach((row) => {
+    if (!(row instanceof HTMLElement)) return;
+    const handle = row.querySelector('.ce-dnd-handle');
+    if (handle instanceof HTMLElement) {
+      wireTouchDndHandle({ container, row, handle });
+    }
+    row.addEventListener('dragstart', (e) => {
+      const id = String(row.getAttribute('data-dnd-item-id') || '').trim();
+      const dayId = String(row.getAttribute('data-dnd-day-id') || '').trim();
+      const kind = String(row.getAttribute('data-dnd-kind') || '').trim();
+      if (!id || !dayId || !kind) return;
+      cePlanDndState = { draggingId: id, fromDayId: dayId, kind, el: row };
+      row.classList.add('ce-dnd-dragging');
+      try {
+        if (e && e.dataTransfer) {
+          e.dataTransfer.effectAllowed = 'move';
+          e.dataTransfer.setData('text/plain', id);
+        }
+      } catch (_) {}
+    });
+
+    row.addEventListener('dragend', () => {
+      row.classList.remove('ce-dnd-dragging');
+      cePlanDndState = { draggingId: '', fromDayId: '', kind: '', el: null };
+    });
+  });
+
+  container.querySelectorAll('[data-day-dnd-list]').forEach((list) => {
+    if (!(list instanceof HTMLElement)) return;
+    list.addEventListener('dragleave', () => {
+      list.classList.remove('ce-dnd-over');
+    });
+    list.addEventListener('dragover', (e) => {
+      if (!cePlanDndState.draggingId) return;
+      const kind = String(list.getAttribute('data-day-dnd-list') || '').trim();
+      if (kind !== cePlanDndState.kind) return;
+      e.preventDefault();
+      list.classList.add('ce-dnd-over');
+      try {
+        if (e.dataTransfer) e.dataTransfer.dropEffect = 'move';
+      } catch (_) {}
+
+      const draggingEl = cePlanDndState.el;
+      if (!(draggingEl instanceof HTMLElement)) return;
+
+      const targetRow = (e.target instanceof HTMLElement) ? e.target.closest('[data-dnd-item-id]') : null;
+      if (!(targetRow instanceof HTMLElement) || targetRow === draggingEl) {
+        if (draggingEl.parentElement === list) {
+          list.appendChild(draggingEl);
+        }
+        return;
+      }
+
+      const rect = targetRow.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height / 2;
+      if (before) list.insertBefore(draggingEl, targetRow);
+      else list.insertBefore(draggingEl, targetRow.nextSibling);
+    });
+
+    list.addEventListener('drop', async (e) => {
+      if (!cePlanDndState.draggingId) return;
+      const kind = String(list.getAttribute('data-day-dnd-list') || '').trim();
+      if (kind !== cePlanDndState.kind) return;
+      e.preventDefault();
+      list.classList.remove('ce-dnd-over');
+      const toDayId = String(list.getAttribute('data-day-id') || '').trim();
+      const fromDayId = cePlanDndState.fromDayId;
+      const draggingEl = cePlanDndState.el;
+      if (!(draggingEl instanceof HTMLElement) || !toDayId || !fromDayId) return;
+
+      draggingEl.setAttribute('data-dnd-day-id', toDayId);
+      const fromList = container.querySelector(`[data-day-dnd-list="${escapeCss(kind)}"][data-day-id="${escapeCss(fromDayId)}"]`);
+
+      const ok1 = await persistDndListOrder({ dayId: toDayId, kind, listEl: list });
+      const ok2 = (fromList instanceof HTMLElement) ? await persistDndListOrder({ dayId: fromDayId, kind, listEl: fromList }) : true;
+      if (ok1 && ok2) {
+        await loadPlanDays(currentPlan?.id);
+      }
+    });
+  });
+}
+
+function wireTouchDndHandle({ container, row, handle }) {
+  if (!(container instanceof HTMLElement)) return;
+  if (!(row instanceof HTMLElement)) return;
+  if (!(handle instanceof HTMLElement)) return;
+
+  let active = false;
+  let startTimer = 0;
+
+  const clear = () => {
+    active = false;
+    if (startTimer) window.clearTimeout(startTimer);
+    startTimer = 0;
+    row.classList.remove('ce-dnd-dragging');
+    cePlanDndState = { draggingId: '', fromDayId: '', kind: '', el: null };
+  };
+
+  const start = () => {
+    const id = String(row.getAttribute('data-dnd-item-id') || '').trim();
+    const dayId = String(row.getAttribute('data-dnd-day-id') || '').trim();
+    const kind = String(row.getAttribute('data-dnd-kind') || '').trim();
+    if (!id || !dayId || !kind) return;
+    active = true;
+    cePlanDndState = { draggingId: id, fromDayId: dayId, kind, el: row };
+    row.classList.add('ce-dnd-dragging');
+  };
+
+  const findListAtPoint = (x, y) => {
+    const el = document.elementFromPoint(x, y);
+    if (!(el instanceof HTMLElement)) return null;
+    return el.closest('[data-day-dnd-list]');
+  };
+
+  const move = (x, y) => {
+    if (!active) return;
+    const list = findListAtPoint(x, y);
+    if (!(list instanceof HTMLElement)) return;
+    const kind = String(list.getAttribute('data-day-dnd-list') || '').trim();
+    if (!kind || kind !== cePlanDndState.kind) return;
+
+    const targetRow = (document.elementFromPoint(x, y) instanceof HTMLElement)
+      ? document.elementFromPoint(x, y).closest('[data-dnd-item-id]')
+      : null;
+    if (!(targetRow instanceof HTMLElement) || targetRow === row) {
+      if (row.parentElement === list) list.appendChild(row);
+      else list.appendChild(row);
+      return;
+    }
+    const rect = targetRow.getBoundingClientRect();
+    const before = y < rect.top + rect.height / 2;
+    if (before) list.insertBefore(row, targetRow);
+    else list.insertBefore(row, targetRow.nextSibling);
+  };
+
+  const end = async (x, y) => {
+    if (!active) {
+      clear();
+      return;
+    }
+    const list = findListAtPoint(x, y);
+    const kind = cePlanDndState.kind;
+    const fromDayId = cePlanDndState.fromDayId;
+    const toDayId = list instanceof HTMLElement ? String(list.getAttribute('data-day-id') || '').trim() : '';
+    if (list instanceof HTMLElement && toDayId && kind) {
+      row.setAttribute('data-dnd-day-id', toDayId);
+      const fromList = container.querySelector(`[data-day-dnd-list="${escapeCss(kind)}"][data-day-id="${escapeCss(fromDayId)}"]`);
+      const ok1 = await persistDndListOrder({ dayId: toDayId, kind, listEl: list });
+      const ok2 = (fromList instanceof HTMLElement) ? await persistDndListOrder({ dayId: fromDayId, kind, listEl: fromList }) : true;
+      if (ok1 && ok2) {
+        await loadPlanDays(currentPlan?.id);
+      }
+    }
+    clear();
+  };
+
+  const getXY = (ev) => {
+    if (ev && ev.touches && ev.touches[0]) return { x: ev.touches[0].clientX, y: ev.touches[0].clientY };
+    if (ev && ev.changedTouches && ev.changedTouches[0]) return { x: ev.changedTouches[0].clientX, y: ev.changedTouches[0].clientY };
+    return { x: ev.clientX, y: ev.clientY };
+  };
+
+  handle.addEventListener('touchstart', (ev) => {
+    if (startTimer) window.clearTimeout(startTimer);
+    startTimer = window.setTimeout(() => {
+      start();
+    }, 160);
+    void ev;
+  }, { passive: true });
+
+  handle.addEventListener('touchmove', (ev) => {
+    if (!active) return;
+    ev.preventDefault();
+    const { x, y } = getXY(ev);
+    move(x, y);
+  }, { passive: false });
+
+  handle.addEventListener('touchend', async (ev) => {
+    if (startTimer) window.clearTimeout(startTimer);
+    startTimer = 0;
+    const { x, y } = getXY(ev);
+    await end(x, y);
+  }, { passive: true });
+
+  handle.addEventListener('touchcancel', () => {
+    clear();
+  }, { passive: true });
+}
+
+function escapeCss(v) {
+  return String(v || '').replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+}
+
+let ceDayMapOverlayState = {
+  map: null,
+  markers: [],
+  watchId: null,
+  userMarker: null,
+  userAccuracyCircle: null,
+  lastUserLatLng: null,
+  lastUserAccuracyM: null,
+  follow: false,
+  animFrame: null,
+  animFrom: null,
+  animTo: null,
+  animStartedAt: 0,
+  animDurationMs: 650,
+};
 
 function ensureDayMapOverlay() {
   if (typeof document === 'undefined') return null;
@@ -897,6 +1135,7 @@ function ensureDayMapOverlay() {
       <div class="ce-map-ov__top">
         <div class="ce-map-ov__title" data-ce-map-ov-title="1"></div>
         <div class="ce-map-ov__actions">
+          <button type="button" class="btn btn-sm" data-ce-map-ov-follow="1">🧭</button>
           <button type="button" class="btn btn-sm" data-ce-map-ov-locate="1">📍</button>
           <button type="button" class="btn btn-sm" data-ce-map-ov-recenter="1">🎯</button>
           <button type="button" class="btn btn-sm" data-ce-map-ov-close="1">✕</button>
@@ -917,6 +1156,15 @@ function closeDayMapOverlay() {
   if (!(root instanceof HTMLElement)) return;
   root.hidden = true;
   document.body.classList.remove('ce-map-ov-open');
+  ceDayMapOverlayState.follow = false;
+  if (ceDayMapOverlayState.animFrame != null) {
+    try {
+      cancelAnimationFrame(ceDayMapOverlayState.animFrame);
+    } catch (_) {}
+  }
+  ceDayMapOverlayState.animFrame = null;
+  ceDayMapOverlayState.animFrom = null;
+  ceDayMapOverlayState.animTo = null;
   if (ceDayMapOverlayState.watchId != null && typeof navigator !== 'undefined' && navigator.geolocation) {
     try {
       navigator.geolocation.clearWatch(ceDayMapOverlayState.watchId);
@@ -1085,6 +1333,24 @@ function openDayMapOverlay(dayId, items) {
       }
     };
   }
+
+  const followBtn = root.querySelector('[data-ce-map-ov-follow]');
+  if (followBtn instanceof HTMLElement) {
+    followBtn.setAttribute('aria-pressed', ceDayMapOverlayState.follow ? 'true' : 'false');
+    followBtn.onclick = () => {
+      ceDayMapOverlayState.follow = !ceDayMapOverlayState.follow;
+      followBtn.setAttribute('aria-pressed', ceDayMapOverlayState.follow ? 'true' : 'false');
+      if (ceDayMapOverlayState.follow) {
+        startUserLocationWatch(map);
+        if (ceDayMapOverlayState.lastUserLatLng) {
+          const u = ceDayMapOverlayState.lastUserLatLng;
+          try {
+            map.setView([u.lat, u.lng], Math.max(15, map.getZoom() || 15), { animate: true });
+          } catch (_) {}
+        }
+      }
+    };
+  }
 }
 
 function startUserLocationWatch(map) {
@@ -1095,23 +1361,88 @@ function startUserLocationWatch(map) {
   const icon = (typeof L !== 'undefined')
     ? L.divIcon({
       className: 'ce-map-ov__me',
-      html: `<div class="ce-map-ov__me-avatar">🧭</div>`,
+      html: `<div class="ce-map-ov__me-avatar" data-ce-map-me="1"></div>`,
       iconSize: [34, 34],
       iconAnchor: [17, 17],
     })
     : null;
 
-  const ensureMarker = (lat, lng) => {
-    ceDayMapOverlayState.lastUserLatLng = { lat, lng };
-    if (!icon) return;
-    if (!ceDayMapOverlayState.userMarker) {
-      ceDayMapOverlayState.userMarker = L.marker([lat, lng], { icon }).addTo(map);
+  const setAccuracyCircle = (lat, lng, accuracyM) => {
+    if (typeof L === 'undefined') return;
+    if (!Number.isFinite(Number(accuracyM)) || Number(accuracyM) <= 0) return;
+    ceDayMapOverlayState.lastUserAccuracyM = Number(accuracyM);
+    if (!ceDayMapOverlayState.userAccuracyCircle) {
+      try {
+        ceDayMapOverlayState.userAccuracyCircle = L.circle([lat, lng], {
+          radius: Math.max(10, Math.min(500, Number(accuracyM))),
+          color: 'rgba(56,189,248,.65)',
+          weight: 1,
+          fillColor: 'rgba(56,189,248,.20)',
+          fillOpacity: 0.35,
+        }).addTo(map);
+      } catch (_) {}
       return;
     }
     try {
-      ceDayMapOverlayState.userMarker.setLatLng([lat, lng]);
-    } catch (_) {
+      ceDayMapOverlayState.userAccuracyCircle.setLatLng([lat, lng]);
+      ceDayMapOverlayState.userAccuracyCircle.setRadius(Math.max(10, Math.min(500, Number(accuracyM))));
+    } catch (_) {}
+  };
+
+  const smoothSetUserLatLng = (lat, lng) => {
+    const next = { lat: Number(lat), lng: Number(lng) };
+    if (!Number.isFinite(next.lat) || !Number.isFinite(next.lng)) return;
+
+    if (!icon) {
+      ceDayMapOverlayState.lastUserLatLng = next;
+      return;
     }
+
+    if (!ceDayMapOverlayState.userMarker) {
+      try {
+        ceDayMapOverlayState.userMarker = L.marker([next.lat, next.lng], { icon }).addTo(map);
+      } catch (_) {}
+      ceDayMapOverlayState.lastUserLatLng = next;
+      return;
+    }
+
+    const prev = ceDayMapOverlayState.lastUserLatLng || next;
+    ceDayMapOverlayState.animFrom = { lat: prev.lat, lng: prev.lng };
+    ceDayMapOverlayState.animTo = { lat: next.lat, lng: next.lng };
+    ceDayMapOverlayState.animStartedAt = performance && typeof performance.now === 'function' ? performance.now() : Date.now();
+
+    if (ceDayMapOverlayState.animFrame != null) {
+      try {
+        cancelAnimationFrame(ceDayMapOverlayState.animFrame);
+      } catch (_) {}
+    }
+
+    const step = () => {
+      const now = performance && typeof performance.now === 'function' ? performance.now() : Date.now();
+      const t = Math.max(0, Math.min(1, (now - ceDayMapOverlayState.animStartedAt) / ceDayMapOverlayState.animDurationMs));
+      const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+      const a = ceDayMapOverlayState.animFrom;
+      const b = ceDayMapOverlayState.animTo;
+      if (!a || !b) return;
+      const ilat = a.lat + (b.lat - a.lat) * ease;
+      const ilng = a.lng + (b.lng - a.lng) * ease;
+      try {
+        ceDayMapOverlayState.userMarker.setLatLng([ilat, ilng]);
+      } catch (_) {}
+      if (ceDayMapOverlayState.follow) {
+        try {
+          map.panTo([ilat, ilng], { animate: true });
+        } catch (_) {}
+      }
+      if (t < 1) {
+        ceDayMapOverlayState.animFrame = requestAnimationFrame(step);
+      } else {
+        ceDayMapOverlayState.animFrame = null;
+        ceDayMapOverlayState.lastUserLatLng = { lat: b.lat, lng: b.lng };
+      }
+    };
+
+    ceDayMapOverlayState.animFrame = requestAnimationFrame(step);
   };
 
   try {
@@ -1119,8 +1450,10 @@ function startUserLocationWatch(map) {
       (pos) => {
         const lat = pos?.coords?.latitude;
         const lng = pos?.coords?.longitude;
+        const acc = pos?.coords?.accuracy;
         if (typeof lat !== 'number' || typeof lng !== 'number') return;
-        ensureMarker(lat, lng);
+        smoothSetUserLatLng(lat, lng);
+        if (typeof acc === 'number') setAccuracyCircle(lat, lng, acc);
       },
       () => {
       },
