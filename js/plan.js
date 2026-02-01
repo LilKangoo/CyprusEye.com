@@ -936,10 +936,15 @@ async function persistDndListOrder({ dayId, kind, listEl }) {
   const payloads = ids.map((id, idx) => ({ id, plan_day_id: dayId, sort_order: base + idx * 10 }));
   if (!payloads.length) return true;
   try {
-    const { error } = await sb.from('user_plan_items').upsert(payloads);
-    if (error) {
-      showToast(error.message || t('plan.ui.toast.failedToUpdateItem', 'Failed to update item'), 'error');
-      return false;
+    for (const p of payloads) {
+      const { error } = await sb
+        .from('user_plan_items')
+        .update({ plan_day_id: p.plan_day_id, sort_order: p.sort_order })
+        .eq('id', p.id);
+      if (error) {
+        showToast(error.message || t('plan.ui.toast.failedToUpdateItem', 'Failed to update item'), 'error');
+        return false;
+      }
     }
     return true;
   } catch (e) {
@@ -1325,10 +1330,15 @@ function openDayMapOverlay(dayId, items) {
     const base = 1500000;
     const payloads = ids.map((id, idx) => ({ id, plan_day_id: dayId, sort_order: base + idx * 10 }));
     try {
-      const { error } = await sb.from('user_plan_items').upsert(payloads);
-      if (error) {
-        showToast(error.message || t('plan.ui.toast.failedToUpdateItem', 'Failed to update item'), 'error');
-        return false;
+      for (const p of payloads) {
+        const { error } = await sb
+          .from('user_plan_items')
+          .update({ plan_day_id: p.plan_day_id, sort_order: p.sort_order })
+          .eq('id', p.id);
+        if (error) {
+          showToast(error.message || t('plan.ui.toast.failedToUpdateItem', 'Failed to update item'), 'error');
+          return false;
+        }
       }
       return true;
     } catch (e) {
