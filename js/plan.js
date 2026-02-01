@@ -393,6 +393,7 @@ let catalogSavedOnly = false;
 let recommendationsDiscountOnly = false;
 let catalogLoadedForPlanId = null;
 let catalogLangWired = false;
+let lastNonSavedCatalogTab = 'trips';
 
 let lastSelectedDayIdForCatalog = '';
 
@@ -3164,9 +3165,18 @@ function renderServiceCatalog() {
     return String(text || '').toLowerCase().includes(q);
   };
 
+  const getSavedTotals = () => {
+    const m = loadSavedCatalogMap();
+    const sumArr = (k) => (Array.isArray(m?.[k]) ? m[k].length : 0);
+    const total = sumArr('trip') + sumArr('hotel') + sumArr('car') + sumArr('poi') + sumArr('recommendation');
+    return { total };
+  };
+
   const renderCatalogTopFilters = () => {
-    const savedLabel = t('plan.ui.catalog.savedOnly', 'Saved');
-    const savedBtn = `<button type="button" class="btn ${catalogSavedOnly ? 'btn-primary primary' : ''}" data-catalog-saved-only="1">${escapeHtml(savedLabel)}</button>`;
+    const { total } = getSavedTotals();
+    const savedLabel = t('plan.ui.catalog.savedOnly', 'Zapisane');
+    const on = catalogActiveTab === 'saved' && catalogSavedOnly;
+    const savedBtn = `<button type="button" class="btn ${on ? 'btn-primary primary' : ''}" data-catalog-saved-only="1">${escapeHtml(`${savedLabel} (${total})`)}</button>`;
     return `<div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-top:0.5rem;">${savedBtn}</div>`;
   };
 
@@ -3226,7 +3236,144 @@ function renderServiceCatalog() {
   };
 
   let list = [];
-  if (catalogActiveTab === 'trips') {
+  let listMode = 'tab';
+  if (catalogActiveTab === 'saved') {
+    listMode = 'saved';
+  }
+  if (listMode === 'saved') {
+    const m = loadSavedCatalogMap();
+    const savedIds = {
+      trip: new Set(Array.isArray(m?.trip) ? m.trip : []),
+      hotel: new Set(Array.isArray(m?.hotel) ? m.hotel : []),
+      car: new Set(Array.isArray(m?.car) ? m.car : []),
+      poi: new Set(Array.isArray(m?.poi) ? m.poi : []),
+      recommendation: new Set(Array.isArray(m?.recommendation) ? m.recommendation : []),
+    };
+
+    const out = [];
+    const addSaved = (itemType, rows) => {
+      const ids = savedIds[itemType];
+      if (!ids || ids.size === 0) return;
+      (Array.isArray(rows) ? rows : []).forEach((r) => {
+        if (!r || r.id == null) return;
+        const id = String(r.id);
+        if (!ids.has(id)) return;
+        out.push({ ...r, __itemType: itemType, __savedGroup: itemType });
+      });
+    };
+
+    addSaved(
+      'trip',
+      catalogData.trips
+        .map((t) => {
+          const title = getTripTitle(t);
+          const city = t?.start_city || '';
+          const description = getTripDescriptionText(t);
+          const image = getServiceImageUrl('trip', t);
+          const party = getPartyForPlan(currentPlan);
+          const total = calcTripTotal(t, { adults: party.adults, children: party.children, hours: 1, days: 1 });
+          const price = total ? `${Number(total).toFixed(2)} €` : '';
+          const slug = t?.slug || '';
+          const url = slug ? `trip.html?slug=${encodeURIComponent(slug)}` : 'trips.html';
+          return { id: t?.id, title, subtitle: city, description, price, url, image, lat: null, lng: null, raw: t };
+        })
+        .filter((x) => matches(`${x.title} ${x.subtitle}`))
+    );
+
+    addSaved(
+      'hotel',
+      catalogData.hotels
+        .map((h) => {
+          const title = getHotelTitle(h);
+          const city = getHotelCity(h);
+          const description = getHotelDescriptionText(h);
+          const image = getServiceImageUrl('hotel', h);
+          const min = getHotelMinPricePerNight(h);
+          const price = min != null ? `${t('plan.ui.pricing.from', 'From')}: ${Number(min).toFixed(2)} € ${t('plan.ui.pricing.perNight', '/ night')}` : '';
+          const slug = h?.slug || '';
+          const url = slug ? `hotel.html?slug=${encodeURIComponent(slug)}` : 'hotels.html';
+          return { id: h?.id, title, subtitle: city, description, price, url, image, lat: null, lng: null, raw: h };
+        })
+        .filter((x) => matches(`${x.title} ${x.subtitle}`))
+    );
+
+    addSaved(
+      'car',
+      catalogData.cars
+        .map((c) => {
+          const title = getCarTitle(c);
+          const location = c?.location || '';
+          const url = getCarLink(c);
+          const description = getCarDescription(c);
+          const image = getServiceImageUrl('car', c);
+          const north = c?.north_allowed ? t('plan.ui.catalog.northOk', 'north ok') : '';
+          const from = getCarFromPricePerDay(c);
+          const price = from != null ? `${t('plan.ui.pricing.from', 'From')}: ${Number(from).toFixed(0)}€ ${t('plan.ui.pricing.perDay', '/ day')}` : '';
+          return { id: c?.id, title, subtitle: [location, north].filter(Boolean).join(' • '), description, location, price, url, image, lat: null, lng: null, raw: c };
+        })
+        .filter((x) => matches(`${x.title} ${x.subtitle}`))
+    );
+
+    addSaved(
+      'poi',
+      catalogData.pois
+        .map((p) => {
+          const title = getPoiTitle(p);
+          const description = getPoiDescription(p);
+          const category = getPoiCategory(p);
+          const image = getServiceImageUrl('poi', p);
+          const url = p?.google_url || p?.google_maps_url || (p?.lat != null && p?.lng != null ? `https://www.google.com/maps?q=${p.lat},${p.lng}` : '');
+          return { id: p?.id, title, subtitle: category, description, price: '', url, image, lat: p?.lat ?? null, lng: p?.lng ?? null, raw: p };
+        })
+        .filter((x) => matches(`${x.title}`))
+    );
+
+    const lang = currentLang();
+    const isPolish = lang === 'pl';
+    const catLookup = new Map();
+    (Array.isArray(catalogData.recommendationCategories) ? catalogData.recommendationCategories : []).forEach((c) => {
+      if (c && c.id != null) catLookup.set(String(c.id), c);
+    });
+    addSaved(
+      'recommendation',
+      (Array.isArray(catalogData.recommendations) ? catalogData.recommendations : [])
+        .map((r) => {
+          const cat = catLookup.get(String(r?.category_id || '')) || r?.recommendation_categories || {};
+          const catName = isPolish ? (cat?.name_pl || cat?.name_en || '') : (cat?.name_en || cat?.name_pl || '');
+          const catIcon = cat?.icon || '📍';
+          const title = isPolish ? (r?.title_pl || r?.title_en || '') : (r?.title_en || r?.title_pl || '');
+          const descriptionFull = isPolish ? (r?.description_pl || r?.description_en || '') : (r?.description_en || r?.description_pl || '');
+          const description = String(descriptionFull || '').trim();
+          const subtitle = [catIcon, catName].filter(Boolean).join(' ').trim();
+          const image = String(r?.image_url || '').trim();
+          const url = String(r?.website_url || r?.google_url || '').trim();
+          const lat = r?.latitude != null ? Number(r.latitude) : null;
+          const lng = r?.longitude != null ? Number(r.longitude) : null;
+          const discount = isPolish
+            ? (r?.discount_text_pl || r?.discount_text_en || '')
+            : (r?.discount_text_en || r?.discount_text_pl || '');
+          return {
+            id: r?.id,
+            title: String(title || '').trim(),
+            subtitle,
+            description,
+            price: '',
+            url,
+            image,
+            lat: Number.isFinite(lat) ? lat : null,
+            lng: Number.isFinite(lng) ? lng : null,
+            raw: {
+              ...r,
+              recommendation_categories: cat,
+              __discount: discount,
+            },
+          };
+        })
+        .filter((x) => matches(`${x.title} ${x.subtitle} ${x.description}`))
+    );
+
+    list = out;
+  } else if (catalogActiveTab === 'trips') {
     list = catalogData.trips
       .map((t) => {
         const title = getTripTitle(t);
@@ -3359,7 +3506,7 @@ function renderServiceCatalog() {
       .filter((x) => matches(`${x.title} ${x.subtitle} ${x.description}`));
   }
 
-  if (catalogSavedOnly) {
+  if (catalogSavedOnly && listMode !== 'saved') {
     list = list.filter((x) => {
       const type = catalogActiveTab === 'recommendations' ? 'recommendation' : catalogActiveTab.slice(0, -1);
       return isCatalogItemSaved({ itemType: type, refId: x?.id });
@@ -3371,7 +3518,7 @@ function renderServiceCatalog() {
         ${list
           .slice(0, 120)
           .map((x) => {
-            const itemType = catalogActiveTab === 'recommendations' ? 'recommendation' : catalogActiveTab.slice(0, -1);
+            const itemType = String(x?.__itemType || (catalogActiveTab === 'recommendations' ? 'recommendation' : catalogActiveTab.slice(0, -1)));
             const addAttr = `data-catalog-add="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(x.id || '')}" data-title="${escapeHtml(x.title || '')}" data-subtitle="${escapeHtml(x.subtitle || '')}" data-description="${escapeHtml(x.description || '')}" data-url="${escapeHtml(x.url || '')}" data-price="${escapeHtml(x.price || '')}" data-image="${escapeHtml(x.image || '')}"`;
             const poiAttrs = x.lat != null && x.lng != null ? ` data-lat="${escapeHtml(String(x.lat))}" data-lng="${escapeHtml(String(x.lng))}"` : '';
             const isRange = catalogActiveTab === 'hotels' || catalogActiveTab === 'cars';
@@ -3415,7 +3562,7 @@ function renderServiceCatalog() {
               ? escapeHtml(t('plan.ui.catalog.addRange', 'Dodaj zakres'))
               : escapeHtml(t('plan.ui.catalog.add', 'Add'));
 
-            if (catalogActiveTab === 'recommendations') {
+            if (itemType === 'recommendation') {
               const lang = currentLang();
               const isPolish = lang === 'pl';
               const raw = x.raw && typeof x.raw === 'object' ? x.raw : {};
@@ -3447,11 +3594,13 @@ function renderServiceCatalog() {
                 : '';
 
               const saved = isCatalogItemSaved({ itemType, refId: x.id });
-              const saveLabel = saved ? t('plan.ui.catalog.unsave', 'Saved') : t('plan.ui.catalog.save', 'Save');
-              const saveBtn = `<button type="button" class="btn btn-sm ${saved ? 'btn-primary primary' : ''}" data-catalog-save="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(String(x.id || ''))}">${escapeHtml(saveLabel)} ★</button>`;
+              const star = saved ? '★' : '☆';
+              const saveLabel = saved ? t('plan.ui.catalog.unsave', 'Zapisane') : t('plan.ui.catalog.save', 'Zapisz');
+              const saveBtn = `<button type="button" class="btn btn-sm ${saved ? 'btn-primary primary' : ''}" data-catalog-save="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(String(x.id || ''))}">${escapeHtml(saveLabel)} ${star}</button>`;
+              const savedStyle = saved ? 'background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.35);' : '';
 
               return `
-                <div class="card ce-catalog-tile" style="padding:0.65rem; border:1px solid #e2e8f0;" data-rec-card="1">
+                <div class="card ce-catalog-tile" style="padding:0.65rem; border:1px solid #e2e8f0; ${savedStyle}" data-rec-card="1">
                   ${img}
                   <div class="ce-catalog-title">${escapeHtml(x.title)}</div>
                   <div class="ce-catalog-meta">
@@ -3491,8 +3640,10 @@ function renderServiceCatalog() {
             const showSubtitleMeta = catalogActiveTab !== 'pois';
 
             const saved = isCatalogItemSaved({ itemType, refId: x.id });
-            const saveLabel = saved ? t('plan.ui.catalog.unsave', 'Saved') : t('plan.ui.catalog.save', 'Save');
-            const saveBtn = `<button type="button" class="btn btn-sm ${saved ? 'btn-primary primary' : ''}" data-catalog-save="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(String(x.id || ''))}">${escapeHtml(saveLabel)} ★</button>`;
+            const star = saved ? '★' : '☆';
+            const saveLabel = saved ? t('plan.ui.catalog.unsave', 'Zapisane') : t('plan.ui.catalog.save', 'Zapisz');
+            const saveBtn = `<button type="button" class="btn btn-sm ${saved ? 'btn-primary primary' : ''}" data-catalog-save="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(String(x.id || ''))}">${escapeHtml(saveLabel)} ${star}</button>`;
+            const savedStyle = saved ? 'background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.35);' : '';
 
             const price = String(x.price || '').trim();
             const priceHtml = price
@@ -3500,7 +3651,7 @@ function renderServiceCatalog() {
               : '';
 
             return `
-              <div class="card ce-catalog-tile" style="padding:0.65rem; border:1px solid #e2e8f0;">
+              <div class="card ce-catalog-tile" style="padding:0.65rem; border:1px solid #e2e8f0; ${savedStyle}">
                 ${img}
                 <div class="ce-catalog-title">${escapeHtml(x.title)}</div>
                 <div class="ce-catalog-meta">
@@ -3586,7 +3737,16 @@ function renderServiceCatalog() {
   const savedOnlyBtn = wrap.querySelector('[data-catalog-saved-only]');
   if (savedOnlyBtn instanceof HTMLElement) {
     savedOnlyBtn.addEventListener('click', () => {
-      catalogSavedOnly = !catalogSavedOnly;
+      const next = !(catalogSavedOnly && catalogActiveTab === 'saved');
+      catalogSavedOnly = next;
+      if (next) {
+        if (catalogActiveTab !== 'saved') lastNonSavedCatalogTab = catalogActiveTab;
+        catalogActiveTab = 'saved';
+        recommendationsCategoryFilter = '';
+        recommendationsDiscountOnly = false;
+      } else {
+        catalogActiveTab = lastNonSavedCatalogTab || 'trips';
+      }
       renderServiceCatalog();
     });
   }
