@@ -788,16 +788,22 @@ function renderPlanDaysUi(planId, rows) {
     });
   });
 
-  wrap.querySelectorAll('[data-catalog-save]').forEach((btn) => {
-    btn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const type = btn.getAttribute('data-item-type') || '';
-      const refId = btn.getAttribute('data-ref-id') || '';
-      toggleCatalogItemSaved({ itemType: type, refId });
-      renderServiceCatalog();
+  const catWrap = catalogEl();
+  if (catWrap instanceof HTMLElement) {
+    catWrap.querySelectorAll('[data-catalog-save]').forEach((btn) => {
+      if (!(btn instanceof HTMLElement)) return;
+      if (btn.dataset.wiredCatalogSave === '1') return;
+      btn.dataset.wiredCatalogSave = '1';
+      btn.addEventListener('click', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        const type = btn.getAttribute('data-item-type') || '';
+        const refId = btn.getAttribute('data-ref-id') || '';
+        toggleCatalogItemSaved({ itemType: type, refId });
+        renderServiceCatalog();
+      });
     });
-  });
+  }
 
   container.querySelectorAll('[data-day-city]').forEach((input) => {
     if (!(input instanceof HTMLInputElement)) return;
