@@ -789,23 +789,6 @@ function renderPlanDaysUi(planId, rows) {
     });
   });
 
-  const catWrap = catalogEl();
-  if (catWrap instanceof HTMLElement) {
-    catWrap.querySelectorAll('[data-catalog-save]').forEach((btn) => {
-      if (!(btn instanceof HTMLElement)) return;
-      if (btn.dataset.wiredCatalogSave === '1') return;
-      btn.dataset.wiredCatalogSave = '1';
-      btn.addEventListener('click', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-        const type = btn.getAttribute('data-item-type') || '';
-        const refId = btn.getAttribute('data-ref-id') || '';
-        toggleCatalogItemSaved({ itemType: type, refId });
-        renderServiceCatalog();
-      });
-    });
-  }
-
   container.querySelectorAll('[data-day-city]').forEach((input) => {
     if (!(input instanceof HTMLInputElement)) return;
     input.addEventListener('input', () => {
@@ -3874,6 +3857,23 @@ function renderServiceCatalog() {
         btn.textContent = t('plan.ui.catalog.add', 'Add');
       }
     });
+  });
+
+  wrap.querySelectorAll('[data-catalog-save]').forEach((btn) => {
+    if (!(btn instanceof HTMLElement)) return;
+    btn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const type = btn.getAttribute('data-item-type') || '';
+      const refId = btn.getAttribute('data-ref-id') || '';
+      toggleCatalogItemSaved({ itemType: type, refId });
+      const nowSaved = isCatalogItemSaved({ itemType: type, refId });
+      const msg = nowSaved
+        ? t('plan.ui.catalog.savedToast', 'Zapisano')
+        : t('plan.ui.catalog.unsavedToast', 'Usunięto z zapisanych');
+      showToast(msg, 'success');
+      renderServiceCatalog();
+    }, { passive: false });
   });
 
   // Promo code reveal (login-gated) for recommendation cards
