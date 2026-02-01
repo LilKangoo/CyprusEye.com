@@ -1463,6 +1463,13 @@ function renderDetailsHtml(type, src, resolved) {
   const title = String(r.title || '').trim();
   const desc = String(r.description || '').trim();
 
+  const techDetails = (rowsHtml) => {
+    const inner = String(rowsHtml || '').trim();
+    if (!inner) return '';
+    const label = t('plan.ui.details.technical', 'Technical details');
+    return `<details class="ce-detail-tech"><summary>${escapeHtml(label)}</summary><div class="ce-detail-tech__body">${inner}</div></details>`;
+  };
+
   const kv = (label, value) => {
     const v = String(value || '').trim();
     if (!v) return '';
@@ -1571,7 +1578,7 @@ function renderDetailsHtml(type, src, resolved) {
 
     const promoHtml = rawPromo && discountText
       ? `
-        <div class="rec-card-promo" data-rec-card="1" style="margin-top: 10px;">
+        <div class="rec-card-promo" data-rec-card="1">
           <div class="rec-card-promo-label">${escapeHtml(discountText)}</div>
           <div class="rec-card-promo-code" data-rec-promo-code="1" data-visible="0"></div>
           <button type="button" class="rec-btn rec-btn-secondary" data-rec-promo-btn="${escapeHtml(rawPromo)}">${escapeHtml(showCodeLabel)}</button>
@@ -1580,29 +1587,34 @@ function renderDetailsHtml(type, src, resolved) {
       : '';
 
     const links = `
-      <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-top: 10px;">
-        ${mapsUrl ? `<a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">${escapeHtml(mapsLabel)}</a>` : ''}
-        ${websiteUrl ? `<a href="${escapeHtml(websiteUrl)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">${escapeHtml(openLabel)}</a>` : ''}
+      <div class="ce-detail-actions">
+        ${mapsUrl ? `<a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener" class="btn btn-sm ce-detail-actionbtn">${escapeHtml(mapsLabel)}</a>` : ''}
+        ${websiteUrl ? `<a href="${escapeHtml(websiteUrl)}" target="_blank" rel="noopener" class="btn btn-sm ce-detail-actionbtn">${escapeHtml(openLabel)}</a>` : ''}
       </div>
     `;
+
+    const tech = techDetails(
+      `${Number.isFinite(lat) && Number.isFinite(lng) ? kv(t('plan.ui.details.coordinates', 'Coordinates'), `${lat}, ${lng}`) : ''}`
+    );
 
     return `
       ${gallery}
       ${desc ? `<div class="ce-detail-desc">${escapeHtml(desc)}</div>` : ''}
-      ${catLabel ? kv(t('plan.ui.details.category', 'Category'), catLabel) : ''}
-      ${Number.isFinite(lat) && Number.isFinite(lng) ? kv(t('plan.ui.details.coordinates', 'Coordinates'), `${lat}, ${lng}`) : ''}
+      ${catLabel ? `<div class="ce-detail-badges"><span class="ce-detail-badge">${escapeHtml(catLabel)}</span></div>` : ''}
       ${promoHtml}
       ${links}
+      ${tech}
     `;
   }
 
   // POI + fallback
   const poiCategory = getPoiCategory(s);
+  const tech = techDetails(`${s?.lat != null && s?.lng != null ? kv(t('plan.ui.details.coordinates', 'Coordinates'), `${s.lat}, ${s.lng}`) : ''}`);
   return `
     ${gallery}
     ${desc ? `<div class="ce-detail-desc">${escapeHtml(desc)}</div>` : ''}
-    ${poiCategory ? kv(t('plan.ui.details.category', 'Category'), poiCategory) : ''}
-    ${s?.lat != null && s?.lng != null ? kv(t('plan.ui.details.coordinates', 'Coordinates'), `${s.lat}, ${s.lng}`) : ''}
+    ${poiCategory ? `<div class="ce-detail-badges"><span class="ce-detail-badge">${escapeHtml(poiCategory)}</span></div>` : ''}
+    ${tech}
   `;
 }
 
