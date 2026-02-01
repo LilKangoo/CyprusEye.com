@@ -510,7 +510,7 @@ function renderPlanDaysUi(planId, rows) {
                   const more = src ? renderExpandablePanel({ panelId, type: it.item_type, src, resolved, open: isPanelOpen }) : '';
                   const qa = quickActionsHtml(it, src, resolved);
                   return `
-                    <div class="ce-day-item-row" draggable="true" data-dnd-item-id="${escapeHtml(String(it.id || ''))}" data-dnd-day-id="${escapeHtml(String(d.id || ''))}" data-dnd-kind="services" style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
+                    <div class="ce-day-item-row" data-dnd-item-id="${escapeHtml(String(it.id || ''))}" data-dnd-day-id="${escapeHtml(String(d.id || ''))}" data-dnd-kind="services" style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
                       ${thumb ? `<div style="flex:0 0 auto;">${thumb}</div>` : ''}
                       <div class="ce-day-item-main" style="flex:1 1 auto; min-width:0;">
                         <div style="font-size:12px; color:#64748b;">${escapeHtml(typeLabel)}</div>
@@ -521,7 +521,8 @@ function renderPlanDaysUi(planId, rows) {
                         ${price ? `<div style=\"color:#0f172a; font-size:12px;\">${escapeHtml(price)}</div>` : ''}
                       </div>
                       <div class="ce-day-item-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
-                        <span class="ce-dnd-handle" aria-hidden="true">≡</span>
+                        <button type="button" class="btn btn-sm" data-order-move="up" aria-label="${escapeHtml(t('plan.ui.common.moveUp', 'Move up'))}">↑</button>
+                        <button type="button" class="btn btn-sm" data-order-move="down" aria-label="${escapeHtml(t('plan.ui.common.moveDown', 'Move down'))}">↓</button>
                         ${qa}
                         <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" data-range-id="${escapeHtml(rangeId)}" aria-label="${escapeHtml(t('plan.ui.common.delete', 'Delete'))}">✕</button>
                       </div>
@@ -559,7 +560,7 @@ function renderPlanDaysUi(planId, rows) {
                     const more = src ? renderExpandablePanel({ panelId, type: 'poi', src, resolved, open: isPanelOpen }) : '';
                     const qa = quickActionsHtml(it, src, resolved);
                     return `
-                      <div class="ce-day-item-row ce-day-item-row--poi" draggable="true" data-dnd-item-id="${escapeHtml(String(it.id || ''))}" data-dnd-day-id="${escapeHtml(String(d.id || ''))}" data-dnd-kind="pois" style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
+                      <div class="ce-day-item-row ce-day-item-row--poi" data-dnd-item-id="${escapeHtml(String(it.id || ''))}" data-dnd-day-id="${escapeHtml(String(d.id || ''))}" data-dnd-kind="pois" style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
                         ${thumb ? `<div style="flex:0 0 auto;">${thumb}</div>` : ''}
                         <div class="ce-day-item-main" style="flex:1 1 auto; min-width:0;">
                           <div style="display:flex; gap:0.5rem; align-items:baseline; flex-wrap:wrap;">
@@ -581,7 +582,8 @@ function renderPlanDaysUi(planId, rows) {
                           </div>
                         </div>
                         <div class="ce-day-item-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
-                          <span class="ce-dnd-handle" aria-hidden="true">≡</span>
+                          <button type="button" class="btn btn-sm" data-order-move="up" aria-label="${escapeHtml(t('plan.ui.common.moveUp', 'Move up'))}">↑</button>
+                          <button type="button" class="btn btn-sm" data-order-move="down" aria-label="${escapeHtml(t('plan.ui.common.moveDown', 'Move down'))}">↓</button>
                           ${qa}
                           <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" aria-label="${escapeHtml(t('plan.ui.common.delete', 'Delete'))}">✕</button>
                         </div>
@@ -602,8 +604,11 @@ function renderPlanDaysUi(planId, rows) {
               .map((it) => {
                 const text = it?.data && typeof it.data === 'object' ? String(it.data.text || '').trim() : '';
                 return `
-                  <div class="ce-day-item-row ce-day-item-row--note" draggable="true" data-dnd-item-id="${escapeHtml(String(it.id || ''))}" data-dnd-day-id="${escapeHtml(String(d.id || ''))}" data-dnd-kind="notes" style="display:flex; gap:0.5rem; align-items:flex-start;">
-                    <span class="ce-dnd-handle" aria-hidden="true" style="margin-top:2px;">≡</span>
+                  <div class="ce-day-item-row ce-day-item-row--note" data-dnd-item-id="${escapeHtml(String(it.id || ''))}" data-dnd-day-id="${escapeHtml(String(d.id || ''))}" data-dnd-kind="notes" style="display:flex; gap:0.5rem; align-items:flex-start;">
+                    <div style="display:flex; flex-direction:column; gap:0.25rem;">
+                      <button type="button" class="btn btn-sm" data-order-move="up" aria-label="${escapeHtml(t('plan.ui.common.moveUp', 'Move up'))}">↑</button>
+                      <button type="button" class="btn btn-sm" data-order-move="down" aria-label="${escapeHtml(t('plan.ui.common.moveDown', 'Move down'))}">↓</button>
+                    </div>
                     <div style="flex:1 1 auto; color:#475569;">${escapeHtml(text)}</div>
                     <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" aria-label="${escapeHtml(t('plan.ui.common.delete', 'Delete'))}">✕</button>
                   </div>
@@ -827,7 +832,44 @@ function renderPlanDaysUi(planId, rows) {
     });
   });
 
-  wirePlanItemsDragDrop(container);
+  wirePlanItemsReorderButtons(container);
+}
+
+function wirePlanItemsReorderButtons(container) {
+  if (!(container instanceof HTMLElement)) return;
+
+  container.querySelectorAll('[data-order-move]').forEach((btn) => {
+    if (!(btn instanceof HTMLElement)) return;
+    btn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      const dir = String(btn.getAttribute('data-order-move') || '').trim();
+      const row = btn.closest('[data-dnd-item-id]');
+      const list = btn.closest('[data-day-dnd-list]');
+      if (!(row instanceof HTMLElement) || !(list instanceof HTMLElement)) return;
+
+      const kind = String(list.getAttribute('data-day-dnd-list') || '').trim();
+      const dayId = String(list.getAttribute('data-day-id') || '').trim();
+      if (!kind || !dayId) return;
+
+      const sib = dir === 'up' ? row.previousElementSibling : row.nextElementSibling;
+      if (!(sib instanceof HTMLElement)) return;
+      if (sib.getAttribute('data-dnd-item-id') == null) return;
+
+      if (dir === 'up') {
+        list.insertBefore(row, sib);
+      } else {
+        const after = sib.nextElementSibling;
+        list.insertBefore(row, after);
+      }
+
+      const ok = await persistDndListOrder({ dayId, kind, listEl: list });
+      if (ok) {
+        await loadPlanDays(currentPlan?.id);
+      }
+    });
+  });
 }
 
 let cePlanDndState = { draggingId: '', fromDayId: '', kind: '', el: null };
@@ -1257,15 +1299,17 @@ function openDayMapOverlay(dayId, items) {
         .map((p, idx) => {
           const num = idx + 1;
           return `
-            <button type="button" class="ce-map-ov__row" data-ce-map-ov-focus="${escapeHtml(String(idx))}">
-              <span class="ce-map-ov__row-num">${escapeHtml(String(num))}</span>
-              <span class="ce-map-ov__row-ico" aria-hidden="true">${escapeHtml(rowIcon(p.type))}</span>
-              <span class="ce-map-ov__row-title">${escapeHtml(p.title)}</span>
-              <span class="ce-map-ov__row-move" style="margin-left:auto; display:flex; gap:0.25rem;">
+            <div class="ce-map-ov__row" style="display:flex; gap:0.5rem; align-items:center;">
+              <button type="button" class="ce-map-ov__row-focus" data-ce-map-ov-focus="${escapeHtml(String(idx))}" style="display:flex; gap:0.5rem; align-items:center; flex:1 1 auto; min-width:0;">
+                <span class="ce-map-ov__row-num">${escapeHtml(String(num))}</span>
+                <span class="ce-map-ov__row-ico" aria-hidden="true">${escapeHtml(rowIcon(p.type))}</span>
+                <span class="ce-map-ov__row-title" style="min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${escapeHtml(p.title)}</span>
+              </button>
+              <span class="ce-map-ov__row-move" style="display:flex; gap:0.25rem;">
                 <button type="button" class="btn btn-sm" data-ce-map-ov-move="up" data-ce-map-ov-idx="${escapeHtml(String(idx))}" aria-label="${escapeHtml(t('plan.ui.common.moveUp', 'Move up'))}">↑</button>
                 <button type="button" class="btn btn-sm" data-ce-map-ov-move="down" data-ce-map-ov-idx="${escapeHtml(String(idx))}" aria-label="${escapeHtml(t('plan.ui.common.moveDown', 'Move down'))}">↓</button>
               </span>
-            </button>
+            </div>
           `;
         })
         .join('')}
