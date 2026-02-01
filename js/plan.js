@@ -441,6 +441,73 @@ function renderPlanDaysUi(planId, rows) {
   const container = daysEl();
   if (!container) return;
 
+  const expandStorageKey = currentPlan?.id ? `cePlanExpand:${String(currentPlan.id)}` : '';
+  const readExpandedState = () => {
+    if (!expandStorageKey) return {};
+    try {
+      const raw = localStorage.getItem(expandStorageKey);
+      const parsed = raw ? JSON.parse(raw) : null;
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (_) {
+      return {};
+    }
+  };
+  const writeExpandedState = (next) => {
+    if (!expandStorageKey) return;
+    try {
+      localStorage.setItem(expandStorageKey, JSON.stringify(next && typeof next === 'object' ? next : {}));
+    } catch (_) {
+      // ignore
+    }
+  };
+  const expandedState = readExpandedState();
+
+  const isProbablyMapsUrl = (u) => {
+    const s = String(u || '').toLowerCase();
+    if (!s) return false;
+    return s.includes('google.com/maps') || s.includes('maps.app.goo.gl') || s.includes('goo.gl/maps') || s.includes('openstreetmap.org');
+  };
+  const mapsUrlForItem = (it, src, resolved) => {
+    const type = String(it?.item_type || '').trim();
+    const s = src && typeof src === 'object' ? src : {};
+    if (type === 'recommendation') {
+      const lat = s?.latitude != null ? Number(s.latitude) : (s?.lat != null ? Number(s.lat) : null);
+      const lng = s?.longitude != null ? Number(s.longitude) : (s?.lng != null ? Number(s.lng) : null);
+      const fallback = Number.isFinite(lat) && Number.isFinite(lng) ? `https://www.google.com/maps?q=${lat},${lng}` : '';
+      return String(s?.google_url || s?.google_maps_url || fallback || '').trim();
+    }
+    if (type === 'poi') {
+      const d = it?.data && typeof it.data === 'object' ? it.data : {};
+      const lat = d?.lat != null ? Number(d.lat) : null;
+      const lng = d?.lng != null ? Number(d.lng) : null;
+      const fallback = Number.isFinite(lat) && Number.isFinite(lng) ? `https://www.google.com/maps?q=${lat},${lng}` : '';
+      const u = String(resolved?.url || '').trim();
+      return String(fallback || (isProbablyMapsUrl(u) ? u : '') || '').trim();
+    }
+    const u = String(resolved?.url || '').trim();
+    return isProbablyMapsUrl(u) ? u : '';
+  };
+  const websiteUrlForItem = (it, src, resolved) => {
+    const type = String(it?.item_type || '').trim();
+    const s = src && typeof src === 'object' ? src : {};
+    if (type === 'recommendation') {
+      return String(s?.website_url || s?.url || '').trim();
+    }
+    const u = String(resolved?.url || '').trim();
+    return isProbablyMapsUrl(u) ? '' : u;
+  };
+  const quickActionsHtml = (it, src, resolved) => {
+    const mapsUrl = mapsUrlForItem(it, src, resolved);
+    const webUrl = websiteUrlForItem(it, src, resolved);
+    if (!mapsUrl && !webUrl) return '';
+    return `
+      <div class="ce-quick-actions" aria-label="${escapeHtml(t('plan.ui.common.actions', 'Actions'))}">
+        ${mapsUrl ? `<a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener" class="ce-qa" aria-label="${escapeHtml(t('plan.ui.recommendations.openMaps', 'Open in maps'))}">📍</a>` : ''}
+        ${webUrl ? `<a href="${escapeHtml(webUrl)}" target="_blank" rel="noopener" class="ce-qa" aria-label="${escapeHtml(t('plan.ui.common.open', 'Open'))}">🔗</a>` : ''}
+      </div>
+    `;
+  };
+
   const safeRows = Array.isArray(rows) ? rows : [];
   if (!safeRows.length) {
     container.innerHTML = `<div style="color:#64748b;">${escapeHtml(t('plan.ui.days.noDays', 'No days generated yet.'))}</div>`;
@@ -476,6 +543,7 @@ function renderPlanDaysUi(planId, rows) {
                   const image = String(resolved?.image || '');
                   const src = resolveCatalogEntryForItem(it);
                   const panelId = `ceDayDetail_${String(it.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
+                  const isPanelOpen = !!expandedState[panelId];
                   const rangeStart = it?.data && typeof it.data === 'object' ? Number(it.data.range_start_day_index || 0) : 0;
                   const rangeEnd = it?.data && typeof it.data === 'object' ? Number(it.data.range_end_day_index || 0) : 0;
                   const rangeId = it?.data && typeof it.data === 'object' ? String(it.data.range_id || '') : '';
@@ -483,7 +551,8 @@ function renderPlanDaysUi(planId, rows) {
                   const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
                   const thumb = image ? `<a href="${escapeHtml(image)}" target="_blank" rel="noopener"><img src="${escapeHtml(image)}" alt="" loading="lazy" style="width:64px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0;" /></a>` : '';
                   const preview = (it.item_type === 'hotel' || it.item_type === 'trip' || it.item_type === 'recommendation') ? '' : (description ? `<div style=\"color:#475569; font-size:12px;\">${escapeHtml(description)}</div>` : '');
-                  const more = src ? renderExpandablePanel({ panelId, type: it.item_type, src, resolved }) : '';
+                  const more = src ? renderExpandablePanel({ panelId, type: it.item_type, src, resolved, open: isPanelOpen }) : '';
+                  const qa = quickActionsHtml(it, src, resolved);
                   return `
                     <div class="ce-day-item-row" style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
                       ${thumb ? `<div style="flex:0 0 auto;">${thumb}</div>` : ''}
@@ -496,6 +565,7 @@ function renderPlanDaysUi(planId, rows) {
                         ${price ? `<div style=\"color:#0f172a; font-size:12px;\">${escapeHtml(price)}</div>` : ''}
                       </div>
                       <div class="ce-day-item-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
+                        ${qa}
                         ${link}
                         <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" data-range-id="${escapeHtml(rangeId)}" aria-label="${escapeHtml(t('plan.ui.common.delete', 'Delete'))}">✕</button>
                       </div>
@@ -532,13 +602,15 @@ function renderPlanDaysUi(planId, rows) {
                     const image = String(resolved?.image || '');
                     const src = resolveCatalogEntryForItem(it);
                     const panelId = `ceDayPoiDetail_${String(it.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
+                    const isPanelOpen = !!expandedState[panelId];
                     const timeLabel = formatPoiTimeLabel(it);
                     const link = url ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener" class="btn btn-sm">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
                     const thumb = image ? `<a href="${escapeHtml(image)}" target="_blank" rel="noopener"><img src="${escapeHtml(image)}" alt="" loading="lazy" style="width:64px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0;" /></a>` : '';
                     const startV = it?.data && typeof it.data === 'object' ? String(it.data.start_time || '') : '';
                     const endV = it?.data && typeof it.data === 'object' ? String(it.data.end_time || '') : '';
                     const preview = description ? `<div style=\"color:#475569; font-size:12px; margin-top:0.25rem;\">${escapeHtml(description)}</div>` : '';
-                    const more = src ? renderExpandablePanel({ panelId, type: 'poi', src, resolved }) : '';
+                    const more = src ? renderExpandablePanel({ panelId, type: 'poi', src, resolved, open: isPanelOpen }) : '';
+                    const qa = quickActionsHtml(it, src, resolved);
                     return `
                       <div class="ce-day-item-row ce-day-item-row--poi" style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
                         ${thumb ? `<div style="flex:0 0 auto;">${thumb}</div>` : ''}
@@ -562,6 +634,7 @@ function renderPlanDaysUi(planId, rows) {
                           </div>
                         </div>
                         <div class="ce-day-item-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
+                          ${qa}
                           ${link}
                           <button type="button" class="btn btn-sm" data-day-item-delete="${it.id}" aria-label="${escapeHtml(t('plan.ui.common.delete', 'Delete'))}">✕</button>
                         </div>
@@ -707,6 +780,7 @@ function renderPlanDaysUi(planId, rows) {
       const panel = container.querySelector(`#${CSS.escape(target)}`);
       if (!(panel instanceof HTMLElement)) return;
       const isHidden = panel.hasAttribute('hidden');
+      const nextState = readExpandedState();
       if (isHidden) {
         panel.removeAttribute('hidden');
         panel.classList.add('ce-expand-panel--open');
@@ -720,6 +794,7 @@ function renderPlanDaysUi(planId, rows) {
             panel.style.maxHeight = 'none';
           }
         }, 220);
+        nextState[target] = true;
       } else {
         const inner = panel.querySelector('.ce-expand-panel__inner');
         const h = inner instanceof HTMLElement ? inner.scrollHeight : panel.scrollHeight;
@@ -730,11 +805,28 @@ function renderPlanDaysUi(planId, rows) {
           panel.classList.remove('ce-expand-panel--open');
           panel.setAttribute('hidden', '');
         }, 180);
+        delete nextState[target];
       }
+      writeExpandedState(nextState);
       btn.setAttribute('aria-expanded', isHidden ? 'true' : 'false');
       const icon = btn.querySelector('.ce-expand-btn__icon');
       if (icon instanceof HTMLElement) icon.textContent = isHidden ? '−' : '+';
     });
+  });
+
+  container.querySelectorAll('[data-expand-toggle]').forEach((btn) => {
+    const target = btn.getAttribute('data-expand-toggle');
+    if (!target) return;
+    if (!expandedState[target]) return;
+    const panel = container.querySelector(`#${CSS.escape(target)}`);
+    if (!(panel instanceof HTMLElement)) return;
+    if (!panel.hasAttribute('hidden')) return;
+    panel.removeAttribute('hidden');
+    panel.classList.add('ce-expand-panel--open');
+    panel.style.maxHeight = 'none';
+    btn.setAttribute('aria-expanded', 'true');
+    const icon = btn.querySelector('.ce-expand-btn__icon');
+    if (icon instanceof HTMLElement) icon.textContent = '−';
   });
 
   // Promo code reveal (login-gated) for recommendation cards inside day panels
@@ -1618,19 +1710,29 @@ function renderDetailsHtml(type, src, resolved) {
   `;
 }
 
-function renderExpandablePanel({ panelId, type, src, resolved }) {
+function renderExpandablePanel({ panelId, type, src, resolved, open = false }) {
   const pid = String(panelId || '').trim();
   if (!pid) return '';
   const content = renderDetailsHtml(type, src, resolved);
   if (!String(content || '').trim()) return '';
+
+  const safeType = String(type || '').trim();
+  const typeLabel = safeType ? getServiceTypeLabel(safeType) : '';
+  const title = String(resolved?.title || '').trim();
+  const head = (typeLabel || title)
+    ? `<div class="ce-detail-head"><span class="ce-detail-head__type">${escapeHtml(typeLabel || '')}</span>${title ? `<span class="ce-detail-head__title">${escapeHtml(title)}</span>` : ''}</div>`
+    : '';
+
+  const isOpen = !!open;
   return `
     <div class="ce-expand" data-expand-wrap="1">
-      <button type="button" class="ce-expand-btn" data-expand-toggle="${escapeHtml(pid)}" aria-expanded="false">
+      <button type="button" class="ce-expand-btn" data-expand-toggle="${escapeHtml(pid)}" aria-expanded="${isOpen ? 'true' : 'false'}">
         <span>${escapeHtml(t('plan.ui.common.moreInfo', 'More info'))}</span>
-        <span class="ce-expand-btn__icon" aria-hidden="true">+</span>
+        <span class="ce-expand-btn__icon" aria-hidden="true">${isOpen ? '−' : '+'}</span>
       </button>
-      <div id="${escapeHtml(pid)}" class="ce-expand-panel" hidden>
+      <div id="${escapeHtml(pid)}" class="ce-expand-panel${isOpen ? ' ce-expand-panel--open' : ''}"${isOpen ? '' : ' hidden'} style="${isOpen ? 'max-height:none;' : ''}">
         <div class="ce-expand-panel__inner">
+          ${head}
           ${content}
         </div>
       </div>
