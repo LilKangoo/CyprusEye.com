@@ -2006,6 +2006,25 @@ function cityToCarLocation(city) {
   return null;
 }
 
+function carPickupFeeForCity(city) {
+  const raw = cityKey(city);
+  const k = String(raw || '').trim().toLowerCase().replace(/\s+/g, '-');
+  if (!k) return 0;
+  if (k === 'nicosia' || k === 'ayia-napa') return 15;
+  if (k === 'protaras' || k === 'limassol') return 20;
+  if (k === 'paphos') return 40;
+  return 0;
+}
+
+function getCityForDayIndex(idx) {
+  const want = Number(idx);
+  if (!Number.isFinite(want) || want <= 0) return '';
+  for (const d of planDaysById.values()) {
+    if (Number(d?.day_index) === want) return String(d?.city || '').trim();
+  }
+  return '';
+}
+
 function getCatalogContext() {
   const selectedDayId = lastSelectedDayIdForCatalog || '';
   const day = selectedDayId ? planDaysById.get(selectedDayId) : null;
@@ -2262,14 +2281,16 @@ function resolveItemDisplay(it) {
 
   if (itemType === 'car' && src) {
     const location = String(src?.location || '').trim();
+    const pickupCity = String(d.pickup_city || '').trim() || getCityForDayIndex(rangeStart);
+    const subtitleLocation = pickupCity || location;
     const north = src?.north_allowed ? t('plan.ui.catalog.northOk', 'north ok') : '';
-    const total = calcCarTotal(src || {}, { location: src?.location, days: rangeDays });
+    const total = calcCarTotal(src || {}, { location: pickupCity || src?.location, days: rangeDays });
     const computed = total ? String(formatMoney(total, currency)).trim() : '';
     const from = getCarFromPricePerDay(src);
     const fromOnly = from != null ? `${Number(from).toFixed(0)}€ ${t('plan.ui.pricing.perDay', '/ day')}` : '';
     return {
       title: getCarTitle(src),
-      subtitle: [location, north].filter(Boolean).join(' • '),
+      subtitle: [subtitleLocation, north].filter(Boolean).join(' • '),
       description: getCarDescription(src),
       url: String(d.url || getCarLink(src) || '').trim(),
       price: String(computed || d.price || fromOnly).trim(),
@@ -2820,11 +2841,12 @@ function calculateHotelPrice(hotel, persons, nights) {
 }
 
 function calcCarTotal(carOffer, { location, days } = {}) {
-  const loc = String(location || carOffer?.location || '').toLowerCase();
+  const fleetKey = cityKey(carOffer?.location || '');
+  const pickupKey = cityKey(location || '') || fleetKey;
   const d = Math.max(1, Number(days || 0) || 1);
   const billableDays = Math.max(3, d);
 
-  if (loc === 'paphos') {
+  if (fleetKey === 'paphos') {
     const p3 = Number(carOffer?.price_3days || 0) || 0;
     if (billableDays === 3 && p3 > 0) return p3;
 
@@ -2841,7 +2863,9 @@ function calcCarTotal(carOffer, { location, days } = {}) {
     Number(carOffer?.price_7_10days || 0) ||
     Number(carOffer?.price_4_6days || 0) ||
     0;
-  return perDay * billableDays;
+  const base = perDay * billableDays;
+  const pickupFee = carPickupFeeForCity(pickupKey);
+  return base + pickupFee;
 }
 
 function getHotelMinPricePerNight(hotel) {
@@ -2918,7 +2942,8 @@ function computePlanCostSummary() {
 
     if (it.item_type === 'car') {
       const ref = catalogData.cars.find((c) => String(c?.id) === String(it.ref_id)) || null;
-      carsTotal += calcCarTotal(ref || {}, { location: ref?.location, days });
+      const pickupCity = String(d.pickup_city || '').trim() || getCityForDayIndex(start);
+      carsTotal += calcCarTotal(ref || {}, { location: pickupCity || ref?.location, days });
     }
   });
 
@@ -3273,6 +3298,13 @@ async function addServiceRangeToDays({ startDayId, endDayId, itemType, refId, da
   baseData.range_end_day_id = endDayId;
   baseData.range_start_day_index = min;
   baseData.range_end_day_index = max;
+
+  if (itemType === 'car') {
+    const pickupCity = String(start?.city || currentPlan?.base_city || '').trim();
+    if (pickupCity) {
+      baseData.pickup_city = pickupCity;
+    }
+  }
 
   const payloads = days.map((d) => ({
     plan_day_id: d.id,
@@ -3647,26 +3679,34 @@ function renderServiceCatalog() {
       list = baseHotels.filter((x) => matches(`${x.title} ${x.subtitle}`));
     }
   } else if (catalogActiveTab === 'cars') {
+    const ctxKey = cityKey(ctx.city || '');
+    const wantFleet = ctx.city
+      ? (ctxKey === 'paphos' ? (ctx.includeNorth ? 'larnaca' : 'paphos') : 'larnaca')
+      : '';
+    const pickupFee = ctx.city ? carPickupFeeForCity(ctx.city) : 0;
+
     list = catalogData.cars
+      .filter((c) => {
+        if (!wantFleet) return true;
+        return cityKey(c?.location || '') === wantFleet;
+      })
       .map((c) => {
         const title = getCarTitle(c);
-        const location = c?.location || '';
+        const fleetLocation = c?.location || '';
+        const subtitleLocation = ctx.city ? String(ctx.city || '').trim() : String(fleetLocation || '').trim();
         const url = getCarLink(c);
         const description = getCarDescription(c);
         const image = getServiceImageUrl('car', c);
         const north = c?.north_allowed ? t('plan.ui.catalog.northOk', 'north ok') : '';
         const from = getCarFromPricePerDay(c);
-        const price = from != null ? `${t('plan.ui.pricing.from', 'From')}: ${Number(from).toFixed(0)}€ ${t('plan.ui.pricing.perDay', '/ day')}` : '';
-        return { id: c?.id, title, subtitle: [location, north].filter(Boolean).join(' • '), description, location, price, url, image, lat: null, lng: null, raw: c };
+        const feeHint = pickupFee > 0 && wantFleet === 'larnaca' && ctxKey && ctxKey !== 'larnaca' ? ` +${pickupFee}€` : '';
+        const price = from != null ? `${t('plan.ui.pricing.from', 'From')}: ${Number(from).toFixed(0)}€ ${t('plan.ui.pricing.perDay', '/ day')}${feeHint}` : '';
+        return { id: c?.id, title, subtitle: [subtitleLocation, north].filter(Boolean).join(' • '), description, location: fleetLocation, price, url, image, lat: null, lng: null, raw: c };
       })
       .filter((x) => {
-        if (ctx.includeNorth) {
-          const ref = catalogData.cars.find((c) => String(c?.id) === String(x.id));
-          if (ref && ref.north_allowed === false) return false;
-        }
+        if (ctx.includeNorth && x?.raw && x.raw.north_allowed === false) return false;
         return true;
       })
-      .filter((x) => (ctx.city ? cityMatches(x.location, ctx.city) : true))
       .filter((x) => matches(`${x.title} ${x.subtitle}`));
   } else if (catalogActiveTab === 'pois') {
     list = catalogData.pois
