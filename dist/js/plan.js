@@ -729,11 +729,8 @@ function renderPlanDaysUi(planId, rows) {
             <span style="color:#64748b;">${escapeHtml(city)}</span>
           </div>
           <div style="margin-top:0.5rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-            <button type="button" class="btn btn-sm" data-day-quick-add="trip" data-day-id="${d.id}">${escapeHtml(t('plan.ui.days.addTrip', 'Add trip'))}</button>
-            <button type="button" class="btn btn-sm" data-day-quick-add="hotel" data-day-id="${d.id}">${escapeHtml(t('plan.ui.days.addHotel', 'Add hotel'))}</button>
-            <button type="button" class="btn btn-sm" data-day-quick-add="car" data-day-id="${d.id}">${escapeHtml(t('plan.ui.days.addCar', 'Add car'))}</button>
-            <button type="button" class="btn btn-sm" data-day-quick-add="pois" data-day-id="${d.id}">${escapeHtml(t('plan.ui.days.addPlaces', 'Add places'))}</button>
-            <button type="button" class="btn btn-sm" data-day-map-open="${d.id}">🗺️ ${escapeHtml(t('plan.ui.days.map', 'Map'))}</button>
+            <button type="button" class="btn btn-sm" data-day-add-to-day="${d.id}">${escapeHtml(t('plan.ui.days.addToDay', currentLang() === 'pl' ? 'Dodaj do dnia' : 'Add to day'))}</button>
+            <button type="button" class="btn btn-sm" data-day-map-open="${d.id}">🗺️ ${escapeHtml(t('plan.ui.days.map', currentLang() === 'pl' ? 'Mapa dnia' : 'Day map'))}</button>
           </div>
           <div style="margin-top:0.5rem; display:grid; gap:0.5rem;">
             <div style="display:grid; gap:0.25rem;">
@@ -800,14 +797,19 @@ function renderPlanDaysUi(planId, rows) {
     });
   });
 
-  container.querySelectorAll('[data-day-quick-add]').forEach((btn) => {
+  container.querySelectorAll('[data-day-add-to-day]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const dayId = btn.getAttribute('data-day-id');
-      const tab = btn.getAttribute('data-day-quick-add');
-      if (!dayId || !tab) return;
+      const dayId = btn.getAttribute('data-day-add-to-day');
+      if (!dayId) return;
 
       lastSelectedDayIdForCatalog = dayId;
-      catalogActiveTab = tab;
+      if (catalogActiveTab === 'saved' && catalogSavedOnly) {
+        catalogSavedOnly = false;
+        catalogActiveTab = lastNonSavedCatalogTab || 'trips';
+      } else if (catalogActiveTab === 'saved') {
+        catalogActiveTab = lastNonSavedCatalogTab || 'trips';
+      }
+
       renderServiceCatalog();
 
       const catWrap = catalogEl();
@@ -3172,13 +3174,46 @@ function renderServiceCatalog() {
 
     const lang = currentLang();
     const isPolish = lang === 'pl';
-    const active = String(recommendationsCategoryFilter || '');
+    let active = String(recommendationsCategoryFilter || '');
+    const countByCat = new Map();
+
+    const catNameById = new Map();
+    cats.forEach((c) => {
+      if (!c || c.id == null) return;
+      const name = isPolish ? (c?.name_pl || c?.name_en || '') : (c?.name_en || c?.name_pl || '');
+      catNameById.set(String(c.id), String(name || ''));
+    });
+
+    recs.forEach((r) => {
+      const catId = String(r?.category_id || '').trim();
+      if (!catId) return;
+
+      if (recommendationsDiscountOnly) {
+        const discount = isPolish
+          ? (r?.discount_text_pl || r?.discount_text_en || '')
+          : (r?.discount_text_en || r?.discount_text_pl || '');
+        if (!String(discount || '').trim()) return;
+      }
+
+      const title = isPolish ? (r?.title_pl || r?.title_en || '') : (r?.title_en || r?.title_pl || '');
+      const descriptionFull = isPolish ? (r?.description_pl || r?.description_en || '') : (r?.description_en || r?.description_pl || '');
+      const catName = catNameById.get(catId) || '';
+      if (!matches(`${title} ${catName} ${descriptionFull}`)) return;
+
+      countByCat.set(catId, (countByCat.get(catId) || 0) + 1);
+    });
+
+    if (active && (countByCat.get(active) || 0) === 0) {
+      recommendationsCategoryFilter = '';
+      active = '';
+    }
 
     const items = cats
       .map((c) => {
         const id = c?.id;
         if (!id) return null;
-        const count = recs.filter((r) => String(r?.category_id) === String(id)).length;
+        const count = countByCat.get(String(id)) || 0;
+        if (count <= 0) return null;
         const name = isPolish ? (c?.name_pl || c?.name_en || '') : (c?.name_en || c?.name_pl || '');
         return { id: String(id), icon: c?.icon || '📍', name, count };
       })
@@ -3186,9 +3221,9 @@ function renderServiceCatalog() {
 
     if (!items.length) return '';
 
-    const clearLabel = t('recommendations.home.filters.clear', 'Wyczyść filtry');
-    const titleLabel = t('recommendations.home.filters.title', 'Wybierz kategorię');
-    const discountOnlyLabel = t('plan.ui.recommendations.discountOnly', 'Discount only');
+    const clearLabel = t('recommendations.home.filters.clear', isPolish ? 'Wyczyść filtry' : 'Clear filters');
+    const titleLabel = t('recommendations.home.filters.title', isPolish ? 'Wybierz kategorię' : 'Choose category');
+    const discountOnlyLabel = t('plan.ui.recommendations.discountOnly', isPolish ? 'Tylko zniżki' : 'Discount only');
 
     return `
       <div class="filters-container" style="background: white; border-radius: 16px; padding: 14px 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.06); margin: 14px 0 18px;">
@@ -3433,13 +3468,36 @@ function renderServiceCatalog() {
   } else if (catalogActiveTab === 'recommendations') {
     const lang = currentLang();
     const isPolish = lang === 'pl';
-    const activeCat = String(recommendationsCategoryFilter || '');
+    let activeCat = String(recommendationsCategoryFilter || '');
     const catLookup = new Map();
     (Array.isArray(catalogData.recommendationCategories) ? catalogData.recommendationCategories : []).forEach((c) => {
       if (c && c.id != null) catLookup.set(String(c.id), c);
     });
 
-    list = (Array.isArray(catalogData.recommendations) ? catalogData.recommendations : [])
+    const recsAll = Array.isArray(catalogData.recommendations) ? catalogData.recommendations : [];
+    const countByCat = new Map();
+    recsAll.forEach((r) => {
+      const catId = String(r?.category_id || '').trim();
+      if (!catId) return;
+      if (recommendationsDiscountOnly) {
+        const discount = isPolish
+          ? (r?.discount_text_pl || r?.discount_text_en || '')
+          : (r?.discount_text_en || r?.discount_text_pl || '');
+        if (!String(discount || '').trim()) return;
+      }
+      const cat = catLookup.get(String(r?.category_id || '')) || r?.recommendation_categories || {};
+      const catName = isPolish ? (cat?.name_pl || cat?.name_en || '') : (cat?.name_en || cat?.name_pl || '');
+      const title = isPolish ? (r?.title_pl || r?.title_en || '') : (r?.title_en || r?.title_pl || '');
+      const descriptionFull = isPolish ? (r?.description_pl || r?.description_en || '') : (r?.description_en || r?.description_pl || '');
+      if (!matches(`${title} ${catName} ${descriptionFull}`)) return;
+      countByCat.set(catId, (countByCat.get(catId) || 0) + 1);
+    });
+    if (activeCat && (countByCat.get(activeCat) || 0) === 0) {
+      recommendationsCategoryFilter = '';
+      activeCat = '';
+    }
+
+    list = recsAll
       .filter((r) => {
         if (!activeCat) return true;
         return String(r?.category_id) === activeCat;
@@ -4517,10 +4575,8 @@ async function loadPlanDays(planId) {
             <span style="color:#64748b;">${escapeHtml(city)}</span>
           </div>
           <div style="margin-top:0.5rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-            <button type="button" class="btn btn-sm" data-day-quick-add="trip" data-day-id="${d.id}">${escapeHtml(t('plan.ui.days.addTrip', 'Add trip'))}</button>
-            <button type="button" class="btn btn-sm" data-day-quick-add="hotel" data-day-id="${d.id}">${escapeHtml(t('plan.ui.days.addHotel', 'Add hotel'))}</button>
-            <button type="button" class="btn btn-sm" data-day-quick-add="car" data-day-id="${d.id}">${escapeHtml(t('plan.ui.days.addCar', 'Add car'))}</button>
-            <button type="button" class="btn btn-sm" data-day-quick-add="pois" data-day-id="${d.id}">${escapeHtml(t('plan.ui.days.addPlaces', 'Add places'))}</button>
+            <button type="button" class="btn btn-sm" data-day-add-to-day="${d.id}">${escapeHtml(t('plan.ui.days.addToDay', currentLang() === 'pl' ? 'Dodaj do dnia' : 'Add to day'))}</button>
+            <button type="button" class="btn btn-sm" data-day-map-open="${d.id}">🗺️ ${escapeHtml(t('plan.ui.days.map', currentLang() === 'pl' ? 'Mapa dnia' : 'Day map'))}</button>
           </div>
           <div style="margin-top:0.5rem; display:grid; gap:0.5rem;">
             <div style="display:grid; gap:0.25rem;">
@@ -4588,20 +4644,36 @@ async function loadPlanDays(planId) {
     });
   });
 
-  container.querySelectorAll('[data-day-quick-add]').forEach((btn) => {
+  container.querySelectorAll('[data-day-add-to-day]').forEach((btn) => {
     btn.addEventListener('click', () => {
-      const dayId = btn.getAttribute('data-day-id');
-      const tab = btn.getAttribute('data-day-quick-add');
-      if (!dayId || !tab) return;
+      const dayId = btn.getAttribute('data-day-add-to-day');
+      if (!dayId) return;
 
       lastSelectedDayIdForCatalog = dayId;
-      catalogActiveTab = tab;
+      if (catalogActiveTab === 'saved' && catalogSavedOnly) {
+        catalogSavedOnly = false;
+        catalogActiveTab = lastNonSavedCatalogTab || 'trips';
+      } else if (catalogActiveTab === 'saved') {
+        catalogActiveTab = lastNonSavedCatalogTab || 'trips';
+      }
+
       renderServiceCatalog();
 
       const catWrap = catalogEl();
       if (catWrap && typeof catWrap.scrollIntoView === 'function') {
         catWrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
       }
+    });
+  });
+
+  container.querySelectorAll('[data-day-map-open]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const dayId = btn.getAttribute('data-day-map-open');
+      if (!dayId) return;
+      const items = Array.isArray(dayItemsByDayId.get(dayId)) ? dayItemsByDayId.get(dayId) : [];
+      const serviceItems = items.filter((it) => it && it.item_type && it.item_type !== 'note');
+      const mapItems = serviceItems.filter((it) => it && (it.item_type === 'poi' || it.item_type === 'recommendation'));
+      openDayMapOverlay(dayId, mapItems);
     });
   });
 
