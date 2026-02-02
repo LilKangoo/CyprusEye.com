@@ -400,20 +400,29 @@ let lastSelectedDayIdForCatalog = '';
 let hotelAmenitiesMap = {};
 let hotelAmenitiesLoaded = false;
 
-function savedCatalogStorageKey() {
-  let uid = '';
-  try {
-    uid = String(window?.CE_STATE?.session?.user?.id || '').trim();
-  } catch (_) {
-    uid = '';
-  }
-  if (!uid) uid = 'anon';
-  return `ce_plan_catalog_saved_v1_${uid}`;
+let savedCatalogUidCache = 'anon';
+
+function setSavedCatalogUidCache(uid) {
+  const next = String(uid || '').trim() || 'anon';
+  savedCatalogUidCache = next;
 }
 
-function loadSavedCatalogMap() {
+function savedCatalogStorageKeyForUid(uid) {
+  const id = String(uid || '').trim() || 'anon';
+  return `ce_plan_catalog_saved_v1_${id}`;
+}
+
+function savedCatalogStorageKey() {
+  return savedCatalogStorageKeyForUid(savedCatalogUidCache);
+}
+
+function getSavedCatalogAuthedUserId() {
+  return savedCatalogUidCache && savedCatalogUidCache !== 'anon' ? savedCatalogUidCache : '';
+}
+
+function loadSavedCatalogMapForUid(uid) {
   try {
-    const raw = localStorage.getItem(savedCatalogStorageKey());
+    const raw = localStorage.getItem(savedCatalogStorageKeyForUid(uid));
     const parsed = raw ? JSON.parse(raw) : null;
     if (!parsed || typeof parsed !== 'object') return {};
     return parsed;
@@ -422,9 +431,148 @@ function loadSavedCatalogMap() {
   }
 }
 
-function saveSavedCatalogMap(map) {
+function loadSavedCatalogMap() {
+  return loadSavedCatalogMapForUid(savedCatalogUidCache);
+}
+
+function saveSavedCatalogMapForUid(uid, map) {
   try {
-    localStorage.setItem(savedCatalogStorageKey(), JSON.stringify(map || {}));
+    localStorage.setItem(savedCatalogStorageKeyForUid(uid), JSON.stringify(map || {}));
+  } catch (_) {}
+}
+
+function saveSavedCatalogMap(map) {
+  saveSavedCatalogMapForUid(savedCatalogUidCache, map);
+}
+
+function normalizeSavedCatalogMap(map) {
+  const src = map && typeof map === 'object' ? map : {};
+  const out = {};
+  ['trip', 'hotel', 'car', 'poi', 'recommendation'].forEach((k) => {
+    const arr = Array.isArray(src[k]) ? src[k] : [];
+    const uniq = [];
+    const seen = new Set();
+    arr.forEach((v) => {
+      const s = String(v || '').trim();
+      if (!s || seen.has(s)) return;
+      seen.add(s);
+      uniq.push(s);
+    });
+    out[k] = uniq;
+  });
+  return out;
+}
+
+async function loadSavedCatalogMapRemote(userId) {
+  if (!sb) return {};
+  const uid = String(userId || '').trim();
+  if (!uid) return {};
+  try {
+    const { data, error } = await sb
+      .from('user_saved_catalog_items')
+      .select('item_type, ref_id')
+      .eq('user_id', uid);
+    if (error) throw error;
+    const m = { trip: [], hotel: [], car: [], poi: [], recommendation: [] };
+    (Array.isArray(data) ? data : []).forEach((r) => {
+      const t = String(r?.item_type || '').trim();
+      const id = String(r?.ref_id || '').trim();
+      if (!t || !id) return;
+      if (!Array.isArray(m[t])) return;
+      m[t].push(id);
+    });
+    return normalizeSavedCatalogMap(m);
+  } catch (e) {
+    console.warn('Failed to load saved catalog items', e);
+    return {};
+  }
+}
+
+async function persistSavedCatalogItemRemote({ userId, itemType, refId, saved }) {
+  if (!sb) return true;
+  const uid = String(userId || '').trim();
+  const type = String(itemType || '').trim();
+  const id = String(refId || '').trim();
+  if (!uid || !type || !id) return true;
+  try {
+    if (saved) {
+      const { error } = await sb
+        .from('user_saved_catalog_items')
+        .upsert({ user_id: uid, item_type: type, ref_id: id }, { onConflict: 'user_id,item_type,ref_id' });
+      if (error) throw error;
+      return true;
+    }
+
+    const { error } = await sb
+      .from('user_saved_catalog_items')
+      .delete()
+      .eq('user_id', uid)
+      .eq('item_type', type)
+      .eq('ref_id', id);
+    if (error) throw error;
+    return true;
+  } catch (e) {
+    console.warn('Failed to persist saved catalog item', e);
+    return false;
+  }
+}
+
+async function syncSavedCatalogWithRemoteForUser(userId) {
+  const uid = String(userId || '').trim();
+  if (!uid) return;
+  setSavedCatalogUidCache(uid);
+
+  const localUser = normalizeSavedCatalogMap(loadSavedCatalogMapForUid(uid));
+  const localAnon = normalizeSavedCatalogMap(loadSavedCatalogMapForUid('anon'));
+  const remote = normalizeSavedCatalogMap(await loadSavedCatalogMapRemote(uid));
+
+  const merged = { trip: [], hotel: [], car: [], poi: [], recommendation: [] };
+  const unionInto = (t, arr) => {
+    const set = new Set(merged[t]);
+    (Array.isArray(arr) ? arr : []).forEach((v) => {
+      const s = String(v || '').trim();
+      if (!s || set.has(s)) return;
+      set.add(s);
+      merged[t].push(s);
+    });
+  };
+
+  ['trip', 'hotel', 'car', 'poi', 'recommendation'].forEach((t) => {
+    unionInto(t, remote[t]);
+    unionInto(t, localUser[t]);
+    unionInto(t, localAnon[t]);
+  });
+
+  const remoteSet = new Set();
+  ['trip', 'hotel', 'car', 'poi', 'recommendation'].forEach((t) => {
+    (Array.isArray(remote[t]) ? remote[t] : []).forEach((id) => {
+      remoteSet.add(`${t}:${String(id || '').trim()}`);
+    });
+  });
+
+  const toInsert = [];
+  ['trip', 'hotel', 'car', 'poi', 'recommendation'].forEach((t) => {
+    (Array.isArray(merged[t]) ? merged[t] : []).forEach((id) => {
+      const key = `${t}:${String(id || '').trim()}`;
+      if (!key || remoteSet.has(key)) return;
+      toInsert.push({ user_id: uid, item_type: t, ref_id: String(id) });
+    });
+  });
+
+  if (toInsert.length) {
+    try {
+      const { error } = await sb
+        .from('user_saved_catalog_items')
+        .upsert(toInsert, { onConflict: 'user_id,item_type,ref_id' });
+      if (error) throw error;
+    } catch (e) {
+      console.warn('Failed to sync saved catalog items', e);
+    }
+  }
+
+  saveSavedCatalogMapForUid(uid, merged);
+  try {
+    localStorage.removeItem(savedCatalogStorageKeyForUid('anon'));
   } catch (_) {}
 }
 
@@ -3461,7 +3609,6 @@ function renderServiceCatalog() {
         const category = getPoiCategory(p);
         const image = getServiceImageUrl('poi', p);
         const url = p?.google_url || p?.google_maps_url || (p?.lat != null && p?.lng != null ? `https://www.google.com/maps?q=${p.lat},${p.lng}` : '');
-        // Avoid showing description twice: keep it only for preview + details panel.
         return { id: p?.id, title, subtitle: category, description, price: '', url, image, lat: p?.lat ?? null, lng: p?.lng ?? null, raw: p };
       })
       .filter((x) => matches(`${x.title}`));
@@ -3561,12 +3708,21 @@ function renderServiceCatalog() {
           .slice(0, 120)
           .map((x) => {
             const itemType = String(x?.__itemType || (catalogActiveTab === 'recommendations' ? 'recommendation' : catalogActiveTab.slice(0, -1)));
+            const tabForItemType = (t) => {
+              if (t === 'trip') return 'trips';
+              if (t === 'hotel') return 'hotels';
+              if (t === 'car') return 'cars';
+              if (t === 'poi') return 'pois';
+              if (t === 'recommendation') return 'recommendations';
+              return catalogActiveTab;
+            };
+            const rowTab = listMode === 'saved' ? tabForItemType(itemType) : catalogActiveTab;
             const addAttr = `data-catalog-add="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(x.id || '')}" data-title="${escapeHtml(x.title || '')}" data-subtitle="${escapeHtml(x.subtitle || '')}" data-description="${escapeHtml(x.description || '')}" data-url="${escapeHtml(x.url || '')}" data-price="${escapeHtml(x.price || '')}" data-image="${escapeHtml(x.image || '')}"`;
             const poiAttrs = x.lat != null && x.lng != null ? ` data-lat="${escapeHtml(String(x.lat))}" data-lng="${escapeHtml(String(x.lng))}"` : '';
-            const isRange = catalogActiveTab === 'hotels' || catalogActiveTab === 'cars';
+            const isRange = itemType === 'hotel' || itemType === 'car';
             const link = x.url ? `<a href="${escapeHtml(x.url)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
             const dayPickWrap = isRange
-              ? (catalogActiveTab === 'cars'
+              ? (itemType === 'car'
                 ? `<div class="ce-catalog-days" data-car-range="1" hidden>
                      <div class="ce-catalog-days__inner" style="display:grid; gap:0.5rem;">
                        <label style="display:grid; gap:0.25rem; font-size:12px; color:#64748b;">
@@ -3672,17 +3828,17 @@ function renderServiceCatalog() {
                    <img src="${escapeHtml(x.image)}" alt="" loading="lazy" style="width:100%; height:120px; object-fit:cover; border-radius:10px; border:1px solid #e2e8f0;" />
                  </button>`
               : '';
-            const panelId = `ceCatDetail_${catalogActiveTab}_${String(x.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
+            const panelId = `ceCatDetail_${rowTab}_${String(x.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
             const preview =
-              catalogActiveTab === 'pois'
+              rowTab === 'pois'
                 ? (() => {
                   const prefix = t('plan.ui.poi.areaPrefix', 'Area Of:');
                   const line = x.subtitle ? `${prefix} ${x.subtitle}` : '';
                   return line ? `<div class="ce-catalog-preview">${escapeHtml(line)}</div>` : '';
                 })()
-                : ((catalogActiveTab === 'hotels' || catalogActiveTab === 'trips') ? '' : (x.description ? `<div class="ce-catalog-preview">${escapeHtml(x.description)}</div>` : ''));
+                : ((rowTab === 'hotels' || rowTab === 'trips') ? '' : (x.description ? `<div class="ce-catalog-preview">${escapeHtml(x.description)}</div>` : ''));
             const more = raw ? renderExpandablePanel({ panelId, type: itemType, src: raw, resolved: x }) : '';
-            const showSubtitleMeta = catalogActiveTab !== 'pois';
+            const showSubtitleMeta = rowTab !== 'pois';
 
             const saved = isCatalogItemSaved({ itemType, refId: x.id });
             const star = saved ? '★' : '☆';
@@ -3932,19 +4088,34 @@ function renderServiceCatalog() {
 
   wrap.querySelectorAll('[data-catalog-save]').forEach((btn) => {
     if (!(btn instanceof HTMLElement)) return;
-    btn.addEventListener('click', (e) => {
+    btn.addEventListener('click', async (e) => {
       e.preventDefault();
       e.stopPropagation();
       const type = btn.getAttribute('data-item-type') || '';
       const refId = btn.getAttribute('data-ref-id') || '';
-      toggleCatalogItemSaved({ itemType: type, refId });
-      const nowSaved = isCatalogItemSaved({ itemType: type, refId });
-      const isPolish = currentLang() === 'pl';
-      const msg = nowSaved
-        ? t('plan.ui.catalog.savedToast', isPolish ? 'Zapisano' : 'Saved')
-        : t('plan.ui.catalog.unsavedToast', isPolish ? 'Usunięto z zapisanych' : 'Removed from saved');
-      showToast(msg, 'success');
+      const before = isCatalogItemSaved({ itemType: type, refId });
+      const nextSaved = toggleCatalogItemSaved({ itemType: type, refId });
       renderServiceCatalog();
+
+      const uid = getSavedCatalogAuthedUserId();
+      if (uid) {
+        const ok = await persistSavedCatalogItemRemote({ userId: uid, itemType: type, refId, saved: nextSaved });
+        if (!ok) {
+          toggleCatalogItemSaved({ itemType: type, refId });
+          renderServiceCatalog();
+          showToast(t('plan.ui.catalog.savedSyncFailed', currentLang() === 'pl' ? 'Nie udało się zsynchronizować zapisanych. Spróbuj ponownie.' : 'Could not sync saved items. Please try again.'), 'error');
+          return;
+        }
+      }
+
+      const nowSaved = isCatalogItemSaved({ itemType: type, refId });
+      if (nowSaved !== before) {
+        const isPolish = currentLang() === 'pl';
+        const msg = nowSaved
+          ? t('plan.ui.catalog.savedToast', isPolish ? 'Zapisano' : 'Saved')
+          : t('plan.ui.catalog.unsavedToast', isPolish ? 'Usunięto z zapisanych' : 'Removed from saved');
+        showToast(msg, 'success');
+      }
     }, { passive: false });
   });
 
@@ -4890,7 +5061,6 @@ function renderPlanDetails(plan) {
   const startEl = el('planEditStart');
   const endEl = el('planEditEnd');
   const includeNorthEl = el('planEditIncludeNorth');
-  const peopleEl = el('planEditPeople');
   const adultsEl = el('planEditAdults');
   const childrenEl = el('planEditChildren');
 
@@ -4899,32 +5069,17 @@ function renderPlanDetails(plan) {
   if (startEl instanceof HTMLInputElement) startEl.value = plan.start_date || '';
   if (endEl instanceof HTMLInputElement) endEl.value = plan.end_date || '';
   if (includeNorthEl instanceof HTMLInputElement) includeNorthEl.checked = !!plan.include_north;
-  if (peopleEl instanceof HTMLInputElement) peopleEl.value = plan.people_count != null ? String(plan.people_count) : '1';
 
   const party = getPartyForPlan(plan);
   if (adultsEl instanceof HTMLInputElement) adultsEl.value = String(party.adults ?? 0);
   if (childrenEl instanceof HTMLInputElement) childrenEl.value = String(party.children ?? 0);
 
-  if (!peopleEl?.dataset?.partyWired) {
-    if (peopleEl instanceof HTMLInputElement && adultsEl instanceof HTMLInputElement && childrenEl instanceof HTMLInputElement) {
+  if (!adultsEl?.dataset?.partyWired) {
+    if (adultsEl instanceof HTMLInputElement && childrenEl instanceof HTMLInputElement) {
       const syncFromAdultsChildren = () => {
         if (!currentPlan?.id) return;
         const a = Math.max(0, Math.floor(Number(adultsEl.value || 0) || 0));
         const c = Math.max(0, Math.floor(Number(childrenEl.value || 0) || 0));
-        const sum = Math.max(1, a + c);
-        peopleEl.value = String(sum);
-        savePartyForPlan(currentPlan.id, { adults: a, children: c });
-        renderPlanCostSummary();
-        renderServiceCatalog();
-      };
-
-      const syncFromPeople = () => {
-        if (!currentPlan?.id) return;
-        const p = Math.max(1, Math.floor(Number(peopleEl.value || 0) || 1));
-        const a = Math.max(0, Math.min(p, Math.floor(Number(adultsEl.value || 0) || 0)));
-        const c = Math.max(0, p - a);
-        adultsEl.value = String(a);
-        childrenEl.value = String(c);
         savePartyForPlan(currentPlan.id, { adults: a, children: c });
         renderPlanCostSummary();
         renderServiceCatalog();
@@ -4932,8 +5087,7 @@ function renderPlanDetails(plan) {
 
       adultsEl.addEventListener('input', syncFromAdultsChildren);
       childrenEl.addEventListener('input', syncFromAdultsChildren);
-      peopleEl.addEventListener('input', syncFromPeople);
-      peopleEl.dataset.partyWired = '1';
+      adultsEl.dataset.partyWired = '1';
     }
   }
 
@@ -5059,7 +5213,6 @@ async function handleSavePlan() {
   const startEl = el('planEditStart');
   const endEl = el('planEditEnd');
   const includeNorthEl = el('planEditIncludeNorth');
-  const peopleEl = el('planEditPeople');
   const adultsEl = el('planEditAdults');
   const childrenEl = el('planEditChildren');
 
@@ -5068,17 +5221,15 @@ async function handleSavePlan() {
   const startDate = startEl instanceof HTMLInputElement ? startEl.value.trim() : '';
   const endDate = endEl instanceof HTMLInputElement ? endEl.value.trim() : '';
   const includeNorth = includeNorthEl instanceof HTMLInputElement ? includeNorthEl.checked : false;
-  const peopleCount = peopleEl instanceof HTMLInputElement ? Number(peopleEl.value || 0) : 0;
-  const cleanPeople = Number.isFinite(peopleCount) && peopleCount > 0 ? Math.floor(peopleCount) : 1;
 
-  if (adultsEl instanceof HTMLInputElement && childrenEl instanceof HTMLInputElement) {
-    const aRaw = Math.max(0, Math.floor(Number(adultsEl.value || 0) || 0));
-    const cRaw = Math.max(0, Math.floor(Number(childrenEl.value || 0) || 0));
-    const sum = aRaw + cRaw;
-    const a = sum > 0 ? aRaw : cleanPeople;
-    const c = sum > 0 ? cRaw : 0;
-    savePartyForPlan(currentPlan.id, { adults: a, children: c });
-  }
+  const aRaw = adultsEl instanceof HTMLInputElement ? Math.max(0, Math.floor(Number(adultsEl.value || 0) || 0)) : 0;
+  const cRaw = childrenEl instanceof HTMLInputElement ? Math.max(0, Math.floor(Number(childrenEl.value || 0) || 0)) : 0;
+  const sum = aRaw + cRaw;
+  const a = sum > 0 ? aRaw : 1;
+  const c = sum > 0 ? cRaw : 0;
+  const cleanPeople = Math.max(1, a + c);
+
+  savePartyForPlan(currentPlan.id, { adults: a, children: c });
 
   const daysCount = startDate && endDate ? daysBetweenInclusive(startDate, endDate) : null;
   if ((startDate && endDate) && !daysCount) {
@@ -5870,12 +6021,34 @@ async function init() {
   wireDayLanguageRefresh();
 
   try {
+    const u = await getCurrentUser();
+    if (u?.id) {
+      setSavedCatalogUidCache(u.id);
+      await syncSavedCatalogWithRemoteForUser(u.id);
+    } else {
+      setSavedCatalogUidCache('anon');
+    }
+  } catch (_) {
+    setSavedCatalogUidCache('anon');
+  }
+
+  try {
     sb.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        setSavedCatalogUidCache('anon');
+      }
+
+      if (session?.user?.id) {
+        setSavedCatalogUidCache(session.user.id);
+        await syncSavedCatalogWithRemoteForUser(session.user.id);
+      }
+
       if (event === 'SIGNED_OUT') {
         currentPlan = null;
         renderPlanDetails(null);
         setLastSelectedPlanId(null);
         await loadPlans();
+        renderServiceCatalog();
         return;
       }
 
