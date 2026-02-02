@@ -3787,7 +3787,43 @@ function renderServiceCatalog() {
             const addAttr = `data-catalog-add="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(x.id || '')}" data-title="${escapeHtml(x.title || '')}" data-subtitle="${escapeHtml(x.subtitle || '')}" data-description="${escapeHtml(x.description || '')}" data-url="${escapeHtml(x.url || '')}" data-price="${escapeHtml(x.price || '')}" data-image="${escapeHtml(x.image || '')}"`;
             const poiAttrs = x.lat != null && x.lng != null ? ` data-lat="${escapeHtml(String(x.lat))}" data-lng="${escapeHtml(String(x.lng))}"` : '';
             const isRange = itemType === 'hotel' || itemType === 'car';
-            const link = x.url ? `<a href="${escapeHtml(x.url)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">${escapeHtml(t('plan.ui.common.open', 'Open'))}</a>` : '';
+            const isProbablyMapsUrl = (u) => {
+              const s = String(u || '').toLowerCase();
+              if (!s) return false;
+              return s.includes('google.com/maps') || s.includes('maps.app.goo.gl') || s.includes('goo.gl/maps') || s.includes('openstreetmap.org');
+            };
+            const mapsUrl = (() => {
+              if (itemType === 'recommendation') {
+                const raw = x.raw && typeof x.raw === 'object' ? x.raw : {};
+                const lat = x.lat != null ? Number(x.lat) : null;
+                const lng = x.lng != null ? Number(x.lng) : null;
+                const fallback = Number.isFinite(lat) && Number.isFinite(lng) ? `https://www.google.com/maps?q=${lat},${lng}` : '';
+                return String(raw?.google_url || raw?.google_maps_url || fallback || '').trim();
+              }
+              if (itemType === 'poi') {
+                const lat = x.lat != null ? Number(x.lat) : null;
+                const lng = x.lng != null ? Number(x.lng) : null;
+                const fallback = Number.isFinite(lat) && Number.isFinite(lng) ? `https://www.google.com/maps?q=${lat},${lng}` : '';
+                const u = String(x.url || '').trim();
+                return String(fallback || (isProbablyMapsUrl(u) ? u : '') || '').trim();
+              }
+              const u = String(x.url || '').trim();
+              return isProbablyMapsUrl(u) ? u : '';
+            })();
+            const webUrl = (() => {
+              if (itemType === 'recommendation') {
+                const raw = x.raw && typeof x.raw === 'object' ? x.raw : {};
+                return String(raw?.website_url || raw?.url || '').trim();
+              }
+              const u = String(x.url || '').trim();
+              return isProbablyMapsUrl(u) ? '' : u;
+            })();
+            const mapsIcon = mapsUrl
+              ? `<a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener" class="ce-qa" aria-label="${escapeHtml(t('plan.ui.recommendations.openMaps', 'Open in maps'))}">📍</a>`
+              : '';
+            const linkIcon = webUrl
+              ? `<a href="${escapeHtml(webUrl)}" target="_blank" rel="noopener" class="ce-qa" aria-label="${escapeHtml(t('plan.ui.common.open', 'Open'))}">🔗</a>`
+              : '';
             const dayPickWrap = isRange
               ? (itemType === 'car'
                 ? `<div class="ce-catalog-days" data-car-range="1" hidden>
@@ -3825,7 +3861,7 @@ function renderServiceCatalog() {
                  </div>`;
             const addLabel = isRange
               ? escapeHtml(t('plan.ui.catalog.addRange', 'Dodaj zakres'))
-              : escapeHtml(t('plan.ui.catalog.add', 'Add'));
+              : escapeHtml(t('plan.catalog.addToDay', 'Add to day'));
 
             if (itemType === 'recommendation') {
               const lang = currentLang();
@@ -3834,12 +3870,6 @@ function renderServiceCatalog() {
               const promo = String(raw?.promo_code || '').trim();
               const discount = String(raw?.__discount || '').trim();
               const showCodeLabel = t('plan.ui.recommendations.showCode', isPolish ? 'Pokaż kod' : 'Show code');
-
-              const mapsLabel = t('plan.ui.recommendations.openMaps', isPolish ? 'Otwórz w mapach' : 'Open in maps');
-              const mapsUrl = String(raw?.google_url || '').trim();
-              const mapsBtn = mapsUrl
-                ? `<a href="${escapeHtml(mapsUrl)}" target="_blank" rel="noopener" class="btn btn-sm ce-catalog-open">${escapeHtml(mapsLabel)}</a>`
-                : '';
 
               const promoHtml = promo && discount
                 ? `
@@ -3864,7 +3894,7 @@ function renderServiceCatalog() {
                 ? t('plan.ui.catalog.unsave', isPolish ? 'Zapisane' : 'Saved')
                 : t('plan.ui.catalog.save', isPolish ? 'Zapisz' : 'Save');
               const saveBtnStyle = saved ? 'background:#22c55e; border-color:#16a34a; color:#fff;' : '';
-              const saveBtn = `<button type="button" class="btn btn-sm" style="${saveBtnStyle}" data-catalog-save="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(String(x.id || ''))}">${escapeHtml(saveLabel)} ${star}</button>`;
+              const saveBtn = `<button type="button" class="ce-qa" style="${saveBtnStyle}" data-catalog-save="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(String(x.id || ''))}" aria-label="${escapeHtml(saveLabel)}" title="${escapeHtml(saveLabel)}">${star}</button>`;
               const savedStyle = saved ? 'background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.35);' : '';
 
               return `
@@ -3877,11 +3907,17 @@ function renderServiceCatalog() {
                   ${descHtml}
                   ${promoHtml}
                   <div class="ce-catalog-actions">
-                    ${mapsBtn}
-                    ${link}
-                    ${dayPickWrap}
-                    ${saveBtn}
-                    <button type="button" class="btn btn-sm btn-primary primary ce-catalog-add" ${addAttr}${poiAttrs}>${addLabel}</button>
+                    <div class="ce-catalog-actions__top">
+                      <div class="ce-quick-actions" aria-label="${escapeHtml(t('plan.ui.common.actions', 'Actions'))}">
+                        ${saveBtn}
+                        ${mapsIcon}
+                        ${linkIcon}
+                      </div>
+                    </div>
+                    <div class="ce-catalog-actions__bottom">
+                      ${dayPickWrap}
+                      <button type="button" class="btn btn-sm btn-primary primary ce-catalog-add" data-default-label="${addLabel}" ${addAttr}${poiAttrs}>${addLabel}</button>
+                    </div>
                   </div>
                 </div>
               `;
@@ -3914,7 +3950,7 @@ function renderServiceCatalog() {
               ? t('plan.ui.catalog.unsave', isPolishSave ? 'Zapisane' : 'Saved')
               : t('plan.ui.catalog.save', isPolishSave ? 'Zapisz' : 'Save');
             const saveBtnStyle = saved ? 'background:#22c55e; border-color:#16a34a; color:#fff;' : '';
-            const saveBtn = `<button type="button" class="btn btn-sm" style="${saveBtnStyle}" data-catalog-save="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(String(x.id || ''))}">${escapeHtml(saveLabel)} ${star}</button>`;
+            const saveBtn = `<button type="button" class="ce-qa" style="${saveBtnStyle}" data-catalog-save="1" data-item-type="${escapeHtml(itemType)}" data-ref-id="${escapeHtml(String(x.id || ''))}" aria-label="${escapeHtml(saveLabel)}" title="${escapeHtml(saveLabel)}">${star}</button>`;
             const savedStyle = saved ? 'background: rgba(34,197,94,.08); border-color: rgba(34,197,94,.35);' : '';
 
             const price = String(x.price || '').trim();
@@ -3932,11 +3968,18 @@ function renderServiceCatalog() {
                 </div>
                 ${preview}
                 ${more}
-                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; justify-content:flex-end;">
-                  ${link}
-                  ${saveBtn}
-                  ${dayPickWrap}
-                  <button type="button" class="btn btn-sm btn-primary primary ce-catalog-add" ${addAttr}${poiAttrs}>${addLabel}</button>
+                <div class="ce-catalog-actions">
+                  <div class="ce-catalog-actions__top">
+                    <div class="ce-quick-actions" aria-label="${escapeHtml(t('plan.ui.common.actions', 'Actions'))}">
+                      ${saveBtn}
+                      ${mapsIcon}
+                      ${linkIcon}
+                    </div>
+                  </div>
+                  <div class="ce-catalog-actions__bottom">
+                    ${dayPickWrap}
+                    <button type="button" class="btn btn-sm btn-primary primary ce-catalog-add" data-default-label="${addLabel}" ${addAttr}${poiAttrs}>${addLabel}</button>
+                  </div>
                 </div>
               </div>
             `;
@@ -4148,7 +4191,8 @@ function renderServiceCatalog() {
         if (dayPickWrap instanceof HTMLElement) {
           dayPickWrap.setAttribute('hidden', '');
         }
-        btn.textContent = t('plan.ui.catalog.add', 'Add');
+        const defaultLabel = btn.getAttribute('data-default-label');
+        btn.textContent = defaultLabel || t('plan.catalog.addToDay', 'Add to day');
       }
     });
   });
