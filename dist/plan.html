@@ -77,6 +77,35 @@
       body[data-seo-page="plan"] #planDays .card{border-radius:16px;}
       body[data-seo-page="plan"] #planDays button.btn.btn-sm{border-radius:12px;}
 
+      body[data-seo-page="plan"] #planDays .card{
+        background:radial-gradient(900px 420px at 20% 0%, rgba(37,99,235,.10), transparent 60%),
+                   radial-gradient(700px 380px at 90% 0%, rgba(14,165,233,.10), transparent 60%),
+                   linear-gradient(180deg, rgba(255,255,255,.92), rgba(248,250,252,.78));
+        border-color:rgba(148,163,184,.35) !important;
+        box-shadow:0 14px 32px rgba(15,23,42,.08);
+      }
+
+      body[data-seo-page="plan"] .ce-day-item-row{
+        border-radius:14px;
+        padding:0.55rem 0.6rem;
+        border:1px solid rgba(148,163,184,.35);
+        background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(248,250,252,.82));
+        box-shadow:0 10px 22px rgba(15,23,42,.06);
+      }
+      body[data-seo-page="plan"] .ce-day-item-row:hover{border-color:rgba(37,99,235,.25);}
+
+      body[data-seo-page="plan"] .ce-day-item-actions .btn[data-day-item-delete]{
+        border-color:rgba(239,68,68,.45) !important;
+        background:linear-gradient(135deg, rgba(239,68,68,.18), rgba(248,113,113,.10)) !important;
+        color:#b91c1c !important;
+        font-weight:900;
+        min-width:40px;
+      }
+      body[data-seo-page="plan"] .ce-day-item-actions .btn[data-day-item-delete]:hover{
+        border-color:rgba(239,68,68,.70) !important;
+        background:linear-gradient(135deg, rgba(239,68,68,.24), rgba(248,113,113,.14)) !important;
+      }
+
       body[data-seo-page="plan"] #planBookingDialog{border-radius:18px !important; box-shadow:0 26px 60px rgba(15,23,42,.25);}
 
       body[data-seo-page="plan"] .ce-catalog-preview{margin-top:0.35rem; color:#475569; font-size:12px;}
@@ -116,15 +145,17 @@
       body[data-seo-page="plan"] .ce-expand-panel{
         overflow:hidden;
         max-height:0px;
-        transition:max-height .18s ease;
+        transition:max-height .18s ease, opacity .12s ease;
+        opacity:0;
       }
       body[data-seo-page="plan"] .ce-expand-panel.ce-expand-panel--open{overflow:visible;}
+      body[data-seo-page="plan"] .ce-expand-panel.ce-expand-panel--open{opacity:1;}
       body[data-seo-page="plan"] .ce-expand-panel__inner{
         margin-top:0.35rem;
         padding:0.6rem;
         border-radius:16px;
         border:1px solid rgba(148,163,184,.35);
-        background:rgba(255,255,255,.85);
+        background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(248,250,252,.82));
       }
 
       body[data-seo-page="plan"] .ce-detail-head{display:flex; gap:0.5rem; flex-wrap:wrap; align-items:baseline; padding-bottom:0.45rem; margin-bottom:0.5rem; border-bottom:1px solid rgba(148,163,184,.25);}

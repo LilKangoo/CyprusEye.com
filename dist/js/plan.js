@@ -996,6 +996,10 @@ function renderPlanDaysUi(planId, rows) {
         const inner = panel.querySelector('.ce-expand-panel__inner');
         const h = inner instanceof HTMLElement ? inner.scrollHeight : panel.scrollHeight;
         panel.style.maxHeight = `${Math.max(120, h)}px`;
+        const row = btn.closest('.ce-day-item-row');
+        if (row instanceof HTMLElement && typeof row.scrollIntoView === 'function') {
+          row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
         window.setTimeout(() => {
           if (panel.classList.contains('ce-expand-panel--open')) {
             panel.style.maxHeight = 'none';
@@ -1924,10 +1928,14 @@ function addDays(dateStr, offsetDays) {
 }
 
 function currentLang() {
-  const viaDom = document.documentElement.lang || '';
   const viaSwitcher = typeof window.getCurrentLanguage === 'function' ? window.getCurrentLanguage() : '';
-  const lang = viaDom || viaSwitcher || (window.appI18n && window.appI18n.language) || 'pl';
-  return String(lang || 'pl');
+  const viaApp = (window.appI18n && window.appI18n.language) ? window.appI18n.language : '';
+  const viaDom = document.documentElement.lang || '';
+  const raw = viaSwitcher || viaApp || viaDom || 'pl';
+  const s = String(raw || 'pl').trim().toLowerCase();
+  if (s.startsWith('pl')) return 'pl';
+  if (s.startsWith('en')) return 'en';
+  return 'pl';
 }
 
 function t(key, fallback) {
@@ -2008,11 +2016,23 @@ function getCatalogContext() {
 
 function getTripTitle(trip) {
   if (typeof window.getTripName === 'function') return window.getTripName(trip);
-  return trip?.title?.pl || trip?.title?.en || trip?.title || trip?.slug || t('plan.ui.itemType.trip', 'Trip');
+  const lang = currentLang();
+  const isPolish = lang === 'pl';
+  const pl = trip?.title?.pl || trip?.title_pl;
+  const en = trip?.title?.en || trip?.title_en;
+  return (isPolish ? (pl || en) : (en || pl)) || trip?.title || trip?.slug || t('plan.ui.itemType.trip', 'Trip');
 }
 
 function getTripDescriptionText(trip) {
   if (!trip || typeof trip !== 'object') return '';
+  {
+    const lang = currentLang();
+    const isPolish = lang === 'pl';
+    const pl = trip?.description_pl;
+    const en = trip?.description_en;
+    const direct = isPolish ? (pl || en) : (en || pl);
+    if (direct && String(direct).trim()) return String(direct);
+  }
   const parseI18nString = (maybeJsonStr) => {
     if (typeof maybeJsonStr !== 'string') return null;
     const s = String(maybeJsonStr || '').trim();
@@ -2024,6 +2044,7 @@ function getTripDescriptionText(trip) {
     } catch (_) {}
     return null;
   };
+  let windowFallback = '';
   if (typeof window.getTripDescription === 'function') {
     const d = window.getTripDescription(trip);
     if (d && String(d).trim()) {
@@ -2032,7 +2053,7 @@ function getTripDescriptionText(trip) {
         const picked = pickI18nValue(parsed, '');
         if (picked && String(picked).trim()) return String(picked);
       }
-      return String(d);
+      windowFallback = String(d);
     }
   }
   const descObjRaw = trip.description_i18n || trip.description;
@@ -2050,29 +2071,42 @@ function getTripDescriptionText(trip) {
       const d = pickI18nValue(parsed, '');
       if (d && String(d).trim()) return String(d);
     }
-    return trip.description;
+    return trip.description || windowFallback;
   }
-  return '';
+  return windowFallback || '';
 }
 
 function getHotelTitle(hotel) {
   if (typeof window.getHotelName === 'function') return window.getHotelName(hotel);
-  return hotel?.title?.pl || hotel?.title?.en || hotel?.title || hotel?.slug || t('plan.ui.itemType.hotel', 'Hotel');
+  const lang = currentLang();
+  const isPolish = lang === 'pl';
+  const pl = hotel?.title?.pl || hotel?.title_pl;
+  const en = hotel?.title?.en || hotel?.title_en;
+  return (isPolish ? (pl || en) : (en || pl)) || hotel?.title || hotel?.slug || t('plan.ui.itemType.hotel', 'Hotel');
 }
 
 function getHotelDescriptionText(hotel) {
   if (!hotel || typeof hotel !== 'object') return '';
+  {
+    const lang = currentLang();
+    const isPolish = lang === 'pl';
+    const pl = hotel?.description_pl;
+    const en = hotel?.description_en;
+    const direct = isPolish ? (pl || en) : (en || pl);
+    if (direct && String(direct).trim()) return String(direct);
+  }
+  let windowFallback = '';
   if (typeof window.getHotelDescription === 'function') {
     const d = window.getHotelDescription(hotel);
-    if (d && String(d).trim()) return String(d);
+    if (d && String(d).trim()) windowFallback = String(d);
   }
   const descObj = hotel.description_i18n || hotel.description;
   if (descObj && typeof descObj === 'object') {
     const d = pickI18nValue(descObj, '');
     if (d && String(d).trim()) return String(d);
   }
-  if (typeof hotel.description === 'string') return hotel.description;
-  return '';
+  if (typeof hotel.description === 'string') return hotel.description || windowFallback;
+  return windowFallback || '';
 }
 
 function getHotelCity(hotel) {
@@ -2109,22 +2143,55 @@ function getCarTitle(car) {
 }
 
 function getCarDescription(car) {
+  if (!car || typeof car !== 'object') return '';
+  {
+    const lang = currentLang();
+    const isPolish = lang === 'pl';
+    const pl = car?.description_pl;
+    const en = car?.description_en;
+    const direct = isPolish ? (pl || en) : (en || pl);
+    if (direct && String(direct).trim()) return String(direct);
+  }
   return pickI18nValue(car?.description_i18n, car?.description || '');
 }
 
 function getPoiTitle(poi) {
   const raw = poi && typeof poi === 'object' && poi.raw && typeof poi.raw === 'object' ? poi.raw : null;
+  {
+    const lang = currentLang();
+    const isPolish = lang === 'pl';
+    const pl = (raw && raw.name_pl) || poi?.name_pl;
+    const en = (raw && raw.name_en) || poi?.name_en;
+    const direct = isPolish ? (pl || en) : (en || pl);
+    if (direct && String(direct).trim()) return String(direct);
+  }
   const name = pickI18nValue((raw && raw.name_i18n) || poi?.name_i18n, (raw && raw.name) || poi?.name || t('plan.ui.itemType.poiShort', 'POI'));
   return name || t('plan.ui.itemType.poiShort', 'POI');
 }
 
 function getPoiDescription(poi) {
   const raw = poi && typeof poi === 'object' && poi.raw && typeof poi.raw === 'object' ? poi.raw : null;
+  {
+    const lang = currentLang();
+    const isPolish = lang === 'pl';
+    const pl = (raw && raw.description_pl) || poi?.description_pl;
+    const en = (raw && raw.description_en) || poi?.description_en;
+    const direct = isPolish ? (pl || en) : (en || pl);
+    if (direct && String(direct).trim()) return String(direct);
+  }
   return pickI18nValue((raw && raw.description_i18n) || poi?.description_i18n, (raw && raw.description) || poi?.description || '');
 }
 
 function getPoiCategory(poi) {
   const raw = poi && typeof poi === 'object' && poi.raw && typeof poi.raw === 'object' ? poi.raw : null;
+  {
+    const lang = currentLang();
+    const isPolish = lang === 'pl';
+    const pl = (raw && raw.category_pl) || poi?.category_pl;
+    const en = (raw && raw.category_en) || poi?.category_en;
+    const direct = isPolish ? (pl || en) : (en || pl);
+    if (direct && String(direct).trim()) return String(direct);
+  }
   const val =
     pickI18nValue((raw && raw.category_i18n) || poi?.category_i18n, (raw && raw.category) || poi?.category || '') ||
     String((raw && (raw.area || raw.region || raw.city_area)) || poi?.area || poi?.region || '').trim();
