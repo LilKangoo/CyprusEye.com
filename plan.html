@@ -324,9 +324,13 @@
         body[data-seo-page="plan"] .ce-catalog-days{flex:1 1 100%;}
 
         body[data-seo-page="plan"] .ce-day-item-row{flex-direction:column; align-items:stretch;}
-        body[data-seo-page="plan"] .ce-day-item-actions{width:100%; justify-content:stretch;}
-        body[data-seo-page="plan"] .ce-day-item-actions .btn{flex:1 1 auto;}
-        body[data-seo-page="plan"] .ce-day-item-actions .btn.btn-sm{width:100%;}
+        body[data-seo-page="plan"] .ce-day-item-actions{width:100%; justify-content:flex-end; flex-wrap:wrap; gap:0.4rem !important;}
+        body[data-seo-page="plan"] .ce-day-item-actions .btn{flex:0 0 auto;}
+        body[data-seo-page="plan"] .ce-day-item-actions .btn.btn-sm{width:auto; min-width:44px; padding:0.55rem 0.6rem;}
+        body[data-seo-page="plan"] .ce-day-item-actions [data-order-move="up"]{order:0;}
+        body[data-seo-page="plan"] .ce-day-item-actions [data-order-move="down"]{order:1;}
+        body[data-seo-page="plan"] .ce-day-item-actions .btn[data-day-item-delete]{order:2;}
+        body[data-seo-page="plan"] .ce-day-item-actions .ce-quick-actions{order:10; width:100%; justify-content:flex-end; margin-left:0;}
         body[data-seo-page="plan"] .ce-expand-btn{font-size:13px; padding:0.6rem 0.7rem;}
         body[data-seo-page="plan"] .ce-expand-panel__inner{padding:0.75rem;}
         body[data-seo-page="plan"] .ce-detail-gallery__item img{width:120px; height:84px;}
