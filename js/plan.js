@@ -4042,6 +4042,14 @@ function renderServiceCatalog() {
 
   const recFiltersHtml = renderRecommendationsFilters();
   const topFiltersHtml = renderCatalogTopFilters();
+  const { total: savedTotalForSelect } = getSavedTotals();
+  const isSavedActive = catalogActiveTab === 'saved' && catalogSavedOnly;
+  const selectValue = isSavedActive ? 'saved' : (String(catalogActiveTab || '') || 'trips');
+  const tabOpt = (key, label, count) => {
+    const n = count != null ? Number(count) : 0;
+    const selected = selectValue === key ? 'selected' : '';
+    return `<option value="${escapeHtml(key)}" ${selected}>${escapeHtml(`${label} (${n})`)}</option>`;
+  };
 
   wrap.innerHTML = `
     <div class="ce-catalog-topbar">
@@ -4051,13 +4059,26 @@ function renderServiceCatalog() {
         ${tabBtn('cars', t('plan.ui.catalog.tabs.cars', 'Cars'), counts.cars)}
         ${tabBtn('recommendations', t('plan.ui.catalog.tabs.recommendations', 'Recommendations'), counts.recommendations)}
         ${tabBtn('pois', t('plan.ui.catalog.tabs.pois', 'Places to see'), counts.pois)}
-        ${topFiltersHtml}
+      </div>
+
+      <div class="ce-catalog-tabs-select">
+        <select class="ce-catalog-tab-select" data-catalog-tab-select="1" aria-label="${escapeHtml(t('plan.ui.catalog.tabs.select', 'Select category'))}">
+          ${tabOpt('saved', t('plan.ui.catalog.savedOnly', 'Saved'), savedTotalForSelect)}
+          ${tabOpt('trips', t('plan.ui.catalog.tabs.trips', 'Trips'), counts.trips)}
+          ${tabOpt('hotels', t('plan.ui.catalog.tabs.hotels', 'Hotels'), counts.hotels)}
+          ${tabOpt('cars', t('plan.ui.catalog.tabs.cars', 'Cars'), counts.cars)}
+          ${tabOpt('recommendations', t('plan.ui.catalog.tabs.recommendations', 'Recommendations'), counts.recommendations)}
+          ${tabOpt('pois', t('plan.ui.catalog.tabs.pois', 'Places to see'), counts.pois)}
+        </select>
       </div>
 
       <div class="ce-catalog-tools">
         <span class="ce-catalog-city">${escapeHtml(ctx.city || t('plan.ui.catalog.allCities', 'All cities'))}${ctx.includeNorth ? ` • ${escapeHtml(t('plan.ui.catalog.north', 'north'))}` : ''}</span>
         <input id="planCatalogSearch" class="ce-catalog-search" type="text" value="${escapeHtml(catalogSearch)}" placeholder="${escapeHtml(t('plan.ui.catalog.searchPlaceholder', 'Search…'))}" />
-        <button type="button" class="btn btn-sm ce-catalog-refresh" data-catalog-refresh="1" aria-label="${escapeHtml(t('plan.actions.refresh', 'Refresh'))}" title="${escapeHtml(t('plan.actions.refresh', 'Refresh'))}"><span class="ce-catalog-refresh__ico">↻</span><span class="ce-catalog-refresh__txt">${escapeHtml(t('plan.actions.refresh', 'Refresh'))}</span></button>
+        <div class="ce-catalog-tools__actions">
+          ${topFiltersHtml}
+          <button type="button" class="btn btn-sm ce-catalog-refresh" data-catalog-refresh="1" aria-label="${escapeHtml(t('plan.actions.refresh', 'Refresh'))}" title="${escapeHtml(t('plan.actions.refresh', 'Refresh'))}"><span class="ce-catalog-refresh__ico">↻</span><span class="ce-catalog-refresh__txt">${escapeHtml(t('plan.actions.refresh', 'Refresh'))}</span></button>
+        </div>
       </div>
 
     </div>
@@ -4083,6 +4104,34 @@ function renderServiceCatalog() {
       renderServiceCatalog();
     });
   });
+
+  const tabSelectEl = wrap.querySelector('[data-catalog-tab-select]');
+  if (tabSelectEl instanceof HTMLSelectElement) {
+    tabSelectEl.addEventListener('change', () => {
+      const tab = String(tabSelectEl.value || '').trim();
+      if (!tab) return;
+
+      if (tab === 'saved') {
+        catalogSavedOnly = true;
+        if (catalogActiveTab !== 'saved') lastNonSavedCatalogTab = catalogActiveTab;
+        catalogActiveTab = 'saved';
+        recommendationsCategoryFilter = '';
+        recommendationsDiscountOnly = false;
+        renderServiceCatalog();
+        return;
+      }
+
+      if (catalogActiveTab === 'saved' && catalogSavedOnly) {
+        catalogSavedOnly = false;
+      }
+      catalogActiveTab = tab;
+      lastNonSavedCatalogTab = tab;
+      if (tab !== 'recommendations') {
+        recommendationsCategoryFilter = '';
+      }
+      renderServiceCatalog();
+    });
+  }
 
   // Recommendation category filters
   if (catalogActiveTab === 'recommendations') {

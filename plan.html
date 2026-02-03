@@ -116,6 +116,9 @@
       body[data-seo-page="plan"] details[open] > summary .ce-sidebar-summary__icon--closed{display:none;}
       body[data-seo-page="plan"] details:not([open]) > summary .ce-sidebar-summary__icon--open{display:none;}
 
+      body[data-seo-page="plan"] .ce-planner-head{display:flex; align-items:center; justify-content:center; margin-bottom:0.75rem;}
+      body[data-seo-page="plan"] .ce-planner-head__title{margin:0; font-size:20px; font-weight:900; letter-spacing:-0.02em; text-align:center; color:#0f172a;}
+
       body[data-seo-page="plan"] #planCatalog .btn{border-radius:999px;}
       body[data-seo-page="plan"] #planCatalog input[type="text"]{max-width:220px !important;}
 
@@ -371,9 +374,14 @@
       body[data-seo-page="plan"] .ce-catalog-tab__count{display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:18px; padding:0 6px; border-radius:999px; background:rgba(15,23,42,.08); font-size:11px; font-weight:900; margin-left:0.35rem;}
       body[data-seo-page="plan"] .ce-catalog-tab.is-active .ce-catalog-tab__count{background:rgba(255,255,255,.28);}
 
+      body[data-seo-page="plan"] .ce-catalog-tabs-select{display:none;}
+      body[data-seo-page="plan"] .ce-catalog-tab-select{width:100%; border-radius:999px; border:1px solid rgba(148,163,184,.45); background:rgba(248,250,252,.92); padding:0.55rem 0.85rem; font-weight:900; font-size:12px; color:#0f172a; box-shadow:0 10px 18px rgba(15,23,42,.06);}
+      body[data-seo-page="plan"] .ce-catalog-tab-select:focus-visible{outline:3px solid rgba(56,189,248,.30); outline-offset:2px;}
+
       body[data-seo-page="plan"] .ce-catalog-tools{display:flex; align-items:center; gap:0.5rem; flex-wrap:wrap;}
       body[data-seo-page="plan"] .ce-catalog-city{color:#64748b; font-size:12px; font-weight:700;}
       body[data-seo-page="plan"] .ce-catalog-search{flex:1 1 220px; min-width:160px; max-width:520px;}
+      body[data-seo-page="plan"] .ce-catalog-tools__actions{display:flex; gap:0.5rem; align-items:center; flex:0 0 auto;}
       body[data-seo-page="plan"] .ce-catalog-refresh.btn{display:inline-flex; align-items:center; gap:0.35rem; border-radius:999px;}
       body[data-seo-page="plan"] .ce-catalog-refresh__ico{font-weight:900;}
 
@@ -456,10 +464,9 @@
 
         body[data-seo-page="plan"] .ce-catalog-actions .ce-qa{width:40px; height:40px; min-width:40px;}
 
-        body[data-seo-page="plan"] .ce-catalog-tabs{flex-wrap:nowrap; overflow-x:auto; -webkit-overflow-scrolling:touch; scrollbar-width:none; padding-bottom:0.25rem;}
-        body[data-seo-page="plan"] .ce-catalog-tabs::-webkit-scrollbar{display:none;}
-        body[data-seo-page="plan"] .ce-catalog-tab{flex:0 0 auto;}
-        body[data-seo-page="plan"] .ce-catalog-tools{gap:0.45rem;}
+        body[data-seo-page="plan"] .ce-catalog-tabs{display:none;}
+        body[data-seo-page="plan"] .ce-catalog-tabs-select{display:block;}
+        body[data-seo-page="plan"] .ce-catalog-tools{gap:0.45rem; flex-wrap:nowrap;}
         body[data-seo-page="plan"] .ce-catalog-city{max-width:42%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
         body[data-seo-page="plan"] #planCatalog .ce-catalog-search{flex:1 1 auto; max-width:none !important; min-width:0;}
         body[data-seo-page="plan"] .ce-catalog-refresh__txt{display:none;}
@@ -706,12 +713,11 @@
       <section class="card surface-card planner-shell" style="margin: 1rem; padding: 0; overflow: hidden;" data-auth="user-only">
         <div style="display: flex; gap: 0; flex-wrap: wrap;">
           <aside class="planner-sidebar" style="flex: 1 1 320px; min-width: 280px; border-right: 1px solid #e2e8f0; padding: 1rem;">
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; margin-bottom: 0.75rem;">
-              <h1 style="margin: 0; font-size: 20px;" data-i18n="plan.sidebar.title">Trip Planner</h1>
-              <a class="btn ghost" href="/index.html" data-i18n="plan.sidebar.back">Back</a>
+            <div class="ce-planner-head">
+              <h1 class="ce-planner-head__title" data-i18n="plan.sidebar.title">Trip Planner</h1>
             </div>
 
-            <details class="ce-sidebar-section" open>
+            <details class="ce-sidebar-section">
               <summary class="ce-sidebar-summary">
                 <span class="ce-sidebar-summary__left">
                   <span class="ce-sidebar-summary__title" data-i18n="plan.form.create">Create plan</span>
@@ -766,7 +772,7 @@
               </div>
             </details>
 
-            <details class="ce-sidebar-section" open>
+            <details class="ce-sidebar-section">
               <summary class="ce-sidebar-summary">
                 <span class="ce-sidebar-summary__left">
                   <span class="ce-sidebar-summary__title" data-i18n="plan.sidebar.yourPlans">Your plans</span>
@@ -779,7 +785,7 @@
               </div>
             </details>
 
-            <details class="ce-sidebar-section" open>
+            <details class="ce-sidebar-section">
               <summary class="ce-sidebar-summary">
                 <span class="ce-sidebar-summary__left">
                   <span class="ce-sidebar-summary__title" data-i18n="plan.details.title">Plan details</span>
