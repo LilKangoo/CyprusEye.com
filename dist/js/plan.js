@@ -3473,26 +3473,34 @@ function renderServiceCatalog() {
     const titleLabel = t('recommendations.home.filters.title', isPolish ? 'Wybierz kategorię' : 'Choose category');
     const discountOnlyLabel = t('plan.ui.recommendations.discountOnly', isPolish ? 'Tylko zniżki' : 'Discount only');
 
+    const total = items.reduce((sum, it) => sum + (Number(it?.count) || 0), 0);
+    const allLabel = t('plan.ui.recommendations.allCategories', isPolish ? 'Wszystkie' : 'All');
+
     return `
-      <div class="filters-container" style="background: white; border-radius: 16px; padding: 14px 16px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.06); margin: 14px 0 18px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; gap:0.75rem; margin-bottom: 10px;">
-          <div style="font-size: 14px; font-weight: 700; color:#111827;">${escapeHtml(titleLabel)}</div>
-          <div style="display:flex; gap:0.5rem; align-items:center;">
-            <button type="button" class="btn ${recommendationsDiscountOnly ? 'btn-primary primary' : ''}" data-rec-discount-only="1">${escapeHtml(discountOnlyLabel)}</button>
-            <button type="button" class="btn-text" data-rec-clear="1" style="${active || recommendationsDiscountOnly ? '' : 'display:none;'} background:none; border:none; color:#667eea; font-weight:600; cursor:pointer; font-size: 13px; padding: 6px 10px; border-radius: 8px;">
-              ${escapeHtml(clearLabel)}
-            </button>
+      <div class="ce-rec-filters">
+        <div class="ce-rec-filters__head">
+          <div class="ce-rec-filters__title">${escapeHtml(titleLabel)}</div>
+          <div class="ce-rec-filters__actions">
+            <button type="button" class="btn btn-sm ${recommendationsDiscountOnly ? 'btn-primary primary' : ''}" data-rec-discount-only="1">${escapeHtml(discountOnlyLabel)}</button>
+            <button type="button" class="btn ghost" data-rec-clear="1" ${active || recommendationsDiscountOnly ? '' : 'hidden'}>${escapeHtml(clearLabel)}</button>
           </div>
         </div>
-        <div class="filters-grid" id="planRecommendationsCategories" style="display:flex; flex-wrap:wrap; gap:8px;">
+
+        <div class="ce-rec-chips" id="planRecommendationsCategories">
+          <button type="button" class="ce-rec-chip ${active ? '' : 'active'}" data-rec-cat="">
+            <span class="ce-rec-chip__icon">✨</span>
+            <span class="ce-rec-chip__label">${escapeHtml(allLabel)}</span>
+            <span class="ce-rec-chip__count">${escapeHtml(String(total))}</span>
+          </button>
+
           ${items
             .map((c) => {
               const isActive = active && active === c.id;
               return `
-                <button type="button" class="filter-btn ${isActive ? 'active' : ''}" data-rec-cat="${escapeHtml(c.id)}">
-                  <span class="filter-icon">${escapeHtml(String(c.icon || '📍'))}</span>
-                  <span class="filter-label">${escapeHtml(String(c.name || ''))}</span>
-                  <span class="filter-count">${escapeHtml(String(c.count || 0))}</span>
+                <button type="button" class="ce-rec-chip ${isActive ? 'active' : ''}" data-rec-cat="${escapeHtml(c.id)}">
+                  <span class="ce-rec-chip__icon">${escapeHtml(String(c.icon || '📍'))}</span>
+                  <span class="ce-rec-chip__label">${escapeHtml(String(c.name || ''))}</span>
+                  <span class="ce-rec-chip__count">${escapeHtml(String(c.count || 0))}</span>
                 </button>
               `;
             })
