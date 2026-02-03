@@ -374,6 +374,7 @@ const planListEl = () => el('planList');
 const createStatusEl = () => el('planCreateStatus');
 
 const emptyStateEl = () => el('planEmptyState');
+const sidebarDetailsEl = () => el('planSidebarDetails');
 const detailsWrapEl = () => el('planDetails');
 const daysEl = () => el('planDays');
 const catalogEl = () => el('planCatalog');
@@ -5167,6 +5168,7 @@ async function regeneratePlanDays() {
 function renderPlanDetails(plan) {
   const empty = emptyStateEl();
   const wrap = detailsWrapEl();
+  const sidebarDetails = sidebarDetailsEl();
 
   const delBtn = el('planDeleteBtn');
   const refreshBtn = el('planRefreshBtn');
@@ -5193,6 +5195,7 @@ function renderPlanDetails(plan) {
   if (!plan) {
     if (wrap) wrap.hidden = true;
     if (empty) empty.hidden = false;
+    if (sidebarDetails) sidebarDetails.hidden = true;
     const cat = catalogEl();
     if (cat) cat.innerHTML = '';
     planDaysById = new Map();
@@ -5201,6 +5204,7 @@ function renderPlanDetails(plan) {
 
   if (empty) empty.hidden = true;
   if (wrap) wrap.hidden = false;
+  if (sidebarDetails) sidebarDetails.hidden = false;
 
   const titleEl = el('planEditTitle');
   const baseCityEl = el('planEditBaseCity');

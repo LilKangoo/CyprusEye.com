@@ -71,6 +71,51 @@
       body[data-seo-page="plan"] #planList button.btn{justify-content:flex-start;}
       body[data-seo-page="plan"] #planList button.btn.btn-primary.primary{color:#fff;}
 
+      body[data-seo-page="plan"] .ce-sidebar-section{
+        border-radius:16px;
+        border:1px solid rgba(148,163,184,.35);
+        background:linear-gradient(180deg, rgba(255,255,255,.92), rgba(248,250,252,.78));
+        box-shadow:0 12px 26px rgba(15,23,42,.06);
+        overflow:hidden;
+        margin-bottom:0.75rem;
+      }
+      body[data-seo-page="plan"] .ce-sidebar-section > summary{list-style:none;}
+      body[data-seo-page="plan"] .ce-sidebar-section > summary::-webkit-details-marker{display:none;}
+
+      body[data-seo-page="plan"] .ce-sidebar-summary{
+        cursor:pointer;
+        user-select:none;
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        gap:0.6rem;
+        padding:0.55rem 0.65rem;
+        font-weight:750;
+        font-size:13px;
+        color:#0f172a;
+      }
+      body[data-seo-page="plan"] .ce-sidebar-summary:focus-visible{outline:3px solid rgba(56,189,248,.30); outline-offset:2px; border-radius:12px;}
+
+      body[data-seo-page="plan"] .ce-sidebar-panel{padding:0.65rem; border-top:1px solid rgba(148,163,184,.25);}
+      body[data-seo-page="plan"] .ce-sidebar-summary__left{display:flex; align-items:center; gap:0.5rem; min-width:0;}
+      body[data-seo-page="plan"] .ce-sidebar-summary__title{overflow:hidden; text-overflow:ellipsis; white-space:nowrap;}
+      body[data-seo-page="plan"] .ce-sidebar-summary__icon{
+        width:24px;
+        height:24px;
+        display:flex;
+        align-items:center;
+        justify-content:center;
+        border-radius:999px;
+        border:1px solid rgba(148,163,184,.6);
+        background:linear-gradient(135deg, rgba(37,99,235,.10), rgba(14,165,233,.08));
+        color:#2563eb;
+        font-weight:900;
+        line-height:1;
+        flex:0 0 auto;
+      }
+      body[data-seo-page="plan"] details[open] > summary .ce-sidebar-summary__icon--closed{display:none;}
+      body[data-seo-page="plan"] details:not([open]) > summary .ce-sidebar-summary__icon--open{display:none;}
+
       body[data-seo-page="plan"] #planCatalog .btn{border-radius:999px;}
       body[data-seo-page="plan"] #planCatalog input[type="text"]{max-width:220px !important;}
 
@@ -347,11 +392,15 @@
         body[data-seo-page="plan"] .planner-shell *{max-width:100%;}
 
         body[data-seo-page="plan"] #planCreateForm div[style*="grid-template-columns: 1fr 1fr"],
-        body[data-seo-page="plan"] #planDetails div[style*="grid-template-columns: 1fr 1fr"]{grid-template-columns:1fr !important;}
+        body[data-seo-page="plan"] #planDetails div[style*="grid-template-columns: 1fr 1fr"],
+        body[data-seo-page="plan"] #planSidebarDetails div[style*="grid-template-columns: 1fr 1fr"]{grid-template-columns:1fr !important;}
 
         body[data-seo-page="plan"] #planDetails input,
         body[data-seo-page="plan"] #planDetails select,
-        body[data-seo-page="plan"] #planDetails textarea{width:100% !important; min-width:0 !important;}
+        body[data-seo-page="plan"] #planDetails textarea,
+        body[data-seo-page="plan"] #planSidebarDetails input,
+        body[data-seo-page="plan"] #planSidebarDetails select,
+        body[data-seo-page="plan"] #planSidebarDetails textarea{width:100% !important; min-width:0 !important;}
 
         body[data-seo-page="plan"] #planRefreshBtn,
         body[data-seo-page="plan"] #planDeleteBtn,
@@ -567,110 +616,139 @@
               <a class="btn ghost" href="/index.html" data-i18n="plan.sidebar.back">Back</a>
             </div>
 
-            <form id="planCreateForm" style="display: grid; gap: 0.75rem; margin-bottom: 1rem;">
-              <div style="display: grid; gap: 0.25rem;">
-                <label for="planTitle" data-i18n="plan.form.title.label">Title</label>
-                <input id="planTitle" name="title" type="text" maxlength="120" placeholder="e.g. Cyprus in 7 days" data-i18n-attrs="placeholder:plan.form.title.placeholder" />
-              </div>
+            <details class="ce-sidebar-section" open>
+              <summary class="ce-sidebar-summary">
+                <span class="ce-sidebar-summary__left">
+                  <span class="ce-sidebar-summary__title" data-i18n="plan.form.create">Create plan</span>
+                </span>
+                <span aria-hidden="true" class="ce-sidebar-summary__icon ce-sidebar-summary__icon--open">−</span>
+                <span aria-hidden="true" class="ce-sidebar-summary__icon ce-sidebar-summary__icon--closed">+</span>
+              </summary>
+              <div class="ce-sidebar-panel">
+                <form id="planCreateForm" style="display: grid; gap: 0.75rem;">
+                  <div style="display: grid; gap: 0.25rem;">
+                    <label for="planTitle" data-i18n="plan.form.title.label">Title</label>
+                    <input id="planTitle" name="title" type="text" maxlength="120" placeholder="e.g. Cyprus in 7 days" data-i18n-attrs="placeholder:plan.form.title.placeholder" />
+                  </div>
 
-              <div style="display: grid; gap: 0.25rem;">
-                <label for="planBaseCity" data-i18n="plan.form.baseCity.label">Base city</label>
-                <input id="planBaseCity" name="base_city" type="text" maxlength="80" placeholder="e.g. Paphos" list="ceCityOptions" data-i18n-attrs="placeholder:plan.form.baseCity.placeholder" />
-              </div>
+                  <div style="display: grid; gap: 0.25rem;">
+                    <label for="planBaseCity" data-i18n="plan.form.baseCity.label">Base city</label>
+                    <input id="planBaseCity" name="base_city" type="text" maxlength="80" placeholder="e.g. Paphos" list="ceCityOptions" data-i18n-attrs="placeholder:plan.form.baseCity.placeholder" />
+                  </div>
 
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                <div style="display: grid; gap: 0.25rem;">
-                  <label for="planStart" data-i18n="plan.form.startDate.label">Start date</label>
-                  <input id="planStart" name="start_date" type="date" />
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <div style="display: grid; gap: 0.25rem;">
+                      <label for="planStart" data-i18n="plan.form.startDate.label">Start date</label>
+                      <input id="planStart" name="start_date" type="date" />
+                    </div>
+                    <div style="display: grid; gap: 0.25rem;">
+                      <label for="planEnd" data-i18n="plan.form.endDate.label">End date</label>
+                      <input id="planEnd" name="end_date" type="date" />
+                    </div>
+                  </div>
+
+                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                    <div style="display: grid; gap: 0.25rem;">
+                      <label for="planAdults" data-i18n="plan.form.adults.label">Adults</label>
+                      <input id="planAdults" name="adults" type="number" min="0" step="1" inputmode="numeric" value="1" />
+                    </div>
+                    <div style="display: grid; gap: 0.25rem;">
+                      <label for="planChildren" data-i18n="plan.form.children.label">Children</label>
+                      <input id="planChildren" name="children" type="number" min="0" step="1" inputmode="numeric" value="0" />
+                    </div>
+                  </div>
+
+                  <label style="display: flex; gap: 0.5rem; align-items: center;">
+                    <input id="planIncludeNorth" name="include_north" type="checkbox" />
+                    <span data-i18n="plan.form.includeNorth">Include North Cyprus</span>
+                  </label>
+
+                  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+                    <button class="btn btn-primary primary" type="submit" data-i18n="plan.form.create">Create plan</button>
+                    <span id="planCreateStatus" style="color: #64748b; font-size: 14px;"></span>
+                  </div>
+                </form>
+              </div>
+            </details>
+
+            <details class="ce-sidebar-section" open>
+              <summary class="ce-sidebar-summary">
+                <span class="ce-sidebar-summary__left">
+                  <span class="ce-sidebar-summary__title" data-i18n="plan.sidebar.yourPlans">Your plans</span>
+                </span>
+                <span aria-hidden="true" class="ce-sidebar-summary__icon ce-sidebar-summary__icon--open">−</span>
+                <span aria-hidden="true" class="ce-sidebar-summary__icon ce-sidebar-summary__icon--closed">+</span>
+              </summary>
+              <div class="ce-sidebar-panel">
+                <div id="planList" style="display: grid; gap: 0.5rem;"></div>
+              </div>
+            </details>
+
+            <details class="ce-sidebar-section" open>
+              <summary class="ce-sidebar-summary">
+                <span class="ce-sidebar-summary__left">
+                  <span class="ce-sidebar-summary__title" data-i18n="plan.details.title">Plan details</span>
+                </span>
+                <span aria-hidden="true" class="ce-sidebar-summary__icon ce-sidebar-summary__icon--open">−</span>
+                <span aria-hidden="true" class="ce-sidebar-summary__icon ce-sidebar-summary__icon--closed">+</span>
+              </summary>
+              <div class="ce-sidebar-panel">
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-bottom:0.75rem;">
+                  <button id="planRefreshBtn" class="btn" type="button" data-i18n="plan.actions.refresh">Refresh</button>
+                  <button id="planPdfBtn" class="btn" type="button" data-i18n="plan.actions.pdf">Download PDF</button>
+                  <button id="planEmailBtn" class="btn" type="button" data-i18n="plan.actions.email">Email plan</button>
+                  <button id="planDeleteBtn" class="btn" type="button" style="border-color: #ef4444; color: #ef4444;" data-i18n="plan.actions.delete">Delete</button>
                 </div>
-                <div style="display: grid; gap: 0.25rem;">
-                  <label for="planEnd" data-i18n="plan.form.endDate.label">End date</label>
-                  <input id="planEnd" name="end_date" type="date" />
+
+                <div id="planEmptyState" style="color: #64748b;" data-i18n="plan.details.empty">Select a plan from the list to see details.</div>
+
+                <div id="planSidebarDetails" hidden>
+                  <div style="display: grid; gap: 0.5rem;">
+                    <div style="display: grid; gap: 0.25rem;">
+                      <label for="planEditTitle" data-i18n="plan.edit.title.label">Title</label>
+                      <input id="planEditTitle" type="text" maxlength="120" />
+                    </div>
+                    <div style="display: grid; gap: 0.25rem;">
+                      <label for="planEditBaseCity" data-i18n="plan.edit.baseCity.label">Base city</label>
+                      <input id="planEditBaseCity" type="text" maxlength="80" list="ceCityOptions" />
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                      <div style="display: grid; gap: 0.25rem;">
+                        <label for="planEditStart" data-i18n="plan.edit.startDate.label">Start date</label>
+                        <input id="planEditStart" type="date" />
+                      </div>
+                      <div style="display: grid; gap: 0.25rem;">
+                        <label for="planEditEnd" data-i18n="plan.edit.endDate.label">End date</label>
+                        <input id="planEditEnd" type="date" />
+                      </div>
+                    </div>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
+                      <div style="display: grid; gap: 0.25rem;">
+                        <label for="planEditAdults" data-i18n="plan.edit.adults.label">Adults</label>
+                        <input id="planEditAdults" type="number" min="0" step="1" inputmode="numeric" />
+                      </div>
+                      <div style="display: grid; gap: 0.25rem;">
+                        <label for="planEditChildren" data-i18n="plan.edit.children.label">Children</label>
+                        <input id="planEditChildren" type="number" min="0" step="1" inputmode="numeric" />
+                      </div>
+                    </div>
+                    <label style="display: flex; gap: 0.5rem; align-items: center;">
+                      <input id="planEditIncludeNorth" type="checkbox" />
+                      <span data-i18n="plan.edit.includeNorth">Include North Cyprus</span>
+                    </label>
+                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
+                      <button id="planSaveBtn" class="btn btn-primary primary" type="button" data-i18n="plan.edit.save">Save changes</button>
+                      <button id="planRegenDaysBtn" class="btn" type="button" data-i18n="plan.edit.regenDays">Regenerate days</button>
+                      <span id="planSaveStatus" style="color: #64748b; font-size: 14px;"></span>
+                    </div>
+                  </div>
                 </div>
               </div>
-
-              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                <div style="display: grid; gap: 0.25rem;">
-                  <label for="planAdults" data-i18n="plan.form.adults.label">Adults</label>
-                  <input id="planAdults" name="adults" type="number" min="0" step="1" inputmode="numeric" value="1" />
-                </div>
-                <div style="display: grid; gap: 0.25rem;">
-                  <label for="planChildren" data-i18n="plan.form.children.label">Children</label>
-                  <input id="planChildren" name="children" type="number" min="0" step="1" inputmode="numeric" value="0" />
-                </div>
-              </div>
-
-              <label style="display: flex; gap: 0.5rem; align-items: center;">
-                <input id="planIncludeNorth" name="include_north" type="checkbox" />
-                <span data-i18n="plan.form.includeNorth">Include North Cyprus</span>
-              </label>
-
-              <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
-                <button class="btn btn-primary primary" type="submit" data-i18n="plan.form.create">Create plan</button>
-                <span id="planCreateStatus" style="color: #64748b; font-size: 14px;"></span>
-              </div>
-            </form>
-
-            <h2 style="margin: 0 0 0.5rem; font-size: 16px;" data-i18n="plan.sidebar.yourPlans">Your plans</h2>
-            <div id="planList" style="display: grid; gap: 0.5rem;"></div>
+            </details>
           </aside>
 
           <section class="planner-content" style="flex: 2 1 420px; min-width: 320px; padding: 1rem;">
-            <div style="display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap;">
-              <h2 style="margin: 0; font-size: 18px;" data-i18n="plan.details.title">Plan details</h2>
-              <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
-                <button id="planRefreshBtn" class="btn" type="button" data-i18n="plan.actions.refresh">Refresh</button>
-                <button id="planPdfBtn" class="btn" type="button" data-i18n="plan.actions.pdf">Download PDF</button>
-                <button id="planEmailBtn" class="btn" type="button" data-i18n="plan.actions.email">Email plan</button>
-                <button id="planDeleteBtn" class="btn" type="button" style="border-color: #ef4444; color: #ef4444;" data-i18n="plan.actions.delete">Delete</button>
-              </div>
-            </div>
-
-            <div id="planEmptyState" style="margin-top: 1rem; color: #64748b;" data-i18n="plan.details.empty">Select a plan from the list to see details.</div>
-
-            <div id="planDetails" hidden style="margin-top: 1rem; display: grid; gap: 1rem;">
-              <div class="card" style="padding: 1rem;">
-                <div style="display: grid; gap: 0.5rem;">
-                  <div style="display: grid; gap: 0.25rem;">
-                    <label for="planEditTitle" data-i18n="plan.edit.title.label">Title</label>
-                    <input id="planEditTitle" type="text" maxlength="120" />
-                  </div>
-                  <div style="display: grid; gap: 0.25rem;">
-                    <label for="planEditBaseCity" data-i18n="plan.edit.baseCity.label">Base city</label>
-                    <input id="planEditBaseCity" type="text" maxlength="80" list="ceCityOptions" />
-                  </div>
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                    <div style="display: grid; gap: 0.25rem;">
-                      <label for="planEditStart" data-i18n="plan.edit.startDate.label">Start date</label>
-                      <input id="planEditStart" type="date" />
-                    </div>
-                    <div style="display: grid; gap: 0.25rem;">
-                      <label for="planEditEnd" data-i18n="plan.edit.endDate.label">End date</label>
-                      <input id="planEditEnd" type="date" />
-                    </div>
-                  </div>
-                  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem;">
-                    <div style="display: grid; gap: 0.25rem;">
-                      <label for="planEditAdults" data-i18n="plan.edit.adults.label">Adults</label>
-                      <input id="planEditAdults" type="number" min="0" step="1" inputmode="numeric" />
-                    </div>
-                    <div style="display: grid; gap: 0.25rem;">
-                      <label for="planEditChildren" data-i18n="plan.edit.children.label">Children</label>
-                      <input id="planEditChildren" type="number" min="0" step="1" inputmode="numeric" />
-                    </div>
-                  </div>
-                  <label style="display: flex; gap: 0.5rem; align-items: center;">
-                    <input id="planEditIncludeNorth" type="checkbox" />
-                    <span data-i18n="plan.edit.includeNorth">Include North Cyprus</span>
-                  </label>
-                  <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: center;">
-                    <button id="planSaveBtn" class="btn btn-primary primary" type="button" data-i18n="plan.edit.save">Save changes</button>
-                    <button id="planRegenDaysBtn" class="btn" type="button" data-i18n="plan.edit.regenDays">Regenerate days</button>
-                    <span id="planSaveStatus" style="color: #64748b; font-size: 14px;"></span>
-                  </div>
-                </div>
-              </div>
-
+            <div id="planDetails" hidden style="display: grid; gap: 1rem;">
               <div class="card" style="padding: 1rem;">
                 <div style="display:flex; justify-content:space-between; gap:0.75rem; flex-wrap:wrap; align-items:center;">
                   <div></div>
