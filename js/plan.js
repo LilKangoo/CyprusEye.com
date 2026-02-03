@@ -3379,9 +3379,11 @@ function renderServiceCatalog() {
     return null;
   };
 
-  const tabBtn = (key, label) => {
+  const tabBtn = (key, label, count) => {
     const isActive = catalogActiveTab === key;
-    return `<button type="button" class="btn ${isActive ? 'btn-primary primary' : ''}" data-catalog-tab="${key}">${escapeHtml(label)}</button>`;
+    const n = count != null ? Number(count) : null;
+    const badge = Number.isFinite(n) ? `<span class="ce-catalog-tab__count">${escapeHtml(String(n))}</span>` : '';
+    return `<button type="button" class="btn btn-sm ce-catalog-tab ${isActive ? 'is-active' : ''}" data-catalog-tab="${key}"><span class="ce-catalog-tab__label">${escapeHtml(label)}</span>${badge}</button>`;
   };
 
   const counts = {
@@ -3410,8 +3412,9 @@ function renderServiceCatalog() {
     const isPolish = currentLang() === 'pl';
     const savedLabel = t('plan.ui.catalog.savedOnly', isPolish ? 'Zapisane' : 'Saved');
     const on = catalogActiveTab === 'saved' && catalogSavedOnly;
-    const savedBtn = `<button type="button" class="btn ${on ? 'btn-primary primary' : ''}" data-catalog-saved-only="1">${escapeHtml(`${savedLabel} (${total})`)}</button>`;
-    return `<div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center; margin-top:0.5rem;">${savedBtn}</div>`;
+    const star = on ? '★' : '☆';
+    const savedBtn = `<button type="button" class="btn btn-sm ce-catalog-saved ${on ? 'is-active' : ''}" data-catalog-saved-only="1" aria-label="${escapeHtml(savedLabel)}" title="${escapeHtml(savedLabel)}"><span class="ce-catalog-saved__star">${escapeHtml(star)}</span><span class="ce-catalog-saved__label">${escapeHtml(savedLabel)}</span><span class="ce-catalog-saved__count">${escapeHtml(String(total))}</span></button>`;
+    return savedBtn;
   };
 
   const renderRecommendationsFilters = () => {
@@ -4041,18 +4044,23 @@ function renderServiceCatalog() {
   const topFiltersHtml = renderCatalogTopFilters();
 
   wrap.innerHTML = `
-    <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-      ${tabBtn('trips', `${t('plan.ui.catalog.tabs.trips', 'Trips')} (${counts.trips})`)}
-      ${tabBtn('hotels', `${t('plan.ui.catalog.tabs.hotels', 'Hotels')} (${counts.hotels})`)}
-      ${tabBtn('cars', `${t('plan.ui.catalog.tabs.cars', 'Cars')} (${counts.cars})`)}
-      ${tabBtn('recommendations', `${t('plan.ui.catalog.tabs.recommendations', 'Recommendations')} (${counts.recommendations})`)}
-      ${tabBtn('pois', `${t('plan.ui.catalog.tabs.pois', 'Places to see')} (${counts.pois})`)}
-      <div style="flex:1 1 200px;"></div>
-      <span style="color:#64748b; font-size:12px;">${escapeHtml(ctx.city || t('plan.ui.catalog.allCities', 'All cities'))}${ctx.includeNorth ? ` • ${escapeHtml(t('plan.ui.catalog.north', 'north'))}` : ''}</span>
-      <input id="planCatalogSearch" type="text" value="${escapeHtml(catalogSearch)}" placeholder="${escapeHtml(t('plan.ui.catalog.searchPlaceholder', 'Search…'))}" style="max-width:280px;" />
-      <button type="button" class="btn" data-catalog-refresh="1">${escapeHtml(t('plan.actions.refresh', 'Refresh'))}</button>
+    <div class="ce-catalog-topbar">
+      <div class="ce-catalog-tabs" role="tablist" aria-label="${escapeHtml(t('plan.ui.catalog.tabs.label', 'Catalog tabs'))}">
+        ${tabBtn('trips', t('plan.ui.catalog.tabs.trips', 'Trips'), counts.trips)}
+        ${tabBtn('hotels', t('plan.ui.catalog.tabs.hotels', 'Hotels'), counts.hotels)}
+        ${tabBtn('cars', t('plan.ui.catalog.tabs.cars', 'Cars'), counts.cars)}
+        ${tabBtn('recommendations', t('plan.ui.catalog.tabs.recommendations', 'Recommendations'), counts.recommendations)}
+        ${tabBtn('pois', t('plan.ui.catalog.tabs.pois', 'Places to see'), counts.pois)}
+        ${topFiltersHtml}
+      </div>
+
+      <div class="ce-catalog-tools">
+        <span class="ce-catalog-city">${escapeHtml(ctx.city || t('plan.ui.catalog.allCities', 'All cities'))}${ctx.includeNorth ? ` • ${escapeHtml(t('plan.ui.catalog.north', 'north'))}` : ''}</span>
+        <input id="planCatalogSearch" class="ce-catalog-search" type="text" value="${escapeHtml(catalogSearch)}" placeholder="${escapeHtml(t('plan.ui.catalog.searchPlaceholder', 'Search…'))}" />
+        <button type="button" class="btn btn-sm ce-catalog-refresh" data-catalog-refresh="1" aria-label="${escapeHtml(t('plan.actions.refresh', 'Refresh'))}" title="${escapeHtml(t('plan.actions.refresh', 'Refresh'))}"><span class="ce-catalog-refresh__ico">↻</span><span class="ce-catalog-refresh__txt">${escapeHtml(t('plan.actions.refresh', 'Refresh'))}</span></button>
+      </div>
+
     </div>
-    ${topFiltersHtml}
     <div class="ce-catalog-results" style="margin-top:0.75rem;">
       ${recFiltersHtml}
       ${rowsHtml}
