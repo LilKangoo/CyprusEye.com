@@ -894,23 +894,34 @@ function renderPlanDaysUi(planId, rows) {
             <strong>${escapeHtml(label)}</strong>
             <span style="color:#64748b;">${escapeHtml(city)}</span>
           </div>
-          <div style="margin-top:0.5rem; display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+          <div class="ce-day-actions">
             <button type="button" class="btn btn-sm" data-day-add-to-day="${d.id}">${escapeHtml(t('plan.ui.days.addToDay', currentLang() === 'pl' ? 'Dodaj do dnia' : 'Add to day'))}</button>
             <button type="button" class="btn btn-sm" data-day-map-open="${d.id}">🗺️ ${escapeHtml(t('plan.ui.days.map', currentLang() === 'pl' ? 'Mapa dnia' : 'Day map'))}</button>
           </div>
           <div style="margin-top:0.5rem; display:grid; gap:0.5rem;">
-            <div style="display:grid; gap:0.25rem;">
-              <label style="font-size:12px; color:#64748b;" for="dayCity_${d.id}">${escapeHtml(t('plan.ui.days.city', 'City'))}</label>
-              <input id="dayCity_${d.id}" type="text" value="${escapeHtml(city)}" data-day-city="${d.id}" placeholder="${escapeHtml(t('plan.ui.days.city', 'City'))}" list="ceCityOptions" />
-            </div>
-            <div style="display:grid; gap:0.25rem;">
-              <label style="font-size:12px; color:#64748b;" for="dayNotes_${d.id}">${escapeHtml(t('plan.ui.days.dayNotes', 'Day notes'))}</label>
-              <textarea id="dayNotes_${d.id}" rows="2" data-day-notes="${d.id}" placeholder="${escapeHtml(t('plan.ui.days.notesPlaceholder', 'Notes'))}">${escapeHtml(notes)}</textarea>
-            </div>
-            <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
-              <button type="button" class="btn btn-sm" data-day-save="${d.id}">${escapeHtml(t('plan.ui.days.saveDay', 'Save day'))}</button>
-              <span style="color:#64748b; font-size:12px;" data-day-status="${d.id}"></span>
-            </div>
+            <details class="ce-day-fields">
+              <summary class="ce-day-fields__summary">
+                <span class="ce-day-fields__summary-left">
+                  <span class="ce-day-fields__title">${escapeHtml(t('plan.ui.days.cityNotes', currentLang() === 'pl' ? 'Miasto i notatki' : 'City & notes'))}</span>
+                  ${city ? `<span class=\"ce-day-fields__hint\">${escapeHtml(city)}</span>` : ''}
+                </span>
+                <span class="ce-day-fields__chev">▾</span>
+              </summary>
+              <div class="ce-day-fields__body">
+                <div style="display:grid; gap:0.25rem;">
+                  <label style="font-size:12px; color:#64748b;" for="dayCity_${d.id}">${escapeHtml(t('plan.ui.days.city', 'City'))}</label>
+                  <input id="dayCity_${d.id}" type="text" value="${escapeHtml(city)}" data-day-city="${d.id}" placeholder="${escapeHtml(t('plan.ui.days.city', 'City'))}" list="ceCityOptions" />
+                </div>
+                <div style="display:grid; gap:0.25rem;">
+                  <label style="font-size:12px; color:#64748b;" for="dayNotes_${d.id}">${escapeHtml(t('plan.ui.days.dayNotes', 'Day notes'))}</label>
+                  <textarea id="dayNotes_${d.id}" rows="2" data-day-notes="${d.id}" placeholder="${escapeHtml(t('plan.ui.days.notesPlaceholder', 'Notes'))}">${escapeHtml(notes)}</textarea>
+                </div>
+                <div style="display:flex; gap:0.5rem; flex-wrap:wrap; align-items:center;">
+                  <button type="button" class="btn btn-sm" data-day-save="${d.id}">${escapeHtml(t('plan.ui.days.saveDay', 'Save day'))}</button>
+                  <span style="color:#64748b; font-size:12px;" data-day-status="${d.id}"></span>
+                </div>
+              </div>
+            </details>
             ${servicesHtml}
             ${poiHtml}
             <div id="dayMap_${d.id}" style="height: 180px; border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; display:none;"></div>

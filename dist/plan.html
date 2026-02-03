@@ -125,6 +125,19 @@
       body[data-seo-page="plan"] #planDays .card{border-radius:16px;}
       body[data-seo-page="plan"] #planDays button.btn.btn-sm{border-radius:12px;}
 
+      body[data-seo-page="plan"] .ce-day-actions{margin-top:0.5rem; display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; align-items:stretch;}
+      body[data-seo-page="plan"] .ce-day-actions .btn{width:100%; justify-content:center;}
+
+      body[data-seo-page="plan"] .ce-day-fields{border-radius:14px; border:1px solid rgba(148,163,184,.35); background:rgba(255,255,255,.86); box-shadow:0 10px 22px rgba(15,23,42,.06); padding:0.45rem 0.6rem;}
+      body[data-seo-page="plan"] .ce-day-fields__summary{cursor:pointer; list-style:none; user-select:none; display:flex; align-items:center; justify-content:space-between; gap:0.6rem; font-size:12px; font-weight:850; color:#0f172a;}
+      body[data-seo-page="plan"] .ce-day-fields__summary::-webkit-details-marker{display:none;}
+      body[data-seo-page="plan"] .ce-day-fields__summary-left{display:flex; align-items:baseline; gap:0.5rem; min-width:0;}
+      body[data-seo-page="plan"] .ce-day-fields__title{white-space:nowrap;}
+      body[data-seo-page="plan"] .ce-day-fields__hint{min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:#64748b; font-weight:750;}
+      body[data-seo-page="plan"] .ce-day-fields__chev{color:#64748b; font-size:14px; transition:transform .15s ease;}
+      body[data-seo-page="plan"] details[open].ce-day-fields .ce-day-fields__chev{transform:rotate(180deg);}
+      body[data-seo-page="plan"] .ce-day-fields__body{margin-top:0.55rem; display:grid; gap:0.5rem;}
+
       body[data-seo-page="plan"] #planDays .card{
         background:radial-gradient(900px 420px at 20% 0%, rgba(37,99,235,.10), transparent 60%),
                    radial-gradient(700px 380px at 90% 0%, rgba(14,165,233,.10), transparent 60%),
@@ -349,7 +362,7 @@
       body[data-seo-page="plan"].ce-lightbox-open{overflow:hidden;}
 
       body[data-seo-page="plan"] .ce-catalog-results{max-height:min(56vh, 560px); overflow:auto; padding-right:2px;}
-      body[data-seo-page="plan"] .ce-catalog-grid{display:grid; gap:0.5rem; grid-template-columns:repeat(2, minmax(0, 1fr));}
+      body[data-seo-page="plan"] .ce-catalog-grid{display:grid; gap:0.75rem; grid-template-columns:repeat(4, minmax(0, 1fr));}
       body[data-seo-page="plan"] .ce-catalog-tile{display:grid; gap:0.4rem;}
       body[data-seo-page="plan"] .ce-catalog-title{font-weight:650; font-size:13px; line-height:1.25;}
       body[data-seo-page="plan"] .ce-catalog-meta{display:flex; gap:0.4rem; flex-wrap:wrap; color:#64748b; font-size:12px;}
@@ -455,6 +468,21 @@
       }
       body[data-seo-page="plan"] .ce-rec-chip.active .ce-rec-chip__count{background:rgba(255,255,255,.28); color:#fff;}
 
+      @media (max-width: 1200px){
+        body[data-seo-page="plan"] .ce-catalog-grid{grid-template-columns:repeat(3, minmax(0, 1fr));}
+      }
+
+      @media (max-width: 900px){
+        body[data-seo-page="plan"] .ce-catalog-grid{grid-template-columns:repeat(2, minmax(0, 1fr));}
+      }
+
+      @media (min-width: 880px){
+        body[data-seo-page="plan"] .ce-day-dnd-list[data-day-dnd-list="services"],
+        body[data-seo-page="plan"] .ce-day-dnd-list[data-day-dnd-list="pois"]{grid-template-columns:repeat(2, minmax(0, 1fr));}
+        body[data-seo-page="plan"] .ce-day-dnd-list[data-day-dnd-list="services"] .ce-day-item-row,
+        body[data-seo-page="plan"] .ce-day-dnd-list[data-day-dnd-list="pois"] .ce-day-item-row{flex-wrap:wrap;}
+      }
+
       @media (max-width: 980px){
         body[data-seo-page="plan"] .planner-shell > div{flex-direction:column;}
         body[data-seo-page="plan"] .planner-sidebar{flex:0 0 auto !important; border-right:none !important; border-bottom:1px solid rgba(148,163,184,.35) !important;}
@@ -517,9 +545,12 @@
         body[data-seo-page="plan"] #planRegenDaysBtn,
         body[data-seo-page="plan"] #planRequestBookingBtn{width:100% !important;}
 
-        body[data-seo-page="plan"] .ce-catalog-grid{grid-template-columns:1fr;}
+        body[data-seo-page="plan"] .ce-catalog-grid{grid-template-columns:1fr; gap:0.5rem;}
         body[data-seo-page="plan"] .ce-catalog-actions{justify-content:space-between;}
         body[data-seo-page="plan"] .ce-catalog-days{flex:1 1 100%;}
+
+        body[data-seo-page="plan"] .ce-day-dnd-list[data-day-dnd-list="services"],
+        body[data-seo-page="plan"] .ce-day-dnd-list[data-day-dnd-list="pois"]{grid-template-columns:1fr;}
 
         body[data-seo-page="plan"] .ce-day-item-row:not(.ce-day-item-row--note){flex-wrap:wrap; align-items:flex-start;}
         body[data-seo-page="plan"] .ce-day-item-row:not(.ce-day-item-row--note) .ce-day-item-thumb{order:0;}
