@@ -3949,6 +3949,7 @@ function renderServiceCatalog() {
                   ${promoHtml}
                   <div class="ce-catalog-actions">
                     <div class="ce-catalog-actions__top">
+                      <button type="button" class="btn btn-sm btn-primary primary ce-catalog-add" data-default-label="${addLabel}" ${addAttr}${poiAttrs}>${addLabel}</button>
                       <div class="ce-quick-actions" aria-label="${escapeHtml(t('plan.ui.common.actions', 'Actions'))}">
                         ${saveBtn}
                         ${mapsIcon}
@@ -3957,7 +3958,6 @@ function renderServiceCatalog() {
                     </div>
                     <div class="ce-catalog-actions__bottom">
                       ${dayPickWrap}
-                      <button type="button" class="btn btn-sm btn-primary primary ce-catalog-add" data-default-label="${addLabel}" ${addAttr}${poiAttrs}>${addLabel}</button>
                     </div>
                   </div>
                 </div>
@@ -4011,6 +4011,7 @@ function renderServiceCatalog() {
                 ${more}
                 <div class="ce-catalog-actions">
                   <div class="ce-catalog-actions__top">
+                    <button type="button" class="btn btn-sm btn-primary primary ce-catalog-add" data-default-label="${addLabel}" ${addAttr}${poiAttrs}>${addLabel}</button>
                     <div class="ce-quick-actions" aria-label="${escapeHtml(t('plan.ui.common.actions', 'Actions'))}">
                       ${saveBtn}
                       ${mapsIcon}
@@ -4019,7 +4020,6 @@ function renderServiceCatalog() {
                   </div>
                   <div class="ce-catalog-actions__bottom">
                     ${dayPickWrap}
-                    <button type="button" class="btn btn-sm btn-primary primary ce-catalog-add" data-default-label="${addLabel}" ${addAttr}${poiAttrs}>${addLabel}</button>
                   </div>
                 </div>
               </div>

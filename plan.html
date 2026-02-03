@@ -345,7 +345,9 @@
       body[data-seo-page="plan"] .ce-catalog-meta{display:flex; gap:0.4rem; flex-wrap:wrap; color:#64748b; font-size:12px;}
       body[data-seo-page="plan"] .ce-catalog-price{color:#0f172a;}
       body[data-seo-page="plan"] .ce-catalog-actions{display:grid; gap:0.45rem; align-items:center;}
-      body[data-seo-page="plan"] .ce-catalog-actions__top{display:flex; justify-content:flex-end; align-items:center;}
+      body[data-seo-page="plan"] .ce-catalog-actions__top{display:flex; justify-content:space-between; align-items:center; gap:0.5rem; flex-wrap:nowrap;}
+      body[data-seo-page="plan"] .ce-catalog-actions__top .ce-catalog-add{flex:1 1 auto; min-width:0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;}
+      body[data-seo-page="plan"] .ce-catalog-actions__top .ce-quick-actions{flex:0 0 auto;}
       body[data-seo-page="plan"] .ce-catalog-actions__bottom{display:grid; gap:0.45rem; justify-items:stretch;}
       body[data-seo-page="plan"] .ce-catalog-actions__bottom .ce-catalog-add{width:100%; border-radius:14px;}
       body[data-seo-page="plan"] .ce-catalog-open{border-radius:999px;}
@@ -374,6 +376,8 @@
         body[data-seo-page="plan"] .planner-content{padding:.75rem !important;}
         body[data-seo-page="plan"] #planCatalog input[type="text"]{max-width:160px !important;}
         body[data-seo-page="plan"] .ce-toast{bottom:78px;}
+
+        body[data-seo-page="plan"] .ce-catalog-actions .ce-qa{width:40px; height:40px; min-width:40px;}
 
         body[data-seo-page="plan"] .ce-detail-grid{grid-template-columns:1fr;}
         body[data-seo-page="plan"] .ce-detail-row{grid-template-columns:minmax(72px, 92px) minmax(0, 1fr); gap:0.45rem;}
