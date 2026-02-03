@@ -757,20 +757,31 @@ function renderPlanDaysUi(planId, rows) {
                   const rangeEnd = it?.data && typeof it.data === 'object' ? Number(it.data.range_end_day_index || 0) : 0;
                   const rangeId = it?.data && typeof it.data === 'object' ? String(it.data.range_id || '') : '';
                   const rangeBadge = rangeId && rangeStart > 0 && rangeEnd > 0 ? ` (${escapeHtml(t('plan.print.day', 'Day'))} ${rangeStart}–${escapeHtml(t('plan.print.day', 'Day'))} ${rangeEnd})` : '';
-                  const thumb = image ? `<a href="${escapeHtml(image)}" target="_blank" rel="noopener"><img src="${escapeHtml(image)}" alt="" loading="lazy" style="width:64px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0;" /></a>` : '';
+                  const imgUrls = src ? getServiceImageUrls(it.item_type, src) : (image ? [image] : []);
+                  const imgUrlsAttr = imgUrls.length ? escapeHtml(encodeURIComponent(JSON.stringify(imgUrls))) : '';
+                  const thumb = image
+                    ? `<button type="button" class="ce-day-thumb" data-ce-lightbox-urls="${imgUrlsAttr}" data-ce-lightbox-index="0" aria-label="${escapeHtml(t('plan.ui.common.open', 'Open'))}">
+                         <img src="${escapeHtml(image)}" alt="" loading="lazy" style="width:64px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0;" />
+                       </button>`
+                    : '';
                   const preview = (it.item_type === 'hotel' || it.item_type === 'trip' || it.item_type === 'recommendation') ? '' : (description ? `<div style=\"color:#475569; font-size:12px;\">${escapeHtml(description)}</div>` : '');
                   const more = src ? renderExpandablePanel({ panelId, type: it.item_type, src, resolved, open: isPanelOpen }) : '';
                   const qa = quickActionsHtml(it, src, resolved);
+
+                  const primaryCity = String(subtitle || '').split('•')[0].trim();
+                  const metaLeft = [typeLabel, primaryCity].filter(Boolean).join(' • ');
                   return `
                     <div class="ce-day-item-row" data-dnd-item-id="${escapeHtml(String(it.id || ''))}" data-dnd-day-id="${escapeHtml(String(d.id || ''))}" data-dnd-kind="services" style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
-                      ${thumb ? `<div style="flex:0 0 auto;">${thumb}</div>` : ''}
+                      ${thumb ? `<div class="ce-day-item-thumb" style="flex:0 0 auto;">${thumb}</div>` : ''}
                       <div class="ce-day-item-main" style="flex:1 1 auto; min-width:0;">
-                        <div style="font-size:12px; color:#64748b;">${escapeHtml(typeLabel)}</div>
-                        <div style="color:#0f172a; font-weight:600;">${escapeHtml(title)}${escapeHtml(rangeBadge)}</div>
-                        ${subtitle ? `<div style=\"color:#64748b; font-size:12px;\">${escapeHtml(subtitle)}</div>` : ''}
+                        <div class="ce-day-item-meta">
+                          <div class="ce-day-item-meta__left">${escapeHtml(metaLeft)}</div>
+                          ${price ? `<div class=\"ce-day-item-meta__right\">${escapeHtml(price)}</div>` : ''}
+                        </div>
+                        <div class="ce-day-item-title">${escapeHtml(title)}${rangeBadge}</div>
+                        ${subtitle ? `<div class=\"ce-day-item-sub\">${escapeHtml(subtitle)}</div>` : ''}
                         ${preview}
                         ${more}
-                        ${price ? `<div style=\"color:#0f172a; font-size:12px;\">${escapeHtml(price)}</div>` : ''}
                       </div>
                       <div class="ce-day-item-actions" style="display:flex; gap:0.5rem; flex-wrap:wrap; justify-content:flex-end;">
                         <button type="button" class="btn btn-sm" data-order-move="up" aria-label="${escapeHtml(t('plan.ui.common.moveUp', 'Move up'))}">↑</button>
@@ -805,7 +816,13 @@ function renderPlanDaysUi(planId, rows) {
                     const panelId = `ceDayPoiDetail_${String(it.id || '').replace(/[^a-zA-Z0-9_-]/g, '')}`;
                     const isPanelOpen = !!expandedState[panelId];
                     const timeLabel = formatPoiTimeLabel(it);
-                    const thumb = image ? `<a href="${escapeHtml(image)}" target="_blank" rel="noopener"><img src="${escapeHtml(image)}" alt="" loading="lazy" style="width:64px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0;" /></a>` : '';
+                    const imgUrls = src ? getServiceImageUrls('poi', src) : (image ? [image] : []);
+                    const imgUrlsAttr = imgUrls.length ? escapeHtml(encodeURIComponent(JSON.stringify(imgUrls))) : '';
+                    const thumb = image
+                      ? `<button type="button" class="ce-day-thumb" data-ce-lightbox-urls="${imgUrlsAttr}" data-ce-lightbox-index="0" aria-label="${escapeHtml(t('plan.ui.common.open', 'Open'))}">
+                           <img src="${escapeHtml(image)}" alt="" loading="lazy" style="width:64px; height:48px; object-fit:cover; border-radius:8px; border:1px solid #e2e8f0;" />
+                         </button>`
+                      : '';
                     const startV = it?.data && typeof it.data === 'object' ? String(it.data.start_time || '') : '';
                     const endV = it?.data && typeof it.data === 'object' ? String(it.data.end_time || '') : '';
                     const preview = description ? `<div style=\"color:#475569; font-size:12px; margin-top:0.25rem;\">${escapeHtml(description)}</div>` : '';
@@ -813,7 +830,7 @@ function renderPlanDaysUi(planId, rows) {
                     const qa = quickActionsHtml(it, src, resolved);
                     return `
                       <div class="ce-day-item-row ce-day-item-row--poi" data-dnd-item-id="${escapeHtml(String(it.id || ''))}" data-dnd-day-id="${escapeHtml(String(d.id || ''))}" data-dnd-kind="pois" style="display:flex; gap:0.5rem; align-items:flex-start; justify-content:space-between;">
-                        ${thumb ? `<div style="flex:0 0 auto;">${thumb}</div>` : ''}
+                        ${thumb ? `<div class="ce-day-item-thumb" style="flex:0 0 auto;">${thumb}</div>` : ''}
                         <div class="ce-day-item-main" style="flex:1 1 auto; min-width:0;">
                           <div style="display:flex; gap:0.5rem; align-items:baseline; flex-wrap:wrap;">
                             <div style="color:#0f172a; font-weight:600;">${escapeHtml(title || t('plan.ui.days.placeFallback', 'Place'))}</div>
