@@ -118,7 +118,7 @@
   <script src="js/footer-referral.js" defer></script>
   <script type="module" src="js/auth.js"></script>
   <script type="module" src="js/authUi.js"></script>
-  <script src="js/map-recommendations.js" defer></script>
+  <script src="js/map-recommendations.js?v=2" defer></script>
 </head>
 <body data-navigation="multi-page" data-initial-view="adventureView" data-seo-page="home">
   <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
@@ -823,13 +823,15 @@
   <!-- Global Language Refresh System -->
   <script src="js/languageRefresh.js"></script>
   
+  <script src="js/saved-catalog.js?v=2" defer></script>
+  
   <!-- Home page section scripts (MUST load AFTER languageSwitcher.js for i18n helpers) -->
-  <script src="js/home-trips.js?v=2" defer></script>
-  <script src="js/home-hotels.js?v=3" defer></script>
-  <script type="module" src="js/home-recommendations.js" defer></script>
+  <script src="js/home-trips.js?v=3" defer></script>
+  <script src="js/home-hotels.js?v=4" defer></script>
+  <script type="module" src="js/home-recommendations.js?v=2" defer></script>
   
   <!-- Load core application (defer to wait for poi-loader) -->
-  <script src="js/app-core.js?v=5" defer></script>
+  <script src="js/app-core.js?v=6" defer></script>
   <!-- SOS Emergency Modal -->
   <script src="js/sos.js?v=1" defer></script>
   <!-- Header Stats - aktualizacja statystyk na wszystkich stronach -->

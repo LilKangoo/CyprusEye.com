@@ -242,6 +242,31 @@ function renderHomeHotels(){
       <a href="#" onclick="openHotelModalHome(${index}); return false;" class="hotel-home-card" style="position:relative;height:200px;border-radius:12px;overflow:hidden;cursor:pointer;transition:transform .3s,box-shadow .3s;box-shadow:0 4px 6px rgba(0,0,0,.1);text-decoration:none;display:block;"
          onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 12px rgba(0,0,0,0.15)'"
          onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.1)'">
+        <button
+          type="button"
+          data-ce-save="1"
+          data-item-type="hotel"
+          data-ref-id="${String(h.id || '')}"
+          aria-label="Zapisz"
+          title="Zapisz"
+          onclick="event.preventDefault(); event.stopPropagation();"
+          style="
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            font-size: 20px;
+            line-height: 1;
+            z-index: 5;
+            cursor: pointer;
+            user-select: none;
+          "
+        >☆</button>
         <img src="${image}" alt="${title}" style="width:100%;height:100%;object-fit:cover;" onerror="this.src='/assets/cyprus_logo-1000x1054.png'" />
         <div style="position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top,rgba(0,0,0,.9) 0%, rgba(0,0,0,.6) 70%, transparent 100%);padding:16px;color:white;">
           <h3 style="margin:0 0 4px;font-size:1.1rem;font-weight:700;line-height:1.3;">${title}</h3>
@@ -250,6 +275,12 @@ function renderHomeHotels(){
       </a>
     `;
   }).join('');
+
+  try {
+    if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+      window.CE_SAVED_CATALOG.refreshButtons(grid);
+    }
+  } catch (_) {}
 }
 
 function initHomeHotelsTabs(){

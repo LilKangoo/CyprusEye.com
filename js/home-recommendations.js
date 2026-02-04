@@ -205,6 +205,11 @@ function renderRecommendations() {
   // Render cards
   grid.innerHTML = filtered.map(rec => createRecommendationCard(rec)).join('');
   attachPromoCodeHandlers(grid);
+  try {
+    if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+      window.CE_SAVED_CATALOG.refreshButtons(grid);
+    }
+  } catch (_) {}
   console.log('✅ Rendered', filtered.length, 'recommendations');
 }
 
@@ -336,6 +341,31 @@ function createRecommendationCard(rec) {
   return `
     <div class="rec-card" onclick="openDetailModal('${rec.id}')" style="cursor: pointer;">
       ${rec.featured ? `<div class="rec-featured-badge">⭐ ${featuredLabel}</div>` : ''}
+      <button
+        type="button"
+        data-ce-save="1"
+        data-item-type="recommendation"
+        data-ref-id="${String(rec.id || '')}"
+        aria-label="Zapisz"
+        title="Zapisz"
+        onclick="event.preventDefault(); event.stopPropagation();"
+        style="
+          position: absolute;
+          top: 10px;
+          right: 10px;
+          width: 36px;
+          height: 36px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          font-size: 20px;
+          line-height: 1;
+          z-index: 5;
+          cursor: pointer;
+          user-select: none;
+        "
+      >☆</button>
       
       ${rec.image_url ? 
         `<img src="${rec.image_url}" alt="${title}" class="rec-card-image" loading="lazy" />` :

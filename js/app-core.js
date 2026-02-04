@@ -282,7 +282,32 @@ console.log('🔵 App Core V3 - START');
       
       // Popup z podstawowymi informacjami
       marker.bindPopup(`
-        <div style="min-width: 220px;">
+        <div style="min-width: 220px; position: relative;">
+          <button
+            type="button"
+            data-ce-save="1"
+            data-item-type="poi"
+            data-ref-id="${String(poi.id || '')}"
+            aria-label="Zapisz"
+            title="Zapisz"
+            onclick="event.preventDefault(); event.stopPropagation();"
+            style="
+              position: absolute;
+              top: 8px;
+              right: 8px;
+              width: 32px;
+              height: 32px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              border-radius: 999px;
+              font-size: 18px;
+              line-height: 1;
+              z-index: 5;
+              cursor: pointer;
+              user-select: none;
+            "
+          >☆</button>
           <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #2563eb;">${name}</h3>
           <p style="margin: 0 0 12px 0; font-size: 14px;">⭐ ${poi.xp || 100} XP</p>
           <div style="display:flex; gap:8px; flex-wrap:wrap;">
@@ -290,6 +315,15 @@ console.log('🔵 App Core V3 - START');
           </div>
         </div>
       `, { maxWidth: 270 });
+
+      marker.on('popupopen', (e) => {
+        try {
+          const el = e?.popup?.getElement ? e.popup.getElement() : null;
+          if (el && window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+            window.CE_SAVED_CATALOG.refreshButtons(el);
+          }
+        } catch (_) {}
+      });
 
       // Kliknięcie markera - sync z panelem pod mapą
       marker.on('click', () => {

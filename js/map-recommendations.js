@@ -113,6 +113,20 @@ function syncRecommendationMarkers(mapInstance) {
     console.warn('[map-recommendations] Map or icon not ready');
     return;
   }
+
+  try {
+    if (!mapInstance._ceSavedCatalogPopupBound) {
+      mapInstance._ceSavedCatalogPopupBound = true;
+      mapInstance.on('popupopen', (e) => {
+        try {
+          const el = e?.popup?.getElement ? e.popup.getElement() : null;
+          if (el && window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+            window.CE_SAVED_CATALOG.refreshButtons(el);
+          }
+        } catch (_) {}
+      });
+    }
+  } catch (_) {}
   
   if (mapRecommendations.length === 0) {
     console.log('[map-recommendations] No recommendations to display');
@@ -174,7 +188,32 @@ function createRecommendationPopup(rec) {
   const detailsLabel = isPolish ? 'Zobacz szczegóły' : 'View details';
   
   return `
-    <div class="rec-map-popup" style="min-width: 220px; padding: 4px;">
+    <div class="rec-map-popup" style="min-width: 220px; padding: 4px; position: relative;">
+      <button
+        type="button"
+        data-ce-save="1"
+        data-item-type="recommendation"
+        data-ref-id="${String(rec.id || '')}"
+        aria-label="Zapisz"
+        title="Zapisz"
+        onclick="event.preventDefault(); event.stopPropagation();"
+        style="
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          width: 32px;
+          height: 32px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          font-size: 18px;
+          line-height: 1;
+          z-index: 5;
+          cursor: pointer;
+          user-select: none;
+        "
+      >☆</button>
       ${rec.image_url ? `
         <img src="${rec.image_url}" alt="${title}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;" loading="lazy" />
       ` : ''}

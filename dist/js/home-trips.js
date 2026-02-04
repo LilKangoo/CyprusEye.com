@@ -240,6 +240,31 @@ function renderHomeTrips() {
         onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 12px rgba(0,0,0,0.15)'"
         onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 6px rgba(0,0,0,0.1)'"
       >
+        <button
+          type="button"
+          data-ce-save="1"
+          data-item-type="trip"
+          data-ref-id="${String(trip.id || '')}"
+          aria-label="Zapisz"
+          title="Zapisz"
+          onclick="event.preventDefault(); event.stopPropagation();"
+          style="
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 36px;
+            height: 36px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 999px;
+            font-size: 20px;
+            line-height: 1;
+            z-index: 5;
+            cursor: pointer;
+            user-select: none;
+          "
+        >☆</button>
         <img 
           src="${imageUrl}" 
           alt="${title}"
@@ -276,6 +301,12 @@ function renderHomeTrips() {
       </a>
     `;
   }).join('');
+
+  try {
+    if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+      window.CE_SAVED_CATALOG.refreshButtons(grid);
+    }
+  } catch (_) {}
 }
 
 // Handle city tab clicks
