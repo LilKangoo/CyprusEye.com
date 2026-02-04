@@ -82,6 +82,66 @@
 .trip-modal-subtitle { font-size: 1.1rem; color: #6b7280; margin: 0; }
 .trip-modal-body { padding: 32px; }
 
+.ce-modal-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+.ce-save-star,
+button[data-ce-save="1"] {
+  appearance: none;
+  border: 1px solid rgba(255,255,255,0.85);
+  background: rgba(255,255,255,0.85);
+  backdrop-filter: blur(10px);
+  color: #0f172a;
+  width: 36px;
+  height: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  transition: transform 0.15s ease, background 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease;
+  box-shadow: 0 6px 18px rgba(0,0,0,0.16);
+}
+
+.ce-save-star:hover,
+button[data-ce-save="1"]:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+}
+
+.ce-save-star:active,
+button[data-ce-save="1"]:active {
+  transform: translateY(0);
+}
+
+.ce-save-star:focus-visible,
+button[data-ce-save="1"]:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(99,102,241,0.25), 0 6px 18px rgba(0,0,0,0.16);
+}
+
+.ce-save-star.is-saved,
+button[data-ce-save="1"].is-saved {
+  background: rgba(34,197,94,0.95);
+  border-color: #16a34a;
+  color: #ffffff;
+  box-shadow: 0 8px 20px rgba(22,163,74,0.35);
+}
+
+.ce-save-star-sm {
+  width: 32px;
+  height: 32px;
+  font-size: 18px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.14);
+}
+
 @media (max-width: 900px){
   .trip-modal-content { 
     margin: clamp(10px, 3vh, 30px) 10px; 
@@ -9150,6 +9210,7 @@ body.tutorial-open {
   line-height: 1.5;
   display: -webkit-box;
   -webkit-line-clamp: 3;
+  line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -9188,6 +9249,7 @@ body.tutorial-open {
   .shortcut-compact p {
     font-size: 0.75rem;
     -webkit-line-clamp: 2;
+    line-clamp: 2;
   }
 }
 

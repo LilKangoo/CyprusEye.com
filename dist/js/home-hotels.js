@@ -641,6 +641,16 @@ window.openHotelModalHome = function(index){
   document.getElementById('modalHotelTitle').textContent = title;
   document.getElementById('modalHotelSubtitle').textContent = h.city || '';
   document.getElementById('modalHotelDescription').innerHTML = description.replace(/\n/g,'<br/>');
+
+  const saveBtn = document.getElementById('modalHotelSaveBtn');
+  if (saveBtn) {
+    saveBtn.setAttribute('data-ref-id', String(h.id || ''));
+    try {
+      if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+        window.CE_SAVED_CATALOG.refreshButtons(saveBtn.parentElement || document);
+      }
+    } catch (_) {}
+  }
   
   // Render amenities chips
   renderHotelAmenitiesChips(h);

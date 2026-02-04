@@ -40,6 +40,7 @@
 
     const nameEl = document.getElementById('currentPlaceName');
     const descEl = document.getElementById('currentPlaceDescription');
+    const saveBtn = document.getElementById('currentPlaceSaveBtn');
     
     // New Elements
     const xpBadgeEl = document.getElementById('currentPlaceXPBadge');
@@ -57,6 +58,16 @@
     
     if(nameEl) nameEl.textContent = poiName;
     if(descEl) descEl.textContent = poiDesc;
+
+    if (saveBtn) {
+      saveBtn.setAttribute('data-ref-id', String(poi.id || ''));
+      try {
+        if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+          const root = saveBtn.closest('.place-badges') || saveBtn.parentElement || document;
+          window.CE_SAVED_CATALOG.refreshButtons(root);
+        }
+      } catch (_) {}
+    }
     
     // Update XP Badge
     if(xpBadgeEl) {

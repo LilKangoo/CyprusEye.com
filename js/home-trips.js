@@ -448,6 +448,16 @@ window.openTripModalHome = function(index){
   document.getElementById('modalTripSubtitle').textContent = trip.start_city || '';
   document.getElementById('modalTripDescription').innerHTML = desc.replace(/\n/g, '<br/>');
 
+  const saveBtn = document.getElementById('modalTripSaveBtn');
+  if (saveBtn) {
+    saveBtn.setAttribute('data-ref-id', String(trip.id || ''));
+    try {
+      if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+        window.CE_SAVED_CATALOG.refreshButtons(saveBtn.parentElement || document);
+      }
+    } catch (_) {}
+  }
+
   // Reset form and message
   const form = document.getElementById('bookingForm');
   if (form) { form.reset(); const msg = document.getElementById('bookingMessage'); if (msg) msg.style.display='none'; }

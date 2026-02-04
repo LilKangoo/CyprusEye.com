@@ -146,8 +146,28 @@
 .place-badges {
   display: flex;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: space-between;
   margin-bottom: 4px;
+}
+
+.place-badges-left {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+  min-width: 0;
+  flex: 1;
+}
+
+#currentPlaceSaveBtn.ce-save-star {
+  width: 34px;
+  height: 34px;
+  font-size: 18px;
+  box-shadow: none;
+  flex: 0 0 auto;
+  margin-left: 8px;
 }
 
 .badge-pill {

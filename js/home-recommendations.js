@@ -463,7 +463,19 @@ window.openDetailModal = async function(id) {
         <span>${categoryName || 'General'}</span>
       </div>
       
-      <h1 style="font-size: 2.25rem; font-weight: 700; margin: 0 0 16px; color: #111827;">${title}</h1>
+      <div style="display:flex; align-items:flex-start; justify-content:space-between; gap: 12px; margin: 0 0 16px;">
+        <h1 style="font-size: 2.25rem; font-weight: 700; margin: 0; color: #111827;">${title}</h1>
+        <button
+          type="button"
+          class="ce-save-star ce-save-star-sm"
+          data-ce-save="1"
+          data-item-type="recommendation"
+          data-ref-id="${String(rec.id || '')}"
+          aria-label="Zapisz"
+          title="Zapisz"
+          onclick="event.preventDefault(); event.stopPropagation();"
+        >☆</button>
+      </div>
       
       ${rec.location_name ? `
         <div style="display: flex; align-items: center; gap: 8px; color: #6b7280; margin-bottom: 24px; font-size: 16px;">
@@ -521,6 +533,12 @@ window.openDetailModal = async function(id) {
   `;
   
   attachPromoCodeHandlers(modalDetails);
+
+  try {
+    if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+      window.CE_SAVED_CATALOG.refreshButtons(modalDetails);
+    }
+  } catch (_) {}
   
   // Show modal
   const modal = document.getElementById('detailModal');

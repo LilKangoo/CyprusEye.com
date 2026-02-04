@@ -188,32 +188,7 @@ function createRecommendationPopup(rec) {
   const detailsLabel = isPolish ? 'Zobacz szczegóły' : 'View details';
   
   return `
-    <div class="rec-map-popup" style="min-width: 220px; padding: 4px; position: relative;">
-      <button
-        type="button"
-        data-ce-save="1"
-        data-item-type="recommendation"
-        data-ref-id="${String(rec.id || '')}"
-        aria-label="Zapisz"
-        title="Zapisz"
-        onclick="event.preventDefault(); event.stopPropagation();"
-        style="
-          position: absolute;
-          top: 8px;
-          right: 8px;
-          width: 32px;
-          height: 32px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 999px;
-          font-size: 18px;
-          line-height: 1;
-          z-index: 5;
-          cursor: pointer;
-          user-select: none;
-        "
-      >☆</button>
+    <div class="rec-map-popup" style="min-width: 220px; padding: 4px;">
       ${rec.image_url ? `
         <img src="${rec.image_url}" alt="${title}" style="width: 100%; height: 100px; object-fit: cover; border-radius: 8px; margin-bottom: 10px;" loading="lazy" />
       ` : ''}
@@ -236,25 +211,37 @@ function createRecommendationPopup(rec) {
         </div>
       ` : ''}
       
-      <button 
-        onclick="openRecommendationDetailModal('${rec.id}')" 
-        style="
-          width: 100%;
-          padding: 10px 16px;
-          background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-          color: white;
-          border: none;
-          border-radius: 8px;
-          font-weight: 600;
-          font-size: 14px;
-          cursor: pointer;
-          transition: transform 0.15s, box-shadow 0.15s;
-        "
-        onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(34,197,94,0.4)';"
-        onmouseout="this.style.transform=''; this.style.boxShadow='';"
-      >
-        ${detailsLabel}
-      </button>
+      <div style="display:flex; gap:8px; align-items:center;">
+        <button 
+          onclick="openRecommendationDetailModal('${rec.id}')" 
+          style="
+            flex: 1;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+            transition: transform 0.15s, box-shadow 0.15s;
+          "
+          onmouseover="this.style.transform='translateY(-1px)'; this.style.boxShadow='0 4px 12px rgba(34,197,94,0.4)';"
+          onmouseout="this.style.transform=''; this.style.boxShadow='';"
+        >
+          ${detailsLabel}
+        </button>
+        <button
+          type="button"
+          class="ce-save-star ce-save-star-sm"
+          data-ce-save="1"
+          data-item-type="recommendation"
+          data-ref-id="${String(rec.id || '')}"
+          aria-label="Zapisz"
+          title="Zapisz"
+          onclick="event.preventDefault(); event.stopPropagation();"
+        >☆</button>
+      </div>
     </div>
   `;
 }
@@ -325,7 +312,19 @@ window.openRecommendationDetailModal = function(id) {
           <span>${categoryName || 'Rekomendacja'}</span>
         </div>
         
-        <h2 class="rec-map-modal-title">${title}</h2>
+        <div style="display:flex; align-items:flex-start; justify-content:space-between; gap: 12px;">
+          <h2 class="rec-map-modal-title" style="margin: 0;">${title}</h2>
+          <button
+            type="button"
+            class="ce-save-star ce-save-star-sm"
+            data-ce-save="1"
+            data-item-type="recommendation"
+            data-ref-id="${String(rec.id || '')}"
+            aria-label="Zapisz"
+            title="Zapisz"
+            onclick="event.preventDefault(); event.stopPropagation();"
+          >☆</button>
+        </div>
         
         ${rec.location_name ? `
           <div class="rec-map-modal-location">
@@ -382,6 +381,12 @@ window.openRecommendationDetailModal = function(id) {
   modal.style.display = 'flex';
   document.body.style.overflow = 'hidden';
   recommendationModalOpen = true;
+
+  try {
+    if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+      window.CE_SAVED_CATALOG.refreshButtons(modal);
+    }
+  } catch (_) {}
   
   // Track view
   trackRecommendationView(rec.id);

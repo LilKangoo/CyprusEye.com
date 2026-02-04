@@ -277,16 +277,6 @@
     const saved = isSaved(type, refId);
     btn.classList.toggle('is-saved', saved);
     btn.textContent = saved ? '★' : '☆';
-    if (btn instanceof HTMLButtonElement) {
-      btn.style.border = '1px solid rgba(255,255,255,0.7)';
-      btn.style.background = 'rgba(0,0,0,0.35)';
-      btn.style.color = '#fff';
-      if (saved) {
-        btn.style.background = 'rgba(34,197,94,0.95)';
-        btn.style.borderColor = '#16a34a';
-        btn.style.color = '#fff';
-      }
-    }
     const label = labelForButton(saved);
     btn.setAttribute('aria-label', label);
     btn.setAttribute('title', label);

@@ -282,36 +282,21 @@ console.log('🔵 App Core V3 - START');
       
       // Popup z podstawowymi informacjami
       marker.bindPopup(`
-        <div style="min-width: 220px; position: relative;">
-          <button
-            type="button"
-            data-ce-save="1"
-            data-item-type="poi"
-            data-ref-id="${String(poi.id || '')}"
-            aria-label="Zapisz"
-            title="Zapisz"
-            onclick="event.preventDefault(); event.stopPropagation();"
-            style="
-              position: absolute;
-              top: 8px;
-              right: 8px;
-              width: 32px;
-              height: 32px;
-              display: flex;
-              align-items: center;
-              justify-content: center;
-              border-radius: 999px;
-              font-size: 18px;
-              line-height: 1;
-              z-index: 5;
-              cursor: pointer;
-              user-select: none;
-            "
-          >☆</button>
+        <div style="min-width: 220px;">
           <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #2563eb;">${name}</h3>
           <p style="margin: 0 0 12px 0; font-size: 14px;">⭐ ${poi.xp || 100} XP</p>
-          <div style="display:flex; gap:8px; flex-wrap:wrap;">
-            <a href="${googleMapsUrl}" target="_blank" rel="noopener" style="display: inline-block; padding: 6px 10px; background: #2563eb; color: white; text-decoration: none; border-radius: 4px; font-size: 13px;">Google Maps →</a>
+          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <a href="${googleMapsUrl}" target="_blank" rel="noopener" style="display: inline-flex; align-items:center; justify-content:center; padding: 8px 12px; background: #2563eb; color: white; text-decoration: none; border-radius: 10px; font-size: 13px; font-weight: 600; flex: 1;">Google Maps →</a>
+            <button
+              type="button"
+              class="ce-save-star ce-save-star-sm"
+              data-ce-save="1"
+              data-item-type="poi"
+              data-ref-id="${String(poi.id || '')}"
+              aria-label="Zapisz"
+              title="Zapisz"
+              onclick="event.preventDefault(); event.stopPropagation();"
+            >☆</button>
           </div>
         </div>
       `, { maxWidth: 270 });
