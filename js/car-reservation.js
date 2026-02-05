@@ -149,6 +149,10 @@ export function initReservationForm() {
       }
     });
   }
+
+  try {
+    calculateEstimatedPrice();
+  } catch (_) {}
 }
 
 // Populate form from calculator
@@ -233,18 +237,28 @@ function populateFromCalculator() {
 
 // Calculate estimated price
 function calculateEstimatedPrice() {
+  const estimatedEl = document.getElementById('estimatedPrice');
+  if (!estimatedEl) return;
+
+  const lang = (typeof window.getCurrentLanguage === 'function') ? window.getCurrentLanguage() : 'pl';
+
   const pickupDate = document.getElementById('res_pickup_date')?.value;
   const returnDate = document.getElementById('res_return_date')?.value;
   const pickupTime = document.getElementById('res_pickup_time')?.value || '10:00';
   const returnTime = document.getElementById('res_return_time')?.value || '10:00';
   
-  if (!pickupDate || !returnDate) return;
+  if (!pickupDate || !returnDate) {
+    estimatedEl.textContent = lang === 'en'
+      ? 'Choose pickup and return dates to see the total price.'
+      : 'Wybierz datę odbioru i zwrotu, aby zobaczyć łączną cenę.';
+    try { delete window.CE_CAR_PRICE_QUOTE; } catch (_) {}
+    return;
+  }
 
   const pickup = new Date(`${pickupDate}T${pickupTime}`);
   const returnD = new Date(`${returnDate}T${returnTime}`);
   if (Number.isNaN(pickup.getTime()) || Number.isNaN(returnD.getTime())) {
-    const lang = (typeof window.getCurrentLanguage === 'function') ? window.getCurrentLanguage() : 'pl';
-    document.getElementById('estimatedPrice').textContent = lang === 'en'
+    estimatedEl.textContent = lang === 'en'
       ? 'Please choose valid pickup/return dates and times.'
       : 'Wybierz poprawne daty i godziny odbioru oraz zwrotu.';
     try { delete window.CE_CAR_PRICE_QUOTE; } catch (_) {}
@@ -253,8 +267,7 @@ function calculateEstimatedPrice() {
 
   const hours = (returnD - pickup) / 36e5;
   if (!Number.isFinite(hours) || hours <= 0) {
-    const lang = (typeof window.getCurrentLanguage === 'function') ? window.getCurrentLanguage() : 'pl';
-    document.getElementById('estimatedPrice').textContent = lang === 'en'
+    estimatedEl.textContent = lang === 'en'
       ? 'Return must be after pickup.'
       : 'Zwrot musi być po dacie i godzinie odbioru.';
     try { delete window.CE_CAR_PRICE_QUOTE; } catch (_) {}
@@ -264,27 +277,31 @@ function calculateEstimatedPrice() {
   const days = Math.ceil(hours / 24);
 
   if (days < 3) {
-    const lang = (typeof window.getCurrentLanguage === 'function') ? window.getCurrentLanguage() : 'pl';
-    document.getElementById('estimatedPrice').textContent = lang === 'en'
+    estimatedEl.textContent = lang === 'en'
       ? 'Minimum rental: 3 days (3 nights). Each started 24h counts as an extra day.'
-      : 'Minimalny wynajem: 3 doby (72h). Każde rozpoczęte 24h to kolejny dzień.';
+      : 'Minimalny wynajem: 3 dni. Każde rozpoczęte 24h to kolejny dzień.';
     try { delete window.CE_CAR_PRICE_QUOTE; } catch (_) {}
     return;
   }
 
   const quote = window.CE_CAR_PRICE_QUOTE;
-  if (quote && typeof quote.total === 'number' && quote.total > 0) {
-    document.getElementById('estimatedPrice').textContent = `Cena z kalkulatora: ${quote.total.toFixed(2)} ${quote.currency || 'EUR'} (czas: ${days} dni)`;
-    return;
-  }
 
   try {
     const pricing = window.CE_CAR_PRICING && typeof window.CE_CAR_PRICING === 'object'
       ? window.CE_CAR_PRICING
       : null;
     const carModel = String(document.getElementById('res_car')?.value || '').trim();
-    const carPricing = pricing && carModel ? pricing[carModel] : null;
     const pageLocation = (document.body?.dataset?.carLocation || (location?.href?.includes('autopfo') ? 'paphos' : 'larnaca')).toLowerCase();
+
+    if (!carModel) {
+      estimatedEl.textContent = lang === 'en'
+        ? 'Choose a car to see the total price.'
+        : 'Wybierz auto, aby zobaczyć łączną cenę.';
+      try { delete window.CE_CAR_PRICE_QUOTE; } catch (_) {}
+      return;
+    }
+
+    const carPricing = pricing && carModel ? pricing[carModel] : null;
     const pickupLoc = String(document.getElementById('res_pickup_location')?.value || '').trim();
     const returnLoc = String(document.getElementById('res_return_location')?.value || '').trim();
     const insuranceChecked = !!document.getElementById('res_insurance')?.checked;
@@ -352,14 +369,29 @@ function calculateEstimatedPrice() {
             car: carModel,
           },
         };
-        document.getElementById('estimatedPrice').textContent = `Szacunkowa cena: ${window.CE_CAR_PRICE_QUOTE.total.toFixed(2)} EUR (czas: ${days} dni)`;
+        const daysLabel = lang === 'en' ? 'days' : 'dni';
+        estimatedEl.textContent = lang === 'en'
+          ? `Total rental price: ${window.CE_CAR_PRICE_QUOTE.total.toFixed(2)} EUR (${days} ${daysLabel})`
+          : `Całkowita cena wynajmu: ${window.CE_CAR_PRICE_QUOTE.total.toFixed(2)} EUR (${days} ${daysLabel})`;
         return;
       }
     }
   } catch (_e) {}
 
+  // Fallback: if we have any quote at all, show it (but do NOT block recalculation when it is possible).
+  if (quote && typeof quote.total === 'number' && quote.total > 0) {
+    const daysLabel = lang === 'en' ? 'days' : 'dni';
+    estimatedEl.textContent = lang === 'en'
+      ? `Total rental price: ${quote.total.toFixed(2)} ${quote.currency || 'EUR'} (${days} ${daysLabel})`
+      : `Całkowita cena wynajmu: ${quote.total.toFixed(2)} ${quote.currency || 'EUR'} (${days} ${daysLabel})`;
+    return;
+  }
+
   // Fallback message when quote not available
-  document.getElementById('estimatedPrice').textContent = `Szacunkowy czas wynajmu: ${days} dni. Ostateczną cenę otrzymasz po potwierdzeniu dostępności.`;
+  const daysLabel = lang === 'en' ? 'days' : 'dni';
+  estimatedEl.textContent = lang === 'en'
+    ? `Rental duration: ${days} ${daysLabel}. Final price after availability confirmation.`
+    : `Czas wynajmu: ${days} ${daysLabel}. Ostateczną cenę otrzymasz po potwierdzeniu dostępności.`;
 }
 
 // Validation messages in multiple languages
@@ -376,7 +408,7 @@ function getValidationMessages() {
       car: 'Proszę wybrać samochód',
       pickupLocation: 'Proszę wybrać miejsce odbioru',
       returnLocation: 'Proszę wybrać miejsce zwrotu',
-      minimumDays: 'Minimalny wynajem to 3 doby (72h). Każde rozpoczęte 24h to kolejny dzień.',
+      minimumDays: 'Minimalny wynajem to 3 dni. Każde rozpoczęte 24h to kolejny dzień.',
     },
     en: {
       fullName: 'Please enter your full name',

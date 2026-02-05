@@ -1,5 +1,5 @@
 import { supabase } from '/js/supabaseClient.js';
-import { initCarReservationBindings } from '/js/car-reservation.js?v=20260205d';
+import { initCarReservationBindings } from '/js/car-reservation.js?v=20260205f';
 
 let allHomeCars = [];
 let homeCarsById = {};
@@ -209,6 +209,12 @@ function buildReservationFormHtml({ location, selectedCarId }) {
   const loc = location === 'paphos' ? 'paphos' : 'larnaca';
   const cars = homeCarsByLocation[loc] || [];
 
+  const today = new Date();
+  const pickupDefault = today.toISOString().split('T')[0];
+  const returnDefaultDate = new Date(today.getTime());
+  returnDefaultDate.setDate(returnDefaultDate.getDate() + 3);
+  const returnDefault = returnDefaultDate.toISOString().split('T')[0];
+
   const optionsHtml = cars.map((car) => {
     const title = window.getCarName ? window.getCarName(car) : (car.car_model || car.car_type || 'Car');
     const transmission = String(car.transmission || '').toLowerCase() === 'automatic'
@@ -252,7 +258,7 @@ function buildReservationFormHtml({ location, selectedCarId }) {
   const whatsappKey = loc === 'paphos' ? 'carRentalPfo.page.reservation.whatsapp' : 'carRental.page.reservation.actions.whatsapp';
 
   const minBanner = text(
-    'Minimalny wynajem: 3 doby (72h). Każde rozpoczęte 24h to kolejny dzień.',
+    'Minimalny wynajem: 3 dni. Każde rozpoczęte 24h to kolejny dzień.',
     'Minimum rental: 3 days (3 nights). Each started 24h counts as an extra day.'
   );
 
@@ -307,7 +313,7 @@ function buildReservationFormHtml({ location, selectedCarId }) {
           <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
             <div class="auto-field">
               <label for="res_pickup_date" data-i18n="${i18nPrefix}.fields.pickupDate.label">Data odbioru *</label>
-              <input type="date" id="res_pickup_date" name="pickup_date" required>
+              <input type="date" id="res_pickup_date" name="pickup_date" required value="${escapeHtml(pickupDefault)}">
             </div>
             <div class="auto-field">
               <label for="res_pickup_time" data-i18n="${i18nPrefix}.fields.pickupTime.label">Godzina</label>
@@ -330,7 +336,7 @@ function buildReservationFormHtml({ location, selectedCarId }) {
           <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
             <div class="auto-field">
               <label for="res_return_date" data-i18n="${i18nPrefix}.fields.returnDate.label">Data zwrotu *</label>
-              <input type="date" id="res_return_date" name="return_date" required>
+              <input type="date" id="res_return_date" name="return_date" required value="${escapeHtml(returnDefault)}">
             </div>
             <div class="auto-field">
               <label for="res_return_time" data-i18n="${i18nPrefix}.fields.returnTime.label">Godzina</label>
