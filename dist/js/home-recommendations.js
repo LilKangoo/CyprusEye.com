@@ -13,6 +13,8 @@ let allRecommendations = [];
 let allCategories = [];
 let currentCategoryFilter = '';
 
+let homeRecCarouselUpdate = null;
+
 // ============================================================================
 // INIT
 // ============================================================================
@@ -20,7 +22,44 @@ document.addEventListener('DOMContentLoaded', () => {
   console.log('🔵 Home Recommendations: Initializing...');
   loadData();
   setupLanguageListener();
+  initHomeRecommendationsCarousel();
 });
+
+function initHomeRecommendationsCarousel() {
+  const prev = document.querySelector('.home-carousel-container .home-carousel-nav.prev[data-target="#recommendationsHomeGrid"]');
+  const next = document.querySelector('.home-carousel-container .home-carousel-nav.next[data-target="#recommendationsHomeGrid"]');
+  const grid = document.getElementById('recommendationsHomeGrid');
+  if (!prev || !next || !grid) return;
+  if (grid.dataset.carouselInit === 'true') return;
+  grid.dataset.carouselInit = 'true';
+
+  const scrollBy = () => Math.round(grid.clientWidth * 0.85);
+  const updateArrows = () => {
+    const maxScroll = grid.scrollWidth - grid.clientWidth - 1;
+    const atStart = grid.scrollLeft <= 1;
+    const atEnd = grid.scrollLeft >= maxScroll;
+    prev.hidden = atStart;
+    next.hidden = atEnd;
+    const noOverflow = grid.scrollWidth <= grid.clientWidth + 1;
+    if (noOverflow) {
+      prev.hidden = true;
+      next.hidden = true;
+    }
+  };
+  homeRecCarouselUpdate = updateArrows;
+
+  prev.addEventListener('click', () => {
+    grid.scrollBy({ left: -scrollBy(), behavior: 'smooth' });
+    setTimeout(updateArrows, 350);
+  });
+  next.addEventListener('click', () => {
+    grid.scrollBy({ left: scrollBy(), behavior: 'smooth' });
+    setTimeout(updateArrows, 350);
+  });
+  grid.addEventListener('scroll', updateArrows, { passive: true });
+  window.addEventListener('resize', updateArrows);
+  updateArrows();
+}
 
 // ============================================================================
 // LANGUAGE CHANGE LISTENER
@@ -83,7 +122,7 @@ async function loadData() {
     
     if (allRecommendations.length === 0) {
       document.getElementById('recommendationsHomeGrid').innerHTML = `
-        <div style="text-align: center; padding: 40px 20px; color: #9ca3af;">
+        <div style="flex: 0 0 100%; text-align: center; padding: 40px 20px; color: #9ca3af;">
           <p>Brak rekomendacji w tej chwili</p>
         </div>
       `;
@@ -95,7 +134,7 @@ async function loadData() {
   } catch (error) {
     console.error('❌ Error loading recommendations:', error);
     document.getElementById('recommendationsHomeGrid').innerHTML = `
-      <div style="text-align: center; padding: 40px 20px; color: #ef4444;">
+      <div style="flex: 0 0 100%; text-align: center; padding: 40px 20px; color: #ef4444;">
         <p>Nie udało się załadować rekomendacji</p>
       </div>
     `;
@@ -120,6 +159,15 @@ function renderCategoryFilters() {
   let visibleCount = 0;
   const lang = getCurrentLanguage();
 
+  const allLabel = lang === 'en' ? 'All' : 'Wszystkie';
+  const allBtn = document.createElement('button');
+  allBtn.type = 'button';
+  allBtn.className = 'recommendations-home-tab' + (!currentCategoryFilter ? ' active' : '');
+  allBtn.dataset.category = '';
+  allBtn.textContent = allLabel;
+  allBtn.onclick = () => filterByCategory('');
+  container.appendChild(allBtn);
+
   allCategories.forEach(cat => {
     const count = allRecommendations.filter(r => r.category_id === cat.id).length;
     
@@ -128,17 +176,14 @@ function renderCategoryFilters() {
     
     visibleCount++;
     const btn = document.createElement('button');
-    btn.className = 'filter-btn';
+    btn.type = 'button';
+    btn.className = 'recommendations-home-tab' + (currentCategoryFilter === cat.id ? ' active' : '');
     btn.dataset.category = cat.id;
-    btn.innerHTML = `
-      <span class="filter-icon">${cat.icon || '📍'}</span>
-      <span class="filter-label">${
-        lang === 'en'
-          ? (cat.name_en || cat.name_pl)
-          : (cat.name_pl || cat.name_en)
-      }</span>
-      <span class="filter-count">${count}</span>
-    `;
+    const label =
+      lang === 'en'
+        ? (cat.name_en || cat.name_pl)
+        : (cat.name_pl || cat.name_en);
+    btn.textContent = `${cat.icon || '📍'} ${label}`;
     btn.onclick = () => filterByCategory(cat.id);
     container.appendChild(btn);
   });
@@ -151,15 +196,7 @@ function renderCategoryFilters() {
 // ============================================================================
 function filterByCategory(categoryId) {
   currentCategoryFilter = categoryId;
-  
-  // Update active state
-  document.querySelectorAll('#categoriesFiltersHome .filter-btn').forEach(btn => {
-    if (btn.dataset.category === categoryId) {
-      btn.classList.add('active');
-    } else {
-      btn.classList.remove('active');
-    }
-  });
+  renderCategoryFilters();
   
   // Show/hide clear button
   const clearBtn = document.getElementById('clearFiltersHome');
@@ -172,11 +209,9 @@ function filterByCategory(categoryId) {
 
 window.clearFiltersHome = function() {
   currentCategoryFilter = '';
-  document.querySelectorAll('#categoriesFiltersHome .filter-btn').forEach(btn => {
-    btn.classList.remove('active');
-  });
   const clearBtn = document.getElementById('clearFiltersHome');
   if (clearBtn) clearBtn.style.display = 'none';
+  renderCategoryFilters();
   renderRecommendations();
 };
 
@@ -195,10 +230,11 @@ function renderRecommendations() {
   
   if (filtered.length === 0) {
     grid.innerHTML = `
-      <div style="text-align: center; padding: 40px 20px; color: #9ca3af;">
+      <div style="flex: 0 0 100%; text-align: center; padding: 40px 20px; color: #9ca3af;">
         <p>Brak rekomendacji w wybranej kategorii</p>
       </div>
     `;
+    if (typeof homeRecCarouselUpdate === 'function') homeRecCarouselUpdate();
     return;
   }
   
@@ -210,6 +246,8 @@ function renderRecommendations() {
       window.CE_SAVED_CATALOG.refreshButtons(grid);
     }
   } catch (_) {}
+  initHomeRecommendationsCarousel();
+  if (typeof homeRecCarouselUpdate === 'function') homeRecCarouselUpdate();
   console.log('✅ Rendered', filtered.length, 'recommendations');
 }
 
@@ -324,90 +362,42 @@ function createRecommendationCard(rec) {
       ? (rec.title_en || rec.title_pl || 'Untitled')
       : (rec.title_pl || rec.title_en || 'Bez tytułu');
 
-  const description =
-    lang === 'en'
-      ? (rec.description_en || rec.description_pl || '')
-      : (rec.description_pl || rec.description_en || '');
-
-  const discount =
-    lang === 'en'
-      ? (rec.discount_text_en || rec.discount_text_pl)
-      : (rec.discount_text_pl || rec.discount_text_en);
-
   const featuredLabel = lang === 'en' ? 'Recommended' : 'Polecane';
-  const detailsLabel = lang === 'en' ? 'View details' : 'Zobacz szczegóły';
-  const websiteLabel = lang === 'en' ? 'Website' : 'Strona www';
+
+  const categoryLabel =
+    lang === 'en'
+      ? (category.name_en || category.name_pl || 'General')
+      : (category.name_pl || category.name_en || 'Ogólne');
+  const subtitle = rec.location_name ? `${rec.location_name} • ${categoryLabel}` : categoryLabel;
   
   return `
-    <div class="rec-card" onclick="openDetailModal('${rec.id}')" style="cursor: pointer;">
-      ${rec.featured ? `<div class="rec-featured-badge">⭐ ${featuredLabel}</div>` : ''}
+    <a
+      href="#"
+      class="recommendation-home-card"
+      onclick="openDetailModal('${rec.id}'); return false;"
+    >
+      ${rec.featured ? `<div class="ce-home-featured-badge">⭐ ${featuredLabel}</div>` : ''}
       <button
         type="button"
+        class="ce-save-star ce-save-star-sm ce-home-card-star"
         data-ce-save="1"
         data-item-type="recommendation"
         data-ref-id="${String(rec.id || '')}"
         aria-label="Zapisz"
         title="Zapisz"
         onclick="event.preventDefault(); event.stopPropagation();"
-        style="
-          position: absolute;
-          top: 10px;
-          right: 10px;
-          width: 36px;
-          height: 36px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 999px;
-          font-size: 20px;
-          line-height: 1;
-          z-index: 5;
-          cursor: pointer;
-          user-select: none;
-        "
       >☆</button>
-      
-      ${rec.image_url ? 
-        `<img src="${rec.image_url}" alt="${title}" class="rec-card-image" loading="lazy" />` :
-        '<div class="rec-card-image" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>'
+
+      ${rec.image_url ?
+        `<img src="${rec.image_url}" alt="${title}" loading="lazy" class="ce-home-card-image" />` :
+        '<div class="ce-home-card-image ce-home-card-image--placeholder"></div>'
       }
-      
-      <div class="rec-card-content">
-        <div class="rec-card-category">
-          <span>${category.icon || '📍'}</span>
-          <span>${lang === 'en' ? (category.name_en || category.name_pl || 'General') : (category.name_pl || category.name_en || 'Ogólne')}</span>
-        </div>
-        
-        <h2 class="rec-card-title">${title}</h2>
-        
-        ${rec.location_name ? `
-          <div class="rec-card-location">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
-              <circle cx="12" cy="10" r="3"/>
-            </svg>
-            ${rec.location_name}
-          </div>
-        ` : ''}
-        
-        ${description ? `
-          <p class="rec-card-description">${description.substring(0, 120)}${description.length > 120 ? '...' : ''}</p>
-        ` : ''}
-        
-        ${createPromoSection(rec, lang, { discount })}
-        
-        <div class="rec-card-actions">
-          <button class="rec-btn rec-btn-primary" onclick="event.stopPropagation(); openDetailModal('${rec.id}')">
-            ${detailsLabel}
-          </button>
-          ${rec.website_url ? `
-            <a href="${rec.website_url}" target="_blank" rel="noopener" class="rec-btn rec-btn-secondary" onclick="event.stopPropagation(); trackClick('${rec.id}', 'website');">
-              ${websiteLabel}
-            </a>
-          ` : ''}
-        </div>
+
+      <div class="ce-home-card-overlay">
+        <h3 class="ce-home-card-title">${title}</h3>
+        <p class="ce-home-card-subtitle">${subtitle}</p>
       </div>
-    </div>
+    </a>
   `;
 }
 

@@ -427,6 +427,133 @@ button[data-ce-save="1"].is-saved {
   .home-carousel { scrollbar-width: none; }
 }
 
+.recommendations-home-tabs-row {
+  align-items: center;
+}
+
+.recommendations-home-tabs {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 8px;
+  scrollbar-width: none;
+}
+
+.recommendations-home-tabs::-webkit-scrollbar { display: none; }
+
+.recommendations-home-tab {
+  appearance: none;
+  border: none;
+  padding: 8px 16px;
+  background: #f3f4f6;
+  color: #374151;
+  border-radius: 20px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: .2s;
+}
+
+.recommendations-home-tab:hover {
+  transform: translateY(-1px);
+}
+
+.recommendations-home-tab.active {
+  background: var(--primary, #667eea);
+  color: white;
+}
+
+.recommendations-home-tab:focus-visible {
+  outline: 3px solid rgba(99,102,241,0.35);
+  outline-offset: 3px;
+}
+
+.recommendation-home-card {
+  position: relative;
+  height: 200px;
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform .3s, box-shadow .3s;
+  box-shadow: 0 4px 6px rgba(0,0,0,.1);
+  text-decoration: none;
+  display: block;
+  background: #e5e7eb;
+  color: inherit;
+}
+
+.recommendation-home-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 12px rgba(0,0,0,0.15);
+}
+
+.ce-home-card-image {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ce-home-card-image--placeholder {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.ce-home-card-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(to top, rgba(0,0,0,.9) 0%, rgba(0,0,0,.6) 70%, transparent 100%);
+  padding: 16px;
+  color: white;
+}
+
+.ce-home-card-title {
+  margin: 0 0 4px;
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.3;
+  color: #ffffff;
+}
+
+.ce-home-card-subtitle {
+  margin: 0;
+  font-size: .85rem;
+  opacity: .98;
+  color: #ffffff;
+  text-shadow: 0 1px 2px rgba(0,0,0,.35);
+}
+
+.ce-home-card-star {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 5;
+}
+
+.ce-home-featured-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  max-width: calc(100% - 64px);
+  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(8px);
+  color: #f59e0b;
+  padding: 6px 10px;
+  border-radius: 100px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .is-width-zero {
   width: 0%;
 }

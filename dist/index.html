@@ -65,7 +65,7 @@
   </noscript>
   <link rel="stylesheet" href="assets/css/tokens.css" />
   <link rel="stylesheet" href="assets/css/base.css" />
-  <link rel="stylesheet" href="assets/css/components.css?v=2" />
+  <link rel="stylesheet" href="assets/css/components.css?v=3" />
   <link rel="stylesheet" href="assets/css/header-metrics.css" />
   <link rel="stylesheet" href="assets/css/current-place.css?v=2" />
   <link rel="stylesheet" href="assets/css/mobile.css" />
@@ -479,20 +479,15 @@
         </section>
 
         <!-- Recommendations Section - Nasze Rekomendacje -->
-        <section class="recommendations-home-section" data-tour-target="recommendations-section" aria-label="Nasze rekomendacje" style="max-width: 1400px; margin: 40px auto 0; padding: 0 20px;">
-          <div style="margin-bottom: 24px;">
-            <h2 style="margin: 0 0 8px; font-size: 1.75rem; font-weight: 700; color: #111827;" data-i18n="recommendations.home.title">
-              ✨ Nasze Rekomendacje
-            </h2>
-            <p style="margin: 0; color: #6b7280; font-size: 1rem;" data-i18n="recommendations.home.subtitle">
+        <section class="recommendations-home-section" data-tour-target="recommendations-section" aria-label="Nasze rekomendacje" style="margin-top: 24px;">
+          <div class="adventure-shortcut-card card surface-card recommendations-home-panel">
+            <h2 style="margin: 0 0 16px; font-size: 1.5rem; font-weight: 700;" data-i18n="recommendations.home.title">✨ Nasze Rekomendacje</h2>
+            <p style="margin: 0 0 20px; color: #6b7280; font-size: 0.95rem;" data-i18n="recommendations.home.subtitle">
               Sprawdzone miejsca, które kochamy na Cyprze – z ekskluzywnymi zniżkami
             </p>
-          </div>
-          
-          <!-- Filtry kategorii -->
-          <div class="filters-container" style="background: white; border-radius: 16px; padding: 20px 24px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); margin-bottom: 32px;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-              <h3 style="font-size: 1.125rem; font-weight: 600; color: #111827; margin: 0;" data-i18n="recommendations.home.filters.title">Wybierz kategorię</h3>
+
+            <div class="recommendations-home-tabs-row" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px;">
+              <div id="categoriesFiltersHome" class="recommendations-home-tabs" style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px;"></div>
               <button
                 id="clearFiltersHome"
                 class="btn-text"
@@ -504,26 +499,40 @@
                 Wyczyść filtry
               </button>
             </div>
-            <div id="categoriesFiltersHome" class="filters-grid" style="display: flex; flex-wrap: wrap; gap: 8px;">
-              <!-- Filtry generowane dynamicznie przez JS -->
+
+            <div class="home-carousel-container">
+              <button
+                class="home-carousel-nav prev"
+                aria-label="Poprzednie"
+                data-target="#recommendationsHomeGrid"
+                data-i18n-attrs="aria-label:home.carousel.prev"
+              >
+                ‹
+              </button>
+              <button
+                class="home-carousel-nav next"
+                aria-label="Następne"
+                data-target="#recommendationsHomeGrid"
+                data-i18n-attrs="aria-label:home.carousel.next"
+              >
+                ›
+              </button>
             </div>
-          </div>
-          
-          <!-- Grid rekomendacji - sterowany z CSS (4 kolumny na desktopie) -->
-          <div id="recommendationsHomeGrid" class="recommendations-grid">
-            <div style="text-align: center; padding: 40px 20px; color: #9ca3af;" data-i18n="recommendations.home.loading">
-              Ładowanie rekomendacji...
+            <div id="recommendationsHomeGrid" class="home-carousel" style="gap: 16px; margin-bottom: 20px;">
+              <div style="grid-column: 1 / -1; text-align: center; padding: 40px 20px; color: #9ca3af;" data-i18n="recommendations.home.loading">
+                Ładowanie rekomendacji...
+              </div>
             </div>
+
+            <a
+              href="recommendations.html"
+              class="btn btn-primary primary"
+              style="width: 100%; text-align: center; padding: 12px; font-weight: 600;"
+              data-i18n="recommendations.home.cta"
+            >
+              Zobacz wszystkie rekomendacje →
+            </a>
           </div>
-          
-          <a
-            href="recommendations.html"
-            class="btn btn-primary primary"
-            style="display: block; width: 100%; max-width: 400px; margin: 0 auto; text-align: center; padding: 12px; font-weight: 600;"
-            data-i18n="recommendations.home.cta"
-          >
-            Zobacz wszystkie rekomendacje →
-          </a>
         </section>
 
         <!-- Shortcuts Grid Section -->
@@ -841,7 +850,7 @@
   <!-- Home page section scripts (MUST load AFTER languageSwitcher.js for i18n helpers) -->
   <script src="js/home-trips.js?v=4" defer></script>
   <script src="js/home-hotels.js?v=5" defer></script>
-  <script type="module" src="js/home-recommendations.js?v=3" defer></script>
+  <script type="module" src="js/home-recommendations.js?v=4" defer></script>
   
   <!-- Load core application (defer to wait for poi-loader) -->
   <script src="js/app-core.js?v=7" defer></script>
