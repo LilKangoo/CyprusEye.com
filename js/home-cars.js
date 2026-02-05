@@ -415,22 +415,89 @@ function openCarHomeModal(carId) {
   const perDayLabel = text('/ dzień', '/ day');
   const fromPrice = getFromPrice(car);
 
+  const noDepositLabel = text('Bez kaucji', 'No deposit');
+  const transmission = String(car.transmission || '').toLowerCase() === 'automatic'
+    ? text('Automat', 'Automatic')
+    : text('Manual', 'Manual');
+  const seats = car.max_passengers || 5;
+  const seatsText = text(`${seats} miejsc`, `${seats} seats`);
+  const fuelType = String(car.fuel_type || '').toLowerCase();
+  const fuelText = fuelType === 'petrol'
+    ? text('Benzyna 95', 'Petrol 95')
+    : fuelType === 'diesel'
+      ? text('Diesel', 'Diesel')
+      : fuelType === 'hybrid'
+        ? text('Hybryda', 'Hybrid')
+        : fuelType === 'electric'
+          ? text('Elektryczny', 'Electric')
+          : (car.fuel_type || '');
+  const features = window.getCarFeatures ? window.getCarFeatures(car) : (Array.isArray(car.features) ? car.features : []);
+  const description = window.getCarDescription ? window.getCarDescription(car) : (car.description || '');
+  const detailsTitle = text('Szczegóły auta', 'Car details');
+  const labelTransmission = text('Skrzynia', 'Transmission');
+  const labelSeats = text('Miejsca', 'Seats');
+  const labelFuel = text('Paliwo', 'Fuel');
+  const labelLocation = text('Oferta', 'Offer');
+  const locLabel = loc === 'paphos' ? text('Pafos', 'Paphos') : text('Larnaka', 'Larnaca');
+
   const pricing = buildPricingMapForLocation(loc);
   window.CE_CAR_PRICING = pricing;
 
   setBodyCarLocation(loc);
 
   modalBody.innerHTML = `
-    <div style="display: grid; gap: 16px;">
-      <div style="border-radius: 18px; overflow: hidden; background: #0f172a;">
-        <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" style="width: 100%; height: 240px; object-fit: cover; display: block;" />
+    <div class="ce-car-home-modal">
+      <div class="ce-car-home-hero">
+        <img src="${escapeHtml(imageUrl)}" alt="${escapeHtml(title)}" class="ce-car-home-hero-image" />
+        <div class="ce-car-home-hero-overlay">
+          <div class="ce-car-home-hero-badges">
+            <span class="ce-car-home-pill ce-car-home-pill--light">🚗 ${escapeHtml(noDepositLabel)}</span>
+            <span class="ce-car-home-pill">⚙️ ${escapeHtml(transmission)}</span>
+            <span class="ce-car-home-pill">👥 ${escapeHtml(seatsText)}</span>
+            ${fuelText ? `<span class="ce-car-home-pill">⛽ ${escapeHtml(fuelText)}</span>` : ''}
+            <span class="ce-car-home-pill">❄️ AC</span>
+          </div>
+          <h2 id="carHomeModalTitle" class="ce-car-home-hero-title">${escapeHtml(title)}</h2>
+          <p class="ce-car-home-hero-price">${escapeHtml(`${fromLabel} ${Number(fromPrice).toFixed(0)}€ ${perDayLabel}`)}</p>
+          <p class="ce-car-home-hero-meta">${escapeHtml(text('Wsparcie 24/7 • Brak depozytu', '24/7 support • No deposit'))}</p>
+        </div>
       </div>
-      <div>
-        <h2 id="carHomeModalTitle" style="margin: 0 0 6px; font-size: 1.4rem; font-weight: 800;">${escapeHtml(title)}</h2>
-        <p style="margin: 0; color: #64748b; font-weight: 600;">${escapeHtml(`${fromLabel} ${Number(fromPrice).toFixed(0)}€ ${perDayLabel}`)}</p>
-      </div>
-      <div>
-        ${buildReservationFormHtml({ location: loc, selectedCarId: car.id })}
+
+      <div class="ce-car-home-body">
+        <div class="ce-car-home-details">
+          <h3 class="ce-car-home-section-title">${escapeHtml(detailsTitle)}</h3>
+          <div class="ce-car-home-specs">
+            <div class="ce-car-home-spec">
+              <div class="ce-car-home-spec-label">${escapeHtml(labelTransmission)}</div>
+              <div class="ce-car-home-spec-value">${escapeHtml(transmission)}</div>
+            </div>
+            <div class="ce-car-home-spec">
+              <div class="ce-car-home-spec-label">${escapeHtml(labelSeats)}</div>
+              <div class="ce-car-home-spec-value">${escapeHtml(seatsText)}</div>
+            </div>
+            ${fuelText ? `
+              <div class="ce-car-home-spec">
+                <div class="ce-car-home-spec-label">${escapeHtml(labelFuel)}</div>
+                <div class="ce-car-home-spec-value">${escapeHtml(fuelText)}</div>
+              </div>
+            ` : ''}
+            <div class="ce-car-home-spec">
+              <div class="ce-car-home-spec-label">${escapeHtml(labelLocation)}</div>
+              <div class="ce-car-home-spec-value">${escapeHtml(locLabel)}</div>
+            </div>
+          </div>
+
+          ${description ? `<p class="ce-car-home-note">${escapeHtml(description)}</p>` : ''}
+
+          ${Array.isArray(features) && features.length
+            ? `<ul class="ce-car-home-features">${features.slice(0, 6).map(f => `<li><span>✓</span>${escapeHtml(f)}</li>`).join('')}</ul>`
+            : ''
+          }
+        </div>
+
+        <div>
+          ${buildReservationFormHtml({ location: loc, selectedCarId: car.id })}
+        </div>
       </div>
     </div>
   `;
