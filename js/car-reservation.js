@@ -90,13 +90,29 @@ export function initCarReservationBindings() {
   const pickupDate = document.getElementById('res_pickup_date');
   const returnDate = document.getElementById('res_return_date');
 
+  const pickupTime = document.getElementById('res_pickup_time');
+  const returnTime = document.getElementById('res_return_time');
+
   if (pickupDate && pickupDate.dataset.ceReservationBound !== '1') {
     pickupDate.dataset.ceReservationBound = '1';
     pickupDate.addEventListener('change', calculateEstimatedPrice);
+    pickupDate.addEventListener('input', calculateEstimatedPrice);
   }
   if (returnDate && returnDate.dataset.ceReservationBound !== '1') {
     returnDate.dataset.ceReservationBound = '1';
     returnDate.addEventListener('change', calculateEstimatedPrice);
+    returnDate.addEventListener('input', calculateEstimatedPrice);
+  }
+
+  if (pickupTime && pickupTime.dataset.ceReservationBound !== '1') {
+    pickupTime.dataset.ceReservationBound = '1';
+    pickupTime.addEventListener('change', calculateEstimatedPrice);
+    pickupTime.addEventListener('input', calculateEstimatedPrice);
+  }
+  if (returnTime && returnTime.dataset.ceReservationBound !== '1') {
+    returnTime.dataset.ceReservationBound = '1';
+    returnTime.addEventListener('change', calculateEstimatedPrice);
+    returnTime.addEventListener('input', calculateEstimatedPrice);
   }
 
   initReservationForm();
@@ -226,11 +242,33 @@ function calculateEstimatedPrice() {
 
   const pickup = new Date(`${pickupDate}T${pickupTime}`);
   const returnD = new Date(`${returnDate}T${returnTime}`);
+  if (Number.isNaN(pickup.getTime()) || Number.isNaN(returnD.getTime())) {
+    const lang = (typeof window.getCurrentLanguage === 'function') ? window.getCurrentLanguage() : 'pl';
+    document.getElementById('estimatedPrice').textContent = lang === 'en'
+      ? 'Please choose valid pickup/return dates and times.'
+      : 'Wybierz poprawne daty i godziny odbioru oraz zwrotu.';
+    try { delete window.CE_CAR_PRICE_QUOTE; } catch (_) {}
+    return;
+  }
+
   const hours = (returnD - pickup) / 36e5;
+  if (!Number.isFinite(hours) || hours <= 0) {
+    const lang = (typeof window.getCurrentLanguage === 'function') ? window.getCurrentLanguage() : 'pl';
+    document.getElementById('estimatedPrice').textContent = lang === 'en'
+      ? 'Return must be after pickup.'
+      : 'Zwrot musi być po dacie i godzinie odbioru.';
+    try { delete window.CE_CAR_PRICE_QUOTE; } catch (_) {}
+    return;
+  }
+
   const days = Math.ceil(hours / 24);
 
   if (days < 3) {
-    document.getElementById('estimatedPrice').textContent = 'Minimalny wynajem: 3 dni';
+    const lang = (typeof window.getCurrentLanguage === 'function') ? window.getCurrentLanguage() : 'pl';
+    document.getElementById('estimatedPrice').textContent = lang === 'en'
+      ? 'Minimum rental: 3 days (3 nights). Each started 24h counts as an extra day.'
+      : 'Minimalny wynajem: 3 doby (72h). Każde rozpoczęte 24h to kolejny dzień.';
+    try { delete window.CE_CAR_PRICE_QUOTE; } catch (_) {}
     return;
   }
 
@@ -337,7 +375,8 @@ function getValidationMessages() {
       returnDate: 'Proszę wybrać datę zwrotu',
       car: 'Proszę wybrać samochód',
       pickupLocation: 'Proszę wybrać miejsce odbioru',
-      returnLocation: 'Proszę wybrać miejsce zwrotu'
+      returnLocation: 'Proszę wybrać miejsce zwrotu',
+      minimumDays: 'Minimalny wynajem to 3 doby (72h). Każde rozpoczęte 24h to kolejny dzień.',
     },
     en: {
       fullName: 'Please enter your full name',
@@ -346,8 +385,9 @@ function getValidationMessages() {
       pickupDate: 'Please select pickup date',
       returnDate: 'Please select return date',
       car: 'Please select a car',
-      pickupLocation: 'Please select pickup location',
-      returnLocation: 'Please select return location'
+      pickupLocation: 'Please choose a pickup location',
+      returnLocation: 'Please select return location',
+      minimumDays: 'Minimum rental is 3 days (3 nights). Each started 24h counts as an extra day.',
     },
     el: {
       fullName: 'Παρακαλώ εισάγετε το ονοματεπώνυμό σας',
@@ -357,7 +397,8 @@ function getValidationMessages() {
       returnDate: 'Παρακαλώ επιλέξτε ημερομηνία επιστροφής',
       car: 'Παρακαλώ επιλέξτε αυτοκίνητο',
       pickupLocation: 'Παρακαλώ επιλέξτε τοποθεσία παραλαβής',
-      returnLocation: 'Παρακαλώ επιλέξτε τοποθεσία επιστροφής'
+      returnLocation: 'Παρακαλώ επιλέξτε τοποθεσία επιστροφής',
+      minimumDays: 'Η ελάχιστη ενοικίαση είναι 3 ημέρες. Κάθε ξεκινώμενο 24ωρο μετρά ως επιπλέον ημέρα.'
     },
     he: {
       fullName: 'אנא הזן את שמך המלא',
@@ -395,6 +436,20 @@ function validateReservationForm(formData) {
   
   const returnDate = formData.get('return_date');
   if (!returnDate) errors.push({ field: 'res_return_date', message: msgs.returnDate });
+
+  const pickupTime = String(formData.get('pickup_time') || '10:00').trim();
+  const returnTime = String(formData.get('return_time') || '10:00').trim();
+  if (pickupDate && returnDate) {
+    const pickup = new Date(`${pickupDate}T${pickupTime}`);
+    const ret = new Date(`${returnDate}T${returnTime}`);
+    const hours = (ret.getTime() - pickup.getTime()) / 36e5;
+    const days = Math.ceil(hours / 24);
+    if (!Number.isFinite(hours) || hours <= 0 || !Number.isFinite(days)) {
+      errors.push({ field: 'res_return_date', message: msgs.returnDate });
+    } else if (days < 3) {
+      errors.push({ field: 'res_return_date', message: msgs.minimumDays });
+    }
+  }
   
   const car = formData.get('car');
   if (!car) errors.push({ field: 'res_car', message: msgs.car });

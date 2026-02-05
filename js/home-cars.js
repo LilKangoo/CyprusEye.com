@@ -1,5 +1,5 @@
 import { supabase } from '/js/supabaseClient.js';
-import { initCarReservationBindings } from '/js/car-reservation.js?v=20260205';
+import { initCarReservationBindings } from '/js/car-reservation.js?v=20260205d';
 
 let allHomeCars = [];
 let homeCarsById = {};
@@ -251,10 +251,18 @@ function buildReservationFormHtml({ location, selectedCarId }) {
   const i18nPrefix = loc === 'paphos' ? 'carRentalPfo.page.reservation' : 'carRental.page.reservation';
   const whatsappKey = loc === 'paphos' ? 'carRentalPfo.page.reservation.whatsapp' : 'carRental.page.reservation.actions.whatsapp';
 
+  const minBanner = text(
+    'Minimalny wynajem: 3 doby (72h). Każde rozpoczęte 24h to kolejny dzień.',
+    'Minimum rental: 3 days (3 nights). Each started 24h counts as an extra day.'
+  );
+
   return `
     <div style="margin-bottom: 18px;">
       <h3 style="margin: 0 0 8px; font-size: 18px; font-weight: 700;" data-i18n="${i18nPrefix}.title">Złóż rezerwację</h3>
       <p style="margin: 0 0 16px; color: #6b7280;" data-i18n="${i18nPrefix}.description">Wypełnij formularz poniżej lub napisz do nas na WhatsApp – odpowiadamy najszybciej jak to możliwe.</p>
+      <div style="margin: 0 0 16px; padding: 12px 14px; border-radius: 14px; background: #eff6ff; border: 1px solid #bfdbfe; color: #0f172a; font-weight: 700; line-height: 1.35;">
+        ${escapeHtml(minBanner)}
+      </div>
       <div class="auto-reservation-actions" style="margin-bottom: 16px;">
         <a class="ghost" href="https://wa.me/48534073861" target="_blank" rel="noopener" data-i18n="${whatsappKey}">Napisz na WhatsApp</a>
       </div>
