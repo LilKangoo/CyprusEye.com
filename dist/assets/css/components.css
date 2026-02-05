@@ -371,6 +371,13 @@ button[data-ce-save="1"].is-saved {
 .home-carousel-nav.prev { left: -10px; }
 .home-carousel-nav.next { right: -10px; }
 
+body[data-seo-page="home"] main {
+  overflow-x: hidden;
+}
+
+body[data-seo-page="home"] .home-carousel-nav.prev { left: 6px; }
+body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
+
 .home-carousel-nav:hover { transform: translateY(-50%) scale(1.04); box-shadow: 0 10px 24px rgba(15, 23, 42, 0.2); }
 .home-carousel-nav:active { transform: translateY(-50%) scale(0.98); }
 
@@ -381,6 +388,9 @@ button[data-ce-save="1"].is-saved {
   display: flex;
   gap: 16px;
   overflow-x: auto;
+  max-width: 100%;
+  width: 100%;
+  min-width: 0;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
   padding: 4px 4px 12px 4px; /* Extra bottom padding for scrollbar */
@@ -416,6 +426,9 @@ button[data-ce-save="1"].is-saved {
   .home-carousel-nav { width: 30px; height: 30px; }
   .home-carousel-nav.prev { left: -6px; }
   .home-carousel-nav.next { right: -6px; }
+
+  body[data-seo-page="home"] .home-carousel-nav.prev { left: 6px; }
+  body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
   
   .home-carousel > * {
     flex: 0 0 85%; /* Responsive width for mobile */
@@ -433,10 +446,13 @@ button[data-ce-save="1"].is-saved {
 
 .recommendations-home-tabs {
   display: flex;
+  flex: 1 1 auto;
   gap: 12px;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
   padding-bottom: 8px;
+  max-width: 100%;
+  min-width: 0;
   scrollbar-width: none;
 }
 
