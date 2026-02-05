@@ -50,10 +50,65 @@ async function prefillFromUserSession() {
   }
 }
 
+export function initCarReservationBindings() {
+  const pickupLocation = document.getElementById('res_pickup_location');
+  const returnLocation = document.getElementById('res_return_location');
+
+  if (pickupLocation && pickupLocation.dataset.ceReservationBound !== '1') {
+    pickupLocation.dataset.ceReservationBound = '1';
+    pickupLocation.addEventListener('change', (e) => {
+      handleLocationChange(e.target);
+      calculateEstimatedPrice();
+    });
+  }
+  if (returnLocation && returnLocation.dataset.ceReservationBound !== '1') {
+    returnLocation.dataset.ceReservationBound = '1';
+    returnLocation.addEventListener('change', (e) => {
+      handleLocationChange(e.target);
+      calculateEstimatedPrice();
+    });
+  }
+
+  const carSelect = document.getElementById('res_car');
+  if (carSelect && carSelect.dataset.ceReservationBound !== '1') {
+    carSelect.dataset.ceReservationBound = '1';
+    carSelect.addEventListener('change', calculateEstimatedPrice);
+  }
+
+  const insurance = document.getElementById('res_insurance');
+  if (insurance && insurance.dataset.ceReservationBound !== '1') {
+    insurance.dataset.ceReservationBound = '1';
+    insurance.addEventListener('change', calculateEstimatedPrice);
+  }
+
+  const youngDriver = document.getElementById('res_young_driver');
+  if (youngDriver && youngDriver.dataset.ceReservationBound !== '1') {
+    youngDriver.dataset.ceReservationBound = '1';
+    youngDriver.addEventListener('change', calculateEstimatedPrice);
+  }
+
+  const pickupDate = document.getElementById('res_pickup_date');
+  const returnDate = document.getElementById('res_return_date');
+
+  if (pickupDate && pickupDate.dataset.ceReservationBound !== '1') {
+    pickupDate.dataset.ceReservationBound = '1';
+    pickupDate.addEventListener('change', calculateEstimatedPrice);
+  }
+  if (returnDate && returnDate.dataset.ceReservationBound !== '1') {
+    returnDate.dataset.ceReservationBound = '1';
+    returnDate.addEventListener('change', calculateEstimatedPrice);
+  }
+
+  initReservationForm();
+}
+
 // Initialize form
 export function initReservationForm() {
   const form = document.getElementById('localReservationForm');
   if (!form) return;
+
+  if (form.dataset.ceReservationInit === '1') return;
+  form.dataset.ceReservationInit = '1';
 
   // Populate form with calculator data if available
   populateFromCalculator();
@@ -82,6 +137,7 @@ export function initReservationForm() {
 
 // Populate form from calculator
 function populateFromCalculator() {
+  let didSetAny = false;
   // Autopfo calculator IDs
   const calcCarPfo = document.getElementById('car')?.value;
   const calcPickupDatePfo = document.getElementById('pickup_date')?.value;
@@ -110,55 +166,68 @@ function populateFromCalculator() {
   const calcReturnDate = calcReturnDateLca || calcReturnDatePfo;
   const calcReturnTime = calcReturnTimeLca || calcReturnTimePfo;
 
-  if (calcCar) document.getElementById('res_car').value = calcCar;
-  if (calcPickupDate) document.getElementById('res_pickup_date').value = calcPickupDate;
-  if (calcPickupTime) document.getElementById('res_pickup_time').value = calcPickupTime;
-  if (calcReturnDate) document.getElementById('res_return_date').value = calcReturnDate;
-  if (calcReturnTime) document.getElementById('res_return_time').value = calcReturnTime;
+  if (calcCar) { document.getElementById('res_car').value = calcCar; didSetAny = true; }
+  if (calcPickupDate) { document.getElementById('res_pickup_date').value = calcPickupDate; didSetAny = true; }
+  if (calcPickupTime) { document.getElementById('res_pickup_time').value = calcPickupTime; didSetAny = true; }
+  if (calcReturnDate) { document.getElementById('res_return_date').value = calcReturnDate; didSetAny = true; }
+  if (calcReturnTime) { document.getElementById('res_return_time').value = calcReturnTime; didSetAny = true; }
 
   // Map locations
   const pageLocation = (document.body?.dataset?.carLocation || '').toLowerCase();
   if (calcPickupLocLca) {
     // Direct pass-through of city ID from calculator (larnaca, nicosia, ayia-napa, protaras, limassol, paphos)
     document.getElementById('res_pickup_location').value = calcPickupLocLca;
+    didSetAny = true;
   } else if (calcAirportPickupPfo) {
     // Paphos calculator checkbox means airport pickup
     document.getElementById('res_pickup_location').value = pageLocation === 'larnaca' ? 'larnaca' : 'airport_pfo';
+    didSetAny = true;
   }
   if (calcReturnLocLca) {
     document.getElementById('res_return_location').value = calcReturnLocLca;
+    didSetAny = true;
   } else if (calcAirportReturnPfo) {
     // Paphos calculator checkbox means airport return
     document.getElementById('res_return_location').value = pageLocation === 'larnaca' ? 'larnaca' : 'airport_pfo';
+    didSetAny = true;
   }
 
   // Insurance
   const insuranceChecked = !!(calcInsuranceLca || calcInsurancePfo);
   if (insuranceChecked) {
     document.getElementById('res_insurance').checked = true;
+    didSetAny = true;
   }
   
   // Young driver
   if (calcYoungDriverLca) {
     const youngDriverField = document.getElementById('res_young_driver');
-    if (youngDriverField) youngDriverField.checked = true;
+    if (youngDriverField) {
+      youngDriverField.checked = true;
+      didSetAny = true;
+    }
   }
 
   // Calculate and show estimated price
-  calculateEstimatedPrice();
-  showToast('Dane z kalkulatora zostały przeniesione!', 'success');
+  if (didSetAny) {
+    calculateEstimatedPrice();
+    showToast('Dane z kalkulatora zostały przeniesione!', 'success');
+  }
 }
 
 // Calculate estimated price
 function calculateEstimatedPrice() {
   const pickupDate = document.getElementById('res_pickup_date')?.value;
   const returnDate = document.getElementById('res_return_date')?.value;
+  const pickupTime = document.getElementById('res_pickup_time')?.value || '10:00';
+  const returnTime = document.getElementById('res_return_time')?.value || '10:00';
   
   if (!pickupDate || !returnDate) return;
 
-  const pickup = new Date(pickupDate);
-  const returnD = new Date(returnDate);
-  const days = Math.ceil((returnD - pickup) / (1000 * 60 * 60 * 24));
+  const pickup = new Date(`${pickupDate}T${pickupTime}`);
+  const returnD = new Date(`${returnDate}T${returnTime}`);
+  const hours = (returnD - pickup) / 36e5;
+  const days = Math.ceil(hours / 24);
 
   if (days < 3) {
     document.getElementById('estimatedPrice').textContent = 'Minimalny wynajem: 3 dni';
@@ -170,6 +239,86 @@ function calculateEstimatedPrice() {
     document.getElementById('estimatedPrice').textContent = `Cena z kalkulatora: ${quote.total.toFixed(2)} ${quote.currency || 'EUR'} (czas: ${days} dni)`;
     return;
   }
+
+  try {
+    const pricing = window.CE_CAR_PRICING && typeof window.CE_CAR_PRICING === 'object'
+      ? window.CE_CAR_PRICING
+      : null;
+    const carModel = String(document.getElementById('res_car')?.value || '').trim();
+    const carPricing = pricing && carModel ? pricing[carModel] : null;
+    const pageLocation = (document.body?.dataset?.carLocation || (location?.href?.includes('autopfo') ? 'paphos' : 'larnaca')).toLowerCase();
+    const pickupLoc = String(document.getElementById('res_pickup_location')?.value || '').trim();
+    const returnLoc = String(document.getElementById('res_return_location')?.value || '').trim();
+    const insuranceChecked = !!document.getElementById('res_insurance')?.checked;
+    const youngDriverChecked = !!document.getElementById('res_young_driver')?.checked;
+
+    if (Array.isArray(carPricing) && carPricing.length >= 4 && days >= 3) {
+      let basePrice = 0;
+      let dailyRate = 0;
+      if (days === 3) {
+        basePrice = Number(carPricing[0]) || 0;
+      } else if (days >= 4 && days <= 6) {
+        dailyRate = Number(carPricing[1]) || 0;
+        basePrice = dailyRate * days;
+      } else if (days >= 7 && days <= 10) {
+        dailyRate = Number(carPricing[2]) || 0;
+        basePrice = dailyRate * days;
+      } else {
+        dailyRate = Number(carPricing[3]) || 0;
+        basePrice = dailyRate * days;
+      }
+
+      let pickupFee = 0;
+      let returnFee = 0;
+
+      if (pageLocation === 'paphos') {
+        const airportFeesApplicable = days < 7;
+        pickupFee = pickupLoc === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
+        returnFee = returnLoc === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
+      } else {
+        const feeFor = (city) => {
+          switch (city) {
+            case 'nicosia':
+            case 'ayia-napa':
+              return 15;
+            case 'protaras':
+            case 'limassol':
+              return 20;
+            case 'paphos':
+              return 40;
+            default:
+              return 0;
+          }
+        };
+        pickupFee = feeFor(pickupLoc);
+        returnFee = feeFor(returnLoc);
+      }
+
+      const insuranceCost = insuranceChecked ? 17 * days : 0;
+      const youngDriverCost = youngDriverChecked ? 10 * days : 0;
+      const total = basePrice + pickupFee + returnFee + insuranceCost + youngDriverCost;
+
+      if (Number.isFinite(total) && total > 0) {
+        window.CE_CAR_PRICE_QUOTE = {
+          total: Number(total.toFixed(2)),
+          currency: 'EUR',
+          breakdown: {
+            location: pageLocation,
+            days,
+            basePrice: Number(basePrice.toFixed(2)),
+            dailyRate: Number((dailyRate || 0).toFixed(2)),
+            pickupFee,
+            returnFee,
+            insuranceCost,
+            youngDriverCost,
+            car: carModel,
+          },
+        };
+        document.getElementById('estimatedPrice').textContent = `Szacunkowa cena: ${window.CE_CAR_PRICE_QUOTE.total.toFixed(2)} EUR (czas: ${days} dni)`;
+        return;
+      }
+    }
+  } catch (_e) {}
 
   // Fallback message when quote not available
   document.getElementById('estimatedPrice').textContent = `Szacunkowy czas wynajmu: ${days} dni. Ostateczną cenę otrzymasz po potwierdzeniu dostępności.`;
@@ -619,25 +768,7 @@ function handleLocationChange(selectElement) {
 
 // Initialize location change handlers
 document.addEventListener('DOMContentLoaded', () => {
-  const pickupLocation = document.getElementById('res_pickup_location');
-  const returnLocation = document.getElementById('res_return_location');
-
-  if (pickupLocation) {
-    pickupLocation.addEventListener('change', (e) => handleLocationChange(e.target));
-  }
-  if (returnLocation) {
-    returnLocation.addEventListener('change', (e) => handleLocationChange(e.target));
-  }
-
-  // Auto-calculate price on date change
-  const pickupDate = document.getElementById('res_pickup_date');
-  const returnDate = document.getElementById('res_return_date');
-  
-  if (pickupDate) pickupDate.addEventListener('change', calculateEstimatedPrice);
-  if (returnDate) returnDate.addEventListener('change', calculateEstimatedPrice);
-
-  // Initialize form
-  initReservationForm();
+  initCarReservationBindings();
 });
 
 export { handleReservationSubmit, populateFromCalculator };

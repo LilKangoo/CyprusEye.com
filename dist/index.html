@@ -478,6 +478,53 @@
           </div>
         </section>
 
+        <!-- Cars Section - Auta bez kaucji -->
+        <section class="cars-home-section" data-tour-target="cars-section" aria-label="Auta bez kaucji" style="margin-top: 24px;">
+          <div class="adventure-shortcut-card card surface-card cars-home-panel">
+            <h2 style="margin: 0 0 16px; font-size: 1.5rem; font-weight: 700;" data-i18n="home.cars.title">🚗 Auta bez kaucji</h2>
+            <p style="margin: 0 0 20px; color: #6b7280; font-size: 0.95rem;" data-i18n="home.cars.description">
+              Wybierz miasto i zarezerwuj auto z pełnym wsparciem 24/7
+            </p>
+
+            <div class="recommendations-home-tabs-row" style="display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 20px;">
+              <div id="carsHomeTabs" class="recommendations-home-tabs" style="display: flex; gap: 12px; overflow-x: auto; padding-bottom: 8px;"></div>
+            </div>
+
+            <div class="home-carousel-container">
+              <button
+                class="home-carousel-nav prev"
+                aria-label="Poprzednie"
+                data-target="#carsHomeGrid"
+                data-i18n-attrs="aria-label:home.carousel.prev"
+              >
+                ‹
+              </button>
+              <button
+                class="home-carousel-nav next"
+                aria-label="Następne"
+                data-target="#carsHomeGrid"
+                data-i18n-attrs="aria-label:home.carousel.next"
+              >
+                ›
+              </button>
+            </div>
+            <div id="carsHomeGrid" class="home-carousel" style="gap: 16px; margin-bottom: 20px;">
+              <div style="flex: 0 0 100%; text-align: center; padding: 40px 20px; color: #9ca3af;" data-i18n="home.cars.loading">
+                Ładowanie aut...
+              </div>
+            </div>
+
+            <a
+              href="car-rental-landing.html"
+              class="btn btn-primary primary"
+              style="width: 100%; text-align: center; padding: 12px; font-weight: 600;"
+              data-i18n="home.cars.cta"
+            >
+              Zobacz wszystkie auta →
+            </a>
+          </div>
+        </section>
+
         <!-- Recommendations Section - Nasze Rekomendacje -->
         <section class="recommendations-home-section" data-tour-target="recommendations-section" aria-label="Nasze rekomendacje" style="margin-top: 24px;">
           <div class="adventure-shortcut-card card surface-card recommendations-home-panel">
@@ -715,6 +762,15 @@
       </div>
     </div>
   </div>
+
+  <!-- Cars Home Modal (reservation form rendered by home-cars.js) -->
+  <div id="carHomeModal" class="recommendation-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="carHomeModalTitle">
+    <div class="modal-overlay" onclick="closeCarHomeModal()"></div>
+    <div class="modal-content">
+      <button class="modal-close" type="button" aria-label="Zamknij" onclick="closeCarHomeModal()">✕</button>
+      <div id="carHomeModalBody" class="modal-body"></div>
+    </div>
+  </div>
   
   <!-- Comments Modal (shared with community) -->
   <div id="commentsModal" class="comments-modal" hidden role="dialog" aria-modal="true" aria-labelledby="commentsModalTitle">
@@ -850,7 +906,8 @@
   <!-- Home page section scripts (MUST load AFTER languageSwitcher.js for i18n helpers) -->
   <script src="js/home-trips.js?v=4" defer></script>
   <script src="js/home-hotels.js?v=5" defer></script>
-  <script type="module" src="js/home-recommendations.js?v=4" defer></script>
+  <script type="module" src="js/home-recommendations.js?v=5" defer></script>
+  <script type="module" src="js/home-cars.js?v=2" defer></script>
   
   <!-- Load core application (defer to wait for poi-loader) -->
   <script src="js/app-core.js?v=7" defer></script>

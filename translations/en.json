@@ -517,10 +517,16 @@
       "cta": "View all trips →"
     },
     "hotels": {
-      "title": "🏨 Accommodations",
+      "title": "🏨 Stays",
       "description": "Discover the best hotels, villas and apartments in Cyprus",
-      "loading": "Loading accommodations...",
-      "cta": "View all accommodations →"
+      "loading": "Loading stays...",
+      "cta": "View all stays →"
+    },
+    "cars": {
+      "title": "🚗 Cars with no deposit",
+      "description": "Pick a city and reserve a car with full 24/7 support",
+      "loading": "Loading cars...",
+      "cta": "View all cars →"
     },
     "carousel": {
       "prev": "Previous",
