@@ -32,6 +32,78 @@
     return savedCatalogUidCache && savedCatalogUidCache !== 'anon' ? savedCatalogUidCache : '';
   }
 
+  function getSessionUserId() {
+    try {
+      const uid = window.CE_STATE?.session?.user?.id ? String(window.CE_STATE.session.user.id) : '';
+      return uid ? String(uid) : '';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function openAuthModalForSavedCatalog(tabId = 'login') {
+    const attemptOpen = () => {
+      try {
+        if (typeof window?.openAuthModal === 'function') {
+          window.openAuthModal(tabId);
+          return true;
+        }
+      } catch (_) {}
+
+      try {
+        const controller = window?.__authModalController;
+        if (controller && typeof controller.open === 'function') {
+          controller.setActiveTab?.(tabId, { focus: false });
+          controller.open(tabId);
+          return true;
+        }
+      } catch (_) {}
+
+      return false;
+    };
+
+    if (attemptOpen()) {
+      return true;
+    }
+
+    let resolved = false;
+    let timeoutId = null;
+
+    const cleanup = () => {
+      resolved = true;
+      if (timeoutId !== null) {
+        window.clearTimeout(timeoutId);
+        timeoutId = null;
+      }
+      document.removeEventListener('ce-auth:modal-ready', handleReady);
+    };
+
+    const handleReady = () => {
+      if (resolved) return;
+      if (attemptOpen()) cleanup();
+    };
+
+    document.addEventListener('ce-auth:modal-ready', handleReady);
+
+    if (typeof window?.requestAnimationFrame === 'function') {
+      window.requestAnimationFrame(() => {
+        if (!resolved && attemptOpen()) {
+          cleanup();
+        }
+      });
+    }
+
+    timeoutId = window.setTimeout(() => {
+      if (resolved) return;
+      cleanup();
+      try {
+        window.location.assign('/auth/');
+      } catch (_) {}
+    }, 1500);
+
+    return false;
+  }
+
   function loadSavedCatalogMapForUid(uid) {
     try {
       const raw = localStorage.getItem(savedCatalogStorageKeyForUid(uid));
@@ -325,6 +397,16 @@
 
       const type = btn.getAttribute('data-item-type') || '';
       const refId = btn.getAttribute('data-ref-id') || '';
+
+      const uid = getSavedCatalogAuthedUserId() || getSessionUserId();
+      if (!uid) {
+        openAuthModalForSavedCatalog('login');
+        return;
+      }
+
+      try {
+        setSavedCatalogUidCache(uid);
+      } catch (_) {}
 
       void toggleAndPersist({ itemType: type, refId }).then((res) => {
         applyButtonState(btn);
