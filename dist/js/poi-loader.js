@@ -13,8 +13,10 @@ try {
 window.PLACES_DATA = [];
 window.PLACES_DATA_LOADED = false;
 
-const CE_DEBUG = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
-const ceLog = CE_DEBUG ? (...args) => console.log(...args) : () => {};
+const CE_DEBUG_POI_LOADER = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
+function ceLog(...args) {
+  if (CE_DEBUG_POI_LOADER) console.log(...args);
+}
 
 const POIS_CACHE_KEY = 'ce_cache_pois_transformed_v1';
 const POIS_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -25,7 +27,6 @@ function readPoisCache() {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.data)) return null;
-    if (!parsed.at || (Date.now() - parsed.at) > POIS_CACHE_TTL_MS) return null;
     return parsed.data;
   } catch (_) {
     return null;

@@ -7,8 +7,10 @@ let homeTripsDisplay = [];
 let homeCurrentTrip = null;
 let homeCurrentIndex = null;
 
-const CE_DEBUG = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
-const ceLog = CE_DEBUG ? (...args) => console.log(...args) : () => {};
+const CE_DEBUG_HOME_TRIPS = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
+function ceLog(...args) {
+  if (CE_DEBUG_HOME_TRIPS) console.log(...args);
+}
 
 const HOME_TRIPS_CACHE_KEY = 'ce_cache_home_trips_v1';
 const HOME_TRIPS_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -49,6 +51,19 @@ function scheduleTripsRerenderWhenI18nReady() {
     setTimeout(tick, delay);
   };
   setTimeout(tick, 100);
+}
+
+async function waitForSupabaseClientHomeTrips(maxAttempts = 50) {
+  for (let i = 0; i < maxAttempts; i++) {
+    const client =
+      window.supabase ||
+      window.sb ||
+      window.__SB__ ||
+      (typeof window.getSupabase === 'function' ? window.getSupabase() : null);
+    if (client) return client;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  return null;
 }
 
 // Translation helper for trips - reads directly from appI18n.translations
@@ -136,13 +151,7 @@ async function loadHomeTrips() {
     }
     scheduleTripsRerenderWhenI18nReady();
     
-    // Import Supabase client (same as trips.html)
-    const supabase =
-      window.supabase ||
-      window.sb ||
-      window.__SB__ ||
-      (typeof window.getSupabase === 'function' ? window.getSupabase() : null) ||
-      (await import('/js/supabaseClient.js')).supabase;
+    const supabase = await waitForSupabaseClientHomeTrips();
     
     if (!supabase) {
       throw new Error('Supabase client not available');
@@ -651,12 +660,8 @@ function initHomeTripsModalHandlers() {
     
     try{
       if (btn){ btn.disabled = true; btn.textContent = 'Wysyłanie...'; }
-      const supabase =
-        window.supabase ||
-        window.sb ||
-        window.__SB__ ||
-        (typeof window.getSupabase === 'function' ? window.getSupabase() : null) ||
-        (await import('/js/supabaseClient.js')).supabase;
+      const supabase = await waitForSupabaseClientHomeTrips();
+      if (!supabase) throw new Error('Supabase client not available');
       const { error } = await supabase.from('trip_bookings').insert([payload]);
       if (error) throw error;
       

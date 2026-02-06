@@ -7,8 +7,10 @@ let homeHotelsDisplay = [];
 let homeCurrentHotel = null;
 let homeHotelIndex = null;
 
-const CE_DEBUG = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
-const ceLog = CE_DEBUG ? (...args) => console.log(...args) : () => {};
+const CE_DEBUG_HOME_HOTELS = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
+function ceLog(...args) {
+  if (CE_DEBUG_HOME_HOTELS) console.log(...args);
+}
 
 const HOME_HOTELS_CACHE_KEY = 'ce_cache_home_hotels_v1';
 const HOME_HOTELS_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -74,6 +76,19 @@ function scheduleHotelsRerenderWhenI18nReady() {
   setTimeout(tick, 100);
 }
 
+async function waitForSupabaseClientHomeHotels(maxAttempts = 50) {
+  for (let i = 0; i < maxAttempts; i++) {
+    const client =
+      window.supabase ||
+      window.sb ||
+      window.__SB__ ||
+      (typeof window.getSupabase === 'function' ? window.getSupabase() : null);
+    if (client) return client;
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+  return null;
+}
+
 // Amenities cache and helpers
 let hotelAmenitiesMap = {};
 
@@ -86,12 +101,8 @@ try {
 
 async function loadHotelAmenitiesForDisplay() {
   try {
-    const supabase =
-      window.supabase ||
-      window.sb ||
-      window.__SB__ ||
-      (typeof window.getSupabase === 'function' ? window.getSupabase() : null) ||
-      (await import('/js/supabaseClient.js')).supabase;
+    const supabase = await waitForSupabaseClientHomeHotels();
+    if (!supabase) throw new Error('Supabase client not available');
     const { data } = await supabase
       .from('hotel_amenities')
       .select('code, icon, name_en, name_pl, is_popular')
@@ -201,12 +212,7 @@ async function loadHomeHotels(){
     scheduleHotelsRerenderWhenI18nReady();
     loadHotelAmenitiesForDisplay();
     
-    const supabase =
-      window.supabase ||
-      window.sb ||
-      window.__SB__ ||
-      (typeof window.getSupabase === 'function' ? window.getSupabase() : null) ||
-      (await import('/js/supabaseClient.js')).supabase;
+    const supabase = await waitForSupabaseClientHomeHotels();
     if(!supabase) throw new Error('Supabase client not available');
 
     const { data, error } = await supabase
@@ -449,12 +455,8 @@ function initHomeHotels() {
     try{
       btn.disabled=true; btn.textContent='Wysyłanie...';
       
-      const supabase =
-        window.supabase ||
-        window.sb ||
-        window.__SB__ ||
-        (typeof window.getSupabase === 'function' ? window.getSupabase() : null) ||
-        (await import('/js/supabaseClient.js')).supabase;
+      const supabase = await waitForSupabaseClientHomeHotels();
+      if (!supabase) throw new Error('Supabase client not available');
       
       // Build payload from form data
       const fd = new FormData(form);

@@ -815,3 +815,7 @@ const STATIC_PLACES_DATA = [
     "requiredLevel": 4
   }
 ];
+
+try {
+  window.STATIC_PLACES_DATA = STATIC_PLACES_DATA;
+} catch (_) {}
