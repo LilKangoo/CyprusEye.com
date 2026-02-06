@@ -172,7 +172,7 @@ try {
           return;
         }
       } else {
-        mapInstance = L.map('map').setView([35.095, 33.203], 9);
+        mapInstance = L.map('map');
       }
       
       // Dodaj kafelki
@@ -180,6 +180,19 @@ try {
         attribution: '© OpenStreetMap contributors',
         maxZoom: 19
       }).addTo(mapInstance);
+
+      // Initial view: show whole Cyprus outline (desktop + mobile)
+      try {
+        const cyprusBounds = L.latLngBounds(
+          L.latLng(34.35, 32.20),
+          L.latLng(35.75, 34.60)
+        );
+        mapInstance.fitBounds(cyprusBounds, { padding: [18, 18] });
+      } catch (_) {
+        try {
+          mapInstance.setView([35.095, 33.203], 9);
+        } catch (_) {}
+      }
       
       // Stwórz warstwę dla markerów
       markersLayer = L.layerGroup().addTo(mapInstance);

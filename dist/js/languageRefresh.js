@@ -3,8 +3,9 @@
  * Provides auto-refresh functionality for all content when language changes
  */
 
-// Global debounce timeout
-let globalLanguageChangeTimeout = null;
+// Per-callback debounce timeouts
+const languageChangeHandlers = new Map();
+let languageRefreshListenersAttached = false;
 
 /**
  * Register a callback to be called when language changes
@@ -17,33 +18,43 @@ function registerLanguageChangeHandler(callback, debounceMs = 200) {
     return;
   }
 
-  // Handler function with debounce
-  const handleLanguageChange = (language) => {
-    console.log('🌐 Language changed to:', language);
-    
-    // Clear previous timeout
-    if (globalLanguageChangeTimeout) {
-      clearTimeout(globalLanguageChangeTimeout);
-    }
-    
-    // Debounce execution
-    globalLanguageChangeTimeout = setTimeout(() => {
-      console.log('🔄 Executing language change callback');
-      callback(language);
-    }, debounceMs);
-  };
-  
-  // Listen for both language change events
-  // languageSwitcher.js uses 'languageChanged' on window
-  window.addEventListener('languageChanged', (e) => {
-    handleLanguageChange(e.detail.language);
-  });
-  
-  // i18n.js uses 'wakacjecypr:languagechange' on document
-  document.addEventListener('wakacjecypr:languagechange', (e) => {
-    handleLanguageChange(e.detail.language);
-  });
-  
+  if (!languageChangeHandlers.has(callback)) {
+    languageChangeHandlers.set(callback, { callback, debounceMs, timeoutId: null });
+  } else {
+    const entry = languageChangeHandlers.get(callback);
+    if (entry) entry.debounceMs = debounceMs;
+  }
+
+  if (!languageRefreshListenersAttached) {
+    languageRefreshListenersAttached = true;
+
+    const handleLanguageChange = (language) => {
+      console.log('🌐 Language changed to:', language);
+
+      languageChangeHandlers.forEach((entry) => {
+        if (!entry || typeof entry.callback !== 'function') return;
+        if (entry.timeoutId) {
+          clearTimeout(entry.timeoutId);
+        }
+        entry.timeoutId = setTimeout(() => {
+          console.log('🔄 Executing language change callback');
+          entry.callback(language);
+        }, entry.debounceMs);
+      });
+    };
+
+    // Listen for both language change events
+    // languageSwitcher.js uses 'languageChanged' on window
+    window.addEventListener('languageChanged', (e) => {
+      handleLanguageChange(e.detail.language);
+    });
+
+    // i18n.js uses 'wakacjecypr:languagechange' on document
+    document.addEventListener('wakacjecypr:languagechange', (e) => {
+      handleLanguageChange(e.detail.language);
+    });
+  }
+
   console.log('✅ Language change handler registered');
 }
 

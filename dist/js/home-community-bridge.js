@@ -54,7 +54,12 @@
     const poiName = window.getPoiName ? window.getPoiName(poi) : (poi.nameFallback || poi.name || '—');
     const poiDesc = window.getPoiDescription ? window.getPoiDescription(poi) : (poi.descriptionFallback || poi.description || 'Cypr');
     
-    if(nameEl) nameEl.textContent = poiName;
+    if(nameEl) {
+      nameEl.textContent = poiName;
+      try {
+        if (nameEl.hasAttribute('data-i18n')) nameEl.removeAttribute('data-i18n');
+      } catch (_) {}
+    }
     if(descEl) descEl.textContent = poiDesc;
 
     if (saveBtn) {
@@ -451,14 +456,14 @@
       }
       let bestId = null; let best = 0;
       entriesMap.forEach((ratio,id)=>{ if(ratio>best){ best=ratio; bestId=id; } });
-      if(bestId) setCurrentPlace(bestId, {force:false});
+      if(bestId) setCurrentPlace(bestId, {force:false, focus:false});
     }, {root: null, threshold:[0.25,0.5,0.75,1]});
 
     Array.from(list.querySelectorAll('.poi-card')).forEach(el=>observer.observe(el));
     observing = true;
 
     const firstId = getOrderedPoiIds()[0];
-    if(firstId) setCurrentPlace(firstId, {force:true});
+    if(firstId) setCurrentPlace(firstId, {force:true, focus:false});
   }
 
   function waitForListThenSetup(){
@@ -473,7 +478,7 @@
       // No list on this page – select the first POI from PLACES_DATA and update panel + map
       const firstId = getOrderedPoiIds()[0];
       if(firstId){
-        setCurrentPlace(firstId, {focus:true, scroll:false, force:true});
+        setCurrentPlace(firstId, {focus:false, scroll:false, force:true});
       }
       return true;
     };
@@ -512,7 +517,7 @@
       const firstId = getOrderedPoiIds()[0];
       if(firstId){
         ceLog('🎯 Setting initial place:', firstId);
-        setCurrentPlace(firstId, {focus:true, scroll:false, force:true});
+        setCurrentPlace(firstId, {focus:false, scroll:false, force:true});
       } else {
         console.warn('⚠️ No POI IDs available');
       }
@@ -527,7 +532,7 @@
     if(!currentId){
       const firstId = getOrderedPoiIds()[0];
       if(firstId){
-        setCurrentPlace(firstId, {focus:true, scroll:false, force:true});
+        setCurrentPlace(firstId, {focus:false, scroll:false, force:true});
       }
     }
   });
