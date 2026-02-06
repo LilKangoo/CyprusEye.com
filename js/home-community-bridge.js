@@ -1,6 +1,9 @@
 (function(){
   'use strict';
 
+  const CE_DEBUG = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
+  const ceLog = CE_DEBUG ? (...args) => console.log(...args) : () => {};
+
   let currentId = null;
   let observer = null;
   let observing = false;
@@ -20,14 +23,9 @@
     return (window.PLACES_DATA||[]).find(p=>p.id===id);
   }
 
-  async function waitForPlacesData(){
-    for(let i=0;i<100;i++){
-      if(Array.isArray(window.PLACES_DATA) && window.PLACES_DATA.length>0){
-        return window.PLACES_DATA;
-      }
-      await new Promise(r=>setTimeout(r,100));
-    }
-    return window.PLACES_DATA || [];
+  function getPlacesDataNow(){
+    if (Array.isArray(window.PLACES_DATA)) return window.PLACES_DATA;
+    return [];
   }
 
   function setCurrentPlace(id, options={scroll:false, focus:true}){
@@ -495,21 +493,25 @@
   };
 
   async function initialize(){
-    console.log('🚀 home-community-bridge: initializing...');
-    
-    const data = await waitForPlacesData();
-    console.log(`✅ PLACES_DATA loaded: ${data.length} POIs`);
-    
+    ceLog('🚀 home-community-bridge: initializing...');
+
+    const data = getPlacesDataNow();
     if(data.length === 0){
-      console.warn('⚠️ No PLACES_DATA available');
+      const onRefresh = () => {
+        window.removeEventListener('poisDataRefreshed', onRefresh);
+        initialize();
+      };
+      window.addEventListener('poisDataRefreshed', onRefresh);
       return;
     }
+
+    ceLog(`✅ PLACES_DATA loaded: ${data.length} POIs`);
     
     // Auto-select first POI if not set yet
     if(!currentId){
       const firstId = getOrderedPoiIds()[0];
       if(firstId){
-        console.log('🎯 Setting initial place:', firstId);
+        ceLog('🎯 Setting initial place:', firstId);
         setCurrentPlace(firstId, {focus:true, scroll:false, force:true});
       } else {
         console.warn('⚠️ No POI IDs available');
@@ -517,7 +519,7 @@
     }
     waitForListThenSetup();
     
-    console.log('✅ home-community-bridge: initialized');
+    ceLog('✅ home-community-bridge: initialized');
   }
 
   // Refresh handling when data is reloaded
@@ -533,11 +535,11 @@
   // Register language change handler to refresh current place display
   if (typeof window.registerLanguageChangeHandler === 'function') {
     window.registerLanguageChangeHandler((language) => {
-      console.log('📍 POI Panel: Re-rendering for language:', language);
+      ceLog('📍 POI Panel: Re-rendering for language:', language);
       if (currentId) {
         // Re-render current place with new language
         setCurrentPlace(currentId, {focus:false, scroll:false, force:true});
-        console.log('✅ POI Panel re-rendered');
+        ceLog('✅ POI Panel re-rendered');
       }
     });
   }

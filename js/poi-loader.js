@@ -3,11 +3,50 @@
  * Ładuje POI z Supabase i udostępnia globalnie jako PLACES_DATA
  */
 
-console.log('🔵 POI Loader V2 - START');
+try {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true') {
+    console.log('🔵 POI Loader V2 - START');
+  }
+} catch (_) {}
 
 // Globalna zmienna dla POI
 window.PLACES_DATA = [];
 window.PLACES_DATA_LOADED = false;
+
+const CE_DEBUG = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
+const ceLog = CE_DEBUG ? (...args) => console.log(...args) : () => {};
+
+const POIS_CACHE_KEY = 'ce_cache_pois_transformed_v1';
+const POIS_CACHE_TTL_MS = 10 * 60 * 1000;
+
+function readPoisCache() {
+  try {
+    const raw = localStorage.getItem(POIS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.data)) return null;
+    if (!parsed.at || (Date.now() - parsed.at) > POIS_CACHE_TTL_MS) return null;
+    return parsed.data;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writePoisCache(data) {
+  try {
+    if (!Array.isArray(data)) return;
+    localStorage.setItem(POIS_CACHE_KEY, JSON.stringify({ at: Date.now(), data }));
+  } catch (_) {}
+}
+
+try {
+  const cached = readPoisCache();
+  if (cached && cached.length > 0) {
+    window.PLACES_DATA = cached;
+    window.PLACES_DATA_LOADED = true;
+    ceLog(`✅ POI załadowane z cache: ${cached.length}`);
+  }
+} catch (_) {}
 
 /**
  * Czeka na Supabase client
@@ -15,7 +54,7 @@ window.PLACES_DATA_LOADED = false;
  * aby uniknąć konfliktu z footer-referral.js
  */
 async function waitForSupabaseClient(maxAttempts = 50) {
-  console.log('⏳ Czekam na Supabase client...');
+  ceLog('⏳ Czekam na Supabase client...');
   
   for (let i = 0; i < maxAttempts; i++) {
     // Sprawdź różne sposoby dostępu
@@ -25,7 +64,7 @@ async function waitForSupabaseClient(maxAttempts = 50) {
                    (window.getSupabase && window.getSupabase());
     
     if (client) {
-      console.log(`✅ Supabase client znaleziony (próba ${i + 1})`);
+      ceLog(`✅ Supabase client znaleziony (próba ${i + 1})`);
       return client;
     }
     
@@ -41,7 +80,7 @@ async function waitForSupabaseClient(maxAttempts = 50) {
  * Ładuje POI z Supabase
  */
 async function loadPOIsFromSupabase() {
-  console.log('📥 Ładuję POI z Supabase...');
+  ceLog('📥 Ładuję POI z Supabase...');
   
   try {
     // Czekaj na Supabase
@@ -53,7 +92,7 @@ async function loadPOIsFromSupabase() {
     }
     
     // Pobierz POI z bazy (tylko Published)
-    console.log('🔍 Zapytanie: SELECT * FROM pois WHERE status = published');
+    ceLog('🔍 Zapytanie: SELECT * FROM pois WHERE status = published');
     const { data: pois, error } = await supabase
       .from('pois')
       .select('*')
@@ -71,13 +110,13 @@ async function loadPOIsFromSupabase() {
       return useFallbackData();
     }
     
-    console.log(`✅ Pobrano ${pois.length} POI z Supabase`);
+    ceLog(`✅ Pobrano ${pois.length} POI z Supabase`);
     
     // Transformuj dane
     const transformedPOIs = pois.map(poi => transformPOI(poi));
     
-    console.log('✅ Transformacja zakończona');
-    console.log('📍 Przykładowy POI:', transformedPOIs[0]);
+    ceLog('✅ Transformacja zakończona');
+    ceLog('📍 Przykładowy POI:', transformedPOIs[0]);
     
     return transformedPOIs;
     
@@ -161,10 +200,10 @@ function transformPOI(dbPoi) {
  * Używa danych statycznych jako fallback
  */
 function useFallbackData() {
-  console.log('ℹ️ Używam fallback data (STATIC_PLACES_DATA)');
+  ceLog('ℹ️ Używam fallback data (STATIC_PLACES_DATA)');
   
   if (typeof window.STATIC_PLACES_DATA !== 'undefined' && window.STATIC_PLACES_DATA.length > 0) {
-    console.log(`✅ Znaleziono ${window.STATIC_PLACES_DATA.length} POI w STATIC_PLACES_DATA`);
+    ceLog(`✅ Znaleziono ${window.STATIC_PLACES_DATA.length} POI w STATIC_PLACES_DATA`);
     return window.STATIC_PLACES_DATA;
   }
   
@@ -176,7 +215,7 @@ function useFallbackData() {
  * Inicjalizuje dane POI
  */
 async function initializePOIs() {
-  console.log('🚀 Inicjalizuję POI...');
+  ceLog('🚀 Inicjalizuję POI...');
   
   try {
     // Załaduj z Supabase
@@ -186,8 +225,8 @@ async function initializePOIs() {
     window.PLACES_DATA = pois;
     window.PLACES_DATA_LOADED = true;
     
-    console.log(`✅ PLACES_DATA załadowane: ${pois.length} POI`);
-    console.log('📊 window.PLACES_DATA:', window.PLACES_DATA);
+    writePoisCache(pois);
+    ceLog(`✅ PLACES_DATA załadowane: ${pois.length} POI`);
     
     // Emit event
     const event = new CustomEvent('poisDataRefreshed', {
@@ -197,7 +236,7 @@ async function initializePOIs() {
       }
     });
     window.dispatchEvent(event);
-    console.log('📡 Event "poisDataRefreshed" emitowany');
+    ceLog('📡 Event "poisDataRefreshed" emitowany');
     
     return pois;
     
@@ -213,12 +252,13 @@ async function initializePOIs() {
  * Refresh POI (po zmianach w admin)
  */
 async function refreshPOIs() {
-  console.log('🔄 Odświeżam POI...');
+  ceLog('🔄 Odświeżam POI...');
   
   const pois = await loadPOIsFromSupabase();
   window.PLACES_DATA = pois;
+  writePoisCache(pois);
   
-  console.log(`✅ POI odświeżone: ${pois.length} elementów`);
+  ceLog(`✅ POI odświeżone: ${pois.length} elementów`);
   
   // Emit event
   const event = new CustomEvent('poisDataRefreshed', {
@@ -228,7 +268,7 @@ async function refreshPOIs() {
     }
   });
   window.dispatchEvent(event);
-  console.log('📡 Event "poisDataRefreshed" emitowany');
+  ceLog('📡 Event "poisDataRefreshed" emitowany');
   
   return pois;
 }
@@ -254,21 +294,21 @@ window.getPoiGoogleUrl = function getPoiGoogleUrl(poi) {
 };
 
 // Auto-init
-console.log('⏰ Planowanie auto-init...');
+ceLog('⏰ Planowanie auto-init...');
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
-    console.log('📄 DOMContentLoaded - uruchamiam initializePOIs');
+    ceLog('📄 DOMContentLoaded - uruchamiam initializePOIs');
     initializePOIs();
   });
 } else {
-  console.log('📄 DOM już załadowany - uruchamiam initializePOIs natychmiast');
+  ceLog('📄 DOM już załadowany - uruchamiam initializePOIs natychmiast');
   initializePOIs();
 }
 
 // Listen for language change
 document.addEventListener('wakacjecypr:languagechange', (event) => {
   const newLanguage = event.detail.language;
-  console.log(`🌍 Język zmieniony na: ${newLanguage}`);
+  ceLog(`🌍 Język zmieniony na: ${newLanguage}`);
   
   // Re-transform POIs with new language
   if (window.PLACES_DATA && window.PLACES_DATA.length > 0) {
@@ -287,8 +327,8 @@ document.addEventListener('wakacjecypr:languagechange', (event) => {
       }
     }));
     
-    console.log(`✅ POI przetłumaczone na: ${newLanguage}`);
+    ceLog(`✅ POI przetłumaczone na: ${newLanguage}`);
   }
 });
 
-console.log('🔵 POI Loader V2 - GOTOWY');
+ceLog('🔵 POI Loader V2 - GOTOWY');

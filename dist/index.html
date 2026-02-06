@@ -46,6 +46,8 @@
   <link rel="alternate" hreflang="x-default" href="https://www.cypruseye.com/index.html" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="preconnect" href="https://daoohnbnnowmmcizgvrq.supabase.co" crossorigin />
+  <link rel="preconnect" href="https://unpkg.com" crossorigin />
   <link
     rel="preload"
     as="style"
@@ -737,7 +739,7 @@
   
   <!-- Leaflet - załaduj bezpośrednio jako fallback -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin="" defer></script>
   
   <!-- Awaryjny skrypt inicjalizacji mapy -->
   <!-- Fallback removed - app-core.js handles all initialization -->
@@ -746,7 +748,7 @@
   <!-- Static data as fallback -->
   <script src="js/data-places.js"></script>
   <!-- POI Loader - Dynamic loading from Supabase (defer to wait for supabaseClient) -->
-  <script src="js/poi-loader.js?v=2" defer></script>
+  <script src="js/poi-loader.js?v=3" defer></script>
   <script src="js/data-tasks.js"></script>
   <script src="js/data-packing.js"></script>
   <script src="js/modalUtils.js"></script>
@@ -904,13 +906,13 @@
   <script src="js/saved-catalog.js?v=3" defer></script>
   
   <!-- Home page section scripts (MUST load AFTER languageSwitcher.js for i18n helpers) -->
-  <script src="js/home-trips.js?v=4" defer></script>
-  <script src="js/home-hotels.js?v=5" defer></script>
+  <script src="js/home-trips.js?v=5" defer></script>
+  <script src="js/home-hotels.js?v=6" defer></script>
   <script type="module" src="js/home-recommendations.js?v=5" defer></script>
   <script type="module" src="js/home-cars.js?v=6" defer></script>
   
   <!-- Load core application (defer to wait for poi-loader) -->
-  <script src="js/app-core.js?v=7" defer></script>
+  <script src="js/app-core.js?v=8" defer></script>
   <!-- SOS Emergency Modal -->
   <script src="js/sos.js?v=1" defer></script>
   <!-- Header Stats - aktualizacja statystyk na wszystkich stronach -->
@@ -918,7 +920,7 @@
   <!-- Community UI (module) for comments/ratings modal on this page -->
   <script type="module" src="js/community/ui.js?v=1"></script>
   <!-- Bridge to sync list, panel and map on the homepage -->
-  <script src="js/home-community-bridge.js?v=2" defer></script>
+  <script src="js/home-community-bridge.js?v=3" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
 
 

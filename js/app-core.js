@@ -3,39 +3,49 @@
  * Całkowicie przebudowana funkcjonalność dla mapy niezależna od panelu
  */
 
-console.log('🔵 App Core V3 - START');
+try {
+  if (typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true') {
+    console.log('🔵 App Core V3 - START');
+  }
+} catch (_) {}
 
 (function() {
   'use strict';
+
+  const CE_DEBUG = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
+  const ceLog = CE_DEBUG ? (...args) => console.log(...args) : () => {};
+
+  const runWhenIdle = (fn, timeout = 2000) => {
+    try {
+      if (typeof window !== 'undefined' && 'requestIdleCallback' in window) {
+        window.requestIdleCallback(() => {
+          try { fn(); } catch (_) {}
+        }, { timeout });
+        return;
+      }
+    } catch (_) {}
+    setTimeout(() => {
+      try { fn(); } catch (_) {}
+    }, 1);
+  };
 
   // Globalne zmienne mapy
   let mapInstance = null;
   let markersLayer = null;
   let userLocationMarker = null;
   let userLocationWatchId = null;
+  let poisListenerAttached = false;
+  let locationsListenerAttached = false;
   
-  /**
-   * Czeka na PLACES_DATA z Supabase
-   */
-  async function waitForPlacesData() {
-    console.log('⏳ Czekam na PLACES_DATA z Supabase...');
-    
-    for (let i = 0; i < 100; i++) {
-      if (window.PLACES_DATA && Array.isArray(window.PLACES_DATA) && window.PLACES_DATA.length > 0) {
-        console.log(`✅ PLACES_DATA gotowe: ${window.PLACES_DATA.length} POI z Supabase`);
-        console.log('📍 Przykładowe ID:', window.PLACES_DATA.slice(0, 3).map(p => p.id));
-        return window.PLACES_DATA;
-      }
-      await new Promise(resolve => setTimeout(resolve, 100));
+  function getPlacesDataNow() {
+    if (window.PLACES_DATA && Array.isArray(window.PLACES_DATA)) {
+      return window.PLACES_DATA;
     }
-    
-    console.error('❌ PLACES_DATA nie załadowane po 10 sekundach');
-    console.error('→ window.PLACES_DATA:', window.PLACES_DATA);
     return [];
   }
 
   function initializeUserLocation() {
-    console.log('📍 initializeUserLocation() wywołane');
+    ceLog('📍 initializeUserLocation() wywołane');
     if (!mapInstance) {
       console.warn('📍 Brak mapInstance - pomijam lokalizację użytkownika');
       return;
@@ -59,12 +69,12 @@ console.log('🔵 App Core V3 - START');
     });
     
     const updatePosition = (lat, lng, accuracy) => {
-      console.log('📍 Aktualizacja pozycji:', lat, lng, '(dokładność:', accuracy, 'm)');
+      ceLog('📍 Aktualizacja pozycji:', lat, lng, '(dokładność:', accuracy, 'm)');
       window.currentUserLocation = { lat, lng, accuracy, timestamp: Date.now() };
       const latLng = [lat, lng];
       
       if (!userLocationMarker) {
-        console.log('📍 Tworzę marker użytkownika');
+        ceLog('📍 Tworzę marker użytkownika');
         userLocationMarker = L.marker(latLng, { 
           icon: userIcon, 
           zIndexOffset: 10000,
@@ -82,12 +92,12 @@ console.log('🔵 App Core V3 - START');
       }
     };
     
-    console.log('📍 Pobieram lokalizację (niska dokładność najpierw)...');
+    ceLog('📍 Pobieram lokalizację (niska dokładność najpierw)...');
     
     // STRATEGIA: Najpierw szybka, niska dokładność, potem tracking z wysoką
     navigator.geolocation.getCurrentPosition(
       (position) => {
-        console.log('📍 Szybka lokalizacja OK');
+        ceLog('📍 Szybka lokalizacja OK');
         updatePosition(
           position.coords.latitude, 
           position.coords.longitude,
@@ -109,7 +119,7 @@ console.log('🔵 App Core V3 - START');
   function startHighAccuracyTracking(updatePosition) {
     if (userLocationWatchId !== null) return;
     
-    console.log('📍 Uruchamiam tracking wysokiej dokładności...');
+    ceLog('📍 Uruchamiam tracking wysokiej dokładności...');
     userLocationWatchId = navigator.geolocation.watchPosition(
       (position) => {
         updatePosition(
@@ -126,7 +136,7 @@ console.log('🔵 App Core V3 - START');
       },
       { enableHighAccuracy: true, maximumAge: 30000, timeout: 60000 }
     );
-    console.log('📍 Tracking watchId:', userLocationWatchId);
+    ceLog('📍 Tracking watchId:', userLocationWatchId);
   }
   
   // Funkcja komentarzy została usunięta - komentarze dostępne tylko w panelu pod mapą
@@ -135,11 +145,11 @@ console.log('🔵 App Core V3 - START');
    * Inicjalizuje mapę
    */
   async function initializeMap() {
-    console.log('🗺️ Inicjalizuję mapę...');
+    ceLog('🗺️ Inicjalizuję mapę...');
     
     const mapElement = document.getElementById('map');
     if (!mapElement) {
-      console.log('ℹ️ Brak elementu #map na tej stronie');
+      ceLog('ℹ️ Brak elementu #map na tej stronie');
       return;
     }
     
@@ -149,23 +159,13 @@ console.log('🔵 App Core V3 - START');
       return;
     }
     
-    // Czekaj na dane
-    await waitForPlacesData();
-    
-    if (!window.PLACES_DATA || window.PLACES_DATA.length === 0) {
-      console.error('❌ Brak PLACES_DATA - nie mogę dodać markerów');
-      console.error('→ Sprawdź czy są POI w bazie z statusem "published"');
-      console.error('→ Uruchom CHECK_DATABASE.sql w Supabase');
-      return;
-    }
-    
     // Stwórz mapę jeśli nie istnieje
     if (!mapInstance) {
-      console.log('🗺️ Tworzę instancję mapy...');
+      ceLog('🗺️ Tworzę instancję mapy...');
       
       // Sprawdź czy element mapy nie jest już zainicjalizowany
       if (mapElement._leaflet_id) {
-        console.log('⚠️ Mapa już istnieje - używam istniejącej instancji');
+        ceLog('⚠️ Mapa już istnieje - używam istniejącej instancji');
         mapInstance = mapElement._leaflet_map || mapElement._leaflet;
         if (!mapInstance) {
           console.error('❌ Nie mogę odnaleźć instancji mapy!');
@@ -184,37 +184,43 @@ console.log('🔵 App Core V3 - START');
       // Stwórz warstwę dla markerów
       markersLayer = L.layerGroup().addTo(mapInstance);
       
-      console.log('✅ Mapa utworzona');
+      ceLog('✅ Mapa utworzona');
     }
-    
-    // Dodaj markery
-    addMarkers();
-    initializeUserLocation();
+
+    if (!poisListenerAttached) {
+      poisListenerAttached = true;
+      ceLog('📡 Dodaję listener dla poisDataRefreshed');
+      window.addEventListener('poisDataRefreshed', (event) => {
+        ceLog('🔔 Otrzymano event poisDataRefreshed:', event.detail);
+        addMarkers();
+      });
+    }
+
+    // Dodaj markery jeśli dane już są (np. z cache w poi-loader)
+    const placesNow = getPlacesDataNow();
+    if (placesNow.length > 0) {
+      addMarkers();
+    }
+
+    // Lokalizacja użytkownika - odłóż na idle (nieblokujące)
+    runWhenIdle(() => initializeUserLocation());
     
     // Initialize recommendation markers (green)
     if (typeof window.initMapRecommendations === 'function') {
-      window.initMapRecommendations(mapInstance);
+      runWhenIdle(() => window.initMapRecommendations(mapInstance));
     }
-    
-    // Nasłuchuj na refresh
-    console.log('📡 Dodaję listener dla poisDataRefreshed');
-    window.addEventListener('poisDataRefreshed', (event) => {
-      console.log('🔔 Otrzymano event poisDataRefreshed:', event.detail);
-      console.log('🔄 Odświeżam markery...');
-      addMarkers();
-    });
-    
-    console.log('✅ Mapa zainicjalizowana');
+
+    ceLog('✅ Mapa zainicjalizowana');
   }
   
   /**
    * Dodaje markery na mapę - TYLKO dane z Supabase
    */
   function addMarkers() {
-    console.log('📍 Dodaję markery z Supabase...');
-    console.log('   - mapInstance:', mapInstance ? 'OK' : 'NULL');
-    console.log('   - markersLayer:', markersLayer ? 'OK' : 'NULL');
-    console.log('   - PLACES_DATA:', window.PLACES_DATA ? window.PLACES_DATA.length : 'UNDEFINED');
+    ceLog('📍 Dodaję markery z Supabase...');
+    ceLog('   - mapInstance:', mapInstance ? 'OK' : 'NULL');
+    ceLog('   - markersLayer:', markersLayer ? 'OK' : 'NULL');
+    ceLog('   - PLACES_DATA:', window.PLACES_DATA ? window.PLACES_DATA.length : 'UNDEFINED');
     
     if (!mapInstance || !markersLayer) {
       console.error('❌ Mapa nie gotowa');
@@ -222,13 +228,14 @@ console.log('🔵 App Core V3 - START');
     }
     
     if (!window.PLACES_DATA || window.PLACES_DATA.length === 0) {
-      console.error('❌ Brak PLACES_DATA');
+      // Dane jeszcze niegotowe (poi-loader może w tle doładować i wyemituje event)
+      ceLog('ℹ️ Brak PLACES_DATA - markery dodane później');
       return;
     }
     
     // Wyczyść stare markery
     markersLayer.clearLayers();
-    console.log('✅ Wyczyszczono stare markery');
+    ceLog('✅ Wyczyszczono stare markery');
     
     // Custom ikona (niebieski marker)
     const customIcon = L.icon({
@@ -270,7 +277,7 @@ console.log('🔵 App Core V3 - START');
       // Nazwa z Supabase (with i18n support)
       const name = window.getPoiName ? window.getPoiName(poi) : (poi.nameFallback || poi.name || poi.id);
       
-      console.log(`📍 [${index}] Dodaję marker: ${name} (ID: ${poi.id}) [${lat}, ${lng}]`);
+      ceLog(`📍 [${index}] Dodaję marker: ${name} (ID: ${poi.id}) [${lat}, ${lng}]`);
       
       // Stwórz marker
       const marker = L.marker([lat, lng], { icon: customIcon });
@@ -312,7 +319,7 @@ console.log('🔵 App Core V3 - START');
 
       // Kliknięcie markera - sync z panelem pod mapą
       marker.on('click', () => {
-        console.log('🖱️ Kliknięto marker POI:', poi.id);
+        ceLog('🖱️ Kliknięto marker POI:', poi.id);
         // Manually center map with offset
         window.focusPlaceOnMap(poi.id);
         // Update bottom card content
@@ -326,7 +333,7 @@ console.log('🔵 App Core V3 - START');
       addedCount++;
     });
     
-    console.log(`✅ Dodano ${addedCount} markerów z Supabase`);
+    ceLog(`✅ Dodano ${addedCount} markerów z Supabase`);
     if (skippedCount > 0) {
       console.warn(`⚠️ Pominięto ${skippedCount} POI (brak ID lub współrzędnych)`);
     }
@@ -342,19 +349,17 @@ console.log('🔵 App Core V3 - START');
    * Renderuje listę POI pod mapą
    */
   async function renderLocationsList() {
-    console.log('📋 Renderuję listę lokalizacji...');
+    ceLog('📋 Renderuję listę lokalizacji...');
     
     const locationsList = document.getElementById('locationsList');
     if (!locationsList) {
-      console.log('ℹ️ Element #locationsList nie znaleziony');
+      ceLog('ℹ️ Element #locationsList nie znaleziony');
       return;
     }
-    
-    // Czekaj na dane
-    await waitForPlacesData();
-    
-    if (!window.PLACES_DATA || window.PLACES_DATA.length === 0) {
-      locationsList.innerHTML = '<li style="padding: 1rem; color: #666;">Brak dostępnych lokalizacji</li>';
+
+    const placesNow = getPlacesDataNow();
+    if (!placesNow || placesNow.length === 0) {
+      locationsList.innerHTML = '<li style="padding: 1rem; color: #666;">Ładowanie lokalizacji...</li>';
       return;
     }
     
@@ -363,7 +368,7 @@ console.log('🔵 App Core V3 - START');
     
     // Pokaż pierwsze 3 POI
     const previewCount = 3;
-    const poisToShow = window.PLACES_DATA.slice(0, previewCount);
+    const poisToShow = placesNow.slice(0, previewCount);
     
     poisToShow.forEach(poi => {
       const name = window.getPoiName ? window.getPoiName(poi) : (poi.nameFallback || poi.name || poi.id || 'Unnamed');
@@ -383,7 +388,7 @@ console.log('🔵 App Core V3 - START');
       locationsList.appendChild(li);
     });
     
-    console.log(`✅ Lista renderowana: ${poisToShow.length} lokalizacji`);
+    ceLog(`✅ Lista renderowana: ${poisToShow.length} lokalizacji`);
   }
   
   /**
@@ -435,18 +440,25 @@ console.log('🔵 App Core V3 - START');
    * Inicjalizacja główna
    */
   async function initialize() {
-    console.log('🚀 Inicjalizuję aplikację...');
+    ceLog('🚀 Inicjalizuję aplikację...');
     
     // Inicjalizuj mapę
     await initializeMap();
     
     // Renderuj listę POI
     await renderLocationsList();
+
+    if (!locationsListenerAttached) {
+      locationsListenerAttached = true;
+      window.addEventListener('poisDataRefreshed', () => {
+        renderLocationsList();
+      });
+    }
     
     // Przyciski komentarzy na mapie zostały usunięte
     // Komentarze dostępne są tylko w panelu pod mapą
     
-    console.log('✅ Aplikacja zainicjalizowana');
+    ceLog('✅ Aplikacja zainicjalizowana');
   }
   
   // Start po załadowaniu DOM
@@ -456,5 +468,5 @@ console.log('🔵 App Core V3 - START');
     initialize();
   }
   
-  console.log('🔵 App Core V3 - GOTOWY (mapa bez komentarzy, komentarze dostępne w panelu poniżej)');
+  ceLog('🔵 App Core V3 - GOTOWY (mapa bez komentarzy, komentarze dostępne w panelu poniżej)');
 })();

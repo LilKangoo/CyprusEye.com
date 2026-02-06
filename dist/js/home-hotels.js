@@ -7,8 +7,82 @@ let homeHotelsDisplay = [];
 let homeCurrentHotel = null;
 let homeHotelIndex = null;
 
+const CE_DEBUG = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
+const ceLog = CE_DEBUG ? (...args) => console.log(...args) : () => {};
+
+const HOME_HOTELS_CACHE_KEY = 'ce_cache_home_hotels_v1';
+const HOME_HOTELS_CACHE_TTL_MS = 10 * 60 * 1000;
+
+const HOME_HOTEL_AMENITIES_CACHE_KEY = 'ce_cache_hotel_amenities_v1';
+const HOME_HOTEL_AMENITIES_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+
+function readHomeHotelsCache() {
+  try {
+    const raw = localStorage.getItem(HOME_HOTELS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.data)) return null;
+    if (!parsed.at || (Date.now() - parsed.at) > HOME_HOTELS_CACHE_TTL_MS) return null;
+    return parsed.data;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeHomeHotelsCache(data) {
+  try {
+    if (!Array.isArray(data)) return;
+    localStorage.setItem(HOME_HOTELS_CACHE_KEY, JSON.stringify({ at: Date.now(), data }));
+  } catch (_) {}
+}
+
+function readHotelAmenitiesCache() {
+  try {
+    const raw = localStorage.getItem(HOME_HOTEL_AMENITIES_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed.data !== 'object') return null;
+    if (!parsed.at || (Date.now() - parsed.at) > HOME_HOTEL_AMENITIES_CACHE_TTL_MS) return null;
+    return parsed.data;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeHotelAmenitiesCache(map) {
+  try {
+    if (!map || typeof map !== 'object') return;
+    localStorage.setItem(HOME_HOTEL_AMENITIES_CACHE_KEY, JSON.stringify({ at: Date.now(), data: map }));
+  } catch (_) {}
+}
+
+function scheduleHotelsRerenderWhenI18nReady() {
+  if (window.getHotelName) return;
+  let attempts = 0;
+  const tick = () => {
+    attempts += 1;
+    if (window.getHotelName) {
+      if (homeHotelsData && homeHotelsData.length > 0) {
+        renderHomeHotelsTabs();
+        renderHomeHotels();
+      }
+      return;
+    }
+    if (attempts >= 50) return;
+    setTimeout(tick, 100);
+  };
+  setTimeout(tick, 100);
+}
+
 // Amenities cache and helpers
 let hotelAmenitiesMap = {};
+
+try {
+  const cachedAmenities = readHotelAmenitiesCache();
+  if (cachedAmenities && typeof cachedAmenities === 'object') {
+    hotelAmenitiesMap = cachedAmenities;
+  }
+} catch (_) {}
 
 async function loadHotelAmenitiesForDisplay() {
   try {
@@ -20,7 +94,11 @@ async function loadHotelAmenitiesForDisplay() {
     
     if (data) {
       data.forEach(a => { hotelAmenitiesMap[a.code] = a; });
-      console.log('✅ Hotel amenities loaded for display:', Object.keys(hotelAmenitiesMap).length);
+      writeHotelAmenitiesCache(hotelAmenitiesMap);
+      ceLog('✅ Hotel amenities loaded for display:', Object.keys(hotelAmenitiesMap).length);
+      try {
+        if (homeCurrentHotel) renderHotelAmenitiesChips(homeCurrentHotel);
+      } catch (_) {}
     }
   } catch (e) {
     console.warn('Failed to load amenities for display:', e);
@@ -109,18 +187,14 @@ async function prefillHotelFormFromSession(form) {
 
 async function loadHomeHotels(){
   try{
-    // Wait for languageSwitcher to load (with timeout)
-    let attempts = 0;
-    while (!window.getHotelName && attempts < 50) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      attempts++;
+    const cached = readHomeHotelsCache();
+    if (cached && cached.length > 0) {
+      homeHotelsData = cached;
+      renderHomeHotelsTabs();
+      renderHomeHotels();
     }
-    
-    if (!window.getHotelName) {
-      console.warn('⚠️ getHotelName not available after 5s, using fallback');
-    } else {
-      console.log('✅ getHotelName is available');
-    }
+    scheduleHotelsRerenderWhenI18nReady();
+    loadHotelAmenitiesForDisplay();
     
     const { supabase } = await import('./supabaseClient.js');
     if(!supabase) throw new Error('Supabase client not available');
@@ -133,9 +207,7 @@ async function loadHomeHotels(){
       .order('created_at', { ascending: false });
     if(error) throw error;
     homeHotelsData = data || [];
-    
-    // Load amenities for display
-    await loadHotelAmenitiesForDisplay();
+    writeHomeHotelsCache(homeHotelsData);
     
     renderHomeHotelsTabs();
     renderHomeHotels();
@@ -223,7 +295,7 @@ function renderHomeHotels(){
     
     // DEBUG: Log what we're rendering
     if (index === 0) {
-      console.log('🔍 Hotels render debug:', {
+      ceLog('🔍 Hotels render debug:', {
         hasHotelName: !!window.getHotelName,
         currentLang: window.getCurrentLanguage ? window.getCurrentLanguage() : 'unknown',
         hotelTitle: h.title,
@@ -447,18 +519,18 @@ document.addEventListener('DOMContentLoaded', ()=>{
   // Register language change handler (legacy method)
   if (typeof window.registerLanguageChangeHandler === 'function') {
     window.registerLanguageChangeHandler((language) => {
-      console.log('🏨 Hotels: Re-rendering for language:', language);
+      ceLog('🏨 Hotels: Re-rendering for language:', language);
       if (homeHotelsData && homeHotelsData.length > 0) {
         renderHomeHotelsTabs();
         renderHomeHotels();
-        console.log('✅ Hotels re-rendered');
+        ceLog('✅ Hotels re-rendered');
       }
     });
   }
   
   // Direct event listeners (backup - more reliable)
   window.addEventListener('languageChanged', (e) => {
-    console.log('🏨 Hotels: languageChanged event, re-rendering for:', e.detail?.language);
+    ceLog('🏨 Hotels: languageChanged event, re-rendering for:', e.detail?.language);
     if (homeHotelsData && homeHotelsData.length > 0) {
       renderHomeHotelsTabs();
       renderHomeHotels();
@@ -466,7 +538,7 @@ document.addEventListener('DOMContentLoaded', ()=>{
   });
   
   document.addEventListener('wakacjecypr:languagechange', (e) => {
-    console.log('🏨 Hotels: wakacjecypr:languagechange event, re-rendering for:', e.detail?.language);
+    ceLog('🏨 Hotels: wakacjecypr:languagechange event, re-rendering for:', e.detail?.language);
     if (homeHotelsData && homeHotelsData.length > 0) {
       renderHomeHotelsTabs();
       renderHomeHotels();

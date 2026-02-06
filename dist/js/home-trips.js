@@ -7,6 +7,50 @@ let homeTripsDisplay = [];
 let homeCurrentTrip = null;
 let homeCurrentIndex = null;
 
+const CE_DEBUG = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
+const ceLog = CE_DEBUG ? (...args) => console.log(...args) : () => {};
+
+const HOME_TRIPS_CACHE_KEY = 'ce_cache_home_trips_v1';
+const HOME_TRIPS_CACHE_TTL_MS = 10 * 60 * 1000;
+
+function readHomeTripsCache() {
+  try {
+    const raw = localStorage.getItem(HOME_TRIPS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.data)) return null;
+    if (!parsed.at || (Date.now() - parsed.at) > HOME_TRIPS_CACHE_TTL_MS) return null;
+    return parsed.data;
+  } catch (_) {
+    return null;
+  }
+}
+
+function writeHomeTripsCache(data) {
+  try {
+    if (!Array.isArray(data)) return;
+    localStorage.setItem(HOME_TRIPS_CACHE_KEY, JSON.stringify({ at: Date.now(), data }));
+  } catch (_) {}
+}
+
+function scheduleTripsRerenderWhenI18nReady() {
+  if (window.getTripName) return;
+  let attempts = 0;
+  const tick = () => {
+    attempts += 1;
+    if (window.getTripName) {
+      if (homeTripsData && homeTripsData.length > 0) {
+        renderHomeTripsTabs();
+        renderHomeTrips();
+      }
+      return;
+    }
+    if (attempts >= 50) return;
+    setTimeout(tick, 100);
+  };
+  setTimeout(tick, 100);
+}
+
 // Translation helper for trips - reads directly from appI18n.translations
 function tripsT(key, fallback) {
   try {
@@ -84,18 +128,13 @@ async function prefillTripFormFromSession(form) {
 // Load trips from Supabase (exactly like trips.html)
 async function loadHomeTrips() {
   try {
-    // Wait for languageSwitcher to load (with timeout)
-    let attempts = 0;
-    while (!window.getTripName && attempts < 50) {
-      await new Promise(resolve => setTimeout(resolve, 100));
-      attempts++;
+    const cached = readHomeTripsCache();
+    if (cached && cached.length > 0) {
+      homeTripsData = cached;
+      renderHomeTripsTabs();
+      renderHomeTrips();
     }
-    
-    if (!window.getTripName) {
-      console.warn('⚠️ getTripName not available after 5s, using fallback');
-    } else {
-      console.log('✅ getTripName is available');
-    }
+    scheduleTripsRerenderWhenI18nReady();
     
     // Import Supabase client (same as trips.html)
     const { supabase } = await import('/js/supabaseClient.js');
@@ -115,7 +154,8 @@ async function loadHomeTrips() {
     if (error) throw error;
 
     homeTripsData = data || [];
-    console.log('✅ Loaded trips:', homeTripsData.length, homeTripsData);
+    writeHomeTripsCache(homeTripsData);
+    ceLog('✅ Loaded trips:', homeTripsData.length);
     renderHomeTripsTabs();
     renderHomeTrips();
 
@@ -176,9 +216,9 @@ function renderHomeTrips() {
   const displayTrips = filteredTrips;
   homeTripsDisplay = displayTrips;
   
-  console.log('Current city:', homeTripsCurrentCity);
-  console.log('Filtered trips:', filteredTrips.length);
-  console.log('Display trips:', displayTrips.length);
+  ceLog('Current city:', homeTripsCurrentCity);
+  ceLog('Filtered trips:', filteredTrips.length);
+  ceLog('Display trips:', displayTrips.length);
 
   if (displayTrips.length === 0) {
     grid.innerHTML = `
@@ -197,7 +237,7 @@ function renderHomeTrips() {
     
     // DEBUG: Log what we're rendering
     if (index === 0) {
-      console.log('🔍 Trips render debug:', {
+      ceLog('🔍 Trips render debug:', {
         hasTripName: !!window.getTripName,
         currentLang: window.getCurrentLanguage ? window.getCurrentLanguage() : 'unknown',
         tripTitle: trip.title,
@@ -329,7 +369,7 @@ function initHomeTripsTabs() {
       
       // Update current city and re-render
       homeTripsCurrentCity = city;
-      console.log('Filtering by city:', city);
+      ceLog('Filtering by city:', city);
       renderHomeTrips();
     });
   });
@@ -364,18 +404,18 @@ document.addEventListener('DOMContentLoaded', function() {
   // Register language change handler (legacy method)
   if (typeof window.registerLanguageChangeHandler === 'function') {
     window.registerLanguageChangeHandler((language) => {
-      console.log('🗺️ Trips: Re-rendering for language:', language);
+      ceLog('🗺️ Trips: Re-rendering for language:', language);
       if (homeTripsData && homeTripsData.length > 0) {
         renderHomeTripsTabs();
         renderHomeTrips();
-        console.log('✅ Trips re-rendered');
+        ceLog('✅ Trips re-rendered');
       }
     });
   }
   
   // Direct event listeners (backup - more reliable)
   window.addEventListener('languageChanged', (e) => {
-    console.log('🗺️ Trips: languageChanged event, re-rendering for:', e.detail?.language);
+    ceLog('🗺️ Trips: languageChanged event, re-rendering for:', e.detail?.language);
     if (homeTripsData && homeTripsData.length > 0) {
       renderHomeTripsTabs();
       renderHomeTrips();
@@ -383,7 +423,7 @@ document.addEventListener('DOMContentLoaded', function() {
   });
   
   document.addEventListener('wakacjecypr:languagechange', (e) => {
-    console.log('🗺️ Trips: wakacjecypr:languagechange event, re-rendering for:', e.detail?.language);
+    ceLog('🗺️ Trips: wakacjecypr:languagechange event, re-rendering for:', e.detail?.language);
     if (homeTripsData && homeTripsData.length > 0) {
       renderHomeTripsTabs();
       renderHomeTrips();
