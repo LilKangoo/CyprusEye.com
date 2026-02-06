@@ -389,7 +389,10 @@ function initHomeTripsTabs() {
         const isAuthed = !!uid || document.documentElement?.dataset?.authState === 'authenticated';
         if (!isAuthed) {
           try {
-            if (typeof window.openAuthModal === 'function') {
+            const openSavedAuth = window.CE_SAVED_CATALOG && window.CE_SAVED_CATALOG.openAuthModal;
+            if (typeof openSavedAuth === 'function') {
+              openSavedAuth('login');
+            } else if (typeof window.openAuthModal === 'function') {
               window.openAuthModal('login');
             }
           } catch (_) {}

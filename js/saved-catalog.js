@@ -484,6 +484,7 @@
     refreshButtons,
     applyButtonState,
     subscribe,
+    openAuthModal: openAuthModalForSavedCatalog,
     syncForCurrentUser: hydrateFromAuthState,
   };
 })();
