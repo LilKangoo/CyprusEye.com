@@ -22,7 +22,6 @@ function readHomeHotelsCache() {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.data)) return null;
-    if (!parsed.at || (Date.now() - parsed.at) > HOME_HOTELS_CACHE_TTL_MS) return null;
     return parsed.data;
   } catch (_) {
     return null;
@@ -68,8 +67,9 @@ function scheduleHotelsRerenderWhenI18nReady() {
       }
       return;
     }
-    if (attempts >= 50) return;
-    setTimeout(tick, 100);
+    if (attempts >= 300) return;
+    const delay = attempts < 50 ? 100 : 500;
+    setTimeout(tick, delay);
   };
   setTimeout(tick, 100);
 }
@@ -86,7 +86,12 @@ try {
 
 async function loadHotelAmenitiesForDisplay() {
   try {
-    const { supabase } = await import('./supabaseClient.js');
+    const supabase =
+      window.supabase ||
+      window.sb ||
+      window.__SB__ ||
+      (typeof window.getSupabase === 'function' ? window.getSupabase() : null) ||
+      (await import('/js/supabaseClient.js')).supabase;
     const { data } = await supabase
       .from('hotel_amenities')
       .select('code, icon, name_en, name_pl, is_popular')
@@ -196,7 +201,12 @@ async function loadHomeHotels(){
     scheduleHotelsRerenderWhenI18nReady();
     loadHotelAmenitiesForDisplay();
     
-    const { supabase } = await import('./supabaseClient.js');
+    const supabase =
+      window.supabase ||
+      window.sb ||
+      window.__SB__ ||
+      (typeof window.getSupabase === 'function' ? window.getSupabase() : null) ||
+      (await import('/js/supabaseClient.js')).supabase;
     if(!supabase) throw new Error('Supabase client not available');
 
     const { data, error } = await supabase
@@ -371,7 +381,7 @@ function initHomeHotelsTabs(){
 }
 
 // init
-document.addEventListener('DOMContentLoaded', ()=>{
+function initHomeHotels() {
   loadHomeHotels();
   // init carousel arrows for hotels
   const prev = document.querySelector('.home-carousel-container .home-carousel-nav.prev[data-target="#hotelsHomeGrid"]');
@@ -439,8 +449,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
     try{
       btn.disabled=true; btn.textContent='Wysyłanie...';
       
-      // Import Supabase inline (same as trips)
-      const { supabase } = await import('./supabaseClient.js');
+      const supabase =
+        window.supabase ||
+        window.sb ||
+        window.__SB__ ||
+        (typeof window.getSupabase === 'function' ? window.getSupabase() : null) ||
+        (await import('/js/supabaseClient.js')).supabase;
       
       // Build payload from form data
       const fd = new FormData(form);
@@ -544,7 +558,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
       renderHomeHotels();
     }
   });
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initHomeHotels);
+} else {
+  initHomeHotels();
+}
 
 // ----- Modal helpers (1:1 with /hotels) -----
 function nightsBetween(a,b){

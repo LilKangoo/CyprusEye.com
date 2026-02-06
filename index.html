@@ -729,6 +729,11 @@
   <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
 
 
+  <!-- Home page section scripts (early start; will re-render when i18n helpers become available) -->
+  <script src="js/home-trips.js?v=7" defer></script>
+  <script src="js/home-hotels.js?v=8" defer></script>
+
+
   <script src="js/languageSelector.js" defer></script>
   <script src="js/i18n.js" defer></script>
   <script src="js/forms.js" defer></script>
@@ -746,13 +751,13 @@
   
   <!-- Load data files first -->
   <!-- Static data as fallback -->
-  <script src="js/data-places.js"></script>
+  <script src="js/data-places.js" defer></script>
   <!-- POI Loader - Dynamic loading from Supabase (defer to wait for supabaseClient) -->
   <script src="js/poi-loader.js?v=3" defer></script>
-  <script src="js/data-tasks.js"></script>
-  <script src="js/data-packing.js"></script>
-  <script src="js/modalUtils.js"></script>
-  <script src="js/successPopup.js"></script>
+  <script src="js/data-tasks.js" defer></script>
+  <script src="js/data-packing.js" defer></script>
+  <script src="js/modalUtils.js" defer></script>
+  <script src="js/successPopup.js" defer></script>
   
   <!-- Recommendations Detail Modal -->
   <div id="detailModal" class="recommendation-modal" style="display:none" role="dialog" aria-modal="true" aria-labelledby="detailModalTitle">
@@ -898,16 +903,13 @@
   </div>
 
   <!-- Language Switcher - MUST load before other scripts that use getPoiName() -->
-  <script src="js/languageSwitcher.js"></script>
+  <script src="js/languageSwitcher.js" defer></script>
   
   <!-- Global Language Refresh System -->
-  <script src="js/languageRefresh.js"></script>
+  <script src="js/languageRefresh.js" defer></script>
   
   <script src="js/saved-catalog.js?v=3" defer></script>
   
-  <!-- Home page section scripts (MUST load AFTER languageSwitcher.js for i18n helpers) -->
-  <script src="js/home-trips.js?v=5" defer></script>
-  <script src="js/home-hotels.js?v=6" defer></script>
   <script type="module" src="js/home-recommendations.js?v=5" defer></script>
   <script type="module" src="js/home-cars.js?v=6" defer></script>
   

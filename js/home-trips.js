@@ -19,7 +19,6 @@ function readHomeTripsCache() {
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed || !Array.isArray(parsed.data)) return null;
-    if (!parsed.at || (Date.now() - parsed.at) > HOME_TRIPS_CACHE_TTL_MS) return null;
     return parsed.data;
   } catch (_) {
     return null;
@@ -45,8 +44,9 @@ function scheduleTripsRerenderWhenI18nReady() {
       }
       return;
     }
-    if (attempts >= 50) return;
-    setTimeout(tick, 100);
+    if (attempts >= 300) return;
+    const delay = attempts < 50 ? 100 : 500;
+    setTimeout(tick, delay);
   };
   setTimeout(tick, 100);
 }
@@ -137,7 +137,12 @@ async function loadHomeTrips() {
     scheduleTripsRerenderWhenI18nReady();
     
     // Import Supabase client (same as trips.html)
-    const { supabase } = await import('/js/supabaseClient.js');
+    const supabase =
+      window.supabase ||
+      window.sb ||
+      window.__SB__ ||
+      (typeof window.getSupabase === 'function' ? window.getSupabase() : null) ||
+      (await import('/js/supabaseClient.js')).supabase;
     
     if (!supabase) {
       throw new Error('Supabase client not available');
@@ -376,7 +381,7 @@ function initHomeTripsTabs() {
 }
 
 // Initialize when DOM is ready (exactly like trips.html)
-document.addEventListener('DOMContentLoaded', function() {
+function initHomeTrips() {
   loadHomeTrips();
   initHomeTripsTabs();
   // init carousel arrows for trips
@@ -429,7 +434,13 @@ document.addEventListener('DOMContentLoaded', function() {
       renderHomeTrips();
     }
   });
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initHomeTrips);
+} else {
+  initHomeTrips();
+}
 
 // --- Modal logic identical to /trips ---
 function calculateTripPrice(trip, adults, children, hours, days) {
@@ -600,8 +611,7 @@ window.closeTripModal = function(){
   homeCurrentIndex = null;
 };
 
-// Backdrop close
-document.addEventListener('DOMContentLoaded', ()=>{
+function initHomeTripsModalHandlers() {
   const modal = document.getElementById('tripModal');
   if (modal) modal.addEventListener('click', (e)=>{ if (e.target === modal) closeTripModal(); });
 
@@ -641,7 +651,12 @@ document.addEventListener('DOMContentLoaded', ()=>{
     
     try{
       if (btn){ btn.disabled = true; btn.textContent = 'Wysyłanie...'; }
-      const { supabase } = await import('/js/supabaseClient.js');
+      const supabase =
+        window.supabase ||
+        window.sb ||
+        window.__SB__ ||
+        (typeof window.getSupabase === 'function' ? window.getSupabase() : null) ||
+        (await import('/js/supabaseClient.js')).supabase;
       const { error } = await supabase.from('trip_bookings').insert([payload]);
       if (error) throw error;
       
@@ -690,7 +705,13 @@ document.addEventListener('DOMContentLoaded', ()=>{
     const i = Math.min(homeTripsDisplay.length - 1, homeCurrentIndex + 1);
     openTripModalHome(i);
   });
-});
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initHomeTripsModalHandlers);
+} else {
+  initHomeTripsModalHandlers();
+}
 
 function updateModalArrows(){
   const prevBtn = document.getElementById('tripModalPrev');
