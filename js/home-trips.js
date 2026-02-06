@@ -198,9 +198,9 @@ function renderHomeTripsTabs() {
   // Get translated label using tripsT helper
   const allCitiesLabel = tripsT('trips.tabs.allCities', 'Wszystkie miasta');
   
-  const tabs = [`<button class="trips-home-tab active" data-city="all" style="padding:8px 16px;background:#667eea;color:white;border:none;border-radius:20px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.2s;">${allCitiesLabel}</button>`];
+  const tabs = [`<button type="button" class="trips-home-tab ce-home-pill active" data-city="all">${allCitiesLabel}</button>`];
   getTripCities().forEach(city => {
-    tabs.push(`<button class="trips-home-tab" data-city="${city}" style="padding:8px 16px;background:#f3f4f6;color:#374151;border:none;border-radius:20px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.2s;">${city}</button>`);
+    tabs.push(`<button type="button" class="trips-home-tab ce-home-pill" data-city="${city}">${city}</button>`);
   });
   tabsWrap.innerHTML = tabs.join('');
   initHomeTripsTabs();
@@ -374,12 +374,8 @@ function initHomeTripsTabs() {
       // Update active state
       tabs.forEach(t => {
         t.classList.remove('active');
-        t.style.background = '#f3f4f6';
-        t.style.color = '#374151';
       });
       this.classList.add('active');
-      this.style.background = '#667eea';
-      this.style.color = 'white';
       
       // Update current city and re-render
       homeTripsCurrentCity = city;

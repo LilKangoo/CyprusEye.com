@@ -485,6 +485,76 @@ body[data-seo-page="home"] .home-carousel-nav.next { right: 6px; }
   outline-offset: 3px;
 }
 
+.ce-home-pill {
+  --pill-bg: linear-gradient(135deg, rgba(219,234,254,0.95) 0%, rgba(191,219,254,0.9) 100%);
+  --pill-bg-active: linear-gradient(135deg, #1d4ed8 0%, #2563eb 45%, #38bdf8 100%);
+  appearance: none;
+  border: 1px solid rgba(37, 99, 235, 0.22);
+  padding: 8px 16px;
+  background: var(--pill-bg);
+  color: #0f172a;
+  border-radius: 999px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform .2s, box-shadow .2s, background .2s, color .2s, border-color .2s;
+  box-shadow: 0 10px 18px rgba(15, 23, 42, 0.08);
+}
+
+.ce-home-pill:nth-child(6n+1) {
+  --pill-bg: linear-gradient(135deg, rgba(224,242,254,0.96) 0%, rgba(191,219,254,0.88) 100%);
+  --pill-bg-active: linear-gradient(135deg, #1d4ed8 0%, #2563eb 45%, #38bdf8 100%);
+}
+
+.ce-home-pill:nth-child(6n+2) {
+  --pill-bg: linear-gradient(135deg, rgba(219,234,254,0.96) 0%, rgba(186,230,253,0.86) 100%);
+  --pill-bg-active: linear-gradient(135deg, #2563eb 0%, #0ea5e9 55%, #38bdf8 100%);
+}
+
+.ce-home-pill:nth-child(6n+3) {
+  --pill-bg: linear-gradient(135deg, rgba(219,234,254,0.96) 0%, rgba(165,243,252,0.84) 100%);
+  --pill-bg-active: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #22d3ee 100%);
+}
+
+.ce-home-pill:nth-child(6n+4) {
+  --pill-bg: linear-gradient(135deg, rgba(224,231,255,0.96) 0%, rgba(219,234,254,0.86) 100%);
+  --pill-bg-active: linear-gradient(135deg, #1d4ed8 0%, #3b82f6 52%, #60a5fa 100%);
+}
+
+.ce-home-pill:nth-child(6n+5) {
+  --pill-bg: linear-gradient(135deg, rgba(219,234,254,0.96) 0%, rgba(196,181,253,0.78) 100%);
+  --pill-bg-active: linear-gradient(135deg, #1d4ed8 0%, #2563eb 40%, #818cf8 100%);
+}
+
+.ce-home-pill:nth-child(6n) {
+  --pill-bg: linear-gradient(135deg, rgba(224,242,254,0.96) 0%, rgba(186,230,253,0.86) 100%);
+  --pill-bg-active: linear-gradient(135deg, #0ea5e9 0%, #2563eb 55%, #60a5fa 100%);
+}
+
+.ce-home-pill:hover,
+.ce-home-pill:focus-visible {
+  transform: translateY(-1px);
+  border-color: rgba(37, 99, 235, 0.36);
+  box-shadow: 0 16px 26px rgba(37, 99, 235, 0.14);
+}
+
+.ce-home-pill.active {
+  background: var(--pill-bg-active);
+  color: #ffffff;
+  border-color: rgba(255, 255, 255, 0.32);
+  box-shadow: 0 22px 40px rgba(37, 99, 235, 0.28);
+}
+
+.ce-home-pill.active:hover,
+.ce-home-pill.active:focus-visible {
+  box-shadow: 0 28px 52px rgba(37, 99, 235, 0.34);
+}
+
+.ce-home-pill:focus-visible {
+  outline: 3px solid rgba(56, 189, 248, 0.35);
+  outline-offset: 3px;
+}
+
 .recommendation-home-card {
   position: relative;
   height: 200px;

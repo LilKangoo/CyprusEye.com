@@ -67,8 +67,8 @@ function renderHomeCarsTabs() {
   if (!tabsWrap) return;
 
   tabsWrap.innerHTML = [
-    `<button class="recommendations-home-tab ${homeCarsCurrentLocation === 'larnaca' ? 'active' : ''}" type="button" data-location="larnaca">${escapeHtml(text('Larnaka', 'Larnaca'))}</button>`,
-    `<button class="recommendations-home-tab ${homeCarsCurrentLocation === 'paphos' ? 'active' : ''}" type="button" data-location="paphos">${escapeHtml(text('Pafos', 'Paphos'))}</button>`,
+    `<button class="recommendations-home-tab ce-home-pill ${homeCarsCurrentLocation === 'larnaca' ? 'active' : ''}" type="button" data-location="larnaca">${escapeHtml(text('Larnaka', 'Larnaca'))}</button>`,
+    `<button class="recommendations-home-tab ce-home-pill ${homeCarsCurrentLocation === 'paphos' ? 'active' : ''}" type="button" data-location="paphos">${escapeHtml(text('Pafos', 'Paphos'))}</button>`,
   ].join('');
 
   tabsWrap.querySelectorAll('button[data-location]').forEach((btn) => {

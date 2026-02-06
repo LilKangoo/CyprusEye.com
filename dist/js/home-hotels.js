@@ -283,9 +283,9 @@ function renderHomeHotelsTabs(){
   // Get translated label
   const allCitiesLabel = hotelsT('hotels.tabs.allCities', 'Wszystkie miasta');
   
-  const tabs = [`<button class="hotels-home-tab active" data-city="all" style="padding:8px 16px;background:#10b981;color:white;border:none;border-radius:20px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.2s;">${allCitiesLabel}</button>`];
+  const tabs = [`<button type="button" class="hotels-home-tab ce-home-pill active" data-city="all">${allCitiesLabel}</button>`];
   getHotelCities().forEach(c=>{
-    tabs.push(`<button class="hotels-home-tab" data-city="${c}" style="padding:8px 16px;background:#f3f4f6;color:#374151;border:none;border-radius:20px;font-weight:600;cursor:pointer;white-space:nowrap;transition:.2s;">${c}</button>`);
+    tabs.push(`<button type="button" class="hotels-home-tab ce-home-pill" data-city="${c}">${c}</button>`);
   });
   tabsWrap.innerHTML = tabs.join('');
   initHomeHotelsTabs();
@@ -376,10 +376,8 @@ function initHomeHotelsTabs(){
   tabs.forEach(tab=>{
     tab.addEventListener('click', function(){
       const city = this.getAttribute('data-city');
-      tabs.forEach(t=>{ t.classList.remove('active'); t.style.background='#f3f4f6'; t.style.color='#374151'; });
+      tabs.forEach(t=>{ t.classList.remove('active'); });
       this.classList.add('active');
-      this.style.background = '#10b981';
-      this.style.color = 'white';
       homeHotelsCurrentCity = city;
       renderHomeHotels();
     });

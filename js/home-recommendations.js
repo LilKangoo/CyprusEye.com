@@ -162,7 +162,7 @@ function renderCategoryFilters() {
   const allLabel = lang === 'en' ? 'All' : 'Wszystkie';
   const allBtn = document.createElement('button');
   allBtn.type = 'button';
-  allBtn.className = 'recommendations-home-tab' + (!currentCategoryFilter ? ' active' : '');
+  allBtn.className = 'recommendations-home-tab ce-home-pill' + (!currentCategoryFilter ? ' active' : '');
   allBtn.dataset.category = '';
   allBtn.textContent = allLabel;
   allBtn.onclick = () => filterByCategory('');
@@ -177,7 +177,7 @@ function renderCategoryFilters() {
     visibleCount++;
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.className = 'recommendations-home-tab' + (currentCategoryFilter === cat.id ? ' active' : '');
+    btn.className = 'recommendations-home-tab ce-home-pill' + (currentCategoryFilter === cat.id ? ' active' : '');
     btn.dataset.category = cat.id;
     const label =
       lang === 'en'
