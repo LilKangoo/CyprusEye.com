@@ -12,6 +12,7 @@ import { waitForAuthReady } from '/js/authUi.js';
 let allRecommendations = [];
 let allCategories = [];
 let currentCategoryFilter = '';
+let homeRecommendationsSavedOnly = false;
 
 let homeRecCarouselUpdate = null;
 
@@ -23,6 +24,16 @@ document.addEventListener('DOMContentLoaded', () => {
   loadData();
   setupLanguageListener();
   initHomeRecommendationsCarousel();
+
+  try {
+    if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.subscribe === 'function') {
+      window.CE_SAVED_CATALOG.subscribe(() => {
+        if (homeRecommendationsSavedOnly) {
+          renderRecommendations();
+        }
+      });
+    }
+  } catch (_) {}
 });
 
 function initHomeRecommendationsCarousel() {
@@ -113,7 +124,7 @@ async function loadData() {
       .order('featured', { ascending: false })
       .order('display_order', { ascending: true })
       .order('created_at', { ascending: false })
-      .limit(6); // Limit to 6 recommendations on home page
+      .limit(60);
     
     if (recError) throw recError;
     
@@ -187,6 +198,45 @@ function renderCategoryFilters() {
     btn.onclick = () => filterByCategory(cat.id);
     container.appendChild(btn);
   });
+
+  const savedLabel = lang === 'en' ? 'Saved' : 'Zapisane';
+  const savedStar = homeRecommendationsSavedOnly ? '★' : '☆';
+  const savedBtn = document.createElement('button');
+  savedBtn.type = 'button';
+  savedBtn.className = 'recommendations-home-tab ce-home-pill' + (homeRecommendationsSavedOnly ? ' active' : '');
+  savedBtn.dataset.filter = 'saved';
+  savedBtn.setAttribute('aria-pressed', homeRecommendationsSavedOnly ? 'true' : 'false');
+  savedBtn.textContent = `${savedLabel} ${savedStar}`;
+  savedBtn.onclick = () => {
+    const uid = window.CE_STATE?.session?.user?.id ? String(window.CE_STATE.session.user.id) : '';
+    const isAuthed = !!uid || document.documentElement?.dataset?.authState === 'authenticated';
+    if (!isAuthed) {
+      try {
+        if (typeof window.openAuthModal === 'function') {
+          window.openAuthModal('login');
+        }
+      } catch (_) {}
+      return;
+    }
+
+    if (!homeRecommendationsSavedOnly) {
+      try {
+        const syncFn = window.CE_SAVED_CATALOG && window.CE_SAVED_CATALOG.syncForCurrentUser;
+        if (typeof syncFn === 'function') {
+          void Promise.resolve(syncFn()).finally(() => {
+            homeRecommendationsSavedOnly = true;
+            renderCategoryFilters();
+            renderRecommendations();
+          });
+          return;
+        }
+      } catch (_) {}
+    }
+    homeRecommendationsSavedOnly = !homeRecommendationsSavedOnly;
+    renderCategoryFilters();
+    renderRecommendations();
+  };
+  container.appendChild(savedBtn);
   
   console.log('✅ Rendered', visibleCount, 'category filters');
 }
@@ -226,6 +276,19 @@ function renderRecommendations() {
   let filtered = allRecommendations;
   if (currentCategoryFilter) {
     filtered = allRecommendations.filter(r => r.category_id === currentCategoryFilter);
+  }
+
+  if (homeRecommendationsSavedOnly) {
+    const api = window.CE_SAVED_CATALOG;
+    if (api && typeof api.isSaved === 'function') {
+      filtered = filtered.filter(r => api.isSaved('recommendation', String(r?.id || '')));
+    } else {
+      filtered = [];
+    }
+  }
+
+  if (!homeRecommendationsSavedOnly) {
+    filtered = filtered.slice(0, 6);
   }
   
   if (filtered.length === 0) {

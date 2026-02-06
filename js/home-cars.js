@@ -5,6 +5,7 @@ let allHomeCars = [];
 let homeCarsById = {};
 let homeCarsByLocation = { larnaca: [], paphos: [] };
 let homeCarsCurrentLocation = 'larnaca';
+let homeCarsSavedOnly = false;
 
 let homeCarsCarouselUpdate = null;
 let previousBodyCarLocation = null;
@@ -66,9 +67,14 @@ function renderHomeCarsTabs() {
   const tabsWrap = document.getElementById('carsHomeTabs');
   if (!tabsWrap) return;
 
+  const lang = String((window.appI18n && window.appI18n.language) || document.documentElement?.lang || 'pl').toLowerCase();
+  const savedLabel = lang.startsWith('en') ? 'Saved' : 'Zapisane';
+  const savedStar = homeCarsSavedOnly ? '★' : '☆';
+
   tabsWrap.innerHTML = [
     `<button class="recommendations-home-tab ce-home-pill ${homeCarsCurrentLocation === 'larnaca' ? 'active' : ''}" type="button" data-location="larnaca">${escapeHtml(text('Larnaka', 'Larnaca'))}</button>`,
     `<button class="recommendations-home-tab ce-home-pill ${homeCarsCurrentLocation === 'paphos' ? 'active' : ''}" type="button" data-location="paphos">${escapeHtml(text('Pafos', 'Paphos'))}</button>`,
+    `<button class="recommendations-home-tab ce-home-pill ${homeCarsSavedOnly ? 'active' : ''}" type="button" data-filter="saved" aria-pressed="${homeCarsSavedOnly ? 'true' : 'false'}">${escapeHtml(savedLabel)} ${savedStar}</button>`,
   ].join('');
 
   tabsWrap.querySelectorAll('button[data-location]').forEach((btn) => {
@@ -83,13 +89,62 @@ function renderHomeCarsTabs() {
       } catch (_) {}
     });
   });
+
+  const savedBtn = tabsWrap.querySelector('button[data-filter="saved"]');
+  if (savedBtn) {
+    savedBtn.addEventListener('click', () => {
+      const uid = window.CE_STATE?.session?.user?.id ? String(window.CE_STATE.session.user.id) : '';
+      const isAuthed = !!uid || document.documentElement?.dataset?.authState === 'authenticated';
+      if (!isAuthed) {
+        try {
+          if (typeof window.openAuthModal === 'function') {
+            window.openAuthModal('login');
+          }
+        } catch (_) {}
+        return;
+      }
+
+      if (!homeCarsSavedOnly) {
+        try {
+          const syncFn = window.CE_SAVED_CATALOG && window.CE_SAVED_CATALOG.syncForCurrentUser;
+          if (typeof syncFn === 'function') {
+            void Promise.resolve(syncFn()).finally(() => {
+              homeCarsSavedOnly = true;
+              renderHomeCarsTabs();
+              renderHomeCars();
+              try {
+                homeCarsCarouselUpdate?.();
+              } catch (_) {}
+            });
+            return;
+          }
+        } catch (_) {}
+      }
+
+      homeCarsSavedOnly = !homeCarsSavedOnly;
+      renderHomeCarsTabs();
+      renderHomeCars();
+      try {
+        homeCarsCarouselUpdate?.();
+      } catch (_) {}
+    });
+  }
 }
 
 function renderHomeCars() {
   const grid = document.getElementById('carsHomeGrid');
   if (!grid) return;
 
-  const list = homeCarsByLocation[homeCarsCurrentLocation] || [];
+  let list = homeCarsByLocation[homeCarsCurrentLocation] || [];
+
+  if (homeCarsSavedOnly) {
+    const api = window.CE_SAVED_CATALOG;
+    if (api && typeof api.isSaved === 'function') {
+      list = list.filter(car => api.isSaved('car', String(car?.id || '')));
+    } else {
+      list = [];
+    }
+  }
 
   if (!list.length) {
     grid.innerHTML = `
@@ -603,6 +658,19 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+  try {
+    if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.subscribe === 'function') {
+      window.CE_SAVED_CATALOG.subscribe(() => {
+        if (homeCarsSavedOnly) {
+          renderHomeCars();
+          try {
+            homeCarsCarouselUpdate?.();
+          } catch (_) {}
+        }
+      });
+    }
+  } catch (_) {}
 
   if (typeof window.registerLanguageChangeHandler === 'function') {
     window.registerLanguageChangeHandler(() => {

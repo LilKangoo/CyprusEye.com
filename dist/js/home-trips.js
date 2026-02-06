@@ -6,6 +6,7 @@ let homeTripsCurrentCity = 'all';
 let homeTripsDisplay = [];
 let homeCurrentTrip = null;
 let homeCurrentIndex = null;
+let homeTripsSavedOnly = false;
 
 const CE_DEBUG_HOME_TRIPS = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
 function ceLog(...args) {
@@ -197,11 +198,15 @@ function renderHomeTripsTabs() {
   
   // Get translated label using tripsT helper
   const allCitiesLabel = tripsT('trips.tabs.allCities', 'Wszystkie miasta');
+  const lang = String((window.appI18n && window.appI18n.language) || document.documentElement?.lang || 'pl').toLowerCase();
+  const savedLabel = lang.startsWith('en') ? 'Saved' : 'Zapisane';
+  const savedStar = homeTripsSavedOnly ? '★' : '☆';
   
-  const tabs = [`<button type="button" class="trips-home-tab ce-home-pill active" data-city="all">${allCitiesLabel}</button>`];
+  const tabs = [`<button type="button" class="trips-home-tab ce-home-pill${homeTripsCurrentCity === 'all' ? ' active' : ''}" data-city="all">${allCitiesLabel}</button>`];
   getTripCities().forEach(city => {
-    tabs.push(`<button type="button" class="trips-home-tab ce-home-pill" data-city="${city}">${city}</button>`);
+    tabs.push(`<button type="button" class="trips-home-tab ce-home-pill${homeTripsCurrentCity === city ? ' active' : ''}" data-city="${city}">${city}</button>`);
   });
+  tabs.push(`<button type="button" class="trips-home-tab ce-home-pill${homeTripsSavedOnly ? ' active' : ''}" data-filter="saved" aria-pressed="${homeTripsSavedOnly ? 'true' : 'false'}">${savedLabel} ${savedStar}</button>`);
   tabsWrap.innerHTML = tabs.join('');
   initHomeTripsTabs();
 }
@@ -224,6 +229,15 @@ function renderHomeTrips() {
       trip.start_city === homeTripsCurrentCity ||
       trip.start_city === 'All Cities'
     );
+  }
+
+  if (homeTripsSavedOnly) {
+    const api = window.CE_SAVED_CATALOG;
+    if (api && typeof api.isSaved === 'function') {
+      filteredTrips = filteredTrips.filter(trip => api.isSaved('trip', String(trip?.id || '')));
+    } else {
+      filteredTrips = [];
+    }
   }
 
   // Show all trips on home page (carousel arrows handle overflow)
@@ -369,11 +383,47 @@ function initHomeTripsTabs() {
   
   tabs.forEach(tab => {
     tab.addEventListener('click', function() {
+      const filter = this.getAttribute('data-filter');
+      if (filter === 'saved') {
+        const uid = window.CE_STATE?.session?.user?.id ? String(window.CE_STATE.session.user.id) : '';
+        const isAuthed = !!uid || document.documentElement?.dataset?.authState === 'authenticated';
+        if (!isAuthed) {
+          try {
+            if (typeof window.openAuthModal === 'function') {
+              window.openAuthModal('login');
+            }
+          } catch (_) {}
+          return;
+        }
+
+        if (!homeTripsSavedOnly) {
+          try {
+            const syncFn = window.CE_SAVED_CATALOG && window.CE_SAVED_CATALOG.syncForCurrentUser;
+            if (typeof syncFn === 'function') {
+              void Promise.resolve(syncFn()).finally(() => {
+                homeTripsSavedOnly = true;
+                renderHomeTripsTabs();
+                renderHomeTrips();
+              });
+              return;
+            }
+          } catch (_) {}
+        }
+
+        homeTripsSavedOnly = !homeTripsSavedOnly;
+        renderHomeTripsTabs();
+        renderHomeTrips();
+        return;
+      }
+
       const city = this.getAttribute('data-city');
+      if (!city) return;
       
       // Update active state
       tabs.forEach(t => {
-        t.classList.remove('active');
+        if (t.getAttribute('data-city')) {
+          t.classList.remove('active');
+        }
       });
       this.classList.add('active');
       
@@ -389,6 +439,16 @@ function initHomeTripsTabs() {
 function initHomeTrips() {
   loadHomeTrips();
   initHomeTripsTabs();
+
+  try {
+    if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.subscribe === 'function') {
+      window.CE_SAVED_CATALOG.subscribe(() => {
+        if (homeTripsSavedOnly) {
+          renderHomeTrips();
+        }
+      });
+    }
+  } catch (_) {}
   // init carousel arrows for trips
   const prev = document.querySelector('.home-carousel-container .home-carousel-nav.prev[data-target="#tripsHomeGrid"]');
   const next = document.querySelector('.home-carousel-container .home-carousel-nav.next[data-target="#tripsHomeGrid"]');

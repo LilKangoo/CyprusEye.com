@@ -5,7 +5,8 @@ let homeHotelsData = [];
 let homeHotelsCurrentCity = 'all';
 let homeHotelsDisplay = [];
 let homeCurrentHotel = null;
-let homeHotelIndex = null;
+let homeCurrentHotelIndex = null;
+let homeHotelsSavedOnly = false;
 
 const CE_DEBUG_HOME_HOTELS = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
 function ceLog(...args) {
@@ -281,11 +282,15 @@ function renderHomeHotelsTabs(){
   
   // Get translated label
   const allCitiesLabel = hotelsT('hotels.tabs.allCities', 'Wszystkie miasta');
+  const lang = String((window.appI18n && window.appI18n.language) || document.documentElement?.lang || 'pl').toLowerCase();
+  const savedLabel = lang.startsWith('en') ? 'Saved' : 'Zapisane';
+  const savedStar = homeHotelsSavedOnly ? '★' : '☆';
   
-  const tabs = [`<button type="button" class="hotels-home-tab ce-home-pill active" data-city="all">${allCitiesLabel}</button>`];
+  const tabs = [`<button type="button" class="hotels-home-tab ce-home-pill${homeHotelsCurrentCity === 'all' ? ' active' : ''}" data-city="all">${allCitiesLabel}</button>`];
   getHotelCities().forEach(c=>{
-    tabs.push(`<button type="button" class="hotels-home-tab ce-home-pill" data-city="${c}">${c}</button>`);
+    tabs.push(`<button type="button" class="hotels-home-tab ce-home-pill${homeHotelsCurrentCity === c ? ' active' : ''}" data-city="${c}">${c}</button>`);
   });
+  tabs.push(`<button type="button" class="hotels-home-tab ce-home-pill${homeHotelsSavedOnly ? ' active' : ''}" data-filter="saved" aria-pressed="${homeHotelsSavedOnly ? 'true' : 'false'}">${savedLabel} ${savedStar}</button>`);
   tabsWrap.innerHTML = tabs.join('');
   initHomeHotelsTabs();
 }
@@ -297,7 +302,16 @@ function renderHomeHotels(){
   if(homeHotelsCurrentCity !== 'all'){
     list = homeHotelsData.filter(h=>h.city===homeHotelsCurrentCity);
   }
-  const display = list.slice(0,6);
+
+  if (homeHotelsSavedOnly) {
+    const api = window.CE_SAVED_CATALOG;
+    if (api && typeof api.isSaved === 'function') {
+      list = list.filter(h => api.isSaved('hotel', String(h?.id || '')));
+    } else {
+      list = [];
+    }
+  }
+  const display = homeHotelsSavedOnly ? list : list.slice(0,6);
   homeHotelsDisplay = display;
   if(!display.length){
     const emptyText = hotelsT('hotels.empty', 'Brak ofert');
@@ -374,8 +388,42 @@ function initHomeHotelsTabs(){
   const tabs = document.querySelectorAll('.hotels-home-tab');
   tabs.forEach(tab=>{
     tab.addEventListener('click', function(){
+      const filter = this.getAttribute('data-filter');
+      if (filter === 'saved') {
+        const uid = window.CE_STATE?.session?.user?.id ? String(window.CE_STATE.session.user.id) : '';
+        const isAuthed = !!uid || document.documentElement?.dataset?.authState === 'authenticated';
+        if (!isAuthed) {
+          try {
+            if (typeof window.openAuthModal === 'function') {
+              window.openAuthModal('login');
+            }
+          } catch (_) {}
+          return;
+        }
+
+        if (!homeHotelsSavedOnly) {
+          try {
+            const syncFn = window.CE_SAVED_CATALOG && window.CE_SAVED_CATALOG.syncForCurrentUser;
+            if (typeof syncFn === 'function') {
+              void Promise.resolve(syncFn()).finally(() => {
+                homeHotelsSavedOnly = true;
+                renderHomeHotelsTabs();
+                renderHomeHotels();
+              });
+              return;
+            }
+          } catch (_) {}
+        }
+
+        homeHotelsSavedOnly = !homeHotelsSavedOnly;
+        renderHomeHotelsTabs();
+        renderHomeHotels();
+        return;
+      }
+
       const city = this.getAttribute('data-city');
-      tabs.forEach(t=>{ t.classList.remove('active'); });
+      if (!city) return;
+      tabs.forEach(t=>{ if (t.getAttribute('data-city')) t.classList.remove('active'); });
       this.classList.add('active');
       homeHotelsCurrentCity = city;
       renderHomeHotels();
@@ -386,6 +434,16 @@ function initHomeHotelsTabs(){
 // init
 function initHomeHotels() {
   loadHomeHotels();
+
+  try {
+    if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.subscribe === 'function') {
+      window.CE_SAVED_CATALOG.subscribe(() => {
+        if (homeHotelsSavedOnly) {
+          renderHomeHotels();
+        }
+      });
+    }
+  } catch (_) {}
   // init carousel arrows for hotels
   const prev = document.querySelector('.home-carousel-container .home-carousel-nav.prev[data-target="#hotelsHomeGrid"]');
   const next = document.querySelector('.home-carousel-container .home-carousel-nav.next[data-target="#hotelsHomeGrid"]');
