@@ -187,7 +187,45 @@ try {
           L.latLng(34.35, 32.20),
           L.latLng(35.75, 34.60)
         );
-        mapInstance.fitBounds(cyprusBounds, { padding: [18, 18] });
+
+        const fitCyprus = (useMobilePadding = false) => {
+          if (!useMobilePadding) {
+            mapInstance.fitBounds(cyprusBounds, { padding: [18, 18] });
+            return;
+          }
+
+          const cardEl = document.getElementById('currentPlaceSection');
+          const cardH = cardEl ? cardEl.getBoundingClientRect().height : 0;
+          const bottomPad = Math.max(90, Math.min(260, Math.round(cardH * 0.55)));
+          mapInstance.fitBounds(cyprusBounds, {
+            paddingTopLeft: [18, 18],
+            paddingBottomRight: [18, bottomPad],
+          });
+        };
+
+        fitCyprus(false);
+
+        const isMobile = typeof window !== 'undefined'
+          && typeof window.matchMedia === 'function'
+          && window.matchMedia('(max-width: 768px)').matches;
+
+        if (isMobile) {
+          const refit = () => {
+            try { mapInstance.invalidateSize(); } catch (_) {}
+            try { fitCyprus(true); } catch (_) {}
+          };
+
+          try {
+            if (typeof window.requestAnimationFrame === 'function') {
+              window.requestAnimationFrame(() => {
+                window.requestAnimationFrame(refit);
+              });
+            }
+          } catch (_) {}
+
+          setTimeout(refit, 450);
+          setTimeout(refit, 900);
+        }
       } catch (_) {
         try {
           mapInstance.setView([35.095, 33.203], 9);
