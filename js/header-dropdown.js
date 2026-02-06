@@ -89,6 +89,8 @@ function ensureHeaderCartButton() {
   }
 
   let btn = existing;
+
+  const languageGroup = topActions.querySelector('[data-language-toggle]');
   if (!btn) {
     btn = document.createElement('button');
     btn.id = 'btnOpenCart';
@@ -97,8 +99,24 @@ function ensureHeaderCartButton() {
     btn.setAttribute('aria-label', 'Koszyk');
     btn.dataset.i18nAttrs = 'aria-label:shop.cart.aria';
     btn.innerHTML = '🛒 <span id="cartCount" class="cart-count" hidden>0</span>';
+  } else {
+    if (!btn.querySelector('#cartCount')) {
+      const span = document.createElement('span');
+      span.id = 'cartCount';
+      span.className = 'cart-count';
+      span.hidden = true;
+      span.textContent = '0';
+      btn.appendChild(document.createTextNode(' '));
+      btn.appendChild(span);
+    }
+  }
 
-    const languageGroup = topActions.querySelector('[data-language-toggle]');
+  if (languageGroup && btn && btn.parentElement === topActions) {
+    const nextSibling = languageGroup;
+    if (btn.nextElementSibling !== nextSibling) {
+      topActions.insertBefore(btn, languageGroup);
+    }
+  } else if (btn && btn.parentElement !== topActions) {
     if (languageGroup) {
       topActions.insertBefore(btn, languageGroup);
     } else {

@@ -2878,6 +2878,8 @@ textarea:focus-visible {
     min-width: 0;
     padding: 0.5rem 0.4rem !important;
     font-size: 0.75rem !important;
+    width: 100% !important;
+    justify-self: stretch;
   }
 
   .nav-modern__auth {
@@ -2886,6 +2888,13 @@ textarea:focus-visible {
     min-width: 0;
     display: flex !important;
     justify-content: center;
+    width: 100% !important;
+    align-items: stretch;
+  }
+
+  .nav-modern__auth #auth-actions,
+  .nav-modern__auth .auth-actions-inline {
+    width: 100% !important;
   }
 
   .nav-modern__auth .nav-modern__login:not([hidden]),
@@ -2903,6 +2912,7 @@ textarea:focus-visible {
     display: flex !important;
     align-items: center !important;
     justify-content: center !important;
+    gap: 0.35rem;
   }
 
   #btnOpenCart {
@@ -2918,6 +2928,8 @@ textarea:focus-visible {
     background: #f1f5f9;
     border: 1px solid #e2e8f0;
     min-width: 0;
+    width: 100% !important;
+    justify-self: stretch;
   }
 
   #btnOpenCart .cart-count {
