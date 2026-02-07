@@ -10,6 +10,45 @@
 
   const XP_PER_LEVEL = 150;
 
+  function toFiniteNumber(value, fallback) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : fallback;
+  }
+
+  function countVisitedPlaces(value) {
+    if (Array.isArray(value)) {
+      return value.filter(Boolean).length;
+    }
+
+    if (typeof value === 'string') {
+      const trimmed = value.trim();
+      if (!trimmed) {
+        return 0;
+      }
+
+      try {
+        const parsed = JSON.parse(trimmed);
+        if (Array.isArray(parsed)) {
+          return parsed.filter(Boolean).length;
+        }
+      } catch (_) {}
+
+      // Postgres array string like: {"a","b"} or {a,b}
+      if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
+        const inner = trimmed.slice(1, -1).trim();
+        if (!inner) {
+          return 0;
+        }
+        return inner
+          .split(',')
+          .map((part) => String(part).trim().replace(/^"|"$/g, ''))
+          .filter(Boolean).length;
+      }
+    }
+
+    return 0;
+  }
+
   // Local i18n helper for header stats
   function translateHeader(key, params, fallback) {
     // Prefer appI18n (global i18n.js system)
@@ -134,28 +173,25 @@
       return;
     }
 
-    const {
-      xp = 0,
-      level = 1,
-      badges = 0,
-      name = null,
-      avatar_url = null
-    } = stats;
+    const { xp = 0, level = 1, badges = 0, name = null, avatar_url = null } = stats;
+    const xpValue = Math.max(0, toFiniteNumber(xp, 0));
+    const levelValue = Math.max(1, toFiniteNumber(level, 1));
+    const badgesValue = Math.max(0, toFiniteNumber(badges, 0));
 
-    console.log('📈 Aktualizuję statystyki headera:', { xp, level, badges, name });
+    console.log('📈 Aktualizuję statystyki headera:', { xp: xpValue, level: levelValue, badges: badgesValue, name });
 
     // Aktualizuj poziom
     if (el.levelNumber) {
-      el.levelNumber.textContent = String(level);
+      el.levelNumber.textContent = String(levelValue);
     }
 
     // Aktualizuj XP
     if (el.xpPoints) {
-      el.xpPoints.textContent = String(xp);
+      el.xpPoints.textContent = String(xpValue);
     }
 
     // Aktualizuj pasek postępu XP
-    const currentLevelXP = xp % XP_PER_LEVEL;
+    const currentLevelXP = xpValue % XP_PER_LEVEL;
     const progressPercent = Math.max(0, Math.min(100, Math.round((currentLevelXP / XP_PER_LEVEL) * 100)));
     
     if (el.xpFill) {
@@ -169,7 +205,7 @@
 
     // Aktualizuj odznaki
     if (el.badgesCount) {
-      el.badgesCount.textContent = String(badges);
+      el.badgesCount.textContent = String(badgesValue);
     }
 
     // Aktualizuj nazwę użytkownika
@@ -179,8 +215,8 @@
 
     // Aktualizuj status z tłumaczeniem
     if (el.profileStatus) {
-      const defaultStatus = `Level ${level} • ${badges} badges`;
-      const statusText = translateHeader('profile.status', { level, badges }, defaultStatus);
+      const defaultStatus = `Level ${levelValue} • ${badgesValue} badges`;
+      const statusText = translateHeader('profile.status', { level: levelValue, badges: badgesValue }, defaultStatus);
       el.profileStatus.textContent = statusText;
     }
 
@@ -227,23 +263,49 @@
       console.log('👤 Pobieram statystyki użytkownika:', user.id);
 
       // Pobierz profil i odwiedzone miejsca
-      const { data: profile, error: profileError } = await sb
-        .from('profiles')
-        .select('xp, level, name, username, avatar_url, visited_places')
-        .eq('id', user.id)
-        .single();
+      let profile = null;
+      let profileError = null;
+
+      try {
+        const res = await sb
+          .from('profiles')
+          .select('xp, level, name, username, avatar_url, visited_places')
+          .eq('id', user.id)
+          .single();
+        profile = res.data;
+        profileError = res.error;
+      } catch (e) {
+        profileError = e;
+      }
+
+      // Jeśli visited_places ma zły typ / brak uprawnień, spróbuj bez tej kolumny
+      if (profileError) {
+        console.warn('⚠️ Błąd pobierania profilu (spróbuję bez visited_places):', profileError);
+        try {
+          const resFallback = await sb
+            .from('profiles')
+            .select('xp, level, name, username, avatar_url')
+            .eq('id', user.id)
+            .single();
+          profile = resFallback.data;
+          profileError = resFallback.error;
+        } catch (e) {
+          profileError = e;
+        }
+      }
 
       if (profileError) {
         console.error('❌ Błąd pobierania profilu:', profileError);
         return null;
       }
 
-      // Oblicz liczbę odznak z tablicy visited_places
-      const badgesCount = Array.isArray(profile?.visited_places) ? profile.visited_places.length : 0;
+      const badgesCount = countVisitedPlaces(profile?.visited_places);
+      const xpValue = Math.max(0, toFiniteNumber(profile?.xp, 0));
+      const levelValue = Math.max(1, toFiniteNumber(profile?.level, 1));
 
       return {
-        xp: profile?.xp || 0,
-        level: profile?.level || 1,
+        xp: xpValue,
+        level: levelValue,
         badges: badgesCount,
         name: profile?.name || profile?.username || 'Gracz',
         avatar_url: profile?.avatar_url || null,
@@ -278,7 +340,7 @@
             if (!newRow) {
               return;
             }
-            const badgesCount = Array.isArray(newRow.visited_places) ? newRow.visited_places.length : 0;
+            const badgesCount = countVisitedPlaces(newRow.visited_places);
             updateHeaderStats({
               xp: newRow.xp || 0,
               level: newRow.level || 1,
