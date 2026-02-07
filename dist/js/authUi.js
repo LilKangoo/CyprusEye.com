@@ -569,6 +569,9 @@ async function applySession(session, detail = {}) {
   state.profile = null;
   delete state.authError;
 
+  updateAuthUI();
+  ceAuth?.updateSession?.(session, detail);
+
   if (session?.user?.id) {
     try {
       const profile = await loadProfileWithRetry(session.user);
@@ -576,10 +579,9 @@ async function applySession(session, detail = {}) {
     } catch (profileError) {
       console.warn('Nie udało się pobrać profilu użytkownika.', profileError);
     }
-  }
 
-  updateAuthUI();
-  ceAuth?.updateSession?.(session, detail);
+    updateAuthUI();
+  }
   return state.session;
 }
 

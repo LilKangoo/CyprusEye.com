@@ -1,4 +1,4 @@
-import { bootAuth, updateAuthUI } from './authUi.js';
+import { bootAuth, updateAuthUI } from './authUi.js?v=2';
 import { showErr, showInfo, showOk } from './authMessages.js';
 import { loadProfileForUser } from './profile.js';
 import { URLS } from './config.js';
@@ -1029,6 +1029,14 @@ async function handleAuth(result, okMsg, redirectHint) {
 
   hideResendVerification();
   showOk(okMsg);
+
+  const sessionFromResult = result?.data?.session || null;
+  if (sessionFromResult?.user?.id) {
+    setState({ session: sessionFromResult, profile: null, status: 'authenticated' });
+    persistAuthSession(sessionFromResult, null);
+    emitAuthState(window.CE_STATE);
+    updateAuthUI();
+  }
   try {
     await refreshSessionAndProfile();
     updateAuthUI();
@@ -1399,17 +1407,6 @@ export async function refreshSessionAndProfile() {
     console.warn('Nie udało się pobrać sesji Supabase.', error);
   }
 
-  const state = { session, profile: null };
-
-  if (session?.user?.id) {
-    try {
-      state.profile = await loadProfileForUser(session.user);
-    } catch (profileError) {
-      console.warn('Nie udało się pobrać profilu użytkownika.', profileError);
-      state.profile = null;
-    }
-  }
-
   let guestState = null;
   try {
     guestState = window.CE_STATE?.guest ?? null;
@@ -1428,6 +1425,25 @@ export async function refreshSessionAndProfile() {
   } catch {
     guestState = window.CE_STATE?.guest ?? null;
   }
+
+  if (session?.user?.id) {
+    setState({ session, profile: null, status: 'authenticated' });
+    persistAuthSession(session, null);
+    emitAuthState(window.CE_STATE);
+
+    try {
+      const profile = await loadProfileForUser(session.user);
+      setState({ session, profile: profile || null, status: 'authenticated' });
+      persistAuthSession(session, profile || null);
+      emitAuthState(window.CE_STATE);
+    } catch (profileError) {
+      console.warn('Nie udało się pobrać profilu użytkownika.', profileError);
+    }
+
+    return window.CE_STATE;
+  }
+
+  const state = { session, profile: null };
 
   if (!session?.user && guestState?.active) {
     state.guest = guestState;

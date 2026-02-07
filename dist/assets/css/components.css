@@ -2897,6 +2897,10 @@ textarea:focus-visible {
     width: 100% !important;
   }
 
+  .nav-modern__auth .auth-actions-inline {
+    grid-template-columns: 1fr !important;
+  }
+
   .nav-modern__auth .nav-modern__login:not([hidden]),
   .nav-modern__auth .btn.btn-sm:not([hidden]) {
     width: 100% !important;

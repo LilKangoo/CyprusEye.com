@@ -1,4 +1,4 @@
-import { waitForAuthReady, updateAuthUI } from './authUi.js';
+import { waitForAuthReady, updateAuthUI } from './authUi.js?v=2';
 import { refreshSessionAndProfile } from './auth.js';
 import { getMyProfile, updateMyName, updateMyUsername, uploadAvatar, removeAvatar } from './profile.js';
 import { myXpEvents } from './xp.js';
