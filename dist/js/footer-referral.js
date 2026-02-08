@@ -97,8 +97,12 @@ function waitForSupabase(callback, maxAttempts = 20) {
   let attempts = 0;
   const check = () => {
     attempts++;
-    if (window.getSupabase) {
-      callback();
+    if (typeof window.getSupabase === 'function') {
+      try {
+        callback();
+      } catch (e) {
+        console.warn('Footer referral: callback failed', e);
+      }
     } else if (attempts < maxAttempts) {
       setTimeout(check, 250);
     } else {
@@ -132,7 +136,7 @@ function initFooterReferral() {
  */
 async function checkUserAndShowReferral(container, copyBtn, fbBtn) {
   try {
-    const supabase = window.getSupabase();
+    const supabase = typeof window.getSupabase === 'function' ? window.getSupabase() : null;
     if (!supabase) {
       console.log('Footer referral: No supabase client');
       return;
