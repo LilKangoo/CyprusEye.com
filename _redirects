@@ -9,6 +9,7 @@
 /js/*              /js/:splat              200
 /css/*             /css/:splat             200
 /translations/*    /translations/:splat    200
+/favicon.ico       /assets/cyprus_logo-1000x1054.png  301
 /*.js              /:splat                 200
 /*.css             /:splat                 200
 /*.map             /:splat                 200

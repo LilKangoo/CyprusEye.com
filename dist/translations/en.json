@@ -1726,6 +1726,11 @@
       "description": "See the fleet, compare prices, and reserve a car in the dedicated section.",
       "action": "Go to car rental"
     },
+    "plan": {
+      "title": "📅 Planner",
+      "description": "Set up your trip plan.",
+      "action": "Open planner"
+    },
     "trips": {
       "title": "🧭 Trips",
       "description": "Browse trips and make a reservation.",
@@ -2985,6 +2990,11 @@
     },
     "coupon": {
       "title": "Coupon"
+    },
+    "plan": {
+      "title": "Planner",
+      "description": "Set up your trip plan.",
+      "action": "Open planner"
     },
     "trips": {
       "title": "Trips",

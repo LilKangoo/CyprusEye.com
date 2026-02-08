@@ -217,8 +217,7 @@
         "generic": "An error occurred. Please try again.",
         "passwordMismatch": "Passwords do not match"
       }
-    },
-    "statusPlaceholder": "Level 1 • 0 badges"
+    }
   },
   "badges": {
     "landmark": "LANDMARK"
@@ -1729,6 +1728,11 @@
     },
     "coupon": {
       "title": "Coupon"
+    },
+    "plan": {
+      "title": "📅 Planner",
+      "description": "Set up your trip plan.",
+      "action": "Open planner"
     },
     "trips": {
       "title": "🧭 Trips",

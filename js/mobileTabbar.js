@@ -12,8 +12,7 @@
   function initMobileTabbar() {
     const tabbar = document.querySelector('.mobile-tabbar');
     if (!tabbar) {
-      console.warn('Mobile tabbar not found');
-      return;
+      return false;
     }
 
     // Add click handlers to all buttons with data-page-url
@@ -43,6 +42,7 @@
     });
 
     console.log('✅ Mobile tabbar initialized');
+    return true;
   }
 
   /**
@@ -64,14 +64,29 @@
     });
   }
 
+  function initWithRetry(maxAttempts = 25) {
+    let attempts = 0;
+    const attempt = () => {
+      attempts += 1;
+      const initialized = initMobileTabbar();
+      if (initialized) {
+        setActiveButton();
+        return;
+      }
+      if (attempts >= maxAttempts) {
+        return;
+      }
+      window.setTimeout(attempt, 200);
+    };
+    attempt();
+  }
+
   // Initialize when DOM is ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-      initMobileTabbar();
-      setActiveButton();
+      initWithRetry();
     });
   } else {
-    initMobileTabbar();
-    setActiveButton();
+    initWithRetry();
   }
 })();
