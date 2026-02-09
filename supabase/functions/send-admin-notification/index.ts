@@ -1,6 +1,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 import nodemailer from "npm:nodemailer@6.9.11";
+import * as webpush from "jsr:@negrel/webpush@0.5.0";
 
 type Category = "shop" | "cars" | "hotels" | "trips" | "partners";
 
@@ -38,6 +39,152 @@ const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
 const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const CUSTOMER_HOMEPAGE_URL = "https://cypruseye.com";
 const BRAND_LOGO_URL = "https://cypruseye.com/assets/cyprus_logo-1000x1054.png";
+
+let webPushServerPromise: Promise<webpush.ApplicationServer | null> | null = null;
+
+function bytesToBase64Url(bytes: Uint8Array): string {
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    const slice = bytes.subarray(i, i + chunkSize);
+    binary += String.fromCharCode(...slice);
+  }
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/g, "");
+}
+
+function base64UrlToBytes(input: string): Uint8Array {
+  const raw = String(input || "").trim();
+  const b64 = raw.replace(/-/g, "+").replace(/_/g, "/");
+  const padding = "=".repeat((4 - (b64.length % 4)) % 4);
+  const str = atob(b64 + padding);
+  const out = new Uint8Array(str.length);
+  for (let i = 0; i < str.length; i++) out[i] = str.charCodeAt(i);
+  return out;
+}
+
+async function getWebPushApplicationServer(): Promise<webpush.ApplicationServer | null> {
+  if (webPushServerPromise) return await webPushServerPromise;
+
+  webPushServerPromise = (async () => {
+    const publicKey = (Deno.env.get("VAPID_PUBLIC_KEY") || "").trim();
+    const privateKey = (Deno.env.get("VAPID_PRIVATE_KEY") || "").trim();
+    if (!publicKey || !privateKey) return null;
+
+    const pub = base64UrlToBytes(publicKey);
+    const priv = base64UrlToBytes(privateKey);
+
+    if (pub.length !== 65 || pub[0] !== 4) {
+      throw new Error("Invalid VAPID_PUBLIC_KEY format (expected uncompressed P-256 key)");
+    }
+    if (priv.length !== 32) {
+      throw new Error("Invalid VAPID_PRIVATE_KEY format (expected 32 bytes)");
+    }
+
+    const x = pub.subarray(1, 33);
+    const y = pub.subarray(33, 65);
+
+    const exportedKeys: webpush.ExportedVapidKeys = {
+      publicKey: {
+        kty: "EC",
+        crv: "P-256",
+        x: bytesToBase64Url(x),
+        y: bytesToBase64Url(y),
+        ext: true,
+      },
+      privateKey: {
+        kty: "EC",
+        crv: "P-256",
+        x: bytesToBase64Url(x),
+        y: bytesToBase64Url(y),
+        d: bytesToBase64Url(priv),
+        ext: true,
+      },
+    };
+
+    const vapidKeys = await webpush.importVapidKeys(exportedKeys);
+    const contactEmail = (Deno.env.get("ADMIN_PUSH_CONTACT_EMAIL") || "admin@cypruseye.com").trim() || "admin@cypruseye.com";
+    return await webpush.ApplicationServer.new({
+      contactInformation: `mailto:${contactEmail}`,
+      vapidKeys,
+    });
+  })();
+
+  return await webPushServerPromise;
+}
+
+function getDefaultAdminPushUrl(): string {
+  const base = getMailRelayBaseUrl();
+  const normalized = base.endsWith("/") ? base.slice(0, -1) : base;
+  return `${normalized}/admin/`;
+}
+
+async function sendAdminWebPushNotifications(params: {
+  supabase: any;
+  title: string;
+  body: string;
+  url: string;
+}): Promise<{ ok: boolean; sent: number; failed: number; deleted: number; skipped_reason?: string }> {
+  const { supabase, title, body, url } = params;
+
+  let server: webpush.ApplicationServer | null = null;
+  try {
+    server = await getWebPushApplicationServer();
+  } catch (e) {
+    console.warn("Failed to init Web Push server:", (e as any)?.message || String(e));
+    return { ok: false, sent: 0, failed: 0, deleted: 0, skipped_reason: "invalid_vapid_keys" };
+  }
+  if (!server) {
+    return { ok: false, sent: 0, failed: 0, deleted: 0, skipped_reason: "missing_vapid_keys" };
+  }
+
+  const { data: rows, error } = await supabase
+    .from("admin_push_subscriptions")
+    .select("id, endpoint, p256dh, auth, subscription");
+  if (error) {
+    console.warn("Failed to load admin push subscriptions:", error.message);
+    return { ok: false, sent: 0, failed: 0, deleted: 0, skipped_reason: "db_error" };
+  }
+
+  const payload = JSON.stringify({ title, body, url });
+  let sent = 0;
+  let failed = 0;
+  let deleted = 0;
+
+  for (const row of rows || []) {
+    const id = String((row as any)?.id || "").trim();
+    const endpoint = String((row as any)?.endpoint || "").trim();
+    const jsonSub = (row as any)?.subscription && typeof (row as any).subscription === "object" ? (row as any).subscription : null;
+    const p256dh = String((row as any)?.p256dh || "").trim();
+    const auth = String((row as any)?.auth || "").trim();
+
+    const sub = jsonSub || {
+      endpoint,
+      keys: {
+        p256dh,
+        auth,
+      },
+    };
+
+    try {
+      const subscriber = server.subscribe(sub as any);
+      await subscriber.pushTextMessage(payload, { ttl: 60 * 60 });
+      sent++;
+    } catch (e) {
+      failed++;
+      const isGone = e instanceof webpush.PushMessageError ? e.isGone() : false;
+      if (isGone) {
+        try {
+          const delQuery = supabase.from("admin_push_subscriptions").delete();
+          const { error: delErr } = id ? await delQuery.eq("id", id) : await delQuery.eq("endpoint", endpoint);
+          if (!delErr) deleted++;
+        } catch (_e2) {
+        }
+      }
+    }
+  }
+
+  return { ok: true, sent, failed, deleted };
+}
 
 function parseRecipients(raw: string): string[] {
   const parts = (raw || "")
@@ -2642,13 +2789,9 @@ serve(async (req) => {
 
   if (!recipients.length) {
     console.warn(
-      "Admin notification skipped: no recipients configured",
+      "Admin notification email skipped: no recipients configured",
       JSON.stringify({ category: categoryFromBody, record_id: recordId, admin_notification_email: adminNotificationEmailRaw || null }),
     );
-    return new Response(JSON.stringify({ ok: true, skipped: true, reason: "no_admin_notification_email" }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
   }
 
   if (!record) {
@@ -2678,6 +2821,73 @@ serve(async (req) => {
     record,
   });
 
+  const pushBody = (() => {
+    const lines = String(text || "")
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
+    return lines.slice(0, 3).join(" • ");
+  })();
+
+  const pushUrl = buildAdminPanelLink(categoryFromBody, recordId) || getDefaultAdminPushUrl();
+  const pushResult = await sendAdminWebPushNotifications({
+    supabase,
+    title: subject,
+    body: pushBody,
+    url: pushUrl,
+  });
+  const pushDelivered = Boolean(pushResult.ok && pushResult.sent > 0);
+
+  const shouldMarkShopNotificationSent = pushDelivered;
+
+  if (!recipients.length) {
+    if (shouldMarkShopNotificationSent) {
+      if (tableLower === "shop_order_history" && historyRecordId) {
+        try {
+          const { error: markErr } = await supabase
+            .from("shop_order_history")
+            .update({ notification_sent: true, notification_sent_at: new Date().toISOString() })
+            .eq("id", historyRecordId);
+          if (markErr) {
+            console.error("Failed to mark shop_order_history.notification_sent (push):", markErr);
+          }
+        } catch (e) {
+          console.error("Failed to mark shop_order_history.notification_sent (push):", e);
+        }
+      } else if (categoryFromBody === "shop" && event === "paid") {
+        try {
+          const { data: latestRow, error: latestErr } = await supabase
+            .from("shop_order_history")
+            .select("id, notification_sent")
+            .eq("order_id", recordId)
+            .eq("to_status", "confirmed")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+
+          if (latestErr) {
+            console.error("Failed to load latest confirmed shop_order_history row (push):", latestErr);
+          } else if (latestRow && !(latestRow as any).notification_sent) {
+            const { error: markErr } = await supabase
+              .from("shop_order_history")
+              .update({ notification_sent: true, notification_sent_at: new Date().toISOString() })
+              .eq("id", (latestRow as any).id);
+            if (markErr) {
+              console.error("Failed to mark latest shop_order_history.notification_sent (push):", markErr);
+            }
+          }
+        } catch (e) {
+          console.error("Failed to mark latest shop_order_history.notification_sent (push):", e);
+        }
+      }
+    }
+
+    return new Response(JSON.stringify({ ok: true, skipped: true, reason: "no_admin_notification_email", push: pushResult }), {
+      headers: { ...corsHeaders, "Content-Type": "application/json" },
+      status: 200,
+    });
+  }
+
   const transport = buildMailTransport();
   if (!transport) {
     const relayed = await tryRelayEmail({ to: recipients, subject, text, html, secret: secretRequired });
@@ -2695,14 +2905,14 @@ serve(async (req) => {
           console.error("Failed to mark shop_order_history.notification_sent (relay):", e);
         }
       }
-      return new Response(JSON.stringify({ ok: true, relayed: true }), {
+      return new Response(JSON.stringify({ ok: true, relayed: true, push: pushResult }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
     }
     console.warn("SMTP_HOST not set – email will be logged only.");
     console.log(`\n===== Simulated admin notification =====\nTo: ${recipients.join(", ")}\nSubject: ${subject}\n\n${text}\n===== End =====\n`);
-    return new Response(JSON.stringify({ ok: false, simulated: true, relay_error: relayed.error || null }), {
+    return new Response(JSON.stringify({ ok: false, simulated: true, relay_error: relayed.error || null, push: pushResult }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
@@ -2766,7 +2976,7 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true }), {
+    return new Response(JSON.stringify({ ok: true, push: pushResult }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
@@ -2774,12 +2984,12 @@ serve(async (req) => {
     console.error("Failed to send admin notification email:", error);
     const relayed = await tryRelayEmail({ to: recipients, subject, text, html, secret: secretRequired });
     if (relayed.ok) {
-      return new Response(JSON.stringify({ ok: true, relayed: true, smtp_failed: true }), {
+      return new Response(JSON.stringify({ ok: true, relayed: true, smtp_failed: true, push: pushResult }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
     }
-    return new Response(JSON.stringify({ ok: false, simulated: true, smtp_error: (error as any)?.message || "Email send failed", relay_error: relayed.error || null }), {
+    return new Response(JSON.stringify({ ok: false, simulated: true, smtp_error: (error as any)?.message || "Email send failed", relay_error: relayed.error || null, push: pushResult }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });

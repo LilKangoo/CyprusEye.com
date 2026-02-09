@@ -2981,6 +2981,66 @@ select#orderStatusFilter:focus {
   opacity: 0.8;
 }
 
+.admin-pwa-install {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.admin-pwa-install__row {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+
+.admin-pwa-install__status {
+  color: var(--admin-text);
+  font-size: 14px;
+}
+
+.admin-pwa-install__hint {
+  padding: 10px 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--admin-text-muted);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.admin-pwa-update-banner {
+  position: fixed;
+  left: 12px;
+  right: 12px;
+  bottom: 12px;
+  z-index: 10001;
+  background: rgba(15, 23, 42, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  box-shadow: var(--admin-shadow-lg);
+  backdrop-filter: blur(12px);
+}
+
+.admin-pwa-update-banner__inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+}
+
+.admin-pwa-update-banner__text {
+  font-size: 14px;
+  color: var(--admin-text);
+  font-weight: 600;
+}
+
+.admin-pwa-update-banner__btn {
+  white-space: nowrap;
+}
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }

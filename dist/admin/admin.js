@@ -136,6 +136,234 @@ async function loadCalendarsCreateResourceOptions() {
   }
 }
 
+function supportsAdminPushNotifications() {
+  return (
+    typeof window !== 'undefined' &&
+    window.isSecureContext &&
+    'serviceWorker' in navigator &&
+    'PushManager' in window &&
+    'Notification' in window
+  );
+}
+
+function urlBase64ToUint8Array(base64String) {
+  const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+  const rawData = atob(base64);
+  const outputArray = new Uint8Array(rawData.length);
+  for (let i = 0; i < rawData.length; ++i) {
+    outputArray[i] = rawData.charCodeAt(i);
+  }
+  return outputArray;
+}
+
+async function ensureAdminServiceWorkerRegistration() {
+  if (!('serviceWorker' in navigator)) {
+    throw new Error('Service Worker not supported');
+  }
+  if (!window.isSecureContext) {
+    throw new Error('Push requires HTTPS');
+  }
+
+  const existing = await navigator.serviceWorker.getRegistration('/admin/');
+  if (existing) return existing;
+
+  return navigator.serviceWorker.register('/admin/sw.js?v=20260209_2', { scope: '/admin/' });
+}
+
+async function fetchAdminVapidPublicKey() {
+  const client = ensureSupabase();
+  if (!client) throw new Error('Supabase client not available');
+  if (!client.functions || typeof client.functions.invoke !== 'function') {
+    throw new Error('Supabase functions not available');
+  }
+
+  const { data, error } = await client.functions.invoke('get-admin-vapid-public-key', { body: {} });
+  if (error) throw error;
+  const publicKey = String(data?.publicKey || '').trim();
+  if (!publicKey) throw new Error('Missing VAPID public key');
+  return publicKey;
+}
+
+async function upsertAdminPushSubscription(subscription) {
+  const client = ensureSupabase();
+  if (!client) throw new Error('Supabase client not available');
+
+  const userId = String(adminState?.user?.id || '').trim();
+  if (!userId) throw new Error('Not authenticated');
+
+  const json = (subscription && typeof subscription.toJSON === 'function') ? subscription.toJSON() : {};
+  const endpoint = String(json.endpoint || subscription?.endpoint || '').trim();
+  const keys = json.keys || {};
+
+  const payload = {
+    user_id: userId,
+    endpoint,
+    p256dh: String(keys.p256dh || '').trim(),
+    auth: String(keys.auth || '').trim(),
+    subscription: json,
+    user_agent: navigator.userAgent || null,
+    last_seen_at: new Date().toISOString(),
+  };
+
+  const { error } = await client
+    .from('admin_push_subscriptions')
+    .upsert(payload, { onConflict: 'user_id,endpoint' });
+
+  if (error) throw error;
+}
+
+async function deleteAdminPushSubscriptionByEndpoint(endpoint) {
+  const client = ensureSupabase();
+  if (!client) throw new Error('Supabase client not available');
+
+  const userId = String(adminState?.user?.id || '').trim();
+  if (!userId) throw new Error('Not authenticated');
+
+  const ep = String(endpoint || '').trim();
+  if (!ep) return;
+
+  const { error } = await client
+    .from('admin_push_subscriptions')
+    .delete()
+    .eq('user_id', userId)
+    .eq('endpoint', ep);
+
+  if (error) throw error;
+}
+
+async function loadAdminPushNotificationSettings() {
+  const statusEl = document.getElementById('adminPushStatus');
+  const hintEl = document.getElementById('adminPushHint');
+  const btnEnable = document.getElementById('btnAdminEnablePush');
+  const btnDisable = document.getElementById('btnAdminDisablePush');
+
+  if (!statusEl || !btnEnable || !btnDisable) return;
+
+  const setHint = (text) => {
+    if (!hintEl) return;
+    hintEl.textContent = String(text || '');
+  };
+
+  if (!supportsAdminPushNotifications()) {
+    statusEl.textContent = 'Niewspierane';
+    btnEnable.hidden = true;
+    btnDisable.hidden = true;
+    setHint('Twoja przeglądarka/urządzenie nie wspiera Web Push lub strona nie jest na HTTPS.');
+    return;
+  }
+
+  const permission = Notification.permission;
+  if (permission === 'denied') {
+    statusEl.textContent = 'Zablokowane';
+    btnEnable.hidden = true;
+    btnDisable.hidden = true;
+    setHint('Powiadomienia są zablokowane w przeglądarce. Odblokuj je w ustawieniach przeglądarki i odśwież.');
+    return;
+  }
+
+  if (permission !== 'granted') {
+    statusEl.textContent = 'Wyłączone';
+    btnEnable.hidden = false;
+    btnDisable.hidden = true;
+    setHint('Kliknij "Włącz push" aby poprosić o uprawnienia. Na iPhone push działa tylko po instalacji jako aplikacja.');
+    return;
+  }
+
+  try {
+    const reg = await ensureAdminServiceWorkerRegistration();
+    const sub = await reg.pushManager.getSubscription();
+    if (sub) {
+      statusEl.textContent = 'Włączone';
+      btnEnable.hidden = true;
+      btnDisable.hidden = false;
+      setHint('Push jest aktywny na tym urządzeniu.');
+    } else {
+      statusEl.textContent = 'Wyłączone';
+      btnEnable.hidden = false;
+      btnDisable.hidden = true;
+      setHint('Uprawnienia są nadane, ale brak subskrypcji. Kliknij "Włącz push" aby zapisać subskrypcję.');
+    }
+  } catch (e) {
+    statusEl.textContent = 'Błąd';
+    btnEnable.hidden = false;
+    btnDisable.hidden = true;
+    setHint(String(e?.message || 'Błąd inicjalizacji push.'));
+  }
+}
+
+async function enableAdminPushNotifications() {
+  try {
+    if (!supportsAdminPushNotifications()) {
+      showToast('Push nie jest wspierany na tym urządzeniu', 'error');
+      await loadAdminPushNotificationSettings();
+      return;
+    }
+
+    const permission = await Notification.requestPermission();
+    if (permission !== 'granted') {
+      showToast('Brak zgody na powiadomienia', 'error');
+      await loadAdminPushNotificationSettings();
+      return;
+    }
+
+    const reg = await ensureAdminServiceWorkerRegistration();
+    const existing = await reg.pushManager.getSubscription();
+    if (existing) {
+      await upsertAdminPushSubscription(existing);
+      showToast('Push już był włączony (odświeżono subskrypcję)', 'success');
+      await loadAdminPushNotificationSettings();
+      return;
+    }
+
+    const publicKey = await fetchAdminVapidPublicKey();
+    const applicationServerKey = urlBase64ToUint8Array(publicKey);
+    const subscription = await reg.pushManager.subscribe({
+      userVisibleOnly: true,
+      applicationServerKey,
+    });
+
+    await upsertAdminPushSubscription(subscription);
+    showToast('Push włączony', 'success');
+  } catch (e) {
+    console.error('Failed to enable push:', e);
+    showToast(String(e?.message || 'Nie udało się włączyć push'), 'error');
+  } finally {
+    await loadAdminPushNotificationSettings();
+  }
+}
+
+async function disableAdminPushNotifications() {
+  try {
+    if (!supportsAdminPushNotifications()) {
+      await loadAdminPushNotificationSettings();
+      return;
+    }
+
+    const reg = await ensureAdminServiceWorkerRegistration();
+    const sub = await reg.pushManager.getSubscription();
+    if (!sub) {
+      showToast('Push był już wyłączony', 'info');
+      await loadAdminPushNotificationSettings();
+      return;
+    }
+
+    const endpoint = sub.endpoint;
+    try {
+      await sub.unsubscribe();
+    } catch (_e) {
+    }
+
+    await deleteAdminPushSubscriptionByEndpoint(endpoint);
+    showToast('Push wyłączony', 'success');
+  } catch (e) {
+    console.error('Failed to disable push:', e);
+    showToast(String(e?.message || 'Nie udało się wyłączyć push'), 'error');
+  } finally {
+    await loadAdminPushNotificationSettings();
+  }
+}
+
 async function renderPartnerFormPayoutDetails(partnerId) {
   const form = document.getElementById('partnerForm');
   if (!form) return;
@@ -9220,6 +9448,7 @@ function switchView(viewName) {
       break;
     case 'settings':
       loadAdminNotificationSettings();
+      loadAdminPushNotificationSettings();
       break;
   }
 }
@@ -14556,6 +14785,20 @@ function initEventListeners() {
     adminNotificationForm.addEventListener('submit', (e) => {
       e.preventDefault();
       saveAdminNotificationSettings();
+    });
+  }
+
+  const btnEnablePush = document.getElementById('btnAdminEnablePush');
+  if (btnEnablePush) {
+    btnEnablePush.addEventListener('click', () => {
+      enableAdminPushNotifications();
+    });
+  }
+
+  const btnDisablePush = document.getElementById('btnAdminDisablePush');
+  if (btnDisablePush) {
+    btnDisablePush.addEventListener('click', () => {
+      disableAdminPushNotifications();
     });
   }
 

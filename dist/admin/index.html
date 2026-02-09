@@ -6,6 +6,11 @@
   <title>Loading Admin Panel...</title>
   <meta name="robots" content="noindex,nofollow" />
   <link rel="icon" href="/assets/cyprus_logo-1000x1054.png" type="image/png" />
+  <link rel="manifest" href="/admin/manifest.webmanifest?v=20260209_1" />
+  <meta name="theme-color" content="#dc2626" />
+  <link rel="apple-touch-icon" href="/assets/cyprus_logo-1000x1054.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="CyprusEye Admin" />
   
   <style>
     * {
@@ -47,6 +52,8 @@
       color: #9ca3af;
     }
   </style>
+
+  <script src="/admin/admin-pwa.js?v=20260209_2" defer></script>
 </head>
 <body>
   <div class="loader">
@@ -68,7 +75,7 @@
         const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
           auth: {
             persistSession: true,
-            storageKey: 'cypruseye-auth',
+            storageKey: 'sb-daoohnbnnowmmcizgvrq-auth-token',
             storage: window.localStorage
           }
         });
