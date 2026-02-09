@@ -306,6 +306,127 @@ function getLocalizedField(item, fieldName) {
   return item[fieldName] || '';
 }
 
+function normalizeImageList(value) {
+  if (!value) return [];
+  if (Array.isArray(value)) {
+    return value
+      .map((entry) => {
+        if (!entry) return '';
+        if (typeof entry === 'string') return entry.trim();
+        if (typeof entry === 'object') {
+          const url = entry.url || entry.publicUrl || entry.src;
+          return url ? String(url).trim() : '';
+        }
+        return String(entry).trim();
+      })
+      .filter(Boolean);
+  }
+  return [];
+}
+
+function getProductThumbnailUrl(product) {
+  if (!product) return '';
+  const direct = typeof product.thumbnail_url === 'string' ? product.thumbnail_url.trim() : '';
+  if (direct) return direct;
+  const list = normalizeImageList(product.images);
+  return list[0] || '';
+}
+
+function buildProductImageGallery(product, variants, selectedVariant) {
+  const urls = [];
+  const push = (url) => {
+    const normalized = url ? String(url).trim() : '';
+    if (!normalized) return;
+    if (!urls.includes(normalized)) urls.push(normalized);
+  };
+
+  push(selectedVariant?.image_url);
+  push(getProductThumbnailUrl(product));
+  normalizeImageList(product?.images).forEach(push);
+  (variants || []).forEach((v) => push(v?.image_url));
+
+  return urls;
+}
+
+function escapeWithLineBreaks(text) {
+  const raw = text == null ? '' : String(text);
+  return escapeHtml(raw).replace(/\r\n|\r|\n/g, '<br>');
+}
+
+const shopLightboxState = {
+  images: [],
+  index: 0,
+};
+
+function ensureShopLightbox() {
+  let root = document.getElementById('shopImageLightbox');
+  if (root) return root;
+
+  root = document.createElement('div');
+  root.id = 'shopImageLightbox';
+  root.className = 'shop-lightbox';
+  root.hidden = true;
+  root.innerHTML = `
+    <div class="shop-lightbox__backdrop" data-lightbox-close></div>
+    <div class="shop-lightbox__dialog" role="dialog" aria-modal="true">
+      <button type="button" class="shop-lightbox__close" aria-label="Close" data-lightbox-close>×</button>
+      <button type="button" class="shop-lightbox__nav shop-lightbox__nav--prev" aria-label="Previous" data-lightbox-prev>‹</button>
+      <img class="shop-lightbox__img" alt="" />
+      <button type="button" class="shop-lightbox__nav shop-lightbox__nav--next" aria-label="Next" data-lightbox-next>›</button>
+    </div>
+  `;
+  document.body.appendChild(root);
+
+  const close = () => closeShopLightbox();
+  root.querySelectorAll('[data-lightbox-close]').forEach((el) => {
+    el.addEventListener('click', close);
+  });
+  root.querySelector('[data-lightbox-prev]')?.addEventListener('click', () => stepShopLightbox(-1));
+  root.querySelector('[data-lightbox-next]')?.addEventListener('click', () => stepShopLightbox(1));
+  document.addEventListener('keydown', (e) => {
+    if (root.hidden) return;
+    if (e.key === 'Escape') close();
+    if (e.key === 'ArrowLeft') stepShopLightbox(-1);
+    if (e.key === 'ArrowRight') stepShopLightbox(1);
+  });
+
+  return root;
+}
+
+function renderShopLightbox() {
+  const root = ensureShopLightbox();
+  const img = root.querySelector('.shop-lightbox__img');
+  const url = shopLightboxState.images[shopLightboxState.index] || '';
+  if (img) img.src = url;
+}
+
+function openShopLightbox(images, index = 0) {
+  const root = ensureShopLightbox();
+  shopLightboxState.images = Array.isArray(images) ? images : [];
+  shopLightboxState.index = Math.max(0, Math.min(index, shopLightboxState.images.length - 1));
+  renderShopLightbox();
+  root.hidden = false;
+  document.body.style.overflow = 'hidden';
+}
+
+function closeShopLightbox() {
+  const root = document.getElementById('shopImageLightbox');
+  if (!root) return;
+  root.hidden = true;
+  const productModal = document.getElementById('productModal');
+  if (!productModal || productModal.hidden) {
+    document.body.style.overflow = '';
+  }
+}
+
+function stepShopLightbox(delta) {
+  if (!shopLightboxState.images.length) return;
+  const next = shopLightboxState.index + delta;
+  const max = shopLightboxState.images.length - 1;
+  shopLightboxState.index = next < 0 ? max : next > max ? 0 : next;
+  renderShopLightbox();
+}
+
 function getUrlCategorySlug() {
   try {
     const url = new URL(window.location.href);
@@ -1690,12 +1811,13 @@ function renderProducts() {
     const isInStock = !product.track_inventory || product.stock_quantity > 0;
     const productName = getLocalizedField(product, 'name');
     const categoryName = product.category ? getLocalizedField(product.category, 'name') : '';
+    const thumbnailUrl = getProductThumbnailUrl(product);
 
     return `
       <article class="product-card" data-product-id="${product.id}">
         <div class="product-card-image">
-          ${product.thumbnail_url 
-            ? `<img src="${product.thumbnail_url}" alt="${escapeHtml(productName)}" loading="lazy">`
+          ${thumbnailUrl 
+            ? `<img src="${thumbnailUrl}" alt="${escapeHtml(productName)}" loading="lazy">`
             : `<div class="product-card-placeholder">
                 <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                   <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
@@ -1806,6 +1928,9 @@ async function openProductModal(productId) {
   const variants = await loadProductVariants(productId);
   const selectedVariant = variants.find(v => v.is_default) || variants[0] || null;
 
+  const gallery = buildProductImageGallery(product, variants, selectedVariant);
+  const selectedImageUrl = selectedVariant?.image_url || getProductThumbnailUrl(product) || gallery[0] || '';
+
   const basePrice = parseFloat(product.price);
   const baseCompareAt = product.compare_at_price ? parseFloat(product.compare_at_price) : null;
 
@@ -1861,19 +1986,31 @@ async function openProductModal(productId) {
     return `<option value="${v.id}" ${selected}>${escapeHtml(label)}</option>`;
   }).join('');
 
+  const thumbsHtml = gallery.length > 1
+    ? `<div class="product-detail-thumbs" id="productModalThumbs">
+        ${gallery.map((url, idx) => {
+          const active = url === selectedImageUrl ? ' is-active' : '';
+          return `<button type="button" class="product-detail-thumb${active}" data-index="${idx}" aria-label="Image ${idx + 1}"><img src="${escapeHtml(url)}" alt="" loading="lazy"></button>`;
+        }).join('')}
+      </div>`
+    : '';
+
   content.innerHTML = `
-    <div class="product-detail">
-      <div class="product-detail-image" id="productModalImage">
-        ${(selectedVariant?.image_url || product.thumbnail_url)
-          ? `<img src="${selectedVariant?.image_url || product.thumbnail_url}" alt="${escapeHtml(productName)}">`
-          : `<div class="product-card-placeholder" style="height: 100%; display: flex; align-items: center; justify-content: center;">
-              <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
-                <circle cx="8.5" cy="8.5" r="1.5"/>
-                <polyline points="21 15 16 10 5 21"/>
-              </svg>
-            </div>`
-        }
+    <div class="product-detail" data-gallery-count="${gallery.length}">
+      <div class="product-detail-gallery">
+        <div class="product-detail-image" id="productModalImage" role="button" tabindex="0">
+          ${selectedImageUrl
+            ? `<img id="productModalMainImage" src="${escapeHtml(selectedImageUrl)}" alt="${escapeHtml(productName)}">`
+            : `<div class="product-card-placeholder" style="height: 100%; display: flex; align-items: center; justify-content: center;">
+                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                  <circle cx="8.5" cy="8.5" r="1.5"/>
+                  <polyline points="21 15 16 10 5 21"/>
+                </svg>
+              </div>`
+          }
+        </div>
+        ${thumbsHtml}
       </div>
       <div class="product-detail-info">
         ${categoryName ? `<p class="product-detail-category">${escapeHtml(categoryName)}</p>` : ''}
@@ -1882,7 +2019,7 @@ async function openProductModal(productId) {
           <span class="current" id="productModalPriceCurrent">€${selectedPrice.toFixed(2)}</span>
           ${hasDiscount ? `<span class="original" id="productModalPriceOriginal">€${(selectedCompareAt || 0).toFixed(2)}</span>` : '<span class="original" id="productModalPriceOriginal" style="display:none"></span>'}
         </div>
-        ${productDesc ? `<p class="product-detail-description">${escapeHtml(productDesc)}</p>` : ''}
+        ${productDesc ? `<p class="product-detail-description">${escapeWithLineBreaks(productDesc)}</p>` : ''}
         ${product.product_type === 'variable' && variants.length === 0
           ? `<p class="product-detail-stock out-of-stock">${missingVariantsText}</p>`
           : ''
@@ -1945,6 +2082,49 @@ async function openProductModal(productId) {
   const priceOriginalEl = document.getElementById('productModalPriceOriginal');
   const stockEl = document.getElementById('productModalStock');
   const imageEl = document.getElementById('productModalImage');
+  const mainImageEl = document.getElementById('productModalMainImage');
+  const thumbsEl = document.getElementById('productModalThumbs');
+
+  const getGalleryIndexForUrl = (url) => {
+    const normalized = url ? String(url).trim() : '';
+    if (!normalized) return -1;
+
+    const direct = gallery.indexOf(normalized);
+    if (direct >= 0) return direct;
+
+    let abs = normalized;
+    try {
+      abs = new URL(normalized, window.location.href).href;
+    } catch (e) {
+    }
+
+    for (let i = 0; i < gallery.length; i += 1) {
+      const g = gallery[i];
+      if (!g) continue;
+      if (g === abs) return i;
+      try {
+        if (new URL(g, window.location.href).href === abs) return i;
+      } catch (e) {
+      }
+    }
+    return -1;
+  };
+
+  const setActiveThumb = (idx) => {
+    if (!thumbsEl) return;
+    thumbsEl.querySelectorAll('.product-detail-thumb').forEach((btn) => {
+      const current = parseInt(btn.getAttribute('data-index') || '-1', 10);
+      btn.classList.toggle('is-active', current === idx);
+    });
+  };
+
+  const setMainImageByIndex = (idx) => {
+    if (!mainImageEl) return;
+    const url = gallery[idx] || '';
+    if (!url) return;
+    mainImageEl.src = url;
+    setActiveThumb(idx);
+  };
 
   const getSelectedVariant = () => {
     const vid = variantSelect && variantSelect.value ? variantSelect.value : null;
@@ -1993,11 +2173,13 @@ async function openProductModal(productId) {
       }
     }
 
-    if (imageEl) {
-      const newUrl = v?.image_url || product.thumbnail_url || null;
-      if (newUrl) {
-        imageEl.innerHTML = `<img src="${newUrl}" alt="${escapeHtml(productName)}">`;
-      }
+    const newUrl = v?.image_url || getProductThumbnailUrl(product) || null;
+    const idx = getGalleryIndexForUrl(newUrl);
+    if (idx >= 0) {
+      setMainImageByIndex(idx);
+    } else if (newUrl && mainImageEl) {
+      mainImageEl.src = newUrl;
+      setActiveThumb(-1);
     }
 
     if (addBtn) {
@@ -2008,6 +2190,34 @@ async function openProductModal(productId) {
   if (variantSelect) {
     variantSelect.addEventListener('change', () => {
       updateVariantUi();
+    });
+  }
+
+  if (thumbsEl && gallery.length > 1) {
+    thumbsEl.querySelectorAll('.product-detail-thumb[data-index]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const idx = parseInt(btn.getAttribute('data-index') || '0', 10);
+        if (Number.isFinite(idx)) {
+          setMainImageByIndex(idx);
+        }
+      });
+    });
+  }
+
+  const openGalleryLightbox = () => {
+    if (!gallery.length) return;
+    const currentUrl = mainImageEl?.src || gallery[0];
+    const idx = getGalleryIndexForUrl(currentUrl);
+    openShopLightbox(gallery, idx >= 0 ? idx : 0);
+  };
+
+  if (imageEl) {
+    imageEl.addEventListener('click', openGalleryLightbox);
+    imageEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        openGalleryLightbox();
+      }
     });
   }
 
@@ -2022,7 +2232,7 @@ async function openProductModal(productId) {
       const vWeight = v && v.weight !== null && v.weight !== undefined
         ? parseFloat(v.weight)
         : (typeof product.weight === 'number' ? product.weight : parseFloat(product.weight) || 0);
-      const vImage = v?.image_url || product.thumbnail_url || null;
+      const vImage = v?.image_url || getProductThumbnailUrl(product) || null;
       const vName = v ? buildVariantLabel(v) : null;
       addToCart(product.id, qty, v?.id || null, vName, vPrice, vWeight, vImage);
       closeProductModal();
@@ -2071,7 +2281,10 @@ function closeProductModal() {
   const modal = document.getElementById('productModal');
   if (modal) {
     modal.hidden = true;
-    document.body.style.overflow = '';
+    const lightbox = document.getElementById('shopImageLightbox');
+    if (!lightbox || lightbox.hidden) {
+      document.body.style.overflow = '';
+    }
   }
 }
 
@@ -2574,7 +2787,7 @@ function addToCart(productId, quantity = 1, variantId = null, variantName = null
   const price = typeof priceOverride === 'number' ? priceOverride : parseFloat(product.price);
   const thumbnail = imageOverride !== null && imageOverride !== undefined
     ? imageOverride
-    : product.thumbnail_url;
+    : getProductThumbnailUrl(product);
 
   if (existingItem) {
     existingItem.quantity += quantity;
