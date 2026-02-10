@@ -40,8 +40,8 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260209_1"></script>
-  <script src="/admin/admin-pwa.js?v=20260209_2" defer></script>
+  <script type="module" src="/admin/admin.js?v=20260210_1"></script>
+  <script src="/admin/admin-pwa.js?v=20260210_1" defer></script>
 </head>
 <body data-admin-panel="true">
   
@@ -3785,18 +3785,18 @@
         </header>
         <div class="admin-card" style="max-width: 720px;">
           <div class="admin-card-header">
-            <h3>🔔 Powiadomienia e-mail</h3>
-            <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Email admina do powiadomień o nowych rezerwacjach (auta/hotele/wycieczki) oraz opłaconych zamówieniach w sklepie</p>
+            <h3>🔔 Email notifications</h3>
+            <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Admin email for notifications about new bookings (cars/hotels/trips) and paid shop orders.</p>
           </div>
           <div class="admin-card-body">
             <form id="adminNotificationSettingsForm">
               <label class="admin-form-field">
-                <span>Email(e) administratora</span>
-                <input type="text" id="adminNotificationEmail" placeholder="admin@twojadomena.com">
-                <small style="color: var(--admin-text-muted);">Możesz podać kilka adresów, rozdzielając je przecinkami.</small>
+                <span>Admin email address(es)</span>
+                <input type="text" id="adminNotificationEmail" placeholder="admin@yourdomain.com">
+                <small style="color: var(--admin-text-muted);">You can provide multiple addresses separated by commas.</small>
               </label>
               <div style="display: flex; justify-content: flex-end; margin-top: 16px;">
-                <button type="submit" class="btn btn-primary">Zapisz</button>
+                <button type="submit" class="btn btn-primary">Save</button>
               </div>
             </form>
           </div>
@@ -3804,34 +3804,32 @@
 
         <div class="admin-card" style="max-width: 720px; margin-top: 16px;">
           <div class="admin-card-header">
-            <h3>📱 Zainstaluj aplikację</h3>
-            <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Zainstaluj panel admina jako aplikację na telefonie (PWA). Działa online i aktualizuje się do nowej wersji.</p>
+            <h3>📱 Install app</h3>
+            <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Install the admin panel as an app on your phone (PWA). It runs online and updates to the newest version.</p>
           </div>
           <div class="admin-card-body">
             <div class="admin-pwa-install">
               <div class="admin-pwa-install__row">
                 <div class="admin-pwa-install__status">Status: <strong id="adminInstallStatus">—</strong></div>
-                <button type="button" class="btn-secondary" id="btnAdminInstallApp" hidden>Zainstaluj</button>
+                <button type="button" class="btn-secondary" id="btnAdminInstallApp" hidden>Install</button>
               </div>
 
-              <div id="adminIosInstallHint" class="admin-pwa-install__hint" hidden>
-                Na iPhone: otwórz w Safari, kliknij <strong>Share</strong> → <strong>Add to Home Screen</strong>.
-              </div>
+              <div id="adminInstallHint" class="admin-pwa-install__hint" hidden></div>
             </div>
           </div>
         </div>
 
         <div class="admin-card" style="max-width: 720px; margin-top: 16px;">
           <div class="admin-card-header">
-            <h3>🔔 Powiadomienia push</h3>
-            <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Powiadomienia na telefon o nowych rezerwacjach i zamówieniach (wymaga instalacji jako aplikacja na iPhone).</p>
+            <h3>🔔 Push notifications</h3>
+            <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Phone notifications about new bookings and orders (on iPhone, requires installing as an app first).</p>
           </div>
           <div class="admin-card-body">
             <div style="display: grid; gap: 10px;">
               <div style="color: var(--admin-text-muted); font-size: 13px;">Status: <strong id="adminPushStatus">—</strong></div>
               <div style="display: flex; gap: 10px; flex-wrap: wrap;">
-                <button type="button" class="btn btn-primary" id="btnAdminEnablePush">Włącz push</button>
-                <button type="button" class="btn-secondary" id="btnAdminDisablePush" hidden>Wyłącz push</button>
+                <button type="button" class="btn btn-primary" id="btnAdminEnablePush">Enable push</button>
+                <button type="button" class="btn-secondary" id="btnAdminDisablePush" hidden>Disable push</button>
               </div>
               <div id="adminPushHint" style="color: var(--admin-text-muted); font-size: 12px;"></div>
             </div>

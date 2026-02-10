@@ -1,4 +1,4 @@
-const ADMIN_SW_URL = '/admin/sw.js?v=20260209_2';
+const ADMIN_SW_URL = '/admin/sw.js?v=20260210_1';
 
 function isIos() {
   const ua = navigator.userAgent || '';
@@ -53,7 +53,7 @@ function showUpdateBanner(registration) {
 
 function setupInstallUi() {
   const installBtn = document.getElementById('btnAdminInstallApp');
-  const iosHint = document.getElementById('adminIosInstallHint');
+  const hintEl = document.getElementById('adminInstallHint');
   const statusEl = document.getElementById('adminInstallStatus');
 
   let deferredPrompt = null;
@@ -62,26 +62,43 @@ function setupInstallUi() {
     if (statusEl) statusEl.textContent = text;
   };
 
+  const setHint = (html) => {
+    if (!hintEl) return;
+    const v = String(html || '').trim();
+    if (!v) {
+      hintEl.hidden = true;
+      hintEl.innerHTML = '';
+      return;
+    }
+    hintEl.hidden = false;
+    hintEl.innerHTML = v;
+  };
+
   const updateUi = () => {
     const standalone = isStandalone();
 
     if (standalone) {
       if (installBtn) installBtn.hidden = true;
-      if (iosHint) iosHint.hidden = true;
+      setHint('');
       setStatus('Installed');
       return;
     }
 
     if (isIos()) {
       if (installBtn) installBtn.hidden = true;
-      if (iosHint) iosHint.hidden = false;
       setStatus('Not installed');
+      setHint('On iPhone: open in Safari, tap <strong>Share</strong> → <strong>Add to Home Screen</strong>. Then open the app from the Home Screen.');
       return;
     }
 
-    if (installBtn) installBtn.hidden = !deferredPrompt;
-    if (iosHint) iosHint.hidden = true;
     setStatus('Not installed');
+
+    if (installBtn) installBtn.hidden = !deferredPrompt;
+    if (deferredPrompt) {
+      setHint('Tap <strong>Install</strong> to add this app to your device.');
+    } else {
+      setHint('If the install button is unavailable, use your browser menu (e.g. <strong>Install app</strong> / <strong>Add to Home screen</strong>).');
+    }
   };
 
   window.addEventListener('beforeinstallprompt', (e) => {
@@ -97,7 +114,10 @@ function setupInstallUi() {
 
   if (installBtn) {
     installBtn.addEventListener('click', async () => {
-      if (!deferredPrompt) return;
+      if (!deferredPrompt) {
+        updateUi();
+        return;
+      }
       try {
         deferredPrompt.prompt();
         await deferredPrompt.userChoice;
@@ -107,6 +127,19 @@ function setupInstallUi() {
       updateUi();
     });
   }
+
+  try {
+    const mql = window.matchMedia ? window.matchMedia('(display-mode: standalone)') : null;
+    if (mql && typeof mql.addEventListener === 'function') {
+      mql.addEventListener('change', updateUi);
+    }
+  } catch (_e) {
+  }
+
+  window.addEventListener('pageshow', updateUi);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) updateUi();
+  });
 
   updateUi();
 }
