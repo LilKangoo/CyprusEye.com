@@ -180,7 +180,7 @@ async function ensureAdminServiceWorkerRegistration() {
   const existing = await navigator.serviceWorker.getRegistration('/admin/');
   if (existing) return existing;
 
-  return navigator.serviceWorker.register('/admin/sw.js?v=20260210_1', { scope: '/admin/' });
+  return navigator.serviceWorker.register('/admin/sw.js?v=20260210_2', { scope: '/admin/' });
 }
 
 async function fetchAdminVapidPublicKey() {
@@ -190,8 +190,50 @@ async function fetchAdminVapidPublicKey() {
     throw new Error('Supabase functions not available');
   }
 
-  const { data, error } = await client.functions.invoke('get-admin-vapid-public-key', { body: {} });
-  if (error) throw error;
+  let token = '';
+  try {
+    if (client.auth && typeof client.auth.getSession === 'function') {
+      const { data: sessionData } = await client.auth.getSession();
+      token = String(sessionData?.session?.access_token || '').trim();
+    }
+  } catch (_e) {
+  }
+
+  const { data, error, response } = await client.functions.invoke('get-admin-vapid-public-key', {
+    body: {},
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+
+  if (error) {
+    const status = Number(response?.status || 0);
+
+    let bodyText = '';
+    try {
+      bodyText = response ? await response.clone().text() : '';
+    } catch (_e) {
+    }
+
+    let bodyMsg = String(bodyText || '').trim();
+    try {
+      const parsed = bodyMsg ? JSON.parse(bodyMsg) : null;
+      if (parsed && typeof parsed === 'object' && parsed.error) {
+        bodyMsg = String(parsed.error || '').trim();
+      }
+    } catch (_e) {
+    }
+
+    let msg = String(error?.message || 'Failed to fetch VAPID public key');
+    if (status === 401) msg = 'Unauthorized (please sign in again)';
+    if (status === 403) msg = 'Forbidden (admin access required)';
+    if (status === 404) msg = 'Missing Edge Function (not deployed)';
+    if (bodyMsg) msg = bodyMsg;
+
+    console.error('get-admin-vapid-public-key failed', { status, bodyText, error });
+
+    const details = status ? ` (HTTP ${status}${bodyMsg ? `: ${bodyMsg}` : ''})` : '';
+    throw new Error(`${msg}${details}`);
+  }
+
   const publicKey = String(data?.publicKey || '').trim();
   if (!publicKey) throw new Error('Missing VAPID public key');
   return publicKey;
