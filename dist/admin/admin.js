@@ -214,10 +214,13 @@ async function fetchAdminVapidPublicKey() {
     }
 
     let bodyMsg = String(bodyText || '').trim();
+    let parsedBody = null;
+    let bodyMsgFromErrorField = false;
     try {
-      const parsed = bodyMsg ? JSON.parse(bodyMsg) : null;
-      if (parsed && typeof parsed === 'object' && parsed.error) {
-        bodyMsg = String(parsed.error || '').trim();
+      parsedBody = bodyMsg ? JSON.parse(bodyMsg) : null;
+      if (parsedBody && typeof parsedBody === 'object' && parsedBody.error) {
+        bodyMsg = String(parsedBody.error || '').trim();
+        bodyMsgFromErrorField = true;
       }
     } catch (_e) {
     }
@@ -226,7 +229,16 @@ async function fetchAdminVapidPublicKey() {
     if (status === 401) msg = 'Unauthorized (please sign in again)';
     if (status === 403) msg = 'Forbidden (admin access required)';
     if (status === 404) msg = 'Missing Edge Function (not deployed)';
-    if (bodyMsg) msg = bodyMsg;
+
+    // Supabase often returns 404 with { code: "NOT_FOUND", message: "Requested function was not found" }.
+    // Keep the actionable "Missing Edge Function" message for 404, unless the body has an explicit { error } field.
+    const isSupabaseNotFound =
+      status === 404 &&
+      parsedBody &&
+      typeof parsedBody === 'object' &&
+      String(parsedBody.code || '').toUpperCase() === 'NOT_FOUND';
+
+    if (bodyMsg && (status !== 404 || bodyMsgFromErrorField) && !isSupabaseNotFound) msg = bodyMsg;
 
     console.error('get-admin-vapid-public-key failed', { status, bodyText, error });
 
