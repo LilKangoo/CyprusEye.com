@@ -1,5 +1,19 @@
 const ADMIN_SW_URL = '/admin/sw.js?v=20260210_1';
 
+let deferredPrompt = null;
+let notifyInstallUi = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  if (typeof notifyInstallUi === 'function') notifyInstallUi();
+});
+
+window.addEventListener('appinstalled', () => {
+  deferredPrompt = null;
+  if (typeof notifyInstallUi === 'function') notifyInstallUi();
+});
+
 function isIos() {
   const ua = navigator.userAgent || '';
   return /iphone|ipad|ipod/i.test(ua);
@@ -56,8 +70,6 @@ function setupInstallUi() {
   const hintEl = document.getElementById('adminInstallHint');
   const statusEl = document.getElementById('adminInstallStatus');
 
-  let deferredPrompt = null;
-
   const setStatus = (text) => {
     if (statusEl) statusEl.textContent = text;
   };
@@ -101,16 +113,7 @@ function setupInstallUi() {
     }
   };
 
-  window.addEventListener('beforeinstallprompt', (e) => {
-    e.preventDefault();
-    deferredPrompt = e;
-    updateUi();
-  });
-
-  window.addEventListener('appinstalled', () => {
-    deferredPrompt = null;
-    updateUi();
-  });
+  notifyInstallUi = updateUi;
 
   if (installBtn) {
     installBtn.addEventListener('click', async () => {

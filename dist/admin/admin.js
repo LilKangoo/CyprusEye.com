@@ -146,6 +146,18 @@ function supportsAdminPushNotifications() {
   );
 }
 
+function isIosDevice() {
+  const ua = navigator.userAgent || '';
+  return /iphone|ipad|ipod/i.test(ua);
+}
+
+function isStandaloneDisplayMode() {
+  if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+    return true;
+  }
+  return Boolean((navigator).standalone);
+}
+
 function urlBase64ToUint8Array(base64String) {
   const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
   const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
@@ -168,7 +180,7 @@ async function ensureAdminServiceWorkerRegistration() {
   const existing = await navigator.serviceWorker.getRegistration('/admin/');
   if (existing) return existing;
 
-  return navigator.serviceWorker.register('/admin/sw.js?v=20260209_2', { scope: '/admin/' });
+  return navigator.serviceWorker.register('/admin/sw.js?v=20260210_1', { scope: '/admin/' });
 }
 
 async function fetchAdminVapidPublicKey() {
@@ -245,28 +257,38 @@ async function loadAdminPushNotificationSettings() {
     hintEl.textContent = String(text || '');
   };
 
-  if (!supportsAdminPushNotifications()) {
-    statusEl.textContent = 'Niewspierane';
+  const ios = isIosDevice();
+  const standalone = isStandaloneDisplayMode();
+  if (ios && !standalone) {
+    statusEl.textContent = 'Install required';
     btnEnable.hidden = true;
     btnDisable.hidden = true;
-    setHint('Twoja przeglądarka/urządzenie nie wspiera Web Push lub strona nie jest na HTTPS.');
+    setHint('On iPhone, push works only after installing the app (Share → Add to Home Screen) and opening it from the Home Screen.');
+    return;
+  }
+
+  if (!supportsAdminPushNotifications()) {
+    statusEl.textContent = 'Unsupported';
+    btnEnable.hidden = true;
+    btnDisable.hidden = true;
+    setHint('Your browser/device does not support Web Push, or the page is not served over HTTPS.');
     return;
   }
 
   const permission = Notification.permission;
   if (permission === 'denied') {
-    statusEl.textContent = 'Zablokowane';
+    statusEl.textContent = 'Blocked';
     btnEnable.hidden = true;
     btnDisable.hidden = true;
-    setHint('Powiadomienia są zablokowane w przeglądarce. Odblokuj je w ustawieniach przeglądarki i odśwież.');
+    setHint('Notifications are blocked in your browser. Unblock them in browser settings and refresh.');
     return;
   }
 
   if (permission !== 'granted') {
-    statusEl.textContent = 'Wyłączone';
+    statusEl.textContent = 'Disabled';
     btnEnable.hidden = false;
     btnDisable.hidden = true;
-    setHint('Kliknij "Włącz push" aby poprosić o uprawnienia. Na iPhone push działa tylko po instalacji jako aplikacja.');
+    setHint('Click "Enable push" to request permission.');
     return;
   }
 
@@ -274,35 +296,41 @@ async function loadAdminPushNotificationSettings() {
     const reg = await ensureAdminServiceWorkerRegistration();
     const sub = await reg.pushManager.getSubscription();
     if (sub) {
-      statusEl.textContent = 'Włączone';
+      statusEl.textContent = 'Enabled';
       btnEnable.hidden = true;
       btnDisable.hidden = false;
-      setHint('Push jest aktywny na tym urządzeniu.');
+      setHint('Push is active on this device.');
     } else {
-      statusEl.textContent = 'Wyłączone';
+      statusEl.textContent = 'Disabled';
       btnEnable.hidden = false;
       btnDisable.hidden = true;
-      setHint('Uprawnienia są nadane, ale brak subskrypcji. Kliknij "Włącz push" aby zapisać subskrypcję.');
+      setHint('Permission is granted, but there is no subscription yet. Click "Enable push" to subscribe.');
     }
   } catch (e) {
-    statusEl.textContent = 'Błąd';
+    statusEl.textContent = 'Error';
     btnEnable.hidden = false;
     btnDisable.hidden = true;
-    setHint(String(e?.message || 'Błąd inicjalizacji push.'));
+    setHint(String(e?.message || 'Failed to initialize push.'));
   }
 }
 
 async function enableAdminPushNotifications() {
   try {
+    if (isIosDevice() && !isStandaloneDisplayMode()) {
+      showToast('Install required: add to Home Screen and open the app to enable push on iPhone.', 'info');
+      await loadAdminPushNotificationSettings();
+      return;
+    }
+
     if (!supportsAdminPushNotifications()) {
-      showToast('Push nie jest wspierany na tym urządzeniu', 'error');
+      showToast('Push is not supported on this device', 'error');
       await loadAdminPushNotificationSettings();
       return;
     }
 
     const permission = await Notification.requestPermission();
     if (permission !== 'granted') {
-      showToast('Brak zgody na powiadomienia', 'error');
+      showToast('Notification permission was not granted', 'error');
       await loadAdminPushNotificationSettings();
       return;
     }
@@ -311,7 +339,7 @@ async function enableAdminPushNotifications() {
     const existing = await reg.pushManager.getSubscription();
     if (existing) {
       await upsertAdminPushSubscription(existing);
-      showToast('Push już był włączony (odświeżono subskrypcję)', 'success');
+      showToast('Push was already enabled (subscription refreshed)', 'success');
       await loadAdminPushNotificationSettings();
       return;
     }
@@ -324,10 +352,10 @@ async function enableAdminPushNotifications() {
     });
 
     await upsertAdminPushSubscription(subscription);
-    showToast('Push włączony', 'success');
+    showToast('Push enabled', 'success');
   } catch (e) {
     console.error('Failed to enable push:', e);
-    showToast(String(e?.message || 'Nie udało się włączyć push'), 'error');
+    showToast(String(e?.message || 'Failed to enable push'), 'error');
   } finally {
     await loadAdminPushNotificationSettings();
   }
@@ -343,7 +371,7 @@ async function disableAdminPushNotifications() {
     const reg = await ensureAdminServiceWorkerRegistration();
     const sub = await reg.pushManager.getSubscription();
     if (!sub) {
-      showToast('Push był już wyłączony', 'info');
+      showToast('Push was already disabled', 'info');
       await loadAdminPushNotificationSettings();
       return;
     }
@@ -355,10 +383,10 @@ async function disableAdminPushNotifications() {
     }
 
     await deleteAdminPushSubscriptionByEndpoint(endpoint);
-    showToast('Push wyłączony', 'success');
+    showToast('Push disabled', 'success');
   } catch (e) {
     console.error('Failed to disable push:', e);
-    showToast(String(e?.message || 'Nie udało się wyłączyć push'), 'error');
+    showToast(String(e?.message || 'Failed to disable push'), 'error');
   } finally {
     await loadAdminPushNotificationSettings();
   }
@@ -21899,7 +21927,7 @@ async function loadAdminNotificationSettings() {
     if (emailEl) emailEl.value = settings?.admin_notification_email || '';
   } catch (error) {
     console.error('Failed to load admin notification settings:', error);
-    showToast('Błąd ładowania ustawień', 'error');
+    showToast('Failed to load settings', 'error');
   }
 }
 
@@ -21922,10 +21950,10 @@ async function saveAdminNotificationSettings() {
 
     if (error) throw error;
 
-    showToast('Ustawienia zapisane', 'success');
+    showToast('Settings saved', 'success');
   } catch (error) {
     console.error('Failed to save admin notification settings:', error);
-    showToast(`Błąd zapisu: ${error.message}`, 'error');
+    showToast(`Save error: ${error.message}`, 'error');
   }
 }
 
