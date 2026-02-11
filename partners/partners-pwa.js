@@ -70,6 +70,15 @@ function setupInstallUi() {
   const hintEl = document.getElementById('partnerInstallHint');
   const statusEl = document.getElementById('partnerInstallStatus');
 
+  const toast = (message) => {
+    try {
+      if (typeof window.showToast === 'function') {
+        window.showToast(message, 'info', 6000);
+      }
+    } catch (_e) {
+    }
+  };
+
   const setStatus = (text) => {
     if (statusEl) statusEl.textContent = text;
   };
@@ -97,7 +106,7 @@ function setupInstallUi() {
     }
 
     if (isIos()) {
-      if (installBtn) installBtn.hidden = true;
+      if (installBtn) installBtn.hidden = false;
       setStatus('Not installed');
       setHint('On iPhone: open in Safari, tap <strong>Share</strong> → <strong>Add to Home Screen</strong>. Then open the app from the Home Screen.');
       return;
@@ -105,11 +114,11 @@ function setupInstallUi() {
 
     setStatus('Not installed');
 
-    if (installBtn) installBtn.hidden = !deferredPrompt;
+    if (installBtn) installBtn.hidden = false;
     if (deferredPrompt) {
       setHint('Tap <strong>Install</strong> to add this app to your device.');
     } else {
-      setHint('If the install button is unavailable, use your browser menu (e.g. <strong>Install app</strong> / <strong>Add to Home screen</strong>).');
+      setHint('Tap <strong>Install</strong>. If no prompt appears, use your browser menu (e.g. <strong>Install app</strong> / <strong>Add to Home screen</strong>).');
     }
   };
 
@@ -119,6 +128,15 @@ function setupInstallUi() {
     installBtn.addEventListener('click', async () => {
       if (!deferredPrompt) {
         updateUi();
+        if (isIos()) {
+          toast('On iPhone: open in Safari → Share → Add to Home Screen.');
+        } else {
+          toast('If no install prompt appears, use your browser menu: “Install app” / “Add to Home screen”.');
+        }
+        try {
+          if (hintEl) hintEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        } catch (_e) {
+        }
         return;
       }
       try {
