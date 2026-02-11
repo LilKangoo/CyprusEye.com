@@ -174,6 +174,11 @@
     partnerProfilePayoutIban: null,
     partnerProfilePayoutBic: null,
     partnerProfilePayoutNotes: null,
+
+    partnerPushStatus: null,
+    partnerPushHint: null,
+    btnPartnerEnablePush: null,
+    btnPartnerDisablePush: null,
   };
 
   const USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])$/i;
@@ -543,6 +548,319 @@
       return;
     }
     console.log(type || 'info', message);
+  }
+
+  function supportsPartnerPushNotifications() {
+    return (
+      typeof window !== 'undefined' &&
+      window.isSecureContext &&
+      'serviceWorker' in navigator &&
+      'PushManager' in window &&
+      'Notification' in window
+    );
+  }
+
+  function isIosDevice() {
+    const ua = navigator.userAgent || '';
+    return /iphone|ipad|ipod/i.test(ua);
+  }
+
+  function isStandaloneDisplayMode() {
+    if (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) {
+      return true;
+    }
+    return Boolean((navigator).standalone);
+  }
+
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (String(base64String || '') + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    const outputArray = new Uint8Array(rawData.length);
+    for (let i = 0; i < rawData.length; ++i) {
+      outputArray[i] = rawData.charCodeAt(i);
+    }
+    return outputArray;
+  }
+
+  async function ensurePartnersServiceWorkerRegistration() {
+    if (!('serviceWorker' in navigator)) {
+      throw new Error('Service Worker not supported');
+    }
+    if (!window.isSecureContext) {
+      throw new Error('Push requires HTTPS');
+    }
+
+    const existing = await navigator.serviceWorker.getRegistration('/partners/');
+    if (existing) return existing;
+
+    return navigator.serviceWorker.register('/partners/sw.js', { scope: '/partners/' });
+  }
+
+  async function fetchPartnerVapidPublicKey() {
+    if (!state.sb) throw new Error('Supabase client not available');
+    if (!state.sb.functions || typeof state.sb.functions.invoke !== 'function') {
+      throw new Error('Supabase functions not available');
+    }
+
+    const token = String(state.session?.access_token || '').trim();
+
+    const { data, error, response } = await state.sb.functions.invoke('get-partner-vapid-public-key', {
+      body: {},
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+
+    if (error) {
+      const status = Number(response?.status || 0);
+
+      let bodyText = '';
+      try {
+        bodyText = response ? await response.clone().text() : '';
+      } catch (_e) {
+      }
+
+      let bodyMsg = String(bodyText || '').trim();
+      let parsedBody = null;
+      let bodyMsgFromErrorField = false;
+      try {
+        parsedBody = bodyMsg ? JSON.parse(bodyMsg) : null;
+        if (parsedBody && typeof parsedBody === 'object' && parsedBody.error) {
+          bodyMsg = String(parsedBody.error || '').trim();
+          bodyMsgFromErrorField = true;
+        }
+      } catch (_e) {
+      }
+
+      let msg = String(error?.message || 'Failed to fetch VAPID public key');
+      if (status === 401) msg = 'Unauthorized (please sign in again)';
+      if (status === 403) msg = 'Forbidden (partner access required)';
+      if (status === 404) msg = 'Missing Edge Function (not deployed)';
+
+      const isSupabaseNotFound =
+        status === 404 &&
+        parsedBody &&
+        typeof parsedBody === 'object' &&
+        String(parsedBody.code || '').toUpperCase() === 'NOT_FOUND';
+
+      if (bodyMsg && (status !== 404 || bodyMsgFromErrorField) && !isSupabaseNotFound) msg = bodyMsg;
+
+      const details = status ? ` (HTTP ${status}${bodyMsg ? `: ${bodyMsg}` : ''})` : '';
+      throw new Error(`${msg}${details}`);
+    }
+
+    const publicKey = String(data?.publicKey || '').trim();
+    if (!publicKey) throw new Error('Missing VAPID public key');
+    return publicKey;
+  }
+
+  async function upsertPartnerPushSubscriptionForAllMemberships(subscription) {
+    if (!state.sb) throw new Error('Supabase client not available');
+    const userId = String(state.user?.id || '').trim();
+    if (!userId) throw new Error('Not authenticated');
+
+    const memberships = Array.isArray(state.memberships) ? state.memberships : [];
+    const partnerIds = memberships.map((m) => String(m?.partner_id || '').trim()).filter(Boolean);
+    if (!partnerIds.length) throw new Error('No partner membership');
+
+    const json = (subscription && typeof subscription.toJSON === 'function') ? subscription.toJSON() : {};
+    const endpoint = String(json.endpoint || subscription?.endpoint || '').trim();
+    const keys = json.keys || {};
+
+    const basePayload = {
+      user_id: userId,
+      endpoint,
+      p256dh: String(keys.p256dh || '').trim(),
+      auth: String(keys.auth || '').trim(),
+      subscription: json,
+      user_agent: navigator.userAgent || null,
+      last_seen_at: new Date().toISOString(),
+    };
+
+    for (const partnerId of partnerIds) {
+      const payload = { ...basePayload, partner_id: partnerId };
+      const { error } = await state.sb
+        .from('partner_push_subscriptions')
+        .upsert(payload, { onConflict: 'user_id,partner_id,endpoint' });
+      if (error) throw error;
+    }
+  }
+
+  async function deletePartnerPushSubscriptionByEndpoint(endpoint) {
+    if (!state.sb) throw new Error('Supabase client not available');
+    const userId = String(state.user?.id || '').trim();
+    if (!userId) throw new Error('Not authenticated');
+
+    const ep = String(endpoint || '').trim();
+    if (!ep) return;
+
+    const { error } = await state.sb
+      .from('partner_push_subscriptions')
+      .delete()
+      .eq('user_id', userId)
+      .eq('endpoint', ep);
+    if (error) throw error;
+  }
+
+  async function loadPartnerPushNotificationSettings() {
+    const statusEl = els.partnerPushStatus;
+    const hintEl = els.partnerPushHint;
+    const btnEnable = els.btnPartnerEnablePush;
+    const btnDisable = els.btnPartnerDisablePush;
+
+    if (!statusEl || !btnEnable || !btnDisable) return;
+
+    const setHint = (text) => {
+      if (!hintEl) return;
+      hintEl.textContent = String(text || '');
+    };
+
+    if (!state.session || !state.user) {
+      statusEl.textContent = 'Log in required';
+      btnEnable.hidden = true;
+      btnDisable.hidden = true;
+      setHint('Sign in to manage push notifications.');
+      return;
+    }
+
+    const ios = isIosDevice();
+    const standalone = isStandaloneDisplayMode();
+    if (ios && !standalone) {
+      statusEl.textContent = 'Install required';
+      btnEnable.hidden = true;
+      btnDisable.hidden = true;
+      setHint('On iPhone, push works only after installing the app (Share → Add to Home Screen) and opening it from the Home Screen.');
+      return;
+    }
+
+    if (!supportsPartnerPushNotifications()) {
+      statusEl.textContent = 'Unsupported';
+      btnEnable.hidden = true;
+      btnDisable.hidden = true;
+      setHint('Your browser/device does not support Web Push, or the page is not served over HTTPS.');
+      return;
+    }
+
+    const permission = Notification.permission;
+    if (permission === 'denied') {
+      statusEl.textContent = 'Blocked';
+      btnEnable.hidden = true;
+      btnDisable.hidden = true;
+      setHint('Notifications are blocked in your browser. Unblock them in browser settings and refresh.');
+      return;
+    }
+
+    if (permission !== 'granted') {
+      statusEl.textContent = 'Disabled';
+      btnEnable.hidden = false;
+      btnDisable.hidden = true;
+      setHint('Click "Enable push" to request permission.');
+      return;
+    }
+
+    try {
+      const reg = await ensurePartnersServiceWorkerRegistration();
+      const sub = await reg.pushManager.getSubscription();
+      if (sub) {
+        statusEl.textContent = 'Enabled';
+        btnEnable.hidden = true;
+        btnDisable.hidden = false;
+        setHint('Push is active on this device.');
+      } else {
+        statusEl.textContent = 'Disabled';
+        btnEnable.hidden = false;
+        btnDisable.hidden = true;
+        setHint('Permission is granted, but there is no subscription yet. Click "Enable push" to subscribe.');
+      }
+    } catch (e) {
+      statusEl.textContent = 'Error';
+      btnEnable.hidden = false;
+      btnDisable.hidden = true;
+      setHint(String(e?.message || 'Failed to initialize push.'));
+    }
+  }
+
+  async function enablePartnerPushNotifications() {
+    try {
+      if (!state.session || !state.user) {
+        showToast('Please log in to enable push.', 'error');
+        await loadPartnerPushNotificationSettings();
+        return;
+      }
+
+      if (isIosDevice() && !isStandaloneDisplayMode()) {
+        showToast('Install required: add to Home Screen and open the app to enable push on iPhone.', 'info');
+        await loadPartnerPushNotificationSettings();
+        return;
+      }
+
+      if (!supportsPartnerPushNotifications()) {
+        showToast('Push is not supported on this device', 'error');
+        await loadPartnerPushNotificationSettings();
+        return;
+      }
+
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        showToast('Notification permission was not granted', 'error');
+        await loadPartnerPushNotificationSettings();
+        return;
+      }
+
+      const reg = await ensurePartnersServiceWorkerRegistration();
+      const existing = await reg.pushManager.getSubscription();
+      if (existing) {
+        await upsertPartnerPushSubscriptionForAllMemberships(existing);
+        showToast('Push was already enabled (subscription refreshed)', 'success');
+        await loadPartnerPushNotificationSettings();
+        return;
+      }
+
+      const publicKey = await fetchPartnerVapidPublicKey();
+      const applicationServerKey = urlBase64ToUint8Array(publicKey);
+      const subscription = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey,
+      });
+
+      await upsertPartnerPushSubscriptionForAllMemberships(subscription);
+      showToast('Push enabled', 'success');
+    } catch (e) {
+      console.error('Failed to enable partner push:', e);
+      showToast(String(e?.message || 'Failed to enable push'), 'error');
+    } finally {
+      await loadPartnerPushNotificationSettings();
+    }
+  }
+
+  async function disablePartnerPushNotifications() {
+    try {
+      if (!supportsPartnerPushNotifications()) {
+        await loadPartnerPushNotificationSettings();
+        return;
+      }
+
+      const reg = await ensurePartnersServiceWorkerRegistration();
+      const sub = await reg.pushManager.getSubscription();
+      if (!sub) {
+        showToast('Push was already disabled', 'info');
+        await loadPartnerPushNotificationSettings();
+        return;
+      }
+
+      const endpoint = sub.endpoint;
+      try {
+        await sub.unsubscribe();
+      } catch (_e) {
+      }
+
+      await deletePartnerPushSubscriptionByEndpoint(endpoint);
+      showToast('Push disabled', 'success');
+    } catch (e) {
+      console.error('Failed to disable partner push:', e);
+      showToast(String(e?.message || 'Failed to disable push'), 'error');
+    } finally {
+      await loadPartnerPushNotificationSettings();
+    }
   }
 
   function setText(el, text) {
@@ -3848,11 +4166,24 @@
       await refreshAffiliateSummaryCard();
     } catch (_e) {
     }
+
+    try {
+      await loadPartnerPushNotificationSettings();
+    } catch (_e) {
+    }
   }
 
   function attachEventListeners() {
     els.btnOpenLogin?.addEventListener('click', openLogin);
     els.btnHeaderLogin?.addEventListener('click', openLogin);
+
+    els.btnPartnerEnablePush?.addEventListener('click', async () => {
+      await enablePartnerPushNotifications();
+    });
+
+    els.btnPartnerDisablePush?.addEventListener('click', async () => {
+      await disablePartnerPushNotifications();
+    });
 
     els.btnRefresh?.addEventListener('click', async () => {
       await bootstrapPortal();
@@ -4416,6 +4747,11 @@
     els.partnerProfilePayoutIban = $('partnerProfilePayoutIban');
     els.partnerProfilePayoutBic = $('partnerProfilePayoutBic');
     els.partnerProfilePayoutNotes = $('partnerProfilePayoutNotes');
+
+    els.partnerPushStatus = $('partnerPushStatus');
+    els.partnerPushHint = $('partnerPushHint');
+    els.btnPartnerEnablePush = $('btnPartnerEnablePush');
+    els.btnPartnerDisablePush = $('btnPartnerDisablePush');
   }
 
   async function init() {

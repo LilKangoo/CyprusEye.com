@@ -9,7 +9,7 @@ const ROOT = join(__dirname, '..');
 const DIST = join(ROOT, 'dist');
 
 // Katalogi do skanowania pod kątem plików JS do minifikacji
-const JS_DIRECTORIES = ['js', 'admin', 'assets/js', 'src/utils'];
+const JS_DIRECTORIES = ['js', 'admin', 'partners', 'assets/js', 'src/utils'];
 
 // Wybrane pliki JS w katalogu głównym, które muszą być dostępne publicznie
 const ROOT_JS_FILES = ['car-rental.js'];
@@ -161,6 +161,16 @@ async function copyStaticFiles() {
       });
     }
     
+    // Kopiuj partners (bez plików .js, bo są budowane do dist wcześniej)
+    const partnersSrc = join(ROOT, 'partners');
+    const partnersDest = join(DIST, 'partners');
+    if (existsSync(partnersSrc)) {
+      await cp(partnersSrc, partnersDest, {
+        recursive: true,
+        filter: (srcPath) => !srcPath.endsWith('.js'),
+      });
+    }
+    
     // Kopiuj CSS (global)
     await cp(join(ROOT, 'css'), join(DIST, 'css'), { recursive: true });
 
@@ -222,6 +232,7 @@ async function generateSitemap() {
 
       if (e.isDirectory()) {
         if (/(^|\/)admin(\/|$)/.test(nextRel)) continue;
+        if (/(^|\/)partners(\/|$)/.test(nextRel)) continue;
         if (/(^|\/)auth(\/|$)/.test(nextRel)) continue;
         if (/(^|\/)account(\/|$)/.test(nextRel)) continue;
         if (/(^|\/)reset(\/|$)/.test(nextRel)) continue;

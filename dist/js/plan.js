@@ -3477,8 +3477,8 @@ function renderServiceCatalog() {
       const title = isPolish ? (r?.title_pl || r?.title_en || '') : (r?.title_en || r?.title_pl || '');
       const descriptionFull = isPolish ? (r?.description_pl || r?.description_en || '') : (r?.description_en || r?.description_pl || '');
       const catName = catNameById.get(catId) || '';
-      if (!matches(`${title} ${catName} ${descriptionFull}`)) return;
 
+      if (!matches(`${title} ${catName} ${descriptionFull}`)) return;
       countByCat.set(catId, (countByCat.get(catId) || 0) + 1);
     });
 

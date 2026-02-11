@@ -416,7 +416,7 @@ window.calculatePrice = function() {
         );
       }
       if (insuranceCost > 0) {
-        const insurancePerDay = i18n('carRental.common.pricePerDay', { price: '€17' }, '17€/dzień');
+        const insurancePerDay = i18n('carRental.common.pricePerDay', { price: '17€' }, '17€/dzień');
         breakdownLines.push(
           i18n(
             'carRental.calculator.breakdown.fullInsurance',

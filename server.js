@@ -976,6 +976,8 @@ function getMimeType(filePath) {
       return 'text/css; charset=utf-8';
     case '.js':
       return 'application/javascript; charset=utf-8';
+    case '.webmanifest':
+      return 'application/manifest+json; charset=utf-8';
     case '.json':
       return 'application/json; charset=utf-8';
     case '.png':
@@ -1003,12 +1005,14 @@ async function serveStaticAsset(req, res, filePath, stats = null) {
   }
 
   const mimeType = getMimeType(filePath);
+  const shouldNoCache =
+    mimeType.startsWith('text/html') ||
+    filePath.endsWith(`${path.sep}sw.js`) ||
+    filePath.endsWith('.webmanifest');
   const headers = {
     'Content-Type': mimeType,
     'Content-Length': fileStats.size,
-    'Cache-Control': mimeType.startsWith('text/html')
-      ? 'no-cache'
-      : 'public, max-age=31536000, immutable',
+    'Cache-Control': shouldNoCache ? 'no-cache' : 'public, max-age=31536000, immutable',
   };
 
   applySecurityHeaders(res);

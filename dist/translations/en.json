@@ -2,6 +2,10 @@
   "community": {
     "tagline": "Share your Cyprus experiences",
     "backToHome": "← Back to game",
+    "rsvp": {
+      "go": "I'm in",
+      "no": "Not this time"
+    },
     "hero": {
       "title": "💬 Community - Places in Cyprus",
       "description": "Browse comments and photos from other travelers. Share your experiences from visited places!"
@@ -133,6 +137,8 @@
     "accountSettings": "⚙️ Account settings",
     "logout": "Log out",
     "logoAlt": "HolidayCyprus.com – turtle logo with the Polish flag",
+    "profileLabel": "My Profile",
+    "statusPlaceholder": "Level 1 • 0 badges",
     "coupon": "Coupon",
     "couponAria": "Open coupon page",
     "quickActions": {
@@ -211,13 +217,13 @@
         "generic": "An error occurred. Please try again.",
         "passwordMismatch": "Passwords do not match"
       }
-    },
-    "statusPlaceholder": "Level 1 • 0 badges"
+    }
   },
   "badges": {
     "landmark": "LANDMARK"
   },
   "metrics.level.label": "Level",
+  "metrics.level.abbrev": "LVL",
   "metrics.level.subtext": "Level status",
   "metrics.level.defaultStatus.initial": "Start",
   "metrics.level.defaultStatus.progress": "In progress",
@@ -262,6 +268,9 @@
   "auth.oauth.google.login.aria": "Sign in with Google",
   "auth.oauth.google.register.button": "Sign up with Google",
   "auth.oauth.google.register.aria": "Sign up with Google",
+  "auth.username.placeholder": "3-20 characters, letters and numbers",
+  "auth.reset.submitRequest": "Send reset link",
+  "auth.reset.cancel": "Cancel",
   "auth": {
     "bar": {
       "aria": "Account panel"
@@ -521,23 +530,6 @@
     "carousel": {
       "prev": "Previous",
       "next": "Next"
-    }
-  },
-  "hotels": {
-    "tabs": {
-      "allCities": "All Cities"
-    },
-    "card": {
-      "perNight": "/ night"
-    }
-  },
-  "trips": {
-    "tabs": {
-      "allCities": "All Cities"
-    },
-    "card": {
-      "perHour": "/ hour",
-      "perDay": "/ day"
     }
   },
   "services": {
@@ -1174,6 +1166,11 @@
       }
     }
   },
+  "hero": {
+    "subtitle": "Explore Cyprus with our interactive adventure app",
+    "download": "Download",
+    "start": "Start"
+  },
   "account": {
     "title": "Account settings",
     "subtitle": "Update your login details or start the adventure from scratch.",
@@ -1493,7 +1490,9 @@
     "card": {
       "featured": "Recommended",
       "details": "View details",
-      "visitSite": "Visit website"
+      "visitSite": "Visit website",
+      "showCode": "Show code",
+      "openMap": "Open in maps"
     },
     "modal": {
       "openMap": "Open in maps",
@@ -1611,8 +1610,8 @@
   "carRental.calculator.form.returnTime": "Return time",
   "carRental.calculator.form.pickupLocation": "Pickup location",
   "carRental.calculator.form.returnLocation": "Return location",
-  "carRental.calculator.form.fullInsurance": "Full insurance: +€17/day",
-  "carRental.calculator.form.youngDriver": "Young driver / driving < 3 years: +€10/day",
+  "carRental.calculator.form.fullInsurance": "Full comprehensive insurance (+€17/day)",
+  "carRental.calculator.form.youngDriver": "Young driver / driving < 3 years (+€10/day)",
   "carRental.calculator.form.submit": "Calculate price",
   "carRental.page.reservation.title": "Place a reservation",
   "carRental.page.reservation.description": "Fill in the online form to confirm availability and receive the contract. You can also write to us on WhatsApp – we reply as quickly as possible.",
@@ -1701,6 +1700,7 @@
   "carRental.locations.paphos-airport.label": "Paphos Airport (free)",
   "carRental.locations.paphos-airport.short": "Paphos Airport",
   "nav": {
+    "shop": "🛍️ Shop",
     "adventure": "🎯 Adventure",
     "community": "💬 Community",
     "recommendations": "✨ Recommendations",
@@ -1725,6 +1725,9 @@
       "title": "🚗 Cyprus car rental",
       "description": "See the fleet, compare prices, and reserve a car in the dedicated section.",
       "action": "Go to car rental"
+    },
+    "coupon": {
+      "title": "Coupon"
     },
     "plan": {
       "title": "📅 Planner",
@@ -1777,6 +1780,13 @@
       "attributes": {
         "aria-label": "Close SOS"
       }
+    },
+    "quick": {
+      "callUs": "Call us",
+      "whatsapp": "WhatsApp",
+      "whatsappDetail": "Immediate help",
+      "ambulance": "Ambulance",
+      "fireBrigade": "Fire brigade"
     },
     "emergency": {
       "title": "🚑 Emergency numbers in Cyprus",
@@ -2742,19 +2752,7 @@
       "success": "Booking received! We will contact you soon.",
       "error": "Booking failed."
     },
-    "card": {
-      "perNight": "/ night",
-      "from": "from"
-    },
-    "tabs": {
-      "allCities": "All cities"
-    },
-    "empty": "No offers available",
-    "price": {
-      "personLimit": "Person limit: {{max}}. Price for {{max}} guests.",
-      "minNights": "Min. {{min}} nights. Price for {{billable}} nights.",
-      "discount": "Price: €{{price}}/night (discount for {{min}}+ nights)"
-    }
+    "empty": "No offers available"
   },
   "notFound": {
     "badge": "Error 404",
@@ -2972,66 +2970,6 @@
     "level": "Level",
     "visited": "Visited"
   },
-  "shortcuts": {
-    "packing": {
-      "title": "Packing",
-      "description": "Packing list for the trip",
-      "action": "Open list"
-    },
-    "tasks": {
-      "title": "Tasks",
-      "description": "Your tasks and goals",
-      "action": "Show tasks"
-    },
-    "car": {
-      "title": "Car Rental",
-      "description": "Check rental offers",
-      "action": "View offers"
-    },
-    "coupon": {
-      "title": "Coupon"
-    },
-    "plan": {
-      "title": "Planner",
-      "description": "Set up your trip plan.",
-      "action": "Open planner"
-    },
-    "trips": {
-      "title": "Trips",
-      "description": "Browse trips and make a reservation.",
-      "action": "View trips"
-    }
-  },
-  "discovery": {
-    "title": "Attractions to discover"
-  },
-  "recommendations": {
-    "home": {
-      "title": "✨ Our Recommendations",
-      "subtitle": "Trusted Cyprus partners with exclusive discounts",
-      "filters": {
-        "title": "Filter by category",
-        "clear": "Clear filters"
-      },
-      "loading": "Loading recommendations...",
-      "cta": "View all recommendations →"
-    },
-    "card": {
-      "featured": "Recommended",
-      "details": "View details",
-      "visitSite": "Website",
-      "showCode": "Show code",
-      "openMap": "Open in maps"
-    },
-    "empty": {
-      "title": "No results",
-      "body": "No places found for the selected filters. Try changing the category or clearing filters.",
-      "cta": "Show all places"
-    }
-  },
-  "nav": {
-    "shop": "Shop"
-  },
   "shop": {
     "title": "CyprusEye Shop",
     "subtitle": "Discover authentic Cypriot products",
@@ -3150,132 +3088,250 @@
       "returns": "Returns Policy"
     }
   },
-  "seo": {
-    "shop": {
-      "title": "CyprusEye Shop – Traditional Cyprus Products",
-      "description": "Discover authentic Cypriot products. Olive oil, wine, halloumi, cosmetics and more. Shipping to Cyprus and worldwide."
-    }
-  },
-  "nav": {
-    "shop": "🛍️ Shop",
-    "toggle": "☰ Navigation",
-    "adventure": "🎯 Adventure",
-    "packing": "🎒 Packing",
-    "tasks": "✅ Tasks",
-    "recommendations": "✨ Recommended",
-    "community": "💬 Community",
-    "trips": "🧭 Trips",
-    "hotels": "🏨 Hotels"
-  },
   "common": {
     "close": "Close"
   },
-  "shop": {
-    "title": "CyprusEye Shop",
-    "subtitle": "Discover authentic Cypriot products",
-    "loading": "Loading products...",
-    "no_products": "No products found",
-    "products_found": "products",
-    "filters": {
-      "title": "Filters",
-      "search": "Search",
-      "searchPlaceholder": "Search...",
-      "categories": "Categories",
-      "all": "All",
-      "availability": "Availability",
-      "inStock": "In stock only",
-      "onSale": "On sale",
-      "price": "Price",
-      "priceMin": "From",
-      "priceMax": "To",
-      "apply": "Apply",
-      "reset": "Reset filters",
-      "sort": "Sort by",
-      "tags": "Popular tags",
-      "close": "Close filters"
+  "plan": {
+    "hero": {
+      "title": "Trip Planner",
+      "subtitle": "Log in to create and manage your trip plans.",
+      "login": "Log in",
+      "register": "Create account",
+      "backToApp": "Back to app"
     },
-    "sort": {
-      "newest": "Newest",
-      "price_asc": "Price: low to high",
-      "price_desc": "Price: high to low",
-      "name": "Name A-Z",
-      "popular": "Most popular"
+    "sidebar": {
+      "title": "Trip Planner",
+      "back": "Back",
+      "yourPlans": "Your plans"
     },
-    "product": {
-      "add_to_cart": "Add to cart",
-      "out_of_stock": "Out of stock",
-      "in_stock": "In stock",
-      "quantity": "Quantity"
+    "form": {
+      "title": {
+        "label": "Title",
+        "placeholder": "e.g. Cyprus in 7 days"
+      },
+      "baseCity": {
+        "label": "Base city",
+        "placeholder": "e.g. Paphos"
+      },
+      "startDate": {
+        "label": "Start date"
+      },
+      "endDate": {
+        "label": "End date"
+      },
+      "adults": {
+        "label": "Adults"
+      },
+      "children": {
+        "label": "Children"
+      },
+      "includeNorth": "Include North Cyprus",
+      "create": "Create plan"
     },
-    "plan": {
-      "ui": {
-        "catalog": {
-          "tabs": {
-            "recommendations": "Recommendations"
-          }
-        },
-        "recommendations": {
-          "showCode": "Show code",
-          "openMaps": "Open in maps"
-        }
+    "details": {
+      "title": "Plan details",
+      "empty": "Select a plan from the list to see details."
+    },
+    "actions": {
+      "refresh": "Refresh",
+      "pdf": "Download PDF",
+      "email": "Email plan",
+      "delete": "Delete"
+    },
+    "edit": {
+      "title": {
+        "label": "Title"
+      },
+      "baseCity": {
+        "label": "Base city"
+      },
+      "startDate": {
+        "label": "Start date"
+      },
+      "endDate": {
+        "label": "End date"
+      },
+      "people": {
+        "label": "People"
+      },
+      "adults": {
+        "label": "Adults"
+      },
+      "children": {
+        "label": "Children"
+      },
+      "includeNorth": "Include North Cyprus",
+      "save": "Save changes",
+      "regenDays": "Regenerate days"
+    },
+    "catalog": {
+      "addToDay": "Add to day:"
+    },
+    "days": {
+      "title": "Days"
+    },
+    "cost": {
+      "title": "Cost summary",
+      "empty": "Select a plan and add services to see totals."
+    },
+    "booking": {
+      "requestAll": "Request booking for all",
+      "dialog": {
+        "title": "Request booking",
+        "close": "Close",
+        "submit": "Send request"
       }
     },
-    "cart": {
-      "title": "Shopping Cart",
-      "empty": "Your cart is empty",
-      "subtotal": "Subtotal",
-      "checkout": "Proceed to checkout",
-      "remove": "Remove",
-      "aria": "Shopping cart",
-      "shipping_note": "Shipping calculated at checkout",
-      "close": "Close cart"
+    "ui": {
+      "itemType": {
+        "trip": "Trip",
+        "hotel": "Hotel",
+        "car": "Car",
+        "poi": "Place to see",
+        "poiShort": "POI",
+        "place": "Place",
+        "note": "Note",
+        "item": "Item"
+      },
+      "poi": {
+        "areaPrefix": "Area Of:"
+      },
+      "common": {
+        "open": "Open",
+        "delete": "Delete",
+        "moreInfo": "More info",
+        "day": "Day"
+      },
+      "plans": {
+        "empty": "No plans yet. Create your first plan above."
+      },
+      "email": {
+        "sending": "Sending…"
+      },
+      "catalog": {
+        "loadingServices": "Loading services…",
+        "northOk": "north ok",
+        "days": "Days",
+        "add": "Add",
+        "addRange": "Add range",
+        "noServices": "No services found.",
+        "allCities": "All cities",
+        "north": "north",
+        "searchPlaceholder": "Search…",
+        "tabs": {
+          "trips": "Trips",
+          "hotels": "Hotels",
+          "cars": "Cars",
+          "recommendations": "Recommendations",
+          "pois": "Places to see"
+        }
+      },
+      "recommendations": {
+        "showCode": "Show code",
+        "openMaps": "Open in maps"
+      },
+      "cost": {
+        "trips": "Trips",
+        "cars": "Cars",
+        "accommodation": "Accommodation",
+        "total": "Total",
+        "peopleLinePrefix": "People",
+        "note": "Hotels: nights = (range days − 1). Cars: minimum 3 days."
+      },
+      "pricing": {
+        "from": "From",
+        "perDay": "/ day",
+        "perNight": "/ night"
+      },
+      "days": {
+        "noDays": "No days generated yet.",
+        "services": "Services",
+        "placesSchedule": "Places (schedule)",
+        "addTrip": "Add trip",
+        "addHotel": "Add hotel",
+        "addCar": "Add car",
+        "addPlaces": "Add places",
+        "city": "City",
+        "dayNotes": "Day notes",
+        "notesPlaceholder": "Notes",
+        "saveDay": "Save day",
+        "start": "Start",
+        "end": "End",
+        "saveTime": "Save time",
+        "placeFallback": "Place"
+      },
+      "status": {
+        "saving": "Saving…",
+        "saved": "Saved.",
+        "error": "Error.",
+        "regenerating": "Regenerating…",
+        "creating": "Creating…",
+        "daysRegenerated": "Days regenerated.",
+        "created": "Created."
+      },
+      "confirm": {
+        "regenerateDays": "Regenerate days? This will remove existing days and their items.",
+        "deletePlan": "Delete this plan? This cannot be undone."
+      },
+      "details": {
+        "descriptionTitle": "Description"
+      },
+      "toast": {
+        "selectPlanFirst": "Select a plan first.",
+        "popupBlocked": "Popup blocked. Allow popups to download PDF.",
+        "setStartEndDateFirst": "Set start and end date first.",
+        "invalidDates": "Invalid dates.",
+        "loginFirst": "Please log in first.",
+        "planDeleted": "Plan deleted.",
+        "emailSimulated": "Email simulated (SMTP not configured).",
+        "emailSent": "Plan emailed to your address.",
+        "emailFunctionUnavailable": "Email function is not available (Edge Function not deployed or blocked).",
+        "emailFailed": "Failed to send email.",
+        "selectDayFirst": "Select a day first.",
+        "failedToAddItem": "Failed to add item",
+        "addedToPlan": "added to your plan.",
+        "selectStartEndDay": "Select start and end day.",
+        "invalidDayRange": "Invalid day range.",
+        "failedToAddRange": "Failed to add range",
+        "addedToPlanRangePrefix": "added to your plan (Day",
+        "failedToDeleteRange": "Failed to delete range",
+        "failedToLoadPlanItems": "Failed to load plan items",
+        "failedToUpdateDay": "Failed to update day",
+        "failedToAddNote": "Failed to add note",
+        "failedToUpdateItem": "Failed to update item",
+        "failedToDeleteItem": "Failed to delete item",
+        "failedToLoadPlans": "Failed to load plans",
+        "failedToLoadPlan": "Failed to load plan",
+        "failedToLoadPlanDays": "Failed to load plan days",
+        "failedToLoadDays": "Failed to load days",
+        "failedToDeleteDays": "Failed to delete days",
+        "failedToDeleteDayItems": "Failed to delete day items",
+        "failedToRegenerate": "Failed to regenerate",
+        "failedToCreatePlan": "Failed to create plan",
+        "failedToSave": "Failed to save",
+        "failedToDeletePlan": "Failed to delete plan",
+        "bookingRequestSent": "Booking request sent.",
+        "failedToSendRequest": "Failed to send request.",
+        "bookingFormUnavailable": "Booking form unavailable in this browser.",
+        "supabaseNotReady": "Supabase not ready. Please refresh the page."
+      },
+      "booking": {
+        "collectedPrefix": "Collected:",
+        "requestSent": "Request sent. We will contact you shortly."
+      }
     },
-    "checkout": {
-      "title": "Checkout",
-      "step": {
-        "address": "Shipping details",
-        "review": "Review order"
-      },
-      "email": "Email",
-      "firstName": "First name",
-      "lastName": "Last name",
-      "phone": "Phone",
-      "address1": "Address",
-      "address2": "Address (cont.)",
-      "city": "City",
-      "postal": "Postal code",
-      "country": "Country",
-      "shippingMethod": "Shipping method",
-      "selectShipping": "Select shipping method...",
-      "saveAddress": "Save as default address",
-      "notes": "Order notes",
-      "continue": "Continue",
-      "back": "← Back",
-      "pay": "Pay with Stripe",
-      "edit": "Edit",
-      "review": {
-        "shipping": "Shipping",
-        "items": "Items"
-      },
-      "payment": "Payment",
-      "payment.stripe.info": "Payment processed by Stripe - we accept cards, Apple Pay, Google Pay and other methods.",
-      "discount_code": "Discount code",
-      "apply_discount": "Apply",
-      "clear_discount": "Remove",
-      "totals": {
-        "subtotal": "Subtotal",
-        "shipping": "Shipping",
-        "vat": "VAT",
-        "discount": "Discount",
-        "total": "Total"
-      },
-      "success": "Thank you for your order!",
-      "success_message": "Your order has been received and is being processed.",
-      "error": "Error creating order"
+    "footer": {
+      "label": "Trip planner."
     },
-    "pagination": {
-      "previous": "Previous",
-      "next": "Next"
+    "print": {
+      "title": "Trip plan",
+      "base": "Base",
+      "day": "Day",
+      "noItems": "No items.",
+      "people": "People",
+      "adults": "Adults",
+      "children": "Children",
+      "generated": "Generated"
     }
   }
 }

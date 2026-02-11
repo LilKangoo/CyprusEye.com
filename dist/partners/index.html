@@ -17,6 +17,12 @@
   <meta name="theme-color" content="#dc2626" />
   <meta name="robots" content="noindex,nofollow" />
 
+  <link rel="icon" href="/assets/cyprus_logo-1000x1054.png" type="image/png" />
+  <link rel="manifest" href="/partners/manifest.webmanifest?v=20260210_1" />
+  <link rel="apple-touch-icon" href="/partners/pwa-icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="CyprusEye Partners" />
+
   <title>CyprusEye Partners</title>
 
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -39,23 +45,25 @@
     />
   </noscript>
 
-  <link rel="stylesheet" href="assets/css/tokens.css" />
-  <link rel="stylesheet" href="assets/css/base.css" />
-  <link rel="stylesheet" href="assets/css/components.css?v=12" />
-  <link rel="stylesheet" href="admin/admin.css" />
-  <link rel="stylesheet" href="assets/css/header-metrics.css" />
-  <link rel="stylesheet" href="assets/css/mobile.css" />
-  <link rel="stylesheet" href="assets/css/mobile-nav.css" />
-  <link rel="stylesheet" href="assets/css/rtl.css" />
-  <link rel="stylesheet" href="css/toast.css" />
-  <link rel="stylesheet" href="css/modal-ios-fix.css" />
+  <link rel="stylesheet" href="/assets/css/tokens.css" />
+  <link rel="stylesheet" href="/assets/css/base.css" />
+  <link rel="stylesheet" href="/assets/css/components.css?v=12" />
+  <link rel="stylesheet" href="/admin/admin.css" />
+  <link rel="stylesheet" href="/assets/css/header-metrics.css" />
+  <link rel="stylesheet" href="/assets/css/mobile.css" />
+  <link rel="stylesheet" href="/assets/css/mobile-nav.css" />
+  <link rel="stylesheet" href="/assets/css/rtl.css" />
+  <link rel="stylesheet" href="/css/toast.css" />
+  <link rel="stylesheet" href="/css/modal-ios-fix.css" />
 
   <meta name="ce-auth" content="on" />
 
-  <script type="module" src="js/supabaseClient.js"></script>
-  <script type="module" src="js/toast.js"></script>
-  <script type="module" src="js/auth.js?v=2"></script>
-  <script type="module" src="js/authUi.js?v=2"></script>
+  <script type="module" src="/js/supabaseClient.js"></script>
+  <script type="module" src="/js/toast.js"></script>
+  <script type="module" src="/js/auth.js?v=2"></script>
+  <script type="module" src="/js/authUi.js?v=2"></script>
+
+  <script src="/partners/partners-pwa.js?v=20260210_1" defer></script>
 
   <style>
     .partners-page main.admin-main {
@@ -737,6 +745,32 @@
             <div>After rejection, an admin is notified and any refund decision is handled by the administration.</div>
             <div>If the SLA passes without acceptance, admins may receive automatic reminders.</div>
           </div>
+
+          <div style="height: 14px;"></div>
+
+          <h3 style="margin: 0 0 8px;">Install app</h3>
+          <div class="muted small" style="display:flex; align-items:center; justify-content:space-between; gap: 10px; flex-wrap: wrap;">
+            <div>
+              <div class="muted small">Status</div>
+              <div id="partnerInstallStatus" style="font-weight: 800;">Checking…</div>
+            </div>
+            <div>
+              <button id="btnPartnerInstallApp" class="btn-sm primary" type="button" hidden>Install</button>
+            </div>
+          </div>
+          <div id="partnerInstallHint" class="muted small" style="margin-top: 8px;" hidden></div>
+
+          <div style="height: 14px;"></div>
+
+          <h3 style="margin: 0 0 8px;">Push notifications</h3>
+          <div class="muted small" style="display: grid; gap: 10px;">
+            <div class="muted small">Status: <strong id="partnerPushStatus">—</strong></div>
+            <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+              <button type="button" class="btn-sm primary" id="btnPartnerEnablePush">Enable push</button>
+              <button type="button" class="btn-sm" id="btnPartnerDisablePush" hidden>Disable push</button>
+            </div>
+            <div id="partnerPushHint" class="muted small"></div>
+          </div>
         </aside>
       </div>
     </div>
@@ -946,9 +980,9 @@
 
   <div id="toastContainer" class="toast-container" aria-live="assertive" aria-atomic="true"></div>
 
-  <script src="js/i18n.js" defer></script>
-  <script src="assets/js/modal-auth.js" defer></script>
-  <script src="js/partners.js?v=27" defer></script>
+  <script src="/js/i18n.js" defer></script>
+  <script src="/assets/js/modal-auth.js" defer></script>
+  <script src="/js/partners.js?v=27" defer></script>
 
   <div
     id="auth-modal"

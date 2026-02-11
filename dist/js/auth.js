@@ -1346,9 +1346,7 @@ async function handleGoogleOAuthCallbackIfPresent() {
     stripSupabaseReturnParams(parsed);
     window.location.assign(POST_AUTH_REDIRECT);
   } catch (error) {
-    const message = friendlyErrorMessage(
-      error?.message || t('Could not sign in with Google.', 'Nie udało się zalogować przez Google.'),
-    );
+    const message = friendlyErrorMessage(error?.message || t('Could not sign in with Google.', 'Nie udało się zalogować przez Google.'));
     showErr(`${t('Failed', 'Nie udało się')}: ${message}`);
     console.warn('Nie udało się obsłużyć callback OAuth.', error);
     stripSupabaseReturnParams(parsed);

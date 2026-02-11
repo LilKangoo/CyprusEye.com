@@ -40,7 +40,7 @@ const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const CUSTOMER_HOMEPAGE_URL = "https://cypruseye.com";
 const BRAND_LOGO_URL = "https://cypruseye.com/assets/cyprus_logo-1000x1054.png";
 
-let webPushServerPromise: Promise<webpush.ApplicationServer | null> | null = null;
+let webPushServerPromise: Promise<any | null> | null = null;
 
 function bytesToBase64Url(bytes: Uint8Array): string {
   let binary = "";
@@ -62,7 +62,7 @@ function base64UrlToBytes(input: string): Uint8Array {
   return out;
 }
 
-async function getWebPushApplicationServer(): Promise<webpush.ApplicationServer | null> {
+async function getWebPushApplicationServer(): Promise<any | null> {
   if (webPushServerPromise) return await webPushServerPromise;
 
   webPushServerPromise = (async () => {
@@ -118,6 +118,12 @@ function getDefaultAdminPushUrl(): string {
   return `${normalized}/admin/`;
 }
 
+function getDefaultPartnerPushUrl(): string {
+  const base = getMailRelayBaseUrl();
+  const normalized = base.endsWith("/") ? base.slice(0, -1) : base;
+  return `${normalized}/partners/`;
+}
+
 async function sendAdminWebPushNotifications(params: {
   supabase: any;
   title: string;
@@ -126,7 +132,7 @@ async function sendAdminWebPushNotifications(params: {
 }): Promise<{ ok: boolean; sent: number; failed: number; deleted: number; skipped_reason?: string }> {
   const { supabase, title, body, url } = params;
 
-  let server: webpush.ApplicationServer | null = null;
+  let server: any | null = null;
   try {
     server = await getWebPushApplicationServer();
   } catch (e) {
@@ -176,6 +182,84 @@ async function sendAdminWebPushNotifications(params: {
         try {
           const delQuery = supabase.from("admin_push_subscriptions").delete();
           const { error: delErr } = id ? await delQuery.eq("id", id) : await delQuery.eq("endpoint", endpoint);
+          if (!delErr) deleted++;
+        } catch (_e2) {
+        }
+      }
+    }
+  }
+
+  return { ok: true, sent, failed, deleted };
+}
+
+async function sendPartnerWebPushNotifications(params: {
+  supabase: any;
+  partnerId: string;
+  title: string;
+  body: string;
+  url: string;
+}): Promise<{ ok: boolean; sent: number; failed: number; deleted: number; skipped_reason?: string }> {
+  const { supabase, partnerId, title, body, url } = params;
+
+  const pid = String(partnerId || "").trim();
+  if (!pid) {
+    return { ok: false, sent: 0, failed: 0, deleted: 0, skipped_reason: "missing_partner_id" };
+  }
+
+  let server: any | null = null;
+  try {
+    server = await getWebPushApplicationServer();
+  } catch (e) {
+    console.warn("Failed to init Web Push server:", (e as any)?.message || String(e));
+    return { ok: false, sent: 0, failed: 0, deleted: 0, skipped_reason: "invalid_vapid_keys" };
+  }
+  if (!server) {
+    return { ok: false, sent: 0, failed: 0, deleted: 0, skipped_reason: "missing_vapid_keys" };
+  }
+
+  const { data: rows, error } = await supabase
+    .from("partner_push_subscriptions")
+    .select("id, endpoint, p256dh, auth, subscription")
+    .eq("partner_id", pid)
+    .limit(500);
+  if (error) {
+    console.warn("Failed to load partner push subscriptions:", error.message);
+    return { ok: false, sent: 0, failed: 0, deleted: 0, skipped_reason: "db_error" };
+  }
+
+  const payload = JSON.stringify({ title, body, url });
+  let sent = 0;
+  let failed = 0;
+  let deleted = 0;
+
+  for (const row of rows || []) {
+    const id = String((row as any)?.id || "").trim();
+    const endpoint = String((row as any)?.endpoint || "").trim();
+    const jsonSub = (row as any)?.subscription && typeof (row as any).subscription === "object" ? (row as any).subscription : null;
+    const p256dh = String((row as any)?.p256dh || "").trim();
+    const auth = String((row as any)?.auth || "").trim();
+
+    const sub = jsonSub || {
+      endpoint,
+      keys: {
+        p256dh,
+        auth,
+      },
+    };
+
+    try {
+      const subscriber = server.subscribe(sub as any);
+      await subscriber.pushTextMessage(payload, { ttl: 60 * 60 });
+      sent++;
+    } catch (e) {
+      failed++;
+      const isGone = e instanceof webpush.PushMessageError ? e.isGone() : false;
+      if (isGone && endpoint) {
+        try {
+          const delQuery = supabase.from("partner_push_subscriptions").delete();
+          const { error: delErr } = id
+            ? await delQuery.eq("id", id)
+            : await delQuery.eq("partner_id", pid).eq("endpoint", endpoint);
           if (!delErr) deleted++;
         } catch (_e2) {
         }
@@ -1127,7 +1211,7 @@ function buildAdminPanelLink(category: Category, recordId: string): string {
 function buildPartnerPanelLink(fulfillmentId?: string): string {
   const base = getMailRelayBaseUrl();
   const normalizedBase = base.endsWith("/") ? base.slice(0, -1) : base;
-  const baseUrl = `${normalizedBase}/partners.html`;
+  const baseUrl = `${normalizedBase}/partners/`;
   const fid = String(fulfillmentId || "").trim();
   if (!fid) return baseUrl;
   return `${baseUrl}#fulfillments:${encodeURIComponent(fid)}`;
@@ -2256,14 +2340,7 @@ serve(async (req) => {
       } catch (_e) {}
     }
 
-    const partnerId = getField(record, ["partner_id", "partnerId"]);
-    const recipients = await getPartnerNotificationEmails(supabase, partnerId);
-    if (!recipients.length) {
-      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "no_partner_notification_email" }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-        status: 200,
-      });
-    }
+    const partnerId = String(getField(record, ["partner_id", "partnerId"]) || "").trim();
 
     const { subject } = buildGenericEmail({
       category: categoryFromBody,
@@ -2275,18 +2352,43 @@ serve(async (req) => {
     const html = rendered.html;
     const text = rendered.text;
 
+    const pushBody = (() => {
+      const lines = String(text || "")
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+      return lines.slice(0, 3).join(" • ");
+    })();
+
+    const pushUrl = buildPartnerPanelLink(recordId) || getDefaultPartnerPushUrl();
+    const pushResult = await sendPartnerWebPushNotifications({
+      supabase,
+      partnerId,
+      title: subject,
+      body: pushBody,
+      url: pushUrl,
+    });
+
+    const recipients = await getPartnerNotificationEmails(supabase, partnerId);
+    if (!recipients.length) {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "no_partner_notification_email", push: pushResult }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      });
+    }
+
     const transport = buildMailTransport();
     if (!transport) {
       const relayed = await tryRelayEmail({ to: recipients, subject, text, html, secret: secretRequired });
       if (relayed.ok) {
-        return new Response(JSON.stringify({ ok: true, relayed: true }), {
+        return new Response(JSON.stringify({ ok: true, relayed: true, push: pushResult }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
         });
       }
       console.warn("SMTP_HOST not set – email will be logged only.");
       console.log(`\n===== Simulated partner notification =====\nTo: ${recipients.join(", ")}\nSubject: ${subject}\n\n${text}\n===== End =====\n`);
-      return new Response(JSON.stringify({ ok: false, simulated: true, relay_error: relayed.error || null }), {
+      return new Response(JSON.stringify({ ok: false, simulated: true, relay_error: relayed.error || null, push: pushResult }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
@@ -2311,7 +2413,7 @@ serve(async (req) => {
         );
       });
 
-      return new Response(JSON.stringify({ ok: true }), {
+      return new Response(JSON.stringify({ ok: true, push: pushResult }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
@@ -2319,12 +2421,12 @@ serve(async (req) => {
       console.error("Failed to send partner notification email:", error);
       const relayed = await tryRelayEmail({ to: recipients, subject, text, html, secret: secretRequired });
       if (relayed.ok) {
-        return new Response(JSON.stringify({ ok: true, relayed: true, smtp_failed: true }), {
+        return new Response(JSON.stringify({ ok: true, relayed: true, smtp_failed: true, push: pushResult }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
         });
       }
-      return new Response(JSON.stringify({ ok: false, simulated: true, smtp_error: (error as any)?.message || "Email send failed", relay_error: relayed.error || null }), {
+      return new Response(JSON.stringify({ ok: false, simulated: true, smtp_error: (error as any)?.message || "Email send failed", relay_error: relayed.error || null, push: pushResult }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
@@ -2494,9 +2596,28 @@ serve(async (req) => {
 
     const partnerId = String((dep as any)?.partner_id || "").trim();
     const fulfillmentId = String((dep as any)?.fulfillment_id || "").trim();
+
+    const rendered = renderPartnerDepositPaidEmail({ deposit: dep as any, contact: null });
+    const pushBody = (() => {
+      const lines = String(rendered.text || "")
+        .split("\n")
+        .map((l) => l.trim())
+        .filter(Boolean);
+      return lines.slice(0, 3).join(" • ");
+    })();
+
+    const pushUrl = buildPartnerPanelLink(fulfillmentId) || getDefaultPartnerPushUrl();
+    const pushResult = await sendPartnerWebPushNotifications({
+      supabase,
+      partnerId,
+      title: rendered.subject,
+      body: pushBody,
+      url: pushUrl,
+    });
+
     const recipients = await getPartnerNotificationEmails(supabase, partnerId);
     if (!recipients.length) {
-      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "no_partner_notification_email" }), {
+      return new Response(JSON.stringify({ ok: true, skipped: true, reason: "no_partner_notification_email", push: pushResult }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
@@ -2514,24 +2635,23 @@ serve(async (req) => {
       } catch (_e) {}
     }
 
-    const rendered = renderPartnerDepositPaidEmail({ deposit: dep as any, contact });
     const subject = rendered.subject;
-    const html = rendered.html;
-    const text = rendered.text;
+    const html = renderPartnerDepositPaidEmail({ deposit: dep as any, contact }).html;
+    const text = renderPartnerDepositPaidEmail({ deposit: dep as any, contact }).text;
 
     const transport = buildMailTransport();
     if (!transport) {
       const relayed = await tryRelayEmail({ to: recipients, subject, text, html, secret: secretRequired });
       if (relayed.ok) {
         await markDepositPartnerEmailSentAt(supabase, depositRequestId);
-        return new Response(JSON.stringify({ ok: true, relayed: true }), {
+        return new Response(JSON.stringify({ ok: true, relayed: true, push: pushResult }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
         });
       }
       console.warn("SMTP_HOST not set – email will be logged only.");
       console.log(`\n===== Simulated partner deposit paid =====\nTo: ${recipients.join(", ")}\nSubject: ${subject}\n\n${text}\n===== End =====\n`);
-      return new Response(JSON.stringify({ ok: false, simulated: true, relay_error: relayed.error || null }), {
+      return new Response(JSON.stringify({ ok: false, simulated: true, relay_error: relayed.error || null, push: pushResult }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
@@ -2557,7 +2677,7 @@ serve(async (req) => {
       });
 
       await markDepositPartnerEmailSentAt(supabase, depositRequestId);
-      return new Response(JSON.stringify({ ok: true }), {
+      return new Response(JSON.stringify({ ok: true, push: pushResult }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
@@ -2566,13 +2686,13 @@ serve(async (req) => {
       const relayed = await tryRelayEmail({ to: recipients, subject, text, html, secret: secretRequired });
       if (relayed.ok) {
         await markDepositPartnerEmailSentAt(supabase, depositRequestId);
-        return new Response(JSON.stringify({ ok: true, relayed: true, smtp_failed: true }), {
+        return new Response(JSON.stringify({ ok: true, relayed: true, smtp_failed: true, push: pushResult }), {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
         });
       }
       return new Response(
-        JSON.stringify({ ok: false, simulated: true, smtp_error: (error as any)?.message || "Email send failed", relay_error: relayed.error || null }),
+        JSON.stringify({ ok: false, simulated: true, smtp_error: (error as any)?.message || "Email send failed", relay_error: relayed.error || null, push: pushResult }),
         {
           headers: { ...corsHeaders, "Content-Type": "application/json" },
           status: 200,
@@ -2829,6 +2949,54 @@ serve(async (req) => {
     return lines.slice(0, 3).join(" • ");
   })();
 
+  let partnerPushSummary: any = null;
+  if (event === "partner_accepted" || event === "partner_rejected") {
+    const partnerId = String(getField(record, ["partner_id", "partnerId"]) || "").trim();
+    const fulfillmentId = String(getField(record, ["fulfillment_id", "fulfillmentId"]) || "").trim();
+    const partnerPushUrl = buildPartnerPanelLink(fulfillmentId) || getDefaultPartnerPushUrl();
+    partnerPushSummary = await sendPartnerWebPushNotifications({
+      supabase,
+      partnerId,
+      title: subject,
+      body: pushBody,
+      url: partnerPushUrl,
+    });
+  }
+
+  if (event === "partner_sla") {
+    try {
+      const { data: fulfillments, error: fErr } = await supabase
+        .from("shop_order_fulfillments")
+        .select("id, partner_id")
+        .eq("order_id", recordId)
+        .eq("status", "pending_acceptance")
+        .not("partner_id", "is", null)
+        .limit(200);
+
+      if (fErr) throw fErr;
+
+      const rows = Array.isArray(fulfillments) ? fulfillments : [];
+      const results: any[] = [];
+      for (const row of rows) {
+        const pid = String((row as any)?.partner_id || "").trim();
+        const fid = String((row as any)?.id || "").trim();
+        if (!pid) continue;
+        const partnerPushUrl = buildPartnerPanelLink(fid) || getDefaultPartnerPushUrl();
+        const r = await sendPartnerWebPushNotifications({
+          supabase,
+          partnerId: pid,
+          title: subject,
+          body: pushBody,
+          url: partnerPushUrl,
+        });
+        results.push({ partner_id: pid, fulfillment_id: fid || null, ...r });
+      }
+      partnerPushSummary = { ok: true, kind: "partner_sla", results };
+    } catch (e) {
+      partnerPushSummary = { ok: false, kind: "partner_sla", error: (e as any)?.message || String(e) };
+    }
+  }
+
   const pushUrl = buildAdminPanelLink(categoryFromBody, recordId) || getDefaultAdminPushUrl();
   const pushResult = await sendAdminWebPushNotifications({
     supabase,
@@ -2882,10 +3050,13 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, skipped: true, reason: "no_admin_notification_email", push: pushResult }), {
+    return new Response(
+      JSON.stringify({ ok: true, skipped: true, reason: "no_admin_notification_email", push: pushResult, partner_push: partnerPushSummary }),
+      {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
-    });
+      },
+    );
   }
 
   const transport = buildMailTransport();
@@ -2905,17 +3076,20 @@ serve(async (req) => {
           console.error("Failed to mark shop_order_history.notification_sent (relay):", e);
         }
       }
-      return new Response(JSON.stringify({ ok: true, relayed: true, push: pushResult }), {
+      return new Response(JSON.stringify({ ok: true, relayed: true, push: pushResult, partner_push: partnerPushSummary }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
       });
     }
     console.warn("SMTP_HOST not set – email will be logged only.");
     console.log(`\n===== Simulated admin notification =====\nTo: ${recipients.join(", ")}\nSubject: ${subject}\n\n${text}\n===== End =====\n`);
-    return new Response(JSON.stringify({ ok: false, simulated: true, relay_error: relayed.error || null, push: pushResult }), {
+    return new Response(
+      JSON.stringify({ ok: false, simulated: true, relay_error: relayed.error || null, push: pushResult, partner_push: partnerPushSummary }),
+      {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
-    });
+      },
+    );
   }
 
   const from = buildFromHeader(Deno.env.get("SMTP_FROM") || "no-reply@wakacjecypr.com");
@@ -2976,7 +3150,7 @@ serve(async (req) => {
       }
     }
 
-    return new Response(JSON.stringify({ ok: true, push: pushResult }), {
+    return new Response(JSON.stringify({ ok: true, push: pushResult, partner_push: partnerPushSummary }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
       status: 200,
     });
@@ -2984,14 +3158,27 @@ serve(async (req) => {
     console.error("Failed to send admin notification email:", error);
     const relayed = await tryRelayEmail({ to: recipients, subject, text, html, secret: secretRequired });
     if (relayed.ok) {
-      return new Response(JSON.stringify({ ok: true, relayed: true, smtp_failed: true, push: pushResult }), {
+      return new Response(
+        JSON.stringify({ ok: true, relayed: true, smtp_failed: true, push: pushResult, partner_push: partnerPushSummary }),
+        {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
         status: 200,
-      });
+        },
+      );
     }
-    return new Response(JSON.stringify({ ok: false, simulated: true, smtp_error: (error as any)?.message || "Email send failed", relay_error: relayed.error || null, push: pushResult }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
+    return new Response(
+      JSON.stringify({
+        ok: false,
+        simulated: true,
+        smtp_error: (error as any)?.message || "Email send failed",
+        relay_error: relayed.error || null,
+        push: pushResult,
+        partner_push: partnerPushSummary,
+      }),
+      {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+        status: 200,
+      },
+    );
   }
 });

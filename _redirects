@@ -4,6 +4,9 @@
 # Admin panel - MUST come before SPA fallback
 /admin/*           /admin/:splat           200
 
+/partners          /partners/              301
+/partners/*        /partners/:splat        200
+
 # Passthrough static assets (do not rewrite to index.html)
 /assets/*          /assets/:splat          200
 /js/*              /js/:splat              200

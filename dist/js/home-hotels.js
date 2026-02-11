@@ -108,7 +108,6 @@ async function loadHotelAmenitiesForDisplay() {
       .from('hotel_amenities')
       .select('code, icon, name_en, name_pl, is_popular')
       .eq('is_active', true);
-    
     if (data) {
       data.forEach(a => { hotelAmenitiesMap[a.code] = a; });
       writeHotelAmenitiesCache(hotelAmenitiesMap);

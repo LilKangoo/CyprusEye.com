@@ -510,7 +510,7 @@ window.getCurrentLanguage = getCurrentLanguage;
 
 /**
  * Get a translated field from a quest/task object based on current language
- * @param {Object} quest - Quest/Task object with i18n fields
+ * @param {Object} quest - Quest/Task object
  * @param {string} fieldName - Field to translate (e.g., 'title', 'description')
  * @returns {string} Translated value
  */

@@ -464,6 +464,7 @@ async function enqueueAdminAlertOnServiceReject(
     category: "cars" | "trips" | "hotels";
     bookingId: string;
     fulfillmentId: string;
+    partnerId: string;
     reason?: string | null;
   },
 ) {
@@ -474,6 +475,8 @@ async function enqueueAdminAlertOnServiceReject(
     record_id: params.bookingId,
     event: "partner_rejected",
     table: tableName,
+    fulfillment_id: params.fulfillmentId,
+    partner_id: params.partnerId,
     record: {
       id: params.bookingId,
       note: `Partner rejected service fulfillment ${params.fulfillmentId}${params.reason ? `: ${params.reason}` : ""}`,
@@ -733,6 +736,7 @@ async function createDepositCheckoutForServiceFulfillment(params: {
 async function sendAdminAlertOnReject(supabase: any, params: {
   orderId: string;
   fulfillmentId: string;
+  partnerId: string;
   reason?: string | null;
 }) {
   const payload = {
@@ -740,6 +744,8 @@ async function sendAdminAlertOnReject(supabase: any, params: {
     record_id: params.orderId,
     event: "partner_rejected",
     table: "shop_orders",
+    fulfillment_id: params.fulfillmentId,
+    partner_id: params.partnerId,
     record: {
       id: params.orderId,
       note: `Partner rejected fulfillment ${params.fulfillmentId}${params.reason ? `: ${params.reason}` : ""}`,
@@ -1294,13 +1300,14 @@ serve(async (req) => {
         .eq("id", orderId);
 
       if (orderId) {
-        await sendAdminAlertOnReject(supabase, { orderId, fulfillmentId, reason: reason || null });
+        await sendAdminAlertOnReject(supabase, { orderId, fulfillmentId, partnerId, reason: reason || null });
       }
     } else if (bookingId && (serviceCategory === "cars" || serviceCategory === "trips" || serviceCategory === "hotels")) {
       await enqueueAdminAlertOnServiceReject(supabase, {
         category: serviceCategory,
         bookingId,
         fulfillmentId,
+        partnerId,
         reason: reason || null,
       });
     }
