@@ -537,6 +537,32 @@ async function activatePartnerFulfillments(params: {
       } catch (e) {
         console.warn("[stripe-webhook] fulfillment contact insert error:", e);
       }
+
+      try {
+        const { error: snapshotErr } = await supabase
+          .from("shop_order_fulfillment_form_snapshots")
+          .insert({
+            fulfillment_id: fulfillmentId,
+            payload: {
+              customer_name: order.customer_name ?? null,
+              customer_email: order.customer_email ?? null,
+              customer_phone: order.customer_phone ?? null,
+              shipping_address: order.shipping_address ?? null,
+              billing_address: order.billing_address ?? null,
+              shipping_method_name: order.shipping_method_name ?? null,
+              estimated_delivery_date: order.estimated_delivery_date ?? null,
+              customer_notes: order.customer_notes ?? null,
+            },
+            created_at: order.created_at ?? null,
+          });
+
+        const code = (snapshotErr as any)?.code;
+        if (snapshotErr && code !== "23505") {
+          console.warn("[stripe-webhook] fulfillment snapshot insert failed:", snapshotErr);
+        }
+      } catch (e) {
+        console.warn("[stripe-webhook] fulfillment snapshot insert error:", e);
+      }
     }
 
     await supabase

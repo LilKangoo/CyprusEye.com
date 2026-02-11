@@ -12,6 +12,7 @@
     lastFulfillmentsDebug: null,
     itemsByFulfillmentId: {},
     contactsByFulfillmentId: {},
+    formSnapshotsByFulfillmentId: {},
     blocks: [],
     calendar: {
       resourcesByType: { shop: [], cars: [], trips: [], hotels: [] },
@@ -2747,6 +2748,7 @@
 
     state.itemsByFulfillmentId = {};
     state.contactsByFulfillmentId = {};
+    state.formSnapshotsByFulfillmentId = {};
 
     if (shopIds.length) {
       const { data: items, error: itemsErr } = await state.sb
@@ -2805,6 +2807,46 @@
         if (!fid) return;
         state.contactsByFulfillmentId[fid] = c;
       });
+    }
+
+    if (revealableShopIds.length) {
+      try {
+        const { data: snapshots, error: snapshotsErr } = await state.sb
+          .from('shop_order_fulfillment_form_snapshots')
+          .select('fulfillment_id, payload')
+          .in('fulfillment_id', revealableShopIds)
+          .limit(200);
+
+        if (snapshotsErr) throw snapshotsErr;
+
+        (snapshots || []).forEach((s) => {
+          const fid = s?.fulfillment_id;
+          if (!fid) return;
+          state.formSnapshotsByFulfillmentId[String(fid)] = s;
+        });
+      } catch (e) {
+        console.warn('Failed to load shop form snapshots:', e);
+      }
+    }
+
+    if (revealableServiceIds.length) {
+      try {
+        const { data: snapshots, error: snapshotsErr } = await state.sb
+          .from('partner_service_fulfillment_form_snapshots')
+          .select('fulfillment_id, payload')
+          .in('fulfillment_id', revealableServiceIds)
+          .limit(200);
+
+        if (snapshotsErr) throw snapshotsErr;
+
+        (snapshots || []).forEach((s) => {
+          const fid = s?.fulfillment_id;
+          if (!fid) return;
+          state.formSnapshotsByFulfillmentId[String(fid)] = s;
+        });
+      } catch (e) {
+        console.warn('Failed to load service form snapshots:', e);
+      }
     }
   }
 
@@ -3085,6 +3127,96 @@
     const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
     const isSuspended = partner && partner.status === 'suspended';
 
+    const isEmptyFormValue = (v) => {
+      if (v == null) return true;
+      if (typeof v === 'string') return !String(v).trim();
+      if (Array.isArray(v)) return v.length === 0;
+      if (typeof v === 'object') return Object.keys(v).length === 0;
+      return false;
+    };
+
+    const labelForFormKey = (k) => {
+      const raw = String(k || '').trim();
+      if (!raw) return '';
+      return raw
+        .replace(/_/g, ' ')
+        .replace(/\s+/g, ' ')
+        .replace(/^./, (c) => c.toUpperCase());
+    };
+
+    const renderFormValue = (v) => {
+      if (v == null) return '<span class="muted">—</span>';
+
+      if (typeof v === 'boolean') {
+        return escapeHtml(v ? 'Yes' : 'No');
+      }
+
+      if (typeof v === 'number') {
+        return escapeHtml(String(v));
+      }
+
+      if (typeof v === 'string') {
+        const s = String(v);
+        if (/^\d{4}-\d{2}-\d{2}/.test(s)) {
+          return escapeHtml(formatDateDmy(s));
+        }
+        return escapeHtml(s);
+      }
+
+      if (Array.isArray(v)) {
+        const parts = v.filter((x) => !isEmptyFormValue(x)).map((x) => {
+          if (x == null) return '';
+          if (typeof x === 'string') return x;
+          if (typeof x === 'number' || typeof x === 'boolean') return String(x);
+          try {
+            return JSON.stringify(x);
+          } catch (_e) {
+            return String(x);
+          }
+        }).filter(Boolean);
+        return escapeHtml(parts.join(', '));
+      }
+
+      if (typeof v === 'object') {
+        const addressLike = (v && typeof v === 'object') && ('line1' in v || 'postal_code' in v || 'city' in v || 'country' in v);
+        if (addressLike) {
+          const parts = [v.line1, v.line2, v.postal_code, v.city, v.country].filter(Boolean).map((x) => String(x));
+          return escapeHtml(parts.join(', '));
+        }
+
+        let pretty = '';
+        try {
+          pretty = JSON.stringify(v, null, 2);
+        } catch (_e) {
+          pretty = String(v);
+        }
+        return `<pre class="small muted" style="white-space:pre-wrap; margin:4px 0 0;">${escapeHtml(pretty)}</pre>`;
+      }
+
+      return escapeHtml(String(v));
+    };
+
+    const formSnapshotHtml = (payload) => {
+      if (!payload || typeof payload !== 'object') return '';
+      const entries = Object.entries(payload)
+        .filter(([k, v]) => String(k || '').trim() && !isEmptyFormValue(v))
+        .sort(([a], [b]) => String(a).localeCompare(String(b)));
+      if (!entries.length) return '';
+
+      const rows = entries.map(([k, v]) => {
+        const label = labelForFormKey(k) || String(k);
+        const valueHtml = renderFormValue(v);
+        return `<div class="small" style="margin-top:4px;"><strong>${escapeHtml(label)}:</strong> ${valueHtml}</div>`;
+      }).join('');
+
+      return `
+        <div class="partner-contact" style="margin-top: 10px;">
+          <strong>Form</strong>
+          ${rows}
+        </div>
+      `;
+    };
+
     const rowsHtml = filtered
       .map((f) => {
         const source = String(f.__source || 'shop');
@@ -3092,6 +3224,7 @@
         const id = f.id;
         const items = isShop ? (state.itemsByFulfillmentId[id] || []) : [];
         const contact = state.contactsByFulfillmentId[id] || null;
+        const formSnapshot = state.formSnapshotsByFulfillmentId[id] || null;
 
         const durationDays = (() => {
           if (isShop) return null;
@@ -3222,6 +3355,8 @@
           `;
         })();
 
+        const formHtml = formSnapshotHtml(formSnapshot?.payload);
+
         const orderLabel = (() => {
           if (isShop) {
             return f.order_number ? escapeHtml(f.order_number) : escapeHtml(String(f.order_id || '').slice(0, 8));
@@ -3277,6 +3412,7 @@
             <td>
               ${itemsSummary}
               ${contactHtml}
+              ${formHtml}
             </td>
             <td>${actionsHtml}</td>
           </tr>
