@@ -55,6 +55,14 @@
     partnerSelect: null,
     btnRefresh: null,
     suspendedInfo: null,
+
+    partnerDetailsModal: null,
+    partnerDetailsDialog: null,
+    partnerDetailsClose: null,
+    partnerDetailsTitle: null,
+    partnerDetailsMeta: null,
+    partnerDetailsStatus: null,
+    partnerDetailsBody: null,
     tabFulfillments: null,
     tabCalendar: null,
     tabBtnFulfillments: null,
@@ -181,6 +189,79 @@
     btnPartnerEnablePush: null,
     btnPartnerDisablePush: null,
   };
+
+  let partnerDetailsLastFocusedElement = null;
+  let partnerDetailsPreviousBodyOverflow = '';
+
+  const isPartnerDetailsModalOpen = () => Boolean(els.partnerDetailsModal?.classList?.contains('is-open'));
+
+  const lockPartnerDetailsScroll = () => {
+    partnerDetailsPreviousBodyOverflow = document.body.style.overflow;
+    document.body.classList.add('u-lock-scroll', 'is-modal-open');
+    if (typeof window.lockBodyScroll === 'function') {
+      window.lockBodyScroll();
+    } else {
+      document.body.style.overflow = 'hidden';
+    }
+  };
+
+  const unlockPartnerDetailsScroll = () => {
+    document.body.classList.remove('u-lock-scroll', 'is-modal-open');
+    if (typeof window.unlockBodyScroll === 'function') {
+      window.unlockBodyScroll();
+      if (document.body.style.position !== 'fixed') {
+        document.body.style.overflow = 'auto';
+      }
+    } else {
+      document.body.style.overflow = partnerDetailsPreviousBodyOverflow || 'auto';
+    }
+  };
+
+  const handlePartnerDetailsKeydown = (event) => {
+    if (!isPartnerDetailsModalOpen()) return;
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closePartnerDetailsModal({ restoreFocus: true });
+    }
+  };
+
+  function openPartnerDetailsModal() {
+    if (!els.partnerDetailsModal || !els.partnerDetailsDialog) return false;
+    if (isPartnerDetailsModalOpen()) return false;
+
+    partnerDetailsLastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+
+    els.partnerDetailsModal.classList.add('is-open');
+    els.partnerDetailsModal.setAttribute('aria-hidden', 'false');
+    lockPartnerDetailsScroll();
+    document.addEventListener('keydown', handlePartnerDetailsKeydown);
+
+    requestAnimationFrame(() => {
+      try {
+        els.partnerDetailsDialog.focus({ preventScroll: true });
+      } catch (_e) {}
+    });
+
+    return true;
+  }
+
+  function closePartnerDetailsModal({ restoreFocus = true } = {}) {
+    if (!els.partnerDetailsModal) return false;
+    if (!isPartnerDetailsModalOpen()) return false;
+
+    els.partnerDetailsModal.classList.remove('is-open');
+    els.partnerDetailsModal.setAttribute('aria-hidden', 'true');
+    document.removeEventListener('keydown', handlePartnerDetailsKeydown);
+    unlockPartnerDetailsScroll();
+
+    if (restoreFocus && partnerDetailsLastFocusedElement instanceof HTMLElement) {
+      try {
+        partnerDetailsLastFocusedElement.focus({ preventScroll: true });
+      } catch (_e) {}
+    }
+    partnerDetailsLastFocusedElement = null;
+    return true;
+  }
 
   const USERNAME_PATTERN = /^[a-z0-9](?:[a-z0-9._-]{1,28}[a-z0-9])$/i;
 
@@ -2780,7 +2861,7 @@
     if (revealableShopIds.length) {
       const { data: contacts, error: contactsErr } = await state.sb
         .from('shop_order_fulfillment_contacts')
-        .select('fulfillment_id, customer_name, customer_email, customer_phone, shipping_address')
+        .select('fulfillment_id, customer_name, customer_email, customer_phone, shipping_address, billing_address')
         .in('fulfillment_id', revealableShopIds)
         .limit(200);
 
@@ -3196,6 +3277,235 @@
       return escapeHtml(String(v));
     };
 
+    const valueTextForModal = (v) => {
+      if (v == null) return '';
+      if (typeof v === 'boolean') return v ? 'Yes' : 'No';
+      if (typeof v === 'number') return String(v);
+      if (typeof v === 'string') return String(v);
+      if (Array.isArray(v)) {
+        return v.filter((x) => !isEmptyFormValue(x)).map((x) => {
+          if (x == null) return '';
+          if (typeof x === 'string' || typeof x === 'number' || typeof x === 'boolean') return String(x);
+          try {
+            return JSON.stringify(x);
+          } catch (_e) {
+            return String(x);
+          }
+        }).filter(Boolean).join(', ');
+      }
+      try {
+        return JSON.stringify(v, null, 2);
+      } catch (_e) {
+        return String(v);
+      }
+    };
+
+    const sectionHtml = (title, pairs) => {
+      const rows = (pairs || [])
+        .filter((p) => p && String(p.label || '').trim() && !isEmptyFormValue(p.value))
+        .map((p) => {
+          const label = escapeHtml(String(p.label || ''));
+          const value = p.value;
+          const rawText = valueTextForModal(value);
+
+          let valueHtml = '';
+          if (p.kind === 'email') {
+            const s = String(value || '').trim();
+            valueHtml = s ? `<a href="mailto:${encodeURIComponent(s)}">${escapeHtml(s)}</a>` : '<span class="muted">—</span>';
+          } else if (p.kind === 'tel') {
+            const s = String(value || '').trim();
+            valueHtml = s ? `<a href="tel:${encodeURIComponent(s)}">${escapeHtml(s)}</a>` : '<span class="muted">—</span>';
+          } else if (p.kind === 'pre') {
+            valueHtml = rawText ? `<pre>${escapeHtml(rawText)}</pre>` : '<span class="muted">—</span>';
+          } else {
+            valueHtml = renderFormValue(value);
+          }
+
+          return `
+            <div class="partner-details-kv-row">
+              <div class="partner-details-label">${label}</div>
+              <div class="partner-details-value">${valueHtml}</div>
+            </div>
+          `;
+        })
+        .join('');
+
+      if (!rows) return '';
+      return `
+        <div class="partner-details-section">
+          <h3 class="partner-details-section__title">${escapeHtml(title)}</h3>
+          <div class="partner-details-kv">${rows}</div>
+        </div>
+      `;
+    };
+
+    const renderPartnerDetailsIntoModal = (fulfillment) => {
+      if (!fulfillment) return;
+
+      const f = fulfillment;
+      const id = String(f.id || '');
+      const isShop = String(f.__source || '') === 'shop';
+      const category = isShop ? 'shop' : String(f.resource_type || 'service');
+
+      const contact = state.contactsByFulfillmentId[id] || null;
+      const snapshotPayload = (state.formSnapshotsByFulfillmentId[id]?.payload && typeof state.formSnapshotsByFulfillmentId[id].payload === 'object')
+        ? state.formSnapshotsByFulfillmentId[id].payload
+        : null;
+
+      const title = isShop ? 'Shop order details' : 'Booking details';
+      if (els.partnerDetailsTitle) els.partnerDetailsTitle.textContent = title;
+
+      const orderRef = (() => {
+        if (isShop) return f.order_number || (f.order_id ? String(f.order_id).slice(0, 8) : String(id).slice(0, 8));
+        return f.reference || (f.booking_id ? String(f.booking_id).slice(0, 8) : String(id).slice(0, 8));
+      })();
+      const metaParts = [orderRef ? `Ref: ${orderRef}` : '', f.created_at ? `Created: ${formatDate(f.created_at)}` : '', f.summary ? String(f.summary) : '']
+        .map((x) => String(x || '').trim())
+        .filter(Boolean);
+      if (els.partnerDetailsMeta) els.partnerDetailsMeta.textContent = metaParts.join(' · ');
+
+      if (els.partnerDetailsStatus) {
+        const pill = category ? String(category).toUpperCase() : '';
+        els.partnerDetailsStatus.hidden = !pill;
+        els.partnerDetailsStatus.textContent = pill;
+      }
+
+      const usedKeys = new Set();
+      const getPayload = (key) => {
+        if (!snapshotPayload) return null;
+        const v = snapshotPayload[key];
+        if (v === undefined) return null;
+        usedKeys.add(key);
+        return v;
+      };
+
+      const customerSectionPairs = (() => {
+        if (category === 'cars') {
+          return [
+            { label: 'Name', value: contact?.customer_name ?? getPayload('full_name') ?? getPayload('customer_name') ?? null },
+            { label: 'Email', value: contact?.customer_email ?? getPayload('email') ?? getPayload('customer_email') ?? null, kind: 'email' },
+            { label: 'Phone', value: contact?.customer_phone ?? getPayload('phone') ?? getPayload('customer_phone') ?? null, kind: 'tel' },
+            { label: 'Country', value: getPayload('country') },
+          ];
+        }
+
+        if (category === 'trips' || category === 'hotels') {
+          return [
+            { label: 'Name', value: contact?.customer_name ?? getPayload('customer_name') ?? null },
+            { label: 'Email', value: contact?.customer_email ?? getPayload('customer_email') ?? null, kind: 'email' },
+            { label: 'Phone', value: contact?.customer_phone ?? getPayload('customer_phone') ?? null, kind: 'tel' },
+          ];
+        }
+
+        return [
+          { label: 'Name', value: contact?.customer_name ?? getPayload('customer_name') ?? null },
+          { label: 'Email', value: contact?.customer_email ?? getPayload('customer_email') ?? null, kind: 'email' },
+          { label: 'Phone', value: contact?.customer_phone ?? getPayload('customer_phone') ?? null, kind: 'tel' },
+        ];
+      })();
+
+      const shippingSectionPairs = (() => {
+        if (category !== 'shop') return [];
+        return [
+          { label: 'Shipping address', value: contact?.shipping_address ?? getPayload('shipping_address') ?? null, kind: 'pre' },
+          { label: 'Shipping method', value: getPayload('shipping_method_name') },
+          { label: 'Estimated delivery', value: getPayload('estimated_delivery_date') },
+        ];
+      })();
+
+      const billingSectionPairs = (() => {
+        if (category !== 'shop') return [];
+        return [
+          { label: 'Billing address', value: contact?.billing_address ?? getPayload('billing_address') ?? null, kind: 'pre' },
+        ];
+      })();
+
+      const carsRentalPairs = (() => {
+        if (category !== 'cars') return [];
+        return [
+          { label: 'Car model', value: getPayload('car_model') },
+          { label: 'Passengers', value: getPayload('num_passengers') },
+          { label: 'Child seats', value: getPayload('child_seats') },
+          { label: 'Full insurance', value: getPayload('full_insurance') },
+        ];
+      })();
+
+      const carsPickupPairs = (() => {
+        if (category !== 'cars') return [];
+        return [
+          { label: 'Pickup date', value: getPayload('pickup_date') },
+          { label: 'Pickup time', value: getPayload('pickup_time') },
+          { label: 'Pickup location', value: getPayload('pickup_location') },
+          { label: 'Pickup address', value: getPayload('pickup_address') },
+          { label: 'Flight number', value: getPayload('flight_number') },
+        ];
+      })();
+
+      const carsReturnPairs = (() => {
+        if (category !== 'cars') return [];
+        return [
+          { label: 'Return date', value: getPayload('return_date') },
+          { label: 'Return time', value: getPayload('return_time') },
+          { label: 'Return location', value: getPayload('return_location') },
+          { label: 'Return address', value: getPayload('return_address') },
+        ];
+      })();
+
+      const hotelsStayPairs = (() => {
+        if (category !== 'hotels') return [];
+        return [
+          { label: 'Arrival date', value: getPayload('arrival_date') },
+          { label: 'Departure date', value: getPayload('departure_date') },
+          { label: 'Nights', value: getPayload('nights') },
+          { label: 'Adults', value: getPayload('num_adults') },
+          { label: 'Children', value: getPayload('num_children') },
+        ];
+      })();
+
+      const tripsDetailsPairs = (() => {
+        if (category !== 'trips') return [];
+        return [
+          { label: 'Trip date', value: getPayload('trip_date') },
+          { label: 'Arrival date', value: getPayload('arrival_date') },
+          { label: 'Departure date', value: getPayload('departure_date') },
+          { label: 'Adults', value: getPayload('num_adults') },
+          { label: 'Children', value: getPayload('num_children') },
+        ];
+      })();
+
+      const notesPairs = (() => {
+        const candidates = ['notes', 'special_requests', 'customer_notes'];
+        const v = candidates.map((k) => getPayload(k)).find((x) => !isEmptyFormValue(x));
+        if (isEmptyFormValue(v)) return [];
+        return [{ label: 'Notes', value: v, kind: 'pre' }];
+      })();
+
+      const additionalPairs = (() => {
+        if (!snapshotPayload || typeof snapshotPayload !== 'object') return [];
+        return Object.entries(snapshotPayload)
+          .filter(([k, v]) => String(k || '').trim() && !usedKeys.has(k) && !isEmptyFormValue(v))
+          .sort(([a], [b]) => String(a).localeCompare(String(b)))
+          .map(([k, v]) => ({ label: labelForFormKey(k) || k, value: v }));
+      })();
+
+      const html = [
+        sectionHtml('Customer information', customerSectionPairs),
+        category === 'shop' ? sectionHtml('Shipping', shippingSectionPairs) : '',
+        category === 'shop' ? sectionHtml('Billing', billingSectionPairs) : '',
+        category === 'cars' ? sectionHtml('Rental details', carsRentalPairs) : '',
+        category === 'cars' ? sectionHtml('Pickup', carsPickupPairs) : '',
+        category === 'cars' ? sectionHtml('Return', carsReturnPairs) : '',
+        category === 'hotels' ? sectionHtml('Stay details', hotelsStayPairs) : '',
+        category === 'trips' ? sectionHtml('Trip details', tripsDetailsPairs) : '',
+        notesPairs.length ? sectionHtml('Notes', notesPairs) : '',
+        additionalPairs.length ? sectionHtml('Additional information', additionalPairs) : '',
+      ].filter(Boolean).join('');
+
+      if (els.partnerDetailsBody) {
+        els.partnerDetailsBody.innerHTML = html || '<div class="muted">No customer details available.</div>';
+      }
+    };
+
     const formSnapshotHtml = (payload) => {
       if (!payload || typeof payload !== 'object') return '';
       const entries = Object.entries(payload)
@@ -3332,30 +3642,24 @@
           return `${parts.join('<br/>')}${moreHtml}`;
         })();
 
-        const contactHtml = (() => {
-          if (!contact) return '';
-          const name = contact.customer_name || '';
-          const email = contact.customer_email || '';
-          const phone = contact.customer_phone || '';
-          const address = isShop && contact.shipping_address && typeof contact.shipping_address === 'object'
-            ? contact.shipping_address
-            : null;
-          const addressLine = address
-            ? [address.line1, address.line2, address.postal_code, address.city, address.country].filter(Boolean).join(', ')
-            : '';
-
+        const detailsBtnHtml = (() => {
+          const hasContact = Boolean(contact && (contact.customer_name || contact.customer_email || contact.customer_phone || contact.shipping_address || contact.billing_address));
+          const hasSnapshot = Boolean(formSnapshot && formSnapshot.payload && typeof formSnapshot.payload === 'object' && Object.keys(formSnapshot.payload).length);
+          if (!hasContact && !hasSnapshot) return '';
           return `
-            <div class="partner-contact" style="margin-top: 10px;">
-              <strong>Contact</strong>
-              <div class="small">${escapeHtml(name)}</div>
-              <div class="small">${email ? `<a href="mailto:${encodeURIComponent(email)}">${escapeHtml(email)}</a>` : ''}</div>
-              <div class="small">${phone ? `<a href="tel:${encodeURIComponent(phone)}">${escapeHtml(phone)}</a>` : ''}</div>
-              ${addressLine ? `<div class="small muted">${escapeHtml(addressLine)}</div>` : ''}
+            <div style="margin-top: 10px;">
+              <button
+                class="btn-details"
+                type="button"
+                data-partner-details-open
+                data-id="${escapeHtml(id)}"
+                data-source="${escapeHtml(source)}"
+              >
+                Details
+              </button>
             </div>
           `;
         })();
-
-        const formHtml = formSnapshotHtml(formSnapshot?.payload);
 
         const orderLabel = (() => {
           if (isShop) {
@@ -3411,8 +3715,7 @@
             <td>${priceHtml}</td>
             <td>
               ${itemsSummary}
-              ${contactHtml}
-              ${formHtml}
+              ${detailsBtnHtml}
             </td>
             <td>${actionsHtml}</td>
           </tr>
@@ -3463,6 +3766,16 @@
           showToast(`Error: ${error.message || 'Action failed'}`, 'error');
           btn.disabled = false;
         }
+      });
+    });
+
+    els.fulfillmentsBody.querySelectorAll('button[data-partner-details-open]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const fid = String(btn.getAttribute('data-id') || '').trim();
+        if (!fid) return;
+        const f = (state.fulfillments || []).find((row) => String(row?.id || '') === fid) || null;
+        renderPartnerDetailsIntoModal(f);
+        openPartnerDetailsModal();
       });
     });
 
@@ -4313,6 +4626,16 @@
     els.btnOpenLogin?.addEventListener('click', openLogin);
     els.btnHeaderLogin?.addEventListener('click', openLogin);
 
+    els.partnerDetailsClose?.addEventListener('click', () => {
+      closePartnerDetailsModal({ restoreFocus: true });
+    });
+
+    els.partnerDetailsModal?.addEventListener('click', (event) => {
+      if (event.target === els.partnerDetailsModal) {
+        closePartnerDetailsModal({ restoreFocus: true });
+      }
+    });
+
     els.btnPartnerEnablePush?.addEventListener('click', async () => {
       await enablePartnerPushNotifications();
     });
@@ -4761,6 +5084,14 @@
     els.partnerSelect = $('partnerSelect');
     els.btnRefresh = $('btnPartnerRefresh');
     els.suspendedInfo = $('partnerSuspendedInfo');
+
+    els.partnerDetailsModal = $('partnerDetailsModal');
+    els.partnerDetailsDialog = els.partnerDetailsModal?.querySelector('.modal__dialog') || null;
+    els.partnerDetailsClose = els.partnerDetailsModal?.querySelector('[data-partner-details-close]') || null;
+    els.partnerDetailsTitle = $('partnerDetailsTitle');
+    els.partnerDetailsMeta = $('partnerDetailsMeta');
+    els.partnerDetailsStatus = $('partnerDetailsStatus');
+    els.partnerDetailsBody = $('partnerDetailsBody');
 
     els.tabFulfillments = $('partnerTabFulfillments');
     els.tabCalendar = $('partnerTabCalendar');
