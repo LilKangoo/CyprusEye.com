@@ -74,7 +74,7 @@
   <script type="module" src="js/authUi.js?v=2"></script>
   <script src="js/footer-referral.js" defer></script>
 </head>
-<body data-navigation="multi-page" data-initial-view="carRentalView" data-seo-page="carRentalLanding">
+<body data-navigation="multi-page" data-initial-view="carRentalView" data-seo-page="carRentalLanding" data-car-location="larnaca">
   <div id="authMessage" class="auth-message" role="status" aria-live="polite"></div>
     <header class="app-header nav-modern">
       <div class="nav-modern__top" aria-label="Global header">
@@ -237,93 +237,382 @@
     <ul id="notificationsPanelList" class="notifications-list" role="list"></ul>
   </div>
 
-  <main id="main-content">
-        <section class="card surface-card standalone-hero" aria-labelledby="citySelectTitle">
-          <div class="standalone-hero-content">
-            <p class="standalone-hero-badge" data-i18n="carRental.hero.step">Krok 1</p>
-            <h1 id="citySelectTitle" data-i18n="carRental.hero.title">Wybierz lokalizację odbioru auta</h1>
-            <p data-i18n="carRental.hero.description">
-              Przygotowaliśmy dwie oferty dopasowane do Twoich planów podróży. Wybierz region, w którym potrzebujesz samochodu,
-              aby zobaczyć flotę, kalkulator kosztów oraz formularz rezerwacji.
+  <main id="main-content" class="standalone-main">
+    <section class="card surface-card standalone-hero" aria-labelledby="carRentalLandingHeroTitle">
+      <div class="standalone-hero-content">
+        <p class="standalone-hero-badge">Krok 1 • Wybierz trasę i termin</p>
+        <h1 id="carRentalLandingHeroTitle">Wynajem auta na Cyprze z automatycznym doborem oferty</h1>
+        <p>
+          Ustaw odbior i zwrot, a system sam wybierze najlepszą ofertę: Larnaka lub Pafos.
+          Zobaczysz dokładne ceny total na kartach aut i od razu przejdziesz do rezerwacji.
+        </p>
+        <p class="standalone-hero-note" id="landingOfferInfo" aria-live="polite">
+          Oferta jest wybierana automatycznie na podstawie lokalizacji odbioru/zwrotu i opcji młodego kierowcy.
+        </p>
+      </div>
+      <ul class="standalone-hero-stats" aria-label="Najważniejsze informacje">
+        <li>
+          <strong id="landingActiveOfferBadge">Oferta: Larnaka</strong>
+          <span>Przełączanie automatyczne + ręczne porównanie</span>
+        </li>
+        <li>
+          <strong data-minimum-days>3</strong>
+          <span>Minimalny czas wynajmu (dni)</span>
+        </li>
+        <li>
+          <strong>Bez kaucji</strong>
+          <span>Wsparcie 24/7 i przejrzysta wycena</span>
+        </li>
+      </ul>
+    </section>
+
+    <section class="card surface-card auto-rental" id="carRentalSection" aria-labelledby="carRentalTitle">
+      <header class="auto-rental-header">
+        <span class="auto-rental-badge">Bez Kaucji</span>
+        <h2 id="carRentalTitle">Skonfiguruj wynajem i wybierz auto</h2>
+        <p>
+          Wybierz daty, godziny i lokalizacje. Ceny na kartach poniżej pokazują dokładną kwotę całkowitą
+          dla Twoich ustawień (z uwzględnieniem opłat lokalizacyjnych i dodatków).
+        </p>
+
+        <div id="landingOfferToggle" hidden style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:8px;">
+          <span id="landingOfferToggleLabel" style="font-weight:600;color:#334155;">Porównaj oferty:</span>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="btn btn-secondary secondary" id="offerTogglePaphos" aria-pressed="true">Oferta Pafos</button>
+            <button type="button" class="btn ghost" id="offerToggleLarnaca" aria-pressed="false">Oferta Larnaka</button>
+          </div>
+        </div>
+      </header>
+
+      <section class="auto-rental-tools" aria-label="Kalkulator i rezerwacja">
+        <article class="auto-rental-block" id="carRentalCalculatorBlock">
+          <h3>Kalkulator wynajmu</h3>
+          <p>
+            Wspólny widget dla obu ofert. Gdy wybierzesz lokalizacje Pafos po obu stronach i bez opcji młodego kierowcy,
+            aktywuje się oferta Pafos (z możliwością ręcznego przełączenia na Larnakę).
+          </p>
+
+          <form id="carRentalCalculator" class="auto-calculator" novalidate>
+            <div class="grid auto-calculator-grid">
+              <div class="auto-field">
+                <label for="pickupDate" data-i18n="carRental.calculator.form.pickupDate">Data odbioru</label>
+                <input type="date" id="pickupDate" name="pickupDate" required aria-required="true" />
+              </div>
+              <div class="auto-field">
+                <label for="pickupTime" data-i18n="carRental.calculator.form.pickupTime">Godzina odbioru</label>
+                <input type="time" id="pickupTime" name="pickupTime" value="10:00" />
+              </div>
+              <div class="auto-field">
+                <label for="returnDate" data-i18n="carRental.calculator.form.returnDate">Data zwrotu</label>
+                <input type="date" id="returnDate" name="returnDate" required aria-required="true" />
+              </div>
+              <div class="auto-field">
+                <label for="returnTime" data-i18n="carRental.calculator.form.returnTime">Godzina zwrotu</label>
+                <input type="time" id="returnTime" name="returnTime" value="10:00" />
+              </div>
+
+              <div class="auto-field">
+                <label for="pickupLocation" data-i18n="carRental.calculator.form.pickupLocation">Miejsce odbioru</label>
+                <select id="pickupLocation" name="pickupLocation" required aria-required="true"></select>
+              </div>
+              <div class="auto-field">
+                <label for="returnLocation" data-i18n="carRental.calculator.form.returnLocation">Miejsce zwrotu</label>
+                <select id="returnLocation" name="returnLocation" required aria-required="true"></select>
+              </div>
+
+              <div class="auto-checkbox">
+                <input type="checkbox" id="fullInsurance" name="fullInsurance" />
+                <label for="fullInsurance" data-i18n="carRental.calculator.form.fullInsurance">
+                  Pełne ubezpieczenie AC (+17€/dzień)
+                </label>
+              </div>
+              <div class="auto-checkbox">
+                <input type="checkbox" id="youngDriver" name="youngDriver" />
+                <label for="youngDriver" data-i18n="carRental.calculator.form.youngDriver">
+                  Młody kierowca / staż &lt; 3 lata (+10€/dzień, tylko oferta Larnaka)
+                </label>
+              </div>
+
+              <div class="auto-field" style="grid-column: 1 / -1;">
+                <label for="rentalCarSelect" data-i18n="carRental.calculator.form.car">Wybierz auto</label>
+                <select id="rentalCarSelect" name="car" required aria-required="true"></select>
+              </div>
+            </div>
+
+            <p style="font-size:12px;color:#64748b;margin:8px 0 16px;">
+              Coral Bay / Polis wybierz jako Hotel lub Inne + podaj adres w formularzu rezerwacji.
             </p>
-            <p class="standalone-hero-note" data-i18n="carRental.hero.note">Możesz w każdej chwili przełączyć się między ofertami – link znajdziesz na górze strony.</p>
-          </div>
-          <ul class="standalone-hero-stats city-select-info" aria-label="Szybkie informacje" data-i18n-attrs="aria-label:carRental.hero.infoLabel">
-            <li>
-              <strong data-i18n="carRental.hero.info.deposit">Bez kaucji</strong>
-              <span data-i18n="carRental.hero.info.depositDetails">W obu lokalizacjach nie pobieramy kaucji i zapewniamy polską obsługę.</span>
-            </li>
-            <li>
-              <strong data-i18n="carRental.hero.info.delivery">Dowóz auta</strong>
-              <span data-i18n="carRental.hero.info.deliveryDetails">Odbierz samochód na lotnisku, w hotelu lub w umówionym miejscu.</span>
-            </li>
-            <li>
-              <strong data-i18n="carRental.hero.info.support">24/7</strong>
-              <span data-i18n="carRental.hero.info.supportDetails">Wsparcie całodobowe niezależnie od wybranej oferty.</span>
-            </li>
-          </ul>
-        </section>
 
-        <section class="card surface-card city-select" aria-labelledby="citySelectOptions">
-          <header class="city-select-header">
-            <h2 id="citySelectOptions" data-i18n="carRental.offers.title">Dwie oferty, jeden standard obsługi</h2>
-            <p data-i18n="carRental.offers.subtitle">Wybierz, w którym mieście zaczyna się Twoja przygoda, a my pokażemy dostępne samochody i ceny.</p>
-          </header>
-          <div class="grid city-select-grid" role="list">
-            <a
-              class="card city-select-card"
-              role="listitem"
-              href="car-rental.html?lang=pl"
-              aria-label="Przejdź do oferty wynajmu na całym Cyprze"
-              data-i18n-attrs="aria-label:carRental.offers.larnaca.ctaAria"
-              onkeydown="if (event.key === ' ' || event.key === 'Spacebar') { event.preventDefault(); this.click(); }"
+            <button
+              type="button"
+              class="btn btn-primary primary"
+              id="btnFillFromCalculator"
+              style="width: 100%; padding: 14px; font-size: 16px; font-weight: 600;"
+              data-i18n="carRental.calculator.fillButton"
             >
-              <div class="city-select-card-content">
-                <p class="city-select-card-tag" data-i18n="carRental.offers.larnaca.tag">Cały Cypr</p>
-                <h3 data-i18n="carRental.offers.larnaca.title">Odbiór w Larnace lub dowóz na wyspie</h3>
-                <p data-i18n="carRental.offers.larnaca.description">
-                  Idealna opcja, jeśli lądujesz w Larnace i planujesz zwiedzić różne regiony wyspy. Możliwy odbiór na lotnisku
-                  lub dowóz do wybranych kurortów.
-                </p>
-                <ul class="city-select-card-list">
-                  <li data-i18n="carRental.offers.larnaca.itemOne">Dowóz do Ayia Napy, Protaras, Limassol i Nikozji</li>
-                  <li data-i18n="carRental.offers.larnaca.itemTwo">Pełne ubezpieczenie oraz dodatki rodzinne w cenie</li>
-                  <li data-i18n="carRental.offers.larnaca.itemThree">Kalkulator kosztów i formularz rezerwacji online</li>
-                </ul>
-                <span class="btn btn-primary primary city-select-cta" data-i18n="carRental.offers.larnaca.cta"
-                  >Zobacz ofertę ogólnocypryjską</span
+              Przenieś do formularza
+            </button>
+
+            <p
+              style="font-size: 12px; color: #64748b; margin: 12px 0 0; text-align: center;"
+              data-i18n="carRental.calculator.confirmationNote"
+            >
+              Otrzymasz potwierdzenie na email w ciągu 24h
+            </p>
+          </form>
+
+          <div class="auto-calculator-result" aria-live="polite">
+            <p id="carRentalResult" class="auto-calculator-total"></p>
+            <div id="carRentalBreakdown" class="auto-calculator-breakdown"></div>
+            <p id="carRentalMessage" class="auto-calculator-message" role="status"></p>
+          </div>
+        </article>
+      </section>
+
+      <section class="auto-rental-groups" id="carRentalGrid" aria-label="Dostępna flota" aria-live="polite"></section>
+
+      <article class="auto-rental-block" id="carReservationForm" style="margin-top:24px;">
+        <h3 data-i18n="carRental.page.reservation.title">Złóż rezerwację</h3>
+        <p data-i18n="carRental.page.reservation.description">
+          Wypełnij formularz poniżej lub napisz do nas na WhatsApp – odpowiadamy najszybciej jak to możliwe.
+        </p>
+
+        <div class="auto-reservation-actions" style="margin-bottom: 24px;">
+          <a
+            class="ghost"
+            href="https://wa.me/48534073861"
+            target="_blank"
+            rel="noopener"
+            data-i18n="carRental.page.reservation.actions.whatsapp"
+          >
+            Napisz na WhatsApp
+          </a>
+        </div>
+
+        <form id="localReservationForm" class="auto-reservation-form" novalidate style="background: #f8fafc; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0;">
+          <div style="margin-bottom: 24px;">
+            <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;" data-i18n="carRental.page.reservation.sections.contact">
+              Dane kontaktowe
+            </h4>
+            <div style="display: grid; gap: 16px;">
+              <div class="auto-field">
+                <label for="res_full_name" data-i18n="carRental.page.reservation.fields.fullName.label">Imię i nazwisko *</label>
+                <input
+                  type="text"
+                  id="res_full_name"
+                  name="full_name"
+                  required
+                  placeholder="Jan Kowalski"
+                  data-i18n-attrs="placeholder:carRental.page.reservation.fields.fullName.placeholder"
                 >
               </div>
-            </a>
-
-            <a
-              class="card city-select-card"
-              role="listitem"
-              href="autopfo.html?lang=pl"
-              aria-label="Przejdź do oferty wynajmu aut w Pafos"
-              data-i18n-attrs="aria-label:carRental.offers.paphos.ctaAria"
-              onkeydown="if (event.key === ' ' || event.key === 'Spacebar') { event.preventDefault(); this.click(); }"
-            >
-              <div class="city-select-card-content">
-                <p class="city-select-card-tag" data-i18n="carRental.offers.paphos.tag">Pafos</p>
-                <h3 data-i18n="carRental.offers.paphos.title">Odbiór na lotnisku PFO lub pod hotelem bez dopłat</h3>
-                <p data-i18n="carRental.offers.paphos.description">
-                  Wybierz ofertę dedykowaną Pafos, jeśli szukasz wygodnego odbioru bez dodatkowych kosztów oraz opcji dowozu do
-                  pobliskich kurortów.
-                </p>
-                <ul class="city-select-card-list">
-                  <li data-i18n="carRental.offers.paphos.itemOne">Lotnisko w Pafos oraz centrum miasta bez dopłat</li>
-                  <li data-i18n="carRental.offers.paphos.itemTwo">Dowóz do Coral Bay i Polis za niewielką opłatą</li>
-                  <li data-i18n="carRental.offers.paphos.itemThree">Polska obsługa 24/7 i przejrzysty kalkulator wynajmu</li>
-                </ul>
-                <span class="btn btn-secondary secondary city-select-cta" data-i18n="carRental.offers.paphos.cta"
-                  >Zobacz ofertę Pafos</span
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="auto-field">
+                  <label for="res_email" data-i18n="carRental.page.reservation.fields.email.label">Email *</label>
+                  <input
+                    type="email"
+                    id="res_email"
+                    name="email"
+                    required
+                    placeholder="jan@example.com"
+                    data-i18n-attrs="placeholder:carRental.page.reservation.fields.email.placeholder"
+                  >
+                </div>
+                <div class="auto-field">
+                  <label for="res_phone" data-i18n="carRental.page.reservation.fields.phone.label">Telefon *</label>
+                  <input
+                    type="tel"
+                    id="res_phone"
+                    name="phone"
+                    required
+                    placeholder="+48 123 456 789"
+                    data-i18n-attrs="placeholder:carRental.page.reservation.fields.phone.placeholder"
+                  >
+                </div>
+              </div>
+              <div class="auto-field">
+                <label for="res_country" data-i18n="carRental.page.reservation.fields.country.label">Kraj</label>
+                <input
+                  type="text"
+                  id="res_country"
+                  name="country"
+                  placeholder="Polska"
+                  data-i18n-attrs="placeholder:carRental.page.reservation.fields.country.placeholder"
                 >
               </div>
-            </a>
+            </div>
           </div>
-        </section>
-      </main>
+
+          <div style="margin-bottom: 24px;">
+            <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;" data-i18n="carRental.page.reservation.sections.rental">
+              Szczegóły wynajmu
+            </h4>
+            <div style="display: grid; gap: 16px;">
+              <div class="auto-field">
+                <label for="res_car" data-i18n="carRental.page.reservation.fields.car.label">Wybierz auto *</label>
+                <select id="res_car" name="car" required>
+                  <option value="" data-i18n="carRental.page.reservation.fields.car.loading">Ładowanie...</option>
+                </select>
+              </div>
+
+              <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+                <div class="auto-field">
+                  <label for="res_pickup_date" data-i18n="carRental.page.reservation.fields.pickupDate.label">Data odbioru *</label>
+                  <input type="date" id="res_pickup_date" name="pickup_date" required>
+                </div>
+                <div class="auto-field">
+                  <label for="res_pickup_time" data-i18n="carRental.page.reservation.fields.pickupTime.label">Godzina</label>
+                  <input type="time" id="res_pickup_time" name="pickup_time" value="10:00">
+                </div>
+              </div>
+
+              <div class="auto-field">
+                <label for="res_pickup_location" data-i18n="carRental.page.reservation.fields.pickupLocation.label">Miejsce odbioru *</label>
+                <select id="res_pickup_location" name="pickup_location" required>
+                  <option value="larnaca">Larnaka (bez opłaty)</option>
+                  <option value="nicosia">Nikozja (+15€)</option>
+                  <option value="ayia-napa">Ayia Napa (+15€)</option>
+                  <option value="protaras">Protaras (+20€)</option>
+                  <option value="limassol">Limassol (+20€)</option>
+                  <option value="paphos">Pafos (+40€)</option>
+                  <option value="airport_pfo">Pafos Lotnisko (+10€ przy wynajmie &lt; 7 dni)</option>
+                  <option value="city_center">Pafos - centrum miasta (bez opłaty)</option>
+                  <option value="hotel">Hotel (Paphos i okolice bez opłaty)</option>
+                  <option value="other">Inne miejsce</option>
+                </select>
+              </div>
+
+              <div class="auto-field" id="pickupAddressField" hidden>
+                <label for="res_pickup_address" data-i18n="carRental.page.reservation.fields.pickupAddress.label">Adres odbioru</label>
+                <input
+                  type="text"
+                  id="res_pickup_address"
+                  name="pickup_address"
+                  placeholder="Nazwa hotelu lub dokładny adres"
+                  data-i18n-attrs="placeholder:carRental.page.reservation.fields.pickupAddress.placeholder"
+                >
+              </div>
+
+              <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 16px;">
+                <div class="auto-field">
+                  <label for="res_return_date" data-i18n="carRental.page.reservation.fields.returnDate.label">Data zwrotu *</label>
+                  <input type="date" id="res_return_date" name="return_date" required>
+                </div>
+                <div class="auto-field">
+                  <label for="res_return_time" data-i18n="carRental.page.reservation.fields.returnTime.label">Godzina</label>
+                  <input type="time" id="res_return_time" name="return_time" value="10:00">
+                </div>
+              </div>
+
+              <div class="auto-field">
+                <label for="res_return_location" data-i18n="carRental.page.reservation.fields.returnLocation.label">Miejsce zwrotu *</label>
+                <select id="res_return_location" name="return_location" required>
+                  <option value="larnaca">Larnaka (bez opłaty)</option>
+                  <option value="nicosia">Nikozja (+15€)</option>
+                  <option value="ayia-napa">Ayia Napa (+15€)</option>
+                  <option value="protaras">Protaras (+20€)</option>
+                  <option value="limassol">Limassol (+20€)</option>
+                  <option value="paphos">Pafos (+40€)</option>
+                  <option value="airport_pfo">Pafos Lotnisko (+10€ przy wynajmie &lt; 7 dni)</option>
+                  <option value="city_center">Pafos - centrum miasta (bez opłaty)</option>
+                  <option value="hotel">Hotel (Paphos i okolice bez opłaty)</option>
+                  <option value="other">Inne miejsce</option>
+                </select>
+              </div>
+
+              <div class="auto-field" id="returnAddressField" hidden>
+                <label for="res_return_address" data-i18n="carRental.page.reservation.fields.returnAddress.label">Adres zwrotu</label>
+                <input
+                  type="text"
+                  id="res_return_address"
+                  name="return_address"
+                  placeholder="Nazwa hotelu lub dokładny adres"
+                  data-i18n-attrs="placeholder:carRental.page.reservation.fields.returnAddress.placeholder"
+                >
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 24px;">
+            <h4 style="font-size: 16px; font-weight: 600; margin: 0 0 16px; color: #1e293b;" data-i18n="carRental.page.reservation.sections.options">
+              Dodatkowe opcje
+            </h4>
+            <div style="display: grid; gap: 16px;">
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                <div class="auto-field">
+                  <label for="res_passengers" data-i18n="carRental.page.reservation.fields.passengers.label">Liczba pasażerów</label>
+                  <input type="number" id="res_passengers" name="num_passengers" min="1" max="8" value="2">
+                </div>
+                <div class="auto-field">
+                  <label for="res_child_seats" data-i18n="carRental.page.reservation.fields.childSeats.label">Foteliki dziecięce (gratis)</label>
+                  <input type="number" id="res_child_seats" name="child_seats" min="0" max="3" value="0">
+                </div>
+              </div>
+
+              <div class="auto-checkbox">
+                <input type="checkbox" id="res_insurance" name="insurance">
+                <label for="res_insurance" data-i18n="carRental.page.reservation.fields.insurance.label">Pełne ubezpieczenie AC (+17€/dzień)</label>
+              </div>
+
+              <div class="auto-checkbox">
+                <input type="checkbox" id="res_young_driver" name="young_driver">
+                <label for="res_young_driver" data-i18n="carRental.page.reservation.fields.youngDriver.label">Młody kierowca / staż &lt; 3 lata (+10€/dzień)</label>
+              </div>
+
+              <div class="auto-field">
+                <label for="res_flight" data-i18n="carRental.page.reservation.fields.flight.label">Numer lotu (opcjonalnie)</label>
+                <input
+                  type="text"
+                  id="res_flight"
+                  name="flight_number"
+                  placeholder="W1234"
+                  data-i18n-attrs="placeholder:carRental.page.reservation.fields.flight.placeholder"
+                >
+              </div>
+
+              <div class="auto-field">
+                <label for="res_notes" data-i18n="carRental.page.reservation.fields.notes.label">Uwagi specjalne</label>
+                <textarea
+                  id="res_notes"
+                  name="special_requests"
+                  rows="3"
+                  placeholder="Dodatkowe informacje lub prośby..."
+                  data-i18n-attrs="placeholder:carRental.page.reservation.fields.notes.placeholder"
+                ></textarea>
+              </div>
+            </div>
+          </div>
+
+          <div id="estimatedPrice" style="background: #f1f5f9; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; color: #475569;"></div>
+
+          <div id="reservationError" class="admin-error-message" hidden style="margin-bottom: 16px;"></div>
+          <div id="reservationSuccess" hidden></div>
+
+          <button
+            type="submit"
+            class="btn btn-primary primary"
+            id="btnSubmitReservation"
+            style="width: 100%; padding: 14px; font-size: 16px; font-weight: 600;"
+            data-i18n="carRental.page.reservation.submit"
+          >
+            Wyślij rezerwację
+          </button>
+
+          <p
+            style="font-size: 12px; color: #64748b; margin: 12px 0 0; text-align: center;"
+            data-i18n="carRental.page.reservation.confirmationNote"
+          >
+            Otrzymasz potwierdzenie na email w ciągu 24h
+          </p>
+        </form>
+
+        <div id="formSubmitConfirmation" hidden style="background: #10b981; color: white; padding: 20px; border-radius: 12px; margin-top: 24px; text-align: center; animation: slideIn 0.3s ease;">
+          <h3 style="margin: 0 0 8px; font-size: 20px;" data-i18n="carRental.calculator.successTitle">🎉 Gratulacje!</h3>
+          <p style="margin: 0; font-size: 16px; opacity: 0.95;" data-i18n="carRental.calculator.successMessage">Twój formularz został wysłany pomyślnie!</p>
+        </div>
+      </article>
+    </section>
+  </main>
 
   <!-- Mobile tabbar is dynamically generated by seo.js -->
 
@@ -775,6 +1064,9 @@
     <script src="js/mobile-nav.js" defer></script>
   <script src="js/header-dropdown.js" defer></script>
     <script type="module" src="app.js"></script>
+    <script type="module" src="/js/car-rental-paphos.js?v=20260213a"></script>
+    <script type="module" src="/js/car-reservation.js?v=20260213a"></script>
+    <script type="module" src="/js/car-rental-landing.js?v=20260213a"></script>
     <!-- SOS Emergency Modal -->
   <!-- Header Stats - aktualizacja statystyk na wszystkich stronach -->
     <script src="js/sos.js?v=1" defer></script>

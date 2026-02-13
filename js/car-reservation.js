@@ -4,6 +4,24 @@ import { showToast } from './toast.js';
 
 let reservationData = {};
 
+const PAPHOS_LOCATION_VALUES = new Set(['airport_pfo', 'city_center', 'hotel', 'other']);
+
+function getActiveOfferLocation() {
+  const raw = (document.body?.dataset?.carLocation
+    || (location?.href?.includes('autopfo') ? 'paphos' : 'larnaca'))
+    .toLowerCase();
+  return raw === 'larnaca' ? 'larnaca' : 'paphos';
+}
+
+function normalizeLocationForOffer(locationValue, offerLocation) {
+  const normalized = String(locationValue || '').trim();
+  if (!normalized) return '';
+  if (offerLocation === 'larnaca' && PAPHOS_LOCATION_VALUES.has(normalized)) {
+    return 'paphos';
+  }
+  return normalized;
+}
+
 // Prefill form fields from logged-in user session
 async function prefillFromUserSession() {
   try {
@@ -193,22 +211,23 @@ function populateFromCalculator() {
   if (calcReturnTime) { document.getElementById('res_return_time').value = calcReturnTime; didSetAny = true; }
 
   // Map locations
-  const pageLocation = (document.body?.dataset?.carLocation || '').toLowerCase();
+  const pageLocation = getActiveOfferLocation();
   if (calcPickupLocLca) {
-    // Direct pass-through of city ID from calculator (larnaca, nicosia, ayia-napa, protaras, limassol, paphos)
-    document.getElementById('res_pickup_location').value = calcPickupLocLca;
+    const normalizedPickup = normalizeLocationForOffer(calcPickupLocLca, pageLocation);
+    document.getElementById('res_pickup_location').value = normalizedPickup || calcPickupLocLca;
     didSetAny = true;
   } else if (calcAirportPickupPfo) {
-    // Paphos calculator checkbox means airport pickup
-    document.getElementById('res_pickup_location').value = pageLocation === 'larnaca' ? 'larnaca' : 'airport_pfo';
+    const normalizedPickup = normalizeLocationForOffer('airport_pfo', pageLocation);
+    document.getElementById('res_pickup_location').value = normalizedPickup || 'airport_pfo';
     didSetAny = true;
   }
   if (calcReturnLocLca) {
-    document.getElementById('res_return_location').value = calcReturnLocLca;
+    const normalizedReturn = normalizeLocationForOffer(calcReturnLocLca, pageLocation);
+    document.getElementById('res_return_location').value = normalizedReturn || calcReturnLocLca;
     didSetAny = true;
   } else if (calcAirportReturnPfo) {
-    // Paphos calculator checkbox means airport return
-    document.getElementById('res_return_location').value = pageLocation === 'larnaca' ? 'larnaca' : 'airport_pfo';
+    const normalizedReturn = normalizeLocationForOffer('airport_pfo', pageLocation);
+    document.getElementById('res_return_location').value = normalizedReturn || 'airport_pfo';
     didSetAny = true;
   }
 
@@ -291,7 +310,7 @@ function calculateEstimatedPrice() {
       ? window.CE_CAR_PRICING
       : null;
     const carModel = String(document.getElementById('res_car')?.value || '').trim();
-    const pageLocation = (document.body?.dataset?.carLocation || (location?.href?.includes('autopfo') ? 'paphos' : 'larnaca')).toLowerCase();
+    const pageLocation = getActiveOfferLocation();
 
     if (!carModel) {
       estimatedEl.textContent = lang === 'en'
@@ -304,6 +323,8 @@ function calculateEstimatedPrice() {
     const carPricing = pricing && carModel ? pricing[carModel] : null;
     const pickupLoc = String(document.getElementById('res_pickup_location')?.value || '').trim();
     const returnLoc = String(document.getElementById('res_return_location')?.value || '').trim();
+    const pickupLocForQuote = normalizeLocationForOffer(pickupLoc, pageLocation);
+    const returnLocForQuote = normalizeLocationForOffer(returnLoc, pageLocation);
     const insuranceChecked = !!document.getElementById('res_insurance')?.checked;
     const youngDriverChecked = !!document.getElementById('res_young_driver')?.checked;
 
@@ -328,8 +349,8 @@ function calculateEstimatedPrice() {
 
       if (pageLocation === 'paphos') {
         const airportFeesApplicable = days < 7;
-        pickupFee = pickupLoc === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
-        returnFee = returnLoc === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
+        pickupFee = pickupLocForQuote === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
+        returnFee = returnLocForQuote === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
       } else {
         const feeFor = (city) => {
           switch (city) {
@@ -345,12 +366,12 @@ function calculateEstimatedPrice() {
               return 0;
           }
         };
-        pickupFee = feeFor(pickupLoc);
-        returnFee = feeFor(returnLoc);
+        pickupFee = feeFor(pickupLocForQuote);
+        returnFee = feeFor(returnLocForQuote);
       }
 
       const insuranceCost = insuranceChecked ? 17 * days : 0;
-      const youngDriverCost = youngDriverChecked ? 10 * days : 0;
+      const youngDriverCost = pageLocation === 'larnaca' && youngDriverChecked ? 10 * days : 0;
       const total = basePrice + pickupFee + returnFee + insuranceCost + youngDriverCost;
 
       if (Number.isFinite(total) && total > 0) {
@@ -367,6 +388,8 @@ function calculateEstimatedPrice() {
             insuranceCost,
             youngDriverCost,
             car: carModel,
+            pickupLoc: pickupLocForQuote,
+            returnLoc: returnLocForQuote,
           },
         };
         const daysLabel = lang === 'en' ? 'days' : 'dni';
@@ -556,7 +579,7 @@ async function handleReservationSubmit(event) {
       ? window.CE_CAR_PRICE_QUOTE
       : null;
 
-    const pageLocation = (document.body?.dataset?.carLocation || (location?.href?.includes('autopfo') ? 'paphos' : 'larnaca')).toLowerCase();
+    const pageLocation = getActiveOfferLocation();
 
     const computedQuote = (() => {
       try {
@@ -603,13 +626,15 @@ async function handleReservationSubmit(event) {
 
         const pickupLoc = String(formData.get('pickup_location') || '').trim();
         const returnLoc = String(formData.get('return_location') || '').trim();
+        const pickupLocForQuote = normalizeLocationForOffer(pickupLoc, pageLocation);
+        const returnLocForQuote = normalizeLocationForOffer(returnLoc, pageLocation);
 
         let pickupFee = 0;
         let returnFee = 0;
         if (pageLocation === 'paphos') {
           const airportFeesApplicable = days < 7;
-          pickupFee = pickupLoc === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
-          returnFee = returnLoc === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
+          pickupFee = pickupLocForQuote === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
+          returnFee = returnLocForQuote === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
         } else {
           const feeFor = (city) => {
             switch (city) {
@@ -625,15 +650,15 @@ async function handleReservationSubmit(event) {
                 return 0;
             }
           };
-          pickupFee = feeFor(pickupLoc);
-          returnFee = feeFor(returnLoc);
+          pickupFee = feeFor(pickupLocForQuote);
+          returnFee = feeFor(returnLocForQuote);
         }
 
         const insuranceChecked = String(formData.get('insurance') || '') === 'on';
         const youngDriverChecked = String(formData.get('young_driver') || '') === 'on';
 
         const insuranceCost = insuranceChecked ? 17 * days : 0;
-        const youngDriverCost = youngDriverChecked ? 10 * days : 0;
+        const youngDriverCost = pageLocation === 'larnaca' && youngDriverChecked ? 10 * days : 0;
         const total = basePrice + pickupFee + returnFee + insuranceCost + youngDriverCost;
         if (!Number.isFinite(total) || total <= 0) return null;
 
@@ -650,12 +675,19 @@ async function handleReservationSubmit(event) {
             insuranceCost,
             youngDriverCost,
             car: carModel,
+            pickupLoc: pickupLocForQuote,
+            returnLoc: returnLocForQuote,
           },
         };
       } catch (_e) {
         return null;
       }
     })();
+
+    const rawPickupLocation = String(formData.get('pickup_location') || '').trim();
+    const rawReturnLocation = String(formData.get('return_location') || '').trim();
+    const normalizedPickupLocation = normalizeLocationForOffer(rawPickupLocation, pageLocation) || rawPickupLocation;
+    const normalizedReturnLocation = normalizeLocationForOffer(rawReturnLocation, pageLocation) || rawReturnLocation;
 
     // Build data object with only essential fields
     const data = {
@@ -669,10 +701,10 @@ async function handleReservationSubmit(event) {
       offer_id: offerId || undefined,
       pickup_date: formData.get('pickup_date'),
       pickup_time: formData.get('pickup_time') || '10:00',
-      pickup_location: formData.get('pickup_location'),
+      pickup_location: normalizedPickupLocation,
       return_date: formData.get('return_date'),
       return_time: formData.get('return_time') || '10:00',
-      return_location: formData.get('return_location'),
+      return_location: normalizedReturnLocation,
       
       // Metadata
       location: pageLocation,
@@ -714,7 +746,7 @@ async function handleReservationSubmit(event) {
     if (insurance === 'on') data.full_insurance = true;
     
     const youngDriver = formData.get('young_driver');
-    if (youngDriver === 'on') data.young_driver = true;
+    if (youngDriver === 'on' && pageLocation === 'larnaca') data.young_driver = true;
     
     const flightNum = formData.get('flight_number');
     if (flightNum) data.flight_number = flightNum;
