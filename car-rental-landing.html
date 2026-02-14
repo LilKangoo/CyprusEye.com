@@ -60,7 +60,7 @@
   </noscript>
     <link rel="stylesheet" href="assets/css/tokens.css" />
     <link rel="stylesheet" href="assets/css/base.css" />
-    <link rel="stylesheet" href="assets/css/components.css?v=12" />
+    <link rel="stylesheet" href="assets/css/components.css?v=13" />
     <link rel="stylesheet" href="assets/css/header-metrics.css" />
     <link rel="stylesheet" href="assets/css/mobile.css" />
     <link rel="stylesheet" href="assets/css/mobile-nav.css" />
@@ -369,6 +369,21 @@
         </article>
       </section>
 
+      <section class="selected-car-highlight" id="selectedCarHighlight" hidden aria-live="polite">
+        <div class="selected-car-highlight__media">
+          <img id="selectedCarHighlightImage" src="" alt="Wybrane auto" loading="lazy" />
+        </div>
+        <div class="selected-car-highlight__content">
+          <p class="selected-car-highlight__label">Wybrane auto</p>
+          <h3 id="selectedCarHighlightTitle">—</h3>
+          <p id="selectedCarHighlightMeta">—</p>
+          <div class="selected-car-highlight__meta-row">
+            <span id="selectedCarHighlightPrice" hidden></span>
+            <span id="selectedCarHighlightOffer"></span>
+          </div>
+        </div>
+      </section>
+
       <section class="auto-rental-groups" id="carRentalGrid" aria-label="Dostępna flota" aria-live="polite"></section>
 
       <article class="auto-rental-block" id="carReservationForm" style="margin-top:24px;">
@@ -376,6 +391,7 @@
         <p data-i18n="carRental.page.reservation.description">
           Wypełnij formularz poniżej lub napisz do nas na WhatsApp – odpowiadamy najszybciej jak to możliwe.
         </p>
+        <p id="reservationOfferInfo" class="auto-reservation-offer" aria-live="polite"></p>
 
         <div class="auto-reservation-actions" style="margin-bottom: 24px;">
           <a
@@ -634,7 +650,7 @@
   </div>
 
   <footer class="app-footer">
-    <p data-i18n="footer.app">© <span data-current-year"></span> WakacjeCypr.com • Graj, zwiedzaj i planuj wakacje jednocześnie.</p>
+    <p data-i18n="footer.app">© <span data-current-year"></span> CyprusEye.com • Graj, zwiedzaj i planuj wakacje jednocześnie.</p>
   </footer>
 
   <div
@@ -1055,6 +1071,24 @@
     </div>
   </div>
 
+  <div
+    class="car-image-modal"
+    id="carImageModal"
+    hidden
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="carImageModalTitle"
+  >
+    <div class="car-image-modal__dialog" role="document" tabindex="-1">
+      <header class="car-image-modal__header">
+        <h3 id="carImageModalTitle">Podgląd auta</h3>
+        <button type="button" class="ghost" id="carImageModalClose" aria-label="Zamknij podgląd">✕</button>
+      </header>
+      <img id="carImageModalImg" src="" alt="Podgląd auta" loading="lazy" />
+      <p id="carImageModalCaption"></p>
+    </div>
+  </div>
+
   <script type="module" src="assets/js/account-modal.js?v=2"></script>
 
     <script src="js/i18n.js" defer></script>
@@ -1064,9 +1098,9 @@
     <script src="js/mobile-nav.js" defer></script>
   <script src="js/header-dropdown.js" defer></script>
     <script type="module" src="app.js"></script>
-    <script type="module" src="/js/car-rental-paphos.js?v=20260213a"></script>
+    <script type="module" src="/js/car-rental-paphos.js?v=20260214a"></script>
     <script type="module" src="/js/car-reservation.js?v=20260213a"></script>
-    <script type="module" src="/js/car-rental-landing.js?v=20260213a"></script>
+    <script type="module" src="/js/car-rental-landing.js?v=20260214a"></script>
     <!-- SOS Emergency Modal -->
   <!-- Header Stats - aktualizacja statystyk na wszystkich stronach -->
     <script src="js/sos.js?v=1" defer></script>

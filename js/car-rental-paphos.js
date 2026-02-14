@@ -360,7 +360,7 @@ function renderFleet() {
     
     return `
       <article class="card auto-card">
-        ${car.image_url ? `<img src="${escapeHtml(car.image_url)}" alt="${escapeHtml(carModelName)}" class="auto-card-image" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0;">` : ''}
+        ${car.image_url ? `<img src="${escapeHtml(car.image_url)}" alt="${escapeHtml(carModelName)}" class="auto-card-image" data-preview-title="${escapeHtml(carModelName)}" role="button" tabindex="0" aria-label="${escapeHtml(reserveLabel)}" aria-haspopup="dialog" style="width: 100%; height: 200px; object-fit: cover; border-radius: 8px 8px 0 0;">` : ''}
         <header class="auto-card-header">
           <span class="auto-card-price">${escapeHtml(priceLabel)}</span>
           <div class="auto-card-title">
