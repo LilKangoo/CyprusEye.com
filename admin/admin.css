@@ -632,6 +632,25 @@ body[data-admin-panel="true"].admin-sidebar-open {
   margin-bottom: 24px;
 }
 
+.admin-force-refresh-grid {
+  display: grid;
+  gap: 12px;
+}
+
+.admin-force-refresh-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-force-refresh-meta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
 .admin-search-input {
   flex: 1;
   background: var(--admin-bg-light);
@@ -1903,6 +1922,20 @@ body[data-admin-panel="true"].admin-sidebar-open {
   .admin-search-bar select,
   .admin-search-bar input {
     width: 100%;
+  }
+
+  .admin-force-refresh-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-force-refresh-meta {
+    width: 100%;
+  }
+
+  .admin-force-refresh-row .btn-secondary {
+    width: 100%;
+    justify-content: center;
   }
 
   .admin-view [style*="min-width"] {

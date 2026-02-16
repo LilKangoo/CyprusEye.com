@@ -9724,6 +9724,58 @@ async function handleForceRefreshCheckNowClick() {
   }
 }
 
+async function runForceRefreshAction(button, handler) {
+  if (button?.disabled) return;
+  if (button) button.disabled = true;
+  try {
+    await handler();
+  } finally {
+    if (button) button.disabled = false;
+  }
+}
+
+function bindTapAndClickAction(button, handler) {
+  if (!button || button.dataset.forceRefreshBound === '1') return;
+  button.dataset.forceRefreshBound = '1';
+
+  let lastTouchAt = 0;
+  const run = () => runForceRefreshAction(button, handler);
+
+  button.addEventListener('touchend', (event) => {
+    lastTouchAt = Date.now();
+    event.preventDefault();
+    run();
+  }, { passive: false });
+
+  button.addEventListener('click', (event) => {
+    if (Date.now() - lastTouchAt < 700) {
+      event.preventDefault();
+      return;
+    }
+    run();
+  });
+}
+
+function exposeForceRefreshGlobalHandlers() {
+  window.__adminForceReloadFromDashboard = (event) => {
+    if (event?.preventDefault) event.preventDefault();
+    const button = document.getElementById('btnForceRefreshSite');
+    return runForceRefreshAction(button, handleForceRefreshClick);
+  };
+
+  window.__adminForceReloadFromSettings = (event) => {
+    if (event?.preventDefault) event.preventDefault();
+    const button = document.getElementById('btnForceReloadAppSettings');
+    return runForceRefreshAction(button, handleForceRefreshClick);
+  };
+
+  window.__adminForceRefreshCheckNowFromSettings = (event) => {
+    if (event?.preventDefault) event.preventDefault();
+    const button = document.getElementById('btnForceRefreshCheckNow');
+    return runForceRefreshAction(button, handleForceRefreshCheckNowClick);
+  };
+}
+
 async function loadRecentActivity() {
   try {
     const client = ensureSupabase();
@@ -15348,30 +15400,10 @@ function initEventListeners() {
     logoutBtn.addEventListener('click', handleLogout);
   }
 
-  ['btnForceRefreshSite', 'btnForceReloadAppSettings'].forEach((id) => {
-    const button = document.getElementById(id);
-    if (!button) return;
-    button.addEventListener('click', async () => {
-      button.disabled = true;
-      try {
-        await handleForceRefreshClick();
-      } finally {
-        button.disabled = false;
-      }
-    });
-  });
-
-  const forceCheckNowBtn = document.getElementById('btnForceRefreshCheckNow');
-  if (forceCheckNowBtn) {
-    forceCheckNowBtn.addEventListener('click', async () => {
-      forceCheckNowBtn.disabled = true;
-      try {
-        await handleForceRefreshCheckNowClick();
-      } finally {
-        forceCheckNowBtn.disabled = false;
-      }
-    });
-  }
+  exposeForceRefreshGlobalHandlers();
+  bindTapAndClickAction(document.getElementById('btnForceRefreshSite'), handleForceRefreshClick);
+  bindTapAndClickAction(document.getElementById('btnForceReloadAppSettings'), handleForceRefreshClick);
+  bindTapAndClickAction(document.getElementById('btnForceRefreshCheckNow'), handleForceRefreshCheckNowClick);
 
   window.addEventListener('ce:force-refresh-status', () => {
     refreshForceRefreshLocalDiagnostics();

@@ -1,4 +1,4 @@
-const CACHE_VERSION = '20260210_2';
+const CACHE_VERSION = '20260216_1';
 const CACHE_PREFIX = 'ce-admin-pwa-';
 const CACHE_NAME = `${CACHE_PREFIX}${CACHE_VERSION}`;
 
@@ -59,6 +59,17 @@ function shouldHandleRequest(requestUrl) {
   }
 }
 
+function isCodeAsset(requestUrl) {
+  try {
+    const url = new URL(requestUrl);
+    if (url.origin !== self.location.origin) return false;
+    const pathname = url.pathname;
+    return pathname.endsWith('.js') || pathname.endsWith('.css');
+  } catch (_e) {
+    return false;
+  }
+}
+
 self.addEventListener('fetch', (event) => {
   const req = event.request;
   if (!req || req.method !== 'GET') return;
@@ -81,7 +92,25 @@ self.addEventListener('fetch', (event) => {
   }
 
   const dest = req.destination;
-  const cacheFirst = dest === 'script' || dest === 'style' || dest === 'image' || dest === 'font';
+  const cacheFirst = dest === 'image' || dest === 'font';
+
+  if (isCodeAsset(req.url)) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(CACHE_NAME);
+        try {
+          const resp = await fetch(req);
+          cache.put(req, resp.clone());
+          return resp;
+        } catch (_e) {
+          const cached = await cache.match(req);
+          if (cached) return cached;
+          return new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
+        }
+      })(),
+    );
+    return;
+  }
 
   if (cacheFirst) {
     event.respondWith(
