@@ -9625,9 +9625,36 @@ async function loadForceRefreshStatus() {
       const el = document.getElementById(id);
       if (el) el.textContent = updatedValue;
     });
+
+    refreshForceRefreshLocalDiagnostics();
   } catch (error) {
     console.error('Failed to load force refresh status:', error);
   }
+}
+
+function readForceRefreshLocalValue(storage, key) {
+  try {
+    return Number(storage.getItem(key) || 0);
+  } catch (_) {
+    return 0;
+  }
+}
+
+function refreshForceRefreshLocalDiagnostics() {
+  const keys = window.CE_FORCE_REFRESH_KEYS || { applied: 'ce_force_refresh_applied_version', pending: 'ce_force_refresh_pending_version' };
+  const applied = readForceRefreshLocalValue(window.localStorage, keys.applied);
+  const pending = readForceRefreshLocalValue(window.sessionStorage, keys.pending);
+  const debug = (window.CE_FORCE_REFRESH_DEBUG && typeof window.CE_FORCE_REFRESH_DEBUG === 'object')
+    ? window.CE_FORCE_REFRESH_DEBUG
+    : null;
+
+  const appliedEl = document.getElementById('forceRefreshAppliedLocal');
+  const pendingEl = document.getElementById('forceRefreshPendingLocal');
+  const checkedEl = document.getElementById('forceRefreshLastCheckLocal');
+
+  if (appliedEl) appliedEl.textContent = String(applied || 0);
+  if (pendingEl) pendingEl.textContent = String(pending || 0);
+  if (checkedEl) checkedEl.textContent = debug?.lastCheckAt ? formatDate(debug.lastCheckAt) : '-';
 }
 
 async function handleForceRefreshClick() {
@@ -9668,6 +9695,32 @@ async function handleForceRefreshClick() {
   } catch (error) {
     console.error('Force refresh failed:', error);
     showToast('Force refresh failed', 'error');
+  }
+}
+
+async function handleForceRefreshCheckNowClick() {
+  try {
+    const fn = window.CE_FORCE_REFRESH_CHECK_NOW;
+    if (typeof fn !== 'function') {
+      showToast('Force-refresh checker is not available on this page', 'error');
+      return;
+    }
+
+    const result = await fn();
+    refreshForceRefreshLocalDiagnostics();
+
+    if (result?.action === 'noop' || result?.action === 'applied_pending') {
+      showToast('This device is already up to date', 'success');
+      return;
+    }
+    if (result?.action === 'reload') {
+      showToast('Reload triggered for this device', 'info');
+      return;
+    }
+    showToast('Check completed (no immediate action)', 'info');
+  } catch (error) {
+    console.error('Force refresh check failed:', error);
+    showToast('Force refresh check failed', 'error');
   }
 }
 
@@ -15306,6 +15359,22 @@ function initEventListeners() {
         button.disabled = false;
       }
     });
+  });
+
+  const forceCheckNowBtn = document.getElementById('btnForceRefreshCheckNow');
+  if (forceCheckNowBtn) {
+    forceCheckNowBtn.addEventListener('click', async () => {
+      forceCheckNowBtn.disabled = true;
+      try {
+        await handleForceRefreshCheckNowClick();
+      } finally {
+        forceCheckNowBtn.disabled = false;
+      }
+    });
+  }
+
+  window.addEventListener('ce:force-refresh-status', () => {
+    refreshForceRefreshLocalDiagnostics();
   });
 
   // Diagnostics Auto-Fix modal

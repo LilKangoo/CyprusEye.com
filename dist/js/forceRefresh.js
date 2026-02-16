@@ -13,6 +13,7 @@ export function initForceRefresh(sb) {
   const LS_APPLIED = 'ce_force_refresh_applied_version';
   const SS_PENDING = 'ce_force_refresh_pending_version';
   const POLL_MS = 5 * 60 * 1000;
+  const DEBUG_KEY = 'CE_FORCE_REFRESH_DEBUG';
 
   const readApplied = () => {
     try {
@@ -48,6 +49,21 @@ export function initForceRefresh(sb) {
     } catch (_) {}
   };
 
+  const emitDebug = (patch = {}) => {
+    try {
+      const base = (window[DEBUG_KEY] && typeof window[DEBUG_KEY] === 'object') ? window[DEBUG_KEY] : {};
+      const next = {
+        ...base,
+        appliedVersion: readApplied(),
+        pendingVersion: readPending(),
+        ...patch,
+      };
+      window[DEBUG_KEY] = next;
+      window.dispatchEvent(new CustomEvent('ce:force-refresh-status', { detail: next }));
+    } catch (_) {
+    }
+  };
+
   async function clearAppCachesBestEffort() {
     try {
       if (typeof caches === 'undefined' || !caches.keys) return;
@@ -68,38 +84,81 @@ export function initForceRefresh(sb) {
     return Number(data?.force_refresh_version || 0);
   }
 
-  async function checkAndReloadIfNeeded() {
+  async function checkAndReloadIfNeeded(trigger = 'auto') {
     try {
       const remote = await fetchRemoteVersion();
-      if (remote == null) return;
+      if (remote == null) {
+        emitDebug({
+          lastCheckAt: new Date().toISOString(),
+          trigger,
+          action: 'error',
+          remoteVersion: null,
+        });
+        return { action: 'error', remote: null };
+      }
 
       const applied = readApplied();
       if (remote <= applied) {
         clearPending();
-        return;
+        emitDebug({
+          lastCheckAt: new Date().toISOString(),
+          trigger,
+          action: 'noop',
+          remoteVersion: remote,
+          appliedVersion: applied,
+          pendingVersion: 0,
+        });
+        return { action: 'noop', remote };
       }
 
       const pending = readPending();
       if (pending === remote) {
         writeApplied(remote);
         clearPending();
-        return;
+        emitDebug({
+          lastCheckAt: new Date().toISOString(),
+          trigger,
+          action: 'applied_pending',
+          remoteVersion: remote,
+          appliedVersion: remote,
+          pendingVersion: 0,
+        });
+        return { action: 'applied_pending', remote };
       }
 
       writePending(remote);
+      emitDebug({
+        lastCheckAt: new Date().toISOString(),
+        trigger,
+        action: 'reload',
+        remoteVersion: remote,
+        appliedVersion: applied,
+        pendingVersion: remote,
+      });
       await clearAppCachesBestEffort();
       window.location.reload();
+      return { action: 'reload', remote };
     } catch (_) {}
+    return { action: 'error', remote: null };
   }
 
+  window.CE_FORCE_REFRESH_CHECK_NOW = () => checkAndReloadIfNeeded('manual');
+  window.CE_FORCE_REFRESH_KEYS = { applied: LS_APPLIED, pending: SS_PENDING };
+  emitDebug({
+    lastCheckAt: null,
+    trigger: 'init',
+    action: 'idle',
+    remoteVersion: null,
+  });
+
   setTimeout(() => {
-    checkAndReloadIfNeeded();
-    setInterval(checkAndReloadIfNeeded, POLL_MS);
+    checkAndReloadIfNeeded('startup');
+    setInterval(() => checkAndReloadIfNeeded('interval'), POLL_MS);
   }, 1500);
 
   document.addEventListener('visibilitychange', () => {
     if (!document.hidden) {
-      checkAndReloadIfNeeded();
+      checkAndReloadIfNeeded('visibility');
     }
   });
 }

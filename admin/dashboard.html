@@ -3842,18 +3842,42 @@
             <p style="color: var(--admin-text-muted); font-size: 13px; margin-top: 4px;">Trigger reload on all app clients (users, partners, admin) on next refresh check.</p>
           </div>
           <div class="admin-card-body">
-            <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
-              <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                <div>
-                  <div style="font-size: 12px; color: var(--admin-text-muted);">Current version</div>
-                  <div style="font-size: 16px; font-weight: 700;" id="forceRefreshVersionSettings">-</div>
+            <div style="display: grid; gap: 12px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap;">
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                  <div>
+                    <div style="font-size: 12px; color: var(--admin-text-muted);">Current version</div>
+                    <div style="font-size: 16px; font-weight: 700;" id="forceRefreshVersionSettings">-</div>
+                  </div>
+                  <div>
+                    <div style="font-size: 12px; color: var(--admin-text-muted);">Last updated</div>
+                    <div style="font-size: 13px; font-weight: 600;" id="forceRefreshUpdatedAtSettings">-</div>
+                  </div>
                 </div>
-                <div>
-                  <div style="font-size: 12px; color: var(--admin-text-muted);">Last updated</div>
-                  <div style="font-size: 13px; font-weight: 600;" id="forceRefreshUpdatedAtSettings">-</div>
-                </div>
+                <button class="btn-secondary" id="btnForceReloadAppSettings" type="button">Reload page to update app</button>
               </div>
-              <button class="btn-secondary" id="btnForceReloadAppSettings" type="button">Reload page to update app</button>
+
+              <div style="display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding-top: 10px; border-top: 1px solid var(--admin-border);">
+                <div style="display: flex; gap: 12px; flex-wrap: wrap;">
+                  <div>
+                    <div style="font-size: 12px; color: var(--admin-text-muted);">This device applied</div>
+                    <div style="font-size: 14px; font-weight: 700;" id="forceRefreshAppliedLocal">-</div>
+                  </div>
+                  <div>
+                    <div style="font-size: 12px; color: var(--admin-text-muted);">This device pending</div>
+                    <div style="font-size: 14px; font-weight: 700;" id="forceRefreshPendingLocal">-</div>
+                  </div>
+                  <div>
+                    <div style="font-size: 12px; color: var(--admin-text-muted);">Last check</div>
+                    <div style="font-size: 13px; font-weight: 600;" id="forceRefreshLastCheckLocal">-</div>
+                  </div>
+                </div>
+                <button class="btn-secondary" id="btnForceRefreshCheckNow" type="button">Check this device now</button>
+              </div>
+
+              <div style="font-size: 12px; color: var(--admin-text-muted);">
+                Diagnostic panel for this device only. Other devices refresh when they run their next check.
+              </div>
             </div>
           </div>
         </div>
