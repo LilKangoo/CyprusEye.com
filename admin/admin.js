@@ -9610,16 +9610,21 @@ async function loadForceRefreshStatus() {
       return;
     }
 
-    const versionEl = document.getElementById('forceRefreshVersion');
-    const updatedEl = document.getElementById('forceRefreshUpdatedAt');
+    const versionValue = String(data?.force_refresh_version ?? '-');
+    const updatedValue = data?.updated_at ? formatDate(data.updated_at) : '-';
 
-    if (versionEl) {
-      versionEl.textContent = String(data?.force_refresh_version ?? '-');
-    }
+    const versionIds = ['forceRefreshVersion', 'forceRefreshVersionSettings'];
+    const updatedIds = ['forceRefreshUpdatedAt', 'forceRefreshUpdatedAtSettings'];
 
-    if (updatedEl) {
-      updatedEl.textContent = data?.updated_at ? formatDate(data.updated_at) : '-';
-    }
+    versionIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = versionValue;
+    });
+
+    updatedIds.forEach((id) => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = updatedValue;
+    });
   } catch (error) {
     console.error('Failed to load force refresh status:', error);
   }
@@ -15290,17 +15295,18 @@ function initEventListeners() {
     logoutBtn.addEventListener('click', handleLogout);
   }
 
-  const forceRefreshBtn = document.getElementById('btnForceRefreshSite');
-  if (forceRefreshBtn) {
-    forceRefreshBtn.addEventListener('click', async () => {
-      forceRefreshBtn.disabled = true;
+  ['btnForceRefreshSite', 'btnForceReloadAppSettings'].forEach((id) => {
+    const button = document.getElementById(id);
+    if (!button) return;
+    button.addEventListener('click', async () => {
+      button.disabled = true;
       try {
         await handleForceRefreshClick();
       } finally {
-        forceRefreshBtn.disabled = false;
+        button.disabled = false;
       }
     });
-  }
+  });
 
   // Diagnostics Auto-Fix modal
   const btnCloseDiagnosticFix = $('#btnCloseDiagnosticFix');

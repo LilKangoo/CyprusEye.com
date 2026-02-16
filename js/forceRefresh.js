@@ -4,7 +4,6 @@ export function initForceRefresh(sb) {
 
   const path = window.location?.pathname || '/';
   if (
-    path.startsWith('/admin/') ||
     path.startsWith('/auth/') ||
     path.startsWith('/reset/') ||
     path.startsWith('/account/')
@@ -49,6 +48,15 @@ export function initForceRefresh(sb) {
     } catch (_) {}
   };
 
+  async function clearAppCachesBestEffort() {
+    try {
+      if (typeof caches === 'undefined' || !caches.keys) return;
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+    } catch (_) {
+    }
+  }
+
   async function fetchRemoteVersion() {
     const { data, error } = await sb
       .from('site_settings')
@@ -79,6 +87,7 @@ export function initForceRefresh(sb) {
       }
 
       writePending(remote);
+      await clearAppCachesBestEffort();
       window.location.reload();
     } catch (_) {}
   }
