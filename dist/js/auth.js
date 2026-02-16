@@ -1499,10 +1499,10 @@ function ensureOAuthCompletionModal() {
       <input id="oauthCompletionUsername" name="username" type="text" required minlength="3" maxlength="15" pattern="[a-zA-Z0-9_]+" autocomplete="username" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
       <label for="oauthCompletionReferral">${t('Referral code', 'Kod polecający')}</label>
       <input id="oauthCompletionReferral" name="referralCode" type="text" required maxlength="64" pattern="[a-zA-Z0-9_]+" autocomplete="off" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
-      <label for="oauthCompletionPassword">${t('Password', 'Hasło')}</label>
-      <input id="oauthCompletionPassword" name="password" type="password" required minlength="8" autocomplete="new-password" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
-      <label for="oauthCompletionPasswordConfirm">${t('Confirm password', 'Potwierdź hasło')}</label>
-      <input id="oauthCompletionPasswordConfirm" name="passwordConfirm" type="password" required minlength="8" autocomplete="new-password" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
+      <label for="oauthCompletionPassword">${t('Password (optional)', 'Hasło (opcjonalnie)')}</label>
+      <input id="oauthCompletionPassword" name="password" type="password" minlength="8" autocomplete="new-password" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
+      <label for="oauthCompletionPasswordConfirm">${t('Confirm password (optional)', 'Potwierdź hasło (opcjonalnie)')}</label>
+      <input id="oauthCompletionPasswordConfirm" name="passwordConfirm" type="password" minlength="8" autocomplete="new-password" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
       <p id="oauthCompletionError" style="display:none;margin:2px 0 10px;color:#b91c1c;font-size:13px;"></p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
         <button id="oauthCompletionSubmit" type="submit" class="btn btn--primary" style="flex:1;min-width:180px;">${t('Save and continue', 'Zapisz i kontynuuj')}</button>
@@ -1556,11 +1556,11 @@ function ensureOAuthCompletionModal() {
         setError(t('Enter a valid referral code.', 'Podaj poprawny kod polecający.'));
         return;
       }
-      if (!password || password.length < 8) {
+      if ((password || passwordConfirm) && password.length < 8) {
         setError(t('Password must have at least 8 characters.', 'Hasło musi mieć co najmniej 8 znaków.'));
         return;
       }
-      if (password !== passwordConfirm) {
+      if ((password || passwordConfirm) && password !== passwordConfirm) {
         setError(t('Passwords do not match.', 'Hasła nie są identyczne.'));
         return;
       }
@@ -1571,9 +1571,18 @@ function ensureOAuthCompletionModal() {
       if (logoutBtn instanceof HTMLButtonElement) logoutBtn.disabled = true;
 
       try {
-        const { error: passwordError } = await sb.auth.updateUser({ password });
-        if (passwordError) {
-          throw passwordError;
+        if (password) {
+          const { error: passwordError } = await sb.auth.updateUser({ password });
+          if (passwordError) {
+            const pwdMessage = String(passwordError?.message || '').toLowerCase();
+            const providerRestricted =
+              pwdMessage.includes('oauth') ||
+              pwdMessage.includes('provider') ||
+              pwdMessage.includes('not allowed');
+            if (!providerRestricted) {
+              throw passwordError;
+            }
+          }
         }
         let completionHandled = false;
         let completionError = null;
@@ -1618,7 +1627,7 @@ function ensureOAuthCompletionModal() {
           }
 
           try {
-            await sb
+            const { error: updateErrWithNorm } = await sb
               .from('profiles')
               .update({
                 name: firstName,
@@ -1626,11 +1635,13 @@ function ensureOAuthCompletionModal() {
                 username_normalized: username.toLowerCase(),
               })
               .eq('id', userId);
+            if (updateErrWithNorm) throw updateErrWithNorm;
           } catch (_e) {
-            await sb
+            const { error: updateErr } = await sb
               .from('profiles')
               .update({ name: firstName, username })
               .eq('id', userId);
+            if (updateErr) throw updateErr;
           }
 
           setStoredReferralCode(referralCode, { overwrite: true });
@@ -1661,13 +1672,26 @@ function ensureOAuthCompletionModal() {
         const redirect = String(oauthCompletionRedirectTarget || POST_AUTH_REDIRECT).trim() || POST_AUTH_REDIRECT;
         window.location.assign(redirect);
       } catch (error) {
+        console.error('OAuth completion failed:', error);
         const raw = String(error?.message || '').toLowerCase();
         if (raw.includes('username_taken')) {
           setError(t('This username is already taken.', 'Ta nazwa użytkownika jest już zajęta.'));
+        } else if (raw.includes('invalid_username_length')) {
+          setError(t('Username must have 3-15 characters.', 'Nazwa użytkownika musi mieć 3-15 znaków.'));
+        } else if (raw.includes('invalid_username_format')) {
+          setError(t('Username may contain letters, numbers and underscore only.', 'Nazwa użytkownika może zawierać tylko litery, cyfry i podkreślenie.'));
+        } else if (raw.includes('missing_name')) {
+          setError(t('First name is required.', 'Imię jest wymagane.'));
+        } else if (raw.includes('missing_username')) {
+          setError(t('Username is required.', 'Nazwa użytkownika jest wymagana.'));
         } else if (raw.includes('invalid_referral_code')) {
           setError(t('Referral code was not found.', 'Nie znaleziono takiego kodu polecającego.'));
         } else if (raw.includes('missing_referral_code')) {
           setError(t('Referral code is required.', 'Kod polecający jest wymagany.'));
+        } else if (raw.includes('profile_not_found')) {
+          setError(t('User profile is not ready yet. Try again in a few seconds.', 'Profil użytkownika nie jest jeszcze gotowy. Spróbuj ponownie za kilka sekund.'));
+        } else if (raw.includes('not_authenticated')) {
+          setError(t('Session expired. Please sign in again.', 'Sesja wygasła. Zaloguj się ponownie.'));
         } else {
           setError(t('Could not complete registration. Try again.', 'Nie udało się dokończyć rejestracji. Spróbuj ponownie.'));
         }
