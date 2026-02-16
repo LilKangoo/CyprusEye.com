@@ -19,10 +19,33 @@ const POST_AUTH_REDIRECT = '/';
 const USERNAME_MIN_LENGTH = 3;
 const USERNAME_MAX_LENGTH = 15;
 const OAUTH_COMPLETION_DRAFT_KEY = 'ce_oauth_register_draft_v1';
+const OAUTH_COMPLETION_META_KEY = 'oauth_registration_completed';
+const OAUTH_COMPLETION_LOCAL_PREFIX = 'ce_oauth_completed_user_';
 
 let oauthCompletionModal = null;
 let oauthCompletionSubmitting = false;
 let oauthCompletionRedirectTarget = POST_AUTH_REDIRECT;
+
+function isOAuthCompletionMarked(user) {
+  const value = user?.user_metadata?.[OAUTH_COMPLETION_META_KEY];
+  if (value === true || String(value).toLowerCase() === 'true' || value === 1) return true;
+  try {
+    const userId = String(user?.id || '').trim();
+    if (!userId) return false;
+    return window.localStorage.getItem(`${OAUTH_COMPLETION_LOCAL_PREFIX}${userId}`) === '1';
+  } catch (_e) {
+    return false;
+  }
+}
+
+function markOAuthCompletionLocal(userId) {
+  try {
+    const id = String(userId || '').trim();
+    if (!id) return;
+    window.localStorage.setItem(`${OAUTH_COMPLETION_LOCAL_PREFIX}${id}`, '1');
+  } catch (_e) {
+  }
+}
 
 function createCallbackResetLayout() {
   const body = document.body;
@@ -1552,22 +1575,81 @@ function ensureOAuthCompletionModal() {
         if (passwordError) {
           throw passwordError;
         }
-
-        const { data, error } = await sb.rpc('complete_oauth_registration', {
-          p_name: firstName,
-          p_username: username,
-          p_referral_code: referralCode,
-        });
-        if (error) throw error;
-        if (!data?.ok) throw new Error('completion_failed');
-
-        setStoredReferralCode(referralCode, { overwrite: true });
-        clearOAuthCompletionDraft();
+        let completionHandled = false;
+        let completionError = null;
 
         try {
-          await processReferralAfterRegistration(window.CE_STATE?.session?.user?.id || null);
+          const { data, error } = await sb.rpc('complete_oauth_registration', {
+            p_name: firstName,
+            p_username: username,
+            p_referral_code: referralCode,
+          });
+          if (error) throw error;
+          if (!data?.ok) throw new Error('completion_failed');
+          completionHandled = true;
+        } catch (rpcErr) {
+          completionError = rpcErr;
+        }
+
+        if (!completionHandled) {
+          const rpcMessage = String(completionError?.message || '').toLowerCase();
+          const isMissingRpc =
+            rpcMessage.includes('complete_oauth_registration') ||
+            rpcMessage.includes('function') ||
+            String(completionError?.code || '') === '42883';
+
+          if (!isMissingRpc) {
+            throw completionError;
+          }
+
+          const userId = window.CE_STATE?.session?.user?.id || null;
+          if (!userId) {
+            throw new Error('missing_user_session');
+          }
+
+          const existingUsername = await fetchProfileByUsername(username, 'id');
+          if (existingUsername?.id && String(existingUsername.id) !== String(userId)) {
+            throw new Error('username_taken');
+          }
+
+          const refProfile = await fetchProfileByUsername(referralCode, 'id');
+          if (!refProfile?.id || String(refProfile.id) === String(userId)) {
+            throw new Error('invalid_referral_code');
+          }
+
+          try {
+            await sb
+              .from('profiles')
+              .update({
+                name: firstName,
+                username,
+                username_normalized: username.toLowerCase(),
+              })
+              .eq('id', userId);
+          } catch (_e) {
+            await sb
+              .from('profiles')
+              .update({ name: firstName, username })
+              .eq('id', userId);
+          }
+
+          setStoredReferralCode(referralCode, { overwrite: true });
+          await processReferralAfterRegistration(userId);
+        } else {
+          setStoredReferralCode(referralCode, { overwrite: true });
+          try {
+            await processReferralAfterRegistration(window.CE_STATE?.session?.user?.id || null);
+          } catch (_e) {
+          }
+        }
+
+        try {
+          await sb.auth.updateUser({ data: { [OAUTH_COMPLETION_META_KEY]: true } });
         } catch (_e) {
         }
+        markOAuthCompletionLocal(window.CE_STATE?.session?.user?.id || null);
+
+        clearOAuthCompletionDraft();
 
         await refreshSessionAndProfile();
         updateAuthUI();
@@ -1638,9 +1720,11 @@ async function maybeRequireOAuthCompletion(state, { redirectTarget = POST_AUTH_R
   const user = state?.session?.user || null;
   if (!user?.id) return false;
   if (!isGoogleProviderUser(user)) return false;
+  if (isOAuthCompletionMarked(user)) return false;
 
   const completed = await fetchRegistrationCompletionState(user.id);
-  if (completed !== false) {
+  if (completed === true) {
+    markOAuthCompletionLocal(user.id);
     return false;
   }
 
