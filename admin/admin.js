@@ -10020,6 +10020,7 @@ async function viewUserDetails(userId) {
     const content = $('#userDetailContent');
     
     if (!modal || !content) return;
+    content.classList.add('user-detail-modal-content');
     
     const profile = data.profile || {};
     const stats = data.stats || {};
@@ -11853,6 +11854,7 @@ async function viewCarBookingDetails(bookingId) {
     const modal = $('#bookingDetailsModal');
     const content = $('#bookingDetailsContent');
     if (!modal || !content) return;
+    content.classList.add('booking-details-content');
 
     // Format dates
     const pickupDate = booking.pickup_date ? new Date(booking.pickup_date).toLocaleDateString('en-GB') : 'N/A';

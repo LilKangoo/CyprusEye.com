@@ -1086,6 +1086,15 @@ body[data-admin-panel="true"].admin-sidebar-open {
   overflow-x: hidden;
 }
 
+.admin-modal-footer {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+  border-top: 1px solid var(--admin-border);
+}
+
 /* Badge */
 .badge {
   display: inline-block;
@@ -1856,8 +1865,51 @@ body[data-admin-panel="true"].admin-sidebar-open {
     grid-template-columns: 1fr !important;
   }
 
-  .admin-modal [style*="display:flex"] {
+  .admin-modal [style*="display:flex"],
+  .admin-modal [style*="display: flex"],
+  .admin-modal [style*="display:inline-flex"],
+  .admin-modal [style*="display: inline-flex"] {
     flex-wrap: wrap !important;
+    min-width: 0;
+  }
+
+  .admin-modal [style*="justify-content: space-between"] > * {
+    min-width: 0;
+  }
+
+  .admin-modal a,
+  .admin-modal span,
+  .admin-modal p,
+  .admin-modal strong,
+  .admin-modal small {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .booking-details-content #bookingStatusDropdown {
+    width: 100%;
+  }
+
+  .booking-details-content [style*="grid-template-columns: 120px 1fr"] {
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+  }
+
+  .booking-details-content [style*="justify-content: space-between"] {
+    align-items: flex-start !important;
+  }
+
+  .user-detail-modal-content .user-detail-inline-actions,
+  .user-detail-modal-content .user-detail-actions,
+  .user-detail-modal-content .user-detail-form-grid {
+    display: grid;
+    grid-template-columns: 1fr !important;
+    gap: 10px !important;
+  }
+
+  .user-detail-modal-content .user-detail-inline-actions > *,
+  .user-detail-modal-content .user-detail-actions > * {
+    width: 100%;
   }
 
   .comment-photos-grid {
