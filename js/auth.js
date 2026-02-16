@@ -1605,6 +1605,8 @@ function ensureOAuthCompletionModal() {
           const isMissingRpc =
             rpcMessage.includes('complete_oauth_registration') ||
             rpcMessage.includes('function') ||
+            rpcMessage.includes('permission denied') ||
+            rpcMessage.includes('forbidden') ||
             String(completionError?.code || '') === '42883';
 
           if (!isMissingRpc) {
@@ -1614,16 +1616,6 @@ function ensureOAuthCompletionModal() {
           const userId = window.CE_STATE?.session?.user?.id || null;
           if (!userId) {
             throw new Error('missing_user_session');
-          }
-
-          const existingUsername = await fetchProfileByUsername(username, 'id');
-          if (existingUsername?.id && String(existingUsername.id) !== String(userId)) {
-            throw new Error('username_taken');
-          }
-
-          const refProfile = await fetchProfileByUsername(referralCode, 'id');
-          if (!refProfile?.id || String(refProfile.id) === String(userId)) {
-            throw new Error('invalid_referral_code');
           }
 
           try {
@@ -1636,16 +1628,22 @@ function ensureOAuthCompletionModal() {
               })
               .eq('id', userId);
             if (updateErrWithNorm) throw updateErrWithNorm;
-          } catch (_e) {
+          } catch (updateWithNormErr) {
             const { error: updateErr } = await sb
               .from('profiles')
               .update({ name: firstName, username })
               .eq('id', userId);
             if (updateErr) throw updateErr;
+            if (updateWithNormErr && String(updateWithNormErr?.message || '').toLowerCase().includes('duplicate')) {
+              throw updateWithNormErr;
+            }
           }
 
           setStoredReferralCode(referralCode, { overwrite: true });
-          await processReferralAfterRegistration(userId);
+          try {
+            await processReferralAfterRegistration(userId);
+          } catch (_refErr) {
+          }
         } else {
           setStoredReferralCode(referralCode, { overwrite: true });
           try {
@@ -1676,6 +1674,8 @@ function ensureOAuthCompletionModal() {
         const raw = String(error?.message || '').toLowerCase();
         if (raw.includes('username_taken')) {
           setError(t('This username is already taken.', 'Ta nazwa użytkownika jest już zajęta.'));
+        } else if (raw.includes('duplicate key value') || raw.includes('duplicate') || raw.includes('unique')) {
+          setError(t('This username is already taken.', 'Ta nazwa użytkownika jest już zajęta.'));
         } else if (raw.includes('invalid_username_length')) {
           setError(t('Username must have 3-15 characters.', 'Nazwa użytkownika musi mieć 3-15 znaków.'));
         } else if (raw.includes('invalid_username_format')) {
@@ -1692,6 +1692,8 @@ function ensureOAuthCompletionModal() {
           setError(t('User profile is not ready yet. Try again in a few seconds.', 'Profil użytkownika nie jest jeszcze gotowy. Spróbuj ponownie za kilka sekund.'));
         } else if (raw.includes('not_authenticated')) {
           setError(t('Session expired. Please sign in again.', 'Sesja wygasła. Zaloguj się ponownie.'));
+        } else if (raw.includes('permission denied') || raw.includes('forbidden')) {
+          setError(t('Permission error while saving profile. Please sign in again.', 'Błąd uprawnień przy zapisie profilu. Zaloguj się ponownie.'));
         } else {
           setError(t('Could not complete registration. Try again.', 'Nie udało się dokończyć rejestracji. Spróbuj ponownie.'));
         }
