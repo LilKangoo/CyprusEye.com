@@ -3429,6 +3429,7 @@
       const snapshotPayload = (state.formSnapshotsByFulfillmentId[id]?.payload && typeof state.formSnapshotsByFulfillmentId[id].payload === 'object')
         ? state.formSnapshotsByFulfillmentId[id].payload
         : null;
+      const detailsPayload = (f.details && typeof f.details === 'object') ? f.details : null;
       const isContactRevealed = Boolean(f.contact_revealed_at);
 
       const title = isShop ? 'Shop order details' : 'Booking details';
@@ -3457,30 +3458,79 @@
         usedKeys.add(key);
         return v;
       };
+      const keyVariants = (key) => {
+        const k = String(key || '').trim();
+        if (!k) return [];
+        const out = new Set([k]);
+        if (k.includes('_')) {
+          const camel = k.replace(/_([a-z0-9])/g, (_m, c) => String(c || '').toUpperCase());
+          if (camel) out.add(camel);
+        } else if (/[A-Z]/.test(k)) {
+          const snake = k.replace(/([A-Z])/g, '_$1').toLowerCase();
+          if (snake) out.add(snake);
+        }
+        return Array.from(out);
+      };
+      const getField = (...keys) => {
+        for (const key of keys) {
+          const variants = keyVariants(key);
+          for (const variant of variants) {
+            const payloadValue = getPayload(variant);
+            if (payloadValue !== null) return payloadValue;
+          }
+          for (const variant of variants) {
+            if (!detailsPayload) break;
+            const detailsValue = detailsPayload[variant];
+            if (detailsValue !== undefined && detailsValue !== null) {
+              usedKeys.add(variant);
+              return detailsValue;
+            }
+          }
+        }
+
+        if (keys.some((k) => String(k) === 'pickup_date') && f.start_date) {
+          usedKeys.add('pickup_date');
+          return f.start_date;
+        }
+        if (keys.some((k) => String(k) === 'return_date') && f.end_date) {
+          usedKeys.add('return_date');
+          return f.end_date;
+        }
+        if (keys.some((k) => String(k) === 'car_model') && f.summary) {
+          usedKeys.add('car_model');
+          return f.summary;
+        }
+        return null;
+      };
+      const formatLocationLabel = (value) => {
+        const raw = String(value == null ? '' : value).trim();
+        if (!raw) return value;
+        return raw.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+      };
 
       const customerSectionPairs = (() => {
         const pairs = (() => {
           if (category === 'cars') {
             return [
-              { label: 'Name', value: contact?.customer_name ?? getPayload('full_name') ?? getPayload('customer_name') ?? null, key: 'customer_name' },
-              { label: 'Email', value: contact?.customer_email ?? getPayload('email') ?? getPayload('customer_email') ?? null, kind: 'email', key: 'customer_email' },
-              { label: 'Phone', value: contact?.customer_phone ?? getPayload('phone') ?? getPayload('customer_phone') ?? null, kind: 'tel', key: 'customer_phone' },
-              { label: 'Country', value: getPayload('country') },
+              { label: 'Name', value: contact?.customer_name ?? getField('full_name', 'customer_name') ?? null, key: 'customer_name' },
+              { label: 'Email', value: contact?.customer_email ?? getField('email', 'customer_email') ?? null, kind: 'email', key: 'customer_email' },
+              { label: 'Phone', value: contact?.customer_phone ?? getField('phone', 'customer_phone') ?? null, kind: 'tel', key: 'customer_phone' },
+              { label: 'Country', value: getField('country') },
             ];
           }
 
           if (category === 'trips' || category === 'hotels') {
             return [
-              { label: 'Name', value: contact?.customer_name ?? getPayload('customer_name') ?? null, key: 'customer_name' },
-              { label: 'Email', value: contact?.customer_email ?? getPayload('customer_email') ?? null, kind: 'email', key: 'customer_email' },
-              { label: 'Phone', value: contact?.customer_phone ?? getPayload('customer_phone') ?? null, kind: 'tel', key: 'customer_phone' },
+              { label: 'Name', value: contact?.customer_name ?? getField('customer_name', 'full_name') ?? null, key: 'customer_name' },
+              { label: 'Email', value: contact?.customer_email ?? getField('customer_email', 'email') ?? null, kind: 'email', key: 'customer_email' },
+              { label: 'Phone', value: contact?.customer_phone ?? getField('customer_phone', 'phone') ?? null, kind: 'tel', key: 'customer_phone' },
             ];
           }
 
           return [
-            { label: 'Name', value: contact?.customer_name ?? getPayload('customer_name') ?? null, key: 'customer_name' },
-            { label: 'Email', value: contact?.customer_email ?? getPayload('customer_email') ?? null, kind: 'email', key: 'customer_email' },
-            { label: 'Phone', value: contact?.customer_phone ?? getPayload('customer_phone') ?? null, kind: 'tel', key: 'customer_phone' },
+            { label: 'Name', value: contact?.customer_name ?? getField('customer_name', 'full_name') ?? null, key: 'customer_name' },
+            { label: 'Email', value: contact?.customer_email ?? getField('customer_email', 'email') ?? null, kind: 'email', key: 'customer_email' },
+            { label: 'Phone', value: contact?.customer_phone ?? getField('customer_phone', 'phone') ?? null, kind: 'tel', key: 'customer_phone' },
           ];
         })();
 
@@ -3495,83 +3545,87 @@
       const shippingSectionPairs = (() => {
         if (category !== 'shop') return [];
         return [
-          { label: 'Shipping address', value: contact?.shipping_address ?? getPayload('shipping_address') ?? null, kind: 'pre' },
-          { label: 'Shipping method', value: getPayload('shipping_method_name') },
-          { label: 'Estimated delivery', value: getPayload('estimated_delivery_date') },
+          { label: 'Shipping address', value: contact?.shipping_address ?? getField('shipping_address') ?? null, kind: 'pre' },
+          { label: 'Shipping method', value: getField('shipping_method_name') },
+          { label: 'Estimated delivery', value: getField('estimated_delivery_date') },
         ];
       })();
 
       const billingSectionPairs = (() => {
         if (category !== 'shop') return [];
         return [
-          { label: 'Billing address', value: contact?.billing_address ?? getPayload('billing_address') ?? null, kind: 'pre' },
+          { label: 'Billing address', value: contact?.billing_address ?? getField('billing_address') ?? null, kind: 'pre' },
         ];
       })();
 
       const carsRentalPairs = (() => {
         if (category !== 'cars') return [];
         return [
-          { label: 'Car model', value: getPayload('car_model') },
+          { label: 'Car model', value: getField('car_model') },
           { label: 'Rental days', value: calculateCarDurationDays(f, snapshotPayload) },
-          { label: 'Passengers', value: getPayload('num_passengers') },
-          { label: 'Child seats', value: getPayload('child_seats') },
-          { label: 'Full insurance', value: getPayload('full_insurance') },
+          { label: 'Passengers', value: getField('num_passengers') },
+          { label: 'Child seats', value: getField('child_seats') },
+          { label: 'Full insurance', value: getField('full_insurance') },
         ];
       })();
 
       const carsPickupPairs = (() => {
         if (category !== 'cars') return [];
         return [
-          { label: 'Pickup date', value: getPayload('pickup_date') },
-          { label: 'Pickup time', value: getPayload('pickup_time') },
-          { label: 'Pickup location', value: getPayload('pickup_location') },
-          { label: 'Pickup address', value: getPayload('pickup_address') },
-          { label: 'Flight number', value: getPayload('flight_number') },
+          { label: 'Pickup date', value: getField('pickup_date') },
+          { label: 'Pickup time', value: getField('pickup_time') },
+          { label: 'Pickup location', value: formatLocationLabel(getField('pickup_location')) },
+          { label: 'Pickup address', value: getField('pickup_address') },
+          { label: 'Flight number', value: getField('flight_number') },
         ];
       })();
 
       const carsReturnPairs = (() => {
         if (category !== 'cars') return [];
         return [
-          { label: 'Return date', value: getPayload('return_date') },
-          { label: 'Return time', value: getPayload('return_time') },
-          { label: 'Return location', value: getPayload('return_location') },
-          { label: 'Return address', value: getPayload('return_address') },
+          { label: 'Return date', value: getField('return_date') },
+          { label: 'Return time', value: getField('return_time') },
+          { label: 'Return location', value: formatLocationLabel(getField('return_location')) },
+          { label: 'Return address', value: getField('return_address') },
         ];
       })();
 
       const hotelsStayPairs = (() => {
         if (category !== 'hotels') return [];
         return [
-          { label: 'Arrival date', value: getPayload('arrival_date') },
-          { label: 'Departure date', value: getPayload('departure_date') },
-          { label: 'Nights', value: getPayload('nights') },
-          { label: 'Adults', value: getPayload('num_adults') },
-          { label: 'Children', value: getPayload('num_children') },
+          { label: 'Arrival date', value: getField('arrival_date') },
+          { label: 'Departure date', value: getField('departure_date') },
+          { label: 'Nights', value: getField('nights') },
+          { label: 'Adults', value: getField('num_adults') },
+          { label: 'Children', value: getField('num_children') },
         ];
       })();
 
       const tripsDetailsPairs = (() => {
         if (category !== 'trips') return [];
         return [
-          { label: 'Trip date', value: getPayload('trip_date') },
-          { label: 'Arrival date', value: getPayload('arrival_date') },
-          { label: 'Departure date', value: getPayload('departure_date') },
-          { label: 'Adults', value: getPayload('num_adults') },
-          { label: 'Children', value: getPayload('num_children') },
+          { label: 'Trip date', value: getField('trip_date') },
+          { label: 'Arrival date', value: getField('arrival_date') },
+          { label: 'Departure date', value: getField('departure_date') },
+          { label: 'Adults', value: getField('num_adults') },
+          { label: 'Children', value: getField('num_children') },
         ];
       })();
 
       const notesPairs = (() => {
         const candidates = ['notes', 'special_requests', 'customer_notes'];
-        const v = candidates.map((k) => getPayload(k)).find((x) => !isEmptyFormValue(x));
+        const v = candidates.map((k) => getField(k)).find((x) => !isEmptyFormValue(x));
         if (isEmptyFormValue(v)) return [];
         return [{ label: 'Notes', value: v, kind: 'pre' }];
       })();
 
       const additionalPairs = (() => {
-        if (!snapshotPayload || typeof snapshotPayload !== 'object') return [];
-        return Object.entries(snapshotPayload)
+        const combinedPayload = {
+          ...(detailsPayload && typeof detailsPayload === 'object' ? detailsPayload : {}),
+          ...(snapshotPayload && typeof snapshotPayload === 'object' ? snapshotPayload : {}),
+        };
+        if (!combinedPayload || typeof combinedPayload !== 'object') return [];
+        return Object.entries(combinedPayload)
           .filter(([k, v]) => {
             if (!String(k || '').trim() || usedKeys.has(k) || isEmptyFormValue(v)) return false;
             if (!isContactRevealed && isSensitiveFormKey(k)) return false;
@@ -3725,7 +3779,8 @@
         const detailsBtnHtml = (() => {
           const hasContact = Boolean(contact && (contact.customer_name || contact.customer_email || contact.customer_phone || contact.shipping_address || contact.billing_address));
           const hasSnapshot = Boolean(formSnapshot && formSnapshot.payload && typeof formSnapshot.payload === 'object' && Object.keys(formSnapshot.payload).length);
-          if (!hasContact && !hasSnapshot) return '';
+          const hasDetails = Boolean(f.details && typeof f.details === 'object' && Object.keys(f.details).length);
+          if (!hasContact && !hasSnapshot && !hasDetails) return '';
           return `
             <div style="margin-top: 10px;">
               <button
