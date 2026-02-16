@@ -2890,12 +2890,12 @@
       });
     }
 
-    if (revealableShopIds.length) {
+    if (shopIds.length) {
       try {
         const { data: snapshots, error: snapshotsErr } = await state.sb
           .from('shop_order_fulfillment_form_snapshots')
           .select('fulfillment_id, payload')
-          .in('fulfillment_id', revealableShopIds)
+          .in('fulfillment_id', shopIds)
           .limit(200);
 
         if (snapshotsErr) throw snapshotsErr;
@@ -2910,12 +2910,12 @@
       }
     }
 
-    if (revealableServiceIds.length) {
+    if (serviceIds.length) {
       try {
         const { data: snapshots, error: snapshotsErr } = await state.sb
           .from('partner_service_fulfillment_form_snapshots')
           .select('fulfillment_id, payload')
-          .in('fulfillment_id', revealableServiceIds)
+          .in('fulfillment_id', serviceIds)
           .limit(200);
 
         if (snapshotsErr) throw snapshotsErr;
@@ -3300,6 +3300,84 @@
       }
     };
 
+    const normalizeFormKey = (k) => String(k || '').trim().toLowerCase().replace(/[^a-z0-9]/g, '');
+    const SENSITIVE_FORM_KEYS = new Set([
+      'name',
+      'firstname',
+      'lastname',
+      'surname',
+      'fullname',
+      'customername',
+      'email',
+      'customeremail',
+      'phone',
+      'customerphone',
+      'phonenumber',
+      'telephone',
+      'mobile',
+      'whatsapp',
+      'telegram',
+    ]);
+
+    const isSensitiveFormKey = (k) => {
+      const nk = normalizeFormKey(k);
+      if (!nk) return false;
+      if (nk.startsWith('contact')) return true;
+      return SENSITIVE_FORM_KEYS.has(nk);
+    };
+
+    const parseDateTimeForCarDuration = (dateRaw, timeRaw, fallbackTime = '10:00') => {
+      const dateText = String(dateRaw || '').trim();
+      if (!dateText) return null;
+
+      const isoDateMatch = dateText.match(/^(\d{4}-\d{2}-\d{2})/);
+      const datePart = isoDateMatch ? isoDateMatch[1] : '';
+
+      const timeText = String(timeRaw || '').trim();
+      const hhmmMatch = timeText.match(/^([01]\d|2[0-3]):([0-5]\d)/);
+      const timePart = hhmmMatch ? `${hhmmMatch[1]}:${hhmmMatch[2]}` : fallbackTime;
+
+      const isoSource = datePart ? `${datePart}T${timePart}` : dateText;
+      const dt = new Date(isoSource);
+      if (Number.isNaN(dt.getTime())) return null;
+      return dt;
+    };
+
+    const calculateCarDurationDays = (fulfillment, snapshotPayload) => {
+      if (!fulfillment) return null;
+      if (String(fulfillment.resource_type || '') !== 'cars') return null;
+
+      const details = (fulfillment.details && typeof fulfillment.details === 'object') ? fulfillment.details : null;
+      const payload = (snapshotPayload && typeof snapshotPayload === 'object') ? snapshotPayload : null;
+
+      const pickupDateRaw = payload?.pickup_date ?? details?.pickup_date ?? details?.pickupDate ?? fulfillment.start_date ?? null;
+      const returnDateRaw = payload?.return_date ?? details?.return_date ?? details?.returnDate ?? fulfillment.end_date ?? null;
+      const pickupTimeRaw = payload?.pickup_time ?? details?.pickup_time ?? details?.pickupTime ?? null;
+      const returnTimeRaw = payload?.return_time ?? details?.return_time ?? details?.returnTime ?? null;
+
+      const pickupAt = parseDateTimeForCarDuration(pickupDateRaw, pickupTimeRaw);
+      const returnAt = parseDateTimeForCarDuration(returnDateRaw, returnTimeRaw);
+
+      if (pickupAt && returnAt) {
+        const hours = (returnAt.getTime() - pickupAt.getTime()) / 36e5;
+        if (Number.isFinite(hours) && hours > 0) {
+          const days = Math.ceil(hours / 24);
+          if (Number.isFinite(days) && days > 0) return Math.max(days, 3);
+        }
+      }
+
+      const explicitDuration = payload?.duration_days
+        ?? payload?.durationDays
+        ?? payload?.duration
+        ?? details?.duration_days
+        ?? details?.durationDays
+        ?? details?.duration;
+      const dn = explicitDuration != null ? Number(explicitDuration) : null;
+      if (dn != null && Number.isFinite(dn) && dn > 0) return Math.max(Math.ceil(dn), 3);
+
+      return null;
+    };
+
     const sectionHtml = (title, pairs) => {
       const rows = (pairs || [])
         .filter((p) => p && String(p.label || '').trim() && !isEmptyFormValue(p.value))
@@ -3351,6 +3429,7 @@
       const snapshotPayload = (state.formSnapshotsByFulfillmentId[id]?.payload && typeof state.formSnapshotsByFulfillmentId[id].payload === 'object')
         ? state.formSnapshotsByFulfillmentId[id].payload
         : null;
+      const isContactRevealed = Boolean(f.contact_revealed_at);
 
       const title = isShop ? 'Shop order details' : 'Booking details';
       if (els.partnerDetailsTitle) els.partnerDetailsTitle.textContent = title;
@@ -3380,28 +3459,37 @@
       };
 
       const customerSectionPairs = (() => {
-        if (category === 'cars') {
-          return [
-            { label: 'Name', value: contact?.customer_name ?? getPayload('full_name') ?? getPayload('customer_name') ?? null },
-            { label: 'Email', value: contact?.customer_email ?? getPayload('email') ?? getPayload('customer_email') ?? null, kind: 'email' },
-            { label: 'Phone', value: contact?.customer_phone ?? getPayload('phone') ?? getPayload('customer_phone') ?? null, kind: 'tel' },
-            { label: 'Country', value: getPayload('country') },
-          ];
-        }
+        const pairs = (() => {
+          if (category === 'cars') {
+            return [
+              { label: 'Name', value: contact?.customer_name ?? getPayload('full_name') ?? getPayload('customer_name') ?? null, key: 'customer_name' },
+              { label: 'Email', value: contact?.customer_email ?? getPayload('email') ?? getPayload('customer_email') ?? null, kind: 'email', key: 'customer_email' },
+              { label: 'Phone', value: contact?.customer_phone ?? getPayload('phone') ?? getPayload('customer_phone') ?? null, kind: 'tel', key: 'customer_phone' },
+              { label: 'Country', value: getPayload('country') },
+            ];
+          }
 
-        if (category === 'trips' || category === 'hotels') {
-          return [
-            { label: 'Name', value: contact?.customer_name ?? getPayload('customer_name') ?? null },
-            { label: 'Email', value: contact?.customer_email ?? getPayload('customer_email') ?? null, kind: 'email' },
-            { label: 'Phone', value: contact?.customer_phone ?? getPayload('customer_phone') ?? null, kind: 'tel' },
-          ];
-        }
+          if (category === 'trips' || category === 'hotels') {
+            return [
+              { label: 'Name', value: contact?.customer_name ?? getPayload('customer_name') ?? null, key: 'customer_name' },
+              { label: 'Email', value: contact?.customer_email ?? getPayload('customer_email') ?? null, kind: 'email', key: 'customer_email' },
+              { label: 'Phone', value: contact?.customer_phone ?? getPayload('customer_phone') ?? null, kind: 'tel', key: 'customer_phone' },
+            ];
+          }
 
-        return [
-          { label: 'Name', value: contact?.customer_name ?? getPayload('customer_name') ?? null },
-          { label: 'Email', value: contact?.customer_email ?? getPayload('customer_email') ?? null, kind: 'email' },
-          { label: 'Phone', value: contact?.customer_phone ?? getPayload('customer_phone') ?? null, kind: 'tel' },
-        ];
+          return [
+            { label: 'Name', value: contact?.customer_name ?? getPayload('customer_name') ?? null, key: 'customer_name' },
+            { label: 'Email', value: contact?.customer_email ?? getPayload('customer_email') ?? null, kind: 'email', key: 'customer_email' },
+            { label: 'Phone', value: contact?.customer_phone ?? getPayload('customer_phone') ?? null, kind: 'tel', key: 'customer_phone' },
+          ];
+        })();
+
+        if (isContactRevealed) return pairs;
+        return pairs.map((p) => {
+          if (!p) return p;
+          if (!isSensitiveFormKey(p.key || p.label || '')) return p;
+          return { ...p, value: null };
+        });
       })();
 
       const shippingSectionPairs = (() => {
@@ -3424,6 +3512,7 @@
         if (category !== 'cars') return [];
         return [
           { label: 'Car model', value: getPayload('car_model') },
+          { label: 'Rental days', value: calculateCarDurationDays(f, snapshotPayload) },
           { label: 'Passengers', value: getPayload('num_passengers') },
           { label: 'Child seats', value: getPayload('child_seats') },
           { label: 'Full insurance', value: getPayload('full_insurance') },
@@ -3483,12 +3572,21 @@
       const additionalPairs = (() => {
         if (!snapshotPayload || typeof snapshotPayload !== 'object') return [];
         return Object.entries(snapshotPayload)
-          .filter(([k, v]) => String(k || '').trim() && !usedKeys.has(k) && !isEmptyFormValue(v))
+          .filter(([k, v]) => {
+            if (!String(k || '').trim() || usedKeys.has(k) || isEmptyFormValue(v)) return false;
+            if (!isContactRevealed && isSensitiveFormKey(k)) return false;
+            return true;
+          })
           .sort(([a], [b]) => String(a).localeCompare(String(b)))
           .map(([k, v]) => ({ label: labelForFormKey(k) || k, value: v }));
       })();
 
+      const contactHiddenNotice = !isContactRevealed
+        ? '<div class="partner-details-section"><div class="muted small">Customer name and contact details are hidden until payment confirmation.</div></div>'
+        : '';
+
       const html = [
+        contactHiddenNotice,
         sectionHtml('Customer information', customerSectionPairs),
         category === 'shop' ? sectionHtml('Shipping', shippingSectionPairs) : '',
         category === 'shop' ? sectionHtml('Billing', billingSectionPairs) : '',
@@ -3535,27 +3633,9 @@
         const items = isShop ? (state.itemsByFulfillmentId[id] || []) : [];
         const contact = state.contactsByFulfillmentId[id] || null;
         const formSnapshot = state.formSnapshotsByFulfillmentId[id] || null;
+        const snapshotPayload = (formSnapshot?.payload && typeof formSnapshot.payload === 'object') ? formSnapshot.payload : null;
 
-        const durationDays = (() => {
-          if (isShop) return null;
-          if (String(f.resource_type || '') !== 'cars') return null;
-          const d = (f.details && typeof f.details === 'object')
-            ? (f.details.duration_days ?? f.details.durationDays ?? f.details.duration)
-            : null;
-          const dn = d != null ? Number(d) : null;
-          if (dn != null && Number.isFinite(dn)) return dn;
-          if (f.start_date && f.end_date) {
-            try {
-              const start = new Date(`${String(f.start_date).slice(0, 10)}T00:00:00`);
-              const end = new Date(`${String(f.end_date).slice(0, 10)}T00:00:00`);
-              const days = Math.round((end.getTime() - start.getTime()) / 86400000);
-              return Number.isFinite(days) ? Math.max(days, 0) : null;
-            } catch (_e) {
-              return null;
-            }
-          }
-          return null;
-        })();
+        const durationDays = calculateCarDurationDays(f, snapshotPayload);
 
         const datesHtml = (() => {
           if (isShop) return '<span class="muted">—</span>';
