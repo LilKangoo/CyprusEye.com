@@ -164,6 +164,34 @@ async function waitForProfile(sb, userId, maxAttempts = 5) {
   return false;
 }
 
+async function findReferrerByCode(sb, referralCode) {
+  const code = String(referralCode || '').trim();
+  if (!code) return null;
+
+  const exact = await sb
+    .from('profiles')
+    .select('id, username')
+    .eq('username', code)
+    .maybeSingle();
+  if (!exact.error && exact.data) return exact.data;
+
+  const normalized = await sb
+    .from('profiles')
+    .select('id, username')
+    .eq('username_normalized', code.toLowerCase())
+    .maybeSingle();
+  if (!normalized.error && normalized.data) return normalized.data;
+
+  const insensitive = await sb
+    .from('profiles')
+    .select('id, username')
+    .ilike('username', code)
+    .maybeSingle();
+  if (!insensitive.error && insensitive.data) return insensitive.data;
+
+  return null;
+}
+
 /**
  * Process referral after user registration
  * Links the new user to the referrer
@@ -216,13 +244,8 @@ export async function processReferralAfterRegistration(newUserId) {
     }
     
     // Find referrer by username
-    const { data: referrer, error: referrerError } = await sb
-      .from('profiles')
-      .select('id, username')
-      .eq('username', referralCode)
-      .single();
-    
-    if (referrerError || !referrer) {
+    const referrer = await findReferrerByCode(sb, referralCode);
+    if (!referrer) {
       console.warn('Referrer not found:', referralCode);
       clearStoredReferralCode();
       return null;

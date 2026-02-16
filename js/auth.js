@@ -1673,8 +1673,9 @@ $('#form-register')?.addEventListener('submit', async (event) => {
         return;
       }
 
-      if (payload.referralCode) {
-        setStoredReferralCode(payload.referralCode, { overwrite: true });
+      const effectiveReferralCode = (payload.referralCode || getStoredReferralCode() || '').trim();
+      if (effectiveReferralCode) {
+        setStoredReferralCode(effectiveReferralCode, { overwrite: true });
       } else {
         clearStoredReferralCode();
       }
@@ -1685,7 +1686,8 @@ $('#form-register')?.addEventListener('submit', async (event) => {
         options: {
           data: { 
             name: payload.firstName?.trim() || '',
-            username: payload.username?.trim() || ''
+            username: payload.username?.trim() || '',
+            referral_code: effectiveReferralCode || undefined
           },
           emailRedirectTo: VERIFICATION_REDIRECT,
         },
