@@ -3496,3 +3496,62 @@ select#orderStatusFilter:focus {
   from { opacity: 0; }
   to { opacity: 1; }
 }
+
+/* Final mobile hardening: prevent right-edge clipping across views/modals */
+@media (max-width: 1024px) {
+  .admin-header-content {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+  }
+
+  .admin-main {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    min-width: 0;
+  }
+
+  .admin-view,
+  .admin-section,
+  .admin-card,
+  .admin-table-container,
+  .admin-modal-dialog,
+  .admin-modal-content,
+  .admin-modal-body {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .admin-view img,
+  .admin-view video,
+  .admin-view iframe,
+  .admin-view canvas,
+  .admin-modal img,
+  .admin-modal video,
+  .admin-modal iframe,
+  .admin-modal canvas {
+    max-width: 100%;
+    height: auto;
+  }
+
+  .admin-view code,
+  .admin-modal code,
+  .admin-view pre,
+  .admin-modal pre {
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .admin-table td,
+  .admin-table td > * {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+
+  .admin-modal [style*="width:"],
+  .admin-modal [style*="max-width:"],
+  .admin-modal [style*="min-width:"] {
+    max-width: 100% !important;
+  }
+}
