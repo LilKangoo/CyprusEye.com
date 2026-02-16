@@ -1891,6 +1891,23 @@ body[data-admin-panel="true"].admin-sidebar-open {
     width: 100%;
     justify-content: center;
   }
+
+  .admin-search-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .admin-search-bar .admin-search-input,
+  .admin-search-bar .btn-admin-search,
+  .admin-search-bar .form-control,
+  .admin-search-bar select,
+  .admin-search-bar input {
+    width: 100%;
+  }
+
+  .admin-view [style*="min-width"] {
+    min-width: 0 !important;
+  }
 }
 
 .muted {
@@ -2035,6 +2052,228 @@ body[data-admin-panel="true"].admin-sidebar-open {
 
   .admin-table-container[aria-label="Partner Services"] .admin-table td:nth-of-type(6) .btn-action {
     width: 100%;
+  }
+
+  .admin-table-container[aria-label="All orders"],
+  .admin-table-container[aria-label="Car bookings"],
+  .admin-table-container[aria-label="Trip bookings"],
+  .admin-table-container[aria-label="Hotel bookings"],
+  .admin-table-container[aria-label="Users"],
+  .admin-table-container[aria-label="Referrals"] {
+    overflow: visible;
+    border: none;
+    background: transparent;
+  }
+
+  .admin-table-container[aria-label="All orders"] .admin-table,
+  .admin-table-container[aria-label="Car bookings"] .admin-table,
+  .admin-table-container[aria-label="Trip bookings"] .admin-table,
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table,
+  .admin-table-container[aria-label="Users"] .admin-table,
+  .admin-table-container[aria-label="Referrals"] .admin-table {
+    min-width: 0;
+  }
+
+  .admin-table-container[aria-label="All orders"] .admin-table thead,
+  .admin-table-container[aria-label="Car bookings"] .admin-table thead,
+  .admin-table-container[aria-label="Trip bookings"] .admin-table thead,
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table thead,
+  .admin-table-container[aria-label="Users"] .admin-table thead,
+  .admin-table-container[aria-label="Referrals"] .admin-table thead {
+    display: none;
+  }
+
+  .admin-table-container[aria-label="All orders"] .admin-table,
+  .admin-table-container[aria-label="All orders"] .admin-table tbody,
+  .admin-table-container[aria-label="All orders"] .admin-table tr,
+  .admin-table-container[aria-label="All orders"] .admin-table td,
+  .admin-table-container[aria-label="Car bookings"] .admin-table,
+  .admin-table-container[aria-label="Car bookings"] .admin-table tbody,
+  .admin-table-container[aria-label="Car bookings"] .admin-table tr,
+  .admin-table-container[aria-label="Car bookings"] .admin-table td,
+  .admin-table-container[aria-label="Trip bookings"] .admin-table,
+  .admin-table-container[aria-label="Trip bookings"] .admin-table tbody,
+  .admin-table-container[aria-label="Trip bookings"] .admin-table tr,
+  .admin-table-container[aria-label="Trip bookings"] .admin-table td,
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table,
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table tbody,
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table tr,
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table td,
+  .admin-table-container[aria-label="Users"] .admin-table,
+  .admin-table-container[aria-label="Users"] .admin-table tbody,
+  .admin-table-container[aria-label="Users"] .admin-table tr,
+  .admin-table-container[aria-label="Users"] .admin-table td,
+  .admin-table-container[aria-label="Referrals"] .admin-table,
+  .admin-table-container[aria-label="Referrals"] .admin-table tbody,
+  .admin-table-container[aria-label="Referrals"] .admin-table tr,
+  .admin-table-container[aria-label="Referrals"] .admin-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .admin-table-container[aria-label="All orders"] .admin-table tr,
+  .admin-table-container[aria-label="Car bookings"] .admin-table tr,
+  .admin-table-container[aria-label="Trip bookings"] .admin-table tr,
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table tr,
+  .admin-table-container[aria-label="Users"] .admin-table tr,
+  .admin-table-container[aria-label="Referrals"] .admin-table tr {
+    border: 1px solid var(--admin-border);
+    background: var(--admin-bg-light);
+    border-radius: 14px;
+    overflow: hidden;
+    margin: 0 0 12px;
+  }
+
+  .admin-table-container[aria-label="All orders"] .admin-table td,
+  .admin-table-container[aria-label="Car bookings"] .admin-table td,
+  .admin-table-container[aria-label="Trip bookings"] .admin-table td,
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table td,
+  .admin-table-container[aria-label="Users"] .admin-table td,
+  .admin-table-container[aria-label="Referrals"] .admin-table td {
+    border-bottom: 1px solid var(--admin-border);
+    padding: 10px 12px;
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    justify-items: end;
+    text-align: right;
+    white-space: normal !important;
+  }
+
+  .admin-table-container[aria-label="All orders"] .admin-table td:last-child,
+  .admin-table-container[aria-label="Car bookings"] .admin-table td:last-child,
+  .admin-table-container[aria-label="Trip bookings"] .admin-table td:last-child,
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table td:last-child,
+  .admin-table-container[aria-label="Users"] .admin-table td:last-child,
+  .admin-table-container[aria-label="Referrals"] .admin-table td:last-child {
+    border-bottom: none;
+  }
+
+  .admin-table-container[aria-label="All orders"] .admin-table td::before,
+  .admin-table-container[aria-label="Car bookings"] .admin-table td::before,
+  .admin-table-container[aria-label="Trip bookings"] .admin-table td::before,
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table td::before,
+  .admin-table-container[aria-label="Users"] .admin-table td::before,
+  .admin-table-container[aria-label="Referrals"] .admin-table td::before {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--admin-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .admin-table-container[aria-label="All orders"] .admin-table td:nth-of-type(1)::before { content: "Category"; }
+  .admin-table-container[aria-label="All orders"] .admin-table td:nth-of-type(2)::before { content: "Order ID"; }
+  .admin-table-container[aria-label="All orders"] .admin-table td:nth-of-type(3)::before { content: "Customer"; }
+  .admin-table-container[aria-label="All orders"] .admin-table td:nth-of-type(4)::before { content: "Details"; }
+  .admin-table-container[aria-label="All orders"] .admin-table td:nth-of-type(5)::before { content: "Status"; }
+  .admin-table-container[aria-label="All orders"] .admin-table td:nth-of-type(6)::before { content: "Amount"; }
+  .admin-table-container[aria-label="All orders"] .admin-table td:nth-of-type(7)::before { content: "Created"; }
+  .admin-table-container[aria-label="All orders"] .admin-table td:nth-of-type(8)::before { content: "Actions"; }
+
+  .admin-table-container[aria-label="Car bookings"] .admin-table td:nth-of-type(1)::before { content: "Booking ID"; }
+  .admin-table-container[aria-label="Car bookings"] .admin-table td:nth-of-type(2)::before { content: "Customer"; }
+  .admin-table-container[aria-label="Car bookings"] .admin-table td:nth-of-type(3)::before { content: "Car"; }
+  .admin-table-container[aria-label="Car bookings"] .admin-table td:nth-of-type(4)::before { content: "Dates"; }
+  .admin-table-container[aria-label="Car bookings"] .admin-table td:nth-of-type(5)::before { content: "Status"; }
+  .admin-table-container[aria-label="Car bookings"] .admin-table td:nth-of-type(6)::before { content: "Amount"; }
+  .admin-table-container[aria-label="Car bookings"] .admin-table td:nth-of-type(7)::before { content: "Actions"; }
+
+  .admin-table-container[aria-label="Trip bookings"] .admin-table td:nth-of-type(1)::before { content: "Booking ID"; }
+  .admin-table-container[aria-label="Trip bookings"] .admin-table td:nth-of-type(2)::before { content: "Customer"; }
+  .admin-table-container[aria-label="Trip bookings"] .admin-table td:nth-of-type(3)::before { content: "Details"; }
+  .admin-table-container[aria-label="Trip bookings"] .admin-table td:nth-of-type(4)::before { content: "Status"; }
+  .admin-table-container[aria-label="Trip bookings"] .admin-table td:nth-of-type(5)::before { content: "Amount"; }
+  .admin-table-container[aria-label="Trip bookings"] .admin-table td:nth-of-type(6)::before { content: "Actions"; }
+
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table td:nth-of-type(1)::before { content: "Booking ID"; }
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table td:nth-of-type(2)::before { content: "Customer"; }
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table td:nth-of-type(3)::before { content: "Details"; }
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table td:nth-of-type(4)::before { content: "Status"; }
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table td:nth-of-type(5)::before { content: "Amount"; }
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table td:nth-of-type(6)::before { content: "Actions"; }
+
+  .admin-table-container[aria-label="Users"] .admin-table td:nth-of-type(1)::before { content: "Username"; }
+  .admin-table-container[aria-label="Users"] .admin-table td:nth-of-type(2)::before { content: "Email"; }
+  .admin-table-container[aria-label="Users"] .admin-table td:nth-of-type(3)::before { content: "Level"; }
+  .admin-table-container[aria-label="Users"] .admin-table td:nth-of-type(4)::before { content: "XP"; }
+  .admin-table-container[aria-label="Users"] .admin-table td:nth-of-type(5)::before { content: "Joined"; }
+  .admin-table-container[aria-label="Users"] .admin-table td:nth-of-type(6)::before { content: "Status"; }
+  .admin-table-container[aria-label="Users"] .admin-table td:nth-of-type(7)::before { content: "Actions"; }
+
+  .admin-table-container[aria-label="Referrals"] .admin-table td:nth-of-type(1)::before { content: "Referrer"; }
+  .admin-table-container[aria-label="Referrals"] .admin-table td:nth-of-type(2)::before { content: "Referred user"; }
+  .admin-table-container[aria-label="Referrals"] .admin-table td:nth-of-type(3)::before { content: "Date"; }
+  .admin-table-container[aria-label="Referrals"] .admin-table td:nth-of-type(4)::before { content: "Status"; }
+  .admin-table-container[aria-label="Referrals"] .admin-table td:nth-of-type(5)::before { content: "XP"; }
+  .admin-table-container[aria-label="Referrals"] .admin-table td:nth-of-type(6)::before { content: "Actions"; }
+
+  .admin-table-container[aria-label="All orders"] .admin-table td > *,
+  .admin-table-container[aria-label="Car bookings"] .admin-table td > *,
+  .admin-table-container[aria-label="Trip bookings"] .admin-table td > *,
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table td > *,
+  .admin-table-container[aria-label="Users"] .admin-table td > *,
+  .admin-table-container[aria-label="Referrals"] .admin-table td > * {
+    min-width: 0;
+    justify-self: end;
+    text-align: right;
+  }
+
+  .admin-table-container[aria-label="All orders"] .admin-table td[colspan],
+  .admin-table-container[aria-label="Car bookings"] .admin-table td[colspan],
+  .admin-table-container[aria-label="Trip bookings"] .admin-table td[colspan],
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table td[colspan],
+  .admin-table-container[aria-label="Users"] .admin-table td[colspan],
+  .admin-table-container[aria-label="Referrals"] .admin-table td[colspan] {
+    display: block;
+    text-align: center;
+  }
+
+  .admin-table-container[aria-label="All orders"] .admin-table td[colspan]::before,
+  .admin-table-container[aria-label="Car bookings"] .admin-table td[colspan]::before,
+  .admin-table-container[aria-label="Trip bookings"] .admin-table td[colspan]::before,
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table td[colspan]::before,
+  .admin-table-container[aria-label="Users"] .admin-table td[colspan]::before,
+  .admin-table-container[aria-label="Referrals"] .admin-table td[colspan]::before {
+    content: none;
+    display: none;
+  }
+
+  .admin-table-container[aria-label="All orders"] .admin-table td:last-child,
+  .admin-table-container[aria-label="Car bookings"] .admin-table td:last-child,
+  .admin-table-container[aria-label="Trip bookings"] .admin-table td:last-child,
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table td:last-child,
+  .admin-table-container[aria-label="Users"] .admin-table td:last-child,
+  .admin-table-container[aria-label="Referrals"] .admin-table td:last-child {
+    display: block;
+  }
+
+  .admin-table-container[aria-label="All orders"] .admin-table td:last-child::before,
+  .admin-table-container[aria-label="Car bookings"] .admin-table td:last-child::before,
+  .admin-table-container[aria-label="Trip bookings"] .admin-table td:last-child::before,
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table td:last-child::before,
+  .admin-table-container[aria-label="Users"] .admin-table td:last-child::before,
+  .admin-table-container[aria-label="Referrals"] .admin-table td:last-child::before {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .admin-table-container[aria-label="All orders"] .admin-table td:last-child button,
+  .admin-table-container[aria-label="All orders"] .admin-table td:last-child a,
+  .admin-table-container[aria-label="Car bookings"] .admin-table td:last-child button,
+  .admin-table-container[aria-label="Car bookings"] .admin-table td:last-child a,
+  .admin-table-container[aria-label="Trip bookings"] .admin-table td:last-child button,
+  .admin-table-container[aria-label="Trip bookings"] .admin-table td:last-child a,
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table td:last-child button,
+  .admin-table-container[aria-label="Hotel bookings"] .admin-table td:last-child a,
+  .admin-table-container[aria-label="Users"] .admin-table td:last-child button,
+  .admin-table-container[aria-label="Users"] .admin-table td:last-child a,
+  .admin-table-container[aria-label="Referrals"] .admin-table td:last-child button,
+  .admin-table-container[aria-label="Referrals"] .admin-table td:last-child a {
+    width: 100%;
+    margin-top: 8px;
+    justify-content: center;
   }
 }
 

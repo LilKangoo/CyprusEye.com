@@ -237,6 +237,117 @@
       .partners-page .admin-table-container[aria-label="Fulfillments"] .admin-table td:nth-of-type(6) .btn-action {
         width: 100%;
       }
+
+      .partners-page .admin-table-container[aria-label="Availability blocks"],
+      .partners-page .admin-table-container[aria-label="Affiliate earnings"] {
+        overflow: visible;
+        border: none;
+        background: transparent;
+      }
+
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table,
+      .partners-page .admin-table-container[aria-label="Affiliate earnings"] .admin-table {
+        min-width: 0;
+      }
+
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table thead,
+      .partners-page .admin-table-container[aria-label="Affiliate earnings"] .admin-table thead {
+        display: none;
+      }
+
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table,
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table tbody,
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table tr,
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table td,
+      .partners-page .admin-table-container[aria-label="Affiliate earnings"] .admin-table,
+      .partners-page .admin-table-container[aria-label="Affiliate earnings"] .admin-table tbody,
+      .partners-page .admin-table-container[aria-label="Affiliate earnings"] .admin-table tr,
+      .partners-page .admin-table-container[aria-label="Affiliate earnings"] .admin-table td {
+        display: block;
+        width: 100%;
+      }
+
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table tr,
+      .partners-page .admin-table-container[aria-label="Affiliate earnings"] .admin-table tr {
+        border: 1px solid var(--admin-border);
+        background: var(--admin-bg-light);
+        border-radius: 14px;
+        overflow: hidden;
+        margin: 0 0 12px;
+      }
+
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table td,
+      .partners-page .admin-table-container[aria-label="Affiliate earnings"] .admin-table td {
+        border-bottom: 1px solid var(--admin-border);
+        padding: 10px 12px;
+        display: grid;
+        grid-template-columns: 110px minmax(0, 1fr);
+        gap: 10px;
+        align-items: start;
+      }
+
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table td:last-child,
+      .partners-page .admin-table-container[aria-label="Affiliate earnings"] .admin-table td:last-child {
+        border-bottom: none;
+      }
+
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table td::before,
+      .partners-page .admin-table-container[aria-label="Affiliate earnings"] .admin-table td::before {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--admin-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table td:nth-of-type(1)::before { content: "Resource"; }
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table td:nth-of-type(2)::before { content: "Dates"; }
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table td:nth-of-type(3)::before { content: "Note"; }
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table td:nth-of-type(4)::before { content: "Actions"; }
+
+      .partners-page .admin-table-container[aria-label="Affiliate earnings"] .admin-table td:nth-of-type(1)::before { content: "Date"; }
+      .partners-page .admin-table-container[aria-label="Affiliate earnings"] .admin-table td:nth-of-type(2)::before { content: "Service"; }
+      .partners-page .admin-table-container[aria-label="Affiliate earnings"] .admin-table td:nth-of-type(3)::before { content: "Level"; }
+      .partners-page .admin-table-container[aria-label="Affiliate earnings"] .admin-table td:nth-of-type(4)::before { content: "Status"; }
+      .partners-page .admin-table-container[aria-label="Affiliate earnings"] .admin-table td:nth-of-type(5)::before { content: "Commission"; }
+
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table td > *,
+      .partners-page .admin-table-container[aria-label="Affiliate earnings"] .admin-table td > * {
+        min-width: 0;
+        justify-self: end;
+        text-align: right;
+      }
+
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table td[colspan],
+      .partners-page .admin-table-container[aria-label="Affiliate earnings"] .admin-table td[colspan] {
+        display: block;
+        text-align: center;
+      }
+
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table td[colspan]::before,
+      .partners-page .admin-table-container[aria-label="Affiliate earnings"] .admin-table td[colspan]::before {
+        content: none;
+        display: none;
+      }
+
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table td:nth-of-type(4) {
+        display: block;
+      }
+
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table td:nth-of-type(4)::before {
+        display: block;
+        margin-bottom: 8px;
+      }
+
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table td:nth-of-type(4) .btn-row {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 8px;
+      }
+
+      .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table td:nth-of-type(4) .btn-action {
+        width: 100%;
+      }
     }
 
     .partners-page #auth-modal.partners-auth-modal {
