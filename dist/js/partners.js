@@ -3507,6 +3507,18 @@
         if (!raw) return value;
         return raw.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
       };
+      const formatDateLabel = (value) => {
+        const raw = String(value == null ? '' : value).trim();
+        if (!raw) return '';
+        if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return formatDateDmy(raw);
+        return raw;
+      };
+      const formatTimeLabel = (value) => {
+        const raw = String(value == null ? '' : value).trim();
+        if (!raw) return '';
+        const m = raw.match(/^([01]\d|2[0-3]):([0-5]\d)/);
+        return m ? `${m[1]}:${m[2]}` : raw;
+      };
 
       const customerSectionPairs = (() => {
         const pairs = (() => {
@@ -3619,6 +3631,42 @@
         return [{ label: 'Notes', value: v, kind: 'pre' }];
       })();
 
+      const carsOverviewHtml = (() => {
+        if (category !== 'cars') return '';
+
+        const pickupDate = formatDateLabel(getField('pickup_date'));
+        const pickupTime = formatTimeLabel(getField('pickup_time'));
+        const pickupLocation = formatLocationLabel(getField('pickup_location'));
+        const returnDate = formatDateLabel(getField('return_date'));
+        const returnTime = formatTimeLabel(getField('return_time'));
+        const returnLocation = formatLocationLabel(getField('return_location'));
+        const rentalDays = calculateCarDurationDays(f, snapshotPayload);
+        const totalPrice = f.total_price != null ? formatMoney(f.total_price, f.currency || 'EUR') : '';
+        const model = String(getField('car_model') || '').trim();
+
+        const pickupLine = [pickupDate, pickupTime, pickupLocation].filter((x) => String(x || '').trim()).join(' · ');
+        const returnLine = [returnDate, returnTime, returnLocation].filter((x) => String(x || '').trim()).join(' · ');
+        const rentalLine = [model, rentalDays != null ? `${rentalDays} day(s)` : ''].filter(Boolean).join(' · ');
+
+        const cards = [
+          { label: 'Pickup', value: pickupLine || '—' },
+          { label: 'Return', value: returnLine || '—' },
+          { label: 'Rental', value: rentalLine || '—' },
+          { label: 'Suggested total', value: totalPrice || '—' },
+        ];
+
+        return `
+          <div class="partner-details-overview-grid">
+            ${cards.map((c) => `
+              <div class="partner-details-overview-card">
+                <div class="partner-details-overview-label">${escapeHtml(c.label)}</div>
+                <div class="partner-details-overview-value">${escapeHtml(c.value)}</div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      })();
+
       const additionalPairs = (() => {
         const combinedPayload = {
           ...(detailsPayload && typeof detailsPayload === 'object' ? detailsPayload : {}),
@@ -3636,11 +3684,12 @@
       })();
 
       const contactHiddenNotice = !isContactRevealed
-        ? '<div class="partner-details-section"><div class="muted small">Customer name and contact details are hidden until payment confirmation.</div></div>'
+        ? '<div class="partner-details-notice">Customer name, surname, email and phone are hidden until payment confirmation.</div>'
         : '';
 
       const html = [
         contactHiddenNotice,
+        carsOverviewHtml,
         sectionHtml('Customer information', customerSectionPairs),
         category === 'shop' ? sectionHtml('Shipping', shippingSectionPairs) : '',
         category === 'shop' ? sectionHtml('Billing', billingSectionPairs) : '',
@@ -3654,6 +3703,7 @@
       ].filter(Boolean).join('');
 
       if (els.partnerDetailsBody) {
+        els.partnerDetailsBody.setAttribute('data-category', category || '');
         els.partnerDetailsBody.innerHTML = html || '<div class="muted">No customer details available.</div>';
       }
     };

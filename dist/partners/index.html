@@ -563,11 +563,55 @@
       overflow: auto;
       -webkit-overflow-scrolling: touch;
       padding-right: 2px;
+      display: grid;
+      gap: 12px;
+    }
+
+    .partners-page #partnerDetailsBody .partner-details-notice {
+      border: 1px solid rgba(245, 158, 11, 0.45);
+      background: rgba(245, 158, 11, 0.14);
+      color: #fde68a;
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      line-height: 1.4;
+    }
+
+    .partners-page #partnerDetailsBody .partner-details-overview-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+
+    .partners-page #partnerDetailsBody .partner-details-overview-card {
+      border-radius: 14px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: linear-gradient(145deg, rgba(30, 41, 59, 0.82), rgba(15, 23, 42, 0.88));
+      padding: 12px;
+      min-width: 0;
+    }
+
+    .partners-page #partnerDetailsBody .partner-details-overview-label {
+      font-size: 11px;
+      font-weight: 900;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: rgba(148, 163, 184, 0.96);
+      margin-bottom: 6px;
+    }
+
+    .partners-page #partnerDetailsBody .partner-details-overview-value {
+      font-size: 14px;
+      font-weight: 700;
+      line-height: 1.45;
+      color: #f8fafc;
+      word-break: break-word;
     }
 
     .partners-page #partnerDetailsModal.partners-details-modal .partner-details-section {
-      margin-top: 16px;
-      padding-top: 16px;
+      margin-top: 0;
+      padding-top: 14px;
       border-top: 1px solid rgba(148, 163, 184, 0.14);
     }
 
@@ -676,6 +720,20 @@
         top: 0;
         background: #0b1220;
         z-index: 1;
+      }
+
+      .partners-page #partnerDetailsBody .partner-details-overview-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (min-width: 769px) {
+      .partners-page #partnerDetailsBody .partner-details-overview-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .partners-page #partnerDetailsModal.partners-details-modal .partner-details-kv {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
     }
 
