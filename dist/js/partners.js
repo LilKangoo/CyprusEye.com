@@ -192,29 +192,89 @@
 
   let partnerDetailsLastFocusedElement = null;
   let partnerDetailsPreviousBodyOverflow = '';
+  let partnerDetailsPreviousBodyPosition = '';
+  let partnerDetailsPreviousBodyTop = '';
+  let partnerDetailsPreviousBodyLeft = '';
+  let partnerDetailsPreviousBodyRight = '';
+  let partnerDetailsPreviousBodyWidth = '';
+  let partnerDetailsPreviousBodyTouchAction = '';
+  let partnerDetailsPreviousHtmlOverscroll = '';
+  let partnerDetailsScrollY = 0;
+  let partnerDetailsUsedGlobalBodyLock = false;
 
   const isPartnerDetailsModalOpen = () => Boolean(els.partnerDetailsModal?.classList?.contains('is-open'));
 
+  const handlePartnerDetailsTouchMove = (event) => {
+    if (!isPartnerDetailsModalOpen()) return;
+    const target = event.target;
+    if (!(target instanceof Element)) {
+      event.preventDefault();
+      return;
+    }
+
+    // Allow native scrolling only inside modal content area.
+    if (els.partnerDetailsBody && els.partnerDetailsBody.contains(target)) return;
+    event.preventDefault();
+  };
+
   const lockPartnerDetailsScroll = () => {
     partnerDetailsPreviousBodyOverflow = document.body.style.overflow;
+    partnerDetailsPreviousBodyPosition = document.body.style.position;
+    partnerDetailsPreviousBodyTop = document.body.style.top;
+    partnerDetailsPreviousBodyLeft = document.body.style.left;
+    partnerDetailsPreviousBodyRight = document.body.style.right;
+    partnerDetailsPreviousBodyWidth = document.body.style.width;
+    partnerDetailsPreviousBodyTouchAction = document.body.style.touchAction;
+    partnerDetailsPreviousHtmlOverscroll = document.documentElement.style.overscrollBehavior;
+
+    partnerDetailsScrollY = window.scrollY || window.pageYOffset || 0;
     document.body.classList.add('u-lock-scroll', 'is-modal-open');
-    if (typeof window.lockBodyScroll === 'function') {
-      window.lockBodyScroll();
-    } else {
-      document.body.style.overflow = 'hidden';
+    document.documentElement.style.overscrollBehavior = 'none';
+
+    try {
+      if (typeof window.lockBodyScroll === 'function') {
+        window.lockBodyScroll();
+        partnerDetailsUsedGlobalBodyLock = true;
+      }
+    } catch (_e) {
+      partnerDetailsUsedGlobalBodyLock = false;
     }
+
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${partnerDetailsScrollY}px`;
+    document.body.style.left = '0';
+    document.body.style.right = '0';
+    document.body.style.width = '100%';
+    document.body.style.touchAction = 'none';
   };
 
   const unlockPartnerDetailsScroll = () => {
     document.body.classList.remove('u-lock-scroll', 'is-modal-open');
-    if (typeof window.unlockBodyScroll === 'function') {
-      window.unlockBodyScroll();
-      if (document.body.style.position !== 'fixed') {
-        document.body.style.overflow = 'auto';
+    if (partnerDetailsUsedGlobalBodyLock) {
+      try {
+        if (typeof window.unlockBodyScroll === 'function') {
+          window.unlockBodyScroll();
+        }
+      } catch (_e) {
       }
-    } else {
-      document.body.style.overflow = partnerDetailsPreviousBodyOverflow || 'auto';
     }
+
+    document.body.style.overflow = partnerDetailsPreviousBodyOverflow || '';
+    document.body.style.position = partnerDetailsPreviousBodyPosition || '';
+    document.body.style.top = partnerDetailsPreviousBodyTop || '';
+    document.body.style.left = partnerDetailsPreviousBodyLeft || '';
+    document.body.style.right = partnerDetailsPreviousBodyRight || '';
+    document.body.style.width = partnerDetailsPreviousBodyWidth || '';
+    document.body.style.touchAction = partnerDetailsPreviousBodyTouchAction || '';
+    document.documentElement.style.overscrollBehavior = partnerDetailsPreviousHtmlOverscroll || '';
+
+    try {
+      window.scrollTo(0, Math.max(0, partnerDetailsScrollY));
+    } catch (_e) {
+    }
+
+    partnerDetailsUsedGlobalBodyLock = false;
   };
 
   const handlePartnerDetailsKeydown = (event) => {
@@ -234,6 +294,7 @@
     els.partnerDetailsModal.classList.add('is-open');
     els.partnerDetailsModal.setAttribute('aria-hidden', 'false');
     lockPartnerDetailsScroll();
+    els.partnerDetailsModal.addEventListener('touchmove', handlePartnerDetailsTouchMove, { passive: false });
     document.addEventListener('keydown', handlePartnerDetailsKeydown);
 
     requestAnimationFrame(() => {
@@ -251,6 +312,7 @@
 
     els.partnerDetailsModal.classList.remove('is-open');
     els.partnerDetailsModal.setAttribute('aria-hidden', 'true');
+    els.partnerDetailsModal.removeEventListener('touchmove', handlePartnerDetailsTouchMove);
     document.removeEventListener('keydown', handlePartnerDetailsKeydown);
     unlockPartnerDetailsScroll();
 
@@ -420,14 +482,27 @@
           const lvl = r.level != null ? `L${String(r.level)}` : '—';
           const pid = r.payout_id ? String(r.payout_id) : '';
           const payoutStatus = pid ? (payoutStatusById[pid] || 'pending') : '';
-          const st = pid ? (payoutStatus === 'paid' ? 'paid' : (payoutStatus === 'cancelled' ? 'cancelled' : 'in payout')) : 'unpaid';
+          const statusKey = pid
+            ? (payoutStatus === 'paid' ? 'paid' : (payoutStatus === 'cancelled' ? 'cancelled' : 'payout'))
+            : 'unpaid';
+          const statusLabel = statusKey === 'paid'
+            ? 'Paid'
+            : (statusKey === 'cancelled'
+              ? 'Cancel'
+              : (statusKey === 'payout' ? 'Payout' : 'Unpaid'));
+          const statusTitle = statusKey === 'paid'
+            ? 'Paid'
+            : (statusKey === 'cancelled'
+              ? 'Cancelled'
+              : (statusKey === 'payout' ? 'In payout' : 'Unpaid'));
+          const statusHtml = `<span class="partner-affiliate-status-badge partner-affiliate-status-badge--${escapeHtml(statusKey)}" title="${escapeHtml(statusTitle)}">${escapeHtml(statusLabel)}</span>`;
           const commission = formatMoney(r.commission_amount, r.currency || cur);
           return `
             <tr>
               <td>${escapeHtml(created)}</td>
               <td>${escapeHtml(service)}</td>
               <td>${escapeHtml(lvl)}</td>
-              <td>${escapeHtml(st)}</td>
+              <td>${statusHtml}</td>
               <td style="text-align:right;">${escapeHtml(commission)}</td>
             </tr>
           `;
