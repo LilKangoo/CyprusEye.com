@@ -1886,6 +1886,58 @@ body[data-admin-panel="true"].admin-sidebar-open {
     word-break: break-word;
   }
 
+  .admin-modal .admin-card {
+    padding: 12px;
+    margin-bottom: 12px;
+  }
+
+  .admin-modal .admin-card-body {
+    gap: 12px;
+  }
+
+  .admin-modal .admin-stats-grid,
+  .admin-modal .user-detail-stats-grid,
+  .admin-modal .poi-detail-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .admin-modal .lang-tabs {
+    display: flex;
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 4px;
+    gap: 8px;
+  }
+
+  .admin-modal .lang-tabs .lang-tab {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
+  .admin-modal .poi-form-actions,
+  .admin-modal .admin-view-actions,
+  .admin-modal .btn-row {
+    display: grid !important;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    width: 100%;
+  }
+
+  .admin-modal .poi-form-actions > *,
+  .admin-modal .admin-view-actions > *,
+  .admin-modal .btn-row > * {
+    width: 100%;
+  }
+
+  .admin-modal .admin-inline-input,
+  .admin-modal input:not([type="checkbox"]):not([type="radio"]),
+  .admin-modal select,
+  .admin-modal textarea {
+    width: 100% !important;
+    max-width: 100%;
+  }
+
   .booking-details-content #bookingStatusDropdown {
     width: 100%;
   }
