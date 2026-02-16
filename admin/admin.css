@@ -1884,11 +1884,7 @@ body[data-admin-panel="true"].admin-sidebar-open {
   }
 
   .admin-table-container {
-    overflow-x: auto;
-  }
-
-  .admin-table {
-    min-width: 600px;
+    overflow-x: visible;
   }
 
   .poi-filters {
@@ -1940,6 +1936,106 @@ body[data-admin-panel="true"].admin-sidebar-open {
 
   .admin-view [style*="min-width"] {
     min-width: 0 !important;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-table-container {
+    overflow: visible;
+    border: none;
+    background: transparent;
+  }
+
+  .admin-table {
+    min-width: 0;
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+
+  .admin-table thead {
+    display: none;
+  }
+
+  .admin-table,
+  .admin-table tbody,
+  .admin-table tr,
+  .admin-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .admin-table tr {
+    border: 1px solid var(--admin-border);
+    background: var(--admin-bg-light);
+    border-radius: 14px;
+    overflow: hidden;
+    margin: 0 0 12px;
+  }
+
+  .admin-table td {
+    border-bottom: 1px solid var(--admin-border);
+    padding: 10px 12px;
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    justify-items: end;
+    text-align: right;
+    white-space: normal !important;
+    word-break: break-word;
+  }
+
+  .admin-table td:last-child {
+    border-bottom: none;
+  }
+
+  .admin-table td::before {
+    content: attr(data-label);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--admin-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    text-align: left;
+  }
+
+  .admin-table td > * {
+    min-width: 0;
+    justify-self: end;
+    text-align: right;
+  }
+
+  .admin-table td[colspan] {
+    display: block;
+    text-align: center;
+  }
+
+  .admin-table td[colspan]::before {
+    content: none;
+    display: none;
+  }
+
+  .admin-table td:last-child {
+    display: block;
+  }
+
+  .admin-table td:last-child::before {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .admin-table td:last-child button,
+  .admin-table td:last-child a {
+    width: 100%;
+    margin-top: 8px;
+    justify-content: center;
+  }
+
+  .admin-table td:last-child .btn-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 }
 

@@ -9439,6 +9439,40 @@ function updateAdminHeader() {
   }
 }
 
+function hydrateResponsiveTableLabels(root = document) {
+  const scope = root && typeof root.querySelectorAll === 'function' ? root : document;
+  const tables = scope.querySelectorAll('table.admin-table');
+  tables.forEach((table) => {
+    let headers = Array.from(table.querySelectorAll('thead th')).map((th) => String(th.textContent || '').trim());
+    if (!headers.length) {
+      headers = Array.from(table.querySelectorAll('tr:first-child th')).map((th) => String(th.textContent || '').trim());
+    }
+    if (!headers.length) return;
+
+    table.querySelectorAll('tbody tr').forEach((row) => {
+      const cells = row.querySelectorAll('td');
+      cells.forEach((cell, index) => {
+        if (cell.hasAttribute('colspan')) {
+          cell.setAttribute('data-label', '');
+          return;
+        }
+        const label = headers[index] || '';
+        cell.setAttribute('data-label', label);
+      });
+    });
+  });
+}
+
+let responsiveTableHydrateScheduled = false;
+function scheduleResponsiveTableHydration(root = document) {
+  if (responsiveTableHydrateScheduled) return;
+  responsiveTableHydrateScheduled = true;
+  requestAnimationFrame(() => {
+    responsiveTableHydrateScheduled = false;
+    hydrateResponsiveTableLabels(root);
+  });
+}
+
 // =====================================================
 // NAVIGATION
 // =====================================================
@@ -9472,6 +9506,8 @@ function switchView(viewName) {
   if (breadcrumb) {
     breadcrumb.innerHTML = `<span>${viewName.charAt(0).toUpperCase()}${viewName.slice(1)}</span>`;
   }
+
+  scheduleResponsiveTableHydration();
 
   // Load view-specific data
   switch (viewName) {
@@ -15408,6 +15444,22 @@ function initEventListeners() {
   window.addEventListener('ce:force-refresh-status', () => {
     refreshForceRefreshLocalDiagnostics();
   });
+
+  scheduleResponsiveTableHydration();
+  if (document.body && !document.body.__responsiveTableObserverBound) {
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type !== 'childList') continue;
+        if (mutation.addedNodes && mutation.addedNodes.length) {
+          scheduleResponsiveTableHydration();
+          break;
+        }
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true });
+    document.body.__responsiveTableObserverBound = true;
+    document.body.__responsiveTableObserver = observer;
+  }
 
   // Diagnostics Auto-Fix modal
   const btnCloseDiagnosticFix = $('#btnCloseDiagnosticFix');
