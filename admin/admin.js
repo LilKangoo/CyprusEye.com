@@ -2,6 +2,7 @@
  * ADMIN PANEL - CYPRUSEYE.COM
  * Main JavaScript for admin panel functionality
  */
+import { buildPricingMatrixForOfferRow, calculateCarRentalQuote } from '../js/car-pricing.js';
 
 // =====================================================
 // CONFIGURATION & GLOBALS
@@ -11725,6 +11726,7 @@ async function viewCarBookingDetails(bookingId) {
     let carPricing = null;
     let calculatedBasePrice = 0;
     let priceBreakdown = '';
+    let suggestedQuote = null;
     
     try {
       // Fetch all cars for this location
@@ -11752,47 +11754,40 @@ async function viewCarBookingDetails(bookingId) {
       
       carPricing = carOffer;
       
-      // Calculate base price according to pricing tiers
+      // Calculate suggested quote using the same pricing engine as customer flow.
       if (carPricing) {
         const location = (booking.location || 'larnaca').toLowerCase();
-        
-        if (location === 'paphos') {
-          // Paphos tiered pricing
-          if (days <= 3) {
-            calculatedBasePrice = carPricing.price_3days || 0;
-            priceBreakdown = `${days} days × Package rate = €${calculatedBasePrice.toFixed(2)}`;
-          } else if (days <= 6) {
-            const dailyRate = carPricing.price_4_6days || 0;
-            calculatedBasePrice = dailyRate * days;
-            priceBreakdown = `${days} days × €${dailyRate}/day = €${calculatedBasePrice.toFixed(2)}`;
-          } else if (days <= 10) {
-            const dailyRate = carPricing.price_7_10days || 0;
-            calculatedBasePrice = dailyRate * days;
-            priceBreakdown = `${days} days × €${dailyRate}/day = €${calculatedBasePrice.toFixed(2)}`;
-          } else {
-            const dailyRate = carPricing.price_10plus_days || 0;
-            calculatedBasePrice = dailyRate * days;
-            priceBreakdown = `${days} days × €${dailyRate}/day = €${calculatedBasePrice.toFixed(2)}`;
-          }
-        } else {
-          // Larnaca simple per-day pricing
-          const dailyRate = carPricing.price_per_day || carPricing.price_10plus_days || 0;
-          calculatedBasePrice = dailyRate * days;
-          priceBreakdown = `${days} days × €${dailyRate}/day = €${calculatedBasePrice.toFixed(2)}`;
+        const pricingMatrix = buildPricingMatrixForOfferRow(carPricing, location);
+        suggestedQuote = calculateCarRentalQuote({
+          pricingMatrix,
+          offer: location,
+          carModel: booking.car_model,
+          pickupDateStr: booking.pickup_date,
+          returnDateStr: booking.return_date,
+          pickupTimeStr: booking.pickup_time || '10:00',
+          returnTimeStr: booking.return_time || '10:00',
+          pickupLocation: booking.pickup_location || '',
+          returnLocation: booking.return_location || '',
+          fullInsurance: !!booking.full_insurance,
+          youngDriver: !!booking.young_driver,
+        });
+
+        if (suggestedQuote) {
+          calculatedBasePrice = suggestedQuote.basePrice || 0;
+          priceBreakdown = suggestedQuote.dailyRate > 0
+            ? `${suggestedQuote.days} days × €${suggestedQuote.dailyRate}/day = €${suggestedQuote.basePrice.toFixed(2)}`
+            : `${suggestedQuote.days} days × Package rate = €${suggestedQuote.basePrice.toFixed(2)}`;
         }
       }
     } catch (err) {
       console.warn('Could not fetch car pricing:', err);
     }
 
-    // Calculate extras
-    const numPassengers = booking.num_passengers || 1;
-    const passengerSurcharge = numPassengers > 2 ? (numPassengers - 2) * 5 : 0; // €5 per extra passenger
-    const childSeatsSurcharge = 0; // Child seats are FREE
-    const insuranceCost = booking.full_insurance ? (days * 17) : 0; // €17/day for full insurance
-    
-    const totalExtras = passengerSurcharge + childSeatsSurcharge + insuranceCost;
-    const suggestedTotal = calculatedBasePrice + totalExtras;
+    const pickupFee = suggestedQuote?.pickupFee || 0;
+    const returnFee = suggestedQuote?.returnFee || 0;
+    const insuranceCost = suggestedQuote?.insuranceCost || 0;
+    const youngDriverCost = suggestedQuote?.youngDriverCost || 0;
+    const suggestedTotal = suggestedQuote?.total || 0;
 
     // Status badge
     const statusClass = 
@@ -12004,7 +11999,7 @@ async function viewCarBookingDetails(bookingId) {
             Automatic Price Calculation (${(booking.location || 'Larnaca').toUpperCase()} Rate)
           </h4>
           
-          ${carPricing ? `
+          ${suggestedQuote ? `
           <div style="background: rgba(255, 255, 255, 0.1); padding: 16px; border-radius: 8px; margin-bottom: 16px;">
             <div style="display: grid; gap: 10px;">
               <!-- Base Price -->
@@ -12017,25 +12012,37 @@ async function viewCarBookingDetails(bookingId) {
               </div>
 
               <!-- Extras -->
-              ${passengerSurcharge > 0 || insuranceCost > 0 || booking.child_seats > 0 ? `
+              ${pickupFee > 0 || returnFee > 0 || insuranceCost > 0 || youngDriverCost > 0 || booking.child_seats > 0 ? `
               <div style="padding-top: 8px;">
                 <div style="font-weight: 600; font-size: 13px; margin-bottom: 8px; opacity: 0.9;">Extras:</div>
-                ${passengerSurcharge > 0 ? `
-                <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">
-                  <span>• Extra Passengers (${numPassengers - 2})</span>
-                  <span>+€${passengerSurcharge.toFixed(2)}</span>
-                </div>
-                ` : ''}
                 ${booking.child_seats > 0 ? `
                 <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">
                   <span>• Child Seats (${booking.child_seats})</span>
                   <span style="color: #86efac;">FREE</span>
                 </div>
                 ` : ''}
+                ${pickupFee > 0 ? `
+                <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">
+                  <span>• Pickup location fee</span>
+                  <span>+€${pickupFee.toFixed(2)}</span>
+                </div>
+                ` : ''}
+                ${returnFee > 0 ? `
+                <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">
+                  <span>• Return location fee</span>
+                  <span>+€${returnFee.toFixed(2)}</span>
+                </div>
+                ` : ''}
                 ${insuranceCost > 0 ? `
                 <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">
                   <span>• Full Insurance (${days} days × €17)</span>
                   <span>+€${insuranceCost.toFixed(2)}</span>
+                </div>
+                ` : ''}
+                ${youngDriverCost > 0 ? `
+                <div style="display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px;">
+                  <span>• Young driver (${days} days × €10)</span>
+                  <span>+€${youngDriverCost.toFixed(2)}</span>
                 </div>
                 ` : ''}
               </div>
@@ -12055,8 +12062,8 @@ async function viewCarBookingDetails(bookingId) {
           </div>
           ` : `
           <div style="background: rgba(255, 255, 255, 0.1); padding: 16px; border-radius: 8px; text-align: center;">
-            <div style="font-size: 14px; opacity: 0.9;">⚠️ Car pricing not found in database for this model and location.</div>
-            <div style="font-size: 12px; opacity: 0.75; margin-top: 8px;">Please manually set the quoted price below.</div>
+            <div style="font-size: 14px; opacity: 0.9;">⚠️ Could not compute quote from current booking details.</div>
+            <div style="font-size: 12px; opacity: 0.75; margin-top: 8px;">Check dates, locations and offer mapping, then set price manually if needed.</div>
           </div>
           `}
         </div>
@@ -12158,6 +12165,32 @@ async function viewCarBookingDetails(bookingId) {
         const quotedPrice = parseFloat($('#bookingQuotedPrice')?.value) || null;
         const finalPrice = parseFloat($('#bookingFinalPrice')?.value) || null;
         const adminNotes = $('#bookingAdminNotes')?.value || null;
+        const driftThreshold = 0.01;
+
+        if (suggestedTotal > 0) {
+          const consistencyWarnings = [];
+          if (typeof quotedPrice === 'number' && Math.abs(quotedPrice - suggestedTotal) > driftThreshold) {
+            consistencyWarnings.push(`quoted ${quotedPrice.toFixed(2)} vs suggested ${suggestedTotal.toFixed(2)}`);
+          }
+          if (typeof finalPrice === 'number' && Math.abs(finalPrice - suggestedTotal) > driftThreshold) {
+            consistencyWarnings.push(`final ${finalPrice.toFixed(2)} vs suggested ${suggestedTotal.toFixed(2)}`);
+          }
+          const pricingTotalPreview = (typeof finalPrice === 'number') ? finalPrice : quotedPrice;
+          if (typeof pricingTotalPreview === 'number' && Math.abs(pricingTotalPreview - suggestedTotal) > driftThreshold) {
+            consistencyWarnings.push(`saved total ${pricingTotalPreview.toFixed(2)} vs suggested ${suggestedTotal.toFixed(2)}`);
+          }
+
+          if (consistencyWarnings.length > 0) {
+            console.warn('Car booking pricing consistency warning', {
+              bookingId,
+              suggestedTotal: Number(suggestedTotal.toFixed(2)),
+              quotedPrice,
+              finalPrice,
+              warnings: consistencyWarnings,
+            });
+            showToast('Pricing differs from automatic quote. Saving manual override.', 'info');
+          }
+        }
 
         try {
           btnSavePricing.disabled = true;

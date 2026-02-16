@@ -1,5 +1,6 @@
 // Car Rental Paphos - Dynamic Fleet Loading
 import { supabase } from './supabaseClient.js';
+import { calculateCarRentalQuote } from './car-pricing.js';
 
 let paphosFleet = [];
 let pricing = {};
@@ -69,33 +70,6 @@ function isLandingCarRentalPage() {
   return String(document.body?.dataset?.seoPage || '').toLowerCase() === 'carrentallanding';
 }
 
-function mapPaphosWidgetToLarnacaLocation(city) {
-  switch (String(city || '').trim()) {
-    case 'airport_pfo':
-    case 'city_center':
-    case 'hotel':
-    case 'other':
-      return 'paphos';
-    default:
-      return String(city || '').trim();
-  }
-}
-
-function locationFeeForLarnaca(city) {
-  switch (city) {
-    case 'nicosia':
-    case 'ayia-napa':
-      return 15;
-    case 'protaras':
-    case 'limassol':
-      return 20;
-    case 'paphos':
-      return 40;
-    default:
-      return 0;
-  }
-}
-
 function calculateQuoteForSelection({
   offer,
   carModel,
@@ -108,73 +82,21 @@ function calculateQuoteForSelection({
   fullInsurance = false,
   youngDriver = false,
 }) {
-  const normalizedOffer = offer === 'larnaca' ? 'larnaca' : 'paphos';
   const selectedCar = String(carModel || '').trim();
-  if (!selectedCar) return null;
-
-  const carPricing = pricing[selectedCar];
-  if (!Array.isArray(carPricing) || carPricing.length < 4) return null;
-
-  const pickupDate = new Date(`${pickupDateStr}T${pickupTimeStr || '10:00'}`);
-  const returnDate = new Date(`${returnDateStr}T${returnTimeStr || '10:00'}`);
-  if (Number.isNaN(pickupDate.getTime()) || Number.isNaN(returnDate.getTime())) return null;
-
-  const hours = (returnDate.getTime() - pickupDate.getTime()) / 36e5;
-  const days = Math.ceil(hours / 24);
-  if (!Number.isFinite(days) || hours <= 0 || days < 3) return null;
-
-  let basePrice = 0;
-  let dailyRate = 0;
-  if (days === 3) {
-    basePrice = Number(carPricing[0]) || 0;
-  } else if (days >= 4 && days <= 6) {
-    dailyRate = Number(carPricing[1]) || 0;
-    basePrice = dailyRate * days;
-  } else if (days >= 7 && days <= 10) {
-    dailyRate = Number(carPricing[2]) || 0;
-    basePrice = dailyRate * days;
-  } else {
-    dailyRate = Number(carPricing[3]) || 0;
-    basePrice = dailyRate * days;
-  }
-
-  let pickupLoc = String(pickupLocation || '').trim();
-  let returnLoc = String(returnLocation || '').trim();
-
-  let pickupFee = 0;
-  let returnFee = 0;
-
-  if (normalizedOffer === 'paphos') {
-    const airportFeesApplicable = days < 7;
-    pickupFee = pickupLoc === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
-    returnFee = returnLoc === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
-  } else {
-    pickupLoc = mapPaphosWidgetToLarnacaLocation(pickupLoc);
-    returnLoc = mapPaphosWidgetToLarnacaLocation(returnLoc);
-    pickupFee = locationFeeForLarnaca(pickupLoc);
-    returnFee = locationFeeForLarnaca(returnLoc);
-  }
-
-  const insuranceCost = fullInsurance ? 17 * days : 0;
-  const youngDriverCost = normalizedOffer === 'larnaca' && youngDriver ? 10 * days : 0;
-  const total = basePrice + pickupFee + returnFee + insuranceCost + youngDriverCost;
-
-  if (!Number.isFinite(total) || total <= 0) return null;
-
-  return {
-    offer: normalizedOffer,
-    days,
-    basePrice: Number(basePrice.toFixed(2)),
-    dailyRate: Number((dailyRate || 0).toFixed(2)),
-    pickupFee,
-    returnFee,
-    insuranceCost,
-    youngDriverCost,
-    total: Number(total.toFixed(2)),
-    car: selectedCar,
-    pickupLoc,
-    returnLoc,
-  };
+  const carPricing = selectedCar ? pricing[selectedCar] : null;
+  return calculateCarRentalQuote({
+    pricingMatrix: carPricing,
+    offer,
+    carModel: selectedCar,
+    pickupDateStr,
+    returnDateStr,
+    pickupTimeStr,
+    returnTimeStr,
+    pickupLocation,
+    returnLocation,
+    fullInsurance,
+    youngDriver,
+  });
 }
 
 function shortLocationLabel(locationValue) {
@@ -515,33 +437,43 @@ window.calculatePrice = function() {
       return;
     }
 
-    let basePrice = 0, dailyRate = 0;
-    if (days === 3) basePrice = carPricing[0];
-    else if (days >= 4 && days <= 6) { dailyRate = carPricing[1]; basePrice = dailyRate * days; }
-    else if (days >= 7 && days <= 10) { dailyRate = carPricing[2]; basePrice = dailyRate * days; }
-    else if (days > 10) { dailyRate = carPricing[3]; basePrice = dailyRate * days; }
+    const quote = calculateQuoteForSelection({
+      offer: loc,
+      carModel: car,
+      pickupDateStr,
+      returnDateStr,
+      pickupTimeStr,
+      returnTimeStr,
+      pickupLocation: airportPickup ? 'airport_pfo' : '',
+      returnLocation: airportReturn ? 'airport_pfo' : '',
+      fullInsurance,
+      youngDriver: false,
+    });
+    if (!quote) {
+      alert(i18n('carRental.calculator.errors.invalidDates', null, 'Proszę wybrać poprawne daty i godziny.'));
+      return;
+    }
 
-    let totalPrice = basePrice;
-    const airportFeesApplicable = days < 7;
-    const pickupFee = (airportPickup && airportFeesApplicable) ? 10 : 0;
-    const returnFee = (airportReturn && airportFeesApplicable) ? 10 : 0;
-    const insuranceCost = fullInsurance ? 17 * days : 0;
-
-    totalPrice += pickupFee + returnFee + insuranceCost;
+    const basePrice = quote.basePrice;
+    const dailyRate = quote.dailyRate;
+    const pickupFee = quote.pickupFee;
+    const returnFee = quote.returnFee;
+    const insuranceCost = quote.insuranceCost;
+    const totalPrice = quote.total;
 
     window.CE_CAR_PRICE_QUOTE = {
       total: Number(totalPrice.toFixed(2)),
       currency: 'EUR',
       breakdown: {
-        location: loc,
-        days,
-        basePrice: Number(basePrice.toFixed(2)),
-        dailyRate: Number((dailyRate || 0).toFixed(2)),
+        location: quote.offer,
+        days: quote.days,
+        basePrice: quote.basePrice,
+        dailyRate: quote.dailyRate,
         pickupFee,
         returnFee,
         insuranceCost,
-        youngDriverCost: 0,
-        car,
+        youngDriverCost: quote.youngDriverCost,
+        car: quote.car,
       },
     };
 
@@ -557,12 +489,12 @@ window.calculatePrice = function() {
         ? i18n('carRental.common.pricePerDay', { price: `${dailyRate}€` }, `${dailyRate}€/dzień`)
         : '';
 
-      const baseLine = days === 3
+      const baseLine = quote.days === 3
         ? i18n('carRental.calculator.breakdown.package3', { total: `${basePrice}€` }, `Pakiet 3 dni: ${basePrice}€`)
         : i18n(
           'carRental.calculator.breakdown.tiered',
-          { rate: rateText, days, daysLabel, total: `${basePrice}€` },
-          `${dailyRate}€ × ${days} ${daysLabel} = ${basePrice}€`
+          { rate: rateText, days: quote.days, daysLabel, total: `${basePrice}€` },
+          `${dailyRate}€ × ${quote.days} ${daysLabel} = ${basePrice}€`
         );
 
       const breakdownLines = [];
@@ -591,8 +523,8 @@ window.calculatePrice = function() {
         breakdownLines.push(
           i18n(
             'carRental.calculator.breakdown.fullInsurance',
-            { pricePerDay: insurancePerDay, days, daysLabel, total: `${insuranceCost}€` },
-            `Ubezpieczenie: ${insurancePerDay} × ${days} ${daysLabel} = ${insuranceCost}€`
+            { pricePerDay: insurancePerDay, days: quote.days, daysLabel, total: `${insuranceCost}€` },
+            `Ubezpieczenie: ${insurancePerDay} × ${quote.days} ${daysLabel} = ${insuranceCost}€`
           )
         );
       }
@@ -779,49 +711,46 @@ window.calculatePrice = function() {
     return;
   }
 
-  let basePrice = 0, dailyRate = 0;
-  if (days === 3) basePrice = carPricing[0];
-  else if (days >= 4 && days <= 6) { dailyRate = carPricing[1]; basePrice = dailyRate * days; }
-  else if (days >= 7 && days <= 10) { dailyRate = carPricing[2]; basePrice = dailyRate * days; }
-  else if (days > 10) { dailyRate = carPricing[3]; basePrice = dailyRate * days; }
+  const quote = calculateQuoteForSelection({
+    offer: loc,
+    carModel: car,
+    pickupDateStr,
+    returnDateStr,
+    pickupTimeStr,
+    returnTimeStr,
+    pickupLocation: pickupLoc,
+    returnLocation: returnLoc,
+    fullInsurance,
+    youngDriver,
+  });
+  if (!quote) {
+    setCalculatorMessage(i18n('carRental.calculator.errors.invalidDates', null, 'Proszę wybrać poprawne daty i godziny.'), true);
+    return;
+  }
 
-  const feeFor = (city) => {
-    switch (city) {
-      case 'nicosia':
-      case 'ayia-napa':
-        return 15;
-      case 'protaras':
-      case 'limassol':
-        return 20;
-      case 'paphos':
-        return 40;
-      default:
-        return 0; // larnaca or unknown
-    }
-  };
-
-  const pickupFee = feeFor(pickupLoc);
-  const returnFee = feeFor(returnLoc);
-  const insuranceCost = fullInsurance ? 17 * days : 0;
-  const youngDriverCost = youngDriver ? 10 * days : 0;
-
-  const totalPrice = basePrice + pickupFee + returnFee + insuranceCost + youngDriverCost;
+  const basePrice = quote.basePrice;
+  const dailyRate = quote.dailyRate;
+  const pickupFee = quote.pickupFee;
+  const returnFee = quote.returnFee;
+  const insuranceCost = quote.insuranceCost;
+  const youngDriverCost = quote.youngDriverCost;
+  const totalPrice = quote.total;
 
   window.CE_CAR_PRICE_QUOTE = {
     total: Number(totalPrice.toFixed(2)),
     currency: 'EUR',
     breakdown: {
-      location: loc,
-      days,
-      basePrice: Number(basePrice.toFixed(2)),
-      dailyRate: Number((dailyRate || 0).toFixed(2)),
+      location: quote.offer,
+      days: quote.days,
+      basePrice: quote.basePrice,
+      dailyRate: quote.dailyRate,
       pickupFee,
       returnFee,
       insuranceCost,
       youngDriverCost,
-      car,
-      pickupLoc,
-      returnLoc,
+      car: quote.car,
+      pickupLoc: quote.pickupLoc,
+      returnLoc: quote.returnLoc,
     },
   };
 
@@ -839,20 +768,20 @@ window.calculatePrice = function() {
     ? i18n('carRental.common.pricePerDay', { price: `${dailyRate}€` }, `${dailyRate}€/dzień`)
     : '';
 
-  if (days === 3) {
+  if (quote.days === 3) {
     parts.push(i18n('carRental.calculator.breakdown.package3', { total: `${basePrice}€` }, `Pakiet 3 dni: ${basePrice}€`));
   } else {
     parts.push(
       i18n(
         'carRental.calculator.breakdown.tiered',
-        { rate: rateText, days, daysLabel, total: `${basePrice}€` },
-        `${dailyRate}€ × ${days} ${daysLabel} = ${basePrice}€`
+        { rate: rateText, days: quote.days, daysLabel, total: `${basePrice}€` },
+        `${dailyRate}€ × ${quote.days} ${daysLabel} = ${basePrice}€`
       )
     );
   }
 
-  const pickupLabel = i18n(`carRental.locations.${pickupLoc}.short`, null, pickupLoc);
-  const returnLabel = i18n(`carRental.locations.${returnLoc}.short`, null, returnLoc);
+  const pickupLabel = i18n(`carRental.locations.${quote.pickupLoc}.short`, null, quote.pickupLoc);
+  const returnLabel = i18n(`carRental.locations.${quote.returnLoc}.short`, null, quote.returnLoc);
   if (pickupFee) {
     parts.push(i18n('carRental.calculator.breakdown.pickupWithFee', { location: pickupLabel, price: `${pickupFee}€` }, `Odbiór: ${pickupLabel} +${pickupFee}€`));
   } else {
@@ -869,8 +798,8 @@ window.calculatePrice = function() {
     parts.push(
       i18n(
         'carRental.calculator.breakdown.fullInsurance',
-        { pricePerDay: insurancePerDay, days, daysLabel, total: `${insuranceCost}€` },
-        `Ubezpieczenie: ${insurancePerDay} × ${days} ${daysLabel} = ${insuranceCost}€`
+        { pricePerDay: insurancePerDay, days: quote.days, daysLabel, total: `${insuranceCost}€` },
+        `Ubezpieczenie: ${insurancePerDay} × ${quote.days} ${daysLabel} = ${insuranceCost}€`
       )
     );
   }
@@ -879,8 +808,8 @@ window.calculatePrice = function() {
     parts.push(
       i18n(
         'carRental.calculator.breakdown.youngDriver',
-        { pricePerDay: youngDriverPerDay, days, daysLabel, total: `${youngDriverCost}€` },
-        `Młody kierowca: ${youngDriverPerDay} × ${days} ${daysLabel} = ${youngDriverCost}€`
+        { pricePerDay: youngDriverPerDay, days: quote.days, daysLabel, total: `${youngDriverCost}€` },
+        `Młody kierowca: ${youngDriverPerDay} × ${quote.days} ${daysLabel} = ${youngDriverCost}€`
       )
     );
   }
