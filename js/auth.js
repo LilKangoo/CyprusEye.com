@@ -18,6 +18,11 @@ const GOOGLE_OAUTH_REDIRECT = 'https://cypruseye.com/auth/';
 const POST_AUTH_REDIRECT = '/';
 const USERNAME_MIN_LENGTH = 3;
 const USERNAME_MAX_LENGTH = 15;
+const OAUTH_COMPLETION_DRAFT_KEY = 'ce_oauth_register_draft_v1';
+
+let oauthCompletionModal = null;
+let oauthCompletionSubmitting = false;
+let oauthCompletionRedirectTarget = POST_AUTH_REDIRECT;
 
 function createCallbackResetLayout() {
   const body = document.body;
@@ -1376,6 +1381,279 @@ function ensureRegisterReferralField(form) {
   }
 }
 
+function isGoogleProviderUser(user) {
+  if (!user || typeof user !== 'object') return false;
+  const provider = String(user?.app_metadata?.provider || '').trim().toLowerCase();
+  if (provider === 'google') return true;
+  const identities = Array.isArray(user?.identities) ? user.identities : [];
+  return identities.some((identity) => String(identity?.provider || '').toLowerCase() === 'google');
+}
+
+function readOAuthCompletionDraft() {
+  try {
+    const raw = window.localStorage.getItem(OAUTH_COMPLETION_DRAFT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return null;
+    return {
+      firstName: typeof parsed.firstName === 'string' ? parsed.firstName.trim() : '',
+      username: typeof parsed.username === 'string' ? parsed.username.trim() : '',
+      referralCode: typeof parsed.referralCode === 'string' ? parsed.referralCode.trim() : '',
+    };
+  } catch (_e) {
+    return null;
+  }
+}
+
+function saveOAuthCompletionDraft(draft) {
+  try {
+    const payload = {
+      firstName: String(draft?.firstName || '').trim(),
+      username: String(draft?.username || '').trim(),
+      referralCode: String(draft?.referralCode || '').trim(),
+      savedAt: Date.now(),
+    };
+    window.localStorage.setItem(OAUTH_COMPLETION_DRAFT_KEY, JSON.stringify(payload));
+  } catch (_e) {
+  }
+}
+
+function clearOAuthCompletionDraft() {
+  try {
+    window.localStorage.removeItem(OAUTH_COMPLETION_DRAFT_KEY);
+  } catch (_e) {
+  }
+}
+
+async function fetchRegistrationCompletionState(userId) {
+  if (!userId) return null;
+  try {
+    const { data, error } = await sb
+      .from('profiles')
+      .select('registration_completed')
+      .eq('id', userId)
+      .maybeSingle();
+    if (error) {
+      const msg = String(error.message || '').toLowerCase();
+      if (msg.includes('registration_completed') || String(error.code || '') === 'PGRST204') {
+        return null;
+      }
+      throw error;
+    }
+    if (!data || typeof data !== 'object') return null;
+    if (!Object.prototype.hasOwnProperty.call(data, 'registration_completed')) return null;
+    return data.registration_completed === true;
+  } catch (error) {
+    console.warn('Could not fetch registration completion state:', error);
+    return null;
+  }
+}
+
+function ensureOAuthCompletionModal() {
+  if (oauthCompletionModal) return oauthCompletionModal;
+  if (typeof document === 'undefined') return null;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'oauthCompletionModal';
+  overlay.setAttribute('role', 'dialog');
+  overlay.setAttribute('aria-modal', 'true');
+  overlay.setAttribute('aria-labelledby', 'oauthCompletionTitle');
+  overlay.style.position = 'fixed';
+  overlay.style.inset = '0';
+  overlay.style.zIndex = '14000';
+  overlay.style.display = 'none';
+  overlay.style.alignItems = 'center';
+  overlay.style.justifyContent = 'center';
+  overlay.style.padding = '18px';
+  overlay.style.background = 'rgba(2, 6, 23, 0.62)';
+  overlay.innerHTML = `
+    <form id="oauthCompletionForm" style="width:min(560px,100%);max-height:90vh;overflow:auto;background:#fff;border-radius:16px;padding:20px;box-shadow:0 20px 50px rgba(0,0,0,0.35);">
+      <h2 id="oauthCompletionTitle" style="margin:0 0 8px;font-size:24px;line-height:1.2;">${t('Complete registration', 'Dokończ rejestrację')}</h2>
+      <p style="margin:0 0 14px;color:#475569;font-size:14px;">${t('To continue, complete your account details.', 'Aby kontynuować, uzupełnij dane konta.')}</p>
+      <label for="oauthCompletionFirstName">${t('First name', 'Imię')}</label>
+      <input id="oauthCompletionFirstName" name="firstName" type="text" required maxlength="60" autocomplete="given-name" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
+      <label for="oauthCompletionUsername">${t('Username', 'Nazwa użytkownika')}</label>
+      <input id="oauthCompletionUsername" name="username" type="text" required minlength="3" maxlength="15" pattern="[a-zA-Z0-9_]+" autocomplete="username" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
+      <label for="oauthCompletionReferral">${t('Referral code', 'Kod polecający')}</label>
+      <input id="oauthCompletionReferral" name="referralCode" type="text" required maxlength="64" pattern="[a-zA-Z0-9_]+" autocomplete="off" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
+      <label for="oauthCompletionPassword">${t('Password', 'Hasło')}</label>
+      <input id="oauthCompletionPassword" name="password" type="password" required minlength="8" autocomplete="new-password" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
+      <label for="oauthCompletionPasswordConfirm">${t('Confirm password', 'Potwierdź hasło')}</label>
+      <input id="oauthCompletionPasswordConfirm" name="passwordConfirm" type="password" required minlength="8" autocomplete="new-password" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
+      <p id="oauthCompletionError" style="display:none;margin:2px 0 10px;color:#b91c1c;font-size:13px;"></p>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button id="oauthCompletionSubmit" type="submit" class="btn btn--primary" style="flex:1;min-width:180px;">${t('Save and continue', 'Zapisz i kontynuuj')}</button>
+        <button id="oauthCompletionLogout" type="button" class="auth-form__link" style="min-width:120px;">${t('Log out', 'Wyloguj')}</button>
+      </div>
+    </form>
+  `;
+  document.body.appendChild(overlay);
+
+  const form = overlay.querySelector('#oauthCompletionForm');
+  const errorEl = overlay.querySelector('#oauthCompletionError');
+  const submitBtn = overlay.querySelector('#oauthCompletionSubmit');
+  const logoutBtn = overlay.querySelector('#oauthCompletionLogout');
+
+  const setError = (message) => {
+    if (!(errorEl instanceof HTMLElement)) return;
+    const text = String(message || '').trim();
+    if (!text) {
+      errorEl.textContent = '';
+      errorEl.style.display = 'none';
+      return;
+    }
+    errorEl.textContent = text;
+    errorEl.style.display = 'block';
+  };
+
+  if (form instanceof HTMLFormElement) {
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (oauthCompletionSubmitting) return;
+
+      const firstName = String(form.firstName?.value || '').trim();
+      const username = String(form.username?.value || '').trim();
+      const referralCode = String(form.referralCode?.value || '').trim();
+      const password = String(form.password?.value || '');
+      const passwordConfirm = String(form.passwordConfirm?.value || '');
+
+      if (!firstName) {
+        setError(t('Please enter first name.', 'Podaj imię.'));
+        return;
+      }
+      if (!username) {
+        setError(t('Please enter username.', 'Podaj nazwę użytkownika.'));
+        return;
+      }
+      if (!/^[a-zA-Z0-9_]+$/.test(username) || username.length < USERNAME_MIN_LENGTH || username.length > USERNAME_MAX_LENGTH) {
+        setError(t('Username must be 3-15 chars: letters, numbers, underscore.', 'Nazwa użytkownika: 3-15 znaków, litery, cyfry, podkreślenie.'));
+        return;
+      }
+      if (!referralCode || !/^[a-zA-Z0-9_]+$/.test(referralCode)) {
+        setError(t('Enter a valid referral code.', 'Podaj poprawny kod polecający.'));
+        return;
+      }
+      if (!password || password.length < 8) {
+        setError(t('Password must have at least 8 characters.', 'Hasło musi mieć co najmniej 8 znaków.'));
+        return;
+      }
+      if (password !== passwordConfirm) {
+        setError(t('Passwords do not match.', 'Hasła nie są identyczne.'));
+        return;
+      }
+
+      oauthCompletionSubmitting = true;
+      setError('');
+      if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = true;
+      if (logoutBtn instanceof HTMLButtonElement) logoutBtn.disabled = true;
+
+      try {
+        const { error: passwordError } = await sb.auth.updateUser({ password });
+        if (passwordError) {
+          throw passwordError;
+        }
+
+        const { data, error } = await sb.rpc('complete_oauth_registration', {
+          p_name: firstName,
+          p_username: username,
+          p_referral_code: referralCode,
+        });
+        if (error) throw error;
+        if (!data?.ok) throw new Error('completion_failed');
+
+        setStoredReferralCode(referralCode, { overwrite: true });
+        clearOAuthCompletionDraft();
+
+        try {
+          await processReferralAfterRegistration(window.CE_STATE?.session?.user?.id || null);
+        } catch (_e) {
+        }
+
+        await refreshSessionAndProfile();
+        updateAuthUI();
+        emitAuthState(window.CE_STATE);
+
+        overlay.style.display = 'none';
+        document.body.style.overflow = '';
+
+        const redirect = String(oauthCompletionRedirectTarget || POST_AUTH_REDIRECT).trim() || POST_AUTH_REDIRECT;
+        window.location.assign(redirect);
+      } catch (error) {
+        const raw = String(error?.message || '').toLowerCase();
+        if (raw.includes('username_taken')) {
+          setError(t('This username is already taken.', 'Ta nazwa użytkownika jest już zajęta.'));
+        } else if (raw.includes('invalid_referral_code')) {
+          setError(t('Referral code was not found.', 'Nie znaleziono takiego kodu polecającego.'));
+        } else if (raw.includes('missing_referral_code')) {
+          setError(t('Referral code is required.', 'Kod polecający jest wymagany.'));
+        } else {
+          setError(t('Could not complete registration. Try again.', 'Nie udało się dokończyć rejestracji. Spróbuj ponownie.'));
+        }
+      } finally {
+        oauthCompletionSubmitting = false;
+        if (submitBtn instanceof HTMLButtonElement) submitBtn.disabled = false;
+        if (logoutBtn instanceof HTMLButtonElement) logoutBtn.disabled = false;
+      }
+    });
+  }
+
+  if (logoutBtn instanceof HTMLButtonElement) {
+    logoutBtn.addEventListener('click', async () => {
+      if (oauthCompletionSubmitting) return;
+      await sb.auth.signOut();
+      clearOAuthCompletionDraft();
+      overlay.style.display = 'none';
+      document.body.style.overflow = '';
+      window.location.assign('/');
+    });
+  }
+
+  oauthCompletionModal = overlay;
+  return overlay;
+}
+
+function fillOAuthCompletionFormDefaults(state) {
+  if (!(oauthCompletionModal instanceof HTMLElement)) return;
+  const form = oauthCompletionModal.querySelector('#oauthCompletionForm');
+  if (!(form instanceof HTMLFormElement)) return;
+
+  const draft = readOAuthCompletionDraft();
+  const profile = state?.profile || {};
+  const metadata = state?.session?.user?.user_metadata || {};
+  const email = String(state?.session?.user?.email || '');
+  const emailBase = email.includes('@') ? email.split('@')[0] : '';
+
+  const firstName = draft?.firstName || profile?.name || metadata?.name || metadata?.full_name || metadata?.given_name || '';
+  const username = draft?.username || profile?.username || metadata?.preferred_username || metadata?.username || emailBase || '';
+  const referralCode = draft?.referralCode || getStoredReferralCode() || '';
+
+  if (form.firstName instanceof HTMLInputElement) form.firstName.value = String(firstName || '').trim();
+  if (form.username instanceof HTMLInputElement) form.username.value = String(username || '').trim();
+  if (form.referralCode instanceof HTMLInputElement) form.referralCode.value = String(referralCode || '').trim();
+  if (form.password instanceof HTMLInputElement) form.password.value = '';
+  if (form.passwordConfirm instanceof HTMLInputElement) form.passwordConfirm.value = '';
+}
+
+async function maybeRequireOAuthCompletion(state, { redirectTarget = POST_AUTH_REDIRECT } = {}) {
+  const user = state?.session?.user || null;
+  if (!user?.id) return false;
+  if (!isGoogleProviderUser(user)) return false;
+
+  const completed = await fetchRegistrationCompletionState(user.id);
+  if (completed !== false) {
+    return false;
+  }
+
+  oauthCompletionRedirectTarget = redirectTarget;
+  const modal = ensureOAuthCompletionModal();
+  if (!(modal instanceof HTMLElement)) return false;
+
+  fillOAuthCompletionFormDefaults(state);
+  modal.style.display = 'flex';
+  document.body.style.overflow = 'hidden';
+  return true;
+}
+
 async function handleGoogleOAuthCallbackIfPresent() {
   if (typeof window === 'undefined') {
     return;
@@ -1431,6 +1709,14 @@ async function handleGoogleOAuthCallbackIfPresent() {
     await refreshSessionAndProfile();
     updateAuthUI();
 
+    const requiresCompletion = await maybeRequireOAuthCompletion(window.CE_STATE, {
+      redirectTarget: POST_AUTH_REDIRECT,
+    });
+    if (requiresCompletion) {
+      stripSupabaseReturnParams(parsed);
+      return;
+    }
+
     stripSupabaseReturnParams(parsed);
     window.location.assign(POST_AUTH_REDIRECT);
   } catch (error) {
@@ -1466,6 +1752,22 @@ function initGoogleOAuthHandlers() {
     event.preventDefault();
 
     void withBusy(target, async () => {
+      const parentForm = target.closest('form');
+      const isRegisterFlow = parentForm instanceof HTMLFormElement && parentForm.id === 'form-register';
+      if (isRegisterFlow) {
+        const referralCode = String(parentForm.referralCode?.value || '').trim();
+        const firstName = String(parentForm.firstName?.value || '').trim();
+        const username = String(parentForm.username?.value || '').trim();
+        if (referralCode && !/^[a-zA-Z0-9_]+$/.test(referralCode)) {
+          showErr(t('Referral code can contain only letters, numbers and underscores.', 'Kod polecający może zawierać tylko litery, cyfry i znak podkreślenia.'));
+          return;
+        }
+        if (referralCode) {
+          setStoredReferralCode(referralCode, { overwrite: true });
+        }
+        saveOAuthCompletionDraft({ firstName, username, referralCode });
+      }
+
       showInfo(t('Redirecting to Google…', 'Przekierowanie do Google…'));
       const { error } = await sb.auth.signInWithOAuth({
         provider: 'google',
@@ -2110,9 +2412,29 @@ function initResetPage() {
 
 function handleAuthDomReady() {
   initGoogleOAuthHandlers();
+  initOAuthCompletionGuard();
   void handleGoogleOAuthCallbackIfPresent();
   handleSupabaseVerificationReturn();
   initResetPage();
+}
+
+function initOAuthCompletionGuard() {
+  if (ceAuthGlobal?.oauthCompletionGuardInitialized) {
+    return;
+  }
+  if (ceAuthGlobal) {
+    ceAuthGlobal.oauthCompletionGuardInitialized = true;
+  }
+
+  document.addEventListener('ce-auth:state', () => {
+    if (oauthCompletionSubmitting) return;
+    void maybeRequireOAuthCompletion(window.CE_STATE, { redirectTarget: POST_AUTH_REDIRECT });
+  });
+
+  window.setTimeout(() => {
+    if (oauthCompletionSubmitting) return;
+    void maybeRequireOAuthCompletion(window.CE_STATE, { redirectTarget: POST_AUTH_REDIRECT });
+  }, 150);
 }
 
 if (document.readyState === 'loading') {
