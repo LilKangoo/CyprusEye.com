@@ -129,9 +129,13 @@
     partnerReferralCountSummary: null,
     partnerReferralLinkSummary: null,
     btnPartnerCopyReferralLinkSummary: null,
+    partnerReferralCodeSummary: null,
+    btnPartnerCopyReferralCodeSummary: null,
 
     partnerReferralLinkLarge: null,
     btnPartnerCopyReferralLinkLarge: null,
+    partnerReferralCodeLarge: null,
+    btnPartnerCopyReferralCodeLarge: null,
 
     partnerReferralStatDirect: null,
 
@@ -1259,14 +1263,21 @@
     const username = String(state.profile?.username || '').trim();
     const canUse = username && !isUuid(username);
     const link = canUse ? buildReferralLink(username) : 'Set your username to enable referral link';
+    const referralCode = canUse ? username : '';
     if (els.partnerReferralLink) {
       els.partnerReferralLink.value = link;
     }
     if (els.partnerReferralLinkSummary) {
       els.partnerReferralLinkSummary.value = link;
     }
+    if (els.partnerReferralCodeSummary) {
+      els.partnerReferralCodeSummary.value = referralCode;
+    }
     if (els.partnerReferralLinkLarge) {
       els.partnerReferralLinkLarge.value = link;
+    }
+    if (els.partnerReferralCodeLarge) {
+      els.partnerReferralCodeLarge.value = referralCode;
     }
     if (els.btnPartnerCopyReferralLink) {
       els.btnPartnerCopyReferralLink.disabled = !canUse;
@@ -1274,8 +1285,14 @@
     if (els.btnPartnerCopyReferralLinkSummary) {
       els.btnPartnerCopyReferralLinkSummary.disabled = !canUse;
     }
+    if (els.btnPartnerCopyReferralCodeSummary) {
+      els.btnPartnerCopyReferralCodeSummary.disabled = !canUse;
+    }
     if (els.btnPartnerCopyReferralLinkLarge) {
       els.btnPartnerCopyReferralLinkLarge.disabled = !canUse;
+    }
+    if (els.btnPartnerCopyReferralCodeLarge) {
+      els.btnPartnerCopyReferralCodeLarge.disabled = !canUse;
     }
   }
 
@@ -4992,6 +5009,22 @@
       }
     };
 
+    const handleCopyReferralCode = async (value) => {
+      const code = String(value || '').trim();
+      if (!code) {
+        showToast('Set your username to enable referral code.', 'error');
+        return;
+      }
+      try {
+        const ok = await copyTextToClipboard(code);
+        if (!ok) throw new Error('Copy failed');
+        showToast('Referral code copied', 'success');
+      } catch (error) {
+        console.error(error);
+        showToast('Failed to copy referral code', 'error');
+      }
+    };
+
     els.btnPartnerCopyReferralLink?.addEventListener('click', async () => {
       await handleCopyReferral(els.partnerReferralLink?.value);
     });
@@ -5000,8 +5033,16 @@
       await handleCopyReferral(els.partnerReferralLinkSummary?.value);
     });
 
+    els.btnPartnerCopyReferralCodeSummary?.addEventListener('click', async () => {
+      await handleCopyReferralCode(els.partnerReferralCodeSummary?.value);
+    });
+
     els.btnPartnerCopyReferralLinkLarge?.addEventListener('click', async () => {
       await handleCopyReferral(els.partnerReferralLinkLarge?.value);
+    });
+
+    els.btnPartnerCopyReferralCodeLarge?.addEventListener('click', async () => {
+      await handleCopyReferralCode(els.partnerReferralCodeLarge?.value);
     });
 
     els.partnerReferralTreeSearch?.addEventListener('input', () => {
@@ -5423,9 +5464,13 @@
     els.partnerReferralCountSummary = $('partnerReferralCountSummary');
     els.partnerReferralLinkSummary = $('partnerReferralLinkSummary');
     els.btnPartnerCopyReferralLinkSummary = $('btnPartnerCopyReferralLinkSummary');
+    els.partnerReferralCodeSummary = $('partnerReferralCodeSummary');
+    els.btnPartnerCopyReferralCodeSummary = $('btnPartnerCopyReferralCodeSummary');
 
     els.partnerReferralLinkLarge = $('partnerReferralLinkLarge');
     els.btnPartnerCopyReferralLinkLarge = $('btnPartnerCopyReferralLinkLarge');
+    els.partnerReferralCodeLarge = $('partnerReferralCodeLarge');
+    els.btnPartnerCopyReferralCodeLarge = $('btnPartnerCopyReferralCodeLarge');
 
     els.partnerReferralStatDirect = $('partnerReferralStatDirect');
 

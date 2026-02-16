@@ -2,7 +2,12 @@ import { bootAuth, updateAuthUI } from './authUi.js?v=2';
 import { showErr, showInfo, showOk } from './authMessages.js';
 import { loadProfileForUser } from './profile.js';
 import { URLS } from './config.js';
-import { processReferralAfterRegistration, getStoredReferralCode } from './referral.js';
+import {
+  processReferralAfterRegistration,
+  getStoredReferralCode,
+  setStoredReferralCode,
+  clearStoredReferralCode,
+} from './referral.js';
 
 const sb = window.getSupabase();
 const ceAuthGlobal = typeof window !== 'undefined' ? (window.CE_AUTH = window.CE_AUTH || {}) : null;
@@ -1077,6 +1082,7 @@ function parseRegisterPayload(form) {
   const firstName = form.firstName?.value?.trim() || '';
   const username = form.username?.value?.trim() || '';
   const confirm = form.passwordConfirm?.value || '';
+  const referralCode = form.referralCode?.value?.trim() || '';
 
   if (!email) {
     showErr(t('Please enter a valid email address.', 'Podaj poprawny e-mail.'));
@@ -1124,7 +1130,17 @@ function parseRegisterPayload(form) {
     return null;
   }
 
-  return { email, password, firstName, username };
+  if (referralCode && !/^[a-zA-Z0-9_]+$/.test(referralCode)) {
+    showErr(
+      t(
+        'Referral code can contain only letters, numbers and underscores.',
+        'Kod polecający może zawierać tylko litery, cyfry i znak podkreślenia.',
+      ),
+    );
+    return null;
+  }
+
+  return { email, password, firstName, username, referralCode };
 }
 
 function detectUiLanguage() {
@@ -1234,6 +1250,21 @@ function ensureGoogleButtons() {
       return;
     }
 
+    if (form.id === 'form-register') {
+      ensureRegisterReferralField(form);
+      const usernameInput = form.querySelector('input[name="username"]');
+      if (usernameInput instanceof HTMLInputElement) {
+        usernameInput.minLength = USERNAME_MIN_LENGTH;
+        usernameInput.maxLength = USERNAME_MAX_LENGTH;
+        if (usernameInput.placeholder) {
+          usernameInput.placeholder = t(
+            `${USERNAME_MIN_LENGTH}-${USERNAME_MAX_LENGTH} characters, letters and numbers`,
+            `${USERNAME_MIN_LENGTH}-${USERNAME_MAX_LENGTH} znaków, litery i cyfry`,
+          );
+        }
+      }
+    }
+
     const provider = 'google';
     const existing = form.querySelector(`[data-auth-provider="${provider}"]`);
     if (existing instanceof HTMLButtonElement) {
@@ -1272,20 +1303,77 @@ function ensureGoogleButtons() {
 
     form.prepend(button);
 
-    if (form.id === 'form-register') {
-      const usernameInput = form.querySelector('input[name="username"]');
-      if (usernameInput instanceof HTMLInputElement) {
-        usernameInput.minLength = USERNAME_MIN_LENGTH;
-        usernameInput.maxLength = USERNAME_MAX_LENGTH;
-        if (usernameInput.placeholder) {
-          usernameInput.placeholder = t(
-            `${USERNAME_MIN_LENGTH}-${USERNAME_MAX_LENGTH} characters, letters and numbers`,
-            `${USERNAME_MIN_LENGTH}-${USERNAME_MAX_LENGTH} znaków, litery i cyfry`,
-          );
-        }
-      }
-    }
   });
+}
+
+function ensureRegisterReferralField(form) {
+  if (!(form instanceof HTMLFormElement) || form.id !== 'form-register') return;
+
+  const referralLabelText = getI18nString(
+    'auth.referralCode',
+    t('Referral code (optional)', 'Kod polecający (opcjonalnie)'),
+  );
+  const referralPlaceholder = getI18nString(
+    'auth.referralCode.placeholder',
+    t('Partner username', 'Nazwa użytkownika partnera'),
+  );
+  const referralHint = getI18nString(
+    'auth.referralCode.hint',
+    t(
+      'If you got a referral code from a partner, enter it here.',
+      'Jeśli masz kod polecający od partnera, wpisz go tutaj.',
+    ),
+  );
+
+  const existingInput = form.querySelector('input[name="referralCode"]');
+  if (existingInput instanceof HTMLInputElement) {
+    existingInput.placeholder = referralPlaceholder;
+    existingInput.setAttribute('aria-label', referralLabelText);
+    const existingStored = getStoredReferralCode();
+    if (!existingInput.value && existingStored) {
+      existingInput.value = existingStored;
+    }
+    return;
+  }
+
+  const label = document.createElement('label');
+  label.setAttribute('for', 'registerReferralCode');
+  label.dataset.i18n = 'auth.referralCode';
+  label.textContent = referralLabelText;
+
+  const input = document.createElement('input');
+  input.id = 'registerReferralCode';
+  input.name = 'referralCode';
+  input.type = 'text';
+  input.autocomplete = 'off';
+  input.maxLength = 64;
+  input.pattern = '[a-zA-Z0-9_]+';
+  input.dataset.i18nAttrs = 'aria-label:auth.referralCode,placeholder:auth.referralCode.placeholder';
+  input.setAttribute('aria-label', referralLabelText);
+  input.placeholder = referralPlaceholder;
+
+  const hint = document.createElement('p');
+  hint.className = 'form-hint';
+  hint.style.marginTop = '6px';
+  hint.style.marginBottom = '4px';
+  hint.dataset.i18n = 'auth.referralCode.hint';
+  hint.textContent = referralHint;
+
+  const emailLabel = form.querySelector('label[for="registerEmail"]');
+  if (emailLabel instanceof HTMLElement && emailLabel.parentNode) {
+    emailLabel.parentNode.insertBefore(label, emailLabel);
+    emailLabel.parentNode.insertBefore(input, emailLabel);
+    emailLabel.parentNode.insertBefore(hint, emailLabel);
+  } else {
+    form.appendChild(label);
+    form.appendChild(input);
+    form.appendChild(hint);
+  }
+
+  const storedCode = getStoredReferralCode();
+  if (storedCode) {
+    input.value = storedCode;
+  }
 }
 
 async function handleGoogleOAuthCallbackIfPresent() {
@@ -1547,6 +1635,11 @@ $('#form-register')?.addEventListener('submit', async (event) => {
     usernameField.value = usernameField.value.trim();
   }
 
+  const referralField = form.referralCode;
+  if (referralField instanceof HTMLInputElement) {
+    referralField.value = referralField.value.trim();
+  }
+
   const payload = parseRegisterPayload(form);
   if (!payload) {
     return;
@@ -1578,6 +1671,12 @@ $('#form-register')?.addEventListener('submit', async (event) => {
           ),
         );
         return;
+      }
+
+      if (payload.referralCode) {
+        setStoredReferralCode(payload.referralCode, { overwrite: true });
+      } else {
+        clearStoredReferralCode();
       }
 
       const { data, error } = await sb.auth.signUp({

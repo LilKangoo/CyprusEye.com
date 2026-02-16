@@ -104,6 +104,36 @@ export function getStoredReferralCode() {
 }
 
 /**
+ * Store referral code explicitly (e.g. typed during registration)
+ */
+export function setStoredReferralCode(code, options = {}) {
+  try {
+    const rawCode = String(code || '').trim();
+    if (!rawCode) {
+      return false;
+    }
+
+    const overwrite = options?.overwrite !== false;
+    if (!overwrite) {
+      const existing = getStoredReferralCode();
+      if (existing) return true;
+    }
+
+    const referralData = {
+      code: rawCode,
+      capturedAt: Date.now(),
+      expiresAt: Date.now() + (REFERRAL_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
+    };
+
+    localStorage.setItem(REFERRAL_STORAGE_KEY, JSON.stringify(referralData));
+    return true;
+  } catch (err) {
+    console.warn('Could not store referral code:', err);
+    return false;
+  }
+}
+
+/**
  * Clear stored referral code (after successful registration)
  */
 export function clearStoredReferralCode() {
