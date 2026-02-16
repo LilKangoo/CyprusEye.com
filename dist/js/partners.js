@@ -4811,11 +4811,14 @@
     els.btnOpenLogin?.addEventListener('click', openLogin);
     els.btnHeaderLogin?.addEventListener('click', openLogin);
 
-    els.partnerDetailsClose?.addEventListener('click', () => {
-      closePartnerDetailsModal({ restoreFocus: true });
-    });
-
     els.partnerDetailsModal?.addEventListener('click', (event) => {
+      const closeBtn = event.target instanceof Element
+        ? event.target.closest('[data-partner-details-close]')
+        : null;
+      if (closeBtn) {
+        closePartnerDetailsModal({ restoreFocus: true });
+        return;
+      }
       if (event.target === els.partnerDetailsModal) {
         closePartnerDetailsModal({ restoreFocus: true });
       }
