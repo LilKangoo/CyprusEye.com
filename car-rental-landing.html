@@ -97,7 +97,13 @@
 
         <div class="nav-modern__stats nav-modern__stats-lite" data-auth="user-only">
           <div class="stats-lite__pill">
-            <a href="achievements.html" class="stats-lite__profile" id="profileButton" aria-label="Mój profil">
+            <a
+              href="achievements.html"
+              class="stats-lite__profile"
+              id="profileButton"
+              aria-label="Mój profil"
+              data-i18n-attrs="aria-label:header.profile"
+            >
               <img
                 id="headerUserAvatar"
                 class="profile-avatar"
@@ -108,14 +114,14 @@
                 loading="eager"
               />
               <div class="profile-info">
-                <p class="profile-name">Mój Profil</p>
-                <p class="profile-status">Poziom 1 • 0 odznak</p>
+                <p class="profile-name" data-i18n="header.profileLabel">Mój Profil</p>
+                <p class="profile-status" data-i18n="header.statusPlaceholder">Poziom 1 • 0 odznak</p>
               </div>
             </a>
 
             <div class="stats-lite__panel">
               <div class="stats-lite__level">
-                <span class="stats-lite__label">LVL</span>
+                <span class="stats-lite__label" data-i18n="metrics.level.abbrev">LVL</span>
                 <span class="stats-lite__value" id="headerLevelNumber">1</span>
                 
               </div>
@@ -240,37 +246,37 @@
   <main id="main-content" class="standalone-main">
     <section class="card surface-card standalone-hero" aria-labelledby="carRentalLandingHeroTitle">
       <div class="standalone-hero-content">
-        <p class="standalone-hero-badge">Krok 1 • Wybierz trasę i termin</p>
-        <h1 id="carRentalLandingHeroTitle">Wynajem auta na Cyprze z automatycznym doborem oferty</h1>
-        <p>
+        <p class="standalone-hero-badge" data-i18n="carRentalLanding.hero.stepBadge">Krok 1 • Wybierz trasę i termin</p>
+        <h1 id="carRentalLandingHeroTitle" data-i18n="carRentalLanding.hero.title">Wynajem auta na Cyprze z automatycznym doborem oferty</h1>
+        <p data-i18n="carRentalLanding.hero.description">
           Ustaw odbior i zwrot, a system sam wybierze najlepszą ofertę: Larnaka lub Pafos.
           Zobaczysz dokładne ceny total na kartach aut i od razu przejdziesz do rezerwacji.
         </p>
-        <p class="standalone-hero-note" id="landingOfferInfo" aria-live="polite">
+        <p class="standalone-hero-note" id="landingOfferInfo" aria-live="polite" data-i18n="carRentalLanding.hero.autoOfferNote">
           Oferta jest wybierana automatycznie na podstawie lokalizacji odbioru/zwrotu i opcji młodego kierowcy.
         </p>
       </div>
-      <ul class="standalone-hero-stats" aria-label="Najważniejsze informacje">
+      <ul class="standalone-hero-stats" aria-label="Najważniejsze informacje" data-i18n-attrs="aria-label:carRentalLanding.hero.stats.aria">
         <li>
           <strong id="landingActiveOfferBadge">Oferta: Larnaka</strong>
-          <span>Przełączanie automatyczne + ręczne porównanie</span>
+          <span data-i18n="carRentalLanding.hero.stats.offerMode">Przełączanie automatyczne + ręczne porównanie</span>
         </li>
         <li>
           <strong data-minimum-days>3</strong>
-          <span>Minimalny czas wynajmu (dni)</span>
+          <span data-i18n="carRentalLanding.hero.stats.minimumDays">Minimalny czas wynajmu (dni)</span>
         </li>
         <li>
-          <strong>Bez kaucji</strong>
-          <span>Wsparcie 24/7 i przejrzysta wycena</span>
+          <strong data-i18n="carRentalLanding.hero.stats.noDeposit">Bez kaucji</strong>
+          <span data-i18n="carRentalLanding.hero.stats.noDepositSupport">Wsparcie 24/7 i przejrzysta wycena</span>
         </li>
       </ul>
     </section>
 
     <section class="card surface-card auto-rental" id="carRentalSection" aria-labelledby="carRentalTitle">
       <header class="auto-rental-header">
-        <span class="auto-rental-badge">Bez Kaucji</span>
-        <h2 id="carRentalTitle">Skonfiguruj wynajem i wybierz auto</h2>
-        <p>
+        <span class="auto-rental-badge" data-i18n="carRentalLanding.config.badge">Bez Kaucji</span>
+        <h2 id="carRentalTitle" data-i18n="carRentalLanding.config.title">Skonfiguruj wynajem i wybierz auto</h2>
+        <p data-i18n="carRentalLanding.config.description">
           Wybierz daty, godziny i lokalizacje. Ceny na kartach poniżej pokazują dokładną kwotę całkowitą
           dla Twoich ustawień (z uwzględnieniem opłat lokalizacyjnych i dodatków).
         </p>
@@ -284,10 +290,10 @@
         </div>
       </header>
 
-      <section class="auto-rental-tools" aria-label="Kalkulator i rezerwacja">
+      <section class="auto-rental-tools" aria-label="Kalkulator i rezerwacja" data-i18n-attrs="aria-label:carRental.page.tools.aria">
         <article class="auto-rental-block" id="carRentalCalculatorBlock">
-          <h3>Kalkulator wynajmu</h3>
-          <p>
+          <h3 data-i18n="carRental.page.calculator.title">Kalkulator wynajmu</h3>
+          <p data-i18n="carRentalLanding.calculator.description">
             Wspólny widget dla obu ofert. Gdy wybierzesz lokalizacje Pafos po obu stronach i bez opcji młodego kierowcy,
             aktywuje się oferta Pafos (z możliwością ręcznego przełączenia na Larnakę).
           </p>
@@ -339,7 +345,7 @@
               </div>
             </div>
 
-            <p style="font-size:12px;color:#64748b;margin:8px 0 16px;">
+            <p style="font-size:12px;color:#64748b;margin:8px 0 16px;" data-i18n="carRentalLanding.calculator.coralBayHint">
               Coral Bay / Polis wybierz jako Hotel lub Inne + podaj adres w formularzu rezerwacji.
             </p>
 
@@ -371,10 +377,10 @@
 
       <section class="selected-car-highlight" id="selectedCarHighlight" hidden aria-live="polite">
         <div class="selected-car-highlight__media">
-          <img id="selectedCarHighlightImage" src="" alt="Wybrane auto" loading="lazy" />
+          <img id="selectedCarHighlightImage" src="" alt="Wybrane auto" loading="lazy" data-i18n-attrs="alt:carRentalLanding.selectedCar.imageAlt" />
         </div>
         <div class="selected-car-highlight__content">
-          <p class="selected-car-highlight__label">Wybrane auto</p>
+          <p class="selected-car-highlight__label" data-i18n="carRentalLanding.selectedCar.label">Wybrane auto</p>
           <h3 id="selectedCarHighlightTitle">—</h3>
           <p id="selectedCarHighlightMeta">—</p>
           <div class="selected-car-highlight__meta-row">
@@ -384,7 +390,7 @@
         </div>
       </section>
 
-      <section class="auto-rental-groups" id="carRentalGrid" aria-label="Dostępna flota" aria-live="polite"></section>
+      <section class="auto-rental-groups" id="carRentalGrid" aria-label="Dostępna flota" data-i18n-attrs="aria-label:carRentalLanding.grid.aria" aria-live="polite"></section>
 
       <article class="auto-rental-block" id="carReservationForm" style="margin-top:24px;">
         <h3 data-i18n="carRental.page.reservation.title">Złóż rezerwację</h3>
@@ -676,7 +682,8 @@
           class="icon-button"
           id="accountClose"
           aria-label="Zamknij ustawienia konta"
-          data-i18n="account.close"
+          data-i18n="account.close.text"
+          data-i18n-attrs="aria-label:account.close.attributes.aria-label"
         >
           ✕
         </button>
@@ -720,7 +727,7 @@
             data-account-message
             hidden
           ></div>
-          <div data-account-loading hidden>Trwa wczytywanie danych konta…</div>
+          <div data-account-loading hidden data-i18n="account.loading">Trwa wczytywanie danych konta…</div>
         </div>
 
         <div data-account-content>
@@ -733,32 +740,32 @@
           >
             <section class="account-card" aria-labelledby="accountProfileHeading">
               <div>
-                <h3 id="accountProfileHeading">Twój profil</h3>
-                <p>Podstawowe informacje o koncie i postępy w przygodzie.</p>
+                <h3 id="accountProfileHeading" data-i18n="account.profile.heading">Twój profil</h3>
+                <p data-i18n="account.profile.desc">Podstawowe informacje o koncie i postępy w przygodzie.</p>
               </div>
               <dl class="profile-grid">
                 <div>
-                  <dt>E-mail</dt>
+                  <dt data-i18n="account.profile.labels.email">E-mail</dt>
                   <dd data-account-email>—</dd>
                 </div>
                 <div>
-                  <dt>Nazwa użytkownika</dt>
+                  <dt data-i18n="account.profile.labels.username">Nazwa użytkownika</dt>
                   <dd data-account-username>—</dd>
                 </div>
                 <div>
-                  <dt>Imię wyświetlane</dt>
+                  <dt data-i18n="account.profile.labels.displayName">Imię wyświetlane</dt>
                   <dd data-account-name>—</dd>
                 </div>
                 <div>
-                  <dt>XP</dt>
+                  <dt data-i18n="account.profile.labels.xp">XP</dt>
                   <dd data-account-xp>0</dd>
                 </div>
                 <div>
-                  <dt>Poziom</dt>
+                  <dt data-i18n="account.profile.labels.level">Poziom</dt>
                   <dd data-account-level>0</dd>
                 </div>
                 <div>
-                  <dt>Ostatnia aktualizacja</dt>
+                  <dt data-i18n="account.profile.labels.lastUpdated">Ostatnia aktualizacja</dt>
                   <dd data-account-updated>—</dd>
                 </div>
               </dl>
@@ -766,10 +773,10 @@
 
             <section class="account-card" aria-labelledby="accountXpHeading">
               <div>
-                <h3 id="accountXpHeading">Ostatnie zdarzenia XP</h3>
-                <p>Monitoruj, jak zdobywasz doświadczenie w CyprusEye.</p>
+                <h3 id="accountXpHeading" data-i18n="account.xpEvents.title">Ostatnie zdarzenia XP</h3>
+                <p data-i18n="account.xpEvents.desc">Monitoruj, jak zdobywasz doświadczenie w CyprusEye.</p>
               </div>
-              <p id="accountXpEmpty" data-account-xp-empty hidden>Brak zarejestrowanych zdarzeń XP.</p>
+              <p id="accountXpEmpty" data-account-xp-empty hidden data-i18n="account.xpEvents.empty">Brak zarejestrowanych zdarzeń XP.</p>
               <ul id="accountXpEvents" class="xp-list" aria-live="polite"></ul>
             </section>
 
@@ -834,12 +841,12 @@
           >
             <section class="account-card" aria-labelledby="accountUsernameHeading">
               <div>
-                <h3 id="accountUsernameHeading">Zmień nazwę użytkownika</h3>
-                <p>Ustaw identyfikator widoczny w rankingach, komentarzach i dzienniku podróży.</p>
+                <h3 id="accountUsernameHeading" data-i18n="account.security.username.heading">Zmień nazwę użytkownika</h3>
+                <p data-i18n="account.security.username.desc">Ustaw identyfikator widoczny w rankingach, komentarzach i dzienniku podróży.</p>
               </div>
               <form id="accountUsernameForm" class="account-form account-form--stack" novalidate>
                 <label for="accountUsernameInput">
-                  Nowa nazwa użytkownika
+                  <span data-i18n="account.security.username.label">Nowa nazwa użytkownika</span>
                   <input
                     id="accountUsernameInput"
                     name="username"
@@ -850,45 +857,47 @@
                     autocorrect="off"
                     spellcheck="false"
                     placeholder="np. cyprus.explorer"
+                    data-i18n-attrs="placeholder:account.security.username.placeholder"
                     minlength="3"
                     maxlength="30"
                     required
                   />
                 </label>
-                <p class="account-form__hint">
+                <p class="account-form__hint" data-i18n="account.security.username.hint">
                   Dozwolone litery, cyfry, kropki, myślniki i podkreślenia (3–30 znaków).
                 </p>
-                <button type="submit">Zapisz nazwę</button>
+                <button type="submit" data-i18n="account.security.username.submit">Zapisz nazwę</button>
               </form>
             </section>
 
             <section class="account-card" aria-labelledby="accountNameHeading">
               <div>
-                <h3 id="accountNameHeading">Imię wyświetlane</h3>
-                <p>To imię pojawia się w powiadomieniach oraz powitaniach w aplikacji.</p>
+                <h3 id="accountNameHeading" data-i18n="account.security.displayName.heading">Imię wyświetlane</h3>
+                <p data-i18n="account.security.displayName.desc">To imię pojawia się w powiadomieniach oraz powitaniach w aplikacji.</p>
               </div>
               <form id="accountNameForm" class="account-form account-form--stack" novalidate>
                 <label for="accountNameInput">
-                  Imię
+                  <span data-i18n="account.security.displayName.label">Imię</span>
                   <input
                     id="accountNameInput"
                     name="name"
                     type="text"
                     autocomplete="given-name"
                     placeholder="Twoje imię"
+                    data-i18n-attrs="placeholder:account.security.displayName.placeholder"
                     minlength="2"
                     maxlength="60"
                     required
                   />
                 </label>
-                <button type="submit">Zapisz imię</button>
+                <button type="submit" data-i18n="account.security.displayName.submit">Zapisz imię</button>
               </form>
             </section>
 
             <section class="account-card" aria-labelledby="accountPasswordHeading">
               <div>
-                <h3 id="accountPasswordHeading">Aktualizuj hasło</h3>
-                <p>Użyj silnego hasła, aby chronić konto przed niepowołanym dostępem.</p>
+                <h3 id="accountPasswordHeading" data-i18n="account.security.password.heading">Aktualizuj hasło</h3>
+                <p data-i18n="account.security.password.desc">Użyj silnego hasła, aby chronić konto przed niepowołanym dostępem.</p>
               </div>
               <form
                 id="accountPasswordForm"
@@ -897,7 +906,7 @@
                 novalidate
               >
                 <label for="accountCurrentPassword">
-                  Obecne hasło
+                  <span data-i18n="account.security.password.current">Obecne hasło</span>
                   <input
                     id="accountCurrentPassword"
                     name="current_password"
@@ -908,7 +917,7 @@
                   />
                 </label>
                 <label for="accountNewPassword">
-                  Nowe hasło
+                  <span data-i18n="account.security.password.new">Nowe hasło</span>
                   <input
                     id="accountNewPassword"
                     name="new_password"
@@ -916,11 +925,12 @@
                     autocomplete="new-password"
                     minlength="8"
                     placeholder="Minimum 8 znaków"
+                    data-i18n-attrs="placeholder:account.security.password.newPlaceholder"
                     required
                   />
                 </label>
                 <label for="accountConfirmPassword">
-                  Powtórz nowe hasło
+                  <span data-i18n="account.security.password.confirm">Powtórz nowe hasło</span>
                   <input
                     id="accountConfirmPassword"
                     name="confirm_password"
@@ -928,13 +938,14 @@
                     autocomplete="new-password"
                     minlength="8"
                     placeholder="Potwierdź hasło"
+                    data-i18n-attrs="placeholder:account.security.password.confirmPlaceholder"
                     required
                   />
                 </label>
-                <p class="account-form__hint">
+                <p class="account-form__hint" data-i18n="account.security.password.hint">
                   Hasło powinno mieć co najmniej 8 znaków i zawierać mieszankę liter oraz cyfr.
                 </p>
-                <button type="submit">Zmień hasło</button>
+                <button type="submit" data-i18n="account.security.password.submit">Zmień hasło</button>
               </form>
             </section>
 
@@ -944,6 +955,7 @@
               data-account-guest-note
               data-ce-account-enhanced="true"
               hidden
+              data-i18n="account.security.guestNote"
             >
               Goście nie posiadają haseł – zaloguj się, aby zmienić dane konta.
             </p>
@@ -1013,25 +1025,25 @@
           <h3 data-i18n="sos.embassy.title">🛡️ Ambasada RP w Nikozji</h3>
           <ul>
             <li>
-              <strong>Telefon alarmowy</strong>
+              <strong data-i18n="sos.embassy.hotlineTitle">Telefon alarmowy</strong>
               <p data-i18n="sos.embassy.hotline">
                 <a href="tel:+35799660451">+357 99 660 451</a> (wsparcie w nagłych wypadkach obywateli RP).
               </p>
             </li>
             <li>
-              <strong>Recepcja</strong>
+              <strong data-i18n="sos.embassy.receptionTitle">Recepcja</strong>
               <p data-i18n="sos.embassy.reception">
                 <a href="tel:+35722751777">+357 22 751 777</a> (pon.–pt. w godz. pracy placówki).
               </p>
             </li>
             <li>
-              <strong>Adres</strong>
+              <strong data-i18n="sos.embassy.addressTitle">Adres</strong>
               <p data-i18n="sos.embassy.address">
                 14, Ifigenias Street, 2007 Nikozja • <a href="https://maps.google.com/?q=Embassy+of+Poland+in+Cyprus" target="_blank" rel="noopener">Wyznacz trasę</a>
               </p>
             </li>
             <li>
-              <strong>E-mail</strong>
+              <strong data-i18n="sos.embassy.emailTitle">E-mail</strong>
               <p data-i18n="sos.embassy.email"><a href="mailto:nicosia.info@msz.gov.pl">nicosia.info@msz.gov.pl</a></p>
             </li>
           </ul>
@@ -1041,21 +1053,21 @@
           <h3 data-i18n="sos.healthcare.title">🏥 Najbliższa pomoc medyczna</h3>
           <ul>
             <li>
-              <strong>Paphos General Hospital</strong>
+              <strong data-i18n="sos.healthcare.hospitalTitle">Paphos General Hospital</strong>
               <p data-i18n="sos.healthcare.hospital">
                 Całodobowa izba przyjęć, Anavargos, Pafos. <a href="tel:+35726803000">+357 26 803 000</a> •
                 <a href="https://maps.google.com/?q=Paphos+General+Hospital" target="_blank" rel="noopener">Mapa dojazdu</a>
               </p>
             </li>
             <li>
-              <strong>Wyszukaj szpital w pobliżu</strong>
+              <strong data-i18n="sos.healthcare.searchTitle">Wyszukaj szpital w pobliżu</strong>
               <p data-i18n="sos.healthcare.search">
                 <a href="https://www.google.com/maps/search/hospital+near+me/" target="_blank" rel="noopener">Otwórz listę szpitali na Mapach Google</a>
                 i udostępnij lokalizację, aby zobaczyć najbliższe opcje.
               </p>
             </li>
             <li>
-              <strong>Dyżurna apteka</strong>
+              <strong data-i18n="sos.healthcare.pharmacyTitle">Dyżurna apteka</strong>
               <p data-i18n="sos.healthcare.pharmacy">
                 Sprawdź aktualne dyżury na <a href="https://pharmacy.dl.moh.gov.cy/" target="_blank" rel="noopener">stronie Ministerstwa Zdrowia</a>
                 lub wyszukaj <a href="https://www.google.com/maps/search/pharmacy+near+me/" target="_blank" rel="noopener">aptekę w pobliżu</a>.
@@ -1081,10 +1093,10 @@
   >
     <div class="car-image-modal__dialog" role="document" tabindex="-1">
       <header class="car-image-modal__header">
-        <h3 id="carImageModalTitle">Podgląd auta</h3>
-        <button type="button" class="ghost" id="carImageModalClose" aria-label="Zamknij podgląd">✕</button>
+        <h3 id="carImageModalTitle" data-i18n="carRentalLanding.imageModal.title">Podgląd auta</h3>
+        <button type="button" class="ghost" id="carImageModalClose" aria-label="Zamknij podgląd" data-i18n-attrs="aria-label:carRentalLanding.imageModal.closeAria">✕</button>
       </header>
-      <img id="carImageModalImg" src="" alt="Podgląd auta" loading="lazy" />
+      <img id="carImageModalImg" src="" alt="Podgląd auta" loading="lazy" data-i18n-attrs="alt:carRentalLanding.imageModal.imageAlt" />
       <p id="carImageModalCaption"></p>
     </div>
   </div>
@@ -1156,14 +1168,14 @@
               <form id="form-reset-password" class="auth-form" novalidate>
                 <header class="auth-reset-dialog__header">
                   <h2 data-i18n="auth.reset.title">Resetuj hasło</h2>
-                  <button type="button" class="auth-form__link" id="btn-reset-close" aria-label="Zamknij">✖</button>
+                  <button type="button" class="auth-form__link" id="btn-reset-close" aria-label="Zamknij" data-i18n-attrs="aria-label:auth.reset.close">✖</button>
                 </header>
                 <p data-i18n="auth.reset.description">Podaj adres e-mail powiązany z kontem, a wyślemy link do zmiany hasła.</p>
                 <label for="resetEmail" data-i18n="auth.reset.emailLabel">Adres e-mail</label>
                 <input id="resetEmail" name="email" type="email" autocomplete="email" required />
                 <div class="auth-form__actions">
-                  <button type="submit" class="btn btn--primary">Wyślij link resetujący</button>
-                  <button type="button" class="auth-form__link" id="btn-reset-cancel">Anuluj</button>
+                  <button type="submit" class="btn btn--primary" data-i18n="auth.reset.submitRequest">Wyślij link resetujący</button>
+                  <button type="button" class="auth-form__link" id="btn-reset-cancel" data-i18n="auth.reset.cancel">Anuluj</button>
                 </div>
               </form>
             </dialog>

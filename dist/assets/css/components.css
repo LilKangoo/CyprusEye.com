@@ -5312,6 +5312,29 @@ main::before {
   gap: clamp(1.2rem, 2.5vw, 2rem);
 }
 
+body[data-seo-page='carRentalLanding'] #carRentalGrid.auto-rental-groups {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  align-items: stretch;
+}
+
+@media (max-width: 1380px) {
+  body[data-seo-page='carRentalLanding'] #carRentalGrid.auto-rental-groups {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1040px) {
+  body[data-seo-page='carRentalLanding'] #carRentalGrid.auto-rental-groups {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 700px) {
+  body[data-seo-page='carRentalLanding'] #carRentalGrid.auto-rental-groups {
+    grid-template-columns: 1fr;
+  }
+}
+
 .auto-category {
   display: flex;
   flex-direction: column;
@@ -5391,6 +5414,21 @@ main::before {
   height: 100%;
   object-fit: cover;
   display: block;
+}
+
+.auto-card-image {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  display: block;
+  border-radius: 14px;
+  cursor: zoom-in;
+  transition: transform var(--transition), box-shadow var(--transition);
+}
+
+.auto-card-image:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .auto-card::after {
@@ -5502,6 +5540,199 @@ main::before {
 
 .auto-card .secondary {
   align-self: flex-start;
+}
+
+body[data-seo-page='carRentalLanding'] #carRentalGrid .auto-card.is-selected {
+  border-color: rgba(37, 99, 235, 0.55);
+  box-shadow: 0 18px 36px rgba(37, 99, 235, 0.18);
+}
+
+body[data-seo-page='carRentalLanding'] #carRentalGrid .auto-card.is-selected::after {
+  opacity: 1;
+}
+
+.selected-car-highlight {
+  display: grid;
+  grid-template-columns: minmax(220px, 320px) minmax(0, 1fr);
+  gap: clamp(1rem, 2.5vw, 1.6rem);
+  padding: clamp(1rem, 2.4vw, 1.6rem);
+  border-radius: 24px;
+  border: 1px solid rgba(37, 99, 235, 0.28);
+  background: linear-gradient(120deg, rgba(37, 99, 235, 0.08), rgba(248, 250, 252, 0.96));
+  box-shadow: var(--shadow-soft);
+}
+
+.selected-car-highlight__media {
+  border-radius: 18px;
+  overflow: hidden;
+  background: rgba(226, 232, 240, 0.75);
+}
+
+.selected-car-highlight__media img {
+  width: 100%;
+  height: 100%;
+  min-height: 190px;
+  object-fit: cover;
+  display: block;
+}
+
+.selected-car-highlight__content {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.selected-car-highlight__label {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #2563eb;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.selected-car-highlight__content h3 {
+  margin: 0;
+  font-size: clamp(1.25rem, 2.4vw, 1.6rem);
+}
+
+.selected-car-highlight__content p {
+  margin: 0;
+  color: var(--muted-strong);
+}
+
+.selected-car-highlight__meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+}
+
+#selectedCarHighlightPrice,
+#selectedCarHighlightOffer {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.35rem 0.7rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+#selectedCarHighlightPrice {
+  background: rgba(15, 23, 42, 0.08);
+  color: #0f172a;
+}
+
+#selectedCarHighlightOffer {
+  background: rgba(37, 99, 235, 0.14);
+  color: #1d4ed8;
+}
+
+.auto-reservation-offer {
+  margin: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.5rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(37, 99, 235, 0.24);
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.auto-reservation-offer.is-paphos {
+  border-color: rgba(13, 148, 136, 0.28);
+  background: rgba(20, 184, 166, 0.12);
+  color: #0f766e;
+}
+
+.auto-reservation-offer.is-larnaca {
+  border-color: rgba(37, 99, 235, 0.24);
+  background: rgba(37, 99, 235, 0.08);
+  color: #1d4ed8;
+}
+
+.car-image-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1600;
+  display: grid;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 2rem);
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(2px);
+}
+
+.car-image-modal[hidden] {
+  display: none !important;
+}
+
+.car-image-modal__dialog {
+  width: min(92vw, 920px);
+  max-height: 92vh;
+  overflow: auto;
+  padding: clamp(0.9rem, 2.6vw, 1.35rem);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.98);
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.35);
+  display: grid;
+  gap: 0.8rem;
+}
+
+.car-image-modal__dialog:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring), 0 24px 60px rgba(15, 23, 42, 0.35);
+}
+
+.car-image-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.car-image-modal__header h3 {
+  margin: 0;
+  font-size: clamp(1.1rem, 2.6vw, 1.3rem);
+}
+
+.car-image-modal__header .ghost {
+  border: 1px solid rgba(148, 163, 184, 0.45);
+  border-radius: 10px;
+  padding: 0.25rem 0.55rem;
+  line-height: 1;
+}
+
+#carImageModalImg {
+  width: 100%;
+  max-height: min(70vh, 680px);
+  object-fit: contain;
+  background: rgba(226, 232, 240, 0.8);
+  border-radius: 14px;
+}
+
+#carImageModalCaption {
+  margin: 0;
+  color: var(--muted-strong);
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 860px) {
+  .selected-car-highlight {
+    grid-template-columns: 1fr;
+  }
+
+  .selected-car-highlight__media img {
+    min-height: 180px;
+    max-height: 280px;
+  }
 }
 
 .auto-rental-tools {

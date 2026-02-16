@@ -4,6 +4,89 @@ import { showToast } from './toast.js';
 
 let reservationData = {};
 
+const PAPHOS_LOCATION_VALUES = new Set(['airport_pfo', 'city_center', 'hotel', 'other']);
+
+function currentLang() {
+  const lang = (typeof window.getCurrentLanguage === 'function'
+    ? window.getCurrentLanguage()
+    : (window.appI18n?.language || 'pl'));
+  const normalized = String(lang || 'pl').toLowerCase();
+  return normalized.startsWith('en') ? 'en' : 'pl';
+}
+
+function getTranslationEntry(translations, key) {
+  if (!key || !translations || typeof translations !== 'object') return null;
+
+  if (Object.prototype.hasOwnProperty.call(translations, key)) {
+    return translations[key];
+  }
+
+  if (key.indexOf('.') !== -1) {
+    const parts = key.split('.');
+    let current = translations;
+
+    for (const part of parts) {
+      if (current && typeof current === 'object' && Object.prototype.hasOwnProperty.call(current, part)) {
+        current = current[part];
+      } else {
+        return null;
+      }
+    }
+
+    return current;
+  }
+
+  return null;
+}
+
+function interpolateText(template, replacements = {}) {
+  if (typeof template !== 'string') return '';
+  return template.replace(/\{\{(\w+)\}\}/g, (match, key) => (
+    Object.prototype.hasOwnProperty.call(replacements, key)
+      ? String(replacements[key])
+      : match
+  ));
+}
+
+function tr(key, fallback = '', replacements = {}) {
+  const lang = currentLang();
+  const translations = window.appI18n?.translations?.[lang] || null;
+  const entry = getTranslationEntry(translations, key);
+
+  let text = null;
+  if (typeof entry === 'string') {
+    text = entry;
+  } else if (entry && typeof entry === 'object') {
+    if (typeof entry.text === 'string') {
+      text = entry.text;
+    } else if (typeof entry.html === 'string') {
+      text = entry.html;
+    }
+  }
+
+  if (typeof text !== 'string') {
+    text = fallback;
+  }
+
+  return interpolateText(text, replacements);
+}
+
+function getActiveOfferLocation() {
+  const raw = (document.body?.dataset?.carLocation
+    || (location?.href?.includes('autopfo') ? 'paphos' : 'larnaca'))
+    .toLowerCase();
+  return raw === 'larnaca' ? 'larnaca' : 'paphos';
+}
+
+function normalizeLocationForOffer(locationValue, offerLocation) {
+  const normalized = String(locationValue || '').trim();
+  if (!normalized) return '';
+  if (offerLocation === 'larnaca' && PAPHOS_LOCATION_VALUES.has(normalized)) {
+    return 'paphos';
+  }
+  return normalized;
+}
+
 // Prefill form fields from logged-in user session
 async function prefillFromUserSession() {
   try {
@@ -193,22 +276,23 @@ function populateFromCalculator() {
   if (calcReturnTime) { document.getElementById('res_return_time').value = calcReturnTime; didSetAny = true; }
 
   // Map locations
-  const pageLocation = (document.body?.dataset?.carLocation || '').toLowerCase();
+  const pageLocation = getActiveOfferLocation();
   if (calcPickupLocLca) {
-    // Direct pass-through of city ID from calculator (larnaca, nicosia, ayia-napa, protaras, limassol, paphos)
-    document.getElementById('res_pickup_location').value = calcPickupLocLca;
+    const normalizedPickup = normalizeLocationForOffer(calcPickupLocLca, pageLocation);
+    document.getElementById('res_pickup_location').value = normalizedPickup || calcPickupLocLca;
     didSetAny = true;
   } else if (calcAirportPickupPfo) {
-    // Paphos calculator checkbox means airport pickup
-    document.getElementById('res_pickup_location').value = pageLocation === 'larnaca' ? 'larnaca' : 'airport_pfo';
+    const normalizedPickup = normalizeLocationForOffer('airport_pfo', pageLocation);
+    document.getElementById('res_pickup_location').value = normalizedPickup || 'airport_pfo';
     didSetAny = true;
   }
   if (calcReturnLocLca) {
-    document.getElementById('res_return_location').value = calcReturnLocLca;
+    const normalizedReturn = normalizeLocationForOffer(calcReturnLocLca, pageLocation);
+    document.getElementById('res_return_location').value = normalizedReturn || calcReturnLocLca;
     didSetAny = true;
   } else if (calcAirportReturnPfo) {
-    // Paphos calculator checkbox means airport return
-    document.getElementById('res_return_location').value = pageLocation === 'larnaca' ? 'larnaca' : 'airport_pfo';
+    const normalizedReturn = normalizeLocationForOffer('airport_pfo', pageLocation);
+    document.getElementById('res_return_location').value = normalizedReturn || 'airport_pfo';
     didSetAny = true;
   }
 
@@ -231,7 +315,10 @@ function populateFromCalculator() {
   // Calculate and show estimated price
   if (didSetAny) {
     calculateEstimatedPrice();
-    showToast('Dane z kalkulatora zostały przeniesione!', 'success');
+    showToast(
+      tr('carRental.page.reservation.toast.prefilledFromCalculator', 'Dane z kalkulatora zostały przeniesione!'),
+      'success'
+    );
   }
 }
 
@@ -240,17 +327,17 @@ function calculateEstimatedPrice() {
   const estimatedEl = document.getElementById('estimatedPrice');
   if (!estimatedEl) return;
 
-  const lang = (typeof window.getCurrentLanguage === 'function') ? window.getCurrentLanguage() : 'pl';
-
   const pickupDate = document.getElementById('res_pickup_date')?.value;
   const returnDate = document.getElementById('res_return_date')?.value;
   const pickupTime = document.getElementById('res_pickup_time')?.value || '10:00';
   const returnTime = document.getElementById('res_return_time')?.value || '10:00';
+  const daysLabel = tr('carRental.common.daysLabel', 'dni');
   
   if (!pickupDate || !returnDate) {
-    estimatedEl.textContent = lang === 'en'
-      ? 'Choose pickup and return dates to see the total price.'
-      : 'Wybierz datę odbioru i zwrotu, aby zobaczyć łączną cenę.';
+    estimatedEl.textContent = tr(
+      'carRental.page.reservation.estimated.chooseDates',
+      'Wybierz datę odbioru i zwrotu, aby zobaczyć łączną cenę.'
+    );
     try { delete window.CE_CAR_PRICE_QUOTE; } catch (_) {}
     return;
   }
@@ -258,18 +345,20 @@ function calculateEstimatedPrice() {
   const pickup = new Date(`${pickupDate}T${pickupTime}`);
   const returnD = new Date(`${returnDate}T${returnTime}`);
   if (Number.isNaN(pickup.getTime()) || Number.isNaN(returnD.getTime())) {
-    estimatedEl.textContent = lang === 'en'
-      ? 'Please choose valid pickup/return dates and times.'
-      : 'Wybierz poprawne daty i godziny odbioru oraz zwrotu.';
+    estimatedEl.textContent = tr(
+      'carRental.page.reservation.estimated.invalidDateTime',
+      'Wybierz poprawne daty i godziny odbioru oraz zwrotu.'
+    );
     try { delete window.CE_CAR_PRICE_QUOTE; } catch (_) {}
     return;
   }
 
   const hours = (returnD - pickup) / 36e5;
   if (!Number.isFinite(hours) || hours <= 0) {
-    estimatedEl.textContent = lang === 'en'
-      ? 'Return must be after pickup.'
-      : 'Zwrot musi być po dacie i godzinie odbioru.';
+    estimatedEl.textContent = tr(
+      'carRental.page.reservation.estimated.returnAfterPickup',
+      'Zwrot musi być po dacie i godzinie odbioru.'
+    );
     try { delete window.CE_CAR_PRICE_QUOTE; } catch (_) {}
     return;
   }
@@ -277,9 +366,14 @@ function calculateEstimatedPrice() {
   const days = Math.ceil(hours / 24);
 
   if (days < 3) {
-    estimatedEl.textContent = lang === 'en'
-      ? 'Minimum rental: 3 days (3 nights). Each started 24h counts as an extra day.'
-      : 'Minimalny wynajem: 3 dni. Każde rozpoczęte 24h to kolejny dzień.';
+    estimatedEl.textContent = tr(
+      'carRental.page.reservation.estimated.minimumDays',
+      'Minimalny wynajem: 3 dni. Każde rozpoczęte 24h to kolejny dzień.',
+      {
+        days: 3,
+        daysLabel,
+      }
+    );
     try { delete window.CE_CAR_PRICE_QUOTE; } catch (_) {}
     return;
   }
@@ -291,12 +385,13 @@ function calculateEstimatedPrice() {
       ? window.CE_CAR_PRICING
       : null;
     const carModel = String(document.getElementById('res_car')?.value || '').trim();
-    const pageLocation = (document.body?.dataset?.carLocation || (location?.href?.includes('autopfo') ? 'paphos' : 'larnaca')).toLowerCase();
+    const pageLocation = getActiveOfferLocation();
 
     if (!carModel) {
-      estimatedEl.textContent = lang === 'en'
-        ? 'Choose a car to see the total price.'
-        : 'Wybierz auto, aby zobaczyć łączną cenę.';
+      estimatedEl.textContent = tr(
+        'carRental.page.reservation.estimated.chooseCar',
+        'Wybierz auto, aby zobaczyć łączną cenę.'
+      );
       try { delete window.CE_CAR_PRICE_QUOTE; } catch (_) {}
       return;
     }
@@ -304,6 +399,8 @@ function calculateEstimatedPrice() {
     const carPricing = pricing && carModel ? pricing[carModel] : null;
     const pickupLoc = String(document.getElementById('res_pickup_location')?.value || '').trim();
     const returnLoc = String(document.getElementById('res_return_location')?.value || '').trim();
+    const pickupLocForQuote = normalizeLocationForOffer(pickupLoc, pageLocation);
+    const returnLocForQuote = normalizeLocationForOffer(returnLoc, pageLocation);
     const insuranceChecked = !!document.getElementById('res_insurance')?.checked;
     const youngDriverChecked = !!document.getElementById('res_young_driver')?.checked;
 
@@ -328,8 +425,8 @@ function calculateEstimatedPrice() {
 
       if (pageLocation === 'paphos') {
         const airportFeesApplicable = days < 7;
-        pickupFee = pickupLoc === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
-        returnFee = returnLoc === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
+        pickupFee = pickupLocForQuote === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
+        returnFee = returnLocForQuote === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
       } else {
         const feeFor = (city) => {
           switch (city) {
@@ -345,12 +442,12 @@ function calculateEstimatedPrice() {
               return 0;
           }
         };
-        pickupFee = feeFor(pickupLoc);
-        returnFee = feeFor(returnLoc);
+        pickupFee = feeFor(pickupLocForQuote);
+        returnFee = feeFor(returnLocForQuote);
       }
 
       const insuranceCost = insuranceChecked ? 17 * days : 0;
-      const youngDriverCost = youngDriverChecked ? 10 * days : 0;
+      const youngDriverCost = pageLocation === 'larnaca' && youngDriverChecked ? 10 * days : 0;
       const total = basePrice + pickupFee + returnFee + insuranceCost + youngDriverCost;
 
       if (Number.isFinite(total) && total > 0) {
@@ -367,12 +464,20 @@ function calculateEstimatedPrice() {
             insuranceCost,
             youngDriverCost,
             car: carModel,
+            pickupLoc: pickupLocForQuote,
+            returnLoc: returnLocForQuote,
           },
         };
-        const daysLabel = lang === 'en' ? 'days' : 'dni';
-        estimatedEl.textContent = lang === 'en'
-          ? `Total rental price: ${window.CE_CAR_PRICE_QUOTE.total.toFixed(2)} EUR (${days} ${daysLabel})`
-          : `Całkowita cena wynajmu: ${window.CE_CAR_PRICE_QUOTE.total.toFixed(2)} EUR (${days} ${daysLabel})`;
+        estimatedEl.textContent = tr(
+          'carRental.page.reservation.estimated.totalPrice',
+          'Całkowita cena wynajmu: {{total}} {{currency}} ({{days}} {{daysLabel}})',
+          {
+            total: window.CE_CAR_PRICE_QUOTE.total.toFixed(2),
+            currency: 'EUR',
+            days,
+            daysLabel,
+          }
+        );
         return;
       }
     }
@@ -380,71 +485,46 @@ function calculateEstimatedPrice() {
 
   // Fallback: if we have any quote at all, show it (but do NOT block recalculation when it is possible).
   if (quote && typeof quote.total === 'number' && quote.total > 0) {
-    const daysLabel = lang === 'en' ? 'days' : 'dni';
-    estimatedEl.textContent = lang === 'en'
-      ? `Total rental price: ${quote.total.toFixed(2)} ${quote.currency || 'EUR'} (${days} ${daysLabel})`
-      : `Całkowita cena wynajmu: ${quote.total.toFixed(2)} ${quote.currency || 'EUR'} (${days} ${daysLabel})`;
+    estimatedEl.textContent = tr(
+      'carRental.page.reservation.estimated.totalPrice',
+      'Całkowita cena wynajmu: {{total}} {{currency}} ({{days}} {{daysLabel}})',
+      {
+        total: quote.total.toFixed(2),
+        currency: quote.currency || 'EUR',
+        days,
+        daysLabel,
+      }
+    );
     return;
   }
 
   // Fallback message when quote not available
-  const daysLabel = lang === 'en' ? 'days' : 'dni';
-  estimatedEl.textContent = lang === 'en'
-    ? `Rental duration: ${days} ${daysLabel}. Final price after availability confirmation.`
-    : `Czas wynajmu: ${days} ${daysLabel}. Ostateczną cenę otrzymasz po potwierdzeniu dostępności.`;
+  estimatedEl.textContent = tr(
+    'carRental.page.reservation.estimated.durationFallback',
+    'Czas wynajmu: {{days}} {{daysLabel}}. Ostateczną cenę otrzymasz po potwierdzeniu dostępności.',
+    {
+      days,
+      daysLabel,
+    }
+  );
 }
 
 // Validation messages in multiple languages
 function getValidationMessages() {
-  const lang = (typeof window.getCurrentLanguage === 'function') ? window.getCurrentLanguage() : 'pl';
-  
-  const messages = {
-    pl: {
-      fullName: 'Proszę podać imię i nazwisko',
-      email: 'Proszę podać poprawny adres email',
-      phone: 'Proszę podać numer telefonu',
-      pickupDate: 'Proszę wybrać datę odbioru',
-      returnDate: 'Proszę wybrać datę zwrotu',
-      car: 'Proszę wybrać samochód',
-      pickupLocation: 'Proszę wybrać miejsce odbioru',
-      returnLocation: 'Proszę wybrać miejsce zwrotu',
-      minimumDays: 'Minimalny wynajem to 3 dni. Każde rozpoczęte 24h to kolejny dzień.',
-    },
-    en: {
-      fullName: 'Please enter your full name',
-      email: 'Please enter a valid email address',
-      phone: 'Please enter your phone number',
-      pickupDate: 'Please select pickup date',
-      returnDate: 'Please select return date',
-      car: 'Please select a car',
-      pickupLocation: 'Please choose a pickup location',
-      returnLocation: 'Please select return location',
-      minimumDays: 'Minimum rental is 3 days (3 nights). Each started 24h counts as an extra day.',
-    },
-    el: {
-      fullName: 'Παρακαλώ εισάγετε το ονοματεπώνυμό σας',
-      email: 'Παρακαλώ εισάγετε έγκυρη διεύθυνση email',
-      phone: 'Παρακαλώ εισάγετε τον αριθμό τηλεφώνου σας',
-      pickupDate: 'Παρακαλώ επιλέξτε ημερομηνία παραλαβής',
-      returnDate: 'Παρακαλώ επιλέξτε ημερομηνία επιστροφής',
-      car: 'Παρακαλώ επιλέξτε αυτοκίνητο',
-      pickupLocation: 'Παρακαλώ επιλέξτε τοποθεσία παραλαβής',
-      returnLocation: 'Παρακαλώ επιλέξτε τοποθεσία επιστροφής',
-      minimumDays: 'Η ελάχιστη ενοικίαση είναι 3 ημέρες. Κάθε ξεκινώμενο 24ωρο μετρά ως επιπλέον ημέρα.'
-    },
-    he: {
-      fullName: 'אנא הזן את שמך המלא',
-      email: 'אנא הזן כתובת אימייל תקינה',
-      phone: 'אנא הזן את מספר הטלפון שלך',
-      pickupDate: 'אנא בחר תאריך איסוף',
-      returnDate: 'אנא בחר תאריך החזרה',
-      car: 'אנא בחר רכב',
-      pickupLocation: 'אנא בחר מיקום איסוף',
-      returnLocation: 'אנא בחר מיקום החזרה'
-    }
+  return {
+    fullName: tr('carRental.page.reservation.validation.fullName', 'Proszę podać imię i nazwisko'),
+    email: tr('carRental.page.reservation.validation.email', 'Proszę podać poprawny adres email'),
+    phone: tr('carRental.page.reservation.validation.phone', 'Proszę podać numer telefonu'),
+    pickupDate: tr('carRental.page.reservation.validation.pickupDate', 'Proszę wybrać datę odbioru'),
+    returnDate: tr('carRental.page.reservation.validation.returnDate', 'Proszę wybrać datę zwrotu'),
+    car: tr('carRental.page.reservation.validation.car', 'Proszę wybrać samochód'),
+    pickupLocation: tr('carRental.page.reservation.validation.pickupLocation', 'Proszę wybrać miejsce odbioru'),
+    returnLocation: tr('carRental.page.reservation.validation.returnLocation', 'Proszę wybrać miejsce zwrotu'),
+    minimumDays: tr(
+      'carRental.page.reservation.validation.minimumDays',
+      'Minimalny wynajem to 3 dni. Każde rozpoczęte 24h to kolejny dzień.'
+    ),
   };
-  
-  return messages[lang] || messages.pl;
 }
 
 // Validate form fields
@@ -556,7 +636,7 @@ async function handleReservationSubmit(event) {
       ? window.CE_CAR_PRICE_QUOTE
       : null;
 
-    const pageLocation = (document.body?.dataset?.carLocation || (location?.href?.includes('autopfo') ? 'paphos' : 'larnaca')).toLowerCase();
+    const pageLocation = getActiveOfferLocation();
 
     const computedQuote = (() => {
       try {
@@ -603,13 +683,15 @@ async function handleReservationSubmit(event) {
 
         const pickupLoc = String(formData.get('pickup_location') || '').trim();
         const returnLoc = String(formData.get('return_location') || '').trim();
+        const pickupLocForQuote = normalizeLocationForOffer(pickupLoc, pageLocation);
+        const returnLocForQuote = normalizeLocationForOffer(returnLoc, pageLocation);
 
         let pickupFee = 0;
         let returnFee = 0;
         if (pageLocation === 'paphos') {
           const airportFeesApplicable = days < 7;
-          pickupFee = pickupLoc === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
-          returnFee = returnLoc === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
+          pickupFee = pickupLocForQuote === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
+          returnFee = returnLocForQuote === 'airport_pfo' && airportFeesApplicable ? 10 : 0;
         } else {
           const feeFor = (city) => {
             switch (city) {
@@ -625,15 +707,15 @@ async function handleReservationSubmit(event) {
                 return 0;
             }
           };
-          pickupFee = feeFor(pickupLoc);
-          returnFee = feeFor(returnLoc);
+          pickupFee = feeFor(pickupLocForQuote);
+          returnFee = feeFor(returnLocForQuote);
         }
 
         const insuranceChecked = String(formData.get('insurance') || '') === 'on';
         const youngDriverChecked = String(formData.get('young_driver') || '') === 'on';
 
         const insuranceCost = insuranceChecked ? 17 * days : 0;
-        const youngDriverCost = youngDriverChecked ? 10 * days : 0;
+        const youngDriverCost = pageLocation === 'larnaca' && youngDriverChecked ? 10 * days : 0;
         const total = basePrice + pickupFee + returnFee + insuranceCost + youngDriverCost;
         if (!Number.isFinite(total) || total <= 0) return null;
 
@@ -650,12 +732,19 @@ async function handleReservationSubmit(event) {
             insuranceCost,
             youngDriverCost,
             car: carModel,
+            pickupLoc: pickupLocForQuote,
+            returnLoc: returnLocForQuote,
           },
         };
       } catch (_e) {
         return null;
       }
     })();
+
+    const rawPickupLocation = String(formData.get('pickup_location') || '').trim();
+    const rawReturnLocation = String(formData.get('return_location') || '').trim();
+    const normalizedPickupLocation = normalizeLocationForOffer(rawPickupLocation, pageLocation) || rawPickupLocation;
+    const normalizedReturnLocation = normalizeLocationForOffer(rawReturnLocation, pageLocation) || rawReturnLocation;
 
     // Build data object with only essential fields
     const data = {
@@ -669,10 +758,10 @@ async function handleReservationSubmit(event) {
       offer_id: offerId || undefined,
       pickup_date: formData.get('pickup_date'),
       pickup_time: formData.get('pickup_time') || '10:00',
-      pickup_location: formData.get('pickup_location'),
+      pickup_location: normalizedPickupLocation,
       return_date: formData.get('return_date'),
       return_time: formData.get('return_time') || '10:00',
-      return_location: formData.get('return_location'),
+      return_location: normalizedReturnLocation,
       
       // Metadata
       location: pageLocation,
@@ -714,7 +803,7 @@ async function handleReservationSubmit(event) {
     if (insurance === 'on') data.full_insurance = true;
     
     const youngDriver = formData.get('young_driver');
-    if (youngDriver === 'on') data.young_driver = true;
+    if (youngDriver === 'on' && pageLocation === 'larnaca') data.young_driver = true;
     
     const flightNum = formData.get('flight_number');
     if (flightNum) data.flight_number = flightNum;
@@ -787,20 +876,34 @@ async function handleReservationSubmit(event) {
     
     // Show toast
     if (typeof showToast === 'function') {
-      showToast('🎉 Gratulacje! Twój formularz został wysłany!', 'success');
+      showToast(
+        tr('carRental.page.reservation.toast.submitSuccess', '🎉 Gratulacje! Twój formularz został wysłany!'),
+        'success'
+      );
     } else {
       console.warn('showToast function not available');
     }
 
   } catch (e) {
     console.error('Reservation error:', e);
+    const fallbackError = tr(
+      'carRental.page.reservation.error.submitFallback',
+      'Nie udało się wysłać rezerwacji. Spróbuj ponownie lub napisz na WhatsApp.'
+    );
     
     if (errorDiv) {
-      errorDiv.textContent = 'Błąd: ' + (e.message || 'Nie udało się wysłać rezerwacji. Spróbuj ponownie lub napisz na WhatsApp.');
+      errorDiv.textContent = tr(
+        'carRental.page.reservation.error.submit',
+        'Błąd: {{message}}',
+        { message: e.message || fallbackError }
+      );
       errorDiv.hidden = false;
     }
     
-    showToast('Błąd wysyłania rezerwacji. Spróbuj ponownie.', 'error');
+    showToast(
+      tr('carRental.page.reservation.toast.submitError', 'Błąd wysyłania rezerwacji. Spróbuj ponownie.'),
+      'error'
+    );
     
   } finally {
     if (submitBtn) submitBtn.disabled = false;
@@ -814,16 +917,23 @@ function showSuccessMessage(booking) {
 
   const bookingIdShort = booking?.id ? String(booking.id).slice(0, 8) : '--------';
   const bookingEmail = booking?.email ? String(booking.email) : '';
+  const title = tr('carRental.page.reservation.successBox.title', '✅ Rezerwacja wysłana!');
+  const bookingNumberLabel = tr('carRental.page.reservation.successBox.bookingNumberLabel', 'Numer rezerwacji:');
+  const contactWithin24h = tr(
+    'carRental.page.reservation.successBox.contactWithin24h',
+    'Skontaktujemy się z Tobą w ciągu 24h, aby potwierdzić dostępność i przesłać umowę.'
+  );
+  const checkEmailLabel = tr('carRental.page.reservation.successBox.checkEmailLabel', 'Sprawdź email:');
 
   successDiv.innerHTML = `
     <div style="background: #10b981; color: white; padding: 20px; border-radius: 8px; margin-top: 16px;">
-      <h4 style="margin: 0 0 8px; font-size: 18px;">✅ Rezerwacja wysłana!</h4>
+      <h4 style="margin: 0 0 8px; font-size: 18px;">${title}</h4>
       <p style="margin: 0; opacity: 0.9;">
-        Numer rezerwacji: <strong>#${bookingIdShort}</strong><br>
-        Skontaktujemy się z Tobą w ciągu 24h, aby potwierdzić dostępność i przesłać umowę.
+        ${bookingNumberLabel} <strong>#${bookingIdShort}</strong><br>
+        ${contactWithin24h}
       </p>
       <p style="margin: 12px 0 0; font-size: 14px; opacity: 0.8;">
-        Sprawdź email: <strong>${bookingEmail}</strong>
+        ${checkEmailLabel} <strong>${bookingEmail}</strong>
       </p>
     </div>
   `;
