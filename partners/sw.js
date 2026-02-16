@@ -1,4 +1,4 @@
-const CACHE_VERSION = '20260212_2';
+const CACHE_VERSION = '20260216_3';
 const CACHE_PREFIX = 'ce-partners-pwa-';
 const CACHE_NAME = `${CACHE_PREFIX}${CACHE_VERSION}`;
 
@@ -81,18 +81,28 @@ self.addEventListener('fetch', (event) => {
   }
 
   const dest = req.destination;
-  const cacheFirst = dest === 'script' || dest === 'style' || dest === 'image' || dest === 'font';
+  const staticAsset = dest === 'script' || dest === 'style' || dest === 'image' || dest === 'font';
 
-  if (cacheFirst) {
+  if (staticAsset) {
     event.respondWith(
       (async () => {
         const cached = await caches.match(req);
-        if (cached) return cached;
+        const fetchAndUpdate = fetch(req)
+          .then(async (resp) => {
+            const cache = await caches.open(CACHE_NAME);
+            cache.put(req, resp.clone());
+            return resp;
+          })
+          .catch(() => null);
 
-        const resp = await fetch(req);
-        const cache = await caches.open(CACHE_NAME);
-        cache.put(req, resp.clone());
-        return resp;
+        if (cached) {
+          fetchAndUpdate.catch(() => null);
+          return cached;
+        }
+
+        const resp = await fetchAndUpdate;
+        if (resp) return resp;
+        return new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
       })(),
     );
     return;

@@ -1,4 +1,4 @@
-const PARTNERS_SW_URL = '/partners/sw.js?v=20260212_2';
+const PARTNERS_SW_URL = '/partners/sw.js?v=20260216_3';
 
 let deferredPrompt = null;
 let notifyInstallUi = null;
@@ -171,6 +171,10 @@ async function registerPartnersServiceWorker() {
 
   try {
     const registration = await navigator.serviceWorker.register(PARTNERS_SW_URL, { scope: '/partners/' });
+    try {
+      await registration.update();
+    } catch (_e) {
+    }
 
     if (registration.waiting) {
       showUpdateBanner(registration);

@@ -14,6 +14,7 @@ export function initForceRefresh(sb) {
   const SS_PENDING = 'ce_force_refresh_pending_version';
   const POLL_MS = 5 * 60 * 1000;
   const DEBUG_KEY = 'CE_FORCE_REFRESH_DEBUG';
+  const FORCE_REFRESH_ROW_ID = 1;
 
   const readApplied = () => {
     try {
@@ -77,7 +78,7 @@ export function initForceRefresh(sb) {
     const { data, error } = await sb
       .from('site_settings')
       .select('force_refresh_version')
-      .eq('id', 1)
+      .eq('id', FORCE_REFRESH_ROW_ID)
       .maybeSingle();
 
     if (error) return null;
@@ -161,4 +162,33 @@ export function initForceRefresh(sb) {
       checkAndReloadIfNeeded('visibility');
     }
   });
+
+  // Realtime refresh signal so installed apps update immediately, not only on interval.
+  try {
+    const channel = sb
+      .channel('ce-force-refresh-site-settings')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'site_settings',
+          filter: `id=eq.${FORCE_REFRESH_ROW_ID}`,
+        },
+        () => {
+          checkAndReloadIfNeeded('realtime');
+        },
+      )
+      .subscribe((status) => {
+        emitDebug({
+          realtimeStatus: status || 'unknown',
+        });
+      });
+
+    window.addEventListener('beforeunload', () => {
+      try {
+        sb.removeChannel(channel);
+      } catch (_) {}
+    });
+  } catch (_) {}
 }
