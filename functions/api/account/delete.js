@@ -28,6 +28,16 @@ function formatErrorMessage(error) {
 
   const status = Number(error?.statusCode || error?.status || 0);
   if (status > 0) return `Server error (status ${status})`;
+
+  try {
+    const serialized = JSON.stringify(error);
+    if (serialized && serialized !== '{}' && serialized !== 'null') {
+      return `Unexpected server error payload: ${serialized}`;
+    }
+  } catch (_) {}
+
+  const fallback = String(error ?? '').trim();
+  if (fallback && fallback !== '[object Object]') return fallback;
   return 'Unexpected server error (empty error payload)';
 }
 

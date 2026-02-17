@@ -4,6 +4,37 @@ export function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+function describeErrorPayload(error) {
+  const pickText = (...values) => values
+    .map((value) => (typeof value === 'string' ? value.trim() : ''))
+    .find(Boolean) || '';
+
+  const direct = pickText(
+    error?.message,
+    error?.error,
+    error?.error_description,
+    error?.details,
+    error?.hint,
+    error?.code,
+    error?.statusText,
+  );
+  if (direct) return direct;
+
+  const status = Number(error?.statusCode || error?.status || 0);
+  if (status > 0) return `status ${status}`;
+
+  try {
+    const serialized = JSON.stringify(error);
+    if (serialized && serialized !== '{}' && serialized !== 'null') {
+      return serialized;
+    }
+  } catch (_) {}
+
+  const fallback = String(error ?? '').trim();
+  if (fallback && fallback !== '[object Object]') return fallback;
+  return '';
+}
+
 function isMissingTableError(error) {
   const msg = String(error?.message || '').toLowerCase();
   return msg.includes('relation') && msg.includes('does not exist');
@@ -319,7 +350,16 @@ export async function executeHardDelete(client, adminClient, userId, email) {
   deleted.profiles_referred_by = await safeNullifyByEq(client, 'profiles', 'referred_by', 'referred_by', userId);
 
   const { error: authDeleteError } = await adminClient.auth.admin.deleteUser(userId);
-  if (authDeleteError) throw authDeleteError;
+  if (authDeleteError) {
+    const detail = describeErrorPayload(authDeleteError);
+    const wrapped = new Error(
+      detail
+        ? `Hard delete failed at auth.admin.deleteUser: ${detail}`
+        : 'Hard delete failed at auth.admin.deleteUser',
+    );
+    wrapped.cause = authDeleteError;
+    throw wrapped;
+  }
 
   const deletedRecords = Object.values(deleted).reduce((sum, value) => sum + Number(value || 0), 0);
   const nullifiedRecords = Object.values(nullified).reduce((sum, value) => sum + Number(value || 0), 0);
