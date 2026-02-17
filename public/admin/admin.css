@@ -818,8 +818,19 @@ body[data-admin-panel="true"].admin-sidebar-open {
   background: var(--admin-success);
 }
 
+.status-warn {
+  background: var(--admin-warning);
+}
+
 .status-error {
   background: var(--admin-danger);
+}
+
+.diagnostic-meta {
+  margin-top: 10px;
+  font-size: 12px;
+  color: var(--admin-text-muted);
+  line-height: 1.4;
 }
 
 @keyframes pulse {
