@@ -10040,9 +10040,16 @@ async function viewUserDetails(userId) {
     const emailEscaped = escapeHtml(authEmail);
     const usernameEscaped = escapeHtml(profile.username || '');
     const nameEscaped = escapeHtml(profile.name || '');
+    const escapeJsString = (value) => String(value || '')
+      .replace(/\\/g, '\\\\')
+      .replace(/'/g, "\\'")
+      .replace(/\r?\n/g, ' ');
+    const safeEmailForJs = escapeHtml(escapeJsString(authEmail));
+    const safeLabelForJs = escapeHtml(escapeJsString(profile.username || authEmail || profile.id || userId));
 
     let shopAddresses = [];
     let shopOrders = [];
+    let shopRefunds = [];
     let carBookings = [];
     let tripBookings = [];
     let hotelBookings = [];
@@ -10059,7 +10066,7 @@ async function viewUserDetails(userId) {
           .order('updated_at', { ascending: false }),
         client
           .from('shop_orders')
-          .select('id, order_number, created_at, total, currency, status, payment_status, shipping_address')
+          .select('id, order_number, created_at, total, currency, status, payment_status, shipping_address, customer_phone')
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
           .limit(25),
@@ -10075,30 +10082,45 @@ async function viewUserDetails(userId) {
     }
 
     try {
+      const orderIds = shopOrders.map((order) => order?.id).filter(Boolean);
+      if (orderIds.length) {
+        const { data: refundsData, error: refundsError } = await client
+          .from('shop_refunds')
+          .select('order_id, amount, status, processed_at')
+          .in('order_id', orderIds)
+          .limit(500);
+        if (!refundsError && Array.isArray(refundsData)) {
+          shopRefunds = refundsData;
+        }
+      }
+    } catch (_e) {
+    }
+
+    try {
       const normalizedEmail = String(authEmail || '').trim().toLowerCase();
       if (normalizedEmail) {
         const [carsResult, tripsResult, hotelsResult, depositsResult] = await Promise.all([
           client
             .from('car_bookings')
-            .select('id, created_at, full_name, email, car_model, location, pickup_date, return_date, status, quoted_price, final_price, currency')
+            .select('id, created_at, full_name, email, phone, customer_phone, car_model, location, pickup_date, return_date, status, quoted_price, final_price, currency')
             .ilike('email', normalizedEmail)
             .order('created_at', { ascending: false })
             .limit(25),
           client
             .from('trip_bookings')
-            .select('id, created_at, customer_name, customer_email, trip_slug, arrival_date, departure_date, status, total_price')
+            .select('id, created_at, customer_name, customer_email, customer_phone, trip_slug, arrival_date, departure_date, status, total_price')
             .ilike('customer_email', normalizedEmail)
             .order('created_at', { ascending: false })
             .limit(25),
           client
             .from('hotel_bookings')
-            .select('id, created_at, customer_name, customer_email, hotel_slug, arrival_date, departure_date, status, total_price')
+            .select('id, created_at, customer_name, customer_email, customer_phone, hotel_slug, arrival_date, departure_date, status, total_price')
             .ilike('customer_email', normalizedEmail)
             .order('created_at', { ascending: false })
             .limit(25),
           client
             .from('service_deposit_requests')
-            .select('id, status, amount, currency, resource_type, booking_id, fulfillment_id, partner_id, customer_email, customer_name, paid_at, created_at')
+            .select('id, status, amount, currency, resource_type, booking_id, fulfillment_id, partner_id, customer_email, customer_name, customer_phone, paid_at, created_at')
             .ilike('customer_email', normalizedEmail)
             .order('created_at', { ascending: false })
             .limit(50),
@@ -10169,6 +10191,120 @@ async function viewUserDetails(userId) {
 
     const latestOrder = shopOrders[0] || null;
     const latestShippingAddress = normalizeAddressObject(latestOrder?.shipping_address) || null;
+    const normalizeCurrency = (value) => String(value || 'EUR').trim().toUpperCase() || 'EUR';
+    const toMoneyNumber = (value) => {
+      const num = Number(value);
+      return Number.isFinite(num) ? num : 0;
+    };
+    const addMoney = (acc, value, currency = 'EUR') => {
+      const amount = toMoneyNumber(value);
+      if (!amount) return acc;
+      const cur = normalizeCurrency(currency);
+      acc[cur] = (acc[cur] || 0) + amount;
+      return acc;
+    };
+    const sumMoneyMaps = (...maps) => {
+      const result = {};
+      maps.forEach((map) => {
+        Object.entries(map || {}).forEach(([cur, value]) => {
+          result[cur] = (result[cur] || 0) + toMoneyNumber(value);
+        });
+      });
+      return result;
+    };
+    const subtractMoneyMaps = (base, minus) => {
+      const result = { ...(base || {}) };
+      Object.entries(minus || {}).forEach(([cur, value]) => {
+        result[cur] = (result[cur] || 0) - toMoneyNumber(value);
+      });
+      return result;
+    };
+    const hasMoney = (map) => Object.values(map || {}).some((value) => Math.abs(toMoneyNumber(value)) > 0.0001);
+    const formatMoneyMap = (map) => {
+      const entries = Object.entries(map || {})
+        .map(([cur, value]) => [cur, toMoneyNumber(value)])
+        .filter(([, value]) => Math.abs(value) > 0.0001)
+        .sort(([a], [b]) => (a === 'EUR' ? -1 : b === 'EUR' ? 1 : a.localeCompare(b)));
+      if (!entries.length) return '—';
+      return entries.map(([cur, value]) => formatMoney(value, cur)).join(' + ');
+    };
+    const normalizePhone = (value) => String(value || '').replace(/\s+/g, ' ').trim();
+    const uniquePhones = (...groups) => {
+      const out = [];
+      groups.flat().forEach((value) => {
+        const phone = normalizePhone(value);
+        if (!phone || out.includes(phone)) return;
+        out.push(phone);
+      });
+      return out;
+    };
+
+    const paidShopStatuses = new Set(['paid', 'partially_refunded', 'refunded']);
+    const shopGrossPaidByCurrency = {};
+    shopOrders.forEach((order) => {
+      if (!paidShopStatuses.has(String(order?.payment_status || '').toLowerCase())) return;
+      addMoney(shopGrossPaidByCurrency, order?.total, order?.currency);
+    });
+
+    const effectiveRefundStatuses = new Set(['processed', 'completed', 'succeeded', 'refunded', 'approved']);
+    const shopRefundByCurrency = {};
+    (shopRefunds || []).forEach((refund) => {
+      const status = String(refund?.status || '').toLowerCase();
+      const processedAt = refund?.processed_at;
+      if (!processedAt && !effectiveRefundStatuses.has(status)) return;
+      const matchingOrder = shopOrders.find((order) => String(order?.id || '') === String(refund?.order_id || ''));
+      addMoney(shopRefundByCurrency, refund?.amount, matchingOrder?.currency || 'EUR');
+    });
+    const shopNetPaidByCurrency = subtractMoneyMaps(shopGrossPaidByCurrency, shopRefundByCurrency);
+
+    const serviceDepositsPaidByCurrency = {};
+    const paidDepositCount = depositRequests.reduce((count, deposit) => {
+      const isPaid = Boolean(deposit?.paid_at) || ['paid', 'completed'].includes(String(deposit?.status || '').toLowerCase());
+      if (!isPaid) return count;
+      addMoney(serviceDepositsPaidByCurrency, deposit?.amount, deposit?.currency || 'EUR');
+      return count + 1;
+    }, 0);
+
+    const serviceBookingValueByCurrency = {};
+    carBookings.forEach((booking) => {
+      const price = booking?.final_price ?? booking?.quoted_price;
+      addMoney(serviceBookingValueByCurrency, price, booking?.currency || 'EUR');
+    });
+    tripBookings.forEach((booking) => addMoney(serviceBookingValueByCurrency, booking?.total_price, 'EUR'));
+    hotelBookings.forEach((booking) => addMoney(serviceBookingValueByCurrency, booking?.total_price, 'EUR'));
+
+    const totalPaidByCurrency = sumMoneyMaps(shopNetPaidByCurrency, serviceDepositsPaidByCurrency);
+    const totalPaidLabel = formatMoneyMap(totalPaidByCurrency);
+    const shopNetPaidLabel = formatMoneyMap(shopNetPaidByCurrency);
+    const shopGrossPaidLabel = formatMoneyMap(shopGrossPaidByCurrency);
+    const shopRefundLabel = formatMoneyMap(shopRefundByCurrency);
+    const serviceDepositsPaidLabel = formatMoneyMap(serviceDepositsPaidByCurrency);
+    const serviceBookingValueLabel = formatMoneyMap(serviceBookingValueByCurrency);
+
+    const latestOrderPhone = normalizePhone(latestOrder?.customer_phone);
+    const latestShippingPhone = normalizePhone(latestShippingAddress?.phone);
+    const savedAddressPhones = shopAddresses.map((addr) => addr?.phone);
+    const carPhones = carBookings.map((booking) => booking?.phone || booking?.customer_phone);
+    const tripPhones = tripBookings.map((booking) => booking?.customer_phone);
+    const hotelPhones = hotelBookings.map((booking) => booking?.customer_phone);
+    const depositPhones = depositRequests.map((deposit) => deposit?.customer_phone);
+    const allPhones = uniquePhones(
+      profile?.phone,
+      latestOrderPhone,
+      latestShippingPhone,
+      savedAddressPhones,
+      carPhones,
+      tripPhones,
+      hotelPhones,
+      depositPhones,
+    );
+    const primaryPhone = allPhones[0] || '';
+    const primaryPhoneEscaped = escapeHtml(primaryPhone);
+    const primaryPhoneHref = primaryPhone ? `tel:${encodeURIComponent(primaryPhone)}` : '';
+    const phoneCoverageText = allPhones.length > 1 ? `${allPhones.length} phone numbers captured` : allPhones.length === 1 ? '1 phone number captured' : 'No phone numbers captured';
+
+    const totalOrdersCount = shopOrders.length;
+    const totalBookingsCount = carBookings.length + tripBookings.length + hotelBookings.length;
 
     const renderInlineAddress = (address) => {
       if (!address) {
@@ -10536,6 +10672,49 @@ async function viewUserDetails(userId) {
         </section>
 
         <section class="user-detail-card user-detail-card--full">
+          <h4 class="user-detail-section-title">Customer summary</h4>
+          <div class="user-summary-grid">
+            <article class="user-summary-item">
+              <p class="user-summary-label">Primary phone</p>
+              <p class="user-summary-value">
+                ${primaryPhone
+                  ? `<a class="user-summary-phone" href="${primaryPhoneHref}">${primaryPhoneEscaped}</a>`
+                  : '—'}
+              </p>
+              <p class="user-summary-sub">${escapeHtml(phoneCoverageText)}</p>
+            </article>
+            <article class="user-summary-item">
+              <p class="user-summary-label">Total paid with us</p>
+              <p class="user-summary-value">${totalPaidLabel}</p>
+              <p class="user-summary-sub">Shop net + paid service deposits</p>
+            </article>
+            <article class="user-summary-item">
+              <p class="user-summary-label">Shop paid (net)</p>
+              <p class="user-summary-value">${shopNetPaidLabel}</p>
+              <p class="user-summary-sub">
+                Gross: ${shopGrossPaidLabel}
+                ${hasMoney(shopRefundByCurrency) ? ` · Refunds: ${shopRefundLabel}` : ''}
+              </p>
+            </article>
+            <article class="user-summary-item">
+              <p class="user-summary-label">Service deposits paid</p>
+              <p class="user-summary-value">${serviceDepositsPaidLabel}</p>
+              <p class="user-summary-sub">${paidDepositCount} paid deposit${paidDepositCount === 1 ? '' : 's'}</p>
+            </article>
+            <article class="user-summary-item">
+              <p class="user-summary-label">Service booking value</p>
+              <p class="user-summary-value">${serviceBookingValueLabel}</p>
+              <p class="user-summary-sub">Indicative value of car/trip/hotel bookings</p>
+            </article>
+            <article class="user-summary-item">
+              <p class="user-summary-label">Order volume</p>
+              <p class="user-summary-value">${totalOrdersCount + totalBookingsCount}</p>
+              <p class="user-summary-sub">${totalOrdersCount} shop orders · ${totalBookingsCount} service bookings</p>
+            </article>
+          </div>
+        </section>
+
+        <section class="user-detail-card user-detail-card--full">
           <h4 class="user-detail-section-title">Services (bookings & deposits)</h4>
           <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px;">
             <div style="padding: 12px; background: var(--admin-bg); border-radius: 8px;">
@@ -10712,7 +10891,7 @@ async function viewUserDetails(userId) {
             </div>
             <div class="user-detail-inline-actions">
               ${bannedUntil
-                ? '<button type="button" class="btn-primary" onclick="handleUserBanToggle(\'${userId}\', true)">Remove ban</button>'
+                ? `<button type="button" class="btn-primary" onclick="handleUserBanToggle('${userId}', true)">Remove ban</button>`
                 : '<button type="submit" class="btn-secondary user-detail-danger">Ban user</button>'}
             </div>
           </form>
@@ -10746,16 +10925,27 @@ async function viewUserDetails(userId) {
         </section>
 
         <section class="user-detail-card user-detail-card--full">
-          <h4 class="user-detail-section-title">🛒 Shop Information</h4>
-          <div id="userShopInfo" class="user-shop-info">
-            <p style="color: var(--admin-text-muted); text-align: center; padding: 20px;">Loading shop data...</p>
-          </div>
+          <h4 class="user-detail-section-title">Danger zone</h4>
+          ${!isSelf ? `
+            <div class="user-detail-danger-zone">
+              <p class="user-detail-hint">
+                Permanently removes this user from Auth, profile, bookings/orders linked by account or email, referral links, and user storage files.
+                This action cannot be undone.
+              </p>
+              <div class="user-detail-actions">
+                <button
+                  type="button"
+                  class="btn-secondary user-detail-danger"
+                  onclick="handleHardDeleteUser('${userId}', '${safeEmailForJs}', '${safeLabelForJs}')"
+                >
+                  Delete user permanently
+                </button>
+              </div>
+            </div>
+          ` : '<p class="user-detail-hint">Self-delete is blocked in admin.</p>'}
         </section>
       </div>
     `;
-
-    // Load shop info asynchronously
-    loadUserShopInfo(userId);
 
     const accountForm = content.querySelector('#userAccountForm');
     if (accountForm) {
@@ -11052,6 +11242,103 @@ async function handleSetTempPassword(userId, tempPwd) {
   }
 }
 
+function buildUserDeleteImpactSummary(preview) {
+  const counts = preview && typeof preview === 'object' ? (preview.counts || {}) : {};
+  const labels = [
+    ['profiles', 'profile'],
+    ['shop_orders_user', 'shop orders (user_id)'],
+    ['shop_orders_email', 'shop orders (email)'],
+    ['service_deposit_requests', 'service deposits'],
+    ['car_bookings', 'car bookings'],
+    ['trip_bookings', 'trip bookings'],
+    ['hotel_bookings', 'hotel bookings'],
+    ['recommendation_views', 'recommendation views'],
+    ['recommendation_clicks', 'recommendation clicks'],
+    ['recommendations_created_by', 'recommendations authored'],
+    ['recommendations_updated_by', 'recommendations edited'],
+    ['poi_comments', 'comments'],
+    ['poi_ratings', 'ratings'],
+    ['completed_tasks', 'completed tasks'],
+    ['referrals_as_referrer', 'referrals as referrer'],
+    ['referrals_as_referred', 'referrals as referred'],
+  ];
+  const rows = labels
+    .map(([key, label]) => ({ label, value: Number(counts[key] || 0) }))
+    .filter((row) => row.value > 0)
+    .sort((a, b) => b.value - a.value);
+  const totalRecords = Number(preview?.total_records || 0);
+  const visibleRows = rows.slice(0, 10);
+  const lines = [];
+  lines.push(`Linked records found: ${totalRecords}`);
+  if (!visibleRows.length) {
+    lines.push('No linked records were detected in tracked tables.');
+  } else {
+    visibleRows.forEach((row) => {
+      lines.push(`- ${row.label}: ${row.value}`);
+    });
+    if (rows.length > visibleRows.length) {
+      lines.push(`- +${rows.length - visibleRows.length} more tracked groups`);
+    }
+  }
+  return lines.join('\n');
+}
+
+async function handleHardDeleteUser(userId, targetEmail, targetLabel) {
+  const label = String(targetLabel || targetEmail || userId || 'user').trim();
+  const firstConfirm = confirm(
+    `This will permanently erase "${label}" and all related records from database/auth.\n\nThis action cannot be undone.\n\nContinue?`,
+  );
+  if (!firstConfirm) return;
+
+  try {
+    showToast('Preparing delete preview...', 'info');
+    const preview = await apiRequest(`/users/${userId}/delete`, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'preview' }),
+    });
+
+    const normalizedTargetEmail = String(targetEmail || preview?.email || '').trim().toLowerCase();
+    const impactSummary = buildUserDeleteImpactSummary(preview);
+    const emailPromptText = normalizedTargetEmail
+      ? `${impactSummary}\n\nType the user email to confirm:\n${normalizedTargetEmail}`
+      : `${impactSummary}\n\nType DELETE to continue.`;
+
+    if (normalizedTargetEmail) {
+      const typedEmail = String(prompt(emailPromptText) || '').trim().toLowerCase();
+      if (typedEmail !== normalizedTargetEmail) {
+        showToast('Deletion cancelled (email confirmation mismatch).', 'info');
+        return;
+      }
+    }
+
+    const typedDelete = String(prompt('Type DELETE to permanently erase this user:') || '').trim();
+    if (typedDelete !== 'DELETE') {
+      showToast('Deletion cancelled (confirmation token mismatch).', 'info');
+      return;
+    }
+
+    showToast('Deleting user permanently...', 'info');
+    await apiRequest(`/users/${userId}/delete`, {
+      method: 'POST',
+      body: JSON.stringify({
+        action: 'execute',
+        confirm_text: typedDelete,
+        expected_email: normalizedTargetEmail || null,
+      }),
+    });
+
+    showToast('User deleted permanently', 'success');
+    const modal = document.getElementById('userDetailModal');
+    if (modal) hideElement(modal);
+    if (adminState.currentView === 'users') {
+      await loadUsersData(adminState.usersPage);
+    }
+  } catch (error) {
+    console.error('Failed to hard-delete user:', error);
+    showToast('Failed to delete user permanently: ' + (error.message || 'Unknown error'), 'error');
+  }
+}
+
 // Load user shop information (addresses and orders)
 async function loadUserShopInfo(userId) {
   const container = document.getElementById('userShopInfo');
@@ -11066,7 +11353,12 @@ async function loadUserShopInfo(userId) {
   try {
     // Load addresses and orders in parallel
     const [addressesRes, ordersRes] = await Promise.all([
-      client.from('shop_addresses').select('*').eq('user_id', userId).order('is_default', { ascending: false }),
+      client
+        .from('shop_addresses')
+        .select('*')
+        .eq('user_id', userId)
+        .order('is_default_shipping', { ascending: false })
+        .order('updated_at', { ascending: false }),
       client.from('shop_orders').select('id, order_number, status, payment_status, total, currency, created_at, items_count, shipping_address').eq('user_id', userId).order('created_at', { ascending: false }).limit(10)
     ]);
     
@@ -11088,10 +11380,10 @@ async function loadUserShopInfo(userId) {
           <div class="user-address-card" style="background: var(--admin-bg); padding: 12px; border-radius: 8px; margin-bottom: 8px; font-size: 13px;">
             <div style="display: flex; justify-content: space-between; margin-bottom: 6px;">
               <strong>${escapeHtml(addr.first_name || '')} ${escapeHtml(addr.last_name || '')}</strong>
-              ${addr.is_default ? '<span style="background: #22c55e; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Default</span>' : ''}
+              ${addr.is_default_shipping ? '<span style="background: #22c55e; color: white; padding: 2px 8px; border-radius: 4px; font-size: 11px;">Default</span>' : ''}
             </div>
             <div style="color: var(--admin-text-muted); line-height: 1.5;">
-              ${escapeHtml(addr.address_line1 || '')}${addr.address_line2 ? ', ' + escapeHtml(addr.address_line2) : ''}<br>
+              ${escapeHtml(addr.line1 || '')}${addr.line2 ? ', ' + escapeHtml(addr.line2) : ''}<br>
               ${escapeHtml(addr.city || '')}, ${escapeHtml(addr.postal_code || '')} ${escapeHtml(addr.country || '')}<br>
               📞 ${escapeHtml(addr.phone || 'N/A')}
             </div>
@@ -11178,6 +11470,8 @@ window.handleSendPasswordReset = handleSendPasswordReset;
 window.handleSendMagicLink = handleSendMagicLink;
 window.handleResendVerificationEmail = handleResendVerificationEmail;
 window.handleSetTempPassword = handleSetTempPassword;
+window.handleHardDeleteUser = handleHardDeleteUser;
+window.loadUserShopInfo = loadUserShopInfo;
 window.handleSetXpLevel = handleSetXpLevel;
 
 async function handleSetXpLevel(userId, levelStr, xpStr) {
