@@ -39,12 +39,30 @@ function describeErrorPayload(error) {
 
 function isMissingTableError(error) {
   const msg = String(error?.message || '').toLowerCase();
-  return msg.includes('relation') && msg.includes('does not exist');
+  const details = String(error?.details || '').toLowerCase();
+  const hint = String(error?.hint || '').toLowerCase();
+  const code = String(error?.code || '').toLowerCase();
+  const combined = `${msg} ${details} ${hint}`;
+
+  if (code === '42p01' || code === 'pgrst205') return true;
+  if (combined.includes('relation') && combined.includes('does not exist')) return true;
+  return combined.includes('could not find')
+    && combined.includes('table')
+    && combined.includes('schema cache');
 }
 
 function isMissingColumnError(error) {
   const msg = String(error?.message || '').toLowerCase();
-  return msg.includes('column') && msg.includes('does not exist');
+  const details = String(error?.details || '').toLowerCase();
+  const hint = String(error?.hint || '').toLowerCase();
+  const code = String(error?.code || '').toLowerCase();
+  const combined = `${msg} ${details} ${hint}`;
+
+  if (code === '42703' || code === 'pgrst204') return true;
+  if (combined.includes('column') && combined.includes('does not exist')) return true;
+  return combined.includes('could not find')
+    && combined.includes('column')
+    && combined.includes('schema cache');
 }
 
 function isStorageNotFound(error) {
