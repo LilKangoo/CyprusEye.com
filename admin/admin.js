@@ -12169,6 +12169,10 @@ const carCouponsState = {
   usageByCouponId: {},
   partners: [],
   partnersById: {},
+  scopeOptionsLoaded: false,
+  offerOptions: [],
+  modelOptions: [],
+  typeOptions: [],
   filters: {
     search: '',
     status: '',
@@ -12190,6 +12194,15 @@ function getActiveCarsTab() {
   const tab = normalizeCarsTabValue(active?.dataset?.tab || carsUiState.activeTab || 'bookings');
   carsUiState.activeTab = tab;
   return tab;
+}
+
+function normalizeI18nText(value) {
+  if (value == null) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value === 'object') {
+    return String(value.pl || value.en || value.el || value.he || '').trim();
+  }
+  return '';
 }
 
 function normalizeCouponArray(value) {
@@ -12246,6 +12259,26 @@ function parseCouponDateTimeLocal(value, label) {
   return date.toISOString();
 }
 
+function parseCouponDateStart(value, label) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const iso = `${raw}T00:00:00.000Z`;
+  if (Number.isNaN(Date.parse(iso))) {
+    throw new Error(`Invalid date for ${label}`);
+  }
+  return iso;
+}
+
+function parseCouponDateEnd(value, label) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const iso = `${raw}T23:59:59.999Z`;
+  if (Number.isNaN(Date.parse(iso))) {
+    throw new Error(`Invalid date for ${label}`);
+  }
+  return iso;
+}
+
 function toDateTimeLocalInputValue(value) {
   if (!value) return '';
   const date = new Date(value);
@@ -12254,11 +12287,25 @@ function toDateTimeLocalInputValue(value) {
   return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
 }
 
-function formatCouponDateTime(value) {
-  if (!value) return 'Any';
+function toDateInputValue(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toISOString().slice(0, 10);
+}
+
+function formatCouponDateTime(value, fallback = '—') {
+  if (!value) return fallback;
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return 'Invalid';
   return date.toLocaleString();
+}
+
+function formatCouponDate(value, fallback = '—') {
+  if (!value) return fallback;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Invalid';
+  return date.toLocaleDateString();
 }
 
 function setCarsCouponsViewError(message) {
@@ -12321,8 +12368,9 @@ function formatCouponDiscount(coupon) {
 }
 
 function formatCouponWindow(coupon) {
-  const starts = formatCouponDateTime(coupon?.starts_at);
-  const ends = formatCouponDateTime(coupon?.expires_at);
+  if (!coupon?.starts_at && !coupon?.expires_at) return 'No rental date limit';
+  const starts = formatCouponDate(coupon?.starts_at, 'Any');
+  const ends = formatCouponDate(coupon?.expires_at, 'Any');
   return `${starts} → ${ends}`;
 }
 
@@ -13473,6 +13521,243 @@ function populateCarCouponPartnerOptions() {
   }
 }
 
+function getMultiSelectValues(selectId) {
+  const element = document.getElementById(selectId);
+  if (!element) return [];
+
+  if (String(element.tagName || '').toUpperCase() === 'SELECT') {
+    return Array.from(element.selectedOptions || [])
+      .map((option) => String(option.value || '').trim())
+      .filter(Boolean);
+  }
+
+  return Array.from(element.querySelectorAll('input[type="checkbox"][data-coupon-value]'))
+    .filter((input) => input.checked)
+    .map((input) => String(input.value || '').trim())
+    .filter(Boolean);
+}
+
+function setMultiSelectValues(selectId, values) {
+  const element = document.getElementById(selectId);
+  if (!element) return;
+
+  const selected = new Set((Array.isArray(values) ? values : []).map((v) => String(v || '').trim()).filter(Boolean));
+
+  if (String(element.tagName || '').toUpperCase() === 'SELECT') {
+    Array.from(element.options || []).forEach((option) => {
+      option.selected = selected.has(String(option.value || '').trim());
+    });
+    return;
+  }
+
+  Array.from(element.querySelectorAll('input[type="checkbox"][data-coupon-value]')).forEach((input) => {
+    input.checked = selected.has(String(input.value || '').trim());
+  });
+  updateCarCouponDropdownSummary(selectId);
+}
+
+function buildCouponSelectOptionMarkup(baseOptions, selectedValues = []) {
+  const opts = Array.isArray(baseOptions) ? baseOptions.slice() : [];
+  const selectedSet = new Set((Array.isArray(selectedValues) ? selectedValues : []).map((v) => String(v || '').trim()).filter(Boolean));
+  const existing = new Set(opts.map((option) => String(option?.value || '').trim()).filter(Boolean));
+
+  selectedSet.forEach((value) => {
+    if (!existing.has(value)) {
+      opts.push({ value, label: `${value} (legacy)` });
+    }
+  });
+
+  return opts
+    .map((option) => {
+      const value = String(option?.value || '').trim();
+      if (!value) return '';
+      const label = String(option?.label || value).trim();
+      return `<option value="${escapeHtml(value)}">${escapeHtml(label)}</option>`;
+    })
+    .join('');
+}
+
+function buildCouponCheckboxOptionMarkup(baseOptions, selectedValues = []) {
+  const opts = Array.isArray(baseOptions) ? baseOptions.slice() : [];
+  const selectedSet = new Set((Array.isArray(selectedValues) ? selectedValues : []).map((v) => String(v || '').trim()).filter(Boolean));
+  const existing = new Set(opts.map((option) => String(option?.value || '').trim()).filter(Boolean));
+
+  selectedSet.forEach((value) => {
+    if (!existing.has(value)) {
+      opts.push({ value, label: `${value} (legacy)` });
+    }
+  });
+
+  if (!opts.length) {
+    return '<div class="cars-coupon-dropdown-empty">No options available yet.</div>';
+  }
+
+  return opts
+    .map((option) => {
+      const value = String(option?.value || '').trim();
+      if (!value) return '';
+      const label = String(option?.label || value).trim();
+      const checked = selectedSet.has(value) ? ' checked' : '';
+      return `
+        <label class="cars-coupon-dropdown-option">
+          <input
+            type="checkbox"
+            value="${escapeHtml(value)}"
+            data-coupon-value="1"
+            data-coupon-label="${escapeHtml(label)}"${checked}
+          />
+          <span>${escapeHtml(label)}</span>
+        </label>
+      `;
+    })
+    .join('');
+}
+
+function getMultiSelectSelectedLabels(selectId) {
+  const element = document.getElementById(selectId);
+  if (!element) return [];
+
+  if (String(element.tagName || '').toUpperCase() === 'SELECT') {
+    return Array.from(element.selectedOptions || [])
+      .map((option) => String(option.textContent || option.value || '').trim())
+      .filter(Boolean);
+  }
+
+  return Array.from(element.querySelectorAll('input[type="checkbox"][data-coupon-value]:checked'))
+    .map((input) => String(input.getAttribute('data-coupon-label') || input.value || '').trim())
+    .filter(Boolean);
+}
+
+function updateCarCouponDropdownSummary(selectId) {
+  const summaryEl = document.querySelector(`[data-coupon-summary-for="${selectId}"]`);
+  if (!summaryEl) return;
+
+  const labels = getMultiSelectSelectedLabels(selectId);
+  const emptyLabel = String(summaryEl.dataset.emptyLabel || 'All').trim() || 'All';
+  if (!labels.length) {
+    summaryEl.textContent = emptyLabel;
+    return;
+  }
+
+  if (labels.length <= 2) {
+    summaryEl.textContent = labels.join(', ');
+    return;
+  }
+
+  summaryEl.textContent = `${labels.length} selected`;
+}
+
+function populateCarCouponScopeFieldOptions(fieldId, baseOptions, selectedValues) {
+  const element = document.getElementById(fieldId);
+  if (!element) return;
+
+  if (String(element.tagName || '').toUpperCase() === 'SELECT') {
+    element.innerHTML = buildCouponSelectOptionMarkup(baseOptions, selectedValues);
+    setMultiSelectValues(fieldId, selectedValues);
+    return;
+  }
+
+  element.innerHTML = buildCouponCheckboxOptionMarkup(baseOptions, selectedValues);
+  setMultiSelectValues(fieldId, selectedValues);
+}
+
+function populateCarCouponScopeSelectOptions(preselected = {}) {
+  const applicableOfferIds = normalizeCouponArray(preselected?.applicable_offer_ids);
+  const excludedOfferIds = normalizeCouponArray(preselected?.excluded_offer_ids);
+  const applicableCarModels = normalizeCouponArray(preselected?.applicable_car_models);
+  const excludedCarModels = normalizeCouponArray(preselected?.excluded_car_models);
+  const applicableCarTypes = normalizeCouponArray(preselected?.applicable_car_types);
+  const excludedCarTypes = normalizeCouponArray(preselected?.excluded_car_types);
+
+  populateCarCouponScopeFieldOptions('carCouponApplicableOfferIdsSelect', carCouponsState.offerOptions, applicableOfferIds);
+  populateCarCouponScopeFieldOptions('carCouponExcludedOfferIdsSelect', carCouponsState.offerOptions, excludedOfferIds);
+  populateCarCouponScopeFieldOptions('carCouponApplicableCarModelsSelect', carCouponsState.modelOptions, applicableCarModels);
+  populateCarCouponScopeFieldOptions('carCouponExcludedCarModelsSelect', carCouponsState.modelOptions, excludedCarModels);
+  populateCarCouponScopeFieldOptions('carCouponApplicableCarTypesSelect', carCouponsState.typeOptions, applicableCarTypes);
+  populateCarCouponScopeFieldOptions('carCouponExcludedCarTypesSelect', carCouponsState.typeOptions, excludedCarTypes);
+}
+
+function handleCarCouponScopeOptionChange(event) {
+  const target = event?.target;
+  if (!target || String(target.tagName || '').toUpperCase() !== 'INPUT') return;
+  if (String(target.type || '').toLowerCase() !== 'checkbox') return;
+  if (!target.hasAttribute('data-coupon-value')) return;
+
+  const list = target.closest('.cars-coupon-dropdown-list');
+  if (!list || !list.id) return;
+  updateCarCouponDropdownSummary(list.id);
+}
+
+function handleCarCouponScopeClearClick(event) {
+  const button = event?.target?.closest?.('button[data-coupon-dropdown-clear]');
+  if (!button) return;
+  event.preventDefault();
+  const fieldId = String(button.dataset.couponDropdownClear || '').trim();
+  if (!fieldId) return;
+  setMultiSelectValues(fieldId, []);
+}
+
+function closeAllCarCouponScopeDropdowns() {
+  document.querySelectorAll('#carCouponForm .cars-coupon-dropdown[open]').forEach((dropdown) => {
+    dropdown.open = false;
+  });
+}
+
+async function ensureCarCouponScopeOptionsLoaded(options = {}) {
+  const { force = false } = options;
+  if (!force && carCouponsState.scopeOptionsLoaded) {
+    return;
+  }
+
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const { data, error } = await client
+    .from('car_offers')
+    .select('id, car_model, car_type, location')
+    .order('location', { ascending: true })
+    .limit(2000);
+
+  if (error) throw error;
+
+  const offers = [];
+  const modelMap = new Map();
+  const typeMap = new Map();
+
+  (Array.isArray(data) ? data : []).forEach((row) => {
+    const id = String(row?.id || '').trim();
+    if (id) {
+      const modelLabel = normalizeI18nText(row?.car_model) || 'Car model';
+      const locationLabel = String(row?.location || '').trim();
+      offers.push({
+        value: id,
+        label: locationLabel ? `${modelLabel} (${locationLabel})` : modelLabel,
+      });
+    }
+
+    const model = normalizeI18nText(row?.car_model);
+    const modelKey = model.toLowerCase();
+    if (model && !modelMap.has(modelKey)) {
+      modelMap.set(modelKey, model);
+    }
+
+    const type = normalizeI18nText(row?.car_type);
+    const typeKey = type.toLowerCase();
+    if (type && !typeMap.has(typeKey)) {
+      typeMap.set(typeKey, type);
+    }
+  });
+
+  offers.sort((a, b) => String(a.label || '').localeCompare(String(b.label || ''), undefined, { sensitivity: 'base' }));
+  const models = Array.from(modelMap.values()).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+  const types = Array.from(typeMap.values()).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+
+  carCouponsState.offerOptions = offers;
+  carCouponsState.modelOptions = models.map((value) => ({ value, label: value }));
+  carCouponsState.typeOptions = types.map((value) => ({ value, label: value }));
+  carCouponsState.scopeOptionsLoaded = true;
+}
+
 function getFilteredCarCoupons() {
   const filters = carCouponsState.filters || {};
   const search = String(filters.search || '').trim().toLowerCase();
@@ -13555,14 +13840,15 @@ function renderCarCouponsTable(coupons) {
       <tr>
         <td>
           <div style="font-weight: 700;">${escapeHtml(String(coupon.code || ''))}</div>
-          ${coupon.name ? `<div style="font-size: 12px; color: var(--admin-text-muted);">${escapeHtml(String(coupon.name))}</div>` : ''}
+          ${coupon.name ? `<div class="cars-coupon-cell-muted">${escapeHtml(String(coupon.name))}</div>` : ''}
         </td>
         <td>
           <div style="font-weight: 600;">${escapeHtml(formatCouponDiscount(coupon))}</div>
-          <div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(String(coupon.discount_type || ''))}</div>
+          <div class="cars-coupon-cell-muted">${escapeHtml(String(coupon.discount_type || ''))}</div>
         </td>
         <td style="font-size: 12px;">
           ${escapeHtml(formatCouponWindow(coupon))}
+          <div class="cars-coupon-cell-muted">Based on rental start date</div>
         </td>
         <td style="font-size: 12px;">
           ${escapeHtml(formatCouponLimits(coupon))}
@@ -13573,7 +13859,7 @@ function renderCarCouponsTable(coupons) {
         </td>
         <td>
           <div>${escapeHtml(getCarCouponPartnerLabel(coupon.partner_id))}</div>
-          ${Number.isInteger(coupon.partner_commission_bps_override) ? `<div style="font-size: 11px; color: var(--admin-text-muted);">Override: ${coupon.partner_commission_bps_override} bps</div>` : ''}
+          ${Number.isInteger(coupon.partner_commission_bps_override) ? `<div class="cars-coupon-cell-muted">Override: ${coupon.partner_commission_bps_override} bps</div>` : ''}
         </td>
         <td>
           <span class="badge ${statusClass}" style="display: block; margin-bottom: 4px;">${escapeHtml(String(coupon.status || 'draft').toUpperCase())}</span>
@@ -13582,10 +13868,10 @@ function renderCarCouponsTable(coupons) {
         <td style="font-size: 12px;">
           <div>${usage.redemptionCount} uses</div>
           <div>${formatCurrencyEUR(usage.totalDiscountAmount)}</div>
-          <div style="color: var(--admin-text-muted); font-size: 11px;">${escapeHtml(lastRedeemed)}</div>
+          <div class="cars-coupon-cell-muted">${escapeHtml(lastRedeemed)}</div>
         </td>
         <td>
-          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+          <div class="cars-coupons-table-actions">
             <button type="button" class="btn-small btn-secondary" data-coupon-action="edit" data-coupon-id="${escapeHtml(String(coupon.id))}">Edit</button>
             <button type="button" class="btn-small btn-secondary" data-coupon-action="${coupon.is_active ? 'deactivate' : 'activate'}" data-coupon-id="${escapeHtml(String(coupon.id))}">
               ${coupon.is_active ? 'Disable' : 'Enable'}
@@ -13638,6 +13924,7 @@ async function loadCarCouponsData(options = {}) {
     if (!client) throw new Error('Database connection not available');
 
     let partnerWarning = '';
+    let scopeWarning = '';
     try {
       await ensureCarCouponPartnersLoaded({ force: forcePartnersRefresh });
       populateCarCouponPartnerOptions();
@@ -13647,6 +13934,19 @@ async function loadCarCouponsData(options = {}) {
       carCouponsState.partnersById = {};
       populateCarCouponPartnerOptions();
       partnerWarning = `Partner list unavailable: ${partnerError?.message || 'unknown error'}`;
+    }
+
+    try {
+      await ensureCarCouponScopeOptionsLoaded({ force: forcePartnersRefresh });
+      populateCarCouponScopeSelectOptions();
+    } catch (scopeError) {
+      console.warn('Failed to load car offer scope options:', scopeError);
+      carCouponsState.scopeOptionsLoaded = false;
+      carCouponsState.offerOptions = [];
+      carCouponsState.modelOptions = [];
+      carCouponsState.typeOptions = [];
+      populateCarCouponScopeSelectOptions();
+      scopeWarning = `Scope options unavailable: ${scopeError?.message || 'unknown error'}`;
     }
 
     const columns = [
@@ -13703,7 +14003,7 @@ async function loadCarCouponsData(options = {}) {
 
       if (usageError) {
         const usageWarning = `Usage stats unavailable: ${usageError.message || 'unknown error'}`;
-        const combinedWarning = [partnerWarning, usageWarning].filter(Boolean).join(' | ');
+        const combinedWarning = [partnerWarning, scopeWarning, usageWarning].filter(Boolean).join(' | ');
         setCarsCouponsViewError(combinedWarning);
       } else {
         (usageRows || []).forEach((row) => {
@@ -13714,12 +14014,16 @@ async function loadCarCouponsData(options = {}) {
             lastRedeemedAt: row.last_redeemed_at || null,
           };
         });
-        if (partnerWarning) {
-          setCarsCouponsViewError(partnerWarning);
+        const nonUsageWarning = [partnerWarning, scopeWarning].filter(Boolean).join(' | ');
+        if (nonUsageWarning) {
+          setCarsCouponsViewError(nonUsageWarning);
         }
       }
-    } else if (partnerWarning) {
-      setCarsCouponsViewError(partnerWarning);
+    } else {
+      const nonUsageWarning = [partnerWarning, scopeWarning].filter(Boolean).join(' | ');
+      if (nonUsageWarning) {
+        setCarsCouponsViewError(nonUsageWarning);
+      }
     }
 
     carCouponsState.usageByCouponId = usageByCouponId;
@@ -13794,6 +14098,13 @@ function resetCarCouponForm() {
   if (paphosInput) paphosInput.checked = false;
   const larnacaInput = $('#carCouponLocationLarnaca');
   if (larnacaInput) larnacaInput.checked = false;
+  const orderFromInput = $('#carCouponOrderDateFrom');
+  if (orderFromInput) orderFromInput.value = '';
+  const orderToInput = $('#carCouponOrderDateTo');
+  if (orderToInput) orderToInput.value = '';
+
+  closeAllCarCouponScopeDropdowns();
+  populateCarCouponScopeSelectOptions();
 
   setCarCouponFormError('');
   syncCarCouponDiscountTypeFields();
@@ -13830,10 +14141,10 @@ function collectCarCouponFormPayload() {
 
   const currency = String($('#carCouponCurrency')?.value || 'EUR').trim().toUpperCase() || 'EUR';
 
-  const startsAt = parseCouponDateTimeLocal($('#carCouponStartsAt')?.value, 'start date');
-  const expiresAt = parseCouponDateTimeLocal($('#carCouponExpiresAt')?.value, 'expiry date');
+  const startsAt = parseCouponDateStart($('#carCouponOrderDateFrom')?.value, 'rental start from');
+  const expiresAt = parseCouponDateEnd($('#carCouponOrderDateTo')?.value, 'rental start to');
   if (startsAt && expiresAt && new Date(expiresAt).getTime() < new Date(startsAt).getTime()) {
-    throw new Error('Expiry date cannot be earlier than start date');
+    throw new Error('Rental start "to" date cannot be earlier than "from" date');
   }
 
   const singleUse = Boolean($('#carCouponSingleUse')?.checked);
@@ -13850,8 +14161,8 @@ function collectCarCouponFormPayload() {
   const minRentalDays = parseCouponOptionalInteger($('#carCouponMinRentalDays')?.value, 'Minimum rental days', 1);
   const minRentalTotal = parseCouponOptionalNumber($('#carCouponMinRentalTotal')?.value, 'Minimum rental total', 0);
 
-  const applicableOfferIds = parseCouponListInput($('#carCouponApplicableOfferIds')?.value);
-  const excludedOfferIds = parseCouponListInput($('#carCouponExcludedOfferIds')?.value);
+  const applicableOfferIds = getMultiSelectValues('carCouponApplicableOfferIdsSelect');
+  const excludedOfferIds = getMultiSelectValues('carCouponExcludedOfferIdsSelect');
   validateCouponUuidList(applicableOfferIds, 'Applicable offer IDs');
   validateCouponUuidList(excludedOfferIds, 'Excluded offer IDs');
 
@@ -13892,11 +14203,11 @@ function collectCarCouponFormPayload() {
     min_rental_total: minRentalTotal,
     applicable_locations: applicableLocations,
     applicable_offer_ids: applicableOfferIds,
-    applicable_car_models: parseCouponListInput($('#carCouponApplicableCarModels')?.value),
-    applicable_car_types: parseCouponListInput($('#carCouponApplicableCarTypes')?.value),
+    applicable_car_models: getMultiSelectValues('carCouponApplicableCarModelsSelect'),
+    applicable_car_types: getMultiSelectValues('carCouponApplicableCarTypesSelect'),
     excluded_offer_ids: excludedOfferIds,
-    excluded_car_models: parseCouponListInput($('#carCouponExcludedCarModels')?.value),
-    excluded_car_types: parseCouponListInput($('#carCouponExcludedCarTypes')?.value),
+    excluded_car_models: getMultiSelectValues('carCouponExcludedCarModelsSelect'),
+    excluded_car_types: getMultiSelectValues('carCouponExcludedCarTypesSelect'),
     partner_id: partnerId,
     partner_commission_bps_override: partnerCommissionBps,
   };
@@ -13905,6 +14216,7 @@ function collectCarCouponFormPayload() {
 function closeCarCouponModal() {
   const modal = $('#carCouponModal');
   if (modal) modal.hidden = true;
+  closeAllCarCouponScopeDropdowns();
   setCarCouponFormError('');
 }
 
@@ -13920,6 +14232,12 @@ async function openCarCouponModal(couponId = null) {
     populateCarCouponPartnerOptions();
   } catch (error) {
     console.warn('Failed to preload partners for coupon modal:', error);
+  }
+
+  try {
+    await ensureCarCouponScopeOptionsLoaded();
+  } catch (error) {
+    console.warn('Failed to preload scope options for coupon modal:', error);
   }
 
   const id = String(couponId || '').trim();
@@ -13939,6 +14257,8 @@ async function openCarCouponModal(couponId = null) {
     $('#carCouponDiscountType').value = String(coupon.discount_type || 'percent');
     $('#carCouponDiscountValue').value = Number(coupon.discount_value || 0).toString();
     $('#carCouponCurrency').value = String(coupon.currency || 'EUR');
+    $('#carCouponOrderDateFrom').value = toDateInputValue(coupon.starts_at);
+    $('#carCouponOrderDateTo').value = toDateInputValue(coupon.expires_at);
     $('#carCouponStartsAt').value = toDateTimeLocalInputValue(coupon.starts_at);
     $('#carCouponExpiresAt').value = toDateTimeLocalInputValue(coupon.expires_at);
     $('#carCouponSingleUse').checked = Boolean(coupon.single_use);
@@ -13948,16 +14268,19 @@ async function openCarCouponModal(couponId = null) {
     $('#carCouponMinRentalTotal').value = coupon.min_rental_total ?? '';
     $('#carCouponLocationPaphos').checked = normalizeCouponArray(coupon.applicable_locations).includes('paphos');
     $('#carCouponLocationLarnaca').checked = normalizeCouponArray(coupon.applicable_locations).includes('larnaca');
-    $('#carCouponApplicableOfferIds').value = normalizeCouponArray(coupon.applicable_offer_ids).join('\n');
-    $('#carCouponApplicableCarModels').value = normalizeCouponArray(coupon.applicable_car_models).join('\n');
-    $('#carCouponApplicableCarTypes').value = normalizeCouponArray(coupon.applicable_car_types).join('\n');
-    $('#carCouponExcludedOfferIds').value = normalizeCouponArray(coupon.excluded_offer_ids).join('\n');
-    $('#carCouponExcludedCarModels').value = normalizeCouponArray(coupon.excluded_car_models).join('\n');
-    $('#carCouponExcludedCarTypes').value = normalizeCouponArray(coupon.excluded_car_types).join('\n');
     $('#carCouponPartnerId').value = String(coupon.partner_id || '');
     $('#carCouponPartnerCommissionBps').value = coupon.partner_commission_bps_override ?? '';
+    populateCarCouponScopeSelectOptions({
+      applicable_offer_ids: normalizeCouponArray(coupon.applicable_offer_ids),
+      excluded_offer_ids: normalizeCouponArray(coupon.excluded_offer_ids),
+      applicable_car_models: normalizeCouponArray(coupon.applicable_car_models),
+      excluded_car_models: normalizeCouponArray(coupon.excluded_car_models),
+      applicable_car_types: normalizeCouponArray(coupon.applicable_car_types),
+      excluded_car_types: normalizeCouponArray(coupon.excluded_car_types),
+    });
   } else {
     title.textContent = 'Create Coupon';
+    populateCarCouponScopeSelectOptions();
   }
 
   syncCarCouponDiscountTypeFields();
@@ -16862,6 +17185,8 @@ function initEventListeners() {
   const carCouponForm = $('#carCouponForm');
   if (carCouponForm) {
     carCouponForm.addEventListener('submit', handleCarCouponFormSubmit);
+    carCouponForm.addEventListener('change', handleCarCouponScopeOptionChange);
+    carCouponForm.addEventListener('click', handleCarCouponScopeClearClick);
   }
 
   const carCouponDiscountType = $('#carCouponDiscountType');

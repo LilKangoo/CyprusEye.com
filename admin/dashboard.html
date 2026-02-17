@@ -1986,7 +1986,7 @@
         <div id="carsTabCoupons" class="cars-tab-content" hidden>
           <div id="carsCouponsError" class="admin-error-message" hidden style="margin-bottom: 16px;"></div>
 
-          <div class="admin-stats-grid" style="margin-bottom: 16px;">
+          <div class="admin-stats-grid cars-coupons-stats" style="margin-bottom: 16px;">
             <div class="admin-stat-card">
               <div class="stat-card-content">
                 <p class="stat-card-label">Visible Coupons</p>
@@ -2017,35 +2017,56 @@
             </div>
           </div>
 
-          <div style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
-            <input
-              type="text"
-              id="carsCouponsSearchInput"
-              class="admin-form-field"
-              placeholder="Search by code, name, description..."
-              style="flex: 1; min-width: 240px;"
-            />
-            <select id="carsCouponsStatusFilter" class="admin-form-field" style="min-width: 150px;">
-              <option value="">All statuses</option>
-              <option value="draft">Draft</option>
-              <option value="active">Active</option>
-              <option value="paused">Paused</option>
-              <option value="expired">Expired</option>
-            </select>
-            <select id="carsCouponsActivityFilter" class="admin-form-field" style="min-width: 160px;">
-              <option value="">All activity</option>
-              <option value="enabled">Enabled</option>
-              <option value="disabled">Disabled</option>
-            </select>
-            <select id="carsCouponsTypeFilter" class="admin-form-field" style="min-width: 150px;">
-              <option value="">All discount types</option>
-              <option value="percent">Percent</option>
-              <option value="fixed">Fixed</option>
-            </select>
-            <select id="carsCouponsPartnerFilter" class="admin-form-field" style="min-width: 200px;">
-              <option value="">All partners</option>
-            </select>
-            <button type="button" class="btn-secondary" id="btnCarsCouponsClearFilters">Clear</button>
+          <div class="cars-coupons-panel">
+            <div class="cars-coupons-panel-header">
+              <h4>Coupon Filters</h4>
+              <p>Coupons affect rental total only. Deposit/prepay rules remain unchanged.</p>
+            </div>
+            <div class="cars-coupons-filters-grid">
+              <label class="admin-form-field">
+                <span>Search</span>
+                <input
+                  type="text"
+                  id="carsCouponsSearchInput"
+                  placeholder="Code, name, description, partner..."
+                />
+              </label>
+              <label class="admin-form-field">
+                <span>Status</span>
+                <select id="carsCouponsStatusFilter">
+                  <option value="">All statuses</option>
+                  <option value="draft">Draft</option>
+                  <option value="active">Active</option>
+                  <option value="paused">Paused</option>
+                  <option value="expired">Expired</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Activity</span>
+                <select id="carsCouponsActivityFilter">
+                  <option value="">All activity</option>
+                  <option value="enabled">Enabled</option>
+                  <option value="disabled">Disabled</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Discount type</span>
+                <select id="carsCouponsTypeFilter">
+                  <option value="">All discount types</option>
+                  <option value="percent">Percent</option>
+                  <option value="fixed">Fixed</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Partner</span>
+                <select id="carsCouponsPartnerFilter">
+                  <option value="">All partners</option>
+                </select>
+              </label>
+              <div class="cars-coupons-filters-actions">
+                <button type="button" class="btn-secondary" id="btnCarsCouponsClearFilters">Clear Filters</button>
+              </div>
+            </div>
           </div>
 
           <div class="admin-table-container" aria-label="Cars coupons table">
@@ -4746,7 +4767,7 @@
   <!-- Car Coupon Create/Edit Modal -->
   <div class="admin-modal" id="carCouponModal" hidden>
     <div class="admin-modal-overlay" id="carCouponModalOverlay"></div>
-    <div class="admin-modal-content" style="max-width: 980px;">
+    <div class="admin-modal-content car-coupon-modal-content" style="max-width: 980px;">
       <header class="admin-modal-header">
         <h3 id="carCouponModalTitle">Create Coupon</h3>
         <button class="btn-modal-close" id="btnCloseCarCouponModal">
@@ -4760,8 +4781,8 @@
         <form id="carCouponForm" novalidate>
           <input type="hidden" id="carCouponId" />
 
-          <div style="display: grid; gap: 16px;">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+          <div class="cars-coupon-form-grid">
+            <div class="cars-coupon-compact-grid">
               <label class="admin-form-field">
                 <span>Code *</span>
                 <input type="text" id="carCouponCode" placeholder="SUMMER25" required maxlength="64" />
@@ -4814,20 +4835,24 @@
               <textarea id="carCouponInternalNotes" rows="2" placeholder="Admin-only notes"></textarea>
             </label>
 
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
-              <label class="admin-form-field">
-                <span>Starts At</span>
-                <input type="datetime-local" id="carCouponStartsAt" />
-              </label>
-              <label class="admin-form-field">
-                <span>Expires At</span>
-                <input type="datetime-local" id="carCouponExpiresAt" />
-              </label>
+            <div class="cars-coupon-section">
+              <h4>Order Date Window</h4>
+              <p>Coupon is valid only when the rental start date is inside this range.</p>
+              <div class="cars-coupon-compact-grid">
+                <label class="admin-form-field">
+                  <span>Rental start from</span>
+                  <input type="date" id="carCouponOrderDateFrom" />
+                </label>
+                <label class="admin-form-field">
+                  <span>Rental start to</span>
+                  <input type="date" id="carCouponOrderDateTo" />
+                </label>
+              </div>
             </div>
 
-            <div style="padding: 14px; border: 1px solid var(--admin-border); border-radius: 8px; background: var(--admin-bg-secondary); display: grid; gap: 12px;">
-              <h4 style="margin: 0; font-size: 14px;">Usage Limits</h4>
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+            <div class="cars-coupon-section">
+              <h4>Usage Limits</h4>
+              <div class="cars-coupon-compact-grid">
                 <div class="admin-form-field">
                   <span>Single-use</span>
                   <label style="display: flex; gap: 8px; align-items: center; margin-top: 10px;">
@@ -4854,9 +4879,10 @@
               </div>
             </div>
 
-            <div style="padding: 14px; border: 1px solid var(--admin-border); border-radius: 8px; background: var(--admin-bg-secondary); display: grid; gap: 12px;">
-              <h4 style="margin: 0; font-size: 14px;">Scope & Exclusions</h4>
-              <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+            <div class="cars-coupon-section">
+              <h4>Scope & Exclusions</h4>
+              <p>Select values from dropdowns (multi-select) instead of typing manually.</p>
+              <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px;">
                 <label style="display: flex; align-items: center; gap: 8px;">
                   <input type="checkbox" id="carCouponLocationPaphos" value="paphos" style="width: 18px; height: 18px;" />
                   <span>Paphos</span>
@@ -4866,37 +4892,104 @@
                   <span>Larnaca</span>
                 </label>
               </div>
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+
+              <div class="cars-coupon-scope-grid">
                 <label class="admin-form-field">
-                  <span>Applicable Offer IDs</span>
-                  <textarea id="carCouponApplicableOfferIds" rows="3" placeholder="One UUID per line"></textarea>
+                  <span>Applicable Offers</span>
+                  <details class="cars-coupon-dropdown">
+                    <summary>
+                      <span data-coupon-summary-for="carCouponApplicableOfferIdsSelect" data-empty-label="All offers">All offers</span>
+                    </summary>
+                    <div class="cars-coupon-dropdown-menu">
+                      <div id="carCouponApplicableOfferIdsSelect" class="cars-coupon-dropdown-list cars-coupon-multiselect"></div>
+                      <div class="cars-coupon-dropdown-actions">
+                        <button type="button" class="btn-secondary btn-small" data-coupon-dropdown-clear="carCouponApplicableOfferIdsSelect">Clear</button>
+                      </div>
+                    </div>
+                  </details>
+                  <small>Select one or more offers</small>
+                </label>
+                <label class="admin-form-field">
+                  <span>Excluded Offers</span>
+                  <details class="cars-coupon-dropdown">
+                    <summary>
+                      <span data-coupon-summary-for="carCouponExcludedOfferIdsSelect" data-empty-label="No excluded offers">No excluded offers</span>
+                    </summary>
+                    <div class="cars-coupon-dropdown-menu">
+                      <div id="carCouponExcludedOfferIdsSelect" class="cars-coupon-dropdown-list cars-coupon-multiselect"></div>
+                      <div class="cars-coupon-dropdown-actions">
+                        <button type="button" class="btn-secondary btn-small" data-coupon-dropdown-clear="carCouponExcludedOfferIdsSelect">Clear</button>
+                      </div>
+                    </div>
+                  </details>
+                  <small>These offers will never use this coupon</small>
                 </label>
                 <label class="admin-form-field">
                   <span>Applicable Car Models</span>
-                  <textarea id="carCouponApplicableCarModels" rows="3" placeholder="One model per line"></textarea>
-                </label>
-                <label class="admin-form-field">
-                  <span>Applicable Car Types</span>
-                  <textarea id="carCouponApplicableCarTypes" rows="3" placeholder="One type per line"></textarea>
-                </label>
-                <label class="admin-form-field">
-                  <span>Excluded Offer IDs</span>
-                  <textarea id="carCouponExcludedOfferIds" rows="3" placeholder="One UUID per line"></textarea>
+                  <details class="cars-coupon-dropdown">
+                    <summary>
+                      <span data-coupon-summary-for="carCouponApplicableCarModelsSelect" data-empty-label="All models">All models</span>
+                    </summary>
+                    <div class="cars-coupon-dropdown-menu">
+                      <div id="carCouponApplicableCarModelsSelect" class="cars-coupon-dropdown-list cars-coupon-multiselect"></div>
+                      <div class="cars-coupon-dropdown-actions">
+                        <button type="button" class="btn-secondary btn-small" data-coupon-dropdown-clear="carCouponApplicableCarModelsSelect">Clear</button>
+                      </div>
+                    </div>
+                  </details>
+                  <small>Optional: leave empty for all models</small>
                 </label>
                 <label class="admin-form-field">
                   <span>Excluded Car Models</span>
-                  <textarea id="carCouponExcludedCarModels" rows="3" placeholder="One model per line"></textarea>
+                  <details class="cars-coupon-dropdown">
+                    <summary>
+                      <span data-coupon-summary-for="carCouponExcludedCarModelsSelect" data-empty-label="No excluded models">No excluded models</span>
+                    </summary>
+                    <div class="cars-coupon-dropdown-menu">
+                      <div id="carCouponExcludedCarModelsSelect" class="cars-coupon-dropdown-list cars-coupon-multiselect"></div>
+                      <div class="cars-coupon-dropdown-actions">
+                        <button type="button" class="btn-secondary btn-small" data-coupon-dropdown-clear="carCouponExcludedCarModelsSelect">Clear</button>
+                      </div>
+                    </div>
+                  </details>
+                  <small>Selected models are excluded</small>
+                </label>
+                <label class="admin-form-field">
+                  <span>Applicable Car Types</span>
+                  <details class="cars-coupon-dropdown">
+                    <summary>
+                      <span data-coupon-summary-for="carCouponApplicableCarTypesSelect" data-empty-label="All types">All types</span>
+                    </summary>
+                    <div class="cars-coupon-dropdown-menu">
+                      <div id="carCouponApplicableCarTypesSelect" class="cars-coupon-dropdown-list cars-coupon-multiselect"></div>
+                      <div class="cars-coupon-dropdown-actions">
+                        <button type="button" class="btn-secondary btn-small" data-coupon-dropdown-clear="carCouponApplicableCarTypesSelect">Clear</button>
+                      </div>
+                    </div>
+                  </details>
+                  <small>Optional: leave empty for all types</small>
                 </label>
                 <label class="admin-form-field">
                   <span>Excluded Car Types</span>
-                  <textarea id="carCouponExcludedCarTypes" rows="3" placeholder="One type per line"></textarea>
+                  <details class="cars-coupon-dropdown">
+                    <summary>
+                      <span data-coupon-summary-for="carCouponExcludedCarTypesSelect" data-empty-label="No excluded types">No excluded types</span>
+                    </summary>
+                    <div class="cars-coupon-dropdown-menu">
+                      <div id="carCouponExcludedCarTypesSelect" class="cars-coupon-dropdown-list cars-coupon-multiselect"></div>
+                      <div class="cars-coupon-dropdown-actions">
+                        <button type="button" class="btn-secondary btn-small" data-coupon-dropdown-clear="carCouponExcludedCarTypesSelect">Clear</button>
+                      </div>
+                    </div>
+                  </details>
+                  <small>Selected types are excluded</small>
                 </label>
               </div>
             </div>
 
-            <div style="padding: 14px; border: 1px solid var(--admin-border); border-radius: 8px; background: var(--admin-bg-secondary); display: grid; gap: 12px;">
-              <h4 style="margin: 0; font-size: 14px;">Partner Attribution (Optional)</h4>
-              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+            <div class="cars-coupon-section">
+              <h4>Partner Attribution (Optional)</h4>
+              <div class="cars-coupon-compact-grid">
                 <label class="admin-form-field">
                   <span>Partner</span>
                   <select id="carCouponPartnerId">
@@ -4908,6 +5001,17 @@
                   <input type="number" id="carCouponPartnerCommissionBps" min="0" step="1" placeholder="Leave empty for default" />
                 </label>
               </div>
+            </div>
+
+            <div style="display: none;">
+              <label class="admin-form-field">
+                <span>Starts At</span>
+                <input type="datetime-local" id="carCouponStartsAt" />
+              </label>
+              <label class="admin-form-field">
+                <span>Expires At</span>
+                <input type="datetime-local" id="carCouponExpiresAt" />
+              </label>
             </div>
           </div>
 
