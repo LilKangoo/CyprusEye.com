@@ -4885,7 +4885,7 @@
 
             <div class="cars-coupon-section">
               <h4>Scope & Exclusions</h4>
-              <p>Select values from dropdowns (multi-select) instead of typing manually.</p>
+              <p>Set where the coupon works. Exclusions are optional and hidden under advanced settings.</p>
               <div style="display: flex; flex-wrap: wrap; gap: 12px; margin-bottom: 8px;">
                 <label style="display: flex; align-items: center; gap: 8px;">
                   <input type="checkbox" id="carCouponLocationPaphos" value="paphos" style="width: 18px; height: 18px;" />
@@ -4897,8 +4897,20 @@
                 </label>
               </div>
 
+              <label class="admin-form-field">
+                <span>Where should this coupon apply?</span>
+                <select id="carCouponScopePrimaryMode">
+                  <option value="all">All cars and offers</option>
+                  <option value="offers">Only selected offers</option>
+                  <option value="models">Only selected car models</option>
+                  <option value="types">Only selected car types</option>
+                  <option value="custom">Mixed rules (advanced)</option>
+                </select>
+                <small id="carCouponScopeModeHint">Default: coupon works for all cars and offers in selected cities.</small>
+              </label>
+
               <div class="cars-coupon-scope-grid">
-                <label class="admin-form-field">
+                <label class="admin-form-field" data-scope-applicable-field="offers">
                   <span>Applicable Offers</span>
                   <details class="cars-coupon-dropdown">
                     <summary>
@@ -4913,22 +4925,7 @@
                   </details>
                   <small>Select one or more offers</small>
                 </label>
-                <label class="admin-form-field">
-                  <span>Excluded Offers</span>
-                  <details class="cars-coupon-dropdown">
-                    <summary>
-                      <span data-coupon-summary-for="carCouponExcludedOfferIdsSelect" data-empty-label="No excluded offers">No excluded offers</span>
-                    </summary>
-                    <div class="cars-coupon-dropdown-menu">
-                      <div id="carCouponExcludedOfferIdsSelect" class="cars-coupon-dropdown-list cars-coupon-multiselect"></div>
-                      <div class="cars-coupon-dropdown-actions">
-                        <button type="button" class="btn-secondary btn-small" data-coupon-dropdown-clear="carCouponExcludedOfferIdsSelect">Clear</button>
-                      </div>
-                    </div>
-                  </details>
-                  <small>These offers will never use this coupon</small>
-                </label>
-                <label class="admin-form-field">
+                <label class="admin-form-field" data-scope-applicable-field="models">
                   <span>Applicable Car Models</span>
                   <details class="cars-coupon-dropdown">
                     <summary>
@@ -4943,22 +4940,7 @@
                   </details>
                   <small>Optional: leave empty for all models</small>
                 </label>
-                <label class="admin-form-field">
-                  <span>Excluded Car Models</span>
-                  <details class="cars-coupon-dropdown">
-                    <summary>
-                      <span data-coupon-summary-for="carCouponExcludedCarModelsSelect" data-empty-label="No excluded models">No excluded models</span>
-                    </summary>
-                    <div class="cars-coupon-dropdown-menu">
-                      <div id="carCouponExcludedCarModelsSelect" class="cars-coupon-dropdown-list cars-coupon-multiselect"></div>
-                      <div class="cars-coupon-dropdown-actions">
-                        <button type="button" class="btn-secondary btn-small" data-coupon-dropdown-clear="carCouponExcludedCarModelsSelect">Clear</button>
-                      </div>
-                    </div>
-                  </details>
-                  <small>Selected models are excluded</small>
-                </label>
-                <label class="admin-form-field">
+                <label class="admin-form-field" data-scope-applicable-field="types">
                   <span>Applicable Car Types</span>
                   <details class="cars-coupon-dropdown">
                     <summary>
@@ -4973,22 +4955,58 @@
                   </details>
                   <small>Optional: leave empty for all types</small>
                 </label>
-                <label class="admin-form-field">
-                  <span>Excluded Car Types</span>
-                  <details class="cars-coupon-dropdown">
-                    <summary>
-                      <span data-coupon-summary-for="carCouponExcludedCarTypesSelect" data-empty-label="No excluded types">No excluded types</span>
-                    </summary>
-                    <div class="cars-coupon-dropdown-menu">
-                      <div id="carCouponExcludedCarTypesSelect" class="cars-coupon-dropdown-list cars-coupon-multiselect"></div>
-                      <div class="cars-coupon-dropdown-actions">
-                        <button type="button" class="btn-secondary btn-small" data-coupon-dropdown-clear="carCouponExcludedCarTypesSelect">Clear</button>
-                      </div>
-                    </div>
-                  </details>
-                  <small>Selected types are excluded</small>
-                </label>
               </div>
+
+              <details class="cars-coupon-scope-advanced">
+                <summary>Advanced exclusions (optional)</summary>
+                <div class="cars-coupon-scope-grid" style="margin-top: 12px;">
+                  <label class="admin-form-field">
+                    <span>Excluded Offers</span>
+                    <details class="cars-coupon-dropdown">
+                      <summary>
+                        <span data-coupon-summary-for="carCouponExcludedOfferIdsSelect" data-empty-label="No excluded offers">No excluded offers</span>
+                      </summary>
+                      <div class="cars-coupon-dropdown-menu">
+                        <div id="carCouponExcludedOfferIdsSelect" class="cars-coupon-dropdown-list cars-coupon-multiselect"></div>
+                        <div class="cars-coupon-dropdown-actions">
+                          <button type="button" class="btn-secondary btn-small" data-coupon-dropdown-clear="carCouponExcludedOfferIdsSelect">Clear</button>
+                        </div>
+                      </div>
+                    </details>
+                    <small>These offers will never use this coupon</small>
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Excluded Car Models</span>
+                    <details class="cars-coupon-dropdown">
+                      <summary>
+                        <span data-coupon-summary-for="carCouponExcludedCarModelsSelect" data-empty-label="No excluded models">No excluded models</span>
+                      </summary>
+                      <div class="cars-coupon-dropdown-menu">
+                        <div id="carCouponExcludedCarModelsSelect" class="cars-coupon-dropdown-list cars-coupon-multiselect"></div>
+                        <div class="cars-coupon-dropdown-actions">
+                          <button type="button" class="btn-secondary btn-small" data-coupon-dropdown-clear="carCouponExcludedCarModelsSelect">Clear</button>
+                        </div>
+                      </div>
+                    </details>
+                    <small>Selected models are excluded</small>
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Excluded Car Types</span>
+                    <details class="cars-coupon-dropdown">
+                      <summary>
+                        <span data-coupon-summary-for="carCouponExcludedCarTypesSelect" data-empty-label="No excluded types">No excluded types</span>
+                      </summary>
+                      <div class="cars-coupon-dropdown-menu">
+                        <div id="carCouponExcludedCarTypesSelect" class="cars-coupon-dropdown-list cars-coupon-multiselect"></div>
+                        <div class="cars-coupon-dropdown-actions">
+                          <button type="button" class="btn-secondary btn-small" data-coupon-dropdown-clear="carCouponExcludedCarTypesSelect">Clear</button>
+                        </div>
+                      </div>
+                    </details>
+                    <small>Selected types are excluded</small>
+                  </label>
+                </div>
+              </details>
             </div>
 
             <div class="cars-coupon-section">

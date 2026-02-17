@@ -766,6 +766,24 @@ body[data-admin-panel="true"].admin-sidebar-open {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
+.cars-coupon-scope-advanced {
+  border: 1px dashed var(--admin-border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: rgba(15, 23, 42, 0.25);
+}
+
+.cars-coupon-scope-advanced > summary {
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+.cars-coupon-scope-advanced > summary::marker {
+  color: var(--admin-text-muted);
+}
+
 .cars-coupon-dropdown {
   border: 1px solid var(--admin-border);
   border-radius: var(--admin-radius);

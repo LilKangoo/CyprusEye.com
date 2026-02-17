@@ -13701,6 +13701,70 @@ function closeAllCarCouponScopeDropdowns() {
   document.querySelectorAll('#carCouponForm .cars-coupon-dropdown[open]').forEach((dropdown) => {
     dropdown.open = false;
   });
+  document.querySelectorAll('#carCouponForm .cars-coupon-scope-advanced[open]').forEach((section) => {
+    section.open = false;
+  });
+}
+
+function inferCarCouponScopePrimaryMode(coupon = {}) {
+  const applicableOfferIds = normalizeCouponArray(coupon?.applicable_offer_ids);
+  const applicableCarModels = normalizeCouponArray(coupon?.applicable_car_models);
+  const applicableCarTypes = normalizeCouponArray(coupon?.applicable_car_types);
+
+  const hasOffers = applicableOfferIds.length > 0;
+  const hasModels = applicableCarModels.length > 0;
+  const hasTypes = applicableCarTypes.length > 0;
+
+  if (!hasOffers && !hasModels && !hasTypes) return 'all';
+  if (hasOffers && !hasModels && !hasTypes) return 'offers';
+  if (!hasOffers && hasModels && !hasTypes) return 'models';
+  if (!hasOffers && !hasModels && hasTypes) return 'types';
+  return 'custom';
+}
+
+function syncCarCouponScopePrimaryModeFields(options = {}) {
+  const { preserveValues = false } = options;
+  const modeSelect = $('#carCouponScopePrimaryMode');
+  const allowedModes = new Set(['all', 'offers', 'models', 'types', 'custom']);
+  const mode = allowedModes.has(String(modeSelect?.value || '').trim().toLowerCase())
+    ? String(modeSelect.value).trim().toLowerCase()
+    : 'all';
+
+  if (modeSelect && modeSelect.value !== mode) {
+    modeSelect.value = mode;
+  }
+
+  const showOffers = mode === 'offers' || mode === 'custom';
+  const showModels = mode === 'models' || mode === 'custom';
+  const showTypes = mode === 'types' || mode === 'custom';
+
+  const offersField = document.querySelector('[data-scope-applicable-field="offers"]');
+  const modelsField = document.querySelector('[data-scope-applicable-field="models"]');
+  const typesField = document.querySelector('[data-scope-applicable-field="types"]');
+  if (offersField) offersField.hidden = !showOffers;
+  if (modelsField) modelsField.hidden = !showModels;
+  if (typesField) typesField.hidden = !showTypes;
+
+  const hintEl = $('#carCouponScopeModeHint');
+  if (hintEl) {
+    if (mode === 'offers') {
+      hintEl.textContent = 'Coupon works only for selected offers.';
+    } else if (mode === 'models') {
+      hintEl.textContent = 'Coupon works only for selected car models.';
+    } else if (mode === 'types') {
+      hintEl.textContent = 'Coupon works only for selected car types.';
+    } else if (mode === 'custom') {
+      hintEl.textContent = 'Advanced mode: combine offers, models and types.';
+    } else {
+      hintEl.textContent = 'Default: coupon works for all cars and offers in selected cities.';
+    }
+  }
+
+  if (preserveValues) return;
+
+  if (!showOffers) setMultiSelectValues('carCouponApplicableOfferIdsSelect', []);
+  if (!showModels) setMultiSelectValues('carCouponApplicableCarModelsSelect', []);
+  if (!showTypes) setMultiSelectValues('carCouponApplicableCarTypesSelect', []);
 }
 
 async function ensureCarCouponScopeOptionsLoaded(options = {}) {
@@ -14120,6 +14184,8 @@ function resetCarCouponForm() {
   if (orderToInput) orderToInput.value = '';
   const noDateLimitInput = $('#carCouponNoDateLimit');
   if (noDateLimitInput) noDateLimitInput.checked = true;
+  const scopeModeInput = $('#carCouponScopePrimaryMode');
+  if (scopeModeInput) scopeModeInput.value = 'all';
 
   closeAllCarCouponScopeDropdowns();
   populateCarCouponScopeSelectOptions();
@@ -14128,6 +14194,7 @@ function resetCarCouponForm() {
   syncCarCouponDiscountTypeFields();
   syncCarCouponSingleUseFields();
   syncCarCouponDateWindowFields();
+  syncCarCouponScopePrimaryModeFields();
 }
 
 function validateCouponUuidList(values, label) {
@@ -14181,10 +14248,45 @@ function collectCarCouponFormPayload() {
   const minRentalDays = parseCouponOptionalInteger($('#carCouponMinRentalDays')?.value, 'Minimum rental days', 1);
   const minRentalTotal = parseCouponOptionalNumber($('#carCouponMinRentalTotal')?.value, 'Minimum rental total', 0);
 
-  const applicableOfferIds = getMultiSelectValues('carCouponApplicableOfferIdsSelect');
+  const scopeMode = String($('#carCouponScopePrimaryMode')?.value || 'all').trim().toLowerCase();
+  let applicableOfferIds = getMultiSelectValues('carCouponApplicableOfferIdsSelect');
+  let applicableCarModels = getMultiSelectValues('carCouponApplicableCarModelsSelect');
+  let applicableCarTypes = getMultiSelectValues('carCouponApplicableCarTypesSelect');
   const excludedOfferIds = getMultiSelectValues('carCouponExcludedOfferIdsSelect');
-  validateCouponUuidList(applicableOfferIds, 'Applicable offer IDs');
   validateCouponUuidList(excludedOfferIds, 'Excluded offer IDs');
+
+  if (scopeMode === 'all') {
+    applicableOfferIds = [];
+    applicableCarModels = [];
+    applicableCarTypes = [];
+  } else if (scopeMode === 'offers') {
+    if (applicableOfferIds.length === 0) {
+      throw new Error('Select at least one offer, or choose "All cars and offers"');
+    }
+    applicableCarModels = [];
+    applicableCarTypes = [];
+  } else if (scopeMode === 'models') {
+    if (applicableCarModels.length === 0) {
+      throw new Error('Select at least one car model, or choose "All cars and offers"');
+    }
+    applicableOfferIds = [];
+    applicableCarTypes = [];
+  } else if (scopeMode === 'types') {
+    if (applicableCarTypes.length === 0) {
+      throw new Error('Select at least one car type, or choose "All cars and offers"');
+    }
+    applicableOfferIds = [];
+    applicableCarModels = [];
+  } else if (scopeMode === 'custom') {
+    const hasAnyApplicable = applicableOfferIds.length > 0 || applicableCarModels.length > 0 || applicableCarTypes.length > 0;
+    if (!hasAnyApplicable) {
+      throw new Error('In mixed mode select at least one offer/model/type, or switch mode to "All cars and offers"');
+    }
+  } else {
+    throw new Error('Invalid scope mode');
+  }
+
+  validateCouponUuidList(applicableOfferIds, 'Applicable offer IDs');
 
   const partnerId = String($('#carCouponPartnerId')?.value || '').trim() || null;
   if (partnerId && !CAR_COUPON_UUID_PATTERN.test(partnerId)) {
@@ -14223,8 +14325,8 @@ function collectCarCouponFormPayload() {
     min_rental_total: minRentalTotal,
     applicable_locations: applicableLocations,
     applicable_offer_ids: applicableOfferIds,
-    applicable_car_models: getMultiSelectValues('carCouponApplicableCarModelsSelect'),
-    applicable_car_types: getMultiSelectValues('carCouponApplicableCarTypesSelect'),
+    applicable_car_models: applicableCarModels,
+    applicable_car_types: applicableCarTypes,
     excluded_offer_ids: excludedOfferIds,
     excluded_car_models: getMultiSelectValues('carCouponExcludedCarModelsSelect'),
     excluded_car_types: getMultiSelectValues('carCouponExcludedCarTypesSelect'),
@@ -14291,22 +14393,32 @@ async function openCarCouponModal(couponId = null) {
     $('#carCouponLocationLarnaca').checked = normalizeCouponArray(coupon.applicable_locations).includes('larnaca');
     $('#carCouponPartnerId').value = String(coupon.partner_id || '');
     $('#carCouponPartnerCommissionBps').value = coupon.partner_commission_bps_override ?? '';
-    populateCarCouponScopeSelectOptions({
+    const scopePreset = {
       applicable_offer_ids: normalizeCouponArray(coupon.applicable_offer_ids),
       excluded_offer_ids: normalizeCouponArray(coupon.excluded_offer_ids),
       applicable_car_models: normalizeCouponArray(coupon.applicable_car_models),
       excluded_car_models: normalizeCouponArray(coupon.excluded_car_models),
       applicable_car_types: normalizeCouponArray(coupon.applicable_car_types),
       excluded_car_types: normalizeCouponArray(coupon.excluded_car_types),
-    });
+    };
+    populateCarCouponScopeSelectOptions(scopePreset);
+    const scopeModeInput = $('#carCouponScopePrimaryMode');
+    if (scopeModeInput) {
+      scopeModeInput.value = inferCarCouponScopePrimaryMode(scopePreset);
+    }
   } else {
     title.textContent = 'Create Coupon';
     populateCarCouponScopeSelectOptions();
+    const scopeModeInput = $('#carCouponScopePrimaryMode');
+    if (scopeModeInput) {
+      scopeModeInput.value = 'all';
+    }
   }
 
   syncCarCouponDiscountTypeFields();
   syncCarCouponSingleUseFields();
   syncCarCouponDateWindowFields({ preserveValues: true });
+  syncCarCouponScopePrimaryModeFields({ preserveValues: true });
   modal.hidden = false;
 }
 
@@ -17225,6 +17337,13 @@ function initEventListeners() {
   if (carCouponNoDateLimit) {
     carCouponNoDateLimit.addEventListener('change', () => {
       syncCarCouponDateWindowFields();
+    });
+  }
+
+  const carCouponScopePrimaryMode = $('#carCouponScopePrimaryMode');
+  if (carCouponScopePrimaryMode) {
+    carCouponScopePrimaryMode.addEventListener('change', () => {
+      syncCarCouponScopePrimaryModeFields();
     });
   }
 
