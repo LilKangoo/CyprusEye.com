@@ -1405,7 +1405,7 @@ function ensureOAuthCompletionModal() {
 
       const firstName = String(form.firstName?.value || '').trim();
       const username = String(form.username?.value || '').trim();
-      const referralCode = String(form.referralCode?.value || '').trim();
+      const referralCodeInput = String(form.referralCode?.value || '').trim();
       const password = String(form.password?.value || '');
       const passwordConfirm = String(form.passwordConfirm?.value || '');
 
@@ -1421,10 +1421,14 @@ function ensureOAuthCompletionModal() {
         setError(t('Username must be 3-15 chars: letters, numbers, underscore.', 'Nazwa użytkownika: 3-15 znaków, litery, cyfry, podkreślenie.'));
         return;
       }
-      if (referralCode && !/^[a-zA-Z0-9_]+$/.test(referralCode)) {
+      if (referralCodeInput && !/^[a-zA-Z0-9_]+$/.test(referralCodeInput)) {
         setError(t('Enter a valid referral code.', 'Podaj poprawny kod polecający.'));
         return;
       }
+
+      const storedReferralCode = String(getStoredReferralCode() || '').trim();
+      const validStoredReferralCode = storedReferralCode && /^[a-zA-Z0-9_]+$/.test(storedReferralCode) ? storedReferralCode : '';
+      const effectiveReferralCode = referralCodeInput || validStoredReferralCode;
       if (!password || password.length < 8) {
         setError(t('Password must have at least 8 characters.', 'Hasło musi mieć co najmniej 8 znaków.'));
         return;
@@ -1456,7 +1460,7 @@ function ensureOAuthCompletionModal() {
             const { data, error } = await sb.rpc('complete_oauth_registration', {
               p_name: firstName,
               p_username: username,
-              p_referral_code: referralCode,
+              p_referral_code: effectiveReferralCode,
             });
             if (!error && data?.ok) {
               lastRpcError = null;
@@ -1499,8 +1503,8 @@ function ensureOAuthCompletionModal() {
 
           await syncOAuthCompletionProfile(userId, firstName, username);
 
-          if (referralCode) {
-            setStoredReferralCode(referralCode, { overwrite: true });
+          if (effectiveReferralCode) {
+            setStoredReferralCode(effectiveReferralCode, { overwrite: true });
             try {
               await processReferralAfterRegistration(userId);
             } catch (_refErr) {
@@ -2055,7 +2059,10 @@ $('#form-register')?.addEventListener('submit', async (event) => {
         return;
       }
 
-      const effectiveReferralCode = (payload.referralCode || getStoredReferralCode() || '').trim();
+      const storedReferralCode = String(getStoredReferralCode() || '').trim();
+      const validStoredReferralCode =
+        storedReferralCode && /^[a-zA-Z0-9_]+$/.test(storedReferralCode) ? storedReferralCode : '';
+      const effectiveReferralCode = (payload.referralCode || validStoredReferralCode || '').trim();
       if (effectiveReferralCode) {
         setStoredReferralCode(effectiveReferralCode, { overwrite: true });
       } else {
