@@ -9,6 +9,7 @@ import {
 } from '../../../../_utils/hardDeleteUser';
 
 const JSON_HEADERS = { 'content-type': 'application/json' };
+const DELETE_API_VERSION = '2026-02-17-e5f7a0e-2';
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
@@ -455,6 +456,7 @@ export async function onRequestPost(context) {
       return json({
         ok: true,
         action: 'preview',
+        api_version: DELETE_API_VERSION,
         user_id: userId,
         email: targetEmail || null,
         ...impact,
@@ -479,6 +481,7 @@ export async function onRequestPost(context) {
     return json({
       ok: true,
       action: 'execute',
+      api_version: DELETE_API_VERSION,
       user_id: userId,
       email: targetEmail || null,
       preview: impact,
@@ -487,6 +490,9 @@ export async function onRequestPost(context) {
   } catch (e) {
     const message = formatErrorMessage(e);
     console.error('[admin-delete] failed:', e);
-    return json({ error: message || 'Server error' }, 500);
+    return json({
+      error: message || 'Server error',
+      api_version: DELETE_API_VERSION,
+    }, 500);
   }
 }
