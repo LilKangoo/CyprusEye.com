@@ -3814,6 +3814,12 @@
       })();
 
       const additionalPairs = (() => {
+        const shouldSkipAdditionalKey = (key) => {
+          const nk = normalizeFormKey(key);
+          if (category === 'cars' && (nk === 'durationdays' || nk === 'duration')) return true;
+          return false;
+        };
+
         const combinedPayload = {
           ...(detailsPayload && typeof detailsPayload === 'object' ? detailsPayload : {}),
           ...(snapshotPayload && typeof snapshotPayload === 'object' ? snapshotPayload : {}),
@@ -3822,6 +3828,7 @@
         return Object.entries(combinedPayload)
           .filter(([k, v]) => {
             if (!String(k || '').trim() || usedKeys.has(k) || isEmptyFormValue(v)) return false;
+            if (shouldSkipAdditionalKey(k)) return false;
             if (!isContactRevealed && isSensitiveFormKey(k)) return false;
             return true;
           })
