@@ -4,7 +4,7 @@ export function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
 }
 
-export const HARD_DELETE_FLOW_VERSION = '2026-02-17-80b8ec0-1';
+export const HARD_DELETE_FLOW_VERSION = '2026-02-17-compact-subreq-1';
 
 function describeErrorPayload(error) {
   const pickText = (...values) => values
@@ -351,78 +351,76 @@ async function deleteAuthUserDirect(adminClient, userId) {
 }
 
 export async function executeHardDelete(client, adminClient, userId, email) {
-  const deleted = {};
-  const nullified = {};
+  const deleted = {
+    storage_avatars: 0,
+    storage_poi_photos: 0,
+    shop_orders_email: 0,
+    service_deposit_requests: 0,
+    car_bookings: 0,
+    trip_bookings: 0,
+    hotel_bookings: 0,
+    shop_orders_user: 0,
+    shop_addresses: 0,
+    recommendation_views: 0,
+    recommendation_clicks: 0,
+    poi_comments: 0,
+    poi_comment_likes: 0,
+    poi_ratings: 0,
+    user_poi_visits: 0,
+    completed_tasks: 0,
+    user_saved_catalog_items: 0,
+    user_plans: 0,
+    admin_push_subscriptions: 0,
+    partner_push_subscriptions: 0,
+    referrals_as_referrer: 0,
+    referrals_as_referred: 0,
+    affiliate_events_as_referrer: 0,
+    affiliate_events_as_referred: 0,
+    affiliate_referrer_overrides: 0,
+    partner_users: 0,
+    admin_activity_target: 0,
+    admin_activity_actor: 0,
+    profiles_referred_by: 0,
+    auth_user_deleted_via_fallback: 0,
+  };
+  const nullified = {
+    car_bookings_confirmed_by: 0,
+    shop_group_members_assigned_by: 0,
+    shop_order_history_changed_by: 0,
+    shop_refunds_processed_by: 0,
+    shop_reviews_moderated_by: 0,
+    shop_review_reports_reviewed_by: 0,
+    shop_price_history_changed_by: 0,
+    recommendations_created_by: 0,
+    recommendations_updated_by: 0,
+    shop_order_fulfillments_accepted_by: 0,
+    shop_order_fulfillments_rejected_by: 0,
+    partner_service_fulfillments_accepted_by: 0,
+    partner_service_fulfillments_rejected_by: 0,
+    partner_audit_log_actor_user_id: 0,
+    partner_thread_messages_author_user_id: 0,
+    partner_availability_blocks_created_by: 0,
+    affiliate_cashout_requests_requested_by: 0,
+    affiliate_payouts_created_by: 0,
+    affiliate_payouts_paid_by: 0,
+    affiliate_adjustments_created_by: 0,
+    partner_payout_details_updated_by: 0,
+    shop_product_views_user_id: 0,
+    xp_config_updated_by: 0,
+  };
 
-  nullified.car_bookings_confirmed_by = await runDeleteStep('nullify car_bookings.confirmed_by', () =>
-    safeNullifyByEq(client, 'car_bookings', 'confirmed_by', 'confirmed_by', userId),
-  );
-  nullified.shop_group_members_assigned_by = await runDeleteStep('nullify shop_customer_group_members.assigned_by', () =>
-    safeNullifyByEq(client, 'shop_customer_group_members', 'assigned_by', 'assigned_by', userId),
-  );
-  nullified.shop_order_history_changed_by = await runDeleteStep('nullify shop_order_history.changed_by', () =>
-    safeNullifyByEq(client, 'shop_order_history', 'changed_by', 'changed_by', userId),
-  );
-  nullified.shop_refunds_processed_by = await runDeleteStep('nullify shop_refunds.processed_by', () =>
-    safeNullifyByEq(client, 'shop_refunds', 'processed_by', 'processed_by', userId),
-  );
-  nullified.shop_reviews_moderated_by = await runDeleteStep('nullify shop_reviews.moderated_by', () =>
-    safeNullifyByEq(client, 'shop_reviews', 'moderated_by', 'moderated_by', userId),
-  );
-  nullified.shop_review_reports_reviewed_by = await runDeleteStep('nullify shop_review_reports.reviewed_by', () =>
-    safeNullifyByEq(client, 'shop_review_reports', 'reviewed_by', 'reviewed_by', userId),
-  );
-  nullified.shop_price_history_changed_by = await runDeleteStep('nullify shop_price_history.changed_by', () =>
-    safeNullifyByEq(client, 'shop_price_history', 'changed_by', 'changed_by', userId),
-  );
+  // Keep the recommendation FKs clear to avoid auth delete failures.
   nullified.recommendations_created_by = await runDeleteStep('nullify recommendations.created_by', () =>
     safeNullifyByEq(client, 'recommendations', 'created_by', 'created_by', userId),
   );
   nullified.recommendations_updated_by = await runDeleteStep('nullify recommendations.updated_by', () =>
     safeNullifyByEq(client, 'recommendations', 'updated_by', 'updated_by', userId),
   );
-
-  nullified.shop_order_fulfillments_accepted_by = await runDeleteStep('nullify shop_order_fulfillments.accepted_by', () =>
-    safeNullifyByEq(client, 'shop_order_fulfillments', 'accepted_by', 'accepted_by', userId),
+  deleted.recommendation_views = await runDeleteStep('delete recommendation_views by user_id', () =>
+    safeDeleteByEq(client, 'recommendation_views', 'user_id', userId),
   );
-  nullified.shop_order_fulfillments_rejected_by = await runDeleteStep('nullify shop_order_fulfillments.rejected_by', () =>
-    safeNullifyByEq(client, 'shop_order_fulfillments', 'rejected_by', 'rejected_by', userId),
-  );
-  nullified.partner_service_fulfillments_accepted_by = await runDeleteStep('nullify partner_service_fulfillments.accepted_by', () =>
-    safeNullifyByEq(client, 'partner_service_fulfillments', 'accepted_by', 'accepted_by', userId),
-  );
-  nullified.partner_service_fulfillments_rejected_by = await runDeleteStep('nullify partner_service_fulfillments.rejected_by', () =>
-    safeNullifyByEq(client, 'partner_service_fulfillments', 'rejected_by', 'rejected_by', userId),
-  );
-  nullified.partner_audit_log_actor_user_id = await runDeleteStep('nullify partner_audit_log.actor_user_id', () =>
-    safeNullifyByEq(client, 'partner_audit_log', 'actor_user_id', 'actor_user_id', userId),
-  );
-  nullified.partner_thread_messages_author_user_id = await runDeleteStep('nullify partner_thread_messages.author_user_id', () =>
-    safeNullifyByEq(client, 'partner_thread_messages', 'author_user_id', 'author_user_id', userId),
-  );
-  nullified.partner_availability_blocks_created_by = await runDeleteStep('nullify partner_availability_blocks.created_by', () =>
-    safeNullifyByEq(client, 'partner_availability_blocks', 'created_by', 'created_by', userId),
-  );
-  nullified.affiliate_cashout_requests_requested_by = await runDeleteStep('nullify affiliate_cashout_requests.requested_by', () =>
-    safeNullifyByEq(client, 'affiliate_cashout_requests', 'requested_by', 'requested_by', userId),
-  );
-  nullified.affiliate_payouts_created_by = await runDeleteStep('nullify affiliate_payouts.created_by', () =>
-    safeNullifyByEq(client, 'affiliate_payouts', 'created_by', 'created_by', userId),
-  );
-  nullified.affiliate_payouts_paid_by = await runDeleteStep('nullify affiliate_payouts.paid_by', () =>
-    safeNullifyByEq(client, 'affiliate_payouts', 'paid_by', 'paid_by', userId),
-  );
-  nullified.affiliate_adjustments_created_by = await runDeleteStep('nullify affiliate_adjustments.created_by', () =>
-    safeNullifyByEq(client, 'affiliate_adjustments', 'created_by', 'created_by', userId),
-  );
-  nullified.partner_payout_details_updated_by = await runDeleteStep('nullify partner_payout_details.updated_by', () =>
-    safeNullifyByEq(client, 'partner_payout_details', 'updated_by', 'updated_by', userId),
-  );
-  nullified.shop_product_views_user_id = await runDeleteStep('nullify shop_product_views.user_id', () =>
-    safeNullifyByEq(client, 'shop_product_views', 'user_id', 'user_id', userId),
-  );
-  nullified.xp_config_updated_by = await runDeleteStep('nullify xp_config.updated_by', () =>
-    safeNullifyByEq(client, 'xp_config', 'updated_by', 'updated_by', userId),
+  deleted.recommendation_clicks = await runDeleteStep('delete recommendation_clicks by user_id', () =>
+    safeDeleteByEq(client, 'recommendation_clicks', 'user_id', userId),
   );
 
   deleted.storage_avatars = await runDeleteStep('storage cleanup avatars', () =>
@@ -448,77 +446,16 @@ export async function executeHardDelete(client, adminClient, userId, email) {
     deleted.hotel_bookings = await runDeleteStep('delete hotel_bookings by customer_email', () =>
       deleteByEmailColumns(client, 'hotel_bookings', ['customer_email'], email),
     );
-  } else {
-    deleted.shop_orders_email = 0;
-    deleted.service_deposit_requests = 0;
-    deleted.car_bookings = 0;
-    deleted.trip_bookings = 0;
-    deleted.hotel_bookings = 0;
   }
 
+  // Keep direct user-linked commerce rows deterministic even when email is missing.
   deleted.shop_orders_user = await runDeleteStep('delete shop_orders by user_id', () =>
     safeDeleteByEq(client, 'shop_orders', 'user_id', userId),
   );
   deleted.shop_addresses = await runDeleteStep('delete shop_addresses by user_id', () =>
     safeDeleteByEq(client, 'shop_addresses', 'user_id', userId),
   );
-  deleted.recommendation_views = await runDeleteStep('delete recommendation_views by user_id', () =>
-    safeDeleteByEq(client, 'recommendation_views', 'user_id', userId),
-  );
-  deleted.recommendation_clicks = await runDeleteStep('delete recommendation_clicks by user_id', () =>
-    safeDeleteByEq(client, 'recommendation_clicks', 'user_id', userId),
-  );
-  deleted.poi_comments = await runDeleteStep('delete poi_comments by user_id', () =>
-    safeDeleteByEq(client, 'poi_comments', 'user_id', userId),
-  );
-  deleted.poi_comment_likes = await runDeleteStep('delete poi_comment_likes by user_id', () =>
-    safeDeleteByEq(client, 'poi_comment_likes', 'user_id', userId),
-  );
-  deleted.poi_ratings = await runDeleteStep('delete poi_ratings by user_id', () =>
-    safeDeleteByEq(client, 'poi_ratings', 'user_id', userId),
-  );
-  deleted.user_poi_visits = await runDeleteStep('delete user_poi_visits by user_id', () =>
-    safeDeleteByEq(client, 'user_poi_visits', 'user_id', userId),
-  );
-  deleted.completed_tasks = await runDeleteStep('delete completed_tasks by user_id', () =>
-    safeDeleteByEq(client, 'completed_tasks', 'user_id', userId),
-  );
-  deleted.user_saved_catalog_items = await runDeleteStep('delete user_saved_catalog_items by user_id', () =>
-    safeDeleteByEq(client, 'user_saved_catalog_items', 'user_id', userId),
-  );
-  deleted.user_plans = await runDeleteStep('delete user_plans by user_id', () =>
-    safeDeleteByEq(client, 'user_plans', 'user_id', userId),
-  );
-  deleted.admin_push_subscriptions = await runDeleteStep('delete admin_push_subscriptions by user_id', () =>
-    safeDeleteByEq(client, 'admin_push_subscriptions', 'user_id', userId),
-  );
-  deleted.partner_push_subscriptions = await runDeleteStep('delete partner_push_subscriptions by user_id', () =>
-    safeDeleteByEq(client, 'partner_push_subscriptions', 'user_id', userId),
-  );
-  deleted.referrals_as_referrer = await runDeleteStep('delete referrals by referrer_id', () =>
-    safeDeleteByEq(client, 'referrals', 'referrer_id', userId),
-  );
-  deleted.referrals_as_referred = await runDeleteStep('delete referrals by referred_id', () =>
-    safeDeleteByEq(client, 'referrals', 'referred_id', userId),
-  );
-  deleted.affiliate_events_as_referrer = await runDeleteStep('delete affiliate_commission_events by referrer_user_id', () =>
-    safeDeleteByEq(client, 'affiliate_commission_events', 'referrer_user_id', userId),
-  );
-  deleted.affiliate_events_as_referred = await runDeleteStep('delete affiliate_commission_events by referred_user_id', () =>
-    safeDeleteByEq(client, 'affiliate_commission_events', 'referred_user_id', userId),
-  );
-  deleted.affiliate_referrer_overrides = await runDeleteStep('delete affiliate_referrer_overrides by referrer_user_id', () =>
-    safeDeleteByEq(client, 'affiliate_referrer_overrides', 'referrer_user_id', userId),
-  );
-  deleted.partner_users = await runDeleteStep('delete partner_users by user_id', () =>
-    safeDeleteByEq(client, 'partner_users', 'user_id', userId),
-  );
-  deleted.admin_activity_target = await runDeleteStep('delete admin_activity_log by target_user_id', () =>
-    safeDeleteByEq(client, 'admin_activity_log', 'target_user_id', userId),
-  );
-  deleted.admin_activity_actor = await runDeleteStep('delete admin_activity_log by actor_id', () =>
-    safeDeleteByEq(client, 'admin_activity_log', 'actor_id', userId),
-  );
+
   deleted.profiles_referred_by = await runDeleteStep('nullify profiles.referred_by', () =>
     safeNullifyByEq(client, 'profiles', 'referred_by', 'referred_by', userId),
   );
