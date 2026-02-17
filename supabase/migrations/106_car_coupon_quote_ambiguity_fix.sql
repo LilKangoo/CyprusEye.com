@@ -1,5 +1,5 @@
 -- =====================================================
--- Patch car_coupon_quote for mixed text/jsonb offer fields
+-- Patch car_coupon_quote for mixed offer fields + disambiguated coupon redemptions
 -- =====================================================
 
 CREATE OR REPLACE FUNCTION public.car_coupon_quote(

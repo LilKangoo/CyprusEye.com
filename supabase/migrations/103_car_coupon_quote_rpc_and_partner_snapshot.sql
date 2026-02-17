@@ -256,8 +256,8 @@ BEGIN
 
   SELECT count(*)::integer
   INTO v_total_redemptions
-  FROM public.car_coupon_redemptions
-  WHERE coupon_id = v_coupon.id;
+  FROM public.car_coupon_redemptions r
+  WHERE r.coupon_id = v_coupon.id;
 
   IF v_total_limit IS NOT NULL AND v_total_redemptions >= v_total_limit THEN
     message := 'Coupon usage limit reached';
@@ -269,9 +269,9 @@ BEGIN
     IF p_user_id IS NOT NULL THEN
       SELECT count(*)::integer
       INTO v_user_redemptions
-      FROM public.car_coupon_redemptions
-      WHERE coupon_id = v_coupon.id
-        AND user_id = p_user_id;
+      FROM public.car_coupon_redemptions r
+      WHERE r.coupon_id = v_coupon.id
+        AND r.user_id = p_user_id;
     ELSE
       IF v_user_email = '' THEN
         message := 'Coupon requires customer email to validate per-user limit';
@@ -281,9 +281,9 @@ BEGIN
 
       SELECT count(*)::integer
       INTO v_user_redemptions
-      FROM public.car_coupon_redemptions
-      WHERE coupon_id = v_coupon.id
-        AND lower(trim(coalesce(user_email, ''))) = v_user_email;
+      FROM public.car_coupon_redemptions r
+      WHERE r.coupon_id = v_coupon.id
+        AND lower(trim(coalesce(r.user_email, ''))) = v_user_email;
     END IF;
 
     IF v_user_redemptions >= v_user_limit THEN
