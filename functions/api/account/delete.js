@@ -10,6 +10,23 @@ function json(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
 }
 
+function formatErrorMessage(error) {
+  const direct = String(
+    error?.message
+    || error?.error
+    || error?.error_description
+    || '',
+  ).trim();
+  if (direct) return direct;
+  const extra = String(error?.details || error?.hint || error?.code || '').trim();
+  if (extra) return extra;
+  try {
+    return JSON.stringify(error);
+  } catch (_e) {
+    return 'Server error';
+  }
+}
+
 async function requireAuthenticatedUser(request, env) {
   const authHeader = request.headers.get('Authorization') || '';
   const { publicClient } = createSupabaseClients(env, authHeader);
@@ -89,6 +106,8 @@ export async function onRequestPost(context) {
       ...result,
     });
   } catch (e) {
-    return json({ error: e.message || 'Server error' }, 500);
+    const message = formatErrorMessage(e);
+    console.error('[account-delete] failed:', e);
+    return json({ error: message || 'Server error' }, 500);
   }
 }

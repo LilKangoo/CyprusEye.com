@@ -24,8 +24,30 @@ function isMissingColumnError(error) {
 }
 
 function isStorageNotFound(error) {
-  const msg = String(error?.message || '').toLowerCase();
-  return msg.includes('bucket not found') || msg.includes('not found');
+  const message = String(error?.message || '').toLowerCase();
+  const errorText = String(error?.error || '').toLowerCase();
+  const statusText = String(error?.statusText || '').toLowerCase();
+  const status = Number(error?.statusCode || error?.status || 0);
+  if (status === 404) return true;
+  const combined = `${message} ${errorText} ${statusText}`;
+  return combined.includes('bucket not found') || combined.includes('no such bucket');
+}
+
+function formatErrorMessage(error) {
+  const direct = String(
+    error?.message
+    || error?.error
+    || error?.error_description
+    || '',
+  ).trim();
+  if (direct) return direct;
+  const extra = String(error?.details || error?.hint || error?.code || '').trim();
+  if (extra) return extra;
+  try {
+    return JSON.stringify(error);
+  } catch (_e) {
+    return 'Server error';
+  }
 }
 
 async function safeCountByEq(client, table, column, value) {
@@ -219,6 +241,16 @@ async function deleteStoragePrefixRecursive(adminClient, bucket, prefix) {
   return removed;
 }
 
+async function safeDeleteStoragePrefixRecursive(adminClient, bucket, prefix) {
+  try {
+    return await deleteStoragePrefixRecursive(adminClient, bucket, prefix);
+  } catch (error) {
+    if (isStorageNotFound(error)) return 0;
+    console.warn('[admin-delete] storage cleanup failed (continuing):', { bucket, prefix, error });
+    return 0;
+  }
+}
+
 export async function collectDeleteImpact(client, userId, email) {
   const counts = {};
   counts.profiles = await safeCountByEq(client, 'profiles', 'id', userId);
@@ -277,8 +309,8 @@ export async function executeHardDelete(client, adminClient, userId, email) {
   nullified.recommendations_created_by = await safeNullifyByEq(client, 'recommendations', 'created_by', 'created_by', userId);
   nullified.recommendations_updated_by = await safeNullifyByEq(client, 'recommendations', 'updated_by', 'updated_by', userId);
 
-  deleted.storage_avatars = await deleteStoragePrefixRecursive(adminClient, 'avatars', userId);
-  deleted.storage_poi_photos = await deleteStoragePrefixRecursive(adminClient, 'poi-photos', userId);
+  deleted.storage_avatars = await safeDeleteStoragePrefixRecursive(adminClient, 'avatars', userId);
+  deleted.storage_poi_photos = await safeDeleteStoragePrefixRecursive(adminClient, 'poi-photos', userId);
 
   if (email) {
     deleted.shop_orders_email = await deleteByEmailColumns(client, 'shop_orders', ['customer_email'], email);
@@ -394,6 +426,8 @@ export async function onRequestPost(context) {
       ...result,
     });
   } catch (e) {
-    return json({ error: e.message || 'Server error' }, 500);
+    const message = formatErrorMessage(e);
+    console.error('[admin-delete] failed:', e);
+    return json({ error: message || 'Server error' }, 500);
   }
 }
