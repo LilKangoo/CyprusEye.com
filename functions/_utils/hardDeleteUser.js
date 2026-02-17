@@ -319,6 +319,17 @@ async function runDeleteStep(step, operation) {
   }
 }
 
+async function deleteAuthUserDirect(adminClient, userId) {
+  // Fallback path when auth.admin.deleteUser returns opaque/empty payloads.
+  const { error } = await adminClient
+    .schema('auth')
+    .from('users')
+    .delete()
+    .eq('id', userId);
+  if (error) throw error;
+  return true;
+}
+
 export async function executeHardDelete(client, adminClient, userId, email) {
   const deleted = {};
   const nullified = {};
@@ -496,7 +507,18 @@ export async function executeHardDelete(client, adminClient, userId, email) {
     adminClient.auth.admin.deleteUser(userId),
   );
   if (authDeleteError) {
-    throw buildStepError('auth.admin.deleteUser', authDeleteError);
+    try {
+      await runDeleteStep('auth.users direct delete fallback', async () =>
+        deleteAuthUserDirect(adminClient, userId),
+      );
+      deleted.auth_user_deleted_via_fallback = 1;
+    } catch (fallbackError) {
+      const primary = describeErrorPayload(authDeleteError) || 'empty';
+      const secondary = describeErrorPayload(fallbackError) || 'empty';
+      throw new Error(
+        `Hard delete failed at auth user removal: admin.deleteUser=${primary}; direct auth.users delete=${secondary}`,
+      );
+    }
   }
 
   const deletedRecords = Object.values(deleted).reduce((sum, value) => sum + Number(value || 0), 0);
