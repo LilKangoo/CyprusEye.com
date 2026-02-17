@@ -4,6 +4,8 @@ export function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
 }
 
+export const HARD_DELETE_FLOW_VERSION = '2026-02-17-80b8ec0-1';
+
 function describeErrorPayload(error) {
   const pickText = (...values) => values
     .map((value) => (typeof value === 'string' ? value.trim() : ''))

@@ -6,6 +6,7 @@ import {
   normalizeEmail as normalizeEmailShared,
   collectDeleteImpact as collectDeleteImpactShared,
   executeHardDelete as executeHardDeleteShared,
+  HARD_DELETE_FLOW_VERSION,
 } from '../../../../_utils/hardDeleteUser';
 
 const JSON_HEADERS = { 'content-type': 'application/json' };
@@ -457,6 +458,7 @@ export async function onRequestPost(context) {
         ok: true,
         action: 'preview',
         api_version: DELETE_API_VERSION,
+        hard_delete_flow_version: HARD_DELETE_FLOW_VERSION,
         user_id: userId,
         email: targetEmail || null,
         ...impact,
@@ -482,6 +484,7 @@ export async function onRequestPost(context) {
       ok: true,
       action: 'execute',
       api_version: DELETE_API_VERSION,
+      hard_delete_flow_version: HARD_DELETE_FLOW_VERSION,
       user_id: userId,
       email: targetEmail || null,
       preview: impact,
@@ -493,6 +496,7 @@ export async function onRequestPost(context) {
     return json({
       error: message || 'Server error',
       api_version: DELETE_API_VERSION,
+      hard_delete_flow_version: HARD_DELETE_FLOW_VERSION,
     }, 500);
   }
 }
