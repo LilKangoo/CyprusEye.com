@@ -11,20 +11,24 @@ function json(body, status = 200) {
 }
 
 function formatErrorMessage(error) {
-  const direct = String(
-    error?.message
-    || error?.error
-    || error?.error_description
-    || '',
-  ).trim();
+  const pickText = (...values) => values
+    .map((value) => (typeof value === 'string' ? value.trim() : ''))
+    .find(Boolean) || '';
+
+  const direct = pickText(
+    error?.message,
+    error?.error,
+    error?.error_description,
+    error?.details,
+    error?.hint,
+    error?.code,
+    error?.statusText,
+  );
   if (direct) return direct;
-  const extra = String(error?.details || error?.hint || error?.code || '').trim();
-  if (extra) return extra;
-  try {
-    return JSON.stringify(error);
-  } catch (_e) {
-    return 'Server error';
-  }
+
+  const status = Number(error?.statusCode || error?.status || 0);
+  if (status > 0) return `Server error (status ${status})`;
+  return 'Unexpected server error (empty error payload)';
 }
 
 async function requireAuthenticatedUser(request, env) {

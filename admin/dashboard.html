@@ -6,7 +6,7 @@
   
   <!-- Security: Content Security Policy - Admin Panel -->
   <!-- Note: Relaxed CSP for admin panel - protected by authentication -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://esm.sh https://*.esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co https://esm.sh; object-src 'none'; base-uri 'self'; form-action 'self';">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://esm.sh https://*.esm.sh https://unpkg.com https://static.cloudflareinsights.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://daoohnbnnowmmcizgvrq.supabase.co https://*.supabase.co wss://daoohnbnnowmmcizgvrq.supabase.co wss://*.supabase.co https://esm.sh https://*.esm.sh; object-src 'none'; base-uri 'self'; form-action 'self';">
   <!-- Admin panel is already protected by multi-layer authentication -->
   
   <meta name="theme-color" content="#dc2626" />
@@ -40,7 +40,7 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260216_2"></script>
+  <script type="module" src="/admin/admin.js?v=20260217_1"></script>
   <script src="/admin/admin-pwa.js?v=20260216_1" defer></script>
 </head>
 <body data-admin-panel="true">

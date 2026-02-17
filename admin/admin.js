@@ -11693,10 +11693,46 @@ async function apiRequest(path, options = {}) {
   if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
   const res = await fetch(`/admin/api${path}`, { ...options, headers });
   if (!res.ok) {
-    let msg = 'Request failed';
+    let msg = `Request failed (HTTP ${res.status})`;
     try {
       const body = await res.json();
-      msg = body.message || body.error || msg;
+      const pickText = (...values) => values
+        .map((value) => (typeof value === 'string' ? value.trim() : ''))
+        .find(Boolean) || '';
+      const normalizeError = (value) => {
+        if (!value) return '';
+        if (typeof value === 'string') return value.trim();
+        if (typeof value === 'object') {
+          const fromObject = pickText(
+            value.message,
+            value.error,
+            value.error_description,
+            value.details,
+            value.hint,
+            value.code,
+          );
+          if (fromObject) return fromObject;
+          try {
+            return JSON.stringify(value);
+          } catch (_e) {
+            return '';
+          }
+        }
+        return '';
+      };
+      const fromBody = pickText(
+        body?.message,
+        normalizeError(body?.error),
+        body?.error_description,
+        body?.details,
+        body?.hint,
+        body?.code,
+      );
+      if (fromBody) {
+        msg = fromBody;
+      } else if (res.status >= 500) {
+        msg = `Server error (HTTP ${res.status})`;
+      }
     } catch {}
     throw new Error(msg);
   }
