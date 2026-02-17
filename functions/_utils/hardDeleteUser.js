@@ -300,29 +300,123 @@ export async function collectDeleteImpact(client, userId, email) {
   return { counts, total_records: totalRecords };
 }
 
+function buildStepError(step, error) {
+  const detail = describeErrorPayload(error);
+  const wrapped = new Error(
+    detail
+      ? `Hard delete failed at ${step}: ${detail}`
+      : `Hard delete failed at ${step}`,
+  );
+  wrapped.cause = error;
+  return wrapped;
+}
+
+async function runDeleteStep(step, operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    throw buildStepError(step, error);
+  }
+}
+
 export async function executeHardDelete(client, adminClient, userId, email) {
   const deleted = {};
   const nullified = {};
 
-  nullified.car_bookings_confirmed_by = await safeNullifyByEq(client, 'car_bookings', 'confirmed_by', 'confirmed_by', userId);
-  nullified.shop_group_members_assigned_by = await safeNullifyByEq(client, 'shop_customer_group_members', 'assigned_by', 'assigned_by', userId);
-  nullified.shop_order_history_changed_by = await safeNullifyByEq(client, 'shop_order_history', 'changed_by', 'changed_by', userId);
-  nullified.shop_refunds_processed_by = await safeNullifyByEq(client, 'shop_refunds', 'processed_by', 'processed_by', userId);
-  nullified.shop_reviews_moderated_by = await safeNullifyByEq(client, 'shop_reviews', 'moderated_by', 'moderated_by', userId);
-  nullified.shop_review_reports_reviewed_by = await safeNullifyByEq(client, 'shop_review_reports', 'reviewed_by', 'reviewed_by', userId);
-  nullified.shop_price_history_changed_by = await safeNullifyByEq(client, 'shop_price_history', 'changed_by', 'changed_by', userId);
-  nullified.recommendations_created_by = await safeNullifyByEq(client, 'recommendations', 'created_by', 'created_by', userId);
-  nullified.recommendations_updated_by = await safeNullifyByEq(client, 'recommendations', 'updated_by', 'updated_by', userId);
+  nullified.car_bookings_confirmed_by = await runDeleteStep('nullify car_bookings.confirmed_by', () =>
+    safeNullifyByEq(client, 'car_bookings', 'confirmed_by', 'confirmed_by', userId),
+  );
+  nullified.shop_group_members_assigned_by = await runDeleteStep('nullify shop_customer_group_members.assigned_by', () =>
+    safeNullifyByEq(client, 'shop_customer_group_members', 'assigned_by', 'assigned_by', userId),
+  );
+  nullified.shop_order_history_changed_by = await runDeleteStep('nullify shop_order_history.changed_by', () =>
+    safeNullifyByEq(client, 'shop_order_history', 'changed_by', 'changed_by', userId),
+  );
+  nullified.shop_refunds_processed_by = await runDeleteStep('nullify shop_refunds.processed_by', () =>
+    safeNullifyByEq(client, 'shop_refunds', 'processed_by', 'processed_by', userId),
+  );
+  nullified.shop_reviews_moderated_by = await runDeleteStep('nullify shop_reviews.moderated_by', () =>
+    safeNullifyByEq(client, 'shop_reviews', 'moderated_by', 'moderated_by', userId),
+  );
+  nullified.shop_review_reports_reviewed_by = await runDeleteStep('nullify shop_review_reports.reviewed_by', () =>
+    safeNullifyByEq(client, 'shop_review_reports', 'reviewed_by', 'reviewed_by', userId),
+  );
+  nullified.shop_price_history_changed_by = await runDeleteStep('nullify shop_price_history.changed_by', () =>
+    safeNullifyByEq(client, 'shop_price_history', 'changed_by', 'changed_by', userId),
+  );
+  nullified.recommendations_created_by = await runDeleteStep('nullify recommendations.created_by', () =>
+    safeNullifyByEq(client, 'recommendations', 'created_by', 'created_by', userId),
+  );
+  nullified.recommendations_updated_by = await runDeleteStep('nullify recommendations.updated_by', () =>
+    safeNullifyByEq(client, 'recommendations', 'updated_by', 'updated_by', userId),
+  );
 
-  deleted.storage_avatars = await safeDeleteStoragePrefixRecursive(adminClient, 'avatars', userId);
-  deleted.storage_poi_photos = await safeDeleteStoragePrefixRecursive(adminClient, 'poi-photos', userId);
+  nullified.shop_order_fulfillments_accepted_by = await runDeleteStep('nullify shop_order_fulfillments.accepted_by', () =>
+    safeNullifyByEq(client, 'shop_order_fulfillments', 'accepted_by', 'accepted_by', userId),
+  );
+  nullified.shop_order_fulfillments_rejected_by = await runDeleteStep('nullify shop_order_fulfillments.rejected_by', () =>
+    safeNullifyByEq(client, 'shop_order_fulfillments', 'rejected_by', 'rejected_by', userId),
+  );
+  nullified.partner_service_fulfillments_accepted_by = await runDeleteStep('nullify partner_service_fulfillments.accepted_by', () =>
+    safeNullifyByEq(client, 'partner_service_fulfillments', 'accepted_by', 'accepted_by', userId),
+  );
+  nullified.partner_service_fulfillments_rejected_by = await runDeleteStep('nullify partner_service_fulfillments.rejected_by', () =>
+    safeNullifyByEq(client, 'partner_service_fulfillments', 'rejected_by', 'rejected_by', userId),
+  );
+  nullified.partner_audit_log_actor_user_id = await runDeleteStep('nullify partner_audit_log.actor_user_id', () =>
+    safeNullifyByEq(client, 'partner_audit_log', 'actor_user_id', 'actor_user_id', userId),
+  );
+  nullified.partner_thread_messages_author_user_id = await runDeleteStep('nullify partner_thread_messages.author_user_id', () =>
+    safeNullifyByEq(client, 'partner_thread_messages', 'author_user_id', 'author_user_id', userId),
+  );
+  nullified.partner_availability_blocks_created_by = await runDeleteStep('nullify partner_availability_blocks.created_by', () =>
+    safeNullifyByEq(client, 'partner_availability_blocks', 'created_by', 'created_by', userId),
+  );
+  nullified.affiliate_cashout_requests_requested_by = await runDeleteStep('nullify affiliate_cashout_requests.requested_by', () =>
+    safeNullifyByEq(client, 'affiliate_cashout_requests', 'requested_by', 'requested_by', userId),
+  );
+  nullified.affiliate_payouts_created_by = await runDeleteStep('nullify affiliate_payouts.created_by', () =>
+    safeNullifyByEq(client, 'affiliate_payouts', 'created_by', 'created_by', userId),
+  );
+  nullified.affiliate_payouts_paid_by = await runDeleteStep('nullify affiliate_payouts.paid_by', () =>
+    safeNullifyByEq(client, 'affiliate_payouts', 'paid_by', 'paid_by', userId),
+  );
+  nullified.affiliate_adjustments_created_by = await runDeleteStep('nullify affiliate_adjustments.created_by', () =>
+    safeNullifyByEq(client, 'affiliate_adjustments', 'created_by', 'created_by', userId),
+  );
+  nullified.partner_payout_details_updated_by = await runDeleteStep('nullify partner_payout_details.updated_by', () =>
+    safeNullifyByEq(client, 'partner_payout_details', 'updated_by', 'updated_by', userId),
+  );
+  nullified.shop_product_views_user_id = await runDeleteStep('nullify shop_product_views.user_id', () =>
+    safeNullifyByEq(client, 'shop_product_views', 'user_id', 'user_id', userId),
+  );
+  nullified.xp_config_updated_by = await runDeleteStep('nullify xp_config.updated_by', () =>
+    safeNullifyByEq(client, 'xp_config', 'updated_by', 'updated_by', userId),
+  );
+
+  deleted.storage_avatars = await runDeleteStep('storage cleanup avatars', () =>
+    safeDeleteStoragePrefixRecursive(adminClient, 'avatars', userId),
+  );
+  deleted.storage_poi_photos = await runDeleteStep('storage cleanup poi-photos', () =>
+    safeDeleteStoragePrefixRecursive(adminClient, 'poi-photos', userId),
+  );
 
   if (email) {
-    deleted.shop_orders_email = await deleteByEmailColumns(client, 'shop_orders', ['customer_email'], email);
-    deleted.service_deposit_requests = await deleteByEmailColumns(client, 'service_deposit_requests', ['customer_email'], email);
-    deleted.car_bookings = await deleteByEmailColumns(client, 'car_bookings', ['email', 'customer_email'], email);
-    deleted.trip_bookings = await deleteByEmailColumns(client, 'trip_bookings', ['customer_email'], email);
-    deleted.hotel_bookings = await deleteByEmailColumns(client, 'hotel_bookings', ['customer_email'], email);
+    deleted.shop_orders_email = await runDeleteStep('delete shop_orders by customer_email', () =>
+      deleteByEmailColumns(client, 'shop_orders', ['customer_email'], email),
+    );
+    deleted.service_deposit_requests = await runDeleteStep('delete service_deposit_requests by customer_email', () =>
+      deleteByEmailColumns(client, 'service_deposit_requests', ['customer_email'], email),
+    );
+    deleted.car_bookings = await runDeleteStep('delete car_bookings by email/customer_email', () =>
+      deleteByEmailColumns(client, 'car_bookings', ['email', 'customer_email'], email),
+    );
+    deleted.trip_bookings = await runDeleteStep('delete trip_bookings by customer_email', () =>
+      deleteByEmailColumns(client, 'trip_bookings', ['customer_email'], email),
+    );
+    deleted.hotel_bookings = await runDeleteStep('delete hotel_bookings by customer_email', () =>
+      deleteByEmailColumns(client, 'hotel_bookings', ['customer_email'], email),
+    );
   } else {
     deleted.shop_orders_email = 0;
     deleted.service_deposit_requests = 0;
@@ -331,34 +425,78 @@ export async function executeHardDelete(client, adminClient, userId, email) {
     deleted.hotel_bookings = 0;
   }
 
-  deleted.shop_orders_user = await safeDeleteByEq(client, 'shop_orders', 'user_id', userId);
-  deleted.shop_addresses = await safeDeleteByEq(client, 'shop_addresses', 'user_id', userId);
-  deleted.recommendation_views = await safeDeleteByEq(client, 'recommendation_views', 'user_id', userId);
-  deleted.recommendation_clicks = await safeDeleteByEq(client, 'recommendation_clicks', 'user_id', userId);
-  deleted.user_saved_catalog_items = await safeDeleteByEq(client, 'user_saved_catalog_items', 'user_id', userId);
-  deleted.user_plans = await safeDeleteByEq(client, 'user_plans', 'user_id', userId);
-  deleted.admin_push_subscriptions = await safeDeleteByEq(client, 'admin_push_subscriptions', 'user_id', userId);
-  deleted.partner_push_subscriptions = await safeDeleteByEq(client, 'partner_push_subscriptions', 'user_id', userId);
-  deleted.referrals_as_referrer = await safeDeleteByEq(client, 'referrals', 'referrer_id', userId);
-  deleted.referrals_as_referred = await safeDeleteByEq(client, 'referrals', 'referred_id', userId);
-  deleted.affiliate_events_as_referrer = await safeDeleteByEq(client, 'affiliate_commission_events', 'referrer_user_id', userId);
-  deleted.affiliate_events_as_referred = await safeDeleteByEq(client, 'affiliate_commission_events', 'referred_user_id', userId);
-  deleted.affiliate_referrer_overrides = await safeDeleteByEq(client, 'affiliate_referrer_overrides', 'referrer_user_id', userId);
-  deleted.partner_users = await safeDeleteByEq(client, 'partner_users', 'user_id', userId);
-  deleted.admin_activity_target = await safeDeleteByEq(client, 'admin_activity_log', 'target_user_id', userId);
-  deleted.admin_activity_actor = await safeDeleteByEq(client, 'admin_activity_log', 'actor_id', userId);
-  deleted.profiles_referred_by = await safeNullifyByEq(client, 'profiles', 'referred_by', 'referred_by', userId);
+  deleted.shop_orders_user = await runDeleteStep('delete shop_orders by user_id', () =>
+    safeDeleteByEq(client, 'shop_orders', 'user_id', userId),
+  );
+  deleted.shop_addresses = await runDeleteStep('delete shop_addresses by user_id', () =>
+    safeDeleteByEq(client, 'shop_addresses', 'user_id', userId),
+  );
+  deleted.recommendation_views = await runDeleteStep('delete recommendation_views by user_id', () =>
+    safeDeleteByEq(client, 'recommendation_views', 'user_id', userId),
+  );
+  deleted.recommendation_clicks = await runDeleteStep('delete recommendation_clicks by user_id', () =>
+    safeDeleteByEq(client, 'recommendation_clicks', 'user_id', userId),
+  );
+  deleted.poi_comments = await runDeleteStep('delete poi_comments by user_id', () =>
+    safeDeleteByEq(client, 'poi_comments', 'user_id', userId),
+  );
+  deleted.poi_comment_likes = await runDeleteStep('delete poi_comment_likes by user_id', () =>
+    safeDeleteByEq(client, 'poi_comment_likes', 'user_id', userId),
+  );
+  deleted.poi_ratings = await runDeleteStep('delete poi_ratings by user_id', () =>
+    safeDeleteByEq(client, 'poi_ratings', 'user_id', userId),
+  );
+  deleted.user_poi_visits = await runDeleteStep('delete user_poi_visits by user_id', () =>
+    safeDeleteByEq(client, 'user_poi_visits', 'user_id', userId),
+  );
+  deleted.completed_tasks = await runDeleteStep('delete completed_tasks by user_id', () =>
+    safeDeleteByEq(client, 'completed_tasks', 'user_id', userId),
+  );
+  deleted.user_saved_catalog_items = await runDeleteStep('delete user_saved_catalog_items by user_id', () =>
+    safeDeleteByEq(client, 'user_saved_catalog_items', 'user_id', userId),
+  );
+  deleted.user_plans = await runDeleteStep('delete user_plans by user_id', () =>
+    safeDeleteByEq(client, 'user_plans', 'user_id', userId),
+  );
+  deleted.admin_push_subscriptions = await runDeleteStep('delete admin_push_subscriptions by user_id', () =>
+    safeDeleteByEq(client, 'admin_push_subscriptions', 'user_id', userId),
+  );
+  deleted.partner_push_subscriptions = await runDeleteStep('delete partner_push_subscriptions by user_id', () =>
+    safeDeleteByEq(client, 'partner_push_subscriptions', 'user_id', userId),
+  );
+  deleted.referrals_as_referrer = await runDeleteStep('delete referrals by referrer_id', () =>
+    safeDeleteByEq(client, 'referrals', 'referrer_id', userId),
+  );
+  deleted.referrals_as_referred = await runDeleteStep('delete referrals by referred_id', () =>
+    safeDeleteByEq(client, 'referrals', 'referred_id', userId),
+  );
+  deleted.affiliate_events_as_referrer = await runDeleteStep('delete affiliate_commission_events by referrer_user_id', () =>
+    safeDeleteByEq(client, 'affiliate_commission_events', 'referrer_user_id', userId),
+  );
+  deleted.affiliate_events_as_referred = await runDeleteStep('delete affiliate_commission_events by referred_user_id', () =>
+    safeDeleteByEq(client, 'affiliate_commission_events', 'referred_user_id', userId),
+  );
+  deleted.affiliate_referrer_overrides = await runDeleteStep('delete affiliate_referrer_overrides by referrer_user_id', () =>
+    safeDeleteByEq(client, 'affiliate_referrer_overrides', 'referrer_user_id', userId),
+  );
+  deleted.partner_users = await runDeleteStep('delete partner_users by user_id', () =>
+    safeDeleteByEq(client, 'partner_users', 'user_id', userId),
+  );
+  deleted.admin_activity_target = await runDeleteStep('delete admin_activity_log by target_user_id', () =>
+    safeDeleteByEq(client, 'admin_activity_log', 'target_user_id', userId),
+  );
+  deleted.admin_activity_actor = await runDeleteStep('delete admin_activity_log by actor_id', () =>
+    safeDeleteByEq(client, 'admin_activity_log', 'actor_id', userId),
+  );
+  deleted.profiles_referred_by = await runDeleteStep('nullify profiles.referred_by', () =>
+    safeNullifyByEq(client, 'profiles', 'referred_by', 'referred_by', userId),
+  );
 
-  const { error: authDeleteError } = await adminClient.auth.admin.deleteUser(userId);
+  const { error: authDeleteError } = await runDeleteStep('auth.admin.deleteUser request', async () =>
+    adminClient.auth.admin.deleteUser(userId),
+  );
   if (authDeleteError) {
-    const detail = describeErrorPayload(authDeleteError);
-    const wrapped = new Error(
-      detail
-        ? `Hard delete failed at auth.admin.deleteUser: ${detail}`
-        : 'Hard delete failed at auth.admin.deleteUser',
-    );
-    wrapped.cause = authDeleteError;
-    throw wrapped;
+    throw buildStepError('auth.admin.deleteUser', authDeleteError);
   }
 
   const deletedRecords = Object.values(deleted).reduce((sum, value) => sum + Number(value || 0), 0);

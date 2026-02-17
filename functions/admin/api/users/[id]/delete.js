@@ -2,6 +2,11 @@
 // POST { action: 'preview' | 'execute', confirm_text?: 'DELETE', expected_email?: string }
 
 import { createSupabaseClients, requireAdmin } from '../../../../_utils/supabaseAdmin';
+import {
+  normalizeEmail as normalizeEmailShared,
+  collectDeleteImpact as collectDeleteImpactShared,
+  executeHardDelete as executeHardDeleteShared,
+} from '../../../../_utils/hardDeleteUser';
 
 const JSON_HEADERS = { 'content-type': 'application/json' };
 
@@ -426,7 +431,7 @@ export async function onRequestPost(context) {
     if (authError || !authData?.user) {
       return json({ error: 'Target user not found' }, 404);
     }
-    const targetEmail = normalizeEmail(authData.user.email);
+    const targetEmail = normalizeEmailShared(authData.user.email);
 
     const { data: profile } = await adminClient
       .from('profiles')
@@ -445,7 +450,7 @@ export async function onRequestPost(context) {
       }
     }
 
-    const impact = await collectDeleteImpact(adminClient, userId, targetEmail);
+    const impact = await collectDeleteImpactShared(adminClient, userId, targetEmail);
     if (action === 'preview') {
       return json({
         ok: true,
@@ -465,12 +470,12 @@ export async function onRequestPost(context) {
       return json({ error: 'Confirmation token mismatch' }, 400);
     }
 
-    const expectedEmail = normalizeEmail(body?.expected_email);
+    const expectedEmail = normalizeEmailShared(body?.expected_email);
     if (expectedEmail && targetEmail && expectedEmail !== targetEmail) {
       return json({ error: 'Email confirmation mismatch' }, 400);
     }
 
-    const result = await executeHardDelete(adminClient, adminClient, userId, targetEmail);
+    const result = await executeHardDeleteShared(adminClient, adminClient, userId, targetEmail);
     return json({
       ok: true,
       action: 'execute',
