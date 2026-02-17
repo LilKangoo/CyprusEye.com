@@ -1,55 +1,3 @@
-ALTER TABLE public.profiles
-  ADD COLUMN IF NOT EXISTS registration_completed boolean NOT NULL DEFAULT true,
-  ADD COLUMN IF NOT EXISTS registration_completed_at timestamptz;
-
-UPDATE public.profiles
-SET registration_completed = true
-WHERE registration_completed IS DISTINCT FROM true;
-
-UPDATE public.profiles
-SET registration_completed_at = COALESCE(registration_completed_at, now())
-WHERE registration_completed = true
-  AND registration_completed_at IS NULL;
-
-CREATE OR REPLACE FUNCTION public.profiles_set_registration_completed_default()
-RETURNS trigger
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path = public, auth
-AS $$
-DECLARE
-  v_provider text;
-BEGIN
-  IF NEW.id IS NULL THEN
-    RETURN NEW;
-  END IF;
-
-  SELECT lower(trim(COALESCE(u.raw_app_meta_data->>'provider', '')))
-  INTO v_provider
-  FROM auth.users u
-  WHERE u.id = NEW.id;
-
-  IF NEW.registration_completed IS NULL THEN
-    NEW.registration_completed := true;
-  END IF;
-
-  IF v_provider = 'google' THEN
-    NEW.registration_completed := false;
-    NEW.registration_completed_at := NULL;
-  ELSIF NEW.registration_completed = true AND NEW.registration_completed_at IS NULL THEN
-    NEW.registration_completed_at := now();
-  END IF;
-
-  RETURN NEW;
-END;
-$$;
-
-DROP TRIGGER IF EXISTS trg_profiles_set_registration_completed_default ON public.profiles;
-CREATE TRIGGER trg_profiles_set_registration_completed_default
-  BEFORE INSERT ON public.profiles
-  FOR EACH ROW
-  EXECUTE FUNCTION public.profiles_set_registration_completed_default();
-
 CREATE OR REPLACE FUNCTION public.complete_oauth_registration(
   p_name text,
   p_username text,
@@ -58,7 +6,7 @@ CREATE OR REPLACE FUNCTION public.complete_oauth_registration(
 RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
-SET search_path = public
+SET search_path = public, auth
 AS $$
 DECLARE
   v_user_id uuid := auth.uid();
@@ -82,6 +30,26 @@ BEGIN
   FROM public.profiles p
   WHERE p.id = v_user_id
   FOR UPDATE;
+
+  -- For OAuth signups row creation can lag behind auth session; bootstrap it deterministically.
+  IF NOT FOUND THEN
+    INSERT INTO public.profiles (id, email, name, registration_completed, registration_completed_at)
+    SELECT
+      u.id,
+      NULLIF(trim(COALESCE(u.email, '')), ''),
+      NULLIF(trim(COALESCE(u.raw_user_meta_data->>'name', u.raw_user_meta_data->>'full_name', '')), ''),
+      false,
+      NULL
+    FROM auth.users u
+    WHERE u.id = v_user_id
+    ON CONFLICT (id) DO NOTHING;
+
+    SELECT p.*
+    INTO v_profile
+    FROM public.profiles p
+    WHERE p.id = v_user_id
+    FOR UPDATE;
+  END IF;
 
   IF NOT FOUND THEN
     RAISE EXCEPTION 'profile_not_found';
@@ -139,12 +107,24 @@ BEGIN
   END IF;
 
   IF v_ref_code IS NOT NULL THEN
-    SELECT p.id INTO v_referrer
-    FROM public.profiles p
-    WHERE p.id <> v_user_id
-      AND lower(trim(COALESCE(p.username, ''))) = lower(v_ref_code)
-    ORDER BY p.created_at ASC
-    LIMIT 1;
+    IF v_has_username_normalized THEN
+      SELECT p.id INTO v_referrer
+      FROM public.profiles p
+      WHERE p.id <> v_user_id
+        AND (
+          p.username_normalized = lower(v_ref_code)
+          OR lower(trim(COALESCE(p.username, ''))) = lower(v_ref_code)
+        )
+      ORDER BY (p.username_normalized = lower(v_ref_code)) DESC, p.created_at ASC
+      LIMIT 1;
+    ELSE
+      SELECT p.id INTO v_referrer
+      FROM public.profiles p
+      WHERE p.id <> v_user_id
+        AND lower(trim(COALESCE(p.username, ''))) = lower(v_ref_code)
+      ORDER BY p.created_at ASC
+      LIMIT 1;
+    END IF;
 
     IF v_referrer IS NULL THEN
       RAISE EXCEPTION 'invalid_referral_code';

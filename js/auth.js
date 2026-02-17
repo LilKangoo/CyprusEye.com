@@ -1497,12 +1497,12 @@ function ensureOAuthCompletionModal() {
       <input id="oauthCompletionFirstName" name="firstName" type="text" required maxlength="60" autocomplete="given-name" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
       <label for="oauthCompletionUsername">${t('Username', 'Nazwa użytkownika')}</label>
       <input id="oauthCompletionUsername" name="username" type="text" required minlength="3" maxlength="15" pattern="[a-zA-Z0-9_]+" autocomplete="username" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
-      <label for="oauthCompletionReferral">${t('Referral code', 'Kod polecający')}</label>
-      <input id="oauthCompletionReferral" name="referralCode" type="text" required maxlength="64" pattern="[a-zA-Z0-9_]+" autocomplete="off" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
-      <label for="oauthCompletionPassword">${t('Password (optional)', 'Hasło (opcjonalnie)')}</label>
-      <input id="oauthCompletionPassword" name="password" type="password" minlength="8" autocomplete="new-password" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
-      <label for="oauthCompletionPasswordConfirm">${t('Confirm password (optional)', 'Potwierdź hasło (opcjonalnie)')}</label>
-      <input id="oauthCompletionPasswordConfirm" name="passwordConfirm" type="password" minlength="8" autocomplete="new-password" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
+      <label for="oauthCompletionReferral">${t('Referral code (optional)', 'Kod polecający (opcjonalnie)')}</label>
+      <input id="oauthCompletionReferral" name="referralCode" type="text" maxlength="64" pattern="[a-zA-Z0-9_]+" autocomplete="off" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
+      <label for="oauthCompletionPassword">${t('Password', 'Hasło')}</label>
+      <input id="oauthCompletionPassword" name="password" type="password" required minlength="8" autocomplete="new-password" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
+      <label for="oauthCompletionPasswordConfirm">${t('Confirm password', 'Potwierdź hasło')}</label>
+      <input id="oauthCompletionPasswordConfirm" name="passwordConfirm" type="password" required minlength="8" autocomplete="new-password" style="width:100%;margin:6px 0 12px;padding:10px 12px;border:1px solid #cbd5e1;border-radius:10px;" />
       <p id="oauthCompletionError" style="display:none;margin:2px 0 10px;color:#b91c1c;font-size:13px;"></p>
       <div style="display:flex;gap:10px;flex-wrap:wrap;">
         <button id="oauthCompletionSubmit" type="submit" class="btn btn--primary" style="flex:1;min-width:180px;">${t('Save and continue', 'Zapisz i kontynuuj')}</button>
@@ -1552,15 +1552,15 @@ function ensureOAuthCompletionModal() {
         setError(t('Username must be 3-15 chars: letters, numbers, underscore.', 'Nazwa użytkownika: 3-15 znaków, litery, cyfry, podkreślenie.'));
         return;
       }
-      if (!referralCode || !/^[a-zA-Z0-9_]+$/.test(referralCode)) {
+      if (referralCode && !/^[a-zA-Z0-9_]+$/.test(referralCode)) {
         setError(t('Enter a valid referral code.', 'Podaj poprawny kod polecający.'));
         return;
       }
-      if ((password || passwordConfirm) && password.length < 8) {
+      if (!password || password.length < 8) {
         setError(t('Password must have at least 8 characters.', 'Hasło musi mieć co najmniej 8 znaków.'));
         return;
       }
-      if ((password || passwordConfirm) && password !== passwordConfirm) {
+      if (password !== passwordConfirm) {
         setError(t('Passwords do not match.', 'Hasła nie są identyczne.'));
         return;
       }
@@ -1571,30 +1571,40 @@ function ensureOAuthCompletionModal() {
       if (logoutBtn instanceof HTMLButtonElement) logoutBtn.disabled = true;
 
       try {
-        if (password) {
-          const { error: passwordError } = await sb.auth.updateUser({ password });
-          if (passwordError) {
-            const pwdMessage = String(passwordError?.message || '').toLowerCase();
-            const providerRestricted =
-              pwdMessage.includes('oauth') ||
-              pwdMessage.includes('provider') ||
-              pwdMessage.includes('not allowed');
-            if (!providerRestricted) {
-              throw passwordError;
-            }
-          }
+        const currentUser = window.CE_STATE?.session?.user || null;
+        await ensureProfileReadyForCompletion(currentUser);
+
+        const { error: passwordError } = await sb.auth.updateUser({ password });
+        if (passwordError) {
+          throw passwordError;
         }
         let completionHandled = false;
         let completionError = null;
 
         try {
-          const { data, error } = await sb.rpc('complete_oauth_registration', {
-            p_name: firstName,
-            p_username: username,
-            p_referral_code: referralCode,
-          });
-          if (error) throw error;
-          if (!data?.ok) throw new Error('completion_failed');
+          let lastRpcError = null;
+          for (let attempt = 0; attempt < 3; attempt += 1) {
+            const { data, error } = await sb.rpc('complete_oauth_registration', {
+              p_name: firstName,
+              p_username: username,
+              p_referral_code: referralCode,
+            });
+            if (!error && data?.ok) {
+              lastRpcError = null;
+              break;
+            }
+
+            const raw = String(error?.message || '').toLowerCase();
+            lastRpcError = error || new Error('completion_failed');
+            if (!raw.includes('profile_not_found')) {
+              break;
+            }
+
+            await ensureProfileReadyForCompletion(currentUser);
+            await delay(300 * (attempt + 1));
+          }
+
+          if (lastRpcError) throw lastRpcError;
           completionHandled = true;
         } catch (rpcErr) {
           completionError = rpcErr;
@@ -1639,16 +1649,24 @@ function ensureOAuthCompletionModal() {
             }
           }
 
-          setStoredReferralCode(referralCode, { overwrite: true });
-          try {
-            await processReferralAfterRegistration(userId);
-          } catch (_refErr) {
+          if (referralCode) {
+            setStoredReferralCode(referralCode, { overwrite: true });
+            try {
+              await processReferralAfterRegistration(userId);
+            } catch (_refErr) {
+            }
+          } else {
+            clearStoredReferralCode();
           }
         } else {
-          setStoredReferralCode(referralCode, { overwrite: true });
-          try {
-            await processReferralAfterRegistration(window.CE_STATE?.session?.user?.id || null);
-          } catch (_e) {
+          if (referralCode) {
+            setStoredReferralCode(referralCode, { overwrite: true });
+            try {
+              await processReferralAfterRegistration(window.CE_STATE?.session?.user?.id || null);
+            } catch (_e) {
+            }
+          } else {
+            clearStoredReferralCode();
           }
         }
 
@@ -1687,7 +1705,7 @@ function ensureOAuthCompletionModal() {
         } else if (raw.includes('invalid_referral_code')) {
           setError(t('Referral code was not found.', 'Nie znaleziono takiego kodu polecającego.'));
         } else if (raw.includes('missing_referral_code')) {
-          setError(t('Referral code is required.', 'Kod polecający jest wymagany.'));
+          setError(t('Referral code is not valid.', 'Kod polecający jest nieprawidłowy.'));
         } else if (raw.includes('profile_not_found')) {
           setError(t('User profile is not ready yet. Try again in a few seconds.', 'Profil użytkownika nie jest jeszcze gotowy. Spróbuj ponownie za kilka sekund.'));
         } else if (raw.includes('not_authenticated')) {
@@ -1762,6 +1780,52 @@ async function maybeRequireOAuthCompletion(state, { redirectTarget = POST_AUTH_R
   modal.style.display = 'flex';
   document.body.style.overflow = 'hidden';
   return true;
+}
+
+async function waitForProfileRow(userId, attempts = 8) {
+  const id = String(userId || '').trim();
+  if (!id) return false;
+  for (let i = 0; i < attempts; i += 1) {
+    try {
+      const { data, error } = await sb
+        .from('profiles')
+        .select('id')
+        .eq('id', id)
+        .maybeSingle();
+      if (!error && data?.id) return true;
+    } catch (_e) {
+    }
+    await new Promise((resolve) => setTimeout(resolve, 300 * (i + 1)));
+  }
+  return false;
+}
+
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+}
+
+async function ensureProfileReadyForCompletion(user) {
+  const userId = String(user?.id || '').trim();
+  if (!userId) return false;
+
+  if (await waitForProfileRow(userId, 6)) return true;
+
+  try {
+    const payload = {
+      id: userId,
+      email: String(user?.email || '').trim() || null,
+      username: String(user?.user_metadata?.username || '').trim() || null,
+      name: String(user?.user_metadata?.name || user?.user_metadata?.full_name || '').trim() || null,
+    };
+    const { error } = await sb.from('profiles').upsert(payload, { onConflict: 'id' });
+    if (error) {
+      return false;
+    }
+  } catch (_e) {
+    return false;
+  }
+
+  return waitForProfileRow(userId, 6);
 }
 
 async function handleGoogleOAuthCallbackIfPresent() {
