@@ -414,6 +414,19 @@ export async function executeHardDelete(client, adminClient, userId, email) {
 }
 
 export async function onRequestPost(context) {
+  let requestAction = 'unknown';
+  let routeStep = 'start';
+
+  const runRouteStep = async (step, operation) => {
+    routeStep = step;
+    try {
+      return await operation();
+    } catch (error) {
+      const detail = formatErrorMessage(error);
+      throw new Error(detail ? `${step} failed: ${detail}` : `${step} failed`);
+    }
+  };
+
   try {
     const { request, env, params } = context;
     const body = await request.json().catch(() => ({}));
@@ -421,39 +434,54 @@ export async function onRequestPost(context) {
 
     if (!userId) return json({ error: 'Missing user id' }, 400);
 
-    const { adminId } = await requireAdmin(request, env);
+    const { adminId } = await runRouteStep('require_admin', () => requireAdmin(request, env));
     if (adminId === userId) {
       return json({ error: 'You cannot delete your own admin account.' }, 400);
     }
 
     const { adminClient } = createSupabaseClients(env, request.headers.get('Authorization'));
     const action = String(body?.action || 'preview').trim().toLowerCase();
+    requestAction = action;
 
-    const { data: authData, error: authError } = await adminClient.auth.admin.getUserById(userId);
+    const { data: authData, error: authError } = await runRouteStep('auth_get_user_by_id', () =>
+      adminClient.auth.admin.getUserById(userId),
+    );
     if (authError || !authData?.user) {
       return json({ error: 'Target user not found' }, 404);
     }
     const targetEmail = normalizeEmailShared(authData.user.email);
 
-    const { data: profile } = await adminClient
-      .from('profiles')
-      .select('id, is_admin')
-      .eq('id', userId)
-      .maybeSingle();
+    const { data: profile } = await runRouteStep('load_target_profile', () =>
+      adminClient
+        .from('profiles')
+        .select('id, is_admin')
+        .eq('id', userId)
+        .maybeSingle(),
+    );
 
     if (profile?.is_admin) {
-      const { count: otherAdmins, error: adminsError } = await adminClient
-        .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .eq('is_admin', true)
-        .neq('id', userId);
+      const { count: otherAdmins, error: adminsError } = await runRouteStep('count_other_admins', () =>
+        adminClient
+          .from('profiles')
+          .select('id', { count: 'exact', head: true })
+          .eq('is_admin', true)
+          .neq('id', userId),
+      );
       if (!adminsError && Number(otherAdmins || 0) === 0) {
         return json({ error: 'Cannot delete the last admin account.' }, 400);
       }
     }
 
-    const impact = await collectDeleteImpactShared(adminClient, userId, targetEmail);
     if (action === 'preview') {
+      let impact;
+      try {
+        impact = await runRouteStep('collect_delete_impact_preview', () =>
+          collectDeleteImpactShared(adminClient, userId, targetEmail),
+        );
+      } catch (impactError) {
+        console.warn('[admin-delete] preview impact collection failed, continuing:', impactError);
+        impact = { counts: {}, total_records: 0 };
+      }
       return json({
         ok: true,
         action: 'preview',
@@ -479,7 +507,9 @@ export async function onRequestPost(context) {
       return json({ error: 'Email confirmation mismatch' }, 400);
     }
 
-    const result = await executeHardDeleteShared(adminClient, adminClient, userId, targetEmail);
+    const result = await runRouteStep('execute_hard_delete', () =>
+      executeHardDeleteShared(adminClient, adminClient, userId, targetEmail),
+    );
     return json({
       ok: true,
       action: 'execute',
@@ -487,7 +517,6 @@ export async function onRequestPost(context) {
       hard_delete_flow_version: HARD_DELETE_FLOW_VERSION,
       user_id: userId,
       email: targetEmail || null,
-      preview: impact,
       ...result,
     });
   } catch (e) {
@@ -497,6 +526,8 @@ export async function onRequestPost(context) {
       error: message || 'Server error',
       api_version: DELETE_API_VERSION,
       hard_delete_flow_version: HARD_DELETE_FLOW_VERSION,
+      request_action: requestAction,
+      route_step: routeStep,
     }, 500);
   }
 }
