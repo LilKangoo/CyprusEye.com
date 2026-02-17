@@ -296,22 +296,76 @@ async function requestCouponQuote(couponCode, baseQuote, options = {}) {
   const seq = couponState.requestSeq + 1;
   couponState.requestSeq = seq;
 
-  try {
-    const { data, error } = await supabase.rpc(COUPON_RPC_NAME, {
-      p_coupon_code: code,
-      p_base_rental_price: Number(baseQuote.total.toFixed(2)),
-      p_pickup_at: pickupAt,
-      p_return_at: returnAt,
-      p_offer_id: offerId,
-      p_location: getActiveOfferLocation(),
-      p_car_model: String(baseQuote?.breakdown?.car || '').trim() || null,
-      p_car_type: null,
-      p_user_id: userId,
-      p_user_email: emailInput || null,
-    });
-    if (error) throw error;
+  const rpcPayloadBase = {
+    p_coupon_code: code,
+    p_base_rental_price: Number(baseQuote.total.toFixed(2)),
+    p_pickup_at: pickupAt,
+    p_return_at: returnAt,
+    p_offer_id: offerId,
+    p_location: getActiveOfferLocation(),
+    p_car_model: String(baseQuote?.breakdown?.car || '').trim() || null,
+    p_car_type: null,
+    p_user_id: userId,
+    p_user_email: emailInput || null,
+  };
 
-    const row = Array.isArray(data) ? data[0] : data;
+  const buildPayload = (source, removeKeys = []) => {
+    const payload = {};
+    Object.entries(source || {}).forEach(([key, value]) => {
+      if (removeKeys.includes(key)) return;
+      if (value === undefined) return;
+      payload[key] = value;
+    });
+    return payload;
+  };
+
+  const payloadVariants = [
+    buildPayload(rpcPayloadBase),
+    buildPayload(rpcPayloadBase, ['p_user_email']),
+    buildPayload(rpcPayloadBase, ['p_user_email', 'p_user_id']),
+    buildPayload(rpcPayloadBase, ['p_user_email', 'p_user_id', 'p_car_type']),
+  ];
+
+  try {
+    let row = null;
+    let lastError = null;
+
+    for (const payload of payloadVariants) {
+      const { data, error } = await supabase.rpc(COUPON_RPC_NAME, payload);
+      if (!error) {
+        row = Array.isArray(data) ? data[0] : data;
+        lastError = null;
+        break;
+      }
+
+      const errCode = String(error?.code || '').trim();
+      const errMsg = String(error?.message || '').trim();
+      const canRetryWithAnotherSignature = errCode === 'PGRST202'
+        || /Could not find the function/i.test(errMsg)
+        || /schema cache/i.test(errMsg);
+      lastError = error;
+      if (!canRetryWithAnotherSignature) {
+        throw error;
+      }
+    }
+
+    if (lastError) {
+      const errCode = String(lastError?.code || '').trim();
+      const errMsg = String(lastError?.message || '').trim();
+      if (
+        errCode === 'PGRST202'
+        || /Could not find the function/i.test(errMsg)
+        || /schema cache/i.test(errMsg)
+      ) {
+        return {
+          ok: false,
+          message: 'Coupon service is not available yet. Please refresh in a minute.',
+          result: null,
+        };
+      }
+      throw lastError;
+    }
+
     const normalized = normalizeCouponRpcRow(row);
     if (!normalized) {
       return { ok: false, message: 'Coupon validation returned empty response', result: null };

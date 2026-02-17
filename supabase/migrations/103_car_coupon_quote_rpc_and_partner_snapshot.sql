@@ -383,6 +383,7 @@ SECURITY DEFINER
 SET search_path = public
 AS $$
 DECLARE
+  j jsonb;
   v_email text;
   v_base numeric;
   v_discount numeric;
@@ -395,13 +396,15 @@ BEGIN
     RETURN OLD;
   END IF;
 
+  j := to_jsonb(NEW);
+
   IF NEW.coupon_id IS NULL THEN
     DELETE FROM public.car_coupon_redemptions
     WHERE booking_id = NEW.id;
     RETURN NEW;
   END IF;
 
-  v_email := lower(trim(coalesce(NEW.customer_email, NEW.email, '')));
+  v_email := lower(trim(coalesce(nullif(j->>'customer_email', ''), nullif(j->>'email', ''), '')));
   v_base := coalesce(
     NEW.base_rental_price,
     NEW.final_rental_price + coalesce(NEW.coupon_discount_amount, 0),
@@ -423,10 +426,10 @@ BEGIN
     NEW.quoted_price,
     NEW.total_price
   );
-  v_currency := coalesce(nullif(NEW.currency, ''), 'EUR');
+  v_currency := coalesce(nullif(j->>'currency', ''), 'EUR');
   v_user_id := public.try_uuid(to_jsonb(NEW)->>'user_id');
   v_source := CASE
-    WHEN lower(coalesce(NEW.source, '')) LIKE 'admin%' THEN 'admin'
+    WHEN lower(coalesce(j->>'source', '')) LIKE 'admin%' THEN 'admin'
     ELSE 'booking'
   END;
 
@@ -478,7 +481,7 @@ CREATE TRIGGER trg_car_coupon_redemption_from_booking_ins
 
 DROP TRIGGER IF EXISTS trg_car_coupon_redemption_from_booking_upd ON public.car_bookings;
 CREATE TRIGGER trg_car_coupon_redemption_from_booking_upd
-  AFTER UPDATE OF coupon_id, coupon_code, base_rental_price, coupon_discount_amount, final_rental_price, final_price, quoted_price, total_price, currency, email, customer_email, source ON public.car_bookings
+  AFTER UPDATE ON public.car_bookings
   FOR EACH ROW
   EXECUTE FUNCTION public.trg_car_coupon_redemption_from_booking();
 
