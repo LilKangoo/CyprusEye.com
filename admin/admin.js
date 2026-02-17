@@ -10257,28 +10257,90 @@ async function viewUserDetails(userId) {
     });
     const shopNetPaidByCurrency = subtractMoneyMaps(shopGrossPaidByCurrency, shopRefundByCurrency);
 
-    const serviceDepositsPaidByCurrency = {};
-    const paidDepositCount = depositRequests.reduce((count, deposit) => {
-      const isPaid = Boolean(deposit?.paid_at) || ['paid', 'completed'].includes(String(deposit?.status || '').toLowerCase());
-      if (!isPaid) return count;
-      addMoney(serviceDepositsPaidByCurrency, deposit?.amount, deposit?.currency || 'EUR');
-      return count + 1;
-    }, 0);
-
+    const normalizeBookingKey = (resourceType, bookingId) => {
+      const type = String(resourceType || '').trim().toLowerCase();
+      const id = String(bookingId || '').trim();
+      if (!type || !id) return '';
+      return `${type}:${id}`;
+    };
     const serviceBookingValueByCurrency = {};
+    const serviceBookingValueByKey = new Map();
     carBookings.forEach((booking) => {
       const price = booking?.final_price ?? booking?.quoted_price;
       addMoney(serviceBookingValueByCurrency, price, booking?.currency || 'EUR');
+      const key = normalizeBookingKey('cars', booking?.id);
+      if (key) {
+        serviceBookingValueByKey.set(key, {
+          amount: toMoneyNumber(price),
+          currency: booking?.currency || 'EUR',
+        });
+      }
     });
-    tripBookings.forEach((booking) => addMoney(serviceBookingValueByCurrency, booking?.total_price, 'EUR'));
-    hotelBookings.forEach((booking) => addMoney(serviceBookingValueByCurrency, booking?.total_price, 'EUR'));
+    tripBookings.forEach((booking) => {
+      addMoney(serviceBookingValueByCurrency, booking?.total_price, 'EUR');
+      const key = normalizeBookingKey('trips', booking?.id);
+      if (key) {
+        serviceBookingValueByKey.set(key, {
+          amount: toMoneyNumber(booking?.total_price),
+          currency: 'EUR',
+        });
+      }
+    });
+    hotelBookings.forEach((booking) => {
+      addMoney(serviceBookingValueByCurrency, booking?.total_price, 'EUR');
+      const key = normalizeBookingKey('hotels', booking?.id);
+      if (key) {
+        serviceBookingValueByKey.set(key, {
+          amount: toMoneyNumber(booking?.total_price),
+          currency: 'EUR',
+        });
+      }
+    });
 
-    const totalPaidByCurrency = sumMoneyMaps(shopNetPaidByCurrency, serviceDepositsPaidByCurrency);
+    const serviceDepositsPaidByCurrency = {};
+    const servicePaidByDepositRuleByCurrency = {};
+    const paidDepositStatuses = new Set(['paid', 'completed']);
+    const paidDepositBookingKeys = new Set();
+    let paidDepositCount = 0;
+    let paidDepositLinkedBookingCount = 0;
+
+    depositRequests.forEach((deposit) => {
+      const status = String(deposit?.status || '').toLowerCase();
+      const isPaid = Boolean(deposit?.paid_at) || paidDepositStatuses.has(status);
+      if (!isPaid) return;
+
+      paidDepositCount += 1;
+      addMoney(serviceDepositsPaidByCurrency, deposit?.amount, deposit?.currency || 'EUR');
+
+      const bookingKey = normalizeBookingKey(deposit?.resource_type, deposit?.booking_id);
+      if (!bookingKey) {
+        addMoney(servicePaidByDepositRuleByCurrency, deposit?.amount, deposit?.currency || 'EUR');
+        return;
+      }
+
+      if (paidDepositBookingKeys.has(bookingKey)) {
+        return;
+      }
+      paidDepositBookingKeys.add(bookingKey);
+
+      const bookingValue = serviceBookingValueByKey.get(bookingKey);
+      if (bookingValue && bookingValue.amount > 0) {
+        addMoney(servicePaidByDepositRuleByCurrency, bookingValue.amount, bookingValue.currency || 'EUR');
+        paidDepositLinkedBookingCount += 1;
+        return;
+      }
+
+      // Fallback when booking row is not available in this view: use paid deposit amount.
+      addMoney(servicePaidByDepositRuleByCurrency, deposit?.amount, deposit?.currency || 'EUR');
+    });
+
+    const totalPaidByCurrency = sumMoneyMaps(shopNetPaidByCurrency, servicePaidByDepositRuleByCurrency);
     const totalPaidLabel = formatMoneyMap(totalPaidByCurrency);
     const shopNetPaidLabel = formatMoneyMap(shopNetPaidByCurrency);
     const shopGrossPaidLabel = formatMoneyMap(shopGrossPaidByCurrency);
     const shopRefundLabel = formatMoneyMap(shopRefundByCurrency);
     const serviceDepositsPaidLabel = formatMoneyMap(serviceDepositsPaidByCurrency);
+    const servicePaidByDepositRuleLabel = formatMoneyMap(servicePaidByDepositRuleByCurrency);
     const serviceBookingValueLabel = formatMoneyMap(serviceBookingValueByCurrency);
 
     const latestOrderPhone = normalizePhone(latestOrder?.customer_phone);
@@ -10686,7 +10748,7 @@ async function viewUserDetails(userId) {
             <article class="user-summary-item">
               <p class="user-summary-label">Total paid with us</p>
               <p class="user-summary-value">${totalPaidLabel}</p>
-              <p class="user-summary-sub">Shop net + paid service deposits</p>
+              <p class="user-summary-sub">Shop net + service bookings treated as paid after deposit payment</p>
             </article>
             <article class="user-summary-item">
               <p class="user-summary-label">Shop paid (net)</p>
@@ -10697,9 +10759,13 @@ async function viewUserDetails(userId) {
               </p>
             </article>
             <article class="user-summary-item">
-              <p class="user-summary-label">Service deposits paid</p>
-              <p class="user-summary-value">${serviceDepositsPaidLabel}</p>
-              <p class="user-summary-sub">${paidDepositCount} paid deposit${paidDepositCount === 1 ? '' : 's'}</p>
+              <p class="user-summary-label">Services counted as paid</p>
+              <p class="user-summary-value">${servicePaidByDepositRuleLabel}</p>
+              <p class="user-summary-sub">
+                ${paidDepositCount} paid deposit${paidDepositCount === 1 ? '' : 's'} ·
+                ${paidDepositLinkedBookingCount} booking${paidDepositLinkedBookingCount === 1 ? '' : 's'} counted as fully paid ·
+                Deposits collected: ${serviceDepositsPaidLabel}
+              </p>
             </article>
             <article class="user-summary-item">
               <p class="user-summary-label">Service booking value</p>
