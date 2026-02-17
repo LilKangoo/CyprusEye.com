@@ -10046,6 +10046,7 @@ async function viewUserDetails(userId) {
       .replace(/\r?\n/g, ' ');
     const safeEmailForJs = escapeHtml(escapeJsString(authEmail));
     const safeLabelForJs = escapeHtml(escapeJsString(profile.username || authEmail || profile.id || userId));
+    const normalizedEmail = String(authEmail || '').trim().toLowerCase();
 
     let shopAddresses = [];
     let shopOrders = [];
@@ -10055,9 +10056,31 @@ async function viewUserDetails(userId) {
     let hotelBookings = [];
     let depositRequests = [];
     let commissionEventsByDepositId = {};
+    const mergeUniqueRecordsById = (...groups) => {
+      const map = new Map();
+      groups.flat().forEach((row) => {
+        const id = String(row?.id || '').trim();
+        if (!id || map.has(id)) return;
+        map.set(id, row);
+      });
+      return Array.from(map.values()).sort((a, b) => {
+        const aTime = new Date(a?.created_at || 0).getTime() || 0;
+        const bTime = new Date(b?.created_at || 0).getTime() || 0;
+        return bTime - aTime;
+      });
+    };
 
     try {
-      const [addressesResult, ordersResult] = await Promise.all([
+      const ordersByEmailPromise = normalizedEmail
+        ? client
+            .from('shop_orders')
+            .select('id, order_number, created_at, total, currency, status, payment_status, shipping_address, customer_phone, customer_email')
+            .ilike('customer_email', normalizedEmail)
+            .order('created_at', { ascending: false })
+            .limit(50)
+        : Promise.resolve({ data: [], error: null });
+
+      const [addressesResult, ordersByUserResult, ordersByEmailResult] = await Promise.all([
         client
           .from('shop_addresses')
           .select('*')
@@ -10066,17 +10089,22 @@ async function viewUserDetails(userId) {
           .order('updated_at', { ascending: false }),
         client
           .from('shop_orders')
-          .select('id, order_number, created_at, total, currency, status, payment_status, shipping_address, customer_phone')
+          .select('id, order_number, created_at, total, currency, status, payment_status, shipping_address, customer_phone, customer_email')
           .eq('user_id', userId)
           .order('created_at', { ascending: false })
-          .limit(25),
+          .limit(50),
+        ordersByEmailPromise,
       ]);
 
       if (!addressesResult.error && Array.isArray(addressesResult.data)) {
         shopAddresses = addressesResult.data;
       }
-      if (!ordersResult.error && Array.isArray(ordersResult.data)) {
-        shopOrders = ordersResult.data;
+      const mergedShopOrders = mergeUniqueRecordsById(
+        !ordersByUserResult.error && Array.isArray(ordersByUserResult.data) ? ordersByUserResult.data : [],
+        !ordersByEmailResult.error && Array.isArray(ordersByEmailResult.data) ? ordersByEmailResult.data : [],
+      );
+      if (mergedShopOrders.length) {
+        shopOrders = mergedShopOrders.slice(0, 50);
       }
     } catch (e) {
     }
@@ -10097,15 +10125,20 @@ async function viewUserDetails(userId) {
     }
 
     try {
-      const normalizedEmail = String(authEmail || '').trim().toLowerCase();
       if (normalizedEmail) {
-        const [carsResult, tripsResult, hotelsResult, depositsResult] = await Promise.all([
+        const [carsByEmailResult, carsByCustomerEmailResult, tripsResult, hotelsResult, depositsResult] = await Promise.all([
           client
             .from('car_bookings')
-            .select('id, created_at, full_name, email, phone, customer_phone, car_model, location, pickup_date, return_date, status, quoted_price, final_price, currency')
+            .select('*')
             .ilike('email', normalizedEmail)
             .order('created_at', { ascending: false })
-            .limit(25),
+            .limit(50),
+          client
+            .from('car_bookings')
+            .select('*')
+            .ilike('customer_email', normalizedEmail)
+            .order('created_at', { ascending: false })
+            .limit(50),
           client
             .from('trip_bookings')
             .select('id, created_at, customer_name, customer_email, customer_phone, trip_slug, arrival_date, departure_date, status, total_price')
@@ -10126,8 +10159,12 @@ async function viewUserDetails(userId) {
             .limit(50),
         ]);
 
-        if (!carsResult.error && Array.isArray(carsResult.data)) {
-          carBookings = carsResult.data;
+        const mergedCarBookings = mergeUniqueRecordsById(
+          !carsByEmailResult.error && Array.isArray(carsByEmailResult.data) ? carsByEmailResult.data : [],
+          !carsByCustomerEmailResult.error && Array.isArray(carsByCustomerEmailResult.data) ? carsByCustomerEmailResult.data : [],
+        );
+        if (mergedCarBookings.length) {
+          carBookings = mergedCarBookings.slice(0, 50);
         }
         if (!tripsResult.error && Array.isArray(tripsResult.data)) {
           tripBookings = tripsResult.data;
@@ -10266,7 +10303,7 @@ async function viewUserDetails(userId) {
     const serviceBookingValueByCurrency = {};
     const serviceBookingValueByKey = new Map();
     carBookings.forEach((booking) => {
-      const price = booking?.final_price ?? booking?.quoted_price;
+      const price = booking?.final_price ?? booking?.quoted_price ?? booking?.total_price;
       addMoney(serviceBookingValueByCurrency, price, booking?.currency || 'EUR');
       const key = normalizeBookingKey('cars', booking?.id);
       if (key) {
@@ -10497,7 +10534,7 @@ async function viewUserDetails(userId) {
                   const pickup = formatBookingDate(b.pickup_date);
                   const ret = formatBookingDate(b.return_date);
                   const status = escapeHtml(b.status || '');
-                  const price = b.final_price ?? b.quoted_price;
+                  const price = b.final_price ?? b.quoted_price ?? b.total_price;
                   const priceLabel = price == null ? '—' : escapeHtml(formatMoney(price, b.currency || 'EUR'));
                   const id = escapeHtml(String(b.id || ''));
                   return `
@@ -11349,12 +11386,111 @@ function buildUserDeleteImpactSummary(preview) {
   return lines.join('\n');
 }
 
+function openHardDeleteConfirmationModal(params) {
+  const label = String(params?.label || 'user').trim();
+  const impactSummary = String(params?.impactSummary || '').trim() || 'No linked records were detected in tracked tables.';
+  const normalizedExpectedEmail = String(params?.expectedEmail || '').trim().toLowerCase();
+
+  return new Promise((resolve) => {
+    const existing = document.getElementById('hardDeleteUserModal');
+    if (existing) existing.remove();
+
+    const modal = document.createElement('div');
+    modal.className = 'admin-modal';
+    modal.id = 'hardDeleteUserModal';
+    modal.innerHTML = `
+      <div class="admin-modal-overlay" data-action="cancel"></div>
+      <div class="admin-modal-content" style="max-width: 560px;">
+        <header class="admin-modal-header">
+          <h3>Permanently Delete User</h3>
+          <button type="button" class="btn-modal-close" data-action="cancel" aria-label="Close">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="18" y1="6" x2="6" y2="18"/>
+              <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+          </button>
+        </header>
+        <div class="admin-modal-body">
+          <p style="margin: 0 0 8px;">
+            This will permanently erase <strong>${escapeHtml(label)}</strong> and related records from database/auth.
+          </p>
+          <pre style="margin: 0 0 16px; padding: 10px; border-radius: 8px; max-height: 220px; overflow: auto; background: var(--admin-bg); color: var(--admin-text-muted); font-size: 12px; line-height: 1.45;">${escapeHtml(impactSummary)}</pre>
+          <form id="hardDeleteUserConfirmForm">
+            ${normalizedExpectedEmail
+              ? `
+                <label class="admin-form-field">
+                  <span>Type user email to confirm</span>
+                  <input type="email" id="hardDeleteUserConfirmEmail" class="form-control" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="${escapeHtml(normalizedExpectedEmail)}" required>
+                </label>
+              `
+              : ''}
+            <label class="admin-form-field">
+              <span>Type <code>DELETE</code> to confirm</span>
+              <input type="text" id="hardDeleteUserConfirmToken" class="form-control" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="DELETE" required>
+            </label>
+            <div class="admin-modal-actions" style="margin-top: 16px;">
+              <button type="button" class="btn-secondary" data-action="cancel">Cancel</button>
+              <button type="submit" class="btn btn-danger">Delete permanently</button>
+            </div>
+          </form>
+        </div>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    modal.hidden = false;
+
+    const cleanup = (result) => {
+      if (modal && modal.parentNode) modal.remove();
+      resolve(result);
+    };
+
+    modal.querySelectorAll('[data-action="cancel"]').forEach((btn) => {
+      btn.addEventListener('click', () => cleanup(null));
+    });
+
+    const form = modal.querySelector('#hardDeleteUserConfirmForm');
+    const emailInput = modal.querySelector('#hardDeleteUserConfirmEmail');
+    const tokenInput = modal.querySelector('#hardDeleteUserConfirmToken');
+
+    if (emailInput) {
+      emailInput.focus();
+    } else if (tokenInput) {
+      tokenInput.focus();
+    }
+
+    if (!form || !tokenInput) {
+      cleanup(null);
+      return;
+    }
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+
+      const typedEmail = String(emailInput?.value || '').trim().toLowerCase();
+      if (normalizedExpectedEmail && typedEmail !== normalizedExpectedEmail) {
+        showToast('Deletion cancelled (email confirmation mismatch).', 'info');
+        if (emailInput) emailInput.focus();
+        return;
+      }
+
+      const typedDelete = String(tokenInput.value || '').trim();
+      if (typedDelete !== 'DELETE') {
+        showToast('Deletion cancelled (confirmation token mismatch).', 'info');
+        tokenInput.focus();
+        return;
+      }
+
+      cleanup({
+        confirm_text: typedDelete,
+        expected_email: normalizedExpectedEmail || null,
+      });
+    });
+  });
+}
+
 async function handleHardDeleteUser(userId, targetEmail, targetLabel) {
   const label = String(targetLabel || targetEmail || userId || 'user').trim();
-  const firstConfirm = confirm(
-    `This will permanently erase "${label}" and all related records from database/auth.\n\nThis action cannot be undone.\n\nContinue?`,
-  );
-  if (!firstConfirm) return;
 
   try {
     showToast('Preparing delete preview...', 'info');
@@ -11365,21 +11501,13 @@ async function handleHardDeleteUser(userId, targetEmail, targetLabel) {
 
     const normalizedTargetEmail = String(targetEmail || preview?.email || '').trim().toLowerCase();
     const impactSummary = buildUserDeleteImpactSummary(preview);
-    const emailPromptText = normalizedTargetEmail
-      ? `${impactSummary}\n\nType the user email to confirm:\n${normalizedTargetEmail}`
-      : `${impactSummary}\n\nType DELETE to continue.`;
-
-    if (normalizedTargetEmail) {
-      const typedEmail = String(prompt(emailPromptText) || '').trim().toLowerCase();
-      if (typedEmail !== normalizedTargetEmail) {
-        showToast('Deletion cancelled (email confirmation mismatch).', 'info');
-        return;
-      }
-    }
-
-    const typedDelete = String(prompt('Type DELETE to permanently erase this user:') || '').trim();
-    if (typedDelete !== 'DELETE') {
-      showToast('Deletion cancelled (confirmation token mismatch).', 'info');
+    const confirmation = await openHardDeleteConfirmationModal({
+      label,
+      expectedEmail: normalizedTargetEmail,
+      impactSummary,
+    });
+    if (!confirmation) {
+      showToast('Deletion cancelled.', 'info');
       return;
     }
 
@@ -11388,8 +11516,8 @@ async function handleHardDeleteUser(userId, targetEmail, targetLabel) {
       method: 'POST',
       body: JSON.stringify({
         action: 'execute',
-        confirm_text: typedDelete,
-        expected_email: normalizedTargetEmail || null,
+        confirm_text: confirmation.confirm_text,
+        expected_email: confirmation.expected_email,
       }),
     });
 

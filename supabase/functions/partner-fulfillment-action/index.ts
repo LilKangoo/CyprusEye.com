@@ -64,19 +64,26 @@ async function stripeCreateCheckoutSession(params: {
   successUrl: string;
   cancelUrl: string;
   customerEmail: string;
+  customerId?: string | null;
   clientReferenceId: string;
   metadata: Record<string, string>;
-}): Promise<{ id: string; url: string }> {
+}): Promise<{ id: string; url: string; customerId: string | null }> {
   if (!stripeSecretKey) {
     throw new Error("Missing STRIPE_SECRET_KEY");
   }
 
+  const resolvedCustomerId = String(params.customerId || "").trim();
   const form = encodeStripeForm({
     mode: "payment",
     "payment_method_types[0]": "card",
     success_url: params.successUrl,
     cancel_url: params.cancelUrl,
-    customer_email: params.customerEmail,
+    ...(resolvedCustomerId
+      ? { customer: resolvedCustomerId }
+      : {
+          customer_email: params.customerEmail,
+          customer_creation: "always",
+        }),
     client_reference_id: params.clientReferenceId,
     line_items: [
       {
@@ -88,7 +95,10 @@ async function stripeCreateCheckoutSession(params: {
         quantity: 1,
       },
     ],
-    payment_intent_data: { metadata: params.metadata },
+    payment_intent_data: {
+      metadata: params.metadata,
+      setup_future_usage: "off_session",
+    },
     metadata: params.metadata,
   });
 
@@ -114,8 +124,27 @@ async function stripeCreateCheckoutSession(params: {
   }
   const id = String(json?.id || "").trim();
   const url = String(json?.url || "").trim();
+  const customerId = String(json?.customer || resolvedCustomerId || "").trim();
   if (!id || !url) throw new Error("Stripe session missing id/url");
-  return { id, url };
+  return { id, url, customerId: customerId || null };
+}
+
+async function stripeFindCustomerIdByEmail(email: string): Promise<string | null> {
+  const normalized = String(email || "").trim().toLowerCase();
+  if (!normalized || !stripeSecretKey) return null;
+  const endpoint = `https://api.stripe.com/v1/customers?email=${encodeURIComponent(normalized)}&limit=1`;
+  try {
+    const res = await fetch(endpoint, {
+      method: "GET",
+      headers: { "Authorization": `Bearer ${stripeSecretKey}` },
+    });
+    if (!res.ok) return null;
+    const json = await res.json();
+    const id = String(json?.data?.[0]?.id || "").trim();
+    return id || null;
+  } catch (_e) {
+    return null;
+  }
 }
 
 function normalizeLang(value: unknown): "pl" | "en" {
@@ -139,6 +168,46 @@ function diffDays(start: unknown, end: unknown): number {
   } catch (_e) {
     return 1;
   }
+}
+
+function extractDateParts(value: unknown): { year: number; month: number; day: number } | null {
+  const match = String(value || "").slice(0, 10).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) return null;
+  if (month < 1 || month > 12 || day < 1 || day > 31) return null;
+  return { year, month, day };
+}
+
+function extractTimeParts(value: unknown): { hour: number; minute: number; second: number } {
+  const fallback = { hour: 0, minute: 0, second: 0 };
+  const raw = String(value || "").trim();
+  if (!raw) return fallback;
+  const match = raw.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/);
+  if (!match) return fallback;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  const second = Number(match[3] || "0");
+  if (!Number.isFinite(hour) || !Number.isFinite(minute) || !Number.isFinite(second)) return fallback;
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59 || second < 0 || second > 59) return fallback;
+  return { hour, minute, second };
+}
+
+function diffStartedDays(startDate: unknown, endDate: unknown, startTime: unknown, endTime: unknown): number {
+  const sDate = extractDateParts(startDate);
+  const eDate = extractDateParts(endDate);
+  if (!sDate || !eDate) return diffDays(startDate, endDate);
+
+  const sTime = extractTimeParts(startTime);
+  const eTime = extractTimeParts(endTime);
+
+  const startMs = Date.UTC(sDate.year, sDate.month - 1, sDate.day, sTime.hour, sTime.minute, sTime.second);
+  const endMs = Date.UTC(eDate.year, eDate.month - 1, eDate.day, eTime.hour, eTime.minute, eTime.second);
+  const diffMs = endMs - startMs;
+  if (!Number.isFinite(diffMs) || diffMs <= 0) return 1;
+  return Math.max(1, Math.ceil(diffMs / 86400000));
 }
 
 async function isUserAdmin(supabase: any, userId: string): Promise<boolean> {
@@ -526,12 +595,6 @@ async function createDepositCheckoutForServiceFulfillment(params: {
     .eq("fulfillment_id", fulfillmentId)
     .maybeSingle();
 
-  if (existing?.data && (existing.data as any).checkout_url) {
-    const url = String((existing.data as any).checkout_url || "").trim();
-    const id = String((existing.data as any).id || "").trim();
-    if (id && url) return { deposit_request_id: id, checkout_url: url };
-  }
-
   const { data: contactRow } = await supabase
     .from("partner_service_fulfillment_contacts")
     .select("customer_name, customer_email, customer_phone")
@@ -547,15 +610,21 @@ async function createDepositCheckoutForServiceFulfillment(params: {
 
   const tableName = getServiceTableName(category);
   let lang: "pl" | "en" = "en";
+  let bookingRow: any = null;
   try {
+    const bookingSelect = category === "cars"
+      ? "lang, pickup_date, pickup_time, return_date, return_time"
+      : "lang, arrival_date, departure_date";
     const { data: booking } = await supabase
       .from(tableName)
-      .select("lang")
+      .select(bookingSelect)
       .eq("id", bookingId)
       .maybeSingle();
+    bookingRow = booking || null;
     lang = normalizeLang((booking as any)?.lang);
   } catch (_e) {
     lang = "en";
+    bookingRow = null;
   }
 
   const rule = await loadDepositRule(supabase, {
@@ -567,6 +636,7 @@ async function createDepositCheckoutForServiceFulfillment(params: {
     throw new Error("Deposit rule not configured");
   }
 
+  const fulfillmentDetails = fulfillment?.details && typeof fulfillment.details === "object" ? fulfillment.details : null;
   let depositAmount = 0;
   if (rule.mode === "percent_total") {
     const total = Number((fulfillment as any)?.total_price || 0);
@@ -579,11 +649,31 @@ async function createDepositCheckoutForServiceFulfillment(params: {
     if (rule.mode === "flat") {
       multiplier = 1;
     } else if (rule.mode === "per_day") {
-      const start = fulfillment?.start_date;
-      const end = fulfillment?.end_date;
-      multiplier = diffDays(start, end);
       if (category === "cars") {
+        const startDate = (bookingRow as any)?.pickup_date
+          ?? fulfillmentDetails?.pickup_date
+          ?? fulfillmentDetails?.pickupDate
+          ?? fulfillment?.start_date;
+        const endDate = (bookingRow as any)?.return_date
+          ?? fulfillmentDetails?.return_date
+          ?? fulfillmentDetails?.returnDate
+          ?? fulfillment?.end_date;
+        const startTime = (bookingRow as any)?.pickup_time
+          ?? fulfillmentDetails?.pickup_time
+          ?? fulfillmentDetails?.pickupTime
+          ?? "10:00";
+        const endTime = (bookingRow as any)?.return_time
+          ?? fulfillmentDetails?.return_time
+          ?? fulfillmentDetails?.returnTime
+          ?? startTime
+          ?? "10:00";
+
+        multiplier = diffStartedDays(startDate, endDate, startTime, endTime);
         multiplier = Math.max(3, multiplier);
+      } else {
+        const start = (bookingRow as any)?.arrival_date ?? fulfillment?.start_date;
+        const end = (bookingRow as any)?.departure_date ?? fulfillment?.end_date;
+        multiplier = diffDays(start, end);
       }
     } else if (rule.mode === "per_hour") {
       if (category !== "trips") throw new Error("per_hour deposit only supported for trips");
@@ -599,15 +689,13 @@ async function createDepositCheckoutForServiceFulfillment(params: {
         hours = 0;
       }
       if (!(hours > 0)) {
-        const details = fulfillment?.details && typeof fulfillment.details === "object" ? fulfillment.details : null;
-        const raw = details?.num_hours ?? details?.numHours ?? details?.hours ?? 0;
+        const raw = fulfillmentDetails?.num_hours ?? fulfillmentDetails?.numHours ?? fulfillmentDetails?.hours ?? 0;
         hours = Number(raw || 0);
       }
       multiplier = Math.max(1, Number.isFinite(hours) ? Math.round(hours) : 1);
     } else {
-      const details = fulfillment?.details && typeof fulfillment.details === "object" ? fulfillment.details : null;
-      const adults = details?.num_adults ?? details?.numAdults ?? 0;
-      const children = details?.num_children ?? details?.numChildren ?? 0;
+      const adults = fulfillmentDetails?.num_adults ?? fulfillmentDetails?.numAdults ?? 0;
+      const children = fulfillmentDetails?.num_children ?? fulfillmentDetails?.numChildren ?? 0;
       const people = Number(adults || 0) + Number(rule.include_children ? (children || 0) : 0);
       multiplier = Math.max(1, Number.isFinite(people) ? people : 1);
     }
@@ -623,13 +711,28 @@ async function createDepositCheckoutForServiceFulfillment(params: {
     : String(rule.currency || "EUR").trim() || "EUR");
   const fulfillmentReference = fulfillment?.reference ? String(fulfillment.reference) : null;
   const fulfillmentSummary = fulfillment?.summary ? String(fulfillment.summary) : null;
+  const existingRow = existing?.data && typeof existing.data === "object" ? (existing.data as any) : null;
+  const existingId = String(existingRow?.id || "").trim();
+  const existingStatus = String(existingRow?.status || "").trim().toLowerCase();
+  const existingUrl = String(existingRow?.checkout_url || "").trim();
+  const existingAmount = Number(existingRow?.amount || 0);
+  const existingCurrency = String(existingRow?.currency || "").trim().toUpperCase();
+  const targetCurrency = String(currency || "EUR").trim().toUpperCase();
+  const amountMatches = Math.abs(existingAmount - depositAmount) <= 0.009;
+  const currencyMatches = !existingCurrency || existingCurrency === targetCurrency;
 
-  let depositRequestId = "";
-  try {
-    const insertRes = await supabase
+  if (existingId && existingStatus === "paid") {
+    return { deposit_request_id: existingId, checkout_url: existingUrl || "" };
+  }
+  if (existingId && existingStatus === "pending" && existingUrl && amountMatches && currencyMatches) {
+    return { deposit_request_id: existingId, checkout_url: existingUrl };
+  }
+
+  let depositRequestId = existingId;
+  if (depositRequestId) {
+    await supabase
       .from("service_deposit_requests")
-      .insert({
-        fulfillment_id: fulfillmentId,
+      .update({
         partner_id: partnerId,
         resource_type: category,
         booking_id: bookingId,
@@ -643,25 +746,51 @@ async function createDepositCheckoutForServiceFulfillment(params: {
         amount: depositAmount,
         currency,
         status: "pending",
+        paid_at: null,
+        stripe_payment_intent_id: null,
+        stripe_checkout_session_id: null,
+        checkout_url: null,
       })
-      .select("id")
-      .maybeSingle();
-    depositRequestId = String((insertRes.data as any)?.id || "");
-    if (insertRes.error) throw insertRes.error;
-  } catch (e: any) {
-    const code = String(e?.code || "");
-    if (code !== "23505") {
-      throw e;
+      .eq("id", depositRequestId);
+  } else {
+    try {
+      const insertRes = await supabase
+        .from("service_deposit_requests")
+        .insert({
+          fulfillment_id: fulfillmentId,
+          partner_id: partnerId,
+          resource_type: category,
+          booking_id: bookingId,
+          resource_id: fulfillment?.resource_id || null,
+          fulfillment_reference: fulfillmentReference,
+          fulfillment_summary: fulfillmentSummary,
+          customer_name: customerName,
+          customer_email: customerEmail,
+          customer_phone: customerPhone,
+          lang,
+          amount: depositAmount,
+          currency,
+          status: "pending",
+        })
+        .select("id")
+        .maybeSingle();
+      depositRequestId = String((insertRes.data as any)?.id || "");
+      if (insertRes.error) throw insertRes.error;
+    } catch (e: any) {
+      const code = String(e?.code || "");
+      if (code !== "23505") {
+        throw e;
+      }
     }
-  }
 
-  if (!depositRequestId) {
-    const { data: after } = await supabase
-      .from("service_deposit_requests")
-      .select("id")
-      .eq("fulfillment_id", fulfillmentId)
-      .maybeSingle();
-    depositRequestId = String((after as any)?.id || "");
+    if (!depositRequestId) {
+      const { data: after } = await supabase
+        .from("service_deposit_requests")
+        .select("id")
+        .eq("fulfillment_id", fulfillmentId)
+        .maybeSingle();
+      depositRequestId = String((after as any)?.id || "");
+    }
   }
 
   if (!depositRequestId) {
@@ -697,8 +826,11 @@ async function createDepositCheckoutForServiceFulfillment(params: {
     partner_id: partnerId,
     resource_type: category,
     booking_id: bookingId,
+    deposit_amount: depositAmount.toFixed(2),
+    deposit_currency: targetCurrency || "EUR",
   };
 
+  const knownCustomerId = await stripeFindCustomerIdByEmail(customerEmail);
   const session = await stripeCreateCheckoutSession({
     currency,
     amount: depositAmount,
@@ -706,6 +838,7 @@ async function createDepositCheckoutForServiceFulfillment(params: {
     successUrl,
     cancelUrl,
     customerEmail,
+    customerId: knownCustomerId,
     clientReferenceId: depositRequestId,
     metadata,
   });
@@ -714,13 +847,28 @@ async function createDepositCheckoutForServiceFulfillment(params: {
   const url = String(session.url || "").trim();
   if (!sessionId || !url) throw new Error("Stripe session missing url");
 
-  await supabase
+  const sessionCustomerId = String(session.customerId || knownCustomerId || "").trim();
+  const updatePayload: Record<string, unknown> = {
+    stripe_checkout_session_id: sessionId,
+    checkout_url: url,
+  };
+  if (sessionCustomerId) {
+    updatePayload.stripe_customer_id = sessionCustomerId;
+  }
+
+  const updateRes = await supabase
     .from("service_deposit_requests")
-    .update({
-      stripe_checkout_session_id: sessionId,
-      checkout_url: url,
-    })
+    .update(updatePayload)
     .eq("id", depositRequestId);
+  if (updateRes.error && sessionCustomerId && String(updateRes.error?.message || "").toLowerCase().includes("stripe_customer_id")) {
+    await supabase
+      .from("service_deposit_requests")
+      .update({
+        stripe_checkout_session_id: sessionId,
+        checkout_url: url,
+      })
+      .eq("id", depositRequestId);
+  }
 
   await enqueueCustomerDepositEmail(supabase, {
     category,

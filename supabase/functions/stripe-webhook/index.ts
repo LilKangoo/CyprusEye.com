@@ -250,6 +250,8 @@ async function enqueueAdminDepositPaidEmail(supabase: any, params: {
 async function handleDepositPaymentIntentSucceeded(supabase: any, paymentIntent: any, depositRequestId: string) {
   const nowIso = new Date().toISOString();
   const pid = String(paymentIntent.id || "").trim();
+  const customerId = getStripeId(paymentIntent.customer);
+  const paymentMethodId = getStripeId(paymentIntent.payment_method);
   const id = String(depositRequestId || "").trim();
   if (!id) return;
 
@@ -276,15 +278,13 @@ async function handleDepositPaymentIntentSucceeded(supabase: any, paymentIntent:
     return;
   }
 
-  await supabase
-    .from("service_deposit_requests")
-    .update({
-      status: "paid",
-      paid_at: nowIso,
-      stripe_payment_intent_id: pid || null,
-    })
-    .eq("id", id)
-    .neq("status", "paid");
+  await updateDepositRequestStripeFields(supabase, id, {
+    status: "paid",
+    paid_at: (dep as any)?.paid_at || nowIso,
+    stripe_payment_intent_id: pid || null,
+    stripe_customer_id: customerId || null,
+    stripe_payment_method_id: paymentMethodId || null,
+  });
 
   await supabase
     .from("partner_service_fulfillments")
@@ -337,7 +337,9 @@ async function handleDepositCheckoutCompleted(supabase: any, session: any, depos
   if (!depositRequestId) return;
 
   const nowIso = new Date().toISOString();
-  const paymentIntentId = String(session.payment_intent?.id || "").trim();
+  const paymentIntentId = String(getStripeId((session as any).payment_intent) || "").trim();
+  const customerId = getStripeId((session as any).customer);
+  const paymentMethodId = getStripeId((session as any).payment_method);
 
   const { data: dep, error: depErr } = await supabase
     .from("service_deposit_requests")
@@ -362,16 +364,14 @@ async function handleDepositCheckoutCompleted(supabase: any, session: any, depos
     return;
   }
 
-  await supabase
-    .from("service_deposit_requests")
-    .update({
-      status: "paid",
-      paid_at: nowIso,
-      stripe_checkout_session_id: session.id,
-      stripe_payment_intent_id: paymentIntentId,
-    })
-    .eq("id", depositRequestId)
-    .neq("status", "paid");
+  await updateDepositRequestStripeFields(supabase, depositRequestId, {
+    status: "paid",
+    paid_at: (dep as any)?.paid_at || nowIso,
+    stripe_checkout_session_id: session.id,
+    stripe_payment_intent_id: paymentIntentId || null,
+    stripe_customer_id: customerId || null,
+    stripe_payment_method_id: paymentMethodId || null,
+  });
 
   await supabase
     .from("partner_service_fulfillments")
@@ -444,6 +444,31 @@ function getStripeId(value: unknown): string | null {
     return typeof id === "string" ? id : null;
   }
   return null;
+}
+
+async function updateDepositRequestStripeFields(
+  supabase: any,
+  depositRequestId: string,
+  payload: Record<string, unknown>,
+) {
+  const primary = await supabase
+    .from("service_deposit_requests")
+    .update(payload)
+    .eq("id", depositRequestId);
+
+  if (!primary.error) return primary;
+
+  const errMsg = String(primary.error?.message || "").toLowerCase();
+  const needsFallback = errMsg.includes("stripe_customer_id") || errMsg.includes("stripe_payment_method_id");
+  if (!needsFallback) return primary;
+
+  const fallbackPayload = { ...payload };
+  delete (fallbackPayload as any).stripe_customer_id;
+  delete (fallbackPayload as any).stripe_payment_method_id;
+  return supabase
+    .from("service_deposit_requests")
+    .update(fallbackPayload)
+    .eq("id", depositRequestId);
 }
 
  function getFunctionsBaseUrl(): string {
