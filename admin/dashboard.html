@@ -1886,9 +1886,12 @@
         </header>
 
         <!-- Sub-navigation for Cars -->
-        <div style="margin-bottom: 24px; border-bottom: 2px solid var(--admin-border); display: flex; gap: 8px;">
+        <div style="margin-bottom: 24px; border-bottom: 2px solid var(--admin-border); display: flex; gap: 8px; flex-wrap: wrap;">
           <button class="cars-tab-button active" data-tab="bookings" style="padding: 12px 24px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: var(--admin-text-muted); transition: all 0.2s;">
             Bookings
+          </button>
+          <button class="cars-tab-button" data-tab="coupons" style="padding: 12px 24px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: var(--admin-text-muted); transition: all 0.2s;">
+            Coupons
           </button>
           <button class="cars-tab-button" data-tab="fleet" style="padding: 12px 24px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: var(--admin-text-muted); transition: all 0.2s;">
             Fleet Management
@@ -1973,6 +1976,96 @@
               <tbody id="carsTableBody">
                 <tr>
                   <td colspan="7" class="table-loading">Loading car bookings...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Coupons Tab Content -->
+        <div id="carsTabCoupons" class="cars-tab-content" hidden>
+          <div id="carsCouponsError" class="admin-error-message" hidden style="margin-bottom: 16px;"></div>
+
+          <div class="admin-stats-grid" style="margin-bottom: 16px;">
+            <div class="admin-stat-card">
+              <div class="stat-card-content">
+                <p class="stat-card-label">Visible Coupons</p>
+                <p class="stat-card-value" id="statCarsCouponsVisible">-</p>
+                <p class="stat-card-change">Current filters</p>
+              </div>
+            </div>
+            <div class="admin-stat-card">
+              <div class="stat-card-content">
+                <p class="stat-card-label">Enabled</p>
+                <p class="stat-card-value" id="statCarsCouponsEnabled">-</p>
+                <p class="stat-card-change">Status active + enabled</p>
+              </div>
+            </div>
+            <div class="admin-stat-card">
+              <div class="stat-card-content">
+                <p class="stat-card-label">Redemptions</p>
+                <p class="stat-card-value" id="statCarsCouponsRedemptions">-</p>
+                <p class="stat-card-change">From usage snapshot</p>
+              </div>
+            </div>
+            <div class="admin-stat-card">
+              <div class="stat-card-content">
+                <p class="stat-card-label">Discount Granted</p>
+                <p class="stat-card-value" id="statCarsCouponsDiscountTotal">-</p>
+                <p class="stat-card-change">Rental price only</p>
+              </div>
+            </div>
+          </div>
+
+          <div style="margin-bottom: 16px; display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+            <input
+              type="text"
+              id="carsCouponsSearchInput"
+              class="admin-form-field"
+              placeholder="Search by code, name, description..."
+              style="flex: 1; min-width: 240px;"
+            />
+            <select id="carsCouponsStatusFilter" class="admin-form-field" style="min-width: 150px;">
+              <option value="">All statuses</option>
+              <option value="draft">Draft</option>
+              <option value="active">Active</option>
+              <option value="paused">Paused</option>
+              <option value="expired">Expired</option>
+            </select>
+            <select id="carsCouponsActivityFilter" class="admin-form-field" style="min-width: 160px;">
+              <option value="">All activity</option>
+              <option value="enabled">Enabled</option>
+              <option value="disabled">Disabled</option>
+            </select>
+            <select id="carsCouponsTypeFilter" class="admin-form-field" style="min-width: 150px;">
+              <option value="">All discount types</option>
+              <option value="percent">Percent</option>
+              <option value="fixed">Fixed</option>
+            </select>
+            <select id="carsCouponsPartnerFilter" class="admin-form-field" style="min-width: 200px;">
+              <option value="">All partners</option>
+            </select>
+            <button type="button" class="btn-secondary" id="btnCarsCouponsClearFilters">Clear</button>
+          </div>
+
+          <div class="admin-table-container" aria-label="Cars coupons table">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Code</th>
+                  <th>Discount</th>
+                  <th>Window</th>
+                  <th>Limits</th>
+                  <th>Scope</th>
+                  <th>Partner</th>
+                  <th>Status</th>
+                  <th>Usage</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="carsCouponsTableBody">
+                <tr>
+                  <td colspan="9" class="table-loading">Open Coupons tab to load coupons.</td>
                 </tr>
               </tbody>
             </table>
@@ -4644,6 +4737,185 @@
           <div class="poi-form-actions">
             <button type="button" class="btn-secondary" id="fleetCarFormCancel">Cancel</button>
             <button type="submit" class="btn-primary" id="fleetCarFormSubmit">Save Car</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Car Coupon Create/Edit Modal -->
+  <div class="admin-modal" id="carCouponModal" hidden>
+    <div class="admin-modal-overlay" id="carCouponModalOverlay"></div>
+    <div class="admin-modal-content" style="max-width: 980px;">
+      <header class="admin-modal-header">
+        <h3 id="carCouponModalTitle">Create Coupon</h3>
+        <button class="btn-modal-close" id="btnCloseCarCouponModal">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </header>
+      <div class="admin-modal-body">
+        <form id="carCouponForm" novalidate>
+          <input type="hidden" id="carCouponId" />
+
+          <div style="display: grid; gap: 16px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+              <label class="admin-form-field">
+                <span>Code *</span>
+                <input type="text" id="carCouponCode" placeholder="SUMMER25" required maxlength="64" />
+              </label>
+              <label class="admin-form-field">
+                <span>Status *</span>
+                <select id="carCouponStatus" required>
+                  <option value="draft">Draft</option>
+                  <option value="active">Active</option>
+                  <option value="paused">Paused</option>
+                  <option value="expired">Expired</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Discount Type *</span>
+                <select id="carCouponDiscountType" required>
+                  <option value="percent">Percent</option>
+                  <option value="fixed">Fixed amount</option>
+                </select>
+              </label>
+              <label class="admin-form-field">
+                <span>Discount Value *</span>
+                <input type="number" id="carCouponDiscountValue" step="0.01" min="0.01" required />
+              </label>
+              <label class="admin-form-field">
+                <span>Currency</span>
+                <input type="text" id="carCouponCurrency" value="EUR" maxlength="8" />
+              </label>
+              <div class="admin-form-field">
+                <span>Enabled</span>
+                <label style="display: flex; gap: 8px; align-items: center; margin-top: 10px;">
+                  <input type="checkbox" id="carCouponIsActive" checked style="width: 18px; height: 18px;" />
+                  <span>Coupon can be used now</span>
+                </label>
+              </div>
+            </div>
+
+            <label class="admin-form-field">
+              <span>Name</span>
+              <input type="text" id="carCouponName" placeholder="Summer promo for airport rentals" maxlength="160" />
+            </label>
+
+            <label class="admin-form-field">
+              <span>Description</span>
+              <textarea id="carCouponDescription" rows="2" placeholder="Visible business description for this coupon"></textarea>
+            </label>
+
+            <label class="admin-form-field">
+              <span>Internal Notes</span>
+              <textarea id="carCouponInternalNotes" rows="2" placeholder="Admin-only notes"></textarea>
+            </label>
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+              <label class="admin-form-field">
+                <span>Starts At</span>
+                <input type="datetime-local" id="carCouponStartsAt" />
+              </label>
+              <label class="admin-form-field">
+                <span>Expires At</span>
+                <input type="datetime-local" id="carCouponExpiresAt" />
+              </label>
+            </div>
+
+            <div style="padding: 14px; border: 1px solid var(--admin-border); border-radius: 8px; background: var(--admin-bg-secondary); display: grid; gap: 12px;">
+              <h4 style="margin: 0; font-size: 14px;">Usage Limits</h4>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px;">
+                <div class="admin-form-field">
+                  <span>Single-use</span>
+                  <label style="display: flex; gap: 8px; align-items: center; margin-top: 10px;">
+                    <input type="checkbox" id="carCouponSingleUse" style="width: 18px; height: 18px;" />
+                    <span>Force one use only</span>
+                  </label>
+                </div>
+                <label class="admin-form-field">
+                  <span>Global usage limit</span>
+                  <input type="number" id="carCouponUsageLimitTotal" min="1" step="1" placeholder="No limit" />
+                </label>
+                <label class="admin-form-field">
+                  <span>Per-user limit</span>
+                  <input type="number" id="carCouponUsageLimitPerUser" min="1" step="1" placeholder="No limit" />
+                </label>
+                <label class="admin-form-field">
+                  <span>Min rental days</span>
+                  <input type="number" id="carCouponMinRentalDays" min="1" step="1" placeholder="No minimum" />
+                </label>
+                <label class="admin-form-field">
+                  <span>Min rental total</span>
+                  <input type="number" id="carCouponMinRentalTotal" min="0" step="0.01" placeholder="No minimum" />
+                </label>
+              </div>
+            </div>
+
+            <div style="padding: 14px; border: 1px solid var(--admin-border); border-radius: 8px; background: var(--admin-bg-secondary); display: grid; gap: 12px;">
+              <h4 style="margin: 0; font-size: 14px;">Scope & Exclusions</h4>
+              <div style="display: flex; flex-wrap: wrap; gap: 12px;">
+                <label style="display: flex; align-items: center; gap: 8px;">
+                  <input type="checkbox" id="carCouponLocationPaphos" value="paphos" style="width: 18px; height: 18px;" />
+                  <span>Paphos</span>
+                </label>
+                <label style="display: flex; align-items: center; gap: 8px;">
+                  <input type="checkbox" id="carCouponLocationLarnaca" value="larnaca" style="width: 18px; height: 18px;" />
+                  <span>Larnaca</span>
+                </label>
+              </div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                <label class="admin-form-field">
+                  <span>Applicable Offer IDs</span>
+                  <textarea id="carCouponApplicableOfferIds" rows="3" placeholder="One UUID per line"></textarea>
+                </label>
+                <label class="admin-form-field">
+                  <span>Applicable Car Models</span>
+                  <textarea id="carCouponApplicableCarModels" rows="3" placeholder="One model per line"></textarea>
+                </label>
+                <label class="admin-form-field">
+                  <span>Applicable Car Types</span>
+                  <textarea id="carCouponApplicableCarTypes" rows="3" placeholder="One type per line"></textarea>
+                </label>
+                <label class="admin-form-field">
+                  <span>Excluded Offer IDs</span>
+                  <textarea id="carCouponExcludedOfferIds" rows="3" placeholder="One UUID per line"></textarea>
+                </label>
+                <label class="admin-form-field">
+                  <span>Excluded Car Models</span>
+                  <textarea id="carCouponExcludedCarModels" rows="3" placeholder="One model per line"></textarea>
+                </label>
+                <label class="admin-form-field">
+                  <span>Excluded Car Types</span>
+                  <textarea id="carCouponExcludedCarTypes" rows="3" placeholder="One type per line"></textarea>
+                </label>
+              </div>
+            </div>
+
+            <div style="padding: 14px; border: 1px solid var(--admin-border); border-radius: 8px; background: var(--admin-bg-secondary); display: grid; gap: 12px;">
+              <h4 style="margin: 0; font-size: 14px;">Partner Attribution (Optional)</h4>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px;">
+                <label class="admin-form-field">
+                  <span>Partner</span>
+                  <select id="carCouponPartnerId">
+                    <option value="">No partner</option>
+                  </select>
+                </label>
+                <label class="admin-form-field">
+                  <span>Partner commission override (bps)</span>
+                  <input type="number" id="carCouponPartnerCommissionBps" min="0" step="1" placeholder="Leave empty for default" />
+                </label>
+              </div>
+            </div>
+          </div>
+
+          <div id="carCouponFormError" class="admin-error-message" hidden style="margin-top: 16px;"></div>
+
+          <div class="poi-form-actions" style="margin-top: 20px;">
+            <button type="button" class="btn-secondary" id="carCouponFormCancel">Cancel</button>
+            <button type="submit" class="btn-primary" id="carCouponFormSubmit">Save Coupon</button>
           </div>
         </form>
       </div>

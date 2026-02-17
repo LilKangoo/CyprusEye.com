@@ -9525,7 +9525,7 @@ function switchView(viewName) {
       loadQuestsData();
       break;
     case 'cars':
-      loadCarsData();
+      switchCarsTab(getActiveCarsTab());
       break;
     case 'trips':
       loadTripsAdminData();
@@ -12154,6 +12154,229 @@ document.addEventListener('DOMContentLoaded', () => {
 // CARS MANAGEMENT
 // =====================================================
 
+const CAR_COUPON_ALLOWED_STATUSES = new Set(['draft', 'active', 'paused', 'expired']);
+const CAR_COUPON_ALLOWED_DISCOUNT_TYPES = new Set(['percent', 'fixed']);
+const CAR_COUPON_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+const carsUiState = {
+  activeTab: 'bookings',
+};
+
+const carCouponsState = {
+  loading: false,
+  loaded: false,
+  items: [],
+  usageByCouponId: {},
+  partners: [],
+  partnersById: {},
+  filters: {
+    search: '',
+    status: '',
+    activity: '',
+    discountType: '',
+    partnerId: '',
+  },
+};
+
+function normalizeCarsTabValue(value) {
+  const tab = String(value || '').trim().toLowerCase();
+  if (tab === 'coupons') return 'coupons';
+  if (tab === 'fleet') return 'fleet';
+  return 'bookings';
+}
+
+function getActiveCarsTab() {
+  const active = document.querySelector('.cars-tab-button.active');
+  const tab = normalizeCarsTabValue(active?.dataset?.tab || carsUiState.activeTab || 'bookings');
+  carsUiState.activeTab = tab;
+  return tab;
+}
+
+function normalizeCouponArray(value) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => String(entry || '').trim())
+    .filter(Boolean);
+}
+
+function parseCouponListInput(value) {
+  return Array.from(new Set(
+    String(value || '')
+      .split(/[\n,;]/)
+      .map((entry) => entry.trim())
+      .filter(Boolean),
+  ));
+}
+
+function parseCouponOptionalInteger(value, label, minValue = 1) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < minValue) {
+    throw new Error(`${label} must be an integer >= ${minValue}`);
+  }
+  return parsed;
+}
+
+function parseCouponOptionalNumber(value, label, minValue = 0) {
+  const raw = String(value ?? '').trim();
+  if (!raw) return null;
+  const parsed = Number(raw);
+  if (!Number.isFinite(parsed) || parsed < minValue) {
+    throw new Error(`${label} must be a number >= ${minValue}`);
+  }
+  return Number(parsed.toFixed(2));
+}
+
+function parseCouponRequiredNumber(value, label, minValue = 0.01) {
+  const parsed = Number(String(value ?? '').trim());
+  if (!Number.isFinite(parsed) || parsed < minValue) {
+    throw new Error(`${label} must be a number >= ${minValue}`);
+  }
+  return Number(parsed.toFixed(2));
+}
+
+function parseCouponDateTimeLocal(value, label) {
+  const raw = String(value || '').trim();
+  if (!raw) return null;
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Invalid date for ${label}`);
+  }
+  return date.toISOString();
+}
+
+function toDateTimeLocalInputValue(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const offsetMs = date.getTimezoneOffset() * 60000;
+  return new Date(date.getTime() - offsetMs).toISOString().slice(0, 16);
+}
+
+function formatCouponDateTime(value) {
+  if (!value) return 'Any';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Invalid';
+  return date.toLocaleString();
+}
+
+function setCarsCouponsViewError(message) {
+  const el = $('#carsCouponsError');
+  if (!el) return;
+  const text = String(message || '').trim();
+  if (!text) {
+    el.hidden = true;
+    el.textContent = '';
+    return;
+  }
+  el.textContent = text;
+  el.hidden = false;
+}
+
+function setCarCouponFormError(message) {
+  const el = $('#carCouponFormError');
+  if (!el) return;
+  const text = String(message || '').trim();
+  if (!text) {
+    el.hidden = true;
+    el.textContent = '';
+    return;
+  }
+  el.textContent = text;
+  el.hidden = false;
+}
+
+function getCarCouponUsage(couponId) {
+  if (!couponId) {
+    return {
+      redemptionCount: 0,
+      totalDiscountAmount: 0,
+      lastRedeemedAt: null,
+    };
+  }
+  const row = carCouponsState.usageByCouponId[couponId];
+  return {
+    redemptionCount: Number(row?.redemptionCount || 0),
+    totalDiscountAmount: Number(row?.totalDiscountAmount || 0),
+    lastRedeemedAt: row?.lastRedeemedAt || null,
+  };
+}
+
+function getCarCouponPartnerLabel(partnerId) {
+  if (!partnerId) return '—';
+  const row = carCouponsState.partnersById[partnerId];
+  if (row && row.name) return row.name;
+  return `${String(partnerId).slice(0, 8)}…`;
+}
+
+function formatCouponDiscount(coupon) {
+  const type = String(coupon?.discount_type || '').trim();
+  const value = Number(coupon?.discount_value || 0);
+  if (!Number.isFinite(value)) return '—';
+  if (type === 'percent') return `${value.toFixed(2)}%`;
+  const currency = String(coupon?.currency || 'EUR').toUpperCase();
+  if (currency === 'EUR') return `€${value.toFixed(2)}`;
+  return `${value.toFixed(2)} ${currency}`;
+}
+
+function formatCouponWindow(coupon) {
+  const starts = formatCouponDateTime(coupon?.starts_at);
+  const ends = formatCouponDateTime(coupon?.expires_at);
+  return `${starts} → ${ends}`;
+}
+
+function formatCouponLimits(coupon) {
+  if (coupon?.single_use) return 'Single use';
+  const parts = [];
+  if (Number.isInteger(coupon?.usage_limit_total)) parts.push(`Total: ${coupon.usage_limit_total}`);
+  if (Number.isInteger(coupon?.usage_limit_per_user)) parts.push(`Per user: ${coupon.usage_limit_per_user}`);
+  if (Number.isInteger(coupon?.min_rental_days)) parts.push(`Min days: ${coupon.min_rental_days}`);
+  if (Number.isFinite(Number(coupon?.min_rental_total))) {
+    parts.push(`Min total: ${formatCurrencyEUR(coupon.min_rental_total)}`);
+  }
+  return parts.length ? parts.join(' · ') : 'No limits';
+}
+
+function formatCouponScope(coupon) {
+  const includes = [];
+  const excludes = [];
+
+  const locations = normalizeCouponArray(coupon?.applicable_locations);
+  if (locations.length) includes.push(`Locations: ${locations.map((v) => v.toUpperCase()).join(', ')}`);
+
+  const offerIds = normalizeCouponArray(coupon?.applicable_offer_ids);
+  if (offerIds.length) includes.push(`Offers: ${offerIds.length}`);
+
+  const carModels = normalizeCouponArray(coupon?.applicable_car_models);
+  if (carModels.length) includes.push(`Models: ${carModels.length}`);
+
+  const carTypes = normalizeCouponArray(coupon?.applicable_car_types);
+  if (carTypes.length) includes.push(`Types: ${carTypes.length}`);
+
+  const excludedOfferIds = normalizeCouponArray(coupon?.excluded_offer_ids);
+  if (excludedOfferIds.length) excludes.push(`Offers: ${excludedOfferIds.length}`);
+
+  const excludedCarModels = normalizeCouponArray(coupon?.excluded_car_models);
+  if (excludedCarModels.length) excludes.push(`Models: ${excludedCarModels.length}`);
+
+  const excludedCarTypes = normalizeCouponArray(coupon?.excluded_car_types);
+  if (excludedCarTypes.length) excludes.push(`Types: ${excludedCarTypes.length}`);
+
+  const includeText = includes.length ? includes.join(' · ') : 'All cars/offers';
+  const excludeText = excludes.length ? `Exclude ${excludes.join(' · ')}` : '';
+  return { includeText, excludeText };
+}
+
+function normalizeCouponStatusClass(status) {
+  const s = String(status || '').trim().toLowerCase();
+  if (s === 'active') return 'badge-success';
+  if (s === 'paused') return 'badge-warning';
+  if (s === 'expired') return 'badge-danger';
+  if (s === 'draft') return 'badge';
+  return 'badge';
+}
+
 async function loadCarsData() {
   try {
     const client = ensureSupabase();
@@ -13181,6 +13404,757 @@ window.openEditBooking = openEditBooking;
 window.updateBookingStatus = updateBookingStatus;
 window.deleteCarBooking = deleteCarBooking;
 
+async function ensureCarCouponPartnersLoaded(options = {}) {
+  const { force = false } = options;
+  if (!force && carCouponsState.partners.length > 0) {
+    return carCouponsState.partners;
+  }
+
+  const client = ensureSupabase();
+  if (!client) return [];
+
+  let data = [];
+  let error = null;
+
+  ({ data, error } = await client
+    .from('partners')
+    .select('id, name, status, can_manage_cars')
+    .order('name', { ascending: true })
+    .limit(500));
+
+  if (error && isMissingColumnError(error, 'can_manage_cars')) {
+    ({ data, error } = await client
+      .from('partners')
+      .select('id, name, status')
+      .order('name', { ascending: true })
+      .limit(500));
+  }
+
+  if (error) throw error;
+
+  const rows = Array.isArray(data) ? data : [];
+  carCouponsState.partners = rows;
+  carCouponsState.partnersById = {};
+  rows.forEach((row) => {
+    if (!row?.id) return;
+    carCouponsState.partnersById[row.id] = row;
+  });
+  return rows;
+}
+
+function populateCarCouponPartnerOptions() {
+  const options = (carCouponsState.partners || []).map((partner) => {
+    const id = String(partner?.id || '').trim();
+    if (!id) return '';
+    const status = String(partner?.status || '').trim();
+    const suffix = status && status !== 'active' ? ` (${status})` : '';
+    const label = `${String(partner?.name || id)}${suffix}`;
+    return `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`;
+  }).join('');
+
+  const filterSelect = $('#carsCouponsPartnerFilter');
+  if (filterSelect) {
+    const prev = String(filterSelect.value || '');
+    filterSelect.innerHTML = '<option value="">All partners</option>' + options;
+    const hasPrev = prev && Array.from(filterSelect.options || []).some((option) => String(option.value || '') === prev);
+    if (hasPrev) {
+      filterSelect.value = prev;
+    }
+  }
+
+  const partnerSelect = $('#carCouponPartnerId');
+  if (partnerSelect) {
+    const prev = String(partnerSelect.value || '');
+    partnerSelect.innerHTML = '<option value="">No partner</option>' + options;
+    const hasPrev = prev && Array.from(partnerSelect.options || []).some((option) => String(option.value || '') === prev);
+    if (hasPrev) {
+      partnerSelect.value = prev;
+    }
+  }
+}
+
+function getFilteredCarCoupons() {
+  const filters = carCouponsState.filters || {};
+  const search = String(filters.search || '').trim().toLowerCase();
+  const status = String(filters.status || '').trim().toLowerCase();
+  const activity = String(filters.activity || '').trim().toLowerCase();
+  const discountType = String(filters.discountType || '').trim().toLowerCase();
+  const partnerId = String(filters.partnerId || '').trim();
+
+  const list = Array.isArray(carCouponsState.items) ? carCouponsState.items : [];
+  return list.filter((coupon) => {
+    if (!coupon || !coupon.id) return false;
+
+    if (status && String(coupon.status || '').trim().toLowerCase() !== status) return false;
+    if (discountType && String(coupon.discount_type || '').trim().toLowerCase() !== discountType) return false;
+    if (partnerId && String(coupon.partner_id || '').trim() !== partnerId) return false;
+    if (activity === 'enabled' && !coupon.is_active) return false;
+    if (activity === 'disabled' && coupon.is_active) return false;
+
+    if (search) {
+      const partnerLabel = getCarCouponPartnerLabel(coupon.partner_id).toLowerCase();
+      const haystack = [
+        coupon.code,
+        coupon.name,
+        coupon.description,
+        coupon.internal_notes,
+        partnerLabel,
+      ]
+        .map((part) => String(part || '').toLowerCase())
+        .join(' ');
+      if (!haystack.includes(search)) return false;
+    }
+
+    return true;
+  });
+}
+
+function renderCarCouponStats(coupons) {
+  const rows = Array.isArray(coupons) ? coupons : [];
+  const visibleCount = rows.length;
+  const enabledCount = rows.filter((coupon) => coupon.is_active && String(coupon.status || '').trim().toLowerCase() === 'active').length;
+  const redemptionCount = rows.reduce((sum, coupon) => sum + getCarCouponUsage(coupon.id).redemptionCount, 0);
+  const discountTotal = rows.reduce((sum, coupon) => sum + getCarCouponUsage(coupon.id).totalDiscountAmount, 0);
+
+  const visibleEl = $('#statCarsCouponsVisible');
+  if (visibleEl) visibleEl.textContent = String(visibleCount);
+
+  const enabledEl = $('#statCarsCouponsEnabled');
+  if (enabledEl) enabledEl.textContent = String(enabledCount);
+
+  const redemptionsEl = $('#statCarsCouponsRedemptions');
+  if (redemptionsEl) redemptionsEl.textContent = String(redemptionCount);
+
+  const discountEl = $('#statCarsCouponsDiscountTotal');
+  if (discountEl) discountEl.textContent = formatCurrencyEUR(discountTotal);
+}
+
+function renderCarCouponsTable(coupons) {
+  const tbody = $('#carsCouponsTableBody');
+  if (!tbody) return;
+
+  const rows = Array.isArray(coupons) ? coupons : [];
+  if (!rows.length) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="9" class="table-loading">No coupons found for current filters.</td>
+      </tr>
+    `;
+    scheduleResponsiveTableHydration();
+    return;
+  }
+
+  tbody.innerHTML = rows.map((coupon) => {
+    const usage = getCarCouponUsage(coupon.id);
+    const scope = formatCouponScope(coupon);
+    const statusClass = normalizeCouponStatusClass(coupon.status);
+    const activeClass = coupon.is_active ? 'badge-success' : 'badge-danger';
+    const lastRedeemed = usage.lastRedeemedAt ? formatCouponDateTime(usage.lastRedeemedAt) : 'Never';
+
+    return `
+      <tr>
+        <td>
+          <div style="font-weight: 700;">${escapeHtml(String(coupon.code || ''))}</div>
+          ${coupon.name ? `<div style="font-size: 12px; color: var(--admin-text-muted);">${escapeHtml(String(coupon.name))}</div>` : ''}
+        </td>
+        <td>
+          <div style="font-weight: 600;">${escapeHtml(formatCouponDiscount(coupon))}</div>
+          <div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(String(coupon.discount_type || ''))}</div>
+        </td>
+        <td style="font-size: 12px;">
+          ${escapeHtml(formatCouponWindow(coupon))}
+        </td>
+        <td style="font-size: 12px;">
+          ${escapeHtml(formatCouponLimits(coupon))}
+        </td>
+        <td style="font-size: 12px;">
+          <div>${escapeHtml(scope.includeText)}</div>
+          ${scope.excludeText ? `<div style="color: var(--admin-text-muted); margin-top: 4px;">${escapeHtml(scope.excludeText)}</div>` : ''}
+        </td>
+        <td>
+          <div>${escapeHtml(getCarCouponPartnerLabel(coupon.partner_id))}</div>
+          ${Number.isInteger(coupon.partner_commission_bps_override) ? `<div style="font-size: 11px; color: var(--admin-text-muted);">Override: ${coupon.partner_commission_bps_override} bps</div>` : ''}
+        </td>
+        <td>
+          <span class="badge ${statusClass}" style="display: block; margin-bottom: 4px;">${escapeHtml(String(coupon.status || 'draft').toUpperCase())}</span>
+          <span class="badge ${activeClass}" style="font-size: 10px;">${coupon.is_active ? 'ENABLED' : 'DISABLED'}</span>
+        </td>
+        <td style="font-size: 12px;">
+          <div>${usage.redemptionCount} uses</div>
+          <div>${formatCurrencyEUR(usage.totalDiscountAmount)}</div>
+          <div style="color: var(--admin-text-muted); font-size: 11px;">${escapeHtml(lastRedeemed)}</div>
+        </td>
+        <td>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+            <button type="button" class="btn-small btn-secondary" data-coupon-action="edit" data-coupon-id="${escapeHtml(String(coupon.id))}">Edit</button>
+            <button type="button" class="btn-small btn-secondary" data-coupon-action="${coupon.is_active ? 'deactivate' : 'activate'}" data-coupon-id="${escapeHtml(String(coupon.id))}">
+              ${coupon.is_active ? 'Disable' : 'Enable'}
+            </button>
+            <button type="button" class="btn-small btn-secondary" data-coupon-action="delete" data-coupon-id="${escapeHtml(String(coupon.id))}" style="color: var(--admin-danger);">Delete</button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+
+  scheduleResponsiveTableHydration();
+}
+
+function renderCarCouponsData() {
+  const filtered = getFilteredCarCoupons();
+  renderCarCouponStats(filtered);
+  renderCarCouponsTable(filtered);
+}
+
+function renderCarCouponsErrorRow(message) {
+  const tbody = $('#carsCouponsTableBody');
+  if (!tbody) return;
+  const text = String(message || 'Unknown error');
+  tbody.innerHTML = `
+    <tr>
+      <td colspan="9" class="table-loading" style="color: var(--admin-danger);">
+        Failed to load coupons: ${escapeHtml(text)}
+      </td>
+    </tr>
+  `;
+  scheduleResponsiveTableHydration();
+}
+
+async function loadCarCouponsData(options = {}) {
+  const { silent = false, showSuccessToast = false, forcePartnersRefresh = false } = options;
+  if (carCouponsState.loading) return;
+
+  try {
+    carCouponsState.loading = true;
+    setCarsCouponsViewError('');
+
+    const tbody = $('#carsCouponsTableBody');
+    if (tbody && !silent) {
+      tbody.innerHTML = '<tr><td colspan="9" class="table-loading">Loading coupons...</td></tr>';
+      scheduleResponsiveTableHydration();
+    }
+
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database connection not available');
+
+    let partnerWarning = '';
+    try {
+      await ensureCarCouponPartnersLoaded({ force: forcePartnersRefresh });
+      populateCarCouponPartnerOptions();
+    } catch (partnerError) {
+      console.warn('Failed to load partners for coupons:', partnerError);
+      carCouponsState.partners = [];
+      carCouponsState.partnersById = {};
+      populateCarCouponPartnerOptions();
+      partnerWarning = `Partner list unavailable: ${partnerError?.message || 'unknown error'}`;
+    }
+
+    const columns = [
+      'id',
+      'code',
+      'name',
+      'description',
+      'internal_notes',
+      'status',
+      'is_active',
+      'discount_type',
+      'discount_value',
+      'currency',
+      'starts_at',
+      'expires_at',
+      'single_use',
+      'usage_limit_total',
+      'usage_limit_per_user',
+      'min_rental_days',
+      'min_rental_total',
+      'applicable_locations',
+      'applicable_offer_ids',
+      'applicable_car_models',
+      'applicable_car_types',
+      'excluded_offer_ids',
+      'excluded_car_models',
+      'excluded_car_types',
+      'partner_id',
+      'partner_commission_bps_override',
+      'created_at',
+      'updated_at',
+    ].join(', ');
+
+    const { data: coupons, error: couponsError } = await client
+      .from('car_coupons')
+      .select(columns)
+      .order('created_at', { ascending: false })
+      .limit(1000);
+
+    if (couponsError) throw couponsError;
+
+    carCouponsState.items = Array.isArray(coupons) ? coupons : [];
+
+    const usageByCouponId = {};
+    if (carCouponsState.items.length > 0) {
+      const couponIds = carCouponsState.items
+        .map((coupon) => String(coupon?.id || '').trim())
+        .filter(Boolean);
+
+      const { data: usageRows, error: usageError } = await client
+        .from('car_coupon_usage_stats')
+        .select('coupon_id, redemption_count, total_discount_amount, last_redeemed_at')
+        .in('coupon_id', couponIds);
+
+      if (usageError) {
+        const usageWarning = `Usage stats unavailable: ${usageError.message || 'unknown error'}`;
+        const combinedWarning = [partnerWarning, usageWarning].filter(Boolean).join(' | ');
+        setCarsCouponsViewError(combinedWarning);
+      } else {
+        (usageRows || []).forEach((row) => {
+          if (!row?.coupon_id) return;
+          usageByCouponId[row.coupon_id] = {
+            redemptionCount: Number(row.redemption_count || 0),
+            totalDiscountAmount: Number(row.total_discount_amount || 0),
+            lastRedeemedAt: row.last_redeemed_at || null,
+          };
+        });
+        if (partnerWarning) {
+          setCarsCouponsViewError(partnerWarning);
+        }
+      }
+    } else if (partnerWarning) {
+      setCarsCouponsViewError(partnerWarning);
+    }
+
+    carCouponsState.usageByCouponId = usageByCouponId;
+    carCouponsState.loaded = true;
+    renderCarCouponsData();
+
+    if (showSuccessToast) {
+      showToast('Coupons refreshed', 'success');
+    }
+  } catch (error) {
+    console.error('Failed to load car coupons:', error);
+    const msg = String(error?.message || 'Unknown error');
+    setCarsCouponsViewError(`Failed to load coupons: ${msg}`);
+    renderCarCouponsErrorRow(msg);
+    showToast(`Failed to load coupons: ${msg}`, 'error');
+  } finally {
+    carCouponsState.loading = false;
+  }
+}
+
+function syncCarCouponDiscountTypeFields() {
+  const discountType = String($('#carCouponDiscountType')?.value || 'percent').trim();
+  const discountValueInput = $('#carCouponDiscountValue');
+  if (!discountValueInput) return;
+
+  if (discountType === 'percent') {
+    discountValueInput.min = '0.01';
+    discountValueInput.max = '100';
+    discountValueInput.step = '0.01';
+    discountValueInput.placeholder = '10';
+  } else {
+    discountValueInput.min = '0.01';
+    discountValueInput.removeAttribute('max');
+    discountValueInput.step = '0.01';
+    discountValueInput.placeholder = '25';
+  }
+}
+
+function syncCarCouponSingleUseFields() {
+  const singleUse = Boolean($('#carCouponSingleUse')?.checked);
+  const totalInput = $('#carCouponUsageLimitTotal');
+  const perUserInput = $('#carCouponUsageLimitPerUser');
+  if (!totalInput || !perUserInput) return;
+
+  if (singleUse) {
+    totalInput.value = '1';
+    perUserInput.value = '1';
+    totalInput.disabled = true;
+    perUserInput.disabled = true;
+    return;
+  }
+
+  totalInput.disabled = false;
+  perUserInput.disabled = false;
+}
+
+function resetCarCouponForm() {
+  const form = $('#carCouponForm');
+  if (form) form.reset();
+
+  const idInput = $('#carCouponId');
+  if (idInput) idInput.value = '';
+  const statusInput = $('#carCouponStatus');
+  if (statusInput) statusInput.value = 'draft';
+  const typeInput = $('#carCouponDiscountType');
+  if (typeInput) typeInput.value = 'percent';
+  const currencyInput = $('#carCouponCurrency');
+  if (currencyInput) currencyInput.value = 'EUR';
+  const activeInput = $('#carCouponIsActive');
+  if (activeInput) activeInput.checked = true;
+  const paphosInput = $('#carCouponLocationPaphos');
+  if (paphosInput) paphosInput.checked = false;
+  const larnacaInput = $('#carCouponLocationLarnaca');
+  if (larnacaInput) larnacaInput.checked = false;
+
+  setCarCouponFormError('');
+  syncCarCouponDiscountTypeFields();
+  syncCarCouponSingleUseFields();
+}
+
+function validateCouponUuidList(values, label) {
+  values.forEach((value) => {
+    if (!CAR_COUPON_UUID_PATTERN.test(value)) {
+      throw new Error(`${label} contains invalid UUID: ${value}`);
+    }
+  });
+}
+
+function collectCarCouponFormPayload() {
+  const code = String($('#carCouponCode')?.value || '').trim().toUpperCase();
+  if (!code) throw new Error('Coupon code is required');
+  if (/\s/.test(code)) throw new Error('Coupon code cannot contain spaces');
+
+  const status = String($('#carCouponStatus')?.value || 'draft').trim().toLowerCase();
+  if (!CAR_COUPON_ALLOWED_STATUSES.has(status)) {
+    throw new Error('Invalid coupon status');
+  }
+
+  const discountType = String($('#carCouponDiscountType')?.value || 'percent').trim().toLowerCase();
+  if (!CAR_COUPON_ALLOWED_DISCOUNT_TYPES.has(discountType)) {
+    throw new Error('Invalid discount type');
+  }
+
+  const discountValue = parseCouponRequiredNumber($('#carCouponDiscountValue')?.value, 'Discount value', 0.01);
+  if (discountType === 'percent' && discountValue > 100) {
+    throw new Error('Percent discount cannot exceed 100');
+  }
+
+  const currency = String($('#carCouponCurrency')?.value || 'EUR').trim().toUpperCase() || 'EUR';
+
+  const startsAt = parseCouponDateTimeLocal($('#carCouponStartsAt')?.value, 'start date');
+  const expiresAt = parseCouponDateTimeLocal($('#carCouponExpiresAt')?.value, 'expiry date');
+  if (startsAt && expiresAt && new Date(expiresAt).getTime() < new Date(startsAt).getTime()) {
+    throw new Error('Expiry date cannot be earlier than start date');
+  }
+
+  const singleUse = Boolean($('#carCouponSingleUse')?.checked);
+  let usageLimitTotal = parseCouponOptionalInteger($('#carCouponUsageLimitTotal')?.value, 'Global usage limit', 1);
+  let usageLimitPerUser = parseCouponOptionalInteger($('#carCouponUsageLimitPerUser')?.value, 'Per-user usage limit', 1);
+  if (singleUse) {
+    usageLimitTotal = 1;
+    usageLimitPerUser = 1;
+  }
+  if (usageLimitTotal !== null && usageLimitPerUser !== null && usageLimitPerUser > usageLimitTotal) {
+    throw new Error('Per-user usage limit cannot exceed global usage limit');
+  }
+
+  const minRentalDays = parseCouponOptionalInteger($('#carCouponMinRentalDays')?.value, 'Minimum rental days', 1);
+  const minRentalTotal = parseCouponOptionalNumber($('#carCouponMinRentalTotal')?.value, 'Minimum rental total', 0);
+
+  const applicableOfferIds = parseCouponListInput($('#carCouponApplicableOfferIds')?.value);
+  const excludedOfferIds = parseCouponListInput($('#carCouponExcludedOfferIds')?.value);
+  validateCouponUuidList(applicableOfferIds, 'Applicable offer IDs');
+  validateCouponUuidList(excludedOfferIds, 'Excluded offer IDs');
+
+  const partnerId = String($('#carCouponPartnerId')?.value || '').trim() || null;
+  if (partnerId && !CAR_COUPON_UUID_PATTERN.test(partnerId)) {
+    throw new Error('Invalid partner selected');
+  }
+
+  const partnerCommissionBps = parseCouponOptionalInteger(
+    $('#carCouponPartnerCommissionBps')?.value,
+    'Partner commission override',
+    0,
+  );
+  if (partnerCommissionBps !== null && !partnerId) {
+    throw new Error('Partner commission override requires selecting a partner');
+  }
+
+  const applicableLocations = [];
+  if (Boolean($('#carCouponLocationPaphos')?.checked)) applicableLocations.push('paphos');
+  if (Boolean($('#carCouponLocationLarnaca')?.checked)) applicableLocations.push('larnaca');
+
+  return {
+    code,
+    name: String($('#carCouponName')?.value || '').trim() || null,
+    description: String($('#carCouponDescription')?.value || '').trim() || null,
+    internal_notes: String($('#carCouponInternalNotes')?.value || '').trim() || null,
+    status,
+    is_active: Boolean($('#carCouponIsActive')?.checked),
+    discount_type: discountType,
+    discount_value: discountValue,
+    currency,
+    starts_at: startsAt,
+    expires_at: expiresAt,
+    single_use: singleUse,
+    usage_limit_total: usageLimitTotal,
+    usage_limit_per_user: usageLimitPerUser,
+    min_rental_days: minRentalDays,
+    min_rental_total: minRentalTotal,
+    applicable_locations: applicableLocations,
+    applicable_offer_ids: applicableOfferIds,
+    applicable_car_models: parseCouponListInput($('#carCouponApplicableCarModels')?.value),
+    applicable_car_types: parseCouponListInput($('#carCouponApplicableCarTypes')?.value),
+    excluded_offer_ids: excludedOfferIds,
+    excluded_car_models: parseCouponListInput($('#carCouponExcludedCarModels')?.value),
+    excluded_car_types: parseCouponListInput($('#carCouponExcludedCarTypes')?.value),
+    partner_id: partnerId,
+    partner_commission_bps_override: partnerCommissionBps,
+  };
+}
+
+function closeCarCouponModal() {
+  const modal = $('#carCouponModal');
+  if (modal) modal.hidden = true;
+  setCarCouponFormError('');
+}
+
+async function openCarCouponModal(couponId = null) {
+  const modal = $('#carCouponModal');
+  const title = $('#carCouponModalTitle');
+  if (!modal || !title) return;
+
+  resetCarCouponForm();
+
+  try {
+    await ensureCarCouponPartnersLoaded();
+    populateCarCouponPartnerOptions();
+  } catch (error) {
+    console.warn('Failed to preload partners for coupon modal:', error);
+  }
+
+  const id = String(couponId || '').trim();
+  const coupon = id
+    ? (carCouponsState.items || []).find((row) => String(row?.id || '') === id)
+    : null;
+
+  if (coupon) {
+    title.textContent = `Edit Coupon ${coupon.code || ''}`;
+    $('#carCouponId').value = String(coupon.id || '');
+    $('#carCouponCode').value = String(coupon.code || '');
+    $('#carCouponName').value = String(coupon.name || '');
+    $('#carCouponDescription').value = String(coupon.description || '');
+    $('#carCouponInternalNotes').value = String(coupon.internal_notes || '');
+    $('#carCouponStatus').value = String(coupon.status || 'draft');
+    $('#carCouponIsActive').checked = Boolean(coupon.is_active);
+    $('#carCouponDiscountType').value = String(coupon.discount_type || 'percent');
+    $('#carCouponDiscountValue').value = Number(coupon.discount_value || 0).toString();
+    $('#carCouponCurrency').value = String(coupon.currency || 'EUR');
+    $('#carCouponStartsAt').value = toDateTimeLocalInputValue(coupon.starts_at);
+    $('#carCouponExpiresAt').value = toDateTimeLocalInputValue(coupon.expires_at);
+    $('#carCouponSingleUse').checked = Boolean(coupon.single_use);
+    $('#carCouponUsageLimitTotal').value = coupon.usage_limit_total ?? '';
+    $('#carCouponUsageLimitPerUser').value = coupon.usage_limit_per_user ?? '';
+    $('#carCouponMinRentalDays').value = coupon.min_rental_days ?? '';
+    $('#carCouponMinRentalTotal').value = coupon.min_rental_total ?? '';
+    $('#carCouponLocationPaphos').checked = normalizeCouponArray(coupon.applicable_locations).includes('paphos');
+    $('#carCouponLocationLarnaca').checked = normalizeCouponArray(coupon.applicable_locations).includes('larnaca');
+    $('#carCouponApplicableOfferIds').value = normalizeCouponArray(coupon.applicable_offer_ids).join('\n');
+    $('#carCouponApplicableCarModels').value = normalizeCouponArray(coupon.applicable_car_models).join('\n');
+    $('#carCouponApplicableCarTypes').value = normalizeCouponArray(coupon.applicable_car_types).join('\n');
+    $('#carCouponExcludedOfferIds').value = normalizeCouponArray(coupon.excluded_offer_ids).join('\n');
+    $('#carCouponExcludedCarModels').value = normalizeCouponArray(coupon.excluded_car_models).join('\n');
+    $('#carCouponExcludedCarTypes').value = normalizeCouponArray(coupon.excluded_car_types).join('\n');
+    $('#carCouponPartnerId').value = String(coupon.partner_id || '');
+    $('#carCouponPartnerCommissionBps').value = coupon.partner_commission_bps_override ?? '';
+  } else {
+    title.textContent = 'Create Coupon';
+  }
+
+  syncCarCouponDiscountTypeFields();
+  syncCarCouponSingleUseFields();
+  modal.hidden = false;
+}
+
+async function handleCarCouponFormSubmit(event) {
+  event.preventDefault();
+
+  const submitBtn = $('#carCouponFormSubmit');
+  const couponId = String($('#carCouponId')?.value || '').trim();
+
+  try {
+    if (submitBtn) {
+      submitBtn.disabled = true;
+      submitBtn.textContent = couponId ? 'Saving...' : 'Creating...';
+    }
+
+    setCarCouponFormError('');
+
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database connection not available');
+
+    const payload = collectCarCouponFormPayload();
+    payload.updated_by = adminState.user?.id || null;
+
+    let error = null;
+    if (couponId) {
+      ({ error } = await client
+        .from('car_coupons')
+        .update(payload)
+        .eq('id', couponId));
+    } else {
+      ({ error } = await client
+        .from('car_coupons')
+        .insert([{ ...payload, created_by: adminState.user?.id || null }]));
+    }
+
+    if (error) {
+      const msg = String(error?.message || '');
+      if (String(error?.code || '') === '23505' || /duplicate/i.test(msg) || /car_coupons_code_unique_idx/i.test(msg)) {
+        throw new Error('Coupon code already exists');
+      }
+      throw error;
+    }
+
+    showToast(couponId ? 'Coupon updated successfully' : 'Coupon created successfully', 'success');
+    closeCarCouponModal();
+    await loadCarCouponsData({ silent: true });
+  } catch (error) {
+    console.error('Failed to save coupon:', error);
+    const msg = String(error?.message || 'Unknown error');
+    setCarCouponFormError(msg);
+    showToast(`Failed to save coupon: ${msg}`, 'error');
+  } finally {
+    if (submitBtn) {
+      submitBtn.disabled = false;
+      submitBtn.textContent = 'Save Coupon';
+    }
+  }
+}
+
+async function setCarCouponActiveState(couponId, isActive) {
+  const id = String(couponId || '').trim();
+  if (!id) return;
+
+  try {
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database connection not available');
+
+    const { error } = await client
+      .from('car_coupons')
+      .update({
+        is_active: Boolean(isActive),
+        updated_by: adminState.user?.id || null,
+      })
+      .eq('id', id);
+
+    if (error) throw error;
+
+    showToast(Boolean(isActive) ? 'Coupon enabled' : 'Coupon disabled', 'success');
+    await loadCarCouponsData({ silent: true });
+  } catch (error) {
+    console.error('Failed to change coupon activity:', error);
+    const msg = String(error?.message || 'Unknown error');
+    setCarsCouponsViewError(`Failed to update coupon state: ${msg}`);
+    showToast(`Failed to update coupon state: ${msg}`, 'error');
+  }
+}
+
+async function deleteCarCoupon(couponId) {
+  const id = String(couponId || '').trim();
+  if (!id) return;
+
+  if (!confirm('Delete this coupon? This action cannot be undone.')) return;
+  const typed = prompt('Type DELETE to confirm coupon deletion:');
+  if (typed !== 'DELETE') {
+    showToast('Deletion cancelled', 'info');
+    return;
+  }
+
+  try {
+    const client = ensureSupabase();
+    if (!client) throw new Error('Database connection not available');
+
+    const { error } = await client
+      .from('car_coupons')
+      .delete()
+      .eq('id', id);
+
+    if (error) throw error;
+
+    showToast('Coupon deleted', 'success');
+    await loadCarCouponsData({ silent: true });
+  } catch (error) {
+    console.error('Failed to delete coupon:', error);
+    const msg = String(error?.message || 'Unknown error');
+    setCarsCouponsViewError(`Failed to delete coupon: ${msg}`);
+    showToast(`Failed to delete coupon: ${msg}`, 'error');
+  }
+}
+
+async function handleCarCouponsTableClick(event) {
+  const button = event.target?.closest?.('button[data-coupon-action]');
+  if (!button) return;
+
+  const couponId = String(button.dataset.couponId || '').trim();
+  const action = String(button.dataset.couponAction || '').trim();
+  if (!couponId || !action) return;
+
+  if (action === 'edit') {
+    await openCarCouponModal(couponId);
+    return;
+  }
+  if (action === 'activate') {
+    await setCarCouponActiveState(couponId, true);
+    return;
+  }
+  if (action === 'deactivate') {
+    await setCarCouponActiveState(couponId, false);
+    return;
+  }
+  if (action === 'delete') {
+    await deleteCarCoupon(couponId);
+  }
+}
+
+function clearCarCouponFilters() {
+  carCouponsState.filters = {
+    search: '',
+    status: '',
+    activity: '',
+    discountType: '',
+    partnerId: '',
+  };
+
+  const searchInput = $('#carsCouponsSearchInput');
+  if (searchInput) searchInput.value = '';
+  const statusFilter = $('#carsCouponsStatusFilter');
+  if (statusFilter) statusFilter.value = '';
+  const activityFilter = $('#carsCouponsActivityFilter');
+  if (activityFilter) activityFilter.value = '';
+  const typeFilter = $('#carsCouponsTypeFilter');
+  if (typeFilter) typeFilter.value = '';
+  const partnerFilter = $('#carsCouponsPartnerFilter');
+  if (partnerFilter) partnerFilter.value = '';
+
+  renderCarCouponsData();
+}
+
+async function handleCarsRefreshAction() {
+  const tab = getActiveCarsTab();
+  if (tab === 'fleet') {
+    await loadFleetData();
+    return;
+  }
+  if (tab === 'coupons') {
+    await loadCarCouponsData({ showSuccessToast: true, forcePartnersRefresh: true });
+    return;
+  }
+  await loadCarsData();
+}
+
+async function handleCarsAddAction() {
+  const tab = getActiveCarsTab();
+  if (tab === 'fleet') {
+    openFleetCarModal();
+    return;
+  }
+  if (tab === 'coupons') {
+    await openCarCouponModal();
+    return;
+  }
+  showToast('Add new car booking - coming soon', 'info');
+}
+
 // =====================================================
 // FLEET MANAGEMENT
 // =====================================================
@@ -14040,9 +15014,12 @@ window.handleFleetCarSubmit = handleFleetCarSubmit;
 window.toggleCarAvailability = toggleCarAvailability;
 
 function switchCarsTab(tab) {
+  const normalizedTab = normalizeCarsTabValue(tab);
+  carsUiState.activeTab = normalizedTab;
+
   // Update tab buttons
   document.querySelectorAll('.cars-tab-button').forEach(btn => {
-    const isActive = btn.dataset.tab === tab;
+    const isActive = normalizeCarsTabValue(btn.dataset.tab) === normalizedTab;
     btn.classList.toggle('active', isActive);
     btn.style.borderBottom = isActive ? '2px solid var(--admin-primary)' : '2px solid transparent';
     btn.style.color = isActive ? 'var(--admin-primary)' : 'var(--admin-text-muted)';
@@ -14050,34 +15027,40 @@ function switchCarsTab(tab) {
 
   // Show/hide tab content
   const bookingsTab = $('#carsTabBookings');
+  const couponsTab = $('#carsTabCoupons');
   const fleetTab = $('#carsTabFleet');
 
-  if (bookingsTab) bookingsTab.hidden = (tab !== 'bookings');
-  if (fleetTab) fleetTab.hidden = (tab !== 'fleet');
+  if (bookingsTab) bookingsTab.hidden = (normalizedTab !== 'bookings');
+  if (couponsTab) couponsTab.hidden = (normalizedTab !== 'coupons');
+  if (fleetTab) fleetTab.hidden = (normalizedTab !== 'fleet');
 
   // Update action buttons
   const btnAddCar = $('#btnAddCar');
   const btnRefreshCars = $('#btnRefreshCars');
-  
-  if (tab === 'bookings') {
+
+  if (btnAddCar) btnAddCar.onclick = null;
+  if (btnRefreshCars) btnRefreshCars.onclick = null;
+
+  if (normalizedTab === 'bookings') {
     if (btnAddCar) {
       btnAddCar.textContent = 'New Booking';
-      btnAddCar.onclick = () => showToast('Add new car booking - coming soon', 'info');
-    }
-    if (btnRefreshCars) {
-      btnRefreshCars.onclick = () => loadCarsData();
     }
     loadCarsData();
-  } else if (tab === 'fleet') {
-    if (btnAddCar) {
-      btnAddCar.textContent = 'Add New Car';
-      btnAddCar.onclick = () => openFleetCarModal();
-    }
-    if (btnRefreshCars) {
-      btnRefreshCars.onclick = () => loadFleetData();
-    }
-    loadFleetData();
+    return;
   }
+
+  if (normalizedTab === 'coupons') {
+    if (btnAddCar) {
+      btnAddCar.textContent = 'Add Coupon';
+    }
+    loadCarCouponsData();
+    return;
+  }
+
+  if (btnAddCar) {
+    btnAddCar.textContent = 'Add New Car';
+  }
+  loadFleetData();
 }
 
 // Make functions global
@@ -14085,6 +15068,8 @@ window.loadFleetData = loadFleetData;
 window.deleteFleetCar = deleteFleetCar;
 window.editFleetCar = editFleetCar;
 window.switchCarsTab = switchCarsTab;
+window.openCarCouponModal = openCarCouponModal;
+window.closeCarCouponModal = closeCarCouponModal;
 
 // =====================================================
 // DIAGNOSTICS
@@ -15764,6 +16749,59 @@ function initEventListeners() {
     });
   });
 
+  // Cars coupons filters
+  const carsCouponsSearchInput = $('#carsCouponsSearchInput');
+  if (carsCouponsSearchInput) {
+    carsCouponsSearchInput.addEventListener('input', (event) => {
+      carCouponsState.filters.search = String(event.target?.value || '');
+      renderCarCouponsData();
+    });
+  }
+
+  const carsCouponsStatusFilter = $('#carsCouponsStatusFilter');
+  if (carsCouponsStatusFilter) {
+    carsCouponsStatusFilter.addEventListener('change', (event) => {
+      carCouponsState.filters.status = String(event.target?.value || '');
+      renderCarCouponsData();
+    });
+  }
+
+  const carsCouponsActivityFilter = $('#carsCouponsActivityFilter');
+  if (carsCouponsActivityFilter) {
+    carsCouponsActivityFilter.addEventListener('change', (event) => {
+      carCouponsState.filters.activity = String(event.target?.value || '');
+      renderCarCouponsData();
+    });
+  }
+
+  const carsCouponsTypeFilter = $('#carsCouponsTypeFilter');
+  if (carsCouponsTypeFilter) {
+    carsCouponsTypeFilter.addEventListener('change', (event) => {
+      carCouponsState.filters.discountType = String(event.target?.value || '');
+      renderCarCouponsData();
+    });
+  }
+
+  const carsCouponsPartnerFilter = $('#carsCouponsPartnerFilter');
+  if (carsCouponsPartnerFilter) {
+    carsCouponsPartnerFilter.addEventListener('change', (event) => {
+      carCouponsState.filters.partnerId = String(event.target?.value || '');
+      renderCarCouponsData();
+    });
+  }
+
+  const btnCarsCouponsClearFilters = $('#btnCarsCouponsClearFilters');
+  if (btnCarsCouponsClearFilters) {
+    btnCarsCouponsClearFilters.addEventListener('click', clearCarCouponFilters);
+  }
+
+  const carsCouponsTableBody = $('#carsCouponsTableBody');
+  if (carsCouponsTableBody) {
+    carsCouponsTableBody.addEventListener('click', (event) => {
+      handleCarCouponsTableClick(event);
+    });
+  }
+
   // Fleet filters
   const fleetLocationFilter = $('#fleetLocationFilter');
   if (fleetLocationFilter) {
@@ -15803,6 +16841,37 @@ function initEventListeners() {
   const fleetCarFormCancel = $('#fleetCarFormCancel');
   if (fleetCarFormCancel) {
     fleetCarFormCancel.addEventListener('click', closeFleetCarModal);
+  }
+
+  // Cars coupon modal controls
+  const btnCloseCarCouponModal = $('#btnCloseCarCouponModal');
+  if (btnCloseCarCouponModal) {
+    btnCloseCarCouponModal.addEventListener('click', closeCarCouponModal);
+  }
+
+  const carCouponModalOverlay = $('#carCouponModalOverlay');
+  if (carCouponModalOverlay) {
+    carCouponModalOverlay.addEventListener('click', closeCarCouponModal);
+  }
+
+  const carCouponFormCancel = $('#carCouponFormCancel');
+  if (carCouponFormCancel) {
+    carCouponFormCancel.addEventListener('click', closeCarCouponModal);
+  }
+
+  const carCouponForm = $('#carCouponForm');
+  if (carCouponForm) {
+    carCouponForm.addEventListener('submit', handleCarCouponFormSubmit);
+  }
+
+  const carCouponDiscountType = $('#carCouponDiscountType');
+  if (carCouponDiscountType) {
+    carCouponDiscountType.addEventListener('change', syncCarCouponDiscountTypeFields);
+  }
+
+  const carCouponSingleUse = $('#carCouponSingleUse');
+  if (carCouponSingleUse) {
+    carCouponSingleUse.addEventListener('change', syncCarCouponSingleUseFields);
   }
 
   // Booking details modal controls
@@ -15946,13 +17015,15 @@ function initEventListeners() {
   // Cars actions (will be updated by switchCarsTab)
   const refreshCarsBtn = $('#btnRefreshCars');
   if (refreshCarsBtn) {
-    refreshCarsBtn.addEventListener('click', () => loadCarsData());
+    refreshCarsBtn.addEventListener('click', () => {
+      handleCarsRefreshAction();
+    });
   }
 
   const addCarBtn = $('#btnAddCar');
   if (addCarBtn) {
     addCarBtn.addEventListener('click', () => {
-      showToast('Add new car booking - coming soon', 'info');
+      handleCarsAddAction();
     });
   }
 

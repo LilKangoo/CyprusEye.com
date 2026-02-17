@@ -2,8 +2,15 @@
 // POST { action: 'preview' | 'execute', confirm_text?: 'DELETE', expected_email?: string }
 
 import { createSupabaseClients, requireAdmin } from '../../../../_utils/supabaseAdmin';
+import {
+  normalizeEmail as normalizeEmailShared,
+  collectDeleteImpact as collectDeleteImpactShared,
+  executeHardDelete as executeHardDeleteShared,
+  HARD_DELETE_FLOW_VERSION,
+} from '../../../../_utils/hardDeleteUser';
 
 const JSON_HEADERS = { 'content-type': 'application/json' };
+const DELETE_API_VERSION = '2026-02-17-e5f7a0e-2';
 
 function json(body, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
@@ -34,20 +41,65 @@ function isStorageNotFound(error) {
 }
 
 function formatErrorMessage(error) {
-  const direct = String(
-    error?.message
-    || error?.error
-    || error?.error_description
-    || '',
-  ).trim();
+  const pickText = (...values) => values
+    .map((value) => (typeof value === 'string' ? value.trim() : ''))
+    .find(Boolean) || '';
+
+  const direct = pickText(
+    error?.message,
+    error?.error,
+    error?.error_description,
+    error?.details,
+    error?.hint,
+    error?.code,
+    error?.statusText,
+  );
   if (direct) return direct;
-  const extra = String(error?.details || error?.hint || error?.code || '').trim();
-  if (extra) return extra;
+
+  const status = Number(error?.statusCode || error?.status || 0);
+  if (status > 0) return `Server error (status ${status})`;
+
   try {
-    return JSON.stringify(error);
-  } catch (_e) {
-    return 'Server error';
-  }
+    const serialized = JSON.stringify(error);
+    if (serialized && serialized !== '{}' && serialized !== 'null') {
+      return `Unexpected server error payload: ${serialized}`;
+    }
+  } catch (_) {}
+
+  const fallback = String(error ?? '').trim();
+  if (fallback && fallback !== '[object Object]') return fallback;
+  return 'Unexpected server error (empty error payload)';
+}
+
+function describeErrorPayload(error) {
+  const pickText = (...values) => values
+    .map((value) => (typeof value === 'string' ? value.trim() : ''))
+    .find(Boolean) || '';
+
+  const direct = pickText(
+    error?.message,
+    error?.error,
+    error?.error_description,
+    error?.details,
+    error?.hint,
+    error?.code,
+    error?.statusText,
+  );
+  if (direct) return direct;
+
+  const status = Number(error?.statusCode || error?.status || 0);
+  if (status > 0) return `status ${status}`;
+
+  try {
+    const serialized = JSON.stringify(error);
+    if (serialized && serialized !== '{}' && serialized !== 'null') {
+      return serialized;
+    }
+  } catch (_) {}
+
+  const fallback = String(error ?? '').trim();
+  if (fallback && fallback !== '[object Object]') return fallback;
+  return '';
 }
 
 async function safeCountByEq(client, table, column, value) {
@@ -345,7 +397,16 @@ export async function executeHardDelete(client, adminClient, userId, email) {
   deleted.profiles_referred_by = await safeNullifyByEq(client, 'profiles', 'referred_by', 'referred_by', userId);
 
   const { error: authDeleteError } = await adminClient.auth.admin.deleteUser(userId);
-  if (authDeleteError) throw authDeleteError;
+  if (authDeleteError) {
+    const detail = describeErrorPayload(authDeleteError);
+    const wrapped = new Error(
+      detail
+        ? `Hard delete failed at auth.admin.deleteUser: ${detail}`
+        : 'Hard delete failed at auth.admin.deleteUser',
+    );
+    wrapped.cause = authDeleteError;
+    throw wrapped;
+  }
 
   const deletedRecords = Object.values(deleted).reduce((sum, value) => sum + Number(value || 0), 0);
   const nullifiedRecords = Object.values(nullified).reduce((sum, value) => sum + Number(value || 0), 0);
@@ -353,6 +414,19 @@ export async function executeHardDelete(client, adminClient, userId, email) {
 }
 
 export async function onRequestPost(context) {
+  let requestAction = 'unknown';
+  let routeStep = 'start';
+
+  const runRouteStep = async (step, operation) => {
+    routeStep = step;
+    try {
+      return await operation();
+    } catch (error) {
+      const detail = formatErrorMessage(error);
+      throw new Error(detail ? `${step} failed: ${detail}` : `${step} failed`);
+    }
+  };
+
   try {
     const { request, env, params } = context;
     const body = await request.json().catch(() => ({}));
@@ -360,42 +434,59 @@ export async function onRequestPost(context) {
 
     if (!userId) return json({ error: 'Missing user id' }, 400);
 
-    const { adminId } = await requireAdmin(request, env);
+    const { adminId } = await runRouteStep('require_admin', () => requireAdmin(request, env));
     if (adminId === userId) {
       return json({ error: 'You cannot delete your own admin account.' }, 400);
     }
 
     const { adminClient } = createSupabaseClients(env, request.headers.get('Authorization'));
     const action = String(body?.action || 'preview').trim().toLowerCase();
+    requestAction = action;
 
-    const { data: authData, error: authError } = await adminClient.auth.admin.getUserById(userId);
+    const { data: authData, error: authError } = await runRouteStep('auth_get_user_by_id', () =>
+      adminClient.auth.admin.getUserById(userId),
+    );
     if (authError || !authData?.user) {
       return json({ error: 'Target user not found' }, 404);
     }
-    const targetEmail = normalizeEmail(authData.user.email);
+    const targetEmail = normalizeEmailShared(authData.user.email);
 
-    const { data: profile } = await adminClient
-      .from('profiles')
-      .select('id, is_admin')
-      .eq('id', userId)
-      .maybeSingle();
+    const { data: profile } = await runRouteStep('load_target_profile', () =>
+      adminClient
+        .from('profiles')
+        .select('id, is_admin')
+        .eq('id', userId)
+        .maybeSingle(),
+    );
 
     if (profile?.is_admin) {
-      const { count: otherAdmins, error: adminsError } = await adminClient
-        .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .eq('is_admin', true)
-        .neq('id', userId);
+      const { count: otherAdmins, error: adminsError } = await runRouteStep('count_other_admins', () =>
+        adminClient
+          .from('profiles')
+          .select('id', { count: 'exact', head: true })
+          .eq('is_admin', true)
+          .neq('id', userId),
+      );
       if (!adminsError && Number(otherAdmins || 0) === 0) {
         return json({ error: 'Cannot delete the last admin account.' }, 400);
       }
     }
 
-    const impact = await collectDeleteImpact(adminClient, userId, targetEmail);
     if (action === 'preview') {
+      let impact;
+      try {
+        impact = await runRouteStep('collect_delete_impact_preview', () =>
+          collectDeleteImpactShared(adminClient, userId, targetEmail),
+        );
+      } catch (impactError) {
+        console.warn('[admin-delete] preview impact collection failed, continuing:', impactError);
+        impact = { counts: {}, total_records: 0 };
+      }
       return json({
         ok: true,
         action: 'preview',
+        api_version: DELETE_API_VERSION,
+        hard_delete_flow_version: HARD_DELETE_FLOW_VERSION,
         user_id: userId,
         email: targetEmail || null,
         ...impact,
@@ -411,23 +502,32 @@ export async function onRequestPost(context) {
       return json({ error: 'Confirmation token mismatch' }, 400);
     }
 
-    const expectedEmail = normalizeEmail(body?.expected_email);
+    const expectedEmail = normalizeEmailShared(body?.expected_email);
     if (expectedEmail && targetEmail && expectedEmail !== targetEmail) {
       return json({ error: 'Email confirmation mismatch' }, 400);
     }
 
-    const result = await executeHardDelete(adminClient, adminClient, userId, targetEmail);
+    const result = await runRouteStep('execute_hard_delete', () =>
+      executeHardDeleteShared(adminClient, adminClient, userId, targetEmail),
+    );
     return json({
       ok: true,
       action: 'execute',
+      api_version: DELETE_API_VERSION,
+      hard_delete_flow_version: HARD_DELETE_FLOW_VERSION,
       user_id: userId,
       email: targetEmail || null,
-      preview: impact,
       ...result,
     });
   } catch (e) {
     const message = formatErrorMessage(e);
     console.error('[admin-delete] failed:', e);
-    return json({ error: message || 'Server error' }, 500);
+    return json({
+      error: message || 'Server error',
+      api_version: DELETE_API_VERSION,
+      hard_delete_flow_version: HARD_DELETE_FLOW_VERSION,
+      request_action: requestAction,
+      route_step: routeStep,
+    }, 500);
   }
 }

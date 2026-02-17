@@ -3997,6 +3997,31 @@ async function apiRequest(path, options = {}) {
   return null;
 }
 
+async function apiRequestRaw(path, options = {}) {
+  const token = await getAdminAccessToken();
+  const headers = new Headers(options.headers || {});
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  if (!headers.has('Content-Type') && options.body != null) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  const res = await fetch(`/admin/api${path}`, { ...options, headers });
+  const contentType = (res.headers.get('content-type') || '').toLowerCase();
+
+  let body = null;
+  if (contentType.includes('application/json')) {
+    body = await res.json().catch(() => null);
+  } else {
+    body = await res.text().catch(() => null);
+  }
+
+  return {
+    ok: res.ok,
+    status: res.status,
+    body,
+  };
+}
+
 async function setUserXpLevel(userId, xp, level) {
   try {
     const client = ensureSupabase();
@@ -6236,6 +6261,8 @@ async function loadDiagnosticsData() {
       }
     }
 
+    await updateDeleteFlowStatusCard(client);
+
     // Load system metrics
     if (!client) {
       console.error('Cannot load system metrics - client not available');
@@ -6280,6 +6307,143 @@ async function loadDiagnosticsData() {
 const diagnosticsState = {
   statuses: {},
 };
+
+const DELETE_DIAGNOSTICS_EXPECTED = {
+  apiVersion: '2026-02-17-e5f7a0e-2',
+  flowVersion: '2026-02-17-compact-subreq-1',
+};
+
+function describeDiagnosticPayload(payload) {
+  if (payload == null) return 'empty payload';
+  if (typeof payload === 'string') return payload.trim() || 'empty payload';
+  if (typeof payload === 'object') {
+    const direct = String(payload.error || payload.message || '').trim();
+    if (direct) return direct;
+    try {
+      return JSON.stringify(payload);
+    } catch (_) {
+      return 'unserializable payload';
+    }
+  }
+  return String(payload);
+}
+
+async function getDeleteDiagnosticsTarget(client) {
+  const selfId = adminState.user?.id || ADMIN_CONFIG.requiredUserId;
+  const { data, error } = await client
+    .from('admin_users_overview')
+    .select('id, email, is_admin, created_at')
+    .neq('id', selfId)
+    .order('created_at', { ascending: false })
+    .limit(25);
+
+  if (error) throw error;
+
+  const rows = Array.isArray(data) ? data : [];
+  if (!rows.length) return null;
+
+  const nonAdmin = rows.find((row) => row && row.is_admin !== true);
+  return nonAdmin || rows[0];
+}
+
+async function runDeletePreviewCanary(client) {
+  const target = await getDeleteDiagnosticsTarget(client);
+  if (!target || !target.id) {
+    return {
+      status: 'warn',
+      details: 'No canary user available (create at least one extra user account).',
+      apiVersion: null,
+      flowVersion: null,
+    };
+  }
+
+  const response = await apiRequestRaw(`/users/${target.id}/delete`, {
+    method: 'POST',
+    body: JSON.stringify({ action: 'preview' }),
+  });
+
+  if (!response.ok) {
+    return {
+      status: 'error',
+      details: `Preview failed (${response.status}): ${describeDiagnosticPayload(response.body)}`,
+      apiVersion: null,
+      flowVersion: null,
+    };
+  }
+
+  const payload = response.body && typeof response.body === 'object' ? response.body : {};
+  const apiVersion = String(payload.api_version || '').trim();
+  const flowVersion = String(payload.hard_delete_flow_version || '').trim();
+  if (!payload.ok || payload.action !== 'preview') {
+    return {
+      status: 'error',
+      details: 'Preview contract invalid: missing ok/action fields.',
+      apiVersion,
+      flowVersion,
+    };
+  }
+
+  if (!apiVersion || !flowVersion) {
+    return {
+      status: 'warn',
+      details: 'Preview works, but api_version or hard_delete_flow_version is missing.',
+      apiVersion,
+      flowVersion,
+    };
+  }
+
+  const mismatches = [];
+  if (DELETE_DIAGNOSTICS_EXPECTED.apiVersion && apiVersion !== DELETE_DIAGNOSTICS_EXPECTED.apiVersion) {
+    mismatches.push(`api=${apiVersion}`);
+  }
+  if (DELETE_DIAGNOSTICS_EXPECTED.flowVersion && flowVersion !== DELETE_DIAGNOSTICS_EXPECTED.flowVersion) {
+    mismatches.push(`flow=${flowVersion}`);
+  }
+
+  if (mismatches.length) {
+    return {
+      status: 'warn',
+      details: `Preview OK, but version drift detected (${mismatches.join(', ')}).`,
+      apiVersion,
+      flowVersion,
+    };
+  }
+
+  return {
+    status: 'ok',
+    details: `Preview OK • api ${apiVersion} • flow ${flowVersion}`,
+    apiVersion,
+    flowVersion,
+  };
+}
+
+async function updateDeleteFlowStatusCard(client) {
+  const statusEl = $('#deleteFlowStatus');
+  const metaEl = $('#deleteFlowMeta');
+  if (!statusEl) return;
+
+  statusEl.innerHTML = '<span class="status-indicator status-checking"></span><span>Checking...</span>';
+  if (metaEl) metaEl.textContent = 'Running preview canary...';
+
+  try {
+    const probe = await runDeletePreviewCanary(client);
+    const indicatorClass = probe.status === 'ok'
+      ? 'status-ok'
+      : probe.status === 'warn'
+        ? 'status-warn'
+        : 'status-error';
+    const label = probe.status === 'ok'
+      ? 'Healthy'
+      : probe.status === 'warn'
+        ? 'Warning'
+        : 'Error';
+    statusEl.innerHTML = `<span class="status-indicator ${indicatorClass}"></span><span>${label}</span>`;
+    if (metaEl) metaEl.textContent = probe.details || '—';
+  } catch (error) {
+    statusEl.innerHTML = '<span class="status-indicator status-error"></span><span>Error</span>';
+    if (metaEl) metaEl.textContent = error?.message || 'Preview canary failed';
+  }
+}
 
 // SQL snippets used for guided Auto-Fix
  const SQL_ADD_POI_STATUS = `-- =====================================================
@@ -6477,6 +6641,58 @@ const diagnosticsState = {
  GRANT EXECUTE ON FUNCTION admin_update_poi(TEXT, TEXT, TEXT, DOUBLE PRECISION, DOUBLE PRECISION, TEXT, INTEGER, JSON) TO authenticated;`;
 function getDiagnosticChecks() {
   return [
+    {
+      id: 'check_user_delete_preview_contract',
+      title: 'User delete API: preview contract + versions',
+      description: 'Runs safe canary preview and validates api_version + hard_delete_flow_version',
+      run: async (client) => {
+        try {
+          const probe = await runDeletePreviewCanary(client);
+          return { status: probe.status, details: probe.details };
+        } catch (e) {
+          return { status: 'error', details: e.message || 'Preview canary failed' };
+        }
+      },
+      canFix: false,
+    },
+    {
+      id: 'check_user_delete_self_guard',
+      title: 'User delete API: self-delete guard',
+      description: 'Verifies admin cannot target own account through admin delete route',
+      run: async () => {
+        try {
+          const selfId = adminState.user?.id || ADMIN_CONFIG.requiredUserId;
+          if (!selfId) {
+            return { status: 'warn', details: 'No current admin user id available in session' };
+          }
+
+          const response = await apiRequestRaw(`/users/${selfId}/delete`, {
+            method: 'POST',
+            body: JSON.stringify({ action: 'preview' }),
+          });
+
+          if (response.status === 400) {
+            const detail = describeDiagnosticPayload(response.body);
+            if (detail.toLowerCase().includes('cannot delete your own admin account')) {
+              return { status: 'ok', details: 'Guard active (self-delete blocked)' };
+            }
+            return { status: 'warn', details: `HTTP 400 but unexpected message: ${detail}` };
+          }
+
+          if (response.ok) {
+            return { status: 'error', details: 'Unexpected success: self-delete guard bypass risk' };
+          }
+
+          return {
+            status: 'error',
+            details: `Unexpected response ${response.status}: ${describeDiagnosticPayload(response.body)}`,
+          };
+        } catch (e) {
+          return { status: 'error', details: e.message || 'Self-guard check failed' };
+        }
+      },
+      canFix: false,
+    },
     {
       id: 'check_admin_system_diagnostics_view',
       title: 'Admin view: admin_system_diagnostics',

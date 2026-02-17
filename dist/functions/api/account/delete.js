@@ -11,20 +11,34 @@ function json(body, status = 200) {
 }
 
 function formatErrorMessage(error) {
-  const direct = String(
-    error?.message
-    || error?.error
-    || error?.error_description
-    || '',
-  ).trim();
+  const pickText = (...values) => values
+    .map((value) => (typeof value === 'string' ? value.trim() : ''))
+    .find(Boolean) || '';
+
+  const direct = pickText(
+    error?.message,
+    error?.error,
+    error?.error_description,
+    error?.details,
+    error?.hint,
+    error?.code,
+    error?.statusText,
+  );
   if (direct) return direct;
-  const extra = String(error?.details || error?.hint || error?.code || '').trim();
-  if (extra) return extra;
+
+  const status = Number(error?.statusCode || error?.status || 0);
+  if (status > 0) return `Server error (status ${status})`;
+
   try {
-    return JSON.stringify(error);
-  } catch (_e) {
-    return 'Server error';
-  }
+    const serialized = JSON.stringify(error);
+    if (serialized && serialized !== '{}' && serialized !== 'null') {
+      return `Unexpected server error payload: ${serialized}`;
+    }
+  } catch (_) {}
+
+  const fallback = String(error ?? '').trim();
+  if (fallback && fallback !== '[object Object]') return fallback;
+  return 'Unexpected server error (empty error payload)';
 }
 
 async function requireAuthenticatedUser(request, env) {
