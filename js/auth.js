@@ -47,6 +47,15 @@ function markOAuthCompletionLocal(userId) {
   }
 }
 
+function clearOAuthCompletionLocal(userId) {
+  try {
+    const id = String(userId || '').trim();
+    if (!id) return;
+    window.localStorage.removeItem(`${OAUTH_COMPLETION_LOCAL_PREFIX}${id}`);
+  } catch (_e) {
+  }
+}
+
 function createCallbackResetLayout() {
   const body = document.body;
   if (!body) return;
@@ -356,56 +365,6 @@ function stripSupabaseReturnParams(parsed) {
   return true;
 }
 
-function getMetadataString(metadata, key) {
-  const value = metadata && typeof metadata === 'object' ? metadata[key] : null;
-  if (typeof value !== 'string') {
-    return '';
-  }
-  return value.trim();
-}
-
-function deriveNameFromUser(user) {
-  const metadata = user?.user_metadata;
-  const candidates = [
-    getMetadataString(metadata, 'name'),
-    getMetadataString(metadata, 'full_name'),
-    getMetadataString(metadata, 'display_name'),
-    getMetadataString(metadata, 'first_name'),
-    getMetadataString(metadata, 'given_name'),
-  ];
-  for (const candidate of candidates) {
-    if (candidate) {
-      return candidate;
-    }
-  }
-  return '';
-}
-
-function normalizeUsernameCandidate(value) {
-  const raw = typeof value === 'string' ? value.trim() : '';
-  if (!raw) {
-    return '';
-  }
-
-  let normalized = raw.toLowerCase();
-  try {
-    normalized = normalized.normalize('NFKD').replace(/[\u0300-\u036f]/g, '');
-  } catch (error) {
-  }
-
-  normalized = normalized
-    .replace(/[^a-z0-9_]+/g, '_')
-    .replace(/_+/g, '_')
-    .replace(/^_+/, '')
-    .replace(/_+$/, '');
-
-  if (normalized.length > USERNAME_MAX_LENGTH) {
-    normalized = normalized.slice(0, USERNAME_MAX_LENGTH).replace(/_+$/, '');
-  }
-
-  return normalized;
-}
-
 function escapeLikePattern(value) {
   const raw = typeof value === 'string' ? value : '';
   if (!raw) {
@@ -430,102 +389,6 @@ async function fetchProfileByUsername(username, columns) {
     throw error;
   }
   return data || null;
-}
-
-async function isUsernameTaken(username) {
-  const normalized = typeof username === 'string' ? username.trim() : '';
-  if (!normalized) {
-    return false;
-  }
-
-  const row = await fetchProfileByUsername(normalized, 'id');
-  return Boolean(row);
-}
-
-async function findAvailableUsername(base, userId) {
-  const cleanedBase = normalizeUsernameCandidate(base);
-  let candidate = cleanedBase;
-  const fallbackSuffix = typeof userId === 'string' ? userId.replace(/-/g, '').slice(-6) : '';
-
-  if (!candidate || candidate.length < USERNAME_MIN_LENGTH) {
-    candidate = normalizeUsernameCandidate(`user_${fallbackSuffix || Math.floor(Math.random() * 100000)}`);
-  }
-
-  if (candidate.length > USERNAME_MAX_LENGTH) {
-    candidate = candidate.slice(0, USERNAME_MAX_LENGTH);
-  }
-
-  if (candidate && !(await isUsernameTaken(candidate))) {
-    return candidate;
-  }
-
-  for (let i = 2; i <= 30; i += 1) {
-    const suffix = `_${i}`;
-    const maxBaseLength = Math.max(USERNAME_MIN_LENGTH, USERNAME_MAX_LENGTH - suffix.length);
-    const basePart = (candidate || cleanedBase || 'user').slice(0, maxBaseLength);
-    const trial = normalizeUsernameCandidate(`${basePart}${suffix}`).slice(0, USERNAME_MAX_LENGTH);
-    if (trial.length >= USERNAME_MIN_LENGTH && !(await isUsernameTaken(trial))) {
-      return trial;
-    }
-  }
-
-  const lastResort = normalizeUsernameCandidate(`user_${fallbackSuffix || Date.now()}`);
-  if (lastResort.length >= USERNAME_MIN_LENGTH) {
-    return lastResort.slice(0, USERNAME_MAX_LENGTH);
-  }
-
-  return `user${Math.floor(Math.random() * 100000)}`;
-}
-
-async function ensureProfileNameAndUsername(user) {
-  if (!user?.id) {
-    return null;
-  }
-
-  const { data: profile, error } = await sb
-    .from('profiles')
-    .select('id, email, name, username')
-    .eq('id', user.id)
-    .maybeSingle();
-
-  if (error && error.code !== 'PGRST116') {
-    throw error;
-  }
-
-  const updates = {};
-  const current = profile || {};
-  const existingName = typeof current.name === 'string' ? current.name.trim() : '';
-  const existingUsername = typeof current.username === 'string' ? current.username.trim() : '';
-  const existingEmail = typeof current.email === 'string' ? current.email.trim() : '';
-  const userEmail = typeof user.email === 'string' ? user.email.trim() : '';
-
-  if (!existingName) {
-    const derived = deriveNameFromUser(user);
-    if (derived) {
-      updates.name = derived;
-    }
-  }
-
-  if (userEmail && userEmail !== existingEmail) {
-    updates.email = userEmail;
-  }
-
-  if (!existingUsername) {
-    const emailBase = userEmail && userEmail.includes('@') ? userEmail.split('@')[0] : '';
-    const base = deriveNameFromUser(user) || emailBase || updates.name || 'user';
-    updates.username = await findAvailableUsername(base, user.id);
-  }
-
-  if (Object.keys(updates).length === 0) {
-    return null;
-  }
-
-  const { error: updateError } = await sb.from('profiles').update(updates).eq('id', user.id);
-  if (updateError) {
-    throw updateError;
-  }
-
-  return updates;
 }
 
 function setDocumentAuthState(state) {
@@ -1208,10 +1071,6 @@ function t(en, pl) {
   return detectUiLanguage() === 'en' ? en : pl;
 }
 
-function getGoogleButtonFallbackLabel() {
-  return detectUiLanguage() === 'en' ? 'Sign in with Google' : 'Zaloguj przez Google';
-}
-
 function getTranslationEntry(translations, key) {
   if (!translations || !key) {
     return null;
@@ -1408,6 +1267,8 @@ function isGoogleProviderUser(user) {
   if (!user || typeof user !== 'object') return false;
   const provider = String(user?.app_metadata?.provider || '').trim().toLowerCase();
   if (provider === 'google') return true;
+  const providers = Array.isArray(user?.app_metadata?.providers) ? user.app_metadata.providers : [];
+  if (providers.some((entry) => String(entry || '').trim().toLowerCase() === 'google')) return true;
   const identities = Array.isArray(user?.identities) ? user.identities : [];
   return identities.some((identity) => String(identity?.provider || '').toLowerCase() === 'google');
 }
@@ -1448,12 +1309,12 @@ function clearOAuthCompletionDraft() {
   }
 }
 
-async function fetchRegistrationCompletionState(userId) {
+async function fetchOAuthCompletionSnapshot(userId) {
   if (!userId) return null;
   try {
     const { data, error } = await sb
       .from('profiles')
-      .select('registration_completed')
+      .select('registration_completed, name, username')
       .eq('id', userId)
       .maybeSingle();
     if (error) {
@@ -1464,10 +1325,18 @@ async function fetchRegistrationCompletionState(userId) {
       throw error;
     }
     if (!data || typeof data !== 'object') return null;
-    if (!Object.prototype.hasOwnProperty.call(data, 'registration_completed')) return null;
-    return data.registration_completed === true;
+    const registrationCompleted = Object.prototype.hasOwnProperty.call(data, 'registration_completed')
+      ? data.registration_completed === true
+      : null;
+    const name = typeof data.name === 'string' ? data.name.trim() : '';
+    const username = typeof data.username === 'string' ? data.username.trim() : '';
+    return {
+      registrationCompleted,
+      name,
+      username,
+    };
   } catch (error) {
-    console.warn('Could not fetch registration completion state:', error);
+    console.warn('Could not fetch OAuth completion snapshot:', error);
     return null;
   }
 }
@@ -1641,16 +1510,12 @@ function ensureOAuthCompletionModal() {
           }
         } else {
           const userId = window.CE_STATE?.session?.user?.id || null;
-          await syncOAuthCompletionProfile(userId, firstName, username);
-          if (referralCode) {
-            setStoredReferralCode(referralCode, { overwrite: true });
-            try {
-              await processReferralAfterRegistration(window.CE_STATE?.session?.user?.id || null);
-            } catch (_e) {
-            }
-          } else {
-            clearStoredReferralCode();
+          try {
+            await syncOAuthCompletionProfile(userId, firstName, username);
+          } catch (syncError) {
+            console.warn('OAuth completion: profile sync after RPC success failed.', syncError);
           }
+          clearStoredReferralCode();
         }
 
         try {
@@ -1759,25 +1624,23 @@ async function maybeRequireOAuthCompletion(state, { redirectTarget = POST_AUTH_R
   const user = state?.session?.user || null;
   if (!user?.id) return false;
   if (!isGoogleProviderUser(user)) return false;
-  if (isOAuthCompletionMarked(user)) return false;
 
-  const profileName = String(state?.profile?.name || '').trim();
-  const profileUsername = String(state?.profile?.username || '').trim();
-  const hasCoreProfileData = Boolean(profileName && profileUsername);
-  if (hasCoreProfileData) {
+  const completionSnapshot = await fetchOAuthCompletionSnapshot(user.id);
+  const completed = completionSnapshot?.registrationCompleted === true;
+  const hasRequiredProfileData = Boolean(completionSnapshot?.name && completionSnapshot?.username);
+
+  if (completed && hasRequiredProfileData) {
     markOAuthCompletionLocal(user.id);
-    try {
-      await sb.auth.updateUser({ data: { [OAUTH_COMPLETION_META_KEY]: true } });
-    } catch (_metaErr) {
+    if (!isOAuthCompletionMarked(user)) {
+      try {
+        await sb.auth.updateUser({ data: { [OAUTH_COMPLETION_META_KEY]: true } });
+      } catch (_metaErr) {
+      }
     }
     return false;
   }
 
-  const completed = await fetchRegistrationCompletionState(user.id);
-  if (completed === true) {
-    markOAuthCompletionLocal(user.id);
-    return false;
-  }
+  clearOAuthCompletionLocal(user.id);
 
   oauthCompletionRedirectTarget = redirectTarget;
   const modal = ensureOAuthCompletionModal();
@@ -1913,24 +1776,16 @@ async function handleGoogleOAuthCallbackIfPresent() {
   try {
     const { data: sessionData } = await sb.auth.getSession();
     if (!sessionData?.session) {
-      const { error } = await sb.auth.exchangeCodeForSession(window.location.href);
+      const { error } = await sb.auth.exchangeCodeForSession(code);
       if (error) {
         throw error;
       }
     }
 
-    const { data: userData, error: userError } = await sb.auth.getUser();
+    const { error: userError } = await sb.auth.getUser();
     if (userError) {
       throw userError;
     }
-    if (userData?.user) {
-      try {
-        await ensureProfileNameAndUsername(userData.user);
-      } catch (profileError) {
-        console.warn('Nie udało się uzupełnić profilu po logowaniu OAuth.', profileError);
-      }
-    }
-
     await refreshSessionAndProfile();
     updateAuthUI();
 

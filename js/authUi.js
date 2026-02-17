@@ -603,6 +603,17 @@ function ensureAuthSubscription() {
 
       if (event === 'SIGNED_IN') {
         try {
+          const provider = String(sessionChange?.user?.app_metadata?.provider || '').trim().toLowerCase();
+          const providers = Array.isArray(sessionChange?.user?.app_metadata?.providers)
+            ? sessionChange.user.app_metadata.providers
+            : [];
+          const isGoogleUser =
+            provider === 'google' ||
+            providers.some((entry) => String(entry || '').trim().toLowerCase() === 'google');
+          if (isGoogleUser) {
+            return;
+          }
+
           const referralCode = getStoredReferralCode();
           const userId = sessionChange?.user?.id;
           if (referralCode && userId) {
