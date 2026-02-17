@@ -123,9 +123,26 @@ BEGIN
 
   IF p_offer_id IS NOT NULL THEN
     SELECT
-      lower(trim(coalesce(location, ''))),
-      lower(trim(coalesce(car_model, ''))),
-      lower(trim(coalesce(car_type, '')))
+      lower(trim(coalesce(
+        nullif(to_jsonb(location)#>>'{}', ''),
+        ''
+      ))),
+      lower(trim(coalesce(
+        nullif(to_jsonb(car_model)#>>'{en}', ''),
+        nullif(to_jsonb(car_model)#>>'{pl}', ''),
+        nullif(to_jsonb(car_model)#>>'{el}', ''),
+        nullif(to_jsonb(car_model)#>>'{he}', ''),
+        nullif(to_jsonb(car_model)#>>'{}', ''),
+        ''
+      ))),
+      lower(trim(coalesce(
+        nullif(to_jsonb(car_type)#>>'{en}', ''),
+        nullif(to_jsonb(car_type)#>>'{pl}', ''),
+        nullif(to_jsonb(car_type)#>>'{el}', ''),
+        nullif(to_jsonb(car_type)#>>'{he}', ''),
+        nullif(to_jsonb(car_type)#>>'{}', ''),
+        ''
+      )))
     INTO
       v_offer_location,
       v_offer_model,

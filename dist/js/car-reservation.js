@@ -340,10 +340,18 @@ async function requestCouponQuote(couponCode, baseQuote, options = {}) {
 
       const errCode = String(error?.code || '').trim();
       const errMsg = String(error?.message || '').trim();
+      const jsonInputError = errCode === '22P02' && /type json/i.test(errMsg);
       const canRetryWithAnotherSignature = errCode === 'PGRST202'
         || /Could not find the function/i.test(errMsg)
         || /schema cache/i.test(errMsg);
       lastError = error;
+      if (jsonInputError) {
+        return {
+          ok: false,
+          message: 'Coupon setup is being updated. Please refresh and try again in a minute.',
+          result: null,
+        };
+      }
       if (!canRetryWithAnotherSignature) {
         throw error;
       }
@@ -383,6 +391,11 @@ async function requestCouponQuote(couponCode, baseQuote, options = {}) {
   } catch (error) {
     if (!silent) {
       console.error('Coupon quote failed:', error);
+    }
+    const errCode = String(error?.code || '').trim();
+    const errMsg = String(error?.message || '').trim();
+    if (errCode === '22P02' && /type json/i.test(errMsg)) {
+      return { ok: false, message: 'Coupon setup is being updated. Please refresh and try again in a minute.', result: null };
     }
     return { ok: false, message: String(error?.message || 'Coupon validation failed'), result: null };
   }
