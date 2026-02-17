@@ -1628,42 +1628,7 @@ function ensureOAuthCompletionModal() {
             throw new Error('missing_user_session');
           }
 
-          const completedAt = new Date().toISOString();
-          try {
-            const { error: updateErrWithNorm } = await sb
-              .from('profiles')
-              .update({
-                name: firstName,
-                username,
-                username_normalized: username.toLowerCase(),
-                registration_completed: true,
-                registration_completed_at: completedAt,
-              })
-              .eq('id', userId);
-            if (updateErrWithNorm) throw updateErrWithNorm;
-          } catch (updateWithNormErr) {
-            try {
-              const { error: updateErrWithCompletion } = await sb
-                .from('profiles')
-                .update({
-                  name: firstName,
-                  username,
-                  registration_completed: true,
-                  registration_completed_at: completedAt,
-                })
-                .eq('id', userId);
-              if (updateErrWithCompletion) throw updateErrWithCompletion;
-            } catch (_fallbackUpdateErr) {
-              const { error: updateErr } = await sb
-                .from('profiles')
-                .update({ name: firstName, username })
-                .eq('id', userId);
-              if (updateErr) throw updateErr;
-            }
-            if (updateWithNormErr && String(updateWithNormErr?.message || '').toLowerCase().includes('duplicate')) {
-              throw updateWithNormErr;
-            }
-          }
+          await syncOAuthCompletionProfile(userId, firstName, username);
 
           if (referralCode) {
             setStoredReferralCode(referralCode, { overwrite: true });
@@ -1675,6 +1640,8 @@ function ensureOAuthCompletionModal() {
             clearStoredReferralCode();
           }
         } else {
+          const userId = window.CE_STATE?.session?.user?.id || null;
+          await syncOAuthCompletionProfile(userId, firstName, username);
           if (referralCode) {
             setStoredReferralCode(referralCode, { overwrite: true });
             try {
@@ -1687,7 +1654,13 @@ function ensureOAuthCompletionModal() {
         }
 
         try {
-          await sb.auth.updateUser({ data: { [OAUTH_COMPLETION_META_KEY]: true } });
+          await sb.auth.updateUser({
+            data: {
+              [OAUTH_COMPLETION_META_KEY]: true,
+              name: firstName,
+              username,
+            },
+          });
         } catch (_e) {
         }
         markOAuthCompletionLocal(window.CE_STATE?.session?.user?.id || null);
@@ -1836,6 +1809,50 @@ async function waitForProfileRow(userId, attempts = 8) {
 
 function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, Math.max(0, Number(ms) || 0)));
+}
+
+async function syncOAuthCompletionProfile(userId, firstName, username) {
+  const id = String(userId || '').trim();
+  if (!id) {
+    throw new Error('missing_user_session');
+  }
+
+  const completedAt = new Date().toISOString();
+  try {
+    const { error: updateErrWithNorm } = await sb
+      .from('profiles')
+      .update({
+        name: firstName,
+        username,
+        username_normalized: username.toLowerCase(),
+        registration_completed: true,
+        registration_completed_at: completedAt,
+      })
+      .eq('id', id);
+    if (updateErrWithNorm) throw updateErrWithNorm;
+  } catch (updateWithNormErr) {
+    try {
+      const { error: updateErrWithCompletion } = await sb
+        .from('profiles')
+        .update({
+          name: firstName,
+          username,
+          registration_completed: true,
+          registration_completed_at: completedAt,
+        })
+        .eq('id', id);
+      if (updateErrWithCompletion) throw updateErrWithCompletion;
+    } catch (_fallbackUpdateErr) {
+      const { error: updateErr } = await sb
+        .from('profiles')
+        .update({ name: firstName, username })
+        .eq('id', id);
+      if (updateErr) throw updateErr;
+    }
+    if (updateWithNormErr && String(updateWithNormErr?.message || '').toLowerCase().includes('duplicate')) {
+      throw updateWithNormErr;
+    }
+  }
 }
 
 async function ensureProfileReadyForCompletion(user) {
