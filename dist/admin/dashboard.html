@@ -1898,8 +1898,12 @@
           </button>
         </div>
 
+        <div class="cars-live-sync-row">
+          <span id="carsLiveSyncStatus" class="cars-live-sync-status">Live sync: waiting for first update</span>
+        </div>
+
         <!-- Car Stats -->
-        <div class="admin-stats-grid">
+        <div id="carsBookingsStats" class="admin-stats-grid cars-stats-grid cars-bookings-stats">
           <div class="admin-stat-card">
             <div class="stat-card-icon stat-card-icon-blue">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -1986,7 +1990,7 @@
         <div id="carsTabCoupons" class="cars-tab-content" hidden>
           <div id="carsCouponsError" class="admin-error-message" hidden style="margin-bottom: 16px;"></div>
 
-          <div class="admin-stats-grid cars-coupons-stats" style="margin-bottom: 16px;">
+          <div id="carsCouponsStats" class="admin-stats-grid cars-stats-grid cars-coupons-stats" style="margin-bottom: 16px;">
             <div class="admin-stat-card">
               <div class="stat-card-content">
                 <p class="stat-card-label">Visible Coupons</p>

@@ -9509,6 +9509,13 @@ function switchView(viewName) {
 
   scheduleResponsiveTableHydration();
 
+  if (viewName === 'cars') {
+    setCarsLiveSyncStatus('Live sync: updating...', 'syncing');
+    startCarsLiveRefresh();
+  } else {
+    stopCarsLiveRefresh();
+  }
+
   // Load view-specific data
   switch (viewName) {
     case 'dashboard':
@@ -12162,6 +12169,10 @@ const carsUiState = {
   activeTab: 'bookings',
 };
 
+const CARS_LIVE_REFRESH_MS = 45000;
+let carsLiveRefreshTimer = null;
+let carsLiveRefreshRunning = false;
+
 const carCouponsState = {
   loading: false,
   loaded: false,
@@ -12194,6 +12205,73 @@ function getActiveCarsTab() {
   const tab = normalizeCarsTabValue(active?.dataset?.tab || carsUiState.activeTab || 'bookings');
   carsUiState.activeTab = tab;
   return tab;
+}
+
+function isCarsViewActive() {
+  const view = document.getElementById('viewCars');
+  return Boolean(view && !view.hidden && view.classList.contains('active'));
+}
+
+function formatCarsSyncTime(date = new Date()) {
+  return date.toLocaleTimeString('en-GB', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  });
+}
+
+function setCarsLiveSyncStatus(message, state = 'idle') {
+  const el = document.getElementById('carsLiveSyncStatus');
+  if (!el) return;
+  el.textContent = String(message || '').trim();
+  el.dataset.state = String(state || 'idle').trim();
+}
+
+function markCarsLiveSyncUpdated() {
+  if (!isCarsViewActive()) return;
+  setCarsLiveSyncStatus(`Live sync: updated ${formatCarsSyncTime()}`, 'ok');
+}
+
+function markCarsLiveSyncError() {
+  if (!isCarsViewActive()) return;
+  setCarsLiveSyncStatus(`Live sync: error ${formatCarsSyncTime()}`, 'error');
+}
+
+async function refreshCarsActiveTabData(options = {}) {
+  const { silent = true, showSuccessToast = false, forcePartnersRefresh = false } = options;
+  const activeTab = getActiveCarsTab();
+
+  if (activeTab === 'coupons') {
+    await loadCarCouponsData({ silent, showSuccessToast, forcePartnersRefresh });
+    return;
+  }
+
+  if (activeTab === 'fleet') {
+    await loadFleetData({ silent, showSuccessToast });
+    return;
+  }
+
+  await loadCarsData({ silent, showSuccessToast });
+}
+
+function startCarsLiveRefresh() {
+  if (carsLiveRefreshTimer) return;
+  carsLiveRefreshTimer = window.setInterval(async () => {
+    if (!isCarsViewActive() || document.hidden || carsLiveRefreshRunning) return;
+    carsLiveRefreshRunning = true;
+    try {
+      await refreshCarsActiveTabData({ silent: true });
+    } finally {
+      carsLiveRefreshRunning = false;
+    }
+  }, CARS_LIVE_REFRESH_MS);
+}
+
+function stopCarsLiveRefresh() {
+  if (!carsLiveRefreshTimer) return;
+  window.clearInterval(carsLiveRefreshTimer);
+  carsLiveRefreshTimer = null;
+  carsLiveRefreshRunning = false;
 }
 
 function normalizeI18nText(value) {
@@ -12425,11 +12503,63 @@ function normalizeCouponStatusClass(status) {
   return 'badge';
 }
 
-async function loadCarsData() {
+async function fetchCarBookingsCount(client, statuses = []) {
+  let query = client
+    .from('car_bookings')
+    .select('id', { count: 'exact', head: true });
+
+  if (Array.isArray(statuses) && statuses.length === 1) {
+    query = query.eq('status', statuses[0]);
+  } else if (Array.isArray(statuses) && statuses.length > 1) {
+    query = query.in('status', statuses);
+  }
+
+  const { count, error } = await query;
+  if (error) throw error;
+  return Number(count || 0);
+}
+
+async function fetchCarBookingsRevenueTotal(client) {
+  const pageSize = 1000;
+  let from = 0;
+  let total = 0;
+
+  while (true) {
+    const { data, error } = await client
+      .from('car_bookings')
+      .select('final_price, quoted_price, total_price')
+      .in('status', ['confirmed', 'completed'])
+      .order('created_at', { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+
+    const rows = Array.isArray(data) ? data : [];
+    if (!rows.length) break;
+
+    rows.forEach((row) => {
+      const amount = Number(row?.final_price ?? row?.quoted_price ?? row?.total_price ?? 0);
+      if (Number.isFinite(amount)) {
+        total += amount;
+      }
+    });
+
+    if (rows.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return Number(total.toFixed(2));
+}
+
+async function loadCarsData(options = {}) {
+  const { silent = false, showSuccessToast = false } = options;
   try {
     const client = ensureSupabase();
     if (!client) {
-      showToast('Database connection not available', 'error');
+      if (!silent) {
+        showToast('Database connection not available', 'error');
+      }
+      markCarsLiveSyncError();
       return;
     }
 
@@ -12450,26 +12580,13 @@ async function loadCarsData() {
     console.log('Car bookings loaded:', bookings);
     console.log('Total bookings count:', bookings?.length || 0);
 
-    // Calculate stats manually from bookings data
-    let totalBookings, activeRentals, pendingBookings, totalRevenue;
-    
-    if (bookings && bookings.length > 0) {
-      // Count by status
-      totalBookings = bookings.length;
-      activeRentals = bookings.filter(b => b.status === 'active').length;
-      pendingBookings = bookings.filter(b => b.status === 'pending' || b.status === 'message_sent').length;
-      
-      // Sum revenue from confirmed/completed bookings with final_price
-      totalRevenue = bookings
-        .filter(b => (b.status === 'confirmed' || b.status === 'completed') && b.final_price)
-        .reduce((sum, b) => sum + parseFloat(b.final_price), 0);
-    } else {
-      // No bookings yet
-      totalBookings = 0;
-      activeRentals = 0;
-      pendingBookings = 0;
-      totalRevenue = 0;
-    }
+    // Calculate stats from full dataset (not only the visible table page)
+    const [totalBookings, activeRentals, pendingBookings, totalRevenue] = await Promise.all([
+      fetchCarBookingsCount(client),
+      fetchCarBookingsCount(client, ['active']),
+      fetchCarBookingsCount(client, ['pending', 'message_sent']),
+      fetchCarBookingsRevenueTotal(client),
+    ]);
 
     // Update stats cards
     const statTotalBookings = $('#statTotalBookings');
@@ -12480,7 +12597,7 @@ async function loadCarsData() {
     if (statTotalBookings) {
       statTotalBookings.textContent = totalBookings;
       const changeEl = statTotalBookings.parentElement.querySelector('.stat-card-change');
-      if (changeEl) changeEl.textContent = `${bookings?.length || 0} in database`;
+      if (changeEl) changeEl.textContent = `${totalBookings} in database`;
     }
     
     if (statActiveRentals) {
@@ -12514,6 +12631,10 @@ async function loadCarsData() {
           </td>
         </tr>
       `;
+      markCarsLiveSyncUpdated();
+      if (!silent && showSuccessToast) {
+        showToast('Car bookings refreshed', 'success');
+      }
       return;
     }
 
@@ -12591,12 +12712,17 @@ async function loadCarsData() {
         </tr>
       `;
     }).join('');
-
-    showToast('Car bookings loaded successfully', 'success');
+    markCarsLiveSyncUpdated();
+    if (!silent && showSuccessToast) {
+      showToast('Car bookings refreshed', 'success');
+    }
 
   } catch (error) {
     console.error('Failed to load car bookings:', error);
-    showToast('Failed to load car bookings: ' + (error.message || 'Unknown error'), 'error');
+    markCarsLiveSyncError();
+    if (!silent) {
+      showToast('Failed to load car bookings: ' + (error.message || 'Unknown error'), 'error');
+    }
     
     const tableBody = $('#carsTableBody');
     if (tableBody) {
@@ -14093,16 +14219,20 @@ async function loadCarCouponsData(options = {}) {
     carCouponsState.usageByCouponId = usageByCouponId;
     carCouponsState.loaded = true;
     renderCarCouponsData();
+    markCarsLiveSyncUpdated();
 
     if (showSuccessToast) {
       showToast('Coupons refreshed', 'success');
     }
   } catch (error) {
     console.error('Failed to load car coupons:', error);
+    markCarsLiveSyncError();
     const msg = String(error?.message || 'Unknown error');
     setCarsCouponsViewError(`Failed to load coupons: ${msg}`);
     renderCarCouponsErrorRow(msg);
-    showToast(`Failed to load coupons: ${msg}`, 'error');
+    if (!silent) {
+      showToast(`Failed to load coupons: ${msg}`, 'error');
+    }
   } finally {
     carCouponsState.loading = false;
   }
@@ -14587,16 +14717,12 @@ function clearCarCouponFilters() {
 }
 
 async function handleCarsRefreshAction() {
-  const tab = getActiveCarsTab();
-  if (tab === 'fleet') {
-    await loadFleetData();
-    return;
-  }
-  if (tab === 'coupons') {
-    await loadCarCouponsData({ showSuccessToast: true, forcePartnersRefresh: true });
-    return;
-  }
-  await loadCarsData();
+  setCarsLiveSyncStatus('Live sync: updating...', 'syncing');
+  await refreshCarsActiveTabData({
+    silent: false,
+    showSuccessToast: true,
+    forcePartnersRefresh: true,
+  });
 }
 
 async function handleCarsAddAction() {
@@ -14655,11 +14781,15 @@ function handleAvailabilityChange(e) {
   }
 }
 
-async function loadFleetData() {
+async function loadFleetData(options = {}) {
+  const { silent = false, showSuccessToast = false } = options;
   try {
     const client = ensureSupabase();
     if (!client) {
-      showToast('Database connection not available', 'error');
+      if (!silent) {
+        showToast('Database connection not available', 'error');
+      }
+      markCarsLiveSyncError();
       return;
     }
 
@@ -14694,10 +14824,20 @@ async function loadFleetData() {
 
     // Render fleet table
     const tbody = $('#fleetTableBody');
-    if (!tbody) return;
+    if (!tbody) {
+      markCarsLiveSyncUpdated();
+      if (!silent && showSuccessToast) {
+        showToast('Fleet refreshed', 'success');
+      }
+      return;
+    }
 
     if (!window.fleetCarsList || window.fleetCarsList.length === 0) {
       tbody.innerHTML = '<tr><td colspan="11" class="table-loading">No cars found with current filters</td></tr>';
+      markCarsLiveSyncUpdated();
+      if (!silent && showSuccessToast) {
+        showToast('Fleet refreshed', 'success');
+      }
       return;
     }
 
@@ -14792,10 +14932,17 @@ async function loadFleetData() {
 
     // Setup event listeners after rendering table
     setupFleetEventListeners();
+    markCarsLiveSyncUpdated();
+    if (!silent && showSuccessToast) {
+      showToast('Fleet refreshed', 'success');
+    }
 
   } catch (e) {
     console.error('Error loading fleet:', e);
-    showToast('Failed to load fleet: ' + (e.message || 'Unknown error'), 'error');
+    markCarsLiveSyncError();
+    if (!silent) {
+      showToast('Failed to load fleet: ' + (e.message || 'Unknown error'), 'error');
+    }
     const tbody = $('#fleetTableBody');
     if (tbody) {
       tbody.innerHTML = `<tr><td colspan="11" class="table-loading" style="color: var(--admin-danger);">Error: ${escapeHtml(e.message)}</td></tr>`;
@@ -15486,10 +15633,12 @@ function switchCarsTab(tab) {
   const bookingsTab = $('#carsTabBookings');
   const couponsTab = $('#carsTabCoupons');
   const fleetTab = $('#carsTabFleet');
+  const bookingsStats = $('#carsBookingsStats');
 
   if (bookingsTab) bookingsTab.hidden = (normalizedTab !== 'bookings');
   if (couponsTab) couponsTab.hidden = (normalizedTab !== 'coupons');
   if (fleetTab) fleetTab.hidden = (normalizedTab !== 'fleet');
+  if (bookingsStats) bookingsStats.hidden = (normalizedTab !== 'bookings');
 
   // Update action buttons
   const btnAddCar = $('#btnAddCar');
@@ -15498,11 +15647,16 @@ function switchCarsTab(tab) {
   if (btnAddCar) btnAddCar.onclick = null;
   if (btnRefreshCars) btnRefreshCars.onclick = null;
 
+  if (isCarsViewActive()) {
+    setCarsLiveSyncStatus('Live sync: updating...', 'syncing');
+    startCarsLiveRefresh();
+  }
+
   if (normalizedTab === 'bookings') {
     if (btnAddCar) {
       btnAddCar.textContent = 'New Booking';
     }
-    loadCarsData();
+    loadCarsData({ silent: true });
     return;
   }
 
@@ -15510,14 +15664,14 @@ function switchCarsTab(tab) {
     if (btnAddCar) {
       btnAddCar.textContent = 'Add Coupon';
     }
-    loadCarCouponsData();
+    loadCarCouponsData({ silent: true });
     return;
   }
 
   if (btnAddCar) {
     btnAddCar.textContent = 'Add New Car';
   }
-  loadFleetData();
+  loadFleetData({ silent: true });
 }
 
 // Make functions global
@@ -17499,6 +17653,21 @@ function initEventListeners() {
       handleCarsAddAction();
     });
   }
+
+  document.addEventListener('visibilitychange', async () => {
+    if (document.hidden || !isCarsViewActive() || carsLiveRefreshRunning) return;
+    carsLiveRefreshRunning = true;
+    try {
+      setCarsLiveSyncStatus('Live sync: updating...', 'syncing');
+      await refreshCarsActiveTabData({ silent: true });
+    } finally {
+      carsLiveRefreshRunning = false;
+    }
+  });
+
+  window.addEventListener('beforeunload', () => {
+    stopCarsLiveRefresh();
+  });
 
   // Logout
   const logoutBtn = $('#btnAdminLogout');

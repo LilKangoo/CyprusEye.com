@@ -685,6 +685,73 @@ body[data-admin-panel="true"].admin-sidebar-open {
   background: var(--admin-primary-dark);
 }
 
+.cars-live-sync-row {
+  display: flex;
+  justify-content: flex-end;
+  margin: -8px 0 10px;
+}
+
+.cars-live-sync-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--admin-text-muted);
+}
+
+.cars-live-sync-status[data-state="syncing"] {
+  color: var(--admin-warning);
+}
+
+.cars-live-sync-status[data-state="ok"] {
+  color: var(--admin-success);
+}
+
+.cars-live-sync-status[data-state="error"] {
+  color: var(--admin-danger);
+}
+
+.cars-stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.cars-stats-grid .admin-stat-card {
+  padding: 10px 12px;
+  gap: 10px;
+  border-radius: 10px;
+  min-height: 86px;
+  align-items: center;
+}
+
+.cars-stats-grid .stat-card-icon {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+}
+
+.cars-stats-grid .stat-card-icon svg {
+  width: 18px;
+  height: 18px;
+}
+
+.cars-stats-grid .stat-card-label {
+  margin-bottom: 2px;
+  font-size: 12px;
+}
+
+.cars-stats-grid .stat-card-value {
+  margin-bottom: 2px;
+  font-size: 20px;
+  line-height: 1.1;
+}
+
+.cars-stats-grid .stat-card-change {
+  font-size: 11px;
+  line-height: 1.2;
+}
+
 .cars-coupons-panel {
   background: linear-gradient(135deg, rgba(30, 41, 59, 0.92), rgba(15, 23, 42, 0.92));
   border: 1px solid var(--admin-border);
@@ -2251,6 +2318,31 @@ body[data-admin-panel="true"].admin-sidebar-open {
     padding: 12px;
   }
 
+  .cars-live-sync-row {
+    justify-content: flex-start;
+    margin: -4px 0 8px;
+  }
+
+  .cars-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  .cars-stats-grid .admin-stat-card {
+    min-height: 74px;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+
+  .cars-stats-grid .stat-card-icon {
+    width: 30px;
+    height: 30px;
+  }
+
+  .cars-stats-grid .stat-card-value {
+    font-size: 18px;
+  }
+
   .cars-coupons-filters-grid {
     grid-template-columns: 1fr;
   }
@@ -2349,6 +2441,10 @@ body[data-admin-panel="true"].admin-sidebar-open {
 
   .admin-stats-grid {
     grid-template-columns: 1fr;
+  }
+
+  .cars-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .admin-table-container {
