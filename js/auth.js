@@ -1628,6 +1628,7 @@ function ensureOAuthCompletionModal() {
             throw new Error('missing_user_session');
           }
 
+          const completedAt = new Date().toISOString();
           try {
             const { error: updateErrWithNorm } = await sb
               .from('profiles')
@@ -1635,15 +1636,30 @@ function ensureOAuthCompletionModal() {
                 name: firstName,
                 username,
                 username_normalized: username.toLowerCase(),
+                registration_completed: true,
+                registration_completed_at: completedAt,
               })
               .eq('id', userId);
             if (updateErrWithNorm) throw updateErrWithNorm;
           } catch (updateWithNormErr) {
-            const { error: updateErr } = await sb
-              .from('profiles')
-              .update({ name: firstName, username })
-              .eq('id', userId);
-            if (updateErr) throw updateErr;
+            try {
+              const { error: updateErrWithCompletion } = await sb
+                .from('profiles')
+                .update({
+                  name: firstName,
+                  username,
+                  registration_completed: true,
+                  registration_completed_at: completedAt,
+                })
+                .eq('id', userId);
+              if (updateErrWithCompletion) throw updateErrWithCompletion;
+            } catch (_fallbackUpdateErr) {
+              const { error: updateErr } = await sb
+                .from('profiles')
+                .update({ name: firstName, username })
+                .eq('id', userId);
+              if (updateErr) throw updateErr;
+            }
             if (updateWithNormErr && String(updateWithNormErr?.message || '').toLowerCase().includes('duplicate')) {
               throw updateWithNormErr;
             }
@@ -1678,9 +1694,13 @@ function ensureOAuthCompletionModal() {
 
         clearOAuthCompletionDraft();
 
-        await refreshSessionAndProfile();
-        updateAuthUI();
-        emitAuthState(window.CE_STATE);
+        try {
+          await refreshSessionAndProfile();
+          updateAuthUI();
+          emitAuthState(window.CE_STATE);
+        } catch (postCompletionRefreshError) {
+          console.warn('OAuth completion: state refresh failed after successful save.', postCompletionRefreshError);
+        }
 
         overlay.style.display = 'none';
         document.body.style.overflow = '';
@@ -1713,7 +1733,9 @@ function ensureOAuthCompletionModal() {
         } else if (raw.includes('permission denied') || raw.includes('forbidden')) {
           setError(t('Permission error while saving profile. Please sign in again.', 'Błąd uprawnień przy zapisie profilu. Zaloguj się ponownie.'));
         } else {
-          setError(t('Could not complete registration. Try again.', 'Nie udało się dokończyć rejestracji. Spróbuj ponownie.'));
+          const details = friendlyErrorMessage(String(error?.message || ''));
+          const suffix = details ? ` (${details})` : '';
+          setError(`${t('Could not complete registration. Try again.', 'Nie udało się dokończyć rejestracji. Spróbuj ponownie.')}${suffix}`);
         }
       } finally {
         oauthCompletionSubmitting = false;
@@ -1765,6 +1787,18 @@ async function maybeRequireOAuthCompletion(state, { redirectTarget = POST_AUTH_R
   if (!user?.id) return false;
   if (!isGoogleProviderUser(user)) return false;
   if (isOAuthCompletionMarked(user)) return false;
+
+  const profileName = String(state?.profile?.name || '').trim();
+  const profileUsername = String(state?.profile?.username || '').trim();
+  const hasCoreProfileData = Boolean(profileName && profileUsername);
+  if (hasCoreProfileData) {
+    markOAuthCompletionLocal(user.id);
+    try {
+      await sb.auth.updateUser({ data: { [OAUTH_COMPLETION_META_KEY]: true } });
+    } catch (_metaErr) {
+    }
+    return false;
+  }
 
   const completed = await fetchRegistrationCompletionState(user.id);
   if (completed === true) {
