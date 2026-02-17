@@ -2528,6 +2528,57 @@
     return `${num.toFixed(2)} ${cur}`;
   }
 
+  function getCarsFulfillmentPricing(fulfillment) {
+    const resourceType = String(fulfillment?.resource_type || '').trim().toLowerCase();
+    const defaultCurrency = String(fulfillment?.currency || 'EUR').trim().toUpperCase() || 'EUR';
+    const fallbackAmount = toNum(fulfillment?.total_price);
+    if (resourceType !== 'cars') {
+      return {
+        amount: fallbackAmount,
+        currency: defaultCurrency,
+        baseAmount: null,
+        discountAmount: 0,
+        finalAmount: null,
+        couponCode: '',
+        hasCoupon: false,
+      };
+    }
+
+    const detailsRaw = fulfillment?.details;
+    const details = (detailsRaw && typeof detailsRaw === 'object')
+      ? detailsRaw
+      : (() => {
+        if (typeof detailsRaw !== 'string') return null;
+        try {
+          const parsed = JSON.parse(detailsRaw);
+          return parsed && typeof parsed === 'object' ? parsed : null;
+        } catch (_e) {
+          return null;
+        }
+      })();
+
+    const toFinite = (value) => {
+      const num = Number(value);
+      return Number.isFinite(num) ? num : null;
+    };
+
+    const finalAmount = toFinite(details?.final_rental_price);
+    const baseAmount = toFinite(details?.base_rental_price);
+    const discountAmountRaw = toFinite(details?.coupon_discount_amount);
+    const discountAmount = discountAmountRaw == null ? 0 : Math.max(discountAmountRaw, 0);
+    const couponCode = String(details?.coupon_code || '').trim().toUpperCase();
+
+    return {
+      amount: finalAmount == null ? fallbackAmount : finalAmount,
+      currency: defaultCurrency,
+      baseAmount,
+      discountAmount,
+      finalAmount,
+      couponCode,
+      hasCoupon: Boolean(couponCode || discountAmount > 0),
+    };
+  }
+
   function formatSla(deadlineIso) {
     if (!deadlineIso) return '—';
     const deadline = new Date(deadlineIso);
@@ -3160,7 +3211,9 @@
       const src = String(f?.__source || 'shop');
 
       if (src === 'service') {
-        const gross = toNum(f?.total_price);
+        const gross = String(f?.resource_type || '').toLowerCase() === 'cars'
+          ? getCarsFulfillmentPricing(f).amount
+          : toNum(f?.total_price);
         const deposit = toNum(depositByFid[String(f?.id)] || 0);
         const payout = Math.max(0, gross - deposit);
         partnerEarnings += payout;
@@ -3733,7 +3786,8 @@
         const returnTime = formatTimeLabel(getField('return_time'));
         const returnLocation = formatLocationLabel(getField('return_location'));
         const rentalDays = calculateCarDurationDays(f, snapshotPayload);
-        const totalPrice = f.total_price != null ? formatMoney(f.total_price, f.currency || 'EUR') : '';
+        const pricing = getCarsFulfillmentPricing(f);
+        const totalPrice = pricing.amount != null ? formatMoney(pricing.amount, pricing.currency) : '';
         const model = String(getField('car_model') || '').trim();
 
         const pickupLine = [pickupDate, pickupTime, pickupLocation].filter((x) => String(x || '').trim()).join(' · ');
@@ -3744,7 +3798,7 @@
           { label: 'Pickup', value: pickupLine || '—' },
           { label: 'Return', value: returnLine || '—' },
           { label: 'Rental', value: rentalLine || '—' },
-          { label: 'Suggested total', value: totalPrice || '—' },
+          { label: pricing.hasCoupon ? 'Final rental total' : 'Suggested total', value: totalPrice || '—' },
         ];
 
         return `
@@ -3873,11 +3927,16 @@
 
         const priceHtml = (() => {
           if (!isShop) {
-            if (String(f.resource_type || '') === 'cars' && f.total_price != null) {
-              const val = escapeHtml(formatMoney(f.total_price, f.currency || 'EUR'));
+            if (String(f.resource_type || '') === 'cars') {
+              const pricing = getCarsFulfillmentPricing(f);
+              const val = escapeHtml(formatMoney(pricing.amount, pricing.currency));
+              const couponHint = pricing.hasCoupon
+                ? `<div class="small" style="margin-top:4px; opacity:0.9;">Coupon ${escapeHtml(pricing.couponCode || 'applied')}</div>`
+                : '';
               return `
-                <div class="muted small">Suggested Total</div>
+                <div class="muted small">${pricing.hasCoupon ? 'Final Rental Total' : 'Suggested Total'}</div>
                 <div class="small" style="margin-top:6px; padding:8px 10px; border-radius:10px; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:#fff; font-weight:700; display:inline-block;">${val}</div>
+                ${couponHint}
               `;
             }
             return f.total_price != null

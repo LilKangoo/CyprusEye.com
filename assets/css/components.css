@@ -5816,6 +5816,15 @@ body[data-seo-page='carRentalLanding'] #carRentalGrid .auto-card.is-selected::af
   .auto-reservation-form [style*="grid-template-columns"] {
     grid-template-columns: 1fr !important;
   }
+
+  .auto-coupon-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .auto-coupon-row .btn {
+    width: 100%;
+  }
 }
 
 .auto-checkbox {
@@ -5838,6 +5847,48 @@ body[data-seo-page='carRentalLanding'] #carRentalGrid .auto-card.is-selected::af
 .auto-checkbox label {
   cursor: pointer;
   flex: 1;
+}
+
+.auto-coupon-panel {
+  margin-bottom: 16px;
+  padding: 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: #f8fafc;
+}
+
+.auto-coupon-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.auto-coupon-row input[type='text'] {
+  flex: 1;
+  min-width: 0;
+}
+
+.auto-coupon-row .btn {
+  white-space: nowrap;
+}
+
+.auto-coupon-status {
+  margin: 8px 0 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: #475569;
+}
+
+.auto-coupon-status[data-state='ok'] {
+  color: #166534;
+}
+
+.auto-coupon-status[data-state='error'] {
+  color: #b91c1c;
+}
+
+.auto-coupon-status[data-state='info'] {
+  color: #1d4ed8;
 }
 
 .auto-calculate-btn {
@@ -10591,4 +10642,3 @@ body.auth-page[data-navigation="multi-page"] main {
     text-align: center;
   }
 }
-

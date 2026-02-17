@@ -4,6 +4,14 @@ import { showToast } from './toast.js';
 import { calculateCarRentalQuote, normalizeLocationForOffer } from './car-pricing.js';
 
 let reservationData = {};
+const COUPON_RPC_NAME = 'car_coupon_quote';
+
+const couponState = {
+  appliedCode: '',
+  result: null,
+  requestSeq: 0,
+  revalidateTimer: null,
+};
 
 function currentLang() {
   const lang = (typeof window.getCurrentLanguage === 'function'
@@ -75,6 +83,339 @@ function getActiveOfferLocation() {
     || (location?.href?.includes('autopfo') ? 'paphos' : 'larnaca'))
     .toLowerCase();
   return raw === 'larnaca' ? 'larnaca' : 'paphos';
+}
+
+function escapeHtml(value) {
+  return String(value == null ? '' : value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function getCouponDom() {
+  return {
+    input: document.getElementById('res_coupon_code'),
+    applyBtn: document.getElementById('btnApplyCoupon'),
+    clearBtn: document.getElementById('btnClearCoupon'),
+    status: document.getElementById('couponStatusMessage'),
+  };
+}
+
+function setCouponStatus(message = '', state = 'info') {
+  const { status } = getCouponDom();
+  if (!status) return;
+  const text = String(message || '').trim();
+  if (!text) {
+    status.hidden = true;
+    status.textContent = '';
+    delete status.dataset.state;
+    return;
+  }
+  status.hidden = false;
+  status.textContent = text;
+  status.dataset.state = String(state || 'info').trim();
+}
+
+function syncCouponButtons() {
+  const { input, applyBtn, clearBtn } = getCouponDom();
+  if (applyBtn) {
+    const hasCode = String(input?.value || '').trim().length > 0;
+    applyBtn.disabled = !hasCode;
+  }
+  if (clearBtn) {
+    clearBtn.hidden = !couponState.appliedCode;
+  }
+}
+
+function clearCouponApplication(options = {}) {
+  const { clearInput = false, silent = false } = options;
+  couponState.appliedCode = '';
+  couponState.result = null;
+  if (couponState.revalidateTimer) {
+    clearTimeout(couponState.revalidateTimer);
+    couponState.revalidateTimer = null;
+  }
+  if (clearInput) {
+    const { input } = getCouponDom();
+    if (input) input.value = '';
+  }
+  if (!silent) {
+    setCouponStatus('');
+  }
+  syncCouponButtons();
+}
+
+function localDateTimeToIso(dateValue, timeValue) {
+  const datePart = String(dateValue || '').trim();
+  if (!datePart) return null;
+  const timePart = String(timeValue || '10:00').trim() || '10:00';
+  const dt = new Date(`${datePart}T${timePart}`);
+  if (Number.isNaN(dt.getTime())) return null;
+  return dt.toISOString();
+}
+
+function getCurrentSelectedOfferId() {
+  const resCarSelect = document.getElementById('res_car');
+  const selected = resCarSelect?.selectedOptions?.[0];
+  const raw = String(selected?.dataset?.offerId || '').trim();
+  return raw || null;
+}
+
+function buildReservationQuoteInputFromFormData(formData, pageLocation = getActiveOfferLocation()) {
+  return {
+    carModel: String(formData.get('car') || '').trim(),
+    pickupDateStr: String(formData.get('pickup_date') || '').trim(),
+    returnDateStr: String(formData.get('return_date') || '').trim(),
+    pickupTimeStr: String(formData.get('pickup_time') || '10:00').trim() || '10:00',
+    returnTimeStr: String(formData.get('return_time') || '10:00').trim() || '10:00',
+    pickupLocation: String(formData.get('pickup_location') || '').trim(),
+    returnLocation: String(formData.get('return_location') || '').trim(),
+    fullInsurance: String(formData.get('insurance') || '') === 'on',
+    youngDriver: String(formData.get('young_driver') || '') === 'on',
+    offer: pageLocation,
+  };
+}
+
+function buildReservationQuoteInputFromDom() {
+  const fd = new FormData();
+  const form = document.getElementById('localReservationForm');
+  if (form instanceof HTMLFormElement) {
+    const payload = new FormData(form);
+    payload.forEach((value, key) => fd.append(key, value));
+  } else {
+    fd.append('car', String(document.getElementById('res_car')?.value || '').trim());
+    fd.append('pickup_date', String(document.getElementById('res_pickup_date')?.value || '').trim());
+    fd.append('return_date', String(document.getElementById('res_return_date')?.value || '').trim());
+    fd.append('pickup_time', String(document.getElementById('res_pickup_time')?.value || '10:00').trim());
+    fd.append('return_time', String(document.getElementById('res_return_time')?.value || '10:00').trim());
+    fd.append('pickup_location', String(document.getElementById('res_pickup_location')?.value || '').trim());
+    fd.append('return_location', String(document.getElementById('res_return_location')?.value || '').trim());
+    if (document.getElementById('res_insurance')?.checked) fd.append('insurance', 'on');
+    if (document.getElementById('res_young_driver')?.checked) fd.append('young_driver', 'on');
+  }
+  return buildReservationQuoteInputFromFormData(fd, getActiveOfferLocation());
+}
+
+function computeReservationQuote(quoteInput) {
+  try {
+    const pricing = window.CE_CAR_PRICING && typeof window.CE_CAR_PRICING === 'object'
+      ? window.CE_CAR_PRICING
+      : null;
+    if (!pricing) return null;
+
+    const carModel = String(quoteInput?.carModel || '').trim();
+    if (!carModel) return null;
+    const carPricing = pricing[carModel];
+    if (!Array.isArray(carPricing) || carPricing.length < 4) return null;
+
+    const computed = calculateCarRentalQuote({
+      pricingMatrix: carPricing,
+      offer: quoteInput?.offer || getActiveOfferLocation(),
+      carModel,
+      pickupDateStr: quoteInput?.pickupDateStr,
+      returnDateStr: quoteInput?.returnDateStr,
+      pickupTimeStr: quoteInput?.pickupTimeStr || '10:00',
+      returnTimeStr: quoteInput?.returnTimeStr || '10:00',
+      pickupLocation: quoteInput?.pickupLocation || '',
+      returnLocation: quoteInput?.returnLocation || '',
+      fullInsurance: !!quoteInput?.fullInsurance,
+      youngDriver: !!quoteInput?.youngDriver,
+    });
+    if (!computed || typeof computed.total !== 'number' || computed.total <= 0) return null;
+
+    return {
+      total: computed.total,
+      currency: 'EUR',
+      breakdown: {
+        location: computed.offer,
+        days: computed.days,
+        basePrice: computed.basePrice,
+        dailyRate: computed.dailyRate,
+        pickupFee: computed.pickupFee,
+        returnFee: computed.returnFee,
+        insuranceCost: computed.insuranceCost,
+        youngDriverCost: computed.youngDriverCost,
+        car: computed.car,
+        pickupLoc: computed.pickupLoc,
+        returnLoc: computed.returnLoc,
+      },
+    };
+  } catch (_e) {
+    return null;
+  }
+}
+
+function normalizeCouponRpcRow(row) {
+  if (!row || typeof row !== 'object') return null;
+  const valid = Boolean(row.is_valid);
+  return {
+    isValid: valid,
+    message: String(row.message || (valid ? 'Coupon applied' : 'Coupon invalid')),
+    couponId: row.coupon_id ? String(row.coupon_id) : null,
+    couponCode: String(row.coupon_code || '').trim().toUpperCase(),
+    discountType: String(row.discount_type || '').trim().toLowerCase(),
+    discountValue: Number(row.discount_value || 0),
+    baseRentalPrice: Number(row.base_rental_price || 0),
+    discountAmount: Number(row.discount_amount || 0),
+    finalRentalPrice: Number(row.final_rental_price || 0),
+    currency: String(row.currency || 'EUR').trim().toUpperCase() || 'EUR',
+    partnerId: row.partner_id ? String(row.partner_id) : null,
+    partnerCommissionBpsOverride: row.partner_commission_bps_override == null
+      ? null
+      : Number(row.partner_commission_bps_override),
+  };
+}
+
+async function requestCouponQuote(couponCode, baseQuote, options = {}) {
+  const { silent = false } = options;
+  const code = String(couponCode || '').trim().toUpperCase();
+  if (!code) {
+    return { ok: false, message: 'Enter a coupon code', result: null };
+  }
+  if (!baseQuote || typeof baseQuote.total !== 'number' || baseQuote.total <= 0) {
+    return { ok: false, message: 'Complete rental details before applying a coupon', result: null };
+  }
+
+  const pickupDate = document.getElementById('res_pickup_date')?.value;
+  const pickupTime = document.getElementById('res_pickup_time')?.value || '10:00';
+  const returnDate = document.getElementById('res_return_date')?.value;
+  const returnTime = document.getElementById('res_return_time')?.value || '10:00';
+  const pickupAt = localDateTimeToIso(pickupDate, pickupTime);
+  const returnAt = localDateTimeToIso(returnDate, returnTime);
+
+  if (!pickupAt || !returnAt) {
+    return { ok: false, message: 'Select valid pickup and return date/time first', result: null };
+  }
+
+  const offerIdRaw = getCurrentSelectedOfferId();
+  const offerId = (offerIdRaw && /^[0-9a-fA-F-]{36}$/.test(offerIdRaw)) ? offerIdRaw : null;
+  const emailInput = String(document.getElementById('res_email')?.value || '').trim();
+  const userId = window.CE_STATE?.session?.user?.id || null;
+  const seq = couponState.requestSeq + 1;
+  couponState.requestSeq = seq;
+
+  try {
+    const { data, error } = await supabase.rpc(COUPON_RPC_NAME, {
+      p_coupon_code: code,
+      p_base_rental_price: Number(baseQuote.total.toFixed(2)),
+      p_pickup_at: pickupAt,
+      p_return_at: returnAt,
+      p_offer_id: offerId,
+      p_location: getActiveOfferLocation(),
+      p_car_model: String(baseQuote?.breakdown?.car || '').trim() || null,
+      p_car_type: null,
+      p_user_id: userId,
+      p_user_email: emailInput || null,
+    });
+    if (error) throw error;
+
+    const row = Array.isArray(data) ? data[0] : data;
+    const normalized = normalizeCouponRpcRow(row);
+    if (!normalized) {
+      return { ok: false, message: 'Coupon validation returned empty response', result: null };
+    }
+
+    if (seq !== couponState.requestSeq) {
+      return { ok: false, message: 'Coupon validation superseded by a newer request', result: null };
+    }
+
+    if (!normalized.isValid) {
+      return { ok: false, message: normalized.message || 'Coupon is not valid for this rental', result: normalized };
+    }
+
+    return { ok: true, message: normalized.message || 'Coupon applied', result: normalized };
+  } catch (error) {
+    if (!silent) {
+      console.error('Coupon quote failed:', error);
+    }
+    return { ok: false, message: String(error?.message || 'Coupon validation failed'), result: null };
+  }
+}
+
+function scheduleCouponRevalidation(baseQuote) {
+  if (!couponState.appliedCode) return;
+  if (couponState.revalidateTimer) {
+    clearTimeout(couponState.revalidateTimer);
+    couponState.revalidateTimer = null;
+  }
+  couponState.revalidateTimer = setTimeout(async () => {
+    couponState.revalidateTimer = null;
+    const currentCode = couponState.appliedCode;
+    if (!currentCode) return;
+    const response = await requestCouponQuote(currentCode, baseQuote, { silent: true });
+    if (response.ok && response.result) {
+      couponState.result = response.result;
+      setCouponStatus(`Coupon ${response.result.couponCode} applied: -${response.result.discountAmount.toFixed(2)} ${response.result.currency}`, 'ok');
+      syncCouponButtons();
+      calculateEstimatedPrice({ skipCouponRevalidation: true });
+      return;
+    }
+    clearCouponApplication({ silent: true });
+    setCouponStatus(response.message || 'Coupon is no longer valid for current rental details', 'error');
+    calculateEstimatedPrice();
+  }, 220);
+}
+
+function buildQuoteWithCoupon(baseQuote) {
+  const coupon = couponState.result;
+  const hasCoupon = Boolean(couponState.appliedCode && coupon && coupon.isValid !== false && coupon.discountAmount > 0);
+  const finalTotal = hasCoupon
+    ? Number(coupon.finalRentalPrice || 0)
+    : Number(baseQuote?.total || 0);
+  return {
+    ...baseQuote,
+    final_total: Number(finalTotal.toFixed(2)),
+    coupon: hasCoupon
+      ? {
+        code: coupon.couponCode,
+        coupon_id: coupon.couponId,
+        discount_amount: Number(coupon.discountAmount || 0),
+        base_rental_price: Number(coupon.baseRentalPrice || baseQuote.total || 0),
+        final_rental_price: Number(coupon.finalRentalPrice || baseQuote.total || 0),
+        partner_id: coupon.partnerId,
+        partner_commission_bps_override: coupon.partnerCommissionBpsOverride,
+        currency: coupon.currency || 'EUR',
+      }
+      : null,
+  };
+}
+
+async function applyCouponCode(options = {}) {
+  const { forceCode = null, silent = false } = options;
+  const { input } = getCouponDom();
+  const entered = String(forceCode != null ? forceCode : (input?.value || '')).trim().toUpperCase();
+  if (input && forceCode != null) {
+    input.value = entered;
+  }
+  if (!entered) {
+    clearCouponApplication();
+    if (!silent) setCouponStatus('Enter a coupon code', 'error');
+    return null;
+  }
+
+  const baseQuote = computeReservationQuote(buildReservationQuoteInputFromDom());
+  if (!baseQuote) {
+    if (!silent) setCouponStatus('Complete rental details before applying a coupon', 'error');
+    return null;
+  }
+
+  const response = await requestCouponQuote(entered, baseQuote, { silent });
+  if (!response.ok || !response.result) {
+    clearCouponApplication({ silent: true });
+    setCouponStatus(response.message || 'Coupon is not valid', 'error');
+    syncCouponButtons();
+    calculateEstimatedPrice();
+    return null;
+  }
+
+  couponState.appliedCode = response.result.couponCode || entered;
+  couponState.result = response.result;
+  setCouponStatus(`Coupon ${couponState.appliedCode} applied: -${response.result.discountAmount.toFixed(2)} ${response.result.currency}`, 'ok');
+  syncCouponButtons();
+  calculateEstimatedPrice();
+  return response.result;
 }
 
 // Prefill form fields from logged-in user session
@@ -188,6 +529,52 @@ export function initCarReservationBindings() {
     returnTime.addEventListener('input', calculateEstimatedPrice);
   }
 
+  const couponInput = document.getElementById('res_coupon_code');
+  if (couponInput && couponInput.dataset.ceReservationBound !== '1') {
+    couponInput.dataset.ceReservationBound = '1';
+    couponInput.addEventListener('input', () => {
+      const typedCode = String(couponInput.value || '').trim().toUpperCase();
+      if (!typedCode) {
+        clearCouponApplication({ silent: true });
+        setCouponStatus('');
+        calculateEstimatedPrice();
+        return;
+      }
+      if (couponState.appliedCode && typedCode !== couponState.appliedCode) {
+        clearCouponApplication({ silent: true });
+        setCouponStatus('Coupon code changed. Click Apply to confirm.', 'info');
+        calculateEstimatedPrice();
+      }
+      syncCouponButtons();
+    });
+  }
+
+  const applyCouponBtn = document.getElementById('btnApplyCoupon');
+  if (applyCouponBtn && applyCouponBtn.dataset.ceReservationBound !== '1') {
+    applyCouponBtn.dataset.ceReservationBound = '1';
+    applyCouponBtn.addEventListener('click', async () => {
+      applyCouponBtn.disabled = true;
+      try {
+        await applyCouponCode();
+      } finally {
+        applyCouponBtn.disabled = false;
+        syncCouponButtons();
+      }
+    });
+  }
+
+  const clearCouponBtn = document.getElementById('btnClearCoupon');
+  if (clearCouponBtn && clearCouponBtn.dataset.ceReservationBound !== '1') {
+    clearCouponBtn.dataset.ceReservationBound = '1';
+    clearCouponBtn.addEventListener('click', () => {
+      clearCouponApplication({ clearInput: true });
+      setCouponStatus('Coupon removed', 'info');
+      calculateEstimatedPrice();
+    });
+  }
+
+  syncCouponButtons();
+
   initReservationForm();
 }
 
@@ -204,6 +591,9 @@ export function initReservationForm() {
   
   // Prefill user data from session (email, name, phone)
   prefillFromUserSession();
+
+  clearCouponApplication({ silent: true });
+  syncCouponButtons();
 
   // Form submission
   form.addEventListener('submit', handleReservationSubmit);
@@ -312,8 +702,59 @@ function populateFromCalculator() {
   }
 }
 
+function renderEstimatedPriceQuote(estimatedEl, quote, rentalDays, daysLabel) {
+  if (!estimatedEl || !quote) return;
+
+  const currency = String(quote.currency || 'EUR').trim().toUpperCase() || 'EUR';
+  const finalTotal = Number(quote.final_total ?? quote.total ?? 0);
+  const baseTotal = Number(quote.base_total ?? finalTotal);
+  const coupon = quote.coupon && typeof quote.coupon === 'object' ? quote.coupon : null;
+
+  if (coupon) {
+    const couponCode = String(coupon.code || '').trim().toUpperCase();
+    const discount = Number(coupon.discount_amount || 0);
+    const finalLabel = Number.isFinite(finalTotal) ? finalTotal.toFixed(2) : '0.00';
+    const baseLabel = Number.isFinite(baseTotal) ? baseTotal.toFixed(2) : '0.00';
+    const discountLabel = Number.isFinite(discount) ? discount.toFixed(2) : '0.00';
+
+    estimatedEl.innerHTML = `
+      <div style="display:grid; gap:6px;">
+        <div style="font-weight:600; color:#0f172a;">
+          Total rental price (${Number(rentalDays || 0)} ${escapeHtml(daysLabel || 'days')})
+        </div>
+        <div style="display:flex; justify-content:space-between; gap:12px;">
+          <span style="color:#475569;">Base rental</span>
+          <strong>${baseLabel} ${escapeHtml(currency)}</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; gap:12px;">
+          <span style="color:#166534;">Coupon ${escapeHtml(couponCode || '')}</span>
+          <strong style="color:#166534;">-${discountLabel} ${escapeHtml(currency)}</strong>
+        </div>
+        <div style="display:flex; justify-content:space-between; gap:12px; padding-top:6px; border-top:1px solid #cbd5e1;">
+          <span style="font-weight:600; color:#0f172a;">Final rental total</span>
+          <strong style="font-weight:700; color:#0f172a;">${finalLabel} ${escapeHtml(currency)}</strong>
+        </div>
+        <div style="font-size:12px; color:#64748b;">Coupon affects rental price only. Deposit is unchanged.</div>
+      </div>
+    `;
+    return;
+  }
+
+  estimatedEl.textContent = tr(
+    'carRental.page.reservation.estimated.totalPrice',
+    'Całkowita cena wynajmu: {{total}} {{currency}} ({{days}} {{daysLabel}})',
+    {
+      total: Number.isFinite(finalTotal) ? finalTotal.toFixed(2) : '0.00',
+      currency,
+      days: Number(rentalDays || 0),
+      daysLabel,
+    }
+  );
+}
+
 // Calculate estimated price
-function calculateEstimatedPrice() {
+function calculateEstimatedPrice(options = {}) {
+  const { skipCouponRevalidation = false } = options;
   const estimatedEl = document.getElementById('estimatedPrice');
   if (!estimatedEl) return;
 
@@ -368,88 +809,40 @@ function calculateEstimatedPrice() {
     return;
   }
 
-  const quote = window.CE_CAR_PRICE_QUOTE;
+  const quoteInput = buildReservationQuoteInputFromDom();
+  const baseQuote = computeReservationQuote(quoteInput);
+  if (baseQuote && typeof baseQuote.total === 'number' && baseQuote.total > 0) {
+    const quoteWithCoupon = buildQuoteWithCoupon(baseQuote);
+    const baseTotal = Number(baseQuote.total || 0);
+    const finalTotal = Number(quoteWithCoupon.final_total ?? baseTotal);
+    const effectiveDays = Number(baseQuote?.breakdown?.days || days);
 
-  try {
-    const pricing = window.CE_CAR_PRICING && typeof window.CE_CAR_PRICING === 'object'
-      ? window.CE_CAR_PRICING
-      : null;
-    const carModel = String(document.getElementById('res_car')?.value || '').trim();
-    const pageLocation = getActiveOfferLocation();
+    window.CE_CAR_PRICE_QUOTE = {
+      total: Number(finalTotal.toFixed(2)),
+      base_total: Number(baseTotal.toFixed(2)),
+      final_total: Number(finalTotal.toFixed(2)),
+      currency: quoteWithCoupon.currency || 'EUR',
+      breakdown: baseQuote.breakdown || {},
+      coupon: quoteWithCoupon.coupon ? { ...quoteWithCoupon.coupon } : null,
+    };
 
-    if (!carModel) {
-      estimatedEl.textContent = tr(
-        'carRental.page.reservation.estimated.chooseCar',
-        'Wybierz auto, aby zobaczyć łączną cenę.'
-      );
-      try { delete window.CE_CAR_PRICE_QUOTE; } catch (_) {}
-      return;
+    renderEstimatedPriceQuote(estimatedEl, window.CE_CAR_PRICE_QUOTE, effectiveDays, daysLabel);
+
+    if (!skipCouponRevalidation && couponState.appliedCode) {
+      const currentCouponBase = Number(couponState.result?.baseRentalPrice || 0);
+      if (!couponState.result || Math.abs(currentCouponBase - baseTotal) > 0.01) {
+        scheduleCouponRevalidation(baseQuote);
+      }
     }
-
-    const carPricing = pricing && carModel ? pricing[carModel] : null;
-    const pickupLoc = String(document.getElementById('res_pickup_location')?.value || '').trim();
-    const returnLoc = String(document.getElementById('res_return_location')?.value || '').trim();
-    const insuranceChecked = !!document.getElementById('res_insurance')?.checked;
-    const youngDriverChecked = !!document.getElementById('res_young_driver')?.checked;
-
-    const computed = calculateCarRentalQuote({
-      pricingMatrix: carPricing,
-      offer: pageLocation,
-      carModel,
-      pickupDateStr: pickupDate,
-      returnDateStr: returnDate,
-      pickupTimeStr: pickupTime,
-      returnTimeStr: returnTime,
-      pickupLocation: pickupLoc,
-      returnLocation: returnLoc,
-      fullInsurance: insuranceChecked,
-      youngDriver: youngDriverChecked,
-    });
-
-    if (computed && typeof computed.total === 'number' && computed.total > 0) {
-      window.CE_CAR_PRICE_QUOTE = {
-        total: computed.total,
-        currency: 'EUR',
-        breakdown: {
-          location: computed.offer,
-          days: computed.days,
-          basePrice: computed.basePrice,
-          dailyRate: computed.dailyRate,
-          pickupFee: computed.pickupFee,
-          returnFee: computed.returnFee,
-          insuranceCost: computed.insuranceCost,
-          youngDriverCost: computed.youngDriverCost,
-          car: computed.car,
-          pickupLoc: computed.pickupLoc,
-          returnLoc: computed.returnLoc,
-        },
-      };
-      estimatedEl.textContent = tr(
-        'carRental.page.reservation.estimated.totalPrice',
-        'Całkowita cena wynajmu: {{total}} {{currency}} ({{days}} {{daysLabel}})',
-        {
-          total: window.CE_CAR_PRICE_QUOTE.total.toFixed(2),
-          currency: 'EUR',
-          days,
-          daysLabel,
-        }
-      );
-      return;
-    }
-  } catch (_e) {}
+    return;
+  }
 
   // Fallback: if we have any quote at all, show it (but do NOT block recalculation when it is possible).
+  const quote = window.CE_CAR_PRICE_QUOTE && typeof window.CE_CAR_PRICE_QUOTE === 'object'
+    ? window.CE_CAR_PRICE_QUOTE
+    : null;
   if (quote && typeof quote.total === 'number' && quote.total > 0) {
-    estimatedEl.textContent = tr(
-      'carRental.page.reservation.estimated.totalPrice',
-      'Całkowita cena wynajmu: {{total}} {{currency}} ({{days}} {{daysLabel}})',
-      {
-        total: quote.total.toFixed(2),
-        currency: quote.currency || 'EUR',
-        days,
-        daysLabel,
-      }
-    );
+    renderEstimatedPriceQuote(estimatedEl, quote, days, daysLabel);
     return;
   }
 
@@ -589,83 +982,51 @@ async function handleReservationSubmit(event) {
     const offerId = selectedResCarOpt?.dataset?.offerId || null;
     const pageLocation = getActiveOfferLocation();
 
-    const computedQuote = (() => {
-      try {
-        const pricing = window.CE_CAR_PRICING && typeof window.CE_CAR_PRICING === 'object'
-          ? window.CE_CAR_PRICING
-          : null;
-        if (!pricing) return null;
-
-        const carModel = String(formData.get('car') || '').trim();
-        if (!carModel) return null;
-        const carPricing = pricing[carModel];
-        if (!Array.isArray(carPricing) || carPricing.length < 4) return null;
-
-        const pickupDateStr = String(formData.get('pickup_date') || '').trim();
-        const returnDateStr = String(formData.get('return_date') || '').trim();
-        const pickupTimeStr = String(formData.get('pickup_time') || '10:00').trim();
-        const returnTimeStr = String(formData.get('return_time') || '10:00').trim();
-        if (!pickupDateStr || !returnDateStr) return null;
-
-        const pickupLoc = String(formData.get('pickup_location') || '').trim();
-        const returnLoc = String(formData.get('return_location') || '').trim();
-        const insuranceChecked = String(formData.get('insurance') || '') === 'on';
-        const youngDriverChecked = String(formData.get('young_driver') || '') === 'on';
-
-        const computed = calculateCarRentalQuote({
-          pricingMatrix: carPricing,
-          offer: pageLocation,
-          carModel,
-          pickupDateStr,
-          returnDateStr,
-          pickupTimeStr,
-          returnTimeStr,
-          pickupLocation: pickupLoc,
-          returnLocation: returnLoc,
-          fullInsurance: insuranceChecked,
-          youngDriver: youngDriverChecked,
-        });
-        if (!computed || typeof computed.total !== 'number' || computed.total <= 0) return null;
-
-        return {
-          total: computed.total,
-          currency: 'EUR',
-          breakdown: {
-            location: computed.offer,
-            days: computed.days,
-            basePrice: computed.basePrice,
-            dailyRate: computed.dailyRate,
-            pickupFee: computed.pickupFee,
-            returnFee: computed.returnFee,
-            insuranceCost: computed.insuranceCost,
-            youngDriverCost: computed.youngDriverCost,
-            car: computed.car,
-            pickupLoc: computed.pickupLoc,
-            returnLoc: computed.returnLoc,
-          },
-        };
-      } catch (_e) {
-        return null;
-      }
-    })();
+    const quoteInput = buildReservationQuoteInputFromFormData(formData, pageLocation);
+    const computedQuote = computeReservationQuote(quoteInput);
     const uiQuote = window.CE_CAR_PRICE_QUOTE && typeof window.CE_CAR_PRICE_QUOTE === 'object'
       ? window.CE_CAR_PRICE_QUOTE
       : null;
+    const uiBaseTotal = uiQuote && typeof uiQuote.base_total === 'number'
+      ? uiQuote.base_total
+      : uiQuote?.total;
     if (
       computedQuote
       && uiQuote
       && typeof computedQuote.total === 'number'
-      && typeof uiQuote.total === 'number'
-      && Math.abs(computedQuote.total - uiQuote.total) > 0.01
+      && typeof uiBaseTotal === 'number'
+      && Math.abs(computedQuote.total - uiBaseTotal) > 0.01
     ) {
       console.warn('Car reservation quote drift detected before submit', {
         computedTotal: computedQuote.total,
-        uiTotal: uiQuote.total,
+        uiTotal: uiBaseTotal,
         car: formData.get('car'),
         pickupDate: formData.get('pickup_date'),
         returnDate: formData.get('return_date'),
       });
     }
+
+    const enteredCouponCode = String(formData.get('coupon_code') || '').trim().toUpperCase();
+    if (enteredCouponCode) {
+      if (!computedQuote) {
+        throw new Error('Complete rental details before applying a coupon.');
+      }
+      const couponResponse = await requestCouponQuote(enteredCouponCode, computedQuote, { silent: true });
+      if (!couponResponse.ok || !couponResponse.result) {
+        setCouponStatus(couponResponse.message || 'Coupon is not valid for selected rental details', 'error');
+        syncCouponButtons();
+        throw new Error(couponResponse.message || 'Coupon is not valid for selected rental details');
+      }
+      couponState.appliedCode = couponResponse.result.couponCode || enteredCouponCode;
+      couponState.result = couponResponse.result;
+      setCouponStatus(`Coupon ${couponState.appliedCode} applied: -${couponResponse.result.discountAmount.toFixed(2)} ${couponResponse.result.currency}`, 'ok');
+      syncCouponButtons();
+    } else if (couponState.appliedCode) {
+      clearCouponApplication({ silent: true });
+      setCouponStatus('');
+    }
+
+    const quoteWithCoupon = computedQuote ? buildQuoteWithCoupon(computedQuote) : null;
 
     const rawPickupLocation = String(formData.get('pickup_location') || '').trim();
     const rawReturnLocation = String(formData.get('return_location') || '').trim();
@@ -695,12 +1056,31 @@ async function handleReservationSubmit(event) {
       source: pageLocation === 'paphos' ? 'website_autopfo' : 'website_autolca'
     };
 
-    if (computedQuote && typeof computedQuote.total === 'number' && computedQuote.total > 0) {
-      data.quoted_price = computedQuote.total;
-      data.total_price = computedQuote.total;
-      data.currency = computedQuote.currency || 'EUR';
+    if (quoteWithCoupon && typeof quoteWithCoupon.final_total === 'number' && quoteWithCoupon.final_total > 0) {
+      const finalRentalTotal = Number(quoteWithCoupon.final_total || 0);
+      const baseRentalTotal = Number(computedQuote?.total || finalRentalTotal);
+      data.quoted_price = Number(finalRentalTotal.toFixed(2));
+      data.total_price = Number(finalRentalTotal.toFixed(2));
+      data.currency = quoteWithCoupon.currency || 'EUR';
+      data.base_rental_price = Number(baseRentalTotal.toFixed(2));
+      data.final_rental_price = Number(finalRentalTotal.toFixed(2));
+      if (quoteWithCoupon.coupon) {
+        data.coupon_id = quoteWithCoupon.coupon.coupon_id || null;
+        data.coupon_code = quoteWithCoupon.coupon.code || null;
+        data.coupon_discount_amount = Number(quoteWithCoupon.coupon.discount_amount || 0);
+        data.coupon_partner_id = quoteWithCoupon.coupon.partner_id || null;
+        data.coupon_partner_commission_bps = quoteWithCoupon.coupon.partner_commission_bps_override == null
+          ? null
+          : Number(quoteWithCoupon.coupon.partner_commission_bps_override);
+      } else {
+        data.coupon_id = null;
+        data.coupon_code = null;
+        data.coupon_discount_amount = 0;
+        data.coupon_partner_id = null;
+        data.coupon_partner_commission_bps = null;
+      }
 
-      const b = computedQuote.breakdown || {};
+      const b = computedQuote?.breakdown || {};
       if (typeof b.pickupFee === 'number') data.pickup_location_fee = b.pickupFee;
       if (typeof b.returnFee === 'number') data.return_location_fee = b.returnFee;
       if (typeof b.insuranceCost === 'number') data.insurance_cost = b.insuranceCost;
@@ -799,6 +1179,10 @@ async function handleReservationSubmit(event) {
     
     // Reset form
     form.reset();
+    clearCouponApplication({ clearInput: true, silent: true });
+    setCouponStatus('');
+    try { delete window.CE_CAR_PRICE_QUOTE; } catch (_e) {}
+    calculateEstimatedPrice({ skipCouponRevalidation: true });
     
     // Show toast
     if (typeof showToast === 'function') {

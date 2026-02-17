@@ -1960,6 +1960,38 @@ function formatMoney(value, currency) {
   return `${num.toFixed(2)} ${cur}`;
 }
 
+function getServiceFulfillmentPriceMeta(row) {
+  const currency = String(row?.currency || 'EUR').trim().toUpperCase() || 'EUR';
+  const fallback = Number(row?.total_price);
+  const fallbackAmount = Number.isFinite(fallback) ? fallback : 0;
+  if (String(row?.resource_type || '').trim().toLowerCase() !== 'cars') {
+    return { amount: fallbackAmount, currency, hasCoupon: false, couponCode: '' };
+  }
+
+  const detailsRaw = row?.details;
+  const details = (detailsRaw && typeof detailsRaw === 'object')
+    ? detailsRaw
+    : (() => {
+      if (typeof detailsRaw !== 'string') return null;
+      try {
+        const parsed = JSON.parse(detailsRaw);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+      } catch (_e) {
+        return null;
+      }
+    })();
+
+  const finalRental = Number(details?.final_rental_price);
+  const finalAmount = Number.isFinite(finalRental) ? finalRental : fallbackAmount;
+  const couponCode = String(details?.coupon_code || '').trim().toUpperCase();
+  return {
+    amount: finalAmount,
+    currency,
+    hasCoupon: Boolean(couponCode || Number(details?.coupon_discount_amount) > 0),
+    couponCode,
+  };
+}
+
 async function loadServiceFulfillmentsForPartner(partnerId) {
   const client = ensureSupabase();
   if (!client) return [];
@@ -1967,13 +1999,23 @@ async function loadServiceFulfillmentsForPartner(partnerId) {
   const pid = String(partnerId || '').trim();
   if (!pid) return [];
 
-  const { data: serviceRows, error: serviceErr } = await client
+  let serviceRes = await client
     .from('partner_service_fulfillments')
-    .select('id, resource_type, booking_id, resource_id, status, created_at, accepted_at, contact_revealed_at, rejected_reason, total_price, currency, start_date, end_date, reference, summary')
+    .select('id, resource_type, booking_id, resource_id, status, created_at, accepted_at, contact_revealed_at, rejected_reason, total_price, currency, start_date, end_date, reference, summary, details')
     .eq('partner_id', pid)
     .in('status', ['pending_acceptance', 'awaiting_payment', 'accepted', 'rejected', 'expired'])
     .order('created_at', { ascending: false })
     .limit(300);
+  if (serviceRes.error && /details/i.test(String(serviceRes.error.message || ''))) {
+    serviceRes = await client
+      .from('partner_service_fulfillments')
+      .select('id, resource_type, booking_id, resource_id, status, created_at, accepted_at, contact_revealed_at, rejected_reason, total_price, currency, start_date, end_date, reference, summary')
+      .eq('partner_id', pid)
+      .in('status', ['pending_acceptance', 'awaiting_payment', 'accepted', 'rejected', 'expired'])
+      .order('created_at', { ascending: false })
+      .limit(300);
+  }
+  const { data: serviceRows, error: serviceErr } = serviceRes;
   if (serviceErr) throw serviceErr;
 
   const service = (serviceRows || []).filter(r => String(r?.status || '').trim() !== 'closed');
@@ -1998,6 +2040,7 @@ async function loadServiceFulfillmentsForPartner(partnerId) {
     const contact = serviceContactsById[f.id] || {};
     const reference = f.reference || (f.booking_id ? String(f.booking_id).slice(0, 8) : String(f.id).slice(0, 8));
     const label = f.resource_type ? String(f.resource_type) : 'service';
+    const priceMeta = getServiceFulfillmentPriceMeta(f);
     normalized.push({
       id: f.id,
       resource_type: f.resource_type,
@@ -2011,8 +2054,10 @@ async function loadServiceFulfillmentsForPartner(partnerId) {
       rejected_reason: f.rejected_reason,
       start_date: f.start_date,
       end_date: f.end_date,
-      price: f.total_price,
-      currency: f.currency || 'EUR',
+      price: priceMeta.amount,
+      currency: priceMeta.currency || 'EUR',
+      has_coupon: priceMeta.hasCoupon,
+      coupon_code: priceMeta.couponCode || '',
       customer_name: contact.customer_name || '',
       customer_email: contact.customer_email || '',
       customer_phone: contact.customer_phone || '',
@@ -10310,13 +10355,13 @@ async function viewUserDetails(userId) {
     const serviceBookingValueByCurrency = {};
     const serviceBookingValueByKey = new Map();
     carBookings.forEach((booking) => {
-      const price = booking?.final_price ?? booking?.quoted_price ?? booking?.total_price;
-      addMoney(serviceBookingValueByCurrency, price, booking?.currency || 'EUR');
+      const priceMeta = getCarBookingEffectivePriceMeta(booking);
+      addMoney(serviceBookingValueByCurrency, priceMeta.amount, priceMeta.currency || 'EUR');
       const key = normalizeBookingKey('cars', booking?.id);
       if (key) {
         serviceBookingValueByKey.set(key, {
-          amount: toMoneyNumber(price),
-          currency: booking?.currency || 'EUR',
+          amount: toMoneyNumber(priceMeta.amount),
+          currency: priceMeta.currency || 'EUR',
         });
       }
     });
@@ -10541,8 +10586,8 @@ async function viewUserDetails(userId) {
                   const pickup = formatBookingDate(b.pickup_date);
                   const ret = formatBookingDate(b.return_date);
                   const status = escapeHtml(b.status || '');
-                  const price = b.final_price ?? b.quoted_price ?? b.total_price;
-                  const priceLabel = price == null ? '—' : escapeHtml(formatMoney(price, b.currency || 'EUR'));
+                  const priceMeta = getCarBookingEffectivePriceMeta(b);
+                  const priceLabel = priceMeta.hasAmount ? escapeHtml(formatMoney(priceMeta.amount, priceMeta.currency || 'EUR')) : '—';
                   const id = escapeHtml(String(b.id || ''));
                   return `
                     <tr>
@@ -12503,6 +12548,35 @@ function normalizeCouponStatusClass(status) {
   return 'badge';
 }
 
+function getCarBookingEffectivePriceMeta(booking) {
+  const rawAmount = booking?.final_price ?? booking?.final_rental_price ?? booking?.quoted_price ?? booking?.total_price;
+  const amount = Number(rawAmount);
+  const hasAmount = Number.isFinite(amount);
+  const source = booking?.final_price != null
+    ? 'final_price'
+    : booking?.final_rental_price != null
+      ? 'final_rental_price'
+      : booking?.quoted_price != null
+        ? 'quoted_price'
+        : booking?.total_price != null
+          ? 'total_price'
+          : null;
+  const baseRaw = booking?.base_rental_price ?? booking?.quoted_price ?? booking?.total_price;
+  const baseAmount = Number(baseRaw);
+  const discountRaw = booking?.coupon_discount_amount;
+  const discountAmount = Number(discountRaw);
+
+  return {
+    amount: hasAmount ? amount : 0,
+    hasAmount,
+    source,
+    currency: String(booking?.currency || 'EUR').trim().toUpperCase() || 'EUR',
+    couponCode: String(booking?.coupon_code || '').trim().toUpperCase(),
+    baseAmount: Number.isFinite(baseAmount) ? baseAmount : null,
+    discountAmount: Number.isFinite(discountAmount) ? discountAmount : 0,
+  };
+}
+
 async function fetchCarBookingsCount(client, statuses = []) {
   let query = client
     .from('car_bookings')
@@ -12527,7 +12601,7 @@ async function fetchCarBookingsRevenueTotal(client) {
   while (true) {
     const { data, error } = await client
       .from('car_bookings')
-      .select('final_price, quoted_price, total_price')
+      .select('final_price, final_rental_price, quoted_price, total_price, coupon_code, coupon_discount_amount, base_rental_price, currency')
       .in('status', ['confirmed', 'completed'])
       .order('created_at', { ascending: false })
       .range(from, from + pageSize - 1);
@@ -12538,9 +12612,9 @@ async function fetchCarBookingsRevenueTotal(client) {
     if (!rows.length) break;
 
     rows.forEach((row) => {
-      const amount = Number(row?.final_price ?? row?.quoted_price ?? row?.total_price ?? 0);
-      if (Number.isFinite(amount)) {
-        total += amount;
+      const priceMeta = getCarBookingEffectivePriceMeta(row);
+      if (priceMeta.hasAmount) {
+        total += priceMeta.amount;
       }
     });
 
@@ -12664,6 +12738,11 @@ async function loadCarsData(options = {}) {
       // Location badges
       const pickupLoc = booking.pickup_location ? booking.pickup_location.toUpperCase().replace('_', ' ') : '?';
       const returnLoc = booking.return_location ? booking.return_location.toUpperCase().replace('_', ' ') : '?';
+      const priceMeta = getCarBookingEffectivePriceMeta(booking);
+      const priceLabel = priceMeta.hasAmount ? `€${priceMeta.amount.toFixed(2)}` : '—';
+      const couponBadge = priceMeta.couponCode
+        ? `<div style="font-size: 10px; color: #2563eb; margin-top: 2px;">Coupon ${escapeHtml(priceMeta.couponCode)}</div>`
+        : '';
       
       return `
         <tr>
@@ -12700,9 +12779,10 @@ async function loadCarsData(options = {}) {
             </span>
           </td>
           <td style="font-weight: 600; color: var(--admin-success);">
-            €${Number(booking.final_price || booking.quoted_price || booking.total_price || 0).toFixed(2)}
-            ${booking.currency && booking.currency !== 'EUR' ? `<div style="font-size: 11px; color: var(--admin-text-muted);">${booking.currency}</div>` : ''}
-            ${!booking.final_price && !booking.quoted_price ? `<div style="font-size: 10px; color: var(--admin-warning);">Not quoted yet</div>` : ''}
+            ${priceLabel}
+            ${priceMeta.currency !== 'EUR' ? `<div style="font-size: 11px; color: var(--admin-text-muted);">${escapeHtml(priceMeta.currency)}</div>` : ''}
+            ${couponBadge}
+            ${!priceMeta.hasAmount ? `<div style="font-size: 10px; color: var(--admin-warning);">Not quoted yet</div>` : ''}
           </td>
           <td>
             <button class="btn-secondary" onclick="viewCarBookingDetails('${booking.id}')" title="View details">
@@ -12857,6 +12937,39 @@ async function viewCarBookingDetails(bookingId) {
     const insuranceCost = suggestedQuote?.insuranceCost || 0;
     const youngDriverCost = suggestedQuote?.youngDriverCost || 0;
     const suggestedTotal = suggestedQuote?.total || 0;
+    const bookingPriceMeta = getCarBookingEffectivePriceMeta(booking);
+    const couponCodeSnapshot = String(booking?.coupon_code || '').trim().toUpperCase();
+    const couponDiscountSnapshot = Number(booking?.coupon_discount_amount || 0);
+    const hasCouponSnapshot = Boolean(couponCodeSnapshot || couponDiscountSnapshot > 0);
+    const baseRentalSnapshot = Number((booking?.base_rental_price ?? suggestedTotal ?? bookingPriceMeta.amount ?? 0));
+    const finalRentalSnapshot = Number((booking?.final_rental_price ?? bookingPriceMeta.amount ?? 0));
+
+    const couponPricingHtml = hasCouponSnapshot
+      ? `
+        <div style="background: rgba(37, 99, 235, 0.08); border: 1px solid rgba(37, 99, 235, 0.3); padding: 14px; border-radius: 10px;">
+          <h4 style="margin: 0 0 10px; font-size: 14px; font-weight: 600; color: var(--admin-primary);">Coupon Pricing Snapshot</h4>
+          <div style="display:grid; gap:6px; font-size:13px;">
+            <div style="display:flex; justify-content:space-between; gap:12px;">
+              <span>Coupon code</span>
+              <strong>${escapeHtml(couponCodeSnapshot || 'APPLIED')}</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; gap:12px;">
+              <span>Base rental</span>
+              <strong>€${baseRentalSnapshot.toFixed(2)}</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; gap:12px; color:#166534;">
+              <span>Discount</span>
+              <strong>-€${Math.max(0, couponDiscountSnapshot).toFixed(2)}</strong>
+            </div>
+            <div style="display:flex; justify-content:space-between; gap:12px; border-top:1px solid rgba(37, 99, 235, 0.2); padding-top:6px;">
+              <span style="font-weight:600;">Final rental total</span>
+              <strong>€${finalRentalSnapshot.toFixed(2)}</strong>
+            </div>
+            <div style="font-size:11px; color: var(--admin-text-muted);">Coupon affects rental total only. Deposit logic is unchanged.</div>
+          </div>
+        </div>
+      `
+      : '';
 
     // Status badge
     const statusClass = 
@@ -13060,6 +13173,8 @@ async function viewCarBookingDetails(bookingId) {
             ` : ''}
           </div>
         </div>
+
+        ${couponPricingHtml}
 
         <!-- Automatic Price Calculation -->
         <div style="background: linear-gradient(135deg, #1e3a8a 0%, #1e40af 100%); padding: 20px; border-radius: 12px; color: white;">
@@ -19464,15 +19579,40 @@ async function buildOrdersAnalyticsSection(client) {
   };
   const safe = (v) => String(v ?? '').trim();
   const fmtMoney = (v) => (typeof formatMoney === 'function' ? formatMoney(v, 'EUR') : `€${toNum(v).toFixed(2)}`);
+  const serviceGrossValue = (row) => {
+    if (safe(row?.resource_type).toLowerCase() !== 'cars') return toNum(row?.total_price);
+    const detailsRaw = row?.details;
+    const details = (detailsRaw && typeof detailsRaw === 'object')
+      ? detailsRaw
+      : (() => {
+        if (typeof detailsRaw !== 'string') return null;
+        try {
+          const parsed = JSON.parse(detailsRaw);
+          return parsed && typeof parsed === 'object' ? parsed : null;
+        } catch (_e) {
+          return null;
+        }
+      })();
+    const finalRental = Number(details?.final_rental_price);
+    if (Number.isFinite(finalRental)) return finalRental;
+    return toNum(row?.total_price);
+  };
 
   let service = [];
   try {
-    const { data } = await client
+    let serviceRes = await client
       .from('partner_service_fulfillments')
-      .select('id, partner_id, resource_type, booking_id, status, total_price, currency, created_at, summary, reference')
+      .select('id, partner_id, resource_type, booking_id, status, total_price, currency, created_at, summary, reference, details')
       .order('created_at', { ascending: false })
       .limit(2000);
-    service = data || [];
+    if (serviceRes.error && /details/i.test(String(serviceRes.error.message || ''))) {
+      serviceRes = await client
+        .from('partner_service_fulfillments')
+        .select('id, partner_id, resource_type, booking_id, status, total_price, currency, created_at, summary, reference')
+        .order('created_at', { ascending: false })
+        .limit(2000);
+    }
+    service = serviceRes.data || [];
   } catch (_e) {
     service = [];
   }
@@ -19533,7 +19673,7 @@ async function buildOrdersAnalyticsSection(client) {
     if (st === 'expired') serviceCounts.expired += 1;
 
     if (st !== 'accepted') return;
-    const gross = toNum(f?.total_price);
+    const gross = serviceGrossValue(f);
     const deposit = toNum(depositByFid[f?.id] || 0);
     const partner = Math.max(0, gross - deposit);
     serviceTotals.gross += gross;
@@ -20448,6 +20588,7 @@ async function loadAllOrders(opts = {}) {
     // Process car bookings
     const carBookings = (carsResult.data || []).map(booking => {
       const f = fulfillmentByKey[`cars:${String(booking?.id || '')}`] || null;
+      const priceMeta = getCarBookingEffectivePriceMeta(booking);
       return ({
       ...booking,
       category: 'cars',
@@ -20460,6 +20601,9 @@ async function loadAllOrders(opts = {}) {
       customer_phone: booking.phone || booking.customer_phone || '',
       dropoff_date: booking.return_date || booking.dropoff_date,
       displayName: `${booking.car_model || booking.car_type || 'N/A'} - ${booking.pickup_location || 'N/A'}`,
+      total_price: priceMeta.amount,
+      pricing_source: priceMeta.source,
+      coupon_code: priceMeta.couponCode || booking.coupon_code || '',
       viewFunction: 'viewCarBookingDetails',
       fulfillment_id: f ? f.id : null,
       fulfillment_status: f ? f.status : null,
@@ -20663,6 +20807,17 @@ function renderAllOrdersTable() {
     const statusDetail = order.fulfillment_status && String(order.fulfillment_status || '') !== String(order.status || '')
       ? `<div style="font-size: 10px; color: var(--admin-text-muted); margin-top: 3px;">${escapeHtml(String(order.fulfillment_status))}</div>`
       : '';
+    const priceMeta = order.category === 'cars'
+      ? getCarBookingEffectivePriceMeta(order)
+      : {
+        amount: Number(order.total_price || order.quoted_price || order.final_price || 0),
+        hasAmount: true,
+        currency: 'EUR',
+      };
+    const priceText = Number.isFinite(priceMeta.amount) ? `€${Number(priceMeta.amount).toFixed(2)}` : '—';
+    const couponHint = order.category === 'cars' && String(priceMeta.couponCode || '').trim()
+      ? `<div style="font-size:10px; color:#2563eb; margin-top:2px;">Coupon ${escapeHtml(String(priceMeta.couponCode || '').trim().toUpperCase())}</div>`
+      : '';
 
     return `
       <tr style="${effectiveStatus === 'completed' || effectiveStatus === 'cancelled' ? 'opacity: 0.6;' : ''}">
@@ -20696,7 +20851,8 @@ function renderAllOrdersTable() {
           ${statusDetail}
         </td>
         <td style="font-weight: 600; color: var(--admin-success); font-size: 14px;">
-          €${Number(order.total_price || order.quoted_price || order.final_price || 0).toFixed(2)}
+          ${priceText}
+          ${couponHint}
         </td>
         <td>
           <div style="font-size: 12px;">${createdAt}</div>

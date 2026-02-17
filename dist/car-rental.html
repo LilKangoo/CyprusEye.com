@@ -655,6 +655,25 @@
                   </div>
                 </div>
 
+                <div class="auto-coupon-panel" aria-live="polite">
+                  <div class="auto-field">
+                    <label for="res_coupon_code">Coupon code</label>
+                    <div class="auto-coupon-row">
+                      <input
+                        type="text"
+                        id="res_coupon_code"
+                        name="coupon_code"
+                        placeholder="Enter coupon code"
+                        autocomplete="off"
+                        spellcheck="false"
+                      >
+                      <button type="button" class="btn btn-secondary secondary" id="btnApplyCoupon">Apply</button>
+                      <button type="button" class="btn ghost" id="btnClearCoupon" hidden>Clear</button>
+                    </div>
+                    <p id="couponStatusMessage" class="auto-coupon-status" hidden></p>
+                  </div>
+                </div>
+
                 <div id="estimatedPrice" style="background: #f1f5f9; padding: 12px; border-radius: 8px; margin-bottom: 16px; font-size: 14px; color: #475569;"></div>
 
                 <div id="reservationError" class="admin-error-message" hidden style="margin-bottom: 16px;"></div>
