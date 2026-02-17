@@ -14080,6 +14080,22 @@ function syncCarCouponSingleUseFields() {
   perUserInput.disabled = false;
 }
 
+function syncCarCouponDateWindowFields(options = {}) {
+  const { preserveValues = false } = options;
+  const noDateLimit = Boolean($('#carCouponNoDateLimit')?.checked);
+  const orderFromInput = $('#carCouponOrderDateFrom');
+  const orderToInput = $('#carCouponOrderDateTo');
+  if (!orderFromInput || !orderToInput) return;
+
+  orderFromInput.disabled = noDateLimit;
+  orderToInput.disabled = noDateLimit;
+
+  if (noDateLimit && !preserveValues) {
+    orderFromInput.value = '';
+    orderToInput.value = '';
+  }
+}
+
 function resetCarCouponForm() {
   const form = $('#carCouponForm');
   if (form) form.reset();
@@ -14102,6 +14118,8 @@ function resetCarCouponForm() {
   if (orderFromInput) orderFromInput.value = '';
   const orderToInput = $('#carCouponOrderDateTo');
   if (orderToInput) orderToInput.value = '';
+  const noDateLimitInput = $('#carCouponNoDateLimit');
+  if (noDateLimitInput) noDateLimitInput.checked = true;
 
   closeAllCarCouponScopeDropdowns();
   populateCarCouponScopeSelectOptions();
@@ -14109,6 +14127,7 @@ function resetCarCouponForm() {
   setCarCouponFormError('');
   syncCarCouponDiscountTypeFields();
   syncCarCouponSingleUseFields();
+  syncCarCouponDateWindowFields();
 }
 
 function validateCouponUuidList(values, label) {
@@ -14141,9 +14160,10 @@ function collectCarCouponFormPayload() {
 
   const currency = String($('#carCouponCurrency')?.value || 'EUR').trim().toUpperCase() || 'EUR';
 
-  const startsAt = parseCouponDateStart($('#carCouponOrderDateFrom')?.value, 'rental start from');
-  const expiresAt = parseCouponDateEnd($('#carCouponOrderDateTo')?.value, 'rental start to');
-  if (startsAt && expiresAt && new Date(expiresAt).getTime() < new Date(startsAt).getTime()) {
+  const noDateLimit = Boolean($('#carCouponNoDateLimit')?.checked);
+  const startsAt = noDateLimit ? null : parseCouponDateStart($('#carCouponOrderDateFrom')?.value, 'rental start from');
+  const expiresAt = noDateLimit ? null : parseCouponDateEnd($('#carCouponOrderDateTo')?.value, 'rental start to');
+  if (!noDateLimit && startsAt && expiresAt && new Date(expiresAt).getTime() < new Date(startsAt).getTime()) {
     throw new Error('Rental start "to" date cannot be earlier than "from" date');
   }
 
@@ -14259,6 +14279,7 @@ async function openCarCouponModal(couponId = null) {
     $('#carCouponCurrency').value = String(coupon.currency || 'EUR');
     $('#carCouponOrderDateFrom').value = toDateInputValue(coupon.starts_at);
     $('#carCouponOrderDateTo').value = toDateInputValue(coupon.expires_at);
+    $('#carCouponNoDateLimit').checked = !(coupon.starts_at || coupon.expires_at);
     $('#carCouponStartsAt').value = toDateTimeLocalInputValue(coupon.starts_at);
     $('#carCouponExpiresAt').value = toDateTimeLocalInputValue(coupon.expires_at);
     $('#carCouponSingleUse').checked = Boolean(coupon.single_use);
@@ -14285,6 +14306,7 @@ async function openCarCouponModal(couponId = null) {
 
   syncCarCouponDiscountTypeFields();
   syncCarCouponSingleUseFields();
+  syncCarCouponDateWindowFields({ preserveValues: true });
   modal.hidden = false;
 }
 
@@ -17197,6 +17219,13 @@ function initEventListeners() {
   const carCouponSingleUse = $('#carCouponSingleUse');
   if (carCouponSingleUse) {
     carCouponSingleUse.addEventListener('change', syncCarCouponSingleUseFields);
+  }
+
+  const carCouponNoDateLimit = $('#carCouponNoDateLimit');
+  if (carCouponNoDateLimit) {
+    carCouponNoDateLimit.addEventListener('change', () => {
+      syncCarCouponDateWindowFields();
+    });
   }
 
   // Booking details modal controls
