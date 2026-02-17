@@ -373,6 +373,63 @@ function loadSettings() {
   loadReferralStats();
 }
 
+function buildAccountDeleteImpactSummary(preview) {
+  const counts = preview && typeof preview === 'object' ? (preview.counts || {}) : {};
+  const labels = [
+    ['profiles', 'profile'],
+    ['shop_orders_user', 'shop orders'],
+    ['service_deposit_requests', 'service deposits'],
+    ['car_bookings', 'car bookings'],
+    ['trip_bookings', 'trip bookings'],
+    ['hotel_bookings', 'hotel bookings'],
+    ['poi_comments', 'comments'],
+    ['poi_ratings', 'ratings'],
+    ['completed_tasks', 'completed tasks'],
+    ['referrals_as_referred', 'referrals'],
+  ];
+
+  const rows = labels
+    .map(([key, label]) => ({ label, value: Number(counts[key] || 0) }))
+    .filter((row) => row.value > 0)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, 8);
+
+  const lines = [];
+  lines.push(`Linked records found: ${Number(preview?.total_records || 0)}`);
+  rows.forEach((row) => lines.push(`- ${row.label}: ${row.value}`));
+  if (!rows.length) lines.push('- no tracked linked records');
+  return lines.join('\n');
+}
+
+async function getDashboardAccessToken() {
+  const { data } = await supabase.auth.getSession();
+  return data?.session?.access_token || null;
+}
+
+async function accountApiRequest(path, options = {}) {
+  const token = await getDashboardAccessToken();
+  const headers = new Headers(options.headers || {});
+  if (token) headers.set('Authorization', `Bearer ${token}`);
+  if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
+
+  const response = await fetch(path, { ...options, headers });
+  if (!response.ok) {
+    let message = 'Request failed';
+    try {
+      const payload = await response.json();
+      message = payload.error || payload.message || message;
+    } catch (_e) {
+    }
+    throw new Error(message);
+  }
+
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return response.json();
+  }
+  return null;
+}
+
 async function loadReferralStats() {
   const countEl = document.getElementById('referralCount');
   const xpEl = document.getElementById('referralXpEarned');
@@ -537,29 +594,56 @@ function setupSettingsListeners() {
     delBtn.addEventListener('click', async () => {
       if (!confirm('LAST WARNING: This cannot be undone. Are you sure?')) return;
       
+      const originalLabel = delBtn.textContent;
       try {
-        // Note: Supabase client-side delete requires calling an RPC or Edge Function usually, 
-        // but strictly strictly speaking, a user can't delete themselves via simple SDK call unless configured.
-        // We will try standard SDK approach or show message if not allowed.
-        // Actually, Supabase Auth admin is needed for deleteUser, OR user can delete their own profile row if RLS allows,
-        // which might trigger a cascade. Let's try calling an RPC if exists, or just signOut and pretend for safety if no backend function.
-        
-        // Best practice: RPC 'delete_user_account'
-        const { error } = await supabase.rpc('delete_user_account');
-        
-        if (error) {
-           console.warn('RPC delete failed, trying fallback (profile delete only)', error);
-           // Fallback: Delete profile row manually (if RLS allows)
-           await supabase.from('profiles').delete().eq('id', currentUser.id);
-           await supabase.auth.signOut();
-        } else {
-           await supabase.auth.signOut();
+        delBtn.disabled = true;
+        delBtn.textContent = 'Deleting...';
+
+        const preview = await accountApiRequest('/api/account/delete', {
+          method: 'POST',
+          body: JSON.stringify({ action: 'preview' }),
+        });
+
+        const expectedEmail = String(preview?.email || currentUser?.email || '').trim().toLowerCase();
+        const impactSummary = buildAccountDeleteImpactSummary(preview);
+
+        if (expectedEmail) {
+          const typedEmail = String(prompt(`${impactSummary}\n\nType your email to confirm:\n${expectedEmail}`) || '').trim().toLowerCase();
+          if (typedEmail !== expectedEmail) {
+            showToast('Deletion cancelled (email mismatch).', 'info');
+            return;
+          }
         }
-        
+
+        const typedDelete = String(prompt('Type DELETE to permanently erase your account:') || '').trim();
+        if (typedDelete !== 'DELETE') {
+          showToast('Deletion cancelled.', 'info');
+          return;
+        }
+
+        await accountApiRequest('/api/account/delete', {
+          method: 'POST',
+          body: JSON.stringify({
+            action: 'execute',
+            confirm_text: 'DELETE',
+            expected_email: expectedEmail || null,
+          }),
+        });
+
+        try {
+          await supabase.auth.signOut();
+        } catch (_e) {
+        }
+
+        localStorage.clear();
+        showToast('Account deleted permanently.', 'success');
         window.location.href = '/index.html';
       } catch (err) {
         console.error(err);
         showToast('Failed to delete account: ' + err.message, 'error');
+      } finally {
+        delBtn.disabled = false;
+        delBtn.textContent = originalLabel || 'Delete Account';
       }
     });
   }

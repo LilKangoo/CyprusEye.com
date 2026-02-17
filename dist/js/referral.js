@@ -5,6 +5,22 @@
 
 const REFERRAL_STORAGE_KEY = 'cypruseye_referral_code';
 const REFERRAL_EXPIRY_DAYS = 30;
+const REFERRAL_CODE_PATTERN = /^[a-zA-Z0-9_]+$/;
+
+function normalizeReferralCode(code) {
+  const raw = String(code || '').trim();
+  if (!raw) return '';
+  if (!REFERRAL_CODE_PATTERN.test(raw)) return '';
+  return raw;
+}
+
+function buildReferralData(code) {
+  return {
+    code,
+    capturedAt: Date.now(),
+    expiresAt: Date.now() + (REFERRAL_EXPIRY_DAYS * 24 * 60 * 60 * 1000),
+  };
+}
 
 // IMMEDIATE CAPTURE - runs as soon as script parses, before anything else can redirect
 (function immediateCapture() {
@@ -12,7 +28,8 @@ const REFERRAL_EXPIRY_DAYS = 30;
     const urlParams = new URLSearchParams(window.location.search);
     const refCode = urlParams.get('ref');
     
-    if (refCode && refCode.trim()) {
+    const cleanCode = normalizeReferralCode(refCode);
+    if (cleanCode) {
       const existingRaw = localStorage.getItem(REFERRAL_STORAGE_KEY);
       if (existingRaw) {
         try {
@@ -24,13 +41,7 @@ const REFERRAL_EXPIRY_DAYS = 30;
         }
       }
 
-      const cleanCode = refCode.trim();
-      
-      const referralData = {
-        code: cleanCode,
-        capturedAt: Date.now(),
-        expiresAt: Date.now() + (REFERRAL_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
-      };
+      const referralData = buildReferralData(cleanCode);
       
       localStorage.setItem(REFERRAL_STORAGE_KEY, JSON.stringify(referralData));
       console.log(`✅ [IMMEDIATE] Referral code captured and saved: ${cleanCode}`);
@@ -49,15 +60,9 @@ export function captureReferralFromUrl() {
     const urlParams = new URLSearchParams(window.location.search);
     const refCode = urlParams.get('ref');
     
-    if (refCode && refCode.trim()) {
-      const cleanCode = refCode.trim();
-      
-      // Store with expiry timestamp
-      const referralData = {
-        code: cleanCode,
-        capturedAt: Date.now(),
-        expiresAt: Date.now() + (REFERRAL_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
-      };
+    const cleanCode = normalizeReferralCode(refCode);
+    if (cleanCode) {
+      const referralData = buildReferralData(cleanCode);
       
       localStorage.setItem(REFERRAL_STORAGE_KEY, JSON.stringify(referralData));
       console.log(`✅ Referral code captured: ${cleanCode}`);
@@ -88,6 +93,7 @@ export function getStoredReferralCode() {
     if (!stored) return null;
     
     const referralData = JSON.parse(stored);
+    const cleanCode = normalizeReferralCode(referralData?.code);
     
     // Check if expired
     if (referralData.expiresAt && Date.now() > referralData.expiresAt) {
@@ -95,8 +101,11 @@ export function getStoredReferralCode() {
       console.log('⏰ Referral code expired, removed');
       return null;
     }
-    
-    return referralData.code;
+    if (!cleanCode) {
+      localStorage.removeItem(REFERRAL_STORAGE_KEY);
+      return null;
+    }
+    return cleanCode;
   } catch (err) {
     console.warn('Could not get stored referral code:', err);
     return null;
@@ -108,8 +117,8 @@ export function getStoredReferralCode() {
  */
 export function setStoredReferralCode(code, options = {}) {
   try {
-    const rawCode = String(code || '').trim();
-    if (!rawCode) {
+    const cleanCode = normalizeReferralCode(code);
+    if (!cleanCode) {
       return false;
     }
 
@@ -119,11 +128,7 @@ export function setStoredReferralCode(code, options = {}) {
       if (existing) return true;
     }
 
-    const referralData = {
-      code: rawCode,
-      capturedAt: Date.now(),
-      expiresAt: Date.now() + (REFERRAL_EXPIRY_DAYS * 24 * 60 * 60 * 1000)
-    };
+    const referralData = buildReferralData(cleanCode);
 
     localStorage.setItem(REFERRAL_STORAGE_KEY, JSON.stringify(referralData));
     return true;

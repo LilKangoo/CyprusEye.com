@@ -1,13 +1,4 @@
-// Cloudflare Pages Function: Permanently erase user and related data
-// POST { action: 'preview' | 'execute', confirm_text?: 'DELETE', expected_email?: string }
-
-import { createSupabaseClients, requireAdmin } from '../../../../_utils/supabaseAdmin';
-
-const JSON_HEADERS = { 'content-type': 'application/json' };
-
-function json(body, status = 200) {
-  return new Response(JSON.stringify(body), { status, headers: JSON_HEADERS });
-}
+// Shared helpers for hard-deleting user data across API routes.
 
 export function normalizeEmail(value) {
   return String(value || '').trim().toLowerCase();
@@ -318,82 +309,4 @@ export async function executeHardDelete(client, adminClient, userId, email) {
   const deletedRecords = Object.values(deleted).reduce((sum, value) => sum + Number(value || 0), 0);
   const nullifiedRecords = Object.values(nullified).reduce((sum, value) => sum + Number(value || 0), 0);
   return { deleted, nullified, deleted_records: deletedRecords, nullified_records: nullifiedRecords };
-}
-
-export async function onRequestPost(context) {
-  try {
-    const { request, env, params } = context;
-    const body = await request.json().catch(() => ({}));
-    const userId = params.id;
-
-    if (!userId) return json({ error: 'Missing user id' }, 400);
-
-    const { adminId } = await requireAdmin(request, env);
-    if (adminId === userId) {
-      return json({ error: 'You cannot delete your own admin account.' }, 400);
-    }
-
-    const { adminClient } = createSupabaseClients(env, request.headers.get('Authorization'));
-    const action = String(body?.action || 'preview').trim().toLowerCase();
-
-    const { data: authData, error: authError } = await adminClient.auth.admin.getUserById(userId);
-    if (authError || !authData?.user) {
-      return json({ error: 'Target user not found' }, 404);
-    }
-    const targetEmail = normalizeEmail(authData.user.email);
-
-    const { data: profile } = await adminClient
-      .from('profiles')
-      .select('id, is_admin')
-      .eq('id', userId)
-      .maybeSingle();
-
-    if (profile?.is_admin) {
-      const { count: otherAdmins, error: adminsError } = await adminClient
-        .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .eq('is_admin', true)
-        .neq('id', userId);
-      if (!adminsError && Number(otherAdmins || 0) === 0) {
-        return json({ error: 'Cannot delete the last admin account.' }, 400);
-      }
-    }
-
-    const impact = await collectDeleteImpact(adminClient, userId, targetEmail);
-    if (action === 'preview') {
-      return json({
-        ok: true,
-        action: 'preview',
-        user_id: userId,
-        email: targetEmail || null,
-        ...impact,
-      });
-    }
-
-    if (action !== 'execute') {
-      return json({ error: 'Invalid action' }, 400);
-    }
-
-    const confirmText = String(body?.confirm_text || '').trim();
-    if (confirmText !== 'DELETE') {
-      return json({ error: 'Confirmation token mismatch' }, 400);
-    }
-
-    const expectedEmail = normalizeEmail(body?.expected_email);
-    if (expectedEmail && targetEmail && expectedEmail !== targetEmail) {
-      return json({ error: 'Email confirmation mismatch' }, 400);
-    }
-
-    const result = await executeHardDelete(adminClient, adminClient, userId, targetEmail);
-    return json({
-      ok: true,
-      action: 'execute',
-      user_id: userId,
-      email: targetEmail || null,
-      preview: impact,
-      ...result,
-    });
-  } catch (e) {
-    return json({ error: e.message || 'Server error' }, 500);
-  }
 }
