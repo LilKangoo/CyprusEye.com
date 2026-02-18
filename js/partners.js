@@ -213,6 +213,9 @@
     partnerAffiliateEarningsBody: null,
 
     partnerAffiliateSummaryCard: null,
+    partnerAffiliateSummarySubtitle: null,
+    partnerAffiliateSummaryMetrics: null,
+    partnerAffiliateSummaryActions: null,
     partnerAffiliateSummaryUnpaid: null,
     partnerAffiliateSummaryPending: null,
     partnerAffiliateSummaryPaid: null,
@@ -221,6 +224,9 @@
     partnerAffiliateSummaryProgressBar: null,
     btnPartnerAffiliateSummaryCashout: null,
     partnerAffiliateSummaryCashoutHint: null,
+
+    partnerPortalResponseCard: null,
+    partnerPortalEarningsValue: null,
 
     partnerProfileMessage: null,
     partnerProfileEmailDisplay: null,
@@ -704,8 +710,8 @@
       analyticsRealtimeTimer = null;
       try {
         if (!state.selectedPartnerId) return;
-        if (!els.tabFulfillments?.hidden && String(state.selectedCategory || 'all') === 'all' && !els.partnerAnalyticsCard?.hidden) {
-          await refreshPartnerAnalytics();
+        if (!els.tabFulfillments?.hidden) {
+          await refreshPortalResponseInsights();
         }
         if (els.partnerAnalyticsView && !els.partnerAnalyticsView.hidden) {
           await refreshPartnerAnalyticsView({ silent: true });
@@ -1122,21 +1128,26 @@
 
   function updateAffiliateSummaryCardVisibility() {
     const inPortal = Boolean(els.partnerPortalView && !els.partnerPortalView.hidden);
-    const isAll = String(state.selectedCategory || 'all') === 'all';
     const inFulfillmentsTab = Boolean(els.tabFulfillments && !els.tabFulfillments.hidden);
     const { affiliateEnabled, isAffiliateOnly } = getSelectedPartnerCapabilities();
     const tabOk = isAffiliateOnly ? true : inFulfillmentsTab;
-    const canShow = inPortal && tabOk && isAll && affiliateEnabled && Boolean(state.session && state.user && state.selectedPartnerId);
+    const canShow = inPortal && tabOk && affiliateEnabled && Boolean(state.session && state.user && state.selectedPartnerId);
     setHidden(els.partnerAffiliateSummaryCard, !canShow);
+
+    if (!els.partnerAffiliateSummaryCard) return;
+    const compact = Boolean(canShow && !isAffiliateOnly);
+    els.partnerAffiliateSummaryCard.classList.toggle('partner-affiliate-summary--compact', compact);
+    setHidden(els.partnerAffiliateSummaryMetrics, compact);
+    setHidden(els.partnerAffiliateSummaryActions, compact);
+    if (els.partnerAffiliateSummarySubtitle) {
+      els.partnerAffiliateSummarySubtitle.textContent = compact
+        ? 'Payout progress'
+        : 'Commissions from referred users';
+    }
   }
 
   function updateAnalyticsCardVisibility() {
-    const inPortal = Boolean(els.partnerPortalView && !els.partnerPortalView.hidden);
-    const inFulfillmentsTab = Boolean(els.tabFulfillments && !els.tabFulfillments.hidden);
-    const isAll = String(state.selectedCategory || 'all') === 'all';
-    const { hasAnyServicePermission } = getSelectedPartnerCapabilities();
-    const canShow = inPortal && inFulfillmentsTab && Boolean(state.session && state.user && state.selectedPartnerId) && isAll && hasAnyServicePermission;
-    setHidden(els.partnerAnalyticsCard, !canShow);
+    setHidden(els.partnerAnalyticsCard, true);
   }
 
   async function copyTextToClipboard(text) {
@@ -1509,21 +1520,17 @@
     }
 
     showTabOnly('fulfillments');
-    if (String(state.selectedCategory || 'all') === 'all') {
-      try {
-        refreshAffiliateSummaryCard();
-      } catch (_e) {
-      }
+    try {
+      refreshAffiliateSummaryCard();
+    } catch (_e) {
     }
     if (!state.fulfillments?.length) {
       refreshFulfillments();
     } else {
       updateKpis();
       renderFulfillmentsTable();
-      if (!els.partnerAnalyticsCard?.hidden) {
-        startAnalyticsRealtime();
-        refreshPartnerAnalytics();
-      }
+      startAnalyticsRealtime();
+      refreshPortalResponseInsights();
     }
     closeSidebar();
   }
@@ -3455,95 +3462,56 @@
       .slice(0, 8);
   }
 
-  async function refreshPartnerAnalytics() {
-    if (!state.sb || !state.selectedPartnerId) return;
-    if (!els.partnerAnalyticsCard) return;
-    if (String(state.selectedCategory || 'all') !== 'all') return;
-    if (els.partnerAnalyticsCard.hidden) return;
+  async function refreshPortalResponseInsights() {
+    const inPortal = Boolean(els.partnerPortalView && !els.partnerPortalView.hidden);
+    const inFulfillmentsTab = Boolean(els.tabFulfillments && !els.tabFulfillments.hidden);
+    const { isAffiliateOnly, hasAnyServicePermission } = getSelectedPartnerCapabilities();
+    const canShow = inPortal && inFulfillmentsTab && hasAnyServicePermission && !isAffiliateOnly && Boolean(state.selectedPartnerId);
 
-    const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
-    const hasShopFulfillments = (state.fulfillments || []).some((f) => f && String(f.__source || '') === 'shop');
-    const canShop = Boolean(partner?.can_manage_shop && (partner?.shop_vendor_id || hasShopFulfillments));
+    setHidden(els.partnerPortalResponseCard, !canShow);
+    if (!canShow) return;
 
-    if (!state.fulfillments?.length) {
+    setText(els.partnerPortalEarningsValue, 'Loading…');
+
+    const rows = filteredFulfillmentsForSelectedCategory();
+    const acceptedRows = rows.filter((f) => String(f?.status || '').trim() === 'accepted');
+    const acceptedServiceIds = acceptedRows
+      .filter((f) => String(f?.__source || '') === 'service')
+      .map((f) => String(f?.id || '').trim())
+      .filter(Boolean);
+
+    const depositByFid = {};
+    if (acceptedServiceIds.length && state.sb && state.selectedPartnerId) {
       try {
-        await loadFulfillments();
+        const { data, error } = await state.sb.rpc('partner_get_service_deposit_amounts', {
+          p_partner_id: state.selectedPartnerId,
+        });
+        if (!error) {
+          (data || []).forEach((row) => {
+            const fid = String(row?.fulfillment_id || '').trim();
+            if (!fid) return;
+            depositByFid[fid] = toNum(row?.amount);
+          });
+        }
       } catch (_e) {
       }
     }
 
-    const rows = Array.isArray(state.fulfillments) ? state.fulfillments : [];
-
-    const counts = {
-      total: rows.length,
-      pending: 0,
-      awaiting: 0,
-      accepted: 0,
-    };
-
-    const depositByFid = {};
-    try {
-      const { data, error } = await state.sb.rpc('partner_get_service_deposit_amounts', {
-        p_partner_id: state.selectedPartnerId,
-      });
-      if (!error) {
-        (data || []).forEach((r) => {
-          const fid = r?.fulfillment_id;
-          if (!fid) return;
-          depositByFid[String(fid)] = toNum(r?.amount);
-        });
-      }
-    } catch (_e) {
-    }
-
-    let invitedCount = 0;
-    try {
-      const { count, error } = await state.sb
-        .from('referrals')
-        .select('referred_id', { count: 'exact', head: true })
-        .eq('referrer_id', state.user?.id || '')
-        .limit(1);
-      if (!error) invitedCount = Number(count || 0);
-    } catch (_e) {
-      invitedCount = 0;
-    }
-
     let partnerEarnings = 0;
-
-    rows.forEach((f) => {
-      const st = String(f?.status || '').trim();
-      if (st === 'pending_acceptance') counts.pending += 1;
-      if (st === 'awaiting_payment') counts.awaiting += 1;
-      if (st === 'accepted') counts.accepted += 1;
-      if (st !== 'accepted') return;
-
+    acceptedRows.forEach((f) => {
       const src = String(f?.__source || 'shop');
-
       if (src === 'service') {
         const gross = String(f?.resource_type || '').toLowerCase() === 'cars'
           ? getCarsFulfillmentPricing(f).amount
           : toNum(f?.total_price);
-        const deposit = toNum(depositByFid[String(f?.id)] || 0);
-        const payout = Math.max(0, gross - deposit);
-        partnerEarnings += payout;
+        const deposit = toNum(depositByFid[String(f?.id || '').trim()] || 0);
+        partnerEarnings += Math.max(0, gross - deposit);
         return;
       }
-
-      const gross = toNum(f?.subtotal);
-      const payout = toNum(f?.total_allocated);
-      partnerEarnings += payout;
+      const allocated = Number(f?.total_allocated);
+      partnerEarnings += Number.isFinite(allocated) ? allocated : toNum(f?.subtotal);
     });
-
-    setText(els.partnerAnalOrdersTotal, String(counts.total));
-    setText(els.partnerAnalOrdersPending, String(counts.pending));
-    setText(els.partnerAnalOrdersAwaiting, String(counts.awaiting));
-    setText(els.partnerAnalOrdersAccepted, String(counts.accepted));
-    setText(els.partnerAnalPartnerEarnings, formatMoney(partnerEarnings, 'EUR'));
-    setText(els.partnerAnalInvited, String(invitedCount || 0));
-
-    if (els.partnerAnalHint) {
-      els.partnerAnalHint.textContent = 'Partner earnings shown for accepted orders only.';
-    }
+    setText(els.partnerPortalEarningsValue, formatMoney(partnerEarnings, 'EUR'));
   }
 
   function currentUtcMonthValue() {
@@ -6085,15 +6053,11 @@
       updateServiceSectionVisibility();
       updateKpis();
       renderFulfillmentsTable();
-      if (!els.partnerAnalyticsCard?.hidden) {
-        startAnalyticsRealtime();
-        await refreshPartnerAnalytics();
-      }
-      if (String(state.selectedCategory || 'all') === 'all') {
-        try {
-          await refreshAffiliateSummaryCard();
-        } catch (_e) {
-        }
+      startAnalyticsRealtime();
+      await refreshPortalResponseInsights();
+      try {
+        await refreshAffiliateSummaryCard();
+      } catch (_e) {
       }
       setText(els.status, `Loaded ${state.fulfillments.length} fulfillments.`);
     } catch (error) {
@@ -6179,8 +6143,10 @@
     }
 
     if (isFulfillments) {
+      refreshPortalResponseInsights();
       refreshFulfillments();
     } else {
+      setHidden(els.partnerPortalResponseCard, true);
       refreshCalendar();
     }
   }
@@ -7078,6 +7044,9 @@
     els.partnerAffiliateEarningsBody = $('partnerAffiliateEarningsBody');
 
     els.partnerAffiliateSummaryCard = $('partnerAffiliateSummaryCard');
+    els.partnerAffiliateSummarySubtitle = $('partnerAffiliateSummarySubtitle');
+    els.partnerAffiliateSummaryMetrics = $('partnerAffiliateSummaryMetrics');
+    els.partnerAffiliateSummaryActions = $('partnerAffiliateSummaryActions');
     els.partnerAffiliateSummaryUnpaid = $('partnerAffiliateSummaryUnpaid');
     els.partnerAffiliateSummaryPending = $('partnerAffiliateSummaryPending');
     els.partnerAffiliateSummaryPaid = $('partnerAffiliateSummaryPaid');
@@ -7086,6 +7055,9 @@
     els.partnerAffiliateSummaryProgressBar = $('partnerAffiliateSummaryProgressBar');
     els.btnPartnerAffiliateSummaryCashout = $('btnPartnerAffiliateSummaryCashout');
     els.partnerAffiliateSummaryCashoutHint = $('partnerAffiliateSummaryCashoutHint');
+
+    els.partnerPortalResponseCard = $('partnerPortalResponseCard');
+    els.partnerPortalEarningsValue = $('partnerPortalEarningsValue');
 
     els.partnerProfileMessage = $('partnerProfileMessage');
     els.partnerProfileEmailDisplay = $('partnerProfileEmailDisplay');

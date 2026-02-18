@@ -166,6 +166,9 @@
     }
     .partner-affiliate-progress__main { flex: 1; min-width: 220px; }
     .partner-affiliate-progress__actions { display:flex; flex-direction: column; align-items:flex-end; gap: 4px; }
+    .partner-affiliate-summary--compact .partner-insight-divider:first-of-type { display: none; }
+    .partner-affiliate-summary--compact #partnerAffiliateSummaryMetrics { display: none; }
+    .partner-affiliate-summary--compact #partnerAffiliateSummaryActions { display: none; }
     .partner-affiliate-table .admin-table th,
     .partner-affiliate-table .admin-table td { padding: 8px 8px; font-size: 12px; }
     .partner-affiliate-table .admin-table td:last-child { font-weight: 800; }
@@ -1564,59 +1567,6 @@
         </div>
       </div>
 
-      <div class="partner-card partner-insight-card" id="partnerAnalyticsCard" style="margin-top: 12px;" hidden>
-        <div class="partner-insight-head">
-          <h3 class="partner-insight-title">Analytics</h3>
-          <p class="partner-insight-subtitle">Orders and earnings overview</p>
-        </div>
-
-        <div class="partner-metric-grid">
-          <div class="partner-metric"><div class="partner-metric__label">Orders accepted</div><div class="partner-metric__value" id="partnerAnalOrdersAccepted">0</div></div>
-          <div class="partner-metric"><div class="partner-metric__label">Orders pending</div><div class="partner-metric__value" id="partnerAnalOrdersPending">0</div></div>
-          <div class="partner-metric"><div class="partner-metric__label">Awaiting payment</div><div class="partner-metric__value" id="partnerAnalOrdersAwaiting">0</div></div>
-        </div>
-
-        <div class="partner-insight-divider"></div>
-
-        <div class="partner-metric-grid">
-          <div class="partner-metric"><div class="partner-metric__label">Orders total</div><div class="partner-metric__value" id="partnerAnalOrdersTotal">0</div></div>
-          <div class="partner-metric"><div class="partner-metric__label">Partner earnings</div><div class="partner-metric__value" id="partnerAnalPartnerEarnings">€0.00</div></div>
-          <div class="partner-metric"><div class="partner-metric__label">Invited</div><div class="partner-metric__value" id="partnerAnalInvited">0</div></div>
-        </div>
-
-        <div class="partner-insight-divider"></div>
-        <div class="muted small" id="partnerAnalHint" style="margin-top: 0;"></div>
-      </div>
-
-      <div class="partner-card partner-insight-card" id="partnerAffiliateSummaryCard" style="margin-top: 12px;" hidden>
-        <div class="partner-insight-head">
-          <h3 class="partner-insight-title">Affiliate earnings</h3>
-          <p class="partner-insight-subtitle">Commissions from referred users</p>
-        </div>
-
-        <div class="partner-metric-grid partner-metric-grid--four">
-          <div class="partner-metric"><div class="partner-metric__label">Unpaid</div><div class="partner-metric__value" id="partnerAffiliateSummaryUnpaid">—</div></div>
-          <div class="partner-metric"><div class="partner-metric__label">In payout</div><div class="partner-metric__value" id="partnerAffiliateSummaryPending">—</div></div>
-          <div class="partner-metric"><div class="partner-metric__label">Paid</div><div class="partner-metric__value" id="partnerAffiliateSummaryPaid">—</div></div>
-          <div class="partner-metric"><div class="partner-metric__label">Threshold</div><div class="partner-metric__value" id="partnerAffiliateSummaryThreshold">—</div></div>
-        </div>
-
-        <div class="partner-insight-divider"></div>
-
-        <div class="partner-affiliate-progress">
-          <div class="partner-affiliate-progress__main">
-            <div id="partnerAffiliateSummaryProgressText" class="muted small" style="margin-bottom: 6px;">—</div>
-            <div class="partner-affiliate-progress__track">
-              <div id="partnerAffiliateSummaryProgressBar" class="partner-affiliate-progress__fill"></div>
-            </div>
-          </div>
-          <div class="partner-affiliate-progress__actions">
-            <button id="btnPartnerAffiliateSummaryCashout" class="btn-sm primary" type="button" disabled>Cash out</button>
-            <div id="partnerAffiliateSummaryCashoutHint" class="muted small" style="text-align:right;"></div>
-          </div>
-        </div>
-      </div>
-
       <div id="partnerPortalLoginPrompt" class="partner-card" hidden>
         <h2 style="margin: 0 0 8px;">Log in</h2>
         <p class="muted" style="margin-top: 0;">You must be logged in to use the partner portal.</p>
@@ -1628,6 +1578,35 @@
       </div>
 
       <div id="partnerPortalApp" class="partner-grid" hidden>
+        <section class="partner-card partner-insight-card" id="partnerAffiliateSummaryCard" style="grid-column: 1 / -1;" hidden>
+          <div class="partner-insight-head">
+            <h3 class="partner-insight-title">Affiliate earnings</h3>
+            <p class="partner-insight-subtitle" id="partnerAffiliateSummarySubtitle">Commissions from referred users</p>
+          </div>
+
+          <div class="partner-metric-grid partner-metric-grid--four" id="partnerAffiliateSummaryMetrics">
+            <div class="partner-metric"><div class="partner-metric__label">Unpaid</div><div class="partner-metric__value" id="partnerAffiliateSummaryUnpaid">—</div></div>
+            <div class="partner-metric"><div class="partner-metric__label">In payout</div><div class="partner-metric__value" id="partnerAffiliateSummaryPending">—</div></div>
+            <div class="partner-metric"><div class="partner-metric__label">Paid</div><div class="partner-metric__value" id="partnerAffiliateSummaryPaid">—</div></div>
+            <div class="partner-metric"><div class="partner-metric__label">Threshold</div><div class="partner-metric__value" id="partnerAffiliateSummaryThreshold">—</div></div>
+          </div>
+
+          <div class="partner-insight-divider"></div>
+
+          <div class="partner-affiliate-progress">
+            <div class="partner-affiliate-progress__main">
+              <div id="partnerAffiliateSummaryProgressText" class="muted small" style="margin-bottom: 6px;">—</div>
+              <div class="partner-affiliate-progress__track">
+                <div id="partnerAffiliateSummaryProgressBar" class="partner-affiliate-progress__fill"></div>
+              </div>
+            </div>
+            <div class="partner-affiliate-progress__actions" id="partnerAffiliateSummaryActions">
+              <button id="btnPartnerAffiliateSummaryCashout" class="btn-sm primary" type="button" disabled>Cash out</button>
+              <div id="partnerAffiliateSummaryCashoutHint" class="muted small" style="text-align:right;"></div>
+            </div>
+          </div>
+        </section>
+
         <section class="partner-card" id="partnerServicesCard">
           <div class="partner-toolbar">
             <strong>Partner:</strong>
@@ -1636,6 +1615,16 @@
           </div>
 
           <div id="partnerSuspendedInfo" class="partner-warning" style="margin-top: 12px;" hidden></div>
+
+          <div class="partner-card partner-insight-card" id="partnerPortalResponseCard" style="padding: 12px; margin-top: 12px;" hidden>
+            <div class="partner-insight-head" style="margin-bottom: 6px;">
+              <h3 class="partner-insight-title">Partner earnings</h3>
+              <p class="partner-insight-subtitle">Net earnings from accepted orders in this view</p>
+            </div>
+            <div class="partner-metric-grid">
+              <div class="partner-metric"><div class="partner-metric__label">Partner earnings</div><div class="partner-metric__value" id="partnerPortalEarningsValue">€0.00</div></div>
+            </div>
+          </div>
 
           <div class="partner-tabs">
             <button id="partnerTabBtnFulfillments" class="partner-tab is-active" type="button" data-tab="fulfillments">Fulfillments</button>
