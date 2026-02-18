@@ -12965,7 +12965,6 @@ async function viewCarBookingDetails(bookingId) {
               <span style="font-weight:600;">Final rental total</span>
               <strong>€${finalRentalSnapshot.toFixed(2)}</strong>
             </div>
-            <div style="font-size:11px; color: var(--admin-text-muted);">Coupon affects rental total only. Deposit logic is unchanged.</div>
           </div>
         </div>
       `
