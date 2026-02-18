@@ -30,7 +30,7 @@
       },
     },
     analytics: {
-      period: 'month',
+      period: 'year',
       monthValue: '',
       yearValue: '',
       category: 'all',
@@ -129,6 +129,8 @@
     partnerReferralsView: null,
 
     partnerAnalyticsPeriodType: null,
+    partnerAnalyticsPeriodYearBtn: null,
+    partnerAnalyticsPeriodMonthBtn: null,
     partnerAnalyticsMonth: null,
     partnerAnalyticsMonthWrap: null,
     partnerAnalyticsYear: null,
@@ -3538,16 +3540,25 @@
   function ensureAnalyticsFilterDefaults() {
     if (!state.analytics.monthValue) state.analytics.monthValue = currentUtcMonthValue();
     if (!state.analytics.yearValue) state.analytics.yearValue = currentUtcYearValue();
-    if (!state.analytics.period) state.analytics.period = 'month';
+    if (!state.analytics.period) state.analytics.period = 'year';
     if (!state.analytics.category) state.analytics.category = 'all';
 
     if (els.partnerAnalyticsPeriodType) els.partnerAnalyticsPeriodType.value = state.analytics.period;
     if (els.partnerAnalyticsMonth) els.partnerAnalyticsMonth.value = state.analytics.monthValue;
     if (els.partnerAnalyticsYear) els.partnerAnalyticsYear.value = state.analytics.yearValue;
+    syncAnalyticsPeriodControls();
+  }
+
+  function syncAnalyticsPeriodControls() {
+    const period = String(state.analytics.period || 'year') === 'month' ? 'month' : 'year';
+    if (els.partnerAnalyticsPeriodType) els.partnerAnalyticsPeriodType.value = period;
+    els.partnerAnalyticsPeriodYearBtn?.classList.toggle('is-active', period === 'year');
+    els.partnerAnalyticsPeriodMonthBtn?.classList.toggle('is-active', period === 'month');
   }
 
   function syncAnalyticsFilterVisibility() {
-    const period = String(state.analytics.period || 'month');
+    const period = String(state.analytics.period || 'year');
+    syncAnalyticsPeriodControls();
     setHidden(els.partnerAnalyticsMonthWrap, period !== 'month');
     setHidden(els.partnerAnalyticsYearWrap, period === 'month');
   }
@@ -3592,7 +3603,7 @@
   }
 
   function getAnalyticsRange() {
-    const period = String(state.analytics.period || 'month') === 'year' ? 'year' : 'month';
+    const period = String(state.analytics.period || 'year') === 'month' ? 'month' : 'year';
 
     if (period === 'year') {
       const yearText = normalizeAnalyticsYearValue(state.analytics.yearValue);
@@ -3810,8 +3821,8 @@
     syncAnalyticsFilterVisibility();
     setPartnerAnalyticsLoadingState('Loading analytics…');
 
-    const periodRaw = String(state.analytics.period || 'month').trim().toLowerCase();
-    state.analytics.period = periodRaw === 'year' ? 'year' : 'month';
+    const periodRaw = String(state.analytics.period || 'year').trim().toLowerCase();
+    state.analytics.period = periodRaw === 'month' ? 'month' : 'year';
     state.analytics.monthValue = normalizeAnalyticsMonthValue(state.analytics.monthValue);
     state.analytics.yearValue = normalizeAnalyticsYearValue(state.analytics.yearValue);
     state.analytics.category = String(state.analytics.category || 'all').trim().toLowerCase();
@@ -5918,11 +5929,27 @@
     els.partnerNavProfile?.addEventListener('click', () => navToProfile());
     els.partnerNavReferrals?.addEventListener('click', () => navToReferrals());
 
-    els.partnerAnalyticsPeriodType?.addEventListener('change', async () => {
-      const next = String(els.partnerAnalyticsPeriodType?.value || 'month').trim().toLowerCase();
-      state.analytics.period = next === 'year' ? 'year' : 'month';
+    const handleAnalyticsPeriodChange = async (nextRaw) => {
+      const next = String(nextRaw || 'year').trim().toLowerCase() === 'month' ? 'month' : 'year';
+      if (state.analytics.period === next) {
+        syncAnalyticsFilterVisibility();
+        return;
+      }
+      state.analytics.period = next;
       syncAnalyticsFilterVisibility();
       await refreshPartnerAnalyticsView();
+    };
+
+    els.partnerAnalyticsPeriodType?.addEventListener('change', async () => {
+      await handleAnalyticsPeriodChange(els.partnerAnalyticsPeriodType?.value);
+    });
+
+    els.partnerAnalyticsPeriodYearBtn?.addEventListener('click', async () => {
+      await handleAnalyticsPeriodChange('year');
+    });
+
+    els.partnerAnalyticsPeriodMonthBtn?.addEventListener('click', async () => {
+      await handleAnalyticsPeriodChange('month');
     });
 
     els.partnerAnalyticsMonth?.addEventListener('change', async () => {
@@ -6438,6 +6465,8 @@
     els.partnerReferralsView = $('partnerReferralsView');
 
     els.partnerAnalyticsPeriodType = $('partnerAnalyticsPeriodType');
+    els.partnerAnalyticsPeriodYearBtn = $('partnerAnalyticsPeriodYearBtn');
+    els.partnerAnalyticsPeriodMonthBtn = $('partnerAnalyticsPeriodMonthBtn');
     els.partnerAnalyticsMonth = $('partnerAnalyticsMonth');
     els.partnerAnalyticsMonthWrap = $('partnerAnalyticsMonthWrap');
     els.partnerAnalyticsYear = $('partnerAnalyticsYear');

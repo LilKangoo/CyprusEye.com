@@ -214,6 +214,90 @@
     .partner-calendar-filters { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 12px; margin-bottom: 12px; }
     .partner-resource-panels { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; padding: 6px 2px; }
 
+    .partner-analytics-view { max-width: 1200px; min-width: 0; display: grid; gap: 12px; }
+    .partner-analytics-title { margin: 0; font-size: 26px; line-height: 1.1; letter-spacing: -0.01em; }
+    .partner-analytics-subtitle { margin: 0; max-width: 760px; }
+    .partner-analytics-card { max-width: 1200px; padding: 14px; }
+    .partner-analytics-table-card { max-width: 1200px; padding: 14px; }
+    .partner-analytics-table-card h2 { margin: 0 0 10px; font-size: 18px; line-height: 1.2; }
+    .partner-analytics-controls {
+      display: grid;
+      grid-template-columns: minmax(180px, 220px) minmax(160px, 190px) minmax(160px, 190px) minmax(180px, 1fr) auto;
+      gap: 8px;
+      align-items: end;
+    }
+    .partner-analytics-field { min-width: 0; display: grid; gap: 6px; }
+    .partner-analytics-field label,
+    .partner-analytics-label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--admin-text-muted);
+    }
+    .partner-analytics-field input,
+    .partner-analytics-field select {
+      width: 100%;
+      height: 38px;
+      border-radius: 10px;
+      border: 1px solid var(--admin-border);
+      padding: 0 10px;
+      background: var(--admin-bg);
+      color: var(--admin-text);
+    }
+    .partner-analytics-refresh { height: 38px; min-width: 150px; }
+    .partner-period-switch {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.42);
+    }
+    .partner-period-switch__btn {
+      border: 1px solid transparent;
+      border-radius: 8px;
+      background: transparent;
+      color: var(--admin-text-muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      height: 30px;
+      cursor: pointer;
+    }
+    .partner-period-switch__btn.is-active {
+      color: #fff;
+      border-color: rgba(96, 165, 250, 0.4);
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.86), rgba(37, 99, 235, 0.86));
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.25);
+    }
+    .partner-period-switch__btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+    }
+    .partner-analytics-meta {
+      margin-top: 8px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 8px;
+      align-items: center;
+    }
+    .partner-analytics-range { margin: 0; }
+    .partner-analytics-status { margin: 0; text-align: right; }
+    .partner-analytics-kpi-grid { margin-top: 8px; }
+    .partner-analytics-kpi-grid .partner-metric { padding: 7px 9px; }
+    .partner-analytics-kpi-grid .partner-metric__value { margin-top: 3px; font-size: clamp(15px, 2.4vw, 19px); }
+
+    @media (max-width: 1100px) {
+      .partner-analytics-controls {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .partner-analytics-field--refresh { grid-column: 1 / -1; }
+      .partner-analytics-refresh { width: 100%; }
+    }
+
     @media (max-width: 640px) {
       .partners-page #partnerReferralWidget { display: none !important; }
 
@@ -444,16 +528,24 @@
         width: 100%;
       }
 
+      .partners-page #partnerAnalyticsView .partner-analytics-title { font-size: 24px; }
+      .partners-page #partnerAnalyticsView .partner-analytics-controls { grid-template-columns: 1fr; gap: 10px; }
+      .partners-page #partnerAnalyticsView .partner-analytics-field--refresh .btn-sm { width: 100%; }
+      .partners-page #partnerAnalyticsView .partner-analytics-meta {
+        grid-template-columns: 1fr;
+        gap: 6px;
+      }
+      .partners-page #partnerAnalyticsView .partner-analytics-status {
+        text-align: left;
+      }
       .partners-page #partnerAnalyticsView .partner-card {
         max-width: 100% !important;
         min-width: 0;
       }
-
-      .partners-page #partnerAnalyticsView .partner-card > div[style*="grid-template-columns"] {
-        grid-template-columns: 1fr !important;
+      .partners-page #partnerAnalyticsView .partner-period-switch__btn {
+        height: 34px;
       }
-
-      .partners-page #partnerAnalyticsView .partner-card > div[style*="grid-template-columns"] .btn-sm {
+      .partners-page #partnerAnalyticsView .partner-analytics-refresh {
         width: 100%;
       }
 
@@ -1451,65 +1543,64 @@
       </div>
     </div>
 
-    <div id="partnerAnalyticsView" hidden>
-      <h1 style="margin: 0 0 8px; font-size: 28px;">Analytics</h1>
-      <p class="muted" style="margin-top: 0;">Revenue, sold orders, trends and bestsellers for your assigned offers.</p>
+    <div id="partnerAnalyticsView" class="partner-analytics-view" hidden>
+      <h1 class="partner-analytics-title">Analytics</h1>
+      <p class="muted partner-analytics-subtitle">Revenue, sold orders, trends and bestsellers for your assigned offers.</p>
 
-      <section class="partner-card" style="max-width: 1200px;">
-        <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; align-items: end;">
-          <div>
-            <label for="partnerAnalyticsPeriodType">Period</label>
-            <select id="partnerAnalyticsPeriodType">
-              <option value="month">Month</option>
+      <section class="partner-card partner-analytics-card">
+        <div class="partner-analytics-controls">
+          <div class="partner-analytics-field">
+            <span class="partner-analytics-label">Period</span>
+            <div class="partner-period-switch" role="group" aria-label="Analytics period">
+              <button id="partnerAnalyticsPeriodYearBtn" class="partner-period-switch__btn" type="button" data-analytics-period="year">Year</button>
+              <button id="partnerAnalyticsPeriodMonthBtn" class="partner-period-switch__btn" type="button" data-analytics-period="month">Month</button>
+            </div>
+            <select id="partnerAnalyticsPeriodType" hidden aria-hidden="true" tabindex="-1">
               <option value="year">Year</option>
+              <option value="month">Month</option>
             </select>
           </div>
-          <div id="partnerAnalyticsMonthWrap">
-            <label for="partnerAnalyticsMonth">Month</label>
-            <input id="partnerAnalyticsMonth" type="month" />
-          </div>
-          <div id="partnerAnalyticsYearWrap" hidden>
+          <div id="partnerAnalyticsYearWrap" class="partner-analytics-field">
             <label for="partnerAnalyticsYear">Year</label>
             <input id="partnerAnalyticsYear" type="number" min="2020" max="2100" step="1" />
           </div>
-          <div>
+          <div id="partnerAnalyticsMonthWrap" class="partner-analytics-field" hidden>
+            <label for="partnerAnalyticsMonth">Month</label>
+            <input id="partnerAnalyticsMonth" type="month" />
+          </div>
+          <div class="partner-analytics-field">
             <label for="partnerAnalyticsCategoryFilter">Category</label>
             <select id="partnerAnalyticsCategoryFilter">
-              <option value="all">All services</option>
+              <option value="all">All categories</option>
             </select>
           </div>
-          <div>
-            <button id="btnPartnerAnalyticsRefresh" class="btn-sm primary" type="button">Refresh analytics</button>
+          <div class="partner-analytics-field partner-analytics-field--refresh">
+            <button id="btnPartnerAnalyticsRefresh" class="btn-sm primary partner-analytics-refresh" type="button">Refresh</button>
           </div>
         </div>
 
-        <div id="partnerAnalyticsRangeLabel" class="muted small" style="margin-top: 10px;">Range: —</div>
+        <div class="partner-analytics-meta">
+          <div id="partnerAnalyticsRangeLabel" class="muted small partner-analytics-range">Range: —</div>
+          <div id="partnerAnalyticsStatus" class="muted small partner-analytics-status"></div>
+        </div>
 
-        <div style="height: 12px;"></div>
-
-        <div class="partner-metric-grid partner-metric-grid--four">
+        <div class="partner-metric-grid partner-metric-grid--four partner-analytics-kpi-grid">
           <div class="partner-metric"><div class="partner-metric__label">Gross revenue</div><div class="partner-metric__value" id="partnerAnalyticsKpiGross">0.00 EUR</div></div>
           <div class="partner-metric"><div class="partner-metric__label">Net earnings</div><div class="partner-metric__value" id="partnerAnalyticsKpiNet">0.00 EUR</div></div>
           <div class="partner-metric"><div class="partner-metric__label">Sold orders</div><div class="partner-metric__value" id="partnerAnalyticsKpiSold">0</div></div>
           <div class="partner-metric"><div class="partner-metric__label">All orders</div><div class="partner-metric__value" id="partnerAnalyticsKpiTotal">0</div></div>
         </div>
 
-        <div class="partner-insight-divider"></div>
-
-        <div class="partner-metric-grid partner-metric-grid--four">
+        <div class="partner-metric-grid partner-metric-grid--four partner-analytics-kpi-grid">
           <div class="partner-metric"><div class="partner-metric__label">Average order value</div><div class="partner-metric__value" id="partnerAnalyticsKpiAvg">0.00 EUR</div></div>
           <div class="partner-metric"><div class="partner-metric__label">Pending</div><div class="partner-metric__value" id="partnerAnalyticsKpiPending">0</div></div>
           <div class="partner-metric"><div class="partner-metric__label">Awaiting payment</div><div class="partner-metric__value" id="partnerAnalyticsKpiAwaiting">0</div></div>
           <div class="partner-metric"><div class="partner-metric__label">Cancelled / rejected</div><div class="partner-metric__value" id="partnerAnalyticsKpiCancelled">0</div></div>
         </div>
-
-        <div id="partnerAnalyticsStatus" class="muted small" style="margin-top: 10px;"></div>
       </section>
 
-      <div style="height: 16px;"></div>
-
-      <section id="partnerAnalyticsByTypeCard" class="partner-card" style="max-width: 1200px;">
-        <h2 style="margin: 0 0 12px;">Performance by category</h2>
+      <section id="partnerAnalyticsByTypeCard" class="partner-card partner-analytics-table-card">
+        <h2>Performance by category</h2>
         <div class="admin-table-container" aria-label="Analytics by category">
           <table class="admin-table">
             <thead>
@@ -1528,10 +1619,8 @@
         </div>
       </section>
 
-      <div style="height: 16px;"></div>
-
-      <section id="partnerAnalyticsTimeseriesCard" class="partner-card" style="max-width: 1200px;">
-        <h2 style="margin: 0 0 12px;">Time series</h2>
+      <section id="partnerAnalyticsTimeseriesCard" class="partner-card partner-analytics-table-card">
+        <h2>Time series</h2>
         <div class="admin-table-container" aria-label="Analytics timeseries">
           <table class="admin-table">
             <thead>
@@ -1550,10 +1639,8 @@
         </div>
       </section>
 
-      <div style="height: 16px;"></div>
-
-      <section id="partnerAnalyticsTopOffersCard" class="partner-card" style="max-width: 1200px;">
-        <h2 style="margin: 0 0 12px;">Top services</h2>
+      <section id="partnerAnalyticsTopOffersCard" class="partner-card partner-analytics-table-card">
+        <h2>Top services</h2>
         <div class="admin-table-container" aria-label="Analytics top services">
           <table class="admin-table">
             <thead>
@@ -1571,10 +1658,8 @@
         </div>
       </section>
 
-      <div style="height: 16px;"></div>
-
-      <section id="partnerAnalyticsTopProductsCard" class="partner-card" style="max-width: 1200px;">
-        <h2 style="margin: 0 0 12px;">Top shop products</h2>
+      <section id="partnerAnalyticsTopProductsCard" class="partner-card partner-analytics-table-card">
+        <h2>Top shop products</h2>
         <div class="admin-table-container" aria-label="Analytics top products">
           <table class="admin-table">
             <thead>
