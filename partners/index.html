@@ -293,6 +293,68 @@
     .partner-analytics-chart-card { max-width: 1200px; padding: 14px; }
     .partner-analytics-chart-head { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 8px; }
     .partner-analytics-chart-head h2 { margin: 0; font-size: 18px; line-height: 1.2; }
+    .partner-analytics-chart-controls { display: grid; gap: 6px; justify-items: end; }
+    .partner-chart-switch {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 4px;
+      padding: 4px;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: 11px;
+      background: rgba(15, 23, 42, 0.42);
+      min-width: 150px;
+    }
+    .partner-chart-switch--metric {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      min-width: min(100%, 360px);
+    }
+    .partner-chart-switch__btn {
+      border: 1px solid transparent;
+      border-radius: 7px;
+      background: transparent;
+      color: var(--admin-text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      height: 29px;
+      padding: 0 8px;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .partner-chart-switch__btn.is-active {
+      color: #fff;
+      border-color: rgba(96, 165, 250, 0.4);
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.88), rgba(37, 99, 235, 0.88));
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.24);
+    }
+    .partner-chart-switch__btn:focus-visible {
+      outline: none;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.3);
+    }
+    .partner-analytics-chip-group {
+      margin: 2px 0 8px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+    .partner-analytics-chip {
+      border: 1px solid rgba(148, 163, 184, 0.3);
+      border-radius: 999px;
+      background: rgba(15, 23, 42, 0.25);
+      color: var(--admin-text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    .partner-analytics-chip.is-active {
+      color: #fff;
+      border-color: rgba(96, 165, 250, 0.45);
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.84), rgba(37, 99, 235, 0.84));
+    }
     .partner-analytics-live-chart {
       border: 1px solid rgba(148, 163, 184, 0.22);
       border-radius: 12px;
@@ -386,6 +448,60 @@
       background: linear-gradient(180deg, rgba(16, 185, 129, 0.95), rgba(5, 150, 105, 0.75));
       box-shadow: 0 6px 18px rgba(5, 150, 105, 0.22);
     }
+    .partner-analytics-live-chart__line-wrap {
+      border: 1px dashed rgba(148, 163, 184, 0.26);
+      border-radius: 10px;
+      padding: 6px 6px 4px;
+      min-height: 130px;
+      background: rgba(15, 23, 42, 0.16);
+    }
+    .partner-analytics-live-chart__line-svg {
+      width: 100%;
+      height: 118px;
+      display: block;
+    }
+    .partner-analytics-live-chart__line-grid {
+      stroke: rgba(148, 163, 184, 0.2);
+      stroke-width: 0.8;
+      stroke-dasharray: 2 3;
+    }
+    .partner-analytics-live-chart__line-area {
+      fill: rgba(59, 130, 246, 0.22);
+    }
+    .partner-analytics-live-chart__line-path {
+      fill: none;
+      stroke: #60a5fa;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+    .partner-analytics-live-chart__line-dot {
+      fill: #93c5fd;
+      stroke: #1d4ed8;
+      stroke-width: 0.8;
+    }
+    .partner-analytics-live-chart__line-values,
+    .partner-analytics-live-chart__line-labels {
+      margin-top: 6px;
+      display: grid;
+      gap: 4px;
+    }
+    .partner-analytics-live-chart__line-values span,
+    .partner-analytics-live-chart__line-labels span {
+      font-size: 10px;
+      line-height: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      text-align: center;
+    }
+    .partner-analytics-live-chart__line-values span {
+      color: #bfdbfe;
+      font-weight: 700;
+    }
+    .partner-analytics-live-chart__line-labels span {
+      color: var(--admin-text-muted);
+    }
     @keyframes partnerAnalyticsBarGrow {
       to {
         transform: scaleY(1);
@@ -400,6 +516,13 @@
       .partner-analytics-field--refresh { grid-column: 1 / -1; }
       .partner-analytics-refresh { width: 100%; }
       .partner-analytics-live-chart__bars { gap: 5px; }
+      .partner-analytics-chart-controls {
+        width: 100%;
+        justify-items: stretch;
+      }
+      .partner-chart-switch {
+        width: 100%;
+      }
     }
 
     @media (max-width: 640px) {
@@ -669,6 +792,13 @@
       .partners-page #partnerAnalyticsView .partner-analytics-live-chart__orders,
       .partners-page #partnerAnalyticsView .partner-analytics-live-chart__label {
         font-size: 9px;
+      }
+      .partners-page #partnerAnalyticsView .partner-chart-switch__btn {
+        font-size: 10px;
+        height: 31px;
+      }
+      .partners-page #partnerAnalyticsView .partner-chart-switch--metric {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
 
       .partners-page .admin-table-container[aria-label="Analytics by category"],
@@ -1728,9 +1858,24 @@
 
       <section id="partnerAnalyticsLiveChartCard" class="partner-card partner-analytics-chart-card">
         <div class="partner-analytics-chart-head">
-          <h2>Live trend</h2>
-          <div class="muted small">Net earnings (bars) and orders count</div>
+          <div>
+            <h2>Live trend</h2>
+            <div class="muted small" id="partnerAnalyticsLiveTrendHint">Net earnings by period</div>
+          </div>
+          <div class="partner-analytics-chart-controls">
+            <div class="partner-chart-switch" role="group" aria-label="Live trend chart type">
+              <button id="partnerLiveTrendTypeBarBtn" class="partner-chart-switch__btn" type="button" data-live-trend-type="bar">Bars</button>
+              <button id="partnerLiveTrendTypeLineBtn" class="partner-chart-switch__btn" type="button" data-live-trend-type="line">Line</button>
+            </div>
+            <div class="partner-chart-switch partner-chart-switch--metric" role="group" aria-label="Live trend metric">
+              <button id="partnerLiveTrendMetricNetBtn" class="partner-chart-switch__btn" type="button" data-live-trend-metric="net">Net</button>
+              <button id="partnerLiveTrendMetricGrossBtn" class="partner-chart-switch__btn" type="button" data-live-trend-metric="gross">Gross</button>
+              <button id="partnerLiveTrendMetricOrdersBtn" class="partner-chart-switch__btn" type="button" data-live-trend-metric="orders">Orders</button>
+              <button id="partnerLiveTrendMetricSoldBtn" class="partner-chart-switch__btn" type="button" data-live-trend-metric="sold">Sold</button>
+            </div>
+          </div>
         </div>
+        <div id="partnerAnalyticsCategoryChips" class="partner-analytics-chip-group" aria-label="Category quick filters"></div>
         <div id="partnerAnalyticsLiveChart" class="partner-analytics-live-chart" aria-live="polite"></div>
       </section>
 

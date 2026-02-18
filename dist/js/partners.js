@@ -34,6 +34,10 @@
       monthValue: '',
       yearValue: '',
       category: 'all',
+      liveTrendType: 'bar',
+      liveTrendMetric: 'net',
+      liveTrendRows: [],
+      liveTrendRange: null,
     },
   };
 
@@ -139,6 +143,14 @@
     btnPartnerAnalyticsRefresh: null,
     partnerAnalyticsRangeLabel: null,
     partnerAnalyticsStatus: null,
+    partnerAnalyticsLiveTrendHint: null,
+    partnerLiveTrendTypeBarBtn: null,
+    partnerLiveTrendTypeLineBtn: null,
+    partnerLiveTrendMetricNetBtn: null,
+    partnerLiveTrendMetricGrossBtn: null,
+    partnerLiveTrendMetricOrdersBtn: null,
+    partnerLiveTrendMetricSoldBtn: null,
+    partnerAnalyticsCategoryChips: null,
     partnerAnalyticsLiveChartCard: null,
     partnerAnalyticsLiveChart: null,
     partnerAnalyticsResponseChartCard: null,
@@ -3550,11 +3562,16 @@
     if (!state.analytics.yearValue) state.analytics.yearValue = currentUtcYearValue();
     if (!state.analytics.period) state.analytics.period = 'year';
     if (!state.analytics.category) state.analytics.category = 'all';
+    state.analytics.liveTrendType = normalizeLiveTrendType(state.analytics.liveTrendType);
+    state.analytics.liveTrendMetric = normalizeLiveTrendMetric(state.analytics.liveTrendMetric);
+    if (!Array.isArray(state.analytics.liveTrendRows)) state.analytics.liveTrendRows = [];
+    if (!state.analytics.liveTrendRange || typeof state.analytics.liveTrendRange !== 'object') state.analytics.liveTrendRange = null;
 
     if (els.partnerAnalyticsPeriodType) els.partnerAnalyticsPeriodType.value = state.analytics.period;
     if (els.partnerAnalyticsMonth) els.partnerAnalyticsMonth.value = state.analytics.monthValue;
     if (els.partnerAnalyticsYear) els.partnerAnalyticsYear.value = state.analytics.yearValue;
     syncAnalyticsPeriodControls();
+    syncLiveTrendControls();
   }
 
   function syncAnalyticsPeriodControls() {
@@ -3596,6 +3613,112 @@
       options.map((o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join('')
     );
     select.value = String(state.analytics.category || 'all');
+    renderAnalyticsCategoryChips(options);
+  }
+
+  function renderAnalyticsCategoryChips(options) {
+    if (!els.partnerAnalyticsCategoryChips) return;
+    const rows = Array.isArray(options) ? options : getAnalyticsAllowedCategories();
+    if (!rows.length) {
+      setHtml(els.partnerAnalyticsCategoryChips, '');
+      return;
+    }
+
+    setHtml(
+      els.partnerAnalyticsCategoryChips,
+      rows.map((option) => {
+        const value = String(option?.value || '').trim().toLowerCase();
+        const isActive = value === String(state.analytics.category || 'all').trim().toLowerCase();
+        return `<button type="button" class="partner-analytics-chip${isActive ? ' is-active' : ''}" data-analytics-category-chip="${escapeHtml(value)}">${escapeHtml(option?.label || value || 'Category')}</button>`;
+      }).join('')
+    );
+  }
+
+  function analyticsCategoryLabel(categoryValue) {
+    const value = String(categoryValue || 'all').trim().toLowerCase();
+    const match = getAnalyticsAllowedCategories().find((row) => String(row?.value || '') === value);
+    if (match) return String(match.label || 'All categories');
+    return 'All categories';
+  }
+
+  function normalizeLiveTrendType(value) {
+    const v = String(value || 'bar').trim().toLowerCase();
+    return v === 'line' ? 'line' : 'bar';
+  }
+
+  function normalizeLiveTrendMetric(value) {
+    const v = String(value || 'net').trim().toLowerCase();
+    if (v === 'gross') return 'gross';
+    if (v === 'orders') return 'orders';
+    if (v === 'sold') return 'sold';
+    return 'net';
+  }
+
+  function getLiveTrendMetricConfig(metricValue) {
+    const metric = normalizeLiveTrendMetric(metricValue);
+    if (metric === 'gross') {
+      return {
+        key: 'gross',
+        label: 'Gross revenue',
+        type: 'money',
+        getValue: (row) => toNum(row?.gross),
+        accentClass: '',
+      };
+    }
+    if (metric === 'orders') {
+      return {
+        key: 'orders',
+        label: 'All orders',
+        type: 'count',
+        getValue: (row) => toNum(row?.orders),
+        accentClass: '',
+      };
+    }
+    if (metric === 'sold') {
+      return {
+        key: 'sold',
+        label: 'Sold orders',
+        type: 'count',
+        getValue: (row) => toNum(row?.sold),
+        accentClass: '',
+      };
+    }
+    return {
+      key: 'net',
+      label: 'Net earnings',
+      type: 'money',
+      getValue: (row) => toNum(row?.net),
+      accentClass: '',
+    };
+  }
+
+  function formatLiveTrendValue(value, config, compact = false) {
+    const num = toNum(value);
+    if (config?.type === 'money') {
+      if (!compact) return formatMoney(num, 'EUR');
+      if (Math.abs(num) >= 1000) {
+        return `EUR ${(num / 1000).toFixed(1)}k`;
+      }
+      return `EUR ${num.toFixed(0)}`;
+    }
+    if (compact && Math.abs(num) >= 1000) {
+      return `${(num / 1000).toFixed(1)}k`;
+    }
+    return String(Math.round(num));
+  }
+
+  function syncLiveTrendControls() {
+    const chartType = normalizeLiveTrendType(state.analytics.liveTrendType);
+    const metric = normalizeLiveTrendMetric(state.analytics.liveTrendMetric);
+    state.analytics.liveTrendType = chartType;
+    state.analytics.liveTrendMetric = metric;
+
+    els.partnerLiveTrendTypeBarBtn?.classList.toggle('is-active', chartType === 'bar');
+    els.partnerLiveTrendTypeLineBtn?.classList.toggle('is-active', chartType === 'line');
+    els.partnerLiveTrendMetricNetBtn?.classList.toggle('is-active', metric === 'net');
+    els.partnerLiveTrendMetricGrossBtn?.classList.toggle('is-active', metric === 'gross');
+    els.partnerLiveTrendMetricOrdersBtn?.classList.toggle('is-active', metric === 'orders');
+    els.partnerLiveTrendMetricSoldBtn?.classList.toggle('is-active', metric === 'sold');
   }
 
   function normalizeAnalyticsMonthValue(rawValue) {
@@ -3865,53 +3988,105 @@
   function renderAnalyticsLiveChart(timeseriesRows, range) {
     if (!els.partnerAnalyticsLiveChart) return;
     const rows = reduceTimeseriesForChart(timeseriesRows, range?.period === 'year' ? 12 : 16);
+    const chartType = normalizeLiveTrendType(state.analytics.liveTrendType);
+    const metricConfig = getLiveTrendMetricConfig(state.analytics.liveTrendMetric);
+    syncLiveTrendControls();
+
+    state.analytics.liveTrendRows = rows;
+    state.analytics.liveTrendRange = range ? { period: range.period, label: range.label } : null;
+
+    const categoryText = analyticsCategoryLabel(state.analytics.category);
+    setText(
+      els.partnerAnalyticsLiveTrendHint,
+      `${metricConfig.label} • ${categoryText} • ${chartType === 'line' ? 'Line chart' : 'Bar chart'}`
+    );
 
     if (!rows.length) {
       setHtml(els.partnerAnalyticsLiveChart, '<div class="partner-analytics-live-chart__empty">No trend data for this range.</div>');
       return;
     }
 
-    const maxNet = rows.reduce((max, row) => Math.max(max, toNum(row?.net)), 0);
+    const values = rows.map((row) => metricConfig.getValue(row));
+    const maxValue = values.reduce((max, value) => Math.max(max, toNum(value)), 0);
+    const safeMaxValue = maxValue > 0 ? maxValue : 1;
+    const totalValue = values.reduce((sum, value) => sum + toNum(value), 0);
+    const avgValue = rows.length ? (totalValue / rows.length) : 0;
     const maxOrders = rows.reduce((max, row) => Math.max(max, toNum(row?.orders)), 0);
-    const safeMaxNet = maxNet > 0 ? maxNet : 1;
-    const safeMaxOrders = maxOrders > 0 ? maxOrders : 1;
-    const totalNet = rows.reduce((sum, row) => sum + toNum(row?.net), 0);
-    const totalOrders = rows.reduce((sum, row) => sum + toNum(row?.orders), 0);
 
     const bars = rows.map((row, index) => {
-      const net = toNum(row?.net);
-      const orders = toNum(row?.orders);
-      const heightPct = Math.max(4, Math.min(100, Math.round((net / safeMaxNet) * 100)));
+      const value = toNum(values[index]);
+      const heightPct = Math.max(4, Math.min(100, Math.round((value / safeMaxValue) * 100)));
       const label = analyticsLabelFromBucket(row?.bucket, range?.period);
-      const shortLabel = range?.period === 'year'
-        ? label.split(' ')[0]
-        : label.split(' ')[0];
+      const shortLabel = label.split(' ')[0];
       const delay = Math.min(index * 36, 540);
       return `
-        <div class="partner-analytics-live-chart__col" title="${escapeHtml(label)}: ${escapeHtml(formatMoney(net, 'EUR'))}, ${orders} orders">
+        <div class="partner-analytics-live-chart__col" title="${escapeHtml(label)}: ${escapeHtml(formatLiveTrendValue(value, metricConfig, false))}">
           <div class="partner-analytics-live-chart__bar-wrap">
             <div class="partner-analytics-live-chart__bar" style="height:${heightPct}%; --bar-delay:${delay}ms;"></div>
           </div>
-          <div class="partner-analytics-live-chart__orders">${orders}</div>
+          <div class="partner-analytics-live-chart__orders">${escapeHtml(formatLiveTrendValue(value, metricConfig, true))}</div>
           <div class="partner-analytics-live-chart__label">${escapeHtml(shortLabel)}</div>
         </div>
       `;
     }).join('');
 
+    const linePoints = rows.map((row, index) => {
+      const x = rows.length === 1 ? 50 : (index / (rows.length - 1)) * 100;
+      const yRaw = 100 - ((toNum(values[index]) / safeMaxValue) * 100);
+      const y = Number.isFinite(yRaw) ? Math.max(0, Math.min(100, yRaw)) : 100;
+      return { x, y, label: analyticsLabelFromBucket(row?.bucket, range?.period), value: toNum(values[index]) };
+    });
+    const polylinePoints = linePoints.length === 1
+      ? `0,${linePoints[0].y.toFixed(2)} 100,${linePoints[0].y.toFixed(2)}`
+      : linePoints.map((point) => `${point.x.toFixed(2)},${point.y.toFixed(2)}`).join(' ');
+    const areaPoints = `0,100 ${polylinePoints} 100,100`;
+
+    const lineChartHtml = `
+      <div class="partner-analytics-live-chart__line-wrap">
+        <svg class="partner-analytics-live-chart__line-svg" viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="Live trend line chart">
+          <line class="partner-analytics-live-chart__line-grid" x1="0" y1="25" x2="100" y2="25"></line>
+          <line class="partner-analytics-live-chart__line-grid" x1="0" y1="50" x2="100" y2="50"></line>
+          <line class="partner-analytics-live-chart__line-grid" x1="0" y1="75" x2="100" y2="75"></line>
+          <polygon class="partner-analytics-live-chart__line-area" points="${areaPoints}"></polygon>
+          <polyline class="partner-analytics-live-chart__line-path" points="${polylinePoints}"></polyline>
+          ${linePoints.map((point) => `<circle class="partner-analytics-live-chart__line-dot" cx="${point.x.toFixed(2)}" cy="${point.y.toFixed(2)}" r="1.9"></circle>`).join('')}
+        </svg>
+      </div>
+      <div class="partner-analytics-live-chart__line-values" style="grid-template-columns: repeat(${linePoints.length}, minmax(0, 1fr));">
+        ${linePoints.map((point) => `<span title="${escapeHtml(formatLiveTrendValue(point.value, metricConfig, false))}">${escapeHtml(formatLiveTrendValue(point.value, metricConfig, true))}</span>`).join('')}
+      </div>
+      <div class="partner-analytics-live-chart__line-labels" style="grid-template-columns: repeat(${linePoints.length}, minmax(0, 1fr));">
+        ${linePoints.map((point) => `<span>${escapeHtml(point.label.split(' ')[0])}</span>`).join('')}
+      </div>
+    `;
+
     setHtml(
       els.partnerAnalyticsLiveChart,
       `
         <div class="partner-analytics-live-chart__metrics">
-          <span>Total net<strong>${escapeHtml(formatMoney(totalNet, 'EUR'))}</strong></span>
-          <span>Total orders<strong>${totalOrders}</strong></span>
-          <span>Peak net<strong>${escapeHtml(formatMoney(maxNet, 'EUR'))}</strong></span>
-          <span>Peak orders<strong>${safeMaxOrders}</strong></span>
+          <span>Total ${escapeHtml(metricConfig.label.toLowerCase())}<strong>${escapeHtml(formatLiveTrendValue(totalValue, metricConfig, false))}</strong></span>
+          <span>Average<strong>${escapeHtml(formatLiveTrendValue(avgValue, metricConfig, false))}</strong></span>
+          <span>Peak<strong>${escapeHtml(formatLiveTrendValue(maxValue, metricConfig, false))}</strong></span>
+          <span>Orders peak<strong>${Math.max(0, Math.round(maxOrders))}</strong></span>
         </div>
-        <div class="partner-analytics-live-chart__bars" style="grid-template-columns: repeat(${rows.length}, minmax(0, 1fr));">
-          ${bars}
-        </div>
+        ${chartType === 'line'
+    ? lineChartHtml
+    : `
+            <div class="partner-analytics-live-chart__bars" style="grid-template-columns: repeat(${rows.length}, minmax(0, 1fr));">
+              ${bars}
+            </div>
+          `}
       `
     );
+  }
+
+  function rerenderAnalyticsLiveTrendFromCache() {
+    if (!els.partnerAnalyticsView || els.partnerAnalyticsView.hidden) return;
+    const rows = Array.isArray(state.analytics.liveTrendRows) ? state.analytics.liveTrendRows : [];
+    const range = state.analytics.liveTrendRange && typeof state.analytics.liveTrendRange === 'object'
+      ? state.analytics.liveTrendRange
+      : getAnalyticsRange();
+    renderAnalyticsLiveChart(rows, range);
   }
 
   function formatResponseMinutes(minutesValue) {
@@ -6265,6 +6440,66 @@
       await refreshPartnerAnalyticsView();
     });
 
+    const handleLiveTrendTypeChange = (nextRaw) => {
+      const next = normalizeLiveTrendType(nextRaw);
+      if (state.analytics.liveTrendType === next) {
+        syncLiveTrendControls();
+        return;
+      }
+      state.analytics.liveTrendType = next;
+      syncLiveTrendControls();
+      rerenderAnalyticsLiveTrendFromCache();
+    };
+
+    const handleLiveTrendMetricChange = (nextRaw) => {
+      const next = normalizeLiveTrendMetric(nextRaw);
+      if (state.analytics.liveTrendMetric === next) {
+        syncLiveTrendControls();
+        return;
+      }
+      state.analytics.liveTrendMetric = next;
+      syncLiveTrendControls();
+      rerenderAnalyticsLiveTrendFromCache();
+    };
+
+    els.partnerLiveTrendTypeBarBtn?.addEventListener('click', () => {
+      handleLiveTrendTypeChange('bar');
+    });
+
+    els.partnerLiveTrendTypeLineBtn?.addEventListener('click', () => {
+      handleLiveTrendTypeChange('line');
+    });
+
+    els.partnerLiveTrendMetricNetBtn?.addEventListener('click', () => {
+      handleLiveTrendMetricChange('net');
+    });
+
+    els.partnerLiveTrendMetricGrossBtn?.addEventListener('click', () => {
+      handleLiveTrendMetricChange('gross');
+    });
+
+    els.partnerLiveTrendMetricOrdersBtn?.addEventListener('click', () => {
+      handleLiveTrendMetricChange('orders');
+    });
+
+    els.partnerLiveTrendMetricSoldBtn?.addEventListener('click', () => {
+      handleLiveTrendMetricChange('sold');
+    });
+
+    els.partnerAnalyticsCategoryChips?.addEventListener('click', async (event) => {
+      const target = event.target instanceof Element ? event.target.closest('[data-analytics-category-chip]') : null;
+      if (!target) return;
+      const value = String(target.getAttribute('data-analytics-category-chip') || '').trim().toLowerCase();
+      if (!value) return;
+      if (state.analytics.category === value) return;
+      state.analytics.category = value;
+      if (els.partnerAnalyticsCategoryFilter) {
+        els.partnerAnalyticsCategoryFilter.value = value;
+      }
+      syncAnalyticsCategoryOptions();
+      await refreshPartnerAnalyticsView();
+    });
+
     els.btnPartnerAnalyticsRefresh?.addEventListener('click', async () => {
       await refreshPartnerAnalyticsView();
     });
@@ -6773,6 +7008,14 @@
     els.btnPartnerAnalyticsRefresh = $('btnPartnerAnalyticsRefresh');
     els.partnerAnalyticsRangeLabel = $('partnerAnalyticsRangeLabel');
     els.partnerAnalyticsStatus = $('partnerAnalyticsStatus');
+    els.partnerAnalyticsLiveTrendHint = $('partnerAnalyticsLiveTrendHint');
+    els.partnerLiveTrendTypeBarBtn = $('partnerLiveTrendTypeBarBtn');
+    els.partnerLiveTrendTypeLineBtn = $('partnerLiveTrendTypeLineBtn');
+    els.partnerLiveTrendMetricNetBtn = $('partnerLiveTrendMetricNetBtn');
+    els.partnerLiveTrendMetricGrossBtn = $('partnerLiveTrendMetricGrossBtn');
+    els.partnerLiveTrendMetricOrdersBtn = $('partnerLiveTrendMetricOrdersBtn');
+    els.partnerLiveTrendMetricSoldBtn = $('partnerLiveTrendMetricSoldBtn');
+    els.partnerAnalyticsCategoryChips = $('partnerAnalyticsCategoryChips');
     els.partnerAnalyticsLiveChartCard = $('partnerAnalyticsLiveChartCard');
     els.partnerAnalyticsLiveChart = $('partnerAnalyticsLiveChart');
     els.partnerAnalyticsResponseChartCard = $('partnerAnalyticsResponseChartCard');
