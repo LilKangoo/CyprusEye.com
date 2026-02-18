@@ -227,6 +227,7 @@
 
     partnerPortalResponseCard: null,
     partnerPortalEarningsValue: null,
+    partnerPortalResponseYearAvg: null,
 
     partnerProfileMessage: null,
     partnerProfileEmailDisplay: null,
@@ -3472,6 +3473,7 @@
     if (!canShow) return;
 
     setText(els.partnerPortalEarningsValue, 'Loading…');
+    setText(els.partnerPortalResponseYearAvg, 'Loading…');
 
     const rows = filteredFulfillmentsForSelectedCategory();
     const acceptedRows = rows.filter((f) => String(f?.status || '').trim() === 'accepted');
@@ -3512,6 +3514,26 @@
       partnerEarnings += Number.isFinite(allocated) ? allocated : toNum(f?.subtotal);
     });
     setText(els.partnerPortalEarningsValue, formatMoney(partnerEarnings, 'EUR'));
+
+    const oneYearMs = 365 * 24 * 60 * 60 * 1000;
+    const cutoffMs = Date.now() - oneYearMs;
+    const responseSourceRows = Array.isArray(state.fulfillments) ? state.fulfillments : [];
+    const responseMinutesYear = responseSourceRows
+      .map((row) => {
+        const createdMs = parseIsoMs(row?.created_at);
+        if (!Number.isFinite(createdMs) || createdMs < cutoffMs) return null;
+        const minutes = responseMinutesFromFulfillment(row);
+        return Number.isFinite(minutes) ? minutes : null;
+      })
+      .filter((minutes) => Number.isFinite(minutes));
+
+    if (!responseMinutesYear.length) {
+      setText(els.partnerPortalResponseYearAvg, '—');
+      return;
+    }
+
+    const avgResponseMinutes = responseMinutesYear.reduce((sum, minutes) => sum + toNum(minutes), 0) / responseMinutesYear.length;
+    setText(els.partnerPortalResponseYearAvg, formatResponseMinutes(avgResponseMinutes));
   }
 
   function currentUtcMonthValue() {
@@ -7058,6 +7080,7 @@
 
     els.partnerPortalResponseCard = $('partnerPortalResponseCard');
     els.partnerPortalEarningsValue = $('partnerPortalEarningsValue');
+    els.partnerPortalResponseYearAvg = $('partnerPortalResponseYearAvg');
 
     els.partnerProfileMessage = $('partnerProfileMessage');
     els.partnerProfileEmailDisplay = $('partnerProfileEmailDisplay');
