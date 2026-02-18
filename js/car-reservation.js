@@ -78,6 +78,10 @@ function tr(key, fallback = '', replacements = {}) {
   return interpolateText(text, replacements);
 }
 
+function couponMessage(key, fallback = '', replacements = {}) {
+  return tr(`carRental.page.reservation.coupon.messages.${key}`, fallback, replacements);
+}
+
 function getActiveOfferLocation() {
   const raw = (document.body?.dataset?.carLocation
     || (location?.href?.includes('autopfo') ? 'paphos' : 'larnaca'))
@@ -252,7 +256,9 @@ function normalizeCouponRpcRow(row) {
   const valid = Boolean(row.is_valid);
   return {
     isValid: valid,
-    message: String(row.message || (valid ? 'Coupon applied' : 'Coupon invalid')),
+    message: String(row.message || (valid
+      ? couponMessage('applied', 'Coupon applied')
+      : couponMessage('invalid', 'Coupon invalid'))),
     couponId: row.coupon_id ? String(row.coupon_id) : null,
     couponCode: String(row.coupon_code || '').trim().toUpperCase(),
     discountType: String(row.discount_type || '').trim().toLowerCase(),
@@ -272,10 +278,10 @@ async function requestCouponQuote(couponCode, baseQuote, options = {}) {
   const { silent = false } = options;
   const code = String(couponCode || '').trim().toUpperCase();
   if (!code) {
-    return { ok: false, message: 'Enter a coupon code', result: null };
+    return { ok: false, message: couponMessage('enterCode', 'Enter a coupon code'), result: null };
   }
   if (!baseQuote || typeof baseQuote.total !== 'number' || baseQuote.total <= 0) {
-    return { ok: false, message: 'Complete rental details before applying a coupon', result: null };
+    return { ok: false, message: couponMessage('completeRentalFirst', 'Complete rental details before applying a coupon'), result: null };
   }
 
   const pickupDate = document.getElementById('res_pickup_date')?.value;
@@ -286,7 +292,7 @@ async function requestCouponQuote(couponCode, baseQuote, options = {}) {
   const returnAt = localDateTimeToIso(returnDate, returnTime);
 
   if (!pickupAt || !returnAt) {
-    return { ok: false, message: 'Select valid pickup and return date/time first', result: null };
+    return { ok: false, message: couponMessage('selectValidDateTime', 'Select valid pickup and return date/time first'), result: null };
   }
 
   const offerIdRaw = getCurrentSelectedOfferId();
@@ -348,7 +354,7 @@ async function requestCouponQuote(couponCode, baseQuote, options = {}) {
       if (jsonInputError) {
         return {
           ok: false,
-          message: 'Coupon setup is being updated. Please refresh and try again in a minute.',
+          message: couponMessage('setupUpdating', 'Coupon setup is being updated. Please refresh and try again in a minute.'),
           result: null,
         };
       }
@@ -367,7 +373,7 @@ async function requestCouponQuote(couponCode, baseQuote, options = {}) {
       ) {
         return {
           ok: false,
-          message: 'Coupon service is not available yet. Please refresh in a minute.',
+          message: couponMessage('serviceUnavailable', 'Coupon service is not available yet. Please refresh in a minute.'),
           result: null,
         };
       }
@@ -376,18 +382,18 @@ async function requestCouponQuote(couponCode, baseQuote, options = {}) {
 
     const normalized = normalizeCouponRpcRow(row);
     if (!normalized) {
-      return { ok: false, message: 'Coupon validation returned empty response', result: null };
+      return { ok: false, message: couponMessage('validationEmptyResponse', 'Coupon validation returned empty response'), result: null };
     }
 
     if (seq !== couponState.requestSeq) {
-      return { ok: false, message: 'Coupon validation superseded by a newer request', result: null };
+      return { ok: false, message: couponMessage('validationSuperseded', 'Coupon validation superseded by a newer request'), result: null };
     }
 
     if (!normalized.isValid) {
-      return { ok: false, message: normalized.message || 'Coupon is not valid for this rental', result: normalized };
+      return { ok: false, message: normalized.message || couponMessage('invalidForRental', 'Coupon is not valid for this rental'), result: normalized };
     }
 
-    return { ok: true, message: normalized.message || 'Coupon applied', result: normalized };
+    return { ok: true, message: normalized.message || couponMessage('applied', 'Coupon applied'), result: normalized };
   } catch (error) {
     if (!silent) {
       console.error('Coupon quote failed:', error);
@@ -395,9 +401,9 @@ async function requestCouponQuote(couponCode, baseQuote, options = {}) {
     const errCode = String(error?.code || '').trim();
     const errMsg = String(error?.message || '').trim();
     if (errCode === '22P02' && /type json/i.test(errMsg)) {
-      return { ok: false, message: 'Coupon setup is being updated. Please refresh and try again in a minute.', result: null };
+      return { ok: false, message: couponMessage('setupUpdating', 'Coupon setup is being updated. Please refresh and try again in a minute.'), result: null };
     }
-    return { ok: false, message: String(error?.message || 'Coupon validation failed'), result: null };
+    return { ok: false, message: String(error?.message || couponMessage('validationFailed', 'Coupon validation failed')), result: null };
   }
 }
 
@@ -414,13 +420,21 @@ function scheduleCouponRevalidation(baseQuote) {
     const response = await requestCouponQuote(currentCode, baseQuote, { silent: true });
     if (response.ok && response.result) {
       couponState.result = response.result;
-      setCouponStatus(`Coupon ${response.result.couponCode} applied: -${response.result.discountAmount.toFixed(2)} ${response.result.currency}`, 'ok');
+      setCouponStatus(couponMessage(
+        'appliedWithAmount',
+        'Coupon {{code}} applied: -{{discount}} {{currency}}',
+        {
+          code: response.result.couponCode,
+          discount: response.result.discountAmount.toFixed(2),
+          currency: response.result.currency,
+        }
+      ), 'ok');
       syncCouponButtons();
       calculateEstimatedPrice({ skipCouponRevalidation: true });
       return;
     }
     clearCouponApplication({ silent: true });
-    setCouponStatus(response.message || 'Coupon is no longer valid for current rental details', 'error');
+    setCouponStatus(response.message || couponMessage('noLongerValid', 'Coupon is no longer valid for current rental details'), 'error');
     calculateEstimatedPrice();
   }, 220);
 }
@@ -458,20 +472,20 @@ async function applyCouponCode(options = {}) {
   }
   if (!entered) {
     clearCouponApplication();
-    if (!silent) setCouponStatus('Enter a coupon code', 'error');
+    if (!silent) setCouponStatus(couponMessage('enterCode', 'Enter a coupon code'), 'error');
     return null;
   }
 
   const baseQuote = computeReservationQuote(buildReservationQuoteInputFromDom());
   if (!baseQuote) {
-    if (!silent) setCouponStatus('Complete rental details before applying a coupon', 'error');
+    if (!silent) setCouponStatus(couponMessage('completeRentalFirst', 'Complete rental details before applying a coupon'), 'error');
     return null;
   }
 
   const response = await requestCouponQuote(entered, baseQuote, { silent });
   if (!response.ok || !response.result) {
     clearCouponApplication({ silent: true });
-    setCouponStatus(response.message || 'Coupon is not valid', 'error');
+    setCouponStatus(response.message || couponMessage('invalid', 'Coupon invalid'), 'error');
     syncCouponButtons();
     calculateEstimatedPrice();
     return null;
@@ -479,7 +493,15 @@ async function applyCouponCode(options = {}) {
 
   couponState.appliedCode = response.result.couponCode || entered;
   couponState.result = response.result;
-  setCouponStatus(`Coupon ${couponState.appliedCode} applied: -${response.result.discountAmount.toFixed(2)} ${response.result.currency}`, 'ok');
+  setCouponStatus(couponMessage(
+    'appliedWithAmount',
+    'Coupon {{code}} applied: -{{discount}} {{currency}}',
+    {
+      code: couponState.appliedCode,
+      discount: response.result.discountAmount.toFixed(2),
+      currency: response.result.currency,
+    }
+  ), 'ok');
   syncCouponButtons();
   calculateEstimatedPrice();
   return response.result;
@@ -609,7 +631,7 @@ export function initCarReservationBindings() {
       }
       if (couponState.appliedCode && typedCode !== couponState.appliedCode) {
         clearCouponApplication({ silent: true });
-        setCouponStatus('Coupon code changed. Click Apply to confirm.', 'info');
+        setCouponStatus(couponMessage('changedApply', 'Coupon code changed. Click Apply to confirm.'), 'info');
         calculateEstimatedPrice();
       }
       syncCouponButtons();
@@ -635,7 +657,7 @@ export function initCarReservationBindings() {
     clearCouponBtn.dataset.ceReservationBound = '1';
     clearCouponBtn.addEventListener('click', () => {
       clearCouponApplication({ clearInput: true });
-      setCouponStatus('Coupon removed', 'info');
+      setCouponStatus(couponMessage('removed', 'Coupon removed'), 'info');
       calculateEstimatedPrice();
     });
   }
@@ -783,22 +805,43 @@ function renderEstimatedPriceQuote(estimatedEl, quote, rentalDays, daysLabel) {
     const finalLabel = Number.isFinite(finalTotal) ? finalTotal.toFixed(2) : '0.00';
     const baseLabel = Number.isFinite(baseTotal) ? baseTotal.toFixed(2) : '0.00';
     const discountLabel = Number.isFinite(discount) ? discount.toFixed(2) : '0.00';
+    const breakdownTitle = tr(
+      'carRental.page.reservation.estimated.breakdown.title',
+      'Total rental price ({{days}} {{daysLabel}})',
+      {
+        days: Number(rentalDays || 0),
+        daysLabel,
+      }
+    );
+    const baseLabelText = tr(
+      'carRental.page.reservation.estimated.breakdown.baseRental',
+      'Base rental'
+    );
+    const couponLabelText = tr(
+      'carRental.page.reservation.estimated.breakdown.coupon',
+      'Coupon {{code}}',
+      { code: couponCode || '' }
+    );
+    const finalLabelText = tr(
+      'carRental.page.reservation.estimated.breakdown.finalRentalTotal',
+      'Final rental total'
+    );
 
     estimatedEl.innerHTML = `
       <div style="display:grid; gap:6px;">
         <div style="font-weight:600; color:#0f172a;">
-          Total rental price (${Number(rentalDays || 0)} ${escapeHtml(daysLabel || 'days')})
+          ${escapeHtml(breakdownTitle)}
         </div>
         <div style="display:flex; justify-content:space-between; gap:12px;">
-          <span style="color:#475569;">Base rental</span>
+          <span style="color:#475569;">${escapeHtml(baseLabelText)}</span>
           <strong>${baseLabel} ${escapeHtml(currency)}</strong>
         </div>
         <div style="display:flex; justify-content:space-between; gap:12px;">
-          <span style="color:#166534;">Coupon ${escapeHtml(couponCode || '')}</span>
+          <span style="color:#166534;">${escapeHtml(couponLabelText)}</span>
           <strong style="color:#166534;">-${discountLabel} ${escapeHtml(currency)}</strong>
         </div>
         <div style="display:flex; justify-content:space-between; gap:12px; padding-top:6px; border-top:1px solid #cbd5e1;">
-          <span style="font-weight:600; color:#0f172a;">Final rental total</span>
+          <span style="font-weight:600; color:#0f172a;">${escapeHtml(finalLabelText)}</span>
           <strong style="font-weight:700; color:#0f172a;">${finalLabel} ${escapeHtml(currency)}</strong>
         </div>
       </div>
@@ -1075,17 +1118,25 @@ async function handleReservationSubmit(event) {
     const enteredCouponCode = String(formData.get('coupon_code') || '').trim().toUpperCase();
     if (enteredCouponCode) {
       if (!computedQuote) {
-        throw new Error('Complete rental details before applying a coupon.');
+        throw new Error(couponMessage('completeRentalFirst', 'Complete rental details before applying a coupon.'));
       }
       const couponResponse = await requestCouponQuote(enteredCouponCode, computedQuote, { silent: true });
       if (!couponResponse.ok || !couponResponse.result) {
-        setCouponStatus(couponResponse.message || 'Coupon is not valid for selected rental details', 'error');
+        setCouponStatus(couponResponse.message || couponMessage('invalidSelectedDetails', 'Coupon is not valid for selected rental details'), 'error');
         syncCouponButtons();
-        throw new Error(couponResponse.message || 'Coupon is not valid for selected rental details');
+        throw new Error(couponResponse.message || couponMessage('invalidSelectedDetails', 'Coupon is not valid for selected rental details'));
       }
       couponState.appliedCode = couponResponse.result.couponCode || enteredCouponCode;
       couponState.result = couponResponse.result;
-      setCouponStatus(`Coupon ${couponState.appliedCode} applied: -${couponResponse.result.discountAmount.toFixed(2)} ${couponResponse.result.currency}`, 'ok');
+      setCouponStatus(couponMessage(
+        'appliedWithAmount',
+        'Coupon {{code}} applied: -{{discount}} {{currency}}',
+        {
+          code: couponState.appliedCode,
+          discount: couponResponse.result.discountAmount.toFixed(2),
+          currency: couponResponse.result.currency,
+        }
+      ), 'ok');
       syncCouponButtons();
     } else if (couponState.appliedCode) {
       clearCouponApplication({ silent: true });
@@ -1225,7 +1276,7 @@ async function handleReservationSubmit(event) {
 
     if (error) {
       console.error('Booking error:', error);
-      throw new Error(error.message || 'Nie udało się zapisać rezerwacji');
+      throw new Error(error.message || tr('carRental.page.reservation.error.saveBooking', 'Could not save reservation'));
     }
 
     console.log('Booking created:', booking);

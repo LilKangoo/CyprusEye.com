@@ -319,6 +319,10 @@ function buildReservationFormHtml({ location, selectedCarId }) {
     'Minimalny wynajem: 3 dni. Każde rozpoczęte 24h to kolejny dzień.',
     'Minimum rental: 3 days (3 nights). Each started 24h counts as an extra day.'
   );
+  const couponLabel = text('Kod kuponu', 'Coupon code');
+  const couponPlaceholder = text('Wpisz kod kuponu', 'Enter coupon code');
+  const couponApplyLabel = text('Zastosuj', 'Apply');
+  const couponClearLabel = text('Wyczyść', 'Clear');
 
   return `
     <div style="margin-bottom: 18px;">
@@ -451,11 +455,11 @@ function buildReservationFormHtml({ location, selectedCarId }) {
 
       <div class="auto-coupon-panel" aria-live="polite">
         <div class="auto-field">
-          <label for="res_coupon_code">Coupon code</label>
+          <label for="res_coupon_code" data-i18n="carRental.page.reservation.coupon.label">${escapeHtml(couponLabel)}</label>
           <div class="auto-coupon-row">
-            <input type="text" id="res_coupon_code" name="coupon_code" placeholder="Enter coupon code" autocomplete="off" spellcheck="false">
-            <button type="button" class="btn btn-secondary secondary" id="btnApplyCoupon">Apply</button>
-            <button type="button" class="btn ghost" id="btnClearCoupon" hidden>Clear</button>
+            <input type="text" id="res_coupon_code" name="coupon_code" placeholder="${escapeHtml(couponPlaceholder)}" data-i18n-attrs="placeholder:carRental.page.reservation.coupon.placeholder" autocomplete="off" spellcheck="false">
+            <button type="button" class="btn btn-secondary secondary" id="btnApplyCoupon" data-i18n="carRental.page.reservation.coupon.apply">${escapeHtml(couponApplyLabel)}</button>
+            <button type="button" class="btn ghost" id="btnClearCoupon" hidden data-i18n="carRental.page.reservation.coupon.clear">${escapeHtml(couponClearLabel)}</button>
           </div>
           <p id="couponStatusMessage" class="auto-coupon-status" hidden></p>
         </div>
