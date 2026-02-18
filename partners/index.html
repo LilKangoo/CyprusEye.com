@@ -443,6 +443,159 @@
       .partners-page .admin-table-container[aria-label="Availability blocks"] .admin-table td:nth-of-type(4) .btn-action {
         width: 100%;
       }
+
+      .partners-page #partnerAnalyticsView .partner-card {
+        max-width: 100% !important;
+        min-width: 0;
+      }
+
+      .partners-page #partnerAnalyticsView .partner-card > div[style*="grid-template-columns"] {
+        grid-template-columns: 1fr !important;
+      }
+
+      .partners-page #partnerAnalyticsView .partner-card > div[style*="grid-template-columns"] .btn-sm {
+        width: 100%;
+      }
+
+      .partners-page .admin-table-container[aria-label="Analytics by category"],
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"],
+      .partners-page .admin-table-container[aria-label="Analytics top services"],
+      .partners-page .admin-table-container[aria-label="Analytics top products"] {
+        overflow: visible;
+        border: none;
+        background: transparent;
+      }
+
+      .partners-page .admin-table-container[aria-label="Analytics by category"] .admin-table,
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"] .admin-table,
+      .partners-page .admin-table-container[aria-label="Analytics top services"] .admin-table,
+      .partners-page .admin-table-container[aria-label="Analytics top products"] .admin-table {
+        min-width: 0;
+      }
+
+      .partners-page .admin-table-container[aria-label="Analytics by category"] .admin-table thead,
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"] .admin-table thead,
+      .partners-page .admin-table-container[aria-label="Analytics top services"] .admin-table thead,
+      .partners-page .admin-table-container[aria-label="Analytics top products"] .admin-table thead {
+        display: none;
+      }
+
+      .partners-page .admin-table-container[aria-label="Analytics by category"] .admin-table,
+      .partners-page .admin-table-container[aria-label="Analytics by category"] .admin-table tbody,
+      .partners-page .admin-table-container[aria-label="Analytics by category"] .admin-table tr,
+      .partners-page .admin-table-container[aria-label="Analytics by category"] .admin-table td,
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"] .admin-table,
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"] .admin-table tbody,
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"] .admin-table tr,
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"] .admin-table td,
+      .partners-page .admin-table-container[aria-label="Analytics top services"] .admin-table,
+      .partners-page .admin-table-container[aria-label="Analytics top services"] .admin-table tbody,
+      .partners-page .admin-table-container[aria-label="Analytics top services"] .admin-table tr,
+      .partners-page .admin-table-container[aria-label="Analytics top services"] .admin-table td,
+      .partners-page .admin-table-container[aria-label="Analytics top products"] .admin-table,
+      .partners-page .admin-table-container[aria-label="Analytics top products"] .admin-table tbody,
+      .partners-page .admin-table-container[aria-label="Analytics top products"] .admin-table tr,
+      .partners-page .admin-table-container[aria-label="Analytics top products"] .admin-table td {
+        display: block;
+        width: 100%;
+      }
+
+      .partners-page .admin-table-container[aria-label="Analytics by category"] .admin-table tr,
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"] .admin-table tr,
+      .partners-page .admin-table-container[aria-label="Analytics top services"] .admin-table tr,
+      .partners-page .admin-table-container[aria-label="Analytics top products"] .admin-table tr {
+        border: 1px solid var(--admin-border);
+        background: var(--admin-bg-light);
+        border-radius: 14px;
+        overflow: hidden;
+        margin: 0 0 12px;
+      }
+
+      .partners-page .admin-table-container[aria-label="Analytics by category"] .admin-table td,
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"] .admin-table td,
+      .partners-page .admin-table-container[aria-label="Analytics top services"] .admin-table td,
+      .partners-page .admin-table-container[aria-label="Analytics top products"] .admin-table td {
+        border-bottom: 1px solid var(--admin-border);
+        padding: 10px 12px;
+        display: grid;
+        grid-template-columns: 112px minmax(0, 1fr);
+        gap: 10px;
+        align-items: start;
+      }
+
+      .partners-page .admin-table-container[aria-label="Analytics by category"] .admin-table td:last-child,
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"] .admin-table td:last-child,
+      .partners-page .admin-table-container[aria-label="Analytics top services"] .admin-table td:last-child,
+      .partners-page .admin-table-container[aria-label="Analytics top products"] .admin-table td:last-child {
+        border-bottom: none;
+      }
+
+      .partners-page .admin-table-container[aria-label="Analytics by category"] .admin-table td::before,
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"] .admin-table td::before,
+      .partners-page .admin-table-container[aria-label="Analytics top services"] .admin-table td::before,
+      .partners-page .admin-table-container[aria-label="Analytics top products"] .admin-table td::before {
+        font-size: 11px;
+        font-weight: 700;
+        color: var(--admin-text-muted);
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+
+      .partners-page .admin-table-container[aria-label="Analytics by category"] .admin-table td:nth-of-type(1)::before { content: "Category"; }
+      .partners-page .admin-table-container[aria-label="Analytics by category"] .admin-table td:nth-of-type(2)::before { content: "Orders"; }
+      .partners-page .admin-table-container[aria-label="Analytics by category"] .admin-table td:nth-of-type(3)::before { content: "Sold"; }
+      .partners-page .admin-table-container[aria-label="Analytics by category"] .admin-table td:nth-of-type(4)::before { content: "Gross"; }
+      .partners-page .admin-table-container[aria-label="Analytics by category"] .admin-table td:nth-of-type(5)::before { content: "Net"; }
+
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"] .admin-table td:nth-of-type(1)::before { content: "Period"; }
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"] .admin-table td:nth-of-type(2)::before { content: "Orders"; }
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"] .admin-table td:nth-of-type(3)::before { content: "Sold"; }
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"] .admin-table td:nth-of-type(4)::before { content: "Gross"; }
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"] .admin-table td:nth-of-type(5)::before { content: "Net"; }
+
+      .partners-page .admin-table-container[aria-label="Analytics top services"] .admin-table td:nth-of-type(1)::before { content: "Service"; }
+      .partners-page .admin-table-container[aria-label="Analytics top services"] .admin-table td:nth-of-type(2)::before { content: "Sold"; }
+      .partners-page .admin-table-container[aria-label="Analytics top services"] .admin-table td:nth-of-type(3)::before { content: "Gross"; }
+      .partners-page .admin-table-container[aria-label="Analytics top services"] .admin-table td:nth-of-type(4)::before { content: "Net"; }
+
+      .partners-page .admin-table-container[aria-label="Analytics top products"] .admin-table td:nth-of-type(1)::before { content: "Product"; }
+      .partners-page .admin-table-container[aria-label="Analytics top products"] .admin-table td:nth-of-type(2)::before { content: "Units"; }
+      .partners-page .admin-table-container[aria-label="Analytics top products"] .admin-table td:nth-of-type(3)::before { content: "Orders"; }
+      .partners-page .admin-table-container[aria-label="Analytics top products"] .admin-table td:nth-of-type(4)::before { content: "Revenue"; }
+
+      .partners-page .admin-table-container[aria-label="Analytics by category"] .admin-table td > *,
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"] .admin-table td > *,
+      .partners-page .admin-table-container[aria-label="Analytics top services"] .admin-table td > *,
+      .partners-page .admin-table-container[aria-label="Analytics top products"] .admin-table td > * {
+        min-width: 0;
+        justify-self: end;
+        text-align: right;
+      }
+
+      .partners-page .admin-table-container[aria-label="Analytics by category"] .admin-table td:nth-of-type(1) > *,
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"] .admin-table td:nth-of-type(1) > *,
+      .partners-page .admin-table-container[aria-label="Analytics top services"] .admin-table td:nth-of-type(1) > *,
+      .partners-page .admin-table-container[aria-label="Analytics top products"] .admin-table td:nth-of-type(1) > * {
+        justify-self: start;
+        text-align: left;
+        word-break: break-word;
+      }
+
+      .partners-page .admin-table-container[aria-label="Analytics by category"] .admin-table td[colspan],
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"] .admin-table td[colspan],
+      .partners-page .admin-table-container[aria-label="Analytics top services"] .admin-table td[colspan],
+      .partners-page .admin-table-container[aria-label="Analytics top products"] .admin-table td[colspan] {
+        display: block;
+        text-align: center;
+      }
+
+      .partners-page .admin-table-container[aria-label="Analytics by category"] .admin-table td[colspan]::before,
+      .partners-page .admin-table-container[aria-label="Analytics timeseries"] .admin-table td[colspan]::before,
+      .partners-page .admin-table-container[aria-label="Analytics top services"] .admin-table td[colspan]::before,
+      .partners-page .admin-table-container[aria-label="Analytics top products"] .admin-table td[colspan]::before {
+        content: none;
+        display: none;
+      }
     }
 
     .partners-page #auth-modal.partners-auth-modal {
