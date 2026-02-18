@@ -12597,14 +12597,32 @@ async function fetchCarBookingsRevenueTotal(client) {
   const pageSize = 1000;
   let from = 0;
   let total = 0;
+  let includeCurrencyColumn = true;
 
   while (true) {
-    const { data, error } = await client
+    const baseSelect = 'final_price, final_rental_price, quoted_price, total_price, coupon_code, coupon_discount_amount, base_rental_price';
+    let data = null;
+    let error = null;
+
+    ({ data, error } = await client
       .from('car_bookings')
-      .select('final_price, final_rental_price, quoted_price, total_price, coupon_code, coupon_discount_amount, base_rental_price, currency')
+      .select(includeCurrencyColumn ? `${baseSelect}, currency` : baseSelect)
       .in('status', ['confirmed', 'completed'])
       .order('created_at', { ascending: false })
-      .range(from, from + pageSize - 1);
+      .range(from, from + pageSize - 1));
+
+    if (error && includeCurrencyColumn) {
+      const msg = String(error.message || '').toLowerCase();
+      if ((error.code === '42703' || msg.includes('does not exist')) && msg.includes('currency')) {
+        includeCurrencyColumn = false;
+        ({ data, error } = await client
+          .from('car_bookings')
+          .select(baseSelect)
+          .in('status', ['confirmed', 'completed'])
+          .order('created_at', { ascending: false })
+          .range(from, from + pageSize - 1));
+      }
+    }
 
     if (error) throw error;
 
