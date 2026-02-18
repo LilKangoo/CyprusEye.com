@@ -12643,6 +12643,101 @@ async function fetchCarBookingsRevenueTotal(client) {
   return Number(total.toFixed(2));
 }
 
+async function fetchCarsPaidDepositMap(client, bookingIds = []) {
+  const ids = Array.isArray(bookingIds)
+    ? bookingIds.map((id) => String(id || '').trim()).filter(Boolean)
+    : [];
+  if (!ids.length) return {};
+
+  try {
+    const { data, error } = await client
+      .from('service_deposit_requests')
+      .select('booking_id, status, paid_at, created_at')
+      .eq('resource_type', 'cars')
+      .in('booking_id', ids)
+      .order('created_at', { ascending: false })
+      .limit(5000);
+
+    if (error) throw error;
+
+    const out = {};
+    (Array.isArray(data) ? data : []).forEach((row) => {
+      const bid = String(row?.booking_id || '').trim();
+      if (!bid) return;
+      const status = String(row?.status || '').trim().toLowerCase();
+      if (status === 'paid' || row?.paid_at) {
+        out[bid] = true;
+      } else if (!(bid in out)) {
+        out[bid] = false;
+      }
+    });
+    return out;
+  } catch (error) {
+    console.warn('Could not load cars paid deposits map:', error);
+    return {};
+  }
+}
+
+function getCarsBookingEffectiveState(booking, paidDepositMap = {}) {
+  const id = String(booking?.id || '').trim();
+  const hasPaidDeposit = Boolean(id && paidDepositMap[id] === true);
+  const currentStatus = String(booking?.status || 'pending').trim().toLowerCase();
+  const currentPaymentStatus = String(booking?.payment_status || 'unpaid').trim().toLowerCase();
+
+  const effectiveStatus = hasPaidDeposit && (currentStatus === 'pending' || currentStatus === 'message_sent')
+    ? 'confirmed'
+    : (currentStatus || 'pending');
+
+  const effectivePaymentStatus = hasPaidDeposit
+    ? 'paid'
+    : (currentPaymentStatus || 'unpaid');
+
+  return {
+    hasPaidDeposit,
+    status: effectiveStatus,
+    paymentStatus: effectivePaymentStatus,
+  };
+}
+
+async function syncCarsBookingStatesFromPaidDeposits(client, bookings = [], paidDepositMap = {}) {
+  const rows = Array.isArray(bookings) ? bookings : [];
+  if (!rows.length) return;
+
+  const paidIds = rows
+    .map((b) => String(b?.id || '').trim())
+    .filter((id) => Boolean(id && paidDepositMap[id] === true));
+
+  if (!paidIds.length) return;
+
+  try {
+    const { error: paymentErr } = await client
+      .from('car_bookings')
+      .update({ payment_status: 'paid' })
+      .in('id', paidIds)
+      .neq('payment_status', 'paid');
+
+    if (paymentErr) {
+      console.warn('Could not sync car booking payment_status from paid deposits:', paymentErr);
+    }
+  } catch (error) {
+    console.warn('Could not sync car booking payment_status from paid deposits:', error);
+  }
+
+  try {
+    const { error: statusErr } = await client
+      .from('car_bookings')
+      .update({ status: 'confirmed' })
+      .in('id', paidIds)
+      .in('status', ['pending', 'message_sent']);
+
+    if (statusErr) {
+      console.warn('Could not sync car booking status from paid deposits:', statusErr);
+    }
+  } catch (error) {
+    console.warn('Could not sync car booking status from paid deposits:', error);
+  }
+}
+
 async function loadCarsData(options = {}) {
   const { silent = false, showSuccessToast = false } = options;
   try {
@@ -12671,6 +12766,12 @@ async function loadCarsData(options = {}) {
 
     console.log('Car bookings loaded:', bookings);
     console.log('Total bookings count:', bookings?.length || 0);
+
+    const bookingIds = (Array.isArray(bookings) ? bookings : [])
+      .map((b) => String(b?.id || '').trim())
+      .filter(Boolean);
+    const paidDepositMap = await fetchCarsPaidDepositMap(client, bookingIds);
+    await syncCarsBookingStatesFromPaidDeposits(client, bookings, paidDepositMap);
 
     // Calculate stats from full dataset (not only the visible table page)
     const [totalBookings, activeRentals, pendingBookings, totalRevenue] = await Promise.all([
@@ -12731,6 +12832,7 @@ async function loadCarsData(options = {}) {
     }
 
     tableBody.innerHTML = bookings.map(booking => {
+      const effectiveState = getCarsBookingEffectiveState(booking, paidDepositMap);
       const startDate = booking.pickup_date ? new Date(booking.pickup_date).toLocaleDateString('en-GB') : 'N/A';
       const endDate = booking.return_date ? new Date(booking.return_date).toLocaleDateString('en-GB') : 'N/A';
       
@@ -12747,11 +12849,11 @@ async function loadCarsData(options = {}) {
       
       // Status badge colors
       const statusClass = 
-        booking.status === 'confirmed' ? 'badge-success' :
-        booking.status === 'active' ? 'badge-info' :
-        booking.status === 'completed' ? 'badge-success' :
-        booking.status === 'pending' ? 'badge-warning' :
-        booking.status === 'cancelled' ? 'badge-danger' : 'badge';
+        effectiveState.status === 'confirmed' ? 'badge-success' :
+        effectiveState.status === 'active' ? 'badge-info' :
+        effectiveState.status === 'completed' ? 'badge-success' :
+        effectiveState.status === 'pending' ? 'badge-warning' :
+        effectiveState.status === 'cancelled' ? 'badge-danger' : 'badge';
       
       // Location badges
       const pickupLoc = booking.pickup_location ? booking.pickup_location.toUpperCase().replace('_', ' ') : '?';
@@ -12790,10 +12892,10 @@ async function loadCarsData(options = {}) {
           </td>
           <td>
             <span class="badge ${statusClass}" style="display: block; margin-bottom: 4px;">
-              ${(booking.status || 'unknown').toUpperCase()}
+              ${(effectiveState.status || 'unknown').toUpperCase()}
             </span>
             <span class="badge badge-info" style="font-size: 10px;">
-              ${(booking.payment_status || 'unpaid').toUpperCase()}
+              ${(effectiveState.paymentStatus || 'unpaid').toUpperCase()}
             </span>
           </td>
           <td style="font-weight: 600; color: var(--admin-success);">
@@ -12863,6 +12965,11 @@ async function viewCarBookingDetails(bookingId) {
       showToast('Booking not found', 'error');
       return;
     }
+
+    const paidDepositMap = await fetchCarsPaidDepositMap(client, [bookingId]);
+    const effectiveState = getCarsBookingEffectiveState(booking, paidDepositMap);
+    if (effectiveState.status) booking.status = effectiveState.status;
+    if (effectiveState.paymentStatus) booking.payment_status = effectiveState.paymentStatus;
 
     const deleteBtn = document.getElementById('btnDeleteBooking');
     if (deleteBtn) {
