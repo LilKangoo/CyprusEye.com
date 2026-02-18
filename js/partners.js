@@ -139,6 +139,8 @@
     btnPartnerAnalyticsRefresh: null,
     partnerAnalyticsRangeLabel: null,
     partnerAnalyticsStatus: null,
+    partnerAnalyticsLiveChartCard: null,
+    partnerAnalyticsLiveChart: null,
 
     partnerAnalyticsKpiGross: null,
     partnerAnalyticsKpiNet: null,
@@ -1424,6 +1426,7 @@
       setHidden(els.partnerNavTrips, true);
       setHidden(els.partnerNavHotels, true);
       setHidden(els.partnerNavAnalytics, true);
+      setHidden(els.partnerAnalyticsTopProductsCard, true);
       if (String(state.selectedCategory || 'all') !== 'all') {
         state.selectedCategory = 'all';
       }
@@ -1442,6 +1445,7 @@
     setHidden(els.partnerNavTrips, !canTrips);
     setHidden(els.partnerNavHotels, !canHotels);
     setHidden(els.partnerNavAnalytics, !canAnalytics);
+    setHidden(els.partnerAnalyticsTopProductsCard, !canShop);
     if (!canAnalytics && els.partnerAnalyticsView && !els.partnerAnalyticsView.hidden) {
       setMainView('portal');
     }
@@ -3789,10 +3793,89 @@
   function setPartnerAnalyticsLoadingState(message) {
     const msg = String(message || 'Loading analytics…');
     setText(els.partnerAnalyticsStatus, msg);
+    if (els.partnerAnalyticsLiveChart) {
+      setHtml(els.partnerAnalyticsLiveChart, '<div class="partner-analytics-live-chart__empty">Loading chart…</div>');
+    }
     if (els.partnerAnalyticsByTypeBody) setHtml(els.partnerAnalyticsByTypeBody, '<tr><td colspan="5" class="muted" style="padding: 16px 8px;">Loading…</td></tr>');
     if (els.partnerAnalyticsTimeseriesBody) setHtml(els.partnerAnalyticsTimeseriesBody, '<tr><td colspan="5" class="muted" style="padding: 16px 8px;">Loading…</td></tr>');
     if (els.partnerAnalyticsTopOffersBody) setHtml(els.partnerAnalyticsTopOffersBody, '<tr><td colspan="4" class="muted" style="padding: 16px 8px;">Loading…</td></tr>');
     if (els.partnerAnalyticsTopProductsBody) setHtml(els.partnerAnalyticsTopProductsBody, '<tr><td colspan="4" class="muted" style="padding: 16px 8px;">Loading…</td></tr>');
+  }
+
+  function reduceTimeseriesForChart(rows, maxPoints = 18) {
+    const src = Array.isArray(rows) ? rows : [];
+    const limit = Number.isFinite(maxPoints) && maxPoints > 0 ? Math.floor(maxPoints) : 18;
+    if (src.length <= limit) return src;
+
+    const bucketSize = Math.ceil(src.length / limit);
+    const out = [];
+    for (let i = 0; i < src.length; i += bucketSize) {
+      const chunk = src.slice(i, i + bucketSize);
+      if (!chunk.length) continue;
+      const first = chunk[0];
+      const last = chunk[chunk.length - 1];
+      out.push({
+        bucket: last?.bucket || first?.bucket || '',
+        bucketStart: first?.bucket || '',
+        orders: chunk.reduce((sum, row) => sum + toNum(row?.orders), 0),
+        sold: chunk.reduce((sum, row) => sum + toNum(row?.sold), 0),
+        gross: chunk.reduce((sum, row) => sum + toNum(row?.gross), 0),
+        net: chunk.reduce((sum, row) => sum + toNum(row?.net), 0),
+      });
+    }
+    return out;
+  }
+
+  function renderAnalyticsLiveChart(timeseriesRows, range) {
+    if (!els.partnerAnalyticsLiveChart) return;
+    const rows = reduceTimeseriesForChart(timeseriesRows, range?.period === 'year' ? 12 : 16);
+
+    if (!rows.length) {
+      setHtml(els.partnerAnalyticsLiveChart, '<div class="partner-analytics-live-chart__empty">No trend data for this range.</div>');
+      return;
+    }
+
+    const maxNet = rows.reduce((max, row) => Math.max(max, toNum(row?.net)), 0);
+    const maxOrders = rows.reduce((max, row) => Math.max(max, toNum(row?.orders)), 0);
+    const safeMaxNet = maxNet > 0 ? maxNet : 1;
+    const safeMaxOrders = maxOrders > 0 ? maxOrders : 1;
+    const totalNet = rows.reduce((sum, row) => sum + toNum(row?.net), 0);
+    const totalOrders = rows.reduce((sum, row) => sum + toNum(row?.orders), 0);
+
+    const bars = rows.map((row, index) => {
+      const net = toNum(row?.net);
+      const orders = toNum(row?.orders);
+      const heightPct = Math.max(4, Math.min(100, Math.round((net / safeMaxNet) * 100)));
+      const label = analyticsLabelFromBucket(row?.bucket, range?.period);
+      const shortLabel = range?.period === 'year'
+        ? label.split(' ')[0]
+        : label.split(' ')[0];
+      const delay = Math.min(index * 36, 540);
+      return `
+        <div class="partner-analytics-live-chart__col" title="${escapeHtml(label)}: ${escapeHtml(formatMoney(net, 'EUR'))}, ${orders} orders">
+          <div class="partner-analytics-live-chart__bar-wrap">
+            <div class="partner-analytics-live-chart__bar" style="height:${heightPct}%; --bar-delay:${delay}ms;"></div>
+          </div>
+          <div class="partner-analytics-live-chart__orders">${orders}</div>
+          <div class="partner-analytics-live-chart__label">${escapeHtml(shortLabel)}</div>
+        </div>
+      `;
+    }).join('');
+
+    setHtml(
+      els.partnerAnalyticsLiveChart,
+      `
+        <div class="partner-analytics-live-chart__metrics">
+          <span>Total net<strong>${escapeHtml(formatMoney(totalNet, 'EUR'))}</strong></span>
+          <span>Total orders<strong>${totalOrders}</strong></span>
+          <span>Peak net<strong>${escapeHtml(formatMoney(maxNet, 'EUR'))}</strong></span>
+          <span>Peak orders<strong>${safeMaxOrders}</strong></span>
+        </div>
+        <div class="partner-analytics-live-chart__bars" style="grid-template-columns: repeat(${rows.length}, minmax(0, 1fr));">
+          ${bars}
+        </div>
+      `
+    );
   }
 
   function fillAnalyticsKpis(values) {
@@ -3831,10 +3914,13 @@
     setText(els.partnerAnalyticsRangeLabel, `Range: ${range.label}`);
 
     try {
+      const { canShop } = getSelectedPartnerCapabilities();
       const selectedCategory = String(state.analytics.category || 'all').trim().toLowerCase();
       const [serviceRowsRaw, shopRowsRaw] = await Promise.all([
         selectedCategory === 'shop' ? Promise.resolve([]) : fetchServiceFulfillmentsForAnalytics(range.fromIso, range.toIso),
-        shopMatchesCategory(selectedCategory) ? fetchShopFulfillmentsForAnalytics(range.fromIso, range.toIso) : Promise.resolve([]),
+        canShop && shopMatchesCategory(selectedCategory)
+          ? fetchShopFulfillmentsForAnalytics(range.fromIso, range.toIso)
+          : Promise.resolve([]),
       ]);
 
       const serviceRows = Array.isArray(serviceRowsRaw) ? serviceRowsRaw : [];
@@ -4039,6 +4125,8 @@
       const timeseriesRows = Object.values(timeseries)
         .sort((a, b) => String(a.bucket || '').localeCompare(String(b.bucket || '')));
 
+      renderAnalyticsLiveChart(timeseriesRows, range);
+
       setHtml(
         els.partnerAnalyticsTimeseriesBody,
         timeseriesRows.length
@@ -4096,13 +4184,15 @@
       );
 
       setHidden(els.partnerAnalyticsTopOffersCard, topServiceRows.length === 0 && selectedCategory === 'shop');
-      setHidden(els.partnerAnalyticsTopProductsCard, topProductRows.length === 0 && selectedCategory !== 'shop' && selectedCategory !== 'all');
+      const hideTopProducts = !canShop || (topProductRows.length === 0 && selectedCategory !== 'shop' && selectedCategory !== 'all');
+      setHidden(els.partnerAnalyticsTopProductsCard, hideTopProducts);
 
       const updatedAt = new Date().toLocaleString('en-GB');
       setText(els.partnerAnalyticsStatus, `Updated: ${updatedAt}`);
     } catch (error) {
       console.error(error);
       fillAnalyticsKpis({ gross: 0, net: 0, sold: 0, total: 0, avg: 0, pending: 0, awaiting: 0, cancelled: 0 });
+      renderAnalyticsLiveChart([], range);
       setText(els.partnerAnalyticsStatus, `Failed to load analytics: ${error.message || 'Unknown error'}`);
       if (!silent) {
         showToast(`Error: ${error.message || 'Failed to load analytics'}`, 'error');
@@ -6475,6 +6565,8 @@
     els.btnPartnerAnalyticsRefresh = $('btnPartnerAnalyticsRefresh');
     els.partnerAnalyticsRangeLabel = $('partnerAnalyticsRangeLabel');
     els.partnerAnalyticsStatus = $('partnerAnalyticsStatus');
+    els.partnerAnalyticsLiveChartCard = $('partnerAnalyticsLiveChartCard');
+    els.partnerAnalyticsLiveChart = $('partnerAnalyticsLiveChart');
 
     els.partnerAnalyticsKpiGross = $('partnerAnalyticsKpiGross');
     els.partnerAnalyticsKpiNet = $('partnerAnalyticsKpiNet');
