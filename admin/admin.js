@@ -6544,17 +6544,11 @@ async function updateTripBookingStatus(bookingId, newStatus) {
     showToast(`Status updated to: ${newStatus}`, 'success');
     await loadTripBookingsData(); // Refresh table
     await loadAllOrders({ silent: true });
-    
-    // Update badge in modal
-    const badge = document.querySelector('#tripBookingDetailsModal .badge');
-    if (badge) {
-      badge.textContent = newStatus.toUpperCase();
-      badge.className = 'badge ' + (
-        newStatus === 'confirmed' ? 'badge-success' :
-        newStatus === 'pending' ? 'badge-warning' :
-        newStatus === 'cancelled' ? 'badge-danger' :
-        newStatus === 'completed' ? 'badge-success' : 'badge'
-      );
+
+    // Re-render details modal to keep status, actions and fulfillment block in sync.
+    const modal = $('#tripBookingDetailsModal');
+    if (modal && !modal.hidden) {
+      await viewTripBookingDetails(bookingId);
     }
 
   } catch (e) {
@@ -9068,15 +9062,10 @@ async function updateHotelBookingStatus(bookingId, newStatus) {
     await loadHotelBookingsData();
     await loadAllOrders({ silent: true });
 
-    const badge = document.querySelector('#hotelBookingDetailsModal .badge');
-    if (badge) {
-      badge.textContent = newStatus.toUpperCase();
-      badge.className = 'badge ' + (
-        newStatus === 'confirmed' ? 'badge-success' :
-        newStatus === 'pending' ? 'badge-warning' :
-        newStatus === 'cancelled' ? 'badge-danger' :
-        newStatus === 'completed' ? 'badge-success' : 'badge'
-      );
+    // Re-render details modal to keep status, actions and fulfillment block in sync.
+    const modal = $('#hotelBookingDetailsModal');
+    if (modal && !modal.hidden) {
+      await viewHotelBookingDetails(bookingId);
     }
   } catch (e) {
     console.error('Failed to update status:', e);
@@ -13735,11 +13724,11 @@ async function updateBookingStatus(bookingId, newStatus) {
 
     if (error) {
       console.error('Failed to update booking status:', error);
-      showToast('Błąd aktualizacji statusu: ' + error.message, 'error');
+      showToast('Failed to update status: ' + error.message, 'error');
       return;
     }
 
-    showToast(`Status zmieniony na: ${newStatus}`, 'success');
+    showToast(`Status updated to: ${newStatus}`, 'success');
 
     // Reload data
     await loadCarsData();
@@ -13753,7 +13742,7 @@ async function updateBookingStatus(bookingId, newStatus) {
 
   } catch (e) {
     console.error('Error updating booking status:', e);
-    showToast('Błąd: ' + e.message, 'error');
+    showToast('Failed to update status: ' + e.message, 'error');
   }
 }
 
@@ -20597,21 +20586,42 @@ document.addEventListener('DOMContentLoaded', function() {
 let allOrdersCache = [];
 let filteredOrders = [];
 
+function normalizeServiceBookingStatus(statusRaw) {
+  const status = String(statusRaw || '').trim().toLowerCase();
+  if (!status) return '';
+  if (status === 'message_sent') return 'pending';
+  if (status === 'active') return 'confirmed';
+  return status;
+}
+
+function normalizeServiceFulfillmentStatus(statusRaw) {
+  const status = String(statusRaw || '').trim().toLowerCase();
+  if (!status) return '';
+  if (status === 'pending_acceptance') return 'pending';
+  if (status === 'awaiting_payment') return 'pending';
+  if (status === 'accepted') return 'confirmed';
+  if (status === 'rejected') return 'cancelled';
+  if (status === 'expired') return 'cancelled';
+  if (status === 'closed') return 'pending';
+  return status;
+}
+
 function getAllOrdersNormalizedStatus(order) {
   if (!order) return '';
   const cat = String(order.category || '').trim();
   if (cat === 'cars' || cat === 'trips' || cat === 'hotels') {
-    const fs = String(order.fulfillment_status || '').trim();
-    if (!fs) return String(order.status || '').trim();
-    if (fs === 'pending_acceptance') return 'pending';
-    if (fs === 'awaiting_payment') return 'pending';
-    if (fs === 'accepted') return 'confirmed';
-    if (fs === 'rejected') return 'cancelled';
-    if (fs === 'expired') return 'cancelled';
-    if (fs === 'closed') return 'pending';
-    return fs;
+    const bookingStatus = normalizeServiceBookingStatus(order.status);
+    const fulfillmentStatus = normalizeServiceFulfillmentStatus(order.fulfillment_status);
+
+    // Admin-controlled states must be reflected immediately across all views.
+    if (bookingStatus === 'completed' || bookingStatus === 'cancelled') return bookingStatus;
+    if (bookingStatus === 'confirmed') return 'confirmed';
+
+    // Fallback to fulfillment-derived status when booking remains pending.
+    if (fulfillmentStatus) return fulfillmentStatus;
+    return bookingStatus;
   }
-  return String(order.status || '').trim();
+  return String(order.status || '').trim().toLowerCase();
 }
 
 function compareServiceFulfillmentRows(a, b) {
@@ -20681,6 +20691,7 @@ async function loadAllOrders(opts = {}) {
     const tripIds = (tripsResult.data || []).map((b) => b && b.id).filter(Boolean);
     const hotelIds = (hotelsResult.data || []).map((b) => b && b.id).filter(Boolean);
     const serviceBookingIds = [...carIds, ...tripIds, ...hotelIds];
+    const carPaidDepositMap = await fetchCarsPaidDepositMap(client, carIds);
 
     const fulfillmentByKey = {};
     if (serviceBookingIds.length) {
@@ -20713,8 +20724,11 @@ async function loadAllOrders(opts = {}) {
     const carBookings = (carsResult.data || []).map(booking => {
       const f = fulfillmentByKey[`cars:${String(booking?.id || '')}`] || null;
       const priceMeta = getCarBookingEffectivePriceMeta(booking);
+      const effectiveState = getCarsBookingEffectiveState(booking, carPaidDepositMap);
       return ({
       ...booking,
+      status: effectiveState.status || booking.status,
+      payment_status: effectiveState.paymentStatus || booking.payment_status,
       category: 'cars',
       categoryLabel: 'Car Rental',
       categoryIcon: '🚗',
