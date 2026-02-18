@@ -141,6 +141,8 @@
     partnerAnalyticsStatus: null,
     partnerAnalyticsLiveChartCard: null,
     partnerAnalyticsLiveChart: null,
+    partnerAnalyticsResponseChartCard: null,
+    partnerAnalyticsResponseChart: null,
 
     partnerAnalyticsKpiGross: null,
     partnerAnalyticsKpiNet: null,
@@ -150,6 +152,8 @@
     partnerAnalyticsKpiPending: null,
     partnerAnalyticsKpiAwaiting: null,
     partnerAnalyticsKpiCancelled: null,
+    partnerAnalyticsKpiResponseAvg: null,
+    partnerAnalyticsKpiResponseCount: null,
 
     partnerAnalyticsByTypeBody: null,
     partnerAnalyticsTimeseriesHead: null,
@@ -3657,8 +3661,10 @@
   }
 
   async function fetchServiceFulfillmentsForAnalytics(fromIso, toIso) {
-    const withDetailsSelect = 'id, partner_id, resource_type, booking_id, resource_id, status, created_at, reference, summary, total_price, currency, details';
-    const withoutDetailsSelect = 'id, partner_id, resource_type, booking_id, resource_id, status, created_at, reference, summary, total_price, currency';
+    const withDetailsSelect = 'id, partner_id, resource_type, booking_id, resource_id, status, created_at, accepted_at, rejected_at, reference, summary, total_price, currency, details';
+    const withoutDetailsSelect = 'id, partner_id, resource_type, booking_id, resource_id, status, created_at, accepted_at, rejected_at, reference, summary, total_price, currency';
+    const withDetailsLegacySelect = 'id, partner_id, resource_type, booking_id, resource_id, status, created_at, reference, summary, total_price, currency, details';
+    const withoutDetailsLegacySelect = 'id, partner_id, resource_type, booking_id, resource_id, status, created_at, reference, summary, total_price, currency';
 
     const build = (selectText) => (from, size) => state.sb
       .from('partner_service_fulfillments')
@@ -3669,23 +3675,50 @@
       .order('created_at', { ascending: false })
       .range(from, from + size - 1);
 
-    try {
-      return await fetchPagedRows(build(withDetailsSelect), 400, 12000);
-    } catch (error) {
-      if (!/details/i.test(String(error?.message || ''))) throw error;
-      return fetchPagedRows(build(withoutDetailsSelect), 400, 12000);
+    const selectCandidates = [
+      withDetailsSelect,
+      withoutDetailsSelect,
+      withDetailsLegacySelect,
+      withoutDetailsLegacySelect,
+    ];
+
+    let lastError = null;
+    for (const selectText of selectCandidates) {
+      try {
+        return await fetchPagedRows(build(selectText), 400, 12000);
+      } catch (error) {
+        lastError = error;
+        const message = String(error?.message || '');
+        if (!/(details|accepted_at|rejected_at)/i.test(message)) break;
+      }
     }
+    throw lastError || new Error('Failed to load service fulfillments');
   }
 
   async function fetchShopFulfillmentsForAnalytics(fromIso, toIso) {
-    return fetchPagedRows((from, size) => state.sb
-      .from('shop_order_fulfillments')
-      .select('id, partner_id, order_id, order_number, status, created_at, subtotal, total_allocated')
-      .eq('partner_id', state.selectedPartnerId)
-      .gte('created_at', fromIso)
-      .lt('created_at', toIso)
-      .order('created_at', { ascending: false })
-      .range(from, from + size - 1), 400, 12000);
+    const selectCandidates = [
+      'id, partner_id, order_id, order_number, status, created_at, accepted_at, rejected_at, subtotal, total_allocated',
+      'id, partner_id, order_id, order_number, status, created_at, subtotal, total_allocated',
+    ];
+
+    let lastError = null;
+    for (const selectText of selectCandidates) {
+      try {
+        return await fetchPagedRows((from, size) => state.sb
+          .from('shop_order_fulfillments')
+          .select(selectText)
+          .eq('partner_id', state.selectedPartnerId)
+          .gte('created_at', fromIso)
+          .lt('created_at', toIso)
+          .order('created_at', { ascending: false })
+          .range(from, from + size - 1), 400, 12000);
+      } catch (error) {
+        lastError = error;
+        const message = String(error?.message || '');
+        if (!/(accepted_at|rejected_at)/i.test(message)) break;
+      }
+    }
+    throw lastError || new Error('Failed to load shop fulfillments');
   }
 
   function chunkValues(values, size = 100) {
@@ -3796,6 +3829,9 @@
     if (els.partnerAnalyticsLiveChart) {
       setHtml(els.partnerAnalyticsLiveChart, '<div class="partner-analytics-live-chart__empty">Loading chart…</div>');
     }
+    if (els.partnerAnalyticsResponseChart) {
+      setHtml(els.partnerAnalyticsResponseChart, '<div class="partner-analytics-live-chart__empty">Loading response chart…</div>');
+    }
     if (els.partnerAnalyticsByTypeBody) setHtml(els.partnerAnalyticsByTypeBody, '<tr><td colspan="5" class="muted" style="padding: 16px 8px;">Loading…</td></tr>');
     if (els.partnerAnalyticsTimeseriesBody) setHtml(els.partnerAnalyticsTimeseriesBody, '<tr><td colspan="5" class="muted" style="padding: 16px 8px;">Loading…</td></tr>');
     if (els.partnerAnalyticsTopOffersBody) setHtml(els.partnerAnalyticsTopOffersBody, '<tr><td colspan="4" class="muted" style="padding: 16px 8px;">Loading…</td></tr>');
@@ -3878,6 +3914,120 @@
     );
   }
 
+  function formatResponseMinutes(minutesValue) {
+    const minutes = Math.max(0, Math.round(toNum(minutesValue)));
+    if (!Number.isFinite(minutes) || minutes <= 0) return '0m';
+    if (minutes < 60) return `${minutes}m`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    if (hours < 24) return mins ? `${hours}h ${mins}m` : `${hours}h`;
+    const days = Math.floor(hours / 24);
+    const remHours = hours % 24;
+    if (!remHours) return `${days}d`;
+    return `${days}d ${remHours}h`;
+  }
+
+  function parseIsoMs(value) {
+    const text = String(value || '').trim();
+    if (!text) return null;
+    const ms = Date.parse(text);
+    return Number.isFinite(ms) ? ms : null;
+  }
+
+  function responseMinutesFromFulfillment(row) {
+    const createdMs = parseIsoMs(row?.created_at);
+    if (!Number.isFinite(createdMs)) return null;
+
+    const acceptedMs = parseIsoMs(row?.accepted_at);
+    const rejectedMs = parseIsoMs(row?.rejected_at);
+    let decisionMs = null;
+    if (Number.isFinite(acceptedMs) && Number.isFinite(rejectedMs)) decisionMs = Math.min(acceptedMs, rejectedMs);
+    else if (Number.isFinite(acceptedMs)) decisionMs = acceptedMs;
+    else if (Number.isFinite(rejectedMs)) decisionMs = rejectedMs;
+    if (!Number.isFinite(decisionMs)) return null;
+
+    const diffMinutes = (decisionMs - createdMs) / 60000;
+    if (!Number.isFinite(diffMinutes) || diffMinutes < 0) return null;
+    return diffMinutes;
+  }
+
+  function reduceResponseSeriesForChart(rows, maxPoints = 18) {
+    const src = Array.isArray(rows) ? rows : [];
+    const limit = Number.isFinite(maxPoints) && maxPoints > 0 ? Math.floor(maxPoints) : 18;
+    if (src.length <= limit) return src;
+
+    const bucketSize = Math.ceil(src.length / limit);
+    const out = [];
+    for (let i = 0; i < src.length; i += bucketSize) {
+      const chunk = src.slice(i, i + bucketSize);
+      if (!chunk.length) continue;
+      const first = chunk[0];
+      const last = chunk[chunk.length - 1];
+      const decisions = chunk.reduce((sum, row) => sum + toNum(row?.decisions), 0);
+      const totalMinutes = chunk.reduce((sum, row) => sum + toNum(row?.totalMinutes), 0);
+      out.push({
+        bucket: last?.bucket || first?.bucket || '',
+        decisions,
+        totalMinutes,
+        avgMinutes: decisions > 0 ? (totalMinutes / decisions) : 0,
+      });
+    }
+    return out;
+  }
+
+  function renderAnalyticsResponseChart(responseRows, range) {
+    if (!els.partnerAnalyticsResponseChart) return;
+    const rows = reduceResponseSeriesForChart(responseRows, range?.period === 'year' ? 12 : 16);
+
+    if (!rows.length) {
+      setHtml(els.partnerAnalyticsResponseChart, '<div class="partner-analytics-live-chart__empty">No response actions in this range.</div>');
+      return;
+    }
+
+    const maxAvg = rows.reduce((max, row) => Math.max(max, toNum(row?.avgMinutes)), 0);
+    const safeMaxAvg = maxAvg > 0 ? maxAvg : 1;
+    const totalDecisions = rows.reduce((sum, row) => sum + toNum(row?.decisions), 0);
+    const totalMinutes = rows.reduce((sum, row) => sum + toNum(row?.totalMinutes), 0);
+    const overallAvg = totalDecisions > 0 ? (totalMinutes / totalDecisions) : 0;
+    const positiveAvgValues = rows
+      .map((row) => toNum(row?.avgMinutes))
+      .filter((value) => Number.isFinite(value) && value > 0);
+    const bestAvg = positiveAvgValues.length ? Math.min(...positiveAvgValues) : 0;
+
+    const bars = rows.map((row, index) => {
+      const avgMinutes = toNum(row?.avgMinutes);
+      const decisions = toNum(row?.decisions);
+      const heightPct = Math.max(4, Math.min(100, Math.round((avgMinutes / safeMaxAvg) * 100)));
+      const label = analyticsLabelFromBucket(row?.bucket, range?.period);
+      const shortLabel = label.split(' ')[0];
+      const delay = Math.min(index * 36, 540);
+      return `
+        <div class="partner-analytics-live-chart__col" title="${escapeHtml(label)}: ${escapeHtml(formatResponseMinutes(avgMinutes))}, ${decisions} decisions">
+          <div class="partner-analytics-live-chart__bar-wrap">
+            <div class="partner-analytics-live-chart__bar partner-analytics-live-chart__bar--response" style="height:${heightPct}%; --bar-delay:${delay}ms;"></div>
+          </div>
+          <div class="partner-analytics-live-chart__orders">${escapeHtml(formatResponseMinutes(avgMinutes))}</div>
+          <div class="partner-analytics-live-chart__label">${escapeHtml(shortLabel)}</div>
+        </div>
+      `;
+    }).join('');
+
+    setHtml(
+      els.partnerAnalyticsResponseChart,
+      `
+        <div class="partner-analytics-live-chart__metrics">
+          <span>Average<strong>${escapeHtml(formatResponseMinutes(overallAvg))}</strong></span>
+          <span>Decisions<strong>${totalDecisions}</strong></span>
+          <span>Best<strong>${escapeHtml(formatResponseMinutes(bestAvg))}</strong></span>
+          <span>Slowest<strong>${escapeHtml(formatResponseMinutes(maxAvg))}</strong></span>
+        </div>
+        <div class="partner-analytics-live-chart__bars" style="grid-template-columns: repeat(${rows.length}, minmax(0, 1fr));">
+          ${bars}
+        </div>
+      `
+    );
+  }
+
   function fillAnalyticsKpis(values) {
     const v = values || {};
     setText(els.partnerAnalyticsKpiGross, formatMoney(toNum(v.gross), 'EUR'));
@@ -3888,6 +4038,8 @@
     setText(els.partnerAnalyticsKpiPending, String(toNum(v.pending)));
     setText(els.partnerAnalyticsKpiAwaiting, String(toNum(v.awaiting)));
     setText(els.partnerAnalyticsKpiCancelled, String(toNum(v.cancelled)));
+    setText(els.partnerAnalyticsKpiResponseAvg, toNum(v.responseCount) > 0 ? formatResponseMinutes(v.avgResponseMinutes) : '—');
+    setText(els.partnerAnalyticsKpiResponseCount, String(toNum(v.responseCount)));
   }
 
   async function refreshPartnerAnalyticsView(options = {}) {
@@ -3951,6 +4103,8 @@
         cancelled: 0,
         gross: 0,
         net: 0,
+        responseMinutes: 0,
+        responseCount: 0,
       };
 
       const byType = {
@@ -3972,16 +4126,42 @@
         return timeseries[bucketKey];
       };
 
+      const responseSeries = {};
+      const ensureResponseRow = (bucketKey) => {
+        if (!bucketKey) return null;
+        if (!responseSeries[bucketKey]) {
+          responseSeries[bucketKey] = { bucket: bucketKey, decisions: 0, totalMinutes: 0, avgMinutes: 0 };
+        }
+        return responseSeries[bucketKey];
+      };
+
+      const recordResponseMetric = (bucketKey, responseMinutes) => {
+        const minutes = toNum(responseMinutes);
+        if (!Number.isFinite(minutes) || minutes < 0) return;
+        summary.responseMinutes += minutes;
+        summary.responseCount += 1;
+        const bucket = ensureResponseRow(bucketKey);
+        if (!bucket) return;
+        bucket.decisions += 1;
+        bucket.totalMinutes += minutes;
+      };
+
       filteredServiceRows.forEach((row) => {
         const fStatusRaw = String(row?.status || '').trim().toLowerCase();
         const resolvedStatus = resolveServiceOrderStatus(row);
         const type = String(row?.resource_type || '').trim().toLowerCase();
         const typeAgg = byType[type] || null;
         const bucket = ensureTsRow(analyticsBucketKeyFromDate(row?.created_at, range.period));
+        const responseBucketKey = analyticsBucketKeyFromDate(row?.created_at, range.period);
 
         summary.total += 1;
         if (typeAgg) typeAgg.orders += 1;
         if (bucket) bucket.orders += 1;
+
+        const responseMinutes = responseMinutesFromFulfillment(row);
+        if (responseMinutes != null) {
+          recordResponseMetric(responseBucketKey, responseMinutes);
+        }
 
         const isAwaiting = fStatusRaw === 'awaiting_payment';
         const isPending = !isAwaiting && resolvedStatus === 'pending';
@@ -4035,10 +4215,16 @@
       filteredShopRows.forEach((row) => {
         const status = String(row?.status || '').trim().toLowerCase();
         const bucket = ensureTsRow(analyticsBucketKeyFromDate(row?.created_at, range.period));
+        const responseBucketKey = analyticsBucketKeyFromDate(row?.created_at, range.period);
 
         summary.total += 1;
         byType.shop.orders += 1;
         if (bucket) bucket.orders += 1;
+
+        const responseMinutes = responseMinutesFromFulfillment(row);
+        if (responseMinutes != null) {
+          recordResponseMetric(responseBucketKey, responseMinutes);
+        }
 
         const isAwaiting = status === 'awaiting_payment';
         const isPending = status === 'pending_acceptance';
@@ -4097,6 +4283,9 @@
       summary.gross = Number(summary.gross.toFixed(2));
       summary.net = Number(summary.net.toFixed(2));
       summary.avg = summary.sold > 0 ? Number((summary.gross / summary.sold).toFixed(2)) : 0;
+      summary.avgResponseMinutes = summary.responseCount > 0
+        ? Number((summary.responseMinutes / summary.responseCount).toFixed(2))
+        : 0;
 
       fillAnalyticsKpis(summary);
 
@@ -4124,8 +4313,15 @@
 
       const timeseriesRows = Object.values(timeseries)
         .sort((a, b) => String(a.bucket || '').localeCompare(String(b.bucket || '')));
+      const responseRows = Object.values(responseSeries)
+        .map((row) => ({
+          ...row,
+          avgMinutes: row.decisions > 0 ? Number((row.totalMinutes / row.decisions).toFixed(2)) : 0,
+        }))
+        .sort((a, b) => String(a.bucket || '').localeCompare(String(b.bucket || '')));
 
       renderAnalyticsLiveChart(timeseriesRows, range);
+      renderAnalyticsResponseChart(responseRows, range);
 
       setHtml(
         els.partnerAnalyticsTimeseriesBody,
@@ -4191,8 +4387,20 @@
       setText(els.partnerAnalyticsStatus, `Updated: ${updatedAt}`);
     } catch (error) {
       console.error(error);
-      fillAnalyticsKpis({ gross: 0, net: 0, sold: 0, total: 0, avg: 0, pending: 0, awaiting: 0, cancelled: 0 });
+      fillAnalyticsKpis({
+        gross: 0,
+        net: 0,
+        sold: 0,
+        total: 0,
+        avg: 0,
+        pending: 0,
+        awaiting: 0,
+        cancelled: 0,
+        responseCount: 0,
+        avgResponseMinutes: 0,
+      });
       renderAnalyticsLiveChart([], range);
+      renderAnalyticsResponseChart([], range);
       setText(els.partnerAnalyticsStatus, `Failed to load analytics: ${error.message || 'Unknown error'}`);
       if (!silent) {
         showToast(`Error: ${error.message || 'Failed to load analytics'}`, 'error');
@@ -6567,6 +6775,8 @@
     els.partnerAnalyticsStatus = $('partnerAnalyticsStatus');
     els.partnerAnalyticsLiveChartCard = $('partnerAnalyticsLiveChartCard');
     els.partnerAnalyticsLiveChart = $('partnerAnalyticsLiveChart');
+    els.partnerAnalyticsResponseChartCard = $('partnerAnalyticsResponseChartCard');
+    els.partnerAnalyticsResponseChart = $('partnerAnalyticsResponseChart');
 
     els.partnerAnalyticsKpiGross = $('partnerAnalyticsKpiGross');
     els.partnerAnalyticsKpiNet = $('partnerAnalyticsKpiNet');
@@ -6576,6 +6786,8 @@
     els.partnerAnalyticsKpiPending = $('partnerAnalyticsKpiPending');
     els.partnerAnalyticsKpiAwaiting = $('partnerAnalyticsKpiAwaiting');
     els.partnerAnalyticsKpiCancelled = $('partnerAnalyticsKpiCancelled');
+    els.partnerAnalyticsKpiResponseAvg = $('partnerAnalyticsKpiResponseAvg');
+    els.partnerAnalyticsKpiResponseCount = $('partnerAnalyticsKpiResponseCount');
 
     els.partnerAnalyticsByTypeBody = $('partnerAnalyticsByTypeBody');
     els.partnerAnalyticsTimeseriesHead = $('partnerAnalyticsTimeseriesHead');

@@ -287,6 +287,7 @@
     .partner-analytics-range { margin: 0; }
     .partner-analytics-status { margin: 0; text-align: right; }
     .partner-analytics-kpi-grid { margin-top: 8px; }
+    .partner-analytics-kpi-grid--two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .partner-analytics-kpi-grid .partner-metric { padding: 7px 9px; }
     .partner-analytics-kpi-grid .partner-metric__value { margin-top: 3px; font-size: clamp(15px, 2.4vw, 19px); }
     .partner-analytics-chart-card { max-width: 1200px; padding: 14px; }
@@ -380,6 +381,10 @@
       overflow: hidden;
       text-overflow: ellipsis;
       max-width: 100%;
+    }
+    .partner-analytics-live-chart__bar--response {
+      background: linear-gradient(180deg, rgba(16, 185, 129, 0.95), rgba(5, 150, 105, 0.75));
+      box-shadow: 0 6px 18px rgba(5, 150, 105, 0.22);
     }
     @keyframes partnerAnalyticsBarGrow {
       to {
@@ -1714,6 +1719,11 @@
           <div class="partner-metric"><div class="partner-metric__label">Awaiting payment</div><div class="partner-metric__value" id="partnerAnalyticsKpiAwaiting">0</div></div>
           <div class="partner-metric"><div class="partner-metric__label">Cancelled / rejected</div><div class="partner-metric__value" id="partnerAnalyticsKpiCancelled">0</div></div>
         </div>
+
+        <div class="partner-metric-grid partner-analytics-kpi-grid partner-analytics-kpi-grid--two">
+          <div class="partner-metric"><div class="partner-metric__label">Average response time</div><div class="partner-metric__value" id="partnerAnalyticsKpiResponseAvg">—</div></div>
+          <div class="partner-metric"><div class="partner-metric__label">Decisions made</div><div class="partner-metric__value" id="partnerAnalyticsKpiResponseCount">0</div></div>
+        </div>
       </section>
 
       <section id="partnerAnalyticsLiveChartCard" class="partner-card partner-analytics-chart-card">
@@ -1722,6 +1732,14 @@
           <div class="muted small">Net earnings (bars) and orders count</div>
         </div>
         <div id="partnerAnalyticsLiveChart" class="partner-analytics-live-chart" aria-live="polite"></div>
+      </section>
+
+      <section id="partnerAnalyticsResponseChartCard" class="partner-card partner-analytics-chart-card">
+        <div class="partner-analytics-chart-head">
+          <h2>Response time trend</h2>
+          <div class="muted small">Time from order creation to first decision (accept/reject)</div>
+        </div>
+        <div id="partnerAnalyticsResponseChart" class="partner-analytics-live-chart" aria-live="polite"></div>
       </section>
 
       <section id="partnerAnalyticsByTypeCard" class="partner-card partner-analytics-table-card">
