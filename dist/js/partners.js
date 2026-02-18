@@ -2592,8 +2592,14 @@
   }
 
   function statusBadge(status) {
-    const s = String(status || '');
+    const s = String(status || '').trim().toLowerCase();
     const colors = {
+      pending: '#f59e0b',
+      message_sent: '#f59e0b',
+      confirmed: '#22c55e',
+      active: '#22c55e',
+      completed: '#16a34a',
+      cancelled: '#ef4444',
       awaiting_payment: '#6b7280',
       pending_acceptance: '#f59e0b',
       accepted: '#22c55e',
@@ -2601,12 +2607,22 @@
       expired: '#ef4444',
       closed: '#6b7280',
     };
-    const label = s === 'pending_acceptance'
+    const label = s === 'pending' || s === 'message_sent'
       ? '⏳ pending'
+      : s === 'confirmed'
+        ? '✅ confirmed'
+      : s === 'active'
+        ? '🚗 active'
+      : s === 'completed'
+        ? '✔️ completed'
+      : s === 'cancelled'
+        ? '❌ cancelled'
+      : s === 'pending_acceptance'
+        ? '⏳ pending'
       : s === 'accepted'
         ? '✅ accepted'
-        : s === 'rejected'
-          ? '❌ rejected'
+      : s === 'rejected'
+        ? '❌ rejected'
           : s === 'awaiting_payment'
             ? '💳 awaiting'
             : s === 'closed'
@@ -2614,6 +2630,162 @@
             : s ? s : '—';
     const color = colors[s] || '#6b7280';
     return `<span class="badge" style="background:${color};">${escapeHtml(label)}</span>`;
+  }
+
+  function normalizeServiceBookingStatus(statusRaw) {
+    const status = String(statusRaw || '').trim().toLowerCase();
+    if (!status) return '';
+    if (status === 'message_sent') return 'pending';
+    if (status === 'active') return 'confirmed';
+    return status;
+  }
+
+  function normalizeServiceFulfillmentStatus(statusRaw) {
+    const status = String(statusRaw || '').trim().toLowerCase();
+    if (!status) return '';
+    if (status === 'pending_acceptance') return 'pending';
+    if (status === 'awaiting_payment') return 'pending';
+    if (status === 'accepted') return 'confirmed';
+    if (status === 'rejected') return 'cancelled';
+    if (status === 'expired') return 'cancelled';
+    if (status === 'closed') return 'pending';
+    return status;
+  }
+
+  function resolveServiceOrderStatus(fulfillment) {
+    if (!fulfillment) return '';
+
+    const bookingStatus = normalizeServiceBookingStatus(fulfillment.booking_status);
+    const fulfillmentStatus = normalizeServiceFulfillmentStatus(fulfillment.status);
+
+    if (bookingStatus === 'completed' || bookingStatus === 'cancelled') return bookingStatus;
+    if (bookingStatus === 'confirmed') return 'confirmed';
+    if (fulfillmentStatus) return fulfillmentStatus;
+    return bookingStatus;
+  }
+
+  async function loadServiceBookingStateByKey(serviceRows) {
+    const rows = Array.isArray(serviceRows) ? serviceRows : [];
+    const out = {};
+
+    const idsByType = {
+      cars: new Set(),
+      trips: new Set(),
+      hotels: new Set(),
+    };
+
+    rows.forEach((row) => {
+      if (!row) return;
+      const type = String(row.resource_type || '').trim().toLowerCase();
+      const bookingId = String(row.booking_id || '').trim();
+      if (!bookingId) return;
+      if (!idsByType[type]) return;
+      idsByType[type].add(bookingId);
+    });
+
+    const upsertState = (type, bookingId, status, paymentStatus) => {
+      const bid = String(bookingId || '').trim();
+      if (!bid) return;
+      const key = `${type}:${bid}`;
+      out[key] = {
+        status: normalizeServiceBookingStatus(status),
+        paymentStatus: String(paymentStatus || '').trim().toLowerCase(),
+      };
+    };
+
+    const loadCarsStatuses = async (carIds) => {
+      if (!carIds.length) return;
+
+      try {
+        let response = await state.sb
+          .from('car_bookings')
+          .select('id, status, payment_status')
+          .in('id', carIds)
+          .limit(500);
+
+        if (response.error && /payment_status/i.test(String(response.error.message || ''))) {
+          response = await state.sb
+            .from('car_bookings')
+            .select('id, status')
+            .in('id', carIds)
+            .limit(500);
+        }
+
+        if (!response.error) {
+          (response.data || []).forEach((row) => {
+            if (!row?.id) return;
+            upsertState('cars', row.id, row.status, row.payment_status || null);
+          });
+        }
+      } catch (error) {
+        console.warn('Partner panel: failed to load car booking statuses:', error);
+      }
+
+      try {
+        const { data, error } = await state.sb
+          .from('service_deposit_requests')
+          .select('booking_id, status, paid_at, created_at')
+          .eq('resource_type', 'cars')
+          .in('booking_id', carIds)
+          .order('created_at', { ascending: false })
+          .limit(2000);
+        if (error) throw error;
+
+        const paidMap = {};
+        (data || []).forEach((row) => {
+          const bookingId = String(row?.booking_id || '').trim();
+          if (!bookingId) return;
+          const depositStatus = String(row?.status || '').trim().toLowerCase();
+          if (depositStatus === 'paid' || row?.paid_at) {
+            paidMap[bookingId] = true;
+          } else if (!(bookingId in paidMap)) {
+            paidMap[bookingId] = false;
+          }
+        });
+
+        Object.entries(paidMap).forEach(([bookingId, isPaid]) => {
+          if (!isPaid) return;
+          const key = `cars:${bookingId}`;
+          const current = out[key] || { status: '', paymentStatus: '' };
+          const nextStatus = current.status === 'pending' || current.status === 'message_sent'
+            ? 'confirmed'
+            : (current.status || 'confirmed');
+          out[key] = {
+            ...current,
+            status: nextStatus,
+            paymentStatus: 'paid',
+          };
+        });
+      } catch (error) {
+        console.warn('Partner panel: failed to load paid deposits for cars:', error);
+      }
+    };
+
+    const loadSimpleStatuses = async (type, tableName, ids) => {
+      if (!ids.length) return;
+      try {
+        const { data, error } = await state.sb
+          .from(tableName)
+          .select('id, status')
+          .in('id', ids)
+          .limit(500);
+        if (error) throw error;
+        (data || []).forEach((row) => {
+          if (!row?.id) return;
+          upsertState(type, row.id, row.status, null);
+        });
+      } catch (error) {
+        console.warn(`Partner panel: failed to load ${type} booking statuses:`, error);
+      }
+    };
+
+    await Promise.all([
+      loadCarsStatuses(Array.from(idsByType.cars || [])),
+      loadSimpleStatuses('trips', 'trip_bookings', Array.from(idsByType.trips || [])),
+      loadSimpleStatuses('hotels', 'hotel_bookings', Array.from(idsByType.hotels || [])),
+    ]);
+
+    return out;
   }
 
   function selectPersistKey() {
@@ -2811,7 +2983,18 @@
     const shopRows = rawShopRows.map((f) => ({ ...f, __source: 'shop' }));
 
     const closedCount = rawServiceRows.filter((f) => String(f?.status || '').trim() === 'closed').length;
-    const serviceRows = rawServiceRows.map((f) => ({ ...f, __source: 'service' }));
+    const serviceBookingStateByKey = await loadServiceBookingStateByKey(rawServiceRows);
+    const serviceRows = rawServiceRows.map((f) => {
+      const type = String(f?.resource_type || '').trim().toLowerCase();
+      const bookingId = String(f?.booking_id || '').trim();
+      const bookingState = serviceBookingStateByKey[`${type}:${bookingId}`] || null;
+      return {
+        ...f,
+        __source: 'service',
+        booking_status: bookingState?.status || null,
+        booking_payment_status: bookingState?.paymentStatus || null,
+      };
+    });
 
     const merged = shopRows
       .concat(serviceRows)
@@ -3590,7 +3773,12 @@
       if (els.partnerDetailsMeta) els.partnerDetailsMeta.textContent = metaParts.join(' · ');
 
       if (els.partnerDetailsStatus) {
-        const pill = category ? String(category).toUpperCase() : '';
+        const categoryPill = category ? String(category).toUpperCase() : '';
+        const orderStatus = (!isShop && category !== 'service')
+          ? resolveServiceOrderStatus(f)
+          : String(f.status || '').trim().toLowerCase();
+        const statusPill = orderStatus ? String(orderStatus).replace(/_/g, ' ').toUpperCase() : '';
+        const pill = [categoryPill, statusPill].filter(Boolean).join(' · ');
         els.partnerDetailsStatus.hidden = !pill;
         els.partnerDetailsStatus.textContent = pill;
       }
@@ -4043,6 +4231,12 @@
         const rejectedInfo = String(f.status) === 'rejected' && f.rejected_reason
           ? `<div class="muted small" style="margin-top:6px;">${escapeHtml(f.rejected_reason)}</div>`
           : '';
+        const resolvedStatus = (!isShop && source === 'service')
+          ? resolveServiceOrderStatus(f)
+          : String(f.status || '').trim().toLowerCase();
+        const fulfillmentStatusHint = (!isShop && source === 'service')
+          ? `<div class="muted small" style="margin-top:6px;">Flow: ${escapeHtml(String(f.status || '').replace(/_/g, ' ') || '—')}</div>`
+          : '';
 
         return `
           <tr data-fulfillment-id="${escapeHtml(id)}">
@@ -4051,7 +4245,8 @@
               <div class="muted small">Created: ${escapeHtml(formatDate(f.created_at))}</div>
             </td>
             <td>
-              ${statusBadge(f.status)}
+              ${statusBadge(resolvedStatus || f.status)}
+              ${fulfillmentStatusHint}
               ${rejectedInfo}
             </td>
             <td>${datesHtml}</td>
