@@ -801,7 +801,6 @@ function renderEstimatedPriceQuote(estimatedEl, quote, rentalDays, daysLabel) {
           <span style="font-weight:600; color:#0f172a;">Final rental total</span>
           <strong style="font-weight:700; color:#0f172a;">${finalLabel} ${escapeHtml(currency)}</strong>
         </div>
-        <div style="font-size:12px; color:#64748b;">Coupon affects rental price only. Deposit is unchanged.</div>
       </div>
     `;
     return;
