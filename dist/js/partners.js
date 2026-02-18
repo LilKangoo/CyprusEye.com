@@ -29,6 +29,12 @@
         hotels: new Set(),
       },
     },
+    analytics: {
+      period: 'month',
+      monthValue: '',
+      yearValue: '',
+      category: 'all',
+    },
   };
 
   let blocksRealtimeChannel = null;
@@ -110,15 +116,46 @@
     partnerNavTrips: null,
     partnerNavHotels: null,
     partnerNavCalendar: null,
+    partnerNavAnalytics: null,
     partnerNavProfile: null,
     partnerNavReferrals: null,
     partnerUserName: null,
     partnerBreadcrumb: null,
 
     partnerPortalView: null,
+    partnerAnalyticsView: null,
     partnerProfileView: null,
 
     partnerReferralsView: null,
+
+    partnerAnalyticsPeriodType: null,
+    partnerAnalyticsMonth: null,
+    partnerAnalyticsMonthWrap: null,
+    partnerAnalyticsYear: null,
+    partnerAnalyticsYearWrap: null,
+    partnerAnalyticsCategoryFilter: null,
+    btnPartnerAnalyticsRefresh: null,
+    partnerAnalyticsRangeLabel: null,
+    partnerAnalyticsStatus: null,
+
+    partnerAnalyticsKpiGross: null,
+    partnerAnalyticsKpiNet: null,
+    partnerAnalyticsKpiSold: null,
+    partnerAnalyticsKpiTotal: null,
+    partnerAnalyticsKpiAvg: null,
+    partnerAnalyticsKpiPending: null,
+    partnerAnalyticsKpiAwaiting: null,
+    partnerAnalyticsKpiCancelled: null,
+
+    partnerAnalyticsByTypeBody: null,
+    partnerAnalyticsTimeseriesHead: null,
+    partnerAnalyticsTimeseriesBody: null,
+    partnerAnalyticsTopOffersBody: null,
+    partnerAnalyticsTopProductsBody: null,
+    partnerAnalyticsByTypeCard: null,
+    partnerAnalyticsTimeseriesCard: null,
+    partnerAnalyticsTopOffersCard: null,
+    partnerAnalyticsTopProductsCard: null,
 
     partnerReferralWidget: null,
     partnerReferralCount: null,
@@ -650,6 +687,9 @@
         if (!els.tabFulfillments?.hidden && String(state.selectedCategory || 'all') === 'all' && !els.partnerAnalyticsCard?.hidden) {
           await refreshPartnerAnalytics();
         }
+        if (els.partnerAnalyticsView && !els.partnerAnalyticsView.hidden) {
+          await refreshPartnerAnalyticsView({ silent: true });
+        }
       } catch (_e) {
       }
     }, 350);
@@ -1057,6 +1097,7 @@
     setHidden(els.servicesCard, isAffiliateOnly);
     setHidden(els.servicesTipsCard, isAffiliateOnly);
     setHidden(els.partnerNavCalendar, isAffiliateOnly);
+    setHidden(els.partnerNavAnalytics, isAffiliateOnly);
   }
 
   function updateAffiliateSummaryCardVisibility() {
@@ -1127,11 +1168,13 @@
   }
 
   function setMainView(view) {
+    const isAnalytics = view === 'analytics';
     const isProfile = view === 'profile';
     const isReferrals = view === 'referrals';
-    const isPortal = !isProfile && !isReferrals;
+    const isPortal = !isProfile && !isReferrals && !isAnalytics;
 
     setHidden(els.partnerPortalView, !isPortal);
+    setHidden(els.partnerAnalyticsView, !isAnalytics);
     setHidden(els.partnerProfileView, !isProfile);
     setHidden(els.partnerReferralsView, !isReferrals);
 
@@ -1148,6 +1191,7 @@
       els.partnerNavTrips,
       els.partnerNavHotels,
       els.partnerNavCalendar,
+      els.partnerNavAnalytics,
       els.partnerNavProfile,
       els.partnerNavReferrals,
     ].filter(Boolean);
@@ -1357,6 +1401,11 @@
     setHidden(els.tabCalendar, isFulfillments);
   }
 
+  function partnerCanAccessAnalytics() {
+    const { canShop, canCars, canTrips, canHotels } = getSelectedPartnerCapabilities();
+    return Boolean(canShop || canCars || canTrips || canHotels);
+  }
+
   function updateSidebarCategoryVisibility() {
     const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
     const hasShopFulfillments = (state.fulfillments || []).some((f) => f && String(f.__source || '') === 'shop');
@@ -1364,6 +1413,7 @@
     const canCars = Boolean(partner?.can_manage_cars);
     const canTrips = Boolean(partner?.can_manage_trips);
     const canHotels = Boolean(partner?.can_manage_hotels);
+    const canAnalytics = Boolean(canShop || canCars || canTrips || canHotels);
 
     const { isAffiliateOnly } = getSelectedPartnerCapabilities();
     if (isAffiliateOnly) {
@@ -1371,9 +1421,14 @@
       setHidden(els.partnerNavCars, true);
       setHidden(els.partnerNavTrips, true);
       setHidden(els.partnerNavHotels, true);
+      setHidden(els.partnerNavAnalytics, true);
       if (String(state.selectedCategory || 'all') !== 'all') {
         state.selectedCategory = 'all';
       }
+      if (els.partnerAnalyticsView && !els.partnerAnalyticsView.hidden) {
+        setMainView('portal');
+      }
+      syncAnalyticsCategoryOptions();
       updateServiceSectionVisibility();
       updateAnalyticsCardVisibility();
       updateAffiliateSummaryCardVisibility();
@@ -1384,6 +1439,10 @@
     setHidden(els.partnerNavCars, !canCars);
     setHidden(els.partnerNavTrips, !canTrips);
     setHidden(els.partnerNavHotels, !canHotels);
+    setHidden(els.partnerNavAnalytics, !canAnalytics);
+    if (!canAnalytics && els.partnerAnalyticsView && !els.partnerAnalyticsView.hidden) {
+      setMainView('portal');
+    }
 
     const allowed = new Set(['all', 'shop', 'cars', 'trips', 'hotels']);
     if (!canShop) allowed.delete('shop');
@@ -1395,6 +1454,7 @@
       state.selectedCategory = 'all';
     }
 
+    syncAnalyticsCategoryOptions();
     updateServiceSectionVisibility();
     updateAnalyticsCardVisibility();
     updateAffiliateSummaryCardVisibility();
@@ -1797,6 +1857,34 @@
     }
 
     setActiveTab('calendar');
+    closeSidebar();
+  }
+
+  async function navToAnalytics() {
+    if (!state.session || !state.user) {
+      showToast('Please log in to view analytics.', 'error');
+      openAuthModal('login');
+      return;
+    }
+    if (!partnerCanAccessAnalytics()) {
+      showToast('Analytics is not available for this partner.', 'info');
+      navToCategory('all');
+      return;
+    }
+
+    ensureAnalyticsFilterDefaults();
+    syncAnalyticsCategoryOptions();
+    syncAnalyticsFilterVisibility();
+
+    setMainView('analytics');
+    setSidebarActive(els.partnerNavAnalytics);
+
+    if (els.partnerBreadcrumb) {
+      const crumb = els.partnerBreadcrumb.querySelector('span');
+      if (crumb) crumb.textContent = 'Partner Portal — Analytics';
+    }
+
+    await refreshPartnerAnalyticsView();
     closeSidebar();
   }
 
@@ -2693,89 +2781,105 @@
       };
     };
 
+    const chunkArray = (items, size) => {
+      const outChunks = [];
+      const src = Array.isArray(items) ? items : [];
+      const step = Number.isFinite(size) && size > 0 ? Math.floor(size) : 100;
+      for (let i = 0; i < src.length; i += step) {
+        outChunks.push(src.slice(i, i + step));
+      }
+      return outChunks;
+    };
+
     const loadCarsStatuses = async (carIds) => {
       if (!carIds.length) return;
 
-      try {
-        let response = await state.sb
-          .from('car_bookings')
-          .select('id, status, payment_status')
-          .in('id', carIds)
-          .limit(500);
-
-        if (response.error && /payment_status/i.test(String(response.error.message || ''))) {
-          response = await state.sb
+      for (const idChunk of chunkArray(carIds, 120)) {
+        try {
+          let response = await state.sb
             .from('car_bookings')
-            .select('id, status')
-            .in('id', carIds)
+            .select('id, status, payment_status')
+            .in('id', idChunk)
             .limit(500);
-        }
 
-        if (!response.error) {
-          (response.data || []).forEach((row) => {
-            if (!row?.id) return;
-            upsertState('cars', row.id, row.status, row.payment_status || null);
-          });
+          if (response.error && /payment_status/i.test(String(response.error.message || ''))) {
+            response = await state.sb
+              .from('car_bookings')
+              .select('id, status')
+              .in('id', idChunk)
+              .limit(500);
+          }
+
+          if (!response.error) {
+            (response.data || []).forEach((row) => {
+              if (!row?.id) return;
+              upsertState('cars', row.id, row.status, row.payment_status || null);
+            });
+          }
+        } catch (error) {
+          console.warn('Partner panel: failed to load car booking statuses:', error);
         }
-      } catch (error) {
-        console.warn('Partner panel: failed to load car booking statuses:', error);
       }
 
-      try {
-        const { data, error } = await state.sb
-          .from('service_deposit_requests')
-          .select('booking_id, status, paid_at, created_at')
-          .eq('resource_type', 'cars')
-          .in('booking_id', carIds)
-          .order('created_at', { ascending: false })
-          .limit(2000);
-        if (error) throw error;
+      for (const idChunk of chunkArray(carIds, 120)) {
+        try {
+          const { data, error } = await state.sb
+            .from('service_deposit_requests')
+            .select('booking_id, status, paid_at, created_at')
+            .eq('resource_type', 'cars')
+            .in('booking_id', idChunk)
+            .order('created_at', { ascending: false })
+            .limit(2000);
+          if (error) throw error;
 
-        const paidMap = {};
-        (data || []).forEach((row) => {
-          const bookingId = String(row?.booking_id || '').trim();
-          if (!bookingId) return;
-          const depositStatus = String(row?.status || '').trim().toLowerCase();
-          if (depositStatus === 'paid' || row?.paid_at) {
-            paidMap[bookingId] = true;
-          } else if (!(bookingId in paidMap)) {
-            paidMap[bookingId] = false;
-          }
-        });
+          const paidMap = {};
+          (data || []).forEach((row) => {
+            const bookingId = String(row?.booking_id || '').trim();
+            if (!bookingId) return;
+            const depositStatus = String(row?.status || '').trim().toLowerCase();
+            if (depositStatus === 'paid' || row?.paid_at) {
+              paidMap[bookingId] = true;
+            } else if (!(bookingId in paidMap)) {
+              paidMap[bookingId] = false;
+            }
+          });
 
-        Object.entries(paidMap).forEach(([bookingId, isPaid]) => {
-          if (!isPaid) return;
-          const key = `cars:${bookingId}`;
-          const current = out[key] || { status: '', paymentStatus: '' };
-          const nextStatus = current.status === 'pending' || current.status === 'message_sent'
-            ? 'confirmed'
-            : (current.status || 'confirmed');
-          out[key] = {
-            ...current,
-            status: nextStatus,
-            paymentStatus: 'paid',
-          };
-        });
-      } catch (error) {
-        console.warn('Partner panel: failed to load paid deposits for cars:', error);
+          Object.entries(paidMap).forEach(([bookingId, isPaid]) => {
+            if (!isPaid) return;
+            const key = `cars:${bookingId}`;
+            const current = out[key] || { status: '', paymentStatus: '' };
+            const nextStatus = current.status === 'pending' || current.status === 'message_sent'
+              ? 'confirmed'
+              : (current.status || 'confirmed');
+            out[key] = {
+              ...current,
+              status: nextStatus,
+              paymentStatus: 'paid',
+            };
+          });
+        } catch (error) {
+          console.warn('Partner panel: failed to load paid deposits for cars:', error);
+        }
       }
     };
 
     const loadSimpleStatuses = async (type, tableName, ids) => {
       if (!ids.length) return;
-      try {
-        const { data, error } = await state.sb
-          .from(tableName)
-          .select('id, status')
-          .in('id', ids)
-          .limit(500);
-        if (error) throw error;
-        (data || []).forEach((row) => {
-          if (!row?.id) return;
-          upsertState(type, row.id, row.status, null);
-        });
-      } catch (error) {
-        console.warn(`Partner panel: failed to load ${type} booking statuses:`, error);
+      for (const idChunk of chunkArray(ids, 120)) {
+        try {
+          const { data, error } = await state.sb
+            .from(tableName)
+            .select('id, status')
+            .in('id', idChunk)
+            .limit(500);
+          if (error) throw error;
+          (data || []).forEach((row) => {
+            if (!row?.id) return;
+            upsertState(type, row.id, row.status, null);
+          });
+        } catch (error) {
+          console.warn(`Partner panel: failed to load ${type} booking statuses:`, error);
+        }
       }
     };
 
@@ -3417,6 +3521,581 @@
 
     if (els.partnerAnalHint) {
       els.partnerAnalHint.textContent = 'Partner earnings shown for accepted orders only.';
+    }
+  }
+
+  function currentUtcMonthValue() {
+    const now = new Date();
+    const y = now.getUTCFullYear();
+    const m = String(now.getUTCMonth() + 1).padStart(2, '0');
+    return `${y}-${m}`;
+  }
+
+  function currentUtcYearValue() {
+    return String(new Date().getUTCFullYear());
+  }
+
+  function ensureAnalyticsFilterDefaults() {
+    if (!state.analytics.monthValue) state.analytics.monthValue = currentUtcMonthValue();
+    if (!state.analytics.yearValue) state.analytics.yearValue = currentUtcYearValue();
+    if (!state.analytics.period) state.analytics.period = 'month';
+    if (!state.analytics.category) state.analytics.category = 'all';
+
+    if (els.partnerAnalyticsPeriodType) els.partnerAnalyticsPeriodType.value = state.analytics.period;
+    if (els.partnerAnalyticsMonth) els.partnerAnalyticsMonth.value = state.analytics.monthValue;
+    if (els.partnerAnalyticsYear) els.partnerAnalyticsYear.value = state.analytics.yearValue;
+  }
+
+  function syncAnalyticsFilterVisibility() {
+    const period = String(state.analytics.period || 'month');
+    setHidden(els.partnerAnalyticsMonthWrap, period !== 'month');
+    setHidden(els.partnerAnalyticsYearWrap, period === 'month');
+  }
+
+  function getAnalyticsAllowedCategories() {
+    const { canShop, canCars, canTrips, canHotels } = getSelectedPartnerCapabilities();
+    const out = [{ value: 'all', label: 'All categories' }];
+    if (canShop) out.push({ value: 'shop', label: 'Shop' });
+    if (canCars) out.push({ value: 'cars', label: 'Cars' });
+    if (canTrips) out.push({ value: 'trips', label: 'Trips' });
+    if (canHotels) out.push({ value: 'hotels', label: 'Hotels' });
+    return out;
+  }
+
+  function syncAnalyticsCategoryOptions() {
+    const select = els.partnerAnalyticsCategoryFilter;
+    if (!select) return;
+
+    const options = getAnalyticsAllowedCategories();
+    const values = options.map((o) => o.value);
+    if (!values.includes(String(state.analytics.category || 'all'))) {
+      state.analytics.category = 'all';
+    }
+
+    setHtml(
+      select,
+      options.map((o) => `<option value="${escapeHtml(o.value)}">${escapeHtml(o.label)}</option>`).join('')
+    );
+    select.value = String(state.analytics.category || 'all');
+  }
+
+  function normalizeAnalyticsMonthValue(rawValue) {
+    const raw = String(rawValue || '').trim();
+    if (/^\d{4}-\d{2}$/.test(raw)) return raw;
+    return currentUtcMonthValue();
+  }
+
+  function normalizeAnalyticsYearValue(rawValue) {
+    const num = Number.parseInt(String(rawValue || '').trim(), 10);
+    if (Number.isFinite(num) && num >= 2020 && num <= 2100) return String(num);
+    return currentUtcYearValue();
+  }
+
+  function getAnalyticsRange() {
+    const period = String(state.analytics.period || 'month') === 'year' ? 'year' : 'month';
+
+    if (period === 'year') {
+      const yearText = normalizeAnalyticsYearValue(state.analytics.yearValue);
+      const year = Number.parseInt(yearText, 10);
+      const start = new Date(Date.UTC(year, 0, 1, 0, 0, 0, 0));
+      const end = new Date(Date.UTC(year + 1, 0, 1, 0, 0, 0, 0));
+      return {
+        period,
+        label: yearText,
+        fromIso: start.toISOString(),
+        toIso: end.toISOString(),
+      };
+    }
+
+    const monthText = normalizeAnalyticsMonthValue(state.analytics.monthValue);
+    const [yearStr, monthStr] = monthText.split('-');
+    const year = Number.parseInt(yearStr, 10);
+    const monthIdx = Math.max(1, Math.min(12, Number.parseInt(monthStr, 10))) - 1;
+    const start = new Date(Date.UTC(year, monthIdx, 1, 0, 0, 0, 0));
+    const end = new Date(Date.UTC(year, monthIdx + 1, 1, 0, 0, 0, 0));
+    const monthLabel = start.toLocaleDateString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+    return {
+      period,
+      label: monthLabel,
+      fromIso: start.toISOString(),
+      toIso: end.toISOString(),
+    };
+  }
+
+  async function fetchPagedRows(fetchPage, pageSize = 500, maxRows = 12000) {
+    const out = [];
+    let from = 0;
+    const size = Number.isFinite(pageSize) && pageSize > 0 ? Math.floor(pageSize) : 500;
+    const limitRows = Number.isFinite(maxRows) && maxRows > 0 ? Math.floor(maxRows) : 12000;
+
+    while (out.length < limitRows) {
+      const { data, error } = await fetchPage(from, size);
+      if (error) throw error;
+      const rows = Array.isArray(data) ? data : [];
+      out.push(...rows);
+      if (rows.length < size) break;
+      from += size;
+    }
+
+    if (out.length > limitRows) return out.slice(0, limitRows);
+    return out;
+  }
+
+  async function fetchServiceFulfillmentsForAnalytics(fromIso, toIso) {
+    const withDetailsSelect = 'id, partner_id, resource_type, booking_id, resource_id, status, created_at, reference, summary, total_price, currency, details';
+    const withoutDetailsSelect = 'id, partner_id, resource_type, booking_id, resource_id, status, created_at, reference, summary, total_price, currency';
+
+    const build = (selectText) => (from, size) => state.sb
+      .from('partner_service_fulfillments')
+      .select(selectText)
+      .eq('partner_id', state.selectedPartnerId)
+      .gte('created_at', fromIso)
+      .lt('created_at', toIso)
+      .order('created_at', { ascending: false })
+      .range(from, from + size - 1);
+
+    try {
+      return await fetchPagedRows(build(withDetailsSelect), 400, 12000);
+    } catch (error) {
+      if (!/details/i.test(String(error?.message || ''))) throw error;
+      return fetchPagedRows(build(withoutDetailsSelect), 400, 12000);
+    }
+  }
+
+  async function fetchShopFulfillmentsForAnalytics(fromIso, toIso) {
+    return fetchPagedRows((from, size) => state.sb
+      .from('shop_order_fulfillments')
+      .select('id, partner_id, order_id, order_number, status, created_at, subtotal, total_allocated')
+      .eq('partner_id', state.selectedPartnerId)
+      .gte('created_at', fromIso)
+      .lt('created_at', toIso)
+      .order('created_at', { ascending: false })
+      .range(from, from + size - 1), 400, 12000);
+  }
+
+  function chunkValues(values, size = 100) {
+    const src = Array.isArray(values) ? values : [];
+    const out = [];
+    const step = Number.isFinite(size) && size > 0 ? Math.floor(size) : 100;
+    for (let i = 0; i < src.length; i += step) {
+      out.push(src.slice(i, i + step));
+    }
+    return out;
+  }
+
+  async function fetchShopItemsForFulfillments(fulfillmentIds) {
+    const ids = Array.isArray(fulfillmentIds) ? fulfillmentIds.map((v) => String(v || '').trim()).filter(Boolean) : [];
+    if (!ids.length) return [];
+
+    const out = [];
+    for (const idChunk of chunkValues(ids, 100)) {
+      const rows = await fetchPagedRows((from, size) => state.sb
+        .from('shop_order_fulfillment_items')
+        .select('fulfillment_id, product_name, variant_name, quantity, subtotal')
+        .in('fulfillment_id', idChunk)
+        .range(from, from + size - 1), 500, 10000);
+      out.push(...rows);
+    }
+    return out;
+  }
+
+  async function fetchServiceDepositByFulfillment(fulfillmentIds) {
+    const idSet = new Set((Array.isArray(fulfillmentIds) ? fulfillmentIds : []).map((id) => String(id || '').trim()).filter(Boolean));
+    if (!idSet.size) return {};
+
+    const out = {};
+    try {
+      const { data, error } = await state.sb.rpc('partner_get_service_deposit_amounts', {
+        p_partner_id: state.selectedPartnerId,
+      });
+      if (error) throw error;
+      (data || []).forEach((row) => {
+        const fid = String(row?.fulfillment_id || '').trim();
+        if (!fid || !idSet.has(fid)) return;
+        out[fid] = toNum(row?.amount);
+      });
+    } catch (_e) {
+    }
+    return out;
+  }
+
+  function analyticsBucketKeyFromDate(rawValue, period) {
+    const dt = new Date(rawValue || '');
+    if (Number.isNaN(dt.getTime())) return '';
+    const y = dt.getUTCFullYear();
+    const m = String(dt.getUTCMonth() + 1).padStart(2, '0');
+    if (period === 'year') return `${y}-${m}`;
+    const d = String(dt.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  function analyticsLabelFromBucket(bucket, period) {
+    if (!bucket) return '—';
+    if (period === 'year') {
+      const dt = new Date(`${bucket}-01T00:00:00Z`);
+      if (Number.isNaN(dt.getTime())) return bucket;
+      return dt.toLocaleDateString('en-US', { month: 'short', year: 'numeric', timeZone: 'UTC' });
+    }
+    const dt = new Date(`${bucket}T00:00:00Z`);
+    if (Number.isNaN(dt.getTime())) return bucket;
+    return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'UTC' });
+  }
+
+  function analyticsTypeLabel(type) {
+    const t = String(type || '').trim().toLowerCase();
+    if (t === 'shop') return 'Shop';
+    if (t === 'cars') return 'Cars';
+    if (t === 'trips') return 'Trips';
+    if (t === 'hotels') return 'Hotels';
+    return 'Other';
+  }
+
+  function isServiceSoldStatus(row) {
+    const status = resolveServiceOrderStatus(row);
+    return status === 'confirmed' || status === 'completed';
+  }
+
+  function serviceGrossAmount(row) {
+    const type = String(row?.resource_type || '').trim().toLowerCase();
+    if (type === 'cars') {
+      return toNum(getCarsFulfillmentPricing(row).amount);
+    }
+    return toNum(row?.total_price);
+  }
+
+  function serviceMatchesCategory(row, category) {
+    const cat = String(category || 'all').trim().toLowerCase();
+    if (cat === 'all') return true;
+    if (cat === 'shop') return false;
+    return String(row?.resource_type || '').trim().toLowerCase() === cat;
+  }
+
+  function shopMatchesCategory(category) {
+    const cat = String(category || 'all').trim().toLowerCase();
+    return cat === 'all' || cat === 'shop';
+  }
+
+  function setPartnerAnalyticsLoadingState(message) {
+    const msg = String(message || 'Loading analytics…');
+    setText(els.partnerAnalyticsStatus, msg);
+    if (els.partnerAnalyticsByTypeBody) setHtml(els.partnerAnalyticsByTypeBody, '<tr><td colspan="5" class="muted" style="padding: 16px 8px;">Loading…</td></tr>');
+    if (els.partnerAnalyticsTimeseriesBody) setHtml(els.partnerAnalyticsTimeseriesBody, '<tr><td colspan="5" class="muted" style="padding: 16px 8px;">Loading…</td></tr>');
+    if (els.partnerAnalyticsTopOffersBody) setHtml(els.partnerAnalyticsTopOffersBody, '<tr><td colspan="4" class="muted" style="padding: 16px 8px;">Loading…</td></tr>');
+    if (els.partnerAnalyticsTopProductsBody) setHtml(els.partnerAnalyticsTopProductsBody, '<tr><td colspan="4" class="muted" style="padding: 16px 8px;">Loading…</td></tr>');
+  }
+
+  function fillAnalyticsKpis(values) {
+    const v = values || {};
+    setText(els.partnerAnalyticsKpiGross, formatMoney(toNum(v.gross), 'EUR'));
+    setText(els.partnerAnalyticsKpiNet, formatMoney(toNum(v.net), 'EUR'));
+    setText(els.partnerAnalyticsKpiSold, String(toNum(v.sold)));
+    setText(els.partnerAnalyticsKpiTotal, String(toNum(v.total)));
+    setText(els.partnerAnalyticsKpiAvg, formatMoney(toNum(v.avg), 'EUR'));
+    setText(els.partnerAnalyticsKpiPending, String(toNum(v.pending)));
+    setText(els.partnerAnalyticsKpiAwaiting, String(toNum(v.awaiting)));
+    setText(els.partnerAnalyticsKpiCancelled, String(toNum(v.cancelled)));
+  }
+
+  async function refreshPartnerAnalyticsView(options = {}) {
+    const { silent = false } = options;
+    if (!state.sb || !state.selectedPartnerId) return;
+    if (!els.partnerAnalyticsView || els.partnerAnalyticsView.hidden) return;
+    if (!partnerCanAccessAnalytics()) {
+      if (!silent) showToast('Analytics is not available for this partner.', 'info');
+      return;
+    }
+
+    ensureAnalyticsFilterDefaults();
+    syncAnalyticsCategoryOptions();
+    syncAnalyticsFilterVisibility();
+    setPartnerAnalyticsLoadingState('Loading analytics…');
+
+    const periodRaw = String(state.analytics.period || 'month').trim().toLowerCase();
+    state.analytics.period = periodRaw === 'year' ? 'year' : 'month';
+    state.analytics.monthValue = normalizeAnalyticsMonthValue(state.analytics.monthValue);
+    state.analytics.yearValue = normalizeAnalyticsYearValue(state.analytics.yearValue);
+    state.analytics.category = String(state.analytics.category || 'all').trim().toLowerCase();
+
+    const range = getAnalyticsRange();
+    setText(els.partnerAnalyticsRangeLabel, `Range: ${range.label}`);
+
+    try {
+      const selectedCategory = String(state.analytics.category || 'all').trim().toLowerCase();
+      const [serviceRowsRaw, shopRowsRaw] = await Promise.all([
+        selectedCategory === 'shop' ? Promise.resolve([]) : fetchServiceFulfillmentsForAnalytics(range.fromIso, range.toIso),
+        shopMatchesCategory(selectedCategory) ? fetchShopFulfillmentsForAnalytics(range.fromIso, range.toIso) : Promise.resolve([]),
+      ]);
+
+      const serviceRows = Array.isArray(serviceRowsRaw) ? serviceRowsRaw : [];
+      const shopRows = Array.isArray(shopRowsRaw) ? shopRowsRaw : [];
+
+      const bookingStateByKey = await loadServiceBookingStateByKey(serviceRows);
+      const serviceRowsEnriched = serviceRows.map((row) => {
+        const type = String(row?.resource_type || '').trim().toLowerCase();
+        const bookingId = String(row?.booking_id || '').trim();
+        const bookingState = bookingStateByKey[`${type}:${bookingId}`] || null;
+        return {
+          ...row,
+          booking_status: bookingState?.status || null,
+          booking_payment_status: bookingState?.paymentStatus || null,
+        };
+      });
+
+      const filteredServiceRows = serviceRowsEnriched.filter((row) => serviceMatchesCategory(row, selectedCategory));
+      const filteredShopRows = shopRows;
+      const soldServiceIds = filteredServiceRows.filter((row) => isServiceSoldStatus(row)).map((row) => row.id).filter(Boolean);
+      const serviceDepositByFid = await fetchServiceDepositByFulfillment(soldServiceIds);
+
+      const summary = {
+        total: 0,
+        sold: 0,
+        pending: 0,
+        awaiting: 0,
+        cancelled: 0,
+        gross: 0,
+        net: 0,
+      };
+
+      const byType = {
+        shop: { type: 'shop', orders: 0, sold: 0, gross: 0, net: 0 },
+        cars: { type: 'cars', orders: 0, sold: 0, gross: 0, net: 0 },
+        trips: { type: 'trips', orders: 0, sold: 0, gross: 0, net: 0 },
+        hotels: { type: 'hotels', orders: 0, sold: 0, gross: 0, net: 0 },
+      };
+
+      const topServices = {};
+      const topShopProducts = {};
+
+      const timeseries = {};
+      const ensureTsRow = (bucketKey) => {
+        if (!bucketKey) return null;
+        if (!timeseries[bucketKey]) {
+          timeseries[bucketKey] = { bucket: bucketKey, orders: 0, sold: 0, gross: 0, net: 0 };
+        }
+        return timeseries[bucketKey];
+      };
+
+      filteredServiceRows.forEach((row) => {
+        const fStatusRaw = String(row?.status || '').trim().toLowerCase();
+        const resolvedStatus = resolveServiceOrderStatus(row);
+        const type = String(row?.resource_type || '').trim().toLowerCase();
+        const typeAgg = byType[type] || null;
+        const bucket = ensureTsRow(analyticsBucketKeyFromDate(row?.created_at, range.period));
+
+        summary.total += 1;
+        if (typeAgg) typeAgg.orders += 1;
+        if (bucket) bucket.orders += 1;
+
+        const isAwaiting = fStatusRaw === 'awaiting_payment';
+        const isPending = !isAwaiting && resolvedStatus === 'pending';
+        const isCancelled = resolvedStatus === 'cancelled' || fStatusRaw === 'rejected' || fStatusRaw === 'expired';
+        const isSold = isServiceSoldStatus(row);
+
+        if (isAwaiting) summary.awaiting += 1;
+        if (isPending) summary.pending += 1;
+        if (isCancelled) summary.cancelled += 1;
+
+        if (isSold) {
+          const gross = serviceGrossAmount(row);
+          const deposit = toNum(serviceDepositByFid[String(row?.id || '')] || 0);
+          const net = Math.max(0, gross - deposit);
+
+          summary.sold += 1;
+          summary.gross += gross;
+          summary.net += net;
+          if (bucket) {
+            bucket.sold += 1;
+            bucket.gross += gross;
+            bucket.net += net;
+          }
+          if (typeAgg) {
+            typeAgg.sold += 1;
+            typeAgg.gross += gross;
+            typeAgg.net += net;
+          }
+
+          const serviceTypeLabel = analyticsTypeLabel(type);
+          const serviceLabel = String(row?.summary || '').trim() || `${serviceTypeLabel} ${String(row?.resource_id || row?.booking_id || row?.id || '').slice(0, 8)}`;
+          const key = `${type}:${String(row?.resource_id || row?.summary || row?.booking_id || row?.id || '')}`;
+          if (!topServices[key]) {
+            topServices[key] = {
+              label: serviceLabel,
+              sold: 0,
+              gross: 0,
+              net: 0,
+            };
+          }
+          topServices[key].sold += 1;
+          topServices[key].gross += gross;
+          topServices[key].net += net;
+        }
+      });
+
+      const soldShopRows = filteredShopRows.filter((row) => String(row?.status || '').trim().toLowerCase() === 'accepted');
+      const soldShopIdSet = new Set(soldShopRows.map((row) => String(row?.id || '').trim()).filter(Boolean));
+      const soldShopIds = Array.from(soldShopIdSet);
+
+      filteredShopRows.forEach((row) => {
+        const status = String(row?.status || '').trim().toLowerCase();
+        const bucket = ensureTsRow(analyticsBucketKeyFromDate(row?.created_at, range.period));
+
+        summary.total += 1;
+        byType.shop.orders += 1;
+        if (bucket) bucket.orders += 1;
+
+        const isAwaiting = status === 'awaiting_payment';
+        const isPending = status === 'pending_acceptance';
+        const isCancelled = status === 'rejected' || status === 'expired';
+        const isSold = status === 'accepted';
+
+        if (isAwaiting) summary.awaiting += 1;
+        if (isPending) summary.pending += 1;
+        if (isCancelled) summary.cancelled += 1;
+
+        if (isSold) {
+          const gross = toNum(row?.subtotal);
+          const allocatedRaw = Number(row?.total_allocated);
+          const net = Number.isFinite(allocatedRaw) ? allocatedRaw : gross;
+
+          summary.sold += 1;
+          summary.gross += gross;
+          summary.net += net;
+          if (bucket) {
+            bucket.sold += 1;
+            bucket.gross += gross;
+            bucket.net += net;
+          }
+          byType.shop.sold += 1;
+          byType.shop.gross += gross;
+          byType.shop.net += net;
+        }
+      });
+
+      if (soldShopIds.length) {
+        const shopItems = await fetchShopItemsForFulfillments(soldShopIds);
+        shopItems.forEach((item) => {
+          const fid = String(item?.fulfillment_id || '').trim();
+          if (!fid || !soldShopIdSet.has(fid)) return;
+
+          const name = String(item?.product_name || '').trim() || 'Product';
+          const variant = String(item?.variant_name || '').trim();
+          const label = variant ? `${name} (${variant})` : name;
+          const key = `${name}::${variant}`;
+
+          if (!topShopProducts[key]) {
+            topShopProducts[key] = {
+              label,
+              units: 0,
+              ordersSet: new Set(),
+              revenue: 0,
+            };
+          }
+
+          topShopProducts[key].units += toNum(item?.quantity || 0);
+          topShopProducts[key].ordersSet.add(fid);
+          topShopProducts[key].revenue += toNum(item?.subtotal || 0);
+        });
+      }
+
+      summary.gross = Number(summary.gross.toFixed(2));
+      summary.net = Number(summary.net.toFixed(2));
+      summary.avg = summary.sold > 0 ? Number((summary.gross / summary.sold).toFixed(2)) : 0;
+
+      fillAnalyticsKpis(summary);
+
+      const byTypeRows = Object.values(byType)
+        .filter((row) => {
+          if (selectedCategory !== 'all' && row.type !== selectedCategory) return false;
+          return row.orders > 0 || row.sold > 0 || row.gross > 0 || row.net > 0;
+        })
+        .sort((a, b) => (b.net - a.net) || (b.gross - a.gross) || (b.sold - a.sold));
+
+      setHtml(
+        els.partnerAnalyticsByTypeBody,
+        byTypeRows.length
+          ? byTypeRows.map((row) => `
+            <tr>
+              <td>${escapeHtml(analyticsTypeLabel(row.type))}</td>
+              <td style="text-align:right;">${Number(row.orders || 0)}</td>
+              <td style="text-align:right;">${Number(row.sold || 0)}</td>
+              <td style="text-align:right;">${escapeHtml(formatMoney(row.gross || 0, 'EUR'))}</td>
+              <td style="text-align:right;"><strong>${escapeHtml(formatMoney(row.net || 0, 'EUR'))}</strong></td>
+            </tr>
+          `).join('')
+          : '<tr><td colspan="5" class="muted" style="padding: 16px 8px;">No category data for this range.</td></tr>'
+      );
+
+      const timeseriesRows = Object.values(timeseries)
+        .sort((a, b) => String(a.bucket || '').localeCompare(String(b.bucket || '')));
+
+      setHtml(
+        els.partnerAnalyticsTimeseriesBody,
+        timeseriesRows.length
+          ? timeseriesRows.map((row) => `
+            <tr>
+              <td>${escapeHtml(analyticsLabelFromBucket(row.bucket, range.period))}</td>
+              <td style="text-align:right;">${Number(row.orders || 0)}</td>
+              <td style="text-align:right;">${Number(row.sold || 0)}</td>
+              <td style="text-align:right;">${escapeHtml(formatMoney(row.gross || 0, 'EUR'))}</td>
+              <td style="text-align:right;"><strong>${escapeHtml(formatMoney(row.net || 0, 'EUR'))}</strong></td>
+            </tr>
+          `).join('')
+          : '<tr><td colspan="5" class="muted" style="padding: 16px 8px;">No time-series data for this range.</td></tr>'
+      );
+
+      const topServiceRows = Object.values(topServices)
+        .sort((a, b) => (toNum(b.net) - toNum(a.net)) || (toNum(b.gross) - toNum(a.gross)) || (toNum(b.sold) - toNum(a.sold)))
+        .slice(0, 10);
+      setHtml(
+        els.partnerAnalyticsTopOffersBody,
+        topServiceRows.length
+          ? topServiceRows.map((row) => `
+            <tr>
+              <td>${escapeHtml(row.label || '—')}</td>
+              <td style="text-align:right;">${Number(row.sold || 0)}</td>
+              <td style="text-align:right;">${escapeHtml(formatMoney(row.gross || 0, 'EUR'))}</td>
+              <td style="text-align:right;"><strong>${escapeHtml(formatMoney(row.net || 0, 'EUR'))}</strong></td>
+            </tr>
+          `).join('')
+          : '<tr><td colspan="4" class="muted" style="padding: 16px 8px;">No sold services in this range.</td></tr>'
+      );
+
+      const topProductRows = Object.values(topShopProducts)
+        .map((row) => ({
+          label: row.label,
+          units: Number(row.units || 0),
+          orders: row.ordersSet instanceof Set ? row.ordersSet.size : 0,
+          revenue: Number((row.revenue || 0).toFixed(2)),
+        }))
+        .sort((a, b) => (toNum(b.revenue) - toNum(a.revenue)) || (toNum(b.units) - toNum(a.units)))
+        .slice(0, 10);
+
+      setHtml(
+        els.partnerAnalyticsTopProductsBody,
+        topProductRows.length
+          ? topProductRows.map((row) => `
+            <tr>
+              <td>${escapeHtml(row.label || '—')}</td>
+              <td style="text-align:right;">${Number(row.units || 0)}</td>
+              <td style="text-align:right;">${Number(row.orders || 0)}</td>
+              <td style="text-align:right;"><strong>${escapeHtml(formatMoney(row.revenue || 0, 'EUR'))}</strong></td>
+            </tr>
+          `).join('')
+          : '<tr><td colspan="4" class="muted" style="padding: 16px 8px;">No sold shop products in this range.</td></tr>'
+      );
+
+      setHidden(els.partnerAnalyticsTopOffersCard, topServiceRows.length === 0 && selectedCategory === 'shop');
+      setHidden(els.partnerAnalyticsTopProductsCard, topProductRows.length === 0 && selectedCategory !== 'shop' && selectedCategory !== 'all');
+
+      const updatedAt = new Date().toLocaleString('en-GB');
+      setText(els.partnerAnalyticsStatus, `Updated: ${updatedAt}`);
+    } catch (error) {
+      console.error(error);
+      fillAnalyticsKpis({ gross: 0, net: 0, sold: 0, total: 0, avg: 0, pending: 0, awaiting: 0, cancelled: 0 });
+      setText(els.partnerAnalyticsStatus, `Failed to load analytics: ${error.message || 'Unknown error'}`);
+      if (!silent) {
+        showToast(`Error: ${error.message || 'Failed to load analytics'}`, 'error');
+      }
     }
   }
 
@@ -5041,6 +5720,7 @@
     updateSidebarCategoryVisibility();
     updateAffiliateSummaryCardVisibility();
     updateServiceSectionVisibility();
+    syncAnalyticsCategoryOptions();
 
     if (els.partnerProfileView && !els.partnerProfileView.hidden) {
       try {
@@ -5056,6 +5736,11 @@
       if (els.blockResourceType.value === 'shop' && !els.blockResourceId.value && partner.shop_vendor_id) {
         els.blockResourceId.value = partner.shop_vendor_id;
       }
+    }
+
+    if (els.partnerAnalyticsView && !els.partnerAnalyticsView.hidden) {
+      await refreshPartnerAnalyticsView({ silent: true });
+      return;
     }
 
     setActiveTab(els.tabBtnCalendar?.classList.contains('is-active') ? 'calendar' : 'fulfillments');
@@ -5137,6 +5822,9 @@
     updateSidebarCategoryVisibility();
     updateAffiliateSummaryCardVisibility();
     updateServiceSectionVisibility();
+    ensureAnalyticsFilterDefaults();
+    syncAnalyticsCategoryOptions();
+    syncAnalyticsFilterVisibility();
     ensureCalendarMonthInput();
 
     const partner = state.selectedPartnerId ? state.partnersById[state.selectedPartnerId] : null;
@@ -5146,7 +5834,11 @@
       }
     }
 
-    setActiveTab('fulfillments');
+    if (els.partnerAnalyticsView && !els.partnerAnalyticsView.hidden) {
+      await refreshPartnerAnalyticsView({ silent: true });
+    } else {
+      setActiveTab('fulfillments');
+    }
     setText(els.status, 'Ready.');
 
     try {
@@ -5222,8 +5914,35 @@
     els.partnerNavTrips?.addEventListener('click', () => navToCategory('trips'));
     els.partnerNavHotels?.addEventListener('click', () => navToCategory('hotels'));
     els.partnerNavCalendar?.addEventListener('click', () => navToCalendar());
+    els.partnerNavAnalytics?.addEventListener('click', () => navToAnalytics());
     els.partnerNavProfile?.addEventListener('click', () => navToProfile());
     els.partnerNavReferrals?.addEventListener('click', () => navToReferrals());
+
+    els.partnerAnalyticsPeriodType?.addEventListener('change', async () => {
+      const next = String(els.partnerAnalyticsPeriodType?.value || 'month').trim().toLowerCase();
+      state.analytics.period = next === 'year' ? 'year' : 'month';
+      syncAnalyticsFilterVisibility();
+      await refreshPartnerAnalyticsView();
+    });
+
+    els.partnerAnalyticsMonth?.addEventListener('change', async () => {
+      state.analytics.monthValue = normalizeAnalyticsMonthValue(els.partnerAnalyticsMonth?.value);
+      await refreshPartnerAnalyticsView();
+    });
+
+    els.partnerAnalyticsYear?.addEventListener('change', async () => {
+      state.analytics.yearValue = normalizeAnalyticsYearValue(els.partnerAnalyticsYear?.value);
+      await refreshPartnerAnalyticsView();
+    });
+
+    els.partnerAnalyticsCategoryFilter?.addEventListener('change', async () => {
+      state.analytics.category = String(els.partnerAnalyticsCategoryFilter?.value || 'all').trim().toLowerCase();
+      await refreshPartnerAnalyticsView();
+    });
+
+    els.btnPartnerAnalyticsRefresh?.addEventListener('click', async () => {
+      await refreshPartnerAnalyticsView();
+    });
 
     els.availabilityBulkMode?.addEventListener('change', async () => {
       setAvailabilityBulkMode(Boolean(els.availabilityBulkMode?.checked));
@@ -5707,14 +6426,45 @@
     els.partnerNavTrips = $('partnerNavTrips');
     els.partnerNavHotels = $('partnerNavHotels');
     els.partnerNavCalendar = $('partnerNavCalendar');
+    els.partnerNavAnalytics = $('partnerNavAnalytics');
     els.partnerNavProfile = $('partnerNavProfile');
     els.partnerNavReferrals = $('partnerNavReferrals');
     els.partnerUserName = $('partnerUserName');
     els.partnerBreadcrumb = $('partnerBreadcrumb');
 
     els.partnerPortalView = $('partnerPortalView');
+    els.partnerAnalyticsView = $('partnerAnalyticsView');
     els.partnerProfileView = $('partnerProfileView');
     els.partnerReferralsView = $('partnerReferralsView');
+
+    els.partnerAnalyticsPeriodType = $('partnerAnalyticsPeriodType');
+    els.partnerAnalyticsMonth = $('partnerAnalyticsMonth');
+    els.partnerAnalyticsMonthWrap = $('partnerAnalyticsMonthWrap');
+    els.partnerAnalyticsYear = $('partnerAnalyticsYear');
+    els.partnerAnalyticsYearWrap = $('partnerAnalyticsYearWrap');
+    els.partnerAnalyticsCategoryFilter = $('partnerAnalyticsCategoryFilter');
+    els.btnPartnerAnalyticsRefresh = $('btnPartnerAnalyticsRefresh');
+    els.partnerAnalyticsRangeLabel = $('partnerAnalyticsRangeLabel');
+    els.partnerAnalyticsStatus = $('partnerAnalyticsStatus');
+
+    els.partnerAnalyticsKpiGross = $('partnerAnalyticsKpiGross');
+    els.partnerAnalyticsKpiNet = $('partnerAnalyticsKpiNet');
+    els.partnerAnalyticsKpiSold = $('partnerAnalyticsKpiSold');
+    els.partnerAnalyticsKpiTotal = $('partnerAnalyticsKpiTotal');
+    els.partnerAnalyticsKpiAvg = $('partnerAnalyticsKpiAvg');
+    els.partnerAnalyticsKpiPending = $('partnerAnalyticsKpiPending');
+    els.partnerAnalyticsKpiAwaiting = $('partnerAnalyticsKpiAwaiting');
+    els.partnerAnalyticsKpiCancelled = $('partnerAnalyticsKpiCancelled');
+
+    els.partnerAnalyticsByTypeBody = $('partnerAnalyticsByTypeBody');
+    els.partnerAnalyticsTimeseriesHead = $('partnerAnalyticsTimeseriesHead');
+    els.partnerAnalyticsTimeseriesBody = $('partnerAnalyticsTimeseriesBody');
+    els.partnerAnalyticsTopOffersBody = $('partnerAnalyticsTopOffersBody');
+    els.partnerAnalyticsTopProductsBody = $('partnerAnalyticsTopProductsBody');
+    els.partnerAnalyticsByTypeCard = $('partnerAnalyticsByTypeCard');
+    els.partnerAnalyticsTimeseriesCard = $('partnerAnalyticsTimeseriesCard');
+    els.partnerAnalyticsTopOffersCard = $('partnerAnalyticsTopOffersCard');
+    els.partnerAnalyticsTopProductsCard = $('partnerAnalyticsTopProductsCard');
 
     els.partnerReferralWidget = $('partnerReferralWidget');
     els.partnerReferralCount = $('partnerReferralCount');
