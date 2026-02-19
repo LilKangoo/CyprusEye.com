@@ -216,6 +216,232 @@
 
     .partner-calendar-filters { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 12px; margin-bottom: 12px; }
     .partner-resource-panels { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; padding: 6px 2px; }
+    .partner-orders-filters {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+      align-items: end;
+    }
+    .partner-orders-filter-field {
+      min-width: 0;
+      display: grid;
+      gap: 6px;
+    }
+    .partner-orders-filter-field label {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--admin-text-muted);
+    }
+    .partner-orders-filter-field input,
+    .partner-orders-filter-field select {
+      width: 100%;
+      height: 38px;
+      border-radius: 10px;
+      border: 1px solid var(--admin-border);
+      padding: 0 10px;
+      background: var(--admin-bg);
+      color: var(--admin-text);
+    }
+    .partner-orders-filter-actions {
+      display: flex;
+      justify-content: flex-end;
+      align-items: end;
+    }
+    .partner-orders-calendar-card {
+      margin-top: 10px;
+      padding: 12px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: linear-gradient(145deg, rgba(15, 23, 42, 0.2), rgba(15, 23, 42, 0.06));
+      border-radius: 12px;
+    }
+    .partner-orders-calendar-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+    .partner-orders-calendar-head h3 {
+      margin: 0;
+      font-size: 16px;
+      line-height: 1.2;
+    }
+    .partner-orders-calendar-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .partner-orders-calendar-controls input[type="month"] {
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid var(--admin-border);
+      padding: 0 10px;
+      background: var(--admin-bg);
+      color: var(--admin-text);
+    }
+    .partner-orders-calendar-legend {
+      margin: 8px 0 0;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      color: var(--admin-text-muted);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+    .partner-orders-calendar-legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .partner-orders-calendar-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      display: inline-block;
+      border: 1px solid transparent;
+    }
+    .partner-orders-calendar-dot--today {
+      background: rgba(37, 99, 235, 0.22);
+      border-color: rgba(59, 130, 246, 0.62);
+    }
+    .partner-orders-calendar-dot--upcoming {
+      background: rgba(34, 197, 94, 0.24);
+      border-color: rgba(34, 197, 94, 0.58);
+    }
+    .partner-orders-calendar-dot--overdue {
+      background: rgba(239, 68, 68, 0.22);
+      border-color: rgba(239, 68, 68, 0.56);
+    }
+    .partner-orders-calendar-grid {
+      margin-top: 10px;
+      display: grid;
+      grid-template-columns: repeat(7, minmax(0, 1fr));
+      gap: 6px;
+    }
+    .partner-orders-calendar-weekday {
+      text-align: center;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--admin-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      padding: 2px 0;
+    }
+    .partner-orders-calendar-day {
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 10px;
+      background: rgba(15, 23, 42, 0.2);
+      min-height: 58px;
+      padding: 6px 6px 5px;
+      display: grid;
+      align-content: space-between;
+      gap: 6px;
+      cursor: pointer;
+      transition: border-color 0.16s ease, transform 0.16s ease, background 0.16s ease;
+    }
+    .partner-orders-calendar-day:hover {
+      border-color: rgba(96, 165, 250, 0.45);
+      transform: translateY(-1px);
+    }
+    .partner-orders-calendar-day--blank {
+      cursor: default;
+      background: transparent;
+      border-style: dashed;
+      opacity: 0.38;
+      transform: none !important;
+    }
+    .partner-orders-calendar-day--today {
+      border-color: rgba(59, 130, 246, 0.68);
+      box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.42);
+    }
+    .partner-orders-calendar-day--selected {
+      border-color: rgba(56, 189, 248, 0.72);
+      background: rgba(14, 116, 144, 0.2);
+      box-shadow: 0 8px 18px rgba(14, 116, 144, 0.24);
+    }
+    .partner-orders-calendar-day--has-upcoming {
+      background: rgba(34, 197, 94, 0.14);
+    }
+    .partner-orders-calendar-day--has-overdue {
+      background: rgba(239, 68, 68, 0.12);
+    }
+    .partner-orders-calendar-daynum {
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1;
+      color: var(--admin-text);
+    }
+    .partner-orders-calendar-counts {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 4px;
+      min-height: 14px;
+    }
+    .partner-orders-calendar-counts span {
+      font-size: 10px;
+      line-height: 1;
+      border-radius: 999px;
+      padding: 2px 6px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      border: 1px solid transparent;
+      white-space: nowrap;
+    }
+    .partner-orders-calendar-counts .is-upcoming {
+      color: #16a34a;
+      background: rgba(34, 197, 94, 0.14);
+      border-color: rgba(34, 197, 94, 0.32);
+    }
+    .partner-orders-calendar-counts .is-overdue {
+      color: #ef4444;
+      background: rgba(239, 68, 68, 0.14);
+      border-color: rgba(239, 68, 68, 0.32);
+    }
+    .partner-orders-calendar-counts .is-neutral {
+      color: var(--admin-text-muted);
+      background: rgba(148, 163, 184, 0.14);
+      border-color: rgba(148, 163, 184, 0.26);
+    }
+    .partner-orders-day-list {
+      margin-top: 10px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 10px;
+      background: rgba(15, 23, 42, 0.12);
+      padding: 10px;
+      display: grid;
+      gap: 8px;
+    }
+    .partner-orders-day-list__item {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 8px;
+      align-items: center;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      border-radius: 10px;
+      padding: 8px;
+      background: rgba(15, 23, 42, 0.2);
+    }
+    .partner-orders-day-list__name {
+      font-size: 13px;
+      font-weight: 700;
+      margin: 0;
+    }
+    .partner-orders-day-list__meta {
+      font-size: 11px;
+      color: var(--admin-text-muted);
+      margin-top: 2px;
+    }
+    .partner-orders-day-list__price {
+      font-size: 12px;
+      font-weight: 800;
+      white-space: nowrap;
+    }
 
     .partner-analytics-view { max-width: 1200px; min-width: 0; display: grid; gap: 12px; }
     .partner-analytics-title { margin: 0; font-size: 26px; line-height: 1.1; letter-spacing: -0.01em; }
@@ -513,6 +739,16 @@
     }
 
     @media (max-width: 1100px) {
+      .partner-orders-filters {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+      .partner-orders-filter-actions {
+        grid-column: 1 / -1;
+        justify-content: stretch;
+      }
+      .partner-orders-filter-actions .btn-sm {
+        width: 100%;
+      }
       .partner-analytics-controls {
         grid-template-columns: repeat(2, minmax(0, 1fr));
       }
@@ -544,6 +780,34 @@
       .partner-toolbar select { width: 100%; }
       .partner-toolbar input { width: 100%; }
       .partner-toolbar button { width: 100%; }
+      .partner-orders-filters {
+        grid-template-columns: 1fr;
+      }
+      .partner-orders-calendar-controls {
+        width: 100%;
+        justify-content: space-between;
+      }
+      .partner-orders-calendar-controls input[type="month"] {
+        flex: 1;
+        min-width: 0;
+      }
+      .partner-orders-calendar-grid {
+        gap: 4px;
+      }
+      .partner-orders-calendar-day {
+        min-height: 54px;
+        padding: 5px;
+      }
+      .partner-orders-calendar-daynum {
+        font-size: 11px;
+      }
+      .partner-orders-calendar-counts span {
+        font-size: 9px;
+        padding: 2px 5px;
+      }
+      .partner-orders-day-list__item {
+        grid-template-columns: 1fr;
+      }
 
       .partners-page .partner-grid,
       .partners-page .partner-grid > * {
@@ -1634,6 +1898,75 @@
 
           <div id="partnerTabFulfillments" style="margin-top: 10px;">
             <div class="muted small" id="fulfillmentsHint" style="margin-top: 10px;"></div>
+
+            <div class="partner-card" style="padding: 12px; margin-top: 10px;">
+              <div class="partner-orders-filters">
+                <div class="partner-orders-filter-field">
+                  <label for="partnerOrdersCategoryFilter">Category</label>
+                  <select id="partnerOrdersCategoryFilter">
+                    <option value="all">All categories</option>
+                    <option value="shop">Shop</option>
+                    <option value="cars">Cars</option>
+                    <option value="trips">Trips</option>
+                    <option value="hotels">Hotels</option>
+                  </select>
+                </div>
+                <div class="partner-orders-filter-field">
+                  <label for="partnerOrdersStatusFilter">Status</label>
+                  <select id="partnerOrdersStatusFilter">
+                    <option value="all">All statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="awaiting_payment">Awaiting payment</option>
+                    <option value="confirmed">Confirmed / accepted</option>
+                    <option value="completed">Completed</option>
+                    <option value="cancelled">Cancelled / rejected</option>
+                    <option value="closed">Closed</option>
+                  </select>
+                </div>
+                <div class="partner-orders-filter-field">
+                  <label for="partnerOrdersTimelineFilter">Timeline</label>
+                  <select id="partnerOrdersTimelineFilter">
+                    <option value="all">All</option>
+                    <option value="paid_upcoming_30">Paid upcoming (next 30 days)</option>
+                    <option value="paid_today">Paid due today</option>
+                    <option value="paid_overdue">Paid overdue</option>
+                  </select>
+                </div>
+                <div class="partner-orders-filter-field">
+                  <label for="partnerOrdersDateFrom">Date from</label>
+                  <input id="partnerOrdersDateFrom" type="date" />
+                </div>
+                <div class="partner-orders-filter-field">
+                  <label for="partnerOrdersDateTo">Date to</label>
+                  <input id="partnerOrdersDateTo" type="date" />
+                </div>
+                <div class="partner-orders-filter-actions">
+                  <button id="btnPartnerOrdersClearFilters" class="btn-sm" type="button">Clear filters</button>
+                </div>
+              </div>
+              <div id="partnerOrdersFilterHint" class="muted small" style="margin-top: 8px;"></div>
+            </div>
+
+            <div class="partner-orders-calendar-card" aria-label="Upcoming paid orders calendar">
+              <div class="partner-orders-calendar-head">
+                <div>
+                  <h3>Upcoming paid orders calendar</h3>
+                  <div class="muted small">Visual schedule with highlighted due dates and today marker.</div>
+                </div>
+                <div class="partner-orders-calendar-controls">
+                  <button id="btnPartnerOrdersCalendarPrevMonth" class="btn-sm" type="button">◀</button>
+                  <input id="partnerOrdersCalendarMonthInput" type="month" />
+                  <button id="btnPartnerOrdersCalendarNextMonth" class="btn-sm" type="button">▶</button>
+                </div>
+              </div>
+              <div class="partner-orders-calendar-legend">
+                <span><i class="partner-orders-calendar-dot partner-orders-calendar-dot--today"></i> Today</span>
+                <span><i class="partner-orders-calendar-dot partner-orders-calendar-dot--upcoming"></i> Paid upcoming</span>
+                <span><i class="partner-orders-calendar-dot partner-orders-calendar-dot--overdue"></i> Paid overdue</span>
+              </div>
+              <div id="partnerOrdersCalendarGrid" class="partner-orders-calendar-grid"></div>
+              <div id="partnerOrdersCalendarList" class="partner-orders-day-list"></div>
+            </div>
 
             <div class="admin-table-container" aria-label="Fulfillments">
             <table class="admin-table">

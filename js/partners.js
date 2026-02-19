@@ -29,6 +29,15 @@
         hotels: new Set(),
       },
     },
+    orders: {
+      category: 'all',
+      status: 'all',
+      timeline: 'all',
+      dateFrom: '',
+      dateTo: '',
+      monthValue: '',
+      selectedDateIso: '',
+    },
     analytics: {
       period: 'year',
       monthValue: '',
@@ -79,6 +88,18 @@
     tabBtnCalendar: null,
     fulfillmentsHint: null,
     fulfillmentsBody: null,
+    ordersCategoryFilter: null,
+    ordersStatusFilter: null,
+    ordersTimelineFilter: null,
+    ordersDateFrom: null,
+    ordersDateTo: null,
+    btnOrdersClearFilters: null,
+    ordersFilterHint: null,
+    ordersCalendarMonthInput: null,
+    btnOrdersCalendarPrevMonth: null,
+    btnOrdersCalendarNextMonth: null,
+    ordersCalendarGrid: null,
+    ordersCalendarList: null,
     kpiPending: null,
     kpiAccepted: null,
     kpiRejected: null,
@@ -733,8 +754,7 @@
         if (els.tabFulfillments?.hidden) return;
         await loadFulfillments();
         updateSidebarCategoryVisibility();
-        updateKpis();
-        renderFulfillmentsTable();
+        refreshOrdersPanelViews();
       } catch (_e) {
       }
     }, 350);
@@ -1425,6 +1445,452 @@
     });
   }
 
+  function normalizeOrdersCategory(value) {
+    const v = String(value || 'all').trim().toLowerCase();
+    if (v === 'shop' || v === 'cars' || v === 'trips' || v === 'hotels') return v;
+    return 'all';
+  }
+
+  function normalizeOrdersStatus(value) {
+    const v = String(value || 'all').trim().toLowerCase();
+    if (v === 'pending') return 'pending';
+    if (v === 'awaiting_payment') return 'awaiting_payment';
+    if (v === 'confirmed') return 'confirmed';
+    if (v === 'completed') return 'completed';
+    if (v === 'cancelled') return 'cancelled';
+    if (v === 'closed') return 'closed';
+    return 'all';
+  }
+
+  function normalizeOrdersTimeline(value) {
+    const v = String(value || 'all').trim().toLowerCase();
+    if (v === 'paid_upcoming_30') return 'paid_upcoming_30';
+    if (v === 'paid_today') return 'paid_today';
+    if (v === 'paid_overdue') return 'paid_overdue';
+    return 'all';
+  }
+
+  function localDateIso(date = new Date()) {
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '';
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
+
+  function normalizeIsoDateValue(value) {
+    const raw = String(value == null ? '' : value).trim();
+    if (!raw) return '';
+    const m = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+    if (m) return m[1];
+    const ms = Date.parse(raw);
+    if (!Number.isFinite(ms)) return '';
+    return new Date(ms).toISOString().slice(0, 10);
+  }
+
+  function dateDiffFromToday(dateIso) {
+    const iso = normalizeIsoDateValue(dateIso);
+    if (!iso) return null;
+    const target = new Date(`${iso}T00:00:00`);
+    if (Number.isNaN(target.getTime())) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return Math.round((target.getTime() - today.getTime()) / 86400000);
+  }
+
+  function detailsObjectFromFulfillment(row) {
+    const raw = row?.details;
+    if (!raw) return null;
+    if (typeof raw === 'object') return raw;
+    if (typeof raw !== 'string') return null;
+    try {
+      const parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch (_e) {
+      return null;
+    }
+  }
+
+  function fulfillmentCategoryForOrders(row) {
+    if (!row) return '';
+    if (String(row.__source || '') === 'shop') return 'shop';
+    const type = String(row.resource_type || '').trim().toLowerCase();
+    if (type === 'cars' || type === 'trips' || type === 'hotels') return type;
+    return '';
+  }
+
+  function fulfillmentStatusForOrders(row) {
+    if (!row) return '';
+    const source = String(row.__source || '').trim().toLowerCase();
+    const raw = String(row.status || '').trim().toLowerCase();
+
+    if (source === 'shop') {
+      if (raw === 'pending_acceptance') return 'pending';
+      if (raw === 'awaiting_payment') return 'awaiting_payment';
+      if (raw === 'accepted') return 'confirmed';
+      if (raw === 'completed' || raw === 'fulfilled') return 'completed';
+      if (raw === 'rejected' || raw === 'cancelled' || raw === 'expired') return 'cancelled';
+      if (raw === 'closed') return 'closed';
+      return raw || '';
+    }
+
+    if (raw === 'awaiting_payment') return 'awaiting_payment';
+    if (raw === 'closed') return 'closed';
+
+    const resolved = String(resolveServiceOrderStatus(row) || '').trim().toLowerCase();
+    if (resolved === 'confirmed') return 'confirmed';
+    if (resolved === 'completed') return 'completed';
+    if (resolved === 'cancelled') return 'cancelled';
+    if (resolved === 'pending') return 'pending';
+
+    if (raw === 'accepted') return 'confirmed';
+    if (raw === 'rejected' || raw === 'expired') return 'cancelled';
+    if (raw === 'pending_acceptance') return 'pending';
+
+    return raw || '';
+  }
+
+  function isFulfillmentPaidForOrders(row) {
+    if (!row) return false;
+    const source = String(row.__source || '').trim().toLowerCase();
+    const paymentStatus = String(row.booking_payment_status || '').trim().toLowerCase();
+    const status = fulfillmentStatusForOrders(row);
+    const raw = String(row.status || '').trim().toLowerCase();
+
+    if (paymentStatus === 'paid') return true;
+    if (source === 'service') {
+      return status === 'confirmed' || status === 'completed' || raw === 'accepted';
+    }
+    if (source === 'shop') {
+      return raw === 'accepted' || raw === 'completed' || raw === 'fulfilled';
+    }
+    return false;
+  }
+
+  function fulfillmentScheduleDateIso(row) {
+    if (!row) return '';
+    const category = fulfillmentCategoryForOrders(row);
+    const details = detailsObjectFromFulfillment(row);
+
+    const candidates = [];
+    if (category === 'cars') {
+      candidates.push(
+        row.start_date,
+        details?.pickup_date,
+        details?.pickupDate,
+        details?.start_date,
+        details?.startDate
+      );
+    } else if (category === 'trips') {
+      candidates.push(
+        details?.preferred_date,
+        details?.preferredDate,
+        details?.trip_date,
+        details?.tripDate,
+        row.start_date,
+        details?.start_date,
+        details?.startDate,
+        details?.arrival_date,
+        details?.arrivalDate
+      );
+    } else if (category === 'hotels') {
+      candidates.push(
+        row.start_date,
+        details?.arrival_date,
+        details?.arrivalDate,
+        details?.check_in,
+        details?.checkIn
+      );
+    } else {
+      candidates.push(
+        details?.estimated_delivery_date,
+        details?.estimatedDeliveryDate,
+        details?.delivery_date,
+        details?.deliveryDate
+      );
+    }
+
+    for (const candidate of candidates) {
+      const iso = normalizeIsoDateValue(candidate);
+      if (iso) return iso;
+    }
+    return '';
+  }
+
+  function orderLabelForFulfillment(row) {
+    if (!row) return '—';
+    if (String(row.__source || '') === 'shop') {
+      return row.order_number || String(row.order_id || row.id || '').slice(0, 8) || '—';
+    }
+    return row.reference || String(row.booking_id || row.id || '').slice(0, 8) || '—';
+  }
+
+  function orderPriceLabelForFulfillment(row) {
+    if (!row) return '—';
+    if (String(row.__source || '') === 'shop') {
+      const allocated = Number(row.total_allocated);
+      const subtotal = Number(row.subtotal);
+      const value = Number.isFinite(allocated) ? allocated : (Number.isFinite(subtotal) ? subtotal : null);
+      return value == null ? '—' : formatMoney(value, 'EUR');
+    }
+    if (String(row.resource_type || '').trim().toLowerCase() === 'cars') {
+      const pricing = getCarsFulfillmentPricing(row);
+      return formatMoney(pricing.amount, pricing.currency || row.currency || 'EUR');
+    }
+    return row.total_price == null ? '—' : formatMoney(row.total_price, row.currency || 'EUR');
+  }
+
+  function syncOrdersFilterUiFromState() {
+    if (els.ordersCategoryFilter) els.ordersCategoryFilter.value = normalizeOrdersCategory(state.orders.category);
+    if (els.ordersStatusFilter) els.ordersStatusFilter.value = normalizeOrdersStatus(state.orders.status);
+    if (els.ordersTimelineFilter) els.ordersTimelineFilter.value = normalizeOrdersTimeline(state.orders.timeline);
+    if (els.ordersDateFrom) els.ordersDateFrom.value = normalizeIsoDateValue(state.orders.dateFrom);
+    if (els.ordersDateTo) els.ordersDateTo.value = normalizeIsoDateValue(state.orders.dateTo);
+  }
+
+  function syncOrdersCategoryFilterOptions() {
+    if (!els.ordersCategoryFilter) return;
+    const counts = { shop: 0, cars: 0, trips: 0, hotels: 0 };
+    (state.fulfillments || []).forEach((row) => {
+      const cat = fulfillmentCategoryForOrders(row);
+      if (cat in counts) counts[cat] += 1;
+    });
+
+    const available = new Set(['all']);
+    if (counts.shop > 0) available.add('shop');
+    if (counts.cars > 0) available.add('cars');
+    if (counts.trips > 0) available.add('trips');
+    if (counts.hotels > 0) available.add('hotels');
+
+    const opts = [
+      '<option value="all">All categories</option>',
+      available.has('shop') ? '<option value="shop">Shop</option>' : '',
+      available.has('cars') ? '<option value="cars">Cars</option>' : '',
+      available.has('trips') ? '<option value="trips">Trips</option>' : '',
+      available.has('hotels') ? '<option value="hotels">Hotels</option>' : '',
+    ].filter(Boolean);
+
+    setHtml(els.ordersCategoryFilter, opts.join(''));
+
+    const normalized = normalizeOrdersCategory(state.orders.category);
+    state.orders.category = available.has(normalized) ? normalized : 'all';
+    els.ordersCategoryFilter.value = state.orders.category;
+  }
+
+  function filteredFulfillmentsForOrdersPanel() {
+    const rows = filteredFulfillmentsForSelectedCategory();
+    const categoryFilter = normalizeOrdersCategory(state.orders.category);
+    const statusFilter = normalizeOrdersStatus(state.orders.status);
+    const timelineFilter = normalizeOrdersTimeline(state.orders.timeline);
+    let dateFrom = normalizeIsoDateValue(state.orders.dateFrom);
+    let dateTo = normalizeIsoDateValue(state.orders.dateTo);
+    if (dateFrom && dateTo && dateFrom > dateTo) {
+      const tmp = dateFrom;
+      dateFrom = dateTo;
+      dateTo = tmp;
+    }
+
+    return rows.filter((row) => {
+      const category = fulfillmentCategoryForOrders(row);
+      if (categoryFilter !== 'all' && category !== categoryFilter) return false;
+
+      const status = fulfillmentStatusForOrders(row);
+      if (statusFilter !== 'all' && status !== statusFilter) return false;
+
+      const dateIso = fulfillmentScheduleDateIso(row);
+      if ((dateFrom || dateTo) && !dateIso) return false;
+      if (dateFrom && dateIso < dateFrom) return false;
+      if (dateTo && dateIso > dateTo) return false;
+
+      if (timelineFilter === 'all') return true;
+
+      if (!isFulfillmentPaidForOrders(row) || !dateIso) return false;
+      const diffDays = dateDiffFromToday(dateIso);
+      if (!Number.isFinite(diffDays)) return false;
+
+      if (timelineFilter === 'paid_today') return diffDays === 0;
+      if (timelineFilter === 'paid_overdue') return diffDays < 0;
+      if (timelineFilter === 'paid_upcoming_30') return diffDays >= 0 && diffDays <= 30;
+      return true;
+    });
+  }
+
+  function setOrdersCalendarMonthInput(value) {
+    const next = value || getMonthValue();
+    state.orders.monthValue = next;
+    if (els.ordersCalendarMonthInput) {
+      els.ordersCalendarMonthInput.value = next;
+    }
+  }
+
+  function ensureOrdersCalendarMonthInput() {
+    const current = normalizeIsoDateValue(`${String(state.orders.monthValue || '').trim()}-01`).slice(0, 7);
+    if (current) {
+      setOrdersCalendarMonthInput(current);
+      return;
+    }
+    const fromInput = String(els.ordersCalendarMonthInput?.value || '').trim();
+    if (fromInput) {
+      setOrdersCalendarMonthInput(fromInput);
+      return;
+    }
+    setOrdersCalendarMonthInput(getMonthValue());
+  }
+
+  function renderOrdersDayList(dayIso, rowsForDay) {
+    if (!els.ordersCalendarList) return;
+    const list = Array.isArray(rowsForDay) ? rowsForDay : [];
+    const heading = dayIso ? formatDateDmy(dayIso) : 'Select a day';
+
+    if (!list.length) {
+      setHtml(
+        els.ordersCalendarList,
+        `
+          <div class="small"><strong>${escapeHtml(heading)}</strong></div>
+          <div class="muted small">No orders for this day with current filters.</div>
+        `
+      );
+      return;
+    }
+
+    const sorted = list.slice().sort((a, b) => {
+      const aMs = Date.parse(String(a?.created_at || '')) || 0;
+      const bMs = Date.parse(String(b?.created_at || '')) || 0;
+      return bMs - aMs;
+    });
+
+    setHtml(
+      els.ordersCalendarList,
+      `
+        <div class="small"><strong>${escapeHtml(heading)}</strong> · ${sorted.length} order(s)</div>
+        ${sorted.map((row) => {
+          const id = String(row?.id || '').trim();
+          const label = orderLabelForFulfillment(row);
+          const category = categoryLabel(fulfillmentCategoryForOrders(row) || 'all');
+          const status = String(fulfillmentStatusForOrders(row) || '—').replace(/_/g, ' ');
+          const price = orderPriceLabelForFulfillment(row);
+          const paid = isFulfillmentPaidForOrders(row) ? 'Paid' : 'Unpaid';
+          return `
+            <div class="partner-orders-day-list__item">
+              <div>
+                <p class="partner-orders-day-list__name">${escapeHtml(label)}</p>
+                <div class="partner-orders-day-list__meta">${escapeHtml(category)} · ${escapeHtml(status)} · ${escapeHtml(paid)}</div>
+              </div>
+              <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap;">
+                <div class="partner-orders-day-list__price">${escapeHtml(price)}</div>
+                <button type="button" class="btn-sm" data-focus-fulfillment="${escapeHtml(id)}">Show in table</button>
+              </div>
+            </div>
+          `;
+        }).join('')}
+      `
+    );
+
+    els.ordersCalendarList.querySelectorAll('button[data-focus-fulfillment]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const fid = String(btn.getAttribute('data-focus-fulfillment') || '').trim();
+        if (!fid || !els.fulfillmentsBody) return;
+        const row = Array.from(els.fulfillmentsBody.querySelectorAll('tr[data-fulfillment-id]'))
+          .find((tr) => String(tr.getAttribute('data-fulfillment-id') || '').trim() === fid);
+        if (!row) return;
+        clearFulfillmentHighlights();
+        row.style.boxShadow = '0 0 0 3px rgba(37, 99, 235, 0.55)';
+        row.style.background = 'rgba(37, 99, 235, 0.08)';
+        try {
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } catch (_e) {
+          try {
+            row.scrollIntoView(true);
+          } catch (_e2) {}
+        }
+        setTimeout(() => {
+          if (!row.isConnected) return;
+          row.style.boxShadow = '';
+          row.style.background = '';
+        }, 4500);
+      });
+    });
+  }
+
+  function renderOrdersScheduleCalendar(filteredRows) {
+    if (!els.ordersCalendarGrid || !els.ordersCalendarList) return;
+
+    ensureOrdersCalendarMonthInput();
+    const monthValue = String(state.orders.monthValue || getMonthValue()).trim() || getMonthValue();
+    const { start, startIso, endIso } = monthToStartEnd(monthValue);
+    const weekLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    const dayMap = {};
+
+    const rows = Array.isArray(filteredRows) ? filteredRows : filteredFulfillmentsForOrdersPanel();
+    rows.forEach((row) => {
+      const dayIso = fulfillmentScheduleDateIso(row);
+      if (!dayIso) return;
+      if (dayIso < startIso || dayIso > endIso) return;
+      if (!dayMap[dayIso]) dayMap[dayIso] = [];
+      dayMap[dayIso].push(row);
+    });
+
+    const todayIso = localDateIso();
+    const todayInMonth = todayIso >= startIso && todayIso <= endIso;
+    const firstWeekdayMon = (start.getUTCDay() + 6) % 7;
+    const daysInMonth = new Date(start.getUTCFullYear(), start.getUTCMonth() + 1, 0).getDate();
+
+    if (!state.orders.selectedDateIso || state.orders.selectedDateIso < startIso || state.orders.selectedDateIso > endIso) {
+      const paidUpcomingInMonth = Object.keys(dayMap)
+        .filter((iso) => iso >= todayIso)
+        .filter((iso) => (dayMap[iso] || []).some((row) => isFulfillmentPaidForOrders(row)))
+        .sort()[0];
+      state.orders.selectedDateIso = paidUpcomingInMonth || (todayInMonth ? todayIso : `${monthValue}-01`);
+    }
+
+    let html = weekLabels.map((label) => `<div class="partner-orders-calendar-weekday">${escapeHtml(label)}</div>`).join('');
+    for (let i = 0; i < firstWeekdayMon; i += 1) {
+      html += '<div class="partner-orders-calendar-day partner-orders-calendar-day--blank" aria-hidden="true"></div>';
+    }
+
+    for (let day = 1; day <= daysInMonth; day += 1) {
+      const dayIso = `${monthValue}-${String(day).padStart(2, '0')}`;
+      const rowsForDay = dayMap[dayIso] || [];
+      const paidRows = rowsForDay.filter((row) => isFulfillmentPaidForOrders(row));
+      const upcomingCount = paidRows.filter(() => dayIso >= todayIso).length;
+      const overdueCount = paidRows.filter(() => dayIso < todayIso).length;
+      const neutralCount = rowsForDay.length - paidRows.length;
+      const isSelected = dayIso === state.orders.selectedDateIso;
+      const classes = [
+        'partner-orders-calendar-day',
+        dayIso === todayIso ? 'partner-orders-calendar-day--today' : '',
+        isSelected ? 'partner-orders-calendar-day--selected' : '',
+        upcomingCount > 0 ? 'partner-orders-calendar-day--has-upcoming' : '',
+        overdueCount > 0 ? 'partner-orders-calendar-day--has-overdue' : '',
+      ].filter(Boolean).join(' ');
+
+      const countParts = [];
+      if (upcomingCount > 0) countParts.push(`<span class="is-upcoming" title="Paid upcoming orders">${upcomingCount} paid</span>`);
+      if (overdueCount > 0) countParts.push(`<span class="is-overdue" title="Paid overdue orders">${overdueCount} late</span>`);
+      if (!countParts.length && neutralCount > 0) countParts.push(`<span class="is-neutral" title="Orders without paid-upcoming marker">${neutralCount} order</span>`);
+      const counts = countParts.join('');
+
+      html += `
+        <button type="button" class="${escapeHtml(classes)}" data-orders-calendar-day="${escapeHtml(dayIso)}" title="${escapeHtml(formatDateDmy(dayIso))}">
+          <div class="partner-orders-calendar-daynum">${day}</div>
+          <div class="partner-orders-calendar-counts">${counts}</div>
+        </button>
+      `;
+    }
+
+    setHtml(els.ordersCalendarGrid, html);
+    renderOrdersDayList(state.orders.selectedDateIso, dayMap[state.orders.selectedDateIso] || []);
+
+    els.ordersCalendarGrid.querySelectorAll('[data-orders-calendar-day]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const dayIso = String(btn.getAttribute('data-orders-calendar-day') || '').trim();
+        if (!dayIso) return;
+        state.orders.selectedDateIso = dayIso;
+        renderOrdersScheduleCalendar(rows);
+      });
+    });
+  }
+
   function showTabOnly(tab) {
     const isFulfillments = tab === 'fulfillments';
     els.tabBtnFulfillments?.classList.toggle('is-active', isFulfillments);
@@ -1457,6 +1923,7 @@
       setHidden(els.partnerAnalyticsTopProductsCard, true);
       if (String(state.selectedCategory || 'all') !== 'all') {
         state.selectedCategory = 'all';
+        state.orders.category = 'all';
       }
       if (els.partnerAnalyticsView && !els.partnerAnalyticsView.hidden) {
         setMainView('portal');
@@ -1486,6 +1953,7 @@
 
     if (!allowed.has(String(state.selectedCategory || 'all'))) {
       state.selectedCategory = 'all';
+      state.orders.category = 'all';
     }
 
     syncAnalyticsCategoryOptions();
@@ -1497,6 +1965,8 @@
   function navToCategory(category) {
     const next = category || 'all';
     state.selectedCategory = next;
+    state.orders.category = normalizeOrdersCategory(next);
+    state.orders.selectedDateIso = '';
 
     updateSidebarCategoryVisibility();
     updateAnalyticsCardVisibility();
@@ -1528,8 +1998,7 @@
     if (!state.fulfillments?.length) {
       refreshFulfillments();
     } else {
-      updateKpis();
-      renderFulfillmentsTable();
+      refreshOrdersPanelViews();
       startAnalyticsRealtime();
       refreshPortalResponseInsights();
     }
@@ -3391,12 +3860,12 @@
     }
   }
 
-  function updateKpis() {
-    const rows = filteredFulfillmentsForSelectedCategory();
-    const pending = rows.filter((f) => String(f.status) === 'pending_acceptance').length;
-    const awaiting = rows.filter((f) => String(f.status) === 'awaiting_payment').length;
-    const accepted = rows.filter((f) => String(f.status) === 'accepted').length;
-    const rejected = rows.filter((f) => String(f.status) === 'rejected').length;
+  function updateKpis(filteredRows) {
+    const rows = Array.isArray(filteredRows) ? filteredRows : filteredFulfillmentsForOrdersPanel();
+    const pending = rows.filter((f) => fulfillmentStatusForOrders(f) === 'pending').length;
+    const awaiting = rows.filter((f) => fulfillmentStatusForOrders(f) === 'awaiting_payment').length;
+    const accepted = rows.filter((f) => fulfillmentStatusForOrders(f) === 'confirmed').length;
+    const rejected = rows.filter((f) => fulfillmentStatusForOrders(f) === 'cancelled').length;
 
     setText(els.kpiPending, String(pending));
     setText(els.kpiAccepted, String(accepted));
@@ -3410,6 +3879,27 @@
           : 'No fulfillments awaiting acceptance.';
       els.fulfillmentsHint.textContent = hint;
     }
+
+    if (els.ordersFilterHint) {
+      const paidUpcoming = rows.filter((row) => {
+        if (!isFulfillmentPaidForOrders(row)) return false;
+        const dayIso = fulfillmentScheduleDateIso(row);
+        if (!dayIso) return false;
+        const diff = dateDiffFromToday(dayIso);
+        return Number.isFinite(diff) && diff >= 0;
+      }).length;
+      const withScheduleDate = rows.filter((row) => Boolean(fulfillmentScheduleDateIso(row))).length;
+      els.ordersFilterHint.textContent = `Showing ${rows.length} order(s) · ${paidUpcoming} paid upcoming · ${withScheduleDate} with schedule date.`;
+    }
+  }
+
+  function refreshOrdersPanelViews() {
+    syncOrdersCategoryFilterOptions();
+    syncOrdersFilterUiFromState();
+    const rows = filteredFulfillmentsForOrdersPanel();
+    updateKpis(rows);
+    renderFulfillmentsTable(rows);
+    renderOrdersScheduleCalendar(rows);
   }
 
   function toNum(value) {
@@ -4672,17 +5162,22 @@
     }, 6000);
   }
 
-  function renderFulfillmentsTable() {
+  function renderFulfillmentsTable(filteredInput) {
     if (!els.fulfillmentsBody) return;
 
-    const filtered = filteredFulfillmentsForSelectedCategory();
+    const filtered = Array.isArray(filteredInput) ? filteredInput : filteredFulfillmentsForOrdersPanel();
 
     if (!filtered.length) {
+      const baseRows = filteredFulfillmentsForSelectedCategory();
+      const noMatchByFilters = baseRows.length > 0;
       const dbg = state.lastFulfillmentsDebug;
       const dbgHtml = dbg
         ? `<div class="small muted" style="margin-top: 6px;">Debug: shop ${Number(dbg.raw_shop || 0)}, service ${Number(dbg.raw_service || 0)}, closed ${Number(dbg.closed || 0)}, after_filters ${Number(dbg.filtered_total || 0)}</div>`
         : '';
-      setHtml(els.fulfillmentsBody, `<tr><td colspan="6" class="muted" style="padding: 16px 8px;">No fulfillments found.${dbgHtml}</td></tr>`);
+      const msg = noMatchByFilters
+        ? 'No fulfillments match the current filters.'
+        : 'No fulfillments found.';
+      setHtml(els.fulfillmentsBody, `<tr><td colspan="6" class="muted" style="padding: 16px 8px;">${msg}${dbgHtml}</td></tr>`);
       return;
     }
 
@@ -6073,8 +6568,7 @@
       updateAnalyticsCardVisibility();
       updateAffiliateSummaryCardVisibility();
       updateServiceSectionVisibility();
-      updateKpis();
-      renderFulfillmentsTable();
+      refreshOrdersPanelViews();
       startAnalyticsRealtime();
       await refreshPortalResponseInsights();
       try {
@@ -6178,6 +6672,8 @@
     if (state.selectedPartnerId) {
       setPersistedPartnerId(state.selectedPartnerId);
     }
+    state.orders.category = normalizeOrdersCategory(state.selectedCategory || 'all');
+    state.orders.selectedDateIso = '';
 
     clearAvailabilitySelectionsAll();
     updateAvailabilitySelectionSummary();
@@ -6360,6 +6856,63 @@
 
     els.tabBtnFulfillments?.addEventListener('click', () => setActiveTab('fulfillments'));
     els.tabBtnCalendar?.addEventListener('click', () => setActiveTab('calendar'));
+
+    const applyOrdersFiltersFromUi = () => {
+      state.orders.category = normalizeOrdersCategory(els.ordersCategoryFilter?.value || state.orders.category);
+      state.orders.status = normalizeOrdersStatus(els.ordersStatusFilter?.value || state.orders.status);
+      state.orders.timeline = normalizeOrdersTimeline(els.ordersTimelineFilter?.value || state.orders.timeline);
+      state.orders.dateFrom = normalizeIsoDateValue(els.ordersDateFrom?.value || state.orders.dateFrom);
+      state.orders.dateTo = normalizeIsoDateValue(els.ordersDateTo?.value || state.orders.dateTo);
+      if (state.orders.dateFrom && state.orders.dateTo && state.orders.dateFrom > state.orders.dateTo) {
+        const tmp = state.orders.dateFrom;
+        state.orders.dateFrom = state.orders.dateTo;
+        state.orders.dateTo = tmp;
+      }
+      state.orders.selectedDateIso = '';
+      refreshOrdersPanelViews();
+    };
+
+    els.ordersCategoryFilter?.addEventListener('change', applyOrdersFiltersFromUi);
+    els.ordersStatusFilter?.addEventListener('change', applyOrdersFiltersFromUi);
+    els.ordersTimelineFilter?.addEventListener('change', applyOrdersFiltersFromUi);
+    els.ordersDateFrom?.addEventListener('change', applyOrdersFiltersFromUi);
+    els.ordersDateTo?.addEventListener('change', applyOrdersFiltersFromUi);
+
+    els.btnOrdersClearFilters?.addEventListener('click', () => {
+      state.orders.category = normalizeOrdersCategory(state.selectedCategory || 'all');
+      state.orders.status = 'all';
+      state.orders.timeline = 'all';
+      state.orders.dateFrom = '';
+      state.orders.dateTo = '';
+      state.orders.selectedDateIso = '';
+      syncOrdersFilterUiFromState();
+      refreshOrdersPanelViews();
+    });
+
+    els.btnOrdersCalendarPrevMonth?.addEventListener('click', () => {
+      ensureOrdersCalendarMonthInput();
+      setOrdersCalendarMonthInput(addMonths(state.orders.monthValue || getMonthValue(), -1));
+      state.orders.selectedDateIso = '';
+      renderOrdersScheduleCalendar(filteredFulfillmentsForOrdersPanel());
+    });
+
+    els.btnOrdersCalendarNextMonth?.addEventListener('click', () => {
+      ensureOrdersCalendarMonthInput();
+      setOrdersCalendarMonthInput(addMonths(state.orders.monthValue || getMonthValue(), 1));
+      state.orders.selectedDateIso = '';
+      renderOrdersScheduleCalendar(filteredFulfillmentsForOrdersPanel());
+    });
+
+    els.ordersCalendarMonthInput?.addEventListener('change', () => {
+      const mv = String(els.ordersCalendarMonthInput?.value || '').trim();
+      if (!mv) {
+        setOrdersCalendarMonthInput(getMonthValue());
+      } else {
+        setOrdersCalendarMonthInput(mv);
+      }
+      state.orders.selectedDateIso = '';
+      renderOrdersScheduleCalendar(filteredFulfillmentsForOrdersPanel());
+    });
 
     window.addEventListener('hashchange', () => {
       const fid = getFulfillmentFocusIdFromHash();
@@ -6932,6 +7485,18 @@
 
     els.fulfillmentsHint = $('fulfillmentsHint');
     els.fulfillmentsBody = $('fulfillmentsTableBody');
+    els.ordersCategoryFilter = $('partnerOrdersCategoryFilter');
+    els.ordersStatusFilter = $('partnerOrdersStatusFilter');
+    els.ordersTimelineFilter = $('partnerOrdersTimelineFilter');
+    els.ordersDateFrom = $('partnerOrdersDateFrom');
+    els.ordersDateTo = $('partnerOrdersDateTo');
+    els.btnOrdersClearFilters = $('btnPartnerOrdersClearFilters');
+    els.ordersFilterHint = $('partnerOrdersFilterHint');
+    els.ordersCalendarMonthInput = $('partnerOrdersCalendarMonthInput');
+    els.btnOrdersCalendarPrevMonth = $('btnPartnerOrdersCalendarPrevMonth');
+    els.btnOrdersCalendarNextMonth = $('btnPartnerOrdersCalendarNextMonth');
+    els.ordersCalendarGrid = $('partnerOrdersCalendarGrid');
+    els.ordersCalendarList = $('partnerOrdersCalendarList');
     els.kpiPending = $('kpiPending');
     els.kpiAccepted = $('kpiAccepted');
     els.kpiRejected = $('kpiRejected');
