@@ -332,6 +332,45 @@
       background: linear-gradient(145deg, rgba(15, 23, 42, 0.2), rgba(15, 23, 42, 0.06));
       border-radius: 12px;
     }
+    .partner-orders-calendar-toggle {
+      width: 100%;
+      border: none;
+      background: transparent;
+      color: inherit;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      cursor: pointer;
+      text-align: left;
+    }
+    .partner-orders-calendar-toggle-left {
+      min-width: 0;
+      display: grid;
+      gap: 2px;
+    }
+    .partner-orders-calendar-toggle-title {
+      font-size: 14px;
+      letter-spacing: 0.01em;
+    }
+    .partner-orders-calendar-toggle-subtitle {
+      font-size: 11px;
+      color: var(--admin-text-muted);
+      line-height: 1.2;
+    }
+    .partner-orders-calendar-arrow {
+      font-size: 13px;
+      color: var(--admin-text-muted);
+      transition: transform 0.16s ease;
+    }
+    .partner-orders-calendar-toggle[aria-expanded="true"] .partner-orders-calendar-arrow {
+      transform: rotate(180deg);
+    }
+    .partner-orders-calendar-body {
+      margin-top: 8px;
+    }
     .partner-orders-calendar-head {
       display: flex;
       justify-content: space-between;
@@ -897,6 +936,12 @@
       .partner-orders-filter-current {
         font-size: 9px;
         padding: 2px 7px;
+      }
+      .partner-orders-calendar-toggle-title {
+        font-size: 13px;
+      }
+      .partner-orders-calendar-toggle-subtitle {
+        font-size: 10px;
       }
       .partner-orders-status-switch {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -2054,24 +2099,36 @@
             <div class="muted small" id="fulfillmentsHint" style="margin-top: 10px;"></div>
 
             <div class="partner-orders-calendar-card" aria-label="Paid reservations calendar">
-              <div class="partner-orders-calendar-head">
-                <div>
-                  <h3>Paid reservations calendar</h3>
+              <button
+                id="btnPartnerOrdersCalendarToggle"
+                class="partner-orders-calendar-toggle"
+                type="button"
+                aria-expanded="true"
+                aria-controls="partnerOrdersCalendarBody"
+              >
+                <span class="partner-orders-calendar-toggle-left">
+                  <strong class="partner-orders-calendar-toggle-title">Paid reservations calendar</strong>
+                  <span class="partner-orders-calendar-toggle-subtitle">Payment completed bookings fill rental days. Today is highlighted.</span>
+                </span>
+                <span class="partner-orders-calendar-arrow" aria-hidden="true">▾</span>
+              </button>
+              <div id="partnerOrdersCalendarBody" class="partner-orders-calendar-body">
+                <div class="partner-orders-calendar-head">
                   <div class="muted small">Payment completed bookings fill rental days. Today is always highlighted.</div>
+                  <div class="partner-orders-calendar-controls">
+                    <button id="btnPartnerOrdersCalendarPrevMonth" class="btn-sm" type="button">◀</button>
+                    <input id="partnerOrdersCalendarMonthInput" type="month" />
+                    <button id="btnPartnerOrdersCalendarNextMonth" class="btn-sm" type="button">▶</button>
+                  </div>
                 </div>
-                <div class="partner-orders-calendar-controls">
-                  <button id="btnPartnerOrdersCalendarPrevMonth" class="btn-sm" type="button">◀</button>
-                  <input id="partnerOrdersCalendarMonthInput" type="month" />
-                  <button id="btnPartnerOrdersCalendarNextMonth" class="btn-sm" type="button">▶</button>
+                <div class="partner-orders-calendar-legend">
+                  <span><i class="partner-orders-calendar-dot partner-orders-calendar-dot--today"></i> Today</span>
+                  <span><i class="partner-orders-calendar-dot partner-orders-calendar-dot--booked"></i> Paid reservation day</span>
                 </div>
+                <div id="partnerOrdersCalendarGrid" class="partner-orders-calendar-grid"></div>
+                <div id="partnerOrdersDayListHint" class="partner-orders-day-hint">Tap a day to show matching paid orders.</div>
+                <div id="partnerOrdersCalendarList" class="partner-orders-day-list" hidden></div>
               </div>
-              <div class="partner-orders-calendar-legend">
-                <span><i class="partner-orders-calendar-dot partner-orders-calendar-dot--today"></i> Today</span>
-                <span><i class="partner-orders-calendar-dot partner-orders-calendar-dot--booked"></i> Paid reservation day</span>
-              </div>
-              <div id="partnerOrdersCalendarGrid" class="partner-orders-calendar-grid"></div>
-              <div id="partnerOrdersDayListHint" class="partner-orders-day-hint">Tap a day to show matching paid orders.</div>
-              <div id="partnerOrdersCalendarList" class="partner-orders-day-list" hidden></div>
             </div>
 
             <div class="partner-orders-filter-panel">

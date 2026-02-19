@@ -34,6 +34,7 @@
       monthValue: '',
       selectedDateIso: '',
       dayListVisible: false,
+      calendarExpanded: true,
       compactRows: true,
       filterExpanded: false,
     },
@@ -95,6 +96,8 @@
     btnOrdersToggleCompact: null,
     btnOrdersClearFilters: null,
     ordersFilterHint: null,
+    btnOrdersCalendarToggle: null,
+    ordersCalendarBody: null,
     ordersCalendarMonthInput: null,
     btnOrdersCalendarPrevMonth: null,
     btnOrdersCalendarNextMonth: null,
@@ -1681,6 +1684,14 @@
       els.btnOrdersFilterToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
     }
     setHidden(els.ordersFilterBody, !expanded);
+  }
+
+  function syncOrdersCalendarCollapseUi() {
+    const expanded = Boolean(state.orders.calendarExpanded);
+    if (els.btnOrdersCalendarToggle) {
+      els.btnOrdersCalendarToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    }
+    setHidden(els.ordersCalendarBody, !expanded);
   }
 
   function applyOrdersTableDensity() {
@@ -3913,6 +3924,7 @@
   function refreshOrdersPanelViews() {
     syncOrdersFilterUiFromState();
     syncOrdersFilterCollapseUi();
+    syncOrdersCalendarCollapseUi();
     applyOrdersTableDensity();
     const rows = filteredFulfillmentsForOrdersPanel();
     updateKpis(rows);
@@ -6694,6 +6706,7 @@
     state.orders.monthValue = getMonthValue();
     state.orders.selectedDateIso = localDateIso();
     state.orders.dayListVisible = false;
+    state.orders.calendarExpanded = true;
     state.orders.filterExpanded = false;
 
     clearAvailabilitySelectionsAll();
@@ -6887,6 +6900,11 @@
     els.btnOrdersFilterToggle?.addEventListener('click', () => {
       state.orders.filterExpanded = !Boolean(state.orders.filterExpanded);
       syncOrdersFilterCollapseUi();
+    });
+
+    els.btnOrdersCalendarToggle?.addEventListener('click', () => {
+      state.orders.calendarExpanded = !Boolean(state.orders.calendarExpanded);
+      syncOrdersCalendarCollapseUi();
     });
 
     (els.ordersStatusButtons || []).forEach((btn) => {
@@ -7517,6 +7535,8 @@
     els.btnOrdersToggleCompact = $('btnPartnerOrdersToggleCompact');
     els.btnOrdersClearFilters = $('btnPartnerOrdersClearFilters');
     els.ordersFilterHint = $('partnerOrdersFilterHint');
+    els.btnOrdersCalendarToggle = $('btnPartnerOrdersCalendarToggle');
+    els.ordersCalendarBody = $('partnerOrdersCalendarBody');
     els.ordersCalendarMonthInput = $('partnerOrdersCalendarMonthInput');
     els.btnOrdersCalendarPrevMonth = $('btnPartnerOrdersCalendarPrevMonth');
     els.btnOrdersCalendarNextMonth = $('btnPartnerOrdersCalendarNextMonth');
