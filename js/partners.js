@@ -35,6 +35,7 @@
       selectedDateIso: '',
       dayListVisible: false,
       compactRows: true,
+      filterExpanded: false,
     },
     analytics: {
       period: 'year',
@@ -87,6 +88,9 @@
     fulfillmentsHint: null,
     fulfillmentsBody: null,
     fulfillmentsTableContainer: null,
+    btnOrdersFilterToggle: null,
+    ordersFilterBody: null,
+    ordersFilterCurrent: null,
     ordersStatusButtons: null,
     btnOrdersToggleCompact: null,
     btnOrdersClearFilters: null,
@@ -1665,6 +1669,18 @@
       btn.classList.toggle('is-active', isActive);
       btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
+    if (els.ordersFilterCurrent) {
+      const currentLabel = active === 'all' ? 'All' : formatOrdersStatusLabel(active);
+      setText(els.ordersFilterCurrent, currentLabel || 'All');
+    }
+  }
+
+  function syncOrdersFilterCollapseUi() {
+    const expanded = Boolean(state.orders.filterExpanded);
+    if (els.btnOrdersFilterToggle) {
+      els.btnOrdersFilterToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    }
+    setHidden(els.ordersFilterBody, !expanded);
   }
 
   function applyOrdersTableDensity() {
@@ -3896,6 +3912,7 @@
 
   function refreshOrdersPanelViews() {
     syncOrdersFilterUiFromState();
+    syncOrdersFilterCollapseUi();
     applyOrdersTableDensity();
     const rows = filteredFulfillmentsForOrdersPanel();
     updateKpis(rows);
@@ -6677,6 +6694,7 @@
     state.orders.monthValue = getMonthValue();
     state.orders.selectedDateIso = localDateIso();
     state.orders.dayListVisible = false;
+    state.orders.filterExpanded = false;
 
     clearAvailabilitySelectionsAll();
     updateAvailabilitySelectionSummary();
@@ -6865,6 +6883,11 @@
       state.orders.dayListVisible = false;
       refreshOrdersPanelViews();
     };
+
+    els.btnOrdersFilterToggle?.addEventListener('click', () => {
+      state.orders.filterExpanded = !Boolean(state.orders.filterExpanded);
+      syncOrdersFilterCollapseUi();
+    });
 
     (els.ordersStatusButtons || []).forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -7487,6 +7510,9 @@
     els.fulfillmentsHint = $('fulfillmentsHint');
     els.fulfillmentsBody = $('fulfillmentsTableBody');
     els.fulfillmentsTableContainer = $('partnerFulfillmentsTableContainer');
+    els.btnOrdersFilterToggle = $('btnPartnerOrdersFilterToggle');
+    els.ordersFilterBody = $('partnerOrdersFilterBody');
+    els.ordersFilterCurrent = $('partnerOrdersFilterCurrent');
     els.ordersStatusButtons = Array.from(document.querySelectorAll('[data-orders-status-filter]'));
     els.btnOrdersToggleCompact = $('btnPartnerOrdersToggleCompact');
     els.btnOrdersClearFilters = $('btnPartnerOrdersClearFilters');
