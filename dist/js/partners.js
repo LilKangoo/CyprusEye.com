@@ -34,7 +34,7 @@
       monthValue: '',
       selectedDateIso: '',
       dayListVisible: false,
-      calendarExpanded: true,
+      calendarExpanded: false,
       compactRows: true,
       filterExpanded: false,
     },
@@ -92,12 +92,14 @@
     btnOrdersFilterToggle: null,
     ordersFilterBody: null,
     ordersFilterCurrent: null,
+    ordersFilterToggleState: null,
     ordersStatusButtons: null,
     btnOrdersToggleCompact: null,
     btnOrdersClearFilters: null,
     ordersFilterHint: null,
     btnOrdersCalendarToggle: null,
     ordersCalendarBody: null,
+    ordersCalendarToggleState: null,
     ordersCalendarMonthInput: null,
     btnOrdersCalendarPrevMonth: null,
     btnOrdersCalendarNextMonth: null,
@@ -1680,16 +1682,26 @@
 
   function syncOrdersFilterCollapseUi() {
     const expanded = Boolean(state.orders.filterExpanded);
+    const toggleLabel = expanded ? 'Tap to collapse' : 'Tap to expand';
     if (els.btnOrdersFilterToggle) {
       els.btnOrdersFilterToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      els.btnOrdersFilterToggle.title = `${toggleLabel} order filter`;
+    }
+    if (els.ordersFilterToggleState) {
+      setText(els.ordersFilterToggleState, toggleLabel);
     }
     setHidden(els.ordersFilterBody, !expanded);
   }
 
   function syncOrdersCalendarCollapseUi() {
     const expanded = Boolean(state.orders.calendarExpanded);
+    const toggleLabel = expanded ? 'Tap to collapse' : 'Tap to expand';
     if (els.btnOrdersCalendarToggle) {
       els.btnOrdersCalendarToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+      els.btnOrdersCalendarToggle.title = `${toggleLabel} paid reservations calendar`;
+    }
+    if (els.ordersCalendarToggleState) {
+      setText(els.ordersCalendarToggleState, toggleLabel);
     }
     setHidden(els.ordersCalendarBody, !expanded);
   }
@@ -6706,7 +6718,7 @@
     state.orders.monthValue = getMonthValue();
     state.orders.selectedDateIso = localDateIso();
     state.orders.dayListVisible = false;
-    state.orders.calendarExpanded = true;
+    state.orders.calendarExpanded = false;
     state.orders.filterExpanded = false;
 
     clearAvailabilitySelectionsAll();
@@ -7531,12 +7543,14 @@
     els.btnOrdersFilterToggle = $('btnPartnerOrdersFilterToggle');
     els.ordersFilterBody = $('partnerOrdersFilterBody');
     els.ordersFilterCurrent = $('partnerOrdersFilterCurrent');
+    els.ordersFilterToggleState = $('partnerOrdersFilterToggleState');
     els.ordersStatusButtons = Array.from(document.querySelectorAll('[data-orders-status-filter]'));
     els.btnOrdersToggleCompact = $('btnPartnerOrdersToggleCompact');
     els.btnOrdersClearFilters = $('btnPartnerOrdersClearFilters');
     els.ordersFilterHint = $('partnerOrdersFilterHint');
     els.btnOrdersCalendarToggle = $('btnPartnerOrdersCalendarToggle');
     els.ordersCalendarBody = $('partnerOrdersCalendarBody');
+    els.ordersCalendarToggleState = $('partnerOrdersCalendarToggleState');
     els.ordersCalendarMonthInput = $('partnerOrdersCalendarMonthInput');
     els.btnOrdersCalendarPrevMonth = $('btnPartnerOrdersCalendarPrevMonth');
     els.btnOrdersCalendarNextMonth = $('btnPartnerOrdersCalendarNextMonth');

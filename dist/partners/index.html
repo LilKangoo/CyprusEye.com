@@ -262,8 +262,35 @@
     }
     .partner-orders-filter-arrow {
       font-size: 13px;
-      color: var(--admin-text-muted);
+      color: #bfdbfe;
       transition: transform 0.16s ease;
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      border: 1px solid rgba(96, 165, 250, 0.5);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(37, 99, 235, 0.2);
+    }
+    .partner-orders-toggle-right {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+    .partner-orders-toggle-state {
+      display: inline-flex;
+      align-items: center;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: var(--admin-text-muted);
+      background: rgba(15, 23, 42, 0.36);
     }
     .partner-orders-filter-toggle[aria-expanded="true"] .partner-orders-filter-arrow {
       transform: rotate(180deg);
@@ -362,8 +389,16 @@
     }
     .partner-orders-calendar-arrow {
       font-size: 13px;
-      color: var(--admin-text-muted);
+      color: #bfdbfe;
       transition: transform 0.16s ease;
+      width: 22px;
+      height: 22px;
+      border-radius: 999px;
+      border: 1px solid rgba(96, 165, 250, 0.5);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(37, 99, 235, 0.2);
     }
     .partner-orders-calendar-toggle[aria-expanded="true"] .partner-orders-calendar-arrow {
       transform: rotate(180deg);
@@ -936,6 +971,19 @@
       .partner-orders-filter-current {
         font-size: 9px;
         padding: 2px 7px;
+      }
+      .partner-orders-toggle-right {
+        gap: 4px;
+      }
+      .partner-orders-toggle-state {
+        font-size: 9px;
+        padding: 2px 6px;
+      }
+      .partner-orders-filter-arrow,
+      .partner-orders-calendar-arrow {
+        width: 20px;
+        height: 20px;
+        font-size: 12px;
       }
       .partner-orders-calendar-toggle-title {
         font-size: 13px;
@@ -2103,16 +2151,19 @@
                 id="btnPartnerOrdersCalendarToggle"
                 class="partner-orders-calendar-toggle"
                 type="button"
-                aria-expanded="true"
+                aria-expanded="false"
                 aria-controls="partnerOrdersCalendarBody"
               >
                 <span class="partner-orders-calendar-toggle-left">
                   <strong class="partner-orders-calendar-toggle-title">Paid reservations calendar</strong>
                   <span class="partner-orders-calendar-toggle-subtitle">Payment completed bookings fill rental days. Today is highlighted.</span>
                 </span>
-                <span class="partner-orders-calendar-arrow" aria-hidden="true">▾</span>
+                <span class="partner-orders-toggle-right">
+                  <span id="partnerOrdersCalendarToggleState" class="partner-orders-toggle-state">Tap to expand</span>
+                  <span class="partner-orders-calendar-arrow" aria-hidden="true">▾</span>
+                </span>
               </button>
-              <div id="partnerOrdersCalendarBody" class="partner-orders-calendar-body">
+              <div id="partnerOrdersCalendarBody" class="partner-orders-calendar-body" hidden>
                 <div class="partner-orders-calendar-head">
                   <div class="muted small">Payment completed bookings fill rental days. Today is always highlighted.</div>
                   <div class="partner-orders-calendar-controls">
@@ -2143,7 +2194,10 @@
                   <strong class="partner-orders-filter-title">Order filter</strong>
                   <span id="partnerOrdersFilterCurrent" class="partner-orders-filter-current">All</span>
                 </span>
-                <span class="partner-orders-filter-arrow" aria-hidden="true">▾</span>
+                <span class="partner-orders-toggle-right">
+                  <span id="partnerOrdersFilterToggleState" class="partner-orders-toggle-state">Tap to expand</span>
+                  <span class="partner-orders-filter-arrow" aria-hidden="true">▾</span>
+                </span>
               </button>
               <div id="partnerOrdersFilterBody" class="partner-orders-filter-body" hidden>
                 <div class="partner-orders-status-switch" role="group" aria-label="Order status filter">
