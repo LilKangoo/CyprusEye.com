@@ -223,6 +223,21 @@
       gap: 10px;
       flex-wrap: wrap;
     }
+    .partner-orders-filter-actions {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+    .partner-orders-filter-actions .btn-sm {
+      min-height: 34px;
+    }
+    .partner-orders-compact-btn.is-active {
+      border-color: rgba(96, 165, 250, 0.5);
+      color: #fff;
+      background: rgba(37, 99, 235, 0.2);
+    }
     .partner-orders-filter-copy {
       min-width: 0;
       display: flex;
@@ -463,6 +478,25 @@
       font-size: 12px;
       font-weight: 800;
       white-space: nowrap;
+    }
+    .partner-orders-day-hint {
+      margin-top: 6px;
+      font-size: 11px;
+      color: var(--admin-text-muted);
+    }
+    .partner-fulfillments-table.partner-fulfillments-table--compact .admin-table th,
+    .partner-fulfillments-table.partner-fulfillments-table--compact .admin-table td {
+      padding: 7px 6px;
+      font-size: 12px;
+    }
+    .partner-fulfillments-table.partner-fulfillments-table--compact .admin-table td .small {
+      font-size: 11px;
+    }
+    .partner-fulfillments-table.partner-fulfillments-table--compact .btn-action,
+    .partner-fulfillments-table.partner-fulfillments-table--compact .btn-sm {
+      min-height: 30px;
+      padding: 6px 9px;
+      font-size: 12px;
     }
 
     .partner-analytics-view { max-width: 1200px; min-width: 0; display: grid; gap: 12px; }
@@ -801,7 +835,14 @@
       .partner-orders-filter-row {
         align-items: stretch;
       }
-      .partner-orders-filter-row .btn-sm {
+      .partner-orders-filter-actions {
+        width: 100%;
+        margin-left: 0;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px;
+      }
+      .partner-orders-filter-row .partner-orders-filter-actions .btn-sm {
         width: 100%;
       }
       .partner-orders-status-switch {
@@ -1941,7 +1982,10 @@
                 <div class="partner-orders-filter-copy">
                   <strong>Order status filter</strong>
                 </div>
-                <button id="btnPartnerOrdersClearFilters" class="btn-sm" type="button">Reset filter</button>
+                <div class="partner-orders-filter-actions">
+                  <button id="btnPartnerOrdersToggleCompact" class="btn-sm partner-orders-compact-btn is-active" type="button" aria-pressed="true">Compact rows: On</button>
+                  <button id="btnPartnerOrdersClearFilters" class="btn-sm" type="button">Reset filter</button>
+                </div>
               </div>
               <div class="partner-orders-status-switch" role="group" aria-label="Order status filter">
                 <button class="partner-orders-status-btn is-active" type="button" data-orders-status-filter="all">All</button>
@@ -1970,10 +2014,11 @@
                 <span><i class="partner-orders-calendar-dot partner-orders-calendar-dot--booked"></i> Paid reservation day</span>
               </div>
               <div id="partnerOrdersCalendarGrid" class="partner-orders-calendar-grid"></div>
-              <div id="partnerOrdersCalendarList" class="partner-orders-day-list"></div>
+              <div id="partnerOrdersDayListHint" class="partner-orders-day-hint">Tap a day to show matching paid orders.</div>
+              <div id="partnerOrdersCalendarList" class="partner-orders-day-list" hidden></div>
             </div>
 
-            <div class="admin-table-container" aria-label="Fulfillments">
+            <div id="partnerFulfillmentsTableContainer" class="admin-table-container partner-fulfillments-table partner-fulfillments-table--compact" aria-label="Fulfillments">
             <table class="admin-table">
               <thead>
                 <tr>

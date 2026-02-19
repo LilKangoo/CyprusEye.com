@@ -33,6 +33,8 @@
       status: 'all',
       monthValue: '',
       selectedDateIso: '',
+      dayListVisible: false,
+      compactRows: true,
     },
     analytics: {
       period: 'year',
@@ -84,13 +86,16 @@
     tabBtnCalendar: null,
     fulfillmentsHint: null,
     fulfillmentsBody: null,
+    fulfillmentsTableContainer: null,
     ordersStatusButtons: null,
+    btnOrdersToggleCompact: null,
     btnOrdersClearFilters: null,
     ordersFilterHint: null,
     ordersCalendarMonthInput: null,
     btnOrdersCalendarPrevMonth: null,
     btnOrdersCalendarNextMonth: null,
     ordersCalendarGrid: null,
+    ordersDayListHint: null,
     ordersCalendarList: null,
     kpiPending: null,
     kpiAccepted: null,
@@ -1662,6 +1667,18 @@
     });
   }
 
+  function applyOrdersTableDensity() {
+    const compact = Boolean(state.orders.compactRows);
+    if (els.fulfillmentsTableContainer) {
+      els.fulfillmentsTableContainer.classList.toggle('partner-fulfillments-table--compact', compact);
+    }
+    if (els.btnOrdersToggleCompact) {
+      els.btnOrdersToggleCompact.classList.toggle('is-active', compact);
+      els.btnOrdersToggleCompact.setAttribute('aria-pressed', compact ? 'true' : 'false');
+      els.btnOrdersToggleCompact.textContent = compact ? 'Compact rows: On' : 'Compact rows: Off';
+    }
+  }
+
   function filteredFulfillmentsForOrdersPanel() {
     const rows = filteredFulfillmentsForSelectedCategory();
     const statusFilter = normalizeOrdersStatus(state.orders.status);
@@ -1674,7 +1691,7 @@
   }
 
   function setOrdersCalendarMonthInput(value) {
-    const next = value || getMonthValue();
+    const next = normalizeMonthValue(value, getMonthValue());
     state.orders.monthValue = next;
     if (els.ordersCalendarMonthInput) {
       els.ordersCalendarMonthInput.value = next;
@@ -1682,12 +1699,12 @@
   }
 
   function ensureOrdersCalendarMonthInput() {
-    const current = normalizeIsoDateValue(`${String(state.orders.monthValue || '').trim()}-01`).slice(0, 7);
-    if (current) {
-      setOrdersCalendarMonthInput(current);
+    const fromState = normalizeMonthValue(state.orders.monthValue, '');
+    if (fromState) {
+      setOrdersCalendarMonthInput(fromState);
       return;
     }
-    const fromInput = String(els.ordersCalendarMonthInput?.value || '').trim();
+    const fromInput = normalizeMonthValue(els.ordersCalendarMonthInput?.value, '');
     if (fromInput) {
       setOrdersCalendarMonthInput(fromInput);
       return;
@@ -1839,13 +1856,26 @@
     }
 
     setHtml(els.ordersCalendarGrid, html);
-    renderOrdersDayList(state.orders.selectedDateIso, dayMap[state.orders.selectedDateIso] || []);
+    if (!state.orders.dayListVisible) {
+      setHidden(els.ordersCalendarList, true);
+      if (els.ordersDayListHint) {
+        setText(els.ordersDayListHint, 'Tap a day to show matching paid orders.');
+      }
+    } else {
+      setHidden(els.ordersCalendarList, false);
+      renderOrdersDayList(state.orders.selectedDateIso, dayMap[state.orders.selectedDateIso] || []);
+      if (els.ordersDayListHint) {
+        const label = state.orders.selectedDateIso ? formatDateDmy(state.orders.selectedDateIso) : 'selected day';
+        setText(els.ordersDayListHint, `Showing matching paid orders for ${label}.`);
+      }
+    }
 
     els.ordersCalendarGrid.querySelectorAll('[data-orders-calendar-day]').forEach((btn) => {
       btn.addEventListener('click', () => {
         const dayIso = String(btn.getAttribute('data-orders-calendar-day') || '').trim();
         if (!dayIso) return;
         state.orders.selectedDateIso = dayIso;
+        state.orders.dayListVisible = true;
         renderOrdersScheduleCalendar(filteredFulfillmentsForOrdersPanel());
       });
     });
@@ -2480,6 +2510,18 @@
     return `${y}-${m}`;
   }
 
+  function normalizeMonthValue(value, fallback = getMonthValue()) {
+    const raw = String(value || '').trim();
+    const match = raw.match(/^(\d{4})-(\d{2})$/);
+    if (!match) return fallback;
+    const year = Number(match[1]);
+    const month = Number(match[2]);
+    const nowYear = new Date().getFullYear();
+    if (!Number.isFinite(year) || !Number.isFinite(month) || month < 1 || month > 12) return fallback;
+    if (year < 2000 || year > nowYear + 5) return fallback;
+    return `${match[1]}-${match[2]}`;
+  }
+
   function monthToStartEnd(monthValue) {
     const mv = String(monthValue || '').trim();
     const [yStr, mStr] = mv.split('-');
@@ -2511,7 +2553,7 @@
   function setCalendarMonthInput(value) {
     const input = els.calendarMonthInput;
     if (!input) return;
-    const next = value || getMonthValue();
+    const next = normalizeMonthValue(value, getMonthValue());
     input.value = next;
     state.calendar.monthValue = next;
   }
@@ -2519,11 +2561,17 @@
   function ensureCalendarMonthInput() {
     const input = els.calendarMonthInput;
     if (!input) return;
-    if (!input.value) {
-      setCalendarMonthInput(getMonthValue());
-    } else {
-      state.calendar.monthValue = input.value;
+    const fromState = normalizeMonthValue(state.calendar.monthValue, '');
+    if (fromState) {
+      setCalendarMonthInput(fromState);
+      return;
     }
+    const fromInput = normalizeMonthValue(input.value, '');
+    if (fromInput) {
+      setCalendarMonthInput(fromInput);
+      return;
+    }
+    setCalendarMonthInput(getMonthValue());
   }
 
   function dateRangeOverlapsMonth(startIso, endIso, monthStartIso, monthEndIso) {
@@ -3848,6 +3896,7 @@
 
   function refreshOrdersPanelViews() {
     syncOrdersFilterUiFromState();
+    applyOrdersTableDensity();
     const rows = filteredFulfillmentsForOrdersPanel();
     updateKpis(rows);
     renderFulfillmentsTable(rows);
@@ -6627,6 +6676,7 @@
     state.orders.status = 'all';
     state.orders.monthValue = getMonthValue();
     state.orders.selectedDateIso = localDateIso();
+    state.orders.dayListVisible = false;
 
     clearAvailabilitySelectionsAll();
     updateAvailabilitySelectionSummary();
@@ -6812,6 +6862,7 @@
 
     const applyOrdersStatusFilter = (nextStatus) => {
       state.orders.status = normalizeOrdersStatus(nextStatus);
+      state.orders.dayListVisible = false;
       refreshOrdersPanelViews();
     };
 
@@ -6822,9 +6873,16 @@
       });
     });
 
+    els.btnOrdersToggleCompact?.addEventListener('click', () => {
+      state.orders.compactRows = !Boolean(state.orders.compactRows);
+      applyOrdersTableDensity();
+      renderFulfillmentsTable(filteredFulfillmentsForOrdersPanel());
+    });
+
     els.btnOrdersClearFilters?.addEventListener('click', () => {
       state.orders.status = 'all';
       state.orders.selectedDateIso = localDateIso();
+      state.orders.dayListVisible = false;
       syncOrdersFilterUiFromState();
       refreshOrdersPanelViews();
     });
@@ -6833,6 +6891,7 @@
       ensureOrdersCalendarMonthInput();
       setOrdersCalendarMonthInput(addMonths(state.orders.monthValue || getMonthValue(), -1));
       state.orders.selectedDateIso = '';
+      state.orders.dayListVisible = false;
       renderOrdersScheduleCalendar(filteredFulfillmentsForOrdersPanel());
     });
 
@@ -6840,6 +6899,7 @@
       ensureOrdersCalendarMonthInput();
       setOrdersCalendarMonthInput(addMonths(state.orders.monthValue || getMonthValue(), 1));
       state.orders.selectedDateIso = '';
+      state.orders.dayListVisible = false;
       renderOrdersScheduleCalendar(filteredFulfillmentsForOrdersPanel());
     });
 
@@ -6851,6 +6911,7 @@
         setOrdersCalendarMonthInput(mv);
       }
       state.orders.selectedDateIso = '';
+      state.orders.dayListVisible = false;
       renderOrdersScheduleCalendar(filteredFulfillmentsForOrdersPanel());
     });
 
@@ -7425,13 +7486,16 @@
 
     els.fulfillmentsHint = $('fulfillmentsHint');
     els.fulfillmentsBody = $('fulfillmentsTableBody');
+    els.fulfillmentsTableContainer = $('partnerFulfillmentsTableContainer');
     els.ordersStatusButtons = Array.from(document.querySelectorAll('[data-orders-status-filter]'));
+    els.btnOrdersToggleCompact = $('btnPartnerOrdersToggleCompact');
     els.btnOrdersClearFilters = $('btnPartnerOrdersClearFilters');
     els.ordersFilterHint = $('partnerOrdersFilterHint');
     els.ordersCalendarMonthInput = $('partnerOrdersCalendarMonthInput');
     els.btnOrdersCalendarPrevMonth = $('btnPartnerOrdersCalendarPrevMonth');
     els.btnOrdersCalendarNextMonth = $('btnPartnerOrdersCalendarNextMonth');
     els.ordersCalendarGrid = $('partnerOrdersCalendarGrid');
+    els.ordersDayListHint = $('partnerOrdersDayListHint');
     els.ordersCalendarList = $('partnerOrdersCalendarList');
     els.kpiPending = $('kpiPending');
     els.kpiAccepted = $('kpiAccepted');
