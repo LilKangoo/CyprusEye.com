@@ -30,11 +30,7 @@
       },
     },
     orders: {
-      category: 'all',
       status: 'all',
-      timeline: 'all',
-      dateFrom: '',
-      dateTo: '',
       monthValue: '',
       selectedDateIso: '',
     },
@@ -88,11 +84,7 @@
     tabBtnCalendar: null,
     fulfillmentsHint: null,
     fulfillmentsBody: null,
-    ordersCategoryFilter: null,
-    ordersStatusFilter: null,
-    ordersTimelineFilter: null,
-    ordersDateFrom: null,
-    ordersDateTo: null,
+    ordersStatusButtons: null,
     btnOrdersClearFilters: null,
     ordersFilterHint: null,
     ordersCalendarMonthInput: null,
@@ -1445,29 +1437,22 @@
     });
   }
 
-  function normalizeOrdersCategory(value) {
-    const v = String(value || 'all').trim().toLowerCase();
-    if (v === 'shop' || v === 'cars' || v === 'trips' || v === 'hotels') return v;
-    return 'all';
-  }
-
   function normalizeOrdersStatus(value) {
     const v = String(value || 'all').trim().toLowerCase();
-    if (v === 'pending') return 'pending';
+    if (v === 'pending_acceptance') return 'pending_acceptance';
     if (v === 'awaiting_payment') return 'awaiting_payment';
     if (v === 'confirmed') return 'confirmed';
-    if (v === 'completed') return 'completed';
-    if (v === 'cancelled') return 'cancelled';
-    if (v === 'closed') return 'closed';
+    if (v === 'cancelled_rejected') return 'cancelled_rejected';
     return 'all';
   }
 
-  function normalizeOrdersTimeline(value) {
-    const v = String(value || 'all').trim().toLowerCase();
-    if (v === 'paid_upcoming_30') return 'paid_upcoming_30';
-    if (v === 'paid_today') return 'paid_today';
-    if (v === 'paid_overdue') return 'paid_overdue';
-    return 'all';
+  function formatOrdersStatusLabel(status) {
+    const s = String(status || '').trim().toLowerCase();
+    if (s === 'pending_acceptance') return 'Pending acceptance';
+    if (s === 'awaiting_payment') return 'Awaiting payment';
+    if (s === 'confirmed') return 'Confirmed';
+    if (s === 'cancelled_rejected') return 'Canceled / rejected';
+    return '—';
   }
 
   function localDateIso(date = new Date()) {
@@ -1486,16 +1471,6 @@
     const ms = Date.parse(raw);
     if (!Number.isFinite(ms)) return '';
     return new Date(ms).toISOString().slice(0, 10);
-  }
-
-  function dateDiffFromToday(dateIso) {
-    const iso = normalizeIsoDateValue(dateIso);
-    if (!iso) return null;
-    const target = new Date(`${iso}T00:00:00`);
-    if (Number.isNaN(target.getTime())) return null;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    return Math.round((target.getTime() - today.getTime()) / 86400000);
   }
 
   function detailsObjectFromFulfillment(row) {
@@ -1523,66 +1498,63 @@
     if (!row) return '';
     const source = String(row.__source || '').trim().toLowerCase();
     const raw = String(row.status || '').trim().toLowerCase();
+    const resolved = String(resolveServiceOrderStatus(row) || '').trim().toLowerCase();
 
     if (source === 'shop') {
-      if (raw === 'pending_acceptance') return 'pending';
+      if (raw === 'pending_acceptance') return 'pending_acceptance';
       if (raw === 'awaiting_payment') return 'awaiting_payment';
       if (raw === 'accepted') return 'confirmed';
-      if (raw === 'completed' || raw === 'fulfilled') return 'completed';
-      if (raw === 'rejected' || raw === 'cancelled' || raw === 'expired') return 'cancelled';
-      if (raw === 'closed') return 'closed';
-      return raw || '';
+      if (raw === 'completed' || raw === 'fulfilled') return 'confirmed';
+      if (raw === 'rejected' || raw === 'cancelled' || raw === 'expired' || raw === 'closed') return 'cancelled_rejected';
+      return 'pending_acceptance';
     }
 
     if (raw === 'awaiting_payment') return 'awaiting_payment';
-    if (raw === 'closed') return 'closed';
-
-    const resolved = String(resolveServiceOrderStatus(row) || '').trim().toLowerCase();
-    if (resolved === 'confirmed') return 'confirmed';
-    if (resolved === 'completed') return 'completed';
-    if (resolved === 'cancelled') return 'cancelled';
-    if (resolved === 'pending') return 'pending';
-
-    if (raw === 'accepted') return 'confirmed';
-    if (raw === 'rejected' || raw === 'expired') return 'cancelled';
-    if (raw === 'pending_acceptance') return 'pending';
-
-    return raw || '';
+    if (resolved === 'confirmed' || resolved === 'completed' || raw === 'accepted') return 'confirmed';
+    if (resolved === 'cancelled' || raw === 'rejected' || raw === 'expired' || raw === 'cancelled' || raw === 'closed') return 'cancelled_rejected';
+    return 'pending_acceptance';
   }
 
   function isFulfillmentPaidForOrders(row) {
     if (!row) return false;
     const source = String(row.__source || '').trim().toLowerCase();
+    if (source !== 'service') return false;
     const paymentStatus = String(row.booking_payment_status || '').trim().toLowerCase();
-    const status = fulfillmentStatusForOrders(row);
-    const raw = String(row.status || '').trim().toLowerCase();
-
-    if (paymentStatus === 'paid') return true;
-    if (source === 'service') {
-      return status === 'confirmed' || status === 'completed' || raw === 'accepted';
-    }
-    if (source === 'shop') {
-      return raw === 'accepted' || raw === 'completed' || raw === 'fulfilled';
-    }
-    return false;
+    return paymentStatus === 'paid';
   }
 
-  function fulfillmentScheduleDateIso(row) {
-    if (!row) return '';
+  function firstIsoFromCandidates(candidates) {
+    const list = Array.isArray(candidates) ? candidates : [];
+    for (const candidate of list) {
+      const iso = normalizeIsoDateValue(candidate);
+      if (iso) return iso;
+    }
+    return '';
+  }
+
+  function fulfillmentScheduleRange(row) {
+    if (!row) return null;
     const category = fulfillmentCategoryForOrders(row);
     const details = detailsObjectFromFulfillment(row);
-
-    const candidates = [];
+    let startIso = '';
+    let endIso = '';
     if (category === 'cars') {
-      candidates.push(
+      startIso = firstIsoFromCandidates([
         row.start_date,
         details?.pickup_date,
         details?.pickupDate,
         details?.start_date,
         details?.startDate
-      );
+      ]);
+      endIso = firstIsoFromCandidates([
+        row.end_date,
+        details?.return_date,
+        details?.returnDate,
+        details?.end_date,
+        details?.endDate,
+      ]);
     } else if (category === 'trips') {
-      candidates.push(
+      startIso = firstIsoFromCandidates([
         details?.preferred_date,
         details?.preferredDate,
         details?.trip_date,
@@ -1592,29 +1564,68 @@
         details?.startDate,
         details?.arrival_date,
         details?.arrivalDate
-      );
+      ]);
+      endIso = firstIsoFromCandidates([
+        row.end_date,
+        details?.end_date,
+        details?.endDate,
+        details?.departure_date,
+        details?.departureDate,
+        details?.return_date,
+        details?.returnDate,
+      ]);
     } else if (category === 'hotels') {
-      candidates.push(
+      startIso = firstIsoFromCandidates([
         row.start_date,
         details?.arrival_date,
         details?.arrivalDate,
         details?.check_in,
         details?.checkIn
-      );
+      ]);
+      endIso = firstIsoFromCandidates([
+        row.end_date,
+        details?.departure_date,
+        details?.departureDate,
+        details?.check_out,
+        details?.checkOut,
+      ]);
     } else {
-      candidates.push(
+      startIso = firstIsoFromCandidates([
         details?.estimated_delivery_date,
         details?.estimatedDeliveryDate,
         details?.delivery_date,
         details?.deliveryDate
-      );
+      ]);
+      endIso = startIso;
     }
 
-    for (const candidate of candidates) {
-      const iso = normalizeIsoDateValue(candidate);
-      if (iso) return iso;
+    if (!startIso && !endIso) return null;
+    if (!startIso) startIso = endIso;
+    if (!endIso) endIso = startIso;
+    if (!startIso || !endIso) return null;
+
+    if (startIso > endIso) {
+      const tmp = startIso;
+      startIso = endIso;
+      endIso = tmp;
     }
-    return '';
+
+    return { startIso, endIso };
+  }
+
+  function forEachIsoDateInRange(startIso, endIso, callback, maxDays = 160) {
+    if (!startIso || !endIso || typeof callback !== 'function') return;
+    const startMs = Date.parse(`${startIso}T00:00:00Z`);
+    const endMs = Date.parse(`${endIso}T00:00:00Z`);
+    if (!Number.isFinite(startMs) || !Number.isFinite(endMs)) return;
+    if (endMs < startMs) return;
+    const step = 86400000;
+    const limit = Number.isFinite(maxDays) && maxDays > 0 ? Math.floor(maxDays) : 160;
+    let emitted = 0;
+    for (let ts = startMs; ts <= endMs && emitted < limit; ts += step) {
+      callback(new Date(ts).toISOString().slice(0, 10));
+      emitted += 1;
+    }
   }
 
   function orderLabelForFulfillment(row) {
@@ -1641,76 +1652,23 @@
   }
 
   function syncOrdersFilterUiFromState() {
-    if (els.ordersCategoryFilter) els.ordersCategoryFilter.value = normalizeOrdersCategory(state.orders.category);
-    if (els.ordersStatusFilter) els.ordersStatusFilter.value = normalizeOrdersStatus(state.orders.status);
-    if (els.ordersTimelineFilter) els.ordersTimelineFilter.value = normalizeOrdersTimeline(state.orders.timeline);
-    if (els.ordersDateFrom) els.ordersDateFrom.value = normalizeIsoDateValue(state.orders.dateFrom);
-    if (els.ordersDateTo) els.ordersDateTo.value = normalizeIsoDateValue(state.orders.dateTo);
-  }
-
-  function syncOrdersCategoryFilterOptions() {
-    if (!els.ordersCategoryFilter) return;
-    const counts = { shop: 0, cars: 0, trips: 0, hotels: 0 };
-    (state.fulfillments || []).forEach((row) => {
-      const cat = fulfillmentCategoryForOrders(row);
-      if (cat in counts) counts[cat] += 1;
+    const active = normalizeOrdersStatus(state.orders.status);
+    const buttons = Array.isArray(els.ordersStatusButtons) ? els.ordersStatusButtons : [];
+    buttons.forEach((btn) => {
+      const value = normalizeOrdersStatus(btn?.getAttribute('data-orders-status-filter') || '');
+      const isActive = value === active;
+      btn.classList.toggle('is-active', isActive);
+      btn.setAttribute('aria-pressed', isActive ? 'true' : 'false');
     });
-
-    const available = new Set(['all']);
-    if (counts.shop > 0) available.add('shop');
-    if (counts.cars > 0) available.add('cars');
-    if (counts.trips > 0) available.add('trips');
-    if (counts.hotels > 0) available.add('hotels');
-
-    const opts = [
-      '<option value="all">All categories</option>',
-      available.has('shop') ? '<option value="shop">Shop</option>' : '',
-      available.has('cars') ? '<option value="cars">Cars</option>' : '',
-      available.has('trips') ? '<option value="trips">Trips</option>' : '',
-      available.has('hotels') ? '<option value="hotels">Hotels</option>' : '',
-    ].filter(Boolean);
-
-    setHtml(els.ordersCategoryFilter, opts.join(''));
-
-    const normalized = normalizeOrdersCategory(state.orders.category);
-    state.orders.category = available.has(normalized) ? normalized : 'all';
-    els.ordersCategoryFilter.value = state.orders.category;
   }
 
   function filteredFulfillmentsForOrdersPanel() {
     const rows = filteredFulfillmentsForSelectedCategory();
-    const categoryFilter = normalizeOrdersCategory(state.orders.category);
     const statusFilter = normalizeOrdersStatus(state.orders.status);
-    const timelineFilter = normalizeOrdersTimeline(state.orders.timeline);
-    let dateFrom = normalizeIsoDateValue(state.orders.dateFrom);
-    let dateTo = normalizeIsoDateValue(state.orders.dateTo);
-    if (dateFrom && dateTo && dateFrom > dateTo) {
-      const tmp = dateFrom;
-      dateFrom = dateTo;
-      dateTo = tmp;
-    }
 
     return rows.filter((row) => {
-      const category = fulfillmentCategoryForOrders(row);
-      if (categoryFilter !== 'all' && category !== categoryFilter) return false;
-
       const status = fulfillmentStatusForOrders(row);
       if (statusFilter !== 'all' && status !== statusFilter) return false;
-
-      const dateIso = fulfillmentScheduleDateIso(row);
-      if ((dateFrom || dateTo) && !dateIso) return false;
-      if (dateFrom && dateIso < dateFrom) return false;
-      if (dateTo && dateIso > dateTo) return false;
-
-      if (timelineFilter === 'all') return true;
-
-      if (!isFulfillmentPaidForOrders(row) || !dateIso) return false;
-      const diffDays = dateDiffFromToday(dateIso);
-      if (!Number.isFinite(diffDays)) return false;
-
-      if (timelineFilter === 'paid_today') return diffDays === 0;
-      if (timelineFilter === 'paid_overdue') return diffDays < 0;
-      if (timelineFilter === 'paid_upcoming_30') return diffDays >= 0 && diffDays <= 30;
       return true;
     });
   }
@@ -1740,14 +1698,14 @@
   function renderOrdersDayList(dayIso, rowsForDay) {
     if (!els.ordersCalendarList) return;
     const list = Array.isArray(rowsForDay) ? rowsForDay : [];
-    const heading = dayIso ? formatDateDmy(dayIso) : 'Select a day';
+      const heading = dayIso ? formatDateDmy(dayIso) : 'Select a day';
 
     if (!list.length) {
       setHtml(
         els.ordersCalendarList,
         `
           <div class="small"><strong>${escapeHtml(heading)}</strong></div>
-          <div class="muted small">No orders for this day with current filters.</div>
+          <div class="muted small">No paid reservations for this day.</div>
         `
       );
       return;
@@ -1767,9 +1725,9 @@
           const id = String(row?.id || '').trim();
           const label = orderLabelForFulfillment(row);
           const category = categoryLabel(fulfillmentCategoryForOrders(row) || 'all');
-          const status = String(fulfillmentStatusForOrders(row) || '—').replace(/_/g, ' ');
+          const status = formatOrdersStatusLabel(fulfillmentStatusForOrders(row));
           const price = orderPriceLabelForFulfillment(row);
-          const paid = isFulfillmentPaidForOrders(row) ? 'Paid' : 'Unpaid';
+          const paid = isFulfillmentPaidForOrders(row) ? 'Payment completed' : 'Unpaid';
           return `
             <div class="partner-orders-day-list__item">
               <div>
@@ -1821,13 +1779,16 @@
     const weekLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const dayMap = {};
 
-    const rows = Array.isArray(filteredRows) ? filteredRows : filteredFulfillmentsForOrdersPanel();
-    rows.forEach((row) => {
-      const dayIso = fulfillmentScheduleDateIso(row);
-      if (!dayIso) return;
-      if (dayIso < startIso || dayIso > endIso) return;
-      if (!dayMap[dayIso]) dayMap[dayIso] = [];
-      dayMap[dayIso].push(row);
+    const rows = Array.isArray(filteredRows) ? filteredRows : filteredFulfillmentsForSelectedCategory();
+    const paidRows = rows.filter((row) => isFulfillmentPaidForOrders(row));
+    paidRows.forEach((row) => {
+      const range = fulfillmentScheduleRange(row);
+      if (!range?.startIso || !range?.endIso) return;
+      forEachIsoDateInRange(range.startIso, range.endIso, (dayIso) => {
+        if (dayIso < startIso || dayIso > endIso) return;
+        if (!dayMap[dayIso]) dayMap[dayIso] = [];
+        dayMap[dayIso].push(row);
+      });
     });
 
     const todayIso = localDateIso();
@@ -1836,11 +1797,7 @@
     const daysInMonth = new Date(start.getUTCFullYear(), start.getUTCMonth() + 1, 0).getDate();
 
     if (!state.orders.selectedDateIso || state.orders.selectedDateIso < startIso || state.orders.selectedDateIso > endIso) {
-      const paidUpcomingInMonth = Object.keys(dayMap)
-        .filter((iso) => iso >= todayIso)
-        .filter((iso) => (dayMap[iso] || []).some((row) => isFulfillmentPaidForOrders(row)))
-        .sort()[0];
-      state.orders.selectedDateIso = paidUpcomingInMonth || (todayInMonth ? todayIso : `${monthValue}-01`);
+      state.orders.selectedDateIso = todayInMonth ? todayIso : `${monthValue}-01`;
     }
 
     let html = weekLabels.map((label) => `<div class="partner-orders-calendar-weekday">${escapeHtml(label)}</div>`).join('');
@@ -1851,10 +1808,9 @@
     for (let day = 1; day <= daysInMonth; day += 1) {
       const dayIso = `${monthValue}-${String(day).padStart(2, '0')}`;
       const rowsForDay = dayMap[dayIso] || [];
-      const paidRows = rowsForDay.filter((row) => isFulfillmentPaidForOrders(row));
-      const upcomingCount = paidRows.filter(() => dayIso >= todayIso).length;
-      const overdueCount = paidRows.filter(() => dayIso < todayIso).length;
-      const neutralCount = rowsForDay.length - paidRows.length;
+      const bookedCount = rowsForDay.length;
+      const upcomingCount = dayIso >= todayIso ? bookedCount : 0;
+      const overdueCount = dayIso < todayIso ? bookedCount : 0;
       const isSelected = dayIso === state.orders.selectedDateIso;
       const classes = [
         'partner-orders-calendar-day',
@@ -1865,9 +1821,8 @@
       ].filter(Boolean).join(' ');
 
       const countParts = [];
-      if (upcomingCount > 0) countParts.push(`<span class="is-upcoming" title="Paid upcoming orders">${upcomingCount} paid</span>`);
-      if (overdueCount > 0) countParts.push(`<span class="is-overdue" title="Paid overdue orders">${overdueCount} late</span>`);
-      if (!countParts.length && neutralCount > 0) countParts.push(`<span class="is-neutral" title="Orders without paid-upcoming marker">${neutralCount} order</span>`);
+      if (upcomingCount > 0) countParts.push(`<span class="is-upcoming" title="Paid reservation days">${upcomingCount} booked</span>`);
+      if (overdueCount > 0) countParts.push(`<span class="is-overdue" title="Past paid reservation days">${overdueCount} booked</span>`);
       const counts = countParts.join('');
 
       html += `
@@ -1886,7 +1841,7 @@
         const dayIso = String(btn.getAttribute('data-orders-calendar-day') || '').trim();
         if (!dayIso) return;
         state.orders.selectedDateIso = dayIso;
-        renderOrdersScheduleCalendar(rows);
+        renderOrdersScheduleCalendar(filteredFulfillmentsForSelectedCategory());
       });
     });
   }
@@ -1923,7 +1878,6 @@
       setHidden(els.partnerAnalyticsTopProductsCard, true);
       if (String(state.selectedCategory || 'all') !== 'all') {
         state.selectedCategory = 'all';
-        state.orders.category = 'all';
       }
       if (els.partnerAnalyticsView && !els.partnerAnalyticsView.hidden) {
         setMainView('portal');
@@ -1953,7 +1907,6 @@
 
     if (!allowed.has(String(state.selectedCategory || 'all'))) {
       state.selectedCategory = 'all';
-      state.orders.category = 'all';
     }
 
     syncAnalyticsCategoryOptions();
@@ -1965,8 +1918,7 @@
   function navToCategory(category) {
     const next = category || 'all';
     state.selectedCategory = next;
-    state.orders.category = normalizeOrdersCategory(next);
-    state.orders.selectedDateIso = '';
+    state.orders.selectedDateIso = localDateIso();
 
     updateSidebarCategoryVisibility();
     updateAnalyticsCardVisibility();
@@ -3862,10 +3814,10 @@
 
   function updateKpis(filteredRows) {
     const rows = Array.isArray(filteredRows) ? filteredRows : filteredFulfillmentsForOrdersPanel();
-    const pending = rows.filter((f) => fulfillmentStatusForOrders(f) === 'pending').length;
+    const pending = rows.filter((f) => fulfillmentStatusForOrders(f) === 'pending_acceptance').length;
     const awaiting = rows.filter((f) => fulfillmentStatusForOrders(f) === 'awaiting_payment').length;
     const accepted = rows.filter((f) => fulfillmentStatusForOrders(f) === 'confirmed').length;
-    const rejected = rows.filter((f) => fulfillmentStatusForOrders(f) === 'cancelled').length;
+    const rejected = rows.filter((f) => fulfillmentStatusForOrders(f) === 'cancelled_rejected').length;
 
     setText(els.kpiPending, String(pending));
     setText(els.kpiAccepted, String(accepted));
@@ -3881,25 +3833,20 @@
     }
 
     if (els.ordersFilterHint) {
-      const paidUpcoming = rows.filter((row) => {
-        if (!isFulfillmentPaidForOrders(row)) return false;
-        const dayIso = fulfillmentScheduleDateIso(row);
-        if (!dayIso) return false;
-        const diff = dateDiffFromToday(dayIso);
-        return Number.isFinite(diff) && diff >= 0;
-      }).length;
-      const withScheduleDate = rows.filter((row) => Boolean(fulfillmentScheduleDateIso(row))).length;
-      els.ordersFilterHint.textContent = `Showing ${rows.length} order(s) · ${paidUpcoming} paid upcoming · ${withScheduleDate} with schedule date.`;
+      const paidForCalendar = filteredFulfillmentsForSelectedCategory()
+        .filter((row) => isFulfillmentPaidForOrders(row))
+        .filter((row) => Boolean(fulfillmentScheduleRange(row)))
+        .length;
+      els.ordersFilterHint.textContent = `Showing ${rows.length} order(s) · Calendar shows ${paidForCalendar} payment-completed reservation(s).`;
     }
   }
 
   function refreshOrdersPanelViews() {
-    syncOrdersCategoryFilterOptions();
     syncOrdersFilterUiFromState();
     const rows = filteredFulfillmentsForOrdersPanel();
     updateKpis(rows);
     renderFulfillmentsTable(rows);
-    renderOrdersScheduleCalendar(rows);
+    renderOrdersScheduleCalendar();
   }
 
   function toNum(value) {
@@ -6672,8 +6619,9 @@
     if (state.selectedPartnerId) {
       setPersistedPartnerId(state.selectedPartnerId);
     }
-    state.orders.category = normalizeOrdersCategory(state.selectedCategory || 'all');
-    state.orders.selectedDateIso = '';
+    state.orders.status = 'all';
+    state.orders.monthValue = getMonthValue();
+    state.orders.selectedDateIso = localDateIso();
 
     clearAvailabilitySelectionsAll();
     updateAvailabilitySelectionSummary();
@@ -6857,34 +6805,21 @@
     els.tabBtnFulfillments?.addEventListener('click', () => setActiveTab('fulfillments'));
     els.tabBtnCalendar?.addEventListener('click', () => setActiveTab('calendar'));
 
-    const applyOrdersFiltersFromUi = () => {
-      state.orders.category = normalizeOrdersCategory(els.ordersCategoryFilter?.value || state.orders.category);
-      state.orders.status = normalizeOrdersStatus(els.ordersStatusFilter?.value || state.orders.status);
-      state.orders.timeline = normalizeOrdersTimeline(els.ordersTimelineFilter?.value || state.orders.timeline);
-      state.orders.dateFrom = normalizeIsoDateValue(els.ordersDateFrom?.value || state.orders.dateFrom);
-      state.orders.dateTo = normalizeIsoDateValue(els.ordersDateTo?.value || state.orders.dateTo);
-      if (state.orders.dateFrom && state.orders.dateTo && state.orders.dateFrom > state.orders.dateTo) {
-        const tmp = state.orders.dateFrom;
-        state.orders.dateFrom = state.orders.dateTo;
-        state.orders.dateTo = tmp;
-      }
-      state.orders.selectedDateIso = '';
+    const applyOrdersStatusFilter = (nextStatus) => {
+      state.orders.status = normalizeOrdersStatus(nextStatus);
       refreshOrdersPanelViews();
     };
 
-    els.ordersCategoryFilter?.addEventListener('change', applyOrdersFiltersFromUi);
-    els.ordersStatusFilter?.addEventListener('change', applyOrdersFiltersFromUi);
-    els.ordersTimelineFilter?.addEventListener('change', applyOrdersFiltersFromUi);
-    els.ordersDateFrom?.addEventListener('change', applyOrdersFiltersFromUi);
-    els.ordersDateTo?.addEventListener('change', applyOrdersFiltersFromUi);
+    (els.ordersStatusButtons || []).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const status = String(btn.getAttribute('data-orders-status-filter') || '').trim();
+        applyOrdersStatusFilter(status);
+      });
+    });
 
     els.btnOrdersClearFilters?.addEventListener('click', () => {
-      state.orders.category = normalizeOrdersCategory(state.selectedCategory || 'all');
       state.orders.status = 'all';
-      state.orders.timeline = 'all';
-      state.orders.dateFrom = '';
-      state.orders.dateTo = '';
-      state.orders.selectedDateIso = '';
+      state.orders.selectedDateIso = localDateIso();
       syncOrdersFilterUiFromState();
       refreshOrdersPanelViews();
     });
@@ -6893,14 +6828,14 @@
       ensureOrdersCalendarMonthInput();
       setOrdersCalendarMonthInput(addMonths(state.orders.monthValue || getMonthValue(), -1));
       state.orders.selectedDateIso = '';
-      renderOrdersScheduleCalendar(filteredFulfillmentsForOrdersPanel());
+      renderOrdersScheduleCalendar();
     });
 
     els.btnOrdersCalendarNextMonth?.addEventListener('click', () => {
       ensureOrdersCalendarMonthInput();
       setOrdersCalendarMonthInput(addMonths(state.orders.monthValue || getMonthValue(), 1));
       state.orders.selectedDateIso = '';
-      renderOrdersScheduleCalendar(filteredFulfillmentsForOrdersPanel());
+      renderOrdersScheduleCalendar();
     });
 
     els.ordersCalendarMonthInput?.addEventListener('change', () => {
@@ -6911,7 +6846,7 @@
         setOrdersCalendarMonthInput(mv);
       }
       state.orders.selectedDateIso = '';
-      renderOrdersScheduleCalendar(filteredFulfillmentsForOrdersPanel());
+      renderOrdersScheduleCalendar();
     });
 
     window.addEventListener('hashchange', () => {
@@ -7485,11 +7420,7 @@
 
     els.fulfillmentsHint = $('fulfillmentsHint');
     els.fulfillmentsBody = $('fulfillmentsTableBody');
-    els.ordersCategoryFilter = $('partnerOrdersCategoryFilter');
-    els.ordersStatusFilter = $('partnerOrdersStatusFilter');
-    els.ordersTimelineFilter = $('partnerOrdersTimelineFilter');
-    els.ordersDateFrom = $('partnerOrdersDateFrom');
-    els.ordersDateTo = $('partnerOrdersDateTo');
+    els.ordersStatusButtons = Array.from(document.querySelectorAll('[data-orders-status-filter]'));
     els.btnOrdersClearFilters = $('btnPartnerOrdersClearFilters');
     els.ordersFilterHint = $('partnerOrdersFilterHint');
     els.ordersCalendarMonthInput = $('partnerOrdersCalendarMonthInput');

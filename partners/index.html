@@ -216,38 +216,62 @@
 
     .partner-calendar-filters { display: grid; grid-template-columns: 1fr; gap: 14px; margin-top: 12px; margin-bottom: 12px; }
     .partner-resource-panels { display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; padding: 6px 2px; }
-    .partner-orders-filters {
-      display: grid;
-      grid-template-columns: repeat(6, minmax(0, 1fr));
-      gap: 8px;
-      align-items: end;
+    .partner-orders-filter-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
     }
-    .partner-orders-filter-field {
+    .partner-orders-filter-copy {
       min-width: 0;
       display: grid;
-      gap: 6px;
+      gap: 3px;
     }
-    .partner-orders-filter-field label {
+    .partner-orders-filter-copy strong {
+      font-size: 13px;
+      letter-spacing: 0.02em;
+    }
+    .partner-orders-filter-copy .muted {
+      font-size: 11px;
+    }
+    .partner-orders-status-switch {
+      margin-top: 8px;
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 6px;
+      padding: 5px;
+      border: 1px solid rgba(148, 163, 184, 0.28);
+      border-radius: 12px;
+      background: rgba(15, 23, 42, 0.42);
+      width: min(100%, 860px);
+    }
+    .partner-orders-status-btn {
+      border: 1px solid transparent;
+      border-radius: 9px;
+      background: transparent;
+      color: var(--admin-text-muted);
       font-size: 11px;
       font-weight: 700;
-      letter-spacing: 0.06em;
+      letter-spacing: 0.04em;
       text-transform: uppercase;
-      color: var(--admin-text-muted);
+      height: 34px;
+      padding: 0 8px;
+      cursor: pointer;
+      transition: background 0.16s ease, border-color 0.16s ease, color 0.16s ease;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
-    .partner-orders-filter-field input,
-    .partner-orders-filter-field select {
-      width: 100%;
-      height: 38px;
-      border-radius: 10px;
-      border: 1px solid var(--admin-border);
-      padding: 0 10px;
-      background: var(--admin-bg);
-      color: var(--admin-text);
+    .partner-orders-status-btn:hover {
+      border-color: rgba(148, 163, 184, 0.42);
+      color: #fff;
     }
-    .partner-orders-filter-actions {
-      display: flex;
-      justify-content: flex-end;
-      align-items: end;
+    .partner-orders-status-btn.is-active {
+      color: #fff;
+      border-color: rgba(96, 165, 250, 0.45);
+      background: linear-gradient(135deg, rgba(59, 130, 246, 0.88), rgba(37, 99, 235, 0.88));
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.24);
     }
     .partner-orders-calendar-card {
       margin-top: 10px;
@@ -402,11 +426,6 @@
       color: #ef4444;
       background: rgba(239, 68, 68, 0.14);
       border-color: rgba(239, 68, 68, 0.32);
-    }
-    .partner-orders-calendar-counts .is-neutral {
-      color: var(--admin-text-muted);
-      background: rgba(148, 163, 184, 0.14);
-      border-color: rgba(148, 163, 184, 0.26);
     }
     .partner-orders-day-list {
       margin-top: 10px;
@@ -739,15 +758,11 @@
     }
 
     @media (max-width: 1100px) {
-      .partner-orders-filters {
+      .partner-orders-status-switch {
         grid-template-columns: repeat(3, minmax(0, 1fr));
       }
-      .partner-orders-filter-actions {
-        grid-column: 1 / -1;
-        justify-content: stretch;
-      }
-      .partner-orders-filter-actions .btn-sm {
-        width: 100%;
+      .partner-orders-filter-row .btn-sm {
+        width: auto;
       }
       .partner-analytics-controls {
         grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -780,8 +795,14 @@
       .partner-toolbar select { width: 100%; }
       .partner-toolbar input { width: 100%; }
       .partner-toolbar button { width: 100%; }
-      .partner-orders-filters {
-        grid-template-columns: 1fr;
+      .partner-orders-filter-row {
+        align-items: stretch;
+      }
+      .partner-orders-filter-row .btn-sm {
+        width: 100%;
+      }
+      .partner-orders-status-switch {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
       }
       .partner-orders-calendar-controls {
         width: 100%;
@@ -1900,58 +1921,28 @@
             <div class="muted small" id="fulfillmentsHint" style="margin-top: 10px;"></div>
 
             <div class="partner-card" style="padding: 12px; margin-top: 10px;">
-              <div class="partner-orders-filters">
-                <div class="partner-orders-filter-field">
-                  <label for="partnerOrdersCategoryFilter">Category</label>
-                  <select id="partnerOrdersCategoryFilter">
-                    <option value="all">All categories</option>
-                    <option value="shop">Shop</option>
-                    <option value="cars">Cars</option>
-                    <option value="trips">Trips</option>
-                    <option value="hotels">Hotels</option>
-                  </select>
+              <div class="partner-orders-filter-row">
+                <div class="partner-orders-filter-copy">
+                  <strong>Order status filter</strong>
+                  <div class="muted">Minimal status view focused on action and payment stage.</div>
                 </div>
-                <div class="partner-orders-filter-field">
-                  <label for="partnerOrdersStatusFilter">Status</label>
-                  <select id="partnerOrdersStatusFilter">
-                    <option value="all">All statuses</option>
-                    <option value="pending">Pending</option>
-                    <option value="awaiting_payment">Awaiting payment</option>
-                    <option value="confirmed">Confirmed / accepted</option>
-                    <option value="completed">Completed</option>
-                    <option value="cancelled">Cancelled / rejected</option>
-                    <option value="closed">Closed</option>
-                  </select>
-                </div>
-                <div class="partner-orders-filter-field">
-                  <label for="partnerOrdersTimelineFilter">Timeline</label>
-                  <select id="partnerOrdersTimelineFilter">
-                    <option value="all">All</option>
-                    <option value="paid_upcoming_30">Paid upcoming (next 30 days)</option>
-                    <option value="paid_today">Paid due today</option>
-                    <option value="paid_overdue">Paid overdue</option>
-                  </select>
-                </div>
-                <div class="partner-orders-filter-field">
-                  <label for="partnerOrdersDateFrom">Date from</label>
-                  <input id="partnerOrdersDateFrom" type="date" />
-                </div>
-                <div class="partner-orders-filter-field">
-                  <label for="partnerOrdersDateTo">Date to</label>
-                  <input id="partnerOrdersDateTo" type="date" />
-                </div>
-                <div class="partner-orders-filter-actions">
-                  <button id="btnPartnerOrdersClearFilters" class="btn-sm" type="button">Clear filters</button>
-                </div>
+                <button id="btnPartnerOrdersClearFilters" class="btn-sm" type="button">Reset filter</button>
+              </div>
+              <div class="partner-orders-status-switch" role="group" aria-label="Order status filter">
+                <button class="partner-orders-status-btn is-active" type="button" data-orders-status-filter="all">All</button>
+                <button class="partner-orders-status-btn" type="button" data-orders-status-filter="pending_acceptance">Pending acceptance</button>
+                <button class="partner-orders-status-btn" type="button" data-orders-status-filter="awaiting_payment">Awaiting payment</button>
+                <button class="partner-orders-status-btn" type="button" data-orders-status-filter="confirmed">Confirmed</button>
+                <button class="partner-orders-status-btn" type="button" data-orders-status-filter="cancelled_rejected">Canceled / rejected</button>
               </div>
               <div id="partnerOrdersFilterHint" class="muted small" style="margin-top: 8px;"></div>
             </div>
 
-            <div class="partner-orders-calendar-card" aria-label="Upcoming paid orders calendar">
+            <div class="partner-orders-calendar-card" aria-label="Paid reservations calendar">
               <div class="partner-orders-calendar-head">
                 <div>
-                  <h3>Upcoming paid orders calendar</h3>
-                  <div class="muted small">Visual schedule with highlighted due dates and today marker.</div>
+                  <h3>Paid reservations calendar</h3>
+                  <div class="muted small">Payment completed bookings fill rental days. Today is always highlighted.</div>
                 </div>
                 <div class="partner-orders-calendar-controls">
                   <button id="btnPartnerOrdersCalendarPrevMonth" class="btn-sm" type="button">◀</button>
@@ -1961,8 +1952,8 @@
               </div>
               <div class="partner-orders-calendar-legend">
                 <span><i class="partner-orders-calendar-dot partner-orders-calendar-dot--today"></i> Today</span>
-                <span><i class="partner-orders-calendar-dot partner-orders-calendar-dot--upcoming"></i> Paid upcoming</span>
-                <span><i class="partner-orders-calendar-dot partner-orders-calendar-dot--overdue"></i> Paid overdue</span>
+                <span><i class="partner-orders-calendar-dot partner-orders-calendar-dot--upcoming"></i> Paid reservation days</span>
+                <span><i class="partner-orders-calendar-dot partner-orders-calendar-dot--overdue"></i> Past paid reservation days</span>
               </div>
               <div id="partnerOrdersCalendarGrid" class="partner-orders-calendar-grid"></div>
               <div id="partnerOrdersCalendarList" class="partner-orders-day-list"></div>
