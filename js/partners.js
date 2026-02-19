@@ -1822,7 +1822,7 @@
         bookedCount > 0 ? 'partner-orders-calendar-day--has-booked' : '',
       ].filter(Boolean).join(' ');
       const counts = bookedCount > 0
-        ? `<span class="partner-orders-calendar-badge" title="Paid reservation days">${bookedCount} booked</span>`
+        ? `<span class="partner-orders-calendar-badge" title="Paid reservation days">${bookedCount}</span>`
         : '';
 
       html += `
