@@ -1698,7 +1698,7 @@
   function renderOrdersDayList(dayIso, rowsForDay) {
     if (!els.ordersCalendarList) return;
     const list = Array.isArray(rowsForDay) ? rowsForDay : [];
-      const heading = dayIso ? formatDateDmy(dayIso) : 'Select a day';
+    const heading = dayIso ? formatDateDmy(dayIso) : 'Select a day';
 
     if (!list.length) {
       setHtml(
@@ -1728,11 +1728,16 @@
           const status = formatOrdersStatusLabel(fulfillmentStatusForOrders(row));
           const price = orderPriceLabelForFulfillment(row);
           const paid = isFulfillmentPaidForOrders(row) ? 'Payment completed' : 'Unpaid';
+          const range = fulfillmentScheduleRange(row);
+          const rangeLabel = range?.startIso && range?.endIso
+            ? `${formatDateDmy(range.startIso)} -> ${formatDateDmy(range.endIso)}`
+            : 'Not set';
           return `
             <div class="partner-orders-day-list__item">
               <div>
                 <p class="partner-orders-day-list__name">${escapeHtml(label)}</p>
                 <div class="partner-orders-day-list__meta">${escapeHtml(category)} · ${escapeHtml(status)} · ${escapeHtml(paid)}</div>
+                <div class="partner-orders-day-list__meta">Dates: ${escapeHtml(rangeLabel)}</div>
               </div>
               <div style="display:flex; align-items:center; justify-content:flex-end; gap:8px; flex-wrap:wrap;">
                 <div class="partner-orders-day-list__price">${escapeHtml(price)}</div>
@@ -1779,7 +1784,7 @@
     const weekLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const dayMap = {};
 
-    const rows = Array.isArray(filteredRows) ? filteredRows : filteredFulfillmentsForSelectedCategory();
+    const rows = Array.isArray(filteredRows) ? filteredRows : filteredFulfillmentsForOrdersPanel();
     const paidRows = rows.filter((row) => isFulfillmentPaidForOrders(row));
     paidRows.forEach((row) => {
       const range = fulfillmentScheduleRange(row);
@@ -1809,24 +1814,24 @@
       const dayIso = `${monthValue}-${String(day).padStart(2, '0')}`;
       const rowsForDay = dayMap[dayIso] || [];
       const bookedCount = rowsForDay.length;
-      const upcomingCount = dayIso >= todayIso ? bookedCount : 0;
-      const overdueCount = dayIso < todayIso ? bookedCount : 0;
       const isSelected = dayIso === state.orders.selectedDateIso;
       const classes = [
         'partner-orders-calendar-day',
         dayIso === todayIso ? 'partner-orders-calendar-day--today' : '',
         isSelected ? 'partner-orders-calendar-day--selected' : '',
-        upcomingCount > 0 ? 'partner-orders-calendar-day--has-upcoming' : '',
-        overdueCount > 0 ? 'partner-orders-calendar-day--has-overdue' : '',
+        bookedCount > 0 ? 'partner-orders-calendar-day--has-booked' : '',
       ].filter(Boolean).join(' ');
-
-      const countParts = [];
-      if (upcomingCount > 0) countParts.push(`<span class="is-upcoming" title="Paid reservation days">${upcomingCount} booked</span>`);
-      if (overdueCount > 0) countParts.push(`<span class="is-overdue" title="Past paid reservation days">${overdueCount} booked</span>`);
-      const counts = countParts.join('');
+      const counts = bookedCount > 0
+        ? `<span class="partner-orders-calendar-badge" title="Paid reservation days">${bookedCount} booked</span>`
+        : '';
 
       html += `
-        <button type="button" class="${escapeHtml(classes)}" data-orders-calendar-day="${escapeHtml(dayIso)}" title="${escapeHtml(formatDateDmy(dayIso))}">
+        <button
+          type="button"
+          class="${escapeHtml(classes)}"
+          data-orders-calendar-day="${escapeHtml(dayIso)}"
+          title="${escapeHtml(`${formatDateDmy(dayIso)}${bookedCount > 0 ? ` · ${bookedCount} paid reservation day(s)` : ''}`)}"
+        >
           <div class="partner-orders-calendar-daynum">${day}</div>
           <div class="partner-orders-calendar-counts">${counts}</div>
         </button>
@@ -1841,7 +1846,7 @@
         const dayIso = String(btn.getAttribute('data-orders-calendar-day') || '').trim();
         if (!dayIso) return;
         state.orders.selectedDateIso = dayIso;
-        renderOrdersScheduleCalendar(filteredFulfillmentsForSelectedCategory());
+        renderOrdersScheduleCalendar(filteredFulfillmentsForOrdersPanel());
       });
     });
   }
@@ -3833,7 +3838,7 @@
     }
 
     if (els.ordersFilterHint) {
-      const paidForCalendar = filteredFulfillmentsForSelectedCategory()
+      const paidForCalendar = rows
         .filter((row) => isFulfillmentPaidForOrders(row))
         .filter((row) => Boolean(fulfillmentScheduleRange(row)))
         .length;
@@ -3846,7 +3851,7 @@
     const rows = filteredFulfillmentsForOrdersPanel();
     updateKpis(rows);
     renderFulfillmentsTable(rows);
-    renderOrdersScheduleCalendar();
+    renderOrdersScheduleCalendar(rows);
   }
 
   function toNum(value) {
@@ -6828,14 +6833,14 @@
       ensureOrdersCalendarMonthInput();
       setOrdersCalendarMonthInput(addMonths(state.orders.monthValue || getMonthValue(), -1));
       state.orders.selectedDateIso = '';
-      renderOrdersScheduleCalendar();
+      renderOrdersScheduleCalendar(filteredFulfillmentsForOrdersPanel());
     });
 
     els.btnOrdersCalendarNextMonth?.addEventListener('click', () => {
       ensureOrdersCalendarMonthInput();
       setOrdersCalendarMonthInput(addMonths(state.orders.monthValue || getMonthValue(), 1));
       state.orders.selectedDateIso = '';
-      renderOrdersScheduleCalendar();
+      renderOrdersScheduleCalendar(filteredFulfillmentsForOrdersPanel());
     });
 
     els.ordersCalendarMonthInput?.addEventListener('change', () => {
@@ -6846,7 +6851,7 @@
         setOrdersCalendarMonthInput(mv);
       }
       state.orders.selectedDateIso = '';
-      renderOrdersScheduleCalendar();
+      renderOrdersScheduleCalendar(filteredFulfillmentsForOrdersPanel());
     });
 
     window.addEventListener('hashchange', () => {
