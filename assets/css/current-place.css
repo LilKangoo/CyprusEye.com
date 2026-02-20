@@ -28,6 +28,46 @@
   z-index: 0;
 }
 
+.map-filter-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.45);
+  background: rgba(15, 23, 42, 0.78);
+  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.28);
+  backdrop-filter: blur(8px);
+}
+
+.map-filter-btn {
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.92);
+  font-family: 'Jost', sans-serif;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1;
+  padding: 8px 10px;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
+}
+
+.map-filter-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.map-filter-btn.is-active {
+  color: #0f172a;
+  background: #ffffff;
+}
+
+.map-filter-btn:active {
+  transform: translateY(1px);
+}
+
 /* Remove old skip links visual clutter (keep accessible) */
 .map-accessibility-actions {
   position: absolute;
@@ -294,6 +334,22 @@
   
   .leaflet-control-zoom {
     margin-top: 60px !important; /* Push down below any top overlays */
+  }
+
+  .map-filter-control {
+    max-width: calc(100vw - 112px);
+    overflow-x: auto;
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .map-filter-control::-webkit-scrollbar {
+    display: none;
+  }
+
+  .map-filter-btn {
+    font-size: 11px;
+    padding: 7px 9px;
   }
 
   /* Bottom Sheet Container */

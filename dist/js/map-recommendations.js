@@ -9,6 +9,8 @@
 let mapRecommendations = [];
 let recommendationMarkers = new Map();
 let recommendationModalOpen = false;
+let recommendationMapInstance = null;
+let recommendationMarkersVisible = true;
 
 // ============================================================================
 // TRACKING FUNCTIONS
@@ -42,31 +44,61 @@ async function trackRecommendationClick(recId, clickType) {
   }
 }
 
-// Green marker icon for recommendations
-const greenIcon = typeof L !== 'undefined' ? L.divIcon({
-  className: 'recommendation-marker',
-  html: `<div style="
-    width: 28px;
-    height: 28px;
-    background: #22c55e;
-    border: 3px solid #ffffff;
-    border-radius: 50% 50% 50% 0;
-    transform: rotate(-45deg);
-    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-  "><div style="
-    width: 10px;
-    height: 10px;
-    background: #ffffff;
-    border-radius: 50%;
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-  "></div></div>`,
-  iconSize: [28, 28],
-  iconAnchor: [14, 28],
-  popupAnchor: [0, -28]
-}) : null;
+let greenIcon = null;
+
+function getGreenIcon() {
+  if (greenIcon) {
+    return greenIcon;
+  }
+  if (typeof L === 'undefined' || typeof L.divIcon !== 'function') {
+    return null;
+  }
+  greenIcon = L.divIcon({
+    className: 'recommendation-marker',
+    html: `<div style="
+      width: 28px;
+      height: 28px;
+      background: #22c55e;
+      border: 3px solid #ffffff;
+      border-radius: 50% 50% 50% 0;
+      transform: rotate(-45deg);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    "><div style="
+      width: 10px;
+      height: 10px;
+      background: #ffffff;
+      border-radius: 50%;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+    "></div></div>`,
+    iconSize: [28, 28],
+    iconAnchor: [14, 28],
+    popupAnchor: [0, -28]
+  });
+  return greenIcon;
+}
+
+function setRecommendationMarkersVisibility(mapInstance, visible = true) {
+  const targetMap = mapInstance || recommendationMapInstance;
+  if (!targetMap) {
+    recommendationMarkersVisible = Boolean(visible);
+    return;
+  }
+
+  recommendationMarkersVisible = Boolean(visible);
+  recommendationMarkers.forEach((marker) => {
+    if (!marker) return;
+    if (recommendationMarkersVisible) {
+      if (!targetMap.hasLayer(marker)) {
+        marker.addTo(targetMap);
+      }
+    } else if (targetMap.hasLayer(marker)) {
+      targetMap.removeLayer(marker);
+    }
+  });
+}
 
 // ============================================================================
 // LOAD RECOMMENDATIONS
@@ -109,10 +141,12 @@ async function loadRecommendationsForMap() {
 // SYNC MARKERS
 // ============================================================================
 function syncRecommendationMarkers(mapInstance) {
-  if (!mapInstance || !greenIcon) {
+  const icon = getGreenIcon();
+  if (!mapInstance || !icon) {
     console.warn('[map-recommendations] Map or icon not ready');
     return;
   }
+  recommendationMapInstance = mapInstance;
 
   try {
     if (!mapInstance._ceSavedCatalogPopupBound) {
@@ -142,8 +176,10 @@ function syncRecommendationMarkers(mapInstance) {
     const popupContent = createRecommendationPopup(rec);
     
     if (!hasMarker) {
-      const marker = L.marker([rec.latitude, rec.longitude], { icon: greenIcon })
-        .addTo(mapInstance);
+      const marker = L.marker([rec.latitude, rec.longitude], { icon });
+      if (recommendationMarkersVisible) {
+        marker.addTo(mapInstance);
+      }
       
       marker.bindPopup(popupContent, { 
         maxWidth: 300,
@@ -154,6 +190,13 @@ function syncRecommendationMarkers(mapInstance) {
     } else {
       const marker = recommendationMarkers.get(rec.id);
       marker.setPopupContent(popupContent);
+      if (recommendationMarkersVisible) {
+        if (!mapInstance.hasLayer(marker)) {
+          marker.addTo(mapInstance);
+        }
+      } else if (mapInstance.hasLayer(marker)) {
+        mapInstance.removeLayer(marker);
+      }
     }
   });
   
@@ -475,6 +518,7 @@ async function initMapRecommendations(mapInstance) {
   
   await loadRecommendationsForMap();
   syncRecommendationMarkers(mapInstance);
+  setRecommendationMarkersVisibility(mapInstance, recommendationMarkersVisible);
 }
 
 // Export for use in app.js
@@ -483,3 +527,4 @@ window.syncRecommendationMarkers = syncRecommendationMarkers;
 window.loadRecommendationsForMap = loadRecommendationsForMap;
 window.trackRecommendationClick = trackRecommendationClick;
 window.trackRecommendationView = trackRecommendationView;
+window.setRecommendationMarkersVisibility = setRecommendationMarkersVisibility;

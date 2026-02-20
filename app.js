@@ -1405,6 +1405,10 @@ function refreshLocalizedUI() {
   renderAllForCurrentState();
   updatePackingPlannerLanguage();
   syncMarkers();
+  if (mapMarkerFilterContainer) {
+    renderMapMarkerFilterControl();
+    applyMapMarkerFilter();
+  }
   updateBackLinksHref();
 
   if (playerMarker?.getTooltip?.()) {
@@ -1537,6 +1541,15 @@ let playerMarker;
 let playerAccuracyCircle;
 let locationWatchId = null;
 let hasCenteredOnPlayer = false;
+const MAP_MARKER_FILTERS = Object.freeze({
+  ALL: 'all',
+  POI: 'poi',
+  RECOMMENDATIONS: 'recommendations',
+});
+let mapMarkerFilter = MAP_MARKER_FILTERS.ALL;
+let mapMarkerFilterControl = null;
+let mapMarkerFilterContainer = null;
+let mapMarkerFilterButtons = new Map();
 const DEFAULT_MAP_CENTER = [35.095, 33.203];
 const DEFAULT_MAP_ZOOM = 9;
 const LEAFLET_STYLESHEET_URL = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
@@ -5520,8 +5533,129 @@ function updatePackingPlannerLanguage() {
   renderPackingChecklist();
 }
 
+function isValidMapMarkerFilter(value) {
+  return (
+    value === MAP_MARKER_FILTERS.ALL ||
+    value === MAP_MARKER_FILTERS.POI ||
+    value === MAP_MARKER_FILTERS.RECOMMENDATIONS
+  );
+}
+
+function shouldShowPoiMarkers() {
+  return mapMarkerFilter !== MAP_MARKER_FILTERS.RECOMMENDATIONS;
+}
+
+function shouldShowRecommendationMarkers() {
+  return mapMarkerFilter !== MAP_MARKER_FILTERS.POI;
+}
+
+function getMapMarkerFilterOptions() {
+  return [
+    {
+      value: MAP_MARKER_FILTERS.ALL,
+      label: translate('map.filter.all', 'Wszystkie'),
+    },
+    {
+      value: MAP_MARKER_FILTERS.POI,
+      label: translate('map.filter.poiOnly', 'Punkty do odwiedzenia'),
+    },
+    {
+      value: MAP_MARKER_FILTERS.RECOMMENDATIONS,
+      label: translate('map.filter.recommendationsOnly', 'Polecane miejsca'),
+    },
+  ];
+}
+
+function renderMapMarkerFilterControl() {
+  if (!mapMarkerFilterContainer) {
+    return;
+  }
+
+  mapMarkerFilterContainer.innerHTML = '';
+  mapMarkerFilterButtons = new Map();
+
+  getMapMarkerFilterOptions().forEach((option) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'map-filter-btn';
+    button.dataset.filter = option.value;
+    button.textContent = option.label;
+    button.setAttribute('aria-pressed', option.value === mapMarkerFilter ? 'true' : 'false');
+    if (option.value === mapMarkerFilter) {
+      button.classList.add('is-active');
+    }
+    button.addEventListener('click', () => {
+      setMapMarkerFilter(option.value);
+    });
+    mapMarkerFilterButtons.set(option.value, button);
+    mapMarkerFilterContainer.appendChild(button);
+  });
+}
+
+function setupMapMarkerFilterControl() {
+  if (!map || typeof window.L === 'undefined' || mapMarkerFilterControl) {
+    return;
+  }
+
+  mapMarkerFilterControl = L.control({ position: 'topright' });
+  mapMarkerFilterControl.onAdd = () => {
+    const container = L.DomUtil.create('div', 'map-filter-control leaflet-control');
+    L.DomEvent.disableClickPropagation(container);
+    L.DomEvent.disableScrollPropagation(container);
+    mapMarkerFilterContainer = container;
+    renderMapMarkerFilterControl();
+    return container;
+  };
+  mapMarkerFilterControl.addTo(map);
+}
+
+function updateMapMarkerFilterControlState() {
+  if (!mapMarkerFilterButtons || mapMarkerFilterButtons.size === 0) {
+    return;
+  }
+
+  mapMarkerFilterButtons.forEach((button, value) => {
+    const active = value === mapMarkerFilter;
+    button.classList.toggle('is-active', active);
+    button.setAttribute('aria-pressed', active ? 'true' : 'false');
+  });
+}
+
+function applyMapMarkerFilter() {
+  if (!map) {
+    return;
+  }
+
+  const showPoi = shouldShowPoiMarkers();
+  markers.forEach((marker) => {
+    if (!marker) return;
+    if (showPoi) {
+      if (!map.hasLayer(marker)) {
+        marker.addTo(map);
+      }
+    } else if (map.hasLayer(marker)) {
+      map.removeLayer(marker);
+    }
+  });
+
+  if (typeof window.setRecommendationMarkersVisibility === 'function') {
+    window.setRecommendationMarkersVisibility(map, shouldShowRecommendationMarkers());
+  }
+
+  updateMapMarkerFilterControlState();
+}
+
+function setMapMarkerFilter(nextFilter) {
+  if (!isValidMapMarkerFilter(nextFilter) || nextFilter === mapMarkerFilter) {
+    return;
+  }
+  mapMarkerFilter = nextFilter;
+  applyMapMarkerFilter();
+}
+
 function syncMarkers() {
   if (!map) return;
+  const showPoi = shouldShowPoiMarkers();
 
   places.forEach((place) => {
     const hasMarker = markers.has(place.id);
@@ -5541,7 +5675,10 @@ function syncMarkers() {
     `;
 
     if (!hasMarker) {
-      const marker = L.marker([place.lat, place.lng]).addTo(map);
+      const marker = L.marker([place.lat, place.lng]);
+      if (showPoi) {
+        marker.addTo(map);
+      }
       marker.bindPopup(popupContent, { maxWidth: 270 });
       marker.on('click', () => focusPlace(place.id));
       
@@ -5549,8 +5686,17 @@ function syncMarkers() {
     } else {
       const marker = markers.get(place.id);
       marker.setPopupContent(popupContent);
+      if (showPoi) {
+        if (!map.hasLayer(marker)) {
+          marker.addTo(map);
+        }
+      } else if (map.hasLayer(marker)) {
+        map.removeLayer(marker);
+      }
     }
   });
+
+  applyMapMarkerFilter();
 }
 
 function updatePlayerLocation(position) {
@@ -10050,13 +10196,24 @@ function initMap() {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> współtwórcy',
   }).addTo(map);
 
+  setupMapMarkerFilterControl();
   syncMarkers();
   startPlayerLocationTracking();
   
   // Initialize recommendation markers (green)
   if (typeof window.initMapRecommendations === 'function') {
-    window.initMapRecommendations(map);
+    const recommendationInit = window.initMapRecommendations(map);
+    if (recommendationInit && typeof recommendationInit.then === 'function') {
+      recommendationInit
+        .then(() => {
+          applyMapMarkerFilter();
+        })
+        .catch((error) => {
+          console.warn('Recommendation markers init failed:', error);
+        });
+    }
   }
+  applyMapMarkerFilter();
 }
 
 function setupMapLazyLoading() {
