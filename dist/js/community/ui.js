@@ -19,6 +19,7 @@ let currentUserLocation = null;
 let selectedPhotos = [];
 let isEditMode = false;
 let editingCommentId = null;
+const hydratedPoiMedia = new Set();
 
 // POI Data - będzie załadowane z app.js lub pois.json
 let poisData = [];
@@ -64,7 +65,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSearch();
     initModal();
     initLightbox();
+    initSavedCatalogBridge();
     renderPoisList();
+    await syncSavedCatalogState();
     
     // Map view removed. Ranking initialized on demand.
 
@@ -88,6 +91,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // ===================================
 async function loadPoisData() {
   console.log('📥 Loading POI data for community...');
+  hydratedPoiMedia.clear();
   
   try {
     // Wait for PLACES_DATA_LOADED flag (set by poi-loader.js when data is ready)
@@ -223,6 +227,33 @@ function refreshSavedPoiButtonsWithRetry(root = document, retries = 8, delayMs =
   }, delayMs);
 }
 
+async function syncSavedCatalogState() {
+  try {
+    const api = window.CE_SAVED_CATALOG;
+    if (api && typeof api.syncForCurrentUser === 'function') {
+      await api.syncForCurrentUser();
+    }
+  } catch (_) {}
+  refreshSavedPoiButtonsWithRetry(document);
+}
+
+function initSavedCatalogBridge() {
+  const api = window.CE_SAVED_CATALOG;
+  if (api && typeof api.subscribe === 'function') {
+    try {
+      api.subscribe(() => {
+        refreshSavedPoiButtonsWithRetry(document);
+      });
+    } catch (_) {}
+  }
+
+  window.addEventListener('storage', (event) => {
+    const key = String(event?.key || '');
+    if (!key.startsWith('ce_plan_catalog_saved_v1_')) return;
+    refreshSavedPoiButtonsWithRetry(document);
+  });
+}
+
 function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
@@ -231,9 +262,16 @@ function escapeHtml(text) {
 
 async function hydratePoiMediaFromDatabase(poi) {
   if (!poi || !poi.id) return poi;
+  const poiId = String(poi.id || '').trim();
+  if (!poiId) return poi;
 
   const hasGalleryData = getPoiGalleryPhotos(poi).length > 0;
-  if (hasGalleryData) return poi;
+  if (hasGalleryData) {
+    hydratedPoiMedia.add(poiId);
+    return poi;
+  }
+  if (hydratedPoiMedia.has(poiId)) return poi;
+  hydratedPoiMedia.add(poiId);
 
   try {
     const sb = window.getSupabase?.();
@@ -242,7 +280,7 @@ async function hydratePoiMediaFromDatabase(poi) {
     const { data, error } = await sb
       .from('pois')
       .select('id, main_image_url, photos')
-      .eq('id', poi.id)
+      .eq('id', poiId)
       .limit(1)
       .maybeSingle();
 
@@ -2141,12 +2179,14 @@ document.addEventListener('ce-auth:state', async (e) => {
     currentUser = session.user;
     await loadUserProfile();
     updateAuthSections();
-    if (currentUserId) {
+    if (currentUser?.id) {
       initNotifications(currentUser.id);
     }
+    await syncSavedCatalogState();
   } else if (status === 'signed-out') {
     currentUser = null;
     updateAuthSections();
+    await syncSavedCatalogState();
   }
 });
 
