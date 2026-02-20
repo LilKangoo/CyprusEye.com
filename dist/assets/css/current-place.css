@@ -28,47 +28,52 @@
   z-index: 0;
 }
 
-.map-filter-control {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px;
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  background: rgba(15, 23, 42, 0.78);
-  box-shadow: 0 8px 24px rgba(15, 23, 42, 0.28);
-  backdrop-filter: blur(8px);
+.map-filter-inline-host {
+  width: 100%;
+  margin-bottom: 8px;
 }
 
 .map-filter-panel {
+  width: 100%;
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
   gap: 6px;
+}
+
+.map-filter-control {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  border-radius: 10px;
+  border: 1px solid #d7e2ee;
+  background: #f8fbff;
 }
 
 .map-filter-btn {
   border: 0;
-  border-radius: 9px;
+  border-radius: 8px;
   background: transparent;
-  color: rgba(255, 255, 255, 0.92);
+  color: #475569;
   font-family: 'Jost', sans-serif;
   font-size: 12px;
   font-weight: 600;
   line-height: 1;
-  padding: 8px 10px;
-  white-space: nowrap;
+  padding: 7px 8px;
+  white-space: normal;
+  min-height: 32px;
   cursor: pointer;
   transition: background-color 0.18s ease, color 0.18s ease, transform 0.18s ease;
 }
 
 .map-filter-btn:hover {
-  background: rgba(255, 255, 255, 0.16);
+  background: rgba(37, 99, 235, 0.12);
 }
 
 .map-filter-btn.is-active {
-  color: #0f172a;
-  background: #ffffff;
+  color: #ffffff;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
 }
 
 .map-filter-btn:active {
@@ -78,16 +83,15 @@
 .map-filter-counter {
   align-self: stretch;
   border-radius: 10px;
-  border: 1px solid rgba(255, 255, 255, 0.35);
-  background: rgba(15, 23, 42, 0.72);
-  color: rgba(255, 255, 255, 0.88);
+  border: 1px solid #d7e2ee;
+  background: #f8fbff;
+  color: #475569;
   font-family: 'Jost', sans-serif;
   font-size: 11px;
   font-weight: 500;
   line-height: 1.2;
   padding: 6px 10px;
   text-align: center;
-  backdrop-filter: blur(8px);
 }
 
 /* Remove old skip links visual clutter (keep accessible) */
@@ -303,6 +307,10 @@
   margin-top: 8px;
 }
 
+.current-place-actions.is-recommendation {
+  grid-template-columns: 1fr 1fr;
+}
+
 .current-place-actions button {
   height: 40px;
   border-radius: 10px;
@@ -337,6 +345,10 @@
   background: rgba(248, 250, 252, 0.92);
   border: 1px solid #dbe3f0;
   color: #334155;
+}
+
+.current-place-actions .btn.is-hidden {
+  display: none !important;
 }
 
 .current-place-actions button.btn.secondary:hover {
@@ -402,29 +414,24 @@
     margin-top: 60px !important; /* Push down below any top overlays */
   }
 
+  .map-filter-inline-host {
+    margin-bottom: 6px;
+  }
+
   .map-filter-control {
-    max-width: calc(100vw - 112px);
-    overflow-x: auto;
-    -ms-overflow-style: none;
-    scrollbar-width: none;
-  }
-
-  .map-filter-panel {
-    max-width: calc(100vw - 112px);
-  }
-
-  .map-filter-control::-webkit-scrollbar {
-    display: none;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    overflow: visible;
   }
 
   .map-filter-btn {
-    font-size: 11px;
-    padding: 7px 9px;
+    font-size: 10px;
+    padding: 6px 6px;
+    min-height: 30px;
   }
 
   .map-filter-counter {
     font-size: 10px;
-    padding: 5px 8px;
+    padding: 5px 6px;
   }
 
   /* Bottom Sheet Container */
@@ -502,6 +509,11 @@
     grid-template-areas: "check comments nav";
     margin-top: 0;
   }
+
+  .current-place-actions.is-recommendation {
+    grid-template-columns: 1fr 1fr;
+    grid-template-areas: "comments nav";
+  }
   
   /* Check-in Button (Primary) */
   .current-place-actions button:nth-child(1) { 
@@ -526,6 +538,22 @@
   
   .current-place-actions button.btn.secondary .btn-icon {
     font-size: 1.2rem;
+    margin: 0;
+  }
+
+  .current-place-actions.is-recommendation button.btn.secondary {
+    width: auto;
+    padding: 0 12px;
+  }
+
+  .current-place-actions.is-recommendation button.btn.secondary span:not(.btn-icon) {
+    display: inline;
+    font-size: 0.8rem;
+    margin-left: 4px;
+  }
+
+  .current-place-actions.is-recommendation button.btn.secondary .btn-icon {
+    font-size: 1rem;
     margin: 0;
   }
 

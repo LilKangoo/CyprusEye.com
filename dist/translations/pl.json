@@ -3789,6 +3789,13 @@
     "heading": "Aktualne miejsce",
     "loading": "Ładowanie...",
     "checkIn": "Zamelduj się",
+    "details": "Szczegóły",
+    "badge": {
+      "recommended": "POLECANE"
+    },
+    "recommendation": {
+      "offer": "Oferta"
+    },
     "status": {
       "alreadyVisited": "Już tu byłeś w tym miejscu."
     },
@@ -3796,7 +3803,8 @@
     "map": "Mapa",
     "filter": {
       "visibleCount": "{{count}} miejsc w aktualnym widoku",
-      "noVisitPoints": "Brak punktów do odwiedzenia w tym filtrze. Wybierz „Wszystkie” lub „Punkty do odwiedzenia”."
+      "noVisitPoints": "Brak punktów do odwiedzenia w tym filtrze. Wybierz „Wszystkie” lub „Punkty do odwiedzenia”.",
+      "noItems": "Brak miejsc w tym filtrze. Wybierz inny widok mapy."
     }
   },
   "attractions": {

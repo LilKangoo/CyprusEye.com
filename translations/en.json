@@ -1529,6 +1529,13 @@
     "heading": "Current place",
     "loading": "Loading...",
     "checkIn": "Check in",
+    "details": "Details",
+    "badge": {
+      "recommended": "RECOMMENDED"
+    },
+    "recommendation": {
+      "offer": "Offer"
+    },
     "status": {
       "alreadyVisited": "You have already checked in here."
     },
@@ -1536,7 +1543,8 @@
     "map": "Map",
     "filter": {
       "visibleCount": "{{count}} places in the current view",
-      "noVisitPoints": "No visit points in this filter. Switch to “All” or “Visit points”."
+      "noVisitPoints": "No visit points in this filter. Switch to “All” or “Visit points”.",
+      "noItems": "No places available in this filter. Switch to another map view."
     }
   },
   "map.filter.all": "All",

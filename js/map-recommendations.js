@@ -104,6 +104,51 @@ function getRecommendationMarkersStats(mapInstance = recommendationMapInstance) 
   };
 }
 
+function getMapRecommendationsData() {
+  return Array.isArray(mapRecommendations) ? [...mapRecommendations] : [];
+}
+
+function getVisibleRecommendationIdsForMap(mapInstance = recommendationMapInstance) {
+  if (!recommendationMarkersVisible) {
+    return [];
+  }
+
+  const targetMap = mapInstance || recommendationMapInstance;
+  const visibleIds = [];
+  recommendationMarkers.forEach((marker, recId) => {
+    if (!marker) return;
+    if (targetMap && typeof targetMap.hasLayer === 'function') {
+      if (targetMap.hasLayer(marker)) {
+        visibleIds.push(String(recId));
+      }
+      return;
+    }
+    visibleIds.push(String(recId));
+  });
+  return visibleIds;
+}
+
+function openRecommendationMarkerPopup(recId, mapInstance = recommendationMapInstance) {
+  const marker = recommendationMarkers.get(recId);
+  if (!marker) {
+    return;
+  }
+
+  const targetMap = mapInstance || recommendationMapInstance;
+  try {
+    if (targetMap && typeof targetMap.hasLayer === 'function' && !targetMap.hasLayer(marker)) {
+      marker.addTo(targetMap);
+    }
+    if (targetMap && typeof targetMap.setView === 'function') {
+      targetMap.setView(marker.getLatLng(), Math.max(13, targetMap.getZoom() || 13), { animate: true });
+    }
+  } catch (_) {}
+
+  try {
+    marker.openPopup();
+  } catch (_) {}
+}
+
 function dispatchRecommendationMarkersUpdate(mapInstance = recommendationMapInstance) {
   try {
     window.dispatchEvent(new CustomEvent('mapRecommendationMarkersUpdated', {
@@ -220,6 +265,15 @@ function syncRecommendationMarkers(mapInstance) {
       marker.bindPopup(popupContent, { 
         maxWidth: 300,
         className: 'recommendation-popup'
+      });
+
+      marker.on('click', () => {
+        if (typeof window.setCurrentMapItem === 'function') {
+          window.setCurrentMapItem(
+            { type: 'recommendation', id: rec.id },
+            { focus: false, scroll: false, force: true }
+          );
+        }
       });
       
       recommendationMarkers.set(rec.id, marker);
@@ -566,3 +620,6 @@ window.trackRecommendationClick = trackRecommendationClick;
 window.trackRecommendationView = trackRecommendationView;
 window.setRecommendationMarkersVisibility = setRecommendationMarkersVisibility;
 window.getRecommendationMarkersStats = getRecommendationMarkersStats;
+window.getMapRecommendationsData = getMapRecommendationsData;
+window.getVisibleRecommendationIdsForMap = getVisibleRecommendationIdsForMap;
+window.openRecommendationMarkerPopup = openRecommendationMarkerPopup;

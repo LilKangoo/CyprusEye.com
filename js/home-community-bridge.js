@@ -5,6 +5,7 @@
   const ceLog = CE_DEBUG ? (...args) => console.log(...args) : () => {};
 
   let currentId = null;
+  let currentItemType = 'poi';
   let observer = null;
   let observing = false;
   let statsTimer = null;
@@ -301,11 +302,12 @@
   }
 
   function getCheckInButton(){
-    return document.querySelector('.current-place-actions .btn.primary');
+    return document.getElementById('currentPlaceCheckInBtn') || document.querySelector('.current-place-actions .btn.primary');
   }
 
   function setCheckInButtonDefault(button){
     if (!button) return;
+    button.classList.remove('is-hidden');
     button.disabled = false;
     button.classList.remove('is-visited');
     button.innerHTML = `<span class="btn-icon">✓</span> <span>${t('currentPlace.checkIn', 'Zamelduj się', 'Check in')}</span>`;
@@ -322,6 +324,11 @@
     const normalizedPoiId = normalizePoiId(poiId);
     const button = getCheckInButton();
     if (!button || !normalizedPoiId) {
+      return;
+    }
+    if (currentItemType !== 'poi' || !findPoi(normalizedPoiId)) {
+      button.disabled = true;
+      button.classList.add('is-hidden');
       return;
     }
     const refreshToken = ++checkInUiRefreshToken;
@@ -359,16 +366,19 @@
   }
 
   function getOrderedPoiIds(){
-    if (!Array.isArray(visiblePoiIdsFromMap) && typeof window.getVisiblePoiIdsForMap === 'function') {
-      const fromMap = window.getVisiblePoiIdsForMap();
+    if (!Array.isArray(visiblePoiIdsFromMap) && typeof window.getVisibleMapItemsForMap === 'function') {
+      const fromMap = window.getVisibleMapItemsForMap();
       if (Array.isArray(fromMap)) {
-        visiblePoiIdsFromMap = fromMap.map(normalizePoiId).filter(Boolean);
+        visiblePoiIdsFromMap = fromMap
+          .map((item) => normalizePoiId(item?.id))
+          .filter(Boolean);
       }
     }
 
     if (Array.isArray(visiblePoiIdsFromMap)) {
-      const knownIds = new Set((window.PLACES_DATA || []).map((poi) => normalizePoiId(poi?.id)).filter(Boolean));
-      return [...new Set(visiblePoiIdsFromMap)].filter((id) => knownIds.has(id));
+      const knownPoiIds = new Set((window.PLACES_DATA || []).map((poi) => normalizePoiId(poi?.id)).filter(Boolean));
+      const knownRecommendationIds = new Set(getRecommendationsDataNow().map((rec) => normalizePoiId(rec?.id)).filter(Boolean));
+      return [...new Set(visiblePoiIdsFromMap)].filter((id) => knownPoiIds.has(id) || knownRecommendationIds.has(id));
     }
 
     const cards = Array.from(document.querySelectorAll('#poisList .poi-card'));
@@ -380,7 +390,111 @@
   }
 
   function findPoi(id){
-    return (window.PLACES_DATA||[]).find(p=>p.id===id);
+    const normalizedId = normalizePoiId(id);
+    return (window.PLACES_DATA||[]).find((p)=>normalizePoiId(p?.id) === normalizedId);
+  }
+
+  function getRecommendationsDataNow(){
+    if (typeof window.getMapRecommendationsData === 'function') {
+      const recommendations = window.getMapRecommendationsData();
+      if (Array.isArray(recommendations)) {
+        return recommendations;
+      }
+    }
+    return [];
+  }
+
+  function findRecommendation(id){
+    const normalizedId = normalizePoiId(id);
+    return getRecommendationsDataNow().find((recommendation) => normalizePoiId(recommendation?.id) === normalizedId);
+  }
+
+  function getCurrentItem() {
+    if (!currentId) {
+      return null;
+    }
+    return { type: currentItemType, id: currentId };
+  }
+
+  function setCurrentItem(type, id) {
+    currentItemType = type === 'recommendation' ? 'recommendation' : 'poi';
+    currentId = normalizePoiId(id);
+    window.currentMapItem = currentId ? { type: currentItemType, id: currentId } : null;
+    window.currentPlaceId = currentItemType === 'poi' ? currentId : null;
+  }
+
+  function getLocalizedRecommendationTitle(recommendation){
+    if (!recommendation) return '';
+    const lang = getCurrentLanguage();
+    if (lang.startsWith('en')) {
+      return recommendation.title_en || recommendation.title_pl || '';
+    }
+    return recommendation.title_pl || recommendation.title_en || '';
+  }
+
+  function getLocalizedRecommendationDescription(recommendation){
+    if (!recommendation) return '';
+    const lang = getCurrentLanguage();
+    if (lang.startsWith('en')) {
+      return recommendation.description_en || recommendation.description_pl || '';
+    }
+    return recommendation.description_pl || recommendation.description_en || '';
+  }
+
+  function getLocalizedRecommendationDiscount(recommendation){
+    if (!recommendation) return '';
+    const lang = getCurrentLanguage();
+    if (lang.startsWith('en')) {
+      return recommendation.discount_text_en || recommendation.discount_text_pl || '';
+    }
+    return recommendation.discount_text_pl || recommendation.discount_text_en || '';
+  }
+
+  function updateCurrentPlaceActionsForType(type, recommendation = null){
+    const actionsEl = document.querySelector('.current-place-actions');
+    const checkInBtn = document.getElementById('currentPlaceCheckInBtn') || getCheckInButton();
+    const detailsBtn = document.getElementById('currentPlaceCommentsBtn');
+    const mapBtn = document.getElementById('currentPlaceNavigateBtn');
+    const detailsLabel = detailsBtn ? detailsBtn.querySelector('span:not(.btn-icon)') : null;
+    const detailsIcon = detailsBtn ? detailsBtn.querySelector('.btn-icon') : null;
+    const mapLabel = mapBtn ? mapBtn.querySelector('span:not(.btn-icon)') : null;
+    const mapIcon = mapBtn ? mapBtn.querySelector('.btn-icon') : null;
+
+    if (actionsEl) {
+      actionsEl.classList.toggle('is-recommendation', type === 'recommendation');
+    }
+
+    if (checkInBtn) {
+      const shouldHideCheckIn = type === 'recommendation';
+      checkInBtn.classList.toggle('is-hidden', shouldHideCheckIn);
+      checkInBtn.disabled = shouldHideCheckIn;
+      if (!shouldHideCheckIn) {
+        setCheckInButtonDefault(checkInBtn);
+      }
+    }
+
+    if (detailsLabel) {
+      detailsLabel.textContent = type === 'recommendation'
+        ? t('currentPlace.details', 'Szczegóły', 'Details')
+        : t('currentPlace.comments', 'Komentarze', 'Comments');
+    }
+    if (detailsIcon) {
+      detailsIcon.textContent = type === 'recommendation' ? 'ℹ️' : '💬';
+    }
+
+    if (mapLabel) {
+      mapLabel.textContent = t('currentPlace.map', 'Mapa', 'Map');
+    }
+    if (mapIcon) {
+      mapIcon.textContent = type === 'recommendation' ? '📍' : '➤';
+    }
+
+    if (mapBtn) {
+      const hasMapTarget = type === 'poi'
+        || Boolean(recommendation?.google_url)
+        || (Number.isFinite(Number.parseFloat(recommendation?.latitude)) && Number.isFinite(Number.parseFloat(recommendation?.longitude)));
+      mapBtn.disabled = !hasMapTarget;
+    }
   }
 
   function getPlacesDataNow(){
@@ -419,9 +533,9 @@
     }
 
     const noPoiMessage = t(
-      'currentPlace.filter.noVisitPoints',
-      'Brak punktów do odwiedzenia w tym filtrze. Wybierz „Wszystkie” lub „Punkty do odwiedzenia”.',
-      'No visit points in this filter. Switch to “All” or “Visit points”.',
+      'currentPlace.filter.noItems',
+      'Brak miejsc w tym filtrze. Wybierz inny widok mapy.',
+      'No places available in this filter. Switch to another map view.',
     );
 
     if (hintEl) {
@@ -438,12 +552,15 @@
     }
 
     if (commentsBtn) commentsBtn.disabled = !hasVisiblePois;
-    if (navigateBtn) navigateBtn.disabled = !hasVisiblePois;
+    if (navigateBtn && !hasVisiblePois) {
+      navigateBtn.disabled = true;
+    }
 
     if (!hasVisiblePois) {
       if (checkInBtn) {
         checkInBtn.disabled = true;
         checkInBtn.dataset.filterDisabled = '1';
+        checkInBtn.classList.add('is-hidden');
       }
       setCheckInStatus(noPoiMessage);
       return;
@@ -451,8 +568,14 @@
 
     if (checkInBtn && checkInBtn.dataset.filterDisabled === '1') {
       delete checkInBtn.dataset.filterDisabled;
-      setCheckInButtonDefault(checkInBtn);
-      if (currentId) {
+      if (currentItemType === 'poi') {
+        checkInBtn.classList.remove('is-hidden');
+        setCheckInButtonDefault(checkInBtn);
+      } else {
+        checkInBtn.classList.add('is-hidden');
+        checkInBtn.disabled = true;
+      }
+      if (currentId && currentItemType === 'poi') {
         void syncCurrentPlaceCheckInUi(currentId, { forceRefresh: false });
       }
     }
@@ -465,7 +588,11 @@
 
   function handleMapVisiblePoiIdsChanged(event) {
     const detail = event?.detail || {};
-    if (Array.isArray(detail.poiIds)) {
+    if (Array.isArray(detail.items)) {
+      visiblePoiIdsFromMap = detail.items
+        .map((item) => normalizePoiId(item?.id))
+        .filter(Boolean);
+    } else if (Array.isArray(detail.poiIds)) {
       visiblePoiIdsFromMap = detail.poiIds.map(normalizePoiId).filter(Boolean);
     }
 
@@ -485,11 +612,20 @@
 
   function setCurrentPlace(id, options={scroll:false, focus:true}){
     if(!id) return;
-    if(currentId===id && !options.force) return;
+    if(currentId===id && !options.force){
+      const targetType = findPoi(id) ? 'poi' : (findRecommendation(id) ? 'recommendation' : currentItemType);
+      if (targetType === currentItemType) {
+        return;
+      }
+    }
     const poi = findPoi(id);
-    if(!poi) return;
-    currentId = id;
-    window.currentPlaceId = id;
+    if(!poi) {
+      const recommendation = findRecommendation(id);
+      if (!recommendation) return;
+      setCurrentRecommendation(recommendation, options);
+      return;
+    }
+    setCurrentItem('poi', id);
 
     const nameEl = document.getElementById('currentPlaceName');
     const descEl = document.getElementById('currentPlaceDescription');
@@ -518,6 +654,7 @@
     if(descEl) descEl.textContent = poiDesc;
 
     if (saveBtn) {
+      saveBtn.setAttribute('data-item-type', 'poi');
       saveBtn.setAttribute('data-ref-id', String(poi.id || ''));
       try {
         if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
@@ -544,6 +681,11 @@
       }
     }
 
+    const typeBadgeEl = document.querySelector('.badge-type');
+    if (typeBadgeEl) {
+      typeBadgeEl.textContent = t('badges.landmark', 'LANDMARK', 'LANDMARK');
+    }
+
     // Update Counter (X / Y) and panel state according to active map filter
     if (counterEl) {
       // Kept to ensure immediate paint before full UI update below.
@@ -562,6 +704,8 @@
     // Periodic refresh while this POI is selected
     if (statsTimer) clearInterval(statsTimer);
     statsTimer = setInterval(() => { if (currentId===id) updatePlaceStats(id); }, 10000);
+
+    updateCurrentPlaceActionsForType('poi', null);
 
     if(options.focus !== false && typeof window.focusPlaceOnMap === 'function'){
       window.focusPlaceOnMap(id);
@@ -588,6 +732,88 @@
     updateCurrentPlacePanelNavigationUi();
     if (getOrderedPoiIds().includes(poi.id)) {
       void syncCurrentPlaceCheckInUi(poi.id, { forceRefresh: false });
+    }
+  }
+
+  function setCurrentRecommendation(recommendation, options = { scroll: false, focus: true }) {
+    if (!recommendation || !recommendation.id) {
+      return;
+    }
+
+    const recommendationId = normalizePoiId(recommendation.id);
+    if (currentId === recommendationId && currentItemType === 'recommendation' && !options.force) {
+      return;
+    }
+
+    setCurrentItem('recommendation', recommendationId);
+    if (statsTimer) {
+      clearInterval(statsTimer);
+      statsTimer = null;
+    }
+
+    const nameEl = document.getElementById('currentPlaceName');
+    const descEl = document.getElementById('currentPlaceDescription');
+    const saveBtn = document.getElementById('currentPlaceSaveBtn');
+    const xpBadgeEl = document.getElementById('currentPlaceXPBadge');
+    const trophyBadgeEl = document.getElementById('currentPlaceTrophyBadge');
+    const typeBadgeEl = document.querySelector('.badge-type');
+    const recommendationTitle = getLocalizedRecommendationTitle(recommendation) || t('currentPlace.details', 'Szczegóły', 'Details');
+    const recommendationDescription = getLocalizedRecommendationDescription(recommendation)
+      || t('currentPlace.recommendation.offer', 'Oferta partnera', 'Partner offer');
+    const recommendationDiscount = getLocalizedRecommendationDiscount(recommendation);
+
+    if (nameEl) {
+      nameEl.textContent = recommendationTitle;
+      try {
+        if (nameEl.hasAttribute('data-i18n')) nameEl.removeAttribute('data-i18n');
+      } catch (_) {}
+    }
+    if (descEl) {
+      descEl.textContent = recommendationDescription;
+    }
+
+    if (saveBtn) {
+      saveBtn.setAttribute('data-item-type', 'recommendation');
+      saveBtn.setAttribute('data-ref-id', recommendationId);
+      try {
+        if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+          const root = saveBtn.closest('.place-badges') || saveBtn.parentElement || document;
+          window.CE_SAVED_CATALOG.refreshButtons(root);
+        }
+      } catch (_) {}
+    }
+
+    if (typeBadgeEl) {
+      typeBadgeEl.textContent = t('currentPlace.badge.recommended', 'POLECANE', 'RECOMMENDED');
+    }
+    if (xpBadgeEl) {
+      xpBadgeEl.textContent = recommendationDiscount
+        ? `🎁 ${recommendationDiscount}`
+        : t('currentPlace.recommendation.offer', 'Oferta', 'Offer');
+    }
+    if (trophyBadgeEl) {
+      trophyBadgeEl.style.display = 'none';
+    }
+
+    updateCurrentPlaceActionsForType('recommendation', recommendation);
+    setCheckInStatus('');
+    updateCurrentPlacePanelNavigationUi();
+
+    const listRoot = document.getElementById('poisList');
+    if (listRoot) {
+      listRoot.querySelectorAll('.poi-card.active').forEach((el) => el.classList.remove('active'));
+    }
+
+    if (options.focus !== false) {
+      if (typeof window.openRecommendationMarkerPopup === 'function') {
+        window.openRecommendationMarkerPopup(recommendationId, window.mapInstance || null);
+      } else {
+        const recLat = Number.parseFloat(recommendation.latitude);
+        const recLng = Number.parseFloat(recommendation.longitude);
+        if (Number.isFinite(recLat) && Number.isFinite(recLng) && window.mapInstance && typeof window.mapInstance.setView === 'function') {
+          window.mapInstance.setView([recLat, recLng], 14, { animate: true });
+        }
+      }
     }
   }
 
@@ -702,6 +928,18 @@
       return;
     }
 
+    const targetPoi = findPoi(targetId);
+    const targetType = targetPoi ? 'poi' : (findRecommendation(targetId) ? 'recommendation' : currentItemType);
+
+    if (targetType === 'recommendation') {
+      if (typeof window.openRecommendationDetailModal === 'function') {
+        window.openRecommendationDetailModal(targetId);
+      } else {
+        window.location.href = '/recommendations.html';
+      }
+      return;
+    }
+
     if (typeof window.openPoiComments === 'function') {
       try {
         window.openPoiComments(targetId);
@@ -721,6 +959,37 @@
     }
   }
 
+  function focusCurrentMapItem(){
+    const currentItem = getCurrentItem();
+    if (!currentItem || !currentItem.id) {
+      return;
+    }
+
+    if (currentItem.type === 'recommendation') {
+      const recommendation = findRecommendation(currentItem.id);
+      if (recommendation?.google_url) {
+        window.open(recommendation.google_url, '_blank', 'noopener');
+        return;
+      }
+      if (typeof window.openRecommendationMarkerPopup === 'function') {
+        window.openRecommendationMarkerPopup(currentItem.id, window.mapInstance || null);
+      }
+      return;
+    }
+
+    if (typeof window.focusPlaceOnMap === 'function') {
+      window.focusPlaceOnMap(currentItem.id);
+    }
+  }
+
+  function openCurrentPlaceDetails() {
+    const currentItem = getCurrentItem();
+    if (!currentItem || !currentItem.id) {
+      return;
+    }
+    showCommunity(currentItem.id);
+  }
+
   async function getPosition(highAccuracy = true) {
     return new Promise((resolve, reject) => {
       navigator.geolocation.getCurrentPosition(resolve, reject, {
@@ -735,6 +1004,10 @@
     let btn;
     let shouldRestoreButton = true;
     try{
+      const targetId = id || currentId;
+      const targetPoi = targetId ? findPoi(targetId) : null;
+      if (!targetPoi) return;
+
       if(checkInBusy) return;
       checkInBusy = true;
 
@@ -746,18 +1019,7 @@
         btn.innerHTML = `<span class="spinner-small"></span>${btn.textContent.trim() || t('checkIn.status.checking', 'Sprawdzam...', 'Checking...')}`;
       }
 
-      const targetId = id || currentId;
-      const poi = targetId ? findPoi(targetId) : null;
-      if(!poi){
-        const msg = t(
-          'checkIn.status.selectPlace',
-          'Brak wybranej lokalizacji. Wybierz miejsce z listy lub mapy.',
-          'No selected location. Choose a place from the list or map.',
-        );
-        setCheckInStatus(msg);
-        window.showToast?.(msg, 'error');
-        return;
-      }
+      const poi = targetPoi;
 
       const sb = window.getSupabase?.();
       if (!sb) {
@@ -1074,13 +1336,19 @@
 
   window.navigatePlace = navigatePlace;
   window.showCommunity = showCommunity;
+  window.openCurrentPlaceDetails = openCurrentPlaceDetails;
+  window.focusCurrentMapItem = focusCurrentMapItem;
   window.checkInAtPlace = checkInAtPlace;
   // Public API for map markers to update the panel and list
   window.setCurrentPlace = function(id, opts){
     setCurrentPlace(id, Object.assign({scroll:false, force:true}, opts||{}));
   };
+  window.setCurrentMapItem = function(item, opts){
+    if (!item || !item.id) return;
+    setCurrentPlace(item.id, Object.assign({scroll:false, force:true}, opts||{}));
+  };
 
-  window.addEventListener('mapVisiblePoiIdsChanged', handleMapVisiblePoiIdsChanged);
+  window.addEventListener('mapVisibleItemsChanged', handleMapVisiblePoiIdsChanged);
 
   document.addEventListener('ce-auth:state', (event) => {
     const userId = normalizePoiId(event?.detail?.session?.user?.id);
@@ -1089,6 +1357,9 @@
       visitedPoiFetchPromiseByUser.clear();
     }
     if (currentId) {
+      if (currentItemType !== 'poi') {
+        return;
+      }
       void syncCurrentPlaceCheckInUi(currentId, { forceRefresh: true });
     }
   });
@@ -1108,7 +1379,14 @@
 
     ceLog(`✅ PLACES_DATA loaded: ${data.length} POIs`);
 
-    if (typeof window.getVisiblePoiIdsForMap === 'function') {
+    if (typeof window.getVisibleMapItemsForMap === 'function') {
+      const mapItems = window.getVisibleMapItemsForMap();
+      if (Array.isArray(mapItems)) {
+        visiblePoiIdsFromMap = mapItems
+          .map((item) => normalizePoiId(item?.id))
+          .filter(Boolean);
+      }
+    } else if (typeof window.getVisiblePoiIdsForMap === 'function') {
       const mapIds = window.getVisiblePoiIdsForMap();
       if (Array.isArray(mapIds)) {
         visiblePoiIdsFromMap = mapIds.map(normalizePoiId).filter(Boolean);

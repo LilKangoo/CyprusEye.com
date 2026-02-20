@@ -48,6 +48,7 @@ try {
   let mapMarkerFilterCounter = null;
   let mapFilterListenersAttached = false;
   let mapVisiblePoiIds = null;
+  let mapVisibleItems = null;
   let lastVisiblePoiIdsSignature = '';
   
   function getPlacesDataNow() {
@@ -156,10 +157,43 @@ try {
     return visibleIds;
   }
 
+  function getVisibleRecommendationIdsForCurrentFilter() {
+    if (!shouldShowRecommendationMarkers()) {
+      return [];
+    }
+
+    if (typeof window.getVisibleRecommendationIdsForMap === 'function') {
+      const ids = window.getVisibleRecommendationIdsForMap(mapInstance);
+      if (Array.isArray(ids)) {
+        return ids.map((id) => String(id)).filter(Boolean);
+      }
+    }
+
+    return [];
+  }
+
+  function getVisibleMapItemsForCurrentFilter() {
+    const items = [];
+    const poiIds = getVisiblePoiIdsForCurrentFilter();
+    const recommendationIds = getVisibleRecommendationIdsForCurrentFilter();
+
+    poiIds.forEach((id) => {
+      items.push({ type: 'poi', id });
+    });
+    recommendationIds.forEach((id) => {
+      items.push({ type: 'recommendation', id });
+    });
+
+    return items;
+  }
+
   function dispatchVisiblePoiIdsChanged(force = false) {
     const nextVisibleIds = getVisiblePoiIdsForCurrentFilter();
+    const nextRecommendationIds = getVisibleRecommendationIdsForCurrentFilter();
+    const nextVisibleItems = getVisibleMapItemsForCurrentFilter();
     mapVisiblePoiIds = nextVisibleIds;
-    const nextSignature = `${mapMarkerFilter}|${nextVisibleIds.join(',')}`;
+    mapVisibleItems = nextVisibleItems;
+    const nextSignature = `${mapMarkerFilter}|poi:${nextVisibleIds.join(',')}|rec:${nextRecommendationIds.join(',')}`;
 
     if (!force && nextSignature === lastVisiblePoiIdsSignature) {
       return;
@@ -171,6 +205,17 @@ try {
         detail: {
           filter: mapMarkerFilter,
           poiIds: [...nextVisibleIds],
+        },
+      }));
+    } catch (_) {}
+
+    try {
+      window.dispatchEvent(new CustomEvent('mapVisibleItemsChanged', {
+        detail: {
+          filter: mapMarkerFilter,
+          poiIds: [...nextVisibleIds],
+          recommendationIds: [...nextRecommendationIds],
+          items: nextVisibleItems.map((item) => ({ ...item })),
         },
       }));
     } catch (_) {}
@@ -301,7 +346,19 @@ try {
   }
 
   function setupMapMarkerFilterControl() {
-    if (!mapInstance || typeof L === 'undefined' || mapMarkerFilterControl) {
+    if (!mapInstance) {
+      return;
+    }
+
+    const inlineHost = document.getElementById('mapFilterInline');
+    if (inlineHost) {
+      inlineHost.classList.add('map-filter-panel');
+      mapMarkerFilterContainer = inlineHost;
+      renderMapMarkerFilterControl();
+      return;
+    }
+
+    if (typeof L === 'undefined' || mapMarkerFilterControl) {
       return;
     }
 
@@ -362,6 +419,7 @@ try {
     mapFilterListenersAttached = true;
     window.addEventListener('mapRecommendationMarkersUpdated', () => {
       updateMapMarkerFilterCounter();
+      dispatchVisiblePoiIdsChanged(true);
     });
     window.addEventListener('languageChanged', () => {
       renderMapMarkerFilterControl();
@@ -845,6 +903,12 @@ try {
       return [...mapVisiblePoiIds];
     }
     return getVisiblePoiIdsForCurrentFilter();
+  };
+  window.getVisibleMapItemsForMap = () => {
+    if (Array.isArray(mapVisibleItems)) {
+      return mapVisibleItems.map((item) => ({ ...item }));
+    }
+    return getVisibleMapItemsForCurrentFilter();
   };
   
   /**
