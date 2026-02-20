@@ -18144,7 +18144,7 @@ function setPoiTableLoading(isLoading) {
   if (!tableBody) return;
 
   if (isLoading) {
-    tableBody.innerHTML = '<tr><td colspan="6" class="table-loading">Loading POIs...</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="7" class="table-loading">Loading POIs...</td></tr>';
   }
 }
 
@@ -18448,7 +18448,7 @@ function renderPoiList() {
   const filtered = getFilteredPois();
 
   if (filtered.length === 0) {
-    tableBody.innerHTML = '<tr><td colspan="6" class="table-loading">No POIs match the current filters.</td></tr>';
+    tableBody.innerHTML = '<tr><td colspan="7" class="table-loading">No POIs match the current filters.</td></tr>';
     updatePoiTableFooter(0);
     return;
   }
@@ -18459,9 +18459,23 @@ function renderPoiList() {
     const tags = poi.tags && poi.tags.length
       ? poi.tags.map(tag => `<span class="badge badge-info">${escapeHtml(tag)}</span>`).join(' ')
       : '';
+    const photoCount = Array.isArray(poi.photos) ? poi.photos.filter(Boolean).length : 0;
+    const thumbUrl = String(poi.main_image_url || (photoCount ? poi.photos[0] : '') || '').trim();
+    const thumbMeta = thumbUrl
+      ? (photoCount > 0 ? `${photoCount} photo${photoCount === 1 ? '' : 's'}` : 'Cover set')
+      : 'No image';
+    const thumbDisplay = thumbUrl
+      ? `<img class="poi-thumb" src="${escapeHtml(thumbUrl)}" alt="${escapeHtml(poi.name || 'POI')}" loading="lazy" decoding="async" />`
+      : '<div class="poi-thumb-placeholder" aria-hidden="true">🖼️</div>';
 
     return `
       <tr>
+        <td class="poi-thumb-cell">
+          <div class="poi-thumb-wrap">
+            ${thumbDisplay}
+          </div>
+          <div class="poi-thumb-meta">${escapeHtml(thumbMeta)}</div>
+        </td>
         <td>
           <div class="poi-name">${escapeHtml(poi.name)}</div>
           <div class="poi-slug">${escapeHtml(poi.slug)}</div>
