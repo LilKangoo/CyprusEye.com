@@ -70,7 +70,7 @@
   <link rel="stylesheet" href="assets/css/base.css" />
   <link rel="stylesheet" href="assets/css/components.css?v=12" />
   <link rel="stylesheet" href="assets/css/header-metrics.css" />
-  <link rel="stylesheet" href="assets/css/current-place.css?v=3" />
+  <link rel="stylesheet" href="assets/css/current-place.css?v=4" />
   <link rel="stylesheet" href="assets/css/mobile.css" />
   <link rel="stylesheet" href="assets/css/mobile-nav.css" />
   <link rel="stylesheet" href="assets/css/rtl.css" />
@@ -342,6 +342,7 @@
                 →
               </button>
             </div>
+            <p id="currentPlaceFilterHint" class="current-place-filter-hint" aria-live="polite"></p>
             
             <div class="current-place-content" id="currentPlaceContent">
               <!-- Badges Row (Added for new design) -->
@@ -370,18 +371,21 @@
               <!-- Actions Grid -->
               <div class="current-place-actions">
                 <button
+                  id="currentPlaceCheckInBtn"
                   class="btn primary"
                   onclick="checkInAtPlace(window.currentPlaceId)"
                 >
                   <span class="btn-icon">✓</span> <span data-i18n="currentPlace.checkIn">Check</span>
                 </button>
                 <button
+                  id="currentPlaceCommentsBtn"
                   class="btn secondary"
                   onclick="showCommunity(window.currentPlaceId)"
                 >
                   <span class="btn-icon">💬</span> <span data-i18n="currentPlace.comments">Komentarze</span>
                 </button>
                 <button
+                  id="currentPlaceNavigateBtn"
                   class="btn secondary"
                   onclick="focusPlaceOnMap(window.currentPlaceId)"
                 >
@@ -803,6 +807,19 @@
         <div class="modal-header-actions">
           <button
             type="button"
+            class="ce-save-star ce-save-star-sm"
+            id="modalPoiSaveBtn"
+            data-ce-save="1"
+            data-item-type="poi"
+            data-ref-id=""
+            aria-label="Save"
+            title="Save"
+            onclick="event.preventDefault(); event.stopPropagation();"
+          >
+            ☆
+          </button>
+          <button
+            type="button"
             class="modal-nav-btn"
             id="nextPoiBtn"
             aria-label="Następne miejsce"
@@ -823,6 +840,31 @@
         </div>
       </header>
       <div class="comments-modal-content">
+        <!-- POI Gallery (main photos from admin) -->
+        <div class="modal-poi-gallery-section" id="modalPoiGallerySection" hidden>
+          <div class="modal-poi-gallery-header">
+            <h3 class="modal-poi-gallery-title" data-i18n="community.gallery.title">Place photos</h3>
+            <span class="modal-poi-gallery-count" id="modalPoiGalleryCount">0 photos</span>
+          </div>
+          <div class="modal-poi-gallery-track" id="modalPoiGalleryTrack"></div>
+        </div>
+
+        <!-- POI Location Map & Check-in -->
+        <div class="modal-map-section" id="modalMapSection">
+          <div id="poiMiniMap" class="poi-mini-map"></div>
+          <div class="poi-location-info">
+            <div class="poi-distance-container">
+              <span id="poiDistanceIcon" class="distance-icon">📍</span>
+              <span id="poiDistance" class="poi-distance">Loading location...</span>
+            </div>
+            <button id="modalCheckInBtn" class="btn btn-checkin" disabled data-auth-only>
+              <span class="checkin-icon">✓</span>
+              <span data-i18n="community.checkin.button">Check in</span>
+            </button>
+          </div>
+          <p id="modalCheckInStatus" class="check-in-status"></p>
+        </div>
+
         <!-- Rating Section -->
         <div class="modal-rating-section" id="modalRatingSection">
           <h3 data-i18n="community.rating.title">Oceń to miejsce</h3>
@@ -917,7 +959,7 @@
   <script type="module" src="js/home-cars.js?v=10" defer></script>
   
   <!-- Load core application (defer to wait for poi-loader) -->
-  <script src="js/app-core.js?v=11" defer></script>
+  <script src="js/app-core.js?v=12" defer></script>
   <!-- SOS Emergency Modal -->
   <script src="js/sos.js?v=1" defer></script>
   <!-- Header Stats - aktualizacja statystyk na wszystkich stronach -->
@@ -925,7 +967,7 @@
   <!-- Community UI (module) for comments/ratings modal on this page -->
   <script type="module" src="js/community/ui.js?v=1"></script>
   <!-- Bridge to sync list, panel and map on the homepage -->
-  <script src="js/home-community-bridge.js?v=4" defer></script>
+  <script src="js/home-community-bridge.js?v=5" defer></script>
   <script src="assets/js/modal-auth.js" defer></script>
 
 

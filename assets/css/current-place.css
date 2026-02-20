@@ -112,15 +112,16 @@
   left: 24px;
   right: 24px;
   margin: 0 auto;
-  max-width: 480px;
-  background: #ffffff;
-  border-radius: 20px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
-  padding: 24px;
+  max-width: 440px;
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 18px;
+  box-shadow: 0 10px 28px rgba(15, 23, 42, 0.16);
+  padding: 16px 18px 14px;
   z-index: 1000;
   /* Animation for sliding up */
   animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-  border: 1px solid rgba(0,0,0,0.04);
+  border: 1px solid rgba(15, 23, 42, 0.08);
+  backdrop-filter: blur(8px);
 }
 
 /* Navigation Header (Arrows + Counter) */
@@ -128,7 +129,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 6px;
   padding-bottom: 0;
   border-bottom: none;
 }
@@ -136,9 +137,9 @@
 /* Navigation Buttons (Arrows) */
 .current-place-navigation button {
   background: #ffffff;
-  border: 1px solid #e5e7eb;
-  width: 40px;
-  height: 40px;
+  border: 1px solid #dbe3f0;
+  width: 34px;
+  height: 34px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -160,13 +161,29 @@
   transform: scale(0.95);
 }
 
+.current-place-navigation button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
 /* "X / Y" Counter Style styling */
 .current-place-heading {
-  font-size: 0.85rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  color: #9ca3af;
+  color: #6b7280;
   letter-spacing: 1px;
   text-transform: uppercase;
+}
+
+.current-place-filter-hint {
+  margin: 0 0 10px;
+  min-height: 16px;
+  font-family: 'Jost', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  color: #64748b;
+  letter-spacing: 0.02em;
 }
 
 /* ===================================
@@ -176,12 +193,12 @@
 .current-place-content {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 #currentPlaceName {
   margin: 0;
-  font-size: 1.5rem;
+  font-size: 1.22rem;
   font-weight: 800;
   color: #166534;
   line-height: 1.2;
@@ -265,9 +282,9 @@
 
 #currentPlaceDescription {
   margin: 0;
-  font-size: 0.95rem;
-  line-height: 1.6;
-  color: #4b5563;
+  font-size: 0.88rem;
+  line-height: 1.45;
+  color: #4f5f74;
   display: -webkit-box;
   -webkit-line-clamp: 3; /* Limit description to 3 lines initially */
   line-clamp: 3;
@@ -281,16 +298,16 @@
 
 .current-place-actions {
   display: grid;
-  grid-template-columns: 1.2fr 1fr 1fr;
-  gap: 12px;
-  margin-top: 12px;
+  grid-template-columns: minmax(0, 1.4fr) auto auto;
+  gap: 8px;
+  margin-top: 8px;
 }
 
 .current-place-actions button {
-  height: 44px;
-  border-radius: 12px;
+  height: 40px;
+  border-radius: 10px;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.84rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -315,14 +332,41 @@
 
 /* Secondary Actions (Outline) */
 .current-place-actions button.btn.secondary {
-  background: white;
-  border: 1px solid #e5e7eb;
-  color: #374151;
+  min-width: 40px;
+  padding-inline: 10px;
+  background: rgba(248, 250, 252, 0.92);
+  border: 1px solid #dbe3f0;
+  color: #334155;
 }
 
 .current-place-actions button.btn.secondary:hover {
-  background: #f9fafb;
-  border-color: #d1d5db;
+  background: #eef2ff;
+  border-color: #cbd5e1;
+}
+
+.current-place-actions button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.current-place-checkin-status {
+  margin: 2px 0 0;
+  font-size: 12px;
+  line-height: 1.35;
+  color: #64748b;
+}
+
+.current-place-section.is-filter-empty #currentPlaceName,
+.current-place-section.is-filter-empty #currentPlaceDescription,
+.current-place-section.is-filter-empty .badge-xp,
+.current-place-section.is-filter-empty .badge-trophy,
+.current-place-section.is-filter-empty .badge-type {
+  opacity: 0.62;
+}
+
+.current-place-section.is-filter-empty .current-place-actions button {
+  opacity: 0.6;
 }
 
 /* Icon styling inside buttons - Add fontawesome or similar if needed, or simple SVG */
@@ -394,9 +438,9 @@
     margin: 0;
     
     background: #ffffff;
-    border-radius: 24px 24px 0 0; /* Rounded top corners only */
+    border-radius: 20px 20px 0 0; /* Rounded top corners only */
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
-    padding: 20px 24px 24px 24px;
+    padding: 14px 16px 16px;
     z-index: 1000;
     
     /* Ensure it sits above map */
@@ -406,35 +450,40 @@
 
   /* Navigation Row (Arrows & Counter) - Integrated into Sheet Header */
   .current-place-navigation {
-    margin-bottom: 16px;
+    margin-bottom: 4px;
     justify-content: center; /* Center the counter */
-    gap: 20px;
+    gap: 12px;
     position: relative;
   }
   
   .current-place-navigation button {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     background: #f3f4f6; /* Subtle grey background */
     border: none;
     font-size: 1.1rem;
   }
   
   .current-place-heading {
-    font-size: 0.9rem;
+    font-size: 0.8rem;
     color: #6b7280;
+  }
+
+  .current-place-filter-hint {
+    font-size: 10px;
+    margin-bottom: 8px;
   }
 
   /* Content Typography */
   #currentPlaceName {
-    font-size: 1.3rem;
-    margin-bottom: 4px;
+    font-size: 1.05rem;
+    margin-bottom: 2px;
   }
 
   /* Description - Truncate to 2 lines to save space */
   #currentPlaceDescription {
-    font-size: 0.9rem;
-    margin-bottom: 16px;
+    font-size: 0.82rem;
+    margin-bottom: 10px;
     -webkit-line-clamp: 2;
     line-clamp: 2;
     color: #6b7280;
@@ -449,7 +498,7 @@
   .current-place-actions {
     display: grid;
     grid-template-columns: 1fr auto auto; /* Main button + 2 icon buttons */
-    gap: 12px;
+    gap: 8px;
     grid-template-areas: "check comments nav";
     margin-top: 0;
   }
@@ -457,16 +506,16 @@
   /* Check-in Button (Primary) */
   .current-place-actions button:nth-child(1) { 
     grid-area: check;
-    height: 48px; /* Taller touch target */
-    font-size: 1rem;
+    height: 42px; /* Taller touch target */
+    font-size: 0.92rem;
   }
   
   /* Secondary Buttons (Icon only or compact) */
   .current-place-actions button.btn.secondary {
     padding: 0;
-    width: 48px; /* Square buttons */
-    height: 48px;
-    border-radius: 12px;
+    width: 42px; /* Square buttons */
+    height: 42px;
+    border-radius: 10px;
     border: 1px solid #e5e7eb;
     background: #f9fafb;
   }

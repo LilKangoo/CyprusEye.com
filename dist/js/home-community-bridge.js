@@ -10,6 +10,7 @@
   let statsTimer = null;
   let checkInBusy = false;
   let checkInUiRefreshToken = 0;
+  let visiblePoiIdsFromMap = null;
   const visitedPoiCacheByUser = new Map();
   const visitedPoiFetchPromiseByUser = new Map();
   const PROGRESS_STORAGE_KEYS = ['wakacjecypr-progress', 'wakacjecypr_progress'];
@@ -55,7 +56,14 @@
   function t(key, fallbackPl, fallbackEn, replacements = null){
     const lang = getCurrentLanguage();
     const fallback = lang.startsWith('en') ? (fallbackEn || fallbackPl) : fallbackPl;
-    const translations = window.appI18n?.translations?.[lang] || {};
+    const rawTranslations = window.appI18n?.translations || {};
+    const translations = (
+      rawTranslations &&
+      typeof rawTranslations === 'object' &&
+      Object.prototype.hasOwnProperty.call(rawTranslations, lang) &&
+      rawTranslations[lang] &&
+      typeof rawTranslations[lang] === 'object'
+    ) ? rawTranslations[lang] : rawTranslations;
     const translated = getNestedTranslation(translations, key);
     const resolved = typeof translated === 'string' && translated ? translated : fallback;
     return applyReplacements(resolved, replacements);
@@ -351,6 +359,18 @@
   }
 
   function getOrderedPoiIds(){
+    if (!Array.isArray(visiblePoiIdsFromMap) && typeof window.getVisiblePoiIdsForMap === 'function') {
+      const fromMap = window.getVisiblePoiIdsForMap();
+      if (Array.isArray(fromMap)) {
+        visiblePoiIdsFromMap = fromMap.map(normalizePoiId).filter(Boolean);
+      }
+    }
+
+    if (Array.isArray(visiblePoiIdsFromMap)) {
+      const knownIds = new Set((window.PLACES_DATA || []).map((poi) => normalizePoiId(poi?.id)).filter(Boolean));
+      return [...new Set(visiblePoiIdsFromMap)].filter((id) => knownIds.has(id));
+    }
+
     const cards = Array.from(document.querySelectorAll('#poisList .poi-card'));
     if (cards.length > 0) {
       return cards.map(c=>c.dataset.poiId).filter(Boolean);
@@ -366,6 +386,101 @@
   function getPlacesDataNow(){
     if (Array.isArray(window.PLACES_DATA)) return window.PLACES_DATA;
     return [];
+  }
+
+  function updateCurrentPlacePanelNavigationUi() {
+    const ids = getOrderedPoiIds();
+    const hasVisiblePois = ids.length > 0;
+    const currentIndex = currentId ? ids.indexOf(currentId) : -1;
+    const counterEl = document.getElementById('placeCounter');
+    const prevBtn = document.getElementById('prevPlaceBtn');
+    const nextBtn = document.getElementById('nextPlaceBtn');
+    const hintEl = document.getElementById('currentPlaceFilterHint');
+    const panelEl = document.getElementById('currentPlaceSection');
+    const commentsBtn = document.getElementById('currentPlaceCommentsBtn');
+    const navigateBtn = document.getElementById('currentPlaceNavigateBtn');
+    const checkInBtn = getCheckInButton();
+
+    if (counterEl) {
+      if (!hasVisiblePois) {
+        counterEl.textContent = '0 / 0';
+      } else if (currentIndex >= 0) {
+        counterEl.textContent = `${currentIndex + 1} / ${ids.length}`;
+      } else {
+        counterEl.textContent = `1 / ${ids.length}`;
+      }
+    }
+
+    if (prevBtn) prevBtn.disabled = !hasVisiblePois || currentIndex <= 0;
+    if (nextBtn) nextBtn.disabled = !hasVisiblePois || currentIndex < 0 || currentIndex >= ids.length - 1;
+
+    if (panelEl) {
+      panelEl.classList.toggle('is-filter-empty', !hasVisiblePois);
+    }
+
+    const noPoiMessage = t(
+      'currentPlace.filter.noVisitPoints',
+      'Brak punktów do odwiedzenia w tym filtrze. Wybierz „Wszystkie” lub „Punkty do odwiedzenia”.',
+      'No visit points in this filter. Switch to “All” or “Visit points”.',
+    );
+
+    if (hintEl) {
+      if (!hasVisiblePois) {
+        hintEl.textContent = noPoiMessage;
+      } else {
+        hintEl.textContent = t(
+          'currentPlace.filter.visibleCount',
+          '{{count}} miejsc w aktualnym widoku',
+          '{{count}} places in the current view',
+          { count: ids.length },
+        );
+      }
+    }
+
+    if (commentsBtn) commentsBtn.disabled = !hasVisiblePois;
+    if (navigateBtn) navigateBtn.disabled = !hasVisiblePois;
+
+    if (!hasVisiblePois) {
+      if (checkInBtn) {
+        checkInBtn.disabled = true;
+        checkInBtn.dataset.filterDisabled = '1';
+      }
+      setCheckInStatus(noPoiMessage);
+      return;
+    }
+
+    if (checkInBtn && checkInBtn.dataset.filterDisabled === '1') {
+      delete checkInBtn.dataset.filterDisabled;
+      setCheckInButtonDefault(checkInBtn);
+      if (currentId) {
+        void syncCurrentPlaceCheckInUi(currentId, { forceRefresh: false });
+      }
+    }
+
+    const statusEl = document.getElementById('currentPlaceCheckInStatus');
+    if (statusEl && statusEl.textContent === noPoiMessage) {
+      setCheckInStatus('');
+    }
+  }
+
+  function handleMapVisiblePoiIdsChanged(event) {
+    const detail = event?.detail || {};
+    if (Array.isArray(detail.poiIds)) {
+      visiblePoiIdsFromMap = detail.poiIds.map(normalizePoiId).filter(Boolean);
+    }
+
+    const ids = getOrderedPoiIds();
+    if (ids.length === 0) {
+      updateCurrentPlacePanelNavigationUi();
+      return;
+    }
+
+    if (!currentId || !ids.includes(currentId)) {
+      setCurrentPlace(ids[0], { focus: false, scroll: false, force: true });
+      return;
+    }
+
+    updateCurrentPlacePanelNavigationUi();
   }
 
   function setCurrentPlace(id, options={scroll:false, focus:true}){
@@ -429,15 +544,10 @@
       }
     }
 
-    // Update Counter (X / Y)
-    if(counterEl) {
-      const allIds = getOrderedPoiIds();
-      const index = allIds.indexOf(id);
-      if(index !== -1) {
-        counterEl.textContent = `${index + 1} / ${allIds.length}`;
-      } else {
-        counterEl.textContent = '1 / 1';
-      }
+    // Update Counter (X / Y) and panel state according to active map filter
+    if (counterEl) {
+      // Kept to ensure immediate paint before full UI update below.
+      counterEl.textContent = '...';
     }
 
     // Legacy: Reset comments/rating placeholders (will be updated by updatePlaceStats)
@@ -475,7 +585,10 @@
       if(active) active.classList.add('active');
     }
 
-    void syncCurrentPlaceCheckInUi(poi.id, { forceRefresh: false });
+    updateCurrentPlacePanelNavigationUi();
+    if (getOrderedPoiIds().includes(poi.id)) {
+      void syncCurrentPlaceCheckInUi(poi.id, { forceRefresh: false });
+    }
   }
 
   // Fetch and render rating average and top-level comment count for a POI
@@ -573,7 +686,10 @@
 
   function navigatePlace(delta){
     const ids = getOrderedPoiIds();
-    if(ids.length===0) return;
+    if(ids.length===0) {
+      updateCurrentPlacePanelNavigationUi();
+      return;
+    }
     let idx = Math.max(0, ids.indexOf(currentId));
     idx = idx + delta;
     if(idx<0) idx = 0; else if(idx>=ids.length) idx = ids.length-1;
@@ -964,6 +1080,8 @@
     setCurrentPlace(id, Object.assign({scroll:false, force:true}, opts||{}));
   };
 
+  window.addEventListener('mapVisiblePoiIdsChanged', handleMapVisiblePoiIdsChanged);
+
   document.addEventListener('ce-auth:state', (event) => {
     const userId = normalizePoiId(event?.detail?.session?.user?.id);
     if (!userId) {
@@ -989,6 +1107,13 @@
     }
 
     ceLog(`✅ PLACES_DATA loaded: ${data.length} POIs`);
+
+    if (typeof window.getVisiblePoiIdsForMap === 'function') {
+      const mapIds = window.getVisiblePoiIdsForMap();
+      if (Array.isArray(mapIds)) {
+        visiblePoiIdsFromMap = mapIds.map(normalizePoiId).filter(Boolean);
+      }
+    }
     
     // Auto-select first POI if not set yet
     if(!currentId){
@@ -1001,6 +1126,7 @@
       }
     }
     waitForListThenSetup();
+    updateCurrentPlacePanelNavigationUi();
     
     ceLog('✅ home-community-bridge: initialized');
   }
@@ -1013,6 +1139,7 @@
         setCurrentPlace(firstId, {focus:false, scroll:false, force:true});
       }
     }
+    updateCurrentPlacePanelNavigationUi();
   });
 
   // Register language change handler to refresh current place display
@@ -1023,6 +1150,8 @@
         // Re-render current place with new language
         setCurrentPlace(currentId, {focus:false, scroll:false, force:true});
         ceLog('✅ POI Panel re-rendered');
+      } else {
+        updateCurrentPlacePanelNavigationUi();
       }
     });
   }

@@ -1533,7 +1533,11 @@
       "alreadyVisited": "You have already checked in here."
     },
     "comments": "Comments",
-    "map": "Map"
+    "map": "Map",
+    "filter": {
+      "visibleCount": "{{count}} places in the current view",
+      "noVisitPoints": "No visit points in this filter. Switch to “All” or “Visit points”."
+    }
   },
   "map.filter.all": "All",
   "map.filter.poiOnly": "Visit points",

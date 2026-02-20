@@ -3793,7 +3793,11 @@
       "alreadyVisited": "Już tu byłeś w tym miejscu."
     },
     "comments": "Komentarze",
-    "map": "Mapa"
+    "map": "Mapa",
+    "filter": {
+      "visibleCount": "{{count}} miejsc w aktualnym widoku",
+      "noVisitPoints": "Brak punktów do odwiedzenia w tym filtrze. Wybierz „Wszystkie” lub „Punkty do odwiedzenia”."
+    }
   },
   "attractions": {
     "meta": {

@@ -47,6 +47,8 @@ try {
   let mapMarkerFilterButtons = new Map();
   let mapMarkerFilterCounter = null;
   let mapFilterListenersAttached = false;
+  let mapVisiblePoiIds = null;
+  let lastVisiblePoiIdsSignature = '';
   
   function getPlacesDataNow() {
     if (window.PLACES_DATA && Array.isArray(window.PLACES_DATA)) {
@@ -131,6 +133,47 @@ try {
     });
 
     return count;
+  }
+
+  function getVisiblePoiIdsForCurrentFilter() {
+    if (!shouldShowPoiMarkers()) {
+      return [];
+    }
+
+    const places = getPlacesDataNow();
+    const visibleIds = [];
+
+    places.forEach((poi) => {
+      if (!poi || !poi.id) {
+        return;
+      }
+      if (!getPoiCoordinates(poi)) {
+        return;
+      }
+      visibleIds.push(String(poi.id));
+    });
+
+    return visibleIds;
+  }
+
+  function dispatchVisiblePoiIdsChanged(force = false) {
+    const nextVisibleIds = getVisiblePoiIdsForCurrentFilter();
+    mapVisiblePoiIds = nextVisibleIds;
+    const nextSignature = `${mapMarkerFilter}|${nextVisibleIds.join(',')}`;
+
+    if (!force && nextSignature === lastVisiblePoiIdsSignature) {
+      return;
+    }
+    lastVisiblePoiIdsSignature = nextSignature;
+
+    try {
+      window.dispatchEvent(new CustomEvent('mapVisiblePoiIdsChanged', {
+        detail: {
+          filter: mapMarkerFilter,
+          poiIds: [...nextVisibleIds],
+        },
+      }));
+    } catch (_) {}
   }
 
   function isValidMapMarkerFilter(value) {
@@ -299,6 +342,7 @@ try {
 
     updateMapMarkerFilterControlState();
     updateMapMarkerFilterCounter();
+    dispatchVisiblePoiIdsChanged();
   }
 
   function setMapMarkerFilter(nextFilter) {
@@ -322,6 +366,9 @@ try {
     window.addEventListener('languageChanged', () => {
       renderMapMarkerFilterControl();
       applyMapMarkerFilter();
+    });
+    window.addEventListener('poisDataRefreshed', () => {
+      dispatchVisiblePoiIdsChanged(true);
     });
   }
 
@@ -577,6 +624,7 @@ try {
       // Dane jeszcze niegotowe (poi-loader może w tle doładować i wyemituje event)
       ceLog('ℹ️ Brak PLACES_DATA - markery dodane później');
       updateMapMarkerFilterCounter();
+      dispatchVisiblePoiIdsChanged();
       return;
     }
     
@@ -588,6 +636,7 @@ try {
     if (!showPoi) {
       ceLog('ℹ️ POI markers hidden by current map filter');
       updateMapMarkerFilterCounter();
+      dispatchVisiblePoiIdsChanged();
       return;
     }
     
@@ -692,6 +741,7 @@ try {
     }
 
     updateMapMarkerFilterCounter();
+    dispatchVisiblePoiIdsChanged();
   }
   
   /**
@@ -790,6 +840,12 @@ try {
   window.markersLayer = markersLayer;
   window.setMapMarkerFilter = setMapMarkerFilter;
   window.getMapMarkerFilter = () => mapMarkerFilter;
+  window.getVisiblePoiIdsForMap = () => {
+    if (Array.isArray(mapVisiblePoiIds)) {
+      return [...mapVisiblePoiIds];
+    }
+    return getVisiblePoiIdsForCurrentFilter();
+  };
   
   /**
    * Inicjalizacja główna
