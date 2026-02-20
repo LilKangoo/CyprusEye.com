@@ -34,6 +34,70 @@ let currentLightboxIndex = 0;
 
 // Default avatar (logo)
 const DEFAULT_AVATAR = '/assets/cyprus_logo-1000x1054.png';
+let scrollLockCount = 0;
+let savedBodyScrollStyles = null;
+let savedHtmlOverflow = '';
+let lockedScrollY = 0;
+
+function lockDocumentScroll() {
+  if (scrollLockCount === 0) {
+    const body = document.body;
+    const html = document.documentElement;
+
+    lockedScrollY = window.scrollY || window.pageYOffset || 0;
+    savedBodyScrollStyles = {
+      position: body.style.position || '',
+      top: body.style.top || '',
+      left: body.style.left || '',
+      right: body.style.right || '',
+      width: body.style.width || '',
+      overflow: body.style.overflow || '',
+      touchAction: body.style.touchAction || '',
+    };
+    savedHtmlOverflow = html.style.overflow || '';
+
+    body.style.position = 'fixed';
+    body.style.top = `-${lockedScrollY}px`;
+    body.style.left = '0';
+    body.style.right = '0';
+    body.style.width = '100%';
+    body.style.overflow = 'hidden';
+    body.style.touchAction = 'none';
+    html.style.overflow = 'hidden';
+    body.classList.add('scroll-locked');
+    html.classList.add('scroll-locked');
+  }
+
+  scrollLockCount += 1;
+}
+
+function unlockDocumentScroll() {
+  if (scrollLockCount <= 0) {
+    return;
+  }
+
+  scrollLockCount -= 1;
+  if (scrollLockCount > 0) {
+    return;
+  }
+
+  const body = document.body;
+  const html = document.documentElement;
+  const restore = savedBodyScrollStyles || {};
+
+  body.style.position = restore.position || '';
+  body.style.top = restore.top || '';
+  body.style.left = restore.left || '';
+  body.style.right = restore.right || '';
+  body.style.width = restore.width || '';
+  body.style.overflow = restore.overflow || '';
+  body.style.touchAction = restore.touchAction || '';
+  html.style.overflow = savedHtmlOverflow || '';
+  body.classList.remove('scroll-locked');
+  html.classList.remove('scroll-locked');
+
+  window.scrollTo(0, lockedScrollY);
+}
 
 // ===================================
 // INITIALIZATION
@@ -931,9 +995,12 @@ window.openPoiComments = async function(poiId) {
 
   // Show modal
   const modal = document.getElementById('commentsModal');
+  const wasHidden = modal.hidden || modal.hasAttribute('hidden');
   modal.hidden = false;
   modal.removeAttribute('hidden');
-  document.body.style.overflow = 'hidden';
+  if (wasHidden) {
+    lockDocumentScroll();
+  }
   refreshSavedPoiButtonsWithRetry(modal);
   
   console.log('✅ Modal opened for:', poiName);
@@ -1109,9 +1176,12 @@ function navigateToNextPoi() {
 function closeModal() {
   console.log('🔒 Closing modal');
   const modal = document.getElementById('commentsModal');
+  const wasOpen = !modal.hidden;
   modal.hidden = true;
   modal.setAttribute('hidden', '');
-  document.body.style.overflow = '';
+  if (wasOpen) {
+    unlockDocumentScroll();
+  }
   currentPoiId = null;
   currentPoiIndex = -1;
   resetCommentForm();
@@ -1748,8 +1818,11 @@ window.openLightbox = function(photos, index = 0) {
   
   const lightbox = document.getElementById('photoLightbox');
   if (lightbox) {
+    const wasHidden = lightbox.hidden;
     lightbox.hidden = false;
-    document.body.style.overflow = 'hidden';
+    if (wasHidden) {
+      lockDocumentScroll();
+    }
   }
 };
 
@@ -1791,8 +1864,11 @@ function navigateLightbox(direction) {
 function closeLightbox() {
   const lightbox = document.getElementById('photoLightbox');
   if (lightbox) {
+    const wasOpen = !lightbox.hidden;
     lightbox.hidden = true;
-    document.body.style.overflow = '';
+    if (wasOpen) {
+      unlockDocumentScroll();
+    }
   }
   lightboxPhotos = [];
   currentLightboxIndex = 0;
