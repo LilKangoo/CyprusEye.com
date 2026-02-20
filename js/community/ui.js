@@ -849,27 +849,8 @@ function initModal() {
     }
   });
 
-  // Touch swipe for mobile navigation
-  let touchStartX = 0;
-  let touchEndX = 0;
-  const minSwipeDistance = 50;
-
-  modal?.addEventListener('touchstart', (e) => {
-    touchStartX = e.changedTouches[0].screenX;
-  }, { passive: true });
-
-  modal?.addEventListener('touchend', (e) => {
-    touchEndX = e.changedTouches[0].screenX;
-    const swipeDistance = touchEndX - touchStartX;
-    
-    if (Math.abs(swipeDistance) > minSwipeDistance) {
-      if (swipeDistance > 0) {
-        navigateToPrevPoi(); // Swipe right = previous
-      } else {
-        navigateToNextPoi(); // Swipe left = next
-      }
-    }
-  }, { passive: true });
+  // Mobile swipe navigation is intentionally disabled.
+  // Changing POI in modal is available only through arrow buttons.
 
   form?.addEventListener('submit', handleCommentSubmit);
   photoInput?.addEventListener('change', handlePhotoSelect);
