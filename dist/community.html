@@ -62,7 +62,7 @@
   <link rel="stylesheet" href="assets/css/rtl.css" />
   <link rel="stylesheet" href="assets/css/language-switcher.css" />
   <link rel="stylesheet" href="css/toast.css" />
-  <link rel="stylesheet" href="assets/css/community.css?v=3" />
+  <link rel="stylesheet" href="assets/css/community.css?v=4" />
   
   
   
@@ -490,36 +490,38 @@
 
   <!-- Photo Lightbox -->
   <div id="photoLightbox" class="photo-lightbox" hidden>
-    <button
-      type="button"
-      class="lightbox-close"
-      id="closeLightbox"
-      aria-label="Zamknij"
-      data-i18n-attrs="aria-label:lightbox.close"
-    >
-      x
-    </button>
-    <button
-      type="button"
-      class="lightbox-nav lightbox-prev"
-      id="lightboxPrev"
-      aria-label="Poprzednie zdjęcie"
-      data-i18n-attrs="aria-label:lightbox.prev"
-    >
-      <
-    </button>
-    <button
-      type="button"
-      class="lightbox-nav lightbox-next"
-      id="lightboxNext"
-      aria-label="Następne zdjęcie"
-      data-i18n-attrs="aria-label:lightbox.next"
-    >
-      >
-    </button>
     <div class="lightbox-content">
       <img id="lightboxImage" src="" alt="Zdjęcie" class="lightbox-image" />
       <div class="lightbox-caption" id="lightboxCaption"></div>
+    </div>
+    <div class="lightbox-controls" role="group" aria-label="Photo controls">
+      <button
+        type="button"
+        class="lightbox-nav lightbox-prev"
+        id="lightboxPrev"
+        aria-label="Poprzednie zdjęcie"
+        data-i18n-attrs="aria-label:lightbox.prev"
+      >
+        &lt;
+      </button>
+      <button
+        type="button"
+        class="lightbox-nav lightbox-next"
+        id="lightboxNext"
+        aria-label="Następne zdjęcie"
+        data-i18n-attrs="aria-label:lightbox.next"
+      >
+        &gt;
+      </button>
+      <button
+        type="button"
+        class="lightbox-close"
+        id="closeLightbox"
+        aria-label="Zamknij"
+        data-i18n-attrs="aria-label:lightbox.close"
+      >
+        X
+      </button>
     </div>
   </div>
 

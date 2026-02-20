@@ -80,7 +80,7 @@
   <link rel="stylesheet" href="css/successPopup.css" />
   <link rel="stylesheet" href="css/modal-ios-fix.css" />
   <link rel="stylesheet" href="assets/css/recommendations.css?v=2" />
-  <link rel="stylesheet" href="assets/css/community.css?v=3" />
+  <link rel="stylesheet" href="assets/css/community.css?v=4" />
   <link
     rel="preload"
     href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
@@ -952,6 +952,43 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- Photo Lightbox -->
+  <div id="photoLightbox" class="photo-lightbox" hidden>
+    <div class="lightbox-content">
+      <img id="lightboxImage" src="" alt="Zdjęcie" class="lightbox-image" />
+      <div class="lightbox-caption" id="lightboxCaption"></div>
+    </div>
+    <div class="lightbox-controls" role="group" aria-label="Photo controls">
+      <button
+        type="button"
+        class="lightbox-nav lightbox-prev"
+        id="lightboxPrev"
+        aria-label="Poprzednie zdjęcie"
+        data-i18n-attrs="aria-label:lightbox.prev"
+      >
+        &lt;
+      </button>
+      <button
+        type="button"
+        class="lightbox-nav lightbox-next"
+        id="lightboxNext"
+        aria-label="Następne zdjęcie"
+        data-i18n-attrs="aria-label:lightbox.next"
+      >
+        &gt;
+      </button>
+      <button
+        type="button"
+        class="lightbox-close"
+        id="closeLightbox"
+        aria-label="Zamknij"
+        data-i18n-attrs="aria-label:lightbox.close"
+      >
+        X
+      </button>
     </div>
   </div>
 
