@@ -20,6 +20,10 @@ let selectedPhotos = [];
 let isEditMode = false;
 let editingCommentId = null;
 const hydratedPoiMedia = new Set();
+const visitedPoiCacheByUser = new Map();
+const visitedPoiFetchPromiseByUser = new Map();
+const PROGRESS_STORAGE_KEYS = ['wakacjecypr-progress', 'wakacjecypr_progress'];
+const ACCOUNTS_STORAGE_KEYS = ['wakacjecypr-accounts', 'wakacjecypr_accounts'];
 
 // POI Data - będzie załadowane z app.js lub pois.json
 let poisData = [];
@@ -1872,18 +1876,18 @@ function initPoiMiniMap(poi) {
 function getUserLocationForMap(poi, poiLat, poiLng, distanceEl, distanceIcon, checkInBtn, statusEl) {
   if (!('geolocation' in navigator)) {
     if (distanceEl) {
-      distanceEl.textContent = t('community.checkin.noGeo', 'Geolokalizacja niedostępna');
+      distanceEl.textContent = t('community.checkin.noGeo', 'Geolocation unavailable');
       distanceEl.className = 'poi-distance';
     }
     return;
   }
   
   if (distanceEl) {
-    distanceEl.textContent = t('community.checkin.locating', 'Szukam Twojej lokalizacji...');
+    distanceEl.textContent = t('community.checkin.locating', 'Finding your location...');
   }
   
   navigator.geolocation.getCurrentPosition(
-    (position) => {
+    async (position) => {
       const userLat = position.coords.latitude;
       const userLng = position.coords.longitude;
       currentUserLocation = { lat: userLat, lng: userLng };
@@ -1920,7 +1924,7 @@ function getUserLocationForMap(poi, poiLat, poiLng, distanceEl, distanceIcon, ch
         });
         
         userLocationMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(poiMiniMap);
-        userLocationMarker.bindPopup(t('community.checkin.you', 'Twoja lokalizacja'));
+        userLocationMarker.bindPopup(t('community.checkin.you', 'Your location'));
         
         // Fit bounds to show both markers
         const bounds = L.latLngBounds([
@@ -1931,21 +1935,31 @@ function getUserLocationForMap(poi, poiLat, poiLng, distanceEl, distanceIcon, ch
       }
       
       // Enable/disable check-in button based on distance and auth
+      if (normalizePoiId(currentPoiId) !== normalizePoiId(poi.id)) {
+        return;
+      }
+
       if (checkInBtn && currentUser) {
-        // Check if already visited (synchronous - uses localStorage)
-        const visited = checkIfVisited(poi.id);
-        console.log(`🔍 Check visited for ${poi.id}:`, visited);
-        
+        checkInBtn.disabled = true;
+        checkInBtn.onclick = null;
+
+        let visited = false;
+        try {
+          visited = await hasVisitedPoi(poi.id);
+        } catch (error) {
+          console.warn('Could not check visited status from server:', error);
+          visited = checkIfVisitedLocally(poi.id);
+        }
+
         if (visited) {
-          checkInBtn.disabled = true;
-          checkInBtn.classList.add('checked');
-          checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.alreadyVisited', 'Już tu byłeś') + '</span>';
-          if (statusEl) {
-            statusEl.textContent = t('community.checkin.alreadyVisited', 'Już tu byłeś!');
-            statusEl.className = 'check-in-status info';
-          }
+          markAsVisited(statusEl, checkInBtn);
         } else {
           checkInBtn.disabled = false;
+          checkInBtn.classList.remove('checked');
+          checkInBtn.innerHTML =
+            '<span class="checkin-icon">✓</span><span>' +
+            t('community.checkin.button', 'Check in') +
+            '</span>';
           checkInBtn.onclick = () => handleModalCheckIn(poi, distance);
         }
       }
@@ -1955,8 +1969,8 @@ function getUserLocationForMap(poi, poiLat, poiLng, distanceEl, distanceIcon, ch
     (error) => {
       console.warn('Geolocation error:', error);
       if (distanceEl) {
-        let msg = t('community.checkin.error', 'Nie można pobrać lokalizacji');
-        if (error.code === 1) msg = t('community.checkin.denied', 'Brak zgody na lokalizację');
+        let msg = t('community.checkin.error', 'Could not get location');
+        if (error.code === 1) msg = t('community.checkin.denied', 'Location permission denied');
         distanceEl.textContent = msg;
         distanceEl.className = 'poi-distance';
       }
@@ -1987,46 +2001,248 @@ function haversineDistance(lat1, lon1, lat2, lon2) {
   return R * c;
 }
 
-/**
- * Check if user has already visited a POI
- * Uses localStorage (same as app.js) since visited data is stored locally
- */
-function checkIfVisited(poiId) {
+function normalizePoiId(poiId) {
+  return String(poiId || '').trim();
+}
+
+function isIgnorableVisitedLookupError(error) {
+  const code = String(error?.code || '').toUpperCase();
+  if (code === 'PGRST116' || code === 'PGRST204' || code === '42P01' || code === '42703') {
+    return true;
+  }
+  const combined = `${error?.message || ''} ${error?.details || ''}`.toLowerCase();
+  return (
+    combined.includes('does not exist') ||
+    combined.includes('not found') ||
+    combined.includes('schema cache')
+  );
+}
+
+function getVisitedPoiIdsFromLocalState() {
+  const visited = new Set();
+
   try {
-    // First check window.state from app.js if available
-    if (window.state?.visited?.has?.(poiId)) {
-      return true;
+    if (window.state?.visited && typeof window.state.visited.forEach === 'function') {
+      window.state.visited.forEach((id) => {
+        const normalized = normalizePoiId(id);
+        if (normalized) visited.add(normalized);
+      });
     }
-    
-    // Fallback: check localStorage directly
-    const storageKey = 'wakacjecypr_progress';
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
+  } catch (_) {}
+
+  PROGRESS_STORAGE_KEYS.forEach((storageKey) => {
+    try {
+      const saved = localStorage.getItem(storageKey);
+      if (!saved) return;
       const progress = JSON.parse(saved);
-      if (progress?.visited && Array.isArray(progress.visited)) {
-        return progress.visited.includes(poiId);
+      if (!Array.isArray(progress?.visited)) return;
+      progress.visited.forEach((id) => {
+        const normalized = normalizePoiId(id);
+        if (normalized) visited.add(normalized);
+      });
+    } catch (_) {}
+  });
+
+  const userId = normalizePoiId(currentUser?.id);
+  if (userId) {
+    ACCOUNTS_STORAGE_KEYS.forEach((accountsKey) => {
+      try {
+        const raw = localStorage.getItem(accountsKey);
+        if (!raw) return;
+        const accounts = JSON.parse(raw);
+        if (!accounts || typeof accounts !== 'object') return;
+        const account =
+          accounts[`supabase:${userId}`] ||
+          accounts[userId] ||
+          null;
+        if (!Array.isArray(account?.progress?.visited)) return;
+        account.progress.visited.forEach((id) => {
+          const normalized = normalizePoiId(id);
+          if (normalized) visited.add(normalized);
+        });
+      } catch (_) {}
+    });
+  }
+
+  return visited;
+}
+
+async function loadVisitedPoiIdsForCurrentUser({ forceRefresh = false } = {}) {
+  const userId = normalizePoiId(currentUser?.id);
+  if (!userId) {
+    return getVisitedPoiIdsFromLocalState();
+  }
+
+  if (!forceRefresh && visitedPoiCacheByUser.has(userId)) {
+    return visitedPoiCacheByUser.get(userId);
+  }
+
+  if (!forceRefresh && visitedPoiFetchPromiseByUser.has(userId)) {
+    return visitedPoiFetchPromiseByUser.get(userId);
+  }
+
+  const fetchPromise = (async () => {
+    const sb = window.getSupabase?.();
+    if (!sb) {
+      const localOnly = getVisitedPoiIdsFromLocalState();
+      visitedPoiCacheByUser.set(userId, localOnly);
+      return localOnly;
+    }
+
+    let visited = null;
+
+    try {
+      const { data, error } = await sb
+        .from('profiles')
+        .select('visited_places')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error) {
+        if (!isIgnorableVisitedLookupError(error)) {
+          console.warn('Could not load visited_places from profiles:', error);
+        }
+      } else if (Array.isArray(data?.visited_places)) {
+        visited = new Set(
+          data.visited_places
+            .map((id) => normalizePoiId(id))
+            .filter(Boolean),
+        );
+      }
+    } catch (error) {
+      if (!isIgnorableVisitedLookupError(error)) {
+        console.warn('Could not query profiles.visited_places:', error);
       }
     }
-    
-    // Also check user-specific storage
-    const userKey = currentUser?.id;
-    if (userKey) {
-      const accountsKey = 'wakacjecypr_accounts';
-      const accounts = localStorage.getItem(accountsKey);
-      if (accounts) {
-        const parsed = JSON.parse(accounts);
-        const account = parsed?.[userKey];
-        if (account?.progress?.visited && Array.isArray(account.progress.visited)) {
-          return account.progress.visited.includes(poiId);
+
+    if (!visited) {
+      try {
+        const { data, error } = await sb
+          .from('user_poi_visits')
+          .select('poi_id')
+          .eq('user_id', userId);
+
+        if (error) {
+          if (!isIgnorableVisitedLookupError(error)) {
+            console.warn('Could not load user_poi_visits:', error);
+          }
+        } else if (Array.isArray(data)) {
+          visited = new Set(
+            data
+              .map((row) => normalizePoiId(row?.poi_id))
+              .filter(Boolean),
+          );
+        }
+      } catch (error) {
+        if (!isIgnorableVisitedLookupError(error)) {
+          console.warn('Could not query user_poi_visits:', error);
         }
       }
     }
-    
-    return false;
-  } catch (error) {
-    console.warn('Could not check visited status:', error);
-    return false;
+
+    if (!visited) {
+      visited = getVisitedPoiIdsFromLocalState();
+    } else {
+      const localVisited = getVisitedPoiIdsFromLocalState();
+      localVisited.forEach((id) => visited.add(id));
+    }
+
+    visitedPoiCacheByUser.set(userId, visited);
+    return visited;
+  })();
+
+  visitedPoiFetchPromiseByUser.set(userId, fetchPromise);
+  try {
+    return await fetchPromise;
+  } finally {
+    visitedPoiFetchPromiseByUser.delete(userId);
   }
+}
+
+async function hasVisitedPoi(poiId, { forceRefresh = false } = {}) {
+  const normalizedPoiId = normalizePoiId(poiId);
+  if (!normalizedPoiId) return false;
+
+  const visited = await loadVisitedPoiIdsForCurrentUser({ forceRefresh });
+  return visited.has(normalizedPoiId);
+}
+
+function persistVisitedPoiLocally(poiId) {
+  const normalizedPoiId = normalizePoiId(poiId);
+  if (!normalizedPoiId) return;
+
+  try {
+    if (window.state?.visited?.add) {
+      window.state.visited.add(normalizedPoiId);
+    }
+  } catch (_) {}
+
+  PROGRESS_STORAGE_KEYS.forEach((storageKey) => {
+    try {
+      const raw = localStorage.getItem(storageKey);
+      const progress = raw ? JSON.parse(raw) : {};
+      const visited = Array.isArray(progress?.visited) ? [...progress.visited] : [];
+      if (!visited.includes(normalizedPoiId)) {
+        visited.push(normalizedPoiId);
+        localStorage.setItem(storageKey, JSON.stringify({ ...progress, visited }));
+      }
+    } catch (_) {}
+  });
+
+  const userId = normalizePoiId(currentUser?.id);
+  if (!userId) return;
+
+  ACCOUNTS_STORAGE_KEYS.forEach((accountsKey) => {
+    try {
+      const raw = localStorage.getItem(accountsKey);
+      if (!raw) return;
+      const accounts = JSON.parse(raw);
+      if (!accounts || typeof accounts !== 'object') return;
+
+      const accountKey = Object.prototype.hasOwnProperty.call(accounts, `supabase:${userId}`)
+        ? `supabase:${userId}`
+        : Object.prototype.hasOwnProperty.call(accounts, userId)
+        ? userId
+        : null;
+
+      if (!accountKey) return;
+
+      const account = accounts[accountKey];
+      const progress = account?.progress && typeof account.progress === 'object' ? account.progress : {};
+      const visited = Array.isArray(progress.visited) ? [...progress.visited] : [];
+      if (visited.includes(normalizedPoiId)) return;
+
+      visited.push(normalizedPoiId);
+      accounts[accountKey] = {
+        ...account,
+        progress: {
+          ...progress,
+          visited,
+        },
+      };
+      localStorage.setItem(accountsKey, JSON.stringify(accounts));
+    } catch (_) {}
+  });
+}
+
+function registerVisitedPoi(poiId) {
+  const normalizedPoiId = normalizePoiId(poiId);
+  if (!normalizedPoiId) return;
+
+  const userId = normalizePoiId(currentUser?.id);
+  if (userId) {
+    const cached = visitedPoiCacheByUser.get(userId) || new Set();
+    cached.add(normalizedPoiId);
+    visitedPoiCacheByUser.set(userId, cached);
+  }
+
+  persistVisitedPoiLocally(normalizedPoiId);
+}
+
+function checkIfVisitedLocally(poiId) {
+  const normalizedPoiId = normalizePoiId(poiId);
+  if (!normalizedPoiId) return false;
+  return getVisitedPoiIdsFromLocalState().has(normalizedPoiId);
 }
 
 /**
@@ -2035,12 +2251,15 @@ function checkIfVisited(poiId) {
 async function handleModalCheckIn(poi, distance) {
   const statusEl = document.getElementById('modalCheckInStatus');
   const checkInBtn = document.getElementById('modalCheckInBtn');
+  if (normalizePoiId(currentPoiId) !== normalizePoiId(poi?.id)) {
+    return;
+  }
   
   console.log('🎯 handleModalCheckIn called:', { poiId: poi?.id, distance, userId: currentUser?.id });
   
   if (!currentUser) {
     if (statusEl) {
-      statusEl.textContent = t('community.checkin.loginRequired', 'Zaloguj się, aby się zameldować');
+      statusEl.textContent = t('community.checkin.loginRequired', 'Log in to check in');
       statusEl.className = 'check-in-status info';
     }
     return;
@@ -2050,7 +2269,7 @@ async function handleModalCheckIn(poi, distance) {
   
   if (distance > radius) {
     if (statusEl) {
-      statusEl.textContent = t('community.checkin.tooFar', 'Jesteś za daleko od miejsca. Podejdź bliżej!');
+      statusEl.textContent = t('community.checkin.tooFar', "You're too far from this place. Get closer!");
       statusEl.className = 'check-in-status error';
     }
     return;
@@ -2066,9 +2285,9 @@ async function handleModalCheckIn(poi, distance) {
     const sb = window.getSupabase?.();
     if (!sb) throw new Error('Supabase not available');
     
-    // Check if already visited (synchronous - uses localStorage)
-    if (checkIfVisited(poi.id)) {
-      console.log('ℹ️ Already visited (from localStorage):', poi.id);
+    // Check server-side state first to keep status consistent across devices
+    if (await hasVisitedPoi(poi.id, { forceRefresh: true })) {
+      console.log('ℹ️ Already visited (server check):', poi.id);
       markAsVisited(statusEl, checkInBtn);
       return;
     }
@@ -2081,6 +2300,7 @@ async function handleModalCheckIn(poi, distance) {
       // Check if error means already visited
       if (error.message?.includes('already') || error.code === '23505') {
         console.log('ℹ️ POI already awarded:', poi.id);
+        registerVisitedPoi(poi.id);
         markAsVisited(statusEl, checkInBtn);
         return;
       }
@@ -2089,6 +2309,7 @@ async function handleModalCheckIn(poi, distance) {
     }
     
     console.log('✅ award_poi success:', data);
+    registerVisitedPoi(poi.id);
     
     // Refresh header stats if function available
     if (typeof window.refreshHeaderStats === 'function') {
@@ -2097,30 +2318,30 @@ async function handleModalCheckIn(poi, distance) {
     
     // Update UI - success
     if (statusEl) {
-      statusEl.textContent = t('community.checkin.success', '🎉 Zameldowano! Zdobyłeś XP.');
+      statusEl.textContent = t('community.checkin.success', '🎉 Checked in! You earned XP.');
       statusEl.className = 'check-in-status success';
     }
     
     if (checkInBtn) {
       checkInBtn.classList.add('checked');
       checkInBtn.disabled = true;
-      checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.alreadyVisited', 'Już tu byłeś') + '</span>';
+      checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.alreadyVisited', 'Already visited') + '</span>';
     }
     
-    window.showToast?.(t('community.checkin.success', 'Zameldowano pomyślnie!'), 'success');
+    window.showToast?.(t('community.checkin.success', 'Checked in successfully!'), 'success');
     console.log('✅ Check-in completed for:', poi.id);
     
   } catch (error) {
     console.error('❌ Check-in failed:', error);
     
     if (statusEl) {
-      statusEl.textContent = t('community.checkin.failed', 'Nie udało się zameldować. Spróbuj ponownie.');
+      statusEl.textContent = t('community.checkin.failed', 'Check-in failed. Please try again.');
       statusEl.className = 'check-in-status error';
     }
     
     if (checkInBtn) {
       checkInBtn.disabled = false;
-      checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.button', 'Zamelduj się') + '</span>';
+      checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.button', 'Check in') + '</span>';
     }
   }
 }
@@ -2130,13 +2351,13 @@ async function handleModalCheckIn(poi, distance) {
  */
 function markAsVisited(statusEl, checkInBtn) {
   if (statusEl) {
-    statusEl.textContent = t('community.checkin.alreadyVisited', 'Już tu byłeś!');
+    statusEl.textContent = t('community.checkin.alreadyVisited', 'Already visited!');
     statusEl.className = 'check-in-status info';
   }
   if (checkInBtn) {
     checkInBtn.classList.add('checked');
     checkInBtn.disabled = true;
-    checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.alreadyVisited', 'Już tu byłeś') + '</span>';
+    checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.alreadyVisited', 'Already visited') + '</span>';
   }
 }
 
@@ -2161,11 +2382,11 @@ function cleanupPoiMiniMap() {
   const checkInBtn = document.getElementById('modalCheckInBtn');
   
   if (statusEl) statusEl.textContent = '';
-  if (distanceEl) distanceEl.textContent = t('community.checkin.loading', 'Ładowanie lokalizacji...');
+  if (distanceEl) distanceEl.textContent = t('community.checkin.loading', 'Loading location...');
   if (checkInBtn) {
     checkInBtn.disabled = true;
     checkInBtn.classList.remove('checked');
-    checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.button', 'Zamelduj się') + '</span>';
+    checkInBtn.innerHTML = '<span class="checkin-icon">✓</span><span>' + t('community.checkin.button', 'Check in') + '</span>';
   }
 }
 
@@ -2177,14 +2398,17 @@ document.addEventListener('ce-auth:state', async (e) => {
   
   if (status === 'authenticated' && session?.user) {
     currentUser = session.user;
+    visitedPoiFetchPromiseByUser.delete(currentUser.id);
     await loadUserProfile();
     updateAuthSections();
     if (currentUser?.id) {
       initNotifications(currentUser.id);
     }
     await syncSavedCatalogState();
-  } else if (status === 'signed-out') {
+  } else if (status === 'signed-out' || status === 'anonymous' || status === 'guest' || !session?.user) {
     currentUser = null;
+    visitedPoiCacheByUser.clear();
+    visitedPoiFetchPromiseByUser.clear();
     updateAuthSections();
     await syncSavedCatalogState();
   }

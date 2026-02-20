@@ -1529,6 +1529,9 @@
     "heading": "Current place",
     "loading": "Loading...",
     "checkIn": "Check in",
+    "status": {
+      "alreadyVisited": "You have already checked in here."
+    },
     "comments": "Comments",
     "map": "Map"
   },

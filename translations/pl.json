@@ -3784,6 +3784,9 @@
     "heading": "Aktualne miejsce",
     "loading": "Ładowanie...",
     "checkIn": "Zamelduj się",
+    "status": {
+      "alreadyVisited": "Już tu byłeś w tym miejscu."
+    },
     "comments": "Komentarze",
     "map": "Mapa"
   },

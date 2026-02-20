@@ -9,6 +9,346 @@
   let observing = false;
   let statsTimer = null;
   let checkInBusy = false;
+  let checkInUiRefreshToken = 0;
+  const visitedPoiCacheByUser = new Map();
+  const visitedPoiFetchPromiseByUser = new Map();
+  const PROGRESS_STORAGE_KEYS = ['wakacjecypr-progress', 'wakacjecypr_progress'];
+  const ACCOUNTS_STORAGE_KEYS = ['wakacjecypr-accounts', 'wakacjecypr_accounts'];
+
+  function getCurrentLanguage(){
+    const raw = window.appI18n?.language || document.documentElement?.lang || 'pl';
+    return String(raw || 'pl').toLowerCase();
+  }
+
+  function getNestedTranslation(translations, key){
+    if (!translations || !key) return null;
+    if (Object.prototype.hasOwnProperty.call(translations, key)) {
+      return translations[key];
+    }
+    if (!key.includes('.')) {
+      return null;
+    }
+    const parts = key.split('.');
+    let current = translations;
+    for (const part of parts) {
+      if (current && typeof current === 'object' && Object.prototype.hasOwnProperty.call(current, part)) {
+        current = current[part];
+      } else {
+        return null;
+      }
+    }
+    return typeof current === 'string' ? current : null;
+  }
+
+  function applyReplacements(text, replacements){
+    if (!replacements || typeof text !== 'string') {
+      return text;
+    }
+    return text.replace(/\{\{(\w+)\}\}/g, (_match, token) => {
+      if (Object.prototype.hasOwnProperty.call(replacements, token)) {
+        return String(replacements[token]);
+      }
+      return `{{${token}}}`;
+    });
+  }
+
+  function t(key, fallbackPl, fallbackEn, replacements = null){
+    const lang = getCurrentLanguage();
+    const fallback = lang.startsWith('en') ? (fallbackEn || fallbackPl) : fallbackPl;
+    const translations = window.appI18n?.translations?.[lang] || {};
+    const translated = getNestedTranslation(translations, key);
+    const resolved = typeof translated === 'string' && translated ? translated : fallback;
+    return applyReplacements(resolved, replacements);
+  }
+
+  function normalizePoiId(value){
+    return String(value || '').trim();
+  }
+
+  function isIgnorableVisitedLookupError(error){
+    const code = String(error?.code || '').toUpperCase();
+    if (code === 'PGRST116' || code === 'PGRST204' || code === '42P01' || code === '42703') {
+      return true;
+    }
+    const combined = `${error?.message || ''} ${error?.details || ''}`.toLowerCase();
+    return (
+      combined.includes('does not exist') ||
+      combined.includes('not found') ||
+      combined.includes('schema cache')
+    );
+  }
+
+  function getVisitedPoiIdsFromLocalState(userId){
+    const visited = new Set();
+
+    try {
+      if (window.state?.visited && typeof window.state.visited.forEach === 'function') {
+        window.state.visited.forEach((id) => {
+          const normalized = normalizePoiId(id);
+          if (normalized) visited.add(normalized);
+        });
+      }
+    } catch (_) {}
+
+    PROGRESS_STORAGE_KEYS.forEach((storageKey) => {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        if (!raw) return;
+        const progress = JSON.parse(raw);
+        if (!Array.isArray(progress?.visited)) return;
+        progress.visited.forEach((id) => {
+          const normalized = normalizePoiId(id);
+          if (normalized) visited.add(normalized);
+        });
+      } catch (_) {}
+    });
+
+    if (userId) {
+      ACCOUNTS_STORAGE_KEYS.forEach((accountsKey) => {
+        try {
+          const raw = localStorage.getItem(accountsKey);
+          if (!raw) return;
+          const accounts = JSON.parse(raw);
+          if (!accounts || typeof accounts !== 'object') return;
+          const account =
+            accounts[`supabase:${userId}`] ||
+            accounts[userId] ||
+            null;
+          if (!Array.isArray(account?.progress?.visited)) return;
+          account.progress.visited.forEach((id) => {
+            const normalized = normalizePoiId(id);
+            if (normalized) visited.add(normalized);
+          });
+        } catch (_) {}
+      });
+    }
+
+    return visited;
+  }
+
+  async function loadVisitedPoiIdsForUser(sb, userId, { forceRefresh = false } = {}){
+    const normalizedUserId = normalizePoiId(userId);
+    if (!normalizedUserId) {
+      return getVisitedPoiIdsFromLocalState('');
+    }
+
+    if (!forceRefresh && visitedPoiCacheByUser.has(normalizedUserId)) {
+      return visitedPoiCacheByUser.get(normalizedUserId);
+    }
+    if (!forceRefresh && visitedPoiFetchPromiseByUser.has(normalizedUserId)) {
+      return visitedPoiFetchPromiseByUser.get(normalizedUserId);
+    }
+
+    const fetchPromise = (async () => {
+      if (!sb) {
+        const localOnly = getVisitedPoiIdsFromLocalState(normalizedUserId);
+        visitedPoiCacheByUser.set(normalizedUserId, localOnly);
+        return localOnly;
+      }
+
+      let visited = null;
+
+      try {
+        const { data, error } = await sb
+          .from('profiles')
+          .select('visited_places')
+          .eq('id', normalizedUserId)
+          .maybeSingle();
+
+        if (error) {
+          if (!isIgnorableVisitedLookupError(error)) {
+            console.warn('Could not load profiles.visited_places:', error);
+          }
+        } else if (Array.isArray(data?.visited_places)) {
+          visited = new Set(
+            data.visited_places
+              .map((id) => normalizePoiId(id))
+              .filter(Boolean),
+          );
+        }
+      } catch (error) {
+        if (!isIgnorableVisitedLookupError(error)) {
+          console.warn('Could not query profiles.visited_places:', error);
+        }
+      }
+
+      if (!visited) {
+        try {
+          const { data, error } = await sb
+            .from('user_poi_visits')
+            .select('poi_id')
+            .eq('user_id', normalizedUserId);
+
+          if (error) {
+            if (!isIgnorableVisitedLookupError(error)) {
+              console.warn('Could not load user_poi_visits:', error);
+            }
+          } else if (Array.isArray(data)) {
+            visited = new Set(
+              data
+                .map((row) => normalizePoiId(row?.poi_id))
+                .filter(Boolean),
+            );
+          }
+        } catch (error) {
+          if (!isIgnorableVisitedLookupError(error)) {
+            console.warn('Could not query user_poi_visits:', error);
+          }
+        }
+      }
+
+      if (!visited) {
+        visited = getVisitedPoiIdsFromLocalState(normalizedUserId);
+      } else {
+        const localVisited = getVisitedPoiIdsFromLocalState(normalizedUserId);
+        localVisited.forEach((id) => visited.add(id));
+      }
+
+      visitedPoiCacheByUser.set(normalizedUserId, visited);
+      return visited;
+    })();
+
+    visitedPoiFetchPromiseByUser.set(normalizedUserId, fetchPromise);
+    try {
+      return await fetchPromise;
+    } finally {
+      visitedPoiFetchPromiseByUser.delete(normalizedUserId);
+    }
+  }
+
+  async function hasVisitedPoiForUser(sb, userId, poiId, options = {}){
+    const normalizedPoiId = normalizePoiId(poiId);
+    if (!normalizedPoiId) return false;
+    const visited = await loadVisitedPoiIdsForUser(sb, userId, options);
+    return visited.has(normalizedPoiId);
+  }
+
+  function persistVisitedPoiLocally(userId, poiId){
+    const normalizedPoiId = normalizePoiId(poiId);
+    const normalizedUserId = normalizePoiId(userId);
+    if (!normalizedPoiId) return;
+
+    try {
+      if (window.state?.visited?.add) {
+        window.state.visited.add(normalizedPoiId);
+      }
+    } catch (_) {}
+
+    PROGRESS_STORAGE_KEYS.forEach((storageKey) => {
+      try {
+        const raw = localStorage.getItem(storageKey);
+        const progress = raw ? JSON.parse(raw) : {};
+        const visited = Array.isArray(progress?.visited) ? [...progress.visited] : [];
+        if (!visited.includes(normalizedPoiId)) {
+          visited.push(normalizedPoiId);
+          localStorage.setItem(storageKey, JSON.stringify({ ...progress, visited }));
+        }
+      } catch (_) {}
+    });
+
+    if (!normalizedUserId) return;
+
+    ACCOUNTS_STORAGE_KEYS.forEach((accountsKey) => {
+      try {
+        const raw = localStorage.getItem(accountsKey);
+        if (!raw) return;
+        const accounts = JSON.parse(raw);
+        if (!accounts || typeof accounts !== 'object') return;
+
+        const accountKey = Object.prototype.hasOwnProperty.call(accounts, `supabase:${normalizedUserId}`)
+          ? `supabase:${normalizedUserId}`
+          : Object.prototype.hasOwnProperty.call(accounts, normalizedUserId)
+          ? normalizedUserId
+          : null;
+        if (!accountKey) return;
+
+        const account = accounts[accountKey];
+        const progress = account?.progress && typeof account.progress === 'object' ? account.progress : {};
+        const visited = Array.isArray(progress.visited) ? [...progress.visited] : [];
+        if (visited.includes(normalizedPoiId)) return;
+
+        visited.push(normalizedPoiId);
+        accounts[accountKey] = {
+          ...account,
+          progress: {
+            ...progress,
+            visited,
+          },
+        };
+        localStorage.setItem(accountsKey, JSON.stringify(accounts));
+      } catch (_) {}
+    });
+  }
+
+  function registerVisitedPoi(userId, poiId){
+    const normalizedUserId = normalizePoiId(userId);
+    const normalizedPoiId = normalizePoiId(poiId);
+    if (!normalizedUserId || !normalizedPoiId) return;
+
+    const cached = visitedPoiCacheByUser.get(normalizedUserId) || new Set();
+    cached.add(normalizedPoiId);
+    visitedPoiCacheByUser.set(normalizedUserId, cached);
+
+    persistVisitedPoiLocally(normalizedUserId, normalizedPoiId);
+  }
+
+  function getCheckInButton(){
+    return document.querySelector('.current-place-actions .btn.primary');
+  }
+
+  function setCheckInButtonDefault(button){
+    if (!button) return;
+    button.disabled = false;
+    button.classList.remove('is-visited');
+    button.innerHTML = `<span class="btn-icon">✓</span> <span>${t('currentPlace.checkIn', 'Zamelduj się', 'Check in')}</span>`;
+  }
+
+  function setCheckInButtonVisited(button){
+    if (!button) return;
+    button.disabled = true;
+    button.classList.add('is-visited');
+    button.innerHTML = `<span class="btn-icon">✓</span> <span>${t('community.checkin.alreadyVisited', 'Już tu byłeś', 'Already visited')}</span>`;
+  }
+
+  async function syncCurrentPlaceCheckInUi(poiId, { forceRefresh = false } = {}){
+    const normalizedPoiId = normalizePoiId(poiId);
+    const button = getCheckInButton();
+    if (!button || !normalizedPoiId) {
+      return;
+    }
+    const refreshToken = ++checkInUiRefreshToken;
+
+    setCheckInStatus('');
+    setCheckInButtonDefault(button);
+
+    const sb = window.getSupabase?.();
+    if (!sb) return;
+
+    let user = null;
+    try {
+      const { data, error } = await sb.auth.getUser();
+      if (!error && data?.user) {
+        user = data.user;
+      }
+    } catch (_) {}
+
+    if (!user?.id) {
+      return;
+    }
+
+    try {
+      const visited = await hasVisitedPoiForUser(sb, user.id, normalizedPoiId, { forceRefresh });
+      if (refreshToken !== checkInUiRefreshToken) {
+        return;
+      }
+      if (visited) {
+        setCheckInButtonVisited(button);
+        setCheckInStatus(t('currentPlace.status.alreadyVisited', 'Już tu byłeś w tym miejscu.', 'You have already checked in here.'));
+      }
+    } catch (error) {
+      console.warn('Could not sync check-in button state:', error);
+    }
+  }
 
   function getOrderedPoiIds(){
     const cards = Array.from(document.querySelectorAll('#poisList .poi-card'));
@@ -134,6 +474,8 @@
       const active = document.querySelector('#poisList .poi-card[data-poi-id="'+id+'"]');
       if(active) active.classList.add('active');
     }
+
+    void syncCurrentPlaceCheckInUi(poi.id, { forceRefresh: false });
   }
 
   // Fetch and render rating average and top-level comment count for a POI
@@ -275,30 +617,48 @@
 
   async function checkInAtPlace(id){
     let btn;
+    let shouldRestoreButton = true;
     try{
       if(checkInBusy) return;
       checkInBusy = true;
 
       // Visual feedback on the primary action button
-      btn = document.querySelector('.current-place-actions .btn.primary');
+      btn = getCheckInButton();
       if (btn) {
         btn.disabled = true;
         btn.dataset.originalHtml = btn.innerHTML;
-        btn.innerHTML = '<span class="spinner-small"></span>' + (btn.textContent.trim() || 'Sprawdzanie...');
+        btn.innerHTML = `<span class="spinner-small"></span>${btn.textContent.trim() || t('checkIn.status.checking', 'Sprawdzam...', 'Checking...')}`;
       }
 
       const targetId = id || currentId;
       const poi = targetId ? findPoi(targetId) : null;
       if(!poi){
-        setCheckInStatus('Brak wybranej lokalizacji. Wybierz miejsce z listy lub mapy.');
-        window.showToast?.('Brak wybranej lokalizacji', 'error');
+        const msg = t(
+          'checkIn.status.selectPlace',
+          'Brak wybranej lokalizacji. Wybierz miejsce z listy lub mapy.',
+          'No selected location. Choose a place from the list or map.',
+        );
+        setCheckInStatus(msg);
+        window.showToast?.(msg, 'error');
         return;
       }
 
-      let sb = window.getSupabase?.();
+      const sb = window.getSupabase?.();
       if (!sb) {
-        setCheckInStatus('Nie udało się połączyć z kontem. Odśwież stronę i zaloguj się, aby się zameldować.');
-        window.showToast?.('Zaloguj się, aby zbierać XP za odwiedzone miejsca.', 'warning');
+        const statusMsg = t(
+          'checkIn.status.accountUnavailable',
+          'Nie udało się połączyć z kontem. Odśwież stronę i zaloguj się, aby się zameldować.',
+          'Could not connect to your account. Refresh and sign in to check in.',
+        );
+        setCheckInStatus(statusMsg);
+        window.showToast?.(
+          t(
+            'checkIn.status.loginForXp',
+            'Zaloguj się, aby zbierać XP za odwiedzone miejsca.',
+            'Sign in to collect XP for visited places.',
+          ),
+          'warning',
+        );
         openLoginModalIfAvailable();
         return;
       }
@@ -315,17 +675,35 @@
       }
 
       if(!user){
-        setCheckInStatus('Zaloguj się, aby zameldować się w tym miejscu i zdobyć XP.');
-        window.showToast?.('Zaloguj się lub utwórz konto, aby zbierać XP.', 'warning');
+        const loginMsg = t(
+          'community.checkin.loginRequired',
+          'Zaloguj się, aby się zameldować',
+          'Log in to check in',
+        );
+        setCheckInStatus(loginMsg);
+        window.showToast?.(
+          t(
+            'checkIn.status.loginOrRegister',
+            'Zaloguj się lub utwórz konto, aby zbierać XP.',
+            'Log in or create an account to collect XP.',
+          ),
+          'warning',
+        );
         openLoginModalIfAvailable();
         return;
       }
 
-      // Anti-duplication: skip if already checked-in on this device
-      const storageKey = `visited_poi_${poi.id}`;
-      if(localStorage.getItem(storageKey)){
-        setCheckInStatus('To miejsce zostało już zameldowane na tym urządzeniu.');
-        window.showToast?.('Już zameldowano to miejsce na tym urządzeniu', 'info');
+      const alreadyVisited = await hasVisitedPoiForUser(sb, user.id, poi.id, { forceRefresh: true });
+      if (alreadyVisited) {
+        setCheckInButtonVisited(btn);
+        shouldRestoreButton = false;
+        const visitedMsg = t(
+          'currentPlace.status.alreadyVisited',
+          'Już tu byłeś w tym miejscu.',
+          'You have already checked in here.',
+        );
+        setCheckInStatus(visitedMsg);
+        window.showToast?.(t('community.checkin.alreadyVisited', 'Już tu byłeś', 'Already visited'), 'info');
         return;
       }
 
@@ -345,14 +723,25 @@
         latitude = cachedLoc.lat;
         longitude = cachedLoc.lng;
       } else {
-        // 2) Brak świeżej lokalizacji – użyj geolokalizacji przeglądarki
+        // 2) No fresh map location – use browser geolocation
         if(!('geolocation' in navigator)){
-          setCheckInStatus('Twoja przeglądarka nie wspiera geolokalizacji. Zbliż się do miejsca i spróbuj ponownie.');
-          window.showToast?.('Twoja przeglądarka nie wspiera geolokalizacji. Zbliż się do miejsca i spróbuj ponownie.', 'warning');
+          const unsupportedMsg = t(
+            'checkIn.status.unsupported',
+            'Twoja przeglądarka nie wspiera geolokalizacji. Możesz potwierdzić wizytę ręcznie poniżej.',
+            'Your browser does not support geolocation. You can confirm your visit manually below.',
+          );
+          setCheckInStatus(unsupportedMsg);
+          window.showToast?.(unsupportedMsg, 'warning');
           return;
         }
 
-        setCheckInStatus('Sprawdzam Twoją lokalizację... (to może chwilę potrwać)');
+        setCheckInStatus(
+          t(
+            'checkIn.status.checking',
+            'Sprawdzanie lokalizacji…',
+            'Checking your location…',
+          ),
+        );
 
         let position;
         try {
@@ -360,14 +749,25 @@
           position = await getPosition(true);
         } catch (firstError) {
           console.warn('High accuracy geolocation failed, trying low accuracy...', firstError);
-          setCheckInStatus('Słaby sygnał GPS, próbuję przybliżoną lokalizację...');
+          setCheckInStatus(
+            t(
+              'checkIn.status.fallbackLocation',
+              'Słaby sygnał GPS, próbuję przybliżoną lokalizację...',
+              'Weak GPS signal, trying approximate location...',
+            ),
+          );
           // Second attempt: lower accuracy (WiFi / GSM)
           position = await getPosition(false);
         }
 
         if (!position || !position.coords) {
-          setCheckInStatus('Nie udało się pobrać lokalizacji. Spróbuj ponownie lub użyj innego urządzenia.');
-          window.showToast?.('Nie udało się pobrać lokalizacji. Spróbuj ponownie.', 'error');
+          const locationFailMsg = t(
+            'checkIn.status.error',
+            'Nie udało się pobrać lokalizacji. Upewnij się, że przyznałeś uprawnienia lub potwierdź ręcznie.',
+            'We could not obtain your location. Make sure you granted permission or confirm manually.',
+          );
+          setCheckInStatus(locationFailMsg);
+          window.showToast?.(locationFailMsg, 'error');
           return;
         }
 
@@ -379,8 +779,13 @@
       const lng = typeof poi.lng === 'number' ? poi.lng : (typeof poi.lon === 'number' ? poi.lon : (typeof poi.longitude === 'number' ? poi.longitude : parseFloat(poi.lng ?? poi.lon ?? poi.longitude)));
 
       if(!Number.isFinite(lat) || !Number.isFinite(lng)){
-        setCheckInStatus('Błąd danych lokalizacji miejsca. Spróbuj inne miejsce lub odśwież stronę.');
-        window.showToast?.('Błąd danych lokalizacji miejsca', 'error');
+        const invalidPoiLocationMsg = t(
+          'checkIn.status.invalidPoiLocation',
+          'Błąd danych lokalizacji miejsca. Spróbuj inne miejsce lub odśwież stronę.',
+          'Invalid place location data. Try another place or refresh the page.',
+        );
+        setCheckInStatus(invalidPoiLocationMsg);
+        window.showToast?.(invalidPoiLocationMsg, 'error');
         return;
       }
 
@@ -393,40 +798,102 @@
           if(typeof mod.awardPoi === 'function'){
             await mod.awardPoi(poi.id);
           }
-          localStorage.setItem(storageKey, Date.now().toString());
-          setCheckInStatus('Gratulacje! Jesteś na miejscu i otrzymasz XP za to miejsce.');
-          window.showToast?.('Gratulacje! Zamelodowałeś się i otrzymasz XP.', 'success');
+          registerVisitedPoi(user.id, poi.id);
+          setCheckInButtonVisited(btn);
+          shouldRestoreButton = false;
+          setCheckInStatus(
+            t(
+              'community.checkin.success',
+              '🎉 Zameldowano! Zdobyłeś XP.',
+              '🎉 Checked in! You earned XP.',
+            ),
+          );
+          window.showToast?.(
+            t(
+              'checkIn.status.saved',
+              'Zameldowano pomyślnie!',
+              'Checked in successfully!',
+            ),
+            'success',
+          );
         } catch(e){
+          const duplicateCheckIn =
+            e?.code === '23505' ||
+            String(e?.message || '').toLowerCase().includes('already');
+          if (duplicateCheckIn) {
+            registerVisitedPoi(user.id, poi.id);
+            setCheckInButtonVisited(btn);
+            shouldRestoreButton = false;
+            setCheckInStatus(
+              t(
+                'currentPlace.status.alreadyVisited',
+                'Już tu byłeś w tym miejscu.',
+                'You have already checked in here.',
+              ),
+            );
+            return;
+          }
           console.error('[XP] awardPoi failed', e);
-          setCheckInStatus('Nie udało się zapisać zameldowania w systemie. Spróbuj ponownie po chwili.');
-          window.showToast?.('Nie udało się zapisać w systemie. Sprawdź połączenie lub zalogowanie.', 'error');
+          const saveFailMsg = t(
+            'community.checkin.failed',
+            'Nie udało się zameldować. Spróbuj ponownie.',
+            'Check-in failed. Please try again.',
+          );
+          setCheckInStatus(saveFailMsg);
+          window.showToast?.(saveFailMsg, 'error');
           return;
         }
       } else {
         const km = (distance/1000).toFixed(2);
-        const msg = `Jesteś ok. ${km} km od celu. Zbliż się do miejsca, aby się zameldować.`;
+        const msg = t(
+          'checkIn.status.distance',
+          'Jesteś {{distance}} km od celu. Sprawdź trasę w Google Maps i potwierdź ręcznie, jeśli naprawdę jesteś na miejscu.',
+          'You are about {{distance}} km from the target. Check Google Maps for directions and confirm manually if you really are on site.',
+          { distance: km },
+        );
         setCheckInStatus(msg);
         window.showToast?.(msg, 'info');
       }
     } catch(err){
       console.warn('checkInAtPlace error:', err);
-      let msg = 'Nie udało się pobrać lokalizacji.';
+      let msg = t(
+        'checkIn.status.error',
+        'Nie udało się pobrać lokalizacji. Upewnij się, że przyznałeś uprawnienia lub potwierdź ręcznie.',
+        'We could not obtain your location. Make sure you granted permission or confirm manually.',
+      );
       if (err && typeof err.code === 'number') {
-        if (err.code === 1) msg = 'Brak zgody na lokalizację. Udziel zgody w przeglądarce i spróbuj ponownie.';
-        else if (err.code === 2) msg = 'Lokalizacja niedostępna (słaby sygnał). Spróbuj podejść bliżej okna lub na zewnątrz.';
-        else if (err.code === 3) msg = 'Upłynął limit czasu pobierania lokalizacji. Spróbuj ponownie.';
+        if (err.code === 1) {
+          msg = t(
+            'community.checkin.denied',
+            'Brak zgody na lokalizację',
+            'Location permission denied',
+          );
+        } else if (err.code === 2) {
+          msg = t(
+            'checkIn.status.unavailable',
+            'Lokalizacja niedostępna (słaby sygnał).',
+            'Location unavailable (weak signal).',
+          );
+        } else if (err.code === 3) {
+          msg = t(
+            'checkIn.status.timeout',
+            'Upłynął limit czasu pobierania lokalizacji.',
+            'Location request timed out.',
+          );
+        }
       } else if (err?.message?.includes('permission')) {
-        msg = 'Udziel zgody na dostęp do lokalizacji i spróbuj ponownie.';
+        msg = t(
+          'community.checkin.denied',
+          'Brak zgody na lokalizację',
+          'Location permission denied',
+        );
       }
       setCheckInStatus(msg);
       window.showToast?.(msg, 'error');
     } finally {
       checkInBusy = false;
-      if (btn) {
-        btn.disabled = false;
-        if (btn.dataset.originalHtml) {
-          btn.innerHTML = btn.dataset.originalHtml;
-        }
+      if (btn && shouldRestoreButton) {
+        setCheckInButtonDefault(btn);
       }
     }
   }
@@ -496,6 +963,17 @@
   window.setCurrentPlace = function(id, opts){
     setCurrentPlace(id, Object.assign({scroll:false, force:true}, opts||{}));
   };
+
+  document.addEventListener('ce-auth:state', (event) => {
+    const userId = normalizePoiId(event?.detail?.session?.user?.id);
+    if (!userId) {
+      visitedPoiCacheByUser.clear();
+      visitedPoiFetchPromiseByUser.clear();
+    }
+    if (currentId) {
+      void syncCurrentPlaceCheckInUi(currentId, { forceRefresh: true });
+    }
+  });
 
   async function initialize(){
     ceLog('🚀 home-community-bridge: initializing...');
