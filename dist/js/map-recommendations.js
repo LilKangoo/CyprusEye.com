@@ -143,10 +143,6 @@ function openRecommendationMarkerPopup(recId, mapInstance = recommendationMapIns
       targetMap.setView(marker.getLatLng(), Math.max(13, targetMap.getZoom() || 13), { animate: true });
     }
   } catch (_) {}
-
-  try {
-    marker.openPopup();
-  } catch (_) {}
 }
 
 function dispatchRecommendationMarkersUpdate(mapInstance = recommendationMapInstance) {
@@ -228,20 +224,6 @@ function syncRecommendationMarkers(mapInstance) {
   }
   recommendationMapInstance = mapInstance;
 
-  try {
-    if (!mapInstance._ceSavedCatalogPopupBound) {
-      mapInstance._ceSavedCatalogPopupBound = true;
-      mapInstance.on('popupopen', (e) => {
-        try {
-          const el = e?.popup?.getElement ? e.popup.getElement() : null;
-          if (el && window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
-            window.CE_SAVED_CATALOG.refreshButtons(el);
-          }
-        } catch (_) {}
-      });
-    }
-  } catch (_) {}
-  
   if (mapRecommendations.length === 0) {
     console.log('[map-recommendations] No recommendations to display');
     dispatchRecommendationMarkersUpdate(mapInstance);
@@ -254,22 +236,12 @@ function syncRecommendationMarkers(mapInstance) {
     if (!rec.latitude || !rec.longitude) return;
     
     const hasMarker = recommendationMarkers.has(rec.id);
-    const popupContent = createRecommendationPopup(rec);
-    
     if (!hasMarker) {
       const marker = L.marker([rec.latitude, rec.longitude], { icon });
       if (recommendationMarkersVisible) {
         marker.addTo(mapInstance);
       }
-      
-      const popupOptions = typeof window.getMapPopupOptions === 'function'
-        ? window.getMapPopupOptions(300, { className: 'recommendation-popup' })
-        : {
-            maxWidth: 300,
-            className: 'recommendation-popup',
-          };
-
-      marker.bindPopup(popupContent, popupOptions);
+      marker.unbindPopup();
 
       marker.on('click', () => {
         if (typeof window.setCurrentMapItem === 'function') {
@@ -283,7 +255,7 @@ function syncRecommendationMarkers(mapInstance) {
       recommendationMarkers.set(rec.id, marker);
     } else {
       const marker = recommendationMarkers.get(rec.id);
-      marker.setPopupContent(popupContent);
+      marker.unbindPopup();
       if (recommendationMarkersVisible) {
         if (!mapInstance.hasLayer(marker)) {
           marker.addTo(mapInstance);

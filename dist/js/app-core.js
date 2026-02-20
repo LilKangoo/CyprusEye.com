@@ -773,40 +773,8 @@ try {
       // Stwórz marker
       const marker = L.marker([lat, lng], { icon: customIcon });
       
-      // Link Google Maps
-      const googleMapsUrl = typeof window.getPoiGoogleUrl === 'function'
-        ? (window.getPoiGoogleUrl(poi) || `https://maps.google.com/?q=${lat},${lng}`)
-        : (poi.googleMapsUrl || poi.googleMapsURL || poi.google_url || `https://maps.google.com/?q=${lat},${lng}`);
-      
-      // Popup z podstawowymi informacjami
-      marker.bindPopup(`
-        <div style="min-width: 220px;">
-          <h3 style="margin: 0 0 8px 0; font-size: 16px; color: #2563eb;">${name}</h3>
-          <p style="margin: 0 0 12px 0; font-size: 14px;">⭐ ${poi.xp || 100} XP</p>
-          <div style="display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
-            <a href="${googleMapsUrl}" target="_blank" rel="noopener" style="display: inline-flex; align-items:center; justify-content:center; padding: 8px 12px; background: #2563eb; color: white; text-decoration: none; border-radius: 10px; font-size: 13px; font-weight: 600; flex: 1;">Google Maps →</a>
-            <button
-              type="button"
-              class="ce-save-star ce-save-star-sm"
-              data-ce-save="1"
-              data-item-type="poi"
-              data-ref-id="${String(poi.id || '')}"
-              aria-label="Zapisz"
-              title="Zapisz"
-              onclick="event.preventDefault(); event.stopPropagation();"
-            >☆</button>
-          </div>
-        </div>
-      `, getMapPopupOptions(270));
-
-      marker.on('popupopen', (e) => {
-        try {
-          const el = e?.popup?.getElement ? e.popup.getElement() : null;
-          if (el && window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
-            window.CE_SAVED_CATALOG.refreshButtons(el);
-          }
-        } catch (_) {}
-      });
+      // Popups are intentionally disabled on map markers.
+      marker.unbindPopup();
 
       // Kliknięcie markera - sync z panelem pod mapą
       marker.on('click', () => {
@@ -912,19 +880,7 @@ try {
 
     mapInstance.setView(targetCenter, targetZoom, { animate: true });
     
-    // Find and open popup
-    setTimeout(() => {
-      markersLayer.eachLayer(layer => {
-        if (layer instanceof L.Marker) {
-          const lPos = layer.getLatLng();
-          // Fuzzy match coordinates
-          if (Math.abs(lPos.lat - lat) < 0.0001 && 
-              Math.abs(lPos.lng - lng) < 0.0001) {
-            layer.openPopup();
-          }
-        }
-      });
-    }, 500);
+    // Map marker popups are disabled by design.
   };
   
   /**
