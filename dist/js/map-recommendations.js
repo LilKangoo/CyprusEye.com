@@ -80,10 +80,43 @@ function getGreenIcon() {
   return greenIcon;
 }
 
+function getRecommendationMarkersStats(mapInstance = recommendationMapInstance) {
+  const targetMap = mapInstance || recommendationMapInstance;
+  let visibleCount = 0;
+
+  recommendationMarkers.forEach((marker) => {
+    if (!marker || !recommendationMarkersVisible) {
+      return;
+    }
+    if (!targetMap || typeof targetMap.hasLayer !== 'function') {
+      return;
+    }
+    if (targetMap.hasLayer(marker)) {
+      visibleCount += 1;
+    }
+  });
+
+  return {
+    total: mapRecommendations.length,
+    rendered: recommendationMarkers.size,
+    visible: recommendationMarkersVisible ? visibleCount : 0,
+    isVisible: recommendationMarkersVisible,
+  };
+}
+
+function dispatchRecommendationMarkersUpdate(mapInstance = recommendationMapInstance) {
+  try {
+    window.dispatchEvent(new CustomEvent('mapRecommendationMarkersUpdated', {
+      detail: getRecommendationMarkersStats(mapInstance),
+    }));
+  } catch (_) {}
+}
+
 function setRecommendationMarkersVisibility(mapInstance, visible = true) {
   const targetMap = mapInstance || recommendationMapInstance;
   if (!targetMap) {
     recommendationMarkersVisible = Boolean(visible);
+    dispatchRecommendationMarkersUpdate();
     return;
   }
 
@@ -98,6 +131,7 @@ function setRecommendationMarkersVisibility(mapInstance, visible = true) {
       targetMap.removeLayer(marker);
     }
   });
+  dispatchRecommendationMarkersUpdate(targetMap);
 }
 
 // ============================================================================
@@ -129,6 +163,7 @@ async function loadRecommendationsForMap() {
     
     mapRecommendations = data || [];
     console.log(`✅ Loaded ${mapRecommendations.length} recommendations with coordinates`);
+    dispatchRecommendationMarkersUpdate();
     
     return mapRecommendations;
   } catch (error) {
@@ -164,6 +199,7 @@ function syncRecommendationMarkers(mapInstance) {
   
   if (mapRecommendations.length === 0) {
     console.log('[map-recommendations] No recommendations to display');
+    dispatchRecommendationMarkersUpdate(mapInstance);
     return;
   }
   
@@ -201,6 +237,7 @@ function syncRecommendationMarkers(mapInstance) {
   });
   
   console.log(`✅ Synced ${recommendationMarkers.size} recommendation markers`);
+  dispatchRecommendationMarkersUpdate(mapInstance);
 }
 
 // ============================================================================
@@ -528,3 +565,4 @@ window.loadRecommendationsForMap = loadRecommendationsForMap;
 window.trackRecommendationClick = trackRecommendationClick;
 window.trackRecommendationView = trackRecommendationView;
 window.setRecommendationMarkersVisibility = setRecommendationMarkersVisibility;
+window.getRecommendationMarkersStats = getRecommendationMarkersStats;

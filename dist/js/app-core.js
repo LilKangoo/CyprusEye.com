@@ -36,12 +36,293 @@ try {
   let userLocationWatchId = null;
   let poisListenerAttached = false;
   let locationsListenerAttached = false;
+  const MAP_MARKER_FILTERS = Object.freeze({
+    ALL: 'all',
+    POI: 'poi',
+    RECOMMENDATIONS: 'recommendations',
+  });
+  let mapMarkerFilter = MAP_MARKER_FILTERS.ALL;
+  let mapMarkerFilterControl = null;
+  let mapMarkerFilterContainer = null;
+  let mapMarkerFilterButtons = new Map();
+  let mapMarkerFilterCounter = null;
+  let mapFilterListenersAttached = false;
   
   function getPlacesDataNow() {
     if (window.PLACES_DATA && Array.isArray(window.PLACES_DATA)) {
       return window.PLACES_DATA;
     }
     return [];
+  }
+
+  function getUiTranslation(key, fallback = '') {
+    const translations = window.appI18n && window.appI18n.translations
+      ? window.appI18n.translations
+      : null;
+
+    if (!translations || typeof translations !== 'object') {
+      return fallback;
+    }
+
+    if (Object.prototype.hasOwnProperty.call(translations, key) && typeof translations[key] === 'string') {
+      return translations[key];
+    }
+
+    if (key.indexOf('.') !== -1) {
+      const parts = key.split('.');
+      let current = translations;
+
+      for (let i = 0; i < parts.length; i += 1) {
+        const part = parts[i];
+        if (current && typeof current === 'object' && Object.prototype.hasOwnProperty.call(current, part)) {
+          current = current[part];
+        } else {
+          current = null;
+          break;
+        }
+      }
+
+      if (typeof current === 'string') {
+        return current;
+      }
+    }
+
+    return fallback;
+  }
+
+  function interpolateTemplate(template, values = {}) {
+    return String(template || '').replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (match, token) => {
+      if (Object.prototype.hasOwnProperty.call(values, token)) {
+        return String(values[token]);
+      }
+      return match;
+    });
+  }
+
+  function getPoiCoordinates(poi) {
+    if (!poi || typeof poi !== 'object') {
+      return null;
+    }
+
+    const lat = (typeof poi.lat === 'number') ? poi.lat
+      : (typeof poi.latitude === 'number') ? poi.latitude
+      : Number.parseFloat(poi.lat ?? poi.latitude);
+
+    const lng = (typeof poi.lng === 'number') ? poi.lng
+      : (typeof poi.lon === 'number') ? poi.lon
+      : (typeof poi.longitude === 'number') ? poi.longitude
+      : Number.parseFloat(poi.lng ?? poi.lon ?? poi.longitude);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat === 0 || lng === 0) {
+      return null;
+    }
+
+    return { lat, lng };
+  }
+
+  function countValidPoiMarkers() {
+    const places = getPlacesDataNow();
+    let count = 0;
+
+    places.forEach((poi) => {
+      if (getPoiCoordinates(poi)) {
+        count += 1;
+      }
+    });
+
+    return count;
+  }
+
+  function isValidMapMarkerFilter(value) {
+    return (
+      value === MAP_MARKER_FILTERS.ALL
+      || value === MAP_MARKER_FILTERS.POI
+      || value === MAP_MARKER_FILTERS.RECOMMENDATIONS
+    );
+  }
+
+  function shouldShowPoiMarkers() {
+    return mapMarkerFilter !== MAP_MARKER_FILTERS.RECOMMENDATIONS;
+  }
+
+  function shouldShowRecommendationMarkers() {
+    return mapMarkerFilter !== MAP_MARKER_FILTERS.POI;
+  }
+
+  function getMapMarkerFilterOptions() {
+    return [
+      {
+        value: MAP_MARKER_FILTERS.ALL,
+        label: getUiTranslation('map.filter.all', 'All'),
+      },
+      {
+        value: MAP_MARKER_FILTERS.POI,
+        label: getUiTranslation('map.filter.poiOnly', 'Visit points'),
+      },
+      {
+        value: MAP_MARKER_FILTERS.RECOMMENDATIONS,
+        label: getUiTranslation('map.filter.recommendationsOnly', 'Recommended places'),
+      },
+    ];
+  }
+
+  function getRecommendationMarkersStats() {
+    if (typeof window.getRecommendationMarkersStats === 'function') {
+      const raw = window.getRecommendationMarkersStats(mapInstance) || {};
+      return {
+        total: Number.isFinite(raw.total) ? raw.total : 0,
+        visible: Number.isFinite(raw.visible) ? raw.visible : 0,
+      };
+    }
+
+    return { total: 0, visible: 0 };
+  }
+
+  function updateMapMarkerFilterCounter() {
+    if (!mapMarkerFilterCounter) {
+      return;
+    }
+
+    const poiTotal = countValidPoiMarkers();
+    const poiVisible = shouldShowPoiMarkers() ? poiTotal : 0;
+    const recommendationStats = getRecommendationMarkersStats();
+    const recommendationTotal = recommendationStats.total;
+    const recommendationVisible = shouldShowRecommendationMarkers()
+      ? recommendationStats.visible
+      : 0;
+
+    const visibleCount = poiVisible + recommendationVisible;
+    const totalCount = poiTotal + recommendationTotal;
+
+    const summaryTemplate = getUiTranslation(
+      'map.filter.counter',
+      'Showing {{visible}} of {{total}} points'
+    );
+    const summaryText = interpolateTemplate(summaryTemplate, {
+      visible: visibleCount,
+      total: totalCount,
+    });
+
+    const detailsTemplate = getUiTranslation(
+      'map.filter.counterBreakdown',
+      'Visit points {{poiVisible}}/{{poiTotal}} • Recommended {{recommendationsVisible}}/{{recommendationsTotal}}'
+    );
+    const detailsText = interpolateTemplate(detailsTemplate, {
+      poiVisible,
+      poiTotal,
+      recommendationsVisible: recommendationVisible,
+      recommendationsTotal: recommendationTotal,
+    });
+
+    mapMarkerFilterCounter.textContent = summaryText;
+    mapMarkerFilterCounter.title = detailsText;
+    mapMarkerFilterCounter.setAttribute('aria-label', detailsText);
+  }
+
+  function renderMapMarkerFilterControl() {
+    if (!mapMarkerFilterContainer) {
+      return;
+    }
+
+    mapMarkerFilterContainer.innerHTML = '';
+    mapMarkerFilterButtons = new Map();
+
+    const buttonsWrap = document.createElement('div');
+    buttonsWrap.className = 'map-filter-control';
+
+    getMapMarkerFilterOptions().forEach((option) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.className = 'map-filter-btn';
+      button.dataset.filter = option.value;
+      button.textContent = option.label;
+      button.setAttribute('aria-pressed', option.value === mapMarkerFilter ? 'true' : 'false');
+      if (option.value === mapMarkerFilter) {
+        button.classList.add('is-active');
+      }
+      button.addEventListener('click', () => {
+        setMapMarkerFilter(option.value);
+      });
+      mapMarkerFilterButtons.set(option.value, button);
+      buttonsWrap.appendChild(button);
+    });
+
+    const counter = document.createElement('div');
+    counter.className = 'map-filter-counter';
+    counter.setAttribute('aria-live', 'polite');
+    mapMarkerFilterCounter = counter;
+
+    mapMarkerFilterContainer.appendChild(buttonsWrap);
+    mapMarkerFilterContainer.appendChild(counter);
+    updateMapMarkerFilterCounter();
+  }
+
+  function setupMapMarkerFilterControl() {
+    if (!mapInstance || typeof L === 'undefined' || mapMarkerFilterControl) {
+      return;
+    }
+
+    mapMarkerFilterControl = L.control({ position: 'topright' });
+    mapMarkerFilterControl.onAdd = () => {
+      const container = L.DomUtil.create('div', 'map-filter-panel leaflet-control');
+      L.DomEvent.disableClickPropagation(container);
+      L.DomEvent.disableScrollPropagation(container);
+      mapMarkerFilterContainer = container;
+      renderMapMarkerFilterControl();
+      return container;
+    };
+    mapMarkerFilterControl.addTo(mapInstance);
+  }
+
+  function updateMapMarkerFilterControlState() {
+    if (!mapMarkerFilterButtons || mapMarkerFilterButtons.size === 0) {
+      return;
+    }
+
+    mapMarkerFilterButtons.forEach((button, value) => {
+      const active = value === mapMarkerFilter;
+      button.classList.toggle('is-active', active);
+      button.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+  }
+
+  function applyMapMarkerFilter() {
+    if (!mapInstance) {
+      return;
+    }
+
+    addMarkers();
+
+    if (typeof window.setRecommendationMarkersVisibility === 'function') {
+      window.setRecommendationMarkersVisibility(mapInstance, shouldShowRecommendationMarkers());
+    }
+
+    updateMapMarkerFilterControlState();
+    updateMapMarkerFilterCounter();
+  }
+
+  function setMapMarkerFilter(nextFilter) {
+    if (!isValidMapMarkerFilter(nextFilter) || nextFilter === mapMarkerFilter) {
+      return;
+    }
+
+    mapMarkerFilter = nextFilter;
+    applyMapMarkerFilter();
+  }
+
+  function attachMapFilterListeners() {
+    if (mapFilterListenersAttached) {
+      return;
+    }
+
+    mapFilterListenersAttached = true;
+    window.addEventListener('mapRecommendationMarkersUpdated', () => {
+      updateMapMarkerFilterCounter();
+    });
+    window.addEventListener('languageChanged', () => {
+      renderMapMarkerFilterControl();
+      applyMapMarkerFilter();
+    });
   }
 
   function initializeUserLocation() {
@@ -238,6 +519,9 @@ try {
       ceLog('✅ Mapa utworzona');
     }
 
+    setupMapMarkerFilterControl();
+    attachMapFilterListeners();
+
     if (!poisListenerAttached) {
       poisListenerAttached = true;
       ceLog('📡 Dodaję listener dla poisDataRefreshed');
@@ -248,17 +532,28 @@ try {
     }
 
     // Dodaj markery jeśli dane już są (np. z cache w poi-loader)
-    const placesNow = getPlacesDataNow();
-    if (placesNow.length > 0) {
-      addMarkers();
-    }
+    applyMapMarkerFilter();
 
     // Lokalizacja użytkownika - odłóż na idle (nieblokujące)
     runWhenIdle(() => initializeUserLocation());
     
     // Initialize recommendation markers (green)
     if (typeof window.initMapRecommendations === 'function') {
-      runWhenIdle(() => window.initMapRecommendations(mapInstance));
+      runWhenIdle(() => {
+        const recommendationInit = window.initMapRecommendations(mapInstance);
+        if (recommendationInit && typeof recommendationInit.then === 'function') {
+          recommendationInit
+            .then(() => {
+              applyMapMarkerFilter();
+            })
+            .catch((error) => {
+              console.warn('[app-core] Recommendation markers init failed:', error);
+              updateMapMarkerFilterCounter();
+            });
+        } else {
+          applyMapMarkerFilter();
+        }
+      });
     }
 
     ceLog('✅ Mapa zainicjalizowana');
@@ -281,12 +576,20 @@ try {
     if (!window.PLACES_DATA || window.PLACES_DATA.length === 0) {
       // Dane jeszcze niegotowe (poi-loader może w tle doładować i wyemituje event)
       ceLog('ℹ️ Brak PLACES_DATA - markery dodane później');
+      updateMapMarkerFilterCounter();
       return;
     }
     
     // Wyczyść stare markery
     markersLayer.clearLayers();
     ceLog('✅ Wyczyszczono stare markery');
+
+    const showPoi = shouldShowPoiMarkers();
+    if (!showPoi) {
+      ceLog('ℹ️ POI markers hidden by current map filter');
+      updateMapMarkerFilterCounter();
+      return;
+    }
     
     // Custom ikona (niebieski marker)
     const customIcon = L.icon({
@@ -309,21 +612,14 @@ try {
         skippedCount++;
         return;
       }
-      
-      // Normalizacja współrzędnych (obsługa różnych pól)
-      const lat = (typeof poi.lat === 'number') ? poi.lat
-                 : (typeof poi.latitude === 'number') ? poi.latitude
-                 : parseFloat(poi.lat ?? poi.latitude);
-      const lng = (typeof poi.lng === 'number') ? poi.lng
-                 : (typeof poi.lon === 'number') ? poi.lon
-                 : (typeof poi.longitude === 'number') ? poi.longitude
-                 : parseFloat(poi.lng ?? poi.lon ?? poi.longitude);
 
-      if (!Number.isFinite(lat) || !Number.isFinite(lng) || lat === 0 || lng === 0) {
+      const coordinates = getPoiCoordinates(poi);
+      if (!coordinates) {
         console.warn(`⚠️ [${index}] POI ${poi.id} bez prawidłowych współrzędnych - pomijam`);
         skippedCount++;
         return;
       }
+      const { lat, lng } = coordinates;
       
       // Nazwa z Supabase (with i18n support)
       const name = window.getPoiName ? window.getPoiName(poi) : (poi.nameFallback || poi.name || poi.id);
@@ -394,6 +690,8 @@ try {
       console.error('→ Sprawdź czy POI w Supabase mają status="published"');
       console.error('→ Sprawdź czy POI mają współrzędne (lat, lng)');
     }
+
+    updateMapMarkerFilterCounter();
   }
   
   /**
@@ -448,9 +746,13 @@ try {
   window.focusPlaceOnMap = function(placeId) {
     const poi = window.PLACES_DATA?.find(p => p.id === placeId);
     if (!poi || !mapInstance) return;
+
+    const coordinates = getPoiCoordinates(poi);
+    if (!coordinates) return;
+    const { lat, lng } = coordinates;
     
     const targetZoom = 15; // Slightly closer zoom
-    const latLng = [poi.lat, poi.lng];
+    const latLng = [lat, lng];
     
     // Calculate offset to show marker above the bottom card
     // On mobile, card is taller/more prominent, so more offset needed
@@ -471,8 +773,8 @@ try {
         if (layer instanceof L.Marker) {
           const lPos = layer.getLatLng();
           // Fuzzy match coordinates
-          if (Math.abs(lPos.lat - poi.lat) < 0.0001 && 
-              Math.abs(lPos.lng - poi.lng) < 0.0001) {
+          if (Math.abs(lPos.lat - lat) < 0.0001 && 
+              Math.abs(lPos.lng - lng) < 0.0001) {
             layer.openPopup();
           }
         }
@@ -486,6 +788,8 @@ try {
   window.addMarkers = addMarkers;
   window.mapInstance = mapInstance;
   window.markersLayer = markersLayer;
+  window.setMapMarkerFilter = setMapMarkerFilter;
+  window.getMapMarkerFilter = () => mapMarkerFilter;
   
   /**
    * Inicjalizacja główna

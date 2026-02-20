@@ -40,6 +40,13 @@
   backdrop-filter: blur(8px);
 }
 
+.map-filter-panel {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
 .map-filter-btn {
   border: 0;
   border-radius: 9px;
@@ -66,6 +73,21 @@
 
 .map-filter-btn:active {
   transform: translateY(1px);
+}
+
+.map-filter-counter {
+  align-self: stretch;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  background: rgba(15, 23, 42, 0.72);
+  color: rgba(255, 255, 255, 0.88);
+  font-family: 'Jost', sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  padding: 6px 10px;
+  text-align: center;
+  backdrop-filter: blur(8px);
 }
 
 /* Remove old skip links visual clutter (keep accessible) */
@@ -343,6 +365,10 @@
     scrollbar-width: none;
   }
 
+  .map-filter-panel {
+    max-width: calc(100vw - 112px);
+  }
+
   .map-filter-control::-webkit-scrollbar {
     display: none;
   }
@@ -350,6 +376,11 @@
   .map-filter-btn {
     font-size: 11px;
     padding: 7px 9px;
+  }
+
+  .map-filter-counter {
+    font-size: 10px;
+    padding: 5px 8px;
   }
 
   /* Bottom Sheet Container */

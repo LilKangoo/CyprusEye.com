@@ -1236,6 +1236,8 @@
   "map.filter.all": "Wszystkie",
   "map.filter.poiOnly": "Punkty do odwiedzenia",
   "map.filter.recommendationsOnly": "Polecane miejsca",
+  "map.filter.counter": "Widoczne {{visible}} z {{total}} punktów",
+  "map.filter.counterBreakdown": "Punkty do odwiedzenia {{poiVisible}}/{{poiTotal}} • Polecane {{recommendationsVisible}}/{{recommendationsTotal}}",
   "places.distance.permissionDenied": "Włącz udostępnianie lokalizacji",
   "places.distance.secureContext": "Użyj bezpiecznego połączenia (HTTPS), aby udostępnić lokalizację.",
   "places.distance.noData": "Brak danych o lokalizacji",

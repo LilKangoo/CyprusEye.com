@@ -1538,6 +1538,8 @@
   "map.filter.all": "All",
   "map.filter.poiOnly": "Visit points",
   "map.filter.recommendationsOnly": "Recommended places",
+  "map.filter.counter": "Showing {{visible}} of {{total}} points",
+  "map.filter.counterBreakdown": "Visit points {{poiVisible}}/{{poiTotal}} • Recommended {{recommendationsVisible}}/{{recommendationsTotal}}",
   "carRental.meta.title": "Choose your city – CyprusEye car rental",
   "carRental.brand.overline": "CyprusEye Quest",
   "carRental.brand.title": "Car rental",
