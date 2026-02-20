@@ -14,6 +14,33 @@ try {
 
   const CE_DEBUG = typeof localStorage !== 'undefined' && localStorage.getItem('CE_DEBUG') === 'true';
   const ceLog = CE_DEBUG ? (...args) => console.log(...args) : () => {};
+  const HOME_SCROLL_LOCK_CLASSES = [
+    'modal-open',
+    'u-lock-scroll',
+    'is-modal-open',
+    'tutorial-open',
+    'language-selector-open',
+    'scroll-locked',
+  ];
+  const HOME_SCROLL_LOCK_ATTRS = ['data-community-scroll-lock'];
+  const HOME_OVERLAY_SELECTORS = [
+    '#tripModal.active',
+    '#hotelModal.active',
+    '#detailModal',
+    '#carHomeModal',
+    '#commentsModal',
+    '#photoLightbox',
+    '#imgLightbox.active',
+    '#auth-modal.is-open',
+    '#sosModal.visible',
+    '.language-mobile-overlay.is-visible',
+    '.language-mobile-menu.is-visible',
+    '.language-selector-overlay.is-visible',
+    '.tutorial-overlay.is-visible',
+    '.account-modal.visible',
+    '#recMapModal',
+  ];
+  let homeScrollGuardAttached = false;
 
   const runWhenIdle = (fn, timeout = 2000) => {
     try {
@@ -28,6 +55,127 @@ try {
       try { fn(); } catch (_) {}
     }, 1);
   };
+
+  function isElementActuallyVisible(el) {
+    if (!(el instanceof HTMLElement)) return false;
+    if (el.hidden || el.hasAttribute('hidden')) return false;
+    if (el.getAttribute('aria-hidden') === 'true') return false;
+
+    const style = window.getComputedStyle(el);
+    if (!style) return false;
+    if (style.display === 'none' || style.visibility === 'hidden') return false;
+    if (Number.parseFloat(style.opacity || '1') <= 0) return false;
+
+    return true;
+  }
+
+  function hasActiveBlockingOverlay() {
+    for (let i = 0; i < HOME_OVERLAY_SELECTORS.length; i += 1) {
+      const selector = HOME_OVERLAY_SELECTORS[i];
+      const nodes = document.querySelectorAll(selector);
+      for (let j = 0; j < nodes.length; j += 1) {
+        const el = nodes[j];
+        if (!isElementActuallyVisible(el)) continue;
+
+        if (el.id === 'detailModal' || el.id === 'carHomeModal' || el.id === 'recMapModal') {
+          const display = window.getComputedStyle(el).display;
+          if (display === 'none') continue;
+        }
+        if (el.id === 'imgLightbox' && !el.classList.contains('active')) continue;
+        if (el.id === 'sosModal' && !el.classList.contains('visible')) continue;
+        return true;
+      }
+    }
+
+    const genericDialogs = document.querySelectorAll('[aria-modal="true"], [role="dialog"]');
+    for (let i = 0; i < genericDialogs.length; i += 1) {
+      const el = genericDialogs[i];
+      if (!isElementActuallyVisible(el)) continue;
+      const style = window.getComputedStyle(el);
+      if (style.position === 'fixed' || style.position === 'absolute') {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  function hasBodyScrollLockState() {
+    const body = document.body;
+    const html = document.documentElement;
+    if (!body || !html) return false;
+
+    if (HOME_SCROLL_LOCK_CLASSES.some((className) => body.classList.contains(className) || html.classList.contains(className))) {
+      return true;
+    }
+    if (HOME_SCROLL_LOCK_ATTRS.some((attr) => body.hasAttribute(attr) || html.hasAttribute(attr))) {
+      return true;
+    }
+
+    return (
+      body.style.overflow === 'hidden' ||
+      body.style.position === 'fixed' ||
+      body.style.top !== '' ||
+      body.style.left !== '' ||
+      body.style.right !== '' ||
+      body.style.width !== '' ||
+      html.style.overflow === 'hidden'
+    );
+  }
+
+  function clearOrphanedBodyScrollLock() {
+    if ((document.body?.dataset?.seoPage || '') !== 'home') return;
+    if (hasActiveBlockingOverlay()) return;
+    if (!hasBodyScrollLockState()) return;
+
+    const body = document.body;
+    const html = document.documentElement;
+    const scrollTopBeforeUnlock = window.scrollY || window.pageYOffset || 0;
+
+    HOME_SCROLL_LOCK_CLASSES.forEach((className) => {
+      body.classList.remove(className);
+      html.classList.remove(className);
+    });
+    HOME_SCROLL_LOCK_ATTRS.forEach((attr) => {
+      body.removeAttribute(attr);
+      html.removeAttribute(attr);
+    });
+
+    body.style.overflow = '';
+    body.style.position = '';
+    body.style.top = '';
+    body.style.left = '';
+    body.style.right = '';
+    body.style.width = '';
+    html.style.overflow = '';
+
+    if (scrollTopBeforeUnlock > 0) {
+      window.scrollTo(0, scrollTopBeforeUnlock);
+    }
+  }
+
+  function initHomeScrollGuard() {
+    if (homeScrollGuardAttached) return;
+    if ((document.body?.dataset?.seoPage || '') !== 'home') return;
+
+    homeScrollGuardAttached = true;
+    const sync = () => {
+      window.requestAnimationFrame(clearOrphanedBodyScrollLock);
+    };
+
+    window.addEventListener('pageshow', sync);
+    window.addEventListener('focus', sync);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) sync();
+    });
+    document.addEventListener('pointerdown', sync, { passive: true });
+    document.addEventListener('touchstart', sync, { passive: true });
+    document.addEventListener('touchend', sync, { passive: true });
+
+    sync();
+    setTimeout(sync, 200);
+    setTimeout(sync, 1200);
+  }
 
   // Globalne zmienne mapy
   let mapInstance = null;
@@ -910,6 +1058,8 @@ try {
    */
   async function initialize() {
     ceLog('🚀 Inicjalizuję aplikację...');
+    initHomeScrollGuard();
+    clearOrphanedBodyScrollLock();
     
     // Inicjalizuj mapę
     await initializeMap();

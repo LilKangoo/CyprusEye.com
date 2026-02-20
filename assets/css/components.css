@@ -2341,7 +2341,7 @@ textarea:focus-visible {
   scrollbar-width: thin;
   flex-wrap: nowrap;
   width: 100%;
-  touch-action: pan-x;
+  touch-action: auto;
   box-sizing: border-box;
 }
 
