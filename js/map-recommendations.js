@@ -11,6 +11,8 @@ let recommendationMarkers = new Map();
 let recommendationModalOpen = false;
 let recommendationMapInstance = null;
 let recommendationMarkersVisible = true;
+let pendingPromoReveal = null;
+let promoAuthStateListenerAttached = false;
 
 // ============================================================================
 // TRACKING FUNCTIONS
@@ -42,6 +44,107 @@ async function trackRecommendationClick(recId, clickType) {
   } catch (e) {
     console.warn('[map-rec] Track click error:', e);
   }
+}
+
+function safeDecodeURIComponent(value) {
+  if (typeof value !== 'string') {
+    return '';
+  }
+  try {
+    return decodeURIComponent(value);
+  } catch (_) {
+    return value;
+  }
+}
+
+async function getAuthSessionSnapshot() {
+  let session = null;
+  try {
+    if (typeof window.waitForAuthReady === 'function') {
+      const maybeSession = await window.waitForAuthReady();
+      if (maybeSession && maybeSession.user) {
+        session = maybeSession;
+      }
+    }
+  } catch (_) {}
+
+  const state = window.CE_STATE || {};
+  if (state.session && state.session.user) {
+    session = state.session;
+  }
+
+  return session;
+}
+
+function openAuthLoginGate() {
+  try {
+    if (window.__authModalController && typeof window.__authModalController.open === 'function') {
+      window.__authModalController.open('login');
+      return true;
+    }
+  } catch (_) {}
+
+  try {
+    if (typeof window.openAuthModal === 'function') {
+      window.openAuthModal('login');
+      return true;
+    }
+  } catch (_) {}
+
+  const loginOpener =
+    document.querySelector('[data-open-auth][data-auth-target="login"]') ||
+    document.querySelector('[data-open-auth]');
+
+  if (loginOpener instanceof HTMLElement) {
+    loginOpener.click();
+    return true;
+  }
+
+  console.warn('[map-recommendations] Auth opener not found for promo code gate.');
+  return false;
+}
+
+function revealRecommendationPromoCode(id, code) {
+  const normalizedId = String(id || '');
+  const promoCode = String(code || '').trim();
+  if (!normalizedId || !promoCode) {
+    return false;
+  }
+
+  const codeEl = document.getElementById(`recPromoCode-${normalizedId}`);
+  if (!(codeEl instanceof HTMLElement)) {
+    return false;
+  }
+  if (codeEl.dataset.visible === 'true') {
+    return true;
+  }
+
+  trackRecommendationClick(normalizedId, 'promo_code');
+  codeEl.textContent = promoCode;
+  codeEl.dataset.visible = 'true';
+  codeEl.style.display = 'block';
+  return true;
+}
+
+function ensurePromoAuthStateListener() {
+  if (promoAuthStateListenerAttached) {
+    return;
+  }
+  promoAuthStateListenerAttached = true;
+
+  document.addEventListener('ce-auth:state', () => {
+    if (!pendingPromoReveal) {
+      return;
+    }
+    const user = window.CE_STATE?.session?.user || null;
+    if (!user) {
+      return;
+    }
+
+    const payload = pendingPromoReveal;
+    pendingPromoReveal = null;
+    revealRecommendationPromoCode(payload.id, payload.code);
+  });
 }
 
 let greenIcon = null;
@@ -461,7 +564,12 @@ window.openRecommendationDetailModal = function(id) {
           <div class="rec-map-modal-promo">
             <div class="rec-map-modal-promo-label">${discount}</div>
             <div class="rec-map-modal-promo-code" id="recPromoCode-${rec.id}" data-visible="false"></div>
-            <button class="rec-map-modal-promo-btn" onclick="showRecommendationPromoCode('${rec.id}', '${rec.promo_code}')">
+            <button
+              type="button"
+              class="rec-map-modal-promo-btn"
+              data-rec-id="${String(rec.id || '')}"
+              data-promo-code="${encodeURIComponent(String(rec.promo_code || ''))}"
+            >
               ${showCodeLabel}
             </button>
           </div>
@@ -497,6 +605,17 @@ window.openRecommendationDetailModal = function(id) {
       window.CE_SAVED_CATALOG.refreshButtons(modal);
     }
   } catch (_) {}
+
+  const promoBtn = modal.querySelector('.rec-map-modal-promo-btn');
+  if (promoBtn instanceof HTMLButtonElement) {
+    promoBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const recId = promoBtn.dataset.recId || '';
+      const promoCode = safeDecodeURIComponent(promoBtn.dataset.promoCode || '');
+      void window.showRecommendationPromoCode(recId, promoCode);
+    });
+  }
   
   // Track view
   trackRecommendationView(rec.id);
@@ -551,27 +670,28 @@ window.closeRecommendationDetailModal = function() {
   document.removeEventListener('keydown', handleModalEscape);
 };
 
-window.showRecommendationPromoCode = function(id, code) {
-  const codeEl = document.getElementById(`recPromoCode-${id}`);
-  if (codeEl && codeEl.dataset.visible !== 'true') {
-    // Check if logged in
-    const state = window.CE_STATE || {};
-    const isLoggedIn = !!(state.session && state.session.user);
-    
-    if (!isLoggedIn) {
-      if (typeof window.openAuthModal === 'function') {
-        window.openAuthModal('login');
-      }
-      return;
-    }
-    
-    // Track promo code click
-    trackRecommendationClick(id, 'promo_code');
-    
-    codeEl.textContent = code;
-    codeEl.dataset.visible = 'true';
-    codeEl.style.display = 'block';
+window.showRecommendationPromoCode = async function(id, code) {
+  const normalizedId = String(id || '');
+  const promoCode = String(code || '').trim();
+  if (!normalizedId || !promoCode) {
+    return false;
   }
+
+  const revealed = revealRecommendationPromoCode(normalizedId, promoCode);
+  if (revealed) {
+    return true;
+  }
+
+  const session = await getAuthSessionSnapshot();
+  const isLoggedIn = !!(session && session.user);
+  if (isLoggedIn) {
+    return revealRecommendationPromoCode(normalizedId, promoCode);
+  }
+
+  ensurePromoAuthStateListener();
+  pendingPromoReveal = { id: normalizedId, code: promoCode };
+  openAuthLoginGate();
+  return false;
 };
 
 // ============================================================================
