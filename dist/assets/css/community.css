@@ -329,6 +329,48 @@ html { scroll-behavior: smooth; }
 
 .poi-card-info {
   flex: 1;
+  min-width: 0;
+}
+
+.poi-card-save {
+  margin-left: auto;
+  flex-shrink: 0;
+  border-color: rgba(15, 23, 42, 0.16);
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+#modalPoiSaveBtn {
+  border-color: rgba(15, 23, 42, 0.16);
+  background: #f8fafc;
+  color: #0f172a;
+}
+
+.poi-card-media {
+  width: 100%;
+  height: 146px;
+  border-radius: 0.65rem;
+  overflow: hidden;
+  margin-bottom: 0.95rem;
+  border: 1px solid var(--color-neutral-200);
+  background: var(--color-neutral-100);
+}
+
+.poi-card-media[hidden] {
+  display: none !important;
+}
+
+.poi-card-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .poi-card-media {
+    height: 128px;
+  }
 }
 
 .poi-card-name {

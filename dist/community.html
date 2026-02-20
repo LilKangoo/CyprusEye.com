@@ -62,7 +62,7 @@
   <link rel="stylesheet" href="assets/css/rtl.css" />
   <link rel="stylesheet" href="assets/css/language-switcher.css" />
   <link rel="stylesheet" href="css/toast.css" />
-  <link rel="stylesheet" href="assets/css/community.css" />
+  <link rel="stylesheet" href="assets/css/community.css?v=2" />
   
   
   
@@ -346,6 +346,19 @@
           <p id="commentsModalLocation" class="comments-modal-location"></p>
         </div>
         <div class="modal-header-actions">
+          <button
+            type="button"
+            class="ce-save-star ce-save-star-sm"
+            id="modalPoiSaveBtn"
+            data-ce-save="1"
+            data-item-type="poi"
+            data-ref-id=""
+            aria-label="Save"
+            title="Save"
+            onclick="event.preventDefault(); event.stopPropagation();"
+          >
+            ☆
+          </button>
           <button type="button" class="modal-nav-btn" id="nextPoiBtn" aria-label="Następne miejsce" title="Następne miejsce" data-i18n-attrs="aria-label:modal.aria.next,title:modal.aria.next">
             ›
           </button>
@@ -869,6 +882,7 @@
   <script src="js/seo.js" defer></script>
   <script src="js/mobile-nav.js" defer></script>
   <script src="js/header-dropdown.js" defer></script>
+  <script src="js/saved-catalog.js?v=6" defer></script>
   <!-- SOS Emergency Modal -->
   <!-- Header Stats - aktualizacja statystyk na wszystkich stronach -->
   <script src="js/sos.js?v=1" defer></script>
@@ -879,7 +893,7 @@
   <script type="module" src="js/community/photos.js"></script>
   <script type="module" src="js/community/notifications.js"></script>
   <script type="module" src="js/community/location-filter.js"></script>
-  <script type="module" src="js/community/ui.js"></script>
+  <script type="module" src="js/community/ui.js?v=2"></script>
   <script type="module" src="js/community/ranking.js" defer></script>
 </body>
 </html>

@@ -205,6 +205,75 @@ function getPoiGalleryPhotos(poi) {
   return Array.from(new Set(combined.filter(Boolean)));
 }
 
+function refreshSavedPoiButtons(root = document) {
+  try {
+    if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') {
+      window.CE_SAVED_CATALOG.refreshButtons(root);
+    }
+  } catch (_) {}
+}
+
+function refreshSavedPoiButtonsWithRetry(root = document, retries = 8, delayMs = 250) {
+  refreshSavedPoiButtons(root);
+  if (!retries) return;
+  if (window.CE_SAVED_CATALOG && typeof window.CE_SAVED_CATALOG.refreshButtons === 'function') return;
+
+  window.setTimeout(() => {
+    refreshSavedPoiButtonsWithRetry(root, retries - 1, delayMs);
+  }, delayMs);
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+async function hydratePoiMediaFromDatabase(poi) {
+  if (!poi || !poi.id) return poi;
+
+  const hasGalleryData = getPoiGalleryPhotos(poi).length > 0;
+  if (hasGalleryData) return poi;
+
+  try {
+    const sb = window.getSupabase?.();
+    if (!sb) return poi;
+
+    const { data, error } = await sb
+      .from('pois')
+      .select('id, main_image_url, photos')
+      .eq('id', poi.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (error || !data) return poi;
+
+    const nextPhotos = normalizePoiPhotos(data.photos);
+    const nextMain = String(data.main_image_url || '').trim();
+
+    if (nextMain) poi.main_image_url = nextMain;
+    if (nextPhotos.length) poi.photos = nextPhotos;
+  } catch (_) {
+    // Non-critical fallback path.
+  }
+
+  return poi;
+}
+
+function renderPoiCardMedia(poi) {
+  const galleryPhotos = getPoiGalleryPhotos(poi);
+  if (!galleryPhotos.length) return '';
+
+  const coverUrl = galleryPhotos[0];
+  const poiName = window.getPoiName ? window.getPoiName(poi) : poi.name;
+
+  return `
+    <div class="poi-card-media" id="poi-card-media-${poi.id}">
+      <img src="${escapeHtml(coverUrl)}" alt="${escapeHtml(poiName || 'Place photo')}" loading="lazy" decoding="async" />
+    </div>
+  `;
+}
+
 // ===================================
 // LOAD USER PROFILE
 // ===================================
@@ -380,12 +449,23 @@ async function renderPoisList() {
       const basePhotoCount = getPoiGalleryPhotos(poi).length;
       html += `
         <div class="poi-card" data-poi-id="${poi.id}">
+          ${renderPoiCardMedia(poi)}
           <div class="poi-card-header">
             <div class="poi-card-icon">📍</div>
             <div class="poi-card-info">
               <h3 class="poi-card-name">${window.getPoiName ? window.getPoiName(poi) : poi.name}</h3>
               <p class="poi-card-location">🗺️ Cypr</p>
             </div>
+            <button
+              type="button"
+              class="ce-save-star ce-save-star-sm poi-card-save"
+              data-ce-save="1"
+              data-item-type="poi"
+              data-ref-id="${String(poi.id || '')}"
+              aria-label="Save"
+              title="Save"
+              onclick="event.preventDefault(); event.stopPropagation();"
+            >☆</button>
           </div>
           
           <div class="poi-card-stats">
@@ -413,6 +493,7 @@ async function renderPoisList() {
     }
 
     listContainer.innerHTML = html;
+    refreshSavedPoiButtonsWithRetry(listContainer);
     
     // Initialize filtered data with all POIs
     filteredPoisData = [...poisData];
@@ -429,6 +510,7 @@ async function renderPoisList() {
           }
         });
       });
+      refreshSavedPoiButtonsWithRetry(listContainer);
     }, 100);
 
     // Load stats in background (non-blocking)
@@ -455,6 +537,8 @@ async function loadPoisStats(pois) {
 
   for (const poi of pois) {
     try {
+      await hydratePoiMediaFromDatabase(poi);
+
       // Get comment count
       const { count: commentCount } = await sb
         .from('poi_comments')
@@ -482,12 +566,29 @@ async function loadPoisStats(pois) {
       const commentsEl = document.getElementById(`comments-count-${poi.id}`);
       const photosEl = document.getElementById(`photos-count-${poi.id}`);
       const card = document.querySelector(`[data-poi-id="${poi.id}"]`);
+      const cardMediaEl = document.getElementById(`poi-card-media-${poi.id}`);
       
       if (commentsEl) {
         commentsEl.textContent = formatCommentCount(commentCount || 0);
       }
       if (photosEl) {
         photosEl.textContent = formatPhotoCount(photoCount);
+      }
+      if (!cardMediaEl) {
+        const cardHeader = card?.querySelector('.poi-card-header');
+        const coverUrl = getPoiGalleryPhotos(poi)[0];
+        if (cardHeader && coverUrl) {
+          const wrap = document.createElement('div');
+          wrap.className = 'poi-card-media';
+          wrap.id = `poi-card-media-${poi.id}`;
+          const imageEl = document.createElement('img');
+          imageEl.src = coverUrl;
+          imageEl.alt = window.getPoiName ? window.getPoiName(poi) : (poi.name || 'Place photo');
+          imageEl.loading = 'lazy';
+          imageEl.decoding = 'async';
+          wrap.appendChild(imageEl);
+          card.insertBefore(wrap, cardHeader);
+        }
       }
       
       // Update card data attributes for sorting
@@ -764,6 +865,8 @@ window.openPoiComments = async function(poiId) {
     poiDesc = translatedDesc;
   }
   console.log('✅ Found POI:', poiName, '(ID:', poi.id, ')');
+
+  await hydratePoiMediaFromDatabase(poi);
   
   // Find POI index in filtered data for navigation
   const dataToSearch = filteredPoisData.length > 0 ? filteredPoisData : poisData;
@@ -772,6 +875,10 @@ window.openPoiComments = async function(poiId) {
   // Update modal title
   document.getElementById('commentsModalTitle').textContent = poiName;
   document.getElementById('commentsModalLocation').textContent = `📍 ${poiDesc}`;
+  const modalPoiSaveBtn = document.getElementById('modalPoiSaveBtn');
+  if (modalPoiSaveBtn) {
+    modalPoiSaveBtn.setAttribute('data-ref-id', String(poi.id || ''));
+  }
   renderPoiGallerySection(poi, poiName);
 
   // Update navigation buttons
@@ -785,6 +892,7 @@ window.openPoiComments = async function(poiId) {
   modal.hidden = false;
   modal.removeAttribute('hidden');
   document.body.style.overflow = 'hidden';
+  refreshSavedPoiButtonsWithRetry(modal);
   
   console.log('✅ Modal opened for:', poiName);
 
@@ -969,9 +1077,11 @@ function closeModal() {
   const gallerySection = document.getElementById('modalPoiGallerySection');
   const galleryTrack = document.getElementById('modalPoiGalleryTrack');
   const galleryCount = document.getElementById('modalPoiGalleryCount');
+  const modalPoiSaveBtn = document.getElementById('modalPoiSaveBtn');
   if (galleryTrack) galleryTrack.innerHTML = '';
   if (galleryCount) galleryCount.textContent = formatPhotoCount(0);
   if (gallerySection) gallerySection.hidden = true;
+  if (modalPoiSaveBtn) modalPoiSaveBtn.setAttribute('data-ref-id', '');
   
   // Cleanup mini-map to prevent memory leaks
   cleanupPoiMiniMap();
@@ -1047,15 +1157,6 @@ async function loadAndRenderComments(poiId) {
       </div>
     `;
   }
-}
-
-// ===================================
-// UTILITY: ESCAPE HTML
-// ===================================
-function escapeHtml(text) {
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 // ===================================
