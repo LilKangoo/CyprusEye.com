@@ -123,6 +123,31 @@ try {
     return { lat, lng };
   }
 
+  function getMapCardBottomPadding(extra = 24) {
+    const cardEl = document.getElementById('currentPlaceSection');
+    const cardHeight = cardEl ? Math.round(cardEl.getBoundingClientRect().height) : 0;
+    const isMobile = typeof window !== 'undefined'
+      && typeof window.matchMedia === 'function'
+      && window.matchMedia('(max-width: 768px)').matches;
+
+    if (isMobile) {
+      return Math.max(120, Math.min(420, cardHeight + extra));
+    }
+    return Math.max(80, Math.min(260, Math.round(cardHeight * 0.62) + extra));
+  }
+
+  function getMapPopupOptions(maxWidth = 270, extra = {}) {
+    const bottomPadding = getMapCardBottomPadding();
+    return {
+      maxWidth,
+      keepInView: true,
+      autoPan: true,
+      autoPanPaddingTopLeft: [16, 16],
+      autoPanPaddingBottomRight: [16, bottomPadding],
+      ...extra,
+    };
+  }
+
   function countValidPoiMarkers() {
     const places = getPlacesDataNow();
     let count = 0;
@@ -313,6 +338,7 @@ try {
     }
 
     mapMarkerFilterContainer.innerHTML = '';
+    mapMarkerFilterContainer.setAttribute('aria-label', getUiTranslation('map.filter.aria', 'Map filters'));
     mapMarkerFilterButtons = new Map();
 
     const buttonsWrap = document.createElement('div');
@@ -627,6 +653,22 @@ try {
     setupMapMarkerFilterControl();
     attachMapFilterListeners();
 
+    if (!mapInstance._cePopupPanInsideBound) {
+      mapInstance._cePopupPanInsideBound = true;
+      mapInstance.on('popupopen', (event) => {
+        try {
+          const popup = event?.popup;
+          if (!popup || typeof popup.getLatLng !== 'function') {
+            return;
+          }
+          mapInstance.panInside(popup.getLatLng(), {
+            paddingTopLeft: [16, 16],
+            paddingBottomRight: [16, getMapCardBottomPadding(28)],
+          });
+        } catch (_) {}
+      });
+    }
+
     if (!poisListenerAttached) {
       poisListenerAttached = true;
       ceLog('📡 Dodaję listener dla poisDataRefreshed');
@@ -760,7 +802,7 @@ try {
             >☆</button>
           </div>
         </div>
-      `, { maxWidth: 270 });
+      `, getMapPopupOptions(270));
 
       marker.on('popupopen', (e) => {
         try {
@@ -910,6 +952,7 @@ try {
     }
     return getVisibleMapItemsForCurrentFilter();
   };
+  window.getMapPopupOptions = (maxWidth = 270, extra = {}) => getMapPopupOptions(maxWidth, extra);
   
   /**
    * Inicjalizacja główna

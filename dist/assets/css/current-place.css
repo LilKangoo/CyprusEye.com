@@ -395,7 +395,8 @@
 @media (max-width: 768px) {
   /* Map takes full viewport height relative to its container */
   #current-objective.map-panel {
-    height: calc(100vh - 70px); /* Subtract header height approx */
+    height: calc(100svh - 56px);
+    min-height: 540px;
     max-height: none;
     border-radius: 0;
     margin-bottom: 0;
@@ -415,7 +416,7 @@
   }
 
   .map-filter-inline-host {
-    margin-bottom: 6px;
+    margin-bottom: 4px;
   }
 
   .map-filter-control {
@@ -430,8 +431,8 @@
   }
 
   .map-filter-counter {
-    font-size: 10px;
-    padding: 5px 6px;
+    font-size: 9px;
+    padding: 4px 6px;
   }
 
   /* Bottom Sheet Container */
@@ -447,7 +448,9 @@
     background: #ffffff;
     border-radius: 20px 20px 0 0; /* Rounded top corners only */
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
-    padding: 14px 16px 16px;
+    padding: 12px 14px 14px;
+    max-height: min(45vh, 360px);
+    overflow-y: auto;
     z-index: 1000;
     
     /* Ensure it sits above map */
@@ -478,7 +481,7 @@
 
   .current-place-filter-hint {
     font-size: 10px;
-    margin-bottom: 8px;
+    margin-bottom: 4px;
   }
 
   /* Content Typography */
@@ -498,7 +501,7 @@
   
   /* Badges Row */
   .place-badges {
-    margin-bottom: 12px;
+    margin-bottom: 8px;
   }
 
   /* Actions Layout - Compact Row */

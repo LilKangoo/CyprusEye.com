@@ -541,13 +541,10 @@
     if (hintEl) {
       if (!hasVisiblePois) {
         hintEl.textContent = noPoiMessage;
+        hintEl.hidden = false;
       } else {
-        hintEl.textContent = t(
-          'currentPlace.filter.visibleCount',
-          '{{count}} miejsc w aktualnym widoku',
-          '{{count}} places in the current view',
-          { count: ids.length },
-        );
+        hintEl.textContent = '';
+        hintEl.hidden = true;
       }
     }
 
@@ -855,8 +852,18 @@
       const commentsEl = document.getElementById('currentPlaceComments');
       if(commentsEl){
         const c = commentCount || 0;
-        const commentsLabel = c === 1 ? 'Komentarz' : (c >= 2 && c <= 4 ? 'Komentarze' : 'Komentarzy');
-        commentsEl.textContent = `${c} ${commentsLabel}`;
+        if (c <= 0) {
+          commentsEl.textContent = t('community.comments.count.zero', '0 komentarzy', '0 comments');
+        } else if (c === 1) {
+          commentsEl.textContent = t('community.comments.count.one', '1 komentarz', '1 comment');
+        } else {
+          commentsEl.textContent = t(
+            'community.comments.count.multiple',
+            '{{count}} komentarzy',
+            '{{count}} comments',
+            { count: c },
+          );
+        }
         console.log('✅ Updated comments:', c);
       }
 
@@ -875,10 +882,12 @@
       if(ratingEl){
         const total = (!ratingError && ratingData) ? (ratingData.total_ratings||0) : 0;
         if(total === 0){
-          ratingEl.textContent = '0 Ocen';
+          ratingEl.textContent = t('community.rating.noRatings', 'Brak ocen', 'No ratings');
         } else {
           const avg = Number(ratingData.average_rating) || 0;
-          const ratingLabel = total === 1 ? 'ocena' : (total >= 2 && total <= 4 ? 'oceny' : 'ocen');
+          const ratingLabel = total === 1
+            ? t('community.rating.oneRating', 'ocena', 'rating')
+            : t('community.rating.multipleRatings', 'ocen', 'ratings');
           ratingEl.textContent = `${avg.toFixed(1)} (${total} ${ratingLabel})`;
         }
         console.log('✅ Updated rating:', total > 0 ? `${ratingData.average_rating} (${total})` : '0');

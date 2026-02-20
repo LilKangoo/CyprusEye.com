@@ -1236,6 +1236,7 @@
   "map.filter.all": "Wszystkie",
   "map.filter.poiOnly": "Punkty do odwiedzenia",
   "map.filter.recommendationsOnly": "Polecane miejsca",
+  "map.filter.aria": "Filtry mapy",
   "map.filter.counter": "Widoczne {{visible}} z {{total}} punktów",
   "map.filter.counterBreakdown": "Punkty do odwiedzenia {{poiVisible}}/{{poiTotal}} • Polecane {{recommendationsVisible}}/{{recommendationsTotal}}",
   "places.distance.permissionDenied": "Włącz udostępnianie lokalizacji",
@@ -4381,5 +4382,16 @@
   "carRental.page.reservation.successBox.title": "✅ Rezerwacja wysłana!",
   "carRental.page.reservation.successBox.bookingNumberLabel": "Numer rezerwacji:",
   "carRental.page.reservation.successBox.contactWithin24h": "Skontaktujemy się z Tobą w ciągu 24h, aby potwierdzić dostępność i przesłać umowę.",
-  "carRental.page.reservation.successBox.checkEmailLabel": "Sprawdź email:"
+  "carRental.page.reservation.successBox.checkEmailLabel": "Sprawdź email:",
+  "badges.landmark": "LANDMARK",
+  "legal.termsLink": "Regulamin",
+  "lightbox.alt": "Podgląd zdjęcia",
+  "checkIn.status.accountUnavailable": "Nie udało się połączyć z kontem. Odśwież stronę i zaloguj się, aby się zameldować.",
+  "checkIn.status.loginForXp": "Zaloguj się, aby zbierać XP za odwiedzone miejsca.",
+  "checkIn.status.loginOrRegister": "Zaloguj się lub utwórz konto, aby zbierać XP.",
+  "checkIn.status.fallbackLocation": "Słaby sygnał GPS, próbuję przybliżoną lokalizację...",
+  "checkIn.status.invalidPoiLocation": "Błąd danych lokalizacji miejsca. Spróbuj inne miejsce lub odśwież stronę.",
+  "checkIn.status.saved": "Zameldowano pomyślnie!",
+  "checkIn.status.unavailable": "Lokalizacja niedostępna (słaby sygnał).",
+  "checkIn.status.timeout": "Upłynął limit czasu pobierania lokalizacji."
 }

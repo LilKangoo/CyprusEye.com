@@ -1550,6 +1550,7 @@
   "map.filter.all": "All",
   "map.filter.poiOnly": "Visit points",
   "map.filter.recommendationsOnly": "Recommended places",
+  "map.filter.aria": "Map filters",
   "map.filter.counter": "Showing {{visible}} of {{total}} points",
   "map.filter.counterBreakdown": "Visit points {{poiVisible}}/{{poiTotal}} • Recommended {{recommendationsVisible}}/{{recommendationsTotal}}",
   "carRental.meta.title": "Choose your city – CyprusEye car rental",
@@ -3498,5 +3499,34 @@
   "carRental.page.reservation.successBox.title": "✅ Reservation sent!",
   "carRental.page.reservation.successBox.bookingNumberLabel": "Booking number:",
   "carRental.page.reservation.successBox.contactWithin24h": "We will contact you within 24 hours to confirm availability and send the agreement.",
-  "carRental.page.reservation.successBox.checkEmailLabel": "Check email:"
+  "carRental.page.reservation.successBox.checkEmailLabel": "Check email:",
+  "account.close": {
+    "text": "✕",
+    "attributes": {
+      "aria-label": "Close account settings"
+    }
+  },
+  "auth.username": "Username",
+  "legal.termsLink": "Terms of Service",
+  "lightbox.alt": "Preview image",
+  "map.skipLink": "Skip the interactive map",
+  "map.skipTarget": "Map skipped. Continue to the location details below.",
+  "modal.form.tripDate": "Preferred trip date",
+  "modal.form.arrivalCyprus": "Arrival date in Cyprus *",
+  "modal.form.departureCyprus": "Departure date from Cyprus *",
+  "modal.form.hours": "Number of hours",
+  "modal.form.days": "Number of days",
+  "checkIn.status.accountUnavailable": "Could not connect to your account. Refresh and sign in to check in.",
+  "checkIn.status.loginForXp": "Sign in to collect XP for visited places.",
+  "checkIn.status.loginOrRegister": "Log in or create an account to collect XP.",
+  "checkIn.status.checking": "Checking your location…",
+  "checkIn.status.unsupported": "Your browser does not support geolocation. You can confirm your visit manually below.",
+  "checkIn.status.fallbackLocation": "Weak GPS signal, trying approximate location...",
+  "checkIn.status.error": "We could not obtain your location. Make sure you granted permission or confirm manually.",
+  "checkIn.status.invalidPoiLocation": "Invalid place location data. Try another place or refresh the page.",
+  "checkIn.status.saved": "Checked in successfully!",
+  "checkIn.status.success": "Great! You are exactly at the place.",
+  "checkIn.status.distance": "You are about {{distance}} km from the target. Check Google Maps for directions and confirm manually if you really are on site.",
+  "checkIn.status.unavailable": "Location unavailable (weak signal).",
+  "checkIn.status.timeout": "Location request timed out."
 }

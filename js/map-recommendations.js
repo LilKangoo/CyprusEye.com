@@ -262,10 +262,14 @@ function syncRecommendationMarkers(mapInstance) {
         marker.addTo(mapInstance);
       }
       
-      marker.bindPopup(popupContent, { 
-        maxWidth: 300,
-        className: 'recommendation-popup'
-      });
+      const popupOptions = typeof window.getMapPopupOptions === 'function'
+        ? window.getMapPopupOptions(300, { className: 'recommendation-popup' })
+        : {
+            maxWidth: 300,
+            className: 'recommendation-popup',
+          };
+
+      marker.bindPopup(popupContent, popupOptions);
 
       marker.on('click', () => {
         if (typeof window.setCurrentMapItem === 'function') {
