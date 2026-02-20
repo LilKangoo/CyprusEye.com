@@ -81,17 +81,7 @@
 }
 
 .map-filter-counter {
-  align-self: stretch;
-  border-radius: 10px;
-  border: 1px solid #d7e2ee;
-  background: #f8fbff;
-  color: #475569;
-  font-family: 'Jost', sans-serif;
-  font-size: 11px;
-  font-weight: 500;
-  line-height: 1.2;
-  padding: 6px 10px;
-  text-align: center;
+  display: none !important;
 }
 
 /* Remove old skip links visual clutter (keep accessible) */
@@ -449,8 +439,9 @@
     border-radius: 20px 20px 0 0; /* Rounded top corners only */
     box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.15);
     padding: 12px 14px 14px;
-    max-height: min(45vh, 360px);
-    overflow-y: auto;
+    max-height: none;
+    overflow: visible;
+    padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
     z-index: 1000;
     
     /* Ensure it sits above map */

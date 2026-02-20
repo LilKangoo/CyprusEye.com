@@ -361,13 +361,8 @@ try {
       buttonsWrap.appendChild(button);
     });
 
-    const counter = document.createElement('div');
-    counter.className = 'map-filter-counter';
-    counter.setAttribute('aria-live', 'polite');
-    mapMarkerFilterCounter = counter;
-
     mapMarkerFilterContainer.appendChild(buttonsWrap);
-    mapMarkerFilterContainer.appendChild(counter);
+    mapMarkerFilterCounter = null;
     updateMapMarkerFilterCounter();
   }
 
