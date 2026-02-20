@@ -34,10 +34,76 @@ let currentLightboxIndex = 0;
 
 // Default avatar (logo)
 const DEFAULT_AVATAR = '/assets/cyprus_logo-1000x1054.png';
+const COMMUNITY_SCROLL_LOCK_ATTR = 'data-community-scroll-lock';
 let scrollLockCount = 0;
 let savedBodyScrollStyles = null;
 let savedHtmlOverflow = '';
 let lockedScrollY = 0;
+let scrollLockObserver = null;
+
+function isElementOpen(el) {
+  if (!el) return false;
+  return !(el.hidden || el.hasAttribute('hidden'));
+}
+
+function hasActiveOverlay() {
+  const commentsModal = document.getElementById('commentsModal');
+  const lightbox = document.getElementById('photoLightbox');
+  return isElementOpen(commentsModal) || isElementOpen(lightbox);
+}
+
+function isCommunityScrollLockApplied() {
+  const body = document.body;
+  const html = document.documentElement;
+  if (!body || !html) return false;
+
+  return (
+    body.getAttribute(COMMUNITY_SCROLL_LOCK_ATTR) === '1' ||
+    html.getAttribute(COMMUNITY_SCROLL_LOCK_ATTR) === '1' ||
+    body.classList.contains('scroll-locked') ||
+    html.classList.contains('scroll-locked')
+  );
+}
+
+function restoreDocumentScrollState() {
+  const body = document.body;
+  const html = document.documentElement;
+  const restore = savedBodyScrollStyles || {};
+
+  body.style.position = restore.position || '';
+  body.style.top = restore.top || '';
+  body.style.left = restore.left || '';
+  body.style.right = restore.right || '';
+  body.style.width = restore.width || '';
+  body.style.overflow = restore.overflow || '';
+  html.style.overflow = savedHtmlOverflow || '';
+  body.classList.remove('scroll-locked');
+  html.classList.remove('scroll-locked');
+  body.removeAttribute(COMMUNITY_SCROLL_LOCK_ATTR);
+  html.removeAttribute(COMMUNITY_SCROLL_LOCK_ATTR);
+
+  const shouldRestoreScroll = Number.isFinite(lockedScrollY) && lockedScrollY >= 0;
+  if (shouldRestoreScroll) {
+    window.scrollTo(0, lockedScrollY);
+  }
+  savedBodyScrollStyles = null;
+  savedHtmlOverflow = '';
+}
+
+function forceUnlockDocumentScroll() {
+  while (scrollLockCount > 0) {
+    unlockDocumentScroll();
+  }
+  if (scrollLockCount === 0 && isCommunityScrollLockApplied()) {
+    restoreDocumentScrollState();
+  }
+}
+
+function syncScrollLockState() {
+  if (!hasActiveOverlay() && (scrollLockCount > 0 || isCommunityScrollLockApplied())) {
+    forceUnlockDocumentScroll();
+  }
+}
 
 function lockDocumentScroll() {
   if (scrollLockCount === 0) {
@@ -52,7 +118,6 @@ function lockDocumentScroll() {
       right: body.style.right || '',
       width: body.style.width || '',
       overflow: body.style.overflow || '',
-      touchAction: body.style.touchAction || '',
     };
     savedHtmlOverflow = html.style.overflow || '';
 
@@ -62,10 +127,11 @@ function lockDocumentScroll() {
     body.style.right = '0';
     body.style.width = '100%';
     body.style.overflow = 'hidden';
-    body.style.touchAction = 'none';
     html.style.overflow = 'hidden';
     body.classList.add('scroll-locked');
     html.classList.add('scroll-locked');
+    body.setAttribute(COMMUNITY_SCROLL_LOCK_ATTR, '1');
+    html.setAttribute(COMMUNITY_SCROLL_LOCK_ATTR, '1');
   }
 
   scrollLockCount += 1;
@@ -73,6 +139,9 @@ function lockDocumentScroll() {
 
 function unlockDocumentScroll() {
   if (scrollLockCount <= 0) {
+    if (!hasActiveOverlay() && isCommunityScrollLockApplied()) {
+      restoreDocumentScrollState();
+    }
     return;
   }
 
@@ -81,22 +150,27 @@ function unlockDocumentScroll() {
     return;
   }
 
-  const body = document.body;
-  const html = document.documentElement;
-  const restore = savedBodyScrollStyles || {};
+  restoreDocumentScrollState();
+}
 
-  body.style.position = restore.position || '';
-  body.style.top = restore.top || '';
-  body.style.left = restore.left || '';
-  body.style.right = restore.right || '';
-  body.style.width = restore.width || '';
-  body.style.overflow = restore.overflow || '';
-  body.style.touchAction = restore.touchAction || '';
-  html.style.overflow = savedHtmlOverflow || '';
-  body.classList.remove('scroll-locked');
-  html.classList.remove('scroll-locked');
+function initScrollLockObserver() {
+  if (scrollLockObserver) return;
 
-  window.scrollTo(0, lockedScrollY);
+  const commentsModal = document.getElementById('commentsModal');
+  const lightbox = document.getElementById('photoLightbox');
+  const targets = [commentsModal, lightbox].filter(Boolean);
+  if (!targets.length || typeof MutationObserver === 'undefined') return;
+
+  scrollLockObserver = new MutationObserver(() => {
+    window.requestAnimationFrame(syncScrollLockState);
+  });
+
+  targets.forEach((target) => {
+    scrollLockObserver.observe(target, {
+      attributes: true,
+      attributeFilter: ['hidden', 'style', 'class'],
+    });
+  });
 }
 
 // ===================================
@@ -133,6 +207,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSearch();
     initModal();
     initLightbox();
+    initScrollLockObserver();
+    syncScrollLockState();
+
+    // Safety net for intermittent mobile "stuck scroll" states.
+    window.addEventListener('pageshow', syncScrollLockState);
+    window.addEventListener('focus', syncScrollLockState);
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) syncScrollLockState();
+    });
+    document.addEventListener('pointerdown', () => {
+      window.requestAnimationFrame(syncScrollLockState);
+    }, { passive: true });
+    document.addEventListener('touchstart', () => {
+      window.requestAnimationFrame(syncScrollLockState);
+    }, { passive: true });
+
     initSavedCatalogBridge();
     renderPoisList();
     await syncSavedCatalogState();
@@ -1163,6 +1253,7 @@ function closeModal() {
   if (wasOpen) {
     unlockDocumentScroll();
   }
+  syncScrollLockState();
   currentPoiId = null;
   currentPoiIndex = -1;
   resetCommentForm();
@@ -1851,6 +1942,7 @@ function closeLightbox() {
       unlockDocumentScroll();
     }
   }
+  syncScrollLockState();
   lightboxPhotos = [];
   currentLightboxIndex = 0;
 }
@@ -1976,8 +2068,8 @@ function getUserLocationForMap(poi, poiLat, poiLng, distanceEl, distanceIcon, ch
         const userIcon = L.divIcon({
           className: 'user-location-marker-container',
           html: '<div class="user-location-pulse"></div><div class="user-location-marker"></div>',
-          iconSize: [20, 20],
-          iconAnchor: [10, 10]
+          iconSize: [28, 28],
+          iconAnchor: [14, 14]
         });
         
         userLocationMarker = L.marker([userLat, userLng], { icon: userIcon }).addTo(poiMiniMap);
