@@ -1641,6 +1641,71 @@ textarea:focus-visible {
    POI MINI MAP & CHECK-IN SECTION
    =================================== */
 
+.modal-poi-gallery-section {
+  padding: 1rem 1.5rem 1rem;
+  border-bottom: 1px solid var(--color-neutral-200);
+  background: linear-gradient(180deg, #f8fbff 0%, #ffffff 100%);
+}
+
+.modal-poi-gallery-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+
+.modal-poi-gallery-title {
+  margin: 0;
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--color-neutral-800);
+}
+
+.modal-poi-gallery-count {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--color-primary-700);
+  background: rgba(37, 99, 235, 0.1);
+  border-radius: 999px;
+  padding: 0.25rem 0.55rem;
+  white-space: nowrap;
+}
+
+.modal-poi-gallery-track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(110px, 140px);
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding-bottom: 0.25rem;
+  scroll-snap-type: x proximity;
+}
+
+.modal-poi-gallery-item {
+  border: 1px solid var(--color-neutral-200);
+  border-radius: 0.5rem;
+  padding: 0;
+  background: white;
+  cursor: pointer;
+  overflow: hidden;
+  min-height: 78px;
+  scroll-snap-align: start;
+}
+
+.modal-poi-gallery-item:focus-visible {
+  outline: 2px solid var(--color-primary-500);
+  outline-offset: 2px;
+}
+
+.modal-poi-gallery-item img {
+  width: 100%;
+  height: 100%;
+  min-height: 78px;
+  object-fit: cover;
+  display: block;
+}
+
 .modal-map-section {
   padding: 0 1.5rem 1rem;
   border-bottom: 1px solid var(--color-neutral-200);
@@ -1682,6 +1747,16 @@ textarea:focus-visible {
 .poi-distance {
   font-size: 0.95rem;
   color: var(--color-neutral-600);
+}
+
+@media (max-width: 768px) {
+  .modal-poi-gallery-section {
+    padding: 0.85rem 1rem 0.9rem;
+  }
+
+  .modal-poi-gallery-track {
+    grid-auto-columns: minmax(96px, 120px);
+  }
 }
 
 .poi-distance.near {

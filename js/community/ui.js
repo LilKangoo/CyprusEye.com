@@ -118,6 +118,8 @@ async function loadPoisData() {
         badgeFallback: p.badgeFallback,
         lat: p.lat,
         lng: p.lng,
+        main_image_url: p.main_image_url || p.image_url || p.cover_image_url || '',
+        photos: normalizePoiPhotos(p.photos),
         googleMapsUrl: p.googleMapsUrl || p.google_url || `https://maps.google.com/?q=${p.lat},${p.lng}`,
         xp: p.xp || 100,
         requiredLevel: p.requiredLevel || 1,
@@ -154,6 +156,8 @@ async function loadPoisData() {
         badgeFallback: p.badgeFallback,
         lat: parseFloat(p.lat) || 0,
         lng: parseFloat(p.lng || p.lon) || 0,
+        main_image_url: p.main_image_url || p.image_url || p.cover_image_url || '',
+        photos: normalizePoiPhotos(p.photos),
         googleMapsUrl: p.googleMapsUrl || `https://maps.google.com/?q=${p.lat},${p.lng || p.lon}`,
         xp: p.xp || 100,
         requiredLevel: p.requiredLevel || 1,
@@ -171,6 +175,34 @@ async function loadPoisData() {
     console.error('❌ Error loading POI data:', error);
     return false;
   }
+}
+
+function normalizePoiPhotos(rawPhotos) {
+  let photos = rawPhotos;
+
+  if (typeof photos === 'string') {
+    try {
+      photos = JSON.parse(photos);
+    } catch (_) {
+      photos = [];
+    }
+  }
+
+  if (!Array.isArray(photos)) {
+    return [];
+  }
+
+  return photos.map((url) => String(url || '').trim()).filter(Boolean);
+}
+
+function getPoiGalleryPhotos(poi) {
+  if (!poi || typeof poi !== 'object') return [];
+
+  const main = String(poi.main_image_url || '').trim();
+  const photos = normalizePoiPhotos(poi.photos);
+  const combined = main ? [main, ...photos] : [...photos];
+
+  return Array.from(new Set(combined.filter(Boolean)));
 }
 
 // ===================================
@@ -345,6 +377,7 @@ async function renderPoisList() {
     // Render POI cards without stats first (faster)
     let html = '';
     for (const poi of poisData) {
+      const basePhotoCount = getPoiGalleryPhotos(poi).length;
       html += `
         <div class="poi-card" data-poi-id="${poi.id}">
           <div class="poi-card-header">
@@ -362,7 +395,7 @@ async function renderPoisList() {
             </div>
             <div class="poi-stat">
               <span class="poi-stat-icon">📷</span>
-              <span id="photos-count-${poi.id}">${formatPhotoCount(0)}</span>
+              <span id="photos-count-${poi.id}">${formatPhotoCount(basePhotoCount)}</span>
             </div>
           </div>
           
@@ -435,14 +468,14 @@ async function loadPoisStats(pois) {
         .select('id')
         .eq('poi_id', poi.id);
 
-      let photoCount = 0;
+      let photoCount = getPoiGalleryPhotos(poi).length;
       if (comments && comments.length > 0) {
         const commentIds = comments.map(c => c.id);
         const { count } = await sb
           .from('poi_comment_photos')
           .select('*', { count: 'exact', head: true })
           .in('comment_id', commentIds);
-        photoCount = count || 0;
+        photoCount += count || 0;
       }
 
       // Update UI
@@ -739,6 +772,7 @@ window.openPoiComments = async function(poiId) {
   // Update modal title
   document.getElementById('commentsModalTitle').textContent = poiName;
   document.getElementById('commentsModalLocation').textContent = `📍 ${poiDesc}`;
+  renderPoiGallerySection(poi, poiName);
 
   // Update navigation buttons
   updateNavigationButtons();
@@ -763,6 +797,52 @@ window.openPoiComments = async function(poiId) {
   // Load comments
   await loadAndRenderComments(poiId);
 };
+
+function renderPoiGallerySection(poi, poiName = '') {
+  const gallerySection = document.getElementById('modalPoiGallerySection');
+  const galleryTrack = document.getElementById('modalPoiGalleryTrack');
+  const galleryCount = document.getElementById('modalPoiGalleryCount');
+
+  if (!gallerySection || !galleryTrack || !galleryCount) {
+    return;
+  }
+
+  const galleryPhotos = getPoiGalleryPhotos(poi);
+  galleryCount.textContent = formatPhotoCount(galleryPhotos.length);
+
+  if (!galleryPhotos.length) {
+    galleryTrack.innerHTML = '';
+    gallerySection.hidden = true;
+    return;
+  }
+
+  galleryTrack.innerHTML = '';
+  const fallbackName = poiName || t('community.gallery.title');
+
+  galleryPhotos.forEach((photoUrl, index) => {
+    const itemBtn = document.createElement('button');
+    itemBtn.type = 'button';
+    itemBtn.className = 'modal-poi-gallery-item';
+    itemBtn.setAttribute('aria-label', t('community.gallery.openPhoto', { index: index + 1 }));
+
+    const imageEl = document.createElement('img');
+    imageEl.src = photoUrl;
+    imageEl.alt = `${fallbackName} ${index + 1}`;
+    imageEl.loading = 'lazy';
+    imageEl.decoding = 'async';
+
+    itemBtn.appendChild(imageEl);
+    itemBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      window.openLightbox(galleryPhotos, index);
+    });
+
+    galleryTrack.appendChild(itemBtn);
+  });
+
+  gallerySection.hidden = false;
+}
 
 // ===================================
 // LOAD AND RENDER RATING
@@ -885,6 +965,13 @@ function closeModal() {
   currentPoiId = null;
   currentPoiIndex = -1;
   resetCommentForm();
+
+  const gallerySection = document.getElementById('modalPoiGallerySection');
+  const galleryTrack = document.getElementById('modalPoiGalleryTrack');
+  const galleryCount = document.getElementById('modalPoiGalleryCount');
+  if (galleryTrack) galleryTrack.innerHTML = '';
+  if (galleryCount) galleryCount.textContent = formatPhotoCount(0);
+  if (gallerySection) gallerySection.hidden = true;
   
   // Cleanup mini-map to prevent memory leaks
   cleanupPoiMiniMap();

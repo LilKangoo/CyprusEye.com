@@ -1756,6 +1756,8 @@
   "community.comment.sendingPhotos": "Wysyłanie zdjęć...",
   "community.comment.refreshing": "Odświeżanie...",
   "community.viewComments": "Zobacz komentarze",
+  "community.gallery.title": "Zdjęcia miejsca",
+  "community.gallery.openPhoto": "Otwórz zdjęcie {{index}}",
   "community.rating.title": "Oceń to miejsce",
   "community.rating.prompt": "Kliknij na gwiazdki aby ocenić",
   "community.rating.yourRating": "Twoja ocena: {{rating}}★",

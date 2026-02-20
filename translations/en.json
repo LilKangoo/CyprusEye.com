@@ -44,6 +44,10 @@
       "submit": "Publish"
     },
     "viewComments": "View comments",
+    "gallery": {
+      "title": "Place photos",
+      "openPhoto": "Open photo {{index}}"
+    },
     "rating": {
       "title": "Rate this place",
       "prompt": "Click on stars to rate",
