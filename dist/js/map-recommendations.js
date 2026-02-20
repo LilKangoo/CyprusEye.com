@@ -677,21 +677,16 @@ window.showRecommendationPromoCode = async function(id, code) {
     return false;
   }
 
-  const revealed = revealRecommendationPromoCode(normalizedId, promoCode);
-  if (revealed) {
-    return true;
-  }
-
   const session = await getAuthSessionSnapshot();
   const isLoggedIn = !!(session && session.user);
-  if (isLoggedIn) {
-    return revealRecommendationPromoCode(normalizedId, promoCode);
+  if (!isLoggedIn) {
+    ensurePromoAuthStateListener();
+    pendingPromoReveal = { id: normalizedId, code: promoCode };
+    openAuthLoginGate();
+    return false;
   }
 
-  ensurePromoAuthStateListener();
-  pendingPromoReveal = { id: normalizedId, code: promoCode };
-  openAuthLoginGate();
-  return false;
+  return revealRecommendationPromoCode(normalizedId, promoCode);
 };
 
 // ============================================================================
