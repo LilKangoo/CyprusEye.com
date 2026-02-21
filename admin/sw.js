@@ -1,4 +1,4 @@
-const CACHE_VERSION = '20260221_3';
+const CACHE_VERSION = '20260221_4';
 const CACHE_PREFIX = 'ce-admin-pwa-';
 const CACHE_NAME = `${CACHE_PREFIX}${CACHE_VERSION}`;
 

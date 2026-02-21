@@ -28,7 +28,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260221_3" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260221_4" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
@@ -40,8 +40,8 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260221_3"></script>
-  <script src="/admin/admin-pwa.js?v=20260221_3" defer></script>
+  <script type="module" src="/admin/admin.js?v=20260221_4"></script>
+  <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
   
@@ -649,28 +649,39 @@
           <div class="admin-modal-body hotel-modal-body">
             <form id="editHotelForm" class="hotel-admin-form" novalidate>
               <input type="hidden" id="editHotelId" />
-              <div class="admin-form-grid hotel-form-grid">
-                <label class="admin-form-field">
-                  <span>Slug (read-only)</span>
-                  <input type="text" id="editHotelSlug" class="admin-input-readonly" readonly />
-                </label>
-                <div class="admin-form-field">
-                  <span>City</span>
-                  <div class="hotel-city-field-row">
-                    <select name="city" id="editHotelCity" class="hotel-city-select" required></select>
-                    <button type="button" class="btn-add-city" onclick="openAddCityModal()" title="Add new city">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                      </svg>
-                    </button>
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
+                  <h4>Basics</h4>
+                  <p>Core setup and localized title.</p>
+                </header>
+                <div class="admin-form-grid hotel-form-grid">
+                  <label class="admin-form-field">
+                    <span>Slug (read-only)</span>
+                    <input type="text" id="editHotelSlug" class="admin-input-readonly" readonly />
+                  </label>
+                  <div class="admin-form-field">
+                    <span>City</span>
+                    <div class="hotel-city-field-row">
+                      <select name="city" id="editHotelCity" class="hotel-city-select" required></select>
+                      <button type="button" class="btn-add-city" onclick="openAddCityModal()" title="Add new city">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="admin-form-field hotel-field-full">
+                    <label>Title (Multilingual)</label>
+                    <div id="editHotelTitleI18n"></div>
                   </div>
                 </div>
-                <!-- Hotel Title (i18n) -->
-                <div class="admin-form-field hotel-field-full">
-                  <label>Title (Multilingual)</label>
-                  <div id="editHotelTitleI18n"></div>
-                </div>
-                <!-- Cover Image Manager -->
+              </section>
+
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
+                  <h4>Media</h4>
+                  <p>Cover and gallery photos shown to customers.</p>
+                </header>
                 <div class="admin-form-field hotel-field-full">
                   <span class="hotel-section-title">Cover image</span>
                   <div class="cover-image-manager">
@@ -678,10 +689,10 @@
                       <img id="editHotelCoverPreviewImg" src="" alt="Cover preview">
                       <div class="cover-actions">
                         <label class="btn-secondary btn-sm hotel-upload-label">
-                          📤 Upload
+                          Upload
                           <input type="file" id="editHotelCoverFile" accept="image/*" hidden>
                         </label>
-                        <button type="button" class="btn-secondary btn-sm btn-danger" onclick="removeCoverImage('edit')">🗑️ Remove</button>
+                        <button type="button" class="btn-secondary btn-sm btn-danger" onclick="removeCoverImage('edit')">Remove</button>
                       </div>
                     </div>
                     <div class="cover-url-fallback">
@@ -690,34 +701,48 @@
                     </div>
                   </div>
                 </div>
-                <!-- Gallery Photos Manager -->
                 <div class="admin-form-field hotel-field-full">
                   <div class="photos-header">
-                    <span>📷 Gallery Photos (<span id="editHotelPhotosCount">0</span>/10)</span>
+                    <span>Gallery Photos (<span id="editHotelPhotosCount">0</span>/10)</span>
                     <label class="btn-secondary btn-sm hotel-upload-label">
-                      ➕ Add Photos
+                      Add photos
                       <input type="file" id="editHotelPhotosAdd" accept="image/*" multiple hidden>
                     </label>
                   </div>
                   <div class="photos-manager-grid" id="editHotelPhotosManager"></div>
                 </div>
-                <!-- Hotel Description (i18n) -->
+              </section>
+
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
+                  <h4>Content</h4>
+                  <p>Localized text visible on hotel details pages.</p>
+                </header>
                 <div class="admin-form-field hotel-field-full">
                   <label>Description (Multilingual)</label>
                   <div id="editHotelDescriptionI18n"></div>
                 </div>
-                <label class="admin-form-field">
-                  <span>Pricing Model</span>
-                  <select name="pricing_model" id="editHotelPricing">
-                    <option value="per_person_per_night">Per person per night (standard)</option>
-                    <option value="tiered_by_nights">Tiered by nights (discount for longer stays)</option>
-                    <option value="flat_per_night">Flat per night (apartment/villa)</option>
-                  </select>
-                </label>
-                <label class="admin-form-field">
-                  <span>Max persons (limit)</span>
-                  <input type="number" min="1" id="editHotelMaxPersons" placeholder="e.g. 6" />
-                </label>
+              </section>
+
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
+                  <h4>Pricing</h4>
+                  <p>Pricing model, capacity and tier rules.</p>
+                </header>
+                <div class="admin-form-grid hotel-form-grid">
+                  <label class="admin-form-field">
+                    <span>Pricing Model</span>
+                    <select name="pricing_model" id="editHotelPricing">
+                      <option value="per_person_per_night">Per person per night (standard)</option>
+                      <option value="tiered_by_nights">Tiered by nights (discount for longer stays)</option>
+                      <option value="flat_per_night">Flat per night (apartment/villa)</option>
+                    </select>
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Max persons (limit)</span>
+                    <input type="number" min="1" id="editHotelMaxPersons" placeholder="e.g. 6" />
+                  </label>
+                </div>
                 <div class="admin-form-field hotel-field-full">
                   <span>Pricing Tiers (per night)</span>
                   <div class="hotel-pricing-tiers-wrap">
@@ -737,7 +762,13 @@
                     <button type="button" class="btn-secondary hotel-add-tier-btn" id="btnAddEditHotelTier">Add tier</button>
                   </div>
                 </div>
-                <!-- Amenities Section -->
+              </section>
+
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
+                  <h4>Amenities</h4>
+                  <p>Select amenities and order visibility preferences.</p>
+                </header>
                 <div class="admin-form-field hotel-field-full">
                   <div class="hotel-amenities-header">
                     <span class="hotel-section-title">Amenities</span>
@@ -747,13 +778,16 @@
                     <div class="table-loading">Loading amenities...</div>
                   </div>
                 </div>
+              </section>
+
+              <section class="hotel-form-section hotel-form-section--compact">
                 <label class="admin-form-field hotel-field-full">
                   <span class="hotel-publish-toggle">
                     <input type="checkbox" name="is_published" id="editHotelPublished" />
                     Published (visible to customers)
                   </span>
                 </label>
-              </div>
+              </section>
               <div class="admin-modal-actions">
                 <button type="button" class="btn-secondary" onclick="document.getElementById('editHotelModal').hidden=true">Cancel</button>
                 <button type="submit" class="btn-primary">Save Changes</button>
@@ -773,24 +807,35 @@
           </header>
           <div class="admin-modal-body hotel-modal-body">
             <form id="newHotelForm" class="hotel-admin-form" novalidate>
-              <div class="admin-form-grid hotel-form-grid">
-                <div class="admin-form-field">
-                  <span>City</span>
-                  <div class="hotel-city-field-row">
-                    <select name="city" id="newHotelCity" class="hotel-city-select" required></select>
-                    <button type="button" class="btn-add-city" onclick="openAddCityModal()" title="Add new city">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
-                      </svg>
-                    </button>
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
+                  <h4>Basics</h4>
+                  <p>Core setup and localized title.</p>
+                </header>
+                <div class="admin-form-grid hotel-form-grid">
+                  <div class="admin-form-field">
+                    <span>City</span>
+                    <div class="hotel-city-field-row">
+                      <select name="city" id="newHotelCity" class="hotel-city-select" required></select>
+                      <button type="button" class="btn-add-city" onclick="openAddCityModal()" title="Add new city">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                          <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="admin-form-field hotel-field-full">
+                    <label>Title (Multilingual)</label>
+                    <div id="newHotelTitleI18n"></div>
                   </div>
                 </div>
-                <!-- Hotel Title (i18n) -->
-                <div class="admin-form-field hotel-field-full">
-                  <label>Title (Multilingual)</label>
-                  <div id="newHotelTitleI18n"></div>
-                </div>
-                <!-- Cover Image Manager -->
+              </section>
+
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
+                  <h4>Media</h4>
+                  <p>Cover and gallery photos shown to customers.</p>
+                </header>
                 <div class="admin-form-field hotel-field-full">
                   <span class="hotel-section-title">Cover image</span>
                   <div class="cover-image-manager">
@@ -798,10 +843,10 @@
                       <img id="newHotelCoverPreviewImg" src="" alt="Cover preview">
                       <div class="cover-actions">
                         <label class="btn-secondary btn-sm hotel-upload-label">
-                          📤 Upload
+                          Upload
                           <input type="file" id="newHotelCoverFile" accept="image/*" hidden>
                         </label>
-                        <button type="button" class="btn-secondary btn-sm btn-danger" onclick="removeCoverImage('new')">🗑️ Remove</button>
+                        <button type="button" class="btn-secondary btn-sm btn-danger" onclick="removeCoverImage('new')">Remove</button>
                       </div>
                     </div>
                     <div class="cover-url-fallback">
@@ -810,34 +855,48 @@
                     </div>
                   </div>
                 </div>
-                <!-- Gallery Photos Manager -->
                 <div class="admin-form-field hotel-field-full">
                   <div class="photos-header">
-                    <span>📷 Gallery Photos (<span id="newHotelPhotosCount">0</span>/10)</span>
+                    <span>Gallery Photos (<span id="newHotelPhotosCount">0</span>/10)</span>
                     <label class="btn-secondary btn-sm hotel-upload-label">
-                      ➕ Add Photos
+                      Add photos
                       <input type="file" id="newHotelPhotosAdd" accept="image/*" multiple hidden>
                     </label>
                   </div>
                   <div class="photos-manager-grid" id="newHotelPhotosManager"></div>
                 </div>
-                <!-- Hotel Description (i18n) -->
+              </section>
+
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
+                  <h4>Content</h4>
+                  <p>Localized text visible on hotel details pages.</p>
+                </header>
                 <div class="admin-form-field hotel-field-full">
                   <label>Description (Multilingual)</label>
                   <div id="newHotelDescriptionI18n"></div>
                 </div>
-                <label class="admin-form-field">
-                  <span>Pricing Model</span>
-                  <select name="pricing_model" id="newHotelPricing">
-                    <option value="per_person_per_night">Per person per night (standard)</option>
-                    <option value="tiered_by_nights">Tiered by nights (discount for longer stays)</option>
-                    <option value="flat_per_night">Flat per night (apartment/villa)</option>
-                  </select>
-                </label>
-                <label class="admin-form-field">
-                  <span>Max persons (limit)</span>
-                  <input type="number" min="1" id="newHotelMaxPersons" placeholder="e.g. 6" />
-                </label>
+              </section>
+
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
+                  <h4>Pricing</h4>
+                  <p>Pricing model, capacity and tier rules.</p>
+                </header>
+                <div class="admin-form-grid hotel-form-grid">
+                  <label class="admin-form-field">
+                    <span>Pricing Model</span>
+                    <select name="pricing_model" id="newHotelPricing">
+                      <option value="per_person_per_night">Per person per night (standard)</option>
+                      <option value="tiered_by_nights">Tiered by nights (discount for longer stays)</option>
+                      <option value="flat_per_night">Flat per night (apartment/villa)</option>
+                    </select>
+                  </label>
+                  <label class="admin-form-field">
+                    <span>Max persons (limit)</span>
+                    <input type="number" min="1" id="newHotelMaxPersons" placeholder="e.g. 6" />
+                  </label>
+                </div>
                 <div class="admin-form-field hotel-field-full">
                   <span>Pricing Tiers (per night)</span>
                   <div class="hotel-pricing-tiers-wrap">
@@ -857,7 +916,13 @@
                     <button type="button" class="btn-secondary hotel-add-tier-btn" id="btnAddNewHotelTier">Add tier</button>
                   </div>
                 </div>
-                <!-- Amenities Section -->
+              </section>
+
+              <section class="hotel-form-section">
+                <header class="hotel-form-section-head">
+                  <h4>Amenities</h4>
+                  <p>Select amenities and order visibility preferences.</p>
+                </header>
                 <div class="admin-form-field hotel-field-full">
                   <div class="hotel-amenities-header">
                     <span class="hotel-section-title">Amenities</span>
@@ -867,7 +932,7 @@
                     <div class="table-loading">Loading amenities...</div>
                   </div>
                 </div>
-              </div>
+              </section>
               <div class="admin-modal-actions">
                 <button type="submit" class="btn-primary">Create</button>
                 <button type="button" class="btn-secondary" onclick="document.getElementById('newHotelModal').hidden=true">Cancel</button>

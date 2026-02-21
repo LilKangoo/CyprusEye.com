@@ -3461,20 +3461,88 @@ select#orderStatusFilter:focus {
 .hotel-modal-content {
   width: min(95vw, 920px);
   max-width: 920px;
+  max-height: min(92dvh, 980px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: 16px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(9, 17, 33, 0.96));
+  box-shadow: 0 26px 56px rgba(2, 6, 23, 0.52);
 }
 
 .hotel-modal-body {
-  padding: 20px 24px;
+  flex: 1;
+  min-height: 0;
+  padding: 20px 24px 18px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }
 
 .hotel-admin-form {
   width: 100%;
   max-width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .hotel-admin-form .lang-tabs {
   flex-wrap: wrap;
   overflow: visible;
+}
+
+.hotel-form-section {
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 14px;
+  background: rgba(15, 23, 42, 0.42);
+  padding: 14px;
+}
+
+.hotel-form-section--compact {
+  padding-top: 12px;
+  padding-bottom: 12px;
+}
+
+.hotel-form-section-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-bottom: 10px;
+}
+
+.hotel-form-section-head h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--admin-text);
+}
+
+.hotel-form-section-head p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--admin-text-muted);
+}
+
+#editHotelModal .admin-modal-header,
+#newHotelModal .admin-modal-header {
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.88));
+  border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+}
+
+#editHotelModal .admin-modal-actions,
+#newHotelModal .admin-modal-actions {
+  position: sticky;
+  bottom: 0;
+  z-index: 4;
+  margin-top: 0;
+  padding: 14px 0 0;
+  background: linear-gradient(180deg, rgba(15, 23, 42, 0), rgba(15, 23, 42, 0.95) 36%);
+  border-top: 1px solid rgba(148, 163, 184, 0.22);
+  backdrop-filter: blur(8px);
 }
 
 .hotel-field-full {
@@ -3514,10 +3582,16 @@ select#orderStatusFilter:focus {
   display: flex;
   flex-direction: column;
   gap: 10px;
+  overflow-x: auto;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 10px;
+  padding: 10px;
+  background: rgba(15, 23, 42, 0.35);
 }
 
 .hotel-pricing-tiers-wrap .admin-table {
   margin: 0;
+  min-width: 560px;
 }
 
 .hotel-add-tier-btn {
@@ -3690,6 +3764,13 @@ select#orderStatusFilter:focus {
 }
 
 @media (max-width: 768px) {
+  #editHotelModal,
+  #newHotelModal {
+    align-items: flex-start;
+    padding: 6px;
+    overflow-y: auto;
+  }
+
   .hotels-subtabs {
     margin-bottom: 14px;
     overflow-x: auto;
@@ -3718,17 +3799,44 @@ select#orderStatusFilter:focus {
 
   .hotel-modal-content {
     width: 100% !important;
-    max-width: calc(100vw - 20px) !important;
+    max-width: 100% !important;
+    max-height: calc(100dvh - 12px);
+    border-radius: 14px;
   }
 
   .hotel-modal-body {
-    padding: 14px 16px;
+    padding: 12px 12px max(12px, env(safe-area-inset-bottom));
+  }
+
+  #editHotelModal .admin-modal-header,
+  #newHotelModal .admin-modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding: max(12px, env(safe-area-inset-top)) 14px 12px;
   }
 
   .hotel-admin-form .lang-tabs {
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+  }
+
+  .hotel-admin-form {
+    gap: 12px;
+  }
+
+  .hotel-form-section {
+    padding: 12px;
+    border-radius: 12px;
+  }
+
+  .hotel-form-section-head h4 {
+    font-size: 14px;
+  }
+
+  .hotel-form-section-head p {
+    font-size: 11px;
   }
 
   .hotel-city-field-row {
@@ -3781,13 +3889,13 @@ select#orderStatusFilter:focus {
   }
 
   .hotel-pricing-tiers-wrap {
-    overflow-x: visible;
+    overflow-x: auto;
   }
 
   .hotel-pricing-tiers-wrap .admin-table {
     display: table;
-    min-width: 0;
-    width: 100%;
+    min-width: 520px;
+    width: max(100%, 520px);
     border-collapse: collapse;
   }
 
@@ -3840,6 +3948,12 @@ select#orderStatusFilter:focus {
 
   .hotel-modal-body {
     padding: 12px 12px 14px;
+  }
+
+  #editHotelModal .admin-modal-header,
+  #newHotelModal .admin-modal-header {
+    padding-left: 12px;
+    padding-right: 12px;
   }
 }
 
