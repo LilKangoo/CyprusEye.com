@@ -28,7 +28,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260221_2" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260221_3" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
@@ -40,8 +40,8 @@
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260221_2"></script>
-  <script src="/admin/admin-pwa.js?v=20260221_2" defer></script>
+  <script type="module" src="/admin/admin.js?v=20260221_3"></script>
+  <script src="/admin/admin-pwa.js?v=20260221_3" defer></script>
 </head>
 <body data-admin-panel="true">
   
@@ -640,12 +640,13 @@
 
       <!-- Edit Hotel Modal -->
       <div class="admin-modal" id="editHotelModal" hidden>
-        <div class="admin-modal-dialog hotel-edit-modal-dialog">
+        <div class="admin-modal-overlay" onclick="document.getElementById('editHotelModal').hidden=true"></div>
+        <div class="admin-modal-content hotel-modal-content" style="max-width: 920px;">
           <header class="admin-modal-header">
             <h3>Edit Hotel</h3>
             <button type="button" class="admin-modal-close" onclick="document.getElementById('editHotelModal').hidden=true">✕</button>
           </header>
-          <div class="admin-modal-content">
+          <div class="admin-modal-body hotel-modal-body">
             <form id="editHotelForm" class="hotel-admin-form" novalidate>
               <input type="hidden" id="editHotelId" />
               <div class="admin-form-grid hotel-form-grid">
@@ -764,12 +765,13 @@
 
       <!-- New Hotel Modal -->
       <div class="admin-modal" id="newHotelModal" hidden>
-        <div class="admin-modal-dialog hotel-new-modal-dialog">
+        <div class="admin-modal-overlay" onclick="document.getElementById('newHotelModal').hidden=true"></div>
+        <div class="admin-modal-content hotel-modal-content" style="max-width: 920px;">
           <header class="admin-modal-header">
             <h3>Create New Hotel</h3>
             <button type="button" class="admin-modal-close" onclick="document.getElementById('newHotelModal').hidden=true">✕</button>
           </header>
-          <div class="admin-modal-content">
+          <div class="admin-modal-body hotel-modal-body">
             <form id="newHotelForm" class="hotel-admin-form" novalidate>
               <div class="admin-form-grid hotel-form-grid">
                 <div class="admin-form-field">

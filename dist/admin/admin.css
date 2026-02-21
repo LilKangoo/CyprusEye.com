@@ -3458,28 +3458,13 @@ select#orderStatusFilter:focus {
   max-width: 760px;
 }
 
-.hotel-edit-modal-dialog,
-.hotel-new-modal-dialog {
-  max-width: 960px;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
+.hotel-modal-content {
+  width: min(95vw, 920px);
+  max-width: 920px;
 }
 
-.hotel-edit-modal-dialog > .admin-modal-content,
-.hotel-new-modal-dialog > .admin-modal-content {
-  flex: 1;
-  min-height: 0;
-  max-width: 100%;
-  max-height: none;
-  overflow-y: auto;
-  overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
-  border: 0;
-  border-radius: 0;
-  box-shadow: none;
-  background: transparent;
-  padding: 0 20px 20px;
+.hotel-modal-body {
+  padding: 20px 24px;
 }
 
 .hotel-admin-form {
@@ -3705,14 +3690,6 @@ select#orderStatusFilter:focus {
 }
 
 @media (max-width: 768px) {
-  #editHotelModal,
-  #newHotelModal {
-    padding: 0;
-    align-items: stretch;
-    justify-content: stretch;
-    overflow: hidden;
-  }
-
   .hotels-subtabs {
     margin-bottom: 14px;
     overflow-x: auto;
@@ -3739,28 +3716,13 @@ select#orderStatusFilter:focus {
     font-size: 22px;
   }
 
-  .hotel-edit-modal-dialog,
-  .hotel-new-modal-dialog {
-    width: 100%;
-    max-width: 100%;
-    height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-    margin: 0;
-    border-radius: 0;
+  .hotel-modal-content {
+    width: 100% !important;
+    max-width: calc(100vw - 20px) !important;
   }
 
-  .hotel-edit-modal-dialog > .admin-modal-content,
-  .hotel-new-modal-dialog > .admin-modal-content {
-    padding: 0 14px max(16px, env(safe-area-inset-bottom));
-  }
-
-  .hotel-edit-modal-dialog .admin-modal-header,
-  .hotel-new-modal-dialog .admin-modal-header {
-    position: sticky;
-    top: 0;
-    z-index: 3;
-    background: var(--admin-bg-light);
-    padding-top: max(14px, env(safe-area-inset-top));
+  .hotel-modal-body {
+    padding: 14px 16px;
   }
 
   .hotel-admin-form .lang-tabs {
@@ -3871,26 +3833,13 @@ select#orderStatusFilter:focus {
     grid-template-columns: 1fr;
   }
 
-  .hotel-edit-modal-dialog,
-  .hotel-new-modal-dialog {
-    height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-  }
-
   .hotel-city-field-row {
     flex-direction: column;
     align-items: stretch;
   }
 
-  .hotel-edit-modal-dialog > .admin-modal-content,
-  .hotel-new-modal-dialog > .admin-modal-content {
-    padding: 0 10px max(14px, env(safe-area-inset-bottom));
-  }
-
-  .hotel-edit-modal-dialog .admin-modal-header,
-  .hotel-new-modal-dialog .admin-modal-header {
-    padding-left: 12px;
-    padding-right: 12px;
+  .hotel-modal-body {
+    padding: 12px 12px 14px;
   }
 }
 
