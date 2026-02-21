@@ -8210,30 +8210,30 @@ async function loadHotelsAdminData() {
       const sortOrder = typeof h.sort_order === 'number' ? h.sort_order : (index + 1);
       return `
         <tr>
-          <td>
-            <div style="font-weight:600">${escapeHtml(title)}</div>
+          <td data-label="Hotel">
+            <div class="hotel-table-title">${escapeHtml(title)}</div>
           </td>
-          <td>
-            <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
-              <span style="font-size:11px;color:var(--admin-text-muted);">#${index + 1}</span>
-              <div style="display:flex;flex-direction:column;gap:2px;">
-                <button type="button" title="Move up" onclick="moveHotelOrder('${h.id}','up')" style="border:1px solid var(--admin-border);background:var(--admin-bg-secondary);color:var(--admin-text);border-radius:4px;padding:0 4px;font-size:10px;line-height:14px;">▲</button>
-                <button type="button" title="Move down" onclick="moveHotelOrder('${h.id}','down')" style="border:1px solid var(--admin-border);background:var(--admin-bg-secondary);color:var(--admin-text);border-radius:4px;padding:0 4px;font-size:10px;line-height:14px;">▼</button>
+          <td data-label="Order">
+            <div class="hotel-order-cell">
+              <span class="hotel-order-index">#${index + 1}</span>
+              <div class="hotel-order-controls">
+                <button type="button" class="hotel-order-btn" title="Move up" onclick="moveHotelOrder('${h.id}','up')">▲</button>
+                <button type="button" class="hotel-order-btn" title="Move down" onclick="moveHotelOrder('${h.id}','down')">▼</button>
               </div>
-              <span style="font-size:10px;color:var(--admin-text-muted);">${sortOrder}</span>
+              <span class="hotel-order-value">${sortOrder}</span>
             </div>
           </td>
-          <td>${escapeHtml(h.slug || '')}</td>
-          <td>${escapeHtml(h.city || '')}</td>
-          <td>${escapeHtml(priceSummary)}</td>
-          <td>
+          <td data-label="Slug">${escapeHtml(h.slug || '')}</td>
+          <td data-label="City">${escapeHtml(h.city || '')}</td>
+          <td data-label="Price">${escapeHtml(priceSummary)}</td>
+          <td data-label="Published">
             <label class="admin-switch" title="Toggle publish">
               <input type="checkbox" ${h.is_published ? 'checked' : ''} onchange="toggleHotelPublish('${h.id}', this.checked)">
               <span></span>
             </label>
           </td>
-          <td>${updated}</td>
-          <td style="display:flex;gap:8px;">
+          <td data-label="Updated">${updated}</td>
+          <td data-label="Actions" class="hotel-table-actions">
             <button class="btn-primary" onclick="editHotel('${h.id}')">Edit</button>
             <a class="btn-secondary" href="/hotel.html?slug=${encodeURIComponent(h.slug)}" target="_blank">Preview</a>
             <button class="btn-danger" onclick="deleteHotelResource('${h.id}', '${escapeHtml(String(title)).replace(/'/g, "\\'")}')">Delete</button>
@@ -20559,12 +20559,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
       hotelsTabButtons.forEach(btn => {
         btn.classList.remove('active');
-        btn.style.borderBottomColor = 'transparent';
-        btn.style.color = 'var(--admin-text-muted)';
       });
       this.classList.add('active');
-      this.style.borderBottomColor = 'var(--admin-primary)';
-      this.style.color = 'var(--admin-text)';
 
       document.getElementById('hotelsTabHotels').hidden = (tab !== 'hotels');
       document.getElementById('hotelsTabBookings').hidden = (tab !== 'bookings');
