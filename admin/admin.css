@@ -3461,13 +3461,20 @@ select#orderStatusFilter:focus {
 .hotel-edit-modal-dialog,
 .hotel-new-modal-dialog {
   max-width: 960px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
 }
 
 .hotel-edit-modal-dialog > .admin-modal-content,
 .hotel-new-modal-dialog > .admin-modal-content {
+  flex: 1;
+  min-height: 0;
   max-width: 100%;
   max-height: none;
-  overflow: visible;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   border: 0;
   border-radius: 0;
   box-shadow: none;
@@ -3698,6 +3705,14 @@ select#orderStatusFilter:focus {
 }
 
 @media (max-width: 768px) {
+  #editHotelModal,
+  #newHotelModal {
+    padding: 0;
+    align-items: stretch;
+    justify-content: stretch;
+    overflow: hidden;
+  }
+
   .hotels-subtabs {
     margin-bottom: 14px;
     overflow-x: auto;
@@ -3726,14 +3741,26 @@ select#orderStatusFilter:focus {
 
   .hotel-edit-modal-dialog,
   .hotel-new-modal-dialog {
-    width: min(100%, 860px);
+    width: 100%;
     max-width: 100%;
-    max-height: calc(100dvh - 20px);
+    height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    margin: 0;
+    border-radius: 0;
   }
 
   .hotel-edit-modal-dialog > .admin-modal-content,
   .hotel-new-modal-dialog > .admin-modal-content {
-    padding: 0 14px 14px;
+    padding: 0 14px max(16px, env(safe-area-inset-bottom));
+  }
+
+  .hotel-edit-modal-dialog .admin-modal-header,
+  .hotel-new-modal-dialog .admin-modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 3;
+    background: var(--admin-bg-light);
+    padding-top: max(14px, env(safe-area-inset-top));
   }
 
   .hotel-admin-form .lang-tabs {
@@ -3846,8 +3873,8 @@ select#orderStatusFilter:focus {
 
   .hotel-edit-modal-dialog,
   .hotel-new-modal-dialog {
-    width: 100%;
-    max-height: calc(100dvh - 12px);
+    height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    max-height: calc(100dvh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
   }
 
   .hotel-city-field-row {
@@ -3857,7 +3884,13 @@ select#orderStatusFilter:focus {
 
   .hotel-edit-modal-dialog > .admin-modal-content,
   .hotel-new-modal-dialog > .admin-modal-content {
-    padding: 0 10px 12px;
+    padding: 0 10px max(14px, env(safe-area-inset-bottom));
+  }
+
+  .hotel-edit-modal-dialog .admin-modal-header,
+  .hotel-new-modal-dialog .admin-modal-header {
+    padding-left: 12px;
+    padding-right: 12px;
   }
 }
 
