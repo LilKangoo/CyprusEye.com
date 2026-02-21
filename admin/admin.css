@@ -3463,6 +3463,28 @@ select#orderStatusFilter:focus {
   max-width: 960px;
 }
 
+.hotel-edit-modal-dialog > .admin-modal-content,
+.hotel-new-modal-dialog > .admin-modal-content {
+  max-width: 100%;
+  max-height: none;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 0 20px 20px;
+}
+
+.hotel-admin-form {
+  width: 100%;
+  max-width: 100%;
+}
+
+.hotel-admin-form .lang-tabs {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
 .hotel-field-full {
   grid-column: 1 / -1;
 }
@@ -3702,6 +3724,24 @@ select#orderStatusFilter:focus {
     font-size: 22px;
   }
 
+  .hotel-edit-modal-dialog,
+  .hotel-new-modal-dialog {
+    width: min(100%, 860px);
+    max-width: 100%;
+    max-height: calc(100dvh - 20px);
+  }
+
+  .hotel-edit-modal-dialog > .admin-modal-content,
+  .hotel-new-modal-dialog > .admin-modal-content {
+    padding: 0 14px 14px;
+  }
+
+  .hotel-admin-form .lang-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
   .hotel-city-field-row {
     flex-wrap: nowrap;
   }
@@ -3752,13 +3792,13 @@ select#orderStatusFilter:focus {
   }
 
   .hotel-pricing-tiers-wrap {
-    overflow-x: auto;
+    overflow-x: visible;
   }
 
   .hotel-pricing-tiers-wrap .admin-table {
     display: table;
-    min-width: 560px;
-    width: 560px;
+    min-width: 0;
+    width: 100%;
     border-collapse: collapse;
   }
 
@@ -3804,9 +3844,20 @@ select#orderStatusFilter:focus {
     grid-template-columns: 1fr;
   }
 
+  .hotel-edit-modal-dialog,
+  .hotel-new-modal-dialog {
+    width: 100%;
+    max-height: calc(100dvh - 12px);
+  }
+
   .hotel-city-field-row {
     flex-direction: column;
     align-items: stretch;
+  }
+
+  .hotel-edit-modal-dialog > .admin-modal-content,
+  .hotel-new-modal-dialog > .admin-modal-content {
+    padding: 0 10px 12px;
   }
 }
 

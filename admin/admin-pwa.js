@@ -1,4 +1,4 @@
-const ADMIN_SW_URL = '/admin/sw.js?v=20260216_1';
+const ADMIN_SW_URL = '/admin/sw.js?v=20260221_1';
 
 let deferredPrompt = null;
 let notifyInstallUi = null;

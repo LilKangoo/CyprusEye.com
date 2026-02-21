@@ -3398,6 +3398,469 @@ select#orderStatusFilter:focus {
   stroke: currentColor;
 }
 
+/* =====================================================
+   HOTELS ADMIN PANEL
+   ===================================================== */
+.hotels-subtabs {
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px;
+  background: rgba(148, 163, 184, 0.08);
+  border: 1px solid var(--admin-border);
+  border-radius: 12px;
+}
+
+.hotels-tab-button {
+  padding: 10px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  color: var(--admin-text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+.hotels-tab-button:hover {
+  color: var(--admin-text);
+  background: rgba(148, 163, 184, 0.14);
+}
+
+.hotels-tab-button.active {
+  color: #fff;
+  background: linear-gradient(135deg, rgba(37, 99, 235, 0.95), rgba(29, 78, 216, 0.92));
+  box-shadow: 0 8px 20px rgba(29, 78, 216, 0.25);
+}
+
+.hotels-tab-content {
+  animation: fadeIn 0.2s ease;
+}
+
+.hotels-stats-grid .admin-stat-card {
+  padding: 18px 20px;
+  border-radius: 12px;
+}
+
+.hotels-stats-grid .stat-card-icon {
+  width: 44px;
+  height: 44px;
+}
+
+.hotels-stats-grid .stat-card-value {
+  font-size: clamp(24px, 2.4vw, 34px);
+  line-height: 1.1;
+}
+
+.hotel-booking-modal-dialog {
+  max-width: 760px;
+}
+
+.hotel-edit-modal-dialog,
+.hotel-new-modal-dialog {
+  max-width: 960px;
+}
+
+.hotel-edit-modal-dialog > .admin-modal-content,
+.hotel-new-modal-dialog > .admin-modal-content {
+  max-width: 100%;
+  max-height: none;
+  overflow: visible;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  padding: 0 20px 20px;
+}
+
+.hotel-admin-form {
+  width: 100%;
+  max-width: 100%;
+}
+
+.hotel-admin-form .lang-tabs {
+  flex-wrap: wrap;
+  overflow: visible;
+}
+
+.hotel-field-full {
+  grid-column: 1 / -1;
+}
+
+.admin-input-readonly {
+  background: #2a2f3a !important;
+  cursor: not-allowed;
+  opacity: 0.9;
+}
+
+.hotel-city-field-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.hotel-city-select {
+  flex: 1;
+  min-width: 0;
+}
+
+.hotel-section-title {
+  display: block;
+  margin-bottom: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+.hotel-upload-label {
+  cursor: pointer;
+}
+
+.hotel-pricing-tiers-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.hotel-pricing-tiers-wrap .admin-table {
+  margin: 0;
+}
+
+.hotel-add-tier-btn {
+  margin-top: 2px;
+  align-self: flex-start;
+}
+
+.hotel-amenities-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.hotel-amenities-add-btn {
+  padding: 5px 12px;
+  font-size: 12px;
+}
+
+.hotel-publish-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 500;
+  color: var(--admin-text);
+}
+
+.hotel-publish-toggle input {
+  width: auto !important;
+}
+
+.hotel-table-title {
+  font-weight: 600;
+  color: var(--admin-text);
+}
+
+.hotel-order-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.hotel-order-index,
+.hotel-order-value {
+  font-size: 11px;
+  color: var(--admin-text-muted);
+}
+
+.hotel-order-controls {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.hotel-order-btn {
+  border: 1px solid var(--admin-border);
+  background: var(--admin-bg-secondary);
+  color: var(--admin-text);
+  border-radius: 4px;
+  padding: 0 6px;
+  font-size: 10px;
+  line-height: 14px;
+  cursor: pointer;
+}
+
+.hotel-order-btn:hover {
+  border-color: var(--admin-primary);
+  color: var(--admin-primary);
+}
+
+.hotel-table-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+@media (max-width: 1024px) {
+  .hotels-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .hotels-stats-grid .admin-stat-card {
+    padding: 14px;
+  }
+
+  .hotels-stats-grid .stat-card-value {
+    font-size: 26px;
+  }
+
+  .admin-table-container[aria-label="Hotels"] {
+    overflow: visible;
+    border: none;
+    background: transparent;
+  }
+
+  .admin-table-container[aria-label="Hotels"] .admin-table,
+  .admin-table-container[aria-label="Hotels"] .admin-table tbody,
+  .admin-table-container[aria-label="Hotels"] .admin-table tr,
+  .admin-table-container[aria-label="Hotels"] .admin-table td {
+    display: block;
+    width: 100%;
+  }
+
+  .admin-table-container[aria-label="Hotels"] .admin-table thead {
+    display: none;
+  }
+
+  .admin-table-container[aria-label="Hotels"] .admin-table tr {
+    border: 1px solid var(--admin-border);
+    background: var(--admin-bg-light);
+    border-radius: 14px;
+    overflow: hidden;
+    margin: 0 0 12px;
+  }
+
+  .admin-table-container[aria-label="Hotels"] .admin-table td {
+    border-bottom: 1px solid var(--admin-border);
+    padding: 10px 12px;
+    display: grid;
+    grid-template-columns: 110px minmax(0, 1fr);
+    gap: 10px;
+    align-items: start;
+    justify-items: end;
+    text-align: right;
+    white-space: normal !important;
+  }
+
+  .admin-table-container[aria-label="Hotels"] .admin-table td:last-child {
+    border-bottom: none;
+    display: block;
+  }
+
+  .admin-table-container[aria-label="Hotels"] .admin-table td::before {
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--admin-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .admin-table-container[aria-label="Hotels"] .admin-table td:nth-of-type(1)::before { content: "Hotel"; }
+  .admin-table-container[aria-label="Hotels"] .admin-table td:nth-of-type(2)::before { content: "Order"; }
+  .admin-table-container[aria-label="Hotels"] .admin-table td:nth-of-type(3)::before { content: "Slug"; }
+  .admin-table-container[aria-label="Hotels"] .admin-table td:nth-of-type(4)::before { content: "City"; }
+  .admin-table-container[aria-label="Hotels"] .admin-table td:nth-of-type(5)::before { content: "Price"; }
+  .admin-table-container[aria-label="Hotels"] .admin-table td:nth-of-type(6)::before { content: "Published"; }
+  .admin-table-container[aria-label="Hotels"] .admin-table td:nth-of-type(7)::before { content: "Updated"; }
+  .admin-table-container[aria-label="Hotels"] .admin-table td:nth-of-type(8)::before { content: "Actions"; }
+
+  .admin-table-container[aria-label="Hotels"] .admin-table td > * {
+    min-width: 0;
+    justify-self: end;
+    text-align: right;
+  }
+
+  .admin-table-container[aria-label="Hotels"] .admin-table td:last-child::before {
+    display: block;
+    margin-bottom: 8px;
+  }
+
+  .admin-table-container[aria-label="Hotels"] .admin-table td:last-child button,
+  .admin-table-container[aria-label="Hotels"] .admin-table td:last-child a {
+    width: 100%;
+    margin-top: 8px;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 768px) {
+  .hotels-subtabs {
+    margin-bottom: 14px;
+    overflow-x: auto;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .hotels-tab-button {
+    flex: 0 0 auto;
+    padding: 9px 12px;
+    font-size: 13px;
+  }
+
+  .hotels-stats-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .hotels-stats-grid .stat-card-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .hotels-stats-grid .stat-card-value {
+    font-size: 22px;
+  }
+
+  .hotel-edit-modal-dialog,
+  .hotel-new-modal-dialog {
+    width: min(100%, 860px);
+    max-width: 100%;
+    max-height: calc(100dvh - 20px);
+  }
+
+  .hotel-edit-modal-dialog > .admin-modal-content,
+  .hotel-new-modal-dialog > .admin-modal-content {
+    padding: 0 14px 14px;
+  }
+
+  .hotel-admin-form .lang-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .hotel-city-field-row {
+    flex-wrap: nowrap;
+  }
+
+  .cover-image-manager {
+    padding: 12px;
+    gap: 12px;
+  }
+
+  .cover-preview-wrap {
+    width: 100%;
+  }
+
+  .cover-preview-wrap img {
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    aspect-ratio: 4/3;
+  }
+
+  .cover-actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+
+  .cover-actions .btn-secondary {
+    width: 100%;
+    text-align: center;
+    justify-content: center;
+  }
+
+  .photos-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .photos-header .btn-secondary {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .photos-manager-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    padding: 12px;
+  }
+
+  .hotel-pricing-tiers-wrap {
+    overflow-x: visible;
+  }
+
+  .hotel-pricing-tiers-wrap .admin-table {
+    display: table;
+    min-width: 0;
+    width: 100%;
+    border-collapse: collapse;
+  }
+
+  .hotel-pricing-tiers-wrap .admin-table thead {
+    display: table-header-group;
+  }
+
+  .hotel-pricing-tiers-wrap .admin-table tbody { display: table-row-group; }
+  .hotel-pricing-tiers-wrap .admin-table tr { display: table-row; width: auto; }
+  .hotel-pricing-tiers-wrap .admin-table td { display: table-cell; width: auto; }
+
+  .hotel-pricing-tiers-wrap .admin-table tr {
+    border: none;
+    border-radius: 0;
+    margin: 0;
+    background: transparent;
+  }
+
+  .hotel-pricing-tiers-wrap .admin-table td {
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--admin-border);
+  }
+
+  .hotel-pricing-tiers-wrap .admin-table td::before {
+    content: none;
+    display: none;
+  }
+
+  .hotel-amenities-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hotel-amenities-add-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 560px) {
+  .hotels-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hotel-edit-modal-dialog,
+  .hotel-new-modal-dialog {
+    width: 100%;
+    max-height: calc(100dvh - 12px);
+  }
+
+  .hotel-city-field-row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .hotel-edit-modal-dialog > .admin-modal-content,
+  .hotel-new-modal-dialog > .admin-modal-content {
+    padding: 0 10px 12px;
+  }
+}
+
 /* Amenities Grid */
 .amenities-grid {
   display: flex;
