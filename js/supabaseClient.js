@@ -2,6 +2,30 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { SUPABASE_CONFIG } from './config.js'
 import { initForceRefresh } from './forceRefresh.js'
 
+const authLockChains = new Map()
+
+function inMemoryAuthLock(lockName, maybeTimeout, maybeFn) {
+  const fn = typeof maybeFn === 'function'
+    ? maybeFn
+    : (typeof maybeTimeout === 'function' ? maybeTimeout : null)
+  if (typeof fn !== 'function') {
+    return Promise.resolve(null)
+  }
+
+  const key = String(lockName || 'supabase-auth-lock')
+  const previous = authLockChains.get(key) || Promise.resolve()
+  const run = previous
+    .catch(() => {})
+    .then(() => fn())
+
+  authLockChains.set(key, run)
+  return run.finally(() => {
+    if (authLockChains.get(key) === run) {
+      authLockChains.delete(key)
+    }
+  })
+}
+
 export const sb = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey, {
   auth: {
     persistSession: true,
@@ -10,8 +34,9 @@ export const sb = createClient(SUPABASE_CONFIG.url, SUPABASE_CONFIG.anonKey, {
     storageKey: SUPABASE_CONFIG.storageKey,
     storage: window.localStorage,
     flowType: 'pkce',
-    // Disable navigator locks coordination to avoid auth lock timeouts in busy tabs.
+    // Keep single-tab behavior and force local lock implementation to avoid browser LockManager timeouts.
     multiTab: false,
+    lock: inMemoryAuthLock,
   },
 })
 

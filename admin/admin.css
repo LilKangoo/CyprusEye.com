@@ -4866,15 +4866,15 @@ select#orderStatusFilter:focus {
 }
 
 .transport-fields-grid--pricing-time {
-  grid-template-columns: repeat(8, minmax(130px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
 }
 
 .transport-fields-grid--pricing-deposit {
-  grid-template-columns: minmax(220px, 1fr) minmax(180px, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
 }
 
-.transport-fields-grid--pricing-cross {
-  grid-template-columns: repeat(2, minmax(220px, 1fr));
+.transport-fields-grid--pricing-bulk-scope {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .transport-field {
@@ -4997,9 +4997,86 @@ select#orderStatusFilter:focus {
   background: rgba(15, 23, 42, 0.2);
 }
 
-#transportPricingCrossOrigins.transport-multi-select,
-#transportPricingCrossDestinations.transport-multi-select {
-  min-height: 140px;
+.transport-bulk-destination-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 8px;
+  max-height: 320px;
+  overflow: auto;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 10px;
+  padding: 8px;
+  background: rgba(15, 23, 42, 0.25);
+}
+
+.transport-bulk-destination-list.is-disabled {
+  opacity: 0.58;
+}
+
+.transport-bulk-destination-list__empty {
+  grid-column: 1 / -1;
+  color: var(--admin-text-muted);
+  font-size: 12px;
+  padding: 8px;
+}
+
+.transport-bulk-destination-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  border: 1px solid rgba(148, 163, 184, 0.26);
+  border-radius: 10px;
+  padding: 8px 9px;
+  background: rgba(15, 23, 42, 0.34);
+  cursor: pointer;
+  transition: border-color 0.16s ease, background-color 0.16s ease, transform 0.16s ease;
+}
+
+.transport-bulk-destination-item:hover {
+  border-color: rgba(56, 189, 248, 0.5);
+  background: rgba(15, 23, 42, 0.44);
+}
+
+.transport-bulk-destination-item:has(input[type='checkbox']:checked) {
+  border-color: rgba(56, 189, 248, 0.72);
+  background: rgba(30, 64, 175, 0.22);
+  transform: translateY(-1px);
+}
+
+.transport-bulk-destination-item input[type='checkbox'] {
+  width: 17px;
+  height: 17px;
+  margin-top: 2px;
+}
+
+.transport-bulk-destination-item input[type='checkbox']:checked + .transport-bulk-destination-item__body .transport-bulk-destination-item__title {
+  color: #dbeafe;
+}
+
+.transport-bulk-destination-item input[type='checkbox']:checked + .transport-bulk-destination-item__body .transport-bulk-destination-item__meta {
+  color: #bfdbfe;
+}
+
+.transport-bulk-destination-item__body {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  width: 100%;
+}
+
+.transport-bulk-destination-item__title {
+  font-size: 13px;
+  color: var(--admin-text);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
+.transport-bulk-destination-item__meta {
+  font-size: 11px;
+  color: var(--admin-text-muted);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .transport-table-scroll {
@@ -5034,7 +5111,7 @@ select#orderStatusFilter:focus {
   .transport-fields-grid--pricing-core,
   .transport-fields-grid--pricing-time,
   .transport-fields-grid--pricing-deposit,
-  .transport-fields-grid--pricing-cross {
+  .transport-fields-grid--pricing-bulk-scope {
     grid-template-columns: repeat(2, minmax(170px, 1fr));
   }
 
@@ -5059,7 +5136,7 @@ select#orderStatusFilter:focus {
   .transport-fields-grid--pricing-core,
   .transport-fields-grid--pricing-time,
   .transport-fields-grid--pricing-deposit,
-  .transport-fields-grid--pricing-cross {
+  .transport-fields-grid--pricing-bulk-scope {
     grid-template-columns: repeat(2, minmax(150px, 1fr));
   }
 
@@ -5073,6 +5150,10 @@ select#orderStatusFilter:focus {
 
   .transport-tab-button {
     padding: 10px 14px;
+  }
+
+  .transport-bulk-destination-list {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -5092,7 +5173,7 @@ select#orderStatusFilter:focus {
   .transport-fields-grid--pricing-core,
   .transport-fields-grid--pricing-time,
   .transport-fields-grid--pricing-deposit,
-  .transport-fields-grid--pricing-cross {
+  .transport-fields-grid--pricing-bulk-scope {
     grid-template-columns: 1fr;
   }
 

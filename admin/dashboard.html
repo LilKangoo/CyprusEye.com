@@ -28,19 +28,19 @@
   <!-- Styles -->
   <link rel="stylesheet" href="/assets/css/tokens.css?v=20251107" />
   <link rel="stylesheet" href="/assets/css/base.css?v=20251107" />
-  <link rel="stylesheet" href="/admin/admin.css?v=20260221_4" />
+  <link rel="stylesheet" href="/admin/admin.css?v=20260223_1" />
   
   <!-- Auth meta -->
   <meta name="ce-auth" content="required" />
   <meta name="ce-admin" content="required" />
   
   <!-- Scripts -->
-  <script type="module" src="/js/supabaseClient.js?v=20251107"></script>
+  <script type="module" src="/js/supabaseClient.js?v=20260223_1"></script>
   <script type="module" src="/js/toast.js?v=20251107"></script>
   <script src="/admin/universal-i18n-component.js?v=20250111"></script>
   <script src="/admin/poi-i18n-form.js?v=20250111"></script>
   <script src="/admin/recommendation-i18n-form.js?v=20251118"></script>
-  <script type="module" src="/admin/admin.js?v=20260221_4"></script>
+  <script type="module" src="/admin/admin.js?v=20260223_1"></script>
   <script src="/admin/admin-pwa.js?v=20260221_4" defer></script>
 </head>
 <body data-admin-panel="true">
@@ -1131,46 +1131,35 @@
                       <span>Create clones for selected routes</span>
                     </label>
                   </div>
-                  <p class="transport-form-block__hint">Use this to copy extras, waiting fee/hour, deposit settings, validity dates, and priority to multiple routes in one save.</p>
-                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--pricing-cross">
+                  <p class="transport-form-block__hint">Taxi workflow: choose one pickup point, tick destinations, optionally include return direction, then save once.</p>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--pricing-bulk-scope">
                     <label class="admin-form-field transport-field">
-                      <span>Match origins</span>
-                      <select id="transportPricingCrossOrigins" class="form-control transport-multi-select" multiple size="6" aria-label="Cross pricing origins"></select>
+                      <span>Pickup location (origin)</span>
+                      <select id="transportPricingBulkOrigin" class="form-control"></select>
                     </label>
                     <label class="admin-form-field transport-field">
-                      <span>Match destinations</span>
-                      <select id="transportPricingCrossDestinations" class="form-control transport-multi-select" multiple size="6" aria-label="Cross pricing destinations"></select>
+                      <span>Destination search</span>
+                      <input id="transportPricingBulkDestinationSearch" class="form-control" type="text" placeholder="Search destination city/airport..." />
                     </label>
                   </div>
                   <div class="transport-multi-select-toolbar">
                     <label class="transport-check-field">
-                      <input id="transportPricingCrossIncludeReverse" type="checkbox" checked />
-                      <span>Include reverse direction match</span>
+                      <input id="transportPricingBulkOnlyActiveRoutes" type="checkbox" checked />
+                      <span>Hide inactive routes</span>
                     </label>
                     <label class="transport-check-field">
-                      <input id="transportPricingCrossOnlyActiveRoutes" type="checkbox" checked />
-                      <span>Only active routes</span>
+                      <input id="transportPricingBulkIncludeReverse" type="checkbox" checked />
+                      <span>Create return route prices too</span>
                     </label>
                     <div class="transport-multi-select-toolbar__actions">
-                      <button class="btn-small btn-secondary" type="button" id="btnTransportPricingCrossSelectAllOrigins">All origins</button>
-                      <button class="btn-small btn-secondary" type="button" id="btnTransportPricingCrossClearOrigins">Clear origins</button>
-                      <button class="btn-small btn-secondary" type="button" id="btnTransportPricingCrossSelectAllDestinations">All destinations</button>
-                      <button class="btn-small btn-secondary" type="button" id="btnTransportPricingCrossClearDestinations">Clear destinations</button>
+                      <button class="btn-small btn-secondary" type="button" id="btnTransportPricingBulkSelectAll">Select all visible</button>
+                      <button class="btn-small btn-secondary" type="button" id="btnTransportPricingBulkClearAll">Clear selection</button>
                     </div>
                   </div>
-                  <div class="transport-editor-actions">
-                    <button class="btn-secondary" type="button" id="btnTransportPricingCrossApplyMatches">Select matching routes</button>
+                  <div id="transportPricingBulkDestinations" class="transport-bulk-destination-list" aria-label="Destination checklist">
+                    <div class="transport-bulk-destination-list__empty">Select pickup location to show destinations.</div>
                   </div>
-                  <p class="transport-form-block__hint transport-form-block__hint--status" id="transportPricingCrossSummary">Select origin/destination groups to auto-mark matching route pairs.</p>
-                  <div class="transport-multi-select-toolbar">
-                    <input id="transportPricingAdditionalRoutesSearch" class="form-control transport-multi-select-search" type="text" placeholder="Filter routes..." />
-                    <div class="transport-multi-select-toolbar__actions">
-                      <button class="btn-small btn-secondary" type="button" id="btnTransportPricingAdditionalSelectAll">Select visible</button>
-                      <button class="btn-small btn-secondary" type="button" id="btnTransportPricingAdditionalClearAll">Clear selection</button>
-                    </div>
-                  </div>
-                  <select id="transportPricingAdditionalRoutes" class="form-control transport-multi-select" multiple size="8" aria-label="Additional routes"></select>
-                  <p class="transport-form-block__hint transport-form-block__hint--status" id="transportPricingAdditionalSummary">Enable bulk clone and select routes to apply this pricing setup.</p>
+                  <p class="transport-form-block__hint transport-form-block__hint--status" id="transportPricingAdditionalSummary" aria-live="polite">Enable bulk clone, choose pickup location, then tick destination boxes.</p>
                 </section>
 
                 <div class="transport-editor-actions">

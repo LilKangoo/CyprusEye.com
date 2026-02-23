@@ -71,13 +71,28 @@
       try {
         // Load Supabase
         const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+        const authLockChains = new Map();
+        const inMemoryAuthLock = (lockName, maybeTimeout, maybeFn) => {
+          const fn = typeof maybeFn === 'function'
+            ? maybeFn
+            : (typeof maybeTimeout === 'function' ? maybeTimeout : null);
+          if (typeof fn !== 'function') return Promise.resolve(null);
+          const key = String(lockName || 'supabase-auth-lock');
+          const previous = authLockChains.get(key) || Promise.resolve();
+          const run = previous.catch(() => {}).then(() => fn());
+          authLockChains.set(key, run);
+          return run.finally(() => {
+            if (authLockChains.get(key) === run) authLockChains.delete(key);
+          });
+        };
         
         const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
           auth: {
             persistSession: true,
             storageKey: 'sb-daoohnbnnowmmcizgvrq-auth-token',
             storage: window.localStorage,
-            multiTab: false
+            multiTab: false,
+            lock: inMemoryAuthLock
           }
         });
         
