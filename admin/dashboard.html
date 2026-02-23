@@ -645,12 +645,128 @@
         <header class="admin-view-header">
           <div>
             <h2>Transport</h2>
-            <p class="admin-view-subtitle">Manage transport locations, routes, pricing, and bookings</p>
+            <p class="admin-view-subtitle">Manage locations, routes, pricing logic, assignments, and bookings in one place</p>
           </div>
           <div class="admin-view-actions">
             <button class="btn-secondary" type="button" id="btnRefreshTransport">Refresh</button>
           </div>
         </header>
+
+        <div class="admin-card transport-control-center">
+          <div class="transport-control-center__head">
+            <div>
+              <h3 class="transport-control-center__title">Transport Control Center</h3>
+              <p class="transport-control-center__subtitle">Choose route and pricing rule, preview total customer price, then jump directly to edit forms.</p>
+            </div>
+            <div class="transport-control-center__steps" aria-label="Setup steps">
+              <span class="transport-control-step">1. Locations</span>
+              <span class="transport-control-step">2. Route base fare</span>
+              <span class="transport-control-step">3. Extra fees</span>
+              <span class="transport-control-step">4. Review bookings</span>
+            </div>
+          </div>
+
+          <div class="transport-control-center__grid">
+            <section class="transport-control-panel">
+              <h4>Route & rule selector</h4>
+              <p class="transport-control-panel__hint">Pick a route and rule once. Everything below updates automatically.</p>
+              <div class="admin-form-grid transport-control-form-grid">
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Route</span>
+                  <select id="transportControlRouteSelect" class="form-control">
+                    <option value="">Select route</option>
+                  </select>
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Pricing rule</span>
+                  <select id="transportControlRuleSelect" class="form-control">
+                    <option value="">Auto (best active rule)</option>
+                  </select>
+                </label>
+              </div>
+              <div class="transport-control-actions">
+                <button class="btn-secondary" type="button" id="btnTransportControlOpenRouteEditor">Open route editor</button>
+                <button class="btn-secondary" type="button" id="btnTransportControlOpenPricingEditor">Open pricing editor</button>
+                <button class="btn-secondary" type="button" id="btnTransportControlCreatePricingRule">Create new pricing rule</button>
+              </div>
+              <div class="transport-control-status" id="transportPreviewStatus">Select route to start simulation.</div>
+            </section>
+
+            <section class="transport-control-panel">
+              <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;">
+                <div>
+                  <h4 style="margin:0;">Fare simulator</h4>
+                  <p class="transport-control-panel__hint">Live quote for passengers, bags, seats, oversize luggage and waiting time.</p>
+                </div>
+                <button class="btn-secondary" type="button" id="btnTransportControlResetScenario">Reset scenario</button>
+              </div>
+              <div class="admin-form-grid transport-simulator-grid">
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Rate mode</span>
+                  <select id="transportPreviewRateMode" class="form-control" data-transport-preview-input>
+                    <option value="auto">Auto by night window</option>
+                    <option value="day">Force day rate</option>
+                    <option value="night">Force night rate</option>
+                  </select>
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Travel time</span>
+                  <input id="transportPreviewTravelTime" type="time" value="12:00" data-transport-preview-input />
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Passengers</span>
+                  <input id="transportPreviewPassengers" type="number" min="1" step="1" value="2" data-transport-preview-input />
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Bags</span>
+                  <input id="transportPreviewBags" type="number" min="0" step="1" value="2" data-transport-preview-input />
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Oversize bags</span>
+                  <input id="transportPreviewOversizeBags" type="number" min="0" step="1" value="0" data-transport-preview-input />
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Child seats</span>
+                  <input id="transportPreviewChildSeats" type="number" min="0" step="1" value="0" data-transport-preview-input />
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Booster seats</span>
+                  <input id="transportPreviewBoosterSeats" type="number" min="0" step="1" value="0" data-transport-preview-input />
+                </label>
+                <label class="admin-form-field" style="margin: 0;">
+                  <span>Waiting minutes</span>
+                  <input id="transportPreviewWaitingMinutes" type="number" min="0" step="1" value="0" data-transport-preview-input />
+                </label>
+              </div>
+              <div class="transport-breakdown-grid">
+                <div class="transport-breakdown-item"><span>Base fare</span><strong id="transportPreviewBase">—</strong></div>
+                <div class="transport-breakdown-item"><span>Extra passengers</span><strong id="transportPreviewExtraPassengers">—</strong></div>
+                <div class="transport-breakdown-item"><span>Extra bags</span><strong id="transportPreviewExtraBags">—</strong></div>
+                <div class="transport-breakdown-item"><span>Oversize bags</span><strong id="transportPreviewExtraOversize">—</strong></div>
+                <div class="transport-breakdown-item"><span>Seats (child + booster)</span><strong id="transportPreviewExtraSeats">—</strong></div>
+                <div class="transport-breakdown-item"><span>Waiting fee</span><strong id="transportPreviewExtraWaiting">—</strong></div>
+              </div>
+              <div class="transport-total-row">
+                <span>Total quote</span>
+                <strong id="transportPreviewTotal">—</strong>
+              </div>
+            </section>
+          </div>
+
+          <section class="transport-control-panel transport-control-panel--matrix">
+            <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;">
+              <h4 style="margin:0;">Passengers × bags matrix</h4>
+              <div class="transport-control-panel__hint" id="transportPreviewMatrixMeta">Matrix updates after selecting route.</div>
+            </div>
+            <div class="admin-table-container" style="margin-bottom: 0;" aria-label="Transport pricing matrix">
+              <table class="admin-table" id="transportPreviewMatrixTable">
+                <tbody>
+                  <tr><td class="table-loading">Select route to generate matrix</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        </div>
 
         <div style="margin-bottom: 24px; border-bottom: 2px solid var(--admin-border); display: flex; gap: 8px; flex-wrap: wrap;">
           <button class="transport-tab-button active" data-tab="locations" type="button" style="padding: 12px 24px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: var(--admin-text-muted); transition: all 0.2s;">
@@ -674,6 +790,7 @@
               <button class="btn-secondary" type="button" id="btnRefreshTransportLocations">Refresh</button>
             </div>
             <div class="admin-card-body">
+              <p class="transport-editor-hint">Use unique stable codes (for example: <code>lca_airport</code>, <code>ayia_napa_center</code>). Routes, pricing and bookings rely on these locations.</p>
               <form id="transportLocationForm" novalidate>
                 <input type="hidden" id="transportLocationId" />
                 <div class="admin-form-grid" style="grid-template-columns: 1fr 180px 160px 140px 180px; gap: 12px; align-items: end;">
@@ -690,8 +807,10 @@
                     <select id="transportLocationType" class="form-control">
                       <option value="city">City</option>
                       <option value="airport">Airport</option>
-                      <option value="zone">Zone</option>
-                      <option value="district">District</option>
+                      <option value="port">Port</option>
+                      <option value="station">Station</option>
+                      <option value="hotel">Hotel</option>
+                      <option value="landmark">Landmark</option>
                       <option value="custom">Custom</option>
                     </select>
                   </label>
@@ -735,10 +854,11 @@
         <div id="transportTabRoutes" class="transport-tab-content" hidden>
           <div class="admin-card" style="margin-bottom: 16px;">
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-              <h3>Route Editor</h3>
+              <h3>Route & Base Fare Editor</h3>
               <button class="btn-secondary" type="button" id="btnRefreshTransportRoutes">Refresh</button>
             </div>
             <div class="admin-card-body">
+              <p class="transport-editor-hint">Set the base day/night fare and included capacity per route. Extra passengers, bags and waiting charges are configured in Pricing Rules.</p>
               <form id="transportRouteForm" novalidate>
                 <input type="hidden" id="transportRouteId" />
                 <div class="admin-form-grid" style="grid-template-columns: 1fr 1fr 130px 130px 100px 120px 120px 120px 120px; gap: 10px; align-items: end;">
@@ -821,10 +941,11 @@
         <div id="transportTabPricing" class="transport-tab-content" hidden>
           <div class="admin-card" style="margin-bottom: 16px;">
             <div class="admin-card-header" style="display: flex; justify-content: space-between; align-items: center;">
-              <h3>Pricing Rule Editor</h3>
+              <h3>Pricing Rules & Extras Editor</h3>
               <button class="btn-secondary" type="button" id="btnRefreshTransportPricing">Refresh</button>
             </div>
             <div class="admin-card-body">
+              <p class="transport-editor-hint">Create one or more rules per route. Lowest priority value wins when validity windows overlap. Use the simulator above to verify totals before publishing.</p>
               <form id="transportPricingForm" novalidate>
                 <input type="hidden" id="transportPricingId" />
                 <div class="admin-form-grid" style="grid-template-columns: 1.4fr repeat(6, 130px); gap: 10px; align-items: end;">

@@ -965,6 +965,10 @@ const transportAdminState = {
   assignablePartners: [],
   assignablePartnersById: {},
   assignablePartnersLoadedAt: 0,
+  control: {
+    routeId: '',
+    ruleId: '',
+  },
 };
 
 let adminPartnerAuditChannel = null;
@@ -9497,6 +9501,451 @@ function getTransportRouteLabelById(routeId) {
   return getTransportRouteLabel(row);
 }
 
+function transportToNonNegativeInt(value, fallback = 0) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return Math.max(0, Math.trunc(fallback));
+  return Math.max(0, Math.trunc(num));
+}
+
+function transportToNonNegativeNumber(value, fallback = 0) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return Math.max(0, Number(fallback) || 0);
+  return Math.max(0, num);
+}
+
+function transportParseTimeToMinutes(value) {
+  const raw = String(value || '').trim();
+  const match = raw.match(/^(\d{1,2}):(\d{2})/);
+  if (!match) return null;
+  const hh = Number(match[1]);
+  const mm = Number(match[2]);
+  if (!Number.isInteger(hh) || !Number.isInteger(mm)) return null;
+  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+  return (hh * 60) + mm;
+}
+
+function transportTimeInNightWindow(timeMinutes, nightStartMinutes, nightEndMinutes) {
+  if (!Number.isFinite(timeMinutes) || !Number.isFinite(nightStartMinutes) || !Number.isFinite(nightEndMinutes)) {
+    return false;
+  }
+  if (nightStartMinutes === nightEndMinutes) return false;
+  if (nightStartMinutes < nightEndMinutes) {
+    return timeMinutes >= nightStartMinutes && timeMinutes < nightEndMinutes;
+  }
+  return timeMinutes >= nightStartMinutes || timeMinutes < nightEndMinutes;
+}
+
+function transportRuleValidityLabel(rule) {
+  if (!rule || typeof rule !== 'object') return 'Always';
+  const from = rule.valid_from ? transportDateToLabel(rule.valid_from) : 'Always';
+  const to = rule.valid_to ? transportDateToLabel(rule.valid_to) : 'No end';
+  return `${from} → ${to}`;
+}
+
+function getTransportPricingRulesForRoute(routeId, options = {}) {
+  const id = String(routeId || '').trim();
+  if (!id) return [];
+  const includeInactive = Boolean(options?.includeInactive);
+  const rows = Array.isArray(transportAdminState.pricingRules) ? transportAdminState.pricingRules : [];
+  return rows
+    .filter((row) => {
+      if (String(row?.route_id || '').trim() !== id) return false;
+      if (!includeInactive && row?.is_active === false) return false;
+      return true;
+    })
+    .slice()
+    .sort((a, b) => {
+      const pDiff = Number(a?.priority || 0) - Number(b?.priority || 0);
+      if (pDiff !== 0) return pDiff;
+      const aTs = new Date(a?.updated_at || a?.created_at || 0).getTime();
+      const bTs = new Date(b?.updated_at || b?.created_at || 0).getTime();
+      return bTs - aTs;
+    });
+}
+
+function getTransportControlRouteSelect() {
+  return document.getElementById('transportControlRouteSelect');
+}
+
+function getTransportControlRuleSelect() {
+  return document.getElementById('transportControlRuleSelect');
+}
+
+function getTransportSelectedRouteIdFromControl() {
+  const select = getTransportControlRouteSelect();
+  const value = select ? String(select.value || '').trim() : '';
+  return value || String(transportAdminState.control?.routeId || '').trim();
+}
+
+function getTransportSelectedRuleIdFromControl() {
+  const select = getTransportControlRuleSelect();
+  const value = select ? String(select.value || '').trim() : '';
+  return value || String(transportAdminState.control?.ruleId || '').trim();
+}
+
+function refreshTransportControlRouteSelect() {
+  const select = getTransportControlRouteSelect();
+  if (!select) return;
+
+  const rows = (Array.isArray(transportAdminState.routes) ? transportAdminState.routes : [])
+    .slice()
+    .sort((a, b) => {
+      const sortDiff = Number(a?.sort_order || 0) - Number(b?.sort_order || 0);
+      if (sortDiff !== 0) return sortDiff;
+      return getTransportRouteLabel(a).localeCompare(getTransportRouteLabel(b));
+    });
+
+  const existingIds = new Set(rows.map((row) => String(row?.id || '').trim()).filter(Boolean));
+  const previousValue = String(select.value || '').trim();
+  const stateValue = String(transportAdminState.control?.routeId || '').trim();
+  const preferred = previousValue || stateValue;
+
+  select.innerHTML = '<option value="">Select route</option>' + rows.map((row) => {
+    const id = String(row?.id || '').trim();
+    if (!id) return '';
+    return `<option value="${escapeHtml(id)}">${escapeHtml(getTransportRouteLabel(row))}</option>`;
+  }).join('');
+
+  let nextValue = '';
+  if (preferred && existingIds.has(preferred)) {
+    nextValue = preferred;
+  } else if (rows.length) {
+    nextValue = String(rows[0]?.id || '').trim();
+  }
+
+  select.value = nextValue;
+  transportAdminState.control.routeId = nextValue;
+}
+
+function refreshTransportControlRuleSelect() {
+  const select = getTransportControlRuleSelect();
+  if (!select) return;
+
+  const routeId = getTransportSelectedRouteIdFromControl();
+  const allRules = getTransportPricingRulesForRoute(routeId, { includeInactive: true });
+  const activeRules = getTransportPricingRulesForRoute(routeId, { includeInactive: false });
+
+  const previousValue = String(select.value || '').trim();
+  const stateValue = String(transportAdminState.control?.ruleId || '').trim();
+  const preferred = previousValue || stateValue;
+  const activeAutoRule = activeRules.length ? activeRules[0] : null;
+  const autoLabel = activeAutoRule
+    ? `Auto (best active rule: #${String(activeAutoRule.id || '').slice(0, 8).toUpperCase()})`
+    : 'Auto (no active rule)';
+
+  select.innerHTML = `<option value="">${escapeHtml(autoLabel)}</option>` + allRules.map((rule) => {
+    const id = String(rule?.id || '').trim();
+    if (!id) return '';
+    const priority = Number(rule?.priority || 0);
+    const status = rule?.is_active === false ? 'INACTIVE' : 'ACTIVE';
+    const label = `#${id.slice(0, 8).toUpperCase()} · P${priority} · ${status} · ${transportRuleValidityLabel(rule)}`;
+    return `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`;
+  }).join('');
+
+  const allRuleIds = new Set(allRules.map((rule) => String(rule?.id || '').trim()).filter(Boolean));
+  const nextValue = preferred && allRuleIds.has(preferred) ? preferred : '';
+  select.value = nextValue;
+  transportAdminState.control.ruleId = nextValue;
+}
+
+function getTransportSelectedRuleForControl(routeId, preferredRuleId = '') {
+  const allRules = getTransportPricingRulesForRoute(routeId, { includeInactive: true });
+  const activeRules = getTransportPricingRulesForRoute(routeId, { includeInactive: false });
+  const preferred = String(preferredRuleId || '').trim();
+  if (preferred) {
+    const exact = allRules.find((rule) => String(rule?.id || '').trim() === preferred);
+    if (exact) return exact;
+  }
+  return activeRules.length ? activeRules[0] : null;
+}
+
+function getTransportPreviewScenario(route) {
+  const readNumber = (id, fallback) => {
+    const el = document.getElementById(id);
+    return transportToNonNegativeNumber(el?.value, fallback);
+  };
+
+  const passengersDefault = Math.max(1, transportToNonNegativeInt(route?.included_passengers, 2));
+  const bagsDefault = transportToNonNegativeInt(route?.included_bags, 2);
+
+  return {
+    rateMode: String(document.getElementById('transportPreviewRateMode')?.value || 'auto').trim().toLowerCase(),
+    travelTime: String(document.getElementById('transportPreviewTravelTime')?.value || '12:00').trim().slice(0, 5),
+    passengers: transportToNonNegativeInt(readNumber('transportPreviewPassengers', passengersDefault), passengersDefault),
+    bags: transportToNonNegativeInt(readNumber('transportPreviewBags', bagsDefault), bagsDefault),
+    oversizeBags: transportToNonNegativeInt(readNumber('transportPreviewOversizeBags', 0), 0),
+    childSeats: transportToNonNegativeInt(readNumber('transportPreviewChildSeats', 0), 0),
+    boosterSeats: transportToNonNegativeInt(readNumber('transportPreviewBoosterSeats', 0), 0),
+    waitingMinutes: transportToNonNegativeInt(readNumber('transportPreviewWaitingMinutes', 0), 0),
+  };
+}
+
+function calculateTransportControlQuote(route, rule, scenario) {
+  const currency = String(route?.currency || 'EUR').trim().toUpperCase() || 'EUR';
+  const baseDay = transportToNonNegativeNumber(route?.day_price, 0);
+  const baseNight = transportToNonNegativeNumber(route?.night_price, 0);
+  const includedPassengers = Math.max(1, transportToNonNegativeInt(route?.included_passengers, 1));
+  const includedBags = transportToNonNegativeInt(route?.included_bags, 0);
+  const maxPassengers = Math.max(1, transportToNonNegativeInt(route?.max_passengers, includedPassengers));
+  const maxBags = transportToNonNegativeInt(route?.max_bags, includedBags);
+
+  const nightStartRaw = String(rule?.night_start || '22:00').trim().slice(0, 5) || '22:00';
+  const nightEndRaw = String(rule?.night_end || '06:00').trim().slice(0, 5) || '06:00';
+  const nightStart = transportParseTimeToMinutes(nightStartRaw);
+  const nightEnd = transportParseTimeToMinutes(nightEndRaw);
+  const travelTimeMinutes = transportParseTimeToMinutes(scenario.travelTime);
+
+  let basePeriod = 'day';
+  if (scenario.rateMode === 'night') {
+    basePeriod = 'night';
+  } else if (scenario.rateMode === 'day') {
+    basePeriod = 'day';
+  } else {
+    basePeriod = transportTimeInNightWindow(travelTimeMinutes, nightStart, nightEnd) ? 'night' : 'day';
+  }
+
+  const baseFare = basePeriod === 'night' ? baseNight : baseDay;
+  const extraPassengerFee = transportToNonNegativeNumber(rule?.extra_passenger_fee, 0);
+  const extraBagFee = transportToNonNegativeNumber(rule?.extra_bag_fee, 0);
+  const oversizeBagFee = transportToNonNegativeNumber(rule?.oversize_bag_fee, 0);
+  const childSeatFee = transportToNonNegativeNumber(rule?.child_seat_fee, 0);
+  const boosterSeatFee = transportToNonNegativeNumber(rule?.booster_seat_fee, 0);
+  const waitingIncluded = transportToNonNegativeInt(rule?.waiting_included_minutes, 0);
+  const waitingFeePerMinute = transportToNonNegativeNumber(rule?.waiting_fee_per_minute, 0);
+
+  const extraPassengerCount = Math.max(0, scenario.passengers - includedPassengers);
+  const extraBagCount = Math.max(0, scenario.bags - includedBags);
+  const waitingChargedMinutes = Math.max(0, scenario.waitingMinutes - waitingIncluded);
+
+  const extraPassengersCost = extraPassengerCount * extraPassengerFee;
+  const extraBagsCost = extraBagCount * extraBagFee;
+  const oversizeCost = scenario.oversizeBags * oversizeBagFee;
+  const seatsCost = (scenario.childSeats * childSeatFee) + (scenario.boosterSeats * boosterSeatFee);
+  const waitingCost = waitingChargedMinutes * waitingFeePerMinute;
+  const extrasTotal = extraPassengersCost + extraBagsCost + oversizeCost + seatsCost + waitingCost;
+  const total = baseFare + extrasTotal;
+
+  const warnings = [];
+  if (scenario.passengers > maxPassengers) warnings.push(`Passengers exceed route limit (${maxPassengers}).`);
+  if (scenario.bags > maxBags) warnings.push(`Bags exceed route limit (${maxBags}).`);
+
+  return {
+    currency,
+    basePeriod,
+    baseFare,
+    includedPassengers,
+    includedBags,
+    maxPassengers,
+    maxBags,
+    waitingIncluded,
+    nightStartRaw,
+    nightEndRaw,
+    extraPassengerCount,
+    extraBagCount,
+    waitingChargedMinutes,
+    extraPassengersCost,
+    extraBagsCost,
+    oversizeCost,
+    seatsCost,
+    waitingCost,
+    extrasTotal,
+    total,
+    warnings,
+  };
+}
+
+function renderTransportPreviewMatrix(route, quote, rule) {
+  const table = document.getElementById('transportPreviewMatrixTable');
+  const meta = document.getElementById('transportPreviewMatrixMeta');
+  if (!table || !meta) return;
+
+  if (!route) {
+    meta.textContent = 'Matrix updates after selecting route.';
+    table.innerHTML = '<tbody><tr><td class="table-loading">Select route to generate matrix</td></tr></tbody>';
+    return;
+  }
+
+  const maxPassengers = Math.max(1, transportToNonNegativeInt(route?.max_passengers, 1));
+  const maxBags = transportToNonNegativeInt(route?.max_bags, 0);
+  const shownPassengers = Math.max(1, Math.min(maxPassengers, 7));
+  const shownBags = Math.min(maxBags, 6);
+  const includedPassengers = Math.max(1, transportToNonNegativeInt(route?.included_passengers, 1));
+  const includedBags = transportToNonNegativeInt(route?.included_bags, 0);
+  const extraPassengerFee = transportToNonNegativeNumber(rule?.extra_passenger_fee, 0);
+  const extraBagFee = transportToNonNegativeNumber(rule?.extra_bag_fee, 0);
+  const baseFare = quote?.baseFare || 0;
+  const currency = quote?.currency || String(route?.currency || 'EUR').trim().toUpperCase() || 'EUR';
+  const matrixLimitNote = (shownPassengers < maxPassengers || shownBags < maxBags)
+    ? ` Display capped to ${shownPassengers} pax and ${shownBags} bags for readability.`
+    : '';
+
+  meta.textContent = `Using ${String(quote?.basePeriod || 'day').toUpperCase()} base fare. Matrix includes base + passenger/bag extras only.${matrixLimitNote}`;
+
+  const headCols = [];
+  for (let bag = 0; bag <= shownBags; bag += 1) {
+    headCols.push(`<th style="text-align:right;">${bag} bags</th>`);
+  }
+
+  const bodyRows = [];
+  for (let pax = 1; pax <= shownPassengers; pax += 1) {
+    const cells = [];
+    for (let bag = 0; bag <= shownBags; bag += 1) {
+      const paxExtras = Math.max(0, pax - includedPassengers) * extraPassengerFee;
+      const bagExtras = Math.max(0, bag - includedBags) * extraBagFee;
+      const total = baseFare + paxExtras + bagExtras;
+      const isIncludedCombo = pax <= includedPassengers && bag <= includedBags;
+      const cellStyle = isIncludedCombo
+        ? 'background: rgba(34,197,94,0.12); border-color: rgba(34,197,94,0.35);'
+        : '';
+      cells.push(`<td style="text-align:right; ${cellStyle}">${escapeHtml(transportMoney(total, currency))}</td>`);
+    }
+    bodyRows.push(`<tr><th style="text-align:left;">${pax} pax</th>${cells.join('')}</tr>`);
+  }
+
+  table.innerHTML = `
+    <thead>
+      <tr>
+        <th style="text-align:left;">Passengers \\ Bags</th>
+        ${headCols.join('')}
+      </tr>
+    </thead>
+    <tbody>
+      ${bodyRows.join('')}
+    </tbody>
+  `;
+}
+
+function renderTransportPricingPreview() {
+  const routeId = getTransportSelectedRouteIdFromControl();
+  const route = routeId ? (transportAdminState.routeById[routeId] || null) : null;
+  const statusEl = document.getElementById('transportPreviewStatus');
+
+  const writeMoney = (id, value, currency = 'EUR') => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = transportMoney(value, currency);
+  };
+
+  if (!route) {
+    if (statusEl) {
+      statusEl.textContent = 'Select route to start simulation.';
+      statusEl.style.borderColor = 'rgba(148, 163, 184, 0.28)';
+    }
+    ['transportPreviewBase', 'transportPreviewExtraPassengers', 'transportPreviewExtraBags', 'transportPreviewExtraOversize', 'transportPreviewExtraSeats', 'transportPreviewExtraWaiting', 'transportPreviewTotal']
+      .forEach((id) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = '—';
+      });
+    renderTransportPreviewMatrix(null, null, null);
+    return;
+  }
+
+  transportAdminState.control.routeId = routeId;
+  const selectedRuleId = getTransportSelectedRuleIdFromControl();
+  const selectedRule = getTransportSelectedRuleForControl(routeId, selectedRuleId);
+  if (selectedRule) {
+    transportAdminState.control.ruleId = String(selectedRule.id || '').trim();
+  } else if (selectedRuleId) {
+    transportAdminState.control.ruleId = selectedRuleId;
+  }
+
+  const scenario = getTransportPreviewScenario(route);
+  const quote = calculateTransportControlQuote(route, selectedRule, scenario);
+
+  writeMoney('transportPreviewBase', quote.baseFare, quote.currency);
+  writeMoney('transportPreviewExtraPassengers', quote.extraPassengersCost, quote.currency);
+  writeMoney('transportPreviewExtraBags', quote.extraBagsCost, quote.currency);
+  writeMoney('transportPreviewExtraOversize', quote.oversizeCost, quote.currency);
+  writeMoney('transportPreviewExtraSeats', quote.seatsCost, quote.currency);
+  writeMoney('transportPreviewExtraWaiting', quote.waitingCost, quote.currency);
+  writeMoney('transportPreviewTotal', quote.total, quote.currency);
+
+  if (statusEl) {
+    const routeLabel = getTransportRouteLabel(route);
+    const modeText = `Rate: ${quote.basePeriod.toUpperCase()} (${quote.nightStartRaw}-${quote.nightEndRaw})`;
+    const ruleText = selectedRule
+      ? `Rule #${String(selectedRule.id || '').slice(0, 8).toUpperCase()} (priority ${Number(selectedRule.priority || 0)})`
+      : 'No active pricing rule (extras default to 0)';
+    const warningText = quote.warnings.length ? ` • ${quote.warnings.join(' ')}` : '';
+    statusEl.textContent = `${routeLabel} • ${modeText} • ${ruleText}${warningText}`;
+    statusEl.style.borderColor = quote.warnings.length ? 'rgba(245, 158, 11, 0.65)' : 'rgba(148, 163, 184, 0.28)';
+  }
+
+  renderTransportPreviewMatrix(route, quote, selectedRule);
+}
+
+function syncTransportControlCenter() {
+  refreshTransportControlRouteSelect();
+  refreshTransportControlRuleSelect();
+  renderTransportPricingPreview();
+}
+
+function resetTransportControlScenario() {
+  const setValue = (id, value) => {
+    const el = document.getElementById(id);
+    if (el) el.value = String(value);
+  };
+  setValue('transportPreviewRateMode', 'auto');
+  setValue('transportPreviewTravelTime', '12:00');
+  setValue('transportPreviewPassengers', '2');
+  setValue('transportPreviewBags', '2');
+  setValue('transportPreviewOversizeBags', '0');
+  setValue('transportPreviewChildSeats', '0');
+  setValue('transportPreviewBoosterSeats', '0');
+  setValue('transportPreviewWaitingMinutes', '0');
+  renderTransportPricingPreview();
+}
+
+async function openTransportRouteEditorFromControl() {
+  const routeId = getTransportSelectedRouteIdFromControl();
+  if (!routeId) {
+    showToast('Select route first', 'error');
+    return;
+  }
+  await setTransportActiveTab('routes', { load: true });
+  editTransportRoute(routeId);
+  const form = document.getElementById('transportRouteForm');
+  if (form && typeof form.scrollIntoView === 'function') {
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+async function openTransportPricingEditorFromControl(options = {}) {
+  const routeId = getTransportSelectedRouteIdFromControl();
+  if (!routeId) {
+    showToast('Select route first', 'error');
+    return;
+  }
+
+  const forceCreate = Boolean(options?.forceCreate);
+  const preferredRuleId = getTransportSelectedRuleIdFromControl();
+  await setTransportActiveTab('pricing', { load: true });
+
+  const pricingRouteEl = document.getElementById('transportPricingRoute');
+  const selectedRule = forceCreate ? null : getTransportSelectedRuleForControl(routeId, preferredRuleId);
+  if (selectedRule?.id) {
+    editTransportPricingRule(selectedRule.id);
+  } else {
+    resetTransportPricingForm();
+    if (pricingRouteEl) pricingRouteEl.value = routeId;
+  }
+
+  const form = document.getElementById('transportPricingForm');
+  if (form && typeof form.scrollIntoView === 'function') {
+    form.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+async function openTransportPricingForRoute(routeId) {
+  const id = String(routeId || '').trim();
+  if (!id) return;
+  const routeSelect = getTransportControlRouteSelect();
+  if (routeSelect) routeSelect.value = id;
+  transportAdminState.control.routeId = id;
+  refreshTransportControlRuleSelect();
+  renderTransportPricingPreview();
+  await openTransportPricingEditorFromControl({ forceCreate: false });
+}
+
 function renderTransportTableMessage(tbodyId, colSpan, message, isError = false) {
   const tbody = document.getElementById(tbodyId);
   if (!tbody) return;
@@ -9694,19 +10143,26 @@ function refreshTransportLocationSelects() {
     `).join('');
     if (prev) select.value = prev;
   });
+
+  renderTransportPricingPreview();
 }
 
 function refreshTransportRouteSelects() {
   const rows = Array.isArray(transportAdminState.routes) ? transportAdminState.routes : [];
   const select = document.getElementById('transportPricingRoute');
-  if (!select) return;
-  const prev = String(select.value || '').trim();
-  select.innerHTML = '<option value="">Select route</option>' + rows.map((row) => `
-    <option value="${escapeHtml(String(row.id || ''))}">
-      ${escapeHtml(getTransportRouteLabel(row))}
-    </option>
-  `).join('');
-  if (prev) select.value = prev;
+  if (select) {
+    const prev = String(select.value || '').trim();
+    select.innerHTML = '<option value="">Select route</option>' + rows.map((row) => `
+      <option value="${escapeHtml(String(row.id || ''))}">
+        ${escapeHtml(getTransportRouteLabel(row))}
+      </option>
+    `).join('');
+    if (prev) select.value = prev;
+  }
+
+  refreshTransportControlRouteSelect();
+  refreshTransportControlRuleSelect();
+  renderTransportPricingPreview();
 }
 
 function resetTransportLocationForm() {
@@ -9831,6 +10287,7 @@ async function loadTransportLocationsData(options = {}) {
 
   refreshTransportLocationSelects();
   renderTransportLocationsTable();
+  syncTransportControlCenter();
 }
 
 async function saveTransportLocationForm(event) {
@@ -9925,6 +10382,12 @@ function editTransportRoute(routeId) {
 
   const activeEl = document.getElementById('transportRouteActive');
   if (activeEl) activeEl.checked = Boolean(row.is_active !== false);
+
+  transportAdminState.control.routeId = id;
+  transportAdminState.control.ruleId = '';
+  refreshTransportControlRouteSelect();
+  refreshTransportControlRuleSelect();
+  renderTransportPricingPreview();
 }
 
 async function deleteTransportRoute(routeId) {
@@ -9975,6 +10438,7 @@ function renderTransportRoutesTable() {
         <td>${row.is_active === false ? '<span class="badge">INACTIVE</span>' : '<span class="badge badge-success">ACTIVE</span>'}</td>
         <td>${transportIsoToLabel(row.updated_at || row.created_at)}</td>
         <td style="text-align: right;">
+          <button class="btn-small btn-secondary" type="button" onclick="openTransportPricingForRoute('${escapeHtml(id)}')">Pricing</button>
           <button class="btn-small btn-secondary" type="button" onclick="editTransportRoute('${escapeHtml(id)}')">Edit</button>
           <button class="btn-small btn-danger" type="button" onclick="deleteTransportRoute('${escapeHtml(id)}')">Delete</button>
         </td>
@@ -10015,6 +10479,7 @@ async function loadTransportRoutesData(options = {}) {
 
   refreshTransportRouteSelects();
   renderTransportRoutesTable();
+  syncTransportControlCenter();
 }
 
 async function saveTransportRouteForm(event) {
@@ -10045,6 +10510,22 @@ async function saveTransportRouteForm(event) {
   }
   if (!(dayPrice >= 0) || !(nightPrice >= 0)) {
     showToast('Day and night prices must be >= 0', 'error');
+    return;
+  }
+  if (!Number.isFinite(includedPassengers) || includedPassengers < 1) {
+    showToast('Included passengers must be at least 1', 'error');
+    return;
+  }
+  if (!Number.isFinite(includedBags) || includedBags < 0) {
+    showToast('Included bags must be >= 0', 'error');
+    return;
+  }
+  if (!Number.isFinite(maxPassengers) || maxPassengers < includedPassengers) {
+    showToast('Max passengers must be greater than or equal to included passengers', 'error');
+    return;
+  }
+  if (!Number.isFinite(maxBags) || maxBags < includedBags) {
+    showToast('Max bags must be greater than or equal to included bags', 'error');
     return;
   }
 
@@ -10126,6 +10607,12 @@ function editTransportPricingRule(ruleId) {
 
   const activeEl = document.getElementById('transportPricingActive');
   if (activeEl) activeEl.checked = Boolean(row.is_active !== false);
+
+  transportAdminState.control.routeId = String(row.route_id || '').trim();
+  transportAdminState.control.ruleId = id;
+  refreshTransportControlRouteSelect();
+  refreshTransportControlRuleSelect();
+  renderTransportPricingPreview();
 }
 
 async function deleteTransportPricingRule(ruleId) {
@@ -10162,14 +10649,16 @@ function renderTransportPricingTable() {
 
   tbody.innerHTML = rows.map((row) => {
     const id = String(row.id || '');
+    const route = transportAdminState.routeById[String(row.route_id || '').trim()] || null;
+    const currency = String(route?.currency || 'EUR').trim().toUpperCase() || 'EUR';
     const surcharges = [
-      `+pax ${transportMoney(row.extra_passenger_fee || 0, 'EUR')}`,
-      `+bag ${transportMoney(row.extra_bag_fee || 0, 'EUR')}`,
-      `+oversize ${transportMoney(row.oversize_bag_fee || 0, 'EUR')}`,
-      `child seat ${transportMoney(row.child_seat_fee || 0, 'EUR')}`,
-      `booster ${transportMoney(row.booster_seat_fee || 0, 'EUR')}`,
+      `+pax ${transportMoney(row.extra_passenger_fee || 0, currency)}`,
+      `+bag ${transportMoney(row.extra_bag_fee || 0, currency)}`,
+      `+oversize ${transportMoney(row.oversize_bag_fee || 0, currency)}`,
+      `child seat ${transportMoney(row.child_seat_fee || 0, currency)}`,
+      `booster ${transportMoney(row.booster_seat_fee || 0, currency)}`,
     ].join(' · ');
-    const waiting = `${Number(row.waiting_included_minutes || 0)} min incl. · ${transportMoney(row.waiting_fee_per_minute || 0, 'EUR')}/min`;
+    const waiting = `${Number(row.waiting_included_minutes || 0)} min incl. · ${transportMoney(row.waiting_fee_per_minute || 0, currency)}/min`;
     const validity = `${row.valid_from ? transportDateToLabel(row.valid_from) : 'always'} → ${row.valid_to ? transportDateToLabel(row.valid_to) : 'no end'}`;
     return `
       <tr>
@@ -10213,6 +10702,8 @@ async function loadTransportPricingData(options = {}) {
 
   transportAdminState.pricingRules = data;
   renderTransportPricingTable();
+  refreshTransportControlRuleSelect();
+  renderTransportPricingPreview();
 }
 
 async function saveTransportPricingForm(event) {
@@ -10244,6 +10735,28 @@ async function saveTransportPricingForm(event) {
     return;
   }
 
+  const numericCheck = [
+    ['Extra passenger fee', payload.extra_passenger_fee],
+    ['Extra bag fee', payload.extra_bag_fee],
+    ['Oversize bag fee', payload.oversize_bag_fee],
+    ['Child seat fee', payload.child_seat_fee],
+    ['Booster seat fee', payload.booster_seat_fee],
+    ['Waiting included minutes', payload.waiting_included_minutes],
+    ['Waiting fee per minute', payload.waiting_fee_per_minute],
+    ['Priority', payload.priority],
+  ];
+  for (const [label, value] of numericCheck) {
+    if (!Number.isFinite(Number(value)) || Number(value) < 0) {
+      showToast(`${label} must be >= 0`, 'error');
+      return;
+    }
+  }
+
+  if (payload.valid_from && payload.valid_to && payload.valid_to < payload.valid_from) {
+    showToast('Valid to date must be equal or later than valid from', 'error');
+    return;
+  }
+
   try {
     let error = null;
     if (id) {
@@ -10254,7 +10767,11 @@ async function saveTransportPricingForm(event) {
     if (error) throw error;
 
     showToast(id ? 'Transport pricing rule updated' : 'Transport pricing rule created', 'success');
+    transportAdminState.control.routeId = routeId;
+    transportAdminState.control.ruleId = '';
     resetTransportPricingForm();
+    const pricingRouteEl = document.getElementById('transportPricingRoute');
+    if (pricingRouteEl) pricingRouteEl.value = routeId;
     await loadTransportPricingData({ silent: true });
   } catch (error) {
     console.error('Failed to save transport pricing:', error);
@@ -11012,23 +11529,31 @@ async function setTransportActiveTab(tab, options = {}) {
 
   if (normalizedTab === 'locations') {
     await loadTransportLocationsData({ silent: true });
+    await loadTransportRoutesData({ silent: true });
+    await loadTransportPricingData({ silent: true });
+    syncTransportControlCenter();
     return;
   }
   if (normalizedTab === 'routes') {
     await loadTransportLocationsData({ silent: true });
     await loadTransportRoutesData({ silent: true });
+    await loadTransportPricingData({ silent: true });
+    syncTransportControlCenter();
     return;
   }
   if (normalizedTab === 'pricing') {
     await loadTransportLocationsData({ silent: true });
     await loadTransportRoutesData({ silent: true });
     await loadTransportPricingData({ silent: true });
+    syncTransportControlCenter();
     return;
   }
   await loadTransportLocationsData({ silent: true });
   await loadTransportRoutesData({ silent: true });
+  await loadTransportPricingData({ silent: true });
   await loadTransportAssignablePartners({ force: false });
   await loadTransportBookingsData({ silent: true });
+  syncTransportControlCenter();
 }
 
 async function loadTransportAdminData() {
@@ -11082,10 +11607,62 @@ function bindTransportAdminUi() {
     btnRefreshBookings.addEventListener('click', () => {
       void loadTransportLocationsData({ silent: true });
       void loadTransportRoutesData({ silent: true });
+      void loadTransportPricingData({ silent: true });
       void loadTransportAssignablePartners({ force: true });
       void loadTransportBookingsData({ silent: false });
     });
   }
+
+  const controlRouteSelect = getTransportControlRouteSelect();
+  if (controlRouteSelect) {
+    controlRouteSelect.addEventListener('change', () => {
+      transportAdminState.control.routeId = String(controlRouteSelect.value || '').trim();
+      transportAdminState.control.ruleId = '';
+      refreshTransportControlRuleSelect();
+      renderTransportPricingPreview();
+    });
+  }
+
+  const controlRuleSelect = getTransportControlRuleSelect();
+  if (controlRuleSelect) {
+    controlRuleSelect.addEventListener('change', () => {
+      transportAdminState.control.ruleId = String(controlRuleSelect.value || '').trim();
+      renderTransportPricingPreview();
+    });
+  }
+
+  const btnControlOpenRoute = document.getElementById('btnTransportControlOpenRouteEditor');
+  if (btnControlOpenRoute) {
+    btnControlOpenRoute.addEventListener('click', () => {
+      void openTransportRouteEditorFromControl();
+    });
+  }
+
+  const btnControlOpenPricing = document.getElementById('btnTransportControlOpenPricingEditor');
+  if (btnControlOpenPricing) {
+    btnControlOpenPricing.addEventListener('click', () => {
+      void openTransportPricingEditorFromControl({ forceCreate: false });
+    });
+  }
+
+  const btnControlCreateRule = document.getElementById('btnTransportControlCreatePricingRule');
+  if (btnControlCreateRule) {
+    btnControlCreateRule.addEventListener('click', () => {
+      void openTransportPricingEditorFromControl({ forceCreate: true });
+    });
+  }
+
+  const btnControlResetScenario = document.getElementById('btnTransportControlResetScenario');
+  if (btnControlResetScenario) {
+    btnControlResetScenario.addEventListener('click', () => {
+      resetTransportControlScenario();
+    });
+  }
+
+  document.querySelectorAll('[data-transport-preview-input]').forEach((el) => {
+    el.addEventListener('input', () => renderTransportPricingPreview());
+    el.addEventListener('change', () => renderTransportPricingPreview());
+  });
 
   const locationForm = document.getElementById('transportLocationForm');
   if (locationForm instanceof HTMLFormElement) {
@@ -11118,6 +11695,9 @@ function bindTransportAdminUi() {
     bookingsSearch.addEventListener('input', () => renderTransportBookingsTable());
   }
 
+  resetTransportControlScenario();
+  syncTransportControlCenter();
+
   const detailsOverlay = document.getElementById('transportBookingDetailsModalOverlay');
   if (detailsOverlay) {
     detailsOverlay.addEventListener('click', () => {
@@ -11139,6 +11719,7 @@ window.editTransportLocation = editTransportLocation;
 window.deleteTransportLocation = deleteTransportLocation;
 window.editTransportRoute = editTransportRoute;
 window.deleteTransportRoute = deleteTransportRoute;
+window.openTransportPricingForRoute = openTransportPricingForRoute;
 window.editTransportPricingRule = editTransportPricingRule;
 window.deleteTransportPricingRule = deleteTransportPricingRule;
 window.viewTransportBookingDetails = viewTransportBookingDetails;
