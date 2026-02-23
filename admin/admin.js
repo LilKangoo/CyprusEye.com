@@ -10031,6 +10031,8 @@ async function openTransportPricingEditorFromControl(options = {}) {
   } else {
     resetTransportPricingForm();
     if (pricingRouteEl) pricingRouteEl.value = routeId;
+    refreshTransportPricingAdditionalRoutesOptions();
+    syncTransportPricingBulkApplyControls();
   }
 
   const form = document.getElementById('transportPricingForm');
@@ -10233,6 +10235,233 @@ function transportTableMissingHelp(tableName) {
   return `Missing table "${tableName}". Run transport migration first.`;
 }
 
+function getSelectedValuesFromMultiSelect(selectElement) {
+  if (!(selectElement instanceof HTMLSelectElement)) return [];
+  return Array.from(selectElement.options || [])
+    .filter((option) => option.selected && String(option.value || '').trim())
+    .map((option) => String(option.value || '').trim());
+}
+
+function setSelectedValuesForMultiSelect(selectElement, values) {
+  if (!(selectElement instanceof HTMLSelectElement)) return;
+  const selected = new Set((Array.isArray(values) ? values : []).map((value) => String(value || '').trim()).filter(Boolean));
+  Array.from(selectElement.options || []).forEach((option) => {
+    option.selected = selected.has(String(option.value || '').trim());
+  });
+}
+
+function refreshTransportRouteSetBuilderOptions() {
+  const locations = Array.isArray(transportAdminState.locations) ? transportAdminState.locations : [];
+  const originSelect = document.getElementById('transportRouteSetOrigin');
+  const destinationsSelect = document.getElementById('transportRouteSetDestinations');
+  if (!(originSelect instanceof HTMLSelectElement) || !(destinationsSelect instanceof HTMLSelectElement)) return;
+
+  const activeOnly = Boolean(document.getElementById('transportRouteSetOnlyActiveLocations')?.checked);
+  const search = String(document.getElementById('transportRouteSetDestinationSearch')?.value || '').trim().toLowerCase();
+  const prevOrigin = String(originSelect.value || '').trim();
+  const prevDestinations = new Set(getSelectedValuesFromMultiSelect(destinationsSelect));
+
+  const sortedLocations = locations.slice().sort((a, b) => {
+    const sortDiff = Number(a?.sort_order || 0) - Number(b?.sort_order || 0);
+    if (sortDiff !== 0) return sortDiff;
+    return getTransportLocationLabel(a?.id).localeCompare(getTransportLocationLabel(b?.id));
+  });
+
+  originSelect.innerHTML = '<option value="">Select origin</option>' + sortedLocations.map((row) => {
+    const id = String(row?.id || '').trim();
+    if (!id) return '';
+    return `<option value="${escapeHtml(id)}">${escapeHtml(getTransportLocationLabel(id))}</option>`;
+  }).join('');
+
+  if (prevOrigin && sortedLocations.some((row) => String(row?.id || '').trim() === prevOrigin)) {
+    originSelect.value = prevOrigin;
+  }
+  if (!String(originSelect.value || '').trim()) {
+    const routeOrigin = String(document.getElementById('transportRouteOrigin')?.value || '').trim();
+    if (routeOrigin && sortedLocations.some((row) => String(row?.id || '').trim() === routeOrigin)) {
+      originSelect.value = routeOrigin;
+    }
+  }
+  const originId = String(originSelect.value || '').trim();
+
+  const destinationRows = sortedLocations.filter((row) => {
+    const id = String(row?.id || '').trim();
+    if (!id || id === originId) return false;
+    if (activeOnly && row?.is_active === false) return false;
+    if (search && !getTransportLocationLabel(id).toLowerCase().includes(search)) return false;
+    return true;
+  });
+
+  destinationsSelect.innerHTML = destinationRows.map((row) => {
+    const id = String(row?.id || '').trim();
+    const label = getTransportLocationLabel(id);
+    return `<option value="${escapeHtml(id)}">${escapeHtml(label)}</option>`;
+  }).join('');
+
+  setSelectedValuesForMultiSelect(destinationsSelect, Array.from(prevDestinations));
+  syncTransportRouteSetSummary();
+}
+
+function refreshTransportPricingAdditionalRoutesOptions() {
+  const routes = Array.isArray(transportAdminState.routes) ? transportAdminState.routes : [];
+  const select = document.getElementById('transportPricingAdditionalRoutes');
+  if (!(select instanceof HTMLSelectElement)) return;
+
+  const search = String(document.getElementById('transportPricingAdditionalRoutesSearch')?.value || '').trim().toLowerCase();
+  const primaryRouteId = String(document.getElementById('transportPricingRoute')?.value || '').trim();
+  const previousSelected = new Set(getSelectedValuesFromMultiSelect(select));
+
+  const sortedRoutes = routes.slice().sort((a, b) => {
+    const sortDiff = Number(a?.sort_order || 0) - Number(b?.sort_order || 0);
+    if (sortDiff !== 0) return sortDiff;
+    return getTransportRouteLabel(a).localeCompare(getTransportRouteLabel(b));
+  });
+
+  const filteredRows = sortedRoutes.filter((row) => {
+    const id = String(row?.id || '').trim();
+    if (!id || id === primaryRouteId) return false;
+    const label = getTransportRouteLabel(row).toLowerCase();
+    if (search && !label.includes(search)) return false;
+    return true;
+  });
+
+  select.innerHTML = filteredRows.map((row) => {
+    const id = String(row?.id || '').trim();
+    return `<option value="${escapeHtml(id)}">${escapeHtml(getTransportRouteLabel(row))}</option>`;
+  }).join('');
+
+  setSelectedValuesForMultiSelect(select, Array.from(previousSelected));
+  syncTransportPricingAdditionalSummary();
+}
+
+function syncTransportRouteSetSummary() {
+  const summaryEl = document.getElementById('transportRouteSetSummary');
+  const originSelect = document.getElementById('transportRouteSetOrigin');
+  const destinationsSelect = document.getElementById('transportRouteSetDestinations');
+  const includeReverse = Boolean(document.getElementById('transportRouteSetIncludeReverse')?.checked);
+  if (!summaryEl || !(originSelect instanceof HTMLSelectElement) || !(destinationsSelect instanceof HTMLSelectElement)) return;
+
+  const originId = String(originSelect.value || '').trim();
+  if (!originId) {
+    summaryEl.textContent = 'Select base origin first. Then choose destination locations for one-click route creation.';
+    return;
+  }
+
+  const selectedDestinations = getSelectedValuesFromMultiSelect(destinationsSelect)
+    .filter((id, index, arr) => id && arr.indexOf(id) === index && id !== originId);
+  if (!selectedDestinations.length) {
+    summaryEl.textContent = 'No destinations selected yet.';
+    return;
+  }
+
+  const existingPairs = new Set((transportAdminState.routes || []).map((row) => {
+    const from = String(row?.origin_location_id || '').trim();
+    const to = String(row?.destination_location_id || '').trim();
+    return `${from}:${to}`;
+  }));
+
+  let candidates = 0;
+  let newPairs = 0;
+  selectedDestinations.forEach((destinationId) => {
+    const forward = `${originId}:${destinationId}`;
+    candidates += 1;
+    if (!existingPairs.has(forward)) newPairs += 1;
+    if (includeReverse) {
+      const reverse = `${destinationId}:${originId}`;
+      candidates += 1;
+      if (!existingPairs.has(reverse)) newPairs += 1;
+    }
+  });
+
+  const skipped = Math.max(0, candidates - newPairs);
+  summaryEl.textContent = `${selectedDestinations.length} destination(s) selected. ${candidates} route pair(s) planned (${newPairs} new, ${skipped} already exist).`;
+}
+
+function syncTransportPricingAdditionalSummary() {
+  const summaryEl = document.getElementById('transportPricingAdditionalSummary');
+  const enabled = Boolean(document.getElementById('transportPricingApplyToAdditional')?.checked);
+  const routeId = String(document.getElementById('transportPricingRoute')?.value || '').trim();
+  const select = document.getElementById('transportPricingAdditionalRoutes');
+  if (!summaryEl || !(select instanceof HTMLSelectElement)) return;
+
+  if (!enabled) {
+    summaryEl.textContent = 'Enable bulk clone and select routes to apply this pricing setup.';
+    return;
+  }
+
+  if (!routeId) {
+    summaryEl.textContent = 'Select main route first, then choose additional routes.';
+    return;
+  }
+
+  const selectedRoutes = getSelectedValuesFromMultiSelect(select).filter(Boolean);
+  if (!selectedRoutes.length) {
+    summaryEl.textContent = 'Bulk clone is enabled. Select one or more routes from the list below.';
+    return;
+  }
+
+  const selectedWithActiveRule = selectedRoutes.filter((selectedRouteId) => {
+    const activeRules = getTransportPricingRulesForRoute(selectedRouteId, { includeInactive: false });
+    return activeRules.length > 0;
+  }).length;
+  summaryEl.textContent = `${selectedRoutes.length} additional route(s) selected. ${selectedWithActiveRule} currently have active rules. Priority decides which rule is used first.`;
+}
+
+function syncTransportPricingBulkApplyControls() {
+  const enabledToggle = document.getElementById('transportPricingApplyToAdditional');
+  const select = document.getElementById('transportPricingAdditionalRoutes');
+  const searchInput = document.getElementById('transportPricingAdditionalRoutesSearch');
+  const btnSelectAll = document.getElementById('btnTransportPricingAdditionalSelectAll');
+  const btnClear = document.getElementById('btnTransportPricingAdditionalClearAll');
+  const routeId = String(document.getElementById('transportPricingRoute')?.value || '').trim();
+  const enabled = Boolean(enabledToggle?.checked) && Boolean(routeId);
+
+  [select, searchInput, btnSelectAll, btnClear].forEach((el) => {
+    if (el) el.disabled = !enabled;
+  });
+
+  if (!enabled && select instanceof HTMLSelectElement) {
+    setSelectedValuesForMultiSelect(select, []);
+  }
+  syncTransportPricingAdditionalSummary();
+}
+
+function selectAllTransportRouteSetDestinations() {
+  const select = document.getElementById('transportRouteSetDestinations');
+  if (!(select instanceof HTMLSelectElement)) return;
+  Array.from(select.options || []).forEach((option) => {
+    option.selected = true;
+  });
+  syncTransportRouteSetSummary();
+}
+
+function clearTransportRouteSetDestinations() {
+  const select = document.getElementById('transportRouteSetDestinations');
+  if (!(select instanceof HTMLSelectElement)) return;
+  Array.from(select.options || []).forEach((option) => {
+    option.selected = false;
+  });
+  syncTransportRouteSetSummary();
+}
+
+function selectAllTransportPricingAdditionalRoutes() {
+  const select = document.getElementById('transportPricingAdditionalRoutes');
+  if (!(select instanceof HTMLSelectElement) || select.disabled) return;
+  Array.from(select.options || []).forEach((option) => {
+    option.selected = true;
+  });
+  syncTransportPricingAdditionalSummary();
+}
+
+function clearTransportPricingAdditionalRoutes() {
+  const select = document.getElementById('transportPricingAdditionalRoutes');
+  if (!(select instanceof HTMLSelectElement)) return;
+  Array.from(select.options || []).forEach((option) => {
+    option.selected = false;
+  });
+  syncTransportPricingAdditionalSummary();
+}
+
 function refreshTransportLocationSelects() {
   const rows = Array.isArray(transportAdminState.locations) ? transportAdminState.locations : [];
 
@@ -10248,6 +10477,7 @@ function refreshTransportLocationSelects() {
     if (prev) select.value = prev;
   });
 
+  refreshTransportRouteSetBuilderOptions();
   renderTransportPricingPreview();
 }
 
@@ -10264,6 +10494,8 @@ function refreshTransportRouteSelects() {
     if (prev) select.value = prev;
   }
 
+  refreshTransportPricingAdditionalRoutesOptions();
+  syncTransportPricingBulkApplyControls();
   refreshTransportControlRouteSelect();
   refreshTransportControlRuleSelect();
   renderTransportPricingPreview();
@@ -10730,6 +10962,156 @@ async function saveTransportRouteForm(event) {
   }
 }
 
+async function createTransportRouteSetFromCurrentForm() {
+  const client = ensureSupabase();
+  if (!client) return;
+
+  const originSelect = document.getElementById('transportRouteSetOrigin');
+  const destinationsSelect = document.getElementById('transportRouteSetDestinations');
+  const includeReverse = Boolean(document.getElementById('transportRouteSetIncludeReverse')?.checked);
+
+  const originLocationId = String(originSelect?.value || '').trim();
+  const selectedDestinations = getSelectedValuesFromMultiSelect(destinationsSelect)
+    .filter((id) => id && id !== originLocationId);
+
+  if (!originLocationId) {
+    showToast('Select base origin for route set', 'error');
+    return;
+  }
+  if (!selectedDestinations.length) {
+    showToast('Select at least one destination', 'error');
+    return;
+  }
+
+  const dayPrice = Number(document.getElementById('transportRouteDayPrice')?.value || 0);
+  const nightPrice = Number(document.getElementById('transportRouteNightPrice')?.value || 0);
+  const currency = String(document.getElementById('transportRouteCurrency')?.value || 'EUR').trim().toUpperCase() || 'EUR';
+  const includedPassengers = Number(document.getElementById('transportRouteIncludedPassengers')?.value || 0);
+  const includedBags = Number(document.getElementById('transportRouteIncludedBags')?.value || 0);
+  const maxPassengers = Number(document.getElementById('transportRouteMaxPassengers')?.value || 0);
+  const maxBags = Number(document.getElementById('transportRouteMaxBags')?.value || 0);
+  const tripMode = normalizeTransportTripMode(document.getElementById('transportRouteTripMode')?.value || 'one_way');
+  const roundTripMultiplierRaw = Number(document.getElementById('transportRouteRoundTripMultiplier')?.value || 2);
+  const sortOrder = Number(document.getElementById('transportRouteSortOrder')?.value || 0);
+  const isActive = Boolean(document.getElementById('transportRouteActive')?.checked);
+
+  if (!(dayPrice >= 0) || !(nightPrice >= 0)) {
+    showToast('Day and night prices must be >= 0', 'error');
+    return;
+  }
+  if (!Number.isFinite(includedPassengers) || includedPassengers < 1) {
+    showToast('Included passengers must be at least 1', 'error');
+    return;
+  }
+  if (!Number.isFinite(includedBags) || includedBags < 0) {
+    showToast('Included bags must be >= 0', 'error');
+    return;
+  }
+  if (!Number.isFinite(maxPassengers) || maxPassengers < includedPassengers) {
+    showToast('Max passengers must be greater than or equal to included passengers', 'error');
+    return;
+  }
+  if (!Number.isFinite(maxBags) || maxBags < includedBags) {
+    showToast('Max bags must be greater than or equal to included bags', 'error');
+    return;
+  }
+  if (
+    tripMode === 'round_trip'
+    && (!Number.isFinite(roundTripMultiplierRaw) || roundTripMultiplierRaw < 1 || roundTripMultiplierRaw > 5)
+  ) {
+    showToast('Round-trip multiplier must be between 1 and 5', 'error');
+    return;
+  }
+
+  const allowsRoundTrip = tripMode === 'round_trip';
+  const roundTripMultiplier = allowsRoundTrip ? roundTripMultiplierRaw : 2;
+
+  const existingKeys = new Set((transportAdminState.routes || []).map((row) => {
+    const origin = String(row?.origin_location_id || '').trim();
+    const destination = String(row?.destination_location_id || '').trim();
+    return `${origin}:${destination}`;
+  }));
+
+  const candidatePairs = new Map();
+  selectedDestinations.forEach((destinationLocationId) => {
+    const forwardKey = `${originLocationId}:${destinationLocationId}`;
+    if (!candidatePairs.has(forwardKey)) {
+      candidatePairs.set(forwardKey, { origin_location_id: originLocationId, destination_location_id: destinationLocationId });
+    }
+    if (includeReverse) {
+      const reverseKey = `${destinationLocationId}:${originLocationId}`;
+      if (!candidatePairs.has(reverseKey)) {
+        candidatePairs.set(reverseKey, { origin_location_id: destinationLocationId, destination_location_id: originLocationId });
+      }
+    }
+  });
+
+  let createdCount = 0;
+  let skippedCount = 0;
+  let failedCount = 0;
+
+  for (const pair of candidatePairs.values()) {
+    const routeKey = `${pair.origin_location_id}:${pair.destination_location_id}`;
+    if (existingKeys.has(routeKey)) {
+      skippedCount += 1;
+      continue;
+    }
+
+    const payload = {
+      origin_location_id: pair.origin_location_id,
+      destination_location_id: pair.destination_location_id,
+      day_price: dayPrice,
+      night_price: nightPrice,
+      currency,
+      included_passengers: includedPassengers,
+      included_bags: includedBags,
+      max_passengers: maxPassengers,
+      max_bags: maxBags,
+      allows_round_trip: allowsRoundTrip,
+      round_trip_multiplier: roundTripMultiplier,
+      sort_order: Number.isFinite(sortOrder) ? sortOrder : 0,
+      is_active: isActive,
+    };
+
+    try {
+      const { error } = await client.from(TRANSPORT_TABLES.routes).insert(payload);
+      if (error) {
+        const code = String(error.code || '').trim();
+        const message = String(error.message || '').toLowerCase();
+        if (code === '23505' || message.includes('duplicate')) {
+          skippedCount += 1;
+          continue;
+        }
+        if (
+          isMissingColumnError(error, 'allows_round_trip')
+          || isMissingColumnError(error, 'round_trip_multiplier')
+        ) {
+          showToast('Run migration 111_transport_round_trip_waiting_hourly_and_deposit_rules.sql first', 'error');
+          return;
+        }
+        failedCount += 1;
+        console.error('Failed to insert route from set:', error, payload);
+        continue;
+      }
+      createdCount += 1;
+      existingKeys.add(routeKey);
+    } catch (error) {
+      failedCount += 1;
+      console.error('Failed to insert route from set:', error, payload);
+    }
+  }
+
+  if (!createdCount && !failedCount) {
+    showToast('No new routes were created (all selected pairs already exist)', 'info');
+    return;
+  }
+
+  const summary = `Route set finished: created ${createdCount}, skipped ${skippedCount}, failed ${failedCount}`;
+  showToast(summary, failedCount ? 'error' : 'success');
+  await loadTransportRoutesData({ silent: true });
+  await loadTransportPricingData({ silent: true });
+}
+
 function resetTransportPricingForm() {
   const form = document.getElementById('transportPricingForm');
   if (!(form instanceof HTMLFormElement)) return;
@@ -10743,6 +11125,9 @@ function resetTransportPricingForm() {
   const nightEnd = document.getElementById('transportPricingNightEnd');
   const activeEl = document.getElementById('transportPricingActive');
   const priorityEl = document.getElementById('transportPricingPriority');
+  const applyAdditionalEl = document.getElementById('transportPricingApplyToAdditional');
+  const additionalSearchEl = document.getElementById('transportPricingAdditionalRoutesSearch');
+  const additionalRoutesEl = document.getElementById('transportPricingAdditionalRoutes');
   if (idEl) idEl.value = '';
   if (waitingPerHourEl) waitingPerHourEl.value = '0';
   if (depositEnabledEl) depositEnabledEl.checked = false;
@@ -10752,7 +11137,14 @@ function resetTransportPricingForm() {
   if (nightEnd) nightEnd.value = '06:00';
   if (priorityEl) priorityEl.value = '0';
   if (activeEl) activeEl.checked = true;
+  if (applyAdditionalEl) applyAdditionalEl.checked = false;
+  if (additionalSearchEl) additionalSearchEl.value = '';
+  if (additionalRoutesEl instanceof HTMLSelectElement) {
+    setSelectedValuesForMultiSelect(additionalRoutesEl, []);
+  }
+  refreshTransportPricingAdditionalRoutesOptions();
   syncTransportPricingDepositControls();
+  syncTransportPricingBulkApplyControls();
 }
 
 function editTransportPricingRule(ruleId) {
@@ -10792,7 +11184,17 @@ function editTransportPricingRule(ruleId) {
   if (activeEl) activeEl.checked = Boolean(row.is_active !== false);
   const depositEnabledEl = document.getElementById('transportPricingDepositEnabled');
   if (depositEnabledEl) depositEnabledEl.checked = Boolean(row.deposit_enabled === true);
+  const applyAdditionalEl = document.getElementById('transportPricingApplyToAdditional');
+  if (applyAdditionalEl) applyAdditionalEl.checked = false;
+  const additionalSearchEl = document.getElementById('transportPricingAdditionalRoutesSearch');
+  if (additionalSearchEl) additionalSearchEl.value = '';
+  const additionalRoutesEl = document.getElementById('transportPricingAdditionalRoutes');
+  if (additionalRoutesEl instanceof HTMLSelectElement) {
+    setSelectedValuesForMultiSelect(additionalRoutesEl, []);
+  }
+  refreshTransportPricingAdditionalRoutesOptions();
   syncTransportPricingDepositControls();
+  syncTransportPricingBulkApplyControls();
 
   transportAdminState.control.routeId = String(row.route_id || '').trim();
   transportAdminState.control.ruleId = id;
@@ -10896,6 +11298,8 @@ async function loadTransportPricingData(options = {}) {
 
   transportAdminState.pricingRules = data;
   renderTransportPricingTable();
+  refreshTransportPricingAdditionalRoutesOptions();
+  syncTransportPricingBulkApplyControls();
   refreshTransportControlRuleSelect();
   renderTransportPricingPreview();
 }
@@ -10907,6 +11311,10 @@ async function saveTransportPricingForm(event) {
 
   const id = String(document.getElementById('transportPricingId')?.value || '').trim();
   const routeId = String(document.getElementById('transportPricingRoute')?.value || '').trim();
+  const applyToAdditionalRoutes = Boolean(document.getElementById('transportPricingApplyToAdditional')?.checked);
+  const additionalRouteSelect = document.getElementById('transportPricingAdditionalRoutes');
+  const additionalRouteIds = getSelectedValuesFromMultiSelect(additionalRouteSelect)
+    .filter((value, index, arr) => value && value !== routeId && arr.indexOf(value) === index);
   const waitingFeePerHour = Number(document.getElementById('transportPricingWaitingPerHour')?.value || 0);
   const depositEnabled = Boolean(document.getElementById('transportPricingDepositEnabled')?.checked);
   const depositMode = String(document.getElementById('transportPricingDepositMode')?.value || 'percent_total').trim().toLowerCase();
@@ -10983,12 +11391,53 @@ async function saveTransportPricingForm(event) {
     }
     if (error) throw error;
 
+    let clonedRulesCount = 0;
+    if (applyToAdditionalRoutes && additionalRouteIds.length) {
+      const cloneRows = additionalRouteIds.map((additionalRouteId) => ({
+        ...payload,
+        route_id: additionalRouteId,
+      }));
+
+      try {
+        const { error: bulkCloneError } = await client
+          .from(TRANSPORT_TABLES.pricing)
+          .insert(cloneRows);
+        if (bulkCloneError) throw bulkCloneError;
+        clonedRulesCount = cloneRows.length;
+      } catch (bulkError) {
+        console.warn('Bulk pricing clone failed, falling back to per-route insert:', bulkError);
+        for (const row of cloneRows) {
+          try {
+            const { error: rowError } = await client.from(TRANSPORT_TABLES.pricing).insert(row);
+            if (!rowError) {
+              clonedRulesCount += 1;
+              continue;
+            }
+            const code = String(rowError.code || '');
+            const msg = String(rowError.message || '').toLowerCase();
+            if (code === '23505' || msg.includes('duplicate')) {
+              continue;
+            }
+            console.warn('Failed to clone pricing rule row:', rowError, row);
+          } catch (rowError) {
+            console.warn('Failed to clone pricing rule row:', rowError, row);
+          }
+        }
+      }
+
+      if (clonedRulesCount > 0) {
+        showToast(`Pricing cloned to ${clonedRulesCount} additional route(s)`, 'success');
+      }
+    }
+
     showToast(id ? 'Transport pricing rule updated' : 'Transport pricing rule created', 'success');
     transportAdminState.control.routeId = routeId;
     transportAdminState.control.ruleId = '';
     resetTransportPricingForm();
     const pricingRouteEl = document.getElementById('transportPricingRoute');
     if (pricingRouteEl) pricingRouteEl.value = routeId;
+    refreshTransportPricingAdditionalRoutesOptions();
+    syncTransportPricingBulkApplyControls();
     await loadTransportPricingData({ silent: true });
   } catch (error) {
     console.error('Failed to save transport pricing:', error);
@@ -11736,8 +12185,6 @@ async function setTransportActiveTab(tab, options = {}) {
   tabButtons.forEach((btn) => {
     const isActive = String(btn.getAttribute('data-tab') || '') === normalizedTab;
     btn.classList.toggle('active', isActive);
-    btn.style.borderBottomColor = isActive ? 'var(--admin-primary)' : 'transparent';
-    btn.style.color = isActive ? 'var(--admin-text)' : 'var(--admin-text-muted)';
   });
 
   const panels = {
@@ -11905,12 +12352,63 @@ function bindTransportAdminUi() {
   if (routeTripMode) {
     routeTripMode.addEventListener('change', () => syncTransportRouteRoundTripControls());
   }
+  const routeOriginSelect = document.getElementById('transportRouteOrigin');
+  if (routeOriginSelect) {
+    routeOriginSelect.addEventListener('change', () => {
+      const routeSetOriginSelect = document.getElementById('transportRouteSetOrigin');
+      if (routeSetOriginSelect instanceof HTMLSelectElement && !String(routeSetOriginSelect.value || '').trim()) {
+        routeSetOriginSelect.value = String(routeOriginSelect.value || '').trim();
+      }
+      refreshTransportRouteSetBuilderOptions();
+    });
+  }
+  const routeSetOrigin = document.getElementById('transportRouteSetOrigin');
+  if (routeSetOrigin) {
+    routeSetOrigin.addEventListener('change', () => refreshTransportRouteSetBuilderOptions());
+  }
+  const routeSetIncludeReverse = document.getElementById('transportRouteSetIncludeReverse');
+  if (routeSetIncludeReverse) {
+    routeSetIncludeReverse.addEventListener('change', () => syncTransportRouteSetSummary());
+  }
+  const routeSetOnlyActive = document.getElementById('transportRouteSetOnlyActiveLocations');
+  if (routeSetOnlyActive) {
+    routeSetOnlyActive.addEventListener('change', () => refreshTransportRouteSetBuilderOptions());
+  }
+  const routeSetSearch = document.getElementById('transportRouteSetDestinationSearch');
+  if (routeSetSearch) {
+    routeSetSearch.addEventListener('input', () => refreshTransportRouteSetBuilderOptions());
+  }
+  const routeSetDestinations = document.getElementById('transportRouteSetDestinations');
+  if (routeSetDestinations) {
+    routeSetDestinations.addEventListener('change', () => syncTransportRouteSetSummary());
+  }
+  const btnRouteSetSelectAll = document.getElementById('btnTransportRouteSetSelectAll');
+  if (btnRouteSetSelectAll) {
+    btnRouteSetSelectAll.addEventListener('click', () => selectAllTransportRouteSetDestinations());
+  }
+  const btnRouteSetClearAll = document.getElementById('btnTransportRouteSetClearAll');
+  if (btnRouteSetClearAll) {
+    btnRouteSetClearAll.addEventListener('click', () => clearTransportRouteSetDestinations());
+  }
+  const btnCreateRouteSet = document.getElementById('btnCreateTransportRouteSet');
+  if (btnCreateRouteSet) {
+    btnCreateRouteSet.addEventListener('click', () => {
+      void createTransportRouteSetFromCurrentForm();
+    });
+  }
   const resetRouteBtn = document.getElementById('btnResetTransportRoute');
   if (resetRouteBtn) resetRouteBtn.addEventListener('click', () => resetTransportRouteForm());
 
   const pricingForm = document.getElementById('transportPricingForm');
   if (pricingForm instanceof HTMLFormElement) {
     pricingForm.addEventListener('submit', saveTransportPricingForm);
+  }
+  const pricingRouteSelect = document.getElementById('transportPricingRoute');
+  if (pricingRouteSelect) {
+    pricingRouteSelect.addEventListener('change', () => {
+      refreshTransportPricingAdditionalRoutesOptions();
+      syncTransportPricingBulkApplyControls();
+    });
   }
   const pricingDepositEnabled = document.getElementById('transportPricingDepositEnabled');
   if (pricingDepositEnabled) {
@@ -11919,6 +12417,29 @@ function bindTransportAdminUi() {
   const pricingDepositMode = document.getElementById('transportPricingDepositMode');
   if (pricingDepositMode) {
     pricingDepositMode.addEventListener('change', () => syncTransportPricingDepositControls());
+  }
+  const pricingApplyToAdditional = document.getElementById('transportPricingApplyToAdditional');
+  if (pricingApplyToAdditional) {
+    pricingApplyToAdditional.addEventListener('change', () => syncTransportPricingBulkApplyControls());
+  }
+  const pricingAdditionalSearch = document.getElementById('transportPricingAdditionalRoutesSearch');
+  if (pricingAdditionalSearch) {
+    pricingAdditionalSearch.addEventListener('input', () => {
+      refreshTransportPricingAdditionalRoutesOptions();
+      syncTransportPricingBulkApplyControls();
+    });
+  }
+  const btnPricingSelectAll = document.getElementById('btnTransportPricingAdditionalSelectAll');
+  if (btnPricingSelectAll) {
+    btnPricingSelectAll.addEventListener('click', () => selectAllTransportPricingAdditionalRoutes());
+  }
+  const btnPricingClearAll = document.getElementById('btnTransportPricingAdditionalClearAll');
+  if (btnPricingClearAll) {
+    btnPricingClearAll.addEventListener('click', () => clearTransportPricingAdditionalRoutes());
+  }
+  const pricingAdditionalRoutes = document.getElementById('transportPricingAdditionalRoutes');
+  if (pricingAdditionalRoutes) {
+    pricingAdditionalRoutes.addEventListener('change', () => syncTransportPricingAdditionalSummary());
   }
   const resetPricingBtn = document.getElementById('btnResetTransportPricing');
   if (resetPricingBtn) resetPricingBtn.addEventListener('click', () => resetTransportPricingForm());
@@ -11934,7 +12455,12 @@ function bindTransportAdminUi() {
   }
 
   syncTransportRouteRoundTripControls();
+  refreshTransportRouteSetBuilderOptions();
+  syncTransportRouteSetSummary();
   syncTransportPricingDepositControls();
+  refreshTransportPricingAdditionalRoutesOptions();
+  syncTransportPricingBulkApplyControls();
+  syncTransportPricingAdditionalSummary();
   resetTransportControlScenario();
   syncTransportControlCenter();
 

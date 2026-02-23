@@ -693,7 +693,7 @@
             </section>
 
             <section class="transport-control-panel">
-              <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;">
+              <div class="transport-inline-head">
                 <div>
                   <h4 style="margin:0;">Fare simulator</h4>
                   <p class="transport-control-panel__hint">Live quote for passengers, bags, seats, oversize luggage, waiting billed per started hour, and deposit.</p>
@@ -762,11 +762,11 @@
           </div>
 
           <section class="transport-control-panel transport-control-panel--matrix">
-            <div style="display:flex; justify-content:space-between; gap:10px; align-items:center; flex-wrap:wrap;">
+            <div class="transport-inline-head">
               <h4 style="margin:0;">Passengers × bags matrix</h4>
               <div class="transport-control-panel__hint" id="transportPreviewMatrixMeta">Matrix updates after selecting route.</div>
             </div>
-            <div class="admin-table-container" style="margin-bottom: 0;" aria-label="Transport pricing matrix">
+            <div class="admin-table-container transport-table-scroll" style="margin-bottom: 0;" aria-label="Transport pricing matrix">
               <table class="admin-table" id="transportPreviewMatrixTable">
                 <tbody>
                   <tr><td class="table-loading">Select route to generate matrix</td></tr>
@@ -776,17 +776,17 @@
           </section>
         </div>
 
-        <div style="margin-bottom: 24px; border-bottom: 2px solid var(--admin-border); display: flex; gap: 8px; flex-wrap: wrap;">
-          <button class="transport-tab-button active" data-tab="locations" type="button" style="padding: 12px 24px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: var(--admin-text-muted); transition: all 0.2s;">
+        <div class="transport-tabs">
+          <button class="transport-tab-button active" data-tab="locations" type="button">
             Locations
           </button>
-          <button class="transport-tab-button" data-tab="routes" type="button" style="padding: 12px 24px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: var(--admin-text-muted); transition: all 0.2s;">
+          <button class="transport-tab-button" data-tab="routes" type="button">
             Routes
           </button>
-          <button class="transport-tab-button" data-tab="pricing" type="button" style="padding: 12px 24px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: var(--admin-text-muted); transition: all 0.2s;">
+          <button class="transport-tab-button" data-tab="pricing" type="button">
             Pricing Rules
           </button>
-          <button class="transport-tab-button" data-tab="bookings" type="button" style="padding: 12px 24px; background: none; border: none; border-bottom: 2px solid transparent; cursor: pointer; font-weight: 500; color: var(--admin-text-muted); transition: all 0.2s;">
+          <button class="transport-tab-button" data-tab="bookings" type="button">
             Bookings
           </button>
         </div>
@@ -799,39 +799,43 @@
             </div>
             <div class="admin-card-body">
               <p class="transport-editor-hint">Use unique stable codes (for example: <code>lca_airport</code>, <code>ayia_napa_center</code>). Routes, pricing and bookings rely on these locations.</p>
-              <form id="transportLocationForm" novalidate>
+              <form id="transportLocationForm" class="transport-editor-form" novalidate>
                 <input type="hidden" id="transportLocationId" />
-                <div class="admin-form-grid" style="grid-template-columns: 1fr 180px 160px 140px 180px; gap: 12px; align-items: end;">
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Name</span>
-                    <input type="text" id="transportLocationName" required placeholder="e.g. Larnaca Airport" />
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Code</span>
-                    <input type="text" id="transportLocationCode" required placeholder="e.g. lca_airport" />
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Type</span>
-                    <select id="transportLocationType" class="form-control">
-                      <option value="city">City</option>
-                      <option value="airport">Airport</option>
-                      <option value="port">Port</option>
-                      <option value="station">Station</option>
-                      <option value="hotel">Hotel</option>
-                      <option value="landmark">Landmark</option>
-                      <option value="custom">Custom</option>
-                    </select>
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Sort order</span>
-                    <input type="number" id="transportLocationSortOrder" min="0" step="1" value="0" />
-                  </label>
-                  <label style="display:flex; align-items:center; gap: 10px; margin-bottom: 10px;">
-                    <input id="transportLocationActive" type="checkbox" checked style="width: 18px; height: 18px;" />
-                    <span>Active</span>
-                  </label>
-                </div>
-                <div style="display:flex; gap: 8px; justify-content:flex-end; margin-top: 12px;">
+                <section class="transport-form-block">
+                  <h4 class="transport-form-block__title">Location details</h4>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--location">
+                    <label class="admin-form-field transport-field transport-field--wide">
+                      <span>Name</span>
+                      <input type="text" id="transportLocationName" required placeholder="e.g. Larnaca Airport" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Code</span>
+                      <input type="text" id="transportLocationCode" required placeholder="e.g. lca_airport" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Type</span>
+                      <select id="transportLocationType" class="form-control">
+                        <option value="city">City</option>
+                        <option value="airport">Airport</option>
+                        <option value="port">Port</option>
+                        <option value="station">Station</option>
+                        <option value="hotel">Hotel</option>
+                        <option value="landmark">Landmark</option>
+                        <option value="custom">Custom</option>
+                      </select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Sort order</span>
+                      <input type="number" id="transportLocationSortOrder" min="0" step="1" value="0" />
+                    </label>
+                    <label class="transport-check-field transport-check-field--row">
+                      <input id="transportLocationActive" type="checkbox" checked />
+                      <span>Active</span>
+                    </label>
+                  </div>
+                  <p class="transport-form-block__hint">Tip: Add every airport/city/area first, then use Route Set Builder to create many route pairs in one save.</p>
+                </section>
+                <div class="transport-editor-actions">
                   <button class="btn-secondary" type="button" id="btnResetTransportLocation">Clear</button>
                   <button class="btn btn-primary" type="submit" id="btnSaveTransportLocation">Save location</button>
                 </div>
@@ -839,7 +843,7 @@
             </div>
           </div>
 
-          <div class="admin-table-container" aria-label="Transport locations">
+          <div class="admin-table-container transport-table-scroll" aria-label="Transport locations">
             <table class="admin-table">
               <thead>
                 <tr>
@@ -867,76 +871,128 @@
             </div>
             <div class="admin-card-body">
               <p class="transport-editor-hint">Set base day/night fare, capacity, and whether this route is one-way only or also supports round trips.</p>
-              <form id="transportRouteForm" novalidate>
+              <form id="transportRouteForm" class="transport-editor-form" novalidate>
                 <input type="hidden" id="transportRouteId" />
-                <div class="admin-form-grid" style="grid-template-columns: 1fr 1fr 130px 130px 100px 120px 120px 120px 120px; gap: 10px; align-items: end;">
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Origin</span>
-                    <select id="transportRouteOrigin" class="form-control" required></select>
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Destination</span>
-                    <select id="transportRouteDestination" class="form-control" required></select>
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Day price</span>
-                    <input type="number" id="transportRouteDayPrice" min="0" step="0.01" required />
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Night price</span>
-                    <input type="number" id="transportRouteNightPrice" min="0" step="0.01" required />
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Currency</span>
-                    <input type="text" id="transportRouteCurrency" value="EUR" maxlength="8" />
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Incl. pax</span>
-                    <input type="number" id="transportRouteIncludedPassengers" min="1" step="1" value="2" />
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Incl. bags</span>
-                    <input type="number" id="transportRouteIncludedBags" min="0" step="1" value="2" />
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Max pax</span>
-                    <input type="number" id="transportRouteMaxPassengers" min="1" step="1" value="8" />
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Max bags</span>
-                    <input type="number" id="transportRouteMaxBags" min="0" step="1" value="8" />
-                  </label>
-                </div>
-                <div class="admin-form-grid" style="grid-template-columns: 220px 220px 180px 1fr; gap: 10px; align-items: end; margin-top: 10px;">
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Trip mode</span>
-                    <select id="transportRouteTripMode" class="form-control">
-                      <option value="one_way">One-way only</option>
-                      <option value="round_trip">One-way + round trip</option>
-                    </select>
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Round-trip multiplier</span>
-                    <input type="number" id="transportRouteRoundTripMultiplier" min="1" step="0.01" value="2" />
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Sort order</span>
-                    <input type="number" id="transportRouteSortOrder" min="0" step="1" value="0" />
-                  </label>
-                  <label style="display:flex; align-items:center; gap: 10px; margin-bottom: 10px;">
-                    <input id="transportRouteActive" type="checkbox" checked style="width: 18px; height: 18px;" />
-                    <span>Active</span>
-                  </label>
-                </div>
-                <div style="display:flex; gap: 8px; justify-content:flex-end; margin-top: 12px;">
+
+                <section class="transport-form-block">
+                  <h4 class="transport-form-block__title">Route and base prices</h4>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-core">
+                    <label class="admin-form-field transport-field">
+                      <span>Origin</span>
+                      <select id="transportRouteOrigin" class="form-control" required></select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Destination</span>
+                      <select id="transportRouteDestination" class="form-control" required></select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Day price</span>
+                      <input type="number" id="transportRouteDayPrice" min="0" step="0.01" required />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Night price</span>
+                      <input type="number" id="transportRouteNightPrice" min="0" step="0.01" required />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Currency</span>
+                      <input type="text" id="transportRouteCurrency" value="EUR" maxlength="8" />
+                    </label>
+                  </div>
+                </section>
+
+                <section class="transport-form-block">
+                  <h4 class="transport-form-block__title">Capacity and limits</h4>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--capacity">
+                    <label class="admin-form-field transport-field">
+                      <span>Incl. pax</span>
+                      <input type="number" id="transportRouteIncludedPassengers" min="1" step="1" value="2" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Incl. bags</span>
+                      <input type="number" id="transportRouteIncludedBags" min="0" step="1" value="2" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Max pax</span>
+                      <input type="number" id="transportRouteMaxPassengers" min="1" step="1" value="8" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Max bags</span>
+                      <input type="number" id="transportRouteMaxBags" min="0" step="1" value="8" />
+                    </label>
+                  </div>
+                </section>
+
+                <section class="transport-form-block">
+                  <h4 class="transport-form-block__title">Trip mode and status</h4>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-meta">
+                    <label class="admin-form-field transport-field">
+                      <span>Trip mode</span>
+                      <select id="transportRouteTripMode" class="form-control">
+                        <option value="one_way">One-way only</option>
+                        <option value="round_trip">One-way + round trip</option>
+                      </select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Round-trip multiplier</span>
+                      <input type="number" id="transportRouteRoundTripMultiplier" min="1" step="0.01" value="2" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Sort order</span>
+                      <input type="number" id="transportRouteSortOrder" min="0" step="1" value="0" />
+                    </label>
+                    <label class="transport-check-field">
+                      <input id="transportRouteActive" type="checkbox" checked />
+                      <span>Active</span>
+                    </label>
+                  </div>
+                </section>
+
+                <div class="transport-editor-actions">
                   <button class="btn-secondary" type="button" id="btnResetTransportRoute">Clear</button>
                   <button class="btn btn-primary" type="submit" id="btnSaveTransportRoute">Save route</button>
                 </div>
               </form>
+
+              <section class="transport-bulk-panel" aria-label="Route set builder">
+                <div class="transport-inline-head">
+                  <h4 class="transport-form-block__title">Route Set Builder</h4>
+                  <span class="transport-inline-badge">Bulk create</span>
+                </div>
+                <p class="transport-form-block__hint">Create many routes from one origin using current form values (prices, limits, trip mode). Existing pairs are skipped automatically.</p>
+                <div class="admin-form-grid transport-fields-grid transport-fields-grid--route-builder">
+                  <label class="admin-form-field transport-field">
+                    <span>Base origin</span>
+                    <select id="transportRouteSetOrigin" class="form-control"></select>
+                  </label>
+                  <label class="admin-form-field transport-field">
+                    <span>Destination search</span>
+                    <input id="transportRouteSetDestinationSearch" class="form-control" type="text" placeholder="Filter destinations..." />
+                  </label>
+                </div>
+                <div class="transport-multi-select-toolbar">
+                  <label class="transport-check-field">
+                    <input id="transportRouteSetIncludeReverse" type="checkbox" checked />
+                    <span>Also create reverse routes</span>
+                  </label>
+                  <label class="transport-check-field">
+                    <input id="transportRouteSetOnlyActiveLocations" type="checkbox" checked />
+                    <span>Only active destinations</span>
+                  </label>
+                  <div class="transport-multi-select-toolbar__actions">
+                    <button class="btn-small btn-secondary" type="button" id="btnTransportRouteSetSelectAll">Select all</button>
+                    <button class="btn-small btn-secondary" type="button" id="btnTransportRouteSetClearAll">Clear selection</button>
+                  </div>
+                </div>
+                <select id="transportRouteSetDestinations" class="form-control transport-multi-select" multiple size="8" aria-label="Route set destinations"></select>
+                <p class="transport-form-block__hint transport-form-block__hint--status" id="transportRouteSetSummary">Select destinations to prepare route set creation.</p>
+                <div class="transport-editor-actions">
+                  <button class="btn-secondary" type="button" id="btnCreateTransportRouteSet">Create route set from current values</button>
+                </div>
+              </section>
             </div>
           </div>
 
-          <div class="admin-table-container" aria-label="Transport routes">
+          <div class="admin-table-container transport-table-scroll" aria-label="Transport routes">
             <table class="admin-table">
               <thead>
                 <tr>
@@ -966,87 +1022,122 @@
             </div>
             <div class="admin-card-body">
               <p class="transport-editor-hint">Create one or more rules per route. Configure extras, waiting fee per hour, and deposit logic (fixed, percent of total, or per person).</p>
-              <form id="transportPricingForm" novalidate>
+              <form id="transportPricingForm" class="transport-editor-form" novalidate>
                 <input type="hidden" id="transportPricingId" />
-                <div class="admin-form-grid" style="grid-template-columns: 1.4fr repeat(6, 130px); gap: 10px; align-items: end;">
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Route</span>
-                    <select id="transportPricingRoute" class="form-control" required></select>
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Extra pax</span>
-                    <input type="number" id="transportPricingExtraPassenger" min="0" step="0.01" value="0" />
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Extra bag</span>
-                    <input type="number" id="transportPricingExtraBag" min="0" step="0.01" value="0" />
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Oversize bag</span>
-                    <input type="number" id="transportPricingOversizeBag" min="0" step="0.01" value="0" />
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Child seat</span>
-                    <input type="number" id="transportPricingChildSeat" min="0" step="0.01" value="0" />
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Booster</span>
-                    <input type="number" id="transportPricingBoosterSeat" min="0" step="0.01" value="0" />
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Wait incl. min</span>
-                    <input type="number" id="transportPricingWaitingIncluded" min="0" step="1" value="0" />
-                  </label>
-                </div>
-                <div class="admin-form-grid" style="grid-template-columns: 160px 220px 180px 160px 160px 160px 160px; gap: 10px; align-items: end; margin-top: 10px;">
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Wait / hour</span>
-                    <input type="number" id="transportPricingWaitingPerHour" min="0" step="0.01" value="0" />
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Deposit mode</span>
-                    <select id="transportPricingDepositMode" class="form-control">
-                      <option value="percent_total">% of total</option>
-                      <option value="fixed_amount">Fixed amount</option>
-                      <option value="per_person">Per person</option>
-                    </select>
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Deposit value</span>
-                    <input type="number" id="transportPricingDepositValue" min="0" step="0.01" value="0" />
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Night start</span>
-                    <input type="time" id="transportPricingNightStart" value="22:00" />
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Night end</span>
-                    <input type="time" id="transportPricingNightEnd" value="06:00" />
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Valid from</span>
-                    <input type="date" id="transportPricingValidFrom" />
-                  </label>
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Valid to</span>
-                    <input type="date" id="transportPricingValidTo" />
-                  </label>
-                </div>
-                <div class="admin-form-grid" style="grid-template-columns: 180px 220px 1fr; gap: 10px; align-items: end; margin-top: 10px;">
-                  <label class="admin-form-field" style="margin: 0;">
-                    <span>Priority</span>
-                    <input type="number" id="transportPricingPriority" min="0" step="1" value="0" />
-                  </label>
-                  <label style="display:flex; align-items:center; gap: 10px; margin-bottom: 10px;">
-                    <input id="transportPricingDepositEnabled" type="checkbox" style="width: 18px; height: 18px;" />
-                    <span>Require deposit for this rule</span>
-                  </label>
-                  <label style="display:flex; align-items:center; gap: 10px; margin-bottom: 10px;">
-                    <input id="transportPricingActive" type="checkbox" checked style="width: 18px; height: 18px;" />
-                    <span>Active</span>
-                  </label>
-                </div>
-                <div style="display:flex; gap: 8px; justify-content:flex-end; margin-top: 12px;">
+
+                <section class="transport-form-block">
+                  <h4 class="transport-form-block__title">Rule scope and extras</h4>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--pricing-core">
+                    <label class="admin-form-field transport-field">
+                      <span>Route</span>
+                      <select id="transportPricingRoute" class="form-control" required></select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Extra pax</span>
+                      <input type="number" id="transportPricingExtraPassenger" min="0" step="0.01" value="0" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Extra bag</span>
+                      <input type="number" id="transportPricingExtraBag" min="0" step="0.01" value="0" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Oversize bag</span>
+                      <input type="number" id="transportPricingOversizeBag" min="0" step="0.01" value="0" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Child seat</span>
+                      <input type="number" id="transportPricingChildSeat" min="0" step="0.01" value="0" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Booster</span>
+                      <input type="number" id="transportPricingBoosterSeat" min="0" step="0.01" value="0" />
+                    </label>
+                  </div>
+                </section>
+
+                <section class="transport-form-block">
+                  <h4 class="transport-form-block__title">Waiting, night window and validity</h4>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--pricing-time">
+                    <label class="admin-form-field transport-field">
+                      <span>Wait incl. min</span>
+                      <input type="number" id="transportPricingWaitingIncluded" min="0" step="1" value="0" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Wait / hour</span>
+                      <input type="number" id="transportPricingWaitingPerHour" min="0" step="0.01" value="0" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Night start</span>
+                      <input type="time" id="transportPricingNightStart" value="22:00" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Night end</span>
+                      <input type="time" id="transportPricingNightEnd" value="06:00" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Valid from</span>
+                      <input type="date" id="transportPricingValidFrom" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Valid to</span>
+                      <input type="date" id="transportPricingValidTo" />
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Priority</span>
+                      <input type="number" id="transportPricingPriority" min="0" step="1" value="0" />
+                    </label>
+                    <label class="transport-check-field">
+                      <input id="transportPricingActive" type="checkbox" checked />
+                      <span>Active</span>
+                    </label>
+                  </div>
+                </section>
+
+                <section class="transport-form-block">
+                  <div class="transport-inline-head">
+                    <h4 class="transport-form-block__title">Deposit settings</h4>
+                    <label class="transport-check-field transport-check-field--inline">
+                      <input id="transportPricingDepositEnabled" type="checkbox" />
+                      <span>Require deposit for this rule</span>
+                    </label>
+                  </div>
+                  <div class="admin-form-grid transport-fields-grid transport-fields-grid--pricing-deposit">
+                    <label class="admin-form-field transport-field">
+                      <span>Deposit mode</span>
+                      <select id="transportPricingDepositMode" class="form-control">
+                        <option value="percent_total">% of total</option>
+                        <option value="fixed_amount">Fixed amount</option>
+                        <option value="per_person">Per person</option>
+                      </select>
+                    </label>
+                    <label class="admin-form-field transport-field">
+                      <span>Deposit value</span>
+                      <input type="number" id="transportPricingDepositValue" min="0" step="0.01" value="0" />
+                    </label>
+                  </div>
+                </section>
+
+                <section class="transport-bulk-panel" aria-label="Apply pricing to additional routes">
+                  <div class="transport-inline-head">
+                    <h4 class="transport-form-block__title">Apply to Additional Routes</h4>
+                    <label class="transport-check-field transport-check-field--inline">
+                      <input id="transportPricingApplyToAdditional" type="checkbox" />
+                      <span>Create clones for selected routes</span>
+                    </label>
+                  </div>
+                  <p class="transport-form-block__hint">Use this to copy extras, waiting fee/hour, deposit settings, validity dates, and priority to multiple routes in one save.</p>
+                  <div class="transport-multi-select-toolbar">
+                    <input id="transportPricingAdditionalRoutesSearch" class="form-control transport-multi-select-search" type="text" placeholder="Filter routes..." />
+                    <div class="transport-multi-select-toolbar__actions">
+                      <button class="btn-small btn-secondary" type="button" id="btnTransportPricingAdditionalSelectAll">Select visible</button>
+                      <button class="btn-small btn-secondary" type="button" id="btnTransportPricingAdditionalClearAll">Clear selection</button>
+                    </div>
+                  </div>
+                  <select id="transportPricingAdditionalRoutes" class="form-control transport-multi-select" multiple size="8" aria-label="Additional routes"></select>
+                  <p class="transport-form-block__hint transport-form-block__hint--status" id="transportPricingAdditionalSummary">Enable bulk clone and select routes to apply this pricing setup.</p>
+                </section>
+
+                <div class="transport-editor-actions">
                   <button class="btn-secondary" type="button" id="btnResetTransportPricing">Clear</button>
                   <button class="btn btn-primary" type="submit" id="btnSaveTransportPricing">Save pricing rule</button>
                 </div>
@@ -1054,7 +1145,7 @@
             </div>
           </div>
 
-          <div class="admin-table-container" aria-label="Transport pricing rules">
+          <div class="admin-table-container transport-table-scroll" aria-label="Transport pricing rules">
             <table class="admin-table">
               <thead>
                 <tr>
@@ -1127,7 +1218,7 @@
             <button class="btn-secondary" type="button" id="btnRefreshTransportBookings">Refresh</button>
           </div>
 
-          <div class="admin-table-container" aria-label="Transport bookings">
+          <div class="admin-table-container transport-table-scroll" aria-label="Transport bookings">
             <table class="admin-table">
               <thead>
                 <tr>
